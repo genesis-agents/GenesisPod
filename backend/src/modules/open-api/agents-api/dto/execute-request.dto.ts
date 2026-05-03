@@ -14,7 +14,8 @@ import {
   IsIn,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { AgentId, BUILTIN_AGENTS } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { AgentId } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
 
 /**
  * 上传文件 DTO

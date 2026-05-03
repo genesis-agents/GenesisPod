@@ -8,10 +8,10 @@
 import { Logger, Provider } from "@nestjs/common";
 import { ShortTermMemoryService } from "../../ai-harness/memory/stores/short-term-memory.service";
 import { LongTermMemoryService } from "../../ai-harness/memory/stores/long-term-memory.service";
-import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
 import { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
 import { FunctionCallingExecutor } from "../../ai-harness/runner/executor/function-calling-executor";
-import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
+import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm.adapter";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../runner/executor/agent-executor.service";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
@@ -31,8 +31,8 @@ import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/co
 import { QueryLoopService } from "../../ai-harness/runner/executor/query-loop.service";
 import { TokenTrackerService } from "../../ai-harness/runner/executor/token-tracker.service";
 // ★ Skill 扩展依赖
-import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm-adapter";
-import { InputBindingResolver } from "../../ai-engine/skills/runtime/input-binding-resolver";
+import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm.adapter";
+import { InputBindingResolver } from "../../ai-engine/skills/runtime/skill-input-binding-resolver.service";
 import { SkillContentService } from "../../ai-engine/skills/content/skill-content.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖
@@ -68,7 +68,7 @@ import { MemoryCoordinatorService } from "../../ai-harness/memory/coordinator/me
 import { AgentRegistry } from "../agents/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";
-import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
+import { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
 
 // ============================================================================
 // Feature Interfaces (re-export from facade)

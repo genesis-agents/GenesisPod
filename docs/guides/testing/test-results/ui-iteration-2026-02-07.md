@@ -55,7 +55,7 @@
 
 **Key Test Files (66 suites)**:
 
-- ai-engine: circuit-breaker, ai-chat, prompt-builder, task-profile-mapper, ai-model-config, guardrails, trace-collector
+- ai-engine: circuit-breaker, ai-chat, prompt-builder, task-profile.types-mapper, ai-model-config, guardrails, trace-collector
 - ai-app: research (topic-research, deep-dive), teams, social, writing, coding, ask
 - core: auth, rate-limit, monitoring, billing, credit
 - content: resources, collection, knowledge-graph
@@ -340,3 +340,4 @@ Browser: Playwright (Chromium)
 **Report Generated**: 2026-02-07
 **Test Plan Coverage**: ~450/630 cases executed (automated + manual browser)
 **Remaining**: ~180 cases (advanced combination matrix, load testing, responsive testing)
+

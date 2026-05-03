@@ -1,5 +1,5 @@
 /**
- * Unit tests for error-detection.util.ts
+ * Unit tests for error-detection.utils.ts
  */
 
 import {
@@ -13,7 +13,7 @@ import {
   withRetry,
   DEFAULT_RETRY_CONFIG,
   ErrorDetectionRetryConfig,
-} from "../error-detection.util";
+} from "../error-detection.utils";
 
 // ==================== isRetryableError ====================
 

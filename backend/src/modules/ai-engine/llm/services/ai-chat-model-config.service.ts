@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/facade";
 import { AIModel, AIModelType } from "@prisma/client";
-import { inferIsReasoning } from "../types/model-utils";
+import { inferIsReasoning } from "../types/model.utils";
 
 /**
  * 数据库中的 AI 模型配置
@@ -190,7 +190,7 @@ export class AiChatModelConfigService {
   /**
    * 检查模型是否为推理模型
    * 统一入口：优先使用数据库配置的 isReasoning 字段，否则推断。
-   * 推断委托给 types/model-utils.ts 的权威实现，不在此文件维护重复名单。
+   * 推断委托给 types/model.utils.ts 的权威实现，不在此文件维护重复名单。
    */
   isReasoningModel(modelId: string): boolean {
     // 1. 从缓存获取配置
@@ -384,7 +384,7 @@ export class AiChatModelConfigService {
    * 2. 回落到 isReasoningModel() 的统一判断（推理模型不支持 temperature）
    *
    * 避免之前 o1/o3/gpt-5 硬编码漏 o4 系列的问题——所有"是否推理"的名单
-   * 统一在 types/model-utils.ts 的 inferIsReasoning 中维护。
+   * 统一在 types/model.utils.ts 的 inferIsReasoning 中维护。
    */
   isTemperatureSupported(model: string): boolean {
     // 1. DB 配置优先
@@ -438,3 +438,4 @@ export class AiChatModelConfigService {
     return dynamicTimeout;
   }
 }
+

@@ -131,7 +131,7 @@
 | figure-extractor.service.ts                                                                                    | `artifacts/report/enhancement/figure-extractor.service.ts`   | ✅   |
 | figure-relevance.service.ts                                                                                    | `artifacts/report/enhancement/figure-relevance.service.ts`   | ✅   |
 | latex-repair.service.ts                                                                                        | `artifacts/report/enhancement/latex-repair.service.ts`       | ✅   |
-| citation-formatter.service.ts                                                                                  | `artifacts/report/enhancement/citation-formatter.service.ts` | ✅   |
+| citation-formatting.utils.service.ts                                                                                  | `artifacts/report/enhancement/citation-formatting.utils.service.ts` | ✅   |
 | credibility-report.service.ts                                                                                  | `artifacts/report/enhancement/credibility-report.service.ts` | ✅   |
 | research-export.service.ts                                                                                     | `artifacts/report/enhancement/research-export.service.ts`    | ✅   |
 | report synthesis (2935 LOC)                                                                                    | `artifacts/report/core/synthesis.service.ts` + ST-07 stage   | ✅   |
@@ -177,11 +177,11 @@
 
 ---
 
-## 11 · config/model-tier + prompt-adaptation
+## 11 · config/model-tier.types + prompt-adaptation
 
 | baseline 能力                                                  | HEAD 位置                                            | 状态 |
 | -------------------------------------------------------------- | ---------------------------------------------------- | ---- |
-| ModelTier + classifyModelTier                                  | `ai-engine/llm/types/model-tier.ts`                  | ✅   |
+| ModelTier + classifyModelTier                                  | `ai-engine/llm/types/model-tier.types.ts`                  | ✅   |
 | TIER_ADAPTATIONS (tier × promptSuffix/evidenceCap/taskProfile) | `mission/pipeline/config/tier-adaptations.config.ts` | ✅   |
 
 ---
@@ -231,3 +231,5 @@
   - 反思循环（整体充足度）
 
 这 9 项按优先级逐步补，不影响当前的主链路可用性。
+
+

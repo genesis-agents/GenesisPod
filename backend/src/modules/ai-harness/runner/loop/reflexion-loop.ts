@@ -94,7 +94,7 @@ export class ReflexionLoop implements IAgentLoop {
       budget?: BudgetAccountant;
       reflexion?: ReflexionOptions;
       /** Spec.taskProfile 透传给内层 ReActLoop，让 reason() 用 agent 真实意图 */
-      taskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile;
+      taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
       // ★ 透传给内层 ReActLoop 用作 finalize 时内容校验闸
       outputSchemaValidator?: (
         output: unknown,
@@ -339,3 +339,4 @@ export class ReflexionLoop implements IAgentLoop {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
+

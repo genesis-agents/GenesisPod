@@ -29,7 +29,7 @@ import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIFacade 访问）
 import { TaskCompletionType } from "@/modules/ai-harness/facade";
-import { EmailService } from "../../../../../ai-infra/facade";
+import { EmailNotificationPresetsService } from "../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
 import {
   findMemberByNameEnhanced,
@@ -126,7 +126,7 @@ export class TeamMissionService implements OnModuleInit {
     private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private emailService: EmailService,
+    private emailNotificationPresetsService: EmailNotificationPresetsService,
     private configService: ConfigService,
     private missionContextService: MissionContextService,
     private constraintEnforcementService: ConstraintEnforcementService,
@@ -3425,7 +3425,7 @@ export class TeamMissionService implements OnModuleInit {
         );
         const reportUrl = `${appUrl}/ai-teams/topics/${mission.topicId}?mission=${missionId}`;
 
-        void this.emailService
+        void this.emailNotificationPresetsService
           .sendMissionCompletionNotification({
             to: mission.notificationEmail,
             missionId,

@@ -52,7 +52,7 @@ jest.mock(
   { virtual: true },
 );
 
-import { ToolRegistry } from "../../../registry/tool-registry";
+import { ToolRegistry } from "../../../registry/tool.registry";
 import { MCPRelay, type MCPServerConfig } from "../mcp-relay.service";
 
 function makeRegistry() {
@@ -199,3 +199,4 @@ describe("MCPRelay — connect() via mocked SDK", () => {
     expect(registry.has("mcp:sdk-srv/sdk-tool-1")).toBe(true);
   });
 });
+

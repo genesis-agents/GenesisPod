@@ -1,4 +1,4 @@
-import { evaluateSearchQuality } from "../quality-gate.util";
+import { evaluateSearchQuality } from "../quality-gate.utils";
 
 describe("evaluateSearchQuality", () => {
   const items = [

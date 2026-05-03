@@ -9,7 +9,7 @@
  * must be imported from "@/modules/ai-harness/facade".
  */
 
-export { PromptSkillBridge } from "../skills/runtime";
+export { PromptSkillRegistrationService } from "../skills/runtime";
 export { CHAT_PROVIDER_PORT } from "./abstractions/runtime-deps.tokens";
 
 /**
@@ -102,8 +102,8 @@ export type {
 } from "@/modules/ai-engine/rag/vector/vector.service";
 
 // ★ Registry classes — engine-owned registries only
-export { ToolRegistry } from "../tools/registry/tool-registry";
-export { SkillRegistry } from "../skills/registry/skill-registry";
+export { ToolRegistry } from "../tools/registry/tool.registry";
+export { SkillRegistry } from "../skills/registry/skill.registry";
 
 // ★ High-frequency types used across AI App modules
 export type {
@@ -117,7 +117,7 @@ export type {
 } from "../llm/types";
 
 // Model classification by id pattern (STRONG/STANDARD/BASIC) — cross-app utility
-export { classifyModelTier, ModelTier } from "@/modules/ai-engine/llm/types/model-tier";
+export { classifyModelTier, ModelTier } from "@/modules/ai-engine/llm/types/model-tier.types";
 
 // ★ Stream timing types (for TTFT/TTLT tracking)
 export type {
@@ -186,7 +186,7 @@ export {
 } from "../content/fetch/content-fetch.types";
 
 // LLM Adapter
-export { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm-adapter";
+export { FunctionCallingLLMAdapter } from "../llm/adapters/function-calling-llm.adapter";
 
 // Image generation interface & tokens
 export {
@@ -206,7 +206,7 @@ export type { AIModelConfig } from "@/modules/ai-engine/llm/services/ai-model-co
 // ai-harness/facade export，engine 不再 re-export
 
 // Error detection utilities
-export type { ErrorDetectionRetryConfig } from "@/modules/ai-engine/safety/utils/error-detection.util";
+export type { ErrorDetectionRetryConfig } from "@/modules/ai-engine/safety/utils/error-detection.utils";
 export {
   DEFAULT_RETRY_CONFIG,
   isRetryableError,
@@ -217,7 +217,7 @@ export {
   sleep,
   isApiErrorContent,
   parseErrorType,
-} from "@/modules/ai-engine/safety/utils/error-detection.util";
+} from "@/modules/ai-engine/safety/utils/error-detection.utils";
 
 // Skills interfaces
 export type { ISkillOutputManager } from "../skills/output-manager/skill-output-manager.interface";
@@ -295,7 +295,7 @@ export type {
   ChatResult,
 } from "@/modules/ai-engine/llm/services/ai-chat.service";
 export type { ChatMessage } from "../llm/types";
-export { inferIsReasoning, getKnownModelLimit } from "@/modules/ai-engine/llm/types/model-utils";
+export { inferIsReasoning, getKnownModelLimit } from "@/modules/ai-engine/llm/types/model.utils";
 
 // ★ Model Election
 export { ModelElectionService } from "../llm/selection";
@@ -316,8 +316,8 @@ export type {
   FullSkillDefinition,
 } from "../skills/content/skill-content.service";
 export { SkillSandboxService } from "../skills/sandbox/skill-sandbox.service";
-export { MultiKeyRegistry } from "@/modules/ai-engine/llm/key-health/multi-key-manager";
-export type { KeyHealthStatus } from "@/modules/ai-engine/llm/key-health/multi-key-manager";
+export { MultiKeyRegistry } from "@/modules/ai-engine/llm/key-health/multi-key.manager";
+export type { KeyHealthStatus } from "@/modules/ai-engine/llm/key-health/multi-key.manager";
 // AICapabilityResolver 是 L2.5 ai-harness/runner 服务，2026-05-01 PR-X-M2
 // 下沉为 ai-harness/facade export
 // IntentRouterService / RouteResult / AgentContext 已删 (2026-04-30) — 死代码
@@ -396,7 +396,7 @@ export {
 } from "../llm/output-parsing";
 
 // ★ 沉淀（2026-04-29）: figure URL 有效性校验
-export { isValidFigureUrl } from "../safety/security/url-sanitizer.util";
+export { isValidFigureUrl } from "../safety/utils/figure-url-sanitizer.utils";
 
 // ★ 沉淀（2026-04-29）: Report Template — 13 类格式化标准（沉淀自 ai-app/contracts/report-template）
 export * from "../content/report-template";
@@ -470,14 +470,14 @@ export {
   PreconditionError,
   DependencyError,
   RateLimitError,
-} from "./abstractions/base-error";
+} from "./abstractions/engine.error";
 
 export {
   CommonErrorCode,
   ToolErrorCode,
   SkillErrorCode,
   AgentErrorCode,
-} from "./abstractions/error-codes";
+} from "./abstractions/error-codes.constants";
 
 export {
   type IRegisterable,
@@ -488,8 +488,8 @@ export {
 
 export { type IExecutable } from "./abstractions/executable.interface";
 
-export { ToolError } from "../tools/abstractions/tool-error";
-export { SkillError } from "../skills/abstractions/skill-error";
+export { ToolError } from "../tools/abstractions/tool.error";
+export { SkillError } from "../skills/abstractions/skill.error";
 
 // Orchestrator abstractions — 2026-05-01 PR-X-M2: 16 个类型下沉到 ai-harness/facade
 // 因为 orchestrator.interface 是 L2.5 ai-harness 概念，engine facade 不
@@ -621,3 +621,5 @@ export {
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";
+
+

@@ -4,7 +4,7 @@ import {
   ToolContext,
   JSONSchema,
 } from "../../abstractions/tool.interface";
-import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool-error";
+import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool.error";
 
 // ============================================================================
 // Helpers
@@ -563,3 +563,4 @@ describe("createTool", () => {
     expect(summary.brief.endsWith("...")).toBe(true);
   });
 });
+

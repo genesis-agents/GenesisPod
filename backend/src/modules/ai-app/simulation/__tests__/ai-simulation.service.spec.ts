@@ -1,5 +1,5 @@
 // Mock billing context before imports
-jest.mock("../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../ai-infra/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest
       .fn()

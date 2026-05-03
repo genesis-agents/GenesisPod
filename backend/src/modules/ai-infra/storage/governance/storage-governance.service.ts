@@ -1,6 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import * as os from "os";
+import { STORAGE_SIZE_ESTIMATES } from "./catalogs/storage-size-estimate.catalog";
+import {
+  VACUUM_FULL_ALLOWED_TABLES,
+  VACUUM_FULL_BATCH_TABLES,
+} from "./catalogs/vacuum-target.catalog";
 
 // Node.js 内存统计接口
 export interface NodeMemoryStats {
@@ -75,43 +80,6 @@ export interface DatabaseAnalysis {
 @Injectable()
 export class StorageGovernanceService {
   private readonly logger = new Logger(StorageGovernanceService.name);
-
-  // Estimated average size per record in KB
-  private readonly SIZE_ESTIMATES = {
-    generatedImages: 500, // 500KB per image (base64 stored)
-    rawData: 50, // 50KB per raw data record
-    resources: 10, // 10KB per resource
-    notes: 5, // 5KB per note
-    researchProjectSources: 20, // 20KB per source
-    collectionTasks: 2, // 2KB per task
-    importTasks: 2, // 2KB per import task
-    parsedMetadata: 3, // 3KB per metadata
-    deduplicationRecords: 1, // 1KB per record
-    dataQualityMetrics: 1, // 1KB per metric
-    userActivities: 0.5, // 0.5KB per activity
-    topicMessages: 2, // 2KB per message
-    officeDocuments: 100, // 100KB per PPT document (JSON content)
-    officeDocumentVersions: 150, // 150KB per version (full snapshot)
-    users: 2, // 2KB per user
-    comments: 1, // 1KB per comment
-    askSessions: 1, // 1KB per session
-    askMessages: 2, // 2KB per message
-    topics: 3, // 3KB per topic
-    workspaces: 5, // 5KB per workspace
-    reports: 10, // 10KB per report
-    debateSessions: 5, // 5KB per debate
-    brandKits: 20, // 20KB per brand kit
-    slidesSessions: 5, // 5KB per session
-    slidesCheckpoints: 200, // 200KB per checkpoint (contains full JSON state)
-    slidesTeamExecutions: 50, // 50KB per execution
-    slidesTeamLogs: 1, // 1KB per log entry
-    // RAG/Knowledge Base related tables (these were missing and caused storage discrepancy!)
-    knowledgeBases: 2, // 2KB per knowledge base
-    knowledgeBaseDocuments: 50, // 50KB per document (contains rawContent text)
-    parentChunks: 5, // 5KB per parent chunk (text content)
-    childChunks: 2, // 2KB per child chunk (smaller text segments)
-    childEmbeddings: 8, // 8KB per embedding (1536D float array in JSONB = ~6KB + overhead)
-  };
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -301,11 +269,11 @@ export class StorageGovernanceService {
     const unbookmarked = total - bookmarked;
 
     const estimatedSizeMB =
-      (total * this.SIZE_ESTIMATES.generatedImages) / 1024;
+      (total * STORAGE_SIZE_ESTIMATES.generatedImages) / 1024;
 
     let cleanupRecommendation: string | undefined;
     if (unbookmarked > 100) {
-      cleanupRecommendation = `${unbookmarked} unbookmarked images can be cleaned up to save ~${Math.round((unbookmarked * this.SIZE_ESTIMATES.generatedImages) / 1024)}MB`;
+      cleanupRecommendation = `${unbookmarked} unbookmarked images can be cleaned up to save ~${Math.round((unbookmarked * STORAGE_SIZE_ESTIMATES.generatedImages) / 1024)}MB`;
     }
 
     return {
@@ -339,7 +307,7 @@ export class StorageGovernanceService {
       .map((s) => `${s.source}: ${s._count}`)
       .join(", ");
 
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.rawData) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.rawData) / 1024;
 
     let cleanupRecommendation: string | undefined;
     // Old processed data (>30 days) can be cleaned
@@ -379,7 +347,7 @@ export class StorageGovernanceService {
       .map((t) => `${t.type}: ${t._count}`)
       .join(", ");
 
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.resources) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.resources) / 1024;
 
     return {
       name: "resources",
@@ -393,7 +361,7 @@ export class StorageGovernanceService {
 
   private async getNoteStats(): Promise<StorageCategory> {
     const total = await this.prisma.note.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.notes) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.notes) / 1024;
 
     return {
       name: "notes",
@@ -419,7 +387,7 @@ export class StorageGovernanceService {
       .join(", ");
 
     const estimatedSizeMB =
-      (total * this.SIZE_ESTIMATES.researchProjectSources) / 1024;
+      (total * STORAGE_SIZE_ESTIMATES.researchProjectSources) / 1024;
 
     return {
       name: "researchProjectSources",
@@ -445,7 +413,7 @@ export class StorageGovernanceService {
       .join(", ");
 
     const estimatedSizeMB =
-      (total * this.SIZE_ESTIMATES.collectionTasks) / 1024;
+      (total * STORAGE_SIZE_ESTIMATES.collectionTasks) / 1024;
 
     // Old completed/failed tasks (>7 days)
     const sevenDaysAgo = new Date();
@@ -485,7 +453,7 @@ export class StorageGovernanceService {
       .map((s) => `${s.status}: ${s._count}`)
       .join(", ");
 
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.importTasks) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.importTasks) / 1024;
 
     // Old completed tasks (>7 days)
     const sevenDaysAgo = new Date();
@@ -523,7 +491,7 @@ export class StorageGovernanceService {
       },
     });
 
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.parsedMetadata) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.parsedMetadata) / 1024;
 
     let cleanupRecommendation: string | undefined;
     if (expired > 0) {
@@ -544,7 +512,7 @@ export class StorageGovernanceService {
   private async getDeduplicationStats(): Promise<StorageCategory> {
     const total = await this.prisma.deduplicationRecord.count();
     const estimatedSizeMB =
-      (total * this.SIZE_ESTIMATES.deduplicationRecords) / 1024;
+      (total * STORAGE_SIZE_ESTIMATES.deduplicationRecords) / 1024;
 
     return {
       name: "deduplicationRecords",
@@ -559,7 +527,7 @@ export class StorageGovernanceService {
   private async getDataQualityStats(): Promise<StorageCategory> {
     const total = await this.prisma.dataQualityMetric.count();
     const estimatedSizeMB =
-      (total * this.SIZE_ESTIMATES.dataQualityMetrics) / 1024;
+      (total * STORAGE_SIZE_ESTIMATES.dataQualityMetrics) / 1024;
 
     return {
       name: "dataQualityMetrics",
@@ -581,7 +549,7 @@ export class StorageGovernanceService {
       where: { createdAt: { lt: thirtyDaysAgo } },
     });
 
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.userActivities) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.userActivities) / 1024;
 
     let cleanupRecommendation: string | undefined;
     if (oldActivities > 1000) {
@@ -601,7 +569,7 @@ export class StorageGovernanceService {
 
   private async getTopicMessageStats(): Promise<StorageCategory> {
     const total = await this.prisma.topicMessage.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.topicMessages) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.topicMessages) / 1024;
 
     return {
       name: "topicMessages",
@@ -628,8 +596,8 @@ export class StorageGovernanceService {
       .join(", ");
 
     const estimatedSizeMB =
-      (totalDocs * this.SIZE_ESTIMATES.officeDocuments +
-        totalVersions * this.SIZE_ESTIMATES.officeDocumentVersions) /
+      (totalDocs * STORAGE_SIZE_ESTIMATES.officeDocuments +
+        totalVersions * STORAGE_SIZE_ESTIMATES.officeDocumentVersions) /
       1024;
 
     // Old documents (>7 days) can be cleaned
@@ -659,7 +627,7 @@ export class StorageGovernanceService {
 
   private async getUserStats(): Promise<StorageCategory> {
     const total = await this.prisma.user.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.users) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.users) / 1024;
 
     return {
       name: "users",
@@ -673,7 +641,7 @@ export class StorageGovernanceService {
 
   private async getCommentStats(): Promise<StorageCategory> {
     const total = await this.prisma.comment.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.comments) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.comments) / 1024;
 
     return {
       name: "comments",
@@ -689,8 +657,8 @@ export class StorageGovernanceService {
     const totalSessions = await this.prisma.askSession.count();
     const totalMessages = await this.prisma.askMessage.count();
     const estimatedSizeMB =
-      (totalSessions * this.SIZE_ESTIMATES.askSessions +
-        totalMessages * this.SIZE_ESTIMATES.askMessages) /
+      (totalSessions * STORAGE_SIZE_ESTIMATES.askSessions +
+        totalMessages * STORAGE_SIZE_ESTIMATES.askMessages) /
       1024;
 
     // Old sessions (>30 days) can be cleaned
@@ -718,7 +686,7 @@ export class StorageGovernanceService {
 
   private async getTopicStats(): Promise<StorageCategory> {
     const total = await this.prisma.topic.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.topics) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.topics) / 1024;
 
     return {
       name: "topics",
@@ -732,7 +700,7 @@ export class StorageGovernanceService {
 
   private async getWorkspaceStats(): Promise<StorageCategory> {
     const total = await this.prisma.workspace.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.workspaces) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.workspaces) / 1024;
 
     return {
       name: "workspaces",
@@ -746,7 +714,7 @@ export class StorageGovernanceService {
 
   private async getReportStats(): Promise<StorageCategory> {
     const total = await this.prisma.report.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.reports) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.reports) / 1024;
 
     return {
       name: "reports",
@@ -760,7 +728,7 @@ export class StorageGovernanceService {
 
   private async getDebateStats(): Promise<StorageCategory> {
     const total = await this.prisma.debateSession.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.debateSessions) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.debateSessions) / 1024;
 
     return {
       name: "debateSessions",
@@ -774,7 +742,7 @@ export class StorageGovernanceService {
 
   private async getBrandKitStats(): Promise<StorageCategory> {
     const total = await this.prisma.brandKit.count();
-    const estimatedSizeMB = (total * this.SIZE_ESTIMATES.brandKits) / 1024;
+    const estimatedSizeMB = (total * STORAGE_SIZE_ESTIMATES.brandKits) / 1024;
 
     return {
       name: "brandKits",
@@ -801,10 +769,10 @@ export class StorageGovernanceService {
     }
 
     const estimatedSizeMB =
-      (totalSessions * this.SIZE_ESTIMATES.slidesSessions +
-        totalCheckpoints * this.SIZE_ESTIMATES.slidesCheckpoints +
-        totalTeamExecutions * this.SIZE_ESTIMATES.slidesTeamExecutions +
-        totalTeamLogs * this.SIZE_ESTIMATES.slidesTeamLogs) /
+      (totalSessions * STORAGE_SIZE_ESTIMATES.slidesSessions +
+        totalCheckpoints * STORAGE_SIZE_ESTIMATES.slidesCheckpoints +
+        totalTeamExecutions * STORAGE_SIZE_ESTIMATES.slidesTeamExecutions +
+        totalTeamLogs * STORAGE_SIZE_ESTIMATES.slidesTeamLogs) /
       1024;
 
     // Old sessions (>7 days) can be cleaned
@@ -859,18 +827,18 @@ export class StorageGovernanceService {
       } catch {
         // Fallback to estimate if groupBy fails
         embeddingSizeMB =
-          (totalEmbeddings * this.SIZE_ESTIMATES.childEmbeddings) / 1024;
+          (totalEmbeddings * STORAGE_SIZE_ESTIMATES.childEmbeddings) / 1024;
       }
 
       // Calculate total estimated size
       const documentSizeMB =
-        (totalDocuments * this.SIZE_ESTIMATES.knowledgeBaseDocuments) / 1024;
+        (totalDocuments * STORAGE_SIZE_ESTIMATES.knowledgeBaseDocuments) / 1024;
       const parentChunkSizeMB =
-        (totalParentChunks * this.SIZE_ESTIMATES.parentChunks) / 1024;
+        (totalParentChunks * STORAGE_SIZE_ESTIMATES.parentChunks) / 1024;
       const childChunkSizeMB =
-        (totalChildChunks * this.SIZE_ESTIMATES.childChunks) / 1024;
+        (totalChildChunks * STORAGE_SIZE_ESTIMATES.childChunks) / 1024;
       const kbSizeMB =
-        (totalKnowledgeBases * this.SIZE_ESTIMATES.knowledgeBases) / 1024;
+        (totalKnowledgeBases * STORAGE_SIZE_ESTIMATES.knowledgeBases) / 1024;
 
       const totalEstimatedSizeMB =
         kbSizeMB +
@@ -960,7 +928,7 @@ export class StorageGovernanceService {
             },
           });
           totalDeleted += toDelete.length;
-          totalFreedKB += toDelete.length * this.SIZE_ESTIMATES.generatedImages;
+          totalFreedKB += toDelete.length * STORAGE_SIZE_ESTIMATES.generatedImages;
         }
       }
 
@@ -997,7 +965,7 @@ export class StorageGovernanceService {
         deletedCount: count,
         freedSizeMB:
           Math.round(
-            ((count * this.SIZE_ESTIMATES.generatedImages) / 1024) * 100,
+            ((count * STORAGE_SIZE_ESTIMATES.generatedImages) / 1024) * 100,
           ) / 100,
         message: `Deleted all ${count} images`,
       };
@@ -1037,7 +1005,7 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * this.SIZE_ESTIMATES.rawData) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.rawData) / 1024) * 100,
           ) / 100,
         message: `Cleaned up ${result.count} processed raw data records older than ${daysOld} days`,
       };
@@ -1066,7 +1034,7 @@ export class StorageGovernanceService {
         category: "rawData",
         deletedCount: count,
         freedSizeMB:
-          Math.round(((count * this.SIZE_ESTIMATES.rawData) / 1024) * 100) /
+          Math.round(((count * STORAGE_SIZE_ESTIMATES.rawData) / 1024) * 100) /
           100,
         message: `Deleted all ${count} raw data records`,
       };
@@ -1103,7 +1071,7 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * this.SIZE_ESTIMATES.collectionTasks) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.collectionTasks) / 1024) * 100,
           ) / 100,
         message: `Cleaned up ${result.count} completed collection tasks older than ${daysOld} days`,
       };
@@ -1140,7 +1108,7 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * this.SIZE_ESTIMATES.importTasks) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.importTasks) / 1024) * 100,
           ) / 100,
         message: `Cleaned up ${result.count} completed import tasks older than ${daysOld} days`,
       };
@@ -1173,7 +1141,7 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * this.SIZE_ESTIMATES.parsedMetadata) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.parsedMetadata) / 1024) * 100,
           ) / 100,
         message: `Cleaned up ${result.count} expired metadata cache entries`,
       };
@@ -1209,7 +1177,7 @@ export class StorageGovernanceService {
         deletedCount: result.count,
         freedSizeMB:
           Math.round(
-            ((result.count * this.SIZE_ESTIMATES.userActivities) / 1024) * 100,
+            ((result.count * STORAGE_SIZE_ESTIMATES.userActivities) / 1024) * 100,
           ) / 100,
         message: `Cleaned up ${result.count} user activity records older than ${daysOld} days`,
       };
@@ -1250,8 +1218,8 @@ export class StorageGovernanceService {
       });
 
       const freedSizeMB =
-        (result.count * this.SIZE_ESTIMATES.askSessions +
-          messagesToDelete.count * this.SIZE_ESTIMATES.askMessages) /
+        (result.count * STORAGE_SIZE_ESTIMATES.askSessions +
+          messagesToDelete.count * STORAGE_SIZE_ESTIMATES.askMessages) /
         1024;
 
       return {
@@ -1318,8 +1286,8 @@ export class StorageGovernanceService {
       });
 
       const freedKB =
-        docsToDelete * this.SIZE_ESTIMATES.officeDocuments +
-        versionsToDelete * this.SIZE_ESTIMATES.officeDocumentVersions;
+        docsToDelete * STORAGE_SIZE_ESTIMATES.officeDocuments +
+        versionsToDelete * STORAGE_SIZE_ESTIMATES.officeDocumentVersions;
 
       return {
         success: true,
@@ -1354,8 +1322,8 @@ export class StorageGovernanceService {
       await this.prisma.officeDocument.deleteMany();
 
       const freedKB =
-        docsCount * this.SIZE_ESTIMATES.officeDocuments +
-        versionsCount * this.SIZE_ESTIMATES.officeDocumentVersions;
+        docsCount * STORAGE_SIZE_ESTIMATES.officeDocuments +
+        versionsCount * STORAGE_SIZE_ESTIMATES.officeDocumentVersions;
 
       return {
         success: true,
@@ -1431,10 +1399,10 @@ export class StorageGovernanceService {
       });
 
       const freedKB =
-        sessionsToDelete * this.SIZE_ESTIMATES.slidesSessions +
-        checkpointsToDelete * this.SIZE_ESTIMATES.slidesCheckpoints +
-        teamExecutionsDeleted * this.SIZE_ESTIMATES.slidesTeamExecutions +
-        teamLogsDeleted * this.SIZE_ESTIMATES.slidesTeamLogs;
+        sessionsToDelete * STORAGE_SIZE_ESTIMATES.slidesSessions +
+        checkpointsToDelete * STORAGE_SIZE_ESTIMATES.slidesCheckpoints +
+        teamExecutionsDeleted * STORAGE_SIZE_ESTIMATES.slidesTeamExecutions +
+        teamLogsDeleted * STORAGE_SIZE_ESTIMATES.slidesTeamLogs;
 
       return {
         success: true,
@@ -1480,10 +1448,10 @@ export class StorageGovernanceService {
       await this.prisma.slidesSession.deleteMany();
 
       const freedKB =
-        sessionsCount * this.SIZE_ESTIMATES.slidesSessions +
-        checkpointsCount * this.SIZE_ESTIMATES.slidesCheckpoints +
-        teamExecutionsCount * this.SIZE_ESTIMATES.slidesTeamExecutions +
-        teamLogsCount * this.SIZE_ESTIMATES.slidesTeamLogs;
+        sessionsCount * STORAGE_SIZE_ESTIMATES.slidesSessions +
+        checkpointsCount * STORAGE_SIZE_ESTIMATES.slidesCheckpoints +
+        teamExecutionsCount * STORAGE_SIZE_ESTIMATES.slidesTeamExecutions +
+        teamLogsCount * STORAGE_SIZE_ESTIMATES.slidesTeamLogs;
 
       return {
         success: true,
@@ -1563,10 +1531,10 @@ export class StorageGovernanceService {
 
       // Calculate freed size
       const freedKB =
-        kb._count.documents * this.SIZE_ESTIMATES.knowledgeBaseDocuments +
-        parentChunkCount * this.SIZE_ESTIMATES.parentChunks +
-        childChunkCount * this.SIZE_ESTIMATES.childChunks +
-        embeddingCount * this.SIZE_ESTIMATES.childEmbeddings;
+        kb._count.documents * STORAGE_SIZE_ESTIMATES.knowledgeBaseDocuments +
+        parentChunkCount * STORAGE_SIZE_ESTIMATES.parentChunks +
+        childChunkCount * STORAGE_SIZE_ESTIMATES.childChunks +
+        embeddingCount * STORAGE_SIZE_ESTIMATES.childEmbeddings;
 
       return {
         success: true,
@@ -1617,7 +1585,7 @@ export class StorageGovernanceService {
         `);
         totalDeleted += orphanedEmbeddingCount;
         totalFreedKB +=
-          orphanedEmbeddingCount * this.SIZE_ESTIMATES.childEmbeddings;
+          orphanedEmbeddingCount * STORAGE_SIZE_ESTIMATES.childEmbeddings;
       }
 
       // 2. Delete orphaned child chunks (where parentChunk doesn't exist)
@@ -1641,7 +1609,7 @@ export class StorageGovernanceService {
         `);
         totalDeleted += orphanedChildChunkCount;
         totalFreedKB +=
-          orphanedChildChunkCount * this.SIZE_ESTIMATES.childChunks;
+          orphanedChildChunkCount * STORAGE_SIZE_ESTIMATES.childChunks;
       }
 
       // 3. Delete orphaned parent chunks (where document doesn't exist)
@@ -1665,7 +1633,7 @@ export class StorageGovernanceService {
         `);
         totalDeleted += orphanedParentChunkCount;
         totalFreedKB +=
-          orphanedParentChunkCount * this.SIZE_ESTIMATES.parentChunks;
+          orphanedParentChunkCount * STORAGE_SIZE_ESTIMATES.parentChunks;
       }
 
       return {
@@ -1710,11 +1678,11 @@ export class StorageGovernanceService {
       await this.prisma.knowledgeBase.deleteMany();
 
       const freedKB =
-        embeddingCount * this.SIZE_ESTIMATES.childEmbeddings +
-        childChunkCount * this.SIZE_ESTIMATES.childChunks +
-        parentChunkCount * this.SIZE_ESTIMATES.parentChunks +
-        documentCount * this.SIZE_ESTIMATES.knowledgeBaseDocuments +
-        kbCount * this.SIZE_ESTIMATES.knowledgeBases;
+        embeddingCount * STORAGE_SIZE_ESTIMATES.childEmbeddings +
+        childChunkCount * STORAGE_SIZE_ESTIMATES.childChunks +
+        parentChunkCount * STORAGE_SIZE_ESTIMATES.parentChunks +
+        documentCount * STORAGE_SIZE_ESTIMATES.knowledgeBaseDocuments +
+        kbCount * STORAGE_SIZE_ESTIMATES.knowledgeBases;
 
       return {
         success: true,
@@ -1899,64 +1867,10 @@ export class StorageGovernanceService {
     try {
       // Validate table name to prevent SQL injection
       // This whitelist includes all tables that can be safely vacuumed
-      const validTables = [
-        // Core tables
-        "topic_messages",
-        "generated_images",
-        "resources",
-        "raw_data",
-        "users",
-        "workspaces",
-        "notes",
-        "comments",
-        // AI features
-        "debate_agents",
-        "debate_messages",
-        "debate_sessions",
-        "ask_sessions",
-        "ask_messages",
-        "topics",
-        "agent_tasks",
-        // Data collection
-        "collection_tasks",
-        "import_tasks",
-        "parsed_metadata_cache",
-        "deduplication_records",
-        "data_quality_metrics",
-        // User activity
-        "user_activities",
-        // Office documents
-        "office_documents",
-        "office_document_versions",
-        "office_document_resource_refs",
-        // Slides
-        "slides_sessions",
-        "slides_checkpoints",
-        "slides_team_executions",
-        "slides_team_logs",
-        // RAG/Knowledge Base tables (can be major storage consumers!)
-        "child_embeddings",
-        "child_chunks",
-        "parent_chunks",
-        "knowledge_base_documents",
-        "knowledge_bases",
-        "knowledge_base_members",
-        "knowledge_base_sources",
-        // Research
-        "research_project_sources",
-        "research_projects",
-        "reports",
-        // Simulation
-        "simulation_sessions",
-        "simulation_turns",
-        // Brand
-        "brand_kits",
-      ];
-
-      if (!validTables.includes(tableName)) {
+      if (!VACUUM_FULL_ALLOWED_TABLES.includes(tableName as never)) {
         return {
           success: false,
-          message: `Invalid table name. Allowed tables: ${validTables.join(", ")}`,
+          message: `Invalid table name. Allowed tables: ${VACUUM_FULL_ALLOWED_TABLES.join(", ")}`,
         };
       }
 
@@ -2009,24 +1923,6 @@ export class StorageGovernanceService {
     }>;
     totalFreedMB: number;
   }> {
-    const tablesToVacuum = [
-      "generated_images",
-      "topic_messages",
-      "raw_data",
-      "office_documents",
-      "office_document_versions",
-      "resources",
-      "debate_messages",
-      "user_activities",
-      "slides_sessions",
-      "slides_checkpoints",
-      // RAG/Knowledge Base tables (major storage consumers!)
-      "child_embeddings",
-      "child_chunks",
-      "parent_chunks",
-      "knowledge_base_documents",
-    ];
-
     const results: Array<{
       table: string;
       beforeMB: number;
@@ -2042,7 +1938,7 @@ export class StorageGovernanceService {
       >("SELECT pg_database_size(current_database())::text as size");
       const dbBeforeMB = Number(dbSizeBefore[0]?.size || 0) / (1024 * 1024);
 
-      for (const table of tablesToVacuum) {
+      for (const table of VACUUM_FULL_BATCH_TABLES) {
         try {
           // Get size before
           const beforeSize = await this.prisma.$queryRawUnsafe<

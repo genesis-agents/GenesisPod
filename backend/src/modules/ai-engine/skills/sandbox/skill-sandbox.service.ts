@@ -5,11 +5,11 @@
  */
 
 import { Injectable, Logger, Inject } from "@nestjs/common";
-import { SkillRegistry } from "../registry/skill-registry";
+import { SkillRegistry } from "../registry/skill.registry";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../content/skill-content.service";
 import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
-import { PromptSkillAdapter } from "../runtime/prompt-skill-adapter";
+import { PromptSkillAdapter } from "../runtime/prompt-skill.adapter";
 import { parseSkillMd } from "../loader/skill-parser";
 
 interface TestExecutionOptions {
@@ -238,3 +238,4 @@ export class SkillSandboxService {
     return null;
   }
 }
+

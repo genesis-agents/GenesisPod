@@ -128,7 +128,7 @@ function normalizeFrontmatter(
 
   // Runtime 扩展字段 (kebab-case 别名)
   const outputKey = raw.outputKey ?? raw["output-key"];
-  const taskProfile = raw.taskProfile ?? raw["task-profile"];
+  const taskProfile = raw.taskProfile ?? raw["task-profile.types"];
   const outputSchema = raw.outputSchema ?? raw["output-schema"];
   const inputSchema = raw.inputSchema ?? raw["input-schema"];
   const requiredSkills = raw.requiredSkills ?? raw["required-skills"];
@@ -246,3 +246,4 @@ export function isValidSkillMd(content: string): boolean {
     return false;
   }
 }
+

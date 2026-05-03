@@ -23,7 +23,7 @@ import type {
   IContextEnvelope,
 } from "../../abstractions";
 import type { SkillActivator } from "../../builtin-skills/skill-activator";
-import type { MemoryBridge } from "../../../memory/indexing/memory-bridge.service";
+import type { MemoryContextBindingService } from "../../../memory/indexing/memory-context-binding.service";
 import type { AgentRegistry } from "../../../handoffs/agent-registry";
 import type { AgentEventStore } from "../../../memory/checkpoint/agent-event-store";
 import type { CheckpointService } from "../../../memory/checkpoint/checkpoint.service";
@@ -188,9 +188,9 @@ describe("HarnessedAgent.execute — skillActivator", () => {
 describe("HarnessedAgent.execute — memoryBridge", () => {
   it("calls memoryBridge.preExecute and uses returned ContextEnvelope", async () => {
     const newEnvelope = makeEnvelope();
-    const memoryBridge: jest.Mocked<MemoryBridge> = {
+    const memoryBridge: jest.Mocked<MemoryContextBindingService> = {
       preExecute: jest.fn().mockResolvedValue(newEnvelope),
-    } as unknown as jest.Mocked<MemoryBridge>;
+    } as unknown as jest.Mocked<MemoryContextBindingService>;
 
     const agent = makeAgent({ memoryBridge });
     const events: IAgentEvent[] = [];
@@ -204,9 +204,9 @@ describe("HarnessedAgent.execute — memoryBridge", () => {
   });
 
   it("handles memoryBridge returning non-ContextEnvelope gracefully", async () => {
-    const memoryBridge: jest.Mocked<MemoryBridge> = {
+    const memoryBridge: jest.Mocked<MemoryContextBindingService> = {
       preExecute: jest.fn().mockResolvedValue({ messages: [] }), // not a ContextEnvelope
-    } as unknown as jest.Mocked<MemoryBridge>;
+    } as unknown as jest.Mocked<MemoryContextBindingService>;
 
     const agent = makeAgent({ memoryBridge });
     const events: IAgentEvent[] = [];

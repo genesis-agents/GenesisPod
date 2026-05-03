@@ -5,7 +5,7 @@ import { AiApiCallerService } from "../ai-api-caller.service";
 import {
   safeReasoningEffort,
   isMinimalEffortSupported,
-} from "../../types/task-profile";
+} from "../../types/task-profile.types";
 
 // ==================== safeReasoningEffort / isMinimalEffortSupported ====================
 
@@ -1294,3 +1294,4 @@ describe("AiApiCallerService", () => {
     });
   });
 });
+

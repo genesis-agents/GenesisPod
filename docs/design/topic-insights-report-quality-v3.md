@@ -201,7 +201,7 @@ parts.push("\n---\n"); // 每个章节后都硬编码 ---
 
 ### 3.1 设计原则
 
-1. **Prompt 常量模块化**：所有写作规范抽取为 `prompts/report-writing-standards.ts` 常量模块，与 prompt 模板分离，便于独立迭代
+1. **Prompt 常量模块化**：所有写作规范抽取为 `prompts/report-writing-standards.constants.ts` 常量模块，与 prompt 模板分离，便于独立迭代
 2. **可量化约束**：每条规范配备数值上限/下限，支持后处理自动检测
 3. **对标 SOTA**：每条改进有明确的业界对标依据
 4. **渐进式落地**：4 个 Phase，Phase 1 零代码风险
@@ -214,7 +214,7 @@ parts.push("\n---\n"); // 每个章节后都硬编码 ---
 ```
 backend/src/modules/ai-app/topic-insights/
   prompts/
-    report-writing-standards.ts   ← 新增：写作规范常量模块
+    report-writing-standards.constants.ts   ← 新增：写作规范常量模块
     dimension-research.prompt.ts  ← 修改：引用规范常量
     report-synthesis.prompt.ts    ← 修改：引用规范常量
     consistency-check.prompt.ts   ← 修改：同步更新写作风格指令
@@ -225,7 +225,7 @@ backend/src/modules/ai-app/topic-insights/
 **Prompt 引用方式**:
 
 ```typescript
-// prompts/report-writing-standards.ts
+// prompts/report-writing-standards.constants.ts
 export const PROFESSIONAL_TONE = `## 文风规范\n...`;
 export const FORMATTING_LIMITS = `## 格式元素限额\n...`;
 export const CITATION_STANDARDS = `## 引用规范\n...`;
@@ -244,7 +244,7 @@ import {
   CHAPTER_HIGHLIGHTS,
   ANALYSIS_DEPTH,
   HEADING_HIERARCHY,
-} from "./report-writing-standards";
+} from "./report-writing-standards.constants";
 
 // 在 prompt 模板中拼接
 const prompt = `
@@ -874,7 +874,7 @@ private freezeRecharts(container: HTMLElement, clone: HTMLElement) {
 | #   | 决策项            | 裁定                                                                      | 理由                                         |
 | --- | ----------------- | ------------------------------------------------------------------------- | -------------------------------------------- |
 | D1  | 标题层级方案      | **方案 C + 安全网**（Prompt 指定 ###/####，安全网将异常 #/## 降级为 ###） | 从源头控制层级，安全网仅兜底异常             |
-| D2  | 写作规范存放位置  | **`prompts/report-writing-standards.ts`**（TypeScript 常量模块）          | 产品 LLM prompt 指令，不是 Claude Code skill |
+| D2  | 写作规范存放位置  | **`prompts/report-writing-standards.constants.ts`**（TypeScript 常量模块）          | 产品 LLM prompt 指令，不是 Claude Code skill |
 | D3  | 结论去重方式      | **仅改 prompt，不改 JSON schema**                                         | 避免前端兼容问题和旧数据迁移                 |
 | D4  | 加粗自动剥离      | **Phase 1 仅 warning，不自动修改**                                        | 先靠 prompt 改善，观察效果后再决定           |
 | D5  | 四层分析框架      | **改为可选框架**，保留深度要求但去除强制模板                              | 完全去除会失去分析深度指导                   |
@@ -918,7 +918,7 @@ private freezeRecharts(container: HTMLElement, clone: HTMLElement) {
 
 | 任务                              | 文件                                   | 类型 |
 | --------------------------------- | -------------------------------------- | ---- |
-| 创建写作规范常量模块              | `prompts/report-writing-standards.ts`  | 新增 |
+| 创建写作规范常量模块              | `prompts/report-writing-standards.constants.ts`  | 新增 |
 | 改造 dimension-research.prompt.ts | `prompts/dimension-research.prompt.ts` | 修改 |
 | 改造 report-synthesis.prompt.ts   | `prompts/report-synthesis.prompt.ts`   | 修改 |
 | 同步 consistency-check.prompt.ts  | `prompts/consistency-check.prompt.ts`  | 修改 |
@@ -1033,7 +1033,7 @@ private freezeRecharts(container: HTMLElement, clone: HTMLElement) {
 
 | 文件                                               | Phase | 变更类型 |
 | -------------------------------------------------- | ----- | -------- |
-| `prompts/report-writing-standards.ts`              | 1     | 新增     |
+| `prompts/report-writing-standards.constants.ts`              | 1     | 新增     |
 | `prompts/dimension-research.prompt.ts`             | 1     | 修改     |
 | `prompts/report-synthesis.prompt.ts`               | 1     | 修改     |
 | `prompts/consistency-check.prompt.ts`              | 1     | 修改     |
@@ -1043,3 +1043,4 @@ private freezeRecharts(container: HTMLElement, clone: HTMLElement) {
 | `utils/evidence-filter.utils.ts`                   | 3     | 新增     |
 | `frontend/lib/utils/html-capture.service.ts`       | 4     | 修改     |
 | `frontend/components/topic-insights/ChartRenderer` | 4     | 修改     |
+

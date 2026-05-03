@@ -70,3 +70,5 @@ describe("BuiltinSkillCatalog", () => {
     expect(reg.size()).toBe(0);
   });
 });
+
+

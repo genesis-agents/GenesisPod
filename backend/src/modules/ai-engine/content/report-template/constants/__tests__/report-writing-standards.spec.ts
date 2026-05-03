@@ -31,7 +31,7 @@ import {
   EXECUTIVE_SUMMARY_FORMAT_EN,
   QUALITY_CHECKLIST,
   QUALITY_CHECKLIST_EN,
-} from "../report-writing-standards";
+} from "../report-writing-standards.constants";
 
 // ============================================================
 // getWritingStandards
@@ -159,3 +159,4 @@ describe("getQualityChecklist", () => {
     expect(getQualityChecklist("zh-TW")).toBe(QUALITY_CHECKLIST);
   });
 });
+

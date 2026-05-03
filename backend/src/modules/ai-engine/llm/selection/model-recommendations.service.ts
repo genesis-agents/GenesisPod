@@ -10,7 +10,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DEFAULT_RECOMMENDATIONS,
   MODEL_TYPE_ALIASES,
-} from "./default-recommendations";
+} from "./default-recommendations.config";
 
 export interface ResolvedRecommendation {
   provider: string;
@@ -400,3 +400,4 @@ export class ModelRecommendationsService implements OnModuleInit {
     }
   }
 }
+

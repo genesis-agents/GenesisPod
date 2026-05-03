@@ -5,7 +5,7 @@ import {
   computeRelevanceScore,
   extractDomain,
   enforceDomainDiversity,
-} from "../result-fusion.util";
+} from "../result-fusion.utils";
 
 describe("normalizeUrl", () => {
   it("strips trailing slash and hash", () => {

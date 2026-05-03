@@ -27,8 +27,8 @@
 
 | 注册表            | 目录路径           | 核心文件            |
 | ----------------- | ------------------ | ------------------- |
-| **ToolRegistry**  | `tools/registry/`  | `tool-registry.ts`  |
-| **SkillRegistry** | `skills/registry/` | `skill-registry.ts` |
+| **ToolRegistry**  | `tools/registry/`  | `tool.registry.ts`  |
+| **SkillRegistry** | `skills/registry/` | `skill.registry.ts` |
 | **AgentRegistry** | `agents/registry/` | `agent-registry.ts` |
 | **TeamRegistry**  | `teams/registry/`  | `team-registry.ts`  |
 | **RoleRegistry**  | `teams/registry/`  | `role-registry.ts`  |
@@ -37,10 +37,10 @@
 ai-engine/
 ├── tools/
 │   └── registry/
-│       └── tool-registry.ts        ★ 48个工具注册
+│       └── tool.registry.ts        ★ 48个工具注册
 ├── skills/
 │   └── registry/
-│       └── skill-registry.ts       ★ 技能动态加载
+│       └── skill.registry.ts       ★ 技能动态加载
 ├── agents/
 │   └── registry/
 │       ├── agent-registry.ts       ★ 5种Agent注册
@@ -89,7 +89,7 @@ ai-engine/
 | -------------------- | ---------------- | ---------------------- |
 | **AiChatService**    | `llm/services/`  | `ai-chat.service.ts`   |
 | **SearchService**    | `search/`        | `search.service.ts`    |
-| **ImageFactory**     | `image/factory/` | `image-factory.ts`     |
+| **ImageFactory**     | `image/factory/` | `image.factory.ts`     |
 | **EmbeddingService** | `rag/embedding/` | `embedding.service.ts` |
 | **VectorService**    | `rag/vector/`    | `vector.service.ts`    |
 
@@ -100,12 +100,12 @@ ai-engine/
 │       ├── ai-chat.service.ts         ★ 核心LLM调用
 │       ├── ai-api-caller.service.ts   ★ API调用层
 │       ├── ai-model-config.service.ts ★ 模型配置
-│       └── task-profile-mapper.service.ts
+│       └── task-profile.types-mapper.service.ts
 ├── search/
 │   └── search.service.ts              ★ 全局搜索
 ├── image/
 │   └── factory/
-│       └── image-factory.ts           ★ 图像生成工厂
+│       └── image.factory.ts           ★ 图像生成工厂
 └── rag/
     ├── embedding/
     │   └── embedding.service.ts       ★ 向量嵌入
@@ -314,3 +314,4 @@ Controller → TeamsService → MissionOrchestrator → Team
 
 **最后更新**: 2026-02-05
 **维护者**: Claude Code
+

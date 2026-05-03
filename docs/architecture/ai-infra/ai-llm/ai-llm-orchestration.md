@@ -113,7 +113,7 @@ export class AiChatService {
 
 ### 2. TaskProfile (语义化配置)
 
-位置：`backend/src/modules/ai-engine/llm/types/task-profile.ts`
+位置：`backend/src/modules/ai-engine/llm/types/task-profile.types.ts`
 
 ```typescript
 /**
@@ -640,3 +640,4 @@ if (modelConfig.capabilities?.isReasoning) {
 
 **最后更新**: 2026-01-15
 **维护者**: Genesis Team
+

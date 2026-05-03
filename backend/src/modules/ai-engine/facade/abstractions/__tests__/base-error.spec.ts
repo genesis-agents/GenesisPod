@@ -12,8 +12,8 @@ import {
   PreconditionError,
   DependencyError,
   RateLimitError,
-} from "../base-error";
-import { CommonErrorCode } from "../error-codes";
+} from "../engine.error";
+import { CommonErrorCode } from "../error-codes.constants";
 
 describe("EngineError", () => {
   describe("constructor defaults", () => {
@@ -556,3 +556,4 @@ describe("RateLimitError", () => {
     expect(error.code).toBe(CommonErrorCode.RATE_LIMITED);
   });
 });
+

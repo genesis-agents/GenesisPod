@@ -2,9 +2,9 @@
  * EngineSkillProvider 单元测试 — verify ai-engine SkillRegistry → harness ISkill 转换
  */
 
-import { EngineSkillProvider } from "../engine-skill-provider";
-import { PromptSkillAdapter } from "../prompt-skill-adapter";
-import { SkillRegistry } from "../../registry/skill-registry";
+import { EngineSkillProvider } from "../engine-skill-provider.adapter";
+import { PromptSkillAdapter } from "../prompt-skill.adapter";
+import { SkillRegistry } from "../../registry/skill.registry";
 
 function makePromptAdapter(opts: {
   id: string;
@@ -53,7 +53,7 @@ describe("EngineSkillProvider", () => {
   });
 
   it("has expected provider id", () => {
-    expect(provider.id).toBe("ai-engine.skill-registry");
+    expect(provider.id).toBe("ai-engine.skill.registry");
   });
 
   it("returns null when name not in registry", () => {
@@ -108,3 +108,4 @@ describe("EngineSkillProvider", () => {
     expect(result?.frontmatter.description).toBe("");
   });
 });
+

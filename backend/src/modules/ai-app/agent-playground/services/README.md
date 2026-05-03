@@ -17,8 +17,8 @@ services/
 │   │   ├── mission-context.ts                     ← 跨 stage 共享状态（ctx）
 │   │   ├── mission-deps.ts                        ← stage 函数依赖包
 │   │   ├── helpers/                               ← 纯函数工具（无业务依赖）
-│   │   │   ├── failure-extraction.util.ts         ← agent failure code/message 抽取
-│   │   │   ├── token-spend.util.ts                ← token / cost 统计
+│   │   │   ├── failure-extraction.utils.ts         ← agent failure code/message 抽取
+│   │   │   ├── token-spend.utils.ts                ← token / cost 统计
 │   │   │   └── per-dim-pipeline.util.ts           ← per-dim chapter pipeline 子流程
 │   │   └── stages/                                ← 11 个 stage 函数（s1 → s11）
 │   │       ├── s1-mission-estimate-budget.stage.ts

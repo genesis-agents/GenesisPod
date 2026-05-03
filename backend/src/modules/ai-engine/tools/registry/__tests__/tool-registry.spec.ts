@@ -3,7 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ToolRegistry } from "../tool-registry";
+import { ToolRegistry } from "../tool.registry";
 import {
   ITool,
   ToolCategory,
@@ -704,3 +704,4 @@ describe("ToolRegistry", () => {
     });
   });
 });
+

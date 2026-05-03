@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { ShortTermMemoryTool } from "./short-term-memory.tool";
 import { LongTermMemoryTool } from "./long-term-memory.tool";
 
@@ -27,3 +27,6 @@ export class MemoryToolProviderService implements OnModuleInit {
     );
   }
 }
+
+
+

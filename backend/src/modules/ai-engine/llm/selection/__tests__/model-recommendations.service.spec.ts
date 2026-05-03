@@ -401,7 +401,7 @@ describe("ModelRecommendationsService", () => {
       // We mock findMany to return everything that's in DEFAULT_RECOMMENDATIONS
       // Actually easier to just test with an existing coverage
       const { DEFAULT_RECOMMENDATIONS } =
-        await import("../default-recommendations");
+        await import("../default-recommendations.config");
       mockPrisma.modelRecommendation.findMany.mockResolvedValue(
         DEFAULT_RECOMMENDATIONS.map((d) => ({
           provider: d.provider,
@@ -426,3 +426,4 @@ describe("ModelRecommendationsService", () => {
     });
   });
 });
+

@@ -46,22 +46,22 @@
 
 ### V2 — 服务层直接注入 `ToolRegistry`
 
-**问题**：12 个服务文件绕过 Facade，直接从 `ai-engine/tools/registry/tool-registry` 注入 `ToolRegistry` 来调用工具。这些调用绕过了 Facade 层的计费追踪和能力路由。
+**问题**：12 个服务文件绕过 Facade，直接从 `ai-engine/tools/registry/tool.registry` 注入 `ToolRegistry` 来调用工具。这些调用绕过了 Facade 层的计费追踪和能力路由。
 
 | 文件                                                                   | 路径                                     |
 | ---------------------------------------------------------------------- | ---------------------------------------- |
-| `teams/services/ai/ai-response.service.ts:11`                          | `ai-engine/tools/registry/tool-registry` |
-| `teams/services/collaboration/mission/mission-execution.service.ts:25` | `ai-engine/tools/registry/tool-registry` |
-| `teams/services/collaboration/mission/team-mission.service.ts:20`      | `ai-engine/tools/registry/tool-registry` |
+| `teams/services/ai/ai-response.service.ts:11`                          | `ai-engine/tools/registry/tool.registry` |
+| `teams/services/collaboration/mission/mission-execution.service.ts:25` | `ai-engine/tools/registry/tool.registry` |
+| `teams/services/collaboration/mission/team-mission.service.ts:20`      | `ai-engine/tools/registry/tool.registry` |
 | `teams/agents/team-member.agent.ts:11`                                 | `ai-engine/tools/registry`               |
-| `topic-insights/services/data/data-enrichment.service.ts:18`           | `ai-engine/tools/registry/tool-registry` |
-| `topic-insights/services/data/data-source-fetcher.service.ts:2`        | `ai-engine/tools/registry/tool-registry` |
-| `topic-insights/services/data/data-source-router.service.ts:22`        | `ai-engine/tools/registry/tool-registry` |
-| `topic-insights/services/data/leader-tool.service.ts:20`               | `ai-engine/tools/registry/tool-registry` |
-| `topic-insights/services/report/figure-extractor.service.ts:2`         | `ai-engine/tools/registry/tool-registry` |
-| `research/discussion/iterative-search.service.ts:3`                    | `ai-engine/tools/registry/tool-registry` |
-| `research/project/research-project-source.service.ts:10`               | `ai-engine/tools/registry/tool-registry` |
-| `office/slides/skills/data-supplement.skill.ts:18`                     | `ai-engine/tools/registry/tool-registry` |
+| `topic-insights/services/data/data-enrichment.service.ts:18`           | `ai-engine/tools/registry/tool.registry` |
+| `topic-insights/services/data/data-source-fetcher.service.ts:2`        | `ai-engine/tools/registry/tool.registry` |
+| `topic-insights/services/data/data-source-router.service.ts:22`        | `ai-engine/tools/registry/tool.registry` |
+| `topic-insights/services/data/leader-tool.service.ts:20`               | `ai-engine/tools/registry/tool.registry` |
+| `topic-insights/services/report/figure-extractor.service.ts:2`         | `ai-engine/tools/registry/tool.registry` |
+| `research/discussion/iterative-search.service.ts:3`                    | `ai-engine/tools/registry/tool.registry` |
+| `research/project/research-project-source.service.ts:10`               | `ai-engine/tools/registry/tool.registry` |
+| `office/slides/skills/data-supplement.skill.ts:18`                     | `ai-engine/tools/registry/tool.registry` |
 
 **根因**：`AIEngineFacade` 无 `get toolRegistry()` getter，ToolRegistry 只封装在内部 `TOOL_FEATURE` token 中，对外不可见。
 
@@ -122,7 +122,7 @@
 | `TeamRegistry`  | `teams/registry/team-registry`   | 7 处       |
 | `AgentRegistry` | `agents/registry`                | 5 处       |
 | `RoleRegistry`  | `teams/registry/role-registry`   | 4 处       |
-| `SkillRegistry` | `skills/registry/skill-registry` | 2 处       |
+| `SkillRegistry` | `skills/registry/skill.registry` | 2 处       |
 
 **Teams 抽象类型**：
 
@@ -212,11 +212,11 @@ get skillRegistry(): SkillRegistry | undefined {
 
 ```typescript
 // Registry classes
-export { ToolRegistry } from "../tools/registry/tool-registry";
+export { ToolRegistry } from "../tools/registry/tool.registry";
 export { AgentRegistry } from "../agents/registry";
 export { TeamRegistry } from "../teams/registry/team-registry";
 export { RoleRegistry } from "../teams/registry/role-registry";
-export { SkillRegistry } from "../skills/registry/skill-registry";
+export { SkillRegistry } from "../skills/registry/skill.registry";
 
 // Teams abstractions
 export type {
@@ -291,3 +291,4 @@ export type { ToolContext } from "../tools/abstractions/tool.interface";
 ---
 
 _本报告基于源码直读，所有行号引用均经人工验证。_
+

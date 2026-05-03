@@ -21,7 +21,7 @@ import {
 } from "../base/leader-llm-adapter";
 import { RoleRegistry } from "../registry/role-registry";
 import { TeamRegistry } from "../registry/team-registry";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm.factory";
 
 /**
  * 团队实例化选项

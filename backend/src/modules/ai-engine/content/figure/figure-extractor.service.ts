@@ -3,7 +3,7 @@
 // TI 仍在使用原 service；本副本由 agent-playground 等新业务通过 ai-engine/facade 调用。
 import { Injectable, Logger } from "@nestjs/common";
 // ★ 内部相对路径（避免 ai-engine 自循环 import facade）
-import { ToolRegistry } from "../../tools/registry/tool-registry";
+import { ToolRegistry } from "../../tools/registry/tool.registry";
 import type { ToolContext } from "../../tools/abstractions/tool.interface";
 import { withTimeoutFallback } from "@/common/utils/timeout.utils";
 
@@ -1081,3 +1081,4 @@ export class FigureExtractorService {
     return changed ? upgraded : null;
   }
 }
+

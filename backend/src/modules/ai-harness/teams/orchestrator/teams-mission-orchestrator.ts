@@ -48,14 +48,14 @@ import {
 } from "./orchestrator.interface";
 
 // AI Engine 核心依赖
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { ToolPipeline } from "@/modules/ai-engine/tools/middleware/tool-pipeline";
-import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
+import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
 import {
   SkillContext,
   SkillResult,
 } from "@/modules/ai-engine/skills/abstractions/skill.interface";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm.factory";
 import { LLMToolDefinition } from "@/modules/ai-engine/llm/abstractions/llm-adapter.interface";
 import { MCPManager } from "@/modules/ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
@@ -68,7 +68,7 @@ import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service"
 import {
   AiChatLLMAdapter,
   ISimpleLLMAdapter,
-} from "@/modules/ai-engine/llm/adapters/ai-chat-llm-adapter";
+} from "@/modules/ai-engine/llm/adapters/ai-chat-llm.adapter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { LruMap } from "@/common/utils/lru-map";
 import { TraceCollectorService } from "@/modules/ai-harness/tracing/trace-collector.service";

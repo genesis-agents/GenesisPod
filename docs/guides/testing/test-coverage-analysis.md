@@ -12,7 +12,7 @@
 
 1. `frontend/components/ai-research/ResearchTimeline.tsx` (1072 行)
 2. `frontend/components/ai-research/TopicContentPanel.tsx` (2000+ 行)
-3. `backend/src/modules/ai-engine/llm/services/task-profile-mapper.service.ts` (175 行)
+3. `backend/src/modules/ai-engine/llm/services/task-profile.types-mapper.service.ts` (175 行)
 
 ### 关键发现
 
@@ -85,7 +85,7 @@ components/ai-research/
 
 ```
 backend/src/modules/ai-engine/llm/services/
-└── task-profile-mapper.service.ts  ❌ 无测试 (175 行)
+└── task-profile.types-mapper.service.ts  ❌ 无测试 (175 行)
 ```
 
 ---
@@ -549,7 +549,7 @@ it('should safely filter undefined persistedActivities', () => {
 
 ### 3.3 TaskProfileMapperService 测试套件 (待创建)
 
-**文件**: `backend/src/modules/ai-engine/llm/services/__tests__/task-profile-mapper.service.spec.ts`
+**文件**: `backend/src/modules/ai-engine/llm/services/__tests__/task-profile.types-mapper.service.spec.ts`
 
 **测试结构**:
 
@@ -596,7 +596,7 @@ describe("TaskProfileMapperService", () => {
 
 ```typescript
 import { Test, TestingModule } from "@nestjs/testing";
-import { TaskProfileMapperService } from "../task-profile-mapper.service";
+import { TaskProfileMapperService } from "../task-profile.types-mapper.service";
 import type { TaskProfile, AIModelConfig } from "../types";
 
 describe("TaskProfileMapperService", () => {
@@ -767,7 +767,7 @@ describe('Real-time Updates Integration', () => {
 **场景: TaskProfile → AIChat 完整调用链**
 
 ```typescript
-// backend/src/modules/ai-engine/llm/__integration__/task-profile-flow.spec.ts
+// backend/src/modules/ai-engine/llm/__integration__/task-profile.types-flow.spec.ts
 
 describe("TaskProfile Integration", () => {
   let aiChatService: AiChatService;
@@ -871,7 +871,7 @@ test("monitor research progress in real-time", async ({ page }) => {
 | ---------------------------------------- | ------ | -------- | ------ |
 | 创建 ResearchTimeline.test.tsx           | P0     | 4h       | Tester |
 | 创建 TopicContentPanel.test.tsx          | P0     | 6h       | Tester |
-| 创建 task-profile-mapper.service.spec.ts | P1     | 2h       | Tester |
+| 创建 task-profile.types-mapper.service.spec.ts | P1     | 2h       | Tester |
 | 修复所有类型错误                         | P0     | 2h       | Tester |
 | **目标覆盖率**: 60%                      |        |          |        |
 
@@ -1084,3 +1084,4 @@ it('should handle click events', () => {
 **最后更新**: 2026-01-14
 **下次审查**: 2026-01-21
 **联系人**: Tester Agent
+

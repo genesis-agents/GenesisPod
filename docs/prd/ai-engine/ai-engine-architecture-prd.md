@@ -209,10 +209,10 @@ registry.register({ id: 'my-custom-agent', ... });
 - `core/types/common.types.ts`
 - `core/types/context.types.ts`
 - `core/types/event.types.ts`
-- `core/errors/error-codes.ts`
-- `core/errors/base-error.ts`
-- `core/errors/tool-error.ts`
-- `core/errors/skill-error.ts`
+- `core/errors/error-codes.constants.ts`
+- `core/errors/engine.error.ts`
+- `core/errors/tool.error.ts`
+- `core/errors/skill.error.ts`
 - `core/errors/agent-error.ts`
 - `core/interfaces/executable.interface.ts`
 - `core/interfaces/registry.interface.ts`
@@ -226,13 +226,13 @@ registry.register({ id: 'my-custom-agent', ... });
 - `tools/middleware/validation.middleware.ts`
 - `tools/middleware/timeout.middleware.ts`
 - `tools/middleware/tool-pipeline.ts`
-- `tools/registry/tool-registry.ts`
+- `tools/registry/tool.registry.ts`
 
 **Skills (~6 files)**
 
 - `skills/abstractions/skill.interface.ts`
 - `skills/base/base-skill.ts`
-- `skills/registry/skill-registry.ts`
+- `skills/registry/skill.registry.ts`
 
 **Agents (~8 files)**
 
@@ -245,8 +245,8 @@ registry.register({ id: 'my-custom-agent', ... });
 **LLM (~4 files)**
 
 - `llm/abstractions/llm-adapter.interface.ts`
-- `llm/adapters/base-llm-adapter.ts`
-- `llm/factory/llm-factory.ts`
+- `llm/adapters/base-llm.adapter.ts`
+- `llm/factory/llm.factory.ts`
 
 **Memory (~4 files)**
 
@@ -630,3 +630,5 @@ interface EfficiencyConstraint {
 | ---- | ---------- | ------------------------------------------ |
 | v1.0 | 2026-01-02 | 初始版本，6 阶段重构完成                   |
 | v1.1 | 2026-01-02 | 新增架构评估、愿景对比、业界分析、演进路线 |
+
+

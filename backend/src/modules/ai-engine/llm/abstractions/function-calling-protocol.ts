@@ -5,7 +5,7 @@
  * 由于 fc-executor 是 L2.5 runtime executor 应搬至 ai-harness，但 llm-adapter
  * 实现 ILLMAdapter 接口需留在 engine 层（避免反向依赖），故抽出共享协议接口
  * 留在 engine/llm/abstractions/，供：
- *   - ai-engine/llm/adapters/function-calling-llm-adapter.ts（实现端，留 engine）
+ *   - ai-engine/llm/adapters/function-calling-llm.adapter.ts（实现端，留 engine）
  *   - ai-harness/runner/...（消费端，使用端）
  * 双向 import 而不引发反向依赖。
  */
@@ -107,3 +107,4 @@ export interface ILLMAdapter {
   ): LLMMessage;
   chat(options: LLMRequestOptions): Promise<LLMResponse>;
 }
+

@@ -179,17 +179,17 @@ if (opts.environment && pool.length > 0) {
 
 **证据**:
 
-`backend/src/modules/ai-engine/skills/registry/skill-registry.ts:4-23`（自承认的注释）：
+`backend/src/modules/ai-engine/skills/registry/skill.registry.ts:4-23`（自承认的注释）：
 
 ```ts
 /**
  * ⚠️ NAME COLLISION WARNING — there are TWO classes called `SkillRegistry`
  *
- * 1. THIS class — `ai-engine/skills/registry/skill-registry.ts`
+ * 1. THIS class — `ai-engine/skills/registry/skill.registry.ts`
  *    - CRUD-style registry of `ISkill` instances
  *    - Backed by DB via SkillContentService
  *
- * 2. The other one — `ai-harness/kernel/skills/skill-registry.ts`
+ * 2. The other one — `ai-harness/kernel/skills/skill.registry.ts`
  *    - In-memory registry of SKILL.md files
  *    - Used by ReActLoop / SkillActivator
  *
@@ -575,3 +575,4 @@ Frontmatter 合规度:
 **审计版本**: v1.0
 **审计执行人**: Claude（双 sub-agent 并行 + 主 Agent 综合）
 **下一次审计**: PR1 + PR2 合并后 1 周
+

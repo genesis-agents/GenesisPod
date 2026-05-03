@@ -129,3 +129,5 @@ export {
   LocalSearchAdapter,
   IndustryReportSearchAdapter,
 } from "./search";
+
+

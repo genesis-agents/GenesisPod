@@ -39,7 +39,7 @@
 
 ### 1.2 类型定义统一 — 已确认生效
 
-- TaskProfile 唯一定义在 `llm/types/task-profile.ts`
+- TaskProfile 唯一定义在 `llm/types/task-profile.types.ts`
 - ChatMessage 唯一定义在同文件
 - facade.types.ts 改为 re-export
 - 所有 18 个 facade 导入方 + 22 个 ChatMessage 导入方正常
@@ -152,3 +152,4 @@ private verifyingConnections: Set<string> = new Set();
 
 **审查团队**: 架构师Agent + 代码审查Agent
 **报告版本**: 2.0
+

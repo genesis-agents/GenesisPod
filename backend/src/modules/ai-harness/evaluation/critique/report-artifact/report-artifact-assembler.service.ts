@@ -30,7 +30,7 @@ import type {
 import {
   dedupeFigureCandidates,
   isGarbageFigureUrl,
-} from "./figure-filter.util";
+} from "./figure-filter.utils";
 // ★ 沉淀消费（2026-04-29）：harness quality-gate 标杆实现
 import { ReportQualityGateService } from "../../../facade";
 // ★ 沉淀消费（2026-04-30 REPORT QUALITY OVERHAUL）：

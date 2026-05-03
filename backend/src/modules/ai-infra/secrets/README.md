@@ -15,10 +15,11 @@
 
 - `secrets.service.ts`：密钥资产的核心读写、审计、版本管理
 - `secrets.controller.ts`：管理员入口
-- `secret-name-mapping.ts`：系统 Secret 命名归一与元数据映射
+- `secret-name.catalog.ts`：系统 Secret 命名归一与元数据映射
 - `dto/`：输入输出对象
 
 ## 禁止事项
 
 - 禁止把用户自有 API key CRUD 放进 `secrets/`
 - 禁止在上层模块直接硬编码系统 Secret 名称而绕过这里的命名归一
+

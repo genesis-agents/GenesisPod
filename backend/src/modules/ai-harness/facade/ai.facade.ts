@@ -126,10 +126,10 @@ import type {
   SkillContext,
   SkillResult,
 } from "../../ai-engine/skills/abstractions/skill.interface";
-import type { BindingContext } from "../../ai-engine/skills/runtime/input-binding-resolver";
+import type { BindingContext } from "../../ai-engine/skills/runtime/skill-input-binding-resolver.service";
 // Use import type to avoid circular: PromptSkillAdapter → AIFacade → PromptSkillAdapter
-import type { PromptSkillAdapter } from "../../ai-engine/skills/runtime/prompt-skill-adapter";
-import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm-adapter";
+import type { PromptSkillAdapter } from "../../ai-engine/skills/runtime/prompt-skill.adapter";
+import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm.adapter";
 import type {
   CreateTraceInput,
   CreateSpanInput,
@@ -149,7 +149,7 @@ import type {
 import type {
   CompressionOptions,
   CompressionResult,
-} from "../../ai-harness/runner/executor/interfaces";
+} from "../../ai-harness/runner/executor/executor.types";
 import type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
 import type { VotingSession } from "../teams/collaboration/patterns/voting-pattern";
 import type {
@@ -174,7 +174,7 @@ import { AgentExecutorService } from "../runner/executor/agent-executor.service"
 // TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/planning/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
-import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm-adapter";
+import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm.adapter";
 import { FunctionCallingExecutor } from "../../ai-harness/runner/executor/function-calling-executor";
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamFactory } from "../teams/factory/team-factory";
@@ -185,7 +185,7 @@ import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch
 import { AgentRegistry } from "../agents/registry/plan-based-agent-registry";
 import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";
-import { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
+import { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
 
 // ★ Sub-facades (plain classes, NOT @Injectable)
 import type { ModelResolverService } from "./model-resolver.service";
@@ -2910,7 +2910,7 @@ export class AIFacade {
 
   /** 获取 ToolRegistry（工具注册表） */
   get toolRegistry():
-    | import("../../ai-engine/tools/registry/tool-registry").ToolRegistry
+    | import("../../ai-engine/tools/registry/tool.registry").ToolRegistry
     | undefined {
     return this.tools?.registry;
   }

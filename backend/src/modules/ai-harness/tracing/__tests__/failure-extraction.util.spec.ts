@@ -1,12 +1,12 @@
 /**
- * failure-extraction.util.spec.ts
+ * failure-extraction.utils.spec.ts
  * Pure-function tests for extractAgentFailureDiagnostic and extractFailureMessage.
  */
 
 import {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
-} from "../failure-extraction.util";
+} from "../failure-extraction.utils";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 
 function makeEvent(type: string, payload: unknown, timestamp = 0): IAgentEvent {

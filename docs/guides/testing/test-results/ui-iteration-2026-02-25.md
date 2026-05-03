@@ -44,7 +44,7 @@
 Backend unit tests were run in parallel sessions. Known results from previous test runs:
 
 - **ENG-LLM-001~010**: PASS (ai-chat.service.spec.ts)
-- **ENG-TPM-001~012**: PASS (task-profile-mapper.spec.ts)
+- **ENG-TPM-001~012**: PASS (task-profile.types-mapper.spec.ts)
 - **ENG-MFB-001~004**: PASS (model-fallback.spec.ts)
 - **ENG-CB-001~007**: PASS (circuit-breaker.spec.ts)
 - **ENG-ORC-001~009**: PASS (orchestration executors)
@@ -364,3 +364,4 @@ The remaining skips are due to **empty test account** (no research topics, teams
 - Phase E Browser: `partials/phase-E-browser.md`
 - Phase E2 Journeys: `partials/phase-E2-journeys.md`
 - Phase F Performance: `partials/phase-F-perf.md`
+

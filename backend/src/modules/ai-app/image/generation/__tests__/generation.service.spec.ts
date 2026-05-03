@@ -20,7 +20,7 @@ import { PromptEnhancementService } from "../prompt-enhancement.service";
 import { ImageGenerationService } from "../image-generation.service";
 import { ImageStorageService } from "../../storage/storage.service";
 import { Imagen4PromptService } from "../imagen4-prompt.service";
-import { BillingContext } from "../../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../../ai-infra/credits/billing-context.store";
 import { AIModelType } from "@prisma/client";
 
 // ---------------------------------------------------------------------------

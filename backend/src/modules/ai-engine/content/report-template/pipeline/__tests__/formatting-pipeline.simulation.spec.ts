@@ -15,7 +15,7 @@ import {
   normalizeTableDataRows,
   removeOrphanedFigureReferences,
   fixUnbalancedLatexDelimiters,
-} from "../formatting-pipeline";
+} from "../dimension-content-formatting.utils";
 
 import {
   numberSubHeadings,
@@ -27,7 +27,7 @@ import {
   repairLatexCommands,
   stripInternalFigureNotation,
   stripLLMMetaNotes,
-} from "../report-formatting.util";
+} from "../report-formatting.utils";
 
 // ============================================================
 // Scenario 1: Chapter Numbering — The Core User Complaint
@@ -1061,3 +1061,4 @@ describe("Scenario 6: Internal metadata leak stripping", () => {
     expect(result).toContain("分析结论完毕");
   });
 });
+

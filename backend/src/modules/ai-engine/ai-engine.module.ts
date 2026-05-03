@@ -37,14 +37,14 @@ import { QualityModule } from "./safety/quality/quality.module";
 // AI Engine 不再反向依赖 ai-harness。
 
 // Registries (从子模块重新导出，用于初始化)
-import { ToolRegistry } from "./tools/registry/tool-registry";
-import { SkillRegistry } from "./skills/registry/skill-registry";
+import { ToolRegistry } from "./tools/registry/tool.registry";
+import { SkillRegistry } from "./skills/registry/skill.registry";
 // AgentRegistry 在 ai-harness/agents/registry，由 HarnessModule 装配；
 // ai-engine.module 不再注入它，注册日志移至 HarnessModule onModuleInit。
 
 // LLM Factory & Adapter (用于初始化)
-import { LLMFactory } from "./llm/factory/llm-factory";
-import { UniversalLLMAdapter } from "./llm/adapters/universal-llm-adapter";
+import { LLMFactory } from "./llm/factory/llm.factory";
+import { UniversalLLMAdapter } from "./llm/adapters/universal-llm.adapter";
 
 // AiCoreController + AiCoreService moved to open-api/ai-core (PR-X6)
 // They are now registered in AiCoreModule, not here.
@@ -84,9 +84,9 @@ import { PromptRegistryService } from "./llm/prompts/prompt-registry.service";
 // ★ PR-X13: AIFacade + Domain Facades + FACADE_FEATURE_PROVIDERS + ModelResolverService
 // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
-// SKILL.md Runtime (PromptSkillBridge + InputBindingResolver)
-import { PromptSkillBridge } from "./skills/runtime/prompt-skill-bridge.service";
-import { InputBindingResolver } from "./skills/runtime/input-binding-resolver";
+// SKILL.md Runtime (PromptSkillRegistrationService + InputBindingResolver)
+import { PromptSkillRegistrationService } from "./skills/runtime/prompt-skill-registration.service";
+import { InputBindingResolver } from "./skills/runtime/skill-input-binding-resolver.service";
 
 // ★ VotingManager 和 HandoffCoordinator 已迁移到 CollaborationModule
 // (不再需要在此导入，通过 CollaborationModule 导出)
@@ -147,7 +147,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
     // === SKILL.md Runtime ===
-    PromptSkillBridge,
+    PromptSkillRegistrationService,
     InputBindingResolver,
 
     // ★ 沉淀（2026-04-29）: figure-extractor（来自 topic-insights，agent-playground 复用）
@@ -193,7 +193,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // 已迁移至 ai-harness/facade，由 HarnessModule (@Global) 统一装配。
 
     // === SKILL.md Runtime ===
-    PromptSkillBridge,
+    PromptSkillRegistrationService,
     InputBindingResolver,
 
     // ★ 沉淀: figure-extractor 作为顶层 export
@@ -299,3 +299,5 @@ export class AiEngineModule implements OnModuleInit {
     }
   }
 }
+
+

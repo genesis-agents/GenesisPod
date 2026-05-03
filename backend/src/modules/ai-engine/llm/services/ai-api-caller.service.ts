@@ -1,11 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import type { ChatMessage } from "../types/task-profile";
+import type { ChatMessage } from "../types/task-profile.types";
 import {
   reasoningDepthToEffort,
   safeReasoningEffort,
-} from "../types/task-profile";
+} from "../types/task-profile.types";
 
 /**
  * 解析 ChatMessage 的有效内容：优先使用 contentParts（多模态），回退到 content（纯文本）
@@ -115,7 +115,7 @@ const OVERSIZED_REQUEST_TOKEN_THRESHOLD = 100_000;
 const CHARS_TO_TOKENS_RATIO = 4;
 /** 错误诊断日志中堆栈帧数量 */
 const STACK_CONTEXT_LINES = 5;
-// reasoningDepth → reasoning_effort 映射统一在 types/task-profile.ts，
+// reasoningDepth → reasoning_effort 映射统一在 types/task-profile.types.ts，
 // 所有 path（Path A / Path B / Stream）共享，不得在 callsite hardcode。
 
 @Injectable()
@@ -823,3 +823,4 @@ export class AiApiCallerService {
     };
   }
 }
+

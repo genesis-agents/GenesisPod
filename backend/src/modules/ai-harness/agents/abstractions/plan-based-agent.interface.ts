@@ -11,8 +11,6 @@
 import { JsonObject, } from "@/modules/ai-engine/facade/index";
 import { ExecutionMode } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import {
-  BUILTIN_AGENTS,
-  BuiltinAgentId,
   AgentId,
   ToolId,
   SkillId,
@@ -20,18 +18,14 @@ import {
   UploadedFile,
   Artifact,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  BUILTIN_AGENTS,
+  type BuiltinAgentId,
+} from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
 
 // ==================== 重导出核心类型 ====================
-export {
-  BUILTIN_AGENTS,
-  BuiltinAgentId,
-  AgentId,
-  ToolId,
-  SkillId,
-  AgentInput,
-  UploadedFile,
-  Artifact,
-};
+export { BUILTIN_AGENTS, AgentId, ToolId, SkillId, AgentInput, UploadedFile, Artifact };
+export type { BuiltinAgentId };
 
 // ==================== Agent 上下文 ====================
 

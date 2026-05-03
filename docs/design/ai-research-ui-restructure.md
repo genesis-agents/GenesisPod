@@ -2784,7 +2784,7 @@ backend/src/modules/ai-app/research/
 │   ├── report/
 │   │   ├── report-synthesizer.service.ts                # 保留 (对标 TI report-synthesis.service.ts)
 │   │   ├── report-assembler.service.ts                  # 新增 (对标 TI report-assembler.service.ts)
-│   │   ├── citation-formatter.service.ts                # 新增 (对标 TI citation-formatter.service.ts)
+│   │   ├── citation-formatting.utils.service.ts                # 新增 (对标 TI citation-formatting.utils.service.ts)
 │   │   └── research-export.service.ts                   # 保留 (对标 TI research-export.service.ts)
 │   │
 │   │  ─── monitoring/ (对标 TI services/monitoring/) ───
@@ -3025,3 +3025,4 @@ Agent 发言后                → —             → —             → Insig
 | 任务 DAG 调度     | 基础设施逻辑，不适合 LLM                                                        |
 | 质量门阈值        | 配置值，放 `research.config.ts`                                                 |
 | 工具路由策略      | 规则引擎 (`tool-strategy.config.ts`)，不需要 LLM                                |
+

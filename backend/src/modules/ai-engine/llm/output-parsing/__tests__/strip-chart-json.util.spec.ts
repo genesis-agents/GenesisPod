@@ -1,10 +1,10 @@
 /**
- * strip-chart-json.util.ts 单元测试
+ * strip-chart-json.utils.ts 单元测试
  */
 import {
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
-} from "../strip-chart-json.util";
+} from "../strip-chart-json.utils";
 
 describe("stripChartJsonFromContent", () => {
   it("should return content unchanged when no chart markers present", () => {

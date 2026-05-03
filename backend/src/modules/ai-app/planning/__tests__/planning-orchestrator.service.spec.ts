@@ -20,7 +20,7 @@ jest.mock("../../teams/services/ai/ai-response.service", () => ({
   })),
 }));
 
-jest.mock("../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../ai-infra/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest
       .fn()

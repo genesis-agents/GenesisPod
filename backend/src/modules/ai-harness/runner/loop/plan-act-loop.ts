@@ -89,7 +89,7 @@ export class PlanActLoop implements IAgentLoop {
       forbiddenTools?: readonly string[];
       budget?: BudgetAccountant;
       /** Spec.taskProfile —— plan/synthesize 用 agent 真实意图，不再硬编码 */
-      taskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile;
+      taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "plan-act-agent";
@@ -211,7 +211,7 @@ export class PlanActLoop implements IAgentLoop {
   private async generatePlan(
     envelope: IContextEnvelope,
     signal?: AbortSignal,
-    specTaskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile,
+    specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
   ): Promise<Plan> {
     const messages: ChatMessage[] = envelope.messages.map((m) => ({
       role: m.role === "tool" ? "user" : m.role,
@@ -328,7 +328,7 @@ export class PlanActLoop implements IAgentLoop {
     envelope: IContextEnvelope,
     plan: Plan,
     results: ReadonlyMap<string, string>,
-    specTaskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile,
+    specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
   ): Promise<string> {
     const summaryBlock = plan.steps
       .map(
@@ -378,3 +378,4 @@ export class PlanActLoop implements IAgentLoop {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
+

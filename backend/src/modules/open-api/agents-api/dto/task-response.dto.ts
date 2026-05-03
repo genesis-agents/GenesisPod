@@ -5,12 +5,12 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   AgentId,
-  BUILTIN_AGENTS,
   AgentTaskStatus,
   AgentInput,
   AgentPlan,
   AgentResult,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
 
 /**
  * 任务详情响应 DTO

@@ -1,6 +1,6 @@
-import { clampScore, scaleScore } from "../quality-score.util";
+import { clampScore, scaleScore } from "../quality-score.utils";
 
-describe("quality-score.util", () => {
+describe("quality-score.utils", () => {
   describe("clampScore", () => {
     it("returns valid 0-100 number unchanged (rounded)", () => {
       expect(clampScore(50)).toBe(50);

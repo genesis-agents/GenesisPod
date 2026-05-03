@@ -11,7 +11,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { IndustryReportSearchTool } from "../industry-report-search.tool";
-import { ToolRegistry } from "../../../../registry/tool-registry";
+import { ToolRegistry } from "../../../../registry/tool.registry";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 
@@ -302,3 +302,4 @@ describe("IndustryReportSearchTool", () => {
     });
   });
 });
+

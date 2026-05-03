@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { JobSearchTool } from "../job-search.tool";
-import { ToolRegistry } from "../../../../registry/tool-registry";
+import { ToolRegistry } from "../../../../registry/tool.registry";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 
 function makeContext(): ToolContext {
@@ -150,3 +150,4 @@ describe("JobSearchTool", () => {
     });
   });
 });
+

@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { MCPClientRegistryService } from "../mcp-client-registry.service";
 import { MCPManager } from "../../manager/mcp-manager";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { ToolRegistry } from "../../../../registry/tool-registry";
+import { ToolRegistry } from "../../../../registry/tool.registry";
 
 // ----- mock data -----
 
@@ -495,3 +495,4 @@ describe("MCPClientRegistryService", () => {
     });
   });
 });
+

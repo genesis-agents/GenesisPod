@@ -17,7 +17,7 @@ export { AuthService } from "../auth/auth.service";
 export { CreditsService } from "../credits/credits.service";
 export { CreditRulesService } from "../credits/policy/credit-rules.service";
 export { CheckinService } from "../credits/rewards/checkin.service";
-export { BillingContext } from "../credits/billing-context";
+export { BillingContext } from "../credits/billing-context.store";
 export { InsufficientCreditsException } from "../credits/exceptions/insufficient-credits.exception";
 
 // ─── Secrets ───
@@ -25,7 +25,7 @@ export { SecretsService } from "../secrets/secrets.service";
 export {
   SECRET_NAMES,
   EXTERNAL_TOOL_SECRET_MAPPING,
-} from "../secrets/secret-name-mapping";
+} from "../secrets/secret-name.catalog";
 
 // ─── Storage ───
 export { StorageGovernanceService } from "../storage/governance/storage-governance.service";
@@ -33,6 +33,12 @@ export { R2StorageService } from "../storage/runtime/r2-storage.service";
 
 // ─── Email ───
 export { EmailService } from "../email/email.service";
+export {
+  EmailNotificationPresetsService,
+  type FeedbackEmailNotification,
+  type MissionCompletionEmailNotification,
+  type FeedbackStatusEmailNotification,
+} from "../email/presets/email-notification-presets.service";
 
 // ─── Notifications ───
 export { NotificationService } from "../notifications/notification.service";
@@ -84,3 +90,4 @@ export {
 // ─── Database Governance ───
 export { DbGovernanceService } from "../db-governance/db-governance.service";
 export { DataRetentionService } from "../db-governance/data-retention.service";
+

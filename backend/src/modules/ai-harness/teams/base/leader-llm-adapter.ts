@@ -5,7 +5,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { Logger } from "@nestjs/common";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm.factory";
 import { ILLMAdapter } from "@/modules/ai-engine/llm/abstractions/llm-adapter.interface";
 import {
   TaskInput,

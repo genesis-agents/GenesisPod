@@ -3,7 +3,8 @@
  */
 
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { AgentId, BUILTIN_AGENTS } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { AgentId } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
 
 /**
  * Agent 模板 DTO

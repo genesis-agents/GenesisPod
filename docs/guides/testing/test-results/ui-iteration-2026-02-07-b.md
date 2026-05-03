@@ -69,7 +69,7 @@
 | Test File                               | Plan IDs                 | Result           |
 | --------------------------------------- | ------------------------ | ---------------- |
 | ai-chat.service.spec.ts                 | ENG-LLM-001~010          | PASS             |
-| task-profile-mapper.service.spec.ts     | ENG-TPM-001~012          | PASS             |
+| task-profile.types-mapper.service.spec.ts     | ENG-TPM-001~012          | PASS             |
 | model-fallback.service.spec.ts          | ENG-MFB-001~004          | PASS             |
 | circuit-breaker.service.spec.ts         | ENG-CB-001~007           | PASS             |
 | long-term-memory.service.spec.ts        | ENG-MEM-003~005          | PASS             |
@@ -89,7 +89,7 @@
 | rate-limiter.spec.ts                    | ENG-CST-003~004          | PASS             |
 | guardrails-pipeline.spec.ts             | ENG-CST-005              | PASS             |
 | agent-orchestrator.spec.ts              | ENG-TL-001~002           | PASS             |
-| skill-registry.spec.ts                  | ENG-SK-001~002           | PASS             |
+| skill.registry.spec.ts                  | ENG-SK-001~002           | PASS             |
 | ai-engine.facade.spec.ts                | ENG-FAC-001~003          | PASS             |
 | auth.service.spec.ts                    | AUTH-001~003             | PASS             |
 | jwt.strategy.spec.ts                    | AUTH-004~005             | PASS             |
@@ -349,3 +349,4 @@ Tests performed via Playwright viewport resize on /ai-ask:
 
 **Report Generated**: 2026-02-07T11:25:00+08:00
 **Generator**: Claude Code (ui-iteration skill)
+

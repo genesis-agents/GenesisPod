@@ -4,7 +4,7 @@
  * 覆盖所有模型分类分支：STRONG / STANDARD / BASIC / 边界情况
  */
 
-import { classifyModelTier, ModelTier } from "../model-tier";
+import { classifyModelTier, ModelTier } from "../model-tier.types";
 
 describe("classifyModelTier", () => {
   // ==================== STRONG Tier ====================
@@ -133,3 +133,4 @@ describe("classifyModelTier", () => {
     });
   });
 });
+

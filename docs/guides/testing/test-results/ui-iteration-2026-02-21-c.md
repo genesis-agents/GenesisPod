@@ -99,7 +99,7 @@ No new regressions introduced. 3 new bugs found via user reports (相关研究/e
 Key test IDs covered:
 
 - ENG-LLM-001~010 ✅ (ai-chat.service.spec)
-- ENG-TPM-001~012 ✅ (task-profile-mapper.service.spec)
+- ENG-TPM-001~012 ✅ (task-profile.types-mapper.service.spec)
 - ENG-MFB-001~004 ✅ (model-fallback.service.spec)
 - ENG-CB-001~007 ✅ (circuit-breaker.service.spec)
 - ENG-MEM-001~008 ✅ (memory services)
@@ -280,3 +280,4 @@ frontend/components/ai-insights/topics/TopicResearchLayout.tsx | 1 +
 backend/src/modules/ai-app/research/discussion/report-synthesizer.service.ts | 2 +-
 4 files changed, 6 insertions(+), 4 deletions(-)
 ```
+

@@ -2,7 +2,7 @@
  * Unit Tests - LLMFactory
  */
 
-import { LLMFactory } from "../llm-factory";
+import { LLMFactory } from "../llm.factory";
 import {
   ILLMAdapter,
   LLM_PROVIDERS,
@@ -337,3 +337,4 @@ describe("LLMFactory", () => {
     });
   });
 });
+

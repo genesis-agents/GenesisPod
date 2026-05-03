@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../ai-infra/secrets/secret-name-mapping";
+import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../ai-infra/secrets/secret-name.catalog";
 import { DEFAULT_PAGE_SIZE } from "../../../common/constants/pagination.constants";
 
 /**
@@ -2902,3 +2902,4 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     return skillDefinitions;
   }
 }
+

@@ -363,16 +363,16 @@ describe('ResearchTimeline', () => {
 
 **目标文件**:
 
-1. `backend/src/modules/ai-engine/llm/services/task-profile-mapper.service.ts`
+1. `backend/src/modules/ai-engine/llm/services/task-profile.types-mapper.service.ts`
 2. `backend/src/modules/ai-app/teams/services/collaboration/team-mission.service.ts` (部分)
 
 **测试模板**:
 
 ```typescript
-// backend/src/modules/ai-engine/llm/services/__tests__/task-profile-mapper.service.spec.ts
+// backend/src/modules/ai-engine/llm/services/__tests__/task-profile.types-mapper.service.spec.ts
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { TaskProfileMapperService } from "../task-profile-mapper.service";
+import { TaskProfileMapperService } from "../task-profile.types-mapper.service";
 
 describe("TaskProfileMapperService", () => {
   let service: TaskProfileMapperService;
@@ -917,3 +917,4 @@ Month 3: Phase 5 - 架构优化 (循环依赖、子模块化)
 **预计完成**: 2026-04-15
 **责任人**: 开发团队
 **审批人**: 技术负责人
+

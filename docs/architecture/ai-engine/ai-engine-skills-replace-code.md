@@ -1133,13 +1133,13 @@ Week 16-18: 渐进迁移 → .skill.ts → .skill.md ✓
 
 - `backend/src/modules/ai-engine/skills/abstractions/skill.interface.ts`
 - `backend/src/modules/ai-engine/skills/loader/skill-loader.service.ts`
-- `backend/src/modules/ai-engine/skills/registry/skill-registry.ts`
+- `backend/src/modules/ai-engine/skills/registry/skill.registry.ts`
 - `backend/src/modules/ai-engine/skills/builder/skill-prompt-builder.service.ts`
 
 ### Tools 系统
 
 - `backend/src/modules/ai-engine/tools/abstractions/tool.interface.ts`
-- `backend/src/modules/ai-engine/tools/registry/tool-registry.ts`
+- `backend/src/modules/ai-engine/tools/registry/tool.registry.ts`
 - `backend/src/modules/ai-engine/tools/middleware/tool-pipeline.ts`
 
 ### Agent/Teams 系统
@@ -1282,3 +1282,4 @@ Skills Pool（静态 + 动态）
 
 _设计完成时间: 2026-01-18_
 _版本: 3.0 - Skills 替代编码 + 动态生成架构设计_
+

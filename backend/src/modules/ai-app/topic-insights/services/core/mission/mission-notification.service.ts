@@ -7,7 +7,10 @@
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EmailService, SettingsService } from "@/modules/ai-infra/facade";
+import {
+  EmailNotificationPresetsService,
+  SettingsService,
+} from "@/modules/ai-infra/facade";
 
 @Injectable()
 export class MissionNotificationService {
@@ -15,7 +18,8 @@ export class MissionNotificationService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @Optional() private readonly emailService?: EmailService,
+    @Optional()
+    private readonly emailNotificationPresetsService?: EmailNotificationPresetsService,
     @Optional() private readonly settingsService?: SettingsService,
   ) {}
 
@@ -29,7 +33,9 @@ export class MissionNotificationService {
     totalTasks: number;
   }): void {
     const { missionId, topicId, completedTasks, totalTasks } = params;
-    if (!this.emailService) {
+    const emailNotificationPresetsService =
+      this.emailNotificationPresetsService;
+    if (!emailNotificationPresetsService) {
       this.logger.debug(
         "[Degraded] EmailService unavailable, skipping completion notification",
       );
@@ -47,7 +53,7 @@ export class MissionNotificationService {
             select: { email: true },
           });
           if (user?.email) {
-            await this.emailService!.sendMissionCompletionNotification({
+            await emailNotificationPresetsService.sendMissionCompletionNotification({
               to: user.email,
               missionId,
               missionTitle: topic.name,

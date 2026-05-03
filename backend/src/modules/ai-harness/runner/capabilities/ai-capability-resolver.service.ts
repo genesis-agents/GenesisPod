@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
-import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
+import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
+import { SkillRegistry } from "../../../ai-engine/skills/registry/skill.registry";
 import type { IMCPProvider } from "../../../ai-engine/facade";
 import { MCP_PROVIDER_PORT } from "@/modules/ai-engine/facade/abstractions/runtime-deps.tokens";
 import { SkillLoaderService } from "../../../ai-engine/skills/loader/skill-loader.service";
@@ -890,3 +890,7 @@ export class AICapabilityResolver {
 
 // 保持向后兼容的类型别名
 export type CapabilityContext = AICapabilityContext;
+
+
+
+

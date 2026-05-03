@@ -11,7 +11,7 @@ import {
   CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS,
 } from "@/modules/ai-harness/facade";
 // ★ 沉淀接入: 外部 evidence 进 prompt 前用 XML 隔离 + sanitize（防 OWASP LLM01）
-//   + TI report-writing-standards（与 TI dimension-research.prompt.ts 同源）
+//   + TI report-writing-standards.constants（与 TI dimension-research.prompt.ts 同源）
 import {
   wrapExternalContent,
   HEADING_HIERARCHY,
@@ -119,7 +119,7 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `3. **证据支撑**: 关键论点必须有引用，使用 \`[N]\` 格式（N 对应下方"可用资料"编号，从 1 开始）`,
       `4. **连贯性**: 与前置章节保持逻辑连贯，避免重复前文论点`,
       ``,
-      // ★ 2026-04-30 (PR-F): 全量复用 TI report-writing-standards（与
+      // ★ 2026-04-30 (PR-F): 全量复用 TI report-writing-standards.constants（与
       //   topic-insights/prompts/dimension-research.prompt.ts 同源）。
       //   原 inline "写作风格规范" 6 行下线 — TI 标准更全面（McKinsey Pyramid +
       //   BCG So-What + 量化表达 + 因果区分 + 反箭头链 + 反教科书）。
@@ -249,3 +249,4 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
     ].join("\n");
   }
 }
+

@@ -22,11 +22,11 @@ import { SubagentSpawner } from "../agents/subagents/subagent-spawner";
 import { ContextManager } from "../runner/context/context-manager";
 import { ContextCompactor } from "../runner/context/context-compactor";
 import { PriorityPruner } from "../runner/context/priority-pruner";
-import { MemoryBridge } from "../memory/indexing/memory-bridge.service";
+import { MemoryContextBindingService } from "../memory/indexing/memory-context-binding.service";
 import { CheckpointService } from "../memory/checkpoint/checkpoint.service";
 import { InMemoryCheckpointStore } from "../memory/checkpoint/in-memory-checkpoint-store";
 import { SkillLearner } from "../agents/learning/skill-learner";
-import { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 
 describe("HarnessModule (NestJS DI integration)", () => {
@@ -60,7 +60,7 @@ describe("HarnessModule (NestJS DI integration)", () => {
         PlanActLoop,
         ReflexionLoop,
         LoopRegistry,
-        MemoryBridge,
+        MemoryContextBindingService,
         BuiltinSkillCatalog,
         SkillLoader,
         SkillActivator,
@@ -210,3 +210,7 @@ describe("HarnessModule (NestJS DI integration)", () => {
     expect(calls).toEqual(["via facade"]);
   });
 });
+
+
+
+

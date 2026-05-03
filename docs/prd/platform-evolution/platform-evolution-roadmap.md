@@ -359,7 +359,7 @@ Enhance existing `ISkill` interface and `SkillRegistry` with richer metadata.
 ```
 backend/src/modules/ai-engine/skills/
   abstractions/skill.interface.ts    # EXTEND ISkill
-  registry/skill-registry.ts         # EXTEND with version/compat checking
+  registry/skill.registry.ts         # EXTEND with version/compat checking
   base/base-skill.ts                 # EXTEND with manifest support
 
 frontend/components/admin/skills/
@@ -442,3 +442,4 @@ Internal modules remain as-is; SDK wraps internal interfaces. Feature flags cont
 
 **Next Review**: 2026-02-19
 **Owner**: Genesis Team
+

@@ -2,7 +2,7 @@
  * Unit tests for MultiKeyManager and MultiKeyRegistry
  */
 
-import { MultiKeyManager, MultiKeyRegistry } from "../multi-key-manager";
+import { MultiKeyManager, MultiKeyRegistry } from "../multi-key.manager";
 
 // Helper to access the private static managers map for registry isolation between tests
 function clearRegistry(): void {
@@ -318,3 +318,4 @@ describe("MultiKeyRegistry", () => {
     });
   });
 });
+

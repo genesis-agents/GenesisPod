@@ -75,14 +75,14 @@ Time:        142.704s
 | Test Plan ID    | Test File                                  | Status |
 | --------------- | ------------------------------------------ | ------ |
 | ENG-LLM-001~010 | ai-chat.service.spec.ts                    | PASS   |
-| ENG-TPM-001~012 | task-profile-mapper.service.spec.ts        | PASS   |
+| ENG-TPM-001~012 | task-profile.types-mapper.service.spec.ts        | PASS   |
 | ENG-MFB-001~004 | model-fallback.service.spec.ts             | PASS   |
 | ENG-CB-001~007  | circuit-breaker.service.spec.ts            | PASS   |
 | ENG-MEM-001~008 | memory services specs                      | PASS   |
 | ENG-ORC-001~010 | orchestration specs                        | PASS   |
 | ENG-CST-001~005 | constraints specs                          | PASS   |
 | ENG-TL-001~002  | agent-orchestrator.spec.ts                 | PASS   |
-| ENG-SK-001~002  | skill-registry.spec.ts                     | PASS   |
+| ENG-SK-001~002  | skill.registry.spec.ts                     | PASS   |
 | ENG-FAC-001~003 | ai-engine.facade.spec.ts                   | PASS   |
 | AUTH-001~005    | auth.service.spec.ts, jwt.strategy.spec.ts | PASS   |
 | ADM-001~003     | admin.service.spec.ts                      | PASS   |
@@ -303,3 +303,4 @@ No code changes made in this test run. This was a confirmation-only run to verif
 
 **Report Generated**: 2026-02-10T19:40:00+00:00
 **Total Execution Time**: ~20 minutes
+

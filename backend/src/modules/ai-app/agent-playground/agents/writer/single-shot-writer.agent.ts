@@ -8,7 +8,7 @@
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
 import { ResearchReportSchema } from "../../dto/run-mission.dto";
-// ★ 2026-04-30 (PR-F): 注入 TI report-writing-standards (EN 版)，与
+// ★ 2026-04-30 (PR-F): 注入 TI report-writing-standards.constants (EN 版)，与
 //   topic-insights/prompts/dimension-research.prompt.ts 同源。
 import {
   HEADING_HIERARCHY_EN,
@@ -135,7 +135,7 @@ export class SingleShotWriterAgent extends AgentSpec<
         ? `- ★ MUST follow the pre-planned chapter outline below — section count, headings, theses, key points, and word targets are all PRESCRIBED. Do not invent new chapters.`
         : `- Depth tier: ${input.depth} → ${plan.sectionCount} sections, ${plan.wordsPerSection} words per section, total ~${plan.totalWords} words`,
       `- ${langGuide}`,
-      // ★ PR-F: TI EN report-writing-standards 注入
+      // ★ PR-F: TI EN report-writing-standards.constants 注入
       HEADING_HIERARCHY_EN,
       ``,
       NARRATIVE_STRUCTURE_EN,
@@ -251,3 +251,4 @@ export class SingleShotWriterAgent extends AgentSpec<
     return lines.join("\n");
   }
 }
+

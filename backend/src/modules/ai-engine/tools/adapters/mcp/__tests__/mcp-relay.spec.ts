@@ -8,7 +8,7 @@
  *   - tool.execute 透传到 client.callTool；isError 字段正确处理
  */
 
-import { ToolRegistry } from "../../../registry/tool-registry";
+import { ToolRegistry } from "../../../registry/tool.registry";
 import { MCPRelay } from "../mcp-relay.service";
 import {
   MCPRelayToolAdapter,
@@ -115,3 +115,4 @@ describe("MCPRelay + MCPRelayToolAdapter (PR-E)", () => {
     expect(toolList.find((s) => s.id === "srv-a")).toBeDefined();
   });
 });
+

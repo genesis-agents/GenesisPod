@@ -54,6 +54,7 @@ Genesis.ai 采用系统化、自动化的开发规范体系，确保代码质量
 | 15   | [报告模板](15-report-template.md)                        | 报告 13 种内容类型统一格式规范             | 🔴 MUST   |
 | 16   | [Engine/Harness 结构](16-ai-engine-harness-structure.md) | AI Engine / AI Harness 的 MECE 分层结构    | 🔴 MUST   |
 | 17   | [扩展治理](17-extension-governance.md)                   | 扩展契约、定制代码归位、memory/plugin 治理 | 🔴 MUST   |
+| 18   | [基础层文件治理](18-base-layer-file-governance.md)       | 基础三层文件命名、归属、内容治理           | 🔴 MUST   |
 
 ### 🚀 快速参考
 

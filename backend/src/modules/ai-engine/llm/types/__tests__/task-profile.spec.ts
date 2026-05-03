@@ -1,5 +1,5 @@
 /**
- * Unit tests for task-profile.ts constants
+ * Unit tests for task-profile.types.ts constants
  * These tests verify that mapping constants have the correct values
  * and that no entries are missing.
  */
@@ -12,7 +12,7 @@ import {
   MODEL_KNOWN_LIMITS,
   CreativityLevel,
   OutputLengthLevel,
-} from "../task-profile";
+} from "../task-profile.types";
 
 // ==================== CREATIVITY_TO_TEMPERATURE ====================
 
@@ -195,3 +195,4 @@ describe("MODEL_KNOWN_LIMITS", () => {
     });
   });
 });
+

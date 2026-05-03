@@ -46,7 +46,7 @@ import { ContextManager } from "../context/context-manager";
 import { CacheControlPlanner } from "../context/cache-control-planner";
 import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
-import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing-registry";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 import type { IAgent, ISubagentSpawner } from "../../agents/abstractions";
 
 interface ParsedDecision {
@@ -160,7 +160,7 @@ export class ReActLoop implements IAgentLoop {
       parent?: IAgent;
       spawner?: ISubagentSpawner;
       /** Spec 声明的 TaskProfile —— reason() 内 chat() 用 agent 真实意图 */
-      taskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile;
+      taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
       /**
        * ★ 内容驱动的退出闸：finalize 时框架先用 outputSchema 校验，
        * 失败则注入 critique reminder 让 LLM 直接补缺（continue loop）。
@@ -945,7 +945,7 @@ export class ReActLoop implements IAgentLoop {
     /** BYOK：从 envelope.memory.userId 透传，让 chat() 走 user-default 查找链 */
     userId?: string,
     /** Spec 声明的 TaskProfile —— 优先用 agent 真实意图，缺省走 medium */
-    specTaskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile,
+    specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
   ): Promise<{
     decision: ParsedDecision;
     /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
@@ -1513,3 +1513,4 @@ export class ReActLoop implements IAgentLoop {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
+

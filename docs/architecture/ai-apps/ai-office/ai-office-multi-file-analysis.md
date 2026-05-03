@@ -718,7 +718,7 @@ backend/src/modules/multi-file-analysis/
 │   ├── gemini-file-search.service.ts
 │   ├── file-index.service.ts
 │   ├── query-router.service.ts
-│   ├── citation-formatter.service.ts
+│   ├── citation-formatting.utils.service.ts
 │   └── comparison-analyzer.service.ts
 ├── entities/
 │   ├── file-search-store.entity.ts
@@ -2103,3 +2103,4 @@ console.log(result.response.candidates[0].groundingMetadata);
 **最后更新**: 2025-11-23
 **状态**: RFC - 待评审
 **下一步**: 团队评审 → 技术验证 → 开发启动
+

@@ -26,7 +26,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 jest.mock("../../../../common/prisma/prisma.service");
 
 // Mock BillingContext to just call the provided fn
-jest.mock("../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../ai-infra/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest.fn((_ctx: unknown, fn: () => unknown) => fn()),
   },

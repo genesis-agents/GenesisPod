@@ -15,7 +15,7 @@
 | -------- | ---- | -------------------------------------------------------------------------------------- |
 | 架构设计 | B+   | Facade 模式良好，但 ai-chat.service.ts 单文件过大                                      |
 | 正确性   | C+   | parallel-executor 存在真实的死循环 bug；voting-pattern 有逻辑错误                      |
-| 安全性   | C    | base-executor 使用 `new Function`（代码注入风险）；skill-registry 使用用户输入构造正则 |
+| 安全性   | C    | base-executor 使用 `new Function`（代码注入风险）；skill.registry 使用用户输入构造正则 |
 | 类型安全 | B    | 3 处双重类型断言；1 处 `any` 违规；AgentMemory 用 Map 无法序列化                       |
 | 测试覆盖 | B    | 新增 ~90 个 spec 文件，覆盖面广，但缺少关键边界场景（无限循环、安全性）                |
 | 可维护性 | B-   | ai-chat.service.ts 1595 行需拆分；错误处理不一致；魔法常量散布                         |
@@ -257,9 +257,9 @@ descriptor.value = async function (...args: any[]) {
 
 ## 四、注册表系统
 
-### 4.1 skill-registry.ts — 用户输入直接构造正则（ReDoS 风险）(P0)
+### 4.1 skill.registry.ts — 用户输入直接构造正则（ReDoS 风险）(P0)
 
-**文件**: `skills/registry/skill-registry.ts:203-232`
+**文件**: `skills/registry/skill.registry.ts:203-232`
 
 ```typescript
 isMatch = new RegExp(trigger.condition, "i").test(value);
@@ -268,9 +268,9 @@ isMatch = new RegExp(trigger.condition, "i").test(value);
 `trigger.condition` 来自 Skill 定义，若 Skill 由用户通过 API 注册（或外部 json 导入），攻击者可注入 ReDoS 正则（如 `(a+)+$`），导致事件循环阻塞。
 **建议**: 用 try-catch 包裹构造，并添加超时限制（可用 `safe-regex` 库检查危险模式）。
 
-### 4.2 tool-registry.ts — Token 估算魔法常量 (P2)
+### 4.2 tool.registry.ts — Token 估算魔法常量 (P2)
 
-**文件**: `tools/registry/tool-registry.ts:226-230`
+**文件**: `tools/registry/tool.registry.ts:226-230`
 
 ```typescript
 return compact ? count * 40 : count * 200;
@@ -279,9 +279,9 @@ return compact ? count * 40 : count * 200;
 常量 40/200 与工具定义的实际 schema 复杂度无关，在工具参数多时严重低估 token 消耗，可能导致超出上下文窗口。
 **建议**: 基于工具 schema 的 JSON 字符串长度进行更精确的估算（粗略: `JSON.stringify(tool.parameters).length / 4`）。
 
-### 4.3 skill-registry.ts — 版本比较不支持 semver (P2)
+### 4.3 skill.registry.ts — 版本比较不支持 semver (P2)
 
-**文件**: `skills/registry/skill-registry.ts:190-198`
+**文件**: `skills/registry/skill.registry.ts:190-198`
 
 版本比较仅支持 `1.2.3` 格式，不支持 `1.0.0-beta`、`2.0.0-rc.1`。若 Skill 版本采用 semver 预发布格式，排序会出错。
 **建议**: 使用 `semver` 库（`npm i semver @types/semver`）。
@@ -400,7 +400,7 @@ longTermMemory?: Map<string, unknown>;
 | base-executor 的 `evaluateExpression` 安全测试         | 代码注入无测试边界        | 添加含恶意表达式的输入测试                     |
 | voting-pattern 的 voteId 正确性断言                    | P1 bug 已存在，无测试发现 | 断言 `result.voteId` 等于 session ID           |
 | handoff-pattern 的循环交接防护                         | 递归无限 handoff          | 添加 `suggestedAgent` 循环测试                 |
-| skill-registry 的 ReDoS 正则测试                       | 安全性                    | 添加格式错误正则的测试                         |
+| skill.registry 的 ReDoS 正则测试                       | 安全性                    | 添加格式错误正则的测试                         |
 
 ---
 
@@ -409,9 +409,9 @@ longTermMemory?: Map<string, unknown>;
 | #   | 位置                     | 问题                                | 严重度 |
 | --- | ------------------------ | ----------------------------------- | ------ |
 | S1  | `base-executor.ts:405`   | `new Function(expression)` 代码注入 | HIGH   |
-| S2  | `skill-registry.ts:204`  | 用户输入构造 RegExp — ReDoS         | MEDIUM |
+| S2  | `skill.registry.ts:204`  | 用户输入构造 RegExp — ReDoS         | MEDIUM |
 | S3  | `handoff-pattern.ts:145` | 日志泄露内部 UUID (`handoffId`)     | LOW    |
-| S4  | `tool-registry.ts:37`    | 日志泄露内部工具名称列表            | LOW    |
+| S4  | `tool.registry.ts:37`    | 日志泄露内部工具名称列表            | LOW    |
 
 ---
 
@@ -423,7 +423,7 @@ longTermMemory?: Map<string, unknown>;
 | ---- | ------------------------------------------------------ | ------------------------------- | --------------------------------- |
 | P0-1 | `orchestration/executors/parallel-executor.ts:127-162` | 无限循环死锁（依赖未满足场景）  | 小（添加无进展检测 break）        |
 | P0-2 | `orchestration/executors/base-executor.ts:401-410`     | `new Function` 代码注入安全漏洞 | 中（引入 jexl/expr-eval）         |
-| P0-3 | `skills/registry/skill-registry.ts:203-232`            | 用户输入正则 ReDoS 风险         | 小（try-catch + safe-regex 检查） |
+| P0-3 | `skills/registry/skill.registry.ts:203-232`            | 用户输入正则 ReDoS 风险         | 小（try-catch + safe-regex 检查） |
 
 ### P1 — 应该修复（逻辑错误/可靠性风险）
 
@@ -445,8 +445,8 @@ longTermMemory?: Map<string, unknown>;
 | P2-4  | `agents/base/reactive-agent.ts:320`                 | 双重类型断言绕过检查              |
 | P2-5  | `core/errors/agent-error.ts`                        | 错误码语义映射错误                |
 | P2-6  | `agents/abstractions/agent.interface.ts:84`         | AgentMemory 使用不可序列化 Map    |
-| P2-7  | `tools/registry/tool-registry.ts:226-230`           | Token 估算魔法常量                |
-| P2-8  | `skills/registry/skill-registry.ts:190-198`         | 版本比较不支持 semver             |
+| P2-7  | `tools/registry/tool.registry.ts:226-230`           | Token 估算魔法常量                |
+| P2-8  | `skills/registry/skill.registry.ts:190-198`         | 版本比较不支持 semver             |
 | P2-9  | `memory/stores/short-term-memory.service.ts:26`     | LRU 容量硬编码                    |
 | P2-10 | `orchestration/executors/retry-strategy.ts:172-230` | 错误分类依赖字符串匹配            |
 | P2-11 | `collaboration/patterns/voting-pattern.ts:333-340`  | ranked 投票仅取第一选择           |
@@ -470,7 +470,7 @@ longTermMemory?: Map<string, unknown>;
 
 1. **parallel-executor.ts**: 添加 "无进展检测" break — 5 行改动
 2. **base-executor.ts**: 将 `evaluateExpression` 替换为 `jexl.eval()`（或临时移除该特性，因目前无调用方）
-3. **skill-registry.ts**: 将 `new RegExp(trigger.condition, "i")` 包裹在 try-catch 中，并用 `safe-regex` 拒绝危险模式
+3. **skill.registry.ts**: 将 `new RegExp(trigger.condition, "i")` 包裹在 try-catch 中，并用 `safe-regex` 拒绝危险模式
 
 ### 第二阶段（下一 sprint，修复 P1）
 
@@ -520,3 +520,4 @@ longTermMemory?: Map<string, unknown>;
 
 _本报告基于源码直读，所有行号引用均经人工验证（Read 工具实际读取）。_
 _Sub-Agent 补充扫描结果经关键项人工复核后采纳。_
+

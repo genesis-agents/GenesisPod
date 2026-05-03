@@ -6,7 +6,7 @@
  * rather than going through NestJS DI.
  */
 
-import { PromptSkillAdapter } from "../prompt-skill-adapter";
+import { PromptSkillAdapter } from "../prompt-skill.adapter";
 import { SkillMdDefinition } from "../../types/skill-md.types";
 import { SkillContext } from "../../abstractions/skill.interface";
 

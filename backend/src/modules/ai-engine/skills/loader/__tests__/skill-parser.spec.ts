@@ -64,7 +64,7 @@ const KEBAB_CASE_ALIAS_SKILL_MD = `---
 name: alias-skill
 description: Skill with kebab-case alias fields
 output-key: my-output
-task-profile:
+task-profile.types:
   creativity: medium
   outputLength: short
 required-skills:
@@ -487,3 +487,4 @@ describe("isValidSkillMd", () => {
     );
   });
 });
+

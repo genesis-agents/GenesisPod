@@ -7,7 +7,7 @@ import type { ContentVersionService } from "../services/content-version.service"
 import { SocialPlatformType } from "../types";
 
 // Mock BillingContext to passthrough
-jest.mock("../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../ai-infra/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest.fn().mockImplementation((_context, fn) => fn()),
   },

@@ -38,7 +38,7 @@ import type {
   IAgentRole,
   IAgentPersona,
 } from "../abstractions";
-import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
+import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import type { BuiltInVerifierId } from "../../evaluation/verify/judge.service";
 
 export interface DefineAgentOptions<
@@ -197,3 +197,4 @@ export abstract class AgentSpec<
     identity: IAgentIdentity;
   }): Promise<z.infer<TOutputSchema>>;
 }
+

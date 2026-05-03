@@ -4,13 +4,13 @@
  * BaseLLMAdapter is abstract; we test it via a minimal concrete subclass.
  */
 
-import { BaseLLMAdapter } from "../base-llm-adapter";
+import { BaseLLMAdapter } from "../base-llm.adapter";
 import {
   LLMRequestOptions,
   LLMResponse,
   LLMModelConfig,
   createLLMAdapter,
-} from "../base-llm-adapter";
+} from "../base-llm.adapter";
 
 // ─── Concrete test subclass ───────────────────────────────────────────────────
 
@@ -273,3 +273,4 @@ describe("createLLMAdapter", () => {
     expect(chatFn).toHaveBeenCalledTimes(1);
   });
 });
+

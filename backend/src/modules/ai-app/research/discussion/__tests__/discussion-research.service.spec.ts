@@ -28,7 +28,7 @@ import { DeepResearchStatus } from "@prisma/client";
 import { firstValueFrom, toArray } from "rxjs";
 
 // Mock BillingContext so it executes the callback directly
-jest.mock("../../../../ai-infra/credits/billing-context", () => ({
+jest.mock("../../../../ai-infra/credits/billing-context.store", () => ({
   BillingContext: {
     run: jest
       .fn()

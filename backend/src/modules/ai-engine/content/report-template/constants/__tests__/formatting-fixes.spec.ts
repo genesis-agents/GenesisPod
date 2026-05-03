@@ -1,7 +1,7 @@
 /**
  * Formatting pipeline fix tests — 4 issues
  *
- * Covers the specific bugs fixed in report-formatting.util.ts:
+ * Covers the specific bugs fixed in report-formatting.utils.ts:
  * 1. LaTeX wrapping for big-O notation and bare brace exponents
  * 2. Markdown table repair when separator row is missing
  * 3. Heading renumbering — duplicate and gap fixes, including #### before ###
@@ -13,7 +13,7 @@ import {
   repairMarkdownTables,
   renumberHeadings,
   splitEnumerationToList,
-} from "../../pipeline/report-formatting.util";
+} from "../../pipeline/report-formatting.utils";
 
 // ============================================================
 // Issue 1: LaTeX — big-O notation and bare brace exponents

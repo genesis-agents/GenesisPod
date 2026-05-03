@@ -45,10 +45,10 @@ import type {
   SkillContext,
   SkillResult,
 } from "../../../ai-engine/skills/abstractions/skill.interface";
-import type { BindingContext } from "../../../ai-engine/skills/runtime/input-binding-resolver";
-import type { PromptSkillAdapter } from "../../../ai-engine/skills/runtime/prompt-skill-adapter";
+import type { BindingContext } from "../../../ai-engine/skills/runtime/skill-input-binding-resolver.service";
+import type { PromptSkillAdapter } from "../../../ai-engine/skills/runtime/prompt-skill.adapter";
 import type { ToolPipeline } from "../../../ai-engine/tools/middleware/tool-pipeline";
-import { AiChatLLMAdapter } from "../../../ai-engine/llm/adapters/ai-chat-llm-adapter";
+import { AiChatLLMAdapter } from "../../../ai-engine/llm/adapters/ai-chat-llm.adapter";
 import type {
   A2AMessageType,
   A2APriority,
@@ -62,7 +62,7 @@ import type {
 import type {
   CompressionOptions,
   CompressionResult,
-} from "../../../ai-harness/runner/executor/interfaces";
+} from "../../../ai-harness/runner/executor/executor.types";
 import type { SaveEvidenceRequest } from "../../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
 import type { VotingSession } from "../../teams/collaboration/patterns/voting-pattern";
 import type {
@@ -76,7 +76,7 @@ import { ContextInitializationService } from "../../../ai-engine/knowledge/world
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../../teams/orchestrator/teams-mission-orchestrator";
 import { TeamRegistry } from "../../teams/registry/team-registry";
 import { RoleRegistry } from "../../teams/registry/role-registry";
-import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
+import { SkillRegistry } from "../../../ai-engine/skills/registry/skill.registry";
 
 @Injectable()
 export class TeamFacade {

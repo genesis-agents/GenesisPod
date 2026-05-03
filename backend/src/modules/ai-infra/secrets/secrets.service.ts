@@ -27,7 +27,7 @@ import {
   normalizeSecretName,
   getExpectedSecretsMetadata,
   classifySecret,
-} from "./secret-name-mapping";
+} from "./secret-name.catalog";
 import { EncryptionService } from "../encryption/encryption.service";
 
 export interface SecretListItem {
@@ -1039,3 +1039,4 @@ export class SecretsService {
     return { processed, skipped };
   }
 }
+

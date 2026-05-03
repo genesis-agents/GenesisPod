@@ -32,7 +32,7 @@ import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
-import { estimateCost } from "../../planning/budget/cost-calculator";
+import { estimateCost } from "../../planning/budget/cost.calculator";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import {
   BYOKError,
@@ -2356,3 +2356,5 @@ export class AiChatService {
     }
   }
 }
+
+

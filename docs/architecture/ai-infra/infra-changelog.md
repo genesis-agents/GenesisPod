@@ -170,7 +170,7 @@ const response = await this.aiChatService.chat({
 所有代码示例都基于实际文件：
 
 - `backend/src/modules/ai-engine/llm/services/ai-chat.service.ts`
-- `backend/src/modules/ai-engine/llm/types/task-profile.ts`
+- `backend/src/modules/ai-engine/llm/types/task-profile.types.ts`
 - `frontend/app/providers.tsx`
 - `frontend/stores/toastStore.ts`
 
@@ -236,3 +236,4 @@ const response = await this.aiChatService.chat({
 **文档版本**: v2.0
 **更新日期**: 2026-01-15
 **下次审查**: 2026-04-15
+

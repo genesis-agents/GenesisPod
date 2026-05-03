@@ -4,7 +4,7 @@
  * Phase 2 变更：
  *   - execute() 不再是骨架；若注入了 Loop（e.g. ReActLoop）则走真实循环
  *   - 如果没注入 loop（用于单测），回退到 Phase 1 骨架行为
- *   - 新增 MemoryBridge preExecute 钩子：注入召回记忆
+ *   - 新增 MemoryContextBindingService preExecute 钩子：注入召回记忆
  */
 
 import { randomUUID } from "crypto";
@@ -23,7 +23,7 @@ import type {
 } from "../abstractions";
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
-import type { MemoryBridge } from "../../memory/indexing/memory-bridge.service";
+import type { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
 import type { SkillActivator } from "../builtin-skills/skill-activator";
 import type { ISubagentSpawner } from "../abstractions";
 import type { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
@@ -35,7 +35,7 @@ export interface HarnessedAgentInit {
   identity: IAgentIdentity;
   envelope: ContextEnvelope;
   loop?: IAgentLoop;
-  memoryBridge?: MemoryBridge;
+  memoryBridge?: MemoryContextBindingService;
   skillActivator?: SkillActivator;
   subagentSpawner?: ISubagentSpawner;
   checkpointService?: CheckpointService;
@@ -61,7 +61,7 @@ export interface HarnessedAgentInit {
    * 内部每次 chat() 都用 agent 的真实意图（researcher 要 long output，
    * leader 要 medium）。不传则各 loop 走自己的硬编码默认。
    */
-  taskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile;
+  taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
   /**
    * ★ 内容驱动退出闸 —— 由 agent-runner 根据 spec.outputSchema 包装后注入。
    * Loop 在 finalize action 时调它校验 LLM 输出，不达标就让 LLM 原地补缺
@@ -88,7 +88,7 @@ export class HarnessedAgent implements IAgent {
 
   private envelope: ContextEnvelope;
   private readonly loop?: IAgentLoop;
-  private readonly memoryBridge?: MemoryBridge;
+  private readonly memoryBridge?: MemoryContextBindingService;
   private readonly skillActivator?: SkillActivator;
   private readonly subagentSpawner?: ISubagentSpawner;
   private readonly checkpointService?: CheckpointService;
@@ -96,7 +96,7 @@ export class HarnessedAgent implements IAgent {
   private readonly budget?: BudgetAccountant;
   private readonly eventStore?: AgentEventStore;
   private readonly agentRegistry?: AgentRegistry;
-  private readonly taskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile;
+  private readonly taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
   private readonly outputSchemaValidator?: HarnessedAgentInit["outputSchemaValidator"];
   private readonly validateBusinessRules?: HarnessedAgentInit["validateBusinessRules"];
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
@@ -208,7 +208,7 @@ export class HarnessedAgent implements IAgent {
             budget?: BudgetAccountant;
             parent?: IAgent;
             spawner?: ISubagentSpawner;
-            taskProfile?: import("../../../ai-engine/llm/types/task-profile").TaskProfile;
+            taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
             outputSchemaValidator?: (
               output: unknown,
             ) => { ok: true } | { ok: false; issues: string };
@@ -398,3 +398,4 @@ export class HarnessedAgent implements IAgent {
     else this.state = "completed";
   }
 }
+

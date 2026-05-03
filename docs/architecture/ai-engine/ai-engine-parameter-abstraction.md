@@ -46,8 +46,8 @@ AI App 层直接传递模型特定参数（temperature, maxTokens），导致以
 
 | 组件                       | 位置                                          | 状态      |
 | -------------------------- | --------------------------------------------- | --------- |
-| `TaskProfile` 接口         | `llm/types/task-profile.ts`                   | ✅ 已实现 |
-| `TaskProfileMapperService` | `llm/services/task-profile-mapper.service.ts` | ✅ 已实现 |
+| `TaskProfile` 接口         | `llm/types/task-profile.types.ts`                   | ✅ 已实现 |
+| `TaskProfileMapperService` | `llm/services/task-profile.types-mapper.service.ts` | ✅ 已实现 |
 | `AIModelType` 枚举         | `schema.prisma:2342-2357`                     | ✅ 已使用 |
 | `getDefaultModelByType()`  | `ai-chat.service.ts`                          | ✅ 已实现 |
 | 统一调用入口 `chat()`      | `ai-chat.service.ts:4161`                     | ✅ 已实现 |
@@ -112,7 +112,7 @@ AI App 层直接传递模型特定参数（temperature, maxTokens），导致以
 ### 2.3 TaskProfile 接口设计
 
 ```typescript
-// backend/src/modules/ai-engine/llm/types/task-profile.ts
+// backend/src/modules/ai-engine/llm/types/task-profile.types.ts
 
 export type CreativityLevel =
   | "deterministic" // 分类、提取、JSON → temp ~0.1
@@ -237,7 +237,7 @@ async chat(options: {
 ### 3.1 UniversalLLMAdapter
 
 ```typescript
-// backend/src/modules/ai-engine/llm/adapters/universal-llm-adapter.ts
+// backend/src/modules/ai-engine/llm/adapters/universal-llm.adapter.ts
 
 async chat(options: LLMRequestOptions): Promise<LLMResponse> {
   // ★ 统一通过 aiChatService.chat() 调用
@@ -269,7 +269,7 @@ async chat(options: LLMRequestOptions): Promise<LLMResponse> {
 ### 3.2 FunctionCallingLLMAdapter
 
 ```typescript
-// backend/src/modules/ai-engine/llm/adapters/function-calling-llm-adapter.ts
+// backend/src/modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts
 
 async chat(options: LLMRequestOptions): Promise<LLMResponse> {
   const { messages, functions, temperature, maxTokens, model, taskProfile } = options;
@@ -378,9 +378,9 @@ const response = await this.aiChatService.chat({
 
 | 任务                  | 文件                                          | 状态      |
 | --------------------- | --------------------------------------------- | --------- |
-| 创建 TaskProfile 类型 | `llm/types/task-profile.ts`                   | ✅ 已完成 |
+| 创建 TaskProfile 类型 | `llm/types/task-profile.types.ts`                   | ✅ 已完成 |
 | 创建导出桶文件        | `llm/types/index.ts`                          | ✅ 已完成 |
-| 创建参数映射服务      | `llm/services/task-profile-mapper.service.ts` | ✅ 已完成 |
+| 创建参数映射服务      | `llm/services/task-profile.types-mapper.service.ts` | ✅ 已完成 |
 | 更新 chat() 方法      | `llm/services/ai-chat.service.ts`             | ✅ 已完成 |
 | 注册新服务            | `llm/llm.module.ts`                           | ✅ 已完成 |
 
@@ -461,11 +461,11 @@ temperature 和 maxTokens 的映射值经过代码审查验证，符合实际使
 
 | 文件类型                | 路径                                                                         |
 | ----------------------- | ---------------------------------------------------------------------------- |
-| TaskProfile 类型定义    | `backend/src/modules/ai-engine/llm/types/task-profile.ts`                    |
-| TaskProfile 映射服务    | `backend/src/modules/ai-engine/llm/services/task-profile-mapper.service.ts`  |
+| TaskProfile 类型定义    | `backend/src/modules/ai-engine/llm/types/task-profile.types.ts`                    |
+| TaskProfile 映射服务    | `backend/src/modules/ai-engine/llm/services/task-profile.types-mapper.service.ts`  |
 | AI Chat 服务            | `backend/src/modules/ai-engine/llm/services/ai-chat.service.ts`              |
-| Universal LLM 适配器    | `backend/src/modules/ai-engine/llm/adapters/universal-llm-adapter.ts`        |
-| Function Calling 适配器 | `backend/src/modules/ai-engine/llm/adapters/function-calling-llm-adapter.ts` |
+| Universal LLM 适配器    | `backend/src/modules/ai-engine/llm/adapters/universal-llm.adapter.ts`        |
+| Function Calling 适配器 | `backend/src/modules/ai-engine/llm/adapters/function-calling-llm.adapter.ts` |
 | 数据库 Schema           | `backend/prisma/schema.prisma:2342-2401`                                     |
 
 ### B. AIModelType 枚举值
@@ -507,8 +507,8 @@ enum AIModelType {
 | AI Engine   | `developer.agent.ts`              |
 | AI Engine   | `ai-core.controller.ts`           |
 | AI Engine   | `ai-core.service.ts`              |
-| AI Engine   | `function-calling-llm-adapter.ts` |
-| AI Engine   | `universal-llm-adapter.ts`        |
+| AI Engine   | `function-calling-llm.adapter.ts` |
+| AI Engine   | `universal-llm.adapter.ts`        |
 | AI Engine   | `ai-chat.service.ts`              |
 | AI Engine   | `function-calling-executor.ts`    |
 | AI Engine   | `agent-executor.service.ts`       |
@@ -516,3 +516,5 @@ enum AIModelType {
 | Content     | `collections.service.ts`          |
 | Content     | `notes.service.ts`                |
 | Integration | `wechat-work.service.ts`          |
+
+

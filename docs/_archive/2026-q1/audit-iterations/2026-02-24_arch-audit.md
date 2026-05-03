@@ -55,7 +55,7 @@
 
 | 文件                    | 行  | 违规 import                                                           | 修复建议                                                                                     |
 | ----------------------- | --- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `ask/adapters/index.ts` | 9   | `from "../../../ai-engine/llm/adapters/function-calling-llm-adapter"` | 将 `FunctionCallingLLMAdapter` 加入 `facade/index.ts` 导出，或通过 `AIEngineFacade` 方法调用 |
+| `ask/adapters/index.ts` | 9   | `from "../../../ai-engine/llm/adapters/function-calling-llm.adapter"` | 将 `FunctionCallingLLMAdapter` 加入 `facade/index.ts` 导出，或通过 `AIEngineFacade` 方法调用 |
 
 ---
 
@@ -84,13 +84,13 @@
 | `office/common/content-analysis.types.ts`                | 7      | `from "../../../ai-engine/content-analysis/content-analysis.types"`                               | 将类型加入 facade 导出                                                                                         |
 | `office/common/image-matching.service.ts`                | 11     | `from "../../../ai-engine/image/matching"`                                                        | 豁免文件，将 ImageMatchingService 加入 facade（豁免文件）                                                      |
 | `office/common/template-selection.types.ts`              | 21,27  | `from "../../../ai-engine/image/matching/image-matching.types"`                                   | 将 image-matching 类型加入 facade 导出                                                                         |
-| `office/slides/orchestrator/slides-team-member.ts`       | 8      | `from "@/modules/ai-engine/skills/registry/skill-registry"`                                       | `SkillRegistry` 已在 facade 导出，改为 facade 路径                                                             |
+| `office/slides/orchestrator/slides-team-member.ts`       | 8      | `from "@/modules/ai-engine/skills/registry/skill.registry"`                                       | `SkillRegistry` 已在 facade 导出，改为 facade 路径                                                             |
 | `office/slides/orchestrator/slides-team-orchestrator.ts` | 34     | `from "@/modules/ai-engine/skills"`                                                               | 从 facade 导入所需类型                                                                                         |
 | `office/slides/orchestrator/types.ts`                    | 8      | `from "@/modules/ai-engine/skills"`                                                               | 将 `ISkillOutputManager` 加入 facade 导出                                                                      |
 | `office/slides/services/ai-edit.service.ts`              | 34     | `from "@/modules/ai-engine/skills/abstractions/skill.interface"`                                  | 将 `SkillContext` 加入 facade 导出                                                                             |
-| `office/slides/skills/slides-skills.module.ts`           | 26,27  | `from "@/modules/ai-engine/skills/registry/skill-registry"` / `skills/runtime`                    | `SkillRegistry` 和 `PromptSkillBridge` 均已在 facade 导出                                                      |
+| `office/slides/skills/slides-skills.module.ts`           | 26,27  | `from "@/modules/ai-engine/skills/registry/skill.registry"` / `skills/runtime`                    | `SkillRegistry` 和 `PromptSkillBridge` 均已在 facade 导出                                                      |
 | `office/slides/skills/*.skill.ts` (多个)                 | 各一条 | `from "@/modules/ai-engine/skills"` 或 `skills/abstractions/skill.interface`                      | 豁免文件（\*.skill.ts），但这 9 个文件共引用了 9 条直接路径                                                    |
-| `office/slides/skills/data-supplement.skill.ts`          | 18,19  | `from "../../../../ai-engine/tools/registry/tool-registry"` / `tools/abstractions/tool.interface` | 豁免文件；`ToolRegistry` 和 `ToolContext` 已在 facade 导出                                                     |
+| `office/slides/skills/data-supplement.skill.ts`          | 18,19  | `from "../../../../ai-engine/tools/registry/tool.registry"` / `tools/abstractions/tool.interface` | 豁免文件；`ToolRegistry` 和 `ToolContext` 已在 facade 导出                                                     |
 | `office/teams/report-team.config.ts`                     | 12-16  | 5 条 teams/abstractions、teams/constraints、core/types                                            | 豁免文件；BUILTIN_ROLES、BUILTIN_TOOLS、TeamConfig、WorkflowConfig、createConstraintProfile 均已在 facade 导出 |
 | `office/teams/slides-team.config.ts`                     | 19-23  | 同上 5 条                                                                                         | 同上                                                                                                           |
 | `office/teams/visual-design-team.config.ts`              | 20-24  | 同上 5 条                                                                                         | 同上                                                                                                           |
@@ -164,7 +164,7 @@
 | `teams/services/ai/context-router.service.ts`                            | 24,30       | 同上两条                                                                            | 同上                                                                            |
 | `teams/services/ai/leader-model.service.ts`                              | 12,13       | `ai-engine/llm/model-fallback`、`ai-engine/llm`                                     | 将 `ModelFallbackOptions`、`AIModelConfig` 加入 facade 导出                     |
 | `teams/services/ai/teams-long-content.service.ts`                        | 20          | `from "../../../../ai-engine/long-content"`                                         | 通过 facade.longContentEngine 访问                                              |
-| `teams/services/collaboration/mission/mission-ai-caller.service.ts`      | 19          | `from "../../../../../ai-engine/llm/types/task-profile"`                            | `TaskProfile` 已在 facade 导出                                                  |
+| `teams/services/collaboration/mission/mission-ai-caller.service.ts`      | 19          | `from "../../../../../ai-engine/llm/types/task-profile.types"`                            | `TaskProfile` 已在 facade 导出                                                  |
 | `teams/services/collaboration/mission/mission-execution.service.ts`      | 23,25,26    | `TaskProfile`、`ToolRegistry`、`ToolContext`                                        | 均已在 facade 导出                                                              |
 | `teams/services/collaboration/mission/mission-review.service.ts`         | 41          | `from "../../../../../ai-engine/orchestration/services"`                            | 通过 facade 访问                                                                |
 | `teams/services/collaboration/mission/mission-state.manager.ts`          | 15          | `from "@/modules/ai-engine/orchestration/state-machine"`                            | 将 state-machine 类型加入 facade 导出                                           |
@@ -215,7 +215,7 @@
 - `AgentRegistry` — 已在 facade 导出，但 `research.module.ts`、`simulation/ai-simulation.module.ts`、`teams/ai-teams.module.ts`、`image/ai-image.module.ts` 仍走 `ai-engine/agents/registry`
 - `TeamRegistry` / `RoleRegistry` — 已在 facade 导出，但 `office.module.ts`、`planning.module.ts`、`teams/ai-teams.module.ts`、`writing/services/mission/writing-agent-coordinator.service.ts` 等仍走内部路径
 - `SkillRegistry` — 已在 facade 导出，但 `slides-skills.module.ts` 仍走内部路径
-- `ToolRegistry` / `ToolContext` / `ITool` — 已在 facade 导出，但大量 teams/topic-insights/research 文件仍走 `tools/registry/tool-registry` 直接路径
+- `ToolRegistry` / `ToolContext` / `ITool` — 已在 facade 导出，但大量 teams/topic-insights/research 文件仍走 `tools/registry/tool.registry` 直接路径
 - `TaskProfile` — 已在 facade 导出，但 `writing/services/quality/` 下多个文件仍走 `llm/types`
 - `TeamConfig`、`WorkflowConfig`、`BUILTIN_ROLES`、`BUILTIN_TOOLS`、`createConstraintProfile`、`MissionEvent` — 均已在 facade 导出，但 config 文件（豁免）仍走内部路径
 
@@ -474,3 +474,5 @@ TaskProfile, TeamConfig, ITeam, WorkflowConfig, ConstraintProfile,
 BUILTIN_ROLES, BUILTIN_TOOLS, createConstraintProfile, MissionEvent,
 ToolContext, ITool, PromptSkillBridge
 ```
+
+

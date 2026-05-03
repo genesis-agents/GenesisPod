@@ -2,9 +2,9 @@
  * Tests for ToolError
  */
 
-import { ToolError } from "../tool-error";
-import { EngineError } from "@/modules/ai-engine/facade/abstractions/base-error";
-import { ToolErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes";
+import { ToolError } from "../tool.error";
+import { EngineError } from "@/modules/ai-engine/facade/abstractions/engine.error";
+import { ToolErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes.constants";
 
 describe("ToolError", () => {
   describe("constructor", () => {
@@ -291,3 +291,4 @@ describe("ToolError", () => {
     });
   });
 });
+

@@ -41,3 +41,5 @@ describe("SkillLoader (built-in skills)", () => {
     expect(registry.has("critical-review")).toBe(true);
   });
 });
+
+

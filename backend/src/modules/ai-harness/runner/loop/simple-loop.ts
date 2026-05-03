@@ -37,7 +37,7 @@ import {
   type ChatMessage,
 } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AIModelType } from "@prisma/client";
-import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
+import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 
 export interface SimpleLoopRunOptions extends ILoopRunOptions {
@@ -283,3 +283,4 @@ export class SimpleLoop implements IAgentLoop {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
+

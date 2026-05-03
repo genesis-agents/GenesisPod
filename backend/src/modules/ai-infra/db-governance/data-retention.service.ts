@@ -25,99 +25,10 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-
-interface RetentionRule {
-  table: string;
-  /** 保留天数 */
-  retentionDays: number;
-  /** 时间戳字段名 */
-  timestampColumn: string;
-  /** DELETE 还是 UPDATE */
-  action: "delete" | "update";
-  /** UPDATE 时的 SET 子句 */
-  updateSet?: string;
-  /** 额外 WHERE 条件 */
-  extraWhere?: string;
-  /** 描述 */
-  description: string;
-}
-
-const RETENTION_RULES: RetentionRule[] = [
-  {
-    table: "ai_engine_metrics",
-    retentionDays: 30,
-    timestampColumn: "created_at",
-    action: "delete",
-    description: "AI 模型调用指标",
-  },
-  {
-    table: "research_agent_activities",
-    retentionDays: 30,
-    timestampColumn: "created_at",
-    action: "delete",
-    description: "Agent 活动日志",
-  },
-  {
-    table: "ai_usage_logs",
-    retentionDays: 30,
-    timestampColumn: "created_at",
-    action: "delete",
-    description: "AI 使用日志",
-  },
-  {
-    table: "process_events",
-    retentionDays: 14,
-    timestampColumn: "created_at",
-    action: "delete",
-    description: "进程事件",
-  },
-  {
-    table: "secret_access_logs",
-    retentionDays: 30,
-    timestampColumn: "timestamp",
-    action: "delete",
-    description: "密钥访问日志",
-  },
-  {
-    table: "mission_logs",
-    retentionDays: 30,
-    timestampColumn: "created_at",
-    action: "delete",
-    description: "任务日志",
-  },
-  {
-    table: "leader_decisions",
-    retentionDays: 30,
-    timestampColumn: "created_at",
-    action: "delete",
-    description: "Leader 决策记录",
-  },
-  {
-    table: "credit_transactions",
-    retentionDays: 90,
-    timestampColumn: "created_at",
-    action: "delete",
-    description: "积分流水",
-  },
-  {
-    table: "research_tasks",
-    retentionDays: 30,
-    timestampColumn: "created_at",
-    action: "update",
-    updateSet: `result = '{}', result_summary = NULL`,
-    extraWhere: `status = 'FAILED'`,
-    description: "失败任务 — 清空 result JSON",
-  },
-  {
-    table: "research_tasks",
-    retentionDays: 60,
-    timestampColumn: "created_at",
-    action: "update",
-    updateSet: `result = '{}'`,
-    extraWhere: `status = 'COMPLETED' AND result IS NOT NULL AND result::text != '{}'`,
-    description: "完成任务 — 清空 result JSON（保留 summary）",
-  },
-];
+import {
+  DATA_RETENTION_RULES,
+  DataRetentionRule,
+} from "./policies/data-retention-rule.catalog";
 
 @Injectable()
 export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
@@ -156,7 +67,7 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
     const results: { table: string; affected: number }[] = [];
     const startTime = Date.now();
 
-    for (const rule of RETENTION_RULES) {
+    for (const rule of DATA_RETENTION_RULES) {
       try {
         const affected = await this.applyRule(rule);
         results.push({ table: rule.table, affected });
@@ -200,7 +111,7 @@ export class DataRetentionService implements OnModuleInit, OnModuleDestroy {
     return results;
   }
 
-  private async applyRule(rule: RetentionRule): Promise<number> {
+  private async applyRule(rule: DataRetentionRule): Promise<number> {
     const whereClause = [
       `"${rule.timestampColumn}" < NOW() - INTERVAL '${rule.retentionDays} days'`,
       rule.extraWhere,

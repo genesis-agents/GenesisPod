@@ -18,8 +18,8 @@
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { AgentRegistry } from "@/modules/ai-harness/agents/registry/plan-based-agent-registry";
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
-import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
+import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
 import { AiChatModelConfigService } from "@/modules/ai-engine/llm/services/ai-chat-model-config.service";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
@@ -430,3 +430,7 @@ export class RuntimeEnvironmentService {
 function isValidCostTier(value: string | null | undefined): boolean {
   return value === "basic" || value === "standard" || value === "strong";
 }
+
+
+
+

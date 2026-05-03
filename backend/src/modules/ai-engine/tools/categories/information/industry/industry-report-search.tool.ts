@@ -13,7 +13,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { BaseTool } from "../../../base/base-tool";
-import { ToolRegistry } from "../../../registry/tool-registry";
+import { ToolRegistry } from "../../../registry/tool.registry";
 import {
   ToolContext,
   JSONSchema,
@@ -296,3 +296,4 @@ export class IndustryReportSearchTool extends BaseTool<
       : enabled;
   }
 }
+

@@ -1,5 +1,5 @@
 /**
- * external-content-wrapper.util.ts unit tests
+ * external-content-wrapper.utils.ts unit tests
  * Covers: wrapExternalContent, wrapExternalContentBatch,
  *         getExternalContentNotice, EXTERNAL_CONTENT_SYSTEM_NOTICE_*
  */
@@ -9,7 +9,7 @@ import {
   getExternalContentNotice,
   EXTERNAL_CONTENT_SYSTEM_NOTICE_ZH,
   EXTERNAL_CONTENT_SYSTEM_NOTICE_EN,
-} from "../external-content-wrapper.util";
+} from "../external-content-wrapper.utils";
 
 describe("wrapExternalContent", () => {
   it("wraps content in external_source tags", () => {

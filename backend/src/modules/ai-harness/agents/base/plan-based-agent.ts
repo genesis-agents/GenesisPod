@@ -10,16 +10,18 @@
 
 import {
   AgentId,
-  BuiltinAgentId,
   ToolId,
-  BUILTIN_AGENTS,
-  AGENT_CONFIGS,
   AgentInput,
   AgentPlan,
   AgentEvent,
   AgentTemplate,
   AgentConfig,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  AGENT_CONFIGS,
+  BUILTIN_AGENTS,
+  type BuiltinAgentId,
+} from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
 
 /**
  * Plan-Based Agent 接口
@@ -212,7 +214,6 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
 // 重导出常用类型
 export {
   AgentId,
-  BuiltinAgentId,
   ToolId,
   BUILTIN_AGENTS,
   AGENT_CONFIGS,
@@ -222,3 +223,4 @@ export {
   AgentTemplate,
   AgentConfig,
 };
+export type { BuiltinAgentId };

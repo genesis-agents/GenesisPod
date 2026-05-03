@@ -143,7 +143,7 @@ All `temperature: 0.x` occurrences are either:
 
 - Comments documenting what was replaced (e.g., `// (mapped from temperature: 0.7)`)
 - Engine-internal AI connection test service (`temperature: 0` for deterministic connection tests -- engine exception)
-- JSDoc code examples in `task-profile.ts`
+- JSDoc code examples in `task-profile.types.ts`
 
 No raw `temperature:` or `maxTokens:` values exist in ai-app production code.
 
@@ -772,3 +772,4 @@ _Scoring Model: v2.0 (12 Dimensions, 100 points)_
 _v2.0 Baseline Established: 2026-02-26_
 _Next Recommended Audit: 2026-03-26_
 _Report Tool: Arch Auditor Agent v2.0_
+

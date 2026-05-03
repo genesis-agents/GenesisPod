@@ -272,7 +272,7 @@ if (config.enableParallel && executableSteps.length > 1) {
 - `slides-content-expansion`: 内容扩展
 - `dimension-research`: 维度研究
 
-**注册位置**: `backend/src/modules/ai-engine/skills/registry/skill-registry.ts`
+**注册位置**: `backend/src/modules/ai-engine/skills/registry/skill.registry.ts`
 
 ---
 
@@ -294,7 +294,7 @@ if (config.enableParallel && executableSteps.length > 1) {
 - `export-docx`: 导出 Word
 - `export-pdf`: 导出 PDF
 
-**注册位置**: `backend/src/modules/ai-engine/tools/registry/tool-registry.ts`
+**注册位置**: `backend/src/modules/ai-engine/tools/registry/tool.registry.ts`
 
 ---
 
@@ -436,3 +436,4 @@ export class DataCleaningSkill extends BaseSkill {
 **最后更新**: 2026-01-15
 **维护者**: AI Teams Core Team
 **反馈渠道**: GitHub Issues
+

@@ -21,7 +21,7 @@ import type {
   IParallelToolCallAction,
   IToolCallAction,
 } from "../../agents/abstractions";
-import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
 import { ToolCircuitBreaker } from "./tool-circuit-breaker";
 import { AgentTracer } from "../../tracing/tracer/otel-tracer";
@@ -375,3 +375,6 @@ export class ToolInvoker {
     };
   }
 }
+
+
+

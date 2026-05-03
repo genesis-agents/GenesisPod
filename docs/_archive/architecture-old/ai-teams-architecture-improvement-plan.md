@@ -540,7 +540,7 @@ backend/src/modules/ai/ai-teams/
 ├── services/topic/__tests__/
 │   ├── topic-crud.service.spec.ts
 │   └── topic-membership.service.spec.ts
-└── constants/error-codes.ts
+└── constants/error-codes.constants.ts
 
 backend/src/common/
 ├── observability/
@@ -586,7 +586,7 @@ backend/src/modules/webhooks/
 | 措施       | 实施方式                            |
 | ---------- | ----------------------------------- |
 | 服务分层   | Controller → Orchestrator → Service |
-| 统一错误码 | 创建error-codes.ts                  |
+| 统一错误码 | 创建error-codes.constants.ts                  |
 | README文档 | 每个服务目录添加README              |
 
 ### Observability（可观测性）
@@ -671,3 +671,4 @@ services/
 - [AI Teams 核心能力构建业务系统分析方案](./ai-teams-core-integration-plan.md)
 - [AI Teams 服务 README](../../backend/src/modules/ai/ai-teams/services/__README__.md)
 - [AI Teams 重构总结](../../backend/src/modules/ai/ai-teams/REFACTORING_SUMMARY.md)
+

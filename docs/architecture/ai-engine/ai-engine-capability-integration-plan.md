@@ -508,7 +508,7 @@ backend/src/modules/ai-engine/
 ├── evidence/
 │   ├── services/
 │   │   ├── evidence-manager.service.ts      # 证据管理
-│   │   └── citation-formatter.service.ts    # 引用格式化
+│   │   └── citation-formatting.utils.service.ts    # 引用格式化
 │   └── abstractions/
 │       └── evidence.interface.ts            # 接口定义
 ```
@@ -533,3 +533,4 @@ backend/src/modules/ai-app/
 **文档版本**: 1.0
 **创建日期**: 2026-02-03
 **作者**: Claude Code
+

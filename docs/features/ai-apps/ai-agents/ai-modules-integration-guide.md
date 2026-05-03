@@ -206,7 +206,7 @@ backend/src/modules/ai/ai-agents/
 │   │   └── guardrails.ts           # 输入/输出过滤
 │   │
 │   └── errors/                     # 错误系统
-│       └── tool-error.ts           # 统一错误类型
+│       └── tool.error.ts           # 统一错误类型
 │
 ├── implementations/                # 4 个专业 Agent 实现
 │   ├── slides/                     # PPT 生成 Agent
@@ -258,7 +258,7 @@ backend/src/modules/ai/ai-agents/
 | **LLMAdapter**              | `core/llm/llm-adapter.ts`                     | 多模型适配器                   |
 | **ShortTermMemory**         | `core/memory/short-term.memory.ts`            | 会话级记忆                     |
 | **LongTermMemory**          | `core/memory/long-term.memory.ts`             | 持久化记忆                     |
-| **ToolError**               | `core/errors/tool-error.ts`                   | 统一错误类型                   |
+| **ToolError**               | `core/errors/tool.error.ts`                   | 统一错误类型                   |
 
 ### 3.3 类型系统详解
 
@@ -1467,7 +1467,7 @@ toolRegistry.registerMany([
 ai-agents 使用统一的 `ToolError` 类进行错误处理，错误码按类别分层：
 
 ```typescript
-// 文件: core/errors/tool-error.ts
+// 文件: core/errors/tool.error.ts
 export enum ToolErrorCode {
   // ═══════════════════════════════════════════════════════════════
   // 验证错误 (1xxx) - 不可重试
@@ -1926,7 +1926,7 @@ import {
   isRetryableError,
   shouldRetry,
   getRetryDelay,
-} from "@/modules/ai/ai-agents/core/errors/tool-error";
+} from "@/modules/ai/ai-agents/core/errors/tool.error";
 
 // ════════════════════════════════════════════════════════════════════════════
 // 验证系统 (core/validation/)
@@ -2123,3 +2123,4 @@ process.env.DEBUG = 'ai-agents:*';
 | v1.0 | 2025-12-19 | Architecture Team | 初始版本发布                                                                                                                                                                             |
 | v2.0 | 2025-12-19 | Architecture Team | 更新实际整合状态：ai-ask 已完成整合；添加 ai-agents 核心能力清单和工具分类统计；更新模块依赖关系图；添加协作工具列表；更新路线图进度                                                     |
 | v3.0 | 2025-12-19 | Architecture Team | 全面改进：新增第3章"核心架构详解"（目录结构、类型系统、执行流程）；新增第11章"错误处理与最佳实践"（错误码体系、重试策略、性能优化）；更新附录A导入路径；新增附录C FAQ；新增附录D调试指南 |
+

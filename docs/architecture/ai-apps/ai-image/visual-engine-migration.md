@@ -97,14 +97,14 @@ backend/src/modules/ai-engine/visual/
 │   ├── abstractions/
 │   │   └── image-adapter.interface.ts  # IImageAdapter 接口
 │   ├── adapters/
-│   │   ├── base-image-adapter.ts       # 基础适配器
-│   │   ├── openai-image-adapter.ts     # OpenAI DALL-E
-│   │   ├── stability-image-adapter.ts  # Stability AI
-│   │   ├── gemini-image-adapter.ts     # Google Gemini
-│   │   ├── together-image-adapter.ts   # Together FLUX
+│   │   ├── base-image.adapter.ts       # 基础适配器
+│   │   ├── openai-image.adapter.ts     # OpenAI DALL-E
+│   │   ├── stability-image.adapter.ts  # Stability AI
+│   │   ├── gemini-image.adapter.ts     # Google Gemini
+│   │   ├── together-image.adapter.ts   # Together FLUX
 │   │   └── grok-image-adapter.ts       # Grok Vision
 │   ├── factory/
-│   │   └── image-factory.ts            # 适配器工厂
+│   │   └── image.factory.ts            # 适配器工厂
 │   ├── services/
 │   │   ├── image-engine.service.ts     # 核心引擎服务
 │   │   └── prompt-enhancement.service.ts # Prompt 增强
@@ -432,7 +432,7 @@ export interface IVideoAdapter {
 // backend/src/modules/ai-engine/visual/facade/visual-engine.facade.ts
 
 import { Injectable } from "@nestjs/common";
-import { ImageFactory } from "../image/factory/image-factory";
+import { ImageFactory } from "../image/factory/image.factory";
 import { VideoFactory } from "../video/factory/video-factory";
 import { InfographicEngineService } from "../infographic/services/infographic-engine.service";
 import { VisualTeamService } from "../shared/4-agent-team/visual-team.service";
@@ -732,7 +732,7 @@ mkdir -p backend/src/modules/ai-engine/visual/{core,image,video,infographic,shar
 backend/src/modules/ai-engine/visual/visual.module.ts
 backend/src/modules/ai-engine/visual/core/visual.types.ts
 backend/src/modules/ai-engine/visual/image/abstractions/image-adapter.interface.ts
-backend/src/modules/ai-engine/visual/image/factory/image-factory.ts
+backend/src/modules/ai-engine/visual/image/factory/image.factory.ts
 backend/src/modules/ai-engine/visual/facade/visual-engine.facade.ts
 ```
 
@@ -1371,3 +1371,5 @@ FFMPEG_PATH=/usr/bin/ffmpeg
 **文档版本**: 1.0
 **最后更新**: 2026-01-25
 **作者**: Claude Code
+
+

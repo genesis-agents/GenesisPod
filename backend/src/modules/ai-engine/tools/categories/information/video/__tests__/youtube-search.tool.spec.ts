@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { YouTubeSearchTool } from "../youtube-search.tool";
-import { ToolRegistry } from "../../../../registry/tool-registry";
+import { ToolRegistry } from "../../../../registry/tool.registry";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 
 function makeContext(): ToolContext {
@@ -136,3 +136,4 @@ describe("YouTubeSearchTool", () => {
     });
   });
 });
+

@@ -16,7 +16,7 @@ import { ModelRecommendationsService } from "../selection/model-recommendations.
 import {
   EXCLUDED_MODEL_SUBSTRINGS,
   PROVIDER_PREFERENCE_BY_TYPE,
-} from "../selection/default-recommendations";
+} from "../selection/default-recommendations.config";
 
 export interface AutoConfigureResult {
   createdCount: number;
@@ -555,3 +555,4 @@ export class AutoConfigureService {
     };
   }
 }
+

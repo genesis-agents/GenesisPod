@@ -184,7 +184,7 @@ backend/src/
 │   │   ├── llm/                 # LLM 核心服务
 │   │   │   ├── services/
 │   │   │   │   ├── ai-chat.service.ts           # 统一聊天接口
-│   │   │   │   └── task-profile-mapper.service.ts # 任务参数映射
+│   │   │   │   └── task-profile.types-mapper.service.ts # 任务参数映射
 │   │   │   ├── adapters/        # LLM 适配器
 │   │   │   ├── model-fallback/  # 模型降级
 │   │   │   └── types/           # TaskProfile 定义
@@ -461,3 +461,4 @@ services:
 **最后更新**: 2026-01-15
 **维护者**: Genesis Team
 **版本**: 2.0
+

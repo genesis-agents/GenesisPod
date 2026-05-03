@@ -3,7 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { SkillRegistry } from "../skill-registry";
+import { SkillRegistry } from "../skill.registry";
 import {
   ISkill,
   SkillLayer,
@@ -778,3 +778,4 @@ describe("SkillRegistry", () => {
     });
   });
 });
+

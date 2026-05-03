@@ -168,7 +168,7 @@ imports: [ResearchModule, AiWritingModule, ...]
 | --------------------------------------------------- | ------------------ | ---------------------------- |
 | `llm/services/ai-stream-handler.service.ts`         | 5.6% (4/71 stmts)  | 有测试但大量分支未覆盖       |
 | `llm/services/ai-image-generation.service.ts`       | 5.6% (5/89 stmts)  | 测试仅覆盖初始化路径         |
-| `llm/services/task-profile-mapper.service.ts`       | 5.5% (3/54 stmts)  | 映射逻辑几乎未测             |
+| `llm/services/task-profile.types-mapper.service.ts`       | 5.5% (3/54 stmts)  | 映射逻辑几乎未测             |
 | `observability/trace-collector.service.ts`          | 4.7% (6/128 stmts) | 关键 trace 创建/关闭逻辑未测 |
 | `orchestration/services/circuit-breaker.service.ts` | 2.1% (5/234 stmts) | 熔断逻辑（状态转换）未测     |
 
@@ -542,3 +542,4 @@ AiTeamsModule (现有，35 providers)
 _评估完成时间: 2026-02-24_
 _下次建议评估时间: 2026-03-24_
 _工具: Arch Auditor Agent v1.0_
+

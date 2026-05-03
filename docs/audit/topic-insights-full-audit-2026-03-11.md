@@ -369,7 +369,7 @@ const isRailway = origin?.endsWith(".railway.app");
 
 **结论：满分，可观测性体系完整。**
 
-**Logger 覆盖**：65 个 service 文件中 62 个有 `private readonly logger = new Logger(...)` 实例（95.4%）。3 个无 Logger 的文件（`research-strategy.service.ts`、`topic-schedule.service.ts`、`citation-formatter.service.ts`）均为轻量工具类，无需日志。
+**Logger 覆盖**：65 个 service 文件中 62 个有 `private readonly logger = new Logger(...)` 实例（95.4%）。3 个无 Logger 的文件（`research-strategy.service.ts`、`topic-schedule.service.ts`、`citation-formatting.utils.service.ts`）均为轻量工具类，无需日志。
 
 **Trace 集成**：`MissionObservabilityService` 封装了 `TraceCollectorService`，提供 `startTrace()`、`addSpan()`，可选注入（`@Optional()`），降级不影响正常运行。
 
@@ -465,3 +465,4 @@ _评分模型: v2.0 (12 维度)_
 _前次审计: `topic-insights-audit-2026-03-07.md` (不可直接比较，范围不同)_
 _下次建议审计: 2026-04-11_
 _报告工具: Arch Auditor Agent v2.0_
+

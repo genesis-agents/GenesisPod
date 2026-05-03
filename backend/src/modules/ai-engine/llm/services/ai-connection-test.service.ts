@@ -2,7 +2,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AiModelConfigService } from "./ai-model-config.service";
-import { inferIsReasoning } from "../types/model-utils";
+import { inferIsReasoning } from "../types/model.utils";
 
 /**
  * AI Connection Test Service
@@ -28,7 +28,7 @@ export class AiConnectionTestService {
    * 推断模型是否为推理模型（用于 tokenParamName 决策）
    *
    * 优先走 modelConfigService（读 DB + 缓存），DI 未完整时回落到
-   * types/model-utils.ts 的统一名单——不再维护本地 fallback 副本，
+   * types/model.utils.ts 的统一名单——不再维护本地 fallback 副本，
    * 避免多份"推理模型名单"漂移。
    */
   private inferIsReasoning(modelId: string): boolean {
@@ -876,3 +876,4 @@ export class AiConnectionTestService {
     }
   }
 }
+

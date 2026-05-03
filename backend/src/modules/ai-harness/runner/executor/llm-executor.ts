@@ -23,7 +23,7 @@ import type { z } from "zod";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiObservabilityService } from "../../../ai-harness/tracing/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
-import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
+import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { AIModelType } from "@prisma/client";
 
 // ============ 契约 ============
@@ -371,3 +371,4 @@ export class LlmExecutor {
     );
   }
 }
+

@@ -8,7 +8,7 @@ import {
   ValidationMiddleware,
   createValidationMiddleware,
 } from "../validation.middleware";
-import { ValidationError } from "@/modules/ai-engine/facade/abstractions/base-error";
+import { ValidationError } from "@/modules/ai-engine/facade/abstractions/engine.error";
 import {
   ITool,
   ToolCategory,
@@ -743,3 +743,4 @@ describe("sideEffect coverage audit", () => {
     expect(missing).toHaveLength(0);
   });
 });
+

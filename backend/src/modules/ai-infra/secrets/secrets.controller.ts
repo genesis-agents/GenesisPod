@@ -23,7 +23,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { SecretsService } from "./secrets.service";
 import { CreateSecretDto } from "./dto/create-secret.dto";
 import { UpdateSecretDto } from "./dto/update-secret.dto";
-import { SecretNameValidationPipe } from "./dto/secret-name.param";
+import { SecretNameValidationPipe } from "./dto/secret-name-validation.pipe";
 import { Throttle } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";

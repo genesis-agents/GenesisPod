@@ -9,7 +9,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { SocialXSearchTool } from "../social-x-search.tool";
-import { ToolRegistry } from "../../../../registry/tool-registry";
+import { ToolRegistry } from "../../../../registry/tool.registry";
 import { ToolContext } from "../../../../abstractions/tool.interface";
 
 function makeContext(): ToolContext {
@@ -165,3 +165,4 @@ describe("SocialXSearchTool", () => {
     });
   });
 });
+

@@ -1,5 +1,5 @@
 /**
- * formatting-pipeline — supplemental branch coverage
+ * dimension-content-formatting.utils — supplemental branch coverage
  *
  * Targets:
  *  - formatDimensionContent optional context branches:
@@ -22,7 +22,7 @@ import {
   normalizeTableDataRows,
   removeOrphanedFigureReferences,
   fixUnbalancedLatexDelimiters,
-} from "../formatting-pipeline";
+} from "../dimension-content-formatting.utils";
 
 // ─────────────────────────────────────────────────────────────────
 // formatDimensionContent — context branch coverage
@@ -444,3 +444,4 @@ describe("fixUnbalancedLatexDelimiters", () => {
     expect(result).toBe(content);
   });
 });
+

@@ -1357,7 +1357,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
 // ai-engine/skills/runtime/prompt-skill-bridge.service.ts
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { SkillRegistry } from "../registry/skill-registry";
+import { SkillRegistry } from "../registry/skill.registry";
 import { SkillLoaderService } from "../loader/skill-loader.service";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { AIEngineFacade } from "../../facade/ai-engine.facade";
@@ -3224,3 +3224,4 @@ describe("Slides Skill Migration", () => {
 _文档状态: Final Draft v3.0 (Reviewed + Competitive Analysis + Eco Enhancement)_
 _最后更新: 2026-02-08_
 _评审状态: 经过三轮系统性评审，综合业界生态调研，补充竞争力增强路线图_
+

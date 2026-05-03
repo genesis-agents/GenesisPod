@@ -21,7 +21,7 @@ import type {
   CheckpointStore,
   VerificationStore,
   TaskStore,
-} from "../env/stores";
+} from "../env/runner-stores.interface";
 import {
   HumanInLoopPause,
   type AgentAction,

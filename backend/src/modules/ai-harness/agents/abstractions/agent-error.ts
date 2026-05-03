@@ -4,8 +4,8 @@
  */
 
 import { JsonObject } from "@/modules/ai-engine/facade/abstractions/common.types";
-import { EngineError } from "@/modules/ai-engine/facade/abstractions/base-error";
-import { AgentErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes";
+import { EngineError } from "@/modules/ai-engine/facade/abstractions/engine.error";
+import { AgentErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes.constants";
 
 /**
  * Agent 错误
@@ -315,3 +315,4 @@ export class AgentError extends EngineError {
     return AgentError.fromError(error, code, agentId ? { agentId } : undefined);
   }
 }
+

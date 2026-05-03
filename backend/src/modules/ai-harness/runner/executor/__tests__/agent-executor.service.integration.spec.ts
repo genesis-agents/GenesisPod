@@ -16,7 +16,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { AgentExecutorService } from "../agent-executor.service";
 import { AiChatService } from "../../../../ai-engine/llm/services/ai-chat.service";
-import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool.registry";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
 describe("AgentExecutorService (expanded)", () => {
@@ -647,3 +647,6 @@ describe("AgentExecutorService (expanded)", () => {
     });
   });
 });
+
+
+

@@ -207,7 +207,7 @@ agents/
 
 说明：
 
-- `skill-registry.ts` 语义降级为 catalog/source
+- `skill.registry.ts` 语义降级为 catalog/source
 - `built-in/` 更适合改为 `packs/`
 
 ### 4.3 ai-engine/facade/abstractions
@@ -285,7 +285,7 @@ agents/
 
 | 文件/目录                                                                                           | 分类             | 当前问题                                                                                         | 目标位置/目标语义                                | 动作                                         | 优先级 | 波次 |
 | --------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------ | -------------------------------------------- | ------ | ---- |
-| `backend/src/modules/ai-harness/agents/builtin-skills/skill-registry.ts`                            | D 过渡残留       | 仍承担 registry 命名与主线语义，和 engine 主注册中心并存                                         | `catalog/` 或 `source/` 语义                     | rename + API 收窄 + 调整引用                 | P0     | W20  |
+| `backend/src/modules/ai-harness/agents/builtin-skills/skill.registry.ts`                            | D 过渡残留       | 仍承担 registry 命名与主线语义，和 engine 主注册中心并存                                         | `catalog/` 或 `source/` 语义                     | rename + API 收窄 + 调整引用                 | P0     | W20  |
 | `backend/src/modules/ai-harness/agents/builtin-skills/skill-loader.ts`                              | B 领域装配       | 当前围绕旧 registry 语义组织                                                                     | `builtin-skills/loader/`                         | move + import rewrite                        | P1     | W22  |
 | `backend/src/modules/ai-harness/agents/builtin-skills/skill-activator.ts`                           | B 领域装配       | fallback 到 engine 主 SkillRegistry，但边界仍偏过渡态                                            | `builtin-skills/activator/`                      | move + contract 对齐                         | P1     | W22  |
 | `backend/src/modules/ai-harness/agents/builtin-skills/built-in/`                                    | D 过渡残留       | `built-in` 目录表达弱，不利于区分 runtime core 与 skill packs                                    | `builtin-skills/packs/`                          | rename subtree + import rewrite              | P1     | W22  |
@@ -398,3 +398,4 @@ agents/
 4. 测试后缀白名单落地
 5. 定制代码已完成归类和归位
 6. 标准文档、架构文档、整改清单一致
+

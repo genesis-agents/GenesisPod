@@ -1,5 +1,5 @@
 /**
- * sanitize-output.util.ts 单元测试
+ * sanitize-output.utils.ts 单元测试
  */
 import {
   sanitizeSectionOutput,
@@ -15,7 +15,7 @@ import {
   fixOrdinalBoldPosition,
   convertLongListItemsToParagraphs,
   removeOrphanCitations,
-} from "../sanitize-output.util";
+} from "../sanitize-output.utils";
 
 describe("sanitizeSectionOutput", () => {
   it("should return empty string for falsy input", () => {

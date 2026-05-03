@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreditTransactionType, Prisma } from "@prisma/client";
 import { CreditRulesService } from "./policy/credit-rules.service";
+import { CREDIT_TRANSACTION_TYPE_BY_MODULE } from "./policy/credit-transaction-type.catalog";
 import {
   InsufficientCreditsException,
   AccountFrozenException,
@@ -600,26 +601,10 @@ export class CreditsService implements OnModuleInit {
    * 根据模块类型获取交易类型
    */
   private getTransactionType(moduleType: string): CreditTransactionType {
-    const typeMap: Record<string, CreditTransactionType> = {
-      "ai-ask": CreditTransactionType.AI_ASK,
-      "ai-engine": CreditTransactionType.ADJUSTMENT,
-      "ai-teams": CreditTransactionType.AI_TEAMS,
-      "ai-planning": CreditTransactionType.AI_PLANNING,
-      explore: CreditTransactionType.EXPLORE,
-      "ai-office": CreditTransactionType.AI_OFFICE,
-      "ai-simulation": CreditTransactionType.AI_SIMULATION,
-      "ai-writing": CreditTransactionType.AI_WRITING,
-      "ai-image": CreditTransactionType.AI_IMAGE,
-      "ai-social": CreditTransactionType.AI_SOCIAL,
-      "deep-research": CreditTransactionType.AI_RESEARCH,
-      "topic-insights": CreditTransactionType.AI_INSIGHTS,
-      "notebook-research": CreditTransactionType.NOTEBOOK_RESEARCH,
-      library: CreditTransactionType.LIBRARY,
-      notes: CreditTransactionType.NOTES,
-      collections: CreditTransactionType.COLLECTIONS,
-    };
-
-    return typeMap[moduleType] || CreditTransactionType.ADJUSTMENT;
+    return (
+      CREDIT_TRANSACTION_TYPE_BY_MODULE[moduleType] ||
+      CreditTransactionType.ADJUSTMENT
+    );
   }
 
   /**

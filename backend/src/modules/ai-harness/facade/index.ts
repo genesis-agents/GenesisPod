@@ -12,6 +12,11 @@
 // Kernel：abstractions + core + dx
 // ════════════════════════════════════════════════════════════════════
 export * from "../agents/abstractions";
+export {
+  BUILTIN_AGENTS,
+  AGENT_CONFIGS,
+  type BuiltinAgentId,
+} from "../agents/domain";
 export { AgentFactory } from "../agents/core/agent-factory";
 export { SpecAgentRegistry } from "../agents/core/spec-agent-registry";
 export { BuiltinSkillCatalog, BuiltInReActSkillRegistry } from "../agents/builtin-skills/skill-registry";
@@ -38,7 +43,7 @@ export { AgentFacade } from "./domain/agent.facade";
 export { TeamFacade } from "./domain/team.facade";
 export { ToolFacade } from "./domain/tool.facade";
 export { PromptSkillBridge } from "../../ai-engine/skills/runtime";
-export { ToolRegistry } from "../../ai-engine/tools/registry/tool-registry";
+export { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
 export { FederalRegisterTool } from "../../ai-engine/tools/categories/information/policy/federal-register.tool";
 export { CongressGovTool } from "../../ai-engine/tools/categories/information/policy/congress-gov.tool";
 export { WhiteHouseNewsTool } from "../../ai-engine/tools/categories/information/policy/whitehouse-news.tool";
@@ -93,7 +98,7 @@ export { CrossCuttingSynthesisService } from "../../ai-engine/knowledge/synthesi
 export type { SynthesisResult } from "../../ai-engine/knowledge/synthesis/cross-cutting-synthesis.service";
 export { PromptCacheCoordinatorService } from "../../ai-engine/llm/services/prompt-cache-coordinator.service";
 export type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
-export { inferIsReasoning } from "../../ai-engine/llm/types/model-utils";
+export { inferIsReasoning } from "../../ai-engine/llm/types/model.utils";
 // ★ 2026-05-01 (PR-G iter8 + iter9): 集中所有 review pass/attempt 阈值 + agent budget cap
 export {
   REVIEW_PASS_THRESHOLD,
@@ -258,8 +263,8 @@ export type {
   SummaryChunk,
   CompressionResult,
   CompressionOptions,
-} from "../runner/executor/interfaces";
-export { DEFAULT_CONTEXT_EVOLUTION_CONFIG } from "../runner/executor/interfaces";
+} from "../runner/executor/executor.types";
+export { DEFAULT_CONTEXT_EVOLUTION_CONFIG } from "../runner/executor/executor.types";
 // ★ 2026-05-01 (PR-X-M): UserIntent / ContextStrategy 是 L2 LLM 能力概念，
 // owner 是 ai-engine/llm/intent；harness facade 仅 re-export 让 ai-app 透明
 export {
@@ -281,8 +286,8 @@ export {
 } from "../runner/executor/execution-checkpoint.service";
 
 // ★ 2026-05-01 (PR-X-M2): 一组 L2.5 runtime 类型从 ai-engine/facade 反向 re-export 下沉过来
-export type { TeamMemberInfo } from "../runner/executor/interfaces";
-export type { IConstraintEnforcementService } from "../runner/executor/interfaces";
+export type { TeamMemberInfo } from "../runner/executor/executor.types";
+export type { IConstraintEnforcementService } from "../runner/executor/executor.types";
 export { AICapabilityResolver } from "../runner/capabilities/ai-capability-resolver.service";
 export {
   QueryLoopService,
@@ -357,21 +362,21 @@ export {
   type StageTimer,
   type StageTimerEmitOptions,
   type EmitFn,
-} from "../protocols/ipc/stage-emit.util";
+} from "../protocols/ipc/stage-emit.utils";
 
 // ★ 2026-05-01 (PR-X-N): 让 ai-app 走 facade，不需穿透 harness 内部路径
 export {
   extractTokenSpend,
   estimateUsdFromTokens,
-} from "../tracing/token-spend.util";
+} from "../tracing/token-spend.utils";
 export {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
-} from "../tracing/failure-extraction.util";
+} from "../tracing/failure-extraction.utils";
 export {
   clampScore,
   scaleScore,
-} from "../evaluation/critique/quality-score.util";
+} from "../evaluation/critique/quality-score.utils";
 // FunctionCallingExecutor.AgentEvent — 给 teams 服务用作 event 类型
 export type { AgentEvent as FunctionCallingAgentEvent } from "../runner/executor/function-calling-executor";
 export type {
@@ -944,5 +949,5 @@ export type {
   BudgetAllocation,
   ErrorDetectionRetryConfig,
 } from "../../ai-engine/facade";
-export { SkillRegistry } from "../../ai-engine/skills/registry/skill-registry";
+export { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
 export { FigureExtractorService } from "../../ai-app/topic-insights/services";

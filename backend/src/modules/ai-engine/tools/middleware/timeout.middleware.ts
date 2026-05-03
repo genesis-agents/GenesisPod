@@ -3,7 +3,7 @@
  * 超时中间件
  */
 
-import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool-error";
+import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool.error";
 import { ITool, ToolContext, ToolResult } from "../abstractions/tool.interface";
 import { IToolMiddleware } from "./middleware.interface";
 
@@ -155,3 +155,4 @@ export function createTimeoutMiddleware(
 ): TimeoutMiddleware {
   return new TimeoutMiddleware(config);
 }
+

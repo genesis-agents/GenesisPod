@@ -79,7 +79,7 @@
 
 AI Engine 检测到 reasoning model 时仅做两件事：
 
-1. 调整 `maxTokens`（`task-profile-mapper.service.ts:74-118`）
+1. 调整 `maxTokens`（`task-profile.types-mapper.service.ts:74-118`）
 2. 设置 `reasoning_effort: "low"`（`ai-api-caller.service.ts:164-167`）
 
 ```typescript
@@ -105,7 +105,7 @@ Claude 的 Extended Thinking 和 Gemini 的 Thinking Config 完全未启用。
 
 #### Step 1: 扩展 TaskProfile 类型
 
-**文件**: `backend/src/modules/ai-engine/llm/types/task-profile.ts`
+**文件**: `backend/src/modules/ai-engine/llm/types/task-profile.types.ts`
 
 ```typescript
 // 在 TaskProfile 接口中新增字段
@@ -131,7 +131,7 @@ export interface TaskProfile {
 
 #### Step 2: 扩展 TaskProfileMapper 映射逻辑
 
-**文件**: `backend/src/modules/ai-engine/llm/services/task-profile-mapper.service.ts`
+**文件**: `backend/src/modules/ai-engine/llm/services/task-profile.types-mapper.service.ts`
 
 ```typescript
 // 新增映射表
@@ -319,7 +319,7 @@ system=[{
 
 #### Step 1: 扩展 ChatMessage 类型支持 cache_control
 
-**文件**: `backend/src/modules/ai-engine/llm/types/task-profile.ts`
+**文件**: `backend/src/modules/ai-engine/llm/types/task-profile.types.ts`
 
 ```typescript
 export interface ChatMessage {
@@ -501,7 +501,7 @@ messages=[{
 
 #### Step 1: 扩展 ContentPart 类型
 
-**文件**: `backend/src/modules/ai-engine/llm/types/task-profile.ts`
+**文件**: `backend/src/modules/ai-engine/llm/types/task-profile.types.ts`
 
 ```typescript
 // 新增 Document content part
@@ -1162,8 +1162,8 @@ async startResearch(topicId: string) {
 
 | 文件                                                    | 改动类型    | 涉及优化项             |
 | ------------------------------------------------------- | ----------- | ---------------------- |
-| `ai-engine/llm/types/task-profile.ts`                   | 类型扩展    | P0-1, P1-1             |
-| `ai-engine/llm/services/task-profile-mapper.service.ts` | 映射逻辑    | P0-1                   |
+| `ai-engine/llm/types/task-profile.types.ts`                   | 类型扩展    | P0-1, P1-1             |
+| `ai-engine/llm/services/task-profile.types-mapper.service.ts` | 映射逻辑    | P0-1                   |
 | `ai-engine/llm/services/ai-api-caller.service.ts`       | API 构建    | P0-1, P0-2, P1-1, P1-2 |
 | `ai-engine/llm/services/ai-chat.service.ts`             | 响应解析    | P0-2, P1-1             |
 | `ai-engine/facade/types/facade.types.ts`                | 请求类型    | P0-2, P1-2, P2-1       |
@@ -1239,3 +1239,4 @@ Phase 4（持续）: P3-1 + P3-2 [TI 首创，可复用]
 **文档状态**: 初版
 **作者**: Claude Code
 **最后更新**: 2026-03-17
+

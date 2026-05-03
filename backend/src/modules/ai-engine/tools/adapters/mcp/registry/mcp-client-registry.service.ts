@@ -18,7 +18,7 @@ import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { MCPManager } from "../manager/mcp-manager";
 import { MCPTransportType } from "../abstractions/mcp.interface";
-import { ToolRegistry } from "../../../registry/tool-registry";
+import { ToolRegistry } from "../../../registry/tool.registry";
 import { MCPToolAdapter } from "../tools/mcp-tool-adapter";
 
 export interface ConnectionStatus {
@@ -324,3 +324,4 @@ export class MCPClientRegistryService implements OnModuleInit {
     return this.prisma.mCPServerConfig.delete({ where: { id } });
   }
 }
+

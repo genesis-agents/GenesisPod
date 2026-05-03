@@ -306,7 +306,7 @@ my-skill/
 如需了解更多，请参阅：
 
 - [API 设计规范](./references/api-design.md)
-- [错误码表](./references/error-codes.md)
+- [错误码表](./references/error-codes.constants.md)
 ```
 
 ### 3. 明确边界
@@ -432,3 +432,4 @@ Genesis.ai 项目的技能位于 `.claude/skills/` 目录：
 ---
 
 **最后更新**: 2025-01-11
+

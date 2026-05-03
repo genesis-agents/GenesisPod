@@ -3,7 +3,7 @@
  */
 
 import { of } from "rxjs";
-import { OpenAIImageAdapter } from "../openai-image-adapter";
+import { OpenAIImageAdapter } from "../openai-image.adapter";
 import {
   IMAGE_MODELS,
   IMAGE_PROVIDERS,
@@ -208,3 +208,4 @@ describe("OpenAIImageAdapter", () => {
     );
   });
 });
+

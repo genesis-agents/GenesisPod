@@ -18,14 +18,14 @@ AI Engine (290+ 文件)
 ├── llm/                     # LLM 能力层
 │   ├── services/
 │   │   ├── ai-chat.service.ts         - 核心 LLM 调用服务
-│   │   └── task-profile-mapper.service.ts - TaskProfile 映射
+│   │   └── task-profile.types-mapper.service.ts - TaskProfile 映射
 │   ├── adapters/
-│   │   ├── universal-llm-adapter.ts   - 通用 LLM 适配器
-│   │   └── function-calling-llm-adapter.ts - 函数调用适配器
+│   │   ├── universal-llm.adapter.ts   - 通用 LLM 适配器
+│   │   └── function-calling-llm.adapter.ts - 函数调用适配器
 │   ├── model-fallback/
 │   │   └── model-fallback.service.ts  (574 行) - 模型降级容错
 │   ├── types/
-│   │   └── task-profile.ts            - TaskProfile 接口定义
+│   │   └── task-profile.types.ts            - TaskProfile 接口定义
 │   └── factory/              - LLM 工厂
 │
 ├── search/                  # 搜索能力层
@@ -773,3 +773,5 @@ for (const task of tasks) {
 
 **维护者**: 技术架构团队
 **最后更新**: 2026-01-15
+
+

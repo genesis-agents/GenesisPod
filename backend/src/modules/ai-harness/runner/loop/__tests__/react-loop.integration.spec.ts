@@ -920,7 +920,7 @@ describe("ReActLoop — Extended coverage", () => {
 
   it("falls back to alternative model when runtimeEnv reports model unavailable", async () => {
     const { ModelPricingRegistry } =
-      await import("@/modules/ai-engine/llm/pricing/model-pricing-registry");
+      await import("@/modules/ai-engine/llm/pricing/model-pricing.registry");
     const pricingReg = new ModelPricingRegistry();
     // Register a model for a tier
     pricingReg.register({
@@ -997,7 +997,7 @@ describe("ReActLoop — Extended coverage", () => {
 
   it("emits budget_warning with severity=pressure and downgrades when shouldDowngrade returns true", async () => {
     const { ModelPricingRegistry } =
-      await import("@/modules/ai-engine/llm/pricing/model-pricing-registry");
+      await import("@/modules/ai-engine/llm/pricing/model-pricing.registry");
     const pricingReg = new ModelPricingRegistry();
 
     // Create budget where we pre-account 75% of max cost to trigger shouldDowngrade
@@ -1047,3 +1047,4 @@ describe("ReActLoop — Extended coverage", () => {
     expect(terminated?.payload).toEqual({ reason: "completed" });
   });
 });
+

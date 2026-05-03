@@ -47,7 +47,7 @@ import {
   MissionCheckpointService,
 } from "@/modules/ai-harness/facade";
 import { FigureExtractorService } from "@/modules/ai-harness/facade";
-import { BillingContext } from "../../../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../../../ai-infra/credits/billing-context.store";
 import { withUserContext } from "../../../../../../common/context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 // ★ P2-R3-3 (round 3): 与同文件相邻 import 统一相对路径风格

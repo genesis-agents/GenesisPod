@@ -298,7 +298,7 @@ export interface RawSkillMdFrontmatter {
   outputKey?: string;
   "output-key"?: string;
   taskProfile?: TaskProfile;
-  "task-profile"?: TaskProfile;
+  "task-profile.types"?: TaskProfile;
   outputSchema?: Record<string, unknown>;
   "output-schema"?: Record<string, unknown>;
   inputSchema?: Record<string, unknown>;
@@ -555,3 +555,4 @@ export interface SkillSourceProvider {
   /** 监听变化（热重载） */
   watchChanges?(callback: () => void): void;
 }
+

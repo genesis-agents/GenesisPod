@@ -78,7 +78,7 @@ v2 加分项:
 
 | 文件                    | 行  | 违规 import                                                           | 修复建议                                                   |
 | ----------------------- | --- | --------------------------------------------------------------------- | ---------------------------------------------------------- |
-| `ask/adapters/index.ts` | 9   | `from "../../../ai-engine/llm/adapters/function-calling-llm-adapter"` | 将 `FunctionCallingLLMAdapter` 加入 `facade/index.ts` 导出 |
+| `ask/adapters/index.ts` | 9   | `from "../../../ai-engine/llm/adapters/function-calling-llm.adapter"` | 将 `FunctionCallingLLMAdapter` 加入 `facade/index.ts` 导出 |
 
 ---
 
@@ -115,7 +115,7 @@ v2 加分项:
 | `office/common/content-analysis.service.ts`              | 7     | `from "../../../ai-engine/content-analysis"`                     | 豁免（`common/*.service.ts`），但 facade 应导出 `ContentAnalysisService` |
 | `office/common/image-matching.service.ts`                | 11    | `from "../../../ai-engine/image/matching"`                       | 豁免（`common/*.service.ts`），但 facade 应导出相关类型                  |
 | `office/common/template-selection.types.ts`              | 21,27 | `from "../../../ai-engine/image/matching/image-matching.types"`  | **非豁免** `.types.ts` 文件，需将类型加入 facade                         |
-| `office/slides/orchestrator/slides-team-member.ts`       | 8     | `from "@/modules/ai-engine/skills/registry/skill-registry"`      | `SkillRegistry` 已在 facade，改路径                                      |
+| `office/slides/orchestrator/slides-team-member.ts`       | 8     | `from "@/modules/ai-engine/skills/registry/skill.registry"`      | `SkillRegistry` 已在 facade，改路径                                      |
 | `office/slides/orchestrator/slides-team-orchestrator.ts` | 34    | `from "@/modules/ai-engine/skills"`                              | 不应 bypass facade                                                       |
 | `office/slides/orchestrator/types.ts`                    | 8     | `from "@/modules/ai-engine/skills"`                              | `.types.ts` 非豁免                                                       |
 | `office/slides/services/ai-edit.service.ts`              | 34    | `from "@/modules/ai-engine/skills/abstractions/skill.interface"` | 非豁免 service，加入 facade                                              |
@@ -151,7 +151,7 @@ v2 加分项:
 | `teams/services/ai/teams-long-content.service.ts`                        | 20    | `from "ai-engine/long-content"`                                                     | 需通过 AIEngineFacade             |
 | `teams/services/collaboration/context/constraint-enforcement.service.ts` | 19    | `from "ai-engine/orchestration/services"`                                           | 需通过 facade                     |
 | `teams/services/collaboration/context/token-budget.service.ts`           | 17    | `from "ai-engine/orchestration/services"`                                           | 需通过 facade                     |
-| `teams/services/collaboration/mission/mission-ai-caller.service.ts`      | 19    | `from "ai-engine/llm/types/task-profile"`                                           | `TaskProfile` 已在 facade         |
+| `teams/services/collaboration/mission/mission-ai-caller.service.ts`      | 19    | `from "ai-engine/llm/types/task-profile.types"`                                           | `TaskProfile` 已在 facade         |
 | `teams/services/collaboration/mission/mission-execution.service.ts`      | 23-26 | `TaskProfile` + `ToolRegistry` + `ToolContext`                                      | 均在 facade                       |
 | `teams/services/collaboration/mission/mission-review.service.ts`         | 41    | `from "ai-engine/orchestration/services"`                                           | 需通过 facade                     |
 | `teams/services/collaboration/mission/mission-state.manager.ts`          | 15    | `from "@/modules/ai-engine/orchestration/state-machine"`                            | 需通过 facade                     |
@@ -545,3 +545,5 @@ _已读文件_:
 - `backend/.eslintrc.js`
 - `docs/audits/2026-02-24_arch-audit.md`（v1 基准）
 - `backend/src/modules/ai-engine/orchestration/executors/parallel-executor.ts`（diff 审查）
+
+

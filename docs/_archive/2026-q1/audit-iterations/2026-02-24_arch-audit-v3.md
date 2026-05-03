@@ -167,8 +167,8 @@ grep -rn "from ['\"].*ai-app/" backend/src/modules/ai-engine/ --include="*.ts" |
 
 | 文件                                                          | 行号               | 值             | 使用场景                     | 分类                   |
 | ------------------------------------------------------------- | ------------------ | -------------- | ---------------------------- | ---------------------- |
-| `ai-engine/llm/adapters/base-llm-adapter.ts`                  | 135                | `0.7`          | 无 options 时的最终 fallback | 技术合理（adapter 层） |
-| `ai-engine/llm/services/task-profile-mapper.service.ts`       | 54                 | `0.7`          | 无 TaskProfile 时的默认值    | 技术合理（映射层）     |
+| `ai-engine/llm/adapters/base-llm.adapter.ts`                  | 135                | `0.7`          | 无 options 时的最终 fallback | 技术合理（adapter 层） |
+| `ai-engine/llm/services/task-profile.types-mapper.service.ts`       | 54                 | `0.7`          | 无 TaskProfile 时的默认值    | 技术合理（映射层）     |
 | `ai-engine/orchestration/services/output-reviewer.service.ts` | 299                | `0.7`          | 无 taskProfile 时的 fallback | 待改进                 |
 | `ai-engine/llm/services/ai-chat.service.ts`                   | 271                | `0`            | 模型连通性验证（10 tokens）  | 合理（非业务调用）     |
 | `ai-engine/llm/services/ai-connection-test.service.ts`        | 128, 158, 285, 344 | `0`            | API 连通性测试               | 合理（非业务调用）     |
@@ -186,9 +186,9 @@ grep -rn "from ['\"].*ai-app/" backend/src/modules/ai-engine/ --include="*.ts" |
 
 | 文件                                                    | 行号     | 值                | 使用场景                | 分类             |
 | ------------------------------------------------------- | -------- | ----------------- | ----------------------- | ---------------- |
-| `ai-engine/llm/adapters/base-llm-adapter.ts`            | 136      | `4096`            | adapter 层最终 fallback | 技术合理         |
-| `ai-engine/llm/adapters/universal-llm-adapter.ts`       | 119      | `4096`            | 模型配置 fallback       | 技术合理         |
-| `ai-engine/llm/services/task-profile-mapper.service.ts` | 55       | `4096`            | 无 TaskProfile 时默认值 | 技术合理         |
+| `ai-engine/llm/adapters/base-llm.adapter.ts`            | 136      | `4096`            | adapter 层最终 fallback | 技术合理         |
+| `ai-engine/llm/adapters/universal-llm.adapter.ts`       | 119      | `4096`            | 模型配置 fallback       | 技术合理         |
+| `ai-engine/llm/services/task-profile.types-mapper.service.ts` | 55       | `4096`            | 无 TaskProfile 时默认值 | 技术合理         |
 | `ai-engine/facade/ai-engine.facade.ts`                  | 1028     | `4000`            | 内部 RAG 摘要压缩       | 中风险           |
 | `core/admin/admin.service.ts`                           | 604      | `4096`            | 模型 CRUD 默认值        | 低风险           |
 | `ai-app/topic-insights/.../report-generator.service.ts` | 285, 327 | `estimatedTokens` | 动态计算后传入          | 低风险（动态值） |
@@ -467,3 +467,5 @@ grep -rn '"Genesis"\|"Raven"\|"DeepDive"' backend/src/modules/ \
 _下次建议审计时间: 2026-03-24（距今 1 个月）_
 _报告生成工具: Arch Auditor Agent v1.0_
 _生成耗时: 约 8 分钟（全量扫描）_
+
+

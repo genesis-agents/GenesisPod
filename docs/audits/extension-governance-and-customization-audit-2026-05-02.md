@@ -184,7 +184,7 @@ interface ExtensionManifest {
 
 证据：
 
-- `ai-harness/agents/builtin-skills/skill-registry.ts`
+- `ai-harness/agents/builtin-skills/skill.registry.ts`
 - `ai-harness/harness.module.ts`
 - `ai-harness/agents/learning/skill-learning-coordinator.ts`
 
@@ -424,3 +424,4 @@ interface ExtensionManifest {
 3. **memory / checkpoint / skill 注册不能再多轨并存**
 
 否则 W18/W19 之后，目录会更规范，但结构债会更难看见，也更难清理。
+

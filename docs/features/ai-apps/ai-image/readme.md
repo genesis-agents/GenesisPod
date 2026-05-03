@@ -515,7 +515,7 @@ curl -X POST https://api.genesis.ai/api/v1/ai-image/infographics \
 
 ## 相关文档
 
-- [AI Engine ImageFactory](../../../architecture/ai-engine.md#image-factory)
+- [AI Engine ImageFactory](../../../architecture/ai-engine.md#image.factory)
 - [Cloudinary 集成配置](../../../guides/storage-configuration.md)
 
 ---
@@ -530,3 +530,4 @@ curl -X POST https://api.genesis.ai/api/v1/ai-image/infographics \
 - 提示词自动增强
 - 信息图生成
 - 批量导出功能
+

@@ -22,10 +22,12 @@ import { AgentOrchestrator } from "../../ai-harness/agents/registry/agent-orches
 import { AgentRegistry } from "../../ai-harness/agents/registry/plan-based-agent-registry";
 import {
   AgentId,
-  BUILTIN_AGENTS,
-  BuiltinAgentId,
   AgentInput,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  BUILTIN_AGENTS,
+  type BuiltinAgentId,
+} from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
 import { AgentsService } from "./agents.service";
 import {
   ExecuteRequestDto,

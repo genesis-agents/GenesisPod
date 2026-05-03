@@ -1,7 +1,7 @@
 import {
   isGarbageFigureUrl,
   dedupeFigureCandidates,
-} from "../figure-filter.util";
+} from "../figure-filter.utils";
 
 describe("isGarbageFigureUrl", () => {
   it("returns true for undefined", () => {

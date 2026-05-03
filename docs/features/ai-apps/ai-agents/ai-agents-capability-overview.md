@@ -152,8 +152,8 @@ backend/src/modules/ai/ai-agents/
 │   │   └── format-validators.ts          # 格式验证器
 │   │
 │   └── errors/          # 错误系统
-│       ├── tool-error.ts                 # 工具错误
-│       └── error-codes.ts                # 错误码定义
+│       ├── tool.error.ts                 # 工具错误
+│       └── error-codes.constants.ts                # 错误码定义
 │
 ├── implementations/     # Agent 实现
 │   ├── slides.agent.ts                   # PPT 生成 Agent
@@ -1187,3 +1187,4 @@ import { AiStudioModule } from "../ai-studio"; // 内容编辑工具
 | 版本 | 日期       | 作者              | 变更说明     |
 | ---- | ---------- | ----------------- | ------------ |
 | v1.0 | 2025-12-19 | Architecture Team | 初始版本发布 |
+

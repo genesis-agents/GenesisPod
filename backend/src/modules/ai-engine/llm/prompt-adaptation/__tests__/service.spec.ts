@@ -1,11 +1,11 @@
 import { Test } from "@nestjs/testing";
 
-import { ModelTier } from "../../types/model-tier";
+import { ModelTier } from "../../types/model-tier.types";
 import {
   PromptTierAdaptationService,
   TIER_ADAPT_ENABLED_ENV,
   TIER_SUFFIX_SEED,
-} from "../service";
+} from "../prompt-tier-adaptation.service";
 import type { TierSuffix } from "../types";
 
 const BASE_PROMPT = "你是研究员。输出 JSON。";
@@ -103,3 +103,4 @@ describe("PromptTierAdaptationService", () => {
     });
   });
 });
+

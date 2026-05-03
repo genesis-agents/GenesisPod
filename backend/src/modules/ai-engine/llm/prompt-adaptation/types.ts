@@ -7,10 +7,11 @@
  * (H6 step 11).
  */
 
-import type { ModelTier } from "../types/model-tier";
+import type { ModelTier } from "../types/model-tier.types";
 
 export interface TierSuffix {
   readonly tier: ModelTier;
   /** Suffix appended to the system prompt for this tier. Empty = no-op. */
   readonly suffix: string;
 }
+

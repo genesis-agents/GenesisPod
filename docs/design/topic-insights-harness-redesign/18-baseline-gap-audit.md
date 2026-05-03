@@ -128,7 +128,7 @@ harness 的 AG-01-LD 是**一次性规划员**——只基于 input 做一次规
 | ---------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------- | ---------------------- |
 | dimension-templates.config.ts                                    | 10+ 模板                                    | `artifacts/topic/templates/config.ts`                 | ✅ 迁到但内容需 diff   |
 | framework-skills.config.ts                                       | 框架技能配置                                | `skills/frameworks/policy.config.ts` + 12 个 SKILL.md | ✅ 迁到                |
-| model-tier.config.ts                                             | ModelTier + classifyModelTier               | `ai-engine/llm/types/model-tier.ts`                   | ✅ 提到 ai-engine 共享 |
+| model-tier.types.config.ts                                             | ModelTier + classifyModelTier               | `ai-engine/llm/types/model-tier.types.ts`                   | ✅ 提到 ai-engine 共享 |
 | prompt-adaptation.config.ts（TIER_ADAPTATIONS）                  | tier × promptSuffix/evidenceCap/taskProfile | `mission/pipeline/config/tier-adaptations.config.ts`  | ✅ 2026-04-24 本次恢复 |
 | topic-team-orchestrator.service.ts                               | God orchestrator                            | pipeline/stages + orchestrator                        | ✅ 有意重构            |
 | task-executors/\*                                                | 4 个 executor                               | 15 个 pipeline stages                                 | ✅ 有意重构            |
@@ -143,3 +143,4 @@ harness 的 AG-01-LD 是**一次性规划员**——只基于 input 做一次规
 | **#3** 补 ResearchReflection 充足度评估                        | P1         | 小（1 个 spec + pipeline 循环）          | 中（减少浅报告）         |
 | **#4** Leader Tool 主动调用                                    | P1         | 大（需求设计 + spec chain）              | 中                       |
 | **#5** 核对 dimension-templates 内容是否齐                     | P2         | 小                                       | 小（用户能看出）         |
+

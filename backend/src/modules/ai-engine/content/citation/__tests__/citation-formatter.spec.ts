@@ -3,7 +3,7 @@ import {
   formatCitation,
   generateBibliography,
   type CitationMetadata,
-} from "../citation-formatter";
+} from "../citation-formatting.utils";
 
 describe("buildCitationMetadata", () => {
   it("classifies arxiv as preprint", () => {
@@ -187,3 +187,4 @@ describe("generateBibliography", () => {
     expect(bib.stats.withUrl).toBe(1);
   });
 });
+

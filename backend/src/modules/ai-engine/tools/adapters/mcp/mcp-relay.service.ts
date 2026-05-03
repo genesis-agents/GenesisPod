@@ -17,7 +17,7 @@
  */
 
 import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
-import { ToolRegistry } from "../../registry/tool-registry";
+import { ToolRegistry } from "../../registry/tool.registry";
 import {
   MCPRelayToolAdapter,
   type MCPClientLike,
@@ -241,3 +241,4 @@ export class MCPRelay implements OnModuleDestroy {
     );
   }
 }
+

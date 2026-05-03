@@ -23,11 +23,11 @@ export {
   PROVIDER_PREFERENCE_BY_TYPE,
   EXCLUDED_MODEL_SUBSTRINGS,
   DEFAULT_RECOMMENDATIONS,
-} from "./default-recommendations";
+} from "./default-recommendations.config";
 export type {
   DefaultRecommendation,
   ModelTypeAlias,
-} from "./default-recommendations";
+} from "./default-recommendations.config";
 
 export { ModelFallbackService } from "./model-fallback.service";
 export type {
@@ -35,3 +35,4 @@ export type {
   ModelFallbackResult,
   ModelPriorityConfig,
 } from "./model-fallback.service";
+

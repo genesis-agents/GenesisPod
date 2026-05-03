@@ -13,7 +13,7 @@
 | 指标              | 状态                     | 说明                              |
 | ----------------- | ------------------------ | --------------------------------- |
 | **整体架构**      | :large_blue_circle: 良好 | 分层清晰，模块化设计合理          |
-| **Secret 管理**   | :white_check_mark: 健康  | 统一使用 `secret-name-mapping.ts` |
+| **Secret 管理**   | :white_check_mark: 健康  | 统一使用 `secret-name.catalog.ts` |
 | **Tool 调用链路** | :white_check_mark: 健康  | 已通过 ToolRegistry 统一调用      |
 | **模块依赖**      | :yellow_circle: 注意     | 存在部分直接 SearchService 注入   |
 | **数据流**        | :white_check_mark: 健康  | Admin -> Secret -> Tool 链路完整  |
@@ -147,7 +147,7 @@ graph TB
 | 文件                     | 职责               | 状态                    |
 | ------------------------ | ------------------ | ----------------------- |
 | `secrets.service.ts`     | 密钥存取、加密解密 | :white_check_mark: 健康 |
-| `secret-name-mapping.ts` | 统一名称映射       | :white_check_mark: 健康 |
+| `secret-name.catalog.ts` | 统一名称映射       | :white_check_mark: 健康 |
 
 **设计亮点:**
 
@@ -155,7 +155,7 @@ graph TB
 2. 支持旧格式名称自动转换（`normalizeSecretName`）
 3. 支持版本管理和回滚
 
-**名称映射定义 (`secret-name-mapping.ts:19-43`):**
+**名称映射定义 (`secret-name.catalog.ts:19-43`):**
 
 ```typescript
 export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
@@ -201,7 +201,7 @@ const EXTERNAL_TOOL_DEFINITIONS: ExternalToolDefinition[] = [
 
 #### 3.2.1 Tool Registry
 
-**文件位置:** `backend/src/modules/ai-engine/tools/registry/tool-registry.ts`
+**文件位置:** `backend/src/modules/ai-engine/tools/registry/tool.registry.ts`
 
 **设计原则:**
 
@@ -582,9 +582,9 @@ private async searchFederalRegister(query: string): Promise<DataSourceResult[]> 
 
 | 检查项                                              | 结果                                    |
 | --------------------------------------------------- | --------------------------------------- |
-| `secret-name-mapping.ts` 是否被 AIAdminService 使用 | :white_check_mark: 是 (行 4, 36-147)    |
-| `secret-name-mapping.ts` 是否被 SecretsService 使用 | :white_check_mark: 是 (行 20-22)        |
-| `secret-name-mapping.ts` 是否被 SearchService 使用  | :white_check_mark: 是 (行 11, 496-509)  |
+| `secret-name.catalog.ts` 是否被 AIAdminService 使用 | :white_check_mark: 是 (行 4, 36-147)    |
+| `secret-name.catalog.ts` 是否被 SecretsService 使用 | :white_check_mark: 是 (行 20-22)        |
+| `secret-name.catalog.ts` 是否被 SearchService 使用  | :white_check_mark: 是 (行 11, 496-509)  |
 | 是否还有硬编码的 Secret 名称                        | :white_check_mark: 无（已全部使用映射） |
 
 ### 8.2 Tool 调用链路
@@ -638,7 +638,7 @@ private async searchFederalRegister(query: string): Promise<DataSourceResult[]> 
 Genesis.ai 的系统架构设计良好，具有以下优点：
 
 1. **分层清晰**: Core -> AI Engine -> AI Apps 三层架构职责明确
-2. **Secret 管理规范**: 统一使用 `secret-name-mapping.ts`，支持旧格式自动转换
+2. **Secret 管理规范**: 统一使用 `secret-name.catalog.ts`，支持旧格式自动转换
 3. **工具系统完善**: ToolRegistry 提供统一的工具注册和调用机制
 4. **诊断能力强**: AIAdminService 提供全面的系统诊断功能
 5. **降级机制完备**: 搜索服务支持多 Provider、多 Key 降级
@@ -667,10 +667,10 @@ Genesis.ai 的系统架构设计良好，具有以下优点：
 
 | 模块               | 关键文件                                                                                    |
 | ------------------ | ------------------------------------------------------------------------------------------- |
-| Secret 管理        | `backend/src/modules/ai-infra/secrets/secret-name-mapping.ts`                               |
+| Secret 管理        | `backend/src/modules/ai-infra/secrets/secret-name.catalog.ts`                               |
 | Secret 服务        | `backend/src/modules/ai-infra/secrets/secrets.service.ts`                                   |
 | Admin 服务         | `backend/src/modules/ai-infra/admin/ai-admin.service.ts`                                    |
-| Tool Registry      | `backend/src/modules/ai-engine/tools/registry/tool-registry.ts`                             |
+| Tool Registry      | `backend/src/modules/ai-engine/tools/registry/tool.registry.ts`                             |
 | Tool Provider      | `backend/src/modules/ai-engine/tools/tools.provider.ts`                                     |
 | Search Service     | `backend/src/modules/ai-engine/search/search.service.ts`                                    |
 | MCP Manager        | `backend/src/modules/ai-engine/mcp/manager/mcp-manager.ts`                                  |
@@ -700,3 +700,5 @@ Genesis.ai 的系统架构设计良好，具有以下优点：
 
 **报告生成时间:** 2026-01-21
 **下次诊断建议:** 完成 P1/P2 改进后
+
+

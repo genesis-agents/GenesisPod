@@ -360,7 +360,7 @@ Step Execution
 - `slides-content-expansion`: 内容扩展（输入大纲，输出详细内容）
 - `slides-visual-suggestion`: 视觉建议（输入内容，输出设计建议）
 
-**注册位置**: `backend/src/modules/ai-engine/skills/registry/skill-registry.ts`
+**注册位置**: `backend/src/modules/ai-engine/skills/registry/skill.registry.ts`
 
 ---
 
@@ -396,7 +396,7 @@ Skill.execute()
 - `export-docx`: 导出 Word
 - `export-pdf`: 导出 PDF
 
-**注册位置**: `backend/src/modules/ai-engine/tools/registry/tool-registry.ts`
+**注册位置**: `backend/src/modules/ai-engine/tools/registry/tool.registry.ts`
 
 ---
 
@@ -713,3 +713,4 @@ const dataAnalysisWorkflow: WorkflowConfig = {
 
 **维护者**: AI Teams Core Team
 **反馈渠道**: GitHub Issues
+

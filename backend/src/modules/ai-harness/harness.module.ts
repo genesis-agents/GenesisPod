@@ -2,15 +2,15 @@
  * Harness Module — Agent 运行时脚手架
  *
  * 依赖链：
- *   AI App → HarnessFacade → AgentFactory → (ReActLoop + MemoryBridge + SkillActivator)
+ *   AI App → HarnessFacade → AgentFactory → (ReActLoop + MemoryContextBindingService + SkillActivator)
  *     ReActLoop → AiChatService + ToolInvoker + HookRegistry
  *     ToolInvoker → ToolRegistry
- *     MemoryBridge → MemoryCoordinatorService (@Optional)
+ *     MemoryContextBindingService → MemoryCoordinatorService (@Optional)
  *     SkillActivator → SkillRegistry + HookRegistry
  *     SkillLoader → SkillRegistry (OnModuleInit 自动加载 built-in/*)
  *
  * Phase 1: abstractions + HarnessedAgent skeleton + HookRegistry
- * Phase 2: ReActLoop + ToolInvoker + MemoryBridge
+ * Phase 2: ReActLoop + ToolInvoker + MemoryContextBindingService
  * Phase 3: SKILL.md system (parser / registry / loader / activator)
  * Phase 4: SubagentSpawner + 3-level isolation (none / context / worktree)
  * Phase 5: Context Engineering (compactor / pruner / manager)
@@ -48,14 +48,14 @@ import { ReportArtifactAssembler } from "./evaluation/critique/report-artifact/r
 import { InMemoryVectorStore } from "./memory/vector/in-memory-vector-store";
 import { PrismaVectorStore } from "./memory/vector/prisma-vector-store";
 import { MemoryAutoIndexer } from "./memory/indexing/memory-auto-indexer";
-import { MemoryBridge } from "./memory/indexing/memory-bridge.service";
+import { MemoryContextBindingService } from "./memory/indexing/memory-context-binding.service";
 import {
   BuiltinSkillCatalog,
   SkillLoader,
   SkillActivator,
 } from "./agents/builtin-skills";
 import { SKILL_PROVIDERS } from "./agents/abstractions";
-import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider";
+import { EngineSkillProvider } from "../ai-engine/skills/runtime/engine-skill-provider.adapter";
 import { AiEngineSkillsModule } from "../ai-engine/skills/skills.module";
 import { SubagentSpawner } from "./agents/subagents";
 import {
@@ -80,7 +80,7 @@ import { ReActRunner } from "./runner/env/react-runner";
 import { AgentTracer } from "./tracing/tracer/otel-tracer";
 import { ToolRegistry } from "./runner/env/tool-registry";
 import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orchestrator";
-import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing-registry";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
@@ -209,7 +209,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ReflexionLoop,
     SimpleLoop,
     LoopRegistry,
-    MemoryBridge,
+    MemoryContextBindingService,
 
     // Skills (Phase 3)
     BuiltinSkillCatalog,
@@ -467,3 +467,6 @@ export class HarnessModule implements OnApplicationBootstrap {
     this.eventBus.registerAdapter(this.defaultBroadcaster);
   }
 }
+
+
+

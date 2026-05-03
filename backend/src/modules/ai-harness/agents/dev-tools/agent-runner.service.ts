@@ -24,9 +24,9 @@ import type {
   IAgentSpec,
   IRuntimeEnvironment,
 } from "../abstractions";
-import { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import { BuiltinSkillCatalog } from "../builtin-skills";
-import { BillingContext } from "../../../ai-infra/credits/billing-context";
+import { BillingContext } from "../../../ai-infra/credits/billing-context.store";
 import {
   readDefineAgentMeta,
   AgentSpec,
@@ -1482,3 +1482,6 @@ export class AgentRunner {
     });
   }
 }
+
+
+

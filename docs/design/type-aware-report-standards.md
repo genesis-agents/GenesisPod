@@ -108,6 +108,7 @@
 | ------------------------------ | ------------------------------------------------------ |
 | `section-writer.service.ts`    | 已通过 `chatWithSkills({ additionalSkills })` 泛化处理 |
 | `dimension-mission.service.ts` | 只做 `assignedSkills` 透传（仅新增 topicType 参数）    |
-| `formatting-pipeline.ts`       | 格式规则类型无关                                       |
-| `report-writing-standards.ts`  | Layer 2 通用基线，类型无关                             |
+| `dimension-content-formatting.utils.ts`       | 格式规则类型无关                                       |
+| `report-writing-standards.constants.ts`  | Layer 2 通用基线，类型无关                             |
 | `SkillLoaderService`           | 自动发现 `skills/frameworks/` 下的 .skill.md 文件      |
+

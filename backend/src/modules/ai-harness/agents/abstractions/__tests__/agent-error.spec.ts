@@ -3,8 +3,8 @@
  */
 
 import { AgentError } from "../agent-error";
-import { EngineError } from "../base-error";
-import { AgentErrorCode } from "../error-codes";
+import { EngineError } from "../engine.error";
+import { AgentErrorCode } from "../error-codes.constants";
 
 describe("AgentError", () => {
   describe("constructor", () => {
@@ -345,3 +345,4 @@ describe("AgentError", () => {
     });
   });
 });
+

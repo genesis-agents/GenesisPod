@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { SkillsApiService, SkillItem } from "../skills-api.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SkillRegistry } from "../../../ai-engine/skills/registry/skill-registry";
+import { SkillRegistry } from "../../../ai-engine/skills/registry/skill.registry";
 import { ISkill } from "../../../ai-engine/skills/abstractions/skill.interface";
 
 // ---------------------------------------------------------------------------
@@ -1096,3 +1096,4 @@ describe("SkillsApiService", () => {
     });
   });
 });
+

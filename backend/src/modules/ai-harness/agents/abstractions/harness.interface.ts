@@ -19,7 +19,7 @@ import type {
 } from "./context-envelope.interface";
 import type { IHookRegistry } from "./hook.interface";
 import type { IAgentLoop, AgentLoopKind } from "./agent-loop.interface";
-import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile";
+import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 
 /**
  * 创建 Agent 的规格（App 层提供）
@@ -118,3 +118,4 @@ export interface IHarness {
   /** Hook 注册表 */
   readonly hooks: IHookRegistry;
 }
+

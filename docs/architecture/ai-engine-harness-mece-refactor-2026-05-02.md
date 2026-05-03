@@ -556,7 +556,7 @@ ai-harness/
 | 项                            | 来源                                             | 目标                              | 理由                               |
 | ----------------------------- | ------------------------------------------------ | --------------------------------- | ---------------------------------- |
 | **MCP**                       | `harness/protocol/mcp/` 整目录                   | `engine/tools/adapters/mcp/`      | tool source adapter，无 agent 状态 |
-| **ModelPricingRegistry**      | `harness/runtime/cost/model-pricing-registry.ts` | `engine/llm/pricing/`             | 模型定价是 LLM 能力                |
+| **ModelPricingRegistry**      | `harness/runtime/cost/model-pricing.registry.ts` | `engine/llm/pricing/`             | 模型定价是 LLM 能力                |
 | **SkillRegistry**（消除两个） | `harness/kernel/builtin-skills/`                 | `engine/skills/registry/`（合并） | 项目唯一 SkillRegistry             |
 
 ### 7.2 跨聚合归位（harness 内部）
@@ -677,8 +677,8 @@ const oldRoot = path.resolve(process.argv[3]);
 - **拆除 `abstractions/` 违规顶层：**
   - `abstractions/runtime-deps.tokens.ts` ➡️ `facade/abstractions/` 或 `planning/abstractions/`。
 - **解散 `core/` 违规大杂烩：**
-  - `core/errors/tool-error.ts` ➡️ `tools/abstractions/`
-  - `core/errors/skill-error.ts` ➡️ `skills/abstractions/`
+  - `core/errors/tool.error.ts` ➡️ `tools/abstractions/`
+  - `core/errors/skill.error.ts` ➡️ `skills/abstractions/`
   - `core/exceptions/ai-service.exception.ts` ➡️ `facade/abstractions/` 或 `llm/abstractions/`
   - `core/interfaces/rag.interface.ts` ➡️ `rag/abstractions/`
   - `core/utils/error-detection.util.ts` ➡️ `safety/` 或 `llm/`
@@ -689,7 +689,7 @@ const oldRoot = path.resolve(process.argv[3]);
   - 创建 `ai-engine/planning/`，将现埋藏于 `llm/` 内的 `ai-engine-planning.module.ts` 及相关编排解耦逻辑迁移至此。
 - **撤销 engine 顶层 `credentials/` 聚合：**
   - 将 `user-models-auto-configure.service.ts` 收敛到 `llm/user-config/`。
-  - 将 `multi-key-manager.ts` 收敛到 `llm/key-health/`。
+  - 将 `multi-key.manager.ts` 收敛到 `llm/key-health/`。
 
 #### W18: engine 全量命名规范严格对齐
 
@@ -703,7 +703,7 @@ const oldRoot = path.resolve(process.argv[3]);
   - `ai-engine-tools.module.ts` ➡️ `tools.module.ts`
   - `ai-engine-knowledge.module.ts` ➡️ `knowledge.module.ts`
 - **补齐缺失的描述性后缀**：
-  - `llm/key-health/multi-key-manager.ts` ➡️ `multi-key-manager.service.ts`（或 `.util.ts`）
+  - `llm/key-health/multi-key.manager.ts` ➡️ `multi-key.manager.service.ts`（或 `.util.ts`）
 - **修复非标准复数后缀**：
   - `*.utils.ts` ➡️ `*.util.ts`（如 `url-sanitizer.utils.ts`）
   - `*.interfaces.ts` ➡️ `*.interface.ts`（如 `rag-pipeline.interfaces.ts`）
@@ -809,7 +809,7 @@ const oldRoot = path.resolve(process.argv[3]);
   - `ai-infra/credits/` 保留在 infra，但要区分“通用账本/额度能力”和“产品线计费策略”；后者不得无限制继续堆入 infra core
 
 - **built-in skill pack 收敛：**
-  - `agents/builtin-skills/skill-registry.ts` 降格为 `catalog` / `source` 语义
+  - `agents/builtin-skills/skill.registry.ts` 降格为 `catalog` / `source` 语义
   - `built-in/` 长期收敛为 `packs/`
   - `leader-mid-mission-assess`、`mece-mission-planning`、`multi-judge-mission-review` 这类玩法型 skill 明确归入 built-in packs，而不是 runtime core
 - **伪通用能力复核：**
@@ -1010,3 +1010,4 @@ ai-engine/
 **最后更新**: 2026-05-02
 **维护者**: Claude Code
 **版本**: 1.0（W0-W16 完成）
+

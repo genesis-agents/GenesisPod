@@ -28,7 +28,7 @@ import {
   mergeAdjacentMathBlocks,
   stripLLMMetaNotes,
   limitBoldFormatting,
-} from "../report-formatting.util";
+} from "../report-formatting.utils";
 import { sanitizeMarkdownContent } from "@/common/utils/sanitize-content.utils";
 
 // ============================================================

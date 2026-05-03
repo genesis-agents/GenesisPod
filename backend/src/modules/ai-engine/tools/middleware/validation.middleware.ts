@@ -5,7 +5,7 @@
 
 import { Logger } from "@nestjs/common";
 import { z } from "zod";
-import { ValidationError } from "@/modules/ai-engine/facade/abstractions/base-error";
+import { ValidationError } from "@/modules/ai-engine/facade/abstractions/engine.error";
 import {
   ITool,
   ToolContext,
@@ -461,3 +461,4 @@ export function createValidationMiddleware(
 ): IToolMiddleware {
   return new ValidationMiddleware(config);
 }
+

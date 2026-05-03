@@ -29,7 +29,7 @@ import { HarnessedAgent } from "./harnessed-agent";
 import { SpecBasedAgent } from "./spec-based-agent";
 import { ReActLoop } from "../../runner/loop/react-loop";
 import { LoopRegistry } from "../../runner/loop/loop-registry";
-import { MemoryBridge } from "../../memory/indexing/memory-bridge.service";
+import { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
 import { SkillActivator } from "../builtin-skills/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
@@ -51,7 +51,8 @@ export class AgentFactory {
 
   constructor(
     @Optional() reactLoop?: ReActLoop,
-    @Optional() private readonly memoryBridge?: MemoryBridge,
+    @Optional()
+    private readonly memoryContextBindingService?: MemoryContextBindingService,
     @Optional() private readonly skillActivator?: SkillActivator,
     @Optional() private readonly checkpointService?: CheckpointService,
     @Optional() private readonly llmExecutor?: LlmExecutor,
@@ -252,7 +253,7 @@ export class AgentFactory {
       identity,
       envelope,
       loop: this.pickLoop(spec),
-      memoryBridge: this.memoryBridge,
+      memoryBridge: this.memoryContextBindingService,
       skillActivator: this.skillActivator,
       subagentSpawner: this.subagentSpawner,
       checkpointService: this.checkpointService,
@@ -297,7 +298,7 @@ export class AgentFactory {
       identity,
       envelope: env,
       loop: this.pickLoop(spec),
-      memoryBridge: this.memoryBridge,
+      memoryBridge: this.memoryContextBindingService,
       skillActivator: this.skillActivator,
       subagentSpawner: this.subagentSpawner,
       checkpointService: this.checkpointService,

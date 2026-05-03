@@ -23,9 +23,9 @@ export {
   fixOrdinalBoldPosition,
   convertLongListItemsToParagraphs,
   removeOrphanCitations,
-} from "./sanitize-output.util";
+} from "./sanitize-output.utils";
 
 export {
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
-} from "./strip-chart-json.util";
+} from "./strip-chart-json.utils";

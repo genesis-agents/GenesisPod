@@ -321,7 +321,7 @@ class AIEngineFacade {
 
 ### 3.2 问题 2：TaskProfile Phase 2 功能缺失（P1 中等）
 
-**位置**: `backend/src/modules/ai-engine/llm/types/task-profile.ts:62-110`
+**位置**: `backend/src/modules/ai-engine/llm/types/task-profile.types.ts:62-110`
 
 **当前定义**:
 
@@ -675,9 +675,9 @@ Month 3:
 | ------------------ | --------------------------------------------------------------- | --------------------- |
 | AI Engine 主模块   | `backend/src/modules/ai-engine/ai-engine.module.ts`             | 264 行，15 子模块组织 |
 | AI Engine Facade   | `backend/src/modules/ai-engine/facade/ai-engine.facade.ts`      | 2288 行，需拆分       |
-| TaskProfile 定义   | `backend/src/modules/ai-engine/llm/types/task-profile.ts`       | 语义化配置核心        |
+| TaskProfile 定义   | `backend/src/modules/ai-engine/llm/types/task-profile.types.ts`       | 语义化配置核心        |
 | AiChatService      | `backend/src/modules/ai-engine/llm/services/ai-chat.service.ts` | LLM 调用核心          |
-| ToolRegistry       | `backend/src/modules/ai-engine/tools/registry/tool-registry.ts` | 工具注册表            |
+| ToolRegistry       | `backend/src/modules/ai-engine/tools/registry/tool.registry.ts` | 工具注册表            |
 | 记忆服务           | `backend/src/modules/ai-engine/memory/stores/`                  | 需重构                |
 | TopicResearch 模块 | `backend/src/modules/ai-app/research/topic-research/`           | 94 服务               |
 | AI Writing 模块    | `backend/src/modules/ai-app/writing/`                           | 90+ 服务              |
@@ -687,3 +687,4 @@ Month 3:
 **报告结束**
 
 _本报告基于代码静态分析和架构文档审查，建议结合运行时指标进一步验证。_
+

@@ -15,7 +15,6 @@ import {
 } from "@prisma/client";
 import {
   AgentId,
-  BUILTIN_AGENTS,
   AgentInput,
   AgentPlan,
   AgentResult,
@@ -24,6 +23,7 @@ import {
   AgentTaskStatus,
   ArtifactType,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
 
 /**
  * 创建任务输入

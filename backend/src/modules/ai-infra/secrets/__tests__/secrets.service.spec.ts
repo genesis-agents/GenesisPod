@@ -5,7 +5,7 @@ import { SecretsService } from "../secrets.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
 import { SecretCategory, SecretAction } from "@prisma/client";
-import { classifySecret } from "../secret-name-mapping";
+import { classifySecret } from "../secret-name.catalog";
 
 const buildEncryption = (): EncryptionService =>
   new EncryptionService({
@@ -1311,3 +1311,4 @@ describe("SecretsService", () => {
     });
   });
 });
+

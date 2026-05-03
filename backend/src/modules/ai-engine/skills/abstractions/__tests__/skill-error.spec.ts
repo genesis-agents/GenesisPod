@@ -2,9 +2,9 @@
  * Tests for SkillError
  */
 
-import { SkillError } from "../skill-error";
-import { EngineError } from "@/modules/ai-engine/facade/abstractions/base-error";
-import { SkillErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes";
+import { SkillError } from "../skill.error";
+import { EngineError } from "@/modules/ai-engine/facade/abstractions/engine.error";
+import { SkillErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes.constants";
 
 describe("SkillError", () => {
   describe("constructor", () => {
@@ -339,3 +339,4 @@ describe("SkillError", () => {
     });
   });
 });
+

@@ -21,10 +21,10 @@ import * as http from "http";
 import * as https from "https";
 
 // LLM Core
-import { LLMFactory } from "./factory/llm-factory";
-import { FunctionCallingLLMAdapter } from "./adapters/function-calling-llm-adapter";
-import { AiChatLLMAdapter } from "./adapters/ai-chat-llm-adapter";
-import { UniversalLLMAdapter } from "./adapters/universal-llm-adapter";
+import { LLMFactory } from "./factory/llm.factory";
+import { FunctionCallingLLMAdapter } from "./adapters/function-calling-llm.adapter";
+import { AiChatLLMAdapter } from "./adapters/ai-chat-llm.adapter";
+import { UniversalLLMAdapter } from "./adapters/universal-llm.adapter";
 import { TaskProfileMapperService } from "./services/task-profile-mapper.service";
 
 // Core Services
@@ -148,3 +148,6 @@ import { ModelElectionService } from "./selection/model-election.service";
   ],
 })
 export class AiEngineLLMModule {}
+
+
+

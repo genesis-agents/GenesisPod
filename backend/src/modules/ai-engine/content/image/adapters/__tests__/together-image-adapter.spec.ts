@@ -3,7 +3,7 @@
  */
 
 import { of } from "rxjs";
-import { TogetherImageAdapter } from "../together-image-adapter";
+import { TogetherImageAdapter } from "../together-image.adapter";
 import {
   IMAGE_MODELS,
   IMAGE_PROVIDERS,
@@ -196,3 +196,4 @@ describe("TogetherImageAdapter", () => {
     );
   });
 });
+

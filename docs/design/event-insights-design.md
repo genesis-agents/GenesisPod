@@ -703,7 +703,7 @@ EVENT 类型的执行摘要使用因果脉络型结构（通过 synthesis prompt
 
 ### 6.3 维度写作标准
 
-在通用 `report-writing-standards.ts` 基础上，EVENT 维度额外遵循（通过 section-writer prompt 注入）：
+在通用 `report-writing-standards.constants.ts` 基础上，EVENT 维度额外遵循（通过 section-writer prompt 注入）：
 
 ```
 EVENT 维度写作附加要求：
@@ -885,8 +885,8 @@ EVENT: { icon: Newspaper, gradient: 'from-orange-500 to-red-500' }
 以下模块完全不需要修改：
 
 - 报告 assembler（`report-assembler.service.ts`）— 通用骨架对 EVENT 完全适用
-- 格式化管道（`formatting-pipeline.ts`）— Layer 1 格式规则类型无关
-- 报告写作标准（`report-writing-standards.ts`）— Layer 2 通用基线
+- 格式化管道（`dimension-content-formatting.utils.ts`）— Layer 1 格式规则类型无关
+- 报告写作标准（`report-writing-standards.constants.ts`）— Layer 2 通用基线
 - 图片管线（figure-extractor / figure-relevance）
 - 报告导出（`topic-export.service.ts`）
 - SkillLoaderService — 自动发现 `skills/frameworks/` 下新增的 `.skill.md` 文件
@@ -964,3 +964,4 @@ EVENT 类型设置 `refreshFrequency: DAILY`，持续追踪事件发展。每次
 | 3.0  | 2026-03-13 | ReportSkill 架构、Red Team/WWNBT 阶段实现设计、数据模型扩展                                                                                                                                                  |
 | 4.0  | 2026-03-13 | 对齐三层模型：去掉 ReportSkill 重型架构，改用 TopicTypeConfig 配置驱动 + EVENT_SUBTYPE_SKILLS + llm-task 结构化输出                                                                                          |
 | 5.0  | 2026-03-14 | 对齐实际 codebase 状态：去掉新增编排阶段（crossValidation/RedTeam/WWNBT 作为独立 orchestration 阶段），改为通过 synthesis prompt addendum 实现；Assembler 零改动；迁移 SQL 修正（去掉 DO $$ EXCEPTION 包装） |
+

@@ -1,9 +1,9 @@
 /**
- * token-spend.util.spec.ts
+ * token-spend.utils.spec.ts
  * Pure-function tests for extractTokenSpend and estimateUsdFromTokens.
  */
 
-import { extractTokenSpend, estimateUsdFromTokens } from "../token-spend.util";
+import { extractTokenSpend, estimateUsdFromTokens } from "../token-spend.utils";
 import type { IAgentEvent } from "@/modules/ai-harness/facade";
 
 function makeEvent(type: string, payload: unknown): IAgentEvent {

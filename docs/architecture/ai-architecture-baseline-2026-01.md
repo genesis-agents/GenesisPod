@@ -15,7 +15,7 @@
 | 目标                   | 状态                    | 说明                                       |
 | ---------------------- | ----------------------- | ------------------------------------------ |
 | **统一工具调用**       | :white_check_mark: 完成 | 所有应用层服务通过 ToolRegistry 调用工具   |
-| **Secret 名称统一**    | :white_check_mark: 完成 | 使用 `secret-name-mapping.ts` 作为单一来源 |
+| **Secret 名称统一**    | :white_check_mark: 完成 | 使用 `secret-name.catalog.ts` 作为单一来源 |
 | **SearchService 解耦** | :white_check_mark: 完成 | 8 个服务已重构，移除直接依赖               |
 | **类型安全**           | :white_check_mark: 完成 | TypeScript 类型检查全部通过                |
 | **构建验证**           | :white_check_mark: 完成 | `npm run build` 成功                       |
@@ -344,10 +344,10 @@ const RETRY_CONFIG = {
 
 ### 6.1 统一映射表
 
-所有外部工具的 Secret 名称必须通过 `secret-name-mapping.ts` 定义：
+所有外部工具的 Secret 名称必须通过 `secret-name.catalog.ts` 定义：
 
 ```typescript
-// backend/src/modules/ai-engine/tools/config/secret-name-mapping.ts
+// backend/src/modules/ai-engine/tools/config/secret-name.catalog.ts
 
 export const EXTERNAL_TOOL_SECRET_MAPPING: Record<string, string> = {
   // 搜索工具
@@ -461,3 +461,4 @@ npm run test:quick
 **文档维护者**: Claude Code
 **最后更新**: 2026-01-21
 **版本**: 2.0
+

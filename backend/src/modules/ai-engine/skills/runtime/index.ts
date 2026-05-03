@@ -4,13 +4,14 @@
  * Barrel export for the unified SKILL.md runtime components.
  */
 
-export { PromptSkillAdapter } from "./prompt-skill-adapter";
+export { PromptSkillAdapter } from "./prompt-skill.adapter";
 export {
-  PromptSkillBridge,
-  type BridgeRegistrationResult,
-} from "./prompt-skill-bridge.service";
+  PromptSkillRegistrationService,
+  type PromptSkillRegistrationResult,
+} from "./prompt-skill-registration.service";
+export { PromptSkillRegistrationService as PromptSkillBridge } from "./prompt-skill-registration.service";
 export {
   InputBindingResolver,
   type BindingContext,
-} from "./input-binding-resolver";
-export { EngineSkillProvider } from "./engine-skill-provider";
+} from "./skill-input-binding-resolver.service";
+export { EngineSkillProvider } from "./engine-skill-provider.adapter";

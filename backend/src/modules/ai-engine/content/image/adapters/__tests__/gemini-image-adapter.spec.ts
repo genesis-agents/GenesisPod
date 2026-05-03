@@ -3,7 +3,7 @@
  */
 
 import { of, throwError } from "rxjs";
-import { GeminiImageAdapter } from "../gemini-image-adapter";
+import { GeminiImageAdapter } from "../gemini-image.adapter";
 import {
   IMAGE_MODELS,
   IMAGE_PROVIDERS,
@@ -281,3 +281,4 @@ describe("GeminiImageAdapter", () => {
     expect(mockPost).toHaveBeenCalled();
   });
 });
+

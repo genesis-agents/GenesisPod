@@ -1,4 +1,4 @@
-import { ModelPricingRegistry } from "../model-pricing-registry";
+import { ModelPricingRegistry } from "../model-pricing.registry";
 
 describe("ModelPricingRegistry", () => {
   function make() {
@@ -210,3 +210,4 @@ describe("ModelPricingRegistry", () => {
     });
   });
 });
+

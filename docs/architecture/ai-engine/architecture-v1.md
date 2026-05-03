@@ -43,9 +43,9 @@ ai-engine/
 │   │   ├── registry.interface.ts     # IRegistry 注册表接口
 │   │   └── lifecycle.interface.ts    # 生命周期接口
 │   ├── errors/                  # 错误类型
-│   │   ├── base-error.ts        # 基础错误类
-│   │   ├── tool-error.ts        # 工具错误
-│   │   ├── skill-error.ts       # 技能错误
+│   │   ├── engine.error.ts        # 基础错误类
+│   │   ├── tool.error.ts        # 工具错误
+│   │   ├── skill.error.ts       # 技能错误
 │   │   └── agent-error.ts       # Agent 错误
 │   └── exceptions/              # 异常类型
 │       └── ai-service.exception.ts   # AI 服务异常
@@ -60,7 +60,7 @@ ai-engine/
 │   │   ├── validation.middleware.ts
 │   │   └── timeout.middleware.ts
 │   ├── registry/                # 注册表
-│   │   └── tool-registry.ts     # ToolRegistry
+│   │   └── tool.registry.ts     # ToolRegistry
 │   └── categories/              # 工具分类 (48 个)
 │       ├── information/         # 信息获取类
 │       ├── generation/          # 内容生成类
@@ -77,7 +77,7 @@ ai-engine/
 │   ├── base/                    # 基类
 │   │   └── base-skill.ts        # BaseSkill
 │   └── registry/                # 注册表
-│       └── skill-registry.ts    # SkillRegistry (层次/领域/标签索引)
+│       └── skill.registry.ts    # SkillRegistry (层次/领域/标签索引)
 │
 ├── agents/                      # Agent 框架
 │   ├── abstractions/            # Agent 接口
@@ -131,10 +131,10 @@ ai-engine/
 │   ├── abstractions/            # LLM 接口
 │   │   └── llm-adapter.interface.ts
 │   ├── adapters/                # 适配器
-│   │   ├── base-llm-adapter.ts
-│   │   └── function-calling-llm-adapter.ts
+│   │   ├── base-llm.adapter.ts
+│   │   └── function-calling-llm.adapter.ts
 │   ├── factory/                 # 工厂
-│   │   └── llm-factory.ts       # LLMFactory
+│   │   └── llm.factory.ts       # LLMFactory
 │   └── services/                # 服务
 │       └── ai-chat.service.ts   # 统一 Chat 服务
 │
@@ -160,12 +160,12 @@ ai-engine/
 │   ├── abstractions/            # 图像接口
 │   │   └── image-adapter.interface.ts
 │   ├── adapters/                # 适配器
-│   │   ├── openai-image-adapter.ts
-│   │   ├── gemini-image-adapter.ts
-│   │   ├── stability-image-adapter.ts
-│   │   └── together-image-adapter.ts
+│   │   ├── openai-image.adapter.ts
+│   │   ├── gemini-image.adapter.ts
+│   │   ├── stability-image.adapter.ts
+│   │   └── together-image.adapter.ts
 │   ├── factory/                 # 工厂
-│   │   └── image-factory.ts
+│   │   └── image.factory.ts
 │   └── image.module.ts
 │
 ├── rag/                         # RAG 管道
@@ -518,3 +518,5 @@ controller.recordUsage({
 | 版本 | 日期       | 变更内容 |
 | ---- | ---------- | -------- |
 | 1.0  | 2026-01-02 | 初始版本 |
+
+

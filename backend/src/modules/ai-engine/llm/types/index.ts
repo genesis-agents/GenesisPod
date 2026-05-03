@@ -29,9 +29,10 @@ export {
   getReasoningMinTokens,
   JSON_OUTPUT_MAX_TEMPERATURE,
   MODEL_KNOWN_LIMITS,
-} from "./task-profile";
+} from "./task-profile.types";
 
-export { inferIsReasoning, getKnownModelLimit } from "./model-utils";
+export { inferIsReasoning, getKnownModelLimit } from "./model.utils";
 
 // 2026-05-01 (PR-X-M2): AiCallerFn 通用 LLM 调用函数签名
 export type { AiCallerFn } from "./ai-caller.types";
+

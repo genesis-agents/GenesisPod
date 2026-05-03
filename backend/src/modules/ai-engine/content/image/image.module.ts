@@ -17,11 +17,11 @@ import { SecretsService } from "@/modules/ai-infra/facade";
 import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
 import { AIModelType } from "@prisma/client";
 
-import { ImageFactory } from "./factory/image-factory";
-import { GeminiImageAdapter } from "./adapters/gemini-image-adapter";
-import { OpenAIImageAdapter } from "./adapters/openai-image-adapter";
-import { StabilityImageAdapter } from "./adapters/stability-image-adapter";
-import { TogetherImageAdapter } from "./adapters/together-image-adapter";
+import { ImageFactory } from "./factory/image.factory";
+import { GeminiImageAdapter } from "./adapters/gemini-image.adapter";
+import { OpenAIImageAdapter } from "./adapters/openai-image.adapter";
+import { StabilityImageAdapter } from "./adapters/stability-image.adapter";
+import { TogetherImageAdapter } from "./adapters/together-image.adapter";
 import { ImageMatchingService } from "./matching/image-matching.service";
 import { IMAGE_PROVIDERS } from "./abstractions/image-adapter.interface";
 
@@ -139,3 +139,5 @@ export class ImageModule implements OnModuleInit {
     }
   }
 }
+
+

@@ -36,13 +36,13 @@ import type {
 } from "../../../ai-harness/runner/executor/function-calling-executor";
 // IntentRouter / TaskPlanner 已删 (2026-04-30)
 import { MCPManager } from "../../../ai-engine/tools/adapters/mcp/manager/mcp-manager";
-import { FunctionCallingLLMAdapter } from "../../../ai-engine/llm/adapters/function-calling-llm-adapter";
+import { FunctionCallingLLMAdapter } from "../../../ai-engine/llm/adapters/function-calling-llm.adapter";
 import { FunctionCallingExecutor } from "../../../ai-harness/runner/executor/function-calling-executor";
 import type {
   SkillPromptBundle,
   SkillPromptOptions,
 } from "../../../ai-harness/runner/capabilities/types";
-import type { ToolRegistry } from "../../../ai-engine/tools/registry/tool-registry";
+import type { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 
 @Injectable()
 export class ToolFacade {

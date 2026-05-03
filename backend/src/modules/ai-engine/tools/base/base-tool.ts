@@ -5,7 +5,7 @@
 
 import { v4 as uuid } from "uuid";
 import { ValidationResult, JsonObject } from "@/modules/ai-engine/facade/index";
-import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool-error";
+import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool.error";
 import {
   ITool,
   ToolContext,
@@ -320,3 +320,4 @@ export function createTool<TInput, TOutput>(options: {
     },
   };
 }
+

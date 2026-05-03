@@ -2,7 +2,7 @@
  * Tests for BaseImageAdapter
  */
 
-import { BaseImageAdapter } from "../base-image-adapter";
+import { BaseImageAdapter } from "../base-image.adapter";
 import {
   ImageProvider,
   IMAGE_PROVIDERS,
@@ -197,3 +197,4 @@ describe("BaseImageAdapter", () => {
     expect(adapter.imageToImage).toBeUndefined();
   });
 });
+

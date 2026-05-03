@@ -3,7 +3,7 @@
  */
 
 import { of } from "rxjs";
-import { StabilityImageAdapter } from "../stability-image-adapter";
+import { StabilityImageAdapter } from "../stability-image.adapter";
 import {
   IMAGE_MODELS,
   IMAGE_PROVIDERS,
@@ -185,3 +185,4 @@ describe("StabilityImageAdapter", () => {
     );
   });
 });
+

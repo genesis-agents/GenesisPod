@@ -2,7 +2,7 @@
  * Tests for ImageFactory
  */
 
-import { ImageFactory } from "../image-factory";
+import { ImageFactory } from "../image.factory";
 import {
   IImageAdapter,
   IMAGE_PROVIDERS,
@@ -284,3 +284,4 @@ describe("ImageFactory", () => {
     expect(available).not.toContain(IMAGE_PROVIDERS.GEMINI);
   });
 });
+

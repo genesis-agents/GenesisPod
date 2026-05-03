@@ -14,7 +14,7 @@
  *   common/ → 任何层（共享基础工具）
  *
  * Allowlist（合法的反向 / adapter 模式）：
- *   - ai-engine/skills/runtime/engine-skill-provider.ts → ai-harness/agents/abstractions
+ *   - ai-engine/skills/runtime/engine-skill-provider.adapter.ts → ai-harness/agents/abstractions
  *     原因：engine 实现 harness ISkillProvider 端口（K commit 的 adapter 模式）
  *   - 注释 / 文档字符串 引用其他层的路径（不是真实 import）— 由正则限定到 import 语句过滤
  *
@@ -134,7 +134,7 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       // ai-harness 层）。允许此一 adapter，禁止其他 ai-engine → ai-harness 路径。
       const violations: string[] = [];
       const allowlist = [
-        "modules/ai-engine/skills/runtime/engine-skill-provider.ts",
+        "modules/ai-engine/skills/runtime/engine-skill-provider.adapter.ts",
       ];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-engine") continue;

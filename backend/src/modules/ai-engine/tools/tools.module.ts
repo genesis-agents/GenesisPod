@@ -16,7 +16,7 @@ import { BrowserModule } from "../../../common/browser/browser.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 
 // Registry
-import { ToolRegistry } from "./registry/tool-registry";
+import { ToolRegistry } from "./registry/tool.registry";
 
 // Middleware
 import { ToolPipeline, ToolExecutor } from "./middleware/tool-pipeline";
@@ -115,3 +115,4 @@ const toolExecutorFactory = {
   ],
 })
 export class AiEngineToolsModule {}
+

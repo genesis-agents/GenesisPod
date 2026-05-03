@@ -29,10 +29,10 @@ import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/
 // PR-X16: TeamsController 已迁移至 open-api/teams-api（HTTP Controller 上提）
 
 // AI Engine 核心依赖
-import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool-registry";
+import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { ToolPipeline } from "@/modules/ai-engine/tools/middleware/tool-pipeline";
-import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill-registry";
-import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm-factory";
+import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
+import { LLMFactory } from "@/modules/ai-engine/llm/factory/llm.factory";
 import { CostController } from "@/modules/ai-harness/guardrails/cost-controller";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 import { MCPManager } from "@/modules/ai-engine/tools/adapters/mcp/manager/mcp-manager";

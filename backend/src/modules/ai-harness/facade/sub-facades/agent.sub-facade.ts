@@ -9,7 +9,7 @@ import { AIModelType } from "@prisma/client";
 import {
   CREATIVITY_TO_TEMPERATURE,
   OUTPUT_LENGTH_TO_TOKENS,
-} from "../../../ai-engine/llm/types/task-profile";
+} from "../../../ai-engine/llm/types/task-profile.types";
 import type { OrchestrationFeature } from "../facade.providers";
 import type { AgentExecutionRequest, AgentExecutionResult } from "../types";
 

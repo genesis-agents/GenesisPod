@@ -60,7 +60,7 @@
 | `ai-app/image/agents/image-designer.agent.ts`          | 同上 + `ai-engine/interfaces/image.interface`                                                                                | 继承 `PlanBasedAgent`       |
 | `ai-app/teams/agents/team-collaboration.agent.ts`      | `ai-engine/agents/base/plan-based-agent`, `ai-engine/core/types/agent.types`                                                 | 继承 `PlanBasedAgent`       |
 | `ai-app/office/slides/skills/*.skill.ts` (17 个)       | `ai-engine/skills`, `ai-engine/skills/abstractions/skill.interface`                                                          | 实现 `ISkill`               |
-| `ai-app/office/slides/skills/data-supplement.skill.ts` | `ai-engine/tools/registry/tool-registry`, `ai-engine/tools/abstractions/tool.interface`                                      | 豁免在 `*.skill.ts`         |
+| `ai-app/office/slides/skills/data-supplement.skill.ts` | `ai-engine/tools/registry/tool.registry`, `ai-engine/tools/abstractions/tool.interface`                                      | 豁免在 `*.skill.ts`         |
 | `ai-app/office/common/content-analysis.service.ts`     | `ai-engine/content-analysis`                                                                                                 | 明确豁免为 re-export bridge |
 | `ai-app/office/common/content-analysis.types.ts`       | `ai-engine/content-analysis/content-analysis.types`                                                                          | 明确豁免为 re-export bridge |
 | `ai-app/office/common/image-matching.service.ts`       | `ai-engine/image/matching`                                                                                                   | 明确豁免为 re-export bridge |
@@ -366,3 +366,4 @@ ESLint `no-restricted-imports` 规则**不检测** TypeScript 内联 `import()` 
 
 _报告生成工具: Arch Auditor Agent v1.0_
 _下次建议审计时间: 2026-03-24_
+

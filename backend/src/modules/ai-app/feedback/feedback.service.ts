@@ -3,7 +3,10 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
-import { EmailService, R2StorageService } from "../../ai-infra/facade";
+import {
+  EmailNotificationPresetsService,
+  R2StorageService,
+} from "../../ai-infra/facade";
 import {
   FeedbackEvent,
   FeedbackCreatedPayload,
@@ -36,7 +39,7 @@ export class FeedbackService {
 
   constructor(
     private prisma: PrismaService,
-    private emailService: EmailService,
+    private emailNotificationPresetsService: EmailNotificationPresetsService,
     private r2Storage: R2StorageService,
     private eventEmitter: EventEmitter2,
   ) {}
@@ -153,7 +156,7 @@ export class FeedbackService {
         content: f.buffer,
       }));
 
-      await this.emailService.sendFeedbackNotification({
+      await this.emailNotificationPresetsService.sendFeedbackNotification({
         id: createdId,
         type: feedbackType,
         title: dto.title,
@@ -413,7 +416,7 @@ export class FeedbackService {
     // Send email notification to user if they provided email and status changed
     if (userEmail && oldStatus !== status) {
       try {
-        await this.emailService.sendFeedbackStatusUpdate({
+        await this.emailNotificationPresetsService.sendFeedbackStatusUpdate({
           id,
           title,
           type: feedbackType,

@@ -114,11 +114,11 @@ backend/src/modules/
 │   ├── capabilities/             # 能力解析
 │   │   └── ai-capability-resolver.service.ts
 │   ├── tools/                    # 工具系统
-│   │   ├── registry/tool-registry.ts
+│   │   ├── registry/tool.registry.ts
 │   │   ├── base/base-tool.ts
 │   │   └── implementations/      # 46+ 内置工具
 │   ├── skills/                   # 技能系统
-│   │   ├── registry/skill-registry.ts
+│   │   ├── registry/skill.registry.ts
 │   │   └── loader/skill-loader.service.ts
 │   ├── orchestration/            # 编排执行
 │   │   └── executors/function-calling-executor.ts
@@ -425,7 +425,7 @@ model MCPServerConfig {
 
 ### 5.1 工具注册表
 
-**位置**: `backend/src/modules/ai-engine/tools/registry/tool-registry.ts`
+**位置**: `backend/src/modules/ai-engine/tools/registry/tool.registry.ts`
 
 ```typescript
 @Injectable()
@@ -561,7 +561,7 @@ class MCPToolAdapter implements ITool {
 
 ### 6.1 技能注册表
 
-**位置**: `backend/src/modules/ai-engine/skills/registry/skill-registry.ts`
+**位置**: `backend/src/modules/ai-engine/skills/registry/skill.registry.ts`
 
 ```typescript
 @Injectable()
@@ -1330,3 +1330,4 @@ model MCPServerConfig {
 **创建日期**: 2026-01-21
 **维护者**: Claude Code
 **基于代码**: commit ff5ce052 (main)
+

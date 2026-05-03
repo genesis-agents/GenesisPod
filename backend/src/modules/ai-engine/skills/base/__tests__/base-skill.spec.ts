@@ -9,7 +9,7 @@ import {
   ISkill,
 } from "../../abstractions/skill.interface";
 import { ToolPipeline } from "../../../tools/middleware/tool-pipeline";
-import { SkillError } from "@/modules/ai-engine/skills/abstractions/skill-error";
+import { SkillError } from "@/modules/ai-engine/skills/abstractions/skill.error";
 
 // Concrete implementation for testing
 class SimpleSkill extends BaseSkill<string, string> {
@@ -568,3 +568,4 @@ describe("createSkill", () => {
     expect(skill.requiredTools).toEqual(["search-tool"]);
   });
 });
+

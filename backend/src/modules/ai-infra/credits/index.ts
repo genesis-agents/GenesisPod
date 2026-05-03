@@ -7,4 +7,4 @@ export * from "./dto/consume-credits.dto";
 export * from "./dto/grant-credits.dto";
 export * from "./dto/transaction-query.dto";
 export * from "./exceptions/insufficient-credits.exception";
-export * from "./billing-context";
+export * from "./billing-context.store";

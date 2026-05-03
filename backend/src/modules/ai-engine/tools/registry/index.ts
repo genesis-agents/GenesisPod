@@ -1,4 +1,5 @@
 /**
  * AI Engine - Tools Registry
  */
-export * from "./tool-registry";
+export * from "./tool.registry";
+

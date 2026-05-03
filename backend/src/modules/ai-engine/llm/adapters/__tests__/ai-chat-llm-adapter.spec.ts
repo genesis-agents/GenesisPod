@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConfigService } from "@nestjs/config";
-import { AiChatLLMAdapter } from "../ai-chat-llm-adapter";
+import { AiChatLLMAdapter } from "../ai-chat-llm.adapter";
 import { AiChatService } from "../../services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
@@ -244,3 +244,4 @@ describe("AiChatLLMAdapter", () => {
     });
   });
 });
+

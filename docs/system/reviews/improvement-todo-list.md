@@ -50,7 +50,7 @@
 
 ### P1 - 后端服务测试
 
-- [ ] **TD-006**: 创建 `task-profile-mapper.service.spec.ts`
+- [ ] **TD-006**: 创建 `task-profile.types-mapper.service.spec.ts`
   - **目录**: `backend/src/modules/ai-engine/llm/services/__tests__/`
   - **覆盖**: 基础映射、推理模型逻辑、JSON 格式限制
   - **预计工时**: 3 小时
@@ -262,3 +262,4 @@ Month 3: TD-011, TD-012, TD-013, TD-014 (架构优化)
 
 **最后更新**: 2026-01-16
 **下次审查**: 每周五
+

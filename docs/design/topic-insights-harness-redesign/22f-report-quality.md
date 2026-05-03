@@ -199,7 +199,7 @@ Report + Quality 两层 21 个 Service 深度剖析
 - **figure-relevance.service.ts**：Vision LLM 相关性过滤
 - **report-annotation.service.ts**：批注 CRUD
 - **report-change.service.ts**：变更追踪 + diff
-- **citation-formatter.service.ts**：引用格式化
+- **citation-formatting.utils.service.ts**：引用格式化
 - **credibility-report.service.ts**：证据信度评分
 - **latex-repair.service.ts**：LaTeX 公式修复
 - **research-export.service.ts**：报告导出
@@ -326,3 +326,4 @@ Quality 层：
 **总体量化**：1047 行 / 89 方法 / 21 service
 **覆盖完整度**：21/21 (100%)
 **生成时间**：2026-04-24
+

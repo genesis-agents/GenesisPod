@@ -12,7 +12,7 @@ Three scenarios — pick the one that matches your case.
 
 ### File to edit
 
-`backend/src/modules/ai-infra/secrets/secret-name-mapping.ts`
+`backend/src/modules/ai-infra/secrets/secret-name.catalog.ts`
 
 ### Change
 
@@ -46,7 +46,7 @@ cd backend && npm run type-check
 
 ### Files to edit
 
-1. `backend/src/modules/ai-infra/secrets/secret-name-mapping.ts`
+1. `backend/src/modules/ai-infra/secrets/secret-name.catalog.ts`
 
 ### Step A — Add the tool-to-secret mapping
 
@@ -107,7 +107,7 @@ In `SYSTEM_SETTING_TO_SECRET_MAPPING`:
 
 ### How it works
 
-`classifySecret(name)` in `secret-name-mapping.ts`:
+`classifySecret(name)` in `secret-name.catalog.ts`:
 
 1. Not in `SYSTEM_SETTING_TO_SECRET_MAPPING` → skip A class.
 2. Name does not match any `LLM_PROVIDER_NAME_PATTERNS` token → skip B class.
@@ -119,3 +119,4 @@ In `SYSTEM_SETTING_TO_SECRET_MAPPING`:
 2. Open Admin → Secrets → "Platform Overview" panel.
 3. The secret appears under **Custom Secrets** with an "Active" badge.
 4. No warning color, no "Configure" or "Delete" button visible in the panel (management stays in the main Secrets table).
+

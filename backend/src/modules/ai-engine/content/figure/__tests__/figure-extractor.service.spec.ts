@@ -4,7 +4,7 @@
  * Network calls (fetch, HTTP) are mocked globally.
  */
 import { FigureExtractorService } from "../figure-extractor.service";
-import { ToolRegistry } from "../../../tools/registry/tool-registry";
+import { ToolRegistry } from "../../../tools/registry/tool.registry";
 
 // ---------------------------------------------------------------------------
 // Mock globals
@@ -1242,3 +1242,4 @@ describe("FigureExtractorService", () => {
     });
   });
 });
+

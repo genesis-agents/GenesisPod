@@ -16,7 +16,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { HttpService } from "@nestjs/axios";
 import { of } from "rxjs";
 import { AiApiCallerService } from "../ai-api-caller.service";
-import type { ChatMessage } from "../../types/task-profile";
+import type { ChatMessage } from "../../types/task-profile.types";
 
 function makeHttpResponse(data: unknown) {
   return {
@@ -483,3 +483,4 @@ describe("AiApiCallerService (extended coverage)", () => {
     });
   });
 });
+
