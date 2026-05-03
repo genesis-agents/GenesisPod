@@ -35,7 +35,8 @@
     "ignoreDeprecations": "5.0",
     "typeRoots": ["../node_modules/@types", "./node_modules/@types"],
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "src/*": ["src/*"]
     }
   },
   "include": ["src/**/*"],
