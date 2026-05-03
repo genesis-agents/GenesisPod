@@ -7,7 +7,7 @@
  * - SkillsMP 安装的 skills 通过此桥接自动进入执行管线
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, Optional } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
 import { SkillRegistry } from "../../registry/skill.registry";
 import { SkillLoaderService } from "../../loader/loading/skill-loader.service";
@@ -41,7 +41,10 @@ export class PromptSkillRegistrationService {
     private readonly promptBuilder: SkillPromptBuilder,
     private readonly prisma: PrismaService,
     private readonly skillContentService: SkillContentService,
-    private readonly chatProviderOrModuleRef: IChatProvider | ModuleRef,
+    @Optional()
+    @Inject(CHAT_PROVIDER_PORT)
+    private readonly facade?: IChatProvider,
+    private readonly moduleRef?: ModuleRef,
   ) {
     // Create a shared callback that logs execution to AIUsageLog + updates usage count
     this.executionCallback = (params) => {
@@ -148,15 +151,16 @@ export class PromptSkillRegistrationService {
   }
 
   private getChatProvider(): IChatProvider {
-    if ("get" in this.chatProviderOrModuleRef) {
-      return this.chatProviderOrModuleRef.get<IChatProvider>(
-        CHAT_PROVIDER_PORT,
-        {
-          strict: false,
-        },
-      );
+    if (this.facade) {
+      return this.facade;
     }
 
-    return this.chatProviderOrModuleRef;
+    if (this.moduleRef) {
+      return this.moduleRef.get<IChatProvider>(CHAT_PROVIDER_PORT, {
+        strict: false,
+      });
+    }
+
+    throw new Error("CHAT_PROVIDER_PORT is not available");
   }
 }
