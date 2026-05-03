@@ -97,11 +97,23 @@ function deriveSubStageStatus(
         c.status === 'reviewing' ||
         c.status === 'revising' ||
         c.status === 'passed' ||
+        c.status === 'done' ||
+        c.status === 'failed-finalized' ||
         c.status === 'failed'
     );
     if (writingOrLater.length === 0) return 'idle';
-    if (pipeline.chapters.every((c) => c.status === 'passed')) return 'done';
-    if (pipeline.chapters.some((c) => c.status === 'failed')) return 'failed';
+    if (
+      pipeline.chapters.every(
+        (c) => c.status === 'passed' || c.status === 'done'
+      )
+    )
+      return 'done';
+    if (
+      pipeline.chapters.some(
+        (c) => c.status === 'failed' || c.status === 'failed-finalized'
+      )
+    )
+      return 'failed';
     return 'running';
   }
   if (stage === 'chapter-review') {
@@ -109,17 +121,25 @@ function deriveSubStageStatus(
     const reviewedOrPassed = pipeline.chapters.filter(
       (c) =>
         c.status === 'passed' ||
+        c.status === 'done' ||
         c.status === 'reviewing' ||
         c.status === 'revising'
     );
     if (reviewedOrPassed.length === 0) return 'idle';
-    if (pipeline.chapters.every((c) => c.status === 'passed')) return 'done';
+    if (
+      pipeline.chapters.every(
+        (c) => c.status === 'passed' || c.status === 'done'
+      )
+    )
+      return 'done';
     return 'running';
   }
   if (stage === 'integrator') {
     return pipeline.totalWordCount != null
       ? 'done'
-      : pipeline.chapters.every((c) => c.status === 'passed')
+      : pipeline.chapters.every(
+            (c) => c.status === 'passed' || c.status === 'done'
+          )
         ? 'running'
         : 'idle';
   }
@@ -299,7 +319,8 @@ export function TeamMissionModal({
                           <span className="font-mono text-gray-600">
                             {
                               pipeline.chapters.filter(
-                                (c) => c.status === 'passed'
+                                (c) =>
+                                  c.status === 'passed' || c.status === 'done'
                               ).length
                             }{' '}
                             / {pipeline.chapters.length}
@@ -314,7 +335,7 @@ export function TeamMissionModal({
                               key={c.index}
                               title={`第 ${c.index} 章 · ${c.heading}${c.score != null ? ` (${c.score}分)` : ''}`}
                               className={`h-1.5 flex-1 rounded ${
-                                c.status === 'passed'
+                                c.status === 'passed' || c.status === 'done'
                                   ? 'bg-emerald-400'
                                   : c.status === 'writing'
                                     ? 'animate-pulse bg-blue-400'
@@ -322,7 +343,8 @@ export function TeamMissionModal({
                                       ? 'animate-pulse bg-amber-400'
                                       : c.status === 'revising'
                                         ? 'animate-pulse bg-orange-400'
-                                        : c.status === 'failed'
+                                        : c.status === 'failed' ||
+                                            c.status === 'failed-finalized'
                                           ? 'bg-red-400'
                                           : 'bg-gray-200'
                               }`}

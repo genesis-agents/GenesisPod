@@ -111,9 +111,8 @@ function deriveDimSubStatus(
       label: '已放弃',
       tone: 'bg-gray-100 text-gray-600 ring-gray-200',
     };
-  const pipeline = td.dimensionRef
-    ? pipelines?.get(td.dimensionRef)
-    : undefined;
+  const pipelineKey = td.pipelineKey ?? td.dimensionRef;
+  const pipeline = pipelineKey ? pipelines?.get(pipelineKey) : undefined;
   // 还没起 outline → 数据采集中
   if (!pipeline || pipeline.chapters.length === 0) {
     return {

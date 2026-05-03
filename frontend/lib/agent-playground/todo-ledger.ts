@@ -1697,6 +1697,9 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     .filter((td) => td.scope === 'dimension');
   for (const td of dimTodos) {
     if (!td.dimensionRef) continue;
+    // retry/reassign 子任务有独立 pipelineKey，不能再借用同维度 researcher 的快照 phase，
+    // 否则首轮 researcher.completed 会把重派中的子任务误盖成 done。
+    if (td.parentId) continue;
     const matching = agents.find(
       (a) => a.dimension === td.dimensionRef && a.role === 'researcher'
     );

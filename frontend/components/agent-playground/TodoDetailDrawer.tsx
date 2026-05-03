@@ -1099,7 +1099,7 @@ export function TodoDetailDrawer({
                 <>
                   <Section
                     title="章节进度"
-                    count={`${pipeline.chapters.filter((c) => c.status === 'passed').length} / ${pipeline.chapters.length} 通过${pipeline.totalWordCount ? ' · ' + pipeline.totalWordCount + ' 字' : ''}`}
+                    count={`${pipeline.chapters.filter((c) => c.status === 'passed' || c.status === 'done').length} / ${pipeline.chapters.length} 通过${pipeline.totalWordCount ? ' · ' + pipeline.totalWordCount + ' 字' : ''}`}
                   >
                     <ul className="space-y-1.5 p-3">
                       {pipeline.chapters.map((c) => {
