@@ -37,6 +37,7 @@ function safeNumber(v: unknown): number | null {
 export function extractTokenSpend(events: readonly IAgentEvent[]): number {
   let total = 0;
   let lastBudgetTokens = 0;
+  let thinkingFallback = 0;
   for (const ev of events) {
     if (ev.type === "action_executed") {
       const p = ev.payload as { tokensUsed?: unknown } | null;
@@ -46,9 +47,17 @@ export function extractTokenSpend(events: readonly IAgentEvent[]): number {
       const p = ev.payload as { tokensUsed?: unknown } | null;
       const n = safeNumber(p?.tokensUsed);
       if (n != null) lastBudgetTokens = Math.max(lastBudgetTokens, n);
+    } else if (ev.type === "thinking") {
+      const p = ev.payload as {
+        promptTokens?: unknown;
+        completionTokens?: unknown;
+      } | null;
+      const promptTokens = safeNumber(p?.promptTokens) ?? 0;
+      const completionTokens = safeNumber(p?.completionTokens) ?? 0;
+      thinkingFallback += promptTokens + completionTokens;
     }
   }
-  return Math.max(total, lastBudgetTokens);
+  return Math.max(total, lastBudgetTokens, thinkingFallback);
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  BadRequestException,
   Inject,
   OnModuleInit,
 } from "@nestjs/common";
@@ -70,6 +71,19 @@ export class ExportOrchestratorService implements OnModuleInit {
     const renderer = this.renderers.get(request.format);
     if (!renderer) {
       throw new Error(`Unsupported export format: ${request.format}`);
+    }
+
+    if (request.templateId) {
+      try {
+        await this.templateManager.getTemplate(request.templateId, userId);
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          throw new BadRequestException(
+            `Invalid export template: ${request.templateId}`,
+          );
+        }
+        throw error;
+      }
     }
 
     // 构建源数据

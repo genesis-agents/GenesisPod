@@ -13,7 +13,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Logger, NotFoundException } from "@nestjs/common";
 import { ExportOrchestratorService } from "../export-orchestrator.service";
 import { ContentTransformerService } from "../content-transformer.service";
 import { TemplateManagerService } from "../template-manager.service";
@@ -44,6 +44,7 @@ const mockContentTransformer = {
 
 const mockTemplateManager = {
   getThemeAndLayout: jest.fn(),
+  getTemplate: jest.fn(),
 };
 
 const mockWysiwygRenderService = {
@@ -172,6 +173,10 @@ describe("ExportOrchestratorService", () => {
     mockTemplateManager.getThemeAndLayout.mockResolvedValue({
       theme: defaultTheme,
       layout: defaultLayout,
+    });
+    mockTemplateManager.getTemplate.mockResolvedValue({
+      id: "tpl-1",
+      name: "Template 1",
     });
 
     const module: TestingModule = await Test.createTestingModule({
@@ -313,6 +318,32 @@ describe("ExportOrchestratorService", () => {
         format: ExportFormat.PDF,
       });
       expect(result.estimatedTime).toBeGreaterThan(0);
+    });
+
+    it("validates templateId before creating the export job", async () => {
+      await service.createExportJob("user-1", {
+        source: { type: "DOCUMENT", documentId: "doc-1" },
+        format: ExportFormat.PDF,
+        templateId: "tpl-1",
+      });
+      expect(mockTemplateManager.getTemplate).toHaveBeenCalledWith(
+        "tpl-1",
+        "user-1",
+      );
+    });
+
+    it("throws BadRequestException when templateId points to a missing template", async () => {
+      mockTemplateManager.getTemplate.mockRejectedValueOnce(
+        new NotFoundException("Template not found"),
+      );
+      await expect(
+        service.createExportJob("user-1", {
+          source: { type: "DOCUMENT", documentId: "doc-1" },
+          format: ExportFormat.PDF,
+          templateId: "missing-template",
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.exportJob.create).not.toHaveBeenCalled();
     });
   });
 

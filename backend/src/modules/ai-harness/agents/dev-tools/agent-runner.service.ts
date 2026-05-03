@@ -627,7 +627,7 @@ export class AgentRunner {
     state: "completed" | "failed" | "cancelled" | "degraded";
     partialOutput?: unknown;
   } {
-    const promptTokens = 0;
+    let promptTokens = 0;
     let completionTokens = 0;
     const modelTrail: {
       iter: number;
@@ -651,15 +651,29 @@ export class AgentRunner {
 
     for (const ev of events) {
       if (ev.type === "thinking") {
-        const p = ev.payload as { tokenCount?: number; modelId?: string };
-        if (p?.tokenCount) {
-          completionTokens += p.tokenCount;
+        const p = ev.payload as {
+          tokenCount?: number;
+          promptTokens?: number;
+          completionTokens?: number;
+          modelId?: string;
+        };
+        const explicitPromptTokens =
+          typeof p?.promptTokens === "number" ? p.promptTokens : 0;
+        const explicitCompletionTokens =
+          typeof p?.completionTokens === "number"
+            ? p.completionTokens
+            : typeof p?.tokenCount === "number"
+              ? p.tokenCount
+              : 0;
+        if (explicitPromptTokens || explicitCompletionTokens) {
+          promptTokens += explicitPromptTokens;
+          completionTokens += explicitCompletionTokens;
           if (p.modelId) {
             modelTrail.push({
               iter,
               modelId: p.modelId,
-              promptTokens: 0,
-              completionTokens: p.tokenCount,
+              promptTokens: explicitPromptTokens,
+              completionTokens: explicitCompletionTokens,
               latencyMs: 0,
             });
           }
@@ -1482,6 +1496,3 @@ export class AgentRunner {
     });
   }
 }
-
-
-

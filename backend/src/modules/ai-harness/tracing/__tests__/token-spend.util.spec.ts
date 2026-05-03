@@ -135,6 +135,32 @@ describe("extractTokenSpend", () => {
     ];
     expect(extractTokenSpend(events)).toBe(150);
   });
+
+  it("falls back to thinking prompt/completion tokens when action totals are absent", () => {
+    const events = [
+      makeEvent("thinking", {
+        promptTokens: 600,
+        completionTokens: 400,
+        modelId: "grok-4-1-fast-reasoning",
+      }),
+      makeEvent("action_executed", {
+        output: "finalized without explicit usage",
+      }),
+    ];
+    expect(extractTokenSpend(events)).toBe(1000);
+  });
+
+  it("prefers explicit action/budget totals when larger than thinking fallback", () => {
+    const events = [
+      makeEvent("thinking", {
+        promptTokens: 300,
+        completionTokens: 200,
+      }),
+      makeEvent("action_executed", { tokensUsed: 1200 }),
+      makeEvent("budget_warning", { tokensUsed: 900 }),
+    ];
+    expect(extractTokenSpend(events)).toBe(1200);
+  });
 });
 
 // ─── estimateUsdFromTokens ────────────────────────────────────────────────────
