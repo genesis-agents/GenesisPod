@@ -7,7 +7,15 @@ import {
   MinLength,
   IsDateString,
 } from "class-validator";
-import { SecretCategory } from "@prisma/client";
+import { SecretCategory as PrismaSecretCategory } from "@prisma/client";
+
+const SecretCategory = PrismaSecretCategory ?? {
+  AI_MODEL: "AI_MODEL",
+  USER_DONATED: "USER_DONATED",
+  SYSTEM: "SYSTEM",
+  INTEGRATION: "INTEGRATION",
+  OTHER: "OTHER",
+};
 
 export class UpdateSecretDto {
   @IsOptional()
@@ -22,7 +30,7 @@ export class UpdateSecretDto {
 
   @IsOptional()
   @IsEnum(SecretCategory)
-  category?: SecretCategory;
+  category?: PrismaSecretCategory;
 
   @IsOptional()
   @IsString()

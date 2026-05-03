@@ -27,18 +27,8 @@ jest.mock(
 import { Test, TestingModule } from "@nestjs/testing";
 import { TeamMissionService } from "../mission/team-mission.service";
 import { TeamsLongContentService } from "../../ai/teams-long-content.service";
-import {
-  AIFacade,
-  AgentFacade,
-  TeamFacade,
-} from "@/modules/ai-harness/facade";
-import {
-  AiChatService,
-  SearchService,
-  ContextInitializationService,
-  ToolRegistry,
-} from "@/modules/ai-harness/facade";
-import { CircuitBreakerService } from "@/modules/ai-harness/facade";
+import { AIFacade, AgentFacade, TeamFacade } from "@/modules/ai-harness/facade";
+import { AiChatService, ToolRegistry } from "@/modules/ai-harness/facade";
 import { LongContentEngineService } from "../../../../writing/content-engine/services/long-content-engine.service";
 import { ContinuationProtocolService } from "../../../../writing/content-engine/services/continuation-protocol.service";
 import { TaskGranularityService } from "../../../../writing/content-engine/services/task-granularity.service";
@@ -49,7 +39,7 @@ import { TopicEventEmitterService } from "../../events";
 import { LeaderModelService } from "../../ai/leader-model.service";
 import { MissionContextService } from "../mission/mission-context.service";
 import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
-import { EmailService } from "../../../../../ai-infra/email/email.service";
+import { EmailNotificationPresetsService } from "../../../../../ai-infra/facade";
 import { MissionStateManager } from "../mission/mission-state.manager";
 import { MissionLifecycleService } from "../mission/mission-lifecycle.service";
 import { MissionRetryService } from "../mission/mission-retry.service";
@@ -102,30 +92,12 @@ describe("TeamMissionService Long Content Integration", () => {
     },
   };
 
-  const mockAiChatService = {
-    chat: jest.fn().mockResolvedValue({ content: "Mock AI response" }),
-  };
-
-  const mockSearchService = {
-    search: jest.fn().mockResolvedValue({ success: true, results: [] }),
-    formatResultsForContext: jest.fn().mockReturnValue(""),
-  };
-
   const mockTopicEventEmitterService = {
     emitToTopic: jest.fn(),
   };
 
-  const mockCircuitBreakerService = {
-    canExecute: jest.fn().mockReturnValue(true),
-    recordSuccess: jest.fn(),
-    recordFailure: jest.fn(),
-    selectBestAgent: jest
-      .fn()
-      .mockImplementation((agentIds: string[]) => agentIds[0] || null),
-    getAgentStats: jest
-      .fn()
-      .mockReturnValue({ state: "CLOSED", failureCount: 0 }),
-    reset: jest.fn(),
+  const mockAiChatService = {
+    chat: jest.fn().mockResolvedValue({ content: "Mock AI response" }),
   };
 
   beforeEach(async () => {
@@ -145,17 +117,12 @@ describe("TeamMissionService Long Content Integration", () => {
         QualityMonitorService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: AiChatService, useValue: mockAiChatService },
-        { provide: SearchService, useValue: mockSearchService },
         {
           provide: TopicEventEmitterService,
           useValue: mockTopicEventEmitterService,
         },
         {
-          provide: CircuitBreakerService,
-          useValue: mockCircuitBreakerService,
-        },
-        {
-          provide: EmailService,
+          provide: EmailNotificationPresetsService,
           useValue: {
             sendMissionCompletionNotification: jest
               .fn()
@@ -170,25 +137,12 @@ describe("TeamMissionService Long Content Integration", () => {
         },
         {
           provide: AIFacade,
-          useFactory: (
-            longContentEngine: LongContentEngineService,
-            continuationProtocol: ContinuationProtocolService,
-            contextInit: ContextInitializationService,
-          ) => ({
+          useValue: {
             chat: jest.fn().mockResolvedValue({
               content: "Mock AI response",
               tokensUsed: 100,
             }),
-            circuitBreaker: mockCircuitBreakerService,
-            contextInit,
-            longContentEngine,
-            continuationProtocol,
-          }),
-          inject: [
-            LongContentEngineService,
-            ContinuationProtocolService,
-            ContextInitializationService,
-          ],
+          },
         },
         {
           provide: MissionContextService,
@@ -243,19 +197,6 @@ describe("TeamMissionService Long Content Integration", () => {
             registerRevisionCallback: jest.fn(),
             resetRecoveryAttempts: jest.fn(),
             cleanupCompletedMission: jest.fn(),
-          },
-        },
-        {
-          provide: ContextInitializationService,
-          useValue: {
-            detectContentType: jest
-              .fn()
-              .mockReturnValue({ needed: false, contentType: "other" }),
-            buildWorldContext: jest.fn().mockResolvedValue({
-              needed: false,
-              contentType: "other",
-              tokensUsed: 0,
-            }),
           },
         },
         {
@@ -321,7 +262,26 @@ describe("TeamMissionService Long Content Integration", () => {
         {
           provide: AgentFacade,
           useValue: {
-            circuitBreaker: mockCircuitBreakerService,
+            circuitBreaker: {
+              canExecute: jest.fn().mockReturnValue(true),
+              recordSuccess: jest.fn(),
+              recordFailure: jest.fn(),
+              incrementLoad: jest.fn(),
+              decrementLoad: jest.fn(),
+              selectBest: jest.fn().mockReturnValue(null),
+              selectBestAgent: jest
+                .fn()
+                .mockImplementation(
+                  (agentIds: string[]) => agentIds[0] || null,
+                ),
+              getAgentStats: jest
+                .fn()
+                .mockReturnValue({ state: "CLOSED", failureCount: 0 }),
+              getHealthMetrics: jest.fn().mockReturnValue({}),
+              getCooldownRemaining: jest.fn().mockReturnValue(0),
+              parseErrorType: jest.fn().mockReturnValue("UNKNOWN"),
+              reset: jest.fn(),
+            },
             coordinatorStore: jest.fn().mockResolvedValue(undefined),
             coordinatorRecall: jest.fn().mockResolvedValue(undefined),
             startTrace: jest.fn().mockReturnValue("trace-1"),

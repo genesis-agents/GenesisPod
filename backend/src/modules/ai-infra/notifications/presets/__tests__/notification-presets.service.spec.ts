@@ -125,4 +125,4 @@ describe("NotificationPresetsService", () => {
       }),
     );
   });
-}
+});

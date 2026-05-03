@@ -141,7 +141,7 @@ jest.mock("@/modules/ai-harness/facade", () => {
   };
 });
 
-jest.mock("@/modules/ai-harness/facade", () => ({
+jest.mock("@/modules/ai-engine/facade", () => ({
   FigureExtractorService: jest.fn(),
 }));
 

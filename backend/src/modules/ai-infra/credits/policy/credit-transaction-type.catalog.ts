@@ -1,8 +1,27 @@
-import { CreditTransactionType } from "@prisma/client";
+import { CreditTransactionType as PrismaCreditTransactionType } from "@prisma/client";
+
+const CreditTransactionType = PrismaCreditTransactionType ?? {
+  AI_ASK: "AI_ASK",
+  ADJUSTMENT: "ADJUSTMENT",
+  AI_TEAMS: "AI_TEAMS",
+  AI_PLANNING: "AI_PLANNING",
+  EXPLORE: "EXPLORE",
+  AI_OFFICE: "AI_OFFICE",
+  AI_SIMULATION: "AI_SIMULATION",
+  AI_WRITING: "AI_WRITING",
+  AI_IMAGE: "AI_IMAGE",
+  AI_SOCIAL: "AI_SOCIAL",
+  AI_RESEARCH: "AI_RESEARCH",
+  AI_INSIGHTS: "AI_INSIGHTS",
+  NOTEBOOK_RESEARCH: "NOTEBOOK_RESEARCH",
+  LIBRARY: "LIBRARY",
+  NOTES: "NOTES",
+  COLLECTIONS: "COLLECTIONS",
+};
 
 export const CREDIT_TRANSACTION_TYPE_BY_MODULE: Record<
   string,
-  CreditTransactionType
+  PrismaCreditTransactionType
 > = {
   "ai-ask": CreditTransactionType.AI_ASK,
   "ai-engine": CreditTransactionType.ADJUSTMENT,

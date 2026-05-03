@@ -7,7 +7,33 @@ import {
   IsEnum,
   MaxLength,
 } from "class-validator";
-import { CreditTransactionType } from "@prisma/client";
+import { CreditTransactionType as PrismaCreditTransactionType } from "@prisma/client";
+
+const CreditTransactionType = PrismaCreditTransactionType ?? {
+  AI_ASK: "AI_ASK",
+  ADJUSTMENT: "ADJUSTMENT",
+  AI_TEAMS: "AI_TEAMS",
+  AI_PLANNING: "AI_PLANNING",
+  EXPLORE: "EXPLORE",
+  AI_OFFICE: "AI_OFFICE",
+  AI_SIMULATION: "AI_SIMULATION",
+  AI_WRITING: "AI_WRITING",
+  AI_IMAGE: "AI_IMAGE",
+  AI_SOCIAL: "AI_SOCIAL",
+  AI_RESEARCH: "AI_RESEARCH",
+  AI_INSIGHTS: "AI_INSIGHTS",
+  NOTEBOOK_RESEARCH: "NOTEBOOK_RESEARCH",
+  LIBRARY: "LIBRARY",
+  NOTES: "NOTES",
+  COLLECTIONS: "COLLECTIONS",
+  ADMIN_GRANT: "ADMIN_GRANT",
+  DONATION_REWARD: "DONATION_REWARD",
+  DONATION_USAGE_REWARD: "DONATION_USAGE_REWARD",
+  DAILY_CHECKIN: "DAILY_CHECKIN",
+  INITIAL: "INITIAL",
+  REFUND: "REFUND",
+  TASK_REWARD: "TASK_REWARD",
+};
 
 /**
  * 管理员发放积分 DTO
@@ -25,7 +51,7 @@ export class AdminGrantCreditsDto {
 
   @IsOptional()
   @IsEnum(CreditTransactionType)
-  type?: CreditTransactionType = CreditTransactionType.ADMIN_GRANT;
+  type?: PrismaCreditTransactionType = CreditTransactionType.ADMIN_GRANT;
 
   @IsString()
   @MaxLength(500)

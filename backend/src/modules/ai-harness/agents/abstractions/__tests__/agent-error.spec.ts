@@ -3,8 +3,8 @@
  */
 
 import { AgentError } from "../agent-error";
-import { EngineError } from "../engine.error";
-import { AgentErrorCode } from "../error-codes.constants";
+import { EngineError } from "@/modules/ai-engine/facade/abstractions/engine.error";
+import { AgentErrorCode } from "@/modules/ai-engine/facade/abstractions/error-codes.constants";
 
 describe("AgentError", () => {
   describe("constructor", () => {
@@ -345,4 +345,3 @@ describe("AgentError", () => {
     });
   });
 });
-

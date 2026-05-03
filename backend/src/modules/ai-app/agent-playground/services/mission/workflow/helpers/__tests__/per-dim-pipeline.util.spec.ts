@@ -38,9 +38,6 @@ jest.mock("../../../../../agents/writer/dimension-integrator.agent", () => ({
 jest.mock("@/modules/ai-harness/facade", () => ({
   restoreGlobalIndices: jest.fn((body: string) => body),
   sanitizeSectionOutput: jest.fn((body: string) => body),
-}));
-
-jest.mock("@/modules/ai-harness/facade", () => ({
   scanContentDefects: jest.fn(() => ({
     bareLatexCount: 0,
     brokenDollarNesting: 0,

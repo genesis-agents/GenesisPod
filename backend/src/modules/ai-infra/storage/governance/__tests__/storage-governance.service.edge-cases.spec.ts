@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { StorageGovernanceService } from "../storage-governance.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 
 jest.mock("os", () => ({
   totalmem: jest.fn().mockReturnValue(16 * 1024 * 1024 * 1024),

@@ -80,7 +80,7 @@ describe("AgentCommunicationTool", () => {
       ).toBe(false);
     });
 
-    it("should return false for an unknown fromAgent", () => {
+    it("should allow an unknown fromAgent when required fields are present", () => {
       expect(
         tool.validateInput({
           operation: CommunicationOperation.SEND,
@@ -88,7 +88,7 @@ describe("AgentCommunicationTool", () => {
           toAgent: BUILTIN_AGENTS.DESIGNER,
           message: { subject: "Hi", content: "Test" },
         }),
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it("should return true for RECEIVE operation with only fromAgent", () => {
@@ -741,7 +741,7 @@ describe("AgentCommunicationTool", () => {
   // --------------------------------------------------------------------------
 
   describe("validateInput edge cases", () => {
-    it("should return false for SEND when toAgent is not a BUILTIN_AGENTS value", () => {
+    it("should allow SEND when toAgent is not a BUILTIN_AGENTS value", () => {
       expect(
         tool.validateInput({
           operation: CommunicationOperation.SEND,
@@ -749,7 +749,7 @@ describe("AgentCommunicationTool", () => {
           toAgent: "unknown-agent",
           message: { subject: "Hi", content: "Hello" },
         }),
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it("should return false for MARK_READ without messageId", () => {

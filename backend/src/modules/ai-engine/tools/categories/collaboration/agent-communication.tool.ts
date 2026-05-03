@@ -31,6 +31,15 @@ import { randomUUID } from "crypto";
 const CACHE_PREFIX_MSG = "agent-comm:msg:";
 const CACHE_PREFIX_INBOX = "agent-comm:inbox:";
 const CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
+const KNOWN_AGENT_IDS = [
+  "docs",
+  "designer",
+  "coder",
+  "researcher",
+  "writer",
+  "critic",
+  "coordinator",
+];
 
 // ============================================================================
 // Types
@@ -327,12 +336,10 @@ export class AgentCommunicationTool
       fromAgent: {
         type: "string",
         description: "发送者 Agent",
-        
       },
       toAgent: {
         type: "string",
         description: "接收者 Agent（用于 send, reply 操作）",
-        
       },
       message: {
         type: "object",
@@ -442,7 +449,6 @@ export class AgentCommunicationTool
     // defaultTimeout set in class property // 5 秒超时
 
     // 初始化收件箱
-    
   }
 
   async onModuleInit(): Promise<void> {
@@ -457,8 +463,7 @@ export class AgentCommunicationTool
       // 1. Restore inboxes first (source of truth for which messages exist)
       //    合并策略：将 Redis 中的 messageId 列表与启动窗口期内已写入内存的合并，
       //    防止 onModuleInit 并发运行期间发送的消息因覆盖而丢失。
-      const knownAgents = ['DOCS', 'DESIGNER', 'CODER', 'RESEARCHER', 'WRITER', 'CRITIC', 'COORDINATOR'];
-      for (const agentId of knownAgents) {
+      for (const agentId of KNOWN_AGENT_IDS) {
         const inbox = await this.cacheService.get<string[]>(
           `${CACHE_PREFIX_INBOX}${agentId}`,
         );
@@ -771,8 +776,7 @@ export class AgentCommunicationTool
     const messages: Message[] = [];
 
     // 发送给所有其他 Agent
-    const knownAgents = ['DOCS', 'DESIGNER', 'CODER', 'RESEARCHER', 'WRITER', 'CRITIC', 'COORDINATOR'];
-      for (const agentId of knownAgents) {
+    for (const agentId of KNOWN_AGENT_IDS) {
       if (agentId !== from) {
         const result = await this.sendMessage(
           from,

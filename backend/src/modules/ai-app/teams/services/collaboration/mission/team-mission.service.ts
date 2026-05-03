@@ -126,7 +126,8 @@ export class TeamMissionService implements OnModuleInit {
     private toolRegistry: ToolRegistry,
     private topicEventEmitter: TopicEventEmitterService,
     private longContentService: TeamsLongContentService,
-    private emailNotificationPresetsService: EmailNotificationPresetsService,
+    @Optional()
+    private emailNotificationPresetsService?: EmailNotificationPresetsService,
     private configService: ConfigService,
     private missionContextService: MissionContextService,
     private constraintEnforcementService: ConstraintEnforcementService,
@@ -3426,7 +3427,7 @@ export class TeamMissionService implements OnModuleInit {
         const reportUrl = `${appUrl}/ai-teams/topics/${mission.topicId}?mission=${missionId}`;
 
         void this.emailNotificationPresetsService
-          .sendMissionCompletionNotification({
+          ?.sendMissionCompletionNotification({
             to: mission.notificationEmail,
             missionId,
             missionTitle: mission.title,

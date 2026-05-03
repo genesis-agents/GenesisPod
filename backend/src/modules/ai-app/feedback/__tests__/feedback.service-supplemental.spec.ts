@@ -11,9 +11,9 @@ jest.mock("../../../../common/cache/cache.service", () => ({
 }));
 // Mock ai-infra/facade barrel to prevent deep dependency chain loading.
 // We export named classes so that feedback.service.ts gets these mock classes
-// as the DI tokens for EmailService and R2StorageService.
+// as the DI tokens for EmailNotificationPresetsService and R2StorageService.
 jest.mock("../../../ai-infra/facade", () => ({
-  EmailService: class EmailService {
+  EmailNotificationPresetsService: class EmailNotificationPresetsService {
     sendFeedbackNotification = jest.fn();
     sendFeedbackStatusUpdate = jest.fn();
   },
@@ -64,7 +64,10 @@ import { FeedbackService } from "../feedback.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 // Import from the facade (which is mocked) - these are the same class references
 // that feedback.service.ts uses as DI tokens, so the provider tokens will match.
-import { EmailService, R2StorageService } from "../../../ai-infra/facade";
+import {
+  EmailNotificationPresetsService,
+  R2StorageService,
+} from "../../../ai-infra/facade";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService (supplemental)", () => {
@@ -121,7 +124,10 @@ describe("FeedbackService (supplemental)", () => {
         { provide: PrismaService, useValue: mockPrisma },
         // Use the facade-imported class as the token - this matches what
         // feedback.service.ts uses when it imports from ../../ai-infra/facade
-        { provide: EmailService, useValue: mockEmailService },
+        {
+          provide: EmailNotificationPresetsService,
+          useValue: mockEmailService,
+        },
         { provide: R2StorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],

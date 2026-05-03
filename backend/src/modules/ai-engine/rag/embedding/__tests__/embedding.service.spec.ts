@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { EmbeddingService } from "../embedding.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
-import { AiApiCallerService } from "../../../../llm/services/ai-api-caller.service";
+import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
 
 // ─── Mocks ────────────────────────────────────────────────
 

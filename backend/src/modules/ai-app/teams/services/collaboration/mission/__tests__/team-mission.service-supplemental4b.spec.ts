@@ -97,7 +97,10 @@ import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { TopicEventEmitterService } from "../../../events";
 import { TeamsLongContentService } from "../../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../../ai/leader-model.service";
-import { EmailService } from "../../../../../../ai-infra/facade";
+import {
+  EmailNotificationPresetsService,
+  EmailService,
+} from "../../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
 import { MissionContextService } from "../mission-context.service";
 import { ConstraintEnforcementService } from "@/modules/ai-harness/facade";
@@ -324,6 +327,10 @@ function buildMocks() {
     sendMissionCompletionNotification: jest.fn().mockResolvedValue(true),
   };
 
+  const emailNotificationPresetsService = {
+    sendMissionCompletionNotification: jest.fn().mockResolvedValue(true),
+  };
+
   const configService = {
     get: jest.fn().mockReturnValue("http://localhost:3000"),
   };
@@ -445,6 +452,7 @@ function buildMocks() {
     memberService,
     agentFacade,
     teamFacade,
+    emailNotificationPresetsService,
   };
 }
 
@@ -462,6 +470,10 @@ async function buildModule(
       },
       { provide: TeamsLongContentService, useValue: mocks.longContentService },
       { provide: EmailService, useValue: mocks.emailService },
+      {
+        provide: EmailNotificationPresetsService,
+        useValue: mocks.emailNotificationPresetsService,
+      },
       { provide: ConfigService, useValue: mocks.configService },
       {
         provide: MissionContextService,
@@ -538,6 +550,9 @@ describe("TeamMissionService (supplemental4b)", () => {
     mocks.messageService.sendMessage.mockResolvedValue({ id: "msg-4" });
     mocks.messageService.sendMessageToTopic.mockResolvedValue({ id: "msg-4" });
     mocks.messageService.createLog.mockResolvedValue(undefined);
+    mocks.emailNotificationPresetsService.sendMissionCompletionNotification.mockResolvedValue(
+      true,
+    );
     mocks.memberService.getTeamMembers.mockResolvedValue({
       leader: makeLeader(),
       members: [makeMember()],

@@ -46,7 +46,7 @@ import {
   // ★ Phase 5 (2026-04-29): mission checkpoint
   MissionCheckpointService,
 } from "@/modules/ai-harness/facade";
-import { FigureExtractorService } from "@/modules/ai-harness/facade";
+import { FigureExtractorService } from "@/modules/ai-engine/facade";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context.store";
 import { withUserContext } from "../../../../../../common/context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";

@@ -8,7 +8,33 @@ import {
   IsDateString,
 } from "class-validator";
 import { Type } from "class-transformer";
-import { CreditTransactionType } from "@prisma/client";
+import { CreditTransactionType as PrismaCreditTransactionType } from "@prisma/client";
+
+const CreditTransactionType = PrismaCreditTransactionType ?? {
+  AI_ASK: "AI_ASK",
+  ADJUSTMENT: "ADJUSTMENT",
+  AI_TEAMS: "AI_TEAMS",
+  AI_PLANNING: "AI_PLANNING",
+  EXPLORE: "EXPLORE",
+  AI_OFFICE: "AI_OFFICE",
+  AI_SIMULATION: "AI_SIMULATION",
+  AI_WRITING: "AI_WRITING",
+  AI_IMAGE: "AI_IMAGE",
+  AI_SOCIAL: "AI_SOCIAL",
+  AI_RESEARCH: "AI_RESEARCH",
+  AI_INSIGHTS: "AI_INSIGHTS",
+  NOTEBOOK_RESEARCH: "NOTEBOOK_RESEARCH",
+  LIBRARY: "LIBRARY",
+  NOTES: "NOTES",
+  COLLECTIONS: "COLLECTIONS",
+  ADMIN_GRANT: "ADMIN_GRANT",
+  DONATION_REWARD: "DONATION_REWARD",
+  DONATION_USAGE_REWARD: "DONATION_USAGE_REWARD",
+  DAILY_CHECKIN: "DAILY_CHECKIN",
+  INITIAL: "INITIAL",
+  REFUND: "REFUND",
+  TASK_REWARD: "TASK_REWARD",
+};
 
 /**
  * 交易记录查询 DTO
@@ -16,7 +42,7 @@ import { CreditTransactionType } from "@prisma/client";
 export class TransactionQueryDto {
   @IsOptional()
   @IsEnum(CreditTransactionType)
-  type?: CreditTransactionType;
+  type?: PrismaCreditTransactionType;
 
   @IsOptional()
   @IsString()
@@ -49,7 +75,7 @@ export class TransactionQueryDto {
  */
 export interface TransactionResponse {
   id: string;
-  type: CreditTransactionType;
+  type: PrismaCreditTransactionType;
   amount: number;
   balanceAfter: number;
   description: string;

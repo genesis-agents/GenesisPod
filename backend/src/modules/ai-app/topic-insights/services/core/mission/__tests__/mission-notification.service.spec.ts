@@ -7,7 +7,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MissionNotificationService } from "../mission-notification.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { EmailService, SettingsService } from "@/modules/ai-infra/facade";
+import {
+  EmailNotificationPresetsService,
+  SettingsService,
+} from "@/modules/ai-infra/facade";
 
 // ─── Mock factories ───────────────────────────────────────────────────────────
 
@@ -55,7 +58,10 @@ async function buildService(opts?: {
   ];
 
   if (opts?.withEmail !== false) {
-    providers.push({ provide: EmailService, useValue: emailService });
+    providers.push({
+      provide: EmailNotificationPresetsService,
+      useValue: emailService,
+    });
   }
   if (opts?.withSettings !== false) {
     providers.push({ provide: SettingsService, useValue: settingsService });

@@ -133,6 +133,7 @@ import { MissionHealthCheckService } from "../mission-health-check.service";
 import { MissionAICallerService } from "../mission-ai-caller.service";
 import { TeamMessageService } from "../team-message.service";
 import { TeamMemberService } from "../team-member.service";
+import { EmailNotificationPresetsService } from "../../../../../../ai-infra/facade";
 import {
   MissionStatus,
   AgentTaskStatus,
@@ -348,6 +349,10 @@ function buildMocks() {
     sendMissionCompletionNotification: jest.fn().mockResolvedValue(true),
   };
 
+  const emailNotificationPresetsService = {
+    sendMissionCompletionNotification: jest.fn().mockResolvedValue(true),
+  };
+
   const configService = {
     get: jest.fn().mockReturnValue("http://localhost:3000"),
   };
@@ -519,6 +524,7 @@ function buildMocks() {
     agentFacade,
     teamFacade,
     circuitBreaker,
+    emailNotificationPresetsService,
   };
 }
 
@@ -550,6 +556,10 @@ async function buildModule(
       { provide: MissionAICallerService, useValue: mocks.aiCallerService },
       { provide: TeamMessageService, useValue: mocks.messageService },
       { provide: TeamMemberService, useValue: mocks.memberService },
+      {
+        provide: EmailNotificationPresetsService,
+        useValue: mocks.emailNotificationPresetsService,
+      },
       { provide: AgentFacade, useValue: mocks.agentFacade },
       { provide: TeamFacade, useValue: mocks.teamFacade },
     ],
@@ -568,6 +578,9 @@ describe("TeamMissionService (supplemental2)", () => {
   beforeEach(async () => {
     mocks = buildMocks();
     service = await buildModule(mocks);
+    mocks.emailNotificationPresetsService.sendMissionCompletionNotification.mockResolvedValue(
+      true,
+    );
     jest.useFakeTimers();
   });
 
@@ -2123,7 +2136,7 @@ describe("TeamMissionService (supplemental2)", () => {
       );
 
       expect(
-        mocks.emailService.sendMissionCompletionNotification,
+        mocks.emailNotificationPresetsService.sendMissionCompletionNotification,
       ).toHaveBeenCalled();
     });
 

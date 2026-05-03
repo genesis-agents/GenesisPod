@@ -19,7 +19,10 @@ export {
 } from "../agents/domain";
 export { AgentFactory } from "../agents/core/agent-factory";
 export { SpecAgentRegistry } from "../agents/core/spec-agent-registry";
-export { BuiltinSkillCatalog, BuiltInReActSkillRegistry } from "../agents/builtin-skills/skill-registry";
+export {
+  BuiltinSkillCatalog,
+  BuiltInReActSkillRegistry,
+} from "../agents/builtin-skills/skill-registry";
 export {
   AgentRunner,
   AgentSpec,
@@ -950,4 +953,3 @@ export type {
   ErrorDetectionRetryConfig,
 } from "../../ai-engine/facade";
 export { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
-export { FigureExtractorService } from "../../ai-app/topic-insights/services";

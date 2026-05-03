@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { StorageGovernanceService } from "../storage-governance.service";
-import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import * as os from "os";
 
 jest.mock("os", () => ({

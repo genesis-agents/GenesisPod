@@ -17,7 +17,7 @@ jest.mock("@aws-sdk/s3-request-presigner", () => ({
   getSignedUrl: jest.fn().mockResolvedValue("https://signed-url.example.com"),
 }));
 
-jest.mock("../../../../common/utils/concurrency.utils", () => ({
+jest.mock("@/common/utils/concurrency.utils", () => ({
   mapWithConcurrency: jest.fn().mockImplementation(async (items, fn) => {
     return Promise.all(items.map(fn));
   }),

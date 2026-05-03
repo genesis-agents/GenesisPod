@@ -414,13 +414,13 @@ export class ContentVersionService {
 
     // 截断标题
     if (result.title.length > limits.maxTitle) {
-      result.title = result.title.slice(0, limits.maxTitle - 1) + "â€¦";
+      result.title = result.title.slice(0, limits.maxTitle - 1) + "…";
     }
 
     // 截断摘要
     if (limits.maxDigest > 0 && result.digest) {
       if (result.digest.length > limits.maxDigest) {
-        result.digest = result.digest.slice(0, limits.maxDigest - 1) + "â€¦";
+        result.digest = result.digest.slice(0, limits.maxDigest - 1) + "…";
       }
     } else if (limits.maxDigest === 0) {
       // 平台不支持摘要
@@ -429,7 +429,7 @@ export class ContentVersionService {
 
     // 截断正文
     if (limits.maxContent > 0 && result.content.length > limits.maxContent) {
-      result.content = result.content.slice(0, limits.maxContent - 1) + "â€¦";
+      result.content = result.content.slice(0, limits.maxContent - 1) + "…";
     }
 
     return result;

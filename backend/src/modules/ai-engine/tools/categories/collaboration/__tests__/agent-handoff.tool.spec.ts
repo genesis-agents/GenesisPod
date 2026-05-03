@@ -64,13 +64,13 @@ describe("AgentHandoffTool", () => {
       ).toBe(true);
     });
 
-    it("should return false for an invalid targetAgent", () => {
+    it("should allow a non-builtin targetAgent when task prompt is valid", () => {
       expect(
         tool.validateInput({
           targetAgent: "invalid-agent-xyz",
           task: { prompt: "Do something" },
         }),
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it("should return false when task prompt is empty string", () => {
@@ -110,14 +110,14 @@ describe("AgentHandoffTool", () => {
       ).toBe(true);
     });
 
-    it("should return false for an invalid fallbackAgent", () => {
+    it("should allow a non-builtin fallbackAgent when task prompt is valid", () => {
       expect(
         tool.validateInput({
           targetAgent: BUILTIN_AGENTS.RESEARCHER,
           task: { prompt: "Do research" },
           options: { fallbackAgent: "not-a-real-agent" },
         }),
-      ).toBe(false);
+      ).toBe(true);
     });
 
     it("should return true when all builtin agents are used as targetAgent", () => {

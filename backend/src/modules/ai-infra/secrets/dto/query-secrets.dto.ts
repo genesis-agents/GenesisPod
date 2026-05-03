@@ -10,7 +10,15 @@ import {
   Matches,
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
-import { SecretCategory } from "@prisma/client";
+import { SecretCategory as PrismaSecretCategory } from "@prisma/client";
+
+const SecretCategory = PrismaSecretCategory ?? {
+  AI_MODEL: "AI_MODEL",
+  USER_DONATED: "USER_DONATED",
+  SYSTEM: "SYSTEM",
+  INTEGRATION: "INTEGRATION",
+  OTHER: "OTHER",
+};
 
 export class QuerySecretsDto {
   @IsOptional()
@@ -28,7 +36,7 @@ export class QuerySecretsDto {
 
   @IsOptional()
   @IsEnum(SecretCategory)
-  category?: SecretCategory;
+  category?: PrismaSecretCategory;
 
   @IsOptional()
   @IsString()

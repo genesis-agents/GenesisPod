@@ -2,10 +2,12 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EmailService } from "../email.service";
+import { EmailNotificationPresetsService } from "../presets/email-notification-presets.service";
 import { SettingsService } from "../../settings/settings.service";
 
 describe("EmailService", () => {
   let service: EmailService;
+  let presetsService: EmailNotificationPresetsService;
   let mockConfigService: jest.Mocked<Partial<ConfigService>>;
   let mockSettingsService: jest.Mocked<Partial<SettingsService>>;
 
@@ -40,6 +42,10 @@ describe("EmailService", () => {
     }).compile();
 
     service = module.get<EmailService>(EmailService);
+    presetsService = new EmailNotificationPresetsService(
+      service,
+      mockConfigService as ConfigService,
+    );
     jest.spyOn(Logger.prototype, "log").mockImplementation();
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
     jest.spyOn(Logger.prototype, "error").mockImplementation();
@@ -209,7 +215,7 @@ describe("EmailService", () => {
   describe("sendFeedbackNotification", () => {
     it("returns false when admin email is not configured", async () => {
       // Service is not configured so admin email is empty string
-      const result = await service.sendFeedbackNotification({
+      const result = await presetsService.sendFeedbackNotification({
         id: "feedback-1",
         type: "BUG",
         title: "Test Bug",
@@ -224,7 +230,7 @@ describe("EmailService", () => {
 
   describe("sendMissionCompletionNotification", () => {
     it("returns false when email service is not configured", async () => {
-      const result = await service.sendMissionCompletionNotification({
+      const result = await presetsService.sendMissionCompletionNotification({
         to: "user@test.com",
         missionId: "mission-1",
         missionTitle: "Test Mission",
@@ -240,7 +246,7 @@ describe("EmailService", () => {
 
   describe("sendFeedbackStatusUpdate", () => {
     it("returns false when email service is not configured", async () => {
-      const result = await service.sendFeedbackStatusUpdate({
+      const result = await presetsService.sendFeedbackStatusUpdate({
         id: "feedback-1",
         title: "Bug Report",
         type: "BUG",
@@ -578,7 +584,7 @@ describe("EmailService", () => {
         writable: true,
       });
 
-      const result = await service.sendFeedbackNotification({
+      const result = await presetsService.sendFeedbackNotification({
         id: "fb-1",
         type: "FEATURE",
         title: "Add dark mode",
@@ -613,7 +619,7 @@ describe("EmailService", () => {
         writable: true,
       });
 
-      const result = await service.sendFeedbackNotification({
+      const result = await presetsService.sendFeedbackNotification({
         id: "fb-2",
         type: "BUG",
         title: "Crash on login",
@@ -655,7 +661,7 @@ describe("EmailService", () => {
         writable: true,
       });
 
-      const result = await service.sendFeedbackNotification({
+      const result = await presetsService.sendFeedbackNotification({
         id: "fb-3",
         type: "OTHER",
         title: "General feedback",
@@ -687,7 +693,7 @@ describe("EmailService", () => {
         writable: true,
       });
 
-      const result = await service.sendMissionCompletionNotification({
+      const result = await presetsService.sendMissionCompletionNotification({
         to: "user@test.com",
         missionId: "m1",
         missionTitle: "AI Research Mission",
@@ -724,7 +730,7 @@ describe("EmailService", () => {
       });
 
       const longSummary = "a".repeat(600);
-      const result = await service.sendMissionCompletionNotification({
+      const result = await presetsService.sendMissionCompletionNotification({
         to: "user@test.com",
         missionId: "m2",
         missionTitle: "Long Summary Mission",
@@ -756,7 +762,7 @@ describe("EmailService", () => {
         writable: true,
       });
 
-      const result = await service.sendMissionCompletionNotification({
+      const result = await presetsService.sendMissionCompletionNotification({
         to: "user@test.com",
         missionId: "m3",
         missionTitle: "No Summary Mission",
@@ -789,7 +795,7 @@ describe("EmailService", () => {
         writable: true,
       });
 
-      const result = await service.sendFeedbackStatusUpdate({
+      const result = await presetsService.sendFeedbackStatusUpdate({
         id: "fb-1",
         title: "Bug Report",
         type: "BUG",
@@ -829,7 +835,7 @@ describe("EmailService", () => {
       const statuses = ["PENDING", "REVIEWED", "RESOLVED", "CLOSED"];
       for (const status of statuses) {
         mockTransporter.sendMail.mockResolvedValue({ messageId: "msg" });
-        const result = await service.sendFeedbackStatusUpdate({
+        const result = await presetsService.sendFeedbackStatusUpdate({
           id: "fb-x",
           title: "Test",
           type: "BUG",

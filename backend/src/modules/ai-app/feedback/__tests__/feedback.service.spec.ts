@@ -3,14 +3,14 @@ import { Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { FeedbackService } from "../feedback.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { EmailService } from "../../../ai-infra/email/email.service";
+import { EmailNotificationPresetsService } from "../../../ai-infra/facade";
 import { R2StorageService } from "../../../ai-infra/storage/runtime/r2-storage.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
 describe("FeedbackService", () => {
   let service: FeedbackService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
-  let mockEmailService: jest.Mocked<Partial<EmailService>>;
+  let mockEmailService: jest.Mocked<Partial<EmailNotificationPresetsService>>;
   let mockR2Storage: jest.Mocked<Partial<R2StorageService>>;
   let mockEventEmitter: jest.Mocked<Partial<EventEmitter2>>;
 
@@ -55,7 +55,10 @@ describe("FeedbackService", () => {
       providers: [
         FeedbackService,
         { provide: PrismaService, useValue: mockPrisma },
-        { provide: EmailService, useValue: mockEmailService },
+        {
+          provide: EmailNotificationPresetsService,
+          useValue: mockEmailService,
+        },
         { provide: R2StorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
@@ -370,4 +373,3 @@ describe("FeedbackService", () => {
     });
   });
 });
-
