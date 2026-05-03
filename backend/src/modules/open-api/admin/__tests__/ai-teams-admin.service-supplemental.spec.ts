@@ -364,12 +364,12 @@ describe("AITeamsAdminService (supplemental)", () => {
       members: [
         {
           name: "researcher",
-          displayName: "研究员",
-          avatar: "🔬",
+          displayName: "Ã§Â â€Ã§Â©Â¶Ã¥â€˜Ëœ",
+          avatar: "Ã°Å¸â€Â¬",
           roleId: "researcher",
           isLeader: false,
-          roleDescription: "执行研究任务",
-          personality: "严谨",
+          roleDescription: "Ã¦â€°Â§Ã¨Â¡Å’Ã§Â â€Ã§Â©Â¶Ã¤Â»Â»Ã¥Å Â¡",
+          personality: "Ã¤Â¸Â¥Ã¨Â°Â¨",
           workStyle: "AUTONOMOUS",
           capabilities: ["WEB_SEARCH"],
           expertiseAreas: ["research-planning"],

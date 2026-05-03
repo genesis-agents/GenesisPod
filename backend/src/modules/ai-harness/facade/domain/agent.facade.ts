@@ -1,5 +1,5 @@
 /**
- * AgentFacade — Domain Facade for Agent Execution, Tracing, and Intent Routing
+ * AgentFacade â€” Domain Facade for Agent Execution, Tracing, and Intent Routing
  *
  * Responsibilities:
  * - Agent execution with retry and circuit breaker protection
@@ -8,7 +8,7 @@
  * - Intent routing for Agent OS
  * - Realtime progress tracking and WebSocket event emission
  *
- * @Injectable — registered as a NestJS provider in facade.providers.ts
+ * @Injectable â€” registered as a NestJS provider in facade.providers.ts
  */
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
@@ -31,20 +31,20 @@ import type {
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../../tracing/trace.interface";
+} from "../../tracing/observability/trace.interface";
 import type {
   MemoryEvent,
   MemoryQuery,
   MemoryContext,
 } from "../../../ai-harness/memory/coordinator/memory-coordinator.service";
-// IntentRouter 链路已删 (2026-04-30)
+// IntentRouter é“¾è·¯å·²åˆ  (2026-04-30)
 import type {
   RoomConfig,
   ProgressEvent,
 } from "../../protocols/realtime/abstractions/event-emitter.interface";
 import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../../runner/executor/agent-executor.service";
-// TaskDecomposerService 已删 (2026-04-30)
+// TaskDecomposerService å·²åˆ  (2026-04-30)
 import { IntentDetectionService } from "../../../ai-engine/planning/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../../lifecycle/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../../evaluation/critique/output-reviewer.service";
@@ -61,7 +61,7 @@ export class AgentFacade {
     @Optional()
     @Inject(ORCHESTRATION_FEATURE)
     private readonly orchestration?: OrchestrationFeature,
-    // INTELLIGENCE_FEATURE 不再注入（routeIntent 已删 2026-04-30）
+    // INTELLIGENCE_FEATURE ä¸å†æ³¨å…¥ï¼ˆrouteIntent å·²åˆ  2026-04-30ï¼‰
     @Optional()
     @Inject(OBSERVABILITY_FEATURE)
     private readonly observability?: ObservabilityFeature,
@@ -189,7 +189,7 @@ export class AgentFacade {
     return this.orchestration?.agentExecutor;
   }
 
-  // taskDecomposer getter 已删 (2026-04-30)
+  // taskDecomposer getter å·²åˆ  (2026-04-30)
 
   get intentDetector(): IntentDetectionService | undefined {
     return this.orchestration?.intentDetector;

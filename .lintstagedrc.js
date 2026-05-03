@@ -28,6 +28,10 @@ function toRelative(baseDir, files) {
   return files.map((f) => path.relative(baseDir, f).replace(/\\/g, "/"));
 }
 
+function toRepoRelative(files) {
+  return files.map((f) => path.relative(process.cwd(), f).replace(/\\/g, "/"));
+}
+
 function quote(f) {
   return `"${f}"`;
 }
@@ -67,9 +71,10 @@ module.exports = {
 
   "backend/**/*.{ts,tsx}": (files) => {
     const rel = toRelative("backend", files).map(quote).join(" ");
+    const repoRel = toRepoRelative(files).map(quote).join(" ");
     const cmds = [
       `npx -w backend eslint --cache --fix ${rel}`,
-      `prettier --write ${files.map(quote).join(" ")}`,
+      `prettier --write ${repoRel}`,
     ];
 
     // Auto-run matching tests for changed source files
@@ -77,7 +82,7 @@ module.exports = {
     if (tests.length > 0) {
       const testRel = toRelative("backend", tests).map(quote).join(" ");
       cmds.push(
-        `npx -w backend jest --passWithNoTests --bail ${testRel}`
+        `npx -w backend jest --passWithNoTests --bail --runInBand ${testRel}`
       );
     }
 
@@ -86,25 +91,28 @@ module.exports = {
 
   "backend/**/*.{js,jsx}": (files) => {
     const rel = toRelative("backend", files).map(quote).join(" ");
+    const repoRel = toRepoRelative(files).map(quote).join(" ");
     return [
       `npx -w backend eslint --cache --fix ${rel}`,
-      `prettier --write ${files.map(quote).join(" ")}`,
+      `prettier --write ${repoRel}`,
     ];
   },
 
   "frontend/**/*.{ts,tsx}": (files) => {
     const rel = toRelative("frontend", files).map(quote).join(" ");
+    const repoRel = toRepoRelative(files).map(quote).join(" ");
     return [
       `npx -w frontend eslint --cache --fix ${rel}`,
-      `prettier --write ${files.map(quote).join(" ")}`,
+      `prettier --write ${repoRel}`,
     ];
   },
 
   "frontend/**/*.{js,jsx}": (files) => {
     const rel = toRelative("frontend", files).map(quote).join(" ");
+    const repoRel = toRepoRelative(files).map(quote).join(" ");
     return [
       `npx -w frontend eslint --cache --fix ${rel}`,
-      `prettier --write ${files.map(quote).join(" ")}`,
+      `prettier --write ${repoRel}`,
     ];
   },
 };

@@ -22,7 +22,7 @@ import {
 import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
-import { TraceCollectorService } from "@/modules/ai-harness/tracing/trace-collector.service";
+import { TraceCollectorService } from "@/modules/ai-harness/tracing/observability/trace-collector.service";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
 
 // ---------------------------------------------------------------------------
@@ -197,7 +197,7 @@ describe("MissionOrchestrator execute() with TraceCollector", () => {
       undefined, // toolRegistry
       undefined, // skillRegistry
       undefined, // llmFactory
-      makeMemoryService(), // memoryService — required so plan is stored/retrieved correctly
+      makeMemoryService(), // memoryService â€” required so plan is stored/retrieved correctly
       undefined, // mcpManager
       undefined, // aiChatService
       undefined, // prismaService
@@ -278,7 +278,7 @@ describe("MissionOrchestrator execute() with MissionExecutor", () => {
       undefined, // toolRegistry
       undefined, // skillRegistry
       undefined, // llmFactory
-      makeMemoryService(), // memoryService — required so plan is stored/retrieved correctly
+      makeMemoryService(), // memoryService â€” required so plan is stored/retrieved correctly
       undefined, // mcpManager
       undefined, // aiChatService
       undefined, // prismaService
@@ -458,7 +458,7 @@ describe("MissionOrchestrator cancel()", () => {
 // Tests: review() without llmFactory (uses basic review)
 // ---------------------------------------------------------------------------
 
-describe("MissionOrchestrator review() — fallback path", () => {
+describe("MissionOrchestrator review() â€” fallback path", () => {
   let orchestrator: MissionOrchestrator;
 
   beforeEach(() => {
@@ -496,7 +496,7 @@ describe("MissionOrchestrator review() — fallback path", () => {
 // Tests: plan() with reviewRequired=true
 // ---------------------------------------------------------------------------
 
-describe("MissionOrchestrator plan() — reviewRequired=true adds review step", () => {
+describe("MissionOrchestrator plan() â€” reviewRequired=true adds review step", () => {
   let orchestrator: MissionOrchestrator;
 
   beforeEach(() => {
@@ -582,7 +582,7 @@ describe("MissionOrchestrator execute() review phase events", () => {
       undefined, // toolRegistry
       undefined, // skillRegistry
       undefined, // llmFactory
-      makeMemoryService(), // memoryService — required so plan is stored/retrieved correctly
+      makeMemoryService(), // memoryService â€” required so plan is stored/retrieved correctly
       undefined, // mcpManager
       undefined, // aiChatService
       undefined, // prismaService
@@ -673,7 +673,7 @@ describe("MissionOrchestrator parse() edge cases", () => {
 
   it("assigns suggestedStrategy for high complexity input", async () => {
     const input: MissionInput = {
-      prompt: "复杂的深度研究和分析任务需要详细的多维度报告",
+      prompt: "å¤æ‚çš„æ·±åº¦ç ”ç©¶å’Œåˆ†æžä»»åŠ¡éœ€è¦è¯¦ç»†çš„å¤šç»´åº¦æŠ¥å‘Š",
       requirements: Array(10).fill("requirement"),
       metadata: {},
     };

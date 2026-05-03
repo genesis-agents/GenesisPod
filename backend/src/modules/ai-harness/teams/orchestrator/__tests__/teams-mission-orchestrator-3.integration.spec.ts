@@ -1,5 +1,5 @@
 /**
- * MissionOrchestrator — Supplemental3 Tests
+ * MissionOrchestrator â€” Supplemental3 Tests
  *
  * Targets uncovered lines not hit by supplemental / supplemental2:
  * - missionExecutor (AI Kernel) path: spawn process, warn on failure
@@ -11,7 +11,7 @@
  * - execute() with constraintOverrides
  * - plan() with multiple workflow steps covering dependency chains
  * - step_failed event increments failedSteps
- * - execute() missionExecutor.execute throws → logs warning, continues
+ * - execute() missionExecutor.execute throws â†’ logs warning, continues
  */
 
 import { ConfigService } from "@nestjs/config";
@@ -22,12 +22,12 @@ import { ITeam } from "../../abstractions/team.interface";
 import { ITeamMember } from "../../abstractions/member.interface";
 import { ConstraintProfile } from "../../constraints";
 import { ShortTermMemoryService } from "@/modules/ai-harness/memory/stores/short-term-memory.service";
-import { TraceCollectorService } from "@/modules/ai-harness/tracing/trace-collector.service";
+import { TraceCollectorService } from "@/modules/ai-harness/tracing/observability/trace-collector.service";
 import { CheckpointManager } from "@/modules/ai-harness/facade";
 import { MissionExecutorService } from "@/modules/ai-harness/facade";
 import { EventJournalService } from "@/modules/ai-harness/facade";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function makeMemoryService(): jest.Mocked<ShortTermMemoryService> {
   const store = new Map<string, unknown>();
@@ -184,7 +184,7 @@ async function drainGenerator<T>(gen: AsyncGenerator<T>): Promise<T[]> {
   return items;
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe("MissionOrchestrator with TraceCollector", () => {
   it("calls startTrace, addSpan, endSpan throughout execution", async () => {
@@ -712,7 +712,7 @@ describe("MissionOrchestrator constructor with all optional deps logged", () => 
       subscribe: jest.fn(),
     };
 
-    // Instantiate with all optional deps — no assertions needed beyond "does not throw"
+    // Instantiate with all optional deps â€” no assertions needed beyond "does not throw"
     const orchestrator = new MissionOrchestrator(
       makeConstraintEngine(),
       makeConfigService(),

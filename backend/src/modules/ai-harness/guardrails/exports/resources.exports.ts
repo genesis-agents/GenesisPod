@@ -1,3 +1,3 @@
-export { ResourceManagerService } from "../resource-manager.service";
-export { CostController } from "../cost-controller";
-export { RateLimiter } from "../rate-limiter";
+export { ResourceManagerService } from "../resources/resource-manager.service";
+export { CostController } from "../resources/cost-controller";
+export { RateLimiter } from "../resources/rate-limiter";

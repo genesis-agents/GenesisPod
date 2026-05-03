@@ -10,7 +10,12 @@
 
 // Mocks must come before imports
 jest.mock("@prisma/client", () => ({
-  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: { CHAT: "CHAT" },
+  PrismaClient: class PrismaClient {
+    $connect = jest.fn();
+    $disconnect = jest.fn();
+    $on = jest.fn();
+  },
+  AIModelType: { CHAT: "CHAT" },
 }));
 
 jest.mock("@/modules/ai-harness/facade", () => ({
@@ -252,7 +257,7 @@ describe("TopicInsightsAgent", () => {
 
     it("should include modelsRequired with chat", async () => {
       const plan = await agent.plan({
-        prompt: "研究数字经济",
+        prompt: "Ã§Â â€Ã§Â©Â¶Ã¦â€¢Â°Ã¥Â­â€”Ã§Â»ÂÃ¦ÂµÅ½",
         sessionId: "session-6",
         userId: "user-1",
       });
@@ -262,7 +267,7 @@ describe("TopicInsightsAgent", () => {
 
     it("should include module topic-insights in metadata", async () => {
       const plan = await agent.plan({
-        prompt: "研究元宇宙",
+        prompt: "Ã§Â â€Ã§Â©Â¶Ã¥â€¦Æ’Ã¥Â®â€¡Ã¥Â®â„¢",
         sessionId: "session-7",
         userId: "user-1",
       });
@@ -271,7 +276,7 @@ describe("TopicInsightsAgent", () => {
     });
 
     it("should handle prompt longer than 100 chars without error", async () => {
-      const longPrompt = "研究".repeat(100);
+      const longPrompt = "Ã§Â â€Ã§Â©Â¶".repeat(100);
       const plan = await agent.plan({
         prompt: longPrompt,
         sessionId: "session-8",

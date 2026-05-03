@@ -13,18 +13,18 @@ import { HarnessApiService, KernelApiService } from "../harness-api.service";
 import { ProcessManagerService } from "../../lifecycle/manager/process-manager.service";
 import { EventJournalService } from "../../protocols/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";
-import { ResourceManagerService } from "../../guardrails/resource-manager.service";
+import { ResourceManagerService } from "../../guardrails/resources/resource-manager.service";
 import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/mission-executor.service";
 import { CircuitBreakerService } from "../../../ai-engine/safety/resilience/circuit-breaker.service";
 import { EventBusService } from "../../protocols/ipc/event-bus.service";
 import { MessageBusService } from "../../protocols/ipc/message-bus.service";
 import { ProgressTrackerService } from "../../protocols/ipc/progress-tracker.service";
-import { AiObservabilityService } from "../../tracing/ai-observability.service";
-import { CostAttributionService } from "../../tracing/cost-attribution.service";
+import { AiObservabilityService } from "../../tracing/observability/ai-observability.service";
+import { CostAttributionService } from "../../tracing/observability/cost-attribution.service";
 import { CapabilityGuardService } from "../../../ai-engine/safety/security/capability-guard.service";
 import { KernelSchedulerService } from "../../runner/scheduler/kernel-scheduler.service";
 
-// ─── Shared test fixtures ────────────────────────────────────────────────────
+// â”€â”€â”€ Shared test fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PROCESS_ID = "process-abc-123";
 const USER_ID = "user-xyz-456";
@@ -73,7 +73,7 @@ const mockMemoryEntry = {
   value: { data: 42 },
 };
 
-// ─── Mocked service objects ──────────────────────────────────────────────────
+// â”€â”€â”€ Mocked service objects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const mockProcessManager = {
   spawn: jest.fn().mockResolvedValue(mockProcessSnapshot),
@@ -160,7 +160,7 @@ const mockKernelScheduler = {
   }),
 };
 
-// ─── Test suite ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Test suite â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe("HarnessApiService", () => {
   let service: HarnessApiService;
@@ -196,7 +196,7 @@ describe("HarnessApiService", () => {
     jest.clearAllMocks();
   });
 
-  // ─── Process Management ────────────────────────────────────────────────────
+  // â”€â”€â”€ Process Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("spawn()", () => {
     it("should delegate to processManager.spawn and return its result", async () => {
@@ -286,7 +286,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Mission ───────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Mission â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("executeMission()", () => {
     it("should delegate to missionExecutor.execute and return its result", async () => {
@@ -345,7 +345,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Memory ────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Memory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("readMemory()", () => {
     it("should delegate to memoryManager.read with processId, layer, and key", async () => {
@@ -410,7 +410,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Resources ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Resources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("checkBudget()", () => {
     it("should delegate to resourceManager.checkBudget with processId", async () => {
@@ -459,7 +459,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Journal ───────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Journal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("recordEvent()", () => {
     it("should delegate to eventJournal.record with processId, type, and payload", async () => {
@@ -524,7 +524,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── listAllProcesses() ────────────────────────────────────────────────────
+  // â”€â”€â”€ listAllProcesses() â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("listAllProcesses()", () => {
     it("should delegate to processManager.listAll with no arguments", async () => {
@@ -547,7 +547,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Circuit Breaker ───────────────────────────────────────────────────────
+  // â”€â”€â”€ Circuit Breaker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("getCircuitBreakerMetrics()", () => {
     it("should delegate to circuitBreaker.getAllHealthMetrics and return result", () => {
@@ -584,7 +584,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── IPC ───────────────────────────────────────────────────────────────────
+  // â”€â”€â”€ IPC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("getEventBusStats()", () => {
     it("should return active subscription count wrapped in object", () => {
@@ -669,7 +669,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Observability ─────────────────────────────────────────────────────────
+  // â”€â”€â”€ Observability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("getDashboard()", () => {
     it("should delegate to kernelMetrics.getDashboard with no period", () => {
@@ -757,7 +757,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Security ──────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("getCapabilities()", () => {
     it("should delegate to capabilityGuard.getCapabilities with processId", async () => {
@@ -790,7 +790,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Scheduler ─────────────────────────────────────────────────────────────
+  // â”€â”€â”€ Scheduler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("getSchedulerStats()", () => {
     it("should delegate to kernelScheduler.getStats and return result", async () => {
@@ -809,7 +809,7 @@ describe("HarnessApiService", () => {
     });
   });
 
-  // ─── Memory (admin) ────────────────────────────────────────────────────────
+  // â”€â”€â”€ Memory (admin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   describe("cleanupExpiredMemory()", () => {
     it("should delegate to memoryManager.cleanup with processId and return count", async () => {

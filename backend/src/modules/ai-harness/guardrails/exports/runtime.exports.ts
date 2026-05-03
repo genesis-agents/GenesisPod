@@ -1,5 +1,5 @@
-export { TokenBudgetService } from "../token-budget.service";
-export { RuntimeEnvironmentService } from "../runtime-environment.service";
+export { TokenBudgetService } from "../runtime/token-budget.service";
+export { RuntimeEnvironmentService } from "../runtime/runtime-environment.service";
 export type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -8,4 +8,4 @@ export type {
   RuntimeModelType,
   RuntimeToolCapability,
   RuntimeUserKeyState,
-} from "../runtime-environment.types";
+} from "../runtime/runtime-environment.types";

@@ -1,12 +1,12 @@
 /**
  * AI Engine Facade
- * AI 引擎统一入口
+ * AI å¼•æ“Žç»Ÿä¸€å…¥å£
  *
- * 设计原则：
- * 1. 单一入口：所有 AI Apps 通过此 Facade 消费 AI 能力
- * 2. 语义化配置：使用 TaskProfile 描述任务，而非硬编码参数
- * 3. 能力聚合：整合 LLM、Search、Agent、Team、Context 等核心能力
- * 4. 向下委托：Facade 只做路由和适配，具体实现委托给内部服务
+ * è®¾è®¡åŽŸåˆ™ï¼š
+ * 1. å•ä¸€å…¥å£ï¼šæ‰€æœ‰ AI Apps é€šè¿‡æ­¤ Facade æ¶ˆè´¹ AI èƒ½åŠ›
+ * 2. è¯­ä¹‰åŒ–é…ç½®ï¼šä½¿ç”¨ TaskProfile æè¿°ä»»åŠ¡ï¼Œè€Œéžç¡¬ç¼–ç å‚æ•°
+ * 3. èƒ½åŠ›èšåˆï¼šæ•´åˆ LLMã€Searchã€Agentã€Teamã€Context ç­‰æ ¸å¿ƒèƒ½åŠ›
+ * 4. å‘ä¸‹å§”æ‰˜ï¼šFacade åªåšè·¯ç”±å’Œé€‚é…ï¼Œå…·ä½“å®žçŽ°å§”æ‰˜ç»™å†…éƒ¨æœåŠ¡
  */
 
 import {
@@ -19,13 +19,13 @@ import {
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
-// IntentRouterService / TaskPlanner 已删 (2026-04-30) — suggestedActions 前端 0 消费
+// IntentRouterService / TaskPlanner å·²åˆ  (2026-04-30) â€” suggestedActions å‰ç«¯ 0 æ¶ˆè´¹
 import type {
   A2AMessageType,
   A2APriority,
   A2AMessage,
 } from "../protocols/ipc/abstractions/a2a-message.types";
-// ★ 架构重构：通过 ToolRegistry 调用搜索工具
+// â˜… æž¶æž„é‡æž„ï¼šé€šè¿‡ ToolRegistry è°ƒç”¨æœç´¢å·¥å…·
 import type { ToolContext } from "../../ai-engine/tools/abstractions/tool.interface";
 import type { ToolPipeline } from "../../ai-engine/tools/middleware/tool-pipeline";
 import {
@@ -49,7 +49,7 @@ import type {
   ExecutionConfig,
 } from "../../ai-harness/runner/executor/function-calling-executor";
 
-// ★ P1 重构：使用分组的 Feature Providers
+// â˜… P1 é‡æž„ï¼šä½¿ç”¨åˆ†ç»„çš„ Feature Providers
 import {
   MemoryFeature,
   ToolFeature,
@@ -59,13 +59,13 @@ import {
   TOOL_FEATURE,
   ORCHESTRATION_FEATURE,
   SKILL_FEATURE,
-  // ★ P2 能力下沉：Realtime Feature
+  // â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime Feature
   RealtimeFeature,
   REALTIME_FEATURE,
   // Constraint Feature
   ConstraintFeature,
   CONSTRAINT_FEATURE,
-  // ★ Phase 2：新增 Feature Token 类型和注入 Token
+  // â˜… Phase 2ï¼šæ–°å¢ž Feature Token ç±»åž‹å’Œæ³¨å…¥ Token
   TeamsFeature,
   TEAMS_FEATURE,
   ContentFeature,
@@ -81,7 +81,7 @@ import {
   RegistryFeature,
   REGISTRY_FEATURE,
 } from "./facade.providers";
-// ★ P2 能力下沉：Realtime 类型导入
+// â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime ç±»åž‹å¯¼å…¥
 import type {
   RoomConfig,
   ProgressEvent,
@@ -120,14 +120,14 @@ import type {
   DirectResearchResult,
   IDirectResearchExecutor,
 } from "./types";
-// ★ Skill execution helpers
+// â˜… Skill execution helpers
 import type {
   ISkill,
   SkillContext,
   SkillResult,
 } from "../../ai-engine/skills/abstractions/skill.interface";
 import type { BindingContext } from "../../ai-engine/skills/runtime/binding/skill-input-binding-resolver.service";
-// Use import type to avoid circular: PromptSkillAdapter → AIFacade → PromptSkillAdapter
+// Use import type to avoid circular: PromptSkillAdapter â†’ AIFacade â†’ PromptSkillAdapter
 import type { PromptSkillAdapter } from "../../ai-engine/skills/runtime/adapters/prompt-skill.adapter";
 import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm.adapter";
 import type {
@@ -135,7 +135,7 @@ import type {
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../tracing/trace.interface";
+} from "../tracing/observability/trace.interface";
 import type {
   MemoryEvent,
   MemoryQuery,
@@ -171,7 +171,7 @@ import type {
 import type { SkillMdDefinition } from "../../ai-engine/skills/types/skill-md.types";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../runner/executor/agent-executor.service";
-// TaskDecomposerService 已删 (2026-04-30)
+// TaskDecomposerService å·²åˆ  (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/planning/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm.adapter";
@@ -187,7 +187,7 @@ import { TeamRegistry } from "../teams/registry/team-registry";
 import { RoleRegistry } from "../teams/registry/role-registry";
 import { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
 
-// ★ Sub-facades (plain classes, NOT @Injectable)
+// â˜… Sub-facades (plain classes, NOT @Injectable)
 import type { ModelResolverService } from "./model-resolver.service";
 import { ModelSubFacade } from "./sub-facades/model.sub-facade";
 import { TeamSubFacade } from "./sub-facades/team.sub-facade";
@@ -195,17 +195,17 @@ import { MemorySubFacade } from "./sub-facades/memory.sub-facade";
 import { AgentSubFacade } from "./sub-facades/agent.sub-facade";
 import { ToolExecSubFacade } from "./sub-facades/tool-exec.sub-facade";
 
-// ★ Phase 5: Domain Facades (@Injectable, thin wrappers injected into the God Facade)
+// â˜… Phase 5: Domain Facades (@Injectable, thin wrappers injected into the God Facade)
 import { ChatFacade } from "./domain/chat.facade";
 import { RAGFacade } from "./domain/rag.facade";
 import { AgentFacade } from "./domain/agent.facade";
 import { TeamFacade } from "./domain/team.facade";
 import { ToolFacade } from "./domain/tool.facade";
 
-/** Skills 系统提示词 Token 预算（对应 TaskProfile outputLength="medium" 的 4000 tokens） */
+/** Skills ç³»ç»Ÿæç¤ºè¯ Token é¢„ç®—ï¼ˆå¯¹åº” TaskProfile outputLength="medium" çš„ 4000 tokensï¼‰ */
 const SKILLS_PROMPT_TOKEN_BUDGET = 4000;
 
-/** 敏感词过滤列表（基础版） */
+/** æ•æ„Ÿè¯è¿‡æ»¤åˆ—è¡¨ï¼ˆåŸºç¡€ç‰ˆï¼‰ */
 const SENSITIVE_PATTERNS = [
   /password\s*[:=]\s*\S+/gi,
   /api[_-]?key\s*[:=]\s*\S+/gi,
@@ -215,7 +215,7 @@ const SENSITIVE_PATTERNS = [
 ];
 
 /**
- * AI Engine 统一入口 (Legacy — 逐步迁移到 Domain Facades)
+ * AI Engine ç»Ÿä¸€å…¥å£ (Legacy â€” é€æ­¥è¿ç§»åˆ° Domain Facades)
  *
  * @deprecated Use domain-specific facades instead:
  *   - ChatFacade  for LLM chat/streaming/model selection
@@ -242,9 +242,9 @@ const SENSITIVE_PATTERNS = [
  * to the corresponding domain facade. New code MUST use domain facades directly.
  *
  * ============================================================================
- * P1 架构优化：依赖分组
+ * P1 æž¶æž„ä¼˜åŒ–ï¼šä¾èµ–åˆ†ç»„
  * ============================================================================
- * Feature 模块（通过 Injection Token 注入）：
+ * Feature æ¨¡å—ï¼ˆé€šè¿‡ Injection Token æ³¨å…¥ï¼‰ï¼š
  * - MEMORY_FEATURE, TOOL_FEATURE, ORCHESTRATION_FEATURE, SKILL_FEATURE
  * - REALTIME_FEATURE, CONSTRAINT_FEATURE, TEAMS_FEATURE, etc.
  * ============================================================================
@@ -253,7 +253,7 @@ const SENSITIVE_PATTERNS = [
 export class AIFacade {
   private readonly logger = new Logger(AIFacade.name);
 
-  // ★ Sub-facades — instantiated at the end of the constructor
+  // â˜… Sub-facades â€” instantiated at the end of the constructor
   // These are kept for backward-compat internal usage while domain facades are primary
   private readonly modelSub!: ModelSubFacade;
   private readonly teamSub!: TeamSubFacade;
@@ -261,15 +261,15 @@ export class AIFacade {
   private readonly agentSub!: AgentSubFacade;
   private readonly toolExecSub!: ToolExecSubFacade;
 
-  // ★ Late-registered executors — set by AI App modules via onModuleInit
+  // â˜… Late-registered executors â€” set by AI App modules via onModuleInit
   private _researchExecutor?: IDirectResearchExecutor;
 
   constructor(
-    // ==================== 核心服务（必需）====================
+    // ==================== æ ¸å¿ƒæœåŠ¡ï¼ˆå¿…éœ€ï¼‰====================
     private readonly aiChatService: AiChatService,
     modelConfigService: AiModelConfigService,
 
-    // ==================== 特性模块（可选，通过 Token 注入）====================
+    // ==================== ç‰¹æ€§æ¨¡å—ï¼ˆå¯é€‰ï¼Œé€šè¿‡ Token æ³¨å…¥ï¼‰====================
     @Optional()
     @Inject(MEMORY_FEATURE)
     private readonly memory?: MemoryFeature,
@@ -286,17 +286,17 @@ export class AIFacade {
     @Inject(SKILL_FEATURE)
     private readonly skills?: SkillFeature,
 
-    // ==================== P2 能力下沉：Realtime 特性模块 ====================
+    // ==================== P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime ç‰¹æ€§æ¨¡å— ====================
     @Optional()
     @Inject(REALTIME_FEATURE)
     private readonly realtime?: RealtimeFeature,
 
-    // ==================== Constraint 特性模块 ====================
+    // ==================== Constraint ç‰¹æ€§æ¨¡å— ====================
     @Optional()
     @Inject(CONSTRAINT_FEATURE)
     private readonly constraint?: ConstraintFeature,
 
-    // ==================== Phase 2：新增 Feature Token 注入 ====================
+    // ==================== Phase 2ï¼šæ–°å¢ž Feature Token æ³¨å…¥ ====================
     @Optional()
     @Inject(TEAMS_FEATURE)
     private readonly teamsFeature?: TeamsFeature,
@@ -325,7 +325,7 @@ export class AIFacade {
     @Inject(REGISTRY_FEATURE)
     private readonly registry?: RegistryFeature,
 
-    // ==================== 直接注入服务（不适合走 Token） ====================
+    // ==================== ç›´æŽ¥æ³¨å…¥æœåŠ¡ï¼ˆä¸é€‚åˆèµ° Tokenï¼‰ ====================
     @Optional() private readonly prisma?: PrismaService,
     @Optional()
     @Inject(forwardRef(() => CreditsService))
@@ -346,7 +346,7 @@ export class AIFacade {
     this.logger.log("AIFacade initialized");
     this.logFeatureAvailability();
 
-    // ★ Instantiate sub-facades after all dependencies are ready
+    // â˜… Instantiate sub-facades after all dependencies are ready
     // Sub-facades remain as a fallback when domain facades are not available
     this.modelSub = new ModelSubFacade(
       aiChatService,
@@ -364,14 +364,14 @@ export class AIFacade {
       (req) => this.chat(req),
     );
 
-    // ★ Wire the chat function into ToolFacade (breaks circular dep at construction time)
+    // â˜… Wire the chat function into ToolFacade (breaks circular dep at construction time)
     if (toolDomain) {
       toolDomain.setChatFn((req) => this.chat(req));
     }
   }
 
   /**
-   * 记录可用特性
+   * è®°å½•å¯ç”¨ç‰¹æ€§
    */
   private logFeatureAvailability(): void {
     const features = {
@@ -401,7 +401,7 @@ export class AIFacade {
     );
   }
 
-  // ==================== LLM 能力 ====================
+  // ==================== LLM èƒ½åŠ› ====================
 
   /**
    * Unified chat entry point with circuit breaker protection and model fallback.
@@ -426,7 +426,7 @@ export class AIFacade {
    * });
    */
   async chat(request: ChatRequest): Promise<ChatResponse> {
-    // Step 1: Skill proxy — if domain/query provided, delegate to chatWithSkills
+    // Step 1: Skill proxy â€” if domain/query provided, delegate to chatWithSkills
     const skillResult = await this.handleSkillProxy(request);
     if (skillResult !== null) {
       return skillResult;
@@ -446,7 +446,7 @@ export class AIFacade {
       return constraintError;
     }
 
-    // Step 4: Route to provider — with automatic model fallback when available
+    // Step 4: Route to provider â€” with automatic model fallback when available
     if (this.modelFallbackService) {
       return this.chatWithFallback(request, modelId);
     }
@@ -455,7 +455,7 @@ export class AIFacade {
   }
 
   /**
-   * Step 1 — Skill proxy: auto-delegate to chatWithSkills when domain/query is present.
+   * Step 1 â€” Skill proxy: auto-delegate to chatWithSkills when domain/query is present.
    * Returns a ChatResponse when delegation occurred, or null to continue normal flow.
    */
   private async handleSkillProxy(
@@ -496,8 +496,8 @@ export class AIFacade {
   }
 
   /**
-   * Step 2 — Model resolution: resolve the preferred model ID from the request.
-   * Priority: explicit request.model → default model for modelType → "default".
+   * Step 2 â€” Model resolution: resolve the preferred model ID from the request.
+   * Priority: explicit request.model â†’ default model for modelType â†’ "default".
    */
   private async resolveModelId(request: ChatRequest): Promise<string> {
     if (request.model) {
@@ -517,7 +517,7 @@ export class AIFacade {
   }
 
   /**
-   * Step 3 — Rate limit and budget enforcement.
+   * Step 3 â€” Rate limit and budget enforcement.
    * Returns an error ChatResponse when a constraint is violated, or null to continue.
    */
   private enforceRateLimitAndBudget(
@@ -558,8 +558,8 @@ export class AIFacade {
   }
 
   /**
-   * ★ 核心改进：通过 ModelFallbackService 自动切换模型
-   * 当模型返回 INVALID_API_KEY、QUOTA_EXCEEDED 等不可恢复错误时，自动尝试下一个可用模型
+   * â˜… æ ¸å¿ƒæ”¹è¿›ï¼šé€šè¿‡ ModelFallbackService è‡ªåŠ¨åˆ‡æ¢æ¨¡åž‹
+   * å½“æ¨¡åž‹è¿”å›ž INVALID_API_KEYã€QUOTA_EXCEEDED ç­‰ä¸å¯æ¢å¤é”™è¯¯æ—¶ï¼Œè‡ªåŠ¨å°è¯•ä¸‹ä¸€ä¸ªå¯ç”¨æ¨¡åž‹
    */
   private async chatWithFallback(
     request: ChatRequest,
@@ -570,7 +570,7 @@ export class AIFacade {
     const fallbackResult = await this.modelFallbackService!.executeWithFallback(
       preferredModelId,
       async (modelConfig) => {
-        // 使用 fallback 提供的 modelConfig 调用 chat
+        // ä½¿ç”¨ fallback æä¾›çš„ modelConfig è°ƒç”¨ chat
         const result = await this.aiChatService.chat({
           messages: request.messages,
           systemPrompt: request.systemPrompt,
@@ -580,7 +580,7 @@ export class AIFacade {
           maxTokens: request.maxTokens,
           temperature: request.temperature,
           strictMode: request.strictMode,
-          userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId 用于 Key 优先级解析
+          userId: request.billing?.userId ?? RequestContext.getUserId(), // â˜… BYOK: ä¼ é€’ userId ç”¨äºŽ Key ä¼˜å…ˆçº§è§£æž
           processId: request.processId,
           skipGuardrails: request.skipGuardrails,
           sharedCachePrefix: request.sharedCachePrefix,
@@ -604,7 +604,7 @@ export class AIFacade {
 
     if (fallbackResult.fallbackUsed) {
       this.logger.warn(
-        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" → ") || fallbackResult.modelUsed} → final=${fallbackResult.modelUsed} (${fallbackResult.attempts} attempts, ${duration}ms)`,
+        `[chat] Model fallback used: ${fallbackResult.attemptedModels.join(" â†’ ") || fallbackResult.modelUsed} â†’ final=${fallbackResult.modelUsed} (${fallbackResult.attempts} attempts, ${duration}ms)`,
       );
     }
 
@@ -612,11 +612,11 @@ export class AIFacade {
       const result = fallbackResult.data;
       const tokensUsed = result.usage?.totalTokens || 0;
 
-      // 熔断器记录成功
+      // ç†”æ–­å™¨è®°å½•æˆåŠŸ
       const entityId = `chat:${result.model}`;
       this.orchestration?.circuitBreaker?.recordSuccess(entityId, duration);
 
-      // ★ 自动积分扣除（BYOK: 用户自用 Key 不扣积分）
+      // â˜… è‡ªåŠ¨ç§¯åˆ†æ‰£é™¤ï¼ˆBYOK: ç”¨æˆ·è‡ªç”¨ Key ä¸æ‰£ç§¯åˆ†ï¼‰
       await this.handleBilling(
         request,
         result.apiKeySource,
@@ -636,7 +636,7 @@ export class AIFacade {
       };
     }
 
-    // 所有模型都失败
+    // æ‰€æœ‰æ¨¡åž‹éƒ½å¤±è´¥
     const errorMsg = fallbackResult.error?.message || "All models failed";
     this.logger.error(
       `[chat] All models failed after ${duration}ms (tried: ${fallbackResult.attemptedModels.join(", ")}): ${errorMsg}`,
@@ -655,14 +655,14 @@ export class AIFacade {
   }
 
   /**
-   * 单模型调用（fallback 不可用时的后备路径）
+   * å•æ¨¡åž‹è°ƒç”¨ï¼ˆfallback ä¸å¯ç”¨æ—¶çš„åŽå¤‡è·¯å¾„ï¼‰
    */
   private async chatSingleModel(
     request: ChatRequest,
     modelId: string,
     entityId: string,
   ): Promise<ChatResponse> {
-    // 熔断器检查
+    // ç†”æ–­å™¨æ£€æŸ¥
     if (
       this.orchestration?.circuitBreaker &&
       !this.orchestration?.circuitBreaker.canExecute(entityId)
@@ -694,7 +694,7 @@ export class AIFacade {
         maxTokens: request.maxTokens,
         temperature: request.temperature,
         strictMode: request.strictMode,
-        userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
+        userId: request.billing?.userId ?? RequestContext.getUserId(), // â˜… BYOK: ä¼ é€’ userId
         processId: request.processId,
         skipGuardrails: request.skipGuardrails,
         sharedCachePrefix: request.sharedCachePrefix,
@@ -714,7 +714,7 @@ export class AIFacade {
 
       const tokensUsed = result.usage?.totalTokens || 0;
 
-      // ★ BYOK: 用户自用 Key 不扣积分
+      // â˜… BYOK: ç”¨æˆ·è‡ªç”¨ Key ä¸æ‰£ç§¯åˆ†
       if (!result.isError) {
         await this.handleBilling(
           request,
@@ -760,18 +760,18 @@ export class AIFacade {
     }
   }
 
-  // ==================== 结构化输出 ====================
+  // ==================== ç»“æž„åŒ–è¾“å‡º ====================
 
   /**
-   * 结构化输出：LLM 响应 → 类型安全的 JSON 对象
+   * ç»“æž„åŒ–è¾“å‡ºï¼šLLM å“åº” â†’ ç±»åž‹å®‰å…¨çš„ JSON å¯¹è±¡
    *
-   * 自动在 system prompt 中注入 JSON Schema 约束，
-   * 解析响应为类型安全对象，解析失败时自动重试。
+   * è‡ªåŠ¨åœ¨ system prompt ä¸­æ³¨å…¥ JSON Schema çº¦æŸï¼Œ
+   * è§£æžå“åº”ä¸ºç±»åž‹å®‰å…¨å¯¹è±¡ï¼Œè§£æžå¤±è´¥æ—¶è‡ªåŠ¨é‡è¯•ã€‚
    *
    * @example
    * interface Analysis { themes: string[]; score: number; }
    * const result = await facade.chatStructured<Analysis>({
-   *   messages: [{ role: "user", content: "分析这篇文章" }],
+   *   messages: [{ role: "user", content: "åˆ†æžè¿™ç¯‡æ–‡ç« " }],
    *   schema: {
    *     type: "object",
    *     properties: {
@@ -782,8 +782,8 @@ export class AIFacade {
    *   },
    *   taskProfile: { creativity: "low", outputLength: "medium" },
    * });
-   * // result.data.themes — string[]
-   * // result.data.score — number
+   * // result.data.themes â€” string[]
+   * // result.data.score â€” number
    */
   async chatStructured<T>(
     request: import("./types/facade.types").StructuredChatRequest,
@@ -832,7 +832,7 @@ export class AIFacade {
         continue;
       }
 
-      // 尝试解析 JSON
+      // å°è¯•è§£æž JSON
       try {
         const cleaned = this.extractJson(response.content);
         const parsed = JSON.parse(cleaned) as T;
@@ -855,14 +855,14 @@ export class AIFacade {
       }
     }
 
-    // 所有重试都失败
+    // æ‰€æœ‰é‡è¯•éƒ½å¤±è´¥
     if (throwOnParseError) {
       throw new Error(
         `Structured output parse failed after ${maxRetries + 1} attempts: ${lastError?.message}`,
       );
     }
 
-    // 非严格模式：返回空对象
+    // éžä¸¥æ ¼æ¨¡å¼ï¼šè¿”å›žç©ºå¯¹è±¡
     return {
       data: {} as T,
       rawContent: lastRawContent,
@@ -873,19 +873,19 @@ export class AIFacade {
   }
 
   /**
-   * 从 LLM 响应中提取 JSON 内容
-   * 处理常见的 markdown 代码块包裹
+   * ä»Ž LLM å“åº”ä¸­æå– JSON å†…å®¹
+   * å¤„ç†å¸¸è§çš„ markdown ä»£ç å—åŒ…è£¹
    */
   private extractJson(content: string): string {
     let cleaned = content.trim();
 
-    // 移除 markdown 代码块
+    // ç§»é™¤ markdown ä»£ç å—
     const jsonBlockMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
     if (jsonBlockMatch) {
       cleaned = jsonBlockMatch[1].trim();
     }
 
-    // 移除开头的非 JSON 文本（找到第一个 { 或 [）
+    // ç§»é™¤å¼€å¤´çš„éž JSON æ–‡æœ¬ï¼ˆæ‰¾åˆ°ç¬¬ä¸€ä¸ª { æˆ– [ï¼‰
     const firstBrace = cleaned.indexOf("{");
     const firstBracket = cleaned.indexOf("[");
     const start = Math.min(
@@ -897,7 +897,7 @@ export class AIFacade {
       cleaned = cleaned.substring(start);
     }
 
-    // 移除末尾的非 JSON 文本
+    // ç§»é™¤æœ«å°¾çš„éž JSON æ–‡æœ¬
     const lastBrace = cleaned.lastIndexOf("}");
     const lastBracket = cleaned.lastIndexOf("]");
     const end = Math.max(lastBrace, lastBracket);
@@ -921,11 +921,11 @@ export class AIFacade {
       };
     }
 
-    // ★ BYOK: BillingContext 为空时（公共端点），从 RequestContext 获取 userId
+    // â˜… BYOK: BillingContext ä¸ºç©ºæ—¶ï¼ˆå…¬å…±ç«¯ç‚¹ï¼‰ï¼Œä»Ž RequestContext èŽ·å– userId
     const userId = RequestContext.getUserId();
     if (!userId) return undefined;
     this.logger.warn(
-      `[Billing] Fallback billing context used — caller did not set BillingContext. userId=${userId}`,
+      `[Billing] Fallback billing context used â€” caller did not set BillingContext. userId=${userId}`,
     );
     return {
       userId,
@@ -935,8 +935,8 @@ export class AIFacade {
   }
 
   /**
-   * ★ BYOK: 统一积分扣除逻辑
-   * 用户自用 Key (personal) 不扣积分
+   * â˜… BYOK: ç»Ÿä¸€ç§¯åˆ†æ‰£é™¤é€»è¾‘
+   * ç”¨æˆ·è‡ªç”¨ Key (personal) ä¸æ‰£ç§¯åˆ†
    */
   private async handleBilling(
     request: ChatRequest,
@@ -993,7 +993,7 @@ export class AIFacade {
     request: ChatWithSkillsRequest,
   ): Promise<ChatWithSkillsResponse> {
     this.logger.log(
-      `[Skills] ════════════════════════════════════════════════════════`,
+      `[Skills] â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`,
     );
     // Auto-extract query from last user message if not provided
     const query =
@@ -1003,12 +1003,12 @@ export class AIFacade {
       `[Skills] chatWithSkills START: query="${query?.slice(0, 60) || ""}", domain="${request.domain || ""}"`,
     );
 
-    // 检查 Skills 服务是否可用
+    // æ£€æŸ¥ Skills æœåŠ¡æ˜¯å¦å¯ç”¨
     if (!this.skills?.loader || !this.skills?.promptBuilder) {
       this.logger.warn(
-        "[Skills] ⚠️ Skills services not available, falling back to plain chat",
+        "[Skills] âš ï¸ Skills services not available, falling back to plain chat",
       );
-      // 降级到普通 chat
+      // é™çº§åˆ°æ™®é€š chat
       const result = await this.chat({
         messages: request.messages,
         modelType: request.modelType as AIModelType,
@@ -1030,7 +1030,7 @@ export class AIFacade {
       };
     }
 
-    // 1. 加载匹配的 Skills
+    // 1. åŠ è½½åŒ¹é…çš„ Skills
     this.logger.log(`[Skills] Step 1: Loading skills for task...`);
     const skills = await this.skills?.loader.getSkillsForTask({
       query,
@@ -1039,7 +1039,7 @@ export class AIFacade {
       maxTokenBudget: SKILLS_PROMPT_TOKEN_BUDGET,
     });
 
-    // 2. 组装 System Prompt
+    // 2. ç»„è£… System Prompt
     this.logger.log(`[Skills] Step 2: Building System Prompt...`);
     const buildResult = this.skills?.promptBuilder.buildSystemPrompt(skills, {
       context: request.skillContext,
@@ -1047,7 +1047,7 @@ export class AIFacade {
       includeMetadata: false,
     });
 
-    // 3. 构建消息列表（Skills System Prompt + 原始消息）
+    // 3. æž„å»ºæ¶ˆæ¯åˆ—è¡¨ï¼ˆSkills System Prompt + åŽŸå§‹æ¶ˆæ¯ï¼‰
     const messagesWithSkills = [
       ...(buildResult.prompt
         ? [{ role: "system" as const, content: buildResult.prompt }]
@@ -1055,7 +1055,7 @@ export class AIFacade {
       ...request.messages,
     ];
 
-    // 4. 调用底层 chat 方法
+    // 4. è°ƒç”¨åº•å±‚ chat æ–¹æ³•
     this.logger.log(
       `[Skills] Step 3: Calling LLM with ${messagesWithSkills.length} messages...`,
     );
@@ -1070,15 +1070,15 @@ export class AIFacade {
       skipGuardrails: request.skipGuardrails,
     });
 
-    // 5. 输出完成报告
+    // 5. è¾“å‡ºå®ŒæˆæŠ¥å‘Š
     this.logger.log(
-      `[Skills] ✅ chatWithSkills COMPLETE: ${buildResult.usedSkills.length} skills, ${buildResult.estimatedTokens} skill tokens, ${result.tokensUsed} total tokens`,
+      `[Skills] âœ… chatWithSkills COMPLETE: ${buildResult.usedSkills.length} skills, ${buildResult.estimatedTokens} skill tokens, ${result.tokensUsed} total tokens`,
     );
     this.logger.log(
-      `[Skills]   └─ Skills used: [${buildResult.usedSkills.join(", ")}]`,
+      `[Skills]   â””â”€ Skills used: [${buildResult.usedSkills.join(", ")}]`,
     );
     this.logger.log(
-      `[Skills] ════════════════════════════════════════════════════════`,
+      `[Skills] â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•`,
     );
 
     return {
@@ -1126,7 +1126,7 @@ export class AIFacade {
     const modelId = request.model || request.modelType || "default";
     const entityId = `chat:${modelId}`;
 
-    // 熔断器检查
+    // ç†”æ–­å™¨æ£€æŸ¥
     if (
       this.orchestration?.circuitBreaker &&
       !this.orchestration?.circuitBreaker.canExecute(entityId)
@@ -1145,13 +1145,13 @@ export class AIFacade {
     }
 
     try {
-      // 增加负载计数
+      // å¢žåŠ è´Ÿè½½è®¡æ•°
       this.orchestration?.circuitBreaker?.incrementLoad(entityId);
 
-      // 使用 AiChatService 的真正流式输出
+      // ä½¿ç”¨ AiChatService çš„çœŸæ­£æµå¼è¾“å‡º
       let streamApiKeySource: string | undefined;
       let tokensUsed = 0;
-      let accumulatedContentLength = 0; // 用于回退估算
+      let accumulatedContentLength = 0; // ç”¨äºŽå›žé€€ä¼°ç®—
 
       for await (const chunk of this.aiChatService.chatStream({
         messages: request.messages.map((m) => ({
@@ -1164,15 +1164,15 @@ export class AIFacade {
         systemPrompt: request.systemPrompt,
         maxTokens: request.maxTokens,
         temperature: request.temperature,
-        userId: request.billing?.userId ?? RequestContext.getUserId(), // ★ BYOK: 传递 userId
+        userId: request.billing?.userId ?? RequestContext.getUserId(), // â˜… BYOK: ä¼ é€’ userId
         skipGuardrails: request.skipGuardrails,
       })) {
-        // 捕获 apiKeySource（在最终 chunk 中携带）
+        // æ•èŽ· apiKeySourceï¼ˆåœ¨æœ€ç»ˆ chunk ä¸­æºå¸¦ï¼‰
         if (chunk.apiKeySource) {
           streamApiKeySource = chunk.apiKeySource;
         }
 
-        // ★ 捕获 usage 信息（在最终 chunk 中携带）
+        // â˜… æ•èŽ· usage ä¿¡æ¯ï¼ˆåœ¨æœ€ç»ˆ chunk ä¸­æºå¸¦ï¼‰
         if (chunk.usage) {
           tokensUsed = chunk.usage.totalTokens;
           this.logger.debug(
@@ -1180,14 +1180,14 @@ export class AIFacade {
           );
         }
 
-        // 累积内容长度（用于回退估算）
+        // ç´¯ç§¯å†…å®¹é•¿åº¦ï¼ˆç”¨äºŽå›žé€€ä¼°ç®—ï¼‰
         if (chunk.content) {
           accumulatedContentLength += chunk.content.length;
         }
 
         yield { content: chunk.content, done: chunk.done, error: chunk.error };
 
-        // 如果有错误，记录失败
+        // å¦‚æžœæœ‰é”™è¯¯ï¼Œè®°å½•å¤±è´¥
         if (chunk.error) {
           this.orchestration?.circuitBreaker?.recordFailure(
             entityId,
@@ -1197,9 +1197,9 @@ export class AIFacade {
         }
       }
 
-      // ★ 回退估算：如果 API 未返回 usage，基于内容长度估算
+      // â˜… å›žé€€ä¼°ç®—ï¼šå¦‚æžœ API æœªè¿”å›ž usageï¼ŒåŸºäºŽå†…å®¹é•¿åº¦ä¼°ç®—
       if (tokensUsed === 0 && accumulatedContentLength > 0) {
-        // 估算规则：约 4 字符 = 1 token
+        // ä¼°ç®—è§„åˆ™ï¼šçº¦ 4 å­—ç¬¦ = 1 token
         const estimatedCompletionTokens = Math.ceil(
           accumulatedContentLength / 4,
         );
@@ -1212,10 +1212,10 @@ export class AIFacade {
         );
       }
 
-      // 流式完成，记录成功
+      // æµå¼å®Œæˆï¼Œè®°å½•æˆåŠŸ
       this.orchestration?.circuitBreaker?.recordSuccess(entityId, 0);
 
-      // ★ BYOK: 流式完成后积分扣除（现在会传递实际的 token 数）
+      // â˜… BYOK: æµå¼å®ŒæˆåŽç§¯åˆ†æ‰£é™¤ï¼ˆçŽ°åœ¨ä¼šä¼ é€’å®žé™…çš„ token æ•°ï¼‰
       await this.handleBilling(
         request,
         streamApiKeySource,
@@ -1233,7 +1233,7 @@ export class AIFacade {
       this.logger.error(`[chatStream] Stream failed: ${errorMsg}`);
       yield { content: "", done: true, error: errorMsg };
     } finally {
-      // 减少负载计数
+      // å‡å°‘è´Ÿè½½è®¡æ•°
       this.orchestration?.circuitBreaker?.decrementLoad(entityId);
     }
   }
@@ -1320,7 +1320,7 @@ export class AIFacade {
     return this.modelSub.getAvailableModels(modelType);
   }
 
-  // ==================== 模型配置获取（供 AI Apps 使用）====================
+  // ==================== æ¨¡åž‹é…ç½®èŽ·å–ï¼ˆä¾› AI Apps ä½¿ç”¨ï¼‰====================
 
   /**
    * Gets the default text chat model configuration.
@@ -1389,7 +1389,7 @@ export class AIFacade {
     maxTokens?: number;
     apiEndpoint?: string;
     isReasoning?: boolean;
-    // ★ 额外字段：支持非 CHAT 类型模型（如 IMAGE_GENERATION）
+    // â˜… é¢å¤–å­—æ®µï¼šæ”¯æŒéž CHAT ç±»åž‹æ¨¡åž‹ï¼ˆå¦‚ IMAGE_GENERATIONï¼‰
     apiKey?: string | null;
     secretKey?: string | null;
     modelType?: string;
@@ -1462,10 +1462,10 @@ export class AIFacade {
     return this.modelSub.getDefaultModelByType(modelType);
   }
 
-  // ==================== 搜索能力 ====================
+  // ==================== æœç´¢èƒ½åŠ› ====================
 
   /**
-   * 创建工具执行上下文
+   * åˆ›å»ºå·¥å…·æ‰§è¡Œä¸Šä¸‹æ–‡
    */
   private createToolContext(toolId: string): ToolContext {
     return {
@@ -1499,7 +1499,7 @@ export class AIFacade {
       `[search] query="${request.query}", maxResults=${request.maxResults}`,
     );
 
-    // ★ 优先通过 ToolRegistry 调用 web-search 工具
+    // â˜… ä¼˜å…ˆé€šè¿‡ ToolRegistry è°ƒç”¨ web-search å·¥å…·
     const webSearchTool = this.tools?.registry?.tryGet("web-search");
     if (webSearchTool) {
       try {
@@ -1546,7 +1546,7 @@ export class AIFacade {
       }
     }
 
-    // ★ ToolRegistry 不可用时返回错误
+    // â˜… ToolRegistry ä¸å¯ç”¨æ—¶è¿”å›žé”™è¯¯
     return {
       success: false,
       results: [],
@@ -1575,7 +1575,7 @@ export class AIFacade {
       .join("\n\n");
   }
 
-  // ==================== 团队协作能力 ====================
+  // ==================== å›¢é˜Ÿåä½œèƒ½åŠ› ====================
 
   /**
    * Starts a collaborative team mission with multiple AI agents.
@@ -1636,7 +1636,7 @@ export class AIFacade {
         ).setLLMAdapter(this.skills?.llmAdapter);
       } else {
         this.logger.warn(
-          `[executeSkill] Skill "${context.skillId}" expects LLM adapter (setLLMAdapter) but llmAdapterForSkills is not available — execution may fail`,
+          `[executeSkill] Skill "${context.skillId}" expects LLM adapter (setLLMAdapter) but llmAdapterForSkills is not available â€” execution may fail`,
         );
       }
     }
@@ -1720,7 +1720,7 @@ export class AIFacade {
    * in real-time as the team progresses through the mission.
    *
    * @param dto - Mission creation data including teamId, goal, context, and metadata
-   * @yields MissionEvent stream — one event per team step / lifecycle transition
+   * @yields MissionEvent stream â€” one event per team step / lifecycle transition
    */
   async *executeMissionStream(
     dto: CreateMissionDto,
@@ -1728,7 +1728,7 @@ export class AIFacade {
     yield* this.teamSub.executeMissionStream(dto);
   }
 
-  // ==================== 上下文能力 ====================
+  // ==================== ä¸Šä¸‹æ–‡èƒ½åŠ› ====================
 
   /**
    * Builds rich context from multiple sources for LLM prompts.
@@ -1794,7 +1794,7 @@ export class AIFacade {
           break;
 
         case "topic":
-          // ★ 架构分层：优先使用预查询的数据，避免 Engine 层依赖 App 层业务模型
+          // â˜… æž¶æž„åˆ†å±‚ï¼šä¼˜å…ˆä½¿ç”¨é¢„æŸ¥è¯¢çš„æ•°æ®ï¼Œé¿å… Engine å±‚ä¾èµ– App å±‚ä¸šåŠ¡æ¨¡åž‹
           if (source.data) {
             const topic = source.data as {
               name: string;
@@ -1815,7 +1815,7 @@ export class AIFacade {
             }
             parts.push(topicContext);
           } else if (source.id && this.prisma) {
-            // 兼容旧代码：直接查询（不推荐，违反架构分层）
+            // å…¼å®¹æ—§ä»£ç ï¼šç›´æŽ¥æŸ¥è¯¢ï¼ˆä¸æŽ¨èï¼Œè¿åæž¶æž„åˆ†å±‚ï¼‰
             this.logger.warn(
               `[buildContext] Deprecated: type="topic" with id="${source.id}" should pass data via source.data instead of direct Prisma query`,
             );
@@ -1843,7 +1843,7 @@ export class AIFacade {
           break;
 
         case "resource":
-          // ★ 架构分层：优先使用预查询的数据，避免 Engine 层依赖 App 层业务模型
+          // â˜… æž¶æž„åˆ†å±‚ï¼šä¼˜å…ˆä½¿ç”¨é¢„æŸ¥è¯¢çš„æ•°æ®ï¼Œé¿å… Engine å±‚ä¾èµ– App å±‚ä¸šåŠ¡æ¨¡åž‹
           if (source.data) {
             const resource = source.data as {
               title: string;
@@ -1855,7 +1855,7 @@ export class AIFacade {
               resourceContext += `Summary: ${resource.aiSummary}\n`;
             }
             if (resource.content) {
-              // 截取前 2000 字符
+              // æˆªå–å‰ 2000 å­—ç¬¦
               const text =
                 resource.content.length > 2000
                   ? resource.content.substring(0, 2000) + "..."
@@ -1864,7 +1864,7 @@ export class AIFacade {
             }
             parts.push(resourceContext);
           } else if (source.id && this.prisma) {
-            // 兼容旧代码：直接查询（不推荐，违反架构分层）
+            // å…¼å®¹æ—§ä»£ç ï¼šç›´æŽ¥æŸ¥è¯¢ï¼ˆä¸æŽ¨èï¼Œè¿åæž¶æž„åˆ†å±‚ï¼‰
             this.logger.warn(
               `[buildContext] Deprecated: type="resource" with id="${source.id}" should pass data via source.data instead of direct Prisma query`,
             );
@@ -1877,7 +1877,7 @@ export class AIFacade {
                 resourceContext += `Summary: ${resource.aiSummary}\n`;
               }
               if (resource.content) {
-                // 截取前 2000 字符
+                // æˆªå–å‰ 2000 å­—ç¬¦
                 const text =
                   resource.content.length > 2000
                     ? resource.content.substring(0, 2000) + "..."
@@ -1898,7 +1898,7 @@ export class AIFacade {
 
     let context = parts.join("\n\n---\n\n");
 
-    // Token 限制处理
+    // Token é™åˆ¶å¤„ç†
     if (request.maxTokens && request.compress) {
       const estimatedTokens = this.estimateTokens(context);
       if (estimatedTokens > request.maxTokens) {
@@ -1910,17 +1910,17 @@ export class AIFacade {
   }
 
   /**
-   * 估算 token 数量
+   * ä¼°ç®— token æ•°é‡
    */
   private estimateTokens(text: string): number {
-    // 中文每字约 2 token，英文每 4 字符约 1 token
+    // ä¸­æ–‡æ¯å­—çº¦ 2 tokenï¼Œè‹±æ–‡æ¯ 4 å­—ç¬¦çº¦ 1 token
     const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
     const otherChars = text.length - chineseChars;
     return Math.ceil(chineseChars * 2 + otherChars / 4);
   }
 
   /**
-   * 压缩上下文到指定 token 数
+   * åŽ‹ç¼©ä¸Šä¸‹æ–‡åˆ°æŒ‡å®š token æ•°
    */
   private compressContext(context: string, maxTokens: number): string {
     const currentTokens = this.estimateTokens(context);
@@ -1928,11 +1928,11 @@ export class AIFacade {
       return context;
     }
 
-    // 计算需要保留的比例
+    // è®¡ç®—éœ€è¦ä¿ç•™çš„æ¯”ä¾‹
     const ratio = maxTokens / currentTokens;
-    const targetLength = Math.floor(context.length * ratio * 0.9); // 留 10% 余量
+    const targetLength = Math.floor(context.length * ratio * 0.9); // ç•™ 10% ä½™é‡
 
-    // 优先保留开头和结尾
+    // ä¼˜å…ˆä¿ç•™å¼€å¤´å’Œç»“å°¾
     const headLength = Math.floor(targetLength * 0.6);
     const tailLength = Math.floor(targetLength * 0.3);
 
@@ -1956,7 +1956,7 @@ export class AIFacade {
     return "";
   }
 
-  // ==================== 约束能力 ====================
+  // ==================== çº¦æŸèƒ½åŠ› ====================
 
   /**
    * Validates content against constraints (token limits, filters, schemas).
@@ -1989,7 +1989,7 @@ export class AIFacade {
       message: string;
     }> = [];
 
-    // 1. 检查 token 限制
+    // 1. æ£€æŸ¥ token é™åˆ¶
     if (request.constraints.maxTokens) {
       const estimatedTokens = this.estimateTokens(request.content);
       if (estimatedTokens > request.constraints.maxTokens) {
@@ -2000,7 +2000,7 @@ export class AIFacade {
       }
     }
 
-    // 2. 内容过滤（敏感信息检测）
+    // 2. å†…å®¹è¿‡æ»¤ï¼ˆæ•æ„Ÿä¿¡æ¯æ£€æµ‹ï¼‰
     if (request.constraints.contentFilter?.enabled) {
       for (const pattern of SENSITIVE_PATTERNS) {
         if (pattern.test(request.content)) {
@@ -2011,7 +2011,7 @@ export class AIFacade {
         }
       }
 
-      // 自定义规则
+      // è‡ªå®šä¹‰è§„åˆ™
       if (request.constraints.contentFilter.rules) {
         for (const rule of request.constraints.contentFilter.rules) {
           try {
@@ -2029,7 +2029,7 @@ export class AIFacade {
       }
     }
 
-    // 3. JSON Schema 验证
+    // 3. JSON Schema éªŒè¯
     if (request.constraints.jsonSchema) {
       try {
         const parsed = JSON.parse(request.content);
@@ -2051,7 +2051,7 @@ export class AIFacade {
       }
     }
 
-    // 如果有违规，尝试生成调整后的内容
+    // å¦‚æžœæœ‰è¿è§„ï¼Œå°è¯•ç”Ÿæˆè°ƒæ•´åŽçš„å†…å®¹
     let adjustedContent: string | undefined;
     if (violations.some((v) => v.type === "token_limit")) {
       adjustedContent = this.compressContext(
@@ -2068,10 +2068,10 @@ export class AIFacade {
   }
 
   /**
-   * 简单的 JSON Schema 验证
+   * ç®€å•çš„ JSON Schema éªŒè¯
    */
   private validateJsonSchema(data: unknown, schema: object): boolean {
-    // 基础实现：检查必需字段和类型
+    // åŸºç¡€å®žçŽ°ï¼šæ£€æŸ¥å¿…éœ€å­—æ®µå’Œç±»åž‹
     const schemaObj = schema as {
       type?: string;
       required?: string[];
@@ -2098,7 +2098,7 @@ export class AIFacade {
     return true;
   }
 
-  // ==================== 记忆能力 ====================
+  // ==================== è®°å¿†èƒ½åŠ› ====================
 
   /**
    * Stores content in short-term or long-term memory.
@@ -2192,7 +2192,7 @@ export class AIFacade {
     return this.memorySub.sessionMemoryClear(sessionId);
   }
 
-  // ==================== Agent 执行能力 ====================
+  // ==================== Agent æ‰§è¡Œèƒ½åŠ› ====================
 
   /**
    * Executes a single agent task with retry and circuit breaker protection.
@@ -2240,7 +2240,7 @@ export class AIFacade {
     return this.agentSub.isAgentAvailable(agentId);
   }
 
-  // ==================== Tool 执行能力 ====================
+  // ==================== Tool æ‰§è¡Œèƒ½åŠ› ====================
 
   /**
    * Executes a registered tool with input validation and timeout control.
@@ -2325,7 +2325,7 @@ export class AIFacade {
     return this.toolExecSub.getToolFunctionDefinitions(toolIds);
   }
 
-  // ==================== ★ NEW: AI Capability 能力 ====================
+  // ==================== â˜… NEW: AI Capability èƒ½åŠ› ====================
 
   /**
    * Gets all available AI capabilities based on context.
@@ -2349,8 +2349,8 @@ export class AIFacade {
     return this.toolExecSub.getAvailableCapabilities(context);
   }
 
-  // listModuleCapabilities 已删 (2026-04-30) — 仅服务于 buildSuggestedActions
-  // (前端 0 消费的 suggestedActions 字段)，IntentRouter 链路全删
+  // listModuleCapabilities å·²åˆ  (2026-04-30) â€” ä»…æœåŠ¡äºŽ buildSuggestedActions
+  // (å‰ç«¯ 0 æ¶ˆè´¹çš„ suggestedActions å­—æ®µ)ï¼ŒIntentRouter é“¾è·¯å…¨åˆ
 
   /**
    * Chat with automatic tool calling based on available capabilities.
@@ -2425,7 +2425,7 @@ export class AIFacade {
     return this.toolExecSub.isToolExecutionAvailable();
   }
 
-  // ==================== 管理功能 ====================
+  // ==================== ç®¡ç†åŠŸèƒ½ ====================
 
   /**
    * Fetches available models from a provider (admin only).
@@ -2510,7 +2510,7 @@ export class AIFacade {
   }
 
   // ============================================================================
-  // ★ P2 能力下沉：实时推送能力
+  // â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šå®žæ—¶æŽ¨é€èƒ½åŠ›
   // ============================================================================
 
   /**
@@ -2607,31 +2607,31 @@ export class AIFacade {
     }
   }
 
-  // ==================== 可观测性能力（Trace / Span）====================
+  // ==================== å¯è§‚æµ‹æ€§èƒ½åŠ›ï¼ˆTrace / Spanï¼‰====================
 
-  /** 开始一个新的 Trace，返回 traceId（或 undefined 如果 TraceCollector 不可用） */
+  /** å¼€å§‹ä¸€ä¸ªæ–°çš„ Traceï¼Œè¿”å›ž traceIdï¼ˆæˆ– undefined å¦‚æžœ TraceCollector ä¸å¯ç”¨ï¼‰ */
   startTrace(input: CreateTraceInput): string | undefined {
     return this.observability?.traceCollector?.startTrace(input);
   }
 
-  /** 在指定 Trace 下添加一个 Span，返回 spanId（或 undefined） */
+  /** åœ¨æŒ‡å®š Trace ä¸‹æ·»åŠ ä¸€ä¸ª Spanï¼Œè¿”å›ž spanIdï¼ˆæˆ– undefinedï¼‰ */
   addSpan(traceId: string, input: CreateSpanInput): string | undefined {
     return this.observability?.traceCollector?.addSpan(traceId, input);
   }
 
-  /** 结束一个 Span */
+  /** ç»“æŸä¸€ä¸ª Span */
   endSpan(spanId: string, input: EndSpanInput): void {
     this.observability?.traceCollector?.endSpan(spanId, input);
   }
 
-  /** 结束一个 Trace */
+  /** ç»“æŸä¸€ä¸ª Trace */
   endTrace(traceId: string, input: EndTraceInput): void {
     this.observability?.traceCollector?.endTrace(traceId, input);
   }
 
-  // ==================== 记忆协调器（MemoryCoordinator）====================
+  // ==================== è®°å¿†åè°ƒå™¨ï¼ˆMemoryCoordinatorï¼‰====================
 
-  /** 写入跨层记忆（fire-and-forget，不阻塞主流程） */
+  /** å†™å…¥è·¨å±‚è®°å¿†ï¼ˆfire-and-forgetï¼Œä¸é˜»å¡žä¸»æµç¨‹ï¼‰ */
   coordinatorStore(
     event: MemoryEvent,
     userId: string,
@@ -2644,7 +2644,7 @@ export class AIFacade {
     );
   }
 
-  /** 并行召回跨层记忆 */
+  /** å¹¶è¡Œå¬å›žè·¨å±‚è®°å¿† */
   coordinatorRecall(
     query: MemoryQuery,
     userId: string,
@@ -2657,9 +2657,9 @@ export class AIFacade {
     );
   }
 
-  // ==================== A2A 消息总线（A2ABus）====================
+  // ==================== A2A æ¶ˆæ¯æ€»çº¿ï¼ˆA2ABusï¼‰====================
 
-  /** 发布 A2A 消息（Agent 间通信） */
+  /** å‘å¸ƒ A2A æ¶ˆæ¯ï¼ˆAgent é—´é€šä¿¡ï¼‰ */
   a2aPublish<TPayload = unknown>(params: {
     sessionId: string;
     fromAgentId: string;
@@ -2674,14 +2674,14 @@ export class AIFacade {
     return this.collaboration?.a2aBus?.publish(params);
   }
 
-  /** 清理 A2A 会话（释放订阅和历史消息） */
+  /** æ¸…ç† A2A ä¼šè¯ï¼ˆé‡Šæ”¾è®¢é˜…å’ŒåŽ†å²æ¶ˆæ¯ï¼‰ */
   a2aClearSession(sessionId: string): void {
     this.collaboration?.a2aBus?.clearSession(sessionId);
   }
 
-  // ==================== 反思（Reflection）====================
+  // ==================== åæ€ï¼ˆReflectionï¼‰====================
 
-  /** 对当前执行状态进行质量反思，返回评分、缺口和决策 */
+  /** å¯¹å½“å‰æ‰§è¡ŒçŠ¶æ€è¿›è¡Œè´¨é‡åæ€ï¼Œè¿”å›žè¯„åˆ†ã€ç¼ºå£å’Œå†³ç­– */
   reflect(
     input: ReflectionInput,
     config?: ReflectionConfig,
@@ -2689,9 +2689,9 @@ export class AIFacade {
     return this.intelligence?.reflection?.reflect(input, config);
   }
 
-  // ==================== 上下文压缩（ContextCompression）====================
+  // ==================== ä¸Šä¸‹æ–‡åŽ‹ç¼©ï¼ˆContextCompressionï¼‰====================
 
-  /** 压缩大上下文到目标大小，保留关键信息（AI 分块摘要，非简单截断） */
+  /** åŽ‹ç¼©å¤§ä¸Šä¸‹æ–‡åˆ°ç›®æ ‡å¤§å°ï¼Œä¿ç•™å…³é”®ä¿¡æ¯ï¼ˆAI åˆ†å—æ‘˜è¦ï¼Œéžç®€å•æˆªæ–­ï¼‰ */
   aiCompressContext(
     content: string,
     options?: CompressionOptions,
@@ -2699,35 +2699,35 @@ export class AIFacade {
     return this.intelligence?.contextCompression?.compress(content, options);
   }
 
-  // ==================== 报告合成（ReportSynthesisEngine）====================
+  // ==================== æŠ¥å‘Šåˆæˆï¼ˆReportSynthesisEngineï¼‰====================
 
-  /** 清洗报告 Markdown（移除多余空行、格式规范化）；服务不可用时原样返回 */
+  /** æ¸…æ´—æŠ¥å‘Š Markdownï¼ˆç§»é™¤å¤šä½™ç©ºè¡Œã€æ ¼å¼è§„èŒƒåŒ–ï¼‰ï¼›æœåŠ¡ä¸å¯ç”¨æ—¶åŽŸæ ·è¿”å›ž */
   sanitizeReport(text: string): string {
     return this.intelligence?.synthesisEngine?.sanitizeReport(text) ?? text;
   }
 
-  // ==================== 证据管理（EvidenceManager）====================
+  // ==================== è¯æ®ç®¡ç†ï¼ˆEvidenceManagerï¼‰====================
 
-  /** 保存证据到 Engine Evidence 存储 */
+  /** ä¿å­˜è¯æ®åˆ° Engine Evidence å­˜å‚¨ */
   evidenceSave(request: SaveEvidenceRequest): Promise<void> | undefined {
     return this.collaboration?.evidenceManager
       ?.save(request)
       .then(() => undefined);
   }
 
-  // ==================== 投票管理（VotingManager）====================
+  // ==================== æŠ•ç¥¨ç®¡ç†ï¼ˆVotingManagerï¼‰====================
 
-  /** 创建投票会话；VotingManager 不可用时返回 undefined */
+  /** åˆ›å»ºæŠ•ç¥¨ä¼šè¯ï¼›VotingManager ä¸å¯ç”¨æ—¶è¿”å›ž undefined */
   votingCreate(request: VoteRequest): VotingSession | undefined {
     return this.collaboration?.votingManager?.createVote(request);
   }
 
-  /** 投票（某个投票人为某个选项投票） */
+  /** æŠ•ç¥¨ï¼ˆæŸä¸ªæŠ•ç¥¨äººä¸ºæŸä¸ªé€‰é¡¹æŠ•ç¥¨ï¼‰ */
   votingCastVote(sessionId: string, voterId: string, optionId: string): void {
     this.collaboration?.votingManager?.castVote(sessionId, voterId, optionId);
   }
 
-  /** 关闭投票并计票；VotingManager 不可用时返回 undefined */
+  /** å…³é—­æŠ•ç¥¨å¹¶è®¡ç¥¨ï¼›VotingManager ä¸å¯ç”¨æ—¶è¿”å›ž undefined */
   votingClose(
     sessionId: string,
     totalVoters: number,
@@ -2735,21 +2735,21 @@ export class AIFacade {
     return this.collaboration?.votingManager?.closeVote(sessionId, totalVoters);
   }
 
-  // ==================== 实时推送（Realtime）直接访问 ====================
+  // ==================== å®žæ—¶æŽ¨é€ï¼ˆRealtimeï¼‰ç›´æŽ¥è®¿é—® ====================
 
-  /** 获取 EngineEventEmitterService 实例（用于适配层直接调用） */
+  /** èŽ·å– EngineEventEmitterService å®žä¾‹ï¼ˆç”¨äºŽé€‚é…å±‚ç›´æŽ¥è°ƒç”¨ï¼‰ */
   get realtimeEmitter() {
     return this.realtime?.eventEmitter;
   }
 
-  /** 获取 ProgressTrackerService 实例（用于适配层直接调用） */
+  /** èŽ·å– ProgressTrackerService å®žä¾‹ï¼ˆç”¨äºŽé€‚é…å±‚ç›´æŽ¥è°ƒç”¨ï¼‰ */
   get realtimeProgress() {
     return this.realtime?.progressTracker;
   }
 
-  // ==================== 能力解析（AICapabilityResolver）====================
+  // ==================== èƒ½åŠ›è§£æžï¼ˆAICapabilityResolverï¼‰====================
 
-  /** 解析 Agent 可用工具列表；服务不可用时返回空数组 */
+  /** è§£æž Agent å¯ç”¨å·¥å…·åˆ—è¡¨ï¼›æœåŠ¡ä¸å¯ç”¨æ—¶è¿”å›žç©ºæ•°ç»„ */
   async capabilityResolveTools(
     context: AICapabilityContext,
   ): Promise<string[]> {
@@ -2759,7 +2759,7 @@ export class AIFacade {
     );
   }
 
-  /** 获取技能 Prompt 包；服务不可用时返回 null */
+  /** èŽ·å–æŠ€èƒ½ Prompt åŒ…ï¼›æœåŠ¡ä¸å¯ç”¨æ—¶è¿”å›ž null */
   async capabilityGetSkillPrompts(
     context: AICapabilityContext,
     options?: SkillPromptOptions,
@@ -2772,28 +2772,28 @@ export class AIFacade {
     );
   }
 
-  // ==================== 技能加载（SkillLoaderService）====================
+  // ==================== æŠ€èƒ½åŠ è½½ï¼ˆSkillLoaderServiceï¼‰====================
 
-  /** 获取所有已加载的技能定义；服务不可用时返回空数组 */
+  /** èŽ·å–æ‰€æœ‰å·²åŠ è½½çš„æŠ€èƒ½å®šä¹‰ï¼›æœåŠ¡ä¸å¯ç”¨æ—¶è¿”å›žç©ºæ•°ç»„ */
   skillLoaderGetAll(): SkillMdDefinition[] {
     return this.skills?.loader.getAllLoadedSkills() ?? [];
   }
 
-  // ==================== Embedding（EmbeddingService）====================
+  // ==================== Embeddingï¼ˆEmbeddingServiceï¼‰====================
 
-  /** 生成单条文本的向量嵌入；服务不可用时返回 null */
+  /** ç”Ÿæˆå•æ¡æ–‡æœ¬çš„å‘é‡åµŒå…¥ï¼›æœåŠ¡ä¸å¯ç”¨æ—¶è¿”å›ž null */
   async embeddingGenerate(text: string): Promise<EmbeddingResult | null> {
     return (await this.knowledge?.embedding?.generateEmbedding(text)) ?? null;
   }
 
-  /** 获取当前嵌入模型标识；服务不可用时返回 null */
+  /** èŽ·å–å½“å‰åµŒå…¥æ¨¡åž‹æ ‡è¯†ï¼›æœåŠ¡ä¸å¯ç”¨æ—¶è¿”å›ž null */
   async embeddingGetModel(): Promise<string | null> {
     return (await this.knowledge?.embedding?.getModel()) ?? null;
   }
 
-  // ==================== 向量检索（VectorService）====================
+  // ==================== å‘é‡æ£€ç´¢ï¼ˆVectorServiceï¼‰====================
 
-  /** 相似度向量搜索；服务不可用时返回空数组 */
+  /** ç›¸ä¼¼åº¦å‘é‡æœç´¢ï¼›æœåŠ¡ä¸å¯ç”¨æ—¶è¿”å›žç©ºæ•°ç»„ */
   async vectorSimilaritySearch(
     queryEmbedding: number[],
     options?: SimilaritySearchOptions,
@@ -2806,141 +2806,141 @@ export class AIFacade {
     );
   }
 
-  // ==================== MCP（MCPManager）直接访问 ====================
+  // ==================== MCPï¼ˆMCPManagerï¼‰ç›´æŽ¥è®¿é—® ====================
 
-  /** 获取 MCPManager 实例（用于 MCP 适配层直接调用） */
+  /** èŽ·å– MCPManager å®žä¾‹ï¼ˆç”¨äºŽ MCP é€‚é…å±‚ç›´æŽ¥è°ƒç”¨ï¼‰ */
   get mcpManager(): MCPManager | undefined {
     return this.mcpManagerSvc;
   }
 
-  // ==================== 编排服务（Orchestration）直接访问 ====================
+  // ==================== ç¼–æŽ’æœåŠ¡ï¼ˆOrchestrationï¼‰ç›´æŽ¥è®¿é—® ====================
 
-  /** 获取 CircuitBreakerService（用于 Teams 执行层负载控制） */
+  /** èŽ·å– CircuitBreakerServiceï¼ˆç”¨äºŽ Teams æ‰§è¡Œå±‚è´Ÿè½½æŽ§åˆ¶ï¼‰ */
   get circuitBreaker(): CircuitBreakerService | undefined {
     return this.orchestration?.circuitBreaker;
   }
 
-  /** 获取 AgentExecutorService（用于 Teams 任务执行） */
+  /** èŽ·å– AgentExecutorServiceï¼ˆç”¨äºŽ Teams ä»»åŠ¡æ‰§è¡Œï¼‰ */
   get agentExecutor(): AgentExecutorService | undefined {
     return this.orchestration?.agentExecutor;
   }
 
-  // taskDecomposer getter 已删 (2026-04-30)
+  // taskDecomposer getter å·²åˆ  (2026-04-30)
 
-  /** 获取 IntentDetectionService（用于上下文意图识别） */
+  /** èŽ·å– IntentDetectionServiceï¼ˆç”¨äºŽä¸Šä¸‹æ–‡æ„å›¾è¯†åˆ«ï¼‰ */
   get intentDetector(): IntentDetectionService | undefined {
     return this.orchestration?.intentDetector;
   }
 
-  /** 获取 ExecutionStateManager（用于任务状态跟踪） */
+  /** èŽ·å– ExecutionStateManagerï¼ˆç”¨äºŽä»»åŠ¡çŠ¶æ€è·Ÿè¸ªï¼‰ */
   get execStateManager(): ExecutionStateManager | undefined {
     return this.orchestration?.execStateManager;
   }
 
-  /** 获取 FunctionCallingLLMAdapter（用于函数调用 LLM） */
+  /** èŽ·å– FunctionCallingLLMAdapterï¼ˆç”¨äºŽå‡½æ•°è°ƒç”¨ LLMï¼‰ */
   get functionCallingAdapter(): FunctionCallingLLMAdapter | undefined {
     return this.tools?.llmAdapter;
   }
 
-  /** 获取 FunctionCallingExecutor（用于函数调用执行） */
+  /** èŽ·å– FunctionCallingExecutorï¼ˆç”¨äºŽå‡½æ•°è°ƒç”¨æ‰§è¡Œï¼‰ */
   get functionCallingExecutor(): FunctionCallingExecutor | undefined {
     return this.tools?.executor;
   }
 
-  /** 获取 ModelFallbackService（用于模型容错切换） */
+  /** èŽ·å– ModelFallbackServiceï¼ˆç”¨äºŽæ¨¡åž‹å®¹é”™åˆ‡æ¢ï¼‰ */
   get modelFallback(): ModelFallbackService | undefined {
     return this.modelFallbackService;
   }
 
-  /** 获取 TeamsService 实例（用于 ai-teams-integration 适配层） */
+  /** èŽ·å– TeamsService å®žä¾‹ï¼ˆç”¨äºŽ ai-teams-integration é€‚é…å±‚ï¼‰ */
   get teams(): TeamsService | undefined {
     return this.teamsFeature?.teamsService;
   }
 
-  /** 获取 ContextInitializationService（用于 mission 上下文初始化） */
+  /** èŽ·å– ContextInitializationServiceï¼ˆç”¨äºŽ mission ä¸Šä¸‹æ–‡åˆå§‹åŒ–ï¼‰ */
   get contextInit(): ContextInitializationService | undefined {
     return this.teamsFeature?.contextInit;
   }
 
-  /** 获取 TeamFactory（用于写作/团队协调器） */
+  /** èŽ·å– TeamFactoryï¼ˆç”¨äºŽå†™ä½œ/å›¢é˜Ÿåè°ƒå™¨ï¼‰ */
   get teamFactory(): TeamFactory | undefined {
     return this.teamsFeature?.teamFactory;
   }
 
-  // ★ longContentEngine and continuationProtocol getters REMOVED (Phase 6).
+  // â˜… longContentEngine and continuationProtocol getters REMOVED (Phase 6).
   // Consumers now inject LongContentEngineService / ContinuationProtocolService directly.
 
-  /** 获取 EmbeddingService（供 RAG 模块直接使用） */
+  /** èŽ·å– EmbeddingServiceï¼ˆä¾› RAG æ¨¡å—ç›´æŽ¥ä½¿ç”¨ï¼‰ */
   get embedding(): EmbeddingService | undefined {
     return this.knowledge?.embedding;
   }
 
-  /** 获取 VectorService（供 RAG 模块直接使用） */
+  /** èŽ·å– VectorServiceï¼ˆä¾› RAG æ¨¡å—ç›´æŽ¥ä½¿ç”¨ï¼‰ */
   get vector(): VectorService | undefined {
     return this.knowledge?.vector;
   }
 
-  /** 获取 MissionOrchestrator（供写作/团队任务编排使用） */
+  /** èŽ·å– MissionOrchestratorï¼ˆä¾›å†™ä½œ/å›¢é˜Ÿä»»åŠ¡ç¼–æŽ’ä½¿ç”¨ï¼‰ */
   get missionOrchestrator(): MissionOrchestrator | undefined {
     return this.teamsFeature?.missionOrchestrator;
   }
 
-  /** 获取 AICapabilityResolver（供需要直接调用 logCapabilityUsage 等方法的使用） */
+  /** èŽ·å– AICapabilityResolverï¼ˆä¾›éœ€è¦ç›´æŽ¥è°ƒç”¨ logCapabilityUsage ç­‰æ–¹æ³•çš„ä½¿ç”¨ï¼‰ */
   get capabilityResolverService(): AICapabilityResolver | undefined {
     return this.tools?.capabilityResolver;
   }
 
-  /** 获取 OutputReviewerService（供任务审核使用） */
+  /** èŽ·å– OutputReviewerServiceï¼ˆä¾›ä»»åŠ¡å®¡æ ¸ä½¿ç”¨ï¼‰ */
   get outputReviewer(): OutputReviewerService | undefined {
     return this.orchestration?.outputReviewer;
   }
 
-  /** 获取 ContextEvolutionService（供上下文演进使用） */
+  /** èŽ·å– ContextEvolutionServiceï¼ˆä¾›ä¸Šä¸‹æ–‡æ¼”è¿›ä½¿ç”¨ï¼‰ */
   get contextEvolution(): ContextEvolutionService | undefined {
     return this.orchestration?.contextEvolution;
   }
 
-  /** 获取 ContentFetchService（供内容抓取使用） */
+  /** èŽ·å– ContentFetchServiceï¼ˆä¾›å†…å®¹æŠ“å–ä½¿ç”¨ï¼‰ */
   get contentFetch(): ContentFetchService | undefined {
     return this.content?.contentFetch;
   }
 
   // ==================== Registry Getters ====================
-  // AI App 模块通过这些 getter 访问 Registry，无需直接注入 Engine 内部类
+  // AI App æ¨¡å—é€šè¿‡è¿™äº› getter è®¿é—® Registryï¼Œæ— éœ€ç›´æŽ¥æ³¨å…¥ Engine å†…éƒ¨ç±»
 
-  /** 获取 ToolRegistry（工具注册表） */
+  /** èŽ·å– ToolRegistryï¼ˆå·¥å…·æ³¨å†Œè¡¨ï¼‰ */
   get toolRegistry():
     | import("../../ai-engine/tools/registry/tool.registry").ToolRegistry
     | undefined {
     return this.tools?.registry;
   }
 
-  /** 获取 AgentRegistry（Agent 注册表） */
+  /** èŽ·å– AgentRegistryï¼ˆAgent æ³¨å†Œè¡¨ï¼‰ */
   get agentRegistry(): AgentRegistry | undefined {
     return this.registry?.agent;
   }
 
-  /** 获取 TeamRegistry（团队注册表） */
+  /** èŽ·å– TeamRegistryï¼ˆå›¢é˜Ÿæ³¨å†Œè¡¨ï¼‰ */
   get teamRegistry(): TeamRegistry | undefined {
     return this.registry?.team;
   }
 
-  /** 获取 RoleRegistry（角色注册表） */
+  /** èŽ·å– RoleRegistryï¼ˆè§’è‰²æ³¨å†Œè¡¨ï¼‰ */
   get roleRegistry(): RoleRegistry | undefined {
     return this.registry?.role;
   }
 
-  /** 获取 SkillRegistry（技能注册表） */
+  /** èŽ·å– SkillRegistryï¼ˆæŠ€èƒ½æ³¨å†Œè¡¨ï¼‰ */
   get skillRegistry(): SkillRegistry | undefined {
     return this.registry?.skill;
   }
 
-  // ==================== Late Registration — 研究能力 ====================
+  // ==================== Late Registration â€” ç ”ç©¶èƒ½åŠ› ====================
 
   /**
-   * 注册研究能力执行器
-   * ★ 由 AI App 层的 DiscussionModule 在 onModuleInit 中调用
-   *   消除 mcp-server / public-api 对 ai-app 的直接导入依赖
+   * æ³¨å†Œç ”ç©¶èƒ½åŠ›æ‰§è¡Œå™¨
+   * â˜… ç”± AI App å±‚çš„ DiscussionModule åœ¨ onModuleInit ä¸­è°ƒç”¨
+   *   æ¶ˆé™¤ mcp-server / public-api å¯¹ ai-app çš„ç›´æŽ¥å¯¼å…¥ä¾èµ–
    */
   registerResearchExecutor(executor: IDirectResearchExecutor): void {
     this._researchExecutor = executor;
@@ -2948,8 +2948,8 @@ export class AIFacade {
   }
 
   /**
-   * 执行直接研究
-   * ★ 供 mcp-server、public-api 等外围模块调用
+   * æ‰§è¡Œç›´æŽ¥ç ”ç©¶
+   * â˜… ä¾› mcp-serverã€public-api ç­‰å¤–å›´æ¨¡å—è°ƒç”¨
    */
   async executeDirectResearch(
     params: DirectResearchParams,

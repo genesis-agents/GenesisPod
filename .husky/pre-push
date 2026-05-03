@@ -6,13 +6,13 @@ export CI=true
 export NODE_ENV=test
 
 echo ""
-echo "════════════════════════════════════════════════════════════"
-echo "  Pre-push 验证 (类型 + 构建 + 变更测试)"
+echo "============================================================"
+echo "  Pre-push 验证（类型 + 构建 + 变更测试）"
 echo "  Lint 已在 pre-commit 执行"
-echo "════════════════════════════════════════════════════════════"
+echo "============================================================"
 echo ""
 
-# 0. 架构边界看护 (~1s) — 锁定 L4→L3→L2.5→L2→L1 单向依赖
+# 0. 架构边界看护（锁定 L4→L3→L2.5→L2→L1 单向依赖）
 echo "[0/4] 架构边界看护..."
 ARCH_LOG=$(mktemp)
 (cd backend && npx jest src/__tests__/architecture --no-coverage --forceExit > "$ARCH_LOG" 2>&1) || {
@@ -28,8 +28,8 @@ rm -f "$ARCH_LOG"
 echo "  架构边界合规"
 echo ""
 
-# 1. 类型检查 (并行执行前后端，~6s)
-echo "[1/4] 类型检查 (前后端并行)..."
+# 1. 类型检查（并行执行前后端）
+echo "[1/4] 类型检查（前后端并行）..."
 npx concurrently --kill-others-on-fail --names "fe,be" \
   "npm run type-check:frontend" \
   "npm run type-check:backend" \
@@ -46,7 +46,7 @@ npx concurrently --kill-others-on-fail --names "fe,be" \
 echo "  类型检查通过"
 echo ""
 
-# 2. 构建检查 (~38s)
+# 2. 构建检查
 echo "[2/4] 后端构建检查..."
 BUILD_LOG=$(mktemp)
 npm run build:backend > "$BUILD_LOG" 2>&1 || {
@@ -62,12 +62,12 @@ rm -f "$BUILD_LOG"
 echo "  构建检查通过"
 echo ""
 
-# 3. 变更相关测试 (只跑与本次变更相关的测试，~10s；无变更则跳过)
+# 3. 变更相关测试（只跑与本次变更相关的测试；无变更则跳过）
 echo "[3/4] 变更相关测试..."
 TEST_LOG=$(mktemp)
 
 # 后端：只跑与 origin/main 之后变更文件相关的测试
-# --forceExit：个别测试（SSE / setInterval）会留 open handle，不加会卡 10+ 分钟
+# --forceExit：个别测试（SSE / setInterval）会留 open handle，不加会卡很久
 cd backend
 npx jest --changedSince=origin/main --passWithNoTests --forceExit > "$TEST_LOG" 2>&1
 BACKEND_EXIT=$?
@@ -88,7 +88,6 @@ if [ $BACKEND_EXIT -ne 0 ]; then
     exit 1
 fi
 
-# 显示测试摘要
 SUMMARY=$(grep -E "^(Tests|Test Suites|No tests found)" "$TEST_LOG" | tail -3)
 if [ -n "$SUMMARY" ]; then
     echo "$SUMMARY" | while read -r line; do echo "  $line"; done
@@ -98,7 +97,7 @@ fi
 rm -f "$TEST_LOG"
 echo ""
 
-echo "════════════════════════════════════════════════════════════"
+echo "============================================================"
 echo "  所有验证通过"
-echo "════════════════════════════════════════════════════════════"
+echo "============================================================"
 echo ""

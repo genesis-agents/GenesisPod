@@ -44,10 +44,10 @@ import { KeyResolverModule } from "./modules/ai-infra/credentials/key-resolver";
 import { UserModelConfigsModule } from "./modules/ai-infra/credentials/user-model-configs";
 // AI modules
 import { AiEngineModule } from "./modules/ai-engine/ai-engine.module";
-// AI Harness — Agent kernel / execution / memory / process / protocol / governance / facade
-// 整体由 app.module.ts 装配（@Global，提供器全局可注入），ai-engine 不再反向依赖
+// AI Harness â€” Agent kernel / execution / memory / process / protocol / governance / facade
+// æ•´ä½“ç”± app.module.ts è£…é…ï¼ˆ@Globalï¼Œæä¾›å™¨å…¨å±€å¯æ³¨å…¥ï¼‰ï¼Œai-engine ä¸å†åå‘ä¾èµ–
 import { HarnessModule } from "./modules/ai-harness/harness.module";
-import { HarnessApiModule } from "./modules/ai-harness/facade/harness-api.module";
+import { HarnessApiModule } from "./modules/ai-harness/facade/api/harness-api.module";
 import { RealtimeModule } from "./modules/ai-harness/protocols/realtime/realtime.module";
 import { AiAskModule } from "./modules/ai-app/ask/ai-ask.module";
 import { AiImageModule } from "./modules/ai-app/image/ai-image.module";
@@ -99,13 +99,13 @@ import { AgentsApiModule } from "./modules/open-api/agents-api/agents-api.module
 import { McpAdminModule } from "./modules/open-api/mcp-admin/mcp-admin.module";
 import { SkillsApiModule } from "./modules/open-api/skills-api/skills-api.module";
 import { TeamsApiModule } from "./modules/open-api/teams-api/teams-api.module";
-// A2A API module (open-api layer — PR-X17: controller moved from ai-harness/protocols/a2a)
+// A2A API module (open-api layer â€” PR-X17: controller moved from ai-harness/protocols/a2a)
 import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
-// BYOK Admin module (open-api layer — PR-X17: 4 admin controllers moved from ai-infra/credentials)
+// BYOK Admin module (open-api layer â€” PR-X17: 4 admin controllers moved from ai-infra/credentials)
 import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
-// L1→L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
+// L1â†’L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
 import {
   AI_CHAT_TOKEN,
   AI_OBSERVABILITY_TOKEN,
@@ -115,7 +115,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
 @Module({
   imports: [
-    // 配置模块
+    // é…ç½®æ¨¡å—
     ConfigModule.forRoot({
       isGlobal: true,
       // Load backend-specific .env first (highest precedence), then fall
@@ -123,36 +123,36 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
       envFilePath: [".env", "../.env"],
     }),
 
-    // 全局事件模块（必须在 AppModule 中只调用一次 forRoot，设置 global: true 确保全局可用）
+    // å…¨å±€äº‹ä»¶æ¨¡å—ï¼ˆå¿…é¡»åœ¨ AppModule ä¸­åªè°ƒç”¨ä¸€æ¬¡ forRootï¼Œè®¾ç½® global: true ç¡®ä¿å…¨å±€å¯ç”¨ï¼‰
     EventEmitterModule.forRoot({
       global: true,
     }),
 
-    // 全局定时任务模块（@Cron 装饰器必需）
+    // å…¨å±€å®šæ—¶ä»»åŠ¡æ¨¡å—ï¼ˆ@Cron è£…é¥°å™¨å¿…éœ€ï¼‰
     ScheduleModule.forRoot(),
 
-    // API限流保护 - 全局默认60请求/分钟
+    // APIé™æµä¿æŠ¤ - å…¨å±€é»˜è®¤60è¯·æ±‚/åˆ†é’Ÿ
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => [
         {
-          ttl: config.get("THROTTLE_TTL", 60000), // 时间窗口：60秒
-          limit: config.get("THROTTLE_LIMIT", 60), // 限制：60次请求
+          ttl: config.get("THROTTLE_TTL", 60000), // æ—¶é—´çª—å£ï¼š60ç§’
+          limit: config.get("THROTTLE_LIMIT", 60), // é™åˆ¶ï¼š60æ¬¡è¯·æ±‚
         },
       ],
     }),
 
-    // 公共基础模块
+    // å…¬å…±åŸºç¡€æ¨¡å—
     CommonModule,
 
-    // 数据库模块
+    // æ•°æ®åº“æ¨¡å—
     PrismaModule,
     RawDataModule,
     GraphModule,
 
-    // 公共服务模块
-    CacheModule, // Redis/内存缓存（全局）
+    // å…¬å…±æœåŠ¡æ¨¡å—
+    CacheModule, // Redis/å†…å­˜ç¼“å­˜ï¼ˆå…¨å±€ï¼‰
     StreamingModule,
     ContentProcessingModule,
     ObservabilityModule,
@@ -171,10 +171,10 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     StorageModule,
     DbGovernanceModule,
     CreditsModule,
-    EncryptionModule, // 全局加密服务（必须先于依赖它的模块注册）
+    EncryptionModule, // å…¨å±€åŠ å¯†æœåŠ¡ï¼ˆå¿…é¡»å…ˆäºŽä¾èµ–å®ƒçš„æ¨¡å—æ³¨å†Œï¼‰
     UserApiKeysModule,
     ByokModule, // BYOK user-facing controllers (PR-X17: migrated from ai-engine/llm)
-    // BYOK v2：可分发 Key 池 + 分配 + 申请 + 统一解析
+    // BYOK v2ï¼šå¯åˆ†å‘ Key æ±  + åˆ†é… + ç”³è¯· + ç»Ÿä¸€è§£æž
     DistributableKeysModule,
     KeyAssignmentsModule,
     KeyRequestsModule,
@@ -182,8 +182,8 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     UserModelConfigsModule,
 
     // AI modules (ai-* prefix)
-    // ★ Harness 必须先于 AiEngineModule 装配 — engine 子模块（如 RuntimeResourceModule）
-    // 依赖 harness 注册的 DI token（SPEC_AGENT_REGISTRY_PROBE / TOOL_CIRCUIT_BREAKER_PROBE）
+    // â˜… Harness å¿…é¡»å…ˆäºŽ AiEngineModule è£…é… â€” engine å­æ¨¡å—ï¼ˆå¦‚ RuntimeResourceModuleï¼‰
+    // ä¾èµ– harness æ³¨å†Œçš„ DI tokenï¼ˆSPEC_AGENT_REGISTRY_PROBE / TOOL_CIRCUIT_BREAKER_PROBEï¼‰
     HarnessModule,
     HarnessApiModule,
     RealtimeModule,
@@ -196,10 +196,10 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     AiPlanningModule,
     RAGModule,
     AiWritingModule,
-    ResearchModule, // Deep Research 模块 (Deep Research + Notebook Research)
-    TopicInsightsModule, // Topic Insights 专题洞察模块 (从 Research 拆分)
-    AgentPlaygroundModule, // ★ Harness 全栈能力 demo（research-team）
-    AiSocialModule, // AI 社交媒体发布模块
+    ResearchModule, // Deep Research æ¨¡å— (Deep Research + Notebook Research)
+    TopicInsightsModule, // Topic Insights ä¸“é¢˜æ´žå¯Ÿæ¨¡å— (ä»Ž Research æ‹†åˆ†)
+    AgentPlaygroundModule, // â˜… Harness å…¨æ ˆèƒ½åŠ› demoï¼ˆresearch-teamï¼‰
+    AiSocialModule, // AI ç¤¾äº¤åª’ä½“å‘å¸ƒæ¨¡å—
     // Content engine modules (Phase 3: moved from ai-engine)
     LongContentModule,
     ContentAnalysisModule,
@@ -265,25 +265,25 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
   controllers: [AppController],
   providers: [
     AppService,
-    // L1→L2 DI bindings: map abstract tokens to concrete L2 services (audit I-1/I-2)
+    // L1â†’L2 DI bindings: map abstract tokens to concrete L2 services (audit I-1/I-2)
     { provide: AI_CHAT_TOKEN, useExisting: ChatFacade },
     { provide: AI_OBSERVABILITY_TOKEN, useExisting: AiObservabilityService },
-    // 全局 JWT 认证守卫（@Public() 装饰器跳过）
+    // å…¨å±€ JWT è®¤è¯å®ˆå«ï¼ˆ@Public() è£…é¥°å™¨è·³è¿‡ï¼‰
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
     },
-    // 全局启用限流守卫
+    // å…¨å±€å¯ç”¨é™æµå®ˆå«
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
-    // 全局请求日志 & 性能追踪拦截器（Server-Timing header + 指标收集）
+    // å…¨å±€è¯·æ±‚æ—¥å¿— & æ€§èƒ½è¿½è¸ªæ‹¦æˆªå™¨ï¼ˆServer-Timing header + æŒ‡æ ‡æ”¶é›†ï¼‰
     {
       provide: APP_INTERCEPTOR,
       useClass: RequestLoggerInterceptor,
     },
-    // 全局响应格式转换拦截器
+    // å…¨å±€å“åº”æ ¼å¼è½¬æ¢æ‹¦æˆªå™¨
     // Ensures consistent API response format: { success, data, metadata }
     {
       provide: APP_INTERCEPTOR,

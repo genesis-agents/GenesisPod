@@ -1,23 +1,10 @@
-/**
- * Section Remediation Service —— 沉淀自 topic-insights, 2026-04-29
- *
- * 根据 SectionSelfEvalService 的评估结果，对低分 section 执行定向补救。
- * 核心设计：
- * - 所有弱维度合并为一条补救指令（单次 LLM 调用）
- * - 低分 section 自动升级到 STRONG tier 模型补救
- * - 非阻断：try-catch 包裹，补救失败保留原内容
- *
- * 标杆参考实现，Playground 等新模块从 `@/modules/ai-harness/facade` 消费。
- * TI 是商用基线，保留独立的本地副本不切换到本实现。
- */
-
 import { Injectable, Logger } from "@nestjs/common";
-import { ChatFacade } from "../../facade/domain/chat.facade";
-import { AIFacade } from "../../facade/ai.facade";
 import { AIModelType } from "@prisma/client";
-import type { RemediationAction, RemediationResult } from "./quality.types";
-import { classifyModelTier, ModelTier } from "@/modules/ai-engine/facade";
 import { validateLatexDelimiters } from "@/common/utils/latex-delimiter-validator";
+import { classifyModelTier, ModelTier } from "@/modules/ai-engine/facade";
+import { AIFacade } from "../../facade/ai.facade";
+import { ChatFacade } from "../../facade/domain/chat.facade";
+import type { RemediationAction, RemediationResult } from "./quality.types";
 
 @Injectable()
 export class SectionRemediationService {
@@ -28,21 +15,11 @@ export class SectionRemediationService {
     private readonly engineFacade: AIFacade,
   ) {}
 
-  /**
-   * 对 section 执行定向补救
-   *
-   * @param content 原始内容
-   * @param actions 需要执行的补救动作列表
-   * @param originalModelId 原始写作模型 ID
-   * @param language 语言 (zh/en)
-   * @returns 补救结果（含新内容或跳过原因）
-   */
   async remediate(input: {
     content: string;
     sectionTitle: string;
     actions: RemediationAction[];
     originalModelId?: string;
-    /** 预解析的补救模型 ID（避免重复调用 selectModel） */
     resolvedRemediationModelId?: string;
     language?: string;
   }): Promise<RemediationResult> {
@@ -65,14 +42,17 @@ export class SectionRemediationService {
     }
 
     try {
-      // 使用预解析的模型 ID，或重新解析
       const remediationModelId =
         resolvedRemediationModelId ??
         (await this.resolveRemediationModel(originalModelId ?? ""));
 
       const lang = language?.startsWith("en") ? "en" : "zh";
       const actionInstructions = actions
-        .map((a) => `- [${a.dimension} 得分 ${a.score}/10] ${a.guidance}`)
+        .map((action) =>
+          lang === "zh"
+            ? `- [${action.dimension} 得分 ${action.score}/10] ${action.guidance}`
+            : `- [${action.dimension} score ${action.score}/10] ${action.guidance}`,
+        )
         .join("\n");
 
       const prompt =
@@ -108,14 +88,10 @@ Requirements:
 
       const response = await this.chatFacade.chat({
         messages: [{ role: "user", content: prompt }],
-        operationName: "章节修复",
+        operationName: "section_remediation",
         modelType: AIModelType.CHAT,
         model: remediationModelId || undefined,
         skipGuardrails: true,
-        // ★ Round 4 真问题修复 (2026-04-29):
-        //   原 outputLength="long" (8000 maxTokens) — 重写一个 5000+ 字的章节会被截断到 ~80%。
-        //   切到 "extended" (16000) 给章节扩写留充足空间，配合 "remediated_content_too_short" 校验
-        //   (内容 < 50% 原文长度则放弃) 防止退化。
         taskProfile: {
           creativity: "medium",
           outputLength: "extended",
@@ -135,7 +111,6 @@ Requirements:
       }
 
       const remediated = response.content.trim();
-      // 基本验证：补救后内容不能比原内容短太多（防止截断）
       if (remediated.length < content.length * 0.5) {
         this.logger.warn(
           `[remediate] Remediated content too short (${remediated.length} vs original ${content.length}), keeping original`,
@@ -148,9 +123,6 @@ Requirements:
         };
       }
 
-      // ★ LaTeX safety: if remediated content has MORE LaTeX issues
-      //   than the original, the remediation LLM regressed formula
-      //   handling — keep the original to avoid making things worse.
       const beforeIssues = validateLatexDelimiters(content).issues.length;
       const afterIssues = validateLatexDelimiters(remediated).issues.length;
       if (afterIssues > beforeIssues) {
@@ -166,7 +138,7 @@ Requirements:
       }
 
       this.logger.log(
-        `[remediate] Section "${sectionTitle}" remediated: ${actions.map((a) => a.type).join(", ")} (model: ${response.model || remediationModelId || "default"})`,
+        `[remediate] Section "${sectionTitle}" remediated: ${actions.map((action) => action.type).join(", ")} (model: ${response.model || remediationModelId || "default"})`,
       );
 
       return {
@@ -187,22 +159,16 @@ Requirements:
     }
   }
 
-  /**
-   * 获取当次补救实际使用的模型 ID
-   */
   async getRemediationModelId(originalModelId: string): Promise<string> {
     return this.resolveRemediationModel(originalModelId);
   }
 
-  /**
-   * 解析补救模型：非 STRONG tier → 选择一个 STRONG tier 模型
-   */
   private async resolveRemediationModel(
     originalModelId: string,
   ): Promise<string> {
     const tier = classifyModelTier(originalModelId);
     if (tier === ModelTier.STRONG) {
-      return originalModelId; // 已经是 STRONG，用同模型
+      return originalModelId;
     }
 
     try {
@@ -210,7 +176,6 @@ Requirements:
         modelType: AIModelType.CHAT,
       });
       if (model) {
-        // selectModel 返回 priority 最高的模型，通常是 STRONG tier
         const selectedTier = classifyModelTier(model.id);
         if (selectedTier === ModelTier.STRONG) {
           return model.id;
@@ -222,6 +187,6 @@ Requirements:
       );
     }
 
-    return ""; // 空字符串让下游 AiChatService 走 TaskProfile 自动解析
+    return "";
   }
 }

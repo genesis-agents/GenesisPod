@@ -1,16 +1,16 @@
 /**
- * AI Harness Facade —— ai-app 唯一入口
+ * AI Harness Facade â€”â€” ai-app å”¯ä¸€å…¥å£
  *
- * 当前顶层聚合：agents / evaluation / facade / guardrails / handoffs /
+ * å½“å‰é¡¶å±‚èšåˆï¼šagents / evaluation / facade / guardrails / handoffs /
  * lifecycle / memory / protocols / runner / teams / tracing
  *
- * ★ 单向依赖：ai-app → ai-harness → ai-engine。
- * ★ ai-app 任何 harness 符号必须从这里 import，禁止穿透 harness 内部路径。
+ * â˜… å•å‘ä¾èµ–ï¼šai-app â†’ ai-harness â†’ ai-engineã€‚
+ * â˜… ai-app ä»»ä½• harness ç¬¦å·å¿…é¡»ä»Žè¿™é‡Œ importï¼Œç¦æ­¢ç©¿é€ harness å†…éƒ¨è·¯å¾„ã€‚
  */
 
-// ════════════════════════════════════════════════════════════════════
-// Kernel：abstractions + core + dx
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Kernelï¼šabstractions + core + dx
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export * from "../agents/abstractions";
 export {
   BUILTIN_AGENTS,
@@ -34,10 +34,10 @@ export type { RunResult } from "../agents/dev-tools";
 // Service facade
 export { HarnessFacade } from "./harness.facade";
 
-// ════════════════════════════════════════════════════════════════════
-// AIFacade + Domain Facades (moved from ai-engine/facade — PR-X13)
-// ai-app 模块通过 "@/modules/ai-harness/facade" 统一导入
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// AIFacade + Domain Facades (moved from ai-engine/facade â€” PR-X13)
+// ai-app æ¨¡å—é€šè¿‡ "@/modules/ai-harness/facade" ç»Ÿä¸€å¯¼å…¥
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { AIFacade } from "./ai.facade";
 export * from "./domain";
 export { RAGPipelineService } from "../../ai-engine/rag/pipeline/rag-pipeline.service";
@@ -56,11 +56,11 @@ export type {
   ImageSearchResult,
   ImageSearchOutput,
 } from "../../ai-engine/tools/categories/information/image-search/image-search.types";
-export { ConcurrencyPlanner } from "../guardrails/concurrency-planner.service";
+export { ConcurrencyPlanner } from "../guardrails/resources/concurrency-planner.service";
 export type {
   ConcurrencyPlanOptions,
   ConcurrencyPlan,
-} from "../guardrails/concurrency-planner.service";
+} from "../guardrails/resources/concurrency-planner.service";
 export { YoutubeService } from "../../ai-engine/content/fetch/youtube.service";
 export type { TranscriptSegment } from "../../ai-engine/content/fetch/youtube.service";
 export {
@@ -70,7 +70,7 @@ export {
 export type { IImageGenerationService } from "../../ai-engine/tools/abstractions/generation-services.interface";
 export { IMAGE_GENERATION_SERVICE_TOKEN } from "../../ai-engine/content/abstractions/image.interface";
 
-// ★ LLM 输出后处理（白名单清理 + 修复函数）
+// â˜… LLM è¾“å‡ºåŽå¤„ç†ï¼ˆç™½åå•æ¸…ç† + ä¿®å¤å‡½æ•°ï¼‰
 export {
   sanitizeSectionOutput,
   stripLeadingBulletLists,
@@ -89,7 +89,7 @@ export {
   extractMarkdownFromJsonString,
 } from "../../ai-engine/llm/output-parsing";
 
-// ★ Planning & Knowledge services
+// â˜… Planning & Knowledge services
 export { TokenBudgetService } from "../../ai-engine/planning/budget/token-budget.service";
 export { ContextCompressionService } from "../../ai-engine/planning/context/context-compression.service";
 export { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
@@ -98,7 +98,7 @@ export type { SynthesisResult } from "../../ai-engine/knowledge/synthesis/cross-
 export { PromptCacheCoordinatorService } from "../../ai-engine/llm/services/prompt-cache-coordinator.service";
 export type { SaveEvidenceRequest } from "../../ai-engine/knowledge/evidence/abstractions/evidence.interface";
 export { inferIsReasoning } from "../../ai-engine/llm/types/model.utils";
-// ★ 2026-05-01 (PR-G iter8 + iter9): 集中所有 review pass/attempt 阈值 + agent budget cap
+// â˜… 2026-05-01 (PR-G iter8 + iter9): é›†ä¸­æ‰€æœ‰ review pass/attempt é˜ˆå€¼ + agent budget cap
 export {
   REVIEW_PASS_THRESHOLD,
   CHAPTER_MAX_REVISION_ATTEMPTS,
@@ -147,15 +147,15 @@ export type {
   SkillUsageLogParams,
 } from "./facade.providers";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Governance: verify + resource + observability + security
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { JudgeService } from "../evaluation/verify";
 export type { BuiltInVerifierId } from "../evaluation/verify";
-// ★ 沉淀（2026-04-29）: figure 相关性判断（来自 topic-insights, TI 暂不切换）
+// â˜… æ²‰æ·€ï¼ˆ2026-04-29ï¼‰: figure ç›¸å…³æ€§åˆ¤æ–­ï¼ˆæ¥è‡ª topic-insights, TI æš‚ä¸åˆ‡æ¢ï¼‰
 export { FigureRelevanceService } from "../evaluation/figure";
-// ★ 沉淀（2026-04-29）: Reflexion critique-refine + section-self-eval + defect-scanner
-//   v3 (同日): quality-gate / section-remediation / report-evaluation / quality-trace-compute
+// â˜… æ²‰æ·€ï¼ˆ2026-04-29ï¼‰: Reflexion critique-refine + section-self-eval + defect-scanner
+//   v3 (åŒæ—¥): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 export {
   CritiqueRefineService,
   SectionSelfEvalService,
@@ -201,16 +201,16 @@ export {
   type FinalAssessmentProbe,
   type OutputReviewProbe,
   type PromptMetadata,
-  // ★ 沉淀 Phase 3 (2026-04-29): 字数中位数归一化
+  // â˜… æ²‰æ·€ Phase 3 (2026-04-29): å­—æ•°ä¸­ä½æ•°å½’ä¸€åŒ–
   balanceTargetWords,
   type BalancerOptions,
   type BalancerResult,
 } from "../evaluation/critique";
 
-// ★ 沉淀 Phase 3 (2026-04-29): 通用并发信号量
+// â˜… æ²‰æ·€ Phase 3 (2026-04-29): é€šç”¨å¹¶å‘ä¿¡å·é‡
 export { ConcurrencyLimiter } from "../runner/concurrency";
 
-// ★ Phase 9 (2026-04-30): Mission 运行时状态外置 + Orphan 检测（harness 无状态化）
+// â˜… Phase 9 (2026-04-30): Mission è¿è¡Œæ—¶çŠ¶æ€å¤–ç½® + Orphan æ£€æµ‹ï¼ˆharness æ— çŠ¶æ€åŒ–ï¼‰
 export {
   MissionRuntimeStateStore,
   type MissionHeartbeat,
@@ -221,7 +221,7 @@ export {
   type OrphanDetectorCallbacks,
 } from "../lifecycle/mission-lifecycle/orphan-detector.service";
 
-// ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来（跨层迁移）
+// â˜… 2026-04-30: AdaptiveReplannerService ä»Ž ai-engine/planning æ¬æ¥ï¼ˆè·¨å±‚è¿ç§»ï¼‰
 export {
   AdaptiveReplannerService,
   type ReplanTrigger,
@@ -232,13 +232,13 @@ export {
   type ReplanContext,
 } from "../teams/orchestrator/adaptive-replanner.service";
 
-// ★ 2026-04-30: AgentExecutorService 从 ai-engine/planning 搬来（跨层迁移）
+// â˜… 2026-04-30: AgentExecutorService ä»Ž ai-engine/planning æ¬æ¥ï¼ˆè·¨å±‚è¿ç§»ï¼‰
 export { AgentExecutorService } from "../runner/executor/agent-executor.service";
 
-// ★ 2026-05-01 (PR-X-L): runner/executor/interfaces.ts 类型从 ai-engine/facade
-//   下沉过来 — 它们是 L2.5 ai-harness/runner 层 owned，原 engine facade 反向
-//   re-export 违反单向规则
-//   注：EstablishedFact 已由下方 mission-context.interface re-export，故此处不再重复
+// â˜… 2026-05-01 (PR-X-L): runner/executor/interfaces.ts ç±»åž‹ä»Ž ai-engine/facade
+//   ä¸‹æ²‰è¿‡æ¥ â€” å®ƒä»¬æ˜¯ L2.5 ai-harness/runner å±‚ ownedï¼ŒåŽŸ engine facade åå‘
+//   re-export è¿åå•å‘è§„åˆ™
+//   æ³¨ï¼šEstablishedFact å·²ç”±ä¸‹æ–¹ mission-context.interface re-exportï¼Œæ•…æ­¤å¤„ä¸å†é‡å¤
 export type {
   AiCallerFn,
   ExecutionConfig,
@@ -264,27 +264,27 @@ export type {
   CompressionOptions,
 } from "../runner/executor/executor.types";
 export { DEFAULT_CONTEXT_EVOLUTION_CONFIG } from "../runner/executor/executor.types";
-// ★ 2026-05-01 (PR-X-M): UserIntent / ContextStrategy 是 L2 LLM 能力概念，
-// owner 是 ai-engine/llm/intent；harness facade 仅 re-export 让 ai-app 透明
+// â˜… 2026-05-01 (PR-X-M): UserIntent / ContextStrategy æ˜¯ L2 LLM èƒ½åŠ›æ¦‚å¿µï¼Œ
+// owner æ˜¯ ai-engine/llm/intentï¼›harness facade ä»… re-export è®© ai-app é€æ˜Ž
 export {
   UserIntent,
   ContextStrategy,
 } from "../../ai-engine/planning/intent/intent.types";
 
-// ★ 2026-05-01 (PR-X-L): runner/capabilities 类型同上下沉
+// â˜… 2026-05-01 (PR-X-L): runner/capabilities ç±»åž‹åŒä¸Šä¸‹æ²‰
 export type { AICapabilityContext } from "../runner/capabilities/ai-capability-resolver.service";
 export type {
   SkillPromptBundle,
   SkillPromptOptions,
 } from "../runner/capabilities/types";
 
-// ★ 2026-05-01 (PR-X-L): ExecutionCheckpointService 也是 L2.5 ai-harness 概念
+// â˜… 2026-05-01 (PR-X-L): ExecutionCheckpointService ä¹Ÿæ˜¯ L2.5 ai-harness æ¦‚å¿µ
 export {
   ExecutionCheckpointService,
   type ExecutionCheckpoint,
 } from "../runner/executor/execution-checkpoint.service";
 
-// ★ 2026-05-01 (PR-X-M2): 一组 L2.5 runtime 类型从 ai-engine/facade 反向 re-export 下沉过来
+// â˜… 2026-05-01 (PR-X-M2): ä¸€ç»„ L2.5 runtime ç±»åž‹ä»Ž ai-engine/facade åå‘ re-export ä¸‹æ²‰è¿‡æ¥
 export type { TeamMemberInfo } from "../runner/executor/executor.types";
 export type { IConstraintEnforcementService } from "../runner/executor/executor.types";
 export { AICapabilityResolver } from "../runner/capabilities/ai-capability-resolver.service";
@@ -324,38 +324,38 @@ export type {
   WorkflowConfig as OrchestrationWorkflowConfig,
 } from "../teams/orchestrator/workflow-orchestrator.interface";
 
-// ★ 2026-04-30: OutputReviewerService 从 ai-engine/planning 搬来（跨层迁移）
-// ★ 2026-05-02 (#1 MECE): runtime/quality → evaluation/critique 收敛
+// â˜… 2026-04-30: OutputReviewerService ä»Ž ai-engine/planning æ¬æ¥ï¼ˆè·¨å±‚è¿ç§»ï¼‰
+// â˜… 2026-05-02 (#1 MECE): runtime/quality â†’ evaluation/critique æ”¶æ•›
 export { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 
-// ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/agent-playground 上提（跨 app 复用）
-//   playground v2 ReportArtifact (sections/citations/figures/quickView) 装配纯函数
+// â˜… 2026-05-01: ReportArtifactAssembler ä»Ž ai-app/agent-playground ä¸Šæï¼ˆè·¨ app å¤ç”¨ï¼‰
+//   playground v2 ReportArtifact (sections/citations/figures/quickView) è£…é…çº¯å‡½æ•°
 export {
   ReportArtifactAssembler,
   lengthTargetFor,
 } from "../evaluation/critique/report-artifact/report-artifact-assembler.service";
 
-// ★ 2026-05-01: FailureLearnerService 从 ai-app/agent-playground 上提
-// ★ 2026-05-02 (W1 MECE): governance/learning → lifecycle/learning（失败学习是生命周期闭环）
-//   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
+// â˜… 2026-05-01: FailureLearnerService ä»Ž ai-app/agent-playground ä¸Šæ
+// â˜… 2026-05-02 (W1 MECE): governance/learning â†’ lifecycle/learningï¼ˆå¤±è´¥å­¦ä¹ æ˜¯ç”Ÿå‘½å‘¨æœŸé—­çŽ¯ï¼‰
+//   è·¨ mission å¤±è´¥æ¨¡å¼è®°å¿†ï¼ˆharness_failure_patterns è¡¨ï¼‰ï¼Œä¾› BillingRuntimeEnvAdapter ç­‰æ¶ˆè´¹
 export { FailureLearnerService } from "../lifecycle/learning/failure-learner.service";
 
-// ★ 2026-05-01: SocketBroadcastAdapter 从 ai-app/agent-playground/adapters/ 上提
-//   参数化 prefix 后跨 ai-app 通用（DomainEvent → Socket.IO room），任何带 socket relay
-//   的 ai-app 都可复用
+// â˜… 2026-05-01: SocketBroadcastAdapter ä»Ž ai-app/agent-playground/adapters/ ä¸Šæ
+//   å‚æ•°åŒ– prefix åŽè·¨ ai-app é€šç”¨ï¼ˆDomainEvent â†’ Socket.IO roomï¼‰ï¼Œä»»ä½•å¸¦ socket relay
+//   çš„ ai-app éƒ½å¯å¤ç”¨
 export {
   SocketBroadcastAdapter,
   type SocketBroadcastAdapterOptions,
 } from "../protocols/realtime/socket-broadcast.adapter";
 
-// ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/agent-playground 上提
-//   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
-//   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
+// â˜… 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry ä»Ž ai-app/agent-playground ä¸Šæ
+//   ä¸¤ä¸ªçº¯é€šç”¨ in-memory registry primitiveï¼ˆabort signal ç®¡ç† / missionâ†’user ownership LRUï¼‰ï¼Œ
+//   è·¨ ai-app å¤ç”¨ï¼ˆresearch / writing / teams ä»»ä½•é•¿ä»»åŠ¡ç¼–æŽ’éƒ½éœ€è¦ï¼‰
 export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
 
-// ★ 2026-05-01: stage-emit util 从 ai-app/agent-playground 上提
-//   通用 stage:completed 事件封装，含 durationMs / tokensUsed / agentInvocations 等度量
+// â˜… 2026-05-01: stage-emit util ä»Ž ai-app/agent-playground ä¸Šæ
+//   é€šç”¨ stage:completed äº‹ä»¶å°è£…ï¼Œå« durationMs / tokensUsed / agentInvocations ç­‰åº¦é‡
 export {
   startStageTimer,
   type StageTimer,
@@ -363,20 +363,20 @@ export {
   type EmitFn,
 } from "../protocols/ipc/stage-emit.utils";
 
-// ★ 2026-05-01 (PR-X-N): 让 ai-app 走 facade，不需穿透 harness 内部路径
+// â˜… 2026-05-01 (PR-X-N): è®© ai-app èµ° facadeï¼Œä¸éœ€ç©¿é€ harness å†…éƒ¨è·¯å¾„
 export {
   extractTokenSpend,
   estimateUsdFromTokens,
-} from "../tracing/token-spend.utils";
+} from "../tracing/observability/token-spend.utils";
 export {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
-} from "../tracing/failure-extraction.utils";
+} from "../tracing/observability/failure-extraction.utils";
 export {
   clampScore,
   scaleScore,
 } from "../evaluation/critique/quality-score.utils";
-// FunctionCallingExecutor.AgentEvent — 给 teams 服务用作 event 类型
+// FunctionCallingExecutor.AgentEvent â€” ç»™ teams æœåŠ¡ç”¨ä½œ event ç±»åž‹
 export type { AgentEvent as FunctionCallingAgentEvent } from "../runner/executor/function-calling-executor";
 export type {
   ArtifactCitation,
@@ -390,7 +390,7 @@ export type {
   ReportArtifact,
 } from "../evaluation/critique/report-artifact/report-artifact.dto";
 
-// ★ C2-step1 (2026-04-30): AutoDream（后台 memory 整合）从 ai-engine 搬入 harness
+// â˜… C2-step1 (2026-04-30): AutoDreamï¼ˆåŽå° memory æ•´åˆï¼‰ä»Ž ai-engine æ¬å…¥ harness
 export {
   AutoDreamService,
   type DreamPhase,
@@ -405,7 +405,7 @@ export {
   type SchedulerStats as AutoDreamSchedulerStats,
 } from "../memory/consolidation/memory-consolidation-scheduler.service";
 
-// ★ 沉淀 Phase 4 (2026-04-29): Checkpoint / Health / DAG 三件套
+// â˜… æ²‰æ·€ Phase 4 (2026-04-29): Checkpoint / Health / DAG ä¸‰ä»¶å¥—
 export {
   MissionCheckpointService,
   type MissionCheckpointSnapshot,
@@ -429,9 +429,9 @@ export {
   type DAGExecutionResult,
 } from "../runner/dag";
 
-// ── Resource ──
-export { ResourceManagerService } from "../guardrails/resource-manager.service";
-// PR-X15: 通过 engine/facade barrel 转发，不穿透 engine 私有路径
+// â”€â”€ Resource â”€â”€
+export { ResourceManagerService } from "../guardrails/resources/resource-manager.service";
+// PR-X15: é€šè¿‡ engine/facade barrel è½¬å‘ï¼Œä¸ç©¿é€ engine ç§æœ‰è·¯å¾„
 export {
   CircuitBreakerService,
   TaskCompletionType,
@@ -441,9 +441,9 @@ export type {
   CircuitBreakerConfig,
   HealthMetrics,
 } from "../../ai-engine/facade";
-export { ConstraintEngine } from "../guardrails/constraint-engine";
-export { ConstraintEnforcementService } from "../guardrails/constraint-enforcement.service";
-export { CostController } from "../guardrails/cost-controller";
+export { ConstraintEngine } from "../guardrails/constraints/constraint-engine";
+export { ConstraintEnforcementService } from "../guardrails/constraints/constraint-enforcement.service";
+export { CostController } from "../guardrails/resources/cost-controller";
 export type {
   CostRecord,
   CostCategory,
@@ -451,19 +451,19 @@ export type {
   CostCheckResult,
   BudgetPeriod,
   ModelPricing,
-} from "../guardrails/cost-controller";
-export { RateLimiter, TokenBucket } from "../guardrails/rate-limiter";
+} from "../guardrails/resources/cost-controller";
+export { RateLimiter, TokenBucket } from "../guardrails/resources/rate-limiter";
 export type {
   RateLimitResult,
   RateLimitConfig,
-} from "../guardrails/rate-limiter";
-// 注：harness 内部有一个 generic TokenBudgetService（mission-level token tracker），
-// 与 ai-engine/llm/budget/token-budget.service.ts 同名但语义不同
-// （后者带 smartTruncate 用于上下文窗口分配）。为避免 DI / import 歧义，
-// 不在 facade 导出 harness 版本；ai-app 需要 token 预算请用 ai-engine/facade 的 TokenBudgetService。
-export { HealthCheckRunner } from "../guardrails/health-check-runner";
-export type { HealthCheckRunnerConfig } from "../guardrails/health-check-runner";
-export { RuntimeEnvironmentService } from "../guardrails/runtime-environment.service";
+} from "../guardrails/resources/rate-limiter";
+// æ³¨ï¼šharness å†…éƒ¨æœ‰ä¸€ä¸ª generic TokenBudgetServiceï¼ˆmission-level token trackerï¼‰ï¼Œ
+// ä¸Ž ai-engine/llm/budget/token-budget.service.ts åŒåä½†è¯­ä¹‰ä¸åŒ
+// ï¼ˆåŽè€…å¸¦ smartTruncate ç”¨äºŽä¸Šä¸‹æ–‡çª—å£åˆ†é…ï¼‰ã€‚ä¸ºé¿å… DI / import æ­§ä¹‰ï¼Œ
+// ä¸åœ¨ facade å¯¼å‡º harness ç‰ˆæœ¬ï¼›ai-app éœ€è¦ token é¢„ç®—è¯·ç”¨ ai-engine/facade çš„ TokenBudgetServiceã€‚
+export { HealthCheckRunner } from "../guardrails/resources/health-check-runner";
+export type { HealthCheckRunnerConfig } from "../guardrails/resources/health-check-runner";
+export { RuntimeEnvironmentService } from "../guardrails/runtime/runtime-environment.service";
 export type {
   EnvironmentSnapshot,
   EnvironmentSnapshotParams,
@@ -472,24 +472,24 @@ export type {
   RuntimeToolCapability,
   RuntimeDepHealth,
   RuntimeUserKeyState,
-} from "../guardrails/runtime-environment.types";
+} from "../guardrails/runtime/runtime-environment.types";
 
-// ── Observability ──
-export { TraceCollectorService } from "../tracing/trace-collector.service";
-export { AiObservabilityService } from "../tracing/ai-observability.service";
-export { CostAttributionService } from "../tracing/cost-attribution.service";
-export { SessionLatencyTrackerService } from "../tracing/session-latency-tracker.service";
-export { LlmTracingService } from "../tracing/llm-tracing.service";
-export { EvalPipelineService } from "../tracing/eval-pipeline.service";
-export type { EvalResult } from "../tracing/eval-pipeline.service";
-export { EvalHarnessService } from "../tracing/eval-harness.service";
-export { EvalExperimentService } from "../tracing/eval-experiment.service";
+// â”€â”€ Observability â”€â”€
+export { TraceCollectorService } from "../tracing/observability/trace-collector.service";
+export { AiObservabilityService } from "../tracing/observability/ai-observability.service";
+export { CostAttributionService } from "../tracing/observability/cost-attribution.service";
+export { SessionLatencyTrackerService } from "../tracing/latency/session-latency-tracker.service";
+export { LlmTracingService } from "../tracing/observability/llm-tracing.service";
+export { EvalPipelineService } from "../tracing/evaluation/eval-pipeline.service";
+export type { EvalResult } from "../tracing/evaluation/eval-pipeline.service";
+export { EvalHarnessService } from "../tracing/evaluation/eval-harness.service";
+export { EvalExperimentService } from "../tracing/evaluation/eval-experiment.service";
 export {
   EVAL_RUN_STORE,
   InMemoryEvalRunStore,
   PrismaEvalRunStore,
-} from "../tracing/eval-run.store";
-export type { EvalRunStore } from "../tracing/eval-run.store";
+} from "../tracing/evaluation/eval-run.store";
+export type { EvalRunStore } from "../tracing/evaluation/eval-run.store";
 export type {
   EvalCaseDefinition,
   EvalDataset,
@@ -510,8 +510,8 @@ export type {
   EvalExperimentViolation,
   EvalExperimentRunRequest,
   EvalExperimentResult,
-} from "../tracing/eval-harness.types";
-export type { TraceType } from "../tracing/trace.interface";
+} from "../tracing/evaluation/eval-harness.types";
+export type { TraceType } from "../tracing/observability/trace.interface";
 export type {
   SpanType,
   ExecutionStatus,
@@ -523,7 +523,7 @@ export type {
   EndSpanInput,
   EndTraceInput,
   ListTracesOptions,
-} from "../tracing/trace.interface";
+} from "../tracing/observability/trace.interface";
 export type {
   LatencySession,
   LatencyPhase,
@@ -539,16 +539,16 @@ export type {
   StartPhaseInput,
   RecordLLMLatencyInput,
   ListSessionsFilter,
-} from "../tracing/session-latency.types";
+} from "../tracing/latency/session-latency.types";
 
-// ── Security ──
-// PR-X15: 通过 engine/facade barrel，不穿透 engine 私有路径
+// â”€â”€ Security â”€â”€
+// PR-X15: é€šè¿‡ engine/facade barrelï¼Œä¸ç©¿é€ engine ç§æœ‰è·¯å¾„
 export { CapabilityGuardService } from "../../ai-engine/facade";
 export type { CapabilityCheckResult } from "../../ai-engine/facade";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Protocol: events + ipc + journal + realtime
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export {
   DomainEventBus,
   DomainEventRegistry,
@@ -560,7 +560,7 @@ export type {
   DomainEventTypeSpec,
 } from "../protocols/events";
 
-// ── IPC ──
+// â”€â”€ IPC â”€â”€
 export { EventBusService } from "../protocols/ipc/event-bus.service";
 export { EventBusService as EngineEventEmitterService } from "../protocols/ipc/event-bus.service";
 export { ProgressTrackerService } from "../protocols/ipc/progress-tracker.service";
@@ -579,7 +579,7 @@ export type {
   TaskNotificationPayload,
 } from "../protocols/ipc/agent-lifecycle-protocol.service";
 
-// ── Journal ──
+// â”€â”€ Journal â”€â”€
 export { EventJournalService } from "../protocols/journal/event-journal.service";
 export {
   CheckpointManager,
@@ -590,7 +590,7 @@ export type {
   CheckpointManagerConfig,
 } from "../protocols/journal/checkpoint-manager";
 
-// ── Realtime ──
+// â”€â”€ Realtime â”€â”€
 export type {
   RoomConfig,
   EngineEvent,
@@ -605,14 +605,14 @@ export type {
 } from "../protocols/realtime/abstractions/progress-tracker.interface";
 export { calculateOverallProgress } from "../protocols/realtime/abstractions/progress-tracker.interface";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Memory: indexing + checkpoint + working
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { MemoryAutoIndexer } from "../memory/indexing/memory-auto-indexer";
 export { AgentEventStore, CheckpointService } from "../memory/checkpoint";
 export type { ICheckpoint, AgentEventRecord } from "../memory/checkpoint";
 
-// ── Working memory ──
+// â”€â”€ Working memory â”€â”€
 export { ProcessMemoryManagerService } from "../memory/working/process-memory-manager.service";
 export { HierarchicalMemoryCascadeService } from "../memory/working/hierarchical-memory-cascade.service";
 export type {
@@ -623,9 +623,9 @@ export type {
 } from "../memory/working/hierarchical-memory-cascade.service";
 export { SCOPE_PRIORITY } from "../memory/working/hierarchical-memory-cascade.service";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Process: manager + scheduler + supervisor
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { ProcessManagerService } from "../lifecycle/manager/process-manager.service";
 export type {
   ProcessId,
@@ -654,9 +654,9 @@ export {
 } from "../lifecycle/supervisor/process-supervisor.service";
 export { KernelSchedulerService } from "../runner/scheduler/kernel-scheduler.service";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Teams: registry + factory + orchestrator + service (PR-X4)
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { TeamRegistry } from "../teams/registry/team-registry";
 export { RoleRegistry } from "../teams/registry/role-registry";
 export { TeamFactory } from "../teams/factory/team-factory";
@@ -719,9 +719,9 @@ export type {
   ConstraintViolation as ConstraintEngineViolation,
 } from "../teams/constraints/constraint-engine.interface";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Runtime: mission + budget + billing + kernel-api
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { MissionBudgetPool } from "../guardrails/budget/mission-budget-pool";
 export { BillingRuntimeEnvAdapter } from "../guardrails/billing/billing-adapter";
 export { MissionExecutorService } from "../lifecycle/manager/mission-executor.service";
@@ -730,22 +730,22 @@ export type {
   MissionExecuteOptions,
   MissionExecuteResult,
 } from "../lifecycle/manager/mission-executor.interface";
-export { HarnessApiService, KernelApiService } from "./harness-api.service";
-export { HarnessApiModule } from "./harness-api.module";
+export { HarnessApiService, KernelApiService } from "./api/harness-api.service";
+export { HarnessApiModule } from "./api/harness-api.module";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Common context (KernelContext lives in common/, surfaced here for ai-app DX)
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export {
   KernelContext,
   type KernelContextData,
 } from "../../../common/context/kernel-context";
 
-// ════════════════════════════════════════════════════════════════════
-// Kernel (Legacy) — PR-X5
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Kernel (Legacy) â€” PR-X5
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// Legacy registry (IPlanBasedAgent plan→execute model)
+// Legacy registry (IPlanBasedAgent planâ†’execute model)
 // Note: Different from handoffs/agent-registry (IAgent runtime model)
 export {
   AgentRegistry,
@@ -760,7 +760,7 @@ export {
 export { AgentConfigService } from "../agents/config/agent-config.service";
 
 // Legacy base classes
-// @deprecated — use HarnessedAgent / SpecBasedAgent for new agents
+// @deprecated â€” use HarnessedAgent / SpecBasedAgent for new agents
 export { BaseAgent, createAgent } from "../agents/base/base-agent";
 export { ReactiveAgent } from "../agents/base/reactive-agent";
 export { PlanAgent } from "../agents/base/plan-agent";
@@ -769,9 +769,9 @@ export {
   type IPlanBasedAgent,
 } from "../agents/base/plan-based-agent";
 
-// ════════════════════════════════════════════════════════════════════
-// Process (Collaboration) — PR-X5
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Process (Collaboration) â€” PR-X5
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { CollaborationModule } from "../teams/collaboration/collaboration.module";
 export { ReviewWorkflowService } from "../teams/collaboration/review/review-workflow.service";
 export { TodoService } from "../teams/collaboration/todo/todo.service";
@@ -785,9 +785,9 @@ export type {
   ICollaborator,
 } from "../teams/collaboration/abstractions/collaborator.interface";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // MCP Protocol (PR-X14: migrated from ai-engine/facade shims)
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { MCPManager } from "../../ai-engine/tools/adapters/mcp/manager/mcp-manager";
 export type {
   MCPServerConfig,
@@ -796,10 +796,10 @@ export type {
   MCPTool,
 } from "../../ai-engine/tools/adapters/mcp/abstractions/mcp.interface";
 
-// ════════════════════════════════════════════════════════════════════
-// Engine type forwards (PR-X14: harness 是 ai-app 的统一入口，
-// 转发常用 engine 类型避免 ai-app 同时 import 两个 facade)
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Engine type forwards (PR-X14: harness æ˜¯ ai-app çš„ç»Ÿä¸€å…¥å£ï¼Œ
+// è½¬å‘å¸¸ç”¨ engine ç±»åž‹é¿å… ai-app åŒæ—¶ import ä¸¤ä¸ª facade)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export type {
   TaskProfile,
   ChatMessage,
@@ -823,9 +823,9 @@ export type {
   SkillConfig,
 } from "../../ai-engine/skills/abstractions/skill.interface";
 
-// 2026-05-01 (PR-X-R): Harness Kernel SKILL.md-style 端口，供 ai-engine 适配器
-// 实现 ISkillProvider 把 DB-backed PromptSkill 透给 SkillActivator。
-// 与上面的 ISkill (engine CRUD-style) 区分：kernel 这个是 frontmatter+instructions。
+// 2026-05-01 (PR-X-R): Harness Kernel SKILL.md-style ç«¯å£ï¼Œä¾› ai-engine é€‚é…å™¨
+// å®žçŽ° ISkillProvider æŠŠ DB-backed PromptSkill é€ç»™ SkillActivatorã€‚
+// ä¸Žä¸Šé¢çš„ ISkill (engine CRUD-style) åŒºåˆ†ï¼škernel è¿™ä¸ªæ˜¯ frontmatter+instructionsã€‚
 export type {
   ISkill as IKernelSkill,
   ISkillFrontmatter,
@@ -835,7 +835,7 @@ export type {
 } from "../agents/abstractions/skill.interface";
 export { SKILL_PROVIDERS } from "../agents/abstractions/skill.interface";
 
-// Engine LLM service classes (PR-X14: harness facade 转发常用 engine 服务)
+// Engine LLM service classes (PR-X14: harness facade è½¬å‘å¸¸ç”¨ engine æœåŠ¡)
 export { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 export { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
 export type { ModelFallbackOptions } from "../../ai-engine/llm/selection/model-fallback.service";
@@ -847,9 +847,9 @@ export {
   sanitizeJson,
 } from "../../ai-engine/content/fetch/content-fetch.types";
 
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // BYOK / Credentials (re-exported from ai-infra/facade)
-// ════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export {
   KeyAssignmentsService,
   KeyRequestsService,

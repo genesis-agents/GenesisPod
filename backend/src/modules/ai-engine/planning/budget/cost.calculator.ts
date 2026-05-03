@@ -1,15 +1,15 @@
 /**
  * LLM Cost Calculator
  *
- * 纯函数模块：提供 LLM 调用成本估算能力。
- * 从 ai-harness/tracing/ai-observability.service.ts 提取，
- * 以消除 ai-engine → ai-harness 的反向依赖。
+ * çº¯å‡½æ•°æ¨¡å—ï¼šæä¾› LLM è°ƒç”¨æˆæœ¬ä¼°ç®—èƒ½åŠ›ã€‚
+ * ä»Ž ai-harness/tracing/observability/ai-observability.service.ts æå–ï¼Œ
+ * ä»¥æ¶ˆé™¤ ai-engine â†’ ai-harness çš„åå‘ä¾èµ–ã€‚
  *
- * 无 NestJS 注入，可在 ai-engine 内部任意位置直接 import。
+ * æ—  NestJS æ³¨å…¥ï¼Œå¯åœ¨ ai-engine å†…éƒ¨ä»»æ„ä½ç½®ç›´æŽ¥ importã€‚
  */
 
 /**
- * LLM 成本估算（美元/1K tokens）
+ * LLM æˆæœ¬ä¼°ç®—ï¼ˆç¾Žå…ƒ/1K tokensï¼‰
  */
 export const COST_PER_1K_TOKENS: Record<
   string,
@@ -25,14 +25,14 @@ export const COST_PER_1K_TOKENS: Record<
 };
 
 /**
- * 估算 LLM 调用成本
+ * ä¼°ç®— LLM è°ƒç”¨æˆæœ¬
  *
- * 基于预定义的价格表计算成本（输入和输出 tokens 分别计价）。
+ * åŸºäºŽé¢„å®šä¹‰çš„ä»·æ ¼è¡¨è®¡ç®—æˆæœ¬ï¼ˆè¾“å…¥å’Œè¾“å‡º tokens åˆ†åˆ«è®¡ä»·ï¼‰ã€‚
  *
- * @param model - 模型名称
- * @param inputTokens - 输入 tokens 数
- * @param outputTokens - 输出 tokens 数
- * @returns 估算成本（美元）
+ * @param model - æ¨¡åž‹åç§°
+ * @param inputTokens - è¾“å…¥ tokens æ•°
+ * @param outputTokens - è¾“å‡º tokens æ•°
+ * @returns ä¼°ç®—æˆæœ¬ï¼ˆç¾Žå…ƒï¼‰
  */
 export function estimateCost(
   model: string,
