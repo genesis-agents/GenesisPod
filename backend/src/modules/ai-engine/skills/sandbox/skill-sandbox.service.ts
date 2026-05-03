@@ -9,8 +9,8 @@ import { SkillRegistry } from "../registry/skill.registry";
 import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../content/skill-content.service";
 import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
-import { PromptSkillAdapter } from "../runtime/prompt-skill.adapter";
-import { parseSkillMd } from "../loader/skill-parser";
+import { PromptSkillAdapter } from "../runtime/adapters/prompt-skill.adapter";
+import { parseSkillMd } from "../loader/parsing/skill-parser";
 
 interface TestExecutionOptions {
   model?: string;
@@ -238,4 +238,3 @@ export class SkillSandboxService {
     return null;
   }
 }
-

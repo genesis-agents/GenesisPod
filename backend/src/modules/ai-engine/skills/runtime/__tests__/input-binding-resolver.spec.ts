@@ -6,7 +6,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import {
   InputBindingResolver,
   BindingContext,
-} from "../skill-input-binding-resolver.service";
+} from "../binding/skill-input-binding-resolver.service";
 import { SkillInputBinding } from "../../types/skill-md.types";
 
 // ---------------------------------------------------------------------------

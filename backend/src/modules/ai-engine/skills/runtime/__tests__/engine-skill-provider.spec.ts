@@ -2,8 +2,8 @@
  * EngineSkillProvider 单元测试 — verify ai-engine SkillRegistry → harness ISkill 转换
  */
 
-import { EngineSkillProvider } from "../engine-skill-provider.adapter";
-import { PromptSkillAdapter } from "../prompt-skill.adapter";
+import { EngineSkillProvider } from "../adapters/engine-skill-provider.adapter";
+import { PromptSkillAdapter } from "../adapters/prompt-skill.adapter";
 import { SkillRegistry } from "../../registry/skill.registry";
 
 function makePromptAdapter(opts: {
@@ -17,7 +17,9 @@ function makePromptAdapter(opts: {
   // Bypass real constructor (which needs SkillPromptBuilder + IChatProvider)
   // by partially constructing via cast — the engine-skill-provider only reads
   // getDefinitionMetadata() / getPromptContent() / instanceof check
-  const fake = Object.create(PromptSkillAdapter.prototype) as PromptSkillAdapter;
+  const fake = Object.create(
+    PromptSkillAdapter.prototype,
+  ) as PromptSkillAdapter;
   Object.defineProperties(fake, {
     id: { value: opts.id },
     name: { value: opts.name },
@@ -108,4 +110,3 @@ describe("EngineSkillProvider", () => {
     expect(result?.frontmatter.description).toBe("");
   });
 });
-

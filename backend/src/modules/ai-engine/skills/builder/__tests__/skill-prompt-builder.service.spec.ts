@@ -11,14 +11,14 @@ import { SkillMdDefinition } from "../../types/skill-md.types";
 // 模拟 estimateTokens
 // ---------------------------------------------------------------------------
 
-jest.mock("../../loader/skill-parser", () => ({
+jest.mock("../../loader/parsing/skill-parser", () => ({
   estimateTokens: jest.fn().mockImplementation((content: string) => {
     // 英文：1 字符 = 0.25 token（4 字符 = 1 token）
     return Math.ceil(content.length / 4);
   }),
 }));
 
-import { estimateTokens } from "../../loader/skill-parser";
+import { estimateTokens } from "../../loader/parsing/skill-parser";
 const mockEstimateTokens = estimateTokens as jest.MockedFunction<
   typeof estimateTokens
 >;

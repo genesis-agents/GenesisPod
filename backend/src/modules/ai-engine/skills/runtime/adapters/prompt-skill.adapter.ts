@@ -19,12 +19,15 @@ import {
   SkillResult,
   SkillLayer,
   JsonSchema,
-} from "../abstractions/skill.interface";
-import { SkillMdDefinition, SkillInputBinding } from "../types/skill-md.types";
-import type { IChatProvider } from "../../facade";
-import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
-import type { ToolRegistry } from "../../tools/registry/tool.registry";
-import type { ToolContext } from "../../tools/abstractions/tool.interface";
+} from "../../abstractions/skill.interface";
+import {
+  SkillMdDefinition,
+  SkillInputBinding,
+} from "../../types/skill-md.types";
+import type { IChatProvider } from "../../../facade";
+import { SkillPromptBuilder } from "../../builder/skill-prompt-builder.service";
+import type { ToolRegistry } from "../../../tools/registry/tool.registry";
+import type { ToolContext } from "../../../tools/abstractions/tool.interface";
 
 /** Callback for recording execution metrics after each run */
 export interface PromptSkillExecutionCallback {
@@ -164,10 +167,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
         totalTokensUsed += firstResponse.tokensUsed ?? 0;
         usedModel = firstResponse.model ?? "";
 
-        if (
-          firstResponse.toolCalls &&
-          firstResponse.toolCalls.length > 0
-        ) {
+        if (firstResponse.toolCalls && firstResponse.toolCalls.length > 0) {
           // Execute each tool call (errors become tool_result content)
           const toolResultMessages: Array<{
             role: string;
@@ -181,10 +181,7 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
           });
 
           for (const toolCall of firstResponse.toolCalls) {
-            const toolResult = await this.executeToolCall(
-              toolCall,
-              context,
-            );
+            const toolResult = await this.executeToolCall(toolCall, context);
             toolResultMessages.push({
               role: "user",
               content: JSON.stringify({
@@ -295,12 +292,12 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
    */
   private resolveTools(
     allowedToolIds: string[],
-  ): Array<import("../../tools/abstractions/tool.interface").ITool> {
+  ): Array<import("../../../tools/abstractions/tool.interface").ITool> {
     if (allowedToolIds.length === 0 || !this.toolRegistry) {
       return [];
     }
     const resolved: Array<
-      import("../../tools/abstractions/tool.interface").ITool
+      import("../../../tools/abstractions/tool.interface").ITool
     > = [];
     for (const toolId of allowedToolIds) {
       const tool = this.toolRegistry.tryGet(toolId);
@@ -417,4 +414,3 @@ export class PromptSkillAdapter implements ISkill<unknown, unknown> {
     }
   }
 }
-

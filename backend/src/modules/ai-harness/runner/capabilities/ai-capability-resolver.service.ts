@@ -4,7 +4,7 @@ import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import { SkillRegistry } from "../../../ai-engine/skills/registry/skill.registry";
 import type { IMCPProvider } from "../../../ai-engine/facade";
 import { MCP_PROVIDER_PORT } from "@/modules/ai-engine/facade/abstractions/runtime-deps.tokens";
-import { SkillLoaderService } from "../../../ai-engine/skills/loader/skill-loader.service";
+import { SkillLoaderService } from "../../../ai-engine/skills/loader/loading/skill-loader.service";
 import { SkillPromptBuilder } from "../../../ai-engine/skills/builder/skill-prompt-builder.service";
 import {
   CapabilityUsageLog,
@@ -890,7 +890,3 @@ export class AICapabilityResolver {
 
 // 保持向后兼容的类型别名
 export type CapabilityContext = AICapabilityContext;
-
-
-
-

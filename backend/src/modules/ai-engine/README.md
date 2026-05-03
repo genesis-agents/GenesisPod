@@ -6,7 +6,7 @@
 >
 > **依赖方向**：ai-engine → ai-infra（L1）。**禁止反向 import** ai-harness / ai-app / open-api。
 > 运行时需要 harness chat 能力的服务统一通过 `CHAT_PROVIDER_PORT` 注入，不允许直接 import `ChatFacade`。
-> 目前唯一保留的直接 harness import 是 `skills/runtime/engine-skill-provider.adapter.ts`，它是 engine → harness 的窄口 provider adapter。
+> 目前唯一保留的直接 harness import 是 `skills/runtime/adapters/engine-skill-provider.adapter.ts`，它是 engine → harness 的窄口 provider adapter。
 > 端口（Dependency Inversion 模式 — adapter 必然 import 它实现的端口接口）。
 
 ## 目录结构

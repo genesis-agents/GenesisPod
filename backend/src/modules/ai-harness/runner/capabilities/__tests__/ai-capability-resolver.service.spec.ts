@@ -7,7 +7,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ToolRegistry } from "../../../../ai-engine/tools/registry/tool.registry";
 import { SkillRegistry } from "../../../../ai-engine/skills/registry/skill.registry";
 import { MCP_PROVIDER_PORT } from "@/modules/ai-engine/facade/abstractions/runtime-deps.tokens";
-import { SkillLoaderService } from "../../../../ai-engine/skills/loader/skill-loader.service";
+import { SkillLoaderService } from "../../../../ai-engine/skills/loader/loading/skill-loader.service";
 import { SkillPromptBuilder } from "../../../../ai-engine/skills/builder/skill-prompt-builder.service";
 
 describe("AICapabilityResolver", () => {
@@ -1152,7 +1152,3 @@ describe("AICapabilityResolver", () => {
     });
   });
 });
-
-
-
-

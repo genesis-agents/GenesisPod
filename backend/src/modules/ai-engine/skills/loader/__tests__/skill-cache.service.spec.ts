@@ -3,7 +3,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { SkillCacheService } from "../skill-cache.service";
+import { SkillCacheService } from "../caching/skill-cache.service";
 import { SkillMdDefinition } from "../../types/skill-md.types";
 
 // ---------------------------------------------------------------------------
@@ -19,13 +19,13 @@ jest.mock("fs/promises", () => ({
 }));
 
 // 也模拟 skill-parser（用于文件读取）
-jest.mock("../skill-parser", () => ({
+jest.mock("../parsing/skill-parser", () => ({
   parseSkillMd: jest.fn(),
   serializeSkillMd: jest.fn(),
 }));
 
 import * as fs from "fs/promises";
-import { parseSkillMd, serializeSkillMd } from "../skill-parser";
+import { parseSkillMd, serializeSkillMd } from "../parsing/skill-parser";
 
 const mockFs = fs as jest.Mocked<typeof fs>;
 const mockParseSkillMd = parseSkillMd as jest.MockedFunction<

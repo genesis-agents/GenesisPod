@@ -8,17 +8,17 @@
  */
 
 import { Injectable, Logger, Inject } from "@nestjs/common";
-import { SkillRegistry } from "../registry/skill.registry";
-import { SkillLoaderService } from "../loader/skill-loader.service";
-import { SkillPromptBuilder } from "../builder/skill-prompt-builder.service";
-import { SkillContentService } from "../content/skill-content.service";
-import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../facade";
-import { SkillMdDefinition } from "../types/skill-md.types";
+import { SkillRegistry } from "../../registry/skill.registry";
+import { SkillLoaderService } from "../../loader/loading/skill-loader.service";
+import { SkillPromptBuilder } from "../../builder/skill-prompt-builder.service";
+import { SkillContentService } from "../../content/skill-content.service";
+import { CHAT_PROVIDER_PORT, type IChatProvider } from "../../../facade";
+import { SkillMdDefinition } from "../../types/skill-md.types";
 import {
   PromptSkillAdapter,
   PromptSkillExecutionCallback,
-} from "./prompt-skill.adapter";
-import { ISkill } from "../abstractions/skill.interface";
+} from "../adapters/prompt-skill.adapter";
+import { ISkill } from "../../abstractions/skill.interface";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
 export interface PromptSkillRegistrationResult {
@@ -77,9 +77,7 @@ export class PromptSkillRegistrationService {
    * 注册指定域的所有 SKILL.md 为 PromptSkillAdapter
    * 已有 code-based skill 的 ID 自动跳过
    */
-  async registerDomain(
-    domain: string,
-  ): Promise<PromptSkillRegistrationResult> {
+  async registerDomain(domain: string): Promise<PromptSkillRegistrationResult> {
     const skills = await this.skillLoader.loadLocalSkills(domain);
     return this.registerDefinitions(skills);
   }
@@ -148,4 +146,3 @@ export class PromptSkillRegistrationService {
     return (skill as PromptSkillAdapter).isPromptSkillAdapter === true;
   }
 }
-

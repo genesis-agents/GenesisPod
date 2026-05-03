@@ -13,11 +13,11 @@ import { SkillMdDefinition } from "../../types/skill-md.types";
 // ---------------------------------------------------------------------------
 // Mock skill-parser (parseSkillMd is called inside validateSkillContent)
 // ---------------------------------------------------------------------------
-jest.mock("../../loader/skill-parser", () => ({
+jest.mock("../../loader/parsing/skill-parser", () => ({
   parseSkillMd: jest.fn(),
 }));
 
-import { parseSkillMd } from "../../loader/skill-parser";
+import { parseSkillMd } from "../../loader/parsing/skill-parser";
 
 // ---------------------------------------------------------------------------
 // Fixtures

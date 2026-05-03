@@ -8,8 +8,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { SkillMdDefinition, SkillCacheItem } from "../types/skill-md.types";
-import { parseSkillMd, serializeSkillMd } from "./skill-parser";
+import { SkillMdDefinition, SkillCacheItem } from "../../types/skill-md.types";
+import { parseSkillMd, serializeSkillMd } from "../parsing/skill-parser";
 
 /**
  * 缓存配置

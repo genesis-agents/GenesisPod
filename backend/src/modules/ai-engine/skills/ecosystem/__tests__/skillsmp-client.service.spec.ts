@@ -3,15 +3,15 @@
  */
 
 import { SkillsMPClientService } from "../skillsmp-client.service";
-import { SkillCacheService } from "../../loader/skill-cache.service";
-import { parseSkillMd } from "../../loader/skill-parser";
+import { SkillCacheService } from "../../loader/caching/skill-cache.service";
+import { parseSkillMd } from "../../loader/parsing/skill-parser";
 
 // Mock global fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 // Mock parseSkillMd
-jest.mock("../../loader/skill-parser", () => ({
+jest.mock("../../loader/parsing/skill-parser", () => ({
   parseSkillMd: jest.fn(),
 }));
 

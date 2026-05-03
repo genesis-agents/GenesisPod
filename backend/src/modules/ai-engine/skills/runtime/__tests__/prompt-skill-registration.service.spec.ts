@@ -4,12 +4,12 @@
  * Uses manual instantiation to bypass forwardRef DI token issues.
  */
 
-import { PromptSkillRegistrationService } from "../prompt-skill-registration.service";
+import { PromptSkillRegistrationService } from "../registration/prompt-skill-registration.service";
 import { SkillRegistry } from "../../registry/skill.registry";
-import { SkillLoaderService } from "../../loader/skill-loader.service";
+import { SkillLoaderService } from "../../loader/loading/skill-loader.service";
 import { SkillPromptBuilder } from "../../builder/skill-prompt-builder.service";
 import { SkillContentService } from "../../content/skill-content.service";
-import { PromptSkillAdapter } from "../prompt-skill.adapter";
+import { PromptSkillAdapter } from "../adapters/prompt-skill.adapter";
 import { SkillMdDefinition } from "../../types/skill-md.types";
 import { ISkill, SkillContext } from "../../abstractions/skill.interface";
 
@@ -394,4 +394,3 @@ describe("PromptSkillRegistrationService", () => {
     });
   });
 });
-

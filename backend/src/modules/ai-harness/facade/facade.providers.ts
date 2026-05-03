@@ -14,7 +14,7 @@ import { FunctionCallingExecutor } from "../../ai-harness/runner/executor/functi
 import { FunctionCallingLLMAdapter } from "../../ai-engine/llm/adapters/function-calling-llm.adapter";
 import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit-breaker.service";
 import { AgentExecutorService } from "../runner/executor/agent-executor.service";
-import { SkillLoaderService } from "../../ai-engine/skills/loader/skill-loader.service";
+import { SkillLoaderService } from "../../ai-engine/skills/loader/loading/skill-loader.service";
 import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-builder.service";
 // ★ P2 能力下沉：Realtime Feature 依赖
 import { EventBusService as EngineEventEmitterService } from "../protocols/ipc/event-bus.service";
@@ -32,7 +32,7 @@ import { QueryLoopService } from "../../ai-harness/runner/executor/query-loop.se
 import { TokenTrackerService } from "../../ai-harness/runner/executor/token-tracker.service";
 // ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm.adapter";
-import { InputBindingResolver } from "../../ai-engine/skills/runtime/skill-input-binding-resolver.service";
+import { InputBindingResolver } from "../../ai-engine/skills/runtime/binding/skill-input-binding-resolver.service";
 import { SkillContentService } from "../../ai-engine/skills/content/skill-content.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 // ★ Tool 扩展依赖

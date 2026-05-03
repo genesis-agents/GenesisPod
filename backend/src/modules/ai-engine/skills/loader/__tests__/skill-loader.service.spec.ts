@@ -5,8 +5,8 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import * as path from "path";
-import { SkillLoaderService } from "../skill-loader.service";
-import { SkillCacheService } from "../skill-cache.service";
+import { SkillCacheService } from "../caching/skill-cache.service";
+import { SkillLoaderService } from "../loading/skill-loader.service";
 import { SkillsMPClientService } from "../../ecosystem/skillsmp-client.service";
 import { SkillContentService } from "../../content/skill-content.service";
 import { SkillMdDefinition } from "../../types/skill-md.types";
@@ -25,14 +25,14 @@ jest.mock("fs/promises", () => ({
   stat: jest.fn(),
 }));
 
-jest.mock("../skill-parser", () => ({
+jest.mock("../parsing/skill-parser", () => ({
   parseSkillMd: jest.fn(),
   estimateTokens: jest.fn().mockReturnValue(100),
 }));
 
 import { glob } from "glob";
 import * as fs from "fs/promises";
-import { parseSkillMd, estimateTokens } from "../skill-parser";
+import { estimateTokens, parseSkillMd } from "../parsing/skill-parser";
 
 const mockGlob = glob as jest.MockedFunction<typeof glob>;
 const mockFs = fs as jest.Mocked<typeof fs>;

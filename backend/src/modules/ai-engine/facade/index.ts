@@ -117,7 +117,10 @@ export type {
 } from "../llm/types";
 
 // Model classification by id pattern (STRONG/STANDARD/BASIC) — cross-app utility
-export { classifyModelTier, ModelTier } from "@/modules/ai-engine/llm/types/model-tier.types";
+export {
+  classifyModelTier,
+  ModelTier,
+} from "@/modules/ai-engine/llm/types/model-tier.types";
 
 // ★ Stream timing types (for TTFT/TTLT tracking)
 export type {
@@ -295,7 +298,10 @@ export type {
   ChatResult,
 } from "@/modules/ai-engine/llm/services/ai-chat.service";
 export type { ChatMessage } from "../llm/types";
-export { inferIsReasoning, getKnownModelLimit } from "@/modules/ai-engine/llm/types/model.utils";
+export {
+  inferIsReasoning,
+  getKnownModelLimit,
+} from "@/modules/ai-engine/llm/types/model.utils";
 
 // ★ Model Election
 export { ModelElectionService } from "../llm/selection";
@@ -309,7 +315,7 @@ export {
   type ElectionCostBias,
 } from "../llm/selection";
 export { SearchService } from "../knowledge/search/search.service";
-export { SkillLoaderService } from "../skills/loader/skill-loader.service";
+export { SkillLoaderService } from "../skills/loader/loading/skill-loader.service";
 export { SkillContentService } from "../skills/content/skill-content.service";
 export type {
   SkillVersionRecord,
@@ -621,5 +627,3 @@ export {
 export { AiModelDiscoveryService } from "@/modules/ai-engine/llm/services/ai-model-discovery.service";
 export { AiConnectionTestService } from "@/modules/ai-engine/llm/services/ai-connection-test.service";
 export { AutoConfigureService } from "@/modules/ai-engine/llm/user-config/user-models-auto-configure.service";
-
-

@@ -19,7 +19,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import { SkillRegistry } from "../registry/skill.registry";
+import { SkillRegistry } from "../../registry/skill.registry";
 import type {
   IKernelSkill as IHarnessSkill,
   ISkillProvider,
@@ -63,4 +63,3 @@ export class EngineSkillProvider implements ISkillProvider {
     };
   }
 }
-

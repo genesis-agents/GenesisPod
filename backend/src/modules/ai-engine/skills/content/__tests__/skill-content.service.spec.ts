@@ -14,12 +14,12 @@ import { SkillMdDefinition } from "../../types/skill-md.types";
 // Module-level mock — must be hoisted before any imports that use the module
 // ---------------------------------------------------------------------------
 
-jest.mock("../../loader/skill-parser", () => ({
+jest.mock("../../loader/parsing/skill-parser", () => ({
   parseSkillMd: jest.fn(),
 }));
 
 // Import the mocked function after the jest.mock call
-import { parseSkillMd } from "../../loader/skill-parser";
+import { parseSkillMd } from "../../loader/parsing/skill-parser";
 
 // ---------------------------------------------------------------------------
 // Helpers — build mock Prisma service

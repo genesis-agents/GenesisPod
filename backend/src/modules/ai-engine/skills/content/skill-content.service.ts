@@ -19,7 +19,7 @@ import * as crypto from "crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SkillMdDefinition, SkillMdFrontmatter } from "../types/skill-md.types";
-import { parseSkillMd } from "../loader/skill-parser";
+import { parseSkillMd } from "../loader/parsing/skill-parser";
 
 /** 版本历史上限 */
 const MAX_VERSIONS_PER_SKILL = 50;

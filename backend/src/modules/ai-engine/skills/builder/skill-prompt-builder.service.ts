@@ -7,7 +7,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { SkillMdDefinition } from "../types/skill-md.types";
-import { estimateTokens } from "../loader/skill-parser";
+import { estimateTokens } from "../loader/parsing/skill-parser";
 
 /**
  * Prompt 构建选项

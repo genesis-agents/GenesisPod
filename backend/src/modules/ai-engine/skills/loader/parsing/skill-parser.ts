@@ -15,7 +15,7 @@ import {
   SkillMdFrontmatter,
   SkillSource,
   RawSkillMdFrontmatter,
-} from "../types/skill-md.types";
+} from "../../types/skill-md.types";
 
 const logger = new Logger("SkillParser");
 
@@ -246,4 +246,3 @@ export function isValidSkillMd(content: string): boolean {
     return false;
   }
 }
-

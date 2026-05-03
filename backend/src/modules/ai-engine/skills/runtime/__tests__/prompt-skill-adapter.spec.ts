@@ -6,7 +6,7 @@
  * rather than going through NestJS DI.
  */
 
-import { PromptSkillAdapter } from "../prompt-skill.adapter";
+import { PromptSkillAdapter } from "../adapters/prompt-skill.adapter";
 import { SkillMdDefinition } from "../../types/skill-md.types";
 import { SkillContext } from "../../abstractions/skill.interface";
 
@@ -732,10 +732,15 @@ describe("PromptSkillAdapter", () => {
     it("tool execution failure → error result passed as tool_result, second LLM still called", async () => {
       const tool = makeTool("web-search");
       // Override execute to fail
-      (tool.execute as jest.Mock).mockResolvedValue({
+      tool.execute.mockResolvedValue({
         success: false,
         error: { message: "Network timeout" },
-        metadata: { executionId: "x", startTime: new Date(), endTime: new Date(), duration: 0 },
+        metadata: {
+          executionId: "x",
+          startTime: new Date(),
+          endTime: new Date(),
+          duration: 0,
+        },
       });
 
       const registry = makeToolRegistry([tool]);

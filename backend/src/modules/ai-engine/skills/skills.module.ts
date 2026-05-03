@@ -16,8 +16,8 @@ import { HttpModule } from "@nestjs/axios";
 import { SkillRegistry } from "./registry/skill.registry";
 
 // Loader & Cache
-import { SkillLoaderService } from "./loader/skill-loader.service";
-import { SkillCacheService } from "./loader/skill-cache.service";
+import { SkillLoaderService } from "./loader/loading/skill-loader.service";
+import { SkillCacheService } from "./loader/caching/skill-cache.service";
 
 // Content - Prompt 内容和版本管理
 import { SkillContentService } from "./content/skill-content.service";
@@ -36,7 +36,7 @@ import { SkillsMPClientService } from "./ecosystem/skillsmp-client.service";
 
 // 2026-05-01 (PR-X-K): EngineSkillProvider 适配到 harness ISkillProvider 端口，
 // 让用户在 Admin UI / API 创建的 skill 自动透出到 harness agent 运行时
-import { EngineSkillProvider } from "./runtime/engine-skill-provider.adapter";
+import { EngineSkillProvider } from "./runtime/adapters/engine-skill-provider.adapter";
 
 // PR-X16: SkillsController + SkillsApiService 已迁移至 open-api/skills-api/
 // （HTTP Controller 上提，由 open-api 装配）
@@ -83,4 +83,3 @@ import { EngineSkillProvider } from "./runtime/engine-skill-provider.adapter";
   ],
 })
 export class AiEngineSkillsModule {}
-

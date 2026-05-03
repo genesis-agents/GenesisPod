@@ -385,7 +385,7 @@ module.exports = {
         // 这是合法的反向 import：ai-engine 主动 expose 用户自定义 skill 给 harness，
         // 不依赖任何 harness 实现，仅依赖 harness 抽象类型（IKernelSkill / ISkillProvider）。
         // jest layer-boundaries.spec.ts 同步 allowlist。
-        "**/modules/ai-engine/skills/runtime/engine-skill-provider.ts",
+        "**/modules/ai-engine/skills/runtime/adapters/engine-skill-provider.adapter.ts",
       ],
       rules: {
         "no-restricted-imports": [

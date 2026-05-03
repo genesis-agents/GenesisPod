@@ -14,8 +14,8 @@ import {
   SkillFilters,
   SkillUpdateInfo,
 } from "../types/skill-md.types";
-import { parseSkillMd } from "../loader/skill-parser";
-import { SkillCacheService } from "../loader/skill-cache.service";
+import { SkillCacheService } from "../loader/caching/skill-cache.service";
+import { parseSkillMd } from "../loader/parsing/skill-parser";
 import { APP_CONFIG } from "@/common/config/app.config";
 
 /**

@@ -11,7 +11,7 @@ import {
   isValidSkillSource,
   parseSkillIdFromFilename,
   isValidSkillMd,
-} from "../skill-parser";
+} from "../parsing/skill-parser";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -487,4 +487,3 @@ describe("isValidSkillMd", () => {
     );
   });
 });
-

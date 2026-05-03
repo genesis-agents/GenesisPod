@@ -7,7 +7,7 @@
  */
 
 import { Injectable } from "@nestjs/common";
-import { SkillInputBinding } from "../types/skill-md.types";
+import { SkillInputBinding } from "../../types/skill-md.types";
 
 export interface BindingContext {
   /** SkillOutputManager or compatible map with get<T>(key) */
