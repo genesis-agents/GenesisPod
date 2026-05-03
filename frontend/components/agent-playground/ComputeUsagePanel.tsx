@@ -159,10 +159,13 @@ interface ModelRow {
   pct: number;
   estCostUsd: number;
 }
-function buildModelDistribution(agents: AgentLiveState[]): ModelRow[] {
+function buildModelDistribution(
+  agents: AgentLiveState[],
+  totalTokensFallback: number
+): ModelRow[] {
   const map = new Map<
     string,
-    { callCount: number; agentSet: Set<string>; tokens: number }
+    { callCount: number; agentSet: Set<string>; traceTokens: number }
   >();
   for (const a of agents) {
     const calls = a.trace.length;
@@ -170,27 +173,40 @@ function buildModelDistribution(agents: AgentLiveState[]): ModelRow[] {
       (s, t) => s + (t.tokensUsed ?? 0),
       0
     );
-    const m = a.modelId || '(未捕获)';
+    const m = a.modelId || '(unknown)';
     const cur = map.get(m) ?? {
       callCount: 0,
       agentSet: new Set(),
-      tokens: 0,
+      traceTokens: 0,
     };
     cur.callCount += calls;
     cur.agentSet.add(a.agentId);
-    cur.tokens += tokensFromTrace;
+    cur.traceTokens += tokensFromTrace;
     map.set(m, cur);
   }
-  const total = [...map.values()].reduce((s, v) => s + v.tokens, 0) || 1;
+  const totalTraceTokens = [...map.values()].reduce(
+    (s, v) => s + v.traceTokens,
+    0
+  );
+  const totalCalls =
+    [...map.values()].reduce((s, v) => s + v.callCount, 0) || 1;
+  const totalBase =
+    totalTraceTokens > 0 ? totalTraceTokens : Math.max(0, totalTokensFallback);
   return [...map.entries()]
-    .map(([modelId, v]) => ({
-      modelId,
-      callCount: v.callCount,
-      agentCount: v.agentSet.size,
-      estTokens: v.tokens,
-      pct: Math.round((v.tokens / total) * 100),
-      estCostUsd: (v.tokens / 1_000_000) * 3, // 粗估 $3/1M
-    }))
+    .map(([modelId, v]) => {
+      const estTokens =
+        totalTraceTokens > 0
+          ? v.traceTokens
+          : Math.round((totalBase * v.callCount) / totalCalls);
+      return {
+        modelId,
+        callCount: v.callCount,
+        agentCount: v.agentSet.size,
+        estTokens,
+        pct: totalBase > 0 ? Math.round((estTokens / totalBase) * 100) : 0,
+        estCostUsd: (estTokens / 1_000_000) * 3,
+      };
+    })
     .sort((a, b) => b.estTokens - a.estTokens);
 }
 
@@ -790,7 +806,7 @@ export function ComputeUsagePanel({
     0
   );
   const avgLatency = totalCalls > 0 ? totalLatency / totalCalls : 0;
-  const modelRows = buildModelDistribution(agents);
+  const modelRows = buildModelDistribution(agents, cost.tokensUsed);
   const toolRows = buildToolStats(agents);
 
   return (

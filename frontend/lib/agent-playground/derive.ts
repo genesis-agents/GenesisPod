@@ -248,6 +248,8 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
   >();
   let totalTokens = 0;
   let totalCost = 0;
+  let summedDeltaTokens = 0;
+  let summedDeltaCost = 0;
 
   for (const ev of events) {
     const t = ev.type;
@@ -466,12 +468,24 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       cur.trace.sort((a, b) => a.ts - b.ts);
       agents.set(agentId, cur);
     } else if (t === 'agent-playground.cost:tick') {
-      // Backend emits cumulative tokensUsed/costUsd + per-stage delta
-      totalTokens = Math.max(totalTokens, (p?.tokensUsed as number) ?? 0);
-      totalCost = Math.max(totalCost, (p?.costUsd as number) ?? 0);
       const stage = p?.stage as string | undefined;
       const deltaTokens = (p?.deltaTokens as number) ?? 0;
       const deltaCostUsd = (p?.deltaCostUsd as number) ?? 0;
+      // Some live missions only emit delta tokens/cost during streaming.
+      // Others also include cumulative totals. Keep whichever path reports
+      // the larger value so the UI does not stay at zero.
+      summedDeltaTokens += Math.max(0, deltaTokens);
+      summedDeltaCost += Math.max(0, deltaCostUsd);
+      totalTokens = Math.max(
+        totalTokens,
+        (p?.tokensUsed as number) ?? 0,
+        summedDeltaTokens
+      );
+      totalCost = Math.max(
+        totalCost,
+        (p?.costUsd as number) ?? 0,
+        summedDeltaCost
+      );
       if (stage && (deltaTokens > 0 || deltaCostUsd > 0)) {
         // sum deltas per-stage（同 stage 多次 emit 例如 researchers × N 全部累加）
         const prev = costByStage.get(stage) ?? { tokensUsed: 0, costUsd: 0 };

@@ -258,16 +258,34 @@ export default function MissionDetailPage() {
     }
     // ★ 兜底：即使有 live events，也用持久化 status 覆盖终态（用户取消后仍能识别）
     if (persisted) {
+      const mergedView =
+        (persisted.tokensUsed ?? 0) > liveView.cost.tokensUsed ||
+        (persisted.costUsd ?? 0) > liveView.cost.costUsd
+          ? {
+              ...liveView,
+              cost: {
+                tokensUsed: Math.max(
+                  liveView.cost.tokensUsed,
+                  persisted.tokensUsed ?? 0
+                ),
+                costUsd: Math.max(
+                  liveView.cost.costUsd,
+                  persisted.costUsd ?? 0
+                ),
+                byStage: liveView.cost.byStage,
+              },
+            }
+          : liveView;
       const terminalTs = persisted.completedAt
         ? new Date(persisted.completedAt).getTime()
         : Date.now();
       if (persisted.status === 'cancelled' && !liveView.mission.cancelledAt) {
         return {
-          ...liveView,
+          ...mergedView,
           mission: {
-            ...liveView.mission,
+            ...mergedView.mission,
             cancelledAt: terminalTs,
-            failedMessage: liveView.mission.failedMessage ?? '用户取消',
+            failedMessage: mergedView.mission.failedMessage ?? 'User cancelled',
           },
         };
       }
@@ -276,12 +294,12 @@ export default function MissionDetailPage() {
         !liveView.mission.failedAt
       ) {
         return {
-          ...liveView,
+          ...mergedView,
           mission: {
-            ...liveView.mission,
+            ...mergedView.mission,
             failedAt: terminalTs,
             failedMessage:
-              liveView.mission.failedMessage ??
+              mergedView.mission.failedMessage ??
               persisted.errorMessage ??
               undefined,
           },
@@ -293,22 +311,25 @@ export default function MissionDetailPage() {
         !liveView.mission.completedAt
       ) {
         return {
-          ...liveView,
+          ...mergedView,
           mission: {
-            ...liveView.mission,
+            ...mergedView.mission,
             completedAt: terminalTs,
             finalScore:
-              liveView.mission.finalScore ?? persisted.finalScore ?? undefined,
-            // quality-failed 时把 leader 拒签信息 surfaces 到 UI banner
+              mergedView.mission.finalScore ??
+              persisted.finalScore ??
+              undefined,
+            // quality-failed ?? leader ???? surfaces ? UI banner
             failedMessage:
               persisted.status === 'quality-failed'
-                ? (liveView.mission.failedMessage ??
+                ? (mergedView.mission.failedMessage ??
                   persisted.errorMessage ??
-                  '质量未达标，但报告仍可阅读')
-                : liveView.mission.failedMessage,
+                  'Quality threshold not met, but the report is still readable')
+                : mergedView.mission.failedMessage,
           },
         };
       }
+      return mergedView;
     }
     return liveView;
   }, [events, persisted]);

@@ -1,5 +1,1211 @@
 [
   {
+    "version": "40.4.0",
+    "date": "2026-05-03",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "harden report integrity and unify login entry"
+      },
+      {
+        "type": "fix",
+        "description": "correct retry task status and chapter counts"
+      },
+      {
+        "type": "fix",
+        "description": "redesign login and unify tool id aliases"
+      },
+      {
+        "type": "fix",
+        "description": "harden container startup and prisma deploy"
+      },
+      {
+        "type": "fix",
+        "description": "resolve prompt skill chat provider lazily"
+      },
+      {
+        "type": "fix",
+        "description": "resolve prisma alias in production build"
+      },
+      {
+        "type": "fix",
+        "description": "track runner env store interfaces"
+      },
+      {
+        "type": "fix",
+        "description": "reorder optional team mission dependency"
+      },
+      {
+        "type": "fix",
+        "description": "resolve changed test regressions and long-content wiring"
+      },
+      {
+        "type": "fix",
+        "description": "use direct tsc for backend compile"
+      },
+      {
+        "type": "fix",
+        "description": "round b — critic warnings 结构化 + 图片 fuzzy match + 拒签验证"
+      },
+      {
+        "type": "fix",
+        "description": "round a — 治根 3 件（参考文献偏少 / 空章节 / 章节进度假统计）"
+      },
+      {
+        "type": "fix",
+        "description": "真治根收尾 — failed/skipped/degraded 标志全链路透传到 ui"
+      },
+      {
+        "type": "fix",
+        "description": "深度仿真 round 2 — quick 模式 dim 卡死 + emit 故障韧性"
+      },
+      {
+        "type": "fix",
+        "description": "深度仿真发现的 invariant 漏洞 — research 失败 dim 也必发 graded"
+      },
+      {
+        "type": "fix",
+        "description": "失败原因人类可读化 — leader 拒签 + s12 自我进化 drawer 看具体内容"
+      },
+      {
+        "type": "fix",
+        "description": "s3 两阶段调度 — phase a research 高并发 + phase b chapter pipeline 中并发"
+      },
+      {
+        "type": "fix",
+        "description": "dim 终态 invariant 闭合 + 19 个分支 100% 测试覆盖"
+      },
+      {
+        "type": "fix",
+        "description": "researcher 学术工具兜底 + arxiv 治 timeout 30s"
+      },
+      {
+        "type": "fix",
+        "description": "byok 配置全面对齐 vendor 官方规范 — 治 xai 模型路由错端 + 35 行 backfill"
+      },
+      {
+        "type": "fix",
+        "description": "治 quota / model-not-found 真因被吞 + friendly regex 全文搜"
+      },
+      {
+        "type": "fix",
+        "description": "治评审重派后状态卡已完成 — retry todo 走 chapter pipeline 兜底"
+      },
+      {
+        "type": "fix",
+        "description": "治\"评审通过后跳到待启动\" + dim 调度从批改滑动窗口"
+      },
+      {
+        "type": "fix",
+        "description": "治 chapter status 卡 pending 真因 — 同毫秒事件 race（prod 实测证明）"
+      },
+      {
+        "type": "fix",
+        "description": "治 starting 占位卡死 + chapter 状态 pending 显示已完成 + outline merge 而非建一次"
+      },
+      {
+        "type": "fix",
+        "description": "章节评审字数降级为参考维度（10/100）+ 硬门槛 70%→40%"
+      },
+      {
+        "type": "fix",
+        "description": "chapter status 'pending' 按 dim 整体状态推断（治并行 event race 卡 pending）"
+      },
+      {
+        "type": "fix",
+        "description": "per-dim research 事件 + 显式 dimension 映射 — 治并行后状态错位"
+      },
+      {
+        "type": "fix",
+        "description": "harden agent playground risk controls"
+      },
+      {
+        "type": "fix",
+        "description": "align harness routes and observability attribution"
+      },
+      {
+        "type": "fix",
+        "description": "route harness cards to real admin surface"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 不再修改 topic + header truncate 兜底剥换行"
+      },
+      {
+        "type": "fix",
+        "description": "单 todo 重跑分流（s9b 真局部 / 其他二次确认另起 mission）"
+      },
+      {
+        "type": "fix",
+        "description": "工具结果 _truncated 形态友好化（regex 抽 results + 双语摘要）"
+      },
+      {
+        "type": "fix",
+        "description": "admin todo 列表隐藏 reconciler-gap 系统自检 todo"
+      },
+      {
+        "type": "fix",
+        "description": "leader signoff 加字数 hard floor 30% 防假签字"
+      },
+      {
+        "type": "fix",
+        "description": "s11 markcompleted 加 chapter content guard 防假完成"
+      },
+      {
+        "type": "fix",
+        "description": "chapter:done 事件链 + 进度判别 + 阈值衰减 治根因"
+      },
+      {
+        "type": "fix",
+        "description": "tool output 16k 截断阈值 32k 解 mission 重写循环"
+      },
+      {
+        "type": "fix",
+        "description": "工具结果不可见 — 提 truncatePayload 阈值 + 前端兜底 _truncated 形状"
+      },
+      {
+        "type": "fix",
+        "description": "axios maxContentLength 5mb→50mb 解大文档抓取失败"
+      },
+      {
+        "type": "fix",
+        "description": "修 4 个 broken spec 让 pre-push 通过"
+      },
+      {
+        "type": "fix",
+        "description": "researcher 显式声明 rag-search 进白名单"
+      },
+      {
+        "type": "fix",
+        "description": "rag-search 必入白名单 + 修配套架构边界 spec"
+      },
+      {
+        "type": "fix",
+        "description": "strict_output_validation 上主干（默认 on，env=0 才关）"
+      },
+      {
+        "type": "fix",
+        "description": "overview 架构图对齐真实分层 + l1 命名去\"管理\"统一"
+      },
+      {
+        "type": "fix",
+        "description": "wall-time 25min → 45min — 12-stage pipeline 实测撞墙修正"
+      },
+      {
+        "type": "fix",
+        "description": "m2 收尾 — zod validator + sideEffect 全量补齐（P1-#3/#4）"
+      },
+      {
+        "type": "fix",
+        "description": "mission revision 死循环真因修复 + 集中阈值常量 (PR-G iter8)"
+      },
+      {
+        "type": "fix",
+        "description": "toolacl entitlement 搬到 permission middleware（P0-#5）"
+      },
+      {
+        "type": "fix",
+        "description": "pipeline 接通 + output reject 软切（P0-#1/#2）"
+      },
+      {
+        "type": "fix",
+        "description": "禁用 MissionHealthScheduler 自动扫描 (PR-G iter6 真因)"
+      },
+      {
+        "type": "fix",
+        "description": "recoverOrphanedRunning 30min → 240min (PR-G iter5 真因)"
+      },
+      {
+        "type": "fix",
+        "description": "修截图 22 出错了 — synthesize-artifact quickView 字段缺失"
+      },
+      {
+        "type": "fix",
+        "description": "临时禁用 orphan detector 自动扫描（PR-G iter3）"
+      },
+      {
+        "type": "fix",
+        "description": "orphan detector 阈值放宽 + 启动恩典窗口（修 mission 全死 bug）"
+      },
+      {
+        "type": "fix",
+        "description": "修 PR-F build 失败 — QUALITY_CHECKLIST import 但未使用"
+      },
+      {
+        "type": "fix",
+        "description": "PR-F writer 注入 TI report-writing-standards 沉淀"
+      },
+      {
+        "type": "fix",
+        "description": "PR-D 章节风格统一 — per-dim formatDimensionContent + 全局连续编号"
+      },
+      {
+        "type": "fix",
+        "description": "引用元数据补全 (PR-C) — title/snippet/publishedAt + path-aware credibility"
+      },
+      {
+        "type": "fix",
+        "description": "写作 prompt 去模板化 — 段落须有独立观点，非八股套话"
+      },
+      {
+        "type": "fix",
+        "description": "写作 prompt 去模板化 — 段落必须有独立观点而非八股套话"
+      },
+      {
+        "type": "fix",
+        "description": "章节卡片强制等高 (#65 截图 20 跟进)"
+      },
+      {
+        "type": "fix",
+        "description": "引用可信度 scale 0-100 修正 + 章节卡片预览统一剥结构"
+      },
+      {
+        "type": "fix",
+        "description": "报告图片闪烁 + 引用角标 hover 信息对齐 TI"
+      },
+      {
+        "type": "fix",
+        "description": "leader strategy 校验回退 optional — 兼容老 retry case 测试"
+      },
+      {
+        "type": "fix",
+        "description": "任务列表按逻辑流程顺序重排 — s1→s2→dim→s3→s4→retry→s5→s6→s7→s8→revise→s8b→s9→s9b→s10→s11→s12"
+      },
+      {
+        "type": "fix",
+        "description": "s7 撰写大纲一直待启动 + paranoid 类型对齐 thorough+"
+      },
+      {
+        "type": "fix",
+        "description": "collectResultsDeep 识别 findings + claim/evidence/source 字段"
+      },
+      {
+        "type": "fix",
+        "description": "mission 设置弹窗用 KnowledgeBaseSelector 复选框替代 ID 输入"
+      },
+      {
+        "type": "fix",
+        "description": "报告页崩溃 — 补 quality.hardGateViolations + quickView 字段"
+      },
+      {
+        "type": "fix",
+        "description": "orphan 误判根治 — maxAge 30→90min + lastActivity 5min 过滤 + stale 60min"
+      },
+      {
+        "type": "fix",
+        "description": "报告图片闪烁 — useMemo 缓存 artifact 防 setNow 500ms tick 重渲"
+      },
+      {
+        "type": "fix",
+        "description": "retry researcher 重跑后链式重跑 chapter pipeline + grade 不再借第一次评分"
+      },
+      {
+        "type": "fix",
+        "description": "critic warnings 不再每条独立成 todo - 合并到 s9 narrativeLog"
+      },
+      {
+        "type": "fix",
+        "description": "补 S8B/S9B 缺失 stage 事件 + 12 stage 占位卡 mission 启动时全显示"
+      },
+      {
+        "type": "fix",
+        "description": "章节视图碎片化 — keyPoint H2 降级为 H3 + 前端启发式合并"
+      },
+      {
+        "type": "fix",
+        "description": "工具结果展示双语化 + 体现关键结论 — 不再灌 raw JSON"
+      },
+      {
+        "type": "fix",
+        "description": "rerun service 用值导入避免 NestJS DI 失败"
+      },
+      {
+        "type": "fix",
+        "description": "屏蔽不支持局部重跑的 todo 重跑按钮 — 仅 system:s9b 显示"
+      },
+      {
+        "type": "fix",
+        "description": "彻底解决报告 fallback 渲染 — mission:completed/persist/v2 artifact 全链路对齐"
+      },
+      {
+        "type": "fix",
+        "description": "emit researcher:completed in retry path + ledger 不借第一次 grade"
+      },
+      {
+        "type": "fix",
+        "description": "admin 走 byok 优先 + react-loop 兜底无 envelope"
+      },
+      {
+        "type": "fix",
+        "description": "修 3 处 raw SQL 误用 Prisma model 名(PascalCase)"
+      },
+      {
+        "type": "fix",
+        "description": "runtime/abstractions 改从 harness/memory 导类型"
+      },
+      {
+        "type": "fix",
+        "description": "收口所有\"假成功\"链路 — S3 chapter pipeline + S10 reportArtifact 缺失"
+      },
+      {
+        "type": "fix",
+        "description": "S4 patch 失败强制 mission degraded + S10 强制拒签（真根因）"
+      },
+      {
+        "type": "fix",
+        "description": "mission completed 时 finalize 所有非终态 todo"
+      },
+      {
+        "type": "fix",
+        "description": "todo-ledger 添加 s12-self-evolution stage 事件 handler"
+      },
+      {
+        "type": "fix",
+        "description": "per-provider 429 冷却 — serper=1min, 其他=30min"
+      },
+      {
+        "type": "fix",
+        "description": "429 短冷却 30min 治 Serper key 误锁 24h + reconciler-gap todo 状态闭环"
+      },
+      {
+        "type": "fix",
+        "description": "tool-call URL 可点击 + tool-result 抓到内容时显示 raw 预览"
+      },
+      {
+        "type": "fix",
+        "description": "build 末尾兜底 copy duty/skill/preset md 到 dist 治 Railway 缺资源"
+      },
+      {
+        "type": "fix",
+        "description": "cron 触发的 refresh 显式 wrap withUserContext 治 BYOK 全 fail"
+      },
+      {
+        "type": "fix",
+        "description": "装配后 fullMarkdown 接入 15 个 TI 沉淀 cleanup helpers"
+      },
+      {
+        "type": "fix",
+        "description": "TI 章节风格 — 维度 chapter 注入 🎯 核心观点 + 关键数据"
+      },
+      {
+        "type": "fix",
+        "description": "TI 风格 — fullMarkdown 末尾 append ## 参考文献 section"
+      },
+      {
+        "type": "fix",
+        "description": "r-live 5 项观测/降级修复"
+      },
+      {
+        "type": "fix",
+        "description": "r5 P2 batch — 3/6 项"
+      },
+      {
+        "type": "fix",
+        "description": "r5 P0/P1 batch 2 — checkpoint 闭环 + S12/S2 race"
+      },
+      {
+        "type": "fix",
+        "description": "r5 P0/P1 batch — 12 项收尾"
+      },
+      {
+        "type": "fix",
+        "description": "cancel-ghost 短路 + reflexion 阈值 75→60"
+      },
+      {
+        "type": "fix",
+        "description": "tool-result 同时展示成功 + 失败子调用（不再被短路）"
+      },
+      {
+        "type": "fix",
+        "description": "analyst null 输出兜底 + reflection event 透传 verdicts"
+      },
+      {
+        "type": "fix",
+        "description": "tool-result 透传 error + mission failed banner 加关闭按钮"
+      },
+      {
+        "type": "fix",
+        "description": "mission failed 时所有非终态 todo 级联 finalize"
+      },
+      {
+        "type": "fix",
+        "description": "第三批 — P0 失败无原因 + P1 业务校验缺 input 上下文"
+      },
+      {
+        "type": "fix",
+        "description": "第二批工具失败必须有明细原因 — 透传最后一次 attempt 错误"
+      },
+      {
+        "type": "fix",
+        "description": "工具失败必须有明细原因 — 透传 error 到 LLM observation"
+      },
+      {
+        "type": "fix",
+        "description": "web-search 透传 SearchService 真实错误给 LLM / trace"
+      },
+      {
+        "type": "fix",
+        "description": "空响应触发 fallback + maxIterations 落 failed 而非 completed"
+      },
+      {
+        "type": "fix",
+        "description": "s9 critic stage 接受 degraded 输出"
+      },
+      {
+        "type": "fix",
+        "description": "per-dim pipeline outline/writer/reviewer 也接受 degraded"
+      },
+      {
+        "type": "fix",
+        "description": "role services 把 reflexion degraded 折成 failed 让 mission 全 fail"
+      },
+      {
+        "type": "fix",
+        "description": "round 4 — 修补第三轮二阶风险与 ReportAssembler 深度问题 14 项"
+      },
+      {
+        "type": "fix",
+        "description": "round 3 — 修补第二轮二阶风险与未细查面 11 项"
+      },
+      {
+        "type": "fix",
+        "description": "round 2 — 修补第一轮引入的 15 项二阶风险"
+      },
+      {
+        "type": "fix",
+        "description": "深度业务分支排查 — P0+P1+P2 共 23 处异常修复"
+      },
+      {
+        "type": "fix",
+        "description": "playground gateway.spec async 适配"
+      },
+      {
+        "type": "fix",
+        "description": "启用 OpenAI structured output mode 根除 reasoning model null 输出"
+      },
+      {
+        "type": "fix",
+        "description": "补 5 个 domain event 注册修复 emit 被 drop bug"
+      },
+      {
+        "type": "fix",
+        "description": "retry researcher 不收敛死循环 - 7 处修复"
+      },
+      {
+        "type": "fix",
+        "description": "round 4 - section-remediation outputLength 升 extended"
+      },
+      {
+        "type": "fix",
+        "description": "round 3 - 字数兑现率真因修复 (chapter/integrator output token 上限 + 多 1 次 revise)"
+      },
+      {
+        "type": "fix",
+        "description": "补 ResourceLifecycleModule 的 import 语句让 config.module 编译通过"
+      },
+      {
+        "type": "fix",
+        "description": "s12 真沉淀 + researcher wallTime 600s 修 retry 风暴"
+      },
+      {
+        "type": "fix",
+        "description": "5 UI fixes (TOC remove, chapter card view, table cols, researcher figures)"
+      },
+      {
+        "type": "fix",
+        "description": "assembler 优先用 per-dim fullMarkdown 避免 81K→3K 压缩"
+      },
+      {
+        "type": "fix",
+        "description": "wrap withUserContext + chapter reviewer length gate + plan threshold tweaks"
+      },
+      {
+        "type": "fix",
+        "description": "banner 区分 quality-failed (amber 可展开 + CTA) vs failed (red)"
+      },
+      {
+        "type": "fix",
+        "description": "per-dim 字数按 missionTarget/dimCount 推算 (修 epic 7 dim 失控问题)"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 继承原 maxCredits + 顶部状态条识别 quality-failed"
+      },
+      {
+        "type": "fix",
+        "description": "drawer rerun + status icons + TI layout polish"
+      },
+      {
+        "type": "fix",
+        "description": "排版对齐 TI（去掉外层 card shadow，直接 bg-white + p-6 包 prose）"
+      },
+      {
+        "type": "fix",
+        "description": "报告主体视觉对齐 TI（blue 主色 + TI 同款 prose 类）"
+      },
+      {
+        "type": "fix",
+        "description": "chapter-writer prompt 强制段落数 + 字数刚性提示"
+      },
+      {
+        "type": "fix",
+        "description": "前端识别 quality-failed status 让用户能看到报告"
+      },
+      {
+        "type": "fix",
+        "description": "加章节字数硬门槛，逼 chapter-writer 写到 70%+ 目标"
+      },
+      {
+        "type": "fix",
+        "description": "mega 档位 cap 单章 ≤25K + HeroStrip 加 epic/mega label"
+      },
+      {
+        "type": "fix",
+        "description": "4 处 review 发现修复（must-fix + 3 should-fix）"
+      },
+      {
+        "type": "fix",
+        "description": "batch A+B 一次性消化 5 个修复"
+      },
+      {
+        "type": "fix",
+        "description": "leader-retry 的 dim 状态/抽屉透明化"
+      },
+      {
+        "type": "fix",
+        "description": "mission reliability — wall-time scaling + patch cap + analyst retry"
+      },
+      {
+        "type": "fix",
+        "description": "leader-assess drawer narrative + 4-char badge tooltips"
+      },
+      {
+        "type": "fix",
+        "description": "mission cancel state propagates to all UI surfaces"
+      },
+      {
+        "type": "fix",
+        "description": "drawer/stage overflow + tree task list + dim status semantics"
+      },
+      {
+        "type": "fix",
+        "description": "drawer/stage overflow + tree task list + dim done semantics"
+      },
+      {
+        "type": "fix",
+        "description": "purge inline raw JSON + title fallback for scrape results"
+      },
+      {
+        "type": "fix",
+        "description": "update Dockerfile entrypoint path after lint-staged rename"
+      },
+      {
+        "type": "fix",
+        "description": "copy TI button sizing + fix cancel button enabling"
+      },
+      {
+        "type": "fix",
+        "description": "adopt TI topology + table layout + structured drawer"
+      },
+      {
+        "type": "fix",
+        "description": "collapse messy researcher→analyst fan-in spaghetti"
+      },
+      {
+        "type": "fix",
+        "description": "kill chapter rewrite spam + TI-grade structured drawer"
+      },
+      {
+        "type": "fix",
+        "description": "clean task list + dedupe chapter rewrites + wall time"
+      },
+      {
+        "type": "fix",
+        "description": "defense-in-depth for Leader plan failure"
+      },
+      {
+        "type": "fix",
+        "description": "plumb task.input through validateBusinessRules"
+      },
+      {
+        "type": "improvement",
+        "description": "organize modules and fix validation regressions"
+      },
+      {
+        "type": "improvement",
+        "description": "organize facade guardrails and tracing exports"
+      },
+      {
+        "type": "improvement",
+        "description": "reorganize skill loader and runtime modules"
+      },
+      {
+        "type": "improvement",
+        "description": "split processing tools by subdomain"
+      },
+      {
+        "type": "improvement",
+        "description": "tighten auth and monitoring directories"
+      },
+      {
+        "type": "improvement",
+        "description": "stabilize base-layer governance baseline"
+      },
+      {
+        "type": "improvement",
+        "description": "tighten infra engine harness boundaries"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W17 finalize ai-engine top-level reorg"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W16 relocate mission lifecycle types"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W15 move protocols and mcp adapter"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W14 move execution into runner"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W13 rename kernel to agents"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W12 dissolve runtime facade"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W9 settle pricing and billing tests"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W10-W11 split runtime mission and env"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W9 runtime/cost 拆三处（含跨层迁 engine）"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W8 process/* 全部归位 + 删除 process 目录"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W7 process/handoff → handoffs（顶层）"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W6 governance/* 全部归位 + 删除 governance 目录"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W5 governance/observability → tracing 顶层"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W4 governance/verify → evaluation/verify"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W3 governance/critique → evaluation/critique"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W2 governance/figure → evaluation/figure"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-W1 governance/learning → lifecycle/learning"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0d teams 上提到 ai-harness 顶层"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0c runtime/quality → governance/critique 收敛"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0b judge-primitives → governance/verify/primitives"
+      },
+      {
+        "type": "improvement",
+        "description": "#1 MECE-P0a tracer/ → governance/observability/tracer/"
+      },
+      {
+        "type": "improvement",
+        "description": "u — engine 6 个子 module 收到子目录 + 加 README.md"
+      },
+      {
+        "type": "improvement",
+        "description": "t — skillcontext 双定义清理 + ai-chat-retry 空 stub 删除"
+      },
+      {
+        "type": "improvement",
+        "description": "Q-step2/3 — engine/llm 14→11 子目录 + harness/kernel/skills 命名清晰化"
+      },
+      {
+        "type": "improvement",
+        "description": "Q-step1 — 命名统一 + runtime cost 整合 + process/health 收敛"
+      },
+      {
+        "type": "improvement",
+        "description": "O — 系统改进收尾（interfaces.ts 拆 + 双定义合并）冲 9.95/10"
+      },
+      {
+        "type": "improvement",
+        "description": "M-step3 — 3 个 engine service 接口 + 配套类型整体下沉到 engine"
+      },
+      {
+        "type": "improvement",
+        "description": "M-step2 — engine facade 反向 re-export 全部下沉到 harness facade"
+      },
+      {
+        "type": "improvement",
+        "description": "M-step1 — intent types 归位 engine（修 P1 反向依赖）"
+      },
+      {
+        "type": "improvement",
+        "description": "L — 修 P0 反向依赖 ai-engine/facade ↛ ai-harness/execution"
+      },
+      {
+        "type": "improvement",
+        "description": "G+H — 删 skill-validator 死代码 + 下沉 stage-emit + EmitFn 通用化"
+      },
+      {
+        "type": "improvement",
+        "description": "F — 下沉 3 个通用 util 到 ai-harness/governance"
+      },
+      {
+        "type": "improvement",
+        "description": "MissionAbortRegistry + MissionOwnershipRegistry 上提到 ai-harness"
+      },
+      {
+        "type": "improvement",
+        "description": "credentials L2→L1 — ai-engine/credentials 下沉到 ai-infra/credentials"
+      },
+      {
+        "type": "improvement",
+        "description": "SocketBroadcastAdapter 上提 — playground/adapters → ai-harness/protocol/realtime"
+      },
+      {
+        "type": "improvement",
+        "description": "failure-learner 上提 — playground → ai-harness/governance/learning"
+      },
+      {
+        "type": "improvement",
+        "description": "report-assembler 上提 — playground → ai-harness/runtime/quality"
+      },
+      {
+        "type": "improvement",
+        "description": "SkillRegistry 双轨改名 — kernel/skills 改为 BuiltInReActSkillRegistry"
+      },
+      {
+        "type": "improvement",
+        "description": "planning 目录彻底删除 — 整体迁移到 ai-harness/runtime"
+      },
+      {
+        "type": "improvement",
+        "description": "output-reviewer 跨层搬到 ai-harness/runtime/quality"
+      },
+      {
+        "type": "improvement",
+        "description": "agent-executor 跨层搬到 ai-harness/execution/executor"
+      },
+      {
+        "type": "improvement",
+        "description": "adaptive-replanner 跨层搬到 ai-harness"
+      },
+      {
+        "type": "improvement",
+        "description": "8 个真 L2 算法从 planning/services 搬到 engine 子目录"
+      },
+      {
+        "type": "improvement",
+        "description": "报告输出复用 TI 沉淀的 postProcessFinalReport 管线"
+      },
+      {
+        "type": "improvement",
+        "description": "删 task-decomposer + task-breakdown 死链路 (-1300 行)"
+      },
+      {
+        "type": "improvement",
+        "description": "删 intent-router + task-planner 死链路 (-1546 行)"
+      },
+      {
+        "type": "improvement",
+        "description": "删除 ai-engine/planning 19 个死代码文件 (C2-step2)"
+      },
+      {
+        "type": "improvement",
+        "description": "auto-dream 从 ai-engine/planning 搬到 ai-harness/memory/dream (C2-step1)"
+      },
+      {
+        "type": "improvement",
+        "description": "adaptive-replanner 类型改名消除与 harness 同名异物冲突 (C1/4)"
+      },
+      {
+        "type": "improvement",
+        "description": "全 codebase 84 个 spec 移到 __tests__ 子目录（贴 standards）"
+      },
+      {
+        "type": "improvement",
+        "description": "markdown w/ KaTeX + reconciler 聚合 figureCandidates"
+      },
+      {
+        "type": "improvement",
+        "description": "use public CitationBadge + FigureRenderer"
+      },
+      {
+        "type": "improvement",
+        "description": "pr-x46 consolidate Railway ops under infra/railway/"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 11 — final token alignment for Live grid + timeline"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 10 — align report artifact panels to design tokens"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 9 — RawEventLog uses Card + ExpandableText"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 8 — small polish on TeamRosterPanel role list"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 7 — AgentLiveGrid trace text supports expand"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 6 — wrap LeadJournalPanel long text in ExpandableText"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 5 — DimensionsPanel + ReportPanel to Card"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 4 — migrate cost/score/memory panels to design system"
+      },
+      {
+        "type": "improvement",
+        "description": "wave 3 — migrate MissionTodoBoard to design system"
+      },
+      {
+        "type": "improvement",
+        "description": "introduce design system + rebuild drawer"
+      },
+      {
+        "type": "feature",
+        "description": "complete W17 ai-engine harness cleanup"
+      },
+      {
+        "type": "feature",
+        "description": "#7 报告下载真公共能力 — playground mission 走 TI 同款 /export"
+      },
+      {
+        "type": "feature",
+        "description": "#9 算力消耗加 工具调用矩阵 + 技能使用矩阵"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 4 个工具 (industry-report / social-x / job / video) + arxiv 治本走 openalex + 治等待评分卡死"
+      },
+      {
+        "type": "feature",
+        "description": "失败原因展示友好化（9 个错误码中文映射 + 截断兜底）"
+      },
+      {
+        "type": "feature",
+        "description": "add harness eval runs and admin surface"
+      },
+      {
+        "type": "feature",
+        "description": "output validation 三档 mode（lenient/strict/coerce）"
+      },
+      {
+        "type": "feature",
+        "description": "task-aware 模型路由（reviewer/sanity-check 自动走 fast）"
+      },
+      {
+        "type": "feature",
+        "description": "mission postmortem 8 类自动分类（s12 集成）"
+      },
+      {
+        "type": "feature",
+        "description": "tool result redis cache（mission 级 TTL 30min）"
+      },
+      {
+        "type": "feature",
+        "description": "web-scraper 智能选择性抓取 summary/full 模式"
+      },
+      {
+        "type": "feature",
+        "description": "admin 面板 4 区块分类（解 orphan 误报 + 三层扩展机制）"
+      },
+      {
+        "type": "feature",
+        "description": "P — A2A v0.3 spec 对齐（JSON-RPC 2.0 + Message/Part/Artifact + 8-state Task + SSE）"
+      },
+      {
+        "type": "feature",
+        "description": "admin 面板加待配置 secret 卡槽（接 GET /admin/secrets/expected）"
+      },
+      {
+        "type": "feature",
+        "description": "N — 三层看护机制锁定 9.8/10 架构合规度"
+      },
+      {
+        "type": "feature",
+        "description": "K — 用户自定义 skill 接通（ISkillProvider 端口 + ai-engine adapter）"
+      },
+      {
+        "type": "feature",
+        "description": "allow self-hosted local LLM endpoints via allowlist"
+      },
+      {
+        "type": "feature",
+        "description": "add email/password login page alongside Google OAuth"
+      },
+      {
+        "type": "feature",
+        "description": "PR-X-skill-bridge — 8 个 agent 接通 17 个 SKILL.md"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 3 个 SKILL.md 收尾 — leader M1/M6 + analyst 跨 dim 综合"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 objective-report-evaluation SKILL.md（10 维报告评审 rubric）"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 8 个 tier-2 SKILL.md — 覆盖 leader/researcher/writer/reviewer/steward"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 3 个 SKILL.md（cross-dim-fact-check / report-meta-critic / citation-audit）"
+      },
+      {
+        "type": "feature",
+        "description": "References 面板对齐 TI — 过滤/排序/搜索 三件套"
+      },
+      {
+        "type": "feature",
+        "description": "mission 状态外置 phase 9 — 4 内存 Map → Redis + heartbeat-based orphan 检测"
+      },
+      {
+        "type": "feature",
+        "description": "retry 双路径 — fresh-collect 新行 / reuse-recompute 利旧重算"
+      },
+      {
+        "type": "feature",
+        "description": "mission 设置弹窗可编辑 + 另存为新 mission"
+      },
+      {
+        "type": "feature",
+        "description": "报告 tab 极简化 — 元信息移到右侧悬浮抽屉"
+      },
+      {
+        "type": "feature",
+        "description": "章节修订状态实时反映 — banner + 卡片状态徽标 + live status lookup"
+      },
+      {
+        "type": "feature",
+        "description": "永远走 ArtifactReader 三视图 — 删 fallback ReportPanel + v1→v2 适配 + 流式空态"
+      },
+      {
+        "type": "feature",
+        "description": "单 stage 局部重跑 v1 — system:s9b 不再创建新 mission"
+      },
+      {
+        "type": "feature",
+        "description": "统一本地 KB 选择 — researcher 走 RAGPipelineService"
+      },
+      {
+        "type": "feature",
+        "description": "S12 自我进化阶段进 workflow UI（之前后端跑了 UI 看不到）"
+      },
+      {
+        "type": "feature",
+        "description": "single-model 无 fallback 时 emit warning event"
+      },
+      {
+        "type": "feature",
+        "description": "observability — stage:completed 加 durationMs/tokensUsed/status 公共字段"
+      },
+      {
+        "type": "feature",
+        "description": "simple-loop + 11 agent loop 类型迁移"
+      },
+      {
+        "type": "feature",
+        "description": "phase 9 沉淀 citation-formatter 5 种学术引用格式"
+      },
+      {
+        "type": "feature",
+        "description": "phase 7 接入沉淀 DAGExecutor 替代 S4 Promise.allSettled"
+      },
+      {
+        "type": "feature",
+        "description": "phase 8 沉淀 search-fusion 通用工具集"
+      },
+      {
+        "type": "feature",
+        "description": "phase 6 接入 MissionHealthMonitor + 拒签 revision 推荐"
+      },
+      {
+        "type": "feature",
+        "description": "phase 5 接入 ai-harness 沉淀的 MissionCheckpointService"
+      },
+      {
+        "type": "feature",
+        "description": "phase 4 沉淀 Checkpoint / Health / DAG 三件套"
+      },
+      {
+        "type": "feature",
+        "description": "phase 3 沉淀 ConcurrencyLimiter + word-count-balancer 到公共层"
+      },
+      {
+        "type": "feature",
+        "description": "phase 2 接入 TI 沉淀的 report-formatting 工具链"
+      },
+      {
+        "type": "feature",
+        "description": "phase 1 移植 TI 4 项 P0 能力"
+      },
+      {
+        "type": "feature",
+        "description": "p1 round - judge 跨 model family + s7 outline 真消费"
+      },
+      {
+        "type": "feature",
+        "description": "p0 三件套 - clamp minCoverage + lengthAccuracy + postmortem 闭环"
+      },
+      {
+        "type": "feature",
+        "description": "接入 oEmbed 预检 + lifecycle 审计 + dedup 大小写修复"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 v5 - quality 闭环 5 件套 + Playground 全量接入"
+      },
+      {
+        "type": "feature",
+        "description": "youtube 清理脚本升级 + ResourceLifecycleEvent 审计表"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 v4 - sanitize-output 白名单铁墙 + url-sanitizer"
+      },
+      {
+        "type": "feature",
+        "description": "新增 Lenny's Podcast 到 youtube 数据源 seed"
+      },
+      {
+        "type": "feature",
+        "description": "youtube 失效视频治理 — 列表过滤+入库预检+加速回查"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 LLM 注入防御三件套 + Reranker + defect-scanner 接入"
+      },
+      {
+        "type": "feature",
+        "description": "翻译结果自动入库全局共享，复访零延迟双语"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 v2 - section-self-eval + defect-scanner 到 ai-harness/governance/critique"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 critique-refine (Reflexion 闭环) 到 ai-harness/governance/critique"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 citation-verifier utils + 接入 agent-playground 跨章引用重映射"
+      },
+      {
+        "type": "feature",
+        "description": "沉淀 figure-extractor + figure-relevance 到 ai-engine/ai-harness"
+      },
+      {
+        "type": "feature",
+        "description": "mission detail 顶部加实时字数 meter"
+      },
+      {
+        "type": "feature",
+        "description": "加 dev/trigger-mission 内部端点（用 userApiKeyId 鉴权）"
+      },
+      {
+        "type": "feature",
+        "description": "单 todo 重跑 + 报告版式 TI 化 + epic/mega 字数档位"
+      },
+      {
+        "type": "feature",
+        "description": "s12 self-evolution + backlog closure"
+      },
+      {
+        "type": "feature",
+        "description": "batch C+D+E 配置项 + 公共并发 + 结构化 critique"
+      },
+      {
+        "type": "feature",
+        "description": "web-scraper 加 extractImages 选项 + Researcher 启用图片抽取"
+      },
+      {
+        "type": "feature",
+        "description": "assignee inspector + compute / references / report panels"
+      },
+      {
+        "type": "feature",
+        "description": "drawer chapter pipeline + collab tab rebuild + cancel fix"
+      },
+      {
+        "type": "feature",
+        "description": "structured drawer timeline with vertical timeline visual"
+      },
+      {
+        "type": "improvement",
+        "description": "rtk 风格优化 — web-search 域名 grouping + finding 跨章节去重"
+      },
+      {
+        "type": "improvement",
+        "description": "nothink layer b — verifier/steward/reconciler 切 minimal effort"
+      },
+      {
+        "type": "improvement",
+        "description": "nothink layer a — minimal effort 安全降级（不支持模型自动 low）"
+      },
+      {
+        "type": "improvement",
+        "description": "杠杆 4 扩展 — reconciler/steward/verifier/outline-planner 切 mini"
+      },
+      {
+        "type": "improvement",
+        "description": "杠杆 2 — 章节内 writer 并行（concurrency=2）2-3× 加速"
+      },
+      {
+        "type": "improvement",
+        "description": "杠杆 1 — 维度并行（concurrency=3，封顶 6）3-4× 加速"
+      }
+    ]
+  },
+  {
     "version": "40.3.0",
     "date": "2026-04-28",
     "changes": [
