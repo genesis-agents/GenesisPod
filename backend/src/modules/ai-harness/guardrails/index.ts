@@ -1,17 +1,3 @@
-// CircuitBreakerService 已搬到 ai-engine/safety/resilience/（PR-X3）
-export { TokenBudgetService } from "./token-budget.service";
-export { ResourceManagerService } from "./resource-manager.service";
-export { ConstraintEngine } from "./constraint-engine";
-export { ConstraintEnforcementService } from "./constraint-enforcement.service";
-export { CostController } from "./cost-controller";
-export { RateLimiter } from "./rate-limiter";
-export { RuntimeEnvironmentService } from "./runtime-environment.service";
-export type {
-  EnvironmentSnapshot,
-  EnvironmentSnapshotParams,
-  RuntimeModelCapability,
-  RuntimeModelType,
-  RuntimeToolCapability,
-  RuntimeDepHealth,
-  RuntimeUserKeyState,
-} from "./runtime-environment.types";
+// CircuitBreakerService moved to ai-engine/safety/resilience/.
+// Keep this root barrel intentionally thin: grouped exports live under exports/.
+export * from "./exports";

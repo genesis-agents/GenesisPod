@@ -39,12 +39,8 @@ export { HarnessFacade } from "./harness.facade";
 // ai-app 模块通过 "@/modules/ai-harness/facade" 统一导入
 // ════════════════════════════════════════════════════════════════════
 export { AIFacade } from "./ai.facade";
-export { ChatFacade } from "./domain/chat.facade";
-export { RAGFacade } from "./domain/rag.facade";
+export * from "./domain";
 export { RAGPipelineService } from "../../ai-engine/rag/pipeline/rag-pipeline.service";
-export { AgentFacade } from "./domain/agent.facade";
-export { TeamFacade } from "./domain/team.facade";
-export { ToolFacade } from "./domain/tool.facade";
 export { PromptSkillBridge } from "../../ai-engine/skills/runtime";
 export { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
 export { FederalRegisterTool } from "../../ai-engine/tools/categories/information/policy/federal-register.tool";
