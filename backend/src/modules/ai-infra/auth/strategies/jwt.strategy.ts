@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, Logger } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
-import { CacheService } from "../../../common/cache/cache.service";
+import { CacheService } from "../../../../common/cache/cache.service";
 
 /** Redis key prefix for the JWT blocklist */
 const BLOCKLIST_PREFIX = "blocklist:user:";

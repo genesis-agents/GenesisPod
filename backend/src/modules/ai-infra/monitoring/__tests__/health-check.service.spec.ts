@@ -11,7 +11,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { HealthCheckService } from "../health-check.service";
+import { HealthCheckService } from "../health/health-check.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { APP_CONFIG } from "../../../../common/config/app.config";
 

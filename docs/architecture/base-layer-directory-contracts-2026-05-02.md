@@ -256,6 +256,34 @@ Required subdirectory shape:
 - `strategies/`
 - root runtime files only for module/controller/service/strategy
 
+### `monitoring/`
+
+Allowed:
+
+- health checks
+- metrics collection
+- error tracking
+
+Not allowed:
+
+- retention governance
+- cleanup execution
+- schema/table ownership logic
+
+Split rule:
+
+- health runtime belongs in `health/`
+- metrics runtime belongs in `metrics/`
+- error aggregation/tracking belongs in `tracking/`
+- root keeps only module shell and re-export surface
+
+Required subdirectory shape:
+
+- `health/`
+- `metrics/`
+- `tracking/`
+- root runtime files only for module/index
+
 ## ai-engine
 
 ### `safety/`

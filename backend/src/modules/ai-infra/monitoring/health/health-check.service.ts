@@ -15,13 +15,13 @@
  */
 
 import { Injectable, Optional, Inject } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { CacheService } from "../../../common/cache/cache.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { CacheService } from "../../../../common/cache/cache.service";
 import {
   type IAiObservability,
   AI_OBSERVABILITY_TOKEN,
-} from "../abstractions/ai-services.interface";
-import { APP_CONFIG } from "../../../common/config/app.config";
+} from "../../abstractions/ai-services.interface";
+import { APP_CONFIG } from "../../../../common/config/app.config";
 
 /**
  * 子系统健康状态

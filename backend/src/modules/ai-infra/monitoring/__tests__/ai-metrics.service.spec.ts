@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { AIMetricsService } from "../ai-metrics.service";
+import { AIMetricsService } from "../metrics/ai-metrics.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 describe("AIMetricsService", () => {

@@ -1,8 +1,8 @@
 import { Module, Global } from "@nestjs/common";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
-import { AIMetricsService } from "./ai-metrics.service";
-import { ErrorTrackingService } from "./error-tracking.service";
-import { HealthCheckService } from "./health-check.service";
+import { HealthCheckService } from "./health/health-check.service";
+import { AIMetricsService } from "./metrics/ai-metrics.service";
+import { ErrorTrackingService } from "./tracking/error-tracking.service";
 
 /**
  * 监控模块 - 提供全局可用的监控服务

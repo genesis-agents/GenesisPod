@@ -6,9 +6,12 @@
 
 ```text
 monitoring/
-├── ai-metrics.service.ts
-├── error-tracking.service.ts
-├── health-check.service.ts
+├── health/
+│   └── health-check.service.ts
+├── metrics/
+│   └── ai-metrics.service.ts
+├── tracking/
+│   └── error-tracking.service.ts
 ├── monitoring.module.ts
 └── index.ts
 ```

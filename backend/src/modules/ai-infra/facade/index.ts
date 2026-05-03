@@ -49,9 +49,9 @@ export { NotificationTypeDto } from "../notifications/dto/notification.dto";
 export { SettingsService } from "../settings/settings.service";
 
 // ─── Monitoring ───
-export { AIMetricsService } from "../monitoring/ai-metrics.service";
-export { ErrorTrackingService } from "../monitoring/error-tracking.service";
-export { HealthCheckService } from "../monitoring/health-check.service";
+export { AIMetricsService } from "../monitoring/metrics/ai-metrics.service";
+export { ErrorTrackingService } from "../monitoring/tracking/error-tracking.service";
+export { HealthCheckService } from "../monitoring/health/health-check.service";
 
 // ─── BYOK / Credentials ─── (2026-05-01: 从 ai-engine/credentials 下沉到 ai-infra/credentials)
 // API key 凭证管理是基础设施（CRUD / 加解密 / BYOK 调度），不是 engine 核心能力。
@@ -90,4 +90,3 @@ export {
 // ─── Database Governance ───
 export { DbGovernanceService } from "../db-governance/db-governance.service";
 export { DataRetentionService } from "../db-governance/data-retention.service";
-
