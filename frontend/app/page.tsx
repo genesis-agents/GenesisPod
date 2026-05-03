@@ -1847,9 +1847,7 @@ function HomeContent() {
 
     // Check if user is logged in
     if (!user) {
-      // Trigger Google OAuth login
-      const { loginWithGoogle } = await import('@/lib/utils/auth');
-      loginWithGoogle();
+      window.location.href = '/login';
       return;
     }
 

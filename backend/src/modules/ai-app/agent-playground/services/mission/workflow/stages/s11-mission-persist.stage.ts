@@ -20,10 +20,12 @@
  */
 
 import type { MissionDeps } from "../mission-deps";
+import { extractSubstantiveSectionText } from "../helpers/report-artifact-sections.util";
 
 // ★ 假完成防御：chapter content guard 阈值常量
 const MIN_CHAPTER_CHARS = 500; // 单章最小内容长度（字符数）
 const MIN_COVERAGE = 0.5; // 至少 50% chapter 有内容才算完成
+const MIN_NON_EMPTY_SECTION_CHARS = 40; // 所有正式章节都必须至少有可读正文
 
 interface PersistInput {
   missionId: string;
@@ -36,7 +38,11 @@ interface PersistInput {
       metadata: { topic?: string; modelTrail?: string[] };
       quickView?: { executiveSummary?: { markdown?: string } };
       /** 章节偏移索引，用于 chapter content guard */
-      sections?: Array<{ startOffset: number; endOffset: number }>;
+      sections?: Array<{
+        title?: string;
+        startOffset: number;
+        endOffset: number;
+      }>;
       /** 报告全文 markdown，sections 通过 startOffset/endOffset slice 取章节内容 */
       content?: { fullMarkdown: string };
     };
@@ -90,21 +96,57 @@ export async function runPersistStage(
       const fullMarkdown = result.reportArtifact.content?.fullMarkdown ?? "";
       const sections = result.reportArtifact.sections;
 
-      const sectionLengths = sections.map((s) =>
-        Math.max(0, s.endOffset - s.startOffset),
+      const substantiveSections = sections.filter(
+        (section) => !isReferenceSection(section.title),
       );
+      const sectionBodies = substantiveSections.map((section) =>
+        extractSubstantiveSectionText(fullMarkdown, section),
+      );
+      const sectionLengths = sectionBodies.map((body) => body.length);
       const sectionsWithContent = sectionLengths.filter(
         (len) => len >= MIN_CHAPTER_CHARS,
       );
-      const coverage = sectionsWithContent.length / sections.length;
+      const nonEmptySections = sectionLengths.filter(
+        (len) => len >= MIN_NON_EMPTY_SECTION_CHARS,
+      );
+      const coverage =
+        substantiveSections.length > 0
+          ? sectionsWithContent.length / substantiveSections.length
+          : 1;
       const totalChars = fullMarkdown.length;
+
+      if (nonEmptySections.length < substantiveSections.length) {
+        deps.log.warn(
+          `[s11 ${missionId}] chapter content guard failed: non-empty=${nonEmptySections.length}/${substantiveSections.length} totalChars=${totalChars} → markFailed instead of markCompleted`,
+        );
+        await deps.store.markFailed(missionId, {
+          errorMessage: `chapter_content_incomplete: nonEmpty=${nonEmptySections.length}/${substantiveSections.length} sections >= ${MIN_NON_EMPTY_SECTION_CHARS} chars, totalChars=${totalChars}`,
+          tokensUsed: snap.poolTokensUsed,
+          costUsd: snap.poolCostUsd,
+          wallTimeMs: Date.now() - t0,
+        });
+        await deps
+          .emit({
+            type: "agent-playground.mission:failed",
+            missionId,
+            userId,
+            payload: {
+              reason: "chapter_content_incomplete",
+              nonEmptySections: nonEmptySections.length,
+              chapters: substantiveSections.length,
+              totalChars,
+            },
+          })
+          .catch(() => {});
+        return;
+      }
 
       if (coverage < MIN_COVERAGE) {
         deps.log.warn(
-          `[s11 ${missionId}] chapter content guard failed: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${sections.length}) totalChars=${totalChars} → markFailed instead of markCompleted`,
+          `[s11 ${missionId}] chapter content guard failed: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${substantiveSections.length}) totalChars=${totalChars} → markFailed instead of markCompleted`,
         );
         await deps.store.markFailed(missionId, {
-          errorMessage: `chapter_content_below_threshold: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${sections.length} sections >= ${MIN_CHAPTER_CHARS} chars), totalChars=${totalChars}`,
+          errorMessage: `chapter_content_below_threshold: coverage=${(coverage * 100).toFixed(1)}% (${sectionsWithContent.length}/${substantiveSections.length} sections >= ${MIN_CHAPTER_CHARS} chars), totalChars=${totalChars}`,
           tokensUsed: snap.poolTokensUsed,
           costUsd: snap.poolCostUsd,
           wallTimeMs: Date.now() - t0,
@@ -236,4 +278,9 @@ export async function runPersistStage(
       .catch(() => {});
     throw err;
   }
+}
+
+function isReferenceSection(title?: string): boolean {
+  const normalized = (title ?? "").trim().toLowerCase();
+  return normalized === "参考文献" || normalized === "references";
 }

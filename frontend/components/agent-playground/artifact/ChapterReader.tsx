@@ -195,6 +195,79 @@ function StatusBadge({
  *
  * 对齐 frontend/components/ai-insights/reports/ChapterizedReportView.tsx
  */
+function collectH2Headings(fullMarkdown: string) {
+  const headings: Array<{ title: string; startOffset: number }> = [];
+  let charOffset = 0;
+  for (const line of fullMarkdown.replace(/\r\n/g, '\n').split('\n')) {
+    if (line.startsWith('## ') && !line.startsWith('### ')) {
+      headings.push({
+        title: line.slice(3).trim(),
+        startOffset: charOffset,
+      });
+    }
+    charOffset += line.length + 1;
+  }
+  return headings;
+}
+
+function getSectionSlice(fullMarkdown: string, section: ArtifactSection) {
+  if (
+    section.startOffset < 0 ||
+    section.endOffset <= section.startOffset ||
+    section.startOffset >= fullMarkdown.length
+  ) {
+    return '';
+  }
+
+  return fullMarkdown.slice(
+    section.startOffset,
+    Math.min(section.endOffset, fullMarkdown.length)
+  );
+}
+
+function repairSectionsFromHeadings(
+  sections: ArtifactSection[],
+  fullMarkdown: string
+) {
+  const normalized = fullMarkdown.replace(/\r\n/g, '\n');
+  const headings = collectH2Headings(normalized);
+  let headingIdx = 0;
+
+  return sections.map((section, index) => {
+    const originalSlice = getSectionSlice(normalized, section).trim();
+    if (originalSlice.length > 0) {
+      return section;
+    }
+
+    const matchIdx = headings.findIndex(
+      (heading, idx) =>
+        idx >= headingIdx && heading.title.trim() === section.title.trim()
+    );
+    if (matchIdx < 0) {
+      return section;
+    }
+
+    let endOffset = normalized.length;
+    const nextSection = sections[index + 1];
+    if (nextSection) {
+      const nextIdx = headings.findIndex(
+        (heading, idx) =>
+          idx > matchIdx && heading.title.trim() === nextSection.title.trim()
+      );
+      if (nextIdx >= 0) {
+        endOffset = headings[nextIdx].startOffset;
+      }
+    }
+
+    headingIdx = matchIdx + 1;
+    return {
+      ...section,
+      startOffset: headings[matchIdx].startOffset,
+      endOffset,
+    };
+  });
+}
+
 export function ChapterReader({
   artifact,
   initialSectionId,
@@ -212,11 +285,12 @@ export function ChapterReader({
   const PSEUDO_H2_PATTERN =
     /^(\d+[.、]|[一二三四五六七八九十]+[.、]|（[一二三四五六七八九十]+）|[（(][1-9]\d*[）)]|其[一二三四五六七八九十]|第[一二三四五六七八九十]+[、章节])\s*/u;
   const sections = useMemo(() => {
-    const all = artifact.sections.filter(
-      (s) => s.level === 2 && s.parentId == null
+    const repaired = repairSectionsFromHeadings(
+      artifact.sections.filter((s) => s.level === 2 && s.parentId == null),
+      artifact.content.fullMarkdown
     );
-    const merged: typeof all = [];
-    for (const s of all) {
+    const merged: ArtifactSection[] = [];
+    for (const s of repaired) {
       const isPseudo =
         PSEUDO_H2_PATTERN.test(s.title.trim()) && merged.length > 0;
       if (isPseudo) {
@@ -239,7 +313,7 @@ export function ChapterReader({
       }
     }
     return merged;
-  }, [artifact.sections]);
+  }, [artifact.sections, artifact.content.fullMarkdown]);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialSectionId ?? null
   );
@@ -252,9 +326,10 @@ export function ChapterReader({
 
   const sectionMarkdown = useMemo(() => {
     if (!selectedSection) return '';
-    return artifact.content.fullMarkdown
-      .slice(selectedSection.startOffset, selectedSection.endOffset)
-      .trimEnd();
+    return getSectionSlice(
+      artifact.content.fullMarkdown,
+      selectedSection
+    ).trimEnd();
   }, [selectedSection, artifact.content.fullMarkdown]);
 
   // 当前章对应的 citations 子集（章末参考文献）
@@ -435,8 +510,7 @@ export function ChapterReader({
             //   ③ "核心观点 / 关键数据 / 关键发现 / 主要结论" 等 TI 沉淀小标题
             //   ④ 加粗、引文、blockquote、list bullet（- • · em-dash）
             //   保证所有 chapter card 的预览段开头都是纯散文，第一眼对齐。
-            const preview = artifact.content.fullMarkdown
-              .slice(s.startOffset, s.endOffset)
+            const preview = getSectionSlice(artifact.content.fullMarkdown, s)
               // ① 章首 H1~H6
               .replace(/^#{1,6}\s+[^\n]+\n+/, '')
               // ② 章首引导 emoji + 可选空格

@@ -301,8 +301,8 @@ async function runChapterPhase(
       .catch(() => {});
     return {
       ...researchResult,
-      summary:
-        `${researchResult.summary ?? ""}\n\n[chapter-pipeline-failed] ${message.slice(0, 150)}`.trim(),
+      findings: [],
+      summary: `(failed: chapter-pipeline-failed) ${dim.name} · ${message.slice(0, 150)}`,
     };
   }
 }
@@ -643,19 +643,25 @@ async function runOneDim(
               .filterRelevantFigures(allFigures, dim.name)
               .catch(() => allFigures);
             // 取前 3 张高相关度图填到 figureCandidates
-            researcherOut.figureCandidates = relevant.slice(0, 3).map((f: {
-              imageUrl: string;
-              caption?: string;
-              alt?: string;
-              type?: string;
-            }) => ({
-              sourceUrl: f.imageUrl, // 沉淀实现里 imageUrl 是绝对 URL
-              imageUrl: f.imageUrl,
-              caption: f.caption || `(图自 ${dim.name})`,
-              sourcePageOrSection: f.alt,
-              relevanceHint:
-                f.type === "chart" || f.type === "table" ? "high" : "medium",
-            }));
+            researcherOut.figureCandidates = relevant
+              .slice(0, 3)
+              .map(
+                (f: {
+                  imageUrl: string;
+                  caption?: string;
+                  alt?: string;
+                  type?: string;
+                }) => ({
+                  sourceUrl: f.imageUrl, // 沉淀实现里 imageUrl 是绝对 URL
+                  imageUrl: f.imageUrl,
+                  caption: f.caption || `(图自 ${dim.name})`,
+                  sourcePageOrSection: f.alt,
+                  relevanceHint:
+                    f.type === "chart" || f.type === "table"
+                      ? "high"
+                      : "medium",
+                }),
+              );
             deps.log.log(
               `[s3 figure-pipeline ${idx}] dim "${dim.name}" 抽 ${allFigures.length} 张 → 相关 ${relevant.length} → 用 ${(researcherOut.figureCandidates ?? []).length}`,
             );

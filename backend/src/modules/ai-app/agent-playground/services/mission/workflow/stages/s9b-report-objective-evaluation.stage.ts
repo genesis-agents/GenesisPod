@@ -22,6 +22,7 @@ import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import type { ChapterInput } from "@/modules/ai-harness/facade";
 import { narrate } from "../helpers/narrative.util";
+import { extractSubstantiveSectionText } from "../helpers/report-artifact-sections.util";
 
 export async function runReportObjectiveEvaluationStage(
   ctx: MissionContext,
@@ -43,7 +44,7 @@ export async function runReportObjectiveEvaluationStage(
   const fullMarkdown = reportArtifact.content.fullMarkdown;
   const chapters: ChapterInput[] = reportArtifact.sections
     .map((s) => {
-      const body = fullMarkdown.slice(s.startOffset, s.endOffset);
+      const body = extractSubstantiveSectionText(fullMarkdown, s);
       return { section: s, body };
     })
     .filter(({ body }) => body && body.length >= 200)

@@ -30,9 +30,9 @@ const FULL_MD =
   "\n\n## Technology\n\n" +
   "Technology content ".repeat(20);
 
-const sec1Start = FULL_MD.indexOf("## Market\n\n") + "## Market\n\n".length;
+const sec1Start = FULL_MD.indexOf("## Market\n\n");
 const sec1End = FULL_MD.indexOf("## Technology\n\n");
-const sec2Start = sec1End + "## Technology\n\n".length;
+const sec2Start = sec1End;
 const sec2End = FULL_MD.length;
 
 function makeReportArtifact(
@@ -247,6 +247,91 @@ describe("runSectionQualityEnhancementStage (S8B)", () => {
     await runSectionQualityEnhancementStage(ctx, deps);
     expect(ctx.reportArtifact!.content.fullMarkdown).toContain(
       "Improved content",
+    );
+    expect(ctx.reportArtifact!.content.fullMarkdown).toContain("## Market");
+    expect(ctx.reportArtifact!.sections[0].startOffset).toBeGreaterThanOrEqual(
+      0,
+    );
+  });
+
+  it("remediation that drops the heading is normalized back to canonical H2", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.sectionSelfEval.evaluateSection as jest.Mock)
+      .mockResolvedValueOnce({
+        overallOk: false,
+        weakAreas: ["analytical_depth"],
+        scores: {
+          analytical_depth: 5,
+          evidence_coverage: 7,
+          actionability: 7,
+          writing_quality: 7,
+        },
+      })
+      .mockResolvedValue({
+        overallOk: true,
+        weakAreas: [],
+        scores: {
+          analytical_depth: 8,
+          evidence_coverage: 8,
+          actionability: 8,
+          writing_quality: 8,
+        },
+      });
+    (deps.sectionRemediation.remediate as jest.Mock).mockResolvedValue({
+      content: "补救正文".repeat(120),
+      skipped: false,
+      skipReason: undefined,
+    });
+
+    await runSectionQualityEnhancementStage(ctx, deps);
+
+    expect(ctx.reportArtifact!.content.fullMarkdown).toContain(
+      "## Technology\n\n补救正文",
+    );
+    expect(ctx.reportArtifact!.sections[1].startOffset).toBeGreaterThanOrEqual(
+      0,
+    );
+    expect(ctx.reportArtifact!.sections[1].wordCount).toBeGreaterThan(0);
+  });
+
+  it("remediation that rewrites the heading is canonicalized to the original title", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.sectionSelfEval.evaluateSection as jest.Mock)
+      .mockResolvedValueOnce({
+        overallOk: false,
+        weakAreas: ["analytical_depth"],
+        scores: {
+          analytical_depth: 5,
+          evidence_coverage: 7,
+          actionability: 7,
+          writing_quality: 7,
+        },
+      })
+      .mockResolvedValue({
+        overallOk: true,
+        weakAreas: [],
+        scores: {
+          analytical_depth: 8,
+          evidence_coverage: 8,
+          actionability: 8,
+          writing_quality: 8,
+        },
+      });
+    (deps.sectionRemediation.remediate as jest.Mock).mockResolvedValue({
+      content: `## Renamed Market\n\n${"更新内容".repeat(120)}`,
+      skipped: false,
+      skipReason: undefined,
+    });
+
+    await runSectionQualityEnhancementStage(ctx, deps);
+
+    expect(ctx.reportArtifact!.content.fullMarkdown).toContain(
+      "## Technology\n\n更新内容",
+    );
+    expect(ctx.reportArtifact!.content.fullMarkdown).not.toContain(
+      "## Renamed Market",
     );
   });
 

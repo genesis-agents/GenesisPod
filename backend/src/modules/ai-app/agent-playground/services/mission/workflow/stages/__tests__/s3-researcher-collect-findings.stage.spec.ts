@@ -20,6 +20,45 @@ function okResearcherResult(dim: string) {
   };
 }
 
+function makeOutlineOutput(chapterCount = 2) {
+  return {
+    chapters: Array.from({ length: chapterCount }, (_, i) => ({
+      index: i + 1,
+      heading: `Chapter ${i + 1}`,
+      thesis: `Thesis ${i + 1}`,
+      keyPoints: [`Point ${i + 1}`],
+      sourceIndices: [0],
+    })),
+  };
+}
+
+function makeWriterOutput(wordCount = 1000) {
+  return {
+    body: `This is a chapter body with ${wordCount} words `.repeat(10),
+    wordCount,
+    citationsUsed: ["[1]"],
+  };
+}
+
+function makeReviewerOutput() {
+  return {
+    decision: "pass" as const,
+    score: 85,
+    summary: "Looks good",
+    issues: [],
+    critique: "Well done",
+  };
+}
+
+function makeGradeOutput() {
+  return {
+    overall: 82,
+    grade: "B",
+    axes: {},
+    summary: "Strong dimension",
+  };
+}
+
 function makeCtx(overrides: Partial<MissionContext> = {}): MissionContext {
   return {
     missionId: "m3",
@@ -67,11 +106,56 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
     },
     lifecycle: jest.fn().mockResolvedValue(undefined),
     invoker: {
-      invoke: jest
-        .fn()
-        .mockImplementation((_, input: { dimension?: string }) =>
-          Promise.resolve(okResearcherResult(input?.dimension ?? "unknown")),
-        ),
+      invoke: jest.fn().mockImplementation(
+        (
+          _: unknown,
+          input: {
+            dimension?: string;
+            chapter?: { body?: string; thesis?: string };
+            chapters?: unknown[];
+            sources?: unknown[];
+          },
+        ) => {
+          if (input?.chapters) {
+            return Promise.resolve({
+              state: "completed",
+              output: {
+                abstract: "This dimension explores AI trends",
+                keyFindings: ["AI is transformative"],
+                fullMarkdown: "# Technology\n\nContent here",
+                totalWordCount: 2000,
+              },
+              events: [],
+              wallTimeMs: 100,
+              iterations: 1,
+              agent: null,
+            });
+          }
+          if (input?.chapter?.body) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeReviewerOutput(),
+              events: [],
+              wallTimeMs: 100,
+              iterations: 1,
+              agent: null,
+            });
+          }
+          if (input?.chapter?.thesis || input?.sources) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeWriterOutput(),
+              events: [],
+              wallTimeMs: 100,
+              iterations: 1,
+              agent: null,
+            });
+          }
+          return Promise.resolve(
+            okResearcherResult(input?.dimension ?? "unknown"),
+          );
+        },
+      ),
       runWithConcurrency: jest
         .fn()
         .mockImplementation(
@@ -105,8 +189,24 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
     figureRelevance: {
       filterRelevantFigures: jest.fn().mockResolvedValue([]),
     },
-    writer: {} as MissionDeps["writer"],
-    reviewer: {} as MissionDeps["reviewer"],
+    writer: {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(2),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    } as unknown as MissionDeps["writer"],
+    reviewer: {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    } as unknown as MissionDeps["reviewer"],
     ...overrides,
   } as unknown as MissionDeps;
 }
@@ -665,8 +765,52 @@ describe("runResearcherDispatchStage (S3)", () => {
     });
     const deps = makeDeps();
     (deps.invoker.invoke as jest.Mock).mockImplementation(
-      (_: unknown, input: { dimension?: string }) =>
-        Promise.resolve(okResearcherResult(input?.dimension ?? "x")),
+      (
+        _: unknown,
+        input: {
+          dimension?: string;
+          chapter?: { body?: string; thesis?: string };
+          chapters?: unknown[];
+          sources?: unknown[];
+        },
+      ) => {
+        if (input?.chapters) {
+          return Promise.resolve({
+            state: "completed",
+            output: {
+              abstract: "This dimension explores AI trends",
+              keyFindings: ["AI is transformative"],
+              fullMarkdown: "# Technology\n\nContent here",
+              totalWordCount: 2000,
+            },
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        if (input?.chapter?.body) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeReviewerOutput(),
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        if (input?.chapter?.thesis || input?.sources) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeWriterOutput(),
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        return Promise.resolve(okResearcherResult(input?.dimension ?? "x"));
+      },
     );
     await runResearcherDispatchStage(ctx, deps);
     expect(ctx.researcherResults).toHaveLength(3);
@@ -687,8 +831,52 @@ describe("runResearcherDispatchStage (S3)", () => {
     });
     const deps = makeDeps();
     (deps.invoker.invoke as jest.Mock).mockImplementation(
-      (_: unknown, input: { dimension?: string }) =>
-        Promise.resolve(okResearcherResult(input?.dimension ?? "x")),
+      (
+        _: unknown,
+        input: {
+          dimension?: string;
+          chapter?: { body?: string; thesis?: string };
+          chapters?: unknown[];
+          sources?: unknown[];
+        },
+      ) => {
+        if (input?.chapters) {
+          return Promise.resolve({
+            state: "completed",
+            output: {
+              abstract: "This dimension explores AI trends",
+              keyFindings: ["AI is transformative"],
+              fullMarkdown: "# Technology\n\nContent here",
+              totalWordCount: 2000,
+            },
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        if (input?.chapter?.body) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeReviewerOutput(),
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        if (input?.chapter?.thesis || input?.sources) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeWriterOutput(),
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        return Promise.resolve(okResearcherResult(input?.dimension ?? "x"));
+      },
     );
     await runResearcherDispatchStage(ctx, deps);
     expect(ctx.researcherResults).toHaveLength(3);
@@ -710,7 +898,50 @@ describe("runResearcherDispatchStage (S3)", () => {
     });
     const deps = makeDeps();
     (deps.invoker.invoke as jest.Mock).mockImplementation(
-      (_: unknown, input: { dimension?: string }) => {
+      (
+        _: unknown,
+        input: {
+          dimension?: string;
+          chapter?: { body?: string; thesis?: string };
+          chapters?: unknown[];
+          sources?: unknown[];
+        },
+      ) => {
+        if (input?.chapters) {
+          return Promise.resolve({
+            state: "completed",
+            output: {
+              abstract: "This dimension explores AI trends",
+              keyFindings: ["AI is transformative"],
+              fullMarkdown: "# Technology\n\nContent here",
+              totalWordCount: 2000,
+            },
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        if (input?.chapter?.body) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeReviewerOutput(),
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
+        if (input?.chapter?.thesis || input?.sources) {
+          return Promise.resolve({
+            state: "completed",
+            output: makeWriterOutput(),
+            events: [],
+            wallTimeMs: 100,
+            iterations: 1,
+            agent: null,
+          });
+        }
         if (input?.dimension === "Fail") {
           return Promise.resolve({
             state: "failed" as const,

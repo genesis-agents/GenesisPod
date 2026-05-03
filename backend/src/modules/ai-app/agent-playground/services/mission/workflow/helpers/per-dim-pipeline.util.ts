@@ -13,11 +13,11 @@
  *              invoker (invoke for ChapterWriter/ChapterReviewer/DimensionIntegrator,
  *                       tickCost), emit, lifecycle
  *
- * Failure modes 全部就地降级：
+ * Failure modes：
  *   outline failed         → return researcherOut（跳过 chapter pipeline）
- *   chapter writer failed  → break 该 chapter（其它 chapter 继续）
- *   reviewer failed        → 当成 pass 处理（保留 draft，避免无法收敛）
- *   integrator failed      → return researcherOut（无 fullMarkdown 等增强字段）
+ *   chapter writer failed  → 该 dim 失败（不再接受“部分章节成功”）
+ *   reviewer failed        → 当成 revise / fallback 处理，但最终正文仍需通过完整性校验
+ *   integrator failed      → 用代码 stitched fullMarkdown 兜底，但仍强校验章节完整性
  *   grade failed           → 不返回 grade，其它字段照常返回
  */
 
@@ -98,6 +98,8 @@ export interface PerDimPipelineResult {
     summary: string;
   };
 }
+
+const MIN_CHAPTER_SUBSTANTIVE_CHARS = 60;
 
 export async function runPerDimPipeline(
   args: PerDimPipelineArgs,
@@ -891,8 +893,15 @@ export async function runPerDimPipeline(
         phase: "no-chapters",
         summary: `${dimensionName} · 0/${outline.chapters.length} 章节产出 — 全部 chapter writer 失败`,
       });
-      return researcherOut;
+      throw new Error(
+        `[chapter-integrity] ${dimensionName}: 0/${outline.chapters.length} chapters produced`,
+      );
     }
+    validateWrittenChapters({
+      dimensionName,
+      expectedCount: outline.chapters.length,
+      chapters: writtenChapters,
+    });
     writtenChaptersResult = writtenChapters;
 
     // ── 3. Integrate ──
@@ -1096,4 +1105,71 @@ export async function runPerDimPipeline(
     fullMarkdown,
     grade,
   };
+}
+
+function validateWrittenChapters(args: {
+  dimensionName: string;
+  expectedCount: number;
+  chapters: Array<{
+    index: number;
+    heading: string;
+    body: string;
+    wordCount: number;
+  }>;
+}): void {
+  const { dimensionName, expectedCount, chapters } = args;
+  if (chapters.length !== expectedCount) {
+    throw new Error(
+      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length}`,
+    );
+  }
+
+  for (const chapter of chapters) {
+    const substantive = extractSubstantiveChapterText(chapter.body);
+    if (substantive.length < MIN_CHAPTER_SUBSTANTIVE_CHARS) {
+      throw new Error(
+        `[chapter-integrity] ${dimensionName} §${chapter.index} "${chapter.heading}" body too short after normalization (${substantive.length} chars)`,
+      );
+    }
+    if (isOutlineOnlyChapter(substantive)) {
+      throw new Error(
+        `[chapter-integrity] ${dimensionName} §${chapter.index} "${chapter.heading}" is outline-only without substantive prose`,
+      );
+    }
+  }
+}
+
+function extractSubstantiveChapterText(body: string): string {
+  return body
+    .replace(/\r\n/g, "\n")
+    .replace(/^#{1,6}\s+[^\n]+\n*/gmu, "")
+    .replace(/^>\s*/gmu, "")
+    .replace(/^\s*[-*•·—–]\s+/gmu, "")
+    .replace(/^\s*\d+[.)、]\s+/gmu, "")
+    .replace(/^\s*[（(]?\d+[)）.、]?\s+/gmu, "")
+    .replace(/^\s*[一二三四五六七八九十]+[、.)]\s+/gmu, "")
+    .replace(/\[(\d+)\]/g, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+function isOutlineOnlyChapter(text: string): boolean {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return true;
+
+  const proseLines = lines.filter(
+    (line) =>
+      !/^#{1,6}\s+/.test(line) &&
+      !/^[-*•·—–]/.test(line) &&
+      !/^\d+[.)、]\s*/.test(line) &&
+      !/^[（(]?\d+[)）.、]?\s*/.test(line) &&
+      !/^[一二三四五六七八九十]+[、.)]\s*/u.test(line),
+  );
+
+  return proseLines.length === 0;
 }

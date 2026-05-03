@@ -275,7 +275,7 @@ describe("runPerDimPipeline", () => {
     expect(result.grade?.overall).toBe(82);
   });
 
-  it("returns researcherOut when no chapters were written", async () => {
+  it("hard-fails when no chapters were written", async () => {
     const writer = {
       planDimensionOutline: jest.fn().mockResolvedValue({
         state: "completed",
@@ -300,8 +300,9 @@ describe("runPerDimPipeline", () => {
       writer: writer as never,
       invoker: invoker as never,
     });
-    const result = await runPerDimPipeline(baseArgs, deps);
-    expect(result.chapters).toBeUndefined();
+    await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+      /0\/1 chapters produced/,
+    );
   });
 
   it("emits dimension:outline:planned event after successful outline", async () => {
@@ -887,8 +888,8 @@ describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=
     expect(result.chapters?.length).toBe(3);
   });
 
-  // ── C2: 单章 writer 失败时其他章节仍 push 到 writtenChapters ──────────────
-  it("C2: single chapter writer failure does not block other chapters", async () => {
+  // ── C2: 单章 writer 失败时整条 dim 失败（不再接受部分章节成功） ──────────────
+  it("C2: single chapter writer failure hard-fails the dimension pipeline", async () => {
     const writer = {
       planDimensionOutline: jest.fn().mockResolvedValue({
         state: "completed",
@@ -924,17 +925,89 @@ describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=
       invoker: invoker as never,
       reviewer: reviewer as never,
     });
-    const result = await runPerDimPipeline(baseArgs, deps);
-    // Chapter 2 failed → only chapters 1 and 3 produced
-    expect(result.chapters).toBeDefined();
-    expect(result.chapters!.length).toBe(2);
-    // Chapters 1 and 3 are still present
-    const chapterIndices = result.chapters!.map((c) => c.index);
-    expect(chapterIndices).toContain(1);
-    expect(chapterIndices).toContain(3);
-    expect(chapterIndices).not.toContain(2);
-    // Integrator still ran with the 2 successful chapters
-    expect(result.abstract).toBeDefined();
+    await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+      /expected 3 chapters, got 2/,
+    );
+  });
+
+  it("C2b: outline-only chapter body hard-fails the dimension pipeline", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(1),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const {
+      ChapterWriterAgent,
+      ChapterReviewerAgent,
+      DimensionIntegratorAgent,
+    } = getAgentClasses();
+    const invoker = {
+      invoke: jest
+        .fn()
+        .mockImplementation((AgentClass: { new (): unknown }) => {
+          if (AgentClass === ChapterWriterAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: {
+                body: "## 小标题\n\n- 要点一\n- 要点二\n- 要点三",
+                wordCount: 600,
+                citationsUsed: [],
+              },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }
+          if (AgentClass === ChapterReviewerAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeReviewerOutput("pass", 85),
+              events: [],
+              iterations: 1,
+              wallTimeMs: 50,
+            });
+          }
+          if (AgentClass === DimensionIntegratorAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: makeIntegratorOutput(),
+              events: [],
+              iterations: 1,
+              wallTimeMs: 200,
+            });
+          }
+          return Promise.resolve({
+            state: "failed",
+            output: undefined,
+            events: [],
+            iterations: 1,
+            wallTimeMs: 100,
+          });
+        }),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+
+    await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+      /(outline-only|body too short)/,
+    );
   });
 
   // ── C3: writtenChapters 按 index 排序而非完成顺序 ─────────────────────────
@@ -1792,7 +1865,9 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
         tickCost: jest.fn().mockResolvedValue(undefined),
       };
       const deps = makeDeps({ invoker: invoker as never });
-      await runPerDimPipeline(baseArgs, deps);
+      await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+        /0\/2 chapters produced/,
+      );
       const graded = getGradedEmits(deps);
       expect(graded).toHaveLength(1);
       expect(graded[0].payload.failed).toBe(true);
@@ -2166,13 +2241,13 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
         tickCost: jest.fn().mockResolvedValue(undefined),
       };
       const deps = makeDeps({ invoker: invoker as never });
-      const result = await runPerDimPipeline(baseArgs, deps);
-      // Pipeline 不卡死，至少 1/2 chapters 产出
-      expect(result.chapters?.length).toBeGreaterThanOrEqual(1);
-      // 仍然有 graded 事件（happy 终态）
+      await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+        /expected 2 chapters, got 1/,
+      );
+      // 仍然有 graded 事件（failed 终态）
       const graded = getGradedEmits(deps);
       expect(graded).toHaveLength(1);
-      expect(graded[0].payload.failed).toBeUndefined();
+      expect(graded[0].payload.failed).toBe(true);
     });
 
     it("[A15] outline state=completed but output=undefined → graded(outline-failed)", async () => {
@@ -2222,7 +2297,9 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
         }),
       };
       const deps = makeDeps({ writer: writer as never });
-      await runPerDimPipeline(baseArgs, deps);
+      await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+        /0\/0 chapters produced/,
+      );
       const graded = getGradedEmits(deps);
       expect(graded).toHaveLength(1);
       expect(graded[0].payload.failed).toBe(true);

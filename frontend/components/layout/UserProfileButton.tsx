@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { User, LogOut, LogIn, UserCircle, Coins, Bot } from 'lucide-react';
 import Link from 'next/link';
@@ -23,7 +24,8 @@ interface UserProfileButtonProps {
 export default function UserProfileButton({
   isCollapsed = false,
 }: UserProfileButtonProps) {
-  const { user, loginWithGoogle, logout, isLoading } = useAuth();
+  const router = useRouter();
+  const { user, logout, isLoading } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -80,9 +82,9 @@ export default function UserProfileButton({
   if (!user) {
     return (
       <button
-        onClick={loginWithGoogle}
+        onClick={() => router.push('/login')}
         className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50`}
-        title="Login with Google"
+        title="Login"
       >
         <LogIn className="h-5 w-5 flex-shrink-0" />
         {!isCollapsed && <span>Login</span>}

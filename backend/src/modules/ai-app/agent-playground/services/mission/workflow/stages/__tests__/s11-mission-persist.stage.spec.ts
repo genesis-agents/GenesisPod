@@ -47,18 +47,21 @@ const BASE_RESULT = {
   },
 };
 
+function makeArgs(overrides: Record<string, unknown> = {}) {
+  return {
+    missionId: "m11",
+    userId: "u1",
+    t0: Date.now() - 5000,
+    result: BASE_RESULT,
+    pool: makePool(),
+    ...overrides,
+  };
+}
+
 describe("runPersistStage (S11)", () => {
   it("signed=true → calls markCompleted", async () => {
     const deps = makeDeps();
-    await runPersistStage(
-      {
-        missionId: "m11",
-        t0: Date.now() - 5000,
-        result: BASE_RESULT,
-        pool: makePool(),
-      },
-      deps,
-    );
+    await runPersistStage(makeArgs(), deps);
     expect(deps.store.markCompleted).toHaveBeenCalled();
     expect(deps.store.markFailed).not.toHaveBeenCalled();
   });
@@ -74,10 +77,7 @@ describe("runPersistStage (S11)", () => {
         refusalReason: "Coverage too low",
       },
     };
-    await runPersistStage(
-      { missionId: "m11", t0: Date.now() - 5000, result, pool: makePool() },
-      deps,
-    );
+    await runPersistStage(makeArgs({ result }), deps);
     expect(deps.store.markFailed).toHaveBeenCalled();
     expect(deps.store.markCompleted).not.toHaveBeenCalled();
     const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
@@ -87,10 +87,7 @@ describe("runPersistStage (S11)", () => {
   it("no leaderSignOff → calls markFailed to avoid unsigned fake completion", async () => {
     const deps = makeDeps();
     const result = { ...BASE_RESULT, leaderSignOff: undefined };
-    await runPersistStage(
-      { missionId: "m11", t0: Date.now() - 5000, result, pool: makePool() },
-      deps,
-    );
+    await runPersistStage(makeArgs({ result }), deps);
     expect(deps.store.markFailed).toHaveBeenCalled();
     expect(deps.store.markCompleted).not.toHaveBeenCalled();
     const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
@@ -100,12 +97,9 @@ describe("runPersistStage (S11)", () => {
   it("markCompleted called with finalScore and tokensUsed", async () => {
     const deps = makeDeps();
     await runPersistStage(
-      {
-        missionId: "m11",
-        t0: Date.now() - 5000,
-        result: BASE_RESULT,
+      makeArgs({
         pool: makePool(15000, 0.8),
-      },
+      }),
       deps,
     );
     const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
@@ -116,15 +110,7 @@ describe("runPersistStage (S11)", () => {
 
   it("reportArtifact v2 → reportArtifactVersion=2 in markCompleted", async () => {
     const deps = makeDeps();
-    await runPersistStage(
-      {
-        missionId: "m11",
-        t0: Date.now() - 5000,
-        result: BASE_RESULT,
-        pool: makePool(),
-      },
-      deps,
-    );
+    await runPersistStage(makeArgs(), deps);
     const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
     expect(args.reportArtifactVersion).toBe(2);
   });
@@ -132,10 +118,7 @@ describe("runPersistStage (S11)", () => {
   it("no reportArtifact → reportArtifactVersion=1, uses v1 report", async () => {
     const deps = makeDeps();
     const result = { ...BASE_RESULT, reportArtifact: undefined };
-    await runPersistStage(
-      { missionId: "m11", t0: Date.now() - 5000, result, pool: makePool() },
-      deps,
-    );
+    await runPersistStage(makeArgs({ result }), deps);
     const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
     expect(args.reportArtifactVersion).toBe(1);
   });
@@ -143,10 +126,7 @@ describe("runPersistStage (S11)", () => {
   it("wallTimeMs = now - t0 approximately", async () => {
     const deps = makeDeps();
     const t0 = Date.now() - 10000;
-    await runPersistStage(
-      { missionId: "m11", t0, result: BASE_RESULT, pool: makePool() },
-      deps,
-    );
+    await runPersistStage(makeArgs({ t0 }), deps);
     const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
     expect(args.wallTimeMs).toBeGreaterThan(9000);
     expect(args.wallTimeMs).toBeLessThan(20000);
@@ -154,30 +134,14 @@ describe("runPersistStage (S11)", () => {
 
   it("trajectoryStored included in markCompleted payload", async () => {
     const deps = makeDeps();
-    await runPersistStage(
-      {
-        missionId: "m11",
-        t0: Date.now() - 5000,
-        result: BASE_RESULT,
-        pool: makePool(),
-      },
-      deps,
-    );
+    await runPersistStage(makeArgs(), deps);
     const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
     expect(args.trajectoryStored).toBe(42);
   });
 
   it("leaderSignOff data passed to markCompleted", async () => {
     const deps = makeDeps();
-    await runPersistStage(
-      {
-        missionId: "m11",
-        t0: Date.now() - 5000,
-        result: BASE_RESULT,
-        pool: makePool(),
-      },
-      deps,
-    );
+    await runPersistStage(makeArgs(), deps);
     const args = (deps.store.markCompleted as jest.Mock).mock.calls[0][1];
     expect(args.leaderOverallScore).toBe(82);
     expect(args.leaderSigned).toBe(true);
@@ -195,10 +159,7 @@ describe("runPersistStage (S11)", () => {
         refusalReason: "Insufficient coverage",
       },
     };
-    await runPersistStage(
-      { missionId: "m11", t0: Date.now() - 5000, result, pool: makePool() },
-      deps,
-    );
+    await runPersistStage(makeArgs({ result }), deps);
     const args = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
     expect(args.leaderOverallScore).toBe(45);
     expect(args.leaderSigned).toBe(false);
@@ -207,15 +168,7 @@ describe("runPersistStage (S11)", () => {
 
   it("missionId is passed as first arg to store methods", async () => {
     const deps = makeDeps();
-    await runPersistStage(
-      {
-        missionId: "mission-42",
-        t0: Date.now() - 5000,
-        result: BASE_RESULT,
-        pool: makePool(),
-      },
-      deps,
-    );
+    await runPersistStage(makeArgs({ missionId: "mission-42" }), deps);
     expect((deps.store.markCompleted as jest.Mock).mock.calls[0][0]).toBe(
       "mission-42",
     );
@@ -226,17 +179,9 @@ describe("runPersistStage (S11)", () => {
     (deps.store.markCompleted as jest.Mock).mockRejectedValue(
       new Error("DB write failed"),
     );
-    await expect(
-      runPersistStage(
-        {
-          missionId: "m11",
-          t0: Date.now() - 5000,
-          result: BASE_RESULT,
-          pool: makePool(),
-        },
-        deps,
-      ),
-    ).rejects.toThrow("DB write failed");
+    await expect(runPersistStage(makeArgs(), deps)).rejects.toThrow(
+      "DB write failed",
+    );
     expect(deps.log.error as jest.Mock).toHaveBeenCalledWith(
       expect.stringContaining("persist failed"),
     );
@@ -249,42 +194,46 @@ describe("runPersistStage (S11)", () => {
   it("persist failure with non-Error thrown → String(err) used in log", async () => {
     const deps = makeDeps();
     (deps.store.markCompleted as jest.Mock).mockRejectedValue("string error");
-    await expect(
-      runPersistStage(
-        {
-          missionId: "m11",
-          t0: Date.now() - 5000,
-          result: BASE_RESULT,
-          pool: makePool(),
-        },
-        deps,
-      ),
-    ).rejects.toBe("string error");
+    await expect(runPersistStage(makeArgs(), deps)).rejects.toBe(
+      "string error",
+    );
     expect(deps.log.error as jest.Mock).toHaveBeenCalledWith(
       expect.stringContaining("persist failed"),
     );
   });
 
-  // ★ chapter content guard tests (2026-04-30)
   describe("chapter content guard", () => {
-    /** Build a reportArtifact with N sections, each `charLen` chars long */
     function makeArtifactWithSections(
       sectionLengths: number[],
     ): typeof BASE_RESULT.reportArtifact & {
-      sections: Array<{ startOffset: number; endOffset: number }>;
+      sections: Array<{
+        title?: string;
+        startOffset: number;
+        endOffset: number;
+      }>;
       content: { fullMarkdown: string };
     } {
-      // Build a fullMarkdown where each section is placed contiguously
-      let offset = 0;
-      const sections: Array<{ startOffset: number; endOffset: number }> = [];
+      const sections: Array<{
+        title?: string;
+        startOffset: number;
+        endOffset: number;
+      }> = [];
       const parts: string[] = [];
-      for (const len of sectionLengths) {
-        const body = "x".repeat(len);
-        sections.push({ startOffset: offset, endOffset: offset + len });
-        parts.push(body);
-        offset += len;
+      let offset = 0;
+
+      for (const [index, len] of sectionLengths.entries()) {
+        const title = `Section ${index + 1}`;
+        const sectionText = `## ${title}\n\n${"x".repeat(len)}`;
+        sections.push({
+          title,
+          startOffset: offset,
+          endOffset: offset + sectionText.length,
+        });
+        parts.push(sectionText);
+        offset += sectionText.length + 2;
       }
-      const fullMarkdown = parts.join("");
+
+      const fullMarkdown = parts.join("\n\n");
       return {
         ...BASE_RESULT.reportArtifact,
         sections,
@@ -294,15 +243,11 @@ describe("runPersistStage (S11)", () => {
 
     it("all sections >= 500 chars → markCompleted called normally", async () => {
       const deps = makeDeps();
-      // 4 sections, each 600 chars → coverage 4/4 = 100%
       const reportArtifact = makeArtifactWithSections([600, 600, 600, 600]);
       await runPersistStage(
-        {
-          missionId: "m11",
-          t0: Date.now() - 5000,
+        makeArgs({
           result: { ...BASE_RESULT, reportArtifact },
-          pool: makePool(),
-        },
+        }),
         deps,
       );
       expect(deps.store.markCompleted).toHaveBeenCalled();
@@ -311,15 +256,11 @@ describe("runPersistStage (S11)", () => {
 
     it("< 50% sections have content → markFailed with chapter_content_below_threshold", async () => {
       const deps = makeDeps();
-      // 4 sections: 1 long (600), 3 short (100) → coverage 1/4 = 25% < 50%
       const reportArtifact = makeArtifactWithSections([600, 100, 100, 100]);
       await runPersistStage(
-        {
-          missionId: "m11",
-          t0: Date.now() - 5000,
+        makeArgs({
           result: { ...BASE_RESULT, reportArtifact },
-          pool: makePool(),
-        },
+        }),
         deps,
       );
       expect(deps.store.markFailed).toHaveBeenCalled();
@@ -334,16 +275,17 @@ describe("runPersistStage (S11)", () => {
       const deps = makeDeps();
       const reportArtifact = {
         ...BASE_RESULT.reportArtifact,
-        sections: [] as Array<{ startOffset: number; endOffset: number }>,
+        sections: [] as Array<{
+          title?: string;
+          startOffset: number;
+          endOffset: number;
+        }>,
         content: { fullMarkdown: "" },
       };
       await runPersistStage(
-        {
-          missionId: "m11",
-          t0: Date.now() - 5000,
+        makeArgs({
           result: { ...BASE_RESULT, reportArtifact },
-          pool: makePool(),
-        },
+        }),
         deps,
       );
       expect(deps.store.markCompleted).toHaveBeenCalled();
@@ -352,19 +294,49 @@ describe("runPersistStage (S11)", () => {
 
     it("coverage exactly 50% → markCompleted (boundary: >= MIN_COVERAGE passes)", async () => {
       const deps = makeDeps();
-      // 2 sections: 1 long (600), 1 short (100) → coverage 1/2 = 50% exactly
       const reportArtifact = makeArtifactWithSections([600, 100]);
       await runPersistStage(
-        {
-          missionId: "m11",
-          t0: Date.now() - 5000,
+        makeArgs({
           result: { ...BASE_RESULT, reportArtifact },
-          pool: makePool(),
-        },
+        }),
         deps,
       );
       expect(deps.store.markCompleted).toHaveBeenCalled();
       expect(deps.store.markFailed).not.toHaveBeenCalled();
+    });
+
+    it("heading-only chapters fail even if the raw span is long", async () => {
+      const deps = makeDeps();
+      const fullMarkdown =
+        "## Section 1\n\n" +
+        "x".repeat(700) +
+        "\n\n## Section 2\n\n### Outline only\n\n- bullet a\n- bullet b\n";
+      const secondSectionStart = fullMarkdown.indexOf("## Section 2");
+      const reportArtifact = {
+        ...BASE_RESULT.reportArtifact,
+        sections: [
+          {
+            title: "Section 1",
+            startOffset: 0,
+            endOffset: secondSectionStart,
+          },
+          {
+            title: "Section 2",
+            startOffset: secondSectionStart,
+            endOffset: fullMarkdown.length,
+          },
+        ],
+        content: { fullMarkdown },
+      };
+      await runPersistStage(
+        makeArgs({
+          result: { ...BASE_RESULT, reportArtifact },
+        }),
+        deps,
+      );
+      expect(deps.store.markFailed).toHaveBeenCalled();
+      const failArgs = (deps.store.markFailed as jest.Mock).mock.calls[0][1];
+      expect(failArgs.errorMessage).toContain("chapter_content_incomplete");
     });
   });
 });
