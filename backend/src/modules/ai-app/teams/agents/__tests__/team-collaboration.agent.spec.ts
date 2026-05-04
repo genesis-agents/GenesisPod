@@ -21,7 +21,8 @@ import {
   TeamTaskType,
   VotingStrategy,
 } from "../team-collaboration.agent";
-import { BUILTIN_AGENTS, BUILTIN_TOOLS } from "@/modules/ai-harness/facade";
+import { BUILTIN_TOOLS } from "@/modules/ai-harness/facade";
+import { TEAM_COLLABORATION_AGENT_ID } from "../../teams.constants";
 import type { AgentInput, AgentPlan } from "@/modules/ai-harness/facade";
 
 // ============================================================
@@ -63,7 +64,7 @@ describe("TeamCollaborationAgent", () => {
 
   describe("metadata", () => {
     it("should have correct id", () => {
-      expect(agent.id).toBe(BUILTIN_AGENTS.TEAM_COLLABORATION);
+      expect(agent.id).toBe(TEAM_COLLABORATION_AGENT_ID);
     });
 
     it("should have a non-empty name", () => {
@@ -174,7 +175,7 @@ describe("TeamCollaborationAgent", () => {
       const plan = await agent.plan(input);
 
       expect(plan.taskId).toBeTruthy();
-      expect(plan.agentId).toBe(BUILTIN_AGENTS.TEAM_COLLABORATION);
+      expect(plan.agentId).toBe(TEAM_COLLABORATION_AGENT_ID);
       expect(plan.steps.length).toBeGreaterThan(0);
       expect(plan.metadata?.taskType).toBe(TeamTaskType.TEAM_BRAINSTORM);
     });
@@ -515,7 +516,7 @@ describe("TeamCollaborationAgent", () => {
     it("should yield error event when plan has no input", async () => {
       const plan: AgentPlan = {
         taskId: "test-task",
-        agentId: BUILTIN_AGENTS.TEAM_COLLABORATION,
+        agentId: TEAM_COLLABORATION_AGENT_ID,
         steps: [
           {
             id: "step-1",
@@ -849,7 +850,7 @@ describe("TeamCollaborationAgent", () => {
     it("should yield error event with correct message when plan has no input", async () => {
       const plan: AgentPlan = {
         taskId: "test-id",
-        agentId: BUILTIN_AGENTS.TEAM_COLLABORATION,
+        agentId: TEAM_COLLABORATION_AGENT_ID,
         steps: [],
         estimatedTime: 0,
         toolsRequired: [],

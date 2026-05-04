@@ -15,7 +15,10 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { AgentId } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
+import {
+  PLATFORM_AGENT_IDS,
+  SLIDES_AGENT_ID,
+} from "@/modules/ai-app/_meta/agent-catalog";
 
 /**
  * 上传文件 DTO
@@ -50,11 +53,11 @@ export class UploadedFileDto {
 export class ExecuteRequestDto {
   @ApiPropertyOptional({
     description: "Agent ID（可选，系统会自动推断）",
-    enum: Object.values(BUILTIN_AGENTS),
-    example: BUILTIN_AGENTS.SLIDES,
+    enum: PLATFORM_AGENT_IDS,
+    example: SLIDES_AGENT_ID,
   })
   @IsOptional()
-  @IsIn(Object.values(BUILTIN_AGENTS))
+  @IsIn(PLATFORM_AGENT_IDS)
   agentId?: AgentId;
 
   @ApiProperty({

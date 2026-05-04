@@ -23,7 +23,11 @@ import {
   AgentTaskStatus,
   ArtifactType,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
+import {
+  SLIDES_AGENT_ID,
+  DOCS_AGENT_ID,
+  DESIGNER_AGENT_ID,
+} from "@/modules/ai-app/_meta/agent-catalog";
 
 /**
  * 创建任务输入
@@ -47,11 +51,11 @@ interface TaskEvent {
  */
 function toOfficeAgentType(agentId?: AgentId): OfficeAgentType {
   switch (agentId) {
-    case BUILTIN_AGENTS.SLIDES:
+    case SLIDES_AGENT_ID:
       return OfficeAgentType.SLIDES;
-    case BUILTIN_AGENTS.DOCS:
+    case DOCS_AGENT_ID:
       return OfficeAgentType.DOCS;
-    case BUILTIN_AGENTS.DESIGNER:
+    case DESIGNER_AGENT_ID:
       return OfficeAgentType.DESIGNER;
     default:
       return OfficeAgentType.DOCS; // 默认

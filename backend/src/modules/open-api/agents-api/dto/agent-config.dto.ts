@@ -4,7 +4,10 @@
 
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { AgentId } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import { BUILTIN_AGENTS } from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
+import {
+  PLATFORM_AGENT_IDS,
+  SLIDES_AGENT_ID,
+} from "@/modules/ai-app/_meta/agent-catalog";
 
 /**
  * Agent 模板 DTO
@@ -58,8 +61,8 @@ export class AgentTemplateDto {
 export class AgentConfigDto {
   @ApiProperty({
     description: "Agent ID",
-    enum: Object.values(BUILTIN_AGENTS),
-    example: BUILTIN_AGENTS.SLIDES,
+    enum: PLATFORM_AGENT_IDS,
+    example: SLIDES_AGENT_ID,
   })
   id!: AgentId;
 

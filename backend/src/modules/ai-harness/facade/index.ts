@@ -12,11 +12,7 @@
 // Kernelï¼šabstractions + core + dx
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export * from "../agents/abstractions";
-export {
-  BUILTIN_AGENTS,
-  AGENT_CONFIGS,
-  type BuiltinAgentId,
-} from "../agents/domain";
+// v3 R0-A1-a: BUILTIN_AGENTS / AGENT_CONFIGS / BuiltinAgentId 已删除（业务名下推到各 ai-app *.constants.ts）
 export { AgentFactory } from "../agents/core/agent-factory";
 export { SpecAgentRegistry } from "../agents/core/spec-agent-registry";
 export {

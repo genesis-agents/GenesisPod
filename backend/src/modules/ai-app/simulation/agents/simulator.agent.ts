@@ -8,8 +8,8 @@
 
 import { Injectable, Logger, Optional, Inject } from "@nestjs/common";
 import { PlanBasedAgent } from "@/modules/ai-harness/facade";
+import { SIMULATOR_AGENT_ID } from "../simulation.constants";
 import {
-  BUILTIN_AGENTS,
   BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
@@ -47,7 +47,7 @@ export enum SimulationTeam {
 export class SimulatorAgent extends PlanBasedAgent {
   private readonly logger = new Logger(SimulatorAgent.name);
 
-  readonly id = BUILTIN_AGENTS.SIMULATOR;
+  readonly id = SIMULATOR_AGENT_ID;
   readonly name = "AI Simulator";
   readonly description = "智能推演专家，进行多方博弈和场景模拟";
   readonly capabilities = [

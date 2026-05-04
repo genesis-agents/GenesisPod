@@ -40,7 +40,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   ChatFacade: class {},
   RAGFacade: class {},
   BUILTIN_AGENTS: {
-    TOPIC_INSIGHTS: "topic_insights",
+    TOPIC_INSIGHTS: "topic-insights",
   },
   BUILTIN_TOOLS: {
     WEB_SEARCH: "web-search",
@@ -64,7 +64,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   },
   BaseAgent: class {},
   BUILTIN_AGENTS: {
-    TOPIC_INSIGHTS: "topic_insights",
+    TOPIC_INSIGHTS: "topic-insights",
   },
   BUILTIN_TOOLS: {
     WEB_SEARCH: "web-search",
@@ -104,8 +104,8 @@ describe("TopicInsightsAgent", () => {
   });
 
   describe("metadata properties", () => {
-    it("should have id = BUILTIN_AGENTS.TOPIC_INSIGHTS", () => {
-      expect(agent.id).toBe("topic_insights");
+    it('should have id = "topic-insights"', () => {
+      expect(agent.id).toBe("topic-insights");
     });
 
     it("should have a non-empty name", () => {
@@ -197,7 +197,7 @@ describe("TopicInsightsAgent", () => {
 
       expect(plan).toBeDefined();
       expect(plan.taskId).toBeTruthy();
-      expect(plan.agentId).toBe("topic_insights");
+      expect(plan.agentId).toBe("topic-insights");
     });
 
     it("should return 4 steps in order", async () => {
@@ -301,7 +301,7 @@ describe("TopicInsightsAgent", () => {
     it("should yield exactly one 'complete' event", async () => {
       const mockPlan = {
         taskId: "task-1",
-        agentId: "topic_insights",
+        agentId: "topic-insights",
         steps: [],
         estimatedTime: 0,
         toolsRequired: [],
@@ -322,7 +322,7 @@ describe("TopicInsightsAgent", () => {
     it("should yield a complete event with success=true", async () => {
       const mockPlan = {
         taskId: "task-2",
-        agentId: "topic_insights",
+        agentId: "topic-insights",
         steps: [],
         estimatedTime: 0,
         toolsRequired: [],
@@ -342,7 +342,7 @@ describe("TopicInsightsAgent", () => {
     it("should yield a complete event with empty artifacts", async () => {
       const mockPlan = {
         taskId: "task-3",
-        agentId: "topic_insights",
+        agentId: "topic-insights",
         steps: [],
         estimatedTime: 0,
         toolsRequired: [],
@@ -365,7 +365,7 @@ describe("TopicInsightsAgent", () => {
     it("should yield a complete event with tokensUsed=0 and duration=0", async () => {
       const mockPlan = {
         taskId: "task-4",
-        agentId: "topic_insights",
+        agentId: "topic-insights",
         steps: [],
         estimatedTime: 0,
         toolsRequired: [],
@@ -389,7 +389,7 @@ describe("TopicInsightsAgent", () => {
     it("should yield a complete event with a non-empty summary", async () => {
       const mockPlan = {
         taskId: "task-5",
-        agentId: "topic_insights",
+        agentId: "topic-insights",
         steps: [],
         estimatedTime: 0,
         toolsRequired: [],
