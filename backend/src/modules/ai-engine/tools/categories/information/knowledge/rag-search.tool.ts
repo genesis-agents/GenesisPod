@@ -273,12 +273,27 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`RAG search failed: ${message}`);
+      // ★ 2026-05-04 修：RAG 失败分类 —— 上游 embedding 限流时给 ReAct loop
+      //   清晰错误信息 + 降日志级别（429 不是 critical）
+      const isRateLimit =
+        /429|rate.?limit|too many requests|circuit.?open/i.test(message);
+      const isUpstreamUnavailable =
+        /service.?unavailable|503|ECONN|ETIMEDOUT/i.test(message);
+      const friendlyMessage = isRateLimit
+        ? "上游 embedding 服务暂时限流（rate-limit），无法生成查询向量。建议改用其他检索工具（web-search / academic-search）或稍后重试本工具。"
+        : isUpstreamUnavailable
+          ? "Embedding 服务暂时不可用，建议改用其他检索工具或稍后重试。"
+          : message;
+      if (isRateLimit) {
+        this.logger.warn(`[rag-search] upstream rate-limited: ${message}`);
+      } else {
+        this.logger.error(`RAG search failed: ${message}`);
+      }
       return {
         results: [],
         success: false,
         totalResults: 0,
-        error: message,
+        error: friendlyMessage,
       };
     }
   }
