@@ -64,12 +64,58 @@ export class EmbeddingService {
   private configCacheTime: number = 0;
   private readonly CONFIG_CACHE_TTL = 60000; // 1 minute cache
 
+  // ★ 2026-05-04 加：429 退避 + 熔断器（防止 OpenAI embedding 429 风暴
+  //   带垮 RAG 检索 + Figure relevance 筛选）
+  //   - 连续 N 次 429 in 时间窗 → 打开熔断 X 秒，期间直接 throw "circuit-open"
+  //     不再发请求（让上游 fallback 而不是 retry storm）
+  //   - 单次请求遇 429 → 指数退避重试（最多 3 次）
+  private rateLimitFailures: number[] = []; // timestamp 数组
+  private circuitOpenUntil = 0;
+  private static readonly CIRCUIT_THRESHOLD = 5; // 5 次 429 in window → 打开
+  private static readonly CIRCUIT_WINDOW_MS = 60_000; // 1 分钟内
+  private static readonly CIRCUIT_OPEN_DURATION_MS = 60_000; // 打开后冷却 60s
+  private static readonly RETRY_MAX_ATTEMPTS = 3;
+  private static readonly RETRY_BASE_DELAY_MS = 1000; // 1s, 2s, 4s 指数退避
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
     private readonly aiApiCallerService: AiApiCallerService,
     private readonly configService: ConfigService,
   ) {}
+
+  private isRateLimitError(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return /429|rate.?limit|too many requests/i.test(msg);
+  }
+
+  /**
+   * 熔断器状态：返回 true = 当前打开（拒绝调用），false = 关闭
+   */
+  private isCircuitOpen(): boolean {
+    const now = Date.now();
+    if (this.circuitOpenUntil > now) return true;
+    // 清理 window 外的失败时间戳
+    this.rateLimitFailures = this.rateLimitFailures.filter(
+      (ts) => now - ts < EmbeddingService.CIRCUIT_WINDOW_MS,
+    );
+    return false;
+  }
+
+  private recordRateLimitFailure(): void {
+    const now = Date.now();
+    this.rateLimitFailures.push(now);
+    this.rateLimitFailures = this.rateLimitFailures.filter(
+      (ts) => now - ts < EmbeddingService.CIRCUIT_WINDOW_MS,
+    );
+    if (this.rateLimitFailures.length >= EmbeddingService.CIRCUIT_THRESHOLD) {
+      this.circuitOpenUntil = now + EmbeddingService.CIRCUIT_OPEN_DURATION_MS;
+      this.logger.warn(
+        `[embedding] circuit-open: ${this.rateLimitFailures.length} 429s in ${EmbeddingService.CIRCUIT_WINDOW_MS}ms; cooling for ${EmbeddingService.CIRCUIT_OPEN_DURATION_MS}ms`,
+      );
+      this.rateLimitFailures = []; // 打开后清空，避免反复触发
+    }
+  }
 
   /**
    * 根据 provider 推断 API 格式（与 AiModelConfigService.inferApiFormat 一致）
@@ -221,23 +267,59 @@ export class EmbeddingService {
     const batchSize =
       config.apiFormat === "cohere" ? COHERE_MAX_BATCH_SIZE : MAX_BATCH_SIZE;
 
+    // ★ 2026-05-04 熔断器前置检查：circuit open 期间直接 throw，让上游 fallback
+    if (this.isCircuitOpen()) {
+      throw new Error(
+        `Embedding circuit-open (${this.rateLimitFailures.length} recent 429s). Upstream rate-limit cooldown until ${new Date(this.circuitOpenUntil).toISOString()}`,
+      );
+    }
+
     // Process in batches
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
 
-      try {
-        const result = await this.callEmbeddingAPI(config, batch);
-        allEmbeddings.push(...result.embeddings);
-        totalTokens += result.totalTokens;
-
-        this.logger.debug(
-          `Generated embeddings for batch ${Math.floor(i / batchSize) + 1} using ${config.modelId} (${config.apiFormat} format)`,
-        );
-      } catch (error) {
+      // ★ 2026-05-04 加 retry + 指数退避
+      let lastError: unknown;
+      let succeeded = false;
+      for (
+        let attempt = 0;
+        attempt < EmbeddingService.RETRY_MAX_ATTEMPTS;
+        attempt++
+      ) {
+        try {
+          const result = await this.callEmbeddingAPI(config, batch);
+          allEmbeddings.push(...result.embeddings);
+          totalTokens += result.totalTokens;
+          this.logger.debug(
+            `Generated embeddings for batch ${Math.floor(i / batchSize) + 1} using ${config.modelId} (${config.apiFormat} format)${attempt > 0 ? ` (attempt ${attempt + 1})` : ""}`,
+          );
+          succeeded = true;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (this.isRateLimitError(error)) {
+            this.recordRateLimitFailure();
+            // 熔断打开后立即终止重试链
+            if (this.isCircuitOpen()) break;
+            if (attempt < EmbeddingService.RETRY_MAX_ATTEMPTS - 1) {
+              const delayMs =
+                EmbeddingService.RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+              this.logger.warn(
+                `[embedding] 429 (attempt ${attempt + 1}/${EmbeddingService.RETRY_MAX_ATTEMPTS}), backing off ${delayMs}ms`,
+              );
+              await new Promise((r) => setTimeout(r, delayMs));
+              continue;
+            }
+          }
+          // 非 429 不重试，直接抛
+          break;
+        }
+      }
+      if (!succeeded) {
         this.logger.error(
-          `Failed to generate embeddings with ${config.modelId} (${config.apiFormat}): ${error}`,
+          `Failed to generate embeddings with ${config.modelId} (${config.apiFormat}) after retries: ${lastError}`,
         );
-        throw error;
+        throw lastError;
       }
     }
 

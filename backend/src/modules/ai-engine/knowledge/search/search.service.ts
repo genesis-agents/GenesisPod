@@ -1409,17 +1409,30 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           },
           timeout,
           maxRedirects: 3, // Reduced to prevent header accumulation
-          // 50MB（之前 5MB 太严，访问大型文档如 llms-full.txt 会触发
-          // "maxContentLength size of 5242880 exceeded"）。50MB 仍能防御 OOM。
-          maxContentLength: 50 * 1024 * 1024,
-          maxBodyLength: 50 * 1024 * 1024,
+          // ★ 2026-05-04 修：50MB 在 anthropic llms-full.txt（80MB+）/ 其他
+          //   超大 docs 仍触发 "maxContentLength size of 52428800 exceeded"。
+          //   提到 200MB 覆盖典型大文档；下游 extractMainContent 会截到 markdown
+          //   合理大小，OOM 风险不变。
+          maxContentLength: 200 * 1024 * 1024,
+          maxBodyLength: 200 * 1024 * 1024,
           decompress: true,
         }),
       );
 
-      const html = response.data;
+      let html = response.data;
       if (!html || typeof html !== "string") {
         return { success: false, error: "No HTML content received" };
+      }
+      // ★ 2026-05-04 截断兜底：响应超 10MB 截到前 10MB
+      //   axios maxContentLength=200MB 防"超限抛错"，这里再砍到 10MB 防
+      //   extractMainContent 跑正则在大字符串上 OOM + 复制双倍内存峰值。
+      //   anthropic llms-full.txt (80MB) → 截到 10MB 仍是几千 KB 的有效文档前缀。
+      const HTML_TRUNCATE_BYTES = 10 * 1024 * 1024;
+      if (html.length > HTML_TRUNCATE_BYTES) {
+        this.logger.warn(
+          `[fetchUrlContent] truncating ${url}: ${html.length} → ${HTML_TRUNCATE_BYTES} bytes (large doc)`,
+        );
+        html = html.substring(0, HTML_TRUNCATE_BYTES);
       }
 
       // Extract title
