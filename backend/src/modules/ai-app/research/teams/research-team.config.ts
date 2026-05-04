@@ -12,6 +12,7 @@ import {
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
 import { RESEARCH_TEAM_ID } from "../research.constants";
+import { RESEARCH_LEAD_ROLE_ID } from "./research-roles.config";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 /**
@@ -27,7 +28,7 @@ export const RESEARCH_WORKFLOW: WorkflowConfig = {
       name: "研究框架",
       description: "制定研究框架和方法论",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.RESEARCH_LEAD],
+      executorRoles: [RESEARCH_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: [],
     },
@@ -81,11 +82,11 @@ export const RESEARCH_WORKFLOW: WorkflowConfig = {
       name: "质量审核",
       description: "Leader 审核报告质量",
       type: "review",
-      executorRoles: [BUILTIN_ROLES.RESEARCH_LEAD],
+      executorRoles: [RESEARCH_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: ["writing"],
       reviewConfig: {
-        reviewerRole: BUILTIN_ROLES.RESEARCH_LEAD,
+        reviewerRole: RESEARCH_LEAD_ROLE_ID,
         criteria: [
           {
             name: "准确性",
@@ -114,7 +115,7 @@ export const RESEARCH_TEAM_CONFIG: TeamConfig = {
   type: "predefined",
   icon: "search",
   color: "#EC4899",
-  leaderRoleId: BUILTIN_ROLES.RESEARCH_LEAD,
+  leaderRoleId: RESEARCH_LEAD_ROLE_ID,
   memberRoles: [
     {
       roleId: BUILTIN_ROLES.RESEARCHER,

@@ -18,6 +18,7 @@ import {
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { SLIDES_LEAD_ROLE_ID } from "./office-roles.config";
 import { SLIDES_TEAM_ID } from "../office.constants";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
@@ -36,7 +37,7 @@ export const SLIDES_WORKFLOW: WorkflowConfig = {
       name: "任务分解",
       description: "分析源文本，确定页数、章节结构、设计策略",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.SLIDES_LEAD],
+      executorRoles: [SLIDES_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: [],
       timeout: 30000, // 30s
@@ -47,7 +48,7 @@ export const SLIDES_WORKFLOW: WorkflowConfig = {
       name: "大纲规划",
       description: "为每页规划观点、逻辑类型、模板类型、数据需求",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.SLIDES_LEAD],
+      executorRoles: [SLIDES_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: ["task-decomposition"],
       timeout: 60000, // 60s
@@ -127,7 +128,7 @@ export const SLIDES_WORKFLOW: WorkflowConfig = {
       name: "最终确认",
       description: "Leader 最终确认，准备导出",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.SLIDES_LEAD],
+      executorRoles: [SLIDES_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: ["batch-review"],
       timeout: 15000,
@@ -147,7 +148,7 @@ export const SLIDES_TEAM_CONFIG: TeamConfig = {
   type: "predefined",
   icon: "presentation",
   color: "#6366F1", // Indigo
-  leaderRoleId: BUILTIN_ROLES.SLIDES_LEAD,
+  leaderRoleId: SLIDES_LEAD_ROLE_ID,
   memberRoles: [
     {
       roleId: BUILTIN_ROLES.WRITER,

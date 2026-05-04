@@ -9,7 +9,9 @@ import {
   PromptSkillBridge,
   TeamRegistry,
   AgentRegistry,
+  RoleRegistry,
 } from "@/modules/ai-harness/facade";
+import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
@@ -318,6 +320,7 @@ export class TopicInsightsModule implements OnModuleInit {
     // 是隐蔽的生产事故源。因此不使用 @Optional — 缺失即启动失败。
     private readonly agentRegistry: AgentRegistry,
     private readonly teamRegistry: TeamRegistry,
+    private readonly roleRegistry: RoleRegistry,
   ) {}
 
   async onModuleInit() {
@@ -341,6 +344,9 @@ export class TopicInsightsModule implements OnModuleInit {
     // ★ Agent/Team 注册 → IntentRouter 可发现（硬依赖，失败即抛）
     this.agentRegistry.register(this.topicInsightsAgent);
     this.logger.log("Registered TopicInsightsAgent");
+    // v3 R0-A1-d: 业务 leader 角色由 ai-app 自身注册（base layer 不再硬编码业务名）
+    // RESEARCH_LEAD 跨 ai-app 复用（research / topic-insights / planning），register 自身幂等
+    this.roleRegistry.registerFromConfig(RESEARCH_LEAD_ROLE_CONFIG);
     this.teamRegistry.registerConfig(TOPIC_INSIGHTS_TEAM_CONFIG);
     this.logger.log("Registered TOPIC_INSIGHTS team config");
   }

@@ -123,70 +123,16 @@ export class RoleRegistry implements OnModuleInit {
   }
 
   /**
-   * 注册内置角色
+   * 注册内置角色（v3 R0-A1-d：仅通用 SDK 角色；业务 leader 由各 ai-app 自行注册）
    */
   private registerBuiltinRoles(): void {
-    // Research Lead
-    this.registerFromConfig({
-      id: BUILTIN_ROLES.RESEARCH_LEAD,
-      name: "研究领导",
-      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.RESEARCH_LEAD],
-      type: "leader",
-      icon: "👨‍🔬",
-      coreSkills: [
-        "research-planning",
-        "quality-review",
-        "content-integration",
-      ],
-      coreTools: [BUILTIN_TOOLS.WEB_SEARCH, BUILTIN_TOOLS.RAG_SEARCH],
-      responsibilities: [
-        "制定研究框架和方法论",
-        "分配研究任务给团队成员",
-        "审核研究质量和准确性",
-        "整合研究结果并输出报告",
-      ],
-      limitations: ["不直接执行具体的信息收集工作", "不进行深度数据分析"],
-      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
-
-你的职责：
-{{responsibilities}}
-
-注意事项：
-{{limitations}}
-
-请以专业、严谨的态度完成工作。`,
-    });
-
-    // Content Lead
-    this.registerFromConfig({
-      id: BUILTIN_ROLES.CONTENT_LEAD,
-      name: "内容领导",
-      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.CONTENT_LEAD],
-      type: "leader",
-      icon: "📝",
-      coreSkills: ["content-planning", "style-control", "quality-review"],
-      coreTools: [BUILTIN_TOOLS.TEXT_GENERATION],
-      responsibilities: [
-        "理解内容创作需求",
-        "规划内容结构和风格",
-        "审核内容质量",
-        "把控整体风格一致性",
-      ],
-      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
-
-你的职责：
-{{responsibilities}}
-
-请确保内容专业、准确、符合用户需求。`,
-    });
-
-    // Moderator
+    // Moderator（通用主持/协调角色）
     this.registerFromConfig({
       id: BUILTIN_ROLES.MODERATOR,
       name: "主持人",
       description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.MODERATOR],
       type: "leader",
-      icon: "🎙️",
+      icon: "mic",
       coreSkills: [
         "debate-moderation",
         "consensus-building",
@@ -205,65 +151,6 @@ export class RoleRegistry implements OnModuleInit {
 {{responsibilities}}
 
 请保持中立、公正，引导讨论深入进行。`,
-    });
-
-    // Tech Lead
-    this.registerFromConfig({
-      id: BUILTIN_ROLES.TECH_LEAD,
-      name: "技术领导",
-      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.TECH_LEAD],
-      type: "leader",
-      icon: "👨‍💻",
-      coreSkills: ["architecture-design", "task-decomposition", "code-review"],
-      coreTools: [
-        BUILTIN_TOOLS.CODE_GENERATION,
-        BUILTIN_TOOLS.STRUCTURED_OUTPUT,
-      ],
-      responsibilities: [
-        "设计系统架构",
-        "分解技术任务",
-        "审核代码质量",
-        "做出技术决策",
-      ],
-      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
-
-你的职责：
-{{responsibilities}}
-
-请以专业、务实的态度领导技术团队。`,
-    });
-
-    // Slides Lead (PPT 架构师)
-    // 注意：slides-quality-audit 属于 REVIEWER 角色
-    //       slides-template-rendering 属于 RENDERER 角色
-    // Leader 只负责任务分解和大纲规划
-    this.registerFromConfig({
-      id: BUILTIN_ROLES.SLIDES_LEAD,
-      name: "PPT 架构师",
-      description: ROLE_DESCRIPTIONS[BUILTIN_ROLES.SLIDES_LEAD],
-      type: "leader",
-      icon: "📊",
-      coreSkills: ["slides-task-decomposition", "slides-outline-planning"],
-      coreTools: [
-        BUILTIN_TOOLS.TEXT_GENERATION,
-        BUILTIN_TOOLS.STRUCTURED_OUTPUT,
-      ],
-      responsibilities: [
-        "分析源文本并制定 PPT 结构",
-        "规划每页的观点、逻辑和数据",
-        "协调团队成员完成内容生成",
-        "审核整体质量和一致性",
-      ],
-      limitations: ["不直接生成页面 HTML", "不进行图像创作"],
-      systemPromptTemplate: `你是{{role_name}}，{{role_description}}
-
-你的职责：
-{{responsibilities}}
-
-注意事项：
-{{limitations}}
-
-请以专业、高效的态度领导 PPT 生成团队。`,
     });
 
     // Researcher

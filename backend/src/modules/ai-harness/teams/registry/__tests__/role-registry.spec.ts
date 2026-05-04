@@ -53,8 +53,8 @@ describe("RoleRegistry", () => {
       expect(registry.size()).toBe(builtinCount);
     });
 
-    it("should include RESEARCH_LEAD as a leader role", () => {
-      const role = registry.get(BUILTIN_ROLES.RESEARCH_LEAD);
+    it("should include MODERATOR as a leader role", () => {
+      const role = registry.get(BUILTIN_ROLES.MODERATOR);
       expect(role.type).toBe("leader");
     });
 
@@ -63,20 +63,19 @@ describe("RoleRegistry", () => {
       expect(role.type).toBe("member");
     });
 
-    it("should include MODERATOR", () => {
-      expect(registry.has(BUILTIN_ROLES.MODERATOR)).toBe(true);
-    });
-
     it("should include ADVOCATE", () => {
       expect(registry.has(BUILTIN_ROLES.ADVOCATE)).toBe(true);
     });
 
-    it("should have leader roles including RESEARCH_LEAD, CONTENT_LEAD, TECH_LEAD", () => {
+    it("base layer leader pool only contains generic SDK leaders (no business *_LEAD)", () => {
+      // v3 R0-A1-d: business leaders (research-lead/content-lead/slides-lead) live in ai-app
       const leaders = registry.getLeaderRoles();
       const leaderIds = leaders.map((r) => r.id);
-      expect(leaderIds).toContain(BUILTIN_ROLES.RESEARCH_LEAD);
-      expect(leaderIds).toContain(BUILTIN_ROLES.CONTENT_LEAD);
-      expect(leaderIds).toContain(BUILTIN_ROLES.TECH_LEAD);
+      expect(leaderIds).toContain(BUILTIN_ROLES.MODERATOR);
+      expect(leaderIds).not.toContain("research-lead");
+      expect(leaderIds).not.toContain("content-lead");
+      expect(leaderIds).not.toContain("tech-lead");
+      expect(leaderIds).not.toContain("slides-lead");
     });
   });
 

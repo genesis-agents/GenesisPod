@@ -52,11 +52,12 @@ import { AgentsController } from "./agents";
 
 // Common (共享服务) - services are provided by AIOfficeCommonModule
 import { AIOfficeCommonModule } from "./common";
-import { TeamRegistry } from "@/modules/ai-harness/facade";
+import { TeamRegistry, RoleRegistry } from "@/modules/ai-harness/facade";
 import {
   REPORT_TEAM_CONFIG,
   SLIDES_TEAM_CONFIG,
   VISUAL_DESIGN_TEAM_CONFIG,
+  OFFICE_LEAD_ROLE_CONFIGS,
 } from "./teams";
 import { ResearchModule } from "../research/research.module";
 import { AiWritingModule } from "../writing/ai-writing.module";
@@ -134,9 +135,16 @@ import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
 export class AiOfficeModule implements OnModuleInit {
   private readonly logger = new Logger(AiOfficeModule.name);
 
-  constructor(private readonly teamRegistry: TeamRegistry) {}
+  constructor(
+    private readonly teamRegistry: TeamRegistry,
+    private readonly roleRegistry: RoleRegistry,
+  ) {}
 
   onModuleInit() {
+    // v3 R0-A1-d: 业务 leader 角色由 ai-app 自身注册（base layer 不再硬编码业务名）
+    for (const cfg of OFFICE_LEAD_ROLE_CONFIGS) {
+      this.roleRegistry.registerFromConfig(cfg);
+    }
     this.teamRegistry.registerConfig(REPORT_TEAM_CONFIG);
     this.teamRegistry.registerConfig(SLIDES_TEAM_CONFIG);
     this.teamRegistry.registerConfig(VISUAL_DESIGN_TEAM_CONFIG);

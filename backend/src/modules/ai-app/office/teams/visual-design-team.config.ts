@@ -20,6 +20,7 @@ import {
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
 import { DESIGN_TEAM_ID } from "../office.constants";
+import { CONTENT_LEAD_ROLE_ID } from "./office-roles.config";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 // ============================================================================
@@ -262,7 +263,7 @@ export const VISUAL_DESIGN_TEAM_CONFIG: TeamConfig = {
   type: "predefined",
   icon: "palette",
   color: "#EC4899", // Pink
-  leaderRoleId: BUILTIN_ROLES.CONTENT_LEAD,
+  leaderRoleId: CONTENT_LEAD_ROLE_ID,
   memberRoles: [
     {
       roleId: BUILTIN_ROLES.ANALYST,

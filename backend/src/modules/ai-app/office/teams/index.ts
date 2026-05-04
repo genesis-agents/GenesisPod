@@ -25,3 +25,11 @@ export {
   VISUAL_AGENT_PROMPT,
   STYLE_AGENT_PROMPT,
 } from "./visual-design-team.config";
+
+export {
+  CONTENT_LEAD_ROLE_ID,
+  CONTENT_LEAD_ROLE_CONFIG,
+  SLIDES_LEAD_ROLE_ID,
+  SLIDES_LEAD_ROLE_CONFIG,
+  OFFICE_LEAD_ROLE_CONFIGS,
+} from "./office-roles.config";

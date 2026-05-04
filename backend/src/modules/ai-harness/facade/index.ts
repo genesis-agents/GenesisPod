@@ -702,6 +702,7 @@ export type {
 export type {
   IRole,
   RoleId,
+  RoleConfig,
   WorkStyle,
 } from "../teams/abstractions/role.interface";
 export { BUILTIN_ROLES } from "../teams/abstractions/role.interface";
