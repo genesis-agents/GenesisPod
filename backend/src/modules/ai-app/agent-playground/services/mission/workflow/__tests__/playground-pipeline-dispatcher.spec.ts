@@ -23,6 +23,14 @@ jest.mock("../stages/s3-researcher-collect-findings.stage", () => ({
     ];
   }),
 }));
+// R2-A.6: stub runLeaderAssessResearchStage —— 默认 happy path（leader 不 abort）
+jest.mock("../stages/s4-leader-assess-research.stage", () => ({
+  runLeaderAssessResearchStage: jest.fn(
+    async (_ctx: Record<string, unknown>) => {
+      // legacy 内部 mutates ctx；mock 不动，让 hook 把已有 entry.lastResearcherResults 透传
+    },
+  ),
+}));
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -223,7 +231,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("runMission：s1+s2+s3 已实装 → 跑过 s1+s2+s3，在 s4 NotYetWired 处 fail", async () => {
+  it("runMission：s1-s4 已实装 → 跑过 s1+s2+s3+s4，在 s5 NotYetWired 处 fail", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -246,16 +254,19 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.status).toBe("failed");
     const errorStr = String(result.error);
     // s1+s2+s3 已 wired，fail 出现在 s4-leader-assess
-    expect(errorStr).toMatch(/NotYetWired|s4-leader-assess/i);
-    // s1 / s2 / s3 都跑过
+    expect(errorStr).toMatch(/NotYetWired|s5-reconciler/i);
+    // s1 / s2 / s3 / s4 都跑过
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toMatchObject({
       dimensions: [{ id: "dim-1" }],
     });
     expect(result.stageOutputs["s3-researcher-collect"]).toMatchObject({
-      // research primitive 输出 { results: [...], failureCount }
       results: [[{ dimension: "dim-1" }]],
       failureCount: 0,
+    });
+    // assess primitive 输出 { decision, raw }
+    expect(result.stageOutputs["s4-leader-assess"]).toMatchObject({
+      decision: "continue",
     });
   });
 

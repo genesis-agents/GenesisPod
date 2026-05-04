@@ -43,6 +43,7 @@ import { type RunMissionInput } from "../../../dto/run-mission.dto";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
 import { runLeaderPlanStage } from "./stages/s2-leader-plan-mission.stage";
 import { runResearcherDispatchStage } from "./stages/s3-researcher-collect-findings.stage";
+import { runLeaderAssessResearchStage } from "./stages/s4-leader-assess-research.stage";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -100,7 +101,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1+s2+s3 wired, s4-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s4 wired, s5-s12 NotYetWired)`,
     );
   }
 
@@ -212,6 +213,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     }
     if (stepId === "s3-researcher-collect") {
       return this.buildS3ResearcherCollectHooks();
+    }
+    if (stepId === "s4-leader-assess") {
+      return this.buildS4LeaderAssessHooks();
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
   }
@@ -437,6 +441,68 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           entry.s4PatchFailures = stageCtx.s4PatchFailures;
         }
         return stageCtx.researcherResults;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s4-leader-assess hook 实装（R2-A.6）
+   *
+   * assess primitive 必填 hooks.runRole + hooks.parseDecision。
+   * 与 s3 同款 thin adapter：legacy runLeaderAssessResearchStage 内部已经
+   * 完成 leader.assessResearchers + per-dim dispatch（retry/abort/extend）+
+   * mutates ctx.researcherResults/plan，本 hook 不重写决策逻辑：
+   *   hooks.runRole → 调整个 runLeaderAssessResearchStage（mutates ctx）
+   *                   返回 "ok" 标记（assess 决策已被 legacy stage 内部处理 + 落地）
+   *   hooks.parseDecision → 返 "continue"（legacy 决定 abort 时自己 throw，到不了这）
+   *
+   * 失败模式：
+   *   · runLeaderAssessResearchStage 主动 throw "Leader aborted mission..."
+   *     → orchestrator 标 stage:failed → mission failed
+   *   · per-dim retry 失败累积到 entry.s4PatchFailures（s10 签字时读）
+   */
+  private buildS4LeaderAssessHooks(): ResolvedStageHooks {
+    const hooks = {
+      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan) {
+          throw new Error("[s4-leader-assess] no plan from s2");
+        }
+        if (!entry.lastResearcherResults) {
+          throw new Error("[s4-leader-assess] no researcherResults from s3");
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          sharedState: { s4PatchFailures: entry.s4PatchFailures },
+        });
+        await runLeaderAssessResearchStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+        );
+        // legacy stage mutates ctx.researcherResults / ctx.plan.dimensions / s4PatchFailures —
+        // 把变化回写到 entry 让下游 hook 能读
+        entry.lastResearcherResults = stageCtx.researcherResults;
+        entry.lastPlan = stageCtx.plan;
+        if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
+          entry.s4PatchFailures = stageCtx.s4PatchFailures;
+        }
+        return { ok: true };
+      },
+      parseDecision: (_raw: unknown): "continue" => {
+        // legacy stage 已经内部 dispatch 了所有 action（retry / abort / extend）；
+        // 主动 abort 在 stage 内 throw 不到这里。返 "continue" 让 primitive
+        // 走完 happy path，stageOutputs[s4-leader-assess]={ decision:"continue", raw:{ok:true} }
+        return "continue";
       },
     };
     return hooks as unknown as ResolvedStageHooks;
