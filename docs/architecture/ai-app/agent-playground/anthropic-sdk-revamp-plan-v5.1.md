@@ -26,7 +26,7 @@
 
 1. **§11.3 IHookContext.payload 改 `Readonly<P>`** + `replacePayload()` capability gate（CRIT-1：阻止 prompt injection 链）
 2. **§11.3 IPluginContext.getService 锁定方案 A**：plugin-core 持有 NestJS `Injector`，ServiceToken 是 `unique symbol`（C2 + P0-2）
-3. **§11.3.x 新增 hook payload 类型设计章节**：`src/plugin-core/abstractions/hook-payloads/` 泛化版 payload，避免循环依赖（C3）
+3. **§11.3.x 新增 hook payload 类型设计章节**：`src/plugins/core/abstractions/hook-payloads/` 泛化版 payload，避免循环依赖（C3）
 4. **§11.4 CORE_HOOKS 加 TOOL_WRAP**：timeout / sandbox 走 wrap 语义而非 before/after（P0-1）
 5. **§11.6 删除 `AiHarnessModule.forFeature({ pluginOverrides })`**：保留 yaml + tag-based override（P0-3：避免 appName 入 payload 破坏 §0）
 6. **§11 全文 + §3.2 术语区分**："stage callback / primitive hook"（业务级）vs "platform hook"（plugin 级）（P0-4）
@@ -44,7 +44,7 @@
 
 1. 新增 §11 Plugin 系统大章节（26 plugin / plugin-core / SDK 发布形态 / R0.5 PR 序列）
 2. §0 增加"横切关注点剥离"红线
-3. §3.1 目录图新增 `src/plugin-core/` + `src/plugins/`
+3. §3.1 目录图新增 `src/plugins/core/` + `src/plugins/`
 4. §4 R0.5 实施路径
 5. §9 时间表 R0.5
 6. §10 plugin 化验收维度
@@ -87,7 +87,7 @@
 - [§10 验收标准](#10-验收标准)
 - [§11 Plugin 系统（v5 新增）](#11-plugin-系统v5-新增)
   - [§11.1 设计目标 5 维 + 全量 plugin 盘点](#111-设计目标-5-维--全量-plugin-盘点)
-  - [§11.2 顶层架构 + plugin-core / plugins 双根目录](#112-顶层架构--plugin-core--plugins-双根目录)
+  - [§11.2 顶层架构 + plugin-core / plugins 单一根目录](#112-顶层架构--plugin-core--plugins-单一根目录)
   - [§11.3 核心接口（IPluginManifest / IPlugin / IPluginContext / HookBus）](#113-核心接口)
   - [§11.4 标准 Hook 集 + 命名规范 + payload 版本化](#114-标准-hook-集--命名规范--payload-版本化)
   - [§11.5 PluginCapability 安全声明 + capability gate](#115-plugincapability-安全声明--capability-gate)
@@ -558,47 +558,46 @@ playground 用户**完全感知不到改造**：
 │  L1 ai-infra (existing, 不动)                           │
 └─────────────────────────────────────────────────────────┘
 
-★ v5 新增双根目录（不属于任何 layer，是平台基础设施）：
+★ v5 新增单一根目录 src/plugins/（v5.1.1 修订：合并 core 与各域实现）：
 
 ┌─────────────────────────────────────────────────────────┐
-│  src/plugin-core/   平台 plugin 内核（非业务 module）     │
-│    ├── abstractions/ (IPlugin / IPluginManifest /        │
-│    │                  IPluginContext / HookId 等)        │
-│    ├── hook-bus/      (HookBus + HookTrace)              │
-│    ├── registry/      (PluginRegistry + 拓扑解析)        │
-│    ├── loader/        (PluginLoader + manifest 校验)     │
-│    ├── lifecycle/     (PluginSupervisor + 熔断)          │
-│    ├── security/      (Capability gate + 签名校验预留)   │
-│    └── plugin-core.module.ts                             │
+│  src/plugins/   plugin 系统单一根目录                      │
 │                                                          │
-│    特征：                                                 │
-│    • 不依赖 harness/engine/infra/ai-app 任何业务符号       │
-│    • 仅暴露 IPlugin / HookBus / PluginRegistry            │
-│    • 启动期被 AppModule 直接 import（先于 harness）        │
-└─────────────────────────────────────────────────────────┘
-                       ↓ 加载 plugin
-┌─────────────────────────────────────────────────────────┐
-│  src/plugins/   plugin 实现（按 8 大域子目录分类）         │
-│    ├── observability/   telemetry-otel / eval / latency... │
-│    ├── resilience/      rate-limit / circuit-breaker...  │
-│    ├── security/        sandbox / tool-permission...     │
-│    ├── storage/         memory-redis / event-journal...  │
-│    ├── rag-backend/     embedding / vector...            │
-│    ├── llm-augment/     multi-key / pricing...           │
-│    ├── tool-augment/    validation / timeout...          │
-│    └── plugins.config.yaml  (项目级启用清单)              │
-│                                                          │
-│    每个 plugin 形态：                                     │
-│    plugins/<domain>/<plugin-id>/                         │
-│      ├── plugin.ts     (IPlugin 实现)                    │
-│      ├── manifest.ts   (IPluginManifest 静态对象)         │
-│      ├── config.schema.ts (zod)                          │
-│      ├── README.md                                       │
-│      └── __tests__/                                      │
+│  ├── core/                  ★ plugin 系统内核（特殊子目录）│
+│  │   ├── abstractions/      IPlugin / IPluginManifest    │
+│  │   ├── hook-bus/          HookBus + HookTrace          │
+│  │   ├── registry/          PluginRegistry + 拓扑解析    │
+│  │   ├── loader/            PluginLoader + manifest 校验 │
+│  │   ├── lifecycle/         PluginSupervisor + 熔断      │
+│  │   ├── security/          Capability gate + 签名校验   │
+│  │   └── plugin-core.module.ts                           │
+│  │                                                       │
+│  │   不依赖 harness/engine/infra/ai-app；启动期被        │
+│  │   AppModule 直接 import（先于 harness）                │
+│  │                                                       │
+│  ├── observability/         实现域（5 plugin）            │
+│  ├── resilience/            实现域（4 plugin）            │
+│  ├── security/              实现域（5 plugin）            │
+│  ├── storage/               实现域（5 plugin）            │
+│  ├── rag-backend/           实现域（2 大类）              │
+│  ├── llm-augment/           实现域（4 plugin）            │
+│  ├── tool-augment/          实现域（4 plugin）            │
+│  │                                                       │
+│  └── plugins.config.yaml    项目级 plugin 启用清单        │
 └─────────────────────────────────────────────────────────┘
                        ↓ 通过 hook 注入
                   harness / engine
+
+每个 plugin 形态：
+  src/plugins/<domain>/<plugin-id>/
+    ├── plugin.ts          (IPlugin 实现)
+    ├── manifest.ts        (IPluginManifest 静态对象)
+    ├── config.schema.ts   (zod)
+    ├── README.md
+    └── __tests__/
 ```
+
+**v5.1.1 合并理由**：plugin-core 与 plugins 实现是同一系统的不同部分（机制 vs 策略），合并到单一根目录概念耦合更紧凑，看护规则简化为一条 src/plugins/ ↔ src/modules/ 边界。core/ 是 plugins/ 下的特殊子目录（不是实现域），新增 plugin 不得放 core/。详见 standards/19。
 
 **严守 §0**：harness / engine / infra 全 grep 0 命中 ai-app 名 / 中文文案 / emoji。
 **v5 新增严守**：harness / engine 不得直接 import `src/plugins/<...>` 具体实现；plugin 不得直接 import harness/engine 内部路径，只能通过 hook 接口接入。架构看护见 §11.13。
@@ -1733,7 +1732,7 @@ R0.5-E 4-6 周（R1 后并行，不计入主线）
 
 ### R0.5 验收（v5 新增）
 
-- [ ] `src/plugin-core/` 内核就位（abstractions + HookBus + Registry + Loader + Supervisor）+ 全部单测通过
+- [ ] `src/plugins/core/` 内核就位（abstractions + HookBus + Registry + Loader + Supervisor）+ 全部单测通过
 - [ ] harness 关键路径接 `MISSION_START/END`、`MEMORY_*` hook
 - [ ] engine 关键路径接 `LLM_REQUEST/RESPONSE`、`TOOL_BEFORE/AFTER` hook
 - [ ] 4 个 plugin 落地：observability/telemetry-otel + storage/tool-cache-redis + resilience/rate-limit + security/sandbox-isolated-vm
@@ -1824,7 +1823,7 @@ R0.5-E 4-6 周（R1 后并行，不计入主线）
 **v5 vs v3 增量**：
 
 1. §0 新增"横切关注点必须从内核剥离到 plugin"红线
-2. §3.1 目录新增 `src/plugin-core/` + `src/plugins/` 双根目录
+2. §3.1 目录新增 `src/plugins/core/` + `src/plugins/` 单一根目录
 3. §4 Phase 1 实施路径插入 R0.5
 4. §9 时间表 R0.5
 5. §10 R0.5 验收
@@ -1834,7 +1833,7 @@ R0.5-E 4-6 周（R1 后并行，不计入主线）
 
 1. §11.3 IHookContext.payload 改 `Readonly<P>` + `replacePayload()` capability gate（CRIT-1）
 2. §11.3 IPluginContext.getService 锁定方案 A：plugin-core 持有 NestJS Injector + ServiceProxyRegistry（C2 + P0-2）
-3. §11.3 新增 hook payload 类型在 `src/plugin-core/abstractions/hook-payloads/` 定义（C3）
+3. §11.3 新增 hook payload 类型在 `src/plugins/core/abstractions/hook-payloads/` 定义（C3）
 4. §11.4 CORE_HOOKS 加 TOOL_WRAP（带 AbortSignal）（P0-1）
 5. §11.6 删除 `forFeature pluginOverrides`，改 yaml + tag-based override（P0-3）
 6. §11 全文 + §3.2 术语区分：stage callback / primitive hook（业务级）vs platform hook（plugin 级）（P0-4）
@@ -1893,7 +1892,7 @@ R0.5-E 4-6 周（R1 后并行，不计入主线）
 
 总计：26 个独立 plugin。预估迁出后 harness 减重 30-40%，engine 减重 25-35%。
 
-### §11.2 顶层架构 + plugin-core / plugins 双根目录
+### §11.2 顶层架构 + plugin-core / plugins 单一根目录
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1917,32 +1916,35 @@ R0.5-E 4-6 周（R1 后并行，不计入主线）
           └──────────┬──────────────┘
                      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  src/plugin-core/   平台 plugin 内核（不依赖业务）            │
-│   IPlugin / HookBus / PluginRegistry / Loader / Supervisor  │
-└────────────────────┬─────────────────────────────────────────┘
-                     │ 加载并实例化
-                     ▼
-┌─────────────────────────────────────────────────────────────┐
-│  src/plugins/   plugin 实现（按 8 域子目录分类）              │
-│   observability/ resilience/ security/ storage/             │
-│   rag-backend/ llm-augment/ tool-augment/                   │
+│  src/plugins/   plugin 系统单一根目录                         │
+│                                                              │
+│  ├── core/                  平台内核（IPlugin / HookBus /    │
+│  │                           Registry / Loader / Supervisor）│
+│  ├── observability/         实现域                           │
+│  ├── resilience/            实现域                           │
+│  ├── security/              实现域                           │
+│  ├── storage/               实现域                           │
+│  ├── rag-backend/           实现域                           │
+│  ├── llm-augment/           实现域                           │
+│  └── tool-augment/          实现域                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**架构原则（强约束）**：
+**架构原则（强约束，v5.1.1 修订）**：
 
-1. **plugin-core 在 src 根**，对应概念上比 ai-infra 更底层；不属于任何 module，是平台内核。
-2. **plugins 在 src 根**，按 8 大域子目录分类，避免 26 个平铺；每个域子目录未来对应一个 npm 子包（见 §11.10 SDK 发布形态）。
+1. **plugins 在 src 根目录**，是平台基础设施而非业务模块；不进 modules/。`core/` 子目录是 plugin 系统内核（IPlugin / HookBus 等）；7 个域子目录是 plugin 实现；core 与各域并列。
+2. 26 plugin 按 7 大域子目录分类，避免平铺；每个域子目录未来对应一个 npm 子包，core/ 对应 `@genesis/plugin-core`（见 §11.10 SDK 发布形态）。
 3. **plugin 不放 ai-app/**——plugin 是平台横切能力不是业务能力；ai-app 依赖 harness/engine，若 plugin 在 ai-app/ 下会形成 harness/engine → ai-app 反向依赖。
-4. **harness/engine 不感知具体 plugin**，只感知 hook 接口；plugin 替换不需要改 harness/engine 代码。
+4. **harness/engine 不感知具体 plugin 实现**，只感知 plugins/core/ 的 hook 接口；plugin 替换不需要改 harness/engine 代码。
 5. **plugin 之间不直接互调**，仅通过 hook payload 通信——这是 SDK 发布后保持向后兼容的关键。
+6. **core/ 是特殊子目录**，新增 plugin 不得放 core/；core/ 只允许有"plugin 系统基础设施"代码。
 
 ### §11.3 核心接口
 
 #### IPluginManifest（plugin 自描述）
 
 ```typescript
-// src/plugin-core/abstractions/plugin.interface.ts
+// src/plugins/core/abstractions/plugin.interface.ts
 export interface IPluginManifest {
   /** 全局唯一 plugin id（含域前缀） */
   id: string; // "observability/telemetry-otel"
@@ -2032,7 +2034,7 @@ export interface IPluginContext {
 
 /**
  * v5.1 C2 + P0-2：ServiceToken 是 unique symbol（不是 string），避免 token 撞名
- * 内置 token 全部在 src/plugin-core/abstractions/service-tokens.ts 定义
+ * 内置 token 全部在 src/plugins/core/abstractions/service-tokens.ts 定义
  */
 export const REDIS_SERVICE: ServiceToken<RedisClient> = Symbol(
   "plugin.service.redis",
@@ -2051,7 +2053,7 @@ export const HTTP_CLIENT: ServiceToken<HttpClient> = Symbol(
 plugin-core 持有 NestJS `Injector`（通过 ApplicationContext 启动期注入），但**对 plugin 暴露的是受限代理 ServiceProxyRegistry**：
 
 ```typescript
-// src/plugin-core/security/service-proxy-registry.ts
+// src/plugins/core/security/service-proxy-registry.ts
 @Injectable()
 export class ServiceProxyRegistry {
   /**
@@ -2309,10 +2311,10 @@ manifest.payloadVersions = {
 
 **问题**：plugin 实现 `HookHandler<{ request: ChatRequest }>` 需要 import `ChatRequest`（来自 ai-engine），但 §11.13 ESLint 规则禁止 plugin import ai-engine 内部。同时 harness/engine 也不能 import `src/plugins/`（业务无关原则）。
 
-**解决方案**：在 `src/plugin-core/abstractions/hook-payloads/` 定义**泛化版** payload 类型：
+**解决方案**：在 `src/plugins/core/abstractions/hook-payloads/` 定义**泛化版** payload 类型：
 
 ```typescript
-// src/plugin-core/abstractions/hook-payloads/llm.ts
+// src/plugins/core/abstractions/hook-payloads/llm.ts
 export interface LlmRequestPayload {
   readonly __version: number;
   /** 业务侧 ChatRequest 的不透明引用 */
@@ -2336,7 +2338,7 @@ export interface LlmResponsePayload {
   };
 }
 
-// src/plugin-core/abstractions/hook-payloads/tool.ts
+// src/plugins/core/abstractions/hook-payloads/tool.ts
 export interface ToolBeforePayload {
   /* ... */
 }
@@ -2350,7 +2352,7 @@ export interface ToolWrapPayload {
   readonly signal: AbortSignal;
 }
 
-// src/plugin-core/abstractions/hook-payloads/mission.ts
+// src/plugins/core/abstractions/hook-payloads/mission.ts
 export interface MissionStartPayload {
   /* ... */
 }
@@ -2561,7 +2563,7 @@ attribution / budget / checkpointer / event-journal 全部监听 `MISSION_START`
 #### 启动期校验（fail-fast）
 
 ```typescript
-// src/plugin-core/loader/plugin-loader.service.ts
+// src/plugins/core/loader/plugin-loader.service.ts
 async load(): Promise<void> {
   const manifests = await this.scan("src/plugins/");
 
@@ -2656,7 +2658,7 @@ PluginLoader 区分两类来源，启动期信任级别不同：
 | `node_modules/@genesis/plugins-*/` 官方第三方       | 需签名                 | manifest.signature 必须非空 + 公钥锁定校验             | 强制签名 + audit log |
 | `node_modules/<其他>/genesis-plugin-*` 非官方第三方 | 不受信                 | 默认拒绝加载，需 `PLUGIN_TRUST_MODE=permissive` 才允许 | 拒绝加载             |
 
-- 公钥固化在 `src/plugin-core/security/trusted-keys.json`（含 Genesis 官方公钥）
+- 公钥固化在 `src/plugins/core/security/trusted-keys.json`（含 Genesis 官方公钥）
 - 环境变量 `PLUGIN_TRUST_MODE`：
   - `strict`（生产推荐）：所有外部 plugin 强制签名
   - `permissive`（开发用）：未签名外部 plugin 可加载，但启动期 logger.warn
@@ -2745,7 +2747,7 @@ PluginLoader 区分两类来源，启动期信任级别不同：
 
 | PR       | 内容                                                                                  | 工作量 |
 | -------- | ------------------------------------------------------------------------------------- | ------ |
-| **PR-1** | `src/plugin-core/abstractions/` 全部接口定义 + manifest 校验器 + spec                 | 1 天   |
+| **PR-1** | `src/plugins/core/abstractions/` 全部接口定义 + manifest 校验器 + spec                | 1 天   |
 | **PR-2** | `HookBus` + onion 实现 + spec（abort / supervisor / trace / payload version）         | 1.5 天 |
 | **PR-3** | `PluginRegistry` + `PluginLoader` + `PluginConfigService` + `PluginSupervisor` + spec | 2 天   |
 
@@ -2817,7 +2819,7 @@ R2/R3/R4 不变
 
 ##### 1. layer-boundaries.spec.ts 扩展（v5.1 C1：原 spec 对新目录盲区）
 
-现有 `backend/src/__tests__/architecture/layer-boundaries.spec.ts` 的 `fileLayer()` 函数基于 `modules/([^/]+)/` 正则识别层归属——对 `src/plugin-core/` + `src/plugins/` 静默返回 null，导致 7 条断言假绿。**必修扩展**：
+现有 `backend/src/__tests__/architecture/layer-boundaries.spec.ts` 的 `fileLayer()` 函数基于 `modules/([^/]+)/` 正则识别层归属——对 `src/plugins/core/` + `src/plugins/` 静默返回 null，导致 7 条断言假绿。**必修扩展**：
 
 ```typescript
 // PR-0 修订
@@ -2826,7 +2828,7 @@ function fileLayer(filePath: string): string | null {
   if (m1) return m1[1];
 
   // v5.1 C1: 识别新根目录
-  if (filePath.startsWith("src/plugin-core/")) return "plugin-core";
+  if (filePath.startsWith("src/plugins/core/")) return "plugin-core";
   const m2 = filePath.match(/^src\/plugins\/([^/]+)\//);
   if (m2) return `plugin:${m2[1]}`;          // 例: plugin:observability
 
@@ -2936,7 +2938,7 @@ R0.5 PR-1 之前必须先做 PR-0，含：
 - layer-boundaries.spec 扩展（fileLayer + 9 项新断言）
 - ESLint 规则修正 + 补充
 - DS1（getService 实现路径方案 A）+ DS2（plugin-core service 拿取方案）书面确认（commit 到 standards/19）
-- hook payload 类型在 `src/plugin-core/abstractions/hook-payloads/` 定义
+- hook payload 类型在 `src/plugins/core/abstractions/hook-payloads/` 定义
 - 新增 `standards/19-plugin-system-governance.md`：plugin / plugin-core 与 5 层架构边界规范（cross-ref §11）
 
 ---
