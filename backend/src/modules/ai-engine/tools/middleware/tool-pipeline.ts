@@ -1,6 +1,11 @@
 /**
  * AI Engine - Tool Pipeline
  * 工具执行管道
+ *
+ * v5.1 R0.5 PR-4: 双轨接 plugins/core HookBus
+ *   - 新路径：fire(TOOL_BEFORE) → 旧 middleware 链（terminal） → fire(TOOL_AFTER)
+ *   - 旧路径：HookBus 未注入时直接跑旧 middleware 链（行为零变化）
+ *   - HookAbortError("cache-hit") 由上层 plugin 触发短路，仍 fire TOOL_AFTER（HIGH-3）
  */
 
 import { v4 as uuid } from "uuid";
@@ -8,6 +13,13 @@ import { ITool, ToolContext, ToolResult } from "../abstractions/tool.interface";
 import { IToolMiddleware, IMiddlewareChain } from "./middleware.interface";
 import { ToolError } from "@/modules/ai-engine/tools/abstractions/tool.error";
 import { ToolResultCacheService } from "../cache/tool-result-cache.service";
+import { HookBus } from "@/plugins/core/hook-bus";
+import {
+  CORE_HOOKS,
+  type ToolBeforePayload,
+  type ToolAfterPayload,
+} from "@/plugins/core/abstractions";
+import { HookAbortError } from "@/plugins/core/abstractions";
 
 /**
  * 工具执行管道
@@ -16,7 +28,11 @@ import { ToolResultCacheService } from "../cache/tool-result-cache.service";
 export class ToolPipeline implements IMiddlewareChain {
   private middlewares: IToolMiddleware[] = [];
 
-  constructor(private readonly cacheService?: ToolResultCacheService) {}
+  constructor(
+    private readonly cacheService?: ToolResultCacheService,
+    /** v5.1 PR-4: 可选 HookBus；未注入时旧行为不变（双轨期默认）*/
+    private readonly hookBus?: HookBus,
+  ) {}
 
   /**
    * 添加中间件
@@ -48,9 +64,113 @@ export class ToolPipeline implements IMiddlewareChain {
   }
 
   /**
-   * 执行工具（带中间件链）
+   * 执行工具（带中间件链 + 可选 plugin HookBus 双轨包装）
+   *
+   * v5.1 PR-4 双轨：
+   *   - hookBus 注入 → fire(TOOL_BEFORE) ⊃ 旧 middleware ⊃ fire(TOOL_AFTER)
+   *   - hookBus 未注入 → 直接跑 runLegacyPipeline（旧逻辑，零行为变化）
    */
   async execute<TInput, TOutput>(
+    tool: ITool<TInput, TOutput>,
+    input: TInput,
+    context: ToolContext,
+  ): Promise<ToolResult<TOutput>> {
+    if (this.hookBus) {
+      return this.executeWithHooks(tool, input, context);
+    }
+    return this.runLegacyPipeline(tool, input, context);
+  }
+
+  /** PR-4: 双轨期 hook 包装路径 */
+  private async executeWithHooks<TInput, TOutput>(
+    tool: ITool<TInput, TOutput>,
+    input: TInput,
+    context: ToolContext,
+  ): Promise<ToolResult<TOutput>> {
+    if (!context.executionId) {
+      context.executionId = uuid();
+    }
+    const missionId =
+      (context.metadata?.missionId as string | undefined) ?? context.taskId;
+
+    // payload 仅含可结构化克隆数据（不含 tool 函数 / context 引用）
+    // plugin 需要 tool 实例时通过 ServiceProxyRegistry + toolId 查 ToolRegistry
+    const safeContextMeta = {
+      executionId: context.executionId,
+      toolId: context.toolId,
+      taskId: context.taskId,
+      metadata: context.metadata,
+    };
+    const beforePayload: ToolBeforePayload = {
+      __version: 1,
+      call: { toolId: tool.id, input, contextMeta: safeContextMeta },
+      meta: { missionId, timestamp: Date.now() },
+    };
+
+    try {
+      const result = await this.hookBus!.fire(
+        CORE_HOOKS.TOOL_BEFORE,
+        beforePayload,
+        async () => {
+          // terminal: legacy middleware pipeline + tool.execute
+          const r = await this.runLegacyPipeline(tool, input, context);
+          // fire TOOL_AFTER inside terminal (capture cache flag etc.)
+          const afterPayload: ToolAfterPayload = {
+            __version: 1,
+            call: { toolId: tool.id, input, contextMeta: safeContextMeta },
+            result: this.toJsonSafe(r),
+            cacheHit: Boolean(
+              (r.metadata as { extra?: { fromCache?: boolean } } | undefined)
+                ?.extra?.fromCache,
+            ),
+            meta: { missionId, timestamp: Date.now() },
+          };
+          return this.hookBus!.fire(
+            CORE_HOOKS.TOOL_AFTER,
+            afterPayload,
+            async () => r,
+          );
+        },
+      );
+      return result;
+    } catch (err) {
+      // v5.1 HIGH-3: abort 路径仍 fire TOOL_AFTER 让 billing/audit plugin 记录
+      if (err instanceof HookAbortError) {
+        const afterPayload: ToolAfterPayload = {
+          __version: 1,
+          call: { toolId: tool.id, input, contextMeta: safeContextMeta },
+          result: this.toJsonSafe(err.abortPayload),
+          abortReason: err.reason,
+          meta: { missionId, timestamp: Date.now() },
+        };
+        await this.hookBus!.fire(
+          CORE_HOOKS.TOOL_AFTER,
+          afterPayload,
+          async () => err.abortPayload,
+        ).catch(() => undefined);
+        // 透传给业务层
+        throw err;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * 将业务对象转换为可 structuredClone 的纯数据
+   * 移除函数引用 / class 实例，只保留 JSON 兼容字段
+   */
+  private toJsonSafe(obj: unknown): unknown {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj !== "object") return obj;
+    try {
+      return JSON.parse(JSON.stringify(obj));
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** 旧逻辑：保持双轨期行为零变化 */
+  private async runLegacyPipeline<TInput, TOutput>(
     tool: ITool<TInput, TOutput>,
     input: TInput,
     context: ToolContext,
@@ -195,4 +315,3 @@ export class ToolExecutor {
     return this.pipeline.execute(tool, input, context);
   }
 }
-
