@@ -22,7 +22,18 @@ export * from "./abstractions";
 
 // DI tokens（让 ai-app 用于 @Inject 注解）
 export { HookBus } from "./hook-bus";
-export { PluginRegistry } from "./registry";
+export {
+  PluginRegistry,
+  PluginResolver,
+  PluginCircularDependencyError,
+  PluginMissingDependencyError,
+  PluginReplacesConflictError,
+} from "./registry";
 export { PluginSupervisor } from "./lifecycle";
-export { PluginLoader, PluginConfigService, ManifestValidator } from "./loader";
+export {
+  PluginLoader,
+  PluginConfigService,
+  ManifestValidator,
+  ManifestValidationError,
+} from "./loader";
 export { LifecycleHookBridge } from "./bridge";
