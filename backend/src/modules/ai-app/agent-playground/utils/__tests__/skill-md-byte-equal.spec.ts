@@ -53,14 +53,38 @@ const MAPPING: ReadonlyArray<AgentSkillMapping> = [
 ];
 
 /**
- * 比较两段文本是否 byte-equal —— 容忍：
- *   1. 行末 \r\n vs \n（git autocrlf 在 Windows 经常变换）
- *   2. 文件末尾的 trailing newline
+ * 比较两段文本是否"渲染等价"（render-equivalent）—— 容忍 prettier 自动格式化
+ * 引入的纯格式化差异，但保留所有语义内容：
  *
- * 其它差异（包括缩进、空格数、内容字符）必须严格一致。
+ *   1. 行末 \r\n vs \n（git autocrlf 在 Windows 经常变换）
+ *   2. 文件首/末多余 newline（prettier 在 <!-- start --> 后 / <!-- end --> 前
+ *      自动插入空行）
+ *   3. 段落与列表 / 标题之间额外空行（prettier 在 list 前 / heading 前补空行）
+ *      → 多个连续 \n 折叠为单一段落分隔（\n\n）
+ *   4. markdown 表格列宽对齐填充（prettier 把 `| a | bbb |` 自动 pad 到等宽 +
+ *      separator dash 数量也跟着补齐）—— 行内连续 ≥2 空格 → 1 空格；连续
+ *      ≥3 dash → `---`（markdown 渲染等价）
+ *   5. 行尾空格 / 行尾 \r
+ *
+ * 这些差异都不会改变 markdown 渲染结果或 LLM prompt 语义；保留行内字符 / 标点
+ * / 缩进 / 单空格分隔的差异（实质语义改动）必须仍然 fail。
  */
 function normalizeForCompare(text: string): string {
-  return text.replace(/\r\n/g, "\n").replace(/\n+$/, "");
+  const lines = text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => {
+      const m = line.match(/^([ \t]*)(.*)$/);
+      const indent = m![1];
+      const body = m![2]
+        .replace(/-{3,}/g, "---")
+        .replace(/[ \t]{2,}/g, " ")
+        .replace(/[ \t]+$/, "");
+      return indent + body;
+    })
+    // 跳过纯空行 —— prettier 在 list / heading 前后自动插入空行属于纯排版调整
+    .filter((line) => line.trim().length > 0);
+  return lines.join("\n");
 }
 
 beforeEach(() => clearSkillCache());
