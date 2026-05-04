@@ -44,6 +44,8 @@ import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stag
 import { runLeaderPlanStage } from "./stages/s2-leader-plan-mission.stage";
 import { runResearcherDispatchStage } from "./stages/s3-researcher-collect-findings.stage";
 import { runLeaderAssessResearchStage } from "./stages/s4-leader-assess-research.stage";
+import { runReconcilerStage } from "./stages/s5-reconciler-cross-dim-fact-check.stage";
+import { runAnalystStage } from "./stages/s6-analyst-synthesize-insights.stage";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -76,6 +78,8 @@ interface SessionEntry {
    */
   lastPlan?: import("./mission-context").MissionContext["plan"];
   lastResearcherResults?: import("./mission-context").MissionContext["researcherResults"];
+  lastReconciliationReport?: import("./mission-context").MissionContext["reconciliationReport"];
+  lastAnalystOutput?: import("./mission-context").MissionContext["analystOutput"];
   /**
    * s4PatchFailures 跨 stage 共享状态（legacy team.mission.ts 用 sharedState
    * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
@@ -101,7 +105,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s4 wired, s5-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s6 wired, s7-s12 NotYetWired)`,
     );
   }
 
@@ -216,6 +220,12 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     }
     if (stepId === "s4-leader-assess") {
       return this.buildS4LeaderAssessHooks();
+    }
+    if (stepId === "s5-reconciler") {
+      return this.buildS5ReconcilerHooks();
+    }
+    if (stepId === "s6-analyst") {
+      return this.buildS6AnalystHooks();
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
   }
@@ -503,6 +513,82 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         // 主动 abort 在 stage 内 throw 不到这里。返 "continue" 让 primitive
         // 走完 happy path，stageOutputs[s4-leader-assess]={ decision:"continue", raw:{ok:true} }
         return "continue";
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s5-reconciler hook 实装（R2-A.7）
+   *
+   * synthesize primitive (mode=reconcile) 必填 hooks.synthesize。
+   * thin adapter：调 runReconcilerStage（mutates ctx.reconciliationReport），
+   * 返回 stageCtx.reconciliationReport（synthesize primitive 包成 { result }）。
+   */
+  private buildS5ReconcilerHooks(): ResolvedStageHooks {
+    const hooks = {
+      synthesize: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan || !entry.lastResearcherResults) {
+          throw new Error(
+            "[s5-reconciler] missing plan/researcherResults from prev stages",
+          );
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+        });
+        await runReconcilerStage(stageCtx, this.stageBindings.buildDeps());
+        entry.lastReconciliationReport = stageCtx.reconciliationReport;
+        return stageCtx.reconciliationReport;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s6-analyst hook 实装（R2-A.8）
+   *
+   * synthesize primitive (mode=analyze) 必填 hooks.synthesize。
+   * thin adapter：调 runAnalystStage（mutates ctx.analystOutput）。
+   */
+  private buildS6AnalystHooks(): ResolvedStageHooks {
+    const hooks = {
+      synthesize: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan || !entry.lastResearcherResults) {
+          throw new Error(
+            "[s6-analyst] missing plan/researcherResults from prev stages",
+          );
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+        });
+        await runAnalystStage(stageCtx, this.stageBindings.buildDeps());
+        entry.lastAnalystOutput = stageCtx.analystOutput;
+        return stageCtx.analystOutput;
       },
     };
     return hooks as unknown as ResolvedStageHooks;

@@ -31,6 +31,34 @@ jest.mock("../stages/s4-leader-assess-research.stage", () => ({
     },
   ),
 }));
+// R2-A.7: stub runReconcilerStage
+jest.mock("../stages/s5-reconciler-cross-dim-fact-check.stage", () => ({
+  runReconcilerStage: jest.fn(async (ctx: Record<string, unknown>) => {
+    ctx.reconciliationReport = {
+      factTable: [],
+      conflicts: [],
+      overlaps: [],
+      gaps: [],
+      figureCandidates: [],
+      reconciliationReport: "test reconciliation",
+    };
+  }),
+}));
+// R2-A.8: stub runAnalystStage
+jest.mock("../stages/s6-analyst-synthesize-insights.stage", () => ({
+  runAnalystStage: jest.fn(async (ctx: Record<string, unknown>) => {
+    ctx.analystOutput = {
+      themeSummary: "test theme",
+      insights: [
+        {
+          headline: "i1",
+          narrative: "...",
+          supportingDimensions: ["d1", "d2"],
+        },
+      ],
+    };
+  }),
+}));
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -231,7 +259,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("runMission：s1-s4 已实装 → 跑过 s1+s2+s3+s4，在 s5 NotYetWired 处 fail", async () => {
+  it("runMission：s1-s6 已实装 → 跑过 s1-s6，在 s7 NotYetWired 处 fail", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -254,8 +282,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.status).toBe("failed");
     const errorStr = String(result.error);
     // s1+s2+s3 已 wired，fail 出现在 s4-leader-assess
-    expect(errorStr).toMatch(/NotYetWired|s5-reconciler/i);
-    // s1 / s2 / s3 / s4 都跑过
+    expect(errorStr).toMatch(/NotYetWired|s7-writer-outline/i);
+    // s1 - s6 都跑过
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toMatchObject({
       dimensions: [{ id: "dim-1" }],
@@ -264,9 +292,16 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       results: [[{ dimension: "dim-1" }]],
       failureCount: 0,
     });
-    // assess primitive 输出 { decision, raw }
     expect(result.stageOutputs["s4-leader-assess"]).toMatchObject({
       decision: "continue",
+    });
+    // synthesize primitive 输出 { result } (mode=reconcile)
+    expect(result.stageOutputs["s5-reconciler"]).toMatchObject({
+      result: { reconciliationReport: "test reconciliation" },
+    });
+    // synthesize primitive 输出 { result } (mode=analyze)
+    expect(result.stageOutputs["s6-analyst"]).toMatchObject({
+      result: { themeSummary: "test theme" },
     });
   });
 
