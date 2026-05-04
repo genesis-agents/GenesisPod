@@ -24,14 +24,14 @@ import type {
   SynthesisPhaseCtx,
   WriterPhaseCtx,
 } from "../mission-context";
-import type { WriterDeps } from "../mission-deps";
+import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { narrate } from "../narrative.util";
 import { normalizeTargetWords } from "../word-count-normalizer.util";
 
 export async function runWriterOutlineStage(
   ctx: MissionInvariants & PlanPhaseCtx & SynthesisPhaseCtx & WriterPhaseCtx,
-  deps: WriterDeps,
+  deps: MissionDeps,
 ): Promise<void> {
   const {
     missionId,
