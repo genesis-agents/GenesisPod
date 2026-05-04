@@ -14,11 +14,11 @@
  */
 
 import {
-  BUILTIN_TEAMS,
   BUILTIN_ROLES,
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { SLIDES_TEAM_ID } from "../office.constants";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 /**
@@ -140,7 +140,7 @@ export const SLIDES_WORKFLOW: WorkflowConfig = {
  * Slides 团队配置
  */
 export const SLIDES_TEAM_CONFIG: TeamConfig = {
-  id: BUILTIN_TEAMS.SLIDES,
+  id: SLIDES_TEAM_ID,
   name: "PPT 生成",
   description:
     "AI 驱动的专业 PPT 生成团队，5 个专业 Agent 协作完成高质量演示文稿",

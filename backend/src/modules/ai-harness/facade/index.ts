@@ -698,7 +698,7 @@ export type {
   TeamId,
   TeamType,
 } from "../teams/abstractions/team.interface";
-export { BUILTIN_TEAMS } from "../teams/abstractions/team.interface";
+// v3 R0-A1-c: BUILTIN_TEAMS 已删除（业务名下推到各 ai-app *.constants.ts）
 export type {
   IRole,
   RoleId,

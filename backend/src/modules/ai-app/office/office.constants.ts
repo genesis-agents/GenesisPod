@@ -9,6 +9,11 @@ export const SLIDES_AGENT_ID = "slides" as const;
 export const DOCS_AGENT_ID = "docs" as const;
 export const DESIGNER_AGENT_ID = "designer" as const;
 
+// Team ids（v3 R0-A1-c：从 harness BUILTIN_TEAMS 下推）
+export const SLIDES_TEAM_ID = "slides" as const;
+export const REPORT_TEAM_ID = "report" as const;
+export const DESIGN_TEAM_ID = "design" as const;
+
 export const SLIDES_AGENT_META: AgentConfig = {
   id: SLIDES_AGENT_ID,
   name: "AI Slides",

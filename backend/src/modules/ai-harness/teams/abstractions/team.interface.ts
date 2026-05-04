@@ -3,7 +3,10 @@
  * 团队抽象接口定义
  */
 
-import { ToolId, SkillId } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  ToolId,
+  SkillId,
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { RoleId } from "./role.interface";
 import { ITeamMember, TeamMemberId } from "./member.interface";
 import { IWorkflow, WorkflowConfig } from "./workflow.interface";
@@ -15,18 +18,7 @@ export type TeamId = string;
 
 export type TeamType = "predefined" | "custom";
 
-// ==================== 预定义 Team 常量 ====================
-
-export const BUILTIN_TEAMS = {
-  RESEARCH: "research",
-  REPORT: "report",
-  DEBATE: "debate",
-  DESIGN: "design",
-  SLIDES: "slides",
-  TOPIC_INSIGHTS: "topic-insights",
-} as const;
-
-export type BuiltinTeamId = (typeof BUILTIN_TEAMS)[keyof typeof BUILTIN_TEAMS];
+// v3 R0-A1-c: BUILTIN_TEAMS / BuiltinTeamId 已删除（业务名下推到各 ai-app *.constants.ts）
 
 // ==================== Team 配置 ====================
 

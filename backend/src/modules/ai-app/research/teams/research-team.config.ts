@@ -7,11 +7,11 @@
  */
 
 import {
-  BUILTIN_TEAMS,
   BUILTIN_ROLES,
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { RESEARCH_TEAM_ID } from "../research.constants";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 /**
@@ -108,7 +108,7 @@ export const RESEARCH_WORKFLOW: WorkflowConfig = {
  * 研究团队配置
  */
 export const RESEARCH_TEAM_CONFIG: TeamConfig = {
-  id: BUILTIN_TEAMS.RESEARCH,
+  id: RESEARCH_TEAM_ID,
   name: "深度研究",
   description: "专业级深度研究，输出高质量调研报告",
   type: "predefined",

@@ -6,6 +6,8 @@
 import type { AgentConfig } from "@/modules/ai-harness/facade";
 
 export const RESEARCH_AGENT_ID = "researcher" as const;
+// Team id（v3 R0-A1-c）—— mission-style team id, agent id 不同
+export const RESEARCH_TEAM_ID = "research" as const;
 
 export const RESEARCH_AGENT_META: AgentConfig = {
   id: RESEARCH_AGENT_ID,

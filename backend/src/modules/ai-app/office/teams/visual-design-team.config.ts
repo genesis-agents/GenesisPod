@@ -15,11 +15,11 @@
  */
 
 import {
-  BUILTIN_TEAMS,
   BUILTIN_ROLES,
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { DESIGN_TEAM_ID } from "../office.constants";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 // ============================================================================
@@ -255,7 +255,7 @@ export const VISUAL_DESIGN_WORKFLOW: WorkflowConfig = {
  * Visual Design 团队配置
  */
 export const VISUAL_DESIGN_TEAM_CONFIG: TeamConfig = {
-  id: BUILTIN_TEAMS.DESIGN,
+  id: DESIGN_TEAM_ID,
   name: "视觉设计",
   description:
     "AI 驱动的视觉设计团队，4 个专业 Agent 协作完成信息图、图表等视觉内容设计",

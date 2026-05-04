@@ -7,11 +7,11 @@
  */
 
 import {
-  BUILTIN_TEAMS,
   BUILTIN_ROLES,
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { REPORT_TEAM_ID } from "../office.constants";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 /**
@@ -95,7 +95,7 @@ export const REPORT_WORKFLOW: WorkflowConfig = {
  * 报告团队配置
  */
 export const REPORT_TEAM_CONFIG: TeamConfig = {
-  id: BUILTIN_TEAMS.REPORT,
+  id: REPORT_TEAM_ID,
   name: "报告撰写",
   description: "高效生成各类商业报告和文档",
   type: "predefined",

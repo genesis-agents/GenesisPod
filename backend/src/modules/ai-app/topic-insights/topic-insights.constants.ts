@@ -4,6 +4,8 @@
 import type { AgentConfig } from "@/modules/ai-harness/facade";
 
 export const TOPIC_INSIGHTS_AGENT_ID = "topic-insights" as const;
+// Team id（v3 R0-A1-c）—— 与 agent id 同值
+export const TOPIC_INSIGHTS_TEAM_ID = "topic-insights" as const;
 
 export const TOPIC_INSIGHTS_AGENT_META: AgentConfig = {
   id: TOPIC_INSIGHTS_AGENT_ID,

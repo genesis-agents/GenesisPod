@@ -6,11 +6,11 @@
  */
 
 import {
-  BUILTIN_TEAMS,
   BUILTIN_ROLES,
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { TOPIC_INSIGHTS_TEAM_ID } from "../topic-insights.constants";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 /**
@@ -92,7 +92,7 @@ export const TOPIC_INSIGHTS_WORKFLOW: WorkflowConfig = {
  * 深度洞察研究团队配置
  */
 export const TOPIC_INSIGHTS_TEAM_CONFIG: TeamConfig = {
-  id: BUILTIN_TEAMS.TOPIC_INSIGHTS,
+  id: TOPIC_INSIGHTS_TEAM_ID,
   name: "深度洞察研究",
   description: "多维度深度研究与专业报告生成",
   type: "predefined",

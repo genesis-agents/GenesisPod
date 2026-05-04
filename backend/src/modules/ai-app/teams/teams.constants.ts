@@ -4,6 +4,8 @@
 import type { AgentConfig } from "@/modules/ai-harness/facade";
 
 export const TEAM_COLLABORATION_AGENT_ID = "team-collaboration" as const;
+// Team id（v3 R0-A1-c）
+export const DEBATE_TEAM_ID = "debate" as const;
 
 export const TEAM_COLLABORATION_AGENT_META: AgentConfig = {
   id: TEAM_COLLABORATION_AGENT_ID,
