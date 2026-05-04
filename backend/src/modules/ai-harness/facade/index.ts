@@ -975,3 +975,84 @@ export type {
   ErrorDetectionRetryConfig,
 } from "../../ai-engine/facade";
 export { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
+
+// ╔════════════════════════════════════════════════════════════════════════
+// v5.1 R1 — Mission pipeline framework（generic primitive 框架）
+// ai-app（writing-team / playground 等）通过本 facade import 框架符号
+// ╚════════════════════════════════════════════════════════════════════════
+
+// R1-A primitives + cross-stage state
+export {
+  CrossStageState,
+  StageAbortError,
+  type IStagePrimitive,
+  type StagePrimitiveId,
+  type StageStepConfig,
+  type StageRunArgs,
+  type ResolvedRole,
+  type ResolvedStageHooks,
+  type StageHookFn,
+  type MissionContext,
+  type RoleState,
+  type PastDecision as StagePastDecision,
+} from "../teams/services/stages/abstractions";
+export {
+  PLAN_PRIMITIVE,
+  RESEARCH_PRIMITIVE,
+  ASSESS_PRIMITIVE,
+  SYNTHESIZE_PRIMITIVE,
+  DRAFT_PRIMITIVE,
+  REVIEW_PRIMITIVE,
+  SIGNOFF_PRIMITIVE,
+  PERSIST_PRIMITIVE,
+  LEARN_PRIMITIVE,
+  ALL_STAGE_PRIMITIVES,
+} from "../teams/services/stages";
+
+// R1-B pipeline orchestrator + config + registry
+export {
+  defineMissionPipeline,
+  validatePipelineConfig,
+  type MissionPipelineConfig,
+  type PipelineStepConfig,
+  type PipelineRoleConfig,
+} from "../teams/orchestrator/pipeline/mission-pipeline-config";
+export { MissionPipelineRegistry } from "../teams/orchestrator/pipeline/mission-pipeline-registry.service";
+export {
+  MissionPipelineOrchestrator,
+  type MissionEvent as PipelineMissionEvent,
+  type MissionResult as PipelineMissionResult,
+  type RunPipelineArgs,
+} from "../teams/orchestrator/pipeline/mission-pipeline-orchestrator.service";
+
+// R1-C mission store ports + in-memory adapters
+export {
+  type IMissionStore,
+  type IMissionEventStore,
+  type MissionRecord,
+  type MissionCreateInput,
+  type MissionStatusUpdate,
+  type MissionEventRecord,
+  type PastDecision,
+} from "../lifecycle/mission-lifecycle/abstractions";
+export {
+  InMemoryMissionStore,
+  InMemoryMissionEventStore,
+} from "../lifecycle/mission-lifecycle/in-memory";
+
+// R1-D generic rerun orchestrator
+export {
+  MissionRerunOrchestrator,
+  type MissionRerunOrchestratorOptions,
+  type IMissionRerunPolicy,
+  type IMissionRunner,
+  type IMissionCheckpointCloner,
+  type IMissionOwnershipAssigner,
+  type IMissionRerunLogger,
+  type RerunFullArgs,
+  type RerunTodoArgs,
+  type RerunResult,
+  type RerunInputOverrides,
+  RerunNotAllowedError,
+  SourceMissionNotFoundError,
+} from "../lifecycle/mission-lifecycle/rerun";
