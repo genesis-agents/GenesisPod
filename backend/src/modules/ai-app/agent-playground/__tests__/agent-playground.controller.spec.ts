@@ -95,6 +95,20 @@ function buildController() {
     execute: jest.fn(),
     isLocallyRerunable: jest.fn().mockReturnValue({ rerunable: false }),
   };
+  // ★ 2026-05-04 PR-10d: MissionRerunOrchestratorService 拆出后 spec 用真实
+  //   service 构造（依赖 store / buffer / ownership / checkpoint / orchestrator
+  //   mock），保证 rerun 行为与抽出前一致。
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    MissionRerunOrchestratorService,
+  } = require("../services/mission/rerun/mission-rerun-orchestrator.service");
+  const rerunOrchestrator = new MissionRerunOrchestratorService(
+    orchestrator as never,
+    store as never,
+    buffer as never,
+    ownership as never,
+    checkpoint as never,
+  );
 
   const controller = new AgentPlaygroundController(
     orchestrator as never,
@@ -107,6 +121,7 @@ function buildController() {
     checkpoint as never,
     localRerun as never,
     exportService as never,
+    rerunOrchestrator as never,
   );
 
   return {

@@ -40,6 +40,7 @@ import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
+import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "./services/export/mission-export.service";
 
 @Controller("agent-playground")
@@ -58,6 +59,7 @@ export class AgentPlaygroundController {
     private readonly checkpoint: MissionCheckpointService,
     private readonly localRerun: LocalRerunService,
     private readonly exportService: MissionExportService,
+    private readonly rerunOrchestrator: MissionRerunOrchestratorService,
   ) {}
 
   private isDevTriggerAuthorized(presentedToken?: string): boolean {
@@ -278,64 +280,7 @@ export class AgentPlaygroundController {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     await this.assertOwnership(missionId, userId);
-
-    const original = await this.store.getById(missionId, userId);
-    if (!original)
-      throw new ForbiddenException(`mission ${missionId} not found`);
-
-    // Phase P11-1: rerun 复用原 mission 的 userProfile（如有）
-    const originalProfile = (original as { userProfile?: unknown })
-      .userProfile as Partial<RunMissionInput> | null | undefined;
-    const input: RunMissionInput = {
-      topic: original.topic,
-      depth: (["quick", "standard", "deep"].includes(
-        originalProfile?.depth ?? original.depth,
-      )
-        ? (originalProfile?.depth ?? original.depth)
-        : "deep") as RunMissionInput["depth"],
-      language: (originalProfile?.language ??
-        (original.language === "en-US"
-          ? "en-US"
-          : "zh-CN")) as RunMissionInput["language"],
-      budgetProfile: originalProfile?.budgetProfile ?? "medium",
-      styleProfile: originalProfile?.styleProfile ?? "executive",
-      lengthProfile: originalProfile?.lengthProfile ?? "standard",
-      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
-      withFigures: originalProfile?.withFigures ?? true,
-      auditLayers: originalProfile?.auditLayers ?? "default",
-      concurrency: originalProfile?.concurrency ?? 3,
-      viewMode: originalProfile?.viewMode ?? "continuous",
-      // ★ 继承原 mission 的预算上限，不再硬编码 300（深度档位需要 600+）
-      maxCredits:
-        (original as { maxCredits?: number }).maxCredits ??
-        originalProfile?.maxCredits ??
-        300,
-    };
-
-    const newMissionId = randomUUID();
-    this.ownership.assign(newMissionId, userId);
-
-    // ★ P0-R5-2 (2026-04-30): rerun 闭环 — 复制原 mission checkpoint 到新 mission
-    //   让 team.mission 入口 canResume() 取到 ok 决策，下游 stage 跳过已完成 keys。
-    //   过期 / 已 completed 的 checkpoint 自动跳过；新 mission 从头跑。
-    const cloned = await this.checkpoint
-      .cloneCheckpoint(missionId, newMissionId)
-      .catch(() => false);
-    if (cloned) {
-      this.log.log(
-        `[rerun] mission ${newMissionId} resumed from ${missionId} checkpoint`,
-      );
-    }
-
-    void this.orchestrator
-      .runMission(newMissionId, input, userId)
-      .catch((err: unknown) => {
-        this.log.error(
-          `mission ${newMissionId} (rerun of ${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-
-    return { missionId: newMissionId, streamNamespace: "agent-playground" };
+    return this.rerunOrchestrator.rerunFullMission(missionId, userId);
   }
 
   /**
@@ -373,126 +318,12 @@ export class AgentPlaygroundController {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     await this.assertOwnership(missionId, userId);
-
-    const original = await this.store.getById(missionId, userId);
-    if (!original)
-      throw new ForbiddenException(`mission ${missionId} not found`);
-
-    if (original.status === "running") {
-      throw new BadRequestException(
-        "Source mission is still running — cancel or wait for completion before re-running individual todos",
-      );
-    }
-
-    const origin = (body?.origin ?? "").trim();
-    if (origin === "leader-assess-abort") {
-      throw new BadRequestException(
-        "Aborted dimensions cannot be re-run; create a new mission instead",
-      );
-    }
-    if (origin === "system-stage" && todoId.endsWith("s11-persist")) {
-      throw new BadRequestException(
-        "Persistence stage cannot be re-run — re-run the whole mission instead",
-      );
-    }
-
-    // 构造给新 mission leader 看的 focusHint（中文 / 英文双语，让 leader 自主选择）
-    const scope = body?.scope ?? "mission";
-    const dimRef = (body?.dimensionRef ?? "").trim();
-    const chapterIdx = body?.chapterIndex;
-    const todoTitle = (body?.todoTitle ?? "").trim();
-    const reasonText = (body?.reasonText ?? "").trim();
-    const hintLines: string[] = [];
-    if (scope === "dimension" && dimRef) {
-      hintLines.push(
-        `本次为单维度重跑：重点改进维度「${dimRef}」`,
-        `Focused re-run: improve dimension "${dimRef}"`,
-      );
-    } else if (
-      scope === "chapter" &&
-      dimRef &&
-      typeof chapterIdx === "number"
-    ) {
-      hintLines.push(
-        `本次为章节重跑：维度「${dimRef}」第 ${chapterIdx + 1} 章需要重点改写`,
-        `Focused re-run: rewrite chapter ${chapterIdx + 1} of dimension "${dimRef}"`,
-      );
-    } else if (scope === "review") {
-      hintLines.push(
-        `本次为复审改进重跑：${todoTitle || origin}`,
-        `Focused re-run: address review finding "${todoTitle || origin}"`,
-      );
-    } else if (scope === "system") {
-      hintLines.push(
-        `本次为系统阶段重跑：${todoTitle || todoId}`,
-        `Focused re-run: redo system stage "${todoTitle || todoId}"`,
-      );
-    }
-    if (reasonText) hintLines.push(`Context: ${reasonText}`);
-
-    // 老 input 复用
-    // ★ 2026-05-01：topic 完全保持原样，不再追加 [Re-run focus] hint 块
-    //   原 P1-21 把 hint 嵌进 topic 末尾导致前端 mission header truncate 失效，
-    //   多行 topic 把右上角设置按钮挤出可视区。
-    //   hint 已通过 mission:manual-rerun-from-todo 事件 emit 给前端 ledger 关联展示，
-    //   且 hintLines 内容仅日志记录，对 leader plan 行为影响有限（保持空 hint
-    //   不嵌 topic，leader 按原 topic 重新规划即可）。
-    const originalProfile = (original as { userProfile?: unknown })
-      .userProfile as Partial<RunMissionInput> | null | undefined;
-    const TOPIC_LIMIT = 200;
-    const focusedTopic = original.topic.slice(0, TOPIC_LIMIT);
-
-    const input: RunMissionInput = {
-      topic: focusedTopic,
-      depth: (["quick", "standard", "deep"].includes(
-        originalProfile?.depth ?? original.depth,
-      )
-        ? (originalProfile?.depth ?? original.depth)
-        : "deep") as RunMissionInput["depth"],
-      language: (originalProfile?.language ??
-        (original.language === "en-US"
-          ? "en-US"
-          : "zh-CN")) as RunMissionInput["language"],
-      budgetProfile: originalProfile?.budgetProfile ?? "medium",
-      styleProfile: originalProfile?.styleProfile ?? "executive",
-      lengthProfile: originalProfile?.lengthProfile ?? "standard",
-      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
-      withFigures: originalProfile?.withFigures ?? true,
-      auditLayers: originalProfile?.auditLayers ?? "default",
-      concurrency: originalProfile?.concurrency ?? 3,
-      viewMode: originalProfile?.viewMode ?? "continuous",
-      maxCredits: 300,
-    };
-
-    const newMissionId = randomUUID();
-    this.ownership.assign(newMissionId, userId);
-
-    // emit 一个 mission:manual-rerun-from-todo 事件，让前端 ledger 把新 mission
-    // 关联到 sourceTodoId（用户能在 todo 详情看到"重跑历史"）
-    await this.buffer.broadcast({
-      type: "agent-playground.mission:manual-rerun-from-todo",
-      scope: { missionId: newMissionId, userId },
-      payload: {
-        sourceMissionId: missionId,
-        sourceTodoId: todoId,
-        origin,
-        scope,
-        dimensionRef: dimRef || undefined,
-        chapterIndex: chapterIdx,
-        todoTitle: todoTitle || undefined,
-      },
-      timestamp: Date.now(),
+    return this.rerunOrchestrator.rerunFromTodo({
+      sourceMissionId: missionId,
+      userId,
+      todoId,
+      body,
     });
-
-    void this.orchestrator
-      .runMission(newMissionId, input, userId)
-      .catch((err: unknown) => {
-        this.log.error(
-          `mission ${newMissionId} (rerun-todo ${todoId} of ${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-
-    return { missionId: newMissionId, streamNamespace: "agent-playground" };
   }
 
   /**

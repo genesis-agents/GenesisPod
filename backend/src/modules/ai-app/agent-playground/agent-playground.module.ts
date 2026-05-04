@@ -36,6 +36,7 @@ import { LocalRerunService } from "./services/mission/rerun/local-rerun.service"
 import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
 // RerunLockRegistry 已上提到 ai-harness/facade（@Global TeamsModule provider）
 import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
+import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "./services/export/mission-export.service";
 // PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
 import {
@@ -107,6 +108,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     CtxHydratorService,
     // RerunLockRegistry 已上提到 ai-harness/facade（PR-3 standardize playground）
     StageRerunDispatcher,
+    MissionRerunOrchestratorService,
     // ── 导出装配（CSV / Markdown / JSON）──
     MissionExportService,
     // ── S12 postmortem 失败模式分类（已上提到 @Global HarnessModule）──
