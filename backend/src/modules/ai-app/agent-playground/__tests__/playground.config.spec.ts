@@ -109,8 +109,9 @@ describe("PlaygroundRuntimeFlagService (v5.1 R2-A.0)", () => {
     process.env = origEnv;
   });
 
-  it("默认 → legacy（无 env / 无白名单 / 无 force）", () => {
-    expect(svc.resolve({})).toBe("legacy");
+  // ★ 2026-05-04 R2-A.13 完成：默认从 legacy 切到 pipeline-v1
+  it("默认 → pipeline-v1（无 env / 无白名单 / 无 force，R2-A.13 后切到新轨）", () => {
+    expect(svc.resolve({})).toBe("pipeline-v1");
   });
 
   it("env=pipeline-v1 → pipeline-v1", () => {
@@ -118,9 +119,14 @@ describe("PlaygroundRuntimeFlagService (v5.1 R2-A.0)", () => {
     expect(svc.resolve({})).toBe("pipeline-v1");
   });
 
-  it("env=非法值 → legacy（fail-soft，不抛错）", () => {
-    process.env.PLAYGROUND_RUNTIME = "wat";
+  it("env=legacy → legacy（紧急回滚路径）", () => {
+    process.env.PLAYGROUND_RUNTIME = "legacy";
     expect(svc.resolve({})).toBe("legacy");
+  });
+
+  it("env=非法值 → pipeline-v1（fail-soft 走默认值）", () => {
+    process.env.PLAYGROUND_RUNTIME = "wat";
+    expect(svc.resolve({})).toBe("pipeline-v1");
   });
 
   it("forceRuntime 优先级最高（覆盖 env）", () => {
@@ -137,8 +143,9 @@ describe("PlaygroundRuntimeFlagService (v5.1 R2-A.0)", () => {
     expect(svc.resolve({ userId: "u2" })).toBe("pipeline-v1");
   });
 
-  it("用户白名单：不在白名单内 + env=legacy → legacy", () => {
+  it("用户白名单：不在白名单内 + env=legacy → legacy（白名单不强制走新轨）", () => {
     process.env.PLAYGROUND_PIPELINE_V1_USER_IDS = "u1";
+    process.env.PLAYGROUND_RUNTIME = "legacy";
     expect(svc.resolve({ userId: "OTHER" })).toBe("legacy");
   });
 
@@ -149,10 +156,9 @@ describe("PlaygroundRuntimeFlagService (v5.1 R2-A.0)", () => {
     );
   });
 
-  it("defaultRuntime() 不看用户白名单", () => {
-    process.env.PLAYGROUND_PIPELINE_V1_USER_IDS = "u1";
-    expect(svc.defaultRuntime()).toBe("legacy");
-    process.env.PLAYGROUND_RUNTIME = "pipeline-v1";
+  it("defaultRuntime()：默认 pipeline-v1；env=legacy 时回退 legacy", () => {
     expect(svc.defaultRuntime()).toBe("pipeline-v1");
+    process.env.PLAYGROUND_RUNTIME = "legacy";
+    expect(svc.defaultRuntime()).toBe("legacy");
   });
 });

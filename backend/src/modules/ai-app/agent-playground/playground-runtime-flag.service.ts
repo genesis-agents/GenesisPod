@@ -7,14 +7,16 @@
  * 来源优先级（首先非空者生效）：
  *   1. 单 mission 强制 override（controller body 显式传 forceRuntime）
  *   2. 用户级灰度（PLAYGROUND_PIPELINE_V1_USER_IDS env 白名单）
- *   3. 全局 env：PLAYGROUND_RUNTIME = "legacy" | "pipeline-v1"（默认 "legacy"）
+ *   3. 全局 env：PLAYGROUND_RUNTIME = "legacy" | "pipeline-v1"
  *
- * R2-A 阶段：默认全 legacy，仅 spec / 内部 dev token 触发 pipeline-v1。
- * R2-B 1 周双轨观察：内部用户灰度 5% → 25% → 50%。
+ * 默认值切换历史：
+ *   2026-05-04 R2-A.0 ~ A.13 期间：默认 "legacy"（新轨在搭建/wired 中）
+ *   2026-05-04 R2-A.13 完成后：**默认切到 "pipeline-v1"**
+ *     —— 全 14 stage wired 完毕，主干流量走新轨；
+ *        紧急回滚：env PLAYGROUND_RUNTIME=legacy
+ *
+ * R2-B 1 周双轨观察：通过 metadata.runtime_version 对比新旧产物。
  * R2-C：删除 legacy 路径 + 删 PLAYGROUND_RUNTIME flag。
- *
- * mission_runs.metadata 写入实际跑过的 runtime_version 让审计 / postmortem
- * 可对比双轨产物（v5.1 R2-A 要求）。
  */
 import { Injectable, Logger } from "@nestjs/common";
 
@@ -49,7 +51,9 @@ export class PlaygroundRuntimeFlagService {
     if (envValue === "pipeline-v1" || envValue === "legacy") {
       return envValue;
     }
-    return "legacy";
+    // ★ 2026-05-04 R2-A.13 完成后默认切到 pipeline-v1
+    //   紧急回滚：Railway env 设 PLAYGROUND_RUNTIME=legacy
+    return "pipeline-v1";
   }
 
   /**
@@ -57,7 +61,8 @@ export class PlaygroundRuntimeFlagService {
    */
   defaultRuntime(): PlaygroundRuntimeVersion {
     const envValue = (process.env.PLAYGROUND_RUNTIME ?? "").trim();
-    return envValue === "pipeline-v1" ? "pipeline-v1" : "legacy";
+    if (envValue === "legacy") return "legacy";
+    return "pipeline-v1";
   }
 
   private userInPipelineV1Whitelist(userId: string): boolean {
