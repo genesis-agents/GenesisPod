@@ -51,6 +51,11 @@ import { runWriterStage } from "./stages/s8-writer-draft-report.stage";
 import { runSectionQualityEnhancementStage } from "./stages/s8b-section-quality-enhancement.stage";
 import { runCriticStage } from "./stages/s9-reviewer-critic-l4.stage";
 import { runReportObjectiveEvaluationStage } from "./stages/s9b-report-objective-evaluation.stage";
+import { runLeaderForewordAndSignoffStage } from "./stages/s10-leader-foreword-and-signoff.stage";
+import { runPersistStage } from "./stages/s11-mission-persist.stage";
+import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
+import { MissionCheckpointService } from "@/modules/ai-harness/facade";
+import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -90,6 +95,8 @@ interface SessionEntry {
   lastReportArtifact?: import("./mission-context").MissionContext["reportArtifact"];
   lastReviewScore?: import("./mission-context").MissionContext["reviewScore"];
   lastVerifierVerdicts?: unknown[];
+  lastLeaderForeword?: import("./mission-context").MissionContext["leaderForeword"];
+  lastLeaderSignOff?: import("./mission-context").MissionContext["leaderSignOff"];
   /**
    * s4PatchFailures 跨 stage 共享状态（legacy team.mission.ts 用 sharedState
    * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
@@ -109,13 +116,16 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly stageBindings: MissionStageBindingsService,
     private readonly leaderService: LeaderService,
     private readonly invoker: AgentInvoker,
+    // R2-A.13: s11/s12 hook 需要 missionCheckpoint.clear + eventBuffer.read
+    private readonly missionCheckpoint: MissionCheckpointService,
+    private readonly missionEventBuffer: MissionEventBuffer,
   ) {}
 
   onModuleInit(): void {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s9b wired, s10-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / ALL WIRED ★ 试用就绪)`,
     );
   }
 
@@ -249,6 +259,15 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       stepId === "s9b-objective-eval"
     ) {
       return this.buildReviewHooks(stepId);
+    }
+    if (stepId === "s10-leader-foreword-signoff") {
+      return this.buildS10SignoffHooks();
+    }
+    if (stepId === "s11-persist") {
+      return this.buildS11PersistHooks();
+    }
+    if (stepId === "s12-self-evolution") {
+      return this.buildS12LearnHooks();
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
   }
@@ -765,6 +784,154 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           score: stageCtx.reviewScore,
           verdict: stageCtx.reportArtifact?.quality,
         };
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s10-leader-foreword-signoff hook 实装（R2-A.12）
+   *
+   * signoff primitive 必填 hooks.runRole。thin adapter 调
+   * runLeaderForewordAndSignoffStage（mutates ctx.leaderForeword + leaderSignOff）。
+   */
+  private buildS10SignoffHooks(): ResolvedStageHooks {
+    const hooks = {
+      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+          reportArtifact: entry.lastReportArtifact,
+          report: entry.lastReport,
+          reviewScore: entry.lastReviewScore,
+          verifierVerdicts: entry.lastVerifierVerdicts,
+          sharedState: { s4PatchFailures: entry.s4PatchFailures },
+        });
+        await runLeaderForewordAndSignoffStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+        );
+        entry.lastLeaderForeword = stageCtx.leaderForeword;
+        entry.lastLeaderSignOff = stageCtx.leaderSignOff;
+        return {
+          foreword: stageCtx.leaderForeword,
+          signoff: stageCtx.leaderSignOff,
+        };
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s11-persist hook 实装（R2-A.13）
+   *
+   * persist primitive 必填 hooks.persist。s11 是 mission 终态落库，
+   * 接受自定义 PersistInput 形态（不直接吃 MissionContext）—— hook 显式拼装。
+   * 落库后 clear checkpoint（mission 已成功写入 markCompleted）。
+   */
+  private buildS11PersistHooks(): ResolvedStageHooks {
+    const hooks = {
+      persist: async (args: { ctx: StageRunArgs["ctx"] }): Promise<void> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        await runPersistStage(
+          {
+            missionId: entry.session.missionId,
+            userId: entry.session.userId,
+            t0: entry.t0,
+            result: {
+              report: entry.lastReport,
+              reportArtifact: entry.lastReportArtifact as
+                | {
+                    metadata: { topic?: string; modelTrail?: string[] };
+                    quickView?: {
+                      executiveSummary?: { markdown?: string };
+                    };
+                    sections?: Array<{
+                      title?: string;
+                      startOffset: number;
+                      endOffset: number;
+                    }>;
+                    content?: { fullMarkdown: string };
+                  }
+                | undefined,
+              reviewScore: entry.lastReviewScore,
+              themeSummary: entry.lastPlan?.themeSummary,
+              dimensions: entry.lastPlan?.dimensions as unknown[] | undefined,
+              verdicts: entry.lastVerifierVerdicts,
+              userProfile: entry.input,
+              reconciliationReport: entry.lastReconciliationReport,
+              leaderSignOff: entry.lastLeaderSignOff,
+            },
+            pool: entry.session.pool,
+          },
+          this.stageBindings.buildDeps(),
+        );
+        // mission 已落库，clear checkpoint
+        await this.missionCheckpoint
+          .clear(entry.session.missionId)
+          .catch(() => undefined);
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s12-self-evolution hook 实装（R2-A.13）
+   *
+   * learn primitive 没有必填 hook（postmortemClassifier / memoryConsolidation
+   * 都是 optional）。我们利用 postmortemClassifier 入口调既有
+   * runSelfEvolutionStage —— 它内部 fire-and-forget 不抛错（self-evolution
+   * 是 best-effort，统计 + memory 索引而已）。
+   */
+  private buildS12LearnHooks(): ResolvedStageHooks {
+    const hooks = {
+      postmortemClassifier: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const bufferedEvents = this.missionEventBuffer
+          .read(entry.session.missionId)
+          .map((e) => ({
+            type: e.type,
+            ts: e.timestamp,
+            payload: e.payload,
+          }));
+        await runSelfEvolutionStage(
+          {
+            missionId: entry.session.missionId,
+            userId: entry.session.userId,
+            t0: entry.t0,
+            pool: entry.session.pool,
+            topic: entry.input.topic,
+            plan: entry.lastPlan
+              ? {
+                  dimensions: (entry.lastPlan.dimensions ?? []) as unknown[],
+                  goals: entry.lastPlan.goals,
+                }
+              : undefined,
+            researcherResults: entry.lastResearcherResults as
+              | unknown[]
+              | undefined,
+            reportArtifact: entry.lastReportArtifact as
+              | { quality?: { overall?: number }; sections?: unknown[] }
+              | undefined,
+            leaderSignOff: entry.lastLeaderSignOff,
+            abortSignal: entry.session.missionAbort.signal,
+            bufferedEvents,
+          },
+          this.stageBindings.buildDeps(),
+        ).catch(() => undefined);
+        return { postmortemDone: true };
       },
     };
     return hooks as unknown as ResolvedStageHooks;

@@ -93,6 +93,33 @@ jest.mock("../stages/s9-reviewer-critic-l4.stage", () => ({
 jest.mock("../stages/s9b-report-objective-evaluation.stage", () => ({
   runReportObjectiveEvaluationStage: jest.fn(async (_ctx: unknown) => {}),
 }));
+// R2-A.12: stub s10
+jest.mock("../stages/s10-leader-foreword-and-signoff.stage", () => ({
+  runLeaderForewordAndSignoffStage: jest.fn(
+    async (ctx: Record<string, unknown>) => {
+      ctx.leaderForeword = {
+        whatWeAnswered: [{ criterion: "x", addressed: "yes", evidence: "..." }],
+        whatRemainsUnclear: [],
+        howToRead: "...",
+        recommendedFollowUp: [],
+        generatedAt: new Date().toISOString(),
+      };
+      ctx.leaderSignOff = {
+        leaderOverallScore: 85,
+        leaderVerdict: "good",
+        accountabilityNote: "我在 M1 决定 accept-all",
+        signed: true,
+      };
+    },
+  ),
+}));
+// R2-A.13: stub s11/s12
+jest.mock("../stages/s11-mission-persist.stage", () => ({
+  runPersistStage: jest.fn(async (_args: unknown, _deps: unknown) => {}),
+}));
+jest.mock("../stages/s12-self-evolution.stage", () => ({
+  runSelfEvolutionStage: jest.fn(async (_args: unknown, _deps: unknown) => {}),
+}));
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -265,6 +292,12 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         listRecentPostmortems: jest.fn().mockResolvedValue([]),
       },
     });
+    const fakeCheckpoint = {
+      clear: jest.fn().mockResolvedValue(undefined),
+    };
+    const fakeEventBuffer = {
+      read: jest.fn().mockReturnValue([]),
+    };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
@@ -272,6 +305,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       stageBindings as unknown as MissionStageBindingsService,
       fakeLeaderService,
       fakeInvoker,
+      fakeCheckpoint as never,
+      fakeEventBuffer as never,
     );
     dispatcher.onModuleInit();
   });
@@ -293,7 +328,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("runMission：s1-s9b 已实装 → 跑过 s1-s9b，在 s10 NotYetWired 处 fail", async () => {
+  it("★ pipeline-v1 全部 14 stage wired → mission 完整跑通 status=completed (R2-A.13 试用就绪)", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -313,11 +348,10 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       "u1",
     );
     expect(result.missionId).toBe("m1");
-    expect(result.status).toBe("failed");
-    const errorStr = String(result.error);
-    // s1+s2+s3 已 wired，fail 出现在 s4-leader-assess
-    expect(errorStr).toMatch(/NotYetWired|s10-leader-foreword-signoff/i);
-    // s1 - s9b 都跑过
+    // ★ 全 14 stage wired，mission 应该 status=completed
+    expect(result.status).toBe("completed");
+    expect(result.error).toBeUndefined();
+    // s1 - s12 都跑过
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toMatchObject({
       dimensions: [{ id: "dim-1" }],
@@ -347,6 +381,14 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.stageOutputs["s8b-quality-enhancement"]).toBeDefined();
     expect(result.stageOutputs["s9-critic"]).toBeDefined();
     expect(result.stageOutputs["s9b-objective-eval"]).toBeDefined();
+    // s10 signoff primitive { signoff }
+    expect(result.stageOutputs["s10-leader-foreword-signoff"]).toMatchObject({
+      signoff: { signoff: { signed: true } },
+    });
+    // s11 persist primitive { persisted: true }
+    expect(result.stageOutputs["s11-persist"]).toEqual({ persisted: true });
+    // s12 learn primitive 默认输出（无必填 hook）
+    expect(result.stageOutputs["s12-self-evolution"]).toBeDefined();
   });
 
   it("s2-leader-plan hook：调 leader.plan + emit leader:goals-set 事件", async () => {
