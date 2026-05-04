@@ -14,7 +14,12 @@
  *                Writer 无法工作）
  */
 
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+  SynthesisPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
@@ -36,7 +41,7 @@ export interface AnalystOutputShape {
 }
 
 export async function runAnalystStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants & PlanPhaseCtx & ResearchPhaseCtx & SynthesisPhaseCtx,
   deps: MissionDeps,
 ): Promise<AnalystOutputShape> {
   const {

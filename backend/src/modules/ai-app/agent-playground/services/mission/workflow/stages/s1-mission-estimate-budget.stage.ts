@@ -14,13 +14,13 @@
  *   - estimateAffordable 自身抛错                         → log warn + 继续（不阻塞）
  */
 
-import type { MissionContext } from "../mission-context";
-import type { MissionDeps } from "../mission-deps";
+import type { MissionInvariants } from "../mission-context";
+import type { CommonDeps } from "../mission-deps";
 import { narrate } from "../narrative.util";
 
 export async function runBudgetEstimateStage(
-  ctx: MissionContext,
-  deps: MissionDeps,
+  ctx: MissionInvariants,
+  deps: CommonDeps,
   workspaceId?: string,
 ): Promise<void> {
   const { missionId, userId, input, t0, billing, budgetMultiplier } = ctx;

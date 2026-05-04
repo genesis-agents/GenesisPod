@@ -18,14 +18,26 @@
  *   - input.depth === "quick" 且非 executive 受众（节省成本）
  */
 
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+  SynthesisPhaseCtx,
+  WriterPhaseCtx,
+  QualityPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import type { ChapterInput } from "@/modules/ai-harness/facade";
 import { narrate } from "../narrative.util";
 import { extractSubstantiveSectionText } from "../report-artifact-sections.util";
 
 export async function runReportObjectiveEvaluationStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants &
+    PlanPhaseCtx &
+    ResearchPhaseCtx &
+    SynthesisPhaseCtx &
+    WriterPhaseCtx &
+    QualityPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   const { reportArtifact, input, missionId, userId } = ctx;

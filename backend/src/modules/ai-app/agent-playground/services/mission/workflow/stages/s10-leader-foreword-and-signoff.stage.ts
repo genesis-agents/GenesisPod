@@ -21,7 +21,16 @@
  *     persist stage 会据此 markFailed("Leader 拒绝签字")。
  */
 
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionContext,
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+  SynthesisPhaseCtx,
+  WriterPhaseCtx,
+  QualityPhaseCtx,
+  SignoffPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { narrate } from "../narrative.util";
 import { lengthTargetFor } from "@/modules/ai-harness/facade";
@@ -61,7 +70,13 @@ async function emitLeaderSigned(
 }
 
 export async function runLeaderForewordAndSignoffStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants &
+    PlanPhaseCtx &
+    ResearchPhaseCtx &
+    SynthesisPhaseCtx &
+    WriterPhaseCtx &
+    QualityPhaseCtx &
+    SignoffPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   // ★ P0-LIVE-PATCH-SILENT (2026-04-30): 之前 reportArtifact 缺失时静默 return,

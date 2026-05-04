@@ -23,7 +23,12 @@
  */
 
 import { ResearcherAgent } from "../../../../agents/researcher/researcher.agent";
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionContext,
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
@@ -44,7 +49,7 @@ interface PlanDimensionLite {
 }
 
 export async function runLeaderAssessResearchStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants & PlanPhaseCtx & ResearchPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   const { missionId, userId, plan, researcherResults, leader } = ctx;

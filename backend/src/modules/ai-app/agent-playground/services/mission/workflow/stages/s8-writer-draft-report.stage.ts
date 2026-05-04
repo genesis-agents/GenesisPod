@@ -30,7 +30,14 @@
  */
 
 import { SingleShotWriterAgent } from "../../../../agents/writer/single-shot-writer.agent";
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+  SynthesisPhaseCtx,
+  WriterPhaseCtx,
+  PersistPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import type {
   IAgent,
@@ -89,7 +96,12 @@ function makeProxyAgent(missionId: string, roleId: string): IAgent {
 }
 
 export async function runWriterStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants &
+    PlanPhaseCtx &
+    ResearchPhaseCtx &
+    SynthesisPhaseCtx &
+    WriterPhaseCtx &
+    PersistPhaseCtx,
   deps: MissionDeps,
   analyst: {
     insights: unknown[];

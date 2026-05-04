@@ -13,13 +13,18 @@
  *                ctx.reconciliationReport 保持 null，mission 继续（不阻塞）。
  */
 
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+  SynthesisPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { narrate } from "../narrative.util";
 
 export async function runReconcilerStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants & PlanPhaseCtx & ResearchPhaseCtx & SynthesisPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   const {
