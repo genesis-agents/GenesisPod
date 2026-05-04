@@ -56,6 +56,7 @@ import { runPersistStage } from "./stages/s11-mission-persist.stage";
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
+import { MissionStore } from "../lifecycle/mission-store.service";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -119,7 +120,112 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     // R2-A.13: s11/s12 hook 需要 missionCheckpoint.clear + eventBuffer.read
     private readonly missionCheckpoint: MissionCheckpointService,
     private readonly missionEventBuffer: MissionEventBuffer,
+    // R2-A.13.1: 失败兜底需要 store.markFailed
+    private readonly store: MissionStore,
   ) {}
+
+  // ── stepId → DB stageNumber（与 legacy team.mission.ts 对齐）──
+  // 用于 markStageComplete + missionCheckpoint.save 的进度索引
+  private readonly STAGE_NUMBER: Record<string, number> = {
+    "s1-budget": 1,
+    "s2-leader-plan": 2,
+    "s3-researcher-collect": 3,
+    "s4-leader-assess": 4,
+    "s5-reconciler": 5,
+    "s6-analyst": 6,
+    "s7-writer-outline": 7,
+    "s8-writer": 8,
+    "s8b-quality-enhancement": 8, // 同 s8（quality 增强）
+    "s9-critic": 9,
+    "s9b-objective-eval": 9,
+    "s10-leader-foreword-signoff": 10,
+    "s11-persist": 11,
+    // s12 在 legacy 不入 stage 计数（fire-and-forget）
+  };
+
+  /** S3/S8 milestone 后 save checkpoint，让 pod 崩溃可 resume */
+  private readonly CHECKPOINT_AT: Record<string, string> = {
+    "s2-leader-plan": "s2-leader-plan",
+    "s3-researcher-collect": "s3-researcher-dispatch",
+    "s8-writer": "s8-writer-draft",
+  };
+
+  /**
+   * 每 primitive 的"主 hook"名 —— success-after-this 视为 stage 完成。
+   * 助手 hook（extractPlanFields / parseDecision / scoreScaling 等同步）不包，
+   * 否则会把同步函数变成 Promise，破坏 primitive 的同步消费链。
+   */
+  private readonly PRIMARY_HOOK_BY_PRIMITIVE: Record<string, string> = {
+    plan: "runRole",
+    research: "perItemPipeline",
+    assess: "runRole",
+    synthesize: "synthesize",
+    draft: "draftOnce",
+    review: "review",
+    signoff: "runRole",
+    persist: "persist",
+    learn: "postmortemClassifier",
+  };
+
+  /**
+   * 把"主 hook"包一层进度跟踪：成功后 markStageComplete + 选择性 save
+   * checkpoint。对齐 legacy team.mission.ts 的 markStageComplete 调用点。
+   *
+   * 助手 hook（如 extractPlanFields, parseDecision, scoreScaling）保持原样，
+   * 因为 primitive 把它们当同步 / 类型严格的特定签名消费。
+   */
+  private withProgressTracking(
+    stepId: string,
+    stageHooks: ResolvedStageHooks,
+  ): ResolvedStageHooks {
+    const stageNumber = this.STAGE_NUMBER[stepId];
+    const checkpointTag = this.CHECKPOINT_AT[stepId];
+
+    // 找该 step 对应的 primitive，取主 hook 名
+    const step = PLAYGROUND_PIPELINE.steps.find((s) => s.id === stepId);
+    if (!step) return stageHooks;
+    const primaryHookName = this.PRIMARY_HOOK_BY_PRIMITIVE[step.primitive];
+    if (!primaryHookName) return stageHooks;
+    const original = (stageHooks as Record<string, unknown>)[primaryHookName];
+    if (typeof original !== "function") return stageHooks;
+
+    const wrappedPrimary = async (args: unknown) => {
+      const result = await (original as (a: unknown) => unknown)(args);
+      // success path: write progress + checkpoint
+      const ctx = (args as { ctx?: { missionId?: string } }).ctx;
+      const missionId = ctx?.missionId;
+      if (missionId && stageNumber != null) {
+        await this.store
+          .markStageComplete(missionId, stageNumber)
+          .catch(() => undefined);
+      }
+      if (missionId && checkpointTag) {
+        const entry = this.sessions.get(missionId);
+        if (entry) {
+          const completedKeys = Object.keys(this.STAGE_NUMBER).filter(
+            (k) => this.STAGE_NUMBER[k] <= (stageNumber ?? 0),
+          );
+          await this.missionCheckpoint
+            .save(
+              missionId,
+              {
+                lastStage: checkpointTag,
+                topic: entry.input.topic,
+              },
+              completedKeys,
+              "running",
+            )
+            .catch(() => undefined);
+        }
+      }
+      return result;
+    };
+
+    return {
+      ...stageHooks,
+      [primaryHookName]: wrappedPrimary,
+    } as unknown as ResolvedStageHooks;
+  }
 
   onModuleInit(): void {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
@@ -184,6 +290,25 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           tenantId: workspaceId,
           signal: session.missionAbort.signal,
         });
+        // ★ R2-A.13.1 失败兜底：orchestrator 返 status=failed/aborted 时，
+        //   补齐 legacy team.mission.ts 的 mission:failed event + markFailed 行为
+        //   （pipeline-v1 hook 内部抛错经 orchestrator 包成 stage:failed event +
+        //    result.status="failed"，但 mission DB row + 前端事件流缺收尾兜底）
+        if (result.status !== "completed") {
+          await this.handleMissionFailure(
+            missionId,
+            userId,
+            t0,
+            result,
+            session,
+          );
+        } else {
+          // ★ R2-A.13.1 成功路径：清 checkpoint（mission 已完整落库）
+          await this.missionCheckpoint.clear(missionId).catch(() => undefined);
+          // ★ F2 修复：s12 已在 orchestrator 内部跑过（fire-and-forget hook 内部
+          //   .catch undefined），不再阻塞返回。如未来想把 s12 拆出独立 fire-and-
+          //   forget，需要把 s12 从 PLAYGROUND_PIPELINE.steps 移除 + 这里手动 fire。
+        }
         return {
           missionId: result.missionId,
           status: result.status,
@@ -195,6 +320,116 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       this.sessions.delete(missionId);
       session.cleanup();
     }
+  }
+
+  /**
+   * R2-A.13.1 失败兜底（与 legacy team.mission.ts:265-340 等价）：
+   *   1. 检测 cancel（abort signal / cancelled message）→ 不发 mission:failed，
+   *      让 controller.cancelMission 已 emit 的 mission:cancelled 接管
+   *   2. 分类 failureCode（ORCH_CREDIT_INSUFFICIENT / PROVIDER_BYOK_MODEL_NOT_FOUND
+   *      / RUNNER_INPUT_SCHEMA_MISMATCH / RUNNER_WALL_TIME_EXCEEDED /
+   *      PROVIDER_RATE_LIMIT / PROVIDER_API_ERROR）
+   *   3. emit mission:failed event 含完整 payload（tokensUsed/costUsd/wallTimeMs/
+   *      diagnostic.errorStack）
+   *   4. store.markFailed 写 partial 产物（reportArtifact / leaderSignOff /
+   *      themeSummary 等）让用户能看到部分结果
+   */
+  private async handleMissionFailure(
+    missionId: string,
+    userId: string,
+    t0: number,
+    result: { error?: unknown; status: string },
+    session: MissionRuntimeSession,
+  ): Promise<void> {
+    const err = result.error;
+    const message = err instanceof Error ? err.message : String(err);
+    const errName = err instanceof Error ? err.name : "Unknown";
+    const snap = session.pool.snapshot();
+    const wasCancelled =
+      session.missionAbort.signal.aborted ||
+      result.status === "aborted" ||
+      /aborted|cancelled|user_cancelled/i.test(message);
+    if (wasCancelled) {
+      // mission:cancelled 已由 controller.cancelMission emit；这里不补 mission:failed
+      this.log.log(
+        `[pipeline-v1] mission ${missionId} cancelled (abort signal aborted) — skipping mission:failed`,
+      );
+      return;
+    }
+
+    let missionFailureCode = "UNKNOWN";
+    if (
+      errName === "InsufficientCreditsException" ||
+      /credit|余额不足|insufficient/i.test(message)
+    ) {
+      missionFailureCode = "ORCH_CREDIT_INSUFFICIENT";
+    } else if (errName === "ByokRequiredError") {
+      missionFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
+    } else if (
+      errName === "InputValidationError" ||
+      errName === "DefineAgentMissingError"
+    ) {
+      missionFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
+    } else if (/timeout|timed out/i.test(message)) {
+      missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
+    } else if (/rate.?limit|429/i.test(message)) {
+      missionFailureCode = "PROVIDER_RATE_LIMIT";
+    } else {
+      missionFailureCode = "PROVIDER_API_ERROR";
+    }
+
+    await this.invoker
+      .emitEvent({
+        type: "agent-playground.mission:failed",
+        missionId,
+        userId,
+        payload: {
+          message,
+          failureCode: missionFailureCode,
+          errorName: errName,
+          wallTimeMs: Date.now() - t0,
+          tokensUsed: snap.poolTokensUsed,
+          costUsd: snap.poolCostUsd,
+          diagnostic: {
+            errorStack: err instanceof Error ? err.stack : undefined,
+          },
+        },
+      })
+      .catch(() => undefined);
+
+    // 写 partial 产物到 DB —— 与 legacy team.mission.ts:317-339 一致
+    const entry = this.sessions.get(missionId);
+    const reportPayload = entry?.lastReportArtifact ?? entry?.lastReport;
+    await this.store
+      .markFailed(missionId, {
+        errorMessage: message,
+        tokensUsed: snap.poolTokensUsed,
+        costUsd: snap.poolCostUsd,
+        wallTimeMs: Date.now() - t0,
+        themeSummary: entry?.lastPlan?.themeSummary,
+        dimensions: entry?.lastPlan?.dimensions as unknown[] | undefined,
+        report: reportPayload as
+          | { title?: string; summary?: string }
+          | undefined,
+        reportArtifactVersion: entry?.lastReportArtifact
+          ? 2
+          : entry?.lastReport
+            ? 1
+            : undefined,
+        userProfile: entry?.input,
+        reconciliationReport: entry?.lastReconciliationReport,
+        verdicts: entry?.lastVerifierVerdicts,
+        leaderOverallScore: entry?.lastLeaderSignOff?.leaderOverallScore,
+        leaderSigned: entry?.lastLeaderSignOff?.signed,
+        leaderVerdict: entry?.lastLeaderSignOff?.leaderVerdict,
+      })
+      .catch((dbErr) => {
+        this.log.error(
+          `[pipeline-v1] markFailed for mission ${missionId} failed: ${
+            dbErr instanceof Error ? dbErr.message : String(dbErr)
+          }`,
+        );
+      });
   }
 
   // ── pipeline 构造 ──────────────────────────────────────────────────────
@@ -226,6 +461,15 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
    *   s11-persist, s12-self-evolution
    */
   private buildHooksForStep(
+    stepId: string,
+    primitive: string,
+  ): ResolvedStageHooks {
+    const baseHooks = this.buildBaseHooksForStep(stepId, primitive);
+    // 包一层 progress tracking（markStageComplete + 选择性 checkpoint.save）
+    return this.withProgressTracking(stepId, baseHooks);
+  }
+
+  private buildBaseHooksForStep(
     stepId: string,
     primitive: string,
   ): ResolvedStageHooks {

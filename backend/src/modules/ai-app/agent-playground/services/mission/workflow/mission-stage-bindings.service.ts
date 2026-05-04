@@ -15,14 +15,18 @@ import {
   AgentInvoker,
   type SupervisedMission,
 } from "../../roles";
-import type { MissionStore } from "../lifecycle/mission-store.service";
-import { HandoffCompactorService } from "@/modules/ai-harness/facade";
-import type { MissionAbortRegistry } from "@/modules/ai-harness/facade";
-import type {
+// ★ 2026-05-04 修：所有 DI 注入的 service 必须 runtime import（不能 import type）
+//   原因：NestJS DI 用 TS emitDecoratorMetadata 反射构造函数 paramtypes；
+//   `import type { X }` 在编译期被剥掉 runtime 引用 → metadata 退化为 `Function`
+//   占位 → DI 抛 "Nest can't resolve dependencies of MissionStageBindingsService
+//   (..., Function, ..., Function, ...)"。
+//   生产 Railway 启动时整模块 boot 失败。
+import { MissionStore } from "../lifecycle/mission-store.service";
+import {
+  HandoffCompactorService,
+  MissionAbortRegistry,
   ReportArtifactAssembler,
   FailureLearnerService,
-} from "@/modules/ai-harness/facade";
-import type {
   AgentRunner,
   JudgeService,
   MemoryAutoIndexer,
@@ -32,10 +36,10 @@ import type {
   SectionRemediationService,
   ReportEvaluationService,
   QualityTraceComputeService,
+  RuntimeEnvironmentService,
 } from "@/modules/ai-harness/facade";
-import type { FigureExtractorService } from "@/modules/ai-engine/facade";
-import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
-import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
+import { FigureExtractorService } from "@/modules/ai-engine/facade";
+import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import { PostmortemClassifierService } from "@/modules/ai-harness/facade";
 
 export interface MissionStageCtxArgs {

@@ -280,6 +280,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
         output: {},
         events: [],
       }),
+      // R2-A.13.1 失败兜底 emitEvent 调用
+      emitEvent: jest.fn().mockResolvedValue(undefined),
+      emitLifecycle: jest.fn().mockResolvedValue(undefined),
     } as unknown as AgentInvoker;
     // store.listRecentPostmortems 是 s2 hook 内部调用 —— 默认空数组（无历史）
     const buildDepsMock = (stageBindings as unknown as { buildDeps: jest.Mock })
@@ -294,9 +297,14 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     });
     const fakeCheckpoint = {
       clear: jest.fn().mockResolvedValue(undefined),
+      save: jest.fn().mockResolvedValue(undefined),
     };
     const fakeEventBuffer = {
       read: jest.fn().mockReturnValue([]),
+    };
+    const fakeStore = {
+      markStageComplete: jest.fn().mockResolvedValue(undefined),
+      markFailed: jest.fn().mockResolvedValue(undefined),
     };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
@@ -307,6 +315,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeInvoker,
       fakeCheckpoint as never,
       fakeEventBuffer as never,
+      fakeStore as never,
     );
     dispatcher.onModuleInit();
   });
