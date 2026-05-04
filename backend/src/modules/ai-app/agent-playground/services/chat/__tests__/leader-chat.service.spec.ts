@@ -1,14 +1,12 @@
 /**
- * LeaderChatService.parseDecisionResponse — 私有方法白盒测试
+ * leader-decision-parser — LLM 输出 → 结构化决策解析（PR-10a 拆出，
+ * 原 LeaderChatService.parseDecisionResponse 私有方法已抽到独立模块）
  *
  * 这个 parser 是 LLM 输出 → 结构化决策的唯一入口；LLM 经常不严格按
  * 系统提示返回 JSON，所以容错路径必须健壮。
- *
- * 用 (svc as any).parseDecisionResponse(...) 直接调内部方法，无需模拟
- * Prisma / chat / store。
  */
 
-import { LeaderChatService } from "../leader-chat.service";
+import { parseLeaderDecisionResponse } from "../leader-decision-parser.util";
 
 type ParseFn = (raw: string) => {
   response: string;
@@ -23,17 +21,7 @@ type ParseFn = (raw: string) => {
 describe("LeaderChatService.parseDecisionResponse", () => {
   let parse: ParseFn;
   beforeAll(() => {
-    // 用 reflect 调私有方法 — 不依赖 DI
-    const svc = new LeaderChatService(
-      null as never,
-      null as never,
-      null as never,
-      null as never,
-    );
-    parse = (raw) =>
-      (
-        svc as unknown as { parseDecisionResponse: ParseFn }
-      ).parseDecisionResponse(raw);
+    parse = parseLeaderDecisionResponse as unknown as ParseFn;
   });
 
   it("plain text → DIRECT_ANSWER with raw as response", () => {
