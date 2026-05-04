@@ -42,6 +42,7 @@ import {
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
 import { runLeaderPlanStage } from "./stages/s2-leader-plan-mission.stage";
+import { runResearcherDispatchStage } from "./stages/s3-researcher-collect-findings.stage";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -68,6 +69,17 @@ interface SessionEntry {
    * 每 mission 一个，由 leaderService.create + buildLeaderInvocation 构造
    */
   readonly leader: SupervisedMission;
+  /**
+   * 跨 stage 缓存的中间产物（legacy stage 内部依赖完整 ctx，hook 闭包只能拿到
+   * primitive 暴露的 args；这里把每个 stage 写入的 ctx 字段缓存起来供下游重建）。
+   */
+  lastPlan?: import("./mission-context").MissionContext["plan"];
+  lastResearcherResults?: import("./mission-context").MissionContext["researcherResults"];
+  /**
+   * s4PatchFailures 跨 stage 共享状态（legacy team.mission.ts 用 sharedState
+   * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
+   */
+  s4PatchFailures?: import("./mission-context").MissionContext["s4PatchFailures"];
 }
 
 @Injectable()
@@ -88,7 +100,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1+s2 wired, s3-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1+s2+s3 wired, s4-s12 NotYetWired)`,
     );
   }
 
@@ -197,6 +209,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     }
     if (stepId === "s2-leader-plan") {
       return this.buildS2LeaderPlanHooks();
+    }
+    if (stepId === "s3-researcher-collect") {
+      return this.buildS3ResearcherCollectHooks();
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
   }
@@ -337,6 +352,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             "[s2-leader-plan] stage returned without populating ctx.plan (unexpected)",
           );
         }
+        // 缓存 plan 供 s3 hook 重建 stageCtx 时用（hook 闭包不直接拿到 previousOutputs）
+        entry.lastPlan = stageCtx.plan;
         return stageCtx.plan;
       },
       extractPlanFields: (raw: unknown) => {
@@ -350,6 +367,76 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           dimensions: plan?.dimensions ?? [],
           goals: plan?.goals as ReadonlyArray<unknown> | undefined,
         };
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s3-researcher-collect hook 实装（R2-A.5）
+   *
+   * research primitive 必填 hooks.fanOut + hooks.perItemPipeline。
+   * 因为 legacy runResearcherDispatchStage 内部已自带 fan-out + 并发 + DAG +
+   * per-dim chapter pipeline + 三层容错（S1 self-heal / S2 cross-mission /
+   * S3 dim degraded），本 hook 不重复实现 fan-out 逻辑：
+   *   - hooks.fanOut 返回 [singleton]，让 primitive 跑 1 次 perItemPipeline
+   *   - hooks.perItemPipeline 调整个 runResearcherDispatchStage（mutates ctx.researcherResults）
+   *   - 返回 ctx.researcherResults 让 orchestrator 写到 stageOutputs
+   *
+   * 这是 thin adapter 妥协：让 legacy stage 自管 fan-out，primitive 退化为
+   * "单次包装"。R2-C 删 legacy 后再考虑用 primitive 原生 fan-out 重写。
+   *
+   * 失败模式：
+   *   · runResearcherDispatchStage 自身吞掉单 dim 失败（emit ORCH_DIMENSION_DEGRADED）
+   *   · 整 stage 抛错（如 ctx.plan 缺失）→ orchestrator 标 stage:failed
+   *   · 跨 stage 状态：s4PatchFailures 由 ctx.s4PatchFailures 持续，下游 hook
+   *     通过 sessions[missionId] 共享 ctx 读取（R2-A.6 起处理）
+   */
+  private buildS3ResearcherCollectHooks(): ResolvedStageHooks {
+    const hooks = {
+      fanOut: (_args: {
+        ctx: StageRunArgs["ctx"];
+        previousOutputs: StageRunArgs["previousOutputs"];
+      }): ReadonlyArray<unknown> => {
+        // 单 singleton —— legacy stage 自管 fan-out
+        return [{ kind: "all-dimensions" }];
+      },
+      perItemPipeline: async (args: {
+        item: unknown;
+        role: StageRunArgs["role"];
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        // research primitive 的 perItemPipeline 签名不直接给 previousOutputs；
+        // 从 entry.lastPlan 取（s2 hook 末尾把 stageCtx.plan 缓存到 entry）
+        const cachedPlan = entry.lastPlan;
+        if (!cachedPlan) {
+          throw new Error(
+            "[s3-researcher-collect] no plan from s2 (sessions[missionId].lastPlan undefined)",
+          );
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: cachedPlan,
+        });
+        await runResearcherDispatchStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+        );
+        // 缓存 researcherResults 给下游 hook 用
+        entry.lastResearcherResults = stageCtx.researcherResults;
+        // s4PatchFailures sharedState 同步（s3 内部可能积累）
+        if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
+          entry.s4PatchFailures = stageCtx.s4PatchFailures;
+        }
+        return stageCtx.researcherResults;
       },
     };
     return hooks as unknown as ResolvedStageHooks;

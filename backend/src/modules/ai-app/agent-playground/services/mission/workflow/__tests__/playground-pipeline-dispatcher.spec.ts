@@ -10,6 +10,19 @@
  *
  * R2-A.2~A.13 实装 14 个 stage hook 后再扩 e2e success-path spec。
  */
+// R2-A.5: stub runResearcherDispatchStage —— 实际函数依赖 invoker / writer /
+// reviewer 等真服务，单测用 stub mutator 模拟"成功跑 + 写 ctx.researcherResults"
+jest.mock("../stages/s3-researcher-collect-findings.stage", () => ({
+  runResearcherDispatchStage: jest.fn(async (ctx: Record<string, unknown>) => {
+    ctx.researcherResults = [
+      {
+        dimension: "dim-1",
+        findings: [{ claim: "c", evidence: "e", source: "https://x" }],
+        summary: "s",
+      },
+    ];
+  }),
+}));
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -210,7 +223,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("runMission：s1+s2 已实装 → 跑过 s1+s2，在 s3 NotYetWired 处 fail", async () => {
+  it("runMission：s1+s2+s3 已实装 → 跑过 s1+s2+s3，在 s4 NotYetWired 处 fail", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -232,12 +245,17 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.missionId).toBe("m1");
     expect(result.status).toBe("failed");
     const errorStr = String(result.error);
-    // s1+s2 已 wired，fail 出现在 s3-researcher-collect
-    expect(errorStr).toMatch(/NotYetWired|s3-researcher-collect/i);
-    // s1 + s2 都跑过：stageOutputs 同时含 s1-budget + s2-leader-plan
+    // s1+s2+s3 已 wired，fail 出现在 s4-leader-assess
+    expect(errorStr).toMatch(/NotYetWired|s4-leader-assess/i);
+    // s1 / s2 / s3 都跑过
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toMatchObject({
       dimensions: [{ id: "dim-1" }],
+    });
+    expect(result.stageOutputs["s3-researcher-collect"]).toMatchObject({
+      // research primitive 输出 { results: [...], failureCount }
+      results: [[{ dimension: "dim-1" }]],
+      failureCount: 0,
     });
   });
 
@@ -292,6 +310,31 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     // s1 跑过，s2 抛错：stageOutputs[s1] 有，stageOutputs[s2] 无
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toBeUndefined();
+  });
+
+  it("s3-researcher-collect hook：调 runResearcherDispatchStage + 缓存 lastResearcherResults 给下游", async () => {
+    await dispatcher.runMission(
+      "m-s3-trace",
+      {
+        topic: "research test",
+        depth: "quick",
+        language: "zh-CN",
+        budgetProfile: "low",
+        styleProfile: "executive",
+        lengthProfile: "brief",
+        audienceProfile: "domain-expert",
+        withFigures: false,
+        auditLayers: "default",
+        concurrency: 1,
+        viewMode: "continuous",
+        maxCredits: 50,
+      } as never,
+      "u1",
+    );
+    // mocked runResearcherDispatchStage 应该被调一次
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const stageMod = require("../stages/s3-researcher-collect-findings.stage");
+    expect(stageMod.runResearcherDispatchStage).toHaveBeenCalled();
   });
 
   it("s2 leader.plan 返空 dimensions → fail-fast", async () => {
