@@ -21,15 +21,25 @@ import {
 } from "../../../../playground.config";
 import type { MissionRuntimeShellService } from "../mission-runtime-shell.service";
 import type { MissionRuntimeSession } from "../mission-runtime-shell.service";
+import type { MissionStageBindingsService } from "../mission-stage-bindings.service";
 
 function makeFakeSession(missionId: string, userId: string) {
   const abortController = new AbortController();
   const cleanup = jest.fn();
+  // billing.estimateAffordable: 默认通过（affordable=true），避免 s1 抛错；
+  //   单测可 mock 出 affordable=false / suggestion=abort 来覆盖失败路径
+  const billing = {
+    estimateAffordable: jest.fn().mockResolvedValue({
+      affordable: true,
+      estimatedCredits: 100,
+      currentBalance: 1000,
+    }),
+  };
   return {
     missionId,
     userId,
     workspaceId: undefined,
-    billing: {} as never,
+    billing,
     pool: { snapshot: () => ({ poolTokensUsed: 0, poolCostUsd: 0 }) } as never,
     budgetMultiplier: 1,
     missionAbort: abortController,
@@ -63,20 +73,76 @@ function makeFakeShell() {
   };
 }
 
+/**
+ * StageBindings stub —— buildDeps 返回最小 deps（s1 只用 emit + log）。
+ */
+function makeFakeStageBindings() {
+  const emittedEvents: Array<{ type: string; missionId: string }> = [];
+  const buildDeps = jest.fn().mockReturnValue({
+    invoker: {} as never,
+    store: {} as never,
+    missionState: {} as never,
+    abortRegistry: {} as never,
+    runner: {} as never,
+    eventBus: {} as never,
+    credits: {} as never,
+    runtimeEnv: {} as never,
+    log: {
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      debug: jest.fn(),
+    },
+    emit: jest.fn(async (e: { type: string; missionId: string }) => {
+      emittedEvents.push({ type: e.type, missionId: e.missionId });
+    }),
+    lifecycle: jest.fn(),
+    leader: {} as never,
+    reconciler: {} as never,
+    analyst: {} as never,
+    writer: {} as never,
+    reviewer: {} as never,
+    verifier: {} as never,
+    steward: {} as never,
+    judge: {} as never,
+    indexer: {} as never,
+    failureLearner: {} as never,
+    reportAssembler: {} as never,
+    figureExtractor: {} as never,
+    figureRelevance: {} as never,
+    sectionSelfEval: {} as never,
+    sectionRemediation: {} as never,
+    reportEvaluation: {} as never,
+    qualityTraceCompute: {} as never,
+    postmortemClassifier: {} as never,
+  });
+  return {
+    buildDeps,
+    emittedEvents,
+  } as unknown as MissionStageBindingsService & {
+    buildDeps: jest.Mock;
+    emittedEvents: typeof emittedEvents;
+  };
+}
+
 describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
   let registry: MissionPipelineRegistry;
   let orchestrator: MissionPipelineOrchestrator;
   let shell: ReturnType<typeof makeFakeShell>;
   let dispatcher: PlaygroundPipelineDispatcher;
 
+  let stageBindings: ReturnType<typeof makeFakeStageBindings>;
+
   beforeEach(() => {
     registry = new MissionPipelineRegistry();
     orchestrator = new MissionPipelineOrchestrator(registry);
     shell = makeFakeShell();
+    stageBindings = makeFakeStageBindings();
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
       shell as unknown as MissionRuntimeShellService,
+      stageBindings as unknown as MissionStageBindingsService,
     );
     dispatcher.onModuleInit();
   });
@@ -98,7 +164,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("runMission：第一个 step 抛 NotYetWired → orchestrator 标 failed + 返 stage error", async () => {
+  it("runMission：s1-budget 已实装 → 跑过 s1，在 s2-leader-plan NotYetWired 处 fail", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -119,9 +185,37 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     );
     expect(result.missionId).toBe("m1");
     expect(result.status).toBe("failed");
-    // error 应来自 NotYetWired（第一个 step s1-budget hook）
+    // s1 已 wired（runBudgetEstimateStage 调通），fail 应该出现在 s2
     const errorStr = String(result.error);
-    expect(errorStr).toMatch(/NotYetWired|s1-budget/i);
+    expect(errorStr).toMatch(/NotYetWired|s2-leader-plan/i);
+    // s1 已经跑过：stageOutputs 应含 s1-budget output (persisted: true)
+    expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
+  });
+
+  it("runMission s1-budget hook：billing.estimateAffordable 被调 + emit mission:started 事件", async () => {
+    const result = await dispatcher.runMission(
+      "m-s1-emit",
+      {
+        topic: "budget test",
+        depth: "quick",
+        language: "zh-CN",
+        budgetProfile: "low",
+        styleProfile: "executive",
+        lengthProfile: "brief",
+        audienceProfile: "domain-expert",
+        withFigures: false,
+        auditLayers: "default",
+        concurrency: 1,
+        viewMode: "continuous",
+        maxCredits: 50,
+      } as never,
+      "u1",
+    );
+    // s1 跑成功（mission 仍 fail 在 s2，但 s1 阶段无错）
+    expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
+    // emitted events 含 mission:started + agent:narrative（s1 内部 narrate）
+    const eventTypes = stageBindings.emittedEvents.map((e) => e.type);
+    expect(eventTypes).toContain("agent-playground.mission:started");
   });
 
   it("runMission 失败后 session cleanup 被调用 + sessions map 清空", async () => {

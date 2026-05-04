@@ -1,5 +1,5 @@
 /**
- * PlaygroundPipelineDispatcher —— v5.1 R2-A.1 新轨入口
+ * PlaygroundPipelineDispatcher —— v5.1 R2-A.1 / R2-A.3 新轨入口
  *
  * 职责：
  *   - 与 TeamMission 同签名（runMission(missionId, input, userId, workspaceId?)）
@@ -10,18 +10,17 @@
  *     上下文 + delegate 到 stage adapter）
  *   - cleanup session（成功 / 失败都释放 abort registry / heartbeat timer）
  *
- * R2-A.1 阶段：14 个 stage hook 暂为 NotYetWired，pipeline-v1 路径调用会快速 fail
- * 在 s1。Controller 层尚未接入 flag dispatch（R2-A.3 上线），所以本 service 当前
- * 只能由 spec 显式调用，生产流量仍走 TeamMission。
- *
- * R2-A.2~A.13 增量替换 14 个 stage hook 的 NotYetWired 为真实 thin adapter
- * （adapter 内部调既有 runXxxStage 函数）。
- *
  * 设计要点（与 writing-team service 一致 closure pattern）：
  *   - PLAYGROUND_PIPELINE 在 onModuleInit 注册一次 + hooks 闭包引用 this
- *   - per-mission session 存放在 sessions Map (active mission 期间)，
- *     hook 闭包通过 ctx.missionId 反查；mission 结束清掉 entry
+ *   - per-mission session 存放在 sessions Map，hook 闭包通过 ctx.missionId 反查；
+ *     mission 结束清掉 entry
  *   - 并发安全：每 mission 一个独立 session entry，hook 不共享状态
+ *
+ * R2-A 增量：
+ *   - R2-A.1 (committed): scaffolding + module wiring + 14 step NotYetWired 占位
+ *   - R2-A.3 (本 commit): s1-budget hook 实装 = thin adapter 调既有
+ *                         runBudgetEstimateStage（其余 13 step 仍 NotYetWired）
+ *   - R2-A.4 ~ R2-A.13: s2-s12 hook 逐 stage 实装
  */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import {
@@ -35,16 +34,16 @@ import {
   MissionRuntimeShellService,
   type MissionRuntimeSession,
 } from "./mission-runtime-shell.service";
+import { MissionStageBindingsService } from "./mission-stage-bindings.service";
 import {
   PLAYGROUND_PIPELINE,
   PlaygroundHookNotYetWiredError,
 } from "../../../playground.config";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
+import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
+import type { MissionInvariants } from "./mission-context";
+import type { SupervisedMission } from "../../roles";
 
-/**
- * Mission 跑完后给 caller 的最小快照。pipeline-v1 路径暂时只回 missionId +
- * status；report / verdicts 等生产 schema 等 R2-A.5 等价 spec 通过后再扩。
- */
 export interface PipelineMissionSummary {
   readonly missionId: string;
   readonly status: "completed" | "failed" | "aborted";
@@ -52,39 +51,42 @@ export interface PipelineMissionSummary {
   readonly error?: unknown;
 }
 
+interface SessionEntry {
+  readonly session: MissionRuntimeSession;
+  readonly t0: number;
+  readonly input: RunMissionInput;
+  readonly workspaceId?: string;
+}
+
 @Injectable()
 export class PlaygroundPipelineDispatcher implements OnModuleInit {
   private readonly log = new Logger(PlaygroundPipelineDispatcher.name);
-
-  /** active mission session 表：hook 闭包通过 missionId 反查 */
-  private readonly sessions = new Map<string, MissionRuntimeSession>();
+  private readonly sessions = new Map<string, SessionEntry>();
 
   constructor(
     private readonly registry: MissionPipelineRegistry,
     private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly runtimeShell: MissionRuntimeShellService,
+    private readonly stageBindings: MissionStageBindingsService,
   ) {}
 
   onModuleInit(): void {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / hooks=NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1 wired, s2-s12 NotYetWired)`,
     );
   }
 
-  /**
-   * spec / runtime 用：取出指定 missionId 的 session（hook 闭包内部用）。
-   * 不存在抛错（说明 hook 在 mission 生命周期外被调用，是 bug）。
-   */
+  /** spec / hook 闭包用：取出指定 missionId 的活动 session（不存在抛错）*/
   getSession(missionId: string): MissionRuntimeSession {
-    const s = this.sessions.get(missionId);
-    if (!s) {
+    const entry = this.sessions.get(missionId);
+    if (!entry) {
       throw new Error(
         `[playground-pipeline] no active session for mission ${missionId}`,
       );
     }
-    return s;
+    return entry.session;
   }
 
   /**
@@ -101,13 +103,14 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     userId: string,
     workspaceId?: string,
   ): Promise<PipelineMissionSummary> {
+    const t0 = Date.now();
     const session = await this.runtimeShell.openSession({
       missionId,
       input,
       userId,
       workspaceId,
     });
-    this.sessions.set(missionId, session);
+    this.sessions.set(missionId, { session, t0, input, workspaceId });
     try {
       return await this.runtimeShell.runWithinContext(session, async () => {
         const result = await this.orchestrator.run({
@@ -133,14 +136,6 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
 
   // ── pipeline 构造 ──────────────────────────────────────────────────────
 
-  /**
-   * 构造含 hook 闭包的 pipeline config。每 hook 闭包：
-   *   - 通过 args.ctx.missionId 反查 session（用于访问 billing / pool / abort）
-   *   - delegate 到 stageHandlers 里对应方法
-   *
-   * R2-A.1 占位：所有 stageHandlers 暂抛 PlaygroundHookNotYetWiredError；
-   * R2-A.2~A.13 替换为真实 adapter 调既有 runXxxStage。
-   */
   private buildPipelineWithHooks(): MissionPipelineConfig {
     const stepHooks: Record<string, ResolvedStageHooks> = {};
     for (const step of PLAYGROUND_PIPELINE.steps) {
@@ -156,30 +151,76 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
   }
 
   /**
-   * 给单个 step 构造 hook 闭包集合。每个 primitive 期望的 hook 名字不同：
-   *   plan / signoff       → runRole
-   *   research             → runRole + (perItemPipeline)
-   *   assess               → runRole
-   *   synthesize           → runMode
-   *   draft                → draftOnce
-   *   review               → runRole / objectiveEval
-   *   persist              → onPersist
-   *   learn                → onLearn
+   * 为每个 step 构造 hook 闭包。
    *
-   * 全部 hook 现在都 throw NotYetWired；R2-A.2 起逐个替换。
+   * 已实装：
+   *   s1-budget (R2-A.3) → 调 runBudgetEstimateStage
+   *
+   * 待实装（NotYetWired 占位）：
+   *   s2-leader-plan, s3-researcher-collect, s4-leader-assess, s5-reconciler,
+   *   s6-analyst, s7-writer-outline, s8-writer, s8b-quality-enhancement,
+   *   s9-critic, s9b-objective-eval, s10-leader-foreword-signoff,
+   *   s11-persist, s12-self-evolution
    */
   private buildHooksForStep(
     stepId: string,
     primitive: string,
   ): ResolvedStageHooks {
-    const notYetWired = (hookName: string) => {
-      return (_args: unknown) => {
-        throw new PlaygroundHookNotYetWiredError(stepId, hookName);
-      };
-    };
+    if (stepId === "s1-budget") {
+      return this.buildS1BudgetHooks();
+    }
+    return this.buildNotYetWiredHooks(stepId, primitive);
+  }
 
-    // 各 primitive 必填的 hook 名（与 ai-harness/teams/services/stages/* 一致；
-    //   未列出 = optional，缺失不抛错）
+  /**
+   * s1-budget hook 实装（R2-A.3）
+   *
+   * persist primitive 期望 hooks.persist；s1 模式下"persist"行为是"预算闸门
+   * + emit mission:started"，调既有 runBudgetEstimateStage thin adapter。
+   *
+   * 失败模式（runBudgetEstimateStage 抛 Error "余额不足..."）会被 orchestrator
+   * 包成 stage:failed 事件，pipeline-v1 mission 标 failed —— 与 legacy 行为一致。
+   */
+  private buildS1BudgetHooks(): ResolvedStageHooks {
+    const hooks = {
+      persist: async (args: {
+        ctx: StageRunArgs["ctx"];
+        previousOutputs: StageRunArgs["previousOutputs"];
+        crossStageState: StageRunArgs["crossStageState"];
+      }): Promise<void> => {
+        const entry = this.sessions.get(args.ctx.missionId);
+        if (!entry) {
+          throw new Error(
+            `[s1-budget] no active session for mission ${args.ctx.missionId}`,
+          );
+        }
+        // s1 不读 leader（只用 invariants 中的 input/billing/pool/budgetMultiplier）；
+        //   placeholder cast 让 TypeScript shape 通过（runBudgetEstimateStage 不会
+        //   触碰这个字段）
+        const invariants: MissionInvariants = {
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: undefined as unknown as SupervisedMission,
+          budgetMultiplier: entry.session.budgetMultiplier,
+        };
+        const deps = this.stageBindings.buildDeps();
+        await runBudgetEstimateStage(invariants, deps, entry.workspaceId);
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * NotYetWired 占位（R2-A.4~A.13 替换）—— 各 primitive 的必填 hook 全部抛错。
+   */
+  private buildNotYetWiredHooks(
+    stepId: string,
+    primitive: string,
+  ): ResolvedStageHooks {
     const requiredHooks: Record<string, ReadonlyArray<string>> = {
       plan: ["runRole"],
       research: ["fanOut", "perItemPipeline"],
@@ -189,20 +230,17 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       review: ["review"],
       signoff: ["runRole"],
       persist: ["persist"],
-      learn: [], // postmortemClassifier / memoryConsolidation 都是 optional
+      learn: [], // postmortemClassifier / memoryConsolidation 都 optional
     };
-
     const hooks: ResolvedStageHooks = {};
     const required = requiredHooks[primitive] ?? [];
     for (const name of required) {
-      (hooks as Record<string, unknown>)[name] = notYetWired(name);
+      (hooks as Record<string, unknown>)[name] = () => {
+        throw new PlaygroundHookNotYetWiredError(stepId, name);
+      };
     }
     return hooks;
   }
 }
 
-/**
- * 让 hook 闭包能访问 dispatcher 的便捷类型；R2-A.2~A.13 实现 stage adapter
- * 时的 hook signature 模板。
- */
 export type PipelineHookCtx = StageRunArgs["ctx"];

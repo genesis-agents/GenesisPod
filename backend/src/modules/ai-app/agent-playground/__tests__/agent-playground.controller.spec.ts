@@ -110,6 +110,22 @@ function buildController() {
     checkpoint as never,
   );
 
+  // R2-A.2 双轨 dispatch deps：现有 spec 用 legacy 路径（runtimeFlag stub 总返回
+  // 'legacy'，pipelineDispatcher 不会被调）—— 现有断言不变。新 R2-A.2 双轨
+  // 路由 spec（playground-controller-runtime-dispatch.spec）单独覆盖 pipeline-v1
+  // 分支
+  const pipelineDispatcher = {
+    runMission: jest.fn().mockResolvedValue({
+      missionId: "mock",
+      status: "completed",
+      stageOutputs: {},
+    }),
+  };
+  const runtimeFlag = {
+    resolve: jest.fn().mockReturnValue("legacy"),
+    defaultRuntime: jest.fn().mockReturnValue("legacy"),
+  };
+
   const controller = new AgentPlaygroundController(
     orchestrator as never,
     buffer as never,
@@ -122,6 +138,8 @@ function buildController() {
     localRerun as never,
     exportService as never,
     rerunOrchestrator as never,
+    pipelineDispatcher as never,
+    runtimeFlag as never,
   );
 
   return {
@@ -133,6 +151,8 @@ function buildController() {
     leaderChat,
     abortRegistry,
     prisma,
+    pipelineDispatcher,
+    runtimeFlag,
   };
 }
 
