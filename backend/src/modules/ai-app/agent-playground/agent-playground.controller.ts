@@ -40,6 +40,11 @@ import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
+import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
+import { MissionExportService } from "./services/export/mission-export.service";
+// ── R2-A.2 双轨 dispatch（v5.1 §3.2 §5）──
+import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
+import { PlaygroundRuntimeFlagService } from "./playground-runtime-flag.service";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
@@ -56,6 +61,15 @@ export class AgentPlaygroundController {
     private readonly prisma: PrismaService,
     private readonly checkpoint: MissionCheckpointService,
     private readonly localRerun: LocalRerunService,
+    private readonly exportService: MissionExportService,
+    private readonly rerunOrchestrator: MissionRerunOrchestratorService,
+    // R2-A.2 (v5.1 §3.2): 双轨 dispatch
+    //   pipelineDispatcher 走新轨 MissionPipelineOrchestrator + 14 step
+    //   runtimeFlag 决定每次 mission 走 legacy 还是 pipeline-v1
+    //   默认 runtime=legacy；只有 PLAYGROUND_RUNTIME=pipeline-v1 或用户在
+    //   PLAYGROUND_PIPELINE_V1_USER_IDS 白名单时才会走新轨
+    private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
+    private readonly runtimeFlag: PlaygroundRuntimeFlagService,
   ) {}
 
   private isDevTriggerAuthorized(presentedToken?: string): boolean {
@@ -149,263 +163,7 @@ export class AgentPlaygroundController {
   ): Promise<{ filename: string; mimeType: string; content: string }> {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
-    const mission = await this.store.getById(id, userId);
-    if (!mission) throw new ForbiddenException("Mission not found");
-
-    const reportFull = (mission as { reportFull?: unknown }).reportFull as
-      | {
-          factTable?: {
-            entity: string;
-            attribute: string;
-            value: string;
-            sources?: number[];
-          }[];
-          citations?: {
-            index: number;
-            title: string;
-            url: string;
-            domain: string;
-            sourceType?: string;
-            credibilityScore?: number;
-            publishedAt?: string;
-          }[];
-          content?: { fullMarkdown?: string };
-        }
-      | null
-      | undefined;
-    if (!reportFull) {
-      throw new BadRequestException("Mission has no report yet");
-    }
-
-    const sanitize = (s: string): string =>
-      `"${s.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
-
-    const topic = (reportFull as { metadata?: { topic?: string } }).metadata
-      ?.topic;
-    const slug = topic
-      ? topic
-          .replace(/[^\w一-龥-]+/g, "-")
-          .replace(/^-+|-+$/g, "")
-          .slice(0, 40)
-      : id.slice(0, 8);
-
-    if (format === "csv-facts") {
-      const facts = reportFull.factTable ?? [];
-      const lines = ["entity,attribute,value,source_count,source_indices"];
-      for (const f of facts) {
-        const sources = f.sources ?? [];
-        lines.push(
-          `${sanitize(f.entity)},${sanitize(f.attribute)},${sanitize(f.value)},${sources.length},${sanitize(sources.join("|"))}`,
-        );
-      }
-      return {
-        filename: `${slug}-facts.csv`,
-        mimeType: "text/csv; charset=utf-8",
-        content: "﻿" + lines.join("\n"),
-      };
-    }
-
-    if (format === "csv-citations") {
-      const cites = reportFull.citations ?? [];
-      const lines = [
-        "index,title,url,domain,source_type,credibility_score,published_at",
-      ];
-      for (const c of cites) {
-        lines.push(
-          `${c.index},${sanitize(c.title)},${sanitize(c.url)},${sanitize(c.domain)},${sanitize(c.sourceType ?? "")},${c.credibilityScore ?? ""},${sanitize(c.publishedAt ?? "")}`,
-        );
-      }
-      return {
-        filename: `${slug}-citations.csv`,
-        mimeType: "text/csv; charset=utf-8",
-        content: "﻿" + lines.join("\n"),
-      };
-    }
-
-    // P103-1 / P108-1: 加 reconciliation 到 mission 持久化层读取
-    const missionRow = mission as {
-      reconciliationReport?: {
-        reconciliationReport?: string;
-        deduplicationStats?: {
-          duplicatesRemoved?: number;
-          termVariantsUnified?: number;
-          dataInconsistenciesFlagged?: number;
-        };
-        termGlossary?: { canonical: string; variants: string[] }[];
-      } | null;
-    };
-
-    if (format === "markdown") {
-      // Phase P6-15: 加 YAML frontmatter (mission 元信息)
-      const meta = (reportFull as { metadata?: Record<string, unknown> })
-        .metadata;
-      let md = "";
-      if (meta) {
-        md += "---\n";
-        md += `topic: "${(meta.topic as string)?.replace(/"/g, "'") ?? id}"\n`;
-        if (meta.generatedAt) md += `generatedAt: "${meta.generatedAt}"\n`;
-        if (meta.wordCount) md += `wordCount: ${meta.wordCount}\n`;
-        if (meta.sourceCount) md += `sourceCount: ${meta.sourceCount}\n`;
-        if (meta.figureCount) md += `figureCount: ${meta.figureCount}\n`;
-        if (meta.factCount) md += `factCount: ${meta.factCount}\n`;
-        if (meta.styleProfile) md += `styleProfile: ${meta.styleProfile}\n`;
-        if (meta.lengthProfile) md += `lengthProfile: ${meta.lengthProfile}\n`;
-        if (meta.audienceProfile)
-          md += `audienceProfile: ${meta.audienceProfile}\n`;
-        md += "---\n\n";
-      }
-      // ★ Phase Lead-2: Lead Foreword 放在 fullMarkdown 之前
-      const leaderForeword = (
-        meta as
-          | {
-              leaderForeword?: {
-                whatWeAnswered?: {
-                  criterion: string;
-                  addressed: string;
-                  evidence: string;
-                }[];
-                whatRemainsUnclear?: string[];
-                howToRead?: string;
-                recommendedFollowUp?: string[];
-              };
-            }
-          | undefined
-      )?.leaderForeword;
-      if (leaderForeword) {
-        md += "## Foreword by Lead\n\n";
-        if ((leaderForeword.whatWeAnswered ?? []).length > 0) {
-          md += "### 我们回答了什么\n\n";
-          for (const a of leaderForeword.whatWeAnswered ?? []) {
-            const icon =
-              a.addressed === "yes"
-                ? "✓"
-                : a.addressed === "partial"
-                  ? "⚠️"
-                  : "✗";
-            md += `- ${icon} **${a.criterion}** — ${a.evidence}\n`;
-          }
-          md += "\n";
-        }
-        if ((leaderForeword.whatRemainsUnclear ?? []).length > 0) {
-          md += "### 没回答 / 证据不足\n\n";
-          for (const u of leaderForeword.whatRemainsUnclear ?? []) {
-            md += `- ${u}\n`;
-          }
-          md += "\n";
-        }
-        if (leaderForeword.howToRead) {
-          md += "### 如何阅读本报告\n\n";
-          md += leaderForeword.howToRead + "\n\n";
-        }
-        if ((leaderForeword.recommendedFollowUp ?? []).length > 0) {
-          md += "### 建议的后续研究方向\n\n";
-          for (const r of leaderForeword.recommendedFollowUp ?? []) {
-            md += `- ${r}\n`;
-          }
-          md += "\n";
-        }
-        md += "---\n\n";
-      }
-
-      md += reportFull.content?.fullMarkdown ?? "";
-      // Phase P2-8: 末尾追加 references 附录（让导出 .md 自含引用）
-      const cites = reportFull.citations ?? [];
-      if (cites.length > 0) {
-        md += "\n\n---\n\n## 参考文献\n\n";
-        for (const c of cites) {
-          const tag = c.sourceType ? ` [${c.sourceType}]` : "";
-          const credit =
-            c.credibilityScore != null
-              ? ` ・可信度 ${c.credibilityScore}/100`
-              : "";
-          md += `[${c.index}]${tag} ${c.title} — ${c.domain}${c.publishedAt ? ` (${c.publishedAt.slice(0, 10)})` : ""}${credit}\n  ${c.url}\n\n`;
-        }
-      }
-      // P103-1 / P108-1: 附 Reconciliation 总览 + dedup 统计 + termGlossary
-      const recon = missionRow.reconciliationReport;
-      if (recon) {
-        md += "\n\n---\n\n## 附录：对账总览\n\n";
-        if (recon.deduplicationStats) {
-          md += `**去重统计**：去重 ${recon.deduplicationStats.duplicatesRemoved ?? 0} · 术语统一 ${recon.deduplicationStats.termVariantsUnified ?? 0} · 数据冲突 ${recon.deduplicationStats.dataInconsistenciesFlagged ?? 0}\n\n`;
-        }
-        if (recon.termGlossary && recon.termGlossary.length > 0) {
-          md += "**术语对照表**：\n";
-          for (const g of recon.termGlossary) {
-            md += `- **${g.canonical}** ↔ ${g.variants.join(" / ")}\n`;
-          }
-          md += "\n";
-        }
-        if (recon.reconciliationReport) {
-          md += recon.reconciliationReport;
-        }
-      }
-      // ★ Critic L4 独立复审附录（auditLayers >= thorough 时生成）
-      // 让导出 .md 包含独立审查发现，便于复盘 / 二次撰稿。
-      const quality = (
-        reportFull as {
-          quality?: { warnings?: { dimension: string; message: string }[] };
-        }
-      ).quality;
-      const l4Warnings = (quality?.warnings ?? []).filter((w) =>
-        w.dimension?.startsWith("l4-"),
-      );
-      if (l4Warnings.length > 0) {
-        const blindspots = l4Warnings.filter(
-          (w) => w.dimension === "l4-blindspot",
-        );
-        const biases = l4Warnings.filter((w) => w.dimension === "l4-bias");
-        const suggestions = l4Warnings.filter(
-          (w) => w.dimension === "l4-suggestion",
-        );
-        const critics = l4Warnings.filter((w) => w.dimension === "l4-critic");
-        md += "\n\n---\n\n## 附录：独立审查（Critic L4）\n\n";
-        if (critics.length > 0) {
-          md += "### 整体判定\n";
-          for (const w of critics) md += `- ${w.message}\n`;
-          md += "\n";
-        }
-        if (blindspots.length > 0) {
-          md += "### 盲点（Blind Spots）\n";
-          for (const w of blindspots) md += `- ${w.message}\n`;
-          md += "\n";
-        }
-        if (biases.length > 0) {
-          md += "### 潜在偏见（Biases）\n";
-          for (const w of biases) md += `- ${w.message}\n`;
-          md += "\n";
-        }
-        if (suggestions.length > 0) {
-          md += "### 改进建议（Suggestions）\n";
-          for (const w of suggestions) md += `- ${w.message}\n`;
-          md += "\n";
-        }
-      }
-      return {
-        filename: `${slug}.md`,
-        mimeType: "text/markdown; charset=utf-8",
-        content: md,
-      };
-    }
-
-    if (format === "json") {
-      // Phase P6-16 / P104-1: 完整 ReportArtifact JSON 导出（机器可读，含 reconciliation）
-      return {
-        filename: `${slug}.json`,
-        mimeType: "application/json; charset=utf-8",
-        content: JSON.stringify(
-          {
-            artifact: reportFull,
-            reconciliation: missionRow.reconciliationReport ?? null,
-          },
-          null,
-          2,
-        ),
-      };
-    }
-
-    throw new BadRequestException(
-      `Unsupported export format: ${format}. Use csv-facts | csv-citations | markdown | json`,
-    );
+    return this.exportService.export(id, userId, format);
   }
 
   /**
@@ -485,7 +243,11 @@ export class AgentPlaygroundController {
   runTeam(
     @Body() body: unknown,
     @Request() req: RequestWithUser,
-  ): { missionId: string; streamNamespace: string } {
+  ): {
+    missionId: string;
+    streamNamespace: string;
+    runtimeVersion: "legacy" | "pipeline-v1";
+  } {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
 
@@ -502,15 +264,30 @@ export class AgentPlaygroundController {
 
     this.ownership.assign(missionId, userId);
 
-    void this.orchestrator
-      .runMission(missionId, input, userId)
-      .catch((err: unknown) => {
-        this.log.error(
-          `mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
+    const runtimeVersion = this.runtimeFlag.resolve({ userId });
+    if (runtimeVersion === "pipeline-v1") {
+      void this.pipelineDispatcher
+        .runMission(missionId, input, userId)
+        .catch((err: unknown) => {
+          this.log.error(
+            `[pipeline-v1] mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    } else {
+      void this.orchestrator
+        .runMission(missionId, input, userId)
+        .catch((err: unknown) => {
+          this.log.error(
+            `[legacy] mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
 
-    return { missionId, streamNamespace: "agent-playground" };
+    return {
+      missionId,
+      streamNamespace: "agent-playground",
+      runtimeVersion,
+    };
   }
 
   /**
@@ -532,64 +309,7 @@ export class AgentPlaygroundController {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     await this.assertOwnership(missionId, userId);
-
-    const original = await this.store.getById(missionId, userId);
-    if (!original)
-      throw new ForbiddenException(`mission ${missionId} not found`);
-
-    // Phase P11-1: rerun 复用原 mission 的 userProfile（如有）
-    const originalProfile = (original as { userProfile?: unknown })
-      .userProfile as Partial<RunMissionInput> | null | undefined;
-    const input: RunMissionInput = {
-      topic: original.topic,
-      depth: (["quick", "standard", "deep"].includes(
-        originalProfile?.depth ?? original.depth,
-      )
-        ? (originalProfile?.depth ?? original.depth)
-        : "deep") as RunMissionInput["depth"],
-      language: (originalProfile?.language ??
-        (original.language === "en-US"
-          ? "en-US"
-          : "zh-CN")) as RunMissionInput["language"],
-      budgetProfile: originalProfile?.budgetProfile ?? "medium",
-      styleProfile: originalProfile?.styleProfile ?? "executive",
-      lengthProfile: originalProfile?.lengthProfile ?? "standard",
-      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
-      withFigures: originalProfile?.withFigures ?? true,
-      auditLayers: originalProfile?.auditLayers ?? "default",
-      concurrency: originalProfile?.concurrency ?? 3,
-      viewMode: originalProfile?.viewMode ?? "continuous",
-      // ★ 继承原 mission 的预算上限，不再硬编码 300（深度档位需要 600+）
-      maxCredits:
-        (original as { maxCredits?: number }).maxCredits ??
-        originalProfile?.maxCredits ??
-        300,
-    };
-
-    const newMissionId = randomUUID();
-    this.ownership.assign(newMissionId, userId);
-
-    // ★ P0-R5-2 (2026-04-30): rerun 闭环 — 复制原 mission checkpoint 到新 mission
-    //   让 team.mission 入口 canResume() 取到 ok 决策，下游 stage 跳过已完成 keys。
-    //   过期 / 已 completed 的 checkpoint 自动跳过；新 mission 从头跑。
-    const cloned = await this.checkpoint
-      .cloneCheckpoint(missionId, newMissionId)
-      .catch(() => false);
-    if (cloned) {
-      this.log.log(
-        `[rerun] mission ${newMissionId} resumed from ${missionId} checkpoint`,
-      );
-    }
-
-    void this.orchestrator
-      .runMission(newMissionId, input, userId)
-      .catch((err: unknown) => {
-        this.log.error(
-          `mission ${newMissionId} (rerun of ${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-
-    return { missionId: newMissionId, streamNamespace: "agent-playground" };
+    return this.rerunOrchestrator.rerunFullMission(missionId, userId);
   }
 
   /**
@@ -627,126 +347,12 @@ export class AgentPlaygroundController {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     await this.assertOwnership(missionId, userId);
-
-    const original = await this.store.getById(missionId, userId);
-    if (!original)
-      throw new ForbiddenException(`mission ${missionId} not found`);
-
-    if (original.status === "running") {
-      throw new BadRequestException(
-        "Source mission is still running — cancel or wait for completion before re-running individual todos",
-      );
-    }
-
-    const origin = (body?.origin ?? "").trim();
-    if (origin === "leader-assess-abort") {
-      throw new BadRequestException(
-        "Aborted dimensions cannot be re-run; create a new mission instead",
-      );
-    }
-    if (origin === "system-stage" && todoId.endsWith("s11-persist")) {
-      throw new BadRequestException(
-        "Persistence stage cannot be re-run — re-run the whole mission instead",
-      );
-    }
-
-    // 构造给新 mission leader 看的 focusHint（中文 / 英文双语，让 leader 自主选择）
-    const scope = body?.scope ?? "mission";
-    const dimRef = (body?.dimensionRef ?? "").trim();
-    const chapterIdx = body?.chapterIndex;
-    const todoTitle = (body?.todoTitle ?? "").trim();
-    const reasonText = (body?.reasonText ?? "").trim();
-    const hintLines: string[] = [];
-    if (scope === "dimension" && dimRef) {
-      hintLines.push(
-        `本次为单维度重跑：重点改进维度「${dimRef}」`,
-        `Focused re-run: improve dimension "${dimRef}"`,
-      );
-    } else if (
-      scope === "chapter" &&
-      dimRef &&
-      typeof chapterIdx === "number"
-    ) {
-      hintLines.push(
-        `本次为章节重跑：维度「${dimRef}」第 ${chapterIdx + 1} 章需要重点改写`,
-        `Focused re-run: rewrite chapter ${chapterIdx + 1} of dimension "${dimRef}"`,
-      );
-    } else if (scope === "review") {
-      hintLines.push(
-        `本次为复审改进重跑：${todoTitle || origin}`,
-        `Focused re-run: address review finding "${todoTitle || origin}"`,
-      );
-    } else if (scope === "system") {
-      hintLines.push(
-        `本次为系统阶段重跑：${todoTitle || todoId}`,
-        `Focused re-run: redo system stage "${todoTitle || todoId}"`,
-      );
-    }
-    if (reasonText) hintLines.push(`Context: ${reasonText}`);
-
-    // 老 input 复用
-    // ★ 2026-05-01：topic 完全保持原样，不再追加 [Re-run focus] hint 块
-    //   原 P1-21 把 hint 嵌进 topic 末尾导致前端 mission header truncate 失效，
-    //   多行 topic 把右上角设置按钮挤出可视区。
-    //   hint 已通过 mission:manual-rerun-from-todo 事件 emit 给前端 ledger 关联展示，
-    //   且 hintLines 内容仅日志记录，对 leader plan 行为影响有限（保持空 hint
-    //   不嵌 topic，leader 按原 topic 重新规划即可）。
-    const originalProfile = (original as { userProfile?: unknown })
-      .userProfile as Partial<RunMissionInput> | null | undefined;
-    const TOPIC_LIMIT = 200;
-    const focusedTopic = original.topic.slice(0, TOPIC_LIMIT);
-
-    const input: RunMissionInput = {
-      topic: focusedTopic,
-      depth: (["quick", "standard", "deep"].includes(
-        originalProfile?.depth ?? original.depth,
-      )
-        ? (originalProfile?.depth ?? original.depth)
-        : "deep") as RunMissionInput["depth"],
-      language: (originalProfile?.language ??
-        (original.language === "en-US"
-          ? "en-US"
-          : "zh-CN")) as RunMissionInput["language"],
-      budgetProfile: originalProfile?.budgetProfile ?? "medium",
-      styleProfile: originalProfile?.styleProfile ?? "executive",
-      lengthProfile: originalProfile?.lengthProfile ?? "standard",
-      audienceProfile: originalProfile?.audienceProfile ?? "domain-expert",
-      withFigures: originalProfile?.withFigures ?? true,
-      auditLayers: originalProfile?.auditLayers ?? "default",
-      concurrency: originalProfile?.concurrency ?? 3,
-      viewMode: originalProfile?.viewMode ?? "continuous",
-      maxCredits: 300,
-    };
-
-    const newMissionId = randomUUID();
-    this.ownership.assign(newMissionId, userId);
-
-    // emit 一个 mission:manual-rerun-from-todo 事件，让前端 ledger 把新 mission
-    // 关联到 sourceTodoId（用户能在 todo 详情看到"重跑历史"）
-    await this.buffer.broadcast({
-      type: "agent-playground.mission:manual-rerun-from-todo",
-      scope: { missionId: newMissionId, userId },
-      payload: {
-        sourceMissionId: missionId,
-        sourceTodoId: todoId,
-        origin,
-        scope,
-        dimensionRef: dimRef || undefined,
-        chapterIndex: chapterIdx,
-        todoTitle: todoTitle || undefined,
-      },
-      timestamp: Date.now(),
+    return this.rerunOrchestrator.rerunFromTodo({
+      sourceMissionId: missionId,
+      userId,
+      todoId,
+      body,
     });
-
-    void this.orchestrator
-      .runMission(newMissionId, input, userId)
-      .catch((err: unknown) => {
-        this.log.error(
-          `mission ${newMissionId} (rerun-todo ${todoId} of ${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
-
-    return { missionId: newMissionId, streamNamespace: "agent-playground" };
   }
 
   /**

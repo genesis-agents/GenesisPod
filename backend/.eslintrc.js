@@ -428,5 +428,149 @@ module.exports = {
         ],
       },
     },
+    //
+    // ============================================================================
+    // v5.1 R0.5 PR-0: Plugin 系统边界（standards/19-plugin-system-governance.md）
+    // ============================================================================
+    //
+    // 三块规则与 layer-boundaries.spec.ts "Plugin system boundaries" 一一对应：
+    //   ① harness/engine 不得 import plugin:<domain> 实现（仅可 plugins/core/）
+    //   ② src/plugins/<domain>/ 不得 import harness/engine/app 内部 + 不得 import 其他 plugin
+    //   ③ src/plugins/core/ 不得依赖任何 module 或具体 plugin 实现
+    //
+    {
+      files: ["**/modules/ai-harness/**/*.ts", "**/modules/ai-engine/**/*.ts"],
+      excludedFiles: ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "**/plugins/observability/**",
+                  "**/plugins/resilience/**",
+                  "**/plugins/security/**",
+                  "**/plugins/storage/**",
+                  "**/plugins/rag-backend/**",
+                  "**/plugins/llm-augment/**",
+                  "**/plugins/tool-augment/**",
+                  "@/plugins/observability/**",
+                  "@/plugins/resilience/**",
+                  "@/plugins/security/**",
+                  "@/plugins/storage/**",
+                  "@/plugins/rag-backend/**",
+                  "@/plugins/llm-augment/**",
+                  "@/plugins/tool-augment/**",
+                ],
+                message:
+                  "harness/engine 不得 import plugin 实现，必须通过 HookBus（plugins/core/）。" +
+                  "见 standards/19-plugin-system-governance.md 规则 4。",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: [
+        "**/plugins/observability/**/*.ts",
+        "**/plugins/resilience/**/*.ts",
+        "**/plugins/security/**/*.ts",
+        "**/plugins/storage/**/*.ts",
+        "**/plugins/rag-backend/**/*.ts",
+        "**/plugins/llm-augment/**/*.ts",
+        "**/plugins/tool-augment/**/*.ts",
+      ],
+      excludedFiles: ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["@/modules/ai-harness/**", "**/modules/ai-harness/**"],
+                message:
+                  "plugin 不得 import ai-harness 内部，仅允许通过 plugins/core/ 的 hook payload 类型。" +
+                  "见 standards/19 规则 4。",
+              },
+              {
+                group: ["@/modules/ai-engine/**", "**/modules/ai-engine/**"],
+                message:
+                  "plugin 不得 import ai-engine 内部，仅允许通过 plugins/core/ 的 hook payload 类型。" +
+                  "见 standards/19 规则 4。",
+              },
+              {
+                group: ["@/modules/ai-app/**", "**/modules/ai-app/**"],
+                message:
+                  "plugin 是平台横切，与业务无关，不得 import ai-app。" +
+                  "见 standards/19 规则 3。",
+              },
+              {
+                group: [
+                  "**/plugins/observability/**",
+                  "**/plugins/resilience/**",
+                  "**/plugins/security/**",
+                  "**/plugins/storage/**",
+                  "**/plugins/rag-backend/**",
+                  "**/plugins/llm-augment/**",
+                  "**/plugins/tool-augment/**",
+                  "@/plugins/observability/**",
+                  "@/plugins/resilience/**",
+                  "@/plugins/security/**",
+                  "@/plugins/storage/**",
+                  "@/plugins/rag-backend/**",
+                  "@/plugins/llm-augment/**",
+                  "@/plugins/tool-augment/**",
+                ],
+                message:
+                  "plugin 之间仅通过 hook payload 通信，不得直接 import 其他 plugin 实现。" +
+                  "见 standards/19 规则 4 + DS2。",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["**/plugins/core/**/*.ts"],
+      excludedFiles: ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**/*.ts"],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["@/modules/**", "**/modules/**"],
+                message:
+                  "plugins/core/ 是平台内核，不得依赖任何 module（ai-app/harness/engine/infra）。" +
+                  "见 standards/19 规则 4。",
+              },
+              {
+                group: [
+                  "**/plugins/observability/**",
+                  "**/plugins/resilience/**",
+                  "**/plugins/security/**",
+                  "**/plugins/storage/**",
+                  "**/plugins/rag-backend/**",
+                  "**/plugins/llm-augment/**",
+                  "**/plugins/tool-augment/**",
+                  "@/plugins/observability/**",
+                  "@/plugins/resilience/**",
+                  "@/plugins/security/**",
+                  "@/plugins/storage/**",
+                  "@/plugins/rag-backend/**",
+                  "@/plugins/llm-augment/**",
+                  "@/plugins/tool-augment/**",
+                ],
+                message:
+                  "plugins/core/ 不得依赖具体 plugin 实现（内核不知道有哪些 plugin）。" +
+                  "见 standards/19 规则 4。",
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
 };

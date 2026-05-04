@@ -17,11 +17,8 @@ import {
   AgentTemplate,
   AgentConfig,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import {
-  AGENT_CONFIGS,
-  BUILTIN_AGENTS,
-  type BuiltinAgentId,
-} from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
+// v3 R0-A1-a: 业务名 + AGENT_CONFIGS 中文文案已下推到各 ai-app 自有 *.constants.ts；
+// base layer 不再含业务硬编码。子类通过 readonly icon/color 自己提供文案。
 
 /**
  * Plan-Based Agent 接口
@@ -105,6 +102,13 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
   abstract readonly requiredTools: ToolId[];
 
   /**
+   * Agent UI 文案（可选，子类覆盖即可获得 gallery 显示效果）
+   * v3 R0-A1-a: 原 AGENT_CONFIGS lookup 已删，业务文案由子类自己提供
+   */
+  protected readonly icon: string = "bot";
+  protected readonly color: string = "#6B7280";
+
+  /**
    * 模板列表 - 子类可覆盖
    */
   protected templates: AgentTemplate[] = [];
@@ -171,25 +175,16 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
 
   /**
    * 获取 Agent 配置
+   * v3 R0-A1-a: 子类通过 readonly name/description/icon/color/capabilities 自己提供
+   * 业务文案；base layer 不再做 BUILTIN_AGENTS 业务名 lookup。
    */
   getConfig(): AgentConfig {
-    // 尝试从预定义配置获取
-    const predefinedConfig = AGENT_CONFIGS[this.id as BuiltinAgentId];
-    if (predefinedConfig) {
-      return {
-        ...predefinedConfig,
-        templates: this.templates,
-        selectionKeywords: this.selectionKeywords,
-      };
-    }
-
-    // 自定义 Agent 配置
     return {
       id: this.id,
       name: this.name,
       description: this.description,
-      icon: "bot",
-      color: "#6B7280",
+      icon: this.icon,
+      color: this.color,
       capabilities: this.capabilities,
       templates: this.templates,
       selectionKeywords: this.selectionKeywords,
@@ -215,12 +210,9 @@ export abstract class PlanBasedAgent implements IPlanBasedAgent {
 export {
   AgentId,
   ToolId,
-  BUILTIN_AGENTS,
-  AGENT_CONFIGS,
   AgentInput,
   AgentPlan,
   AgentEvent,
   AgentTemplate,
   AgentConfig,
 };
-export type { BuiltinAgentId };

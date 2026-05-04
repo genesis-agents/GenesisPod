@@ -84,6 +84,47 @@ function buildController() {
   const checkpoint = {
     cloneCheckpoint: jest.fn().mockResolvedValue(false),
   };
+  // ★ 2026-05-04 PR-10c: MissionExportService 拆出 controller 后 spec 用真实
+  //   service 构造（依赖 store mock），保证 export 行为与抽出前一致。
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    MissionExportService,
+  } = require("../services/export/mission-export.service");
+  const exportService = new MissionExportService(store as never);
+  const localRerun = {
+    execute: jest.fn(),
+    isLocallyRerunable: jest.fn().mockReturnValue({ rerunable: false }),
+  };
+  // ★ 2026-05-04 PR-10d: MissionRerunOrchestratorService 拆出后 spec 用真实
+  //   service 构造（依赖 store / buffer / ownership / checkpoint / orchestrator
+  //   mock），保证 rerun 行为与抽出前一致。
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    MissionRerunOrchestratorService,
+  } = require("../services/mission/rerun/mission-rerun-orchestrator.service");
+  const rerunOrchestrator = new MissionRerunOrchestratorService(
+    orchestrator as never,
+    store as never,
+    buffer as never,
+    ownership as never,
+    checkpoint as never,
+  );
+
+  // R2-A.2 双轨 dispatch deps：现有 spec 用 legacy 路径（runtimeFlag stub 总返回
+  // 'legacy'，pipelineDispatcher 不会被调）—— 现有断言不变。新 R2-A.2 双轨
+  // 路由 spec（playground-controller-runtime-dispatch.spec）单独覆盖 pipeline-v1
+  // 分支
+  const pipelineDispatcher = {
+    runMission: jest.fn().mockResolvedValue({
+      missionId: "mock",
+      status: "completed",
+      stageOutputs: {},
+    }),
+  };
+  const runtimeFlag = {
+    resolve: jest.fn().mockReturnValue("legacy"),
+    defaultRuntime: jest.fn().mockReturnValue("legacy"),
+  };
 
   const controller = new AgentPlaygroundController(
     orchestrator as never,
@@ -94,6 +135,11 @@ function buildController() {
     abortRegistry as never,
     prisma as never,
     checkpoint as never,
+    localRerun as never,
+    exportService as never,
+    rerunOrchestrator as never,
+    pipelineDispatcher as never,
+    runtimeFlag as never,
   );
 
   return {
@@ -105,6 +151,8 @@ function buildController() {
     leaderChat,
     abortRegistry,
     prisma,
+    pipelineDispatcher,
+    runtimeFlag,
   };
 }
 

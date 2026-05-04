@@ -7,11 +7,11 @@
  */
 
 import {
-  BUILTIN_TEAMS,
   BUILTIN_ROLES,
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { DEBATE_TEAM_ID } from "../teams.constants";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 /**
@@ -93,7 +93,7 @@ export const DEBATE_WORKFLOW: WorkflowConfig = {
  * 辩论团队配置
  */
 export const DEBATE_TEAM_CONFIG: TeamConfig = {
-  id: BUILTIN_TEAMS.DEBATE,
+  id: DEBATE_TEAM_ID,
   name: "辩论推演",
   description: "多视角论证，支持决策分析",
   type: "predefined",

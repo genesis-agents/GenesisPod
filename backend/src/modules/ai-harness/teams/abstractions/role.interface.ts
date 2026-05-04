@@ -3,7 +3,10 @@
  * 角色抽象接口定义
  */
 
-import { ToolId, SkillId } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  ToolId,
+  SkillId,
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 // ==================== Role ID ====================
 
@@ -11,15 +14,14 @@ export type RoleId = string;
 
 // ==================== 预定义角色常量 ====================
 
+// v3 R0-A1-d: 业务 leader 角色（research-lead / content-lead / tech-lead / slides-lead）
+// 已下推到各 ai-app（research/teams/research-roles.config.ts、office/teams/office-roles.config.ts）。
+// base layer 仅保留通用 SDK 角色（researcher/writer/reviewer/...），不再硬编码业务身份。
 export const BUILTIN_ROLES = {
-  // 领导角色
-  RESEARCH_LEAD: "research-lead",
-  CONTENT_LEAD: "content-lead",
-  TECH_LEAD: "tech-lead",
-  SLIDES_LEAD: "slides-lead",
+  // 协调角色（通用）
   MODERATOR: "moderator",
 
-  // 执行角色
+  // 执行角色（通用）
   RESEARCHER: "researcher",
   ANALYST: "analyst",
   WRITER: "writer",
@@ -145,19 +147,11 @@ export const LEADER_WORK_STYLE: WorkStyle = {
 };
 
 /**
- * 预定义角色描述
+ * 预定义角色描述（仅通用 SDK 角色；业务 leader 描述在各 ai-app role config）
  */
 export const ROLE_DESCRIPTIONS: Record<BuiltinRoleId, string> = {
-  [BUILTIN_ROLES.RESEARCH_LEAD]:
-    "研究团队领导，负责制定研究框架、分配任务、审核质量、整合报告",
-  [BUILTIN_ROLES.CONTENT_LEAD]:
-    "内容团队领导，负责理解需求、规划结构、审核质量、把控风格",
-  [BUILTIN_ROLES.TECH_LEAD]:
-    "技术团队领导，负责架构设计、任务分解、代码审核、技术决策",
-  [BUILTIN_ROLES.SLIDES_LEAD]:
-    "PPT 团队架构师，负责任务分解、大纲规划、页面设计、质量把控",
   [BUILTIN_ROLES.MODERATOR]:
-    "辩论主持人，负责设定议题、控制节奏、总结观点、输出建议",
+    "主持人，负责设定议题、控制节奏、总结观点、输出建议",
   [BUILTIN_ROLES.RESEARCHER]:
     "研究员，负责信息检索、资料整理、可信度判断、数据收集",
   [BUILTIN_ROLES.ANALYST]: "分析师，负责数据分析、趋势洞察、逻辑推理、综合判断",

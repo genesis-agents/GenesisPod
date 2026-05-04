@@ -10,8 +10,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PlanBasedAgent } from "@/modules/ai-harness/facade";
+import { TEAM_COLLABORATION_AGENT_ID } from "../teams.constants";
 import {
-  BUILTIN_AGENTS,
   BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
@@ -45,7 +45,7 @@ export enum VotingStrategy {
 export class TeamCollaborationAgent extends PlanBasedAgent {
   private readonly logger = new Logger(TeamCollaborationAgent.name);
 
-  readonly id = BUILTIN_AGENTS.TEAM_COLLABORATION;
+  readonly id = TEAM_COLLABORATION_AGENT_ID;
   readonly name = "AI Team Collaboration";
   readonly description =
     "智能团队协作专家，管理多 AI 成员协作、任务分配和共识投票";

@@ -1,38 +1,35 @@
 /**
- * LeaderChatService —— mission Leader 对话
+ * LeaderChatService —— mission Leader 对话（编排）
  *
  * 用户点击 mission 详情页的 Leader 节点 → 弹出 chat 浮窗 → 与该 mission
  * 的 Leader（拥有完整 topic / dimensions / report 上下文）讨论。
  *
  * 模型选择走 Harness 同款链路：modelType=CHAT + userId（BYOK），
  * 不硬编码任何 provider/模型。
+ *
+ * ★ 2026-05-04 PR-10a (拆分为 < 500 行合规, standards/16 §六)：
+ *   • leader-chat-prompt.ts            ← buildLeaderChatPrompt（system prompt 拼装）
+ *   • leader-decision-parser.util.ts   ← parseLeaderDecisionResponse + safeParseStoredDecision
+ *   • leader-chat.service.ts (本文件)  ← list / send / 持久化 / 业务事件 emit / Mission 装配
+ *
+ * 后续 PR-8 把 buildLeaderChatPrompt 整体迁到 SkillRegistry（playground.leader-chat skill）。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiChatService } from "@/modules/ai-harness/facade";
-import {
-  DomainEventBus,
-  type DomainEvent,
-} from "@/modules/ai-harness/facade";
+import { DomainEventBus, type DomainEvent } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
+import { buildLeaderChatPrompt } from "./leader-chat-prompt";
+import {
+  parseLeaderDecisionResponse,
+  safeParseStoredDecision,
+  type LeaderDecision,
+  type LeaderDecisionType,
+} from "./leader-decision-parser.util";
 
-export type LeaderDecisionType =
-  | "DIRECT_ANSWER" // 直接回答（讨论 / 解释）
-  | "CREATE_TODO" // 用户提了新任务 → 追加 dimension
-  | "CLARIFY" // 信息不足 → 提供选项让用户选
-  | "ACKNOWLEDGE"; // 致谢 / 闲聊
-
-export interface LeaderDecision {
-  type: LeaderDecisionType;
-  /** 一句话理解："我理解你想要…" — chip 显示 */
-  understanding?: string;
-  /** CREATE_TODO 时真任务列表 */
-  todo?: { name: string; rationale: string }[];
-  /** CLARIFY 时按钮选项 */
-  clarifyOptions?: string[];
-}
+export type { LeaderDecision, LeaderDecisionType };
 
 export interface LeaderChatMessage {
   id: string;
@@ -75,37 +72,8 @@ export class LeaderChatService {
       tokensUsed: r.tokensUsed,
       createdAt: r.createdAt,
       // 旧消息 / 解析失败 → null
-      decision: this.safeParseDecision((r as { decision?: unknown }).decision),
+      decision: safeParseStoredDecision((r as { decision?: unknown }).decision),
     }));
-  }
-
-  private safeParseDecision(raw: unknown): LeaderDecision | null {
-    if (!raw || typeof raw !== "object") return null;
-    const o = raw as Record<string, unknown>;
-    if (typeof o.type !== "string") return null;
-    return {
-      type: o.type as LeaderDecisionType,
-      understanding:
-        typeof o.understanding === "string" ? o.understanding : undefined,
-      todo: Array.isArray(o.todo)
-        ? (o.todo as { name?: unknown; rationale?: unknown }[])
-            .filter(
-              (t) =>
-                t &&
-                typeof t.name === "string" &&
-                typeof t.rationale === "string",
-            )
-            .map((t) => ({
-              name: t.name as string,
-              rationale: t.rationale as string,
-            }))
-        : undefined,
-      clarifyOptions: Array.isArray(o.clarifyOptions)
-        ? (o.clarifyOptions as unknown[]).filter(
-            (s): s is string => typeof s === "string",
-          )
-        : undefined,
-    };
   }
 
   /**
@@ -141,7 +109,7 @@ export class LeaderChatService {
     const mission = await this.store.getById(missionId, userId);
     const previous = await this.list(missionId);
 
-    const systemPrompt = this.buildSystemPrompt(mission);
+    const systemPrompt = buildLeaderChatPrompt(mission);
 
     const messages = previous.map((m) => ({
       role: m.role,
@@ -163,7 +131,7 @@ export class LeaderChatService {
       const raw = result.content?.trim() || "";
       usedTokens = result.usage?.totalTokens;
       // 3) 解析 JSON 决策
-      const parsed = this.parseDecisionResponse(raw);
+      const parsed = parseLeaderDecisionResponse(raw);
       assistantText = parsed.response || "(Leader did not respond)";
       decision = parsed.decision;
     } catch (err) {
@@ -227,59 +195,12 @@ export class LeaderChatService {
         );
         // 广播追加事件给前端 → TaskListPanel + SVG 自动 refresh dimensions
         if (appendedIds.length > 0) {
-          const event: DomainEvent = {
-            type: "agent-playground.dimensions:appended",
-            scope: { missionId, userId },
-            payload: {
-              appendedIds,
-              source: "user-chat",
-              items: decision.todo.map((t, i) => ({
-                id: appendedIds![i],
-                name: t.name,
-                rationale: t.rationale,
-              })),
-            },
-            timestamp: Date.now(),
-          };
-          await this.eventBus.emit(event).catch((e: unknown) => {
-            this.log.warn(
-              `[send ${missionId}] broadcast dimensions:appended failed: ${e instanceof Error ? e.message : String(e)}`,
-            );
-          });
-          // ★ BUG-E 部分修：让前端任务列表立即显示这些新 dim 处于 pending 状态
-          //   每个新 dim 发一条 dimension:retrying 事件（reason=leader-chat-create）
-          //   todo-ledger 已映射为 leader-chat-create origin，会创建任务行可见
-          //   实际 Researcher 派遣由 orchestrator 在下一个 S5 boundary 检测 pending
-          //   dim 时统一拉起（深度修法见 Task #23 追记）。
-          // ★ P0-2: appendDimensions 可能部分失败返回 appendedIds.length < todo.length，
-          //   越界访问会让 agentId=`researcher#chat-undefined` 污染前端任务列表。
-          //   循环边界统一取 min(todo.length, appendedIds.length)，确保 1:1 对应。
-          const safeLen = Math.min(
-            decision?.todo?.length ?? 0,
-            appendedIds?.length ?? 0,
+          await this.broadcastAppendedDimensions(
+            missionId,
+            userId,
+            appendedIds,
+            decision.todo,
           );
-          for (let i = 0; i < safeLen; i++) {
-            const t = decision.todo[i];
-            await this.eventBus
-              .emit({
-                type: "agent-playground.dimension:retrying",
-                scope: { missionId, userId },
-                agentId: `researcher#chat-${appendedIds[i]}`,
-                payload: {
-                  dimension: t.name,
-                  reason: "leader-chat-create",
-                  rationale: t.rationale,
-                  source: "user-chat",
-                  // ★ 关键：标 willExecute=false 让前端区分"已登记但暂未派遣"，
-                  //   不应在 UI 显示为"进行中"，应展示为"等待派遣"+ 提示用户
-                  //   重启 mission 或等 orchestrator boundary 拉起
-                  willExecute: false,
-                  note: "Leader Chat 已登记该维度，待 orchestrator 在下一阶段拉起或用户重启 mission",
-                },
-                timestamp: Date.now(),
-              })
-              .catch(() => {});
-          }
         }
       } catch (err) {
         this.log.warn(
@@ -295,226 +216,62 @@ export class LeaderChatService {
     };
   }
 
-  /**
-   * 解析 LLM 输出 —— 期望 JSON {response, decisionType, understanding, todo, clarifyOptions}
-   * 容错：
-   *   - 没找到 fence 也试试整段当 JSON
-   *   - JSON 格式不全 → 降级为 DIRECT_ANSWER + 原文（剥离 fence）
-   *   - response 字段缺失 → 回退到 understanding / fence-外的文字 / 原文
-   */
-  private parseDecisionResponse(raw: string): {
-    response: string;
-    decision: LeaderDecision | null;
-  } {
-    const trimmed = raw.trim();
-    // 找 JSON 块（```json fence 或裸 JSON）
-    let jsonStr = trimmed;
-    const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (fenceMatch) jsonStr = fenceMatch[1].trim();
-    // 取 fence 外的纯文字作为 fallback（如果 LLM 在 JSON 之外还写了开场白）
-    const outsideFenceText = fenceMatch
-      ? trimmed.replace(fenceMatch[0], "").trim()
-      : "";
-
-    if (!jsonStr.startsWith("{") && !jsonStr.startsWith("[")) {
-      // 不是 JSON → 整段当 DIRECT_ANSWER
-      return {
-        response: raw,
-        decision: { type: "DIRECT_ANSWER" },
-      };
+  private async broadcastAppendedDimensions(
+    missionId: string,
+    userId: string,
+    appendedIds: string[],
+    todo: { name: string; rationale: string }[],
+  ): Promise<void> {
+    const event: DomainEvent = {
+      type: "agent-playground.dimensions:appended",
+      scope: { missionId, userId },
+      payload: {
+        appendedIds,
+        source: "user-chat",
+        items: todo.map((t, i) => ({
+          id: appendedIds[i],
+          name: t.name,
+          rationale: t.rationale,
+        })),
+      },
+      timestamp: Date.now(),
+    };
+    await this.eventBus.emit(event).catch((e: unknown) => {
+      this.log.warn(
+        `[send ${missionId}] broadcast dimensions:appended failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    });
+    // ★ BUG-E 部分修：让前端任务列表立即显示这些新 dim 处于 pending 状态
+    //   每个新 dim 发一条 dimension:retrying 事件（reason=leader-chat-create）
+    //   todo-ledger 已映射为 leader-chat-create origin，会创建任务行可见
+    //   实际 Researcher 派遣由 orchestrator 在下一个 S5 boundary 检测 pending
+    //   dim 时统一拉起（深度修法见 Task #23 追记）。
+    // ★ P0-2: appendDimensions 可能部分失败返回 appendedIds.length < todo.length，
+    //   越界访问会让 agentId=`researcher#chat-undefined` 污染前端任务列表。
+    //   循环边界统一取 min(todo.length, appendedIds.length)，确保 1:1 对应。
+    const safeLen = Math.min(todo.length, appendedIds.length);
+    for (let i = 0; i < safeLen; i++) {
+      const t = todo[i];
+      await this.eventBus
+        .emit({
+          type: "agent-playground.dimension:retrying",
+          scope: { missionId, userId },
+          agentId: `researcher#chat-${appendedIds[i]}`,
+          payload: {
+            dimension: t.name,
+            reason: "leader-chat-create",
+            rationale: t.rationale,
+            source: "user-chat",
+            // ★ 关键：标 willExecute=false 让前端区分"已登记但暂未派遣"，
+            //   不应在 UI 显示为"进行中"，应展示为"等待派遣"+ 提示用户
+            //   重启 mission 或等 orchestrator boundary 拉起
+            willExecute: false,
+            note: "Leader Chat 已登记该维度，待 orchestrator 在下一阶段拉起或用户重启 mission",
+          },
+          timestamp: Date.now(),
+        })
+        .catch(() => {});
     }
-    try {
-      const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-      const decisionType = (parsed.decisionType ?? parsed.type) as
-        | string
-        | undefined;
-      // response 优先级：parsed.response > parsed.message > understanding > fence外文字 > raw
-      const response =
-        (typeof parsed.response === "string" && parsed.response.trim()) ||
-        (typeof parsed.message === "string" && parsed.message.trim()) ||
-        (typeof parsed.understanding === "string" &&
-          parsed.understanding.trim()) ||
-        (outsideFenceText.length > 0 ? outsideFenceText : null) ||
-        raw;
-      const validTypes: LeaderDecisionType[] = [
-        "DIRECT_ANSWER",
-        "CREATE_TODO",
-        "CLARIFY",
-        "ACKNOWLEDGE",
-      ];
-      const safeType: LeaderDecisionType = validTypes.includes(
-        decisionType as LeaderDecisionType,
-      )
-        ? (decisionType as LeaderDecisionType)
-        : "DIRECT_ANSWER";
-      const todoRaw = parsed.todo ?? parsed.tasks;
-      const todo = Array.isArray(todoRaw)
-        ? (todoRaw as { name?: unknown; rationale?: unknown }[])
-            .filter(
-              (t) =>
-                t &&
-                typeof t === "object" &&
-                typeof (t as { name?: unknown }).name === "string",
-            )
-            .map((t) => ({
-              name: (t as { name: string }).name,
-              rationale:
-                typeof (t as { rationale?: unknown }).rationale === "string"
-                  ? (t as { rationale: string }).rationale
-                  : "(no rationale)",
-            }))
-        : undefined;
-      const clarifyOptions = Array.isArray(parsed.clarifyOptions)
-        ? (parsed.clarifyOptions as unknown[]).filter(
-            (s): s is string => typeof s === "string",
-          )
-        : undefined;
-      return {
-        response,
-        decision: {
-          type: safeType,
-          understanding:
-            typeof parsed.understanding === "string"
-              ? parsed.understanding
-              : undefined,
-          todo,
-          clarifyOptions,
-        },
-      };
-    } catch {
-      return { response: raw, decision: { type: "DIRECT_ANSWER" } };
-    }
-  }
-
-  private buildSystemPrompt(
-    mission: Awaited<ReturnType<MissionStore["getById"]>>,
-  ): string {
-    if (!mission) {
-      return [
-        "You are the Research Leader of an agent-playground research mission.",
-        "The mission record was not found. Politely tell the user there is no context.",
-      ].join("\n");
-    }
-
-    const lang = mission.language;
-    const dims = (mission.dimensions ?? []) as {
-      name?: string;
-      rationale?: string;
-    }[];
-    const dimsText = dims.length
-      ? dims
-          .map(
-            (d, i) =>
-              `${i + 1}. ${d.name ?? "(unnamed)"}` +
-              (d.rationale ? ` — ${d.rationale}` : ""),
-          )
-          .join("\n")
-      : "(no dimensions yet)";
-
-    const reportFull = mission.reportFull as
-      | {
-          title?: string;
-          summary?: string;
-          conclusion?: string;
-          sections?: { heading: string }[];
-        }
-      | null
-      | undefined;
-
-    const reportSnippet = reportFull
-      ? [
-          `Report title: ${reportFull.title ?? "(untitled)"}`,
-          `Summary: ${reportFull.summary ?? ""}`,
-          reportFull.sections?.length
-            ? `Sections: ${reportFull.sections.map((s) => s.heading).join(" / ")}`
-            : "",
-          reportFull.conclusion ? `Conclusion: ${reportFull.conclusion}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n")
-      : "(report not yet produced)";
-
-    const intro =
-      lang === "zh-CN"
-        ? "你是这个 agent-playground 研究 mission 的 Research Leader。基于以下完整上下文，与用户讨论 mission 并必要时追加研究维度。"
-        : "You are the Research Leader for this agent-playground research mission. Discuss with the user and append research dimensions when needed.";
-
-    const decisionGuide =
-      lang === "zh-CN"
-        ? [
-            ``,
-            `## 关键：你必须返回 JSON 决策（用 \`\`\`json fence 包裹），格式严格如下：`,
-            `\`\`\`json`,
-            `{`,
-            `  "decisionType": "DIRECT_ANSWER" | "CREATE_TODO" | "CLARIFY" | "ACKNOWLEDGE",`,
-            `  "response": "<对话气泡显示的 markdown 文本（必填）>",`,
-            `  "understanding": "<一句话理解：我理解你想要 X（强烈建议）>",`,
-            `  "todo": [ { "name": "<新维度名>", "rationale": "<为什么要研究>" }, ... ],   // 仅 CREATE_TODO 必填`,
-            `  "clarifyOptions": ["<选项1>", "<选项2>", ...]                              // 仅 CLARIFY 必填`,
-            `}`,
-            `\`\`\``,
-            ``,
-            `## 决策规则：`,
-            `- 用户 *提了新研究方向 / 任务 / 角度* → CREATE_TODO（todo 数组里给出 1-3 个新维度，与已有维度互斥）`,
-            `- 用户 *问 mission 现状 / 解释报告 / 讨论结论* → DIRECT_ANSWER`,
-            `- 用户表述模糊 / 你需要 user 在几个方向之间选 → CLARIFY（提供 2-4 个 clarifyOptions）`,
-            `- 用户 *仅闲聊 / 致谢 / 确认* → ACKNOWLEDGE`,
-            ``,
-            `## CREATE_TODO 注意事项：`,
-            `- 仅当 mission 状态 = running 时建议追加 dimension（其它状态会被前端拒绝）`,
-            `- 新 dimension 必须与 ## Dimensions plan 中已有的不重叠`,
-            `- name 简短（≤ 12 字），rationale 1-2 句解释为何重要`,
-            ``,
-            `## 风格：精炼、专业、有据可依；引用上述上下文中的具体内容；response 字段用中文。`,
-          ].join("\n")
-        : [
-            ``,
-            `## CRITICAL: Return JSON decision wrapped in \`\`\`json fence:`,
-            `\`\`\`json`,
-            `{`,
-            `  "decisionType": "DIRECT_ANSWER" | "CREATE_TODO" | "CLARIFY" | "ACKNOWLEDGE",`,
-            `  "response": "<markdown shown in chat bubble (required)>",`,
-            `  "understanding": "<one-line understanding (strongly recommended)>",`,
-            `  "todo": [ { "name": "<new dim>", "rationale": "<why>" } ],  // CREATE_TODO only`,
-            `  "clarifyOptions": ["<opt1>", "<opt2>"]                       // CLARIFY only`,
-            `}`,
-            `\`\`\``,
-            ``,
-            `## Decision rules:`,
-            `- User proposes a new research angle/task → CREATE_TODO (1-3 new dimensions, no overlap)`,
-            `- User asks about current mission / report → DIRECT_ANSWER`,
-            `- User intent is ambiguous → CLARIFY (2-4 clarifyOptions)`,
-            `- User just acknowledges / thanks → ACKNOWLEDGE`,
-            ``,
-            `## CREATE_TODO notes:`,
-            `- Only suggest when mission status = running (other states will be rejected by frontend)`,
-            `- New dim must NOT overlap with existing ## Dimensions plan`,
-            `- name short (≤ 8 words), rationale 1-2 sentences`,
-            ``,
-            `## Style: concise, professional, evidence-based; cite specifics; response in English.`,
-          ].join("\n");
-
-    return [
-      intro,
-      "",
-      `## Mission`,
-      `- Topic: ${mission.topic}`,
-      `- Depth: ${mission.depth}`,
-      `- Status: ${mission.status}`,
-      mission.finalScore != null
-        ? `- Final consensus score: ${mission.finalScore} / 100`
-        : "",
-      mission.themeSummary ? `- Theme summary: ${mission.themeSummary}` : "",
-      "",
-      `## Dimensions plan`,
-      dimsText,
-      "",
-      `## Report snapshot`,
-      reportSnippet,
-      decisionGuide,
-    ]
-      .filter(Boolean)
-      .join("\n");
   }
 
   private toDto(row: {
@@ -531,7 +288,7 @@ export class LeaderChatService {
       content: row.content,
       tokensUsed: row.tokensUsed,
       createdAt: row.createdAt,
-      decision: this.safeParseDecision(row.decision),
+      decision: safeParseStoredDecision(row.decision),
     };
   }
 }

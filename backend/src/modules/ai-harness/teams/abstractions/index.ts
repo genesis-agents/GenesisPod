@@ -3,12 +3,10 @@
  * 团队抽象层导出
  */
 
-// Team
+// Team (v3 R0-A1-c: BUILTIN_TEAMS / BuiltinTeamId 已下推到各 ai-app)
 export {
   TeamId,
   TeamType,
-  BUILTIN_TEAMS,
-  BuiltinTeamId,
   TeamConfig,
   MemberRoleConfig,
   ITeam,

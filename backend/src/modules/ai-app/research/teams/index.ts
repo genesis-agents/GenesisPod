@@ -8,3 +8,8 @@ export {
   RESEARCH_TEAM_CONFIG,
   createResearchTeamConfig,
 } from "./research-team.config";
+
+export {
+  RESEARCH_LEAD_ROLE_ID,
+  RESEARCH_LEAD_ROLE_CONFIG,
+} from "./research-roles.config";

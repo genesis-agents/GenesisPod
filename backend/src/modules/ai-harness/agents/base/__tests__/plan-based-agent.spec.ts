@@ -10,9 +10,11 @@ import {
   AgentPlan,
   AgentEvent,
   AgentTemplate,
-  BUILTIN_AGENTS,
 } from "../plan-based-agent";
-import { AgentId, ToolId } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  AgentId,
+  ToolId,
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 
 // ---------------------------------------------------------------------------
 // Concrete test doubles
@@ -20,7 +22,7 @@ import { AgentId, ToolId } from "@/modules/ai-harness/agents/abstractions/agent.
 
 /** Minimal concrete implementation using a built-in agent ID */
 class BuiltinTestAgent extends PlanBasedAgent {
-  readonly id: AgentId = BUILTIN_AGENTS.SLIDES;
+  readonly id: AgentId = "slides";
   readonly name = "Test Slides Agent";
   readonly description = "Test slides agent";
   readonly capabilities = ["generate slides"];
@@ -90,7 +92,7 @@ class CustomTestAgent extends PlanBasedAgent {
 // ---------------------------------------------------------------------------
 
 describe("PlanBasedAgent", () => {
-  describe("BuiltinTestAgent (using BUILTIN_AGENTS.SLIDES)", () => {
+  describe('BuiltinTestAgent (using "slides")', () => {
     let agent: BuiltinTestAgent;
 
     beforeEach(() => {
@@ -114,7 +116,7 @@ describe("PlanBasedAgent", () => {
     describe("getConfig", () => {
       it("returns the predefined config for SLIDES agent", () => {
         const config = agent.getConfig();
-        expect(config.id).toBe(BUILTIN_AGENTS.SLIDES);
+        expect(config.id).toBe("slides");
         expect(config.name).toBeTruthy();
         expect(Array.isArray(config.capabilities)).toBe(true);
       });
@@ -148,7 +150,7 @@ describe("PlanBasedAgent", () => {
     describe("plan", () => {
       it("resolves to an AgentPlan", async () => {
         const plan = await agent.plan({ prompt: "create slides" });
-        expect(plan.agentId).toBe(BUILTIN_AGENTS.SLIDES);
+        expect(plan.agentId).toBe("slides");
         expect(Array.isArray(plan.steps)).toBe(true);
       });
     });

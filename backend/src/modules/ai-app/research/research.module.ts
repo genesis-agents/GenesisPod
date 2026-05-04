@@ -17,9 +17,10 @@ import {
   PromptSkillBridge,
   TeamRegistry,
   AgentRegistry,
+  RoleRegistry,
 } from "@/modules/ai-harness/facade";
 import { ResearcherAgent } from "./agents";
-import { RESEARCH_TEAM_CONFIG } from "./teams";
+import { RESEARCH_TEAM_CONFIG, RESEARCH_LEAD_ROLE_CONFIG } from "./teams";
 import { ResearchIdeaService } from "./idea/research-idea.service";
 import { ResearchIdeaController } from "./idea/research-idea.controller";
 import { ResearchDemoService } from "./demo/research-demo.service";
@@ -90,12 +91,15 @@ export class ResearchModule implements OnModuleInit {
   constructor(
     private readonly agentRegistry: AgentRegistry,
     private readonly teamRegistry: TeamRegistry,
+    private readonly roleRegistry: RoleRegistry,
     private readonly researcherAgent: ResearcherAgent,
     private readonly promptSkillBridge: PromptSkillBridge,
   ) {}
 
   async onModuleInit() {
     this.agentRegistry.register(this.researcherAgent);
+    // v3 R0-A1-d: 业务 leader 角色由 ai-app 自身注册（base layer 不再硬编码业务名）
+    this.roleRegistry.registerFromConfig(RESEARCH_LEAD_ROLE_CONFIG);
     this.teamRegistry.registerConfig(RESEARCH_TEAM_CONFIG);
 
     try {

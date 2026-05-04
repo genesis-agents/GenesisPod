@@ -7,6 +7,7 @@ import {
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { RESEARCH_LEAD_ROLE_ID } from "../../research/teams";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 export const PLANNING_WORKFLOW: WorkflowConfig = {
@@ -19,7 +20,7 @@ export const PLANNING_WORKFLOW: WorkflowConfig = {
       name: "目标分析",
       description: "分析策划目标，识别关键需求、约束条件和成功标准",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.RESEARCH_LEAD],
+      executorRoles: [RESEARCH_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: [],
     },
@@ -83,7 +84,7 @@ export const PLANNING_TEAM_CONFIG: TeamConfig = {
   type: "predefined",
   icon: "lightbulb",
   color: "#F59E0B",
-  leaderRoleId: BUILTIN_ROLES.RESEARCH_LEAD,
+  leaderRoleId: RESEARCH_LEAD_ROLE_ID,
   memberRoles: [
     {
       roleId: BUILTIN_ROLES.RESEARCHER,

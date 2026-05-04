@@ -119,4 +119,3 @@ In `SYSTEM_SETTING_TO_SECRET_MAPPING`:
 2. Open Admin → Secrets → "Platform Overview" panel.
 3. The secret appears under **Custom Secrets** with an "Active" badge.
 4. No warning color, no "Configure" or "Delete" button visible in the panel (management stays in the main Secrets table).
-

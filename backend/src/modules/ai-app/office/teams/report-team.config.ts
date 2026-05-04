@@ -7,11 +7,12 @@
  */
 
 import {
-  BUILTIN_TEAMS,
   BUILTIN_ROLES,
   BUILTIN_TOOLS,
   createConstraintProfile,
 } from "@/modules/ai-harness/facade";
+import { REPORT_TEAM_ID } from "../office.constants";
+import { CONTENT_LEAD_ROLE_ID } from "./office-roles.config";
 import type { TeamConfig, WorkflowConfig } from "@/modules/ai-harness/facade";
 
 /**
@@ -27,7 +28,7 @@ export const REPORT_WORKFLOW: WorkflowConfig = {
       name: "需求理解",
       description: "理解写作需求，确定报告结构",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.CONTENT_LEAD],
+      executorRoles: [CONTENT_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: [],
     },
@@ -36,7 +37,7 @@ export const REPORT_WORKFLOW: WorkflowConfig = {
       name: "大纲规划",
       description: "规划报告大纲和内容结构",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.CONTENT_LEAD],
+      executorRoles: [CONTENT_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: ["requirement"],
     },
@@ -83,7 +84,7 @@ export const REPORT_WORKFLOW: WorkflowConfig = {
       name: "最终确认",
       description: "Leader 最终确认和导出",
       type: "task",
-      executorRoles: [BUILTIN_ROLES.CONTENT_LEAD],
+      executorRoles: [CONTENT_LEAD_ROLE_ID],
       parallel: false,
       dependsOn: ["review"],
     },
@@ -95,13 +96,13 @@ export const REPORT_WORKFLOW: WorkflowConfig = {
  * 报告团队配置
  */
 export const REPORT_TEAM_CONFIG: TeamConfig = {
-  id: BUILTIN_TEAMS.REPORT,
+  id: REPORT_TEAM_ID,
   name: "报告撰写",
   description: "高效生成各类商业报告和文档",
   type: "predefined",
   icon: "file-text",
   color: "#10B981",
-  leaderRoleId: BUILTIN_ROLES.CONTENT_LEAD,
+  leaderRoleId: CONTENT_LEAD_ROLE_ID,
   memberRoles: [
     {
       roleId: BUILTIN_ROLES.WRITER,

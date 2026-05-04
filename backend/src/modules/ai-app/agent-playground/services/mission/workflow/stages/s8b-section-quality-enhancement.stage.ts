@@ -19,13 +19,20 @@
  * 取得；补救后的内容回写到 fullMarkdown（更新对应区间）。
  */
 
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+  SynthesisPhaseCtx,
+  WriterPhaseCtx,
+  QualityPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 import {
   normalizeSectionMarkdown,
   rebuildSectionLayout,
-} from "../helpers/report-artifact-sections.util";
+} from "../report-artifact-sections.util";
 import type {
   SelfEvalDimension,
   RemediationAction,
@@ -51,7 +58,12 @@ const ACTION_TYPE_BY_DIM: Record<SelfEvalDimension, RemediationActionType> = {
 };
 
 export async function runSectionQualityEnhancementStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants &
+    PlanPhaseCtx &
+    ResearchPhaseCtx &
+    SynthesisPhaseCtx &
+    WriterPhaseCtx &
+    QualityPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   const { reportArtifact, input, missionId, userId } = ctx;

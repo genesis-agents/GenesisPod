@@ -16,8 +16,8 @@ type ResearchSource = {
   [key: string]: unknown;
 };
 import { PlanBasedAgent } from "@/modules/ai-harness/facade";
+import { RESEARCH_AGENT_ID } from "../research.constants";
 import {
-  BUILTIN_AGENTS,
   BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
@@ -46,7 +46,7 @@ export enum ResearchTaskType {
 export class ResearcherAgent extends PlanBasedAgent {
   private readonly logger = new Logger(ResearcherAgent.name);
 
-  readonly id = BUILTIN_AGENTS.RESEARCHER;
+  readonly id = RESEARCH_AGENT_ID;
   readonly name = "AI Researcher";
   readonly description = "智能研究助手,帮助用户进行资料调研和知识整理";
   readonly capabilities = [

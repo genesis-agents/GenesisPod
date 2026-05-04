@@ -15,13 +15,13 @@
  * Failure modes: leader.plan() 抛错 → emit lifecycle:failed + rethrow（mission 终止）。
  */
 
-import type { MissionContext } from "../mission-context";
+import type { MissionInvariants, PlanPhaseCtx } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 import { startStageTimer } from "@/modules/ai-harness/facade";
 
 export async function runLeaderPlanStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants & PlanPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   const { missionId, userId, leader } = ctx;

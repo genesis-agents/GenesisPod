@@ -9,7 +9,7 @@
  *
  * Ã§â€Â¨Ã¦Â³â€¢Ã¯Â¼Å¡
  *   import { PlanBasedAgent } from "../../../ai-engine/facade/base-classes";
- *   import { BUILTIN_AGENTS, ... } from "@/modules/ai-engine/facade";
+ *   import { ... } from "@/modules/ai-harness/facade";
  */
 
 // PR-X5: BaseAgent / PlanBasedAgent moved to ai-harness/agents/base

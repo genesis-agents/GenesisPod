@@ -24,10 +24,7 @@ import {
   AgentId,
   AgentInput,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import {
-  BUILTIN_AGENTS,
-  type BuiltinAgentId,
-} from "@/modules/ai-harness/agents/domain/builtin-agent-catalog";
+import { isPlatformAgentId } from "@/modules/ai-app/_meta/agent-catalog";
 import { AgentsService } from "./agents.service";
 import {
   ExecuteRequestDto,
@@ -130,7 +127,7 @@ export class AgentsController {
     @Param("type") type: string,
   ): Promise<TemplatesResponseDto> {
     const agentId = type.toLowerCase();
-    if (!Object.values(BUILTIN_AGENTS).includes(agentId as BuiltinAgentId)) {
+    if (!isPlatformAgentId(agentId)) {
       throw new HttpException("Invalid agent type", HttpStatus.BAD_REQUEST);
     }
 

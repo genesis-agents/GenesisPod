@@ -8,8 +8,8 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { PlanBasedAgent } from "@/modules/ai-harness/facade";
+import { TOPIC_INSIGHTS_AGENT_ID } from "../topic-insights.constants";
 import {
-  BUILTIN_AGENTS,
   BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
@@ -23,7 +23,7 @@ import {
 export class TopicInsightsAgent extends PlanBasedAgent {
   private readonly logger = new Logger(TopicInsightsAgent.name);
 
-  readonly id = BUILTIN_AGENTS.TOPIC_INSIGHTS;
+  readonly id = TOPIC_INSIGHTS_AGENT_ID;
   readonly name = "Topic Insights Researcher";
   readonly description = "多维度深度研究与专业报告生成";
   readonly capabilities = [

@@ -17,7 +17,7 @@
  *   L2 cross-mission  failure pattern 预查 → markModelDisabled → react-loop 自动 fallback
  *   L3 dim degraded   单 dim 失败收敛为 "(failed: ...)" 占位，emit ORCH_DIMENSION_DEGRADED
  *
- * Per-dim chapter pipeline 由 helpers/per-dim-pipeline.util.ts 完成，
+ * Per-dim chapter pipeline 由 ../per-dim-pipeline.util.ts 完成，
  * minimal/quick 档位跳过（直接退化为 raw researcherOut）。
  *
  * Failure modes: 单 dim 失败均就地降级为占位，stage 自身不抛错；下游 reconciler/analyst
@@ -26,15 +26,20 @@
 
 import pLimit from "p-limit";
 import { ResearcherAgent } from "../../../../agents/researcher/researcher.agent";
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionContext,
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import {
   extractAgentFailureDiagnostic,
   extractFailureMessage,
 } from "@/modules/ai-harness/facade";
-import { runPerDimPipeline } from "../helpers/per-dim-pipeline.util";
-import { narrate } from "../helpers/narrative.util";
+import { runPerDimPipeline } from "../per-dim-pipeline.util";
+import { narrate } from "../narrative.util";
 
 interface ResearcherDimResult {
   dimension: string;
@@ -70,7 +75,7 @@ const RECOVERABLE_FAILURES = new Set([
 ]);
 
 export async function runResearcherDispatchStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants & PlanPhaseCtx & ResearchPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   const { missionId, userId, input, pool, plan } = ctx;

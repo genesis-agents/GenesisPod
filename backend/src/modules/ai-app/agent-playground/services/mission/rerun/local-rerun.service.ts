@@ -29,7 +29,7 @@ import {
 } from "@nestjs/common";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { CtxHydratorService } from "./ctx-hydrator.service";
-import { RerunLockRegistry } from "./rerun-lock.registry";
+import { RerunLockRegistry } from "@/modules/ai-harness/facade";
 import { StageRerunDispatcher } from "./stage-rerun.dispatcher";
 import type { EmitFn } from "../workflow/mission-deps";
 

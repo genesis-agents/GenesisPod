@@ -347,4 +347,3 @@ await this.aiChatService.generateChatCompletion({
 - 参数映射：`backend/src/modules/ai-engine/llm/services/task-profile.types-mapper.service.ts`
 - 核心服务：`backend/src/modules/ai-engine/llm/services/ai-chat.service.ts`
 - 架构文档：`docs/architecture/ai-engine-parameter-abstraction.md`
-

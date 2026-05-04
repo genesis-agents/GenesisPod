@@ -23,7 +23,8 @@ import {
   PlanningTemplateService,
 } from "./services";
 import { PLANNING_TEAM_CONFIG } from "./config";
-import { TeamRegistry } from "@/modules/ai-harness/facade";
+import { TeamRegistry, RoleRegistry } from "@/modules/ai-harness/facade";
+import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
 
 @Module({
   imports: [PrismaModule, AiEngineModule, AiTeamsModule],
@@ -34,9 +35,14 @@ import { TeamRegistry } from "@/modules/ai-harness/facade";
 export class AiPlanningModule implements OnModuleInit {
   private readonly logger = new Logger(AiPlanningModule.name);
 
-  constructor(private readonly teamRegistry: TeamRegistry) {}
+  constructor(
+    private readonly teamRegistry: TeamRegistry,
+    private readonly roleRegistry: RoleRegistry,
+  ) {}
 
   onModuleInit() {
+    // v3 R0-A1-d: 业务 leader 角色由 ai-app 自身注册（base layer 不再硬编码业务名）
+    this.roleRegistry.registerFromConfig(RESEARCH_LEAD_ROLE_CONFIG);
     this.teamRegistry.registerConfig(PLANNING_TEAM_CONFIG);
     this.logger.log("Registered PLANNING team config");
   }

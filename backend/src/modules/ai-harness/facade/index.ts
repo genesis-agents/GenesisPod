@@ -12,11 +12,7 @@
 // Kernelï¼šabstractions + core + dx
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export * from "../agents/abstractions";
-export {
-  BUILTIN_AGENTS,
-  AGENT_CONFIGS,
-  type BuiltinAgentId,
-} from "../agents/domain";
+// v3 R0-A1-a: BUILTIN_AGENTS / AGENT_CONFIGS / BuiltinAgentId 已删除（业务名下推到各 ai-app *.constants.ts）
 export { AgentFactory } from "../agents/core/agent-factory";
 export { SpecAgentRegistry } from "../agents/core/spec-agent-registry";
 export {
@@ -340,6 +336,20 @@ export {
 //   è·¨ mission å¤±è´¥æ¨¡å¼è®°å¿†ï¼ˆharness_failure_patterns è¡¨ï¼‰ï¼Œä¾› BillingRuntimeEnvAdapter ç­‰æ¶ˆè´¹
 export { FailureLearnerService } from "../lifecycle/learning/failure-learner.service";
 
+// ★ 2026-05-04 (PR-2 standardize): PostmortemClassifierService 从
+//   ai-app/agent-playground/services/postmortem 上提到 lifecycle/learning（与
+//   FailureLearner 同包，纯函数事件流→FailureMode 分类，跨 ai-app 复用）
+// ★ 2026-05-04 (R0-A4): 加 PostmortemPatterns + GENERIC_POSTMORTEM_PATTERNS export，
+//   substring patterns 由 caller (ai-app) 注入，base layer 不含业务概念
+export {
+  PostmortemClassifierService,
+  GENERIC_POSTMORTEM_PATTERNS,
+  type FailureMode as PostmortemFailureMode,
+  type ClassifyInput as PostmortemClassifyInput,
+  type ClassifyResult as PostmortemClassifyResult,
+  type PostmortemPatterns,
+} from "../lifecycle/learning/postmortem-classifier.service";
+
 // â˜… 2026-05-01: SocketBroadcastAdapter ä»Ž ai-app/agent-playground/adapters/ ä¸Šæ
 //   å‚æ•°åŒ– prefix åŽè·¨ ai-app é€šç”¨ï¼ˆDomainEvent â†’ Socket.IO roomï¼‰ï¼Œä»»ä½•å¸¦ socket relay
 //   çš„ ai-app éƒ½å¯å¤ç”¨
@@ -353,6 +363,21 @@ export {
 //   è·¨ ai-app å¤ç”¨ï¼ˆresearch / writing / teams ä»»ä½•é•¿ä»»åŠ¡ç¼–æŽ’éƒ½éœ€è¦ï¼‰
 export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
+// ★ 2026-05-04 (PR-3 standardize playground)
+export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
+
+// ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity engine 转发
+export { jaccardSimilarity } from "../../ai-engine/facade";
+
+// ★ 2026-05-04 (PR-10b standardize playground): JSON-fence parser engine 转发
+export {
+  parseJsonFence,
+  extractJsonFenceContent,
+  type JsonFenceParseResult,
+} from "../../ai-engine/facade";
+
+// ★ 2026-05-04 (PR-5 standardize playground): handoff token estimate + compress
+export { HandoffCompactorService } from "../memory/working/handoff-compactor.service";
 
 // â˜… 2026-05-01: stage-emit util ä»Ž ai-app/agent-playground ä¸Šæ
 //   é€šç”¨ stage:completed äº‹ä»¶å°è£…ï¼Œå« durationMs / tokensUsed / agentInvocations ç­‰åº¦é‡
@@ -673,10 +698,11 @@ export type {
   TeamId,
   TeamType,
 } from "../teams/abstractions/team.interface";
-export { BUILTIN_TEAMS } from "../teams/abstractions/team.interface";
+// v3 R0-A1-c: BUILTIN_TEAMS 已删除（业务名下推到各 ai-app *.constants.ts）
 export type {
   IRole,
   RoleId,
+  RoleConfig,
   WorkStyle,
 } from "../teams/abstractions/role.interface";
 export { BUILTIN_ROLES } from "../teams/abstractions/role.interface";
@@ -949,3 +975,84 @@ export type {
   ErrorDetectionRetryConfig,
 } from "../../ai-engine/facade";
 export { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
+
+// ╔════════════════════════════════════════════════════════════════════════
+// v5.1 R1 — Mission pipeline framework（generic primitive 框架）
+// ai-app（writing-team / playground 等）通过本 facade import 框架符号
+// ╚════════════════════════════════════════════════════════════════════════
+
+// R1-A primitives + cross-stage state
+export {
+  CrossStageState,
+  StageAbortError,
+  type IStagePrimitive,
+  type StagePrimitiveId,
+  type StageStepConfig,
+  type StageRunArgs,
+  type ResolvedRole,
+  type ResolvedStageHooks,
+  type StageHookFn,
+  type MissionContext,
+  type RoleState,
+  type PastDecision as StagePastDecision,
+} from "../teams/services/stages/abstractions";
+export {
+  PLAN_PRIMITIVE,
+  RESEARCH_PRIMITIVE,
+  ASSESS_PRIMITIVE,
+  SYNTHESIZE_PRIMITIVE,
+  DRAFT_PRIMITIVE,
+  REVIEW_PRIMITIVE,
+  SIGNOFF_PRIMITIVE,
+  PERSIST_PRIMITIVE,
+  LEARN_PRIMITIVE,
+  ALL_STAGE_PRIMITIVES,
+} from "../teams/services/stages";
+
+// R1-B pipeline orchestrator + config + registry
+export {
+  defineMissionPipeline,
+  validatePipelineConfig,
+  type MissionPipelineConfig,
+  type PipelineStepConfig,
+  type PipelineRoleConfig,
+} from "../teams/orchestrator/pipeline/mission-pipeline-config";
+export { MissionPipelineRegistry } from "../teams/orchestrator/pipeline/mission-pipeline-registry.service";
+export {
+  MissionPipelineOrchestrator,
+  type MissionEvent as PipelineMissionEvent,
+  type MissionResult as PipelineMissionResult,
+  type RunPipelineArgs,
+} from "../teams/orchestrator/pipeline/mission-pipeline-orchestrator.service";
+
+// R1-C mission store ports + in-memory adapters
+export {
+  type IMissionStore,
+  type IMissionEventStore,
+  type MissionRecord,
+  type MissionCreateInput,
+  type MissionStatusUpdate,
+  type MissionEventRecord,
+  type PastDecision,
+} from "../lifecycle/mission-lifecycle/abstractions";
+export {
+  InMemoryMissionStore,
+  InMemoryMissionEventStore,
+} from "../lifecycle/mission-lifecycle/in-memory";
+
+// R1-D generic rerun orchestrator
+export {
+  MissionRerunOrchestrator,
+  type MissionRerunOrchestratorOptions,
+  type IMissionRerunPolicy,
+  type IMissionRunner,
+  type IMissionCheckpointCloner,
+  type IMissionOwnershipAssigner,
+  type IMissionRerunLogger,
+  type RerunFullArgs,
+  type RerunTodoArgs,
+  type RerunResult,
+  type RerunInputOverrides,
+  RerunNotAllowedError,
+  SourceMissionNotFoundError,
+} from "../lifecycle/mission-lifecycle/rerun";

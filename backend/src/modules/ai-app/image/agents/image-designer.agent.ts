@@ -18,8 +18,8 @@ interface StepArtifact {
   metadata?: Record<string, unknown>;
 }
 import { PlanBasedAgent } from "@/modules/ai-harness/facade";
+import { IMAGE_DESIGNER_AGENT_ID } from "../image.constants";
 import {
-  BUILTIN_AGENTS,
   BUILTIN_TOOLS,
   type AgentInput,
   type AgentPlan,
@@ -71,7 +71,7 @@ export type ImageStyle =
 export class ImageDesignerAgent extends PlanBasedAgent {
   private readonly logger = new Logger(ImageDesignerAgent.name);
 
-  readonly id = BUILTIN_AGENTS.IMAGE_DESIGNER;
+  readonly id = IMAGE_DESIGNER_AGENT_ID;
   readonly name = "AI Image Designer";
   readonly description = "智能图像设计师,生成高质量图像和信息图表";
   readonly capabilities = [

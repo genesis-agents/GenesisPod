@@ -28,59 +28,7 @@ import {
   type LeaderSignoffOutput,
 } from "../../agents/leader/leader.agent";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
-import {
-  extractAgentFailureDiagnostic,
-  extractFailureMessage,
-} from "@/modules/ai-harness/facade";
-
-/**
- * Recoverable failure codes —— Leader 自愈重试时识别这些码做一次重跑（+50% budget），
- * 因为它们都是 LLM 一次性偶发问题（schema 不达标 / 截断 / 空响应），重试通常能过。
- */
-const LEADER_RECOVERABLE = new Set([
-  "RUNNER_OUTPUT_SCHEMA_MISMATCH",
-  "RUNNER_WALL_TIME_EXCEEDED",
-  "RUNNER_LOOP_LIMIT",
-  "LOOP_EMPTY_RESPONSE_IMMEDIATE",
-  "LOOP_REASONING_COT_EXHAUSTION",
-  "PARSE_MALFORMED_JSON",
-  "PARSE_MISSING_ACTION",
-  "PARSE_UNKNOWN_ACTION_KIND",
-  "PARSE_EMPTY_ACTIONS_ARRAY",
-  "BUSINESS_RULE_VIOLATION",
-]);
-
-/**
- * 把 leader.* runFn result 转为带诊断的失败摘要（用于 throw 时 UI 能看清楚到底挂在哪）。
- * 优先级：events 里的 failureCode > extractFailureMessage 文本 > generic state。
- */
-function describeLeaderFailure(
-  phase: string,
-  res: {
-    state: "completed" | "degraded" | "failed" | "cancelled";
-    output?: unknown;
-    events?: readonly unknown[];
-  },
-): { code: string; message: string; recoverable: boolean } {
-  const events = (res.events ?? []) as Parameters<
-    typeof extractAgentFailureDiagnostic
-  >[0];
-  const diag = extractAgentFailureDiagnostic(events);
-  const code = diag?.failureCode ?? "UNKNOWN";
-  const friendly = extractFailureMessage(events, res.state, !!res.output);
-  const message =
-    friendly ??
-    (res.state !== "completed"
-      ? `agent state=${res.state}`
-      : !res.output
-        ? `agent 没有产出 output`
-        : `agent 输出 phase 不是 ${phase}`);
-  return {
-    code,
-    message,
-    recoverable: LEADER_RECOVERABLE.has(code),
-  };
-}
+import { describeLeaderFailure } from "./leader-failure-diagnostic.utils";
 
 // ── Public types ──
 

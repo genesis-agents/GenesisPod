@@ -19,6 +19,15 @@ import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
 import { TeamMission } from "./services/mission/workflow/team.mission";
+import { MissionRuntimeShellService } from "./services/mission/workflow/mission-runtime-shell.service";
+import { MissionStageBindingsService } from "./services/mission/workflow/mission-stage-bindings.service";
+// ── R2-A.1 (v5.1 §3.2 §5): pipeline-v1 双轨入口（默认 inactive，flag 控制）──
+import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
+import { PlaygroundRuntimeFlagService } from "./playground-runtime-flag.service";
+import {
+  MissionPipelineOrchestrator,
+  MissionPipelineRegistry,
+} from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
@@ -28,13 +37,15 @@ import {
   type MissionCheckpointStore,
 } from "@/modules/ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
-import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
+// MissionStateService 已上提到 harness/memory/working/handoff-compactor.service.ts（@Global RuntimeMemoryModule）
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
-import { RerunLockRegistry } from "./services/mission/rerun/rerun-lock.registry";
+// RerunLockRegistry 已上提到 ai-harness/facade（@Global TeamsModule provider）
 import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
-import { PostmortemClassifierService } from "./services/postmortem/postmortem-classifier.service";
+import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
+import { MissionExportService } from "./services/export/mission-export.service";
+// PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
 import {
   AgentInvoker,
   LeaderService,
@@ -71,6 +82,8 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
   providers: [
     AgentPlaygroundGateway,
     TeamMission,
+    MissionRuntimeShellService,
+    MissionStageBindingsService,
     // MissionOwnershipRegistry / MissionAbortRegistry 由 @Global HarnessModule 提供（PR-X-E 上提）
     MissionEventBuffer,
     MissionStore,
@@ -86,7 +99,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     MissionHealthScheduler,
     LeaderChatService,
     // FailureLearnerService / ReportArtifactAssembler 由 @Global HarnessModule 提供（PR-X-failure-learner 上提 / PR-X-report-artifact 上提）
-    MissionStateService,
+    // MissionStateService → HandoffCompactorService 已上提到 @Global RuntimeMemoryModule（PR-5 standardize playground）
     // ── Per-role services（Phase Lead-Services）──
     AgentInvoker,
     LeaderService,
@@ -100,10 +113,21 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     // ── 局部重跑 ──
     LocalRerunService,
     CtxHydratorService,
-    RerunLockRegistry,
+    // RerunLockRegistry 已上提到 ai-harness/facade（PR-3 standardize playground）
     StageRerunDispatcher,
-    // ── S12 postmortem 失败模式分类 ──
-    PostmortemClassifierService,
+    MissionRerunOrchestratorService,
+    // ── 导出装配（CSV / Markdown / JSON）──
+    MissionExportService,
+    // ── R2-A.1 双轨：pipeline-v1 dispatcher + 运行时 flag service ──
+    //   dispatcher.onModuleInit 注册 PLAYGROUND_PIPELINE 到 registry
+    //   flag service 决定每次 runMission 走 legacy 还是 pipeline-v1
+    //   注意：本 R2-A.1 只接 module providers，controller 尚未读 flag，
+    //         所以生产流量仍 100% 走 TeamMission（dead-code 形态）
+    MissionPipelineRegistry,
+    MissionPipelineOrchestrator,
+    PlaygroundPipelineDispatcher,
+    PlaygroundRuntimeFlagService,
+    // ── S12 postmortem 失败模式分类（已上提到 @Global HarnessModule）──
   ],
   exports: [MissionEventBuffer],
 })

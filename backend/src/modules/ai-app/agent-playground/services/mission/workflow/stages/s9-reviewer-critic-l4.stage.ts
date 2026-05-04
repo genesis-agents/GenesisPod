@@ -17,14 +17,26 @@
  * Failure modes: 任何抛错 → log warn + 继续（不阻塞，下游 Leader foreword 仍可工作）
  */
 
-import type { MissionContext } from "../mission-context";
+import type {
+  MissionInvariants,
+  PlanPhaseCtx,
+  ResearchPhaseCtx,
+  SynthesisPhaseCtx,
+  WriterPhaseCtx,
+  QualityPhaseCtx,
+} from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 import { scaleScore } from "@/modules/ai-harness/facade";
 
 export async function runCriticStage(
-  ctx: MissionContext,
+  ctx: MissionInvariants &
+    PlanPhaseCtx &
+    ResearchPhaseCtx &
+    SynthesisPhaseCtx &
+    WriterPhaseCtx &
+    QualityPhaseCtx,
   deps: MissionDeps,
 ): Promise<void> {
   const {

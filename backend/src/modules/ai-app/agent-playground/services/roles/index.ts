@@ -6,7 +6,10 @@
  *
  * 角色与文件一一对应（与 agents/<role>/ 目录同名）：
  *
- *   agent-invoker.service.ts  ← 共享底座（runAndRelay / lifecycle / cost / 并发 / DAG）
+ *   agent-invoker.service.ts  ← 兼容门面（对外 API 保持稳定）
+ *   agent-execution-support.ts ← 通用执行支撑（run / 并发 / DAG）
+ *   agent-playground-event-relay.ts ← Playground 事件语义与 cost relay
+ *   agent-invocation-policy.ts ← Playground 调用策略（loop / failure learning）
  *   leader.service.ts         ← M0/M1/M6/M7 跨 milestone 容器（SupervisedMission）
  *   researcher.service.ts     ← 单 dim 数据采集
  *   reconciler.service.ts     ← 跨 dim 对账
