@@ -23,7 +23,7 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 import { lengthTargetFor } from "@/modules/ai-harness/facade";
 
 /**

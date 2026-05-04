@@ -42,7 +42,7 @@ import type {
 import type { FigureExtractorService } from "@/modules/ai-engine/facade";
 import type { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
-import type { PostmortemClassifierService } from "../../postmortem/postmortem-classifier.service";
+import type { PostmortemClassifierService } from "@/modules/ai-harness/facade";
 
 /** 通用 emit 签名 — 2026-05-01 上提到 ai-harness/protocols/ipc/stage-emit.utils */
 import type { EmitFn } from "@/modules/ai-harness/facade";

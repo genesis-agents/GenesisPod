@@ -221,34 +221,118 @@ function buildTeamMission() {
     getBalance: jest.fn().mockResolvedValue({ balance: 1000, hardLimit: 0 }),
   };
 
-  const mockRuntimeEnv = {};
+  const mockRuntimeShell = {
+    openSession: jest.fn(),
+    runWithinContext: jest
+      .fn()
+      .mockImplementation(
+        async (_session: unknown, fn: () => Promise<unknown>) => fn(),
+      ),
+  };
+
+  const mockStageBindings = {
+    buildCtx: jest.fn().mockImplementation((args: Record<string, unknown>) => ({
+      ...args,
+      s4PatchFailures: (
+        args.sharedState as { s4PatchFailures?: unknown } | undefined
+      )?.s4PatchFailures,
+    })),
+    buildDeps: jest.fn().mockReturnValue({}),
+  };
+
+  mockRuntimeShell.openSession.mockImplementation(
+    async ({
+      missionId,
+      input,
+      userId,
+      workspaceId,
+    }: {
+      missionId: string;
+      input: typeof VALID_INPUT;
+      userId: string;
+      workspaceId?: string;
+    }) => {
+      const missionAbort = mockAbortRegistry.register(missionId);
+      try {
+        const models =
+          await mockFacadeModule.__mockAdapter.listAvailableModels();
+        const healthy = models.filter(
+          (m: { available: boolean }) => m.available,
+        );
+        if (models.length > 0 && healthy.length === 0) {
+          const ids = models
+            .map((m: { modelId: string }) => m.modelId)
+            .join(", ");
+          const userMessage = `用户 BYOK 配置的所有模型均不可用：${ids}`;
+          await mockInvoker.emitEvent({
+            type: "agent-playground.mission:rejected",
+            missionId,
+            userId,
+            payload: {
+              reason: "no_healthy_model",
+              availableCount: 0,
+              totalCount: models.length,
+              userMessage,
+            },
+          });
+          throw new Error(userMessage);
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.includes("BYOK 配置")) {
+          throw err;
+        }
+      }
+
+      const credit = await mockFacadeModule.__mockAdapter.getCreditState();
+      if (credit.balance <= (credit.hardLimit ?? 0)) {
+        const hint = await mockFacadeModule.__mockAdapter.suggestFallback({
+          reason: "no_credit",
+        });
+        await mockInvoker.emitEvent({
+          type: "agent-playground.mission:rejected",
+          missionId,
+          userId,
+          payload: {
+            reason: "no_credit",
+            balance: credit.balance,
+            userMessage: hint.userMessage,
+          },
+        });
+        throw new Error(hint.userMessage ?? "Credit balance too low");
+      }
+
+      await mockStore.create({
+        id: missionId,
+        userId,
+        workspaceId,
+        topic: input.topic,
+        depth: input.depth,
+        language: input.language,
+        maxCredits: 1000,
+        userProfile: expect.any(Object),
+      });
+
+      return {
+        missionId,
+        userId,
+        workspaceId,
+        billing: mockFacadeModule.__mockAdapter,
+        pool: mockFacadeModule.__mockPool,
+        budgetMultiplier: 1,
+        missionAbort,
+        wallTimeMs: 0,
+        cleanup: () => {
+          mockAbortRegistry.unregister(missionId);
+        },
+      };
+    },
+  );
 
   const mission = new TeamMission(
-    {} as never, // runner
-    {} as never, // judge
-    {} as never, // indexer
-    {} as never, // eventBus
-    mockCredits as never,
-    mockRuntimeEnv as never,
     mockStore as never,
-    {} as never, // failureLearner
-    {} as never, // reportAssembler
-    {} as never, // missionState
     mockAbortRegistry as never,
     mockLeaderService as never,
-    {} as never, // reconcilerService
-    {} as never, // analystService
-    {} as never, // writerService
-    {} as never, // reviewerService
-    {} as never, // verifierService
-    {} as never, // stewardService
     mockInvoker as never,
-    {} as never, // figureExtractor
-    {} as never, // figureRelevance
-    {} as never, // sectionSelfEval
-    {} as never, // sectionRemediation
-    {} as never, // reportEvaluation
-    {} as never, // qualityTraceCompute
     // ★ Phase 5 (2026-04-29): missionCheckpoint mock — save/clear no-op
     {
       save: jest.fn().mockResolvedValue(undefined),
@@ -259,17 +343,12 @@ function buildTeamMission() {
       isCompleted: jest.fn().mockReturnValue(false),
     } as never,
     // ★ postmortemClassifier mock — classify returns success result
-    {
-      classify: jest.fn().mockReturnValue({
-        mode: "success",
-        signals: [],
-        confidence: 1,
-      }),
-    } as never,
     // ★ missionEventBuffer mock — read returns empty events array
     {
       read: jest.fn().mockReturnValue([]),
     } as never,
+    mockRuntimeShell as never,
+    mockStageBindings as never,
   );
 
   return {
@@ -279,6 +358,8 @@ function buildTeamMission() {
     mockLeaderService,
     mockAbortRegistry,
     mockCredits,
+    mockRuntimeShell,
+    mockStageBindings,
   };
 }
 

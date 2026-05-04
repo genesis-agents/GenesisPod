@@ -134,6 +134,7 @@ import { CheckpointManager } from "./protocols/journal/checkpoint-manager";
 import { ProgressTrackerService } from "./protocols/ipc/progress-tracker.service";
 import { TraceCollectorService } from "./tracing/observability/trace-collector.service";
 import { FailureLearnerService } from "./lifecycle/learning/failure-learner.service";
+import { PostmortemClassifierService } from "./lifecycle/learning/postmortem-classifier.service";
 import { ConstraintEnforcementService } from "./guardrails/constraints/constraint-enforcement.service";
 import { ProcessSupervisorService } from "./lifecycle/supervisor/process-supervisor.service";
 
@@ -204,6 +205,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     OutputReviewerService,
     ReportArtifactAssembler,
     FailureLearnerService,
+    PostmortemClassifierService,
     ReActLoop,
     PlanActLoop,
     ReflexionLoop,
@@ -335,6 +337,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     OutputReviewerService,
     ReportArtifactAssembler,
     FailureLearnerService,
+    PostmortemClassifierService,
     BuiltinSkillCatalog,
     ContextManager,
     CheckpointService,

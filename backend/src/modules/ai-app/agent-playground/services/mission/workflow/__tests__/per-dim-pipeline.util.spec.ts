@@ -9,7 +9,7 @@
 
 import { runPerDimPipeline } from "../per-dim-pipeline.util";
 import type { PerDimPipelineArgs } from "../per-dim-pipeline.util";
-import type { MissionDeps } from "../../mission-deps";
+import type { MissionDeps } from "../mission-deps";
 
 // ─── external module mocks ────────────────────────────────────────────────────
 
@@ -25,13 +25,13 @@ jest.mock("p-limit", () => {
 // Mock agent classes that extend a base class (AgentSpec) — otherwise the
 // module load fails with "Class extends value undefined" because the test
 // environment can't satisfy the full DI graph.
-jest.mock("../../../../../agents/writer/chapter-writer.agent", () => ({
+jest.mock("../../../../agents/writer/chapter-writer.agent", () => ({
   ChapterWriterAgent: class ChapterWriterAgent {},
 }));
-jest.mock("../../../../../agents/writer/chapter-reviewer.agent", () => ({
+jest.mock("../../../../agents/writer/chapter-reviewer.agent", () => ({
   ChapterReviewerAgent: class ChapterReviewerAgent {},
 }));
-jest.mock("../../../../../agents/writer/dimension-integrator.agent", () => ({
+jest.mock("../../../../agents/writer/dimension-integrator.agent", () => ({
   DimensionIntegratorAgent: class DimensionIntegratorAgent {},
 }));
 
@@ -61,6 +61,9 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   // ★ 集中阈值常量 — 与 quality-thresholds.constants.ts 同步
   REVIEW_PASS_THRESHOLD: 60,
   CHAPTER_MAX_REVISION_ATTEMPTS: 1,
+  // ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 已下沉 engine/content，
+  //   通过 harness facade 转发；spec 此处需补 mock 让 stuck-revision 检测路径可走通。
+  jaccardSimilarity: jest.fn((a: string, b: string) => (a === b ? 1 : 0)),
 }));
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -154,13 +157,13 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
   // ChapterReviewerAgent → reviewer output, DimensionIntegratorAgent → integrator output.
   // This is order-independent and works regardless of concurrency scheduling.
   const { ChapterWriterAgent } = jest.requireMock(
-    "../../../../../agents/writer/chapter-writer.agent",
+    "../../../../agents/writer/chapter-writer.agent",
   );
   const { ChapterReviewerAgent } = jest.requireMock(
-    "../../../../../agents/writer/chapter-reviewer.agent",
+    "../../../../agents/writer/chapter-reviewer.agent",
   );
   const { DimensionIntegratorAgent } = jest.requireMock(
-    "../../../../../agents/writer/dimension-integrator.agent",
+    "../../../../agents/writer/dimension-integrator.agent",
   );
 
   const invoker = {
@@ -783,13 +786,13 @@ describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=
   // 获取被 jest.mock 替换后的 mock class 引用，用于 mockImplementation 分派
   const getAgentClasses = () => ({
     ChapterWriterAgent: jest.requireMock(
-      "../../../../../agents/writer/chapter-writer.agent",
+      "../../../../agents/writer/chapter-writer.agent",
     ).ChapterWriterAgent,
     ChapterReviewerAgent: jest.requireMock(
-      "../../../../../agents/writer/chapter-reviewer.agent",
+      "../../../../agents/writer/chapter-reviewer.agent",
     ).ChapterReviewerAgent,
     DimensionIntegratorAgent: jest.requireMock(
-      "../../../../../agents/writer/dimension-integrator.agent",
+      "../../../../agents/writer/dimension-integrator.agent",
     ).DimensionIntegratorAgent,
   });
 
@@ -1428,7 +1431,7 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
    */
   function captureWriterSources(invoker: { invoke: jest.Mock }) {
     const { ChapterWriterAgent } = jest.requireMock(
-      "../../../../../agents/writer/chapter-writer.agent",
+      "../../../../agents/writer/chapter-writer.agent",
     );
     const captured: Array<
       Array<{ claim: string; evidence?: string; _deduplicated?: boolean }>
@@ -1447,7 +1450,7 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
         }
         // reviewer
         const { ChapterReviewerAgent } = jest.requireMock(
-          "../../../../../agents/writer/chapter-reviewer.agent",
+          "../../../../agents/writer/chapter-reviewer.agent",
         );
         if (AgentClass === ChapterReviewerAgent) {
           return Promise.resolve({
@@ -1690,10 +1693,10 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
 
     // Capture per-chapter-index to avoid relying on invocation order
     const { ChapterWriterAgent } = jest.requireMock(
-      "../../../../../agents/writer/chapter-writer.agent",
+      "../../../../agents/writer/chapter-writer.agent",
     );
     const { ChapterReviewerAgent } = jest.requireMock(
-      "../../../../../agents/writer/chapter-reviewer.agent",
+      "../../../../agents/writer/chapter-reviewer.agent",
     );
     const sourcesPerChapterIndex = new Map<
       number,
@@ -1839,7 +1842,7 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
 
     it("[A4] 0 chapters written → emits graded(failed,skipped,phase=no-chapters)", async () => {
       const { ChapterWriterAgent } = jest.requireMock(
-        "../../../../../agents/writer/chapter-writer.agent",
+        "../../../../agents/writer/chapter-writer.agent",
       );
       const invoker = {
         invoke: jest
@@ -1893,13 +1896,13 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
         DimensionIntegratorAgent,
       } = {
         ChapterWriterAgent: jest.requireMock(
-          "../../../../../agents/writer/chapter-writer.agent",
+          "../../../../agents/writer/chapter-writer.agent",
         ).ChapterWriterAgent,
         ChapterReviewerAgent: jest.requireMock(
-          "../../../../../agents/writer/chapter-reviewer.agent",
+          "../../../../agents/writer/chapter-reviewer.agent",
         ).ChapterReviewerAgent,
         DimensionIntegratorAgent: jest.requireMock(
-          "../../../../../agents/writer/dimension-integrator.agent",
+          "../../../../agents/writer/dimension-integrator.agent",
         ).DimensionIntegratorAgent,
       };
       const invoker = {
@@ -1967,13 +1970,13 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
       //   产生 fullMarkdown，abstract / keyFindings 用代码兜底，grade 继续跑。
       //   integrating:completed 携 fallback:'code-stitched-abstract' 标记。
       const { DimensionIntegratorAgent } = jest.requireMock(
-        "../../../../../agents/writer/dimension-integrator.agent",
+        "../../../../agents/writer/dimension-integrator.agent",
       );
       const { ChapterWriterAgent } = jest.requireMock(
-        "../../../../../agents/writer/chapter-writer.agent",
+        "../../../../agents/writer/chapter-writer.agent",
       );
       const { ChapterReviewerAgent } = jest.requireMock(
-        "../../../../../agents/writer/chapter-reviewer.agent",
+        "../../../../agents/writer/chapter-reviewer.agent",
       );
       const invoker = {
         invoke: jest
@@ -2061,13 +2064,13 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
 
     it("[A9] integrator throws → catch emits graded(failed,phase=pipeline-exception) + rethrows", async () => {
       const { DimensionIntegratorAgent } = jest.requireMock(
-        "../../../../../agents/writer/dimension-integrator.agent",
+        "../../../../agents/writer/dimension-integrator.agent",
       );
       const { ChapterWriterAgent } = jest.requireMock(
-        "../../../../../agents/writer/chapter-writer.agent",
+        "../../../../agents/writer/chapter-writer.agent",
       );
       const { ChapterReviewerAgent } = jest.requireMock(
-        "../../../../../agents/writer/chapter-reviewer.agent",
+        "../../../../agents/writer/chapter-reviewer.agent",
       );
       const invoker = {
         invoke: jest
@@ -2178,13 +2181,13 @@ describe("runPerDimPipeline — RTK finding deduplication", () => {
         DimensionIntegratorAgent,
       } = {
         ChapterWriterAgent: jest.requireMock(
-          "../../../../../agents/writer/chapter-writer.agent",
+          "../../../../agents/writer/chapter-writer.agent",
         ).ChapterWriterAgent,
         ChapterReviewerAgent: jest.requireMock(
-          "../../../../../agents/writer/chapter-reviewer.agent",
+          "../../../../agents/writer/chapter-reviewer.agent",
         ).ChapterReviewerAgent,
         DimensionIntegratorAgent: jest.requireMock(
-          "../../../../../agents/writer/dimension-integrator.agent",
+          "../../../../agents/writer/dimension-integrator.agent",
         ).DimensionIntegratorAgent,
       };
       let writerCallCount = 0;

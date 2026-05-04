@@ -1,10 +1,16 @@
 /**
- * similarity.util.ts
+ * text-similarity.utils.ts
  *
  * Lightweight text similarity helpers (zero LLM calls).
- * Used by per-dim-pipeline to detect "stuck revision" loops where
- * successive chapter drafts are virtually identical despite repeated
- * reviewer-reject → revise cycles.
+ * Pure token-set similarity primitives — no agent / mission state, fits
+ * ai-engine/content per standards/16 §二 (engine 判别口诀: "不需要知道
+ * agent / mission 即能做的事" → engine).
+ *
+ * Original use case: per-dim chapter pipeline detects "stuck revision"
+ * loops where successive drafts are virtually identical despite repeated
+ * reviewer-reject → revise cycles. Generic enough for any ai-app.
+ *
+ * Lifted from ai-app/agent-playground 2026-05-04 (PR-6 standardize playground).
  */
 
 /**

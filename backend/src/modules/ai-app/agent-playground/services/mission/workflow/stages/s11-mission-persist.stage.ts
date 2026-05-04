@@ -20,7 +20,7 @@
  */
 
 import type { MissionDeps } from "../mission-deps";
-import { extractSubstantiveSectionText } from "../helpers/report-artifact-sections.util";
+import { extractSubstantiveSectionText } from "../report-artifact-sections.util";
 
 // ★ 假完成防御：chapter content guard 阈值常量
 const MIN_CHAPTER_CHARS = 500; // 单章最小内容长度（字符数）

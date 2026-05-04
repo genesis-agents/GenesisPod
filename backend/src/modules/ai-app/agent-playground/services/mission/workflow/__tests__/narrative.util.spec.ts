@@ -4,7 +4,7 @@
  */
 
 import { narrate } from "../narrative.util";
-import type { EmitFn } from "../../mission-deps";
+import type { EmitFn } from "../mission-deps";
 
 function makeEmit(): jest.MockedFunction<EmitFn> {
   return jest.fn().mockResolvedValue(undefined);

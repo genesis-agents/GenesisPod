@@ -340,6 +340,16 @@ export {
 //   è·¨ mission å¤±è´¥æ¨¡å¼è®°å¿†ï¼ˆharness_failure_patterns è¡¨ï¼‰ï¼Œä¾› BillingRuntimeEnvAdapter ç­‰æ¶ˆè´¹
 export { FailureLearnerService } from "../lifecycle/learning/failure-learner.service";
 
+// ★ 2026-05-04 (PR-2 standardize playground): PostmortemClassifierService 从
+//   ai-app/agent-playground/services/postmortem 上提到 lifecycle/learning（与
+//   FailureLearner 同包，纯函数事件流→FailureMode 分类，跨 ai-app 复用）
+export {
+  PostmortemClassifierService,
+  type FailureMode as PostmortemFailureMode,
+  type ClassifyInput as PostmortemClassifyInput,
+  type ClassifyResult as PostmortemClassifyResult,
+} from "../lifecycle/learning/postmortem-classifier.service";
+
 // â˜… 2026-05-01: SocketBroadcastAdapter ä»Ž ai-app/agent-playground/adapters/ ä¸Šæ
 //   å‚æ•°åŒ– prefix åŽè·¨ ai-app é€šç”¨ï¼ˆDomainEvent â†’ Socket.IO roomï¼‰ï¼Œä»»ä½•å¸¦ socket relay
 //   çš„ ai-app éƒ½å¯å¤ç”¨
@@ -353,6 +363,11 @@ export {
 //   è·¨ ai-app å¤ç”¨ï¼ˆresearch / writing / teams ä»»ä½•é•¿ä»»åŠ¡ç¼–æŽ’éƒ½éœ€è¦ï¼‰
 export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
+// ★ 2026-05-04 (PR-3 standardize playground)
+export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
+
+// ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity engine 转发
+export { jaccardSimilarity } from "../../ai-engine/facade";
 
 // â˜… 2026-05-01: stage-emit util ä»Ž ai-app/agent-playground ä¸Šæ
 //   é€šç”¨ stage:completed äº‹ä»¶å°è£…ï¼Œå« durationMs / tokensUsed / agentInvocations ç­‰åº¦é‡

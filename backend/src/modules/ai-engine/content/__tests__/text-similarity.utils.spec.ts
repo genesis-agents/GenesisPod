@@ -1,10 +1,10 @@
 /**
- * similarity.util.spec.ts
+ * text-similarity.utils.spec.ts
  *
- * Unit tests for jaccardSimilarity — the stuck-revision detection helper.
+ * Unit tests for jaccardSimilarity — token-set similarity primitive.
  */
 
-import { jaccardSimilarity } from "../similarity.util";
+import { jaccardSimilarity } from "../text-similarity.utils";
 
 describe("jaccardSimilarity", () => {
   it("returns 1 for identical strings", () => {

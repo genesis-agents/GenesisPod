@@ -1,127 +1,80 @@
 /**
- * AgentInvoker —— per-role services 共享的"调用 + relay + 计费 + 生命周期"基座
+ * AgentInvoker —— playground 内部的兼容门面。
  *
- * 设计 (Phase Lead-Services):
- *   • orchestrator 不再持有 runAndRelay / lifecycle / tickCost / 等 helper
- *   • 每个 role service（ResearcherService/WriterService/...）注入 AgentInvoker
- *   • Invoker 完全不感知业务流程，只做"代跑 agent + 把事件 relay 到 WebSocket + 记账"
- *
- * 复用关注:
- *   - runAndRelay 一次性运行 Agent + 实时 relay
- *   - relayAgentEvents 把 IAgentEvent 转成 demo 友好事件
- *   - emitLifecycle / emitEvent / tickCost
- *   - runWithConcurrency / runDagConcurrency
- *   - preDisableKnownFailingModels（跨 mission failure pattern 预查）
- *   - resolveLoopOverride（auditLayers 切 reflexion）
+ * 原则：
+ * 1. 执行支撑（run / 并发 / DAG）与业务事件语义拆开。
+ * 2. Playground 特有的 event type 仍留在 app 层，不下沉到 harness。
+ * 3. 现有 role services / stages 调用面先保持不变，避免重构扩散。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import {
   AgentRunner,
   DomainEventBus,
   MissionBudgetPool,
-  type DomainEvent,
-  type IAgentEvent,
 } from "@/modules/ai-harness/facade";
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { FailureLearnerService } from "@/modules/ai-harness/facade";
+import { AgentExecutionSupport } from "./agent-execution-support";
+import { AgentInvocationPolicy } from "./agent-invocation-policy";
+import { AgentPlaygroundEventRelay } from "./agent-playground-event-relay";
 
 /** 每次 invoke 时给到 invoker 的 context，统一所有 role service 入参 shape */
 export interface InvocationContext {
   missionId: string;
   userId: string;
-  /** demo agentId — 稳定且对人友好（如 "researcher#0"），不是 runtime UUID */
   agentId: string;
   role: string;
-  /** 每 mission 独享的 RuntimeEnvironment 适配器（含 BYOK / 余额 / 模型池） */
   envAdapter?: BillingRuntimeEnvAdapter;
-  /** budgetProfile 转出的倍率 */
   budgetMultiplier?: number;
-  /** Tool Recall hint（dim.toolHint 透传到 AgentRunner 收窄召回） */
   toolRecallHint?: {
     categories?: readonly string[];
     excludeIds?: readonly string[];
     preferIds?: readonly string[];
   };
-  /** loop 覆盖（thorough/paranoid 档位切 reflexion） */
   loopOverride?: "react" | "reflexion";
-}
-
-function estimateUsdFromTokens(tokens: number): number {
-  return tokens * 0.000003;
 }
 
 @Injectable()
 export class AgentInvoker {
-  private readonly log = new Logger(AgentInvoker.name);
+  private readonly execution: AgentExecutionSupport;
+  private readonly relay: AgentPlaygroundEventRelay;
+  private readonly policy: AgentInvocationPolicy;
 
   constructor(
-    private readonly runner: AgentRunner,
-    private readonly eventBus: DomainEventBus,
-    private readonly abortRegistry: MissionAbortRegistry,
-    private readonly failureLearner: FailureLearnerService,
-  ) {}
+    runner: AgentRunner,
+    eventBus: DomainEventBus,
+    abortRegistry: MissionAbortRegistry,
+    failureLearner: FailureLearnerService,
+  ) {
+    this.execution = new AgentExecutionSupport(runner, abortRegistry);
+    this.relay = new AgentPlaygroundEventRelay(eventBus);
+    this.policy = new AgentInvocationPolicy(failureLearner);
+  }
 
-  /**
-   * 一次性运行 Agent + 实时 relay 每个事件 → WebSocket。
-   *
-   * 第三参数走 RunOptions，让 Harness 自闭包：
-   *   - userId         → 自动包 BillingContext
-   *   - environment    → 自动注入 <environment> block
-   *   - exposeCatalog  → 默认 true，自动注入 <available_tools>
-   *   - onEvent        → per-iteration 实时 relay
-   */
   async invoke<TSpec extends Parameters<AgentRunner["run"]>[0]>(
     Spec: TSpec,
     input: Parameters<AgentRunner["run"]>[1],
     ctx: InvocationContext,
   ): Promise<Awaited<ReturnType<AgentRunner["run"]>>> {
-    const signal = this.abortRegistry.getSignal(ctx.missionId);
-    return this.runner.run(Spec, input, {
-      userId: ctx.userId,
-      environment: ctx.envAdapter,
-      budgetMultiplier: ctx.budgetMultiplier,
-      toolRecallHint: ctx.toolRecallHint,
-      loopOverride: ctx.loopOverride,
-      signal,
-      billingMeta: {
-        moduleType: "agent-playground",
-        operationType: ctx.role,
-        referenceId: ctx.missionId,
-      },
-      onEvent: async (ev) => {
-        await this.relayAgentEvents([ev], ctx);
-      },
+    return this.execution.invoke(Spec, input, ctx, async (event) => {
+      await this.relay.relayAgentEvents([event], ctx);
     });
   }
 
-  /** 跨 mission 失败模式预查（mission-pipeline-failure-learning.md） */
   async preDisableKnownFailingModels(
     billing: BillingRuntimeEnvAdapter,
     agentSpecId: string,
     promptKey: string,
   ): Promise<{ failed: string; fallback: string }[]> {
-    const known = await this.failureLearner
-      .lookup({ agentSpecId, systemPrompt: promptKey })
-      .catch(() => []);
-    const preDisabled: { failed: string; fallback: string }[] = [];
-    for (const rec of known) {
-      if (rec.count >= 2 && rec.lastFallbackModel) {
-        billing.markModelDisabled(rec.modelId, rec.lastFallbackModel);
-        preDisabled.push({
-          failed: rec.modelId,
-          fallback: rec.lastFallbackModel,
-        });
-      }
-    }
-    return preDisabled;
+    return this.policy.preDisableKnownFailingModels(
+      billing,
+      agentSpecId,
+      promptKey,
+    );
   }
 
-  /**
-   * auditLayers 档位 → loop override（researcher/reconciler 不走 reflexion）
-   * ★ P2-R3-2 (round 3): 补全 stage 类型签名，含 verifier/steward/critic
-   */
   resolveLoopOverride(
     auditLayers: string,
     stage:
@@ -135,25 +88,9 @@ export class AgentInvoker {
       | "critic"
       | "steward",
   ): "react" | "reflexion" | undefined {
-    if (auditLayers === "minimal") return undefined;
-    const useReflexion =
-      auditLayers === "thorough" || auditLayers === "thorough+";
-    if (!useReflexion) return undefined;
-    // ★ P1-R4-E (round 4): verifier/critic/steward 是"快速判断"角色，
-    // reflexion 反思 loop 反而让它们多花 2-3 倍 tokens 时间却无质量提升；
-    // researcher/reconciler 同理（之前已 react-only）
-    if (
-      stage === "researcher" ||
-      stage === "reconciler" ||
-      stage === "verifier" ||
-      stage === "critic" ||
-      stage === "steward"
-    )
-      return undefined;
-    return "reflexion";
+    return this.policy.resolveLoopOverride(auditLayers, stage);
   }
 
-  /** 通用 emit —— event 失败不影响主流程 */
   async emitEvent(args: {
     type: string;
     missionId: string;
@@ -162,29 +99,9 @@ export class AgentInvoker {
     traceId?: string;
     payload: unknown;
   }): Promise<void> {
-    const event: DomainEvent = {
-      type: args.type,
-      scope: { missionId: args.missionId, userId: args.userId },
-      payload: args.payload,
-      agentId: args.agentId,
-      traceId: args.traceId,
-      timestamp: Date.now(),
-    };
-    // ★ P1-L (2026-04-29): 严重事件（lifecycle / cost / mission:*）至少 log，避免前后端状态不一致诡异
-    await this.eventBus.emit(event).catch((err: unknown) => {
-      const isCritical =
-        args.type.includes("lifecycle") ||
-        args.type.includes("cost:tick") ||
-        args.type.includes("mission:");
-      if (isCritical) {
-        this.log.warn(
-          `[${args.missionId}] critical event emit failed type=${args.type}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    });
+    await this.relay.emitEvent(args);
   }
 
-  /** lifecycle 事件（started / completed / failed） */
   async emitLifecycle(
     missionId: string,
     userId: string,
@@ -193,16 +110,16 @@ export class AgentInvoker {
     phase: "started" | "completed" | "failed",
     detail?: Record<string, unknown>,
   ): Promise<void> {
-    await this.emitEvent({
-      type: "agent-playground.agent:lifecycle",
+    await this.relay.emitLifecycle(
       missionId,
       userId,
       agentId,
-      payload: { agentId, role, phase, ...detail },
-    });
+      role,
+      phase,
+      detail,
+    );
   }
 
-  /** 记录本 stage 的 token/cost 增量到 pool，并 emit cost:tick */
   async tickCost(
     missionId: string,
     userId: string,
@@ -210,53 +127,17 @@ export class AgentInvoker {
     pool: MissionBudgetPool,
     deltaTokens: number,
   ): Promise<void> {
-    const deltaCostUsd = estimateUsdFromTokens(deltaTokens);
-    pool.recordSpend(deltaTokens, 0, deltaCostUsd);
-    const snap = pool.snapshot();
-    await this.emitEvent({
-      type: "agent-playground.cost:tick",
-      missionId,
-      userId,
-      payload: {
-        stage,
-        deltaTokens,
-        deltaCostUsd,
-        tokensUsed: snap.poolTokensUsed,
-        costUsd: snap.poolCostUsd,
-      },
-    });
+    await this.relay.tickCost(missionId, userId, stage, pool, deltaTokens);
   }
 
-  /** 简单池化并发 */
   async runWithConcurrency<TIn, TOut>(
     items: readonly TIn[],
     concurrency: number,
     fn: (item: TIn, idx: number) => Promise<TOut>,
   ): Promise<TOut[]> {
-    const results: TOut[] = [];
-    let cursor = 0;
-    const workers = Array.from(
-      { length: Math.min(concurrency, items.length) },
-      async () => {
-        while (cursor < items.length) {
-          const idx = cursor++;
-          results[idx] = await fn(items[idx], idx);
-        }
-      },
-    );
-    await Promise.all(workers);
-    return results;
+    return this.execution.runWithConcurrency(items, concurrency, fn);
   }
 
-  /**
-   * 拓扑序滑动窗口：每个 item 可声明 dependsOn:string[]；
-   * 任一 item 完成后立即拉起下一个依赖已满足的 item（不等同批其他 item），
-   * 上限 `concurrency` 个并发槽。检测到循环时回退到全并行。
-   *
-   * ★ 2026-05-01：从原"拓扑分批 + 跨批串行"改造而来 —— 用户反馈
-   * "号称 3 并行，实际是 3 个全完成才启动下一批"。批 dispatch 等于
-   * 等最慢的拖慢全队，sliding window 才符合用户预期。
-   */
   async runDagConcurrency<
     TIn extends { id: string; dependsOn?: string[] },
     TOut,
@@ -265,340 +146,6 @@ export class AgentInvoker {
     concurrency: number,
     fn: (item: TIn, idx: number) => Promise<TOut>,
   ): Promise<TOut[]> {
-    if (items.length === 0) return [];
-    const ids = new Set(items.map((i) => i.id));
-    const inDeg = new Map<string, number>();
-    const adj = new Map<string, string[]>();
-    const idToIdx = new Map<string, number>();
-    items.forEach((it, i) => idToIdx.set(it.id, i));
-    for (const it of items) {
-      const deps = (it.dependsOn ?? []).filter((d) => ids.has(d));
-      inDeg.set(it.id, deps.length);
-      for (const d of deps) {
-        const arr = adj.get(d) ?? [];
-        arr.push(it.id);
-        adj.set(d, arr);
-      }
-    }
-
-    // 无环检测（Kahn）：能拓扑排序到的节点数 === items.length 才是 DAG
-    const tmpInDeg = new Map(inDeg);
-    const reachable = new Set<string>();
-    const tmpQ: string[] = [];
-    for (const [id, n] of tmpInDeg) {
-      if (n === 0) {
-        reachable.add(id);
-        tmpQ.push(id);
-      }
-    }
-    while (tmpQ.length > 0) {
-      const id = tmpQ.shift()!;
-      for (const child of adj.get(id) ?? []) {
-        tmpInDeg.set(child, (tmpInDeg.get(child) ?? 0) - 1);
-        if (tmpInDeg.get(child) === 0) {
-          reachable.add(child);
-          tmpQ.push(child);
-        }
-      }
-    }
-    if (reachable.size < items.length) {
-      this.log.warn(
-        `[runDagConcurrency] cycle or missing deps detected — fallback to flat`,
-      );
-      return this.runWithConcurrency(items, concurrency, fn);
-    }
-
-    // 滑动窗口调度
-    const results: TOut[] = new Array(items.length);
-    const ready: string[] = [];
-    for (const [id, n] of inDeg) {
-      if (n === 0) ready.push(id);
-    }
-    let activeCount = 0;
-    let completed = 0;
-    let firstError: unknown = null;
-
-    return new Promise<TOut[]>((resolve, reject) => {
-      const tryDispatch = () => {
-        if (firstError) {
-          if (activeCount === 0) reject(firstError);
-          return;
-        }
-        while (activeCount < concurrency && ready.length > 0) {
-          const id = ready.shift()!;
-          const idx = idToIdx.get(id)!;
-          const item = items[idx];
-          activeCount++;
-          Promise.resolve()
-            .then(() => fn(item, idx))
-            .then(
-              (out) => {
-                results[idx] = out;
-                activeCount--;
-                completed++;
-                for (const child of adj.get(id) ?? []) {
-                  const next = (inDeg.get(child) ?? 0) - 1;
-                  inDeg.set(child, next);
-                  if (next === 0) ready.push(child);
-                }
-                if (completed === items.length) resolve(results);
-                else tryDispatch();
-              },
-              (err) => {
-                activeCount--;
-                if (!firstError) firstError = err;
-                tryDispatch();
-              },
-            );
-        }
-        if (
-          activeCount === 0 &&
-          ready.length === 0 &&
-          completed < items.length &&
-          !firstError
-        ) {
-          reject(
-            new Error("runDagConcurrency: scheduler stalled (unreachable)"),
-          );
-        }
-      };
-      tryDispatch();
-    });
-  }
-
-  // ── private ──
-
-  /**
-   * 把 RunResult.events 转成 demo 友好事件。
-   * 必须 await 每条 emit —— 否则 caller 紧接的 lifecycle:completed 会赶在 trace 之前到达 UI。
-   */
-  private async relayAgentEvents(
-    events: readonly IAgentEvent[],
-    ctx: InvocationContext,
-  ): Promise<void> {
-    for (const ev of events) {
-      if (ev.type === "thinking") {
-        const p = ev.payload as {
-          text: string;
-          tokenCount?: number;
-          modelId?: string;
-        };
-        await this.emitEvent({
-          type: "agent-playground.agent:thought",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            text: p.text,
-            tokenCount: p.tokenCount,
-            modelId: p.modelId,
-            originalTs: ev.timestamp,
-          },
-        });
-      } else if (ev.type === "action_planned") {
-        const action = ev.payload as {
-          kind: string;
-          toolId?: string;
-          input?: unknown;
-          calls?: unknown[];
-          skillId?: string;
-          name?: string;
-        };
-        await this.emitEvent({
-          type: "agent-playground.agent:action",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            kind: action.kind,
-            toolId: action.toolId,
-            skillId: action.skillId,
-            subagentName: action.name,
-            input: action.input,
-            calls: action.calls,
-            originalTs: ev.timestamp,
-          },
-        });
-      } else if (ev.type === "action_executed") {
-        const r = ev.payload as {
-          action: { kind: string; toolId?: string };
-          output: unknown;
-          error?: { message: string };
-          latencyMs: number;
-          tokensUsed?: number;
-        };
-        await this.emitEvent({
-          type: "agent-playground.agent:observation",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            kind: r.action?.kind,
-            toolId: r.action?.toolId,
-            output: this.truncatePayload(r.output),
-            error: r.error?.message,
-            latencyMs: r.latencyMs,
-            tokensUsed: r.tokensUsed,
-            originalTs: ev.timestamp,
-          },
-        });
-      } else if (ev.type === "reflection") {
-        // ★ P0-LIVE-OBS-VERDICT (2026-04-30): reflexion-loop emit 的 payload 是
-        //   { revision, score, verdicts: [{judgeId, score, critique}] }，之前
-        //   错解构成 {text, verdict} 把所有评分细节扔掉，前端 reflection event
-        //   永远只有 role/agentId/originalTs 三字段，不知道 verifier 给了多少分
-        //   /哪条 critique 拖低评分。透传完整 payload 让 trace 看得到。
-        const p = ev.payload as {
-          revision?: number;
-          score?: number;
-          verdicts?: Array<{
-            judgeId: string;
-            score: number;
-            critique: string;
-          }>;
-          // legacy fallback
-          text?: string;
-          verdict?: string;
-        };
-        await this.emitEvent({
-          type: "agent-playground.agent:reflection",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            revision: p.revision,
-            score: p.score,
-            verdicts: p.verdicts,
-            text: p.text,
-            verdict: p.verdict,
-            originalTs: ev.timestamp,
-          },
-        });
-      } else if (ev.type === "error") {
-        const p = ev.payload as { message: string };
-        await this.emitEvent({
-          type: "agent-playground.agent:error",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            message: p.message,
-            originalTs: ev.timestamp,
-          },
-        });
-      } else if (ev.type === "tools_recalled") {
-        const p = ev.payload as {
-          recalledIds?: readonly string[];
-          categories?: readonly string[];
-          source?: string;
-          preferIds?: readonly string[];
-        };
-        await this.emitEvent({
-          type: "agent-playground.tools:recalled",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            recalledIds: p.recalledIds ?? [],
-            categories: p.categories ?? [],
-            source: p.source ?? "spec",
-            preferIds: p.preferIds ?? [],
-            originalTs: ev.timestamp,
-          },
-        });
-      } else if (ev.type === "iteration_progress") {
-        // ★ Phase P1 fix (2026-04-29 mission 8c7b4358)：把 ReAct 每轮进度透到 mission
-        // 事件流。用途：前端 UI 可视化死循环（reservoir/timeline 卡 60+ 轮再无 milestone
-        // 的场景，原本只有 cost:tick 在涨，现在能看到 iter=12/15 + approachingLimit=true
-        // → 用户/监控立即能识别）。
-        const p = ev.payload as {
-          iteration?: number;
-          maxIterations?: number;
-          progress?: number;
-          approachingLimit?: boolean;
-          lastActionKind?: string;
-        };
-        await this.emitEvent({
-          type: "agent-playground.iteration:progress",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            iteration: p.iteration ?? 0,
-            maxIterations: p.maxIterations ?? 0,
-            progress: p.progress ?? 0,
-            approachingLimit: p.approachingLimit ?? false,
-            lastActionKind: p.lastActionKind,
-            originalTs: ev.timestamp,
-          },
-        });
-      } else if (ev.type === "validation_failed") {
-        const p = ev.payload as {
-          rejectCount?: number;
-          maxRejects?: number;
-          issues?: string;
-        };
-        await this.emitEvent({
-          type: "agent-playground.agent:validation-rejected",
-          missionId: ctx.missionId,
-          userId: ctx.userId,
-          agentId: ctx.agentId,
-          payload: {
-            agentId: ctx.agentId,
-            role: ctx.role,
-            rejectCount: p.rejectCount ?? 0,
-            maxRejects: p.maxRejects ?? 3,
-            issues: p.issues ?? "",
-            originalTs: ev.timestamp,
-          },
-        });
-      }
-    }
-  }
-
-  private truncatePayload(payload: unknown): unknown {
-    if (payload == null) return payload;
-    if (typeof payload === "string") {
-      // 8KB（之前 1.5KB 太小，web-scraper 抓的 markdown 整段被切，前端只能
-      // 显示"工具未返回可解析的结构化结果"）
-      return payload.length > 8000 ? payload.slice(0, 8000) + "â€¦" : payload;
-    }
-    try {
-      const s = JSON.stringify(payload);
-      // 32KB（之前 4KB 触发 _truncated/preview 包装，破坏前端
-      // collectResultsDeep / extractRawOutputPreview 的字段识别）
-      if (s.length <= 32_000) return payload;
-      // 仍超限时尽量保结构：如果是 {results: [...]} 结构，截 results 数组
-      if (
-        typeof payload === "object" &&
-        payload !== null &&
-        Array.isArray((payload as { results?: unknown[] }).results)
-      ) {
-        const obj = payload as { results: unknown[]; [k: string]: unknown };
-        return {
-          ...obj,
-          results: obj.results.slice(0, 10),
-          _resultsTruncated: obj.results.length > 10,
-          _originalResultsCount: obj.results.length,
-        };
-      }
-      return { _truncated: true, preview: s.slice(0, 32_000) + "…" };
-    } catch {
-      return String(payload);
-    }
+    return this.execution.runDagConcurrency(items, concurrency, fn);
   }
 }

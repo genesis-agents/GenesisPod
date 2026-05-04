@@ -16,7 +16,7 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 
 export async function runBudgetEstimateStage(
   ctx: MissionContext,

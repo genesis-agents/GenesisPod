@@ -22,10 +22,10 @@
  */
 
 import pLimit from "p-limit";
-import { ChapterWriterAgent } from "../../../../agents/writer/chapter-writer.agent";
-import { ChapterReviewerAgent } from "../../../../agents/writer/chapter-reviewer.agent";
-import { DimensionIntegratorAgent } from "../../../../agents/writer/dimension-integrator.agent";
-import type { MissionDeps } from "../mission-deps";
+import { ChapterWriterAgent } from "../../../agents/writer/chapter-writer.agent";
+import { ChapterReviewerAgent } from "../../../agents/writer/chapter-reviewer.agent";
+import { DimensionIntegratorAgent } from "../../../agents/writer/dimension-integrator.agent";
+import type { MissionDeps } from "./mission-deps";
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
@@ -35,7 +35,8 @@ import {
   CHAPTER_MAX_REVISION_ATTEMPTS,
 } from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
-import { jaccardSimilarity } from "./similarity.util";
+// ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 已下沉 engine/content
+import { jaccardSimilarity } from "@/modules/ai-harness/facade";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
 import { restoreGlobalIndices } from "@/modules/ai-harness/facade";
 // ★ 沉淀 v2: 内容缺陷扫描（纯函数 utility，0 LLM）—— chapter draft 格式缺陷指标

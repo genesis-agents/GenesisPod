@@ -20,7 +20,7 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 import { scaleScore } from "@/modules/ai-harness/facade";
 
 export async function runCriticStage(

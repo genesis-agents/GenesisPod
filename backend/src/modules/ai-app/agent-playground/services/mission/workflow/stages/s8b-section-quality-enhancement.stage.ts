@@ -21,11 +21,11 @@
 
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 import {
   normalizeSectionMarkdown,
   rebuildSectionLayout,
-} from "../helpers/report-artifact-sections.util";
+} from "../report-artifact-sections.util";
 import type {
   SelfEvalDimension,
   RemediationAction,

@@ -21,8 +21,8 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import type { ChapterInput } from "@/modules/ai-harness/facade";
-import { narrate } from "../helpers/narrative.util";
-import { extractSubstantiveSectionText } from "../helpers/report-artifact-sections.util";
+import { narrate } from "../narrative.util";
+import { extractSubstantiveSectionText } from "../report-artifact-sections.util";
 
 export async function runReportObjectiveEvaluationStage(
   ctx: MissionContext,

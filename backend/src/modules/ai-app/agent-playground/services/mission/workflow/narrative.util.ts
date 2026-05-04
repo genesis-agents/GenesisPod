@@ -11,7 +11,7 @@
  *   - 失败 emit 不抛错（best-effort）
  */
 
-import type { EmitFn } from "../mission-deps";
+import type { EmitFn } from "./mission-deps";
 
 export type NarrativeTag =
   | "thinking"

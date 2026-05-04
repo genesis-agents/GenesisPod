@@ -13,14 +13,17 @@ services/
 │
 ├── mission/                                       ← Mission 总目录（剧本 + 生命周期）
 │   ├── workflow/                                  ← Mission 业务剧本（trunk + stages）
-│   │   ├── team.mission.ts                        ← Trunk 主剧本（约 680 行连贯 await）
+│   │   ├── team.mission.ts                        ← Trunk 主剧本
 │   │   ├── mission-context.ts                     ← 跨 stage 共享状态（ctx）
 │   │   ├── mission-deps.ts                        ← stage 函数依赖包
-│   │   ├── helpers/                               ← 纯函数工具（无业务依赖）
-│   │   │   ├── failure-extraction.utils.ts         ← agent failure code/message 抽取
-│   │   │   ├── token-spend.utils.ts                ← token / cost 统计
-│   │   │   └── per-dim-pipeline.util.ts           ← per-dim chapter pipeline 子流程
-│   │   └── stages/                                ← 11 个 stage 函数（s1 → s11）
+│   │   ├── mission-runtime-shell.service.ts       ← session 装配（billing / pool / heartbeat / wallTimer / cleanup）
+│   │   ├── mission-stage-bindings.service.ts      ← buildCtx / buildDeps（stage 函数参数装配）
+│   │   ├── narrative.util.ts                      ← 人话叙事事件辅助（stage 内 narrate 入口）
+│   │   ├── per-dim-pipeline.util.ts               ← per-dim chapter pipeline 子流程
+│   │   ├── report-artifact-sections.util.ts       ← report section 切片归一化
+│   │   ├── similarity.util.ts                     ← 文本相似度（jaccard，stuck-revision 检测）
+│   │   ├── word-count-normalizer.util.ts          ← 章节字数归一化（playground 预设 wrapper）
+│   │   └── stages/                                ← 12 个 stage 函数（s1 → s12，含 s8b/s9b）
 │   │       ├── s1-mission-estimate-budget.stage.ts
 │   │       ├── s2-leader-plan-mission.stage.ts
 │   │       ├── s3-researcher-collect-findings.stage.ts
@@ -42,7 +45,10 @@ services/
 │
 ├── roles/                                         ← 8 角色 service + 共享 invoker
 │   ├── index.ts                                   ← barrel export
-│   ├── agent-invoker.service.ts                   ← 底座（runAndRelay / lifecycle / cost / 并发 / DAG）
+│   ├── agent-invoker.service.ts                   ← 兼容门面（保持 role/stage 调用面稳定）
+│   ├── agent-execution-support.ts                 ← 通用执行支撑（run / 并发 / DAG）
+│   ├── agent-playground-event-relay.ts            ← Playground 事件映射 / cost relay
+│   ├── agent-invocation-policy.ts                 ← Playground 调用策略（loop / failure learning）
 │   ├── leader.service.ts                          ← Leader 跨 milestone 容器（factory）
 │   ├── researcher.service.ts                      ← researcher 角色服务
 │   ├── reconciler.service.ts                      ← reconciler 角色服务
@@ -135,17 +141,25 @@ role service 执行。
 - **不**自己重新实现 runAndRelay / lifecycle / tickCost
 - 失败学习 / 自愈 / 重试等横切关注由 stage 文件持有
 
-### 3. AgentInvoker 是共享底座
+### 3. AgentInvoker 是兼容门面，不再承担所有职责
 
-`AgentInvoker` 是无状态 helper，承载：
+`AgentInvoker` 仍然是 role service / mission stage 的统一入口，但内部已经拆成三块：
 
-- `invoke(spec, input, ctx)` → 跑 agent + 实时 relay 事件
-- `emitEvent / emitLifecycle / tickCost` → 通用事件
-- `runWithConcurrency / runDagConcurrency` → 池化并发
-- `preDisableKnownFailingModels` → 跨 mission failure pattern 预查
-- `resolveLoopOverride` → auditLayers 切 reflexion
+- `AgentExecutionSupport`
+  - `invoke(spec, input, ctx)` → 跑 agent
+  - `runWithConcurrency / runDagConcurrency` → 池化并发
+- `AgentPlaygroundEventRelay`
+  - `emitEvent / emitLifecycle / tickCost` → Playground 事件语义
+  - `relayAgentEvents()` → IAgentEvent → agent-playground.\* 的映射
+- `AgentInvocationPolicy`
+  - `preDisableKnownFailingModels` → 跨 mission failure pattern 预查
+  - `resolveLoopOverride` → auditLayers 切 reflexion
 
-业务流程一概不感知。
+这样做的原则是：
+
+- 通用执行支撑与产品事件语义分开
+- Playground 专有 event type 仍留在 app 层，不混入 harness
+- 对上层 role services / stages 先保持稳定接口，控制重构扩散面
 
 ### 4. mission/lifecycle 是状态层
 

@@ -44,7 +44,7 @@ import {
   REVIEW_PASS_THRESHOLD,
   MISSION_WRITER_MAX_ATTEMPTS,
 } from "@/modules/ai-harness/facade";
-import { narrate } from "../helpers/narrative.util";
+import { narrate } from "../narrative.util";
 import { clampScore, scaleScore } from "@/modules/ai-harness/facade";
 
 // ★ 2026-05-01 (PR-G iter8): 走 ai-harness 集中阈值（quality-thresholds.constants.ts）

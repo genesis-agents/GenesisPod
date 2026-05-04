@@ -12,6 +12,11 @@
 export { PromptSkillRegistrationService } from "../skills/runtime";
 export { CHAT_PROVIDER_PORT } from "./abstractions/runtime-deps.tokens";
 
+// ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 从
+//   ai-app/agent-playground 上提到 engine/content（纯 token-set 文本相似度，
+//   无 agent/mission 状态，跨 ai-app 可复用）
+export { jaccardSimilarity } from "../content/text-similarity.utils";
+
 /**
  * Minimal interface matching MCPManager for ai-engine internal use.
  * ai-engine executor/capability files inject MCPManager at runtime via harness DI;

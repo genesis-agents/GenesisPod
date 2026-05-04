@@ -22,6 +22,7 @@ import { MissionRuntimeStateStore } from "../lifecycle/mission-lifecycle/runtime
 import { MissionOrphanDetectorService } from "../lifecycle/mission-lifecycle/orphan-detector.service";
 import { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 import { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
+import { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.service";
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
@@ -65,6 +66,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     // â˜… 2026-05-01 (PR-X-E): é€šç”¨ mission registry primitiveï¼ˆä»Ž playground ä¸Šæï¼‰
     MissionAbortRegistry,
     MissionOwnershipRegistry,
+    RerunLockRegistry,
     // â˜… 2026-04-30: AdaptiveReplannerService ä»Ž ai-engine/planning æ¬æ¥ (è·¨å±‚æ¬è¿)
     AdaptiveReplannerService,
     // ConstraintEngine ä¾èµ– CostController
@@ -197,6 +199,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     MissionOrphanDetectorService,
     MissionAbortRegistry,
     MissionOwnershipRegistry,
+    RerunLockRegistry,
     AdaptiveReplannerService,
   ],
 })

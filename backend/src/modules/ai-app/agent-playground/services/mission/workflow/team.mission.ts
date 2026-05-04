@@ -32,55 +32,24 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import {
-  AgentRunner,
-  DomainEventBus,
-  FigureRelevanceService,
-  JudgeService,
-  MemoryAutoIndexer,
   MissionBudgetPool,
   // ★ 沉淀消费 v3 (2026-04-29): quality 闭环
-  SectionSelfEvalService,
-  SectionRemediationService,
-  ReportEvaluationService,
-  QualityTraceComputeService,
   // ★ Phase 5 (2026-04-29): mission checkpoint
   MissionCheckpointService,
 } from "@/modules/ai-harness/facade";
-import { FigureExtractorService } from "@/modules/ai-engine/facade";
-import { BillingContext } from "../../../../../ai-infra/credits/billing-context.store";
-import { withUserContext } from "../../../../../../common/context";
-import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 // ★ P2-R3-3 (round 3): 与同文件相邻 import 统一相对路径风格
-import { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import { LeaderAgent } from "../../../agents/leader/leader.agent";
-import {
-  LeaderService,
-  SupervisedMission,
-  ReconcilerService,
-  AnalystService,
-  WriterService,
-  ReviewerService,
-  VerifierService,
-  StewardService,
-  AgentInvoker,
-} from "../../roles";
-import { ReportArtifactAssembler } from "@/modules/ai-harness/facade";
-import { MissionStateService } from "../lifecycle/mission-state.service";
+import { LeaderService, SupervisedMission, AgentInvoker } from "../../roles";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 // MissionReviewerAgent: 当前 mission 评审走 VerifierService（多 judge 投票），
 // MissionReviewerAgent class 已声明但 orchestrator 暂未直接调用，保留为后续替换 path。
 import {
   type ResearchReport,
-  resolveBudgetMultiplier,
-  resolveMissionCredits,
-  resolveMissionWallTimeMs,
   type RunMissionInput,
 } from "../../../dto/run-mission.dto";
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
-import { FailureLearnerService } from "@/modules/ai-harness/facade";
-import { PostmortemClassifierService } from "../../postmortem/postmortem-classifier.service";
 import type { MissionContext } from "./mission-context";
 import type { MissionDeps } from "./mission-deps";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
@@ -97,6 +66,11 @@ import { runReportObjectiveEvaluationStage } from "./stages/s9b-report-objective
 import { runLeaderForewordAndSignoffStage } from "./stages/s10-leader-foreword-and-signoff.stage";
 import { runPersistStage } from "./stages/s11-mission-persist.stage";
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
+import {
+  MissionRuntimeShellService,
+  type MissionRuntimeSession,
+} from "./mission-runtime-shell.service";
+import { MissionStageBindingsService } from "./mission-stage-bindings.service";
 
 interface MissionResult {
   readonly missionId: string;
@@ -133,40 +107,20 @@ export class TeamMission {
   private readonly log = new Logger(TeamMission.name);
 
   constructor(
-    private readonly runner: AgentRunner,
-    private readonly judge: JudgeService,
-    private readonly indexer: MemoryAutoIndexer,
-    private readonly eventBus: DomainEventBus,
-    private readonly credits: CreditsService,
-    private readonly runtimeEnv: RuntimeEnvironmentService,
     private readonly store: MissionStore,
-    private readonly failureLearner: FailureLearnerService,
-    private readonly reportAssembler: ReportArtifactAssembler,
-    private readonly missionState: MissionStateService,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly leaderService: LeaderService,
     // per-role services（stage 文件通过 deps 间接调用，注入到 trunk 供 buildStageDeps 打包）
-    private readonly reconcilerService: ReconcilerService,
-    private readonly analystService: AnalystService,
-    private readonly writerService: WriterService,
-    private readonly reviewerService: ReviewerService,
-    private readonly verifierService: VerifierService,
-    private readonly stewardService: StewardService,
     private readonly invoker: AgentInvoker,
     // ★ 沉淀（2026-04-29）: figure pipeline（agent-playground 复用 ai-engine + ai-harness 沉淀版）
-    private readonly figureExtractor: FigureExtractorService,
-    private readonly figureRelevance: FigureRelevanceService,
     // ★ 沉淀消费 v3 (2026-04-29): quality 闭环
-    private readonly sectionSelfEval: SectionSelfEvalService,
-    private readonly sectionRemediation: SectionRemediationService,
-    private readonly reportEvaluation: ReportEvaluationService,
-    private readonly qualityTraceCompute: QualityTraceComputeService,
     // ★ Phase 5 (2026-04-29): 接入 ai-harness 沉淀的 mission checkpoint
     private readonly missionCheckpoint: MissionCheckpointService,
     // ── S12 postmortem 失败模式分类 ──
-    private readonly postmortemClassifier: PostmortemClassifierService,
     // MissionEventBuffer: S12 需要事件快照做失败模式分类
     private readonly missionEventBuffer: MissionEventBuffer,
+    private readonly runtimeShell: MissionRuntimeShellService,
+    private readonly stageBindings: MissionStageBindingsService,
   ) {}
 
   /**
@@ -222,359 +176,171 @@ export class TeamMission {
     userId: string,
     workspaceId?: string,
   ): Promise<MissionResult> {
-    // 注册 abort controller + mission 级 wall-time（按 depth × audit × budget 联动）
-    const missionAbort = this.abortRegistry.register(missionId);
-    const MISSION_WALL_TIME_MS = resolveMissionWallTimeMs(input);
-    this.log.log(
-      `[${missionId}] mission wall-time = ${Math.round(MISSION_WALL_TIME_MS / 60000)}min ` +
-        `(depth=${input.depth}, audit=${input.auditLayers}, budget=${input.budgetProfile})`,
-    );
-    const wallTimer = setTimeout(() => {
-      this.log.warn(
-        `[${missionId}] mission wall-time exceeded (${MISSION_WALL_TIME_MS}ms) — auto abort`,
-      );
-      void this.invoker
-        .emitEvent({
-          type: "agent-playground.mission:budget-warning-hard",
-          missionId,
-          userId,
-          payload: {
-            reason: "wall_time_exceeded",
-            wallTimeMs: MISSION_WALL_TIME_MS,
-          },
-        })
-        .catch(() => {});
-      missionAbort.abort("mission_wall_time_exceeded");
-    }, MISSION_WALL_TIME_MS);
-    wallTimer.unref?.();
-    const billing = new BillingRuntimeEnvAdapter(
+    const session = await this.runtimeShell.openSession({
+      missionId,
+      input,
       userId,
       workspaceId,
-      this.credits,
-      this.runtimeEnv,
-    );
-
-    const effectiveMaxCredits = resolveMissionCredits(input);
-    // 1 credit ≈ 1k tokens；max 10k credits = 10M tokens 上限保护，足够任何
-    // 实际研究任务。配合 budgetProfile=unlimited 时基本不触发上限。
-    const pool = new MissionBudgetPool({
-      maxTokens: effectiveMaxCredits * 1000,
-      maxCostUsd: effectiveMaxCredits * 0.002,
     });
+    return this.runMissionWithSession(session, input, workspaceId);
+  }
 
-    try {
-      // 预检 1：模型可用性 —— 用户 BYOK 默认模型必须真实可用。
-      // 否则 mission 会跑到第一次 LLM 调用才空响应，浪费 1-2 分钟才报错。
+  private async runMissionWithSession(
+    session: MissionRuntimeSession,
+    input: RunMissionInput,
+    workspaceId?: string,
+  ): Promise<MissionResult> {
+    const { missionId, userId } = session;
+    return this.runtimeShell.runWithinContext(session, async () => {
+      const t0 = Date.now();
+      const partial: {
+        report?: unknown;
+        reportArtifact?: unknown;
+        reviewScore?: number;
+        verifierVerdicts?: unknown;
+        trajectoryStored?: number;
+        themeSummary?: string;
+        dimensions?: unknown[];
+        reconciliationReport?: unknown;
+        userProfile?: unknown;
+        leaderSignOff?: {
+          leaderOverallScore: number;
+          leaderVerdict: "excellent" | "good" | "acceptable" | "failed";
+          signed: boolean;
+          refusalReason?: string;
+        };
+      } = {};
+
       try {
-        const allModels = await billing.listAvailableModels();
-        const healthy = allModels.filter((m) => m.available);
-        if (allModels.length > 0 && healthy.length === 0) {
-          const ids = allModels.map((m) => m.modelId).join(", ");
-          const msg = `用户 BYOK 配置的所有模型均不可用：${ids}。请前往 设置 → 模型 检查 model id 是否真实存在 / API key 是否有效`;
-          await this.invoker.emitEvent({
-            type: "agent-playground.mission:rejected",
+        const result = await this.runMissionBody(
+          missionId,
+          input,
+          userId,
+          workspaceId,
+          session.pool,
+          t0,
+          session.billing,
+          session.budgetMultiplier,
+          partial,
+        );
+        await runPersistStage(
+          { missionId, userId, t0, result, pool: session.pool },
+          this.buildStageDeps(),
+        );
+        await this.missionCheckpoint.clear(missionId);
+        await this.store.markStageComplete(missionId, 11);
+        const s12Promise = runSelfEvolutionStage(
+          {
+            missionId,
+            userId,
+            t0,
+            pool: session.pool,
+            topic: input.topic,
+            plan: result.themeSummary
+              ? {
+                  dimensions: (result.dimensions ?? []) as unknown[],
+                  goals: undefined,
+                }
+              : undefined,
+            researcherResults: result.dimensions as unknown[] | undefined,
+            reportArtifact: result.reportArtifact as
+              | { quality?: { overall?: number }; sections?: unknown[] }
+              | undefined,
+            leaderSignOff: result.leaderSignOff,
+            abortSignal: session.missionAbort.signal,
+            bufferedEvents: this.missionEventBuffer
+              .read(missionId)
+              .map((e) => ({
+                type: e.type,
+                ts: e.timestamp,
+                payload: e.payload,
+              })),
+          },
+          this.buildStageDeps(),
+        ).catch(() => {});
+        void s12Promise.finally(() => {
+          session.cleanup();
+        });
+        return result;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const errName = err instanceof Error ? err.name : "Unknown";
+        const snap = session.pool.snapshot();
+        const wasCancelled =
+          session.missionAbort.signal.aborted ||
+          /aborted|cancelled|user_cancelled/i.test(message);
+        if (wasCancelled) {
+          session.cleanup();
+          throw err;
+        }
+        let missionFailureCode = "UNKNOWN";
+        if (
+          errName === "InsufficientCreditsException" ||
+          /credit|余额不足|insufficient/i.test(message)
+        ) {
+          missionFailureCode = "ORCH_CREDIT_INSUFFICIENT";
+        } else if (errName === "ByokRequiredError") {
+          missionFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
+        } else if (
+          errName === "InputValidationError" ||
+          errName === "DefineAgentMissingError"
+        ) {
+          missionFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
+        } else if (/timeout|timed out/i.test(message)) {
+          missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
+        } else if (/rate.?limit|429/i.test(message)) {
+          missionFailureCode = "PROVIDER_RATE_LIMIT";
+        } else {
+          missionFailureCode = "PROVIDER_API_ERROR";
+        }
+        await this.invoker
+          .emitEvent({
+            type: "agent-playground.mission:failed",
             missionId,
             userId,
             payload: {
-              reason: "no_healthy_model",
-              availableCount: 0,
-              totalCount: allModels.length,
-              userMessage: msg,
-            },
-          });
-          throw new Error(msg);
-        }
-        // ★ P0-CONFIG-MODEL (2026-04-30): 仅 1 个 healthy 模型时给 warning event，
-        //   让前端能展示"无 fallback"提示。任一模型 rate-limit/失败时整个 mission
-        //   会全 fail。non-blocking warning，不抛错。
-        if (healthy.length === 1) {
-          await this.invoker
-            .emitEvent({
-              type: "agent-playground.mission:warning",
-              missionId,
-              userId,
-              payload: {
-                code: "SINGLE_MODEL_NO_FALLBACK",
-                modelId: healthy[0].modelId,
-                userMessage:
-                  `当前仅启用 1 个模型 (${healthy[0].modelId})，` +
-                  `若该模型 rate-limit 或临时故障，mission 将无 fallback。` +
-                  `建议在 设置 → 模型 启用 2+ 模型作为备份`,
-              },
-            })
-            .catch(() => {});
-        }
-      } catch (err) {
-        // 仅 reject-throw 抛出；env 查询失败不阻断（partial info ok）
-        if (err instanceof Error && err.message.includes("BYOK 配置"))
-          throw err;
-      }
-
-      const credit = await billing.getCreditState();
-      if (credit.balance <= (credit.hardLimit ?? 0)) {
-        const hint = await billing.suggestFallback({ reason: "no_credit" });
-        await this.invoker.emitEvent({
-          type: "agent-playground.mission:rejected",
-          missionId,
-          userId,
-          payload: {
-            reason: "no_credit",
-            balance: credit.balance,
-            userMessage: hint.userMessage,
-          },
-        });
-        throw new Error(hint.userMessage ?? "Credit balance too low");
-      }
-
-      // 先持久化 mission record (status=running)
-      // 同时把 userProfile 快照写进去，cancelled/failed 时也能看到配置
-      await this.store.create({
-        id: missionId,
-        userId,
-        workspaceId,
-        topic: input.topic,
-        depth: input.depth,
-        language: input.language,
-        maxCredits: effectiveMaxCredits,
-        userProfile: {
-          depth: input.depth,
-          language: input.language,
-          budgetProfile: input.budgetProfile,
-          styleProfile: input.styleProfile,
-          lengthProfile: input.lengthProfile,
-          audienceProfile: input.audienceProfile,
-          withFigures: input.withFigures,
-          auditLayers: input.auditLayers,
-          concurrency: input.concurrency,
-          viewMode: input.viewMode,
-        } as Record<string, unknown>,
-      });
-    } catch (err) {
-      clearTimeout(wallTimer);
-      this.abortRegistry.unregister(missionId);
-      throw err;
-    }
-
-    // ★ PR-H v1 (2026-05-01): pod-aware heartbeat
-    //   每 30s 刷新 DB heartbeatAt + podId。pod 死后心跳停 → recoverPodCrashedRunning
-    //   扫到 stale 90s + status=running → markFailed，UI 看到明确失败状态。
-    //   PR-H v2 将基于 heartbeat + lastCompletedStage 实现 resume from checkpoint。
-    const podId =
-      process.env.RAILWAY_REPLICA_ID ??
-      process.env.HOSTNAME ??
-      `local-${process.pid}`;
-    void this.store.refreshHeartbeat(missionId, podId);
-    const heartbeatTimer = setInterval(() => {
-      void this.store.refreshHeartbeat(missionId, podId);
-    }, 30_000);
-    heartbeatTimer.unref?.();
-
-    // ★ 必须同时 wrap withUserContext —— BillingContext 不会自动让 RequestContext.getUserId() 看到 userId，
-    //   reflexion / verifier 等异步内部调用 AiChatService 需要 RequestContext 拿 BYOK userId。
-    return withUserContext(userId, () =>
-      BillingContext.run(
-        {
-          userId,
-          moduleType: "agent-playground",
-          operationType: "team",
-          referenceId: missionId,
-        },
-        async () => {
-          const t0 = Date.now();
-          // ★ 2026-04-30: 部分产物收集器 —— mission 抛错时 catch 也能拿到已构建的产物
-          //   传给 markFailed 写库，让前端在失败/拒签时仍能看到报告内容。
-          //   之前 result 在 try 内，catch 里 result=undefined → markFailed 不写 reportFull。
-          const partial: {
-            report?: unknown;
-            reportArtifact?: unknown;
-            reviewScore?: number;
-            verifierVerdicts?: unknown;
-            trajectoryStored?: number;
-            themeSummary?: string;
-            dimensions?: unknown[];
-            reconciliationReport?: unknown;
-            userProfile?: unknown;
-            leaderSignOff?: {
-              leaderOverallScore: number;
-              leaderVerdict: "excellent" | "good" | "acceptable" | "failed";
-              signed: boolean;
-              refusalReason?: string;
-            };
-          } = {};
-          try {
-            const result = await this.runMissionBody(
-              missionId,
-              input,
-              userId,
-              workspaceId,
-              pool,
-              t0,
-              billing,
-              // depth × budgetProfile 组合倍率：让两个 lever 协同 scale agent budget
-              resolveBudgetMultiplier(input),
-              partial,
-            );
-            // ── Stage 99: 持久化（已抽到 stages/s11-mission-persist.stage.ts）──
-            await runPersistStage(
-              { missionId, userId, t0, result, pool },
-              this.buildStageDeps(),
-            );
-            // ★ Phase 5 (2026-04-29): persist 成功后清理 checkpoint，避免被 listResumable 误识别
-            await this.missionCheckpoint.clear(missionId);
-            // ★ PR-H v1: S11 完成 = mission terminal 之前最后状态点
-            await this.store.markStageComplete(missionId, 11);
-            // ── Stage 100: S12 self-evolution（best-effort，不阻塞返回）──
-            //   异步执行，让用户立即拿到 result；evolved 事件后续 emit 给前端
-            //   ★ P1-NEW-A (round 2): 把 abortSignal 传进 S12，让 wallTimer 触发 / 用户取消
-            //   时 S12 能立即停手，防止超 wall-time 后继续烧 BYOK credits。
-            //   wallTimer / abortRegistry 也推迟到 S12 完成后再清理，确保 signal 在
-            //   S12 整个生命周期内都可用。
-            const s12Promise = runSelfEvolutionStage(
-              {
-                missionId,
-                userId,
-                t0,
-                pool,
-                topic: input.topic,
-                plan: result.themeSummary
-                  ? {
-                      dimensions: (result.dimensions ?? []) as unknown[],
-                      goals: undefined,
-                    }
-                  : undefined,
-                researcherResults: result.dimensions as unknown[] | undefined,
-                reportArtifact: result.reportArtifact as
-                  | { quality?: { overall?: number }; sections?: unknown[] }
-                  | undefined,
-                leaderSignOff: result.leaderSignOff,
-                abortSignal: missionAbort.signal,
-                // ── 事件快照注入，供 PostmortemClassifierService 做失败模式分类 ──
-                //   BufferedEvent 用 timestamp 字段，ClassifyInput 用 ts，map 一下
-                bufferedEvents: this.missionEventBuffer
-                  .read(missionId)
-                  .map((e) => ({
-                    type: e.type,
-                    ts: e.timestamp,
-                    payload: e.payload,
-                  })),
-              },
-              this.buildStageDeps(),
-            ).catch(() => {});
-            void s12Promise.finally(() => {
-              clearTimeout(wallTimer);
-              clearInterval(heartbeatTimer);
-              this.abortRegistry.unregister(missionId);
-            });
-            return result;
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            const errName = err instanceof Error ? err.name : "Unknown";
-            const snap = pool.snapshot();
-            // ★ P0-LIVE-CANCEL-GHOST (2026-04-30): mission 8e77271d 实证 —
-            //   用户取消后 mission 主流程没立即退出，下游 stage（reconciler/
-            //   analyst）继续跑但每个 agent 入口 signal.aborted 即退出，
-            //   wallTimeMs=2-5ms iterations=0 没产 output → schema_mismatch
-            //   派生错误 → s6 stage throw → catch 这里发 mission:failed
-            //   "Analyst 连续 2 次未产出"，把"用户取消"真因彻底遮蔽。
-            //   修复：cancel 时 catch 走 cancelled 路径，不发 mission:failed。
-            const wasCancelled =
-              missionAbort.signal.aborted ||
-              /aborted|cancelled|user_cancelled/i.test(message);
-            if (wasCancelled) {
-              const cancelReason =
-                typeof missionAbort.signal.reason === "string"
-                  ? missionAbort.signal.reason
-                  : "user_cancelled";
-              this.log.log(
-                `[${missionId}] catch detected mission abort (${cancelReason}), routing to cancel path instead of failure (suppressed派生 errors: ${message.slice(0, 200)})`,
-              );
-              // mission:cancelled 已在 abortRegistry.abort() 调用方（controller /
-              // wallTimer）emit；DB markCancelled 也已在那里执行。这里**不**重复
-              // emit mission:failed，避免 schema_mismatch 这种派生错误盖住真因。
-              clearTimeout(wallTimer);
-              clearInterval(heartbeatTimer);
-              this.abortRegistry.unregister(missionId);
-              throw err;
-            }
-            // ★ mission 级失败码归类
-            let missionFailureCode: string = "UNKNOWN";
-            if (
-              errName === "InsufficientCreditsException" ||
-              /credit|余额不足|insufficient/i.test(message)
-            ) {
-              missionFailureCode = "ORCH_CREDIT_INSUFFICIENT";
-            } else if (errName === "ByokRequiredError") {
-              missionFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
-            } else if (
-              errName === "InputValidationError" ||
-              errName === "DefineAgentMissingError"
-            ) {
-              missionFailureCode = "RUNNER_INPUT_SCHEMA_MISMATCH";
-            } else if (/timeout|timed out/i.test(message)) {
-              missionFailureCode = "RUNNER_WALL_TIME_EXCEEDED";
-            } else if (/rate.?limit|429/i.test(message)) {
-              missionFailureCode = "PROVIDER_RATE_LIMIT";
-            } else {
-              missionFailureCode = "PROVIDER_API_ERROR";
-            }
-            // 任何 uncaught 错误都要让 UI 知道 —— 否则 status 永远停在 "running"
-            await this.invoker
-              .emitEvent({
-                type: "agent-playground.mission:failed",
-                missionId,
-                userId,
-                payload: {
-                  message,
-                  failureCode: missionFailureCode,
-                  errorName: errName,
-                  wallTimeMs: Date.now() - t0,
-                  tokensUsed: snap.poolTokensUsed,
-                  costUsd: snap.poolCostUsd,
-                  diagnostic: {
-                    errorStack: err instanceof Error ? err.stack : undefined,
-                  },
-                },
-              })
-              .catch(() => {});
-            // ★ 2026-04-30: 把已构建的产物（reportArtifact / verdicts / leaderSignOff 等）
-            //   一并传给 markFailed —— 之前普通 failed 路径全部丢失，前端看到空白报告。
-            //   reportArtifact 优先，fallback 旧 ResearchReport v1。
-            const reportPayload =
-              partial.reportArtifact ??
-              (partial.report as
-                | { title?: string; summary?: string }
-                | undefined);
-            await this.store.markFailed(missionId, {
-              errorMessage: message,
+              message,
+              failureCode: missionFailureCode,
+              errorName: errName,
+              wallTimeMs: Date.now() - t0,
               tokensUsed: snap.poolTokensUsed,
               costUsd: snap.poolCostUsd,
-              wallTimeMs: Date.now() - t0,
-              trajectoryStored: partial.trajectoryStored,
-              themeSummary: partial.themeSummary,
-              dimensions: partial.dimensions,
-              report: reportPayload as
-                | { title?: string; summary?: string }
-                | undefined,
-              reportArtifactVersion: partial.reportArtifact
-                ? 2
-                : partial.report
-                  ? 1
-                  : undefined,
-              userProfile: partial.userProfile,
-              reconciliationReport: partial.reconciliationReport,
-              verdicts: partial.verifierVerdicts,
-              leaderOverallScore: partial.leaderSignOff?.leaderOverallScore,
-              leaderSigned: partial.leaderSignOff?.signed,
-              leaderVerdict: partial.leaderSignOff?.leaderVerdict,
-            });
-            clearTimeout(wallTimer);
-            clearInterval(heartbeatTimer);
-            this.abortRegistry.unregister(missionId);
-            throw err;
-          }
-        },
-      ),
-    );
+              diagnostic: {
+                errorStack: err instanceof Error ? err.stack : undefined,
+              },
+            },
+          })
+          .catch(() => {});
+        const reportPayload =
+          partial.reportArtifact ??
+          (partial.report as { title?: string; summary?: string } | undefined);
+        await this.store.markFailed(missionId, {
+          errorMessage: message,
+          tokensUsed: snap.poolTokensUsed,
+          costUsd: snap.poolCostUsd,
+          wallTimeMs: Date.now() - t0,
+          trajectoryStored: partial.trajectoryStored,
+          themeSummary: partial.themeSummary,
+          dimensions: partial.dimensions,
+          report: reportPayload as
+            | { title?: string; summary?: string }
+            | undefined,
+          reportArtifactVersion: partial.reportArtifact
+            ? 2
+            : partial.report
+              ? 1
+              : undefined,
+          userProfile: partial.userProfile,
+          reconciliationReport: partial.reconciliationReport,
+          verdicts: partial.verifierVerdicts,
+          leaderOverallScore: partial.leaderSignOff?.leaderOverallScore,
+          leaderSigned: partial.leaderSignOff?.signed,
+          leaderVerdict: partial.leaderSignOff?.leaderVerdict,
+        });
+        session.cleanup();
+        throw err;
+      }
+    });
   }
 
   private async runMissionBody(
@@ -1041,57 +807,10 @@ export class TeamMission {
       s4PatchFailures?: MissionContext["s4PatchFailures"];
     };
   }): MissionContext {
-    return {
-      missionId: args.missionId,
-      userId: args.userId,
-      input: args.input,
-      t0: args.t0,
-      billing: args.billing,
-      pool: args.pool,
-      leader: args.leader,
-      budgetMultiplier: args.budgetMultiplier,
-      plan: args.plan,
-      researcherResults: args.researcherResults,
-      reconciliationReport: args.reconciliationReport,
-      reportArtifact: args.reportArtifact,
-      report: args.report,
-      reviewScore: args.reviewScore,
-      verifierVerdicts: args.verifierVerdicts,
-      s4PatchFailures: args.sharedState?.s4PatchFailures,
-    };
+    return this.stageBindings.buildCtx(args);
   }
 
   private buildStageDeps(): MissionDeps {
-    return {
-      leader: this.leaderService,
-      reconciler: this.reconcilerService,
-      analyst: this.analystService,
-      writer: this.writerService,
-      reviewer: this.reviewerService,
-      verifier: this.verifierService,
-      steward: this.stewardService,
-      invoker: this.invoker,
-      store: this.store,
-      missionState: this.missionState,
-      abortRegistry: this.abortRegistry,
-      runner: this.runner,
-      judge: this.judge,
-      indexer: this.indexer,
-      eventBus: this.eventBus,
-      credits: this.credits,
-      runtimeEnv: this.runtimeEnv,
-      failureLearner: this.failureLearner,
-      reportAssembler: this.reportAssembler,
-      figureExtractor: this.figureExtractor,
-      figureRelevance: this.figureRelevance,
-      sectionSelfEval: this.sectionSelfEval,
-      sectionRemediation: this.sectionRemediation,
-      reportEvaluation: this.reportEvaluation,
-      qualityTraceCompute: this.qualityTraceCompute,
-      postmortemClassifier: this.postmortemClassifier,
-      log: this.log,
-      emit: this.invoker.emitEvent.bind(this.invoker),
-      lifecycle: this.invoker.emitLifecycle.bind(this.invoker),
-    };
+    return this.stageBindings.buildDeps();
   }
 }

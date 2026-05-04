@@ -16,8 +16,8 @@
 import type { MissionContext } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
-import { narrate } from "../helpers/narrative.util";
-import { normalizeTargetWords } from "../helpers/word-count-normalizer.util";
+import { narrate } from "../narrative.util";
+import { normalizeTargetWords } from "../word-count-normalizer.util";
 
 export async function runWriterOutlineStage(
   ctx: MissionContext,
