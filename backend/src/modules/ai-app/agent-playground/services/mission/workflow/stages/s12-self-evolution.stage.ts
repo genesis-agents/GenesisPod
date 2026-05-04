@@ -27,6 +27,7 @@
  */
 
 import type { MissionDeps } from "../mission-deps";
+import { PLAYGROUND_POSTMORTEM_PATTERNS } from "../../../postmortem/playground-postmortem-patterns";
 
 interface SelfEvolutionInput {
   missionId: string;
@@ -245,11 +246,14 @@ export async function runSelfEvolutionStage(
     //   让下次 leader plan 阶段召回 postmortem 时能看到结构化失败原因。
     //   bufferedEvents 由 caller（team.mission.ts）注入，S12 不直接读 bus。
     const missionStatus = leaderSigned === true ? "completed" : "failed";
-    const classification = deps.postmortemClassifier.classify({
-      status: missionStatus,
-      events: args.bufferedEvents ?? [],
-      metrics: { totalTokens, wallTimeMs },
-    });
+    const classification = deps.postmortemClassifier.classify(
+      {
+        status: missionStatus,
+        events: args.bufferedEvents ?? [],
+        metrics: { totalTokens, wallTimeMs },
+      },
+      PLAYGROUND_POSTMORTEM_PATTERNS,
+    );
     deps.log.log(
       `[${missionId}] S12 postmortem classification: mode=${classification.mode} confidence=${classification.confidence.toFixed(2)} signals=[${classification.signals.join(",")}]`,
     );

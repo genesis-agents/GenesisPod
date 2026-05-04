@@ -69,9 +69,7 @@ describe("PostmortemClassifierService", () => {
 
     it("stuckRevisionCount=3 + truncationCount=2 → unknown (both below threshold)", () => {
       const events = [
-        ...Array.from({ length: 3 }, (_, i) =>
-          makeEvent("chapter:revision", i),
-        ),
+        ...Array.from({ length: 3 }, (_, i) => makeEvent("revision:stuck", i)),
         ...Array.from({ length: 2 }, (_, i) =>
           makeEvent("agent-playground.tool:truncated", i + 10),
         ),
@@ -83,7 +81,7 @@ describe("PostmortemClassifierService", () => {
 
     it("stuckRevisionCount=5 (exactly at threshold) → reviewer_loop", () => {
       const events = Array.from({ length: 5 }, (_, i) =>
-        makeEvent("chapter:revision", i),
+        makeEvent("revision:stuck", i),
       );
       const result = svc.classify({ status: "failed", events });
       expect(result.mode).toBe("reviewer_loop");
@@ -137,9 +135,7 @@ describe("PostmortemClassifierService", () => {
   describe("signals output", () => {
     it("includes non-zero counters in signals for failed mode", () => {
       const events = [
-        ...Array.from({ length: 6 }, (_, i) =>
-          makeEvent("chapter:revision", i),
-        ),
+        ...Array.from({ length: 6 }, (_, i) => makeEvent("revision:stuck", i)),
         ...Array.from({ length: 2 }, (_, i) =>
           makeEvent("agent-playground.tool:truncated", i + 10),
         ),

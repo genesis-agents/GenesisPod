@@ -340,14 +340,18 @@ export {
 //   è·¨ mission å¤±è´¥æ¨¡å¼è®°å¿†ï¼ˆharness_failure_patterns è¡¨ï¼‰ï¼Œä¾› BillingRuntimeEnvAdapter ç­‰æ¶ˆè´¹
 export { FailureLearnerService } from "../lifecycle/learning/failure-learner.service";
 
-// ★ 2026-05-04 (PR-2 standardize playground): PostmortemClassifierService 从
+// ★ 2026-05-04 (PR-2 standardize): PostmortemClassifierService 从
 //   ai-app/agent-playground/services/postmortem 上提到 lifecycle/learning（与
 //   FailureLearner 同包，纯函数事件流→FailureMode 分类，跨 ai-app 复用）
+// ★ 2026-05-04 (R0-A4): 加 PostmortemPatterns + GENERIC_POSTMORTEM_PATTERNS export，
+//   substring patterns 由 caller (ai-app) 注入，base layer 不含业务概念
 export {
   PostmortemClassifierService,
+  GENERIC_POSTMORTEM_PATTERNS,
   type FailureMode as PostmortemFailureMode,
   type ClassifyInput as PostmortemClassifyInput,
   type ClassifyResult as PostmortemClassifyResult,
+  type PostmortemPatterns,
 } from "../lifecycle/learning/postmortem-classifier.service";
 
 // â˜… 2026-05-01: SocketBroadcastAdapter ä»Ž ai-app/agent-playground/adapters/ ä¸Šæ
