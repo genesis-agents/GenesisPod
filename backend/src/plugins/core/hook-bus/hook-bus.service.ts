@@ -263,7 +263,7 @@ export class HookBus {
    */
   private versionCompat(
     entry: HookEntry,
-    hookId: HookId,
+    _hookId: HookId,
     payload: Readonly<unknown>,
   ): boolean {
     if (!entry.supportedPayloadVersions) return true; // 未声明视为全兼容
