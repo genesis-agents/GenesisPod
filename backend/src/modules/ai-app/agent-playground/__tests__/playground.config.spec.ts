@@ -1,18 +1,16 @@
 /**
- * playground.config + runtime-flag spec（v5.1 R2-A.0 scaffolding）
+ * playground.config spec
  *
  * 验证：
- *   1. PLAYGROUND_PIPELINE 13 step 顺序 + primitive id 与 v5.1 §5 映射对齐
+ *   1. PLAYGROUND_PIPELINE 14 step 顺序 + primitive id 与 v5.1 §5 映射对齐
  *   2. 8 role + 每 role.skillSpec 从 SKILL.md 加载（systemPrompt 非空 / id 正确）
  *   3. registry.register 不抛错（所有 primitive id 解析得到）
- *   4. PlaygroundRuntimeFlagService：env / user 白名单 / forceRuntime 优先级
  *
- * 注意：本 PR 只是 scaffolding —— hooks 未接入，pipeline-v1 真实跑会抛
- * NotYetWiredError；spec 不跑 orchestrator.run，只验证声明合法性。
+ * R2-C 单轨化 (2026-05-04) 后：删除 PlaygroundRuntimeFlagService 相关 spec，
+ * pipeline-v1 是唯一路径。
  */
 import { MissionPipelineRegistry } from "@/modules/ai-harness/facade";
 import { PLAYGROUND_PIPELINE } from "../playground.config";
-import { PlaygroundRuntimeFlagService } from "../playground-runtime-flag.service";
 
 describe("PLAYGROUND_PIPELINE (v5.1 R2-A.0)", () => {
   it("pipeline id == agent-playground", () => {
@@ -96,69 +94,5 @@ describe("PLAYGROUND_PIPELINE (v5.1 R2-A.0)", () => {
   });
 });
 
-describe("PlaygroundRuntimeFlagService (v5.1 R2-A.0)", () => {
-  let svc: PlaygroundRuntimeFlagService;
-  const origEnv = { ...process.env };
-
-  beforeEach(() => {
-    svc = new PlaygroundRuntimeFlagService();
-    delete process.env.PLAYGROUND_RUNTIME;
-    delete process.env.PLAYGROUND_PIPELINE_V1_USER_IDS;
-  });
-  afterAll(() => {
-    process.env = origEnv;
-  });
-
-  // ★ 2026-05-04 R2-A.13 完成：默认从 legacy 切到 pipeline-v1
-  it("默认 → pipeline-v1（无 env / 无白名单 / 无 force，R2-A.13 后切到新轨）", () => {
-    expect(svc.resolve({})).toBe("pipeline-v1");
-  });
-
-  it("env=pipeline-v1 → pipeline-v1", () => {
-    process.env.PLAYGROUND_RUNTIME = "pipeline-v1";
-    expect(svc.resolve({})).toBe("pipeline-v1");
-  });
-
-  it("env=legacy → legacy（紧急回滚路径）", () => {
-    process.env.PLAYGROUND_RUNTIME = "legacy";
-    expect(svc.resolve({})).toBe("legacy");
-  });
-
-  it("env=非法值 → pipeline-v1（fail-soft 走默认值）", () => {
-    process.env.PLAYGROUND_RUNTIME = "wat";
-    expect(svc.resolve({})).toBe("pipeline-v1");
-  });
-
-  it("forceRuntime 优先级最高（覆盖 env）", () => {
-    process.env.PLAYGROUND_RUNTIME = "pipeline-v1";
-    expect(svc.resolve({ forceRuntime: "legacy" })).toBe("legacy");
-  });
-
-  it("forceRuntime=非法值 → legacy 兜底（不污染 caller）", () => {
-    expect(svc.resolve({ forceRuntime: "bogus" as never })).toBe("legacy");
-  });
-
-  it("用户白名单：在白名单内 → pipeline-v1", () => {
-    process.env.PLAYGROUND_PIPELINE_V1_USER_IDS = "u1,u2,u3";
-    expect(svc.resolve({ userId: "u2" })).toBe("pipeline-v1");
-  });
-
-  it("用户白名单：不在白名单内 + env=legacy → legacy（白名单不强制走新轨）", () => {
-    process.env.PLAYGROUND_PIPELINE_V1_USER_IDS = "u1";
-    process.env.PLAYGROUND_RUNTIME = "legacy";
-    expect(svc.resolve({ userId: "OTHER" })).toBe("legacy");
-  });
-
-  it("白名单优先级低于 forceRuntime", () => {
-    process.env.PLAYGROUND_PIPELINE_V1_USER_IDS = "u1";
-    expect(svc.resolve({ userId: "u1", forceRuntime: "legacy" })).toBe(
-      "legacy",
-    );
-  });
-
-  it("defaultRuntime()：默认 pipeline-v1；env=legacy 时回退 legacy", () => {
-    expect(svc.defaultRuntime()).toBe("pipeline-v1");
-    process.env.PLAYGROUND_RUNTIME = "legacy";
-    expect(svc.defaultRuntime()).toBe("legacy");
-  });
-});
+// ★ R2-C 单轨化 (2026-05-04)：删除 PlaygroundRuntimeFlagService describe 块。
+//   pipeline-v1 是唯一 mission 路径，无 flag 可控。

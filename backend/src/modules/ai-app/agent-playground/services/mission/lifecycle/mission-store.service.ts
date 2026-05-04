@@ -60,6 +60,8 @@ export class MissionStore {
     maxCredits: number;
     /** 用户档位快照 —— 在创建时就写入，避免 cancelled/failed 时丢失配置可见性 */
     userProfile?: Record<string, unknown>;
+    /** ★ R2-A.14 双轨标识；默认 legacy 与 schema default 对齐 */
+    runtimeVersion?: "legacy" | "pipeline-v1";
   }): Promise<void> {
     await this.prisma.agentPlaygroundMission.create({
       data: {
@@ -72,6 +74,7 @@ export class MissionStore {
         maxCredits: input.maxCredits,
         status: "running",
         userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
+        runtimeVersion: input.runtimeVersion ?? "legacy",
       },
     });
   }

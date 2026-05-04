@@ -27,7 +27,6 @@ import {
 import { Public } from "../../../common/decorators/public.decorator";
 import type { RequestWithUser } from "../../../common/types/express-request.types";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-import { TeamMission } from "./services/mission/workflow/team.mission";
 import {
   RunMissionInputSchema,
   type RunMissionInput,
@@ -42,9 +41,9 @@ import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "./services/export/mission-export.service";
-// ── R2-A.2 双轨 dispatch（v5.1 §3.2 §5）──
+// ★ R2-C 单轨化（2026-05-04）：删除 legacy TeamMission + RuntimeFlagService
+//   pipeline-v1 现在是唯一 mission 路径。dispatcher 即 trunk。
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
-import { PlaygroundRuntimeFlagService } from "./playground-runtime-flag.service";
 
 @Controller("agent-playground")
 @UseGuards(JwtAuthGuard)
@@ -52,7 +51,6 @@ export class AgentPlaygroundController {
   private readonly log = new Logger(AgentPlaygroundController.name);
 
   constructor(
-    private readonly orchestrator: TeamMission,
     private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly store: MissionStore,
@@ -63,13 +61,8 @@ export class AgentPlaygroundController {
     private readonly localRerun: LocalRerunService,
     private readonly exportService: MissionExportService,
     private readonly rerunOrchestrator: MissionRerunOrchestratorService,
-    // R2-A.2 (v5.1 §3.2): 双轨 dispatch
-    //   pipelineDispatcher 走新轨 MissionPipelineOrchestrator + 14 step
-    //   runtimeFlag 决定每次 mission 走 legacy 还是 pipeline-v1
-    //   默认 runtime=legacy；只有 PLAYGROUND_RUNTIME=pipeline-v1 或用户在
-    //   PLAYGROUND_PIPELINE_V1_USER_IDS 白名单时才会走新轨
+    // ★ R2-C 单轨化：pipelineDispatcher 是唯一 mission orchestrator
     private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
-    private readonly runtimeFlag: PlaygroundRuntimeFlagService,
   ) {}
 
   private isDevTriggerAuthorized(presentedToken?: string): boolean {
@@ -217,7 +210,7 @@ export class AgentPlaygroundController {
     const input: RunMissionInput = parsed.data;
     const missionId = randomUUID();
     this.ownership.assign(missionId, userId);
-    void this.orchestrator
+    void this.pipelineDispatcher
       .runMission(missionId, input, userId)
       .catch((err: unknown) => {
         this.log.error(
@@ -246,7 +239,6 @@ export class AgentPlaygroundController {
   ): {
     missionId: string;
     streamNamespace: string;
-    runtimeVersion: "legacy" | "pipeline-v1";
   } {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
@@ -264,29 +256,18 @@ export class AgentPlaygroundController {
 
     this.ownership.assign(missionId, userId);
 
-    const runtimeVersion = this.runtimeFlag.resolve({ userId });
-    if (runtimeVersion === "pipeline-v1") {
-      void this.pipelineDispatcher
-        .runMission(missionId, input, userId)
-        .catch((err: unknown) => {
-          this.log.error(
-            `[pipeline-v1] mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-    } else {
-      void this.orchestrator
-        .runMission(missionId, input, userId)
-        .catch((err: unknown) => {
-          this.log.error(
-            `[legacy] mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-    }
+    // ★ R2-C 单轨化：pipelineDispatcher 是唯一 mission 入口
+    void this.pipelineDispatcher
+      .runMission(missionId, input, userId)
+      .catch((err: unknown) => {
+        this.log.error(
+          `mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     return {
       missionId,
       streamNamespace: "agent-playground",
-      runtimeVersion,
     };
   }
 

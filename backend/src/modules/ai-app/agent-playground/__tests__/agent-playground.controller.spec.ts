@@ -74,6 +74,9 @@ function makePrisma() {
 }
 
 function buildController() {
+  // ★ R2-C 单轨化 (2026-05-04)：orchestrator (TeamMission) 已删除；
+  //   保留 makeOrchestrator() helper 名称用于 mission-rerun-orchestrator
+  //   构造（注入 PlaygroundPipelineDispatcher 替代 TeamMission）
   const orchestrator = makeOrchestrator();
   const buffer = makeBuffer();
   const ownership = makeOwnership();
@@ -110,24 +113,11 @@ function buildController() {
     checkpoint as never,
   );
 
-  // R2-A.2 双轨 dispatch deps：现有 spec 用 legacy 路径（runtimeFlag stub 总返回
-  // 'legacy'，pipelineDispatcher 不会被调）—— 现有断言不变。新 R2-A.2 双轨
-  // 路由 spec（playground-controller-runtime-dispatch.spec）单独覆盖 pipeline-v1
-  // 分支
-  const pipelineDispatcher = {
-    runMission: jest.fn().mockResolvedValue({
-      missionId: "mock",
-      status: "completed",
-      stageOutputs: {},
-    }),
-  };
-  const runtimeFlag = {
-    resolve: jest.fn().mockReturnValue("legacy"),
-    defaultRuntime: jest.fn().mockReturnValue("legacy"),
-  };
+  // ★ R2-C 单轨化 (2026-05-04)：pipelineDispatcher 是唯一 mission orchestrator；
+  //   orchestrator (TeamMission) + runtimeFlag 已从 controller 删除
+  const pipelineDispatcher = orchestrator; // 复用 makeOrchestrator() 的 runMission stub
 
   const controller = new AgentPlaygroundController(
-    orchestrator as never,
     buffer as never,
     ownership as never,
     store as never,
@@ -139,12 +129,11 @@ function buildController() {
     exportService as never,
     rerunOrchestrator as never,
     pipelineDispatcher as never,
-    runtimeFlag as never,
   );
 
   return {
     controller,
-    orchestrator,
+    orchestrator, // alias for pipelineDispatcher (back-compat for old assertions)
     buffer,
     ownership,
     store,
@@ -152,7 +141,6 @@ function buildController() {
     abortRegistry,
     prisma,
     pipelineDispatcher,
-    runtimeFlag,
   };
 }
 

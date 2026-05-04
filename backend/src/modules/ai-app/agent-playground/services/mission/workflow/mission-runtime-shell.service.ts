@@ -44,8 +44,10 @@ export class MissionRuntimeShellService {
     input: RunMissionInput;
     userId: string;
     workspaceId?: string;
+    /** ★ R2-A.14: 双轨标识写入 mission row */
+    runtimeVersion?: "legacy" | "pipeline-v1";
   }): Promise<MissionRuntimeSession> {
-    const { missionId, input, userId, workspaceId } = args;
+    const { missionId, input, userId, workspaceId, runtimeVersion } = args;
     const missionAbort = this.abortRegistry.register(missionId);
     const wallTimeMs = resolveMissionWallTimeMs(input);
     this.log.log(
@@ -119,6 +121,7 @@ export class MissionRuntimeShellService {
           concurrency: input.concurrency,
           viewMode: input.viewMode,
         } as Record<string, unknown>,
+        runtimeVersion: runtimeVersion ?? "legacy",
       });
 
       const podId =

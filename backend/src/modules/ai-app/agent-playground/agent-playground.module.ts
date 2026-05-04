@@ -18,12 +18,11 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
-import { TeamMission } from "./services/mission/workflow/team.mission";
 import { MissionRuntimeShellService } from "./services/mission/workflow/mission-runtime-shell.service";
 import { MissionStageBindingsService } from "./services/mission/workflow/mission-stage-bindings.service";
-// ── R2-A.1 (v5.1 §3.2 §5): pipeline-v1 双轨入口（默认 inactive，flag 控制）──
+// ★ R2-C 单轨化 (2026-05-04)：pipelineDispatcher 是唯一 mission orchestrator
+//   legacy TeamMission 已删除，flag service 已删除
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
-import { PlaygroundRuntimeFlagService } from "./playground-runtime-flag.service";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -81,7 +80,6 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
   controllers: [AgentPlaygroundController],
   providers: [
     AgentPlaygroundGateway,
-    TeamMission,
     MissionRuntimeShellService,
     MissionStageBindingsService,
     // MissionOwnershipRegistry / MissionAbortRegistry 由 @Global HarnessModule 提供（PR-X-E 上提）
@@ -118,15 +116,12 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     MissionRerunOrchestratorService,
     // ── 导出装配（CSV / Markdown / JSON）──
     MissionExportService,
-    // ── R2-A.1 双轨：pipeline-v1 dispatcher + 运行时 flag service ──
+    // ★ R2-C 单轨化 (2026-05-04)：pipeline-v1 是唯一 mission 入口
     //   dispatcher.onModuleInit 注册 PLAYGROUND_PIPELINE 到 registry
-    //   flag service 决定每次 runMission 走 legacy 还是 pipeline-v1
-    //   注意：本 R2-A.1 只接 module providers，controller 尚未读 flag，
-    //         所以生产流量仍 100% 走 TeamMission（dead-code 形态）
+    //   legacy TeamMission 已删除，PlaygroundRuntimeFlagService 已删除
     MissionPipelineRegistry,
     MissionPipelineOrchestrator,
     PlaygroundPipelineDispatcher,
-    PlaygroundRuntimeFlagService,
     // ── S12 postmortem 失败模式分类（已上提到 @Global HarnessModule）──
   ],
   exports: [MissionEventBuffer],
