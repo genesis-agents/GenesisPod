@@ -269,10 +269,7 @@ export class IndustryReportSearchTool extends BaseTool<
     topicType?: string,
   ): Promise<IndustryReportSourceConfig[]> {
     if (this.cachedSources && Date.now() < this.cacheExpiry) {
-      const enabled = this.cachedSources.filter((s) => s.enabled);
-      return topicType
-        ? enabled.filter((s) => s.topicTypes.includes(topicType))
-        : enabled;
+      return this.applyTopicTypeFilter(this.cachedSources, topicType);
     }
 
     try {
@@ -284,10 +281,36 @@ export class IndustryReportSearchTool extends BaseTool<
       this.cachedSources = [];
     }
     this.cacheExpiry = Date.now() + IndustryReportSearchTool.CACHE_TTL_MS;
-    const enabled = this.cachedSources.filter((s) => s.enabled);
-    return topicType
-      ? enabled.filter((s) => s.topicTypes.includes(topicType))
-      : enabled;
+    return this.applyTopicTypeFilter(this.cachedSources, topicType);
+  }
+
+  /**
+   * topicType 过滤 fail-soft：
+   *   - 如果 topicType 为空 → 返回所有 enabled
+   *   - 如果 topicType 命中至少 1 个 source → 返回过滤后的子集
+   *   - 如果 topicType 不在任何 source 的 topicTypes 数组里 → fallback 返回所有
+   *     enabled（不让一个 LLM-invented topicType 把整个工具变废）
+   *
+   * 2026-05-04 修：原实现 topicType 不命中时返回 []，触发"No enabled industry
+   * report sources configured"误报，让 mission researcher 子调用失败。实际
+   * DB 里 18 sources 全 enabled，LLM 传了一个非 TECHNOLOGY/COMPANY/MACRO/EVENT
+   * 的 topicType（如 GENERIC）就全过滤掉。fail-soft 改回 enabled 全集。
+   */
+  private applyTopicTypeFilter(
+    sources: IndustryReportSourceConfig[],
+    topicType?: string,
+  ): IndustryReportSourceConfig[] {
+    const enabled = sources.filter((s) => s.enabled);
+    if (!topicType) return enabled;
+    const matched = enabled.filter((s) => s.topicTypes.includes(topicType));
+    if (matched.length > 0) return matched;
+    if (enabled.length > 0) {
+      this.logger.warn(
+        `[industry-report] topicType="${topicType}" matched 0 sources; fallback to all ${enabled.length} enabled`,
+      );
+      return enabled;
+    }
+    return [];
   }
 
   private async loadConfiguredSources(): Promise<IndustryReportSourceConfig[]> {

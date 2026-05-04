@@ -151,13 +151,26 @@ export class AgentPlaygroundModule implements OnModuleInit {
     //    wall-time 可达 150min (resolveMissionWallTimeMs)。原 30min 触发 mission
     //    在 55min 处被误标 orphan。改 240min（覆盖 3h hard cap + 1h buffer）。
     void this.store.recoverOrphanedRunning(240);
-    // 3a. ★ PR-H v1 (2026-05-01): heartbeat-driven pod recovery
-    //    新版 runMission 每 30s 刷 DB heartbeatAt。pod 死后 90s 仍是 status=running
-    //    且 heartbeatAt < now-90s → 立即 markFailed（替代 240min 长等待）。
-    //    模块启动时扫一次（清理上一波死掉的 mission），之后每 60s 扫一次。
-    void this.store.recoverPodCrashedRunning(90);
+    // 3a. ★ PR-H v1 (2026-05-01) + 2026-05-04 修：heartbeat-driven pod recovery
+    //    新版 runMission 每 30s 刷 DB heartbeatAt。
+    //
+    //    阈值演进：
+    //      v1 90s 太紧 —— Railway redeploy 通常 60-120s 部署 + 30s 启动，
+    //                    部署窗口期 mission 全部被新 pod 误杀（实测每次 push 都死）
+    //      v2 300s （5min）—— 兜住典型 redeploy 窗口；真死 pod 检测延迟 5min OK
+    //
+    //    时序保护：
+    //      - 启动后 60s 才跑首次扫描（让 redeploy 切换稳定 + 旧 pod 有机会自然
+    //        markCompleted/markFailed 走完）
+    //      - 之后每 60s 扫一次
+    const POD_HEARTBEAT_STALE_SECS = 300;
+    const POD_RECOVERY_BOOT_DELAY_MS = 60_000;
+    const podBootTimer = setTimeout(() => {
+      void this.store.recoverPodCrashedRunning(POD_HEARTBEAT_STALE_SECS);
+    }, POD_RECOVERY_BOOT_DELAY_MS);
+    podBootTimer.unref?.();
     const podRecoveryTimer = setInterval(() => {
-      void this.store.recoverPodCrashedRunning(90);
+      void this.store.recoverPodCrashedRunning(POD_HEARTBEAT_STALE_SECS);
     }, 60_000);
     podRecoveryTimer.unref?.();
     // 4. ★ Phase 9 (2026-04-30): 注册 orphan detector callbacks —— 跨 pod 接管基于 heartbeat 的快速检测
