@@ -47,6 +47,7 @@ import { runLeaderAssessResearchStage } from "./stages/s4-leader-assess-research
 import { runReconcilerStage } from "./stages/s5-reconciler-cross-dim-fact-check.stage";
 import { runAnalystStage } from "./stages/s6-analyst-synthesize-insights.stage";
 import { runWriterOutlineStage } from "./stages/s7-writer-plan-outline.stage";
+import { runWriterStage } from "./stages/s8-writer-draft-report.stage";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -82,6 +83,10 @@ interface SessionEntry {
   lastReconciliationReport?: import("./mission-context").MissionContext["reconciliationReport"];
   lastAnalystOutput?: import("./mission-context").MissionContext["analystOutput"];
   lastOutlinePlan?: import("./mission-context").MissionContext["outlinePlan"];
+  lastReport?: import("./mission-context").MissionContext["report"];
+  lastReportArtifact?: import("./mission-context").MissionContext["reportArtifact"];
+  lastReviewScore?: import("./mission-context").MissionContext["reviewScore"];
+  lastVerifierVerdicts?: unknown[];
   /**
    * s4PatchFailures 跨 stage 共享状态（legacy team.mission.ts 用 sharedState
    * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
@@ -107,7 +112,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s7 wired, s8-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s8 wired, s8b-s12 NotYetWired)`,
     );
   }
 
@@ -231,6 +236,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     }
     if (stepId === "s7-writer-outline") {
       return this.buildS7WriterOutlineHooks();
+    }
+    if (stepId === "s8-writer") {
+      return this.buildS8WriterHooks();
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
   }
@@ -628,6 +636,74 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         await runWriterOutlineStage(stageCtx, this.stageBindings.buildDeps());
         entry.lastOutlinePlan = stageCtx.outlinePlan;
         return stageCtx.outlinePlan ?? null;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s8-writer hook 实装（R2-A.10）—— 14 stage 中最大的（450+ 行业务逻辑）
+   *
+   * draft primitive (mode=full) 必填 hooks.draftOnce。
+   * thin adapter 调 runWriterStage（mutates ctx.report / reportArtifact /
+   * reviewScore / verifierVerdicts，含 judgeConsensusRetry + memoryIndexer +
+   * reportArtifactAssembler 全部业务逻辑）。
+   */
+  private buildS8WriterHooks(): ResolvedStageHooks {
+    const hooks = {
+      draftOnce: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan || !entry.lastResearcherResults) {
+          throw new Error("[s8-writer] missing plan/researcherResults");
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+        });
+        // s7 outlinePlan 通过 mutable ctx 字段透传（buildCtx 不直接接受 outlinePlan，
+        // 但 runWriterStage 从 ctx.outlinePlan 读 —— 直接 assign 到 stageCtx）
+        if (entry.lastOutlinePlan) {
+          (stageCtx as { outlinePlan?: unknown }).outlinePlan =
+            entry.lastOutlinePlan;
+        }
+        // runWriterStage 接受 (ctx, deps, analyst, workspaceId)
+        const analyst = (entry.lastAnalystOutput as
+          | {
+              insights?: unknown[];
+              themeSummary?: string;
+              contradictions?: unknown[];
+            }
+          | undefined) ?? {
+          insights: [],
+          themeSummary: entry.lastPlan?.themeSummary ?? "",
+        };
+        await runWriterStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+          {
+            insights: analyst.insights ?? [],
+            themeSummary: analyst.themeSummary ?? "",
+            contradictions: analyst.contradictions,
+          },
+          entry.workspaceId,
+        );
+        // 缓存 s8 产物供 s8b/s9/s9b/s10/s11 用
+        entry.lastReport = stageCtx.report;
+        entry.lastReportArtifact = stageCtx.reportArtifact;
+        entry.lastReviewScore = stageCtx.reviewScore;
+        entry.lastVerifierVerdicts = stageCtx.verifierVerdicts as unknown[];
+        return stageCtx.reportArtifact ?? stageCtx.report ?? null;
       },
     };
     return hooks as unknown as ResolvedStageHooks;
