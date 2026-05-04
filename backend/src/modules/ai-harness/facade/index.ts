@@ -369,6 +369,13 @@ export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.reg
 // ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity engine 转发
 export { jaccardSimilarity } from "../../ai-engine/facade";
 
+// ★ 2026-05-04 (PR-10b standardize playground): JSON-fence parser engine 转发
+export {
+  parseJsonFence,
+  extractJsonFenceContent,
+  type JsonFenceParseResult,
+} from "../../ai-engine/facade";
+
 // ★ 2026-05-04 (PR-5 standardize playground): handoff token estimate + compress
 export { HandoffCompactorService } from "../memory/working/handoff-compactor.service";
 

@@ -17,6 +17,16 @@ export { CHAT_PROVIDER_PORT } from "./abstractions/runtime-deps.tokens";
 //   无 agent/mission 状态，跨 ai-app 可复用）
 export { jaccardSimilarity } from "../content/text-similarity.utils";
 
+// ★ 2026-05-04 (PR-10b standardize playground): JSON-fence 解析基元从
+//   ai-app/agent-playground/services/chat 上提到 engine/content
+//   （LLM 输出 → 结构化决策的通用 fence parser，零业务 DSL；
+//   playground LeaderDecision DSL 仍留 app 作为 caller-side wrapper）
+export {
+  parseJsonFence,
+  extractJsonFenceContent,
+  type JsonFenceParseResult,
+} from "../content/json-fence-parser.utils";
+
 /**
  * Minimal interface matching MCPManager for ai-engine internal use.
  * ai-engine executor/capability files inject MCPManager at runtime via harness DI;

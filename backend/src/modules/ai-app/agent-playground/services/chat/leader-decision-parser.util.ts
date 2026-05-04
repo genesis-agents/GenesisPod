@@ -1,22 +1,20 @@
 /**
- * leader-decision-parser —— LLM 决策 JSON 解析（纯函数）
+ * leader-decision-parser —— LLM 决策 JSON 解析（playground 业务 DSL 包装）
  *
- * 拆自 leader-chat.service.ts（2026-05-04 单文件超 500 行违反 standards/16 §六，
- * 提取为独立模块）。
+ * 拆自 leader-chat.service.ts（PR-10a 2026-05-04）。
+ * generic JSON-fence 解析基元已下沉到 engine/content/json-fence-parser
+ * （PR-10b 2026-05-04），本文件只保留 playground 专属 LeaderDecision DSL +
+ * 字段白名单 + alias 兼容。
  *
  * 设计：
  *   • 纯函数：(raw: string) => { response, decision }
  *   • 输入：LLM 原始输出（含 ```json fence / 裸 JSON / 纯文本三种形态）
  *   • 输出：response 文本 + LeaderDecision 结构化决策
  *   • 容错：fence 解析失败 / JSON 不全 / 字段缺失 → 降级 DIRECT_ANSWER
- *
- * 注：parser 本身（fence 提取 + JSON.parse + 字段白名单）是通用模式，
- * W22 评估时可考虑下沉到 engine/content/json-fence-parser 作为"LLM 输出
- * structured decision 解析"通用基元，让其他 ai-app 复用。当前留 app 是因为：
- *   1. LeaderDecisionType 4 个值是 playground 产品 DSL（不通用）
- *   2. 字段名 todo / clarifyOptions / understanding 也是产品命名
- * 真正可下沉的部分需先抽接口 + 定义 generic schema 才能跨 ai-app 复用。
+ *   • alias：decisionType ↔ type / todo ↔ tasks（兼容 LLM 不严格按 schema）
  */
+
+import { parseJsonFence } from "@/modules/ai-harness/facade";
 
 export type LeaderDecisionType =
   | "DIRECT_ANSWER" // 直接回答（讨论 / 解释）
@@ -43,87 +41,64 @@ const VALID_TYPES: LeaderDecisionType[] = [
 
 /**
  * 解析 LLM 输出 —— 期望 JSON {response, decisionType, understanding, todo, clarifyOptions}
- * 容错：
- *   - 没找到 fence 也试试整段当 JSON
- *   - JSON 格式不全 → 降级为 DIRECT_ANSWER + 原文（剥离 fence）
- *   - response 字段缺失 → 回退到 understanding / fence-外的文字 / 原文
+ * generic fence 解析委托 engine/content/json-fence-parser；本函数只做 LeaderDecision DSL 映射。
  */
 export function parseLeaderDecisionResponse(raw: string): {
   response: string;
   decision: LeaderDecision | null;
 } {
-  const trimmed = raw.trim();
-  // 找 JSON 块（```json fence 或裸 JSON）
-  let jsonStr = trimmed;
-  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (fenceMatch) jsonStr = fenceMatch[1].trim();
-  // 取 fence 外的纯文字作为 fallback（如果 LLM 在 JSON 之外还写了开场白）
-  const outsideFenceText = fenceMatch
-    ? trimmed.replace(fenceMatch[0], "").trim()
-    : "";
+  const parsed = parseJsonFence<Record<string, unknown>>(raw);
 
-  if (!jsonStr.startsWith("{") && !jsonStr.startsWith("[")) {
-    // 不是 JSON → 整段当 DIRECT_ANSWER
+  // 无 JSON / 解析失败 → 整段当 DIRECT_ANSWER
+  if (!parsed.jsonObj) {
     return {
-      response: raw,
+      response: parsed.response,
       decision: { type: "DIRECT_ANSWER" },
     };
   }
-  try {
-    const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-    const decisionType = (parsed.decisionType ?? parsed.type) as
-      | string
-      | undefined;
-    // response 优先级：parsed.response > parsed.message > understanding > fence外文字 > raw
-    const response =
-      (typeof parsed.response === "string" && parsed.response.trim()) ||
-      (typeof parsed.message === "string" && parsed.message.trim()) ||
-      (typeof parsed.understanding === "string" &&
-        parsed.understanding.trim()) ||
-      (outsideFenceText.length > 0 ? outsideFenceText : null) ||
-      raw;
-    const safeType: LeaderDecisionType = VALID_TYPES.includes(
-      decisionType as LeaderDecisionType,
-    )
-      ? (decisionType as LeaderDecisionType)
-      : "DIRECT_ANSWER";
-    const todoRaw = parsed.todo ?? parsed.tasks;
-    const todo = Array.isArray(todoRaw)
-      ? (todoRaw as { name?: unknown; rationale?: unknown }[])
-          .filter(
-            (t) =>
-              t &&
-              typeof t === "object" &&
-              typeof (t as { name?: unknown }).name === "string",
-          )
-          .map((t) => ({
-            name: (t as { name: string }).name,
-            rationale:
-              typeof (t as { rationale?: unknown }).rationale === "string"
-                ? (t as { rationale: string }).rationale
-                : "(no rationale)",
-          }))
-      : undefined;
-    const clarifyOptions = Array.isArray(parsed.clarifyOptions)
-      ? (parsed.clarifyOptions as unknown[]).filter(
-          (s): s is string => typeof s === "string",
+
+  const obj = parsed.jsonObj;
+  const decisionType = (obj.decisionType ?? obj.type) as string | undefined;
+  const safeType: LeaderDecisionType = VALID_TYPES.includes(
+    decisionType as LeaderDecisionType,
+  )
+    ? (decisionType as LeaderDecisionType)
+    : "DIRECT_ANSWER";
+
+  const todoRaw = obj.todo ?? obj.tasks;
+  const todo = Array.isArray(todoRaw)
+    ? (todoRaw as { name?: unknown; rationale?: unknown }[])
+        .filter(
+          (t) =>
+            t &&
+            typeof t === "object" &&
+            typeof (t as { name?: unknown }).name === "string",
         )
-      : undefined;
-    return {
-      response,
-      decision: {
-        type: safeType,
-        understanding:
-          typeof parsed.understanding === "string"
-            ? parsed.understanding
-            : undefined,
-        todo,
-        clarifyOptions,
-      },
-    };
-  } catch {
-    return { response: raw, decision: { type: "DIRECT_ANSWER" } };
-  }
+        .map((t) => ({
+          name: (t as { name: string }).name,
+          rationale:
+            typeof (t as { rationale?: unknown }).rationale === "string"
+              ? (t as { rationale: string }).rationale
+              : "(no rationale)",
+        }))
+    : undefined;
+
+  const clarifyOptions = Array.isArray(obj.clarifyOptions)
+    ? (obj.clarifyOptions as unknown[]).filter(
+        (s): s is string => typeof s === "string",
+      )
+    : undefined;
+
+  return {
+    response: parsed.response,
+    decision: {
+      type: safeType,
+      understanding:
+        typeof obj.understanding === "string" ? obj.understanding : undefined,
+      todo,
+      clarifyOptions,
+    },
+  };
 }
 
 /** 持久化的 decision JSON 字段 → 安全 LeaderDecision（旧消息 / 解析失败 → null） */
