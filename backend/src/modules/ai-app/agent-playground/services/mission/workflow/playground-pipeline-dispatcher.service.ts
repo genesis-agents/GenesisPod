@@ -41,8 +41,15 @@ import {
 } from "../../../playground.config";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
+import { runLeaderPlanStage } from "./stages/s2-leader-plan-mission.stage";
 import type { MissionInvariants } from "./mission-context";
-import type { SupervisedMission } from "../../roles";
+import {
+  AgentInvoker,
+  LeaderService,
+  type SupervisedMission,
+} from "../../roles";
+import { LeaderAgent } from "../../../agents/leader/leader.agent";
+import type { LeaderRunFn } from "../../roles/leader.service";
 
 export interface PipelineMissionSummary {
   readonly missionId: string;
@@ -56,6 +63,11 @@ interface SessionEntry {
   readonly t0: number;
   readonly input: RunMissionInput;
   readonly workspaceId?: string;
+  /**
+   * SupervisedMission —— Leader 容器（s2/s4/s10 全程在场）
+   * 每 mission 一个，由 leaderService.create + buildLeaderInvocation 构造
+   */
+  readonly leader: SupervisedMission;
 }
 
 @Injectable()
@@ -68,13 +80,15 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly orchestrator: MissionPipelineOrchestrator,
     private readonly runtimeShell: MissionRuntimeShellService,
     private readonly stageBindings: MissionStageBindingsService,
+    private readonly leaderService: LeaderService,
+    private readonly invoker: AgentInvoker,
   ) {}
 
   onModuleInit(): void {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1 wired, s2-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1+s2 wired, s3-s12 NotYetWired)`,
     );
   }
 
@@ -110,7 +124,19 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       userId,
       workspaceId,
     });
-    this.sessions.set(missionId, { session, t0, input, workspaceId });
+    // 创建 SupervisedMission（Leader 容器）—— 整 mission 复用，s2/s4/s10 都用它
+    const leader = this.leaderService.create(
+      missionId,
+      userId,
+      {
+        topic: input.topic,
+        depth: input.depth,
+        language: input.language,
+        userProfile: input,
+      },
+      this.buildLeaderInvocation(missionId, userId, session.billing),
+    );
+    this.sessions.set(missionId, { session, t0, input, workspaceId, leader });
     try {
       return await this.runtimeShell.runWithinContext(session, async () => {
         const result = await this.orchestrator.run({
@@ -169,7 +195,87 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     if (stepId === "s1-budget") {
       return this.buildS1BudgetHooks();
     }
+    if (stepId === "s2-leader-plan") {
+      return this.buildS2LeaderPlanHooks();
+    }
     return this.buildNotYetWiredHooks(stepId, primitive);
+  }
+
+  /**
+   * 构造 LeaderRunFn —— 给 SupervisedMission 用的 LLM 调用闭包。
+   * 与 team.mission.ts.buildLeaderInvocation 行为一致（走 invoker.invoke +
+   * BillingContext + event relay）；唯一差别是这里在 dispatcher 而非 trunk。
+   */
+  private buildLeaderInvocation(
+    missionId: string,
+    userId: string,
+    billing: unknown,
+  ): LeaderRunFn {
+    return async <TIn, TOut>({
+      spec,
+      input,
+      agentId,
+    }: {
+      spec: typeof LeaderAgent;
+      input: TIn;
+      agentId: string;
+    }): Promise<{
+      state: "completed" | "failed" | "cancelled";
+      output?: TOut;
+      events?: readonly unknown[];
+    }> => {
+      const result = await this.invoker.invoke(
+        spec as unknown as typeof LeaderAgent,
+        input as unknown as Record<string, unknown>,
+        {
+          missionId,
+          userId,
+          agentId,
+          role: "leader",
+          envAdapter: billing as never,
+        },
+      );
+      return {
+        state:
+          result.state === "completed"
+            ? "completed"
+            : result.state === "cancelled"
+              ? "cancelled"
+              : "failed",
+        output: result.output as TOut | undefined,
+        events: result.events,
+      };
+    };
+  }
+
+  /**
+   * 公共 helper：从 sessions Map 取 entry，缺失抛错 + 类型收窄
+   */
+  private getEntry(missionId: string): SessionEntry {
+    const entry = this.sessions.get(missionId);
+    if (!entry) {
+      throw new Error(
+        `[playground-pipeline] no active session for mission ${missionId}`,
+      );
+    }
+    return entry;
+  }
+
+  /**
+   * 构造单 stage 用的 MissionContext（每 stage 独立 ctx，避免 mutable 状态串扰）。
+   * partial = caller 已知的 ctx 字段（如 plan，从 previousOutputs 重建）
+   */
+  private buildStageInvariants(entry: SessionEntry): MissionInvariants {
+    return {
+      missionId: entry.session.missionId,
+      userId: entry.session.userId,
+      input: entry.input,
+      t0: entry.t0,
+      billing: entry.session.billing,
+      pool: entry.session.pool,
+      leader: entry.leader,
+      budgetMultiplier: entry.session.budgetMultiplier,
+    };
   }
 
   /**
@@ -188,27 +294,62 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         previousOutputs: StageRunArgs["previousOutputs"];
         crossStageState: StageRunArgs["crossStageState"];
       }): Promise<void> => {
-        const entry = this.sessions.get(args.ctx.missionId);
-        if (!entry) {
-          throw new Error(
-            `[s1-budget] no active session for mission ${args.ctx.missionId}`,
-          );
-        }
-        // s1 不读 leader（只用 invariants 中的 input/billing/pool/budgetMultiplier）；
-        //   placeholder cast 让 TypeScript shape 通过（runBudgetEstimateStage 不会
-        //   触碰这个字段）
-        const invariants: MissionInvariants = {
+        const entry = this.getEntry(args.ctx.missionId);
+        const invariants = this.buildStageInvariants(entry);
+        const deps = this.stageBindings.buildDeps();
+        await runBudgetEstimateStage(invariants, deps, entry.workspaceId);
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s2-leader-plan hook 实装（R2-A.4）
+   *
+   * plan primitive 必填 hooks.runRole；额外 hooks.extractPlanFields 让 orchestrator
+   * 把 plan.dimensions 提取到 stage output（前端 / 下游 stage 需要）。
+   *
+   * thin adapter：调既有 runLeaderPlanStage（mutates ctx.plan），然后把
+   * ctx.plan 作为 raw 返回；extractPlanFields 从 raw 取 dimensions/goals。
+   *
+   * 失败模式：runLeaderPlanStage 抛错（leader.plan() 失败 / dimensions[] 空）
+   * → orchestrator 标 stage:failed → mission failed（与 legacy 一致）。
+   */
+  private buildS2LeaderPlanHooks(): ResolvedStageHooks {
+    const hooks = {
+      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        // buildCtx 复用现有 stageBindings 服务，确保字段映射与 legacy 一致
+        const stageCtx = this.stageBindings.buildCtx({
           missionId: entry.session.missionId,
           userId: entry.session.userId,
           input: entry.input,
           t0: entry.t0,
           billing: entry.session.billing,
           pool: entry.session.pool,
-          leader: undefined as unknown as SupervisedMission,
+          leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
+        });
+        await runLeaderPlanStage(stageCtx, this.stageBindings.buildDeps());
+        if (!stageCtx.plan) {
+          // runLeaderPlanStage 已经在 dimensions 空时抛错；不应到这里
+          throw new Error(
+            "[s2-leader-plan] stage returned without populating ctx.plan (unexpected)",
+          );
+        }
+        return stageCtx.plan;
+      },
+      extractPlanFields: (raw: unknown) => {
+        const plan = raw as
+          | {
+              dimensions?: ReadonlyArray<unknown>;
+              goals?: unknown;
+            }
+          | undefined;
+        return {
+          dimensions: plan?.dimensions ?? [],
+          goals: plan?.goals as ReadonlyArray<unknown> | undefined,
         };
-        const deps = this.stageBindings.buildDeps();
-        await runBudgetEstimateStage(invariants, deps, entry.workspaceId);
       },
     };
     return hooks as unknown as ResolvedStageHooks;
