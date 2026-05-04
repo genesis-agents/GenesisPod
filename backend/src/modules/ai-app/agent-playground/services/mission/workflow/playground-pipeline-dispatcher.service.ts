@@ -48,6 +48,9 @@ import { runReconcilerStage } from "./stages/s5-reconciler-cross-dim-fact-check.
 import { runAnalystStage } from "./stages/s6-analyst-synthesize-insights.stage";
 import { runWriterOutlineStage } from "./stages/s7-writer-plan-outline.stage";
 import { runWriterStage } from "./stages/s8-writer-draft-report.stage";
+import { runSectionQualityEnhancementStage } from "./stages/s8b-section-quality-enhancement.stage";
+import { runCriticStage } from "./stages/s9-reviewer-critic-l4.stage";
+import { runReportObjectiveEvaluationStage } from "./stages/s9b-report-objective-evaluation.stage";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -112,7 +115,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s8 wired, s8b-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s9b wired, s10-s12 NotYetWired)`,
     );
   }
 
@@ -239,6 +242,13 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     }
     if (stepId === "s8-writer") {
       return this.buildS8WriterHooks();
+    }
+    if (
+      stepId === "s8b-quality-enhancement" ||
+      stepId === "s9-critic" ||
+      stepId === "s9b-objective-eval"
+    ) {
+      return this.buildReviewHooks(stepId);
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
   }
@@ -704,6 +714,57 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         entry.lastReviewScore = stageCtx.reviewScore;
         entry.lastVerifierVerdicts = stageCtx.verifierVerdicts as unknown[];
         return stageCtx.reportArtifact ?? stageCtx.report ?? null;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s8b/s9/s9b review hooks 实装（R2-A.11）—— 三个 review primitive stage
+   *
+   * review primitive 必填 hooks.review。三个 stage 都是 thin adapter：
+   *   s8b-quality-enhancement → runSectionQualityEnhancementStage
+   *   s9-critic               → runCriticStage
+   *   s9b-objective-eval      → runReportObjectiveEvaluationStage
+   *
+   * 全部 mutates ctx.reportArtifact / qualityTraceCtx / reportEvaluation 等；
+   * 缓存到 entry 让 s10 leader signoff 读 quality 快照。
+   */
+  private buildReviewHooks(stepId: string): ResolvedStageHooks {
+    const stageFn =
+      stepId === "s8b-quality-enhancement"
+        ? runSectionQualityEnhancementStage
+        : stepId === "s9-critic"
+          ? runCriticStage
+          : runReportObjectiveEvaluationStage;
+    const hooks = {
+      review: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+          reportArtifact: entry.lastReportArtifact,
+          report: entry.lastReport,
+          reviewScore: entry.lastReviewScore,
+          verifierVerdicts: entry.lastVerifierVerdicts,
+        });
+        await stageFn(stageCtx, this.stageBindings.buildDeps());
+        // 回写更新（s8b 可能改 reportArtifact / s9 可能改 reviewScore / s9b 可能加 reportEvaluation）
+        entry.lastReportArtifact = stageCtx.reportArtifact;
+        entry.lastReviewScore = stageCtx.reviewScore;
+        return {
+          score: stageCtx.reviewScore,
+          verdict: stageCtx.reportArtifact?.quality,
+        };
       },
     };
     return hooks as unknown as ResolvedStageHooks;

@@ -83,6 +83,16 @@ jest.mock("../stages/s8-writer-draft-report.stage", () => ({
     ctx.verifierVerdicts = [];
   }),
 }));
+// R2-A.11: stub 三个 review stage
+jest.mock("../stages/s8b-section-quality-enhancement.stage", () => ({
+  runSectionQualityEnhancementStage: jest.fn(async (_ctx: unknown) => {}),
+}));
+jest.mock("../stages/s9-reviewer-critic-l4.stage", () => ({
+  runCriticStage: jest.fn(async (_ctx: unknown) => {}),
+}));
+jest.mock("../stages/s9b-report-objective-evaluation.stage", () => ({
+  runReportObjectiveEvaluationStage: jest.fn(async (_ctx: unknown) => {}),
+}));
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -283,7 +293,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("runMission：s1-s8 已实装 → 跑过 s1-s8，在 s8b NotYetWired 处 fail", async () => {
+  it("runMission：s1-s9b 已实装 → 跑过 s1-s9b，在 s10 NotYetWired 处 fail", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -306,8 +316,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.status).toBe("failed");
     const errorStr = String(result.error);
     // s1+s2+s3 已 wired，fail 出现在 s4-leader-assess
-    expect(errorStr).toMatch(/NotYetWired|s8b-quality-enhancement/i);
-    // s1 - s8 都跑过
+    expect(errorStr).toMatch(/NotYetWired|s10-leader-foreword-signoff/i);
+    // s1 - s9b 都跑过
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toMatchObject({
       dimensions: [{ id: "dim-1" }],
@@ -333,6 +343,10 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.stageOutputs["s8-writer"]).toMatchObject({
       artifact: { metadata: { topic: "test" } },
     });
+    // 三个 review stages 输出 { verdict: { ... } }
+    expect(result.stageOutputs["s8b-quality-enhancement"]).toBeDefined();
+    expect(result.stageOutputs["s9-critic"]).toBeDefined();
+    expect(result.stageOutputs["s9b-objective-eval"]).toBeDefined();
   });
 
   it("s2-leader-plan hook：调 leader.plan + emit leader:goals-set 事件", async () => {
