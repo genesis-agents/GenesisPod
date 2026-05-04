@@ -34,6 +34,14 @@ import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
 import { estimateCost } from "../../planning/budget/cost.calculator";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+// v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
+import type { HookBus } from "@/plugins/core/hook-bus";
+import {
+  CORE_HOOKS,
+  HookAbortError,
+  type LlmRequestPayload,
+  type LlmResponsePayload,
+} from "@/plugins/core/abstractions";
 import {
   BYOKError,
   InvalidApiKeyError,
@@ -1142,6 +1150,76 @@ export class AiChatService {
    * Observer 故障不影响主流程返回。
    */
   async chat(options: ChatOptions): Promise<ChatResult> {
+    if (this.hookBus) {
+      return this.chatWithHooks(options);
+    }
+    return this.chatLegacy(options);
+  }
+
+  /** v5.1 PR-5: 双轨期 hook 包装路径 */
+  private async chatWithHooks(options: ChatOptions): Promise<ChatResult> {
+    const meta = {
+      missionId: KernelContext.get()?.missionId,
+      agentId: KernelContext.get()?.agentId,
+      timestamp: Date.now(),
+    };
+    const requestPayload: LlmRequestPayload = {
+      __version: 1,
+      request: this.toJsonSafe({
+        messages: options.messages,
+        systemPrompt: options.systemPrompt,
+        modelType: options.modelType,
+        taskProfile: options.taskProfile,
+      }),
+      meta,
+    };
+
+    try {
+      return await this.hookBus!.fire(
+        CORE_HOOKS.LLM_REQUEST,
+        requestPayload,
+        async () => {
+          const r = await this.chatLegacy(options);
+          const responsePayload: LlmResponsePayload = {
+            __version: 1,
+            request: requestPayload.request,
+            raw: this.toJsonSafe(r),
+            tokensUsed: (r as { tokensUsed?: number }).tokensUsed,
+            meta: { ...meta, timestamp: Date.now() },
+          };
+          return this.hookBus!.fire(
+            CORE_HOOKS.LLM_RESPONSE,
+            responsePayload,
+            async () => r,
+          );
+        },
+      );
+    } catch (err) {
+      // HIGH-3: cache-hit abort 仍 fire LLM_RESPONSE
+      if (err instanceof HookAbortError) {
+        if (err.reason === "cache-hit" && err.abortPayload) {
+          const cached = err.abortPayload as ChatResult;
+          const cachedResp: LlmResponsePayload = {
+            __version: 1,
+            request: requestPayload.request,
+            raw: this.toJsonSafe(cached),
+            cacheHit: true,
+            meta: { ...meta, timestamp: Date.now() },
+          };
+          await this.hookBus!.fire(
+            CORE_HOOKS.LLM_RESPONSE,
+            cachedResp,
+            async () => cached,
+          ).catch(() => undefined);
+          return cached;
+        }
+      }
+      throw err;
+    }
+  }
+
+  /** PR-5: 保留旧实现（observer dispatch 不变）*/
+  private async chatLegacy(options: ChatOptions): Promise<ChatResult> {
     const startedAt = Date.now();
     let result: ChatResult | undefined;
     let error: Error | undefined;
@@ -1159,6 +1237,27 @@ export class AiChatService {
         durationMs: Date.now() - startedAt,
         kernelContext: KernelContext.get(),
       });
+    }
+  }
+
+  /**
+   * v5.1 PR-5: 启动期注入 HookBus（plugins/core NestJS module 在
+   * onApplicationBootstrap 时调用；未调用时 chat() 走 chatLegacy 旧逻辑）
+   */
+  private hookBus: HookBus | undefined;
+
+  setHookBus(bus: HookBus | undefined): void {
+    this.hookBus = bus;
+  }
+
+  /** payload 序列化辅助 */
+  private toJsonSafe(obj: unknown): unknown {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj !== "object") return obj;
+    try {
+      return JSON.parse(JSON.stringify(obj));
+    } catch {
+      return undefined;
     }
   }
 
@@ -2356,5 +2455,3 @@ export class AiChatService {
     }
   }
 }
-
-
