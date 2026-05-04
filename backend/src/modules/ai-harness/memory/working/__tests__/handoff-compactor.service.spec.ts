@@ -1,10 +1,10 @@
-import { MissionStateService } from "../mission-state.service";
+import { HandoffCompactorService } from "../handoff-compactor.service";
 
-describe("MissionStateService", () => {
-  let service: MissionStateService;
+describe("HandoffCompactorService", () => {
+  let service: HandoffCompactorService;
 
   beforeEach(() => {
-    service = new MissionStateService();
+    service = new HandoffCompactorService();
   });
 
   // estimateTokens

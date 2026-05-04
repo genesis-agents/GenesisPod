@@ -16,7 +16,7 @@ import {
   type SupervisedMission,
 } from "../../roles";
 import type { MissionStore } from "../lifecycle/mission-store.service";
-import type { MissionStateService } from "../lifecycle/mission-state.service";
+import { HandoffCompactorService } from "@/modules/ai-harness/facade";
 import type { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import type {
   ReportArtifactAssembler,
@@ -73,7 +73,7 @@ export class MissionStageBindingsService {
     private readonly stewardService: StewardService,
     private readonly invoker: AgentInvoker,
     private readonly store: MissionStore,
-    private readonly missionState: MissionStateService,
+    private readonly missionState: HandoffCompactorService,
     private readonly abortRegistry: MissionAbortRegistry,
     private readonly runner: AgentRunner,
     private readonly judge: JudgeService,

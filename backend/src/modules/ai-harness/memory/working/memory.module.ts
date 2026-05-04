@@ -30,6 +30,8 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 // Working
 import { HierarchicalMemoryCascadeService } from "./hierarchical-memory-cascade.service";
 import { ProcessMemoryManagerService } from "./process-memory-manager.service";
+// ★ 2026-05-04 (PR-5 standardize playground): handoff token compaction primitive
+import { HandoffCompactorService } from "./handoff-compactor.service";
 
 // Stores
 import { ShortTermMemoryService } from "../stores/short-term-memory.service";
@@ -62,6 +64,7 @@ const HARNESS_MEMORY_PROVIDERS = [
   // Working layer
   HierarchicalMemoryCascadeService,
   ProcessMemoryManagerService,
+  HandoffCompactorService,
   // Stores
   inMemoryStoreFactory,
   conversationMemoryFactory,
@@ -83,6 +86,7 @@ const HARNESS_MEMORY_PROVIDERS = [
 const HARNESS_MEMORY_EXPORTS = [
   HierarchicalMemoryCascadeService,
   ProcessMemoryManagerService,
+  HandoffCompactorService,
   InMemoryStore,
   ConversationMemory,
   ShortTermMemoryService,

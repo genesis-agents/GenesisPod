@@ -369,6 +369,9 @@ export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.reg
 // ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity engine 转发
 export { jaccardSimilarity } from "../../ai-engine/facade";
 
+// ★ 2026-05-04 (PR-5 standardize playground): handoff token estimate + compress
+export { HandoffCompactorService } from "../memory/working/handoff-compactor.service";
+
 // â˜… 2026-05-01: stage-emit util ä»Ž ai-app/agent-playground ä¸Šæ
 //   é€šç”¨ stage:completed äº‹ä»¶å°è£…ï¼Œå« durationMs / tokensUsed / agentInvocations ç­‰åº¦é‡
 export {

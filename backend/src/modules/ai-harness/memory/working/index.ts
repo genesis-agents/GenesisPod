@@ -5,3 +5,5 @@
 export * from "./memory.module";
 export * from "./hierarchical-memory-cascade.service";
 export * from "./process-memory-manager.service";
+// ★ 2026-05-04 (PR-5 standardize playground): handoff token 估算 + 压缩原语
+export * from "./handoff-compactor.service";

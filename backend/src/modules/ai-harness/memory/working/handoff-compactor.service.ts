@@ -1,13 +1,15 @@
 /**
- * MissionStateService —— stage 间上下文管理 + Summarize-on-Handoff
+ * HandoffCompactorService —— Stage 间 handoff payload token 估算 + 自动压缩
  *
- * 上游：mission-pipeline-baseline.md §9.1 / Q8
+ * 历史：from ai-app/agent-playground/services/mission/lifecycle/mission-state.service
+ *      （PR-5 standardize playground 2026-05-04 上提到 harness/memory/working）
  *
- * 职责：
- *   - 内存维护 mission 级 state（plan / researcherResults / reconciliation / analyst / writer / reviewer）
- *   - 估算每个 stage handoff payload 的 token 数
- *   - 超 50K tokens（baseline §9.1）自动 summarize 后再传下游
- *   - 全程不进 LLM context，只供 orchestrator 编排用
+ * 设计：
+ *   • 纯函数原语：estimateTokens + compressIfNeeded，无 DI 真实依赖
+ *   • 跨 ai-app 复用：任何 stage A → stage B 大 payload 场景都能用
+ *   • CN/EN 混合 token 密度按 2.0 chars/token 估算（中文 1.7 + safety margin）
+ *   • 超 50K tokens 自动调 compress（裁列表头 / 截字段长度）
+ *   • 与 todo P0#1 token 压缩机制 contract 对齐
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -19,8 +21,8 @@ const HANDOFF_TOKEN_LIMIT = 50_000;
 const CHARS_PER_TOKEN = 2.0;
 
 @Injectable()
-export class MissionStateService {
-  private readonly log = new Logger(MissionStateService.name);
+export class HandoffCompactorService {
+  private readonly log = new Logger(HandoffCompactorService.name);
 
   /** Phase P17-1: 上限暴露给上层调用（如 stage 预检） */
   readonly handoffTokenLimit = HANDOFF_TOKEN_LIMIT;

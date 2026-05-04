@@ -30,7 +30,7 @@ import type {
   StewardService,
 } from "../../roles";
 import type { MissionStore } from "../lifecycle/mission-store.service";
-import type { MissionStateService } from "../lifecycle/mission-state.service";
+import type { HandoffCompactorService } from "@/modules/ai-harness/facade";
 import type { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import type {
   ReportArtifactAssembler,
@@ -69,7 +69,7 @@ export type LifecycleFn = (
 export interface CommonDeps {
   readonly invoker: AgentInvoker;
   readonly store: MissionStore;
-  readonly missionState: MissionStateService;
+  readonly missionState: HandoffCompactorService;
   readonly abortRegistry: MissionAbortRegistry;
   readonly runner: AgentRunner;
   readonly eventBus: DomainEventBus;

@@ -30,7 +30,7 @@ import {
   type MissionCheckpointStore,
 } from "@/modules/ai-harness/facade";
 import { LeaderChatService } from "./services/chat/leader-chat.service";
-import { MissionStateService } from "./services/mission/lifecycle/mission-state.service";
+// MissionStateService 已上提到 harness/memory/working/handoff-compactor.service.ts（@Global RuntimeMemoryModule）
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
@@ -90,7 +90,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     MissionHealthScheduler,
     LeaderChatService,
     // FailureLearnerService / ReportArtifactAssembler 由 @Global HarnessModule 提供（PR-X-failure-learner 上提 / PR-X-report-artifact 上提）
-    MissionStateService,
+    // MissionStateService → HandoffCompactorService 已上提到 @Global RuntimeMemoryModule（PR-5 standardize playground）
     // ── Per-role services（Phase Lead-Services）──
     AgentInvoker,
     LeaderService,
