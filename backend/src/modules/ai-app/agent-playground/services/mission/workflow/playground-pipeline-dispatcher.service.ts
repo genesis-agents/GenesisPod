@@ -46,6 +46,7 @@ import { runResearcherDispatchStage } from "./stages/s3-researcher-collect-findi
 import { runLeaderAssessResearchStage } from "./stages/s4-leader-assess-research.stage";
 import { runReconcilerStage } from "./stages/s5-reconciler-cross-dim-fact-check.stage";
 import { runAnalystStage } from "./stages/s6-analyst-synthesize-insights.stage";
+import { runWriterOutlineStage } from "./stages/s7-writer-plan-outline.stage";
 import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
@@ -80,6 +81,7 @@ interface SessionEntry {
   lastResearcherResults?: import("./mission-context").MissionContext["researcherResults"];
   lastReconciliationReport?: import("./mission-context").MissionContext["reconciliationReport"];
   lastAnalystOutput?: import("./mission-context").MissionContext["analystOutput"];
+  lastOutlinePlan?: import("./mission-context").MissionContext["outlinePlan"];
   /**
    * s4PatchFailures 跨 stage 共享状态（legacy team.mission.ts 用 sharedState
    * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
@@ -105,7 +107,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
-      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s6 wired, s7-s12 NotYetWired)`,
+      `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / s1-s7 wired, s8-s12 NotYetWired)`,
     );
   }
 
@@ -226,6 +228,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     }
     if (stepId === "s6-analyst") {
       return this.buildS6AnalystHooks();
+    }
+    if (stepId === "s7-writer-outline") {
+      return this.buildS7WriterOutlineHooks();
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
   }
@@ -589,6 +594,40 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         await runAnalystStage(stageCtx, this.stageBindings.buildDeps());
         entry.lastAnalystOutput = stageCtx.analystOutput;
         return stageCtx.analystOutput;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s7-writer-outline hook 实装（R2-A.9）
+   *
+   * draft primitive (mode=outline) 必填 hooks.draftOnce。
+   * thin adapter：调 runWriterOutlineStage（仅 thorough+ 档位真跑，否则 no-op）。
+   * 写入 entry.lastOutlinePlan 给 s8 用。
+   */
+  private buildS7WriterOutlineHooks(): ResolvedStageHooks {
+    const hooks = {
+      draftOnce: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+        });
+        await runWriterOutlineStage(stageCtx, this.stageBindings.buildDeps());
+        entry.lastOutlinePlan = stageCtx.outlinePlan;
+        return stageCtx.outlinePlan ?? null;
       },
     };
     return hooks as unknown as ResolvedStageHooks;

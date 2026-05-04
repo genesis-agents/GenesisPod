@@ -59,6 +59,12 @@ jest.mock("../stages/s6-analyst-synthesize-insights.stage", () => ({
     };
   }),
 }));
+// R2-A.9: stub runWriterOutlineStage
+jest.mock("../stages/s7-writer-plan-outline.stage", () => ({
+  runWriterOutlineStage: jest.fn(async (_ctx: Record<string, unknown>) => {
+    // quick depth → no-op，outline 留 undefined（合法情况）
+  }),
+}));
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -259,7 +265,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("runMission：s1-s6 已实装 → 跑过 s1-s6，在 s7 NotYetWired 处 fail", async () => {
+  it("runMission：s1-s7 已实装 → 跑过 s1-s7，在 s8 NotYetWired 处 fail", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -282,8 +288,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.status).toBe("failed");
     const errorStr = String(result.error);
     // s1+s2+s3 已 wired，fail 出现在 s4-leader-assess
-    expect(errorStr).toMatch(/NotYetWired|s7-writer-outline/i);
-    // s1 - s6 都跑过
+    expect(errorStr).toMatch(/NotYetWired|s8-writer/i);
+    // s1 - s7 都跑过
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toMatchObject({
       dimensions: [{ id: "dim-1" }],
@@ -303,6 +309,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(result.stageOutputs["s6-analyst"]).toMatchObject({
       result: { themeSummary: "test theme" },
     });
+    // draft primitive (mode=outline) 输出 { artifact: ... }；stub 让 outlinePlan=undefined 落到 null
+    expect(result.stageOutputs["s7-writer-outline"]).toBeDefined();
   });
 
   it("s2-leader-plan hook：调 leader.plan + emit leader:goals-set 事件", async () => {
