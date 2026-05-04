@@ -84,6 +84,17 @@ function buildController() {
   const checkpoint = {
     cloneCheckpoint: jest.fn().mockResolvedValue(false),
   };
+  // ★ 2026-05-04 PR-10c: MissionExportService 拆出 controller 后 spec 用真实
+  //   service 构造（依赖 store mock），保证 export 行为与抽出前一致。
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    MissionExportService,
+  } = require("../services/export/mission-export.service");
+  const exportService = new MissionExportService(store as never);
+  const localRerun = {
+    execute: jest.fn(),
+    isLocallyRerunable: jest.fn().mockReturnValue({ rerunable: false }),
+  };
 
   const controller = new AgentPlaygroundController(
     orchestrator as never,
@@ -94,6 +105,8 @@ function buildController() {
     abortRegistry as never,
     prisma as never,
     checkpoint as never,
+    localRerun as never,
+    exportService as never,
   );
 
   return {
