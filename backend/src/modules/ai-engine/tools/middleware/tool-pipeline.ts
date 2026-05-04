@@ -17,6 +17,7 @@ import { HookBus } from "@/plugins/core/hook-bus";
 import {
   CORE_HOOKS,
   type ToolBeforePayload,
+  type ToolWrapPayload,
   type ToolAfterPayload,
 } from "@/plugins/core/abstractions";
 import { HookAbortError } from "@/plugins/core/abstractions";
@@ -107,13 +108,28 @@ export class ToolPipeline implements IMiddlewareChain {
       meta: { missionId, timestamp: Date.now() },
     };
 
+    // TOOL_WRAP plugin（timeout / sandbox / retry）需要的 AbortSignal
+    const wrapAbortController = new AbortController();
+
     try {
       const result = await this.hookBus!.fire(
         CORE_HOOKS.TOOL_BEFORE,
         beforePayload,
         async () => {
-          // terminal: legacy middleware pipeline + tool.execute
-          const r = await this.runLegacyPipeline(tool, input, context);
+          // v5.1 P0-1: TOOL_WRAP 包裹 terminal 执行（带 AbortSignal）
+          // wrap plugin（timeout/sandbox/retry）可在 terminal 执行期间监听 abort
+          const wrapPayload: ToolWrapPayload = {
+            __version: 1,
+            call: { toolId: tool.id, input, contextMeta: safeContextMeta },
+            signal: wrapAbortController.signal,
+            meta: { missionId, timestamp: Date.now() },
+          };
+          const r = await this.hookBus!.fire(
+            CORE_HOOKS.TOOL_WRAP,
+            wrapPayload,
+            async () => this.runLegacyPipeline(tool, input, context),
+          );
+
           // fire TOOL_AFTER inside terminal (capture cache flag etc.)
           const afterPayload: ToolAfterPayload = {
             __version: 1,
