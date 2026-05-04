@@ -5,23 +5,33 @@
  * （sectionId/heading/thesis + targetWordsPerChapter + factAllocation），让下游
  * Writer 起草时按 outline 走，不必边写边规划。
  *
- *   reads  ctx: plan, reconciliationReport, input.auditLayers
- *   writes ctx: outlinePlan (★ P1-E 2026-04-29: 真消费 — S8 SingleShotWriter 按此 outline 起草)
- *   deps:       writer.planMissionOutline, invoker (tickCost), emit, log
+ *   reads  ctx: plan (PlanPhaseCtx), reconciliationReport (SynthesisPhaseCtx), input.auditLayers
+ *   writes ctx: outlinePlan (WriterPhaseCtx) ★ P1-E 2026-04-29: 真消费 — S8 SingleShotWriter 按此 outline 起草
+ *   deps:       WriterDeps —— writer.planMissionOutline, invoker (tickCost), emit, log
  *
  * Skip 条件: auditLayers ∉ {thorough, paranoid} → 直接 return
  * Failure modes: 任何抛错 → log warn + 继续（不阻塞，Writer 走无 outline 路径）
+ *
+ * ★ PR-7b 标杆 stage (2026-05-04): 此 stage 已迁到窄签名（ctx 只暴露真实消费的
+ *   phase 子集，deps 只暴露 WriterDeps），让 reader 看签名就知道上下游依赖。
+ *   其余 12 个 stage 维持 MissionContext + MissionDeps 完整签名，待 W22 主线波次
+ *   逐个迁。trunk 仍传完整 ctx + deps，子类型兼容自动满足。
  */
 
-import type { MissionContext } from "../mission-context";
-import type { MissionDeps } from "../mission-deps";
+import type {
+  MissionInvariants,
+  PlanPhaseCtx,
+  SynthesisPhaseCtx,
+  WriterPhaseCtx,
+} from "../mission-context";
+import type { WriterDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { narrate } from "../narrative.util";
 import { normalizeTargetWords } from "../word-count-normalizer.util";
 
 export async function runWriterOutlineStage(
-  ctx: MissionContext,
-  deps: MissionDeps,
+  ctx: MissionInvariants & PlanPhaseCtx & SynthesisPhaseCtx & WriterPhaseCtx,
+  deps: WriterDeps,
 ): Promise<void> {
   const {
     missionId,

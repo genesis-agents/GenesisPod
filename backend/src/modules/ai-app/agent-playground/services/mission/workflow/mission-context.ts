@@ -1,5 +1,5 @@
 /**
- * MissionContext —— 跨 stage 共享的可变状态包
+ * MissionContext —— 跨 stage 共享的可变状态包（按 phase 拆类型）
  *
  * runMission() 主剧本在装配阶段构造一个 MissionContext，每个 stage 函数读取
  * 之前 stage 的产物 + 写入自己的产物到 ctx，最后由 persist stage 落盘 + 返回。
@@ -10,8 +10,21 @@
  *   • 可变字段为 optional —— 表示"尚未到达该 stage"
  *   • 不放 mission 自身（leader/billing/pool/abortRegistry 等基础设施）—— 那些是 dep
  *
- * 用法:
- *   const ctx = await assembleContext(input, userId, missionId);
+ * 类型分组（PR-7a 2026-05-04 standardize playground）:
+ *   • MissionInvariants  ←  装配后不变（s1 之前确定）
+ *   • PlanPhaseCtx       ←  s2 写入 plan
+ *   • ResearchPhaseCtx   ←  s3/s4 写入 researcherResults + s4Patch*
+ *   • SynthesisPhaseCtx  ←  s5/s6 写入 reconciliationReport + analystOutput
+ *   • WriterPhaseCtx     ←  s7/s8/s8b 写入 outline + report + reportArtifact + reviewScore + verifierVerdicts
+ *   • QualityPhaseCtx    ←  s9b 写入 reportEvaluation + qualityTraceCtx
+ *   • SignoffPhaseCtx    ←  s10 写入 leaderForeword + leaderSignOff
+ *   • PersistPhaseCtx    ←  s11 写入 trajectoryStored
+ *
+ * MissionContext 仍为单一合成 type，stage 当前签名读完整 ctx；后续 PR-7b 逐 stage
+ * 改窄签名，让函数显式表达消费/生产哪个 phase。
+ *
+ * 用法（当前）:
+ *   const ctx = stageBindings.buildCtx({...});
  *   await runLeaderPlanStage(ctx, deps);
  *   await runResearcherDispatchStage(ctx, deps);
  *   // ...
@@ -33,8 +46,8 @@ import type {
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import type { QualityTraceContext } from "@/modules/ai-harness/facade";
 
-export interface MissionContext {
-  // ── 不变量（装配时确定）──
+// ─── Phase 0: Invariants（s1 装配后不变）────────────────────────────────
+export interface MissionInvariants {
   readonly missionId: string;
   readonly userId: string;
   readonly input: RunMissionInput;
@@ -45,10 +58,11 @@ export interface MissionContext {
   readonly pool: MissionBudgetPool;
   readonly leader: SupervisedMission;
   readonly budgetMultiplier: number;
+}
 
-  // ── Stage 间产物（按 stage 顺序填充）──
-
-  /** 10-leader-plan.stage.ts */
+// ─── Phase 1: Plan（s2 leader-plan 产物）───────────────────────────────
+export interface PlanPhaseCtx {
+  /** s2-leader-plan-mission.stage.ts */
   plan?: {
     themeSummary: string;
     dimensions: {
@@ -64,42 +78,17 @@ export interface MissionContext {
     goals: LeaderPlanOutput["goals"];
     initialRisks: LeaderPlanOutput["initialRisks"];
   };
+}
 
-  /** 20-researcher-dispatch.stage.ts */
+// ─── Phase 2: Research（s3 researcher dispatch + s4 leader assess）──
+export interface ResearchPhaseCtx {
+  /** s3-researcher-collect-findings.stage.ts */
   researcherResults?: {
     dimension: string;
     findings: { claim: string; evidence: string; source: string }[];
     summary: string;
     figureCandidates?: unknown[];
   }[];
-
-  /** 40-reconciler.stage.ts */
-  reconciliationReport?: {
-    factTable: unknown[];
-    conflicts: unknown[];
-    overlaps: unknown[];
-    gaps: unknown[];
-    figureCandidates: unknown[];
-    reconciliationReport: string;
-  } | null;
-
-  /** 50-analyst.stage.ts */
-  analystOutput?: unknown;
-
-  /** 60-writer.stage.ts —— ResearchReport v1 + ReportArtifact v2 */
-  report?: ResearchReport;
-  reportArtifact?: ReportArtifact;
-  reviewScore?: number;
-  verifierVerdicts?: unknown[];
-
-  /** 80-leader-foreword.stage.ts (M6) */
-  leaderForeword?: LeaderForewordOutput & { generatedAt: string };
-
-  /** 90-leader-signoff.stage.ts (M7) */
-  leaderSignOff?: LeaderSignoffOutput;
-
-  /** 99-persist.stage.ts */
-  trajectoryStored?: number;
 
   /**
    * ★ P0-5 (2026-04-29): S4 patch 轮次计数 —— 防止 stage 被反复重入导致 wall-time 爆炸。
@@ -109,12 +98,8 @@ export interface MissionContext {
 
   /**
    * ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 dispatch 失败的 retry job 真因记录。
-   *
-   * 之前 dispatchAssessActions 内 DAGExecutor catch 静默 swallow，patch 失败
-   * 完全不上报 → mission 主流程不知道 Leader 觉得"必须 patch"的 dim 实际没补到，
-   * 继续走 S5/S6/S7/S8 → 用残缺/陈旧 findings 起草报告 → S10 Leader 仍可能签字
-   * 因为不知道这些 patch 失败了。
-   *
+   * 之前 dispatchAssessActions 内 DAGExecutor catch 静默 swallow，patch 失败完全
+   * 不上报 → mission 主流程不知道 Leader 觉得"必须 patch"的 dim 实际没补到。
    * 现在显式落到 ctx：S4 失败一次 push 一条；下游 S10 leader signoff 必须读这个
    * 字段，patchFailures.length > 0 时强制 mission 至少 quality-degraded。
    */
@@ -126,20 +111,30 @@ export interface MissionContext {
     error: string;
     occurredAt: number;
   }[];
+}
 
-  // ★ P1-R5-I (2026-04-30): s10RevisionRound 之前是死字段 — 注释承诺"第 2 次拒签
-  //   markFailed 避免无限 revision"未实现。当下 S10 路径 leader signoff 失败直接发
-  //   mission:failed，没有 revision 循环；字段无消费方。删除直至真正实现。
+// ─── Phase 3: Synthesis（s5 reconciler + s6 analyst）──────────────
+export interface SynthesisPhaseCtx {
+  /** s5-reconciler-cross-dim-fact-check.stage.ts */
+  reconciliationReport?: {
+    factTable: unknown[];
+    conflicts: unknown[];
+    overlaps: unknown[];
+    gaps: unknown[];
+    figureCandidates: unknown[];
+    reconciliationReport: string;
+  } | null;
 
-  /** ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace 收集 */
-  qualityTraceCtx?: QualityTraceContext;
-  /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */
-  reportEvaluation?: import("@/modules/ai-harness/facade").EvaluationResult;
+  /** s6-analyst-synthesize-insights.stage.ts */
+  analystOutput?: unknown;
+}
+
+// ─── Phase 4: Writer（s7 outline + s8 draft + s8b enhancement）─────
+export interface WriterPhaseCtx {
   /**
    * ★ P1-E (2026-04-29): S7 outline 真消费
    * thorough+ 档位下 S7 产出的 mission-level chapter outline，由 S8 SingleShotWriter
    * 严格按 sectionId/heading/thesis/keyPoints/targetWords 起草，提升长文兑现率。
-   * 之前是死字段（仅 emit 给前端 trace）。
    */
   outlinePlan?: {
     chapterOutlines: {
@@ -152,4 +147,51 @@ export interface MissionContext {
     targetWordsPerChapter: Record<string, number>;
     factAllocation: Record<string, string[]>;
   };
+
+  /** s8-writer-draft-report.stage.ts —— ResearchReport v1 + ReportArtifact v2 */
+  report?: ResearchReport;
+  reportArtifact?: ReportArtifact;
+  reviewScore?: number;
+  verifierVerdicts?: unknown[];
 }
+
+// ─── Phase 5: Quality（s8b section enhancement + s9b objective eval）
+export interface QualityPhaseCtx {
+  /** ★ 沉淀消费 v3 (2026-04-29): 全链路质量 trace 收集 */
+  qualityTraceCtx?: QualityTraceContext;
+
+  /** ★ 沉淀消费 v3 (2026-04-29): 10 维结构化报告评审结果 */
+  reportEvaluation?: import("@/modules/ai-harness/facade").EvaluationResult;
+}
+
+// ─── Phase 6: Signoff（s10 leader foreword + signoff）──────────────
+export interface SignoffPhaseCtx {
+  /** s10-leader-foreword-and-signoff.stage.ts (M6) */
+  leaderForeword?: LeaderForewordOutput & { generatedAt: string };
+
+  /** s10-leader-foreword-and-signoff.stage.ts (M7) */
+  leaderSignOff?: LeaderSignoffOutput;
+}
+
+// ─── Phase 7: Persist（s11 mission persist + s12 self-evolution）───
+export interface PersistPhaseCtx {
+  /** s11-mission-persist.stage.ts */
+  trajectoryStored?: number;
+}
+
+/**
+ * MissionContext —— 完整合成类型（trunk + 所有 stage 函数当前签名都用这个）。
+ *
+ * PR-7b（W22 主线波次）将逐 stage 改成更窄签名，例如：
+ *   - runResearcherDispatchStage(ctx: MissionInvariants & PlanPhaseCtx, deps: ResearchDeps): Promise<ResearchPhaseCtx>
+ *   - runWriterStage(ctx: MissionInvariants & PlanPhaseCtx & ResearchPhaseCtx & SynthesisPhaseCtx, deps: WriterDeps): Promise<WriterPhaseCtx>
+ * 让 reader 看签名就能判断 stage 的上下游依赖。
+ */
+export type MissionContext = MissionInvariants &
+  PlanPhaseCtx &
+  ResearchPhaseCtx &
+  SynthesisPhaseCtx &
+  WriterPhaseCtx &
+  QualityPhaseCtx &
+  SignoffPhaseCtx &
+  PersistPhaseCtx;
