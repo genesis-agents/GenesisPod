@@ -182,6 +182,9 @@ model User {
   // 2026-05-05 PR-1: 我自定义的 AIProvider（scope=user）
   customProviders AIProvider[] @relation("UserAIProviders")
 
+  // 2026-05-05 E R4 Phase 2: 我自定义的 agent 定义
+  customAgentDefinitions CustomAgentDefinition[]
+
   @@map("users")
 }
 
@@ -9412,6 +9415,43 @@ model HarnessFailurePattern {
   @@index([agentSpecId, failureCode])
   @@index([lastSeenAt])
   @@map("harness_failure_patterns")
+}
+
+/// E R4 Phase 2 (2026-05-05): 用户自定义 Agent 定义（骨架阶段）
+///
+/// 用户在 5 步向导里配置自定义 agent（topic schema / skills 组合 / pipeline /
+/// 集成）。当前为骨架（model + module + 第 1 步 basic info），控制器和 UI
+/// 增量在后续 PR 补全。
+///
+///   - PR-E1（本次）：model + module + 1 步 basic info wizard
+///   - PR-E2：5 步完整向导（topic schema / skills / pipeline / integration / review）
+///   - PR-E3：与 agent-playground 集成（customAgentId → 启动 mission）
+model CustomAgentDefinition {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String? @map("workspace_id")
+
+  slug        String  @db.VarChar(64)
+  displayName String  @map("display_name") @db.VarChar(128)
+  description String? @db.Text
+
+  /// 5 步向导各步骤数据（Json 持久化，避免每步加列）
+  config Json
+
+  /// 状态机：DRAFT / PUBLISHED / ARCHIVED
+  status String @default("DRAFT") @db.VarChar(16)
+  /// 版本号（每次发布递增；下游引用版本而非 mutable id）
+  version Int    @default(1)
+
+  isEnabled Boolean @default(true) @map("is_enabled")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, slug])
+  @@index([userId, status, isEnabled])
+  @@map("custom_agent_definitions")
 }
 
 /// AI Provider catalog（数据驱动 BYOK / 模型配置）
