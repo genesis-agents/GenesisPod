@@ -127,17 +127,32 @@ export class HarnessedAgent implements IAgent {
   async *execute(task: IAgentTask): AsyncIterable<IAgentEvent> {
     // ★ Phase P13-1: 外部 task.signal 触发本 agent 的 abortController.abort()
     // 这样 mission 级 cancel 能链到 ReActLoop 内的 chat / tool call
+    //
+    // ★ 2026-05-05 P0 修复：原代码用 { once: true } 但 abort 永不触发时
+    //   listener 永不清理。一个 mission 跑数十个 agent，每个都注册一个 listener
+    //   到同一 mission-level signal → 累积超过 30 触发 MaxListenersExceededWarning
+    //   → event loop 退化 → mission scheduler / cron 卡死。
+    //   修复：execute 完成时（任何路径）显式 removeEventListener。
+    let abortListenerCleanup: (() => void) | null = null;
     if (task.signal) {
       if (task.signal.aborted) {
         this.abortController.abort();
       } else {
         const onAbort = () => this.abortController.abort();
         task.signal.addEventListener("abort", onAbort, { once: true });
+        abortListenerCleanup = () => {
+          try {
+            task.signal!.removeEventListener("abort", onAbort);
+          } catch {
+            /* signal 可能已 detach，忽略 */
+          }
+        };
       }
     }
     // If already cancelled before execute started, emit terminated immediately
     if (this.state === "cancelled" || this.abortController.signal.aborted) {
       this.state = "cancelled";
+      abortListenerCleanup?.();
       yield {
         type: "terminated",
         agentId: this.id,
@@ -329,6 +344,7 @@ export class HarnessedAgent implements IAgent {
         };
       } finally {
         skillCleanup?.();
+        abortListenerCleanup?.();
         // PR-R: 终止时自动注销，防止 registry 持有死引用
         this.agentRegistry?.unregister(this.id);
       }
@@ -365,6 +381,7 @@ export class HarnessedAgent implements IAgent {
       payload: { reason: "completed" as const },
     };
     skillCleanup?.();
+    abortListenerCleanup?.();
   }
 
   spawnSubagent(spec: ISubagentSpec): Promise<ISubagentHandle> {
@@ -398,4 +415,3 @@ export class HarnessedAgent implements IAgent {
     else this.state = "completed";
   }
 }
-
