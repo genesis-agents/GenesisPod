@@ -14,6 +14,7 @@ import {
   Trash2,
   Loader2,
   Info,
+  Plus,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -21,6 +22,7 @@ import {
   type UserApiKeyInfo,
   type ProviderInfo,
 } from '@/hooks/features/useUserApiKeys';
+import { apiClient } from '@/lib/api/client';
 
 const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   openai: {
@@ -471,6 +473,210 @@ export function UserApiKeysTab() {
             testing={testing}
           />
         ))}
+        <AddCustomProviderTile />
+      </div>
+    </div>
+  );
+}
+
+// ─── PR-3: 自定义 Provider tile + modal ────────────────────────────────
+
+function AddCustomProviderTile() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
+      >
+        <Plus className="h-5 w-5" />
+        添加自定义 Provider（OpenAI 兼容）
+      </button>
+      {open && <AddCustomProviderModal onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
+  const [slug, setSlug] = useState('');
+  const [name, setName] = useState('');
+  const [endpoint, setEndpoint] = useState('');
+  const [apiFormat, setApiFormat] = useState<
+    'openai' | 'anthropic' | 'google' | 'cohere'
+  >('openai');
+  const [testModel, setTestModel] = useState('');
+  const [capabilities, setCapabilities] = useState<string[]>(['CHAT']);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggleCap = (cap: string) => {
+    setCapabilities((prev) =>
+      prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap]
+    );
+  };
+
+  const submit = async () => {
+    setError(null);
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      setError('slug 仅允许小写字母、数字、短横线');
+      return;
+    }
+    if (!name || !endpoint || !testModel) {
+      setError('name / endpoint / testModel 必填');
+      return;
+    }
+    if (capabilities.length === 0) {
+      setError('至少勾选一个能力');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiClient.post('/user/providers', {
+        slug,
+        name,
+        endpoint,
+        apiFormat,
+        testModel,
+        capabilities,
+      });
+      // 重新加载页面以拉到新 provider
+      window.location.reload();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : '保存失败，请检查 endpoint 是否合法'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold">添加自定义 Provider</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Slug（kebab-case 唯一标识）
+            </label>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              placeholder="e.g. mistral / jina / together"
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              显示名
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Mistral AI"
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              API Endpoint
+            </label>
+            <input
+              type="url"
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              placeholder="https://api.example.com/v1"
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              API Format
+            </label>
+            <select
+              value={apiFormat}
+              onChange={(e) => setApiFormat(e.target.value as typeof apiFormat)}
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="openai">openai (默认，多数兼容)</option>
+              <option value="anthropic">anthropic</option>
+              <option value="google">google</option>
+              <option value="cohere">cohere</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              探测/测试用模型 ID
+            </label>
+            <input
+              type="text"
+              value={testModel}
+              onChange={(e) => setTestModel(e.target.value)}
+              placeholder="e.g. mistral-small-latest"
+              className="w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              支持能力
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                'CHAT',
+                'CHAT_FAST',
+                'CODE',
+                'MULTIMODAL',
+                'EMBEDDING',
+                'RERANK',
+                'IMAGE_GENERATION',
+              ].map((cap) => (
+                <button
+                  key={cap}
+                  type="button"
+                  onClick={() => toggleCap(cap)}
+                  className={`rounded px-2 py-1 text-xs ${
+                    capabilities.includes(cap)
+                      ? 'border border-blue-300 bg-blue-100 text-blue-700'
+                      : 'border border-gray-200 bg-gray-100 text-gray-600'
+                  }`}
+                >
+                  {cap}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && (
+            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={submit}
+            disabled={submitting}
+            className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? '保存中...' : '保存'}
+          </button>
+        </div>
       </div>
     </div>
   );
