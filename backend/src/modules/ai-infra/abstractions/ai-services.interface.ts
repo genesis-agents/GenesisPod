@@ -1,11 +1,11 @@
 /**
- * L1 Infrastructure â€” Abstract interfaces for L3 (AI Engine) services
+ * L1 Infrastructure — Abstract interfaces for L3 (AI Engine) services
  *
  * L1 modules must NOT import from L2 directly. Instead, they depend on
  * these abstract interfaces and inject via DI tokens. The actual bindings
  * (useExisting: <L2 concrete class>) are set up in app.module.ts.
  *
- * This eliminates L1 â†’ L2 reverse layer dependencies (audit I-1/I-2).
+ * This eliminates L1 → L2 reverse layer dependencies (audit I-1/I-2).
  */
 
 // ==================== AI Chat Service ====================

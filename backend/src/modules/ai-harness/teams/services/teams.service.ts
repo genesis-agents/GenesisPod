@@ -1,12 +1,12 @@
 /**
  * AI Engine - Teams Service
- * å›¢é˜ŸæœåŠ¡ - ä¸šåŠ¡é€»è¾‘å±‚
+ * 团队服务 - 业务逻辑层
  *
- * æä¾›å›¢é˜Ÿä»»åŠ¡æ‰§è¡Œçš„å®Œæ•´ APIï¼š
- * - åˆ›å»ºå’Œç®¡ç†å›¢é˜Ÿå®žä¾‹
- * - æ‰§è¡Œä»»åŠ¡ï¼ˆMissionï¼‰
- * - ç›‘æŽ§æ‰§è¡ŒçŠ¶æ€
- * - èŽ·å–æ‰§è¡Œç»“æžœ
+ * 提供团队任务执行的完整 API：
+ * - 创建和管理团队实例
+ * - 执行任务（Mission）
+ * - 监控执行状态
+ * - 获取执行结果
  */
 
 import {
@@ -34,33 +34,33 @@ import { LruMap } from "@/common/utils/lru-map";
 // ==================== DTOs ====================
 
 /**
- * åˆ›å»ºä»»åŠ¡è¯·æ±‚
+ * 创建任务请求
  */
 export interface CreateMissionDto {
   /** å›¢é˜Ÿ ID */
   teamId: TeamId;
 
-  /** ä»»åŠ¡ç›®æ ‡ */
+  /** 任务目标 */
   goal: string;
 
-  /** ä¸Šä¸‹æ–‡ä¿¡æ¯ */
+  /** 上下文信息 */
   context?: string;
 
-  /** çº¦æŸè¦†ç›–ï¼ˆå¯é€‰ï¼‰ */
+  /** 约束覆盖（可选） */
   constraints?: Partial<ConstraintProfile>;
 
-  /** ç”¨æˆ· IDï¼ˆå¯é€‰ï¼‰ */
+  /** 用户 ID（可选） */
   userId?: string;
 
-  /** ä¼šè¯ IDï¼ˆå¯é€‰ï¼‰ */
+  /** 会话 ID（可选） */
   sessionId?: string;
 
-  /** å…ƒæ•°æ®ï¼ˆå¯é€‰ï¼‰ */
+  /** 元数据（可选） */
   metadata?: Record<string, unknown>;
 }
 
 /**
- * ä»»åŠ¡æ‰§è¡ŒçŠ¶æ€
+ * 任务执行状态
  */
 export interface MissionStatus {
   /** ä»»åŠ¡ ID */
@@ -72,24 +72,24 @@ export interface MissionStatus {
   /** çŠ¶æ€ */
   status: "pending" | "running" | "completed" | "failed" | "cancelled";
 
-  /** è¿›åº¦ï¼ˆ0-100ï¼‰ */
+  /** 进度（0-100） */
   progress: number;
 
-  /** å½“å‰é˜¶æ®µ */
+  /** 当前阶段 */
   currentPhase?: string;
 
-  /** å¼€å§‹æ—¶é—´ */
+  /** 开始时间 */
   startTime: Date;
 
-  /** ç»“æŸæ—¶é—´ */
+  /** 结束时间 */
   endTime?: Date;
 
-  /** é”™è¯¯ä¿¡æ¯ */
+  /** 错误信息 */
   error?: string;
 }
 
 /**
- * å›¢é˜Ÿä¿¡æ¯
+ * 团队信息
  */
 export interface TeamInfo {
   id: TeamId;
@@ -109,7 +109,7 @@ export interface TeamInfo {
 export class TeamsService {
   private readonly logger = new Logger(TeamsService.name);
 
-  /** æ­£åœ¨æ‰§è¡Œçš„ä»»åŠ¡ */
+  /** 正在执行的任务 */
   private readonly runningMissions = new LruMap<
     string,
     {
@@ -119,7 +119,7 @@ export class TeamsService {
     }
   >(500);
 
-  /** å·²å®Œæˆçš„ä»»åŠ¡ç»“æžœç¼“å­˜ */
+  /** 已完成的任务结果缓存 */
   private readonly completedMissions = new LruMap<string, MissionResult>(1000);
 
   constructor(
@@ -130,10 +130,10 @@ export class TeamsService {
     private readonly constraintEngine: ConstraintEngine,
   ) {}
 
-  // ==================== å›¢é˜Ÿç®¡ç† ====================
+  // ==================== 团队管理 ====================
 
   /**
-   * èŽ·å–æ‰€æœ‰å¯ç”¨å›¢é˜Ÿ
+   * 获取所有可用团队
    */
   listTeams(): TeamInfo[] {
     const configs = this.teamRegistry.getAllConfigs();
@@ -141,7 +141,7 @@ export class TeamsService {
   }
 
   /**
-   * èŽ·å–å›¢é˜Ÿè¯¦æƒ…
+   * 获取团队详情
    */
   getTeam(teamId: TeamId): TeamInfo {
     const config = this.teamRegistry.getConfig(teamId);
@@ -152,37 +152,37 @@ export class TeamsService {
   }
 
   /**
-   * èŽ·å–å›¢é˜Ÿå®žä¾‹ï¼ˆå¦‚éœ€è¦å¯å®žä¾‹åŒ–ï¼‰
+   * 获取团队实例（如需要可实例化）
    */
   getTeamInstance(teamId: TeamId): ITeam {
     return this.teamFactory.createFromId(teamId);
   }
 
-  // ==================== ä»»åŠ¡æ‰§è¡Œ ====================
+  // ==================== 任务执行 ====================
 
   /**
-   * åˆ›å»ºå¹¶æ‰§è¡Œä»»åŠ¡
+   * 创建并执行任务
    */
   async executeMission(dto: CreateMissionDto): Promise<string> {
-    // 1. éªŒè¯å›¢é˜Ÿå­˜åœ¨
+    // 1. 验证团队存在
     if (!this.teamRegistry.has(dto.teamId)) {
       throw new NotFoundException(`Team ${dto.teamId} not found`);
     }
 
-    // 2. ç”Ÿæˆä»»åŠ¡ ID
+    // 2. 生成任务 ID
     const missionId = uuidv4();
     this.logger.log(`Creating mission ${missionId} for team ${dto.teamId}`);
 
-    // 3. å®žä¾‹åŒ–å›¢é˜Ÿ
+    // 3. 实例化团队
     const team = this.teamFactory.createFromId(dto.teamId);
 
-    // 4. åˆå¹¶çº¦æŸ
+    // 4. 合并约束
     const constraints = this.mergeConstraints(
       team.constraintProfile,
       dto.constraints,
     );
 
-    // 5. éªŒè¯çº¦æŸ
+    // 5. 验证约束
     const validation = this.constraintEngine.validate(constraints);
     if (!validation.valid) {
       throw new BadRequestException(
@@ -190,10 +190,10 @@ export class TeamsService {
       );
     }
 
-    // 6. åˆ›å»º AbortController
+    // 6. 创建 AbortController
     const abortController = new AbortController();
 
-    // 7. åˆå§‹åŒ–çŠ¶æ€
+    // 7. 初始化状态
     const status: MissionStatus = {
       missionId,
       teamId: dto.teamId,
@@ -202,7 +202,7 @@ export class TeamsService {
       startTime: new Date(),
     };
 
-    // 8. å¯åŠ¨æ‰§è¡Œï¼ˆå¼‚æ­¥ï¼‰
+    // 8. 启动执行（异步）
     const resultPromise = this.runMission(
       missionId,
       team,
@@ -211,7 +211,7 @@ export class TeamsService {
       abortController.signal,
     );
 
-    // 9. å­˜å‚¨è¿è¡ŒçŠ¶æ€
+    // 9. 存储运行状态
     this.runningMissions.set(missionId, {
       status,
       abortController,
@@ -222,21 +222,21 @@ export class TeamsService {
   }
 
   /**
-   * æ‰§è¡Œä»»åŠ¡å¹¶æµå¼è¿”å›žäº‹ä»¶
+   * 执行任务并流式返回事件
    */
   async *executeMissionStream(
     dto: CreateMissionDto,
   ): AsyncGenerator<MissionEvent> {
-    // 1. éªŒè¯å›¢é˜Ÿå­˜åœ¨
+    // 1. 验证团队存在
     if (!this.teamRegistry.has(dto.teamId)) {
       throw new NotFoundException(`Team ${dto.teamId} not found`);
     }
 
-    // 2. å®žä¾‹åŒ–å›¢é˜Ÿ
+    // 2. 实例化团队
     const team = this.teamFactory.createFromId(dto.teamId);
     this.logger.log(`Creating streaming mission for team ${dto.teamId}`);
 
-    // 3. æž„å»º MissionInput
+    // 3. 构建 MissionInput
     const missionInput: MissionInput = {
       prompt: dto.goal,
       metadata: {
@@ -249,7 +249,7 @@ export class TeamsService {
       constraints: dto.constraints,
     };
 
-    // 4. æ‰§è¡Œå¹¶æµå¼è¿”å›ž
+    // 4. 执行并流式返回
     const generator = this.missionOrchestrator.execute(
       missionInput,
       team,
@@ -262,7 +262,7 @@ export class TeamsService {
   }
 
   /**
-   * èŽ·å–ä»»åŠ¡çŠ¶æ€
+   * 获取任务状态
    */
   getMissionStatus(missionId: string): MissionStatus {
     const running = this.runningMissions.get(missionId);
@@ -287,19 +287,19 @@ export class TeamsService {
   }
 
   /**
-   * èŽ·å–ä»»åŠ¡ç»“æžœ
+   * 获取任务结果
    */
   async getMissionResult(missionId: string): Promise<MissionResult> {
-    // æ£€æŸ¥å·²å®Œæˆ
+    // 检查已完成
     const completed = this.completedMissions.get(missionId);
     if (completed) {
       return completed;
     }
 
-    // æ£€æŸ¥æ­£åœ¨è¿è¡Œ
+    // 检查正在运行
     const running = this.runningMissions.get(missionId);
     if (running) {
-      // ç­‰å¾…å®Œæˆ
+      // 等待完成
       return running.resultPromise;
     }
 
@@ -307,7 +307,7 @@ export class TeamsService {
   }
 
   /**
-   * å–æ¶ˆä»»åŠ¡
+   * 取消任务
    */
   cancelMission(missionId: string): boolean {
     const running = this.runningMissions.get(missionId);
@@ -323,10 +323,10 @@ export class TeamsService {
     return true;
   }
 
-  // ==================== ç§æœ‰æ–¹æ³• ====================
+  // ==================== 私有方法 ====================
 
   /**
-   * è¿è¡Œä»»åŠ¡
+   * 运行任务
    */
   private async runMission(
     _missionId: string,
@@ -343,10 +343,10 @@ export class TeamsService {
     }
 
     try {
-      // æ›´æ–°çŠ¶æ€ä¸ºè¿è¡Œä¸­
+      // 更新状态为运行中
       running.status.status = "running";
 
-      // æž„å»º MissionInput
+      // 构建 MissionInput
       const missionInput: MissionInput = {
         prompt: dto.goal,
         metadata: {
@@ -359,7 +359,7 @@ export class TeamsService {
         constraints: dto.constraints,
       };
 
-      // æ‰§è¡Œä»»åŠ¡
+      // 执行任务
       let result: MissionResult | undefined;
       const generator = this.missionOrchestrator.execute(
         missionInput,
@@ -368,11 +368,11 @@ export class TeamsService {
       );
 
       for await (const event of generator) {
-        // æ›´æ–°è¿›åº¦ - ä½¿ç”¨ step_started ä½œä¸ºé˜¶æ®µæŒ‡ç¤º
+        // 更新进度 - 使用 step_started 作为阶段指示
         if (event.type === "step_started") {
           running.status.currentPhase = event.data?.stepId as string;
         }
-        // ä½¿ç”¨ step_progress æ›´æ–°è¿›åº¦
+        // 使用 step_progress 更新进度
         if (event.type === "step_progress") {
           running.status.progress = (event.data?.progress as number) || 0;
         }
@@ -395,26 +395,26 @@ export class TeamsService {
         );
       }
 
-      // æ›´æ–°çŠ¶æ€ä¸ºå®Œæˆ
+      // 更新状态为完成
       running.status.status = "completed";
       running.status.progress = 100;
       running.status.endTime = new Date();
 
-      // ç¼“å­˜ç»“æžœ
+      // 缓存结果
       this.completedMissions.set(_missionId, result);
 
-      // æ¸…ç†è¿è¡ŒçŠ¶æ€
+      // 清理运行状态
       this.runningMissions.delete(_missionId);
 
       return result;
     } catch (error) {
-      // æ›´æ–°çŠ¶æ€ä¸ºå¤±è´¥
+      // 更新状态为失败
       running.status.status = "failed";
       running.status.endTime = new Date();
       running.status.error =
         error instanceof Error ? error.message : String(error);
 
-      // ç¼“å­˜å¤±è´¥ç»“æžœ
+      // 缓存失败结果
       const failedResult: MissionResult = {
         missionId: _missionId,
         success: false,
@@ -448,7 +448,7 @@ export class TeamsService {
       };
       this.completedMissions.set(_missionId, failedResult);
 
-      // æ¸…ç†è¿è¡ŒçŠ¶æ€
+      // 清理运行状态
       this.runningMissions.delete(_missionId);
 
       throw error;
@@ -456,7 +456,7 @@ export class TeamsService {
   }
 
   /**
-   * åˆå¹¶çº¦æŸé…ç½®
+   * 合并约束配置
    */
   private mergeConstraints(
     base: ConstraintProfile,
@@ -476,7 +476,7 @@ export class TeamsService {
   }
 
   /**
-   * å°†é…ç½®è½¬æ¢ä¸ºå›¢é˜Ÿä¿¡æ¯
+   * 将配置转换为团队信息
    */
   private configToInfo(config: TeamConfig): TeamInfo {
     const leaderRole = this.roleRegistry.tryGet(config.leaderRoleId);

@@ -1,8 +1,8 @@
 /**
  * AI Engine Facade Providers
- * Facade ä¾èµ–æ³¨å…¥é…ç½®
+ * Facade 依赖注入配置
  *
- * å°†å¤šä¸ªæœåŠ¡åˆ†ç»„ä¸º Feature æ¨¡å—ï¼Œç®€åŒ– Facade çš„æž„é€ å‡½æ•°
+ * 将多个服务分组为 Feature 模块，简化 Facade 的构造函数
  */
 
 import { Logger, Provider } from "@nestjs/common";
@@ -16,26 +16,26 @@ import { CircuitBreakerService } from "../../ai-engine/safety/resilience/circuit
 import { AgentExecutorService } from "../runner/executor/agent-executor.service";
 import { SkillLoaderService } from "../../ai-engine/skills/loader/loading/skill-loader.service";
 import { SkillPromptBuilder } from "../../ai-engine/skills/builder/skill-prompt-builder.service";
-// â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime Feature ä¾èµ–
+// ★ P2 能力下沉：Realtime Feature 依赖
 import { EventBusService as EngineEventEmitterService } from "../protocols/ipc/event-bus.service";
 import { ProgressTrackerService } from "../protocols/ipc/progress-tracker.service";
 // â˜… Constraint Feature ä¾èµ–
 import { RateLimiter } from "../guardrails/resources/rate-limiter";
 import { CostController } from "../guardrails/resources/cost-controller";
-// â˜… Orchestration æ‰©å±•ä¾èµ–
-// TaskDecomposerService å·²åˆ  (2026-04-30)
+// ★ Orchestration 扩展依赖
+// TaskDecomposerService 已删 (2026-04-30)
 import { IntentDetectionService } from "../../ai-engine/planning/intent/intent-detection.service";
 import { ProcessSupervisorService as ExecutionStateManager } from "../lifecycle/supervisor/process-supervisor.service";
 import { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 import { ContextEvolutionService } from "../../ai-engine/knowledge/extraction/context-evolution.service";
 import { QueryLoopService } from "../../ai-harness/runner/executor/query-loop.service";
 import { TokenTrackerService } from "../../ai-harness/runner/executor/token-tracker.service";
-// â˜… Skill æ‰©å±•ä¾èµ–
+// ★ Skill 扩展依赖
 import { AiChatLLMAdapter } from "../../ai-engine/llm/adapters/ai-chat-llm.adapter";
 import { InputBindingResolver } from "../../ai-engine/skills/runtime/binding/skill-input-binding-resolver.service";
 import { SkillContentService } from "../../ai-engine/skills/content/skill-content.service";
 import { PrismaService } from "../../../common/prisma/prisma.service";
-// â˜… Tool æ‰©å±•ä¾èµ–
+// ★ Tool 扩展依赖
 import { AICapabilityResolver } from "../../ai-harness/runner/capabilities/ai-capability-resolver.service";
 // â˜… Teams Feature ä¾èµ–
 import { TeamsService } from "../teams/services/teams.service";
@@ -43,7 +43,7 @@ import { TeamFactory } from "../teams/factory/team-factory";
 import { ContextInitializationService } from "../../ai-engine/knowledge/world-building/context-initialization.service";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "../teams/orchestrator/teams-mission-orchestrator";
 // â˜… Content Feature ä¾èµ–
-// â˜… Phase 3â†’Phase 7: replaced L4 type imports with L2 abstractions (audit E-1)
+// â˜… Phase 3→Phase 7: replaced L4 type imports with L2 abstractions (audit E-1)
 import type {
   ILongContentEngine,
   IContinuationProtocol,
@@ -52,10 +52,10 @@ import { ContentFetchService } from "../../ai-engine/content/fetch/content-fetch
 // â˜… Knowledge Feature ä¾èµ–
 import { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
 import { VectorService } from "@/modules/ai-engine/rag/vector";
-// â˜… Intelligence Feature ä¾èµ– (IntentRouter å·²åˆ  2026-04-30)
+// ★ Intelligence Feature 依赖 (IntentRouter 已删 2026-04-30)
 import { ReflectionService } from "../../ai-engine/planning/reflection/reflection.service";
 import { ContextCompressionService } from "../../ai-engine/planning/context/context-compression.service";
-// â˜… Phase 3â†’Phase 7: replaced L4 type import with L2 abstraction (audit E-2)
+// â˜… Phase 3→Phase 7: replaced L4 type import with L2 abstraction (audit E-2)
 import type { IReportSynthesisEngine } from "../../ai-engine/content/abstractions/content-engine.interface";
 // â˜… Collaboration Feature ä¾èµ–
 import { EvidenceManagerService } from "../../ai-engine/knowledge/evidence/services/evidence-manager.service";
@@ -75,7 +75,7 @@ import { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
 // ============================================================================
 
 /**
- * è®°å¿†èƒ½åŠ›ç‰¹æ€§
+ * 记忆能力特性
  */
 export interface MemoryFeature {
   shortTerm: ShortTermMemoryService;
@@ -83,7 +83,7 @@ export interface MemoryFeature {
 }
 
 /**
- * å·¥å…·æ‰§è¡Œç‰¹æ€§ï¼ˆå« AI èƒ½åŠ›è§£æžï¼‰
+ * 工具执行特性（含 AI 能力解析）
  */
 export interface ToolFeature {
   registry: ToolRegistry;
@@ -93,12 +93,12 @@ export interface ToolFeature {
 }
 
 /**
- * ç¼–æŽ’èƒ½åŠ›ç‰¹æ€§ï¼ˆæ‰©å±•ï¼šå«ä»»åŠ¡åˆ†è§£ã€æ„å›¾æ£€æµ‹ç­‰ï¼‰
+ * 编排能力特性（扩展：含任务分解、意图检测等）
  */
 export interface OrchestrationFeature {
   circuitBreaker: CircuitBreakerService;
   agentExecutor: AgentExecutorService;
-  // taskDecomposer å·²åˆ  (2026-04-30)
+  // taskDecomposer 已删 (2026-04-30)
   intentDetector?: IntentDetectionService;
   execStateManager?: ExecutionStateManager;
   outputReviewer?: OutputReviewerService;
@@ -119,25 +119,25 @@ export interface SkillUsageLogParams {
 }
 
 /**
- * æŠ€èƒ½ç‰¹æ€§ï¼ˆæ‰©å±•ï¼šå« LLM é€‚é…å™¨å’Œè¾“å…¥ç»‘å®šè§£æžå™¨ï¼‰
+ * 技能特性（扩展：含 LLM 适配器和输入绑定解析器）
  */
 export interface SkillFeature {
   loader: SkillLoaderService;
   promptBuilder: SkillPromptBuilder;
   llmAdapter?: AiChatLLMAdapter;
   inputBindingResolver?: InputBindingResolver;
-  /** 2026-05-01 (PR-X-R): æ³¨å…¥åˆ°å®žçŽ° setToolPipeline() çš„ skill å®žä¾‹ */
+  /** 2026-05-01 (PR-X-R): 注入到实现 setToolPipeline() 的 skill 实例 */
   toolPipeline?: ToolPipeline;
   /** Fire-and-forget log skill usage for analytics dashboard */
   logUsage?: (params: SkillUsageLogParams) => void;
 }
 
 // ============================================================================
-// â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime Feature Interface
+// ★ P2 能力下沉：Realtime Feature Interface
 // ============================================================================
 
 /**
- * å®žæ—¶æŽ¨é€ç‰¹æ€§
+ * 实时推送特性
  */
 export interface RealtimeFeature {
   eventEmitter: EngineEventEmitterService;
@@ -149,7 +149,7 @@ export interface RealtimeFeature {
 // ============================================================================
 
 /**
- * çº¦æŸæŽ§åˆ¶ç‰¹æ€§
+ * 约束控制特性
  */
 export interface ConstraintFeature {
   rateLimiter: RateLimiter;
@@ -157,11 +157,11 @@ export interface ConstraintFeature {
 }
 
 // ============================================================================
-// â˜… Phase 2 æ–°å¢ž Feature Interfaces
+// ★ Phase 2 新增 Feature Interfaces
 // ============================================================================
 
 /**
- * å›¢é˜Ÿåä½œç‰¹æ€§
+ * 团队协作特性
  */
 export interface TeamsFeature {
   teamsService?: TeamsService;
@@ -171,7 +171,7 @@ export interface TeamsFeature {
 }
 
 /**
- * å†…å®¹ç”Ÿäº§ç‰¹æ€§
+ * 内容生产特性
  */
 export interface ContentFeature {
   longContentEngine?: ILongContentEngine;
@@ -180,7 +180,7 @@ export interface ContentFeature {
 }
 
 /**
- * çŸ¥è¯†èƒ½åŠ›ç‰¹æ€§
+ * 知识能力特性
  */
 export interface KnowledgeFeature {
   embedding?: EmbeddingService;
@@ -188,7 +188,7 @@ export interface KnowledgeFeature {
 }
 
 /**
- * æ™ºèƒ½åˆ†æžç‰¹æ€§
+ * 智能分析特性
  */
 export interface IntelligenceFeature {
   reflection?: ReflectionService;
@@ -197,7 +197,7 @@ export interface IntelligenceFeature {
 }
 
 /**
- * åä½œèƒ½åŠ›ç‰¹æ€§
+ * 协作能力特性
  */
 export interface CollaborationFeature {
   evidenceManager?: EvidenceManagerService;
@@ -206,7 +206,7 @@ export interface CollaborationFeature {
 }
 
 /**
- * å¯è§‚æµ‹æ€§ç‰¹æ€§
+ * 可观测性特性
  */
 export interface ObservabilityFeature {
   traceCollector?: TraceCollectorService;
@@ -214,7 +214,7 @@ export interface ObservabilityFeature {
 }
 
 /**
- * æ³¨å†Œè¡¨ç‰¹æ€§
+ * 注册表特性
  */
 export interface RegistryFeature {
   agent?: AgentRegistry;
@@ -231,10 +231,10 @@ export const MEMORY_FEATURE = "MEMORY_FEATURE";
 export const TOOL_FEATURE = "TOOL_FEATURE";
 export const ORCHESTRATION_FEATURE = "ORCHESTRATION_FEATURE";
 export const SKILL_FEATURE = "SKILL_FEATURE";
-// â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime Injection Token
+// ★ P2 能力下沉：Realtime Injection Token
 export const REALTIME_FEATURE = "REALTIME_FEATURE";
 export const CONSTRAINT_FEATURE = "CONSTRAINT_FEATURE";
-// â˜… Phase 2 æ–°å¢ž Injection Token
+// ★ Phase 2 新增 Injection Token
 export const TEAMS_FEATURE = "TEAMS_FEATURE";
 export const CONTENT_FEATURE = "CONTENT_FEATURE";
 export const KNOWLEDGE_FEATURE = "KNOWLEDGE_FEATURE";
@@ -249,7 +249,7 @@ export const REGISTRY_FEATURE = "REGISTRY_FEATURE";
 
 /**
  * Memory Feature Provider
- * èšåˆçŸ­æœŸå’Œé•¿æœŸè®°å¿†æœåŠ¡
+ * 聚合短期和长期记忆服务
  */
 export const memoryFeatureProvider: Provider = {
   provide: MEMORY_FEATURE,
@@ -268,7 +268,7 @@ export const memoryFeatureProvider: Provider = {
 
 /**
  * Tool Feature Provider
- * èšåˆå·¥å…·æ³¨å†Œè¡¨ã€æ‰§è¡Œå™¨å’Œèƒ½åŠ›è§£æžå™¨
+ * 聚合工具注册表、执行器和能力解析器
  */
 export const toolFeatureProvider: Provider = {
   provide: TOOL_FEATURE,
@@ -291,7 +291,7 @@ export const toolFeatureProvider: Provider = {
 
 /**
  * Orchestration Feature Provider
- * èšåˆç†”æ–­å™¨ã€Agent æ‰§è¡Œå™¨åŠæ‰©å±•ç¼–æŽ’æœåŠ¡
+ * 聚合熔断器、Agent 执行器及扩展编排服务
  */
 export const orchestrationFeatureProvider: Provider = {
   provide: ORCHESTRATION_FEATURE,
@@ -331,7 +331,7 @@ export const orchestrationFeatureProvider: Provider = {
 
 /**
  * Skill Feature Provider
- * èšåˆæŠ€èƒ½åŠ è½½å™¨ã€æç¤ºè¯æž„å»ºå™¨åŠæ‰©å±•æœåŠ¡
+ * 聚合技能加载器、提示词构建器及扩展服务
  */
 export const skillFeatureProvider: Provider = {
   provide: SKILL_FEATURE,
@@ -407,12 +407,12 @@ export const skillFeatureProvider: Provider = {
 };
 
 // ============================================================================
-// â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime Feature Provider
+// ★ P2 能力下沉：Realtime Feature Provider
 // ============================================================================
 
 /**
  * Realtime Feature Provider
- * èšåˆäº‹ä»¶å‘å°„å’Œè¿›åº¦è¿½è¸ªæœåŠ¡
+ * 聚合事件发射和进度追踪服务
  */
 export const realtimeFeatureProvider: Provider = {
   provide: REALTIME_FEATURE,
@@ -435,7 +435,7 @@ export const realtimeFeatureProvider: Provider = {
 
 /**
  * Constraint Feature Provider
- * èšåˆé€ŸçŽ‡é™åˆ¶å™¨å’Œæˆæœ¬æŽ§åˆ¶å™¨
+ * 聚合速率限制器和成本控制器
  */
 export const constraintFeatureProvider: Provider = {
   provide: CONSTRAINT_FEATURE,
@@ -453,7 +453,7 @@ export const constraintFeatureProvider: Provider = {
 };
 
 // ============================================================================
-// â˜… Phase 2 æ–°å¢ž Feature Providers
+// ★ Phase 2 新增 Feature Providers
 // ============================================================================
 
 export const teamsFeatureProvider: Provider = {
@@ -475,7 +475,7 @@ export const teamsFeatureProvider: Provider = {
   ],
 };
 
-// â˜… String tokens for cross-layer DI (breaks circular dep: facade â†’ content-engine â†’ facade)
+// â˜… String tokens for cross-layer DI (breaks circular dep: facade → content-engine → facade)
 export const LONG_CONTENT_ENGINE_TOKEN = "LongContentEngineService";
 export const CONTINUATION_PROTOCOL_TOKEN = "ContinuationProtocolService";
 export const REPORT_SYNTHESIS_ENGINE_TOKEN = "ReportSynthesisEngine";
@@ -591,10 +591,10 @@ export const FACADE_FEATURE_PROVIDERS: Provider[] = [
   toolFeatureProvider,
   orchestrationFeatureProvider,
   skillFeatureProvider,
-  // â˜… P2 èƒ½åŠ›ä¸‹æ²‰ï¼šRealtime Provider
+  // ★ P2 能力下沉：Realtime Provider
   realtimeFeatureProvider,
   constraintFeatureProvider,
-  // â˜… Phase 2 æ–°å¢ž Providers
+  // ★ Phase 2 新增 Providers
   teamsFeatureProvider,
   contentFeatureProvider,
   knowledgeFeatureProvider,

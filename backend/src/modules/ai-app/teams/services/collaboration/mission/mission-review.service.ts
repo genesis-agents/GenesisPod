@@ -1242,7 +1242,7 @@ ${truncatedResult}
       allConstraints.length > 0
         ? `
 【🚫 硬性约束 - 修改时必须遵守】
-${allConstraints.map((c) => `â€¢ [${c.id}] ${c.rule}`).join("\n")}
+${allConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
 
 ⚠️ 违反任何硬性约束将导致再次被驳回。
 `

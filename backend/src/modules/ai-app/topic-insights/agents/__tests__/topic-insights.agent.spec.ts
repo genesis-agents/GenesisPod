@@ -257,7 +257,7 @@ describe("TopicInsightsAgent", () => {
 
     it("should include modelsRequired with chat", async () => {
       const plan = await agent.plan({
-        prompt: "Ã§Â â€Ã§Â©Â¶Ã¦â€¢Â°Ã¥Â­â€”Ã§Â»ÂÃ¦ÂµÅ½",
+        prompt: "研究数字经济",
         sessionId: "session-6",
         userId: "user-1",
       });
@@ -267,7 +267,7 @@ describe("TopicInsightsAgent", () => {
 
     it("should include module topic-insights in metadata", async () => {
       const plan = await agent.plan({
-        prompt: "Ã§Â â€Ã§Â©Â¶Ã¥â€¦Æ’Ã¥Â®â€¡Ã¥Â®â„¢",
+        prompt: "研究元宇宙",
         sessionId: "session-7",
         userId: "user-1",
       });
@@ -276,7 +276,7 @@ describe("TopicInsightsAgent", () => {
     });
 
     it("should handle prompt longer than 100 chars without error", async () => {
-      const longPrompt = "Ã§Â â€Ã§Â©Â¶".repeat(100);
+      const longPrompt = "研究".repeat(100);
       const plan = await agent.plan({
         prompt: longPrompt,
         sessionId: "session-8",

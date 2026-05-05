@@ -1,17 +1,17 @@
 /**
  * AI Engine - Mission Orchestrator Implementation
- * ä»»åŠ¡ç¼–æŽ’å™¨å®žçŽ°
+ * 任务编排器实现
  *
- * æ ¸å¿ƒæµç¨‹ï¼šMission Input â†’ Parse â†’ Plan â†’ Execute â†’ Review â†’ Deliver
+ * 核心流程：Mission Input → Parse → Plan → Execute → Review → Deliver
  *
- * é›†æˆï¼š
- * - ConstraintEngine: çº¦æŸè¯„ä¼°å’Œæˆæœ¬è¿½è¸ª
- * - ToolRegistry: å†…ç½®å·¥å…·è°ƒç”¨
- * - SkillRegistry: æŠ€èƒ½è°ƒç”¨ â˜… æ–°å¢ž
- * - LLMFactory: LLM é€‚é…å™¨
- * - MCPManager: MCP å¤–éƒ¨å·¥å…·
- * - Memory: ä¸Šä¸‹æ–‡ç®¡ç†
- * - HandoffCoordinator: Leaderâ†’Member å§”æ´¾ â˜… æ–°å¢ž
+ * 集成：
+ * - ConstraintEngine: 约束评估和成本追踪
+ * - ToolRegistry: 内置工具调用
+ * - SkillRegistry: 技能调用 ★ 新增
+ * - LLMFactory: LLM 适配器
+ * - MCPManager: MCP 外部工具
+ * - Memory: 上下文管理
+ * - HandoffCoordinator: Leader→Member 委派 ★ 新增
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
@@ -47,7 +47,7 @@ import {
   DEFAULT_ORCHESTRATOR_CONFIG,
 } from "./orchestrator.interface";
 
-// AI Engine æ ¸å¿ƒä¾èµ–
+// AI Engine 核心依赖
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { ToolPipeline } from "@/modules/ai-engine/tools/middleware/tool-pipeline";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
@@ -95,7 +95,7 @@ import {
 } from "../../lifecycle/mission-lifecycle/runtime-state-store";
 
 /**
- * æ­¥éª¤æ‰§è¡Œç»“æžœï¼ˆå†…éƒ¨ä½¿ç”¨ï¼‰
+ * 步骤执行结果（内部使用）
  */
 interface StepExecutionResult {
   stepId: string;
@@ -109,7 +109,7 @@ interface StepExecutionResult {
 }
 
 /**
- * è¿”å·¥ä¸Šä¸‹æ–‡
+ * 返工上下文
  */
 interface ReworkContext {
   stepId: string;
@@ -120,7 +120,7 @@ interface ReworkContext {
 }
 
 /**
- * Mission ç¼–æŽ’å™¨å®žçŽ°
+ * Mission 编排器实现
  */
 @Injectable()
 export class TeamsMissionOrchestrator implements IMissionOrchestrator {
@@ -129,43 +129,43 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
   private readonly config: OrchestratorConfig;
   private readonly handoffCoordinator: HandoffCoordinator;
 
-  // â˜… A2A æ¶ˆæ¯æ€»çº¿ï¼ˆAgent é—´é€šä¿¡ï¼Œå¯é€‰ä¾èµ–ï¼‰
+  // ★ A2A 消息总线（Agent 间通信，可选依赖）
   private readonly a2aBus?: A2AMessageBusService;
 
-  // â˜… å­˜å‚¨åŽŸå§‹è¾“å…¥ï¼Œä¸ä¾èµ– Memory æœåŠ¡ï¼ˆä¿®å¤æ•°æ®ä¸¢å¤±é—®é¢˜ï¼‰
+  // ★ 存储原始输入，不依赖 Memory 服务（修复数据丢失问题）
   private readonly originalInputs = new LruMap<string, MissionInput>(500);
 
-  // â˜… å­˜å‚¨ä»»åŠ¡çš„ traceIdï¼ˆç”¨äºŽ cancel æ—¶æ¸…ç†ï¼‰
+  // ★ 存储任务的 traceId（用于 cancel 时清理）
   private readonly missionTraces = new LruMap<string, string>(500);
 
-  // â˜… LLM é€‚é…å™¨ï¼ˆç”¨äºŽ Skills è°ƒç”¨ LLMï¼‰
+  // ★ LLM 适配器（用于 Skills 调用 LLM）
   private readonly llmAdapter?: ISimpleLLMAdapter;
 
-  // â˜… Trace æ”¶é›†å™¨ï¼ˆå¯é€‰ï¼Œç”¨äºŽæ‰§è¡Œé“¾è·¯å¯è§†åŒ–ï¼‰
+  // ★ Trace 收集器（可选，用于执行链路可视化）
   private readonly traceCollector?: TraceCollectorService;
 
-  // â˜… Checkpoint ç®¡ç†å™¨ï¼ˆå¯é€‰ï¼Œç”¨äºŽè‡ªåŠ¨ä¿å­˜æ£€æŸ¥ç‚¹ï¼‰
+  // ★ Checkpoint 管理器（可选，用于自动保存检查点）
   private readonly checkpointManager?: CheckpointManager;
 
-  // â˜… AI Kernel è¿›ç¨‹ç”Ÿå‘½å‘¨æœŸï¼ˆå¯é€‰ï¼Œç”¨äºŽ Durable Executionï¼‰
+  // ★ AI Kernel 进程生命周期（可选，用于 Durable Execution）
   private readonly missionExecutor?: MissionExecutorService;
   private readonly kernelJournal?: EventJournalService;
-  // â˜… Phase 4: è‡ªé€‚åº”é‡è§„åˆ’ï¼ˆå¯é€‰ï¼‰
+  // ★ Phase 4: 自适应重规划（可选）
   private readonly adaptiveReplanner?: AdaptiveReplannerService;
-  // â˜… Phase 6: åˆ†å±‚è®°å¿†çº§è”ï¼ˆå¯é€‰ï¼‰
+  // ★ Phase 6: 分层记忆级联（可选）
   private readonly hierarchicalMemory?: HierarchicalMemoryCascadeService;
-  // â˜… Phase 8: Agent ç”Ÿå‘½å‘¨æœŸåè®®ï¼ˆå¯é€‰ï¼‰
+  // ★ Phase 8: Agent 生命周期协议（可选）
   private readonly lifecycleProtocol?: AgentLifecycleProtocolService;
-  // missionId â†’ kernel processId æ˜ å°„
+  // missionId → kernel processId 映射
   private readonly kernelProcessIds = new LruMap<string, string>(500);
 
-  // â˜… å¿ƒè·³å®šæ—¶å™¨ï¼ˆpod-localï¼Œè·Ÿéš mission ç”Ÿå‘½å‘¨æœŸï¼‰
+  // ★ 心跳定时器（pod-local，跟随 mission 生命周期）
   private readonly heartbeatTimers = new Map<string, NodeJS.Timeout>();
 
-  // â˜… Phase 9 (2026-04-30): è¿è¡Œæ—¶çŠ¶æ€å¤–ç½® â€”â€” Redis æŒä¹…åŒ–ï¼Œè·¨ pod æŽ¥ç®¡
+  // ★ Phase 9 (2026-04-30): 运行时状态外置 —— Redis 持久化，跨 pod 接管
   private readonly runtimeStore?: MissionRuntimeStateStore;
 
-  // 2026-05-01 (PR-X-R): ToolPipeline æ³¨å…¥åˆ°æ”¯æŒ setToolPipeline() çš„ skill
+  // 2026-05-01 (PR-X-R): ToolPipeline 注入到支持 setToolPipeline() 的 skill
   private readonly toolPipeline?: ToolPipeline;
 
   constructor(
@@ -190,9 +190,9 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
     @Optional() runtimeStore?: MissionRuntimeStateStore,
     @Optional() toolPipeline?: ToolPipeline,
   ) {
-    // 2026-05-01 (PR-X-R): æ³¨å…¥ ToolPipeline åˆ°æ”¯æŒ setToolPipeline() çš„ skill
+    // 2026-05-01 (PR-X-R): 注入 ToolPipeline 到支持 setToolPipeline() 的 skill
     this.toolPipeline = toolPipeline;
-    // â˜… è¿è¡Œæ—¶çŠ¶æ€å¤–ç½®ï¼ˆå¯é€‰ â€” ä¸å­˜åœ¨æ—¶é€€åŒ–ä¸ºå•å®žä¾‹å†…å­˜ï¼‰
+    // ★ 运行时状态外置（可选 — 不存在时退化为单实例内存）
     this.runtimeStore = runtimeStore;
     this.config = { ...DEFAULT_ORCHESTRATOR_CONFIG, ...config };
     this.handoffCoordinator = new HandoffCoordinator({
@@ -202,8 +202,8 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       autoFallback: true,
     });
 
-    // â˜… åˆ›å»º LLM é€‚é…å™¨ï¼ˆå¦‚æžœ AiChatService å¯ç”¨ï¼‰
-    // ä¼ é€’ PrismaService ä»¥ä»Žæ•°æ®åº“èŽ·å–é»˜è®¤æ¨¡åž‹é…ç½®
+    // ★ 创建 LLM 适配器（如果 AiChatService 可用）
+    // 传递 PrismaService 以从数据库获取默认模型配置
     if (this.aiChatService) {
       this.llmAdapter = new AiChatLLMAdapter(
         this.aiChatService,
@@ -215,7 +215,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
     }
 
-    // â˜… å­˜å‚¨ TraceCollector å¼•ç”¨ï¼ˆå¯é€‰ä¾èµ–ï¼‰
+    // ★ 存储 TraceCollector 引用（可选依赖）
     this.traceCollector = traceCollector;
     if (this.traceCollector) {
       this.logger.log(
@@ -223,13 +223,13 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
     }
 
-    // â˜… å­˜å‚¨ CheckpointManager å¼•ç”¨ï¼ˆå¯é€‰ä¾èµ–ï¼‰
+    // ★ 存储 CheckpointManager 引用（可选依赖）
     this.checkpointManager = checkpointManager;
     if (this.checkpointManager) {
       this.logger.log("CheckpointManager initialized for auto-checkpoint");
     }
 
-    // â˜… å­˜å‚¨ A2A Message Bus å¼•ç”¨ï¼ˆå¯é€‰ä¾èµ–ï¼‰
+    // ★ 存储 A2A Message Bus 引用（可选依赖）
     this.a2aBus = a2aBus;
     if (this.a2aBus) {
       this.logger.log(
@@ -237,7 +237,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
     }
 
-    // â˜… AI Kernel è¿›ç¨‹è¿½è¸ªï¼ˆå¯é€‰ä¾èµ–ï¼‰
+    // ★ AI Kernel 进程追踪（可选依赖）
     this.missionExecutor = missionExecutor;
     this.kernelJournal = kernelJournal;
     if (this.missionExecutor) {
@@ -246,13 +246,13 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
     }
 
-    // â˜… Phase 4: è‡ªé€‚åº”é‡è§„åˆ’ï¼ˆå¯é€‰ä¾èµ–ï¼‰
+    // ★ Phase 4: 自适应重规划（可选依赖）
     this.adaptiveReplanner = adaptiveReplanner;
     if (this.adaptiveReplanner) {
       this.logger.log("AdaptiveReplanner initialized for dynamic replanning");
     }
 
-    // â˜… Phase 6: åˆ†å±‚è®°å¿†çº§è”ï¼ˆå¯é€‰ä¾èµ–ï¼‰
+    // ★ Phase 6: 分层记忆级联（可选依赖）
     this.hierarchicalMemory = hierarchicalMemory;
     if (this.hierarchicalMemory) {
       this.logger.log(
@@ -260,7 +260,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
     }
 
-    // â˜… Phase 8: Agent ç”Ÿå‘½å‘¨æœŸåè®®ï¼ˆå¯é€‰ä¾èµ–ï¼‰
+    // ★ Phase 8: Agent 生命周期协议（可选依赖）
     this.lifecycleProtocol = lifecycleProtocol;
     if (this.lifecycleProtocol) {
       this.logger.log(
@@ -268,17 +268,17 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
     }
 
-    // â˜… Phase 9: Mission è¿è¡Œæ—¶çŠ¶æ€å¤–ç½®
+    // ★ Phase 9: Mission 运行时状态外置
     if (this.runtimeStore) {
       this.logger.log(
-        `MissionRuntimeStateStore initialized (podId=${this.runtimeStore.getPodId()}) â€” harness is now stateless across pods`,
+        `MissionRuntimeStateStore initialized (podId=${this.runtimeStore.getPodId()}) — harness is now stateless across pods`,
       );
     }
   }
 
-  // ==================== Runtime Store åŒæ­¥è¾…åŠ© ====================
+  // ==================== Runtime Store 同步辅助 ====================
 
-  /** state å†™å…¥åŽåŒæ­¥åˆ° storeï¼ˆfire-and-forgetï¼Œå¤±è´¥ä¸å½±å“ä¸»æµç¨‹ï¼‰ */
+  /** state 写入后同步到 store（fire-and-forget，失败不影响主流程） */
   private syncStateToStore(
     missionId: string,
     state: MissionExecutionState,
@@ -293,10 +293,10 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       );
   }
 
-  /** å¯åŠ¨ mission æ—¶è°ƒç”¨ â€”â€” claim å¿ƒè·³ + èµ· 30s ç»­æœŸå®šæ—¶å™¨ */
+  /** 启动 mission 时调用 —— claim 心跳 + 起 30s 续期定时器 */
   private startHeartbeat(missionId: string): void {
     if (!this.runtimeStore) return;
-    // ç«‹å³ claim ä¸€æ¬¡
+    // 立即 claim 一次
     void this.runtimeStore
       .claimOrBeat(missionId)
       .catch((err) =>
@@ -304,20 +304,20 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
           `[runtimeStore] claimOrBeat(${missionId}) failed: ${err instanceof Error ? err.message : String(err)}`,
         ),
       );
-    // èµ·å®šæ—¶å™¨ï¼ˆæ¸…æŽ‰æ—§çš„é˜²æ³„æ¼ï¼‰
+    // 起定时器（清掉旧的防泄漏）
     const old = this.heartbeatTimers.get(missionId);
     if (old) clearInterval(old);
     const timer = setInterval(() => {
       void this.runtimeStore?.claimOrBeat(missionId).catch(() => {
-        /* swallow â€” å¿ƒè·³å¤±è´¥ä¸é˜»å¡žæ‰§è¡Œ */
+        /* swallow — 心跳失败不阻塞执行 */
       });
     }, HEARTBEAT_INTERVAL_MS);
-    // Node è¿›ç¨‹é€€å‡ºæ—¶ä¸é˜»å¡ž
+    // Node 进程退出时不阻塞
     if (typeof timer.unref === "function") timer.unref();
     this.heartbeatTimers.set(missionId, timer);
   }
 
-  /** mission ç»ˆæ€æ—¶è°ƒç”¨ â€”â€” åœå¿ƒè·³ + æ¸… store key */
+  /** mission 终态时调用 —— 停心跳 + 清 store key */
   private stopHeartbeat(missionId: string): void {
     const timer = this.heartbeatTimers.get(missionId);
     if (timer) {
@@ -335,7 +335,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
   }
 
   /**
-   * æ‰§è¡Œ Missionï¼ˆå®Œæ•´æµç¨‹ï¼‰
+   * 执行 Mission（完整流程）
    */
   async *execute(
     input: MissionInput,
@@ -345,27 +345,27 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
     const missionId = uuidv4();
     const startTime = Date.now();
 
-    // åˆå¹¶çº¦æŸé…ç½®
+    // 合并约束配置
     const constraints = mergeConstraintProfiles(
       team.constraintProfile,
       constraintOverrides || {},
     );
 
-    // åˆå§‹åŒ–çŠ¶æ€
+    // 初始化状态
     const state = this.initializeState(missionId);
     this.states.set(missionId, state);
     this.syncStateToStore(missionId, state);
 
-    // â˜… ç›´æŽ¥å­˜å‚¨åŽŸå§‹è¾“å…¥ï¼ˆä¸ä¾èµ– Memory æœåŠ¡ï¼‰
+    // ★ 直接存储原始输入（不依赖 Memory 服务）
     this.originalInputs.set(missionId, input);
     if (this.runtimeStore) {
       void this.runtimeStore.setInput(missionId, input).catch(() => undefined);
     }
 
-    // â˜… å¯åŠ¨å¿ƒè·³ï¼ˆæ ‡è¯†å½“å‰ pod æŒæœ‰ missionï¼Œè·¨ pod æŽ¥ç®¡çš„ä¾æ®ï¼‰
+    // ★ 启动心跳（标识当前 pod 持有 mission，跨 pod 接管的依据）
     this.startHeartbeat(missionId);
 
-    // â˜… AI Kernel: åˆ›å»ºè¿›ç¨‹è®°å½•ï¼ˆDurable Executionï¼‰
+    // ★ AI Kernel: 创建进程记录（Durable Execution）
     if (this.missionExecutor) {
       try {
         const kernelResult = await this.missionExecutor.execute({
@@ -387,10 +387,10 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       }
     }
 
-    // å­˜å‚¨ä¸Šä¸‹æ–‡åˆ° Memoryï¼ˆå¯é€‰ï¼Œç”¨äºŽæŒä¹…åŒ–ï¼‰
+    // 存储上下文到 Memory（可选，用于持久化）
     await this.storeContext(missionId, "input", input);
 
-    // â˜… å¼€å§‹ Traceï¼ˆç”¨äºŽæ‰§è¡Œé“¾è·¯å¯è§†åŒ–ï¼‰
+    // ★ 开始 Trace（用于执行链路可视化）
     const traceId = this.traceCollector?.startTrace({
       name: `Mission: ${input.prompt.slice(0, 50)}...`,
       type: "team_execution",
@@ -413,14 +413,14 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
     }
 
     try {
-      // å‘é€å¼€å§‹äº‹ä»¶
+      // 发送开始事件
       yield this.createEvent("mission_started", missionId, { input });
 
-      // Phase 1: Parse - è§£æžæ„å›¾
+      // Phase 1: Parse - 解析意图
       yield this.createEvent("parsing_started", missionId);
       state.phase = "parsing";
 
-      // â˜… å¼€å§‹ Parse span
+      // ★ 开始 Parse span
       let parseSpanId: string | undefined;
       if (traceId) {
         parseSpanId = this.traceCollector?.addSpan(traceId, {
@@ -431,12 +431,12 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       }
 
       const intent = await this.parse(input);
-      // â˜… å…³é”®ä¿®å¤ï¼šç¡®ä¿ intent.missionId ä¸Žå½“å‰ missionId ä¸€è‡´
-      // parse() è¿”å›žçš„ intent.missionId å¯èƒ½æ˜¯ç©ºå­—ç¬¦ä¸²ï¼Œéœ€è¦è¦†ç›–
+      // ★ 关键修复：确保 intent.missionId 与当前 missionId 一致
+      // parse() 返回的 intent.missionId 可能是空字符串，需要覆盖
       intent.missionId = missionId;
       await this.storeContext(missionId, "intent", intent);
 
-      // â˜… Phase 6: HierarchicalMemoryCascade â€” resolve project/team context
+      // ★ Phase 6: HierarchicalMemoryCascade — resolve project/team context
       if (this.hierarchicalMemory) {
         const meta = input.metadata ?? {};
         const userId =
@@ -482,14 +482,14 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
         });
       }
 
-      // â˜… ä¿å­˜ checkpointï¼šè§£æžå®Œæˆ
+      // ★ 保存 checkpoint：解析完成
       void this.saveCheckpoint(missionId, team.workflow.id, "parse_complete", {
         taskType: intent.taskType,
         complexity: intent.complexity.overall,
         primaryGoal: intent.primaryGoal,
       });
 
-      // â˜… AI Kernel: è®°å½•è§£æžå®Œæˆäº‹ä»¶
+      // ★ AI Kernel: 记录解析完成事件
       void this.recordKernelEvent(missionId, "phase:parse_complete", {
         taskType: intent.taskType,
         complexity: intent.complexity.overall,
@@ -498,11 +498,11 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       yield this.createEvent("parsing_completed", missionId, { intent });
       this.syncStateToStore(missionId, state);
 
-      // Phase 2: Plan - ç”Ÿæˆæ‰§è¡Œè®¡åˆ’
+      // Phase 2: Plan - 生成执行计划
       yield this.createEvent("planning_started", missionId);
       state.phase = "planning";
 
-      // â˜… å¼€å§‹ Planning span
+      // ★ 开始 Planning span
       let planSpanId: string | undefined;
       if (traceId) {
         planSpanId = this.traceCollector?.addSpan(traceId, {
@@ -526,14 +526,14 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
         });
       }
 
-      // â˜… ä¿å­˜ checkpointï¼šè®¡åˆ’ç”Ÿæˆå®Œæˆ
+      // ★ 保存 checkpoint：计划生成完成
       void this.saveCheckpoint(missionId, team.workflow.id, "plan_complete", {
         stepCount: plan.steps.length,
         estimatedDuration: plan.estimatedDuration,
         estimatedCost: plan.estimatedCost,
       });
 
-      // â˜… AI Kernel: è®°å½•è®¡åˆ’å®Œæˆäº‹ä»¶
+      // ★ AI Kernel: 记录计划完成事件
       void this.recordKernelEvent(missionId, "phase:plan_complete", {
         stepCount: plan.steps.length,
         estimatedDuration: plan.estimatedDuration,
@@ -542,10 +542,10 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       yield this.createEvent("planning_completed", missionId, { plan });
       this.syncStateToStore(missionId, state);
 
-      // Phase 3: Execute - æ‰§è¡Œè®¡åˆ’ï¼ˆå«å§”æ´¾å’Œåä½œï¼‰
+      // Phase 3: Execute - 执行计划（含委派和协作）
       state.phase = "executing";
 
-      // â˜… å¼€å§‹ Execution span
+      // ★ 开始 Execution span
       let execSpanId: string | undefined;
       if (traceId) {
         execSpanId = this.traceCollector?.addSpan(traceId, {
@@ -558,7 +558,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       for await (const event of this.executePlan(plan, team, constraints)) {
         yield event;
 
-        // æ›´æ–°çŠ¶æ€
+        // 更新状态
         if (event.type === "step_completed") {
           state.completedSteps.push(event.data?.stepId as string);
           state.intermediateOutputs.set(
@@ -566,7 +566,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
             event.data?.output,
           );
 
-          // â˜… åŒæ­¥æŠ€èƒ½ç»“æžœåˆ° intermediateOutputsï¼ˆä»¥æŠ€èƒ½ ID ä¸ºé”®ï¼‰
+          // ★ 同步技能结果到 intermediateOutputs（以技能 ID 为键）
           const stepOutput = event.data?.output as StepExecutionResult;
           if (stepOutput?.skillResults) {
             for (const { skillId, result } of stepOutput.skillResults) {
@@ -576,7 +576,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
             }
           }
 
-          // â˜… Phase 8: AgentLifecycleProtocol â€” notify task completion
+          // ★ Phase 8: AgentLifecycleProtocol — notify task completion
           if (this.lifecycleProtocol) {
             const stepId = event.data?.stepId as string | undefined;
             const notifPayload: TaskNotificationPayload = {
@@ -598,13 +598,13 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
           state.failedSteps.push(event.data?.stepId as string);
         }
 
-        // æ›´æ–°èµ„æºä½¿ç”¨
+        // 更新资源使用
         state.resourceUsage = this.updateResourceUsage(state, startTime);
 
-        // â˜… Phase 9: æ¯ä¸ª step å®ŒæˆåŽåŒæ­¥åˆ° runtime storeï¼ˆæ–­ç‚¹ç»­è·‘ç”¨ï¼‰
+        // ★ Phase 9: 每个 step 完成后同步到 runtime store（断点续跑用）
         this.syncStateToStore(missionId, state);
 
-        // æ£€æŸ¥çº¦æŸ
+        // 检查约束
         const canContinue = this.constraintEngine.canContinue(
           constraints,
           state.resourceUsage,
@@ -625,12 +625,12 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
         });
       }
 
-      // Phase 4: Review - å®¡æ ¸ï¼ˆå«è¿”å·¥å¾ªçŽ¯ï¼‰
+      // Phase 4: Review - 审核（含返工循环）
       if (constraints.quality.reviewRequired) {
         yield this.createEvent("review_started", missionId);
         state.phase = "reviewing";
 
-        // â˜… å¼€å§‹ Review span
+        // ★ 开始 Review span
         let reviewSpanId: string | undefined;
         if (traceId) {
           reviewSpanId = this.traceCollector?.addSpan(traceId, {
@@ -644,14 +644,14 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
         }
 
         for (const [stepId, output] of state.intermediateOutputs) {
-          // è·³è¿‡ delivery æ­¥éª¤çš„å®¡æ ¸
+          // 跳过 delivery 步骤的审核
           if (stepId === "delivery") continue;
 
           let currentOutput = output;
           let attempt = 0;
           let reviewResult: StepReviewResult;
 
-          // è¿”å·¥å¾ªçŽ¯
+          // 返工循环
           do {
             reviewResult = await this.review(stepId, currentOutput, team);
             state.reviewResults.push(reviewResult);
@@ -663,7 +663,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
               !reviewResult.passed &&
               attempt < constraints.quality.maxReworks
             ) {
-              // â˜… çœŸæ­£çš„è¿”å·¥ï¼šé‡æ–°æ‰§è¡Œæ­¥éª¤
+              // ★ 真正的返工：重新执行步骤
               yield this.createEvent("rework_requested", missionId, {
                 stepId,
                 attempt: attempt + 1,
@@ -684,7 +684,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
                   issues: [],
                 };
 
-                // é‡æ–°æ‰§è¡Œæ­¥éª¤
+                // 重新执行步骤
                 const reworkResult = await this.executeStepWithRework(
                   step,
                   executor,
@@ -722,7 +722,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
           });
         }
 
-        // â˜… ä¿å­˜ checkpointï¼šå®¡æ ¸å®Œæˆ
+        // ★ 保存 checkpoint：审核完成
         void this.saveCheckpoint(
           missionId,
           team.workflow.id,
@@ -734,18 +734,18 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
           },
         );
 
-        // â˜… AI Kernel: è®°å½•å®¡æ ¸å®Œæˆäº‹ä»¶
+        // ★ AI Kernel: 记录审核完成事件
         void this.recordKernelEvent(missionId, "phase:review_complete", {
           reviewCount: state.reviewResults.length,
           reworkCount: state.resourceUsage.reworkCount,
         });
       }
 
-      // Phase 5: Deliver - ç”Ÿæˆäº¤ä»˜ç‰©ï¼ˆä½¿ç”¨å¯¼å‡ºå·¥å…·ï¼‰
+      // Phase 5: Deliver - 生成交付物（使用导出工具）
       yield this.createEvent("delivering_started", missionId);
       state.phase = "delivering";
 
-      // â˜… å¼€å§‹ Delivery span
+      // ★ 开始 Delivery span
       let deliverSpanId: string | undefined;
       if (traceId) {
         deliverSpanId = this.traceCollector?.addSpan(traceId, {
@@ -774,14 +774,14 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       state.phase = "completed";
       const result = this.createResult(state, startTime, true);
 
-      // â˜… ç»“æŸ Traceï¼ˆæˆåŠŸï¼‰
+      // ★ 结束 Trace（成功）
       if (traceId) {
         this.traceCollector?.endTrace(traceId, {
           status: "success",
         });
       }
 
-      // â˜… AI Kernel: æ ‡è®°è¿›ç¨‹å®Œæˆ
+      // ★ AI Kernel: 标记进程完成
       void this.completeKernelProcess(missionId, {
         completedSteps: state.completedSteps.length,
         failedSteps: state.failedSteps.length,
@@ -790,9 +790,9 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
 
       yield this.createEvent("mission_completed", missionId, { result });
 
-      // â˜… æ¸…ç†åŽŸå§‹è¾“å…¥ï¼Œé˜²æ­¢å†…å­˜æ³„æ¼
+      // ★ 清理原始输入，防止内存泄漏
       this.originalInputs.delete(missionId);
-      // â˜… åœå¿ƒè·³ + æ¸… runtime store
+      // ★ 停心跳 + 清 runtime store
       this.stopHeartbeat(missionId);
 
       return result;
@@ -800,23 +800,23 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
       state.phase = "failed";
       const errorMessage = (error as Error).message;
 
-      // â˜… ç»“æŸ Traceï¼ˆå¤±è´¥ï¼‰
+      // ★ 结束 Trace（失败）
       if (traceId) {
         this.traceCollector?.endTrace(traceId, {
           status: "error",
         });
       }
 
-      // â˜… AI Kernel: æ ‡è®°è¿›ç¨‹å¤±è´¥
+      // ★ AI Kernel: 标记进程失败
       void this.failKernelProcess(missionId, errorMessage);
 
       yield this.createEvent("mission_failed", missionId, {
         error: errorMessage,
       });
 
-      // â˜… æ¸…ç†åŽŸå§‹è¾“å…¥ï¼Œé˜²æ­¢å†…å­˜æ³„æ¼
+      // ★ 清理原始输入，防止内存泄漏
       this.originalInputs.delete(missionId);
-      // â˜… åœå¿ƒè·³ + æ¸… runtime store
+      // ★ 停心跳 + 清 runtime store
       this.stopHeartbeat(missionId);
 
       return this.createResult(state, startTime, false, errorMessage);
@@ -824,18 +824,18 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
   }
 
   /**
-   * è§£æž Mission æ„å›¾
+   * 解析 Mission 意图
    */
   async parse(input: MissionInput): Promise<ParsedIntent> {
     this.logger.log("Parsing mission intent...");
 
-    // ä½¿ç”¨ LLM è¿›è¡Œæ„å›¾è§£æžï¼ˆå¦‚æžœå¯ç”¨ï¼‰
+    // 使用 LLM 进行意图解析（如果可用）
     const parsedByLLM = await this.parseWithLLM(input);
     if (parsedByLLM) {
       return parsedByLLM;
     }
 
-    // é™çº§ï¼šä½¿ç”¨è§„åˆ™è§£æž
+    // 降级：使用规则解析
     const taskType = this.inferTaskType(input.prompt);
     const complexity = this.assessComplexity(input);
 
@@ -863,8 +863,8 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
   }
 
   /**
-   * ä½¿ç”¨ LLM è§£æžæ„å›¾
-   * â˜… æ·»åŠ  30 ç§’è¶…æ—¶ï¼Œé˜²æ­¢ parse é˜¶æ®µæ— é™æŒ‚èµ·
+   * 使用 LLM 解析意图
+   * ★ 添加 30 秒超时，防止 parse 阶段无限挂起
    */
   private async parseWithLLM(
     input: MissionInput,
@@ -874,7 +874,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
     const adapter = this.llmFactory.getAdapter();
     if (!adapter) return null;
 
-    // â˜… 30 ç§’è¶…æ—¶ç”¨äºŽ parse é˜¶æ®µ
+    // ★ 30 秒超时用于 parse 阶段
     const PARSE_TIMEOUT = 30000;
 
     try {
@@ -888,7 +888,7 @@ export class TeamsMissionOrchestrator implements IMissionOrchestrator {
 以 JSON 格式输出。
 CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markdown, no code blocks. Start with { and end with }.`;
 
-      // â˜… ä½¿ç”¨ Promise.race å¼ºåˆ¶è¶…æ—¶
+      // ★ 使用 Promise.race 强制超时
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error("Parse timeout")), PARSE_TIMEOUT);
       });
@@ -906,7 +906,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         timeoutPromise,
       ]);
 
-      // è®°å½•æˆæœ¬
+      // 记录成本
       if (response.usage) {
         this.constraintEngine.recordCost(
           "parse_intent",
@@ -916,7 +916,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         );
       }
 
-      // è§£æž LLM å“åº”
+      // 解析 LLM 响应
       if (response.content) {
         const parsed = this.parseLLMResponse(response.content, input);
         if (parsed) {
@@ -933,7 +933,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * è§£æž LLM å“åº”
+   * 解析 LLM 响应
    */
   private parseLLMResponse(
     content: string,
@@ -986,7 +986,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * ç”Ÿæˆæ‰§è¡Œè®¡åˆ’
+   * 生成执行计划
    */
   async plan(
     intent: ParsedIntent,
@@ -998,7 +998,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     const steps: ExecutionStep[] = [];
     const workflow = team.workflow;
 
-    // åŸºäºŽå·¥ä½œæµç”Ÿæˆæ­¥éª¤
+    // 基于工作流生成步骤
     for (const workflowStep of workflow.steps) {
       const executors = workflowStep.executorRoles.map((roleId: RoleId) => {
         const members = team.getMembersByRole(roleId);
@@ -1023,18 +1023,18 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         dependencies: workflowStep.dependsOn,
         estimatedDuration: stepDuration,
         estimatedCost: stepCost,
-        // â˜… åŒ…å«å·¥ä½œæµé…ç½®çš„è¶…æ—¶æ—¶é—´ï¼Œç”¨äºŽå¼ºåˆ¶æ‰§è¡Œè¶…æ—¶
+        // ★ 包含工作流配置的超时时间，用于强制执行超时
         timeout: workflowStep.timeout,
       });
     }
 
-    // æ·»åŠ å®¡æ ¸æ­¥éª¤
+    // 添加审核步骤
     if (constraints.quality.reviewRequired) {
       const lastStep = steps[steps.length - 1];
       steps.push({
         id: "review",
-        name: "è´¨é‡å®¡æ ¸",
-        description: "Leader å®¡æ ¸æ‰€æœ‰è¾“å‡º",
+        name: "质量审核",
+        description: "Leader 审核所有输出",
         executor: team.leader.id,
         type: "review",
         dependencies: [lastStep.id],
@@ -1043,11 +1043,11 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       });
     }
 
-    // æ·»åŠ äº¤ä»˜æ­¥éª¤
+    // 添加交付步骤
     steps.push({
       id: "delivery",
-      name: "ç”Ÿæˆäº¤ä»˜ç‰©",
-      description: "æ•´åˆç»“æžœå¹¶ç”Ÿæˆæœ€ç»ˆäº¤ä»˜ç‰©",
+      name: "生成交付物",
+      description: "整合结果并生成最终交付物",
       executor: team.leader.id,
       type: "delivery",
       dependencies: constraints.quality.reviewRequired
@@ -1072,7 +1072,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * æ‰§è¡Œè®¡åˆ’ - â˜… æ”¯æŒçœŸæ­£å¹¶è¡Œæ‰§è¡Œ
+   * 执行计划 - ★ 支持真正并行执行
    */
   async *executePlan(
     plan: MissionExecutionPlan,
@@ -1084,7 +1084,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     const completedSteps = new Set<string>();
     const iterationStartTime = Date.now();
 
-    // æŒ‰æ‹“æ‰‘é¡ºåºæ‰§è¡Œæ­¥éª¤
+    // 按拓扑顺序执行步骤
     while (completedSteps.size < plan.steps.length) {
       // â˜… Constraint Profile: Budget checks at iteration boundaries
       const elapsed = Date.now() - iterationStartTime;
@@ -1121,7 +1121,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
           `Mission cost budget exceeded: ${state.resourceUsage.costUsed} > ${costBudget}`,
         );
       }
-      // æ‰¾å‡ºå¯æ‰§è¡Œçš„æ­¥éª¤ï¼ˆä¾èµ–å·²å®Œæˆï¼‰
+      // 找出可执行的步骤（依赖已完成）
       const executableSteps = plan.steps.filter((step) => {
         if (completedSteps.has(step.id)) return false;
         return step.dependencies.every((dep) => completedSteps.has(dep));
@@ -1134,28 +1134,28 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         throw new Error("Deadlock detected: no executable steps available");
       }
 
-      // â˜… çœŸæ­£å¹¶è¡Œæ‰§è¡Œï¼šä½¿ç”¨ Promise.all
+      // ★ 真正并行执行：使用 Promise.all
       if (this.config.enableParallel && executableSteps.length > 1) {
-        // å‘é€æ‰€æœ‰æ­¥éª¤å¼€å§‹äº‹ä»¶
+        // 发送所有步骤开始事件
         for (const step of executableSteps) {
           state.currentSteps.push(step.id);
           yield this.createEvent("step_started", missionId, {
             stepId: step.id,
-            message: `å¼€å§‹æ‰§è¡Œ: ${step.name}`,
+            message: `开始执行: ${step.name}`,
             parallel: true,
           });
         }
 
-        // å¹¶è¡Œæ‰§è¡Œæ‰€æœ‰æ­¥éª¤
+        // 并行执行所有步骤
         const executionPromises = executableSteps.map(async (step) => {
           const executor = team.getMemberById(step.executor) || team.leader;
 
-          // â˜… ä½¿ç”¨ HandoffCoordinator è¿›è¡Œå§”æ´¾
+          // ★ 使用 HandoffCoordinator 进行委派
           if (!executor.isLeader()) {
             await this.delegateToMember(team.leader, executor, step, missionId);
           }
 
-          // â˜… ä½¿ç”¨è¶…æ—¶åŒ…è£…å™¨ï¼Œé˜²æ­¢ LLM è°ƒç”¨æ— é™æŒ‚èµ·
+          // ★ 使用超时包装器，防止 LLM 调用无限挂起
           return this.executeStepWithTimeout(
             step,
             executor,
@@ -1167,7 +1167,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
 
         const results = await Promise.allSettled(executionPromises);
 
-        // å¤„ç†ç»“æžœ
+        // 处理结果
         for (let i = 0; i < results.length; i++) {
           const step = executableSteps[i];
           const result = results[i];
@@ -1181,8 +1181,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
             state.completedSteps.push(step.id);
             state.intermediateOutputs.set(step.id, result.value);
 
-            // â˜… å…³é”®ä¿®å¤ï¼šåŒæ—¶ä»¥æŠ€èƒ½ ID ä¸ºé”®å­˜å‚¨æŠ€èƒ½ç»“æžœ
-            // æŠ€èƒ½çš„ normalizeInput éœ€è¦é€šè¿‡ skillId æŸ¥æ‰¾å‰ç½®æŠ€èƒ½çš„è¾“å‡º
+            // ★ 关键修复：同时以技能 ID 为键存储技能结果
+            // 技能的 normalizeInput 需要通过 skillId 查找前置技能的输出
             const stepResult = result.value;
             if (stepResult.skillResults) {
               for (const {
@@ -1203,7 +1203,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               output: result.value,
             });
 
-            // â˜… ä¿å­˜ checkpointï¼šæ­¥éª¤å®Œæˆ
+            // ★ 保存 checkpoint：步骤完成
             const context = await this.getContext(missionId);
             const plan = context.plan as MissionExecutionPlan;
             void this.saveCheckpoint(
@@ -1231,23 +1231,23 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
           }
         }
       } else {
-        // é¡ºåºæ‰§è¡Œ
+        // 顺序执行
         const step = executableSteps[0];
         state.currentSteps.push(step.id);
         yield this.createEvent("step_started", missionId, {
           stepId: step.id,
-          message: `å¼€å§‹æ‰§è¡Œ: ${step.name}`,
+          message: `开始执行: ${step.name}`,
         });
 
         try {
           const executor = team.getMemberById(step.executor) || team.leader;
 
-          // â˜… ä½¿ç”¨ HandoffCoordinator è¿›è¡Œå§”æ´¾
+          // ★ 使用 HandoffCoordinator 进行委派
           if (!executor.isLeader()) {
             await this.delegateToMember(team.leader, executor, step, missionId);
           }
 
-          // â˜… ä½¿ç”¨è¶…æ—¶åŒ…è£…å™¨ï¼Œé˜²æ­¢ LLM è°ƒç”¨æ— é™æŒ‚èµ·
+          // ★ 使用超时包装器，防止 LLM 调用无限挂起
           const output = await this.executeStepWithTimeout(
             step,
             executor,
@@ -1263,7 +1263,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
           state.completedSteps.push(step.id);
           state.intermediateOutputs.set(step.id, output);
 
-          // â˜… å…³é”®ä¿®å¤ï¼šåŒæ—¶ä»¥æŠ€èƒ½ ID ä¸ºé”®å­˜å‚¨æŠ€èƒ½ç»“æžœ
+          // ★ 关键修复：同时以技能 ID 为键存储技能结果
           if (output.skillResults) {
             for (const {
               skillId,
@@ -1283,7 +1283,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
             output,
           });
 
-          // â˜… ä¿å­˜ checkpointï¼šæ­¥éª¤å®Œæˆï¼ˆé¡ºåºæ‰§è¡Œï¼‰
+          // ★ 保存 checkpoint：步骤完成（顺序执行）
           const context = await this.getContext(missionId);
           const plan = context.plan as MissionExecutionPlan;
           void this.saveCheckpoint(
@@ -1373,7 +1373,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… å§”æ´¾ä»»åŠ¡ç»™æˆå‘˜ï¼ˆä½¿ç”¨ HandoffCoordinatorï¼‰
+   * ★ 委派任务给成员（使用 HandoffCoordinator）
    */
   private async delegateToMember(
     leader: ITeamMember,
@@ -1388,8 +1388,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         progress: 0,
       })
       .withConstraints([
-        `æ‰§è¡Œè€…è§’è‰²: ${member.role.name}`,
-        `å¯ç”¨æŠ€èƒ½: ${member.skills.join(", ")}`,
+        `执行者角色: ${member.role.name}`,
+        `可用技能: ${member.skills.join(", ")}`,
       ])
       .build();
 
@@ -1397,12 +1397,12 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       {
         fromAgentId: leader.id,
         toAgentId: member.id,
-        reason: `æ‰§è¡Œæ­¥éª¤: ${step.name}`,
+        reason: `执行步骤: ${step.name}`,
         context,
       },
-      // å‘é€æ¶ˆæ¯å›žè°ƒï¼šé€šè¿‡ A2A Bus å¹¿æ’­ handoff æ¶ˆæ¯
+      // 发送消息回调：通过 A2A Bus 广播 handoff 消息
       async (msg: CollaborationMessage) => {
-        this.logger.debug(`Handoff message: ${leader.id} â†’ ${member.id}`);
+        this.logger.debug(`Handoff message: ${leader.id} → ${member.id}`);
         void this.a2aBus?.publish({
           sessionId: missionId,
           fromAgentId: leader.id,
@@ -1411,10 +1411,10 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
           payload: msg,
         });
       },
-      // ç­‰å¾…å“åº”å›žè°ƒ
+      // 等待响应回调
       async (_fromAgentId: string, _timeout: number) => {
-        // æ¨¡æ‹Ÿæˆå‘˜æŽ¥å—ä»»åŠ¡
-        return { accepted: true, message: "ä»»åŠ¡å·²æŽ¥å—" };
+        // 模拟成员接受任务
+        return { accepted: true, message: "任务已接受" };
       },
     );
 
@@ -1426,8 +1426,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… æ­¥éª¤æ‰§è¡Œè¶…æ—¶åŒ…è£…å™¨
-   * ä½¿ç”¨ Promise.race å¼ºåˆ¶æ‰§è¡Œè¶…æ—¶ï¼Œé˜²æ­¢ LLM è°ƒç”¨æ— é™æŒ‚èµ·
+   * ★ 步骤执行超时包装器
+   * 使用 Promise.race 强制执行超时，防止 LLM 调用无限挂起
    */
   private async executeStepWithTimeout(
     step: ExecutionStep,
@@ -1436,27 +1436,27 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     state: MissionExecutionState,
     constraints: ConstraintProfile,
   ): Promise<StepExecutionResult> {
-    // èŽ·å–è¶…æ—¶æ—¶é—´ï¼šæ­¥éª¤é…ç½® > é»˜è®¤ 60 ç§’
+    // 获取超时时间：步骤配置 > 默认 60 秒
     const timeout = step.timeout || 60000;
 
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
         reject(
           new Error(
-            `æ­¥éª¤ "${step.name}" æ‰§è¡Œè¶…æ—¶ (${timeout / 1000}s)ã€‚è¿™å¯èƒ½æ˜¯å› ä¸º AI æ¨¡åž‹å“åº”ç¼“æ…¢æˆ–ç½‘ç»œé—®é¢˜ã€‚`,
+            `步骤 "${step.name}" 执行超时 (${timeout / 1000}s)。这可能是因为 AI 模型响应缓慢或网络问题。`,
           ),
         );
       }, timeout);
     });
 
     try {
-      // ä½¿ç”¨ Promise.race å¼ºåˆ¶è¶…æ—¶
+      // 使用 Promise.race 强制超时
       return await Promise.race([
         this.executeStepFull(step, executor, missionId, state, constraints),
         timeoutPromise,
       ]);
     } catch (error) {
-      // è¶…æ—¶æˆ–å…¶ä»–é”™è¯¯ï¼Œè¿”å›žå¤±è´¥ç»“æžœï¼ˆç¬¦åˆ StepExecutionResult æŽ¥å£ï¼‰
+      // 超时或其他错误，返回失败结果（符合 StepExecutionResult 接口）
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       this.logger.error(
@@ -1466,7 +1466,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       return {
         stepId: step.id,
         executor: executor.id,
-        output: `æ‰§è¡Œå¤±è´¥: ${errorMessage}`,
+        output: `执行失败: ${errorMessage}`,
         timestamp: new Date(),
         tokensUsed: 0,
         costUsed: 0,
@@ -1475,7 +1475,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… å®Œæ•´æ‰§è¡Œæ­¥éª¤ï¼ˆé›†æˆ Skills + Tools + LLMï¼‰
+   * ★ 完整执行步骤（集成 Skills + Tools + LLM）
    */
   private async executeStepFull(
     step: ExecutionStep,
@@ -1488,12 +1488,12 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     let totalTokens = 0;
     let totalCost = 0;
 
-    // â˜… ä¼˜å…ˆä½¿ç”¨ç›´æŽ¥å­˜å‚¨çš„åŽŸå§‹è¾“å…¥ï¼ˆä¸ä¾èµ– Memory æœåŠ¡ï¼‰
+    // ★ 优先使用直接存储的原始输入（不依赖 Memory 服务）
     const originalInput = this.originalInputs.get(missionId);
     const missionInput =
       originalInput || (context.input as MissionInput | undefined);
 
-    // â˜… è°ƒè¯•æ—¥å¿—ï¼šç¡®è®¤æ•°æ®æ¥æº
+    // ★ 调试日志：确认数据来源
     if (!missionInput) {
       this.logger.warn(
         `[executeStepFull] No MissionInput found for ${missionId}. originalInput: ${!!originalInput}, context.input: ${!!context.input}`,
@@ -1504,14 +1504,14 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       );
     }
 
-    // â˜… 1. æ‰§è¡Œ Member çš„æŠ€èƒ½
+    // ★ 1. 执行 Member 的技能
     const skillResults: Array<{ skillId: string; result: SkillResult }> = [];
     if (this.skillRegistry && executor.skills.length > 0) {
       for (const skillId of executor.skills) {
         const skill = this.skillRegistry.tryGet(skillId);
         if (skill) {
-          // â˜… å…³é”®ä¿®å¤ï¼šä¸ºæŠ€èƒ½è®¾ç½® LLM é€‚é…å™¨
-          // Skills é€šè¿‡ callLLM() è°ƒç”¨ LLMï¼Œéœ€è¦å…ˆè®¾ç½® adapter
+          // ★ 关键修复：为技能设置 LLM 适配器
+          // Skills 通过 callLLM() 调用 LLM，需要先设置 adapter
           if (this.llmAdapter && "setLLMAdapter" in skill) {
             (
               skill as { setLLMAdapter: (adapter: ISimpleLLMAdapter) => void }
@@ -1532,8 +1532,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
           }
 
           try {
-            // â˜… ä¼˜å…ˆä½¿ç”¨ missionInput.metadata.sessionIdï¼ˆSlides ç­‰åº”ç”¨ä¼ å…¥çš„å®žé™…ä¼šè¯ IDï¼‰
-            // å¦åˆ™å›žé€€åˆ° missionIdï¼ˆé»˜è®¤è¡Œä¸ºï¼‰
+            // ★ 优先使用 missionInput.metadata.sessionId（Slides 等应用传入的实际会话 ID）
+            // 否则回退到 missionId（默认行为）
             const actualSessionId =
               (missionInput?.metadata?.sessionId as string) || missionId;
 
@@ -1546,10 +1546,10 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               createdAt: new Date(),
             };
 
-            // â˜… æž„å»ºæŠ€èƒ½è¾“å…¥ - ä»Ž metadata.context æå– sourceText
-            // æ•°æ®æµï¼šSlidesEngineService çš„ context: input.sourceText
-            //        â†’ TeamsService çš„ metadata.context
-            //        â†’ è¿™é‡Œæå–åˆ° skillInput.context.input.sourceText
+            // ★ 构建技能输入 - 从 metadata.context 提取 sourceText
+            // 数据流：SlidesEngineService 的 context: input.sourceText
+            //        → TeamsService çš„ metadata.context
+            //        → 这里提取到 skillInput.context.input.sourceText
             const sourceText =
               (missionInput?.metadata?.context as string) || "";
             const userRequirement = missionInput?.prompt || "";
@@ -1565,7 +1565,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               context: {
                 ...context,
                 input: {
-                  // â˜… å°† metadata ä¸­çš„å­—æ®µæå‡åˆ° input å±‚çº§ï¼Œä¾¿äºŽæŠ€èƒ½è®¿é—®
+                  // ★ 将 metadata 中的字段提升到 input 层级，便于技能访问
                   sourceText,
                   userRequirement,
                   targetPages: missionInput?.metadata?.targetPages as
@@ -1583,7 +1583,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
                   sessionId: missionInput?.metadata?.sessionId as
                     | string
                     | undefined,
-                  // ä¿ç•™åŽŸå§‹ input ä½œä¸º _raw
+                  // 保留原始 input 作为 _raw
                   _raw: missionInput,
                 },
               },
@@ -1606,7 +1606,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       }
     }
 
-    // â˜… 2. ä½¿ç”¨ LLM æ‰§è¡Œï¼ˆèžåˆæŠ€èƒ½ç»“æžœå’Œäººè®¾ï¼‰
+    // ★ 2. 使用 LLM 执行（融合技能结果和人设）
     let llmOutput: string | undefined;
     let toolResults: unknown[] = [];
 
@@ -1614,17 +1614,17 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       const adapter = this.llmFactory.getAdapter();
       if (adapter) {
         try {
-          // â˜… æž„å»ºèžåˆäººè®¾çš„ç³»ç»Ÿæç¤ºè¯
+          // ★ 构建融合人设的系统提示词
           const systemPrompt = this.buildSystemPromptWithPersona(executor);
 
-          // â˜… æž„å»ºèžåˆæŠ€èƒ½ç»“æžœçš„ç”¨æˆ·æç¤ºè¯
+          // ★ 构建融合技能结果的用户提示词
           const userPrompt = this.buildStepPromptWithSkills(
             step,
             context,
             skillResults,
           );
 
-          // æ”¶é›†å¯ç”¨å·¥å…·
+          // 收集可用工具
           const tools = await this.collectAvailableTools(executor);
 
           const response = await adapter.chat({
@@ -1645,7 +1645,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
 
           llmOutput = response.content ?? undefined;
 
-          // è®°å½•æˆæœ¬
+          // 记录成本
           if (response.usage) {
             const cost = this.constraintEngine.recordCost(
               `step_${step.id}`,
@@ -1660,7 +1660,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
               (response.usage.completionTokens || 0);
           }
 
-          // å¤„ç†å·¥å…·è°ƒç”¨
+          // 处理工具调用
           if (response.toolCalls && response.toolCalls.length > 0) {
             toolResults = await this.handleToolCalls(response.toolCalls);
           }
@@ -1672,11 +1672,11 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       }
     }
 
-    // æ›´æ–°çŠ¶æ€
+    // 更新状态
     state.resourceUsage.tokensUsed += totalTokens;
     state.resourceUsage.costUsed += totalCost;
 
-    // å¦‚æžœæ²¡æœ‰ LLM è¾“å‡ºï¼Œä½¿ç”¨æŠ€èƒ½ç»“æžœæˆ–æ¨¡æ‹Ÿ
+    // 如果没有 LLM 输出，使用技能结果或模拟
     if (!llmOutput) {
       if (skillResults.length > 0) {
         llmOutput = skillResults
@@ -1700,7 +1700,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… å¸¦è¿”å·¥ä¸Šä¸‹æ–‡æ‰§è¡Œæ­¥éª¤
+   * ★ 带返工上下文执行步骤
    */
   private async executeStepWithRework(
     step: ExecutionStep,
@@ -1719,7 +1719,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         try {
           const systemPrompt = this.buildSystemPromptWithPersona(executor);
 
-          // â˜… æž„å»ºè¿”å·¥æç¤ºè¯ï¼ˆåŒ…å«å®¡æ ¸åé¦ˆï¼‰
+          // ★ 构建返工提示词（包含审核反馈）
           const userPrompt = this.buildReworkPrompt(
             step,
             context,
@@ -1780,17 +1780,17 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… æž„å»ºèžåˆäººè®¾çš„ç³»ç»Ÿæç¤ºè¯
+   * ★ 构建融合人设的系统提示词
    */
   private buildSystemPromptWithPersona(executor: ITeamMember): string {
     let prompt = executor.getSystemPrompt();
 
-    // â˜… èžåˆäººè®¾
+    // ★ 融合人设
     if (executor.persona) {
       prompt = `${executor.persona}\n\n${prompt}`;
     }
 
-    // â˜… èžåˆå·¥ä½œé£Žæ ¼
+    // ★ 融合工作风格
     const workStyle = executor.workStyle;
     if (workStyle) {
       const styleHints: string[] = [];
@@ -1825,7 +1825,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… æž„å»ºèžåˆæŠ€èƒ½ç»“æžœçš„ç”¨æˆ·æç¤ºè¯
+   * ★ 构建融合技能结果的用户提示词
    */
   private buildStepPromptWithSkills(
     step: ExecutionStep,
@@ -1845,7 +1845,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       prompt += `## 前序步骤输出\n${JSON.stringify(context.previousOutputs, null, 2)}\n\n`;
     }
 
-    // â˜… èžåˆæŠ€èƒ½æ‰§è¡Œç»“æžœ
+    // ★ 融合技能执行结果
     if (skillResults.length > 0) {
       prompt += `## 技能分析结果\n`;
       for (const { skillId, result } of skillResults) {
@@ -1861,7 +1861,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… æž„å»ºè¿”å·¥æç¤ºè¯
+   * ★ 构建返工提示词
    */
   private buildReworkPrompt(
     step: ExecutionStep,
@@ -1887,7 +1887,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * æ ¹æ®å·¥ä½œé£Žæ ¼æ˜ å°„ creativity ç­‰çº§ï¼ˆç”¨äºŽ taskProfileï¼‰
+   * 根据工作风格映射 creativity 等级（用于 taskProfile）
    */
   private mapWorkStyleToCreativity(
     workStyle: ITeamMember["workStyle"],
@@ -1899,8 +1899,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * ä»Ž LLM è¾“å‡ºä¸­æå–ç¬¬ä¸€ä¸ªå®Œæ•´ JSON å¯¹è±¡ï¼ˆbalanced-brace ç®—æ³•ï¼‰
-   * è§£å†³ firstBrace/lastBrace åœ¨å¤š JSON å¯¹è±¡æ—¶æˆªå–é”™è¯¯çš„é—®é¢˜
+   * 从 LLM 输出中提取第一个完整 JSON 对象（balanced-brace 算法）
+   * 解决 firstBrace/lastBrace 在多 JSON 对象时截取错误的问题
    */
   private extractFirstJsonObject(content: string): string | null {
     const start = content.indexOf("{");
@@ -1933,8 +1933,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * æ ¹æ®è´¨é‡æ·±åº¦æ˜ å°„ outputLengthï¼ˆç”¨äºŽ taskProfileï¼‰
-   * depth ä¸ºä¸»ä¿¡å·ï¼›standard æ—¶ç”¨ workStyle.outputStyle ä½œä¸º tiebreaker
+   * 根据质量深度映射 outputLength（用于 taskProfile）
+   * depth 为主信号；standard 时用 workStyle.outputStyle 作为 tiebreaker
    */
   private mapDepthToOutputLength(
     depth: ConstraintProfile["quality"]["depth"],
@@ -1942,21 +1942,21 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   ): "short" | "medium" | "long" {
     if (depth === "comprehensive") return "long";
     if (depth === "quick") return "short";
-    // standard â†’ ç”¨ outputStyle ç»†åŒ–
+    // standard → 用 outputStyle 细化
     if (workStyle?.outputStyle === "detailed") return "long";
     if (workStyle?.outputStyle === "concise") return "short";
     return "medium";
   }
 
   /**
-   * æ”¶é›†å¯ç”¨å·¥å…·
+   * 收集可用工具
    */
   private async collectAvailableTools(
     executor: ITeamMember,
   ): Promise<LLMToolDefinition[]> {
     const tools: LLMToolDefinition[] = [];
 
-    // ä»Ž ToolRegistry èŽ·å–å·¥å…·
+    // 从 ToolRegistry 获取工具
     if (this.toolRegistry) {
       for (const toolId of executor.tools) {
         const tool = this.toolRegistry.tryGet(toolId);
@@ -1976,7 +1976,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       }
     }
 
-    // ä»Ž MCP èŽ·å–å·¥å…·
+    // 从 MCP 获取工具
     if (this.mcpManager) {
       try {
         const mcpTools = await this.mcpManager.getAllToolsFlat();
@@ -2004,7 +2004,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * å¤„ç†å·¥å…·è°ƒç”¨
+   * 处理工具调用
    */
   private async handleToolCalls(
     toolCalls: Array<{ name: string; arguments: Record<string, unknown> }>,
@@ -2013,7 +2013,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
 
     for (const call of toolCalls) {
       try {
-        // MCP å·¥å…·
+        // MCP 工具
         if (call.name.startsWith("mcp_") && this.mcpManager) {
           const toolName = call.name.replace("mcp_", "");
           const result = await this.mcpManager.callToolAuto(
@@ -2024,7 +2024,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
           continue;
         }
 
-        // å†…ç½®å·¥å…·
+        // 内置工具
         if (this.toolRegistry) {
           const tool = this.toolRegistry.tryGet(call.name);
           if (tool) {
@@ -2050,7 +2050,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * å®¡æ ¸æ­¥éª¤è¾“å‡º
+   * 审核步骤输出
    */
   async review(
     stepId: string,
@@ -2122,7 +2122,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       }
     }
 
-    // é™çº§ï¼šLLM å®¡æ ¸ä¸å¯ç”¨ï¼Œè¿”å›žå›ºå®šé€šè¿‡ï¼ˆscore 7ï¼Œä¸è§¦å‘è¿”å·¥ï¼‰
+    // 降级：LLM 审核不可用，返回固定通过（score 7，不触发返工）
     return {
       stepId,
       passed: true,
@@ -2133,7 +2133,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… ç”Ÿæˆäº¤ä»˜ç‰©ï¼ˆé›†æˆå¯¼å‡ºå·¥å…·ï¼‰
+   * ★ 生成交付物（集成导出工具）
    */
   async deliver(
     state: MissionExecutionState,
@@ -2144,7 +2144,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     const deliverables: MissionDeliverable[] = [];
     const allOutputs = Array.from(state.intermediateOutputs.values());
 
-    // â˜… å°è¯•ä½¿ç”¨å¯¼å‡ºå·¥å…·ç”Ÿæˆæ–‡æ¡£
+    // ★ 尝试使用导出工具生成文档
     const exportTools = ["export-docx", "export-pdf"];
     let documentGenerated = false;
 
@@ -2153,7 +2153,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
         const tool = this.toolRegistry.tryGet(toolId);
         if (tool) {
           try {
-            // æ•´åˆå†…å®¹
+            // 整合内容
             const content = this.integrateOutputsForExport(allOutputs);
 
             const toolContext = {
@@ -2164,7 +2164,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
             };
             const result = await tool.execute(
               {
-                title: "ä»»åŠ¡æŠ¥å‘Š",
+                title: "任务报告",
                 content,
                 format: toolId.replace("export-", ""),
               },
@@ -2176,8 +2176,8 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
                 id: uuidv4(),
                 missionId: state.missionId,
                 type: toolId.replace("export-", "") as "report",
-                name: `ä»»åŠ¡æŠ¥å‘Š.${toolId.replace("export-", "")}`,
-                description: "è‡ªåŠ¨ç”Ÿæˆçš„ä»»åŠ¡æŠ¥å‘Šæ–‡æ¡£",
+                name: `任务报告.${toolId.replace("export-", "")}`,
+                description: "自动生成的任务报告文档",
                 mimeType:
                   toolId === "export-pdf"
                     ? "application/pdf"
@@ -2198,19 +2198,19 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
       }
     }
 
-    // å§‹ç»ˆç”Ÿæˆ JSON æŠ¥å‘Š
+    // 始终生成 JSON 报告
     deliverables.push({
       id: uuidv4(),
       missionId: state.missionId,
       type: "report",
-      name: "ä»»åŠ¡æŠ¥å‘Š",
+      name: "任务报告",
       description: documentGenerated
-        ? "ä»»åŠ¡æ‰§è¡Œç»“æžœè¯¦ç»†æ•°æ®"
-        : "ä»»åŠ¡æ‰§è¡Œç»“æžœæ±‡æ€»æŠ¥å‘Š",
+        ? "任务执行结果详细数据"
+        : "任务执行结果汇总报告",
       mimeType: "application/json",
       size: JSON.stringify(allOutputs).length,
       content: {
-        summary: "ä»»åŠ¡æ‰§è¡Œå®Œæˆ",
+        summary: "任务执行完成",
         outputs: allOutputs,
         statistics: {
           totalSteps: state.completedSteps.length + state.failedSteps.length,
@@ -2227,7 +2227,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… æ•´åˆè¾“å‡ºç”¨äºŽå¯¼å‡º
+   * ★ 整合输出用于导出
    */
   private integrateOutputsForExport(outputs: unknown[]): string {
     const sections: string[] = [];
@@ -2250,7 +2250,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * å–æ¶ˆæ‰§è¡Œ
+   * 取消执行
    */
   async cancel(missionId: string): Promise<void> {
     const state = this.states.get(missionId);
@@ -2267,20 +2267,20 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     }
     this.a2aBus?.clearSession(missionId);
     this.originalInputs.delete(missionId);
-    // â˜… åœå¿ƒè·³ + æ¸… runtime store
+    // ★ 停心跳 + 清 runtime store
     this.stopHeartbeat(missionId);
   }
 
   /**
-   * èŽ·å–æ‰§è¡ŒçŠ¶æ€ï¼ˆåŒæ­¥è·¯å¾„ â€”â€” ä»… in-memoryï¼›è·¨ pod è¯·ç”¨ getStateAsyncï¼‰
+   * 获取执行状态（同步路径 —— 仅 in-memory；跨 pod 请用 getStateAsync）
    */
   getState(missionId: string): MissionExecutionState | undefined {
     return this.states.get(missionId);
   }
 
   /**
-   * â˜… Phase 9 (2026-04-30): è·¨ pod å– state â€”â€” in-memory miss æ—¶é™çº§åˆ° runtime storeã€‚
-   * ç”¨äºŽ admin / recovery åœºæ™¯ï¼Œæ™®é€š mission æ‰§è¡Œå¾ªçŽ¯ä»èµ°åŒæ­¥ getStateã€‚
+   * ★ Phase 9 (2026-04-30): 跨 pod 取 state —— in-memory miss 时降级到 runtime store。
+   * 用于 admin / recovery 场景，普通 mission 执行循环仍走同步 getState。
    */
   async getStateAsync(
     missionId: string,
@@ -2290,15 +2290,15 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     if (!this.runtimeStore) return undefined;
     const remote = await this.runtimeStore.getState(missionId);
     if (remote) {
-      // å›žå¡« in-memoryï¼ˆé¿å…é‡å¤è¯» Redisï¼‰
+      // 回填 in-memory（避免重复读 Redis）
       this.states.set(missionId, remote);
     }
     return remote;
   }
 
   /**
-   * æ›´æ–°æ‰§è¡ŒçŠ¶æ€ï¼ˆä¾›å¤–éƒ¨æµç¨‹ä½¿ç”¨ï¼‰
-   * ç”¨äºŽéžæ ‡å‡†æµç¨‹ï¼ˆå¦‚ generateFullStoryï¼‰åŒæ­¥çŠ¶æ€åˆ° orchestrator
+   * 更新执行状态（供外部流程使用）
+   * 用于非标准流程（如 generateFullStory）同步状态到 orchestrator
    */
   updateState(
     missionId: string,
@@ -2334,7 +2334,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * èŽ·å–èµ„æºä½¿ç”¨æƒ…å†µ
+   * 获取资源使用情况
    */
   getResourceUsage(missionId: string): ResourceUsage | undefined {
     return this.states.get(missionId)?.resourceUsage;
@@ -2372,7 +2372,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
     }
   }
 
-  // ==================== ç§æœ‰æ–¹æ³• ====================
+  // ==================== 私有方法 ====================
 
   private initializeState(missionId: string): MissionExecutionState {
     return {
@@ -2522,9 +2522,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   private extractTopics(prompt: string): string[] {
-    const words = prompt
-      .split(/[ï¼Œã€‚ï¼ï¼Ÿã€\s]+/)
-      .filter((w) => w.length > 2);
+    const words = prompt.split(/[，。！？、\s]+/).filter((w) => w.length > 2);
     return words.slice(0, 5);
   }
 
@@ -2557,7 +2555,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… ä¿å­˜æ£€æŸ¥ç‚¹ï¼ˆéžé˜»å¡žï¼Œå¤±è´¥æ—¶è®°å½•è­¦å‘Šï¼‰
+   * ★ 保存检查点（非阻塞，失败时记录警告）
    */
   private async saveCheckpoint(
     executionId: string,
@@ -2607,7 +2605,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   // â”€â”€â”€ AI Kernel Helpers â”€â”€â”€
 
   /**
-   * â˜… è®°å½• Kernel äº‹ä»¶ï¼ˆfire-and-forgetï¼Œä¸é˜»å¡žä¸»æµç¨‹ï¼‰
+   * ★ 记录 Kernel 事件（fire-and-forget，不阻塞主流程）
    */
   private recordKernelEvent(
     missionId: string,
@@ -2627,7 +2625,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… æ ‡è®° Kernel è¿›ç¨‹å®Œæˆï¼ˆfire-and-forgetï¼‰
+   * ★ 标记 Kernel 进程完成（fire-and-forget）
    */
   private completeKernelProcess(
     missionId: string,
@@ -2647,7 +2645,7 @@ CRITICAL: Your entire response MUST be valid JSON only. No explanation, no markd
   }
 
   /**
-   * â˜… æ ‡è®° Kernel è¿›ç¨‹å¤±è´¥ï¼ˆfire-and-forgetï¼‰
+   * ★ 标记 Kernel 进程失败（fire-and-forget）
    */
   private failKernelProcess(missionId: string, error: string): void {
     const processId = this.kernelProcessIds.get(missionId);

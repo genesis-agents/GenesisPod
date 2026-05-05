@@ -1,18 +1,18 @@
 /**
  * A2A (Agent-to-Agent) Module
- * å°† Genesis.ai æš´éœ²ä¸º A2A å…¼å®¹çš„ Agentï¼Œè®©å¤–éƒ¨ AI Agent å¯ä»¥å‘çŽ°å’Œè°ƒç”¨ Genesis èƒ½åŠ›ã€‚
+ * 将 Genesis.ai 暴露为 A2A 兼容的 Agent，让外部 AI Agent 可以发现和调用 Genesis 能力。
  *
- * TraceCollectorService æ¥è‡ª @Global() ObservabilityModuleï¼Œæœ¬æ¨¡å—æ— éœ€å†æ¬¡æ³¨å†Œä¸º providerã€‚
+ * TraceCollectorService 来自 @Global() ObservabilityModule，本模块无需再次注册为 provider。
  */
 
 /**
  * A2A (Agent-to-Agent) Module
- * å°† Genesis.ai æš´éœ²ä¸º A2A å…¼å®¹çš„ Agentï¼Œè®©å¤–éƒ¨ AI Agent å¯ä»¥å‘çŽ°å’Œè°ƒç”¨ Genesis èƒ½åŠ›ã€‚
+ * 将 Genesis.ai 暴露为 A2A 兼容的 Agent，让外部 AI Agent 可以发现和调用 Genesis 能力。
  *
- * Controller (A2AController) è¿ç§»è‡³ open-api/a2a-server.controller.ts (PR-X17)ã€‚
- * DI token ç»‘å®šä¿ç•™åœ¨æœ¬æ¨¡å—ï¼ˆä½œä¸ºæœåŠ¡åè®®å±‚ï¼‰ã€‚
+ * Controller (A2AController) 迁移至 open-api/a2a-server.controller.ts (PR-X17)。
+ * DI token 绑定保留在本模块（作为服务协议层）。
  *
- * TraceCollectorService æ¥è‡ª @Global() ObservabilityModuleï¼Œæœ¬æ¨¡å—æ— éœ€å†æ¬¡æ³¨å†Œä¸º providerã€‚
+ * TraceCollectorService 来自 @Global() ObservabilityModule，本模块无需再次注册为 provider。
  */
 
 import { Module } from "@nestjs/common";

@@ -1,13 +1,13 @@
 /**
- * BillingRuntimeEnvAdapter â€” æŠŠ ai-infra/credits + RuntimeEnvironmentService
- * é€‚é…ä¸º Harness çš„ IRuntimeEnvironment æŽ¥å£ã€‚
+ * BillingRuntimeEnvAdapter — 把 ai-infra/credits + RuntimeEnvironmentService
+ * 适配为 Harness 的 IRuntimeEnvironment 接口。
  *
- * ä¸šåŠ¡æ–¹å‚è€ƒå®žçŽ°ï¼šfork æ”¹æˆè‡ªå·±çš„ BillingContext é€‚é…å™¨å³å¯ã€‚
+ * 业务方参考实现：fork 改成自己的 BillingContext 适配器即可。
  *
- * çœŸå®žè·¯å¾„ï¼š
- *   - CreditsService.getBalanceï¼ˆçœŸæ‰£ / çœŸæŸ¥ï¼‰
+ * 真实路径：
+ *   - CreditsService.getBalance（真扣 / 真查）
  *   - RuntimeEnvironmentService.snapshot æ‹¿ BYOK å€™é€‰ model æ±
- *   - suggestFallback æŒ‰ä½™é¢çŠ¶æ€è¿”å›žçœŸå®žé™çº§å»ºè®®
+ *   - suggestFallback 按余额状态返回真实降级建议
  */
 
 import type {
@@ -23,20 +23,20 @@ import type { RuntimeEnvironmentService } from "../../../ai-harness/guardrails/r
 
 const LOW_BALANCE_THRESHOLD = 500;
 const CRITICAL_BALANCE_THRESHOLD = 100;
-/** balance ç¼“å­˜ TTL â€”â€” 30s å†… getCreditState/getQuotaSnapshot/suggestFallback å…±äº«ä¸€æ¬¡ DB æŸ¥è¯¢ */
+/** balance 缓存 TTL —— 30s 内 getCreditState/getQuotaSnapshot/suggestFallback 共享一次 DB 查询 */
 const BALANCE_CACHE_TTL_MS = 30_000;
 
 type BalanceAcct = Awaited<ReturnType<CreditsService["getBalance"]>>;
 
 export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
-  /** mission å†… balance ç¼“å­˜ï¼š8+ æ¬¡ runner.run åªæŸ¥ 1 æ¬¡ DB */
+  /** mission 内 balance 缓存：8+ 次 runner.run 只查 1 次 DB */
   private balanceCache: { acct: BalanceAcct; expiresAt: number } | null = null;
 
   /**
-   * â˜… è·¨ mission å¤±è´¥æ¨¡å¼æŽ¥å…¥ç‚¹ï¼šmission å¯åŠ¨å‰ç”± FailureLearnerService.lookup
-   * å–‚å…¥"å·²çŸ¥ä¼šæ’žå¢™çš„ (modelId â†’ å¤‡é€‰ modelId)"æ˜ å°„ã€‚
-   * getModelAvailability å‘½ä¸­ disabled set æ—¶è¿”å›ž available=false + fallbackToï¼Œ
-   * çŽ°æœ‰ react-loop çš„ tier-model fallback é“¾è·¯è‡ªåŠ¨æŽ¥ä½ã€‚
+   * ★ 跨 mission 失败模式接入点：mission 启动前由 FailureLearnerService.lookup
+   * 喂入"已知会撞墙的 (modelId → 备选 modelId)"映射。
+   * getModelAvailability 命中 disabled set 时返回 available=false + fallbackTo，
+   * 现有 react-loop 的 tier-model fallback 链路自动接住。
    */
   private readonly disabledModels = new Map<string, string>();
 
@@ -48,19 +48,19 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   ) {}
 
   /**
-   * æ ‡è®°æŸ modelId åœ¨æœ¬ mission å†…ç¦ç”¨ï¼ˆpattern å·²çŸ¥ä¼šå¤±è´¥ï¼‰ï¼Œå¹¶æä¾› fallbackã€‚
-   * ç”± orchestrator è°ƒç”¨ï¼šlookup å¤±è´¥æ¨¡å¼ â†’ å‘½ä¸­ä¸”æœ‰ lastFallbackModel â†’ æ ‡è®°ã€‚
+   * 标记某 modelId 在本 mission 内禁用（pattern 已知会失败），并提供 fallback。
+   * 由 orchestrator 调用：lookup 失败模式 → 命中且有 lastFallbackModel → 标记。
    */
   markModelDisabled(failedModelId: string, fallbackModelId: string): void {
     this.disabledModels.set(failedModelId, fallbackModelId);
   }
 
-  /** å½“ mission å†…æŸæ¬¡è°ƒç”¨èµ°äº† fallback å¹¶è·‘é€šåŽï¼Œå¤–éƒ¨è°ƒç”¨æ–¹ query ç”¨ */
+  /** 当 mission 内某次调用走了 fallback 并跑通后，外部调用方 query 用 */
   getDisabledModels(): ReadonlyMap<string, string> {
     return this.disabledModels;
   }
 
-  /** å¸¦ TTL çš„ balance æŸ¥è¯¢ â€” DB è°ƒç”¨èšåˆåˆ°ä¸€æ¬¡ */
+  /** 带 TTL 的 balance 查询 — DB 调用聚合到一次 */
   private async getCachedBalance(): Promise<BalanceAcct> {
     const now = Date.now();
     if (this.balanceCache && this.balanceCache.expiresAt > now) {
@@ -74,13 +74,13 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     return acct;
   }
 
-  /** æ˜¾å¼å¤±æ•ˆï¼ˆå¦‚åˆšæ‰£äº†è´¹æƒ³ç«‹åˆ»æŸ¥æœ€æ–°ï¼‰ */
+  /** 显式失效（如刚扣了费想立刻查最新） */
   invalidateBalanceCache(): void {
     this.balanceCache = null;
   }
 
   async getByokStatus(): Promise<ByokStatus> {
-    // RuntimeEnvironmentService.snapshot å·²è‡ªå¸¦ 30s cache
+    // RuntimeEnvironmentService.snapshot 已自带 30s cache
     const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
     if (snap.userKeys.hasByok) return "personal";
     if (snap.userKeys.sharedKeyAvailable) return "donated";
@@ -98,12 +98,12 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   /**
-   * â˜… Phase P1-16: ToolACL çœŸå®žæŽ¥å…¥ï¼ˆmission-pipeline-tool-acl.mdï¼‰
+   * ★ Phase P1-16: ToolACL 真实接入（mission-pipeline-tool-acl.md）
    *
-   * å½“å‰å®žçŽ°ï¼šä»Ž RuntimeEnvironmentService.snapshot è¯» userKeys æŽ¨ entitlementsã€‚
-   *   - ä»»ä½•ç”¨æˆ·éƒ½è§†ä¸ºæœ‰ 'public' entitlement
-   *   - æœ‰ BYOK çš„ç”¨æˆ·é¢å¤–å¾— 'image.generation'ï¼ˆç”¨æˆ·è‡ªè´¹ï¼Œå¯å¯å›¾åƒç”Ÿæˆï¼‰
-   *   - å¹³å° admin entitlement æš‚ä¸å®žçŽ°ï¼ˆéœ€ user_subscription è¡¨ï¼ŒP2ï¼‰
+   * 当前实现：从 RuntimeEnvironmentService.snapshot 读 userKeys 推 entitlements。
+   *   - 任何用户都视为有 'public' entitlement
+   *   - 有 BYOK 的用户额外得 'image.generation'（用户自费，可启图像生成）
+   *   - 平台 admin entitlement 暂不实现（需 user_subscription 表，P2）
    */
   async getUserEntitlements(): Promise<{
     keys: string[];
@@ -113,7 +113,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
       const keys = ["public"];
       if (snap.userKeys.hasByok) {
-        keys.push("image.generation"); // è‡ªè´¹ BYOK ç”¨æˆ·å¯è°ƒå›¾åƒç”Ÿæˆ
+        keys.push("image.generation"); // 自费 BYOK 用户可调图像生成
       }
       return { keys };
     } catch {
@@ -123,8 +123,8 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   async getModelAvailability(modelId: string): Promise<IModelAvailability> {
-    // â˜… ä¼˜å…ˆçº§ #1ï¼šæœ¬ mission å†…å·²æ ‡è®°ç¦ç”¨ï¼ˆæ¥è‡ª FailureLearnerService çš„
-    // åŽ†å²å¤±è´¥æ¨¡å¼ï¼‰â€”â€” ç›´æŽ¥è¿”å›ž fallback å€™é€‰ï¼Œç»•å¼€æµªè´¹ token é‡è¹ˆè¦†è¾™ã€‚
+    // ★ 优先级 #1：本 mission 内已标记禁用（来自 FailureLearnerService 的
+    // 历史失败模式）—— 直接返回 fallback 候选，绕开浪费 token 重蹈覆辙。
     const disabledFallback = this.disabledModels.get(modelId);
     if (disabledFallback) {
       return {
@@ -138,9 +138,9 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     for (const pool of Object.values(snap.models)) {
       const found = pool.find((m) => m.modelId === modelId);
       if (found) {
-        // â˜… ä¸‰æ€è¯­ä¹‰ï¼šunhealthy æ‰æŠ¥ outageï¼›unknown ä¸é˜»æ–­ï¼ˆé¿å…æ–°æŽ¥ BYOK
-        //   æ¨¡åž‹ä»Žæœªè°ƒç”¨è¿‡è¢«é”™æ€ï¼‰ï¼Œè®© LLM çœŸåŽ»æ‰“ä¸€æ¬¡ï¼Œå¤±è´¥ç”± ToolCircuitBreaker
-        //   / metrics è¡¨åè¿‡æ¥æ›´æ–° healthyã€‚
+        // ★ 三态语义：unhealthy 才报 outage；unknown 不阻断（避免新接 BYOK
+        //   模型从未调用过被错杀），让 LLM 真去打一次，失败由 ToolCircuitBreaker
+        //   / metrics 表反过来更新 healthy。
         if (found.healthy === "unhealthy") {
           const fallback = pool.find(
             (m) =>
@@ -170,7 +170,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     const all: IModelAvailability[] = [];
     for (const pool of Object.values(snap.models)) {
       for (const m of pool) {
-        // available = healthy !== "unhealthy"ï¼ˆunknown ä¹Ÿç®—å¯ç”¨ï¼‰
+        // available = healthy !== "unhealthy"（unknown 也算可用）
         all.push({ modelId: m.modelId, available: m.healthy !== "unhealthy" });
       }
     }
@@ -178,12 +178,12 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   /**
-   * Phase P3-7: stage é¢„æ£€ï¼ˆmission-pipeline-baseline.md Â§9.3 Q10ï¼‰
+   * Phase P3-7: stage 预检（mission-pipeline-baseline.md §9.3 Q10）
    *
-   * ä¼°ç®—ç»™å®š budget æ˜¯å¦å¯è´Ÿæ‹…ã€‚è¿”å›ž:
-   *   - affordable: å½“å‰ä½™é¢æ˜¯å¦å¤Ÿ
-   *   - shortfall: ä¸å¤Ÿæ—¶å·®å¤šå°‘
-   *   - suggestion: 'proceed'|'downgrade'|'abort' å†³ç­–å»ºè®®
+   * 估算给定 budget 是否可负担。返回:
+   *   - affordable: 当前余额是否够
+   *   - shortfall: 不够时差多少
+   *   - suggestion: 'proceed'|'downgrade'|'abort' 决策建议
    */
   async estimateAffordable(budget: { maxTokens?: number }): Promise<{
     affordable: boolean;
@@ -193,7 +193,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     currentBalance: number;
   }> {
     const acct = await this.getCachedBalance();
-    // ç²—ä¼°ï¼š1000 tokens â‰ˆ 1 creditï¼ˆä¾æ¨¡åž‹å±‚ä¸åŒä¼šæœ‰å·®å¼‚ï¼‰
+    // 粗估：1000 tokens ≈ 1 credit（依模型层不同会有差异）
     const estimatedCredits = Math.ceil((budget.maxTokens ?? 0) / 1000);
     if (acct.balance >= estimatedCredits) {
       return {
@@ -225,7 +225,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
 
   async getQuotaSnapshot(): Promise<IQuotaSnapshot> {
     const acct = await this.getCachedBalance();
-    // CreditsService.getBalance åªæš´éœ² balance / todaySpent
+    // CreditsService.getBalance 只暴露 balance / todaySpent
     return {
       balance: { used: 0, limit: acct.balance },
       daily_credit: {
@@ -240,19 +240,19 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     failedModelId?: string;
     reason: string;
   }): Promise<IFallbackHint> {
-    // â”€â”€ åŸºç¡€è®¾æ–½çº§ï¼ˆè€ï¼‰â”€â”€
+    // ── 基础设施级（老）──
     if (input.reason === "no_credit") {
       const acct = await this.getCachedBalance();
       if (acct.balance <= CRITICAL_BALANCE_THRESHOLD) {
         return {
           action: "notify_user",
-          reason: "ä½™é¢å·²è€—å°½ï¼Œè¯·å……å€¼åŽé‡è¯•",
-          userMessage: `å½“å‰ç§¯åˆ† ${acct.balance}ï¼Œä¸è¶³ä»¥å®Œæˆæœ¬æ¬¡ä»»åŠ¡ã€‚è¯·å‰å¾€ /credits å……å€¼ã€‚`,
+          reason: "余额已耗尽，请充值后重试",
+          userMessage: `当前积分 ${acct.balance}，不足以完成本次任务。请前往 /credits 充值。`,
         };
       }
       return {
         action: "downgrade",
-        reason: `æœ¬æ¬¡é¢„ç®—è¶…é™ï¼›å»ºè®®é™çº§åˆ°ä¾¿å®œæ¨¡åž‹`,
+        reason: `本次预算超限；建议降级到便宜模型`,
       };
     }
     if (input.reason === "rate_limit") {
@@ -263,7 +263,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       if (fb) {
         return {
           action: "downgrade",
-          reason: `${input.failedModelId} ä¸å¯ç”¨ï¼Œåˆ‡åˆ° ${fb}`,
+          reason: `${input.failedModelId} 不可用，切到 ${fb}`,
           fallbackModelId: fb,
         };
       }
@@ -272,10 +272,10 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       return { action: "abort", reason: input.reason };
     }
 
-    // â”€â”€ LLM åè®®çº§ï¼ˆæ–°å¢žï¼‰â”€â”€
-    // safety_refusal / reasoning_exhaustion / empty_responseï¼š
-    // åˆ‡åˆ°ä¸€ä¸ªéž reasoning modelï¼ˆç»•å¼€ reasoning CoT æ’žå¢™ + safety filter
-    // åœ¨ reasoning æ¨¡åž‹ä¸Šæ›´æ¿€è¿›çš„åŒé‡é—®é¢˜ï¼‰ã€‚æ‰¾ä¸åˆ°éž reasoning çš„å°± abortã€‚
+    // ── LLM 协议级（新增）──
+    // safety_refusal / reasoning_exhaustion / empty_response：
+    // 切到一个非 reasoning model（绕开 reasoning CoT 撞墙 + safety filter
+    // 在 reasoning 模型上更激进的双重问题）。找不到非 reasoning 的就 abort。
     if (
       input.reason === "safety_refusal" ||
       input.reason === "reasoning_exhaustion" ||
@@ -287,28 +287,28 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       if (nonReasoning) {
         return {
           action: "downgrade",
-          reason: `${input.reason} on ${input.failedModelId ?? "?"}ï¼Œåˆ‡åˆ°éž reasoning æ¨¡åž‹ ${nonReasoning}`,
+          reason: `${input.reason} on ${input.failedModelId ?? "?"}，切到非 reasoning 模型 ${nonReasoning}`,
           fallbackModelId: nonReasoning,
         };
       }
       return {
         action: "abort",
-        reason: `${input.reason}ï¼šæ— éž reasoning å€™é€‰æ¨¡åž‹å¯åˆ‡æ¢`,
+        reason: `${input.reason}：无非 reasoning 候选模型可切换`,
       };
     }
-    // truncatedï¼šè°ƒç”¨æ–¹åº”è°ƒé«˜ maxTokens é‡è¯• 1 æ¬¡ï¼›è¿™é‡Œåªç»™ retry ä¿¡å·
+    // truncated：调用方应调高 maxTokens 重试 1 次；这里只给 retry 信号
     if (input.reason === "truncated") {
       return {
         action: "retry",
-        reason: "å¢žå¤§ maxTokens é‡è¯•",
+        reason: "增大 maxTokens 重试",
         retryAfterMs: 0,
       };
     }
-    // parse_failureï¼šè®© Reflexion è‡ªå·± critique-reviseï¼Œretry ä¿¡å·
+    // parse_failure：让 Reflexion 自己 critique-revise，retry 信号
     if (input.reason === "parse_failure") {
       return {
         action: "retry",
-        reason: "parse å¤±è´¥ç”± Reflexion é‡è¯•",
+        reason: "parse 失败由 Reflexion 重试",
         retryAfterMs: 0,
       };
     }
@@ -318,18 +318,18 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       if (fb) {
         return {
           action: "downgrade",
-          reason: `${input.failedModelId} ä¸å­˜åœ¨ï¼Œåˆ‡åˆ° ${fb}`,
+          reason: `${input.failedModelId} 不存在，切到 ${fb}`,
           fallbackModelId: fb,
         };
       }
-      return { action: "abort", reason: "model_not_found æ— å€™é€‰" };
+      return { action: "abort", reason: "model_not_found 无候选" };
     }
 
-    // â”€â”€ æ‰§è¡Œçº§ï¼ˆæ–°å¢žï¼‰â”€â”€
+    // ── 执行级（新增）──
     if (input.reason === "tool_failure") {
       return {
         action: "retry",
-        reason: "tool å¤±è´¥ï¼Œè°ƒç”¨æ–¹å†³å®šæ¢å·¥å…·æˆ–ç»•å¼€",
+        reason: "tool 失败，调用方决定换工具或绕开",
         retryAfterMs: 0,
       };
     }
@@ -339,7 +339,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     ) {
       return {
         action: "retry",
-        reason: "ç”± Reflexion critique-revise å¤„ç†",
+        reason: "由 Reflexion critique-revise 处理",
         retryAfterMs: 0,
       };
     }
@@ -348,7 +348,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   /**
-   * åœ¨åŒ costTier çš„ BYOK å€™é€‰æ± é‡Œæ‰¾ä¸€ä¸ª healthy ä¸”éž input modelId çš„å¤‡é€‰ã€‚
+   * 在同 costTier 的 BYOK 候选池里找一个 healthy 且非 input modelId 的备选。
    */
   private async findSiblingModel(
     failedModelId: string,
@@ -364,7 +364,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
           m.costTier === found.costTier,
       );
       if (sibling) return sibling.modelId;
-      // æ²¡åŒ tier å¤‡é€‰ â†’ åŒæ± ä»»ä¸€å¥åº·æ¨¡åž‹
+      // 没同 tier 备选 → 同池任一健康模型
       const anyHealthy = pool.find(
         (m) => m.modelId !== failedModelId && m.healthy !== "unhealthy",
       );
@@ -374,11 +374,11 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   }
 
   /**
-   * åœ¨æ‰€æœ‰ BYOK æ± é‡Œæ‰¾ä¸€ä¸ªéž reasoning çš„ healthy æ¨¡åž‹ã€‚
-   * ç”¨äºŽ reasoning model æ’ž safety filter / CoT exhaustion æ—¶ç»•å¼€ã€‚
+   * 在所有 BYOK 池里找一个非 reasoning 的 healthy 模型。
+   * 用于 reasoning model 撞 safety filter / CoT exhaustion 时绕开。
    *
-   * æ³¨ï¼šsnapshot é‡Œçš„ model æè¿°æœªå¿…æœ‰ isReasoning å­—æ®µï¼Œè¿™é‡ŒæŒ‰å‘½åçº¦å®š
-   * å…œåº•ï¼ˆo1/o3/o4/deepseek-reasoner/gpt-5 ç³»åˆ—è®¤ä¸ºæ˜¯ reasoningï¼‰ã€‚
+   * 注：snapshot 里的 model 描述未必有 isReasoning 字段，这里按命名约定
+   * 兜底（o1/o3/o4/deepseek-reasoner/gpt-5 系列认为是 reasoning）。
    */
   private async findNonReasoningModel(
     excludeModelId?: string,

@@ -1,9 +1,9 @@
 /**
  * HarnessModule DI Integration Smoke Test
  *
- * Ã¨Â¯ÂÃ¦ËœÅ½Ã¯Â¼Å¡Ã¥Å“Â¨ NestJS Ã¥Â®Â¹Ã¥â„¢Â¨Ã©â€¡Å’ HarnessModule Ã¨Æ’Â½Ã¥Â®Å’Ã¦â€¢Â´Ã¥ÂÂ¯Ã¥Å Â¨Ã¯Â¼Å’Ã¤Â¸â€Ã¥â€¦Â³Ã©â€Â® provider Ã¤Â¹â€¹Ã©â€”Â´
- * Ã§Å¡â€žÃ¤Â¾ÂÃ¨Âµâ€“Ã¥â€ºÂ¾Ã¯Â¼Ë†Ã¥Â°Â¤Ã¥â€¦Â¶Ã¦ËœÂ¯ @Optional / forwardRefÃ¯Â¼â€°Ã§Å“Å¸Ã¦Â­Â£Ã¥ÂÂ¯Ã¨Â§Â£Ã¦Å¾Â Ã¢â‚¬â€Ã¢â‚¬â€ Ã¤Â¹â€¹Ã¥â€°ÂÃ¥Ââ€¢Ã¦Âµâ€¹Ã©Æ’Â½Ã¦ËœÂ¯
- * `new` Ã§â€ºÂ´Ã¦Å½Â¥Ã¦Å¾â€žÃ©â‚¬Â Ã¯Â¼Å’Ã¥Â®Å’Ã¥â€¦Â¨Ã¨Â·Â³Ã¨Â¿â€¡ DIÃ¯Â¼Å’Ã¨Â¿â„¢Ã§Â±Â»Ã§Å“Å¸Ã©â€”Â®Ã©Â¢ËœÃ¥ÂÂªÃ¨Æ’Â½Ã¥Å“Â¨Ã¥Â®Â¹Ã¥â„¢Â¨Ã¦Âµâ€¹Ã¨Â¯â€¢Ã©â€¡Å’Ã¦Å¡Â´Ã©Å“Â²Ã£â‚¬â€š
+ * 证明：在 NestJS 容器里 HarnessModule 能完整启动，且关键 provider 之间
+ * 的依赖图（尤其是 @Optional / forwardRef）真正可解析 —— 之前单测都是
+ * `new` 直接构造，完全跳过 DI，这类真问题只能在容器测试里暴露。
  */
 
 import { Test } from "@nestjs/testing";
@@ -34,7 +34,7 @@ describe("HarnessModule (NestJS DI integration)", () => {
    * We don't import the real HarnessModule because it transitively pulls in
    * LLM / Tools / Memory modules, which require Prisma + config. Instead,
    * we assemble the providers manually with lightweight mocks for external
-   * dependencies. This proves the wiring in harness.module.ts is CORRECT Ã¢â‚¬â€
+   * dependencies. This proves the wiring in harness.module.ts is CORRECT —
    * all class tokens match, no missing @Inject, no missing provider.
    */
   async function build() {
@@ -183,7 +183,7 @@ describe("HarnessModule (NestJS DI integration)", () => {
       },
     });
 
-    // Dispatch through the DI registry Ã¢â‚¬â€ proves they share state
+    // Dispatch through the DI registry — proves they share state
     await hooks.dispatch(
       "Stop",
       { reason: "completed" },

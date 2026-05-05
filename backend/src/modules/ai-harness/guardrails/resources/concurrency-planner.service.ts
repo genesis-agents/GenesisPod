@@ -1,14 +1,13 @@
 /**
  * ConcurrencyPlanner —— 跨 AI App 共用的并发度推断服务
  *
- * 抽自 Topic Insights mission-execution.service.ts:916 的 calculateDynamicConcurrency()
  * 公式：min(max, max(min, min + (providerCount - 1) * perProviderBoost))
  * - 1 provider  → 4
  * - 2 providers → 6
  * - 3+ providers → 8
  *
- * 任意 AI App（<consumer> / <consumer> / writing / office）都可注入并使用，
- * 无需各自重复实现。模型池查询走 ChatFacade.getAvailableModels(CHAT)。
+ * 任意 AI App 均可注入并使用，无需各自重复实现。模型池查询走
+ * ChatFacade.getAvailableModels(CHAT)。
  */
 
 import { Injectable, Logger } from "@nestjs/common";

@@ -1,72 +1,72 @@
 /**
- * LlmExecutor â€” L2 Agent è¿è¡Œæ—¶çš„ LLM è°ƒç”¨åŽŸè¯­
+ * LlmExecutor — L2 Agent 运行时的 LLM 调用原语
  *
- * èŒè´£ï¼š
- * - è°ƒ AiChatService èŽ·å– LLM åŽŸå§‹è¾“å‡º
- * - è‹¥ spec æä¾› outputSchemaï¼Œèµ° Zod safeParseï¼›å¤±è´¥åˆ™ error-fed retryï¼ˆæœ€å¤š N è½®ï¼‰
- * - è‹¥ spec æä¾› validateBusinessRulesï¼ŒZod æˆåŠŸåŽè°ƒç”¨ï¼›æŠ›é”™åŒ Zod å¤±è´¥å¤„ç†
- * - è¿”å›žå¼ºç±»åž‹ TOutput + tokens/cost/model/retries
+ * 职责：
+ * - 调 AiChatService 获取 LLM 原始输出
+ * - 若 spec 提供 outputSchema，走 Zod safeParse；失败则 error-fed retry（最多 N 轮）
+ * - 若 spec 提供 validateBusinessRules，Zod 成功后调用；抛错同 Zod 失败处理
+ * - 返回强类型 TOutput + tokens/cost/model/retries
  *
- * ç›®æ ‡æž¶æž„å®šä½ï¼ˆdocs/design/<consumer>-harness-redesign/11-target-architecture.mdï¼‰ï¼š
- * æœ¬ç±»æ˜¯ L2 Agent è¿è¡Œæ—¶çš„ä¸€ç­‰å…¬æ°‘ï¼Œæ‰€æœ‰ AI App é€šè¿‡ AgentFactory åˆ›å»º Agent æ—¶å…±ç”¨ã€‚
- * åŽŸ L3 ai-app/<consumer>/harness/llm/LlmInvokerService å°†åœ¨ P3 åˆ é™¤ï¼ˆèƒ½åŠ›å…¨éƒ¨ä¸Šæè‡³æ­¤ï¼‰ã€‚
+ * 目标架构定位（docs/design/<consumer>-harness-redesign/11-target-architecture.md）：
+ * 本类是 L2 Agent 运行时的一等公民，所有 AI App 通过 AgentFactory 创建 Agent 时共用。
+ * 原 L3 ai-app/<consumer>/harness/llm/LlmInvokerService 将在 P3 删除（能力全部上提至此）。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
 import type { z } from "zod";
-// â˜… ç›´æŽ¥ç›¸å¯¹è·¯å¾„å¯¼å…¥ï¼Œç»•å¼€ facade barrelã€‚
-// åŽŸå› ï¼šfacade/index.ts æ˜¯ L3 AI App çš„å•å‘å…¥å£ï¼›L2 harness å†…éƒ¨ä»£ç 
-// è‹¥ä¹Ÿä»Ž facade å¯¼å…¥ï¼Œä¼šè§¦å‘ barrel â†’ ä¼—å¤šå­æ¨¡å— â†’ harness çš„å›žçŽ¯åŠ è½½ï¼Œ
-// å¯¼è‡´ TypeScript åœ¨ module evaluation é˜¶æ®µäº§ç”Ÿ `undefined` ç±» referenceï¼Œ
-// Nest DI éšåŽæŠ¥ "LlmExecutor dependency at index [0]"ã€‚
-// å‚è€ƒ 8ac343b98ï¼ˆagent-factory / spec-based-agent å·²åŒæ­¤ä¿®å¤ï¼‰ã€‚
+// ★ 直接相对路径导入，绕开 facade barrel。
+// 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
+// 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
+// 导致 TypeScript 在 module evaluation 阶段产生 `undefined` 类 reference，
+// Nest DI 随后报 "LlmExecutor dependency at index [0]"。
+// 参考 8ac343b98（agent-factory / spec-based-agent 已同此修复）。
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import { AiObservabilityService } from "../../../ai-harness/tracing/observability/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { AIModelType } from "@prisma/client";
 
-// ============ å¥‘çº¦ ============
+// ============ 契约 ============
 
 export interface LlmExecutorInput<TOutput> {
-  /** Agent id / operation åï¼Œç”¨äºŽæ—¥å¿—å’Œ observability */
+  /** Agent id / operation 名，用于日志和 observability */
   readonly agentId: string;
   readonly systemPrompt: string;
   readonly userPrompt: string;
 
-  /** Zod schemaï¼›æœªæä¾›åˆ™è·³è¿‡æ ¡éªŒï¼Œç›´æŽ¥ JSON parse åŽè¿”å›ž unknown */
+  /** Zod schema；未提供则跳过校验，直接 JSON parse 后返回 unknown */
   readonly outputSchema?: z.ZodType<TOutput>;
-  /** ä¸šåŠ¡è§„åˆ™æ ¡éªŒé’©å­ï¼Œåœ¨ Zod æˆåŠŸåŽè°ƒç”¨ï¼›throw è§¦å‘ retry */
+  /** 业务规则校验钩子，在 Zod 成功后调用；throw 触发 retry */
   readonly validateBusinessRules?: (output: TOutput) => void;
 
   readonly taskProfile: TaskProfile;
 
   /**
-   * æ˜¾å¼æŒ‡å®š modelId è¦†ç›–çŽ¯å¢ƒæ„ŸçŸ¥é€‰ä¸¾ã€‚
-   * æ­£å¸¸è·¯å¾„ï¼šSpecBasedAgent è°ƒç”¨ ModelElectionService.elect() æ‹¿åˆ° modelId
-   * åŽä»Žè¿™é‡Œä¼ è¿›æ¥ï¼›LlmExecutor å†åŽŸæ ·é€ç»™ AiChatService.chat({ model })ã€‚
+   * 显式指定 modelId 覆盖环境感知选举。
+   * 正常路径：SpecBasedAgent 调用 ModelElectionService.elect() 拿到 modelId
+   * 后从这里传进来；LlmExecutor 再原样透给 AiChatService.chat({ model })。
    *
-   * ä¸ºç©ºæ—¶ï¼šAiChatService èµ°å®ƒè‡ªå·±çš„ modelType â†’ DB é»˜è®¤é“¾è·¯ï¼ˆå•å…ƒæµ‹è¯•å…¼å®¹ï¼‰ã€‚
+   * 为空时：AiChatService 走它自己的 modelType → DB 默认链路（单元测试兼容）。
    */
   readonly model?: string;
 
-  /** Schema å¤±è´¥æœ€å¤§é‡è¯•æ¬¡æ•°ï¼Œé»˜è®¤ 2ï¼ˆé¦–æ¬¡ + 2 æ¬¡ä¿®æ­£ = 3 è½®ï¼‰ */
+  /** Schema 失败最大重试次数，默认 2（首次 + 2 次修正 = 3 轮） */
   readonly maxRetries?: number;
 
   readonly signal?: AbortSignal;
   readonly userId?: string;
-  /** KernelContext è‡ªåŠ¨é€ä¼ ï¼›è‹¥æ˜¾å¼æä¾›è¦†ç›– */
+  /** KernelContext 自动透传；若显式提供覆盖 */
   readonly processId?: string;
   readonly operationName?: string;
 
   /**
-   * â˜… v2 stub æ¨¡å¼ï¼ˆP1-4ï¼‰ï¼š
-   * è®¾ç½®æ—¶**ç»•è¿‡ LLM è°ƒç”¨**ï¼Œç›´æŽ¥åŒæ­¥äº§å‡ºå ä½æ•°æ®èµ° Zod + business-rule æ ¡éªŒã€‚
-   * ç»“åˆçŽ¯å¢ƒå˜é‡ AI_ENGINE_AGENT_STUB=1 æ¿€æ´»ï¼š
-   *   - env è®¾ä¸º "1" + spec æä¾› stubFn â†’ ç»•è¿‡ LLMï¼Œè°ƒ stubFn
-   *   - env è®¾ä¸º "1" + æ—  stubFn â†’ æŠ› StubNotConfiguredError
-   *   - env æœªè®¾/= "0" â†’ æ­£å¸¸ LLM æµç¨‹ï¼ˆstubFn è¢«å¿½ç•¥ï¼‰
-   * ç”¨é€”ï¼šæµ‹è¯•çŽ¯å¢ƒé›¶ LLM æˆæœ¬è·‘å®Œæ•´ pipelineï¼›CI ä¸ flakyã€‚
+   * ★ v2 stub 模式（P1-4）：
+   * 设置时**绕过 LLM 调用**，直接同步产出占位数据走 Zod + business-rule 校验。
+   * 结合环境变量 AI_ENGINE_AGENT_STUB=1 激活：
+   *   - env 设为 "1" + spec 提供 stubFn → 绕过 LLM，调 stubFn
+   *   - env 设为 "1" + 无 stubFn → 抛 StubNotConfiguredError
+   *   - env 未设/= "0" → 正常 LLM 流程（stubFn 被忽略）
+   * 用途：测试环境零 LLM 成本跑完整 pipeline；CI 不 flaky。
    */
   readonly stubFn?: () => Promise<TOutput>;
 }
@@ -97,31 +97,31 @@ export class SchemaRetryExhaustedError extends Error {
 export class StubNotConfiguredError extends Error {
   constructor(agentId: string) {
     super(
-      `[${agentId}] AI_ENGINE_AGENT_STUB=1 set but spec has no stubFn â€” cannot stub`,
+      `[${agentId}] AI_ENGINE_AGENT_STUB=1 set but spec has no stubFn — cannot stub`,
     );
     this.name = "StubNotConfiguredError";
   }
 }
 
 /**
- * å…¨å±€ stub æ¨¡å¼å¼€å…³ï¼šenv å˜é‡ AI_ENGINE_AGENT_STUB=1 æ—¶æ‰€æœ‰ spec å¸¦ stubFn çš„ agent
- * ç»•è¿‡ LLMï¼Œç›´æŽ¥èµ° stubã€‚æµ‹è¯•å‹å¥½ï¼›ç¦æ­¢ç”¨äºŽç”Ÿäº§ã€‚
+ * 全局 stub 模式开关：env 变量 AI_ENGINE_AGENT_STUB=1 时所有 spec 带 stubFn 的 agent
+ * 绕过 LLM，直接走 stub。测试友好；禁止用于生产。
  *
- * ç”Ÿäº§é˜²æŠ¤ï¼šNODE_ENV === "production" æ—¶å¼ºåˆ¶ç¦ç”¨ï¼Œé˜²æ­¢è¿ç»´è¯¯è®¾è¯¥å˜é‡åŽ
- * æ‰€æœ‰ agent é™é»˜è¿”å›ž stub æ•°æ®è€ŒæŠ¥è­¦ç›²åŒºã€‚
+ * 生产防护：NODE_ENV === "production" 时强制禁用，防止运维误设该变量后
+ * 所有 agent 静默返回 stub 数据而报警盲区。
  */
 export function isStubModeEnabled(): boolean {
   if (process.env.NODE_ENV === "production") return false;
   return process.env.AI_ENGINE_AGENT_STUB === "1";
 }
 
-// ============ å·¥å…·ï¼šJSON æå– ============
+// ============ 工具：JSON 提取 ============
 
 /**
- * ä»Ž LLM åŽŸå§‹ content æå– JSON objectã€‚æ”¯æŒï¼š
- * - çº¯ JSON `{...}`
- * - å¸¦ ```json fence çš„ä»£ç å—
- * - å‰åŽæœ‰è§£é‡Šæ–‡å­—çš„æ··åˆè¾“å‡ºï¼ˆæŒ‰ç¬¬ä¸€ä¸ª `{...}` çš„å¹³è¡¡æ‹¬å·æå–ï¼‰
+ * 从 LLM 原始 content 提取 JSON object。支持：
+ * - 纯 JSON `{...}`
+ * - 带 ```json fence 的代码块
+ * - 前后有解释文字的混合输出（按第一个 `{...}` 的平衡括号提取）
  */
 export function extractJsonFromLlmContent(content: string): unknown {
   const trimmed = content.trim();
@@ -174,19 +174,19 @@ export class LlmExecutor {
   constructor(private readonly aiChatService: AiChatService) {}
 
   /**
-   * æ‰§è¡Œä¸€æ¬¡"prompt â†’ LLM â†’ JSON â†’ Zod â†’ business-rule æ ¡éªŒ â†’ äº§å‡º TOutput"ã€‚
-   * schema æˆ– business-rule å¤±è´¥æ—¶è‡ªåŠ¨ retryï¼šæŠŠå¤±è´¥åŽŸå› æ³¨å…¥ä¸‹ä¸€è½® prompt ä½œä¸º system noteã€‚
+   * 执行一次"prompt → LLM → JSON → Zod → business-rule 校验 → 产出 TOutput"。
+   * schema 或 business-rule 失败时自动 retry：把失败原因注入下一轮 prompt 作为 system note。
    */
   async execute<TOutput>(
     input: LlmExecutorInput<TOutput>,
   ): Promise<LlmExecutorResult<TOutput>> {
-    // â˜… Stub æ¨¡å¼ï¼šenv + spec.stubFn åŒæ—¶å­˜åœ¨æ‰ç”Ÿæ•ˆ
+    // ★ Stub 模式：env + spec.stubFn 同时存在才生效
     if (isStubModeEnabled()) {
       if (!input.stubFn) {
         throw new StubNotConfiguredError(input.agentId);
       }
       const output = await input.stubFn();
-      // ä»ç„¶èµ° schema + business-rule æ ¡éªŒï¼ˆä¿è¯ stub å¥‘çº¦ï¼‰
+      // 仍然走 schema + business-rule 校验（保证 stub 契约）
       if (input.outputSchema) {
         const parsed = input.outputSchema.safeParse(output);
         if (!parsed.success) {
@@ -223,7 +223,7 @@ export class LlmExecutor {
 
     const maxRetries = input.maxRetries ?? 2;
 
-    // KernelContext è‡ªåŠ¨å¸¦å‡º processId / userIdï¼ˆè‹¥ caller æœªæ˜¾å¼ä¼ ï¼‰
+    // KernelContext 自动带出 processId / userId（若 caller 未显式传）
     const kctx = KernelContext.get();
     const processId = input.processId ?? kctx?.processId;
     const userId = input.userId ?? kctx?.userId;
@@ -259,10 +259,10 @@ export class LlmExecutor {
         res = await this.aiChatService.chat({
           systemPrompt: input.systemPrompt,
           messages: [{ role: "user", content: userPrompt }],
-          // Election é€‰å‡ºçš„ modelIdï¼ˆSpecBasedAgent å·²å®ŒæˆçŽ¯å¢ƒæ„ŸçŸ¥é€‰ä¸¾ï¼‰
+          // Election 选出的 modelId（SpecBasedAgent 已完成环境感知选举）
           model: input.model,
-          // æ²¡æœ‰ elected model æ—¶ fallback èµ°ç³»ç»Ÿé…ç½®çš„é»˜è®¤ CHAT æ¨¡åž‹
-          // ï¼ˆAiChatService ä¼˜å…ˆç”¨ modelï¼Œmodel ç©ºæ—¶èµ° modelType â†’ DB é»˜è®¤ï¼‰
+          // 没有 elected model 时 fallback 走系统配置的默认 CHAT 模型
+          // （AiChatService 优先用 model，model 空时走 modelType → DB 默认）
           modelType: input.model ? undefined : AIModelType.CHAT,
           taskProfile: input.taskProfile,
           responseFormat: "json",
@@ -293,13 +293,13 @@ export class LlmExecutor {
         );
       }
 
-      // æ—  schemaï¼šä¸€æ¬¡æˆåŠŸè¿”å›ž unknownï¼ˆcaller ä¿è¯ç±»åž‹å®‰å…¨ï¼‰
+      // 无 schema：一次成功返回 unknown（caller 保证类型安全）
       if (!input.outputSchema) {
         let parsed: unknown;
         try {
           parsed = extractJsonFromLlmContent(res.content);
         } catch (err) {
-          // æ—  schema æ—¶ä¾ç„¶å¯èƒ½ JSON å¤±è´¥ï¼›èµ°ä¸€æ¬¡ retry
+          // 无 schema 时依然可能 JSON 失败；走一次 retry
           lastError = err instanceof Error ? err.message : String(err);
           this.logger.warn(
             `[${input.agentId}] attempt ${attempt + 1}: JSON extract failed: ${lastError}`,
@@ -317,7 +317,7 @@ export class LlmExecutor {
         };
       }
 
-      // æœ‰ schemaï¼šJSON extract â†’ Zod safeParse â†’ business-rule
+      // 有 schema：JSON extract → Zod safeParse → business-rule
       let jsonObj: unknown;
       try {
         jsonObj = extractJsonFromLlmContent(res.content);

@@ -215,13 +215,13 @@ export class MissionContextService {
         let constraintBlock = "【🚫 硬性约束 - 违反将导致任务失败】\n";
         if (mustConstraints.length > 0) {
           constraintBlock += mustConstraints
-            .map((c) => `â€¢ [${c.id}] ${c.rule}`)
+            .map((c) => `• [${c.id}] ${c.rule}`)
             .join("\n");
         }
         if (shouldConstraints.length > 0) {
           constraintBlock += "\n\n【建议遵循】\n";
           constraintBlock += shouldConstraints
-            .map((c) => `â€¢ [${c.id}] ${c.rule}`)
+            .map((c) => `• [${c.id}] ${c.rule}`)
             .join("\n");
         }
         blocks.push(constraintBlock);
@@ -254,7 +254,7 @@ export class MissionContextService {
         let prohibitionBlock = "【⛔ 禁止事项】\n";
         prohibitionBlock += context.prohibitions
           .map((p) => {
-            let line = `â€¢ ${p.description}`;
+            let line = `• ${p.description}`;
             if (p.reason) {
               line += `（原因：${p.reason}）`;
             }
@@ -793,7 +793,7 @@ ${existingFacts.length > 0 ? `【已确立事实】（无需重复提取）\n${e
       sections.push(
         `【🟡 应该遵守的已确立事实】\n` +
           displayFacts
-            .map((f) => `â€¢ [${f.sourceTaskTitle}] ${f.statement}`)
+            .map((f) => `• [${f.sourceTaskTitle}] ${f.statement}`)
             .join("\n") +
           (mediumFacts.length > 10
             ? `\n... 及其他 ${mediumFacts.length - 10} 条`
