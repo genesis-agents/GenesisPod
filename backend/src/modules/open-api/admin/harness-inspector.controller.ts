@@ -35,7 +35,10 @@ import {
   Optional,
   Param,
   Query,
+  UseGuards,
 } from "@nestjs/common";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../common/guards/admin.guard";
 import { LoopRegistry } from "../../ai-harness/runner/loop/loop-registry";
 import { BuiltinSkillCatalog } from "../../ai-harness/facade";
 import { SpecAgentRegistry } from "../../ai-harness/agents/core/spec-agent-registry";
@@ -43,6 +46,11 @@ import { CheckpointService } from "../../ai-harness/memory/checkpoint/checkpoint
 import { AgentEventStore } from "../../ai-harness/memory/checkpoint/agent-event-store";
 import { SkillLearningCoordinator } from "../../ai-harness/agents/learning/skill-learning-coordinator";
 
+// 三层防护（S2 audit fix 2026-05-04，原 v1 仅 ENV 双闸不安全）：
+//   ① 类级 @UseGuards(JwtAuthGuard, AdminGuard) — 必须 admin 身份
+//   ② NODE_ENV !== production
+//   ③ HARNESS_INSPECTOR_ENABLED === "1"
+@UseGuards(JwtAuthGuard, AdminGuard)
 @Controller("harness/inspector")
 export class HarnessInspectorController {
   constructor(

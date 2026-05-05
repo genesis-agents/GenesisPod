@@ -56,7 +56,7 @@ function makeMockRes() {
   };
 }
 
-const ADMIN_KEY = "deepdive-admin-cleanup-2024";
+const ADMIN_KEY = "test-admin-key";
 
 // ---------------------------------------------------------------------------
 // Mock AiImageService
@@ -114,9 +114,14 @@ describe("AiImageController", () => {
   beforeEach(async () => {
     mockService = makeMockService();
 
+    const { ConfigService } = await import("@nestjs/config");
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AiImageController],
-      providers: [{ provide: AiImageService, useValue: mockService }],
+      providers: [
+        { provide: AiImageService, useValue: mockService },
+        // S3 audit fix：admin endpoints 用 ConfigService 读 IMAGE_ADMIN_CLEANUP_KEY
+        { provide: ConfigService, useValue: { get: () => "test-admin-key" } },
+      ],
     }).compile();
 
     controller = module.get<AiImageController>(AiImageController);
