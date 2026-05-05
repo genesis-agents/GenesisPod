@@ -27,6 +27,7 @@ import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
@@ -142,9 +143,22 @@ export class AgentPlaygroundModule implements OnModuleInit {
     private readonly store: MissionStore,
     private readonly prisma: PrismaService,
     private readonly orphanDetector: MissionOrphanDetectorService,
+    // R0-A3 (2026-05-04): 注册 playground skills 目录到 engine SkillLoader
+    //   17 个 SKILL.md (mece-mission-planning / leader-* / dimension-research / web-research 等)
+    //   下推到 ai-app/agent-playground/skills/，需要在这里 register 到 SkillRegistry
+    //   否则 SkillActivator 在 leader/researcher role 启动时报 "skipped: <skill-id>"
+    private readonly skillLoader: SkillLoaderService,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
+    // R0-A3: 注册 agent-playground skill 目录
+    const path = await import("path");
+    await this.skillLoader.addSkillDirectory({
+      path: path.resolve(__dirname, "skills"),
+      domain: "agent-playground",
+      recursive: false,
+    });
+
     // 1. 注册事件类型 —— DomainEventBus 校验未注册的 type 会 drop+warn
     this.registry.registerAll(AGENT_PLAYGROUND_EVENTS);
     // 2. 注册缓冲 adapter，截获所有 agent-playground.* 事件入内存（给 /replay 用）
