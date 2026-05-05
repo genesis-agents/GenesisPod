@@ -7812,6 +7812,10 @@ model UserApiKey {
   id                 String         @id @default(cuid())
   userId             String         @map("user_id")
   provider           String         @db.VarChar(50) // openai, anthropic, deepseek, google 等
+  /// PR-2 (2026-05-05): 多 key 支持。同一 user + provider 可有多条，用 label 区分
+  /// （"default" / "personal-org-a" / "backup" / "dev-vs-prod"）。
+  /// keyResolver 选择优先级：preferred(label="default") → label asc → first active
+  label              String         @default("default") @db.VarChar(50)
   encryptedValue     String         @map("encrypted_value") @db.Text
   iv                 String         @db.VarChar(32)
   keyHint            String?        @map("key_hint") @db.VarChar(20) // 脱敏提示如 "sk-...3f8a"
@@ -7830,7 +7834,7 @@ model UserApiKey {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider])
+  @@unique([userId, provider, label])
   @@index([provider, mode, isActive])
   @@index([mode, isActive])
   @@map("user_api_keys")

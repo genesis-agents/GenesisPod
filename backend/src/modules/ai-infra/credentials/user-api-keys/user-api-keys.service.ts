@@ -228,17 +228,26 @@ export class UserApiKeysService {
     mode: ApiKeyMode,
     preferredModelId?: string,
     apiEndpoint?: string,
+    /** PR-2: 多 key 标签（"default" / "personal-org-a" / "backup"） */
+    label: string = "default",
   ) {
     const normalizedProvider = this.validateProvider(provider);
+    const normalizedLabel = (label || "default").trim().toLowerCase();
     if (apiEndpoint) {
       this.validateEndpointUrl(apiEndpoint);
     }
     const prismaMode = this.toPrismaMode(mode);
     const { encryptedValue, iv } = this.encrypt(apiKey);
 
-    // 检查是否已有该 provider 的 Key
+    // 检查是否已有该 provider + label 的 Key
     const existing = await this.prisma.userApiKey.findUnique({
-      where: { userId_provider: { userId, provider: normalizedProvider } },
+      where: {
+        userId_provider_label: {
+          userId,
+          provider: normalizedProvider,
+          label: normalizedLabel,
+        },
+      },
     });
 
     // 如果从捐赠切换到自用，需要先清理捐赠
@@ -291,6 +300,7 @@ export class UserApiKeysService {
           data: {
             user: { connect: { id: userId } },
             provider: normalizedProvider,
+            label: normalizedLabel,
             encryptedValue,
             iv,
             keyHint,
@@ -380,11 +390,16 @@ export class UserApiKeysService {
   /**
    * 删除用户 API Key
    */
-  async deleteKey(userId: string, provider: string) {
+  async deleteKey(userId: string, provider: string, label: string = "default") {
     const normalizedProvider = this.validateProvider(provider);
+    const normalizedLabel = (label || "default").trim().toLowerCase();
     const existing = await this.prisma.userApiKey.findUnique({
       where: {
-        userId_provider: { userId, provider: normalizedProvider },
+        userId_provider_label: {
+          userId,
+          provider: normalizedProvider,
+          label: normalizedLabel,
+        },
       },
     });
 
@@ -407,11 +422,20 @@ export class UserApiKeysService {
   /**
    * 撤回捐赠（保留 Key 为自用模式）
    */
-  async withdrawDonation(userId: string, provider: string) {
+  async withdrawDonation(
+    userId: string,
+    provider: string,
+    label: string = "default",
+  ) {
     const normalizedProvider = this.validateProvider(provider);
+    const normalizedLabel = (label || "default").trim().toLowerCase();
     const existing = await this.prisma.userApiKey.findUnique({
       where: {
-        userId_provider: { userId, provider: normalizedProvider },
+        userId_provider_label: {
+          userId,
+          provider: normalizedProvider,
+          label: normalizedLabel,
+        },
       },
     });
 
@@ -507,6 +531,8 @@ export class UserApiKeysService {
       }
     }
 
+    // PR-2: 多 key 支持 — label="default" 优先；其次按 lastTestedAt desc + label asc。
+    //   后续若加 key health probing 可改为按 testStatus/score 排序。
     const key = await this.prisma.userApiKey.findFirst({
       where: {
         userId,
@@ -514,6 +540,10 @@ export class UserApiKeysService {
         mode: UserApiKeyMode.PERSONAL,
         isActive: true,
       },
+      orderBy: [
+        { label: "asc" }, // "default" 字典序最小，优先命中
+        { lastTestedAt: { sort: "desc", nulls: "last" } },
+      ],
     });
 
     if (!key) {
