@@ -40,15 +40,23 @@ export function ReviewStep({
       await apiClient.post(`/user/custom-agents/${agentId}/publish`);
       onPublished();
     } catch (e) {
+      // ★ 2026-05-05 修：apiClient 抛 ApiError { message, code, status, details }，
+      //   不是 axios 风格 err.response.data。details 里才是后端原始 errorData
+      //   （含 issues 数组）。原代码取 err.response.data.issues 永远 undefined，
+      //   issues 数组被吞，UI 只剩泛泛 message → 用户看不到具体缺啥。
       const err = e as {
         message?: string;
-        response?: { data?: { issues?: PublishIssue[]; message?: string } };
+        details?: { issues?: PublishIssue[]; message?: string };
       };
-      const data = err?.response?.data;
-      if (data?.issues && Array.isArray(data.issues)) {
-        setIssues(data.issues);
+      const detailIssues = Array.isArray(err?.details?.issues)
+        ? err.details.issues
+        : undefined;
+      if (detailIssues && detailIssues.length > 0) {
+        setIssues(detailIssues);
       } else {
-        setError(data?.message ?? err?.message ?? '发布失败');
+        setError(
+          err?.details?.message ?? err?.message ?? '发布失败（未知原因）'
+        );
       }
     } finally {
       setSubmitting(false);

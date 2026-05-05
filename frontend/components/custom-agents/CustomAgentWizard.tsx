@@ -21,6 +21,8 @@ import { ReviewStep } from './ReviewStep';
 import { useCustomAgentOptions } from './useCustomAgentOptions';
 import {
   WIZARD_STEPS,
+  issuesForStep,
+  validateCustomAgentCompleteness,
   type CustomAgentConfig,
   type CustomAgentRecord,
   type WizardStepKey,
@@ -112,17 +114,41 @@ export function CustomAgentWizard({
     }
   };
 
+  // 当前步骤的 issues（实时校验当前 config）
+  const currentStepIssues = issuesForStep(state.config, currentStep.key);
+  // 全部 issues（按 step 分组用，给 Stepper 上色）
+  const allIssues = validateCustomAgentCompleteness(state.config);
+  const issueCountByStep: Record<WizardStepKey, number> = {
+    basicInfo: 0,
+    topicSchema: 0,
+    skills: 0,
+    pipeline: 0,
+    integration: 0,
+    review: 0,
+  };
+  for (const i of allIssues) issueCountByStep[i.step]++;
+
   // ★ 2026-05-05 对齐 Topic Insight CreateTopicDialog：去掉每步 PATCH，
   //   step 切换是纯前端 state（不调 API），只在进入 review 步骤之前一次性
   //   persist —— 创建/更新 record 一次。回退随时可回，不污染 DB。
+  // ★ 2026-05-05 P0: 加每步完整性预检，未通过禁 next（避免走完 5 步到 review 才知道哪缺）
   const goNext = async () => {
     const nextIdx = stepIdx + 1;
     if (nextIdx >= WIZARD_STEPS.length) return;
+    // 当前步骤未通过校验 → 不让走，让用户在当前页看到红色 issue 提示
+    if (currentStepIssues.length > 0) {
+      setError(
+        `当前步骤未完成（${currentStepIssues.length} 项）：` +
+          currentStepIssues.map((i) => i.message).join('; ')
+      );
+      return;
+    }
     const enteringReview = WIZARD_STEPS[nextIdx].key === 'review';
     if (enteringReview) {
       const id = await persist();
       if (!id) return;
     }
+    setError(null);
     setStepIdx(nextIdx);
   };
 
@@ -147,11 +173,17 @@ export function CustomAgentWizard({
 
   return (
     <div>
-      {/* Stepper */}
+      {/* Stepper —— ★ 2026-05-05 绿勾按"该步骤实际完整性"上色，
+          而非"已经走过"。review 步骤特殊：所有前 5 步 0 issue 才算完成 */}
       <ol className="mb-6 flex items-center gap-2 text-xs">
         {WIZARD_STEPS.map((s, idx) => {
           const active = idx === stepIdx;
-          const done = idx < stepIdx;
+          const stepIssues = issueCountByStep[s.key];
+          // basicInfo/topicSchema/skills/pipeline/integration → 自身 0 issue 视为完成
+          // review → 前 5 步 0 issue 视为完成（review 自身没有独立校验项）
+          const stepDone =
+            s.key === 'review' ? allIssues.length === 0 : stepIssues === 0;
+          const hasIssue = stepIssues > 0;
           return (
             <li key={s.key} className="flex items-center gap-2">
               <button
@@ -161,18 +193,25 @@ export function CustomAgentWizard({
                 className={`flex h-7 w-7 items-center justify-center rounded-full border text-xs ${
                   active
                     ? 'border-blue-600 bg-blue-600 text-white'
-                    : done
+                    : stepDone
                       ? 'border-green-500 bg-green-500 text-white'
-                      : 'border-gray-300 bg-white text-gray-500'
+                      : hasIssue && idx <= stepIdx
+                        ? 'border-amber-500 bg-amber-100 text-amber-700'
+                        : 'border-gray-300 bg-white text-gray-500'
                 } ${!agentId && idx > 0 ? 'cursor-not-allowed opacity-50' : 'hover:opacity-80'}`}
-                title={s.title}
+                title={
+                  hasIssue ? `${s.title}（${stepIssues} 项未完成）` : s.title
+                }
               >
-                {done ? <Check className="h-3.5 w-3.5" /> : idx + 1}
+                {stepDone ? <Check className="h-3.5 w-3.5" /> : idx + 1}
               </button>
               <span
                 className={`hidden md:inline ${active ? 'font-medium text-gray-900' : 'text-gray-500'}`}
               >
                 {s.title}
+                {hasIssue && idx <= stepIdx && (
+                  <span className="ml-1 text-amber-600">·{stepIssues}</span>
+                )}
               </span>
               {idx < WIZARD_STEPS.length - 1 && (
                 <ChevronRight className="h-3 w-3 text-gray-400" />
@@ -189,6 +228,23 @@ export function CustomAgentWizard({
         </h2>
         <p className="text-xs text-gray-500">{currentStep.subtitle}</p>
       </div>
+
+      {/* 当前步骤的实时校验 banner —— 让用户在当前页就看到缺啥，
+          不必走完 5 步到 review 才发现 */}
+      {currentStepIssues.length > 0 && currentStep.key !== 'review' && (
+        <div className="mb-3 rounded border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <div className="mb-1 font-medium">
+            本步骤还有 {currentStepIssues.length} 项未完成：
+          </div>
+          <ul className="space-y-0.5">
+            {currentStepIssues.map((i, idx) => (
+              <li key={idx}>
+                · <code>{i.field}</code> — {i.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Body */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
