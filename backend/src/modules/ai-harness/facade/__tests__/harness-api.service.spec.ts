@@ -9,7 +9,10 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { HarnessApiService, KernelApiService } from "../harness-api.service";
+import {
+  HarnessApiService,
+  KernelApiService,
+} from "../api/harness-api.service";
 import { ProcessManagerService } from "../../lifecycle/manager/process-manager.service";
 import { EventJournalService } from "../../protocols/journal/event-journal.service";
 import { ProcessMemoryManagerService } from "../../memory/working/process-memory-manager.service";

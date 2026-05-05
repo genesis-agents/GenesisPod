@@ -101,6 +101,7 @@ describe("UserApiKeysController", () => {
         "PERSONAL",
         "gpt-4o",
         "https://api.openai.com",
+        undefined, // PR-2 label param (default)
       );
       expect(result).toEqual({ id: "k1" });
     });
@@ -118,6 +119,7 @@ describe("UserApiKeysController", () => {
         "PERSONAL",
         undefined,
         undefined,
+        undefined, // PR-2 label param (default)
       );
     });
   });
@@ -128,7 +130,11 @@ describe("UserApiKeysController", () => {
 
       const result = await controller.deleteKey(reqUser, "openai");
 
-      expect(service.deleteKey).toHaveBeenCalledWith("user-1", "openai");
+      expect(service.deleteKey).toHaveBeenCalledWith(
+        "user-1",
+        "openai",
+        undefined, // PR-2 label query param
+      );
       expect(result).toEqual({ deleted: true });
     });
   });

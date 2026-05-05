@@ -128,10 +128,25 @@ export class ToolFacade {
   async capabilityResolveTools(
     context: AICapabilityContext,
   ): Promise<string[]> {
-    return (
-      (await this.tools?.capabilityResolver?.resolveToolsForAgent(context)) ??
-      []
-    );
+    const resolver = this.tools?.capabilityResolver;
+    if (!resolver) {
+      // P0 fix (2026-05-05): 之前静默 fallback 到 []，导致 data-source-router
+      // 等下游错误地认为"所有工具被 Admin 关掉"。改为显式 warn —— 不抛错（避免回归 ai-app 启动），
+      // 但通过 logger 暴露 contract violation。
+      this.logger.warn(
+        `[capabilityResolveTools] capabilityResolver missing (DI not wired). ` +
+          `Returning empty list — caller should fall back to ToolRegistry.getEnabled() directly. ` +
+          `context=${JSON.stringify(context)}`,
+      );
+      return [];
+    }
+    const result = await resolver.resolveToolsForAgent(context);
+    if (!result || result.length === 0) {
+      this.logger.debug(
+        `[capabilityResolveTools] resolved 0 tools for context=${JSON.stringify(context)}`,
+      );
+    }
+    return result ?? [];
   }
 
   async capabilityGetSkillPrompts(

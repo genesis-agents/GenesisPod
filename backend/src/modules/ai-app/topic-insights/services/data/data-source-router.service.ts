@@ -2583,18 +2583,39 @@ Return the ${maxResults} most relevant and high-engagement posts in the specifie
   }
 
   /**
-   * 检查工具是否被 Admin 启用
+   * 检查工具是否被启用
+   *
+   * P0 fix (2026-05-05): 之前用 toolFacade.capabilityResolveTools({}) 空 context
+   * 解析，PR-X14 facade 重构后空 context 路径走 optional chain `?? []` fallback
+   * → web-search / arxiv-search 全 disabled by Admin → 调研返 0 结果（除
+   * industry-report 因 86bcd4112 已 bypass）。
+   *
+   * 改为直接查 ToolRegistry — 代码侧 source of truth。tool 注册即视为可用，
+   * admin 通过 DB tool_configs.enabled 关闭由 ToolRegistry 自己同步处理
+   * （tool.enabled flag 从 DB sync）。
    */
   private async isToolEnabled(toolId: string): Promise<boolean> {
     try {
-      // 使用空上下文，只检查全局配置
-      const availableTools = await this.toolFacade.capabilityResolveTools({});
-      return availableTools.includes(toolId);
+      const enabledTools = this.toolRegistry.getEnabled();
+      const found = enabledTools.some((t) => t.id === toolId);
+      if (found) return true;
+
+      // 二级检查：toolFacade 走 capability 解析（含 MCP / 动态注册）
+      // 若 facade 也找不到，才视为不可用
+      const fromFacade = await this.toolFacade
+        .capabilityResolveTools({})
+        .catch(() => [] as string[]);
+      if (fromFacade.includes(toolId)) return true;
+
+      this.logger.debug(
+        `[isToolEnabled] Tool "${toolId}" not in registry.getEnabled() nor facade.capabilityResolveTools({})`,
+      );
+      return false;
     } catch (error) {
       this.logger.error(
         `[isToolEnabled] Failed to check tool ${toolId}: ${error instanceof Error ? error.message : String(error)}`,
       );
-      // ★ 安全优先：发生错误时默认禁用，避免使用未授权的工具
+      // 安全优先：error 时默认禁用，避免误用未授权工具
       return false;
     }
   }
