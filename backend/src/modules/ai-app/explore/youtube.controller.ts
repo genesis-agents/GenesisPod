@@ -135,18 +135,22 @@ export class YoutubeController {
           await this.youtubeService.getTranslationStatus(cleanVideoId);
 
         if (translationStatus.hasTranslation) {
-          // Fetch the full transcript with translations
+          // Fetch the full transcript with translations。getTranscript 现在 transcript 始终
+          // 是原始英文字幕（完整），翻译数据在 translatedTranscript 字段里（可能稀疏）。
           const cachedTranscript = await this.youtubeService.getTranscript(
             cleanVideoId,
             "en",
           );
 
-          if (cachedTranscript.hasTranslation && cachedTranscript.transcript) {
-            // Build Chinese transcript from translatedText fields
+          if (
+            cachedTranscript.hasTranslation &&
+            cachedTranscript.translatedTranscript
+          ) {
+            // Build Chinese transcript from translatedText fields in the translation array
             chineseTranscript = {
               videoId: cleanVideoId,
               title: cachedTranscript.title,
-              transcript: cachedTranscript.transcript
+              transcript: cachedTranscript.translatedTranscript
                 .filter((seg) => seg.translatedText)
                 .map((seg) => ({
                   text: seg.translatedText!,

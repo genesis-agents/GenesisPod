@@ -16,7 +16,8 @@ export interface TranscriptSegment {
 export interface TranscriptResponse {
   videoId: string;
   title: string;
-  transcript: TranscriptSegment[];
+  transcript: TranscriptSegment[]; // 始终返回原始字幕（完整片段数组）
+  translatedTranscript?: TranscriptSegment[]; // 已保存的翻译（可能稀疏，仅供 bilingual 通道使用）
   targetLanguage?: string; // 翻译目标语言（如果有翻译）
   hasTranslation?: boolean; // 是否已有翻译
 }
@@ -113,19 +114,27 @@ export class YoutubeService {
       });
 
       if (cached && cached.expiresAt > new Date()) {
-        // 优先返回翻译版本（如果有）
-        const hasTranslation = !!cached.translatedTranscript;
-        const cachedTranscript = hasTranslation
+        // 始终返回原始完整字幕。已保存的翻译（可能是稀疏的，仅覆盖部分段落）通过
+        // translatedTranscript 字段单独传出，由 bilingual 通道（getSubtitles）按时间戳拼接，
+        // 绝不能用稀疏翻译覆盖主字幕——历史 bug：单段翻译把全量 2k 段字幕替换成 1 段。
+        const originalTranscript =
+          cached.transcript as unknown as TranscriptSegment[];
+        const translatedTranscript = cached.translatedTranscript
           ? (cached.translatedTranscript as unknown as TranscriptSegment[])
-          : (cached.transcript as unknown as TranscriptSegment[]);
+          : undefined;
+        const hasTranslation = !!translatedTranscript;
 
         this.logger.log(
-          `Cache hit for ${videoId}, returning ${hasTranslation ? "translated" : "original"} transcript with ${cachedTranscript.length} segments`,
+          `Cache hit for ${videoId}, returning original transcript with ${originalTranscript.length} segments` +
+            (hasTranslation
+              ? ` (+${translatedTranscript.length} translated segments)`
+              : ""),
         );
         return {
           videoId,
           title: cached.title ?? `YouTube Video ${videoId}`,
-          transcript: cachedTranscript,
+          transcript: originalTranscript,
+          translatedTranscript,
           targetLanguage: cached.targetLanguage ?? undefined,
           hasTranslation,
         };
@@ -333,18 +342,38 @@ export class YoutubeService {
         );
       }
 
+      // 历史 bug：直接覆写 translatedTranscript 会让"按需翻译当前播放段"的客户端
+      // 在 flush 时把已积累的全量翻译换成几段甚至 1 段。这里改成按 start 时间戳合并，
+      // 新值覆盖同 start 的旧值，时间戳缺失的段则追加。
+      const existingArr = Array.isArray(existing.translatedTranscript)
+        ? (existing.translatedTranscript as unknown as TranscriptSegment[])
+        : [];
+      const targetChanged = existing.targetLanguage !== targetLanguage;
+      const seedArr = targetChanged ? [] : existingArr;
+      const byStart = new Map<number, TranscriptSegment>();
+      for (const seg of seedArr) {
+        if (typeof seg?.start === "number") byStart.set(seg.start, seg);
+      }
+      for (const seg of translatedTranscript) {
+        if (typeof seg?.start === "number") byStart.set(seg.start, seg);
+      }
+      const merged = Array.from(byStart.values()).sort(
+        (a, b) => a.start - b.start,
+      );
+
       await this.prisma.youTubeTranscriptCache.update({
         where: { videoId },
         data: {
-          translatedTranscript:
-            translatedTranscript as unknown as Prisma.InputJsonValue,
+          translatedTranscript: merged as unknown as Prisma.InputJsonValue,
           targetLanguage,
           translatedAt: new Date(),
         },
       });
 
       this.logger.log(
-        `Saved translation for ${videoId} (${translatedTranscript.length} segments, target: ${targetLanguage})`,
+        `Saved translation for ${videoId}: incoming=${translatedTranscript.length}, ` +
+          `previous=${existingArr.length}, merged=${merged.length}, target=${targetLanguage}` +
+          (targetChanged ? " (target changed, replaced)" : ""),
       );
     } catch (error) {
       this.logger.error(`Failed to save translation for ${videoId}: ${error}`);

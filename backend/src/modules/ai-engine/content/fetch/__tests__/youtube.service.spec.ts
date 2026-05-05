@@ -115,12 +115,17 @@ describe("YoutubeService", () => {
       expect(result.hasTranslation).toBe(false);
     });
 
-    it("returns translated transcript when available in cache", async () => {
+    it("returns original transcript with translation as a side channel when cached", async () => {
+      // Regression: previous code returned `translatedTranscript` as the primary
+      // `transcript` whenever it existed. A sparse single-segment translation thus
+      // wiped out the full 2k-segment original on the explore/youtube viewer.
+      // Now `transcript` is always the original; translation is exposed separately.
       const original: TranscriptSegment[] = [
         { text: "Hello", start: 0, duration: 2 },
+        { text: "world", start: 2, duration: 2 },
       ];
       const translated: TranscriptSegment[] = [
-        { text: "你好", start: 0, duration: 2 },
+        { text: "你好", start: 0, duration: 2, translatedText: "你好" },
       ];
       const futureExpiry = new Date(Date.now() + 1_000_000);
 
@@ -136,7 +141,8 @@ describe("YoutubeService", () => {
       const result = await service.getTranscript("abc123", "en");
 
       expect(result.hasTranslation).toBe(true);
-      expect(result.transcript).toEqual(translated);
+      expect(result.transcript).toEqual(original); // primary stays full
+      expect(result.translatedTranscript).toEqual(translated);
       expect(result.targetLanguage).toBe("zh-CN");
     });
 
@@ -336,6 +342,64 @@ describe("YoutubeService", () => {
       await expect(
         service.saveTranslation("abc123", [], "zh-CN"),
       ).rejects.toThrow("DB write error");
+    });
+
+    it("merges incoming partial translation into existing array (does not overwrite)", async () => {
+      // Regression: prior code overwrote translatedTranscript on each save. The
+      // explore/youtube viewer translates segments on-demand and flushes only the
+      // freshly-translated segments — that wiped the global cache to 1 segment.
+      const existing: TranscriptSegment[] = [
+        { text: "A", start: 0, duration: 2, translatedText: "甲" },
+        { text: "B", start: 2, duration: 2, translatedText: "乙" },
+        { text: "C", start: 4, duration: 2, translatedText: "丙" },
+      ];
+      mockPrismaService.youTubeTranscriptCache.findUnique.mockResolvedValue({
+        videoId: "abc123",
+        transcript: [],
+        translatedTranscript: existing,
+        targetLanguage: "zh-CN",
+      });
+      mockPrismaService.youTubeTranscriptCache.update.mockResolvedValue({});
+
+      const incoming: TranscriptSegment[] = [
+        // overwrite middle segment
+        { text: "B", start: 2, duration: 2, translatedText: "乙2" },
+        // new segment
+        { text: "D", start: 6, duration: 2, translatedText: "丁" },
+      ];
+      await service.saveTranslation("abc123", incoming, "zh-CN");
+
+      const call =
+        mockPrismaService.youTubeTranscriptCache.update.mock.calls[0][0];
+      const merged = call.data.translatedTranscript as TranscriptSegment[];
+      expect(merged.map((s) => s.start)).toEqual([0, 2, 4, 6]);
+      expect(merged.find((s) => s.start === 2)?.translatedText).toBe("乙2");
+      expect(merged.find((s) => s.start === 6)?.translatedText).toBe("丁");
+    });
+
+    it("replaces existing translation when target language changes", async () => {
+      const existing: TranscriptSegment[] = [
+        { text: "A", start: 0, duration: 2, translatedText: "甲" },
+      ];
+      mockPrismaService.youTubeTranscriptCache.findUnique.mockResolvedValue({
+        videoId: "abc123",
+        transcript: [],
+        translatedTranscript: existing,
+        targetLanguage: "zh-CN",
+      });
+      mockPrismaService.youTubeTranscriptCache.update.mockResolvedValue({});
+
+      const incoming: TranscriptSegment[] = [
+        { text: "A", start: 0, duration: 2, translatedText: "A-jp" },
+      ];
+      await service.saveTranslation("abc123", incoming, "ja");
+
+      const call =
+        mockPrismaService.youTubeTranscriptCache.update.mock.calls[0][0];
+      const merged = call.data.translatedTranscript as TranscriptSegment[];
+      expect(merged).toHaveLength(1);
+      expect(merged[0].translatedText).toBe("A-jp");
+      expect(call.data.targetLanguage).toBe("ja");
     });
   });
 
