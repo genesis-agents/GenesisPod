@@ -94,9 +94,19 @@ export class ResearchModule implements OnModuleInit {
     private readonly roleRegistry: RoleRegistry,
     private readonly researcherAgent: ResearcherAgent,
     private readonly promptSkillBridge: PromptSkillBridge,
+    // R0-A5: 注册 research skills 目录到 engine SkillLoader
+    private readonly skillLoader: import("@/modules/ai-engine/facade").SkillLoaderService,
   ) {}
 
   async onModuleInit() {
+    // R0-A5 (2026-05-04): 注册 research skill 目录
+    const path = await import("path");
+    await this.skillLoader.addSkillDirectory({
+      path: path.resolve(__dirname, "skills"),
+      domain: "research",
+      recursive: false,
+    });
+
     this.agentRegistry.register(this.researcherAgent);
     // v3 R0-A1-d: 业务 leader 角色由 ai-app 自身注册（base layer 不再硬编码业务名）
     this.roleRegistry.registerFromConfig(RESEARCH_LEAD_ROLE_CONFIG);

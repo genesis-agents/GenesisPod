@@ -264,9 +264,20 @@ export class AiWritingModule implements OnModuleInit {
     private readonly leaderCommandExecutor: LeaderCommandExecutor,
     private readonly revisionExecutor: RevisionExecutor,
     private readonly consistencyCheckExecutor: ConsistencyCheckExecutor,
+    // R0-A5: 注册 writing skills 目录到 engine SkillLoader
+    private readonly skillLoader: import("@/modules/ai-engine/facade").SkillLoaderService,
   ) {}
 
   async onModuleInit() {
+    // R0-A5 (2026-05-04): writing 自己注册 skill 目录到 engine（替代 engine
+    // 硬编码 ai-app/writing/skills 路径）
+    const path = await import("path");
+    await this.skillLoader.addSkillDirectory({
+      path: path.resolve(__dirname, "skills"),
+      domain: "writing",
+      recursive: false,
+    });
+
     // Register task executors into execution service's executorMap
     // NOTE: ContinueStoryExecutor is NOT registered - it shares taskType "full_story"
     // and is delegated to internally by FullStoryExecutor

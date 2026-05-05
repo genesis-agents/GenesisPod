@@ -505,13 +505,10 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       "i",
     );
 
-    // 历史豁免列表（2026-05-04 二轮清理后剩 3 文件）：
-    //   - skill-loader.service.ts: 引擎旧版 multi-app skill loader 硬编码 ai-app
-    //     路径，后续 PR 像 harness skill-loader 那样改为依赖注入，目前保留。
-    //   - credits/policy 两个 catalog：用 ai-app 名作为业务 key（计费按模块分类），
-    //     是业务设计（不是泄漏）。这两条是永久 allowlist。
+    // 历史豁免列表（三轮清理后剩 2 文件，credits 业务 catalog 永久豁免）：
+    //   - credits/policy 两个 catalog：用 ai-app 名作为业务 key（计费按模块
+    //     分类），是业务设计而非泄漏 —— 永久 allowlist。
     const ALLOWLIST: ReadonlySet<string> = new Set<string>([
-      "modules/ai-engine/skills/loader/loading/skill-loader.service.ts",
       "modules/ai-infra/credits/policy/credit-transaction-type.catalog.ts",
       "modules/ai-infra/credits/policy/default-credit-rules.catalog.ts",
     ]);

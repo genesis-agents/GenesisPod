@@ -321,9 +321,19 @@ export class TopicInsightsModule implements OnModuleInit {
     private readonly agentRegistry: AgentRegistry,
     private readonly teamRegistry: TeamRegistry,
     private readonly roleRegistry: RoleRegistry,
+    // R0-A5: 注册 insights skills 目录到 engine SkillLoader
+    private readonly skillLoader: import("@/modules/ai-engine/facade").SkillLoaderService,
   ) {}
 
   async onModuleInit() {
+    // R0-A5 (2026-05-04): 注册 insights skill 目录（替代 engine 硬编码）
+    const path = await import("path");
+    await this.skillLoader.addSkillDirectory({
+      path: path.resolve(__dirname, "skills"),
+      domain: "insights",
+      recursive: true,
+    });
+
     // Bridge prompt skills from SKILL.md → SkillRegistry
     const bridgeResult =
       await this.promptSkillBridge.registerDomain("insights");
