@@ -175,7 +175,10 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
               resultUri: null,
               NOT: { result: { equals: Prisma.DbNull } },
             },
-            select: { id: true, result: true },
+            // P0 (2026-05-05): 同时 select resultUri 避免 PrismaService hydrate
+            //   hook 触发 "result without resultUri" warn —— 此处虽明知
+            //   resultUri 为 null，但 hydrate 不知道，select 缺它就 warn 警告
+            select: { id: true, result: true, resultUri: true },
             take,
           });
           return rows
