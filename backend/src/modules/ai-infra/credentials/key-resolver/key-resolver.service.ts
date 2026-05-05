@@ -1,10 +1,8 @@
 import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
-import { UserRole } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
-import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
-import { NoAvailableKeyError, NoSystemKeyError } from "./key-resolver.errors";
+import { NoAvailableKeyError } from "./key-resolver.errors";
 
 export type KeySource = "PERSONAL" | "ASSIGNED" | "SYSTEM";
 
@@ -27,13 +25,19 @@ export interface ResolvedKey {
  * 统一的 API Key 解析入口。所有 LLM 调用都必须通过这里拿 Key，
  * 禁止直接访问 UserApiKeysService / SecretsService。
  *
- * 规则（2026-04-30 修订）：
- * - 所有用户优先级一致：Personal → Assigned
- * - ADMIN 在 Personal/Assigned 都没有时**回退到 SYSTEM**（保留管理员维持系统功能能力）
- * - 普通用户在 Personal/Assigned 都没有时抛 NoAvailableKeyError（不静默回退 SYSTEM 避免账单混乱）
+ * 规则（2026-05-05 严格 BYOK）：
+ * - 所有用户（含 ADMIN）：Personal → Assigned，都无 → throw NoAvailableKeyError
+ * - **不再 fallback SYSTEM** —— 用户必须显式配 BYOK，否则失败 + 引导配置
+ * - SYSTEM key 仅供"无用户上下文"的后台任务（cron / health check）使用，
+ *   通过 ai-model-config.resolveApiKey 自身的 SYSTEM 路径直查 secrets，
+ *   不走本 KeyResolver 入口。
  *
- * 历史变更：之前 ADMIN 永远走 SYSTEM 忽略 Personal/Assigned，导致 ADMIN 用户
- * 配的 BYOK PERSONAL key 完全无效（业务希望 ADMIN 也能用自己的 key）。
+ * 历史：
+ * - 2026-04-30: 修订让 ADMIN 也走 PERSONAL → ASSIGNED → SYSTEM（之前 ADMIN
+ *   永远 SYSTEM 让 BYOK 失效）
+ * - 2026-05-05: 删除 ADMIN SYSTEM fallback，严格 BYOK。原因：用户报告 AI Ask /
+ *   AI Explore / Library 仍在用 SYSTEM key（实际是 ADMIN 没配 PERSONAL 时
+ *   静默 fallback SYSTEM）。改为强制 BYOK 让用户感知 + 配置。
  */
 @Injectable()
 export class KeyResolverService {
@@ -43,13 +47,14 @@ export class KeyResolverService {
     private readonly prisma: PrismaService,
     private readonly userApiKeys: UserApiKeysService,
     private readonly keyAssignments: KeyAssignmentsService,
-    private readonly secrets: SecretsService,
   ) {}
 
   async resolveKey(
     userId: string,
     provider: string,
-    options: { systemSecretName?: string | null } = {},
+    // ★ 2026-05-05: options.systemSecretName 仅 ADMIN SYSTEM fallback 路径用，
+    //   严格 BYOK 后该路径已删，参数保留作签名兼容（caller 可继续传，被忽略）。
+    _options: { systemSecretName?: string | null } = {},
   ): Promise<ResolvedKey> {
     if (!userId) {
       throw new UnauthorizedException("userId is required for key resolution");
@@ -58,28 +63,24 @@ export class KeyResolverService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { id: true },
     });
     if (!user) {
       throw new UnauthorizedException("User not found");
     }
 
-    // ★ 2026-04-30 修订：所有用户（含 ADMIN）都先试 PERSONAL → ASSIGNED。
-    // ADMIN 在两者都没有时回退到 SYSTEM；普通用户抛 NoAvailableKeyError。
-    // 之前 ADMIN 强制 SYSTEM 让 ADMIN 用户的 BYOK PERSONAL key 完全失效。
-    try {
-      return await this.resolveUserKey(userId, normalizedProvider);
-    } catch (err) {
-      if (err instanceof NoAvailableKeyError && user.role === UserRole.ADMIN) {
-        // ADMIN 兜底走 SYSTEM
-        return this.resolveSystemKey(
-          userId,
-          normalizedProvider,
-          options.systemSecretName ?? null,
-        );
-      }
-      throw err;
-    }
+    // ★ 2026-05-05 严格 BYOK 模式：所有用户（含 ADMIN）必须配 PERSONAL 或
+    //   ASSIGNED key，不再 fallback 到 SYSTEM。SYSTEM key 仅供"无用户上下文"
+    //   的后台任务（cron / health check）使用，不通过本 resolveKey 入口。
+    //
+    //   背景（2026-05-05 用户报告）：AI Ask / AI Explore / Library 用户感知
+    //   "还在用系统 Key"，根因是 ADMIN 在 PERSONAL 没配时静默 fallback SYSTEM。
+    //   严格 BYOK = ADMIN 也必须配 BYOK，否则失败 + 引导用户去 BYOK 配置页。
+    //
+    //   历史路径（已废）：之前 ADMIN 在 PERSONAL/ASSIGNED 都无时回退 SYSTEM
+    //   "保留管理员维持系统功能能力"。改回严格后，ADMIN 也必须显式配 BYOK，
+    //   保留可调用性的方法是去 Admin → AI 配置加 PERSONAL key。
+    return await this.resolveUserKey(userId, normalizedProvider);
   }
 
   /**
@@ -103,9 +104,11 @@ export class KeyResolverService {
    * - USER：Personal ∪ Assigned
    */
   async getAvailableProviders(userId: string): Promise<string[]> {
+    // ★ 2026-05-05 严格 BYOK：ADMIN 不再额外加 SYSTEM provider 集合，与
+    //   resolveKey 一致。ADMIN 想用某 provider 必须显式配 PERSONAL 或 ASSIGNED。
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { id: true },
     });
     if (!user) return [];
 
@@ -113,15 +116,7 @@ export class KeyResolverService {
       this.userApiKeys.getAvailableProviders(userId),
       this.keyAssignments.getAvailableProviders(userId),
     ]);
-    const merged = new Set([...personal, ...assigned]);
-
-    if (user.role === UserRole.ADMIN) {
-      // ADMIN 额外把系统 Secret 已配置的 provider 也算进去（与 resolveKey 兜底一致）
-      const sys = await this.secrets.listAvailableProviders();
-      for (const p of sys) merged.add(p);
-    }
-
-    return Array.from(merged);
+    return Array.from(new Set([...personal, ...assigned]));
   }
 
   /**
@@ -184,59 +179,9 @@ export class KeyResolverService {
     throw new NoAvailableKeyError(provider);
   }
 
-  /**
-   * 按优先级查系统 Secret：
-   * 1. 调用方显式指定的 secretName（通常来自 AIModel.secretKey）
-   * 2. 默认约定 `${provider}-api-key`
-   * 3. 按 provider 字段在 secrets 表里模糊匹配（兜底：历史命名不规范）
-   *
-   * 任一命中即返回；都没有则抛 NoSystemKeyError。
-   */
-  private async resolveSystemKey(
-    userId: string,
-    provider: string,
-    explicitSecretName: string | null,
-  ): Promise<ResolvedKey> {
-    const candidates: string[] = [];
-    if (explicitSecretName) candidates.push(explicitSecretName);
-    candidates.push(`${provider}-api-key`);
-
-    for (const name of candidates) {
-      const value = await this.secrets.getValueInternal(name);
-      if (value) {
-        return this.buildSystemResolved(userId, provider, value, name);
-      }
-    }
-
-    // 兜底：按 secrets.provider 字段匹配（容忍历史命名如 claude-api-key / gemini-api / xai-grok-api-key）
-    const fallback = await this.secrets.findByProviderAlias(provider);
-    if (fallback) {
-      const value = await this.secrets.getValueInternal(fallback.name);
-      if (value) {
-        return this.buildSystemResolved(userId, provider, value, fallback.name);
-      }
-    }
-
-    throw new NoSystemKeyError(provider);
-  }
-
-  private async buildSystemResolved(
-    userId: string,
-    provider: string,
-    apiKey: string,
-    secretName: string,
-  ): Promise<ResolvedKey> {
-    // Endpoint 是可选 secret，命名约定 `${provider}-api-endpoint`；没有就留 null
-    const endpointName = `${provider}-api-endpoint`;
-    const endpoint = await this.secrets.getValueInternal(endpointName);
-    return {
-      source: "SYSTEM",
-      apiKey: apiKey.trim(),
-      apiEndpoint: endpoint?.trim() || null,
-      provider,
-      userId,
-      // keyId 留空（SYSTEM 不写 assignment），但记一下 secretName 供审计
-      keyId: secretName,
-    };
-  }
+  // ★ 2026-05-05 严格 BYOK 模式删除：resolveSystemKey / buildSystemResolved
+  //   原 ADMIN fallback 调用方已删除（resolveKey 现在 PERSONAL/ASSIGNED 都
+  //   无时直接 throw NoAvailableKeyError）。SYSTEM key 仅由
+  //   ai-model-config.resolveApiKey 在"无 userId 上下文"分支自行查 secrets，
+  //   不通过 KeyResolver 入口，避免被 user 调用链命中。
 }

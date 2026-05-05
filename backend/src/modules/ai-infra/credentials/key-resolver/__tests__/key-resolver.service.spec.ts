@@ -65,39 +65,14 @@ describe("KeyResolverService", () => {
       );
     });
 
-    describe("ADMIN", () => {
+    // ★ 2026-05-05 严格 BYOK：ADMIN 不再 fallback SYSTEM。所有 ADMIN spec 改
+    //   验证"PERSONAL/ASSIGNED 都无时也抛 NoAvailableKeyError"（与 USER 一致）。
+    describe("ADMIN（严格 BYOK，与 USER 行为一致）", () => {
       beforeEach(() => {
         prisma.user.findUnique.mockResolvedValue({ role: UserRole.ADMIN });
       });
 
-      it("returns SYSTEM when secret is configured (ADMIN no BYOK)", async () => {
-        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
-        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
-        (secrets.getValueInternal as jest.Mock)
-          .mockResolvedValueOnce("sys-openai-secret")
-          .mockResolvedValueOnce("https://endpoint");
-        const r = await service.resolveKey("admin", "openai");
-        expect(r).toEqual(
-          expect.objectContaining({
-            source: "SYSTEM",
-            apiKey: "sys-openai-secret",
-            apiEndpoint: "https://endpoint",
-            provider: "openai",
-          }),
-        );
-      });
-
-      it("throws NoSystemKeyError when ADMIN has no BYOK and no SYSTEM", async () => {
-        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
-        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
-        (secrets.getValueInternal as jest.Mock).mockResolvedValue(null);
-        await expect(service.resolveKey("admin", "openai")).rejects.toThrow(
-          NoSystemKeyError,
-        );
-      });
-
       it("returns PERSONAL when ADMIN has BYOK Personal Key", async () => {
-        // 2026-04-30 admin priority: PERSONAL -> ASSIGNED -> SYSTEM
         (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue({
           apiKey: "admin-byok-key",
           apiEndpoint: null,
@@ -106,52 +81,28 @@ describe("KeyResolverService", () => {
         const r = await service.resolveKey("admin", "openai");
         expect(r.source).toBe("PERSONAL");
         expect(r.apiKey).toBe("admin-byok-key");
-        expect(secrets.getValueInternal).not.toHaveBeenCalled();
       });
 
-      it("falls back to SYSTEM only when ADMIN has no Personal/Assigned", async () => {
+      it("throws NoAvailableKeyError when ADMIN has no BYOK (no SYSTEM fallback)", async () => {
         (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
         (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
-        (secrets.getValueInternal as jest.Mock).mockResolvedValue("sys");
+        await expect(service.resolveKey("admin", "openai")).rejects.toThrow(
+          NoAvailableKeyError,
+        );
+      });
+
+      it("falls through to ASSIGNED when ADMIN has no Personal", async () => {
+        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
+        (assignments.resolveActive as jest.Mock).mockResolvedValue({
+          assignmentId: "a-admin",
+          keyId: "k-admin",
+          apiKey: "admin-assigned",
+          apiEndpoint: null,
+          userQuotaCents: 500,
+          userSpendCents: 0,
+        });
         const r = await service.resolveKey("admin", "openai");
-        expect(userApiKeys.getPersonalKey).toHaveBeenCalled();
-        expect(assignments.resolveActive).toHaveBeenCalled();
-        expect(r.source).toBe("SYSTEM");
-      });
-
-      it("honors explicit systemSecretName before conventional name", async () => {
-        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
-        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
-        (secrets.getValueInternal as jest.Mock).mockImplementation(
-          (name: string) =>
-            name === "claude-api-key"
-              ? "sys-claude-actual"
-              : name === "anthropic-api-endpoint"
-                ? null
-                : null,
-        );
-        const r = await service.resolveKey("admin", "anthropic", {
-          systemSecretName: "claude-api-key",
-        });
-        expect(r.source).toBe("SYSTEM");
-        expect(r.apiKey).toBe("sys-claude-actual");
-        expect(r.keyId).toBe("claude-api-key");
-      });
-
-      it("falls back to provider-alias lookup when conventional name missing", async () => {
-        (userApiKeys.getPersonalKey as jest.Mock).mockResolvedValue(null);
-        (assignments.resolveActive as jest.Mock).mockResolvedValue(null);
-        (secrets.getValueInternal as jest.Mock).mockImplementation(
-          (name: string) => (name === "gemini-api" ? "sys-gemini-value" : null),
-        );
-        (secrets.findByProviderAlias as jest.Mock).mockResolvedValue({
-          id: "secret-1",
-          name: "gemini-api",
-        });
-        const r = await service.resolveKey("admin", "google");
-        expect(r.source).toBe("SYSTEM");
-        expect(r.apiKey).toBe("sys-gemini-value");
-        expect(r.keyId).toBe("gemini-api");
+        expect(r.source).toBe("ASSIGNED");
       });
     });
 
@@ -212,16 +163,15 @@ describe("KeyResolverService", () => {
       expect(await service.getAvailableProviders("ghost")).toEqual([]);
     });
 
-    it("returns system providers for admin", async () => {
+    it("[严格 BYOK] ADMIN 不再额外加 SYSTEM provider — 与 USER 行为一致", async () => {
       prisma.user.findUnique.mockResolvedValue({ role: UserRole.ADMIN });
-      (secrets.listAvailableProviders as jest.Mock).mockResolvedValue([
+      (userApiKeys.getAvailableProviders as jest.Mock).mockResolvedValue([
         "openai",
-        "anthropic",
       ]);
-      expect(await service.getAvailableProviders("admin")).toEqual([
-        "openai",
-        "anthropic",
-      ]);
+      (assignments.getAvailableProviders as jest.Mock).mockResolvedValue([]);
+      // 即使 secrets 有更多 provider 也不再添加（严格 BYOK）
+      const result = await service.getAvailableProviders("admin");
+      expect(result).toEqual(["openai"]);
     });
 
     it("merges personal and assigned for user (dedup)", async () => {
