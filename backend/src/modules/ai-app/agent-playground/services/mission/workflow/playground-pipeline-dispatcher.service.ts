@@ -26,6 +26,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
+  runWithStageInstrumentation,
   type MissionPipelineConfig,
   type ResolvedStageHooks,
   type StageRunArgs,
@@ -40,6 +41,7 @@ import {
   PlaygroundHookNotYetWiredError,
 } from "../../../playground.config";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
+import { narrate } from "./narrative.util";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
 import { runLeaderPlanStage } from "./stages/s2-leader-plan-mission.stage";
 import { runResearcherDispatchStage } from "./stages/s3-researcher-collect-findings.stage";
@@ -280,6 +282,16 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       this.buildLeaderInvocation(missionId, userId, session.billing),
     );
     this.sessions.set(missionId, { session, t0, input, workspaceId, leader });
+    // ★ 2026-05-05 增量更新："更新"按钮 → input.inheritFromMissionId 携带源 mission；
+    //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.lastPlan，
+    //   下游 S2 hook 检测到 lastPlan 已就绪即跳过 LLM 调用并 emit synthetic plan event。
+    if (input.inheritFromMissionId) {
+      await this.hydrateInheritedPlan(
+        missionId,
+        userId,
+        input.inheritFromMissionId,
+      );
+    }
     try {
       return await this.runtimeShell.runWithinContext(session, async () => {
         const result = await this.orchestrator.run({
@@ -577,6 +589,92 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
   }
 
   /**
+   * ★ 2026-05-05 增量更新（"更新"按钮）helper：
+   * 从 source mission DB row 重建 plan（dimensions+themeSummary+goals）写入
+   * entry.lastPlan，让 S2 hook 检测到后跳过 Leader LLM 调用直接用继承的 plan。
+   *
+   * 失败兜底：source 不存在 / dimensions 缺失 → log warn，不写 entry.lastPlan，
+   * S2 走原有 runLeaderPlanStage 路径（fallback to fresh plan）。
+   */
+  private async hydrateInheritedPlan(
+    missionId: string,
+    userId: string,
+    sourceMissionId: string,
+  ): Promise<void> {
+    try {
+      const source = await this.store.getById(sourceMissionId, userId);
+      if (!source) {
+        this.log.warn(
+          `[hydrateInheritedPlan] source mission ${sourceMissionId} not found, S2 will run fresh`,
+        );
+        return;
+      }
+      const rawDimensions = source.dimensions;
+      const themeSummary = (source as { themeSummary?: string | null })
+        .themeSummary;
+      // ★ 防御 source DB JSON 损坏：每个 dim 必须有 string id + name + rationale
+      if (!Array.isArray(rawDimensions) || rawDimensions.length === 0) {
+        this.log.warn(
+          `[hydrateInheritedPlan] source mission ${sourceMissionId} has no/invalid dimensions, S2 will run fresh`,
+        );
+        return;
+      }
+      const dimensions = rawDimensions.filter(
+        (
+          d,
+        ): d is {
+          id: string;
+          name: string;
+          rationale: string;
+          toolHint?: { categories: string[]; preferIds?: string[] };
+          dependsOn?: string[];
+        } =>
+          typeof d === "object" &&
+          d !== null &&
+          typeof (d as { id?: unknown }).id === "string" &&
+          typeof (d as { name?: unknown }).name === "string" &&
+          typeof (d as { rationale?: unknown }).rationale === "string",
+      );
+      if (dimensions.length === 0) {
+        this.log.warn(
+          `[hydrateInheritedPlan] source mission ${sourceMissionId} dimensions all malformed, S2 will run fresh`,
+        );
+        return;
+      }
+      if (dimensions.length < rawDimensions.length) {
+        this.log.warn(
+          `[hydrateInheritedPlan] source mission ${sourceMissionId} dimensions partially malformed: kept ${dimensions.length}/${rawDimensions.length}`,
+        );
+      }
+      const entry = this.sessions.get(missionId);
+      if (!entry) return;
+      entry.lastPlan = {
+        themeSummary: themeSummary ?? "",
+        dimensions: dimensions as NonNullable<
+          import("./mission-context").MissionContext["plan"]
+        >["dimensions"],
+        // goals/initialRisks 不从 source DB 反序列化（不在 mission row 持久化里），
+        // 留空数组让下游 stage 走兜底逻辑（S4 leader assess 仅消费 dimensions）
+        goals: [] as unknown as NonNullable<
+          import("./mission-context").MissionContext["plan"]
+        >["goals"],
+        initialRisks: [] as unknown as NonNullable<
+          import("./mission-context").MissionContext["plan"]
+        >["initialRisks"],
+      };
+      this.log.log(
+        `[hydrateInheritedPlan] mission ${missionId} inherited plan from ${sourceMissionId} (${dimensions.length} dims)`,
+      );
+    } catch (err) {
+      this.log.warn(
+        `[hydrateInheritedPlan] failed for ${sourceMissionId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  /**
    * 构造单 stage 用的 MissionContext（每 stage 独立 ctx，避免 mutable 状态串扰）。
    * partial = caller 已知的 ctx 字段（如 plan，从 previousOutputs 重建）
    */
@@ -634,6 +732,66 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     const hooks = {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const entry = this.getEntry(args.ctx.missionId);
+        // ★ 2026-05-05 增量更新：runMission 已 hydrate entry.lastPlan from source mission；
+        //   走 runWithStageInstrumentation 跳过 LLM 调用，保留所有 UI 关键事件
+        //   （stage:started / stage:completed with stage='leader' / lifecycle / narrative）
+        if (entry.lastPlan && entry.input.inheritFromMissionId) {
+          this.log.log(
+            `[s2-leader-plan] inheriting from mission ${entry.input.inheritFromMissionId}, skip LLM`,
+          );
+          const inheritedPlan = entry.lastPlan;
+          const sourceMissionId = entry.input.inheritFromMissionId;
+          const deps = this.stageBindings.buildDeps();
+          const result = await runWithStageInstrumentation(
+            {
+              missionId: entry.session.missionId,
+              userId: entry.session.userId,
+              pool: entry.session.pool,
+            },
+            deps,
+            {
+              eventPrefix: "agent-playground",
+              stageId: "s2-leader-plan",
+              role: "leader",
+              narrate,
+              narrateThinking: `Leader 继承自 mission ${sourceMissionId.slice(0, 8)} 的研究方案（${inheritedPlan.dimensions.length} 个维度），跳过重新规划`,
+              narrateSuccess: (out) =>
+                `继承方案：${out.dimensions.length} 个维度（${out.dimensions
+                  .map((d) => d.name)
+                  .slice(0, 3)
+                  .join(" / ")}${out.dimensions.length > 3 ? " 等" : ""}）`,
+              customMetrics: (out) => ({
+                dimensions: out.dimensions,
+                themeSummary: out.themeSummary,
+                inherited: true,
+                sourceMissionId,
+              }),
+              emitExtras: async (out) => {
+                // 同时 emit goals-set 让前端 dim 卡片有 rationale 来源
+                await deps
+                  .emit({
+                    type: "agent-playground.leader:goals-set",
+                    missionId: entry.session.missionId,
+                    userId: entry.session.userId,
+                    payload: {
+                      goals: out.goals ?? [],
+                      initialRisks: out.initialRisks ?? [],
+                    },
+                  })
+                  .catch(() => undefined);
+              },
+            },
+            async () => ({
+              themeSummary: inheritedPlan.themeSummary,
+              dimensions: inheritedPlan.dimensions,
+              goals: inheritedPlan.goals ?? [],
+              initialRisks: inheritedPlan.initialRisks ?? [],
+            }),
+          );
+          // 已 hydrate；result 与 inheritedPlan 等价，写一遍给类型上的 entry 同步
+          entry.lastPlan = inheritedPlan;
+          return result;
+        }
         // buildCtx 复用现有 stageBindings 服务，确保字段映射与 legacy 一致
         const stageCtx = this.stageBindings.buildCtx({
           missionId: entry.session.missionId,

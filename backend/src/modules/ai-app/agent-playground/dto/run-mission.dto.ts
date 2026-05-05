@@ -70,6 +70,13 @@ export const RunMissionInputSchema = z.object({
    * 上限 10（与 ai-ask / open-api 一致）。
    */
   knowledgeBaseIds: z.array(z.string().uuid()).max(10).optional(),
+  /**
+   * ★ 2026-05-05 增量更新（"更新"按钮 mode='incremental'）：源 mission ID。
+   * Dispatcher 启动时载入 source.dimensions + themeSummary 作为本次 plan 跳过 S2 Leader
+   * LLM 调用；下游 stage（researcher / writer）按 input.inheritFromMissionId 决定要不
+   * 要把上次 reportArtifact 喂进 prompt 做 "在上一次基础上更新" 语义。
+   */
+  inheritFromMissionId: z.string().uuid().optional(),
 });
 
 export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;

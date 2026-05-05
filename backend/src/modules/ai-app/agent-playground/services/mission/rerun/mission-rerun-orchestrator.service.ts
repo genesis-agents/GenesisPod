@@ -100,6 +100,10 @@ export class MissionRerunOrchestratorService {
     const input = this.cloneInputFromMission(original, {
       maxCreditsFallback:
         (original as { maxCredits?: number }).maxCredits ?? 300,
+      // ★ 2026-05-05: incremental 模式注入 inheritFromMissionId 让 dispatcher 载入
+      //   source plan 跳过 S2 Leader LLM；fresh 模式不传，正常从头跑
+      inheritFromMissionId:
+        mode === "incremental" ? sourceMissionId : undefined,
     });
 
     const newMissionId = randomUUID();
@@ -114,16 +118,16 @@ export class MissionRerunOrchestratorService {
         .catch(() => false);
       if (cloned) {
         this.log.log(
-          `[rerun:${mode}] mission ${newMissionId} resumed from ${sourceMissionId} checkpoint`,
+          `[rerun:${mode}] mission ${newMissionId} resumed from ${sourceMissionId} checkpoint + inheritFromMissionId set`,
         );
       } else {
         this.log.log(
-          `[rerun:${mode}] mission ${newMissionId} no checkpoint to clone, will run from start`,
+          `[rerun:${mode}] mission ${newMissionId} no checkpoint to clone, but inheritFromMissionId set — dispatcher will hydrate plan from source DB`,
         );
       }
     } else {
       this.log.log(
-        `[rerun:${mode}] mission ${newMissionId} fresh restart from ${sourceMissionId} (no checkpoint clone)`,
+        `[rerun:${mode}] mission ${newMissionId} fresh restart from ${sourceMissionId} (no checkpoint clone, no inherit)`,
       );
     }
 
@@ -226,7 +230,11 @@ export class MissionRerunOrchestratorService {
   /** 从 source mission row 重建 RunMissionInput（rerun 复用原配置）*/
   private cloneInputFromMission(
     original: NonNullable<Awaited<ReturnType<MissionStore["getById"]>>>,
-    overrides: { topic?: string; maxCreditsFallback: number },
+    overrides: {
+      topic?: string;
+      maxCreditsFallback: number;
+      inheritFromMissionId?: string;
+    },
   ): RunMissionInput {
     const originalProfile = (original as { userProfile?: unknown })
       .userProfile as Partial<RunMissionInput> | null | undefined;
@@ -250,6 +258,7 @@ export class MissionRerunOrchestratorService {
       concurrency: originalProfile?.concurrency ?? 3,
       viewMode: originalProfile?.viewMode ?? "continuous",
       maxCredits: originalProfile?.maxCredits ?? overrides.maxCreditsFallback,
+      inheritFromMissionId: overrides.inheritFromMissionId,
     };
   }
 }
