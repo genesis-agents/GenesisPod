@@ -102,16 +102,9 @@ export class ToolPipeline implements IMiddlewareChain {
       taskId: context.taskId,
       metadata: context.metadata,
     };
-    // ★ W1-a：plugin（如 tool-validation-zod）需要 schema 进 payload
     const beforePayload: ToolBeforePayload = {
       __version: 1,
-      call: {
-        toolId: tool.id,
-        input,
-        contextMeta: safeContextMeta,
-        inputSchema: tool.inputSchema,
-        outputSchema: tool.outputSchema,
-      },
+      call: { toolId: tool.id, input, contextMeta: safeContextMeta },
       meta: { missionId, timestamp: Date.now() },
     };
 
@@ -127,13 +120,7 @@ export class ToolPipeline implements IMiddlewareChain {
           // wrap plugin（timeout/sandbox/retry）可在 terminal 执行期间监听 abort
           const wrapPayload: ToolWrapPayload = {
             __version: 1,
-            call: {
-              toolId: tool.id,
-              input,
-              contextMeta: safeContextMeta,
-              inputSchema: tool.inputSchema,
-              outputSchema: tool.outputSchema,
-            },
+            call: { toolId: tool.id, input, contextMeta: safeContextMeta },
             signal: wrapAbortController.signal,
             meta: { missionId, timestamp: Date.now() },
           };
@@ -146,13 +133,7 @@ export class ToolPipeline implements IMiddlewareChain {
           // fire TOOL_AFTER inside terminal (capture cache flag etc.)
           const afterPayload: ToolAfterPayload = {
             __version: 1,
-            call: {
-              toolId: tool.id,
-              input,
-              contextMeta: safeContextMeta,
-              inputSchema: tool.inputSchema,
-              outputSchema: tool.outputSchema,
-            },
+            call: { toolId: tool.id, input, contextMeta: safeContextMeta },
             result: this.toJsonSafe(r),
             cacheHit: Boolean(
               (r.metadata as { extra?: { fromCache?: boolean } } | undefined)
@@ -173,13 +154,7 @@ export class ToolPipeline implements IMiddlewareChain {
       if (err instanceof HookAbortError) {
         const afterPayload: ToolAfterPayload = {
           __version: 1,
-          call: {
-            toolId: tool.id,
-            input,
-            contextMeta: safeContextMeta,
-            inputSchema: tool.inputSchema,
-            outputSchema: tool.outputSchema,
-          },
+          call: { toolId: tool.id, input, contextMeta: safeContextMeta },
           result: this.toJsonSafe(err.abortPayload),
           abortReason: err.reason,
           meta: { missionId, timestamp: Date.now() },
