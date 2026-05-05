@@ -105,6 +105,13 @@ import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
 import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
+// Plugin system (v5.1 R0.5-E W1-a 单轨化：全局 plugin 加载入口)
+// 已激活：tool-timeout / tool-validation-zod（替代 legacy middleware）
+// 仍 scaffold（待各自 production service 接入 PR 再激活）：
+//   telemetry-otel / tool-cache-redis / rate-limit / sandbox-isolated-vm
+import { PluginCoreModule } from "./plugins/core";
+import { ToolTimeoutPlugin } from "./plugins/tool-augment/tool-timeout";
+import { ToolValidationZodPlugin } from "./plugins/tool-augment/tool-validation-zod";
 // L1â†’L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
 import {
   AI_CHAT_TOKEN,
@@ -141,6 +148,13 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
           limit: config.get("THROTTLE_LIMIT", 60), // é™åˆ¶ï¼š60æ¬¡è¯·æ±‚
         },
       ],
+    }),
+    // Plugin system（v5.1 R0.5-E W1-a 单轨化）
+    // 仅激活 W1-a 2 plugin（替代 legacy timeout/validation 中间件，代码已删）；
+    // 其他 4 个 plugin 等各自 production service wiring（redis client / OTLP exporter /
+    // isolated-vm runner / token-bucket store）就位后在独立 PR 接入。
+    PluginCoreModule.forRoot({
+      plugins: [new ToolTimeoutPlugin(), new ToolValidationZodPlugin()],
     }),
 
     // å…¬å…±åŸºç¡€æ¨¡å—
