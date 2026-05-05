@@ -714,12 +714,23 @@ export default function MissionDetailPage() {
                 })();
               }}
               onUpdate={() => {
-                const qs = new URLSearchParams({
-                  topic: view.mission.topic ?? '',
-                  depth: view.mission.depth ?? 'standard',
-                  language: view.mission.language ?? 'zh-CN',
-                }).toString();
-                router.push(`/agent-playground/team?${qs}`);
+                // ★ 2026-05-05 修复：原代码跳到 /team?topic=...&depth=...&language=...
+                //   全屏新建页只 prefill 3 字段，根本不是"更新"——是新建。
+                //   对齐 Topic Insight TopicDetail.handleContinueResearch
+                //   ('incremental' 模式：保留已完成任务，只跑未完成的)：
+                //   直接调 rerunMission API，后端 rerunFullMission 内部
+                //   clone checkpoint → 新 mission 跳过已完成 stage = 在既有
+                //   基础上增量更新。复用原 mission 全部 input 字段（不只 3 个）。
+                void (async () => {
+                  try {
+                    const { missionId: newId } = await rerunMission(missionId);
+                    router.push(`/agent-playground/team/${newId}`);
+                  } catch (e) {
+                    window.alert(
+                      `更新失败：${e instanceof Error ? e.message : String(e)}`
+                    );
+                  }
+                })();
               }}
               onCancel={() => {
                 if (!window.confirm('确认取消该 mission？')) return;
