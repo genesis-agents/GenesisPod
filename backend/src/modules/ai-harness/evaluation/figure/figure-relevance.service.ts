@@ -78,6 +78,23 @@ export class FigureRelevanceService {
   ): Promise<ExtractedFigure[]> {
     if (figures.length === 0) return [];
 
+    // ★ C1 fix (2026-05-05): 优先 LLM batch judgment，单次 LLM 调用判全部 figure。
+    //   原 embedding 路径每张图 1-3 次 OpenAI 调用 → 30 张图 90+ 次请求易触
+    //   429 风暴 + circuit-breaker "打 4 + 冷 24s" 循环。LLM batch 1 次即可完成
+    //   语义判断，且现有 BYOK chat fallback chain 已有 cross-provider 健康路由。
+    //   LLM 失败时再 fall back 到 embedding 路径。
+    try {
+      const llmResult = await this.filterByLLMBatch(figures, topicTitle);
+      if (llmResult) return llmResult;
+    } catch (err) {
+      this.logger.warn(
+        `[filterRelevantFigures] LLM batch failed, falling back to embedding: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    // ── Fallback: embedding 路径（原 v17 实现）────────────────────────
     // topicTitle embedding：懒计算 Promise 缓存，整个调用只算一次
     let topicEmbeddingPromise: Promise<number[] | null> | null = null;
     const getTopicEmbedding = (): Promise<number[] | null> => {
@@ -197,5 +214,96 @@ export class FigureRelevanceService {
       return caption.length >= MIN_CAPTION_LENGTH;
     }
     return false;
+  }
+
+  /**
+   * C1 (2026-05-05): LLM 批量判断 — 单次调用判全部 photo 是否相关。
+   *
+   * ① chart/table/diagram → 直接保留（不消耗 LLM）
+   * ② photo, caption < 10 chars → 直接拒绝
+   * ③ 剩余 photo 列出 caption，让 LLM 一次性返回 acceptedIndices: number[]
+   *
+   * 失败时返回 null，调用方走 embedding 路径兜底。
+   */
+  private async filterByLLMBatch(
+    figures: ExtractedFigure[],
+    topicTitle: string,
+  ): Promise<ExtractedFigure[] | null> {
+    const accepted: ExtractedFigure[] = [];
+    const photoCandidates: { idx: number; fig: ExtractedFigure }[] = [];
+
+    figures.forEach((fig, idx) => {
+      if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) {
+        accepted.push(fig);
+        return;
+      }
+      if (fig.type === "photo") {
+        const caption = (fig.caption ?? fig.alt ?? "").trim();
+        if (caption.length < MIN_CAPTION_LENGTH) return; // 拒
+        photoCandidates.push({ idx, fig });
+      }
+    });
+
+    if (photoCandidates.length === 0) return accepted;
+
+    const captionsList = photoCandidates
+      .map(
+        (c, i) =>
+          `${i}. ${(c.fig.caption ?? c.fig.alt ?? "").trim().substring(0, 200)}`,
+      )
+      .join("\n");
+
+    const userPrompt = [
+      `研究主题：${topicTitle}`,
+      "",
+      "下列是候选图片的 caption 列表（编号 0 起）。请判断哪些图片与研究主题相关、值得保留：",
+      "",
+      captionsList,
+      "",
+      '返回 JSON：{ acceptedIndices: <number[]> }，仅列出"应保留"图片的编号；',
+      "标准：caption 内容直接或间接支撑主题论证。装饰图、广告图、无关 stock 图都拒绝。",
+    ].join("\n");
+
+    try {
+      const result = await this.engineFacade.chatStructured<{
+        acceptedIndices: number[];
+      }>({
+        systemPrompt:
+          "你是图文相关性审查助手，按主题相关度过滤图片，输出严格 JSON。",
+        messages: [{ role: "user", content: userPrompt }],
+        schema: {
+          type: "object",
+          properties: {
+            acceptedIndices: { type: "array", items: { type: "number" } },
+          },
+          required: ["acceptedIndices"],
+        },
+        taskProfile: { creativity: "deterministic", outputLength: "short" },
+        throwOnParseError: false,
+        maxRetries: 1,
+      });
+
+      const indices = new Set<number>(
+        Array.isArray(result.data?.acceptedIndices)
+          ? result.data.acceptedIndices.filter(
+              (n: unknown) => typeof n === "number",
+            )
+          : [],
+      );
+
+      photoCandidates.forEach((c, i) => {
+        if (indices.has(i)) accepted.push(c.fig);
+      });
+
+      this.logger.log(
+        `[filterByLLMBatch] LLM accepted ${indices.size}/${photoCandidates.length} photos for "${topicTitle}" (single batch call)`,
+      );
+      return accepted;
+    } catch (err) {
+      this.logger.warn(
+        `[filterByLLMBatch] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return null; // 让调用方 fallback
+    }
   }
 }
