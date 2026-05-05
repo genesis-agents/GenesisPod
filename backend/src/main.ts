@@ -73,9 +73,14 @@ async function bootstrap() {
     ? ["error", "warn", "log"]
     : ["error", "warn", "log", "debug", "verbose"];
 
+  // ★ 2026-05-05: 启动期 NestJS 内置 RouterExplorer / RoutesResolver /
+  //   InstanceLoader 会按"每条路由 / 每个 Controller / 每个依赖"打 log 级日志，
+  //   prod 里淹没真正的业务日志（数千行噪声）。做法：bootstrap 时关 logger，
+  //   NestFactory.create 跑完后再 useLogger 切回正常级别。
   const app = await NestFactory.create(AppModule, {
-    logger: logLevels,
+    logger: false,
   });
+  app.useLogger(logLevels);
 
   // 增加请求体大小限制，支持大型字幕数据
   app.use(express.json({ limit: "50mb" }));
