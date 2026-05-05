@@ -111,20 +111,76 @@ export class ResearchTodoService {
       orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "asc" }],
     });
 
-    // ★ 批量查询模型展示名称
-    const modelIds = todos
-      .map((t) => t.modelId)
-      .filter((id): id is string => !!id);
+    // ★ 2026-05-05 P1 修复：todo.modelId 与 task.modelId 不同步问题
+    //   - todo.modelId 在 createTodo 时一次性写入 leader plan 的 assignment.modelId
+    //   - task.modelId 在 task COMPLETED 时被 updateTaskStatus(actualModelId) 覆盖
+    //   - 两表无主键关联，平行存在 → leader plan 没分配的 dim 在 todo 表里 modelId=NULL
+    //     → 截图 9 模型列空白
+    //   方案：批量从同 (mission, dimensionId) 的 ResearchTask.modelId 兜底
+    const todosNeedingFallback = todos.filter(
+      (t) => !t.modelId && t.missionId && t.dimensionId,
+    );
+    const dimToTaskModelId = new Map<string, string>();
+    if (todosNeedingFallback.length > 0) {
+      const fallbackTasks = await this.prisma.researchTask.findMany({
+        where: {
+          missionId: {
+            in: Array.from(
+              new Set(
+                todosNeedingFallback
+                  .map((t) => t.missionId)
+                  .filter((id): id is string => !!id),
+              ),
+            ),
+          },
+          dimensionId: {
+            in: todosNeedingFallback
+              .map((t) => t.dimensionId)
+              .filter((id): id is string => !!id),
+          },
+          modelId: { not: null },
+        },
+        select: { missionId: true, dimensionId: true, modelId: true },
+      });
+      for (const task of fallbackTasks) {
+        if (task.dimensionId && task.modelId) {
+          dimToTaskModelId.set(
+            `${task.missionId}::${task.dimensionId}`,
+            task.modelId,
+          );
+        }
+      }
+    }
+
+    // ★ 批量查询模型展示名称（包含 fallback 来的）
+    const allModelIds = new Set<string>();
+    for (const t of todos) {
+      const effectiveId =
+        t.modelId ||
+        (t.missionId && t.dimensionId
+          ? dimToTaskModelId.get(`${t.missionId}::${t.dimensionId}`)
+          : undefined);
+      if (effectiveId) allModelIds.add(effectiveId);
+    }
     const modelDisplayNameMap = await getModelDisplayNameMap(
       this.prisma,
-      modelIds,
+      Array.from(allModelIds),
     );
-    const enrichedTodos = todos.map((todo) => ({
-      ...todo,
-      modelDisplayName: todo.modelId
-        ? modelDisplayNameMap.get(todo.modelId)
-        : undefined,
-    }));
+
+    const enrichedTodos = todos.map((todo) => {
+      const fallbackModelId =
+        !todo.modelId && todo.missionId && todo.dimensionId
+          ? dimToTaskModelId.get(`${todo.missionId}::${todo.dimensionId}`)
+          : undefined;
+      const effectiveModelId = todo.modelId || fallbackModelId || null;
+      return {
+        ...todo,
+        modelId: effectiveModelId,
+        modelDisplayName: effectiveModelId
+          ? modelDisplayNameMap.get(effectiveModelId)
+          : undefined,
+      };
+    });
 
     const summary = this.calculateSummary(todos);
 
