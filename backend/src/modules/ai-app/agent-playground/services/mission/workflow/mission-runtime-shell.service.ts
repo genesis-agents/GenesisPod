@@ -44,14 +44,8 @@ export class MissionRuntimeShellService {
     input: RunMissionInput;
     userId: string;
     workspaceId?: string;
-    /**
-     * R2-A.14 遗物：legacy 已在 R2-C (27350f494) 全部删除，pipeline-v1 是唯一
-     * mission 路径。runtime_version DB 列保留无害（migration 已 deploy prod 无法回滚），
-     * 但写入值固定为 "pipeline-v1"。本字段保留是为了将来若再次引入备选 runtime 时可复用。
-     */
-    runtimeVersion?: "legacy" | "pipeline-v1";
   }): Promise<MissionRuntimeSession> {
-    const { missionId, input, userId, workspaceId, runtimeVersion } = args;
+    const { missionId, input, userId, workspaceId } = args;
     const missionAbort = this.abortRegistry.register(missionId);
     const wallTimeMs = resolveMissionWallTimeMs(input);
     this.log.log(
@@ -125,8 +119,6 @@ export class MissionRuntimeShellService {
           concurrency: input.concurrency,
           viewMode: input.viewMode,
         } as Record<string, unknown>,
-        // R2-C 后单轨：默认 pipeline-v1（legacy 路径已删）
-        runtimeVersion: runtimeVersion ?? "pipeline-v1",
       });
 
       const podId =

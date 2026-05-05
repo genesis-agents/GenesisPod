@@ -9329,16 +9329,9 @@ model AgentPlaygroundMission {
   ///   stale 90s + status=running → pod recycled → 标记 failed
   heartbeatAt        DateTime? @map("heartbeat_at")
 
-  /// ★ R2-A.14 (2026-05-04) 双轨 mission 路径标识
-  /// "legacy" = TeamMission（手写 13 stage trunk）
-  /// "pipeline-v1" = PlaygroundPipelineDispatcher + MissionPipelineOrchestrator
-  /// 让 R2-B 双轨观察期能精确对比两条路径的 completion rate / quality / 时长
-  runtimeVersion String @default("legacy") @map("runtime_version") @db.VarChar(20)
-
   @@index([userId, startedAt(sort: Desc)])
   @@index([status])
   @@index([status, heartbeatAt]) // PR-H: pod recovery 扫描
-  @@index([runtimeVersion, startedAt(sort: Desc)]) // R2-A.14: 双轨产物对比
   @@map("agent_playground_missions")
 }
 
