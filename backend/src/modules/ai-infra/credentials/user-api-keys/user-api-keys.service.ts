@@ -439,12 +439,16 @@ export class UserApiKeysService {
     provider: string,
     apiKey: string,
     apiEndpoint?: string,
+    userId?: string,
   ): Promise<{ success: boolean; message: string }> {
     const normalizedProvider = this.validateProvider(provider);
     if (apiEndpoint) {
       this.validateEndpointUrl(apiEndpoint);
     }
-    const defaults = PROVIDER_DEFAULTS[normalizedProvider];
+    const defaults = await this.resolveProviderDefaults(
+      normalizedProvider,
+      userId,
+    );
     const endpoint = apiEndpoint || defaults?.endpoint;
 
     if (!endpoint) {
@@ -616,13 +620,95 @@ export class UserApiKeysService {
 
   /**
    * 获取支持的 Provider 列表
+   *
+   * ★ PR-1 (2026-05-05): 从 DB ai_providers 表读取（数据驱动），fallback 到
+   * hardcoded PROVIDER_DEFAULTS（兼容首次启动 / DB 未初始化场景）。
+   * 包含：scope=system 的全局 provider + 该 user 自定义的 scope=user provider。
    */
-  getSupportedProviders() {
+  async getSupportedProviders(userId?: string) {
+    try {
+      const dbProviders = await this.prisma.aIProvider.findMany({
+        where: {
+          isEnabled: true,
+          OR: [
+            { scope: "system" },
+            ...(userId ? [{ scope: "user", ownerUserId: userId }] : []),
+          ],
+        },
+        orderBy: [{ scope: "asc" }, { displayOrder: "asc" }],
+      });
+      if (dbProviders.length > 0) {
+        return dbProviders.map((p) => ({
+          id: p.slug,
+          name: p.name,
+          endpoint: p.endpoint,
+          iconUrl: p.iconUrl,
+          freeTierNote: p.freeTierNote,
+          docUrl: p.docUrl,
+          capabilities: p.capabilities,
+          scope: p.scope,
+          isCustom: p.scope === "user",
+        }));
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[getSupportedProviders] DB query failed (${(err as Error).message}); falling back to hardcoded catalog`,
+      );
+    }
+    // Fallback：DB 空或查询失败时用 hardcoded 兜底
     return Object.entries(PROVIDER_DEFAULTS).map(([id, config]) => ({
       id,
       name: this.getProviderDisplayName(id),
       endpoint: config.endpoint,
+      iconUrl: null,
+      freeTierNote: null,
+      docUrl: null,
+      capabilities: [],
+      scope: "system",
+      isCustom: false,
     }));
+  }
+
+  /**
+   * 解析 provider 默认配置（DB 优先 + hardcoded fallback）
+   * 用于 testKey / saveKey 时拿 endpoint / apiFormat。
+   */
+  private async resolveProviderDefaults(
+    slug: string,
+    userId?: string,
+  ): Promise<{
+    endpoint: string;
+    apiFormat: string;
+    testModel: string;
+  } | null> {
+    try {
+      const dbProvider = await this.prisma.aIProvider.findFirst({
+        where: {
+          slug,
+          isEnabled: true,
+          OR: [
+            { scope: "system" },
+            ...(userId ? [{ scope: "user", ownerUserId: userId }] : []),
+          ],
+        },
+      });
+      if (dbProvider) {
+        return {
+          endpoint: dbProvider.endpoint,
+          apiFormat: dbProvider.apiFormat,
+          testModel: dbProvider.testModel,
+        };
+      }
+    } catch {
+      // fall through to hardcoded
+    }
+    const hardcoded = PROVIDER_DEFAULTS[slug];
+    if (!hardcoded) return null;
+    return {
+      endpoint: hardcoded.endpoint,
+      apiFormat: hardcoded.apiFormat,
+      testModel: hardcoded.testModel,
+    };
   }
 
   // ==================== Private Helpers ====================

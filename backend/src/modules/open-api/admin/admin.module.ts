@@ -7,6 +7,7 @@ import {
 } from "./ai-teams-admin.controller";
 import { AITeamsAdminService } from "./ai-teams-admin.service";
 import { AIAdminController } from "./ai-admin.controller";
+import { AiProvidersAdminController } from "./ai-providers-admin.controller";
 import { AIAdminService } from "./ai-admin.service";
 import { LogsAdminController } from "./logs-admin.controller";
 import { PermissionsAdminController } from "./permissions-admin.controller";
@@ -73,6 +74,7 @@ import {
     AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
     ObservabilityAdminController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/tracing)
     EvalAdminController, // /admin/evals/* routes for eval runs and experiments
+    AiProvidersAdminController, // /admin/ai-providers/* PR-1 数据驱动 provider catalog
     ...(process.env.NODE_ENV === "production"
       ? []
       : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/agents/dev-tools)

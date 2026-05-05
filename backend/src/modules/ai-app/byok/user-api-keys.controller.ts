@@ -34,7 +34,9 @@ export class UserApiKeysController {
   @Get()
   async listKeys(@Req() req: AuthenticatedRequest) {
     const keys = await this.userApiKeysService.listUserApiKeys(req.user.id);
-    const providers = this.userApiKeysService.getSupportedProviders();
+    const providers = await this.userApiKeysService.getSupportedProviders(
+      req.user.id,
+    );
     return { keys, providers };
   }
 
@@ -89,11 +91,13 @@ export class UserApiKeysController {
   async testKey(
     @Param("provider") provider: string,
     @Body() dto: TestApiKeyDto,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.userApiKeysService.testKey(
       provider,
       dto.apiKey,
       dto.apiEndpoint,
+      req.user.id,
     );
   }
 

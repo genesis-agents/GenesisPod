@@ -179,6 +179,9 @@ model User {
   // BYOK v3: 我自己配置的多模型实例（同一个 Key 可以绑多个不同用途的模型）
   modelConfigs UserModelConfig[]
 
+  // 2026-05-05 PR-1: 我自定义的 AIProvider（scope=user）
+  customProviders AIProvider[] @relation("UserAIProviders")
+
   @@map("users")
 }
 
@@ -9405,4 +9408,51 @@ model HarnessFailurePattern {
   @@index([agentSpecId, failureCode])
   @@index([lastSeenAt])
   @@map("harness_failure_patterns")
+}
+
+/// AI Provider catalog（数据驱动 BYOK / 模型配置）
+///
+/// 替代之前 hardcoded PROVIDER_DEFAULTS（user-api-keys.service.ts）+ 前端
+/// PROVIDER_ICONS 字典。新增 provider 走 admin UI / DB 写入即可，不改代码。
+///
+/// 双层 scope：
+///   - system：全局可用，admin 维护，所有用户共享（OpenAI / Anthropic / Voyage 等）
+///   - user：用户自定义（自托管 vLLM / 试验性 provider），仅 ownerUserId 可见
+///
+/// AIModel.provider 字段保持 string，等价于此表 slug 的软外键（不强制 FK
+/// 是为兼容历史数据，且某些 provider 短暂出现/消失不应级联删模型）。
+model AIProvider {
+  id           String  @id @default(uuid())
+  slug         String  @db.VarChar(50) // kebab-case 唯一标识（"voyage", "openai"）
+  name         String  @db.VarChar(100) // 显示名 "Voyage AI"
+  endpoint     String  @db.VarChar(500) // base URL
+  apiFormat    String  @map("api_format") @db.VarChar(20) // openai / anthropic / google / cohere
+  testModel    String  @map("test_model") @db.VarChar(100) // health check 探活模型 id
+  /// 支持的 AIModelType 列表（CHAT / EMBEDDING / RERANK 等），驱动 capabilities 路由
+  capabilities String[]
+  iconUrl      String? @map("icon_url") @db.VarChar(500)
+  description  String? @db.Text
+  docUrl       String? @map("doc_url") @db.VarChar(500)
+  freeTierNote String? @map("free_tier_note") @db.VarChar(300)
+  /// 模型探测正则（一键自动配置时按此 patterns 匹配 GET /v1/models 返回的 ids）
+  /// 形如 [{"modelType": "EMBEDDING", "patterns": ["^voyage-3"]}]
+  recommendations Json?
+
+  displayOrder Int     @default(0) @map("display_order")
+  isEnabled    Boolean @default(true) @map("is_enabled")
+
+  /// "system"（admin 维护，全局共享）或 "user"（用户自定义）
+  scope       String  @db.VarChar(16)
+  /// scope=user 时关联用户；scope=system 时为 null
+  ownerUserId String? @map("owner_user_id")
+  ownerUser   User?   @relation("UserAIProviders", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// 同 scope 下 slug 唯一；user scope 还需绑定 ownerUserId
+  @@unique([slug, scope, ownerUserId])
+  @@index([scope, isEnabled, displayOrder])
+  @@index([ownerUserId])
+  @@map("ai_providers")
 }

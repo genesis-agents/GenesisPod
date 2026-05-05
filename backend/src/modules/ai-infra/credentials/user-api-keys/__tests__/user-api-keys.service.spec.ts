@@ -468,17 +468,17 @@ describe("UserApiKeysService", () => {
   // ==================== getSupportedProviders ====================
 
   describe("getSupportedProviders", () => {
-    it("returns list of known providers", () => {
-      const providers = service.getSupportedProviders();
+    it("returns list of known providers", async () => {
+      const providers = await service.getSupportedProviders();
 
       expect(providers.length).toBeGreaterThan(0);
-      const ids = providers.map((p) => p.id);
+      const ids = providers.map((p: { id: string }) => p.id);
       expect(ids).toContain("openai");
       expect(ids).toContain("anthropic");
     });
 
-    it("includes endpoint for each provider", () => {
-      const providers = service.getSupportedProviders();
+    it("includes endpoint for each provider", async () => {
+      const providers = await service.getSupportedProviders();
 
       for (const provider of providers) {
         expect(provider.endpoint).toBeDefined();
