@@ -35,6 +35,8 @@ import { AiApiCallerService } from "./services/ai-api-caller.service";
 import { AiStreamHandlerService } from "./services/ai-stream-handler.service";
 import { AiChatPromptService } from "./services/ai-chat-prompt.service";
 import { AiChatRetryService } from "./services/ai-chat-retry.service";
+// 2026-05-05 抽自 AiChatService（god-class size 治理）：BYOK per-key failover 路径
+import { AiChatFailoverCallerService } from "./services/ai-chat-failover-caller.service";
 
 // Extracted Services (from ai-chat.service.ts God Object split)
 import { AiConnectionTestService } from "./services/ai-connection-test.service";
@@ -101,6 +103,7 @@ import { ModelElectionService } from "./selection/model-election.service";
     AiStreamHandlerService,
     AiChatPromptService,
     AiChatRetryService,
+    AiChatFailoverCallerService,
     AiChatService,
 
     // Extracted Services
@@ -136,6 +139,7 @@ import { ModelElectionService } from "./selection/model-election.service";
     AiStreamHandlerService,
     AiChatPromptService,
     AiChatRetryService,
+    AiChatFailoverCallerService,
     AiChatService,
     AiConnectionTestService,
     AiModelDiscoveryService,
