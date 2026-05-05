@@ -1,13 +1,13 @@
 /**
  * DomainEventRegistry — 业务事件类型中央表
  *
- * 业务模块（topic-insights / research / ...）启动时注册自己用到的事件类型，
+ * 业务模块（业务模块 / ...）启动时注册自己用到的事件类型，
  * 中央表强制：
  *   - 同一 type 全局唯一（防止 'mission:started' 多个模块定义不一致）
  *   - schema 校验 payload 形状
  *   - throttle 配置 / ack 配置随类型走
  *
- * Harness 内置事件类型为 'harness.*' 前缀；业务方用模块名前缀（'topic-insights.*'）。
+ * Harness 内置事件类型为 'harness.*' 前缀；业务方用模块名前缀（'<consumer>.*'）。
  */
 
 import { Injectable, Logger } from "@nestjs/common";

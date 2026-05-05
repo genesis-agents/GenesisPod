@@ -83,9 +83,9 @@ import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orch
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
-// Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬Ã¯Â¼Ë†2026-04-29Ã¯Â¼â€°: figure Ã§â€ºÂ¸Ã¥â€¦Â³Ã¦â‚¬Â§Ã¥Ë†Â¤Ã¦â€“Â­Ã¯Â¼Ë†Ã¦ÂÂ¥Ã¨â€¡Âª topic-insights, TI Ã¦Å¡â€šÃ¤Â¸ÂÃ¥Ë†â€¡Ã¦ÂÂ¢Ã¯Â¼â€°
+// Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬Ã¯Â¼Ë†2026-04-29Ã¯Â¼â€°: figure Ã§â€ºÂ¸Ã¥â€¦Â³Ã¦â‚¬Â§Ã¥Ë†Â¤Ã¦â€“Â­Ã¯Â¼Ë†Ã¦ÂÂ¥Ã¨â€¡Âª <consumer>, TI Ã¦Å¡â€šÃ¤Â¸ÂÃ¥Ë†â€¡Ã¦ÂÂ¢Ã¯Â¼â€°
 import { FigureRelevanceService } from "./evaluation/figure";
-// Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬Ã¯Â¼Ë†2026-04-29Ã¯Â¼â€°: Reflexion Ã¦â€°Â¹Ã¨Â¯â€ž-Ã¦â€Â¹Ã¨Â¿â€ºÃ©â€”Â­Ã§Å½Â¯Ã¯Â¼Ë†Ã¦ÂÂ¥Ã¨â€¡Âª topic-insights, TI Ã¦Å¡â€šÃ¤Â¸ÂÃ¥Ë†â€¡Ã¦ÂÂ¢Ã¯Â¼â€°
+// Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬Ã¯Â¼Ë†2026-04-29Ã¯Â¼â€°: Reflexion Ã¦â€°Â¹Ã¨Â¯â€ž-Ã¦â€Â¹Ã¨Â¿â€ºÃ©â€”Â­Ã§Å½Â¯Ã¯Â¼Ë†Ã¦ÂÂ¥Ã¨â€¡Âª <consumer>, TI Ã¦Å¡â€šÃ¤Â¸ÂÃ¥Ë†â€¡Ã¦ÂÂ¢Ã¯Â¼â€°
 //   v3 (Ã¥ÂÅ’Ã¦â€”Â¥): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 import {
   CritiqueRefineService,

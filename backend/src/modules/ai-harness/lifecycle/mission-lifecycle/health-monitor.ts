@@ -1,7 +1,7 @@
 /**
  * MissionHealthMonitor — 通用任务健康检测算法
  *
- * 沉淀自：ai-app/topic-insights/services/monitoring/research-mission-health.service.ts
+ * 沉淀自：ai-app/<consumer>/services/monitoring/research-mission-health.service.ts
  * 剥离对具体 DB 表的耦合，业务侧通过提供 fetcher / handler 注入。
  *
  * 用途：

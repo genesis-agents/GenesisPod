@@ -29,7 +29,7 @@ export type { ChatMessage };
 export interface CreditBillingInfo {
   /** 用户 ID（必需） */
   userId: string;
-  /** 模块类型（如 ai-ask, ai-teams, topic-insights） */
+  /** 模块类型（如 ai-ask, ai-teams, <consumer>） */
   moduleType: string;
   /** 操作类型（如 chat, refresh, summary） */
   operationType: string;

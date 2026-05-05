@@ -5,7 +5,7 @@
  * 分发到对应 room。`eventTypePrefix` + `roomPrefix` 由调用方传入决定路由。
  *
  * 2026-05-01 上提: 原在 ai-app/<consumer>/adapters/，改用参数化 prefix
- * 后跨 ai-app 通用（research / writing / topic-insights / 任何带 socket relay
+ * 后跨 ai-app 通用（research / writing / <consumer> / 任何带 socket relay
  * 的 ai-app 都可复用）。
  *
  * 用法（<consumer> 注册）:

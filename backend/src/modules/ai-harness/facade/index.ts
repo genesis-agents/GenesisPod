@@ -149,7 +149,7 @@ export type {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { JudgeService } from "../evaluation/verify";
 export type { BuiltInVerifierId } from "../evaluation/verify";
-// â˜… æ²‰æ·€ï¼ˆ2026-04-29ï¼‰: figure ç›¸å…³æ€§åˆ¤æ–­ï¼ˆæ¥è‡ª topic-insights, TI æš‚ä¸åˆ‡æ¢ï¼‰
+// â˜… æ²‰æ·€ï¼ˆ2026-04-29ï¼‰: figure ç›¸å…³æ€§åˆ¤æ–­ï¼ˆæ¥è‡ª <consumer>, TI æš‚ä¸åˆ‡æ¢ï¼‰
 export { FigureRelevanceService } from "../evaluation/figure";
 // â˜… æ²‰æ·€ï¼ˆ2026-04-29ï¼‰: Reflexion critique-refine + section-self-eval + defect-scanner
 //   v3 (åŒæ—¥): quality-gate / section-remediation / report-evaluation / quality-trace-compute

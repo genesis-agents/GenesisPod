@@ -1,7 +1,7 @@
 /**
  * DAGExecutor — 通用动态任务 DAG 调度器
  *
- * 沉淀自：ai-app/topic-insights/services/core/mission/mission-execution.service.ts:1138-1261
+ * 沉淀自：ai-app/<consumer>/services/core/mission/mission-execution.service.ts:1138-1261
  * 剥离对 prisma.researchTask 的耦合，业务侧通过 DAGAdapter 注入 fetch / cancellation / 持久化。
  *
  * 核心特性：

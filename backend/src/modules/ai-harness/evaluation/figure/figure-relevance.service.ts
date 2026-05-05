@@ -19,8 +19,8 @@
  * 多语言支持：text-embedding-3-small 跨语言语义对齐（中英文 caption vs 英文 topicTitle）
  */
 
-// Sediment from topic-insights (2026-04-29) — ai-harness/governance/figure/
-// 来源: ai-app/topic-insights/services/report/figure-relevance.service.ts
+// Sediment from <consumer> (2026-04-29) — ai-harness/governance/figure/
+// 来源: ai-app/<consumer>/services/report/figure-relevance.service.ts
 // TI 仍在使用原 service；本副本由 <consumer> 等新业务通过 ai-harness/facade 调用。
 import { Injectable, Logger } from "@nestjs/common";
 // ★ ExtractedFigure 类型从 ai-engine/content/figure 沉淀版本拿（同源 schema，避免双份）

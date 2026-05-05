@@ -1,13 +1,13 @@
 /**
  * DomainConceptRegistry — 业务概念中央目录
  *
- * 业务模块（topic-insights / research / writing ...）启动时调
- * registry.register({ id: 'topic-insights.topic', ...spec })。
+ * 业务模块（业务模块（如 X/Y/Z））启动时调
+ * registry.register({ id: '<consumer>.topic', ...spec })。
  *
  * Harness Loop 通过 conceptId 反查 spec，能：
  *   - 自动生成 prompt 中的 "## Available concepts" 段落
  *   - 校验业务方 enqueueTask 时引用的 concept 是否存在
- *   - 跨 AI App 复用：research 模块也能用 topic-insights.topic
+ *   - 跨 AI App 复用：research 模块也能用 <consumer>.topic
  */
 
 import { Injectable, Logger } from "@nestjs/common";

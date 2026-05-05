@@ -1,7 +1,7 @@
 /**
  * SOTA Runtime · Shared Types（通用 DSL，零业务字段）
  *
- * 方案文档：docs/design/topic-insights-harness-redesign/30-sota-task-centric-architecture.md §0.3 §4
+ * 方案文档：docs/design/<consumer>-harness-redesign/30-sota-task-centric-architecture.md §0.3 §4
  *
  * 架构归属硬约束（方案 §0.1）：
  *   - 本文件不得 import 任何 ai-app/** 业务 model
@@ -16,7 +16,7 @@
 /**
  * AgentTask — 通用执行单位
  *
- * 任何 AI App（topic-insights / research / teams / writing / ...）都可以把自己的业务
+ * 任何 AI App（业务模块 / teams / writing / ...）都可以把自己的业务
  * 任务行（ResearchTask / ResearchMission / TeamTurn / ...）包成 AgentTask 喂给 ReAct runner。
  *
  * 业务字段走 metadata 泛型，runner 对它零感知。

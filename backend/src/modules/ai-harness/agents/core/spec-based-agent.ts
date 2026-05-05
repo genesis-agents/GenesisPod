@@ -1,7 +1,7 @@
 /**
  * SpecBasedAgent â€” å£°æ˜Žå¼ spec é©±åŠ¨çš„ IAgent å®žçŽ°
  *
- * ç›®æ ‡æž¶æž„ v2ï¼ˆdocs/design/topic-insights-harness-redesign/11-target-architecture.mdï¼‰ï¼š
+ * ç›®æ ‡æž¶æž„ v2ï¼ˆdocs/design/<consumer>-harness-redesign/11-target-architecture.mdï¼‰ï¼š
  * L3 App åªå†™ IAgentSpecï¼Œæœ¬ç±»æŠŠ spec è½¬æˆå¯æ‰§è¡Œçš„ IAgentï¼š
  *   - buildSystemPrompt / buildUserPrompt â†’ æž„é€  LLM è¾“å…¥
  *   - LlmExecutor.execute â†’ Zod æ ¡éªŒ + error-fed retry + stub æ¨¡å¼

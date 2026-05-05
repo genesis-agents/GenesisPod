@@ -1,7 +1,7 @@
 /**
  * SOTA Runtime · Persistence Store 接口（方案 §0.3）
  *
- * harness 层只声明接口，不碰 Prisma。由 AI App 层（topic-insights / research / ...）
+ * harness 层只声明接口，不碰 Prisma。由 AI App 层（业务模块 / ...）
  * 提供 Prisma 实现，通过 NestJS DI 注入 ReActRunner。
  *
  * 归属：ai-engine/harness/runtime/ — 通用（任何 App 复用）
@@ -18,7 +18,7 @@ import type {
 /**
  * StepStore — AgentStep 持久化抽象
  *
- * topic-insights 实现：写 `agent_steps` 表（带 missionId/topicId）
+ * <consumer> 实现：写 `agent_steps` 表（带 missionId/topicId）
  * research 将来实现：写 `research_agent_steps` 表（带 sessionId）
  * 等等
  */

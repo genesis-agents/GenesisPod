@@ -1,5 +1,5 @@
 /**
- * Quality Trace Compute Service —— 沉淀自 topic-insights/services/quality/report-quality-trace.service.ts (2026-04-29)
+ * Quality Trace Compute Service —— 沉淀自 <consumer>/services/quality/report-quality-trace.service.ts (2026-04-29)
  *
  * 全链路质量可观测性的纯计算核心：5 个探针 + 5 维评分 + 最终 grade。
  *

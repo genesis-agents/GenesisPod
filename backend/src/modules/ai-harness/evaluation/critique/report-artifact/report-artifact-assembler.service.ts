@@ -522,7 +522,7 @@ export class ReportArtifactAssembler {
 
   /**
    * ★ P0-LIVE-REPORT-FORMAT (2026-04-30): TI 风格 references section 构造
-   * 对齐 topic-insights/services/report/report-assembler.ts:1000 buildReferencesSection。
+   * 对齐 <consumer>/services/report/report-assembler.ts:1000 buildReferencesSection。
    * 输入：去重后的 citations[]；输出：以 "## 参考文献" 开头的完整 markdown 段。
    */
   private buildReferencesSection(

@@ -7,9 +7,9 @@
  * - è‹¥ spec æä¾› validateBusinessRulesï¼ŒZod æˆåŠŸåŽè°ƒç”¨ï¼›æŠ›é”™åŒ Zod å¤±è´¥å¤„ç†
  * - è¿”å›žå¼ºç±»åž‹ TOutput + tokens/cost/model/retries
  *
- * ç›®æ ‡æž¶æž„å®šä½ï¼ˆdocs/design/topic-insights-harness-redesign/11-target-architecture.mdï¼‰ï¼š
+ * ç›®æ ‡æž¶æž„å®šä½ï¼ˆdocs/design/<consumer>-harness-redesign/11-target-architecture.mdï¼‰ï¼š
  * æœ¬ç±»æ˜¯ L2 Agent è¿è¡Œæ—¶çš„ä¸€ç­‰å…¬æ°‘ï¼Œæ‰€æœ‰ AI App é€šè¿‡ AgentFactory åˆ›å»º Agent æ—¶å…±ç”¨ã€‚
- * åŽŸ L3 ai-app/topic-insights/harness/llm/LlmInvokerService å°†åœ¨ P3 åˆ é™¤ï¼ˆèƒ½åŠ›å…¨éƒ¨ä¸Šæè‡³æ­¤ï¼‰ã€‚
+ * åŽŸ L3 ai-app/<consumer>/harness/llm/LlmInvokerService å°†åœ¨ P3 åˆ é™¤ï¼ˆèƒ½åŠ›å…¨éƒ¨ä¸Šæè‡³æ­¤ï¼‰ã€‚
  */
 
 import { Injectable, Logger } from "@nestjs/common";

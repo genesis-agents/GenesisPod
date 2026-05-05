@@ -505,50 +505,13 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       "i",
     );
 
-    // 历史豁免列表（R0-A5 落地基线 2026-05-04，~41 文件）—— 应逐步清零。
-    // 大部分是 sediment-from migration 注释 / 设计文档引用 / 业务模块名作为
-    // string key 的 catalog（如 credits 按 ai-app 分类）。后续 PR 按域清理 +
-    // 从此列表移除条目。新增违规会被 spec 拦下。
+    // 历史豁免列表（2026-05-04 二轮清理后剩 3 文件）：
+    //   - skill-loader.service.ts: 引擎旧版 multi-app skill loader 硬编码 ai-app
+    //     路径，后续 PR 像 harness skill-loader 那样改为依赖注入，目前保留。
+    //   - credits/policy 两个 catalog：用 ai-app 名作为业务 key（计费按模块分类），
+    //     是业务设计（不是泄漏）。这两条是永久 allowlist。
     const ALLOWLIST: ReadonlySet<string> = new Set<string>([
       "modules/ai-engine/skills/loader/loading/skill-loader.service.ts",
-      "modules/ai-harness/agents/abstractions/harness.interface.ts",
-      "modules/ai-harness/agents/builtin-skills/skill-loader.ts",
-      "modules/ai-harness/agents/core/agent-factory.ts",
-      "modules/ai-harness/agents/core/spec-based-agent.ts",
-      "modules/ai-harness/agents/domain/concept.types.ts",
-      "modules/ai-harness/agents/domain/concept-registry.ts",
-      "modules/ai-harness/agents/learning/skill-learning-coordinator.ts",
-      "modules/ai-harness/evaluation/critique/critique-refine.service.ts",
-      "modules/ai-harness/evaluation/critique/defect-scanner.ts",
-      "modules/ai-harness/evaluation/critique/index.ts",
-      "modules/ai-harness/evaluation/critique/quality-trace-compute.service.ts",
-      "modules/ai-harness/evaluation/critique/report-artifact/report-artifact-assembler.service.ts",
-      "modules/ai-harness/evaluation/critique/report-evaluation.service.ts",
-      "modules/ai-harness/evaluation/critique/report-quality-gate.service.ts",
-      "modules/ai-harness/evaluation/critique/section-self-eval.service.ts",
-      "modules/ai-harness/evaluation/critique/word-count-balancer.ts",
-      "modules/ai-harness/evaluation/figure/figure-relevance.service.ts",
-      "modules/ai-harness/evaluation/figure/index.ts",
-      "modules/ai-harness/facade/index.ts",
-      "modules/ai-harness/facade/types/facade.types.ts",
-      "modules/ai-harness/guardrails/resources/concurrency-planner.service.ts",
-      "modules/ai-harness/guardrails/runtime/runtime-environment.service.ts",
-      "modules/ai-harness/guardrails/runtime/runtime-environment.types.ts",
-      "modules/ai-harness/harness.module.ts",
-      "modules/ai-harness/lifecycle/mission-lifecycle/health-monitor.ts",
-      "modules/ai-harness/memory/mission-checkpoint/checkpoint.service.ts",
-      "modules/ai-harness/protocols/events/broadcast-adapter.ts",
-      "modules/ai-harness/protocols/events/domain-event.types.ts",
-      "modules/ai-harness/protocols/events/domain-event-bus.ts",
-      "modules/ai-harness/protocols/events/domain-event-registry.ts",
-      "modules/ai-harness/protocols/realtime/socket-broadcast.adapter.ts",
-      "modules/ai-harness/runner/dag/dag-executor.ts",
-      "modules/ai-harness/runner/env/dynamic-replanner-interface.ts",
-      "modules/ai-harness/runner/env/runner-stores.interface.ts",
-      "modules/ai-harness/runner/env/task-queue-interface.ts",
-      "modules/ai-harness/runner/env/types.ts",
-      "modules/ai-harness/runner/executor/llm-executor.ts",
-      "modules/ai-harness/runner/tool-routing/tool-selector-registry.ts",
       "modules/ai-infra/credits/policy/credit-transaction-type.catalog.ts",
       "modules/ai-infra/credits/policy/default-credit-rules.catalog.ts",
     ]);

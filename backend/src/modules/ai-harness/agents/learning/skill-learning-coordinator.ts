@@ -50,7 +50,7 @@ export interface CloseLoopOptions extends LearnFromTraceOptions {
 /**
  * SandboxReplayer —— Skill 候选的沙箱验证器。
  *
- * 业务方实现（topic-insights / research / 任何 App 都可写一个）：
+ * 业务方实现（业务模块 / 任何 App 都可写一个）：
  *   - sample(): 拿出 N 个相似历史 task
  *   - replay(skill, task): 用候选 skill 跑一遍，返回 score
  *
@@ -245,5 +245,3 @@ export class SkillLearningCoordinator {
     return this.staging.delete(name);
   }
 }
-
-
