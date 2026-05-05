@@ -459,6 +459,17 @@ export function UserApiKeysTab() {
         </span>
       </div>
 
+      {/* PR-2 (2026-05-05): 多 key 表格视图 — 按 (provider, label) 平铺所有已配置 key。
+          卡片视图保留在下方用于添加新 key 的引导流程，零回归。 */}
+      {keys.length > 0 && (
+        <UserApiKeysTable
+          keys={keys}
+          onDelete={deleteKey}
+          onWithdrawDonation={withdrawDonation}
+          saving={saving}
+        />
+      )}
+
       <div className="space-y-3">
         {providers.map((provider) => (
           <ProviderKeyCard
@@ -475,6 +486,107 @@ export function UserApiKeysTab() {
         ))}
         <AddCustomProviderTile />
       </div>
+    </div>
+  );
+}
+
+// ─── PR-2 (2026-05-05): 多 key 表格视图 ─────────────────────────────────
+
+function UserApiKeysTable({
+  keys,
+  onDelete,
+  onWithdrawDonation,
+  saving,
+}: {
+  keys: UserApiKeyInfo[];
+  onDelete: (provider: string, label?: string) => Promise<boolean>;
+  onWithdrawDonation: (provider: string) => Promise<boolean>;
+  saving: boolean;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="border-b border-gray-100 px-4 py-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+        我的全部 Key（多 key 模式 · 一 provider 可有多条 label）
+      </div>
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 text-xs text-gray-600">
+          <tr>
+            <th className="px-4 py-2 text-left">Provider</th>
+            <th className="px-4 py-2 text-left">Label</th>
+            <th className="px-4 py-2 text-left">Key Hint</th>
+            <th className="px-4 py-2 text-left">Mode</th>
+            <th className="px-4 py-2 text-left">Status</th>
+            <th className="px-4 py-2 text-left">Last Tested</th>
+            <th className="px-4 py-2 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {keys.map((k) => (
+            <tr key={k.id} className="hover:bg-gray-50">
+              <td className="px-4 py-2 font-medium text-gray-900">
+                {k.provider}
+              </td>
+              <td className="px-4 py-2 text-gray-700">
+                <code className="rounded bg-gray-100 px-1 py-0.5 text-xs">
+                  {(k as { label?: string }).label || 'default'}
+                </code>
+              </td>
+              <td className="font-mono px-4 py-2 text-xs text-gray-500">
+                {k.keyHint || '****'}
+              </td>
+              <td className="px-4 py-2">
+                {k.mode === 'donated' ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-pink-50 px-2 py-0.5 text-xs text-pink-700">
+                    <Heart className="h-3 w-3" /> 捐赠
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700">
+                    <Lock className="h-3 w-3" /> 自用
+                  </span>
+                )}
+              </td>
+              <td className="px-4 py-2 text-xs">
+                {k.testStatus === 'success' ? (
+                  <span className="inline-flex items-center gap-1 text-green-600">
+                    <Check className="h-3 w-3" /> ok
+                  </span>
+                ) : k.testStatus === 'failed' ? (
+                  <span className="inline-flex items-center gap-1 text-red-600">
+                    <X className="h-3 w-3" /> failed
+                  </span>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
+              </td>
+              <td className="px-4 py-2 text-xs text-gray-500">
+                {k.lastTestedAt
+                  ? new Date(k.lastTestedAt).toLocaleString()
+                  : '-'}
+              </td>
+              <td className="px-4 py-2 text-right">
+                {k.mode === 'donated' && (
+                  <button
+                    onClick={() => onWithdrawDonation(k.provider)}
+                    disabled={saving}
+                    className="mr-2 text-xs text-pink-600 hover:text-pink-800 disabled:opacity-50"
+                  >
+                    撤回
+                  </button>
+                )}
+                <button
+                  onClick={() =>
+                    onDelete(k.provider, (k as { label?: string }).label)
+                  }
+                  disabled={saving}
+                  className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+                >
+                  <Trash2 className="h-3 w-3" /> 删除
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
