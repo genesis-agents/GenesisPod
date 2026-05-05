@@ -8,7 +8,7 @@
  *     （v5.1 P0-F：crashed mission 可 resume）
  *
  * Adapter 实现：
- *   - PlaygroundMissionStore（实现这个接口，包装 prisma agent_playground_missions 表）
+ *   - 各 ai-app 自家 MissionStore（包装其 prisma mission 表，e.g. {app}_missions）
  *   - InMemoryMissionStore（spec / dev 用）
  */
 

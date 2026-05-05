@@ -7,9 +7,8 @@
  *   - ResearchReport = v1（保留向后兼容，老 mission 仍可 render）
  *   - ReportArtifact = v2（结构化，三视图共享，角标溯源，图来源红线）
  *
- * 持久化路径：
- *   - agent_playground_missions.report_full = ReportArtifact（v2 时）
- *   - agent_playground_missions.report_artifact_version = 2
+ * 持久化路径：消费方自家 mission 表的 report_full + report_artifact_version 字段
+ * （契约不绑定具体 ai-app 表名）。
  */
 
 /** 章节节点（章节视图核心） */
