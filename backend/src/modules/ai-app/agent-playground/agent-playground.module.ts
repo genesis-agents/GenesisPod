@@ -64,6 +64,9 @@ import {
 } from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+// R0-A3 (2026-05-04): playground 业务 SKILL.md 集合（从 harness 下推）
+import * as path from "path";
+import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
 
 @Module({
   imports: [
@@ -79,6 +82,11 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
   ],
   controllers: [AgentPlaygroundController],
   providers: [
+    // R0-A3: 注册 playground 业务 skill 目录（17 SKILL.md）
+    {
+      provide: EXTRA_SKILL_DIRS,
+      useValue: [path.resolve(__dirname, "skills/built-in")],
+    },
     AgentPlaygroundGateway,
     MissionRuntimeShellService,
     MissionStageBindingsService,

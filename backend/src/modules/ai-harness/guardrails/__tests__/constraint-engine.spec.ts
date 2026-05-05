@@ -1,10 +1,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConstraintEngine } from "../constraint-engine";
-import { CostController } from "../cost-controller";
+import { ConstraintEngine } from "../constraints/constraint-engine";
+import { CostController } from "../resources/cost-controller";
 import {
   createConstraintProfile,
   ConstraintProfile,
-} from "../constraint-profile";
+} from "../constraints/constraint-profile";
 import type {
   ResourceRequirement,
   ResourceUsage,

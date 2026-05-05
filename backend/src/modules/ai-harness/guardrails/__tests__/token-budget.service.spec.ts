@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { TokenBudgetService } from "../token-budget.service";
+import { TokenBudgetService } from "../runtime/token-budget.service";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
 jest.spyOn(Logger.prototype, "debug").mockImplementation();

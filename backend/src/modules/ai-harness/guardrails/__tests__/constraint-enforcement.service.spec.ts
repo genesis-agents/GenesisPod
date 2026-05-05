@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { ConstraintEnforcementService } from "../constraint-enforcement.service";
+import { ConstraintEnforcementService } from "../constraints/constraint-enforcement.service";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
 jest.spyOn(Logger.prototype, "debug").mockImplementation();

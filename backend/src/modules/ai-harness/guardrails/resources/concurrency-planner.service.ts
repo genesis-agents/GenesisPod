@@ -7,7 +7,7 @@
  * - 2 providers → 6
  * - 3+ providers → 8
  *
- * 任意 AI App（agent-playground / topic-insights / writing / office）都可注入并使用，
+ * 任意 AI App（<consumer> / topic-insights / writing / office）都可注入并使用，
  * 无需各自重复实现。模型池查询走 ChatFacade.getAvailableModels(CHAT)。
  */
 

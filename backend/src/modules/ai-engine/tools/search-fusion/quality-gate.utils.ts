@@ -1,7 +1,7 @@
 /**
  * Search Quality Gate 通用工具 — Phase 8 沉淀
  *
- * 沉淀自：ai-app/topic-insights/services/search/fusion/quality-gate.service.ts
+ * 沉淀自：ai-app/<consumer>/services/search/fusion/quality-gate.service.ts
  * 提取**纯算法**评估，调用方传 ResultEvalInput 不绑业务源类型。
  *
  * 用途：fusion 后判断结果是否达"可入库 / 可总结 / 需重搜"质量门槛。

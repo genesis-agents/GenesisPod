@@ -7,8 +7,8 @@
  * credibility 评分），实际检索通过 web-search 工具加 site: 前缀完成。
  *
  * 历史背景：原本只有 TI 内部的 IndustryReportSearchAdapter 可用此能力，
- * playground researcher 无法调用。本工具把适配器逻辑沉淀到 ai-engine/tools，
- * 让所有 BaseAgent（含 playground）的 toolRegistry 都能召回到。
+ * consumer researcher 无法调用。本工具把适配器逻辑沉淀到 ai-engine/tools，
+ * 让所有 BaseAgent（含 consumer）的 toolRegistry 都能召回到。
  */
 
 import { Injectable, Logger } from "@nestjs/common";

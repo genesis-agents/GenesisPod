@@ -1,5 +1,5 @@
 /**
- * ai-engine/content/citation —— 引用工具（沉淀自 topic-insights, 2026-04-29）
+ * ai-engine/content/citation —— 引用工具（沉淀自 <consumer>, 2026-04-29）
  *
  * 纯函数 utility，零 LLM 调用，零 DI 依赖。所有 ai-app 都可用。
  *
@@ -39,4 +39,3 @@ export {
   formatCitation,
   generateBibliography,
 } from "./citation-formatting.utils";
-

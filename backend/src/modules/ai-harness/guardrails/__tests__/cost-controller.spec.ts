@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { CostController, BudgetPeriod } from "../cost-controller";
+import { CostController, BudgetPeriod } from "../resources/cost-controller";
 import { CacheService } from "@/common/cache/cache.service";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();

@@ -16,13 +16,13 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { TraceCollectorService } from "../trace-collector.service";
+import { TraceCollectorService } from "../observability/trace-collector.service";
 import type {
   CreateTraceInput,
   CreateSpanInput,
   EndSpanInput,
   EndTraceInput,
-} from "../trace.interface";
+} from "../observability/trace.interface";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output for all tests

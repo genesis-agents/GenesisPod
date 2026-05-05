@@ -10,7 +10,7 @@
  * loops where successive drafts are virtually identical despite repeated
  * reviewer-reject → revise cycles. Generic enough for any ai-app.
  *
- * Lifted from ai-app/agent-playground 2026-05-04 (PR-6 standardize playground).
+ * Lifted from ai-app/<consumer> 2026-05-04 (PR-6 standardize consumer).
  */
 
 /**

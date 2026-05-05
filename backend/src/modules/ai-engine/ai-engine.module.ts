@@ -58,10 +58,10 @@ import { ContentFetchModule } from "./content/fetch/content-fetch.module";
 
 // Other Modules
 import { ImageModule } from "./content/image/image.module";
-// ★ 沉淀（2026-04-29）: figure 抽取（来自 topic-insights，TI 暂不切换）
+// ★ 沉淀（2026-04-29）: figure 抽取（来自 <consumer>，TI 暂不切换）
 //   不创建 sub-module，直接作为 provider 注册（ai-engine.module 已 @Global + imports AiEngineToolsModule）
 import { FigureExtractorService } from "./content/figure";
-// ★ 沉淀（2026-04-29）: LLM Reranker（来自 topic-insights）
+// ★ 沉淀（2026-04-29）: LLM Reranker（来自 <consumer>）
 //   位置严格遵守"rerank 是 RAG 第二阶段（knowledge 子领域）"+"单向依赖"两条原则：
 //   放 ai-engine/knowledge/rerank/ + 用 AiChatService（ai-engine 内层 LLM 调用）
 import { LlmRerankerAdapter } from "./knowledge/rerank";
@@ -150,7 +150,7 @@ import { ITool } from "./tools/abstractions/tool.interface";
     PromptSkillRegistrationService,
     InputBindingResolver,
 
-    // ★ 沉淀（2026-04-29）: figure-extractor（来自 topic-insights，agent-playground 复用）
+    // ★ 沉淀（2026-04-29）: figure-extractor（来自 <consumer>，<consumer> 复用）
     FigureExtractorService,
     // ★ 沉淀: LLM Reranker
     LlmRerankerAdapter,

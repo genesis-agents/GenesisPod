@@ -19,6 +19,7 @@ export {
   BuiltinSkillCatalog,
   BuiltInReActSkillRegistry,
 } from "../agents/builtin-skills/skill-registry";
+export { EXTRA_SKILL_DIRS } from "../agents/builtin-skills/skill-loader";
 export {
   AgentRunner,
   AgentSpec,
@@ -324,20 +325,20 @@ export type {
 // â˜… 2026-05-02 (#1 MECE): runtime/quality â†’ evaluation/critique æ”¶æ•›
 export { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 
-// â˜… 2026-05-01: ReportArtifactAssembler ä»Ž ai-app/agent-playground ä¸Šæï¼ˆè·¨ app å¤ç”¨ï¼‰
-//   playground v2 ReportArtifact (sections/citations/figures/quickView) è£…é…çº¯å‡½æ•°
+// â˜… 2026-05-01: ReportArtifactAssembler ä»Ž ai-app/<consumer> ä¸Šæï¼ˆè·¨ app å¤ç”¨ï¼‰
+//   consumer v2 ReportArtifact (sections/citations/figures/quickView) è£…é…çº¯å‡½æ•°
 export {
   ReportArtifactAssembler,
   lengthTargetFor,
 } from "../evaluation/critique/report-artifact/report-artifact-assembler.service";
 
-// â˜… 2026-05-01: FailureLearnerService ä»Ž ai-app/agent-playground ä¸Šæ
+// â˜… 2026-05-01: FailureLearnerService ä»Ž ai-app/<consumer> ä¸Šæ
 // â˜… 2026-05-02 (W1 MECE): governance/learning â†’ lifecycle/learningï¼ˆå¤±è´¥å­¦ä¹ æ˜¯ç”Ÿå‘½å‘¨æœŸé—­çŽ¯ï¼‰
 //   è·¨ mission å¤±è´¥æ¨¡å¼è®°å¿†ï¼ˆharness_failure_patterns è¡¨ï¼‰ï¼Œä¾› BillingRuntimeEnvAdapter ç­‰æ¶ˆè´¹
 export { FailureLearnerService } from "../lifecycle/learning/failure-learner.service";
 
 // ★ 2026-05-04 (PR-2 standardize): PostmortemClassifierService 从
-//   ai-app/agent-playground/services/postmortem 上提到 lifecycle/learning（与
+//   ai-app/<consumer>/services/postmortem 上提到 lifecycle/learning（与
 //   FailureLearner 同包，纯函数事件流→FailureMode 分类，跨 ai-app 复用）
 // ★ 2026-05-04 (R0-A4): 加 PostmortemPatterns + GENERIC_POSTMORTEM_PATTERNS export，
 //   substring patterns 由 caller (ai-app) 注入，base layer 不含业务概念
@@ -350,7 +351,7 @@ export {
   type PostmortemPatterns,
 } from "../lifecycle/learning/postmortem-classifier.service";
 
-// â˜… 2026-05-01: SocketBroadcastAdapter ä»Ž ai-app/agent-playground/adapters/ ä¸Šæ
+// â˜… 2026-05-01: SocketBroadcastAdapter ä»Ž ai-app/<consumer>/adapters/ ä¸Šæ
 //   å‚æ•°åŒ– prefix åŽè·¨ ai-app é€šç”¨ï¼ˆDomainEvent â†’ Socket.IO roomï¼‰ï¼Œä»»ä½•å¸¦ socket relay
 //   çš„ ai-app éƒ½å¯å¤ç”¨
 export {
@@ -358,28 +359,28 @@ export {
   type SocketBroadcastAdapterOptions,
 } from "../protocols/realtime/socket-broadcast.adapter";
 
-// â˜… 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry ä»Ž ai-app/agent-playground ä¸Šæ
+// â˜… 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry ä»Ž ai-app/<consumer> ä¸Šæ
 //   ä¸¤ä¸ªçº¯é€šç”¨ in-memory registry primitiveï¼ˆabort signal ç®¡ç† / missionâ†’user ownership LRUï¼‰ï¼Œ
 //   è·¨ ai-app å¤ç”¨ï¼ˆresearch / writing / teams ä»»ä½•é•¿ä»»åŠ¡ç¼–æŽ’éƒ½éœ€è¦ï¼‰
 export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
-// ★ 2026-05-04 (PR-3 standardize playground)
+// ★ 2026-05-04 (PR-3 standardize consumer)
 export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 
-// ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity engine 转发
+// ★ 2026-05-04 (PR-6 standardize consumer): jaccardSimilarity engine 转发
 export { jaccardSimilarity } from "../../ai-engine/facade";
 
-// ★ 2026-05-04 (PR-10b standardize playground): JSON-fence parser engine 转发
+// ★ 2026-05-04 (PR-10b standardize consumer): JSON-fence parser engine 转发
 export {
   parseJsonFence,
   extractJsonFenceContent,
   type JsonFenceParseResult,
 } from "../../ai-engine/facade";
 
-// ★ 2026-05-04 (PR-5 standardize playground): handoff token estimate + compress
+// ★ 2026-05-04 (PR-5 standardize consumer): handoff token estimate + compress
 export { HandoffCompactorService } from "../memory/working/handoff-compactor.service";
 
-// â˜… 2026-05-01: stage-emit util ä»Ž ai-app/agent-playground ä¸Šæ
+// â˜… 2026-05-01: stage-emit util ä»Ž ai-app/<consumer> ä¸Šæ
 //   é€šç”¨ stage:completed äº‹ä»¶å°è£…ï¼Œå« durationMs / tokensUsed / agentInvocations ç­‰åº¦é‡
 export {
   startStageTimer,
@@ -978,7 +979,7 @@ export { SkillRegistry } from "../../ai-engine/skills/registry/skill.registry";
 
 // ╔════════════════════════════════════════════════════════════════════════
 // v5.1 R1 — Mission pipeline framework（generic primitive 框架）
-// ai-app（writing-team / playground 等）通过本 facade import 框架符号
+// ai-app（writing-team / consumer 等）通过本 facade import 框架符号
 // ╚════════════════════════════════════════════════════════════════════════
 
 // R1-A primitives + cross-stage state

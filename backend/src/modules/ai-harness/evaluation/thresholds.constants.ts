@@ -1,7 +1,7 @@
 /**
  * 质量阈值集中配置 —— 单一来源
  *
- * 历史：playground / reflexion-loop / s8-writer / per-dim-pipeline 各自硬编码
+ * 历史：consumer / reflexion-loop / s8-writer / per-dim-pipeline 各自硬编码
  * 60/70/75 阈值，相互不一致触发死循环（mission 165c967f 死锁 70+min 真因：
  * per-dim PASS=75 + reviewer 实测 66-68 → 永远 revise）。
  *

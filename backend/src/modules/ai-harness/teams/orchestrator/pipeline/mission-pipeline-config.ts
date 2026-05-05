@@ -43,7 +43,7 @@ export interface PipelineRoleConfig {
  * 完整 PipelineConfig
  */
 export interface MissionPipelineConfig {
-  /** pipeline id（全局唯一，用于 registry 查找；如 "agent-playground" / "writing-team" 等业务名）*/
+  /** pipeline id（全局唯一，用于 registry 查找；如 "<consumer>" / "writing-team" 等业务名）*/
   readonly id: string;
 
   /** 角色集合（按 id 索引；step.roleId 引用之）*/
@@ -64,7 +64,7 @@ export interface MissionPipelineConfig {
  *
  * 用法（ai-app 在 const 文件）：
  *   export const PLAYGROUND_PIPELINE = defineMissionPipeline({
- *     id: "agent-playground",
+ *     id: "<consumer>",
  *     roles: [...],
  *     steps: [{ primitive: "plan", id: "s2-leader-plan", roleId: "leader", ... }, ...],
  *   });

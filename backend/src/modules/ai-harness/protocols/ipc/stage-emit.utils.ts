@@ -6,14 +6,14 @@
  *   新建 emitStageCompleted helper 统一注入这些字段，让 UI 时间线 / monitoring
  *   能在一个地方拿到 stage 性能数据。stage 自己的业务字段仍可叠加。
  *
- * 2026-05-01 上提: 从 ai-app/agent-playground 上提到 ai-harness/protocols/ipc/。
+ * 2026-05-01 上提: 从 ai-app/<consumer> 上提到 ai-harness/protocols/ipc/。
  * `EmitFn` / `eventType` 参数化后跨 ai-app 通用。
  *
- * 用法（playground 调用方）:
+ * 用法（consumer 调用方）:
  *   const stageTimer = startStageTimer();
  *   ... 业务代码 ...
  *   await stageTimer.emitCompleted(emit, missionId, userId, {
- *     eventType: "agent-playground.stage:completed",
+ *     eventType: "<consumer>.stage:completed",
  *     stage: "leader",
  *     tokensUsed: 1234,
  *   });
@@ -30,7 +30,7 @@ export type EmitFn = (args: {
 }) => Promise<void>;
 
 export interface StageTimerEmitOptions {
-  /** 完整事件 type，由 ai-app 决定（如 "agent-playground.stage:completed"）*/
+  /** 完整事件 type，由 ai-app 决定（如 "<consumer>.stage:completed"）*/
   eventType: string;
   /** stage 业务名（leader / researchers / analyst 等） */
   stage: string;

@@ -277,7 +277,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ModelPricingRegistry,
     JudgeService,
 
-    // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: figure Ã§â€ºÂ¸Ã¥â€¦Â³Ã¦â‚¬Â§Ã¥Ë†Â¤Ã¦â€“Â­Ã¯Â¼Ë†agent-playground Ã¥Â¤ÂÃ§â€Â¨Ã¯Â¼Å’TI Ã¦Å¡â€šÃ¤Â¿ÂÃ§â€¢â„¢Ã§Â§ÂÃ¦Å“â€°Ã¯Â¼â€°
+    // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: figure Ã§â€ºÂ¸Ã¥â€¦Â³Ã¦â‚¬Â§Ã¥Ë†Â¤Ã¦â€“Â­Ã¯Â¼Ë†<consumer> Ã¥Â¤ÂÃ§â€Â¨Ã¯Â¼Å’TI Ã¦Å¡â€šÃ¤Â¿ÂÃ§â€¢â„¢Ã§Â§ÂÃ¦Å“â€°Ã¯Â¼â€°
     FigureRelevanceService,
     // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: Reflexion critique-refine Ã©â€”Â­Ã§Å½Â¯
     CritiqueRefineService,

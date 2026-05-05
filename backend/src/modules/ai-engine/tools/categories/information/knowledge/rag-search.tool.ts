@@ -1,7 +1,7 @@
 /**
  * RAG Search Tool —— 本地知识库语义检索
  *
- * ★ 2026-04-30 重构（origin: agent-playground RAG unavailable 问题）：
+ * ★ 2026-04-30 重构（origin: <consumer> RAG unavailable 问题）：
  *   原实现走老的 chunks/embeddings 表（pgvector 路径），Railway PostgreSQL 不
  *   支持 pgvector，相关表从未创建，导致 mission 中 rag-search 永远返回
  *   "RAG unavailable: chunks/embeddings tables not found"。
@@ -10,7 +10,7 @@
  *     KnowledgeBase → KnowledgeBaseDocument → ParentChunk → ChildChunk →
  *     ChildEmbedding(JSONB) + 应用层余弦相似度
  *   该路径已被 ai-app/library/rag、ai-ask、open-api/ai-core 共用且 work，
- *   playground 的 researcher / writing 等消费方自动受益。
+ *   consumer 的 researcher / writing 等消费方自动受益。
  *
  * 行为：
  *   • 入参未传 knowledgeBaseIds（或为空）→ 直接返回 success:true + results:[] +

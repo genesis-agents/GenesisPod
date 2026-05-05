@@ -5,10 +5,10 @@
  *
  * 设计：
  * - 本服务仅负责 trace context 维护 + 评分计算，**不涉及 prisma persistence**
- * - prompt provenance 由消费方注入（TI 用 PROMPT_METADATA，Playground 用自己的快照）
- * - 持久化由消费方各自实现（TI 写 TopicReport.qualityTrace，Playground 写 agent_playground_missions.qualityTrace）
+ * - prompt provenance 由消费方注入（TI 用 PROMPT_METADATA，consumer 用自己的快照）
+ * - 持久化由消费方各自实现（TI 写 TopicReport.qualityTrace，consumer 写 agent_playground_missions.qualityTrace）
  *
- * 标杆参考实现，Playground 等新模块从 `@/modules/ai-harness/facade` 消费。
+ * 标杆参考实现，consumer 等新模块从 `@/modules/ai-harness/facade` 消费。
  * TI 是商用基线，保留独立的本地副本不切换到本实现。
  */
 
@@ -32,7 +32,7 @@ export interface QualityTraceContext<P extends string = string> {
   synthesisOutput?: SynthesisOutputProbe;
   finalAssessment?: FinalAssessmentProbe;
   outputReview?: OutputReviewProbe;
-  /** Prompt provenance —— 由消费方注入（TI: PROMPT_METADATA，Playground: 自己的 prompt 快照） */
+  /** Prompt provenance —— 由消费方注入（TI: PROMPT_METADATA，consumer: 自己的 prompt 快照） */
   promptProvenance?: Partial<Record<P, PromptMetadata>>;
 }
 
@@ -156,7 +156,7 @@ export interface QualityTrace<P extends string = string> {
   promptProvenance?: Partial<Record<P, PromptMetadata>>;
 }
 
-/** 通用 Evidence 形状（TI 用 prisma TopicEvidence，Playground 可自定义；compute 只需以下字段） */
+/** 通用 Evidence 形状（TI 用 prisma TopicEvidence，consumer 可自定义；compute 只需以下字段） */
 export interface QualityTraceEvidence {
   domain?: string | null;
   snippet?: string | null;

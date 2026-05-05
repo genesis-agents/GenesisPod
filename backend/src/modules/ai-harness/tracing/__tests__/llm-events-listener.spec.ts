@@ -4,7 +4,7 @@
  * Covers all @OnEvent handlers and their guard branches (optional services absent/present).
  */
 
-import { LlmEventsListener } from "../llm-events.listener";
+import { LlmEventsListener } from "../observability/llm-events.listener";
 
 function makeListener(
   overrides: {

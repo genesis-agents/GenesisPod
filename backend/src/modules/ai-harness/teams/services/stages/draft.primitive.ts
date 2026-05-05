@@ -20,20 +20,20 @@ export interface DraftStageHooks {
     subStage?: string;
   }) => Promise<unknown>;
 
-  /** 可选：multi-judge consensus retry（playground writer 用） */
+  /** 可选：multi-judge consensus retry（consumer writer 用） */
   readonly judgeConsensusRetry?: (args: {
     artifact: unknown;
     role: StageRunArgs["role"];
     ctx: StageRunArgs["ctx"];
   }) => Promise<{ artifact: unknown; verdict?: unknown }>;
 
-  /** 可选：写入 memory 索引（playground memoryIndexer 用） */
+  /** 可选：写入 memory 索引（consumer memoryIndexer 用） */
   readonly memoryIndexer?: (args: {
     artifact: unknown;
     ctx: StageRunArgs["ctx"];
   }) => Promise<void>;
 
-  /** 可选：组装 report artifact（playground reportArtifactAssembler 用） */
+  /** 可选：组装 report artifact（consumer reportArtifactAssembler 用） */
   readonly reportArtifactAssembler?: (args: {
     artifact: unknown;
     ctx: StageRunArgs["ctx"];

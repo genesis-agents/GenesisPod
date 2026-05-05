@@ -12,7 +12,7 @@
  * 第二阶段（待独立 PR）会扩展为 resumeFromState —— 从 store snapshot 重启 generator。
  *
  * 故意保持解耦：
- * - 不依赖 MissionStore（agent-playground 内部）—— OrphanDetector 是 harness 层通用
+ * - 不依赖 MissionStore（<consumer> 内部）—— OrphanDetector 是 harness 层通用
  * - 调用方提供 fetchRunningMissions / markFailed callback（依赖反转）
  * - 默认 NoOp 实现（callback 未注入时只 log，不动 DB）—— harness 单独使用安全
  */
@@ -27,7 +27,7 @@ import {
 import { MissionRuntimeStateStore } from "./runtime-state-store";
 
 /**
- * Orphan 检测回调 —— 由 ai-app（agent-playground）注入实际的 DB / event 操作
+ * Orphan 检测回调 —— 由 ai-app（<consumer>）注入实际的 DB / event 操作
  */
 export interface OrphanDetectorCallbacks {
   /** 拉取所有当前 running 的 missionId（不含 cancelled / completed / failed） */

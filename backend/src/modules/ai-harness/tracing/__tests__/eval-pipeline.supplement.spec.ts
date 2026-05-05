@@ -11,8 +11,8 @@
  *   - judgeEvaluated = false when judge returned null
  */
 
-import { EvalPipelineService } from "../eval-pipeline.service";
-import { TraceData } from "../trace.interface";
+import { EvalPipelineService } from "../evaluation/eval-pipeline.service";
+import { TraceData } from "../observability/trace.interface";
 import { Logger } from "@nestjs/common";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();

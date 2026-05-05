@@ -3,7 +3,7 @@
  *
  * 调 leader-style role 终审 + accountability。
  * accountability hook 引用 ctx.crossStageState 中所有累计副作用（如
- * playground s4PatchFailures forces quality-degraded）。
+ * consumer s4PatchFailures forces quality-degraded）。
  */
 import type {
   IStagePrimitive,

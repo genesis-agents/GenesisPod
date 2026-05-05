@@ -5,7 +5,7 @@ import {
   mergeConstraintProfiles,
   ConstraintProfile,
   ConstraintPreset,
-} from "../constraint-profile";
+} from "../constraints/constraint-profile";
 
 describe("CONSTRAINT_PRESETS", () => {
   it("should define 'fast' preset with cheap model and short duration", () => {

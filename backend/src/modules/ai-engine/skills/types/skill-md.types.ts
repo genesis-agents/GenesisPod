@@ -21,7 +21,7 @@ export type SkillSource = "local" | "skillsmp" | "custom-url";
 export type SkillDomain =
   | "writing" // 写作领域
   | "research" // 研究领域
-  | "insights" // 洞察分析领域 (topic-insights)
+  | "insights" // 洞察分析领域 (<consumer>)
   | "office" // 文档/PPT 领域
   | "simulation" // 模拟领域
   | "general" // 通用领域
@@ -555,4 +555,3 @@ export interface SkillSourceProvider {
   /** 监听变化（热重载） */
   watchChanges?(callback: () => void): void;
 }
-

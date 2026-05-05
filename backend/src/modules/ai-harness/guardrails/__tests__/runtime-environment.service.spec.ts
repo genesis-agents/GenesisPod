@@ -8,7 +8,7 @@
  *  - 缓存 + force refresh
  */
 
-import { RuntimeEnvironmentService } from "../runtime-environment.service";
+import { RuntimeEnvironmentService } from "../runtime/runtime-environment.service";
 
 function mkRegistry<T extends { id: string }>(items: T[]) {
   return {

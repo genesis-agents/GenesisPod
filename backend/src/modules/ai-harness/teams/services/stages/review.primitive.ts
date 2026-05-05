@@ -21,17 +21,17 @@ export interface ReviewStageHooks {
     mode?: string;
   }) => Promise<{ verdict: unknown; score?: number; passed?: boolean }>;
 
-  /** 可选：评审后 enhancement 调用（playground s8b 用） */
+  /** 可选：评审后 enhancement 调用（consumer s8b 用） */
   readonly afterReview?: (args: {
     verdict: unknown;
     ctx: StageRunArgs["ctx"];
     crossStageState: StageRunArgs["crossStageState"];
   }) => Promise<void>;
 
-  /** 可选：score scaling（playground s9 把 0-1 映射到 0-100）*/
+  /** 可选：score scaling（consumer s9 把 0-1 映射到 0-100）*/
   readonly scoreScaling?: (raw: number) => number;
 
-  /** 可选：objectiveEvalInjection（playground s9b 用） */
+  /** 可选：objectiveEvalInjection（consumer s9b 用） */
   readonly objectiveEvalInjection?: (args: {
     verdict: unknown;
     ctx: StageRunArgs["ctx"];

@@ -199,7 +199,7 @@ export class ToolPipeline implements IMiddlewareChain {
       context.executionId = uuid();
     }
 
-    // Resolve missionId from context (playground sets metadata.missionId)
+    // Resolve missionId from context (consumer sets metadata.missionId)
     const missionId =
       (context.metadata?.missionId as string | undefined) ?? context.taskId;
 

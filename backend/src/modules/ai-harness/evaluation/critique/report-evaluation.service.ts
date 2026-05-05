@@ -9,7 +9,7 @@
  * 2. 识别哪些章节质量高/低
  * 3. 为模型选型提供数据支撑
  *
- * 标杆参考实现，Playground 等新模块从 `@/modules/ai-harness/facade` 消费。
+ * 标杆参考实现，consumer 等新模块从 `@/modules/ai-harness/facade` 消费。
  * TI 是商用基线，保留独立的本地副本不切换到本实现。
  */
 

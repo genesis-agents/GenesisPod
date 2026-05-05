@@ -2,7 +2,7 @@
  * StorageOffloadService — 新数据 off-load 调度器
  *
  * 每天凌晨 02:00 UTC 扫以下 off-load 候选表，把新增的大字段搬到对象存储：
- * - topic_reports.full_report → `topic-reports/{id}/v{version}.md`
+ * - topic_reports.full_report → `<consumer-report>s/{id}/v{version}.md`
  * - dimension_analyses.data_points → `dimension-analyses/{id}/data_points.json`
  * - research_tasks.result → `research-tasks/{id}/result.json`
  *

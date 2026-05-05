@@ -63,7 +63,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     MissionRuntimeStateStore,
     // â˜… Phase 9: åŸºäºŽ heartbeat çš„å¿«é€Ÿ orphan æ£€æµ‹ï¼ˆcallback ç”± ai-app æ³¨å…¥ï¼‰
     MissionOrphanDetectorService,
-    // â˜… 2026-05-01 (PR-X-E): é€šç”¨ mission registry primitiveï¼ˆä»Ž playground ä¸Šæï¼‰
+    // â˜… 2026-05-01 (PR-X-E): é€šç”¨ mission registry primitiveï¼ˆä»Ž consumer ä¸Šæï¼‰
     MissionAbortRegistry,
     MissionOwnershipRegistry,
     RerunLockRegistry,

@@ -56,7 +56,7 @@ export interface PostmortemPatterns {
 /**
  * Generic patterns —— 业界通用错误模式（无 ai-app 业务概念）。
  *
- * ai-app 可在此基础上 extend 自己的业务 patterns（如 playground 的 'chapter:revision'）。
+ * ai-app 可在此基础上 extend 自己的业务 patterns（如 consumer 的 'chapter:revision'）。
  */
 export const GENERIC_POSTMORTEM_PATTERNS: PostmortemPatterns = {
   userCancel: ["user-cancel"],

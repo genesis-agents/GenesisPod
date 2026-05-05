@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { RateLimiter, TokenBucket } from "../rate-limiter";
+import { RateLimiter, TokenBucket } from "../resources/rate-limiter";
 import { CacheService } from "@/common/cache/cache.service";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
