@@ -1,7 +1,7 @@
 /**
  * RuntimeEnvironmentService — L2 AI Engine 运行时环境发现（通用）
  *
- * 设计文档：docs/architecture/ai-app/topic-insights/harness-redesign/11-capability-discovery.md
+ * 设计文档：docs/architecture/ai-harness/redesign/11-capability-discovery.md
  *
  * 职责：
  * - 只回答"当前 AI Engine 基础设施客观有什么"：

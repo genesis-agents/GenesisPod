@@ -24,7 +24,7 @@ import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.type
 /**
  * 创建 Agent 的规格（App 层提供）
  *
- * 目标架构 v2（docs/architecture/ai-app/topic-insights/harness-redesign/11-target-architecture.md）：
+ * 目标架构 v2（docs/architecture/ai-harness/redesign/11-target-architecture.md）：
  * AI App 只写 spec，不写 Agent 执行代码。L2 AgentFactory 读 spec 产出 IAgent。
  *
  * 泛型：
