@@ -3,7 +3,7 @@
  *
  * 背景：
  *   截止本 PR 前，cancel mission 散点 3 套接口：
- *     1. agent-playground.controller.cancelMission() — abortRegistry.abort
+ *     1. {app}.controller.cancelMission() — abortRegistry.abort
  *        + store.markCancelled + buffer.broadcast 三连
  *     2. dispatcher.handleMissionFailure() — 直接走 markFailed
  *     3. runtime-shell wallTimer — missionAbort.abort 走 abortRegistry
@@ -18,7 +18,7 @@
  *
  * 注意：
  *   本 service 在 ai-harness/lifecycle 层（与 mission-checkpoint / abort-registry
- *   同级），不知 agent-playground 业务（不 import mission-store）。store 操作
+ *   同级），不知 {app} 业务（不 import mission-store）。store 操作
  *   通过抽象接口注入，让 ai-app 层装配真实实现。
  */
 

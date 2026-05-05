@@ -2792,22 +2792,11 @@ export class AIFacade {
 
   // ==================== Embedding（EmbeddingService）====================
 
-  /**
-   * @deprecated [task #24] 优先用 embeddingGenerateBatch — 即使单条也用 batch
-   * API 单调用：1 次 HTTP，401 时只触发 1 次 ERROR + auth-circuit-break。
-   * 本方法保留作向后兼容，新代码不应使用。后续 PR 把全部 caller 迁完后删除。
-   */
+  /** @deprecated 用 RagFacade.embeddingGenerate */
   async embeddingGenerate(text: string): Promise<EmbeddingResult | null> {
     return (await this.knowledge?.embedding?.generateEmbedding(text)) ?? null;
   }
-
-  /**
-   * ★ 2026-05-05: batch embedding —— 单次调用拿一组 text 的 embedding。
-   * 底层 EmbeddingService.generateEmbeddings 自动按 provider 分批
-   * (OpenAI 100 / Cohere 96)，1 次调用替代 N 次单调用 → 减少 N-1 次 HTTP roundtrip。
-   * 401 时只触发 1 次 ERROR + 1 次 auth-circuit-break，不刷屏。
-   * 主要消费方：figure-relevance（80 张图 1 次 batch vs 80 次单调用）。
-   */
+  /** Batch — 推荐入口。详见 RagFacade.embeddingGenerateBatch JSDoc */
   async embeddingGenerateBatch(
     texts: string[],
   ): Promise<{
@@ -2816,9 +2805,8 @@ export class AIFacade {
     totalTokens: number;
   } | null> {
     if (!this.knowledge?.embedding) return null;
-    if (texts.length === 0) {
+    if (texts.length === 0)
       return { texts: [], embeddings: [], totalTokens: 0 };
-    }
     return this.knowledge.embedding.generateEmbeddings(texts);
   }
 

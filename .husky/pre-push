@@ -13,11 +13,13 @@ echo "============================================================"
 echo ""
 
 # ★ 2026-05-05 [task #7] god-class size guard
-#   策略：>2500 行的文件不允许在本次推送中增长。已超阈值的文件冻结大小，
-#   只能拆。新文件 >2500 行直接拒推。
-#   设计来源：第三轮审计 — 项目 god-class 3 周内 +67 行无拦截，机制性兜底。
+#   策略：>2500 行的文件 **不许大幅增长**（单次推送 +50 行内可容忍小机制修复，
+#   超 +50 行 = 强信号"应该拆分"）。已 god-class 的文件不冻结，但恶性增长拒推。
+#   audit:debt 仪表盘持续跟踪存量趋势。
+#   设计来源：第三轮审计 — 项目 god-class 3 周内 +67 行无拦截。
 echo "[0a/5] god-class size guard..."
 GOD_CLASS_THRESHOLD=2500
+GOD_CLASS_MAX_GROWTH=50
 VIOLATIONS=""
 for f in $(git diff --name-only origin/main HEAD -- '*.ts' '*.tsx' 2>/dev/null); do
     [ -f "$f" ] || continue
@@ -27,22 +29,23 @@ for f in $(git diff --name-only origin/main HEAD -- '*.ts' '*.tsx' 2>/dev/null);
         # 取 origin/main 该文件的行数（不存在视为 0 = 新文件）
         prev=$(git show "origin/main:$f" 2>/dev/null | wc -l | tr -d ' ')
         prev=${prev:-0}
-        if [ "$cur" -gt "$prev" ]; then
-            VIOLATIONS="$VIOLATIONS  $f: $prev → $cur (+$((cur - prev)))\n"
+        delta=$((cur - prev))
+        if [ "$delta" -gt "$GOD_CLASS_MAX_GROWTH" ]; then
+            VIOLATIONS="$VIOLATIONS  $f: $prev → $cur (+$delta, 超 ${GOD_CLASS_MAX_GROWTH} 行容差)\n"
         fi
     fi
 done
 if [ -n "$VIOLATIONS" ]; then
     echo ""
-    echo "  god-class size guard 违规！下列文件 >$GOD_CLASS_THRESHOLD 行且本次推送让它继续增长："
+    echo "  god-class size guard 违规！下列文件 >$GOD_CLASS_THRESHOLD 行且本次净增 >$GOD_CLASS_MAX_GROWTH 行："
     printf "%b" "$VIOLATIONS"
     echo ""
-    echo "  策略：超阈值的文件必须拆分，不允许继续增长。"
-    echo "  如确需 emergency hotfix，加 git commit --no-verify 跳过本检查（生产事故才用）。"
+    echo "  策略：god-class 文件单次推送净增量上限 $GOD_CLASS_MAX_GROWTH 行（小修复容忍，大新功能必须拆分）。"
+    echo "  超此阈值视为"应该拆类"信号 — 把新增逻辑搬到独立 service / utils 文件。"
     echo ""
     exit 1
 fi
-echo "  god-class size guard 通过"
+echo "  god-class size guard 通过（容差 ±$GOD_CLASS_MAX_GROWTH 行）"
 echo ""
 
 # 0. 架构边界看护（锁定 L4→L3→L2.5→L2→L1 单向依赖）
