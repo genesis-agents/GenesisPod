@@ -48,6 +48,7 @@ const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
     color: 'bg-slate-100 text-slate-700',
     icon: '/icons/ai/minimax.svg',
   },
+  voyage: { color: 'bg-teal-100 text-teal-700', icon: '' },
 };
 
 function ProviderKeyCard({

@@ -76,10 +76,10 @@ export const PROVIDER_PREFERENCE_BY_TYPE: Record<AIModelType, string[]> = {
   ],
   [AIModelType.CODE]: ["anthropic", "openai", "google"],
   [AIModelType.MULTIMODAL]: ["google", "openai", "anthropic"],
-  [AIModelType.EMBEDDING]: ["openai", "google", "cohere"],
+  [AIModelType.EMBEDDING]: ["openai", "voyage", "google", "cohere"],
   [AIModelType.IMAGE_GENERATION]: ["openai", "google"],
   [AIModelType.IMAGE_EDITING]: ["openai"],
-  [AIModelType.RERANK]: ["cohere"], // 未来可加 jina / voyage
+  [AIModelType.RERANK]: ["cohere", "voyage"],
   [AIModelType.EVALUATOR]: ["openai", "anthropic", "google", "xai"],
 };
 
@@ -261,6 +261,21 @@ export const DEFAULT_RECOMMENDATIONS: DefaultRecommendation[] = [
     modelType: AIModelType.RERANK,
     patterns: ["^rerank-v3\\.5", "^rerank"],
     priority: 50,
+  },
+
+  // ============ Voyage AI ============
+  // 200M tokens/月免费（voyage-3-lite），用作 OpenAI text-embedding-3-small 触 429 兜底
+  {
+    provider: "voyage",
+    modelType: AIModelType.EMBEDDING,
+    patterns: ["^voyage-3-lite", "^voyage-3", "^voyage-large-2", "^voyage-"],
+    priority: 60,
+  },
+  {
+    provider: "voyage",
+    modelType: AIModelType.RERANK,
+    patterns: ["^rerank-2", "^rerank-1"],
+    priority: 60,
   },
 
   // ============ Groq ============

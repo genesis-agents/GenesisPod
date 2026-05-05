@@ -6,7 +6,10 @@ import {
   Optional,
 } from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { SecretsService, AuditContext } from "../../../ai-infra/secrets/secrets.service";
+import {
+  SecretsService,
+  AuditContext,
+} from "../../../ai-infra/secrets/secrets.service";
 import { CreditsService } from "../../../ai-infra/credits/credits.service";
 import { EncryptionService } from "../../../ai-infra/encryption/encryption.service";
 import { CacheService, CachePrefix, CacheTTL } from "../../../../common/cache";
@@ -77,6 +80,14 @@ const PROVIDER_DEFAULTS: Record<
   minimax: {
     endpoint: "https://api.minimax.chat/v1",
     testModel: "MiniMax-Text-01",
+    apiFormat: "openai",
+  },
+  // 2026-05-05: Voyage AI — embedding/rerank 专用 provider，OpenAI 兼容。
+  // 200M tokens/月免费（voyage-3-lite），用于替代 OpenAI text-embedding-3-small
+  // 触 429 时的兜底；同时支持 rerank。
+  voyage: {
+    endpoint: "https://api.voyageai.com/v1",
+    testModel: "voyage-3-lite",
     apiFormat: "openai",
   },
 };
@@ -789,6 +800,7 @@ export class UserApiKeysService {
       groq: "Groq",
       openrouter: "OpenRouter",
       minimax: "MiniMax",
+      voyage: "Voyage AI",
     };
     return names[provider] || provider;
   }
