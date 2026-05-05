@@ -60,7 +60,11 @@ export class MissionStore {
     maxCredits: number;
     /** 用户档位快照 —— 在创建时就写入，避免 cancelled/failed 时丢失配置可见性 */
     userProfile?: Record<string, unknown>;
-    /** ★ R2-A.14 双轨标识；默认 legacy 与 schema default 对齐 */
+    /**
+     * R2-A.14 遗物：legacy 已删（R2-C 27350f494），pipeline-v1 是唯一路径。
+     * Schema default "legacy" 因 prod migration 已 deploy 无法 down，但代码默认值
+     * 与 shell.openSession 保持一致写 "pipeline-v1"，避免 DB 误标。
+     */
     runtimeVersion?: "legacy" | "pipeline-v1";
   }): Promise<void> {
     await this.prisma.agentPlaygroundMission.create({
@@ -74,7 +78,7 @@ export class MissionStore {
         maxCredits: input.maxCredits,
         status: "running",
         userProfile: (input.userProfile ?? null) as Prisma.InputJsonValue,
-        runtimeVersion: input.runtimeVersion ?? "legacy",
+        runtimeVersion: input.runtimeVersion ?? "pipeline-v1",
       },
     });
   }
