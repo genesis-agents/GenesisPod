@@ -389,6 +389,15 @@ export {
   type EmitFn,
 } from "../protocols/ipc/stage-emit.utils";
 
+// 通用 stage instrumentation wrapper（消除 ai-app stage 文件的 50% boilerplate）
+export {
+  runWithStageInstrumentation,
+  type StageInstrumentationCtx,
+  type StageInstrumentationDeps,
+  type StageInstrumentationConfig,
+  type NarrateFn,
+} from "../protocols/ipc/stage-instrumentation.helper";
+
 // â˜… 2026-05-01 (PR-X-N): è®© ai-app èµ° facadeï¼Œä¸éœ€ç©¿é€ harness å†…éƒ¨è·¯å¾„
 export {
   extractTokenSpend,
