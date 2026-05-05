@@ -11,6 +11,7 @@ import {
   AgentRegistry,
   RoleRegistry,
 } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { RESEARCH_LEAD_ROLE_CONFIG } from "../research/teams";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
@@ -322,7 +323,7 @@ export class TopicInsightsModule implements OnModuleInit {
     private readonly teamRegistry: TeamRegistry,
     private readonly roleRegistry: RoleRegistry,
     // R0-A5: 注册 insights skills 目录到 engine SkillLoader
-    private readonly skillLoader: import("@/modules/ai-engine/facade").SkillLoaderService,
+    private readonly skillLoader: SkillLoaderService,
   ) {}
 
   async onModuleInit() {

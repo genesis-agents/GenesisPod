@@ -19,6 +19,7 @@ import {
   AgentRegistry,
   RoleRegistry,
 } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { ResearcherAgent } from "./agents";
 import { RESEARCH_TEAM_CONFIG, RESEARCH_LEAD_ROLE_CONFIG } from "./teams";
 import { ResearchIdeaService } from "./idea/research-idea.service";
@@ -95,7 +96,7 @@ export class ResearchModule implements OnModuleInit {
     private readonly researcherAgent: ResearcherAgent,
     private readonly promptSkillBridge: PromptSkillBridge,
     // R0-A5: 注册 research skills 目录到 engine SkillLoader
-    private readonly skillLoader: import("@/modules/ai-engine/facade").SkillLoaderService,
+    private readonly skillLoader: SkillLoaderService,
   ) {}
 
   async onModuleInit() {

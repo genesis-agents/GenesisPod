@@ -24,6 +24,7 @@
 import { Module, OnModuleInit, Logger, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SkillRegistry, PromptSkillBridge } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
 import { AIModelService } from "../../core/ai-model.service";
 import { PrismaModule } from "@/common/prisma/prisma.module";
@@ -119,7 +120,7 @@ export class SlidesSkillsModule implements OnModuleInit {
     private readonly skillRegistry: SkillRegistry,
     private readonly promptSkillBridge: PromptSkillBridge,
     // R0-A5: 注册 office slides skills 目录到 engine SkillLoader
-    private readonly skillLoader: import("@/modules/ai-engine/facade").SkillLoaderService,
+    private readonly skillLoader: SkillLoaderService,
     // Code-based skills
     private readonly pagePipeline: PagePipelineSkill,
     private readonly templateMatcher: TemplateMatcherSkill,

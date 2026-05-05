@@ -8,6 +8,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 // 直接从文件导入，避免 barrel export 循环依赖
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { PromptSkillBridge } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { LongContentModule } from "./content-engine/long-content.module";
 
@@ -265,7 +266,7 @@ export class AiWritingModule implements OnModuleInit {
     private readonly revisionExecutor: RevisionExecutor,
     private readonly consistencyCheckExecutor: ConsistencyCheckExecutor,
     // R0-A5: 注册 writing skills 目录到 engine SkillLoader
-    private readonly skillLoader: import("@/modules/ai-engine/facade").SkillLoaderService,
+    private readonly skillLoader: SkillLoaderService,
   ) {}
 
   async onModuleInit() {
