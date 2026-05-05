@@ -345,6 +345,22 @@ export class RAGFacade {
     return (await this.knowledge?.embedding?.generateEmbedding(text)) ?? null;
   }
 
+  /**
+   * ★ 2026-05-05: batch embedding —— 单次调用拿一组 text 的 embedding。
+   * 底层 EmbeddingService.generateEmbeddings 自动按 provider 分批
+   * (OpenAI 100, Cohere 96)，1 次调用替代 N 次单调用 → 减少 N-1 次 HTTP roundtrip
+   * + 401 时只触发 1 次 ERROR + circuit-break。figure-relevance 等场景受益。
+   */
+  async embeddingGenerateBatch(
+    texts: string[],
+  ): Promise<{ texts: string[]; embeddings: number[][]; totalTokens: number } | null> {
+    if (!this.knowledge?.embedding) return null;
+    if (texts.length === 0) {
+      return { texts: [], embeddings: [], totalTokens: 0 };
+    }
+    return this.knowledge.embedding.generateEmbeddings(texts);
+  }
+
   async embeddingGetModel(): Promise<string | null> {
     return (await this.knowledge?.embedding?.getModel()) ?? null;
   }

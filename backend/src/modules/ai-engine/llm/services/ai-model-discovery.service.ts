@@ -178,15 +178,10 @@ export class AiModelDiscoveryService {
 
         case "voyage":
         case "voyageai":
-          // ★ 2026-05-05: voyage 是 BYOK 预定义 provider（commit d5f57e3eb
-          //   加入），endpoint hardcoded https://api.voyageai.com/v1，OpenAI-
-          //   compatible /models 协议
-          return await this.fetchOpenAICompatibleModels(
-            "https://api.voyageai.com/v1/models",
-            apiKey,
-            "Voyage AI",
-            modelType,
-          );
+          // ★ 2026-05-05: voyage AI 没有 /v1/models 列表端点（404），用静态
+          //   已知模型列表（同 cohere / zhipu 模式）。type=EMBEDDING / RERANK
+          //   按用户当前选择 modelType 过滤。
+          return this.getVoyageModels(modelType);
 
         default: {
           // ★ 2026-05-05: byok pr-3 自定义 Provider（OpenAI 兼容）：
@@ -539,6 +534,100 @@ export class AiModelDiscoveryService {
             id: "command-light",
             name: "Command Light",
             description: "Fast, lightweight chat model",
+          },
+        ],
+      };
+    }
+  }
+
+  /**
+   * ★ 2026-05-05: Voyage AI 模型静态列表（API 没有 /v1/models 列表端点，404）
+   * Embedding 主线：voyage-3 / voyage-3-lite / 多语言 / 代码 / 行业垂直
+   * Rerank 主线：rerank-2 / rerank-2-lite / rerank-1 / rerank-lite-1
+   */
+  private getVoyageModels(modelType?: string): FetchModelsResult {
+    if (modelType === "RERANK") {
+      return {
+        success: true,
+        models: [
+          {
+            id: "rerank-2",
+            name: "Rerank 2",
+            description: "Voyage 最新 rerank 模型，最佳质量",
+          },
+          {
+            id: "rerank-2-lite",
+            name: "Rerank 2 Lite",
+            description: "轻量版 rerank-2，更快更便宜",
+          },
+          {
+            id: "rerank-1",
+            name: "Rerank 1",
+            description: "上一代稳定 rerank 模型",
+          },
+          {
+            id: "rerank-lite-1",
+            name: "Rerank Lite 1",
+            description: "上一代轻量 rerank 模型",
+          },
+        ],
+      };
+    } else if (modelType === "EMBEDDING") {
+      return {
+        success: true,
+        models: [
+          {
+            id: "voyage-3",
+            name: "Voyage 3",
+            description: "通用 embedding 主线模型",
+          },
+          {
+            id: "voyage-3-lite",
+            name: "Voyage 3 Lite",
+            description: "轻量 embedding，更快更便宜",
+          },
+          {
+            id: "voyage-multilingual-2",
+            name: "Voyage Multilingual 2",
+            description: "多语言 embedding（含中文）",
+          },
+          {
+            id: "voyage-code-2",
+            name: "Voyage Code 2",
+            description: "代码 embedding 优化",
+          },
+          {
+            id: "voyage-finance-2",
+            name: "Voyage Finance 2",
+            description: "金融垂直 embedding",
+          },
+          {
+            id: "voyage-law-2",
+            name: "Voyage Law 2",
+            description: "法律垂直 embedding",
+          },
+          {
+            id: "voyage-large-2-instruct",
+            name: "Voyage Large 2 Instruct",
+            description: "Instruct-tuned embedding（高质量）",
+          },
+        ],
+      };
+    } else {
+      // Voyage 不提供 chat 模型；返回 embedding + rerank 全集让用户选
+      return {
+        success: true,
+        models: [
+          { id: "voyage-3", name: "Voyage 3", description: "通用 embedding" },
+          {
+            id: "voyage-3-lite",
+            name: "Voyage 3 Lite",
+            description: "轻量 embedding",
+          },
+          {
+            id: "rerank-2",
+            name: "Rerank 2",
+            description: "通用 rerank",
           },
         ],
       };

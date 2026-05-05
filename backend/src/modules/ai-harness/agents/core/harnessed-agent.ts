@@ -203,10 +203,16 @@ export class HarnessedAgent implements IAgent {
 
     if (this.loop) {
       const constraints = this.identity.constraints;
+      // ★ 2026-05-05 P0 机制性修复：所有 agent 必有 wall-time 兜底，避免单 LLM
+      //   调用 hang 导致 ReAct loop 永远 await（截图 12 mission 卡 S4 30+ 分钟
+      //   真因）。spec 没配 maxWallTimeMs 时默认 5min；spec 显式配置 override
+      //   全局默认。这是机制性解决，避免每个 agent spec 散点补充。
+      const DEFAULT_AGENT_WALL_TIME_MS = 5 * 60_000;
       const criteria: ILoopTerminationCriteria = {
         maxIterations: constraints?.maxIterations ?? 20,
         maxTokens: constraints?.maxTokens,
-        maxWallTimeMs: constraints?.maxWallTimeMs,
+        maxWallTimeMs:
+          constraints?.maxWallTimeMs ?? DEFAULT_AGENT_WALL_TIME_MS,
         terminateOn: ["finalize"],
       };
       try {

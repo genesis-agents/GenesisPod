@@ -286,6 +286,8 @@ export type LeaderSignoffOutput = Extract<LeaderOutput, { phase: "signoff" }>;
   },
   inputSchema: Input,
   outputSchema: Output,
+  // 不显式配 maxWallTimeMs —— harnessed-agent 提供全局 5min 默认（2026-05-05
+  // 机制性修复：所有 agent 自动兜底 wall-time，避免散点补充）
   budget: { maxTokens: 16_000, maxIterations: 4 },
 })
 export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
