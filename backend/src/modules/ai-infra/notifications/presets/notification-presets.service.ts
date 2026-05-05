@@ -96,6 +96,33 @@ export class NotificationPresetsService {
     });
   }
 
+  /**
+   * Agent Playground mission 完成通知。
+   * 复用 RESEARCH_COMPLETED 枚举（语义="长任务完成"），未来 schema 拆分时再细化。
+   */
+  async notifyMissionCompleted(params: {
+    userId: string;
+    missionId: string;
+    missionTitle: string;
+    reviewScore?: number;
+  }) {
+    const { userId, missionId, missionTitle, reviewScore } = params;
+    const scoreSuffix =
+      typeof reviewScore === "number" ? `（评分 ${reviewScore}）` : "";
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.RESEARCH_COMPLETED,
+      title: "Mission 已完成",
+      message: `「${missionTitle}」已完成${scoreSuffix}`,
+      actionUrl: `/playground/missions/${missionId}`,
+      actionLabel: "查看报告",
+      relatedType: "agent-playground-mission",
+      relatedId: missionId,
+      metadata: { reviewScore },
+    });
+  }
+
   async notifyCreditsLow(params: {
     userId: string;
     balance: number;

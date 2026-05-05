@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import { useSettingsStore, type Notification } from '@/stores';
 import ClientDate from '@/components/common/ClientDate';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,27 +11,229 @@ import {
   Trash2,
   Check,
   CheckCheck,
-  Sparkles,
   Info,
-  Zap,
+  Sparkles,
   RefreshCw,
+  Zap,
+  Mail,
+  Users,
+  AlertTriangle,
+  Coins,
+  MessageSquare,
 } from 'lucide-react';
+import {
+  useNotifications,
+  useNotificationActions,
+  type Notification,
+  type NotificationType,
+} from '@/hooks/domain/useNotifications';
+import { useNotificationSocket } from '@/hooks/domain/useNotificationSocket';
 
-export default function Notifications() {
-  const {
-    notifications,
-    markAsRead,
-    markAllAsRead,
-    deleteNotification,
-    clearAllNotifications,
-  } = useSettingsStore();
+const TYPE_META: Record<
+  NotificationType,
+  {
+    label: string;
+    bgColor: string;
+    textColor: string;
+    iconBg: string;
+    iconColor: string;
+    icon: typeof Info;
+  }
+> = {
+  SYSTEM: {
+    label: 'System',
+    bgColor: 'bg-blue-100',
+    textColor: 'text-blue-700',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600',
+    icon: Info,
+  },
+  UPDATE: {
+    label: 'Update',
+    bgColor: 'bg-green-100',
+    textColor: 'text-green-700',
+    iconBg: 'bg-green-100',
+    iconColor: 'text-green-600',
+    icon: RefreshCw,
+  },
+  TIP: {
+    label: 'Tip',
+    bgColor: 'bg-amber-100',
+    textColor: 'text-amber-700',
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600',
+    icon: Zap,
+  },
+  JOIN_REQUEST: {
+    label: 'Team',
+    bgColor: 'bg-violet-100',
+    textColor: 'text-violet-700',
+    iconBg: 'bg-violet-100',
+    iconColor: 'text-violet-600',
+    icon: Users,
+  },
+  JOIN_APPROVED: {
+    label: 'Team',
+    bgColor: 'bg-emerald-100',
+    textColor: 'text-emerald-700',
+    iconBg: 'bg-emerald-100',
+    iconColor: 'text-emerald-600',
+    icon: Users,
+  },
+  JOIN_REJECTED: {
+    label: 'Team',
+    bgColor: 'bg-red-100',
+    textColor: 'text-red-700',
+    iconBg: 'bg-red-100',
+    iconColor: 'text-red-600',
+    icon: Users,
+  },
+  INVITATION: {
+    label: 'Invite',
+    bgColor: 'bg-violet-100',
+    textColor: 'text-violet-700',
+    iconBg: 'bg-violet-100',
+    iconColor: 'text-violet-600',
+    icon: Mail,
+  },
+  INVITATION_EXPIRED: {
+    label: 'Invite',
+    bgColor: 'bg-gray-100',
+    textColor: 'text-gray-700',
+    iconBg: 'bg-gray-100',
+    iconColor: 'text-gray-600',
+    icon: Mail,
+  },
+  RESEARCH_COMPLETED: {
+    label: 'Task Done',
+    bgColor: 'bg-indigo-100',
+    textColor: 'text-indigo-700',
+    iconBg: 'bg-indigo-100',
+    iconColor: 'text-indigo-600',
+    icon: Sparkles,
+  },
+  TASK_ASSIGNED: {
+    label: 'Task',
+    bgColor: 'bg-yellow-100',
+    textColor: 'text-yellow-700',
+    iconBg: 'bg-yellow-100',
+    iconColor: 'text-yellow-600',
+    icon: Sparkles,
+  },
+  MENTION: {
+    label: 'Mention',
+    bgColor: 'bg-pink-100',
+    textColor: 'text-pink-700',
+    iconBg: 'bg-pink-100',
+    iconColor: 'text-pink-600',
+    icon: MessageSquare,
+  },
+  CREDITS_LOW: {
+    label: 'Credits',
+    bgColor: 'bg-red-100',
+    textColor: 'text-red-700',
+    iconBg: 'bg-red-100',
+    iconColor: 'text-red-600',
+    icon: AlertTriangle,
+  },
+  CREDITS_RECEIVED: {
+    label: 'Credits',
+    bgColor: 'bg-emerald-100',
+    textColor: 'text-emerald-700',
+    iconBg: 'bg-emerald-100',
+    iconColor: 'text-emerald-600',
+    icon: Coins,
+  },
+  FEEDBACK_REPLIED: {
+    label: 'Feedback',
+    bgColor: 'bg-blue-100',
+    textColor: 'text-blue-700',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600',
+    icon: MessageSquare,
+  },
+  FEEDBACK_STATUS_CHANGED: {
+    label: 'Feedback',
+    bgColor: 'bg-blue-100',
+    textColor: 'text-blue-700',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600',
+    icon: MessageSquare,
+  },
+};
+
+const DEFAULT_META = TYPE_META.SYSTEM;
+
+function getMeta(type: string) {
+  return TYPE_META[type as NotificationType] ?? DEFAULT_META;
+}
+
+function formatTimestamp(dateInput: Date | string): string | null {
+  const now = new Date();
+  const d = new Date(dateInput);
+  const diff = now.getTime() - d.getTime();
+  const minutes = Math.floor(diff / (1000 * 60));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return null;
+}
+
+export default function NotificationsPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [mounted, setMounted] = useState(false);
 
+  const readFlag = filter === 'unread' ? false : undefined;
+  const { notifications, total, loading, refresh } = useNotifications({
+    page: 1,
+    limit: 50,
+    read: readFlag,
+  });
+  const {
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    loading: actionLoading,
+  } = useNotificationActions();
+
+  // Realtime: any new notification or admin broadcast → refresh
+  const onSocketEvent = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+  useNotificationSocket({
+    onNewNotification: onSocketEvent,
+    onBroadcast: onSocketEvent,
+  });
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleMarkAsRead = useCallback(
+    async (id: string) => {
+      await markAsRead(id);
+      void refresh();
+    },
+    [markAsRead, refresh]
+  );
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    await markAllAsRead();
+    void refresh();
+  }, [markAllAsRead, refresh]);
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      await deleteNotification(id);
+      void refresh();
+    },
+    [deleteNotification, refresh]
+  );
 
   if (!mounted) {
     return (
@@ -44,87 +245,28 @@ export default function Notifications() {
     );
   }
 
-  const filteredNotifications =
-    filter === 'all' ? notifications : notifications.filter((n) => !n.read);
   const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const getNotificationIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'feature':
-        return (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100">
-            <Sparkles className="h-5 w-5 text-violet-600" />
-          </div>
-        );
-      case 'update':
-        return (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-            <RefreshCw className="h-5 w-5 text-green-600" />
-          </div>
-        );
-      case 'tip':
-        return (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-            <Zap className="h-5 w-5 text-amber-600" />
-          </div>
-        );
-      default:
-        return (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-            <Info className="h-5 w-5 text-blue-600" />
-          </div>
-        );
-    }
-  };
-
-  const formatTimestamp = (date: Date) => {
-    const now = new Date();
-    const d = new Date(date);
-    const diff = now.getTime() - d.getTime();
-    const minutes = Math.floor(diff / (1000 * 60));
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    // Return null to use ClientDate component for date display
-    return null;
-  };
-
-  const getTypeLabel = (type: Notification['type']) => {
-    switch (type) {
-      case 'feature':
-        return { text: 'Feature', color: 'bg-violet-100 text-violet-700' };
-      case 'update':
-        return { text: 'Update', color: 'bg-green-100 text-green-700' };
-      case 'tip':
-        return { text: 'Tip', color: 'bg-amber-100 text-amber-700' };
-      default:
-        return { text: 'System', color: 'bg-blue-100 text-blue-700' };
-    }
-  };
+  const subtitle = loading
+    ? 'Loading...'
+    : unreadCount > 0
+      ? `${unreadCount} unread / ${total} total`
+      : total > 0
+        ? `${total} notifications · all caught up`
+        : 'No notifications yet';
 
   return (
     <AppShell>
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
         <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
           <div className="flex items-center gap-3">
             <Bell className="h-6 w-6 text-violet-600" />
             <div>
               <h1 className="text-xl font-bold text-gray-900">Notifications</h1>
-              <p className="text-sm text-gray-500">
-                {unreadCount > 0
-                  ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
-                  : 'All caught up!'}
-              </p>
+              <p className="text-sm text-gray-500">{subtitle}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Filter Tabs */}
             <div className="flex rounded-lg border border-gray-200 p-1">
               <button
                 onClick={() => setFilter('all')}
@@ -153,31 +295,35 @@ export default function Notifications() {
               </button>
             </div>
 
-            {/* Actions */}
             {unreadCount > 0 && (
               <button
-                onClick={markAllAsRead}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+                onClick={() => void handleMarkAllAsRead()}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
                 <CheckCheck className="h-4 w-4" />
                 Mark all read
               </button>
             )}
-            {notifications.length > 0 && (
-              <button
-                onClick={clearAllNotifications}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
-              >
-                <Trash2 className="h-4 w-4" />
-                Clear all
-              </button>
-            )}
+            <button
+              onClick={() => void refresh()}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+              />
+            </button>
           </div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {filteredNotifications.length === 0 ? (
+          {loading && notifications.length === 0 ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
+            </div>
+          ) : notifications.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center">
               <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
                 <BellOff className="h-10 w-10 text-gray-400" />
@@ -195,74 +341,77 @@ export default function Notifications() {
             </div>
           ) : (
             <div className="mx-auto max-w-3xl space-y-3">
-              {filteredNotifications.map((notification) => {
-                const typeLabel = getTypeLabel(notification.type);
+              {notifications.map((n: Notification) => {
+                const meta = getMeta(n.type);
+                const Icon = meta.icon;
+                const ts = formatTimestamp(n.createdAt);
                 return (
                   <div
-                    key={notification.id}
+                    key={n.id}
                     className={`group rounded-lg border bg-white p-4 transition-all hover:shadow-md ${
-                      notification.actionUrl ? 'cursor-pointer' : ''
+                      n.actionUrl ? 'cursor-pointer' : ''
                     } ${
-                      !notification.read
+                      !n.read
                         ? 'border-violet-200 bg-violet-50/30'
                         : 'border-gray-200'
                     }`}
                     onClick={() => {
-                      if (notification.actionUrl) {
-                        markAsRead(notification.id);
-                        router.push(notification.actionUrl);
+                      if (n.actionUrl) {
+                        void handleMarkAsRead(n.id);
+                        router.push(n.actionUrl);
                       }
                     }}
                   >
                     <div className="flex items-start gap-4">
-                      {getNotificationIcon(notification.type)}
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${meta.iconBg}`}
+                      >
+                        <Icon className={`h-5 w-5 ${meta.iconColor}`} />
+                      </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold text-gray-900">
-                              {notification.title}
+                              {n.title}
                             </h3>
-                            {!notification.read && (
+                            {!n.read && (
                               <span className="h-2 w-2 rounded-full bg-violet-600" />
                             )}
                             <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${typeLabel.color}`}
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${meta.bgColor} ${meta.textColor}`}
                             >
-                              {typeLabel.text}
+                              {meta.label}
                             </span>
                           </div>
                           <span className="whitespace-nowrap text-xs text-gray-500">
-                            {formatTimestamp(notification.timestamp) || (
-                              <ClientDate
-                                date={notification.timestamp}
-                                format="date"
-                              />
+                            {ts ?? (
+                              <ClientDate date={n.createdAt} format="date" />
                             )}
                           </span>
                         </div>
                         <p className="mb-3 text-sm text-gray-600">
-                          {notification.message}
+                          {n.message}
                         </p>
 
                         <div className="flex items-center gap-3">
-                          {notification.actionUrl && (
+                          {n.actionUrl && (
                             <Link
-                              href={notification.actionUrl}
+                              href={n.actionUrl}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                markAsRead(notification.id);
+                                void handleMarkAsRead(n.id);
                               }}
                               className="text-sm font-medium text-violet-600 hover:text-violet-700"
                             >
-                              View
+                              {n.actionLabel || 'View'}
                             </Link>
                           )}
-                          {!notification.read && (
+                          {!n.read && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                markAsRead(notification.id);
+                                void handleMarkAsRead(n.id);
                               }}
                               className="flex items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-700"
                             >
@@ -273,7 +422,7 @@ export default function Notifications() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              deleteNotification(notification.id);
+                              void handleDelete(n.id);
                             }}
                             className="flex items-center gap-1 text-sm font-medium text-gray-400 opacity-0 transition-opacity hover:text-red-600 group-hover:opacity-100"
                           >

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { NotificationsAdminService } from "../notifications-admin.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
@@ -13,6 +14,7 @@ describe("NotificationsAdminService", () => {
     };
     $executeRaw: jest.Mock;
   };
+  let mockEventEmitter: { emit: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -23,11 +25,13 @@ describe("NotificationsAdminService", () => {
       },
       $executeRaw: jest.fn(),
     };
+    mockEventEmitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         NotificationsAdminService,
         { provide: PrismaService, useValue: mockPrisma },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
@@ -312,6 +316,29 @@ describe("NotificationsAdminService", () => {
 
       // Assert
       expect(mockPrisma.$executeRaw).toHaveBeenCalled();
+    });
+
+    it("should emit notification.broadcast event for realtime gateway", async () => {
+      // Arrange
+      mockPrisma.$executeRaw.mockResolvedValue(42);
+
+      // Act
+      await service.broadcastNotification(
+        "System Maintenance",
+        "Tonight 22:00 UTC",
+        "UPDATE",
+      );
+
+      // Assert: event emit drives NotificationGateway frontend toast/badge update
+      expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+        "notification.broadcast",
+        expect.objectContaining({
+          title: "System Maintenance",
+          message: "Tonight 22:00 UTC",
+          type: "UPDATE",
+          sentCount: 42,
+        }),
+      );
     });
   });
 });

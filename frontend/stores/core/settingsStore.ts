@@ -22,17 +22,6 @@ export interface AIFeatureSettings {
   compactViewEnabled: boolean;
 }
 
-export interface Notification {
-  id: string;
-  type: 'system' | 'feature' | 'update' | 'tip';
-  title: string;
-  message: string;
-  timestamp: Date;
-  read: boolean;
-  actionUrl?: string;
-  persistent?: boolean; // Won't be auto-dismissed
-}
-
 interface SettingsState {
   // AI Feature Settings
   aiFeatures: AIFeatureSettings;
@@ -41,17 +30,6 @@ interface SettingsState {
     value: AIFeatureSettings[K]
   ) => void;
   resetAIFeatures: () => void;
-
-  // Notifications
-  notifications: Notification[];
-  addNotification: (
-    notification: Omit<Notification, 'id' | 'timestamp'>
-  ) => void;
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
-  deleteNotification: (id: string) => void;
-  clearAllNotifications: () => void;
-  unreadCount: () => number;
 
   // What's New
   lastSeenVersion: string;
@@ -69,30 +47,9 @@ const DEFAULT_AI_FEATURES: AIFeatureSettings = {
   compactViewEnabled: false,
 };
 
-// System notifications that are added on first load
-const INITIAL_NOTIFICATIONS: Omit<Notification, 'id' | 'timestamp'>[] = [
-  {
-    type: 'update',
-    title: 'New Version Available',
-    message:
-      'Check out the latest features, bug fixes, and improvements in this release.',
-    read: false,
-    actionUrl: '/changelog',
-    persistent: true,
-  },
-  {
-    type: 'tip',
-    title: 'Try AI Office',
-    message:
-      'Create professional documents, presentations, and reports with AI assistance.',
-    read: false,
-    actionUrl: '/ai-office',
-  },
-];
-
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // AI Features
       aiFeatures: DEFAULT_AI_FEATURES,
       setAIFeature: (key, value) =>
@@ -100,40 +57,6 @@ export const useSettingsStore = create<SettingsState>()(
           aiFeatures: { ...state.aiFeatures, [key]: value },
         })),
       resetAIFeatures: () => set({ aiFeatures: DEFAULT_AI_FEATURES }),
-
-      // Notifications
-      notifications: INITIAL_NOTIFICATIONS.map((n, idx) => ({
-        ...n,
-        id: `initial-${idx}`,
-        timestamp: new Date(Date.now() - idx * 3600000), // Stagger by hours
-      })),
-      addNotification: (notification) =>
-        set((state) => ({
-          notifications: [
-            {
-              ...notification,
-              id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              timestamp: new Date(),
-            },
-            ...state.notifications,
-          ],
-        })),
-      markAsRead: (id) =>
-        set((state) => ({
-          notifications: state.notifications.map((n) =>
-            n.id === id ? { ...n, read: true } : n
-          ),
-        })),
-      markAllAsRead: () =>
-        set((state) => ({
-          notifications: state.notifications.map((n) => ({ ...n, read: true })),
-        })),
-      deleteNotification: (id) =>
-        set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id),
-        })),
-      clearAllNotifications: () => set({ notifications: [] }),
-      unreadCount: () => get().notifications.filter((n) => !n.read).length,
 
       // What's New
       lastSeenVersion: '',
@@ -143,7 +66,6 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'deepdive-settings-storage',
       partialize: (state) => ({
         aiFeatures: state.aiFeatures,
-        notifications: state.notifications,
         lastSeenVersion: state.lastSeenVersion,
       }),
     }

@@ -10,6 +10,8 @@ import { useTranslation } from '@/lib/i18n';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { config } from '@/lib/utils/config';
+import { useUnreadNotificationCount } from '@/hooks/domain/useNotifications';
+import { useNotificationSocket } from '@/hooks/domain/useNotificationSocket';
 
 // Sidebar Panel Toggle Icon - left narrow, right wide
 // Fill shows current visible state: expanded = right filled, collapsed = left filled
@@ -77,6 +79,14 @@ export default function Sidebar({ className = '' }: SidebarProps) {
   const pathname = usePathname();
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
+
+  // 通知 unread badge：拉模式 + socket 推模式（实时增量）
+  const { count: unreadCount, refresh: refreshUnreadCount } =
+    useUnreadNotificationCount();
+  useNotificationSocket({
+    onNewNotification: () => void refreshUnreadCount(),
+    onBroadcast: () => void refreshUnreadCount(),
+  });
 
   // 展开逻辑：pinned时始终展开，collapsed时hover展开，expanded时展开
   const showExpanded =
@@ -707,20 +717,39 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           }`}
           title="Notifications"
         >
-          <svg
-            className="h-5 w-5 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-            />
-          </svg>
-          {showExpanded && <span>{t('nav.notifications')}</span>}
+          <span className="relative flex-shrink-0">
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+              />
+            </svg>
+            {unreadCount > 0 && (
+              <span
+                className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white"
+                aria-label={`${unreadCount} unread notifications`}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </span>
+          {showExpanded && (
+            <span className="flex flex-1 items-center justify-between">
+              <span>{t('nav.notifications')}</span>
+              {unreadCount > 0 && (
+                <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </span>
+          )}
         </Link>
 
         {/* User Profile / Login Button */}

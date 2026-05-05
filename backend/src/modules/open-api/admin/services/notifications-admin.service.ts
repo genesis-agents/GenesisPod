@@ -1,11 +1,15 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 @Injectable()
 export class NotificationsAdminService {
   private readonly logger = new Logger(NotificationsAdminService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async getNotificationStats() {
     try {
@@ -155,6 +159,16 @@ export class NotificationsAdminService {
     this.logger.log(
       `Broadcast notification to ${sent} users: "${trimmedTitle}" (${safeType})`,
     );
+
+    // 触发 NotificationGateway 频道级实时推送（在线用户立即看到 toast / badge +1）。
+    // 不走 N+1 fan-out emit "notification.created"，避免大用户量时 EventEmitter2 拥堵。
+    this.eventEmitter.emit("notification.broadcast", {
+      title: trimmedTitle,
+      message: trimmedMessage,
+      type: safeType,
+      sentCount: Number(sent ?? 0),
+    });
+
     return { sent };
   }
 }
