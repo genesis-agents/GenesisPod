@@ -403,4 +403,127 @@ describe("NotificationService", () => {
     });
   });
 
+  // ==================== quiet hours (W4) =================================
+
+  describe("quiet hours: timeInWindow (static)", () => {
+    const at = (hours: number, mins = 0) => {
+      const d = new Date(Date.UTC(2026, 0, 1, hours, mins));
+      return d;
+    };
+
+    it("returns true inside same-day window", () => {
+      // window 09:00 → 17:00, now 12:00
+      expect(NotificationService.timeInWindow(at(12), "09:00", "17:00")).toBe(
+        true,
+      );
+    });
+
+    it("returns false outside same-day window", () => {
+      // window 09:00 → 17:00, now 18:00
+      expect(NotificationService.timeInWindow(at(18), "09:00", "17:00")).toBe(
+        false,
+      );
+    });
+
+    it("handles cross-midnight window correctly (22:00 → 06:00)", () => {
+      // 23:30 should be in window
+      expect(
+        NotificationService.timeInWindow(at(23, 30), "22:00", "06:00"),
+      ).toBe(true);
+      // 03:00 should be in window
+      expect(NotificationService.timeInWindow(at(3), "22:00", "06:00")).toBe(
+        true,
+      );
+      // 12:00 should NOT be in window
+      expect(NotificationService.timeInWindow(at(12), "22:00", "06:00")).toBe(
+        false,
+      );
+    });
+
+    it("returns false when start === end (empty window)", () => {
+      expect(NotificationService.timeInWindow(at(10), "10:00", "10:00")).toBe(
+        false,
+      );
+    });
+
+    it("returns false on malformed time string", () => {
+      expect(NotificationService.timeInWindow(at(10), "bad", "17:00")).toBe(
+        false,
+      );
+      expect(NotificationService.timeInWindow(at(10), "25:00", "17:00")).toBe(
+        false,
+      );
+    });
+
+    it("treats end exclusively (now === end → outside window)", () => {
+      // window 09:00 → 17:00, now exactly 17:00 → false (consistent with [start, end))
+      expect(NotificationService.timeInWindow(at(17), "09:00", "17:00")).toBe(
+        false,
+      );
+    });
+  });
+
+  describe("createNotification — silent flag from quiet hours", () => {
+    it("emits silent=false when no preference set", async () => {
+      (
+        mockPrisma.notificationPreference!.findUnique as jest.Mock
+      ).mockResolvedValue(null);
+
+      await service.createNotification({
+        userId: "user-1",
+        type: NotificationTypeDto.SYSTEM,
+        title: "T",
+        message: "M",
+      });
+
+      const lastCall = (mockEventEmitter.emit as jest.Mock).mock.calls.find(
+        (c) => c[0] === "notification.created",
+      );
+      expect(lastCall).toBeDefined();
+      expect(lastCall![1]).toEqual(expect.objectContaining({ silent: false }));
+    });
+
+    it("emits silent=true when current time falls inside quiet hours", async () => {
+      // Mock pref with full-day window so any time is silent
+      (
+        mockPrisma.notificationPreference!.findUnique as jest.Mock
+      ).mockResolvedValue({
+        quietHoursStart: "00:00",
+        quietHoursEnd: "23:59",
+      });
+
+      await service.createNotification({
+        userId: "user-1",
+        type: NotificationTypeDto.SYSTEM,
+        title: "T",
+        message: "M",
+      });
+
+      const lastCall = (mockEventEmitter.emit as jest.Mock).mock.calls.find(
+        (c) => c[0] === "notification.created",
+      );
+      expect(lastCall).toBeDefined();
+      expect(lastCall![1]).toEqual(expect.objectContaining({ silent: true }));
+    });
+
+    it("never throws when preference lookup fails (degrades to silent=false)", async () => {
+      (
+        mockPrisma.notificationPreference!.findUnique as jest.Mock
+      ).mockRejectedValue(new Error("DB error"));
+
+      await expect(
+        service.createNotification({
+          userId: "user-1",
+          type: NotificationTypeDto.SYSTEM,
+          title: "T",
+          message: "M",
+        }),
+      ).resolves.toBeDefined();
+
+      const lastCall = (mockEventEmitter.emit as jest.Mock).mock.calls.find(
+        (c) => c[0] === "notification.created",
+      );
+      expect(lastCall![1]).toEqual(expect.objectContaining({ silent: false }));
+    });
+  });
 });

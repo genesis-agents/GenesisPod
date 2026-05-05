@@ -12,6 +12,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { ChatFacade, AgentFacade } from "@/modules/ai-harness/facade";
 import { ProgressTrackerService } from "@/modules/ai-harness/facade";
@@ -53,6 +54,7 @@ export class WritingMissionExecutionService {
     private readonly eventEmitter: WritingEventEmitterService,
     private readonly textProcessor: WritingTextProcessorService,
     @Optional() private readonly progressTracker?: ProgressTrackerService,
+    @Optional() private readonly nestEventEmitter?: EventEmitter2,
   ) {
     // Wire up circular dependency
     this.lifecycleService.setExecutionService(this);
@@ -72,7 +74,7 @@ export class WritingMissionExecutionService {
   async runMissionInBackground(
     missionId: string,
     input: WritingMissionInput,
-    _userId: string,
+    userId: string,
     modelAssignments: RoleModelAssignment[],
   ): Promise<void> {
     // Start trace
@@ -237,6 +239,14 @@ export class WritingMissionExecutionService {
             1,
           );
         }
+
+        // 触发持久化通知（fire-and-forget；NotificationEventListener 监听）
+        void this.dispatchCompletionNotification(
+          missionId,
+          userId,
+          input,
+          totalWordCount,
+        );
 
         clearInterval(heartbeatInterval);
         this.logger.log(`Mission ${missionId} completed successfully`);
@@ -464,5 +474,37 @@ export class WritingMissionExecutionService {
       wordCount,
       missionId,
     );
+  }
+
+  /**
+   * 派发"写作任务完成"持久化通知（NotificationEventListener 接收）。
+   * fire-and-forget；通知失败不影响主流程。
+   */
+  private async dispatchCompletionNotification(
+    missionId: string,
+    userId: string,
+    input: WritingMissionInput,
+    totalWords: number,
+  ): Promise<void> {
+    if (!this.nestEventEmitter || !userId) return;
+    try {
+      const project = await this.prisma.writingProject.findUnique({
+        where: { id: input.projectId },
+        select: { name: true },
+      });
+      this.nestEventEmitter.emit("notification.task-completed", {
+        kind: "writing",
+        userId,
+        refId: missionId,
+        parentId: input.projectId,
+        title: project?.name || input.projectId,
+        missionType: input.missionType,
+        metrics: { totalWords },
+      });
+    } catch (err) {
+      this.logger.debug(
+        `[dispatchCompletionNotification] writing mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 }

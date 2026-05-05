@@ -28,6 +28,8 @@ export interface NotificationSocketPayload {
   type?: string;
   title?: string;
   message?: string;
+  /** quiet hours 内的通知 — 只更新 unread badge，不弹 toast */
+  silent?: boolean;
 }
 
 interface UseNotificationSocketOptions {

@@ -20,6 +20,8 @@ interface NotificationCreatedEvent {
   type: string;
   title: string;
   message: string;
+  /** quiet hours 窗口内为 true — 前端应只更新 badge，不弹 toast */
+  silent?: boolean;
 }
 
 interface NotificationBroadcastEvent {
@@ -86,6 +88,7 @@ export class NotificationGateway implements OnGatewayConnection {
         type: event.type,
         title: event.title,
         message: event.message,
+        silent: event.silent === true,
       });
     } catch (err) {
       this.log.warn(

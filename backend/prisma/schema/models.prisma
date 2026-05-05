@@ -8019,7 +8019,10 @@ enum NotificationType {
   INVITATION_EXPIRED // 邀请过期
 
   // 研究/任务通知
-  RESEARCH_COMPLETED // 研究任务完成
+  RESEARCH_COMPLETED // 研究任务完成（topic-insights / Deep Research）
+  MISSION_COMPLETED // Agent Playground mission 完成
+  WRITING_COMPLETED // AI Writing 章节/全文完成
+  OFFICE_COMPLETED // AI Office (Slides/Doc) 生成完成
   TASK_ASSIGNED // 任务分配
   MENTION // @提及
 

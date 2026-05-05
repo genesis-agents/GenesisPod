@@ -1,5 +1,6 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { NotificationBroadcastAdapter } from "./notification-broadcast-adapter";
+import { NotificationEventListener } from "./notification-event-listener.service";
 import { NotificationModule } from "@/modules/ai-infra/notifications/notification.module";
 import { HarnessModule } from "@/modules/ai-harness/harness.module";
 import { DomainEventBus } from "@/modules/ai-harness/facade";
@@ -23,7 +24,7 @@ import { PrismaModule } from "@/common/prisma/prisma.module";
  */
 @Module({
   imports: [PrismaModule, NotificationModule, HarnessModule],
-  providers: [NotificationBroadcastAdapter],
+  providers: [NotificationBroadcastAdapter, NotificationEventListener],
   exports: [],
 })
 export class NotificationsBridgeModule implements OnModuleInit {

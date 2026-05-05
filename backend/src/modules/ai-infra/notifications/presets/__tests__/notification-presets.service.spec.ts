@@ -125,4 +125,68 @@ describe("NotificationPresetsService", () => {
       }),
     );
   });
+
+  // W4 (2026-05-05): 三个任务完成 preset，appBasePath/relatedType 参数化（biz-name leakage）
+
+  it("sends mission completed notification with appBasePath / relatedType", async () => {
+    await service.notifyMissionCompleted({
+      userId: "user-1",
+      missionId: "m1",
+      missionTitle: "M Title",
+      appBasePath: "/playground",
+      relatedType: "agent-playground-mission",
+      reviewScore: 88,
+    });
+
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "MISSION_COMPLETED",
+        actionUrl: "/playground/missions/m1",
+        relatedType: "agent-playground-mission",
+        relatedId: "m1",
+      }),
+    );
+  });
+
+  it("sends writing task completed notification with appBasePath / relatedType", async () => {
+    await service.notifyWritingTaskCompleted({
+      userId: "user-1",
+      projectId: "p1",
+      missionId: "w1",
+      projectName: "我的小说",
+      missionType: "continue_story",
+      appBasePath: "/ai-writing/projects",
+      relatedType: "writing-mission",
+      totalWords: 12345,
+    });
+
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "WRITING_COMPLETED",
+        actionUrl: "/ai-writing/projects/p1",
+        relatedType: "writing-mission",
+        relatedId: "w1",
+      }),
+    );
+  });
+
+  it("sends office slides completed notification with appBasePath / relatedType", async () => {
+    await service.notifyOfficeSlidesCompleted({
+      userId: "user-1",
+      missionId: "s1",
+      title: "Q4 业务回顾",
+      appBasePath: "/ai-office/slides",
+      relatedType: "slides-mission",
+      pageCount: 18,
+    });
+
+    expect(notificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "OFFICE_COMPLETED",
+        actionUrl: "/ai-office/slides/s1",
+        relatedType: "slides-mission",
+        relatedId: "s1",
+      }),
+    );
+  });
 });

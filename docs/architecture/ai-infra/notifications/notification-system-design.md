@@ -408,10 +408,21 @@ export function useNotificationSocket(opts: {
 
 ## 8. 后续可能扩展点
 
-- **类型枚举细分**：MISSION_COMPLETED / WRITING_COMPLETED / OFFICE_COMPLETED（schema 迁移）
-- **Email 双通道**：Listener 接事件后同时调 EmailNotificationPresetsService（已存在）
+### W4 — 已落地（2026-05-05）
+
+- ✅ **类型枚举细分**：`MISSION_COMPLETED` / `WRITING_COMPLETED` / `OFFICE_COMPLETED` 加进 `NotificationType` enum，迁移文件 `prisma/migrations/20260505e_notification_type_split/`
+- ✅ **research / writing / office 完成事件接入**：业务模块在 mission COMPLETED 后 fire-and-forget emit `notification.task-completed` (NestJS EventEmitter2)，`NotificationEventListener` 接事件后调对应 preset
+  - research: `topic-insights/.../mission-execution.service.ts` 完成路径
+  - writing: `writing/services/mission/writing-mission-execution.service.ts:emitMissionCompleted` 后
+  - office: `office/slides/orchestrator/slides-repository.ts:completeMission` 写库后
+- ✅ **Quiet Hours 实战**：`NotificationService.createNotification` 查 `NotificationPreference.quietHoursStart/End`，命中窗口时在 emit `notification.created` 时打 `silent: true`；Gateway 透传该字段；前端 hook payload 类型同步。当前对比按 UTC（无时区列），跨午夜窗口已正确处理。
+
+### W5+ — 仍 TBD
+
+- **Quiet Hours 时区**：`NotificationPreference` 加 `timezone` 列（IANA TZ），按用户本地时间判定
+- **Email 双通道**：Listener 接事件后同时调 `EmailNotificationPresetsService`（已存在）
 - **桌面 push**：Service Worker + Web Push API（独立 Phase）
-- **Quiet Hours 实战**：当前 NotificationPreference 表有 `quietHoursStart/End` 字段但 Service 层未真正应用；W4 实现"静默时段不实时弹但仍入库"
+- **Toast 抑制**：前端按 `silent` 跳过弹窗（toast 层目前未建）
 - **聚合通知**："5 人 mention 了你"折叠展示
 
 ---
@@ -429,4 +440,4 @@ export function useNotificationSocket(opts: {
 
 ---
 
-**所有者**：Claude Code · **状态**：方案已审定，进入实现 · **里程碑**：W1+W2+W3 一次性提交
+**所有者**：Claude Code · **状态**：W1+W2+W3 落地于 commit `a36bd3051`；W4（research/writing/office 桥接 + 类型枚举 + Quiet Hours）落地于本次提交 · **里程碑**：W5 (timezone / email / toast / 聚合) TBD

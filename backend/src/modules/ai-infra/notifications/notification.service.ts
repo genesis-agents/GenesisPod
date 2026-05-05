@@ -21,6 +21,9 @@ const VALID_NOTIFICATION_TYPES: Record<NotificationTypeDto, NotificationType> =
     [NotificationTypeDto.INVITATION]: "INVITATION",
     [NotificationTypeDto.INVITATION_EXPIRED]: "INVITATION_EXPIRED",
     [NotificationTypeDto.RESEARCH_COMPLETED]: "RESEARCH_COMPLETED",
+    [NotificationTypeDto.MISSION_COMPLETED]: "MISSION_COMPLETED",
+    [NotificationTypeDto.WRITING_COMPLETED]: "WRITING_COMPLETED",
+    [NotificationTypeDto.OFFICE_COMPLETED]: "OFFICE_COMPLETED",
     [NotificationTypeDto.TASK_ASSIGNED]: "TASK_ASSIGNED",
     [NotificationTypeDto.MENTION]: "MENTION",
     [NotificationTypeDto.CREDITS_LOW]: "CREDITS_LOW",
@@ -61,6 +64,11 @@ export class NotificationService {
 
   /**
    * 创建单个通知
+   *
+   * Quiet hours：如果当前时间落在用户配置的免打扰窗口（quietHoursStart..End），
+   * DB 仍会写入（用户上线就能看到），但 emit 的事件会带 silent=true 标记 ——
+   * gateway 仍推送以更新 unread badge，但前端 toast 层应抑制弹窗。
+   * 当前对比按 UTC 时间（NotificationPreference 表未存时区，留 W5 follow-up）。
    */
   async createNotification(
     dto: CreateNotificationDto,
@@ -90,15 +98,69 @@ export class NotificationService {
     this.logger.log(`Notification created: ${notification.id}`);
 
     // 发出通知事件（用于WebSocket推送）
+    const silent = await this.isWithinQuietHours(dto.userId);
     this.eventEmitter.emit("notification.created", {
       notificationId: notification.id,
       userId: dto.userId,
       type: dto.type,
       title: dto.title,
       message: dto.message,
+      silent,
     });
 
     return { id: notification.id };
+  }
+
+  /**
+   * 判断 userId 当前时间是否落在 quiet hours 窗口内。
+   * 任何错误（无 preference / DB 异常 / 解析失败）一律返回 false（不抑制），
+   * 通知层不能因为查偏好失败而 swallow 用户事件。
+   */
+  private async isWithinQuietHours(userId: string): Promise<boolean> {
+    try {
+      const pref = await this.prisma.notificationPreference.findUnique({
+        where: { userId },
+        select: { quietHoursStart: true, quietHoursEnd: true },
+      });
+      if (!pref?.quietHoursStart || !pref?.quietHoursEnd) return false;
+      return NotificationService.timeInWindow(
+        new Date(),
+        pref.quietHoursStart,
+        pref.quietHoursEnd,
+      );
+    } catch (err) {
+      this.logger.debug(
+        `isWithinQuietHours lookup failed for ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * "HH:mm" 时间窗口包含判断。支持跨午夜（如 22:00..06:00）。
+   * 静态方法便于直接单测，不需要 Prisma mock。
+   */
+  static timeInWindow(now: Date, startStr: string, endStr: string): boolean {
+    const startMin = NotificationService.parseHHMMToMinutes(startStr);
+    const endMin = NotificationService.parseHHMMToMinutes(endStr);
+    if (startMin === null || endMin === null) return false;
+    if (startMin === endMin) return false; // 空窗口
+    const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    if (startMin < endMin) {
+      // 同日窗口 [start, end)
+      return nowMin >= startMin && nowMin < endMin;
+    }
+    // 跨午夜窗口 [start, 24:00) ∪ [00:00, end)
+    return nowMin >= startMin || nowMin < endMin;
+  }
+
+  private static parseHHMMToMinutes(s: string): number | null {
+    const m = /^([0-2]\d):([0-5]\d)$/.exec(s.trim());
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (h > 23) return null;
+    return h * 60 + min;
   }
 
   /**

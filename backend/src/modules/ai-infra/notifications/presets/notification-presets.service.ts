@@ -98,7 +98,8 @@ export class NotificationPresetsService {
 
   /**
    * 长任务 mission 完成通知（上层消费方按业务侧含义传 missionTitle）。
-   * 复用 RESEARCH_COMPLETED 枚举（语义="长任务完成"），未来 schema 拆分时再细化。
+   * W4 (2026-05-05): 切到独立 MISSION_COMPLETED 枚举（schema 已迁移）；
+   * appBasePath / relatedType 由消费方传入，ai-infra 不感知具体业务路由。
    */
   async notifyMissionCompleted(params: {
     userId: string;
@@ -123,7 +124,7 @@ export class NotificationPresetsService {
 
     await this.notificationService.createNotification({
       userId,
-      type: NotificationTypeDto.RESEARCH_COMPLETED,
+      type: NotificationTypeDto.MISSION_COMPLETED,
       title: "Mission 已完成",
       message: `「${missionTitle}」已完成${scoreSuffix}`,
       actionUrl: `${appBasePath}/missions/${missionId}`,
@@ -131,6 +132,80 @@ export class NotificationPresetsService {
       relatedType,
       relatedId: missionId,
       metadata: { reviewScore },
+    });
+  }
+
+  /**
+   * 长篇写作任务完成通知（章节 / 全文）。
+   * appBasePath / relatedType 由消费方传入（ai-infra 不感知 ai-writing/* 路由命名）。
+   */
+  async notifyWritingTaskCompleted(params: {
+    userId: string;
+    projectId: string;
+    missionId: string;
+    projectName: string;
+    missionType: string;
+    /** 业务侧应用根路径（如 "/<app>/projects"），由上层消费方传入 */
+    appBasePath: string;
+    /** relatedType 由上层消费方提供（数据字段不参与命名校验） */
+    relatedType: string;
+    totalWords?: number;
+  }) {
+    const {
+      userId,
+      projectId,
+      missionId,
+      projectName,
+      missionType,
+      appBasePath,
+      relatedType,
+      totalWords,
+    } = params;
+    const wordsSuffix =
+      typeof totalWords === "number" ? `（${totalWords} 字）` : "";
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.WRITING_COMPLETED,
+      title: "写作任务已完成",
+      message: `「${projectName}」的 ${missionType} 已生成完毕${wordsSuffix}`,
+      actionUrl: `${appBasePath}/${projectId}`,
+      actionLabel: "查看作品",
+      relatedType,
+      relatedId: missionId,
+      metadata: { projectId, missionType, totalWords },
+    });
+  }
+
+  /**
+   * Slides 生成完成通知。
+   * appBasePath / relatedType 由消费方传入（ai-infra 不感知 ai-office/* 路由命名）。
+   */
+  async notifyOfficeSlidesCompleted(params: {
+    userId: string;
+    missionId: string;
+    title: string;
+    /** 业务侧应用根路径（如 "/<app>/slides"），由上层消费方传入 */
+    appBasePath: string;
+    /** relatedType 由上层消费方提供 */
+    relatedType: string;
+    pageCount?: number;
+  }) {
+    const { userId, missionId, title, appBasePath, relatedType, pageCount } =
+      params;
+    const pagesSuffix =
+      typeof pageCount === "number" ? `（共 ${pageCount} 页）` : "";
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.OFFICE_COMPLETED,
+      title: "Slides 生成完成",
+      message: `「${title}」已生成完毕${pagesSuffix}`,
+      actionUrl: `${appBasePath}/${missionId}`,
+      actionLabel: "查看演示",
+      relatedType,
+      relatedId: missionId,
+      metadata: { pageCount },
     });
   }
 

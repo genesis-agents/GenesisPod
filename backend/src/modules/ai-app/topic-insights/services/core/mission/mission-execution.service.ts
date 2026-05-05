@@ -13,7 +13,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { OnEvent } from "@nestjs/event-emitter";
+import { OnEvent, EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   ResearchMissionStatus,
@@ -84,6 +84,8 @@ export class MissionExecutionService {
     private readonly genericTaskExecutor: GenericTaskExecutor,
     @Optional()
     private readonly latencyTracker?: SessionLatencyTrackerService,
+    @Optional()
+    private readonly eventEmitter?: EventEmitter2,
   ) {
     this.executorMap = new Map<string, ITaskExecutor>([
       ["dimension_research", this.dimensionResearchExecutor],
@@ -1086,6 +1088,13 @@ export class MissionExecutionService {
         tasks.length,
       );
 
+      // 触发持久化通知（fire-and-forget；NotificationEventListener 监听）。
+      // 失败不阻塞任务完成主流程。
+      void this.dispatchCompletionNotification(missionId, topicId, {
+        completedTasks: completedTasks.length,
+        totalTasks: tasks.length,
+      });
+
       // ★ 提取并存储研究发现（异步，不阻塞完成流程）
       void this.extractResearchMemories(missionId, topicId).catch((error) => {
         this.logger.error(
@@ -1097,6 +1106,37 @@ export class MissionExecutionService {
     this.logger.log(
       `[finalizeMission] Mission ${missionId} finalized: ${statusMessage}`,
     );
+  }
+
+  /**
+   * 派发"研究完成"持久化通知（fire-and-forget；listener 在 ai-app/notifications-bridge）。
+   * 不在 finalize 主路径上 await — 通知失败绝不影响业务流。
+   */
+  private async dispatchCompletionNotification(
+    missionId: string,
+    topicId: string,
+    metrics: { completedTasks: number; totalTasks: number },
+  ): Promise<void> {
+    if (!this.eventEmitter) return;
+    try {
+      const topic = await this.prisma.researchTopic.findUnique({
+        where: { id: topicId },
+        select: { userId: true, name: true },
+      });
+      if (!topic?.userId) return;
+      this.eventEmitter.emit("notification.task-completed", {
+        kind: "research",
+        userId: topic.userId,
+        refId: missionId,
+        parentId: topicId,
+        title: topic.name || missionId,
+        metrics,
+      });
+    } catch (err) {
+      this.logger.debug(
+        `[dispatchCompletionNotification] failed for mission ${missionId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   /**

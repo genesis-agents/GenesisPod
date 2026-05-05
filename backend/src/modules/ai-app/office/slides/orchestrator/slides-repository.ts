@@ -4,7 +4,8 @@
  * 负责 SlidesMission、SlidesTask、SlidesMissionEvent 的数据库操作
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
 import {
@@ -133,7 +134,10 @@ const REVERSE_EVENT_TYPE_MAP = Object.fromEntries(
 export class SlidesRepository {
   private readonly logger = new Logger(SlidesRepository.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
+  ) {}
 
   // ============================================
   // Mission 操作
@@ -329,7 +333,7 @@ export class SlidesRepository {
     duration: number,
     qualityAudit?: QualityAuditResult,
   ): Promise<void> {
-    await this.prisma.slidesMission.update({
+    const updated = await this.prisma.slidesMission.update({
       where: { id: missionId },
       data: {
         status: "COMPLETED",
@@ -339,7 +343,27 @@ export class SlidesRepository {
         duration,
         completedAt: new Date(),
       },
+      select: {
+        userId: true,
+        userRequirement: true,
+        sourceText: true,
+      },
     });
+
+    // 触发持久化通知（fire-and-forget；NotificationEventListener 监听）
+    if (this.eventEmitter && updated?.userId) {
+      const title =
+        (updated.userRequirement?.trim() ||
+          updated.sourceText?.trim().slice(0, 80)) ??
+        missionId;
+      this.eventEmitter.emit("notification.task-completed", {
+        kind: "office-slides",
+        userId: updated.userId,
+        refId: missionId,
+        title,
+        metrics: { pageCount: pages.length },
+      });
+    }
   }
 
   // ============================================
