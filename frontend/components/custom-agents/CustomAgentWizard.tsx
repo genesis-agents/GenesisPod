@@ -35,8 +35,11 @@ interface WizardState {
 
 export function CustomAgentWizard({
   initial,
+  onClose,
 }: {
   initial?: CustomAgentRecord;
+  /** 完成或取消时回调（嵌入 MyAgentsTab 时返回列表；独立页时跳路由） */
+  onClose?: () => void;
 }) {
   const router = useRouter();
   const isCreate = !initial;
@@ -241,7 +244,10 @@ export function CustomAgentWizard({
           {status === 'PUBLISHED' && (
             <button
               type="button"
-              onClick={() => router.push('/custom-agents')}
+              onClick={() => {
+                if (onClose) onClose();
+                else router.push('/me/ai?tab=agents');
+              }}
               className="rounded bg-gray-800 px-4 py-1.5 text-sm text-white hover:bg-gray-900"
             >
               返回列表
