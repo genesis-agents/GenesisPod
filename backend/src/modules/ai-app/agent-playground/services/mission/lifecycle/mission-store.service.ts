@@ -242,14 +242,29 @@ export class MissionStore {
    * 部署 + 30s 启动，旧 90s 阈值在每次 push 都误杀进行中 mission ——
    * 2026-05-04 实测确认）。300s 兜住 redeploy 窗口；真死 pod 检测延迟 5min
    * 内可接受。
+   *
+   * ★ 2026-05-05 重大修复（5 mission 100% 误杀根因）：
+   *   只看 heartbeatAt 不够 —— 重负载下（S3 chapter pipeline 100 events/min），
+   *   refreshHeartbeat 的 prisma update 与 markStageComplete 在同 row 上排队 +
+   *   偶发超时（catch silent），heartbeatAt 假性"过期 5min"。证据：mission
+   *   8f15404a 被标 failed 时 events 表每分钟仍写 70-100 条。
+   *
+   *   修：复用 recoverOrphanedRunning 的双重检查 —— heartbeat 旧 + 最近 staleSeconds
+   *   窗口内无事件，才认定真 pod 死。这样即使 heartbeat update 故障，只要 events
+   *   表还在写，mission 不被误杀。
    */
   async recoverPodCrashedRunning(staleSeconds = 300): Promise<number> {
     const cutoff = new Date(Date.now() - staleSeconds * 1000);
+    // ★ 2026-05-05 startup grace 5min —— mission 刚起步时 fire-and-forget refreshHeartbeat
+    //   可能还没落 DB（与 OrphanDetector 保持一致语义），无脑套阈值会误杀新启动 mission
+    const STARTUP_GRACE_MS = 5 * 60 * 1000;
+    const startupCutoff = new Date(Date.now() - STARTUP_GRACE_MS);
     const orphans = await this.prisma.agentPlaygroundMission
       .findMany({
         where: {
           status: "running",
           heartbeatAt: { lt: cutoff },
+          startedAt: { lt: startupCutoff },
         },
         select: { id: true, heartbeatAt: true, startedAt: true, podId: true },
       })
@@ -262,10 +277,45 @@ export class MissionStore {
         }[] => [],
       );
     if (orphans.length === 0) return 0;
+
+    // ★ 2026-05-05 cross-check events 表 —— heartbeat update 失败但 events 在写时
+    //   说明 mission 进程其实活着，跳过本轮 recovery，等真正僵死再杀
+    const orphanIds = orphans.map((o) => o.id);
+    const cutoffMs = cutoff.getTime();
+    const recentActivities = await this.prisma.agentPlaygroundMissionEvent
+      .groupBy({
+        by: ["missionId"],
+        where: { missionId: { in: orphanIds } },
+        _max: { ts: true },
+      })
+      .catch(() => [] as { missionId: string; _max: { ts: bigint | null } }[]);
+    const activeIds = new Set<string>();
+    for (const a of recentActivities) {
+      const ts = a._max.ts;
+      if (ts != null) {
+        const tsMs = Number(ts);
+        if (Number.isFinite(tsMs) && tsMs > cutoffMs) {
+          activeIds.add(a.missionId);
+        }
+      }
+    }
+    const trueOrphanIds = orphanIds.filter((id) => !activeIds.has(id));
+    if (trueOrphanIds.length === 0) {
+      this.log.log(
+        `[recoverPodCrashed] ${orphanIds.length} candidates have stale heartbeat but ${activeIds.size} have recent events (< ${staleSeconds}s) — sparing all`,
+      );
+      return 0;
+    }
+    if (activeIds.size > 0) {
+      this.log.log(
+        `[recoverPodCrashed] sparing ${activeIds.size} mission(s) with recent events despite stale heartbeat (heartbeat update likely backed up under load)`,
+      );
+    }
+
     const result = await this.prisma.agentPlaygroundMission
       .updateMany({
         where: {
-          id: { in: orphans.map((o) => o.id) },
+          id: { in: trueOrphanIds },
           status: "running",
           heartbeatAt: { lt: cutoff },
         },
@@ -273,17 +323,19 @@ export class MissionStore {
           status: "failed",
           completedAt: new Date(),
           errorMessage:
-            `Mission 在 pod 重启 / Railway redeploy 时丢失（DB 心跳停 ≥ ${staleSeconds} 秒）。\n\n` +
+            `Mission 在 pod 重启 / Railway redeploy 时丢失（DB 心跳停 ≥ ${staleSeconds} 秒，且无任何事件输出）。\n\n` +
             "PR-H v1 检测窗口：当前是清理悬挂 mission，让 UI 看到明确失败状态。\n" +
             "PR-H v2 将支持从最近 stage checkpoint 自动续跑（开发中）。\n\n" +
             "建议：使用顶部「重新运行」按钮重启相同主题。",
         },
       })
       .catch(() => ({ count: 0 }));
-    await Promise.all(orphans.map((o) => this.clearCheckpointJsonbKey(o.id)));
+    await Promise.all(
+      trueOrphanIds.map((id) => this.clearCheckpointJsonbKey(id)),
+    );
     if (result.count > 0) {
       this.log.warn(
-        `[recoverPodCrashed] marked ${result.count} pod-crashed missions as failed (heartbeat stale > ${staleSeconds}s)`,
+        `[recoverPodCrashed] marked ${result.count} pod-crashed missions as failed (heartbeat stale > ${staleSeconds}s, no events in window)`,
       );
     }
     return result.count;

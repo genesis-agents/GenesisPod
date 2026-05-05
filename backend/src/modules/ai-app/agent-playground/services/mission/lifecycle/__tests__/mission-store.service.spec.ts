@@ -608,5 +608,76 @@ describe("MissionStore", () => {
       const n = await store.recoverPodCrashedRunning(90);
       expect(n).toBe(0);
     });
+
+    // ★ 2026-05-05 重大修复回归：cross-check events 表，避免重负载下心跳更新
+    //   被 row lock 排队/超时静默吞错时误杀活着的 mission
+    it("recoverPodCrashedRunning: spares mission with stale heartbeat but recent events", async () => {
+      // mission heartbeat 旧 6min（过 5min 阈值），但 events 表 1 分钟前还在写
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        {
+          id: "m-alive",
+          heartbeatAt: new Date(Date.now() - 6 * 60_000),
+          startedAt: new Date(Date.now() - 12 * 60_000),
+          podId: "pod-x",
+        },
+      ]);
+      prisma.agentPlaygroundMissionEvent.groupBy.mockResolvedValueOnce([
+        { missionId: "m-alive", _max: { ts: BigInt(Date.now() - 60_000) } },
+      ]);
+      const n = await store.recoverPodCrashedRunning(300);
+      expect(n).toBe(0);
+      expect(prisma.agentPlaygroundMission.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("recoverPodCrashedRunning: kills mission only when both heartbeat and events stale", async () => {
+      // mission heartbeat 6min 旧，events 也 10min 没动 → 真死
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        {
+          id: "m-dead",
+          heartbeatAt: new Date(Date.now() - 6 * 60_000),
+          startedAt: new Date(Date.now() - 30 * 60_000),
+          podId: "pod-y",
+        },
+      ]);
+      prisma.agentPlaygroundMissionEvent.groupBy.mockResolvedValueOnce([
+        { missionId: "m-dead", _max: { ts: BigInt(Date.now() - 10 * 60_000) } },
+      ]);
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      const n = await store.recoverPodCrashedRunning(300);
+      expect(n).toBe(1);
+      const call = prisma.agentPlaygroundMission.updateMany.mock.calls[0][0];
+      expect(call.where.id).toEqual({ in: ["m-dead"] });
+      expect(call.data.errorMessage).toContain("无任何事件输出");
+    });
+
+    it("recoverPodCrashedRunning: with batch — spares only the live ones", async () => {
+      prisma.agentPlaygroundMission.findMany.mockResolvedValueOnce([
+        {
+          id: "m-alive",
+          heartbeatAt: new Date(Date.now() - 6 * 60_000),
+          startedAt: new Date(),
+          podId: null,
+        },
+        {
+          id: "m-dead",
+          heartbeatAt: new Date(Date.now() - 6 * 60_000),
+          startedAt: new Date(),
+          podId: null,
+        },
+      ]);
+      prisma.agentPlaygroundMissionEvent.groupBy.mockResolvedValueOnce([
+        { missionId: "m-alive", _max: { ts: BigInt(Date.now() - 30_000) } },
+        { missionId: "m-dead", _max: { ts: BigInt(Date.now() - 10 * 60_000) } },
+      ]);
+      prisma.agentPlaygroundMission.updateMany.mockResolvedValueOnce({
+        count: 1,
+      });
+      const n = await store.recoverPodCrashedRunning(300);
+      expect(n).toBe(1);
+      const call = prisma.agentPlaygroundMission.updateMany.mock.calls[0][0];
+      expect(call.where.id).toEqual({ in: ["m-dead"] });
+    });
   });
 });
