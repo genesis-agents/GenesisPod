@@ -31,7 +31,6 @@ import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
-import { MissionHealthScheduler } from "./services/mission/lifecycle/mission-health.scheduler";
 import {
   MissionCheckpointService,
   type MissionCheckpointStore,
@@ -61,7 +60,7 @@ import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import {
   DomainEventBus,
   DomainEventRegistry,
-  MissionOrphanDetectorService,
+  MissionLivenessGuard,
 } from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 import { PrismaService } from "../../../common/prisma/prisma.service";
@@ -102,8 +101,7 @@ import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
         new MissionCheckpointService(store),
       inject: [PrismaMissionCheckpointStore],
     },
-    // ★ Phase 6 (2026-04-29): playground 接入 ai-harness 沉淀的 MissionHealthMonitor
-    MissionHealthScheduler,
+    // ★ 2026-05-05 MissionHealthScheduler 已删（DISABLED + 由 unified MissionLivenessGuard 接管）
     LeaderChatService,
     // FailureLearnerService / ReportArtifactAssembler 由 @Global HarnessModule 提供（PR-X-failure-learner 上提 / PR-X-report-artifact 上提）
     // MissionStateService → HandoffCompactorService 已上提到 @Global RuntimeMemoryModule（PR-5 standardize playground）
@@ -142,7 +140,8 @@ export class AgentPlaygroundModule implements OnModuleInit {
     private readonly buffer: MissionEventBuffer,
     private readonly store: MissionStore,
     private readonly prisma: PrismaService,
-    private readonly orphanDetector: MissionOrphanDetectorService,
+    // ★ 2026-05-05 unified harness liveness guard（替代 4 个旧 detector）
+    private readonly livenessGuard: MissionLivenessGuard,
     // R0-A3 (2026-05-04): 注册 playground skills 目录到 engine SkillLoader
     //   17 个 SKILL.md (mece-mission-planning / leader-* / dimension-research / web-research 等)
     //   下推到 ai-app/agent-playground/skills/，需要在这里 register 到 SkillRegistry
@@ -163,61 +162,112 @@ export class AgentPlaygroundModule implements OnModuleInit {
     this.registry.registerAll(AGENT_PLAYGROUND_EVENTS);
     // 2. 注册缓冲 adapter，截获所有 agent-playground.* 事件入内存（给 /replay 用）
     this.eventBus.registerAdapter(this.buffer);
-    // 3. 启动恢复：清理 Railway recycle 后悬挂的 running missions
-    //    ★ 2026-05-01 (PR-G iter5): 30min 太短 —— mission deep+extended+thorough+unlimited
-    //    wall-time 可达 150min (resolveMissionWallTimeMs)。原 30min 触发 mission
-    //    在 55min 处被误标 orphan。改 240min（覆盖 3h hard cap + 1h buffer）。
-    void this.store.recoverOrphanedRunning(240);
-    // 3a. ★ PR-H v1 (2026-05-01) + 2026-05-04 修：heartbeat-driven pod recovery
-    //    新版 runMission 每 30s 刷 DB heartbeatAt。
+    // 3. ★ 2026-05-05 归并 4 个 detector → 单一 harness MissionLivenessGuard
+    //    用户驱动重构，归一 + 友好 + 完整覆盖：
+    //      - 归一：playground / writing / research / topic-insights 共用同一算法
+    //      - 多信号：heartbeat + events 必须双 stale 才认死，单一信号失败不误杀
+    //      - 启动期豁免 5min：避免 fire-and-forget refreshHeartbeat 未落库即被杀
+    //      - 三阶梯：soft warn 10min（不杀）/ hard kill 5min 双 stale / wall-time 4h
     //
-    //    阈值演进：
-    //      v1 90s 太紧 —— Railway redeploy 通常 60-120s 部署 + 30s 启动，
-    //                    部署窗口期 mission 全部被新 pod 误杀（实测每次 push 都死）
-    //      v2 300s （5min）—— 兜住典型 redeploy 窗口；真死 pod 检测延迟 5min OK
-    //
-    //    时序保护：
-    //      - 启动后 60s 才跑首次扫描（让 redeploy 切换稳定 + 旧 pod 有机会自然
-    //        markCompleted/markFailed 走完）
-    //      - 之后每 60s 扫一次
-    const POD_HEARTBEAT_STALE_SECS = 300;
-    const POD_RECOVERY_BOOT_DELAY_MS = 60_000;
-    const podBootTimer = setTimeout(() => {
-      void this.store.recoverPodCrashedRunning(POD_HEARTBEAT_STALE_SECS);
-    }, POD_RECOVERY_BOOT_DELAY_MS);
-    podBootTimer.unref?.();
-    const podRecoveryTimer = setInterval(() => {
-      void this.store.recoverPodCrashedRunning(POD_HEARTBEAT_STALE_SECS);
-    }, 60_000);
-    podRecoveryTimer.unref?.();
-    // 4. ★ Phase 9 (2026-04-30): 注册 orphan detector callbacks —— 跨 pod 接管基于 heartbeat 的快速检测
-    this.orphanDetector.registerCallbacks({
-      fetchRunningMissions: () =>
-        this.prisma.agentPlaygroundMission
-          .findMany({
-            where: { status: "running" },
-            // ★ 2026-05-01 (PR-G): 加 startedAt 让 detector 能给新启动 mission 5min 恩典
-            select: { id: true, userId: true, startedAt: true },
-            take: 200,
-          })
-          .catch(() => []),
-      markOrphanFailed: async (missionId, userId, reason) => {
-        await this.store.markFailed(missionId, {
-          errorMessage: reason,
-        });
-        await this.eventBus
-          .emit({
-            type: "agent-playground.mission:failed",
-            scope: { missionId, userId },
-            payload: {
-              message: reason,
-              failureCode: "ORPHAN_HEARTBEAT_LOST",
-              source: "orphan-detector",
-            },
-            timestamp: Date.now(),
-          })
-          .catch(() => undefined);
+    //    ★ 历史路径全部废弃（保留写路径 refreshHeartbeat / markStageComplete）：
+    //      - this.store.recoverOrphanedRunning(240)              ← removed
+    //      - this.store.recoverPodCrashedRunning(300) on 60s     ← removed
+    //      - MissionHealthScheduler                              ← deleted (file removed)
+    //      - MissionOrphanDetectorService (Redis-based, 已 disabled) ← 保留实例 + DI（teams.module 仍 register）但不再 callback 注入
+    this.livenessGuard.registerAdapter(
+      "agent-playground",
+      {
+        fetchRunningMissions: () =>
+          this.prisma.agentPlaygroundMission
+            .findMany({
+              where: { status: "running" },
+              select: {
+                id: true,
+                userId: true,
+                startedAt: true,
+                heartbeatAt: true,
+              },
+              take: 200,
+            })
+            .then((rows) =>
+              rows.map((r) => ({
+                id: r.id,
+                userId: r.userId,
+                startedAt: r.startedAt,
+                heartbeatAt: r.heartbeatAt,
+              })),
+            )
+            .catch(() => []),
+        getMostRecentEventTs: async (missionIds, sinceMs) => {
+          const grouped = await this.prisma.agentPlaygroundMissionEvent
+            .groupBy({
+              by: ["missionId"],
+              where: {
+                missionId: { in: missionIds as string[] },
+                ts: { gte: BigInt(sinceMs) },
+              },
+              _max: { ts: true },
+            })
+            .catch(
+              () => [] as { missionId: string; _max: { ts: bigint | null } }[],
+            );
+          const out = new Map<string, number>();
+          for (const g of grouped) {
+            const ts = g._max.ts;
+            if (ts != null) {
+              const tsMs = Number(ts);
+              if (Number.isFinite(tsMs) && tsMs <= Number.MAX_SAFE_INTEGER) {
+                out.set(g.missionId, tsMs);
+              }
+            }
+          }
+          return out;
+        },
+        markFailed: async (missionId, reason, errorMessage) => {
+          await this.store.markFailed(missionId, { errorMessage });
+          await this.eventBus
+            .emit({
+              type: "agent-playground.mission:failed",
+              scope: { missionId, userId: "" },
+              payload: {
+                message: errorMessage,
+                failureCode:
+                  reason === "wall-time-exceeded"
+                    ? "RUNNER_WALL_TIME_EXCEEDED"
+                    : "MISSION_STALE",
+                source: "liveness-guard",
+              },
+              timestamp: Date.now(),
+            })
+            .catch(() => undefined);
+        },
+        emitWarning: async (missionId, userId, payload) => {
+          await this.eventBus
+            .emit({
+              type: "agent-playground.mission:warning",
+              scope: { missionId, userId },
+              payload: {
+                message: `Mission 心跳/事件已停 ≥ 10 分钟，可能已卡死。建议主动取消重试，或继续等待至 30 分钟自动失败。`,
+                ageMs: payload.ageMs,
+                heartbeatAgeMs: payload.heartbeatAgeMs,
+                eventAgeMs: payload.eventAgeMs,
+                source: "liveness-guard",
+              },
+              timestamp: Date.now(),
+            })
+            .catch(() => undefined);
+        },
       },
-    });
+      {
+        // playground 实测档位最长 deep + thorough+ + unlimited ≈ 3h，给 4h 兜底
+        wallTimeCapMs: 4 * 60 * 60 * 1000,
+        // heartbeat 30s 一次，5min 容许 ≥ 10 次连续失败再 kill
+        staleThresholdMs: 5 * 60 * 1000,
+        softWarnThresholdMs: 10 * 60 * 1000,
+        startupGraceMs: 5 * 60 * 1000,
+        scanIntervalMs: 60_000,
+        bootDelayMs: 60_000,
+      },
+    );
   }
 }

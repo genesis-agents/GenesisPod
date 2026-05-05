@@ -17,6 +17,14 @@ export {
   MissionOrphanDetectorService,
   type OrphanDetectorCallbacks,
 } from "./orphan-detector.service";
+// ★ 2026-05-05 unified harness liveness guard（替代 4 个 detector 的归并）
+export {
+  MissionLivenessGuard,
+  type MissionLivenessAdapter,
+  type MissionLivenessConfig,
+  type MissionLivenessRow,
+  type ScanResult as MissionLivenessScanResult,
+} from "./mission-liveness-guard.service";
 export { MissionOwnershipRegistry } from "./ownership-registry";
 export {
   HEARTBEAT_INTERVAL_MS,

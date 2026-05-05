@@ -217,6 +217,14 @@ export {
   MissionOrphanDetectorService,
   type OrphanDetectorCallbacks,
 } from "../lifecycle/mission-lifecycle/orphan-detector.service";
+// ★ 2026-05-05 unified harness liveness guard（替代 4 个旧 detector 的归并）
+export {
+  MissionLivenessGuard,
+  type MissionLivenessAdapter,
+  type MissionLivenessConfig,
+  type MissionLivenessRow,
+  type MissionLivenessScanResult,
+} from "../lifecycle/mission-lifecycle";
 
 // ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来（跨层迁移）
 export {

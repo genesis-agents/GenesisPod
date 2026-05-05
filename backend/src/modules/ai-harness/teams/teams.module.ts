@@ -20,6 +20,7 @@ import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraints/co
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
 import { MissionRuntimeStateStore } from "../lifecycle/mission-lifecycle/runtime-state-store";
 import { MissionOrphanDetectorService } from "../lifecycle/mission-lifecycle/orphan-detector.service";
+import { MissionLivenessGuard } from "../lifecycle/mission-lifecycle/mission-liveness-guard.service";
 import { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 import { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
 import { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
@@ -63,6 +64,10 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     MissionRuntimeStateStore,
     // ★ Phase 9: 基于 heartbeat 的快速 orphan 检测（callback 由 ai-app 注入）
     MissionOrphanDetectorService,
+    // ★ 2026-05-05 unified harness liveness guard（多信号 + adapter 注入 + 多 namespace）
+    //   ai-app 通过 onModuleInit 调 livenessGuard.registerAdapter('namespace', adapter)
+    //   归并/替代旧 4 个 detector
+    MissionLivenessGuard,
     // ★ 2026-05-01 (PR-X-E): 通用 mission registry primitive（从 consumer 上提）
     MissionAbortRegistry,
     MissionOwnershipRegistry,
@@ -197,6 +202,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     A2AMessageBusService,
     MissionRuntimeStateStore,
     MissionOrphanDetectorService,
+    MissionLivenessGuard,
     MissionAbortRegistry,
     MissionOwnershipRegistry,
     RerunLockRegistry,

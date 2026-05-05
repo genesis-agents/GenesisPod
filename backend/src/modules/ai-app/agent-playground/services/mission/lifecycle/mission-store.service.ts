@@ -107,85 +107,14 @@ export class MissionStore {
     });
   }
 
-  /**
-   * ★ 2026-04-30 重构：之前 maxAgeMinutes=30 太紧 —— mission 跑 deep/thorough 档
-   * 60min 是常态，正在跑的 mission 撞上 Railway deploy 重启就被误标 failed。
-   *
-   * 新策略（多重门槛过滤）：
-   *   1. startedAt < now - maxAgeMinutes（默认 90min）才算"超龄"
-   *   2. 但若 lastActivityAt 在最近 ACTIVITY_GRACE_MINUTES（默认 5min）内有事件
-   *      → 进程可能刚重启就 resume 了 / scheduler 还没扫到，跳过本轮，留给 health
-   *      monitor 5min 后基于 lastActivityAt 做精准判断
-   *   3. errorMessage 给用户可操作的提示而非裸技术消息
-   */
-  async recoverOrphanedRunning(maxAgeMinutes = 90): Promise<number> {
-    const ACTIVITY_GRACE_MINUTES = 5;
-    const cutoff = new Date(Date.now() - maxAgeMinutes * 60_000);
-    const activityCutoff = new Date(
-      Date.now() - ACTIVITY_GRACE_MINUTES * 60_000,
-    );
-    // 1. 拉所有 startedAt 超龄的 running mission
-    const candidates = await this.prisma.agentPlaygroundMission
-      .findMany({
-        where: { status: "running", startedAt: { lt: cutoff } },
-        select: { id: true },
-      })
-      .catch((): { id: string }[] => []);
-    if (candidates.length === 0) return 0;
-    // 2. 用最近事件 ts 过滤掉"刚才还在动"的 mission
-    const candidateIds = candidates.map((c) => c.id);
-    const recentActivities = await this.prisma.agentPlaygroundMissionEvent
-      .groupBy({
-        by: ["missionId"],
-        where: { missionId: { in: candidateIds } },
-        _max: { ts: true },
-      })
-      .catch(() => [] as { missionId: string; _max: { ts: bigint | null } }[]);
-    const activeIds = new Set<string>();
-    for (const a of recentActivities) {
-      const ts = a._max.ts;
-      if (ts != null) {
-        const tsMs = Number(ts);
-        if (Number.isFinite(tsMs) && tsMs > activityCutoff.getTime()) {
-          activeIds.add(a.missionId);
-        }
-      }
-    }
-    const trueOrphanIds = candidateIds.filter((id) => !activeIds.has(id));
-    if (trueOrphanIds.length === 0) {
-      this.log.log(
-        `[recoverOrphanedRunning] ${candidateIds.length} candidates super-aged, but ${activeIds.size} have recent activity (< ${ACTIVITY_GRACE_MINUTES}min) — sparing them this round`,
-      );
-      return 0;
-    }
-    // 3. 真正 orphan 的才 markFailed
-    const result = await this.prisma.agentPlaygroundMission
-      .updateMany({
-        where: { id: { in: trueOrphanIds }, status: "running" },
-        data: {
-          status: "failed",
-          completedAt: new Date(),
-          errorMessage:
-            `Mission 进程在执行过程中被回收（Railway deploy 或服务重启导致内存状态丢失，运行超过 ${maxAgeMinutes} 分钟无新事件）。\n\n` +
-            "建议：使用顶部「重新运行」按钮重启相同主题，或微调档位（depth / lengthProfile）后重新发起。",
-        },
-      })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[recoverOrphanedRunning] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        return { count: 0 };
-      });
-    await Promise.all(
-      trueOrphanIds.map((id) => this.clearCheckpointJsonbKey(id)),
-    );
-    if (result.count > 0) {
-      this.log.warn(
-        `[recoverOrphanedRunning] marked ${result.count} truly orphaned missions as failed (super-aged > ${maxAgeMinutes}min, no activity in ${ACTIVITY_GRACE_MINUTES}min)`,
-      );
-    }
-    return result.count;
-  }
+  // ★ 2026-05-05 unified MissionLivenessGuard 接管 ——
+  // recoverOrphanedRunning + recoverPodCrashedRunning 已下线（之前两个 detector 误杀
+  // 5 mission 100% 的根因），归并到 ai-harness/lifecycle/mission-liveness-guard.service.ts，
+  // playground module 通过 livenessGuard.registerAdapter('agent-playground', ...) 接入。
+  //
+  // 当前 store 仅保留 mission 写路径（refreshHeartbeat / markStageComplete /
+  // clearCheckpointJsonbKey）；adapter callback 在 module 内联实现，不再有 store-level
+  // recovery 函数（防止其他 ai-app 复制粘贴老逻辑）。
 
   /**
    * ★ PR-H v1 (2026-05-01): pod-aware heartbeat 刷新
@@ -225,120 +154,6 @@ export class MissionStore {
           `[markStageComplete ${id} s${stageNumber}] silent: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
-  }
-
-  /**
-   * ★ PR-H v1 (2026-05-01): 心跳驱动的 pod 重启 recovery（替代旧的 event-flush 检测）
-   *
-   * 旧 recoverOrphanedRunning 用最近事件 ts 判断"是否还在跑"，但事件 flush 链
-   * 不可靠（mission 可能正在跑长 LLM call 没 emit 事件）—— 误杀 long mission。
-   *
-   * 新逻辑：基于 DB heartbeatAt 字段（runMission 每 30s 主动刷新）。
-   *   - heartbeatAt = null AND startedAt > GRACE_MINUTES → 可能是旧版没 heartbeat
-   *     的 mission（PR-H 部署前启动）；保守跳过，等老 recovery 处理
-   *   - heartbeatAt < now - STALE_MINUTES → pod 真的死了 → markFailed
-   *
-   * 默认 stale 阈值 = 300s（heartbeat 30s 一次；Railway redeploy 通常 60-120s
-   * 部署 + 30s 启动，旧 90s 阈值在每次 push 都误杀进行中 mission ——
-   * 2026-05-04 实测确认）。300s 兜住 redeploy 窗口；真死 pod 检测延迟 5min
-   * 内可接受。
-   *
-   * ★ 2026-05-05 重大修复（5 mission 100% 误杀根因）：
-   *   只看 heartbeatAt 不够 —— 重负载下（S3 chapter pipeline 100 events/min），
-   *   refreshHeartbeat 的 prisma update 与 markStageComplete 在同 row 上排队 +
-   *   偶发超时（catch silent），heartbeatAt 假性"过期 5min"。证据：mission
-   *   8f15404a 被标 failed 时 events 表每分钟仍写 70-100 条。
-   *
-   *   修：复用 recoverOrphanedRunning 的双重检查 —— heartbeat 旧 + 最近 staleSeconds
-   *   窗口内无事件，才认定真 pod 死。这样即使 heartbeat update 故障，只要 events
-   *   表还在写，mission 不被误杀。
-   */
-  async recoverPodCrashedRunning(staleSeconds = 300): Promise<number> {
-    const cutoff = new Date(Date.now() - staleSeconds * 1000);
-    // ★ 2026-05-05 startup grace 5min —— mission 刚起步时 fire-and-forget refreshHeartbeat
-    //   可能还没落 DB（与 OrphanDetector 保持一致语义），无脑套阈值会误杀新启动 mission
-    const STARTUP_GRACE_MS = 5 * 60 * 1000;
-    const startupCutoff = new Date(Date.now() - STARTUP_GRACE_MS);
-    const orphans = await this.prisma.agentPlaygroundMission
-      .findMany({
-        where: {
-          status: "running",
-          heartbeatAt: { lt: cutoff },
-          startedAt: { lt: startupCutoff },
-        },
-        select: { id: true, heartbeatAt: true, startedAt: true, podId: true },
-      })
-      .catch(
-        (): {
-          id: string;
-          heartbeatAt: Date | null;
-          startedAt: Date;
-          podId: string | null;
-        }[] => [],
-      );
-    if (orphans.length === 0) return 0;
-
-    // ★ 2026-05-05 cross-check events 表 —— heartbeat update 失败但 events 在写时
-    //   说明 mission 进程其实活着，跳过本轮 recovery，等真正僵死再杀
-    const orphanIds = orphans.map((o) => o.id);
-    const cutoffMs = cutoff.getTime();
-    const recentActivities = await this.prisma.agentPlaygroundMissionEvent
-      .groupBy({
-        by: ["missionId"],
-        where: { missionId: { in: orphanIds } },
-        _max: { ts: true },
-      })
-      .catch(() => [] as { missionId: string; _max: { ts: bigint | null } }[]);
-    const activeIds = new Set<string>();
-    for (const a of recentActivities) {
-      const ts = a._max.ts;
-      if (ts != null) {
-        const tsMs = Number(ts);
-        if (Number.isFinite(tsMs) && tsMs > cutoffMs) {
-          activeIds.add(a.missionId);
-        }
-      }
-    }
-    const trueOrphanIds = orphanIds.filter((id) => !activeIds.has(id));
-    if (trueOrphanIds.length === 0) {
-      this.log.log(
-        `[recoverPodCrashed] ${orphanIds.length} candidates have stale heartbeat but ${activeIds.size} have recent events (< ${staleSeconds}s) — sparing all`,
-      );
-      return 0;
-    }
-    if (activeIds.size > 0) {
-      this.log.log(
-        `[recoverPodCrashed] sparing ${activeIds.size} mission(s) with recent events despite stale heartbeat (heartbeat update likely backed up under load)`,
-      );
-    }
-
-    const result = await this.prisma.agentPlaygroundMission
-      .updateMany({
-        where: {
-          id: { in: trueOrphanIds },
-          status: "running",
-          heartbeatAt: { lt: cutoff },
-        },
-        data: {
-          status: "failed",
-          completedAt: new Date(),
-          errorMessage:
-            `Mission 在 pod 重启 / Railway redeploy 时丢失（DB 心跳停 ≥ ${staleSeconds} 秒，且无任何事件输出）。\n\n` +
-            "PR-H v1 检测窗口：当前是清理悬挂 mission，让 UI 看到明确失败状态。\n" +
-            "PR-H v2 将支持从最近 stage checkpoint 自动续跑（开发中）。\n\n" +
-            "建议：使用顶部「重新运行」按钮重启相同主题。",
-        },
-      })
-      .catch(() => ({ count: 0 }));
-    await Promise.all(
-      trueOrphanIds.map((id) => this.clearCheckpointJsonbKey(id)),
-    );
-    if (result.count > 0) {
-      this.log.warn(
-        `[recoverPodCrashed] marked ${result.count} pod-crashed missions as failed (heartbeat stale > ${staleSeconds}s, no events in window)`,
-      );
-    }
-    return result.count;
   }
 
   async markCompleted(
