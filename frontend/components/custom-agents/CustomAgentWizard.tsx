@@ -35,8 +35,11 @@ interface WizardState {
 
 export function CustomAgentWizard({
   initial,
+  onClose,
 }: {
   initial?: CustomAgentRecord;
+  /** 完成或取消时回调（嵌入 MyAgentsTab 时返回列表；独立页时跳路由） */
+  onClose?: () => void;
 }) {
   const router = useRouter();
   const isCreate = !initial;
@@ -109,12 +112,18 @@ export function CustomAgentWizard({
     }
   };
 
+  // ★ 2026-05-05 对齐 Topic Insight CreateTopicDialog：去掉每步 PATCH，
+  //   step 切换是纯前端 state（不调 API），只在进入 review 步骤之前一次性
+  //   persist —— 创建/更新 record 一次。回退随时可回，不污染 DB。
   const goNext = async () => {
-    const id = await persist();
-    if (!id) return;
-    if (stepIdx < WIZARD_STEPS.length - 1) {
-      setStepIdx((i) => i + 1);
+    const nextIdx = stepIdx + 1;
+    if (nextIdx >= WIZARD_STEPS.length) return;
+    const enteringReview = WIZARD_STEPS[nextIdx].key === 'review';
+    if (enteringReview) {
+      const id = await persist();
+      if (!id) return;
     }
+    setStepIdx(nextIdx);
   };
 
   const goPrev = () => {
@@ -235,7 +244,10 @@ export function CustomAgentWizard({
           {status === 'PUBLISHED' && (
             <button
               type="button"
-              onClick={() => router.push('/custom-agents')}
+              onClick={() => {
+                if (onClose) onClose();
+                else router.push('/me/ai?tab=agents');
+              }}
               className="rounded bg-gray-800 px-4 py-1.5 text-sm text-white hover:bg-gray-900"
             >
               返回列表

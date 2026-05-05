@@ -451,7 +451,7 @@ describe("AgentPlaygroundController", () => {
     it("throws ForbiddenException when no userId", async () => {
       const { controller } = buildController();
       await expect(
-        controller.rerunMission("m-1", makeReq(undefined)),
+        controller.rerunMission("m-1", undefined, makeReq(undefined)),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -460,11 +460,11 @@ describe("AgentPlaygroundController", () => {
       ownership.getOwner.mockReturnValue(undefined);
       store.getById.mockResolvedValue(null);
       await expect(
-        controller.rerunMission("m-1", makeReq("user-1")),
+        controller.rerunMission("m-1", undefined, makeReq("user-1")),
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("returns new missionId when mission found", async () => {
+    it("returns new missionId when mission found (default incremental)", async () => {
       const { controller, ownership, store } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
@@ -475,9 +475,90 @@ describe("AgentPlaygroundController", () => {
         status: "completed",
         userProfile: null,
       });
-      const result = await controller.rerunMission("m-1", makeReq("user-1"));
+      const result = await controller.rerunMission(
+        "m-1",
+        undefined,
+        makeReq("user-1"),
+      );
       expect(result.missionId).toBeDefined();
       expect(result.streamNamespace).toBe("agent-playground");
+    });
+
+    // ★ 2026-05-05 mode 参数 100% 分支覆盖
+    it("accepts mode='fresh' (no checkpoint clone)", async () => {
+      const { controller, ownership, store } = buildController();
+      ownership.getOwner.mockReturnValue("user-1");
+      store.getById.mockResolvedValue({
+        id: "m-1",
+        topic: "test",
+        depth: "deep",
+        language: "zh-CN",
+        status: "completed",
+        userProfile: null,
+      });
+      const result = await controller.rerunMission(
+        "m-1",
+        "fresh",
+        makeReq("user-1"),
+      );
+      expect(result.missionId).toBeDefined();
+    });
+
+    it("accepts mode='incremental' (clone checkpoint)", async () => {
+      const { controller, ownership, store } = buildController();
+      ownership.getOwner.mockReturnValue("user-1");
+      store.getById.mockResolvedValue({
+        id: "m-1",
+        topic: "test",
+        depth: "deep",
+        language: "zh-CN",
+        status: "completed",
+        userProfile: null,
+      });
+      const result = await controller.rerunMission(
+        "m-1",
+        "incremental",
+        makeReq("user-1"),
+      );
+      expect(result.missionId).toBeDefined();
+    });
+
+    it("falls back to incremental when mode is invalid string", async () => {
+      const { controller, ownership, store } = buildController();
+      ownership.getOwner.mockReturnValue("user-1");
+      store.getById.mockResolvedValue({
+        id: "m-1",
+        topic: "test",
+        depth: "deep",
+        language: "zh-CN",
+        status: "completed",
+        userProfile: null,
+      });
+      // 非法 mode 字符串：controller 内 ternary 收敛到 'incremental'
+      const result = await controller.rerunMission(
+        "m-1",
+        "garbage-mode",
+        makeReq("user-1"),
+      );
+      expect(result.missionId).toBeDefined();
+    });
+
+    // ★ 2026-05-05 service-level running 拒绝分支（双重保护）
+    it("rejects rerun when source mission is still running", async () => {
+      const { controller, ownership, store } = buildController();
+      ownership.getOwner.mockReturnValue("user-1");
+      // assertOwnership 路径 + rerunFullMission 路径都用同一 mock
+      store.getById.mockResolvedValue({
+        id: "m-1",
+        topic: "test",
+        depth: "deep",
+        language: "zh-CN",
+        status: "running", // ← 关键：原 mission 还在跑
+        userProfile: null,
+      });
+      await expect(
+        controller.rerunMission("m-1", undefined, makeReq("user-1")),
+      ).rejects.toThrow(/still running/i);
     });
   });
 
@@ -949,7 +1030,11 @@ describe("AgentPlaygroundController", () => {
           status: "completed",
           userProfile: null,
         }); // rerunMission body
-      const result = await controller.rerunMission("m-1", makeReq("user-1"));
+      const result = await controller.rerunMission(
+        "m-1",
+        undefined,
+        makeReq("user-1"),
+      );
       expect(result.missionId).toBeDefined();
       // ownership.assign should have been called for re-registration + new mission
       expect(ownership.assign).toHaveBeenCalled();

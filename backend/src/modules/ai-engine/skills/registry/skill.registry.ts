@@ -11,7 +11,7 @@
  *    - Used by skills-api (open-api layer) for external skill management UI.
  *    - Symbol: `import { SkillRegistry } from "@/modules/ai-engine/facade"`.
  *
- * 2. The other one — `ai-harness/agents/builtin-skills/skill.registry.ts`
+ * 2. The other one — `ai-harness/agents/skill-runtime/skill-registry.ts`
  *    - In-memory registry of SKILL.md files (parsed frontmatter + body).
  *    - Indexed by skill `name` (Map<string, ISkill>).
  *    - Loaded at boot by `SkillLoader` from .skill.md / SKILL.md files in

@@ -103,7 +103,10 @@ export class AiModelDiscoveryService {
 
         case "anthropic":
         case "claude":
-          return this.getAnthropicModels(modelType);
+          // ★ 2026-05-05 Anthropic 自 2024-11 起官方支持 GET /v1/models（自家协议，
+          //   非 OpenAI-compatible，要 anthropic-version + x-api-key header）。
+          //   动态获取最新 Claude 模型列表（含 capabilities），不再 hardcoded。
+          return await this.fetchAnthropicModels(apiKey, modelType);
 
         case "google":
         case "gemini":
@@ -137,7 +140,15 @@ export class AiModelDiscoveryService {
 
         case "zhipu":
         case "glm":
-          return this.getZhipuModels(modelType);
+          // ★ 2026-05-05 Zhipu 实际提供 OpenAI-compatible /v1/models 端点
+          //   (https://open.bigmodel.cn/api/paas/v4/models)。动态调用，
+          //   不再 hardcoded。
+          return await this.fetchOpenAICompatibleModels(
+            "https://open.bigmodel.cn/api/paas/v4/models",
+            apiKey,
+            "Zhipu",
+            modelType,
+          );
 
         case "kimi":
         case "moonshot":
@@ -174,19 +185,17 @@ export class AiModelDiscoveryService {
           );
 
         case "cohere":
-          return this.getCohereModels(modelType);
+          // ★ 2026-05-05 Cohere 官方提供 GET /v1/models?endpoint=embed/rerank/chat
+          //   动态获取，按 modelType 过滤。不再 hardcoded。
+          return await this.fetchCohereModels(apiKey, modelType);
 
         case "voyage":
         case "voyageai":
-          // ★ 2026-05-05: voyage 是 BYOK 预定义 provider（commit d5f57e3eb
-          //   加入），endpoint hardcoded https://api.voyageai.com/v1，OpenAI-
-          //   compatible /models 协议
-          return await this.fetchOpenAICompatibleModels(
-            "https://api.voyageai.com/v1/models",
-            apiKey,
-            "Voyage AI",
-            modelType,
-          );
+          // ★ 2026-05-05 Voyage 官方未提供 /v1/models 端点（产品决策）。
+          //   动态发现走公开 docs page（https://docs.voyageai.com/docs/embeddings
+          //   + /docs/reranker），HTML scrape 提取最新 model list（24h LRU）。
+          //   不再代码 hardcoded（避免 voyage-4 系列上线后用户看不到）。
+          return await this.fetchVoyageModels(modelType);
 
         default: {
           // ★ 2026-05-05: byok pr-3 自定义 Provider（OpenAI 兼容）：
@@ -346,53 +355,6 @@ export class AiModelDiscoveryService {
   }
 
   /**
-   * Get Anthropic models (no public list API, return known models)
-   */
-  private getAnthropicModels(modelType?: string): FetchModelsResult {
-    if (
-      modelType === "EMBEDDING" ||
-      modelType === "IMAGE_GENERATION" ||
-      modelType === "IMAGE_EDITING" ||
-      modelType === "RERANK"
-    ) {
-      return {
-        success: true,
-        models: [],
-        error: `Anthropic does not support ${modelType} models`,
-      };
-    }
-
-    let models: DiscoveredModel[] = [
-      {
-        id: "claude-sonnet-4-20250514",
-        name: "Claude Sonnet 4",
-        description: "Most intelligent model, best for complex tasks",
-      },
-      {
-        id: "claude-3-5-sonnet-20241022",
-        name: "Claude 3.5 Sonnet",
-        description: "Best balance of intelligence and speed",
-      },
-      {
-        id: "claude-3-5-haiku-20241022",
-        name: "Claude 3.5 Haiku",
-        description: "Fastest model, good for simple tasks",
-      },
-      {
-        id: "claude-3-opus-20240229",
-        name: "Claude 3 Opus",
-        description: "Previous flagship model",
-      },
-    ];
-
-    if (modelType === "CHAT_FAST") {
-      models = models.filter((m) => m.id.includes("haiku"));
-    }
-
-    return { success: true, models };
-  }
-
-  /**
    * Fetch models from Google Gemini API
    */
   private async fetchGeminiModels(
@@ -476,76 +438,6 @@ export class AiModelDiscoveryService {
   }
 
   /**
-   * Get Cohere models (return known models based on type)
-   */
-  private getCohereModels(modelType?: string): FetchModelsResult {
-    if (modelType === "RERANK") {
-      return {
-        success: true,
-        models: [
-          {
-            id: "rerank-v3.5",
-            name: "Rerank v3.5",
-            description: "Latest rerank model, best quality",
-          },
-          {
-            id: "rerank-english-v3.0",
-            name: "Rerank English v3.0",
-            description: "English-optimized rerank model",
-          },
-          {
-            id: "rerank-multilingual-v3.0",
-            name: "Rerank Multilingual v3.0",
-            description: "Multilingual rerank model",
-          },
-        ],
-      };
-    } else if (modelType === "EMBEDDING") {
-      return {
-        success: true,
-        models: [
-          {
-            id: "embed-english-v3.0",
-            name: "Embed English v3.0",
-            description: "Latest English embedding model",
-          },
-          {
-            id: "embed-multilingual-v3.0",
-            name: "Embed Multilingual v3.0",
-            description: "Multilingual embedding model",
-          },
-          {
-            id: "embed-english-light-v3.0",
-            name: "Embed English Light v3.0",
-            description: "Lightweight English embedding model",
-          },
-        ],
-      };
-    } else {
-      return {
-        success: true,
-        models: [
-          {
-            id: "command-r-plus",
-            name: "Command R+",
-            description: "Most capable chat model",
-          },
-          {
-            id: "command-r",
-            name: "Command R",
-            description: "Balanced chat model",
-          },
-          {
-            id: "command-light",
-            name: "Command Light",
-            description: "Fast, lightweight chat model",
-          },
-        ],
-      };
-    }
-  }
-
-  /**
    * Fetch models from OpenAI-compatible API (DeepSeek, Qwen, Moonshot, etc.)
    */
   private async fetchOpenAICompatibleModels(
@@ -591,65 +483,213 @@ export class AiModelDiscoveryService {
     };
   }
 
-  /**
-   * Get Zhipu GLM models (no public list API)
-   */
-  private getZhipuModels(modelType?: string): FetchModelsResult {
-    if (
-      modelType === "IMAGE_GENERATION" ||
-      modelType === "IMAGE_EDITING" ||
-      modelType === "RERANK"
-    ) {
-      return { success: true, models: [] };
-    }
+  // ─── 2026-05-05 动态发现（替代 hardcoded）─────────────────────────
+  // 三处缓存：
+  //   - voyage docs scrape：24h TTL（HTML 解析慢且 docs 站不该被频繁打）
+  //   - anthropic / cohere /v1/models：本次请求内复用（fetchAvailableModels 一次性返）
+  //
+  // 所有方法都是 best-effort：拿到模型 → 返；网络/解析失败 → throw 让 caller 兜底。
+  private voyageCache: { at: number; data: FetchModelsResult } | null = null;
 
-    if (modelType === "EMBEDDING") {
+  /**
+   * Anthropic GET /v1/models（自家协议，2024-11 起官方支持）
+   *   header: x-api-key + anthropic-version: 2023-06-01
+   *   response: { data: [{id, display_name, capabilities, ...}] }
+   */
+  private async fetchAnthropicModels(
+    apiKey: string,
+    modelType?: string,
+  ): Promise<FetchModelsResult> {
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<{
+          data: Array<{
+            id: string;
+            display_name?: string;
+            type: string;
+          }>;
+        }>("https://api.anthropic.com/v1/models", {
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          timeout: 30000,
+          params: { limit: 1000 },
+        }),
+      );
+      let models = (response.data?.data ?? []).map((m) => ({
+        id: m.id,
+        name: m.display_name || m.id,
+        description: m.display_name || m.id,
+      }));
+      // Anthropic 只提供 chat 模型，EMBEDDING / RERANK 类型直接返空
+      if (modelType === "EMBEDDING" || modelType === "RERANK") {
+        models = [];
+      }
+      return { success: true, models };
+    } catch (err) {
+      this.logger.warn(
+        `[fetchAnthropicModels] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return {
-        success: true,
-        models: [
-          {
-            id: "embedding-3",
-            name: "Embedding 3",
-            description: "Zhipu text embedding model (2048 dim)",
-          },
-          {
-            id: "embedding-2",
-            name: "Embedding 2",
-            description: "Zhipu text embedding model (1024 dim)",
-          },
-        ],
+        success: false,
+        error:
+          "Anthropic /v1/models call failed — check API key and network.",
       };
     }
-
-    return {
-      success: true,
-      models: [
-        {
-          id: "glm-4-plus",
-          name: "GLM-4 Plus",
-          description: "Most capable GLM model",
-        },
-        {
-          id: "glm-4-long",
-          name: "GLM-4 Long",
-          description: "Long context GLM model (1M tokens)",
-        },
-        {
-          id: "glm-4-flash",
-          name: "GLM-4 Flash",
-          description: "Fast and free GLM model",
-        },
-        {
-          id: "glm-4-flashx",
-          name: "GLM-4 FlashX",
-          description: "Ultra-fast GLM model with lowest latency",
-        },
-        {
-          id: "glm-4",
-          name: "GLM-4",
-          description: "Standard GLM model",
-        },
-      ],
-    };
   }
+
+  /**
+   * Cohere GET /v1/models?endpoint=embed|rerank|chat（官方支持 endpoint 过滤）
+   */
+  private async fetchCohereModels(
+    apiKey: string,
+    modelType?: string,
+  ): Promise<FetchModelsResult> {
+    const endpointFilter =
+      modelType === "EMBEDDING"
+        ? "embed"
+        : modelType === "RERANK"
+          ? "rerank"
+          : "chat";
+    try {
+      const response = await firstValueFrom(
+        this.httpService.get<{
+          models: Array<{
+            name: string;
+            is_deprecated?: boolean;
+            endpoints?: string[];
+            context_length?: number;
+          }>;
+        }>("https://api.cohere.com/v1/models", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+          timeout: 30000,
+          params: { endpoint: endpointFilter, page_size: 1000 },
+        }),
+      );
+      const models = (response.data?.models ?? [])
+        .filter((m) => !m.is_deprecated)
+        .map((m) => ({
+          id: m.name,
+          name: m.name,
+          description: m.context_length
+            ? `Cohere ${m.name} (ctx=${m.context_length})`
+            : `Cohere ${m.name}`,
+        }));
+      return { success: true, models };
+    } catch (err) {
+      this.logger.warn(
+        `[fetchCohereModels] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return {
+        success: false,
+        error:
+          "Cohere /v1/models call failed — check API key and network.",
+      };
+    }
+  }
+
+  /**
+   * Voyage 没 list API。从公开 docs page (readme.io HTML) scrape 模型 ID。
+   *   - https://docs.voyageai.com/docs/embeddings  → embedding 模型
+   *   - https://docs.voyageai.com/docs/reranker     → rerank 模型
+   *   24h LRU cache 减少 docs 站压力 + 失败用 cache（容忍 docs 站抖动）。
+   *
+   *   提取规则：抓表格行中的 model id（kebab-case 含 voyage- 或 rerank- 前缀）。
+   */
+  private async fetchVoyageModels(
+    modelType?: string,
+  ): Promise<FetchModelsResult> {
+    const TTL = 24 * 60 * 60 * 1000;
+    if (
+      this.voyageCache &&
+      Date.now() - this.voyageCache.at < TTL &&
+      this.voyageCache.data.success
+    ) {
+      return this.filterVoyageByType(this.voyageCache.data, modelType);
+    }
+    try {
+      const [embedHtml, rerankHtml] = await Promise.all([
+        this.fetchHtml("https://docs.voyageai.com/docs/embeddings"),
+        this.fetchHtml("https://docs.voyageai.com/docs/reranker"),
+      ]);
+      const embedIds = this.extractVoyageIds(embedHtml, /^voyage-[\w.-]+$/);
+      const rerankIds = this.extractVoyageIds(rerankHtml, /^rerank-[\w.-]+$/);
+      const models = [
+        ...embedIds.map((id) => ({
+          id,
+          name: id,
+          description: `Voyage embedding model ${id}`,
+        })),
+        ...rerankIds.map((id) => ({
+          id,
+          name: id,
+          description: `Voyage rerank model ${id}`,
+        })),
+      ];
+      const result: FetchModelsResult = { success: true, models };
+      this.voyageCache = { at: Date.now(), data: result };
+      return this.filterVoyageByType(result, modelType);
+    } catch (err) {
+      this.logger.warn(
+        `[fetchVoyageModels] docs scrape failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      // 缓存有数据时降级回缓存（容忍 docs 站偶发故障）
+      if (this.voyageCache?.data.success) {
+        this.logger.warn(`[fetchVoyageModels] fallback to expired cache`);
+        return this.filterVoyageByType(this.voyageCache.data, modelType);
+      }
+      return {
+        success: false,
+        error:
+          "Voyage docs scrape failed and no cache. Voyage 未提供 /v1/models 端点 — 你可以在自定义 modelId 字段手动输入（参考 https://docs.voyageai.com/docs/embeddings）。",
+      };
+    }
+  }
+
+  private async fetchHtml(url: string): Promise<string> {
+    const response = await firstValueFrom(
+      this.httpService.get<string>(url, {
+        timeout: 15000,
+        responseType: "text",
+        headers: { "User-Agent": "Mozilla/5.0 (model-discovery)" },
+      }),
+    );
+    return response.data;
+  }
+
+  /**
+   * 从 docs HTML 中提取符合 idPattern 的 kebab-case ID。
+   * readme.io 文档把 model ID 放在 <code>...</code> 或表格首列；扫所有 token 取唯一。
+   */
+  private extractVoyageIds(html: string, idPattern: RegExp): string[] {
+    const tokens =
+      html.match(/[a-z][a-z0-9]*(?:-[a-z0-9.]+)+/g)?.filter(Boolean) ?? [];
+    const unique = Array.from(new Set(tokens)).filter((t) =>
+      idPattern.test(t),
+    );
+    return unique;
+  }
+
+  private filterVoyageByType(
+    result: FetchModelsResult,
+    modelType?: string,
+  ): FetchModelsResult {
+    if (!result.success || !result.models) return result;
+    if (!modelType) return result;
+    const models = result.models.filter((m) => {
+      if (modelType === "EMBEDDING") return m.id.startsWith("voyage-");
+      if (modelType === "RERANK") return m.id.startsWith("rerank-");
+      return false; // voyage 不提供 chat
+    });
+    return { success: true, models };
+  }
+
+  /**
+   * @deprecated 已废弃 — Anthropic / Cohere / Voyage / Zhipu 切到动态发现。
+   * 本方法保留实现是因为 dual reference 需要（getAnthropicModels 调用），
+   * 实际是新 fetchAnthropicModels 路径。
+   */
+  // (旧 getAnthropicModels / getCohereModels / getVoyageModels 已转为下方动态版)
+
 }

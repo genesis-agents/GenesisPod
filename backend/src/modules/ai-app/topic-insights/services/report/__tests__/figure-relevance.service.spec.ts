@@ -71,8 +71,31 @@ const LOW_SIM_VEC = makeVec(1536, 999);
 // ============================================================
 
 const mockEngineFacade = {
+  /** @deprecated 保留作 spec 兼容字段，新代码走 embeddingGenerateBatch */
   embeddingGenerate: jest.fn(),
+  embeddingGenerateBatch: jest.fn(),
 };
+
+/**
+ * 帮助函数：把 spec 用的 embeddingGenerate(text)→{embedding} 风格 mock
+ * 自动转成 batch API 期望的输入。
+ *
+ * 调用方先用 mockEngineFacade.embeddingGenerate.mockResolvedValueOnce(...) 设期望值，
+ * 然后调 wireBatchFromSingleMock() 让 batch mock 串起来：第 1 个 text 是 topicTitle，
+ * 之后是 captions —— 按调用顺序消耗 single mock 队列。
+ */
+function wireBatchFromSingleMock() {
+  mockEngineFacade.embeddingGenerateBatch.mockImplementation(
+    async (texts: string[]) => {
+      const embeddings: number[][] = [];
+      for (let i = 0; i < texts.length; i++) {
+        const single = await mockEngineFacade.embeddingGenerate(texts[i]);
+        embeddings.push(single?.embedding ?? []);
+      }
+      return { texts, embeddings, totalTokens: texts.length * 100 };
+    },
+  );
+}
 
 // ============================================================
 // Test Suite
@@ -83,6 +106,7 @@ describe("FigureRelevanceService (v17 Embedding)", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    wireBatchFromSingleMock();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -386,12 +410,15 @@ describe("FigureRelevanceService (v17 Embedding)", () => {
       expect(result.filter((f) => f.type === "photo")).toHaveLength(1);
     });
 
-    it("单张 photo embedding 失败不影响其他图片", async () => {
+    // ★ 2026-05-05 batch 化改造后：batch 语义不再支持"单张 photo 失败不影响其他"
+    //   （batch 一次失败 = 整组 fallback）。以下测试改为 batch 全部成功 + 部分
+    //   高/低 cosine 的混合场景，覆盖"按相似度筛选"的核心业务分支。
+    it("batch 成功 + 部分 cosine 高/低 — 高保留低拒绝", async () => {
       mockEngineFacade.embeddingGenerate
         .mockResolvedValueOnce({ embedding: TOPIC_VEC }) // topicTitle
-        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }) // photo 1 caption → keep
-        .mockRejectedValueOnce(new Error("timeout")) // photo 2 caption throws → typeBasedFallback → keep
-        .mockResolvedValueOnce({ embedding: LOW_SIM_VEC }); // photo 3 caption → reject
+        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }) // photo 1 → keep
+        .mockResolvedValueOnce({ embedding: HIGH_SIM_VEC }) // photo 2 → keep
+        .mockResolvedValueOnce({ embedding: LOW_SIM_VEC }); // photo 3 → reject
 
       const figures = [
         makePhoto(
@@ -413,7 +440,6 @@ describe("FigureRelevanceService (v17 Embedding)", () => {
         "AI Research",
       );
 
-      // photo1: high sim → keep; photo2: throws → typeBasedFallback (caption>=10) → keep; photo3: low sim → reject
       expect(result).toHaveLength(2);
       expect(result.find((f) => f.imageUrl.includes("3.jpg"))).toBeUndefined();
     });

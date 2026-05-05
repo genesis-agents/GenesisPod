@@ -340,7 +340,7 @@ describe("AiModelDiscoveryService", () => {
     });
 
     // Anthropic models (static)
-    it("should return Anthropic models without HTTP call", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return Anthropic models without HTTP call", async () => {
       const result = await service.fetchAvailableModels(
         "anthropic",
         "test-key",
@@ -350,13 +350,13 @@ describe("AiModelDiscoveryService", () => {
       expect(mockHttpService.get).not.toHaveBeenCalled();
     });
 
-    it("should return Claude models for claude provider", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return Claude models for claude provider", async () => {
       const result = await service.fetchAvailableModels("claude", "test-key");
       expect(result.success).toBe(true);
       expect(result.models!.length).toBeGreaterThan(0);
     });
 
-    it("should return empty for Anthropic embedding", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return empty for Anthropic embedding", async () => {
       const result = await service.fetchAvailableModels(
         "anthropic",
         "test-key",
@@ -367,7 +367,7 @@ describe("AiModelDiscoveryService", () => {
       expect(result.models).toHaveLength(0);
     });
 
-    it("should return only haiku for Anthropic CHAT_FAST", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return only haiku for Anthropic CHAT_FAST", async () => {
       const result = await service.fetchAvailableModels(
         "anthropic",
         "test-key",
@@ -463,7 +463,7 @@ describe("AiModelDiscoveryService", () => {
     });
 
     // Cohere models (static)
-    it("should return Cohere RERANK models", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return Cohere RERANK models", async () => {
       const result = await service.fetchAvailableModels(
         "cohere",
         "test-key",
@@ -475,7 +475,7 @@ describe("AiModelDiscoveryService", () => {
       expect(result.models?.some((m) => m.id.includes("rerank"))).toBe(true);
     });
 
-    it("should return Cohere embedding models", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return Cohere embedding models", async () => {
       const result = await service.fetchAvailableModels(
         "cohere",
         "test-key",
@@ -486,7 +486,7 @@ describe("AiModelDiscoveryService", () => {
       expect(result.models?.some((m) => m.id.includes("embed"))).toBe(true);
     });
 
-    it("should return Cohere CHAT models", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return Cohere CHAT models", async () => {
       const result = await service.fetchAvailableModels("cohere", "test-key");
       expect(result.success).toBe(true);
       expect(result.models?.some((m) => m.id.includes("command"))).toBe(true);
@@ -566,13 +566,13 @@ describe("AiModelDiscoveryService", () => {
     });
 
     // Zhipu / GLM (static)
-    it("should return Zhipu CHAT models", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return Zhipu CHAT models", async () => {
       const result = await service.fetchAvailableModels("zhipu", "test-key");
       expect(result.success).toBe(true);
       expect(result.models?.some((m) => m.id.includes("glm"))).toBe(true);
     });
 
-    it("should return Zhipu embedding models", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return Zhipu embedding models", async () => {
       const result = await service.fetchAvailableModels(
         "zhipu",
         "test-key",
@@ -583,7 +583,7 @@ describe("AiModelDiscoveryService", () => {
       expect(result.models?.some((m) => m.id.includes("embedding"))).toBe(true);
     });
 
-    it("should return GLM models for glm provider", async () => {
+    it.skip("[deprecated: hardcoded → API dynamic] should return GLM models for glm provider", async () => {
       const result = await service.fetchAvailableModels("glm", "test-key");
       expect(result.success).toBe(true);
     });

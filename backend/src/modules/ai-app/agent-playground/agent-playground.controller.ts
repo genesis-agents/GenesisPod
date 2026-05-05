@@ -272,9 +272,13 @@ export class AgentPlaygroundController {
   }
 
   /**
-   * POST /api/v1/agent-playground/missions/:id/rerun
-   * 用相同配置（topic / depth / language / maxCredits）启动一个新 mission，
-   * 返回新 missionId 给前端跳转。
+   * POST /api/v1/agent-playground/missions/:id/rerun?mode=fresh|incremental
+   *
+   * 用原 mission 的 userProfile 全字段启动新 mission：
+   *   - mode=fresh       全新从头跑（清 checkpoint）— "开始"按钮语义
+   *   - mode=incremental 跳过已完成 stage（clone checkpoint）— "更新"按钮语义，
+   *                      对齐 Topic Insight handleContinueResearch 模式
+   * 默认 incremental（向后兼容）。
    */
   @Post("missions/:id/rerun")
   @UseGuards(RateLimitGuard)
@@ -285,12 +289,19 @@ export class AgentPlaygroundController {
   })
   async rerunMission(
     @Param("id") missionId: string,
+    @Query("mode") mode: string | undefined,
     @Request() req: RequestWithUser,
   ): Promise<{ missionId: string; streamNamespace: string }> {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     await this.assertOwnership(missionId, userId);
-    return this.rerunOrchestrator.rerunFullMission(missionId, userId);
+    const resolvedMode: "fresh" | "incremental" =
+      mode === "fresh" ? "fresh" : "incremental";
+    return this.rerunOrchestrator.rerunFullMission(
+      missionId,
+      userId,
+      resolvedMode,
+    );
   }
 
   /**

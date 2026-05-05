@@ -12,8 +12,44 @@ echo "  Lint 已在 pre-commit 执行"
 echo "============================================================"
 echo ""
 
+# ★ 2026-05-05 [task #7] god-class size guard
+#   策略：>2500 行的文件 **不许大幅增长**（单次推送 +50 行内可容忍小机制修复，
+#   超 +50 行 = 强信号"应该拆分"）。已 god-class 的文件不冻结，但恶性增长拒推。
+#   audit:debt 仪表盘持续跟踪存量趋势。
+#   设计来源：第三轮审计 — 项目 god-class 3 周内 +67 行无拦截。
+echo "[0a/5] god-class size guard..."
+GOD_CLASS_THRESHOLD=2500
+GOD_CLASS_MAX_GROWTH=50
+VIOLATIONS=""
+for f in $(git diff --name-only origin/main HEAD -- '*.ts' '*.tsx' 2>/dev/null); do
+    [ -f "$f" ] || continue
+    cur=$(wc -l < "$f" 2>/dev/null | tr -d ' ')
+    [ -n "$cur" ] || continue
+    if [ "$cur" -gt "$GOD_CLASS_THRESHOLD" ]; then
+        # 取 origin/main 该文件的行数（不存在视为 0 = 新文件）
+        prev=$(git show "origin/main:$f" 2>/dev/null | wc -l | tr -d ' ')
+        prev=${prev:-0}
+        delta=$((cur - prev))
+        if [ "$delta" -gt "$GOD_CLASS_MAX_GROWTH" ]; then
+            VIOLATIONS="$VIOLATIONS  $f: $prev → $cur (+$delta, 超 ${GOD_CLASS_MAX_GROWTH} 行容差)\n"
+        fi
+    fi
+done
+if [ -n "$VIOLATIONS" ]; then
+    echo ""
+    echo "  god-class size guard 违规！下列文件 >$GOD_CLASS_THRESHOLD 行且本次净增 >$GOD_CLASS_MAX_GROWTH 行："
+    printf "%b" "$VIOLATIONS"
+    echo ""
+    echo "  策略：god-class 文件单次推送净增量上限 $GOD_CLASS_MAX_GROWTH 行（小修复容忍，大新功能必须拆分）。"
+    echo "  超此阈值视为"应该拆类"信号 — 把新增逻辑搬到独立 service / utils 文件。"
+    echo ""
+    exit 1
+fi
+echo "  god-class size guard 通过（容差 ±$GOD_CLASS_MAX_GROWTH 行）"
+echo ""
+
 # 0. 架构边界看护（锁定 L4→L3→L2.5→L2→L1 单向依赖）
-echo "[0/4] 架构边界看护..."
+echo "[0/5] 架构边界看护..."
 ARCH_LOG=$(mktemp)
 (cd backend && npx jest src/__tests__/architecture --no-coverage --forceExit > "$ARCH_LOG" 2>&1) || {
     echo ""
@@ -29,7 +65,7 @@ echo "  架构边界合规"
 echo ""
 
 # 1. 类型检查（并行执行前后端）
-echo "[1/4] 类型检查（前后端并行）..."
+echo "[1/5] 类型检查（前后端并行）..."
 npx concurrently --kill-others-on-fail --names "fe,be" \
   "npm run type-check:frontend" \
   "npm run type-check:backend" \
@@ -47,7 +83,7 @@ echo "  类型检查通过"
 echo ""
 
 # 2. 构建检查
-echo "[2/4] 后端构建检查..."
+echo "[2/5] 后端构建检查..."
 BUILD_LOG=$(mktemp)
 npm run build:backend > "$BUILD_LOG" 2>&1 || {
     echo ""
@@ -63,7 +99,7 @@ echo "  构建检查通过"
 echo ""
 
 # 3. 变更相关测试（只跑与本次变更相关的测试；无变更则跳过）
-echo "[3/4] 变更相关测试..."
+echo "[3/5] 变更相关测试..."
 TEST_LOG=$(mktemp)
 
 # 后端：只跑与 origin/main 之后变更文件相关的测试

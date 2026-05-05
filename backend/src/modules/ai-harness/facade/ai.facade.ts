@@ -2792,9 +2792,22 @@ export class AIFacade {
 
   // ==================== Embedding（EmbeddingService）====================
 
-  /** 生成单条文本的向量嵌入；服务不可用时返回 null */
+  /** @deprecated 用 RagFacade.embeddingGenerate */
   async embeddingGenerate(text: string): Promise<EmbeddingResult | null> {
     return (await this.knowledge?.embedding?.generateEmbedding(text)) ?? null;
+  }
+  /** Batch — 推荐入口。详见 RagFacade.embeddingGenerateBatch JSDoc */
+  async embeddingGenerateBatch(
+    texts: string[],
+  ): Promise<{
+    texts: string[];
+    embeddings: number[][];
+    totalTokens: number;
+  } | null> {
+    if (!this.knowledge?.embedding) return null;
+    if (texts.length === 0)
+      return { texts: [], embeddings: [], totalTokens: 0 };
+    return this.knowledge.embedding.generateEmbeddings(texts);
   }
 
   /** 获取当前嵌入模型标识；服务不可用时返回 null */

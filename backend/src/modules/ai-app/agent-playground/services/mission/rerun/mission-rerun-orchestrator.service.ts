@@ -57,17 +57,45 @@ export class MissionRerunOrchestratorService {
   ) {}
 
   /**
-   * Phase P11-1: rerun 复用原 mission 的 userProfile（如有）+ checkpoint clone，
-   * 让 team.mission 入口 canResume() 取到 ok 决策，下游 stage 跳过已完成 keys。
+   * ★ 2026-05-05 [task #12 机制] 共用 rerun 前置校验
+   * 原 rerunFullMission / rerunFromTodo 各自手写 (1) ownership 校验 (2) running
+   * 拒绝 —— 接口不一致（前者一度漏 running 检查 → 用户连点会同时启动多条
+   * mission 覆盖产物）。抽出共用入口，未来新增 rerun 路径自动继承。
    */
-  async rerunFullMission(
+  private async assertSourceMissionRerunnable(
     sourceMissionId: string,
     userId: string,
-  ): Promise<RerunResult> {
+  ): Promise<NonNullable<Awaited<ReturnType<MissionStore["getById"]>>>> {
     const original = await this.store.getById(sourceMissionId, userId);
     if (!original) {
       throw new ForbiddenException(`mission ${sourceMissionId} not found`);
     }
+    if (original.status === "running") {
+      throw new BadRequestException(
+        "Source mission is still running — cancel or wait for completion before rerun",
+      );
+    }
+    return original;
+  }
+
+  /**
+   * Phase P11-1: rerun 复用原 mission 的 userProfile（如有）+ checkpoint clone，
+   * 让 team.mission 入口 canResume() 取到 ok 决策，下游 stage 跳过已完成 keys。
+   *
+   * ★ 2026-05-05 对齐 Topic Insight startLeaderPlan('fresh' | 'incremental')：
+   *   - mode='fresh'       清空 checkpoint，全新从头跑（"开始"按钮语义）
+   *   - mode='incremental' clone checkpoint，跳过已完成 stage（"更新"按钮语义）
+   *   默认 incremental（向后兼容老调用方）。
+   */
+  async rerunFullMission(
+    sourceMissionId: string,
+    userId: string,
+    mode: "fresh" | "incremental" = "incremental",
+  ): Promise<RerunResult> {
+    const original = await this.assertSourceMissionRerunnable(
+      sourceMissionId,
+      userId,
+    );
 
     const input = this.cloneInputFromMission(original, {
       maxCreditsFallback:
@@ -79,12 +107,23 @@ export class MissionRerunOrchestratorService {
 
     // ★ P0-R5-2 (2026-04-30): rerun 闭环 — 复制原 mission checkpoint 到新 mission
     //   过期 / 已 completed 的 checkpoint 自动跳过；新 mission 从头跑。
-    const cloned = await this.checkpoint
-      .cloneCheckpoint(sourceMissionId, newMissionId)
-      .catch(() => false);
-    if (cloned) {
+    //   ★ 2026-05-05: mode='fresh' 时跳过 clone（用户想全新重跑）
+    if (mode === "incremental") {
+      const cloned = await this.checkpoint
+        .cloneCheckpoint(sourceMissionId, newMissionId)
+        .catch(() => false);
+      if (cloned) {
+        this.log.log(
+          `[rerun:${mode}] mission ${newMissionId} resumed from ${sourceMissionId} checkpoint`,
+        );
+      } else {
+        this.log.log(
+          `[rerun:${mode}] mission ${newMissionId} no checkpoint to clone, will run from start`,
+        );
+      }
+    } else {
       this.log.log(
-        `[rerun] mission ${newMissionId} resumed from ${sourceMissionId} checkpoint`,
+        `[rerun:${mode}] mission ${newMissionId} fresh restart from ${sourceMissionId} (no checkpoint clone)`,
       );
     }
 
@@ -117,16 +156,10 @@ export class MissionRerunOrchestratorService {
     body: RerunTodoBody;
   }): Promise<RerunResult> {
     const { sourceMissionId, userId, todoId, body } = args;
-    const original = await this.store.getById(sourceMissionId, userId);
-    if (!original) {
-      throw new ForbiddenException(`mission ${sourceMissionId} not found`);
-    }
-
-    if (original.status === "running") {
-      throw new BadRequestException(
-        "Source mission is still running — cancel or wait for completion before re-running individual todos",
-      );
-    }
+    const original = await this.assertSourceMissionRerunnable(
+      sourceMissionId,
+      userId,
+    );
 
     const origin = (body?.origin ?? "").trim();
     if (origin === "leader-assess-abort") {

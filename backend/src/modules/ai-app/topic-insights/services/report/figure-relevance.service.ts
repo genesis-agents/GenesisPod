@@ -66,38 +66,79 @@ export class FigureRelevanceService {
   ): Promise<ExtractedFigure[]> {
     if (figures.length === 0) return [];
 
-    // topicTitle embedding：懒计算 Promise 缓存，整个调用只算一次
-    let topicEmbeddingPromise: Promise<number[] | null> | null = null;
-    const getTopicEmbedding = (): Promise<number[] | null> => {
-      if (topicEmbeddingPromise === null) {
-        topicEmbeddingPromise = this.engineFacade
-          .embeddingGenerate(topicTitle)
-          .then((r) => r?.embedding ?? null)
-          .catch(() => null);
-      }
-      return topicEmbeddingPromise;
+    // ★ 2026-05-05 batch 化优化：从 N 次 embeddingGenerate(单 caption) 改为
+    //   1 次 embeddingGenerateBatch([topicTitle, ...captions])。
+    //   原 80 张图 → 80+1 次 HTTP；现 80 张图 → 1 次 HTTP（底层自动分批 100/req）。
+    //   benefit: roundtrip × 80 减少；401 时只触发 1 次 ERROR + auth-circuit-break；
+    //   并发压力大幅降低；prompt cache 友好。
+    //
+    //   收集 photo + 有效 caption（其它类型不需 embedding）：
+    type EvalEntry = {
+      fig: ExtractedFigure;
+      caption: string | null; // null = 不需要 embedding（直接 informational/empty）
     };
+    const entries: EvalEntry[] = figures.map((fig) => {
+      if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) return { fig, caption: null };
+      const caption = (fig.caption ?? fig.alt ?? "").trim();
+      if (caption.length < MIN_CAPTION_LENGTH) return { fig, caption: null };
+      return { fig, caption: caption.substring(0, 300) };
+    });
+    const captionsToEmbed = entries
+      .filter((e): e is EvalEntry & { caption: string } => e.caption !== null)
+      .map((e) => e.caption);
 
-    const evalResults = await Promise.all(
-      figures.map(async (fig, idx) => {
-        try {
-          const accepted = await this.evaluateSingleByEmbedding(
-            fig,
-            getTopicEmbedding,
-          );
-          return { fig, accepted };
-        } catch (error) {
-          // Embedding 失败 → type-based fallback
-          const accepted = this.typeBasedFallback(fig);
-          this.logger.warn(
-            `[filterRelevantFigures] [${idx}] ${fig.imageUrl.substring(0, 60)}... ` +
-              `embedding failed, fallback=${accepted}: ` +
-              `${error instanceof Error ? error.message : String(error)}`,
-          );
-          return { fig, accepted };
+    let topicEmb: number[] | null = null;
+    const captionEmbMap = new Map<string, number[]>();
+    // ★ 优化：没有 photo 需要 embed 时（全 informational / 全无 caption）
+    //   不调 batch API（topic embedding 无 caption 对比就无意义）
+    if (captionsToEmbed.length > 0) {
+      const batchInput = [topicTitle, ...captionsToEmbed];
+      try {
+        const batchResult =
+          await this.engineFacade.embeddingGenerateBatch(batchInput);
+        if (
+          batchResult &&
+          batchResult.embeddings.length === batchInput.length
+        ) {
+          topicEmb = batchResult.embeddings[0] ?? null;
+          for (let i = 0; i < captionsToEmbed.length; i++) {
+            const emb = batchResult.embeddings[i + 1];
+            if (emb) captionEmbMap.set(captionsToEmbed[i], emb);
+          }
         }
-      }),
-    );
+      } catch (error) {
+        // 整 batch 失败（401 / 网络 / circuit-open）—— 全 fallback type-based
+        this.logger.warn(
+          `[filterRelevantFigures] batch embedding failed for ${figures.length} figures, ` +
+            `falling back to type-based: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    const evalResults = entries.map(({ fig, caption }) => {
+      // ① 信息性类型直接保留
+      if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) {
+        return { fig, accepted: true };
+      }
+      // ② photo 无有效 caption → 直接拒绝
+      if (caption === null) {
+        return { fig, accepted: false };
+      }
+      // ③ 有效 caption + topic+caption embedding 都拿到（且非空 vector）→ cosine 判断
+      const captionEmb = captionEmbMap.get(caption);
+      if (topicEmb && topicEmb.length > 0 && captionEmb && captionEmb.length > 0) {
+        const sim = cosine(topicEmb, captionEmb);
+        const accepted = sim >= STAGE2_COSINE_THRESHOLD;
+        if (!accepted) {
+          this.logger.debug(
+            `[filterRelevantFigures] Rejected (cosine=${sim.toFixed(3)} < ${STAGE2_COSINE_THRESHOLD}): caption="${caption.substring(0, 60)}"`,
+          );
+        }
+        return { fig, accepted };
+      }
+      // ④ embedding 不可用 → fail-open（caption 已 >= 10 chars 是有效描述）
+      return { fig, accepted: this.typeBasedFallback(fig) };
+    });
 
     const allAccepted = evalResults.filter((r) => r.accepted).map((r) => r.fig);
     const rejected = evalResults.filter((r) => !r.accepted);
@@ -122,61 +163,10 @@ export class FigureRelevanceService {
   }
 
   /**
-   * 单张图片 Embedding 评估
-   *
-   * ① chart/table/diagram → 直接保留
-   * ② photo, caption < 10 chars → 直接拒绝
-   * ③ photo, valid caption → cosine(caption, topicTitle) >= 0.35 → 保留
-   * ④ Embedding 失败 → typeBasedFallback（抛出错误由上层处理）
-   */
-  private async evaluateSingleByEmbedding(
-    fig: ExtractedFigure,
-    getTopicEmbedding: () => Promise<number[] | null>,
-  ): Promise<boolean> {
-    // ① 信息性图表类型：直接保留，无需语义判断
-    if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) {
-      return true;
-    }
-
-    // ② photo：无有效 caption → 直接拒绝
-    const caption = (fig.caption ?? fig.alt ?? "").trim();
-    if (caption.length < MIN_CAPTION_LENGTH) {
-      this.logger.debug(
-        `[evaluateSingleByEmbedding] Rejected (no caption): ${fig.imageUrl.substring(0, 80)}`,
-      );
-      return false;
-    }
-
-    // ③ photo：有效 caption → Embedding 语义相似度判断
-    const [topicEmb, captionResult] = await Promise.all([
-      getTopicEmbedding(),
-      this.engineFacade.embeddingGenerate(caption.substring(0, 300)),
-    ]);
-
-    const captionEmb = captionResult?.embedding;
-    if (!topicEmb?.length || !captionEmb?.length) {
-      // Embedding API 不可用或返回空向量 → fail-open（caption 已 >= 10 chars，保留）
-      this.logger.warn(
-        `[evaluateSingleByEmbedding] Embedding unavailable, fail-open for: ${fig.imageUrl.substring(0, 80)}`,
-      );
-      return true;
-    }
-
-    const similarity = cosine(topicEmb, captionEmb);
-    const accepted = similarity >= STAGE2_COSINE_THRESHOLD;
-
-    if (!accepted) {
-      this.logger.debug(
-        `[evaluateSingleByEmbedding] Rejected (cosine=${similarity.toFixed(3)} < ${STAGE2_COSINE_THRESHOLD}): ` +
-          `caption="${caption.substring(0, 60)}" | ${fig.imageUrl.substring(0, 60)}`,
-      );
-    }
-
-    return accepted;
-  }
-
-  /**
    * Embedding 失败时的 type-based fallback（B2 修复：photo 需要 caption >= 10 chars）
+   *
+   * ★ 2026-05-05: 老的 evaluateSingleByEmbedding 已删 — 改为 batch 模式
+   *   (filterRelevantFigures 内 1 次 embeddingGenerateBatch + 本地 cosine 计算)。
    */
   private typeBasedFallback(fig: ExtractedFigure): boolean {
     if (INFORMATIONAL_FIGURE_TYPES.has(fig.type)) return true;

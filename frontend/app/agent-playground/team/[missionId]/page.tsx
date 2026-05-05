@@ -702,9 +702,13 @@ export default function MissionDetailPage() {
               onLeaderClick={() => setLeaderChatOpen(true)}
               onResearchTeamClick={() => setResearchTeamOpen(true)}
               onRerun={() => {
+                // "开始"按钮 = fresh：清 checkpoint，全新从头跑
                 void (async () => {
                   try {
-                    const { missionId: newId } = await rerunMission(missionId);
+                    const { missionId: newId } = await rerunMission(
+                      missionId,
+                      'fresh'
+                    );
                     router.push(`/agent-playground/team/${newId}`);
                   } catch (e) {
                     window.alert(
@@ -714,12 +718,23 @@ export default function MissionDetailPage() {
                 })();
               }}
               onUpdate={() => {
-                const qs = new URLSearchParams({
-                  topic: view.mission.topic ?? '',
-                  depth: view.mission.depth ?? 'standard',
-                  language: view.mission.language ?? 'zh-CN',
-                }).toString();
-                router.push(`/agent-playground/team?${qs}`);
+                // "更新"按钮 = incremental：clone checkpoint，跳过已完成 stage
+                // 对齐 Topic Insight handleContinueResearch
+                //   ('incremental' 模式：保留已完成任务，只跑未完成的维度)
+                // 复用原 mission 全部 input 字段（不只 topic/depth/language 3 个）
+                void (async () => {
+                  try {
+                    const { missionId: newId } = await rerunMission(
+                      missionId,
+                      'incremental'
+                    );
+                    router.push(`/agent-playground/team/${newId}`);
+                  } catch (e) {
+                    window.alert(
+                      `更新失败：${e instanceof Error ? e.message : String(e)}`
+                    );
+                  }
+                })();
               }}
               onCancel={() => {
                 if (!window.confirm('确认取消该 mission？')) return;

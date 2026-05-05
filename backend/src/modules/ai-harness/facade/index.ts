@@ -18,8 +18,8 @@ export { SpecAgentRegistry } from "../agents/core/spec-agent-registry";
 export {
   BuiltinSkillCatalog,
   BuiltInReActSkillRegistry,
-} from "../agents/builtin-skills/skill-registry";
-export { EXTRA_SKILL_DIRS } from "../agents/builtin-skills/skill-loader";
+} from "../agents/skill-runtime/skill-registry";
+export { EXTRA_SKILL_DIRS } from "../agents/skill-runtime/skill-loader";
 export {
   AgentRunner,
   AgentSpec,

@@ -334,16 +334,24 @@ export async function localRerunTodo(
   }>(raw);
 }
 
+/**
+ * 重跑 mission。
+ * mode='fresh'       清 checkpoint，全新从头跑（"开始"按钮）
+ * mode='incremental' clone checkpoint，跳过已完成 stage（"更新"按钮，
+ *                    对齐 Topic Insight handleContinueResearch 模式）
+ * 不传 mode 时后端默认 incremental（向后兼容）。
+ */
 export async function rerunMission(
-  missionId: string
+  missionId: string,
+  mode?: 'fresh' | 'incremental'
 ): Promise<{ missionId: string; streamNamespace: string }> {
-  const res = await fetch(
-    `${API_BASE}/missions/${encodeURIComponent(missionId)}/rerun`,
-    {
-      method: 'POST',
-      headers: { ...getAuthHeader() },
-    }
-  );
+  const url = mode
+    ? `${API_BASE}/missions/${encodeURIComponent(missionId)}/rerun?mode=${mode}`
+    : `${API_BASE}/missions/${encodeURIComponent(missionId)}/rerun`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...getAuthHeader() },
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Rerun failed: ${res.status} ${text.slice(0, 200)}`);

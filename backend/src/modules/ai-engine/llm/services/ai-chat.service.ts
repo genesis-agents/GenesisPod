@@ -1150,10 +1150,38 @@ export class AiChatService {
    * Observer 故障不影响主流程返回。
    */
   async chat(options: ChatOptions): Promise<ChatResult> {
-    if (this.hookBus) {
-      return this.chatWithHooks(options);
+    // ★ 2026-05-05 [task #22 机制根因] 强制 wall-time race
+    //   截图 12 真因：mission 卡 S4 30+ 分钟。链路：ReAct loop wall-time check
+    //   只在 iteration 开始时做（react-loop.ts:338）→ LLM await hang 期间
+    //   loop 永远到不了下个 check → 5 min agent wall-time 失效 → mission hang。
+    //   ai-api-caller 的 axios timeout 在 server 持续返空 chunk 时也不重置。
+    //
+    //   机制性修复：在 chat() 入口包 Promise.race + 独立 setTimeout。无论
+    //   axios / streaming / event loop 如何，强制 N 秒后 reject。N = (axios
+    //   timeout 上限 + 60s 安全边际)，对 reasoning 模型 = 16min，对普通模型
+    //   = 11min。LLM 真卡死时整个 stage 抛错让 dispatcher 进入 handleMissionFailure。
+    const HARD_TIMEOUT_MS = 16 * 60_000;
+    const inner: Promise<ChatResult> = this.hookBus
+      ? this.chatWithHooks(options)
+      : this.chatLegacy(options);
+    let raceTimer: NodeJS.Timeout | undefined;
+    try {
+      return await Promise.race([
+        inner,
+        new Promise<never>((_, reject) => {
+          raceTimer = setTimeout(() => {
+            reject(
+              new Error(
+                `[chat] hard timeout after ${HARD_TIMEOUT_MS}ms (LLM hang detected — likely server returning empty chunks or infinite reasoning)`,
+              ),
+            );
+          }, HARD_TIMEOUT_MS);
+          (raceTimer as { unref?: () => void }).unref?.();
+        }),
+      ]);
+    } finally {
+      if (raceTimer) clearTimeout(raceTimer);
     }
-    return this.chatLegacy(options);
   }
 
   /** v5.1 PR-5: 双轨期 hook 包装路径 */
@@ -1310,7 +1338,8 @@ export class AiChatService {
       this.logger.error(
         "[chat] Refused: no userId in params nor RequestContext. " +
           "Async tasks must wrap the call in withUserContext(userId, ...) " +
-          "so KeyResolver can route to PERSONAL/ASSIGNED (user) or SYSTEM (admin).",
+          "so KeyResolver can route to PERSONAL/ASSIGNED. " +
+          "★ 2026-05-05 严格 BYOK：所有用户（含 ADMIN）必须配 BYOK，不再 fallback SYSTEM。",
       );
       throw new UnauthorizedException(
         "BYOK v2: userId is required. Wrap async calls in withUserContext.",

@@ -14,6 +14,7 @@ import {
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { inferIsReasoning, getKnownModelLimit } from "../../ai-engine/facade";
 import { AuditService, AuditAction } from "../../../common/audit/audit.service";
+import { maskSensitiveSetting } from "./utils/mask-sensitive-setting.utils";
 
 /** Minimal model for Perplexity balance check */
 const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";
@@ -885,26 +886,26 @@ export class AdminService {
   // ============ System Settings Management ============
 
   /**
-   * 获取系统设置（按分类）
+   * 获取系统设置（按分类）。敏感字段 (apiKey/secret/...) 经
+   * maskSensitiveSetting 屏蔽，只返 {configured, hint}。详见
+   * `utils/mask-sensitive-setting.utils.ts` 内 JSDoc。
    */
   async getSettings(category?: string) {
     const where = category ? { category } : {};
-
     const settings = await this.prisma.systemSetting.findMany({
       where,
       orderBy: { key: "asc" },
     });
-
-    // 将设置转换为键值对格式
     const result: Record<string, unknown> = {};
     for (const setting of settings) {
+      let parsed: unknown;
       try {
-        if (setting.value) result[setting.key] = JSON.parse(setting.value);
+        if (setting.value) parsed = JSON.parse(setting.value);
       } catch {
-        result[setting.key] = setting.value;
+        parsed = setting.value;
       }
+      result[setting.key] = maskSensitiveSetting(setting.key, parsed);
     }
-
     return result;
   }
 

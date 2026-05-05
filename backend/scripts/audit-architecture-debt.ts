@@ -278,6 +278,106 @@ function scanTodos(): AuditMetric {
 // Main
 // ────────────────────────────────────────────────────────────
 
+// ────────────────────────────────────────────────────────────
+// 6. 散点 antipattern 扫描（task #19，2026-05-05）
+// ────────────────────────────────────────────────────────────
+
+function readAllTsFiles(): Array<{ rel: string; abs: string; text: string }> {
+  const files: Array<{ rel: string; abs: string; text: string }> = [];
+  function walk(dir: string) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (
+        entry.isDirectory() &&
+        !["__tests__", "node_modules", "dist", "_archive"].includes(entry.name)
+      ) {
+        walk(full);
+      } else if (
+        entry.isFile() &&
+        entry.name.endsWith(".ts") &&
+        !entry.name.endsWith(".spec.ts") &&
+        !entry.name.endsWith(".d.ts")
+      ) {
+        files.push({
+          rel: path.relative(SRC_ROOT, full).replace(/\\/g, "/"),
+          abs: full,
+          text: fs.readFileSync(full, "utf-8"),
+        });
+      }
+    }
+  }
+  walk(SRC_ROOT);
+  return files;
+}
+
+function scanNakedAbortListeners(): AuditMetric {
+  const samples: string[] = [];
+  for (const f of readAllTsFiles()) {
+    if (f.rel.endsWith("abortable-scope.ts")) continue;
+    const hasAdd = /\.addEventListener\s*\(\s*['"]abort['"]/.test(f.text);
+    if (!hasAdd) continue;
+    const hasRemove = /\.removeEventListener\s*\(\s*['"]abort['"]/.test(f.text);
+    if (!hasRemove) samples.push(f.rel);
+  }
+  return {
+    name: "AbortSignal listener 无配对 cleanup",
+    value: samples.length,
+    slo: 0,
+    samples,
+  };
+}
+
+function scanRawAxiosImports(): AuditMetric {
+  const samples: string[] = [];
+  for (const f of readAllTsFiles()) {
+    if (
+      /import\s+(?:[^;]+from\s+)?['"]axios['"]/.test(f.text) ||
+      /from\s+['"]axios['"]/.test(f.text)
+    ) {
+      samples.push(f.rel);
+    }
+  }
+  return {
+    name: "axios 直接 import (应走 HttpService)",
+    value: samples.length,
+    slo: 30, // 当前基线，不允许新增
+    samples: samples.slice(0, 5),
+  };
+}
+
+function scanProcessEnvSecretReturn(): AuditMetric {
+  const SENSITIVE =
+    /return\s+process\.env\.[A-Z_]*(?:API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)[A-Z_]*\s*(?:\|\|[^;\n]+)?\s*[;\n]/;
+  const samples: string[] = [];
+  for (const f of readAllTsFiles()) {
+    if (!f.rel.endsWith(".controller.ts")) continue;
+    if (SENSITIVE.test(f.text)) samples.push(f.rel);
+  }
+  return {
+    name: "controller 直接 return 敏感 env (S1)",
+    value: samples.length,
+    slo: 0,
+    samples,
+  };
+}
+
+function scanAgentSpecMissingBudget(): AuditMetric {
+  const samples: string[] = [];
+  for (const f of readAllTsFiles()) {
+    if (!f.rel.endsWith(".agent.ts")) continue;
+    const hasSpec = /@Spec\s*\(\s*\{[\s\S]*?\}\s*\)/.test(f.text);
+    if (!hasSpec) continue;
+    if (!/budget\s*:/.test(f.text)) samples.push(f.rel);
+  }
+  return {
+    name: "agent spec 缺 budget 配置",
+    value: samples.length,
+    slo: 0,
+    samples,
+  };
+}
+
 function main() {
   const args = process.argv.slice(2);
   const isJson = args.includes("--json");
@@ -289,6 +389,11 @@ function main() {
     scanBusinessNameLeakage(),
     scanAnyTypes(),
     scanTodos(),
+    // ★ 2026-05-05 [task #19] 散点 antipattern 维度
+    scanNakedAbortListeners(),
+    scanRawAxiosImports(),
+    scanProcessEnvSecretReturn(),
+    scanAgentSpecMissingBudget(),
   ];
 
   if (isJson) {

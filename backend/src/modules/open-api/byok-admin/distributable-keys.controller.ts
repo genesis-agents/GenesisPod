@@ -120,4 +120,56 @@ export class DistributableKeysController {
       note: dto.note,
     });
   }
+
+  /**
+   * ★ 2026-05-05 [task #27 严格 BYOK 风险 1+4 — admin self-assign 一键]
+   *
+   * 严格 BYOK 后 admin 自己没 PERSONAL key 时调 LLM 失败（KeyResolver 不再
+   * fallback SYSTEM）。提供本入口让 admin 一键把所有 active distributable-keys
+   * 全部 assign 给自己（quota=null 无限），保留 admin 的可调用性。
+   *
+   * 行为：
+   *   - 列出所有 isActive=true 的 distributable-keys
+   *   - 跳过当前 admin 已有 active assignment 的 key
+   *   - 其余创建 assignment(userId=adminId, userQuotaCents=null, expiresAt=null)
+   *
+   * 返回：{ assigned: 新建数量, skipped: 已有数量, total: distributable-keys 总数 }
+   */
+  @Post("self-assign-all")
+  async selfAssignAll(@Req() req: AuthenticatedRequest): Promise<{
+    assigned: number;
+    skipped: number;
+    total: number;
+  }> {
+    const adminId = req.user.id;
+    const adminEmail = req.user.email;
+    const allKeys = await this.service.list({ isActive: true });
+    let assigned = 0;
+    let skipped = 0;
+    for (const key of allKeys) {
+      // 检查当前 admin 是否已有该 key 的 active assignment
+      const existing = await this.assignments
+        .resolveActive(adminId, key.provider)
+        .catch(() => null);
+      if (existing && existing.keyId === key.id) {
+        skipped++;
+        continue;
+      }
+      try {
+        await this.assignments.assign({
+          keyId: key.id,
+          userId: adminId,
+          userQuotaCents: null, // 无限配额
+          expiresAt: null, // 永不过期
+          assignedBy: adminEmail,
+          note: "self-assigned via admin one-click",
+        });
+        assigned++;
+      } catch {
+        // 可能是 (keyId, userId) 唯一约束冲突（已分配过但状态非 ACTIVE）
+        skipped++;
+      }
+    }
+    return { assigned, skipped, total: allKeys.length };
+  }
 }
