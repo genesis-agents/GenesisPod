@@ -2,8 +2,8 @@
  * MissionLivenessGuard —— harness 层 mission 活性单一权威检测
  *
  * 设计目标（2026-05-05 用户驱动重构，归并 4 个旧 detector）：
- *   1. **归一**：所有 ai-app（playground / writing / research / topic-insights / teams）
- *      共用同一检测算法 + 同一 timer，避免各自实现的"叠加性误报"和"互不感知"
+ *   1. **归一**：所有上层消费方共用同一检测算法 + 同一 timer，避免各自实现
+ *      的"叠加性误报"和"互不感知"
  *   2. **多信号校验**：单一信号失败（DB 心跳被 row lock 阻塞 / Redis 抖动 / 事件 flush
  *      暂停）不构成误判依据；必须 heartbeat AND events 同时 stale 才算真死
  *   3. **启动期豁免**：mission 启动 < startupGraceMs（默认 5min）一律跳过，避免
@@ -12,14 +12,14 @@
  *        - 任一信号 stale > softWarnThresholdMs（默认 10min）→ emit warning（不杀）
  *        - heartbeat AND events 同 stale > staleThresholdMs（默认 5min，配合上面）→ markFailed
  *        - startedAt > wallTimeCapMs（默认 4h）→ markFailed（wall-time hard cap）
- *   5. **Adapter 注入**：harness 不感知具体表 schema —— ai-app 提供
+ *   5. **Adapter 注入**：harness 不感知具体表 schema —— 上层消费方提供
  *      fetchRunningMissions + getMostRecentEventTs + markFailed callbacks
- *   6. **多 namespace**：同 timer scan 多 ai-app，节省 60s scan 开销
+ *   6. **多 namespace**：同 timer scan 多消费方，节省 60s scan 开销
  *
- * 替代关系（提交一并删除）：
- *   - ai-app/agent-playground/services/mission/lifecycle/mission-health.scheduler.ts （已 disabled）
- *   - MissionStore.recoverPodCrashedRunning + recoverOrphanedRunning（移到 adapter callback 内）
- *   - MissionOrphanDetectorService（旧 Redis heartbeat 路径，已 disabled）
+ * 替代关系（一并删除/迁出）：
+ *   - 旧 in-app health scheduler（已 disabled）
+ *   - 旧 in-app store.recoverPodCrashedRunning + recoverOrphanedRunning（移到 adapter callback 内）
+ *   - 旧 Redis-heartbeat orphan-detector（已 disabled）
  *
  * 与 health-monitor.ts 关系：
  *   - MissionHealthMonitor 是无 timer 的纯算法（runOnce + fetcher / onTimeout 回调）
@@ -135,8 +135,8 @@ export class MissionLivenessGuard implements OnModuleDestroy {
   private readonly WARN_COOLDOWN_MS = 10 * 60 * 1000;
 
   /**
-   * 由 ai-app 在 onModuleInit 调用注册自己的 adapter。
-   * namespace 必须唯一（"agent-playground" / "writing" / "research" 等）。
+   * 由上层消费方在 onModuleInit 调用注册自己的 adapter。
+   * namespace 必须唯一（按消费方业务名命名）。
    */
   registerAdapter(
     namespace: string,

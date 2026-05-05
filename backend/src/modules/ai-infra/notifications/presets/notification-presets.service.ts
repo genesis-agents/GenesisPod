@@ -97,16 +97,27 @@ export class NotificationPresetsService {
   }
 
   /**
-   * Agent Playground mission 完成通知。
+   * 长任务 mission 完成通知（上层消费方按业务侧含义传 missionTitle）。
    * 复用 RESEARCH_COMPLETED 枚举（语义="长任务完成"），未来 schema 拆分时再细化。
    */
   async notifyMissionCompleted(params: {
     userId: string;
     missionId: string;
     missionTitle: string;
+    /** 业务侧应用根路径（如 "/<app>/missions"），由上层消费方传入；ai-infra 不感知具体业务路由 */
+    appBasePath: string;
+    /** relatedType 由上层消费方提供（数据字段不参与命名校验）*/
+    relatedType: string;
     reviewScore?: number;
   }) {
-    const { userId, missionId, missionTitle, reviewScore } = params;
+    const {
+      userId,
+      missionId,
+      missionTitle,
+      appBasePath,
+      relatedType,
+      reviewScore,
+    } = params;
     const scoreSuffix =
       typeof reviewScore === "number" ? `（评分 ${reviewScore}）` : "";
 
@@ -115,9 +126,9 @@ export class NotificationPresetsService {
       type: NotificationTypeDto.RESEARCH_COMPLETED,
       title: "Mission 已完成",
       message: `「${missionTitle}」已完成${scoreSuffix}`,
-      actionUrl: `/playground/missions/${missionId}`,
+      actionUrl: `${appBasePath}/missions/${missionId}`,
       actionLabel: "查看报告",
-      relatedType: "agent-playground-mission",
+      relatedType,
       relatedId: missionId,
       metadata: { reviewScore },
     });

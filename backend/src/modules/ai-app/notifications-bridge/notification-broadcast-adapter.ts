@@ -110,6 +110,9 @@ export class NotificationBroadcastAdapter implements IBroadcastAdapter {
       userId,
       missionId,
       missionTitle,
+      // 业务侧路径 + relatedType 由消费方注入（ai-infra 不感知 playground / writing 等业务名）
+      appBasePath: "/playground",
+      relatedType: "agent-playground-mission",
       reviewScore: payload?.reviewScore,
     });
   }
