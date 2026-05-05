@@ -5,9 +5,10 @@
  * 列表页 / detail 页查询用。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
+import { EmbeddingService } from "@/modules/ai-engine/facade";
 
 export interface MissionListItem {
   id: string;
@@ -48,7 +49,12 @@ export interface MissionDetail extends MissionListItem {
 export class MissionStore {
   private readonly log = new Logger(MissionStore.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    /** C4 (2026-05-05): postmortem 真 embedding 闭环
+     *  Optional 注入：DI 没接通时 fall back 到 tag 召回（无回归） */
+    @Optional() private readonly embeddingService?: EmbeddingService,
+  ) {}
 
   async create(input: {
     id: string;
@@ -617,11 +623,11 @@ export class MissionStore {
 
   /**
    * S12 真沉淀 —— 把 mission postmortem 写到 harness_vector_memory，
-   * namespace=userId，tags=['agent-playground', 'mission-postmortem']，
-   * 让下次 leader plan 阶段能召回同 user 历史教训作为 prior knowledge。
+   * namespace=userId，tags=['agent-playground', 'mission-postmortem']。
    *
-   * 不算 embedding（s12 在 best-effort 路径 + 异步运行，不烧 LLM token），
-   * 召回靠 namespace + tags 过滤即可。
+   * C4 (2026-05-05): Anthropic P0-1 闭合 —— embed summary 作为 vector，
+   * 让下次 leader plan 阶段能用语义召回（cosine similarity）找类似主题的
+   * 历史教训。embedding 失败时 fall back 到空数组（tag-only 召回退化模式）。
    */
   async recordMissionPostmortem(input: {
     missionId: string;
@@ -640,6 +646,25 @@ export class MissionStore {
       confidence: number;
     };
   }): Promise<void> {
+    // C4: 真 embedding 调用 — 用 topic + summary 拼接作为语义索引
+    //   失败不阻塞 postmortem 写入（degrade 到 tag 召回）
+    let embedding: number[] = [];
+    if (this.embeddingService) {
+      try {
+        const text = `${input.topic}\n\n${input.summary}`.slice(0, 2000);
+        const result = await this.embeddingService.generateEmbedding(text);
+        if (Array.isArray(result?.embedding)) {
+          embedding = result.embedding;
+        }
+      } catch (err) {
+        this.log.warn(
+          `[recordMissionPostmortem] embedding failed (degrade to tag-only recall): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
     try {
       await this.prisma.harnessVectorMemory.create({
         data: {
@@ -647,7 +672,7 @@ export class MissionStore {
           source: "agent-playground:mission",
           entryKey: `mission-postmortem:${input.missionId}`,
           content: input.summary.slice(0, 2000),
-          embedding: [],
+          embedding,
           confidence: 1.0,
           tags: [
             "agent-playground",
