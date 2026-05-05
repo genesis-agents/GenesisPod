@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { DistributableKeysModule } from "../distributable-keys/distributable-keys.module";
+import { KeyHealthModule } from "../health/key-health.module";
 import { KeyAssignmentsModule } from "../key-assignments/key-assignments.module";
 import { ByokMaintenanceScheduler } from "../scheduling/byok-maintenance.scheduler";
 import { SecretsModule } from "../../../ai-infra/secrets/secrets.module";
@@ -14,6 +15,7 @@ import { KeyResolverService } from "./key-resolver.service";
     KeyAssignmentsModule,
     DistributableKeysModule,
     SecretsModule,
+    KeyHealthModule,
   ],
   // PR-X17: HTTP Controllers moved to open-api/byok-admin or ai-app/byok
   controllers: [],

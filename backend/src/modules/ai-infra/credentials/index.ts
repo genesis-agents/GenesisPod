@@ -1,4 +1,6 @@
 export * from "./distributable-keys";
+export * from "./executor";
+export * from "./health";
 export * from "./key-assignments";
 export * from "./key-requests";
 export * from "./key-resolver";

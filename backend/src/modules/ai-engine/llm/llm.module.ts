@@ -14,6 +14,7 @@ import { HttpModule } from "@nestjs/axios";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver/key-resolver.module";
+import { KeyExecutorModule } from "../../ai-infra/credentials/executor/key-executor.module";
 import { UserModelConfigsModule } from "../../ai-infra/credentials/user-model-configs/user-model-configs.module";
 import { AiEngineConstraintModule } from "../safety/constraint.module";
 import { AiEnginePlanningModule } from "../planning/planning.module";
@@ -81,6 +82,7 @@ import { ModelElectionService } from "./selection/model-election.service";
     SecretsModule,
     UserApiKeysModule,
     KeyResolverModule, // BYOK v2: 统一 API Key 解析
+    KeyExecutorModule, // BYOK v3 (PR-4): 失效切换 + LastGood 粘性
     UserModelConfigsModule, // BYOK v3: 用户自定义多模型
     AiEngineConstraintModule,
     forwardRef(() => AiEnginePlanningModule),
@@ -148,6 +150,3 @@ import { ModelElectionService } from "./selection/model-election.service";
   ],
 })
 export class AiEngineLLMModule {}
-
-
-

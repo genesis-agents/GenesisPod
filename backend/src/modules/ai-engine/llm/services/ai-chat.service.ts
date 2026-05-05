@@ -34,6 +34,7 @@ import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
 import { estimateCost } from "../../planning/budget/cost.calculator";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+import { KeyExecutorService } from "@/modules/ai-infra/credentials/executor";
 // v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
 import type { HookBus } from "@/plugins/core/hook-bus";
 import {
@@ -262,6 +263,7 @@ export class AiChatService {
     private readonly imageGenerationService?: AiImageGenerationService,
     private readonly events?: EventEmitter2,
     @Optional() private readonly keyResolver?: KeyResolverService,
+    @Optional() private readonly keyExecutor?: KeyExecutorService,
   ) {}
 
   // ==================== 模型配置委托方法 ====================
@@ -743,6 +745,171 @@ export class AiChatService {
   }
 
   /**
+   * PR-4 (2026-05-05) BYOK failover 路径：把 callAPIWithConfig 的 apiCall 包到
+   * keyExecutor.execute() 内，让单 key 401/429/quota 自动切到下一把 PERSONAL/ASSIGNED key。
+   *
+   * 与 callAPIWithConfig 旧路径的区别：
+   * - 旧路径：resolveApiKey 单 key + retryService 内层重试（同 key 5xx）
+   * - 新路径：keyExecutor 外层换 key + retryService 内层重试（每个 key 都重试一遍）
+   *
+   * 错误语义保持一致：
+   * - 全部 key 401 → AllKeysFailedError（HTTP 403 + code=ALL_KEYS_FAILED）
+   * - provider 5xx → 抛原始 error（不切下一把，retryService 内层已重试）
+   * - 全部 key quota → AllKeysFailedError 携带 lastReason=QUOTA_EXCEEDED
+   */
+  private async callAPIWithFailover(
+    userId: string,
+    config: AIModelConfig,
+    messages: ChatMessage[],
+    maxTokens: number,
+    temperature: number | undefined,
+    optionStrictMode: boolean | undefined,
+    responseFormat: string | undefined,
+    reasoningDepth: import("../types").ReasoningDepth | undefined,
+    cachePolicy: "auto" | undefined,
+    outputSchema:
+      | { type: "json_schema"; schema: Record<string, unknown> }
+      | undefined,
+  ): Promise<ChatCompletionResult> {
+    if (!this.keyExecutor) {
+      throw new Error("KeyExecutor not available — should not reach here");
+    }
+    const { modelId, apiEndpoint, provider } = config;
+    const apiFormat = config.apiFormat || "openai";
+    const supportsTemp = config.supportsTemperature ?? true;
+    const isReasoning = config.isReasoning ?? false;
+    const tokenParamName =
+      config.tokenParamName ||
+      (isReasoning ? "max_completion_tokens" : "max_tokens");
+
+    const configLimit = config.maxTokens;
+    if (configLimit > 0 && maxTokens > configLimit) {
+      this.logger.warn(
+        `[callAPIWithFailover] Clamping maxTokens from ${maxTokens} to model limit ${configLimit} for ${modelId}`,
+      );
+      maxTokens = configLimit;
+    }
+
+    const timeout =
+      config.defaultTimeoutMs || this.getTimeoutForModel(modelId, maxTokens);
+    const useStrictMode = optionStrictMode ?? false;
+    const effectiveTemperature = supportsTemp ? temperature : undefined;
+
+    try {
+      const result = await this.keyExecutor.execute(
+        userId,
+        provider,
+        async (key) => {
+          const apiKey = key.apiKey;
+          const effectiveEndpoint = key.apiEndpoint || apiEndpoint;
+
+          const apiCall = async (): Promise<ChatCompletionResult> => {
+            switch (apiFormat) {
+              case "openai":
+                return await this.apiCallerService.callOpenAICompatibleAPI(
+                  effectiveEndpoint,
+                  apiKey,
+                  modelId,
+                  messages,
+                  maxTokens,
+                  effectiveTemperature,
+                  timeout,
+                  tokenParamName,
+                  responseFormat,
+                  reasoningDepth,
+                  outputSchema,
+                  useStrictMode,
+                  isReasoning,
+                );
+              case "anthropic":
+                return await this.apiCallerService.callAnthropicAPI(
+                  effectiveEndpoint,
+                  apiKey,
+                  modelId,
+                  messages,
+                  maxTokens,
+                  effectiveTemperature,
+                  timeout,
+                  responseFormat,
+                  reasoningDepth,
+                  cachePolicy,
+                );
+              case "google":
+                return await this.apiCallerService.callGoogleAPI(
+                  effectiveEndpoint,
+                  apiKey,
+                  modelId,
+                  messages,
+                  maxTokens,
+                  effectiveTemperature,
+                  timeout,
+                  responseFormat,
+                  reasoningDepth,
+                );
+              case "xai":
+                return await this.apiCallerService.callXAIAPI(
+                  effectiveEndpoint,
+                  apiKey,
+                  modelId,
+                  messages,
+                  maxTokens,
+                  effectiveTemperature,
+                  timeout,
+                  tokenParamName,
+                  responseFormat,
+                  reasoningDepth,
+                  outputSchema,
+                  useStrictMode,
+                  isReasoning,
+                );
+              default:
+                return await this.apiCallerService.callOpenAICompatibleAPI(
+                  effectiveEndpoint,
+                  apiKey,
+                  modelId,
+                  messages,
+                  maxTokens,
+                  effectiveTemperature,
+                  timeout,
+                  tokenParamName,
+                  responseFormat,
+                  reasoningDepth,
+                  outputSchema,
+                  useStrictMode,
+                  isReasoning,
+                );
+            }
+          };
+          // 内层重试：同一把 key 上的 5xx 走 retryService 指数退避；
+          // 抛出后 KeyExecutor 才接管 key 切换
+          return await this.retryService.withExponentialBackoff(
+            apiCall,
+            `callAPIWithFailover [${modelId}|${key.healthKeyId}]`,
+            provider,
+          );
+        },
+      );
+      result.apiKeySource = result.apiKeySource ?? "personal"; // BYOK 路径都打 personal/assigned 标
+      return result;
+    } catch (error) {
+      // BYOKError（含 AllKeysFailedError / ProviderCooldownError / InvalidApiKeyError）
+      // 直接上抛，让 HTTP 层按 code 返回结构化错误
+      if (error instanceof BYOKError) throw error;
+      if (useStrictMode) throw error;
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `[callAPIWithFailover] ${provider} API failed after failover: ${errorMsg}`,
+      );
+      return {
+        content: `**${provider} API 调用失败**\n\n模型：${modelId}\n错误信息：${errorMsg}\n\n请稍后重试或检查 API 配置。`,
+        model: modelId,
+        tokensUsed: 0,
+        isError: true,
+      };
+    }
+  }
+
+  /**
    * 使用数据库配置调用 AI API
    */
   private async callAPIWithConfig(
@@ -758,6 +925,24 @@ export class AiChatService {
     outputSchema?: { type: "json_schema"; schema: Record<string, unknown> },
   ): Promise<ChatCompletionResult> {
     const { modelId, apiEndpoint, provider } = config;
+
+    // 2026-05-05 PR-4: 失效切换/LastGood 接入。
+    // - userId 存在 + KeyExecutor 可用 → 走 BYOK failover 链路（PERSONAL+ASSIGNED 多 key 自动切换）
+    // - 否则保留旧路径：modelConfigService.resolveApiKey（含 SYSTEM secret fallback）
+    if (userId && this.keyExecutor) {
+      return await this.callAPIWithFailover(
+        userId,
+        config,
+        messages,
+        maxTokens,
+        temperature,
+        optionStrictMode,
+        responseFormat,
+        reasoningDepth,
+        cachePolicy,
+        outputSchema,
+      );
+    }
 
     const resolved = await this.modelConfigService.resolveApiKey(
       config,
@@ -2318,6 +2503,23 @@ export class AiChatService {
         apiKeySource: streamApiKeySource,
         usage: streamUsage,
       };
+
+      // PR-4b (2026-05-05) BYOK failover: 流完成 → markSuccess + setLastGood。
+      //   流式无法做 mid-stream failover（首字节后切换会破坏 UX），但能保留
+      //   "记住可用 key" 与 "下次先用它" 的粘性。
+      if (resolved?.healthKeyId && this.keyExecutor && options.userId) {
+        await this.keyExecutor
+          .trackSuccess(
+            resolved.healthKeyId,
+            modelConfig.provider,
+            options.userId,
+          )
+          .catch((err: unknown) =>
+            this.logger.debug(
+              `[chatStream] trackSuccess failed: ${err instanceof Error ? err.message : err}`,
+            ),
+          );
+      }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.logger.error(`[chatStream] Stream error: ${errorMsg}`);
@@ -2326,6 +2528,18 @@ export class AiChatService {
       if (this.circuitBreaker) {
         const errorType = this.circuitBreaker.parseErrorType(errorMsg);
         this.circuitBreaker.recordFailure(model, errorType, errorMsg);
+      }
+
+      // PR-4b (2026-05-05) BYOK failover: 流失败 → classify + markFailure。
+      //   401/403/quota → DEAD（下次 resolveKeyChain 跳过）；429 → 60s COOLDOWN。
+      if (resolved?.healthKeyId && this.keyExecutor) {
+        await this.keyExecutor
+          .trackFailure(resolved.healthKeyId, modelConfig.provider, error)
+          .catch((err: unknown) =>
+            this.logger.debug(
+              `[chatStream] trackFailure failed: ${err instanceof Error ? err.message : err}`,
+            ),
+          );
       }
 
       yield { content: "", done: true, error: errorMsg };

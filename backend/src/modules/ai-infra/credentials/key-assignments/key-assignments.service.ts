@@ -230,6 +230,49 @@ export class KeyAssignmentsService {
   }
 
   /**
+   * PR-1 (2026-05-05) failover: 列出该 user/provider 下所有 ACTIVE 的分配（解密后）。
+   *
+   * 当前 schema `@@unique([userId, provider])` 决定单 user 单 provider 最多 1 个 ACTIVE
+   * 分配，因此实际返回 0 或 1 个。PR-8 改 schema 加 label 后此方法天然支持多条。
+   *
+   * 与 resolveActive 的区别：
+   * - resolveActive 单条 + 抛 QuotaExceededError；本方法批量 + 配额耗尽改为不返回（不抛错）
+   * - 调用方（KeyResolver.resolveKeyChain）需要"过滤掉不可用"的语义，不需要"哪一个是配额耗尽"
+   */
+  async listActive(
+    userId: string,
+    provider: string,
+  ): Promise<ResolvedAssignment[]> {
+    const normalized = provider.toLowerCase();
+    const assignment = await this.prisma.keyAssignment.findUnique({
+      where: { userId_provider: { userId, provider: normalized } },
+    });
+    if (!assignment) return [];
+    if (assignment.status !== KeyAssignmentStatus.ACTIVE) return [];
+    if (assignment.expiresAt && assignment.expiresAt < new Date()) return [];
+    if (
+      assignment.userQuotaCents !== null &&
+      assignment.userSpendCents >= assignment.userQuotaCents
+    ) {
+      return [];
+    }
+    const decrypted = await this.distributableKeys.getDecryptedValue(
+      assignment.keyId,
+    );
+    if (!decrypted) return [];
+    return [
+      {
+        assignmentId: assignment.id,
+        keyId: assignment.keyId,
+        apiKey: decrypted.apiKey,
+        apiEndpoint: decrypted.apiEndpoint,
+        userQuotaCents: assignment.userQuotaCents,
+        userSpendCents: assignment.userSpendCents,
+      },
+    ];
+  }
+
+  /**
    * 记账：用户级 + 池级双扣，保证两侧累计一致。
    */
   async incrementSpend(assignmentId: string, costCents: number): Promise<void> {

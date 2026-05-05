@@ -22,6 +22,12 @@ export interface ResolvedApiKey {
   apiKey: string;
   source: ApiKeySource;
   apiEndpoint?: string | null;
+  /**
+   * PR-4 (2026-05-05) BYOK failover：KeyHealth 命名空间下的统一标识。
+   * 调用方应在 callFn 调用前后做 markFailure / markSuccess。
+   * SYSTEM key 路径（无 userId）不返回此字段。
+   */
+  healthKeyId?: string;
 }
 
 /**
@@ -279,6 +285,7 @@ export class AiModelConfigService {
           apiKey: resolved.apiKey,
           source: sourceMap[resolved.source],
           apiEndpoint: resolved.apiEndpoint,
+          healthKeyId: resolved.healthKeyId,
         };
       } catch (error) {
         if (error instanceof NoAvailableKeyError) {

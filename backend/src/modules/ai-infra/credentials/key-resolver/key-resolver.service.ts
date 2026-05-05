@@ -1,7 +1,18 @@
-import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
 import { UserApiKeysService } from "../user-api-keys/user-api-keys.service";
+import {
+  ClassifiedError,
+  KeyHealthStore,
+  buildAssignedKeyId,
+  buildPersonalKeyId,
+} from "../health";
 import { NoAvailableKeyError } from "./key-resolver.errors";
 
 export type KeySource = "PERSONAL" | "ASSIGNED" | "SYSTEM";
@@ -16,9 +27,36 @@ export interface ResolvedKey {
   assignmentId?: string;
   /** 仅 ASSIGNED 来源返回，用于审计 */
   keyId?: string;
+  /**
+   * KeyHealth 命名空间下的统一标识：
+   *   personal:{userId}:{provider}:{label}
+   *   assigned:{assignmentId}
+   *   system:{secretName}
+   * KeyExecutor 用此标识 markFailure / markSuccess。
+   */
+  healthKeyId: string;
+  /** PERSONAL key 的 label，便于调用方做诊断 / log */
+  label?: string;
   /** 用户自配模型：PERSONAL Key 关联的 preferredModelId（若有），
    *  用于在 chat 路由时覆盖全局默认模型。 */
   preferredModelId?: string | null;
+}
+
+/**
+ * KeyChain — 有序、惰性的 key 迭代器，KeyExecutor 直接使用。
+ * 失败/成功事件 fanout 到 KeyHealthStore。
+ */
+export interface KeyChain {
+  /** 取下一个可用 key；耗尽返回 null */
+  next(): Promise<ResolvedKey | null>;
+  /** 当前 key 调用失败，记录并跳过 */
+  reportFailure(key: ResolvedKey, classified: ClassifiedError): Promise<void>;
+  /** 当前 key 调用成功，重置健康 + 设 LastGood */
+  reportSuccess(key: ResolvedKey): Promise<void>;
+  /** chain 总长度（filter usable 后）— 0 时调用方应抛 NoAvailableKeyError */
+  readonly size: number;
+  /** 已尝试的 key 数 */
+  readonly triedCount: number;
 }
 
 /**
@@ -47,6 +85,7 @@ export class KeyResolverService {
     private readonly prisma: PrismaService,
     private readonly userApiKeys: UserApiKeysService,
     private readonly keyAssignments: KeyAssignmentsService,
+    @Optional() private readonly keyHealthStore?: KeyHealthStore,
   ) {}
 
   async resolveKey(
@@ -157,6 +196,10 @@ export class KeyResolverService {
         apiEndpoint: personal.apiEndpoint ?? null,
         provider,
         userId,
+        // PR-1 兼容：resolveKey 单 key 路径不知道 label（旧 getPersonalKey 不返回），
+        // 用 "default" 兜底；新调用方应改走 resolveKeyChain。
+        label: "default",
+        healthKeyId: buildPersonalKeyId(userId, provider, "default"),
         preferredModelId: personal.preferredModelId ?? null,
       };
     }
@@ -172,6 +215,7 @@ export class KeyResolverService {
         userId,
         assignmentId: assigned.assignmentId,
         keyId: assigned.keyId,
+        healthKeyId: buildAssignedKeyId(assigned.assignmentId),
       };
     }
 
@@ -179,9 +223,160 @@ export class KeyResolverService {
     throw new NoAvailableKeyError(provider);
   }
 
+  /**
+   * PR-1 (2026-05-05) failover 入口：返回有序 KeyChain，包含同 user/provider 下
+   * 所有 PERSONAL + ASSIGNED key（按 health 过滤后）。
+   *
+   * 排序：
+   *   1) LastGood（如有 + 仍在可用列表中）→ 队首
+   *   2) PERSONAL（label asc，"default" 优先）
+   *   3) ASSIGNED
+   *
+   * 返回的 KeyChain 在 KeyExecutor 中遍历调用：
+   *   while (key = chain.next()) {
+   *     try { call(key); chain.reportSuccess(key); return; }
+   *     catch (e) { chain.reportFailure(key, classify(e)); }
+   *   }
+   */
+  async resolveKeyChain(userId: string, provider: string): Promise<KeyChain> {
+    if (!userId) {
+      throw new UnauthorizedException("userId is required for key resolution");
+    }
+    const normalizedProvider = provider.toLowerCase();
+
+    const [personalList, assignedList] = await Promise.all([
+      this.userApiKeys
+        .listPersonalKeys(userId, normalizedProvider)
+        .catch((err) => {
+          this.logger.warn(
+            `listPersonalKeys failed: ${(err as Error).message}`,
+          );
+          return [];
+        }),
+      this.keyAssignments
+        .listActive(userId, normalizedProvider)
+        .catch((err) => {
+          this.logger.warn(
+            `listActive(assignments) failed: ${(err as Error).message}`,
+          );
+          return [];
+        }),
+    ]);
+
+    const candidates: ResolvedKey[] = [];
+    for (const p of personalList) {
+      candidates.push({
+        source: "PERSONAL",
+        apiKey: p.apiKey,
+        apiEndpoint: p.apiEndpoint ?? null,
+        provider: normalizedProvider,
+        userId,
+        label: p.label,
+        healthKeyId: buildPersonalKeyId(userId, normalizedProvider, p.label),
+        preferredModelId: p.preferredModelId ?? null,
+      });
+    }
+    for (const a of assignedList) {
+      candidates.push({
+        source: "ASSIGNED",
+        apiKey: a.apiKey,
+        apiEndpoint: a.apiEndpoint,
+        provider: normalizedProvider,
+        userId,
+        assignmentId: a.assignmentId,
+        keyId: a.keyId,
+        healthKeyId: buildAssignedKeyId(a.assignmentId),
+      });
+    }
+
+    // health 过滤
+    let usable = candidates;
+    if (this.keyHealthStore) {
+      const usableIds = await this.keyHealthStore.filterUsable(
+        candidates.map((c) => c.healthKeyId),
+      );
+      const usableSet = new Set(usableIds);
+      usable = candidates.filter((c) => usableSet.has(c.healthKeyId));
+    }
+
+    // LastGood 提到队首
+    if (this.keyHealthStore && usable.length > 1) {
+      const lastGoodId = await this.keyHealthStore.getLastGood(
+        userId,
+        normalizedProvider,
+      );
+      if (lastGoodId) {
+        const idx = usable.findIndex((k) => k.healthKeyId === lastGoodId);
+        if (idx > 0) {
+          const [hit] = usable.splice(idx, 1);
+          usable.unshift(hit);
+        }
+      }
+    }
+
+    return new MaterializedKeyChain(
+      usable,
+      this.keyHealthStore,
+      normalizedProvider,
+    );
+  }
+
   // ★ 2026-05-05 严格 BYOK 模式删除：resolveSystemKey / buildSystemResolved
   //   原 ADMIN fallback 调用方已删除（resolveKey 现在 PERSONAL/ASSIGNED 都
   //   无时直接 throw NoAvailableKeyError）。SYSTEM key 仅由
   //   ai-model-config.resolveApiKey 在"无 userId 上下文"分支自行查 secrets，
   //   不通过 KeyResolver 入口，避免被 user 调用链命中。
+}
+
+/**
+ * 物化 KeyChain：候选 key 在 resolveKeyChain 一次性 fetch 完成后传入，
+ * next() 仅做指针推进，O(1) 不再 hit DB。
+ */
+class MaterializedKeyChain implements KeyChain {
+  private cursor = 0;
+  private _triedCount = 0;
+
+  constructor(
+    private readonly keys: ResolvedKey[],
+    private readonly healthStore: KeyHealthStore | undefined,
+    private readonly provider: string,
+  ) {}
+
+  get size(): number {
+    return this.keys.length;
+  }
+
+  get triedCount(): number {
+    return this._triedCount;
+  }
+
+  async next(): Promise<ResolvedKey | null> {
+    if (this.cursor >= this.keys.length) return null;
+    const k = this.keys[this.cursor++];
+    this._triedCount++;
+    return k;
+  }
+
+  async reportFailure(
+    key: ResolvedKey,
+    classified: ClassifiedError,
+  ): Promise<void> {
+    if (!this.healthStore) return;
+    await this.healthStore.markFailure(
+      key.healthKeyId,
+      classified,
+      this.provider,
+    );
+  }
+
+  async reportSuccess(key: ResolvedKey): Promise<void> {
+    if (!this.healthStore) return;
+    // markSuccess 会从 healthKeyId 自解析 user/provider 来 setLastGood；
+    // assigned 类型 keyId 不带 user/provider，主动 hint。
+    await this.healthStore.markSuccess(
+      key.healthKeyId,
+      this.provider,
+      key.userId,
+    );
+  }
 }

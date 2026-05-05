@@ -15,15 +15,11 @@
  * Migrated from ai-app/rag/ to ai-engine/rag/pipeline/ for cross-module reuse.
  */
 
-import {
-  Injectable,
-  Logger,
-  InternalServerErrorException,
-} from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RequestContext } from "@/common/context/request-context";
-import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
+import { KeyExecutorService } from "@/modules/ai-infra/credentials/executor";
 import { EmbeddingService } from "../embedding";
 import { VectorService } from "../vector";
 import { AiChatService } from "@/modules/ai-engine/llm/services/ai-chat.service";
@@ -52,7 +48,7 @@ export class RAGPipelineService {
     private readonly vectorService: VectorService,
     private readonly aiChatService: AiChatService,
     private readonly configService: ConfigService,
-    private readonly userApiKeys: UserApiKeysService,
+    @Optional() private readonly keyExecutor?: KeyExecutorService,
   ) {}
 
   /**
@@ -100,7 +96,7 @@ export class RAGPipelineService {
     this.logger.log(
       `[RAG] Search results: ${searchResults.length} found, top scores: ${searchResults
         .slice(0, 3)
-        .map((r: any) => r.score?.toFixed(4))
+        .map((r) => r.score?.toFixed(4))
         .join(", ")}`,
     );
 
@@ -130,7 +126,7 @@ export class RAGPipelineService {
     this.logger.log(
       `[RAG] Ranked results before buildContext: count=${rankedResults.length}, minScore=${options.minScore}, topScores=[${rankedResults
         .slice(0, 3)
-        .map((r: any) => r.score?.toFixed(4))
+        .map((r) => r.score?.toFixed(4))
         .join(", ")}]`,
     );
 
@@ -298,7 +294,7 @@ Focus on being specific and informative.`;
         LIMIT ${limit}
       `;
 
-      return results.map((r: any) => ({
+      return results.map((r) => ({
         childChunkId: r.child_chunk_id,
         parentChunkId: r.parent_chunk_id,
         documentId: r.document_id,
@@ -420,19 +416,45 @@ Focus on being specific and informative.`;
     results: SearchResult[],
     topK: number,
   ): Promise<SearchResult[]> {
-    const cohereApiKey = await this.getCohereApiKey();
+    const userId = RequestContext.getUserId();
 
-    if (!cohereApiKey) {
+    // PR-5 (2026-05-05) BYOK failover: 用户上下文 + KeyExecutor 可用时走 failover 链路
+    if (userId && this.keyExecutor) {
+      try {
+        return await this.keyExecutor.execute(userId, "cohere", async (key) =>
+          this.callCohereRerank(query, results, topK, key.apiKey),
+        );
+      } catch (error) {
+        // 用户没配 cohere / 全部 key 都失败 → skip rerank（行为同旧逻辑）
+        this.logger.warn(
+          `[rerank] cohere failover failed, skipping rerank: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+        return results.slice(0, topK);
+      }
+    }
+
+    // 系统路径（无用户上下文 / KeyExecutor 不可用）：admin 系统级 cohere key 单 key 调用
+    const systemKey = await this.getCohereSystemKey();
+    if (!systemKey) {
       this.logger.warn("Cohere API key not configured, skipping rerank");
       return results.slice(0, topK);
     }
+    return await this.callCohereRerank(query, results, topK, systemKey);
+  }
 
-    // Call Cohere Rerank API
+  private async callCohereRerank(
+    query: string,
+    results: SearchResult[],
+    topK: number,
+    apiKey: string,
+  ): Promise<SearchResult[]> {
     const response = await fetch("https://api.cohere.com/v2/rerank", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${cohereApiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: RERANK_MODEL,
@@ -444,54 +466,28 @@ Focus on being specific and informative.`;
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new InternalServerErrorException(`Cohere rerank failed: ${error}`);
+      const errBody = await response.text();
+      // 把 status 包进 error 让 KeyErrorClassifier 能识别（401 → DEAD，429 → COOLDOWN）
+      const err = new Error(`Cohere rerank failed: ${errBody}`) as Error & {
+        status?: number;
+      };
+      err.status = response.status;
+      throw err;
     }
 
     const data = await response.json();
 
-    // Reorder results based on rerank scores
-    const rerankedResults: SearchResult[] = data.results.map(
+    return data.results.map(
       (r: { index: number; relevance_score: number }) => ({
         ...results[r.index],
         rerankScore: r.relevance_score,
-        score: r.relevance_score, // Use rerank score as primary score
+        score: r.relevance_score,
       }),
     );
-
-    return rerankedResults;
   }
 
-  /**
-   * Get Cohere API key for rerank.
-   *
-   * BYOK 优先级：
-   *   1. 当前请求上下文的用户，有活跃的 Cohere Personal Key → 用它
-   *   2. 系统设置 systemSetting "cohere.apiKey"（管理员填，非 BYOK fallback，仅 admin 使用）
-   *   3. 环境变量 COHERE_API_KEY（同上）
-   *
-   * 注意：若用户没自己的 Cohere Key，**直接返回 null**——rerank 阶段会 skip，
-   * 不再掏 admin/系统的 Cohere 账单。UI 侧提示用户去配 Cohere/Voyage/Jina 的 free tier。
-   */
-  private async getCohereApiKey(): Promise<string | null> {
-    const userId = RequestContext.getUserId();
-    if (userId) {
-      try {
-        const personal = await this.userApiKeys.getPersonalKey(
-          userId,
-          "cohere",
-        );
-        if (personal?.apiKey) return personal.apiKey;
-      } catch (error) {
-        this.logger.warn(
-          `[getCohereApiKey] Failed to load user Cohere key for ${userId}: ${(error as Error).message}`,
-        );
-      }
-      // 非管理员用户没配 Cohere Key → 不 fallback 到系统级，跳过 rerank
-      return null;
-    }
-
-    // 无用户上下文（admin / system job）→ 可用系统级 fallback
+  /** 仅 admin / system job 用的系统级 cohere key 解析（与 BYOK 链路独立） */
+  private async getCohereSystemKey(): Promise<string | null> {
     const setting = await this.prisma.systemSetting.findUnique({
       where: { key: "cohere.apiKey" },
     });
@@ -517,7 +513,7 @@ Focus on being specific and informative.`;
       this.logger.warn(
         `[RAG buildContext] All results filtered out! Top scores were: ${results
           .slice(0, 5)
-          .map((r: any) => r.score?.toFixed(6))
+          .map((r) => r.score?.toFixed(6))
           .join(", ")}`,
       );
     }
@@ -558,11 +554,11 @@ Focus on being specific and informative.`;
     let totalTokens = 0;
 
     // Sort by score and add to context until token limit
-    const sortedParents = parentChunks.sort((a: any, b: any) => {
+    const sortedParents = parentChunks.sort((a, b) => {
       const scoreA =
-        filteredResults.find((r: any) => r.parentChunkId === a.id)?.score || 0;
+        filteredResults.find((r) => r.parentChunkId === a.id)?.score ?? 0;
       const scoreB =
-        filteredResults.find((r: any) => r.parentChunkId === b.id)?.score || 0;
+        filteredResults.find((r) => r.parentChunkId === b.id)?.score ?? 0;
       return scoreB - scoreA;
     });
 

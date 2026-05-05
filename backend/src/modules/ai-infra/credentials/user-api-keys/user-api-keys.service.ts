@@ -20,6 +20,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import { ApiKeyMode } from "./dto";
+import { KeyHealthStore, buildPersonalKeyId } from "../health";
 
 /** Valid provider name pattern */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
@@ -107,6 +108,7 @@ export class UserApiKeysService {
     private readonly creditsService: CreditsService,
     private readonly encryption: EncryptionService,
     @Optional() private readonly cacheService?: CacheService,
+    @Optional() private readonly keyHealthStore?: KeyHealthStore,
   ) {}
 
   private encrypt(text: string) {
@@ -345,6 +347,19 @@ export class UserApiKeysService {
     // Step 4: 使缓存失效
     await this.invalidateUserKeyCache(userId);
 
+    // PR-1 (2026-05-05) failover: rotate / 新增 / endpoint 改时清 LastGood + 旧 KeyHealth
+    //   - rotate（同 label 改 apiKey）：旧 KeyHealth 状态对新 apiKey 不再适用，必须清
+    //   - 新增 label：LastGood 可能还指向 stale key，强制重选
+    if (this.keyHealthStore) {
+      const keyId = buildPersonalKeyId(
+        userId,
+        normalizedProvider,
+        normalizedLabel,
+      );
+      await this.keyHealthStore.delete(keyId);
+      await this.keyHealthStore.clearLastGood(userId, normalizedProvider);
+    }
+
     // Step 5 (BYOK v2)：如果这是该用户首次配置 Personal Key，标记引导完成
     if (prismaMode === UserApiKeyMode.PERSONAL) {
       await this.markOnboardedIfNeeded(userId);
@@ -415,6 +430,17 @@ export class UserApiKeysService {
 
     // 使缓存失效
     await this.invalidateUserKeyCache(userId);
+
+    // PR-1 (2026-05-05) failover: 清理 KeyHealth 记录 + LastGood
+    if (this.keyHealthStore) {
+      const keyId = buildPersonalKeyId(
+        userId,
+        normalizedProvider,
+        normalizedLabel,
+      );
+      await this.keyHealthStore.delete(keyId);
+      await this.keyHealthStore.clearLastGood(userId, normalizedProvider);
+    }
 
     return { success: true };
   }
@@ -579,6 +605,61 @@ export class UserApiKeysService {
     if (this.cacheService) {
       await this.cacheService.invalidateUserCache(userId);
     }
+  }
+
+  /**
+   * PR-1 (2026-05-05) failover: 列出该 user/provider 下所有可用 PERSONAL key（解密后）。
+   *
+   * 排序：label asc（"default" 字典序最小，自然第一），同 label 内 lastTestedAt desc。
+   * 仅返回 isActive=true & PERSONAL mode；DONATED key 不进个人调用链路。
+   *
+   * 调用方（KeyResolver.resolveKeyChain）拿到列表后再叠加 KeyHealthStore.filterUsable
+   * 过滤 DEAD/COOLDOWN，并把 LastGood 提到队首。
+   */
+  async listPersonalKeys(
+    userId: string,
+    provider: string,
+  ): Promise<
+    Array<{
+      keyRowId: string;
+      label: string;
+      apiKey: string;
+      apiEndpoint: string | null;
+      preferredModelId: string | null;
+    }>
+  > {
+    const normalizedProvider = provider.toLowerCase();
+    const keys = await this.prisma.userApiKey.findMany({
+      where: {
+        userId,
+        provider: normalizedProvider,
+        mode: UserApiKeyMode.PERSONAL,
+        isActive: true,
+      },
+      orderBy: [
+        { label: "asc" },
+        { lastTestedAt: { sort: "desc", nulls: "last" } },
+      ],
+    });
+    const result: Array<{
+      keyRowId: string;
+      label: string;
+      apiKey: string;
+      apiEndpoint: string | null;
+      preferredModelId: string | null;
+    }> = [];
+    for (const k of keys) {
+      const decrypted = this.decrypt(k.encryptedValue, k.iv);
+      if (!decrypted) continue;
+      result.push({
+        keyRowId: k.id,
+        label: k.label,
+        apiKey: decrypted,
+        apiEndpoint: k.apiEndpoint,
+        preferredModelId: k.preferredModelId,
+      });
+    }
+    return result;
   }
 
   /**

@@ -1,0 +1,294 @@
+import { CacheService } from "../../../../../common/cache";
+import {
+  KeyHealthStore,
+  buildPersonalKeyId,
+  parseKeyId,
+} from "../key-health.store";
+import { ClassifiedError } from "../key-error-classifier";
+
+/**
+ * In-memory CacheService stub — 模拟 nestjs cache-manager 行为，避免依赖 Redis。
+ * 提供 store.keys 实现以测试 account-wide 429 启发式。
+ */
+function createStubCache(): CacheService & {
+  __dump: () => Map<string, unknown>;
+} {
+  const map = new Map<string, { value: unknown; expiresAt: number }>();
+  const expired = (k: string) => {
+    const v = map.get(k);
+    if (!v) return true;
+    if (v.expiresAt > 0 && v.expiresAt < Date.now()) {
+      map.delete(k);
+      return true;
+    }
+    return false;
+  };
+  const stub: Record<string, unknown> = {
+    get: jest.fn(async (k: string) => {
+      if (expired(k)) return undefined;
+      return map.get(k)?.value;
+    }),
+    set: jest.fn(async (k: string, v: unknown, ttlSeconds: number) => {
+      map.set(k, {
+        value: v,
+        expiresAt: ttlSeconds > 0 ? Date.now() + ttlSeconds * 1000 : 0,
+      });
+    }),
+    del: jest.fn(async (k: string) => {
+      map.delete(k);
+    }),
+    cacheManager: {
+      stores: [
+        {
+          keys: async (pattern: string) => {
+            const prefix = pattern.replace(/\*$/, "");
+            return Array.from(map.keys()).filter(
+              (k) => !expired(k) && k.startsWith(prefix),
+            );
+          },
+        },
+      ],
+    },
+    __dump: () => new Map([...map].map(([k, v]) => [k, v.value])),
+  };
+  return stub as unknown as CacheService & {
+    __dump: () => Map<string, unknown>;
+  };
+}
+
+const userId = "user-1";
+const provider = "openai";
+
+const authFailedClassified: ClassifiedError = {
+  action: "NEXT_KEY",
+  reason: "AUTH_FAILED",
+  cooldownMs: Number.POSITIVE_INFINITY,
+  markDead: true,
+  shouldStopChain: false,
+  originalMessage: "Unauthorized",
+  httpStatus: 401,
+};
+
+const rateLimitClassified: ClassifiedError = {
+  action: "NEXT_KEY",
+  reason: "RATE_LIMIT_KEY",
+  cooldownMs: 60_000,
+  markDead: false,
+  shouldStopChain: false,
+  originalMessage: "rate limited",
+  httpStatus: 429,
+};
+
+describe("KeyHealthStore", () => {
+  let store: KeyHealthStore;
+  let cache: ReturnType<typeof createStubCache>;
+
+  beforeEach(() => {
+    cache = createStubCache();
+    store = new KeyHealthStore(cache);
+  });
+
+  describe("filterUsable", () => {
+    it("returns all keyIds when no records", async () => {
+      const out = await store.filterUsable([
+        "personal:u1:openai:a",
+        "personal:u1:openai:b",
+      ]);
+      expect(out).toEqual(["personal:u1:openai:a", "personal:u1:openai:b"]);
+    });
+
+    it("filters out DEAD keys", async () => {
+      await store.markFailure("personal:u1:openai:a", authFailedClassified);
+      const out = await store.filterUsable([
+        "personal:u1:openai:a",
+        "personal:u1:openai:b",
+      ]);
+      expect(out).toEqual(["personal:u1:openai:b"]);
+    });
+
+    it("filters out COOLDOWN keys (until expired)", async () => {
+      await store.markFailure("personal:u1:openai:a", rateLimitClassified);
+      const out = await store.filterUsable(["personal:u1:openai:a"]);
+      expect(out).toEqual([]);
+    });
+
+    it("returns COOLDOWN key after cooldown expires", async () => {
+      jest.useFakeTimers();
+      const now = Date.now();
+      jest.setSystemTime(now);
+      await store.markFailure("personal:u1:openai:a", rateLimitClassified);
+      // advance past 60s
+      jest.setSystemTime(now + 61_000);
+      const out = await store.filterUsable(["personal:u1:openai:a"]);
+      // record state still says COOLDOWN until > now+60s; check post-expiry
+      expect(out).toEqual(["personal:u1:openai:a"]);
+      jest.useRealTimers();
+    });
+  });
+
+  describe("markFailure / markSuccess state machine", () => {
+    it("401 → DEAD with cooldownUntil = MAX_SAFE_INTEGER", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      await store.markFailure(keyId, authFailedClassified);
+      const rec = await store.get(keyId);
+      expect(rec.state).toBe("DEAD");
+      expect(rec.cooldownUntil).toBe(Number.MAX_SAFE_INTEGER);
+      expect(rec.failureCount).toBe(1);
+      expect(rec.lastReason).toBe("AUTH_FAILED");
+    });
+
+    it("429 → COOLDOWN with cooldownUntil ≈ now + 60s", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      const before = Date.now();
+      await store.markFailure(keyId, rateLimitClassified);
+      const rec = await store.get(keyId);
+      expect(rec.state).toBe("COOLDOWN");
+      expect(rec.cooldownUntil).toBeGreaterThanOrEqual(before + 60_000 - 100);
+      expect(rec.cooldownUntil).toBeLessThanOrEqual(before + 60_000 + 1000);
+    });
+
+    it("markSuccess resets state to HEALTHY + sets LastGood", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      await store.markFailure(keyId, rateLimitClassified);
+      await store.markSuccess(keyId);
+      const rec = await store.get(keyId);
+      expect(rec.state).toBe("HEALTHY");
+      expect(rec.failureCount).toBe(0);
+      expect(rec.lastSuccessAt).not.toBeNull();
+      // LastGood should be set
+      const last = await store.getLastGood(userId, provider);
+      expect(last).toBe(keyId);
+    });
+
+    it("markFailure(401) clears LastGood if it was the dead key", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      await store.markSuccess(keyId);
+      expect(await store.getLastGood(userId, provider)).toBe(keyId);
+
+      await store.markFailure(keyId, authFailedClassified);
+      expect(await store.getLastGood(userId, provider)).toBeNull();
+    });
+
+    it("forceHealthy resets DEAD → HEALTHY", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      await store.markFailure(keyId, authFailedClassified);
+      expect((await store.get(keyId)).state).toBe("DEAD");
+
+      await store.forceHealthy(keyId);
+      expect((await store.get(keyId)).state).toBe("HEALTHY");
+    });
+  });
+
+  describe("LastGood TTL + manual ops", () => {
+    it("setLastGood / getLastGood / clearLastGood roundtrip", async () => {
+      await store.setLastGood(userId, provider, "personal:u1:openai:default");
+      expect(await store.getLastGood(userId, provider)).toBe(
+        "personal:u1:openai:default",
+      );
+      await store.clearLastGood(userId, provider);
+      expect(await store.getLastGood(userId, provider)).toBeNull();
+    });
+
+    it("LastGood is per-(userId, provider) — separate users independent", async () => {
+      await store.setLastGood("u1", "openai", "personal:u1:openai:a");
+      await store.setLastGood("u2", "openai", "personal:u2:openai:b");
+      expect(await store.getLastGood("u1", "openai")).toBe(
+        "personal:u1:openai:a",
+      );
+      expect(await store.getLastGood("u2", "openai")).toBe(
+        "personal:u2:openai:b",
+      );
+    });
+  });
+
+  describe("Provider-level cooldown", () => {
+    it("isProviderCooldown false initially", async () => {
+      expect(await store.isProviderCooldown(provider)).toBe(false);
+    });
+
+    it("setProviderCooldown → isProviderCooldown true", async () => {
+      await store.setProviderCooldown(provider, 5 * 60_000);
+      expect(await store.isProviderCooldown(provider)).toBe(true);
+    });
+
+    it("clearProviderCooldown removes flag", async () => {
+      await store.setProviderCooldown(provider, 5 * 60_000);
+      await store.clearProviderCooldown(provider);
+      expect(await store.isProviderCooldown(provider)).toBe(false);
+    });
+
+    it("account-wide 429 heuristic: 2+ keys 429 in 30s → setProviderCooldown", async () => {
+      await store.markFailure(
+        "personal:u1:openai:a",
+        rateLimitClassified,
+        provider,
+      );
+      // single key 429 → no provider cooldown
+      expect(await store.isProviderCooldown(provider)).toBe(false);
+
+      await store.markFailure(
+        "personal:u1:openai:b",
+        rateLimitClassified,
+        provider,
+      );
+      // two keys 429 → provider cooldown triggered
+      expect(await store.isProviderCooldown(provider)).toBe(true);
+    });
+  });
+
+  describe("parseKeyId", () => {
+    it("parses personal keyId", () => {
+      expect(parseKeyId("personal:user-1:openai:default")).toEqual({
+        type: "personal",
+        userId: "user-1",
+        provider: "openai",
+        label: "default",
+      });
+    });
+
+    it("parses assigned keyId", () => {
+      expect(parseKeyId("assigned:abc-123")).toEqual({
+        type: "assigned",
+        assignmentId: "abc-123",
+      });
+    });
+
+    it("parses system keyId", () => {
+      expect(parseKeyId("system:OPENAI_KEY")).toEqual({
+        type: "system",
+        secretName: "OPENAI_KEY",
+      });
+    });
+
+    it("returns null for malformed keyId", () => {
+      expect(parseKeyId("invalid")).toBeNull();
+      expect(parseKeyId("personal:foo")).toBeNull();
+    });
+  });
+
+  describe("delete", () => {
+    it("delete removes the health record", async () => {
+      const keyId = buildPersonalKeyId(userId, provider, "default");
+      await store.markFailure(keyId, authFailedClassified);
+      await store.delete(keyId);
+      const rec = await store.get(keyId);
+      expect(rec.state).toBe("HEALTHY"); // default record (no state)
+    });
+  });
+
+  describe("graceful degradation (no cache)", () => {
+    it("returns all keyIds when CacheService unavailable", async () => {
+      const noCacheStore = new KeyHealthStore(undefined);
+      const out = await noCacheStore.filterUsable(["a", "b"]);
+      expect(out).toEqual(["a", "b"]);
+    });
+
+    it("markFailure / markSuccess no-op when cache unavailable", async () => {
+      const noCacheStore = new KeyHealthStore(undefined);
+      await expect(
+        noCacheStore.markFailure("a", authFailedClassified),
+      ).resolves.toBeUndefined();
+      await expect(noCacheStore.markSuccess("a")).resolves.toBeUndefined();
+    });
+  });
+});
