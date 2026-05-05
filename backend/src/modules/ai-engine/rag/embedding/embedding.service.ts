@@ -13,6 +13,7 @@ import {
   Injectable,
   Logger,
   ServiceUnavailableException,
+  Optional,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -82,6 +83,10 @@ export class EmbeddingService {
     private readonly secretsService: SecretsService,
     private readonly aiApiCallerService: AiApiCallerService,
     private readonly configService: ConfigService,
+    /** v5.1 R0.5-E B-#6 (2026-05-05): EMBEDDING_REQUEST hook seam，可选注入。
+     *  plugin 可拦截 / 替换 embedding（缓存 / fallback provider）。 */
+    @Optional()
+    private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
   ) {}
 
   private isRateLimitError(err: unknown): boolean {
@@ -260,6 +265,43 @@ export class EmbeddingService {
     }
 
     const config = await this.getEmbeddingConfig();
+
+    // v5.1 R0.5-E B-#6 (2026-05-05): EMBEDDING_REQUEST hook seam
+    //   plugin 可：(a) 缓存命中时 abort 注入 cached 结果；(b) 切换 fallback provider；
+    //   (c) 注入测试 fixture（spec/dev）。无 plugin 注册时 zero-cost fast-path。
+    if (this.hookBus) {
+      const requestPayload = {
+        inputs: texts,
+        modelId: config.modelId,
+        provider: config.provider,
+        dimensions: config.dimensions,
+      };
+      try {
+        return await this.hookBus.fire(
+          "engine.embedding.request",
+          requestPayload,
+          () => this.generateEmbeddingsTerminal(texts, config),
+        );
+      } catch (err) {
+        // HookAbortError 携带 cached payload 时，让 plugin 的 abortPayload 直接当结果
+        const abortPayload = (err as { abortPayload?: EmbeddingBatch })
+          ?.abortPayload;
+        if (abortPayload && Array.isArray(abortPayload.embeddings)) {
+          return abortPayload;
+        }
+        throw err;
+      }
+    }
+    return this.generateEmbeddingsTerminal(texts, config);
+  }
+
+  /**
+   * EMBEDDING_REQUEST hook 包装的实际 terminal —— 原 generateEmbeddings 主体。
+   */
+  private async generateEmbeddingsTerminal(
+    texts: string[],
+    config: EmbeddingModelConfig,
+  ): Promise<EmbeddingBatch> {
     const allEmbeddings: number[][] = [];
     let totalTokens = 0;
 
