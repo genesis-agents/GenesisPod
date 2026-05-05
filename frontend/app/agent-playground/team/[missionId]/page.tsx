@@ -702,9 +702,13 @@ export default function MissionDetailPage() {
               onLeaderClick={() => setLeaderChatOpen(true)}
               onResearchTeamClick={() => setResearchTeamOpen(true)}
               onRerun={() => {
+                // "开始"按钮 = fresh：清 checkpoint，全新从头跑
                 void (async () => {
                   try {
-                    const { missionId: newId } = await rerunMission(missionId);
+                    const { missionId: newId } = await rerunMission(
+                      missionId,
+                      'fresh'
+                    );
                     router.push(`/agent-playground/team/${newId}`);
                   } catch (e) {
                     window.alert(
@@ -714,16 +718,16 @@ export default function MissionDetailPage() {
                 })();
               }}
               onUpdate={() => {
-                // ★ 2026-05-05 修复：原代码跳到 /team?topic=...&depth=...&language=...
-                //   全屏新建页只 prefill 3 字段，根本不是"更新"——是新建。
-                //   对齐 Topic Insight TopicDetail.handleContinueResearch
-                //   ('incremental' 模式：保留已完成任务，只跑未完成的)：
-                //   直接调 rerunMission API，后端 rerunFullMission 内部
-                //   clone checkpoint → 新 mission 跳过已完成 stage = 在既有
-                //   基础上增量更新。复用原 mission 全部 input 字段（不只 3 个）。
+                // "更新"按钮 = incremental：clone checkpoint，跳过已完成 stage
+                // 对齐 Topic Insight handleContinueResearch
+                //   ('incremental' 模式：保留已完成任务，只跑未完成的维度)
+                // 复用原 mission 全部 input 字段（不只 topic/depth/language 3 个）
                 void (async () => {
                   try {
-                    const { missionId: newId } = await rerunMission(missionId);
+                    const { missionId: newId } = await rerunMission(
+                      missionId,
+                      'incremental'
+                    );
                     router.push(`/agent-playground/team/${newId}`);
                   } catch (e) {
                     window.alert(
