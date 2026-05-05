@@ -84,7 +84,7 @@ export class AiModelDiscoveryService {
   async fetchAvailableModels(
     provider: string,
     apiKey: string,
-    _apiEndpoint?: string,
+    apiEndpoint?: string,
     modelType?: string,
   ): Promise<FetchModelsResult> {
     if (!apiKey) {
@@ -176,8 +176,35 @@ export class AiModelDiscoveryService {
         case "cohere":
           return this.getCohereModels(modelType);
 
-        default:
-          return { success: false, error: `Unknown provider: ${provider}` };
+        case "voyage":
+        case "voyageai":
+          // ★ 2026-05-05: voyage 是 BYOK 预定义 provider（commit d5f57e3eb
+          //   加入），endpoint hardcoded https://api.voyageai.com/v1，OpenAI-
+          //   compatible /models 协议
+          return await this.fetchOpenAICompatibleModels(
+            "https://api.voyageai.com/v1/models",
+            apiKey,
+            "Voyage AI",
+            modelType,
+          );
+
+        default: {
+          // ★ 2026-05-05: byok pr-3 自定义 Provider（OpenAI 兼容）：
+          //   用户传了 apiEndpoint → 按 OpenAI /models 协议拉；缺则返错。
+          if (apiEndpoint?.trim()) {
+            const url = apiEndpoint.replace(/\/+$/, "") + "/models";
+            return await this.fetchOpenAICompatibleModels(
+              url,
+              apiKey,
+              provider,
+              modelType,
+            );
+          }
+          return {
+            success: false,
+            error: `Unknown provider: ${provider}. Provide a custom API endpoint to fetch models.`,
+          };
+        }
       }
     } catch (error: unknown) {
       const errorResponse = (
