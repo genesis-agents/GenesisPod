@@ -113,6 +113,11 @@ export class ChatFacade {
   // ==================== Core Chat ====================
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
+    // ★ 2026-05-05 [严格 BYOK 风险 2] userId 兜底由下游 AiChatService.chat
+    //   line 1337 防呆（BYOK v2: userId is required → UnauthorizedException）。
+    //   ChatFacade 这一层不重复检查，避免大量已有 spec mock 路径 break。
+    //   双层防御本身是冗余 — 单层 ai-chat 防呆已足够拦截未登录 / 后台误调。
+
     // Step 0: Pre-check credits (avoid executing LLM call when user has no credits)
     const creditCheckResult = await this.preCheckCredits(request);
     if (creditCheckResult !== null) {

@@ -1338,7 +1338,8 @@ export class AiChatService {
       this.logger.error(
         "[chat] Refused: no userId in params nor RequestContext. " +
           "Async tasks must wrap the call in withUserContext(userId, ...) " +
-          "so KeyResolver can route to PERSONAL/ASSIGNED (user) or SYSTEM (admin).",
+          "so KeyResolver can route to PERSONAL/ASSIGNED. " +
+          "★ 2026-05-05 严格 BYOK：所有用户（含 ADMIN）必须配 BYOK，不再 fallback SYSTEM。",
       );
       throw new UnauthorizedException(
         "BYOK v2: userId is required. Wrap async calls in withUserContext.",
