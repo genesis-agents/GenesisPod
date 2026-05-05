@@ -10,6 +10,15 @@
  *   - stage 文件从平均 250 行降到 100 行（业务逻辑 + 配置）
  *   - 让 ai-app stage 文件从"代码模板"向"配置驱动模板"演进一大步
  *
+ * 适用范围：
+ *   ✅ 单业务调用 stage（如 leader plan / analyst synthesize / writer single-shot）
+ *   ⚠️ 多迭代 stage（如 per-dim research / per-chunk write）需要外层 wrapper
+ *      + 内层手动 emit per-iteration —— 仍可用本 wrapper 包外层
+ *   ⚠️ 多 skip-condition stage（如 thorough+ only outline planner）—— 早 return
+ *      场景下仍需手动 emit "skipped" event，wrapper 仅包"非 skip 路径"
+ *
+ * 渐进式迁移建议：每 PR 迁 1-2 stage，跑 spec 验证后再下一个。
+ *
  * 用法：
  *   await runWithStageInstrumentation(ctx, deps, {
  *     eventPrefix: "<ai-app>",  // 由 ai-app 提供，不硬编码
