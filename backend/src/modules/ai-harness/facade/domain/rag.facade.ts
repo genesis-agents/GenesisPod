@@ -341,6 +341,11 @@ export class RAGFacade {
 
   // ==================== Embeddings ====================
 
+  /**
+   * @deprecated [task #24] 优先用 embeddingGenerateBatch（即使单条也用 batch
+   * API 单调用：1 次 HTTP，401 时只触发 1 次 ERROR + auth-circuit-break）。
+   * 本方法保留作向后兼容，新代码不应使用。后续 PR 把全部 caller 迁完后删除。
+   */
   async embeddingGenerate(text: string): Promise<EmbeddingResult | null> {
     return (await this.knowledge?.embedding?.generateEmbedding(text)) ?? null;
   }
