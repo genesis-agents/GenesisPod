@@ -1,7 +1,7 @@
 /**
  * SpecBasedAgent — 声明式 spec 驱动的 IAgent 实现
  *
- * 目标架构 v2（docs/design/{app}-harness-redesign/11-target-architecture.md）：
+ * 目标架构 v2（docs/architecture/ai-app/topic-insights/harness-redesign/11-target-architecture.md）：
  * L3 App 只写 IAgentSpec，本类把 spec 转成可执行的 IAgent：
  *   - buildSystemPrompt / buildUserPrompt → 构造 LLM 输入
  *   - LlmExecutor.execute → Zod 校验 + error-fed retry + stub 模式

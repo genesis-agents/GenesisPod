@@ -1,7 +1,7 @@
 /**
  * RuntimeEnvironmentService 公共类型契约
  *
- * 设计文档：docs/design/{app}-harness-redesign/11-capability-discovery.md
+ * 设计文档：docs/architecture/ai-app/topic-insights/harness-redesign/11-capability-discovery.md
  *
  * 注意：这是 L2 AI Engine runtime 层通用契约——**不含任何 AI App 特定概念**
  * （无 "{app}"、"harness"、"research-depth" 等）。

@@ -1,7 +1,7 @@
 /**
  * SOTA Runtime · Shared Types（通用 DSL，零业务字段）
  *
- * 方案文档：docs/design/{app}-harness-redesign/30-sota-task-centric-architecture.md §0.3 §4
+ * 方案文档：docs/architecture/ai-app/topic-insights/harness-redesign/30-sota-task-centric-architecture.md §0.3 §4
  *
  * 架构归属硬约束（方案 §0.1）：
  *   - 本文件不得 import 任何 ai-app/** 业务 model

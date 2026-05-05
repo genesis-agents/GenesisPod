@@ -7,7 +7,7 @@
  * - 若 spec 提供 validateBusinessRules，Zod 成功后调用；抛错同 Zod 失败处理
  * - 返回强类型 TOutput + tokens/cost/model/retries
  *
- * 目标架构定位（docs/design/{app}-harness-redesign/11-target-architecture.md）：
+ * 目标架构定位（docs/architecture/ai-app/topic-insights/harness-redesign/11-target-architecture.md）：
  * 本类是 L2 Agent 运行时的一等公民，所有 AI App 通过 AgentFactory 创建 Agent 时共用。
  * 原 L3 ai-app/{app}/harness/llm/LlmInvokerService 将在 P3 删除（能力全部上提至此）。
  */
