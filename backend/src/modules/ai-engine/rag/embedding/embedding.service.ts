@@ -78,6 +78,16 @@ export class EmbeddingService {
   private static readonly RETRY_MAX_ATTEMPTS = 3;
   private static readonly RETRY_BASE_DELAY_MS = 1000; // 1s, 2s, 4s 指数退避
 
+  // ★ 2026-05-05 P0 修复：401-aware 熔断器（系统配置失效保护）
+  //   线上观察：DB EMBEDDING 模型 secretKey → Secret Manager 失效 OpenAI key
+  //   → 单 mission 524 次 401 ERROR 刷屏。401 不应重试（认证失败重试无意义），
+  //   也不应每次都 ERROR 刷屏。逻辑：
+  //   - 第一次 401 → ERROR + invalidate config cache（让 admin 改了 key 后能立刻生效）
+  //   - cooldown 期内（5min）后续 401 → 静默（return cached error / 上游 fallback）
+  //   - cooldown 到期 → 重置，给一次机会重试（admin 可能已改 key）
+  private authFailedUntil = 0;
+  private static readonly AUTH_FAILURE_COOLDOWN_MS = 5 * 60_000; // 5 分钟
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
@@ -92,6 +102,18 @@ export class EmbeddingService {
   private isRateLimitError(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err);
     return /429|rate.?limit|too many requests/i.test(msg);
+  }
+
+  /**
+   * ★ 2026-05-05 P0 修复：检测 401（认证失败 = key 失效）
+   */
+  private isAuthError(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return /\b401\b|unauthorized|invalid.*api.?key|authentication/i.test(msg);
+  }
+
+  private isAuthCircuitOpen(): boolean {
+    return Date.now() < this.authFailedUntil;
   }
 
   /**
@@ -316,6 +338,13 @@ export class EmbeddingService {
       );
     }
 
+    // ★ 2026-05-05 P0 修复：401 cooldown 期间直接 throw，不发请求 + 不刷 ERROR
+    if (this.isAuthCircuitOpen()) {
+      throw new Error(
+        `Embedding auth-circuit-open (key invalid). Cooldown until ${new Date(this.authFailedUntil).toISOString()}. Update key in Admin > AI Models.`,
+      );
+    }
+
     // Process in batches
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
@@ -353,14 +382,35 @@ export class EmbeddingService {
               continue;
             }
           }
+          // ★ 2026-05-05 P0 修复：401 立即触发 auth circuit-break + invalidate
+          //   cache。不刷 524 次 ERROR，让 admin 改 key 后下次能立刻生效。
+          if (this.isAuthError(error)) {
+            this.authFailedUntil =
+              Date.now() + EmbeddingService.AUTH_FAILURE_COOLDOWN_MS;
+            this.clearConfigCache();
+            // 仅打一次 ERROR（cooldown 期间后续 401 走 circuit-open 短路）
+            this.logger.error(
+              `[embedding] 401 auth failed for ${config.modelId} (${config.apiFormat}). ` +
+                `Key invalid or expired. Auth-circuit-open for ${EmbeddingService.AUTH_FAILURE_COOLDOWN_MS / 1000}s. ` +
+                `Update key in Admin > AI Models. Original error: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
           // 非 429 不重试，直接抛
           break;
         }
       }
       if (!succeeded) {
-        this.logger.error(
-          `Failed to generate embeddings with ${config.modelId} (${config.apiFormat}) after retries: ${lastError}`,
-        );
+        // ★ 2026-05-05 P0 修复：401 已经在 catch 内打过 ERROR + 触发 circuit-break，
+        //   这里只 debug，避免双重刷屏；其他错误正常 ERROR
+        if (this.isAuthError(lastError)) {
+          this.logger.debug(
+            `[embedding] auth error finalized (already logged once + circuit-open)`,
+          );
+        } else {
+          this.logger.error(
+            `Failed to generate embeddings with ${config.modelId} (${config.apiFormat}) after retries: ${lastError}`,
+          );
+        }
         throw lastError;
       }
     }
