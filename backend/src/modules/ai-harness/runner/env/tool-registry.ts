@@ -71,6 +71,11 @@ export interface Tool<TArgs = Record<string, unknown>, TData = unknown> {
 }
 
 @Injectable()
+/**
+ * ★ 2026-05-05 [task #9] 名字冲突由审计 P2 标出（与 ai-engine ToolRegistry 同名）。
+ * 重命名 → AgentToolRegistry 牵涉 15+ harness 内文件，先暴露 type alias 让 caller
+ * 渐进迁移，避免单 PR 大爆炸。新代码 import { AgentToolRegistry } 等价 ToolRegistry。
+ */
 export class ToolRegistry {
   private readonly logger = new Logger(ToolRegistry.name);
   private readonly tools = new Map<string, Tool>();
@@ -164,3 +169,7 @@ export class ToolRegistry {
     return Array.from(this.tools.keys());
   }
 }
+
+// ★ 2026-05-05 [task #9 半完成] 提供 AgentToolRegistry 别名，新代码引用此名
+// 与 ai-engine ToolRegistry 区分，存量 import 渐进迁移（不阻塞当前 PR）。
+export { ToolRegistry as AgentToolRegistry };

@@ -78,7 +78,7 @@ import { SkillLearner, SkillLearningCoordinator } from "./agents/learning";
 // SOTA task-centric runner/planning services available to AI Apps.
 import { ReActRunner } from "./runner/env/react-runner";
 import { AgentTracer } from "./tracing/tracer/otel-tracer";
-import { ToolRegistry } from "./runner/env/tool-registry";
+import { AgentToolRegistry } from "./runner/env/tool-registry";
 import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orchestrator";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 import { SpanExporter } from "./tracing/tracer/span-exporter";
@@ -269,7 +269,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
     // SOTA task-centric runner/planning services.
     AgentTracer,
-    ToolRegistry,
+    AgentToolRegistry,
     ReActRunner,
     MissionOrchestrator,
 
@@ -369,7 +369,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
 
     // â˜… SOTA runtime exports
     AgentTracer,
-    ToolRegistry,
+    AgentToolRegistry,
     ReActRunner,
     MissionOrchestrator,
     ModelPricingRegistry,
