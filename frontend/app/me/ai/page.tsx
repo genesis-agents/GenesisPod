@@ -2,17 +2,20 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, Key, Wand2 } from 'lucide-react';
+import { Bot, Key, Wand2, UserCog } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { UserApiKeysTab } from '@/components/profile/UserApiKeysTab';
 import { UserModelsManagement } from '@/components/profile/UserModelsManagement';
+import { MyAgentsTab } from '@/components/custom-agents/MyAgentsTab';
 
-type Tab = 'keys' | 'models';
+type Tab = 'keys' | 'models' | 'agents';
 
 function parseTab(raw: string | null): Tab {
-  return raw === 'models' ? 'models' : 'keys';
+  if (raw === 'models') return 'models';
+  if (raw === 'agents') return 'agents';
+  return 'keys';
 }
 
 function MyAIContent() {
@@ -88,10 +91,17 @@ function MyAIContent() {
                 icon={<Wand2 className="h-4 w-4" />}
                 label={t('common.myModels')}
               />
+              <TabButton
+                active={tab === 'agents'}
+                onClick={() => setTab('agents')}
+                icon={<UserCog className="h-4 w-4" />}
+                label="我的 Agent"
+              />
             </div>
 
             {tab === 'keys' && <UserApiKeysTab />}
             {tab === 'models' && <UserModelsManagement />}
+            {tab === 'agents' && <MyAgentsTab />}
           </div>
         </main>
       </div>
