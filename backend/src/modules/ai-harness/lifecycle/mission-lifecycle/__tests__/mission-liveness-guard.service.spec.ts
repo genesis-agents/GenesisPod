@@ -228,6 +228,53 @@ describe("MissionLivenessGuard", () => {
       expect(adapter.killed).toEqual([]);
       expect(adapter.warned).toEqual([]); // emitWarning 未注入 → 跳过
     });
+
+    // ★ 2026-05-05 dedup: 10min cooldown 内不重发同 mission warning
+    it("dedup: same mission warned only once within 10min cooldown", async () => {
+      const now = Date.now();
+      const adapter = mockAdapter({
+        rows: [rowAt("m1", 30 * 60, 12 * 60)],
+        eventTsByMissionId: { m1: now - 30_000 },
+      });
+      guard.registerAdapter("test", adapter);
+      await guard.forceScan("test"); // 第 1 次 → emit
+      await guard.forceScan("test"); // 第 2 次（同窗口）→ dedup skip
+      await guard.forceScan("test"); // 第 3 次 → 仍 dedup skip
+      expect(adapter.warned).toHaveLength(1);
+    });
+
+    it("dedup: different missions warn independently", async () => {
+      const now = Date.now();
+      const adapter = mockAdapter({
+        rows: [rowAt("m1", 30 * 60, 12 * 60), rowAt("m2", 30 * 60, 12 * 60)],
+        eventTsByMissionId: { m1: now - 30_000, m2: now - 30_000 },
+      });
+      guard.registerAdapter("test", adapter);
+      await guard.forceScan("test");
+      expect(adapter.warned.map((w) => w.id).sort()).toEqual(["m1", "m2"]);
+    });
+
+    it("dedup cleared on kill: same mission can warn → kill chain works", async () => {
+      const now = Date.now();
+      // 第 1 轮：单信号 stale → warn
+      const adapter1 = mockAdapter({
+        rows: [rowAt("m1", 30 * 60, 12 * 60)],
+        eventTsByMissionId: { m1: now - 30_000 },
+      });
+      guard.registerAdapter("test", adapter1);
+      await guard.forceScan("test");
+      expect(adapter1.warned).toHaveLength(1);
+      expect(adapter1.killed).toEqual([]);
+      // 模拟下一轮：双信号都 stale → kill（不应被 dedup 阻止 kill）
+      guard.unregisterAdapter("test");
+      const adapter2 = mockAdapter({
+        rows: [rowAt("m1", 30 * 60, 12 * 60)],
+        eventTsByMissionId: { m1: now - 12 * 60_000 },
+      });
+      guard.registerAdapter("test", adapter2);
+      await guard.forceScan("test");
+      expect(adapter2.killed).toHaveLength(1);
+    });
   });
 
   // ── I6 adapter exception safety ───────────────────────────────────

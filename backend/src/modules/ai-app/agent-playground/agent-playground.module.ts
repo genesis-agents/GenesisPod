@@ -173,7 +173,7 @@ export class AgentPlaygroundModule implements OnModuleInit {
     //      - this.store.recoverOrphanedRunning(240)              ← removed
     //      - this.store.recoverPodCrashedRunning(300) on 60s     ← removed
     //      - MissionHealthScheduler                              ← deleted (file removed)
-    //      - MissionOrphanDetectorService (Redis-based, 已 disabled) ← 保留实例 + DI（teams.module 仍 register）但不再 callback 注入
+    //      - MissionOrphanDetectorService                        ← deleted (file removed)
     this.livenessGuard.registerAdapter(
       "agent-playground",
       {

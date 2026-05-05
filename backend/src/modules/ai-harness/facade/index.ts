@@ -213,11 +213,8 @@ export {
   type MissionHeartbeat,
   HEARTBEAT_INTERVAL_MS,
 } from "../lifecycle/mission-lifecycle/runtime-state-store";
-export {
-  MissionOrphanDetectorService,
-  type OrphanDetectorCallbacks,
-} from "../lifecycle/mission-lifecycle/orphan-detector.service";
 // ★ 2026-05-05 unified harness liveness guard（替代 4 个旧 detector 的归并）
+//   MissionOrphanDetectorService 已删除（Redis-based 不可靠 + 长期 disabled）
 export {
   MissionLivenessGuard,
   type MissionLivenessAdapter,

@@ -125,6 +125,14 @@ export class MissionLivenessGuard implements OnModuleDestroy {
   private bootTimer: NodeJS.Timeout | null = null;
   private scanTimer: NodeJS.Timeout | null = null;
   private started = false;
+  /**
+   * ★ 2026-05-05 dedup：每 mission 最近一次 emitWarning 时间，避免每 60s scan 都
+   * 重复推同一条 warning。10min cooldown（与 softWarn 阈值同量级），到点才重发。
+   * key = `${namespace}:${missionId}` 防多 namespace 串扰。
+   */
+  private readonly lastWarnedAt = new Map<string, number>();
+  /** 单 mission 终态后清掉 dedup key（防止内存常驻泄漏）*/
+  private readonly WARN_COOLDOWN_MS = 10 * 60 * 1000;
 
   /**
    * 由 ai-app 在 onModuleInit 调用注册自己的 adapter。
@@ -319,6 +327,8 @@ export class MissionLivenessGuard implements OnModuleDestroy {
               }`,
             );
           });
+        // 终态 → 清 dedup 防泄漏
+        this.lastWarnedAt.delete(`${namespace}:${m.id}`);
         killed++;
       } else if (
         // soft warn：任一信号超过 soft 阈值（且未杀）→ 提醒用户
@@ -327,6 +337,12 @@ export class MissionLivenessGuard implements OnModuleDestroy {
           heartbeatAgeMs > config.softWarnThresholdMs) ||
           (eventAgeMs != null && eventAgeMs > config.softWarnThresholdMs))
       ) {
+        // ★ dedup：10min cooldown 内不重发同一 mission 的 warning
+        const dedupKey = `${namespace}:${m.id}`;
+        const lastWarn = this.lastWarnedAt.get(dedupKey) ?? 0;
+        if (now - lastWarn < this.WARN_COOLDOWN_MS) {
+          continue; // 还在冷却期，跳过本次 emit
+        }
         await adapter
           .emitWarning(m.id, m.userId, {
             ageMs,
@@ -340,6 +356,7 @@ export class MissionLivenessGuard implements OnModuleDestroy {
               }`,
             );
           });
+        this.lastWarnedAt.set(dedupKey, now);
         warned++;
       }
     }

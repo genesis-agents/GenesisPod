@@ -13,11 +13,10 @@ export {
   type MissionHealthMonitorOptions,
   type MissionHealthSnapshot,
 } from "./health-monitor";
-export {
-  MissionOrphanDetectorService,
-  type OrphanDetectorCallbacks,
-} from "./orphan-detector.service";
 // ★ 2026-05-05 unified harness liveness guard（替代 4 个 detector 的归并）
+//   原 MissionOrphanDetectorService (Redis-based heartbeat) 已删除：
+//   - 它的 auto scan 长期 disabled（heartbeat 不可靠）
+//   - 它的能力被 MissionLivenessGuard 完整覆盖（多信号 + adapter 注入）
 export {
   MissionLivenessGuard,
   type MissionLivenessAdapter,
