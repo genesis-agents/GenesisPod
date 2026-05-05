@@ -743,4 +743,3 @@ describe("sideEffect coverage audit", () => {
     expect(missing).toHaveLength(0);
   });
 });
-

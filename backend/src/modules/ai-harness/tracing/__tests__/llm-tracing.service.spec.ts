@@ -4,7 +4,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { LlmTracingService } from "../llm-tracing.service";
+import { LlmTracingService } from "../observability/llm-tracing.service";
 
 describe("LlmTracingService", () => {
   let service: LlmTracingService;

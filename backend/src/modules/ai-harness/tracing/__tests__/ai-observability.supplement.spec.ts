@@ -11,7 +11,7 @@
  *   - percentile() with empty array
  */
 
-import { AiObservabilityService } from "../ai-observability.service";
+import { AiObservabilityService } from "../observability/ai-observability.service";
 import { Decimal } from "@prisma/client/runtime/library";
 import { Logger } from "@nestjs/common";
 
@@ -21,7 +21,7 @@ jest.spyOn(Logger.prototype, "warn").mockImplementation();
 jest.spyOn(Logger.prototype, "error").mockImplementation();
 
 type LLMCallInput = Omit<
-  import("../ai-observability.service").LLMCallEvent,
+  import("../observability/ai-observability.service").LLMCallEvent,
   "id" | "timestamp"
 >;
 

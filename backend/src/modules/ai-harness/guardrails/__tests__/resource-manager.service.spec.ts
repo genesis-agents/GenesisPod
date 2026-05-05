@@ -8,7 +8,7 @@
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ResourceManagerService } from "../resource-manager.service";
+import { ResourceManagerService } from "../resources/resource-manager.service";
 import { ProcessManagerService } from "@/modules/ai-harness/lifecycle/manager/process-manager.service";
 import type {
   ProcessSnapshot,

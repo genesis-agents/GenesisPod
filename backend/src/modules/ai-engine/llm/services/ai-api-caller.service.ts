@@ -664,10 +664,15 @@ export class AiApiCallerService {
     );
 
     const data = response.data;
+    // ★ 2026-05-05 fix: 必须返回 inputTokens / outputTokens 才能让 ReactLoop
+    //   thinking 事件携带正确 promptTokens / completionTokens，进而被
+    //   extractTokenSpend 累计到 mission pool。否则 UI 显示 tokens 永远 0。
     return {
       content: data.choices?.[0]?.message?.content || "",
       model: modelId,
       tokensUsed: data.usage?.total_tokens || 0,
+      inputTokens: data.usage?.prompt_tokens || 0,
+      outputTokens: data.usage?.completion_tokens || 0,
     };
   }
 
@@ -823,4 +828,3 @@ export class AiApiCallerService {
     };
   }
 }
-

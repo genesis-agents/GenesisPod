@@ -24,6 +24,7 @@
 import { Module, OnModuleInit, Logger, forwardRef } from "@nestjs/common";
 import { HttpModule } from "@nestjs/axios";
 import { SkillRegistry, PromptSkillBridge } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { AiEngineModule } from "@/modules/ai-engine/ai-engine.module";
 import { AIModelService } from "../../core/ai-model.service";
 import { PrismaModule } from "@/common/prisma/prisma.module";
@@ -118,6 +119,8 @@ export class SlidesSkillsModule implements OnModuleInit {
   constructor(
     private readonly skillRegistry: SkillRegistry,
     private readonly promptSkillBridge: PromptSkillBridge,
+    // R0-A5: 注册 office slides skills 目录到 engine SkillLoader
+    private readonly skillLoader: SkillLoaderService,
     // Code-based skills
     private readonly pagePipeline: PagePipelineSkill,
     private readonly templateMatcher: TemplateMatcherSkill,
@@ -153,6 +156,14 @@ export class SlidesSkillsModule implements OnModuleInit {
    * 2. 通过 PromptSkillBridge 注册 prompt skills (SKILL.md)
    */
   async onModuleInit() {
+    // R0-A5 (2026-05-04): 注册 slides skill 目录（替代 engine 硬编码 office/slides/skills）
+    const path = await import("path");
+    await this.skillLoader.addSkillDirectory({
+      path: path.resolve(__dirname),
+      domain: "office",
+      recursive: false,
+    });
+
     // Step 1: Register code-based skills
     this.logger.log("Registering code-based Slides skills...");
 

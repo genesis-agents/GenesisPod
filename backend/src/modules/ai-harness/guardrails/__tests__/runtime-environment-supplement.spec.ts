@@ -5,7 +5,7 @@
  * discoverAgents, isValidCostTier, and snapshot model paths.
  */
 
-import { RuntimeEnvironmentService } from "../runtime-environment.service";
+import { RuntimeEnvironmentService } from "../runtime/runtime-environment.service";
 
 function makeService(
   overrides: {

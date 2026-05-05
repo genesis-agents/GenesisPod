@@ -12,15 +12,15 @@
 export { PromptSkillRegistrationService } from "../skills/runtime";
 export { CHAT_PROVIDER_PORT } from "./abstractions/runtime-deps.tokens";
 
-// ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 从
-//   ai-app/agent-playground 上提到 engine/content（纯 token-set 文本相似度，
+// ★ 2026-05-04 (PR-6 standardize consumer): jaccardSimilarity 从
+//   ai-app/{app} 上提到 engine/content（纯 token-set 文本相似度，
 //   无 agent/mission 状态，跨 ai-app 可复用）
 export { jaccardSimilarity } from "../content/text-similarity.utils";
 
-// ★ 2026-05-04 (PR-10b standardize playground): JSON-fence 解析基元从
-//   ai-app/agent-playground/services/chat 上提到 engine/content
+// ★ 2026-05-04 (PR-10b standardize consumer): JSON-fence 解析基元从
+//   ai-app/{app}/services/chat 上提到 engine/content
 //   （LLM 输出 → 结构化决策的通用 fence parser，零业务 DSL；
-//   playground LeaderDecision DSL 仍留 app 作为 caller-side wrapper）
+//   consumer LeaderDecision DSL 仍留 app 作为 caller-side wrapper）
 export {
   parseJsonFence,
   extractJsonFenceContent,
@@ -358,7 +358,7 @@ export type {
   ImageMatchingResult,
 } from "../content/image/matching";
 
-// ★ 沉淀（2026-04-29）: figure 抽取（来自 topic-insights, TI 暂不切换）
+// ★ 沉淀（2026-04-29）: figure 抽取（来自 {app}, TI 暂不切换）
 export {
   FigureExtractorService,
   type ExtractedFigure,
@@ -383,7 +383,7 @@ export {
   type WrapExternalContentOptions,
 } from "../safety/security/llm-injection";
 
-// ★ 沉淀（2026-04-29）: LLM Reranker（来自 topic-insights, 用 AiChatService 内层调用）
+// ★ 沉淀（2026-04-29）: LLM Reranker（来自 {app}, 用 AiChatService 内层调用）
 export {
   LlmRerankerAdapter,
   type RerankableItem,

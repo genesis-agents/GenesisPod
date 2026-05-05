@@ -69,6 +69,15 @@ export class PolicyDataService {
    */
   private keyIndexMap = new Map<string, number>();
 
+  /**
+   * Host 级 429 冷却（防止 OpenAlex / arxiv 等无 key 的免费 API 反复打 429）
+   * Key: hostname → Value: cooldownUntilMs (epoch ms)
+   * 撞 429 → 90s 内同 host 直接 short-circuit，不再发请求。
+   *   OpenAlex polite pool burst 限制是秒级，1 分钟内通常恢复；90s 留点余量。
+   */
+  private hostCooldownUntil = new Map<string, number>();
+  private static readonly HOST_429_COOLDOWN_MS = 90 * 1000;
+
   constructor(
     private readonly httpService: HttpService,
     private readonly prisma: PrismaService,
@@ -362,6 +371,24 @@ export class PolicyDataService {
       }
     }
 
+    // ★ Host 级 429 冷却短路：撞过 429 的 host 在 5min 内直接 fail-fast
+    //   防止 OpenAlex / ArXiv-via-OpenAlex 等无 key 免费 API 反复打 429 浪费 quota
+    let host = "";
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      // 非法 URL 走原路径让 axios 报错
+    }
+    if (host) {
+      const cooldownUntil = this.hostCooldownUntil.get(host);
+      if (cooldownUntil && Date.now() < cooldownUntil) {
+        const remainingMs = cooldownUntil - Date.now();
+        throw new Error(
+          `Host ${host} in 429 cooldown for ${Math.ceil(remainingMs / 1000)}s more`,
+        );
+      }
+    }
+
     try {
       const response = await firstValueFrom(
         this.httpService.get<T>(url, {
@@ -376,11 +403,25 @@ export class PolicyDataService {
 
       return response.data;
     } catch (error) {
+      // ★ 撞 429 时启动 host 级冷却
+      if (host && this.is429Error(error)) {
+        const until = Date.now() + PolicyDataService.HOST_429_COOLDOWN_MS;
+        this.hostCooldownUntil.set(host, until);
+        this.logger.warn(
+          `[httpGet] ${host} hit 429 → cooling down ${PolicyDataService.HOST_429_COOLDOWN_MS / 1000}s`,
+        );
+      }
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
       this.logger.error(`[httpGet] HTTP GET request failed: ${url}`, error);
       throw new Error(`HTTP GET request failed: ${errorMessage}`);
     }
+  }
+
+  private is429Error(err: unknown): boolean {
+    if (typeof err !== "object" || err === null) return false;
+    const e = err as { response?: { status?: number }; status?: number };
+    return e.response?.status === 429 || e.status === 429;
   }
 
   /**

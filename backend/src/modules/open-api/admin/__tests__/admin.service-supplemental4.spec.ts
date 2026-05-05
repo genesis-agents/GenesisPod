@@ -282,6 +282,12 @@ describe("AdminService (supplemental4)", () => {
           useValue: mockResourceMgmtService,
         },
         { provide: StatisticsService, useValue: mockStatisticsService },
+        // S5 audit fix
+        {
+          provide: require("../../../../common/audit/audit.service")
+            .AuditService,
+          useValue: { log: jest.fn() },
+        },
       ],
     }).compile();
 

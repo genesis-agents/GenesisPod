@@ -51,22 +51,11 @@ function getEncryptionKey(keyHex?: string): Buffer {
   keyHex = keyHex || cachedKeyHex || process.env.SESSION_ENCRYPTION_KEY;
 
   if (!keyHex) {
-    // In development/test, use a default key (NOT for production!)
-    if (
-      process.env.NODE_ENV === "development" ||
-      process.env.NODE_ENV === "test"
-    ) {
-      logger.warn(
-        "SESSION_ENCRYPTION_KEY not set, using default key (DEV ONLY)",
-      );
-      // Generate a deterministic key for development
-      return crypto
-        .createHash("sha256")
-        .update("deepdive-dev-session-key")
-        .digest();
-    }
+    // S4 audit fix（2026-05-04）：删除硬编码 dev fallback。
+    // dev/test 必须显式设置 SESSION_ENCRYPTION_KEY (可用 generateKey() 生成)。
+    // 这避免任何环境下的密钥可预测性 + 防止 dev 环境数据被任意人解密。
     throw new Error(
-      "SESSION_ENCRYPTION_KEY environment variable is required in production",
+      "SESSION_ENCRYPTION_KEY environment variable is required (use generateKey() to create one)",
     );
   }
 

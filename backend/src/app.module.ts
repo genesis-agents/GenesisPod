@@ -105,6 +105,15 @@ import { A2AApiModule } from "./modules/open-api/a2a-api/a2a-api.module";
 import { ByokAdminModule } from "./modules/open-api/byok-admin/byok-admin.module";
 // Request context middleware
 import { RequestContextMiddleware } from "./common/context/request-context.middleware";
+// Plugin system 内核（v5.1 R0.5）
+// 修正后的分类原则：
+//   - 真 plugin（可换 backend）：telemetry-otel / tool-cache-redis / sandbox /
+//     vector-* / embedding-* / memory-* 等，由专门的 backend swap 需求驱动激活
+//   - 核心能力（不该是 plugin）：timeout / validation / rate-limit / circuit-breaker
+//     回归 ai-engine middleware / service 形态，不走 HookBus
+// PluginCoreModule 仅注册内核（HookBus / Registry / Loader），不启用任何 plugin
+// 实例（待 W2 起按"真 plugin"过滤后再单独激活）。
+import { PluginCoreModule } from "./plugins/core";
 // L1â†’L2 DI tokens (audit I-1/I-2: decouple L1 services from L2 concrete classes)
 import {
   AI_CHAT_TOKEN,
@@ -142,6 +151,8 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
         },
       ],
     }),
+    // Plugin system 内核（仅注册 HookBus / Registry / Loader；无 plugin 实例）
+    PluginCoreModule,
 
     // å…¬å…±åŸºç¡€æ¨¡å—
     CommonModule,

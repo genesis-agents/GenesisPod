@@ -3,6 +3,10 @@
  *
  * 负责加载和管理 SKILL.md 文件
  * 支持本地 Skills 和远程 SkillsMP Skills
+ *
+ * R0-A5 三轮清理（2026-05-04）：原硬编码具体 ai-app 路径目录，违反
+ * "engine 不知道 ai-app"分层。现改为 ai-app 模块在 OnModuleInit 时通过
+ * addSkillDirectory() 注册自己的 skill dir，engine 不持有任何 ai-app 路径。
  */
 
 import {
@@ -10,6 +14,7 @@ import {
   Logger,
   OnModuleInit,
   OnModuleDestroy,
+  OnApplicationBootstrap,
 } from "@nestjs/common";
 import * as fs from "fs/promises";
 import * as path from "path";
@@ -37,7 +42,9 @@ interface SkillDirectoryConfig {
 }
 
 @Injectable()
-export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
+export class SkillLoaderService
+  implements OnModuleInit, OnModuleDestroy, OnApplicationBootstrap
+{
   private readonly logger = new Logger(SkillLoaderService.name);
 
   /** 已加载的本地 Skills（内存缓存） */
@@ -60,55 +67,35 @@ export class SkillLoaderService implements OnModuleInit, OnModuleDestroy {
     private readonly skillsMPClient: SkillsMPClientService,
     private readonly skillContentService: SkillContentService,
   ) {
-    // 基于当前模块位置计算 Skills 目录
-    // __dirname = .../ai-engine/skills/loader/ → need 3 levels up to reach modules/
+    // baseSkillsDir 仅作为 addSkillDirectory 安全白名单基准（限制注入路径在
+    // src/modules/ai-app/* 范围内），不再硬编码具体 ai-app 子目录。
+    // ai-app 模块需在 OnModuleInit 调 addSkillDirectory 注册自己的 skill dir。
     this.baseSkillsDir = path.resolve(__dirname, "../../../ai-app");
-
-    // 配置各领域的 Skill 目录
-    this.skillDirectories = [
-      {
-        path: path.join(this.baseSkillsDir, "writing/skills"),
-        domain: "writing",
-        recursive: false,
-      },
-      {
-        // ★ topic-insights 洞察分析技能（子目录结构：analysis/debate/frameworks/quality/report/research）
-        path: path.join(this.baseSkillsDir, "topic-insights/skills"),
-        domain: "insights",
-        recursive: true,
-      },
-      {
-        path: path.join(this.baseSkillsDir, "shared/skills"),
-        domain: "shared",
-        recursive: false,
-      },
-      {
-        // ★ Slides skills (SKILL.md per skill directory)
-        path: path.join(this.baseSkillsDir, "office/slides/skills"),
-        domain: "office",
-        recursive: false,
-      },
-      {
-        // ★ Research 研究技能
-        path: path.join(this.baseSkillsDir, "research/skills"),
-        domain: "research",
-        recursive: false,
-      },
-    ];
+    this.skillDirectories = [];
   }
 
   async onModuleInit(): Promise<void> {
-    // 1. 加载本地 Skills
-    await this.loadAllLocalSkills();
-
-    // 2. 预热已安装的 Marketplace Skills（从磁盘加载到内存）
+    // R0-A5 (2026-05-04): 重排载入时序 — onModuleInit 不再加载 Skills，因为
+    // ai-app 模块的 addSkillDirectory 注册要在所有 OnModuleInit 完成后才齐。
+    // 实际加载移到 OnApplicationBootstrap（所有模块就位后调用）。
+    // 这里仅做不依赖 ai-app dir 的工作：预热 Marketplace cache。
     await this.warmupInstalledSkills();
-
-    // 3. 同步文件系统 Skills 到数据库（prompt 内容持久化）
-    await this.syncToDatabase();
-
-    // 4. 启动 SkillsMP 自动更新检查
     this.startUpdateChecker();
+  }
+
+  /**
+   * R0-A5: 所有模块 OnModuleInit 完成后扫描已注册的 ai-app skill 目录。
+   * ai-app 模块在自己 OnModuleInit 调 addSkillDirectory 注册 dir。
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    if (this.skillDirectories.length === 0) {
+      this.logger.warn(
+        "[Skills] No ai-app skill directories registered; skill loading skipped",
+      );
+      return;
+    }
+    await this.loadAllLocalSkills();
+    await this.syncToDatabase();
   }
 
   async onModuleDestroy(): Promise<void> {

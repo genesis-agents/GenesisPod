@@ -18,7 +18,7 @@
  *   react     : N 次 LLM + tool 编排 (thinking → action → observation)
  *   plan-execute / leader-worker：复杂多步
  *
- * 沉淀背景：playground 11 个 agent 误配 loop:"react" 但 outputSchema 是业务 JSON，
+ * 沉淀背景：consumer 11 个 agent 误配 loop:"react" 但 outputSchema 是业务 JSON，
  * 导致 ReActLoop parseDecision 抛 InvalidActionError，fallback finalize-raw 救场
  * 浪费 ~3x token + 章节质量降级。SimpleLoop 让纯生成型 agent 一步到位。
  */
@@ -283,4 +283,3 @@ export class SimpleLoop implements IAgentLoop {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
-

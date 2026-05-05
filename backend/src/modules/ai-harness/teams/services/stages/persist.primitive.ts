@@ -2,7 +2,7 @@
  * persist primitive（v5.1 §3.2 内置无 LLM stage）
  *
  * 写 IMissionStore.markCompleted/markFailed；可在 pipeline 任意位置插入
- * （例：playground s11-persist）。
+ * （例：consumer s11-persist）。
  */
 import type { IStagePrimitive, StageRunArgs } from "./abstractions";
 

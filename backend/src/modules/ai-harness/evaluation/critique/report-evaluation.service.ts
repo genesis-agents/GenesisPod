@@ -1,5 +1,5 @@
 /**
- * Report Evaluation Service —— 沉淀自 topic-insights, 2026-04-29
+ * Report Evaluation Service —— 沉淀自 {app}, 2026-04-29
  *
  * 按章节（维度）的 10 维报告质量评审服务
  * 使用 EVALUATOR 类型模型进行结构化评审，确保跨报告评分一致性
@@ -9,7 +9,7 @@
  * 2. 识别哪些章节质量高/低
  * 3. 为模型选型提供数据支撑
  *
- * 标杆参考实现，Playground 等新模块从 `@/modules/ai-harness/facade` 消费。
+ * 标杆参考实现，consumer 等新模块从 `@/modules/ai-harness/facade` 消费。
  * TI 是商用基线，保留独立的本地副本不切换到本实现。
  */
 

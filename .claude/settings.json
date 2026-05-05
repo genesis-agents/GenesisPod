@@ -27,7 +27,7 @@
       "Read(./backend/.env)",
       "Read(./backend/.env.*)",
       "Read(./frontend/.env.*)",
-      "Read(**/*credentials*)",
+      "Read(**/*credentials*.{json,env,yaml,yml,key,pem,txt})",
       "Read(**/*secret*.json)",
       "Read(**/*secret*.env)",
       "Read(**/*secret*.yaml)",

@@ -1,6 +1,6 @@
-// Sediment from topic-insights (2026-04-29) — ai-engine/content/figure/
-// 来源: ai-app/topic-insights/services/report/figure-extractor.service.ts
-// TI 仍在使用原 service；本副本由 agent-playground 等新业务通过 ai-engine/facade 调用。
+// Sediment from {app} (2026-04-29) — ai-engine/content/figure/
+// 来源: ai-app/{app}/services/report/figure-extractor.service.ts
+// TI 仍在使用原 service；本副本由 {app} 等新业务通过 ai-engine/facade 调用。
 import { Injectable, Logger } from "@nestjs/common";
 // ★ 内部相对路径（避免 ai-engine 自循环 import facade）
 import { ToolRegistry } from "../../tools/registry/tool.registry";
@@ -1081,4 +1081,3 @@ export class FigureExtractorService {
     return changed ? upgraded : null;
   }
 }
-

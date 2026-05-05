@@ -19,9 +19,9 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SessionLatencyTrackerService } from "../session-latency-tracker.service";
+import { SessionLatencyTrackerService } from "../latency/session-latency-tracker.service";
 import { KernelContext } from "@/common/context/kernel-context";
-import type { RecordActionInput } from "../session-latency.types";
+import type { RecordActionInput } from "../latency/session-latency.types";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output during tests

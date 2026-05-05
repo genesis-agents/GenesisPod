@@ -20,7 +20,6 @@
  */
 import { TELEMETRY_OTEL_MANIFEST } from "@/plugins/observability/telemetry-otel";
 import { TOOL_CACHE_REDIS_MANIFEST } from "@/plugins/storage/tool-cache-redis";
-import { RATE_LIMIT_MANIFEST } from "@/plugins/resilience/rate-limit";
 import { SANDBOX_ISOLATED_VM_MANIFEST } from "@/plugins/security/sandbox-isolated-vm";
 import {
   ManifestValidator,
@@ -30,10 +29,10 @@ import {
 import { CORE_HOOKS } from "@/plugins/core/abstractions";
 import type { IPluginManifest } from "@/plugins/core/abstractions";
 
+// rate-limit / circuit-breaker 已撤销 plugin 形态（标准实现归 ai-engine 核心 service）
 const ALL_PLUGINS: IPluginManifest[] = [
   TELEMETRY_OTEL_MANIFEST,
   TOOL_CACHE_REDIS_MANIFEST,
-  RATE_LIMIT_MANIFEST,
   SANDBOX_ISOLATED_VM_MANIFEST,
 ];
 
@@ -199,11 +198,11 @@ describe("Plugin System invariants (v5.1 R0.5 PR-12)", () => {
   });
 
   describe("plugin 总量 + 域分布", () => {
-    it(`R0.5 stage 2 应有 4 个高价值 plugin`, () => {
-      expect(ALL_PLUGINS).toHaveLength(4);
+    it(`R0.5 stage 2 应有 3 个真 plugin（rate-limit 已撤销 → ai-engine 核心 service）`, () => {
+      expect(ALL_PLUGINS).toHaveLength(3);
     });
 
-    it("4 大域各 1 个 plugin (observability/storage/resilience/security)", () => {
+    it("3 大域各 1 个真 plugin (observability/storage/security)", () => {
       const domainCount: Record<string, number> = {};
       for (const m of ALL_PLUGINS) {
         const d = m.id.split("/")[0];
@@ -211,8 +210,9 @@ describe("Plugin System invariants (v5.1 R0.5 PR-12)", () => {
       }
       expect(domainCount.observability).toBe(1);
       expect(domainCount.storage).toBe(1);
-      expect(domainCount.resilience).toBe(1);
       expect(domainCount.security).toBe(1);
+      // resilience 域已无 plugin（rate-limit / circuit-breaker 是核心 service）
+      expect(domainCount.resilience).toBeUndefined();
     });
   });
 });

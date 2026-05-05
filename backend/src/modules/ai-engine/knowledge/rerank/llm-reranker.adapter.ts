@@ -15,8 +15,8 @@
  * 未来可切换：Cohere Rerank / Jina Reranker / 自训练 cross-encoder。
  */
 
-// Sediment from topic-insights (2026-04-29) — ai-engine/knowledge/rerank/
-// 来源: ai-app/topic-insights/services/search/rerank/llm-reranker.adapter.ts
+// Sediment from {app} (2026-04-29) — ai-engine/knowledge/rerank/
+// 来源: ai-app/{app}/services/search/rerank/llm-reranker.adapter.ts
 // 落点 ai-engine/knowledge/rerank/（搜索算法属于 ai-engine knowledge 子领域）
 // 改造：ChatFacade → AiChatService（ai-engine 内层调用，跟 image module 同款）
 // 简化: 移除 wrapExternalContent 外部依赖，inline 等效安全包装（XML 隔离）。

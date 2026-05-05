@@ -1,5 +1,5 @@
 /**
- * MissionOrchestrator â€” Supplemental3 Tests
+ * MissionOrchestrator — Supplemental3 Tests
  *
  * Targets uncovered lines not hit by supplemental / supplemental2:
  * - missionExecutor (AI Kernel) path: spawn process, warn on failure
@@ -11,7 +11,7 @@
  * - execute() with constraintOverrides
  * - plan() with multiple workflow steps covering dependency chains
  * - step_failed event increments failedSteps
- * - execute() missionExecutor.execute throws â†’ logs warning, continues
+ * - execute() missionExecutor.execute throws → logs warning, continues
  */
 
 import { ConfigService } from "@nestjs/config";
@@ -712,7 +712,7 @@ describe("MissionOrchestrator constructor with all optional deps logged", () => 
       subscribe: jest.fn(),
     };
 
-    // Instantiate with all optional deps â€” no assertions needed beyond "does not throw"
+    // Instantiate with all optional deps — no assertions needed beyond "does not throw"
     const orchestrator = new MissionOrchestrator(
       makeConstraintEngine(),
       makeConfigService(),

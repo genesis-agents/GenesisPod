@@ -1,10 +1,10 @@
 /**
  * RuntimeEnvironmentService 公共类型契约
  *
- * 设计文档：docs/design/topic-insights-harness-redesign/11-capability-discovery.md
+ * 设计文档：docs/architecture/ai-harness/redesign/11-capability-discovery.md
  *
  * 注意：这是 L2 AI Engine runtime 层通用契约——**不含任何 AI App 特定概念**
- * （无 "topic-insights"、"harness"、"research-depth" 等）。
+ * （无 "{app}"、"harness"、"research-depth" 等）。
  * 各 L3 App 在自己的 CapabilityReconciler 里把本层输出映射到 App 语义。
  */
 

@@ -3,7 +3,7 @@
  *
  * 调 leader-style role 评估前序产出，决定 retry/abort/continue。
  * dispatchAssessActions hook 处理 4 路 action（continue / retry-some /
- * abort-mission / patch-then-retry，playground s4 用法）。
+ * abort-mission / patch-then-retry，consumer s4 用法）。
  */
 import {
   type IStagePrimitive,
@@ -36,7 +36,7 @@ export interface AssessStageHooks {
 
   /**
    * 可选：dispatch 4 路 action 到 crossStageState（非 LLM 副作用）
-   * 例：playground 的 s4PatchRound++ / s4PatchFailures.append
+   * 例：consumer 的 s4PatchRound++ / s4PatchFailures.append
    */
   readonly dispatchAssessActions?: (args: {
     decision: AssessDecision;

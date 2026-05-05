@@ -22,6 +22,7 @@ import { ToolRegistry } from "./registry/tool.registry";
 import { ToolPipeline, ToolExecutor } from "./middleware/tool-pipeline";
 import { ValidationMiddleware } from "./middleware/validation.middleware";
 import { TimeoutMiddleware } from "./middleware/timeout.middleware";
+import { RateLimitMiddleware } from "./middleware/rate-limit.middleware";
 
 // Policy Data Service
 import { PolicyDataService } from "./categories/information/policy";
@@ -31,6 +32,8 @@ import { PermissionMiddleware } from "./middleware/permission.middleware";
 import { ProgressMiddleware } from "./middleware/progress.middleware";
 // ★ L2-7: Tool result cache
 import { ToolResultCacheService } from "./cache/tool-result-cache.service";
+// W1-a-fixup: rate-limit 回归 engine 后注入到 ToolPipeline middleware
+import { RateLimitService } from "../safety/resilience/rate-limit.service";
 
 // All Tools
 import {
@@ -48,15 +51,22 @@ const toolPipelineFactory = {
     permissionMiddleware: PermissionMiddleware,
     progressMiddleware: ProgressMiddleware,
     toolResultCacheService: ToolResultCacheService,
+    rateLimitService: RateLimitService,
   ) => {
     const pipeline = new ToolPipeline(toolResultCacheService);
-    pipeline.use(permissionMiddleware); // ★ Phase 3: permission check (priority 5, runs first)
-    pipeline.use(new ValidationMiddleware()); // existing
-    pipeline.use(new TimeoutMiddleware()); // existing
-    pipeline.use(progressMiddleware); // ★ Phase 3: progress tracking (priority 90, runs last)
+    pipeline.use(permissionMiddleware); // priority 5：permission check
+    pipeline.use(new RateLimitMiddleware(rateLimitService)); // priority 8：限速（W1-a-fixup 回归）
+    pipeline.use(new ValidationMiddleware()); // priority 10
+    pipeline.use(new TimeoutMiddleware()); // priority 20
+    pipeline.use(progressMiddleware); // priority 90：progress tracking (runs last)
     return pipeline;
   },
-  inject: [PermissionMiddleware, ProgressMiddleware, ToolResultCacheService],
+  inject: [
+    PermissionMiddleware,
+    ProgressMiddleware,
+    ToolResultCacheService,
+    RateLimitService,
+  ],
 };
 
 /**
@@ -115,4 +125,3 @@ const toolExecutorFactory = {
   ],
 })
 export class AiEngineToolsModule {}
-

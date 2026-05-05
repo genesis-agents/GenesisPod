@@ -191,6 +191,13 @@ describe("SkillLoaderService", () => {
     });
 
     it("找到 SKILL.md 文件并解析", async () => {
+      // R0-A5: 注入测试用 skill dir（替代原 hardcoded constructor 配置）
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (service as any).skillDirectories.push({
+        path: "/path",
+        domain: "writing",
+        recursive: false,
+      });
       const skill = makeSkillDefinition("chapter-writing");
       mockGlob.mockResolvedValue(["/path/to/chapter-writing.skill.md"]);
       mockFs.readFile.mockResolvedValue("content" as never);
@@ -205,6 +212,11 @@ describe("SkillLoaderService", () => {
     });
 
     it("加载多个 skill 文件", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (service as any).skillDirectories.push(
+        { path: "/path/a", domain: "writing", recursive: false },
+        { path: "/path/b", domain: "research", recursive: false },
+      );
       const skill1 = makeSkillDefinition("skill-1");
       const skill2 = makeSkillDefinition("skill-2");
       mockGlob

@@ -6,14 +6,16 @@ import { R2StorageService } from "./runtime/r2-storage.service";
 import { StorageOffloadService } from "./governance/storage-offload.service";
 import { StorageInventoryService } from "./governance/storage-inventory.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
+// W2-A: object storage backend plugin（@Global，提供 OBJECT_STORAGE_BACKEND_TOKEN）
+import { ObjectStorageModule } from "@/plugins/storage/object-storage.module";
 
 @Module({
-  imports: [PrismaModule, ConfigModule],
+  imports: [PrismaModule, ConfigModule, ObjectStorageModule],
   controllers: [StorageGovernanceController],
   providers: [
     // Governance aggregate for storage admin/cleanup workflows.
     StorageGovernanceService,
-    // Runtime object storage adapter.
+    // Runtime object storage orchestrator (delegates to plugin backend).
     R2StorageService,
     // Governance-side storage jobs.
     StorageOffloadService,

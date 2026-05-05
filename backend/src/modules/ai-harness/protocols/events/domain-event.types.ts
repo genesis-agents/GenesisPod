@@ -12,7 +12,7 @@
 import type { z } from "zod";
 
 export interface DomainEvent<TPayload = unknown> {
-  /** 业务事件类型，e.g. 'topic-insights.mission:started' */
+  /** 业务事件类型，e.g. '{app}.mission:started' */
   readonly type: string;
   /** 业务作用域：哪个 user/workspace/topic 应当收到 */
   readonly scope: {

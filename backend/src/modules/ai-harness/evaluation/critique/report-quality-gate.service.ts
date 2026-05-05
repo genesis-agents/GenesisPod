@@ -1,10 +1,10 @@
 /**
- * Report Quality Gate Service —— 沉淀自 topic-insights, 2026-04-29
+ * Report Quality Gate Service —— 沉淀自 {app}, 2026-04-29
  *
  * v4: 代码强制执行质量标准，替代部分 LLM 审阅循环。
  * 硬性规则通过代码检查，可自动修复的项自动修复，不可自动修复的标记为需要 AI 重写。
  *
- * 标杆参考实现，Playground 等新模块从 `@/modules/ai-harness/facade` 消费。
+ * 标杆参考实现，consumer 等新模块从 `@/modules/ai-harness/facade` 消费。
  * TI 是商用基线，保留独立的本地副本不切换到本实现。
  */
 

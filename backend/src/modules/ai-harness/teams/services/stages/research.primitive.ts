@@ -2,7 +2,7 @@
  * research primitive（v5.1 §3.2 §5）
  *
  * 按 fanOut 策略 fan-out × N 调 worker role；并发由 config.params.concurrency 控。
- * 业务 perItemPipeline / onPatchFailure 通过 hooks 注入（playground 用 chapter
+ * 业务 perItemPipeline / onPatchFailure 通过 hooks 注入（consumer 用 chapter
  * writer + reviewer + integrator + 5-axis grade）。
  */
 import type { IStagePrimitive, StageRunArgs } from "./abstractions";
@@ -26,7 +26,7 @@ export interface ResearchStageHooks {
     ctx: StageRunArgs["ctx"];
   }) => Promise<unknown>;
 
-  /** 可选：单 item 失败时累计到 crossStageState（playground s4PatchFailures 用法）*/
+  /** 可选：单 item 失败时累计到 crossStageState（consumer s4PatchFailures 用法）*/
   readonly onPatchFailure?: (args: {
     item: unknown;
     error: unknown;

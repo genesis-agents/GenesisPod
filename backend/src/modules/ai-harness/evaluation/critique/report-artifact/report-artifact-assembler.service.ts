@@ -34,9 +34,9 @@ import {
 // ★ 沉淀消费（2026-04-29）：harness quality-gate 标杆实现
 import { ReportQualityGateService } from "../../../facade";
 // ★ 沉淀消费（2026-04-30 REPORT QUALITY OVERHAUL）：
-//   playground 报告格式化全量复用 TI 沉淀的 `postProcessFinalReport`
+//   consumer 报告格式化全量复用 TI 沉淀的 `postProcessFinalReport`
 //   （TI ReportAssembler.postProcessFinalReport 类方法已晋升到 ai-engine 层）。
-//   原 27-step bespoke 管线下线 —— playground / TI 共用同一份后处理逻辑，
+//   原 27-step bespoke 管线下线 —— consumer / TI 共用同一份后处理逻辑，
 //   保证两条产品线的报告格式行为完全一致，且 mission 4fd5efa1 暴露的
 //   `mid-line glued ##` 由 detectAndPromoteHeadings 启发式修复。
 import {
@@ -451,19 +451,19 @@ export class ReportArtifactAssembler {
    *     mission 4fd5efa1 暴露的 §2 startOffset=-1 顽疾）
    *   - 表格 / 列表 / 章节合并 / 全局 renumber / 第三道铁墙白名单
    *
-   * playground 专属仅保留 4 项 assembly 后处理：
-   *   ① stripChartJsonFromContent（图表 JSON 残留，仅 playground writer 输出会有）
+   * consumer 专属仅保留 4 项 assembly 后处理：
+   *   ① stripChartJsonFromContent（图表 JSON 残留，仅 consumer writer 输出会有）
    *   ② markOrphanCitations（孤儿 [N] 标注，依赖 mission ctx）
-   *   ③ 表格行尾缺 |（playground LLM 高频）
-   *   ④ LaTeX 跨段落 $$ 修复（playground LLM 高频）
+   *   ③ 表格行尾缺 |（consumer LLM 高频）
+   *   ④ LaTeX 跨段落 $$ 修复（consumer LLM 高频）
    */
   private applyFormatFixes(md: string): string {
-    // 0) playground 专属预处理（TI 不需要）：图表 JSON 残留剥离
+    // 0) consumer 专属预处理（TI 不需要）：图表 JSON 残留剥离
     let content = stripChartJsonFromContent(md);
 
     // 1) 委托给 TI 同源 full-report 后处理管线
     const { content: processed, warnings } = postProcessFinalReport(content, {
-      language: "zh", // playground 当前仅支持中文 mission
+      language: "zh", // consumer 当前仅支持中文 mission
       qualityGate: this.qualityGate,
       logger: {
         warn: (msg) => this.logger.warn(msg),
@@ -477,7 +477,7 @@ export class ReportArtifactAssembler {
       );
     }
 
-    // 2) playground assembly 专属补丁：
+    // 2) consumer assembly 专属补丁：
     //    ② 孤儿 [N] 标注（需要 mission ctx 中的 references，TI 在 synthesize 阶段已补）
     content = this.markOrphanCitations(content);
     //    ③ 表格行尾缺 |
@@ -522,7 +522,7 @@ export class ReportArtifactAssembler {
 
   /**
    * ★ P0-LIVE-REPORT-FORMAT (2026-04-30): TI 风格 references section 构造
-   * 对齐 topic-insights/services/report/report-assembler.ts:1000 buildReferencesSection。
+   * 对齐 {app}/services/report/report-assembler.ts:1000 buildReferencesSection。
    * 输入：去重后的 citations[]；输出：以 "## 参考文献" 开头的完整 markdown 段。
    */
   private buildReferencesSection(

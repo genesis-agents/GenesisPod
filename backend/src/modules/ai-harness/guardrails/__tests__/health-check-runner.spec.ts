@@ -1,4 +1,4 @@
-import { HealthCheckRunner } from "../health-check-runner";
+import { HealthCheckRunner } from "../resources/health-check-runner";
 
 describe("HealthCheckRunner", () => {
   beforeEach(() => {

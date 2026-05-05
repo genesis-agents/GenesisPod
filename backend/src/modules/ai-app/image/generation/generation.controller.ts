@@ -23,6 +23,8 @@ import { FilesInterceptor } from "@nestjs/platform-express";
 import { Observable } from "rxjs";
 import { Response } from "express";
 import { ApiTags } from "@nestjs/swagger";
+import { ConfigService } from "@nestjs/config";
+import { timingSafeEqual } from "crypto";
 import { AiImageService } from "./generation.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 
@@ -59,7 +61,27 @@ interface GenerateImageDto {
 export class AiImageController {
   private readonly logger = new Logger(AiImageController.name);
 
-  constructor(private readonly aiImageService: AiImageService) {}
+  constructor(
+    private readonly aiImageService: AiImageService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  /**
+   * S3 audit fix（2026-05-04）：admin key 改 ENV + timing-safe 比对
+   * - 必须设置 IMAGE_ADMIN_CLEANUP_KEY ENV，否则 endpoint 直接 503
+   * - timingSafeEqual 防 timing attack
+   */
+  private assertAdminKey(provided: string): void {
+    const expected = this.configService.get<string>("IMAGE_ADMIN_CLEANUP_KEY");
+    if (!expected) {
+      throw new ForbiddenException("Admin endpoint not configured");
+    }
+    const a = Buffer.from(provided ?? "");
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new ForbiddenException("Invalid key");
+    }
+  }
 
   @Get("models")
   @UseGuards(JwtAuthGuard)
@@ -377,9 +399,7 @@ export class AiImageController {
    */
   @Get("stats")
   async getImageStats(@Query("key") key: string) {
-    if (key !== "deepdive-admin-cleanup-2024") {
-      throw new ForbiddenException("Invalid key");
-    }
+    this.assertAdminKey(key);
     return this.aiImageService.getImageStats();
   }
 
@@ -389,10 +409,7 @@ export class AiImageController {
    */
   @Delete("delete-all")
   async adminDeleteAllImages(@Query("key") key: string) {
-    // 简单的密钥验证
-    if (key !== "deepdive-admin-cleanup-2024") {
-      throw new ForbiddenException("Invalid key");
-    }
+    this.assertAdminKey(key);
     this.logger.log("Admin delete all images triggered");
     const result = await this.aiImageService.deleteAllImages();
     return {
@@ -475,10 +492,7 @@ export class AiImageController {
    */
   @Post("cleanup-all")
   async adminCleanupAllImages(@Query("key") key: string) {
-    // 简单的密钥验证
-    if (key !== "deepdive-admin-cleanup-2024") {
-      throw new ForbiddenException("Invalid key");
-    }
+    this.assertAdminKey(key);
     this.logger.log("Admin cleanup all users images triggered");
     const result = await this.aiImageService.cleanupAllUsersImages();
     return {

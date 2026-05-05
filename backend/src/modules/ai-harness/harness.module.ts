@@ -1,13 +1,13 @@
 /**
- * Harness Module Ã¢â‚¬â€ Agent Ã¨Â¿ÂÃ¨Â¡Å’Ã¦â€”Â¶Ã¨â€žÅ¡Ã¦â€°â€¹Ã¦Å¾Â¶
+ * Harness Module — Agent 运行时脚手架
  *
- * Ã¤Â¾ÂÃ¨Âµâ€“Ã©â€œÂ¾Ã¯Â¼Å¡
- *   AI App Ã¢â€ â€™ HarnessFacade Ã¢â€ â€™ AgentFactory Ã¢â€ â€™ (ReActLoop + MemoryContextBindingService + SkillActivator)
- *     ReActLoop Ã¢â€ â€™ AiChatService + ToolInvoker + HookRegistry
- *     ToolInvoker Ã¢â€ â€™ ToolRegistry
- *     MemoryContextBindingService Ã¢â€ â€™ MemoryCoordinatorService (@Optional)
- *     SkillActivator Ã¢â€ â€™ SkillRegistry + HookRegistry
- *     SkillLoader Ã¢â€ â€™ SkillRegistry (OnModuleInit Ã¨â€¡ÂªÃ¥Å Â¨Ã¥Å Â Ã¨Â½Â½ built-in/*)
+ * 依赖链：
+ *   AI App → HarnessFacade → AgentFactory → (ReActLoop + MemoryContextBindingService + SkillActivator)
+ *     ReActLoop → AiChatService + ToolInvoker + HookRegistry
+ *     ToolInvoker → ToolRegistry
+ *     MemoryContextBindingService → MemoryCoordinatorService (@Optional)
+ *     SkillActivator → SkillRegistry + HookRegistry
+ *     SkillLoader → SkillRegistry (OnModuleInit 自动加载 built-in/*)
  *
  * Phase 1: abstractions + HarnessedAgent skeleton + HookRegistry
  * Phase 2: ReActLoop + ToolInvoker + MemoryContextBindingService
@@ -83,10 +83,10 @@ import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orch
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
-// Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬Ã¯Â¼Ë†2026-04-29Ã¯Â¼â€°: figure Ã§â€ºÂ¸Ã¥â€¦Â³Ã¦â‚¬Â§Ã¥Ë†Â¤Ã¦â€“Â­Ã¯Â¼Ë†Ã¦ÂÂ¥Ã¨â€¡Âª topic-insights, TI Ã¦Å¡â€šÃ¤Â¸ÂÃ¥Ë†â€¡Ã¦ÂÂ¢Ã¯Â¼â€°
+// ★ 沉淀（2026-04-29）: figure 相关性判断（来自 {app}, TI 暂不切换）
 import { FigureRelevanceService } from "./evaluation/figure";
-// Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬Ã¯Â¼Ë†2026-04-29Ã¯Â¼â€°: Reflexion Ã¦â€°Â¹Ã¨Â¯â€ž-Ã¦â€Â¹Ã¨Â¿â€ºÃ©â€”Â­Ã§Å½Â¯Ã¯Â¼Ë†Ã¦ÂÂ¥Ã¨â€¡Âª topic-insights, TI Ã¦Å¡â€šÃ¤Â¸ÂÃ¥Ë†â€¡Ã¦ÂÂ¢Ã¯Â¼â€°
-//   v3 (Ã¥ÂÅ’Ã¦â€”Â¥): quality-gate / section-remediation / report-evaluation / quality-trace-compute
+// ★ 沉淀（2026-04-29）: Reflexion 批评-改进闭环（来自 {app}, TI 暂不切换）
+//   v3 (同日): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 import {
   CritiqueRefineService,
   SectionSelfEvalService,
@@ -111,10 +111,10 @@ import { ToolSelectorRegistry } from "./runner/tool-routing/tool-selector-regist
 
 import { AiEngineLLMModule } from "../ai-engine/llm/llm.module";
 import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
-// AiEngineMemoryModule Ã¥Â·Â²Ã§Â§Â»Ã©â„¢Â¤Ã¯Â¼Ë†2026-04-30Ã¯Â¼â€°Ã¢â‚¬â€Ã¢â‚¬â€ Memory Ã¦Å“ÂÃ¥Å Â¡Ã¥â€¦Â¨Ã©Æ’Â¨Ã¨Â¿ÂÃ¥Ë†Â°
-// ai-harness/memoryÃ¯Â¼Ë†RuntimeMemoryModule @GlobalÃ¯Â¼â€°Ã¯Â¼Å’Ã¦â€”Â Ã©Å“â‚¬Ã¥Å“Â¨Ã¦Â­Â¤ forwardRefÃ£â‚¬â€š
+// AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
+// ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 
-// PR-X18: Engine Ã§Â«Â¯ DI tokens Ã¢â‚¬â€ harness Ã¦ÂÂÃ¤Â¾â€ºÃ¨Â¿â„¢ 9 Ã¤Â¸Âª token Ã§Å¡â€ž useExisting Ã§Â»â€˜Ã¥Â®Å¡
+// PR-X18: Engine 端 DI tokens — harness 提供这 9 个 token 的 useExisting 绑定
 import {
   AGENT_REGISTRY_PORT,
   AGENT_ORCHESTRATOR_PORT,
@@ -138,7 +138,7 @@ import { PostmortemClassifierService } from "./lifecycle/learning/postmortem-cla
 import { ConstraintEnforcementService } from "./guardrails/constraints/constraint-enforcement.service";
 import { ProcessSupervisorService } from "./lifecycle/supervisor/process-supervisor.service";
 
-// Ã¢Ëœâ€¦ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
+// â˜… PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
 import { AIFacade } from "./facade/ai.facade";
 import { ChatFacade } from "./facade/domain/chat.facade";
 import { ConcurrencyPlanner } from "./guardrails/resources/concurrency-planner.service";
@@ -154,15 +154,15 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
   imports: [
     forwardRef(() => AiEngineLLMModule),
     forwardRef(() => AiEngineToolsModule),
-    // 2026-05-01 (PR-X-K): Ã¨Â®Â© SkillActivator Ã¨Æ’Â½ fallback Ã¥Ë†Â° ai-engine SkillRegistryÃ¯Â¼Å’
-    // Ã©â‚¬ÂÃ¥â€¡ÂºÃ§â€Â¨Ã¦Ë†Â·Ã¥Å“Â¨ Admin UI / API Ã¨â€¡ÂªÃ¥Â®Å¡Ã¤Â¹â€°Ã§Å¡â€ž skill Ã§Â»â„¢ harness agent
+    // 2026-05-01 (PR-X-K): 让 SkillActivator 能 fallback 到 ai-engine SkillRegistry，
+    // 透出用户在 Admin UI / API 自定义的 skill 给 harness agent
     forwardRef(() => AiEngineSkillsModule),
   ],
   providers: [
     // Cross-cutting
     HookRegistry,
 
-    // ai-harness/guardrails (RuntimeResourceModule) Ã©â‚¬Å¡Ã¨Â¿â€¡ DI token Ã¦â€¹Â¿ harness Ã¨Æ’Â½Ã¥Å â€ºÃ¦Å½Â¢Ã©â€™Ë†Ã¯Â¼Å’Ã©ÂÂ¿Ã¥â€¦ÂÃ¥ÂÂÃ¥Ââ€˜ import
+    // ai-harness/guardrails (RuntimeResourceModule) 通过 DI token 拿 harness 能力探针，避免反向 import
     {
       provide: SPEC_AGENT_REGISTRY_PROBE,
       useExisting: SpecAgentRegistry,
@@ -172,8 +172,8 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
       useExisting: ToolCircuitBreaker,
     },
 
-    // PR-X18: 8 Ã¤Â¸Âª engine Ã§Â«Â¯ DI tokens Ã¢â‚¬â€ harness Ã¦ÂÂÃ¤Â¾â€ºÃ¥â€¦Â·Ã¤Â½â€œÃ§Â±Â»Ã§Å¡â€ž useExisting Ã§Â»â€˜Ã¥Â®Å¡
-    // Ã¨Â¿â„¢Ã¦Â Â· planning.module Ã§â€Â¨ token Ã¦Â³Â¨Ã¥â€¦Â¥Ã¯Â¼Å’Ã©ÂÂ¿Ã¥â€¦ÂÃ¥ÂÂÃ¥Ââ€˜ import harness Ã§Â±Â»
+    // PR-X18: 8 个 engine 端 DI tokens — harness 提供具体类的 useExisting 绑定
+    // 这样 planning.module 用 token 注入，避免反向 import harness 类
     PlanBasedAgentRegistry,
     AgentOrchestrator,
     AgentConfigService,
@@ -217,8 +217,8 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     BuiltinSkillCatalog,
     SkillLoader,
     SkillActivator,
-    // Ã¢Ëœâ€¦ 2026-05-01 (PR-X-K): SKILL_PROVIDERS Ã¥Â¤Å¡Ã¦ÂºÂÃ¦Â³Â¨Ã¥â€¦Â¥ Ã¢â‚¬â€ built-in miss Ã¦â€”Â¶ fallback
-    // Ã¥Ë†Â° ai-engine SkillRegistryÃ¯Â¼Ë†DB-backed Ã§â€Â¨Ã¦Ë†Â·Ã¨â€¡ÂªÃ¥Â®Å¡Ã¤Â¹â€° skillÃ¯Â¼â€°
+    // ★ 2026-05-01 (PR-X-K): SKILL_PROVIDERS 多源注入 — built-in miss 时 fallback
+    // 到 ai-engine SkillRegistry（DB-backed 用户自定义 skill）
     {
       provide: SKILL_PROVIDERS,
       useFactory: (engineProvider: EngineSkillProvider) => [engineProvider],
@@ -242,11 +242,11 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     PrismaVectorStore,
     MemoryAutoIndexer,
 
-    // Checkpoint + Learning (Phase 6) Ã¢â‚¬â€ PR-C Ã¥Ââ€¡Ã§ÂºÂ§Ã¤Â¸Âº Prisma Ã¥ÂÂ¯Ã©â‚¬â€°
+    // Checkpoint + Learning (Phase 6) — PR-C 升级为 Prisma 可选
     InMemoryCheckpointStore,
     PrismaCheckpointStore,
     {
-      // env HARNESS_CHECKPOINT_PERSIST=1 Ã¢â€ â€™ PrismaÃ¯Â¼â€ºÃ¥ÂÂ¦Ã¥Ë†â„¢ in-memoryÃ¯Â¼Ë†Ã¤Â¿ÂÃ¦Å’ÂÃ¦Âµâ€¹Ã¨Â¯â€¢/Ã¦Å“Â¬Ã¥Å“Â°Ã¤Â¸ÂÃ¦Â±Â¡Ã¦Å¸â€œ DBÃ¯Â¼â€°
+      // env HARNESS_CHECKPOINT_PERSIST=1 → Prisma；否则 in-memory（保持测试/本地不污染 DB）
       provide: CheckpointService,
       useFactory: (
         memStore: InMemoryCheckpointStore,
@@ -273,32 +273,32 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ReActRunner,
     MissionOrchestrator,
 
-    // Ã¢Ëœâ€¦ PR-B: Pricing + Verifier facade
+    // â˜… PR-B: Pricing + Verifier facade
     ModelPricingRegistry,
     JudgeService,
 
-    // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: figure Ã§â€ºÂ¸Ã¥â€¦Â³Ã¦â‚¬Â§Ã¥Ë†Â¤Ã¦â€“Â­Ã¯Â¼Ë†agent-playground Ã¥Â¤ÂÃ§â€Â¨Ã¯Â¼Å’TI Ã¦Å¡â€šÃ¤Â¿ÂÃ§â€¢â„¢Ã§Â§ÂÃ¦Å“â€°Ã¯Â¼â€°
+    // ★ 沉淀: figure 相关性判断（{app} 复用，TI 暂保留私有）
     FigureRelevanceService,
-    // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: Reflexion critique-refine Ã©â€”Â­Ã§Å½Â¯
+    // ★ 沉淀: Reflexion critique-refine 闭环
     CritiqueRefineService,
     SectionSelfEvalService,
-    // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬ v3: quality-gate / remediation / evaluation / trace-compute
+    // ★ 沉淀 v3: quality-gate / remediation / evaluation / trace-compute
     ReportQualityGateService,
     SectionRemediationService,
     ReportEvaluationService,
     QualityTraceComputeService,
 
-    // Ã¢Ëœâ€¦ PR-G: SpanExporter Ã¢â‚¬â€ AgentTracer Ã¥Â¤Å¡Ã§â€ºÂ®Ã¦Â â€¡Ã¥Ë†â€ Ã¥Ââ€˜Ã¯Â¼Ë†Logger + LangfuseÃ¯Â¼â€°
+    // ★ PR-G: SpanExporter — AgentTracer 多目标分发（Logger + Langfuse）
     SpanExporter,
 
-    // Ã¢Ëœâ€¦ PR-E: MCP Relay Ã¢â‚¬â€ Ã¨Â¿Å“Ã§Â«Â¯ MCP server Ã¥Â·Â¥Ã¥â€¦Â·Ã¨â€¡ÂªÃ¥Å Â¨Ã¦Â³Â¨Ã¥â€ Å’
+    // ★ PR-E: MCP Relay — 远端 MCP server 工具自动注册
     MCPRelay,
 
-    // Ã¢Ëœâ€¦ PR-X7: MCP Manager + Client Registry (moved from ai-engine)
+    // â˜… PR-X7: MCP Manager + Client Registry (moved from ai-engine)
     MCPManager,
     MCPClientRegistryService,
 
-    // Ã¢Ëœâ€¦ PR-H: DX Ã¥Â¥â€”Ã¤Â»Â¶ Ã¢â‚¬â€ @DefineAgent + AgentRunner + record/replay
+    // ★ PR-H: DX 套件 — @DefineAgent + AgentRunner + record/replay
     AgentRunner,
     FixtureStore,
 
@@ -312,8 +312,8 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     PromptRegistry,
     ToolSelectorRegistry,
 
-    // Ã¢Ëœâ€¦ PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
-    // These are @Global Ã¢â‚¬â€ all ai-app modules can inject them without explicit imports.
+    // â˜… PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
+    // These are @Global — all ai-app modules can inject them without explicit imports.
     ...FACADE_FEATURE_PROVIDERS,
     ModelResolverService,
     ChatFacade,
@@ -324,9 +324,9 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     AIFacade,
     ConcurrencyPlanner,
   ],
-  // PR-I: Ã¥â€¦Â³Ã©â€Â® SOTA Ã§Â¼ÂºÃ¥ÂÂ£Ã¨Â¡Â¥Ã¥â€¦Â¨
-  // - ToolCircuitBreaker: Ã¨Â¿Å¾Ã§Â»Â­Ã¥Â¤Â±Ã¨Â´Â¥Ã¨â€¡ÂªÃ¥Å Â¨ disable
-  // - InMemoryVectorStore: Harness Ã¥â€ â€¦Ã§Â½Â®Ã¨Â¯Â­Ã¤Â¹â€°Ã¥ÂÂ¬Ã¥â€ºÅ¾Ã¯Â¼Ë†Ã¤Â¸ÂÃ¥Â¼ÂºÃ¤Â¾ÂÃ¨Âµâ€“Ã¥Â¤â€“Ã©Æ’Â¨ coordinatorÃ¯Â¼â€°
+  // PR-I: 关键 SOTA 缺口补全
+  // - ToolCircuitBreaker: 连续失败自动 disable
+  // - InMemoryVectorStore: Harness 内置语义召回（不强依赖外部 coordinator）
   // HarnessInspectorController moved to open-api/admin/harness-inspector.controller.ts (PR-X17)
   exports: [
     HarnessFacade,
@@ -350,7 +350,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ReflexionLoop,
     SimpleLoop,
 
-    // PR-X18: Ã¥Â¯Â¼Ã¥â€¡Âº 8 Ã¤Â¸Âª engine Ã§Â«Â¯ token + Ã¥Â®Å¾Ã§Å½Â°Ã§Â±Â»Ã¯Â¼Ë†@GlobalÃ¯Â¼Å’Ã¨Â·Â¨Ã¦Â¨Â¡Ã¥Ââ€”Ã¥â€¦Â¨Ã¥Â±â‚¬Ã¥ÂÂ¯Ã¦Â³Â¨Ã¥â€¦Â¥Ã¯Â¼â€°
+    // PR-X18: 导出 8 个 engine 端 token + 实现类（@Global，跨模块全局可注入）
     PlanBasedAgentRegistry,
     AgentOrchestrator,
     AgentConfigService,
@@ -367,20 +367,20 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     EXECUTION_STATE_MANAGER_PORT,
     MCP_PROVIDER_PORT,
 
-    // Ã¢Ëœâ€¦ SOTA runtime exports
+    // â˜… SOTA runtime exports
     AgentTracer,
     ToolRegistry,
     ReActRunner,
     MissionOrchestrator,
     ModelPricingRegistry,
     JudgeService,
-    FigureRelevanceService, // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: figure Ã§â€ºÂ¸Ã¥â€¦Â³Ã¦â‚¬Â§
-    CritiqueRefineService, // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: critique-refine
-    SectionSelfEvalService, // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬: section-level 4 Ã§Â»Â´Ã¨â€¡ÂªÃ¨Â¯â€ž
-    ReportQualityGateService, // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬ v3: code-enforced Ã¨Â´Â¨Ã©â€¡ÂÃ©â€”Â¨Ã¦Å½Â§
-    SectionRemediationService, // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬ v3: Ã¥Â¼Â±Ã§Â»Â´Ã¥ÂºÂ¦Ã¥ÂË†Ã¥Â¹Â¶Ã¨Â¡Â¥Ã¦â€¢â€˜
-    ReportEvaluationService, // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬ v3: 10 Ã§Â»Â´Ã§Â»â€œÃ¦Å¾â€žÃ¥Å’â€“Ã¦Å Â¥Ã¥â€˜Å Ã¨Â¯â€žÃ¥Â®Â¡
-    QualityTraceComputeService, // Ã¢Ëœâ€¦ Ã¦Â²â€°Ã¦Â·â‚¬ v3: Ã¥â€¦Â¨Ã©â€œÂ¾Ã¨Â·Â¯Ã¨Â´Â¨Ã©â€¡Â trace Ã§ÂºÂ¯Ã¨Â®Â¡Ã§Â®â€”
+    FigureRelevanceService, // ★ 沉淀: figure 相关性
+    CritiqueRefineService, // ★ 沉淀: critique-refine
+    SectionSelfEvalService, // ★ 沉淀: section-level 4 维自评
+    ReportQualityGateService, // ★ 沉淀 v3: code-enforced 质量门控
+    SectionRemediationService, // ★ 沉淀 v3: 弱维度合并补救
+    ReportEvaluationService, // ★ 沉淀 v3: 10 维结构化报告评审
+    QualityTraceComputeService, // ★ 沉淀 v3: 全链路质量 trace 纯计算
     SpanExporter,
     MCPRelay,
     MCPManager,
@@ -390,7 +390,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ToolCircuitBreaker,
     InMemoryVectorStore,
 
-    // ai-harness/guardrails Ã¦Å½Â¢Ã©â€™Ë† tokenÃ¯Â¼Ë†Ã¥Â®Å¾Ã©â„¢â€¦Ã¦Å’â€¡Ã¥Ââ€˜Ã¤Â¸Å Ã©ÂÂ¢ useExistingÃ¯Â¼â€°
+    // ai-harness/guardrails 探针 token（实际指向上面 useExisting）
     SPEC_AGENT_REGISTRY_PROBE,
     TOOL_CIRCUIT_BREAKER_PROBE,
 
@@ -408,7 +408,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     PromptRegistry,
     ToolSelectorRegistry,
 
-    // Ã¢Ëœâ€¦ PR-X13: AIFacade + Domain Facades
+    // â˜… PR-X13: AIFacade + Domain Facades
     ModelResolverService,
     ChatFacade,
     RAGFacade,
@@ -440,33 +440,33 @@ export class HarnessModule implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap(): void {
-    // Break the circular dependency: AgentFactory Ã¢â€ â€ SubagentSpawner.
+    // Break the circular dependency: AgentFactory — SubagentSpawner.
     // Constructor injection requires both instances up-front; setter injection
     // lets NestJS finish provider instantiation, then we wire the cycle here.
     this.factory.setSubagentSpawner(this.spawner);
-    // Same rationale for ModelElectionService Ã¢â‚¬â€ forwardRef-provided dep.
+    // Same rationale for ModelElectionService — forwardRef-provided dep.
     // At onApplicationBootstrap the container is fully instantiated so Optional
     // inject here resolves cleanly without sibling-provider timing side effects.
     if (this.election) {
       this.factory.setElectionService(this.election);
     }
 
-    // v2: Ã¦Å Å Ã¥â€ â€¦Ã§Â½Â® loops Ã¦Â³Â¨Ã¥â€ Å’Ã¥Ë†Â° LoopRegistryÃ£â‚¬â€š
-    // AgentFactory.pickLoop(spec) Ã¦ÂÂ®Ã¦Â­Â¤Ã¦Å’â€° spec.loop Ã¥Â­â€”Ã¦Â®ÂµÃ¦Â´Â¾Ã¥Ââ€˜Ã£â‚¬â€š
+    // v2: 把内置 loops 注册到 LoopRegistry。
+    // AgentFactory.pickLoop(spec) 据此按 spec.loop 字段派发。
     this.loopRegistry.register(this.reactLoop);
     this.loopRegistry.register(this.planActLoop);
     this.loopRegistry.register(this.reflexionLoop);
-    // Ã¢Ëœâ€¦ Phase live-fix (2026-04-30): Ã¥Ââ€¢Ã¦Â­Â¥Ã§â€ºÂ´Ã§Â­â€ loopÃ¯Â¼Ë†Ã§ÂºÂ¯Ã§â€Å¸Ã¦Ë†Â / Ã¨Â¯â€žÃ¥Ë†â€ Ã§Â±Â» agent Ã§â€Â¨Ã¯Â¼â€°
+    // ★ Phase live-fix (2026-04-30): 单步直答 loop（纯生成 / 评分类 agent 用）
     this.loopRegistry.register(this.simpleLoop);
-    // PR-L: Ã¤Âºâ€Ã¥â€¦Æ’Ã§Å½Â¯ loop
+    // PR-L: 五元环 loop
     this.loopRegistry.register(this.leaderWorkerLoop);
 
-    // PR-B: Ã§Â»â„¢ ReflexionLoop Ã¦Â³Â¨Ã¥â€¦Â¥Ã©Â»ËœÃ¨Â®Â¤ verifiersÃ¯Â¼Ë†self + criticalÃ¯Â¼â€°Ã£â‚¬â€š
-    // PR-I Ã¥Â¿â€¦Ã¤Â¿Â® #3: Ã¦â€Â¹Ã§â€Â¨Ã¥Â®Å¾Ã¤Â¾â€¹Ã¦â€“Â¹Ã¦Â³â€¢Ã¯Â¼Ë†Ã¤Â¹â€¹Ã¥â€°ÂÃ¦ËœÂ¯ staticÃ¯Â¼Å’Ã¥Â½Â±Ã¥â€œÂÃ¦Âµâ€¹Ã¨Â¯â€¢Ã©Å¡â€Ã§Â¦Â»Ã¯Â¼â€°
+    // PR-B: 给 ReflexionLoop 注入默认 verifiers（self + critical）。
+    // PR-I 必修 #3: 改用实例方法（之前是 static，影响测试隔离）
     const defaults = this.judgeService.createVerifiers(["self", "critical"]);
     this.reflexionLoop.setDefaultVerifiers(defaults);
 
-    // PR-K: Ã©Â»ËœÃ¨Â®Â¤Ã¦Å Å  LoggerBroadcastAdapter Ã¨Â£â€¦Ã¥Ë†Â° EventBusÃ¯Â¼Ë†Ã¤Â¸Å¡Ã¥Å Â¡Ã¦â€“Â¹Ã¥ÂÂ¯Ã¥ÂÅ½Ã§Â»Â­Ã¦Â³Â¨Ã¥â€ Å’Ã¦â€ºÂ´Ã¥Â¤Å¡Ã¯Â¼â€°
+    // PR-K: 默认把 LoggerBroadcastAdapter 装到 EventBus（业务方可后续注册更多）
     this.eventBus.registerAdapter(this.defaultBroadcaster);
   }
 }

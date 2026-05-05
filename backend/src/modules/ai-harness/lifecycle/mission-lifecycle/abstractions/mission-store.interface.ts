@@ -3,7 +3,7 @@
  *
  * 设计：
  *   - 每 ai-app 自有表（不做 generic mission_runs 表，per v1 评审 P0-3）
- *   - 业务专属字段（如 playground.topic / depth）由 TMission 泛型决定
+ *   - 业务专属字段（如 consumer.topic / depth）由 TMission 泛型决定
  *   - statefulRoleStates / crossStageState 持久化是 R1-C 关键扩展
  *     （v5.1 P0-F：crashed mission 可 resume）
  *
@@ -59,7 +59,7 @@ export interface PastDecision {
 /**
  * IMissionStore — pure CRUD + state hydration（generic 端口）
  *
- * 业务专属 method（如 playground.appendDimensions）通过 store extension 加，
+ * 业务专属 method（如 consumer.appendDimensions）通过 store extension 加，
  * 不进 generic 接口。
  */
 export interface IMissionStore<TBusiness = Record<string, unknown>> {

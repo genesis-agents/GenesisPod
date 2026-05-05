@@ -232,9 +232,12 @@ export class MissionStore {
    *     的 mission（PR-H 部署前启动）；保守跳过，等老 recovery 处理
    *   - heartbeatAt < now - STALE_MINUTES → pod 真的死了 → markFailed
    *
-   * 默认 stale 阈值 = 90s（heartbeat 30s 一次，3 次没刷新 = 死）
+   * 默认 stale 阈值 = 300s（heartbeat 30s 一次；Railway redeploy 通常 60-120s
+   * 部署 + 30s 启动，旧 90s 阈值在每次 push 都误杀进行中 mission ——
+   * 2026-05-04 实测确认）。300s 兜住 redeploy 窗口；真死 pod 检测延迟 5min
+   * 内可接受。
    */
-  async recoverPodCrashedRunning(staleSeconds = 90): Promise<number> {
+  async recoverPodCrashedRunning(staleSeconds = 300): Promise<number> {
     const cutoff = new Date(Date.now() - staleSeconds * 1000);
     const orphans = await this.prisma.agentPlaygroundMission
       .findMany({
@@ -264,7 +267,7 @@ export class MissionStore {
           status: "failed",
           completedAt: new Date(),
           errorMessage:
-            "Mission 在 pod 重启 / Railway redeploy 时丢失（DB 心跳停 ≥ 90 秒）。\n\n" +
+            `Mission 在 pod 重启 / Railway redeploy 时丢失（DB 心跳停 ≥ ${staleSeconds} 秒）。\n\n` +
             "PR-H v1 检测窗口：当前是清理悬挂 mission，让 UI 看到明确失败状态。\n" +
             "PR-H v2 将支持从最近 stage checkpoint 自动续跑（开发中）。\n\n" +
             "建议：使用顶部「重新运行」按钮重启相同主题。",

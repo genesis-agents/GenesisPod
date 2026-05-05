@@ -12,7 +12,7 @@
  *   b7  cond-expr line=92 (fallback branch when getAvailableModels throws)
  */
 
-import { ConcurrencyPlanner } from "../concurrency-planner.service";
+import { ConcurrencyPlanner } from "../resources/concurrency-planner.service";
 
 function makeChatFacade(models: { provider: string }[] | Error): {
   getAvailableModels: jest.Mock;

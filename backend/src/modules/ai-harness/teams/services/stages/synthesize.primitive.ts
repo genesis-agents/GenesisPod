@@ -30,7 +30,7 @@ export interface SynthesizeStageHooks {
     mode?: string;
   }) => Promise<unknown>;
 
-  /** 可选：retry-on-null（playground analyst 用） */
+  /** 可选：retry-on-null（consumer analyst 用） */
   readonly retryOnceOnNullOutput?: boolean;
 }
 

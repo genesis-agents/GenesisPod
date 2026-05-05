@@ -30,7 +30,7 @@ import { PrismaModule } from "../../../../common/prisma/prisma.module";
 // Working
 import { HierarchicalMemoryCascadeService } from "./hierarchical-memory-cascade.service";
 import { ProcessMemoryManagerService } from "./process-memory-manager.service";
-// ★ 2026-05-04 (PR-5 standardize playground): handoff token compaction primitive
+// ★ 2026-05-04 (PR-5 standardize consumer): handoff token compaction primitive
 import { HandoffCompactorService } from "./handoff-compactor.service";
 
 // Stores

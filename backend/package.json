@@ -39,6 +39,9 @@
     "release:notify": "tsx ../infra/railway/scripts/release-notify.ts",
     "dev:circular": "tsx scripts/dev-tools/detect-circular-deps.ts",
     "verify:file-governance": "tsx scripts/dev-tools/audit-base-layer-file-governance.ts",
+    "audit:debt": "tsx scripts/audit-architecture-debt.ts",
+    "audit:debt:strict": "tsx scripts/audit-architecture-debt.ts --strict",
+    "audit:debt:json": "tsx scripts/audit-architecture-debt.ts --json",
     "maintenance:policy": "tsx scripts/maintenance/update-policy-whitelist.ts",
     "maintenance:validate": "tsx scripts/maintenance/validate-data-integrity.ts"
   },

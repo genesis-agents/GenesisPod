@@ -15,3 +15,6 @@ export * from "./plugin.interface";
 export * from "./plugin-capability.types";
 export * from "./service-tokens";
 export * from "./hook-context.interface";
+
+// W2-A: storage 域端口集合（按部署平台差异驱动 plugin 化）
+export * from "./storage";

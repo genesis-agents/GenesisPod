@@ -1,7 +1,7 @@
 /**
  * MissionCheckpointService — 通用 mission/job checkpoint 管理
  *
- * 沉淀自：ai-app/topic-insights/services/monitoring/research-checkpoint.service.ts
+ * 沉淀自：ai-app/{app}/services/monitoring/research-checkpoint.service.ts
  * 剥离了对 prisma.researchMission 的硬耦合，改为依赖 MissionCheckpointStore 接口。
  *
  * 用途：

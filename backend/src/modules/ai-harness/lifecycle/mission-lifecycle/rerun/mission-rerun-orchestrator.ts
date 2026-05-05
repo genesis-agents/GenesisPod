@@ -5,11 +5,11 @@
  *   - 全 mission rerun (rerunFull)：复用原 input + 可选 checkpoint clone +
  *     fire-and-forget runner.run
  *   - 单 todo rerun (rerunFromTodo)：创建新 mission focused 跑；业务拒绝条件
- *     由 policy.validateTodoRerun 实现（playground 拒 leader-assess-abort
+ *     由 policy.validateTodoRerun 实现（consumer 拒 leader-assess-abort
  *     / s11-persist / running 状态等）
  *
  * 不知 ai-app 命名：
- *   - playground: emit "agent-playground.mission:manual-rerun-from-todo" 这类业务
+ *   - consumer: emit "{app}.mission:manual-rerun-from-todo" 这类业务
  *     事件由 controller / business hook 在 runner.run 启动后或之前自行 emit；
  *     orchestrator 不持有 IMissionEventStore，避免 generic primitive 直接产生
  *     业务事件命名空间

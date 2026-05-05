@@ -155,4 +155,3 @@ export function createTimeoutMiddleware(
 ): TimeoutMiddleware {
   return new TimeoutMiddleware(config);
 }
-

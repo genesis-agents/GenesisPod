@@ -10,7 +10,7 @@
  *
  * 与 IAgentEvent 的桥接：
  *   - 业务方在 hook 里把 IAgentEvent 翻译成 DomainEvent
- *   - 例：PostToolUse hook → emit('topic-insights.evidence:found', {...})
+ *   - 例：PostToolUse hook → emit('{app}.evidence:found', {...})
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";

@@ -15,7 +15,6 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
-import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../runtime/r2-storage.service";
@@ -315,44 +314,28 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
         byPrefix: [],
       };
     }
-    const client = this.storage.getS3Client();
     const bucket = this.storage.getBucketName();
-    if (!client) {
-      return {
-        configured: false,
-        bucket: null,
-        totalObjects: 0,
-        totalBytes: 0,
-        totalHuman: "0 B",
-        byPrefix: [],
-      };
-    }
 
     const byPrefixMap = new Map<string, { objects: number; bytes: number }>();
     let totalObjects = 0;
     let totalBytes = 0;
     let token: string | undefined;
     while (true) {
-      const res = await client.send(
-        new ListObjectsV2Command({
-          Bucket: bucket,
-          ContinuationToken: token,
-          MaxKeys: 1000,
-        }),
-      );
-      for (const obj of res.Contents ?? []) {
-        if (!obj.Key) continue;
-        const top = obj.Key.split("/")[0] + "/";
-        const size = obj.Size ?? 0;
+      const page = await this.storage.listObjects({
+        continuationToken: token,
+        maxKeys: 1000,
+      });
+      for (const obj of page.objects) {
+        const top = obj.key.split("/")[0] + "/";
         const entry = byPrefixMap.get(top) ?? { objects: 0, bytes: 0 };
         entry.objects++;
-        entry.bytes += size;
+        entry.bytes += obj.size;
         byPrefixMap.set(top, entry);
         totalObjects++;
-        totalBytes += size;
+        totalBytes += obj.size;
       }
-      if (!res.IsTruncated) break;
-      token = res.NextContinuationToken;
+      if (!page.isTruncated) break;
+      token = page.nextContinuationToken;
     }
 
     const byPrefix: R2PrefixStat[] = Array.from(byPrefixMap.entries())

@@ -1,9 +1,9 @@
 /**
  * postProcessFinalReport — TI 沉淀的 full-report 后处理管线
  *
- * 原属 `topic-insights/services/report/report-assembler.service.ts:postProcessFinalReport`
+ * 原属 `{app}/services/report/report-assembler.service.ts:postProcessFinalReport`
  * 类方法。2026-04-30 (REPORT QUALITY OVERHAUL) 晋升到 ai-engine 层，
- * 让 TI / Playground / 任何 ai-app 都能调同一份。
+ * 让 TI / consumer / 任何 ai-app 都能调同一份。
  *
  * 与 `formatDimensionContent` 的分工：
  *   - `formatDimensionContent`: 单维章节装配前清洗（会 strip H1/H2，per-dimension 用）
@@ -79,7 +79,7 @@ import {
  * Quality gate interface (decoupled from any specific service implementation).
  *
  * `postProcessFinalReport` accepts an optional gate that follows this shape so
- * both Playground (`@/modules/ai-harness/facade` ReportQualityGateService) and
+ * both consumer (`@/modules/ai-harness/facade` ReportQualityGateService) and
  * TI's own gate adapter can be passed in.
  */
 export interface PostProcessQualityGate {

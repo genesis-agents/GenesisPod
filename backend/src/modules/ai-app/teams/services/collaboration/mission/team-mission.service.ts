@@ -4329,7 +4329,7 @@ ${taskBreakdown.executionPlan ? `\n执行计划：${taskBreakdown.executionPlan}
 
 【🌍 世界观设定 - 必须严格遵守】
 以下是本任务的世界观设定，所有创作内容必须与这些设定保持一致：
-${worldConstraints.map((c) => `â€¢ [${c.id}] ${c.rule}`).join("\n")}
+${worldConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
 
 ⚠️ 违反世界观设定将导致内容不一致，会被 Leader 打回修改。
 
@@ -4724,7 +4724,7 @@ ${truncatedResult}
       allConstraints.length > 0
         ? `
 【🚫 硬性约束 - 修改时必须遵守】
-${allConstraints.map((c) => `â€¢ [${c.id}] ${c.rule}`).join("\n")}
+${allConstraints.map((c) => `• [${c.id}] ${c.rule}`).join("\n")}
 
 ⚠️ 违反任何硬性约束将导致再次被驳回。
 `

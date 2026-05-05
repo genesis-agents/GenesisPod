@@ -5,8 +5,8 @@
  * checkpoint clone + 可选 todo 局部重跑路由。所有业务规则（origin / scope /
  * 拒绝条件）通过 IMissionRerunPolicy 注入；orchestrator 自身不知 ai-app 命名。
  *
- * Adapter（playground.config.ts 期 R2-A）：
- *   - playground:    PlaygroundRerunPolicy.validateTodoRerun 实现 leader-assess-abort /
+ * Adapter（consumer.config.ts 期 R2-A）：
+ *   - consumer:    PlaygroundRerunPolicy.validateTodoRerun 实现 leader-assess-abort /
  *                    s11-persist 拒绝；cloneInput 解 mission.userProfile JSON
  *   - writing-team:  WritingTeamRerunPolicy.cloneInput 重建 RunDraftInput
  */
@@ -24,7 +24,7 @@ export interface RerunFullArgs {
 /**
  * 单 todo rerun 入参（创建新 mission 跑 focus 流）
  *
- * @typeParam TBody - 业务自定义 todo body schema（playground 含 origin / scope /
+ * @typeParam TBody - 业务自定义 todo body schema（consumer 含 origin / scope /
  *                    dimensionRef / chapterIndex / todoTitle / reasonText 等）
  */
 export interface RerunTodoArgs<TBody = unknown> {
@@ -61,7 +61,7 @@ export interface IMissionRunner<TInput> {
 /**
  * MissionRerunPolicy —— 业务策略钩子。三个职责：
  *   1. validateFullRerun: 全 mission 重跑可选拒绝（默认放行）
- *   2. validateTodoRerun: 单 todo 重跑可选拒绝（playground 拒 leader-assess-abort 等）
+ *   2. validateTodoRerun: 单 todo 重跑可选拒绝（consumer 拒 leader-assess-abort 等）
  *   3. cloneInput: 把原 mission record 转成新 RunInput（必填，业务必知字段映射）
  *
  * 拒绝以 throw RerunNotAllowedError 表达；其它 error 透传。

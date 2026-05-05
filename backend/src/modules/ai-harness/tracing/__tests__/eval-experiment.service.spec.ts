@@ -1,8 +1,8 @@
-import { EvalExperimentService } from "../eval-experiment.service";
-import { EvalHarnessService } from "../eval-harness.service";
-import { EvalPipelineService } from "../eval-pipeline.service";
-import { InMemoryEvalRunStore } from "../eval-run.store";
-import type { EvalDataset } from "../eval-harness.types";
+import { EvalExperimentService } from "../evaluation/eval-experiment.service";
+import { EvalHarnessService } from "../evaluation/eval-harness.service";
+import { EvalPipelineService } from "../evaluation/eval-pipeline.service";
+import { InMemoryEvalRunStore } from "../evaluation/eval-run.store";
+import type { EvalDataset } from "../evaluation/eval-harness.types";
 
 function makeHarness() {
   return new EvalHarnessService(

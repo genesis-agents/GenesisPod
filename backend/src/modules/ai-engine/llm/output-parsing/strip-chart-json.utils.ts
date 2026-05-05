@@ -1,5 +1,5 @@
 /**
- * Chart JSON Stripping Utilities — 沉淀自 topic-insights, 2026-04-29
+ * Chart JSON Stripping Utilities — 沉淀自 {app}, 2026-04-29
  *
  * 纯函数（0 DI，0 LLM）：从 markdown 正文中清理 LLM 泄漏的图表 JSON 块、
  * Figure References 元数据、裸 JSON 行。

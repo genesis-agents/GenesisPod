@@ -2,7 +2,7 @@
  * OutputSchemaRegistry — schema id → zod schema 注册表（v5.1 R1-A0 / §3.3.2）
  *
  * 设计理由：
- * - SKILL.md frontmatter 含 `outputSchemaRef: "agent-playground.leader-output"`，
+ * - SKILL.md frontmatter 含 `outputSchemaRef: "{app}.leader-output"`，
  *   是字符串引用而非 zod 实例（zod 实例不可 serializable）
  * - ai-app 在 onModuleInit 注册 schema by id；SkillSpecBuilder 通过 ref 查表拿 zod
  *

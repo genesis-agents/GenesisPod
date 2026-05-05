@@ -17,7 +17,10 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { CostAttributionService, CostEvent } from "../cost-attribution.service";
+import {
+  CostAttributionService,
+  CostEvent,
+} from "../observability/cost-attribution.service";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output for all tests

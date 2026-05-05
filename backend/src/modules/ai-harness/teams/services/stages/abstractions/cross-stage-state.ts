@@ -2,7 +2,7 @@
  * CrossStageState — 跨 stage 副作用容器（v5.1 §3.2 / §3.4 P0-F）
  *
  * 用途：
- *   非 stateful role 的 stage 间数据传递（如 playground 的 s4PatchFailures /
+ *   非 stateful role 的 stage 间数据传递（如 consumer 的 s4PatchFailures /
  *   s4PatchRound / outlinePlan）。stage primitive 在执行期写入；后续 primitive +
  *   accountability hook 读取。
  *
@@ -11,7 +11,7 @@
  *   - append() 用于 accumulator（如 patchFailures）
  *   - 序列化通过 toJSON() / fromJSON()（IMissionStore 持久化用）
  *   - business-agnostic：harness 不知道 key 含义；ai-app hook 自己用业务前缀
- *     例：playground.s4PatchFailures（业务前缀避免冲突）
+ *     例：consumer.s4PatchFailures（业务前缀避免冲突）
  *
  * 持久化：
  *   crashed mission resume 时由 IMissionStore.getCrossStageState() 重建

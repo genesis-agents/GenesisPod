@@ -1,11 +1,64 @@
-# Plugin 系统治理规范（v5.1 R0.5 PR-0 交付）
+# Plugin 系统治理规范（v5.1 R0.5 PR-0 交付 / 2026-05-04 反应式规则修正）
 
-**版本：** 1.0
+**版本：** 2.0
 **强制级别：** MUST
-**生效日期：** 2026-05-04
+**生效日期：** 2026-05-04（v1.0）/ 2026-05-04（v2.0 反应式规则修正）
 **维护者：** Claude Code
 **关联：** [16-ai-engine-harness-structure.md](16-ai-engine-harness-structure.md) / [17-extension-governance.md](17-extension-governance.md) / [18-base-layer-file-governance.md](18-base-layer-file-governance.md)
 **关联方案：** [docs/architecture/ai-app/agent-playground/anthropic-sdk-revamp-plan-v5.1.md](../../docs/architecture/ai-app/agent-playground/anthropic-sdk-revamp-plan-v5.1.md) §11
+
+---
+
+## 〇、Plugin 抽取规则（v2.0 修正后顶层强约束）
+
+> **历史教训**：v1.0 规范受"26 plugin 批量迁出"清单驱动，导致 W1-a / W1-b 把 timeout / validation / circuit-breaker / rate-limit 等核心 service 误抽成 plugin，全部回滚。v2.0 用规则替代清单。
+
+### 〇.1 充要条件（必须**全部满足**才抽 plugin）
+
+| #   | 条件                                    | 不满足 = 不抽                                       |
+| --- | --------------------------------------- | --------------------------------------------------- |
+| 1   | **代码库内已存在 ≥ 2 种 backend 实现**  | 单 backend 抽接口 = YAGNI                           |
+| 2   | **替换是部署期决策（非 runtime 路由）** | TaskProfile 路由不同模型属 service 内部             |
+| 3   | **实现差异是结构性的（非参数化）**      | redis 集群 vs 单机是参数；vm2 vs isolated-vm 是结构 |
+
+### 〇.2 禁止条件（满足任一 = 不抽）
+
+| #   | 禁止情况                              | 反例                                                                      |
+| --- | ------------------------------------- | ------------------------------------------------------------------------- |
+| 1   | 一个标准算法 / 状态机有公认实现       | token-bucket / circuit-breaker / semaphore / setTimeout race / zod schema |
+| 2   | "跨 ai-app 共用 → plugin 候选" 已作废 | rate-limit / pii / pricing / capability-guard 凡平台 service 都跨 app 用  |
+| 3   | 协议 transport 层差异                 | SSE vs WebSocket / gRPC vs HTTP — 归 middleware/transport 不归 plugin     |
+
+### 〇.3 反应式抽取流程
+
+1. **触发**：实际场景出现"我要用 X 替换 Y"（如客户要 Qdrant 替 pgvector / 接 Llama Guard 替 detector）
+2. **ADR**：写 ≤ 1 页 ADR 记录驱动需求 + 接口设计 + 第二 backend 工作量
+3. **同 PR 落地**：抽 IXxxBackend 端口 + 现有实现包成第一 backend + 新 backend 实现 + spec
+4. **❌ 禁止**："先抽接口、二期补 backend"（这是预抽伪装成反应式）
+
+### 〇.4 当前 plugin 名册（2026-05-04 锁定）
+
+**真 plugin（已落地，3 个）**：
+
+- `observability/telemetry-otel`（OTel / Datadog / Sentry / disable）
+- `storage/tool-cache-redis`（Redis / Memcached / in-memory）
+- `security/sandbox-isolated-vm`（vm2 / isolated-vm / worker / disable）
+
+**未来候选（不预抽）**：见 [revamp-plan-v5.1.md §11.1](../../docs/architecture/ai-app/agent-playground/anthropic-sdk-revamp-plan-v5.1.md) "未来候选" 表
+
+### 〇.5 历史误分类（已回归核心）
+
+下列能力曾被 v1.0 §11.1 列为 plugin，2026-05-04 修正后确认归核心：
+
+`tool-timeout` / `tool-validation-zod` → `engine/tools/middleware/`
+`rate-limit` / `circuit-breaker` / `concurrency-control` → `engine/safety/resilience/` `engine/tools/concurrency/`
+`tool-permission-rbac` / `capability-guard-rbac` / `guardrail-injection` → `engine/safety/{security, guardrails}/`
+`telemetry-latency` / `telemetry-llm-events` / `telemetry-attribution` → `harness/tracing/`
+`llm-multi-key` / `llm-pricing` / `llm-prompt-adapter` / `llm-output-sanitizer` → `engine/llm/`
+`tool-progress-sse/websocket` → `engine/tools/middleware/`
+`budget-billing` → `harness/guardrails/billing/`
+
+**任何回退此清单的 PR 提案必须先修订 §〇.1-〇.3 规则**。规则不动 = 决策不变。
 
 ---
 
@@ -13,14 +66,15 @@
 
 本规范把 v5.1 §11 Plugin 系统的关键设计决策固化为项目级强约束，覆盖：
 
+- 〇 Plugin **抽取规则**（v2.0 反应式规则）
 - `src/plugins/core/` 内核与 `src/plugins/` 实现的目录边界
 - plugin 与 5 层架构（ai-infra / ai-engine / ai-harness / ai-app / open-api）的依赖方向
-- 26 个横切关注点必须以 plugin 形态存在的强制要求
+- ~~26 个横切关注点必须以 plugin 形态存在的强制要求~~ → v2.0 改为反应式抽取，参见 §〇
 - IPlugin / HookBus / IPluginContext 接口的稳定契约面（SDK 发布预留）
 - 安全姿势（CRIT-1 payload immutability + CRIT-2 plugin trust mode）
 - 看护机制（layer-boundaries.spec / ESLint / pre-push）扩展规则
 
-本规范在 R0.5 PR-0 阶段交付，PR-1 起所有 plugin 相关 PR 必须遵守。
+本规范在 R0.5 PR-0 阶段交付（v1.0），2026-05-04 修正为 v2.0。所有 plugin 相关 PR 必须遵守 §〇 抽取规则。
 
 ---
 

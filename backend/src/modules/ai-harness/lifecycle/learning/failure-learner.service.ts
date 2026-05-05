@@ -1,9 +1,9 @@
 /**
  * FailureLearnerService — 跨 mission 失败模式记忆
  *
- * 2026-05-01 上提: 原叫 HarnessFailureLearner，挂在 agent-playground/services/
+ * 2026-05-01 上提: 原叫 HarnessFailureLearner，挂在 {app}/services/
  * failure-learning/ 下。改名 + 上提到 ai-harness/governance/learning/，因为跨
- * mission 失败模式不是 playground 专属能力，research / writing / teams 都可复用。
+ * mission 失败模式不是 consumer 专属能力，research / writing / teams 都可复用。
  * ai-app 模块通过 `@/modules/ai-harness/facade` 注入。
  *
  * 功能：

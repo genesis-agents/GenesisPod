@@ -27,6 +27,11 @@ import {
   SocialContentSourceType,
 } from "../types";
 
+// S4 audit fix（2026-05-04）：session-crypto 删 dev fallback 后，spec 必须设
+// SESSION_ENCRYPTION_KEY（64 hex chars = 32 bytes for AES-256）
+process.env.SESSION_ENCRYPTION_KEY =
+  "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+
 describe("AiSocialService", () => {
   let service: AiSocialService;
   let mockPrisma: any;

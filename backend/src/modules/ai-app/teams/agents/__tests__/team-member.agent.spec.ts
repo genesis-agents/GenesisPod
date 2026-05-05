@@ -1,6 +1,6 @@
 /**
  * TeamMemberAgent Tests
- * Ã¦Âµâ€¹Ã¨Â¯â€¢ AI Teams Ã¦Ë†ÂÃ¥â€˜Ëœ Agent Ã§Å¡â€žÃ¥Â·Â¥Ã¥â€¦Â·Ã©â€ºâ€ Ã¦Ë†ÂÃ¥Å Å¸Ã¨Æ’Â½
+ * 测试 AI Teams 成员 Agent 的工具集成功能
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
@@ -115,7 +115,7 @@ describe("TeamMemberAgent", () => {
     agent = module.get<TeamMemberAgent>(TeamMemberAgent);
     toolRegistry = module.get<ToolRegistry>(ToolRegistry);
 
-    // Ã¦Â³Â¨Ã¥â€ Å’ mock Ã¥Â·Â¥Ã¥â€¦Â·
+    // 注册 mock 工具
     mockWebSearch = new MockWebSearchTool();
     mockCodeGen = new MockCodeGenerationTool();
     mockDataAnalysis = new MockDataAnalysisTool();
@@ -130,11 +130,11 @@ describe("TeamMemberAgent", () => {
   });
 
   // ==========================================================================
-  // resolveTools - Ã¦Â Â¹Ã¦ÂÂ®Ã¦Ë†ÂÃ¥â€˜ËœÃ©â€¦ÂÃ§Â½Â®Ã¨Â§Â£Ã¦Å¾ÂÃ¥Â·Â¥Ã¥â€¦Â·Ã¥Ë†â€”Ã¨Â¡Â¨
+  // resolveTools - 根据成员配置解析工具列表
   // ==========================================================================
 
   describe("resolveTools", () => {
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â¸Âº researcher Ã¨Â§â€™Ã¨â€°Â²Ã¥Ë†â€ Ã©â€¦ÂÃ¦ÂÅ“Ã§Â´Â¢Ã¥â€™Å’Ã§Å¸Â¥Ã¨Â¯â€ Ã¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该为 researcher 角色分配搜索和知识工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-1",
         displayName: "Researcher",
@@ -154,7 +154,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.SHORT_TERM_MEMORY);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â¸Âº analyst Ã¨Â§â€™Ã¨â€°Â²Ã¥Ë†â€ Ã©â€¦ÂÃ¦â€¢Â°Ã¦ÂÂ®Ã¥Ë†â€ Ã¦Å¾ÂÃ¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该为 analyst 角色分配数据分析工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-2",
         displayName: "Analyst",
@@ -174,7 +174,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.STRUCTURED_OUTPUT);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â¸Âº developer Ã¨Â§â€™Ã¨â€°Â²Ã¥Ë†â€ Ã©â€¦ÂÃ¤Â»Â£Ã§Â ÂÃ¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该为 developer 角色分配代码工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-3",
         displayName: "Developer",
@@ -194,7 +194,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.GITHUB_INTEGRATION);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â¸Âº writer Ã¨Â§â€™Ã¨â€°Â²Ã¥Ë†â€ Ã©â€¦ÂÃ¦â€“â€¡Ã¦Â¡Â£Ã¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该为 writer 角色分配文档工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-4",
         displayName: "Writer",
@@ -214,7 +214,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.WEB_SEARCH);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â¸Âº leader Ã¨Â§â€™Ã¨â€°Â²Ã¥Ë†â€ Ã©â€¦ÂÃ¥ÂÂÃ¤Â½Å“Ã¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该为 leader 角色分配协作工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-5",
         displayName: "Leader",
@@ -235,7 +235,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.HUMAN_APPROVAL);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¦Â Â¹Ã¦ÂÂ® capabilities Ã¥Ë†â€ Ã©â€¦ÂÃ©Â¢ÂÃ¥Â¤â€“Ã¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该根据 capabilities 分配额外工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-6",
         displayName: "GeneralMember",
@@ -266,7 +266,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.WEB_SCRAPER);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¦Â Â¹Ã¦ÂÂ® expertiseAreas Ã¦Å½Â¨Ã¦â€“Â­Ã¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该根据 expertiseAreas 推断工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-7",
         displayName: "Expert",
@@ -279,20 +279,20 @@ describe("TeamMemberAgent", () => {
 
       const tools = agent.resolveTools(config);
 
-      // Ã¦â€¢Â°Ã¦ÂÂ®Ã¥Ë†â€ Ã¦Å¾ÂÃ©Â¢â€ Ã¥Å¸Å¸
+      // 数据分析领域
       expect(tools).toContain(BUILTIN_TOOLS.DATA_ANALYSIS);
       expect(tools).toContain(BUILTIN_TOOLS.PYTHON_EXECUTOR);
 
-      // Ã§Â¼â€“Ã§Â¨â€¹Ã©Â¢â€ Ã¥Å¸Å¸
+      // 编程领域
       expect(tools).toContain(BUILTIN_TOOLS.CODE_GENERATION);
 
-      // Ã§Â â€Ã§Â©Â¶Ã©Â¢â€ Ã¥Å¸Å¸
+      // 研究领域
       expect(tools).toContain(BUILTIN_TOOLS.WEB_SEARCH);
       expect(tools).toContain(BUILTIN_TOOLS.RAG_SEARCH);
       expect(tools).toContain(BUILTIN_TOOLS.KNOWLEDGE_GRAPH);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â¸Âº Leader Ã¦Â·Â»Ã¥Å Â Ã©Â¢ÂÃ¥Â¤â€“Ã§Å¡â€žÃ¥ÂÂÃ¤Â½Å“Ã¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该为 Leader 添加额外的协作工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-8",
         displayName: "TeamLeader",
@@ -300,7 +300,7 @@ describe("TeamMemberAgent", () => {
         capabilities: [],
         expertiseAreas: [],
         workStyle: null,
-        isLeader: true, // Ã¨Â®Â¾Ã§Â½Â®Ã¤Â¸Âº Leader
+        isLeader: true, // 设置为 Leader
       };
 
       const tools = agent.resolveTools(config);
@@ -311,7 +311,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.HUMAN_APPROVAL);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¦Â·Â»Ã¥Å Â Ã¨â€¡ÂªÃ¥Â®Å¡Ã¤Â¹â€°Ã¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该添加自定义工具", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-9",
         displayName: "CustomMember",
@@ -332,7 +332,7 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.EMAIL_SENDER);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â¸ÂºÃ¦â€°â‚¬Ã¦Å“â€°Ã¦Ë†ÂÃ¥â€˜ËœÃ¦Â·Â»Ã¥Å Â  SHORT_TERM_MEMORY", () => {
+    it("应该为所有成员添加 SHORT_TERM_MEMORY", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-10",
         displayName: "AnyMember",
@@ -348,53 +348,53 @@ describe("TeamMemberAgent", () => {
       expect(tools).toContain(BUILTIN_TOOLS.SHORT_TERM_MEMORY);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¥Å½Â»Ã©â€¡ÂÃ¥Â·Â¥Ã¥â€¦Â·Ã¥Ë†â€”Ã¨Â¡Â¨Ã¯Â¼Ë†Ã¤Â¸ÂÃ©â€¡ÂÃ¥Â¤ÂÃ¦Â·Â»Ã¥Å Â Ã¯Â¼â€°", () => {
+    it("应该去重工具列表（不重复添加）", () => {
       const config: TeamMemberAgentConfig = {
         memberId: "member-11",
         displayName: "MultiRoleMember",
-        role: "researcher", // researcher Ã¥Å’â€¦Ã¥ÂÂ« WEB_SEARCH
-        capabilities: [AICapability.WEB_SEARCH], // WEB_SEARCH capability Ã¤Â¹Å¸Ã¥Å’â€¦Ã¥ÂÂ« WEB_SEARCH
-        expertiseAreas: ["Ã§Â â€Ã§Â©Â¶"], // Ã§Â â€Ã§Â©Â¶Ã©Â¢â€ Ã¥Å¸Å¸Ã¤Â¹Å¸Ã¥Å’â€¦Ã¥ÂÂ« WEB_SEARCH
+        role: "researcher", // researcher 包含 WEB_SEARCH
+        capabilities: [AICapability.WEB_SEARCH], // WEB_SEARCH capability 也包含 WEB_SEARCH
+        expertiseAreas: ["研究"], // 研究领域也包含 WEB_SEARCH
         workStyle: null,
         isLeader: false,
       };
 
       const tools = agent.resolveTools(config);
 
-      // Ã§Â»Å¸Ã¨Â®Â¡ WEB_SEARCH Ã¥â€¡ÂºÃ§Å½Â°Ã¦Â¬Â¡Ã¦â€¢Â°
+      // 统计 WEB_SEARCH 出现次数
       const webSearchCount = tools.filter(
         (t) => t === BUILTIN_TOOLS.WEB_SEARCH,
       ).length;
 
-      expect(webSearchCount).toBe(1); // Ã¥Âºâ€Ã¨Â¯Â¥Ã¥ÂÂªÃ¥â€¡ÂºÃ§Å½Â°Ã¤Â¸â‚¬Ã¦Â¬Â¡
+      expect(webSearchCount).toBe(1); // 应该只出现一次
     });
   });
 
   // ==========================================================================
-  // inferRoleFromDescription - Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­Ã¨Â§â€™Ã¨â€°Â²
+  // inferRoleFromDescription - 从描述中推断角色
   // ==========================================================================
 
   describe("inferRoleFromDescription", () => {
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­ leader Ã¨Â§â€™Ã¨â€°Â²", () => {
+    it("应该从描述中推断 leader 角色", () => {
       expect(agent.inferRoleFromDescription("Team Leader")).toBe("leader");
       expect(agent.inferRoleFromDescription("项目负责人")).toBe("leader");
       expect(agent.inferRoleFromDescription("团队领导")).toBe("leader");
       expect(agent.inferRoleFromDescription("项目经理")).toBe("leader");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­ researcher Ã¨Â§â€™Ã¨â€°Â²", () => {
+    it("应该从描述中推断 researcher 角色", () => {
       expect(agent.inferRoleFromDescription("Researcher")).toBe("researcher");
       expect(agent.inferRoleFromDescription("负责研究工作")).toBe("researcher");
       expect(agent.inferRoleFromDescription("市场调研专员")).toBe("researcher");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­ analyst Ã¨Â§â€™Ã¨â€°Â²", () => {
+    it("应该从描述中推断 analyst 角色", () => {
       expect(agent.inferRoleFromDescription("Data Analyst")).toBe("analyst");
       expect(agent.inferRoleFromDescription("数据分析师")).toBe("analyst");
       expect(agent.inferRoleFromDescription("负责数据分析")).toBe("analyst");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­ developer Ã¨Â§â€™Ã¨â€°Â²", () => {
+    it("应该从描述中推断 developer 角色", () => {
       expect(agent.inferRoleFromDescription("Software Developer")).toBe(
         "developer",
       );
@@ -403,25 +403,25 @@ describe("TeamMemberAgent", () => {
       expect(agent.inferRoleFromDescription("Engineer")).toBe("developer");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­ designer Ã¨Â§â€™Ã¨â€°Â²", () => {
+    it("应该从描述中推断 designer 角色", () => {
       expect(agent.inferRoleFromDescription("UI Designer")).toBe("designer");
       expect(agent.inferRoleFromDescription("美术设计师")).toBe("designer");
       expect(agent.inferRoleFromDescription("负责设计工作")).toBe("designer");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­ writer Ã¨Â§â€™Ã¨â€°Â²", () => {
+    it("应该从描述中推断 writer 角色", () => {
       expect(agent.inferRoleFromDescription("Content Writer")).toBe("writer");
       expect(agent.inferRoleFromDescription("文案编辑")).toBe("writer");
       expect(agent.inferRoleFromDescription("负责写作工作")).toBe("writer");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¤Â»Å½Ã¦ÂÂÃ¨Â¿Â°Ã¤Â¸Â­Ã¦Å½Â¨Ã¦â€“Â­ moderator Ã¨Â§â€™Ã¨â€°Â²", () => {
+    it("应该从描述中推断 moderator 角色", () => {
       expect(agent.inferRoleFromDescription("Moderator")).toBe("moderator");
       expect(agent.inferRoleFromDescription("主持人")).toBe("moderator");
       expect(agent.inferRoleFromDescription("协调员")).toBe("moderator");
     });
 
-    it("Ã¦â€”Â Ã¦Â³â€¢Ã¨Â¯â€ Ã¥Ë†Â«Ã¦â€”Â¶Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾ general", () => {
+    it("无法识别时应该返回 general", () => {
       expect(agent.inferRoleFromDescription("Some random description")).toBe(
         "general",
       );
@@ -430,7 +430,7 @@ describe("TeamMemberAgent", () => {
       expect(agent.inferRoleFromDescription("")).toBe("general");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¥Â¤Â§Ã¥Â°ÂÃ¥â€ â„¢Ã¤Â¸ÂÃ¦â€¢ÂÃ¦â€žÅ¸", () => {
+    it("应该大小写不敏感", () => {
       expect(agent.inferRoleFromDescription("LEADER")).toBe("leader");
       expect(agent.inferRoleFromDescription("ReSeArChEr")).toBe("researcher");
       expect(agent.inferRoleFromDescription("DEVELOPER")).toBe("developer");
@@ -438,11 +438,11 @@ describe("TeamMemberAgent", () => {
   });
 
   // ==========================================================================
-  // getToolInstances - Ã¨Å½Â·Ã¥Ââ€“Ã¥Â·Â¥Ã¥â€¦Â·Ã¥Â®Å¾Ã¤Â¾â€¹
+  // getToolInstances - 获取工具实例
   // ==========================================================================
 
   describe("getToolInstances", () => {
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã¥Â·Â²Ã¦Â³Â¨Ã¥â€ Å’Ã§Å¡â€žÃ¥Â·Â¥Ã¥â€¦Â·Ã¥Â®Å¾Ã¤Â¾â€¹Ã¥Ë†â€”Ã¨Â¡Â¨", () => {
+    it("应该返回已注册的工具实例列表", () => {
       const toolTypes = [
         BUILTIN_TOOLS.WEB_SEARCH,
         BUILTIN_TOOLS.CODE_GENERATION,
@@ -455,22 +455,22 @@ describe("TeamMemberAgent", () => {
       expect(instances[1]).toBe(mockCodeGen);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â·Â³Ã¨Â¿â€¡Ã¦Å“ÂªÃ¦Â³Â¨Ã¥â€ Å’Ã§Å¡â€žÃ¥Â·Â¥Ã¥â€¦Â·Ã¥Â¹Â¶Ã¨Â®Â°Ã¥Â½â€¢Ã¨Â­Â¦Ã¥â€˜Å ", () => {
+    it("应该跳过未注册的工具并记录警告", () => {
       const toolTypes = [
         BUILTIN_TOOLS.WEB_SEARCH,
-        BUILTIN_TOOLS.IMAGE_GENERATION, // Ã¦Å“ÂªÃ¦Â³Â¨Ã¥â€ Å’
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
         BUILTIN_TOOLS.CODE_GENERATION,
       ];
 
       const instances = agent.getToolInstances(toolTypes);
 
-      // Ã¥Âºâ€Ã¨Â¯Â¥Ã¥ÂÂªÃ¨Â¿â€Ã¥â€ºÅ¾Ã¥Â·Â²Ã¦Â³Â¨Ã¥â€ Å’Ã§Å¡â€žÃ¥Â·Â¥Ã¥â€¦Â·
+      // 应该只返回已注册的工具
       expect(instances).toHaveLength(2);
       expect(instances[0]).toBe(mockWebSearch);
       expect(instances[1]).toBe(mockCodeGen);
     });
 
-    it("Ã§Â©ÂºÃ¥Ë†â€”Ã¨Â¡Â¨Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã§Â©ÂºÃ¦â€¢Â°Ã§Â»â€ž", () => {
+    it("空列表应该返回空数组", () => {
       const instances = agent.getToolInstances([]);
 
       expect(instances).toHaveLength(0);
@@ -478,7 +478,7 @@ describe("TeamMemberAgent", () => {
   });
 
   // ==========================================================================
-  // executeTool - Ã¦â€°Â§Ã¨Â¡Å’Ã¥Ââ€¢Ã¤Â¸ÂªÃ¥Â·Â¥Ã¥â€¦Â·
+  // executeTool - 执行单个工具
   // ==========================================================================
 
   describe("executeTool", () => {
@@ -489,7 +489,7 @@ describe("TeamMemberAgent", () => {
       prompt: "Test prompt",
     };
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¦Ë†ÂÃ¥Å Å¸Ã¦â€°Â§Ã¨Â¡Å’Ã¥Â·Â¥Ã¥â€¦Â·", async () => {
+    it("应该成功执行工具", async () => {
       const result = await agent.executeTool(
         BUILTIN_TOOLS.WEB_SEARCH,
         { query: "test query" },
@@ -503,9 +503,9 @@ describe("TeamMemberAgent", () => {
       expect(result.error).toBeUndefined();
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¥Â¤â€žÃ§Ââ€ Ã¥Â·Â¥Ã¥â€¦Â·Ã¦Å“ÂªÃ¦â€°Â¾Ã¥Ë†Â°Ã§Å¡â€žÃ¦Æ’â€¦Ã¥â€ Âµ", async () => {
+    it("应该处理工具未找到的情况", async () => {
       const result = await agent.executeTool(
-        BUILTIN_TOOLS.IMAGE_GENERATION, // Ã¦Å“ÂªÃ¦Â³Â¨Ã¥â€ Å’
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
         { prompt: "test" },
         context,
       );
@@ -516,8 +516,8 @@ describe("TeamMemberAgent", () => {
       expect(result.duration).toBeGreaterThanOrEqual(0);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¥Â¤â€žÃ§Ââ€ Ã¥Â·Â¥Ã¥â€¦Â·Ã¦â€°Â§Ã¨Â¡Å’Ã¥Â¤Â±Ã¨Â´Â¥Ã§Å¡â€žÃ¦Æ’â€¦Ã¥â€ Âµ", async () => {
-      // Mock Ã¥Â·Â¥Ã¥â€¦Â·Ã¦Å â€ºÃ¥â€¡ÂºÃ©â€â„¢Ã¨Â¯Â¯
+    it("应该处理工具执行失败的情况", async () => {
+      // Mock 工具抛出错误
       jest
         .spyOn(mockCodeGen, "execute")
         .mockRejectedValueOnce(new Error("Execution failed"));
@@ -533,7 +533,7 @@ describe("TeamMemberAgent", () => {
       expect(result.error).toBe("Execution failed");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã¦â€°Â§Ã¨Â¡Å’Ã¦â€”Â¶Ã©â€¢Â¿", async () => {
+    it("应该返回执行时长", async () => {
       const result = await agent.executeTool(
         BUILTIN_TOOLS.WEB_SEARCH,
         { query: "test" },
@@ -546,7 +546,7 @@ describe("TeamMemberAgent", () => {
   });
 
   // ==========================================================================
-  // executeToolsParallel - Ã¥Â¹Â¶Ã¨Â¡Å’Ã¦â€°Â§Ã¨Â¡Å’Ã¥Â¤Å¡Ã¤Â¸ÂªÃ¥Â·Â¥Ã¥â€¦Â·
+  // executeToolsParallel - 并行执行多个工具
   // ==========================================================================
 
   describe("executeToolsParallel", () => {
@@ -556,7 +556,7 @@ describe("TeamMemberAgent", () => {
       prompt: "Test prompt",
     };
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¥Â¹Â¶Ã¨Â¡Å’Ã¦â€°Â§Ã¨Â¡Å’Ã¥Â¤Å¡Ã¤Â¸ÂªÃ¥Â·Â¥Ã¥â€¦Â·", async () => {
+    it("应该并行执行多个工具", async () => {
       const executions = [
         { toolType: BUILTIN_TOOLS.WEB_SEARCH, input: { query: "query1" } },
         {
@@ -574,7 +574,7 @@ describe("TeamMemberAgent", () => {
       expect(results[2].success).toBe(true);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¥Â¤â€žÃ§Ââ€ Ã©Æ’Â¨Ã¥Ë†â€ Ã¥Â·Â¥Ã¥â€¦Â·Ã¥Â¤Â±Ã¨Â´Â¥Ã§Å¡â€žÃ¦Æ’â€¦Ã¥â€ Âµ", async () => {
+    it("应该处理部分工具失败的情况", async () => {
       jest
         .spyOn(mockCodeGen, "execute")
         .mockRejectedValueOnce(new Error("Failed"));
@@ -597,7 +597,7 @@ describe("TeamMemberAgent", () => {
   });
 
   // ==========================================================================
-  // executeToolsSequential - Ã©Â¡ÂºÃ¥ÂºÂÃ¦â€°Â§Ã¨Â¡Å’Ã¥Â¤Å¡Ã¤Â¸ÂªÃ¥Â·Â¥Ã¥â€¦Â·
+  // executeToolsSequential - 顺序执行多个工具
   // ==========================================================================
 
   describe("executeToolsSequential", () => {
@@ -607,7 +607,7 @@ describe("TeamMemberAgent", () => {
       prompt: "Test prompt",
     };
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¦Å’â€°Ã©Â¡ÂºÃ¥ÂºÂÃ¦â€°Â§Ã¨Â¡Å’Ã¥Â¤Å¡Ã¤Â¸ÂªÃ¥Â·Â¥Ã¥â€¦Â·", async () => {
+    it("应该按顺序执行多个工具", async () => {
       const executions = [
         { toolType: BUILTIN_TOOLS.WEB_SEARCH, input: { query: "query1" } },
         {
@@ -623,7 +623,7 @@ describe("TeamMemberAgent", () => {
       expect(results[1].toolType).toBe(BUILTIN_TOOLS.CODE_GENERATION);
     });
 
-    it("Ã¥Â¤Â±Ã¨Â´Â¥Ã¥ÂÅ½Ã¥Âºâ€Ã¨Â¯Â¥Ã§Â»Â§Ã§Â»Â­Ã¦â€°Â§Ã¨Â¡Å’Ã¥â€°Â©Ã¤Â½â„¢Ã¥Â·Â¥Ã¥â€¦Â·", async () => {
+    it("失败后应该继续执行剩余工具", async () => {
       jest
         .spyOn(mockCodeGen, "execute")
         .mockRejectedValueOnce(new Error("Failed"));
@@ -640,16 +640,16 @@ describe("TeamMemberAgent", () => {
 
       expect(results).toHaveLength(2);
       expect(results[0].success).toBe(false);
-      expect(results[1].success).toBe(true); // Ã¥Âºâ€Ã¨Â¯Â¥Ã§Â»Â§Ã§Â»Â­Ã¦â€°Â§Ã¨Â¡Å’
+      expect(results[1].success).toBe(true); // 应该继续执行
     });
   });
 
   // ==========================================================================
-  // generateFunctionCallingSchema - Ã§â€Å¸Ã¦Ë†Â Function Calling Schema
+  // generateFunctionCallingSchema - 生成 Function Calling Schema
   // ==========================================================================
 
   describe("generateFunctionCallingSchema", () => {
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã§â€Å¸Ã¦Ë†ÂÃ¦Â­Â£Ã§Â¡Â®Ã§Å¡â€ž Function Calling Schema", () => {
+    it("应该生成正确的 Function Calling Schema", () => {
       const toolTypes = [
         BUILTIN_TOOLS.WEB_SEARCH,
         BUILTIN_TOOLS.CODE_GENERATION,
@@ -667,25 +667,25 @@ describe("TeamMemberAgent", () => {
       expect(schemas[1].parameters).toEqual(mockCodeGen.inputSchema);
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â·Â³Ã¨Â¿â€¡Ã¦Å“ÂªÃ¦Â³Â¨Ã¥â€ Å’Ã§Å¡â€žÃ¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该跳过未注册的工具", () => {
       const toolTypes = [
         BUILTIN_TOOLS.WEB_SEARCH,
-        BUILTIN_TOOLS.IMAGE_GENERATION, // Ã¦Å“ÂªÃ¦Â³Â¨Ã¥â€ Å’
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
       ];
 
       const schemas = agent.generateFunctionCallingSchema(toolTypes);
 
-      expect(schemas).toHaveLength(1); // Ã¥ÂÂªÃ¦Å“â€°Ã¥Â·Â²Ã¦Â³Â¨Ã¥â€ Å’Ã§Å¡â€žÃ¥Â·Â¥Ã¥â€¦Â·
+      expect(schemas).toHaveLength(1); // 只有已注册的工具
       expect(schemas[0].name).toBe(BUILTIN_TOOLS.WEB_SEARCH);
     });
   });
 
   // ==========================================================================
-  // buildToolsSystemPrompt - Ã¦Å¾â€žÃ¥Â»ÂºÃ¥Â·Â¥Ã¥â€¦Â·Ã§Â³Â»Ã§Â»Å¸Ã¦ÂÂÃ§Â¤ÂºÃ¨Â¯Â
+  // buildToolsSystemPrompt - 构建工具系统提示词
   // ==========================================================================
 
   describe("buildToolsSystemPrompt", () => {
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã§â€Å¸Ã¦Ë†ÂÃ¥Å’â€¦Ã¥ÂÂ«Ã¥Â·Â¥Ã¥â€¦Â·Ã¦ÂÂÃ¨Â¿Â°Ã§Å¡â€žÃ¦ÂÂÃ§Â¤ÂºÃ¨Â¯Â", () => {
+    it("应该生成包含工具描述的提示词", () => {
       const toolTypes = [
         BUILTIN_TOOLS.WEB_SEARCH,
         BUILTIN_TOOLS.CODE_GENERATION,
@@ -700,16 +700,16 @@ describe("TeamMemberAgent", () => {
       expect(prompt).toContain("Mock code generation tool");
     });
 
-    it("Ã§Â©ÂºÃ¥Â·Â¥Ã¥â€¦Â·Ã¥Ë†â€”Ã¨Â¡Â¨Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã§Â©ÂºÃ¥Â­â€”Ã§Â¬Â¦Ã¤Â¸Â²", () => {
+    it("空工具列表应该返回空字符串", () => {
       const prompt = agent.buildToolsSystemPrompt([]);
 
       expect(prompt).toBe("");
     });
 
-    it("Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â·Â³Ã¨Â¿â€¡Ã¦Å“ÂªÃ¦Â³Â¨Ã¥â€ Å’Ã§Å¡â€žÃ¥Â·Â¥Ã¥â€¦Â·", () => {
+    it("应该跳过未注册的工具", () => {
       const toolTypes = [
         BUILTIN_TOOLS.WEB_SEARCH,
-        BUILTIN_TOOLS.IMAGE_GENERATION, // Ã¦Å“ÂªÃ¦Â³Â¨Ã¥â€ Å’
+        BUILTIN_TOOLS.IMAGE_GENERATION, // 未注册
       ];
 
       const prompt = agent.buildToolsSystemPrompt(toolTypes);
@@ -720,11 +720,11 @@ describe("TeamMemberAgent", () => {
   });
 
   // ==========================================================================
-  // getExecutionStrategy - Ã¨Å½Â·Ã¥Ââ€“Ã¦â€°Â§Ã¨Â¡Å’Ã§Â­â€“Ã§â€¢Â¥
+  // getExecutionStrategy - 获取执行策略
   // ==========================================================================
 
   describe("getExecutionStrategy", () => {
-    it("AUTONOMOUS Ã¥Â·Â¥Ã¤Â½Å“Ã©Â£Å½Ã¦Â Â¼Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã¥Â¹Â¶Ã¨Â¡Å’Ã£â‚¬ÂÃ©Â«ËœÃ¥Â¹Â¶Ã¥Ââ€˜Ã§Â­â€“Ã§â€¢Â¥", () => {
+    it("AUTONOMOUS 工作风格应该返回并行、高并发策略", () => {
       const strategy = agent.getExecutionStrategy(AgentWorkStyle.AUTONOMOUS);
 
       expect(strategy.parallel).toBe(true);
@@ -733,7 +733,7 @@ describe("TeamMemberAgent", () => {
       expect(strategy.timeoutMs).toBe(60000);
     });
 
-    it("COLLABORATIVE Ã¥Â·Â¥Ã¤Â½Å“Ã©Â£Å½Ã¦Â Â¼Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã¤Â¸Â­Ã§Â­â€°Ã¥Â¹Â¶Ã¥Ââ€˜Ã§Â­â€“Ã§â€¢Â¥", () => {
+    it("COLLABORATIVE 工作风格应该返回中等并发策略", () => {
       const strategy = agent.getExecutionStrategy(AgentWorkStyle.COLLABORATIVE);
 
       expect(strategy.parallel).toBe(true);
@@ -742,25 +742,25 @@ describe("TeamMemberAgent", () => {
       expect(strategy.timeoutMs).toBe(45000);
     });
 
-    it("ANALYTICAL Ã¥Â·Â¥Ã¤Â½Å“Ã©Â£Å½Ã¦Â Â¼Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã©Â¡ÂºÃ¥ÂºÂÃ¦â€°Â§Ã¨Â¡Å’Ã§Â­â€“Ã§â€¢Â¥", () => {
+    it("ANALYTICAL 工作风格应该返回顺序执行策略", () => {
       const strategy = agent.getExecutionStrategy(AgentWorkStyle.ANALYTICAL);
 
       expect(strategy.parallel).toBe(false);
       expect(strategy.maxConcurrent).toBe(1);
       expect(strategy.retryOnFailure).toBe(true);
-      expect(strategy.timeoutMs).toBe(90000); // Ã¦â€ºÂ´Ã©â€¢Â¿Ã§Å¡â€žÃ¨Â¶â€¦Ã¦â€”Â¶Ã¦â€”Â¶Ã©â€”Â´
+      expect(strategy.timeoutMs).toBe(90000); // 更长的超时时间
     });
 
-    it("CREATIVE Ã¥Â·Â¥Ã¤Â½Å“Ã©Â£Å½Ã¦Â Â¼Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã¥Â¹Â¶Ã¨Â¡Å’Ã£â‚¬ÂÃ¤Â¸ÂÃ©â€¡ÂÃ¨Â¯â€¢Ã§Â­â€“Ã§â€¢Â¥", () => {
+    it("CREATIVE 工作风格应该返回并行、不重试策略", () => {
       const strategy = agent.getExecutionStrategy(AgentWorkStyle.CREATIVE);
 
       expect(strategy.parallel).toBe(true);
       expect(strategy.maxConcurrent).toBe(4);
-      expect(strategy.retryOnFailure).toBe(false); // Ã¥Ë†â€ºÃ¦â€žÂÃ¥Â·Â¥Ã¤Â½Å“Ã¤Â¸ÂÃ©â€¡ÂÃ¨Â¯â€¢
+      expect(strategy.retryOnFailure).toBe(false); // 创意工作不重试
       expect(strategy.timeoutMs).toBe(60000);
     });
 
-    it("SUPPORTIVE Ã¥Â·Â¥Ã¤Â½Å“Ã©Â£Å½Ã¦Â Â¼Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã¤Â½Å½Ã¥Â¹Â¶Ã¥Ââ€˜Ã§Â­â€“Ã§â€¢Â¥", () => {
+    it("SUPPORTIVE 工作风格应该返回低并发策略", () => {
       const strategy = agent.getExecutionStrategy(AgentWorkStyle.SUPPORTIVE);
 
       expect(strategy.parallel).toBe(false);
@@ -769,7 +769,7 @@ describe("TeamMemberAgent", () => {
       expect(strategy.timeoutMs).toBe(30000);
     });
 
-    it("null Ã¥Â·Â¥Ã¤Â½Å“Ã©Â£Å½Ã¦Â Â¼Ã¥Âºâ€Ã¨Â¯Â¥Ã¨Â¿â€Ã¥â€ºÅ¾Ã©Â»ËœÃ¨Â®Â¤Ã§Â­â€“Ã§â€¢Â¥", () => {
+    it("null 工作风格应该返回默认策略", () => {
       const strategy = agent.getExecutionStrategy(null);
 
       expect(strategy.parallel).toBe(true);

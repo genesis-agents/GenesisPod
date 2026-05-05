@@ -1,29 +1,29 @@
 /**
- * SpecBasedAgent â€” å£°æ˜Žå¼ spec é©±åŠ¨çš„ IAgent å®žçŽ°
+ * SpecBasedAgent — 声明式 spec 驱动的 IAgent 实现
  *
- * ç›®æ ‡æž¶æž„ v2ï¼ˆdocs/design/topic-insights-harness-redesign/11-target-architecture.mdï¼‰ï¼š
- * L3 App åªå†™ IAgentSpecï¼Œæœ¬ç±»æŠŠ spec è½¬æˆå¯æ‰§è¡Œçš„ IAgentï¼š
- *   - buildSystemPrompt / buildUserPrompt â†’ æž„é€  LLM è¾“å…¥
- *   - LlmExecutor.execute â†’ Zod æ ¡éªŒ + error-fed retry + stub æ¨¡å¼
- *   - validateBusinessRules â†’ ä¸šåŠ¡è§„åˆ™æ ¡éªŒ
- *   - forbiddenTools â†’ access matrix å¼ºæ ¡éªŒï¼ˆé€šè¿‡ agentIdentity é€å‡ºç»™ ToolInvokerï¼‰
+ * 目标架构 v2（docs/architecture/ai-harness/redesign/11-target-architecture.md）：
+ * L3 App 只写 IAgentSpec，本类把 spec 转成可执行的 IAgent：
+ *   - buildSystemPrompt / buildUserPrompt → 构造 LLM 输入
+ *   - LlmExecutor.execute → Zod 校验 + error-fed retry + stub 模式
+ *   - validateBusinessRules → 业务规则校验
+ *   - forbiddenTools → access matrix 强校验（通过 agentIdentity 透出给 ToolInvoker）
  *
- * ä¸ºä»€ä¹ˆæ–°å»ºç±»è€Œä¸æ‰©å±• HarnessedAgentï¼š
- *   HarnessedAgent è®¾è®¡ä¸º ReActLoop å¤šæ­¥ agentï¼ˆtool calling / multi-iterationï¼‰ã€‚
- *   spec-based agent æ˜¯ single-shot LLM call with schema â€” è¯­ä¹‰ä¸åŒï¼Œç»§æ‰¿å…³ç³»ç‰µå¼ºã€‚
+ * 为什么新建类而不扩展 HarnessedAgent：
+ *   HarnessedAgent 设计为 ReActLoop 多步 agent（tool calling / multi-iteration）。
+ *   spec-based agent 是 single-shot LLM call with schema — 语义不同，继承关系牵强。
  *
- * å¯¹å¤–æš´éœ²ä¸¤ç§è°ƒç”¨æ–¹å¼ï¼š
- *   - executeSpec(input) â†’ Promise<IAgentResult<TOutput>>ï¼ˆæŽ¨èï¼špipeline stage ç”¨è¿™ä¸ªï¼Œæ‹¿ typed outputï¼‰
- *   - execute(task) â†’ AsyncIterable<IAgentEvent>ï¼ˆå…¼å®¹ IAgent æŽ¥å£ï¼Œyields thinking + finalize event pairï¼‰
+ * 对外暴露两种调用方式：
+ *   - executeSpec(input) → Promise<IAgentResult<TOutput>>（推荐：pipeline stage 用这个，拿 typed output）
+ *   - execute(task) → AsyncIterable<IAgentEvent>（兼容 IAgent 接口，yields thinking + finalize event pair）
  */
 
 import { Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
-// â˜… ç›´æŽ¥ç›¸å¯¹è·¯å¾„å¯¼å…¥ï¼Œç»•å¼€ facade barrelã€‚
-// åŽŸå› ï¼šfacade/index.ts æ˜¯ L3 AI App çš„å•å‘å…¥å£ï¼›L2 harness å†…éƒ¨ä»£ç 
-// è‹¥ä¹Ÿä»Ž facade å¯¼å…¥ï¼Œä¼šè§¦å‘ barrel â†’ ä¼—å¤šå­æ¨¡å— â†’ harness çš„å›žçŽ¯åŠ è½½ï¼Œ
-// å¯¼è‡´ TypeScript åœ¨ module evaluation é˜¶æ®µäº§ç”Ÿ `undefined` ç±» referenceï¼Œ
-// Nest DI éšåŽæŠ¥ "Cannot resolve dependency at index [0]"ã€‚
+// ★ 直接相对路径导入，绕开 facade barrel。
+// 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
+// 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
+// 导致 TypeScript 在 module evaluation 阶段产生 `undefined` 类 reference，
+// Nest DI 随后报 "Cannot resolve dependency at index [0]"。
 import { KernelContext } from "../../../../common/context/kernel-context";
 import {
   ModelElectionService,
@@ -49,7 +49,7 @@ import { ContextEnvelope } from "./context-envelope";
 import { LlmExecutor } from "../../runner/executor/llm-executor";
 
 /**
- * SpecBasedAgent çš„å¼ºç±»åž‹ç»“æžœï¼ˆä¸Ž IAgentResult ç›¸ä¼¼ä½†å¸¦æ³›åž‹ TOutputï¼‰
+ * SpecBasedAgent 的强类型结果（与 IAgentResult 相似但带泛型 TOutput）
  */
 export interface SpecAgentResult<TOutput> {
   readonly output: TOutput;
@@ -77,16 +77,16 @@ export class SpecBasedAgent<
     private readonly spec: IAgentSpec<TInput, TOutput>,
     private readonly llmExecutor: LlmExecutor,
     /**
-     * Lazy election accessor â€” ç”± AgentFactory ä¼ å…¥çš„é—­åŒ… `() => factory.electionService`ã€‚
-     * å¿…é¡» lazyï¼šæœ¬ agent åœ¨ OnModuleInit é˜¶æ®µåˆ›å»ºï¼ŒAgentFactory.electionService
-     * åœ¨ OnApplicationBootstrap é˜¶æ®µæ‰è¢« wireï¼ˆsetter injection ç»•å¼€ Nest v10
-     * forwardRef+Optional DI æ—¶åºå‘ï¼Œè§ docs/16-facade-barrel-rule.mdï¼‰ã€‚
-     * æž„é€ æ—¶æ•èŽ· ref = æ°¸è¿œ undefinedï¼›å¿…é¡»è¿è¡Œæ—¶æ‹‰å–ã€‚
+     * Lazy election accessor — 由 AgentFactory 传入的闭包 `() => factory.electionService`。
+     * 必须 lazy：本 agent 在 OnModuleInit 阶段创建，AgentFactory.electionService
+     * 在 OnApplicationBootstrap 阶段才被 wire（setter injection 绕开 Nest v10
+     * forwardRef+Optional DI 时序坑，见 docs/16-facade-barrel-rule.md）。
+     * 构造时捕获 ref = 永远 undefined；必须运行时拉取。
      */
     private readonly electionProvider?: () => ModelElectionService | undefined,
     /**
-     * è¿è¡Œæ—¶çŽ¯å¢ƒå¿«ç…§ã€‚é€šå¸¸ç”± pipeline orchestrator åœ¨ executeSpec å‰æ³¨å…¥ï¼ˆæ¥è‡ª
-     * identity.capabilities.envï¼‰ã€‚æ²¡æœ‰ snapshot æ—¶ï¼Œelection é€€åŒ–åˆ° DB å…¨è¡¨ã€‚
+     * 运行时环境快照。通常由 pipeline orchestrator 在 executeSpec 前注入（来自
+     * identity.capabilities.env）。没有 snapshot 时，election 退化到 DB 全表。
      */
     private readonly envSnapshot?: EnvironmentSnapshot,
   ) {
@@ -120,12 +120,12 @@ export class SpecBasedAgent<
   }
 
   /**
-   * â˜… ç›®æ ‡æž¶æž„ä¸»å…¥å£ï¼šspec â†’ LLM â†’ typed output
-   * Pipeline stages ç”¨è¿™ä¸ªæ–¹æ³•ï¼Œå¾—åˆ°å¼ºç±»åž‹ç»“æžœã€‚
+   * ★ 目标架构主入口：spec → LLM → typed output
+   * Pipeline stages 用这个方法，得到强类型结果。
    *
-   * @param envOverride è°ƒç”¨æ—¶ä¼ å…¥çš„çŽ¯å¢ƒå¿«ç…§â€”â€”é€šå¸¸æ¥è‡ª pipeline
-   *   `identity.capabilities.env`ï¼›ç¼ºçœæ—¶ä½¿ç”¨æž„é€ æ—¶æ³¨å…¥çš„ envSnapshotï¼Œ
-   *   ä¸¤è€…éƒ½ç¼ºå°±è®© election é€€åˆ° DB å…¨è¡¨æŸ¥è¯¢ã€‚
+   * @param envOverride 调用时传入的环境快照——通常来自 pipeline
+   *   `identity.capabilities.env`；缺省时使用构造时注入的 envSnapshot，
+   *   两者都缺就让 election 退到 DB 全表查询。
    */
   async executeSpec(
     input: TInput,
@@ -148,7 +148,7 @@ export class SpecBasedAgent<
     const effectiveUserId = this.spec.userId ?? kctx?.userId;
 
     // ============================================================
-    // çŽ¯å¢ƒæ„ŸçŸ¥é€‰ä¸¾ï¼šspec æ²¡å£°æ˜Žæ˜¾å¼ model â†’ æ ¹æ® role + TaskProfile åŠ¨æ€é€‰
+    // 环境感知选举：spec 没声明显式 model → 根据 role + TaskProfile 动态选
     // ============================================================
     const taskProfile = this.spec.taskProfile ?? {
       creativity: "low",
@@ -205,8 +205,8 @@ export class SpecBasedAgent<
   }
 
   /**
-   * å…¼å®¹ IAgent æŽ¥å£çš„æµå¼ executeã€‚
-   * spec-based agent æ˜¯ single-shotï¼šyield ä¸€æ¡ "thinking" + ä¸€æ¡ "output" äº‹ä»¶ã€‚
+   * 兼容 IAgent 接口的流式 execute。
+   * spec-based agent 是 single-shot：yield 一条 "thinking" + 一条 "output" 事件。
    */
   async *execute(task: IAgentTask): AsyncIterable<IAgentEvent> {
     const input = task.input as TInput;
@@ -254,16 +254,16 @@ export class SpecBasedAgent<
   }
 
   /**
-   * æ‰§è¡ŒçŽ¯å¢ƒæ„ŸçŸ¥é€‰ä¸¾ã€‚å¤±è´¥æ—¶è¿”å›ž undefinedï¼ˆè®©ä¸‹æ¸¸ LlmExecutor èµ° AiChatService
-   * çš„æ—§å…œåº•é“¾è·¯ï¼Œä¿æŒå‘åŽå…¼å®¹ï¼‰ã€‚æŠ› NoEligibleModelError æ—¶ upstream è¦çœ‹åˆ°
-   * æ¸…æ™°æŠ¥é”™ï¼Œæ‰€ä»¥è¿™é‡Œç›´æŽ¥ throwï¼Œè®© executeSpec çš„ catch æŽ¥ä½ã€‚
+   * 执行环境感知选举。失败时返回 undefined（让下游 LlmExecutor 走 AiChatService
+   * 的旧兜底链路，保持向后兼容）。抛 NoEligibleModelError 时 upstream 要看到
+   * 清晰报错，所以这里直接 throw，让 executeSpec 的 catch 接住。
    */
   private async electModelOrNull(
     taskProfile: IAgentSpec<TInput, TOutput>["taskProfile"],
     userId: string | undefined,
     env: EnvironmentSnapshot | undefined,
   ): Promise<string | undefined> {
-    // Lazy resolve â€” æ­¤æ—¶ OnApplicationBootstrap å·²è·‘è¿‡ï¼Œfactory.electionService å·² wire
+    // Lazy resolve — 此时 OnApplicationBootstrap 已跑过，factory.electionService 已 wire
     const electionService = this.electionProvider?.();
     if (!electionService) return undefined;
 
@@ -283,7 +283,7 @@ export class SpecBasedAgent<
         userId,
       });
       this.logger.debug(
-        `[electModel] ${this.id} â†’ ${res.elected.modelId} (${res.reason})`,
+        `[electModel] ${this.id} → ${res.elected.modelId} (${res.reason})`,
       );
       return res.elected.modelId;
     } catch (err) {
@@ -297,10 +297,10 @@ export class SpecBasedAgent<
   }
 
   /**
-   * ä»Ž spec.identity.role.id æ˜ å°„åˆ° ElectionRoleHintã€‚
-   * è§„åˆ™ï¼šåå­—é‡Œå‡ºçŽ° planner/leader/dispatch â†’ leaderï¼›writer/section â†’ writerï¼›
-   * reviewer/evaluator/checker â†’ reviewerï¼›extractor/miner â†’ extractorï¼›
-   * classifier/intent â†’ classifierï¼›å…¶ä½™ defaultã€‚
+   * 从 spec.identity.role.id 映射到 ElectionRoleHint。
+   * 规则：名字里出现 planner/leader/dispatch → leader；writer/section → writer；
+   * reviewer/evaluator/checker → reviewer；extractor/miner → extractor；
+   * classifier/intent → classifier；其余 default。
    */
   private resolveRoleHint(roleId: string): ElectionRoleHint {
     const lc = roleId.toLowerCase();
@@ -312,7 +312,7 @@ export class SpecBasedAgent<
     return "default";
   }
 
-  /** ä»ŽçŽ¯å¢ƒå¿«ç…§æž„é€ å€™é€‰æ± ï¼›æ—  snapshot æ—¶è¿”å›žç©ºæ•°ç»„ï¼ˆelection é€€åˆ° DB å…¨è¡¨ï¼‰ */
+  /** 从环境快照构造候选池；无 snapshot 时返回空数组（election 退到 DB 全表） */
   private buildCandidatesFromSnapshot(
     env: EnvironmentSnapshot | undefined,
     requestedType: AIModelType,

@@ -22,7 +22,7 @@ import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   AiObservabilityService,
   LLMCallEvent,
-} from "../ai-observability.service";
+} from "../observability/ai-observability.service";
 
 // ---------------------------------------------------------------------------
 // Suppress Logger output for all tests

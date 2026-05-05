@@ -167,6 +167,12 @@ describe("AdminService", () => {
           provide: StatisticsService,
           useValue: mockStatisticsService,
         },
+        // S5 audit fix（2026-05-04）：AdminService 新增 AuditService 依赖
+        {
+          provide: (await import("../../../../common/audit/audit.service"))
+            .AuditService,
+          useValue: { log: jest.fn() },
+        },
       ],
     }).compile();
 

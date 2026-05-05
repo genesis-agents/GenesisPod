@@ -13,6 +13,7 @@ import {
 } from "./services";
 import { APP_CONFIG } from "../../../common/config/app.config";
 import { inferIsReasoning, getKnownModelLimit } from "../../ai-engine/facade";
+import { AuditService, AuditAction } from "../../../common/audit/audit.service";
 
 /** Minimal model for Perplexity balance check */
 const PERPLEXITY_VALIDATION_MODEL = "llama-3.1-sonar-small-128k-online";
@@ -66,6 +67,8 @@ export class AdminService {
     private userManagementService: UserManagementService,
     private resourceManagementService: ResourceManagementService,
     private statisticsService: StatisticsService,
+    // S5 audit fix（2026-05-04）：管理员敏感操作必须落审计
+    private auditService: AuditService,
   ) {}
 
   /**
@@ -102,7 +105,15 @@ export class AdminService {
     role?: "USER" | "ADMIN";
     password?: string;
   }) {
-    return this.userManagementService.createUser(data);
+    const result = await this.userManagementService.createUser(data);
+    await this.auditService.log({
+      action: AuditAction.USER_REGISTER,
+      resourceType: "User",
+      resourceId: (result as { id?: string })?.id,
+      details: { email: data.email, role: data.role },
+      result: "SUCCESS",
+    });
+    return result;
   }
 
   /**
@@ -813,6 +824,17 @@ export class AdminService {
     });
 
     this.logger.log(`AI Model deleted: ${model.name}`);
+    await this.auditService.log({
+      action: AuditAction.SYSTEM_CONFIG_CHANGE,
+      resourceType: "AIModel",
+      resourceId: id,
+      details: {
+        operation: "deleteAIModel",
+        modelName: model.name,
+        provider: model.provider,
+      },
+      result: "SUCCESS",
+    });
 
     return { success: true, message: "AI Model deleted successfully" };
   }
@@ -3093,6 +3115,22 @@ export class AdminService {
 
     if (updates.length > 0) {
       await this.setSettings(updates);
+      // S5 audit fix（2026-05-04）：API key 更新必须落审计（不记录 key 本身）
+      await this.auditService.log({
+        action: AuditAction.SYSTEM_CONFIG_CHANGE,
+        resourceType: "ApiKey",
+        resourceId: "openai",
+        details: {
+          operation: "updateOpenAIConfig",
+          enabledChanged: config.enabled !== undefined,
+          apiKeyChanged: !!(
+            config.apiKey &&
+            !config.apiKey.includes("****") &&
+            config.apiKey.trim() !== ""
+          ),
+        },
+        result: "SUCCESS",
+      });
     }
 
     return this.getOpenAIConfig();
@@ -3200,6 +3238,22 @@ export class AdminService {
 
     if (updates.length > 0) {
       await this.setSettings(updates);
+      // S5 audit fix（2026-05-04）：API key 更新必须落审计
+      await this.auditService.log({
+        action: AuditAction.SYSTEM_CONFIG_CHANGE,
+        resourceType: "ApiKey",
+        resourceId: "cohere",
+        details: {
+          operation: "updateCohereConfig",
+          enabledChanged: config.enabled !== undefined,
+          apiKeyChanged: !!(
+            config.apiKey &&
+            !config.apiKey.includes("****") &&
+            config.apiKey.trim() !== ""
+          ),
+        },
+        result: "SUCCESS",
+      });
     }
 
     return this.getCohereConfig();

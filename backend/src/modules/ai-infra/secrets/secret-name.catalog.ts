@@ -353,6 +353,7 @@ export const LLM_PROVIDER_NAME_PATTERNS: readonly string[] = [
   "mistral",
   "llama",
   "yi-",
+  "voyage",
 ] as const;
 
 /**

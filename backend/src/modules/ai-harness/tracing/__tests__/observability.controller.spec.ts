@@ -14,7 +14,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
 import { Logger } from "@nestjs/common";
 import { ObservabilityAdminController as ObservabilityController } from "@/modules/open-api/admin/observability-admin.controller";
-import { TraceCollectorService } from "../trace-collector.service";
+import { TraceCollectorService } from "../observability/trace-collector.service";
 import { JwtAuthGuard } from "@/common/guards/jwt-auth.guard";
 import { AdminGuard } from "@/common/guards/admin.guard";
 

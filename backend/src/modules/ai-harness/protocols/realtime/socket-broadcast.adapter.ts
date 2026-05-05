@@ -4,16 +4,16 @@
  * 通用 IBroadcastAdapter 实现：把 DomainEventBus 的事件按 scope.missionId
  * 分发到对应 room。`eventTypePrefix` + `roomPrefix` 由调用方传入决定路由。
  *
- * 2026-05-01 上提: 原在 ai-app/agent-playground/adapters/，改用参数化 prefix
- * 后跨 ai-app 通用（research / writing / topic-insights / 任何带 socket relay
+ * 2026-05-01 上提: 原在 ai-app/{app}/adapters/，改用参数化 prefix
+ * 后跨 ai-app 通用（research / writing / {app} / 任何带 socket relay
  * 的 ai-app 都可复用）。
  *
- * 用法（agent-playground 注册）:
+ * 用法（{app} 注册）:
  * ```
  * new SocketBroadcastAdapter(this.io, {
- *   id: "agent-playground.socket",
- *   eventTypePrefix: "agent-playground.",
- *   roomPrefix: "playground",
+ *   id: "{app}.socket",
+ *   eventTypePrefix: "{app}.",
+ *   roomPrefix: "consumer",
  * });
  * ```
  */
@@ -25,9 +25,9 @@ import type { DomainEvent, IBroadcastAdapter } from "../../facade";
 export interface SocketBroadcastAdapterOptions {
   /** Adapter id（用于日志 / EventBus 标识） */
   id: string;
-  /** 事件类型前缀过滤，如 "agent-playground." */
+  /** 事件类型前缀过滤，如 "{app}." */
   eventTypePrefix: string;
-  /** Socket.IO room 前缀，如 "playground" → "playground:<missionId>" */
+  /** Socket.IO room 前缀，如 "consumer" → "consumer:<missionId>" */
   roomPrefix: string;
 }
 

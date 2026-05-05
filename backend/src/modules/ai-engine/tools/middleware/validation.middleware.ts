@@ -60,8 +60,6 @@ export interface ValidationMiddlewareConfig {
   customValidator?: (input: unknown, schema: JSONSchema) => ValidationResult;
 }
 
-
-
 /**
  * 验证中间件
  * 在工具执行前验证输入，执行后验证输出
@@ -98,11 +96,13 @@ export class ValidationMiddleware implements IToolMiddleware {
         const errors =
           typeof result === "boolean"
             ? [{ path: "", message: "Validation failed", type: "unknown" }]
-            : result.errors?.map((e: any) => ({
-                path: e.path,
-                message: e.message,
-                type: e.type,
-              })) || [
+            : result.errors?.map(
+                (e: { path: string; message: string; type: string }) => ({
+                  path: e.path,
+                  message: e.message,
+                  type: e.type,
+                }),
+              ) || [
                 { path: "", message: "Validation failed", type: "unknown" },
               ];
         throw new ValidationError(
@@ -461,4 +461,3 @@ export function createValidationMiddleware(
 ): IToolMiddleware {
   return new ValidationMiddleware(config);
 }
-

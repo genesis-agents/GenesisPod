@@ -326,12 +326,17 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
-    it("ai-engine 不得 import plugin:<domain> 实现（仅可 plugins-core）", () => {
+    it("ai-engine 不得 import plugin:<domain> 实现（仅可 plugins-core；NestJS @Module 类除外）", () => {
       const violations: string[] = [];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-engine") continue;
+        // 仅 *.module.ts 允许 import plugins/<domain>/*.module（NestJS DI 装配，
+        // 非实现使用）。其他 ai-engine 文件不得 import plugins/<domain>。
+        const isModuleFile = file.endsWith(".module.ts");
         for (const target of extractImportTargets(file)) {
           if (isPluginDomain(importLayer(target))) {
+            const isModuleImport = /\.module(?:\.ts)?$/.test(target);
+            if (isModuleFile && isModuleImport) continue;
             violations.push(
               `${path
                 .relative(SRC_ROOT, file)
@@ -470,6 +475,132 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
         }
       }
       expect(violations).toEqual([]);
+    });
+  });
+
+  /**
+   * R0-A5 (2026-05-04): Base-layer business leakage 看护
+   *
+   * harness / engine 是 base layer，必须业务无关。任何 ai-app 名（playground /
+   * research / writing / topic-insights / office / ask / image / social /
+   * simulation / planning / library / explore）都不得出现在 base-layer 文件中
+   * （包括代码 / import path / 字面量）—— 注释中也不允许（防 R0-A2 回归）。
+   *
+   * 例外：
+   *   - 历史迁移注释里加 "@migrated-from" 显式 opt-out（白名单标记）
+   *   - test fixtures（__tests__/）已被 fileLayer 排除
+   */
+  describe("Base-layer business leakage (R0-A5)", () => {
+    // 真正具有业务标识性的复合名（不是常见英文单词），出现 = 业务泄漏
+    // 排除：image / research / writing / library / explore / planning / ask / social
+    // 这些词在英语中高频，作为 ai-app 名只能靠 import path 检测（已在 §单向依赖 cover）
+    const UNIQUE_BUSINESS_NAMES = [
+      "agent-playground",
+      "topic-insights",
+      "topic-report",
+    ];
+    const PLAYGROUND_RE = /\bplayground\b/i; // playground 单独一词业务唯一
+    const COMPOUND_RE = new RegExp(
+      `\\b(${UNIQUE_BUSINESS_NAMES.join("|")})\\b`,
+      "i",
+    );
+
+    // 历史豁免列表（三轮清理后剩 2 文件，credits 业务 catalog 永久豁免）：
+    //   - credits/policy 两个 catalog：用 ai-app 名作为业务 key（计费按模块
+    //     分类），是业务设计而非泄漏 —— 永久 allowlist。
+    const ALLOWLIST: ReadonlySet<string> = new Set<string>([
+      "modules/ai-infra/credits/policy/credit-transaction-type.catalog.ts",
+      "modules/ai-infra/credits/policy/default-credit-rules.catalog.ts",
+    ]);
+
+    function fileMentionsBusinessName(file: string): {
+      hit: boolean;
+      sample?: string;
+    } {
+      const text = fs.readFileSync(file, "utf-8");
+      const lines = text.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.includes("@migrated-from")) continue;
+        if (COMPOUND_RE.test(line) || PLAYGROUND_RE.test(line)) {
+          return {
+            hit: true,
+            sample: `L${i + 1}: ${line.trim().slice(0, 100)}`,
+          };
+        }
+      }
+      return { hit: false };
+    }
+
+    it("ai-engine 不得提及业务唯一名 agent-playground / topic-insights / playground", () => {
+      const violations: string[] = [];
+      for (const file of ALL_FILES) {
+        if (fileLayer(file) !== "ai-engine") continue;
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        if (ALLOWLIST.has(rel)) continue;
+        const r = fileMentionsBusinessName(file);
+        if (r.hit) violations.push(`${rel}: ${r.sample}`);
+      }
+      // 当前数据：先在 R0-A5 落地这套断言。如本断言初次运行违规为 0，
+      // 直接锁死；若有遗漏违规，加进 ALLOWLIST 临时豁免 + 记 todo 清零。
+      expect(violations).toEqual([]);
+    });
+
+    it("ai-harness 不得提及业务唯一名 agent-playground / topic-insights / playground", () => {
+      const violations: string[] = [];
+      for (const file of ALL_FILES) {
+        if (fileLayer(file) !== "ai-harness") continue;
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        if (ALLOWLIST.has(rel)) continue;
+        const r = fileMentionsBusinessName(file);
+        if (r.hit) violations.push(`${rel}: ${r.sample}`);
+      }
+      expect(violations).toEqual([]);
+    });
+
+    it("ai-infra 不得提及业务唯一名", () => {
+      const violations: string[] = [];
+      for (const file of ALL_FILES) {
+        if (fileLayer(file) !== "ai-infra") continue;
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        if (ALLOWLIST.has(rel)) continue;
+        const r = fileMentionsBusinessName(file);
+        if (r.hit) violations.push(`${rel}: ${r.sample}`);
+      }
+      expect(violations).toEqual([]);
+    });
+
+    it("plugins/<domain> 不得提及业务唯一名", () => {
+      const violations: string[] = [];
+      for (const file of ALL_FILES) {
+        if (!isPluginDomain(fileLayer(file))) continue;
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        if (ALLOWLIST.has(rel)) continue;
+        const r = fileMentionsBusinessName(file);
+        if (r.hit) violations.push(`${rel}: ${r.sample}`);
+      }
+      expect(violations).toEqual([]);
+    });
+
+    it("ai-harness/agents/builtin-skills/ 不得含 SKILL.md（business 内容下推 ai-app/<app>/skills/）", () => {
+      const harnessSkillsDir = path.resolve(
+        SRC_ROOT,
+        "modules/ai-harness/agents/builtin-skills",
+      );
+      const found: string[] = [];
+      function walk(dir: string) {
+        if (!fs.existsSync(dir)) return;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.name === "__tests__") continue;
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) walk(full);
+          else if (entry.isFile() && entry.name === "SKILL.md") {
+            found.push(path.relative(SRC_ROOT, full).replace(/\\/g, "/"));
+          }
+        }
+      }
+      walk(harnessSkillsDir);
+      expect(found).toEqual([]);
     });
   });
 });

@@ -1,8 +1,8 @@
 /**
  * WordCountBalancer — 字数中位数归一化（沉淀）
  *
- * 沉淀自：ai-app/topic-insights/services/core/leader/leader-planning.service.ts:859-880
- * 移植落地：ai-app/agent-playground/services/.../helpers/word-count-normalizer.util.ts (Phase 1)
+ * 沉淀自：ai-app/{app}/services/core/leader/leader-planning.service.ts:859-880
+ * 移植落地：ai-app/{app}/services/.../helpers/word-count-normalizer.util.ts (Phase 1)
  *
  * 价值：所有"长文规划 → 章节字数分配"任务通用，TI 在 200+ 报告生产环境验证。
  *

@@ -1,5 +1,5 @@
-// Sediment from topic-insights (2026-04-29) — ai-harness/evaluation/critique/
-// 来源: ai-app/topic-insights/services/quality/defect-scanner.ts
+// Sediment from {app} (2026-04-29) — ai-harness/evaluation/critique/
+// 来源: ai-app/{app}/services/quality/defect-scanner.ts
 // 纯函数 utility，0 DI，0 LLM。所有 ai-app 都可用。
 /**
  * Content Defect Scanner

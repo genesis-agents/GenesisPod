@@ -1,21 +1,21 @@
 /**
  * AI Engine - Teams Module
- * å›¢é˜Ÿç³»ç»Ÿ NestJS æ¨¡å—
+ * 团队系统 NestJS 模块
  *
- * é›†æˆåˆ° AI Engine æ ¸å¿ƒæ¨¡å—ï¼Œä¾èµ–ï¼š
- * - ToolRegistry: å·¥å…·æ³¨å†Œè¡¨
- * - SkillRegistry: æŠ€èƒ½æ³¨å†Œè¡¨
- * - LLMFactory: LLM é€‚é…å™¨å·¥åŽ‚
- * - CostController: æˆæœ¬æŽ§åˆ¶å™¨
- * - Memory: è®°å¿†ç³»ç»Ÿ
- * - MCPManager: MCP å¤–éƒ¨å·¥å…·ç®¡ç†
+ * 集成到 AI Engine 核心模块，依赖：
+ * - ToolRegistry: 工具注册表
+ * - SkillRegistry: 技能注册表
+ * - LLMFactory: LLM 适配器工厂
+ * - CostController: 成本控制器
+ * - Memory: 记忆系统
+ * - MCPManager: MCP 外部工具管理
  */
 
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { RoleRegistry } from "./registry/role-registry";
 import { TeamRegistry } from "./registry/team-registry";
-// â˜… L2 internal â€” direct relative paths (ç¦ facade barrel)
+// ★ L2 internal — direct relative paths (禁 facade barrel)
 import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraints/constraint-engine";
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
 import { MissionRuntimeStateStore } from "../lifecycle/mission-lifecycle/runtime-state-store";
@@ -27,9 +27,9 @@ import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.serv
 import { TeamFactory } from "./factory/team-factory";
 import { TeamsService } from "./services/teams.service";
 import { MessageBusService as A2AMessageBusService } from "@/modules/ai-harness/protocols/ipc/message-bus.service";
-// PR-X16: TeamsController å·²è¿ç§»è‡³ open-api/teams-apiï¼ˆHTTP Controller ä¸Šæï¼‰
+// PR-X16: TeamsController 已迁移至 open-api/teams-api（HTTP Controller 上提）
 
-// AI Engine æ ¸å¿ƒä¾èµ–
+// AI Engine 核心依赖
 import { ToolRegistry } from "@/modules/ai-engine/tools/registry/tool.registry";
 import { ToolPipeline } from "@/modules/ai-engine/tools/middleware/tool-pipeline";
 import { SkillRegistry } from "@/modules/ai-engine/skills/registry/skill.registry";
@@ -45,13 +45,13 @@ import { MissionExecutorService } from "@/modules/ai-harness/lifecycle/manager/m
 import { EventJournalService } from "@/modules/ai-harness/protocols/journal/event-journal.service";
 
 /**
- * Teams æ¨¡å—
+ * Teams 模块
  *
- * æä¾›å®Œæ•´çš„å›¢é˜Ÿåä½œèƒ½åŠ›ï¼š
- * - Role ç®¡ç†ï¼ˆé¢„å®šä¹‰è§’è‰²ï¼‰
- * - Team ç®¡ç†ï¼ˆé¢„å®šä¹‰å’Œè‡ªå®šä¹‰å›¢é˜Ÿï¼‰
- * - Constraint çº¦æŸå¼•æ“Žï¼ˆé›†æˆ CostControllerï¼‰
- * - Mission ç¼–æŽ’å™¨ï¼ˆé›†æˆ LLM/Tools/Skills/Memoryï¼‰
+ * 提供完整的团队协作能力：
+ * - Role 管理（预定义角色）
+ * - Team 管理（预定义和自定义团队）
+ * - Constraint 约束引擎（集成 CostController）
+ * - Mission 编排器（集成 LLM/Tools/Skills/Memory）
  */
 @Module({
   controllers: [], // TeamsController moved to open-api/teams-api (PR-X16)
@@ -59,15 +59,15 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     RoleRegistry,
     TeamRegistry,
     A2AMessageBusService,
-    // â˜… Phase 9 (2026-04-30): Mission è¿è¡Œæ—¶çŠ¶æ€å¤–ç½® â†’ Redisï¼ˆCacheService globalï¼‰
+    // ★ Phase 9 (2026-04-30): Mission 运行时状态外置 → Redis（CacheService global）
     MissionRuntimeStateStore,
-    // â˜… Phase 9: åŸºäºŽ heartbeat çš„å¿«é€Ÿ orphan æ£€æµ‹ï¼ˆcallback ç”± ai-app æ³¨å…¥ï¼‰
+    // ★ Phase 9: 基于 heartbeat 的快速 orphan 检测（callback 由 ai-app 注入）
     MissionOrphanDetectorService,
-    // â˜… 2026-05-01 (PR-X-E): é€šç”¨ mission registry primitiveï¼ˆä»Ž playground ä¸Šæï¼‰
+    // ★ 2026-05-01 (PR-X-E): 通用 mission registry primitive（从 consumer 上提）
     MissionAbortRegistry,
     MissionOwnershipRegistry,
     RerunLockRegistry,
-    // â˜… 2026-04-30: AdaptiveReplannerService ä»Ž ai-engine/planning æ¬æ¥ (è·¨å±‚æ¬è¿)
+    // ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来 (跨层搬迁)
     AdaptiveReplannerService,
     // ConstraintEngine ä¾èµ– CostController
     {
@@ -77,7 +77,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
       },
       inject: [CostController],
     },
-    // TeamFactory ä¾èµ– RoleRegistryã€TeamRegistry å’Œ LLMFactory
+    // TeamFactory 依赖 RoleRegistry、TeamRegistry 和 LLMFactory
     {
       provide: TeamFactory,
       useFactory: (
@@ -89,14 +89,14 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
       },
       inject: [RoleRegistry, TeamRegistry, LLMFactory],
     },
-    // CheckpointManager (å¯é€‰ä¾èµ–ï¼Œç”¨äºŽè‡ªåŠ¨ä¿å­˜æ£€æŸ¥ç‚¹)
+    // CheckpointManager (可选依赖，用于自动保存检查点)
     {
       provide: CheckpointManager,
       useFactory: () => {
         return new CheckpointManager();
       },
     },
-    // MissionOrchestrator é›†æˆæ‰€æœ‰æ ¸å¿ƒæœåŠ¡
+    // MissionOrchestrator 集成所有核心服务
     {
       provide: MissionOrchestrator,
       useFactory: (
@@ -125,19 +125,19 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
           llmFactory,
           memoryService,
           mcpManager,
-          aiChatService, // â˜… ç”¨äºŽåˆ›å»º LLM é€‚é…å™¨ç»™ Skills ä½¿ç”¨
-          prismaService, // â˜… ç”¨äºŽä»Žæ•°æ®åº“èŽ·å–é»˜è®¤ AI æ¨¡åž‹é…ç½®
-          traceCollector, // â˜… ç”¨äºŽæ‰§è¡Œé“¾è·¯å¯è§†åŒ–
-          checkpointManager, // â˜… ç”¨äºŽè‡ªåŠ¨ä¿å­˜æ£€æŸ¥ç‚¹
-          a2aBus, // â˜… ç”¨äºŽ Agent é—´æ¶ˆæ¯é€šä¿¡
+          aiChatService, // ★ 用于创建 LLM 适配器给 Skills 使用
+          prismaService, // ★ 用于从数据库获取默认 AI 模型配置
+          traceCollector, // ★ 用于执行链路可视化
+          checkpointManager, // ★ 用于自动保存检查点
+          a2aBus, // ★ 用于 Agent 间消息通信
           undefined, // config override (use defaults)
-          missionExecutor, // â˜… AI Kernel è¿›ç¨‹è¿½è¸ª
-          kernelJournal, // â˜… AI Kernel äº‹ä»¶æ—¥å¿—
-          undefined, // adaptiveReplanner (Phase 4, å½“å‰æœªæ³¨å…¥)
-          undefined, // hierarchicalMemory (Phase 6, å½“å‰æœªæ³¨å…¥)
-          undefined, // lifecycleProtocol (Phase 8, å½“å‰æœªæ³¨å…¥)
-          runtimeStore, // â˜… Phase 9: è·¨ pod çŠ¶æ€å¤–ç½®
-          toolPipeline, // â˜… 2026-05-01 (PR-X-R): skill å·¥å…·è°ƒç”¨ç®¡çº¿
+          missionExecutor, // ★ AI Kernel 进程追踪
+          kernelJournal, // ★ AI Kernel 事件日志
+          undefined, // adaptiveReplanner (Phase 4, 当前未注入)
+          undefined, // hierarchicalMemory (Phase 6, 当前未注入)
+          undefined, // lifecycleProtocol (Phase 8, 当前未注入)
+          runtimeStore, // ★ Phase 9: 跨 pod 状态外置
+          toolPipeline, // ★ 2026-05-01 (PR-X-R): skill 工具调用管线
         );
       },
       inject: [
@@ -159,7 +159,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
         { token: ToolPipeline, optional: true },
       ],
     },
-    // TeamsService ä¾èµ–æ‰€æœ‰ä¸Šå±‚æœåŠ¡
+    // TeamsService 依赖所有上层服务
     {
       provide: TeamsService,
       useFactory: (
@@ -212,8 +212,8 @@ export class TeamsModule implements OnModuleInit {
   ) {}
 
   /**
-   * æ¨¡å—åˆå§‹åŒ–
-   * å›¢é˜Ÿé…ç½®ç”±å„ AI App æ¨¡å—åœ¨å…¶ onModuleInit ä¸­æ³¨å†Œ
+   * 模块初始化
+   * 团队配置由各 AI App 模块在其 onModuleInit 中注册
    */
   onModuleInit() {
     this.logger.log(`TeamsModule initialized:`);

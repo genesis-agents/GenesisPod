@@ -18,16 +18,16 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
-import { TeamMission } from "./services/mission/workflow/team.mission";
 import { MissionRuntimeShellService } from "./services/mission/workflow/mission-runtime-shell.service";
 import { MissionStageBindingsService } from "./services/mission/workflow/mission-stage-bindings.service";
-// ── R2-A.1 (v5.1 §3.2 §5): pipeline-v1 双轨入口（默认 inactive，flag 控制）──
+// ★ R2-C 单轨化 (2026-05-04)：pipelineDispatcher 是唯一 mission orchestrator
+//   legacy TeamMission 已删除，flag service 已删除
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
-import { PlaygroundRuntimeFlagService } from "./playground-runtime-flag.service";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
@@ -65,6 +65,9 @@ import {
 } from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+// R0-A3 (2026-05-04): playground 业务 SKILL.md 集合（从 harness 下推）
+import * as path from "path";
+import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
 
 @Module({
   imports: [
@@ -80,8 +83,12 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
   ],
   controllers: [AgentPlaygroundController],
   providers: [
+    // R0-A3: 注册 playground 业务 skill 目录（17 SKILL.md）
+    {
+      provide: EXTRA_SKILL_DIRS,
+      useValue: [path.resolve(__dirname, "skills/built-in")],
+    },
     AgentPlaygroundGateway,
-    TeamMission,
     MissionRuntimeShellService,
     MissionStageBindingsService,
     // MissionOwnershipRegistry / MissionAbortRegistry 由 @Global HarnessModule 提供（PR-X-E 上提）
@@ -118,15 +125,12 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     MissionRerunOrchestratorService,
     // ── 导出装配（CSV / Markdown / JSON）──
     MissionExportService,
-    // ── R2-A.1 双轨：pipeline-v1 dispatcher + 运行时 flag service ──
+    // ★ R2-C 单轨化 (2026-05-04)：pipeline-v1 是唯一 mission 入口
     //   dispatcher.onModuleInit 注册 PLAYGROUND_PIPELINE 到 registry
-    //   flag service 决定每次 runMission 走 legacy 还是 pipeline-v1
-    //   注意：本 R2-A.1 只接 module providers，controller 尚未读 flag，
-    //         所以生产流量仍 100% 走 TeamMission（dead-code 形态）
+    //   legacy TeamMission 已删除，PlaygroundRuntimeFlagService 已删除
     MissionPipelineRegistry,
     MissionPipelineOrchestrator,
     PlaygroundPipelineDispatcher,
-    PlaygroundRuntimeFlagService,
     // ── S12 postmortem 失败模式分类（已上提到 @Global HarnessModule）──
   ],
   exports: [MissionEventBuffer],
@@ -139,9 +143,22 @@ export class AgentPlaygroundModule implements OnModuleInit {
     private readonly store: MissionStore,
     private readonly prisma: PrismaService,
     private readonly orphanDetector: MissionOrphanDetectorService,
+    // R0-A3 (2026-05-04): 注册 playground skills 目录到 engine SkillLoader
+    //   17 个 SKILL.md (mece-mission-planning / leader-* / dimension-research / web-research 等)
+    //   下推到 ai-app/agent-playground/skills/，需要在这里 register 到 SkillRegistry
+    //   否则 SkillActivator 在 leader/researcher role 启动时报 "skipped: <skill-id>"
+    private readonly skillLoader: SkillLoaderService,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
+    // R0-A3: 注册 agent-playground skill 目录
+    const path = await import("path");
+    await this.skillLoader.addSkillDirectory({
+      path: path.resolve(__dirname, "skills"),
+      domain: "agent-playground",
+      recursive: false,
+    });
+
     // 1. 注册事件类型 —— DomainEventBus 校验未注册的 type 会 drop+warn
     this.registry.registerAll(AGENT_PLAYGROUND_EVENTS);
     // 2. 注册缓冲 adapter，截获所有 agent-playground.* 事件入内存（给 /replay 用）
@@ -151,13 +168,26 @@ export class AgentPlaygroundModule implements OnModuleInit {
     //    wall-time 可达 150min (resolveMissionWallTimeMs)。原 30min 触发 mission
     //    在 55min 处被误标 orphan。改 240min（覆盖 3h hard cap + 1h buffer）。
     void this.store.recoverOrphanedRunning(240);
-    // 3a. ★ PR-H v1 (2026-05-01): heartbeat-driven pod recovery
-    //    新版 runMission 每 30s 刷 DB heartbeatAt。pod 死后 90s 仍是 status=running
-    //    且 heartbeatAt < now-90s → 立即 markFailed（替代 240min 长等待）。
-    //    模块启动时扫一次（清理上一波死掉的 mission），之后每 60s 扫一次。
-    void this.store.recoverPodCrashedRunning(90);
+    // 3a. ★ PR-H v1 (2026-05-01) + 2026-05-04 修：heartbeat-driven pod recovery
+    //    新版 runMission 每 30s 刷 DB heartbeatAt。
+    //
+    //    阈值演进：
+    //      v1 90s 太紧 —— Railway redeploy 通常 60-120s 部署 + 30s 启动，
+    //                    部署窗口期 mission 全部被新 pod 误杀（实测每次 push 都死）
+    //      v2 300s （5min）—— 兜住典型 redeploy 窗口；真死 pod 检测延迟 5min OK
+    //
+    //    时序保护：
+    //      - 启动后 60s 才跑首次扫描（让 redeploy 切换稳定 + 旧 pod 有机会自然
+    //        markCompleted/markFailed 走完）
+    //      - 之后每 60s 扫一次
+    const POD_HEARTBEAT_STALE_SECS = 300;
+    const POD_RECOVERY_BOOT_DELAY_MS = 60_000;
+    const podBootTimer = setTimeout(() => {
+      void this.store.recoverPodCrashedRunning(POD_HEARTBEAT_STALE_SECS);
+    }, POD_RECOVERY_BOOT_DELAY_MS);
+    podBootTimer.unref?.();
     const podRecoveryTimer = setInterval(() => {
-      void this.store.recoverPodCrashedRunning(90);
+      void this.store.recoverPodCrashedRunning(POD_HEARTBEAT_STALE_SECS);
     }, 60_000);
     podRecoveryTimer.unref?.();
     // 4. ★ Phase 9 (2026-04-30): 注册 orphan detector callbacks —— 跨 pod 接管基于 heartbeat 的快速检测

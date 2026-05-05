@@ -21,7 +21,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { randomUUID } from "crypto";
-import { TeamMission } from "../workflow/team.mission";
+import { PlaygroundPipelineDispatcher } from "../workflow/playground-pipeline-dispatcher.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import {
@@ -49,7 +49,7 @@ export class MissionRerunOrchestratorService {
   private readonly log = new Logger(MissionRerunOrchestratorService.name);
 
   constructor(
-    private readonly orchestrator: TeamMission,
+    private readonly orchestrator: PlaygroundPipelineDispatcher,
     private readonly store: MissionStore,
     private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
