@@ -51,6 +51,9 @@ export class HandoffService {
   constructor(
     private readonly registry: AgentRegistry,
     @Optional() private readonly policy?: IHandoffPolicy,
+    /** B (2026-05-05): TEAM_HANDOFF hook seam — plugin 收 handoff 通知（audit 用） */
+    @Optional()
+    private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
   ) {}
 
   /**
@@ -107,6 +110,26 @@ export class HandoffService {
     this.log.log(
       `[handoff] ${ctx.fromAgentId} → ${ctx.toAgentId} (${ctx.reason})`,
     );
+
+    // B (2026-05-05): TEAM_HANDOFF hook fire-and-forget（audit / RBAC plugin 用）
+    if (this.hookBus) {
+      void this.hookBus
+        .fire(
+          "harness.team.handoff",
+          {
+            missionId:
+              (ctx as unknown as { missionId?: string }).missionId ?? "",
+            fromAgentId: ctx.fromAgentId,
+            toAgentId: ctx.toAgentId,
+            context: {
+              reason: ctx.reason,
+              handoverMessage: ctx.handoverMessage,
+            },
+          },
+          async () => undefined,
+        )
+        .catch(() => undefined);
+    }
 
     return {
       toAgentId: ctx.toAgentId,

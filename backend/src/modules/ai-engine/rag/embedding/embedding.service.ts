@@ -13,6 +13,7 @@ import {
   Injectable,
   Logger,
   ServiceUnavailableException,
+  Optional,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
@@ -77,16 +78,42 @@ export class EmbeddingService {
   private static readonly RETRY_MAX_ATTEMPTS = 3;
   private static readonly RETRY_BASE_DELAY_MS = 1000; // 1s, 2s, 4s 指数退避
 
+  // ★ 2026-05-05 P0 修复：401-aware 熔断器（系统配置失效保护）
+  //   线上观察：DB EMBEDDING 模型 secretKey → Secret Manager 失效 OpenAI key
+  //   → 单 mission 524 次 401 ERROR 刷屏。401 不应重试（认证失败重试无意义），
+  //   也不应每次都 ERROR 刷屏。逻辑：
+  //   - 第一次 401 → ERROR + invalidate config cache（让 admin 改了 key 后能立刻生效）
+  //   - cooldown 期内（5min）后续 401 → 静默（return cached error / 上游 fallback）
+  //   - cooldown 到期 → 重置，给一次机会重试（admin 可能已改 key）
+  private authFailedUntil = 0;
+  private static readonly AUTH_FAILURE_COOLDOWN_MS = 5 * 60_000; // 5 分钟
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
     private readonly aiApiCallerService: AiApiCallerService,
     private readonly configService: ConfigService,
+    /** v5.1 R0.5-E B-#6 (2026-05-05): EMBEDDING_REQUEST hook seam，可选注入。
+     *  plugin 可拦截 / 替换 embedding（缓存 / fallback provider）。 */
+    @Optional()
+    private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
   ) {}
 
   private isRateLimitError(err: unknown): boolean {
     const msg = err instanceof Error ? err.message : String(err);
     return /429|rate.?limit|too many requests/i.test(msg);
+  }
+
+  /**
+   * ★ 2026-05-05 P0 修复：检测 401（认证失败 = key 失效）
+   */
+  private isAuthError(err: unknown): boolean {
+    const msg = err instanceof Error ? err.message : String(err);
+    return /\b401\b|unauthorized|invalid.*api.?key|authentication/i.test(msg);
+  }
+
+  private isAuthCircuitOpen(): boolean {
+    return Date.now() < this.authFailedUntil;
   }
 
   /**
@@ -260,6 +287,43 @@ export class EmbeddingService {
     }
 
     const config = await this.getEmbeddingConfig();
+
+    // v5.1 R0.5-E B-#6 (2026-05-05): EMBEDDING_REQUEST hook seam
+    //   plugin 可：(a) 缓存命中时 abort 注入 cached 结果；(b) 切换 fallback provider；
+    //   (c) 注入测试 fixture（spec/dev）。无 plugin 注册时 zero-cost fast-path。
+    if (this.hookBus) {
+      const requestPayload = {
+        inputs: texts,
+        modelId: config.modelId,
+        provider: config.provider,
+        dimensions: config.dimensions,
+      };
+      try {
+        return await this.hookBus.fire(
+          "engine.embedding.request",
+          requestPayload,
+          () => this.generateEmbeddingsTerminal(texts, config),
+        );
+      } catch (err) {
+        // HookAbortError 携带 cached payload 时，让 plugin 的 abortPayload 直接当结果
+        const abortPayload = (err as { abortPayload?: EmbeddingBatch })
+          ?.abortPayload;
+        if (abortPayload && Array.isArray(abortPayload.embeddings)) {
+          return abortPayload;
+        }
+        throw err;
+      }
+    }
+    return this.generateEmbeddingsTerminal(texts, config);
+  }
+
+  /**
+   * EMBEDDING_REQUEST hook 包装的实际 terminal —— 原 generateEmbeddings 主体。
+   */
+  private async generateEmbeddingsTerminal(
+    texts: string[],
+    config: EmbeddingModelConfig,
+  ): Promise<EmbeddingBatch> {
     const allEmbeddings: number[][] = [];
     let totalTokens = 0;
 
@@ -271,6 +335,13 @@ export class EmbeddingService {
     if (this.isCircuitOpen()) {
       throw new Error(
         `Embedding circuit-open (${this.rateLimitFailures.length} recent 429s). Upstream rate-limit cooldown until ${new Date(this.circuitOpenUntil).toISOString()}`,
+      );
+    }
+
+    // ★ 2026-05-05 P0 修复：401 cooldown 期间直接 throw，不发请求 + 不刷 ERROR
+    if (this.isAuthCircuitOpen()) {
+      throw new Error(
+        `Embedding auth-circuit-open (key invalid). Cooldown until ${new Date(this.authFailedUntil).toISOString()}. Update key in Admin > AI Models.`,
       );
     }
 
@@ -311,14 +382,35 @@ export class EmbeddingService {
               continue;
             }
           }
+          // ★ 2026-05-05 P0 修复：401 立即触发 auth circuit-break + invalidate
+          //   cache。不刷 524 次 ERROR，让 admin 改 key 后下次能立刻生效。
+          if (this.isAuthError(error)) {
+            this.authFailedUntil =
+              Date.now() + EmbeddingService.AUTH_FAILURE_COOLDOWN_MS;
+            this.clearConfigCache();
+            // 仅打一次 ERROR（cooldown 期间后续 401 走 circuit-open 短路）
+            this.logger.error(
+              `[embedding] 401 auth failed for ${config.modelId} (${config.apiFormat}). ` +
+                `Key invalid or expired. Auth-circuit-open for ${EmbeddingService.AUTH_FAILURE_COOLDOWN_MS / 1000}s. ` +
+                `Update key in Admin > AI Models. Original error: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
           // 非 429 不重试，直接抛
           break;
         }
       }
       if (!succeeded) {
-        this.logger.error(
-          `Failed to generate embeddings with ${config.modelId} (${config.apiFormat}) after retries: ${lastError}`,
-        );
+        // ★ 2026-05-05 P0 修复：401 已经在 catch 内打过 ERROR + 触发 circuit-break，
+        //   这里只 debug，避免双重刷屏；其他错误正常 ERROR
+        if (this.isAuthError(lastError)) {
+          this.logger.debug(
+            `[embedding] auth error finalized (already logged once + circuit-open)`,
+          );
+        } else {
+          this.logger.error(
+            `Failed to generate embeddings with ${config.modelId} (${config.apiFormat}) after retries: ${lastError}`,
+          );
+        }
         throw lastError;
       }
     }

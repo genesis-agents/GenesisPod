@@ -6,7 +6,7 @@
  * 设计：
  * - 本服务仅负责 trace context 维护 + 评分计算，**不涉及 prisma persistence**
  * - prompt provenance 由消费方注入（TI 用 PROMPT_METADATA，consumer 用自己的快照）
- * - 持久化由消费方各自实现（TI 写 TopicReport.qualityTrace，consumer 写 agent_playground_missions.qualityTrace）
+ * - 持久化由消费方各自实现（各 ai-app 把 qualityTrace JSON 写到自家 mission 表）
  *
  * 标杆参考实现，consumer 等新模块从 `@/modules/ai-harness/facade` 消费。
  * TI 是商用基线，保留独立的本地副本不切换到本实现。

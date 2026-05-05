@@ -1103,10 +1103,29 @@ export class ReportSynthesisService {
       );
 
       if (this.latexRepair) {
+        // ★ 2026-05-05 P0 修复：给 LatexRepair LLM 调用包 timeout，避免单次
+        //   LLM 卡住（如 grok 返空 content / 网络挂起）→ 整个 mission 永远不
+        //   到 COMPLETED 状态。线上观察：mission 在 ReportSynthesis 写 DB 后
+        //   卡 latexRepair.repairMarkdown 9+ 分钟，dynamicScheduler 永远等。
+        //   超时跳过 LaTeX 修复，shipping original（与 LatexRepair 内部
+        //   "no_improvement" 分支等价）。
+        const LATEX_REPAIR_TIMEOUT_MS = 60_000;
         try {
           const repairStart = Date.now();
-          const repairResult =
-            await this.latexRepair.repairMarkdown(finalReport);
+          const repairResult = await Promise.race([
+            this.latexRepair.repairMarkdown(finalReport),
+            new Promise<never>((_, reject) =>
+              setTimeout(
+                () =>
+                  reject(
+                    new Error(
+                      `LatexRepair timeout after ${LATEX_REPAIR_TIMEOUT_MS}ms`,
+                    ),
+                  ),
+                LATEX_REPAIR_TIMEOUT_MS,
+              ),
+            ),
+          ]);
           const repairMs = Date.now() - repairStart;
           if (repairResult.changed) {
             const beforeN = repairResult.before?.issues.length ?? 0;
@@ -1127,8 +1146,13 @@ export class ReportSynthesisService {
             );
           }
         } catch (err) {
+          const isTimeout =
+            err instanceof Error && /timeout/i.test(err.message);
           this.logger.warn(
-            `[synthesizeReport] LatexRepair raised: ${err instanceof Error ? err.message : String(err)}. Shipping original.`,
+            `[synthesizeReport] LatexRepair ${isTimeout ? "TIMED OUT" : "raised"}: ${err instanceof Error ? err.message : String(err)}. Shipping original.`,
+          );
+          this.logger.log(
+            `[metrics] final_latex_rescue=skipped final_latex_rescue_reason=${isTimeout ? "timeout" : "error"}`,
           );
         }
       } else {

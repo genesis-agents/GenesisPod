@@ -44,11 +44,12 @@ describe("UserApiKeysController", () => {
   describe("listKeys", () => {
     it("returns { keys, providers } combining service calls", async () => {
       service.listUserApiKeys.mockResolvedValue([{ provider: "openai" }]);
-      service.getSupportedProviders.mockReturnValue(["openai", "anthropic"]);
+      service.getSupportedProviders.mockResolvedValue(["openai", "anthropic"]);
 
       const result = await controller.listKeys(reqUser);
 
       expect(service.listUserApiKeys).toHaveBeenCalledWith("user-1");
+      expect(service.getSupportedProviders).toHaveBeenCalledWith("user-1");
       expect(result).toEqual({
         keys: [{ provider: "openai" }],
         providers: ["openai", "anthropic"],
@@ -57,7 +58,7 @@ describe("UserApiKeysController", () => {
 
     it("returns empty keys + providers when user has none", async () => {
       service.listUserApiKeys.mockResolvedValue([]);
-      service.getSupportedProviders.mockReturnValue([]);
+      service.getSupportedProviders.mockResolvedValue([]);
 
       const result = await controller.listKeys(reqUser);
 
@@ -100,6 +101,7 @@ describe("UserApiKeysController", () => {
         "PERSONAL",
         "gpt-4o",
         "https://api.openai.com",
+        undefined, // PR-2 label param (default)
       );
       expect(result).toEqual({ id: "k1" });
     });
@@ -117,6 +119,7 @@ describe("UserApiKeysController", () => {
         "PERSONAL",
         undefined,
         undefined,
+        undefined, // PR-2 label param (default)
       );
     });
   });
@@ -127,7 +130,11 @@ describe("UserApiKeysController", () => {
 
       const result = await controller.deleteKey(reqUser, "openai");
 
-      expect(service.deleteKey).toHaveBeenCalledWith("user-1", "openai");
+      expect(service.deleteKey).toHaveBeenCalledWith(
+        "user-1",
+        "openai",
+        undefined, // PR-2 label query param
+      );
       expect(result).toEqual({ deleted: true });
     });
   });
@@ -140,12 +147,13 @@ describe("UserApiKeysController", () => {
         apiEndpoint: "https://api.openai.com",
       } as never;
 
-      const result = await controller.testKey("openai", dto);
+      const result = await controller.testKey("openai", dto, reqUser);
 
       expect(service.testKey).toHaveBeenCalledWith(
         "openai",
         "sk-test",
         "https://api.openai.com",
+        "user-1",
       );
       expect(result).toEqual({ ok: true });
     });
@@ -154,7 +162,7 @@ describe("UserApiKeysController", () => {
       service.testKey.mockResolvedValue({ ok: false, error: "401" });
       const dto = { apiKey: "bad-key" } as never;
 
-      const result = await controller.testKey("openai", dto);
+      const result = await controller.testKey("openai", dto, reqUser);
 
       expect(result).toEqual({ ok: false, error: "401" });
     });

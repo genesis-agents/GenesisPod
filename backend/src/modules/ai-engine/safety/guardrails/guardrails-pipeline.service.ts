@@ -3,7 +3,7 @@
  * 护栏管道服务
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import {
   IInputGuardrail,
   IOutputGuardrail,
@@ -22,6 +22,12 @@ export class GuardrailsPipelineService {
   private readonly logger = new Logger(GuardrailsPipelineService.name);
   private inputGuardrails: IInputGuardrail[] = [];
   private outputGuardrails: IOutputGuardrail[] = [];
+
+  /** B (2026-05-05): SAFETY_INPUT/OUTPUT plugin hook seam */
+  constructor(
+    @Optional()
+    private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
+  ) {}
 
   /**
    * Register an input guardrail
@@ -48,6 +54,19 @@ export class GuardrailsPipelineService {
    * Short-circuits on 'block' severity
    */
   async processInput(input: GuardrailInput): Promise<GuardrailsPipelineResult> {
+    // B (2026-05-05): SAFETY_INPUT plugin hook fire-and-forget（PII/审核 plugin 用）
+    if (this.hookBus) {
+      void this.hookBus
+        .fire(
+          "engine.safety.input",
+          {
+            text: typeof input === "string" ? input : JSON.stringify(input),
+            source: "user" as const,
+          },
+          async () => undefined,
+        )
+        .catch(() => undefined);
+    }
     const results: GuardrailResult[] = [];
     let blockedBy: string | undefined;
 
@@ -111,6 +130,19 @@ export class GuardrailsPipelineService {
   async processOutput(
     output: GuardrailOutput,
   ): Promise<GuardrailsPipelineResult> {
+    // B (2026-05-05): SAFETY_OUTPUT plugin hook fire-and-forget
+    if (this.hookBus) {
+      void this.hookBus
+        .fire(
+          "engine.safety.output",
+          {
+            text: typeof output === "string" ? output : JSON.stringify(output),
+            producedBy: "agent",
+          },
+          async () => undefined,
+        )
+        .catch(() => undefined);
+    }
     const results: GuardrailResult[] = [];
     let blockedBy: string | undefined;
 

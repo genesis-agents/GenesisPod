@@ -1,9 +1,8 @@
 /**
  * MissionCheckpointStore — 通用 checkpoint 存储抽象
  *
- * 沉淀自 TI research-checkpoint.service.ts，剥离对 ResearchMission 表的耦合。
- * ai-app 各自实现 MissionCheckpointStore（consumer 落 agent_playground_missions，
- * TI 落 research_missions），MissionCheckpointService 只依赖此接口。
+ * ai-app 各自实现 MissionCheckpointStore（落自家 mission 表），
+ * MissionCheckpointService 只依赖此接口。
  */
 
 export interface MissionCheckpointSnapshot<TPayload = unknown> {

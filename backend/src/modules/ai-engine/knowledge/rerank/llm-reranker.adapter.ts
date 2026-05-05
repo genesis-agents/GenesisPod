@@ -197,9 +197,11 @@ export class LlmRerankerAdapter implements RerankAdapter {
       `Return JSON only.`;
 
     let timeoutHandle: NodeJS.Timeout | undefined;
-    const abortListener = () => {
-      // 仅用于让 Promise.race 中的外部信号 rejection 起作用
-    };
+    // ★ 2026-05-05 P0 修复：原代码用 inline closure addEventListener({once:true})
+    //   但 abort 永不触发时 listener 永不清理。一个 mission 跑数十次 rerank
+    //   → 数十个 listener 累积在同一 mission-level signal → MaxListeners 警告。
+    //   修复：保存 listener 引用，finally 显式 remove。
+    let abortListenerRef: (() => void) | null = null;
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutHandle = setTimeout(
@@ -210,14 +212,10 @@ export class LlmRerankerAdapter implements RerankAdapter {
 
       const abortPromise = externalSignal
         ? new Promise<never>((_, reject) => {
-            externalSignal.addEventListener(
-              "abort",
-              () => {
-                abortListener();
-                reject(new Error("rerank_aborted"));
-              },
-              { once: true },
-            );
+            abortListenerRef = () => reject(new Error("rerank_aborted"));
+            externalSignal.addEventListener("abort", abortListenerRef, {
+              once: true,
+            });
           })
         : null;
 
@@ -259,6 +257,14 @@ export class LlmRerankerAdapter implements RerankAdapter {
       return null;
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
+      // ★ 2026-05-05 P0: 显式移除 abort listener，避免泄漏
+      if (abortListenerRef && externalSignal) {
+        try {
+          externalSignal.removeEventListener("abort", abortListenerRef);
+        } catch {
+          /* signal 已 detach，忽略 */
+        }
+      }
     }
   }
 

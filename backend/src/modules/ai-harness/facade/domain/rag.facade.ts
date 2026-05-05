@@ -355,11 +355,15 @@ export class RAGFacade {
     queryEmbedding: number[],
     options?: SimilaritySearchOptions,
   ): Promise<SimilarityResult[]> {
+    if (!this.knowledge?.vector) {
+      this.logger.warn(
+        "[vectorSimilaritySearch] VectorService unavailable (DI not wired). Returning empty array.",
+      );
+      return [];
+    }
     return (
-      (await this.knowledge?.vector?.similaritySearch(
-        queryEmbedding,
-        options,
-      )) ?? []
+      (await this.knowledge.vector.similaritySearch(queryEmbedding, options)) ??
+      []
     );
   }
 

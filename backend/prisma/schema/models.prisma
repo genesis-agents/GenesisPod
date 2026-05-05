@@ -179,6 +179,12 @@ model User {
   // BYOK v3: 我自己配置的多模型实例（同一个 Key 可以绑多个不同用途的模型）
   modelConfigs UserModelConfig[]
 
+  // 2026-05-05 PR-1: 我自定义的 AIProvider（scope=user）
+  customProviders AIProvider[] @relation("UserAIProviders")
+
+  // 2026-05-05 E R4 Phase 2: 我自定义的 agent 定义
+  customAgentDefinitions CustomAgentDefinition[]
+
   @@map("users")
 }
 
@@ -7809,6 +7815,10 @@ model UserApiKey {
   id                 String         @id @default(cuid())
   userId             String         @map("user_id")
   provider           String         @db.VarChar(50) // openai, anthropic, deepseek, google 等
+  /// PR-2 (2026-05-05): 多 key 支持。同一 user + provider 可有多条，用 label 区分
+  /// （"default" / "personal-org-a" / "backup" / "dev-vs-prod"）。
+  /// keyResolver 选择优先级：preferred(label="default") → label asc → first active
+  label              String         @default("default") @db.VarChar(50)
   encryptedValue     String         @map("encrypted_value") @db.Text
   iv                 String         @db.VarChar(32)
   keyHint            String?        @map("key_hint") @db.VarChar(20) // 脱敏提示如 "sk-...3f8a"
@@ -7827,7 +7837,7 @@ model UserApiKey {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider])
+  @@unique([userId, provider, label])
   @@index([provider, mode, isActive])
   @@index([mode, isActive])
   @@map("user_api_keys")
@@ -9405,4 +9415,88 @@ model HarnessFailurePattern {
   @@index([agentSpecId, failureCode])
   @@index([lastSeenAt])
   @@map("harness_failure_patterns")
+}
+
+/// E R4 Phase 2 (2026-05-05): 用户自定义 Agent 定义（骨架阶段）
+///
+/// 用户在 5 步向导里配置自定义 agent（topic schema / skills 组合 / pipeline /
+/// 集成）。当前为骨架（model + module + 第 1 步 basic info），控制器和 UI
+/// 增量在后续 PR 补全。
+///
+///   - PR-E1（本次）：model + module + 1 步 basic info wizard
+///   - PR-E2：5 步完整向导（topic schema / skills / pipeline / integration / review）
+///   - PR-E3：与 agent-playground 集成（customAgentId → 启动 mission）
+model CustomAgentDefinition {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String? @map("workspace_id")
+
+  slug        String  @db.VarChar(64)
+  displayName String  @map("display_name") @db.VarChar(128)
+  description String? @db.Text
+
+  /// 5 步向导各步骤数据（Json 持久化，避免每步加列）
+  config Json
+
+  /// 状态机：DRAFT / PUBLISHED / ARCHIVED
+  status String @default("DRAFT") @db.VarChar(16)
+  /// 版本号（每次发布递增；下游引用版本而非 mutable id）
+  version Int    @default(1)
+
+  isEnabled Boolean @default(true) @map("is_enabled")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, slug])
+  @@index([userId, status, isEnabled])
+  @@map("custom_agent_definitions")
+}
+
+/// AI Provider catalog（数据驱动 BYOK / 模型配置）
+///
+/// 替代之前 hardcoded PROVIDER_DEFAULTS（user-api-keys.service.ts）+ 前端
+/// PROVIDER_ICONS 字典。新增 provider 走 admin UI / DB 写入即可，不改代码。
+///
+/// 双层 scope：
+///   - system：全局可用，admin 维护，所有用户共享（OpenAI / Anthropic / Voyage 等）
+///   - user：用户自定义（自托管 vLLM / 试验性 provider），仅 ownerUserId 可见
+///
+/// AIModel.provider 字段保持 string，等价于此表 slug 的软外键（不强制 FK
+/// 是为兼容历史数据，且某些 provider 短暂出现/消失不应级联删模型）。
+model AIProvider {
+  id           String  @id @default(uuid())
+  slug         String  @db.VarChar(50) // kebab-case 唯一标识（"voyage", "openai"）
+  name         String  @db.VarChar(100) // 显示名 "Voyage AI"
+  endpoint     String  @db.VarChar(500) // base URL
+  apiFormat    String  @map("api_format") @db.VarChar(20) // openai / anthropic / google / cohere
+  testModel    String  @map("test_model") @db.VarChar(100) // health check 探活模型 id
+  /// 支持的 AIModelType 列表（CHAT / EMBEDDING / RERANK 等），驱动 capabilities 路由
+  capabilities String[]
+  iconUrl      String? @map("icon_url") @db.VarChar(500)
+  description  String? @db.Text
+  docUrl       String? @map("doc_url") @db.VarChar(500)
+  freeTierNote String? @map("free_tier_note") @db.VarChar(300)
+  /// 模型探测正则（一键自动配置时按此 patterns 匹配 GET /v1/models 返回的 ids）
+  /// 形如 [{"modelType": "EMBEDDING", "patterns": ["^voyage-3"]}]
+  recommendations Json?
+
+  displayOrder Int     @default(0) @map("display_order")
+  isEnabled    Boolean @default(true) @map("is_enabled")
+
+  /// "system"（admin 维护，全局共享）或 "user"（用户自定义）
+  scope       String  @db.VarChar(16)
+  /// scope=user 时关联用户；scope=system 时为 null
+  ownerUserId String? @map("owner_user_id")
+  ownerUser   User?   @relation("UserAIProviders", fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// 同 scope 下 slug 唯一；user scope 还需绑定 ownerUserId
+  @@unique([slug, scope, ownerUserId])
+  @@index([scope, isEnabled, displayOrder])
+  @@index([ownerUserId])
+  @@map("ai_providers")
 }

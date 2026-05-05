@@ -19,3 +19,26 @@ export type {
 } from "./tool";
 export type { MissionStartPayload, MissionEndPayload } from "./mission";
 export type { MemoryWritePayload, MemoryReadPayload } from "./memory";
+
+// EXTENDED_HOOKS payloads（R0.5-E）
+export type {
+  EmbeddingRequestPayload,
+  EmbeddingResponsePayload,
+} from "./embedding";
+export type { VectorQueryPayload, VectorQueryResultPayload } from "./vector";
+export type { CircuitOpenPayload, CircuitClosePayload } from "./circuit";
+export type {
+  AgentStepBeforePayload,
+  AgentStepAfterPayload,
+} from "./agent-step";
+export type { TeamHandoffPayload } from "./team-handoff";
+export type {
+  CheckpointSavePayload,
+  CheckpointLoadPayload,
+  CheckpointLoadResultPayload,
+} from "./checkpoint";
+export type {
+  SafetyInputPayload,
+  SafetyOutputPayload,
+  SafetyDecisionPayload,
+} from "./safety";

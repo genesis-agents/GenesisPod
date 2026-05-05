@@ -2774,9 +2774,20 @@ export class AIFacade {
 
   // ==================== 技能加载（SkillLoaderService）====================
 
-  /** 获取所有已加载的技能定义；服务不可用时返回空数组 */
+  /**
+   * 获取所有已加载的技能定义；服务不可用时返回空数组
+   *
+   * P1 (2026-05-05): 服务缺失时显式 warn —— 防止下游调用方静默看到 0 条 skill
+   * 而误以为"没注册" / "全 disabled"，与 P0 capabilityResolveTools 同类问题。
+   */
   skillLoaderGetAll(): SkillMdDefinition[] {
-    return this.skills?.loader.getAllLoadedSkills() ?? [];
+    if (!this.skills?.loader) {
+      this.logger.warn(
+        "[skillLoaderGetAll] SkillLoaderService unavailable (DI not wired). Returning empty list.",
+      );
+      return [];
+    }
+    return this.skills.loader.getAllLoadedSkills() ?? [];
   }
 
   // ==================== Embedding（EmbeddingService）====================
@@ -2793,16 +2804,24 @@ export class AIFacade {
 
   // ==================== 向量检索（VectorService）====================
 
-  /** 相似度向量搜索；服务不可用时返回空数组 */
+  /**
+   * 相似度向量搜索；服务不可用时返回空数组
+   *
+   * P1 (2026-05-05): 服务缺失时显式 warn — 防止下游误以为"无相似结果"。
+   */
   async vectorSimilaritySearch(
     queryEmbedding: number[],
     options?: SimilaritySearchOptions,
   ): Promise<SimilarityResult[]> {
+    if (!this.knowledge?.vector) {
+      this.logger.warn(
+        "[vectorSimilaritySearch] VectorService unavailable (DI not wired). Returning empty array.",
+      );
+      return [];
+    }
     return (
-      (await this.knowledge?.vector?.similaritySearch(
-        queryEmbedding,
-        options,
-      )) ?? []
+      (await this.knowledge.vector.similaritySearch(queryEmbedding, options)) ??
+      []
     );
   }
 

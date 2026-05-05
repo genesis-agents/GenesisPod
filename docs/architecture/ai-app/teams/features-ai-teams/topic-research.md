@@ -800,8 +800,8 @@ const mission = await createMission({
 
 ## 相关文档
 
-- [AI Teams 核心概念](../../architecture/ai-apps/ai-teams/core-concepts.md)
-- [Mission 生命周期](../../architecture/ai-apps/ai-teams/mission-lifecycle.md)
+- [AI Teams 核心概念](../core-concepts.md)
+- [Mission 生命周期](../mission-lifecycle.md)
 - [Skills 开发指南](../../guides/skills-development.md)
 
 ---

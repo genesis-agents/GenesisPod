@@ -18,7 +18,7 @@
  *    或业务侧自行完成。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import type {
   MissionCheckpointSnapshot,
   MissionCheckpointStore,
@@ -41,6 +41,9 @@ export class MissionCheckpointService<TPayload = unknown> {
   constructor(
     private readonly store: MissionCheckpointStore<TPayload>,
     private readonly resumeWindowMs: number = DEFAULT_RESUME_WINDOW_MS,
+    /** B (2026-05-05): CHECKPOINT_SAVE/LOAD hook seam — plugin 可加密 / 切 backend */
+    @Optional()
+    private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
   ) {}
 
   async save(
@@ -50,13 +53,29 @@ export class MissionCheckpointService<TPayload = unknown> {
     status: MissionCheckpointSnapshot["status"] = "running",
   ): Promise<void> {
     try {
-      await this.store.save({
-        missionId,
-        savedAt: new Date(),
-        payload,
-        completedKeys,
-        status,
-      });
+      const terminal = async () => {
+        await this.store.save({
+          missionId,
+          savedAt: new Date(),
+          payload,
+          completedKeys,
+          status,
+        });
+      };
+      if (this.hookBus) {
+        await this.hookBus.fire(
+          "harness.checkpoint.save",
+          {
+            missionId,
+            stage: status,
+            snapshot: payload,
+            completedKeys,
+          },
+          terminal,
+        );
+      } else {
+        await terminal();
+      }
       this.log.debug(
         `[checkpoint] saved mission=${missionId} keys=${completedKeys.length} status=${status}`,
       );
@@ -72,7 +91,15 @@ export class MissionCheckpointService<TPayload = unknown> {
     missionId: string,
   ): Promise<MissionCheckpointSnapshot<TPayload> | null> {
     try {
-      return await this.store.load(missionId);
+      const terminal = () => this.store.load(missionId);
+      if (this.hookBus) {
+        return await this.hookBus.fire(
+          "harness.checkpoint.load",
+          { missionId },
+          terminal,
+        );
+      }
+      return await terminal();
     } catch (err) {
       this.log.warn(
         `[checkpoint] load failed mission=${missionId}: ${err instanceof Error ? err.message : String(err)}`,

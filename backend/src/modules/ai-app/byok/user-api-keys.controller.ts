@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   Req,
+  Query,
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
@@ -34,7 +35,9 @@ export class UserApiKeysController {
   @Get()
   async listKeys(@Req() req: AuthenticatedRequest) {
     const keys = await this.userApiKeysService.listUserApiKeys(req.user.id);
-    const providers = this.userApiKeysService.getSupportedProviders();
+    const providers = await this.userApiKeysService.getSupportedProviders(
+      req.user.id,
+    );
     return { keys, providers };
   }
 
@@ -67,18 +70,20 @@ export class UserApiKeysController {
       dto.mode,
       dto.preferredModelId,
       dto.apiEndpoint,
+      dto.label,
     );
   }
 
   /**
-   * 删除 API Key
+   * 删除 API Key（可指定 label，省略则删 default）
    */
   @Delete(":provider")
   async deleteKey(
     @Req() req: AuthenticatedRequest,
     @Param("provider") provider: string,
+    @Query("label") label?: string,
   ) {
-    return this.userApiKeysService.deleteKey(req.user.id, provider);
+    return this.userApiKeysService.deleteKey(req.user.id, provider, label);
   }
 
   /**
@@ -89,11 +94,13 @@ export class UserApiKeysController {
   async testKey(
     @Param("provider") provider: string,
     @Body() dto: TestApiKeyDto,
+    @Req() req: AuthenticatedRequest,
   ) {
     return this.userApiKeysService.testKey(
       provider,
       dto.apiKey,
       dto.apiEndpoint,
+      req.user.id,
     );
   }
 

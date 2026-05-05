@@ -318,7 +318,16 @@ export class SemanticScholarSearchTool extends BaseTool<
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`[doExecute] Semantic Scholar API error: ${error}`);
+      // ★ 2026-05-05 P2 修复：cooldown 期内的 fail 是"已熔断"状态，不是新故障，
+      //   降级为 WARN，避免与真正的 API 错误混在 ERROR 流里。
+      const isCooldownFail = /in 429 cooldown for/i.test(errorMessage);
+      if (isCooldownFail) {
+        this.logger.warn(
+          `[doExecute] Semantic Scholar in cooldown (skipped): ${errorMessage}`,
+        );
+      } else {
+        this.logger.error(`[doExecute] Semantic Scholar API error: ${error}`);
+      }
 
       // Track key failure for multi-key rotation
       if (apiKey) {

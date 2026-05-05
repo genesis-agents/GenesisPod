@@ -179,8 +179,15 @@ export class TeamFacade {
     return this.skills.inputBindingResolver.resolve(bindings, bindingContext);
   }
 
+  /** P1 (2026-05-05): 同 ai.facade — 服务缺失时显式 warn。 */
   skillLoaderGetAll(): SkillMdDefinition[] {
-    return this.skills?.loader.getAllLoadedSkills() ?? [];
+    if (!this.skills?.loader) {
+      this.logger.warn(
+        "[skillLoaderGetAll] SkillLoaderService unavailable (DI not wired). Returning empty list.",
+      );
+      return [];
+    }
+    return this.skills.loader.getAllLoadedSkills() ?? [];
   }
 
   // ==================== A2A ====================

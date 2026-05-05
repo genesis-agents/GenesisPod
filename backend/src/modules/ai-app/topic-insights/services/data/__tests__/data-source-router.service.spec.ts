@@ -13,7 +13,12 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { DataSourceRouterService } from "../data-source-router.service";
 import { ChatFacade, RAGFacade, ToolFacade } from "@/modules/ai-harness/facade";
-import { ToolRegistry, FederalRegisterTool, CongressGovTool, WhiteHouseNewsTool } from "@/modules/ai-harness/facade";
+import {
+  ToolRegistry,
+  FederalRegisterTool,
+  CongressGovTool,
+  WhiteHouseNewsTool,
+} from "@/modules/ai-harness/facade";
 import { DataSourcePlannerService } from "../data-source-planner.service";
 import { DataSourceConnectorRegistry } from "../connectors/data-source-connector.registry";
 import { DataSourceType } from "../../../types/data-source.types";
@@ -82,6 +87,26 @@ const mockToolRegistry = {
   tryGet: jest.fn(),
   execute: jest.fn(),
   getTool: jest.fn(),
+  // P0 fix (2026-05-05): isToolEnabled 现在先查 toolRegistry.getEnabled()。
+  // 默认返大列表覆盖所有 spec 用例的 toolId
+  getEnabled: jest
+    .fn()
+    .mockReturnValue([
+      { id: "web-search" },
+      { id: "arxiv-search" },
+      { id: "semantic-scholar-search" },
+      { id: "rag-search" },
+      { id: "social-x-search" },
+      { id: "github-search" },
+      { id: "hackernews-search" },
+      { id: "federal-register" },
+      { id: "congress-gov" },
+      { id: "white-house-news" },
+      { id: "industry-report" },
+      { id: "tavily-search" },
+      { id: "openalex-search" },
+      { id: "pubmed-search" },
+    ]),
 };
 
 const mockFederalRegisterTool = {

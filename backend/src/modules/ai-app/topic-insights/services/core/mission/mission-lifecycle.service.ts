@@ -788,14 +788,28 @@ export class MissionLifecycleService {
     });
     const existingDimMap = new Map(existingDimensions.map((d) => [d.name, d]));
 
+    // P0 fix (2026-05-05): 同名 dim 在 plan.dimensions 内重复时撞 unique
+    //   (mission_id, name) 约束。leader plan 偶发返回同名 dim（例如两个
+    //   "测量方法与指标体系"），原代码只查 DB existingDimMap，漏了"循环内
+    //   已 create 过"的去重 → 第二条 create 报 P2002。
+    //   本轮 fix: 循环内累积 createdNamesInLoop，重名跳过+复用 id。
+    const createdNamesInLoop = new Map<string, string>(); // name → dbId
+
     for (const plannedDim of plan.dimensions) {
       // 检查当前 mission 内是否已存在同名维度
       const existingDim = existingDimMap.get(plannedDim.name);
+      const alreadyCreatedId = createdNamesInLoop.get(plannedDim.name);
 
       if (existingDim) {
         dimensionIdMap.set(plannedDim.id, existingDim.id);
         this.logger.log(
           `[createTasksFromPlan] Reusing existing dimension: ${plannedDim.name} (${existingDim.id})`,
+        );
+      } else if (alreadyCreatedId) {
+        // ★ plan 内重名 → 复用本轮创建的，跳过重复 create
+        dimensionIdMap.set(plannedDim.id, alreadyCreatedId);
+        this.logger.warn(
+          `[createTasksFromPlan] Plan duplicate dimension name "${plannedDim.name}" — reusing previously-created id ${alreadyCreatedId}`,
         );
       } else {
         const newDim = await this.prisma.topicDimension.create({
@@ -812,6 +826,7 @@ export class MissionLifecycleService {
           },
         });
         dimensionIdMap.set(plannedDim.id, newDim.id);
+        createdNamesInLoop.set(plannedDim.name, newDim.id);
         this.logger.log(
           `[createTasksFromPlan] Created dimension: ${plannedDim.name} (${newDim.id}, mission=${missionId}) with sources: ${(plannedDim.dataSources || ["web"]).join(", ")}`,
         );

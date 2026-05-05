@@ -55,7 +55,8 @@ export function useUserApiKeys() {
       apiKey: string,
       mode: 'personal' | 'donated',
       preferredModelId?: string,
-      apiEndpoint?: string
+      apiEndpoint?: string,
+      label?: string
     ): Promise<boolean> => {
       setSaving(true);
       try {
@@ -64,6 +65,7 @@ export function useUserApiKeys() {
           mode,
           preferredModelId,
           apiEndpoint,
+          label,
         });
         clearAIModelsCache();
         await refresh();
@@ -79,10 +81,13 @@ export function useUserApiKeys() {
   );
 
   const deleteKey = useCallback(
-    async (provider: string): Promise<boolean> => {
+    async (provider: string, label?: string): Promise<boolean> => {
       setSaving(true);
       try {
-        await apiClient.delete(`/user/api-keys/${provider}`);
+        const url = label
+          ? `/user/api-keys/${provider}?label=${encodeURIComponent(label)}`
+          : `/user/api-keys/${provider}`;
+        await apiClient.delete(url);
         clearAIModelsCache();
         await refresh();
         return true;

@@ -320,6 +320,8 @@ export {
 
 // ★ Model Election
 export { ModelElectionService } from "../llm/selection";
+// ★ Model Recommendations (DB + 默认推荐合并)
+export { ModelRecommendationsService } from "../llm/selection";
 export {
   NoEligibleModelError,
   type ElectionCandidate,

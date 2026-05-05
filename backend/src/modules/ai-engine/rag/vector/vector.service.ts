@@ -13,7 +13,13 @@
  *   - storage/vector-qdrant / vector-pinecone / vector-weaviate / vector-milvus
  */
 
-import { Inject, Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleInit,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   VECTOR_BACKENDS_TOKEN,
@@ -60,6 +66,9 @@ export class VectorService implements OnModuleInit {
     private readonly prisma: PrismaService,
     @Inject(VECTOR_BACKENDS_TOKEN)
     private readonly backends: ReadonlyArray<IVectorBackend>,
+    /** B (2026-05-05): VECTOR_QUERY hook seam — plugin 可拦截/缓存查询 */
+    @Optional()
+    private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
   ) {}
 
   async onModuleInit() {
@@ -115,10 +124,35 @@ export class VectorService implements OnModuleInit {
     if (knowledgeBaseIds?.length && documentIds?.length === 0) {
       return [];
     }
-    return this.backend.similaritySearch(queryEmbedding, {
-      ...options,
-      documentIds,
-    }) as Promise<SimilarityResult[]>;
+
+    const terminal = () =>
+      this.backend.similaritySearch(queryEmbedding, {
+        ...options,
+        documentIds,
+      }) as Promise<SimilarityResult[]>;
+
+    // B (2026-05-05): VECTOR_QUERY hook — plugin 可缓存命中 / 切 backend
+    if (this.hookBus) {
+      const payload = {
+        queryEmbedding,
+        topK: options.limit ?? 5,
+        filter: undefined as Record<string, unknown> | undefined,
+        knowledgeBaseIds,
+      };
+      try {
+        return await this.hookBus.fire(
+          "engine.vector.query",
+          payload,
+          terminal,
+        );
+      } catch (err) {
+        const abortPayload = (err as { abortPayload?: SimilarityResult[] })
+          ?.abortPayload;
+        if (Array.isArray(abortPayload)) return abortPayload;
+        throw err;
+      }
+    }
+    return terminal();
   }
 
   // ── 简单搜索 ──

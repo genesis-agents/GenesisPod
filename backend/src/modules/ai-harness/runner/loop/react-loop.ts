@@ -144,6 +144,10 @@ export class ReActLoop implements IAgentLoop {
     @Optional() private readonly contextManager?: ContextManager,
     @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
     @Optional() private readonly cachePlanner?: CacheControlPlanner,
+    /** B (2026-05-05): AGENT_STEP_BEFORE/AFTER plugin hook seam（plugins/core
+     *  HookBus；与 harness 内置 hookRegistry 不同，plugin 这条是 onion 链） */
+    @Optional()
+    private readonly pluginHookBus?: import("@/plugins/core/hook-bus").HookBus,
   ) {}
 
   async *run(
@@ -215,304 +219,471 @@ export class ReActLoop implements IAgentLoop {
      */
     let lastActionKind: string | undefined;
 
-    while (iteration < criteria.maxIterations) {
-      iteration += 1;
-
-      // 0a. signal check
-      if (options?.signal?.aborted) {
-        yield this.makeEvent(agentId, "terminated", { reason: "cancelled" });
-        return;
-      }
-
-      // ─── Phase P1 fix (2026-04-29 mission 8c7b4358)：iteration_progress emit ───
-      // 让上层（mission 事件流 / 前端 UI）每轮都能感知 ReAct 进度，避免 ReAct 长时间
-      // 内部 search 时外部看起来像死掉。approachingLimit=true 时同时在 envelope 里
-      // 注入 system reminder 强力提示 LLM finalize（见下方 0d）。
-      const approachingLimit =
-        criteria.maxIterations - iteration <= 2 && criteria.maxIterations > 3;
-      yield this.makeEvent(agentId, "iteration_progress", {
-        iteration,
-        maxIterations: criteria.maxIterations,
-        progress:
-          criteria.maxIterations > 0 ? iteration / criteria.maxIterations : 0,
-        approachingLimit,
-        lastActionKind,
-      });
-
-      // 0d. ★ Phase P1 fix：逼近 maxIterations 时强力 nudge LLM finalize
-      //   原 case (mission 8c7b4358)：researcher#0 在 retry 阶段跑 60+ ReAct 拍
-      //   始终 parallel_tool_call 不 finalize。原因：leader critique 太刚性 + LLM
-      //   没拿到"剩余轮数"信号。这里在 envelope 里临时注入 reminder，让 LLM
-      //   在剩 ≤ 2 轮时**必须**选 finalize。
-      if (approachingLimit && currentEnvelope instanceof ContextEnvelope) {
-        const remaining = criteria.maxIterations - iteration + 1;
-        const nudge =
-          `[ITERATION BUDGET WARNING] You have ${remaining} iteration(s) left out of ${criteria.maxIterations}. ` +
-          `On THIS turn, you MUST emit { "kind": "finalize", "output": {...} } using whatever tool results you ` +
-          `already have. Do NOT start a new tool_call or parallel_tool_call. ` +
-          `If your output is incomplete, finalize anyway and note the gap in the summary field — ` +
-          `the framework will accept partial results rather than letting you exhaust the budget.`;
-        currentEnvelope = currentEnvelope.append([
-          {
-            role: "user",
-            content: nudge,
-            timestamp: Date.now(),
-          },
-        ]).envelope;
-      }
-
-      // 0a'. wall-time check（exit-policy.md ExitReason='wall_time_exceeded'）
-      if (wallTimeLimitMs && Date.now() - wallTimeStart >= wallTimeLimitMs) {
-        yield this.makeEvent(agentId, "error", {
-          message: `ReActLoop wall-time exceeded (${Date.now() - wallTimeStart}ms >= ${wallTimeLimitMs}ms)`,
-          recoverable: false,
-          failureCode: "RUNNER_WALL_TIME_EXCEEDED",
-          diagnostic: {
-            elapsedMs: Date.now() - wallTimeStart,
-            wallTimeLimitMs,
-            iteration,
-            modelId: lastModelId,
-          },
-        });
-        yield this.makeEvent(agentId, "output", {
-          output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
-        });
-        yield this.makeEvent(agentId, "terminated", { reason: "budget" });
-        return;
-      }
-
-      // 0b. budget exhausted check (v2)
-      if (budget?.exhausted()) {
-        // PR-J: 在 abort 前问 RuntimeEnvironment "能不能降级或重试"
-        const hint = await currentEnvelope.runtimeEnv
-          ?.suggestFallback({
-            reason: "no_credit",
-          })
-          .catch(() => null);
-
-        yield this.makeEvent(agentId, "budget_warning", {
-          tokensUsed: budget.snapshot().tokensUsed,
-          costUsd: budget.snapshot().costUsd,
-          severity: "exhausted",
-          fallbackHint: hint,
-        });
-
-        // hint=retry → 等待后继续（建议修 #6: 0ms retry 也合法，用 != null 而非 truthy）
-        if (hint?.action === "retry" && hint.retryAfterMs != null) {
-          await new Promise((r) =>
-            setTimeout(r, Math.min(hint.retryAfterMs!, 10_000)),
-          );
-          continue;
-        }
-        // TODO 建议修 #7: hint=downgrade 当前未真正承接 —— 下游 tier 选择只看
-        // budget.currentTier，而 budget 已 exhausted 不会改变。需要：
-        //   1) 用 hint.fallbackModelId 强制覆盖下一轮 reason() 的 modelOverride
-        //   2) BudgetAccountant 提供 reset 或 extend 接口
-        // 当前简单策略：downgrade 等同 abort（保守，不假装能恢复）
-        // ★ emit 结构化 error event：trace 看到 LOOP_BUDGET_EXHAUSTED 而不是
-        // 只有终态 reason="budget"，便于跨层因果链统计。
-        yield this.makeEvent(agentId, "error", {
-          message: `ReActLoop budget exhausted (${budget.snapshot().tokensUsed} tokens used)`,
-          recoverable: hint?.action === "retry" || hint?.action === "downgrade",
-          failureCode: "LOOP_BUDGET_EXHAUSTED",
-          diagnostic: {
-            tokensUsed: budget.snapshot().tokensUsed,
-            costUsd: budget.snapshot().costUsd,
-            currentTier: budget.snapshot().currentTier,
-            iteration,
-          },
-          recoveryHint: hint
-            ? {
-                action:
-                  hint.action === "downgrade"
-                    ? "switch_model"
-                    : hint.action === "notify_user"
-                      ? "abort"
-                      : hint.action,
-                reason: hint.reason,
-                fallbackModelId: hint.fallbackModelId,
-                retryAfterMs: hint.retryAfterMs,
-              }
-            : undefined,
-        });
-        yield this.makeEvent(agentId, "output", {
-          output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
-        });
-        yield this.makeEvent(agentId, "terminated", { reason: "budget" });
-        return;
-      }
-
-      // 0c. context engineering
-      if (this.contextManager) {
-        const result = await this.contextManager.ensureBudget(currentEnvelope);
-        if (result.compacted || result.pruned) {
-          currentEnvelope = result.envelope;
+    // ─── Anthropic P0-3 fix (2026-05-05): SessionStart / UserPromptSubmit fire ───
+    //   Hook 类型早就定义但全库 0 dispatch site，导致 SDK 上 hook 注册者收不到事件。
+    //   会话级 hook 在每次 ReAct.run() 入口 fire 一次 SessionStart + UserPromptSubmit。
+    //   Stop 在 try/finally 出口 fire（覆盖所有 termination 路径）。
+    const sessionId = `${agentId}-${Date.now()}`;
+    const sessionUserId = currentEnvelope.memory?.userId;
+    let stopReason: "completed" | "error" | "budget" | "cancelled" =
+      "completed";
+    try {
+      await this.hookRegistry
+        .dispatch(
+          "SessionStart",
+          { sessionId, userId: sessionUserId },
+          { agentId, envelope: currentEnvelope },
+        )
+        .catch(() => undefined);
+      // UserPromptSubmit：把 envelope 里 user-role 最后一条消息当 prompt
+      const userPrompt = this.extractLatestUserPrompt(currentEnvelope);
+      if (userPrompt) {
+        const userPromptResult = await this.hookRegistry
+          .dispatch(
+            "UserPromptSubmit",
+            { prompt: userPrompt, envelope: currentEnvelope },
+            { agentId, envelope: currentEnvelope },
+          )
+          .catch(() => undefined);
+        if (userPromptResult?.block) {
+          stopReason = "cancelled";
+          yield this.makeEvent(agentId, "terminated", {
+            reason: "cancelled",
+            error: `user-prompt-blocked: ${userPromptResult.reason ?? "policy"}`,
+          });
+          return;
         }
       }
 
-      // 1. perceive
-      const messages = this.buildMessages(currentEnvelope);
+      while (iteration < criteria.maxIterations) {
+        iteration += 1;
 
-      // 2. reason — PR-I: 把 budget tier 转成具体 modelId 注入
-      // PR-J: 选 model 后再问 runtimeEnv "能用吗"，不可用则按 fallbackTo 切换
-      let decision: ParsedDecision;
-      let usage: {
-        promptTokens: number;
-        completionTokens: number;
-        /** null = 模型未在 ModelPricingRegistry 注册（DB 缺 costTier/价格），无法计算 */
-        costUsd: number | null;
-        cacheReadTokens: number;
-        modelId?: string;
-      };
-      try {
-        let tierModelId =
-          budget && this.pricingRegistry
-            ? this.pricingRegistry.pickModelForTier(
-                budget.snapshot().currentTier,
+        // 0a. signal check
+        if (options?.signal?.aborted) {
+          stopReason = "cancelled";
+          yield this.makeEvent(agentId, "terminated", { reason: "cancelled" });
+          return;
+        }
+
+        // ─── Phase P1 fix (2026-04-29 mission 8c7b4358)：iteration_progress emit ───
+        // 让上层（mission 事件流 / 前端 UI）每轮都能感知 ReAct 进度，避免 ReAct 长时间
+        // 内部 search 时外部看起来像死掉。approachingLimit=true 时同时在 envelope 里
+        // 注入 system reminder 强力提示 LLM finalize（见下方 0d）。
+        const approachingLimit =
+          criteria.maxIterations - iteration <= 2 && criteria.maxIterations > 3;
+        yield this.makeEvent(agentId, "iteration_progress", {
+          iteration,
+          maxIterations: criteria.maxIterations,
+          progress:
+            criteria.maxIterations > 0 ? iteration / criteria.maxIterations : 0,
+          approachingLimit,
+          lastActionKind,
+        });
+
+        // B (2026-05-05): AGENT_STEP_BEFORE — plugin 收到每轮 step 通知（fire-and-forget）
+        if (this.pluginHookBus) {
+          const stepStartMs = Date.now();
+          void this.pluginHookBus
+            .fire(
+              "harness.agent.step.before",
+              {
+                agentId,
+                iteration,
+                maxIterations: criteria.maxIterations,
+                envelope: currentEnvelope,
+              },
+              async () => undefined,
+            )
+            .catch(() => undefined);
+          // 用 setImmediate 在本轮结束后 fire AFTER（不阻塞 LLM 调用）
+          setImmediate(() => {
+            this.pluginHookBus
+              ?.fire(
+                "harness.agent.step.after",
+                {
+                  agentId,
+                  iteration,
+                  actionKind: lastActionKind,
+                  latencyMs: Date.now() - stepStartMs,
+                },
+                async () => undefined,
               )
-            : null;
-        // PR-J: 环境感知 model 可用性
-        if (tierModelId && currentEnvelope.runtimeEnv) {
-          const avail = await currentEnvelope.runtimeEnv
-            .getModelAvailability(tierModelId)
-            .catch(() => null);
-          if (avail && !avail.available) {
-            const fallback = avail.fallbackTo?.[0];
-            if (fallback) {
-              this.logger.log(
-                `[${agentId}] model=${tierModelId} unavailable (${avail.unavailableReason}), falling back to ${fallback}`,
-              );
-              tierModelId = fallback;
-            }
-          }
-        }
-        // PR-Q: 自动 prompt-cache 规划 —— 重复 prefix 享受 1/10 价
-        const cachePrefix = this.cachePlanner?.plan(currentEnvelope) ?? null;
-        const reasoned = await this.reason(
-          messages,
-          currentEnvelope.system,
-          options?.signal,
-          tierModelId ?? undefined,
-          cachePrefix,
-          // BYOK 关键：把 envelope.memory.userId 透给 chat()，让
-          // findUserDefaultByType(userId, "chat") 命中用户自己的 BYOK 默认模型
-          currentEnvelope.memory.userId,
-          // Spec 声明的 TaskProfile（如 researcher='long' / leader='medium'）
-          specTaskProfile,
-        );
-        decision = reasoned.decision;
-        usage = reasoned.usage;
-        if (usage.modelId) lastModelId = usage.modelId;
-
-        // ★ 诊断：解析层兜底抛错（正常情况 parseDecision 会 catch JSON.parse /
-        // InvalidActionError 自己包装。如果走到这条说明 catch 之外的异常）
-        if (reasoned.parseError) {
-          this.logger.error(
-            `[${agentId}] iter=${iteration} parseDecision threw: ` +
-              `${reasoned.parseError.name}: ${reasoned.parseError.message}; ` +
-              `rawContent=${reasoned.rawContent.slice(0, 500)}`,
-          );
+              .catch(() => undefined);
+          });
         }
 
-        // 熔断：检测「LLM 立即 finalize 空结果 + thinking 也空」——
-        //   (a) BYOK model id 不存在 / API 拒绝 → 返回最简 fallback JSON
-        //   (b) reasoning model 内部 CoT 吃光 max_completion_tokens
-        //   (c) response_format=json_object 强制下，model 憋出最简空 JSON 假装完成
-        //
-        // 防 false-positive：thinking 非空说明 LLM 在思考，可能合理 finalize；
-        // 只有 thinking="" + output 空 + 连续 2 次 才 abort。
-        let isEmptyResponse = false;
-        if (
-          decision.action.kind === "finalize" &&
-          decision.thinking.trim() === ""
-        ) {
-          const out = decision.action.output;
-          isEmptyResponse =
-            !out ||
-            (typeof out === "string" && out.trim() === "") ||
-            (typeof out === "object" && Object.keys(out).length === 0);
+        // 0d. ★ Phase P1 fix：逼近 maxIterations 时强力 nudge LLM finalize
+        //   原 case (mission 8c7b4358)：researcher#0 在 retry 阶段跑 60+ ReAct 拍
+        //   始终 parallel_tool_call 不 finalize。原因：leader critique 太刚性 + LLM
+        //   没拿到"剩余轮数"信号。这里在 envelope 里临时注入 reminder，让 LLM
+        //   在剩 ≤ 2 轮时**必须**选 finalize。
+        if (approachingLimit && currentEnvelope instanceof ContextEnvelope) {
+          const remaining = criteria.maxIterations - iteration + 1;
+          const nudge =
+            `[ITERATION BUDGET WARNING] You have ${remaining} iteration(s) left out of ${criteria.maxIterations}. ` +
+            `On THIS turn, you MUST emit { "kind": "finalize", "output": {...} } using whatever tool results you ` +
+            `already have. Do NOT start a new tool_call or parallel_tool_call. ` +
+            `If your output is incomplete, finalize anyway and note the gap in the summary field — ` +
+            `the framework will accept partial results rather than letting you exhaust the budget.`;
+          currentEnvelope = currentEnvelope.append([
+            {
+              role: "user",
+              content: nudge,
+              timestamp: Date.now(),
+            },
+          ]).envelope;
         }
-        if (isEmptyResponse) {
-          consecutiveEmptyLLM += 1;
 
-          // ★ 诊断关键：把 LLM 实际吐回的 raw content 写到日志和 error payload，
-          // 让上层 / DB / 前端都能看到根因证据，不再靠"应该是 (a)/(b)/(c)"猜。
-          const rawSnippet = reasoned.rawContent.slice(0, 1000);
+        // 0a'. wall-time check（exit-policy.md ExitReason='wall_time_exceeded'）
+        if (wallTimeLimitMs && Date.now() - wallTimeStart >= wallTimeLimitMs) {
+          yield this.makeEvent(agentId, "error", {
+            message: `ReActLoop wall-time exceeded (${Date.now() - wallTimeStart}ms >= ${wallTimeLimitMs}ms)`,
+            recoverable: false,
+            failureCode: "RUNNER_WALL_TIME_EXCEEDED",
+            diagnostic: {
+              elapsedMs: Date.now() - wallTimeStart,
+              wallTimeLimitMs,
+              iteration,
+              modelId: lastModelId,
+            },
+          });
+          yield this.makeEvent(agentId, "output", {
+            output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
+          });
+          stopReason = "budget";
+          yield this.makeEvent(agentId, "terminated", { reason: "budget" });
+          return;
+        }
 
-          // ★ 失败码分类（按 completion tokens + parseError 区分子类）
-          const TINY_COMPLETION_THRESHOLD = 100;
-          let failureCode: HarnessFailureCode;
-          let fallbackReason:
-            | "empty_response"
-            | "reasoning_exhaustion"
-            | "safety_refusal"
-            | "parse_failure";
-          if (usage.completionTokens < TINY_COMPLETION_THRESHOLD) {
-            // completion≈0 → API 拒绝/model 死了
-            failureCode = "LOOP_EMPTY_RESPONSE_IMMEDIATE";
-            fallbackReason = "empty_response";
-          } else if (reasoned.parseError) {
-            // completion≫0 + parser 抛错 → 解析失败
-            // InvalidActionError 自带 subCode 4 类细分，对齐 4 个 PARSE_* 码
-            if (reasoned.parseError.name === "InvalidActionError") {
-              const sub = (reasoned.parseError as { subCode?: string }).subCode;
-              failureCode =
-                sub === "unknown_kind"
-                  ? "PARSE_UNKNOWN_ACTION_KIND"
-                  : sub === "empty_parallel_calls" ||
-                      sub === "empty_actions_array"
-                    ? "PARSE_EMPTY_ACTIONS_ARRAY"
-                    : "PARSE_MISSING_ACTION";
-            } else {
-              failureCode = "PARSE_MALFORMED_JSON";
-            }
-            fallbackReason = "parse_failure";
-          } else {
-            // completion≫0 且 parse 成功但 visible 空 → reasoning CoT 撞墙 / safety
-            // 优先按 reasoning_exhaustion 处理，让 adapter 切到非 reasoning 模型
-            failureCode = "LOOP_REASONING_COT_EXHAUSTION";
-            fallbackReason = "reasoning_exhaustion";
-          }
-
-          this.logger.error(
-            `[${agentId}] iter=${iteration} ${failureCode} — ` +
-              `model=${lastModelId ?? "unknown"} ` +
-              `completion=${usage.completionTokens}tk prompt=${usage.promptTokens}tk ` +
-              `parseErr=${reasoned.parseError ? `${reasoned.parseError.name}:${reasoned.parseError.message}` : "none"} ` +
-              `rawContent=${JSON.stringify(rawSnippet)}`,
-          );
-
-          // ★ 接通 model fallback：问 runtimeEnv 拿恢复建议
-          const recoveryHint = await currentEnvelope.runtimeEnv
+        // 0b. budget exhausted check (v2)
+        if (budget?.exhausted()) {
+          // PR-J: 在 abort 前问 RuntimeEnvironment "能不能降级或重试"
+          const hint = await currentEnvelope.runtimeEnv
             ?.suggestFallback({
-              failedModelId: lastModelId,
-              reason: fallbackReason,
+              reason: "no_credit",
             })
             .catch(() => null);
 
+          yield this.makeEvent(agentId, "budget_warning", {
+            tokensUsed: budget.snapshot().tokensUsed,
+            costUsd: budget.snapshot().costUsd,
+            severity: "exhausted",
+            fallbackHint: hint,
+          });
+
+          // hint=retry → 等待后继续（建议修 #6: 0ms retry 也合法，用 != null 而非 truthy）
+          if (hint?.action === "retry" && hint.retryAfterMs != null) {
+            await new Promise((r) =>
+              setTimeout(r, Math.min(hint.retryAfterMs!, 10_000)),
+            );
+            continue;
+          }
+          // TODO 建议修 #7: hint=downgrade 当前未真正承接 —— 下游 tier 选择只看
+          // budget.currentTier，而 budget 已 exhausted 不会改变。需要：
+          //   1) 用 hint.fallbackModelId 强制覆盖下一轮 reason() 的 modelOverride
+          //   2) BudgetAccountant 提供 reset 或 extend 接口
+          // 当前简单策略：downgrade 等同 abort（保守，不假装能恢复）
+          // ★ emit 结构化 error event：trace 看到 LOOP_BUDGET_EXHAUSTED 而不是
+          // 只有终态 reason="budget"，便于跨层因果链统计。
           yield this.makeEvent(agentId, "error", {
-            message:
-              `LLM "${lastModelId ?? "unknown"}" finalize 空结果 [${failureCode}] ` +
-              `(completion=${usage.completionTokens}tk, thinking="")。` +
-              `证据：rawContent=${JSON.stringify(rawSnippet)}` +
-              (reasoned.parseError
-                ? ` parseError=${reasoned.parseError.name}:${reasoned.parseError.message}`
-                : "") +
-              (recoveryHint
-                ? `。恢复建议：${recoveryHint.action} (${recoveryHint.reason})`
-                : ""),
+            message: `ReActLoop budget exhausted (${budget.snapshot().tokensUsed} tokens used)`,
             recoverable:
-              recoveryHint?.action === "retry" ||
-              recoveryHint?.action === "downgrade",
-            failureCode,
+              hint?.action === "retry" || hint?.action === "downgrade",
+            failureCode: "LOOP_BUDGET_EXHAUSTED",
+            diagnostic: {
+              tokensUsed: budget.snapshot().tokensUsed,
+              costUsd: budget.snapshot().costUsd,
+              currentTier: budget.snapshot().currentTier,
+              iteration,
+            },
+            recoveryHint: hint
+              ? {
+                  action:
+                    hint.action === "downgrade"
+                      ? "switch_model"
+                      : hint.action === "notify_user"
+                        ? "abort"
+                        : hint.action,
+                  reason: hint.reason,
+                  fallbackModelId: hint.fallbackModelId,
+                  retryAfterMs: hint.retryAfterMs,
+                }
+              : undefined,
+          });
+          yield this.makeEvent(agentId, "output", {
+            output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
+          });
+          stopReason = "budget";
+          yield this.makeEvent(agentId, "terminated", { reason: "budget" });
+          return;
+        }
+
+        // 0c. context engineering
+        if (this.contextManager) {
+          const result =
+            await this.contextManager.ensureBudget(currentEnvelope);
+          if (result.compacted || result.pruned) {
+            currentEnvelope = result.envelope;
+          }
+        }
+
+        // 1. perceive
+        const messages = this.buildMessages(currentEnvelope);
+
+        // 2. reason — PR-I: 把 budget tier 转成具体 modelId 注入
+        // PR-J: 选 model 后再问 runtimeEnv "能用吗"，不可用则按 fallbackTo 切换
+        let decision: ParsedDecision;
+        let usage: {
+          promptTokens: number;
+          completionTokens: number;
+          /** null = 模型未在 ModelPricingRegistry 注册（DB 缺 costTier/价格），无法计算 */
+          costUsd: number | null;
+          cacheReadTokens: number;
+          modelId?: string;
+        };
+        try {
+          let tierModelId =
+            budget && this.pricingRegistry
+              ? this.pricingRegistry.pickModelForTier(
+                  budget.snapshot().currentTier,
+                )
+              : null;
+          // PR-J: 环境感知 model 可用性
+          if (tierModelId && currentEnvelope.runtimeEnv) {
+            const avail = await currentEnvelope.runtimeEnv
+              .getModelAvailability(tierModelId)
+              .catch(() => null);
+            if (avail && !avail.available) {
+              const fallback = avail.fallbackTo?.[0];
+              if (fallback) {
+                this.logger.log(
+                  `[${agentId}] model=${tierModelId} unavailable (${avail.unavailableReason}), falling back to ${fallback}`,
+                );
+                tierModelId = fallback;
+              }
+            }
+          }
+          // PR-Q: 自动 prompt-cache 规划 —— 重复 prefix 享受 1/10 价
+          const cachePrefix = this.cachePlanner?.plan(currentEnvelope) ?? null;
+          const reasoned = await this.reason(
+            messages,
+            currentEnvelope.system,
+            options?.signal,
+            tierModelId ?? undefined,
+            cachePrefix,
+            // BYOK 关键：把 envelope.memory.userId 透给 chat()，让
+            // findUserDefaultByType(userId, "chat") 命中用户自己的 BYOK 默认模型
+            currentEnvelope.memory.userId,
+            // Spec 声明的 TaskProfile（如 researcher='long' / leader='medium'）
+            specTaskProfile,
+          );
+          decision = reasoned.decision;
+          usage = reasoned.usage;
+          if (usage.modelId) lastModelId = usage.modelId;
+
+          // ★ 诊断：解析层兜底抛错（正常情况 parseDecision 会 catch JSON.parse /
+          // InvalidActionError 自己包装。如果走到这条说明 catch 之外的异常）
+          if (reasoned.parseError) {
+            this.logger.error(
+              `[${agentId}] iter=${iteration} parseDecision threw: ` +
+                `${reasoned.parseError.name}: ${reasoned.parseError.message}; ` +
+                `rawContent=${reasoned.rawContent.slice(0, 500)}`,
+            );
+          }
+
+          // 熔断：检测「LLM 立即 finalize 空结果 + thinking 也空」——
+          //   (a) BYOK model id 不存在 / API 拒绝 → 返回最简 fallback JSON
+          //   (b) reasoning model 内部 CoT 吃光 max_completion_tokens
+          //   (c) response_format=json_object 强制下，model 憋出最简空 JSON 假装完成
+          //
+          // 防 false-positive：thinking 非空说明 LLM 在思考，可能合理 finalize；
+          // 只有 thinking="" + output 空 + 连续 2 次 才 abort。
+          let isEmptyResponse = false;
+          if (
+            decision.action.kind === "finalize" &&
+            decision.thinking.trim() === ""
+          ) {
+            const out = decision.action.output;
+            isEmptyResponse =
+              !out ||
+              (typeof out === "string" && out.trim() === "") ||
+              (typeof out === "object" && Object.keys(out).length === 0);
+          }
+          if (isEmptyResponse) {
+            consecutiveEmptyLLM += 1;
+
+            // ★ 诊断关键：把 LLM 实际吐回的 raw content 写到日志和 error payload，
+            // 让上层 / DB / 前端都能看到根因证据，不再靠"应该是 (a)/(b)/(c)"猜。
+            const rawSnippet = reasoned.rawContent.slice(0, 1000);
+
+            // ★ 失败码分类（按 completion tokens + parseError 区分子类）
+            const TINY_COMPLETION_THRESHOLD = 100;
+            let failureCode: HarnessFailureCode;
+            let fallbackReason:
+              | "empty_response"
+              | "reasoning_exhaustion"
+              | "safety_refusal"
+              | "parse_failure";
+            if (usage.completionTokens < TINY_COMPLETION_THRESHOLD) {
+              // completion≈0 → API 拒绝/model 死了
+              failureCode = "LOOP_EMPTY_RESPONSE_IMMEDIATE";
+              fallbackReason = "empty_response";
+            } else if (reasoned.parseError) {
+              // completion≫0 + parser 抛错 → 解析失败
+              // InvalidActionError 自带 subCode 4 类细分，对齐 4 个 PARSE_* 码
+              if (reasoned.parseError.name === "InvalidActionError") {
+                const sub = (reasoned.parseError as { subCode?: string })
+                  .subCode;
+                failureCode =
+                  sub === "unknown_kind"
+                    ? "PARSE_UNKNOWN_ACTION_KIND"
+                    : sub === "empty_parallel_calls" ||
+                        sub === "empty_actions_array"
+                      ? "PARSE_EMPTY_ACTIONS_ARRAY"
+                      : "PARSE_MISSING_ACTION";
+              } else {
+                failureCode = "PARSE_MALFORMED_JSON";
+              }
+              fallbackReason = "parse_failure";
+            } else {
+              // completion≫0 且 parse 成功但 visible 空 → reasoning CoT 撞墙 / safety
+              // 优先按 reasoning_exhaustion 处理，让 adapter 切到非 reasoning 模型
+              failureCode = "LOOP_REASONING_COT_EXHAUSTION";
+              fallbackReason = "reasoning_exhaustion";
+            }
+
+            this.logger.error(
+              `[${agentId}] iter=${iteration} ${failureCode} — ` +
+                `model=${lastModelId ?? "unknown"} ` +
+                `completion=${usage.completionTokens}tk prompt=${usage.promptTokens}tk ` +
+                `parseErr=${reasoned.parseError ? `${reasoned.parseError.name}:${reasoned.parseError.message}` : "none"} ` +
+                `rawContent=${JSON.stringify(rawSnippet)}`,
+            );
+
+            // ★ 接通 model fallback：问 runtimeEnv 拿恢复建议
+            const recoveryHint = await currentEnvelope.runtimeEnv
+              ?.suggestFallback({
+                failedModelId: lastModelId,
+                reason: fallbackReason,
+              })
+              .catch(() => null);
+
+            yield this.makeEvent(agentId, "error", {
+              message:
+                `LLM "${lastModelId ?? "unknown"}" finalize 空结果 [${failureCode}] ` +
+                `(completion=${usage.completionTokens}tk, thinking="")。` +
+                `证据：rawContent=${JSON.stringify(rawSnippet)}` +
+                (reasoned.parseError
+                  ? ` parseError=${reasoned.parseError.name}:${reasoned.parseError.message}`
+                  : "") +
+                (recoveryHint
+                  ? `。恢复建议：${recoveryHint.action} (${recoveryHint.reason})`
+                  : ""),
+              recoverable:
+                recoveryHint?.action === "retry" ||
+                recoveryHint?.action === "downgrade",
+              failureCode,
+              diagnostic: {
+                modelId: lastModelId,
+                completionTokens: usage.completionTokens,
+                promptTokens: usage.promptTokens,
+                rawContent: rawSnippet,
+                parseError: reasoned.parseError,
+                consecutiveEmptyLLM,
+                iteration,
+              },
+              recoveryHint: recoveryHint
+                ? {
+                    action:
+                      recoveryHint.action === "downgrade"
+                        ? "switch_model"
+                        : recoveryHint.action === "notify_user"
+                          ? "abort"
+                          : recoveryHint.action,
+                    reason: recoveryHint.reason,
+                    fallbackModelId: recoveryHint.fallbackModelId,
+                    retryAfterMs: recoveryHint.retryAfterMs,
+                  }
+                : undefined,
+            });
+            stopReason = "error"; // empty_llm_response 归类为 error 用于 Stop hook
+            yield this.makeEvent(agentId, "terminated", {
+              reason: "empty_llm_response",
+            });
+            return;
+          } else {
+            // 重置连续空响应计数：跨非连续 empty 不累计（empty / good / empty 应记 1，不是 2）
+            consecutiveEmptyLLM = 0;
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const aborted = /aborted/i.test(message);
+
+          // ★ 失败码归类：从异常消息推断 provider 错误类型
+          let failureCode: HarnessFailureCode = "PROVIDER_API_ERROR";
+          let fallbackReason:
+            | "rate_limit"
+            | "model_not_found"
+            | "context_too_long"
+            | "outage" = "outage";
+          // ★ 2026-05-01 (mission b791054e 真因)：quota/billing 错误必须独立编码 —
+          //   OpenAI insufficient_quota 文案是"You exceeded your current quota,
+          //   please check your plan and billing details" — 不含 "rate limit" / "429"，
+          //   原本兜底成 PROVIDER_API_ERROR + "Agent 内部错误"，掩盖了"账户余额耗尽"
+          //   这一关键真因。优先级最高（先于 rate_limit 判断）。
+          if (
+            /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance)/i.test(
+              message,
+            )
+          ) {
+            failureCode = "PROVIDER_QUOTA_EXCEEDED";
+            fallbackReason = "outage"; // 配额耗尽不能 fallback 到同 provider 其他模型
+          } else if (/rate.?limit|429|too many requests/i.test(message)) {
+            failureCode = "PROVIDER_RATE_LIMIT";
+            fallbackReason = "rate_limit";
+          } else if (
+            // ★ 2026-05-01 (mission 9a3144fc 实证)：xAI grok 模型 ID 错误返回
+            //   "The requested resource was not found"，不含 "model" / "invalid model"，
+            //   原 regex 漏判。补 INVALID_MODEL / requested resource / docs\.x\.ai / openai 404 等。
+            /model.*not.*found|invalid[_\s-]?model|model_not_found|requested\s+resource\s+(was\s+)?not\s+found|docs\.x\.ai|model.*does.*not.*exist|404\b/i.test(
+              message,
+            )
+          ) {
+            failureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
+            fallbackReason = "model_not_found";
+          } else if (
+            /context.*length|too long|maximum context/i.test(message)
+          ) {
+            failureCode = "PROVIDER_TRUNCATED";
+            fallbackReason = "context_too_long";
+          }
+
+          const recoveryHint =
+            !aborted && currentEnvelope.runtimeEnv
+              ? await currentEnvelope.runtimeEnv
+                  .suggestFallback({
+                    failedModelId: lastModelId,
+                    reason: fallbackReason,
+                  })
+                  .catch(() => null)
+              : null;
+
+          this.logger.error(
+            `[${agentId}] iter=${iteration} ${failureCode} — ${message}`,
+          );
+
+          yield this.makeEvent(agentId, "error", {
+            message,
+            recoverable:
+              !aborted &&
+              (recoveryHint?.action === "retry" ||
+                recoveryHint?.action === "downgrade"),
+            failureCode: aborted ? "UNKNOWN" : failureCode,
             diagnostic: {
               modelId: lastModelId,
-              completionTokens: usage.completionTokens,
-              promptTokens: usage.promptTokens,
-              rawContent: rawSnippet,
-              parseError: reasoned.parseError,
-              consecutiveEmptyLLM,
               iteration,
+              errorMessage: message,
+              errorStack: err instanceof Error ? err.stack : undefined,
             },
             recoveryHint: recoveryHint
               ? {
@@ -528,389 +699,341 @@ export class ReActLoop implements IAgentLoop {
                 }
               : undefined,
           });
+          stopReason = "error"; // ternary fallback
           yield this.makeEvent(agentId, "terminated", {
-            reason: "empty_llm_response",
+            reason: aborted ? "cancelled" : "error",
           });
           return;
-        } else {
-          // 重置连续空响应计数：跨非连续 empty 不累计（empty / good / empty 应记 1，不是 2）
-          consecutiveEmptyLLM = 0;
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const aborted = /aborted/i.test(message);
-
-        // ★ 失败码归类：从异常消息推断 provider 错误类型
-        let failureCode: HarnessFailureCode = "PROVIDER_API_ERROR";
-        let fallbackReason:
-          | "rate_limit"
-          | "model_not_found"
-          | "context_too_long"
-          | "outage" = "outage";
-        // ★ 2026-05-01 (mission b791054e 真因)：quota/billing 错误必须独立编码 —
-        //   OpenAI insufficient_quota 文案是"You exceeded your current quota,
-        //   please check your plan and billing details" — 不含 "rate limit" / "429"，
-        //   原本兜底成 PROVIDER_API_ERROR + "Agent 内部错误"，掩盖了"账户余额耗尽"
-        //   这一关键真因。优先级最高（先于 rate_limit 判断）。
-        if (
-          /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance)/i.test(
-            message,
-          )
-        ) {
-          failureCode = "PROVIDER_QUOTA_EXCEEDED";
-          fallbackReason = "outage"; // 配额耗尽不能 fallback 到同 provider 其他模型
-        } else if (/rate.?limit|429|too many requests/i.test(message)) {
-          failureCode = "PROVIDER_RATE_LIMIT";
-          fallbackReason = "rate_limit";
-        } else if (
-          // ★ 2026-05-01 (mission 9a3144fc 实证)：xAI grok 模型 ID 错误返回
-          //   "The requested resource was not found"，不含 "model" / "invalid model"，
-          //   原 regex 漏判。补 INVALID_MODEL / requested resource / docs\.x\.ai / openai 404 等。
-          /model.*not.*found|invalid[_\s-]?model|model_not_found|requested\s+resource\s+(was\s+)?not\s+found|docs\.x\.ai|model.*does.*not.*exist|404\b/i.test(
-            message,
-          )
-        ) {
-          failureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";
-          fallbackReason = "model_not_found";
-        } else if (/context.*length|too long|maximum context/i.test(message)) {
-          failureCode = "PROVIDER_TRUNCATED";
-          fallbackReason = "context_too_long";
         }
 
-        const recoveryHint =
-          !aborted && currentEnvelope.runtimeEnv
-            ? await currentEnvelope.runtimeEnv
-                .suggestFallback({
-                  failedModelId: lastModelId,
-                  reason: fallbackReason,
-                })
-                .catch(() => null)
-            : null;
-
-        this.logger.error(
-          `[${agentId}] iter=${iteration} ${failureCode} — ${message}`,
-        );
-
-        yield this.makeEvent(agentId, "error", {
-          message,
-          recoverable:
-            !aborted &&
-            (recoveryHint?.action === "retry" ||
-              recoveryHint?.action === "downgrade"),
-          failureCode: aborted ? "UNKNOWN" : failureCode,
-          diagnostic: {
-            modelId: lastModelId,
-            iteration,
-            errorMessage: message,
-            errorStack: err instanceof Error ? err.stack : undefined,
-          },
-          recoveryHint: recoveryHint
-            ? {
-                action:
-                  recoveryHint.action === "downgrade"
-                    ? "switch_model"
-                    : recoveryHint.action === "notify_user"
-                      ? "abort"
-                      : recoveryHint.action,
-                reason: recoveryHint.reason,
-                fallbackModelId: recoveryHint.fallbackModelId,
-                retryAfterMs: recoveryHint.retryAfterMs,
-              }
-            : undefined,
-        });
-        yield this.makeEvent(agentId, "terminated", {
-          reason: aborted ? "cancelled" : "error",
-        });
-        return;
-      }
-
-      // v2: account budget for the LLM call
-      // PR-I 必修 #4: cacheReadTokens 也要计入 tokensUsed（虽然便宜但占 context window）
-      if (budget) {
-        budget.accountLLM(
-          usage.promptTokens,
-          usage.completionTokens,
-          usage.costUsd,
-          usage.cacheReadTokens,
-        );
-        if (!budgetWarned && budget.shouldDowngrade()) {
-          budgetWarned = true;
-          // try to downgrade tier silently for the next iteration
-          if (budget.canDowngrade()) {
-            const newTier = budget.downgrade();
-            this.logger.log(
-              `[${agentId}] budget pressure → downgraded to tier=${newTier}`,
-            );
+        // v2: account budget for the LLM call
+        // PR-I 必修 #4: cacheReadTokens 也要计入 tokensUsed（虽然便宜但占 context window）
+        if (budget) {
+          budget.accountLLM(
+            usage.promptTokens,
+            usage.completionTokens,
+            usage.costUsd,
+            usage.cacheReadTokens,
+          );
+          if (!budgetWarned && budget.shouldDowngrade()) {
+            budgetWarned = true;
+            // try to downgrade tier silently for the next iteration
+            if (budget.canDowngrade()) {
+              const newTier = budget.downgrade();
+              this.logger.log(
+                `[${agentId}] budget pressure → downgraded to tier=${newTier}`,
+              );
+            }
+            yield this.makeEvent(agentId, "budget_warning", {
+              tokensUsed: budget.snapshot().tokensUsed,
+              costUsd: budget.snapshot().costUsd,
+              severity: "pressure",
+              tier: budget.snapshot().currentTier,
+            });
           }
-          yield this.makeEvent(agentId, "budget_warning", {
-            tokensUsed: budget.snapshot().tokensUsed,
-            costUsd: budget.snapshot().costUsd,
-            severity: "pressure",
-            tier: budget.snapshot().currentTier,
-          });
         }
-      }
 
-      yield this.makeEvent(agentId, "thinking", {
-        text: decision.thinking,
-        tokenCount: decision.thinking.length,
-        // 暴露 LLM 调用的真实用量给上游（DX runner / 业务 orchestrator 用来算成本）
-        promptTokens: usage.promptTokens,
-        completionTokens: usage.completionTokens,
-        cacheReadTokens: usage.cacheReadTokens,
-        costUsd: usage.costUsd,
-        // 真实模型 id（供 UI 展示「这个 agent 在用什么模型」）
-        modelId: usage.modelId,
-      });
-      yield this.makeEvent(agentId, "action_planned", decision.action);
-      // 记录 action kind 给下一轮 iteration_progress 事件用
-      lastActionKind = decision.action.kind;
+        yield this.makeEvent(agentId, "thinking", {
+          text: decision.thinking,
+          tokenCount: decision.thinking.length,
+          // 暴露 LLM 调用的真实用量给上游（DX runner / 业务 orchestrator 用来算成本）
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          costUsd: usage.costUsd,
+          // 真实模型 id（供 UI 展示「这个 agent 在用什么模型」）
+          modelId: usage.modelId,
+        });
+        yield this.makeEvent(agentId, "action_planned", decision.action);
+        // 记录 action kind 给下一轮 iteration_progress 事件用
+        lastActionKind = decision.action.kind;
 
-      // 3. act
-      const actionResult = await this.executeAction(
-        decision.action,
-        currentEnvelope,
-        agentId,
-        options?.signal,
-        allowedTools,
-        forbiddenTools,
-        options?.parent,
-        options?.spawner,
-      );
-      // 把 LLM reasoning tokens 累加到本轮 action 的 tokensUsed —— 让上游 extractTokenSpend
-      // 拿到完整用量；action 自身 tokensUsed（如 tool 运行）也保留累计
-      const enrichedActionResult = {
-        ...actionResult,
-        tokensUsed:
-          (actionResult.tokensUsed ?? 0) +
-          usage.promptTokens +
-          usage.completionTokens,
-      };
-      yield this.makeEvent(agentId, "action_executed", enrichedActionResult);
+        // 3. act
+        const actionResult = await this.executeAction(
+          decision.action,
+          currentEnvelope,
+          agentId,
+          options?.signal,
+          allowedTools,
+          forbiddenTools,
+          options?.parent,
+          options?.spawner,
+        );
+        // 把 LLM reasoning tokens 累加到本轮 action 的 tokensUsed —— 让上游 extractTokenSpend
+        // 拿到完整用量；action 自身 tokensUsed（如 tool 运行）也保留累计
+        const enrichedActionResult = {
+          ...actionResult,
+          tokensUsed:
+            (actionResult.tokensUsed ?? 0) +
+            usage.promptTokens +
+            usage.completionTokens,
+        };
+        yield this.makeEvent(agentId, "action_executed", enrichedActionResult);
 
-      // ─── Phase P0-2: failed_tool 熔断（D7=3）──
-      // tool_call / parallel_tool_call 中任一同 toolId 连续失败 N 次 → exit
-      const toolIdsTouched: string[] = [];
-      if (decision.action.kind === "tool_call") {
-        toolIdsTouched.push(decision.action.toolId);
-      } else if (decision.action.kind === "parallel_tool_call") {
-        for (const c of decision.action.calls) {
-          toolIdsTouched.push(c.toolId);
+        // ─── Phase P0-2: failed_tool 熔断（D7=3）──
+        // tool_call / parallel_tool_call 中任一同 toolId 连续失败 N 次 → exit
+        const toolIdsTouched: string[] = [];
+        if (decision.action.kind === "tool_call") {
+          toolIdsTouched.push(decision.action.toolId);
+        } else if (decision.action.kind === "parallel_tool_call") {
+          for (const c of decision.action.calls) {
+            toolIdsTouched.push(c.toolId);
+          }
         }
-      }
-      if (toolIdsTouched.length > 0) {
-        const hasError = !!actionResult.error;
-        for (const tid of toolIdsTouched) {
-          if (hasError) {
-            const c = (toolFailureCounters.get(tid) ?? 0) + 1;
-            toolFailureCounters.set(tid, c);
-            if (c >= TOOL_CIRCUIT_THRESHOLD) {
+        if (toolIdsTouched.length > 0) {
+          const hasError = !!actionResult.error;
+          for (const tid of toolIdsTouched) {
+            if (hasError) {
+              const c = (toolFailureCounters.get(tid) ?? 0) + 1;
+              toolFailureCounters.set(tid, c);
+              if (c >= TOOL_CIRCUIT_THRESHOLD) {
+                yield this.makeEvent(agentId, "error", {
+                  message: `Tool '${tid}' failed ${c} times consecutively (circuit broken)`,
+                  recoverable: false,
+                  failureCode: "TOOL_RUNTIME_ERROR",
+                  diagnostic: {
+                    toolId: tid,
+                    consecutiveFailures: c,
+                    iteration,
+                    lastError: actionResult.error?.message,
+                  },
+                  recoveryHint: {
+                    action: "switch_model",
+                    reason:
+                      "Tool service unavailable; try alternative model or skip this tool",
+                  },
+                });
+                yield this.makeEvent(agentId, "output", {
+                  output:
+                    this.extractLastAssistantMessage(currentEnvelope) ?? "",
+                });
+                stopReason = "error";
+                yield this.makeEvent(agentId, "terminated", {
+                  reason: "error",
+                });
+                return;
+              }
+            } else {
+              toolFailureCounters.set(tid, 0);
+            }
+          }
+        }
+
+        // 4. reflect
+        currentEnvelope = this.updateEnvelope(
+          currentEnvelope,
+          decision,
+          actionResult,
+        );
+
+        // termination
+        if (
+          decision.action.kind === "finalize" ||
+          (criteria.terminateOn?.includes(decision.action.kind) ?? false)
+        ) {
+          const output =
+            decision.action.kind === "finalize"
+              ? decision.action.output
+              : actionResult.output;
+
+          // ★ 内容驱动的退出闸：finalize 时框架先校验 outputSchema +
+          //   validateBusinessRules，不达标就注入精准 critique reminder 让 LLM
+          //   "原地补缺"（不重启 ReActLoop，复用已有 envelope 的工具结果）。
+          //   这是替代"机械限轮次"的退出机制：让"内容是否符合要求"成为唯一退出
+          //   标准，避免 LLM 反复瞎搜或瞎 finalize。
+          const issuesParts: string[] = [];
+          if (outputSchemaValidator) {
+            const schemaResult = outputSchemaValidator(output);
+            if (!schemaResult.ok)
+              issuesParts.push(`Schema: ${schemaResult.issues}`);
+          }
+          if (validateBusinessRules) {
+            const businessIssue = validateBusinessRules(output);
+            if (businessIssue) issuesParts.push(`Business: ${businessIssue}`);
+          }
+          if (issuesParts.length > 0) {
+            finalizeRejectCount += 1;
+            // ★ Phase P0-10: emit validation_failed 事件（baseline §1.3）
+            yield this.makeEvent(agentId, "validation_failed", {
+              rejectCount: finalizeRejectCount,
+              maxRejects: MAX_FINALIZE_REJECTS,
+              issues: issuesParts.join("; "),
+              candidateOutput: output,
+            });
+            // 防死循环：连续 N 次 finalize 不达标 → 强制退出，不再让 LLM 改
+            if (finalizeRejectCount >= MAX_FINALIZE_REJECTS) {
+              this.logger.warn(
+                `[${agentId}] finalize rejected ${finalizeRejectCount} times in a row, ` +
+                  `accepting current candidate to avoid infinite loop. issues=${issuesParts.join("; ")}`,
+              );
+              // ★ Phase P0-2: 标记为 validation_rejected_max（exit-policy.md）
               yield this.makeEvent(agentId, "error", {
-                message: `Tool '${tid}' failed ${c} times consecutively (circuit broken)`,
+                message: `finalize 校验闸 reject 达上限 ${MAX_FINALIZE_REJECTS}，强制接受次优产物`,
                 recoverable: false,
-                failureCode: "TOOL_RUNTIME_ERROR",
+                failureCode: "RUNNER_OUTPUT_SCHEMA_MISMATCH",
                 diagnostic: {
-                  toolId: tid,
-                  consecutiveFailures: c,
-                  iteration,
-                  lastError: actionResult.error?.message,
-                },
-                recoveryHint: {
-                  action: "switch_model",
-                  reason:
-                    "Tool service unavailable; try alternative model or skip this tool",
+                  rejectCount: finalizeRejectCount,
+                  lastIssues: issuesParts.join("; "),
                 },
               });
-              yield this.makeEvent(agentId, "output", {
-                output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
+              yield this.makeEvent(agentId, "output", { output: output ?? "" });
+              stopReason = "completed";
+              yield this.makeEvent(agentId, "terminated", {
+                reason: "completed",
               });
-              yield this.makeEvent(agentId, "terminated", { reason: "error" });
               return;
             }
-          } else {
-            toolFailureCounters.set(tid, 0);
-          }
-        }
-      }
-
-      // 4. reflect
-      currentEnvelope = this.updateEnvelope(
-        currentEnvelope,
-        decision,
-        actionResult,
-      );
-
-      // termination
-      if (
-        decision.action.kind === "finalize" ||
-        (criteria.terminateOn?.includes(decision.action.kind) ?? false)
-      ) {
-        const output =
-          decision.action.kind === "finalize"
-            ? decision.action.output
-            : actionResult.output;
-
-        // ★ 内容驱动的退出闸：finalize 时框架先校验 outputSchema +
-        //   validateBusinessRules，不达标就注入精准 critique reminder 让 LLM
-        //   "原地补缺"（不重启 ReActLoop，复用已有 envelope 的工具结果）。
-        //   这是替代"机械限轮次"的退出机制：让"内容是否符合要求"成为唯一退出
-        //   标准，避免 LLM 反复瞎搜或瞎 finalize。
-        const issuesParts: string[] = [];
-        if (outputSchemaValidator) {
-          const schemaResult = outputSchemaValidator(output);
-          if (!schemaResult.ok)
-            issuesParts.push(`Schema: ${schemaResult.issues}`);
-        }
-        if (validateBusinessRules) {
-          const businessIssue = validateBusinessRules(output);
-          if (businessIssue) issuesParts.push(`Business: ${businessIssue}`);
-        }
-        if (issuesParts.length > 0) {
-          finalizeRejectCount += 1;
-          // ★ Phase P0-10: emit validation_failed 事件（baseline §1.3）
-          yield this.makeEvent(agentId, "validation_failed", {
-            rejectCount: finalizeRejectCount,
-            maxRejects: MAX_FINALIZE_REJECTS,
-            issues: issuesParts.join("; "),
-            candidateOutput: output,
-          });
-          // 防死循环：连续 N 次 finalize 不达标 → 强制退出，不再让 LLM 改
-          if (finalizeRejectCount >= MAX_FINALIZE_REJECTS) {
-            this.logger.warn(
-              `[${agentId}] finalize rejected ${finalizeRejectCount} times in a row, ` +
-                `accepting current candidate to avoid infinite loop. issues=${issuesParts.join("; ")}`,
+            // 注入精准 critique reminder：告诉 LLM 缺什么，要它**直接补缺**而非重新搜
+            const critique =
+              `[FINALIZE REJECTED ${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}] Your finalize.output failed validation:\n` +
+              issuesParts.map((p) => `  - ${p}`).join("\n") +
+              `\n\nDO NOT rerun tools. Use the tool results already in this conversation to ` +
+              `produce a corrected finalize that addresses the issues above. ` +
+              `If the existing tool results genuinely don't have the needed information, ` +
+              `you may emit ONE focused tool_call to fill the specific gap (do not search broadly).`;
+            this.logger.log(
+              `[${agentId}] finalize rejected (${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}): ${issuesParts.join("; ").slice(0, 200)}`,
             );
-            // ★ Phase P0-2: 标记为 validation_rejected_max（exit-policy.md）
-            yield this.makeEvent(agentId, "error", {
-              message: `finalize 校验闸 reject 达上限 ${MAX_FINALIZE_REJECTS}，强制接受次优产物`,
-              recoverable: false,
-              failureCode: "RUNNER_OUTPUT_SCHEMA_MISMATCH",
-              diagnostic: {
-                rejectCount: finalizeRejectCount,
-                lastIssues: issuesParts.join("; "),
-              },
-            });
-            yield this.makeEvent(agentId, "output", { output: output ?? "" });
-            yield this.makeEvent(agentId, "terminated", {
-              reason: "completed",
-            });
-            return;
+            if (currentEnvelope instanceof ContextEnvelope) {
+              currentEnvelope = currentEnvelope.append([
+                {
+                  role: "user",
+                  content: critique,
+                  timestamp: Date.now(),
+                },
+              ]).envelope;
+            }
+            // 不退出，继续 loop —— LLM 看到 critique 后下一轮直接补
+            continue;
           }
-          // 注入精准 critique reminder：告诉 LLM 缺什么，要它**直接补缺**而非重新搜
-          const critique =
-            `[FINALIZE REJECTED ${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}] Your finalize.output failed validation:\n` +
-            issuesParts.map((p) => `  - ${p}`).join("\n") +
-            `\n\nDO NOT rerun tools. Use the tool results already in this conversation to ` +
-            `produce a corrected finalize that addresses the issues above. ` +
-            `If the existing tool results genuinely don't have the needed information, ` +
-            `you may emit ONE focused tool_call to fill the specific gap (do not search broadly).`;
-          this.logger.log(
-            `[${agentId}] finalize rejected (${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}): ${issuesParts.join("; ").slice(0, 200)}`,
-          );
-          if (currentEnvelope instanceof ContextEnvelope) {
-            currentEnvelope = currentEnvelope.append([
-              {
-                role: "user",
-                content: critique,
-                timestamp: Date.now(),
-              },
-            ]).envelope;
-          }
-          // 不退出，继续 loop —— LLM 看到 critique 后下一轮直接补
-          continue;
+
+          // 通过校验 → 真正退出
+          yield this.makeEvent(agentId, "output", { output: output ?? "" });
+          stopReason = "completed";
+          yield this.makeEvent(agentId, "terminated", { reason: "completed" });
+          return;
         }
 
-        // 通过校验 → 真正退出
-        yield this.makeEvent(agentId, "output", { output: output ?? "" });
-        yield this.makeEvent(agentId, "terminated", { reason: "completed" });
-        return;
+        if (actionResult.error && !this.isRecoverable(actionResult.error)) {
+          const errMsg = actionResult.error.message;
+          // ★ 优先用 ToolInvoker 在 IActionResult 上贴的 failureCode；缺省再做文本推断
+          const failureCode: HarnessFailureCode =
+            (actionResult.failureCode as HarnessFailureCode | undefined) ??
+            (/timeout|timed out/i.test(errMsg)
+              ? "TOOL_TIMEOUT"
+              : /not found|unknown tool/i.test(errMsg)
+                ? "TOOL_NOT_FOUND"
+                : /invalid input|validation/i.test(errMsg)
+                  ? "TOOL_INPUT_VALIDATION_FAILED"
+                  : "TOOL_RUNTIME_ERROR");
+
+          const toolId =
+            decision.action.kind === "tool_call"
+              ? decision.action.toolId
+              : undefined;
+
+          this.logger.error(
+            `[${agentId}] iter=${iteration} ${failureCode} ` +
+              `tool=${toolId ?? "?"} err=${errMsg}`,
+          );
+
+          // ★ 接通 fallback：tool 失败可由 runtimeEnv 给恢复建议
+          const recoveryHint = await currentEnvelope.runtimeEnv
+            ?.suggestFallback({ reason: "tool_failure" })
+            .catch(() => null);
+
+          yield this.makeEvent(agentId, "error", {
+            message: errMsg,
+            recoverable: recoveryHint?.action === "retry",
+            failureCode,
+            diagnostic: {
+              toolId,
+              toolError: errMsg,
+              iteration,
+              // ★ 把 ToolInvoker 在 IActionResult.diagnostic 上贴的字段冒泡
+              ...(actionResult.diagnostic ?? {}),
+            },
+            recoveryHint: recoveryHint
+              ? {
+                  action:
+                    recoveryHint.action === "downgrade"
+                      ? "switch_model"
+                      : recoveryHint.action === "notify_user"
+                        ? "abort"
+                        : recoveryHint.action,
+                  reason: recoveryHint.reason,
+                  fallbackModelId: recoveryHint.fallbackModelId,
+                  retryAfterMs: recoveryHint.retryAfterMs,
+                }
+              : undefined,
+          });
+          stopReason = "error";
+          yield this.makeEvent(agentId, "terminated", { reason: "error" });
+          return;
+        }
       }
 
-      if (actionResult.error && !this.isRecoverable(actionResult.error)) {
-        const errMsg = actionResult.error.message;
-        // ★ 优先用 ToolInvoker 在 IActionResult 上贴的 failureCode；缺省再做文本推断
-        const failureCode: HarnessFailureCode =
-          (actionResult.failureCode as HarnessFailureCode | undefined) ??
-          (/timeout|timed out/i.test(errMsg)
-            ? "TOOL_TIMEOUT"
-            : /not found|unknown tool/i.test(errMsg)
-              ? "TOOL_NOT_FOUND"
-              : /invalid input|validation/i.test(errMsg)
-                ? "TOOL_INPUT_VALIDATION_FAILED"
-                : "TOOL_RUNTIME_ERROR");
-
-        const toolId =
-          decision.action.kind === "tool_call"
-            ? decision.action.toolId
-            : undefined;
-
-        this.logger.error(
-          `[${agentId}] iter=${iteration} ${failureCode} ` +
-            `tool=${toolId ?? "?"} err=${errMsg}`,
-        );
-
-        // ★ 接通 fallback：tool 失败可由 runtimeEnv 给恢复建议
-        const recoveryHint = await currentEnvelope.runtimeEnv
-          ?.suggestFallback({ reason: "tool_failure" })
-          .catch(() => null);
-
-        yield this.makeEvent(agentId, "error", {
-          message: errMsg,
-          recoverable: recoveryHint?.action === "retry",
-          failureCode,
-          diagnostic: {
-            toolId,
-            toolError: errMsg,
-            iteration,
-            // ★ 把 ToolInvoker 在 IActionResult.diagnostic 上贴的字段冒泡
-            ...(actionResult.diagnostic ?? {}),
-          },
-          recoveryHint: recoveryHint
-            ? {
-                action:
-                  recoveryHint.action === "downgrade"
-                    ? "switch_model"
-                    : recoveryHint.action === "notify_user"
-                      ? "abort"
-                      : recoveryHint.action,
-                reason: recoveryHint.reason,
-                fallbackModelId: recoveryHint.fallbackModelId,
-                retryAfterMs: recoveryHint.retryAfterMs,
-              }
-            : undefined,
-        });
-        yield this.makeEvent(agentId, "terminated", { reason: "error" });
-        return;
-      }
+      // 走到这里 = 跑完 maxIterations 没 finalize；保险起见 emit 一个 LOOP_MAX_ITERATIONS
+      // 错误事件，让上层 trace 能看到为什么以 "error" reason 退出。
+      //
+      // ★ P0-LIVE-MAX-ITER (2026-04-30): 旧版 emit output=lastAssistantMessage 然后
+      //   terminated:budget → runner extractLegacyMetrics 把 reason="budget" 推断成
+      //   legacyState="completed" → 上游 stage 看到 state="completed" + output=空字符串
+      //   或最后一条 tool_call decision JSON → schema 校验已经过了才发现是垃圾。
+      //   实测 mission 79b7de75 researcher#0 run=9 iter 永不 finalize，最后 output 是
+      //   parallel_tool_call 的 raw decision JSON 不是 finding[]。
+      //   修复：terminated reason="error" 让 runner 落到 legacyState="failed"，
+      //   stage 才能正确走 dimension:degraded 兜底而不是把垃圾当 finding。
+      this.logger.warn(
+        `[${agentId}] reached maxIterations=${criteria.maxIterations} without finalize`,
+      );
+      yield this.makeEvent(agentId, "error", {
+        message: `reached maxIterations=${criteria.maxIterations} without finalize`,
+        recoverable: false,
+        failureCode: "LOOP_MAX_ITERATIONS",
+        diagnostic: {
+          modelId: lastModelId,
+          iteration,
+        },
+      });
+      stopReason = "error";
+      yield this.makeEvent(agentId, "terminated", { reason: "error" });
+      stopReason = "error";
+    } finally {
+      // P0-3: Stop hook fire — 所有 termination 路径都会 finally
+      await this.hookRegistry
+        .dispatch(
+          "Stop",
+          { reason: stopReason },
+          { agentId, envelope: currentEnvelope },
+        )
+        .catch(() => undefined);
     }
-
-    // 走到这里 = 跑完 maxIterations 没 finalize；保险起见 emit 一个 LOOP_MAX_ITERATIONS
-    // 错误事件，让上层 trace 能看到为什么以 "error" reason 退出。
-    //
-    // ★ P0-LIVE-MAX-ITER (2026-04-30): 旧版 emit output=lastAssistantMessage 然后
-    //   terminated:budget → runner extractLegacyMetrics 把 reason="budget" 推断成
-    //   legacyState="completed" → 上游 stage 看到 state="completed" + output=空字符串
-    //   或最后一条 tool_call decision JSON → schema 校验已经过了才发现是垃圾。
-    //   实测 mission 79b7de75 researcher#0 run=9 iter 永不 finalize，最后 output 是
-    //   parallel_tool_call 的 raw decision JSON 不是 finding[]。
-    //   修复：terminated reason="error" 让 runner 落到 legacyState="failed"，
-    //   stage 才能正确走 dimension:degraded 兜底而不是把垃圾当 finding。
-    this.logger.warn(
-      `[${agentId}] reached maxIterations=${criteria.maxIterations} without finalize`,
-    );
-    yield this.makeEvent(agentId, "error", {
-      message: `reached maxIterations=${criteria.maxIterations} without finalize`,
-      recoverable: false,
-      failureCode: "LOOP_MAX_ITERATIONS",
-      diagnostic: {
-        modelId: lastModelId,
-        iteration,
-      },
-    });
-    yield this.makeEvent(agentId, "terminated", { reason: "error" });
   }
 
   // ─── Helpers ─────────────────────────────────────────────
+
+  /**
+   * 从 envelope 提取最近一条 user 消息文本，作为 UserPromptSubmit hook 的 prompt
+   * payload。若无 user 消息（如内部 agent-to-agent 调用），返回 null。
+   */
+  private extractLatestUserPrompt(env: IContextEnvelope): string | null {
+    // ContextEnvelope 通常有 .messages 数组；走容错路径避免类型耦合
+    const candidate = (
+      env as unknown as {
+        messages?: ReadonlyArray<{ role?: string; content?: string }>;
+      }
+    ).messages;
+    if (Array.isArray(candidate)) {
+      for (let i = candidate.length - 1; i >= 0; i--) {
+        const m = candidate[i];
+        if (m?.role === "user" && typeof m.content === "string") {
+          return m.content;
+        }
+      }
+    }
+    return null;
+  }
 
   private buildMessages(envelope: IContextEnvelope): ChatMessage[] {
     const msgs: ChatMessage[] = [];
@@ -1513,4 +1636,3 @@ export class ReActLoop implements IAgentLoop {
     return { type, agentId, timestamp: Date.now(), payload };
   }
 }
-
