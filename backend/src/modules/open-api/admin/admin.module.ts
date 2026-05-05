@@ -19,7 +19,7 @@ import { AgentAdminController } from "./agent-admin.controller";
 import { ResearchAdminController } from "./research-admin.controller";
 import { ApprovalsAdminController } from "./approvals-admin.controller";
 import { KernelAdminController } from "./kernel-admin.controller";
-import { AdminModelRecommendationsController } from "./admin-model-recommendations.controller";
+import { AdminModelRecommendationsController } from "./model-recommendations-admin.controller";
 import { ObservabilityAdminController } from "./observability-admin.controller";
 import { HarnessInspectorController } from "./harness-inspector.controller";
 import { EvalAdminController } from "./eval-admin.controller";

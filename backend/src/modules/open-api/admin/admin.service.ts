@@ -886,6 +886,11 @@ export class AdminService {
 
   /**
    * 获取系统设置（按分类）
+   *
+   * ★ 2026-05-05 [S1 安全] 三轮审计 P0：原代码直接返 raw value，含 apiKey /
+   *   secret / password 等敏感字段 → 即使 admin 受信任，HTTP transit + 浏览器
+   *   devtools 都能看到明文 → 密钥泄漏。修复：value 经 maskSensitive 处理，
+   *   敏感 key 只返回 { configured: boolean, hint?: 末 4 位 } 不返 raw。
    */
   async getSettings(category?: string) {
     const where = category ? { category } : {};
@@ -895,17 +900,35 @@ export class AdminService {
       orderBy: { key: "asc" },
     });
 
-    // 将设置转换为键值对格式
     const result: Record<string, unknown> = {};
     for (const setting of settings) {
+      let parsed: unknown;
       try {
-        if (setting.value) result[setting.key] = JSON.parse(setting.value);
+        if (setting.value) parsed = JSON.parse(setting.value);
       } catch {
-        result[setting.key] = setting.value;
+        parsed = setting.value;
       }
+      result[setting.key] = this.maskSensitiveSetting(setting.key, parsed);
     }
 
     return result;
+  }
+
+  /**
+   * ★ 2026-05-05 [S1] 敏感配置脱敏
+   * 命中 sensitive pattern 的 key（apiKey/secret/token/password/credential/...）
+   * 不返回 raw value，只返 { configured, hint } —— admin 仅需"是否已配置"决策。
+   */
+  private maskSensitiveSetting(key: string, value: unknown): unknown {
+    const SENSITIVE_PATTERNS =
+      /api[_-]?key|secret|token|password|credential|private[_-]?key|access[_-]?key/i;
+    if (!SENSITIVE_PATTERNS.test(key)) return value;
+    const raw = typeof value === "string" ? value : value ? String(value) : "";
+    if (!raw) return { configured: false };
+    return {
+      configured: true,
+      hint: raw.length > 8 ? `***${raw.slice(-4)}` : "****",
+    };
   }
 
   /**

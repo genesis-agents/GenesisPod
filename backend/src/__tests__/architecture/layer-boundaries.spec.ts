@@ -582,10 +582,10 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
-    it("ai-harness/agents/builtin-skills/ 不得含 SKILL.md（business 内容下推 ai-app/<app>/skills/）", () => {
+    it("ai-harness/agents/skill-runtime/ 不得含 SKILL.md（business 内容下推 ai-app/<app>/skills/）", () => {
       const harnessSkillsDir = path.resolve(
         SRC_ROOT,
-        "modules/ai-harness/agents/builtin-skills",
+        "modules/ai-harness/agents/skill-runtime",
       );
       const found: string[] = [];
       function walk(dir: string) {

@@ -30,7 +30,7 @@ import { SpecBasedAgent } from "./spec-based-agent";
 import { ReActLoop } from "../../runner/loop/react-loop";
 import { LoopRegistry } from "../../runner/loop/loop-registry";
 import { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
-import { SkillActivator } from "../builtin-skills/skill-activator";
+import { SkillActivator } from "../skill-runtime/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { LlmExecutor } from "../../runner/executor/llm-executor";

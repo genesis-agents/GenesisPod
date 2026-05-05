@@ -23,11 +23,11 @@ import {
   type LearnFromTraceOptions,
   type SkillCandidate,
 } from "./skill-learner";
-import { BuiltinSkillCatalog } from "../builtin-skills/skill-registry";
+import { BuiltinSkillCatalog } from "../skill-runtime/skill-registry";
 import {
   parseSkillMarkdown,
   SkillParseError,
-} from "../builtin-skills/skill-parser";
+} from "../skill-runtime/skill-parser";
 import { JudgeService } from "../../evaluation/verify/judge.service";
 import type { BuiltInVerifierId } from "../../evaluation/verify/judge.service";
 import type { ISkill } from "../abstractions";

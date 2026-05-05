@@ -24,7 +24,7 @@ import type {
 import { AgentIdentity } from "./agent-identity";
 import { ContextEnvelope } from "./context-envelope";
 import type { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
-import type { SkillActivator } from "../builtin-skills/skill-activator";
+import type { SkillActivator } from "../skill-runtime/skill-activator";
 import type { ISubagentSpawner } from "../abstractions";
 import type { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";

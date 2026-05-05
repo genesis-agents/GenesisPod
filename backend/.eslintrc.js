@@ -82,6 +82,47 @@ module.exports = {
 
     // NestJS特定规则
     "@typescript-eslint/no-inferrable-types": "off",
+
+    // ★ 2026-05-05 散点 antipattern 看护（task #16 + #17）
+    // 目的：在写代码时拦截已知 antipattern，杜绝 listener leak / 无 timeout 等
+    // 系统性问题再发生。已有存量按渐进迁移走（部分 warn 级，让旧代码不阻塞）。
+    "no-restricted-syntax": [
+      "warn",
+      {
+        // task #16: no-naked-abort-listener
+        // 禁止裸 signal.addEventListener("abort", ...) — 必须用 AbortableScope。
+        // AbortableScope 内部 add 实现是唯一豁免，本规则不会误伤（只检测调用点
+        // 含 'abort' 字面量字符串作为第 1 参的 addEventListener 调用）。
+        selector:
+          "CallExpression[callee.property.name='addEventListener'][arguments.0.type='Literal'][arguments.0.value='abort']",
+        message:
+          "Use AbortableScope from @/modules/ai-infra/resilience instead of raw addEventListener('abort', ...). Naked listeners with {once:true} leak when abort never fires.",
+      },
+      {
+        // task #6 + 看护：禁止 admin 直接 return process.env.* 的密钥字段。
+        // 防止 S1 类漏洞复发（密钥经 admin endpoint 明文传到前端）。
+        selector:
+          "ReturnStatement > LogicalExpression[operator='||'] > MemberExpression.left[object.object.name='process'][object.property.name='env'][property.name=/_API_KEY|_SECRET|_TOKEN|_PASSWORD/]",
+        message:
+          "Do not return process.env.*_API_KEY/SECRET/TOKEN/PASSWORD directly in admin endpoint. Use Boolean(...) or maskSensitiveSetting().",
+      },
+    ],
+
+    // ★ task #17: 限制 axios 直接 import（warn 级渐进迁移）
+    // 改用 NestJS HttpService（HttpModule 全局 timeout 已配 120000ms）。
+    // 现有 30+ 处旧代码 warn 不阻塞，新代码统一走 httpService。
+    "no-restricted-imports": [
+      "warn",
+      {
+        paths: [
+          {
+            name: "axios",
+            message:
+              "Prefer NestJS HttpService (HttpModule.register has global timeout). Direct axios imports lack timeout safety net by default.",
+          },
+        ],
+      },
+    ],
   },
   overrides: [
     {
