@@ -401,6 +401,82 @@ ${fullContent.substring(0, 8000)}
 
       if (metaResult?.summary) summary = metaResult.summary;
       if (metaResult?.keyFindings?.length) keyFindings = metaResult.keyFindings;
+
+      // ★ 2026-05-05 (Bug 2 方案 A): keyFindings 必非空硬保障 ——
+      //   LLM 第一次返空 / 字段缺失时，发一次更严格 prompt 重试。
+      //   截图 8 现象：task.result.keyFindings = []  → TodoDetailPanel
+      //   length > 0 判断不渲染 "关键发现" section。根因是首次提取无重试 +
+      //   fallback regex 在研究内容上几乎不命中。
+      if (
+        !metaResult?.keyFindings?.length ||
+        metaResult.keyFindings.length === 0
+      ) {
+        this.logger.warn(
+          `[integrateDimensionResults] keyFindings empty after first extract, retrying with strict prompt`,
+        );
+        const retryPrompt = isEnglish
+          ? `The previous extraction returned no key findings, which is unacceptable.
+Re-read the content below and produce AT LEAST 3 substantive key findings.
+Each finding MUST be 50-150 chars, evidence-grounded, and specific (avoid generic statements).
+
+Dimension: ${dimension.name}
+${dimension.description || ""}
+
+Content (first 8000 chars):
+${fullContent.substring(0, 8000)}
+
+Output strict JSON only:
+\`\`\`json
+{ "keyFindings": ["...", "...", "..."] }
+\`\`\`
+Do NOT output an empty array. Minimum 3 items.`
+          : `上一次提取返回了空的 keyFindings，这是不可接受的。
+请重新阅读以下内容，至少给出 3 条实质性关键发现。
+每条 50-150 字，必须有证据支撑、内容具体（避免泛泛而谈）。
+
+维度：${dimension.name}
+${dimension.description || ""}
+
+内容（前 8000 字）：
+${fullContent.substring(0, 8000)}
+
+只输出严格 JSON：
+\`\`\`json
+{ "keyFindings": ["...", "...", "..."] }
+\`\`\`
+不允许输出空数组，至少 3 条。`;
+        try {
+          const retryResp = await this.chatFacade.chat({
+            messages: [
+              {
+                role: "system",
+                content: isEnglish
+                  ? "You are a research report integration expert. Output strict JSON. Do not return empty arrays."
+                  : "你是研究报告整合专家，输出严格 JSON，不允许空数组。",
+              },
+              { role: "user", content: retryPrompt },
+            ],
+            operationName: "研究元分析-重试",
+            model: leaderModel.modelId,
+            skipGuardrails: true,
+            responseFormat: "json",
+            taskProfile: { creativity: "low", outputLength: "medium" },
+          });
+          const retryMeta = extractJsonFromResponse<{
+            keyFindings?: string[];
+          }>(retryResp.content, this.logger, "keyFindings");
+          if (retryMeta?.keyFindings?.length) {
+            keyFindings = retryMeta.keyFindings;
+            this.logger.log(
+              `[integrateDimensionResults] retry succeeded, got ${keyFindings.length} findings`,
+            );
+          }
+        } catch (retryErr) {
+          this.logger.warn(
+            `[integrateDimensionResults] retry also failed: ${(retryErr as Error).message}`,
+          );
+        }
+      }
     } catch (err) {
       this.logger.warn(
         `[integrateDimensionResults] Meta extraction failed, using fallback: ${(err as Error).message}`,
@@ -456,7 +532,9 @@ ${fullContent.substring(0, 8000)}
     }
 
     // 2. 从列表项中提取（Markdown 列表）
-    const listItemMatches = content.match(/^[-*]\s+.{20,150}(?:。|$)/gm);
+    //   ★ 2026-05-05 (Bug 2 方案 A): 放宽长度上限（150→400）+ 不强制以"。"结尾。
+    //   研究内容里 finding 详细论述往往 150-300 字，且可能以英文 . / ! 收尾。
+    const listItemMatches = content.match(/^[-*]\s+.{20,400}/gm);
     if (listItemMatches && findings.length < 5) {
       for (const item of listItemMatches.slice(0, 5 - findings.length)) {
         const finding = item.replace(/^[-*]\s+/, "").trim();
