@@ -15,7 +15,7 @@
  *    - In-memory registry of SKILL.md files (parsed frontmatter + body).
  *    - Indexed by skill `name` (Map<string, ISkill>).
  *    - Loaded at boot by `SkillLoader` from .skill.md / SKILL.md files in
- *      ai-app/research/skills, writing/skills, <consumer>/skills, etc.
+ *      ai-app/research/skills, writing/skills, {app}/skills, etc.
  *    - Used by `ReActLoop` / `SkillActivator` for runtime instruction packs.
  *    - Symbol: `import { SkillRegistry } from "@/modules/ai-harness/facade"`.
  *

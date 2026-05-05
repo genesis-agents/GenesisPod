@@ -83,9 +83,9 @@ import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orch
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
-// ★ 沉淀（2026-04-29）: figure 相关性判断（来自 <consumer>, TI 暂不切换）
+// ★ 沉淀（2026-04-29）: figure 相关性判断（来自 {app}, TI 暂不切换）
 import { FigureRelevanceService } from "./evaluation/figure";
-// ★ 沉淀（2026-04-29）: Reflexion 批评-改进闭环（来自 <consumer>, TI 暂不切换）
+// ★ 沉淀（2026-04-29）: Reflexion 批评-改进闭环（来自 {app}, TI 暂不切换）
 //   v3 (同日): quality-gate / section-remediation / report-evaluation / quality-trace-compute
 import {
   CritiqueRefineService,
@@ -277,7 +277,7 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ModelPricingRegistry,
     JudgeService,
 
-    // ★ 沉淀: figure 相关性判断（<consumer> 复用，TI 暂保留私有）
+    // ★ 沉淀: figure 相关性判断（{app} 复用，TI 暂保留私有）
     FigureRelevanceService,
     // ★ 沉淀: Reflexion critique-refine 闭环
     CritiqueRefineService,

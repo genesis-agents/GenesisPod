@@ -1,5 +1,5 @@
 /**
- * Report Evaluation Service —— 沉淀自 <consumer>, 2026-04-29
+ * Report Evaluation Service —— 沉淀自 {app}, 2026-04-29
  *
  * 按章节（维度）的 10 维报告质量评审服务
  * 使用 EVALUATOR 类型模型进行结构化评审，确保跨报告评分一致性

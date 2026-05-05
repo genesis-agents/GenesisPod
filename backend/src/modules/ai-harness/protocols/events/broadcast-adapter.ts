@@ -2,7 +2,7 @@
  * IBroadcastAdapter — 业务事件落地协议
  *
  * Harness 内置 LoggerBroadcastAdapter（默认）；业务方实现：
- *   - SocketIoBroadcastAdapter (<consumer> gateway)
+ *   - SocketIoBroadcastAdapter ({app} gateway)
  *   - SseBroadcastAdapter
  *   - WebhookBroadcastAdapter
  *   - KafkaBroadcastAdapter

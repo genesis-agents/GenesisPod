@@ -1,13 +1,13 @@
 /**
  * RuntimeEnvironmentService — L2 AI Engine 运行时环境发现（通用）
  *
- * 设计文档：docs/design/<consumer>-harness-redesign/11-capability-discovery.md
+ * 设计文档：docs/design/{app}-harness-redesign/11-capability-discovery.md
  *
  * 职责：
  * - 只回答"当前 AI Engine 基础设施客观有什么"：
  *   模型（AIModel 表）/ agent（L2 AgentRegistry）/ tool（L2 ToolRegistry）/
  *   skill（L2 SkillRegistry）/ 用户 key / 外部依赖
- * - **不**含任何 AI App 特定概念（没有 "harness"、"<consumer>"、"research-depth"）
+ * - **不**含任何 AI App 特定概念（没有 "harness"、"{app}"、"research-depth"）
  * - tablesExist() 接受通用表名数组，不硬编码 App 私有表
  *
  * 各 L3 App 自己在 CapabilityReconciler 里把本服务输出映射到 App 语义。

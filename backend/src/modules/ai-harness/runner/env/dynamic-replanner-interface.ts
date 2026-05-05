@@ -2,7 +2,7 @@
  * DynamicReplanner 接口
  *
  * 归属：L2 ai-engine/harness/runtime/ — 通用
- * 具体 Leader 逻辑由 app 层实现（<consumer> 的 ResearchDynamicReplanner 等）。
+ * 具体 Leader 逻辑由 app 层实现（{app} 的 ResearchDynamicReplanner 等）。
  *
  * 动作枚举：harness 定义通用的 ReplanOperation，Leader 根据观察执行态产出操作序列。
  */

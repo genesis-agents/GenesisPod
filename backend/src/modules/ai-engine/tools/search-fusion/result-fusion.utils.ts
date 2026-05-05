@@ -1,7 +1,7 @@
 /**
  * Search Result Fusion 通用工具 — Phase 8 沉淀
  *
- * 沉淀自：ai-app/<consumer>/services/search/fusion/result-fusion.service.ts
+ * 沉淀自：ai-app/{app}/services/search/fusion/result-fusion.service.ts
  * 提取**纯算法**部分（无业务类型耦合），让 consumer / 其他 ai-app 也可消费。
  *
  * 包含：

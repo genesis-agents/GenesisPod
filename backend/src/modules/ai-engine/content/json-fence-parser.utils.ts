@@ -7,7 +7,7 @@
  * 设计原则与 standards/16 §二 (engine 判别口诀): "不需要知道 agent / mission
  * 即能做的事" — 完全 fit ai-engine/content。
  *
- * 历史：from ai-app/<consumer>/services/chat/leader-decision-parser.util.ts
+ * 历史：from ai-app/{app}/services/chat/leader-decision-parser.util.ts
  *      （PR-10b standardize consumer 2026-05-04，generic 抽出来）。
  *
  * 输入形态（LLM 经常不严格按 system prompt 返回，必须容错）：

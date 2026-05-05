@@ -18,7 +18,7 @@ import type {
 /**
  * StepStore — AgentStep 持久化抽象
  *
- * <consumer> 实现：写 `agent_steps` 表（带 missionId/topicId）
+ * {app} 实现：写 `agent_steps` 表（带 missionId/topicId）
  * research 将来实现：写 `research_agent_steps` 表（带 sessionId）
  * 等等
  */

@@ -149,7 +149,7 @@ export type {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { JudgeService } from "../evaluation/verify";
 export type { BuiltInVerifierId } from "../evaluation/verify";
-// ★ 沉淀（2026-04-29）: figure 相关性判断（来自 <consumer>, TI 暂不切换）
+// ★ 沉淀（2026-04-29）: figure 相关性判断（来自 {app}, TI 暂不切换）
 export { FigureRelevanceService } from "../evaluation/figure";
 // ★ 沉淀（2026-04-29）: Reflexion critique-refine + section-self-eval + defect-scanner
 //   v3 (åŒæ—¥): quality-gate / section-remediation / report-evaluation / quality-trace-compute
@@ -325,20 +325,20 @@ export type {
 // â˜… 2026-05-02 (#1 MECE): runtime/quality → evaluation/critique æ”¶æ•›
 export { OutputReviewerService } from "../evaluation/critique/output-reviewer.service";
 
-// ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/<consumer> 上提（跨 app 复用）
+// ★ 2026-05-01: ReportArtifactAssembler 从 ai-app/{app} 上提（跨 app 复用）
 //   consumer v2 ReportArtifact (sections/citations/figures/quickView) 装配纯函数
 export {
   ReportArtifactAssembler,
   lengthTargetFor,
 } from "../evaluation/critique/report-artifact/report-artifact-assembler.service";
 
-// ★ 2026-05-01: FailureLearnerService 从 ai-app/<consumer> 上提
+// ★ 2026-05-01: FailureLearnerService 从 ai-app/{app} 上提
 // ★ 2026-05-02 (W1 MECE): governance/learning → lifecycle/learning（失败学习是生命周期闭环）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
 export { FailureLearnerService } from "../lifecycle/learning/failure-learner.service";
 
 // ★ 2026-05-04 (PR-2 standardize): PostmortemClassifierService 从
-//   ai-app/<consumer>/services/postmortem 上提到 lifecycle/learning（与
+//   ai-app/{app}/services/postmortem 上提到 lifecycle/learning（与
 //   FailureLearner 同包，纯函数事件流→FailureMode 分类，跨 ai-app 复用）
 // ★ 2026-05-04 (R0-A4): 加 PostmortemPatterns + GENERIC_POSTMORTEM_PATTERNS export，
 //   substring patterns 由 caller (ai-app) 注入，base layer 不含业务概念
@@ -351,7 +351,7 @@ export {
   type PostmortemPatterns,
 } from "../lifecycle/learning/postmortem-classifier.service";
 
-// ★ 2026-05-01: SocketBroadcastAdapter 从 ai-app/<consumer>/adapters/ 上提
+// ★ 2026-05-01: SocketBroadcastAdapter 从 ai-app/{app}/adapters/ 上提
 //   参数化 prefix 后跨 ai-app 通用（DomainEvent → Socket.IO room），任何带 socket relay
 //   的 ai-app 都可复用
 export {
@@ -359,7 +359,7 @@ export {
   type SocketBroadcastAdapterOptions,
 } from "../protocols/realtime/socket-broadcast.adapter";
 
-// ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/<consumer> 上提
+// ★ 2026-05-01: MissionAbortRegistry / MissionOwnershipRegistry 从 ai-app/{app} 上提
 //   两个纯通用 in-memory registry primitive（abort signal 管理 / mission→user ownership LRU），
 //   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
 export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
@@ -380,7 +380,7 @@ export {
 // ★ 2026-05-04 (PR-5 standardize consumer): handoff token estimate + compress
 export { HandoffCompactorService } from "../memory/working/handoff-compactor.service";
 
-// ★ 2026-05-01: stage-emit util 从 ai-app/<consumer> 上提
+// ★ 2026-05-01: stage-emit util 从 ai-app/{app} 上提
 //   通用 stage:completed 事件封装，含 durationMs / tokensUsed / agentInvocations 等度量
 export {
   startStageTimer,

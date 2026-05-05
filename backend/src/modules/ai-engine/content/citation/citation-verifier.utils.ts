@@ -1,9 +1,9 @@
 /**
  * citation-verifier.utils.ts
  *
- * Sediment from <consumer> (2026-04-29) — ai-engine/content/citation/
- * 来源: ai-app/<consumer>/utils/citation-verifier.utils.ts
- * TI 仍在使用原 utils；本副本由 <consumer> 等新业务通过
+ * Sediment from {app} (2026-04-29) — ai-engine/content/citation/
+ * 来源: ai-app/{app}/utils/citation-verifier.utils.ts
+ * TI 仍在使用原 utils；本副本由 {app} 等新业务通过
  * ai-engine/facade 调用。两份代码相同；TI 不切换以保持稳定。
  *
  * 引用准确性后验证：纯确定性文本处理，零 LLM 调用。

@@ -1,5 +1,5 @@
-// Sediment from <consumer> (2026-04-29) — ai-engine/llm/output-parsing/
-// 来源: ai-app/<consumer>/utils/sanitize-output.utils.ts
+// Sediment from {app} (2026-04-29) — ai-engine/llm/output-parsing/
+// 来源: ai-app/{app}/utils/sanitize-output.utils.ts
 // 纯函数 utility，0 DI，0 LLM 调用。所有 ai-app 都可用。
 /**
  * sanitize-output.utils.ts

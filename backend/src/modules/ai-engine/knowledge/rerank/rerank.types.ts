@@ -1,5 +1,5 @@
-// Sediment from <consumer> (2026-04-29) — ai-engine/knowledge/rerank/
-// 来源: ai-app/<consumer>/services/search/rerank/rerank.types.ts
+// Sediment from {app} (2026-04-29) — ai-engine/knowledge/rerank/
+// 来源: ai-app/{app}/services/search/rerank/rerank.types.ts
 // 泛化: 不再依赖 TI 的 DataSourceResult 类型，改成 generic Item，让任意 ai-app 复用。
 
 /**

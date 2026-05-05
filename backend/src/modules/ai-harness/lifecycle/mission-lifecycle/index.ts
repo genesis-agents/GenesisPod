@@ -18,6 +18,6 @@ export {
   type MissionHeartbeat,
 } from "./runtime-state-store";
 // ★ 2026-05-04 (PR-3 standardize consumer): RerunLockRegistry 从
-//   ai-app/<consumer> 上提（in-memory mission-level lock primitive，
+//   ai-app/{app} 上提（in-memory mission-level lock primitive，
 //   与 abort-registry / ownership-registry 同形态）
 export { RerunLockRegistry } from "./rerun-lock.registry";

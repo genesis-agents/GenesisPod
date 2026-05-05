@@ -1,5 +1,5 @@
-// Sediment from <consumer> (2026-04-29) — ai-engine/safety/utils/
-// 来源: ai-app/<consumer>/utils/sanitize-image-url.utils.ts
+// Sediment from {app} (2026-04-29) — ai-engine/safety/utils/
+// 来源: ai-app/{app}/utils/sanitize-image-url.utils.ts
 // 纯函数 utility，0 DI。
 /**
  * ★ 统一的 figure URL 有效性校验（单一真相源）

@@ -5,7 +5,7 @@
  * 实现方：ai-app/{app}/agent/adapters/{biz}-task-queue.ts
  *
  * harness 只声明"DAG 调度 + 优先级 + 并发控制 + 终态检查"能力，具体 persistence
- * 由 App 层实现（比如 <consumer> 实现 ResearchTaskQueue 操作 `research_tasks` 表）。
+ * 由 App 层实现（比如 {app} 实现 ResearchTaskQueue 操作 `research_tasks` 表）。
  */
 
 export interface QueueStats {

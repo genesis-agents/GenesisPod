@@ -2,8 +2,8 @@
  * ToolSelectorRegistry —— 多 selector 共存 + 按 selector id 查找
  *
  * 业务方为不同场景注册不同 selector：
- *   - '<consumer>.data-source' (按 dimension type / industry 选)
- *   - '<consumer>.evidence' (优先用 cached / 然后 web)
+ *   - '{app}.data-source' (按 dimension type / industry 选)
+ *   - '{app}.evidence' (优先用 cached / 然后 web)
  *   - 'research.search' (Google + Bing 融合)
  *
  * Loop 调用方在 spec 里声明 selectorId，Harness 通过 registry 查到对应 selector 用。

@@ -8,10 +8,10 @@
  *   合并 3 处重复的 shouldStop/getStopReason/determineStopReason 为 1 个方法。
  */
 
-// Sediment from <consumer> (2026-04-29) — ai-harness/evaluation/critique/
-// 来源: ai-app/<consumer>/services/quality/critique-refine.service.ts
-// + 类型来源: ai-app/<consumer>/types/quality.types.ts
-// TI 仍在使用原 service；本副本由 <consumer> 等新业务通过 ai-harness/facade 调用。
+// Sediment from {app} (2026-04-29) — ai-harness/evaluation/critique/
+// 来源: ai-app/{app}/services/quality/critique-refine.service.ts
+// + 类型来源: ai-app/{app}/types/quality.types.ts
+// TI 仍在使用原 service；本副本由 {app} 等新业务通过 ai-harness/facade 调用。
 import { Injectable, Logger } from "@nestjs/common";
 // ★ 内部相对路径（避免 ai-harness 自循环 import facade）
 import { ChatFacade } from "../../facade/domain/chat.facade";

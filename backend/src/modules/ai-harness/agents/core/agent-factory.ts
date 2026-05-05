@@ -115,7 +115,7 @@ export class AgentFactory {
     }
     const id = spec.identity.role.id;
     // ★ Lazy accessor (closure) — NOT this.electionService directly.
-    // createSpecAgent is called during OnModuleInit (<consumer>.module.ts:346)
+    // createSpecAgent is called during OnModuleInit ({app}.module.ts:346)
     // but setElectionService runs at OnApplicationBootstrap (HarnessModule).
     // Capturing the field ref here would freeze `undefined` forever; the closure
     // defers the read until runtime (executeSpec), by which point the setter has

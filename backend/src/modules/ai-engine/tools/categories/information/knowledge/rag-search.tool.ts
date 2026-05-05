@@ -1,7 +1,7 @@
 /**
  * RAG Search Tool —— 本地知识库语义检索
  *
- * ★ 2026-04-30 重构（origin: <consumer> RAG unavailable 问题）：
+ * ★ 2026-04-30 重构（origin: {app} RAG unavailable 问题）：
  *   原实现走老的 chunks/embeddings 表（pgvector 路径），Railway PostgreSQL 不
  *   支持 pgvector，相关表从未创建，导致 mission 中 rag-search 永远返回
  *   "RAG unavailable: chunks/embeddings tables not found"。

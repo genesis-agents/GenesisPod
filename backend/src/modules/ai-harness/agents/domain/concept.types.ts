@@ -8,13 +8,13 @@
  * 设计原则：
  *   - 概念是元数据级（描述、字段类型、关系），不是 Prisma 表
  *   - Adapter 把业务 Prisma 行 ↔ DomainEntity 互转，Harness 只看 DomainEntity
- *   - Loop 调用方用 conceptRegistry.get('<consumer>.dimension') 拿描述，按需查询
+ *   - Loop 调用方用 conceptRegistry.get('{app}.dimension') 拿描述，按需查询
  */
 
 export interface ConceptField {
   readonly name: string;
   readonly type: "string" | "number" | "boolean" | "date" | "json" | "ref";
-  /** type=ref 时：ref 概念 id，e.g. '<consumer>.topic' */
+  /** type=ref 时：ref 概念 id，e.g. '{app}.topic' */
   readonly refConcept?: string;
   /** 是否必填 */
   readonly required?: boolean;

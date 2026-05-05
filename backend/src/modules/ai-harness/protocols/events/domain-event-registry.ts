@@ -7,7 +7,7 @@
  *   - schema 校验 payload 形状
  *   - throttle 配置 / ack 配置随类型走
  *
- * Harness 内置事件类型为 'harness.*' 前缀；业务方用模块名前缀（'<consumer>.*'）。
+ * Harness 内置事件类型为 'harness.*' 前缀；业务方用模块名前缀（'{app}.*'）。
  */
 
 import { Injectable, Logger } from "@nestjs/common";

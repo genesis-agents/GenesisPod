@@ -1,5 +1,5 @@
 /**
- * ai-engine/llm/output-parsing —— LLM 输出后处理工具（沉淀自 <consumer>, 2026-04-29）
+ * ai-engine/llm/output-parsing —— LLM 输出后处理工具（沉淀自 {app}, 2026-04-29）
  *
  * 纯函数 utility（0 DI，0 LLM）。所有 ai-app 都可用。
  *

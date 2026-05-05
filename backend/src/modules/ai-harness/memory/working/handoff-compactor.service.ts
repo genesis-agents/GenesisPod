@@ -1,7 +1,7 @@
 /**
  * HandoffCompactorService —— Stage 间 handoff payload token 估算 + 自动压缩
  *
- * 历史：from ai-app/<consumer>/services/mission/lifecycle/mission-state.service
+ * 历史：from ai-app/{app}/services/mission/lifecycle/mission-state.service
  *      （PR-5 standardize consumer 2026-05-04 上提到 harness/memory/working）
  *
  * 设计：

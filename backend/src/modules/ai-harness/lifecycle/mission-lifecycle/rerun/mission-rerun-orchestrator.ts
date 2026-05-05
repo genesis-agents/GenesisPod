@@ -9,7 +9,7 @@
  *     / s11-persist / running 状态等）
  *
  * 不知 ai-app 命名：
- *   - consumer: emit "<consumer>.mission:manual-rerun-from-todo" 这类业务
+ *   - consumer: emit "{app}.mission:manual-rerun-from-todo" 这类业务
  *     事件由 controller / business hook 在 runner.run 启动后或之前自行 emit；
  *     orchestrator 不持有 IMissionEventStore，避免 generic primitive 直接产生
  *     业务事件命名空间

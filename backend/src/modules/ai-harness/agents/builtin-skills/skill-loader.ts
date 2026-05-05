@@ -5,7 +5,7 @@
  * 加载源从 DI token EXTRA_SKILL_DIRS 注入，由各 ai-app 模块在 imports
  * 阶段提供自己的 skill 目录路径数组。
  *
- * 用法（ai-app/<consumer>/<consumer>.module.ts）：
+ * 用法（ai-app/{app}/{app}.module.ts）：
  *   imports: [
  *     // ...
  *     {

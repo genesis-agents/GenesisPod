@@ -1,7 +1,7 @@
 /**
  * postProcessFinalReport — TI 沉淀的 full-report 后处理管线
  *
- * 原属 `<consumer>/services/report/report-assembler.service.ts:postProcessFinalReport`
+ * 原属 `{app}/services/report/report-assembler.service.ts:postProcessFinalReport`
  * 类方法。2026-04-30 (REPORT QUALITY OVERHAUL) 晋升到 ai-engine 层，
  * 让 TI / consumer / 任何 ai-app 都能调同一份。
  *
