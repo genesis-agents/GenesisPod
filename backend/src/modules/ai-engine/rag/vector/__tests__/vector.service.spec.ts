@@ -49,10 +49,22 @@ describe("VectorService", () => {
     beforeEach(async () => {
       jest.clearAllMocks();
 
+      const { PgvectorBackend } =
+        await import("@/plugins/storage/vector-pgvector");
+      const { JsonbBackend } = await import("@/plugins/storage/vector-jsonb");
+      const { VECTOR_BACKENDS_TOKEN } =
+        await import("@/plugins/core/abstractions");
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           VectorService,
+          PgvectorBackend,
+          JsonbBackend,
           { provide: PrismaService, useValue: mockPrisma },
+          {
+            provide: VECTOR_BACKENDS_TOKEN,
+            useFactory: (pg, jb) => [pg, jb],
+            inject: [PgvectorBackend, JsonbBackend],
+          },
         ],
       }).compile();
 
@@ -270,10 +282,22 @@ describe("VectorService", () => {
     beforeEach(async () => {
       jest.clearAllMocks();
 
+      const { PgvectorBackend } =
+        await import("@/plugins/storage/vector-pgvector");
+      const { JsonbBackend } = await import("@/plugins/storage/vector-jsonb");
+      const { VECTOR_BACKENDS_TOKEN } =
+        await import("@/plugins/core/abstractions");
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           VectorService,
+          PgvectorBackend,
+          JsonbBackend,
           { provide: PrismaService, useValue: mockPrisma },
+          {
+            provide: VECTOR_BACKENDS_TOKEN,
+            useFactory: (pg, jb) => [pg, jb],
+            inject: [PgvectorBackend, JsonbBackend],
+          },
         ],
       }).compile();
 
@@ -394,10 +418,22 @@ describe("VectorService", () => {
     beforeEach(async () => {
       jest.clearAllMocks();
 
+      const { PgvectorBackend } =
+        await import("@/plugins/storage/vector-pgvector");
+      const { JsonbBackend } = await import("@/plugins/storage/vector-jsonb");
+      const { VECTOR_BACKENDS_TOKEN } =
+        await import("@/plugins/core/abstractions");
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           VectorService,
+          PgvectorBackend,
+          JsonbBackend,
           { provide: PrismaService, useValue: mockPrisma },
+          {
+            provide: VECTOR_BACKENDS_TOKEN,
+            useFactory: (pg, jb) => [pg, jb],
+            inject: [PgvectorBackend, JsonbBackend],
+          },
         ],
       }).compile();
 

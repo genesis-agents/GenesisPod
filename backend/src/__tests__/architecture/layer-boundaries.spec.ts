@@ -326,12 +326,17 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
-    it("ai-engine 不得 import plugin:<domain> 实现（仅可 plugins-core）", () => {
+    it("ai-engine 不得 import plugin:<domain> 实现（仅可 plugins-core；NestJS @Module 类除外）", () => {
       const violations: string[] = [];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-engine") continue;
+        // 仅 *.module.ts 允许 import plugins/<domain>/*.module（NestJS DI 装配，
+        // 非实现使用）。其他 ai-engine 文件不得 import plugins/<domain>。
+        const isModuleFile = file.endsWith(".module.ts");
         for (const target of extractImportTargets(file)) {
           if (isPluginDomain(importLayer(target))) {
+            const isModuleImport = /\.module(?:\.ts)?$/.test(target);
+            if (isModuleFile && isModuleImport) continue;
             violations.push(
               `${path
                 .relative(SRC_ROOT, file)

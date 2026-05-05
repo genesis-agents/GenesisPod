@@ -16,6 +16,8 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { AiEngineLLMModule } from "../llm/llm.module";
+// W2-B: vector backends @Global module（pgvector / jsonb，未来 qdrant / pinecone）
+import { VectorBackendsModule } from "@/plugins/storage/vector-backends.module";
 
 // RAG
 import { EmbeddingService } from "../rag/embedding";
@@ -33,6 +35,7 @@ import { SearchService } from "./search/search.service";
     SecretsModule,
     UserApiKeysModule,
     AiEngineLLMModule,
+    VectorBackendsModule, // W2-B: VECTOR_BACKENDS_TOKEN provider
   ],
   providers: [
     EmbeddingService,

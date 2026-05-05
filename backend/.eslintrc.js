@@ -440,7 +440,14 @@ module.exports = {
     //
     {
       files: ["**/modules/ai-harness/**/*.ts", "**/modules/ai-engine/**/*.ts"],
-      excludedFiles: ["**/*.spec.ts", "**/*.test.ts", "**/__tests__/**/*.ts"],
+      excludedFiles: [
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "**/__tests__/**/*.ts",
+        // W2 例外：harness/engine 的 *.module.ts 允许 import plugins/<domain>/*.module
+        // （NestJS DI 装配，非实现使用；详见 layer-boundaries.spec 同步规则）
+        "**/*.module.ts",
+      ],
       rules: {
         "no-restricted-imports": [
           "error",
@@ -465,6 +472,7 @@ module.exports = {
                 ],
                 message:
                   "harness/engine 不得 import plugin 实现，必须通过 HookBus（plugins/core/）。" +
+                  "*.module.ts 文件除外（NestJS DI 装配）。" +
                   "见 standards/19-plugin-system-governance.md 规则 4。",
               },
             ],
