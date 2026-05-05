@@ -87,26 +87,32 @@ export class FigureRelevanceService {
       .filter((e): e is EvalEntry & { caption: string } => e.caption !== null)
       .map((e) => e.caption);
 
-    // [topicTitle, ...captions] 一次性 batch
-    const batchInput = [topicTitle, ...captionsToEmbed];
     let topicEmb: number[] | null = null;
     const captionEmbMap = new Map<string, number[]>();
-    try {
-      const batchResult =
-        await this.engineFacade.embeddingGenerateBatch(batchInput);
-      if (batchResult && batchResult.embeddings.length === batchInput.length) {
-        topicEmb = batchResult.embeddings[0] ?? null;
-        for (let i = 0; i < captionsToEmbed.length; i++) {
-          const emb = batchResult.embeddings[i + 1];
-          if (emb) captionEmbMap.set(captionsToEmbed[i], emb);
+    // ★ 优化：没有 photo 需要 embed 时（全 informational / 全无 caption）
+    //   不调 batch API（topic embedding 无 caption 对比就无意义）
+    if (captionsToEmbed.length > 0) {
+      const batchInput = [topicTitle, ...captionsToEmbed];
+      try {
+        const batchResult =
+          await this.engineFacade.embeddingGenerateBatch(batchInput);
+        if (
+          batchResult &&
+          batchResult.embeddings.length === batchInput.length
+        ) {
+          topicEmb = batchResult.embeddings[0] ?? null;
+          for (let i = 0; i < captionsToEmbed.length; i++) {
+            const emb = batchResult.embeddings[i + 1];
+            if (emb) captionEmbMap.set(captionsToEmbed[i], emb);
+          }
         }
+      } catch (error) {
+        // 整 batch 失败（401 / 网络 / circuit-open）—— 全 fallback type-based
+        this.logger.warn(
+          `[filterRelevantFigures] batch embedding failed for ${figures.length} figures, ` +
+            `falling back to type-based: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-    } catch (error) {
-      // 整 batch 失败（401 / 网络 / circuit-open）—— 全 fallback type-based
-      this.logger.warn(
-        `[filterRelevantFigures] batch embedding failed for ${figures.length} figures, ` +
-          `falling back to type-based: ${error instanceof Error ? error.message : String(error)}`,
-      );
     }
 
     const evalResults = entries.map(({ fig, caption }) => {
@@ -118,9 +124,9 @@ export class FigureRelevanceService {
       if (caption === null) {
         return { fig, accepted: false };
       }
-      // ③ 有效 caption + topic+caption embedding 都拿到 → cosine 判断
+      // ③ 有效 caption + topic+caption embedding 都拿到（且非空 vector）→ cosine 判断
       const captionEmb = captionEmbMap.get(caption);
-      if (topicEmb && captionEmb) {
+      if (topicEmb && topicEmb.length > 0 && captionEmb && captionEmb.length > 0) {
         const sim = cosine(topicEmb, captionEmb);
         const accepted = sim >= STAGE2_COSINE_THRESHOLD;
         if (!accepted) {
