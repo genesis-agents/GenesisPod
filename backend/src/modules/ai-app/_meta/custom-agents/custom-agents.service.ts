@@ -1,24 +1,74 @@
 /**
- * E R4 Phase 2 (PR-E1, 2026-05-05): 用户自定义 Agent CRUD service
+ * E R4 Phase 2 (PR-E2, 2026-05-05): 用户自定义 Agent CRUD service
  *
- * 当前骨架阶段：只做基本 CRUD。后续 PR-E2 增加 publish 校验（确保 5 步配置完整），
+ * publish 走 validateCustomAgentCompleteness 全 5 步校验。
+ * options() 给前端拉真实可选项（skills / models / tools / primitives / 枚举）。
  * PR-E3 集成到 agent-playground.runMission 启动路径。
  */
 import {
   Injectable,
-  ForbiddenException,
+  BadRequestException,
   NotFoundException,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
-import type {
-  CreateCustomAgentDto,
-  UpdateCustomAgentDto,
+import {
+  SkillRegistry,
+  ToolRegistry,
+  ModelRecommendationsService,
+  type ISkill,
+} from "@/modules/ai-engine/facade";
+import {
+  CUSTOM_AGENT_PRIMITIVES,
+  validateCustomAgentCompleteness,
+  type CreateCustomAgentDto,
+  type CustomAgentConfig,
+  type UpdateCustomAgentDto,
 } from "./dto/custom-agent.dto";
+
+export interface CustomAgentOptionsResponse {
+  primitives: ReadonlyArray<{
+    id: string;
+    label: string;
+    description: string;
+  }>;
+  skills: Array<{
+    id: string;
+    name: string;
+    domain: string;
+    layer: string;
+    description: string;
+  }>;
+  tools: Array<{
+    id: string;
+    name: string;
+    category: string;
+    description: string;
+  }>;
+  models: Array<{
+    provider: string;
+    modelType: string;
+    patterns: string[];
+    source: string;
+  }>;
+  enums: {
+    languages: ReadonlyArray<string>;
+    audiences: ReadonlyArray<string>;
+    depths: ReadonlyArray<string>;
+    lengthProfiles: ReadonlyArray<string>;
+    budgetProfiles: ReadonlyArray<string>;
+    styleProfiles: ReadonlyArray<string>;
+  };
+}
 
 @Injectable()
 export class CustomAgentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly skillRegistry: SkillRegistry,
+    private readonly toolRegistry: ToolRegistry,
+    private readonly modelRecommendations: ModelRecommendationsService,
+  ) {}
 
   async list(userId: string) {
     return this.prisma.customAgentDefinition.findMany({
@@ -85,19 +135,176 @@ export class CustomAgentsService {
   /**
    * Publish: DRAFT → PUBLISHED + version++
    *
-   * PR-E1 骨架：仅做最小校验（basicInfo.name 必填）。PR-E2 增加 5 步完整性校验。
+   * 走 validateCustomAgentCompleteness 全 5 步必填校验。
+   * 校验失败抛 BadRequest，前端逐项展示。
    */
   async publish(userId: string, id: string) {
     const existing = await this.getById(userId, id);
-    const config = existing.config as { basicInfo?: { name?: string } } | null;
-    if (!config?.basicInfo?.name) {
-      throw new ForbiddenException(
-        "config.basicInfo.name is required before publish",
-      );
+    const config = existing.config as CustomAgentConfig | null;
+    const issues = validateCustomAgentCompleteness(config);
+    if (issues.length > 0) {
+      throw new BadRequestException({
+        message: "Custom agent 配置不完整，无法 publish",
+        issues,
+      });
     }
     return this.prisma.customAgentDefinition.update({
       where: { id: existing.id },
       data: { status: "PUBLISHED", version: existing.version + 1 },
     });
+  }
+
+  /**
+   * POST /user/custom-agents/:id/translate
+   *
+   * E R4 Phase 2 PR-E3 (2026-05-05): 把 CustomAgentConfig 翻译成
+   * agent-playground RunMissionInput。前端拿到后调 /agent-playground/team/run
+   * 启动 mission。
+   *
+   * 翻译规则：
+   *   basicInfo.language          → language (zh → zh-CN, en → en-US)
+   *   basicInfo.audience          → audienceProfile + styleProfile
+   *   topicSchema.goalTemplate    → topic 后缀（"{topic}（聚焦：{goalTemplate}）"）
+   *   integration.defaultDepth    → depth
+   *   integration.defaultLength   → lengthProfile
+   *   integration.defaultBudget   → budgetProfile
+   *
+   * 当前 mission 14-stage pipeline 不消费 skills / pipeline.steps /
+   * integration.allowedTools/Models —— 这些字段在 metadata 里随 mission 走，
+   * 后续 dispatcher 支持 ACL 时再启用。
+   */
+  async translate(
+    userId: string,
+    id: string,
+    body: { topic: string; overrides?: Record<string, unknown> },
+  ): Promise<{
+    input: Record<string, unknown>;
+    metadata: {
+      customAgentId: string;
+      customAgentSlug: string;
+      version: number;
+    };
+  }> {
+    if (!body?.topic || body.topic.trim().length < 2) {
+      throw new BadRequestException("topic required (min 2 chars)");
+    }
+    const existing = await this.getById(userId, id);
+    if (existing.status !== "PUBLISHED") {
+      throw new BadRequestException(
+        "Custom agent must be PUBLISHED before launching mission",
+      );
+    }
+    const config = (existing.config as CustomAgentConfig | null) ?? {};
+
+    // language: zh → zh-CN, en → en-US（默认 zh-CN）
+    const lang = config.basicInfo?.language;
+    const language: "zh-CN" | "en-US" = lang === "en" ? "en-US" : "zh-CN";
+
+    // audience → audienceProfile + styleProfile
+    let audienceProfile: "executive" | "domain-expert" | "general-public" =
+      "domain-expert";
+    let styleProfile: "academic" | "executive" | "journalistic" | "technical" =
+      "executive";
+    switch (config.basicInfo?.audience) {
+      case "general":
+        audienceProfile = "general-public";
+        styleProfile = "journalistic";
+        break;
+      case "executive":
+        audienceProfile = "executive";
+        styleProfile = "executive";
+        break;
+      case "technical":
+        audienceProfile = "domain-expert";
+        styleProfile = "technical";
+        break;
+      case "academic":
+        audienceProfile = "domain-expert";
+        styleProfile = "academic";
+        break;
+    }
+
+    const topic = config.topicSchema?.goalTemplate
+      ? `${body.topic.trim()}（聚焦：${config.topicSchema.goalTemplate}）`
+      : body.topic.trim();
+
+    const input: Record<string, unknown> = {
+      topic,
+      language,
+      audienceProfile,
+      styleProfile,
+      depth: config.integration?.defaultDepth ?? "deep",
+      lengthProfile: config.integration?.defaultLength ?? "standard",
+      budgetProfile: config.integration?.defaultBudget ?? "medium",
+      withFigures: true,
+      auditLayers: "default",
+      concurrency: 3,
+      viewMode: "continuous",
+      ...(body.overrides ?? {}),
+    };
+
+    return {
+      input,
+      metadata: {
+        customAgentId: existing.id,
+        customAgentSlug: existing.slug,
+        version: existing.version,
+      },
+    };
+  }
+
+  /**
+   * GET /user/custom-agents/options —— 前端 5 步向导拉选项。
+   *
+   * skills / tools 从 in-memory registry 读（boot 时 SkillLoader / ToolLoader
+   * 已加载）；models 从 ModelRecommendationsService（DB + 默认推荐合并）。
+   */
+  async options(): Promise<CustomAgentOptionsResponse> {
+    const skills: ISkill[] = this.skillRegistry.getAll();
+    const tools = this.toolRegistry.getEnabled();
+    const recommendations = await this.modelRecommendations.listAll();
+
+    return {
+      primitives: CUSTOM_AGENT_PRIMITIVES,
+      skills: skills.map((s) => ({
+        id: s.id,
+        name: s.name,
+        domain: s.domain,
+        layer: String(s.layer),
+        description: s.description,
+      })),
+      tools: tools.map((t) => ({
+        id: t.id,
+        name: t.name,
+        category: String(t.category),
+        description: t.description ?? "",
+      })),
+      models: recommendations.map((r) => ({
+        provider: r.provider,
+        modelType: String(r.modelType),
+        patterns: r.patterns,
+        source: r.source,
+      })),
+      enums: {
+        languages: ["zh", "en"] as const,
+        audiences: ["general", "executive", "technical", "academic"] as const,
+        depths: ["quick", "standard", "deep"] as const,
+        lengthProfiles: [
+          "brief",
+          "standard",
+          "deep",
+          "extended",
+          "epic",
+          "mega",
+        ] as const,
+        budgetProfiles: ["low", "medium", "high", "unlimited"] as const,
+        styleProfiles: [
+          "academic",
+          "executive",
+          "journalistic",
+          "technical",
+        ] as const,
+      },
+    };
   }
 }
