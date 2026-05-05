@@ -122,7 +122,13 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
 
   private readonly config: Required<CircuitBreakerConfig>;
 
-  constructor(@Optional() private readonly cacheService?: CacheService) {
+  constructor(
+    @Optional() private readonly cacheService?: CacheService,
+    /** B (2026-05-05): CIRCUIT_OPEN/CLOSE hook seam — plugin 收到熔断事件
+     *  push 告警到 Slack/PagerDuty / 切换备用 provider 等。 */
+    @Optional()
+    private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
+  ) {
     // 默认配置
     this.config = {
       failureThreshold: 3,
@@ -234,11 +240,13 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     // 从 HALF_OPEN 转换到 CLOSED
     if (breaker.state === "HALF_OPEN") {
       if (breaker.successCount >= this.config.halfOpenSuccessThreshold) {
+        const wasOpenSince = breaker.lastFailureTime?.getTime() ?? Date.now();
         breaker.state = "CLOSED";
         breaker.cooldownUntil = null;
         this.logger.log(
           `[CircuitBreaker] Entity ${entityId} circuit CLOSED after ${breaker.successCount} successful requests`,
         );
+        this.fireCircuitClose(entityId, Date.now() - wasOpenSince);
       }
     }
 
@@ -263,6 +271,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     if (errorType === TaskCompletionType.RATE_LIMITED) {
       breaker.rateLimitCount++;
       breaker.lastRateLimitTime = new Date();
+      const wasOpen = breaker.state === "OPEN";
       breaker.state = "OPEN";
       breaker.cooldownUntil = new Date(
         Date.now() + this.config.rateLimitCooldownMs,
@@ -272,6 +281,15 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
       );
       this.breakers.set(entityId, breaker);
       this.saveToRedis(entityId, breaker);
+      if (!wasOpen) {
+        this.fireCircuitOpen(
+          entityId,
+          breaker.failureCount,
+          this.config.rateLimitCooldownMs,
+          "rate-limit",
+          errorMsg,
+        );
+      }
       return;
     }
 
@@ -280,6 +298,7 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
       errorType === TaskCompletionType.CONTEXT_OVERFLOW ||
       errorType === TaskCompletionType.AUTH_ERROR
     ) {
+      const wasOpen = breaker.state === "OPEN";
       breaker.state = "OPEN";
       breaker.cooldownUntil = new Date(
         Date.now() + this.config.defaultCooldownMs * 2,
@@ -289,11 +308,23 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
       );
       this.breakers.set(entityId, breaker);
       this.saveToRedis(entityId, breaker);
+      if (!wasOpen) {
+        const cat =
+          errorType === TaskCompletionType.AUTH_ERROR ? "auth" : "unknown";
+        this.fireCircuitOpen(
+          entityId,
+          breaker.failureCount,
+          this.config.defaultCooldownMs * 2,
+          cat,
+          errorMsg,
+        );
+      }
       return;
     }
 
     // 其他错误：检查阈值
     if (breaker.failureCount >= this.config.failureThreshold) {
+      const wasOpen = breaker.state === "OPEN";
       breaker.state = "OPEN";
       breaker.cooldownUntil = new Date(
         Date.now() + this.config.defaultCooldownMs,
@@ -301,6 +332,17 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(
         `[CircuitBreaker] Entity ${entityId} failed ${breaker.failureCount} times, circuit OPEN for ${this.config.defaultCooldownMs / 1000}s. Error: ${errorMsg}`,
       );
+      if (!wasOpen) {
+        const cat =
+          errorType === TaskCompletionType.TIMEOUT ? "timeout" : "unknown";
+        this.fireCircuitOpen(
+          entityId,
+          breaker.failureCount,
+          this.config.defaultCooldownMs,
+          cat,
+          errorMsg,
+        );
+      }
     }
 
     // HALF_OPEN 状态下任何失败都应重新打开熔断器
@@ -725,5 +767,34 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
       if (i !== -1) index.splice(i, 1);
     }
     await this.cacheService.set(indexKey, index, ttlSeconds);
+  }
+
+  // ── B (2026-05-05): CIRCUIT_OPEN/CLOSE hook fire helpers（fire-and-forget）──
+  private fireCircuitOpen(
+    target: string,
+    failureCount: number,
+    cooldownMs: number,
+    category: "rate-limit" | "timeout" | "5xx" | "auth" | "unknown",
+    lastError?: string,
+  ): void {
+    if (!this.hookBus) return;
+    void this.hookBus
+      .fire(
+        "engine.circuit.open",
+        { target, failureCount, cooldownMs, category, lastError },
+        async () => undefined,
+      )
+      .catch(() => undefined);
+  }
+
+  private fireCircuitClose(target: string, durationMs: number): void {
+    if (!this.hookBus) return;
+    void this.hookBus
+      .fire(
+        "engine.circuit.close",
+        { target, durationMs, manual: false },
+        async () => undefined,
+      )
+      .catch(() => undefined);
   }
 }

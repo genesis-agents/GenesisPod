@@ -144,6 +144,10 @@ export class ReActLoop implements IAgentLoop {
     @Optional() private readonly contextManager?: ContextManager,
     @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
     @Optional() private readonly cachePlanner?: CacheControlPlanner,
+    /** B (2026-05-05): AGENT_STEP_BEFORE/AFTER plugin hook seam（plugins/core
+     *  HookBus；与 harness 内置 hookRegistry 不同，plugin 这条是 onion 链） */
+    @Optional()
+    private readonly pluginHookBus?: import("@/plugins/core/hook-bus").HookBus,
   ) {}
 
   async *run(
@@ -275,6 +279,38 @@ export class ReActLoop implements IAgentLoop {
           approachingLimit,
           lastActionKind,
         });
+
+        // B (2026-05-05): AGENT_STEP_BEFORE — plugin 收到每轮 step 通知（fire-and-forget）
+        if (this.pluginHookBus) {
+          const stepStartMs = Date.now();
+          void this.pluginHookBus
+            .fire(
+              "harness.agent.step.before",
+              {
+                agentId,
+                iteration,
+                maxIterations: criteria.maxIterations,
+                envelope: currentEnvelope,
+              },
+              async () => undefined,
+            )
+            .catch(() => undefined);
+          // 用 setImmediate 在本轮结束后 fire AFTER（不阻塞 LLM 调用）
+          setImmediate(() => {
+            this.pluginHookBus
+              ?.fire(
+                "harness.agent.step.after",
+                {
+                  agentId,
+                  iteration,
+                  actionKind: lastActionKind,
+                  latencyMs: Date.now() - stepStartMs,
+                },
+                async () => undefined,
+              )
+              .catch(() => undefined);
+          });
+        }
 
         // 0d. ★ Phase P1 fix：逼近 maxIterations 时强力 nudge LLM finalize
         //   原 case (mission 8c7b4358)：researcher#0 在 retry 阶段跑 60+ ReAct 拍
