@@ -1365,8 +1365,22 @@ export class SectionWriterService {
           ),
         },
       };
-    } catch {
-      this.logger.warn("[parseChartOutput] Failed to parse chart JSON");
+    } catch (parseErr) {
+      // ★ 2026-05-05 P2 修复：原 catch 仅 "Failed to parse chart JSON"，无法
+      //   定位失败模式（截断 / 多余 markdown / 转义错误）。新增 jsonPart
+      //   preview + parse error message 供诊断。
+      const cleanJson = this.extractJsonBlock(jsonPart);
+      const preview =
+        cleanJson.length > 500
+          ? cleanJson.substring(0, 250) +
+            " ...[truncated]... " +
+            cleanJson.substring(cleanJson.length - 250)
+          : cleanJson;
+      const errMsg =
+        parseErr instanceof Error ? parseErr.message : String(parseErr);
+      this.logger.warn(
+        `[parseChartOutput] Failed to parse chart JSON: ${errMsg} | jsonLen=${cleanJson.length} | preview=${JSON.stringify(preview)}`,
+      );
       return {
         markdown,
         charts: { generatedCharts: [], figureReferences: [] },
@@ -1668,5 +1682,3 @@ export class SectionWriterService {
     return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
   }
 }
-
-
