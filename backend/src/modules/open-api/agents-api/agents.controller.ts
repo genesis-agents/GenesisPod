@@ -24,7 +24,7 @@ import {
   AgentId,
   AgentInput,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
-import { isPlatformAgentId } from "@/modules/ai-app/_meta/agent-catalog";
+import { isPlatformAgentId } from "@/modules/ai-app/contracts/agent-catalog";
 import { AgentsService } from "./agents.service";
 import {
   ExecuteRequestDto,

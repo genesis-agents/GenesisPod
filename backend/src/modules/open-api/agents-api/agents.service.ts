@@ -27,7 +27,7 @@ import {
   SLIDES_AGENT_ID,
   DOCS_AGENT_ID,
   DESIGNER_AGENT_ID,
-} from "@/modules/ai-app/_meta/agent-catalog";
+} from "@/modules/ai-app/contracts/agent-catalog";
 
 /**
  * 创建任务输入

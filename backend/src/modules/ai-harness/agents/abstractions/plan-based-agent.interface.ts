@@ -19,7 +19,7 @@ import {
   Artifact,
 } from "@/modules/ai-harness/agents/abstractions/agent.types";
 // v3 R0-A1-a: BUILTIN_AGENTS / BuiltinAgentId 已下推到各 ai-app *.constants.ts
-// 与 ai-app/_meta/agent-catalog.ts（PlatformAgentId）
+// 与 ai-app/contracts/agent-catalog.ts（PlatformAgentId）
 
 // ==================== 重导出核心类型 ====================
 export { AgentId, ToolId, SkillId, AgentInput, UploadedFile, Artifact };

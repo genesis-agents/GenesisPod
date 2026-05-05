@@ -13,7 +13,7 @@ import {
 import {
   PLATFORM_AGENT_IDS,
   SLIDES_AGENT_ID,
-} from "@/modules/ai-app/_meta/agent-catalog";
+} from "@/modules/ai-app/contracts/agent-catalog";
 
 /**
  * 任务详情响应 DTO

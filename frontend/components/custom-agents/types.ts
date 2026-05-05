@@ -133,7 +133,7 @@ export interface CustomAgentCompletenessIssue {
  * - ReviewStep 进入后做最后一次本地预检（双保险，后端仍是权威）
  *
  * 任何调整必须同步修改：
- *   backend/src/modules/ai-app/_meta/custom-agents/dto/custom-agent.dto.ts
+ *   backend/src/modules/ai-app/custom-agents/dto/custom-agent.dto.ts
  *   :: validateCustomAgentCompleteness
  */
 export function validateCustomAgentCompleteness(

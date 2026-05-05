@@ -7,7 +7,7 @@ import { AgentId } from "@/modules/ai-harness/agents/abstractions/agent.types";
 import {
   PLATFORM_AGENT_IDS,
   SLIDES_AGENT_ID,
-} from "@/modules/ai-app/_meta/agent-catalog";
+} from "@/modules/ai-app/contracts/agent-catalog";
 
 /**
  * Agent 模板 DTO

@@ -23,7 +23,7 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { CustomAgentsService } from "./custom-agents.service";
 import {
   CreateCustomAgentDto,

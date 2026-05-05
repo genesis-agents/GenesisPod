@@ -1,7 +1,5 @@
 /**
- * Agent catalog (L3.5 ai-app/_meta layer)
- *
- * v3 §3.1 元层：为多个 ai-app 提供通用容器，但本身不是单一业务。
+ * Agent catalog (ai-app/contracts 跨 app 注册表)
  *
  * 此文件聚合所有平台预置 ai-app 业务身份 + 文案，供 open-api / 前端 gallery 使用。
  *
@@ -10,8 +8,11 @@
  *   • 此 catalog 仅 reverse-import 各 ai-app constants 拼装，不重复定义文案
  *   • base layer (harness/engine/infra) 完全不知道业务名（v3 §0 基本原则）
  *
- * 历史：v3 R0-A1-a (2026-05-04) 从 harness/agents/domain/builtin-agent-catalog.ts
- *       下推到 L3.5，删除 base layer 业务硬编码。
+ * 历史：
+ *   v3 R0-A1-a (2026-05-04) 从 harness/agents/domain/builtin-agent-catalog.ts
+ *     下推到 ai-app 层，删除 base layer 业务硬编码。
+ *   2026-05-05 从 ai-app/_meta/agent-catalog.ts 搬到 ai-app/contracts/，
+ *     消除自造的 "L3.5 _meta" 层，与 contracts/skills + interfaces 同处。
  */
 import type { AgentConfig } from "@/modules/ai-harness/facade";
 
