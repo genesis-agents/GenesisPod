@@ -67,21 +67,36 @@ export class MissionRuntimeShellService {
     });
 
     const wallTimer = setTimeout(() => {
-      this.log.warn(
-        `[${missionId}] mission wall-time exceeded (${wallTimeMs}ms) - auto abort`,
-      );
-      void this.invoker
-        .emitEvent({
-          type: "agent-playground.mission:budget-warning-hard",
-          missionId,
-          userId,
-          payload: {
-            reason: "wall_time_exceeded",
-            wallTimeMs,
-          },
-        })
-        .catch(() => {});
-      missionAbort.abort("mission_wall_time_exceeded");
+      // ★ P0-1 (audit 2026-05-06): 用 try-finally 保证 abortRegistry.abort 一定执行，
+      //   即使 emit 失败 / abort 内部 throw 也不让 wall-timer 失效（mission 继续跑）
+      try {
+        this.log.warn(
+          `[${missionId}] mission wall-time exceeded (${wallTimeMs}ms) - auto abort`,
+        );
+        void this.invoker
+          .emitEvent({
+            type: "agent-playground.mission:budget-warning-hard",
+            missionId,
+            userId,
+            payload: {
+              reason: "wall_time_exceeded",
+              wallTimeMs,
+            },
+          })
+          .catch((err) => {
+            this.log.warn(
+              `[${missionId}] wall-timer emit failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      } finally {
+        try {
+          missionAbort.abort("mission_wall_time_exceeded");
+        } catch (err) {
+          this.log.error(
+            `[${missionId}] wall-timer abort failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
     }, wallTimeMs);
     wallTimer.unref?.();
 

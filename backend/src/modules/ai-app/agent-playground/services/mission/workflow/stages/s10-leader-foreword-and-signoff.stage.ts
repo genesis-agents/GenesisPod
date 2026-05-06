@@ -307,21 +307,27 @@ export async function runLeaderForewordAndSignoffStage(
       if (leaderSignOff.signed === true) {
         const actualWords = reportArtifact.metadata.wordCount ?? 0;
         const targetWords = lengthTargetFor(input.lengthProfile);
+        // ★ P0-4 (audit 2026-05-06): 即使 lengthProfile 配置错误（targetWords=0）
+        //   也要硬 floor 防"任何字数都通过"。500 字是行业最低可读报告下限。
+        const HARD_FLOOR_WORDS = 500;
+        const minWords = Math.max(
+          targetWords * MIN_CONTENT_WORDS_RATIO,
+          HARD_FLOOR_WORDS,
+        );
 
-        if (
-          targetWords > 0 &&
-          actualWords < targetWords * MIN_CONTENT_WORDS_RATIO
-        ) {
+        if (actualWords < minWords) {
           deps.log.warn(
-            `[${ctx.missionId}] leader signoff overridden: actualWords=${actualWords} < ${MIN_CONTENT_WORDS_RATIO * 100}% of targetWords=${targetWords} → unsign`,
+            `[${ctx.missionId}] leader signoff overridden: actualWords=${actualWords} < minWords=${Math.ceil(minWords)} (target=${targetWords}, floor=${HARD_FLOOR_WORDS}) → unsign`,
           );
           leaderSignOff.signed = false;
           leaderSignOff.leaderVerdict = "failed";
+          // ★ P0-8 (audit 2026-05-06): 加 refusalReason 让前端区分拒签 sub-class
+          leaderSignOff.refusalReason = "insufficient_content";
           leaderSignOff.accountabilityNote =
             `${leaderSignOff.accountabilityNote ?? ""}\n\n` +
-            `[Insufficient-Content-Hard-Block] 报告实际字数 ${actualWords} 低于目标字数 ` +
-            `${targetWords} 的 ${MIN_CONTENT_WORDS_RATIO * 100}%（floor=${Math.ceil(targetWords * MIN_CONTENT_WORDS_RATIO)}）。` +
-            `强制拒签避免假完成（mission 字数 0 却标已完成）；` +
+            `[Insufficient-Content-Hard-Block] 报告实际字数 ${actualWords} 低于最低门槛 ` +
+            `${Math.ceil(minWords)}（target=${targetWords} × ${MIN_CONTENT_WORDS_RATIO * 100}%, hard floor=${HARD_FLOOR_WORDS}）。` +
+            `强制拒签避免假完成（mission 字数过短却标已完成）；` +
             `用户可在前端选 重跑 / 修改 lengthProfile 后重启。`.trim();
         }
       }

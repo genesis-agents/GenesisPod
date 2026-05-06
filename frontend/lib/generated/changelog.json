@@ -1,5 +1,51 @@
 [
   {
+    "version": "40.9.0",
+    "date": "2026-05-06",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "加 2 条护栏阻止 useApi/apiClient path 双前缀漂移"
+      },
+      {
+        "type": "fix",
+        "description": "平台层删除 stage 死秒表 + zod 80事件 + youtubei 17 + contract spec"
+      },
+      {
+        "type": "fix",
+        "description": "修复路径双前缀漂移导致用户收不到通知"
+      },
+      {
+        "type": "fix",
+        "description": "derive.ts 加 stage:lifecycle handler — 修 mission stages 永不更新真因"
+      },
+      {
+        "type": "fix",
+        "description": "mission detail 全炸真因 — initialRisks 是 object 不是 string"
+      },
+      {
+        "type": "improvement",
+        "description": "extract StructuredOutputCapabilitySection to fix god-class size guard"
+      },
+      {
+        "type": "improvement",
+        "description": "三份硬编码价格表彻底清零，单一源走 ModelPricingRegistry"
+      },
+      {
+        "type": "feature",
+        "description": "phase 4 router integration + admin capability + protection net"
+      },
+      {
+        "type": "feature",
+        "description": "provider capability matrix + structured output adapter framework — 商用+本地全覆盖"
+      },
+      {
+        "type": "feature",
+        "description": "contract drift 看护四件套（lying assertion / ErrorBoundary / fixture / events zod）"
+      }
+    ]
+  },
+  {
     "version": "40.6.0",
     "date": "2026-05-06",
     "changes": [

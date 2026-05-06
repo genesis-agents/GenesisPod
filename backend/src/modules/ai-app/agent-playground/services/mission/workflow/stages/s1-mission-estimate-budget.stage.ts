@@ -25,12 +25,18 @@ export async function runBudgetEstimateStage(
 ): Promise<void> {
   const { missionId, userId, input, t0, billing, budgetMultiplier } = ctx;
 
-  await deps.emit({
-    type: "agent-playground.mission:started",
-    missionId,
-    userId,
-    payload: { input, workspaceId, startedAt: t0 },
-  });
+  await deps
+    .emit({
+      type: "agent-playground.mission:started",
+      missionId,
+      userId,
+      payload: { input, workspaceId, startedAt: t0 },
+    })
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[${missionId}] emit mission:started failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   // ★ 2026-05-06 单轨化: stage 状态由 orchestrator stage:lifecycle 唯一推进
   await narrate(deps.emit, missionId, userId, {
     stage: "s1-budget",
@@ -60,17 +66,23 @@ export async function runBudgetEstimateStage(
       estimate.suggestion === "abort"
         ? "agent-playground.mission:budget-warning-hard"
         : "agent-playground.mission:budget-warning-soft";
-    await deps.emit({
-      type: warningType,
-      missionId,
-      userId,
-      payload: {
-        shortfall: estimate.shortfall,
-        suggestion: estimate.suggestion,
-        estimatedCredits: estimate.estimatedCredits,
-        currentBalance: estimate.currentBalance,
-      },
-    });
+    await deps
+      .emit({
+        type: warningType,
+        missionId,
+        userId,
+        payload: {
+          shortfall: estimate.shortfall,
+          suggestion: estimate.suggestion,
+          estimatedCredits: estimate.estimatedCredits,
+          currentBalance: estimate.currentBalance,
+        },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit ${warningType} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     if (estimate.suggestion === "abort") {
       await narrate(deps.emit, missionId, userId, {
         stage: "s1-budget",

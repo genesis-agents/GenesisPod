@@ -176,7 +176,11 @@ export async function runCriticStage(
             ],
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit critic:verdict failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       await narrate(deps.emit, missionId, userId, {
         stage: "s9-critic-l4",
         role: "critic",

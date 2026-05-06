@@ -265,13 +265,19 @@ export async function runWriterStage(
     report = writerRes.output as ResearchReport;
     lastWriterAgent = writerRes.agent;
     lastWriterEvents = writerRes.events;
-    await deps.emit({
-      type: "agent-playground.report:draft",
-      missionId,
-      userId,
-      agentId: writerAgentId,
-      payload: { attempt: attempts, report },
-    });
+    await deps
+      .emit({
+        type: "agent-playground.report:draft",
+        missionId,
+        userId,
+        agentId: writerAgentId,
+        payload: { attempt: attempts, report },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit report:draft failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     const sectionCount =
       (report as unknown as { sections?: unknown[] }).sections?.length ?? 0;
     await narrate(deps.emit, missionId, userId, {
@@ -312,20 +318,26 @@ export async function runWriterStage(
         );
         continue;
       }
-      await deps.emit({
-        type: "agent-playground.verifier:verdict",
-        missionId,
-        userId,
-        agentId: "reviewer",
-        payload: {
-          verifierId: v.judgeId,
-          score: v.score,
-          critique: v.critique,
-          criteria: v.criteria,
-          modelId: v.modelId,
-          attempt: attempts,
-        },
-      });
+      await deps
+        .emit({
+          type: "agent-playground.verifier:verdict",
+          missionId,
+          userId,
+          agentId: "reviewer",
+          payload: {
+            verifierId: v.judgeId,
+            score: v.score,
+            critique: v.critique,
+            criteria: v.criteria,
+            modelId: v.modelId,
+            attempt: attempts,
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit verifier:verdict failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
     await deps.lifecycle(
       missionId,
@@ -377,16 +389,22 @@ export async function runWriterStage(
       );
       return 0;
     });
-  await deps.emit({
-    type: "agent-playground.memory:indexed",
-    missionId,
-    userId,
-    payload: {
-      chunks: indexed,
-      namespace: workspaceId ?? userId,
-      tags: [input.depth, input.topic],
-    },
-  });
+  await deps
+    .emit({
+      type: "agent-playground.memory:indexed",
+      missionId,
+      userId,
+      payload: {
+        chunks: indexed,
+        namespace: workspaceId ?? userId,
+        tags: [input.depth, input.topic],
+      },
+    })
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[${missionId}] emit memory:indexed failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
   const snap = pool.snapshot();
   // ★ 2026-04-30: 移走 S8 的 mission:completed —— 此时 S8B/S9/S9B/S10/S11/S12 都未跑，
@@ -394,19 +412,25 @@ export async function runWriterStage(
   //   mission:completed 改在 S11 markCompleted 成功后 emit。
   //   S8 只 emit draft:completed 让前端知道写作环节已结束、进入审稿/签字。
   const wallTimeMs = Date.now() - t0;
-  await deps.emit({
-    type: "agent-playground.draft:completed",
-    missionId,
-    userId,
-    payload: {
-      reviewScore,
-      costUsd: snap.poolCostUsd,
-      tokensUsed: snap.poolTokensUsed,
-      trajectoryStored: indexed,
-      wallTimeMs,
-      verifierVerdicts,
-    },
-  });
+  await deps
+    .emit({
+      type: "agent-playground.draft:completed",
+      missionId,
+      userId,
+      payload: {
+        reviewScore,
+        costUsd: snap.poolCostUsd,
+        tokensUsed: snap.poolTokensUsed,
+        trajectoryStored: indexed,
+        wallTimeMs,
+        verifierVerdicts,
+      },
+    })
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[${missionId}] emit draft:completed failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
   // ── 3. ReportArtifact v2 装配 ──
   // Credits are charged per model call by the AI facade BillingContext. A

@@ -186,6 +186,9 @@ async function runPersistInner(
     }
 
     if (!result.leaderSignOff) {
+      // ★ P0-10 (audit 2026-05-06): leader sign-off 缺失（mission 中途异常没走完）
+      //   不该误标为 quality-failed（那是"leader 已拒签"的语义）。删 leaderSigned/
+      //   leaderVerdict 字段让 store 走 status='failed' 路径。
       await deps.store.markFailed(missionId, {
         errorMessage:
           "leader_signoff_missing: report reached persist without final Leader signoff",
@@ -203,8 +206,6 @@ async function runPersistInner(
         userProfile: (result.userProfile ?? null) as never,
         reconciliationReport: (result.reconciliationReport ?? null) as never,
         verdicts: result.verdicts as never,
-        leaderSigned: false,
-        leaderVerdict: "failed",
       });
       await deps
         .emit({

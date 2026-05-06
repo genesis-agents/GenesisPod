@@ -515,14 +515,14 @@ describe("MissionStore", () => {
 
     it("markStageComplete: writes lastCompletedStage + heartbeat refresh", async () => {
       await store.markStageComplete("m1", 7);
-      const call = prisma.agentPlaygroundMission.update.mock.calls[0][0];
-      expect(call.where).toEqual({ id: "m1" });
+      const call = prisma.agentPlaygroundMission.updateMany.mock.calls[0][0];
+      expect(call.where).toEqual({ id: "m1", status: "running" });
       expect(call.data.lastCompletedStage).toBe(7);
       expect(call.data.heartbeatAt).toBeInstanceOf(Date);
     });
 
     it("markStageComplete: silently swallows DB errors", async () => {
-      prisma.agentPlaygroundMission.update.mockRejectedValueOnce(
+      prisma.agentPlaygroundMission.updateMany.mockRejectedValueOnce(
         new Error("conflict"),
       );
       await expect(store.markStageComplete("m1", 3)).resolves.toBeUndefined();

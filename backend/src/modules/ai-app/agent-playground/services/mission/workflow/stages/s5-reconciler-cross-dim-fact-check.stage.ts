@@ -57,7 +57,11 @@ export async function runReconcilerStage(
         userId,
         payload: { reason: "single_dimension" },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit reconciliation:skipped failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     return;
   }
   try {
@@ -115,19 +119,25 @@ export async function runReconcilerStage(
     if (reconRes.state === "completed" && reconRes.output) {
       ctx.reconciliationReport =
         reconRes.output as unknown as typeof ctx.reconciliationReport;
-      await deps.emit({
-        type: "agent-playground.reconciliation:completed",
-        missionId,
-        userId,
-        payload: {
-          factCount: ctx.reconciliationReport!.factTable.length,
-          conflictCount: ctx.reconciliationReport!.conflicts.length,
-          overlapCount: ctx.reconciliationReport!.overlaps.length,
-          gapCount: ctx.reconciliationReport!.gaps.length,
-          figureCandidateCount:
-            ctx.reconciliationReport!.figureCandidates.length,
-        },
-      });
+      await deps
+        .emit({
+          type: "agent-playground.reconciliation:completed",
+          missionId,
+          userId,
+          payload: {
+            factCount: ctx.reconciliationReport!.factTable.length,
+            conflictCount: ctx.reconciliationReport!.conflicts.length,
+            overlapCount: ctx.reconciliationReport!.overlaps.length,
+            gapCount: ctx.reconciliationReport!.gaps.length,
+            figureCandidateCount:
+              ctx.reconciliationReport!.figureCandidates.length,
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit reconciliation:completed failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       const r = ctx.reconciliationReport!;
       await narrate(deps.emit, missionId, userId, {
         stage: "s5-reconciler",
@@ -170,6 +180,10 @@ export async function runReconcilerStage(
           innerMessage: msg,
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:degraded (RECONCILER_FAILED) failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   }
 }

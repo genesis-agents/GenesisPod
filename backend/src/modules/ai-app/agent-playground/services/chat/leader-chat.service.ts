@@ -284,7 +284,11 @@ export class LeaderChatService {
           },
           timestamp: Date.now(),
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[${missionId}] emit dimension:retrying (leader-chat-create) for "${t.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
   }
 

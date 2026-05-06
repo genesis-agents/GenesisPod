@@ -44,15 +44,21 @@ export async function runLeaderPlanStage(
           .slice(0, 3)
           .join(" / ")}${out.dimensions.length > 3 ? " 等" : ""}`,
       emitExtras: async (out) => {
-        await deps.emit({
-          type: "agent-playground.leader:goals-set",
-          missionId,
-          userId,
-          payload: {
-            goals: out.goals,
-            initialRisks: out.initialRisks ?? [],
-          },
-        });
+        await deps
+          .emit({
+            type: "agent-playground.leader:goals-set",
+            missionId,
+            userId,
+            payload: {
+              goals: out.goals,
+              initialRisks: out.initialRisks ?? [],
+            },
+          })
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit leader:goals-set failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
       },
       customMetrics: (out) => ({
         dimensions: out.dimensions,

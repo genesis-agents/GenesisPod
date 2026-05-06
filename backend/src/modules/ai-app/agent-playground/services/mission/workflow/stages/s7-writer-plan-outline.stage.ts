@@ -176,14 +176,20 @@ export async function runWriterOutlineStage(
           factAllocation: trimRecord(outlinePlan.factAllocation),
         };
       }
-      await deps.emit({
-        type: "agent-playground.dimension:outline:planned",
-        missionId,
-        userId,
-        payload: {
-          chapterCount: outlinePlan.chapterOutlines?.length ?? 0,
-        },
-      });
+      await deps
+        .emit({
+          type: "agent-playground.dimension:outline:planned",
+          missionId,
+          userId,
+          payload: {
+            chapterCount: outlinePlan.chapterOutlines?.length ?? 0,
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:outline:planned failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       await narrate(deps.emit, missionId, userId, {
         stage: "s7-writer-outline",
         role: "writer",

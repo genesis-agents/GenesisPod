@@ -175,7 +175,11 @@ export async function runLeaderAssessResearchStage(
           patchCap: cappedNote ?? undefined,
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit leader:decision (assess-research) failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     if (m1.decision === "abort") {
       throw new Error(
@@ -203,7 +207,11 @@ export async function runLeaderAssessResearchStage(
             stats,
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit leader:decision (assess-research-dispatched) failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("Leader aborted")) {
@@ -307,7 +315,11 @@ async function dispatchAssessActions(args: {
             critique: action.critique,
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:retrying (leader-assess-abort) for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       continue;
     }
     const critique =
@@ -354,7 +366,11 @@ async function dispatchAssessActions(args: {
             retryLabel: job.retryLabel,
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:retrying (pre-batch) for "${job.dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
     // ★ Phase P1 fix (2026-04-29 mission 8c7b4358)：retry phase 启动里程碑事件，
     //   让 UI / 监控立即看到 "M1 patch dispatching N dims, expected wall=Xs"
@@ -376,7 +392,11 @@ async function dispatchAssessActions(args: {
           startMs: retryStartMs,
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:retry-phase:started failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     // ★ Phase 7 (2026-04-29): 用 ai-harness 沉淀的 DAGExecutor 替代 Promise.allSettled
     // 优势：① 内置 maxConcurrent 限流防 reasoning 模型 rate limit
     //       ② 单 job 失败不污染整批（同 allSettled），但更显式
@@ -530,7 +550,11 @@ async function dispatchAssessActions(args: {
               retryLabel: job.retryLabel,
             },
           })
-          .catch(() => {});
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit dimension:retry-failed for "${job.dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         ctx.s4PatchFailures = ctx.s4PatchFailures ?? [];
         ctx.s4PatchFailures.push({
           dimensionId: job.dim.id,
@@ -581,7 +605,11 @@ async function dispatchAssessActions(args: {
             retriedCount: retried,
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit mission:degraded (s4-patch-failed) failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       deps.log.warn(
         `[${missionId}] S4 patch dispatch 失败 ${skipped}/${retryJobs.length}，` +
           `mission 进入 degraded 模式（Leader signoff 阶段会读 ctx.s4PatchFailures）`,
@@ -604,7 +632,11 @@ async function dispatchAssessActions(args: {
           })),
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:retry-phase:completed failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   }
 
   // ── newDimensions[] (redirect) ──
@@ -630,7 +662,11 @@ async function dispatchAssessActions(args: {
           rationale: newDim.rationale,
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:retrying (leader-assess-extend) for "${newDim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     const out = await runResearcherWithCritique(ctx, deps, {
       dim: newDim,
       idx,
@@ -747,6 +783,10 @@ async function runResearcherWithCritique(
         retryLabel,
       },
     })
-    .catch(() => {});
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[${missionId}] emit researcher:completed (retry) for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   return output;
 }

@@ -281,7 +281,11 @@ export async function runSectionQualityEnhancementStage(
             : 0,
       },
     })
-    .catch(() => {});
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[${missionId}] emit section:remediation:summary failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
   // ★ 2026-04-30: emit stage:completed 让前端 todo-ledger 把 S8B 任务卡标 done
 }

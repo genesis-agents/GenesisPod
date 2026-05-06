@@ -670,7 +670,19 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     session: MissionRuntimeSession,
   ): Promise<void> {
     const err = result.error;
-    const message = err instanceof Error ? err.message : String(err);
+    // ★ P0-7 (audit 2026-05-06): err 是非 Error 对象时 String(err) 返回 "[object Object]"
+    //   让 UI 显示无意义文案。改用 JSON.stringify 兜底，让用户能定位真因。
+    const message = (() => {
+      if (err instanceof Error) return err.message;
+      if (err && typeof err === "object") {
+        try {
+          return JSON.stringify(err, null, 2).slice(0, 2000);
+        } catch {
+          return String(err);
+        }
+      }
+      return String(err);
+    })();
     const errName = err instanceof Error ? err.name : "Unknown";
     const snap = session.pool.snapshot();
     const wasCancelled =
@@ -1181,7 +1193,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
                       initialRisks: out.initialRisks ?? [],
                     },
                   })
-                  .catch(() => undefined);
+                  .catch((err: unknown) => {
+                    this.log.warn(
+                      `[${entry.session.missionId}] emit leader:goals-set (rerun) failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  });
               },
             },
             async () => ({
@@ -1317,7 +1333,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
                   fromCache: true,
                 },
               })
-              .catch(() => undefined);
+              .catch((err: unknown) => {
+                this.log.warn(
+                  `[${entry.session.missionId}] emit dimension:research:completed (cache) for "${r.dimension}" failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
           }
           // 如果还有未覆盖的 dim，跑 fresh pipeline 处理它们（仅 patch 那些）
           if (remainingDims.length > 0) {

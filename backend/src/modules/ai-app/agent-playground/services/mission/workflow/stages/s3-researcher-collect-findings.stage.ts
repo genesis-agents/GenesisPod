@@ -138,14 +138,28 @@ export async function runResearcherDispatchStage(
     if (skipChapterPipeline) {
       researcherResults = researchOnly;
     } else {
+      // ★ P0-5a (audit 2026-05-06): Promise.allSettled 防 1 dim 同步 throw 拖累全部。
+      //   runChapterPhase 内部已 try-catch 返回 researchResult 兜底，但
+      //   任何边界遗漏（emit reject / .catch 之外的 throw）一旦冒泡，
+      //   Promise.all 会让已完成 dim 的结果被一并丢弃。allSettled 让每个
+      //   dim 独立结算，rejected 的 dim 回退到 Phase A 的 research 结果。
       const phaseBLimit = pLimit(chapterPipelineConcurrency);
-      researcherResults = await Promise.all(
+      const settled = await Promise.allSettled(
         researchOnly.map((res, idx) =>
           phaseBLimit(() =>
             runChapterPhase(ctx, deps, plan.dimensions[idx], idx, res),
           ),
         ),
       );
+      researcherResults = settled.map((s, idx) => {
+        if (s.status === "fulfilled") return s.value;
+        const reason =
+          s.reason instanceof Error ? s.reason.message : String(s.reason);
+        deps.log.warn(
+          `[s3 phase B] dim "${plan.dimensions[idx].name}" rejected: ${reason} — fallback to phase-A research result`,
+        );
+        return researchOnly[idx];
+      });
     }
   }
 
@@ -159,15 +173,22 @@ export async function runResearcherDispatchStage(
   });
 
   if (pool.isExhausted()) {
-    await deps.emit({
-      type: "agent-playground.budget:exhausted",
-      missionId,
-      userId,
-      payload: pool.snapshot(),
-    });
+    await deps
+      .emit({
+        type: "agent-playground.budget:exhausted",
+        missionId,
+        userId,
+        payload: pool.snapshot(),
+      })
+      .catch((err: unknown) => {
+        deps.log.error(
+          `[${missionId}] budget:exhausted emit failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     // ★ P1-修2 (2026-05-06): budget exhausted 立刻 abort mission，让所有未完成
     //   stage 内部的 await 立即看到 abort signal 失败。之前只 emit 不 abort，
     //   mission 会继续到 wall-time 4h 才超时，浪费时间 + token。
+    // abort 不依赖 emit 成功，独立执行。
     deps.abortRegistry.abort(missionId, "budget_exhausted");
   }
 }
@@ -224,7 +245,11 @@ async function runChapterPhase(
           phase: "research-failed",
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:graded (research-failed) for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     return researchResult;
   }
   try {
@@ -268,7 +293,11 @@ async function runChapterPhase(
           },
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:degraded (chapter-pipeline-failed) for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     return {
       ...researchResult,
       findings: [],
@@ -326,7 +355,11 @@ async function runOneDim(
             matchedRecords: knownFailures.length,
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit failure-pattern:pre-applied for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     await deps.lifecycle(missionId, userId, agentId, "researcher", "started", {
@@ -346,7 +379,11 @@ async function runOneDim(
           dimensionIdx: idx,
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:research:started for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     const runResearcher = (
       attempt: number,
@@ -400,7 +437,11 @@ async function runOneDim(
               bumpedBudgetMultiplier: budgetMultiplier * 1.5,
             },
           })
-          .catch(() => {});
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit dimension:retrying (self-heal) for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         r = await runResearcher(
           1,
           budgetMultiplier * 1.5,
@@ -485,24 +526,34 @@ async function runOneDim(
           findingsCount: finalFindingsCount,
         },
       })
-      .catch(() => {});
-    await deps.emit({
-      type: "agent-playground.researcher:completed",
-      missionId,
-      userId,
-      agentId,
-      payload: {
-        dimension: dim.name,
-        state: r.state,
-        iterations: r.iterations,
-        wallTimeMs: r.wallTimeMs,
-        summary:
-          r.state === "completed" && r.output
-            ? (r.output as { summary?: string }).summary
-            : undefined,
-        findingsCount: finalFindingsCount,
-      },
-    });
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:research:completed for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    await deps
+      .emit({
+        type: "agent-playground.researcher:completed",
+        missionId,
+        userId,
+        agentId,
+        payload: {
+          dimension: dim.name,
+          state: r.state,
+          iterations: r.iterations,
+          wallTimeMs: r.wallTimeMs,
+          summary:
+            r.state === "completed" && r.output
+              ? (r.output as { summary?: string }).summary
+              : undefined,
+          findingsCount: finalFindingsCount,
+        },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit researcher:completed for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     await narrate(deps.emit, missionId, userId, {
       stage: "s3-researchers",
       role: "researcher",
@@ -539,7 +590,11 @@ async function runOneDim(
             recoveryHint: innerFailure?.recoveryHint,
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:degraded (ORCH_DIMENSION_DEGRADED) for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       if (innerFailure?.failureCode) {
         const innerModelId = (innerFailure.diagnostic?.modelId ??
           "unknown") as string;
@@ -697,7 +752,11 @@ async function runOneDim(
             },
           },
         })
-        .catch(() => {});
+        .catch((err2: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:degraded (ORCH_CHAPTER_PIPELINE_FAILED) for "${dim.name}" failed: ${err2 instanceof Error ? err2.message : String(err2)}`,
+          );
+        });
       return {
         ...researcherOut,
         summary:
@@ -751,7 +810,11 @@ async function runOneDim(
           },
         },
       })
-      .catch(() => {});
+      .catch((emitErr: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:degraded (exception) for "${dim.name}" failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+        );
+      });
     return {
       dimension: dim.name,
       findings: [],

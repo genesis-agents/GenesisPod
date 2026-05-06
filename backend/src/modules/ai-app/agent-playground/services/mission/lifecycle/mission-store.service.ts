@@ -152,13 +152,15 @@ export class MissionStore {
    * 当前只是观测用；PR-H v2 将基于此字段做 resume from checkpoint。
    */
   async markStageComplete(id: string, stageNumber: number): Promise<void> {
+    // ★ P0-9 (audit 2026-05-06): 加 status='running' guard，防止 mission 已 cancelled
+    //   后 stage 仍写 lastCompletedStage 混淆 resume 逻辑。updateMany 返回 count=0
+    //   时静默跳过（已终态的 mission 不该接收新 stage 完成信号）。
     await this.prisma.agentPlaygroundMission
-      .update({
-        where: { id },
+      .updateMany({
+        where: { id, status: "running" },
         data: { lastCompletedStage: stageNumber, heartbeatAt: new Date() },
       })
       .catch((err: unknown) => {
-        // ★ 全覆盖审计修 (2026-05-06): markStageComplete 失败改为 log.error 让 Railway 可见（不阻断主流程）
         this.log.error(
           `[markStageComplete ${id} s${stageNumber}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -416,9 +418,11 @@ export class MissionStore {
         data.report = undefined;
       }
     }
-    // 仅当带 Lead 数据时才区分 quality-failed；老调用路径行为不变（status=failed）
-    const isLeadRefusal =
-      data.leaderSigned === false || data.leaderOverallScore != null;
+    // ★ P0-10 (audit 2026-05-06): isLeadRefusal 只看 leaderSigned === false，
+    //   语义上 quality-failed = "Leader 走完 sign-off 流程并明确拒签"，
+    //   leaderOverallScore 仅作分档信号不是分类条件。修复前 `|| leaderOverallScore != null`
+    //   会让 mission 中途异常失败（leader 已评分但没走完 sign-off）误标 quality-failed。
+    const isLeadRefusal = data.leaderSigned === false;
     const update: Prisma.AgentPlaygroundMissionUpdateInput = {
       status: isLeadRefusal ? "quality-failed" : "failed",
       completedAt: new Date(),

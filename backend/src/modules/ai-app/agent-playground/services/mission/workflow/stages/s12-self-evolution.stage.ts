@@ -169,7 +169,11 @@ export async function runSelfEvolutionStage(
         userId,
         payload: summary as unknown as Record<string, unknown>,
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit mission:evolved failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     if (isAborted()) {
       deps.log.warn(

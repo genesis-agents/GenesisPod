@@ -525,21 +525,27 @@ export async function runPerDimPipeline(
         sourceIndices: number[];
       }[];
     };
-    await deps.emit({
-      type: "agent-playground.dimension:outline:planned",
-      missionId,
-      userId,
-      agentId: dimAgentTag,
-      payload: {
-        dimension: dimensionName,
-        chapterCount: outline.chapters.length,
-        chapters: outline.chapters.map((c) => ({
-          index: c.index,
-          heading: c.heading,
-          thesis: c.thesis,
-        })),
-      },
-    });
+    await deps
+      .emit({
+        type: "agent-playground.dimension:outline:planned",
+        missionId,
+        userId,
+        agentId: dimAgentTag,
+        payload: {
+          dimension: dimensionName,
+          chapterCount: outline.chapters.length,
+          chapters: outline.chapters.map((c) => ({
+            index: c.index,
+            heading: c.heading,
+            thesis: c.thesis,
+          })),
+        },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:outline:planned for "${dimensionName}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     // ★ 2026-05-01 治 chapter status 卡 pending 真因：
     //   prod 实测（mission 8a55cc93）outline:planned 与并发 chapter writer 的
@@ -656,18 +662,24 @@ export async function runPerDimPipeline(
       while (attempt < MAX_REVISION_ATTEMPTS + 1) {
         attempt += 1;
         const writerAgentId = `chapter-writer#${dimensionIdx}.${chapter.index}.${attempt}`;
-        await deps.emit({
-          type: "agent-playground.chapter:writing:started",
-          missionId,
-          userId,
-          agentId: writerAgentId,
-          payload: {
-            dimension: dimensionName,
-            chapterIndex: chapter.index,
-            heading: chapter.heading,
-            attempt,
-          },
-        });
+        await deps
+          .emit({
+            type: "agent-playground.chapter:writing:started",
+            missionId,
+            userId,
+            agentId: writerAgentId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: chapter.index,
+              heading: chapter.heading,
+              attempt,
+            },
+          })
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit chapter:writing:started for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         const writerRes = await deps.invoker.invoke(
           ChapterWriterAgent,
           {
@@ -708,18 +720,24 @@ export async function runPerDimPipeline(
           (writerRes.state === "completed" || writerRes.state === "degraded") &&
           !!writerRes.output;
         if (!writerUsable) {
-          await deps.emit({
-            type: "agent-playground.chapter:writing:completed",
-            missionId,
-            userId,
-            agentId: writerAgentId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: chapter.index,
-              attempt,
-              state: "failed",
-            },
-          });
+          await deps
+            .emit({
+              type: "agent-playground.chapter:writing:completed",
+              missionId,
+              userId,
+              agentId: writerAgentId,
+              payload: {
+                dimension: dimensionName,
+                chapterIndex: chapter.index,
+                attempt,
+                state: "failed",
+              },
+            })
+            .catch((err: unknown) => {
+              deps.log.warn(
+                `[${missionId}] emit chapter:writing:completed (failed) for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
           // 单章 writer 失败 → 返回 null，由外层过滤（不阻塞其他章节）
           return null;
         }
@@ -754,26 +772,32 @@ export async function runPerDimPipeline(
           defects.leakedFigureNotes +
           defects.longListItems +
           defects.trappedConclusions;
-        await deps.emit({
-          type: "agent-playground.chapter:writing:completed",
-          missionId,
-          userId,
-          agentId: writerAgentId,
-          payload: {
-            dimension: dimensionName,
-            chapterIndex: chapter.index,
-            heading: chapter.heading,
-            wordCount: draft.wordCount,
-            targetWords: targetWordsPerChapter,
-            attempt,
-            state: "completed",
-            // 沉淀 v2: 缺陷指标（0 = 干净，> 0 = 有格式问题）
-            defectScan:
-              totalDefects > 0
-                ? { total: totalDefects, ...defects }
-                : undefined,
-          },
-        });
+        await deps
+          .emit({
+            type: "agent-playground.chapter:writing:completed",
+            missionId,
+            userId,
+            agentId: writerAgentId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: chapter.index,
+              heading: chapter.heading,
+              wordCount: draft.wordCount,
+              targetWords: targetWordsPerChapter,
+              attempt,
+              state: "completed",
+              // 沉淀 v2: 缺陷指标（0 = 干净，> 0 = 有格式问题）
+              defectScan:
+                totalDefects > 0
+                  ? { total: totalDefects, ...defects }
+                  : undefined,
+            },
+          })
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit chapter:writing:completed for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         // ★ BUG-D: 章节级 narrative，让前端时间线不再静默
         await narrate(deps.emit, missionId, userId, {
           stage: "s3-researchers",
@@ -786,17 +810,23 @@ export async function runPerDimPipeline(
 
         // ── review ──
         const reviewerAgentId = `chapter-reviewer#${dimensionIdx}.${chapter.index}.${attempt}`;
-        await deps.emit({
-          type: "agent-playground.chapter:review:started",
-          missionId,
-          userId,
-          agentId: reviewerAgentId,
-          payload: {
-            dimension: dimensionName,
-            chapterIndex: chapter.index,
-            attempt,
-          },
-        });
+        await deps
+          .emit({
+            type: "agent-playground.chapter:review:started",
+            missionId,
+            userId,
+            agentId: reviewerAgentId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: chapter.index,
+              attempt,
+            },
+          })
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit chapter:review:started for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         const reviewerRes = await deps.invoker.invoke(
           ChapterReviewerAgent,
           {
@@ -890,23 +920,29 @@ export async function runPerDimPipeline(
                   },
                 ]
               : [];
-        await deps.emit({
-          type: "agent-playground.chapter:review:completed",
-          missionId,
-          userId,
-          agentId: reviewerAgentId,
-          payload: {
-            dimension: dimensionName,
-            chapterIndex: chapter.index,
-            attempt,
-            decision: verdict.decision,
-            score: verdict.score,
-            summary: verdict.summary,
-            issues,
-            // 兼容字段：critique 仍 emit 让旧前端能展示
-            critique: verdict.critique ?? verdict.summary,
-          },
-        });
+        await deps
+          .emit({
+            type: "agent-playground.chapter:review:completed",
+            missionId,
+            userId,
+            agentId: reviewerAgentId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: chapter.index,
+              attempt,
+              decision: verdict.decision,
+              score: verdict.score,
+              summary: verdict.summary,
+              issues,
+              // 兼容字段：critique 仍 emit 让旧前端能展示
+              critique: verdict.critique ?? verdict.summary,
+            },
+          })
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit chapter:review:completed for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         // ★ BUG-D: 章节复审 narrative
         // ★ P0-R3-1 (round 3): reviewer fallback 标 warning 让前端能感知"reviewer 故障 ≠ 通过"
         await narrate(deps.emit, missionId, userId, {
@@ -977,23 +1013,29 @@ export async function runPerDimPipeline(
                 ? "fallback-exhausted"
                 : "fallback-length";
 
-          await deps.emit({
-            type: "agent-playground.chapter:done",
-            missionId,
-            userId,
-            agentId: reviewerAgentId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: chapter.index,
-              finalAttempt: attempt,
-              decision: chapterDecision,
-              finalScore: verdict.score,
-              wordCount: draft.wordCount,
-              targetWordCount: targetWordsPerChapter,
-              finalized: true,
-              qualified: chapterDecision === "passed",
-            },
-          });
+          await deps
+            .emit({
+              type: "agent-playground.chapter:done",
+              missionId,
+              userId,
+              agentId: reviewerAgentId,
+              payload: {
+                dimension: dimensionName,
+                chapterIndex: chapter.index,
+                finalAttempt: attempt,
+                decision: chapterDecision,
+                finalScore: verdict.score,
+                wordCount: draft.wordCount,
+                targetWordCount: targetWordsPerChapter,
+                finalized: true,
+                qualified: chapterDecision === "passed",
+              },
+            })
+            .catch((err: unknown) => {
+              deps.log.warn(
+                `[${missionId}] emit chapter:done for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
 
           // ★ P0-D 完整版 (2026-05-06): 持久化 chapter draft 让下次 rerun cache hit
           // 防御 deps.store 缺失（spec mock 简化场景）：缺失即跳过持久化
@@ -1053,18 +1095,24 @@ export async function runPerDimPipeline(
         lastCritique = (
           lengthCritiquePrefix + (verdict.critique ?? verdict.summary ?? "")
         ).slice(0, MAX_CRITIQUE_CHARS);
-        await deps.emit({
-          type: "agent-playground.chapter:revision",
-          missionId,
-          userId,
-          agentId: reviewerAgentId,
-          payload: {
-            dimension: dimensionName,
-            chapterIndex: chapter.index,
-            nextAttempt: attempt + 1,
-            critique: verdict.critique,
-          },
-        });
+        await deps
+          .emit({
+            type: "agent-playground.chapter:revision",
+            missionId,
+            userId,
+            agentId: reviewerAgentId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: chapter.index,
+              nextAttempt: attempt + 1,
+              critique: verdict.critique,
+            },
+          })
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] emit chapter:revision for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
       }
 
       // while loop 耗尽但没有 return（理论上不会到这里，因为 attempt cap 必然触发）
@@ -1114,16 +1162,22 @@ export async function runPerDimPipeline(
 
     // ── 3. Integrate ──
     const integratorAgentId = `integrator#${dimensionIdx}`;
-    await deps.emit({
-      type: "agent-playground.dimension:integrating:started",
-      missionId,
-      userId,
-      agentId: integratorAgentId,
-      payload: {
-        dimension: dimensionName,
-        chapterCount: writtenChapters.length,
-      },
-    });
+    await deps
+      .emit({
+        type: "agent-playground.dimension:integrating:started",
+        missionId,
+        userId,
+        agentId: integratorAgentId,
+        payload: {
+          dimension: dimensionName,
+          chapterCount: writtenChapters.length,
+        },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit dimension:integrating:started for "${dimensionName}" failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
     const integrateRes = await deps.invoker.invoke(
       DimensionIntegratorAgent,
       {
@@ -1193,19 +1247,25 @@ export async function runPerDimPipeline(
       keyFindings = integrated.keyFindings;
       // ★ 强制使用代码拼接的 fullMarkdown（LLM 输出可能被截）
       fullMarkdown = stitchedFullMarkdown;
-      await deps.emit({
-        type: "agent-playground.dimension:integrating:completed",
-        missionId,
-        userId,
-        agentId: integratorAgentId,
-        payload: {
-          dimension: dimensionName,
-          totalWordCount: stitchedTotalWordCount,
-          chapterCount: writtenChapters.length,
-          // ★ degraded 路径标记，前端可视化时区分
-          degraded: integrateRes.state === "degraded",
-        },
-      });
+      await deps
+        .emit({
+          type: "agent-playground.dimension:integrating:completed",
+          missionId,
+          userId,
+          agentId: integratorAgentId,
+          payload: {
+            dimension: dimensionName,
+            totalWordCount: stitchedTotalWordCount,
+            chapterCount: writtenChapters.length,
+            // ★ degraded 路径标记，前端可视化时区分
+            degraded: integrateRes.state === "degraded",
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:integrating:completed for "${dimensionName}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     } else {
       // ★ 2026-05-02 改进：integrator 失败时仍走"算法兜底" — 用代码拼接产出
       //   fullMarkdown + 简化 abstract（用 chapter[0] 提取），不再丢章节内容。
@@ -1218,19 +1278,25 @@ export async function runPerDimPipeline(
       keyFindings = writtenChapters
         .slice(0, 3)
         .map((ch) => ch.heading || `章节 ${ch.index}`);
-      await deps.emit({
-        type: "agent-playground.dimension:integrating:completed",
-        missionId,
-        userId,
-        agentId: integratorAgentId,
-        payload: {
-          dimension: dimensionName,
-          totalWordCount: stitchedTotalWordCount,
-          chapterCount: writtenChapters.length,
-          degraded: true, // integrator LLM 失败但代码拼接兜底
-          fallback: "code-stitched-abstract", // 标记 abstract/keyFindings 是代码兜底
-        },
-      });
+      await deps
+        .emit({
+          type: "agent-playground.dimension:integrating:completed",
+          missionId,
+          userId,
+          agentId: integratorAgentId,
+          payload: {
+            dimension: dimensionName,
+            totalWordCount: stitchedTotalWordCount,
+            chapterCount: writtenChapters.length,
+            degraded: true, // integrator LLM 失败但代码拼接兜底
+            fallback: "code-stitched-abstract", // 标记 abstract/keyFindings 是代码兜底
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:integrating:completed (fallback) for "${dimensionName}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     // ── 4. 5-axis grade ──
