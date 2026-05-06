@@ -26,6 +26,13 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   T("mission:rerun-failed"), // 局部重跑失败，原产物保留（payload: scope, todoId, errorMessage）
   T("stage:started"),
   T("stage:completed"),
+  // ★ 2026-05-06 (A 架构优化): orchestrator-driven lifecycle 信号，与 stage:started/completed
+  //   并存。stage:lifecycle 由 dispatcher onEvent 桥接 orchestrator 内部事件，stage 字段
+  //   是 step.id 映射后的前端 SystemStageId；stage:started/completed 仍由 stage 文件 emit
+  //   作 metrics（携带 dimensions/results 等 custom payload）。
+  //   后续 PR：删 stage:started/completed，全靠 stage:lifecycle + 单独 stage:metrics 事件。
+  T("stage:lifecycle"),
+  T("stage:failed"),
   T("agent:lifecycle"),
   T("agent:thought"),
   T("agent:action"),

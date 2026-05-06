@@ -1025,6 +1025,45 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         s11.status = status === 'failed' ? 'failed' : 'done';
         s11.endedAt = ev.timestamp;
       }
+    } else if (t === 'agent-playground.stage:lifecycle') {
+      // ★ 2026-05-06 (A 架构优化): orchestrator-driven lifecycle 事件，dispatcher 桥接
+      //   orchestrator 内部 stage:started/completed/failed → agent-playground.stage:lifecycle。
+      //   stage 字段已经过 step.id → SystemStageId 映射，可直接用作 todo key。
+      //   workflow 控制权回归 harness/orchestrator —— 漏 emit 物理不可能（orchestrator 必发）。
+      const stage = p.stage as string | undefined;
+      const status = p.status as 'started' | 'completed' | 'failed' | undefined;
+      if (!stage || !status) continue;
+      const todoId = `system:${stage}` as const;
+      const todo = todos.get(todoId);
+      if (!todo) continue;
+      if (status === 'started') {
+        if (todo.status === 'pending') {
+          todo.status = 'in_progress';
+          todo.startedAt = ev.timestamp;
+        }
+      } else if (status === 'completed') {
+        if (todo.status !== 'failed' && todo.status !== 'cancelled') {
+          // ★ 不覆盖 stage:completed metrics handler 已经设的 'failed'/特殊状态，
+          //   只在还在 in_progress 时 promote 到 done。
+          if (todo.status !== 'done') {
+            todo.status = 'done';
+            todo.endedAt = ev.timestamp;
+          }
+        }
+      } else if (status === 'failed') {
+        if (todo.status !== 'cancelled') {
+          todo.status = 'failed';
+          todo.endedAt = ev.timestamp;
+          const err = p.error as string | undefined;
+          if (err) {
+            todo.narrativeLog.push({
+              ts: ev.timestamp,
+              text: `Stage 失败：${err.slice(0, 200)}`,
+              tone: 'error',
+            });
+          }
+        }
+      }
     } else if (t === 'agent-playground.mission:evolved') {
       // ★ 2026-05-01 真因可见性 (Screenshot 52 用户实证 S12 0s 没具体进化内容):
       //   backend mission:evolved 携带完整 PostmortemSummary（recommendations 数组 +
