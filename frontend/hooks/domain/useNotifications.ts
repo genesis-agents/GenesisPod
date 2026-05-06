@@ -1,6 +1,10 @@
 import { useApiGet, useApiMutation } from '../core';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import {
+  emitNotificationMutated,
+  onNotificationMutated,
+} from '@/lib/notifications/notification-events';
 
 /**
  * 通知类型
@@ -89,6 +93,8 @@ export function useNotifications(options?: {
     `/notifications?${queryParams.toString()}`
   );
 
+  useEffect(() => onNotificationMutated(() => void refresh()), [refresh]);
+
   return {
     notifications: data?.notifications || [],
     total: data?.total || 0,
@@ -107,6 +113,8 @@ export function useUnreadNotificationCount() {
   const { data, loading, error, refresh } = useApiGet<UnreadCountResponse>(
     '/notifications/unread-count'
   );
+
+  useEffect(() => onNotificationMutated(() => void refresh()), [refresh]);
 
   return {
     count: data?.count || 0,
@@ -132,6 +140,7 @@ export function useNotificationActions() {
         `/notifications/${notificationId}/read`,
         {}
       );
+      emitNotificationMutated();
       return result;
     } catch (err) {
       setError(err as Error);
@@ -149,6 +158,7 @@ export function useNotificationActions() {
         '/notifications/read-all',
         {}
       );
+      emitNotificationMutated();
       return result;
     } catch (err) {
       setError(err as Error);
@@ -165,6 +175,7 @@ export function useNotificationActions() {
       const result = await apiClient.delete<{ success: boolean }>(
         `/notifications/${notificationId}`
       );
+      emitNotificationMutated();
       return result;
     } catch (err) {
       setError(err as Error);
