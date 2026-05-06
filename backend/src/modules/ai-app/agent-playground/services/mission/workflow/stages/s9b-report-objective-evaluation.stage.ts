@@ -74,7 +74,7 @@ export async function runReportObjectiveEvaluationStage(
   const s9bStartedAt = Date.now();
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -121,7 +121,7 @@ export async function runReportObjectiveEvaluationStage(
     // ★ 2026-04-30: emit stage:completed 让前端 todo-ledger 把 S9B 任务卡标 done
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {
@@ -139,7 +139,7 @@ export async function runReportObjectiveEvaluationStage(
     // 失败也 emit completed，避免前端 todo 卡永远 in_progress
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {

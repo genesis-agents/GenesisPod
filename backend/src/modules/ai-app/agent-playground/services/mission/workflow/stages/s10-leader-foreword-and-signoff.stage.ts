@@ -70,7 +70,7 @@ async function emitLeaderSigned(
   // ★ 2026-05-06 (P0-A): emit stage:completed 一并由 signed 事件触发，覆盖所有早返路径
   await deps
     .emit({
-      type: "agent-playground.stage:completed",
+      type: "agent-playground.stage:metrics",
       missionId: ctx.missionId,
       userId: ctx.userId,
       payload: {
@@ -97,7 +97,7 @@ export async function runLeaderForewordAndSignoffStage(
   //   's10-leader-signoff' 占位卡永远翻不了牌。
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId: ctx.missionId,
       userId: ctx.userId,
       payload: {

@@ -105,8 +105,8 @@ describe("runAnalystStage (S6)", () => {
     const deps = makeDeps();
     await runAnalystStage(ctx, deps);
     const types = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
-    expect(types).toContain("agent-playground.stage:started");
-    expect(types).toContain("agent-playground.stage:completed");
+    expect(types).toContain("agent-playground.stage:metrics");
+    expect(types).toContain("agent-playground.stage:metrics");
   });
 
   it("first attempt null → retries once with simplified prompt", async () => {
@@ -199,10 +199,12 @@ describe("runAnalystStage (S6)", () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runAnalystStage(ctx, deps);
+    // ★ A-2 完整版后 wrapper emit 两次 stage:metrics；找含 insightsCount 字段那次（completed）
     const completed = (deps.emit as jest.Mock).mock.calls.find(
       (c) =>
-        c[0].type === "agent-playground.stage:completed" &&
-        c[0].payload?.stage === "analyst",
+        c[0].type === "agent-playground.stage:metrics" &&
+        c[0].payload?.stage === "analyst" &&
+        c[0].payload?.insightsCount !== undefined,
     );
     expect(completed[0].payload.insightsCount).toBe(2);
   });

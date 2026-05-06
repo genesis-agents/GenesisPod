@@ -82,7 +82,7 @@ export async function runResearcherDispatchStage(
   if (!plan) throw new Error("S3 researcher dispatch requires ctx.plan");
 
   await deps.emit({
-    type: "agent-playground.stage:started",
+    type: "agent-playground.stage:metrics",
     missionId,
     userId,
     payload: {
@@ -104,7 +104,7 @@ export async function runResearcherDispatchStage(
   );
   if (hasDependencies) {
     await deps.emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -193,7 +193,7 @@ export async function runResearcherDispatchStage(
     });
   }
   await deps.emit({
-    type: "agent-playground.stage:completed",
+    type: "agent-playground.stage:metrics",
     missionId,
     userId,
     payload: {

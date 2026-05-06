@@ -35,7 +35,7 @@ export async function runBudgetEstimateStage(
   //   依赖 mission:started + stage:started leader 间接 transition，路径脆弱）
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: { stage: "s1-budget", startedAtMs: t0 },
@@ -89,7 +89,7 @@ export async function runBudgetEstimateStage(
       });
       await deps
         .emit({
-          type: "agent-playground.stage:completed",
+          type: "agent-playground.stage:metrics",
           missionId,
           userId,
           payload: {
@@ -122,7 +122,7 @@ export async function runBudgetEstimateStage(
   // ★ 2026-05-06 (P0-A): S1 正常路径 stage:completed
   await deps
     .emit({
-      type: "agent-playground.stage:completed",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {

@@ -59,7 +59,7 @@ export async function runAnalystStage(
   }
 
   await deps.emit({
-    type: "agent-playground.stage:started",
+    type: "agent-playground.stage:metrics",
     missionId,
     userId,
     payload: { stage: "analyst" },
@@ -212,7 +212,7 @@ export async function runAnalystStage(
       contradictions: [],
     };
     await deps.emit({
-      type: "agent-playground.stage:completed",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -227,7 +227,7 @@ export async function runAnalystStage(
   }
   const analyst = analystRes.output as AnalystOutputShape;
   await deps.emit({
-    type: "agent-playground.stage:completed",
+    type: "agent-playground.stage:metrics",
     missionId,
     userId,
     payload: { stage: "analyst", insightsCount: analyst.insights.length },

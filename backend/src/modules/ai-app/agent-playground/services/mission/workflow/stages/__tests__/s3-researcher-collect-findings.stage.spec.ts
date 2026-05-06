@@ -242,7 +242,7 @@ describe("runResearcherDispatchStage (S3)", () => {
     const deps = makeDeps();
     await runResearcherDispatchStage(ctx, deps);
     const types = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
-    expect(types).toContain("agent-playground.stage:completed");
+    expect(types).toContain("agent-playground.stage:metrics");
   });
 
   it("single dim failure → degrades to empty findings (mission continues)", async () => {

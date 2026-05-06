@@ -138,7 +138,7 @@ export async function runWriterStage(
     attempts += 1;
     const writerAgentId = `writer#${attempts}`;
     await deps.emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: { stage: "writer", attempt: attempts },
@@ -296,7 +296,7 @@ export async function runWriterStage(
 
     // ── L3 reviewer consensus（self/external/critical 三路评分） ──
     await deps.emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: { stage: "reviewer", attempt: attempts },
@@ -350,7 +350,7 @@ export async function runWriterStage(
       },
     );
     await deps.emit({
-      type: "agent-playground.stage:completed",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -382,7 +382,7 @@ export async function runWriterStage(
   }
 
   await deps.emit({
-    type: "agent-playground.stage:completed",
+    type: "agent-playground.stage:metrics",
     missionId,
     userId,
     payload: { stage: "writer", attempts, finalScore: reviewScore },

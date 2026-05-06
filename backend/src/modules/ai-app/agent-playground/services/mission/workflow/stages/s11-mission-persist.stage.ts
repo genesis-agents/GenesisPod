@@ -73,7 +73,7 @@ export async function runPersistStage(
   //   's11-persist' 占位卡永远翻不了牌。
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -95,7 +95,7 @@ export async function runPersistStage(
   } finally {
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {

@@ -62,7 +62,7 @@ export async function runCriticStage(
   //   占位卡永远翻不了牌。stage='critic' 与前端 line ~510 handler 对应。
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -262,7 +262,7 @@ export async function runCriticStage(
     }
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {
@@ -283,7 +283,7 @@ export async function runCriticStage(
     );
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {

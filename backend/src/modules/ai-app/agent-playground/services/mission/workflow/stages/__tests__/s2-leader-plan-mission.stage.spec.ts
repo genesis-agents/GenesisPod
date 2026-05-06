@@ -67,8 +67,8 @@ describe("runLeaderPlanStage (S2)", () => {
     const deps = makeDeps();
     await runLeaderPlanStage(ctx, deps);
     const types = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
-    expect(types).toContain("agent-playground.stage:started");
-    expect(types).toContain("agent-playground.stage:completed");
+    expect(types).toContain("agent-playground.stage:metrics");
+    expect(types).toContain("agent-playground.stage:metrics");
   });
 
   it("priorPostmortems injected into leader.plan call", async () => {
@@ -152,10 +152,12 @@ describe("runLeaderPlanStage (S2)", () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runLeaderPlanStage(ctx, deps);
+    // ★ A-2 完整版后 wrapper emit 两次 stage:metrics（started + completed）；找 completed 那次（含 dimensions）
     const completedCall = (deps.emit as jest.Mock).mock.calls.find(
       (c) =>
-        c[0].type === "agent-playground.stage:completed" &&
-        c[0].payload?.stage === "leader",
+        c[0].type === "agent-playground.stage:metrics" &&
+        c[0].payload?.stage === "leader" &&
+        c[0].payload?.dimensions !== undefined,
     );
     expect(completedCall[0].payload.dimensions).toHaveLength(3);
     expect(completedCall[0].payload.themeSummary).toBeDefined();

@@ -62,7 +62,7 @@ export async function runReconcilerStage(
   }
   try {
     await deps.emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: { stage: "reconciler" },
@@ -155,7 +155,7 @@ export async function runReconcilerStage(
       },
     );
     await deps.emit({
-      type: "agent-playground.stage:completed",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: { stage: "reconciler", state: reconRes.state },

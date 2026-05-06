@@ -199,10 +199,12 @@ describe("runReconcilerStage (S5)", () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runReconcilerStage(ctx, deps);
+    // ★ A-2 完整版后 wrapper emit 两次 stage:metrics（started + completed）；找含 state 字段那次
     const completedStage = (deps.emit as jest.Mock).mock.calls.find(
       (c) =>
-        c[0].type === "agent-playground.stage:completed" &&
-        c[0].payload?.stage === "reconciler",
+        c[0].type === "agent-playground.stage:metrics" &&
+        c[0].payload?.stage === "reconciler" &&
+        c[0].payload?.state !== undefined,
     );
     expect(completedStage[0].payload.state).toBe("completed");
   });

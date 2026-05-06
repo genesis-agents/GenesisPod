@@ -78,7 +78,7 @@ export async function runSectionQualityEnhancementStage(
   const s8bStartedAt = Date.now();
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -301,7 +301,7 @@ export async function runSectionQualityEnhancementStage(
   // ★ 2026-04-30: emit stage:completed 让前端 todo-ledger 把 S8B 任务卡标 done
   await deps
     .emit({
-      type: "agent-playground.stage:completed",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {

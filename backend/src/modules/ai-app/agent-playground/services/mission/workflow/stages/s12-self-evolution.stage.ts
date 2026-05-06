@@ -93,7 +93,7 @@ export async function runSelfEvolutionStage(
   const stageStartedAt = Date.now();
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -108,7 +108,7 @@ export async function runSelfEvolutionStage(
       deps.log.warn(`[${missionId}] S12 skipped: abort signal received`);
       await deps
         .emit({
-          type: "agent-playground.stage:completed",
+          type: "agent-playground.stage:metrics",
           missionId,
           userId,
           payload: {
@@ -296,7 +296,7 @@ export async function runSelfEvolutionStage(
     );
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {
@@ -315,7 +315,7 @@ export async function runSelfEvolutionStage(
     );
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {

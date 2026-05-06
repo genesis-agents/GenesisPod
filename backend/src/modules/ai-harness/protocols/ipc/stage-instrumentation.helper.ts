@@ -86,7 +86,7 @@ export interface StageInstrumentationConfig<TOutput> {
   readonly narrateSuccess?: (output: TOutput) => string;
   /** stage 业务专属的额外 emit（如 "leader:goals-set"），可选 */
   readonly emitExtras?: (output: TOutput) => Promise<void>;
-  /** 可选：附加到 stage:completed 的 custom 字段 */
+  /** 可选：附加到 stage:metrics 的 custom 字段 */
   readonly customMetrics?: (output: TOutput) => Record<string, unknown>;
   /** 可选：覆盖 agentInvocations（默认 1） */
   readonly agentInvocations?: number;
@@ -94,14 +94,14 @@ export interface StageInstrumentationConfig<TOutput> {
 
 /**
  * Run `business()` 包在标准 stage instrumentation 内：
- *   1. emit "stage:started"
+ *   1. emit "stage:metrics"
  *   2. lifecycle "started"
  *   3. (可选) narrate thinking
  *   4. business() — 业务核心
  *   5. (失败) lifecycle "failed" + rethrow
  *   6. lifecycle "completed"
  *   7. (可选) emitExtras
- *   8. emit "stage:completed"（带 tokensUsed / durationMs）
+ *   8. emit "stage:metrics"（带 tokensUsed / durationMs）
  *   9. (可选) narrate success
  */
 export async function runWithStageInstrumentation<TOutput>(
@@ -114,7 +114,7 @@ export async function runWithStageInstrumentation<TOutput>(
   const tokensBefore = ctx.pool?.snapshot?.()?.poolTokensUsed ?? 0;
 
   await deps.emit({
-    type: `${config.eventPrefix}.stage:started`,
+    type: `${config.eventPrefix}.stage:metrics`,
     missionId: ctx.missionId,
     userId: ctx.userId,
     payload: { stage: config.role, startedAtMs: stageTimer.startedAtMs },
@@ -167,7 +167,7 @@ export async function runWithStageInstrumentation<TOutput>(
 
   const tokensAfter = ctx.pool?.snapshot?.()?.poolTokensUsed ?? 0;
   await stageTimer.emitCompleted(deps.emit, ctx.missionId, ctx.userId, {
-    eventType: `${config.eventPrefix}.stage:completed`,
+    eventType: `${config.eventPrefix}.stage:metrics`,
     stage: config.role,
     tokensUsed: tokensAfter - tokensBefore,
     agentInvocations: config.agentInvocations ?? 1,

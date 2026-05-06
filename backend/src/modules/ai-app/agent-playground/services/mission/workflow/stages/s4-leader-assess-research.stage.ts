@@ -61,7 +61,7 @@ export async function runLeaderAssessResearchStage(
   //   前端 todo-ledger 占位卡永远翻不了牌。同 S7/S8B/S9B 修复模式。
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -183,7 +183,7 @@ export async function runLeaderAssessResearchStage(
     if (m1.decision === "abort") {
       await deps
         .emit({
-          type: "agent-playground.stage:completed",
+          type: "agent-playground.stage:metrics",
           missionId,
           userId,
           payload: {
@@ -223,7 +223,7 @@ export async function runLeaderAssessResearchStage(
     }
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {
@@ -252,7 +252,7 @@ export async function runLeaderAssessResearchStage(
     // legacy 兼容：原 stage:completed status='failed' 仍 emit 让现有 metrics 链路读到
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {

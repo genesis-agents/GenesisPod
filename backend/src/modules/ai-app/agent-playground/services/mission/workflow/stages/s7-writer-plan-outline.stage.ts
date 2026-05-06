@@ -53,7 +53,7 @@ export async function runWriterOutlineStage(
   const s7StartedAt = Date.now();
   await deps
     .emit({
-      type: "agent-playground.stage:started",
+      type: "agent-playground.stage:metrics",
       missionId,
       userId,
       payload: {
@@ -208,7 +208,7 @@ export async function runWriterOutlineStage(
     // ★ 2026-04-30 (#62): emit stage:completed 让前端 todo 卡标 done
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {
@@ -225,7 +225,7 @@ export async function runWriterOutlineStage(
     // ★ 失败也 emit completed status=failed 避免前端 todo 卡永远 in_progress
     await deps
       .emit({
-        type: "agent-playground.stage:completed",
+        type: "agent-playground.stage:metrics",
         missionId,
         userId,
         payload: {

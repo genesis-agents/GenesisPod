@@ -389,7 +389,16 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           : `预算软告警：估算超出建议但可继续`,
         isHard ? 'error' : 'warn'
       );
-    } else if (t === 'agent-playground.stage:started') {
+    } else if (
+      t === 'agent-playground.stage:metrics' &&
+      (p.status === undefined ||
+        p.status === 'started' ||
+        p.startedAtMs !== undefined)
+    ) {
+      // ★ 2026-05-06 (A-2 完整版): backend 14 stage 文件 stage:started → stage:metrics 重命名。
+      //   metrics 是 status transition 的"启动信号"（含 started 半态 + 携带配置 metrics）。
+      //   status transition 唯一来源是 stage:lifecycle，本 handler 保留是为了 artifacts。
+      //   注意：stage:lifecycle 推 in_progress 才是机制保证，本 handler 推 in_progress 是冗余但幂等。
       const stage = p.stage as string | undefined;
       if (stage === 'leader') {
         upsert(
@@ -632,7 +641,18 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         );
       }
-    } else if (t === 'agent-playground.stage:completed') {
+    } else if (
+      t === 'agent-playground.stage:metrics' &&
+      (p.status === 'completed' ||
+        p.status === 'failed' ||
+        p.status === 'aborted' ||
+        p.status === 'rejected' ||
+        p.status === 'cancelled')
+    ) {
+      // ★ 2026-05-06 (A-2 完整版): backend 14 stage 文件 stage:completed → stage:metrics 重命名。
+      //   metrics 是 status transition 的"完成信号"（含 completed/failed/aborted 终态 + custom payload）。
+      //   status transition 唯一来源是 stage:lifecycle，本 handler 保留是为了 artifacts/narrativeLog 累加。
+      //   注意：stage:lifecycle 推 done/failed 才是机制保证，本 handler 重复推是冗余但幂等。
       const stage = p.stage as string | undefined;
       if (stage === 'leader') {
         const dims =
