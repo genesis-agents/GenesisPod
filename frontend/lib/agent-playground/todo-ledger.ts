@@ -1625,6 +1625,11 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         ) {
           continue;
         }
+        // ★ 2026-05-06 #86: s12-self-evolution 是 fire-and-forget postlude,
+        //   mission:completed 触发时它通常还 pending（mission:postlude:started
+        //   稍后才到）。不能在这里把它标 cancelled，否则下面 line 624 的
+        //   `if status === 'pending'` 检查永远失败 → s12 永远卡 cancelled。
+        if (id === 'system:s12-self-evolution') continue;
         if (td.status === 'in_progress') {
           td.status = 'done';
           td.endedAt = ev.timestamp;

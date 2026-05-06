@@ -128,6 +128,19 @@ export function useAgentPlaygroundStream(missionId: string | null) {
           }
         }
       );
+      // ★ 2026-05-06 #74: hydrate /replay (line 86) → socket join 之间发生的事件
+      //   既不在 initial replay 快照里，也不在 socket live 流里 → 永远丢失。
+      //   常见现象：S2 leader-plan completed 在 socket join 前 emit，dim 任务卡
+      //   永不出现，必须刷新页面才能看到（刷新 = 重新 hydrate /replay 拿全量）。
+      //   修法：onConnect 后用 lastTs 兜底拉一次 /replay 覆盖空隙。
+      void (async () => {
+        try {
+          const replay = await replayMission(missionId, lastTsRef.current);
+          if (!cancelled) append(replay.events);
+        } catch {
+          // 忽略错误：socket live 流仍在跑，下次 disconnect 时 startPolling 会兜底
+        }
+      })();
     };
     const onDisconnect = () => {
       if (cancelled) return;

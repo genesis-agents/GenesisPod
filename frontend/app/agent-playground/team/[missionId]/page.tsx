@@ -143,6 +143,10 @@ export default function MissionDetailPage() {
         'agent-playground.mission:cancelled',
         // ★ 2026-04-30 (B 路线): 局部重跑完成也要 re-fetch persisted —— stage 产物已 patch
         'agent-playground.mission:rerun-completed',
+        // ★ 2026-05-06 #83: mission:postlude:completed 表示 S12 自我进化 fire-and-forget
+        //   也跑完，此时 mission row tokens_used / cost_usd / report_full 已最终落库，
+        //   再 re-fetch 一次确保前端拿到最终数字（不只是 S11 完成时刻的快照）。
+        'agent-playground.mission:postlude:completed',
       ].includes(ev.type)
     );
     if (!terminal) return;
@@ -150,17 +154,24 @@ export default function MissionDetailPage() {
     if (lastTerminalRef.current === sig) return;
     lastTerminalRef.current = sig;
     let cancelled = false;
-    // small delay 让后端 S11 write commit + cache invalidation 落定
-    const t = setTimeout(() => {
+    // ★ 2026-05-06 #83: 延迟 800 → 立即 + 800 + 2500 三连拉，让用户切到"输出报告"
+    //   tab 不需要等 800ms 才看到内容；如果第一次拉时 reportFull 还没写完（race），
+    //   后续两次兜底。
+    const fetchAndSet = () => {
+      if (cancelled) return;
       getMissionDetail(missionId)
         .then((d) => {
           if (!cancelled) setPersisted(d);
         })
         .catch(() => {});
-    }, 800);
+    };
+    fetchAndSet();
+    const t1 = setTimeout(fetchAndSet, 800);
+    const t2 = setTimeout(fetchAndSet, 2500);
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      clearTimeout(t1);
+      clearTimeout(t2);
     };
   }, [events, missionId, invalidId]);
 

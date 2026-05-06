@@ -796,8 +796,10 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       const dim = p?.dimension as string | undefined;
       if (dim) {
         const pipeline = ensurePipeline(dim);
+        const overall = (p?.overall as number | undefined) ?? 0;
+        const failed = (p?.failed as boolean | undefined) ?? false;
         pipeline.grade = {
-          overall: (p?.overall as number | undefined) ?? 0,
+          overall,
           grade: (p?.grade as string | undefined) ?? '',
           axes:
             (p?.axes as
@@ -806,10 +808,18 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           summary: (p?.summary as string | undefined) ?? '',
           // ★ 2026-05-01 真因可见性：捕获 backend INVARIANT 兜底事件的 failed/
           //   skipped/phase 标记，前端可区分"真评分 0 分"vs"评分失败 sentinel"
-          failed: (p?.failed as boolean | undefined) ?? false,
+          failed,
           skipped: (p?.skipped as boolean | undefined) ?? false,
           phase: p?.phase as string | undefined,
         };
+        // ★ 2026-05-06 #75: dim grade 通过（overall>=60 且未 failed）时清除
+        //   integrationDegraded flag。integrator state='degraded' 只表示 abstract/
+        //   keyFindings 用次优版，但 fullMarkdown 由代码确定性拼接（见
+        //   per-dim-pipeline.util.ts:1225 stitchedFullMarkdown），不依赖 LLM。
+        //   quality-judge 给 92 excellent 时不该再展示"兜底完成"误导用户。
+        if (overall >= 60 && !failed) {
+          pipeline.integrationDegraded = false;
+        }
         // ★ 2026-04-30 REDESIGN (task #61): retryLabel 在 payload 表示 fresh-collect retry 完成
         //   关闭该 dim 的 active fresh retry 路由，让后续事件回到原 dim pipeline
         const retryLabel = p?.retryLabel as string | undefined;
