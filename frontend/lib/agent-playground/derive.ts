@@ -53,6 +53,7 @@ export function mapStepIdToStageId(stepId: string | undefined): StageId | null {
   }
   if (
     stepId === 's7-writer-outline' ||
+    stepId === 's8-writer' ||
     stepId === 's8-writer-draft' ||
     stepId === 's8b-section-quality-enhancement' ||
     stepId === 's8b-quality-enhancement'
@@ -68,6 +69,63 @@ export function mapStepIdToStageId(stepId: string | undefined): StageId | null {
     return 'reviewer';
   }
   return null;
+}
+
+/**
+ * ★ 2026-05-06 (problem A): Leader stage 状态机错误修复
+ *
+ * 问题：原代码 `任意 step completed → stage='done'` 导致 leader stage 被 s1-budget
+ * （极快完成）瞬间标 done，后续 s2/s4/s10/s11 都被锁住"已完成"状态，用户感受到的
+ * "Stage 不刷新"真因。
+ *
+ * 修法：每 stage 含的 step 列表显式声明，stage 状态由所有 step 状态聚合：
+ *   - 任意 step failed → stage='failed'（优先）
+ *   - 所有 step done → stage='done'
+ *   - 任意 step running 或 部分 done → stage='running'
+ *   - 否则 → stage='pending'
+ *
+ * **不含 s12-self-evolution**：它是 fire-and-forget postlude，不阻塞 mission terminal。
+ * **不含 s8b-quality-enhancement**：它是 audit 可选 step（minimal 档位 skip）。
+ */
+export const STAGE_STEPS: Record<StageId, readonly string[]> = {
+  leader: [
+    's1-budget',
+    's2-leader-plan',
+    's4-leader-assess',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  researchers: ['s3-researcher-collect'],
+  analyst: ['s5-reconciler', 's6-analyst'],
+  writer: ['s7-writer-outline', 's8-writer'],
+  reviewer: ['s9-critic', 's9b-objective-eval'],
+};
+
+export type StepStatus = 'pending' | 'running' | 'done' | 'failed';
+
+/** 由 step 状态聚合 stage 状态：failed > running > pending > done */
+export function aggregateStageStatus(
+  stageId: StageId,
+  stepStates: Map<string, StepStatus>
+): StageStatus {
+  const steps = STAGE_STEPS[stageId];
+  let hasFailed = false;
+  let hasRunning = false;
+  let doneCount = 0;
+  let knownCount = 0;
+  for (const step of steps) {
+    const s = stepStates.get(step);
+    if (s == null) continue; // 未知 step 不参与聚合（pending fallback）
+    knownCount++;
+    if (s === 'failed') hasFailed = true;
+    else if (s === 'running') hasRunning = true;
+    else if (s === 'done') doneCount++;
+  }
+  if (hasFailed) return 'failed';
+  if (knownCount === 0) return 'pending';
+  if (doneCount === steps.length) return 'done';
+  if (hasRunning || doneCount > 0) return 'running';
+  return 'pending';
 }
 
 export type StageStatus = 'pending' | 'running' | 'done' | 'failed';
@@ -250,6 +308,23 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
   const stages: Map<StageId, StageState> = new Map(
     STAGE_ORDER.map((id) => [id, { id, status: 'pending' as StageStatus }])
   );
+  // ★ 2026-05-06 (problem A): 跟踪每个 step 的独立状态，stage 状态由 STAGE_STEPS
+  //   聚合而来。修原"任意 step completed → stage='done'"的设计 bug。
+  const stepStates = new Map<string, StepStatus>();
+  const recomputeStage = (stageId: StageId, eventTs: number): void => {
+    const cur = stages.get(stageId);
+    if (!cur) return;
+    const newStatus = aggregateStageStatus(stageId, stepStates);
+    if (newStatus !== cur.status) {
+      cur.status = newStatus;
+      if (newStatus === 'running' && cur.startedAt == null) {
+        cur.startedAt = eventTs;
+      }
+      if (newStatus === 'done' || newStatus === 'failed') {
+        cur.endedAt = eventTs;
+      }
+    }
+  };
   const agents: Map<string, AgentLiveState> = new Map();
   const verdicts: VerifierVerdict[] = [];
   const reports: ReportDraft[] = [];
@@ -348,16 +423,25 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       if (mapped) {
         const cur = stages.get(mapped);
         if (cur) {
-          if (status === 'started') {
-            // 不要把已 done 的 stage 回滚到 running（多 stepId 映射同一 stageId
-            // 时只取首个 started + 最后 completed）
-            if (cur.status !== 'done' && cur.status !== 'failed') {
-              cur.status = 'running';
-              cur.startedAt = cur.startedAt ?? ev.timestamp;
+          // ★ 2026-05-06 (problem A): 用 stepStates 聚合，不再"任意 completed → done"。
+          //   每个 step 独立跟踪状态，stage 状态由 STAGE_STEPS 中所有 step 状态聚合。
+          //   stepId 必须存在才能写入 stepStates（仅有 stage 不能定位具体 step）。
+          if (stepId) {
+            if (status === 'started') {
+              const prev = stepStates.get(stepId);
+              if (prev !== 'done' && prev !== 'failed') {
+                stepStates.set(stepId, 'running');
+              }
+            } else if (status === 'completed') {
+              stepStates.set(stepId, 'done');
+            } else if (status === 'failed') {
+              stepStates.set(stepId, 'failed');
             }
-          } else if (status === 'completed') {
-            cur.status = 'done';
-            cur.endedAt = ev.timestamp;
+            // 'degraded' 视为 done（业务软失败但产物可用）
+            if (status === 'degraded') stepStates.set(stepId, 'done');
+            recomputeStage(mapped, ev.timestamp);
+          }
+          if (status === 'completed') {
             // 保留旧 stage:completed 时的 leader.dimensions / themeSummary 提取，
             // 让 mission rerun 也能 hydrate 这些字段
             if (mapped === 'leader' && stepId === 's2-leader-plan') {
@@ -388,10 +472,10 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
                 });
               }
             }
-          } else if (status === 'failed') {
-            cur.status = 'failed';
-            cur.endedAt = ev.timestamp;
           }
+          // ★ 2026-05-06 (problem A): status='failed' 已通过 stepStates +
+          //   recomputeStage 处理（聚合时 hasFailed → stage='failed'），
+          //   此处不再重复写 cur.status，避免覆盖聚合结果。
         }
       }
     } else if (t === 'agent-playground.stage:started') {

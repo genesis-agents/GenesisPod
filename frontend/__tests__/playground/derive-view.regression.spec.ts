@@ -332,4 +332,116 @@ describe('deriveView regression — prod fixtures', () => {
     // 没有 prior degraded，flag 应该是 false 或 undefined
     expect(pipeline!.integrationDegraded).toBeFalsy();
   });
+
+  // ---------------------------------------------------------------------------
+  // ★ 2026-05-06 #A regression: Leader stage 状态机
+  // 原 bug：任意 step completed → stage='done'，s1-budget 极快完成后 leader stage
+  // 永远卡 done，后续 s2/s4/s10/s11 step 完成不会重新激活 leader stage 状态。
+  // 修：stepStates 跟踪每 step + STAGE_STEPS 聚合（所有 step done 才 stage done）。
+  // ---------------------------------------------------------------------------
+  it('#A: leader stage 不能因 s1-budget completed 单一 step 就标 done', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: { stage: 's1-budget', stepId: 's1-budget', status: 'started' },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: {
+          stage: 's1-budget',
+          stepId: 's1-budget',
+          status: 'completed',
+        },
+        timestamp: 2000,
+      },
+    ];
+    const view = deriveView(events);
+    const leader = view.stages.find((s) => s.id === 'leader');
+    // s1 done 但 s2/s4/s10/s11 未启 → leader 应是 running（部分 done），不是 done
+    expect(leader!.status).toBe('running');
+  });
+
+  it('#A: leader stage 仅当 5 个 step 都 done 才 done', () => {
+    const events: PlaygroundEvent[] = [
+      's1-budget',
+      's2-leader-plan',
+      's4-leader-assess',
+      's10-leader-foreword-signoff',
+      's11-persist',
+    ].flatMap((stepId, i) => [
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: { stage: stepId, stepId, status: 'started' },
+        timestamp: i * 100 + 1,
+      },
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: { stage: stepId, stepId, status: 'completed' },
+        timestamp: i * 100 + 2,
+      },
+    ]);
+    const view = deriveView(events);
+    const leader = view.stages.find((s) => s.id === 'leader');
+    expect(leader!.status).toBe('done');
+  });
+
+  it('#A: leader stage 任意 step failed → stage failed', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: {
+          stage: 's1-budget',
+          stepId: 's1-budget',
+          status: 'completed',
+        },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: {
+          stage: 's2-leader-plan',
+          stepId: 's2-leader-plan',
+          status: 'failed',
+        },
+        timestamp: 2000,
+      },
+    ];
+    const view = deriveView(events);
+    const leader = view.stages.find((s) => s.id === 'leader');
+    expect(leader!.status).toBe('failed');
+  });
+
+  it('#A: degraded 状态视为 done（业务软失败但产物可用）', () => {
+    const events: PlaygroundEvent[] = ['s5-reconciler', 's6-analyst'].flatMap(
+      (stepId, i) => [
+        {
+          type: 'agent-playground.stage:lifecycle' as const,
+          payload: { stage: stepId, stepId, status: 'completed' },
+          timestamp: i * 100 + 1,
+        },
+      ]
+    );
+    const view = deriveView(events);
+    const analyst = view.stages.find((s) => s.id === 'analyst');
+    expect(analyst!.status).toBe('done');
+  });
+
+  it('#A: writer s7 + s8 都 done 才 stage done（s8b 可选不算）', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: {
+          stage: 's7-writer-outline',
+          stepId: 's7-writer-outline',
+          status: 'completed',
+        },
+        timestamp: 1000,
+      },
+    ];
+    const view = deriveView(events);
+    const writer = view.stages.find((s) => s.id === 'writer');
+    // s7 done 但 s8 未启 → writer 应是 running，不是 done
+    expect(writer!.status).toBe('running');
+  });
 });
