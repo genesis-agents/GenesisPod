@@ -23,9 +23,7 @@ import { SecretForm } from './SecretForm';
 import { SecretAccessLogs } from './SecretAccessLogs';
 import { SecretVersions } from './SecretVersions';
 import { SecretValueModal } from './SecretValueModal';
-import { ExpectedSecretsPanel } from './ExpectedSecretsPanel';
 import { SecretKeysDrawer } from './SecretKeysDrawer';
-import type { ExpectedSecretItem } from '@/hooks/domain/useAdminSecrets';
 
 const CATEGORY_OPTIONS: {
   value: SecretCategory;
@@ -119,8 +117,6 @@ export function SecretsManager({
     isUpdating,
     isDeleting,
     isRollingBack,
-    expectedSecrets,
-    expectedLoading,
   } = useAdminSecrets();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -184,16 +180,6 @@ export function SecretsManager({
     }
   };
 
-  const handleConfigureExpected = (_item: ExpectedSecretItem) => {
-    setEditingSecret(null);
-    setShowAddModal(true);
-  };
-
-  const handleDeleteOrphan = async (secretId: string, name: string) => {
-    void secretId; // secretId not needed — deleteSecret uses name
-    await handleDelete(name);
-  };
-
   const getCategoryBadge = (category: SecretCategory) => {
     const option = CATEGORY_OPTIONS.find((o) => o.value === category);
     return option ? (
@@ -227,15 +213,9 @@ export function SecretsManager({
         </div>
       )}
 
-      {/* 预置卡槽面板 */}
-      <ExpectedSecretsPanel
-        expected={expectedSecrets}
-        loading={expectedLoading}
-        onConfigure={handleConfigureExpected}
-        onDeleteOrphan={(secretId, name) => {
-          void handleDeleteOrphan(secretId, name);
-        }}
-      />
+      {/* ExpectedSecretsPanel 已迁出此 tab — 设计文档 v0.4 §4.5.0b 明确要求
+          KEY 管理 tab 不显示 Platform Tool Keys 统计 / Apply / Configure /
+          Setup guide 等引导杂物。如需 onboarding 进度，独立 onboarding 页承载。 */}
 
       {/* Search和过滤 */}
       <div className="flex gap-4">

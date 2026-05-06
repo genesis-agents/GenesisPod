@@ -71,19 +71,30 @@ export function SecretKeysDrawer({ secret, onClose }: SecretKeysDrawerProps) {
             onTest={testKey}
           />
 
-          <div className="mt-6 rounded bg-gray-50 p-3 text-xs text-gray-600">
-            <p className="mb-1 font-medium">About multi-key fallback:</p>
+          <div className="mt-6 rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+            <p className="mb-1 font-medium">How multi-key works:</p>
             <ul className="list-inside list-disc space-y-0.5">
               <li>
-                Lower priority number = preferred. Failover is automatic on
-                error.
+                Existing secrets are migrated as a single{' '}
+                <span className="font-mono">primary</span> key — the original
+                value you configured. Click <strong>+ Add Key</strong> to add
+                backups for fallback.
+              </li>
+              <li>
+                Lower <strong>priority</strong> wins. On error the next eligible
+                key is used automatically.
               </li>
               <li>
                 Keys marked <span className="font-mono">failed</span> within 5
-                min are skipped (circuit breaker).
+                min are temporarily skipped (circuit breaker).
               </li>
               <li>
-                Replacing a value resets the test status; click Test to verify.
+                <strong>Replace</strong> rotates a key's value — status resets
+                to Unknown; click <strong>Test</strong> to verify decryption.
+              </li>
+              <li>
+                Status <span className="font-mono">Unknown</span> only means no
+                test has run yet; the key may still be valid in real traffic.
               </li>
             </ul>
           </div>
