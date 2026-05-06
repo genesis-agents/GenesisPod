@@ -575,6 +575,62 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             t0.startedAt = ev.timestamp;
           }
         );
+      } else if (stage === 's1-budget') {
+        // ★ 2026-05-06 (P0-A): S1 显式 stage:started 兜底
+        const s1 = todos.get('system:s1-budget');
+        if (s1 && s1.status === 'pending') {
+          s1.status = 'in_progress';
+          s1.startedAt = ev.timestamp;
+        }
+      } else if (stage === 's4-leader-assess') {
+        // ★ 2026-05-06 (P0-A 截图 4 红框 #11): S4 此前从不发 stage:started
+        upsert(
+          'system:s4-leader-assess',
+          () =>
+            systemStageInit(
+              's4-leader-assess',
+              'Leader 评审 Researcher 产出',
+              '看 finding 数量 / summary 质量，决定 retry / abort / extend / accept',
+              'leader',
+              ev.timestamp
+            ),
+          (t0) => {
+            t0.status = 'in_progress';
+            t0.startedAt = ev.timestamp;
+          }
+        );
+      } else if (stage === 's10-leader-signoff') {
+        upsert(
+          'system:s10-leader-signoff',
+          () =>
+            systemStageInit(
+              's10-leader-signoff',
+              'Leader 签字',
+              'Leader 综合所有产出 + Critic 警示，写综合摘要 + 签字',
+              'leader',
+              ev.timestamp
+            ),
+          (t0) => {
+            t0.status = 'in_progress';
+            t0.startedAt = ev.timestamp;
+          }
+        );
+      } else if (stage === 's11-persist') {
+        upsert(
+          'system:s11-persist',
+          () =>
+            systemStageInit(
+              's11-persist',
+              '持久化',
+              '把 reportArtifact + leaderSignOff + verdicts 等终态产物落盘到 DB',
+              'mission',
+              ev.timestamp
+            ),
+          (t0) => {
+            t0.status = 'in_progress';
+            t0.startedAt = ev.timestamp;
+          }
+        );
       }
     } else if (t === 'agent-playground.stage:completed') {
       const stage = p.stage as string | undefined;
@@ -873,6 +929,101 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
               ]
             : []),
         ];
+      } else if (stage === 's1-budget') {
+        // ★ 2026-05-06 (P0-A): S1 显式 stage:completed
+        const s1 = todos.get('system:s1-budget');
+        if (s1 && s1.status !== 'done' && s1.status !== 'failed') {
+          const status = (p.status as string) ?? 'completed';
+          s1.status = status === 'failed' ? 'failed' : 'done';
+          s1.endedAt = ev.timestamp;
+        }
+      } else if (stage === 's4-leader-assess') {
+        // ★ 2026-05-06 (P0-A 截图 4 红框 #11): S4 stage:completed handler
+        const status = (p.status as string) ?? 'completed';
+        const s4 = upsert('system:s4-leader-assess', () =>
+          systemStageInit(
+            's4-leader-assess',
+            'Leader 评审 Researcher 产出',
+            '评审 / 决策 / 派发',
+            'leader',
+            ev.timestamp
+          )
+        );
+        s4.status =
+          status === 'failed' || status === 'aborted' ? 'failed' : 'done';
+        s4.endedAt = ev.timestamp;
+        const decision = p.decision as string | undefined;
+        if (decision) {
+          s4.artifacts = [
+            { kind: 'finding-count', label: 'Leader 决策', value: decision },
+          ];
+        }
+      } else if (stage === 'critic') {
+        // ★ 2026-05-06 (P0-A): S9 critic stage:completed handler
+        const status = (p.status as string) ?? 'completed';
+        const s9 = upsert('system:s9-critic-l4', () =>
+          systemStageInit(
+            's9-critic-l4',
+            'L4 独立复审 · 盲点 / 偏见 / 建议',
+            'Critic 独立复审',
+            'critic',
+            ev.timestamp
+          )
+        );
+        s9.status = status === 'failed' ? 'failed' : 'done';
+        s9.endedAt = ev.timestamp;
+      } else if (stage === 's10-leader-signoff') {
+        // ★ 2026-05-06 (P0-A): S10 stage:completed handler（成功 / 拒签都算 stage 完成）
+        const status = (p.status as string) ?? 'completed';
+        const s10 = upsert('system:s10-leader-signoff', () =>
+          systemStageInit(
+            's10-leader-signoff',
+            'Leader 签字',
+            'Leader 综合所有产出 + 签字',
+            'leader',
+            ev.timestamp
+          )
+        );
+        s10.status = status === 'failed' ? 'failed' : 'done';
+        s10.endedAt = ev.timestamp;
+        const verdict = p.leaderVerdict as string | undefined;
+        const refusal = p.refusalReason as string | undefined;
+        if (verdict || refusal) {
+          s10.artifacts = [
+            ...(verdict
+              ? [
+                  {
+                    kind: 'verdict-score' as const,
+                    label: 'Leader 判定',
+                    value: verdict,
+                  },
+                ]
+              : []),
+            ...(refusal
+              ? [
+                  {
+                    kind: 'finding-count' as const,
+                    label: '拒签原因',
+                    value: refusal,
+                  },
+                ]
+              : []),
+          ];
+        }
+      } else if (stage === 's11-persist') {
+        // ★ 2026-05-06 (P0-A): S11 stage:completed handler
+        const status = (p.status as string) ?? 'completed';
+        const s11 = upsert('system:s11-persist', () =>
+          systemStageInit(
+            's11-persist',
+            '持久化',
+            '终态产物落盘',
+            'mission',
+            ev.timestamp
+          )
+        );
+        s11.status = status === 'failed' ? 'failed' : 'done';
+        s11.endedAt = ev.timestamp;
       }
     } else if (t === 'agent-playground.mission:evolved') {
       // ★ 2026-05-01 真因可见性 (Screenshot 52 用户实证 S12 0s 没具体进化内容):

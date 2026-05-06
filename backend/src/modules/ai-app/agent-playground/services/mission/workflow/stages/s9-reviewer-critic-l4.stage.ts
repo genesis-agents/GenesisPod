@@ -58,6 +58,20 @@ export async function runCriticStage(
     (input.audienceProfile === "executive" && input.auditLayers !== "minimal");
   if (!enableCritic) return;
 
+  // ★ 2026-05-06 (P0-A): S9 之前从未 emit stage:started/completed，前端 todo-ledger
+  //   占位卡永远翻不了牌。stage='critic' 与前端 line ~510 handler 对应。
+  await deps
+    .emit({
+      type: "agent-playground.stage:started",
+      missionId,
+      userId,
+      payload: {
+        stage: "critic",
+        startedAtMs: Date.now(),
+      },
+    })
+    .catch(() => {});
+
   try {
     await narrate(deps.emit, missionId, userId, {
       stage: "s9-critic-l4",
@@ -246,9 +260,32 @@ export async function runCriticStage(
         );
       }
     }
+    await deps
+      .emit({
+        type: "agent-playground.stage:completed",
+        missionId,
+        userId,
+        payload: {
+          stage: "critic",
+          status: "completed",
+        },
+      })
+      .catch(() => {});
   } catch (err) {
     deps.log.warn(
       `[${missionId}] L4 critic failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
+    await deps
+      .emit({
+        type: "agent-playground.stage:completed",
+        missionId,
+        userId,
+        payload: {
+          stage: "critic",
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err),
+        },
+      })
+      .catch(() => {});
   }
 }

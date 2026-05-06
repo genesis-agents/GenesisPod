@@ -67,6 +67,52 @@ export async function runPersistStage(
   args: PersistInput,
   deps: MissionDeps,
 ): Promise<void> {
+  const { missionId, userId } = args;
+
+  // ★ 2026-05-06 (P0-A): S11 之前从未 emit stage:started/completed，前端 todo-ledger
+  //   's11-persist' 占位卡永远翻不了牌。
+  await deps
+    .emit({
+      type: "agent-playground.stage:started",
+      missionId,
+      userId,
+      payload: {
+        stage: "s11-persist",
+        startedAtMs: Date.now(),
+      },
+    })
+    .catch(() => {});
+
+  // 把整个 persist 主体包到一个 inner 函数里，最后用 finally emit stage:completed
+  let s11Status: "completed" | "failed" = "completed";
+  let s11Reason: string | undefined;
+  try {
+    await runPersistInner(args, deps);
+  } catch (err) {
+    s11Status = "failed";
+    s11Reason = err instanceof Error ? err.message : String(err);
+    throw err;
+  } finally {
+    await deps
+      .emit({
+        type: "agent-playground.stage:completed",
+        missionId,
+        userId,
+        payload: {
+          stage: "s11-persist",
+          status: s11Status,
+          ...(s11Reason ? { error: s11Reason } : {}),
+        },
+      })
+      .catch(() => {});
+  }
+  return;
+}
+
+async function runPersistInner(
+  args: PersistInput,
+  deps: MissionDeps,
+): Promise<void> {
   const { missionId, userId, t0, result, pool } = args;
   const snap = pool.snapshot();
   // P0-5: 优先存 ReportArtifact v2，fallback 旧 ResearchReport v1

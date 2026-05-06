@@ -57,6 +57,21 @@ export async function runLeaderAssessResearchStage(
     throw new Error("Leader assess stage requires plan + researcherResults");
   }
 
+  // ★ 2026-05-06 (P0-A 截图 4 红框 #11 卡待启动): S4 之前从未 emit stage:started/completed，
+  //   前端 todo-ledger 占位卡永远翻不了牌。同 S7/S8B/S9B 修复模式。
+  await deps
+    .emit({
+      type: "agent-playground.stage:started",
+      missionId,
+      userId,
+      payload: {
+        stage: "s4-leader-assess",
+        startedAtMs: Date.now(),
+        dimensions: plan.dimensions.length,
+      },
+    })
+    .catch(() => {});
+
   try {
     await narrate(deps.emit, missionId, userId, {
       stage: "s4-leader-assess",
@@ -166,6 +181,19 @@ export async function runLeaderAssessResearchStage(
       .catch(() => {});
 
     if (m1.decision === "abort") {
+      await deps
+        .emit({
+          type: "agent-playground.stage:completed",
+          missionId,
+          userId,
+          payload: {
+            stage: "s4-leader-assess",
+            status: "aborted",
+            decision: m1.decision,
+            rationale: m1.rationale.slice(0, 200),
+          },
+        })
+        .catch(() => {});
       throw new Error(
         `Leader aborted mission after assess-research: ${m1.rationale.slice(0, 200)}`,
       );
@@ -193,6 +221,19 @@ export async function runLeaderAssessResearchStage(
         })
         .catch(() => {});
     }
+    await deps
+      .emit({
+        type: "agent-playground.stage:completed",
+        missionId,
+        userId,
+        payload: {
+          stage: "s4-leader-assess",
+          status: "completed",
+          decision: m1.decision,
+          dimensions: plan.dimensions.length,
+        },
+      })
+      .catch(() => {});
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("Leader aborted")) {
       throw err;
@@ -200,6 +241,18 @@ export async function runLeaderAssessResearchStage(
     deps.log.warn(
       `[${missionId}] M1 assess-research failed (non-fatal, mission proceeds): ${err instanceof Error ? err.message : String(err)}`,
     );
+    await deps
+      .emit({
+        type: "agent-playground.stage:completed",
+        missionId,
+        userId,
+        payload: {
+          stage: "s4-leader-assess",
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err),
+        },
+      })
+      .catch(() => {});
   }
 }
 
