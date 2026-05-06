@@ -23,7 +23,7 @@ import {
   type ProviderInfo,
 } from '@/hooks/features/useUserApiKeys';
 import { apiClient } from '@/lib/api/client';
-import { UserApiKeyMultiKeyPanel } from './UserApiKeyMultiKeyPanel';
+import { UserApiKeyDrawer } from './UserApiKeyDrawer';
 
 const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   openai: {
@@ -103,6 +103,8 @@ function ProviderKeyCard({
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  // ★ 多 KEY 管理抽屉（与 admin SecretKeysDrawer 视觉行为一致）
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [mode, setMode] = useState<'personal' | 'donated'>('personal');
   const [apiEndpoint, setApiEndpoint] = useState('');
@@ -430,18 +432,33 @@ function ProviderKeyCard({
             )}
           </div>
 
-          {/* 多 KEY 管理面板（与管理员 SecretKeysDrawer 共享 MultiKeyTable） */}
-          <UserApiKeyMultiKeyPanel
-            provider={provider.id}
-            keys={providerKeys}
-            loading={loading}
-            saving={saving}
-            testing={testing}
-            onSave={onSaveWithLabel}
-            onDelete={onDeleteWithLabel}
-          />
+          {/* 多 KEY 管理触发：打开 drawer（与 admin SecretKeysDrawer 一致形态） */}
+          {existingKey && (
+            <div className="mt-3 border-t border-gray-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+              >
+                Manage all keys ({providerKeys.length})
+              </button>
+            </div>
+          )}
         </div>
       )}
+
+      {/* 多 KEY drawer（与 admin SecretKeysDrawer 一致形态，共享 MultiKeyTable） */}
+      <UserApiKeyDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        provider={provider}
+        keys={providerKeys}
+        loading={loading}
+        saving={saving}
+        testing={testing}
+        onSave={onSaveWithLabel}
+        onDelete={onDeleteWithLabel}
+      />
     </div>
   );
 }

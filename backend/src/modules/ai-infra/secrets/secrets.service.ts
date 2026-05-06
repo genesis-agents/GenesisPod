@@ -31,6 +31,8 @@ import {
 import { EncryptionService } from "../encryption/encryption.service";
 import { SecretKeysService } from "./secret-keys.service";
 
+export type SecretAggregateStatus = "ok" | "failed" | "unknown" | "disabled";
+
 export interface SecretListItem {
   id: string;
   name: string;
@@ -46,6 +48,13 @@ export interface SecretListItem {
   accessCount: number;
   expiresAt: Date | null;
   lastRotatedAt: Date | null;
+  /** ★ 多 KEY 聚合状态（任一 active+success → ok；全 failed → failed；
+   *  active 但无 test 结果 → unknown；secret/全 key inactive → disabled） */
+  aggregateStatus: SecretAggregateStatus;
+  /** 当前配置的 SecretKey 行数（active + inactive） */
+  totalKeys: number;
+  /** 其中 active 数量 */
+  activeKeys: number;
 }
 
 export interface SecretVersionItem {
@@ -150,8 +159,16 @@ export class SecretsService {
     const secrets = await this.prisma.secret.findMany({
       where: { deletedAt: null, ...(category ? { category } : {}) },
       orderBy: [{ category: "asc" }, { name: "asc" }],
+      include: {
+        keys: {
+          select: { isActive: true, testStatus: true },
+        },
+      },
     });
-    return secrets.map((secret) => this.toListItem(secret));
+    return secrets.map((secret) => {
+      const keyAgg = aggregateKeyStatus(secret.isActive, secret.keys ?? []);
+      return this.toListItem(secret, keyAgg);
+    });
   }
 
   async findByName(name: string): Promise<SecretListItem | null> {
@@ -840,8 +857,17 @@ export class SecretsService {
   /**
    * H2 Fix: Convert secret to list item without full decryption
    * Uses encrypted value prefix/suffix for masking to avoid exposing all secrets in memory
+   *
+   * keyAgg 由 caller (findAll) 提供；缺省时降级为 isActive 两态。
    */
-  private toListItem(secret: Secret): SecretListItem {
+  private toListItem(
+    secret: Secret,
+    keyAgg?: {
+      aggregateStatus: SecretAggregateStatus;
+      totalKeys: number;
+      activeKeys: number;
+    },
+  ): SecretListItem {
     return {
       id: secret.id,
       name: secret.name,
@@ -858,6 +884,10 @@ export class SecretsService {
       accessCount: secret.accessCount,
       expiresAt: secret.expiresAt,
       lastRotatedAt: secret.lastRotatedAt,
+      aggregateStatus:
+        keyAgg?.aggregateStatus ?? (secret.isActive ? "unknown" : "disabled"),
+      totalKeys: keyAgg?.totalKeys ?? 0,
+      activeKeys: keyAgg?.activeKeys ?? 0,
     };
   }
 
@@ -1270,4 +1300,40 @@ export class SecretsService {
     const value = await this.getValueInternal(name);
     return value === null ? null : { value, keyId: null };
   }
+}
+
+/**
+ * 把 secret + 全部 SecretKey 行聚合成 4 态状态徽章。
+ *
+ * 规则：
+ * - secret !isActive → disabled（无视 keys）
+ * - 任一 key isActive=true 且 testStatus='success' → ok
+ * - 全部 active key testStatus='failed' → failed
+ * - 其他（active 但 testStatus null / 0 active key）→ unknown
+ */
+export function aggregateKeyStatus(
+  secretIsActive: boolean,
+  keys: { isActive: boolean; testStatus: string | null }[],
+): {
+  aggregateStatus: SecretAggregateStatus;
+  totalKeys: number;
+  activeKeys: number;
+} {
+  const totalKeys = keys.length;
+  const activeRows = keys.filter((k) => k.isActive);
+  const activeKeys = activeRows.length;
+
+  if (!secretIsActive) {
+    return { aggregateStatus: "disabled", totalKeys, activeKeys };
+  }
+  if (activeRows.some((k) => k.testStatus === "success")) {
+    return { aggregateStatus: "ok", totalKeys, activeKeys };
+  }
+  if (
+    activeRows.length > 0 &&
+    activeRows.every((k) => k.testStatus === "failed")
+  ) {
+    return { aggregateStatus: "failed", totalKeys, activeKeys };
+  }
+  return { aggregateStatus: "unknown", totalKeys, activeKeys };
 }

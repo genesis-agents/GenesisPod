@@ -19,6 +19,8 @@ export type SecretCategory =
   | 'USER_DONATED'
   | 'OTHER';
 
+export type SecretAggregateStatus = 'ok' | 'failed' | 'unknown' | 'disabled';
+
 export interface Secret {
   id: string;
   name: string;
@@ -34,6 +36,10 @@ export interface Secret {
   accessCount: number;
   expiresAt: string | null;
   lastRotatedAt: string | null;
+  /** ★ 4 态聚合状态（从所有 SecretKey 聚合） */
+  aggregateStatus?: SecretAggregateStatus;
+  totalKeys?: number;
+  activeKeys?: number;
 }
 
 export interface SecretAccessLog {

@@ -42,7 +42,33 @@ const CATEGORY_LABEL: Record<SecretCategory, string> = {
   OTHER: 'Other',
 };
 
-type StatusFilter = 'ALL' | 'active' | 'failed' | 'unknown' | 'disabled';
+type StatusFilter = 'ALL' | 'ok' | 'failed' | 'unknown' | 'disabled';
+
+const STATUS_CONFIG: Record<
+  Exclude<StatusFilter, 'ALL'>,
+  { label: string; cls: string; icon: typeof CheckCircle2 }
+> = {
+  ok: {
+    label: 'OK',
+    cls: 'bg-green-100 text-green-800',
+    icon: CheckCircle2,
+  },
+  failed: {
+    label: 'Failed',
+    cls: 'bg-red-100 text-red-800',
+    icon: XCircle,
+  },
+  unknown: {
+    label: 'Unknown',
+    cls: 'bg-yellow-100 text-yellow-800',
+    icon: CircleHelp,
+  },
+  disabled: {
+    label: 'Disabled',
+    cls: 'bg-gray-100 text-gray-600',
+    icon: CirclePause,
+  },
+};
 
 export function SecretsStatusOverview() {
   const {
@@ -60,6 +86,10 @@ export function SecretsStatusOverview() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const rowStatus = (s: { aggregateStatus?: string; isActive: boolean }) =>
+    (s.aggregateStatus as StatusFilter) ??
+    (s.isActive ? 'unknown' : 'disabled');
+
   const rows = useMemo(() => {
     const filtered = (secrets ?? []).filter((s) => {
       const matchSearch =
@@ -67,16 +97,22 @@ export function SecretsStatusOverview() {
         s.displayName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchCategory =
         categoryFilter === 'ALL' || s.category === categoryFilter;
-      const status = s.isActive ? 'active' : 'disabled';
-      const matchStatus = statusFilter === 'ALL' || statusFilter === status;
+      const matchStatus =
+        statusFilter === 'ALL' || statusFilter === rowStatus(s);
       return matchSearch && matchCategory && matchStatus;
     });
 
+    const statusOrder: Record<string, number> = {
+      ok: 0,
+      unknown: 1,
+      failed: 2,
+      disabled: 3,
+    };
     const sorted = [...filtered].sort((a, b) => {
       const dir = sortDir === 'asc' ? 1 : -1;
       if (sortBy === 'status') {
-        const sa = a.isActive ? 0 : 1;
-        const sb = b.isActive ? 0 : 1;
+        const sa = statusOrder[rowStatus(a)] ?? 99;
+        const sb = statusOrder[rowStatus(b)] ?? 99;
         if (sa !== sb) return (sa - sb) * dir;
       }
       return a.name.localeCompare(b.name) * dir;
@@ -85,10 +121,13 @@ export function SecretsStatusOverview() {
   }, [secrets, searchTerm, statusFilter, categoryFilter, sortBy, sortDir]);
 
   const summary = useMemo(() => {
-    const total = secrets?.length ?? 0;
-    const active = (secrets ?? []).filter((s) => s.isActive).length;
-    const disabled = total - active;
-    return { total, active, disabled };
+    const list = secrets ?? [];
+    const counts = { ok: 0, failed: 0, unknown: 0, disabled: 0 };
+    for (const s of list) {
+      const st = rowStatus(s);
+      if (st in counts) counts[st as keyof typeof counts]++;
+    }
+    return { total: list.length, ...counts };
   }, [secrets]);
 
   const toggleSort = (col: 'name' | 'status') => {
@@ -153,7 +192,9 @@ export function SecretsStatusOverview() {
           className="rounded-md border px-3 py-2 text-sm"
         >
           <option value="ALL">All statuses</option>
-          <option value="active">Active</option>
+          <option value="ok">OK</option>
+          <option value="failed">Failed</option>
+          <option value="unknown">Unknown</option>
           <option value="disabled">Disabled</option>
         </select>
         <button
@@ -228,15 +269,31 @@ export function SecretsStatusOverview() {
                   )}
                 </td>
                 <td className="px-3 py-2">
-                  {s.isActive ? (
-                    <span className="inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                      <CheckCircle2 className="h-3 w-3" /> Active
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                      <CirclePause className="h-3 w-3" /> Disabled
-                    </span>
-                  )}
+                  {(() => {
+                    const st = rowStatus(
+                      s as { aggregateStatus?: string; isActive: boolean }
+                    ) as keyof typeof STATUS_CONFIG;
+                    const cfg = STATUS_CONFIG[st];
+                    if (!cfg) return null;
+                    const Icon = cfg.icon;
+                    return (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${cfg.cls}`}
+                        title={
+                          s.totalKeys
+                            ? `${s.activeKeys}/${s.totalKeys} keys active`
+                            : undefined
+                        }
+                      >
+                        <Icon className="h-3 w-3" /> {cfg.label}
+                        {s.totalKeys && s.totalKeys > 1 ? (
+                          <span className="ml-0.5 text-[10px] opacity-75">
+                            {s.activeKeys}/{s.totalKeys}
+                          </span>
+                        ) : null}
+                      </span>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}
@@ -245,9 +302,12 @@ export function SecretsStatusOverview() {
       </div>
 
       <div className="flex items-center justify-between px-1 text-xs text-gray-600">
-        <div>
-          {summary.total} total · {summary.active} active · {summary.disabled}{' '}
-          disabled
+        <div className="flex items-center gap-3">
+          <span>{summary.total} total</span>
+          <span className="text-green-700">· {summary.ok} ok</span>
+          <span className="text-red-700">· {summary.failed} failed</span>
+          <span className="text-yellow-700">· {summary.unknown} unknown</span>
+          <span className="text-gray-500">· {summary.disabled} disabled</span>
         </div>
         <div>{selectedIds.size > 0 && `${selectedIds.size} selected`}</div>
       </div>
