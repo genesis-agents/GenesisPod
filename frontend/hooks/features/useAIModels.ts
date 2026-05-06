@@ -345,6 +345,32 @@ export function getDefaultImageModel(models: AIModel[]): AIModel | undefined {
 }
 
 /**
+ * 选择"该用什么模型作为默认值"的统一规则。
+ *
+ * 优先级（W4-byok 2026-05-05）：
+ *   1. **用户的 BYOK 模型**（isUserKey=true）— 用户配了自己的 key 就优先用，
+ *      不能让默认值落到 admin 系统 key 模型上，否则用户发消息时 KeyResolver
+ *      因找不到 PERSONAL/ASSIGNED key 直接报错（严格 BYOK 模式）。
+ *      在 BYOK 中又优先 admin 标记的 isDefault（让 admin 在用户范围内引导默认）。
+ *   2. admin 标记的 isDefault 模型（系统级默认）
+ *   3. 列表第一个
+ *
+ * 适用：所有 model dropdown 的初始化默认值，不分页面。
+ * 反模式：直接 `models.find(m => m.isDefault) || models[0]` —— 这会让有 BYOK
+ * 的用户默认选中系统 key 模型，是当前事故的真根因。
+ */
+export function pickPreferredModel(models: AIModel[]): AIModel | undefined {
+  if (!models || models.length === 0) return undefined;
+
+  const userKeyModels = models.filter((m) => m.isUserKey);
+  if (userKeyModels.length > 0) {
+    return userKeyModels.find((m) => m.isDefault) ?? userKeyModels[0];
+  }
+
+  return models.find((m) => m.isDefault) ?? models[0];
+}
+
+/**
  * 默认模型列表（后备方案）
  */
 function getDefaultModels(): AIModel[] {

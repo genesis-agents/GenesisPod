@@ -1270,8 +1270,15 @@ export default function ImageGenerator({
         // Handle wrapped response { success: true, data: {...} }
         const data: ModelsResponse = result?.data ?? result;
         setModels(data);
+        // 严格 BYOK：用户 key 模型优先（同 pickPreferredModel 规则；这里 ModelsResponse
+        // 不是 AIModel[]，单独 inline 一次以避免类型耦合）。
+        const userKeyImageModel = data.imageModels.find(
+          (m) => (m as { isUserKey?: boolean }).isUserKey
+        );
         const defaultImageModel =
-          data.imageModels.find((m) => m.isDefault) || data.imageModels[0];
+          userKeyImageModel ||
+          data.imageModels.find((m) => m.isDefault) ||
+          data.imageModels[0];
         if (defaultImageModel) setSelectedImageModelId(defaultImageModel.id);
       }
     } catch (err) {

@@ -37,7 +37,7 @@ export default function AIModelSelector({
         {aiModels.map((model) => (
           <option key={model.id as string} value={model.modelId as string}>
             {model.name as string} ({model.provider as string})
-            {model.isUserKey ? ' [My Key]' : ''}
+            {model.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
           </option>
         ))}
       </select>

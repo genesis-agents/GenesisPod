@@ -22,7 +22,7 @@ import KeyMomentsPanel, {
   type KeyMoment,
 } from '@/components/explore/youtube/KeyMomentsPanel';
 import { SubtitleExportButton } from '@/components/explore/youtube';
-import { useAIModels } from '@/hooks';
+import { useAIModels, pickPreferredModel } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -286,12 +286,11 @@ function YouTubeTLDWContent() {
     );
   }, [mergedTranscript, activeSegmentIndex]);
 
-  // 设置默认 AI 模型（使用管理员配置的默认模型）
+  // 设置默认 AI 模型 — 严格 BYOK：用户 key 模型优先（pickPreferredModel）
   useEffect(() => {
     if (aiModels.length > 0 && !aiModel) {
-      // 优先使用标记为默认的模型，否则使用第一个
-      const defaultModel = aiModels.find((m) => m.isDefault) || aiModels[0];
-      setAiModel(defaultModel.modelId);
+      const defaultModel = pickPreferredModel(aiModels);
+      if (defaultModel) setAiModel(defaultModel.modelId);
     }
   }, [aiModels, aiModel]);
 
@@ -1655,6 +1654,7 @@ function YouTubeTLDWContent() {
                         {aiModels.map((model) => (
                           <option key={model.id} value={model.modelId}>
                             {model.name} ({model.provider})
+                            {model.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
                           </option>
                         ))}
                       </select>

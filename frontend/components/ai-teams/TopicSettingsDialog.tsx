@@ -10,6 +10,7 @@ import {
 } from '@/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
+import { ModelBadges } from '@/components/common/ModelBadges';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import * as aiGroupApi from '@/services/ai-teams/api';
@@ -459,7 +460,10 @@ function AddAIDialog({
                     }`}
                   >
                     <span className="text-xl">🤖</span>
-                    <span className="text-sm font-medium">{model.name}</span>
+                    <span className="flex-1 text-sm font-medium">
+                      {model.name}
+                    </span>
+                    <ModelBadges model={model} />
                   </button>
                 ))}
               </div>

@@ -3,27 +3,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
-/** Model badge indicators - uses bracket notation to prevent SWC dead-code elimination */
-function ModelBadges({ model }: { model: Record<string, any> }) {
-  return (
-    <>
-      {model['isMixture'] && (
-        <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
-          Multi
-        </span>
-      )}
-      {model['isUserKey'] && (
-        <span className="shrink-0 rounded bg-gradient-to-r from-emerald-500 to-teal-500 px-1 py-0.5 text-[10px] text-white">
-          My Key
-        </span>
-      )}
-    </>
-  );
-}
+// W4-byok 2026-05-05: 提到共享组件，让所有用到 BYOK 标识的地方走同一来源
+import { ModelBadges } from '@/components/common/ModelBadges';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAIModels, AIModel } from '@/hooks';
+import { useAIModels, pickPreferredModel, AIModel } from '@/hooks';
 import { config } from '@/lib/utils/config';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import AskToolsButton from '@/components/ai-ask/AskToolsButton';
@@ -1104,24 +1089,12 @@ export default function AskPage() {
     (m) => m.modelType === 'CHAT' || m.modelType === 'CHAT_FAST'
   );
 
-  // Set default model when models load
-  // Priority: User's own key (BYOK) > System default > First available
+  // Set default model — uses shared pickPreferredModel
+  // Priority: BYOK > System default > First available
   useEffect(() => {
     if (chatModels.length > 0 && !selectedModel) {
-      // Priority 1: User's own key models (BYOK)
-      const userKeyModel = chatModels.find((m) => m.isUserKey);
-      if (userKeyModel) {
-        setSelectedModel(userKeyModel.id);
-        return;
-      }
-      // Priority 2: System default model
-      const defaultModel = chatModels.find((m) => m.isDefault);
-      if (defaultModel) {
-        setSelectedModel(defaultModel.id);
-        return;
-      }
-      // Priority 3: First available model
-      setSelectedModel(chatModels[0].id);
+      const preferred = pickPreferredModel(chatModels);
+      if (preferred) setSelectedModel(preferred.id);
     }
   }, [chatModels, selectedModel]);
 

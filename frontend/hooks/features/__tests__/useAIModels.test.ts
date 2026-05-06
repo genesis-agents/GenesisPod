@@ -31,6 +31,7 @@ import {
   getDefaultChatModel,
   getDefaultFastChatModel,
   getDefaultImageModel,
+  pickPreferredModel,
   type AIModel,
 } from '../useAIModels';
 
@@ -343,5 +344,64 @@ describe('getDefaultImageModel', () => {
       makeModel({ modelId: 'gpt-4', modelType: 'CHAT', isDefault: true }),
     ];
     expect(getDefaultImageModel(models)).toBeUndefined();
+  });
+});
+
+// W4-byok 2026-05-05: BYOK 优先级核心规则 — 所有 dropdown 默认值都走它
+describe('pickPreferredModel (BYOK > admin default > [0])', () => {
+  it('returns user-key model over admin default', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'sys', modelId: 'gpt-5', isDefault: true }),
+      makeModel({ id: 'mine', modelId: 'grok-3', isUserKey: true }),
+    ];
+    expect(pickPreferredModel(models)?.id).toBe('mine');
+  });
+
+  it('within user-key models, prefers admin default', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'mine-a', modelId: 'grok-3', isUserKey: true }),
+      makeModel({
+        id: 'mine-b',
+        modelId: 'grok-fast',
+        isUserKey: true,
+        isDefault: true,
+      }),
+    ];
+    expect(pickPreferredModel(models)?.id).toBe('mine-b');
+  });
+
+  it('falls back to admin default when no user-key model', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'a', modelId: 'gpt-4' }),
+      makeModel({ id: 'b', modelId: 'gpt-5', isDefault: true }),
+    ];
+    expect(pickPreferredModel(models)?.id).toBe('b');
+  });
+
+  it('falls back to first when no user-key and no default', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'first', modelId: 'gpt-4' }),
+      makeModel({ id: 'second', modelId: 'gpt-5' }),
+    ];
+    expect(pickPreferredModel(models)?.id).toBe('first');
+  });
+
+  it('returns undefined for empty list', () => {
+    expect(pickPreferredModel([])).toBeUndefined();
+  });
+
+  it('handles undefined input gracefully', () => {
+    expect(
+      pickPreferredModel(undefined as unknown as AIModel[])
+    ).toBeUndefined();
+  });
+
+  it('user has multiple BYOK without default — picks first user-key', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'sys', modelId: 'gpt-5', isDefault: true }),
+      makeModel({ id: 'mine-a', modelId: 'grok-3', isUserKey: true }),
+      makeModel({ id: 'mine-b', modelId: 'claude-4', isUserKey: true }),
+    ];
+    expect(pickPreferredModel(models)?.id).toBe('mine-a');
   });
 });

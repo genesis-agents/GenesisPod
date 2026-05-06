@@ -12,7 +12,12 @@ import {
   getWorkspaceTask,
   listWorkspaceTemplates,
 } from '@/services/workspace/api';
-import { useReportWorkspace, useWorkspaceSync, useAIModels } from '@/hooks';
+import {
+  useReportWorkspace,
+  useWorkspaceSync,
+  useAIModels,
+  pickPreferredModel,
+} from '@/hooks';
 import ClientDate from '@/components/common/ClientDate';
 
 const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILED']);
@@ -96,10 +101,10 @@ export default function WorkspacePage() {
   const [question, setQuestion] = useState('');
   const [model, setModel] = useState(''); // 将在 aiModels 加载后设置默认值
 
-  // 设置默认 AI 模型
+  // 设置默认 AI 模型 — 严格 BYOK：用户 key 模型优先（pickPreferredModel）
   useEffect(() => {
     if (aiModels.length > 0 && !model) {
-      const defaultModel = aiModels.find((m) => m.isDefault) || aiModels[0];
+      const defaultModel = pickPreferredModel(aiModels) || aiModels[0];
       setModel(defaultModel.modelId);
     }
   }, [aiModels, model]);
@@ -790,6 +795,7 @@ export default function WorkspacePage() {
                       {aiModels.map((m) => (
                         <option key={m.id} value={m.modelId}>
                           {m.name} ({m.provider})
+                          {m.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
                         </option>
                       ))}
                     </select>

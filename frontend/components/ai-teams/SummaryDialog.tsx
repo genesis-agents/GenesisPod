@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-teams';
 import type { WebResource } from '@/types/ai-office';
-import { useAIModels } from '@/hooks';
+import { useAIModels, pickPreferredModel } from '@/hooks';
+import { ModelBadges } from '@/components/common/ModelBadges';
 import * as api from '@/services/ai-teams/api';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';
@@ -360,8 +361,9 @@ function GenerateSummaryDialog({
   onGenerate: (summary: TopicSummary) => void;
   onClose: () => void;
 }) {
-  // 默认选择第一个模型的 modelId
-  const defaultModelId = aiModels[0]?.modelId || 'grok-3-latest';
+  // 严格 BYOK：用户 key 模型优先（pickPreferredModel）
+  const defaultModelId =
+    pickPreferredModel(aiModels)?.modelId || 'grok-3-latest';
   const [title, setTitle] = useState('');
   const [selectedModel, setSelectedModel] = useState(defaultModelId);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -432,7 +434,10 @@ function GenerateSummaryDialog({
                   ) : (
                     <span className="text-xl">{model.icon}</span>
                   )}
-                  <span className="text-sm font-medium">{model.name}</span>
+                  <span className="flex-1 text-sm font-medium">
+                    {model.name}
+                  </span>
+                  <ModelBadges model={model} />
                 </button>
               ))}
             </div>
