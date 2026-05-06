@@ -1,5 +1,559 @@
 [
   {
+    "version": "40.6.0",
+    "date": "2026-05-06",
+    "changes": [
+      {
+        "type": "fix",
+        "description": "第4轮收敛 — credits P2002 race + notification timer cleanup"
+      },
+      {
+        "type": "fix",
+        "description": "第3轮 9 个问题 — silent emit/race/credits/notification"
+      },
+      {
+        "type": "fix",
+        "description": "第2轮 18 个问题 — schema/并发/死字段/边界"
+      },
+      {
+        "type": "fix",
+        "description": "第1轮 27 个问题批量修 — 4 层并行清零"
+      },
+      {
+        "type": "fix",
+        "description": "举一反三同类清零 — migration/prisma log/userProfile/save catch"
+      },
+      {
+        "type": "fix",
+        "description": "业务链修1-5 — userProfile/abort/retry持久化/dim创建/cache节奏"
+      },
+      {
+        "type": "fix",
+        "description": "r-ca 真 bug + 覆盖不全清零"
+      },
+      {
+        "type": "fix",
+        "description": "r-ca 4 个风险点全部清零"
+      },
+      {
+        "type": "fix",
+        "description": "dim 节点 label \"完成\" → \"研究完成\"，避免误以为 mission 完成"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 不再硬编码 maxCredits=300，让 budgetProfile 决定"
+      },
+      {
+        "type": "fix",
+        "description": "liveness-guard 5min 阈值放宽到 15min（regression 修复）"
+      },
+      {
+        "type": "fix",
+        "description": "5 个 stage 漏 emit stage:started/completed → 任务卡永远卡待启动"
+      },
+      {
+        "type": "fix",
+        "description": "无 byok 用户 banner + 后端联合 personal+assigned 双源"
+      },
+      {
+        "type": "fix",
+        "description": "默认模型优先用户 byok + dropdown 显示 key 来源 — 全 8 处统一"
+      },
+      {
+        "type": "fix",
+        "description": "publish 报错信息丢失 + 5 步 ✓ 假象 三件套修"
+      },
+      {
+        "type": "fix",
+        "description": "biz-name leakage 4 处修补，让 layer-boundaries spec 全绿"
+      },
+      {
+        "type": "fix",
+        "description": "heartbeat 误杀 healthy mission — recoverPodCrashedRunning 加 events cross-check"
+      },
+      {
+        "type": "fix",
+        "description": "字幕只显示 1 段 — getTranscript 不再返回稀疏 translatedTranscript + saveTranslation 改 merge"
+      },
+      {
+        "type": "fix",
+        "description": "严格 BYOK 风险兜底三件套 — ChatFacade 强制 userId + admin self-assign + 注释更新"
+      },
+      {
+        "type": "fix",
+        "description": "严格 BYOK 模式 — 删除 ADMIN SYSTEM fallback，所有用户必须显式配 PERSONAL/ASSIGNED"
+      },
+      {
+        "type": "fix",
+        "description": "batch 化优化 — 全 chart 不调 batch + spec 对齐 batch 语义"
+      },
+      {
+        "type": "fix",
+        "description": "散点机制清零 batch 2 — stage hang 根因 + rerun 抽象 + tool registry 双名解决"
+      },
+      {
+        "type": "fix",
+        "description": "机制性兜底 — agent wall-time + batch embedding + voyage 404"
+      },
+      {
+        "type": "fix",
+        "description": "rerun 完整化 — fresh / incremental 双模式 + running 检查"
+      },
+      {
+        "type": "fix",
+        "description": "更新按钮真正\"在既有基础上更新\"，对齐 Topic Insight 模式"
+      },
+      {
+        "type": "fix",
+        "description": "修 AbortSignal listener 泄漏 — mission 卡死真因"
+      },
+      {
+        "type": "fix",
+        "description": "semantic scholar cooldown 降级 WARN + parseChartOutput 诊断增强"
+      },
+      {
+        "type": "fix",
+        "description": "todo 模型列空白 — 从 task 表批量兜底 modelId"
+      },
+      {
+        "type": "fix",
+        "description": "401 auth-circuit-breaker + invalidate cache，避免 524 次刷屏"
+      },
+      {
+        "type": "fix",
+        "description": "latexRepair LLM 调用加 60s timeout，避免 mission 永远卡死"
+      },
+      {
+        "type": "fix",
+        "description": "keyFindings 必非空硬保障 + fallback regex 放宽"
+      },
+      {
+        "type": "fix",
+        "description": "voyage 缺 case 致\"Unknown provider\"+ custom-provider fallback"
+      },
+      {
+        "type": "fix",
+        "description": "抑制 NestJS 启动期 RouterExplorer / RoutesResolver / InstanceLoader 噪声"
+      },
+      {
+        "type": "fix",
+        "description": "topicDimension unique 冲突 + hydrate select resultUri 缺失"
+      },
+      {
+        "type": "fix",
+        "description": "p0 + p1 — capabilityResolveTools 静默 fallback 修复 + 同类排查"
+      },
+      {
+        "type": "fix",
+        "description": "c4 — anthropic p0-1 postmortem 真 embedding 闭环"
+      },
+      {
+        "type": "fix",
+        "description": "c1 figure-relevance llm batch 替代 embedding 路径"
+      },
+      {
+        "type": "fix",
+        "description": "c3 + c5 — biz-name 清理 + p0-3 hook fire points 闭合"
+      },
+      {
+        "type": "fix",
+        "description": "callXAIAPI 缺 inputTokens/outputTokens 致 mission token 始终为 0"
+      },
+      {
+        "type": "fix",
+        "description": "playground skills 注册缺失 + openalex 429 host 级冷却"
+      },
+      {
+        "type": "fix",
+        "description": "4 模块构造器 inline import() 类型导致 prod boot 失败"
+      },
+      {
+        "type": "fix",
+        "description": "runtime_version DB 列不再误标 legacy + 文档回填 R2-C 完成态"
+      },
+      {
+        "type": "fix",
+        "description": "debug audit p0 修复 4 项（s2/s3/s4/s5）"
+      },
+      {
+        "type": "fix",
+        "description": "friendly error + warn-level for upstream rate-limit"
+      },
+      {
+        "type": "fix",
+        "description": "embedding 429 backoff/circuit-breaker + axios 200MB+10MB truncate"
+      },
+      {
+        "type": "fix",
+        "description": "pod heartbeat 90s→300s + boot delay + industry-report fail-soft"
+      },
+      {
+        "type": "fix",
+        "description": "railway boot crash + r2-a.13.1/13.2 失败兜底+进度跟踪"
+      },
+      {
+        "type": "fix",
+        "description": "r2-a0 spec normalizer accepts prettier-induced reformatting"
+      },
+      {
+        "type": "fix",
+        "description": "restore plugin-core.module.ts filename and @genesis/plugin-core npm name"
+      },
+      {
+        "type": "fix",
+        "description": "rollback s7 deps narrowing missed in PR-7b"
+      },
+      {
+        "type": "fix",
+        "description": "validate export template refs and recover token usage"
+      },
+      {
+        "type": "fix",
+        "description": "restore live token accounting and refresh login"
+      },
+      {
+        "type": "feature",
+        "description": "p1/p2 修复 + p0-k 预算彻底去硬编码"
+      },
+      {
+        "type": "feature",
+        "description": "p0-d 完整 — trajectory 持久化让 rerun 真复用"
+      },
+      {
+        "type": "feature",
+        "description": "workflow 控制权回归 orchestrator — stage:lifecycle 桥接"
+      },
+      {
+        "type": "feature",
+        "description": "w4 收尾 — research/writing/office 桥接 + 类型枚举 + quiet hours"
+      },
+      {
+        "type": "feature",
+        "description": "系统通知端到端打通 — 用户读端 + 任务完成事件桥 + 实时推送"
+      },
+      {
+        "type": "feature",
+        "description": "\"更新\"按钮真正继承上次方案 — incremental rerun 跳过 S2 Leader LLM"
+      },
+      {
+        "type": "feature",
+        "description": "per-key failover + LastGood 粘性，端到端接入 chat/rerank"
+      },
+      {
+        "type": "feature",
+        "description": "散点机制清零 batch 3 — MissionLifecycleManager + embedding deprecate + provider catalog 薄壳"
+      },
+      {
+        "type": "feature",
+        "description": "散点机制清零 batch 1 — abortable-scope + circuit-breaker + S1 修复 + 看护拦截"
+      },
+      {
+        "type": "feature",
+        "description": "创建/编辑改为 me/ai tab 内 inline 切换，sidebar + tabs 持续"
+      },
+      {
+        "type": "feature",
+        "description": "我的 Agent tab 挂到 /me/ai"
+      },
+      {
+        "type": "feature",
+        "description": "pr-e2 + pr-e3 — 完整 5 步向导 + mission 翻译启动"
+      },
+      {
+        "type": "feature",
+        "description": "e r4 phase 2 pr-e1 骨架 — model + module + step1"
+      },
+      {
+        "type": "feature",
+        "description": "pr-2 frontend — multi-key 表格视图"
+      },
+      {
+        "type": "feature",
+        "description": "b-rest — wire 6 个 extended_hooks fire points"
+      },
+      {
+        "type": "feature",
+        "description": "pr-3 frontend — 自定义 provider tile + modal"
+      },
+      {
+        "type": "feature",
+        "description": "pr-3 user 自定义 provider crud endpoint"
+      },
+      {
+        "type": "feature",
+        "description": "b extended_hooks payload types + embedding_request fire point"
+      },
+      {
+        "type": "feature",
+        "description": "pr-2 user_api_keys 多 key 支持 (label 字段)"
+      },
+      {
+        "type": "feature",
+        "description": "pr-1 provider catalog ddd — db driven + admin crud"
+      },
+      {
+        "type": "feature",
+        "description": "add Voyage AI provider — embedding/rerank fallback for OpenAI 429"
+      },
+      {
+        "type": "feature",
+        "description": "架构债周期审计脚本 + npm scripts + 删 2 facade shim"
+      },
+      {
+        "type": "feature",
+        "description": "w2-b vector storage plugin (pgvector + jsonb, port for qdrant/pinecone/weaviate)"
+      },
+      {
+        "type": "feature",
+        "description": "w2-a object storage plugin (r2 first backend, port for s3/gcs/azure-blob/local-fs)"
+      },
+      {
+        "type": "feature",
+        "description": "rate-limit 回归核心 service（plugin 误分类修正）"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5-e w1-a tool-augment domain — single-track migration"
+      },
+      {
+        "type": "feature",
+        "description": "r2-c 单轨化删除 legacy team.mission + flag service"
+      },
+      {
+        "type": "feature",
+        "description": "flip default runtime to pipeline-v1 (r2-a 全面切换)"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.12+a.13 s10/s11/s12 hooks wired ★ pipeline-v1 试用就绪"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.11 s8b/s9/s9b review hooks wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.10 s8-writer hook wired (biggest stage)"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.9 s7-writer-outline hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.7+a.8 s5-reconciler + s6-analyst hooks wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.6 s4-leader-assess hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.5 s3-researcher-collect hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.4 s2-leader-plan hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.2+a.3 controller flag dispatch + s1-budget hook wired"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.1 pipeline dispatcher skeleton (still dead code)"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a.0 pipeline.config + runtime flag scaffolding"
+      },
+      {
+        "type": "feature",
+        "description": "r2-a0 18 soul/duty.md → 8 skill.md (anthropic standard format)"
+      },
+      {
+        "type": "feature",
+        "description": "r3-a demo validates r1 mission pipeline framework"
+      },
+      {
+        "type": "feature",
+        "description": "r1-d generic rerun orchestrator + frontend contract"
+      },
+      {
+        "type": "feature",
+        "description": "r1-c imissionstore + imissioneventstore ports + in-memory adapter"
+      },
+      {
+        "type": "feature",
+        "description": "r1-b mission pipeline orchestrator + config + registry"
+      },
+      {
+        "type": "feature",
+        "description": "r1-a 7 stage primitives + crossstagestate container"
+      },
+      {
+        "type": "feature",
+        "description": "r1-a0 skillspecbuilder + outputschemaregistry"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-12 plugin system invariants spec"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-11 PluginCoreModule nestjs integration"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-10 sandbox-isolated-vm plugin + tool-pipeline TOOL_WRAP integration"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-9 rate-limit plugin"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-8 tool-cache-redis plugin"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-7 telemetry-otel plugin"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-6 lifecycle-hook-bridge for mission/memory hooks"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-5 dual-track ai-chat hookbus"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-4 dual-track tool pipeline hookbus"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-3 registry / resolver / loader / supervisor / config"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-2 hookbus onion middleware engine"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-1 stable abstractions (iplugin / ipluginmanifest / ipluginContext)"
+      },
+      {
+        "type": "feature",
+        "description": "r0.5 pr-0 plugin system guards + payload type bucket"
+      },
+      {
+        "type": "improvement",
+        "description": "单轨化彻底版 — 14 stage 删 emit + spec 跟进"
+      },
+      {
+        "type": "improvement",
+        "description": "单轨化 — 前端只看 stage:lifecycle"
+      },
+      {
+        "type": "improvement",
+        "description": "a-2 stage emit 重命名 stage:metrics"
+      },
+      {
+        "type": "improvement",
+        "description": "拆掉 _meta/ 自造层，custom-agents 平级 + agent-catalog 入 contracts"
+      },
+      {
+        "type": "improvement",
+        "description": "抽 BYOK failover caller 独立 service"
+      },
+      {
+        "type": "improvement",
+        "description": "emitWarning dedup + 删除 legacy MissionOrphanDetectorService"
+      },
+      {
+        "type": "improvement",
+        "description": "mission liveness 4 detector → 单一 MissionLivenessGuard"
+      },
+      {
+        "type": "improvement",
+        "description": "抽 maskSensitiveSetting + ai.facade JSDoc 压缩 + god-class guard 调容差"
+      },
+      {
+        "type": "improvement",
+        "description": "4 hardcoded provider 全部改 API 动态发现 + 删除 hardcoded 残留"
+      },
+      {
+        "type": "improvement",
+        "description": "修复 base-layer biz-name 红灯 — 迁 harness-redesign docs 到 ai-harness 归属"
+      },
+      {
+        "type": "improvement",
+        "description": "drop runtime_version DB 列（R2-C 后死权重）"
+      },
+      {
+        "type": "improvement",
+        "description": "runWithStageInstrumentation wrapper + s2 stage POC"
+      },
+      {
+        "type": "improvement",
+        "description": "r0-a5 三轮清理 — engine skill-loader 去 ai-app 路径硬编码"
+      },
+      {
+        "type": "improvement",
+        "description": "r0-a2/a3/a5 base-layer 业务无关 + 自动化看护"
+      },
+      {
+        "type": "improvement",
+        "description": "drop business _LEAD roles from BUILTIN_ROLES (R0-A1-d)"
+      },
+      {
+        "type": "improvement",
+        "description": "drop BUILTIN_TEAMS from base layer (R0-A1-c)"
+      },
+      {
+        "type": "improvement",
+        "description": "drop BUILTIN_AGENTS + AGENT_CONFIGS from base layer (R0-A1-a)"
+      },
+      {
+        "type": "improvement",
+        "description": "inject postmortem patterns from caller (R0-A4)"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10d extract MissionRerunOrchestrator"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10c split leader.service + extract MissionExport"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10b lift JSON-fence parser to engine/content"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr10a split leader-chat into 3 files"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr5 lift MissionState → harness/memory/working"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr7b narrow ctx signatures across 11 stages"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize-pr7a phase-grouped MissionContext + MissionDeps + s7 narrow"
+      },
+      {
+        "type": "improvement",
+        "description": "standardize playground as benchmark app — batch 1"
+      }
+    ]
+  },
+  {
     "version": "40.4.0",
     "date": "2026-05-03",
     "changes": [

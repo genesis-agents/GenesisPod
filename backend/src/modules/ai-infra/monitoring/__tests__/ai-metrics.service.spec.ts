@@ -65,35 +65,37 @@ describe("AIMetricsService", () => {
       );
     });
 
-    it("calculates estimated cost for known model", async () => {
+    // ★ 2026-05-06 pricing 平台化：ai-metrics 不再内部算 cost；改由调用方
+    //   （ai-engine.AiChatService / harness LlmExecutor）通过 ModelPricingRegistry
+    //   算好后传 estimatedCost 进来。recordMetric 只负责写 DB。
+    it("persists caller-provided estimatedCost into DB", async () => {
       await service.recordMetric({
         metricType: "llm_call",
         modelId: "gpt-4o",
         success: true,
         inputTokens: 1000,
         outputTokens: 1000,
+        estimatedCost: 0.02,
       });
 
       const createCall = (mockPrisma.aIEngineMetric!.create as jest.Mock).mock
         .calls[0][0];
-      // gpt-4o: input 0.005/1K + output 0.015/1K = 0.02
       expect(createCall.data.estimatedCost).toBeCloseTo(0.02, 4);
     });
 
-    it("uses default cost estimation for unknown model", async () => {
+    it("defaults estimatedCost to 0 when caller does not provide it (no internal pricing)", async () => {
       await service.recordMetric({
         metricType: "llm_call",
-        modelId: "unknown-model",
+        modelId: "any-model",
         success: true,
         inputTokens: 1000,
         outputTokens: 1000,
+        // estimatedCost intentionally omitted
       });
 
       const createCall = (mockPrisma.aIEngineMetric!.create as jest.Mock).mock
         .calls[0][0];
-      // 2000 tokens * 0.00001 per-token = 0.02
-      expect(createCall.data.estimatedCost).toBeGreaterThan(0);
-      expect(createCall.data.estimatedCost).toBeLessThan(1);
+      expect(createCall.data.estimatedCost).toBe(0);
     });
 
     it("returns zero cost when no model or tokens provided", async () => {
