@@ -175,7 +175,32 @@ export class SecretKeysService {
 
   async deleteKey(keyId: string, context?: AuditContext): Promise<void> {
     const existing = await this.requireKey(keyId);
-    await this.prisma.secretKey.delete({ where: { id: keyId } });
+    const secret = await this.prisma.secret.findUnique({
+      where: { id: existing.secretId },
+      select: { name: true },
+    });
+
+    // ★ 事务：删 KEY + 写审计日志（单 KEY 删除可追溯）
+    await this.prisma.$transaction(async (tx) => {
+      await tx.secretKey.delete({ where: { id: keyId } });
+      await tx.secretAccessLog
+        .create({
+          data: {
+            secretId: existing.secretId,
+            action: "DELETE",
+            actionStatus: "success",
+            secretName: secret
+              ? `${secret.name}#${existing.label}`
+              : `?#${existing.label}`,
+            userId: context?.userId,
+            userEmail: context?.userEmail,
+            ipAddress: context?.ipAddress,
+            userAgent: context?.userAgent,
+          },
+        })
+        .catch(() => undefined); // 审计失败不阻塞主流程（与既有 logAccess 一致）
+    });
+
     this.logger.log(
       `SecretKey deleted: secretId=${existing.secretId} label=${existing.label} by=${context?.userEmail ?? "?"}`,
     );

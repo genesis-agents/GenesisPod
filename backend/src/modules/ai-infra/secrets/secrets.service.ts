@@ -91,38 +91,46 @@ export class SecretsService {
     const { encryptedValue, iv } = this.encrypt(dto.value);
     const valueHash = this.hashValue(dto.value);
 
-    const secret = await this.prisma.secret.create({
-      data: {
-        name: dto.name,
-        displayName: dto.displayName,
-        category: dto.category,
-        description: dto.description,
-        encryptedValue,
-        iv,
-        keyVersion: this.currentKeyVersion,
-        provider: dto.provider,
-        isActive: dto.isActive ?? true,
-        expiresAt: dto.expiresAt,
-        createdBy: context?.userEmail || context?.userId,
-        updatedBy: context?.userEmail || context?.userId,
-      },
-    });
+    // ★ Dual-write 事务化：Secret + SecretKey 'primary' 同步落表，
+    // 任一失败整个事务回滚（防 secret 已建但 secret_keys 缺行的不一致）。
+    // SecretKey.encryptedValue 用独立 IV，与 Secret.encryptedValue 是独立密文
+    //（与 addKey 行为一致；保留 dual-track 期间各自独立旋转）。
+    const secret = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.secret.create({
+        data: {
+          name: dto.name,
+          displayName: dto.displayName,
+          category: dto.category,
+          description: dto.description,
+          encryptedValue,
+          iv,
+          keyVersion: this.currentKeyVersion,
+          provider: dto.provider,
+          isActive: dto.isActive ?? true,
+          expiresAt: dto.expiresAt,
+          createdBy: context?.userEmail || context?.userId,
+          updatedBy: context?.userEmail || context?.userId,
+        },
+      });
 
-    // Dual-write: mirror initial value into secret_keys 'primary' so multi-key
-    // resolver immediately uses this without dual-track fallback.
-    if (this.secretKeys) {
-      await this.secretKeys
-        .addKey(
-          secret.id,
-          { label: "primary", value: dto.value, priority: 0 },
-          context,
-        )
-        .catch((err) => {
-          this.logger.warn(
-            `dual-write secret_keys failed for ${dto.name}: ${(err as Error).message}`,
-          );
-        });
-    }
+      const skEnc = this.encrypt(dto.value);
+      await tx.secretKey.create({
+        data: {
+          secretId: created.id,
+          label: "primary",
+          encryptedValue: skEnc.encryptedValue,
+          iv: skEnc.iv,
+          keyVersion: this.currentKeyVersion,
+          keyHint: this.makeHint(dto.value),
+          isActive: true,
+          priority: 0,
+          createdBy: context?.userEmail || context?.userId,
+          updatedBy: context?.userEmail || context?.userId,
+        },
+      });
+
+      return created;
+    });
 
     await this.logAccess(secret.id, SecretAction.CREATE, context, {
       secretName: secret.name,
@@ -131,6 +139,11 @@ export class SecretsService {
 
     this.logger.log(`Secret created: ${dto.name}`);
     return this.toListItem(secret);
+  }
+
+  private makeHint(value: string): string {
+    if (!value || value.length < 8) return "••••••••";
+    return `${value.slice(0, 3)}…${value.slice(-4)}`;
   }
 
   async findAll(category?: SecretCategory): Promise<SecretListItem[]> {
@@ -148,6 +161,36 @@ export class SecretsService {
   }
 
   async getValue(name: string, context?: AuditContext): Promise<string | null> {
+    // ★ 多 KEY 路径优先（与 getValueInternal 对齐）：
+    // SecretKeysService.getSecretKey 已含 fallback chain + 5min 熔断 + dual-track 兜底。
+    // 找不到 / 不可用则降级到 legacy 单 KEY 路径，保持 logAccess / logAccessDenied 审计语义。
+    if (this.secretKeys) {
+      const resolved = await this.secretKeys.getSecretKey(name);
+      if (resolved) {
+        const sec = await this.prisma.secret.findUnique({
+          where: { name },
+          select: { id: true, name: true },
+        });
+        if (sec) {
+          await this.prisma.secret
+            .update({
+              where: { id: sec.id },
+              data: {
+                lastAccessedAt: new Date(),
+                accessCount: { increment: 1 },
+              },
+            })
+            .catch(() => undefined);
+          // ★ 多 KEY 路径也记审计（不丢 SecretAction.VIEW）
+          await this.logAccess(sec.id, SecretAction.VIEW, context, {
+            secretName: sec.name,
+          });
+        }
+        return resolved.value;
+      }
+    }
+
+    // Legacy 路径（secretKeys 未注入或 multi-key resolver 返 null）
     const secret = await this.prisma.secret.findUnique({ where: { name } });
 
     if (!secret || secret.deletedAt) {
@@ -156,7 +199,6 @@ export class SecretsService {
       return null;
     }
 
-    // S5 Fix: Check isActive status
     if (!secret.isActive) {
       if (context)
         await this.logAccessDenied(name, context, "Secret is disabled");
@@ -248,7 +290,7 @@ export class SecretsService {
       if (resolved) {
         const sec = await this.prisma.secret.findUnique({
           where: { name: normalizedName },
-          select: { id: true },
+          select: { id: true, name: true },
         });
         if (sec) {
           await this.prisma.secret
@@ -260,6 +302,10 @@ export class SecretsService {
               },
             })
             .catch(() => undefined);
+          // ★ 多 KEY 路径补审计（与 legacy 路径对齐）
+          await this.logAccess(sec.id, SecretAction.VIEW, undefined, {
+            secretName: sec.name,
+          });
         }
         return resolved.value;
       }
@@ -331,6 +377,7 @@ export class SecretsService {
     if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
     if (dto.expiresAt !== undefined) updateData.expiresAt = dto.expiresAt;
 
+    let valueRotated = false;
     if (dto.value !== undefined && dto.value !== "") {
       const oldValue = this.decrypt(existing.encryptedValue, existing.iv);
       oldValueHash = oldValue ? this.hashValue(oldValue) : undefined;
@@ -341,57 +388,77 @@ export class SecretsService {
       updateData.lastRotatedAt = new Date();
       newValueHash = this.hashValue(dto.value);
 
-      // Create new version
+      // Create new version (snapshot)
       const newVersion = (existing.currentVersion || 1) + 1;
       updateData.currentVersion = newVersion;
-
-      await this.prisma.secretVersion.create({
-        data: {
-          secretId: existing.id,
-          version: newVersion,
-          encryptedValue,
-          iv,
-          keyVersion: this.currentKeyVersion,
-          checksum: this.calculateChecksum(dto.value),
-          createdBy: context?.userEmail || context?.userId,
-          changeNote: dto.changeNote || null,
-        },
-      });
+      valueRotated = true;
     }
 
-    const secret = await this.prisma.secret.update({
-      where: { name },
-      data: updateData,
-    });
-
-    // Dual-write: keep secret_keys 'primary' in sync when value rotates.
-    if (this.secretKeys && dto.value !== undefined && dto.value !== "") {
-      const primary = await this.prisma.secretKey.findUnique({
-        where: { secretId_label: { secretId: secret.id, label: "primary" } },
-        select: { id: true },
-      });
-      if (primary) {
-        await this.secretKeys
-          .replaceKeyValue(primary.id, { value: dto.value }, context)
-          .catch((err) => {
-            this.logger.warn(
-              `dual-write secret_keys replace failed for ${name}: ${(err as Error).message}`,
-            );
-          });
-      } else {
-        await this.secretKeys
-          .addKey(
-            secret.id,
-            { label: "primary", value: dto.value, priority: 0 },
-            context,
-          )
-          .catch((err) => {
-            this.logger.warn(
-              `dual-write secret_keys add failed for ${name}: ${(err as Error).message}`,
-            );
-          });
+    // ★ 事务化：Secret 更新 + SecretVersion 历史 + secret_keys 'primary' 同步
+    // 任一失败回滚（防 secret 改了但 secret_keys 还是老 value 的不一致）
+    const secret = await this.prisma.$transaction(async (tx) => {
+      if (valueRotated) {
+        const newVersion = updateData.currentVersion as number;
+        await tx.secretVersion.create({
+          data: {
+            secretId: existing.id,
+            version: newVersion,
+            encryptedValue: updateData.encryptedValue as string,
+            iv: updateData.iv as string,
+            keyVersion: this.currentKeyVersion,
+            checksum: this.calculateChecksum(dto.value!),
+            createdBy: context?.userEmail || context?.userId,
+            changeNote: dto.changeNote || null,
+          },
+        });
       }
-    }
+
+      const updated = await tx.secret.update({
+        where: { name },
+        data: updateData,
+      });
+
+      // Mirror new value to secret_keys.primary（dual-write 同事务）
+      if (valueRotated) {
+        const primary = await tx.secretKey.findUnique({
+          where: { secretId_label: { secretId: updated.id, label: "primary" } },
+          select: { id: true },
+        });
+        const skEnc = this.encrypt(dto.value!);
+        if (primary) {
+          await tx.secretKey.update({
+            where: { id: primary.id },
+            data: {
+              encryptedValue: skEnc.encryptedValue,
+              iv: skEnc.iv,
+              keyVersion: this.currentKeyVersion,
+              keyHint: this.makeHint(dto.value!),
+              testStatus: null,
+              lastTestedAt: null,
+              lastErrorMessage: null,
+              updatedBy: context?.userEmail || context?.userId,
+            },
+          });
+        } else {
+          await tx.secretKey.create({
+            data: {
+              secretId: updated.id,
+              label: "primary",
+              encryptedValue: skEnc.encryptedValue,
+              iv: skEnc.iv,
+              keyVersion: this.currentKeyVersion,
+              keyHint: this.makeHint(dto.value!),
+              isActive: true,
+              priority: 0,
+              createdBy: context?.userEmail || context?.userId,
+              updatedBy: context?.userEmail || context?.userId,
+            },
+          });
+        }
+      }
+
+      return updated;
+    });
 
     await this.logAccess(secret.id, SecretAction.UPDATE, context, {
       secretName: secret.name,
@@ -418,13 +485,26 @@ export class SecretsService {
     await this.logAccess(secret.id, SecretAction.DELETE, context, {
       secretName: secret.name,
     });
-    await this.prisma.secret.update({
-      where: { name },
-      data: {
-        deletedAt: new Date(),
-        deletedBy: context?.userEmail || context?.userId,
-        isActive: false,
-      },
+
+    // ★ 软删 Secret 同时禁用所有 SecretKey 行（CASCADE 仅 hard delete 触发）
+    // 防 multi-key resolver 在 Secret.deletedAt 之外仍命中 active SecretKey
+    // 实际 getSecretKey 会先 check secret.deletedAt 早返回 null（双保险）
+    await this.prisma.$transaction(async (tx) => {
+      await tx.secret.update({
+        where: { name },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: context?.userEmail || context?.userId,
+          isActive: false,
+        },
+      });
+      await tx.secretKey.updateMany({
+        where: { secretId: secret.id },
+        data: {
+          isActive: false,
+          updatedBy: context?.userEmail || context?.userId,
+        },
+      });
     });
     this.logger.log(`Secret soft deleted: ${name}`);
   }
@@ -1114,10 +1194,17 @@ export class SecretsService {
 
   /**
    * 业务调用方在 provider call 成功后调，feed 健康反馈给 fallback chain。
-   * 找不到对应 SecretKey 行（dual-track 兜底场景）时静默返回。
+   *
+   * **优先传 keyId**：从 getValueInternalWithKeyId 拿到的 keyId 直接传，
+   * 避免再次走 fallback chain（熔断窗口可能已变化导致错标 next key 而非命中 key）。
+   * keyId 不传时回退到 lookup（兼容 legacy caller）。
    */
-  async markSecretSuccess(name: string): Promise<void> {
+  async markSecretSuccess(name: string, keyId?: string): Promise<void> {
     if (!this.secretKeys) return;
+    if (keyId) {
+      await this.secretKeys.markSuccess(keyId);
+      return;
+    }
     const resolved = await this.secretKeys.getSecretKey(
       normalizeSecretName(name),
     );
@@ -1126,13 +1213,61 @@ export class SecretsService {
 
   /**
    * 业务调用方在 provider call 失败时调，触发 5min 熔断 + 切到下一个 KEY。
+   * **优先传 keyId**（理由同 markSecretSuccess）。
    */
-  async markSecretFailure(name: string, errorMessage: string): Promise<void> {
+  async markSecretFailure(
+    name: string,
+    errorMessage: string,
+    keyId?: string,
+  ): Promise<void> {
     if (!this.secretKeys) return;
+    if (keyId) {
+      await this.secretKeys.markFailure(keyId, errorMessage);
+      return;
+    }
     const resolved = await this.secretKeys.getSecretKey(
       normalizeSecretName(name),
     );
     if (resolved?.keyId)
       await this.secretKeys.markFailure(resolved.keyId, errorMessage);
+  }
+
+  /**
+   * 业务侧 resolver — 同 getValueInternal 但同时返回 keyId，让 caller 调
+   * markSecretSuccess/Failure 时直传 keyId（避免二次 lookup race）。
+   *
+   * keyId 为 null 时表示走 dual-track legacy 兜底（无 SecretKey 行可标）。
+   */
+  async getValueInternalWithKeyId(
+    name: string,
+  ): Promise<{ value: string; keyId: string | null } | null> {
+    const normalizedName = normalizeSecretName(name);
+    if (this.secretKeys) {
+      const resolved = await this.secretKeys.getSecretKey(normalizedName);
+      if (resolved) {
+        const sec = await this.prisma.secret.findUnique({
+          where: { name: normalizedName },
+          select: { id: true, name: true },
+        });
+        if (sec) {
+          await this.prisma.secret
+            .update({
+              where: { id: sec.id },
+              data: {
+                lastAccessedAt: new Date(),
+                accessCount: { increment: 1 },
+              },
+            })
+            .catch(() => undefined);
+          await this.logAccess(sec.id, SecretAction.VIEW, undefined, {
+            secretName: sec.name,
+          });
+        }
+        return { value: resolved.value, keyId: resolved.keyId };
+      }
+    }
+    // 没有多 KEY 路径或 resolver 返 null → fall back to legacy single-key
+    const value = await this.getValueInternal(name);
+    return value === null ? null : { value, keyId: null };
   }
 }

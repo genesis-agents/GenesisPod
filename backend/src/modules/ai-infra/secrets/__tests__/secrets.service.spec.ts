@@ -77,9 +77,19 @@ describe("SecretsService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         create: jest.fn().mockResolvedValue({ id: "sk-1" }),
         update: jest.fn().mockResolvedValue({ id: "sk-1" }),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
         delete: jest.fn().mockResolvedValue({ id: "sk-1" }),
       } as unknown as PrismaService["secretKey"],
-    };
+      // ★ $transaction(fn) 透传给 fn 整个 mockPrisma（行为像无回滚事务）
+      $transaction: jest.fn().mockImplementation(async (arg: unknown) => {
+        if (typeof arg === "function") {
+          return (arg as (tx: typeof mockPrisma) => Promise<unknown>)(
+            mockPrisma as unknown as typeof mockPrisma,
+          );
+        }
+        return Promise.all(arg as Promise<unknown>[]);
+      }),
+    } as unknown as jest.Mocked<Partial<PrismaService>>;
 
     const mockSecretKeys = {
       addKey: jest.fn().mockResolvedValue({}),
@@ -399,12 +409,7 @@ describe("SecretsService", () => {
   });
 
   describe("create / update - dual-write to secret_keys", () => {
-    it("create() mirrors initial value as 'primary' SecretKey", async () => {
-      const sk = (
-        service as unknown as {
-          secretKeys: { addKey: jest.Mock };
-        }
-      ).secretKeys;
+    it("create() mirrors initial value as 'primary' SecretKey via $transaction", async () => {
       (mockPrisma.secret!.create as jest.Mock).mockResolvedValue(makeSecret());
 
       await service.create({
@@ -414,23 +419,19 @@ describe("SecretsService", () => {
         category: SecretCategory.AI_MODEL,
       });
 
-      expect(sk.addKey).toHaveBeenCalledWith(
-        "secret-1",
+      // 走 $transaction 路径：tx.secretKey.create 被调用且 label=primary
+      expect(mockPrisma.secretKey!.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          label: "primary",
-          value: "sk-fresh-value",
-          priority: 0,
+          data: expect.objectContaining({
+            label: "primary",
+            secretId: "secret-1",
+            priority: 0,
+          }),
         }),
-        undefined,
       );
     });
 
-    it("update() with new value replaces existing 'primary' SecretKey", async () => {
-      const sk = (
-        service as unknown as {
-          secretKeys: { replaceKeyValue: jest.Mock };
-        }
-      ).secretKeys;
+    it("update() with new value replaces existing 'primary' SecretKey via $transaction", async () => {
       const existing = makeSecret();
       (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
@@ -440,19 +441,19 @@ describe("SecretsService", () => {
 
       await service.update("test-api-key", { value: "rotated-value" });
 
-      expect(sk.replaceKeyValue).toHaveBeenCalledWith(
-        "sk-primary-1",
-        { value: "rotated-value" },
-        undefined,
+      // 走 $transaction 路径：tx.secretKey.update（不是 SecretKeysService.replaceKeyValue）
+      expect(mockPrisma.secretKey!.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "sk-primary-1" },
+          data: expect.objectContaining({
+            testStatus: null,
+            lastTestedAt: null,
+          }),
+        }),
       );
     });
 
-    it("update() adds 'primary' SecretKey when none exists yet", async () => {
-      const sk = (
-        service as unknown as {
-          secretKeys: { addKey: jest.Mock };
-        }
-      ).secretKeys;
+    it("update() adds 'primary' SecretKey via $transaction when none exists", async () => {
       const existing = makeSecret();
       (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
       (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
@@ -460,31 +461,31 @@ describe("SecretsService", () => {
 
       await service.update("test-api-key", { value: "rotated-value" });
 
-      expect(sk.addKey).toHaveBeenCalledWith(
-        existing.id,
-        expect.objectContaining({ label: "primary", value: "rotated-value" }),
-        undefined,
+      // tx.secretKey.create 被调用（不是 SecretKeysService.addKey）
+      expect(mockPrisma.secretKey!.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            label: "primary",
+            secretId: existing.id,
+          }),
+        }),
       );
     });
 
-    it("dual-write failure is logged but does not break create()", async () => {
-      const sk = (
-        service as unknown as {
-          secretKeys: { addKey: jest.Mock };
-        }
-      ).secretKeys;
-      sk.addKey.mockRejectedValueOnce(new Error("simulated"));
+    it("$transaction wraps create — secret + secretKey atomic", async () => {
       (mockPrisma.secret!.create as jest.Mock).mockResolvedValue(makeSecret());
 
-      const result = await service.create({
-        name: "tolerant-key",
-        displayName: "Tolerant",
-        value: "v",
+      await service.create({
+        name: "tx-key",
+        displayName: "Tx",
+        value: "v-1234567890",
         category: SecretCategory.AI_MODEL,
       });
 
-      expect(result.name).toBe("test-api-key");
-      // primary log still emitted
+      // $transaction 至少被调一次（create 走 tx）
+      expect(
+        (mockPrisma as unknown as { $transaction: jest.Mock }).$transaction,
+      ).toHaveBeenCalled();
       expect(mockPrisma.secretAccessLog!.create).toHaveBeenCalled();
     });
   });
