@@ -60,18 +60,6 @@ export async function runCriticStage(
 
   // ★ 2026-05-06 (P0-A): S9 之前从未 emit stage:started/completed，前端 todo-ledger
   //   占位卡永远翻不了牌。stage='critic' 与前端 line ~510 handler 对应。
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "critic",
-        startedAtMs: Date.now(),
-      },
-    })
-    .catch(() => {});
-
   try {
     await narrate(deps.emit, missionId, userId, {
       stage: "s9-critic-l4",
@@ -260,17 +248,6 @@ export async function runCriticStage(
         );
       }
     }
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "critic",
-          status: "completed",
-        },
-      })
-      .catch(() => {});
   } catch (err) {
     // ★ 2026-05-06 (A-6): swallow 改成 markStageDegraded
     const message = err instanceof Error ? err.message : String(err);
@@ -281,17 +258,5 @@ export async function runCriticStage(
       "s9-critic",
       `L4 critic 失败但 mission 继续：${message.slice(0, 200)}`,
     );
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "critic",
-          status: "failed",
-          error: message,
-        },
-      })
-      .catch(() => {});
   }
 }

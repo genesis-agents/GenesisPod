@@ -137,12 +137,7 @@ export async function runWriterStage(
   do {
     attempts += 1;
     const writerAgentId = `writer#${attempts}`;
-    await deps.emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: { stage: "writer", attempt: attempts },
-    });
+
     await deps.lifecycle(
       missionId,
       userId,
@@ -295,12 +290,7 @@ export async function runWriterStage(
     });
 
     // ── L3 reviewer consensus（self/external/critical 三路评分） ──
-    await deps.emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: { stage: "reviewer", attempt: attempts },
-    });
+
     await deps.lifecycle(missionId, userId, "reviewer", "reviewer", "started", {
       attempt: attempts,
     });
@@ -349,17 +339,7 @@ export async function runWriterStage(
         consensusVerdict: verdict.decision.verdict,
       },
     );
-    await deps.emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "reviewer",
-        attempt: attempts,
-        score: reviewScore,
-        decision: verdict.decision.verdict,
-      },
-    });
+
     await narrate(deps.emit, missionId, userId, {
       stage: "s8-writer-draft",
       role: "reviewer",
@@ -380,13 +360,6 @@ export async function runWriterStage(
         : `Writer failed after ${MAX_WRITER_ATTEMPTS} attempts`,
     );
   }
-
-  await deps.emit({
-    type: "agent-playground.stage:metrics",
-    missionId,
-    userId,
-    payload: { stage: "writer", attempts, finalScore: reviewScore },
-  });
 
   // ── 2. Memory auto-index ──
   const indexAgent = lastWriterAgent ?? makeProxyAgent(missionId, "team");

@@ -81,16 +81,6 @@ export async function runResearcherDispatchStage(
   const { missionId, userId, input, pool, plan } = ctx;
   if (!plan) throw new Error("S3 researcher dispatch requires ctx.plan");
 
-  await deps.emit({
-    type: "agent-playground.stage:metrics",
-    missionId,
-    userId,
-    payload: {
-      stage: "researchers",
-      count: plan.dimensions.length,
-      dimensions: plan.dimensions.map((d) => d.name),
-    },
-  });
   await narrate(deps.emit, missionId, userId, {
     stage: "s3-researchers",
     role: "researcher",
@@ -103,22 +93,6 @@ export async function runResearcherDispatchStage(
     (d) => (d as { dependsOn?: string[] }).dependsOn?.length,
   );
   if (hasDependencies) {
-    await deps.emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "researchers-dag",
-        dependencyMap: plan.dimensions.reduce(
-          (acc, d) => {
-            const dDeps = (d as { dependsOn?: string[] }).dependsOn ?? [];
-            if (dDeps.length > 0) acc[d.id] = dDeps;
-            return acc;
-          },
-          {} as Record<string, string[]>,
-        ),
-      },
-    });
   }
 
   // ★ 2026-05-01 两阶段调度（治本：mission da6e2af7 用户实证 dim research 看似批量）
@@ -192,19 +166,6 @@ export async function runResearcherDispatchStage(
       payload: pool.snapshot(),
     });
   }
-  await deps.emit({
-    type: "agent-playground.stage:metrics",
-    missionId,
-    userId,
-    payload: {
-      stage: "researchers",
-      results: researcherResults.map((r) => ({
-        dimension: r.dimension,
-        findingsCount: r.findings.length,
-        summary: r.summary,
-      })),
-    },
-  });
 }
 
 /**

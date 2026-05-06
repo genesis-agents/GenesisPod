@@ -73,22 +73,7 @@ export async function runSectionQualityEnhancementStage(
   const language = input.language?.startsWith("en") ? "en" : "zh";
   const artifactLanguage = language === "en" ? "en-US" : "zh-CN";
 
-  // ★ 2026-04-30: emit stage:started 让前端 todo-ledger 创建 S8B 任务卡（之前只 emit
-  //   narrative 导致前端任务列表完全看不到 S8B 在跑）
-  const s8bStartedAt = Date.now();
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "s8b-quality-enhancement",
-        startedAtMs: s8bStartedAt,
-        sectionsCount: reportArtifact.sections.length,
-      },
-    })
-    .catch(() => {});
-
+  // ★ 2026-05-06 单轨化: stage:lifecycle 由 orchestrator 必发
   await narrate(deps.emit, missionId, userId, {
     stage: "s8b-quality-enhancement",
     role: "writer",
@@ -299,21 +284,4 @@ export async function runSectionQualityEnhancementStage(
     .catch(() => {});
 
   // ★ 2026-04-30: emit stage:completed 让前端 todo-ledger 把 S8B 任务卡标 done
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "s8b-quality-enhancement",
-        durationMs: Date.now() - s8bStartedAt,
-        evaluatedCount,
-        remediatedCount,
-        avgScoreDelta:
-          remediatedCount > 0
-            ? Number((scoreDeltaSum / remediatedCount).toFixed(2))
-            : 0,
-      },
-    })
-    .catch(() => {});
 }

@@ -100,13 +100,19 @@ describe("runAnalystStage (S6)", () => {
     expect(result.insights).toHaveLength(2);
   });
 
-  it("emits stage:started and stage:completed", async () => {
+  // ★ 2026-05-06 单轨化: stage 不再 emit stage:started/completed，由 orchestrator
+  //   stage:lifecycle 必发（spec 不通过 dispatcher，验证 lifecycle 调用即可）。
+  it("calls lifecycle started for analyst", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runAnalystStage(ctx, deps);
-    const types = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
-    expect(types).toContain("agent-playground.stage:metrics");
-    expect(types).toContain("agent-playground.stage:metrics");
+    expect(deps.lifecycle).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "analyst",
+      "analyst",
+      "started",
+    );
   });
 
   it("first attempt null → retries once with simplified prompt", async () => {
@@ -195,18 +201,14 @@ describe("runAnalystStage (S6)", () => {
     );
   });
 
-  it("stage:completed includes insightsCount", async () => {
+  // ★ 2026-05-06 单轨化: insightsCount 之前由 stage:completed payload 传，
+  //   现在由 hook return 值（output）经 orchestrator stage:completed 传，dispatcher
+  //   拍平到 stage:lifecycle.payload.output。spec 改为验证 ctx.analystOutput.insights。
+  it("produces 2 insights on success", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runAnalystStage(ctx, deps);
-    // ★ A-2 完整版后 wrapper emit 两次 stage:metrics；找含 insightsCount 字段那次（completed）
-    const completed = (deps.emit as jest.Mock).mock.calls.find(
-      (c) =>
-        c[0].type === "agent-playground.stage:metrics" &&
-        c[0].payload?.stage === "analyst" &&
-        c[0].payload?.insightsCount !== undefined,
-    );
-    expect(completed[0].payload.insightsCount).toBe(2);
+    expect(ctx.analystOutput?.insights).toHaveLength(2);
   });
 
   it("passes reconciliationReport to analyst.analyze when available", async () => {

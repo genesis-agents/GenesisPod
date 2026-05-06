@@ -58,12 +58,6 @@ export async function runAnalystStage(
     throw new Error("Analyst stage requires researcherResults to be populated");
   }
 
-  await deps.emit({
-    type: "agent-playground.stage:metrics",
-    missionId,
-    userId,
-    payload: { stage: "analyst" },
-  });
   await deps.lifecycle(missionId, userId, "analyst", "analyst", "started");
   await narrate(deps.emit, missionId, userId, {
     stage: "s6-analyst",
@@ -211,27 +205,12 @@ export async function runAnalystStage(
       themeSummary: `（analyst 阶段未产出有效综合分析；下游基于 ${researcherResults.length} 个维度的原始研究发现直接撰写报告）`,
       contradictions: [],
     };
-    await deps.emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "analyst",
-        insightsCount: 0,
-        degraded: true,
-        reason: analystFailMsg ?? "schema_mismatch",
-      },
-    });
+
     ctx.analystOutput = fallback;
     return fallback;
   }
   const analyst = analystRes.output as AnalystOutputShape;
-  await deps.emit({
-    type: "agent-playground.stage:metrics",
-    missionId,
-    userId,
-    payload: { stage: "analyst", insightsCount: analyst.insights.length },
-  });
+
   await narrate(deps.emit, missionId, userId, {
     stage: "s6-analyst",
     role: "analyst",

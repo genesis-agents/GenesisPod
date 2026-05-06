@@ -107,14 +107,19 @@ describe("runReconcilerStage (S5)", () => {
     ).toHaveLength(1);
   });
 
-  it("emits stage:started for reconciler", async () => {
+  // ★ 2026-05-06 单轨化: stage 不再 emit stage:started/metrics，状态由 orchestrator
+  //   stage:lifecycle 推。spec 改为验证 lifecycle 调用即可。
+  it("calls lifecycle started for reconciler", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runReconcilerStage(ctx, deps);
-    const startedCall = (deps.emit as jest.Mock).mock.calls.find(
-      (c) => c[0].payload?.stage === "reconciler",
+    expect(deps.lifecycle).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      "reconciler",
+      "reconciler",
+      "started",
     );
-    expect(startedCall).toBeDefined();
   });
 
   it("emits reconciliation:completed with fact/conflict/gap counts", async () => {
@@ -195,18 +200,13 @@ describe("runReconcilerStage (S5)", () => {
     );
   });
 
-  it("emits stage:completed with state=completed on success", async () => {
+  // ★ 2026-05-06 单轨化: stage:completed 由 orchestrator 必发，spec 不再期待
+  //   stage 文件内部 emit。该 stage 业务正确性由 reconciliationReport 验证（其他 spec）。
+  it("sets reconciliationReport on success", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runReconcilerStage(ctx, deps);
-    // ★ A-2 完整版后 wrapper emit 两次 stage:metrics（started + completed）；找含 state 字段那次
-    const completedStage = (deps.emit as jest.Mock).mock.calls.find(
-      (c) =>
-        c[0].type === "agent-playground.stage:metrics" &&
-        c[0].payload?.stage === "reconciler" &&
-        c[0].payload?.state !== undefined,
-    );
-    expect(completedStage[0].payload.state).toBe("completed");
+    expect(ctx.reconciliationReport).toBeDefined();
   });
 
   it("tickCost called after reconcile", async () => {

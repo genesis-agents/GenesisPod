@@ -68,19 +68,6 @@ async function emitLeaderSigned(
     })
     .catch(() => {});
   // ★ 2026-05-06 (P0-A): emit stage:completed 一并由 signed 事件触发，覆盖所有早返路径
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId: ctx.missionId,
-      userId: ctx.userId,
-      payload: {
-        stage: "s10-leader-signoff",
-        status: ctx.leaderSignOff.signed ? "completed" : "rejected",
-        leaderVerdict: ctx.leaderSignOff.leaderVerdict,
-        refusalReason: ctx.leaderSignOff.refusalReason,
-      },
-    })
-    .catch(() => {});
 }
 
 export async function runLeaderForewordAndSignoffStage(
@@ -95,18 +82,6 @@ export async function runLeaderForewordAndSignoffStage(
 ): Promise<void> {
   // ★ 2026-05-06 (P0-A): S10 之前从未 emit stage:started/completed，前端 todo-ledger
   //   's10-leader-signoff' 占位卡永远翻不了牌。
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId: ctx.missionId,
-      userId: ctx.userId,
-      payload: {
-        stage: "s10-leader-signoff",
-        startedAtMs: Date.now(),
-      },
-    })
-    .catch(() => {});
-
   // ★ P0-LIVE-PATCH-SILENT (2026-04-30): 之前 reportArtifact 缺失时静默 return,
   //   下游 persist 走 markCompleted（默认成功路径）→ mission 假成功。修改为：
   //   reportArtifact 缺失 = S8 装配失败硬伤，必须显式拒签让 markFailed 生效。

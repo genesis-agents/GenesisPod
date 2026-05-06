@@ -87,37 +87,10 @@ export async function runSelfEvolutionStage(
 
   // ★ P1-NEW-A (round 2): abort 检查 helper —— 在每个 await 前后判断
   const isAborted = () => args.abortSignal?.aborted === true;
-  // ★ OBSERVABILITY (2026-04-30): S12 之前只 emit mission:evolved，
-  //   没有 stage:started/completed → 前端 todo ledger 看不到"自我进化"任务。
-  //   补齐 stage 事件，让 UI workflow 时间线展示完整 12 阶段而不是 11 阶段。
-  const stageStartedAt = Date.now();
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "s12-self-evolution",
-        startedAtMs: stageStartedAt,
-      },
-    })
-    .catch(() => {});
-
+  // ★ 2026-05-06 单轨化: S12 走 mission:postlude 由 dispatcher fire-and-forget
   try {
     if (isAborted()) {
       deps.log.warn(`[${missionId}] S12 skipped: abort signal received`);
-      await deps
-        .emit({
-          type: "agent-playground.stage:metrics",
-          missionId,
-          userId,
-          payload: {
-            stage: "s12-self-evolution",
-            durationMs: Date.now() - stageStartedAt,
-            status: "cancelled",
-          },
-        })
-        .catch(() => {});
       return;
     }
     const wallTimeMs = Date.now() - t0;
@@ -294,37 +267,9 @@ export async function runSelfEvolutionStage(
     deps.log.log(
       `[${missionId}] S12 sediment recorded: postmortem to harness_vector_memory${leaderSigned === false ? " + failure pattern" : ""}`,
     );
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "s12-self-evolution",
-          durationMs: Date.now() - stageStartedAt,
-          status: "completed",
-          recommendationsCount: recommendations.length,
-          leaderSigned,
-          qualityHitRate,
-        },
-      })
-      .catch(() => {});
   } catch (err) {
     deps.log.warn(
       `[${missionId}] S12 self-evolution failed (best-effort, ignored): ${err instanceof Error ? err.message : String(err)}`,
     );
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "s12-self-evolution",
-          durationMs: Date.now() - stageStartedAt,
-          status: "failed",
-          errorMessage: err instanceof Error ? err.message : String(err),
-        },
-      })
-      .catch(() => {});
   }
 }

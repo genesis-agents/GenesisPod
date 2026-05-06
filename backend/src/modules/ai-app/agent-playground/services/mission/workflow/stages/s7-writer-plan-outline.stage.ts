@@ -48,20 +48,7 @@ export async function runWriterOutlineStage(
   if (input.auditLayers !== "thorough" && input.auditLayers !== "thorough+") {
     return;
   }
-  // ★ 2026-04-30 (#62 修截图 16 "撰写大纲一直待启动"): 补 emit stage:started 让前端
-  //   todo-ledger 把 s7-writer-outline 任务卡 promote 到 in_progress。同 S8B/S9B 修复模式。
-  const s7StartedAt = Date.now();
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "s7-writer-outline",
-        startedAtMs: s7StartedAt,
-      },
-    })
-    .catch(() => {});
+  // ★ 2026-05-06 单轨化: stage:lifecycle 由 orchestrator 必发，stage 文件不再 emit
   try {
     await narrate(deps.emit, missionId, userId, {
       stage: "s7-writer-outline",
@@ -206,34 +193,10 @@ export async function runWriterOutlineStage(
       });
     }
     // ★ 2026-04-30 (#62): emit stage:completed 让前端 todo 卡标 done
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "s7-writer-outline",
-          durationMs: Date.now() - s7StartedAt,
-          chapterCount: 0, // s7 不一定有 outlinePlan，下方 success 路径单独 emit 章节数
-        },
-      })
-      .catch(() => {});
   } catch (err) {
     deps.log.warn(
       `[${missionId}] outline-planner failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
     // ★ 失败也 emit completed status=failed 避免前端 todo 卡永远 in_progress
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "s7-writer-outline",
-          durationMs: Date.now() - s7StartedAt,
-          status: "failed",
-        },
-      })
-      .catch(() => {});
   }
 }

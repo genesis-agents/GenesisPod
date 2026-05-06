@@ -70,21 +70,7 @@ export async function runReportObjectiveEvaluationStage(
 
   if (chapters.length === 0) return;
 
-  // ★ 2026-04-30: emit stage:started 让前端 todo-ledger 创建 S9B 任务卡
-  const s9bStartedAt = Date.now();
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "s9b-objective-evaluation",
-        startedAtMs: s9bStartedAt,
-        chaptersCount: chapters.length,
-      },
-    })
-    .catch(() => {});
-
+  // ★ 2026-05-06 单轨化: stage:lifecycle 由 orchestrator 必发
   await narrate(deps.emit, missionId, userId, {
     stage: "s9b-objective-evaluation",
     role: "critic",
@@ -119,35 +105,10 @@ export async function runReportObjectiveEvaluationStage(
       agentId: "critic",
     });
     // ★ 2026-04-30: emit stage:completed 让前端 todo-ledger 把 S9B 任务卡标 done
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "s9b-objective-evaluation",
-          durationMs: Date.now() - s9bStartedAt,
-          overallScore: result.overallScore,
-          grade: result.grade,
-        },
-      })
-      .catch(() => {});
   } catch (err) {
     deps.log.warn(
       `[s9b] Objective evaluation failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
     );
     // 失败也 emit completed，避免前端 todo 卡永远 in_progress
-    await deps
-      .emit({
-        type: "agent-playground.stage:metrics",
-        missionId,
-        userId,
-        payload: {
-          stage: "s9b-objective-evaluation",
-          durationMs: Date.now() - s9bStartedAt,
-          status: "failed",
-        },
-      })
-      .catch(() => {});
   }
 }

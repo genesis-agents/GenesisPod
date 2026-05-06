@@ -61,12 +61,6 @@ export async function runReconcilerStage(
     return;
   }
   try {
-    await deps.emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: { stage: "reconciler" },
-    });
     await deps.lifecycle(
       missionId,
       userId,
@@ -154,12 +148,6 @@ export async function runReconcilerStage(
         iterations: reconRes.iterations,
       },
     );
-    await deps.emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: { stage: "reconciler", state: reconRes.state },
-    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     deps.log.warn(`[${missionId}] reconciler stage failed (non-fatal): ${msg}`);

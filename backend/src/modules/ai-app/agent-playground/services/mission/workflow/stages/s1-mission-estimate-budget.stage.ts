@@ -31,16 +31,7 @@ export async function runBudgetEstimateStage(
     userId,
     payload: { input, workspaceId, startedAt: t0 },
   });
-  // ★ 2026-05-06 (P0-A): S1 显式 stage:started，让前端 s1-budget 任务卡按事件翻牌（之前
-  //   依赖 mission:started + stage:started leader 间接 transition，路径脆弱）
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: { stage: "s1-budget", startedAtMs: t0 },
-    })
-    .catch(() => {});
+  // ★ 2026-05-06 单轨化: stage 状态由 orchestrator stage:lifecycle 唯一推进
   await narrate(deps.emit, missionId, userId, {
     stage: "s1-budget",
     role: "mission",
@@ -87,19 +78,6 @@ export async function runBudgetEstimateStage(
         tag: "warning",
         text: `余额不足以启动（短缺 ${estimate.shortfall} credits），mission 终止`,
       });
-      await deps
-        .emit({
-          type: "agent-playground.stage:metrics",
-          missionId,
-          userId,
-          payload: {
-            stage: "s1-budget",
-            status: "failed",
-            reason: "insufficient_balance",
-            shortfall: estimate.shortfall,
-          },
-        })
-        .catch(() => {});
       throw new Error(
         `余额不足以启动 mission（短缺 ${estimate.shortfall} credits），请充值后重试`,
       );
@@ -118,19 +96,4 @@ export async function runBudgetEstimateStage(
       text: `预算校验通过 · 估算 ${estimate.estimatedCredits} credits 内可完成`,
     });
   }
-
-  // ★ 2026-05-06 (P0-A): S1 正常路径 stage:completed
-  await deps
-    .emit({
-      type: "agent-playground.stage:metrics",
-      missionId,
-      userId,
-      payload: {
-        stage: "s1-budget",
-        status: "completed",
-        estimatedCredits: estimate.estimatedCredits,
-        currentBalance: estimate.currentBalance,
-      },
-    })
-    .catch(() => {});
 }

@@ -226,23 +226,24 @@ describe("runResearcherDispatchStage (S3)", () => {
     expect(ctx.researcherResults![0].findings.length).toBeGreaterThan(0);
   });
 
-  it("emits stage:started with dimension names", async () => {
+  // ★ 2026-05-06 单轨化: stage:started/completed 由 orchestrator stage:lifecycle 必发；
+  //   stage 文件不再 emit。spec 改为验证 dimension:research:started/completed 业务事件。
+  it("emits dimension:research:started for each dim", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runResearcherDispatchStage(ctx, deps);
-    const startedCall = (deps.emit as jest.Mock).mock.calls.find(
-      (c) => c[0].payload?.stage === "researchers",
+    const dimStarts = (deps.emit as jest.Mock).mock.calls.filter(
+      (c) => c[0].type === "agent-playground.dimension:research:started",
     );
-    expect(startedCall).toBeDefined();
-    expect(startedCall[0].payload.dimensions).toContain("Market");
+    expect(dimStarts.length).toBeGreaterThan(0);
   });
 
-  it("emits stage:completed after dispatch", async () => {
+  it("populates ctx.researcherResults after dispatch", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();
     await runResearcherDispatchStage(ctx, deps);
-    const types = (deps.emit as jest.Mock).mock.calls.map((c) => c[0].type);
-    expect(types).toContain("agent-playground.stage:metrics");
+    expect(ctx.researcherResults).toBeDefined();
+    expect(ctx.researcherResults!.length).toBeGreaterThan(0);
   });
 
   it("single dim failure → degrades to empty findings (mission continues)", async () => {
