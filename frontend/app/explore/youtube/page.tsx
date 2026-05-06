@@ -22,8 +22,9 @@ import KeyMomentsPanel, {
   type KeyMoment,
 } from '@/components/explore/youtube/KeyMomentsPanel';
 import { SubtitleExportButton } from '@/components/explore/youtube';
-import { useAIModels, pickPreferredModel } from '@/hooks';
+import { useAIModels, pickPreferredModel, userHasBYOK } from '@/hooks';
 import { modelLabelSuffix } from '@/components/common/ModelBadges';
+import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -1641,6 +1642,12 @@ function YouTubeTLDWContent() {
 
                   {/* Chat Input */}
                   <div className="border-t border-gray-200 bg-white p-4">
+                    {/* BYOK Required Banner — 严格 BYOK 模式下没配 key 调用必败 */}
+                    {aiModels.length > 0 && !userHasBYOK(aiModels) && (
+                      <div className="mb-3">
+                        <BYOKRequiredBanner compact />
+                      </div>
+                    )}
                     {/* Model Selector - Dropdown */}
                     <div className="mb-3 flex items-center gap-2">
                       <span className="text-xs font-medium text-gray-500">

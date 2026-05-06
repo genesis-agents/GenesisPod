@@ -17,8 +17,10 @@ import {
   useWorkspaceSync,
   useAIModels,
   pickPreferredModel,
+  userHasBYOK,
 } from '@/hooks';
 import { modelLabelSuffix } from '@/components/common/ModelBadges';
+import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
 import ClientDate from '@/components/common/ClientDate';
 
 const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILED']);
@@ -784,6 +786,10 @@ export default function WorkspacePage() {
                     ))}
                   </div>
                 </div>
+
+                {aiModels.length > 0 && !userHasBYOK(aiModels) && (
+                  <BYOKRequiredBanner />
+                )}
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="flex flex-col gap-2 text-sm">

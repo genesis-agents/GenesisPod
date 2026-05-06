@@ -1062,18 +1062,32 @@ export class AiModelConfigService {
       }
 
       // Check user API keys if userId is provided
+      // W4-byok 2026-05-05: 同时查 PERSONAL（user_api_keys）+ ASSIGNED（key_assignments）。
+      // 之前只查 PERSONAL，导致管理员通过 KeyAssignment 把 DistributableKey 分配给用户后，
+      // 该用户的 dropdown 仍把对应 provider 模型标 isUserKey=false（误显示"系统 Key"），
+      // 用户感知"管理员给我的授权没生效" — 实际 KeyResolver 调用时是用了 ASSIGNED key 的，
+      // 只是 UI 没正确反映。这里 union 两种来源彻底闭环。
       let userProviders = new Set<string>();
       if (userId) {
         try {
-          const userKeys = await this.prisma.userApiKey.findMany({
-            where: { userId, isActive: true },
-            select: { provider: true },
-          });
-          userProviders = new Set(
-            userKeys.map((k) => k.provider.toLowerCase()),
-          );
+          const [personalKeys, assignedKeys] = await Promise.all([
+            this.prisma.userApiKey.findMany({
+              where: { userId, isActive: true },
+              select: { provider: true },
+            }),
+            this.prisma.keyAssignment.findMany({
+              where: { userId, status: "ACTIVE" },
+              select: { provider: true },
+            }),
+          ]);
+          userProviders = new Set([
+            ...personalKeys.map((k) => k.provider.toLowerCase()),
+            ...assignedKeys.map((k) => k.provider.toLowerCase()),
+          ]);
           this.logger.debug(
-            `[getEnabledModelsForFrontend] User ${userId} has keys for providers: [${[...userProviders].join(", ")}]`,
+            `[getEnabledModelsForFrontend] User ${userId} has keys for providers: ` +
+              `[${[...userProviders].join(", ")}] ` +
+              `(personal=${personalKeys.length}, assigned=${assignedKeys.length})`,
           );
         } catch (error) {
           this.logger.warn(

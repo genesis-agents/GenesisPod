@@ -8,7 +8,8 @@ import { ModelBadges } from '@/components/common/ModelBadges';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAIModels, pickPreferredModel, AIModel } from '@/hooks';
+import { useAIModels, pickPreferredModel, userHasBYOK, AIModel } from '@/hooks';
+import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
 import { config } from '@/lib/utils/config';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import AskToolsButton from '@/components/ai-ask/AskToolsButton';
@@ -1719,6 +1720,12 @@ export default function AskPage() {
 
       {/* Main Content */}
       <main className="flex flex-1 flex-col overflow-hidden">
+        {/* BYOK Required Banner — 严格 BYOK 模式下没配 key 调用必败 */}
+        {token && chatModels.length > 0 && !userHasBYOK(chatModels) && (
+          <div className="px-4 pt-3">
+            <BYOKRequiredBanner compact />
+          </div>
+        )}
         {messages.length === 0 ? (
           /* Welcome Screen */
           <div className="flex flex-1 flex-col">

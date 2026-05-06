@@ -371,6 +371,23 @@ export function pickPreferredModel(models: AIModel[]): AIModel | undefined {
 }
 
 /**
+ * 用户是否配置了任何 BYOK key（PERSONAL 或 ASSIGNED）。
+ *
+ * 严格 BYOK 模式下，没配 BYOK 的用户**点击发消息必然报 NoAvailableKeyError**
+ * （commit 0635c70d9 删了 SYSTEM fallback）。所以即便 dropdown 默认选了系统模型，
+ * 调用时也会失败 — UI 必须用此 helper 检测后展示 BYOK 配置 banner，不让用户陷入
+ * "看似可用实则必败"的体验黑洞。
+ *
+ * 实现：检测 models 列表里是否有任何 isUserKey=true 的项。后端
+ * getEnabledModelsForFrontend 给用户配过 PERSONAL key 的 provider 模型 +
+ * BYOK_DEFAULT_MODELS 动态生成的模型都标 isUserKey=true。
+ */
+export function userHasBYOK(models: AIModel[]): boolean {
+  if (!models || !Array.isArray(models) || models.length === 0) return false;
+  return models.some((m) => m.isUserKey === true);
+}
+
+/**
  * 默认模型列表（后备方案）
  */
 function getDefaultModels(): AIModel[] {

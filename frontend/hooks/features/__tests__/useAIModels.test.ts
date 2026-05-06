@@ -32,6 +32,7 @@ import {
   getDefaultFastChatModel,
   getDefaultImageModel,
   pickPreferredModel,
+  userHasBYOK,
   type AIModel,
 } from '../useAIModels';
 
@@ -558,5 +559,104 @@ describe('pickPreferredModel (BYOK > admin default > [0])', () => {
       userKeyModel,
     ];
     expect(pickPreferredModel(models)).toBe(userKeyModel); // same object reference
+  });
+});
+
+// W4-byok 2026-05-05: User D 体验黑洞修复 — 没 BYOK 用户检测
+describe('userHasBYOK (BYOK 配置检测，给 banner 用)', () => {
+  it('returns true when at least one model has isUserKey=true', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'sys', modelId: 'gpt-5', isDefault: true }),
+      makeModel({ id: 'mine', modelId: 'grok-3', isUserKey: true }),
+    ];
+    expect(userHasBYOK(models)).toBe(true);
+  });
+
+  it('returns false when NO model has isUserKey=true (User D scenario)', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'sys-a', modelId: 'gpt-5', isDefault: true }),
+      makeModel({ id: 'sys-b', modelId: 'claude-4' }),
+    ];
+    expect(userHasBYOK(models)).toBe(false);
+  });
+
+  it('returns false for empty models list (loading / error state)', () => {
+    expect(userHasBYOK([])).toBe(false);
+  });
+
+  it('returns false for null/undefined input', () => {
+    expect(userHasBYOK(null as unknown as AIModel[])).toBe(false);
+    expect(userHasBYOK(undefined as unknown as AIModel[])).toBe(false);
+  });
+
+  it('isUserKey=undefined is treated as no BYOK', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'a', modelId: 'gpt-5' }),
+      makeModel({ id: 'b', modelId: 'claude-4' }),
+    ];
+    // 都没 isUserKey 字段 → 没 BYOK
+    expect(userHasBYOK(models)).toBe(false);
+  });
+
+  it('isUserKey=false explicit is treated as no BYOK', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'a', modelId: 'gpt-5', isUserKey: false }),
+    ];
+    expect(userHasBYOK(models)).toBe(false);
+  });
+
+  it('mixed list with at least one BYOK → true', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'a', modelId: 'gpt-5', isUserKey: false }),
+      makeModel({ id: 'b', modelId: 'claude-4' }),
+      makeModel({ id: 'c', modelId: 'grok-3', isUserKey: true }),
+    ];
+    expect(userHasBYOK(models)).toBe(true);
+  });
+
+  it('simulates User C (xai PERSONAL only) — has BYOK', () => {
+    // 后端给所有 xai 模型标 isUserKey=true（包括 BYOK_DEFAULT_MODELS 动态生成）
+    const models: AIModel[] = [
+      makeModel({ id: 'sys-gpt5', modelId: 'gpt-5', isDefault: true }),
+      makeModel({
+        id: 'byok-grok',
+        modelId: 'grok-3-latest',
+        provider: 'xAI',
+        isUserKey: true,
+      }),
+    ];
+    expect(userHasBYOK(models)).toBe(true);
+  });
+
+  it('simulates User D (no PERSONAL no ASSIGNED) — needs banner', () => {
+    // 纯系统模型，没任何 isUserKey
+    const models: AIModel[] = [
+      makeModel({
+        id: 'sys-gpt5',
+        modelId: 'gpt-5',
+        provider: 'OpenAI',
+        isDefault: true,
+      }),
+      makeModel({
+        id: 'sys-cohere',
+        modelId: 'cohere-r-plus',
+        provider: 'Cohere',
+        isDefault: true,
+      }),
+    ];
+    expect(userHasBYOK(models)).toBe(false);
+  });
+
+  it('simulates ASSIGNED-only user (admin gave him a DistributableKey)', () => {
+    // 后端 union PERSONAL + ASSIGNED → admin 分配的 provider 也标 isUserKey=true
+    const models: AIModel[] = [
+      makeModel({
+        id: 'assigned-openai',
+        modelId: 'gpt-5',
+        provider: 'OpenAI',
+        isUserKey: true, // 来自 keyAssignments
+      }),
+    ];
+    expect(userHasBYOK(models)).toBe(true);
   });
 });

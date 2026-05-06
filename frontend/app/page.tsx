@@ -180,8 +180,9 @@ import {
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
-import { useAIModels, pickPreferredModel } from '@/hooks';
+import { useAIModels, pickPreferredModel, userHasBYOK } from '@/hooks';
 import { modelLabelSuffix } from '@/components/common/ModelBadges';
+import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
 import { useImageSourceStore, toast as showToast } from '@/stores';
 
 import { logger } from '@/lib/utils/logger';
@@ -3169,6 +3170,10 @@ function HomeContent() {
             {selectedResource ? (
               aiRightTab === 'assistant' ? (
                 <div className="space-y-4">
+                  {/* BYOK Required Banner — 严格 BYOK 模式下没配 key 调用必败 */}
+                  {aiModels.length > 0 && !userHasBYOK(aiModels) && (
+                    <BYOKRequiredBanner compact />
+                  )}
                   {/* Model Selector */}
                   <div className="flex items-center justify-between rounded-lg bg-gradient-to-r from-gray-50 to-gray-100 p-3">
                     <div className="flex items-center gap-2">

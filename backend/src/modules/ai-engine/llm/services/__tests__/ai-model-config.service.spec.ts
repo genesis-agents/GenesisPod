@@ -117,6 +117,9 @@ describe("AiModelConfigService", () => {
       userApiKey: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      keyAssignment: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     const mockSecretsService = {
@@ -830,6 +833,88 @@ describe("AiModelConfigService", () => {
 
       expect(Array.isArray(models)).toBe(true);
       expect(models).toHaveLength(0);
+    });
+
+    // W4-byok 2026-05-05 K：ASSIGNED 路径联合查询（管理员分配的 key）
+
+    it("isUserKey=true when user has ASSIGNED key (admin granted DistributableKey)", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel, // openai
+      ]);
+      // 用户没 PERSONAL，但有管理员分配的 ASSIGNED openai
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai" },
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      expect(models[0].isUserKey).toBe(true);
+    });
+
+    it("PERSONAL + ASSIGNED both contribute to providers union", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel, // openai
+        mockGeminiModel, // google
+      ]);
+      // PERSONAL openai + ASSIGNED google
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai" },
+      ]);
+      (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([
+        { provider: "google" },
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      const openai = models.find((m) => m.provider.toLowerCase() === "openai");
+      const google = models.find((m) => m.provider.toLowerCase() === "google");
+      expect(openai?.isUserKey).toBe(true);
+      expect(google?.isUserKey).toBe(true);
+    });
+
+    it("ASSIGNED case-insensitive provider matching", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        { ...mockChatModel, provider: "OpenAI" },
+      ]);
+      (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([
+        { provider: "OPENAI" }, // 上层不该有大写但仍要兜
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      expect(models[0].isUserKey).toBe(true);
+    });
+
+    it("ASSIGNED query failure does NOT break main flow (defensive)", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel,
+      ]);
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai" },
+      ]);
+      (prismaService.keyAssignment.findMany as jest.Mock).mockRejectedValue(
+        new Error("DB error"),
+      );
+
+      // Promise.all rejects when any rejects → catch fires → userProviders empty → 全 false
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      expect(models).toHaveLength(1);
+      // 因为 Promise.all reject 后整个 try/catch 触发 → userProviders 为空 set
+      expect(models[0].isUserKey).toBeUndefined();
     });
   });
 
