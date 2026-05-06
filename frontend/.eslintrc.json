@@ -84,6 +84,18 @@
       {
         "selector": "CallExpression[callee.property.name='toLocaleString']",
         "message": "Avoid toLocaleString() in JSX - causes hydration errors. For numbers, display directly or format in useEffect/event handlers."
+      },
+      {
+        "selector": "TSAsExpression[typeAnnotation.type='TSArrayType'][typeAnnotation.elementType.type='TSStringKeyword']",
+        "message": "禁止 `(x as string[])` lying assertion — backend 实际可能 emit object[]，导致 `.slice/.map` 运行时崩溃。改用 `(x as unknown[]).map(item => typeof item === 'string' ? item : String(item))` 或走 zod schema parse。"
+      },
+      {
+        "selector": "TSAsExpression[typeAnnotation.type='TSArrayType'][typeAnnotation.elementType.type='TSNumberKeyword']",
+        "message": "禁止 `(x as number[])` lying assertion — 同上，请用运行时 type-check 或 zod parse。"
+      },
+      {
+        "selector": "TSAsExpression[typeAnnotation.type='TSArrayType'][typeAnnotation.elementType.type='TSBooleanKeyword']",
+        "message": "禁止 `(x as boolean[])` lying assertion — 同上，请用运行时 type-check 或 zod parse。"
       }
     ]
   },

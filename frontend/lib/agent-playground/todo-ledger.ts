@@ -777,7 +777,17 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       //   qualityHitRate + retryTotal + classification 等），但前端没接 →
       //   S12 todo drawer 空白。这里 emit s12 todo 拿到具体数据填充 artifacts +
       //   narrativeLog 显示"本次学到了 N 条改进建议"。
-      const recommendations = (p.recommendations as string[] | undefined) ?? [];
+      // Normalize: backend emits string[], but defensively coerce non-string items
+      const rawRecs = p.recommendations;
+      const recommendations: string[] = Array.isArray(rawRecs)
+        ? rawRecs.map((r) =>
+            typeof r === 'string'
+              ? r
+              : r && typeof r === 'object'
+                ? JSON.stringify(r).slice(0, 200)
+                : String(r ?? '')
+          )
+        : [];
       const qualityHitRate = p.qualityHitRate as number | null | undefined;
       const retryTotal = p.retryTotal as number | undefined;
       const totalTokens = p.totalTokens as number | undefined;
@@ -862,8 +872,25 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         }
       );
     } else if (t === 'agent-playground.dimensions:appended') {
-      const items =
-        (p.items as { id: string; name: string; rationale: string }[]) ?? [];
+      // Defensive normalization: must Array.isArray-guard before .forEach to
+      // avoid TypeError if payload arrives as non-array (replay edge case).
+      const rawItems = p.items;
+      const items: { id: string; name: string; rationale: string }[] =
+        Array.isArray(rawItems)
+          ? rawItems
+              .filter(
+                (x): x is Record<string, unknown> =>
+                  x != null && typeof x === 'object'
+              )
+              .map((d, i) => ({
+                id: typeof d.id === 'string' ? d.id : `appended-${i}`,
+                name:
+                  typeof d.name === 'string'
+                    ? d.name
+                    : String(d.name ?? `Dimension ${i + 1}`),
+                rationale: typeof d.rationale === 'string' ? d.rationale : '',
+              }))
+          : [];
       items.forEach((d) => {
         const id = `dim:${d.id}`;
         upsert(id, () => ({

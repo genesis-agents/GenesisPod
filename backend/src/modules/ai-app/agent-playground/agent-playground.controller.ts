@@ -457,6 +457,39 @@ export class AgentPlaygroundController {
    * 会被 markFailed 兜底（写入 cancelled 状态会被 markCompleted 覆盖时
    * 我们在 markCompleted 里加了 guard——见 mission-store.service.ts）。
    */
+  /**
+   * POST /api/v1/agent-playground/error-report
+   * 接收前端 mission detail ErrorBoundary 上报的渲染崩溃（contract drift / lying
+   * assertion / 兜底失效等）。仅写日志（Railway stderr），不写 DB（避免崩溃风暴
+   * 时打满 DB）。Logger.error 被 Railway severity=error 索引便于告警。
+   */
+  @Public()
+  @Post("error-report")
+  async reportClientError(
+    @Body()
+    body: {
+      missionId?: string;
+      message?: string;
+      stack?: string;
+      digest?: string;
+      pathname?: string;
+      userAgent?: string;
+      timestamp?: string;
+    },
+    @Request() req: RequestWithUser,
+  ): Promise<{ ok: true }> {
+    const userId = req.user?.id ?? "anon";
+    const safeMessage = (body.message ?? "unknown").slice(0, 500);
+    const safeStack = (body.stack ?? "").slice(0, 2000);
+    const missionId = body.missionId ?? "unknown";
+    this.log.error(
+      `[ClientError] mission=${missionId} user=${userId} digest=${body.digest ?? ""} ` +
+        `path=${body.pathname ?? ""} msg="${safeMessage}"`,
+    );
+    if (safeStack) this.log.error(`[ClientError] stack:\n${safeStack}`);
+    return { ok: true };
+  }
+
   @Post("missions/:id/cancel")
   async cancelMission(
     @Param("id") missionId: string,

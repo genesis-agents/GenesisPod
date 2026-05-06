@@ -322,7 +322,11 @@ function parseEvent(ev: PlaygroundEvent): ParsedEvent {
       };
     case 'memory:indexed': {
       const chunks = p.chunks as number | undefined;
-      const tags = (p.tags as string[]) ?? [];
+      // Normalize tags: could be string[], undefined, or contain non-string items
+      const rawTags = p.tags;
+      const tags: string[] = Array.isArray(rawTags)
+        ? rawTags.map((t) => (typeof t === 'string' ? t : String(t ?? '')))
+        : [];
       return {
         icon: Database,
         iconColor: 'text-emerald-500',

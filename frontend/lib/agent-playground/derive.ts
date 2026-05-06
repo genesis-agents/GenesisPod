@@ -292,7 +292,31 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         cur.endedAt = ev.timestamp;
         if (stage === 'leader') {
           mission.themeSummary = p?.themeSummary as string | undefined;
-          mission.dimensions = p?.dimensions as MissionState['dimensions'];
+          // Defensive normalization: backend emits ReadonlyArray<{name}> from S2
+          // but MissionState['dimensions'] requires {id, name, rationale}[].
+          // Older payloads may lack id/rationale — fill them in rather than crash
+          // downstream code that calls existing.map((d) => d.id).
+          const rawDims = p?.dimensions;
+          if (Array.isArray(rawDims)) {
+            mission.dimensions = rawDims.map((d, i) => {
+              if (d && typeof d === 'object') {
+                const o = d as Record<string, unknown>;
+                return {
+                  id: typeof o.id === 'string' ? o.id : `dim-${i}`,
+                  name:
+                    typeof o.name === 'string'
+                      ? o.name
+                      : String(o.name ?? `Dimension ${i + 1}`),
+                  rationale: typeof o.rationale === 'string' ? o.rationale : '',
+                };
+              }
+              return {
+                id: `dim-${i}`,
+                name: String(d ?? `Dimension ${i + 1}`),
+                rationale: '',
+              };
+            });
+          }
         }
       }
     } else if (t === 'agent-playground.dimension:retrying') {
@@ -328,10 +352,25 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       }
     } else if (t === 'agent-playground.dimensions:appended') {
       // Leader chat 触发的动态追加：把新 dim 拼到 mission.dimensions 末尾
-      const items =
-        (p?.items as
-          | { id: string; name: string; rationale: string }[]
-          | undefined) ?? [];
+      // Defensive normalization: Array.isArray guard prevents crash if payload
+      // arrives as non-array; each element normalized to {id,name,rationale} shape.
+      const rawItems = p?.items;
+      const items: { id: string; name: string; rationale: string }[] =
+        Array.isArray(rawItems)
+          ? rawItems
+              .filter(
+                (x): x is Record<string, unknown> =>
+                  x != null && typeof x === 'object'
+              )
+              .map((d, i) => ({
+                id: typeof d.id === 'string' ? d.id : `dim-${i}`,
+                name:
+                  typeof d.name === 'string'
+                    ? d.name
+                    : String(d.name ?? `Dimension ${i + 1}`),
+                rationale: typeof d.rationale === 'string' ? d.rationale : '',
+              }))
+          : [];
       if (items.length > 0) {
         const existing = mission.dimensions ?? [];
         const existingIds = new Set(existing.map((d) => d.id));
@@ -504,10 +543,16 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         attempt: p?.attempt as number | undefined,
       });
     } else if (t === 'agent-playground.memory:indexed') {
+      // Normalize tags: backend emits [depth, topic] string tuple; guard against
+      // any non-string element arriving from an older payload shape.
+      const rawTags = p?.tags;
+      const normalizedTags = Array.isArray(rawTags)
+        ? rawTags.map((t) => (typeof t === 'string' ? t : String(t ?? '')))
+        : undefined;
       memory = {
         chunks: (p?.chunks as number) ?? 0,
         namespace: p?.namespace as string | undefined,
-        tags: p?.tags as string[] | undefined,
+        tags: normalizedTags,
       };
     } else if (t === 'agent-playground.report:draft') {
       reports.push({

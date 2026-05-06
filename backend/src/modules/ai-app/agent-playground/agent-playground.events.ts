@@ -6,9 +6,34 @@
  */
 
 import type { DomainEventTypeSpec } from "@/modules/ai-harness/facade";
+import type { z } from "zod";
+import {
+  LeaderGoalsSetSchema,
+  DimensionsAppendedSchema,
+  DimensionRetryingSchema,
+  LeaderDecisionSchema,
+  ChapterWritingCompletedSchema,
+  ChapterDoneSchema,
+  ReconciliationCompletedSchema,
+  CriticVerdictSchema,
+} from "./agent-playground.event-schemas";
 
+/**
+ * T(suffix) — 注册一个事件类型，无 schema（待补）。
+ * S(suffix, schema) — 注册带 zod payload schema 的事件，DomainEventBus.emit() 会
+ * 自动 safeParse。schema 失败默认 log.warn 静默 drop（不阻断业务），但开发期可由
+ * 业务层 broadcast 失败 throw（让 backend 自己炸而不是污染前端）。
+ */
 const T = (suffix: string): DomainEventTypeSpec => ({
   type: `agent-playground.${suffix}`,
+});
+
+const S = <TPayload>(
+  suffix: string,
+  schema: z.ZodType<TPayload>,
+): DomainEventTypeSpec<TPayload> => ({
+  type: `agent-playground.${suffix}`,
+  schema,
 });
 
 export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
@@ -65,38 +90,38 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   // ── TI-style per-dimension 子流程事件 ──
   T("dimension:outline:planned"), // outline agent 产出 N 章节规划
   T("chapter:writing:started"), // chapter writer 开始写第 i 章
-  T("chapter:writing:completed"), // chapter writer 出 draft
+  S("chapter:writing:completed", ChapterWritingCompletedSchema), // ★ schema 化
   T("chapter:review:started"), // chapter reviewer 开始评
   T("chapter:review:completed"), // chapter reviewer 出 decision
   T("chapter:revision"), // 触发重写（critique 反馈）
-  T("chapter:done"),
+  S("chapter:done", ChapterDoneSchema), // ★ schema 化
   T("dimension:integrating:started"),
   T("dimension:integrating:completed"),
   T("dimension:integrating:failed"), // P1-R4-B (round 4): integrator 失败前端切错误态
   T("dimension:graded"), // 5-axis 评分结果
   // ── Leader chat 触发的动态追加 ──
-  T("dimensions:appended"), // CREATE_TODO 决策 → 追加 dim 到 mission.dimensions
+  S("dimensions:appended", DimensionsAppendedSchema), // ★ schema 化
   // ── 全链路诊断 / 跨 mission 失败模式记忆 ──
   T("dimension:degraded"), // researcher 失败 → 维度降级，含 innerFailureCode
   T("failure-pattern:pre-applied"), // 启动 researcher 前命中历史失败模式 → 预禁用 model
   // ── Phase P0-4: Reconciler [3.5] 节点（mission-pipeline-reconciler.md）──
-  T("reconciliation:completed"), // 对账完成，含 fact/conflict/overlap/gap/figure 计数
+  S("reconciliation:completed", ReconciliationCompletedSchema), // ★ schema 化
   // ── Phase P0-9: Writer 局部回写 (D11) ──
   T("chapter:rewritten"), // Reviewer 触发某章重写并完成
   // ── Phase P0-2 / P3-1: Tool Recall trace ──
   T("tools:recalled"),
   T("agent:validation-rejected"),
   // ── Phase P21-2: Critic L4 verdict 事件 ──
-  T("critic:verdict"),
+  S("critic:verdict", CriticVerdictSchema), // ★ schema 化
   // ── Phase P0-10: 预算两档闸 ──
   T("mission:budget-warning-soft"),
   T("mission:budget-warning-hard"),
   // ── Phase Lead-1+: Leader-Replanner-Lite ──
-  T("leader:goals-set"), // M0 Leader 声明 successCriteria/qualityBar/deliverables
-  T("leader:decision"), // M1/M4 Leader 决策（accept/patch/abort 等）
+  S("leader:goals-set", LeaderGoalsSetSchema), // ★ schema 化（initialRisks 形状漂移过）
+  S("leader:decision", LeaderDecisionSchema), // ★ schema 化
   T("leader:foreword"), // M6 Leader 写完 meta-level Foreword
   T("leader:signed"), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
-  T("dimension:retrying"), // researcher self-heal 重试触发
+  S("dimension:retrying", DimensionRetryingSchema), // ★ schema 化
   T("dimension:retry-failed"),
   // ── 人话叙事事件（agent-narrative.md）──
   // 每个 stage 在关键节点 emit 一条 short 自然语言句子，前端任务详情主时间线

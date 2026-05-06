@@ -76,11 +76,18 @@ export class DomainEventBus {
     if (spec.schema) {
       const parsed = spec.schema.safeParse(event.payload);
       if (!parsed.success) {
-        this.log.warn(
-          `Domain event "${event.type}" payload validation failed: ${parsed.error.issues
-            .map((i) => `${i.path.join(".")}:${i.message}`)
-            .join("; ")}`,
-        );
+        const detail = parsed.error.issues
+          .map((i) => `${i.path.join(".")}:${i.message}`)
+          .join("; ");
+        const msg = `Domain event "${event.type}" payload validation failed: ${detail}`;
+        // 默认行为：log.error + return false（不阻断业务，避免单事件挂全 mission）。
+        // Railway stderr 会捕获 .error 便于事后溯源。
+        // STRICT_DOMAIN_EVENT_VALIDATION=true 时 throw（dev 期排查 contract drift
+        // 用，让 backend 自己炸而不是污染前端 ErrorBoundary）。
+        this.log.error(msg);
+        if (process.env.STRICT_DOMAIN_EVENT_VALIDATION === "true") {
+          throw new Error(msg);
+        }
         return false;
       }
     }
