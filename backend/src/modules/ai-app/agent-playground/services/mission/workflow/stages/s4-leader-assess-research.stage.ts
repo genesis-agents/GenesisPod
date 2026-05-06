@@ -238,9 +238,18 @@ export async function runLeaderAssessResearchStage(
     if (err instanceof Error && err.message.startsWith("Leader aborted")) {
       throw err;
     }
+    // ★ 2026-05-06 (A-6): swallow 改成 markStageDegraded — 前端 narrative 可见
+    const message = err instanceof Error ? err.message : String(err);
     deps.log.warn(
-      `[${missionId}] M1 assess-research failed (non-fatal, mission proceeds): ${err instanceof Error ? err.message : String(err)}`,
+      `[${missionId}] M1 assess-research failed (non-fatal, mission proceeds): ${message}`,
     );
+    await deps.markStageDegraded(
+      missionId,
+      userId,
+      "s4-leader-assess",
+      `Leader 评审失败但 mission 继续：${message.slice(0, 200)}`,
+    );
+    // legacy 兼容：原 stage:completed status='failed' 仍 emit 让现有 metrics 链路读到
     await deps
       .emit({
         type: "agent-playground.stage:completed",
@@ -249,7 +258,7 @@ export async function runLeaderAssessResearchStage(
         payload: {
           stage: "s4-leader-assess",
           status: "failed",
-          error: err instanceof Error ? err.message : String(err),
+          error: message,
         },
       })
       .catch(() => {});

@@ -78,6 +78,24 @@ export interface CommonDeps {
   readonly log: Logger;
   readonly emit: EmitFn;
   readonly lifecycle: LifecycleFn;
+  /**
+   * ★ 2026-05-06 (A-6): stage 软失败上报 API。stage 内部 catch 不阻断 mission 时
+   * 必须调用此函数让 orchestrator + 前端看到。禁止 log.warn 后静默 swallow（这是
+   * "软失败盲区"的主要源头：mission 跑完但报告质量已 degraded，用户看不到）。
+   *
+   * 用法（stage 文件需显式传 stepId，与 PLAYGROUND_PIPELINE.steps[i].id 一致）：
+   *   try { await reviewer.criticL4(...); }
+   *   catch (err) {
+   *     await deps.markStageDegraded(missionId, userId, "s9-critic",
+   *       "L4 critic 失败但不阻断 mission：" + err.message);
+   *   }
+   */
+  readonly markStageDegraded: (
+    missionId: string,
+    userId: string,
+    stepId: string,
+    reason: string,
+  ) => Promise<void>;
 }
 
 // ─── Phase 1: Plan（s1/s2）──────────────────────────────────────────

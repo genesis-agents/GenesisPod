@@ -17,8 +17,12 @@ describe("PLAYGROUND_PIPELINE (v5.1 R2-A.0)", () => {
     expect(PLAYGROUND_PIPELINE.id).toBe("agent-playground");
   });
 
-  it("14 个 step（v5.1 §5 stage 映射 / 含 s8b + s9b）", () => {
-    expect(PLAYGROUND_PIPELINE.steps).toHaveLength(14);
+  // ★ 2026-05-06 (A-7): S12 self-evolution 从 pipeline.steps 移出，改 fire-and-forget
+  //   by dispatcher 在 mission terminal 后单独触发，emit mission:postlude:* 事件流。
+  //   原因：S12 是 best-effort 后置任务（postmortem + memory 索引），不该挂在
+  //   stage:lifecycle 上让前端误以为是 mission 一部分进度。
+  it("13 个 step（A-7 后 S12 移出走 fire-and-forget）", () => {
+    expect(PLAYGROUND_PIPELINE.steps).toHaveLength(13);
     expect(PLAYGROUND_PIPELINE.steps.map((s) => s.id)).toEqual([
       "s1-budget",
       "s2-leader-plan",
@@ -33,7 +37,6 @@ describe("PLAYGROUND_PIPELINE (v5.1 R2-A.0)", () => {
       "s9b-objective-eval",
       "s10-leader-foreword-signoff",
       "s11-persist",
-      "s12-self-evolution",
     ]);
   });
 
@@ -54,7 +57,7 @@ describe("PLAYGROUND_PIPELINE (v5.1 R2-A.0)", () => {
     expect(map["s9b-objective-eval"]).toBe("review");
     expect(map["s10-leader-foreword-signoff"]).toBe("signoff");
     expect(map["s11-persist"]).toBe("persist");
-    expect(map["s12-self-evolution"]).toBe("learn");
+    // s12-self-evolution 已 A-7 移出 pipeline.steps，dispatcher fire-and-forget
   });
 
   it("8 role 全部声明 + skillSpec 从 SKILL.md 加载", () => {

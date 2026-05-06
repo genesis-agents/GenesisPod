@@ -1025,6 +1025,77 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         s11.status = status === 'failed' ? 'failed' : 'done';
         s11.endedAt = ev.timestamp;
       }
+    } else if (
+      t === 'agent-playground.mission:postlude:started' ||
+      t === 'agent-playground.mission:postlude:completed' ||
+      t === 'agent-playground.mission:postlude:failed'
+    ) {
+      // ★ 2026-05-06 (A-7): S12 self-evolution 已从 PLAYGROUND_PIPELINE.steps 移出，
+      //   改 fire-and-forget by dispatcher 单独触发。前端 s12 todo 用此事件流推进。
+      const s12 = todos.get('system:s12-self-evolution');
+      if (s12) {
+        if (t === 'agent-playground.mission:postlude:started') {
+          if (s12.status === 'pending') {
+            s12.status = 'in_progress';
+            s12.startedAt = ev.timestamp;
+          }
+        } else if (t === 'agent-playground.mission:postlude:completed') {
+          if (s12.status !== 'failed' && s12.status !== 'cancelled') {
+            s12.status = 'done';
+            s12.endedAt = ev.timestamp;
+          }
+        } else {
+          s12.status = 'failed';
+          s12.endedAt = ev.timestamp;
+          const err = p.error as string | undefined;
+          if (err) {
+            s12.narrativeLog.push({
+              ts: ev.timestamp,
+              text: `自我进化失败：${err.slice(0, 200)}`,
+              tone: 'error',
+            });
+          }
+        }
+      }
+    } else if (t === 'agent-playground.stage:stalled') {
+      // ★ 2026-05-06 (A-9): orchestrator watchdog 检测 stage 卡顿警告（不杀，仅可见性）
+      const stage = p.stage as string | undefined;
+      const elapsedMs = p.elapsedMs as number | undefined;
+      const reason = p.reason as string | undefined;
+      if (stage) {
+        const todo = todos.get(`system:${stage}`);
+        if (todo) {
+          todo.narrativeLog.push({
+            ts: ev.timestamp,
+            text:
+              reason ??
+              `卡顿警告：stage 已运行 ${elapsedMs ? Math.round(elapsedMs / 60_000) : '?'} 分钟未完成`,
+            tone: 'warn',
+          });
+        }
+      }
+    } else if (t === 'agent-playground.stage:degraded') {
+      // ★ 2026-05-06 (A-6): stage 软失败（业务 catch 不阻断但要可见）
+      const stage = p.stage as string | undefined;
+      const reason = p.reason as string | undefined;
+      if (stage) {
+        const todo = todos.get(`system:${stage}`);
+        if (todo) {
+          todo.narrativeLog.push({
+            ts: ev.timestamp,
+            text: `降级完成：${reason ?? '业务软失败但 mission 继续'}`,
+            tone: 'warn',
+          });
+        }
+      }
+    } else if (t === 'agent-playground.mission:execution-aborted') {
+      // ★ 2026-05-06 (A-8): dispatcher finally 兜底 — runtime 失联（pod kill / OOM）
+      addNarrative(
+        'system:s1-budget',
+        ev.timestamp,
+        `执行中断：${(p.reason as string | undefined) ?? 'runtime_lost'}（${(p.error as string | undefined)?.slice(0, 100) ?? ''}）`,
+        'error'
+      );
     } else if (t === 'agent-playground.stage:lifecycle') {
       // ★ 2026-05-06 (A 架构优化): orchestrator-driven lifecycle 事件，dispatcher 桥接
       //   orchestrator 内部 stage:started/completed/failed → agent-playground.stage:lifecycle。

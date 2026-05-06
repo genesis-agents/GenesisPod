@@ -75,6 +75,7 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
       error: jest.fn(),
     },
     lifecycle: jest.fn().mockResolvedValue(undefined),
+    markStageDegraded: jest.fn().mockResolvedValue(undefined),
     invoker: {
       invoke: jest.fn().mockResolvedValue({
         state: "completed",

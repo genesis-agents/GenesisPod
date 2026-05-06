@@ -272,8 +272,14 @@ export async function runCriticStage(
       })
       .catch(() => {});
   } catch (err) {
-    deps.log.warn(
-      `[${missionId}] L4 critic failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+    // ★ 2026-05-06 (A-6): swallow 改成 markStageDegraded
+    const message = err instanceof Error ? err.message : String(err);
+    deps.log.warn(`[${missionId}] L4 critic failed (non-fatal): ${message}`);
+    await deps.markStageDegraded(
+      missionId,
+      userId,
+      "s9-critic",
+      `L4 critic 失败但 mission 继续：${message.slice(0, 200)}`,
     );
     await deps
       .emit({
@@ -283,7 +289,7 @@ export async function runCriticStage(
         payload: {
           stage: "critic",
           status: "failed",
-          error: err instanceof Error ? err.message : String(err),
+          error: message,
         },
       })
       .catch(() => {});

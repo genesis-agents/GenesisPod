@@ -33,6 +33,18 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   //   后续 PR：删 stage:started/completed，全靠 stage:lifecycle + 单独 stage:metrics 事件。
   T("stage:lifecycle"),
   T("stage:failed"),
+  // ★ 2026-05-06 (A-9): orchestrator watchdog 检测 stage stall（started 后超阈值未完成）
+  T("stage:stalled"),
+  // ★ 2026-05-06 (A-6): stage 内部软失败 markDegraded API → orchestrator 透传
+  T("stage:degraded"),
+  // ★ 2026-05-06 (A-2): stage 业务 metrics（取代 stage:completed payload，stepId 索引）
+  T("stage:metrics"),
+  // ★ 2026-05-06 (A-7): S12 fire-and-forget postlude 独立事件流，不与 stage:lifecycle 混
+  T("mission:postlude:started"),
+  T("mission:postlude:completed"),
+  T("mission:postlude:failed"),
+  // ★ 2026-05-06 (A-8): dispatcher finally 兜底信号 — runtime 失联（非 stage:failed）
+  T("mission:execution-aborted"),
   T("agent:lifecycle"),
   T("agent:thought"),
   T("agent:action"),

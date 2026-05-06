@@ -148,6 +148,45 @@ export class MissionStageBindingsService {
       log: this.log,
       emit: this.invoker.emitEvent.bind(this.invoker),
       lifecycle: this.invoker.emitLifecycle.bind(this.invoker),
+      // ★ 2026-05-06 (A-6): markStageDegraded — stage 内部软失败上报。
+      //   stage 调用方显式传 stepId（PLAYGROUND_PIPELINE.steps[i].id），让前端按
+      //   stepId 映射到 SystemStageId 后挂到对应 todo 的 narrativeLog 显示警告。
+      //   禁止 log.warn 后静默 swallow（这是"软失败盲区"主要源头）。
+      markStageDegraded: async (
+        missionId: string,
+        userId: string,
+        stepId: string,
+        reason: string,
+      ) => {
+        await this.invoker.emitEvent({
+          type: "agent-playground.stage:degraded",
+          missionId,
+          userId,
+          payload: {
+            stage: STEP_ID_TO_FRONTEND_STAGE_ID[stepId] ?? stepId,
+            stepId,
+            reason: reason.slice(0, 500),
+          },
+        });
+      },
     };
   }
 }
+
+/** dispatcher 同款映射（保持 source-of-truth 单一）—— 见 dispatcher 文件末尾 */
+const STEP_ID_TO_FRONTEND_STAGE_ID: Record<string, string> = {
+  "s1-budget": "s1-budget",
+  "s2-leader-plan": "s2-leader-plan",
+  "s3-researcher-collect": "s3-researchers",
+  "s4-leader-assess": "s4-leader-assess",
+  "s5-reconciler": "s5-reconciler",
+  "s6-analyst": "s6-analyst",
+  "s7-writer-outline": "s7-writer-outline",
+  "s8-writer": "s8-writer-draft",
+  "s8b-quality-enhancement": "s8b-quality-enhancement",
+  "s9-critic": "s9-critic-l4",
+  "s9b-objective-eval": "s9b-objective-evaluation",
+  "s10-leader-foreword-signoff": "s10-leader-signoff",
+  "s11-persist": "s11-persist",
+  "s12-self-evolution": "s12-self-evolution",
+};

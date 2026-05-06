@@ -188,8 +188,11 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
       },
       // S11 — final persist
       { primitive: "persist", id: "s11-persist", mode: "final" },
-      // S12 — self-evolution / postmortem
-      { primitive: "learn", id: "s12-self-evolution" },
+      // ★ 2026-05-06 (A-7): S12 self-evolution 从 pipeline.steps 移除，改由 dispatcher
+      //   在 mission terminal 后 fire-and-forget 触发，emit mission:postlude:* 事件流。
+      //   原因：S12 是 best-effort 后置任务（postmortem 统计 + memory 索引），不该挂在
+      //   stage:lifecycle 上让前端误以为是 mission 一部分进度。前端 todo-ledger 单独
+      //   按 mission:postlude:* 推 s12 todo 状态。
     ],
     defaultStepTimeoutMs: 10 * 60_000, // 10 分钟 / step（playground 长任务保守值）
     meta: {

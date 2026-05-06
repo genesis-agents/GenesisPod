@@ -40,13 +40,20 @@ export interface MissionEvent {
     | "mission:aborted"
     | "stage:started"
     | "stage:completed"
-    | "stage:failed";
+    | "stage:failed"
+    /** ★ 2026-05-06 (A-6): 软失败信号，stage 内部 catch 决定不阻断但要让用户可见 */
+    | "stage:degraded"
+    /** ★ 2026-05-06 (A-9): watchdog 检测到 stage 卡顿（started 后超过阈值未完成）*/
+    | "stage:stalled";
   readonly missionId: string;
   readonly stepId?: string;
   readonly primitive?: string;
   readonly output?: unknown;
   readonly error?: unknown;
   readonly timestamp: number;
+  /** stage:degraded / stage:stalled 携带的额外信息 */
+  readonly reason?: string;
+  readonly elapsedMs?: number;
 }
 
 /**
@@ -212,13 +219,36 @@ export class MissionPipelineOrchestrator {
   ): Promise<unknown> {
     const { step, primitive, role, timeoutMs } = resolved;
 
+    const stageStartedAt = Date.now();
     await this.emit(onEvent, {
       type: "stage:started",
       missionId: ctx.missionId,
       stepId: step.id,
       primitive: step.primitive,
-      timestamp: Date.now(),
+      timestamp: stageStartedAt,
     });
+
+    // ★ 2026-05-06 (A-9 watchdog): stage:started 后 stallThresholdMs（默认 timeoutMs ×
+    //   1.5 / 兜底 15min）未到 stage:completed/failed → emit stage:stalled 警告（不杀，
+    //   仅可见性）。覆盖 stage 内部 LLM 卡死但未抛错的盲区。
+    const stallThresholdMs = Math.max(
+      timeoutMs ? Math.floor(timeoutMs * 1.5) : 15 * 60 * 1000,
+      60_000,
+    );
+    let stalled = false;
+    const stallTimer = setTimeout(() => {
+      stalled = true;
+      void this.emit(onEvent, {
+        type: "stage:stalled",
+        missionId: ctx.missionId,
+        stepId: step.id,
+        primitive: step.primitive,
+        elapsedMs: Date.now() - stageStartedAt,
+        reason: `stage 在 ${Math.round(stallThresholdMs / 60_000)} 分钟内未完成`,
+        timestamp: Date.now(),
+      }).catch(() => undefined);
+    }, stallThresholdMs);
+    (stallTimer as { unref?: () => void }).unref?.();
 
     try {
       // primitive.run 期望 ResolvedRole；step 没指定 role 时用 placeholder
@@ -247,6 +277,7 @@ export class MissionPipelineOrchestrator {
 
       const output = await this.withTimeout(runPromise, timeoutMs, step.id);
 
+      clearTimeout(stallTimer);
       await this.emit(onEvent, {
         type: "stage:completed",
         missionId: ctx.missionId,
@@ -257,6 +288,8 @@ export class MissionPipelineOrchestrator {
       });
       return output;
     } catch (err) {
+      clearTimeout(stallTimer);
+      void stalled; // tsc no-unused-var: stalled 是显式标志虽未使用但保留语义
       await this.emit(onEvent, {
         type: "stage:failed",
         missionId: ctx.missionId,
