@@ -1366,15 +1366,35 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           entry.s4PatchFailures = stageCtx.s4PatchFailures;
         }
         // ★ P0-D 完整版: 持久化 baseline researcher 产物（让下次 rerun cache hit）
+        // ★ 业务链修6 (2026-05-06): 持久化失败必须可见（之前 prisma table not exist
+        //   无 catch → 整 S3 hook throw → mission:failed 但前端看不到具体原因）。
+        //   改为 catch + emit stage:degraded 让前端 narrativeLog 显示真因。
         if (stageCtx.researcherResults) {
           for (const r of stageCtx.researcherResults) {
-            await this.store.saveResearchResult({
-              missionId: entry.session.missionId,
-              dimension: r.dimension,
-              findings: r.findings,
-              summary: r.summary,
-              state: r.findings.length === 0 ? "failed" : "completed",
-            });
+            await this.store
+              .saveResearchResult({
+                missionId: entry.session.missionId,
+                dimension: r.dimension,
+                findings: r.findings,
+                summary: r.summary,
+                state: r.findings.length === 0 ? "failed" : "completed",
+              })
+              .catch(async (err: unknown) => {
+                const message =
+                  err instanceof Error ? err.message : String(err);
+                this.log.warn(
+                  `[s3 saveResearchResult] dim=${r.dimension} failed: ${message}`,
+                );
+                await this.stageBindings
+                  .buildDeps()
+                  .markStageDegraded(
+                    entry.session.missionId,
+                    entry.session.userId,
+                    "s3-researcher-collect",
+                    `trajectory 持久化失败 (${r.dimension})：${message.slice(0, 200)}`,
+                  )
+                  .catch(() => undefined);
+              });
           }
         }
         // ★ P1-修1 (2026-05-06): S3 软失败上报 — 关闭"dim 全失败但 stage:lifecycle 仍发

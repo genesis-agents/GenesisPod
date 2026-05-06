@@ -64,16 +64,22 @@ function buildDatabaseUrl(): string | undefined {
 
 /**
  * 获取日志配置（静态函数，在 super() 之前调用）
+ *
+ * ★ 2026-05-06 修：之前 short-form `["error", "warn"]` 默认 emit='stdout'，
+ *   prisma error 通过 console.log 写到 stdout → Railway 把 stdout 全标 severity='info'，
+ *   导致用户看到 prisma:error 显示 severity='info'，无法按级别过滤告警。
+ *   改用 emit='event' + this.$on('error', ...) 走 NestJS Logger.error → stderr，
+ *   Railway 会正确标 severity='error'。
  */
-function getLogConfig(): Prisma.LogLevel[] | Prisma.LogDefinition[] {
+function getLogConfig(): Prisma.LogDefinition[] {
+  const base: Prisma.LogDefinition[] = [
+    { emit: "event", level: "error" },
+    { emit: "event", level: "warn" },
+  ];
   if (ENABLE_QUERY_LOG) {
-    return [
-      { emit: "event", level: "query" },
-      { emit: "stdout", level: "error" },
-      { emit: "stdout", level: "warn" },
-    ];
+    base.unshift({ emit: "event", level: "query" });
   }
-  return ["error", "warn"];
+  return base;
 }
 
 @Injectable()
@@ -102,6 +108,29 @@ export class PrismaService
 
     // ★ 设置查询事件监听器
     this.setupQueryLogging();
+    // ★ 2026-05-06: 注册 prisma error/warn event 监听器，走 NestJS Logger 输出到
+    //   stderr，让 Railway 正确标 severity='error' 而非 'info'
+    this.setupErrorLogging();
+  }
+
+  /** prisma error/warn event → NestJS Logger.error/warn → stderr */
+  private setupErrorLogging(): void {
+    const client = this as unknown as {
+      $on: (
+        event: "error" | "warn",
+        callback: (e: { message: string; target?: string }) => void,
+      ) => void;
+    };
+    client.$on("error", (e) => {
+      this.logger.error(
+        `[Prisma] ${e.target ? `[${e.target}] ` : ""}${e.message}`,
+      );
+    });
+    client.$on("warn", (e) => {
+      this.logger.warn(
+        `[Prisma] ${e.target ? `[${e.target}] ` : ""}${e.message}`,
+      );
+    });
   }
 
   /**

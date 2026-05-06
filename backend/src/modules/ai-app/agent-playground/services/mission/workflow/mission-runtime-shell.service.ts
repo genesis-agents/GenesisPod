@@ -122,6 +122,10 @@ export class MissionRuntimeShellService {
           //   cloneInputFromMission 读不到 → fallback 1000 硬编码（违反 P0-K 用户侧定义）
           maxCredits: input.maxCredits,
           budgetMultiplierOverride: input.budgetMultiplierOverride,
+          // ★ 同类清零4 (2026-05-06): RunMissionInput 全字段持久化（rerun 真复用 input）
+          wallTimeMs: input.wallTimeMs,
+          knowledgeBaseIds: input.knowledgeBaseIds,
+          inheritFromMissionId: input.inheritFromMissionId,
         } as Record<string, unknown>,
       });
 

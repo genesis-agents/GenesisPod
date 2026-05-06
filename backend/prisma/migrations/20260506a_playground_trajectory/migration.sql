@@ -30,10 +30,21 @@ CREATE INDEX IF NOT EXISTS "agent_playground_research_results_mission_id_idx"
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_playground_research_results_mid_dim_retry_uniq"
     ON "agent_playground_research_results" ("mission_id", "dimension", "retry_label");
 
-ALTER TABLE "agent_playground_research_results"
-    ADD CONSTRAINT IF NOT EXISTS "agent_playground_research_results_mission_id_fkey"
-    FOREIGN KEY ("mission_id") REFERENCES "agent_playground_missions"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
+-- ★ 修 (2026-05-06): PostgreSQL < 16 不支持 ADD CONSTRAINT IF NOT EXISTS，
+--   改用 DO block 通过 pg_constraint 查询去重（兼容 PG 9.6+，避免 prisma migrate
+--   deploy 静默 applied_steps_count=0）
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'agent_playground_research_results_mission_id_fkey'
+    ) THEN
+        ALTER TABLE "agent_playground_research_results"
+            ADD CONSTRAINT "agent_playground_research_results_mission_id_fkey"
+            FOREIGN KEY ("mission_id") REFERENCES "agent_playground_missions"("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS "agent_playground_chapter_drafts" (
     "id"            TEXT NOT NULL DEFAULT gen_random_uuid(),
@@ -59,7 +70,15 @@ CREATE INDEX IF NOT EXISTS "agent_playground_chapter_drafts_mission_id_idx"
 CREATE UNIQUE INDEX IF NOT EXISTS "agent_playground_chapter_drafts_mid_dim_idx_uniq"
     ON "agent_playground_chapter_drafts" ("mission_id", "dimension", "chapter_index");
 
-ALTER TABLE "agent_playground_chapter_drafts"
-    ADD CONSTRAINT IF NOT EXISTS "agent_playground_chapter_drafts_mission_id_fkey"
-    FOREIGN KEY ("mission_id") REFERENCES "agent_playground_missions"("id")
-    ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'agent_playground_chapter_drafts_mission_id_fkey'
+    ) THEN
+        ALTER TABLE "agent_playground_chapter_drafts"
+            ADD CONSTRAINT "agent_playground_chapter_drafts_mission_id_fkey"
+            FOREIGN KEY ("mission_id") REFERENCES "agent_playground_missions"("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
