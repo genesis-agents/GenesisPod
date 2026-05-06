@@ -180,6 +180,26 @@ onModuleInit() {
 - `modelId = "gpt-4o"` 参数默认值 → `modelId = ""`
 - 原因：空字符串由下游 `AiChatService` 走 `TaskProfile` 自动解析，不会 break
 
+### Claude Code v2.1.88 反向洞察 10 条（2026-05-06 引入）
+
+> 来源：Anthropic 自己注释里写的"血的教训"（`d:/projects/codes/claude-code-build` 还原源码 1916 文件）。
+> 这套护栏对 ai-harness/runner / ai-engine/llm 类改动**全部强制**。任何 PR 不允许违反。
+
+| #   | 反向坑                                                                                                  | 后果                                 | 出处                               | 我们对应教训                              |
+| --- | ------------------------------------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------- | ----------------------------------------- |
+| 1   | **`stop_reason === 'tool_use'` 不可靠**——必须看 assistant content 里有没有未执行 tool_use block         | 偶发漏判终止 / 该停没停 / 该续没续   | `query.ts:553-557`                 | `project_stage_emit_missing_2026_05_06`   |
+| 2   | **stop_reason 在 `message_delta` 才到，不是 `content_block_stop`**——读 content_block_stop 时永远是 null | 永远读到 null                        | `QueryEngine.ts:802-808`           | —                                         |
+| 3   | **`assistantMessages.push` 用原对象、yield 用 clone**——破原对象会破 prompt cache                        | 改原对象破 prompt cache 命中率       | `query.ts:742-787`                 | —                                         |
+| 4   | **API error 不跑 stop hook**——hook 注 token → PTL → retry 死循环                                        | 永远不可恢复的 retry storm           | `query.ts:1262-1264`               | `project_p1_react_runaway_fix_2026_04_29` |
+| 5   | **必须有 autocompact 断路器（MAX_CONSECUTIVE_FAILURES=3）**——否则不可恢复"context 永远超限"             | 日烧 250K API calls 类规模化事故     | `query.ts:262`（注释明文）         | —                                         |
+| 6   | **fallback 时必须 strip thinking signature**——signature 与模型绑定，跨模型 400                          | 跨 provider failover 一定 400        | `query.ts:925-929`                 | —                                         |
+| 7   | **pinnedEdits 必须每轮重插同位置（字节级一致）**——否则前缀漂移                                          | cache 命中率从 90%→0                 | `claude.ts:3127`                   | —                                         |
+| 8   | **Sub-agent / forked agent 默认禁用 cached microcompact**——写 module-level state 会跨 thread 污染       | 跨 thread 状态污染 / 数据错乱        | `microCompact.ts:272-285`          | `feedback_lint_staged_stash_safety`       |
+| 9   | **fallback 后必须 yield 配对 tool_result 占位**——否则 invalid_request                                   | API 直接 400                         | `query.ts:984`                     | —                                         |
+| 10  | **`streamingToolExecutor.discard()` 必须存在**——否则 partial tool 的 tool_use_id 与新一轮不匹配         | tool_use_id 漂移导致 invalid_request | `StreamingToolExecutor.ts:153-204` | —                                         |
+
+> 落地手册：[docs/architecture/claude-code-borrow/agent-execution-guide.md](../../docs/architecture/claude-code-borrow/agent-execution-guide.md) §3 反向洞察 + P0/P1 任务卡
+
 ### 分析先行，禁止猜测
 
 - 诊断任何问题前，**必须先 Read 相关源码**，不得凭记忆或猜测给出结论
