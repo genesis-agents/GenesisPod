@@ -1,0 +1,290 @@
+import { Test, TestingModule } from "@nestjs/testing";
+import { ConflictException, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { SecretKeysService } from "../secret-keys.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { EncryptionService } from "../../encryption/encryption.service";
+
+const buildEncryption = (): EncryptionService =>
+  new EncryptionService({
+    get: (key: string) =>
+      key === "SETTINGS_ENCRYPTION_KEY"
+        ? "test-encryption-key-32chars-ok!"
+        : key === "NODE_ENV"
+          ? "test"
+          : undefined,
+  } as unknown as ConfigService);
+
+const makeSecretRow = (overrides: Record<string, unknown> = {}) => ({
+  id: "secret-1",
+  name: "test-api-key",
+  displayName: "Test API Key",
+  category: "AI_MODEL",
+  description: null,
+  provider: "openai",
+  isActive: true,
+  encryptedValue: "legacy-enc",
+  iv: "abcd1234abcd1234abcd1234abcd1234",
+  keyVersion: 1,
+  expiresAt: null,
+  lastRotatedAt: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  createdBy: null,
+  updatedBy: null,
+  deletedAt: null,
+  deletedBy: null,
+  lastAccessedAt: null,
+  accessCount: 0,
+  currentVersion: 1,
+  ...overrides,
+});
+
+const makeKeyRow = (overrides: Record<string, unknown> = {}) => ({
+  id: "key-a",
+  secretId: "secret-1",
+  label: "primary",
+  encryptedValue: "enc",
+  iv: "abcd1234abcd1234abcd1234abcd1234",
+  keyVersion: 1,
+  keyHint: "sk-…1234",
+  isActive: true,
+  priority: 0,
+  testStatus: null,
+  lastTestedAt: null,
+  lastErrorMessage: null,
+  accessCount: 0,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  createdBy: null,
+  updatedBy: null,
+  ...overrides,
+});
+
+describe("SecretKeysService", () => {
+  let service: SecretKeysService;
+  let prisma: {
+    secret: {
+      findUnique: jest.Mock;
+    };
+    secretKey: {
+      findUnique: jest.Mock;
+      findMany: jest.Mock;
+      create: jest.Mock;
+      update: jest.Mock;
+      delete: jest.Mock;
+    };
+  };
+  let encryption: EncryptionService;
+
+  beforeEach(async () => {
+    prisma = {
+      secret: { findUnique: jest.fn() },
+      secretKey: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+    };
+    encryption = buildEncryption();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SecretKeysService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EncryptionService, useValue: encryption },
+      ],
+    }).compile();
+
+    service = module.get(SecretKeysService);
+  });
+
+  describe("addKey", () => {
+    it("rejects duplicate label for same secret", async () => {
+      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findUnique.mockResolvedValue({ id: "existing" });
+
+      await expect(
+        service.addKey("secret-1", { label: "primary", value: "sk-test123" }),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("creates key with masked hint and increments default priority", async () => {
+      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findUnique.mockResolvedValue(null);
+      prisma.secretKey.create.mockImplementation(async ({ data }) =>
+        makeKeyRow({ ...data, id: "new-key" }),
+      );
+
+      const created = await service.addKey("secret-1", {
+        label: "backup-1",
+        value: "sk-abcdef1234567890",
+      });
+
+      expect(prisma.secretKey.create).toHaveBeenCalled();
+      const callArg = prisma.secretKey.create.mock.calls[0][0].data;
+      expect(callArg.label).toBe("backup-1");
+      expect(callArg.encryptedValue).not.toBe("sk-abcdef1234567890");
+      expect(callArg.iv).toMatch(/^[0-9a-f]{32}$/);
+      expect(callArg.priority).toBe(0);
+      expect(callArg.isActive).toBe(true);
+      expect(created.keyHint).toContain("…");
+    });
+  });
+
+  describe("getSecretKey - fallback chain", () => {
+    it("returns null when secret not found", async () => {
+      prisma.secret.findUnique.mockResolvedValue(null);
+      const result = await service.getSecretKey("missing-secret");
+      expect(result).toBeNull();
+    });
+
+    it("falls back to legacy Secret.encryptedValue when no SecretKey rows", async () => {
+      const legacy = encryption.encrypt("legacy-plaintext");
+      prisma.secret.findUnique.mockResolvedValue(
+        makeSecretRow({
+          encryptedValue: legacy.encryptedValue,
+          iv: legacy.iv,
+        }),
+      );
+      prisma.secretKey.findMany.mockResolvedValue([]);
+
+      const result = await service.getSecretKey("test-api-key");
+      expect(result).toEqual({
+        value: "legacy-plaintext",
+        keyId: null,
+        label: "(legacy)",
+      });
+    });
+
+    it("picks lowest priority active key", async () => {
+      const enc1 = encryption.encrypt("primary-value");
+      const enc2 = encryption.encrypt("backup-value");
+      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findMany.mockResolvedValue([
+        makeKeyRow({
+          id: "k1",
+          label: "primary",
+          priority: 0,
+          encryptedValue: enc1.encryptedValue,
+          iv: enc1.iv,
+        }),
+        makeKeyRow({
+          id: "k2",
+          label: "backup",
+          priority: 1,
+          encryptedValue: enc2.encryptedValue,
+          iv: enc2.iv,
+        }),
+      ]);
+
+      const result = await service.getSecretKey("test-api-key");
+      expect(result?.value).toBe("primary-value");
+      expect(result?.keyId).toBe("k1");
+      expect(result?.label).toBe("primary");
+    });
+
+    it("skips failed key inside circuit-break window and uses next", async () => {
+      const enc1 = encryption.encrypt("dead-value");
+      const enc2 = encryption.encrypt("alive-value");
+      const recentFailure = new Date(Date.now() - 60_000); // 1 min ago
+      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findMany.mockResolvedValue([
+        makeKeyRow({
+          id: "k1",
+          priority: 0,
+          testStatus: "failed",
+          lastTestedAt: recentFailure,
+          encryptedValue: enc1.encryptedValue,
+          iv: enc1.iv,
+        }),
+        makeKeyRow({
+          id: "k2",
+          priority: 1,
+          testStatus: "success",
+          encryptedValue: enc2.encryptedValue,
+          iv: enc2.iv,
+        }),
+      ]);
+
+      const result = await service.getSecretKey("test-api-key");
+      expect(result?.keyId).toBe("k2");
+      expect(result?.value).toBe("alive-value");
+    });
+
+    it("uses failed key once circuit-break window expires", async () => {
+      const enc1 = encryption.encrypt("revived-value");
+      const oldFailure = new Date(Date.now() - 10 * 60_000); // 10 min ago
+      prisma.secret.findUnique.mockResolvedValue(makeSecretRow());
+      prisma.secretKey.findMany.mockResolvedValue([
+        makeKeyRow({
+          id: "k1",
+          priority: 0,
+          testStatus: "failed",
+          lastTestedAt: oldFailure,
+          encryptedValue: enc1.encryptedValue,
+          iv: enc1.iv,
+        }),
+      ]);
+
+      const result = await service.getSecretKey("test-api-key");
+      expect(result?.keyId).toBe("k1");
+      expect(result?.value).toBe("revived-value");
+    });
+
+    it("returns null when secret is disabled", async () => {
+      prisma.secret.findUnique.mockResolvedValue(
+        makeSecretRow({ isActive: false }),
+      );
+      const result = await service.getSecretKey("test-api-key");
+      expect(result).toBeNull();
+    });
+
+    it("returns null when secret is expired", async () => {
+      prisma.secret.findUnique.mockResolvedValue(
+        makeSecretRow({ expiresAt: new Date(Date.now() - 1000) }),
+      );
+      const result = await service.getSecretKey("test-api-key");
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("markFailure", () => {
+    it("trims long error messages to 500 chars", async () => {
+      prisma.secretKey.update.mockResolvedValue(makeKeyRow());
+      const longMsg = "x".repeat(2000);
+      await service.markFailure("key-a", longMsg);
+      const call = prisma.secretKey.update.mock.calls[0][0];
+      expect(call.data.lastErrorMessage.length).toBe(500);
+      expect(call.data.testStatus).toBe("failed");
+    });
+  });
+
+  describe("deleteKey", () => {
+    it("throws NotFound when key missing", async () => {
+      prisma.secretKey.findUnique.mockResolvedValue(null);
+      await expect(service.deleteKey("missing-id")).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe("replaceKeyValue", () => {
+    it("re-encrypts value and resets test status", async () => {
+      prisma.secretKey.findUnique.mockResolvedValue(makeKeyRow());
+      prisma.secretKey.update.mockImplementation(async ({ data }) =>
+        makeKeyRow({ ...data }),
+      );
+      const updated = await service.replaceKeyValue("key-a", {
+        value: "sk-new-secret-value",
+      });
+      const call = prisma.secretKey.update.mock.calls[0][0];
+      expect(call.data.testStatus).toBeNull();
+      expect(call.data.lastTestedAt).toBeNull();
+      expect(call.data.encryptedValue).not.toBe("sk-new-secret-value");
+      expect(updated.keyHint).toContain("…");
+    });
+  });
+});

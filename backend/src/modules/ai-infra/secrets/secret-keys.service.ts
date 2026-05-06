@@ -1,0 +1,344 @@
+/**
+ * SecretKeysService（多 KEY 管理 P1）
+ *
+ * 职责：1 个 secret name 下 N 个 KEY 并存的 CRUD + 业务侧 fallback chain。
+ * 与 SecretsService 边界：本服务只动 secret_keys 表 + 兼容字段读取；
+ * 不动 Secret 元信息（name/displayName/category/provider/...）。
+ *
+ * dual-track：业务侧 getSecretKey 在 secret_keys 为空时降级到 Secret.encryptedValue
+ *（保证 P3 业务层切换前不破坏）。
+ */
+
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
+import { PrismaService } from "../../../common/prisma/prisma.service";
+import { EncryptionService } from "../encryption/encryption.service";
+import { Secret, SecretKey } from "@prisma/client";
+import {
+  AddSecretKeyDto,
+  UpdateSecretKeyMetaDto,
+  ReplaceSecretKeyValueDto,
+} from "./dto/secret-key.dto";
+import { normalizeSecretName } from "./secret-name.catalog";
+
+export interface SecretKeyListItem {
+  id: string;
+  secretId: string;
+  label: string;
+  keyHint: string | null;
+  isActive: boolean;
+  priority: number;
+  testStatus: string | null;
+  lastTestedAt: Date | null;
+  lastErrorMessage: string | null;
+  accessCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ResolvedSecretKey {
+  /// 解密后的明文（业务侧调用 provider 用）
+  value: string;
+  /// SecretKey.id（业务侧 markSuccess/markFailure 回写用）；
+  /// 兼容降级到 Secret.encryptedValue 时为 null
+  keyId: string | null;
+  /// 命中 KEY 的 label（用于审计和日志，不含敏感数据）
+  label: string;
+}
+
+export interface AuditContext {
+  userId?: string;
+  userEmail?: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+/// failed 状态后多久内仍熔断（避免持续打废 KEY，单位 ms）
+const FAILED_CIRCUIT_BREAK_MS = 5 * 60 * 1000;
+
+@Injectable()
+export class SecretKeysService {
+  private readonly logger = new Logger(SecretKeysService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly encryption: EncryptionService,
+  ) {}
+
+  // ========== Admin CRUD ==========
+
+  async listKeys(secretId: string): Promise<SecretKeyListItem[]> {
+    await this.requireSecret(secretId);
+    const rows = await this.prisma.secretKey.findMany({
+      where: { secretId },
+      orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map((row) => this.toListItem(row));
+  }
+
+  async addKey(
+    secretId: string,
+    dto: AddSecretKeyDto,
+    context?: AuditContext,
+  ): Promise<SecretKeyListItem> {
+    await this.requireSecret(secretId);
+
+    const dup = await this.prisma.secretKey.findUnique({
+      where: { secretId_label: { secretId, label: dto.label } },
+      select: { id: true },
+    });
+    if (dup) {
+      throw new ConflictException(
+        `Key with label '${dto.label}' already exists for this secret`,
+      );
+    }
+
+    const { encryptedValue, iv } = this.encryption.encrypt(dto.value);
+    const created = await this.prisma.secretKey.create({
+      data: {
+        secretId,
+        label: dto.label,
+        encryptedValue,
+        iv,
+        keyVersion: this.encryption.currentKeyVersion,
+        keyHint: this.makeHint(dto.value),
+        isActive: dto.isActive ?? true,
+        priority: dto.priority ?? 0,
+        createdBy: context?.userEmail || context?.userId,
+        updatedBy: context?.userEmail || context?.userId,
+      },
+    });
+    this.logger.log(`SecretKey added: secretId=${secretId} label=${dto.label}`);
+    return this.toListItem(created);
+  }
+
+  async updateKeyMeta(
+    keyId: string,
+    dto: UpdateSecretKeyMetaDto,
+    context?: AuditContext,
+  ): Promise<SecretKeyListItem> {
+    const existing = await this.requireKey(keyId);
+
+    if (dto.label && dto.label !== existing.label) {
+      const dup = await this.prisma.secretKey.findUnique({
+        where: {
+          secretId_label: { secretId: existing.secretId, label: dto.label },
+        },
+        select: { id: true },
+      });
+      if (dup) {
+        throw new ConflictException(
+          `Key with label '${dto.label}' already exists for this secret`,
+        );
+      }
+    }
+
+    const updated = await this.prisma.secretKey.update({
+      where: { id: keyId },
+      data: {
+        ...(dto.label !== undefined ? { label: dto.label } : {}),
+        ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        updatedBy: context?.userEmail || context?.userId,
+      },
+    });
+    return this.toListItem(updated);
+  }
+
+  async replaceKeyValue(
+    keyId: string,
+    dto: ReplaceSecretKeyValueDto,
+    context?: AuditContext,
+  ): Promise<SecretKeyListItem> {
+    await this.requireKey(keyId);
+    const { encryptedValue, iv } = this.encryption.encrypt(dto.value);
+    const updated = await this.prisma.secretKey.update({
+      where: { id: keyId },
+      data: {
+        encryptedValue,
+        iv,
+        keyVersion: this.encryption.currentKeyVersion,
+        keyHint: this.makeHint(dto.value),
+        // 替换 value 后健康状态置回 unknown，等下次 test/调用回写
+        testStatus: null,
+        lastTestedAt: null,
+        lastErrorMessage: null,
+        updatedBy: context?.userEmail || context?.userId,
+      },
+    });
+    return this.toListItem(updated);
+  }
+
+  async deleteKey(keyId: string, context?: AuditContext): Promise<void> {
+    const existing = await this.requireKey(keyId);
+    await this.prisma.secretKey.delete({ where: { id: keyId } });
+    this.logger.log(
+      `SecretKey deleted: secretId=${existing.secretId} label=${existing.label} by=${context?.userEmail ?? "?"}`,
+    );
+  }
+
+  /// P1 占位：实际 provider 调测试在 P3 落地（每个 provider 单独 health probe）。
+  /// 现在仅校验解密能解出 + 写回 testStatus（明确 unknown→null，不强行打绿）。
+  async testKey(
+    keyId: string,
+    context?: AuditContext,
+  ): Promise<{ ok: boolean; reason: string }> {
+    const existing = await this.requireKey(keyId);
+    const decrypted = this.encryption.decrypt(
+      existing.encryptedValue,
+      existing.iv,
+    );
+    const ok = !!decrypted && decrypted.length > 0;
+    await this.prisma.secretKey.update({
+      where: { id: keyId },
+      data: {
+        testStatus: ok ? "success" : "failed",
+        lastTestedAt: new Date(),
+        lastErrorMessage: ok ? null : "decryption failed",
+        updatedBy: context?.userEmail || context?.userId,
+      },
+    });
+    return {
+      ok,
+      reason: ok
+        ? "decrypted (provider health check pending P3)"
+        : "decryption failed",
+    };
+  }
+
+  // ========== Business-side fallback chain ==========
+
+  /**
+   * 业务侧 resolver 入口。按 priority asc + 健康熔断挑一个 KEY 解密返回。
+   * 找不到 SecretKey 行（dual-track 还没回填）时降级读 Secret.encryptedValue。
+   */
+  async getSecretKey(
+    secretName: string,
+    _context?: AuditContext,
+  ): Promise<ResolvedSecretKey | null> {
+    const normalizedName = normalizeSecretName(secretName);
+
+    const secret = await this.prisma.secret.findUnique({
+      where: { name: normalizedName },
+    });
+    if (!secret || !secret.isActive || secret.deletedAt) return null;
+    if (secret.expiresAt && secret.expiresAt < new Date()) return null;
+
+    const candidate = await this.pickActiveKey(secret.id);
+    if (candidate) {
+      const decrypted = this.encryption.decrypt(
+        candidate.encryptedValue,
+        candidate.iv,
+      );
+      if (!decrypted) {
+        this.logger.warn(
+          `getSecretKey: decrypt failed for secretKey id=${candidate.id} label=${candidate.label}`,
+        );
+        return null;
+      }
+      return {
+        value: decrypted,
+        keyId: candidate.id,
+        label: candidate.label,
+      };
+    }
+
+    // dual-track 降级：SecretKey 表为空 → 读 Secret.encryptedValue
+    const decrypted = this.encryption.decrypt(secret.encryptedValue, secret.iv);
+    if (!decrypted) return null;
+    return { value: decrypted, keyId: null, label: "(legacy)" };
+  }
+
+  async markSuccess(keyId: string): Promise<void> {
+    await this.prisma.secretKey.update({
+      where: { id: keyId },
+      data: {
+        testStatus: "success",
+        lastTestedAt: new Date(),
+        lastErrorMessage: null,
+        accessCount: { increment: 1 },
+      },
+    });
+  }
+
+  async markFailure(keyId: string, errorMessage: string): Promise<void> {
+    const trimmed = errorMessage.slice(0, 500);
+    await this.prisma.secretKey.update({
+      where: { id: keyId },
+      data: {
+        testStatus: "failed",
+        lastTestedAt: new Date(),
+        lastErrorMessage: trimmed,
+      },
+    });
+  }
+
+  // ========== Internals ==========
+
+  private async pickActiveKey(secretId: string): Promise<SecretKey | null> {
+    const candidates = await this.prisma.secretKey.findMany({
+      where: { secretId, isActive: true },
+      orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+    });
+    if (candidates.length === 0) return null;
+
+    const now = Date.now();
+    for (const k of candidates) {
+      if (k.testStatus === "failed" && k.lastTestedAt) {
+        const since = now - k.lastTestedAt.getTime();
+        if (since < FAILED_CIRCUIT_BREAK_MS) continue; // 仍在熔断窗口内，跳过
+      }
+      return k;
+    }
+    // 全部熔断中 → 兜底返回第一个（让业务再试一次自然恢复 markSuccess）
+    return candidates[0];
+  }
+
+  private async requireSecret(secretId: string): Promise<Secret> {
+    const secret = await this.prisma.secret.findUnique({
+      where: { id: secretId },
+    });
+    if (!secret || secret.deletedAt) {
+      throw new NotFoundException(`Secret '${secretId}' not found`);
+    }
+    return secret;
+  }
+
+  private async requireKey(keyId: string): Promise<SecretKey> {
+    const key = await this.prisma.secretKey.findUnique({
+      where: { id: keyId },
+    });
+    if (!key) {
+      throw new NotFoundException(`SecretKey '${keyId}' not found`);
+    }
+    return key;
+  }
+
+  private makeHint(value: string): string {
+    if (!value || value.length < 8) return "••••••••";
+    const head = value.slice(0, 3);
+    const tail = value.slice(-4);
+    return `${head}…${tail}`;
+  }
+
+  private toListItem(row: SecretKey): SecretKeyListItem {
+    return {
+      id: row.id,
+      secretId: row.secretId,
+      label: row.label,
+      keyHint: row.keyHint,
+      isActive: row.isActive,
+      priority: row.priority,
+      testStatus: row.testStatus,
+      lastTestedAt: row.lastTestedAt,
+      lastErrorMessage: row.lastErrorMessage,
+      accessCount: row.accessCount,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  }
+}
