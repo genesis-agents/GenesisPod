@@ -895,13 +895,32 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       const goals =
         (p.goals as
           | {
-              successCriteria?: string[];
+              successCriteria?: unknown[];
               qualityBar?: { minCoverage?: number };
             }
           | undefined) ?? undefined;
-      const successCriteria = goals?.successCriteria ?? [];
+      const successCriteria = (goals?.successCriteria ?? []).map((item) =>
+        typeof item === 'string' ? item : JSON.stringify(item)
+      );
       const minCoverage = goals?.qualityBar?.minCoverage;
-      const initialRisks = (p.initialRisks as string[] | undefined) ?? [];
+      const rawRisks = (p.initialRisks as unknown[] | undefined) ?? [];
+      const initialRisks = rawRisks.map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          const obj = item as {
+            type?: string;
+            severity?: string;
+            mitigation?: string;
+          };
+          const head = obj.type ?? '风险';
+          const sev = obj.severity ? `[${obj.severity}]` : '';
+          const tail = obj.mitigation ? `: ${obj.mitigation}` : '';
+          return `${head}${sev}${tail}`;
+        }
+        return String(item);
+      });
+      const truncate = (s: string, n: number): string =>
+        s.length > n ? `${s.slice(0, n)}…` : s;
       const s2 = todos.get('system:s2-leader-plan');
       if (s2) {
         if (successCriteria.length > 0) {
@@ -914,7 +933,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             ts: ev.timestamp,
             text: `Leader 声明成功标准：${successCriteria
               .slice(0, 3)
-              .map((s) => s.slice(0, 50))
+              .map((s) => truncate(s, 50))
               .join(' / ')}${successCriteria.length > 3 ? '…' : ''}`,
             tone: 'info',
           });
@@ -931,7 +950,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
             ts: ev.timestamp,
             text: `Leader 初步风险：${initialRisks
               .slice(0, 2)
-              .map((s) => s.slice(0, 50))
+              .map((s) => truncate(s, 80))
               .join(' / ')}${initialRisks.length > 2 ? '…' : ''}`,
             tone: 'warn',
           });
