@@ -81,6 +81,12 @@ const Output = z.object({
     )
     .optional(),
   themeSummary: z.string(),
+  // ★ F-alignment (2026-05-06): 对齐 Topic Insight buildFullReportFromDimensions —— 4 个章节必填字段
+  // 缺席时 assembler 用 themeSummary / dimension findings 兜底，确保报告结构完整。
+  preface: z.string().optional(),
+  crossDimAnalysis: z.string().optional(),
+  riskAssessment: z.string().optional(),
+  strategicRecommendations: z.string().optional(),
 });
 
 @DefineAgent({
@@ -142,13 +148,22 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       `- ★ MANDATORY: 必须在 contradictions 字段中列出 Reconciler 识别的所有 conflicts，`,
       `  并对每个冲突写出最终采用的立场（preferred-one / kept-both 双方并列）。`,
       `  不能假装没看到冲突。`,
+      `- ★ MANDATORY 报告章节（4 字段必须全部输出，不能省略）：`,
+      `  preface:                  200-300 字引言，交代研究背景和本报告的意义`,
+      `  crossDimAnalysis:         400-600 字跨维度综合分析，找出各 dim 之间的因果链 / 相互强化 / 张力`,
+      `  riskAssessment:           400-600 字风险评估，按"高/中/低"三级列主要风险 + 每条附应对建议`,
+      `  strategicRecommendations: 400-600 字战略建议，按受众（决策者 / 执行者 / 研究者）分组，每组 ≥ 2 条可行建议`,
       ...conflictBlock,
       ...reportBlock,
       ...termBlock,
       ``,
       `Final output JSON shape (exact field names required):`,
       `{`,
-      `  "themeSummary": "<one paragraph theme synthesis>",`,
+      `  "themeSummary": "<400-600 字主题综合，这是报告执行摘要的核心，务必完整>",`,
+      `  "preface": "<200-300 字前言，研究背景 + 报告意义>",`,
+      `  "crossDimAnalysis": "<400-600 字跨维度综合分析>",`,
+      `  "riskAssessment": "<400-600 字风险评估，高/中/低分级 + 应对建议>",`,
+      `  "strategicRecommendations": "<400-600 字战略建议，按受众分组>",`,
       `  "insights": [`,
       `    {`,
       `      "headline": "<short insight title>",`,
@@ -165,6 +180,8 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `Use field names exactly as shown.`,
       `confidence is a number between 0 and 1.`,
+      `★ preface / crossDimAnalysis / riskAssessment / strategicRecommendations 四个字段是报告章节骨架，`,
+      `  必须输出真实内容（非占位符）。缺失任何一项将导致报告章节空白，质量评分自动 -20。`,
       ...(input.retryHint
         ? ["", `## ★ Retry 提示（上一次失败原因）`, input.retryHint, ""]
         : []),

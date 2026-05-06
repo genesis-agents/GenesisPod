@@ -445,6 +445,93 @@ describe("ReportArtifactAssembler", () => {
     const result = service.assemble(input);
     expect(result.content.fullMarkdown).toMatch(/##\s+References/);
   });
+
+  // ── F-alignment regression specs (2026-05-06) ─────────────────────────────
+
+  it("[F-regression] buildFullMarkdown contains all 10 Topic Insight template sections when analyst provides all 4 fields", () => {
+    const input = {
+      ...makeBaseInput(),
+      analyst: {
+        themeSummary:
+          "Comprehensive theme synthesis covering AI transformation.",
+        keyInsights: [],
+        preface: "This report examines AI trends across key dimensions.",
+        crossDimAnalysis:
+          "Cross-dimension patterns reveal synergistic effects.",
+        riskAssessment: "Risk matrix: high risk in regulatory compliance.",
+        strategicRecommendations:
+          "Recommendation: invest in AI safety frameworks.",
+      },
+    };
+    const result = service.assemble(input);
+    const md = result.content.fullMarkdown;
+    // Section 2: 执行摘要
+    expect(md).toMatch(/##\s*执行摘要/);
+    // Section 3: 前言
+    expect(md).toMatch(/##\s*前言/);
+    // Section 4: 目录
+    expect(md).toMatch(/##\s*目录/);
+    // Section 5: dimension sections (Market, Technology)
+    expect(md).toMatch(/##\s*Market/);
+    expect(md).toMatch(/##\s*Technology/);
+    // Section 6: 跨维度分析
+    expect(md).toMatch(/##\s*跨维度分析/);
+    // Section 7: 风险评估
+    expect(md).toMatch(/##\s*风险评估/);
+    // Section 8: 战略建议
+    expect(md).toMatch(/##\s*战略建议/);
+    // Section 9: 结论
+    expect(md).toMatch(/##\s*结论/);
+    // Section 10: 参考文献 (added by step 4.5 in assemble())
+    expect(md).toMatch(/##\s*参考文献/);
+  });
+
+  it("[F-regression] buildFullMarkdown uses fallback for crossDimAnalysis/riskAssessment/strategicRecommendations when analyst omits them", () => {
+    const input = {
+      ...makeBaseInput(),
+      analyst: {
+        themeSummary: "AI is transformative.",
+        keyInsights: [],
+        // preface, crossDimAnalysis, riskAssessment, strategicRecommendations all absent
+      },
+    };
+    const result = service.assemble(input);
+    const md = result.content.fullMarkdown;
+    // All 3 supplementary sections must still appear (fallback from findings)
+    expect(md).toMatch(/##\s*跨维度分析/);
+    expect(md).toMatch(/##\s*风险评估/);
+    expect(md).toMatch(/##\s*战略建议/);
+    // 结論 must also appear
+    expect(md).toMatch(/##\s*结论/);
+  });
+
+  it("[F-regression] analyst preface field is used when provided; falls back to themeSummary snippet", () => {
+    const withPreface = {
+      ...makeBaseInput(),
+      analyst: {
+        ...makeBaseInput().analyst,
+        preface: "Custom preface text for the report introduction.",
+      },
+    };
+    const resultWith = service.assemble(withPreface);
+    expect(resultWith.content.fullMarkdown).toContain(
+      "Custom preface text for the report introduction.",
+    );
+
+    const withoutPreface = {
+      ...makeBaseInput(),
+      analyst: {
+        themeSummary: "AI is a transformative force across industries.",
+        keyInsights: [],
+      },
+    };
+    const resultWithout = service.assemble(withoutPreface);
+    // fallback: first chars of themeSummary appear in preface section
+    expect(resultWithout.content.fullMarkdown).toMatch(/##\s*前言/);
+    expect(resultWithout.content.fullMarkdown).toContain(
+      "AI is a transformative force",
+    );
+  });
 });
 
 // lengthTargetFor helper

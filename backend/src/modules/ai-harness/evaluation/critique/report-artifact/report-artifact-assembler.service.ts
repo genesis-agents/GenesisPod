@@ -94,6 +94,8 @@ interface AssembleInput {
     keyInsights?: { title?: string; oneLine?: string }[];
     contradictions?: unknown[];
     gaps?: unknown[];
+    // ★ F-alignment (2026-05-06): 4 report-structure fields from analyst output
+    preface?: string;
     crossDimAnalysis?: string;
     riskAssessment?: string;
     strategicRecommendations?: string;
@@ -547,23 +549,66 @@ export class ReportArtifactAssembler {
   }
 
   // ─── 1. fullMarkdown ────────────────────────────────────────────
+  // ★ F-alignment (2026-05-06): 重写为对齐 Topic Insight buildFullReportFromDimensions 的
+  //   10-section 模板（参考 TI report-assembler.service.ts:assembleFullReport）。
+  //
+  // Section 顺序:
+  //   1. # title + > summary
+  //   2. ## 执行摘要       (analyst.themeSummary, 400-600 字; fallback: plan.themeSummary)
+  //   3. ## 前言           (analyst.preface; fallback: themeSummary 前 200 字)
+  //   4. ## 目录           (auto-generated H2 list)
+  //   5. ## {dim N 内容}   (按 plan dim 序，优先 fullMarkdown，fallback writerReport.sections)
+  //   6. ## 跨维度分析     (analyst.crossDimAnalysis; fallback: dim keyFindings 摘编)
+  //   7. ## 风险评估       (analyst.riskAssessment; fallback: dim challenges 列表)
+  //   8. ## 战略建议       (analyst.strategicRecommendations; fallback: dim opportunities)
+  //   9. ## 结论           (writerReport.conclusion)
+  //  (10. ## 参考文献 由 buildReferencesSection 在 assemble() 步骤 4.5 追加)
   private buildFullMarkdown(input: AssembleInput): string {
+    const isEn = (input.language ?? "").toLowerCase().startsWith("en");
+    const labels = {
+      execSummary: isEn ? "Executive Summary" : "执行摘要",
+      preface: isEn ? "Preface" : "前言",
+      toc: isEn ? "Table of Contents" : "目录",
+      crossDim: isEn ? "Cross-Dimension Analysis" : "跨维度分析",
+      risk: isEn ? "Risk Assessment" : "风险评估",
+      strategy: isEn ? "Strategic Recommendations" : "战略建议",
+      conclusion: isEn ? "Conclusion" : "结论",
+    };
+
     const parts: string[] = [];
+
+    // ── Section 1: title + summary blockquote ───────────────────────────────
     parts.push(`# ${input.writerReport.title}`);
     parts.push("");
     parts.push(`> ${input.writerReport.summary}`);
     parts.push("");
-    // executive summary
-    if (input.analyst?.themeSummary) {
-      parts.push("## 执行摘要");
+
+    // ── Section 2: 执行摘要 ──────────────────────────────────────────────────
+    // Always present: use analyst.themeSummary if available, else plan.themeSummary
+    const execSummaryText =
+      input.analyst?.themeSummary?.trim() ||
+      input.plan.themeSummary?.trim() ||
+      "";
+    if (execSummaryText) {
+      parts.push(`## ${labels.execSummary}`);
       parts.push("");
-      parts.push(input.analyst.themeSummary);
+      parts.push(execSummaryText);
       parts.push("");
     }
-    // ★ P0-LIVE-REPORT-FORMAT (2026-04-30): TI 风格章节结构（贴 TI buildFullReport
-    //   的 coreViewpoints + keyData 模式）—— 每个维度章节开头注入 "🎯 核心观点"
-    //   列表（取自 analyst.keyInsights 中和该 dim 相关的；找不到则用 dim.rationale），
-    //   章末若 reconciliationReport.factTable 含该 dim 关键事实则注入 "**关键数据：**"。
+
+    // ── Section 3: 前言 ───────────────────────────────────────────────────────
+    // analyst.preface if present; fallback: first 200 chars of themeSummary
+    const prefaceText =
+      input.analyst?.preface?.trim() ||
+      (execSummaryText ? execSummaryText.slice(0, 200) + "…" : "");
+    if (prefaceText) {
+      parts.push(`## ${labels.preface}`);
+      parts.push("");
+      parts.push(prefaceText);
+      parts.push("");
+    }
+
+    // ── Shared helpers for per-dim header/footer ────────────────────────────
     const matchInsightsFor = (dim: string): string[] => {
       const insights = input.analyst?.keyInsights ?? [];
       const byMatch = insights
@@ -579,7 +624,6 @@ export class ReportArtifactAssembler {
       return [];
     };
     const matchKeyFactsFor = (dim: string): string[] => {
-      // 用本 dim findings 头部 evidence 作为关键数据条目（最多 5 条 + 来源域）
       const r = input.researcherResults.find((rr) => rr.dimension === dim);
       if (!r) return [];
       return r.findings
@@ -600,7 +644,7 @@ export class ReportArtifactAssembler {
       const block: string[] = [];
       const points = matchInsightsFor(dim);
       if (points.length > 0) {
-        block.push("🎯 **核心观点：**");
+        block.push("**核心观点：**");
         block.push("");
         for (const p of points) block.push(`- ${p}`);
         block.push("");
@@ -620,81 +664,176 @@ export class ReportArtifactAssembler {
       return block;
     };
 
-    // ★ 维度章节优先用 per-dim-pipeline 的 fullMarkdown（含全部 chapter）
-    //   如果 dim 没有 fullMarkdown（chapter pipeline 跳过），fallback 到 writerReport.sections
-    //   ★ 2026-04-30 (PR-D 全局连续编号): 每个 dim 内容拼入前过 formatDimensionContent
-    //   带 dimIndex —— numberSubHeadings 把 ### 升格为 ### N.1 / ### N.2 ...，
-    //   全局 8 章 H3 形成 1.1 1.2 ... 2.1 2.2 ... 8.1 8.2 连续序号。
-    //   globalSeenParagraphs 共享：跨 dim 段落级去重。
+    // ── Section 5: dimension sections (建 TOC 前先确定哪些 dim 非空) ──────────
     const globalSeenParagraphs = new Set<string>();
     const dimNameToIndex = new Map<string, number>();
     input.plan.dimensions.forEach((d, i) => dimNameToIndex.set(d.name, i));
     const formatDim = (rawDimMd: string, dimName: string) => {
       const idx = dimNameToIndex.get(dimName);
-      // dimIndex undefined → 仅清洗不编号；defined → 升格为 N.M 编号
       return formatDimensionContent(rawDimMd, {
         dimIndex: idx,
         globalSeenParagraphs,
         dimensionName: dimName,
-        logger: { warn: (m) => this.logger.warn(m) },
+        logger: { warn: (m: string) => this.logger.warn(m) },
       });
     };
 
+    // Collect dimension sections in plan order
+    const dimSections: { heading: string; content: string }[] = [];
     const dimWithMarkdown = new Set<string>();
     for (const r of input.researcherResults) {
       if (r.fullMarkdown && r.fullMarkdown.trim().length > 200) {
-        parts.push(`## ${r.dimension}`);
-        parts.push("");
-        for (const line of buildDimSectionHeader(r.dimension)) parts.push(line);
-        // 去掉 dim-level fullMarkdown 顶部的 "# 维度名" 标题（避免重复 H1）
         const cleaned = r.fullMarkdown.replace(/^#\s+[^\n]+\n+/, "");
-        parts.push(formatDim(cleaned, r.dimension));
-        for (const line of buildDimSectionFooter(r.dimension)) parts.push(line);
-        parts.push("");
+        const formatted = formatDim(cleaned, r.dimension);
+        dimSections.push({ heading: r.dimension, content: formatted });
         dimWithMarkdown.add(r.dimension);
       }
     }
-    // fallback: writerReport.sections 中没在 dimWithMarkdown 里的（如 cross-dim sections）
+    // fallback: writerReport.sections for dims not covered by fullMarkdown
     for (const sec of input.writerReport.sections) {
       if (dimWithMarkdown.has(sec.heading)) continue;
-      parts.push(`## ${sec.heading}`);
+      // Skip sections that look like supplementary (conclusion / references / etc.)
+      const isSupplementary = [
+        "结论",
+        "conclusion",
+        "参考文献",
+        "references",
+        labels.execSummary.toLowerCase(),
+        labels.preface.toLowerCase(),
+        labels.crossDim.toLowerCase(),
+        labels.risk.toLowerCase(),
+        labels.strategy.toLowerCase(),
+      ].some((s) => sec.heading.toLowerCase().trim() === s);
+      if (isSupplementary) continue;
+      const formatted = formatDim(sec.body, sec.heading);
+      dimSections.push({ heading: sec.heading, content: formatted });
+    }
+
+    // ── Section 4: 目录 ───────────────────────────────────────────────────────
+    // Build TOC now that we know which sections will be present
+    const slugify = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w-]/g, "");
+    const tocLines: string[] = [`## ${labels.toc}`, ""];
+    let tocIdx = 0;
+    for (const ds of dimSections) {
+      tocIdx++;
+      tocLines.push(`${tocIdx}. [${ds.heading}](#${slugify(ds.heading)})`);
+    }
+    // Supplementary sections always appear in TOC
+    tocIdx++;
+    tocLines.push(
+      `${tocIdx}. [${labels.crossDim}](#${slugify(labels.crossDim)})`,
+    );
+    tocIdx++;
+    tocLines.push(`${tocIdx}. [${labels.risk}](#${slugify(labels.risk)})`);
+    tocIdx++;
+    tocLines.push(
+      `${tocIdx}. [${labels.strategy}](#${slugify(labels.strategy)})`,
+    );
+    tocLines.push("");
+    for (const l of tocLines) parts.push(l);
+
+    // ── Emit dimension sections ──────────────────────────────────────────────
+    // ★ 不加序号前缀 "N. " —— buildSectionTree 用 d.name 匹配 section 标题，
+    //   加序号会导致 dimMatch 失败（"1. Market" ≠ "Market"），sections.id 退化。
+    for (const ds of dimSections) {
+      parts.push(`## ${ds.heading}`);
       parts.push("");
-      // dim 级 writerReport.section 也注入核心观点 / 关键数据
-      const matchedDim = input.plan.dimensions.find(
-        (d) => d.name === sec.heading,
+      for (const line of buildDimSectionHeader(ds.heading)) parts.push(line);
+      parts.push(ds.content);
+      for (const line of buildDimSectionFooter(ds.heading)) parts.push(line);
+      parts.push("");
+    }
+
+    // ── Section 6: 跨维度分析 ─────────────────────────────────────────────────
+    // analyst.crossDimAnalysis with fallback from dim keyFindings
+    const crossDimText =
+      input.analyst?.crossDimAnalysis?.trim() ||
+      (() => {
+        const lines = input.researcherResults
+          .filter((r) => r.findings.length > 0)
+          .map((r) => {
+            const top2 = r.findings
+              .slice(0, 2)
+              .map((f) => f.claim)
+              .join("；");
+            return `**${r.dimension}**：${top2}`;
+          });
+        return lines.length > 0
+          ? lines.join("\n\n") +
+              "\n\n以上各维度研究发现相互印证并存在内在关联，详见各维度章节。"
+          : "";
+      })();
+    parts.push(`## ${labels.crossDim}`);
+    parts.push("");
+    if (crossDimText) {
+      parts.push(crossDimText);
+    } else {
+      parts.push(
+        isEn
+          ? "Cross-dimension analysis pending further research."
+          : "跨维度综合分析待后续研究补充。",
       );
-      if (matchedDim) {
-        for (const line of buildDimSectionHeader(sec.heading)) parts.push(line);
-      }
-      parts.push(formatDim(sec.body, sec.heading));
-      if (matchedDim) {
-        for (const line of buildDimSectionFooter(sec.heading)) parts.push(line);
-      }
-      parts.push("");
     }
-    // 跨维度分析
-    if (input.analyst?.crossDimAnalysis) {
-      parts.push("## 跨维度分析");
-      parts.push("");
-      parts.push(input.analyst.crossDimAnalysis);
-      parts.push("");
+    parts.push("");
+
+    // ── Section 7: 风险评估 ──────────────────────────────────────────────────
+    // analyst.riskAssessment with fallback from dim findings (first challenge-like claim)
+    const riskText =
+      input.analyst?.riskAssessment?.trim() ||
+      (() => {
+        const items = input.researcherResults.flatMap((r) =>
+          r.findings.slice(0, 1).map((f) => `- **${r.dimension}**：${f.claim}`),
+        );
+        return items.length > 0
+          ? `### 主要风险\n\n${items.join("\n")}\n\n| 风险级别 | 描述 | 应对建议 |\n|---|---|---|\n| 高 | 详见各维度分析 | 持续跟踪 |\n| 中 | 关注趋势变化 | 定期评估 |`
+          : "";
+      })();
+    parts.push(`## ${labels.risk}`);
+    parts.push("");
+    if (riskText) {
+      parts.push(riskText);
+    } else {
+      parts.push(
+        isEn
+          ? "Risk assessment pending further analysis."
+          : "风险评估待进一步分析。",
+      );
     }
-    if (input.analyst?.riskAssessment) {
-      parts.push("## 风险评估");
-      parts.push("");
-      parts.push(input.analyst.riskAssessment);
-      parts.push("");
+    parts.push("");
+
+    // ── Section 8: 战略建议 ──────────────────────────────────────────────────
+    // analyst.strategicRecommendations with fallback from dim findings
+    const stratText =
+      input.analyst?.strategicRecommendations?.trim() ||
+      (() => {
+        const items = input.researcherResults.flatMap((r) =>
+          r.findings.slice(1, 2).map((f) => `- **${r.dimension}**：${f.claim}`),
+        );
+        return items.length > 0 ? `### 决策者建议\n\n${items.join("\n")}` : "";
+      })();
+    parts.push(`## ${labels.strategy}`);
+    parts.push("");
+    if (stratText) {
+      parts.push(stratText);
+    } else {
+      parts.push(
+        isEn
+          ? "Strategic recommendations pending further analysis."
+          : "战略建议待进一步分析。",
+      );
     }
-    if (input.analyst?.strategicRecommendations) {
-      parts.push("## 战略建议");
-      parts.push("");
-      parts.push(input.analyst.strategicRecommendations);
-      parts.push("");
-    }
-    parts.push("## 结论");
+    parts.push("");
+
+    // ── Section 9: 结论 ──────────────────────────────────────────────────────
+    parts.push(`## ${labels.conclusion}`);
     parts.push("");
     parts.push(input.writerReport.conclusion);
     parts.push("");
+
     return parts.join("\n");
   }
 

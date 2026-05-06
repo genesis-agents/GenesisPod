@@ -450,6 +450,49 @@ async function runOneDim(
       }
     }
 
+    // ── C: min-findings 退出闸 —— findings.length < 5 强制 retry ──────────────
+    // (C-alignment 2026-05-06): 对齐 Topic Insight 报告标准，每 dim 至少 5 条 finding
+    // 才能保证下游 quality-judge sources_sufficiency 评分通过。即使 schema 校验通过
+    // (≥4 条，validateBusinessRules 阈值)，5 条以下也触发一次 retry。
+    // 仅在首次 attempt (r.state === "completed") 后且第一次自愈还未用过时执行，
+    // 避免与 L1 self-heal 冲突（L1 已用过 attempt=1 时跳过本检查）。
+    const MIN_FINDINGS_THRESHOLD = 5;
+    if (
+      r.state === "completed" &&
+      r.output &&
+      ((r.output as { findings?: unknown[] }).findings ?? []).length <
+        MIN_FINDINGS_THRESHOLD
+    ) {
+      const actualCount = (
+        (r.output as { findings?: unknown[] }).findings ?? []
+      ).length;
+      deps.log.warn(
+        `[researcher#${idx}] dim "${dim.name}" completed but findings.length=${actualCount} < ${MIN_FINDINGS_THRESHOLD}; forcing retry to collect more findings`,
+      );
+      await deps
+        .emit({
+          type: "agent-playground.dimension:retrying",
+          missionId,
+          userId,
+          agentId,
+          payload: {
+            dimension: dim.name,
+            reason: `min-findings-not-met (${actualCount} < ${MIN_FINDINGS_THRESHOLD})`,
+            bumpedBudgetMultiplier: budgetMultiplier * 1.5,
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit dimension:retrying (min-findings) for "${dim.name}" failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+      r = await runResearcher(
+        2,
+        budgetMultiplier * 1.5,
+        `（当前只有 ${actualCount} 条 finding，要求至少 ${MIN_FINDINGS_THRESHOLD} 条。请多调 1-2 轮搜索，把 finding 补到 ≥${MIN_FINDINGS_THRESHOLD} 条，每条带不同 source URL）`,
+      );
+    }
+
     // ── 跑通 + 用了 fallback model → 回写 successfulFallback ──
     if (r.state === "completed" && r.output && preDisabled.length > 0) {
       let actualModelId: string | undefined;

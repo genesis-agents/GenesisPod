@@ -43,6 +43,8 @@ import { restoreGlobalIndices } from "@/modules/ai-harness/facade";
 import { scanContentDefects } from "@/modules/ai-harness/facade";
 // ★ 沉淀 v4: LLM 输出白名单清理（"铁墙函数"，13 个正交修复）
 import { sanitizeSectionOutput } from "@/modules/ai-harness/facade";
+// ★ G 三道清理管线 (2026-05-06): TI 同款 chart JSON / Figure refs / bare JSON 剥除
+import { stripChartJsonFromContent } from "@/modules/ai-app/topic-insights/utils/strip-chart-json.utils";
 
 export interface PerDimPipelineArgs {
   missionId: string;
@@ -694,6 +696,7 @@ export async function runPerDimPipeline(
             },
             sources: chapterSources,
             targetWords: targetWordsPerChapter,
+            lengthProfile: lp,
             previousChapterHeadings: previousHeadingsSnapshot,
             previousCritique: lastCritique,
             previousDraft: lastDraft?.body,
@@ -997,7 +1000,9 @@ export async function runPerDimPipeline(
           chapter.sourceIndices.forEach((globalIdx, localIdx) => {
             localToGlobal.set(localIdx + 1, globalIdx + 1);
           });
-          const remappedBody = restoreGlobalIndices(draft.body, localToGlobal);
+          const remappedBody = stripChartJsonFromContent(
+            restoreGlobalIndices(draft.body, localToGlobal),
+          );
 
           // ★ 治 mission "假完成" 根因（2026-05-01）：兜底落地必须显式 emit chapter:done，
           //   让前端 derive.ts 能把 chapter.status 切到 'done' / 'failed-finalized'。
@@ -1222,12 +1227,15 @@ export async function runPerDimPipeline(
     //   重新生成时把 body 丢了。
     //   彻底修法：fullMarkdown 由代码确定性拼接 chapter.body，**完全不依赖 LLM**
     //   生成长文本。LLM 只产 abstract + keyFindings（短文本不会被截）。
+    // ★ G-2 三道清理管线 dim 整合前 sanitize（per-dim-pipeline.util.ts:G-2）
+    //   chapter writer 输出后 G-1 已经跑过一次，但 cache-hit 路径 / 兜底路径的
+    //   body 可能未经 G-1 清理（直接从 DB 读出），所以 stitchedFullMarkdown 前再跑一遍。
     const stitchedFullMarkdown = (() => {
       const parts: string[] = [`# ${dimensionName}`, ""];
       for (const ch of writtenChapters) {
         parts.push(`## ${ch.index}. ${ch.heading}`);
         parts.push("");
-        parts.push(ch.body);
+        parts.push(stripChartJsonFromContent(ch.body));
         parts.push("");
       }
       return parts.join("\n");
@@ -1332,6 +1340,29 @@ export async function runPerDimPipeline(
         const g = gradeRes.output as NonNullable<PerDimPipelineResult["grade"]>;
         grade = g;
         await emitGraded({ ok: true, g });
+        // ★ B-sources_sufficiency threshold (2026-05-06): 对齐 quality-judge 第 6 axis。
+        //   若 sources_sufficiency.score < 60（即维度 unique source URL < 3），
+        //   发 warning narrative 提示下游 leader/signoff 该 dim 来源不足。
+        const sourcesSufficiency = (
+          g.axes as Record<string, { score: number; comment: string }>
+        )["sources_sufficiency"];
+        const MIN_SOURCES_SUFFICIENCY_SCORE = 60;
+        if (
+          sourcesSufficiency &&
+          sourcesSufficiency.score < MIN_SOURCES_SUFFICIENCY_SCORE
+        ) {
+          deps.log.warn(
+            `[per-dim grade] dim "${dimensionName}" sources_sufficiency=${sourcesSufficiency.score} < ${MIN_SOURCES_SUFFICIENCY_SCORE}: ${sourcesSufficiency.comment}`,
+          );
+          await narrate(deps.emit, missionId, userId, {
+            stage: "s3-researchers",
+            role: "reviewer",
+            tag: "warning",
+            text: `${dimensionName} · 来源充分性不足（sources_sufficiency=${sourcesSufficiency.score}/100）：${sourcesSufficiency.comment.slice(0, 100)}`,
+            agentId: gradeAgentId,
+            dimension: dimensionName,
+          });
+        }
       } else {
         await emitGraded({
           ok: false,

@@ -1150,4 +1150,134 @@ describe("runResearcherDispatchStage (S3)", () => {
       ).toBe(1);
     });
   });
+
+  // ── C-alignment regression specs (2026-05-06) ────────────────────────────
+
+  describe("C-alignment: min-findings threshold retry", () => {
+    it("[C-regression] findings.length < 5 triggers min-findings retry even if state=completed", async () => {
+      // First call returns only 3 findings (< 5 threshold), second call returns 6
+      let callCount = 0;
+      const ctx = makeCtx({
+        plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+        input: {
+          topic: "AI",
+          depth: "deep",
+          language: "zh-CN",
+          concurrency: 1,
+          withFigures: false,
+          auditLayers: "minimal", // skip chapter pipeline for simplicity
+          lengthProfile: "standard",
+        } as MissionContext["input"],
+      });
+      const deps = makeDeps({
+        invoker: {
+          ...makeDeps().invoker,
+          invoke: jest
+            .fn()
+            .mockImplementation((_: unknown, input: { dimension?: string }) => {
+              callCount++;
+              const findingsCount = callCount === 1 ? 3 : 6; // first call: too few; second: enough
+              return Promise.resolve({
+                state: "completed",
+                output: {
+                  dimension: input?.dimension ?? "Market",
+                  findings: Array.from({ length: findingsCount }, (_, i) => ({
+                    claim: `Claim ${i + 1} with specific data point`,
+                    evidence: `Evidence ${i + 1}`,
+                    source: `http://source${i + 1}.com`,
+                  })),
+                  summary: `Summary after attempt ${callCount}`,
+                  figureCandidates: [],
+                },
+                events: [],
+                wallTimeMs: 500,
+                iterations: 2,
+                agent: { getEnvelope: jest.fn() },
+              });
+            }),
+        } as unknown as MissionDeps["invoker"],
+      });
+
+      await runResearcherDispatchStage(ctx, deps);
+
+      // Should have called invoke twice: initial + min-findings retry
+      expect(callCount).toBe(2);
+
+      // Should emit dimension:retrying with the min-findings reason
+      const emitCalls = (deps.emit as jest.Mock).mock.calls;
+      const retryEmit = emitCalls.find(
+        (args: [unknown]) =>
+          typeof args[0] === "object" &&
+          args[0] !== null &&
+          (args[0] as { type?: string }).type ===
+            "agent-playground.dimension:retrying",
+      );
+      expect(retryEmit).toBeDefined();
+      const retryPayload = (retryEmit[0] as { payload?: { reason?: string } })
+        .payload;
+      expect(retryPayload?.reason).toMatch(/min-findings-not-met/);
+
+      // Final result should have the 6 findings from retry
+      expect(ctx.researcherResults?.[0]?.findings.length).toBe(6);
+    });
+
+    it("[C-regression] findings.length >= 5 does NOT trigger min-findings retry", async () => {
+      let callCount = 0;
+      const ctx = makeCtx({
+        plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
+        input: {
+          topic: "AI",
+          depth: "deep",
+          language: "zh-CN",
+          concurrency: 1,
+          withFigures: false,
+          auditLayers: "minimal",
+          lengthProfile: "standard",
+        } as MissionContext["input"],
+      });
+      const deps = makeDeps({
+        invoker: {
+          ...makeDeps().invoker,
+          invoke: jest
+            .fn()
+            .mockImplementation((_: unknown, input: { dimension?: string }) => {
+              callCount++;
+              return Promise.resolve({
+                state: "completed",
+                output: {
+                  dimension: input?.dimension ?? "Market",
+                  findings: Array.from({ length: 5 }, (_, i) => ({
+                    claim: `Claim ${i + 1} with specific data`,
+                    evidence: `Evidence ${i + 1}`,
+                    source: `http://source${i + 1}.com`,
+                  })),
+                  summary: "Good summary",
+                  figureCandidates: [],
+                },
+                events: [],
+                wallTimeMs: 500,
+                iterations: 2,
+                agent: { getEnvelope: jest.fn() },
+              });
+            }),
+        } as unknown as MissionDeps["invoker"],
+      });
+
+      await runResearcherDispatchStage(ctx, deps);
+
+      // Exactly 1 invoke call: no retry needed
+      expect(callCount).toBe(1);
+
+      // No min-findings retry emit
+      const emitCalls = (deps.emit as jest.Mock).mock.calls;
+      const retryEmit = emitCalls.find(
+        (args: [unknown]) =>
+          typeof args[0] === "object" &&
+          args[0] !== null &&
+          (args[0] as { type?: string }).type ===
+            "agent-playground.dimension:retrying",
+      );
+      expect(retryEmit).toBeUndefined();
+    });
+  });
 });

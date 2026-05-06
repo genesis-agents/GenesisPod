@@ -3,7 +3,7 @@
  *
  * 覆盖：
  *   - inputSchema
- *   - outputSchema: 5-axis scores, grade enum, overall bounds
+ *   - outputSchema: 6-axis scores (added sources_sufficiency), grade enum, overall bounds
  *   - buildSystemPrompt: axis descriptions, weighted formula, grade mapping,
  *     source list (sliced to 30), fullMarkdown slice
  */
@@ -42,6 +42,8 @@ const baseOutput = {
     evidence: axisScore,
     coherence: axisScore,
     freshness: axisScore,
+    // ★ B-axis (2026-05-06): 6th axis added
+    sources_sufficiency: axisScore,
   },
   summary: "Overall a strong dimension report with good evidence coverage.",
 };
@@ -265,20 +267,21 @@ describe("DimensionQualityJudgeAgent", () => {
       expect(prompt).toContain("AI in Finance");
     });
 
-    it("contains 5 axis descriptions", () => {
+    it("contains 6 axis descriptions", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
       expect(prompt).toContain("breadth");
       expect(prompt).toContain("depth");
       expect(prompt).toContain("evidence");
       expect(prompt).toContain("coherence");
       expect(prompt).toContain("freshness");
+      expect(prompt).toContain("sources_sufficiency");
     });
 
-    it("contains weighted formula: breadth 20% depth 25% evidence 25%", () => {
+    it("contains updated weighted formula with sources_sufficiency 12%", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      expect(prompt).toContain("20%");
-      expect(prompt).toContain("25%");
-      expect(prompt).toContain("15%");
+      expect(prompt).toContain("18%");
+      expect(prompt).toContain("22%");
+      expect(prompt).toContain("12%");
     });
 
     it("contains grade mapping thresholds", () => {
@@ -339,6 +342,65 @@ describe("DimensionQualityJudgeAgent", () => {
     it("contains language in prompt", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
       expect(prompt).toContain("zh-CN");
+    });
+  });
+
+  // ── B-axis regression spec (2026-05-06) ─────────────────────────────────
+
+  describe("sources_sufficiency axis (B-alignment)", () => {
+    it("[B-regression] outputSchema requires sources_sufficiency axis", () => {
+      // Output without sources_sufficiency should fail
+      const outputMissingSuffix = {
+        ...baseOutput,
+        axes: {
+          breadth: axisScore,
+          depth: axisScore,
+          evidence: axisScore,
+          coherence: axisScore,
+          freshness: axisScore,
+          // sources_sufficiency intentionally omitted
+        },
+      };
+      expect(outputSchema.safeParse(outputMissingSuffix).success).toBe(false);
+    });
+
+    it("[B-regression] outputSchema accepts valid 6-axis output with sources_sufficiency", () => {
+      const fullOutput = {
+        ...baseOutput,
+        axes: {
+          ...baseOutput.axes,
+          sources_sufficiency: {
+            score: 75,
+            comment: "5 unique domains present",
+          },
+        },
+      };
+      expect(outputSchema.safeParse(fullOutput).success).toBe(true);
+    });
+
+    it("[B-regression] prompt includes sources_sufficiency scoring criteria (≥5 unique sources)", () => {
+      const id = {
+        role: { id: "quality-judge", name: "Quality Judge" },
+      } as never;
+      const prompt = agent.buildSystemPrompt({
+        input: baseInput,
+        identity: id,
+      });
+      expect(prompt).toContain("sources_sufficiency");
+      expect(prompt).toContain("≥ 5 个唯一 source");
+      expect(prompt).toContain("12%"); // weight in formula
+    });
+
+    it("[B-regression] prompt shows current sources count for sources_sufficiency", () => {
+      const id = {
+        role: { id: "quality-judge", name: "Quality Judge" },
+      } as never;
+      const prompt = agent.buildSystemPrompt({
+        input: baseInput,
+        identity: id,
+      });
+      // baseInput has 2 sources → prompt should mention the count
+      expect(prompt).toContain("当前 sources 数量: 2");
     });
   });
 });

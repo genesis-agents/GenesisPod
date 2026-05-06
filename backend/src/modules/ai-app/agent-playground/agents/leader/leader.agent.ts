@@ -190,7 +190,7 @@ const Output = z.discriminatedUnion("phase", [
   z.object({
     phase: z.literal("plan"),
     themeSummary: z.string().min(20),
-    dimensions: z.array(Dimension).min(2).max(7),
+    dimensions: z.array(Dimension).min(2).max(12),
     goals: Goals,
     initialRisks: z.array(InitialRisk).default([]),
   }),
@@ -307,10 +307,10 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
       enriched.currentYear = new Date().getFullYear();
       enriched.dimensionsTarget =
         input.depth === "quick"
-          ? "2-3"
+          ? "3-5"
           : input.depth === "deep"
-            ? "5-7"
-            : "3-5";
+            ? "8-12"
+            : "5-8";
     }
     return buildPromptFromDuty("leader", dutyName[input.phase], enriched);
   }
@@ -343,10 +343,10 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
       if (ctx.input && inputPhase === "plan") {
         const target =
           ctx.input.depth === "quick"
-            ? [2, 3]
+            ? [3, 5]
             : ctx.input.depth === "deep"
-              ? [5, 7]
-              : [3, 5];
+              ? [8, 12]
+              : [5, 8];
         if (
           output.dimensions.length < target[0] ||
           output.dimensions.length > target[1]

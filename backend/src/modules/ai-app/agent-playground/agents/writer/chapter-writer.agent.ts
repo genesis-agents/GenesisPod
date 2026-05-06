@@ -45,6 +45,10 @@ const Input = z.object({
   // ★ P0-R4-5 (round 4): 25000 与 budget.maxTokens=22000 矛盾导致 epic 死循环；
   // 降到 12000 让 LLM 单次输出可达 ≥85% 字数门槛；epic 200K → 17 章 × 12K 拼接
   targetWords: z.number().int().min(200).max(12000),
+  /** lengthProfile 档位（可选，用于 prompt 中展示 per-profile 字数范围） */
+  lengthProfile: z
+    .enum(["brief", "standard", "deep", "extended", "epic", "mega"])
+    .optional(),
   /** 之前已写完的章节标题列表（用于去重，不要重复前文） */
   previousChapterHeadings: z.array(z.string()).optional(),
   previousCritique: z.string().optional(),
@@ -85,6 +89,22 @@ const Output = z.object({
 })
 export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    // ★ lengthProfile-aware 字数范围表（E 档位约束，与 per-dim-pipeline 计算对齐）
+    const PROFILE_WORD_RANGES: Record<
+      NonNullable<z.infer<typeof Input>["lengthProfile"]>,
+      [number, number]
+    > = {
+      brief: [600, 1000],
+      standard: [1200, 1800],
+      deep: [2000, 2800],
+      extended: [2800, 3500],
+      epic: [3500, 4500],
+      mega: [4500, 6000],
+    };
+    const profileRange = input.lengthProfile
+      ? PROFILE_WORD_RANGES[input.lengthProfile]
+      : null;
+
     // ★ 沉淀接入: 外部 evidence 文本用 wrapExternalContent 包装，防注入
     const sourceList = input.sources
       .map((s, i) => {
@@ -108,7 +128,7 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `- 章节标题: ${input.chapter.heading}`,
       `- 章节核心论点 (thesis): ${input.chapter.thesis}`,
       `- keyPoints: ${input.chapter.keyPoints.map((p, i) => `${i + 1}) ${p}`).join("；")}`,
-      `- **目标字数: ${input.targetWords} 字（必须 ≥ ${Math.round(input.targetWords * 0.85)} 字才算合格；< 70% 必被打回重写）**`,
+      `- **目标字数: ${input.targetWords} 字（必须 ≥ ${Math.round(input.targetWords * 0.85)} 字才算合格；< 70% 必被打回重写）**${profileRange ? `\n- **lengthProfile=${input.lengthProfile} 档位字数范围: ${profileRange[0]}-${profileRange[1]} 字（本章字数应落在此范围内）**` : ""}`,
       input.targetWords >= 3000
         ? `- **章节深度: ${input.targetWords} 字相当于 ${Math.round(input.targetWords / 600)} 个论述段落（每段 ~600 字），不要少**`
         : "",
@@ -249,4 +269,3 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
     ].join("\n");
   }
 }
-

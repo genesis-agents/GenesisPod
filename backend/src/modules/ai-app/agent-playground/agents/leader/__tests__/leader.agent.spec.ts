@@ -423,7 +423,25 @@ describe("LeaderAgent — validateBusinessRules", () => {
       priorPostmortems: [],
     };
 
-    it("passes when standard depth has 3-5 dimensions", () => {
+    it("passes when standard depth has 5-8 dimensions", () => {
+      const output = {
+        phase: "plan" as const,
+        themeSummary: "A comprehensive theme summary for the mission",
+        dimensions: Array.from({ length: 6 }, (_, i) => ({
+          id: `d${i + 1}`,
+          name: `Dim ${String.fromCharCode(65 + i)}`,
+          rationale: "r",
+          toolHint: { categories: ["info"] },
+        })),
+        goals: validGoals(),
+        initialRisks: [],
+      };
+      expect(() =>
+        agent.validateBusinessRules(output, { input: planInput, identity }),
+      ).not.toThrow();
+    });
+
+    it("fails when standard depth has only 3 dimensions", () => {
       const output = {
         phase: "plan" as const,
         themeSummary: "A comprehensive theme summary for the mission",
@@ -452,63 +470,10 @@ describe("LeaderAgent — validateBusinessRules", () => {
       };
       expect(() =>
         agent.validateBusinessRules(output, { input: planInput, identity }),
-      ).not.toThrow();
+      ).toThrow(/5-8/);
     });
 
-    it("fails when standard depth has only 2 dimensions", () => {
-      const output = {
-        phase: "plan" as const,
-        themeSummary: "A comprehensive theme summary for the mission",
-        dimensions: [
-          {
-            id: "d1",
-            name: "A",
-            rationale: "r",
-            toolHint: { categories: ["info"] },
-          },
-          {
-            id: "d2",
-            name: "B",
-            rationale: "r",
-            toolHint: { categories: ["info"] },
-          },
-        ],
-        goals: validGoals(),
-        initialRisks: [],
-      };
-      expect(() =>
-        agent.validateBusinessRules(output, { input: planInput, identity }),
-      ).toThrow(/3-5/);
-    });
-
-    it("passes when quick depth has 2-3 dimensions", () => {
-      const quickInput = { ...planInput, depth: "quick" as const };
-      const output = {
-        phase: "plan" as const,
-        themeSummary: "A comprehensive theme summary for the mission",
-        dimensions: [
-          {
-            id: "d1",
-            name: "A",
-            rationale: "r",
-            toolHint: { categories: ["info"] },
-          },
-          {
-            id: "d2",
-            name: "B",
-            rationale: "r",
-            toolHint: { categories: ["info"] },
-          },
-        ],
-        goals: validGoals(),
-        initialRisks: [],
-      };
-      expect(() =>
-        agent.validateBusinessRules(output, { input: quickInput, identity }),
-      ).not.toThrow();
-    });
-
-    it("fails when quick depth has 4 dimensions", () => {
+    it("passes when quick depth has 3-5 dimensions", () => {
       const quickInput = { ...planInput, depth: "quick" as const };
       const output = {
         phase: "plan" as const,
@@ -544,10 +509,48 @@ describe("LeaderAgent — validateBusinessRules", () => {
       };
       expect(() =>
         agent.validateBusinessRules(output, { input: quickInput, identity }),
-      ).toThrow(/2-3/);
+      ).not.toThrow();
     });
 
-    it("passes when deep depth has 5-7 dimensions", () => {
+    it("fails when quick depth has 6 dimensions", () => {
+      const quickInput = { ...planInput, depth: "quick" as const };
+      const output = {
+        phase: "plan" as const,
+        themeSummary: "A comprehensive theme summary for the mission",
+        dimensions: Array.from({ length: 6 }, (_, i) => ({
+          id: `d${i + 1}`,
+          name: `Dim ${i + 1}`,
+          rationale: "r",
+          toolHint: { categories: ["info"] },
+        })),
+        goals: validGoals(),
+        initialRisks: [],
+      };
+      expect(() =>
+        agent.validateBusinessRules(output, { input: quickInput, identity }),
+      ).toThrow(/3-5/);
+    });
+
+    it("passes when deep depth has 8-12 dimensions", () => {
+      const deepInput = { ...planInput, depth: "deep" as const };
+      const output = {
+        phase: "plan" as const,
+        themeSummary: "A comprehensive theme summary for the mission",
+        dimensions: Array.from({ length: 10 }, (_, i) => ({
+          id: `d${i + 1}`,
+          name: `Dim ${i + 1}`,
+          rationale: "r",
+          toolHint: { categories: ["info"] },
+        })),
+        goals: validGoals(),
+        initialRisks: [],
+      };
+      expect(() =>
+        agent.validateBusinessRules(output, { input: deepInput, identity }),
+      ).not.toThrow();
+    });
+
+    it("fails when deep depth has only 5 dimensions", () => {
       const deepInput = { ...planInput, depth: "deep" as const };
       const output = {
         phase: "plan" as const,
@@ -563,7 +566,7 @@ describe("LeaderAgent — validateBusinessRules", () => {
       };
       expect(() =>
         agent.validateBusinessRules(output, { input: deepInput, identity }),
-      ).not.toThrow();
+      ).toThrow(/8-12/);
     });
 
     it("fails on duplicate dimension IDs", () => {
@@ -1287,7 +1290,7 @@ describe("LeaderAgent — buildSystemPrompt", () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it("injects dimensionsTarget=2-3 for quick depth", () => {
+  it("injects dimensionsTarget=3-5 for quick depth", () => {
     const input = {
       phase: "plan" as const,
       topic: "Quick topic",
@@ -1296,10 +1299,10 @@ describe("LeaderAgent — buildSystemPrompt", () => {
       priorPostmortems: [],
     };
     const result = agent.buildSystemPrompt({ input, identity });
-    expect(result).toContain("2-3");
+    expect(result).toContain("3-5");
   });
 
-  it("injects dimensionsTarget=5-7 for deep depth", () => {
+  it("injects dimensionsTarget=8-12 for deep depth", () => {
     const input = {
       phase: "plan" as const,
       topic: "Deep topic",
@@ -1308,10 +1311,10 @@ describe("LeaderAgent — buildSystemPrompt", () => {
       priorPostmortems: [],
     };
     const result = agent.buildSystemPrompt({ input, identity });
-    expect(result).toContain("5-7");
+    expect(result).toContain("8-12");
   });
 
-  it("injects dimensionsTarget=3-5 for standard depth", () => {
+  it("injects dimensionsTarget=5-8 for standard depth", () => {
     const input = {
       phase: "plan" as const,
       topic: "Standard topic",
@@ -1320,7 +1323,7 @@ describe("LeaderAgent — buildSystemPrompt", () => {
       priorPostmortems: [],
     };
     const result = agent.buildSystemPrompt({ input, identity });
-    expect(result).toContain("3-5");
+    expect(result).toContain("5-8");
   });
 
   it("calls buildPromptFromDuty with assess-research duty", () => {
