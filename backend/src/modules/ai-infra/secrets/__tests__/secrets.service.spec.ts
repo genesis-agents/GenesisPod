@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { SecretsService } from "../secrets.service";
+import { SecretKeysService } from "../secret-keys.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
 import { SecretCategory, SecretAction } from "@prisma/client";
@@ -71,6 +72,21 @@ describe("SecretsService", () => {
       systemSetting: {
         findUnique: jest.fn().mockResolvedValue(null),
       } as unknown as PrismaService["systemSetting"],
+      secretKey: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({ id: "sk-1" }),
+        update: jest.fn().mockResolvedValue({ id: "sk-1" }),
+        delete: jest.fn().mockResolvedValue({ id: "sk-1" }),
+      } as unknown as PrismaService["secretKey"],
+    };
+
+    const mockSecretKeys = {
+      addKey: jest.fn().mockResolvedValue({}),
+      replaceKeyValue: jest.fn().mockResolvedValue({}),
+      getSecretKey: jest.fn().mockResolvedValue(null),
+      markSuccess: jest.fn().mockResolvedValue(undefined),
+      markFailure: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -78,6 +94,7 @@ describe("SecretsService", () => {
         SecretsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EncryptionService, useValue: buildEncryption() },
+        { provide: SecretKeysService, useValue: mockSecretKeys },
       ],
     }).compile();
 

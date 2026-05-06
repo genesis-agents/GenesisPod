@@ -29,6 +29,7 @@ import {
   classifySecret,
 } from "./secret-name.catalog";
 import { EncryptionService } from "../encryption/encryption.service";
+import { SecretKeysService } from "./secret-keys.service";
 
 export interface SecretListItem {
   id: string;
@@ -80,6 +81,7 @@ export class SecretsService {
   constructor(
     private prisma: PrismaService,
     private encryption: EncryptionService,
+    private secretKeys: SecretKeysService,
   ) {}
 
   async create(
@@ -105,6 +107,22 @@ export class SecretsService {
         updatedBy: context?.userEmail || context?.userId,
       },
     });
+
+    // Dual-write: mirror initial value into secret_keys 'primary' so multi-key
+    // resolver immediately uses this without dual-track fallback.
+    if (this.secretKeys) {
+      await this.secretKeys
+        .addKey(
+          secret.id,
+          { label: "primary", value: dto.value, priority: 0 },
+          context,
+        )
+        .catch((err) => {
+          this.logger.warn(
+            `dual-write secret_keys failed for ${dto.name}: ${(err as Error).message}`,
+          );
+        });
+    }
 
     await this.logAccess(secret.id, SecretAction.CREATE, context, {
       secretName: secret.name,
@@ -222,6 +240,31 @@ export class SecretsService {
     // ★ 规范化 Secret 名称，支持旧格式（SCREAMING_SNAKE_CASE）自动转换
     const normalizedName = normalizeSecretName(name);
 
+    // ★ 多 KEY 路径：委托 SecretKeysService（fallback chain + 5min 失败熔断）。
+    // SecretKey 表为空时它会降级读 Secret.encryptedValue（dual-track），
+    // 确保所有既有 caller 不需改一行代码。
+    if (this.secretKeys) {
+      const resolved = await this.secretKeys.getSecretKey(normalizedName);
+      if (resolved) {
+        const sec = await this.prisma.secret.findUnique({
+          where: { name: normalizedName },
+          select: { id: true },
+        });
+        if (sec) {
+          await this.prisma.secret
+            .update({
+              where: { id: sec.id },
+              data: {
+                lastAccessedAt: new Date(),
+                accessCount: { increment: 1 },
+              },
+            })
+            .catch(() => undefined);
+        }
+        return resolved.value;
+      }
+    }
+
     const secret = await this.prisma.secret.findUnique({
       where: { name: normalizedName },
     });
@@ -320,6 +363,36 @@ export class SecretsService {
       where: { name },
       data: updateData,
     });
+
+    // Dual-write: keep secret_keys 'primary' in sync when value rotates.
+    if (this.secretKeys && dto.value !== undefined && dto.value !== "") {
+      const primary = await this.prisma.secretKey.findUnique({
+        where: { secretId_label: { secretId: secret.id, label: "primary" } },
+        select: { id: true },
+      });
+      if (primary) {
+        await this.secretKeys
+          .replaceKeyValue(primary.id, { value: dto.value }, context)
+          .catch((err) => {
+            this.logger.warn(
+              `dual-write secret_keys replace failed for ${name}: ${(err as Error).message}`,
+            );
+          });
+      } else {
+        await this.secretKeys
+          .addKey(
+            secret.id,
+            { label: "primary", value: dto.value, priority: 0 },
+            context,
+          )
+          .catch((err) => {
+            this.logger.warn(
+              `dual-write secret_keys add failed for ${name}: ${(err as Error).message}`,
+            );
+          });
+      }
+    }
+
     await this.logAccess(secret.id, SecretAction.UPDATE, context, {
       secretName: secret.name,
       oldValueHash,
@@ -1037,5 +1110,29 @@ export class SecretsService {
     }
 
     return { processed, skipped };
+  }
+
+  /**
+   * 业务调用方在 provider call 成功后调，feed 健康反馈给 fallback chain。
+   * 找不到对应 SecretKey 行（dual-track 兜底场景）时静默返回。
+   */
+  async markSecretSuccess(name: string): Promise<void> {
+    if (!this.secretKeys) return;
+    const resolved = await this.secretKeys.getSecretKey(
+      normalizeSecretName(name),
+    );
+    if (resolved?.keyId) await this.secretKeys.markSuccess(resolved.keyId);
+  }
+
+  /**
+   * 业务调用方在 provider call 失败时调，触发 5min 熔断 + 切到下一个 KEY。
+   */
+  async markSecretFailure(name: string, errorMessage: string): Promise<void> {
+    if (!this.secretKeys) return;
+    const resolved = await this.secretKeys.getSecretKey(
+      normalizeSecretName(name),
+    );
+    if (resolved?.keyId)
+      await this.secretKeys.markFailure(resolved.keyId, errorMessage);
   }
 }
