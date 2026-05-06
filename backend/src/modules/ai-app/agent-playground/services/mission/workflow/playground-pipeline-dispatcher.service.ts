@@ -105,6 +105,29 @@ interface SessionEntry {
    * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
    */
   s4PatchFailures?: import("./mission-context").MissionContext["s4PatchFailures"];
+  /**
+   * ★ P0-D 完整版 (2026-05-06): trajectory 持久化 cache hit 标志位
+   * inheritedResearchResults: rerun 时从 DB 加载 baseline researcher 产物
+   *   S3 hook 检测到此 entry 字段不空 → 跳过 invoker.invoke + 直接复用 + emit
+   *   合成 dimension:research:completed 事件给前端 todo-ledger
+   * inheritedChapters: rerun 时从 DB 加载合格 chapter drafts
+   *   下游 chapter pipeline 检测到 chapter 已存（status=passed/done）→ 跳过重写
+   */
+  inheritedResearchResults?: Array<{
+    dimension: string;
+    findings: { claim: string; evidence: string; source: string }[];
+    summary: string;
+  }>;
+  inheritedChapters?: Array<{
+    dimension: string;
+    chapterIndex: number;
+    heading: string;
+    thesis?: string;
+    content: string;
+    score?: number;
+    attempts: number;
+    wordCount?: number;
+  }>;
 }
 
 @Injectable()
@@ -310,6 +333,16 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       await this.hydrateInheritedPlan(
         missionId,
         userId,
+        input.inheritFromMissionId,
+      );
+      // ★ P0-D 完整版 (2026-05-06): trajectory 持久化让 rerun 真正复用 S3 + 章节产物，
+      //   "更新"按钮跳过 S3 35min 重做 + S5+ 章节重写，直达 S10 signoff。
+      await this.hydrateInheritedResearchResults(
+        missionId,
+        input.inheritFromMissionId,
+      );
+      await this.hydrateInheritedChapterDrafts(
+        missionId,
         input.inheritFromMissionId,
       );
     }
@@ -861,6 +894,93 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
    * 失败兜底：source 不存在 / dimensions 缺失 → log warn，不写 entry.lastPlan，
    * S2 走原有 runLeaderPlanStage 路径（fallback to fresh plan）。
    */
+  /**
+   * ★ P0-D 完整版 (2026-05-06): 从源 mission DB hydrate baseline researcher 产物。
+   * S3 hook 检测到 entry.inheritedResearchResults 不空 → skip invoker + 复用 findings。
+   */
+  private async hydrateInheritedResearchResults(
+    missionId: string,
+    sourceMissionId: string,
+  ): Promise<void> {
+    try {
+      const results =
+        await this.store.loadBaselineResearchResults(sourceMissionId);
+      if (results.length === 0) {
+        this.log.log(
+          `[hydrateInheritedResearchResults] source ${sourceMissionId} 无持久化 researcher 产物，S3 走 fresh`,
+        );
+        return;
+      }
+      const entry = this.sessions.get(missionId);
+      if (!entry) return;
+      entry.inheritedResearchResults = results;
+      // ★ P0-D 完整版: 复制到新 mission 的 research_results 表，让 stage 通过
+      //   missionId 自然查到 cache（避免传 entry 跨多层 stage 调用）
+      for (const r of results) {
+        await this.store.saveResearchResult({
+          missionId,
+          dimension: r.dimension,
+          findings: r.findings,
+          summary: r.summary,
+          state: "completed",
+        });
+      }
+      this.log.log(
+        `[hydrateInheritedResearchResults] mission ${missionId} 复用 ${results.length} 个 dim 的 researcher 产物（来自 ${sourceMissionId}），已复制到新 mission DB`,
+      );
+    } catch (err) {
+      this.log.warn(
+        `[hydrateInheritedResearchResults] failed for ${sourceMissionId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * ★ P0-D 完整版: 从源 mission DB hydrate 合格 chapter drafts。
+   * 下游 chapter pipeline 检测到已存的章节直接复用，跳过 LLM 重写。
+   */
+  private async hydrateInheritedChapterDrafts(
+    missionId: string,
+    sourceMissionId: string,
+  ): Promise<void> {
+    try {
+      const drafts =
+        await this.store.loadQualifiedChapterDrafts(sourceMissionId);
+      if (drafts.length === 0) {
+        this.log.log(
+          `[hydrateInheritedChapterDrafts] source ${sourceMissionId} 无持久化 chapter drafts，S5+ 走 fresh`,
+        );
+        return;
+      }
+      const entry = this.sessions.get(missionId);
+      if (!entry) return;
+      entry.inheritedChapters = drafts;
+      // ★ P0-D 完整版: 复制到新 mission 的 chapter_drafts 表，让 chapter pipeline
+      //   通过 deps.store.loadQualifiedChapterDrafts(missionId) 自然查到 cache
+      for (const d of drafts) {
+        await this.store.saveChapterDraft({
+          missionId,
+          dimension: d.dimension,
+          chapterIndex: d.chapterIndex,
+          heading: d.heading,
+          thesis: d.thesis,
+          content: d.content,
+          status: "passed",
+          score: d.score,
+          attempts: d.attempts,
+          wordCount: d.wordCount,
+        });
+      }
+      this.log.log(
+        `[hydrateInheritedChapterDrafts] mission ${missionId} 复用 ${drafts.length} 个章节 drafts（来自 ${sourceMissionId}），已复制到新 mission DB`,
+      );
+    } catch (err) {
+      this.log.warn(
+        `[hydrateInheritedChapterDrafts] failed for ${sourceMissionId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   private async hydrateInheritedPlan(
     missionId: string,
     userId: string,
@@ -1138,6 +1258,83 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             "[s3-researcher-collect] no plan from s2 (sessions[missionId].lastPlan undefined)",
           );
         }
+
+        // ★ P0-D 完整版 (2026-05-06): rerun cache hit — entry.inheritedResearchResults
+        //   非空 = dispatcher 已从源 mission DB 加载了 researcher baseline 产物。
+        //   覆盖 plan.dimensions 的 dim 直接复用，未覆盖的 dim 仍跑 invoker（兼容 redirect）。
+        if (
+          entry.inheritedResearchResults &&
+          entry.inheritedResearchResults.length > 0
+        ) {
+          const inheritedByDim = new Map(
+            entry.inheritedResearchResults.map((r) => [r.dimension, r]),
+          );
+          const reusedResults: typeof entry.inheritedResearchResults = [];
+          const remainingDims: typeof cachedPlan.dimensions = [];
+          for (const d of cachedPlan.dimensions) {
+            const cached = inheritedByDim.get(d.name);
+            if (cached) {
+              reusedResults.push(cached);
+            } else {
+              remainingDims.push(d);
+            }
+          }
+          this.log.log(
+            `[s3-researcher-collect] cache hit: 复用 ${reusedResults.length}/${cachedPlan.dimensions.length} 个 dim 的 researcher 产物，剩余 ${remainingDims.length} 个走 fresh`,
+          );
+          // 复用的 dim 立即 emit 合成 dimension:research:completed 让前端 todo-ledger
+          // 推进（与 fresh 路径事件流一致）
+          const deps = this.stageBindings.buildDeps();
+          const t0 = Date.now();
+          for (const r of reusedResults) {
+            await deps
+              .emit({
+                type: "agent-playground.dimension:research:completed",
+                missionId: entry.session.missionId,
+                userId: entry.session.userId,
+                payload: {
+                  dimension: r.dimension,
+                  state: "completed",
+                  findingsCount: r.findings.length,
+                  fromCache: true,
+                },
+              })
+              .catch(() => undefined);
+          }
+          // 如果还有未覆盖的 dim，跑 fresh pipeline 处理它们（仅 patch 那些）
+          if (remainingDims.length > 0) {
+            const stageCtx = this.stageBindings.buildCtx({
+              missionId: entry.session.missionId,
+              userId: entry.session.userId,
+              input: entry.input,
+              t0: entry.t0,
+              billing: entry.session.billing,
+              pool: entry.session.pool,
+              leader: entry.leader,
+              budgetMultiplier: entry.session.budgetMultiplier,
+              plan: { ...cachedPlan, dimensions: remainingDims },
+            });
+            await runResearcherDispatchStage(stageCtx, deps);
+            // 合并：reused + 新跑的 = 完整 researcherResults
+            const freshResults = stageCtx.researcherResults ?? [];
+            entry.lastResearcherResults = [...reusedResults, ...freshResults];
+            if (
+              stageCtx.s4PatchFailures &&
+              stageCtx.s4PatchFailures.length > 0
+            ) {
+              entry.s4PatchFailures = stageCtx.s4PatchFailures;
+            }
+          } else {
+            // 全部 cache hit，直接用复用产物
+            entry.lastResearcherResults = reusedResults;
+          }
+          this.log.log(
+            `[s3-researcher-collect] cache reuse 节省 ${Math.round((Date.now() - t0) / 1000)}s（cache 路径仅 emit synth events）`,
+          );
+          return entry.lastResearcherResults;
+        }
+
+        // ── 正常 fresh 路径 ──
         const stageCtx = this.stageBindings.buildCtx({
           missionId: entry.session.missionId,
           userId: entry.session.userId,
@@ -1158,6 +1355,18 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         // s4PatchFailures sharedState 同步（s3 内部可能积累）
         if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
           entry.s4PatchFailures = stageCtx.s4PatchFailures;
+        }
+        // ★ P0-D 完整版: 持久化 baseline researcher 产物（让下次 rerun cache hit）
+        if (stageCtx.researcherResults) {
+          for (const r of stageCtx.researcherResults) {
+            await this.store.saveResearchResult({
+              missionId: entry.session.missionId,
+              dimension: r.dimension,
+              findings: r.findings,
+              summary: r.summary,
+              state: r.findings.length === 0 ? "failed" : "completed",
+            });
+          }
         }
         return stageCtx.researcherResults;
       },

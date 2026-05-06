@@ -9331,7 +9331,10 @@ model AgentPlaygroundMission {
   leaderVerdict      String?  @map("leader_verdict") @db.VarChar(20)
 
   /// Leader 对话历史（点击 Leader 节点弹出聊天框）
-  leaderChats AgentPlaygroundLeaderChat[]
+  leaderChats     AgentPlaygroundLeaderChat[]
+  /// ★ P0-D 完整版 (2026-05-06): trajectory 持久化关系
+  researchResults AgentPlaygroundResearchResult[]
+  chapterDrafts   AgentPlaygroundChapterDraft[]
 
   /// ★ PR-H v1 (2026-05-01): pod-aware mission lifecycle —— pod 重启检测 + 后续 resume 接续
   /// lastCompletedStage: 0~12（S0~S12）；null = 还没完成 S1
@@ -9364,6 +9367,59 @@ model AgentPlaygroundMissionEvent {
 
   @@index([missionId, ts])
   @@map("agent_playground_mission_events")
+}
+
+/// agent-playground per-dim researcher 完整产物持久化（P0-D 完整版）
+/// rerun incremental 模式从此表 hydrate entry.lastResearcherResults 跳过 S3 重做。
+/// 单 mission × 多 dim × 可选 retryLabel → 复合唯一索引避免重复写入。
+model AgentPlaygroundResearchResult {
+  id           String                 @id @default(uuid())
+  missionId    String                 @map("mission_id")
+  mission      AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  /// dim 名（中文，与事件流 payload.dimension 对齐）
+  dimension    String                 @db.VarChar(200)
+  /// 可选 retryLabel（fresh-collect retry 路径独立 pipeline）
+  retryLabel   String?                @map("retry_label") @db.VarChar(60)
+  /// 完整 findings 数组：[{claim, evidence, source}]
+  findings     Json                   @db.JsonB
+  /// summary（前端展示 + leader assess 输入）
+  summary      String                 @db.Text
+  /// state: completed / degraded / failed
+  state        String                 @db.VarChar(20)
+  iterations   Int?
+  wallTimeMs   Int?                   @map("wall_time_ms")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  @@unique([missionId, dimension, retryLabel])
+  @@index([missionId])
+  @@map("agent_playground_research_results")
+}
+
+/// agent-playground per-chapter draft 完整产物持久化（P0-D 完整版）
+/// rerun 时从此表 hydrate dimensionPipelines.chapters[i].content / score / status，
+/// 让 S5+ 章节 pipeline 可跳过重写（仅 review 不通过的章节才重写）。
+model AgentPlaygroundChapterDraft {
+  id           String                 @id @default(uuid())
+  missionId    String                 @map("mission_id")
+  mission      AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  dimension    String                 @db.VarChar(200)
+  chapterIndex Int                    @map("chapter_index")
+  heading      String                 @db.VarChar(500)
+  thesis       String?                @db.Text
+  content      String                 @db.Text
+  /// 章节态：writing / reviewing / passed / done / failed-finalized
+  status       String                 @db.VarChar(30)
+  score        Int?
+  critique     String?                @db.Text
+  attempts     Int                    @default(1)
+  wordCount    Int?                   @map("word_count")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
+
+  @@unique([missionId, dimension, chapterIndex])
+  @@index([missionId])
+  @@map("agent_playground_chapter_drafts")
 }
 
 /// agent-playground 中用户与 mission Leader 的对话记录

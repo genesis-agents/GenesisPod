@@ -260,6 +260,133 @@ export async function runPerDimPipeline(
       return researcherOut;
     }
 
+    // ★ P0-D 完整版 (2026-05-06): rerun cache hit — 检查 chapter_drafts 表是否
+    //   已有该 dim 的合格 chapter（dispatcher.hydrateInheritedChapterDrafts 在
+    //   rerun incremental 模式启动时已复制源 mission 的 chapter 到新 mission）。
+    //   命中 → 跳过 outline + chapter writing + reviewer 全部 LLM 调用，直接 emit
+    //   合成 dimension:outline:planned + chapter:done 事件让前端 todo-ledger 推进，
+    //   返回 cached chapters 让 integrator 直接组装。节省 ~10-15min/mission。
+    // 防御 deps.store 缺失（spec mock 简化场景）：缺失即跳过 cache 检查
+    const cachedDrafts = deps.store?.loadQualifiedChapterDrafts
+      ? await deps.store
+          .loadQualifiedChapterDrafts(missionId)
+          .catch(
+            () =>
+              [] as Awaited<
+                ReturnType<typeof deps.store.loadQualifiedChapterDrafts>
+              >,
+          )
+      : [];
+    const dimCached = cachedDrafts.filter((d) => d.dimension === dimensionName);
+    if (dimCached.length >= 1) {
+      // 按 chapterIndex 排序后逐一 emit 合成事件
+      dimCached.sort((a, b) => a.chapterIndex - b.chapterIndex);
+      const synthesizedChapters = dimCached.map((d) => ({
+        index: d.chapterIndex,
+        heading: d.heading,
+        body: d.content,
+        wordCount: d.wordCount ?? 0,
+        finalized: true,
+        qualified: true,
+        decision: "passed" as const,
+        finalScore: d.score ?? 80,
+      }));
+
+      // emit dimension:outline:planned 让前端 derive 知道章节列表
+      await deps
+        .emit({
+          type: "agent-playground.dimension:outline:planned",
+          missionId,
+          userId,
+          payload: {
+            dimension: dimensionName,
+            chapters: dimCached.map((d) => ({
+              index: d.chapterIndex,
+              heading: d.heading,
+              thesis: d.thesis,
+            })),
+            fromCache: true,
+          },
+        })
+        .catch(() => undefined);
+
+      // 逐章 emit 合成 chapter:done
+      for (const c of synthesizedChapters) {
+        await deps
+          .emit({
+            type: "agent-playground.chapter:done",
+            missionId,
+            userId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: c.index,
+              finalAttempt: 1,
+              decision: "passed",
+              finalScore: c.finalScore,
+              wordCount: c.wordCount,
+              finalized: true,
+              qualified: true,
+              fromCache: true,
+            },
+          })
+          .catch(() => undefined);
+      }
+
+      // narrative 提示用户
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "writer",
+        tag: "success",
+        text: `${dimensionName} · 复用上次 mission 的 ${synthesizedChapters.length} 个章节（cache hit），跳过 outline + writing + reviewer`,
+        agentId: `chapter-cache#${dimensionIdx}`,
+        dimension: dimensionName,
+      });
+
+      // 直接拼接 cached chapter bodies 作为 fullMarkdown（跳过 integrator LLM）
+      const fullMarkdownFromCache = synthesizedChapters
+        .map((c) => `## ${c.heading}\n\n${c.body}`)
+        .join("\n\n");
+      const totalWordCount = synthesizedChapters.reduce(
+        (s, c) => s + c.wordCount,
+        0,
+      );
+      // emit dimension:integrating:completed 让前端 derive 知道 integrator 完成
+      await deps
+        .emit({
+          type: "agent-playground.dimension:integrating:completed",
+          missionId,
+          userId,
+          payload: {
+            dimension: dimensionName,
+            totalWordCount,
+            fromCache: true,
+          },
+        })
+        .catch(() => undefined);
+      // emit dimension:graded 假分（80）让前端 dim todo 状态切到 done
+      await emitGraded({
+        ok: true,
+        g: {
+          overall: 80,
+          grade: "B",
+          axes: {},
+          summary: `${dimensionName} · cache hit（${synthesizedChapters.length} 章复用），跳过 outline/writing/reviewer/integrator/grade`,
+        },
+      });
+      void totalWordCount;
+      return {
+        ...researcherOut,
+        chapters: synthesizedChapters,
+        fullMarkdown: fullMarkdownFromCache,
+        grade: {
+          overall: 80,
+          grade: "B",
+          axes: {},
+          summary: `cache hit（复用上次 mission 的 ${synthesizedChapters.length} 章）`,
+        },
+      };
+    }
+
     // ── 1. Outline ──
     const outlineAgentId = `outline#${dimensionIdx}`;
     await deps.lifecycle(
@@ -808,6 +935,27 @@ export async function runPerDimPipeline(
               qualified: chapterDecision === "passed",
             },
           });
+
+          // ★ P0-D 完整版 (2026-05-06): 持久化 chapter draft 让下次 rerun cache hit
+          // 防御 deps.store 缺失（spec mock 简化场景）：缺失即跳过持久化
+          if (deps.store?.saveChapterDraft) {
+            await deps.store
+              .saveChapterDraft({
+                missionId,
+                dimension: dimensionName,
+                chapterIndex: chapter.index,
+                heading: chapter.heading,
+                thesis: chapter.thesis,
+                content: remappedBody,
+                status:
+                  chapterDecision === "passed" ? "passed" : "failed-finalized",
+                score: verdict.score,
+                critique: verdict.critique,
+                attempts: attempt,
+                wordCount: draft.wordCount,
+              })
+              .catch(() => undefined);
+          }
 
           // 仅当兜底（非 passed）emit warning narrative，让用户看到"质量未达标但被兜底"
           if (chapterDecision !== "passed") {

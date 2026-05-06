@@ -805,4 +805,184 @@ export class MissionStore {
       lastCompletedStage: row.lastCompletedStage,
     };
   }
+
+  // ── ★ P0-D 完整版 (2026-05-06): trajectory 持久化 ──────────────────────
+  // rerun incremental 模式下从这俩表 hydrate 让 dispatcher 跳过 S3 / 章节重做。
+
+  /**
+   * 持久化单 dim researcher 完整产物（findings 数组 + summary）。
+   * upsert：(missionId, dimension, retryLabel) 唯一，重复调幂等更新。
+   */
+  async saveResearchResult(args: {
+    missionId: string;
+    dimension: string;
+    retryLabel?: string;
+    findings: { claim: string; evidence: string; source: string }[];
+    summary: string;
+    state: "completed" | "degraded" | "failed";
+    iterations?: number;
+    wallTimeMs?: number;
+  }): Promise<void> {
+    await this.prisma.agentPlaygroundResearchResult
+      .upsert({
+        where: {
+          missionId_dimension_retryLabel: {
+            missionId: args.missionId,
+            dimension: args.dimension.slice(0, 200),
+            retryLabel: (args.retryLabel ?? null) as never,
+          },
+        },
+        create: {
+          missionId: args.missionId,
+          dimension: args.dimension.slice(0, 200),
+          retryLabel: args.retryLabel ?? null,
+          findings: args.findings as unknown as object,
+          summary: args.summary.slice(0, 50_000),
+          state: args.state,
+          iterations: args.iterations,
+          wallTimeMs: args.wallTimeMs,
+        },
+        update: {
+          findings: args.findings as unknown as object,
+          summary: args.summary.slice(0, 50_000),
+          state: args.state,
+          iterations: args.iterations,
+          wallTimeMs: args.wallTimeMs,
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[saveResearchResult] mission=${args.missionId} dim=${args.dimension} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /**
+   * 加载某 mission 的所有 researcher 产物（用于 rerun hydrate）。
+   * 仅返回 retryLabel === null 的 baseline 产物（retry 走独立 pipelineKey 不复用）。
+   */
+  async loadBaselineResearchResults(missionId: string): Promise<
+    Array<{
+      dimension: string;
+      findings: { claim: string; evidence: string; source: string }[];
+      summary: string;
+    }>
+  > {
+    const rows = await this.prisma.agentPlaygroundResearchResult
+      .findMany({
+        where: { missionId, retryLabel: null },
+      })
+      .catch(() => []);
+    return rows
+      .filter((r) => r.state === "completed" || r.state === "degraded")
+      .map((r) => ({
+        dimension: r.dimension,
+        findings: r.findings as unknown as {
+          claim: string;
+          evidence: string;
+          source: string;
+        }[],
+        summary: r.summary,
+      }));
+  }
+
+  /**
+   * 持久化单 chapter 完整产物（content + status + score）。
+   * upsert：(missionId, dimension, chapterIndex) 唯一。
+   */
+  async saveChapterDraft(args: {
+    missionId: string;
+    dimension: string;
+    chapterIndex: number;
+    heading: string;
+    thesis?: string;
+    content: string;
+    status:
+      | "writing"
+      | "reviewing"
+      | "passed"
+      | "done"
+      | "failed-finalized"
+      | "failed";
+    score?: number;
+    critique?: string;
+    attempts?: number;
+    wordCount?: number;
+  }): Promise<void> {
+    await this.prisma.agentPlaygroundChapterDraft
+      .upsert({
+        where: {
+          missionId_dimension_chapterIndex: {
+            missionId: args.missionId,
+            dimension: args.dimension.slice(0, 200),
+            chapterIndex: args.chapterIndex,
+          },
+        },
+        create: {
+          missionId: args.missionId,
+          dimension: args.dimension.slice(0, 200),
+          chapterIndex: args.chapterIndex,
+          heading: args.heading.slice(0, 500),
+          thesis: args.thesis,
+          content: args.content,
+          status: args.status,
+          score: args.score,
+          critique: args.critique,
+          attempts: args.attempts ?? 1,
+          wordCount: args.wordCount,
+        },
+        update: {
+          heading: args.heading.slice(0, 500),
+          thesis: args.thesis,
+          content: args.content,
+          status: args.status,
+          score: args.score,
+          critique: args.critique,
+          attempts: args.attempts ?? 1,
+          wordCount: args.wordCount,
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[saveChapterDraft] mission=${args.missionId} dim=${args.dimension} ch=${args.chapterIndex} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /**
+   * 加载某 mission 的所有 chapter drafts（用于 rerun hydrate dimensionPipelines）。
+   * 仅返回 status='passed' / 'done' 的合格 chapter（degraded 失败不复用）。
+   */
+  async loadQualifiedChapterDrafts(missionId: string): Promise<
+    Array<{
+      dimension: string;
+      chapterIndex: number;
+      heading: string;
+      thesis?: string;
+      content: string;
+      score?: number;
+      attempts: number;
+      wordCount?: number;
+    }>
+  > {
+    const rows = await this.prisma.agentPlaygroundChapterDraft
+      .findMany({
+        where: {
+          missionId,
+          status: { in: ["passed", "done"] },
+        },
+        orderBy: [{ dimension: "asc" }, { chapterIndex: "asc" }],
+      })
+      .catch(() => []);
+    return rows.map((r) => ({
+      dimension: r.dimension,
+      chapterIndex: r.chapterIndex,
+      heading: r.heading,
+      thesis: r.thesis ?? undefined,
+      content: r.content,
+      score: r.score ?? undefined,
+      attempts: r.attempts,
+      wordCount: r.wordCount ?? undefined,
+    }));
+  }
 }
