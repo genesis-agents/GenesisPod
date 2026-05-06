@@ -14,6 +14,62 @@ export type StageId =
   | 'writer'
   | 'reviewer';
 
+/**
+ * 把 backend pipeline 内部 stepId 映射到 5 个高层 StageId。
+ * 一个 StageId 可对应多个 stepId（如 leader = s1-budget + s2-leader-plan +
+ * s4-leader-assess + s10-leader-foreword-signoff + s11-persist）。
+ *
+ * 来源：backend/src/modules/ai-app/agent-playground/playground.config.ts 的 13 step。
+ *
+ * 未知 stepId 返 null，让调用方决定如何处理（不要默默映射到错的 stage）。
+ */
+export function mapStepIdToStageId(stepId: string | undefined): StageId | null {
+  if (!stepId) return null;
+  // 直接传旧 StageId（兼容 pre-单轨化 fixture / 显式调用）
+  if (
+    stepId === 'leader' ||
+    stepId === 'researchers' ||
+    stepId === 'analyst' ||
+    stepId === 'writer' ||
+    stepId === 'reviewer'
+  ) {
+    return stepId;
+  }
+  if (
+    stepId === 's1-budget' ||
+    stepId === 's2-leader-plan' ||
+    stepId === 's4-leader-assess' ||
+    stepId === 's10-leader-foreword-signoff' ||
+    stepId === 's11-persist' ||
+    stepId === 's12-self-evolution'
+  ) {
+    return 'leader';
+  }
+  if (stepId === 's3-researchers' || stepId === 's3-researcher-collect') {
+    return 'researchers';
+  }
+  if (stepId === 's5-reconciler' || stepId === 's6-analyst') {
+    return 'analyst';
+  }
+  if (
+    stepId === 's7-writer-outline' ||
+    stepId === 's8-writer-draft' ||
+    stepId === 's8b-section-quality-enhancement' ||
+    stepId === 's8b-quality-enhancement'
+  ) {
+    return 'writer';
+  }
+  if (
+    stepId === 's9-critic' ||
+    stepId === 's9-reviewer-critic-l4' ||
+    stepId === 's9b-objective-evaluation' ||
+    stepId === 's9b-objective-eval'
+  ) {
+    return 'reviewer';
+  }
+  return null;
+}
+
 export type StageStatus = 'pending' | 'running' | 'done' | 'failed';
 
 export interface StageState {
@@ -276,7 +332,70 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
     } else if (t === 'agent-playground.mission:cancelled') {
       mission.cancelledAt = ev.timestamp;
       mission.failedMessage = (p?.message as string | undefined) ?? '用户取消';
+    } else if (t === 'agent-playground.stage:lifecycle') {
+      // ★ 2026-05-06 真治：backend 单轨化后只 emit stage:lifecycle（删了
+      //   stage:started/completed），derive.ts 之前没跟进 → mission stages
+      //   永远卡 pending。stepId 是 backend pipeline 内部 ID，需要映射到 5
+      //   个高层 StageId（leader / researchers / analyst / writer / reviewer）。
+      const stepId = (p?.stepId ?? p?.stage) as string | undefined;
+      const status = p?.status as
+        | 'started'
+        | 'completed'
+        | 'failed'
+        | 'degraded'
+        | undefined;
+      const mapped = mapStepIdToStageId(stepId);
+      if (mapped) {
+        const cur = stages.get(mapped);
+        if (cur) {
+          if (status === 'started') {
+            // 不要把已 done 的 stage 回滚到 running（多 stepId 映射同一 stageId
+            // 时只取首个 started + 最后 completed）
+            if (cur.status !== 'done' && cur.status !== 'failed') {
+              cur.status = 'running';
+              cur.startedAt = cur.startedAt ?? ev.timestamp;
+            }
+          } else if (status === 'completed') {
+            cur.status = 'done';
+            cur.endedAt = ev.timestamp;
+            // 保留旧 stage:completed 时的 leader.dimensions / themeSummary 提取，
+            // 让 mission rerun 也能 hydrate 这些字段
+            if (mapped === 'leader' && stepId === 's2-leader-plan') {
+              const out = p?.output as Record<string, unknown> | undefined;
+              const raw = out?.raw as Record<string, unknown> | undefined;
+              const themeSummary = raw?.themeSummary as string | undefined;
+              if (themeSummary) mission.themeSummary = themeSummary;
+              const rawDims = raw?.dimensions;
+              if (Array.isArray(rawDims)) {
+                mission.dimensions = rawDims.map((d, i) => {
+                  if (d && typeof d === 'object') {
+                    const o = d as Record<string, unknown>;
+                    return {
+                      id: typeof o.id === 'string' ? o.id : `dim-${i}`,
+                      name:
+                        typeof o.name === 'string'
+                          ? o.name
+                          : String(o.name ?? `Dimension ${i + 1}`),
+                      rationale:
+                        typeof o.rationale === 'string' ? o.rationale : '',
+                    };
+                  }
+                  return {
+                    id: `dim-${i}`,
+                    name: String(d ?? `Dimension ${i + 1}`),
+                    rationale: '',
+                  };
+                });
+              }
+            }
+          } else if (status === 'failed') {
+            cur.status = 'failed';
+            cur.endedAt = ev.timestamp;
+          }
+        }
+      }
     } else if (t === 'agent-playground.stage:started') {
+      // 兼容历史 fixture（pre-单轨化 mission），新 mission 走 stage:lifecycle
       const stage = p?.stage as StageId | undefined;
       const cur = stage ? stages.get(stage) : undefined;
       if (cur) {
