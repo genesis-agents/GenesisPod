@@ -2507,13 +2507,35 @@ model AIModel {
   // 推理模型需要特殊处理：设置 reasoning_effort 参数，避免推理 token 消耗全部输出预算
 
   // ★ 模型能力配置 - 消除硬编码，完全由数据库驱动
-  apiFormat               String  @default("openai") @map("api_format") @db.VarChar(20) // openai, anthropic, google, xai
+  apiFormat               String  @default("openai") @map("api_format") @db.VarChar(20) // openai, anthropic, google, xai, ollama, vllm, llamacpp
   supportsTemperature     Boolean @default(true) @map("supports_temperature") // 推理模型通常不支持
   supportsStreaming       Boolean @default(true) @map("supports_streaming")
   supportsFunctionCalling Boolean @default(true) @map("supports_function_calling")
   supportsVision          Boolean @default(false) @map("supports_vision")
   tokenParamName          String  @default("max_tokens") @map("token_param_name") @db.VarChar(30) // max_tokens 或 max_completion_tokens
   defaultTimeoutMs        Int     @default(120000) @map("default_timeout_ms") // 推理模型需要更长时间
+
+  // ★ 2026-05-06 Structured Output capability matrix（消除"假设所有模型都支持
+  //   responseFormat:json"的运行时崩溃）。值是 ai_models 表的权威源，运行时按
+  //   strategy 字段选 adapter 路径 + 用 fallbackStrategies 自动降级。
+  //   - structuredOutputStrategy 取值：
+  //     'json_schema_strict' (OpenAI/Grok strict mode) /
+  //     'json_schema'        (OpenAI/Grok json_schema 但非 strict) /
+  //     'tool_use'           (Anthropic Tools API) /
+  //     'json_mode'          (response_format: { type: 'json_object' }) /
+  //     'gemini_response_schema' (Gemini responseSchema 字段) /
+  //     'gbnf_grammar'       (Llama.cpp / vLLM GBNF) /
+  //     'prompt'             (system prompt + post-parse) /
+  //     'none'               (禁用 structured output，直返文本)
+  //   - fallbackStrategies: 失败降级链，按顺序尝试。例 OpenAI:
+  //     ['json_schema_strict', 'json_schema', 'json_mode', 'prompt']
+  structuredOutputStrategy String?  @map("structured_output_strategy") @db.VarChar(40)
+  fallbackStrategies       String[] @default([]) @map("fallback_strategies") // 降级链
+  supportsJsonSchemaStrict Boolean  @default(false) @map("supports_json_schema_strict")
+  supportsJsonSchema       Boolean  @default(false) @map("supports_json_schema")
+  supportsToolUse          Boolean  @default(false) @map("supports_tool_use")
+  supportsJsonMode         Boolean  @default(false) @map("supports_json_mode")
+  supportsGbnfGrammar      Boolean  @default(false) @map("supports_gbnf_grammar")
 
   // 价格配置（每百万 token）
   priceInputPerMillion     Decimal? @map("price_input_per_million") @db.Decimal(10, 4)

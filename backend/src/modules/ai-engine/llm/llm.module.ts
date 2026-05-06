@@ -61,6 +61,9 @@ import { ModelElectionService } from "./selection/model-election.service";
 // Single source of truth for model pricing (DB AIModel table → in-memory hydrate)
 import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
 
+// Provider-aware structured output adapter router (covers商用 + 本地全部主流 provider)
+import { StructuredOutputRouter } from "./structured-output/structured-output-router.service";
+
 @Module({
   imports: [
     HttpModule.register({
@@ -133,6 +136,10 @@ import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
 
     // Pricing single source of truth (replaces 3 hardcoded tables)
     ModelPricingRegistry,
+
+    // Structured output router（管理员可配置首选 strategy + fallback；未配置走
+    // PROVIDER_DEFAULT_CHAINS 自动推断；最终兜底 prompt）
+    StructuredOutputRouter,
   ],
   exports: [
     LLMFactory,
@@ -158,6 +165,7 @@ import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
     ModelElectionService,
     AutoConfigureService,
     ModelPricingRegistry,
+    StructuredOutputRouter,
   ],
 })
 export class AiEngineLLMModule {}
