@@ -129,6 +129,8 @@ const ENDPOINT_BASELINE: ReadonlyArray<EndpointSpec> = [
   ["GET", "missions/:id"],
   ["GET", "missions/:id/export"],
   ["GET", "missions/:id/leader-chat"],
+  ["GET", "missions/:id/report-versions"],
+  ["GET", "missions/:id/report-versions/:version"],
   ["GET", "missions/resumable"],
   ["GET", "replay/:missionId"],
   ["PATCH", "missions/:id"],
