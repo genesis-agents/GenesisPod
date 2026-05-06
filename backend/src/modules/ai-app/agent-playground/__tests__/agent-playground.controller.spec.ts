@@ -49,6 +49,9 @@ function makeStore() {
     create: jest.fn().mockResolvedValue(undefined),
     // ★ P0 并发限制 (2026-05-06): 默认返回 0（未超限）
     countRunningByUser: jest.fn().mockResolvedValue(0),
+    // ★ 2026-05-06: 报告版本化 endpoint
+    listReportVersions: jest.fn().mockResolvedValue([]),
+    getReportVersion: jest.fn().mockResolvedValue(null),
   };
 }
 
@@ -1135,6 +1138,142 @@ describe("AgentPlaygroundController", () => {
       );
       expect(result.events).toBeDefined();
       expect(ownership.assign).toHaveBeenCalledWith("m-1", "user-1");
+    });
+  });
+
+  // ★ 2026-05-06: 报告版本化 endpoints
+  describe("listMissionReportVersions", () => {
+    it("throws ForbiddenException when no userId", async () => {
+      const { controller } = buildController();
+      await expect(
+        controller.listMissionReportVersions("m-1", makeReq(undefined)),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("throws ForbiddenException when mission not owned by user", async () => {
+      const { controller, store } = buildController();
+      store.getById.mockResolvedValue(null); // 跨 user → null
+      await expect(
+        controller.listMissionReportVersions("m-1", makeReq("user-1")),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("returns mapped version list with ISO timestamps", async () => {
+      const { controller, store } = buildController();
+      store.getById.mockResolvedValue({ id: "m-1" });
+      const generatedAt = new Date("2026-05-06T10:00:00Z");
+      store.listReportVersions.mockResolvedValue([
+        {
+          id: "v-2",
+          version: 2,
+          versionLabel: "rerun-fresh-2026-05-06",
+          reportTitle: "title v2",
+          reportSummary: "summary v2",
+          finalScore: 78,
+          leaderSigned: true,
+          triggerType: "rerun-fresh",
+          generatedAt,
+        },
+        {
+          id: "v-1",
+          version: 1,
+          versionLabel: null,
+          reportTitle: null,
+          reportSummary: null,
+          finalScore: null,
+          leaderSigned: null,
+          triggerType: "initial",
+          generatedAt,
+        },
+      ]);
+      const result = await controller.listMissionReportVersions(
+        "m-1",
+        makeReq("user-1"),
+      );
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toEqual({
+        version: 2,
+        versionLabel: "rerun-fresh-2026-05-06",
+        reportTitle: "title v2",
+        reportSummary: "summary v2",
+        finalScore: 78,
+        leaderSigned: true,
+        triggerType: "rerun-fresh",
+        generatedAt: generatedAt.toISOString(),
+      });
+    });
+  });
+
+  describe("getMissionReportVersion", () => {
+    it("throws ForbiddenException when no userId", async () => {
+      const { controller } = buildController();
+      await expect(
+        controller.getMissionReportVersion("m-1", "1", makeReq(undefined)),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("throws BadRequestException when version is not a positive integer", async () => {
+      const { controller, store } = buildController();
+      store.getById.mockResolvedValue({ id: "m-1" });
+      await expect(
+        controller.getMissionReportVersion("m-1", "abc", makeReq("user-1")),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        controller.getMissionReportVersion("m-1", "0", makeReq("user-1")),
+      ).rejects.toThrow(BadRequestException);
+      await expect(
+        controller.getMissionReportVersion("m-1", "-1", makeReq("user-1")),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("throws ForbiddenException when mission not owned by user", async () => {
+      const { controller, store } = buildController();
+      store.getById.mockResolvedValue(null);
+      await expect(
+        controller.getMissionReportVersion("m-1", "1", makeReq("user-1")),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it("throws BadRequestException when version row not found", async () => {
+      const { controller, store } = buildController();
+      store.getById.mockResolvedValue({ id: "m-1" });
+      store.getReportVersion.mockResolvedValue(null);
+      await expect(
+        controller.getMissionReportVersion("m-1", "99", makeReq("user-1")),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it("returns full reportFull + meta for the requested version", async () => {
+      const { controller, store } = buildController();
+      store.getById.mockResolvedValue({ id: "m-1" });
+      const generatedAt = new Date("2026-05-06T10:00:00Z");
+      store.getReportVersion.mockResolvedValue({
+        id: "row-1",
+        version: 2,
+        versionLabel: "rerun-fresh-2026-05-06",
+        reportFull: { title: "report v2", body: "..." },
+        reportTitle: "title",
+        reportSummary: "summary",
+        finalScore: 80,
+        leaderSigned: true,
+        triggerType: "rerun-fresh",
+        changesFromPrev: [{ sectionId: "s1", type: "modified" }],
+        generatedAt,
+      });
+      const result = await controller.getMissionReportVersion(
+        "m-1",
+        "2",
+        makeReq("user-1"),
+      );
+      expect(result).toEqual({
+        version: 2,
+        versionLabel: "rerun-fresh-2026-05-06",
+        triggerType: "rerun-fresh",
+        generatedAt: generatedAt.toISOString(),
+        reportFull: { title: "report v2", body: "..." },
+        changesFromPrev: [{ sectionId: "s1", type: "modified" }],
+      });
+      expect(store.getReportVersion).toHaveBeenCalledWith("m-1", 2);
     });
   });
 });

@@ -483,3 +483,62 @@ export async function replayMission(
   }
   return data as ReplayResponse;
 }
+
+// ── ★ 报告版本化 (2026-05-06) ────────────────────────────────────────────
+
+export interface ReportVersionListItem {
+  version: number;
+  versionLabel: string | null;
+  reportTitle: string | null;
+  reportSummary: string | null;
+  finalScore: number | null;
+  leaderSigned: boolean | null;
+  triggerType: string;
+  generatedAt: string;
+}
+
+export interface ReportVersionDetail {
+  version: number;
+  versionLabel: string | null;
+  triggerType: string;
+  generatedAt: string;
+  reportFull: unknown;
+  changesFromPrev: unknown;
+}
+
+/** 列出 mission 所有报告版本（不含 reportFull）。空数组表示首次跑还没 rerun。 */
+export async function listReportVersions(
+  missionId: string
+): Promise<ReportVersionListItem[]> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/report-versions`,
+    { headers: { ...getAuthHeader() } }
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to list report versions: ${res.status}`);
+  }
+  const raw: unknown = await res.json();
+  const data = unwrapStandard<{ items?: unknown }>(raw);
+  return Array.isArray(data.items)
+    ? (data.items as ReportVersionListItem[])
+    : [];
+}
+
+/** 拉指定版本完整 reportFull（用于切换 ArtifactReader 的 artifact prop）。 */
+export async function getReportVersion(
+  missionId: string,
+  version: number
+): Promise<ReportVersionDetail> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/report-versions/${version}`,
+    { headers: { ...getAuthHeader() } }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Failed to load report version v${version}: ${res.status} ${text.slice(0, 200)}`
+    );
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<ReportVersionDetail>(raw);
+}

@@ -8,7 +8,7 @@
  * Tabs: Live Collab / Report / Verify / Sources / Cost & Memory / Raw Events
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Activity,
@@ -52,9 +52,13 @@ import { deriveView } from '@/lib/agent-playground/derive';
 import {
   cancelMission,
   getMissionDetail,
+  getReportVersion,
+  listReportVersions,
   rerunMission,
   type MissionDetail,
+  type ReportVersionListItem,
 } from '@/services/agent-playground/api';
+import type { ReportVersionMeta } from '@/components/agent-playground/artifact/ArtifactReader';
 
 type TabKey = 'tasks' | 'collab' | 'report' | 'references' | 'cost';
 
@@ -386,13 +390,82 @@ export default function MissionDetailPage() {
     return [...set];
   }, [view.finalReport]);
 
+  // ★ 2026-05-06: 报告版本化 —— 拉版本列表（mission 终态后才拉），切换时拉指定版本 reportFull
+  const [reportVersions, setReportVersions] = useState<
+    ReportVersionListItem[] | null
+  >(null);
+  const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [versionOverride, setVersionOverride] = useState<unknown | null>(null);
+  const [versionSwitching, setVersionSwitching] = useState(false);
+
+  useEffect(() => {
+    if (invalidId) return;
+    if (!persisted) return;
+    const isTerminal =
+      persisted.status === 'completed' ||
+      persisted.status === 'quality-failed' ||
+      persisted.status === 'failed' ||
+      persisted.status === 'rejected' ||
+      persisted.status === 'cancelled';
+    if (!isTerminal) return;
+    let cancelled = false;
+    listReportVersions(missionId)
+      .then((items) => {
+        if (cancelled) return;
+        setReportVersions(items);
+        // 默认选最高版本（list 已 DESC 排序）
+        const head = items[0]?.version;
+        if (head != null) {
+          setSelectedVersion((prev) => prev ?? head);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setReportVersions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [missionId, invalidId, persisted]);
+
+  const handleSelectVersion = useCallback(
+    async (version: number) => {
+      if (version === selectedVersion) return;
+      setVersionSwitching(true);
+      try {
+        const detail = await getReportVersion(missionId, version);
+        setVersionOverride(detail.reportFull);
+        setSelectedVersion(version);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('load report version failed', e);
+      } finally {
+        setVersionSwitching(false);
+      }
+    },
+    [missionId, selectedVersion]
+  );
+
+  const reportVersionMeta: ReportVersionMeta[] | undefined = useMemo(() => {
+    if (!reportVersions || reportVersions.length === 0) return undefined;
+    return reportVersions.map((r) => ({
+      version: r.version,
+      versionLabel: r.versionLabel,
+      triggerType: r.triggerType,
+      generatedAt: r.generatedAt,
+      finalScore: r.finalScore,
+      leaderSigned: r.leaderSigned,
+    }));
+  }, [reportVersions]);
+
   // ★ 2026-04-30 (#50 修复图片一闪一闪): setNow 每 500ms 触发 page re-render，
   //   之前报告 tab IIFE 里 ensureRenderableArtifact / toolRecallEntries 每次都新建
   //   引用 → ArtifactReader → ContinuousReader → ArtifactMarkdown 整树重渲 →
   //   react-markdown 重新解析 → <img> 重新挂载导致闪烁。
   //   把这些计算挪到 useMemo，依赖具体内容字段（不包括 now / wallTimeMs），
   //   即使 setNow tick 也不会重算 artifact，markdown DOM 稳定不抖。
-  const reportFullRef = persisted?.reportFull ?? view.finalReport;
+  // versionOverride 优先于 persisted.reportFull（用户切了历史版本）
+  const reportFullRef =
+    versionOverride ?? persisted?.reportFull ?? view.finalReport;
   const reportArtifact = useMemo(() => {
     const isV2 =
       reportFullRef &&
@@ -920,6 +993,10 @@ export default function MissionDetailPage() {
                   }
                   toolRecallEntries={reportToolRecallEntries}
                   dimensionPipelines={view.dimensionPipelines}
+                  reportVersions={reportVersionMeta}
+                  currentVersion={selectedVersion ?? undefined}
+                  onSelectVersion={(v) => void handleSelectVersion(v)}
+                  versionSwitching={versionSwitching}
                 />
               </div>
             )}

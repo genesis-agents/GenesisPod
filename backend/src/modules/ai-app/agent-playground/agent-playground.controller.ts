@@ -180,6 +180,88 @@ export class AgentPlaygroundController {
   }
 
   /**
+   * GET /api/v1/agent-playground/missions/:id/report-versions
+   * 报告版本列表（不含 reportFull，仅 summary 字段，用于版本切换器下拉）。
+   * mission 没有任何 rerun 时返回空列表（前端兜底用 mission.report_full 当 v1）。
+   */
+  @Get("missions/:id/report-versions")
+  async listMissionReportVersions(
+    @Param("id") id: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{
+    items: Array<{
+      version: number;
+      versionLabel: string | null;
+      reportTitle: string | null;
+      reportSummary: string | null;
+      finalScore: number | null;
+      leaderSigned: boolean | null;
+      triggerType: string;
+      generatedAt: string;
+    }>;
+  }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    // ownership 校验：拉不到 mission 行 → 不属于当前用户（或不存在）
+    const mission = await this.store.getById(id, userId);
+    if (!mission) throw new ForbiddenException("Mission not found");
+    const rows = await this.store.listReportVersions(id);
+    return {
+      items: rows.map((r) => ({
+        version: r.version,
+        versionLabel: r.versionLabel,
+        reportTitle: r.reportTitle,
+        reportSummary: r.reportSummary,
+        finalScore: r.finalScore,
+        leaderSigned: r.leaderSigned,
+        triggerType: r.triggerType,
+        generatedAt: r.generatedAt.toISOString(),
+      })),
+    };
+  }
+
+  /**
+   * GET /api/v1/agent-playground/missions/:id/report-versions/:version
+   * 单版本完整 reportFull（用于版本切换时替换 ArtifactReader 的 artifact prop）。
+   */
+  @Get("missions/:id/report-versions/:version")
+  async getMissionReportVersion(
+    @Param("id") id: string,
+    @Param("version") versionRaw: string,
+    @Request() req: RequestWithUser,
+  ): Promise<{
+    version: number;
+    versionLabel: string | null;
+    triggerType: string;
+    generatedAt: string;
+    reportFull: unknown;
+    changesFromPrev: unknown;
+  }> {
+    const userId = req.user?.id;
+    if (!userId) throw new ForbiddenException("Authentication required");
+    const version = Number.parseInt(versionRaw, 10);
+    if (!Number.isFinite(version) || version <= 0) {
+      throw new BadRequestException("version must be a positive integer");
+    }
+    const mission = await this.store.getById(id, userId);
+    if (!mission) throw new ForbiddenException("Mission not found");
+    const row = await this.store.getReportVersion(id, version);
+    if (!row) {
+      throw new BadRequestException(
+        `Report version v${version} not found for mission ${id}`,
+      );
+    }
+    return {
+      version: row.version,
+      versionLabel: row.versionLabel,
+      triggerType: row.triggerType,
+      generatedAt: row.generatedAt.toISOString(),
+      reportFull: row.reportFull,
+      changesFromPrev: row.changesFromPrev,
+    };
+  }
+
+  /**
    * POST /api/v1/agent-playground/dev/trigger-mission
    *
    * 内部触发端点 —— 让外部脚本（npm scripts / sh / curl）能启动 mission，

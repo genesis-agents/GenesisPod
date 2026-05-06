@@ -80,6 +80,25 @@ interface Props {
    * writing / reviewing / revising，避免章节卡永远显示"已完成"。
    */
   dimensionPipelines?: Map<string, DimensionPipelineState>;
+  /**
+   * ★ 2026-05-06: 报告版本列表（含当前选中 + 切换回调）。
+   * 父组件（page）维护 list + currentVersion，切换时用 getReportVersion
+   * 拉新版本 reportFull 替换 artifact prop。
+   * undefined = 没接版本切换；2+ 版本时 MetaTabBody 显示下拉。
+   */
+  reportVersions?: ReportVersionMeta[];
+  currentVersion?: number;
+  onSelectVersion?: (version: number) => void;
+  versionSwitching?: boolean;
+}
+
+export interface ReportVersionMeta {
+  version: number;
+  versionLabel: string | null;
+  triggerType: string;
+  generatedAt: string;
+  finalScore: number | null;
+  leaderSigned: boolean | null;
 }
 
 /**
@@ -95,6 +114,10 @@ export function ArtifactReader({
   reconciliationReport,
   toolRecallEntries,
   dimensionPipelines,
+  reportVersions,
+  currentVersion,
+  onSelectVersion,
+  versionSwitching,
 }: Props) {
   // ★ 2026-04-30: 收集所有正在修订/写作/评审的章节，给 ChapterReader 渲染状态徽标，
   //   并在工具栏下方加"修订中"banner。chapter:writing:started / chapter:revision /
@@ -329,7 +352,15 @@ export function ArtifactReader({
               {insightsTab === 'quality' && (
                 <QualityTabBody artifact={artifact} />
               )}
-              {insightsTab === 'meta' && <MetaTabBody artifact={artifact} />}
+              {insightsTab === 'meta' && (
+                <MetaTabBody
+                  artifact={artifact}
+                  reportVersions={reportVersions}
+                  currentVersion={currentVersion}
+                  onSelectVersion={onSelectVersion}
+                  versionSwitching={versionSwitching}
+                />
+              )}
               {insightsTab === 'fact' && artifact.factTable.length > 0 && (
                 <FactTablePanel
                   factTable={artifact.factTable}
@@ -653,8 +684,24 @@ const TRIGGER_LABEL: Record<string, string> = {
   'todo-rerun': 'Todo 修订',
 };
 
-function MetaTabBody({ artifact }: { artifact: ReportArtifact }) {
+function MetaTabBody({
+  artifact,
+  reportVersions,
+  currentVersion,
+  onSelectVersion,
+  versionSwitching,
+}: {
+  artifact: ReportArtifact;
+  reportVersions?: ReportVersionMeta[];
+  currentVersion?: number;
+  onSelectVersion?: (v: number) => void;
+  versionSwitching?: boolean;
+}) {
   const m = artifact.metadata;
+  // 2+ 版本时显示下拉；只有 1 个 / 0 个时仅展示当前版本徽章
+  const hasMultipleVersions =
+    !!reportVersions && reportVersions.length >= 2 && !!onSelectVersion;
+  const selectedVersion = currentVersion ?? m.version;
   const generatedAt = (() => {
     try {
       const d = new Date(m.generatedAt);
@@ -680,7 +727,7 @@ function MetaTabBody({ artifact }: { artifact: ReportArtifact }) {
       <div className="rounded-lg border border-gray-200 bg-gradient-to-r from-violet-50/40 to-sky-50/40 p-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono inline-flex items-center rounded-md bg-violet-100 px-2 py-0.5 text-[12px] font-bold text-violet-800">
-            v{m.version}
+            v{selectedVersion}
           </span>
           {m.versionLabel && (
             <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10.5px] text-gray-700">
@@ -702,9 +749,46 @@ function MetaTabBody({ artifact }: { artifact: ReportArtifact }) {
         <p className="mt-1.5 line-clamp-2 text-[12px] font-medium text-gray-800">
           {m.topic}
         </p>
-        <p className="mt-0.5 text-[11px] text-gray-500">
-          版本历史 · 后续 PR 接入版本切换器
-        </p>
+
+        {hasMultipleVersions ? (
+          <div className="mt-2 flex items-center gap-2">
+            <label
+              htmlFor="report-version-select"
+              className="text-[11px] text-gray-500"
+            >
+              切换版本：
+            </label>
+            <select
+              id="report-version-select"
+              className="flex-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400 disabled:bg-gray-50 disabled:text-gray-400"
+              value={selectedVersion}
+              disabled={!!versionSwitching}
+              onChange={(e) => {
+                const next = Number.parseInt(e.target.value, 10);
+                if (Number.isFinite(next) && next !== selectedVersion) {
+                  onSelectVersion?.(next);
+                }
+              }}
+            >
+              {reportVersions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  v{v.version}
+                  {v.versionLabel ? ` · ${v.versionLabel}` : ''}
+                  {v.finalScore != null ? ` · ${v.finalScore} 分` : ''}
+                </option>
+              ))}
+            </select>
+            {versionSwitching && (
+              <RefreshCw className="h-3.5 w-3.5 animate-spin text-violet-500" />
+            )}
+          </div>
+        ) : (
+          <p className="mt-0.5 text-[11px] text-gray-500">
+            {reportVersions && reportVersions.length === 1
+              ? '当前是首次生成版本，rerun 后会出现版本切换器'
+              : '版本历史'}
+          </p>
+        )}
       </div>
 
       {/* 内容统计 */}
