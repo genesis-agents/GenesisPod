@@ -3,8 +3,8 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAdminModels, AIModel } from '../useAdminModels';
 import * as useApiCore from '../../core';
 
-// Mock the core API hooks
-vi.mock('../core', () => ({
+// Mock the core API hooks (path must match the import above: hooks/core)
+vi.mock('../../core', () => ({
   useApiGet: vi.fn(),
   useApiPost: vi.fn(),
   useApiPut: vi.fn(),

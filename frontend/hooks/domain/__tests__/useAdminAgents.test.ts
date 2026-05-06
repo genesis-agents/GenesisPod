@@ -9,8 +9,8 @@ import {
 import * as useApiCore from '../../core';
 import { apiClient } from '@/lib/api/client';
 
-// Mock the core API hooks
-vi.mock('../core', () => ({
+// Mock the core API hooks (path must match the import above: hooks/core)
+vi.mock('../../core', () => ({
   useApiGet: vi.fn(),
   useApiPost: vi.fn(),
 }));
