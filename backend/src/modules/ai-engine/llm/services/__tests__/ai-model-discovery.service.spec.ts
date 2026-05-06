@@ -339,44 +339,7 @@ describe("AiModelDiscoveryService", () => {
       expect(result.success).toBe(true);
     });
 
-    // Anthropic models (static)
-    it.skip("[deprecated: hardcoded → API dynamic] should return Anthropic models without HTTP call", async () => {
-      const result = await service.fetchAvailableModels(
-        "anthropic",
-        "test-key",
-      );
-      expect(result.success).toBe(true);
-      expect(result.models!.length).toBeGreaterThan(0);
-      expect(mockHttpService.get).not.toHaveBeenCalled();
-    });
-
-    it.skip("[deprecated: hardcoded → API dynamic] should return Claude models for claude provider", async () => {
-      const result = await service.fetchAvailableModels("claude", "test-key");
-      expect(result.success).toBe(true);
-      expect(result.models!.length).toBeGreaterThan(0);
-    });
-
-    it.skip("[deprecated: hardcoded → API dynamic] should return empty for Anthropic embedding", async () => {
-      const result = await service.fetchAvailableModels(
-        "anthropic",
-        "test-key",
-        undefined,
-        "EMBEDDING",
-      );
-      expect(result.success).toBe(true);
-      expect(result.models).toHaveLength(0);
-    });
-
-    it.skip("[deprecated: hardcoded → API dynamic] should return only haiku for Anthropic CHAT_FAST", async () => {
-      const result = await service.fetchAvailableModels(
-        "anthropic",
-        "test-key",
-        undefined,
-        "CHAT_FAST",
-      );
-      expect(result.success).toBe(true);
-      expect(result.models?.every((m) => m.id.includes("haiku"))).toBe(true);
-    });
+    // ★ 2026-05-06 删除 4 个 deprecated [hardcoded → API dynamic] Anthropic 静态测试
 
     // Google models
     it("should fetch Google models", async () => {
@@ -462,35 +425,7 @@ describe("AiModelDiscoveryService", () => {
       expect(result.success).toBe(true);
     });
 
-    // Cohere models (static)
-    it.skip("[deprecated: hardcoded → API dynamic] should return Cohere RERANK models", async () => {
-      const result = await service.fetchAvailableModels(
-        "cohere",
-        "test-key",
-        undefined,
-        "RERANK",
-      );
-      expect(result.success).toBe(true);
-      expect(result.models!.length).toBeGreaterThan(0);
-      expect(result.models?.some((m) => m.id.includes("rerank"))).toBe(true);
-    });
-
-    it.skip("[deprecated: hardcoded → API dynamic] should return Cohere embedding models", async () => {
-      const result = await service.fetchAvailableModels(
-        "cohere",
-        "test-key",
-        undefined,
-        "EMBEDDING",
-      );
-      expect(result.success).toBe(true);
-      expect(result.models?.some((m) => m.id.includes("embed"))).toBe(true);
-    });
-
-    it.skip("[deprecated: hardcoded → API dynamic] should return Cohere CHAT models", async () => {
-      const result = await service.fetchAvailableModels("cohere", "test-key");
-      expect(result.success).toBe(true);
-      expect(result.models?.some((m) => m.id.includes("command"))).toBe(true);
-    });
+    // ★ 2026-05-06 删除 3 个 deprecated [hardcoded → API dynamic] Cohere 静态测试
 
     // DeepSeek
     it("should fetch DeepSeek models via OpenAI-compatible API", async () => {
@@ -565,28 +500,7 @@ describe("AiModelDiscoveryService", () => {
       expect(result.success).toBe(true);
     });
 
-    // Zhipu / GLM (static)
-    it.skip("[deprecated: hardcoded → API dynamic] should return Zhipu CHAT models", async () => {
-      const result = await service.fetchAvailableModels("zhipu", "test-key");
-      expect(result.success).toBe(true);
-      expect(result.models?.some((m) => m.id.includes("glm"))).toBe(true);
-    });
-
-    it.skip("[deprecated: hardcoded → API dynamic] should return Zhipu embedding models", async () => {
-      const result = await service.fetchAvailableModels(
-        "zhipu",
-        "test-key",
-        undefined,
-        "EMBEDDING",
-      );
-      expect(result.success).toBe(true);
-      expect(result.models?.some((m) => m.id.includes("embedding"))).toBe(true);
-    });
-
-    it.skip("[deprecated: hardcoded → API dynamic] should return GLM models for glm provider", async () => {
-      const result = await service.fetchAvailableModels("glm", "test-key");
-      expect(result.success).toBe(true);
-    });
+    // ★ 2026-05-06 删除 3 个 deprecated [hardcoded → API dynamic] Zhipu/GLM 静态测试
 
     it("should return empty for Zhipu IMAGE_GENERATION", async () => {
       const result = await service.fetchAvailableModels(
