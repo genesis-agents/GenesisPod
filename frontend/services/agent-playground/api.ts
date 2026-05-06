@@ -48,8 +48,10 @@ export interface RunMissionInput {
   concurrency?: number;
   /** 默认进入哪个视图 */
   viewMode?: ViewMode;
-  /** @deprecated 直接数字上限；新代码用 budgetProfile */
-  maxCredits?: number;
+  /** ★ P0-K (2026-05-06): mission 级 credits 上限（必填，由用户侧决定）。1 credit ≈ 1k tokens */
+  maxCredits: number;
+  /** ★ P0-K: agent budget 倍率（必填，前端按 budgetProfile × depth 推荐用户可改） */
+  budgetMultiplierOverride: number;
   /**
    * 本地知识库 ID 列表（最多 10 个）。
    * researcher 调 rag-search 时会限定在这些 KB 内做语义召回。

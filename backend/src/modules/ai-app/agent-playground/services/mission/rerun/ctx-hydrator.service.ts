@@ -80,7 +80,8 @@ export class CtxHydratorService {
       auditLayers: userProfile.auditLayers ?? "default",
       concurrency: userProfile.concurrency ?? 3,
       viewMode: userProfile.viewMode ?? "continuous",
-      maxCredits: 100, // 局部重跑 credit 上限（远小于 fresh mission）
+      maxCredits: userProfile.maxCredits ?? 100, // 局部重跑 credit 上限（沿用原值或 100 fallback）
+      budgetMultiplierOverride: userProfile.budgetMultiplierOverride ?? 1.0,
     };
 
     const reportFull = detail.reportFull as Record<string, unknown> | null;

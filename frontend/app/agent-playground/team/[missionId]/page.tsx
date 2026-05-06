@@ -1081,6 +1081,12 @@ function MissionSettingsModal({
     setSaveError(null);
     try {
       const { runTeam } = await import('@/services/agent-playground/api');
+      // ★ P0-K (2026-05-06): maxCredits + budgetMultiplierOverride 必填，从原 mission
+      //   userProfile 读取（rerun 沿用原配置；用户可在专门 UI 改）
+      const inheritedMax = (userProfile as { maxCredits?: number })?.maxCredits;
+      const inheritedMul = (
+        userProfile as { budgetMultiplierOverride?: number }
+      )?.budgetMultiplierOverride;
       const { missionId: newId } = await runTeam({
         topic: topic.trim(),
         depth,
@@ -1091,6 +1097,8 @@ function MissionSettingsModal({
         auditLayers,
         withFigures,
         concurrency,
+        maxCredits: inheritedMax ?? 1000,
+        budgetMultiplierOverride: inheritedMul ?? 1.0,
         knowledgeBaseIds:
           knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
       });

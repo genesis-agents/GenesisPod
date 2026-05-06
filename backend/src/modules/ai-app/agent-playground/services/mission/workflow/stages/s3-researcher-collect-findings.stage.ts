@@ -165,6 +165,10 @@ export async function runResearcherDispatchStage(
       userId,
       payload: pool.snapshot(),
     });
+    // ★ P1-修2 (2026-05-06): budget exhausted 立刻 abort mission，让所有未完成
+    //   stage 内部的 await 立即看到 abort signal 失败。之前只 emit 不 abort，
+    //   mission 会继续到 wall-time 4h 才超时，浪费时间 + token。
+    deps.abortRegistry.abort(missionId, "budget_exhausted");
   }
 }
 

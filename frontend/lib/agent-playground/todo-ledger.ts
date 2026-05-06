@@ -163,6 +163,16 @@ function deriveStageArtifacts(
   const str = (v: unknown): string | undefined =>
     typeof v === 'string' ? v : undefined;
   switch (stepId) {
+    case 's1-budget': {
+      if (out.persisted) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '余额校验',
+          value: '通过',
+        });
+      }
+      break;
+    }
     case 's2-leader-plan': {
       const dims = (out.dimensions as unknown[]) ?? [];
       artifacts.push({
@@ -193,6 +203,34 @@ function deriveStageArtifacts(
           kind: 'finding-count',
           label: 'Leader 决策',
           value: decision,
+        });
+      }
+      break;
+    }
+    case 's5-reconciler': {
+      const result = out.result as Record<string, unknown> | undefined;
+      const factCount = num(result?.factCount);
+      const conflictCount = num(result?.conflictCount);
+      const gapCount = num(result?.gapCount);
+      if (factCount != null) {
+        artifacts.push({
+          kind: 'fact-table',
+          label: '事实数',
+          value: factCount,
+        });
+      }
+      if (conflictCount != null && conflictCount > 0) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '冲突',
+          value: conflictCount,
+        });
+      }
+      if (gapCount != null && gapCount > 0) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '缺口',
+          value: gapCount,
         });
       }
       break;
@@ -267,6 +305,11 @@ function deriveStageArtifacts(
       }
       break;
     }
+    case 's9-critic': {
+      // s9-critic stage 不返回 hook output（status by lifecycle / verdict 由独立
+      // critic:verdict 业务事件传），artifacts 不在此 case 加。
+      break;
+    }
     case 's9b-objective-eval': {
       const overall = num(out.overallScore);
       const grade = str(out.grade);
@@ -275,6 +318,15 @@ function deriveStageArtifacts(
           kind: 'verdict-score',
           label: '总分',
           value: `${overall}/100${grade ? ` (${grade})` : ''}`,
+        });
+      }
+      break;
+    }
+    case 's11-persist': {
+      if (out.persisted) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '产物已落库',
         });
       }
       break;

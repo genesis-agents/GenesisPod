@@ -105,6 +105,10 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
       error: jest.fn(),
     },
     lifecycle: jest.fn().mockResolvedValue(undefined),
+    abortRegistry: {
+      abort: jest.fn(),
+      isAborted: jest.fn().mockReturnValue(false),
+    },
     invoker: {
       invoke: jest.fn().mockImplementation(
         (

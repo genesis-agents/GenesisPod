@@ -1377,6 +1377,33 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             });
           }
         }
+        // ★ P1-修1 (2026-05-06): S3 软失败上报 — 关闭"dim 全失败但 stage:lifecycle 仍发
+        //   completed"的盲区。orchestrator 默认看 hook return 即 success，但 dim 全空
+        //   等于 mission 后续没数据可用，必须显式拒绝（throw 让 orchestrator emit
+        //   stage:failed → markFailed）。
+        const allResults = stageCtx.researcherResults ?? [];
+        const failedCount = allResults.filter(
+          (r) => r.findings.length === 0,
+        ).length;
+        const totalCount = allResults.length;
+        if (totalCount > 0 && failedCount === totalCount) {
+          // 全部 dim 失败 → 硬抛错让 orchestrator 标 stage:failed
+          throw new Error(
+            `S3-AllDimensionsFailed: ${totalCount}/${totalCount} dim 采集失败（无 findings 可用），mission 无法继续`,
+          );
+        }
+        if (totalCount > 0 && failedCount * 2 > totalCount) {
+          // > 50% dim 失败 → 软失败上报（不阻断，但前端 narrativeLog 可见）
+          await this.stageBindings
+            .buildDeps()
+            .markStageDegraded(
+              entry.session.missionId,
+              entry.session.userId,
+              "s3-researcher-collect",
+              `S3 半数以上 dim 采集失败：${failedCount}/${totalCount}（mission 继续走退化路径）`,
+            )
+            .catch(() => undefined);
+        }
         return stageCtx.researcherResults;
       },
     };

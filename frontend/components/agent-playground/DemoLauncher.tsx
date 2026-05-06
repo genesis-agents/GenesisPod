@@ -155,6 +155,25 @@ export function DemoLauncher() {
     setError(null);
     setSubmitting(true);
     try {
+      // ★ 2026-05-06 (P0-K): backend 删除 BUDGET_PROFILE_CREDITS / BUDGET_PROFILE_MULTIPLIER
+      //   内部硬编码映射；用户侧（前端）必须显式传 maxCredits + budgetMultiplierOverride。
+      //   前端按用户选档 (budgetProfile + depth + lengthProfile) 计算推荐值（基于
+      //   estimateTokens 的同一模型），用户感知预算且 backend 无内部默认值。
+      const estimatedTokens = estimateTokens(); // 单位 K tokens
+      // maxCredits = 估算 tokens 的 1.5 倍 buffer（让 mission 不易撞墙）
+      const maxCredits = Math.max(50, Math.round(estimatedTokens * 1.5));
+      const budgetMul =
+        budgetProfile === 'low'
+          ? 0.6
+          : budgetProfile === 'medium'
+            ? 1.0
+            : budgetProfile === 'high'
+              ? 2.0
+              : 4.0;
+      const depthMul =
+        depth === 'quick' ? 0.7 : depth === 'standard' ? 1.0 : 1.4;
+      const budgetMultiplierOverride = +(budgetMul * depthMul).toFixed(2);
+
       const { missionId } = await runTeam({
         topic: topic.trim(),
         depth,
@@ -165,6 +184,8 @@ export function DemoLauncher() {
         audienceProfile,
         withFigures,
         auditLayers,
+        maxCredits,
+        budgetMultiplierOverride,
         knowledgeBaseIds:
           selectedKnowledgeBaseIds.length > 0
             ? selectedKnowledgeBaseIds

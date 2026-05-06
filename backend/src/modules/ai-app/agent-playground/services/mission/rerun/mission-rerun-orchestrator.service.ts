@@ -261,9 +261,14 @@ export class MissionRerunOrchestratorService {
       auditLayers: originalProfile?.auditLayers ?? "default",
       concurrency: originalProfile?.concurrency ?? 3,
       viewMode: originalProfile?.viewMode ?? "continuous",
-      // ★ 2026-05-06 (P0-G): 没有 originalProfile.maxCredits 时不强加 fallback，让
-      //   resolveMissionCredits 按 budgetProfile 路径走（unlimited=10_000 而非 300）。
-      maxCredits: originalProfile?.maxCredits ?? overrides.maxCreditsFallback,
+      // ★ 2026-05-06 (P0-K): maxCredits 必填，rerun 直接沿用原 mission 用户传入值；
+      //   原 mission 缺失（旧数据）则用 fallback（caller 传 1000 等显式值，不再有
+      //   "BUDGET_PROFILE_CREDITS[unlimited]=10000" 类的内部硬编码默认）。
+      maxCredits:
+        originalProfile?.maxCredits ?? overrides.maxCreditsFallback ?? 1000,
+      // ★ P0-K: budgetMultiplierOverride 也必填，rerun 沿用原值或默认 1.0
+      budgetMultiplierOverride:
+        originalProfile?.budgetMultiplierOverride ?? 1.0,
       inheritFromMissionId: overrides.inheritFromMissionId,
     };
   }
