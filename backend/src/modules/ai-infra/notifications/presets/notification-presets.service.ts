@@ -127,7 +127,10 @@ export class NotificationPresetsService {
       type: NotificationTypeDto.MISSION_COMPLETED,
       title: "Mission 已完成",
       message: `「${missionTitle}」已完成${scoreSuffix}`,
-      actionUrl: `${appBasePath}/missions/${missionId}`,
+      // ★ 2026-05-06: 前端真实 mission 详情路由是 ${appBasePath}/team/${id}
+      //   （参 frontend/app/custom-agents/[id]/page.tsx onMissionClick）
+      //   旧值 "/missions/" 拼出 /playground/missions/... 必 404
+      actionUrl: `${appBasePath}/team/${missionId}`,
       actionLabel: "查看报告",
       relatedType,
       relatedId: missionId,

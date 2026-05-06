@@ -91,7 +91,7 @@ describe("NotificationBroadcastAdapter", () => {
         userId: "u1",
         missionId: "m1",
         missionTitle: "Anthropic 产品策略分析",
-        appBasePath: "/playground",
+        appBasePath: "/agent-playground",
         relatedType: "agent-playground-mission",
         reviewScore: 87,
       });

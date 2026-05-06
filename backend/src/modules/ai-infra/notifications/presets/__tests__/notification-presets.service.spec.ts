@@ -133,7 +133,7 @@ describe("NotificationPresetsService", () => {
       userId: "user-1",
       missionId: "m1",
       missionTitle: "M Title",
-      appBasePath: "/playground",
+      appBasePath: "/agent-playground",
       relatedType: "agent-playground-mission",
       reviewScore: 88,
     });
@@ -141,7 +141,7 @@ describe("NotificationPresetsService", () => {
     expect(notificationService.createNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "MISSION_COMPLETED",
-        actionUrl: "/playground/missions/m1",
+        actionUrl: "/agent-playground/team/m1",
         relatedType: "agent-playground-mission",
         relatedId: "m1",
       }),
