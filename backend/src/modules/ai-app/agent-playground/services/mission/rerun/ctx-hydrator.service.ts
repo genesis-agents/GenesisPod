@@ -80,7 +80,9 @@ export class CtxHydratorService {
       auditLayers: userProfile.auditLayers ?? "default",
       concurrency: userProfile.concurrency ?? 3,
       viewMode: userProfile.viewMode ?? "continuous",
-      maxCredits: userProfile.maxCredits ?? 100, // 局部重跑 credit 上限（沿用原值或 100 fallback）
+      // ★ P4 (2026-05-06): maxCredits 从行字段读（权威源），不再从 userProfile JSON 读
+      maxCredits: detail.maxCredits,
+      // budgetMultiplierOverride 无独立行字段，从 userProfile 读；缺省 1.0
       budgetMultiplierOverride: userProfile.budgetMultiplierOverride ?? 1.0,
     };
 

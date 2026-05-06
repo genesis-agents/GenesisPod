@@ -10,65 +10,79 @@ import { z } from "zod";
 export const BUDGET_PROFILE = ["low", "medium", "high", "unlimited"] as const;
 export type BudgetProfile = (typeof BUDGET_PROFILE)[number];
 
-export const RunMissionInputSchema = z.object({
-  topic: z.string().min(2).max(200),
-  // ★ Phase P0-8 用户档位（mission-pipeline-user-profiles.md / D20）
-  // 默认值：深度 + 图文 + 中等其他
-  depth: z.enum(["quick", "standard", "deep"]).default("deep"),
-  language: z.enum(["zh-CN", "en-US"]).default("zh-CN"),
-  /** UI 档位语义（前端可视化用）；backend 不再据此推导任何数值 */
-  budgetProfile: z.enum(BUDGET_PROFILE).default("medium"),
-  styleProfile: z
-    .enum(["academic", "executive", "journalistic", "technical"])
-    .default("executive"),
-  lengthProfile: z
-    .enum(["brief", "standard", "deep", "extended", "epic", "mega"])
-    .default("standard"),
-  audienceProfile: z
-    .enum(["executive", "domain-expert", "general-public"])
-    .default("domain-expert"),
-  withFigures: z.boolean().default(true),
-  auditLayers: z
-    .enum(["minimal", "default", "thorough", "thorough+"])
-    .default("default"),
-  concurrency: z.number().int().min(1).max(10).default(3),
-  viewMode: z.enum(["continuous", "chapter", "quick"]).default("continuous"),
-  /**
-   * ★ P0-K (2026-05-06): mission 级 maxCredits 上限（必填，由用户侧决定）。
-   * 1 credit ≈ 1k tokens；前端按 budgetProfile / depth 给推荐值，但用户必须显式传。
-   * backend 不再有 fallback 默认值。
-   */
-  maxCredits: z.number().int().min(10).max(100_000),
-  /**
-   * 用户自定义 wall-time（毫秒）。不传则按 depth × audit × budget 矩阵推断（resolveMissionWallTimeMs）。
-   * 范围 60s ~ 3h。
-   */
-  wallTimeMs: z
-    .number()
-    .int()
-    .min(60_000)
-    .max(3 * 60 * 60 * 1000)
-    .optional(),
-  /**
-   * ★ P0-K (2026-05-06): agent budget 倍率（必填，scale agent 的 maxTokens / maxIterations）。
-   * 前端按 budgetProfile × depth 给推荐值，用户可改。范围 0.3 ~ 10。
-   * backend 不再有 BUDGET_PROFILE_MULTIPLIER × DEPTH_BUDGET_MULTIPLIER 内部硬编码组合。
-   */
-  budgetMultiplierOverride: z.number().min(0.3).max(10),
-  /**
-   * 本地知识库 ID 列表 —— researcher 调 rag-search 时会限定在这些 KB 内做语义召回。
-   * 不传 / 空数组 → researcher 跳过 rag-search 走纯 web-search。
-   * 上限 10（与 ai-ask / open-api 一致）。
-   */
-  knowledgeBaseIds: z.array(z.string().uuid()).max(10).optional(),
-  /**
-   * ★ 2026-05-05 增量更新（"更新"按钮 mode='incremental'）：源 mission ID。
-   * Dispatcher 启动时载入 source.dimensions + themeSummary 作为本次 plan 跳过 S2 Leader
-   * LLM 调用；下游 stage（researcher / writer）按 input.inheritFromMissionId 决定要不
-   * 要把上次 reportArtifact 喂进 prompt 做 "在上一次基础上更新" 语义。
-   */
-  inheritFromMissionId: z.string().uuid().optional(),
-});
+export const RunMissionInputSchema = z
+  .object({
+    topic: z.string().min(2).max(200),
+    // ★ Phase P0-8 用户档位（mission-pipeline-user-profiles.md / D20）
+    // 默认值：深度 + 图文 + 中等其他
+    depth: z.enum(["quick", "standard", "deep"]).default("deep"),
+    language: z.enum(["zh-CN", "en-US"]).default("zh-CN"),
+    /** UI 档位语义（前端可视化用）；backend 不再据此推导任何数值 */
+    budgetProfile: z.enum(BUDGET_PROFILE).default("medium"),
+    styleProfile: z
+      .enum(["academic", "executive", "journalistic", "technical"])
+      .default("executive"),
+    lengthProfile: z
+      .enum(["brief", "standard", "deep", "extended", "epic", "mega"])
+      .default("standard"),
+    audienceProfile: z
+      .enum(["executive", "domain-expert", "general-public"])
+      .default("domain-expert"),
+    withFigures: z.boolean().default(true),
+    auditLayers: z
+      .enum(["minimal", "default", "thorough", "thorough+"])
+      .default("default"),
+    concurrency: z.number().int().min(1).max(10).default(3),
+    viewMode: z.enum(["continuous", "chapter", "quick"]).default("continuous"),
+    /**
+     * ★ P0-K (2026-05-06): mission 级 maxCredits 上限（必填，由用户侧决定）。
+     * 1 credit ≈ 1k tokens；前端按 budgetProfile / depth 给推荐值，但用户必须显式传。
+     * backend 不再有 fallback 默认值。
+     */
+    maxCredits: z.number().int().min(10).max(100_000),
+    /**
+     * 用户自定义 wall-time（毫秒）。不传则按 depth × audit × budget 矩阵推断（resolveMissionWallTimeMs）。
+     * 范围 60s ~ 3h。
+     */
+    wallTimeMs: z
+      .number()
+      .int()
+      .min(60_000)
+      .max(3 * 60 * 60 * 1000)
+      .optional(),
+    /**
+     * ★ P0-K (2026-05-06): agent budget 倍率（必填，scale agent 的 maxTokens / maxIterations）。
+     * 前端按 budgetProfile × depth 给推荐值，用户可改。范围 0.3 ~ 10。
+     * backend 不再有 BUDGET_PROFILE_MULTIPLIER × DEPTH_BUDGET_MULTIPLIER 内部硬编码组合。
+     */
+    budgetMultiplierOverride: z.number().min(0.3).max(10),
+    /**
+     * 本地知识库 ID 列表 —— researcher 调 rag-search 时会限定在这些 KB 内做语义召回。
+     * 不传 / 空数组 → researcher 跳过 rag-search 走纯 web-search。
+     * 上限 10（与 ai-ask / open-api 一致）。
+     */
+    knowledgeBaseIds: z.array(z.string().uuid()).max(10).optional(),
+    /**
+     * ★ 2026-05-05 增量更新（"更新"按钮 mode='incremental'）：源 mission ID。
+     * Dispatcher 启动时载入 source.dimensions + themeSummary 作为本次 plan 跳过 S2 Leader
+     * LLM 调用；下游 stage（researcher / writer）按 input.inheritFromMissionId 决定要不
+     * 要把上次 reportArtifact 喂进 prompt 做 "在上一次基础上更新" 语义。
+     */
+    inheritFromMissionId: z.string().uuid().optional(),
+  })
+  // ★ P2 (2026-05-06): 矛盾组合校验 —— quick 档只跑 1 round，不可能生成 epic/mega
+  //   体量的报告；前端应禁止此组合，后端加 refine 兜底防误传。
+  .refine(
+    (d) =>
+      !(
+        d.depth === "quick" &&
+        (d.lengthProfile === "epic" || d.lengthProfile === "mega")
+      ),
+    {
+      message:
+        "depth=quick 与 lengthProfile=epic/mega 矛盾，请换用 standard/deep 档",
+    },
+  );
 
 export type RunMissionInput = z.infer<typeof RunMissionInputSchema>;
 

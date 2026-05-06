@@ -1,16 +1,18 @@
 import { MissionStore } from "../mission-store.service";
 
 function makePrisma() {
-  return {
-    agentPlaygroundMission: {
-      create: jest.fn().mockResolvedValue({}),
-      update: jest.fn().mockResolvedValue({}),
-      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-      findUnique: jest.fn().mockResolvedValue(null),
-      findFirst: jest.fn().mockResolvedValue(null),
-      findMany: jest.fn().mockResolvedValue([]),
-      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
-    },
+  const agentPlaygroundMission = {
+    create: jest.fn().mockResolvedValue({}),
+    update: jest.fn().mockResolvedValue({}),
+    updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    findUnique: jest.fn().mockResolvedValue(null),
+    findFirst: jest.fn().mockResolvedValue(null),
+    findMany: jest.fn().mockResolvedValue([]),
+    deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+    count: jest.fn().mockResolvedValue(0),
+  };
+  const prisma = {
+    agentPlaygroundMission,
     // recoverOrphanedRunning groupBy 用来过滤"最近 5min 有事件"
     agentPlaygroundMissionEvent: {
       groupBy: jest.fn().mockResolvedValue([]),
@@ -21,7 +23,15 @@ function makePrisma() {
     },
     // ★ P0-R5-1: terminal-state methods 调 $executeRaw 清 checkpoint JSONB key
     $executeRaw: jest.fn().mockResolvedValue(0),
+    // ★ P0/P1 并发安全 (2026-05-06): appendLeaderJournal + appendDimensions 用 $transaction
+    // 透传 tx 为同 agentPlaygroundMission mock，让现有断言不变
+    $transaction: jest
+      .fn()
+      .mockImplementation((cb: (tx: unknown) => Promise<unknown>) =>
+        cb({ agentPlaygroundMission }),
+      ),
   };
+  return prisma;
 }
 
 describe("MissionStore", () => {
@@ -340,12 +350,41 @@ describe("MissionStore", () => {
 
   // appendLeaderJournal error
   it("appendLeaderJournal: swallows prisma error on findUnique", async () => {
-    prisma.agentPlaygroundMission.findUnique.mockRejectedValue(
-      new Error("DB find error"),
-    );
+    prisma.$transaction.mockRejectedValue(new Error("DB find error"));
     await expect(
       store.appendLeaderJournal("m1", { step: "test" }),
     ).resolves.toBeUndefined();
+  });
+
+  it("appendLeaderJournal: uses $transaction for atomic read-modify-write", async () => {
+    prisma.agentPlaygroundMission.findUnique.mockResolvedValue({
+      leaderJournal: { plan: "existing" },
+    });
+    await store.appendLeaderJournal("m1", { m0: "new" });
+    // $transaction must have been called (atomic guard)
+    expect(prisma.$transaction).toHaveBeenCalled();
+    const txOpts = prisma.$transaction.mock.calls[0][1];
+    expect(txOpts?.isolationLevel).toBe("Serializable");
+  });
+
+  // countRunningByUser
+  it("countRunningByUser: returns count of running missions for user", async () => {
+    prisma.agentPlaygroundMission.count.mockResolvedValue(2);
+    const count = await store.countRunningByUser("u1");
+    expect(count).toBe(2);
+    expect(prisma.agentPlaygroundMission.count).toHaveBeenCalledWith({
+      where: { userId: "u1", status: "running" },
+    });
+  });
+
+  it("appendDimensions: uses $transaction for atomic read-modify-write", async () => {
+    prisma.agentPlaygroundMission.findUnique.mockResolvedValue({
+      status: "running",
+      dimensions: [],
+    });
+    await store.appendDimensions("m1", [{ name: "D", rationale: "r" }]);
+    const txOpts = prisma.$transaction.mock.calls[0][1];
+    expect(txOpts?.isolationLevel).toBe("Serializable");
   });
 
   // listByUser

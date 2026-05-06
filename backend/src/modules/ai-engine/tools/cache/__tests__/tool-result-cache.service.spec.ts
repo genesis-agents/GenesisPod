@@ -186,4 +186,60 @@ describe("ToolResultCacheService.set()", () => {
 
     await expect(service.set("key-err", "val")).resolves.toBeUndefined();
   });
+
+  it("emits cache:write-fail-streak event after threshold consecutive failures", async () => {
+    const mockCache = createMockCacheService();
+    const mockEmitter = { emit: jest.fn() };
+    // Threshold = 5, so 5 consecutive failures trigger the event
+    mockCache.set.mockRejectedValue(new Error("Redis down"));
+
+    const service = new ToolResultCacheService(
+      mockCache,
+      mockEmitter as unknown as import("@nestjs/event-emitter").EventEmitter2,
+    );
+
+    // 4 failures — should NOT emit yet
+    for (let i = 0; i < 4; i++) {
+      await service.set(`key-${i}`, "v");
+    }
+    expect(mockEmitter.emit).not.toHaveBeenCalled();
+
+    // 5th failure — should emit
+    await service.set("key-5", "v");
+    expect(mockEmitter.emit).toHaveBeenCalledWith(
+      "cache:write-fail-streak",
+      expect.objectContaining({
+        streak: 5,
+        service: "ToolResultCacheService",
+      }),
+    );
+  });
+
+  it("resets streak counter after a successful write", async () => {
+    const mockCache = createMockCacheService();
+    const mockEmitter = { emit: jest.fn() };
+    const service = new ToolResultCacheService(
+      mockCache,
+      mockEmitter as unknown as import("@nestjs/event-emitter").EventEmitter2,
+    );
+
+    // 3 failures
+    mockCache.set.mockRejectedValueOnce(new Error("err"));
+    mockCache.set.mockRejectedValueOnce(new Error("err"));
+    mockCache.set.mockRejectedValueOnce(new Error("err"));
+    await service.set("k1", "v");
+    await service.set("k2", "v");
+    await service.set("k3", "v");
+
+    // 1 success resets streak
+    mockCache.set.mockResolvedValueOnce(undefined);
+    await service.set("k4", "v");
+
+    // 4 more failures — total streak is 4 (< 5), no event
+    mockCache.set.mockRejectedValue(new Error("err"));
+    for (let i = 0; i < 4; i++) {
+      await service.set(`kx-${i}`, "v");
+    }
+    expect(mockEmitter.emit).not.toHaveBeenCalled();
+  });
 });

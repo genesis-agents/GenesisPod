@@ -83,6 +83,54 @@ describe("MissionCheckpointService", () => {
     expect(u1.map((s) => s.missionId)).toEqual(["m-u1-running"]);
   });
 
+  // P4: failed status should be resumable (not blocked as wrong-status)
+  it("canResume allows failed status (not rejected like completed)", async () => {
+    await svc.save("m-fail", { stage: "s5", artifacts: [] }, ["s1"], "failed");
+    const r = await svc.canResume("m-fail");
+    expect(r.canResume).toBe(true);
+  });
+
+  // P4: paused status should be resumable
+  it("canResume allows paused status", async () => {
+    await svc.save(
+      "m-paused",
+      { stage: "s3", artifacts: [] },
+      ["s1", "s2"],
+      "paused",
+    );
+    const r = await svc.canResume("m-paused");
+    expect(r.canResume).toBe(true);
+  });
+
+  // P4: cloneCheckpoint works for failed source mission (analogous to quality-failed)
+  it("cloneCheckpoint copies checkpoint from failed mission", async () => {
+    await svc.save(
+      "src-fail",
+      { stage: "s9", artifacts: ["r1"] },
+      ["s1", "s2"],
+      "failed",
+    );
+    const ok = await svc.cloneCheckpoint("src-fail", "dest-new");
+    expect(ok).toBe(true);
+    const snap = await svc.load("dest-new");
+    expect(snap).not.toBeNull();
+    expect(snap!.status).toBe("running");
+    expect(snap!.completedKeys).toEqual(["s1", "s2"]);
+  });
+
+  // P4: cloneCheckpoint skips completed source
+  it("cloneCheckpoint skips completed source mission", async () => {
+    await svc.save(
+      "src-done",
+      { stage: "s11", artifacts: [] },
+      [],
+      "completed",
+    );
+    const ok = await svc.cloneCheckpoint("src-done", "dest-new");
+    expect(ok).toBe(false);
+    expect(await svc.load("dest-new")).toBeNull();
+  });
+
   it("save errors are swallowed (does not throw)", async () => {
     const crashStore: typeof store = {
       ...store,

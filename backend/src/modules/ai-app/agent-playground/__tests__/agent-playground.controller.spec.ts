@@ -47,6 +47,8 @@ function makeStore() {
     deleteByUser: jest.fn().mockResolvedValue(undefined),
     updateTopicByUser: jest.fn().mockResolvedValue(undefined),
     create: jest.fn().mockResolvedValue(undefined),
+    // ★ P0 并发限制 (2026-05-06): 默认返回 0（未超限）
+    countRunningByUser: jest.fn().mockResolvedValue(0),
   };
 }
 
@@ -419,34 +421,42 @@ describe("AgentPlaygroundController", () => {
   });
 
   describe("runTeam", () => {
-    it("throws ForbiddenException when no userId", () => {
+    it("throws ForbiddenException when no userId", async () => {
       const { controller } = buildController();
-      expect(() => controller.runTeam(VALID_INPUT, makeReq(undefined))).toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        controller.runTeam(VALID_INPUT, makeReq(undefined)),
+      ).rejects.toThrow(ForbiddenException);
     });
 
-    it("throws BadRequestException for invalid input", () => {
+    it("throws BadRequestException for invalid input", async () => {
       const { controller } = buildController();
-      expect(() =>
+      await expect(
         controller.runTeam({ topic: "" }, makeReq("user-1")),
-      ).toThrow(BadRequestException);
+      ).rejects.toThrow(BadRequestException);
     });
 
-    it("returns missionId and streamNamespace for valid input", () => {
+    it("returns missionId and streamNamespace for valid input", async () => {
       const { controller } = buildController();
-      const result = controller.runTeam(VALID_INPUT, makeReq("user-1"));
+      const result = await controller.runTeam(VALID_INPUT, makeReq("user-1"));
       expect(result.missionId).toBeDefined();
       expect(result.streamNamespace).toBe("agent-playground");
     });
 
-    it("assigns ownership to the user", () => {
+    it("assigns ownership to the user", async () => {
       const { controller, ownership } = buildController();
-      controller.runTeam(VALID_INPUT, makeReq("user-1"));
+      await controller.runTeam(VALID_INPUT, makeReq("user-1"));
       expect(ownership.assign).toHaveBeenCalledWith(
         expect.any(String),
         "user-1",
       );
+    });
+
+    it("throws BadRequestException when user already has 3 running missions", async () => {
+      const { controller, store } = buildController();
+      store.countRunningByUser.mockResolvedValue(3);
+      await expect(
+        controller.runTeam(VALID_INPUT, makeReq("user-1")),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

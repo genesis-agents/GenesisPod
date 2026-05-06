@@ -5,7 +5,12 @@
  * 列表页 / detail 页查询用。
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Optional,
+  PayloadTooLargeException,
+} from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
@@ -28,6 +33,7 @@ export interface MissionListItem {
 }
 
 export interface MissionDetail extends MissionListItem {
+  maxCredits: number;
   themeSummary: string | null;
   dimensions: unknown;
   reportFull: unknown;
@@ -183,10 +189,17 @@ export class MissionStore {
     },
   ): Promise<void> {
     // Phase P17-2: report JSONB 大小 guard（PostgreSQL JSONB 默认 max ~1GB，
-    // 但 Prisma 序列化中间步会爆内存；超 5MB 时记 warning 并截断 fullMarkdown）
+    // 但 Prisma 序列化中间步会爆内存；超 10MB 时硬拒，超 5MB 时截断 fullMarkdown）
     const MAX_REPORT_BYTES = 5 * 1024 * 1024;
+    const HARD_LIMIT_BYTES = 10 * 1024 * 1024;
     if (data.report && typeof data.report === "object") {
       const size = Buffer.byteLength(JSON.stringify(data.report), "utf8");
+      if (size > HARD_LIMIT_BYTES) {
+        // P2: 硬拒超大 report，让 mission 标 failed(report_too_large) 而非写入 OOM
+        throw new PayloadTooLargeException(
+          `report_too_large: ${size} bytes exceeds ${HARD_LIMIT_BYTES} byte hard limit`,
+        );
+      }
       if (size > MAX_REPORT_BYTES) {
         this.log.warn(
           `[markCompleted ${id}] report size ${size} > ${MAX_REPORT_BYTES} bytes — truncating`,
@@ -264,38 +277,57 @@ export class MissionStore {
    *
    * 不依赖 status='running' guard —— 即使 mission 已 cancelled 也允许写入决策记录，
    * 方便事后审计 / 复盘 Leader 在 mission 失败前的判断。
+   *
+   * ★ P0 并发安全 (2026-05-06): 原 read→merge→write 三步无原子性，并发调用会造成
+   * 后写覆盖先写。现在用 serializable $transaction 包裹整个 read+write，DB 层防冲突。
+   * decisions 数组合并保留：tx 内 select + concat + update。
    */
   async appendLeaderJournal(
     id: string,
     patch: Record<string, unknown>,
   ): Promise<void> {
     try {
-      const row = await this.prisma.agentPlaygroundMission.findUnique({
-        where: { id },
-        select: { leaderJournal: true },
-      });
-      const current =
-        (row?.leaderJournal as Record<string, unknown> | null) ?? {};
-      const merged = { ...current, ...patch };
-      // decisions 是数组，要 concat 而不是 replace
-      if (
-        Array.isArray(current.decisions) &&
-        Array.isArray((patch as { decisions?: unknown[] }).decisions)
-      ) {
-        merged.decisions = [
-          ...(current.decisions as unknown[]),
-          ...((patch as { decisions: unknown[] }).decisions ?? []),
-        ];
-      }
-      await this.prisma.agentPlaygroundMission.update({
-        where: { id },
-        data: { leaderJournal: merged as Prisma.InputJsonValue },
-      });
+      await this.prisma.$transaction(
+        async (tx) => {
+          const row = await tx.agentPlaygroundMission.findUnique({
+            where: { id },
+            select: { leaderJournal: true },
+          });
+          const current =
+            (row?.leaderJournal as Record<string, unknown> | null) ?? {};
+          const merged = { ...current, ...patch };
+          // decisions 是数组，要 concat 而不是 replace
+          if (
+            Array.isArray(current.decisions) &&
+            Array.isArray((patch as { decisions?: unknown[] }).decisions)
+          ) {
+            merged.decisions = [
+              ...(current.decisions as unknown[]),
+              ...((patch as { decisions: unknown[] }).decisions ?? []),
+            ];
+          }
+          await tx.agentPlaygroundMission.update({
+            where: { id },
+            data: { leaderJournal: merged as Prisma.InputJsonValue },
+          });
+        },
+        { isolationLevel: "Serializable" },
+      );
     } catch (err) {
       this.log.warn(
         `[appendLeaderJournal ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
+  }
+
+  /**
+   * ★ P0 并发限制 (2026-05-06): 查询某 user 当前 running mission 数量，
+   * 给 controller runTeam 做启动前 gate check 用。
+   */
+  async countRunningByUser(userId: string): Promise<number> {
+    return this.prisma.agentPlaygroundMission.count({
+      where: { userId, status: "running" },
+    });
   }
 
   /**
@@ -376,6 +408,14 @@ export class MissionStore {
       leaderVerdict?: string;
     },
   ): Promise<void> {
+    // P2: markFailed 路径同样做 10MB 硬限检查（避免 quality-failed 路径写入超大 report）
+    if (data.report && typeof data.report === "object") {
+      const failSize = Buffer.byteLength(JSON.stringify(data.report), "utf8");
+      if (failSize > 10 * 1024 * 1024) {
+        data.errorMessage = "report_too_large";
+        data.report = undefined;
+      }
+    }
     // 仅当带 Lead 数据时才区分 quality-failed；老调用路径行为不变（status=failed）
     const isLeadRefusal =
       data.leaderSigned === false || data.leaderOverallScore != null;
@@ -409,10 +449,15 @@ export class MissionStore {
     if (data.reconciliationReport !== undefined)
       update.reconciliationReport = (data.reconciliationReport ??
         null) as Prisma.InputJsonValue;
-    if (data.leaderOverallScore != null)
-      update.leaderOverallScore = data.leaderOverallScore;
-    if (data.leaderSigned != null) update.leaderSigned = data.leaderSigned;
-    if (data.leaderVerdict != null) update.leaderVerdict = data.leaderVerdict;
+    // ★ P0 (2026-05-06): 统一用 !== undefined 与 leaderJournal 对齐，让 caller
+    //   显式传 null 也能写入。原 != null 会把 leaderSigned=false 误判为 falsy 跳过
+    //   写入，导致 Lead 拒签路径（leaderSigned=false）永远不落表。
+    if (data.leaderOverallScore !== undefined)
+      update.leaderOverallScore = data.leaderOverallScore ?? null;
+    if (data.leaderSigned !== undefined)
+      update.leaderSigned = data.leaderSigned ?? null;
+    if (data.leaderVerdict !== undefined)
+      update.leaderVerdict = data.leaderVerdict ?? null;
     // ★ 全覆盖审计修 (2026-05-06): leaderJournal 漏赋值 — 签名收了字段但 update 对象未包含
     if (data.leaderJournal !== undefined)
       update.leaderJournal = (data.leaderJournal ??
@@ -433,41 +478,50 @@ export class MissionStore {
    * 追加 dimension（leader chat CREATE_TODO 触发）。
    * 仅 mission running 时合法 — 其他状态返回 [] 不抛错。
    * 返回新追加的 dimension ids（用于 orchestrator 派 researcher）。
+   *
+   * ★ P1 TOCTOU fix (2026-05-06): 原 findUnique→push→update 三步无事务保护，
+   * 并发两个 CREATE_TODO 会造成 baseIdx 相同导致 dim id 碰撞 + 最后写覆盖前写。
+   * 现在用 serializable $transaction 包裹整个 read+write。
    */
   async appendDimensions(
     missionId: string,
     items: { name: string; rationale: string }[],
   ): Promise<string[]> {
     if (items.length === 0) return [];
-    const row = await this.prisma.agentPlaygroundMission.findUnique({
-      where: { id: missionId },
-      select: { status: true, dimensions: true },
-    });
-    if (!row || row.status !== "running") {
-      this.log.warn(
-        `[appendDimensions ${missionId}] mission status=${row?.status ?? "missing"} — refusing append`,
-      );
-      return [];
-    }
-    const existing = (row.dimensions ?? []) as {
-      id: string;
-      name: string;
-      rationale: string;
-      source?: string;
-    }[];
-    const baseIdx = existing.length;
-    const newDims = items.map((it, i) => ({
-      id: `dim-user-${baseIdx + i + 1}`,
-      name: it.name.slice(0, 80),
-      rationale: it.rationale.slice(0, 500),
-      source: "user-chat" as const,
-    }));
-    const merged = [...existing, ...newDims];
-    await this.prisma.agentPlaygroundMission.update({
-      where: { id: missionId },
-      data: { dimensions: merged as never },
-    });
-    return newDims.map((d) => d.id);
+    return this.prisma.$transaction(
+      async (tx) => {
+        const row = await tx.agentPlaygroundMission.findUnique({
+          where: { id: missionId },
+          select: { status: true, dimensions: true },
+        });
+        if (!row || row.status !== "running") {
+          this.log.warn(
+            `[appendDimensions ${missionId}] mission status=${row?.status ?? "missing"} — refusing append`,
+          );
+          return [];
+        }
+        const existing = (row.dimensions ?? []) as {
+          id: string;
+          name: string;
+          rationale: string;
+          source?: string;
+        }[];
+        const baseIdx = existing.length;
+        const newDims = items.map((it, i) => ({
+          id: `dim-user-${baseIdx + i + 1}`,
+          name: it.name.slice(0, 80),
+          rationale: it.rationale.slice(0, 500),
+          source: "user-chat" as const,
+        }));
+        const merged = [...existing, ...newDims];
+        await tx.agentPlaygroundMission.update({
+          where: { id: missionId },
+          data: { dimensions: merged as never },
+        });
+        return newDims.map((d) => d.id);
+      },
+      { isolationLevel: "Serializable" },
+    );
   }
 
   async listByUser(userId: string, limit = 50): Promise<MissionListItem[]> {
@@ -492,7 +546,11 @@ export class MissionStore {
         errorMessage: true,
       },
     });
-    return rows;
+    // tokensUsed is BigInt in DB; convert to number for API boundary
+    return rows.map((r) => ({
+      ...r,
+      tokensUsed: r.tokensUsed != null ? Number(r.tokensUsed) : null,
+    }));
   }
 
   /**
@@ -527,7 +585,12 @@ export class MissionStore {
         errorMessage: true,
       },
     });
-    const map = new Map(rows.map((r) => [r.id, r]));
+    // tokensUsed is BigInt in DB; convert to number for API boundary
+    const mapped = rows.map((r) => ({
+      ...r,
+      tokensUsed: r.tokensUsed != null ? Number(r.tokensUsed) : null,
+    }));
+    const map = new Map(mapped.map((r) => [r.id, r]));
     return missionIds
       .map((id) => map.get(id))
       .filter((r): r is MissionListItem => !!r);
@@ -790,11 +853,12 @@ export class MissionStore {
       completedAt: row.completedAt,
       wallTimeMs: row.wallTimeMs,
       finalScore: row.finalScore,
-      tokensUsed: row.tokensUsed,
+      tokensUsed: row.tokensUsed != null ? Number(row.tokensUsed) : null,
       costUsd: row.costUsd,
       reportTitle: row.reportTitle,
       reportSummary: row.reportSummary,
       errorMessage: row.errorMessage,
+      maxCredits: row.maxCredits,
       themeSummary: row.themeSummary,
       dimensions: row.dimensions,
       reportFull: row.reportFull,
@@ -836,13 +900,13 @@ export class MissionStore {
           missionId_dimension_retryLabel: {
             missionId: args.missionId,
             dimension: args.dimension.slice(0, 200),
-            retryLabel: (args.retryLabel ?? null) as never,
+            retryLabel: args.retryLabel ?? "",
           },
         },
         create: {
           missionId: args.missionId,
           dimension: args.dimension.slice(0, 200),
-          retryLabel: args.retryLabel ?? null,
+          retryLabel: args.retryLabel ?? "",
           findings: args.findings as unknown as object,
           summary: args.summary.slice(0, 50_000),
           state: args.state,
@@ -877,7 +941,7 @@ export class MissionStore {
   > {
     const rows = await this.prisma.agentPlaygroundResearchResult
       .findMany({
-        where: { missionId, retryLabel: null },
+        where: { missionId, retryLabel: "" },
       })
       .catch(() => []);
     return rows

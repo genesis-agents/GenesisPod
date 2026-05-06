@@ -298,11 +298,21 @@ export class ToolInvoker {
         (error as Record<string, unknown>).data != null
           ? (error as Record<string, unknown>).data
           : undefined;
+      // ★ P1 partialData LLM 可见性 (2026-05-06): 把 partial data 字节数追加到
+      //   error 字符串，让 LLM 在下一轮 observation 中能感知到有部分数据可引用。
+      const partialDataBytes =
+        partialData !== undefined
+          ? JSON.stringify(partialData).length
+          : undefined;
+      const llmErrorMsg =
+        partialDataBytes !== undefined
+          ? `${err.message}（partial data: ${partialDataBytes} bytes available）`
+          : err.message;
       return {
         action,
         output: {
           success: false,
-          error: err.message,
+          error: llmErrorMsg,
           toolId: action.toolId,
           failureCode,
           ...(partialData !== undefined ? { partialData } : {}),

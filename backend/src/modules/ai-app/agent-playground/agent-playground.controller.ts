@@ -253,15 +253,25 @@ export class AgentPlaygroundController {
     windowSeconds: 60,
     message: "启动 mission 过于频繁，请稍后再试",
   })
-  runTeam(
+  async runTeam(
     @Body() body: unknown,
     @Request() req: RequestWithUser,
-  ): {
+  ): Promise<{
     missionId: string;
     streamNamespace: string;
-  } {
+  }> {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
+
+    // ★ P0 并发限制 (2026-05-06): 每 user 最多 3 个并发 running mission，
+    // 超过时拒绝启动，防止单用户打爆 pod 内存和 DB 连接。
+    const MAX_CONCURRENT_MISSIONS = 3;
+    const running = await this.store.countRunningByUser(userId);
+    if (running >= MAX_CONCURRENT_MISSIONS) {
+      throw new BadRequestException(
+        `已有 ${running} 个 mission 正在运行，最多同时运行 ${MAX_CONCURRENT_MISSIONS} 个，请等待完成后再启动`,
+      );
+    }
 
     const parsed = RunMissionInputSchema.safeParse(body);
     if (!parsed.success) {

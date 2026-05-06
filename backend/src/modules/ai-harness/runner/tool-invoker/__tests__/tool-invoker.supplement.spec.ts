@@ -417,3 +417,56 @@ describe("ToolInvoker supplement — invokeMany all failed", () => {
     expect(result.subResults).toHaveLength(2);
   });
 });
+
+// ─── P1 partialData bytes in LLM error string ─────────────────────────────
+
+describe("ToolInvoker supplement — partialData bytes in LLM error string", () => {
+  it("appends partial data byte count to output.error when error has .data", async () => {
+    const partialPayload = { content: "partial" };
+    const partialErr = Object.assign(new Error("fetch failed"), {
+      data: partialPayload,
+    });
+    const registry = {
+      has: jest.fn().mockReturnValue(true),
+      get: jest.fn().mockReturnValue({
+        execute: jest.fn().mockRejectedValue(partialErr),
+      }),
+    };
+    const invoker = makeInvoker(registry as never);
+    const result = await invoker.invoke(
+      { kind: "tool_call", toolId: "partial-tool", input: {} },
+      makeEnvelope(),
+      baseOpts,
+    );
+    // output.error (LLM-visible string) should include byte count
+    const outputErr = (result.output as Record<string, unknown>)
+      ?.error as string;
+    expect(outputErr).toContain("fetch failed");
+    expect(outputErr).toMatch(/partial data: \d+ bytes available/);
+    // result.error (Error object) should remain unchanged
+    expect(result.error?.message).toBe("fetch failed");
+    // partialData should be present in output
+    expect((result.output as Record<string, unknown>)?.partialData).toEqual(
+      partialPayload,
+    );
+  });
+
+  it("does not append bytes hint when error has no .data", async () => {
+    const registry = {
+      has: jest.fn().mockReturnValue(true),
+      get: jest.fn().mockReturnValue({
+        execute: jest.fn().mockRejectedValue(new Error("plain error")),
+      }),
+    };
+    const invoker = makeInvoker(registry as never);
+    const result = await invoker.invoke(
+      { kind: "tool_call", toolId: "plain-err-tool", input: {} },
+      makeEnvelope(),
+      baseOpts,
+    );
+    const outputErr = (result.output as Record<string, unknown>)
+      ?.error as string;
+    expect(outputErr).toBe("plain error");
+    expect(outputErr).not.toContain("bytes available");
+  });
+});

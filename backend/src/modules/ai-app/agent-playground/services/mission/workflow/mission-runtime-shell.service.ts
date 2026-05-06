@@ -118,11 +118,10 @@ export class MissionRuntimeShellService {
           auditLayers: input.auditLayers,
           concurrency: input.concurrency,
           viewMode: input.viewMode,
-          // ★ 业务链修1 (2026-05-06): 用户侧定义的预算必须持久化，否则 rerun 时
-          //   cloneInputFromMission 读不到 → fallback 1000 硬编码（违反 P0-K 用户侧定义）
-          maxCredits: input.maxCredits,
-          budgetMultiplierOverride: input.budgetMultiplierOverride,
-          // ★ 同类清零4 (2026-05-06): RunMissionInput 全字段持久化（rerun 真复用 input）
+          // ★ P4 (2026-05-06): maxCredits / budgetMultiplierOverride 已在 row 字段
+          //   (maxCredits 行字段) 存储，userProfile 不再双写（行字段是权威源）。
+          //   wallTimeMs / knowledgeBaseIds / inheritFromMissionId 仅存于此 JSON，
+          //   rerun hydrator 从 userProfile 读取。
           wallTimeMs: input.wallTimeMs,
           knowledgeBaseIds: input.knowledgeBaseIds,
           inheritFromMissionId: input.inheritFromMissionId,

@@ -21,13 +21,25 @@ export class AgentPlaygroundEventRelay {
    * 通过可选 setter 注入 abortRegistry（不破坏现有 constructor 签名）。
    */
   private abortRegistry?: MissionAbortRegistry;
-  /** 防重复发：单 mission 仅 emit budget:exhausted + abort 一次 */
-  private readonly exhaustedMissions = new Set<string>();
+  /**
+   * 防重复发：单 mission 仅 emit budget:exhausted + abort 一次。
+   * ★ P1 leak fix (2026-05-06): 改 Map<missionId, timestamp>，
+   * 每次 check 时清除超过 60min 的过期条目，防止长时间运行后无限增长。
+   */
+  private readonly exhaustedMissions = new Map<string, number>();
 
   constructor(private readonly eventBus: DomainEventBus) {}
 
   setAbortRegistry(registry: MissionAbortRegistry): void {
     this.abortRegistry = registry;
+  }
+
+  /**
+   * ★ P1 leak fix (2026-05-06): dispatcher finally 调用，清掉已完成 mission 的
+   * exhaustedMissions 条目，防止长时间运行后 Map 无限增长。
+   */
+  clearMission(missionId: string): void {
+    this.exhaustedMissions.delete(missionId);
   }
 
   async emitEvent(args: {
@@ -101,8 +113,13 @@ export class AgentPlaygroundEventRelay {
     // ★ 业务链修2: budget exhausted 立即 emit + abort（覆盖所有 stage / chapter writer
     //   tickCost 路径）。之前只在 S3 末尾检查一次，S5+ 阶段 budget 用尽要 wall-time
     //   4h 才被发现。recordSpend 后立即检查，单 mission 只触发一次 abort 防重复。
+    // ★ P1 leak fix (2026-05-06): 每次 check 时清 60min 以上的过期条目。
+    const now = Date.now();
+    for (const [mid, ts] of this.exhaustedMissions) {
+      if (now - ts > 60 * 60_000) this.exhaustedMissions.delete(mid);
+    }
     if (pool.isExhausted() && !this.exhaustedMissions.has(missionId)) {
-      this.exhaustedMissions.add(missionId);
+      this.exhaustedMissions.set(missionId, now);
       await this.emitEvent({
         type: "agent-playground.budget:exhausted",
         missionId,

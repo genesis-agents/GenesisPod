@@ -91,6 +91,10 @@ export class MissionEventBuffer implements IBroadcastAdapter {
   read(missionId: string, sinceTs?: number): BufferedEvent[] {
     const slot = this.byMission.get(missionId);
     if (!slot) return [];
+    // ★ P1 (2026-05-06): e.timestamp は number（broadcast で event.timestamp を number
+    //   として格納）、sinceTs も number。Date.now() < 2^53 なので精度ロスなし。
+    //   readPersisted() 側は BigInt(sinceTs) で DB 比較しており問題なし。
+    //   将来 ts が 2^53 超えた際は BigInt 比較に変更すること。
     const source =
       sinceTs == null
         ? slot.events

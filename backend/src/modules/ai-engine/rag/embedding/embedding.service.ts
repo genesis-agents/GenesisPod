@@ -85,14 +85,15 @@ export class EmbeddingService {
   //   - 第一次 401 → ERROR + invalidate config cache（让 admin 改了 key 后能立刻生效）
   //   - cooldown 期内（5min）后续 401 → 静默（return cached error / 上游 fallback）
   //   - cooldown 到期 → 重置，给一次机会重试（admin 可能已改 key）
-  private authFailedUntil = 0;
-  private static readonly AUTH_FAILURE_COOLDOWN_MS = 5 * 60_000; // 5 分钟
+  private static readonly AUTH_FAILURE_COOLDOWN_MS = 5 * 60_000; // 5 分钟（log メッセージ用）
 
   // ★ 全覆盖审计修 (2026-05-06): 高并发下多 provider/baseUrl 组合的 401 去重
   //   Map key = "${provider}::${baseUrl|''}", value = cooldown 到期时间戳
   //   第一次 401 → ERROR（可见）; cooldown 期内 → DEBUG（不刷屏）
   //   场景：系统同时配置了多个 embedding provider，各自独立 cooldown
-  private static readonly AUTH_COOLDOWN_PER_ENDPOINT_MS = 60_000; // 60s
+  // ★ P5 per-endpoint 熔断 (2026-05-06): 同一 Map 现在也作 per-endpoint 熔断器
+  //   改 60s → 5min，与原全局 AUTH_FAILURE_COOLDOWN_MS 对齐，但隔离到每个 endpoint。
+  private static readonly AUTH_COOLDOWN_PER_ENDPOINT_MS = 5 * 60_000; // 5 min
   private readonly authErrorEndpoints = new Map<string, number>(); // key → expiry ts
 
   constructor(
@@ -119,9 +120,8 @@ export class EmbeddingService {
     return /\b401\b|unauthorized|invalid.*api.?key|authentication/i.test(msg);
   }
 
-  private isAuthCircuitOpen(): boolean {
-    return Date.now() < this.authFailedUntil;
-  }
+  // ★ P5 (2026-05-06): 全局 isAuthCircuitOpen 已被 per-endpoint
+  //   isEndpointAuthCoolingDown 替代，保留字段避免破坏向后兼容（log 可能引用）。
 
   // ★ 全覆盖审计修 (2026-05-06): 高并发 401 去重 helpers
   private endpointAuthKey(provider: string, baseUrl?: string): string {
@@ -375,9 +375,12 @@ export class EmbeddingService {
     }
 
     // ★ 2026-05-05 P0 修复：401 cooldown 期间直接 throw，不发请求 + 不刷 ERROR
-    if (this.isAuthCircuitOpen()) {
+    // ★ P5 per-endpoint 隔离 (2026-05-06): 改为 per-endpoint 熔断（而非全局
+    //   authFailedUntil），UserA 配错的 OpenAI key 不影响 UserB 的 Google 调用。
+    //   authErrorEndpoints Map 同时承担：(a) 日志去重；(b) per-endpoint 熔断。
+    if (this.isEndpointAuthCoolingDown(config.provider, config.apiEndpoint)) {
       throw new Error(
-        `Embedding auth-circuit-open (key invalid). Cooldown until ${new Date(this.authFailedUntil).toISOString()}. Update key in Admin > AI Models.`,
+        `Embedding auth-circuit-open for ${config.provider} (key invalid). Cooldown in effect. Update key in Admin > AI Models.`,
       );
     }
 
@@ -424,8 +427,6 @@ export class EmbeddingService {
           //   第一次 401 → ERROR；cooldown 期内 → DEBUG 不刷屏；
           //   支持多 provider/baseUrl 各自独立 cooldown。
           if (this.isAuthError(error)) {
-            this.authFailedUntil =
-              Date.now() + EmbeddingService.AUTH_FAILURE_COOLDOWN_MS;
             this.clearConfigCache();
             if (
               !this.isEndpointAuthCoolingDown(

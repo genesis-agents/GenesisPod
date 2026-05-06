@@ -9297,7 +9297,7 @@ model AgentPlaygroundMission {
 
   /// 完成时填充
   finalScore       Int?    @map("final_score")
-  tokensUsed       Int?    @map("tokens_used")
+  tokensUsed       BigInt? @map("tokens_used")
   costUsd          Float?  @map("cost_usd")
   trajectoryStored Int?    @map("trajectory_stored")
   reportTitle      String? @map("report_title") @db.VarChar(500)
@@ -9378,8 +9378,8 @@ model AgentPlaygroundResearchResult {
   mission      AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
   /// dim 名（中文，与事件流 payload.dimension 对齐）
   dimension    String                 @db.VarChar(200)
-  /// 可选 retryLabel（fresh-collect retry 路径独立 pipeline）
-  retryLabel   String?                @map("retry_label") @db.VarChar(60)
+  /// retryLabel（fresh-collect retry 路径独立 pipeline）；默认空串确保 UNIQUE 索引无 NULL 歧义
+  retryLabel   String                 @default("") @map("retry_label") @db.VarChar(60)
   /// 完整 findings 数组：[{claim, evidence, source}]
   findings     Json                   @db.JsonB
   /// summary（前端展示 + leader assess 输入）

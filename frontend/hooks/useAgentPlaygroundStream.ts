@@ -56,12 +56,11 @@ export function useAgentPlaygroundStream(missionId: string | null) {
   const lastTsRef = useRef<number>(0);
   const eventsRef = useRef<PlaygroundEvent[]>([]);
 
-  // keep ref synced
+  // keep ref synced (read-only snapshot for non-reactive consumers)
   useEffect(() => {
     eventsRef.current = events;
-    if (events.length) {
-      lastTsRef.current = events[events.length - 1].timestamp;
-    }
+    // NOTE: lastTsRef is updated eagerly inside append() to avoid the race
+    // where polling tick reads a stale lastTsRef before this effect fires.
   }, [events]);
 
   useEffect(() => {
@@ -72,7 +71,15 @@ export function useAgentPlaygroundStream(missionId: string | null) {
 
     const append = (next: PlaygroundEvent[]) => {
       if (cancelled || !next.length) return;
-      setEvents((prev) => dedupeAndCap([...prev, ...next]));
+      // ★ P1 (2026-05-06): 在 setEvents updater 内同步更新 lastTsRef，避免 polling
+      //   tick 在 useEffect 触发前读到旧 ts 导致重复拉取已有事件（race condition）。
+      setEvents((prev) => {
+        const merged = dedupeAndCap([...prev, ...next]);
+        if (merged.length) {
+          lastTsRef.current = merged[merged.length - 1].timestamp;
+        }
+        return merged;
+      });
     };
 
     // Step 1: hydrate 从 /replay

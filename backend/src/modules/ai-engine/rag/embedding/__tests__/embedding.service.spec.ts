@@ -528,4 +528,69 @@ describe("EmbeddingService", () => {
       expect(mockPrisma.aIModel.findFirst).toHaveBeenCalledTimes(2);
     });
   });
+
+  // ─── P5 per-endpoint auth isolation ──────────────────
+  // authErrorEndpoints Map key = `${provider}::${baseUrl}` provides
+  // per-endpoint cooldown so one provider's 401 doesn't block other providers.
+
+  describe("per-endpoint 401 cooldown isolation", () => {
+    it("does not suppress first 401 for a given provider+endpoint (throws)", async () => {
+      mockAiApiCallerService.callOpenAICompatibleEmbeddingAPI.mockRejectedValue(
+        new Error("401 unauthorized"),
+      );
+
+      // First 401 should throw (visible to caller, not silently swallowed)
+      await expect(service.generateEmbeddings(["test"])).rejects.toThrow();
+    });
+
+    it("different providers have independent cooldowns (google unblocked after openai 401)", async () => {
+      // After openai 401, only openai::'' endpoint is in cooldown.
+      // A subsequent google call (different provider key) should still work.
+      const googleModel = {
+        ...mockOpenAIModel,
+        provider: "google",
+        apiFormat: "google",
+        modelId: "text-embedding-004",
+        apiEndpoint: "https://generativelanguage.googleapis.com",
+      };
+
+      // openai call fails with 401 → sets cooldown for 'openai::'
+      mockAiApiCallerService.callOpenAICompatibleEmbeddingAPI.mockRejectedValueOnce(
+        new Error("401 unauthorized"),
+      );
+      await expect(service.generateEmbeddings(["test1"])).rejects.toThrow();
+
+      // google call (different provider+endpoint) should NOT be blocked
+      service.clearConfigCache();
+      mockPrisma.aIModel.findFirst.mockResolvedValueOnce(googleModel);
+      mockSecretsService.getValueInternal.mockResolvedValueOnce("google-key");
+      mockAiApiCallerService.callGoogleEmbeddingAPI.mockResolvedValueOnce({
+        embeddings: [[0.1, 0.2]],
+        totalTokens: 5,
+      });
+
+      const result = await service.generateEmbeddings(["test2"]);
+      expect(result.embeddings).toHaveLength(1);
+    });
+
+    it("same provider+endpoint is blocked on second call within cooldown", async () => {
+      mockAiApiCallerService.callOpenAICompatibleEmbeddingAPI.mockRejectedValueOnce(
+        new Error("401 unauthorized"),
+      );
+      // First call: 401 thrown, endpoint marked
+      await expect(service.generateEmbeddings(["test1"])).rejects.toThrow(
+        "401",
+      );
+
+      // Second call: endpoint in cooldown → immediate throw (no HTTP request)
+      mockAiApiCallerService.callOpenAICompatibleEmbeddingAPI.mockClear();
+      await expect(service.generateEmbeddings(["test2"])).rejects.toThrow(
+        /auth-circuit-open/,
+      );
+      // Should NOT have called the API again
+      expect(
+        mockAiApiCallerService.callOpenAICompatibleEmbeddingAPI,
+      ).not.toHaveBeenCalled();
+    });
+  });
 });
