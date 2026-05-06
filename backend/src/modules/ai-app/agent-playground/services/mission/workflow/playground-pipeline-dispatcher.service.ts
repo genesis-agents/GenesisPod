@@ -24,6 +24,7 @@
  */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import {
+  DomainEventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
   runWithStageInstrumentation,
@@ -147,7 +148,37 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly missionEventBuffer: MissionEventBuffer,
     // R2-A.13.1: 失败兜底需要 store.markFailed
     private readonly store: MissionStore,
+    // ★ 2026-05-06 真治：dispatcher 之前 7 处直调 missionEventBuffer.broadcast() bypass
+    //   eventBus → SocketBroadcastAdapter 拿不到事件 → 前端 stage:lifecycle / stage:stalled
+    //   / stage:degraded / mission:execution-aborted / mission:postlude:* 全部不实时。
+    //   现在统一走 eventBus.emit() —— buffer 仍作为 adapter 接收（agent-playground.module.ts:165
+    //   注册），同时 socket adapter 也分发 → 前端实时刷新。
+    private readonly eventBus: DomainEventBus,
   ) {}
+
+  /**
+   * ★ 2026-05-06: 统一事件出口 —— 所有从 dispatcher 直接 emit 的事件都走 eventBus
+   * 而不是 buffer.broadcast()，确保同时分发给 buffer + socket。
+   *
+   * payload schema 校验失败 / throttle / dedupe drop 时 eventBus 自己 log，本方法
+   * 仍 resolve（保留旧 .catch 兜底语义）。
+   */
+  private async emitToBus(event: {
+    type: string;
+    missionId: string;
+    userId: string;
+    payload: unknown;
+    timestamp?: number;
+  }): Promise<void> {
+    await this.eventBus
+      .emit({
+        type: event.type,
+        scope: { missionId: event.missionId, userId: event.userId },
+        payload: event.payload,
+        timestamp: event.timestamp ?? Date.now(),
+      })
+      .catch(() => undefined);
+  }
 
   // ── stepId → DB stageNumber（与 legacy team.mission.ts 对齐）──
   // 用于 markStageComplete + missionCheckpoint.save 的进度索引
@@ -284,20 +315,18 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           `(heartbeat > ${Math.round(orphanThresholdMs / 60000)}min stale)`,
       );
       for (const o of orphans) {
-        await this.missionEventBuffer
-          .broadcast({
-            type: "agent-playground.mission:failed",
-            scope: { missionId: o.id, userId: o.userId },
-            payload: {
-              message:
-                "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
-                "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
-              failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
-              source: "dispatcher-boot-orphan-cleanup",
-            },
-            timestamp: Date.now(),
-          })
-          .catch(() => undefined);
+        await this.emitToBus({
+          type: "agent-playground.mission:failed",
+          missionId: o.id,
+          userId: o.userId,
+          payload: {
+            message:
+              "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
+              "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
+            failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
+            source: "dispatcher-boot-orphan-cleanup",
+          },
+        });
       }
     } catch (err) {
       this.log.error(
@@ -436,65 +465,62 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
               const output = event.output as
                 | Record<string, unknown>
                 | undefined;
-              await this.missionEventBuffer
-                .broadcast({
-                  type: "agent-playground.stage:lifecycle",
-                  scope: { missionId, userId },
-                  payload: {
-                    stage,
-                    stepId: event.stepId,
-                    primitive: event.primitive,
-                    status,
-                    // hook 业务返回值（dimensions / themeSummary / results /
-                    // finalScore 等 artifact 来源）整体挂 output 字段
-                    ...(output ? { output } : {}),
-                    ...(status === "failed"
-                      ? {
-                          error:
-                            event.error instanceof Error
-                              ? event.error.message
-                              : String(event.error ?? ""),
-                        }
-                      : {}),
-                  },
-                  timestamp: event.timestamp,
-                })
-                .catch(() => undefined);
+              await this.emitToBus({
+                type: "agent-playground.stage:lifecycle",
+                missionId,
+                userId,
+                payload: {
+                  stage,
+                  stepId: event.stepId,
+                  primitive: event.primitive,
+                  status,
+                  // hook 业务返回值（dimensions / themeSummary / results /
+                  // finalScore 等 artifact 来源）整体挂 output 字段
+                  ...(output ? { output } : {}),
+                  ...(status === "failed"
+                    ? {
+                        error:
+                          event.error instanceof Error
+                            ? event.error.message
+                            : String(event.error ?? ""),
+                      }
+                    : {}),
+                },
+                timestamp: event.timestamp,
+              });
               return;
             }
 
             // ── A-9: watchdog 卡顿警告（不阻断，仅可见性）──
             if (event.type === "stage:stalled") {
-              await this.missionEventBuffer
-                .broadcast({
-                  type: "agent-playground.stage:stalled",
-                  scope: { missionId, userId },
-                  payload: {
-                    stage,
-                    stepId: event.stepId,
-                    elapsedMs: event.elapsedMs,
-                    reason: event.reason,
-                  },
-                  timestamp: event.timestamp,
-                })
-                .catch(() => undefined);
+              await this.emitToBus({
+                type: "agent-playground.stage:stalled",
+                missionId,
+                userId,
+                payload: {
+                  stage,
+                  stepId: event.stepId,
+                  elapsedMs: event.elapsedMs,
+                  reason: event.reason,
+                },
+                timestamp: event.timestamp,
+              });
               return;
             }
 
             // ── A-6: stage 软失败信号（不阻断，但要可见）──
             if (event.type === "stage:degraded") {
-              await this.missionEventBuffer
-                .broadcast({
-                  type: "agent-playground.stage:degraded",
-                  scope: { missionId, userId },
-                  payload: {
-                    stage,
-                    stepId: event.stepId,
-                    reason: event.reason,
-                  },
-                  timestamp: event.timestamp,
-                })
-                .catch(() => undefined);
+              await this.emitToBus({
+                type: "agent-playground.stage:degraded",
+                missionId,
+                userId,
+                payload: {
+                  stage,
+                  stepId: event.stepId,
+                  reason: event.reason,
+                },
+                timestamp: event.timestamp,
+              });
               return;
             }
           },
@@ -541,21 +567,17 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       // ★ A-8: 最后一道闸 — finally 仍未达终态（极端：catch 里 markFailed 也 throw）
       //   尝试兜底 emit mission:execution-aborted（不写 DB 避免再 throw）
       if (!reachedTerminal) {
-        await this.missionEventBuffer
-          .broadcast({
-            type: "agent-playground.mission:execution-aborted",
-            scope: { missionId, userId },
-            payload: {
-              reason: "runtime_unknown_state",
-              podId:
-                process.env.RAILWAY_REPLICA_ID ??
-                process.env.HOSTNAME ??
-                "local",
-              wallTimeMs: Date.now() - t0,
-            },
-            timestamp: Date.now(),
-          })
-          .catch(() => undefined);
+        await this.emitToBus({
+          type: "agent-playground.mission:execution-aborted",
+          missionId,
+          userId,
+          payload: {
+            reason: "runtime_unknown_state",
+            podId:
+              process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local",
+            wallTimeMs: Date.now() - t0,
+          },
+        });
       }
       // ★ 全覆盖审计修 (2026-05-06): 先 cleanup 再 delete — cleanup throw 时 entry 不会已删
       try {
@@ -587,14 +609,13 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       return;
     }
     const startedAt = Date.now();
-    void this.missionEventBuffer
-      .broadcast({
-        type: "agent-playground.mission:postlude:started",
-        scope: { missionId, userId },
-        payload: { stage: "s12-self-evolution", startedAt },
-        timestamp: startedAt,
-      })
-      .catch(() => undefined);
+    void this.emitToBus({
+      type: "agent-playground.mission:postlude:started",
+      missionId,
+      userId,
+      payload: { stage: "s12-self-evolution", startedAt },
+      timestamp: startedAt,
+    });
 
     const bufferedEvents = this.missionEventBuffer
       .read(missionId)
@@ -624,32 +645,28 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       this.stageBindings.buildDeps(),
     )
       .then(() =>
-        this.missionEventBuffer
-          .broadcast({
-            type: "agent-playground.mission:postlude:completed",
-            scope: { missionId, userId },
-            payload: {
-              stage: "s12-self-evolution",
-              wallTimeMs: Date.now() - startedAt,
-            },
-            timestamp: Date.now(),
-          })
-          .catch(() => undefined),
+        this.emitToBus({
+          type: "agent-playground.mission:postlude:completed",
+          missionId,
+          userId,
+          payload: {
+            stage: "s12-self-evolution",
+            wallTimeMs: Date.now() - startedAt,
+          },
+        }),
       )
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err);
-        return this.missionEventBuffer
-          .broadcast({
-            type: "agent-playground.mission:postlude:failed",
-            scope: { missionId, userId },
-            payload: {
-              stage: "s12-self-evolution",
-              error: message.slice(0, 500),
-              wallTimeMs: Date.now() - startedAt,
-            },
-            timestamp: Date.now(),
-          })
-          .catch(() => undefined);
+        return this.emitToBus({
+          type: "agent-playground.mission:postlude:failed",
+          missionId,
+          userId,
+          payload: {
+            stage: "s12-self-evolution",
+            error: message.slice(0, 500),
+            wallTimeMs: Date.now() - startedAt,
+          },
+        });
       });
   }
 
@@ -665,20 +682,18 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     try {
       const message = err instanceof Error ? err.message : String(err);
       const snap = session.pool.snapshot();
-      await this.missionEventBuffer
-        .broadcast({
-          type: "agent-playground.mission:execution-aborted",
-          scope: { missionId, userId },
-          payload: {
-            reason,
-            error: message,
-            wallTimeMs: Date.now() - t0,
-            podId:
-              process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local",
-          },
-          timestamp: Date.now(),
-        })
-        .catch(() => undefined);
+      await this.emitToBus({
+        type: "agent-playground.mission:execution-aborted",
+        missionId,
+        userId,
+        payload: {
+          reason,
+          error: message,
+          wallTimeMs: Date.now() - t0,
+          podId:
+            process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local",
+        },
+      });
       await this.store
         .markFailed(missionId, {
           errorMessage: `execution_aborted: ${message.slice(0, 500)}`,

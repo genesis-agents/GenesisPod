@@ -258,6 +258,12 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
    */
   let fakeLeaderPlan: jest.Mock;
   let fakeSupervisedMission: { plan: jest.Mock };
+  // ★ 2026-05-06: dispatcher 切到 eventBus.emit 后 spec 注入 mock 验证
+  let fakeEventBus: {
+    emit: jest.Mock;
+    registerAdapter: jest.Mock;
+    unregisterAdapter: jest.Mock;
+  };
 
   beforeEach(() => {
     registry = new MissionPipelineRegistry();
@@ -319,6 +325,14 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       // ★ #85 (2026-05-06): 报告版本化 fire-and-forget mock
       saveReportVersion: jest.fn().mockResolvedValue(1),
     };
+    // ★ 2026-05-06 真治：dispatcher 现在直接走 eventBus.emit，需要注入。
+    //   spec 只需要 emit() 是 thenable —— 真 broadcast 路径在 module wiring 上由
+    //   buffer adapter 接收（DomainEventBus 自身的 spec 已覆盖）。
+    fakeEventBus = {
+      emit: jest.fn().mockResolvedValue(true),
+      registerAdapter: jest.fn(),
+      unregisterAdapter: jest.fn(),
+    };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
@@ -329,6 +343,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeCheckpoint as never,
       fakeEventBuffer as never,
       fakeStore as never,
+      fakeEventBus as never,
     );
     dispatcher.onModuleInit();
   });
