@@ -258,18 +258,63 @@ export class CustomAgentsService {
       ? `${body.topic.trim()}（聚焦：${config.topicSchema.goalTemplate}）`
       : body.topic.trim();
 
+    // ★ 2026-05-06 (P0-K 修复): RunMissionInputSchema 把 maxCredits +
+    //   budgetMultiplierOverride 改成必填后，custom-agents 走 translate → safeParse
+    //   必失败 400 "Translated input invalid: maxCredits:Required;
+    //   budgetMultiplierOverride:Required"。LaunchMissionModal 不暴露 budget 控件
+    //   给用户，所以 backend 必须按 agent config (defaultDepth/defaultLength/
+    //   defaultBudget) 自动推算。公式镜像 frontend DemoLauncher.tsx estimateTokens()
+    //   与 budgetMul × depthMul，让"用户透明启动"和"显式预算控件启动"行为一致。
+    const rawDepth = (config.integration?.defaultDepth ?? "deep") as
+      | "quick"
+      | "standard"
+      | "deep";
+    const lengthProfile = (config.integration?.defaultLength ?? "standard") as
+      | "brief"
+      | "standard"
+      | "deep"
+      | "extended"
+      | "epic"
+      | "mega";
+    const budgetProfile = (config.integration?.defaultBudget ?? "medium") as
+      | "low"
+      | "medium"
+      | "high"
+      | "unlimited";
+
+    // ★ P2 兜底：RunMissionInputSchema.refine 拒 depth=quick + lengthProfile in {epic, mega}
+    //   （quick 档只跑 1 round，不可能生成 epic/mega 体量）。wizard 应阻止此配置，
+    //   但用户配置历史可能存在；这里把 depth 从 quick 升到 standard，让 launch 不直接 400。
+    const depth: "quick" | "standard" | "deep" =
+      rawDepth === "quick" &&
+      (lengthProfile === "epic" || lengthProfile === "mega")
+        ? "standard"
+        : rawDepth;
+    if (depth !== rawDepth) {
+      this.log.warn(
+        `[translate ${id}] depth=${rawDepth}+length=${lengthProfile} 矛盾组合，自动升 depth → standard`,
+      );
+    }
+    const { maxCredits, budgetMultiplierOverride } = recommendLaunchBudget(
+      depth,
+      lengthProfile,
+      budgetProfile,
+    );
+
     const input: Record<string, unknown> = {
       topic,
       language,
       audienceProfile,
       styleProfile,
-      depth: config.integration?.defaultDepth ?? "deep",
-      lengthProfile: config.integration?.defaultLength ?? "standard",
-      budgetProfile: config.integration?.defaultBudget ?? "medium",
+      depth,
+      lengthProfile,
+      budgetProfile,
       withFigures: true,
       auditLayers: "default",
       concurrency: 3,
       viewMode: "continuous",
+      maxCredits,
+      budgetMultiplierOverride,
       ...(body.overrides ?? {}),
     };
 
@@ -498,4 +543,75 @@ export class CustomAgentsService {
       },
     };
   }
+}
+
+/**
+ * 由 agent config 推算 mission 预算（mirror frontend DemoLauncher.tsx）。
+ *
+ * 输入：agent 的 defaultDepth × defaultLength × defaultBudget（用户透明启动场景，
+ * LaunchMissionModal 没给用户预算控件，agent 配置决定一切）。
+ * 输出：RunMissionInputSchema 必填的 maxCredits（10..100k）+ budgetMultiplierOverride（0.3..10）。
+ *
+ * 公式来源：frontend/components/agent-playground/DemoLauncher.tsx#estimateTokens
+ *   - base = 400 (K tokens)
+ *   - depthMul: quick 0.4 / standard 0.7 / deep 1
+ *   - lenMul: brief 0.5 / standard 1 / deep 1.7 / extended+epic+mega 2.5
+ *   - budgetMul (token 估算用): low 0.5 / medium 1 / high 2 / unlimited 4
+ *   - auditMul=1（default）, figMul=1.15（withFigures 默认 true）
+ *   - maxCredits = max(50, round(estimatedTokens × 1.5))
+ *
+ * budgetMultiplierOverride（agent budget 倍率，与上面 token 估算的 budgetMul 是不同概念）：
+ *   - budgetMul: low 0.6 / medium 1.0 / high 2.0 / unlimited 4.0
+ *   - depthMul: quick 0.7 / standard 1.0 / deep 1.4
+ *   - 输出：budgetMul × depthMul（保留 2 位小数）
+ *
+ * 任何一端公式调整必须双向同步，否则 custom-agents 启动行为与 DemoLauncher 不一致。
+ *
+ * @internal 测试用 export；非测试代码不应直接调用，由 translate() 内部使用。
+ */
+export function recommendLaunchBudget(
+  depth: "quick" | "standard" | "deep",
+  lengthProfile: "brief" | "standard" | "deep" | "extended" | "epic" | "mega",
+  budgetProfile: "low" | "medium" | "high" | "unlimited",
+): { maxCredits: number; budgetMultiplierOverride: number } {
+  const base = 400;
+  const depthTokenMul =
+    depth === "quick" ? 0.4 : depth === "standard" ? 0.7 : 1;
+  const lenMul =
+    lengthProfile === "brief"
+      ? 0.5
+      : lengthProfile === "standard"
+        ? 1
+        : lengthProfile === "deep"
+          ? 1.7
+          : 2.5;
+  const budgetTokenMul =
+    budgetProfile === "low"
+      ? 0.5
+      : budgetProfile === "medium"
+        ? 1
+        : budgetProfile === "high"
+          ? 2
+          : 4;
+  const auditMul = 1; // auditLayers='default'
+  const figMul = 1.15; // withFigures=true
+  const estimatedTokens =
+    base * depthTokenMul * lenMul * budgetTokenMul * auditMul * figMul;
+  const rawMaxCredits = Math.round(estimatedTokens * 1.5);
+  const maxCredits = Math.max(50, Math.min(100_000, rawMaxCredits));
+
+  const budgetMul =
+    budgetProfile === "low"
+      ? 0.6
+      : budgetProfile === "medium"
+        ? 1.0
+        : budgetProfile === "high"
+          ? 2.0
+          : 4.0;
+  const depthBudgetMul =
+    depth === "quick" ? 0.7 : depth === "standard" ? 1.0 : 1.4;
+  const rawMul = Math.round(budgetMul * depthBudgetMul * 100) / 100;
+  const budgetMultiplierOverride = Math.max(0.3, Math.min(10, rawMul));
+
+  return { maxCredits, budgetMultiplierOverride };
 }
