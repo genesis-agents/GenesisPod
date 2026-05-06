@@ -437,11 +437,14 @@ function ExportMenu({ missionId }: { missionId: string }) {
       const { config } = await import('@/lib/utils/config');
       const { getAuthHeader } = await import('@/lib/utils/auth');
 
+      // ★ 2026-05-06 #84: 删除 templateId — backend export_templates 表当前为空
+      //   （未 seed 'mission-report'），传 templateId 会被校验拒绝抛 400 "Invalid
+      //   export template: mission-report"。让 backend 走默认渲染逻辑（templateId
+      //   是 optional 字段，没传时直接跳过 templateManager.getTemplate）。
       // 1. POST /api/export 创建 job（公共端点 —— TI 同款）
       const job = await apiClient.post<{ jobId: string }>('/export', {
         source: { type: 'MISSION', missionId, topicId: '' },
         format,
-        templateId: 'mission-report',
         options: {
           includeCover: true,
           includeTableOfContents: true,
