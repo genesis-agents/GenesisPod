@@ -12,8 +12,9 @@
  * 原 L3 ai-app/{app}/harness/llm/LlmInvokerService 将在 P3 删除（能力全部上提至此）。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { z } from "zod";
+import { ModelPricingRegistry } from "../../../ai-engine/llm/pricing/model-pricing.registry";
 // ★ 直接相对路径导入，绕开 facade barrel。
 // 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
 // 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
@@ -21,7 +22,6 @@ import type { z } from "zod";
 // Nest DI 随后报 "LlmExecutor dependency at index [0]"。
 // 参考 8ac343b98（agent-factory / spec-based-agent 已同此修复）。
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
-import { AiObservabilityService } from "../../../ai-harness/tracing/observability/ai-observability.service";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { AIModelType } from "@prisma/client";
@@ -171,7 +171,10 @@ export function extractJsonFromLlmContent(content: string): unknown {
 export class LlmExecutor {
   private readonly logger = new Logger(LlmExecutor.name);
 
-  constructor(private readonly aiChatService: AiChatService) {}
+  constructor(
+    private readonly aiChatService: AiChatService,
+    @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
+  ) {}
 
   /**
    * 执行一次"prompt → LLM → JSON → Zod → business-rule 校验 → 产出 TOutput"。
@@ -281,11 +284,12 @@ export class LlmExecutor {
       totalInput += res.usage?.inputTokens ?? 0;
       totalOutput += res.usage?.outputTokens ?? 0;
       lastModel = res.model;
-      totalCost += AiObservabilityService.estimateCost(
-        res.model ?? "default",
-        res.usage?.inputTokens ?? 0,
-        res.usage?.outputTokens ?? 0,
-      );
+      totalCost +=
+        this.pricingRegistry?.estimateCost(
+          res.model ?? "",
+          res.usage?.inputTokens ?? 0,
+          res.usage?.outputTokens ?? 0,
+        ) ?? 0;
 
       if (res.isError) {
         throw new Error(

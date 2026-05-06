@@ -52,22 +52,9 @@ export interface ModelUsageStats {
 export class AIMetricsService {
   private readonly logger = new Logger(AIMetricsService.name);
 
-  // 模型成本估算 (USD per 1K tokens)
-  private readonly MODEL_COSTS: Record<
-    string,
-    { input: number; output: number }
-  > = {
-    "gpt-4o": { input: 0.005, output: 0.015 },
-    "gpt-4o-mini": { input: 0.00015, output: 0.0006 },
-    "gpt-4-turbo": { input: 0.01, output: 0.03 },
-    "gpt-3.5-turbo": { input: 0.0005, output: 0.0015 },
-    "claude-3-5-sonnet-20241022": { input: 0.003, output: 0.015 },
-    "claude-3-opus-20240229": { input: 0.015, output: 0.075 },
-    "claude-3-sonnet-20240229": { input: 0.003, output: 0.015 },
-    "claude-3-haiku-20240307": { input: 0.00025, output: 0.00125 },
-    "deepseek-chat": { input: 0.00014, output: 0.00028 },
-    "deepseek-reasoner": { input: 0.00055, output: 0.00219 },
-  };
+  // 模型成本估算的硬编码表已删除。价格走 ModelPricingRegistry 单一权威源
+  // （ai-engine/llm/pricing/model-pricing.registry.ts，从 ai_models 表 hydrate）。
+  // 调用方传 estimatedCost 给 recordMetric，ai-infra 层不持有价格知识。
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -85,6 +72,12 @@ export class AIMetricsService {
     duration?: number;
     inputTokens?: number;
     outputTokens?: number;
+    /**
+     * 调用方算好的 estimatedCost（USD）。模型价格走 ModelPricingRegistry
+     * 单一源（ai_models 表），ai-infra 层不再持有任何硬编码价格表。
+     * 未传则视为 0（"模型未在 admin 配价格"）。
+     */
+    estimatedCost?: number;
     success: boolean;
     errorCode?: string;
     errorMsg?: string;
@@ -100,12 +93,7 @@ export class AIMetricsService {
       metadata.module = "ai-engine";
     }
 
-    // 估算成本
-    const estimatedCost = this.estimateCost(
-      params.modelId,
-      params.inputTokens,
-      params.outputTokens,
-    );
+    const estimatedCost = params.estimatedCost ?? 0;
 
     const record = await this.prisma.aIEngineMetric.create({
       data: {
@@ -384,30 +372,6 @@ export class AIMetricsService {
   }
 
   // ==================== Private Methods ====================
-
-  /**
-   * 估算成本
-   */
-  private estimateCost(
-    modelId?: string,
-    inputTokens?: number,
-    outputTokens?: number,
-  ): number {
-    if (!modelId || (!inputTokens && !outputTokens)) {
-      return 0;
-    }
-
-    const costs = this.MODEL_COSTS[modelId];
-    if (!costs) {
-      // 默认成本估算
-      return ((inputTokens || 0) + (outputTokens || 0)) * 0.00001;
-    }
-
-    const inputCost = ((inputTokens || 0) / 1000) * costs.input;
-    const outputCost = ((outputTokens || 0) / 1000) * costs.output;
-
-    return Math.round((inputCost + outputCost) * 1000000) / 1000000;
-  }
 
   /**
    * 按模型统计

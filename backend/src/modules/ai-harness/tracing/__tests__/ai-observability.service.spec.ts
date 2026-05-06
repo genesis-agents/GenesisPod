@@ -11,7 +11,7 @@
  * - flushToDB()              - batch-persist to DB, concurrency guard
  * - getPendingFlushCount()   - inspect pending queue
  * - reset()                  - clear all state
- * - estimateCost()           - static pricing utility
+ * - estimateCost()           - REMOVED: 价格走 ModelPricingRegistry，不再持有硬编码表
  * - onModuleInit / onModuleDestroy lifecycle hooks
  */
 
@@ -642,71 +642,10 @@ describe("AiObservabilityService (no Prisma)", () => {
   });
 
   // =========================================================================
-  // estimateCost() — static method
-  // =========================================================================
-
-  describe("estimateCost()", () => {
-    it("should calculate cost for gpt-4o", () => {
-      const cost = AiObservabilityService.estimateCost("gpt-4o", 1000, 500);
-      // input: 1000/1000 * 0.0025 = 0.0025; output: 500/1000 * 0.01 = 0.005; total = 0.0075
-      expect(cost).toBeCloseTo(0.0075);
-    });
-
-    it("should calculate cost for gpt-4o-mini", () => {
-      const cost = AiObservabilityService.estimateCost(
-        "gpt-4o-mini",
-        1000,
-        500,
-      );
-      // input: 1000/1000 * 0.00015 = 0.00015; output: 500/1000 * 0.0006 = 0.0003; total = 0.00045
-      expect(cost).toBeCloseTo(0.00045);
-    });
-
-    it("should calculate cost for claude-3.5-sonnet", () => {
-      const cost = AiObservabilityService.estimateCost(
-        "claude-3.5-sonnet",
-        1000,
-        500,
-      );
-      // input: 1000/1000 * 0.003 = 0.003; output: 500/1000 * 0.015 = 0.0075; total = 0.0105
-      expect(cost).toBeCloseTo(0.0105);
-    });
-
-    it("should use default pricing for unknown models", () => {
-      const cost = AiObservabilityService.estimateCost(
-        "unknown-model",
-        1000,
-        1000,
-      );
-      // default: input: 1000/1000 * 0.001 = 0.001; output: 1000/1000 * 0.002 = 0.002; total = 0.003
-      expect(cost).toBeCloseTo(0.003);
-    });
-
-    it("should return 0 when both token counts are 0", () => {
-      const cost = AiObservabilityService.estimateCost("gpt-4o", 0, 0);
-      expect(cost).toBe(0);
-    });
-
-    it("should calculate cost for claude-3-haiku", () => {
-      const cost = AiObservabilityService.estimateCost(
-        "claude-3-haiku",
-        1000,
-        1000,
-      );
-      expect(cost).toBeCloseTo(0.00375);
-    });
-
-    it("should calculate cost for grok-2", () => {
-      const cost = AiObservabilityService.estimateCost("grok-2", 1000, 1000);
-      expect(cost).toBeCloseTo(0.012);
-    });
-
-    it("should calculate cost for grok-beta", () => {
-      const cost = AiObservabilityService.estimateCost("grok-beta", 1000, 1000);
-      expect(cost).toBeCloseTo(0.02);
-    });
-  });
-
+  // 注：旧的 static estimateCost() + COST_PER_1K_TOKENS 硬编码价格表已删除。
+  // 模型价格的单一权威源是 ModelPricingRegistry（DB AIModel 表 hydrate）。
+  // 调用方注入 ModelPricingRegistry 自行 estimateCost。覆盖见
+  // ai-engine/llm/pricing/__tests__/model-pricing-registry.spec.ts
   // =========================================================================
   // lifecycle hooks (no Prisma)
   // =========================================================================

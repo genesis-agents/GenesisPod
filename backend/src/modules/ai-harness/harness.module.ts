@@ -80,7 +80,8 @@ import { ReActRunner } from "./runner/env/react-runner";
 import { AgentTracer } from "./tracing/tracer/otel-tracer";
 import { AgentToolRegistry } from "./runner/env/tool-registry";
 import { MissionOrchestrator } from "./runner/plan-execution/task-execution-orchestrator";
-import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+// ModelPricingRegistry 在 AiEngineLLMModule 注册并 export，harness 通过
+// imports: [AiEngineLLMModule] 拿到，不在此重复注册。
 import { SpanExporter } from "./tracing/tracer/span-exporter";
 import { JudgeService } from "./evaluation/verify/judge.service";
 // ★ 沉淀（2026-04-29）: figure 相关性判断（来自 {app}, TI 暂不切换）
@@ -273,8 +274,9 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     ReActRunner,
     MissionOrchestrator,
 
-    // â˜… PR-B: Pricing + Verifier facade
-    ModelPricingRegistry,
+    // ★ ModelPricingRegistry 在 AiEngineLLMModule 注册（单一注册源，
+    //    harness 通过 imports: [AiEngineLLMModule] 拿到）。这里删除重复注册
+    //    避免 multi-instance hydrate 同一 DB 表。
     JudgeService,
 
     // ★ 沉淀: figure 相关性判断（{app} 复用，TI 暂保留私有）
@@ -372,7 +374,6 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
     AgentToolRegistry,
     ReActRunner,
     MissionOrchestrator,
-    ModelPricingRegistry,
     JudgeService,
     FigureRelevanceService, // ★ 沉淀: figure 相关性
     CritiqueRefineService, // ★ 沉淀: critique-refine

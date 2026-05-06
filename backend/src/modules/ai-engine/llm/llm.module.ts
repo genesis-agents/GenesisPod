@@ -58,6 +58,9 @@ import { ModelRecommendationsService } from "./selection/model-recommendations.s
 // Environment-aware model election (pick modelId from env snapshot + request hints)
 import { ModelElectionService } from "./selection/model-election.service";
 
+// Single source of truth for model pricing (DB AIModel table → in-memory hydrate)
+import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
+
 @Module({
   imports: [
     HttpModule.register({
@@ -127,6 +130,9 @@ import { ModelElectionService } from "./selection/model-election.service";
 
     // Environment-aware model election
     ModelElectionService,
+
+    // Pricing single source of truth (replaces 3 hardcoded tables)
+    ModelPricingRegistry,
   ],
   exports: [
     LLMFactory,
@@ -151,6 +157,7 @@ import { ModelElectionService } from "./selection/model-election.service";
     SystemModelInventoryService,
     ModelElectionService,
     AutoConfigureService,
+    ModelPricingRegistry,
   ],
 })
 export class AiEngineLLMModule {}

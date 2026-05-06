@@ -32,7 +32,7 @@ import { AiDirectKeyService } from "./ai-direct-key.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
 import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KernelContext } from "@/common/context/kernel-context";
-import { estimateCost } from "../../planning/budget/cost.calculator";
+import { ModelPricingRegistry } from "../pricing/model-pricing.registry";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { AiChatFailoverCallerService } from "./ai-chat-failover-caller.service";
 // v5.1 R0.5 PR-5: 双轨接 plugins/core HookBus
@@ -265,7 +265,24 @@ export class AiChatService {
     @Optional() private readonly keyResolver?: KeyResolverService,
     @Optional()
     private readonly failoverCaller?: AiChatFailoverCallerService,
+    @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
   ) {}
+
+  /**
+   * 估算 LLM 调用成本（USD）
+   * 走 ModelPricingRegistry 单一价格源（DB AIModel 表）；未注册返 null。
+   * 调用方需要数值时自行 ?? 0 兜底。
+   */
+  private costFor(
+    model: string,
+    inputTokens: number,
+    outputTokens: number,
+  ): number | null {
+    return (
+      this.pricingRegistry?.estimateCost(model, inputTokens, outputTokens) ??
+      null
+    );
+  }
 
   // ==================== 模型配置委托方法 ====================
 
@@ -1819,7 +1836,8 @@ export class AiChatService {
             provider: currentModelConfig?.provider ?? "",
             inputTokens: 0,
             outputTokens: result.tokensUsed,
-            estimatedCost: estimateCost(currentModel, 0, result.tokensUsed),
+            estimatedCost:
+              this.costFor(currentModel, 0, result.tokensUsed) ?? 0,
           });
         }
         this.emitMetrics({
@@ -1833,7 +1851,7 @@ export class AiChatService {
           outputTokens: result.tokensUsed,
           totalTokens: result.tokensUsed,
           latencyMs: duration,
-          estimatedCost: estimateCost(currentModel, 0, result.tokensUsed),
+          estimatedCost: this.costFor(currentModel, 0, result.tokensUsed) ?? 0,
           success: true,
           fallbackUsed: attempt > 0,
           retryCount: attempt,
@@ -2311,11 +2329,12 @@ export class AiChatService {
         latencyMs: streamDuration,
         ttftMs: streamTiming?.ttftMs,
         ttltMs: streamTiming?.ttltMs,
-        estimatedCost: estimateCost(
-          model,
-          streamUsage?.promptTokens ?? 0,
-          streamUsage?.completionTokens ?? 0,
-        ),
+        estimatedCost:
+          this.costFor(
+            model,
+            streamUsage?.promptTokens ?? 0,
+            streamUsage?.completionTokens ?? 0,
+          ) ?? 0,
         success: true,
         fallbackUsed: false,
         retryCount: 0,
