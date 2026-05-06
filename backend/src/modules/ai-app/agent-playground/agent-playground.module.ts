@@ -131,7 +131,8 @@ import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
     PlaygroundPipelineDispatcher,
     // ── S12 postmortem 失败模式分类（已上提到 @Global HarnessModule）──
   ],
-  exports: [MissionEventBuffer],
+  // R-CA (2026-05-05): 导出 dispatcher + store 让 custom-agents 模块复用启动 + 列表能力
+  exports: [MissionEventBuffer, PlaygroundPipelineDispatcher, MissionStore],
 })
 export class AgentPlaygroundModule implements OnModuleInit {
   constructor(
@@ -247,7 +248,7 @@ export class AgentPlaygroundModule implements OnModuleInit {
               type: "agent-playground.mission:warning",
               scope: { missionId, userId },
               payload: {
-                message: `Mission 心跳/事件已停 ≥ 10 分钟，可能已卡死。建议主动取消重试，或继续等待至 30 分钟自动失败。`,
+                message: `Mission 心跳/事件已停 ≥ 20 分钟，可能已卡死。建议主动取消重试，或继续等待至 wall-time 4h 自动失败。`,
                 ageMs: payload.ageMs,
                 heartbeatAgeMs: payload.heartbeatAgeMs,
                 eventAgeMs: payload.eventAgeMs,
@@ -261,9 +262,14 @@ export class AgentPlaygroundModule implements OnModuleInit {
       {
         // playground 实测档位最长 deep + thorough+ + unlimited ≈ 3h，给 4h 兜底
         wallTimeCapMs: 4 * 60 * 60 * 1000,
-        // heartbeat 30s 一次，5min 容许 ≥ 10 次连续失败再 kill
-        staleThresholdMs: 5 * 60 * 1000,
-        softWarnThresholdMs: 10 * 60 * 1000,
+        // ★ 2026-05-06 (P0-B regression 真因): 5/5 unified MissionLivenessGuard 落地后
+        //   staleThresholdMs=5min 把 4940b78d (5/3 跑通的 52min mission) 这类正常 deep
+        //   mission 误杀。chapter writing × 56 + critic L4 等单次 LLM 调用本身就常 ~3-5min，
+        //   双 stale 5min 阈值让 mission 在长 stage 间隔被误判 stale。
+        //   调整：stale 阈值 5min → 15min；soft warn 10min → 20min。
+        //   wall-time cap 仍 4h 兜底，真死锁不会无限等。
+        staleThresholdMs: 15 * 60 * 1000,
+        softWarnThresholdMs: 20 * 60 * 1000,
         startupGraceMs: 5 * 60 * 1000,
         scanIntervalMs: 60_000,
         bootDelayMs: 60_000,
