@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreditTransactionType, Prisma } from "@prisma/client";
 import { CreditRulesService } from "./policy/credit-rules.service";
@@ -119,6 +124,9 @@ export class CreditsService implements OnModuleInit {
 
   /**
    * 获取余额（轻量级查询）
+   *
+   * 账户不存在 → lazy-create（新用户首次调用）
+   * DB 查询异常 → 抛 ServiceUnavailableException（与真零余额可区分）
    */
   async getBalance(userId: string): Promise<{
     balance: number;
@@ -126,21 +134,41 @@ export class CreditsService implements OnModuleInit {
     isCritical: boolean;
     todaySpent: number;
   }> {
-    const account = await this.prisma.creditAccount.findUnique({
-      where: { userId },
-      select: {
-        balance: true,
-        todaySpent: true,
-        todayDate: true,
-      },
-    });
+    let account: {
+      balance: number;
+      todaySpent: number;
+      todayDate: Date | null;
+    } | null;
+
+    try {
+      account = await this.prisma.creditAccount.findUnique({
+        where: { userId },
+        select: {
+          balance: true,
+          todaySpent: true,
+          todayDate: true,
+        },
+      });
+    } catch (err) {
+      this.logger.error(
+        `getBalance DB error for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw new ServiceUnavailableException(
+        "Credits service temporarily unavailable",
+      );
+    }
 
     if (!account) {
+      // 新用户 — lazy-create，不要误报 isCritical
+      this.logger.log(
+        `getBalance: no account for user ${userId}, lazy-creating`,
+      );
+      const created = await this.getOrCreateAccount(userId);
       return {
-        balance: 0,
-        isLow: true,
-        isCritical: true,
-        todaySpent: 0,
+        balance: created.balance,
+        isLow: created.isLow,
+        isCritical: created.isCritical,
+        todaySpent: created.todaySpent,
       };
     }
 

@@ -133,6 +133,15 @@ export class AgentInvoker {
     await this.relay.tickCost(missionId, userId, stage, pool, deltaTokens);
   }
 
+  /**
+   * P0-1 (2026-05-06): 清理 relay 层 exhaustedMissions Map 中指定 mission 的条目，
+   * 防止 short mission 在 finally 阶段 leak。
+   * dispatcher finally 通过本方法转发，不直接访问 private relay。
+   */
+  clearMissionRelayState(missionId: string): void {
+    this.relay.clearMission(missionId);
+  }
+
   async runWithConcurrency<TIn, TOut>(
     items: readonly TIn[],
     concurrency: number,

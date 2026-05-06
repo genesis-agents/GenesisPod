@@ -254,8 +254,10 @@ export class DataSourceRouterService {
         );
       }
     } else if (!this.capabilityGuard && options?.processId) {
-      this.logger.debug(
-        "[Degraded] CapabilityGuardService unavailable, skipping data source access check",
+      // Guard is @Optional but processId is provided — reject rather than silently skip
+      // to prevent cross-workspace data source access.
+      throw new Error(
+        `CapabilityGuardService is required when processId is supplied (processId=${options.processId}). Ensure CapabilityGuardService is registered in the module.`,
       );
     }
 

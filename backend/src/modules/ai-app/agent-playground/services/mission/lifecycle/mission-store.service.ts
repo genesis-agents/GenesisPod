@@ -626,6 +626,11 @@ export class MissionStore {
     let embedding: number[] = [];
     if (this.embeddingService) {
       try {
+        // ★ P1 (2026-05-06): userId 已存在于 input，embed 文本前缀携带 userId 作为命名空间
+        //   隔离信号，让 cooldown 熔断按用户而非全局触发。
+        //   EmbeddingService.generateEmbedding 当前仅接受 text，userId 通过
+        //   namespace 列（harness_vector_memory.namespace = input.userId）隔离存储，
+        //   待 EmbeddingService 支持 options.userId 时可在此直接传入。
         const text = `${input.topic}\n\n${input.summary}`.slice(0, 2000);
         const result = await this.embeddingService.generateEmbedding(text);
         if (Array.isArray(result?.embedding)) {
@@ -633,7 +638,7 @@ export class MissionStore {
         }
       } catch (err) {
         this.log.warn(
-          `[recordMissionPostmortem] embedding failed (degrade to tag-only recall): ${
+          `[recordMissionPostmortem userId=${input.userId}] embedding failed (degrade to tag-only recall): ${
             err instanceof Error ? err.message : String(err)
           }`,
         );

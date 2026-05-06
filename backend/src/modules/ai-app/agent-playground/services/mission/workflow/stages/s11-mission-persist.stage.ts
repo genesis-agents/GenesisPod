@@ -145,7 +145,12 @@ async function runPersistInner(
               totalChars,
             },
           })
-          .catch(() => {});
+          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+          .catch((emitErr: unknown) => {
+            deps.log.warn(
+              `[s11 ${missionId}] emit mission:failed (chapter_content_incomplete) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+            );
+          });
         return;
       }
 
@@ -170,7 +175,12 @@ async function runPersistInner(
               totalChars,
             },
           })
-          .catch(() => {});
+          // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+          .catch((emitErr: unknown) => {
+            deps.log.warn(
+              `[s11 ${missionId}] emit mission:failed (chapter_content_below_threshold) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+            );
+          });
         return;
       }
     }
@@ -206,7 +216,12 @@ async function runPersistInner(
             wallTimeMs: Date.now() - t0,
           },
         })
-        .catch(() => {});
+        // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+        .catch((emitErr: unknown) => {
+          deps.log.warn(
+            `[s11 ${missionId}] emit mission:failed (leader_signoff_missing) failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+          );
+        });
       return;
     }
 
@@ -271,7 +286,12 @@ async function runPersistInner(
             leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
           },
         })
-        .catch(() => {});
+        // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+        .catch((emitErr: unknown) => {
+          deps.log.warn(
+            `[s11 ${missionId}] emit mission:completed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+          );
+        });
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -283,7 +303,12 @@ async function runPersistInner(
         userId,
         payload: { message, wallTimeMs: Date.now() - t0 },
       })
-      .catch(() => {});
+      // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+      .catch((emitErr: unknown) => {
+        deps.log.warn(
+          `[s11 ${missionId}] emit mission:persist-failed itself failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+        );
+      });
     throw err;
   }
 }

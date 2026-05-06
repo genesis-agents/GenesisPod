@@ -283,6 +283,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       // R2-A.13.1 失败兜底 emitEvent 调用
       emitEvent: jest.fn().mockResolvedValue(undefined),
       emitLifecycle: jest.fn().mockResolvedValue(undefined),
+      // ★ 第3轮修 (2026-05-06): dispatcher finally 调 invoker.clearMissionRelayState
+      //   清 exhaustedMissions Map 防短 mission leak
+      clearMissionRelayState: jest.fn(),
     } as unknown as AgentInvoker;
     // store.listRecentPostmortems 是 s2 hook 内部调用 —— 默认空数组（无历史）
     const buildDepsMock = (stageBindings as unknown as { buildDeps: jest.Mock })

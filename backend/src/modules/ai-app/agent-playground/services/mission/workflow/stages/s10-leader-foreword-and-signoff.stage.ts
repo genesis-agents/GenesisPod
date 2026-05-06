@@ -66,7 +66,12 @@ async function emitLeaderSigned(
       userId: ctx.userId,
       payload: ctx.leaderSignOff,
     })
-    .catch(() => {});
+    // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误，至少 log warn 让 Railway 可见
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[${ctx.missionId}] S10 emit leader:signed failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   // ★ 2026-05-06 (P0-A): emit stage:completed 一并由 signed 事件触发，覆盖所有早返路径
 }
 
@@ -222,7 +227,12 @@ export async function runLeaderForewordAndSignoffStage(
         userId: ctx.userId,
         payload: leaderForeword,
       })
-      .catch(() => {});
+      // ★ P0-2 (2026-05-06): 不再静默吞 emit 错误
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${ctx.missionId}] S10 emit leader:foreword failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   } catch (err) {
     deps.log.warn(
       `[${ctx.missionId}] foreword failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,

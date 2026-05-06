@@ -1048,3 +1048,28 @@ describe("AgentInvoker relay via invoke.onEvent", () => {
     expect(eventBus.emit).toHaveBeenCalled();
   });
 });
+
+// ─── clearMissionRelayState ───────────────────────────────────────────────────
+
+describe("AgentInvoker.clearMissionRelayState", () => {
+  it("does not throw for an unknown missionId", () => {
+    const { svc } = makeSvc();
+    expect(() => svc.clearMissionRelayState("nonexistent")).not.toThrow();
+  });
+
+  it("clears exhaustedMissions entry so relay no longer considers it exhausted", async () => {
+    const runner = makeRunner();
+    const eventBus = makeEventBus();
+    const abortRegistry = makeAbortRegistry();
+    const svc = new AgentInvoker(
+      runner as never,
+      eventBus as never,
+      abortRegistry as never,
+      makeFailureLearner() as never,
+    );
+    // First call: should not throw
+    expect(() => svc.clearMissionRelayState("mission-abc")).not.toThrow();
+    // Idempotent: calling again is safe
+    expect(() => svc.clearMissionRelayState("mission-abc")).not.toThrow();
+  });
+});

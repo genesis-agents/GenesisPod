@@ -5,6 +5,7 @@ import {
   type OnGatewayConnection,
 } from "@nestjs/websockets";
 import { OnEvent } from "@nestjs/event-emitter";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 
@@ -22,6 +23,8 @@ interface NotificationCreatedEvent {
   message: string;
   /** quiet hours 窗口内为 true — 前端应只更新 badge，不弹 toast */
   silent?: boolean;
+  /** 内部重试计数（0-based），外部调用者不需要设置 */
+  _retryCount?: number;
 }
 
 interface NotificationBroadcastEvent {
@@ -59,7 +62,13 @@ export class NotificationGateway implements OnGatewayConnection {
   @WebSocketServer() io!: Server;
   private readonly log = new Logger(NotificationGateway.name);
 
-  constructor(private readonly jwt: JwtService) {}
+  private static readonly MAX_EMIT_RETRIES = 3;
+  private static readonly RETRY_DELAY_MS = 2000;
+
+  constructor(
+    private readonly jwt: JwtService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async handleConnection(client: Socket): Promise<void> {
     let userId: string;
@@ -81,6 +90,7 @@ export class NotificationGateway implements OnGatewayConnection {
   @OnEvent("notification.created")
   handleNotificationCreated(event: NotificationCreatedEvent): void {
     if (!this.io || !event?.userId) return;
+    const retryCount = event._retryCount ?? 0;
     try {
       this.io.to(`user:${event.userId}`).emit("notification:new", {
         notificationId: event.notificationId,
@@ -91,9 +101,22 @@ export class NotificationGateway implements OnGatewayConnection {
         silent: event.silent === true,
       });
     } catch (err) {
-      this.log.warn(
-        `Failed to push notification:new for user=${event.userId}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (retryCount < NotificationGateway.MAX_EMIT_RETRIES) {
+        this.log.warn(
+          `Failed to push notification:new for user=${event.userId} (attempt ${retryCount + 1}/${NotificationGateway.MAX_EMIT_RETRIES}): ${errMsg} — scheduling retry`,
+        );
+        setTimeout(() => {
+          this.eventEmitter.emit("notification.created", {
+            ...event,
+            _retryCount: retryCount + 1,
+          });
+        }, NotificationGateway.RETRY_DELAY_MS);
+      } else {
+        this.log.warn(
+          `Gave up pushing notification:new for user=${event.userId} after ${NotificationGateway.MAX_EMIT_RETRIES} attempts: ${errMsg}. Notification persisted in DB; client will receive on next poll/reconnect.`,
+        );
+      }
     }
   }
 

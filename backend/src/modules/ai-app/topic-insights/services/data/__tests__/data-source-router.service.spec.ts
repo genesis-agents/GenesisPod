@@ -3933,19 +3933,19 @@ describe("DataSourceRouterService", () => {
       expect(result).toBeDefined();
     });
 
-    it("should log degraded message when no capabilityGuard but processId provided", async () => {
-      // The base service has no capabilityGuard (it's @Optional)
-      // When processId is provided but capabilityGuard is absent, it logs a debug message
+    it("should throw when no capabilityGuard but processId provided (cross-workspace access prevention)", async () => {
+      // capabilityGuard is @Optional but processId is provided — must throw to prevent
+      // silent bypass of workspace isolation checks
       const topic = makeResearchTopic();
       const dimension = makeTopicDimension({
         searchSources: [DataSourceType.WEB],
       });
 
-      const result = await service.fetchDataForDimension(dimension, topic, {
-        processId: "process-no-guard",
-      });
-
-      expect(result).toBeDefined();
+      await expect(
+        service.fetchDataForDimension(dimension, topic, {
+          processId: "process-no-guard",
+        }),
+      ).rejects.toThrow(/CapabilityGuardService is required/);
     });
   });
 

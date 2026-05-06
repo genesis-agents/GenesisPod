@@ -519,6 +519,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           `[runMission ${missionId}] session.cleanup() threw: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`,
         );
       }
+      // ★ P0-1 (2026-05-06): relay exhaustedMissions cleanup —— short mission 不 leak Map 条目
+      this.invoker.clearMissionRelayState(missionId);
       this.sessions.delete(missionId);
     }
   }

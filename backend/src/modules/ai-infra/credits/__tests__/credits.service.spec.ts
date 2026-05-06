@@ -241,15 +241,29 @@ describe("CreditsService", () => {
       expect(result.isCritical).toBe(true);
     });
 
-    it("should return zeros and both flags true when account does not exist", async () => {
-      mockPrisma.creditAccount.findUnique.mockResolvedValue(null);
+    it("should lazy-create account and return healthy balance when account does not exist", async () => {
+      // First call (getBalance select) returns null; subsequent call (getOrCreateAccount) returns mock
+      mockPrisma.creditAccount.findUnique
+        .mockResolvedValueOnce(null) // getBalance select
+        .mockResolvedValueOnce(null); // getOrCreateAccount findUnique → triggers create
 
       const result = await service.getBalance("no-account-user");
 
-      expect(result.balance).toBe(0);
-      expect(result.todaySpent).toBe(0);
-      expect(result.isLow).toBe(true);
-      expect(result.isCritical).toBe(true);
+      // lazy-created account starts at 10000 — not critical
+      expect(result.balance).toBe(10000);
+      expect(result.isLow).toBe(false);
+      expect(result.isCritical).toBe(false);
+      expect(mockPrisma.creditAccount.create).toHaveBeenCalled();
+    });
+
+    it("should throw ServiceUnavailableException when DB query fails", async () => {
+      mockPrisma.creditAccount.findUnique.mockRejectedValue(
+        new Error("Connection refused"),
+      );
+
+      await expect(service.getBalance("user-123")).rejects.toThrow(
+        "Credits service temporarily unavailable",
+      );
     });
 
     it("should reset todaySpent to zero when todayDate is before today", async () => {

@@ -227,6 +227,19 @@ class ApiClient {
         if (!response.ok) {
           // Handle 401 Unauthorized - try to refresh token
           if (response.status === 401) {
+            // ★ 未登录用户不要进 refresh→logout→hard reload 循环：
+            // 没有 token 时直接抛 401，让调用方处理（unauth 页面正常渲染登录引导）。
+            // 否则 Sidebar/banner 等组件在未登录状态下打 401 会触发 window.location.href='/'，
+            // 而 / 又重定向回 /ai-ask，造成持续刷新闪烁。
+            const existingTokens = getAuthTokens();
+            if (!existingTokens?.accessToken) {
+              throw this.createApiError(
+                'Authentication required',
+                'UNAUTHENTICATED',
+                401,
+                {}
+              );
+            }
             const newTokens = await refreshAccessToken();
             if (newTokens) {
               // Retry the request with new token

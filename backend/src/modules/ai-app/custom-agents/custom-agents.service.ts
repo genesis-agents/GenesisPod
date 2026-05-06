@@ -8,6 +8,7 @@
 import {
   Injectable,
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Logger,
   NotFoundException,
@@ -166,10 +167,21 @@ export class CustomAgentsService {
         issues,
       });
     }
-    return this.prisma.customAgentDefinition.update({
-      where: { id: existing.id },
-      data: { status: "PUBLISHED", version: existing.version + 1 },
-    });
+    // ★ P0-3 (2026-05-06): 版本竞态防护 —— 乐观并发锁
+    //   read→write 两步之间若另一请求已 publish（版本已变），where 条件不命中
+    //   Prisma 抛 P2025 (record-not-found)，转为 ConflictException 让调用方重试。
+    try {
+      return await this.prisma.customAgentDefinition.update({
+        where: { id: existing.id, version: existing.version },
+        data: { status: "PUBLISHED", version: existing.version + 1 },
+      });
+    } catch (err) {
+      const prismaErr = err as { code?: string };
+      if (prismaErr.code === "P2025") {
+        throw new ConflictException("版本冲突，请刷新后重试");
+      }
+      throw err;
+    }
   }
 
   /**
