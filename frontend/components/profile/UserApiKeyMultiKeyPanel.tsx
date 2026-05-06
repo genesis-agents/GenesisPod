@@ -3,10 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { MultiKeyTable } from '@/components/admin/secrets/MultiKeyTable';
-import {
-  useUserApiKeys,
-  type UserApiKeyInfo,
-} from '@/hooks/features/useUserApiKeys';
+import type { UserApiKeyInfo } from '@/hooks/features/useUserApiKeys';
 import type {
   SecretKeyRow,
   AddKeyInput,
@@ -17,25 +14,44 @@ import type {
  * BYOK provider 卡片下方的多 KEY 表格抽屉（折叠展开）。
  *
  * 与管理员 SecretKeysDrawer 共享 <MultiKeyTable> 组件 → 视觉与行为完全一致。
- * 数据源：useUserApiKeys.getKeysForProvider(provider)
- * 操作端点：现有 /user/api-keys/:provider PUT/DELETE/POST :provider/test（已支持 label）
+ *
+ * ★ 数据/操作 props 由父组件 UserApiKeysTab 注入（共享同一个 useUserApiKeys
+ *   hook 实例），避免 panel 内独立 hook 实例导致 save/delete 后父组件 keys
+ *   列表 stale 的问题。
  */
-export function UserApiKeyMultiKeyPanel({ provider }: { provider: string }) {
-  const {
-    getKeysForProvider,
-    saveKey,
-    deleteKey,
-    testKey,
-    saving,
-    testing,
-    loading,
-  } = useUserApiKeys();
+export interface UserApiKeyMultiKeyPanelProps {
+  provider: string;
+  /** 该 provider 下全部 label 的 keys（已按 label 排序） */
+  keys: UserApiKeyInfo[];
+  loading: boolean;
+  saving: boolean;
+  testing: boolean;
+  /** PUT /user/api-keys/:provider — saveKey 用于 add 和 replace */
+  onSave: (
+    provider: string,
+    apiKey: string,
+    mode: 'personal' | 'donated',
+    preferredModelId?: string,
+    apiEndpoint?: string,
+    label?: string
+  ) => Promise<boolean>;
+  /** DELETE /user/api-keys/:provider?label=X */
+  onDelete: (provider: string, label?: string) => Promise<boolean>;
+}
+
+export function UserApiKeyMultiKeyPanel({
+  provider,
+  keys: userKeys,
+  loading,
+  saving,
+  testing,
+  onSave,
+  onDelete,
+}: UserApiKeyMultiKeyPanelProps) {
   const [open, setOpen] = useState(false);
 
-  const userKeys = getKeysForProvider(provider);
-
   // UserApiKeyInfo → SecretKeyRow 适配（无 secretId/priority/lastErrorMessage 字段，填占位值）
-  const adapted: SecretKeyRow[] = userKeys.map((k: UserApiKeyInfo) => ({
+  const adapted: SecretKeyRow[] = userKeys.map((k) => ({
     id: k.id,
     secretId: provider, // BYOK 用 provider 名当 secretId 占位
     label: k.label,
@@ -52,7 +68,7 @@ export function UserApiKeyMultiKeyPanel({ provider }: { provider: string }) {
 
   const handleAdd = async (input: AddKeyInput) => {
     // BYOK 默认 personal mode；用户走完整 onboarding 才捐赠
-    await saveKey(
+    await onSave(
       provider,
       input.value,
       'personal',
@@ -66,7 +82,7 @@ export function UserApiKeyMultiKeyPanel({ provider }: { provider: string }) {
     const target = userKeys.find((k) => k.id === keyId);
     if (!target) return;
     // PUT :provider with same label 即覆盖
-    await saveKey(
+    await onSave(
       provider,
       value,
       target.mode,
@@ -78,18 +94,18 @@ export function UserApiKeyMultiKeyPanel({ provider }: { provider: string }) {
 
   const handleUpdate = async (_keyId: string, _meta: UpdateKeyMetaInput) => {
     // BYOK 当前不支持 priority/isActive 改 meta（schema 也无 priority）
-    // 留空实现；UI 不会出现 edit 操作（priority 列恒 0）
+    // 留空实现；UI Edit 按钮不暴露（adapted.priority 恒 0）
   };
 
   const handleDelete = async (keyId: string) => {
     const target = userKeys.find((k) => k.id === keyId);
     if (!target) return;
-    await deleteKey(provider, target.label);
+    await onDelete(provider, target.label);
   };
 
   const handleTest = async (_keyId: string) => {
-    // 新版 test 通过 listUserApiKeys.testStatus 字段被动回写；P3+ 可加主动 test
-    // 当前 endpoint 需要 apiKey 明文，这里没有 → 提示用户用 Replace 覆盖再观察
+    // BYOK 现有 test endpoint 需要 apiKey 明文；保存后通过被动调用 markFailure 更新
+    // 状态。UI 不主动触发；用户用 Replace 覆盖 + 后续真实流量被动反馈。
   };
 
   return (

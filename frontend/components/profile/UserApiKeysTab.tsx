@@ -57,8 +57,12 @@ const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
 function ProviderKeyCard({
   provider,
   existingKey,
+  providerKeys,
+  loading,
   onSave,
+  onSaveWithLabel,
   onDelete,
+  onDeleteWithLabel,
   onTest,
   onWithdrawDonation,
   saving,
@@ -66,6 +70,9 @@ function ProviderKeyCard({
 }: {
   provider: ProviderInfo;
   existingKey?: UserApiKeyInfo;
+  /** 该 provider 下全部 label 的 keys（多 key 面板用） */
+  providerKeys: UserApiKeyInfo[];
+  loading: boolean;
   onSave: (
     provider: string,
     apiKey: string,
@@ -73,7 +80,18 @@ function ProviderKeyCard({
     preferredModelId?: string,
     apiEndpoint?: string
   ) => Promise<boolean>;
+  /** 全签名版本（含 label）— 多 key 面板调用 */
+  onSaveWithLabel: (
+    provider: string,
+    apiKey: string,
+    mode: 'personal' | 'donated',
+    preferredModelId?: string,
+    apiEndpoint?: string,
+    label?: string
+  ) => Promise<boolean>;
   onDelete: (provider: string) => Promise<boolean>;
+  /** 含 label 的删除（多 key 面板用） */
+  onDeleteWithLabel: (provider: string, label?: string) => Promise<boolean>;
   onTest: (
     provider: string,
     apiKey: string,
@@ -413,7 +431,15 @@ function ProviderKeyCard({
           </div>
 
           {/* 多 KEY 管理面板（与管理员 SecretKeysDrawer 共享 MultiKeyTable） */}
-          <UserApiKeyMultiKeyPanel provider={provider.id} />
+          <UserApiKeyMultiKeyPanel
+            provider={provider.id}
+            keys={providerKeys}
+            loading={loading}
+            saving={saving}
+            testing={testing}
+            onSave={onSaveWithLabel}
+            onDelete={onDeleteWithLabel}
+          />
         </div>
       )}
     </div>
@@ -433,6 +459,7 @@ export function UserApiKeysTab() {
     testKey,
     withdrawDonation,
     getKeyForProvider,
+    getKeysForProvider,
   } = useUserApiKeys();
 
   const donatedCount = keys.filter((k) => k.mode === 'donated').length;
@@ -480,8 +507,12 @@ export function UserApiKeysTab() {
             key={provider.id}
             provider={provider}
             existingKey={getKeyForProvider(provider.id)}
-            onSave={saveKey}
-            onDelete={deleteKey}
+            providerKeys={getKeysForProvider(provider.id)}
+            loading={loading}
+            onSave={(p, k, m, mid, ep) => saveKey(p, k, m, mid, ep)}
+            onSaveWithLabel={saveKey}
+            onDelete={(p) => deleteKey(p)}
+            onDeleteWithLabel={deleteKey}
             onTest={testKey}
             onWithdrawDonation={withdrawDonation}
             saving={saving}
