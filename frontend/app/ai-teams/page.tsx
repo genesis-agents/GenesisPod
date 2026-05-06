@@ -11,6 +11,7 @@ import {
   UpdateTopicDto,
 } from '@/types/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
+import { ModelBadges } from '@/components/common/ModelBadges';
 import AppShell from '@/components/layout/AppShell';
 import ShareModal from '@/components/common/dialogs/ShareModal';
 import * as api from '@/services/ai-teams/api';
@@ -1189,9 +1190,10 @@ function CreateTopicDialog({
                   >
                     {model.icon || '🤖'}
                   </span>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
                       {model.name}
+                      <ModelBadges model={model} />
                     </div>
                     <div className="text-xs text-gray-500">
                       {model.description}

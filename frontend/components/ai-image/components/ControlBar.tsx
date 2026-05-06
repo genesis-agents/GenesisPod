@@ -51,6 +51,7 @@ export function ControlBar({
             {models.map((model) => (
               <option key={model.id} value={model.id}>
                 {model.name}
+                {model.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
               </option>
             ))}
           </select>

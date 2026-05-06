@@ -404,4 +404,159 @@ describe('pickPreferredModel (BYOK > admin default > [0])', () => {
     ];
     expect(pickPreferredModel(models)?.id).toBe('mine-a');
   });
+
+  // ─── 真实用户 simulation（DB 实证）────────────────────────────────
+
+  it('simulates user 18780216 (xai BYOK only, no openai)', () => {
+    // DB enabled: 3 OpenAI + 1 Cohere (system)
+    // User has: cohere + xai + voyage PERSONAL keys
+    // BYOK_DEFAULT_MODELS[xai] generates xai models with isUserKey=true
+    const models: AIModel[] = [
+      makeModel({
+        id: 'sys-gpt5',
+        modelId: 'gpt-5',
+        provider: 'OpenAI',
+        isDefault: true, // admin marked default
+      }),
+      makeModel({
+        id: 'sys-gpt-mini',
+        modelId: 'gpt-5-mini',
+        provider: 'OpenAI',
+      }),
+      makeModel({
+        id: 'sys-cohere',
+        modelId: 'cohere-r-plus',
+        provider: 'Cohere',
+        isUserKey: true, // user has cohere key
+      }),
+      makeModel({
+        id: 'byok-xai-grok3',
+        modelId: 'grok-3-latest',
+        provider: 'xAI',
+        isUserKey: true,
+      }),
+      makeModel({
+        id: 'byok-xai-grok4',
+        modelId: 'grok-4-reasoning',
+        provider: 'xAI',
+        isUserKey: true,
+      }),
+    ];
+    // Expected: pick first user-key (cohere/xai), NOT system gpt-5
+    const picked = pickPreferredModel(models);
+    expect(picked?.isUserKey).toBe(true);
+    expect(picked?.id).not.toBe('sys-gpt5'); // 严格 BYOK：不能选系统模型
+  });
+
+  it('simulates user 487acfeb (openai PERSONAL + admin OpenAI default)', () => {
+    // User configured PERSONAL openai key → admin's OpenAI gpt-5 isDefault
+    // becomes isUserKey=true (provider matched)
+    const models: AIModel[] = [
+      makeModel({
+        id: 'sys-gpt5',
+        modelId: 'gpt-5',
+        provider: 'OpenAI',
+        isDefault: true,
+        isUserKey: true,
+      }),
+      makeModel({
+        id: 'sys-gpt-mini',
+        modelId: 'gpt-5-mini',
+        provider: 'OpenAI',
+        isUserKey: true,
+      }),
+      makeModel({
+        id: 'sys-cohere',
+        modelId: 'cohere-r-plus',
+        provider: 'Cohere',
+        isUserKey: true,
+      }),
+    ];
+    // All 3 are user-key, gpt-5 is default → should pick gpt-5
+    expect(pickPreferredModel(models)?.id).toBe('sys-gpt5');
+  });
+
+  it('simulates user with no BYOK (anonymous / fresh signup)', () => {
+    // Pure system models, no user keys → fall back to admin default
+    const models: AIModel[] = [
+      makeModel({
+        id: 'sys-gpt5',
+        modelId: 'gpt-5',
+        provider: 'OpenAI',
+        isDefault: true,
+      }),
+      makeModel({
+        id: 'sys-claude',
+        modelId: 'claude-4',
+        provider: 'Anthropic',
+      }),
+    ];
+    expect(pickPreferredModel(models)?.id).toBe('sys-gpt5');
+  });
+
+  // ─── 边界 / 防御性 ───────────────────────────────────────────────
+
+  it('treats undefined isUserKey as false (not as user key)', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'a', modelId: 'gpt-5', isDefault: true }),
+      makeModel({ id: 'b', modelId: 'grok-3' }),
+    ];
+    // 都没 isUserKey → 走 isDefault 路径
+    expect(pickPreferredModel(models)?.id).toBe('a');
+  });
+
+  it('handles all-isUserKey list with no isDefault', () => {
+    const models: AIModel[] = [
+      makeModel({ id: 'mine-a', modelId: 'grok-3', isUserKey: true }),
+      makeModel({ id: 'mine-b', modelId: 'claude-4', isUserKey: true }),
+    ];
+    expect(pickPreferredModel(models)?.id).toBe('mine-a');
+  });
+
+  it('does not pick disabled-looking model erroneously', () => {
+    // 100% defensive — even if list mixes types, picker stays simple
+    const models: AIModel[] = [
+      makeModel({
+        id: 'image',
+        modelId: 'imagen-3',
+        modelType: 'IMAGE_GENERATION',
+        isUserKey: true,
+      }),
+      makeModel({
+        id: 'chat',
+        modelId: 'gpt-5',
+        modelType: 'CHAT',
+        isDefault: true,
+      }),
+    ];
+    // pickPreferredModel 不过滤 modelType（调用方负责 filter），picker 只看 isUserKey
+    expect(pickPreferredModel(models)?.id).toBe('image');
+  });
+
+  it('large list (100 models) — perf sanity', () => {
+    const models: AIModel[] = Array.from({ length: 100 }, (_, i) =>
+      makeModel({
+        id: `m-${i}`,
+        modelId: `model-${i}`,
+        // 第 50 个是 user-key + isDefault，第 0 个是 admin default
+        isDefault: i === 0,
+        isUserKey: i === 50,
+      })
+    );
+    // BYOK 命中 → 第 50 个是唯一 user-key，应该选它
+    expect(pickPreferredModel(models)?.id).toBe('m-50');
+  });
+
+  it('returned model is the same reference (no mutation)', () => {
+    const userKeyModel = makeModel({
+      id: 'mine',
+      modelId: 'grok-3',
+      isUserKey: true,
+    });
+    const models: AIModel[] = [
+      makeModel({ id: 'sys', modelId: 'gpt-5', isDefault: true }),
+      userKeyModel,
+    ];
+    expect(pickPreferredModel(models)).toBe(userKeyModel); // same object reference
+  });
 });

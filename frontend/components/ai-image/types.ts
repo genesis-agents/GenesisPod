@@ -86,6 +86,8 @@ export interface AIModel {
   modelId: string;
   icon?: string;
   isDefault: boolean;
+  /** W4-byok: 后端 getEnabledModelsForFrontend 给用户配过 PERSONAL key 的模型标记 */
+  isUserKey?: boolean;
 }
 
 export interface ModelsResponse {
