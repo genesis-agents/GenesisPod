@@ -301,6 +301,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     };
     const fakeEventBuffer = {
       read: jest.fn().mockReturnValue([]),
+      // ★ A-1/A-7/A-8: dispatcher onEvent 桥接 + fire-and-forget S12 + finally 兜底
+      //   都通过 broadcast 发 agent-playground.* 事件，spec 必须 mock
+      broadcast: jest.fn().mockResolvedValue(undefined),
     };
     const fakeStore = {
       markStageComplete: jest.fn().mockResolvedValue(undefined),
@@ -323,10 +326,11 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
   it("onModuleInit 注册 PLAYGROUND_PIPELINE 到 registry", () => {
     expect(registry.has(PLAYGROUND_PIPELINE.id)).toBe(true);
     const cfg = registry.get(PLAYGROUND_PIPELINE.id);
-    expect(cfg.steps).toHaveLength(14);
+    // ★ A-7: S12 移出 pipeline.steps 走 fire-and-forget by dispatcher
+    expect(cfg.steps).toHaveLength(13);
   });
 
-  it("注册的 config 14 个 step 都已注入 hooks（NotYetWired 占位）", () => {
+  it("注册的 config 13 个 step 都已注入 hooks（NotYetWired 占位）", () => {
     const cfg = registry.get(PLAYGROUND_PIPELINE.id);
     for (const step of cfg.steps) {
       // 必填 hook 都被注入；learn 没有必填 hook 是合法情况
@@ -337,7 +341,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     }
   });
 
-  it("★ pipeline-v1 全部 14 stage wired → mission 完整跑通 status=completed (R2-A.13 试用就绪)", async () => {
+  it("★ pipeline-v1 全部 13 stage wired → mission 完整跑通 status=completed (A-7 后 S12 走 postlude)", async () => {
     const result = await dispatcher.runMission(
       "m1",
       {
@@ -396,8 +400,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     });
     // s11 persist primitive { persisted: true }
     expect(result.stageOutputs["s11-persist"]).toEqual({ persisted: true });
-    // s12 learn primitive 默认输出（无必填 hook）
-    expect(result.stageOutputs["s12-self-evolution"]).toBeDefined();
+    // ★ A-7: s12-self-evolution 已从 pipeline.steps 移出走 fire-and-forget，
+    //   stageOutputs 不再包含；改由 mission:postlude:* 事件流跟踪
+    expect(result.stageOutputs["s12-self-evolution"]).toBeUndefined();
   });
 
   it("s2-leader-plan hook：调 leader.plan + emit leader:goals-set 事件", async () => {
