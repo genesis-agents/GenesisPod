@@ -86,7 +86,7 @@ export function useNotifications(options?: {
   if (read !== undefined) queryParams.set('read', String(read));
 
   const { data, loading, error, refresh } = useApiGet<NotificationsResponse>(
-    `/api/notifications?${queryParams.toString()}`
+    `/notifications?${queryParams.toString()}`
   );
 
   return {
@@ -105,7 +105,7 @@ export function useNotifications(options?: {
  */
 export function useUnreadNotificationCount() {
   const { data, loading, error, refresh } = useApiGet<UnreadCountResponse>(
-    '/api/notifications/unread-count'
+    '/notifications/unread-count'
   );
 
   return {
@@ -129,7 +129,7 @@ export function useNotificationActions() {
     setError(null);
     try {
       const result = await apiClient.patch<{ success: boolean }>(
-        `/api/notifications/${notificationId}/read`,
+        `/notifications/${notificationId}/read`,
         {}
       );
       return result;
@@ -146,7 +146,7 @@ export function useNotificationActions() {
     setError(null);
     try {
       const result = await apiClient.post<{ count: number }>(
-        '/api/notifications/read-all',
+        '/notifications/read-all',
         {}
       );
       return result;
@@ -163,7 +163,7 @@ export function useNotificationActions() {
     setError(null);
     try {
       const result = await apiClient.delete<{ success: boolean }>(
-        `/api/notifications/${notificationId}`
+        `/notifications/${notificationId}`
       );
       return result;
     } catch (err) {
@@ -188,13 +188,13 @@ export function useNotificationActions() {
  */
 export function useNotificationPreferences() {
   const { data, loading, error, refresh } = useApiGet<NotificationPreferences>(
-    '/api/notifications/preferences'
+    '/notifications/preferences'
   );
 
   const { execute: updatePreferencesApi, loading: updating } = useApiMutation<
     NotificationPreferences,
     Partial<NotificationPreferences>
-  >('patch', '/api/notifications/preferences');
+  >('patch', '/notifications/preferences');
 
   const updatePreferences = useCallback(
     async (updates: Partial<NotificationPreferences>) => {

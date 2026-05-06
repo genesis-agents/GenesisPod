@@ -19,29 +19,29 @@ export function useAdminCollections() {
     loading: listLoading,
     error: listError,
     execute: refreshCollections,
-  } = useApiGet<Collection[]>('/api/admin/collections', {
+  } = useApiGet<Collection[]>('/admin/collections', {
     immediate: true,
   });
 
   const { loading: createLoading, execute: createApi } = useApiPost<
     Collection,
     Partial<Collection>
-  >('/api/admin/collections');
+  >('/admin/collections');
 
   const { loading: updateLoading, execute: updateApi } = useApiPut<
     Collection,
     Partial<Collection>
-  >('/api/admin/collections');
+  >('/admin/collections');
 
   const { loading: deleteLoading, execute: deleteApi } = useApiDelete<
     void,
     { id: string }
-  >('/api/admin/collections');
+  >('/admin/collections');
 
   const { loading: syncLoading, execute: syncApi } = useApiPost<
     void,
     { id: string }
-  >('/api/admin/collections/sync');
+  >('/admin/collections/sync');
 
   const createCollection = useCallback(
     async (data: Partial<Collection>) => {

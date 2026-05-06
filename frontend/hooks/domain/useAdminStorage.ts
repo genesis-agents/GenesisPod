@@ -24,7 +24,7 @@ export function useAdminStorage() {
     loading: listLoading,
     error: listError,
     execute: refreshFiles,
-  } = useApiGet<StorageItem[]>('/api/admin/storage/files', {
+  } = useApiGet<StorageItem[]>('/admin/storage/files', {
     immediate: true,
   });
 
@@ -32,18 +32,18 @@ export function useAdminStorage() {
     data: stats,
     loading: statsLoading,
     execute: refreshStats,
-  } = useApiGet<StorageStats>('/api/admin/storage/stats', {
+  } = useApiGet<StorageStats>('/admin/storage/stats', {
     immediate: true,
   });
 
   const { loading: deleteLoading, execute: deleteFileApi } = useApiDelete<
     void,
     { id: string }
-  >('/api/admin/storage/files');
+  >('/admin/storage/files');
 
   const { loading: cleanupLoading, execute: cleanupApi } = useApiPost<{
     deleted: number;
-  }>('/api/admin/storage/cleanup');
+  }>('/admin/storage/cleanup');
 
   const deleteFile = useCallback(
     async (id: string) => {

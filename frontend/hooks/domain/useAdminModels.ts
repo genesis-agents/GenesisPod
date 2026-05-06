@@ -20,7 +20,7 @@ export function useAdminModels() {
     loading: listLoading,
     error: listError,
     execute: refreshModels,
-  } = useApiGet<AIModel[]>('/api/admin/ai-models', {
+  } = useApiGet<AIModel[]>('/admin/ai-models', {
     immediate: true,
   });
 
@@ -29,21 +29,21 @@ export function useAdminModels() {
     loading: createLoading,
     error: createError,
     execute: createModelApi,
-  } = useApiPost<AIModel, Partial<AIModel>>('/api/admin/ai-models');
+  } = useApiPost<AIModel, Partial<AIModel>>('/admin/ai-models');
 
   // 更新模型
   const {
     loading: updateLoading,
     error: updateError,
     execute: updateModelApi,
-  } = useApiPut<AIModel, Partial<AIModel>>('/api/admin/ai-models');
+  } = useApiPut<AIModel, Partial<AIModel>>('/admin/ai-models');
 
   // 删除模型
   const {
     loading: deleteLoading,
     error: deleteError,
     execute: deleteModelApi,
-  } = useApiDelete<void, { id: string }>('/api/admin/ai-models');
+  } = useApiDelete<void, { id: string }>('/admin/ai-models');
 
   // 测试连接
   const {
@@ -51,7 +51,7 @@ export function useAdminModels() {
     error: testError,
     execute: testConnectionApi,
   } = useApiPost<{ success: boolean; message: string }, { modelId: string }>(
-    '/api/admin/ai-models/test'
+    '/admin/ai-models/test'
   );
 
   const createModel = useCallback(

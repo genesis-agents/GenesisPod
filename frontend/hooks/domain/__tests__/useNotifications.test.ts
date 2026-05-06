@@ -170,7 +170,7 @@ describe('useUnreadNotificationCount', () => {
     vi.mocked(useApiGet).mockReturnValue(makeDefaultGet());
     renderHook(() => useUnreadNotificationCount());
     expect(vi.mocked(useApiGet)).toHaveBeenCalledWith(
-      '/api/notifications/unread-count'
+      '/notifications/unread-count'
     );
   });
 
@@ -201,10 +201,7 @@ describe('useNotificationActions', () => {
     await act(async () => {
       await result.current.markAsRead('n-1');
     });
-    expect(apiClient.patch).toHaveBeenCalledWith(
-      '/api/notifications/n-1/read',
-      {}
-    );
+    expect(apiClient.patch).toHaveBeenCalledWith('/notifications/n-1/read', {});
   });
 
   it('markAsRead sets loading=true while in progress and false after', async () => {
@@ -247,10 +244,7 @@ describe('useNotificationActions', () => {
     await act(async () => {
       await result.current.markAllAsRead();
     });
-    expect(apiClient.post).toHaveBeenCalledWith(
-      '/api/notifications/read-all',
-      {}
-    );
+    expect(apiClient.post).toHaveBeenCalledWith('/notifications/read-all', {});
   });
 
   it('markAllAsRead sets error on failure', async () => {
@@ -274,7 +268,7 @@ describe('useNotificationActions', () => {
     await act(async () => {
       await result.current.deleteNotification('n-1');
     });
-    expect(apiClient.delete).toHaveBeenCalledWith('/api/notifications/n-1');
+    expect(apiClient.delete).toHaveBeenCalledWith('/notifications/n-1');
   });
 
   it('deleteNotification sets error on failure', async () => {
@@ -331,7 +325,7 @@ describe('useNotificationPreferences', () => {
     vi.mocked(useApiMutation).mockReturnValue(makeDefaultMutation());
     renderHook(() => useNotificationPreferences());
     expect(vi.mocked(useApiGet)).toHaveBeenCalledWith(
-      '/api/notifications/preferences'
+      '/notifications/preferences'
     );
   });
 
@@ -374,7 +368,7 @@ describe('useNotificationPreferences', () => {
     renderHook(() => useNotificationPreferences());
     expect(vi.mocked(useApiMutation)).toHaveBeenCalledWith(
       'patch',
-      '/api/notifications/preferences'
+      '/notifications/preferences'
     );
   });
 });
