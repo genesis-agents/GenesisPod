@@ -15,7 +15,11 @@ import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { CustomAgentRecord } from './types';
 
-const REFRESH_EVENT = 'custom-agent:published';
+// ★ 2026-05-05 R-CA bug #3/#4 防御：sidebar 不仅监听 published，也监听 update/archive/delete
+//   让 displayName 改名 / unpublish / archive / delete 后 sidebar 立刻刷新
+const REFRESH_EVENT = 'custom-agent:changed';
+/** @deprecated 保留旧 published event 名以防外部调用，内部统一发 'custom-agent:changed' */
+const LEGACY_PUBLISHED_EVENT = 'custom-agent:published';
 
 export function usePublishedCustomAgents(): {
   items: CustomAgentRecord[];
@@ -49,11 +53,14 @@ export function usePublishedCustomAgents(): {
     const onRefresh = () => void load();
     if (typeof window !== 'undefined') {
       window.addEventListener(REFRESH_EVENT, onRefresh);
+      // legacy 兼容：旧代码可能仍 dispatch 'custom-agent:published'
+      window.addEventListener(LEGACY_PUBLISHED_EVENT, onRefresh);
     }
     return () => {
       cancelled = true;
       if (typeof window !== 'undefined') {
         window.removeEventListener(REFRESH_EVENT, onRefresh);
+        window.removeEventListener(LEGACY_PUBLISHED_EVENT, onRefresh);
       }
     };
   }, []);
@@ -69,9 +76,14 @@ export function usePublishedCustomAgents(): {
   };
 }
 
-/** 让 publish 成功后通知 Sidebar 刷新（由 ReviewStep / MyAgentsTab 调用）*/
-export function notifyCustomAgentPublished(): void {
+/** 通用通知 Sidebar 刷新 —— 任何 agent 写操作（publish / unpublish / archive / update / delete）后调一次 */
+export function notifyCustomAgentChanged(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(REFRESH_EVENT));
   }
+}
+
+/** @deprecated 用 notifyCustomAgentChanged 代替（统一覆盖 publish/update/delete 等）*/
+export function notifyCustomAgentPublished(): void {
+  notifyCustomAgentChanged();
 }

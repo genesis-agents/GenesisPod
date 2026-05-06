@@ -295,36 +295,60 @@ export class CustomAgentsService {
     const missionId = randomUUID();
     this.ownership.assign(missionId, userId);
 
-    // ★ R-CA 时序保证（清零风险 #3）：
+    // ★ R-CA 时序保证（清零风险 #3 + 健壮性 bug #1/#2）：
     //   等 dispatcher 跑完 Phase A（store.create + session 装配）+ 同步触发
     //   afterRowCreated 写 launches；rowReadyResolve 解锁本 endpoint return。
     //   长耗时 Phase B（orchestrator stages）继续 fire-and-forget。
-    let rowReadyResolve!: () => void;
-    let rowReadyReject!: (err: unknown) => void;
+    //
+    //   健壮性：
+    //   - afterRowCreated 内用 try-finally：launches.record 万一抛错也保证 resolve，
+    //     不让 endpoint hang（bug #1 防御）
+    //   - rowReadySettled flag：rowReady 已 settled 后 dispatcher 后续阶段抛错走
+    //     普通 log，不再 reject（避免 endpoint return 后的 unhandled promise rejection，
+    //     bug #2 防御）
+    let rowReadySettled = false;
+    let rowReadyResolveInner!: () => void;
+    let rowReadyRejectInner!: (err: unknown) => void;
     const rowReady = new Promise<void>((resolve, reject) => {
-      rowReadyResolve = resolve;
-      rowReadyReject = reject;
+      rowReadyResolveInner = resolve;
+      rowReadyRejectInner = reject;
     });
+    const settle = (kind: "ok" | "err", err?: unknown) => {
+      if (rowReadySettled) return;
+      rowReadySettled = true;
+      if (kind === "ok") rowReadyResolveInner();
+      else rowReadyRejectInner(err);
+    };
     const customAgentId = translated.metadata.customAgentId;
     void this.pipelineDispatcher
       .runMission(missionId, parsed.data, userId, undefined, async () => {
-        // 此时 mission row 已 INSERT、session 已 register；写 launches 后让 endpoint 返回
-        await this.launches.record({
-          userId,
-          customAgentId,
-          missionId,
-          topic: parsed.data.topic,
-        });
-        rowReadyResolve();
+        // 此时 mission row 已 INSERT、session 已 register；写 launches 后解锁 endpoint
+        try {
+          await this.launches.record({
+            userId,
+            customAgentId,
+            missionId,
+            topic: parsed.data.topic,
+          });
+        } finally {
+          // 即便 launches.record 抛错也 resolve —— mission 已成功创建，不能让 endpoint hang
+          settle("ok");
+        }
       })
       .catch((err: unknown) => {
-        this.log.error(
-          `[launch ${customAgentId}→${missionId}] failed: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-        // afterRowCreated 之前抛错（罕见，DB create 失败）→ 让 endpoint 也失败
-        rowReadyReject(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        if (rowReadySettled) {
+          // endpoint 早已 return；这是 mission 后期 stage 失败，普通 log 不要 unhandled
+          this.log.error(
+            `[launch ${customAgentId}→${missionId}] mission failed after start: ${msg}`,
+          );
+        } else {
+          // afterRowCreated 之前抛错（罕见，DB create 失败）→ 让 endpoint 也失败
+          this.log.error(
+            `[launch ${customAgentId}→${missionId}] failed before row created: ${msg}`,
+          );
+          settle("err", err);
+        }
       });
     await rowReady;
     return { missionId, streamNamespace: "agent-playground" };

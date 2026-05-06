@@ -313,6 +313,13 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         input.inheritFromMissionId,
       );
     }
+    // ★ 2026-05-06 (A-8): 终态守门 — 任何 unexpected throw / pod kill / OOM 后
+    //   finally 检查 mission 是否走完正常 markCompleted/markFailed 路径，否则
+    //   emit mission:execution-aborted + markFailed 兜底。覆盖：
+    //     · runtimeShell.runWithinContext throw（withUserContext / BillingContext 异常）
+    //     · orchestrator.run throw 但 handleMissionFailure 自己又 throw
+    //     · process.exit() / SIGTERM 导致 finally 也跑不全（这种由 liveness-guard 兜底）
+    let reachedTerminal = false;
     try {
       return await this.runtimeShell.runWithinContext(session, async () => {
         const result = await this.orchestrator.run({
@@ -329,42 +336,79 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           //   stage 文件保留的 stage:completed 仅作 metrics 携带 custom payload (artifacts)。
           //   workflow 控制权回归 harness/orchestrator，漏 emit 物理上不可能。
           onEvent: async (event) => {
-            if (
-              event.type !== "stage:started" &&
-              event.type !== "stage:completed" &&
-              event.type !== "stage:failed"
-            ) {
-              return;
-            }
             if (!event.stepId) return;
             const stage = mapStepIdToFrontendStageId(event.stepId);
-            const status =
-              event.type === "stage:started"
-                ? "started"
-                : event.type === "stage:completed"
-                  ? "completed"
-                  : "failed";
-            await this.missionEventBuffer
-              .broadcast({
-                type: "agent-playground.stage:lifecycle",
-                scope: { missionId, userId },
-                payload: {
-                  stage,
-                  stepId: event.stepId,
-                  primitive: event.primitive,
-                  status,
-                  ...(status === "failed"
-                    ? {
-                        error:
-                          event.error instanceof Error
-                            ? event.error.message
-                            : String(event.error ?? ""),
-                      }
-                    : {}),
-                },
-                timestamp: event.timestamp,
-              })
-              .catch(() => undefined);
+
+            // ── lifecycle 事件（status transition 唯一来源）──
+            if (
+              event.type === "stage:started" ||
+              event.type === "stage:completed" ||
+              event.type === "stage:failed"
+            ) {
+              const status =
+                event.type === "stage:started"
+                  ? "started"
+                  : event.type === "stage:completed"
+                    ? "completed"
+                    : "failed";
+              await this.missionEventBuffer
+                .broadcast({
+                  type: "agent-playground.stage:lifecycle",
+                  scope: { missionId, userId },
+                  payload: {
+                    stage,
+                    stepId: event.stepId,
+                    primitive: event.primitive,
+                    status,
+                    ...(status === "failed"
+                      ? {
+                          error:
+                            event.error instanceof Error
+                              ? event.error.message
+                              : String(event.error ?? ""),
+                        }
+                      : {}),
+                  },
+                  timestamp: event.timestamp,
+                })
+                .catch(() => undefined);
+              return;
+            }
+
+            // ── A-9: watchdog 卡顿警告（不阻断，仅可见性）──
+            if (event.type === "stage:stalled") {
+              await this.missionEventBuffer
+                .broadcast({
+                  type: "agent-playground.stage:stalled",
+                  scope: { missionId, userId },
+                  payload: {
+                    stage,
+                    stepId: event.stepId,
+                    elapsedMs: event.elapsedMs,
+                    reason: event.reason,
+                  },
+                  timestamp: event.timestamp,
+                })
+                .catch(() => undefined);
+              return;
+            }
+
+            // ── A-6: stage 软失败信号（不阻断，但要可见）──
+            if (event.type === "stage:degraded") {
+              await this.missionEventBuffer
+                .broadcast({
+                  type: "agent-playground.stage:degraded",
+                  scope: { missionId, userId },
+                  payload: {
+                    stage,
+                    stepId: event.stepId,
+                    reason: event.reason,
+                  },
+                  timestamp: event.timestamp,
+                })
+                .catch(() => undefined);
+              return;
+            }
           },
         });
         // ★ R2-A.13.1 失败兜底：orchestrator 返 status=failed/aborted 时，
@@ -382,10 +426,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         } else {
           // ★ R2-A.13.1 成功路径：清 checkpoint（mission 已完整落库）
           await this.missionCheckpoint.clear(missionId).catch(() => undefined);
-          // ★ F2 修复：s12 已在 orchestrator 内部跑过（fire-and-forget hook 内部
-          //   .catch undefined），不再阻塞返回。如未来想把 s12 拆出独立 fire-and-
-          //   forget，需要把 s12 从 PLAYGROUND_PIPELINE.steps 移除 + 这里手动 fire。
         }
+        // ★ A-7: S12 self-evolution fire-and-forget（成功 / 失败路径都跑）
+        //   不阻塞 dispatcher 返回；emit mission:postlude:* 让前端单独推 s12 todo 状态
+        this.fireSelfEvolutionPostlude(missionId, userId);
+        reachedTerminal = true;
         return {
           missionId: result.missionId,
           status: result.status,
@@ -393,9 +438,164 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           error: result.error,
         };
       });
+    } catch (err) {
+      // ★ A-8: orchestrator/runtimeShell 抛出未被 handleMissionFailure 接住的异常
+      reachedTerminal = await this.tryHandleAbort(
+        missionId,
+        userId,
+        t0,
+        err,
+        session,
+        "execution_threw",
+      );
+      throw err;
     } finally {
+      // ★ A-8: 最后一道闸 — finally 仍未达终态（极端：catch 里 markFailed 也 throw）
+      //   尝试兜底 emit mission:execution-aborted（不写 DB 避免再 throw）
+      if (!reachedTerminal) {
+        await this.missionEventBuffer
+          .broadcast({
+            type: "agent-playground.mission:execution-aborted",
+            scope: { missionId, userId },
+            payload: {
+              reason: "runtime_unknown_state",
+              podId:
+                process.env.RAILWAY_REPLICA_ID ??
+                process.env.HOSTNAME ??
+                "local",
+              wallTimeMs: Date.now() - t0,
+            },
+            timestamp: Date.now(),
+          })
+          .catch(() => undefined);
+      }
       this.sessions.delete(missionId);
       session.cleanup();
+    }
+  }
+
+  /**
+   * A-7: S12 self-evolution fire-and-forget。
+   *
+   * mission terminal（成功/失败）后立即返回 dispatcher，本方法在后台跑 postmortem
+   * + memory 索引。生命周期事件不走 stage:lifecycle（避免与 mission stages 混淆），
+   * 而是 mission:postlude:started / mission:postlude:completed / mission:postlude:failed。
+   */
+  private fireSelfEvolutionPostlude(missionId: string, userId: string): void {
+    const entry = this.sessions.get(missionId);
+    if (!entry) {
+      this.log.warn(
+        `[A-7] fireSelfEvolutionPostlude: no session for ${missionId}`,
+      );
+      return;
+    }
+    const startedAt = Date.now();
+    void this.missionEventBuffer
+      .broadcast({
+        type: "agent-playground.mission:postlude:started",
+        scope: { missionId, userId },
+        payload: { stage: "s12-self-evolution", startedAt },
+        timestamp: startedAt,
+      })
+      .catch(() => undefined);
+
+    const bufferedEvents = this.missionEventBuffer
+      .read(missionId)
+      .map((e) => ({ type: e.type, ts: e.timestamp, payload: e.payload }));
+
+    void runSelfEvolutionStage(
+      {
+        missionId,
+        userId,
+        t0: entry.t0,
+        pool: entry.session.pool,
+        topic: entry.input.topic,
+        plan: entry.lastPlan
+          ? {
+              dimensions: (entry.lastPlan.dimensions ?? []) as unknown[],
+              goals: entry.lastPlan.goals,
+            }
+          : undefined,
+        researcherResults: entry.lastResearcherResults as unknown[] | undefined,
+        reportArtifact: entry.lastReportArtifact as
+          | { quality?: { overall?: number }; sections?: unknown[] }
+          | undefined,
+        leaderSignOff: entry.lastLeaderSignOff,
+        abortSignal: entry.session.missionAbort.signal,
+        bufferedEvents,
+      },
+      this.stageBindings.buildDeps(),
+    )
+      .then(() =>
+        this.missionEventBuffer
+          .broadcast({
+            type: "agent-playground.mission:postlude:completed",
+            scope: { missionId, userId },
+            payload: {
+              stage: "s12-self-evolution",
+              wallTimeMs: Date.now() - startedAt,
+            },
+            timestamp: Date.now(),
+          })
+          .catch(() => undefined),
+      )
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        return this.missionEventBuffer
+          .broadcast({
+            type: "agent-playground.mission:postlude:failed",
+            scope: { missionId, userId },
+            payload: {
+              stage: "s12-self-evolution",
+              error: message.slice(0, 500),
+              wallTimeMs: Date.now() - startedAt,
+            },
+            timestamp: Date.now(),
+          })
+          .catch(() => undefined);
+      });
+  }
+
+  /** A-8: 兜底 abort 处理 — emit mission:execution-aborted + markFailed */
+  private async tryHandleAbort(
+    missionId: string,
+    userId: string,
+    t0: number,
+    err: unknown,
+    session: MissionRuntimeSession,
+    reason: string,
+  ): Promise<boolean> {
+    try {
+      const message = err instanceof Error ? err.message : String(err);
+      const snap = session.pool.snapshot();
+      await this.missionEventBuffer
+        .broadcast({
+          type: "agent-playground.mission:execution-aborted",
+          scope: { missionId, userId },
+          payload: {
+            reason,
+            error: message,
+            wallTimeMs: Date.now() - t0,
+            podId:
+              process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local",
+          },
+          timestamp: Date.now(),
+        })
+        .catch(() => undefined);
+      await this.store
+        .markFailed(missionId, {
+          errorMessage: `execution_aborted: ${message.slice(0, 500)}`,
+          tokensUsed: snap.poolTokensUsed,
+          costUsd: snap.poolCostUsd,
+          wallTimeMs: Date.now() - t0,
+        })
+        .catch(() => undefined);
+      return true;
+    } catch (innerErr) {
+      this.log.warn(
+        `[A-8] tryHandleAbort failed for ${missionId}: ${innerErr instanceof Error ? innerErr.message : String(innerErr)}`,
+      );
+      return false;
     }
   }
 

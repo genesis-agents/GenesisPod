@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, Play, ChevronLeft } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { CustomAgentWizard } from './CustomAgentWizard';
+import { notifyCustomAgentChanged } from './usePublishedCustomAgents';
 import type { CustomAgentRecord } from './types';
 
 type ViewMode =
@@ -46,13 +47,20 @@ export function MyAgentsTab() {
     if (!confirm('确认删除？此操作不可恢复。')) return;
     try {
       await apiClient.delete(`/user/custom-agents/${id}`);
+      // ★ R-CA bug #4 防御：删除 → 通知 Sidebar 刷新动态菜单
+      notifyCustomAgentChanged();
       load();
     } catch (e) {
       alert(e instanceof Error ? e.message : '删除失败');
     }
   };
 
-  const backToList = () => setView({ mode: 'list' });
+  const backToList = () => {
+    // ★ R-CA bug #3/#4 防御：退出编辑回列表 → 同时通知 Sidebar
+    //   （编辑里可能改了 displayName / unpublish / archive，sidebar 缓存需要刷新）
+    notifyCustomAgentChanged();
+    setView({ mode: 'list' });
+  };
 
   // ─── 创建 / 编辑视图（在 tab 内显示，不跳页 / 不弹 Modal） ───
   if (view.mode === 'create' || view.mode === 'edit') {
