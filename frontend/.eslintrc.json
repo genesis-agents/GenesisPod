@@ -96,6 +96,14 @@
       {
         "selector": "TSAsExpression[typeAnnotation.type='TSArrayType'][typeAnnotation.elementType.type='TSBooleanKeyword']",
         "message": "禁止 `(x as boolean[])` lying assertion — 同上，请用运行时 type-check 或 zod parse。"
+      },
+      {
+        "selector": "CallExpression[callee.name=/^useApi(Get|Post|Put|Delete|Mutation)$/] > Literal[value=/^\\/api\\/(?!test)/]",
+        "message": "useApi* path 禁带 /api/ 前缀 — apiClient.baseUrl 已含 /api/v1，双前缀拼出 /api/v1/api/... → backend 必 404。写 '/notifications/...' 不是 '/api/notifications/...'（spec mock /api/test 例外）。"
+      },
+      {
+        "selector": "CallExpression[callee.object.name='apiClient'] > Literal[value=/^\\/api\\/(?!test)/]",
+        "message": "apiClient.X(path) path 禁带 /api/ 前缀 — buildUrl 拼到 baseUrl=/api/v1 上变双前缀必 404。"
       }
     ]
   },

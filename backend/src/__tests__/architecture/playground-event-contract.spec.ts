@@ -146,6 +146,10 @@ const BACKEND_DEAD_REGISTRATION_OK = new Set<string>([
   "agent-playground.chapter:rewritten",
   "agent-playground.dimension:integrating:failed",
   "agent-playground.leader:rejected-revision-recommended",
+  // budget 警告事件已用 mission:budget-warning-{soft,hard}（在 mission lifecycle
+  // 上）替代，独立的 budget:warning-{soft,hard} 命名暂保留位但未 emit
+  "agent-playground.budget:warning-soft",
+  "agent-playground.budget:warning-hard",
   // 单轨化前的旧事件 — backend 0996e8672 删 emit，但 frontend derive.ts 保留
   // 兼容 listener 让旧 fixture mission 仍能 deriveView。新 mission 走 stage:lifecycle。
   "agent-playground.stage:started",

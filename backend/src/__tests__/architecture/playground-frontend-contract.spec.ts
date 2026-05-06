@@ -43,6 +43,8 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "agent-playground.agent:thought",
   "agent-playground.agent:validation-rejected",
   "agent-playground.budget:exhausted",
+  "agent-playground.budget:warning-hard",
+  "agent-playground.budget:warning-soft",
   "agent-playground.chapter:done",
   "agent-playground.chapter:review:completed",
   "agent-playground.chapter:review:started",
