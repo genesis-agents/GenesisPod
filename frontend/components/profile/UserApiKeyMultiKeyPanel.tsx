@@ -132,6 +132,8 @@ export function UserApiKeyMultiKeyPanel({
             onUpdate={handleUpdate}
             onDelete={handleDelete}
             onTest={handleTest}
+            hideEditMeta
+            hideTest
           />
           <p className="mt-2 text-xs text-gray-500">
             Multiple keys for one provider rotate via KeyChain health scheduler

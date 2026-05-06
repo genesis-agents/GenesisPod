@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { apiClient } from '@/lib/api/client';
+import { toast } from '@/stores';
 
 export interface SecretKeyRow {
   id: string;
@@ -63,79 +64,74 @@ export function useSecretKeys(secretId: string | null) {
     else setKeys([]);
   }, [secretId, load]);
 
-  const addKey = useCallback(
-    async (input: AddKeyInput) => {
-      if (!secretId) return;
+  const runAction = useCallback(
+    async (verb: string, fn: () => Promise<unknown>) => {
       setActionLoading(true);
       try {
-        await apiClient.post(`/admin/secrets/${secretId}/keys`, input);
+        await fn();
         await load();
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : `Failed to ${verb} key`;
+        toast.error(msg);
+        throw err;
       } finally {
         setActionLoading(false);
       }
     },
-    [secretId, load]
+    [load]
+  );
+
+  const addKey = useCallback(
+    async (input: AddKeyInput) => {
+      if (!secretId) return;
+      await runAction('add', () =>
+        apiClient.post(`/admin/secrets/${secretId}/keys`, input)
+      );
+    },
+    [secretId, runAction]
   );
 
   const updateKeyMeta = useCallback(
     async (keyId: string, meta: UpdateKeyMetaInput) => {
       if (!secretId) return;
-      setActionLoading(true);
-      try {
-        await apiClient.patch(`/admin/secrets/${secretId}/keys/${keyId}`, meta);
-        await load();
-      } finally {
-        setActionLoading(false);
-      }
+      await runAction('update', () =>
+        apiClient.patch(`/admin/secrets/${secretId}/keys/${keyId}`, meta)
+      );
     },
-    [secretId, load]
+    [secretId, runAction]
   );
 
   const replaceKeyValue = useCallback(
     async (keyId: string, value: string) => {
       if (!secretId) return;
-      setActionLoading(true);
-      try {
-        await apiClient.put(`/admin/secrets/${secretId}/keys/${keyId}/value`, {
+      await runAction('replace', () =>
+        apiClient.put(`/admin/secrets/${secretId}/keys/${keyId}/value`, {
           value,
-        });
-        await load();
-      } finally {
-        setActionLoading(false);
-      }
+        })
+      );
     },
-    [secretId, load]
+    [secretId, runAction]
   );
 
   const deleteKey = useCallback(
     async (keyId: string) => {
       if (!secretId) return;
-      setActionLoading(true);
-      try {
-        await apiClient.delete(`/admin/secrets/${secretId}/keys/${keyId}`);
-        await load();
-      } finally {
-        setActionLoading(false);
-      }
+      await runAction('delete', () =>
+        apiClient.delete(`/admin/secrets/${secretId}/keys/${keyId}`)
+      );
     },
-    [secretId, load]
+    [secretId, runAction]
   );
 
   const testKey = useCallback(
     async (keyId: string) => {
       if (!secretId) return;
-      setActionLoading(true);
-      try {
-        await apiClient.post(
-          `/admin/secrets/${secretId}/keys/${keyId}/test`,
-          {}
-        );
-        await load();
-      } finally {
-        setActionLoading(false);
-      }
+      await runAction('test', () =>
+        apiClient.post(`/admin/secrets/${secretId}/keys/${keyId}/test`, {})
+      );
     },
-    [secretId, load]
+    [secretId, runAction]
   );
 
   return {

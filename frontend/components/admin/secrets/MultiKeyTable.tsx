@@ -36,6 +36,10 @@ export interface MultiKeyTableProps {
   onDelete: (keyId: string) => Promise<void>;
   onTest: (keyId: string) => Promise<void>;
   readOnly?: boolean;
+  /** BYOK 场景：UserApiKey 无 priority/isActive 字段，隐藏 Edit meta 按钮避免误操作 */
+  hideEditMeta?: boolean;
+  /** BYOK test endpoint 需要 plaintext key UI 拿不到，隐藏 Test 按钮 */
+  hideTest?: boolean;
 }
 
 function StatusBadge({ row }: { row: SecretKeyRow }) {
@@ -92,6 +96,8 @@ export function MultiKeyTable({
   onDelete,
   onTest,
   readOnly = false,
+  hideEditMeta = false,
+  hideTest = false,
 }: MultiKeyTableProps) {
   const [addOpen, setAddOpen] = useState(false);
   const [addLabel, setAddLabel] = useState('');
@@ -333,14 +339,16 @@ export function MultiKeyTable({
                         </div>
                       ) : (
                         <div className="inline-flex gap-1">
-                          <button
-                            title="Test"
-                            onClick={() => onTest(row.id)}
-                            disabled={actionLoading}
-                            className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            <RefreshCw className="h-4 w-4 text-gray-600" />
-                          </button>
+                          {!hideTest && (
+                            <button
+                              title="Test"
+                              onClick={() => onTest(row.id)}
+                              disabled={actionLoading}
+                              className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                              <RefreshCw className="h-4 w-4 text-gray-600" />
+                            </button>
+                          )}
                           <button
                             title="Replace value"
                             onClick={() => handleStartReplace(row)}
@@ -349,14 +357,16 @@ export function MultiKeyTable({
                           >
                             <RefreshCw className="h-4 w-4 text-blue-600" />
                           </button>
-                          <button
-                            title="Edit meta"
-                            onClick={() => handleStartEdit(row)}
-                            disabled={actionLoading}
-                            className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
-                          >
-                            <Edit2 className="h-4 w-4 text-gray-600" />
-                          </button>
+                          {!hideEditMeta && (
+                            <button
+                              title="Edit meta"
+                              onClick={() => handleStartEdit(row)}
+                              disabled={actionLoading}
+                              className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                              <Edit2 className="h-4 w-4 text-gray-600" />
+                            </button>
+                          )}
                           <button
                             title="Delete"
                             onClick={() => {
