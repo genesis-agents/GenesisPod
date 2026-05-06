@@ -172,6 +172,7 @@ export class UserApiKeysService {
       select: {
         id: true,
         provider: true,
+        label: true,
         mode: true,
         keyHint: true,
         apiEndpoint: true,
@@ -183,6 +184,7 @@ export class UserApiKeysService {
         createdAt: true,
         updatedAt: true,
       },
+      orderBy: [{ provider: "asc" }, { label: "asc" }],
     });
 
     return keys.map((key) => ({

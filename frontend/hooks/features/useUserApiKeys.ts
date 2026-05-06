@@ -7,6 +7,8 @@ import { clearAIModelsCache } from '@/hooks/features/useAIModels';
 export interface UserApiKeyInfo {
   id: string;
   provider: string;
+  /** PR-2 multi-key 标签：default / backup-1 / etc */
+  label: string;
   mode: 'personal' | 'donated';
   apiEndpoint: string | null;
   preferredModelId: string | null;
@@ -145,6 +147,15 @@ export function useUserApiKeys() {
     [keys]
   );
 
+  /** Multi-key 视图：返回某 provider 下全部 label 的 keys（按 label 排序） */
+  const getKeysForProvider = useCallback(
+    (provider: string) =>
+      keys
+        .filter((k) => k.provider === provider)
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [keys]
+  );
+
   return {
     keys,
     providers,
@@ -158,5 +169,6 @@ export function useUserApiKeys() {
     testKey,
     withdrawDonation,
     getKeyForProvider,
+    getKeysForProvider,
   };
 }

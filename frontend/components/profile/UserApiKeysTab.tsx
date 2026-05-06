@@ -23,6 +23,7 @@ import {
   type ProviderInfo,
 } from '@/hooks/features/useUserApiKeys';
 import { apiClient } from '@/lib/api/client';
+import { UserApiKeyMultiKeyPanel } from './UserApiKeyMultiKeyPanel';
 
 const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   openai: {
@@ -410,6 +411,9 @@ function ProviderKeyCard({
               </>
             )}
           </div>
+
+          {/* 多 KEY 管理面板（与管理员 SecretKeysDrawer 共享 MultiKeyTable） */}
+          <UserApiKeyMultiKeyPanel provider={provider.id} />
         </div>
       )}
     </div>
