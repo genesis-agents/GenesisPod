@@ -85,11 +85,17 @@ export class MissionEventBuffer implements IBroadcastAdapter {
   }
 
   /** 内存快速读取 —— Controller 优先调用 */
+  // ★ 全覆盖审计修 (2026-05-06): 浅拷贝 [...slot.events] 只防数组引用，
+  //   但 events[i].payload 仍可被外部 mutate 导致缓冲区数据污染。
+  //   改用 structuredClone（Node 17+ 原生，零依赖）做深拷贝。
   read(missionId: string, sinceTs?: number): BufferedEvent[] {
     const slot = this.byMission.get(missionId);
     if (!slot) return [];
-    if (sinceTs == null) return [...slot.events];
-    return slot.events.filter((e) => e.timestamp >= sinceTs);
+    const source =
+      sinceTs == null
+        ? slot.events
+        : slot.events.filter((e) => e.timestamp >= sinceTs);
+    return structuredClone(source);
   }
 
   /** DB 持久化读取 —— 内存 miss 时兜底（Railway recycle 后历史 mission 走这里） */

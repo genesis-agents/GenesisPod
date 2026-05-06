@@ -559,9 +559,10 @@ describe("AgentPlaygroundController", () => {
         status: "running", // ← 关键：原 mission 还在跑
         userProfile: null,
       });
+      // ★ 全覆盖审计修 (2026-05-06): orchestrator 改为白名单校验，错误消息含 "must be one of"
       await expect(
         controller.rerunMission("m-1", undefined, makeReq("user-1")),
-      ).rejects.toThrow(/still running/i);
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

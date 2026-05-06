@@ -95,7 +95,17 @@ export async function runLeaderAssessResearchStage(
     const m1Raw = await leader.assessResearchers(researcherOutcomes);
     // ★ P0-5 (2026-04-29): S4 多轮 patch 全局上限 —— 第二轮起所有 retry 强制降级 accept-degraded
     //    防止 Leader 反复返回 patch 决策让 stage 被无限重入（mission 8c7b4358 runaway 同源）。
+    // ★ 全覆盖审计修 (2026-05-06): 在自增前先检查是否已超限，超限直接 return。
+    //   原逻辑先自增再检查，若外层有重入（ctx 被共享引用）会导致计数不准：
+    //   第 1 次进入已经 round=1>MAX，理应 no-op 却还走降级逻辑并继续；
+    //   提前 return 确保超限时完全不执行任何 retry 分支。
     const MAX_S4_ROUNDS = 1; // 只允许第一轮真正 retry
+    if ((ctx.s4PatchRound ?? 0) >= MAX_S4_ROUNDS) {
+      deps.log.warn(
+        `[${missionId}] S4 already at round ${ctx.s4PatchRound ?? 0} >= MAX_S4_ROUNDS(${MAX_S4_ROUNDS}): forced early-exit to prevent retry storm`,
+      );
+      return;
+    }
     ctx.s4PatchRound = (ctx.s4PatchRound ?? 0) + 1;
     if (ctx.s4PatchRound > MAX_S4_ROUNDS) {
       let downgraded = 0;

@@ -463,6 +463,34 @@ export class ReActLoop implements IAgentLoop {
               }
             }
           }
+          // ★ 全覆盖审计修 (2026-05-06): LLM call 发起前再检查一次 wall-time，
+          //   防止 context-engineering / model-availability 等前置逻辑消耗大量时间
+          //   后仍进入高延迟 LLM call（P1 修复）。
+          if (
+            wallTimeLimitMs &&
+            Date.now() - wallTimeStart >= wallTimeLimitMs
+          ) {
+            yield this.makeEvent(agentId, "error", {
+              message: `ReActLoop wall-time exceeded before reason() (${Date.now() - wallTimeStart}ms >= ${wallTimeLimitMs}ms)`,
+              recoverable: false,
+              failureCode: "RUNNER_WALL_TIME_EXCEEDED",
+              diagnostic: {
+                elapsedMs: Date.now() - wallTimeStart,
+                wallTimeLimitMs,
+                iteration,
+                phase: "pre-reason",
+                modelId: lastModelId,
+              },
+            });
+            yield this.makeEvent(agentId, "output", {
+              output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
+            });
+            stopReason = "budget";
+            yield this.makeEvent(agentId, "terminated", {
+              reason: "wall-time-exceeded",
+            });
+            return;
+          }
           // PR-Q: 自动 prompt-cache 规划 —— 重复 prefix 享受 1/10 价
           const cachePrefix = this.cachePlanner?.plan(currentEnvelope) ?? null;
           const reasoned = await this.reason(
@@ -903,6 +931,9 @@ export class ReActLoop implements IAgentLoop {
                 },
               ]).envelope;
             }
+            // ★ 全覆盖审计修 (2026-05-06): critique inject 后重置 lastActionKind，
+            //   防止上一轮 finalize 状态污染下一轮 LLM decision（P1 修复）。
+            lastActionKind = undefined;
             // 不退出，继续 loop —— LLM 看到 critique 后下一轮直接补
             continue;
           }

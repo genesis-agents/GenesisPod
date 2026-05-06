@@ -100,7 +100,8 @@ export class MissionStore {
         WHERE id = ${missionId}
           AND leader_journal ? '__checkpoint'
       `.catch((err: unknown) => {
-      this.log.warn(
+      // ★ 全覆盖审计修 (2026-05-06): 改为 log.error 让 Railway 可见，不再静默吞错
+      this.log.error(
         `[clearCheckpoint ${missionId}] update failed: ${err instanceof Error ? err.message : String(err)}`,
       );
       return 0;
@@ -131,8 +132,9 @@ export class MissionStore {
         data: { heartbeatAt: new Date(), podId },
       })
       .catch((err: unknown) => {
-        this.log.debug(
-          `[heartbeat ${id}] silent: ${err instanceof Error ? err.message : String(err)}`,
+        // ★ 全覆盖审计修 (2026-05-06): heartbeat 失败改为 log.error 让 Railway 可见（不阻断主流程）
+        this.log.error(
+          `[heartbeat ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
   }
@@ -150,8 +152,9 @@ export class MissionStore {
         data: { lastCompletedStage: stageNumber, heartbeatAt: new Date() },
       })
       .catch((err: unknown) => {
-        this.log.debug(
-          `[markStageComplete ${id} s${stageNumber}] silent: ${err instanceof Error ? err.message : String(err)}`,
+        // ★ 全覆盖审计修 (2026-05-06): markStageComplete 失败改为 log.error 让 Railway 可见（不阻断主流程）
+        this.log.error(
+          `[markStageComplete ${id} s${stageNumber}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
   }
@@ -410,6 +413,10 @@ export class MissionStore {
       update.leaderOverallScore = data.leaderOverallScore;
     if (data.leaderSigned != null) update.leaderSigned = data.leaderSigned;
     if (data.leaderVerdict != null) update.leaderVerdict = data.leaderVerdict;
+    // ★ 全覆盖审计修 (2026-05-06): leaderJournal 漏赋值 — 签名收了字段但 update 对象未包含
+    if (data.leaderJournal !== undefined)
+      update.leaderJournal = (data.leaderJournal ??
+        null) as Prisma.InputJsonValue;
     // ★ P0-1: 仅 status='running' 才能转为终态 —— 否则 race 中 markFailed 会覆盖 completed/cancelled
     await this.prisma.agentPlaygroundMission
       .updateMany({ where: { id, status: "running" }, data: update })

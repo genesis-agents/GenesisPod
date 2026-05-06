@@ -88,6 +88,13 @@ export class EmbeddingService {
   private authFailedUntil = 0;
   private static readonly AUTH_FAILURE_COOLDOWN_MS = 5 * 60_000; // 5 分钟
 
+  // ★ 全覆盖审计修 (2026-05-06): 高并发下多 provider/baseUrl 组合的 401 去重
+  //   Map key = "${provider}::${baseUrl|''}", value = cooldown 到期时间戳
+  //   第一次 401 → ERROR（可见）; cooldown 期内 → DEBUG（不刷屏）
+  //   场景：系统同时配置了多个 embedding provider，各自独立 cooldown
+  private static readonly AUTH_COOLDOWN_PER_ENDPOINT_MS = 60_000; // 60s
+  private readonly authErrorEndpoints = new Map<string, number>(); // key → expiry ts
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
@@ -114,6 +121,35 @@ export class EmbeddingService {
 
   private isAuthCircuitOpen(): boolean {
     return Date.now() < this.authFailedUntil;
+  }
+
+  // ★ 全覆盖审计修 (2026-05-06): 高并发 401 去重 helpers
+  private endpointAuthKey(provider: string, baseUrl?: string): string {
+    return `${provider}::${baseUrl ?? ""}`;
+  }
+
+  /**
+   * 返回 true = 已在 cooldown 内（不应再打 ERROR）
+   * 返回 false = 第一次或 cooldown 已过（应打 ERROR + 重设 cooldown）
+   */
+  private isEndpointAuthCoolingDown(
+    provider: string,
+    baseUrl?: string,
+  ): boolean {
+    const key = this.endpointAuthKey(provider, baseUrl);
+    const expiry = this.authErrorEndpoints.get(key);
+    if (!expiry) return false;
+    if (Date.now() < expiry) return true;
+    this.authErrorEndpoints.delete(key); // cooldown 到期，清除让下次首次 ERROR 可见
+    return false;
+  }
+
+  private markEndpointAuthFailed(provider: string, baseUrl?: string): void {
+    const key = this.endpointAuthKey(provider, baseUrl);
+    this.authErrorEndpoints.set(
+      key,
+      Date.now() + EmbeddingService.AUTH_COOLDOWN_PER_ENDPOINT_MS,
+    );
   }
 
   /**
@@ -384,16 +420,32 @@ export class EmbeddingService {
           }
           // ★ 2026-05-05 P0 修复：401 立即触发 auth circuit-break + invalidate
           //   cache。不刷 524 次 ERROR，让 admin 改 key 后下次能立刻生效。
+          // ★ 全覆盖审计修 (2026-05-06): 高并发 per-endpoint 去重——
+          //   第一次 401 → ERROR；cooldown 期内 → DEBUG 不刷屏；
+          //   支持多 provider/baseUrl 各自独立 cooldown。
           if (this.isAuthError(error)) {
             this.authFailedUntil =
               Date.now() + EmbeddingService.AUTH_FAILURE_COOLDOWN_MS;
             this.clearConfigCache();
-            // 仅打一次 ERROR（cooldown 期间后续 401 走 circuit-open 短路）
-            this.logger.error(
-              `[embedding] 401 auth failed for ${config.modelId} (${config.apiFormat}). ` +
-                `Key invalid or expired. Auth-circuit-open for ${EmbeddingService.AUTH_FAILURE_COOLDOWN_MS / 1000}s. ` +
-                `Update key in Admin > AI Models. Original error: ${error instanceof Error ? error.message : String(error)}`,
-            );
+            if (
+              !this.isEndpointAuthCoolingDown(
+                config.provider,
+                config.apiEndpoint,
+              )
+            ) {
+              // 第一次 401：打 ERROR（运维可见）+ 开始 cooldown
+              this.markEndpointAuthFailed(config.provider, config.apiEndpoint);
+              this.logger.error(
+                `[embedding] 401 auth failed for ${config.modelId} (${config.apiFormat}). ` +
+                  `Key invalid or expired. Auth-circuit-open for ${EmbeddingService.AUTH_FAILURE_COOLDOWN_MS / 1000}s. ` +
+                  `Update key in Admin > AI Models. Original error: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            } else {
+              // cooldown 期内：降为 DEBUG，不重复刷屏
+              this.logger.debug(
+                `[embedding] 401 suppressed (within cooldown) for ${config.provider} ${config.apiEndpoint ?? ""}`,
+              );
+            }
           }
           // 非 429 不重试，直接抛
           break;

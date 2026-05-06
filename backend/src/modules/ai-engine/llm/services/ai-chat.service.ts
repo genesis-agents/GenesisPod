@@ -717,11 +717,14 @@ export class AiChatService {
       throw new AiServiceUnavailableError(errorMsg, model);
     }
 
+    // ★ 全覆盖审计修 (2026-05-06): 补 errorType，让 fallback 决策能正确分类
+    //   NO_MODEL_CONFIGURED = 模型未在 DB 配置，区别于 INVALID_API_KEY / API 故障
     return {
       content: `**模型未配置**\n\n${errorMsg}\n\n请联系管理员在后台配置该模型。`,
       model,
       tokensUsed: 0,
       isError: true,
+      errorType: "NO_MODEL_CONFIGURED",
     };
   }
 

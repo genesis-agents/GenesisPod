@@ -27,6 +27,7 @@ import { AIModelType } from "@prisma/client";
 import {
   RAGQuery,
   RAGResponse,
+  RAGQuality,
   RAGContext,
   SearchResult,
   ContextSource,
@@ -82,7 +83,12 @@ export class RAGPipelineService {
     const queryEmbedding =
       await this.embeddingService.generateEmbedding(queryForSearch);
 
-    const searchResults = await this.hybridSearch({
+    // ★ 全覆盖审计修 (2026-05-06): hybridSearch 现在返回 quality 信号
+    const {
+      results: searchResults,
+      quality: searchQuality,
+      degradedReason,
+    } = await this.hybridSearch({
       queryEmbedding: queryEmbedding.embedding,
       queryText: request.query, // Use original query for keyword search
       knowledgeBaseIds: request.knowledgeBaseIds,
@@ -148,6 +154,9 @@ export class RAGPipelineService {
         rerank: rerankTime,
         total: totalTime,
       },
+      // ★ 全覆盖审计修 (2026-05-06): 透传 vector search 降级信号给调用方
+      quality: searchQuality,
+      degradedReason,
     };
   }
 
@@ -179,16 +188,25 @@ Focus on being specific and informative.`;
   /**
    * Stage 2: Hybrid search combining vector similarity and keyword matching
    * Uses JSONB vector storage with application-layer similarity computation
+   *
+   * ★ 全覆盖审计修 (2026-05-06): 返回 quality 信号，vector search 失败时 quality='degraded'
    */
   private async hybridSearch(
     params: HybridSearchParams,
-  ): Promise<SearchResult[]> {
+  ): Promise<{
+    results: SearchResult[];
+    quality: RAGQuality;
+    degradedReason?: string;
+  }> {
     const { queryEmbedding, queryText, knowledgeBaseIds, topK, alpha } = params;
 
     // Get vector search results using VectorService (graceful degradation)
     let vectorResults: Awaited<
       ReturnType<typeof this.vectorService.similaritySearch>
     > = [];
+    // ★ 全覆盖审计修 (2026-05-06): 记录 vector search 是否降级
+    let vectorFailed = false;
+    let vectorFailReason: string | undefined;
     try {
       vectorResults = await this.vectorService.similaritySearch(
         queryEmbedding,
@@ -199,6 +217,8 @@ Focus on being specific and informative.`;
         },
       );
     } catch (error) {
+      vectorFailed = true;
+      vectorFailReason = error instanceof Error ? error.message : String(error);
       this.logger.warn(
         `[hybridSearch] Vector search failed, using keyword-only: ${error}`,
       );
@@ -256,7 +276,14 @@ Focus on being specific and informative.`;
       `[hybridSearch] After score preservation: ${resultsWithPreservedScores.length} results, top score: ${resultsWithPreservedScores[0]?.score?.toFixed(4) || "N/A"}, preservedVectorScore: ${resultsWithPreservedScores[0]?.vectorScore?.toFixed(4) || "N/A"}`,
     );
 
-    return resultsWithPreservedScores.slice(0, topK);
+    // ★ 全覆盖审计修 (2026-05-06): 返回 quality 信号供调用方透传给上游业务事件
+    return {
+      results: resultsWithPreservedScores.slice(0, topK),
+      quality: vectorFailed ? "degraded" : "full",
+      degradedReason: vectorFailed
+        ? `Vector search unavailable: ${vectorFailReason}`
+        : undefined,
+    };
   }
 
   /**

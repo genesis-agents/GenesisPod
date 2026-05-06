@@ -578,7 +578,8 @@ describe("ModelFallbackService", () => {
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.error?.type).toBe(AIErrorType.INVALID_MODEL);
+      // ★ 全覆盖审计修 (2026-05-06): 链空时分类改为 NO_MODEL（之前误归 INVALID_MODEL）
+      expect(result.error?.type).toBe(AIErrorType.NO_MODEL);
       expect(result.error?.message).toContain("No available models");
       expect(executor).not.toHaveBeenCalled();
     });

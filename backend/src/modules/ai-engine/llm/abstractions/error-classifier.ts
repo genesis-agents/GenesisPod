@@ -34,6 +34,12 @@ export enum AIErrorType {
 
   // 系统错误
   UNKNOWN = "UNKNOWN", // 未知错误
+
+  // ★ 全覆盖审计修 (2026-05-06): fallback chain 为空时的精细化错误类型，
+  //   让调用方（前端/监控）能区分"无 key 配置"、"无模型配置"、"API 全挂"
+  NO_API_KEY = "NO_API_KEY", // 无有效 API Key（用户未配置 BYOK / Secret 失效）
+  NO_MODEL = "NO_MODEL", // 无可用模型配置（数据库无启用模型）
+  API_UNAVAILABLE = "API_UNAVAILABLE", // 所有 provider 均不可用（全链路 down）
 }
 
 /**

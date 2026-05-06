@@ -131,8 +131,16 @@ export class MissionLivenessGuard implements OnModuleDestroy {
    * key = `${namespace}:${missionId}` 防多 namespace 串扰。
    */
   private readonly lastWarnedAt = new Map<string, number>();
-  /** 单 mission 终态后清掉 dedup key（防止内存常驻泄漏）*/
-  private readonly WARN_COOLDOWN_MS = 10 * 60 * 1000;
+  /**
+   * ★ 全覆盖审计修 (2026-05-06): WARN_COOLDOWN_MS 改为动态辅助方法；
+   * 此常量仅作全局兜底（无 config 时使用）。
+   * 实际 cooldown = floor(config.softWarnThresholdMs / 2)，确保在 softWarn
+   * 阈值内至少能 warn 一次（P2 修复：与 softWarnThresholdMs 同时基对齐）。
+   */
+  /** 动态计算某 namespace 的 warn cooldown（floor(softWarn/2)，最少 5min）*/
+  private warnCooldownFor(config: Required<MissionLivenessConfig>): number {
+    return Math.max(Math.floor(config.softWarnThresholdMs / 2), 5 * 60 * 1000);
+  }
 
   /**
    * 由上层消费方在 onModuleInit 调用注册自己的 adapter。
@@ -337,10 +345,11 @@ export class MissionLivenessGuard implements OnModuleDestroy {
           heartbeatAgeMs > config.softWarnThresholdMs) ||
           (eventAgeMs != null && eventAgeMs > config.softWarnThresholdMs))
       ) {
-        // ★ dedup：10min cooldown 内不重发同一 mission 的 warning
+        // ★ dedup：cooldown = floor(softWarnThresholdMs/2) 内不重发同一 mission 的 warning
+        // ★ 全覆盖审计修 (2026-05-06): 用动态 warnCooldownFor(config) 替代固定常量
         const dedupKey = `${namespace}:${m.id}`;
         const lastWarn = this.lastWarnedAt.get(dedupKey) ?? 0;
-        if (now - lastWarn < this.WARN_COOLDOWN_MS) {
+        if (now - lastWarn < this.warnCooldownFor(config)) {
           continue; // 还在冷却期，跳过本次 emit
         }
         await adapter

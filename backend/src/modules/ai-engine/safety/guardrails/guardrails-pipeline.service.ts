@@ -55,6 +55,7 @@ export class GuardrailsPipelineService {
    */
   async processInput(input: GuardrailInput): Promise<GuardrailsPipelineResult> {
     // B (2026-05-05): SAFETY_INPUT plugin hook fire-and-forget（PII/审核 plugin 用）
+    // ★ 全覆盖审计修 (2026-05-06): hook 失败必须可见，改 warn 而非吞错
     if (this.hookBus) {
       void this.hookBus
         .fire(
@@ -65,7 +66,9 @@ export class GuardrailsPipelineService {
           },
           async () => undefined,
         )
-        .catch(() => undefined);
+        .catch((err) =>
+          this.logger.warn("[safety hook] input hook error", err),
+        );
     }
     const results: GuardrailResult[] = [];
     let blockedBy: string | undefined;
@@ -131,6 +134,7 @@ export class GuardrailsPipelineService {
     output: GuardrailOutput,
   ): Promise<GuardrailsPipelineResult> {
     // B (2026-05-05): SAFETY_OUTPUT plugin hook fire-and-forget
+    // ★ 全覆盖审计修 (2026-05-06): hook 失败必须可见，改 warn 而非吞错
     if (this.hookBus) {
       void this.hookBus
         .fire(
@@ -141,7 +145,9 @@ export class GuardrailsPipelineService {
           },
           async () => undefined,
         )
-        .catch(() => undefined);
+        .catch((err) =>
+          this.logger.warn("[safety hook] output hook error", err),
+        );
     }
     const results: GuardrailResult[] = [];
     let blockedBy: string | undefined;

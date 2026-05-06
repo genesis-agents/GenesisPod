@@ -148,6 +148,18 @@ export class AgentPlaygroundController {
    * GET /api/v1/agent-playground/missions/:id/export?format=csv-facts|csv-citations|markdown
    * Phase P1-8: 数据集导出（mission-pipeline-baseline.md §7.9）
    */
+  // ★ 全覆盖审计修 (2026-05-06): format 参数无 whitelist，任意字符串可透传到 exportService，
+  //   存在路径注入 / 非预期格式 handler 被触达的风险。显式枚举允许值，其余抛 BadRequest。
+  private static readonly ALLOWED_EXPORT_FORMATS = new Set([
+    "md",
+    "markdown",
+    "json",
+    "pdf",
+    "docx",
+    "csv-facts",
+    "csv-citations",
+  ]);
+
   @Get("missions/:id/export")
   async exportMission(
     @Param("id") id: string,
@@ -156,6 +168,14 @@ export class AgentPlaygroundController {
   ): Promise<{ filename: string; mimeType: string; content: string }> {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
+    if (
+      !format ||
+      !AgentPlaygroundController.ALLOWED_EXPORT_FORMATS.has(format)
+    ) {
+      throw new BadRequestException(
+        `Invalid export format "${format ?? ""}". Allowed: ${[...AgentPlaygroundController.ALLOWED_EXPORT_FORMATS].join(", ")}`,
+      );
+    }
     return this.exportService.export(id, userId, format);
   }
 
@@ -431,7 +451,7 @@ export class AgentPlaygroundController {
   async cancelMission(
     @Param("id") missionId: string,
     @Request() req: RequestWithUser,
-  ): Promise<{ ok: true; status: string }> {
+  ): Promise<{ ok: true; status: string; alreadyCancelled?: true }> {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
     await this.assertOwnership(missionId, userId);
@@ -439,6 +459,10 @@ export class AgentPlaygroundController {
     const persisted = await this.store.getById(missionId, userId);
     if (!persisted)
       throw new ForbiddenException(`mission ${missionId} not found`);
+    // ★ 全覆盖审计修 (2026-05-06): 已 cancelled 时幂等返回 200，不抛 400（双击取消场景）
+    if (persisted.status === "cancelled") {
+      return { ok: true, status: "cancelled", alreadyCancelled: true };
+    }
     if (persisted.status !== "running") {
       throw new BadRequestException(
         `mission ${missionId} status is ${persisted.status}, not running`,

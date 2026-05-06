@@ -27,11 +27,11 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { MissionStore } from "../lifecycle/mission-store.service";
 import { CtxHydratorService } from "./ctx-hydrator.service";
 import { RerunLockRegistry } from "@/modules/ai-harness/facade";
 import { StageRerunDispatcher } from "./stage-rerun.dispatcher";
 import type { EmitFn } from "../workflow/mission-deps";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 
 export interface LocalRerunInput {
   missionId: string;
@@ -57,10 +57,11 @@ export class LocalRerunService {
   private readonly log = new Logger(LocalRerunService.name);
 
   constructor(
-    private readonly store: MissionStore,
     private readonly hydrator: CtxHydratorService,
     private readonly lockRegistry: RerunLockRegistry,
     private readonly dispatcher: StageRerunDispatcher,
+    // ★ 全覆盖审计修 (2026-05-06): TOCTOU fix — 改为 prisma $transaction 原子校验
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -110,25 +111,29 @@ export class LocalRerunService {
       throw new BadRequestException(eligibility.reason ?? "局部重跑不允许");
     }
 
-    // 2. 防并发 ──
+    // 2+3. ★ 全覆盖审计修 (2026-05-06): 原 acquire + getById TOCTOU race
+    //   改用 prisma $transaction 在事务内原子确认 mission 非 running，跨 pod 安全。
+    //   lockRegistry.acquire 在事务后，防止同 todo 并发重入。
+    await this.prisma.$transaction(async (tx) => {
+      const exists = await tx.agentPlaygroundMission.findFirst({
+        where: { id: missionId, userId },
+        select: { id: true, status: true },
+      });
+      if (!exists) {
+        throw new NotFoundException(
+          `mission ${missionId} not found or not owned by ${userId}`,
+        );
+      }
+      if (exists.status === "running") {
+        throw new BadRequestException(
+          "原 mission 还在跑，无法局部重跑 —— 取消或等结束后再操作",
+        );
+      }
+    });
+
     if (!this.lockRegistry.acquire(missionId, todoId)) {
       throw new BadRequestException(
         "该任务正在重跑，请等待当前一轮完成后再操作",
-      );
-    }
-
-    // 3. mission 必须存在 + 非 running ──
-    const detail = await this.store.getById(missionId, userId);
-    if (!detail) {
-      this.lockRegistry.release(missionId, todoId);
-      throw new NotFoundException(
-        `mission ${missionId} not found or not owned by ${userId}`,
-      );
-    }
-    if (detail.status === "running") {
-      this.lockRegistry.release(missionId, todoId);
-      throw new BadRequestException(
-        "原 mission 还在跑，无法局部重跑 —— 取消或等结束后再操作",
       );
     }
 

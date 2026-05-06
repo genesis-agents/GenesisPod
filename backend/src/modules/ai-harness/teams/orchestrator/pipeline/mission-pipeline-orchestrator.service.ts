@@ -235,9 +235,13 @@ export class MissionPipelineOrchestrator {
       timeoutMs ? Math.floor(timeoutMs * 1.5) : 15 * 60 * 1000,
       60_000,
     );
-    let stalled = false;
+    // ★ 全覆盖审计修 (2026-05-06): stageDone 防止 stallTimer 与 try/catch 双路竞态。
+    //   try 末尾或 catch 分支都设 stageDone=true + clearTimeout；
+    //   stallTimer callback 先检查 !stageDone 再 emit，避免 stage 已正常结束后仍
+    //   触发 stage:stalled（P0 竞态修复）。
+    let stageDone = false;
     const stallTimer = setTimeout(() => {
-      stalled = true;
+      if (stageDone) return; // stage 已完成，不触发 stall
       void this.emit(onEvent, {
         type: "stage:stalled",
         missionId: ctx.missionId,
@@ -277,6 +281,8 @@ export class MissionPipelineOrchestrator {
 
       const output = await this.withTimeout(runPromise, timeoutMs, step.id);
 
+      // ★ 全覆盖审计修 (2026-05-06): 正常完成路径设 stageDone=true + clearTimeout
+      stageDone = true;
       clearTimeout(stallTimer);
       await this.emit(onEvent, {
         type: "stage:completed",
@@ -288,8 +294,9 @@ export class MissionPipelineOrchestrator {
       });
       return output;
     } catch (err) {
+      // ★ 全覆盖审计修 (2026-05-06): catch 路径也设 stageDone=true + clearTimeout
+      stageDone = true;
       clearTimeout(stallTimer);
-      void stalled; // tsc no-unused-var: stalled 是显式标志虽未使用但保留语义
       await this.emit(onEvent, {
         type: "stage:failed",
         missionId: ctx.missionId,

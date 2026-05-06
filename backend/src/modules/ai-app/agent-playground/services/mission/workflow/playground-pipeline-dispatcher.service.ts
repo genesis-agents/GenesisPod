@@ -511,8 +511,15 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           })
           .catch(() => undefined);
       }
+      // ★ 全覆盖审计修 (2026-05-06): 先 cleanup 再 delete — cleanup throw 时 entry 不会已删
+      try {
+        session.cleanup();
+      } catch (cleanupErr) {
+        this.log.error(
+          `[runMission ${missionId}] session.cleanup() threw: ${cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr)}`,
+        );
+      }
       this.sessions.delete(missionId);
-      session.cleanup();
     }
   }
 

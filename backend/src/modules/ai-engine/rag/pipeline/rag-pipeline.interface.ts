@@ -26,6 +26,9 @@ export interface RAGOptions {
   includeMetadata?: boolean; // Include document metadata (default: true)
 }
 
+// ★ 全覆盖审计修 (2026-05-06): vector search 降级信号，调用方可读此字段 emit 业务事件
+export type RAGQuality = "full" | "degraded";
+
 export interface RAGResponse {
   context: RAGContext;
   hydeQuery?: string;
@@ -36,6 +39,10 @@ export interface RAGResponse {
     rerank?: number;
     total: number;
   };
+  /** ★ 全覆盖审计修 (2026-05-06): 'degraded' = vector search 失败，结果仅来自 keyword search */
+  quality: RAGQuality;
+  /** vector search 降级时的原因描述，quality='full' 时为 undefined */
+  degradedReason?: string;
 }
 
 export interface RAGContext {

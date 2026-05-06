@@ -778,23 +778,29 @@ export class CircuitBreakerService implements OnModuleInit, OnModuleDestroy {
     lastError?: string,
   ): void {
     if (!this.hookBus) return;
+    // ★ 全覆盖审计修 (2026-05-06): hook 失败必须可见，改 warn 而非吞错
     void this.hookBus
       .fire(
         "engine.circuit.open",
         { target, failureCount, cooldownMs, category, lastError },
         async () => undefined,
       )
-      .catch(() => undefined);
+      .catch((err) =>
+        this.logger.warn("[circuit-breaker] open hook error", err),
+      );
   }
 
   private fireCircuitClose(target: string, durationMs: number): void {
     if (!this.hookBus) return;
+    // ★ 全覆盖审计修 (2026-05-06): hook 失败必须可见，改 warn 而非吞错
     void this.hookBus
       .fire(
         "engine.circuit.close",
         { target, durationMs, manual: false },
         async () => undefined,
       )
-      .catch(() => undefined);
+      .catch((err) =>
+        this.logger.warn("[circuit-breaker] close hook error", err),
+      );
   }
 }

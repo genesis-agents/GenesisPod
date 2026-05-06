@@ -28,7 +28,8 @@ function makeMission(overrides: Record<string, unknown> = {}) {
     topic: "AI trends",
     depth: "deep",
     language: "zh-CN",
-    status: "completed",
+    // ★ 全覆盖审计修 (2026-05-06): send() 现在要求 running/starting 状态，默认改为 running
+    status: "running",
     dimensions: [],
     reportFull: null,
     finalScore: null,
@@ -249,18 +250,14 @@ describe("LeaderChatService.send", () => {
     expect(eventBus.emit).toHaveBeenCalled();
   });
 
-  it("does NOT append dimensions when decision is CREATE_TODO but mission not running", async () => {
-    const { service, prisma, chat, store } = buildService();
-    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([]);
+  // ★ 全覆盖审计修 (2026-05-06): send() 现在在状态检查阶段就拒绝非 running/starting
+  //   原测试"not running 时不追加 dim"改为验证 BadRequestException
+  it("throws BadRequestException when mission is not running (e.g. completed)", async () => {
+    const { service, store } = buildService();
     store.getById.mockResolvedValue(makeMission({ status: "completed" }));
-    chat.chat.mockResolvedValue({
-      content:
-        '{"decisionType":"CREATE_TODO","response":"Added dim","todo":[{"name":"NewDim","rationale":"why"}]}',
-      usage: { totalTokens: 100 },
-    });
-    const result = await service.send("m-1", "u-1", "add a dimension");
-    expect(store.appendDimensions).not.toHaveBeenCalled();
-    expect(result.appendedDimensionIds).toBeUndefined();
+    await expect(service.send("m-1", "u-1", "add a dimension")).rejects.toThrow(
+      "mission not in running state",
+    );
   });
 
   it("does NOT append dimensions after S3 has already dispatched research", async () => {
@@ -302,14 +299,13 @@ describe("LeaderChatService.send", () => {
     expect(callArg.systemPrompt).toContain("Climate change");
   });
 
-  it("handles null mission gracefully in system prompt", async () => {
-    const { service, prisma, store, chat } = buildService();
+  // ★ 全覆盖审计修 (2026-05-06): send() 现在 getById=null 时抛 BadRequestException（不再静默降级）
+  it("throws BadRequestException when mission is not found", async () => {
+    const { service, store } = buildService();
     store.getById.mockResolvedValue(null);
-    prisma.agentPlaygroundLeaderChat.findMany.mockResolvedValue([]);
-    await service.send("m-1", "u-1", "hello");
-    const callArg = chat.chat.mock.calls[0][0] as { systemPrompt: string };
-    expect(callArg.systemPrompt).toContain("Research Leader");
-    expect(callArg.systemPrompt).toContain("not found");
+    await expect(service.send("m-1", "u-1", "hello")).rejects.toThrow(
+      "mission m-1 not found",
+    );
   });
 
   it("includes history messages in LLM call", async () => {

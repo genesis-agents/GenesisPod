@@ -70,9 +70,20 @@ export class MissionRerunOrchestratorService {
     if (!original) {
       throw new ForbiddenException(`mission ${sourceMissionId} not found`);
     }
-    if (original.status === "running") {
+    // ★ 全覆盖审计修 (2026-05-06): 白名单校验，cancelled 也允许 rerun（用户感知 OK）
+    const RERUNNABLE_STATUSES = [
+      "completed",
+      "failed",
+      "quality-failed",
+      "cancelled",
+    ] as const;
+    if (
+      !RERUNNABLE_STATUSES.includes(
+        original.status as (typeof RERUNNABLE_STATUSES)[number],
+      )
+    ) {
       throw new BadRequestException(
-        "Source mission is still running — cancel or wait for completion before rerun",
+        `Source mission cannot be rerun from status "${original.status}" — must be one of: ${RERUNNABLE_STATUSES.join(", ")}`,
       );
     }
     return original;

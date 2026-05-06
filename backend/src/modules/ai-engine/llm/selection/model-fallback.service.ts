@@ -383,14 +383,27 @@ export class ModelFallbackService {
       if (RequestContext.getUserId()) {
         throw new NoModelConfiguredError(modelType);
       }
+      // ★ 全覆盖审计修 (2026-05-06): 细化 admin 路径 fallback-chain 为空的错误类型：
+      //   - 无启用模型（DB 配置缺失） → NO_MODEL
+      //   - lastError 指向 API key 问题 → NO_API_KEY
+      //   - lastError 指向全链路不可用 → API_UNAVAILABLE
+      //   注意：错误对象中不含 userId（敏感信息）
+      const emptyChainErrorType =
+        lastError?.type === AIErrorType.INVALID_API_KEY
+          ? AIErrorType.NO_API_KEY
+          : lastError?.type === AIErrorType.TEMPORARY_UNAVAILABLE
+            ? AIErrorType.API_UNAVAILABLE
+            : AIErrorType.NO_MODEL;
       return {
         success: false,
         error: new AIError(
-          AIErrorType.INVALID_MODEL,
-          "No available models for fallback",
+          emptyChainErrorType,
+          `No available models for fallback (modelType=${modelType})`,
           undefined,
           undefined,
           undefined,
+          // details: 不含 userId，仅包含非敏感的诊断信息
+          { modelType, reason: emptyChainErrorType },
         ),
         modelUsed: preferredModelId,
         fallbackUsed: false,

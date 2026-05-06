@@ -118,6 +118,10 @@ export class MissionCheckpointService<TPayload = unknown> {
         completedKeys: new Set(),
       };
     }
+    // ★ 全覆盖审计修 (2026-05-06): canResume 只看 snapshot 自身的 savedAt age，
+    //   不再 reject 'quality-failed'/'failed' 状态——这些 mission 可能需要从
+    //   checkpoint resume 以便补充内容再试；仅 'completed'/'cancelled' 是真终态
+    //   且无需 resume（P1 修复：解耦 snapshot status 与 mission.status）。
     if (snap.status === "completed" || snap.status === "cancelled") {
       return {
         canResume: false,

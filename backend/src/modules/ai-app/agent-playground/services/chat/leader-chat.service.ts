@@ -15,7 +15,7 @@
  * 后续 PR-8 把 buildLeaderChatPrompt 整体迁到 SkillRegistry（playground.leader-chat skill）。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { AiChatService } from "@/modules/ai-harness/facade";
@@ -93,6 +93,20 @@ export class LeaderChatService {
     const trimmed = content.trim();
     if (!trimmed) {
       throw new Error("Message content cannot be empty");
+    }
+
+    // ★ 全覆盖审计修 (2026-05-06): 先 fetch mission，拒绝非运行中的 chat（防止向已完成/失败的 mission 发消息）
+    const missionCheck = await this.store.getById(missionId, userId);
+    if (!missionCheck) {
+      throw new BadRequestException(`mission ${missionId} not found`);
+    }
+    if (
+      missionCheck.status !== "running" &&
+      missionCheck.status !== "starting"
+    ) {
+      throw new BadRequestException(
+        `mission not in running state (current: ${missionCheck.status})`,
+      );
     }
 
     // 1) 持久化用户消息

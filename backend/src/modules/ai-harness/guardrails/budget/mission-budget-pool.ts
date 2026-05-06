@@ -58,9 +58,11 @@ export class MissionBudgetPool {
   }
 
   isExhausted(): boolean {
+    // ★ 全覆盖审计修 (2026-05-06): 改 >= 为 >，让最后一个 token/cent 也允许
+    //   执行，与 allocate() 中 Math.max(0, cap-used) 的语义对齐（P1 修复）。
     return (
-      this.poolTokensUsed >= this.cap.maxTokens ||
-      this.poolCostUsd >= this.cap.maxCostUsd
+      this.poolTokensUsed > this.cap.maxTokens ||
+      this.poolCostUsd > this.cap.maxCostUsd
     );
   }
 

@@ -17,7 +17,10 @@ import {
 import type { Server, Socket } from "socket.io";
 import { JwtService } from "@nestjs/jwt";
 // 必修 #8: 走 facade
-import { DomainEventBus, SocketBroadcastAdapter } from "@/modules/ai-harness/facade";
+import {
+  DomainEventBus,
+  SocketBroadcastAdapter,
+} from "@/modules/ai-harness/facade";
 import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 
@@ -60,7 +63,12 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
   async handleJoin(
     client: Socket,
     payload: { missionId: string },
-  ): Promise<{ ok: boolean; error?: string }> {
+  ): Promise<{
+    ok: boolean;
+    error?: string;
+    errorCode?: string;
+    retryAfterMs?: number;
+  }> {
     if (!payload?.missionId) return { ok: false, error: "missionId required" };
     let userId: string;
     try {
@@ -73,6 +81,9 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
     }
     // ★ P1-O (2026-04-29): ownership cache miss 时 fallback 到 DB
     // ★ P1-NEW-G (round 2): DB 异常区分对待 —— 故障 vs 真不存在
+    // ★ 全覆盖审计修 (2026-05-06): 增加 errorCode 字段，让前端按 code 而非字符串匹配：
+    //   "SERVICE_UNAVAILABLE" → DB 连接故障，可重试
+    //   "MISSION_NOT_FOUND"   → mission 真不存在，不应重试
     let owner = this.ownership.getOwner(payload.missionId);
     if (!owner) {
       let persisted: { id: string } | null = null;
@@ -86,9 +97,20 @@ export class AgentPlaygroundGateway implements OnGatewayInit {
         );
       }
       if (dbErrored) {
-        return { ok: false, error: "service temporarily unavailable" };
+        return {
+          ok: false,
+          error: "service temporarily unavailable",
+          errorCode: "SERVICE_UNAVAILABLE",
+          retryAfterMs: 5000,
+        };
       }
-      if (!persisted) return { ok: false, error: "mission not found" };
+      if (!persisted) {
+        return {
+          ok: false,
+          error: "mission not found",
+          errorCode: "MISSION_NOT_FOUND",
+        };
+      }
       // DB 命中 → 重新登记 in-memory（hot path）
       this.ownership.assign(payload.missionId, userId);
       owner = userId;

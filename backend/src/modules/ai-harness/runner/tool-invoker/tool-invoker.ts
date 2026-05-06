@@ -288,6 +288,16 @@ export class ToolInvoker {
       span?.end({ success: false });
       // ★ P0-LIVE-TOOL-ERR-VISIBILITY (2026-04-30): 同上，把 error 细节
       //   注入 LLM 可见的 output，让 ReAct 下一轮能看到详细失败原因。
+      // ★ 全覆盖审计修 (2026-05-06): 保留 partial data——部分 tool 在抛错前
+      //   已产出中间结果（如流式抓取部分内容），error 对象可能携带 .data。
+      //   与 success=false 路径对齐：优先透出 partialData（P1 修复）。
+      const partialData =
+        error != null &&
+        typeof error === "object" &&
+        "data" in error &&
+        (error as Record<string, unknown>).data != null
+          ? (error as Record<string, unknown>).data
+          : undefined;
       return {
         action,
         output: {
@@ -295,6 +305,7 @@ export class ToolInvoker {
           error: err.message,
           toolId: action.toolId,
           failureCode,
+          ...(partialData !== undefined ? { partialData } : {}),
         },
         error: err,
         failureCode,
@@ -375,6 +386,3 @@ export class ToolInvoker {
     };
   }
 }
-
-
-

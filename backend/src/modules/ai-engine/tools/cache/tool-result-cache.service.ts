@@ -4,6 +4,7 @@
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CacheService } from "@/common/cache/cache.service";
 import * as crypto from "crypto";
 
@@ -21,7 +22,15 @@ export class ToolResultCacheService {
    */
   private readonly DEFAULT_TTL_SECONDS = 30 * 60;
 
-  constructor(@Optional() private readonly cache?: CacheService) {}
+  // ★ 全覆盖审计修 (2026-05-06): 连续写失败计数器 + streak 阈值
+  //   连续 N 次 cache 写失败说明 Redis 可能已不可用，emit monitoring event 让运维可见
+  private cacheWriteFailStreak = 0;
+  private static readonly CACHE_FAIL_STREAK_THRESHOLD = 5;
+
+  constructor(
+    @Optional() private readonly cache?: CacheService,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
+  ) {}
 
   /**
    * 判断工具是否可缓存
@@ -69,6 +78,11 @@ export class ToolResultCacheService {
   /**
    * 写入缓存
    * CacheService 未注入时为 noop
+   *
+   * ★ 全覆盖审计修 (2026-05-06):
+   *   - 写失败改 error（Railway stderr 可见）
+   *   - 连续 N 次失败 emit 'cache:write-fail-streak' 让运维感知 Redis 健康异常
+   *   - 写成功后重置 streak 计数器
    */
   async set<T>(
     key: string,
@@ -78,8 +92,26 @@ export class ToolResultCacheService {
     if (!this.cache) return;
     try {
       await this.cache.set(key, value, ttlSeconds);
+      // 写成功后重置连续失败计数
+      this.cacheWriteFailStreak = 0;
     } catch (e) {
-      this.logger.warn(`cache set failed: ${(e as Error).message}`);
+      this.cacheWriteFailStreak++;
+      this.logger.error(
+        `[tool-cache] cache write failed (streak=${this.cacheWriteFailStreak}): ${(e as Error).message}`,
+      );
+      if (
+        this.cacheWriteFailStreak >=
+          ToolResultCacheService.CACHE_FAIL_STREAK_THRESHOLD &&
+        this.eventEmitter
+      ) {
+        // emit monitoring event，让监控/通知系统感知 Redis 写失败风暴
+        this.eventEmitter.emit("cache:write-fail-streak", {
+          streak: this.cacheWriteFailStreak,
+          lastError: (e as Error).message,
+          service: ToolResultCacheService.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   }
 }
