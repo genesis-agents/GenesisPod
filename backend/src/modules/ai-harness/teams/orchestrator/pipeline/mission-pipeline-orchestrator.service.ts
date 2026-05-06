@@ -228,30 +228,43 @@ export class MissionPipelineOrchestrator {
       timestamp: stageStartedAt,
     });
 
-    // ★ 2026-05-06 (A-9 watchdog): stage:started 后 stallThresholdMs（默认 timeoutMs ×
-    //   1.5 / 兜底 15min）未到 stage:completed/failed → emit stage:stalled 警告（不杀，
-    //   仅可见性）。覆盖 stage 内部 LLM 卡死但未抛错的盲区。
-    const stallThresholdMs = Math.max(
+    // ★ 2026-05-06 (重大整改): 平台层删除 stage 死秒表 (`withTimeout` race)。
+    //
+    //   死秒表是垃圾机制：N 秒到了无论 stage 内部子事件流还在不在动都强杀。
+    //   S3 多 dim 并行 + 工具调用 + LLM retry 累加 > 10min 是常见场景，但 dim
+    //   每秒在 emit cost:tick / agent:thought 真在干活——死秒表完全不感知。
+    //
+    //   新机制（统一 + 简化 + 联动）：
+    //     1. **stage 不再有 abort timer**——直接 `await primitive.run(...)`，跑到
+    //        完成 / primitive 内部主动 throw（如 LLM HTTP timeout 抛上来）。
+    //     2. **inactivity 检测在 mission level**：MissionLivenessGuard 监听
+    //        DomainEventBus 该 missionId 事件流；stage 内子事件 emit → 自动刷新
+    //        liveness signal → mission 不会被误杀。真没活动 5min 才视为死。
+    //     3. **wall-clock 上限在 mission level**：mission-runtime-shell 的
+    //        wallTimer 防 LLM 死循环（默认 mission 总长 ≤ 3h）。
+    //     4. **stallVisibilityMs**（保留 step.timeoutMs * 1.5 / 默认 15min）仅作
+    //        可见性 emit `stage:stalled` warning，不再杀 stage。
+    //
+    //   联动信号源：DomainEventBus 该 missionId 事件流（同时驱动 liveness +
+    //   stall watchdog + heartbeat）。所有走 PipelineOrchestrator 的 ai-app
+    //   一起受益（统一平台机制）。
+    const stallVisibilityMs = Math.max(
       timeoutMs ? Math.floor(timeoutMs * 1.5) : 15 * 60 * 1000,
       60_000,
     );
-    // ★ 全覆盖审计修 (2026-05-06): stageDone 防止 stallTimer 与 try/catch 双路竞态。
-    //   try 末尾或 catch 分支都设 stageDone=true + clearTimeout；
-    //   stallTimer callback 先检查 !stageDone 再 emit，避免 stage 已正常结束后仍
-    //   触发 stage:stalled（P0 竞态修复）。
     let stageDone = false;
     const stallTimer = setTimeout(() => {
-      if (stageDone) return; // stage 已完成，不触发 stall
+      if (stageDone) return;
       void this.emit(onEvent, {
         type: "stage:stalled",
         missionId: ctx.missionId,
         stepId: step.id,
         primitive: step.primitive,
         elapsedMs: Date.now() - stageStartedAt,
-        reason: `stage 在 ${Math.round(stallThresholdMs / 60_000)} 分钟内未完成`,
+        reason: `stage 跑超 ${Math.round(stallVisibilityMs / 60_000)} 分钟仍未完成（仅警告 — mission liveness guard 决定真死活）`,
         timestamp: Date.now(),
       }).catch(() => undefined);
-    }, stallThresholdMs);
+    }, stallVisibilityMs);
     (stallTimer as { unref?: () => void }).unref?.();
 
     try {
@@ -270,7 +283,9 @@ export class MissionPipelineOrchestrator {
         },
       };
 
-      const runPromise = primitive.run({
+      // ★ 直接 await，不再 race timeout。stage 跑到 primitive.run 完成 / 抛错为止。
+      // 真死活由 mission level liveness + wall timer 兜底（见上注释）。
+      const output = await primitive.run({
         ctx,
         role: roleArg,
         config: step,
@@ -279,9 +294,6 @@ export class MissionPipelineOrchestrator {
         previousOutputs: stageOutputs,
       });
 
-      const output = await this.withTimeout(runPromise, timeoutMs, step.id);
-
-      // ★ 全覆盖审计修 (2026-05-06): 正常完成路径设 stageDone=true + clearTimeout
       stageDone = true;
       clearTimeout(stallTimer);
       await this.emit(onEvent, {
@@ -294,7 +306,6 @@ export class MissionPipelineOrchestrator {
       });
       return output;
     } catch (err) {
-      // ★ 全覆盖审计修 (2026-05-06): catch 路径也设 stageDone=true + clearTimeout
       stageDone = true;
       clearTimeout(stallTimer);
       await this.emit(onEvent, {
@@ -309,30 +320,10 @@ export class MissionPipelineOrchestrator {
     }
   }
 
-  /** 包装 timeout race，超时抛 StageAbortError */
-  private async withTimeout<T>(
-    promise: Promise<T>,
-    timeoutMs: number | undefined,
-    stepId: string,
-  ): Promise<T> {
-    if (!timeoutMs) return promise;
-    let timer: NodeJS.Timeout | undefined;
-    try {
-      return (await Promise.race([
-        promise,
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            reject(
-              new StageAbortError(stepId, `stage timeout after ${timeoutMs}ms`),
-            );
-          }, timeoutMs);
-          (timer as { unref?: () => void }).unref?.();
-        }),
-      ])) as T;
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
+  // ★ 2026-05-06 重大整改: 删除 stage 死秒表 withTimeout 函数。
+  //   stage abort 由 (1) mission-runtime-shell wallTimer 兜底防 LLM 死循环
+  //   (2) MissionLivenessGuard 监听 inactivity 5min 兜底。
+  //   stage 层不再持有秒表机制，避免对并行子任务的误杀。
 
   /** event emit 包装：吞掉 listener 异常防止影响 mission 主流程 */
   private async emit(

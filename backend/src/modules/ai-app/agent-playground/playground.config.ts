@@ -122,72 +122,127 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
         stateful: false,
       },
     ],
+    // ★ 2026-05-06 重大整改: 平台层 mission-pipeline-orchestrator 已删除 stage
+    //   死秒表机制。step.timeoutMs 现在仅作 stage:stalled 警告阈值（× 1.5 后 emit
+    //   stage:stalled，不再杀 stage）。stage 真死活由：
+    //     1. MissionLivenessGuard（inactivity 5min，监听 DomainEventBus 事件流）
+    //     2. mission-runtime-shell wallTimer（mission 总长上限）
+    //     3. primitive 内部 LLM HTTP timeout 抛错冒泡
+    //   下面 timeoutMs 数值仅供"stage 跑超 X 分钟还没完"的可见性 warning。
     steps: [
       // S1 — budget gate (no role, persist primitive in pre-mode)
-      { primitive: "persist", id: "s1-budget", mode: "budget-pre" },
+      // DB write only；30s 内完成是预期，超过 ~45s emit stalled warning。
+      {
+        primitive: "persist",
+        id: "s1-budget",
+        mode: "budget-pre",
+        timeoutMs: 30_000,
+      },
       // S2 — leader plan
-      { primitive: "plan", id: "s2-leader-plan", roleId: "leader" },
+      // leader 生成完整 JSON plan（1500 token），本地模型 CPU 推理 30-75s + first-token latency
+      // → 普通云模型 ~30s，本地慢模型可能 2-3min；给 15min 兜底
+      {
+        primitive: "plan",
+        id: "s2-leader-plan",
+        roleId: "leader",
+        timeoutMs: 900_000,
+      },
       // S3 — researcher fan-out (per dimension chapter pipeline 在 hook 内做)
+      // 多维度并行 + 工具调用（web/academic search）；20min 给并发工具调用充裕时间
       {
         primitive: "research",
         id: "s3-researcher-collect",
         roleId: "researcher",
         mode: "byPlanDimensions",
+        timeoutMs: 1_200_000,
       },
       // S4 — leader assess
-      { primitive: "assess", id: "s4-leader-assess", roleId: "leader" },
+      // 评估研究结果，LLM 单轮；10min
+      {
+        primitive: "assess",
+        id: "s4-leader-assess",
+        roleId: "leader",
+        timeoutMs: 600_000,
+      },
       // S5 — reconciler
+      // 整合多维度研究结果；5min
       {
         primitive: "synthesize",
         id: "s5-reconciler",
         roleId: "reconciler",
         mode: "reconcile",
+        timeoutMs: 300_000,
       },
       // S6 — analyst
+      // 深度分析；10min
       {
         primitive: "synthesize",
         id: "s6-analyst",
         roleId: "analyst",
         mode: "analyze",
+        timeoutMs: 600_000,
       },
       // S7 — writer outline (mission-level)
+      // 生成大纲；5min
       {
         primitive: "draft",
         id: "s7-writer-outline",
         roleId: "writer",
         mode: "outline",
+        timeoutMs: 300_000,
       },
       // S8 — writer full draft
-      { primitive: "draft", id: "s8-writer", roleId: "writer", mode: "full" },
+      // 多章节完整写作，全流程最慢 stage；25min
+      {
+        primitive: "draft",
+        id: "s8-writer",
+        roleId: "writer",
+        mode: "full",
+        timeoutMs: 1_500_000,
+      },
       // S8B — section quality enhancement (review primitive afterReview hook)
+      // 质量增强；10min
       {
         primitive: "review",
         id: "s8b-quality-enhancement",
         roleId: "reviewer",
         mode: "quality-enhance",
+        timeoutMs: 600_000,
       },
       // S9 — meta critic
+      // 批评性审阅；5min
       {
         primitive: "review",
         id: "s9-critic",
         roleId: "reviewer",
         mode: "meta-critic",
+        timeoutMs: 300_000,
       },
       // S9B — objective evaluation
+      // 客观评估；5min
       {
         primitive: "review",
         id: "s9b-objective-eval",
         roleId: "reviewer",
         mode: "objective",
+        timeoutMs: 300_000,
       },
       // S10 — leader foreword + signoff
+      // leader 写前言 + 决策放行；5min
       {
         primitive: "signoff",
         id: "s10-leader-foreword-signoff",
         roleId: "leader",
+        timeoutMs: 300_000,
       },
       // S11 — final persist
-      { primitive: "persist", id: "s11-persist", mode: "final" },
+      // 纯 DB write，无 LLM；2min
+      {
+        primitive: "persist",
+        id: "s11-persist",
+        mode: "final",
+        timeoutMs: 120_000,
+      },
       // ★ 2026-05-06 (A-7): S12 self-evolution 从 pipeline.steps 移除，改由 dispatcher
       //   在 mission terminal 后 fire-and-forget 触发，emit mission:postlude:* 事件流。
       //   原因：S12 是 best-effort 后置任务（postmortem 统计 + memory 索引），不该挂在

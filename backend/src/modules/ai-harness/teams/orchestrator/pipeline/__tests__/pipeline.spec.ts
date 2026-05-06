@@ -298,7 +298,11 @@ describe("MissionPipelineOrchestrator (R1-B)", () => {
     expect(result.crossStageState["persisted"]).toBe(true);
   });
 
-  it("step.timeoutMs 超时 → StageAbortError → mission:aborted", async () => {
+  // ★ 2026-05-06 重大整改: stage 死秒表已被平台层删除。stage 不再因 timeoutMs
+  //   到期而被强 abort —— mission liveness guard + mission-runtime-shell
+  //   wallTimer 兜底。step.timeoutMs 现在仅作 stallVisibilityMs 阈值（× 1.5
+  //   后 emit `stage:stalled` 警告，不杀）。
+  it("step.timeoutMs 不再杀 stage（平台层取消死秒表）— stage 跑完正常 completed", async () => {
     const { registry, orchestrator } = makeOrchestrator();
     registry.register(
       defineMissionPipeline({
@@ -306,7 +310,7 @@ describe("MissionPipelineOrchestrator (R1-B)", () => {
         roles: [],
         steps: [
           makeStep("slow", "persist", {
-            timeoutMs: 30,
+            timeoutMs: 30, // 旧死秒表会在 30ms 杀；新机制不再杀
             hooks: {
               persist: () =>
                 new Promise<void>((resolve) =>
@@ -323,7 +327,74 @@ describe("MissionPipelineOrchestrator (R1-B)", () => {
       pipelineId: "test",
       input: {},
     });
-    expect(result.status).toBe("aborted");
+    // stage 跑完 → mission completed（旧机制是 aborted）
+    expect(result.status).toBe("completed");
+  });
+
+  it("【反向证据】stage 内部 primitive 主动抛错 → 平台层不吞，stage:failed → mission:failed", async () => {
+    // 删死秒表后 primitive 抛错路径必须仍 work（HTTP timeout / business error 等
+    // 由 primitive 自己 throw → orchestrator catch → emit stage:failed → bubble up）
+    const { registry, orchestrator } = makeOrchestrator();
+    registry.register(
+      defineMissionPipeline({
+        id: "test",
+        roles: [],
+        steps: [
+          makeStep("erroring", "persist", {
+            hooks: {
+              persist: async () => {
+                throw new Error("HTTP timeout from LLM provider");
+              },
+            },
+          }),
+        ],
+      }),
+    );
+
+    const events: { type: string; reason?: unknown }[] = [];
+    const result = await orchestrator.run({
+      missionId: "m1",
+      pipelineId: "test",
+      input: {},
+      onEvent: (ev) =>
+        events.push({
+          type: ev.type,
+          reason: (ev as { error?: unknown }).error,
+        }),
+    });
+    expect(result.status).toBe("failed");
+    expect(events.some((e) => e.type === "stage:failed")).toBe(true);
+  });
+
+  it("【反向证据】stage 配 timeoutMs=10ms 但运行 200ms → 不再被死秒表杀（只触发 stage:stalled 警告）", async () => {
+    // 这是 prod S3 dim 并行误杀的反向证据：旧机制 timeoutMs 到了就抛错；
+    // 新机制只 emit stage:stalled warning，stage 继续跑到完成。
+    const { registry, orchestrator } = makeOrchestrator();
+    registry.register(
+      defineMissionPipeline({
+        id: "test",
+        roles: [],
+        steps: [
+          makeStep("longrunning", "persist", {
+            timeoutMs: 10, // 极短，旧机制必杀
+            hooks: {
+              persist: () =>
+                new Promise<void>((resolve) =>
+                  setTimeout(() => resolve(), 200),
+                ),
+            },
+          }),
+        ],
+      }),
+    );
+
+    const result = await orchestrator.run({
+      missionId: "m1",
+      pipelineId: "test",
+      input: {},
+    });
+    // 跑完 → completed（不被死秒表杀）
+    expect(result.status).toBe("completed");
   });
 
   it("AbortSignal 在 step 间隙触发 → mission:aborted", async () => {

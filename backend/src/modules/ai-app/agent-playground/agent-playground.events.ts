@@ -8,26 +8,104 @@
 import type { DomainEventTypeSpec } from "@/modules/ai-harness/facade";
 import type { z } from "zod";
 import {
-  LeaderGoalsSetSchema,
-  DimensionsAppendedSchema,
-  DimensionRetryingSchema,
-  LeaderDecisionSchema,
-  ChapterWritingCompletedSchema,
-  ChapterDoneSchema,
-  ReconciliationCompletedSchema,
+  // mission lifecycle
+  MissionStartedSchema,
+  MissionCompletedSchema,
+  MissionFailedSchema,
+  MissionRejectedSchema,
+  MissionWarningSchema,
+  MissionDegradedSchema,
+  MissionCancelledSchema,
+  MissionManualRerunFromTodoSchema,
+  MissionRerunStartedSchema,
+  MissionRerunCompletedSchema,
+  MissionRerunFailedSchema,
+  MissionPostludeStartedSchema,
+  MissionPostludeCompletedSchema,
+  MissionPostludeFailedSchema,
+  MissionExecutionAbortedSchema,
+  MissionEvolvedSchema,
+  MissionPersistFailedSchema,
+  MissionBudgetWarningSoftSchema,
+  MissionBudgetWarningHardSchema,
+  // stage lifecycle
+  StageStartedSchema,
+  StageCompletedSchema,
+  StageLifecycleSchema,
+  StageFailedSchema,
+  StageStalledSchema,
+  StageDegradedSchema,
+  StageMetricsSchema,
+  // agent lifecycle
+  AgentLifecycleSchema,
+  AgentThoughtSchema,
+  AgentActionSchema,
+  AgentObservationSchema,
+  AgentReflectionSchema,
+  AgentErrorSchema,
+  AgentNarrativeSchema,
+  AgentValidationRejectedSchema,
+  // researcher / verifier / critic
+  ResearcherCompletedSchema,
+  VerifierVerdictSchema,
   CriticVerdictSchema,
+  // cost / budget
+  CostTickSchema,
+  BudgetExhaustedSchema,
+  BudgetWarningSoftSchema,
+  BudgetWarningHardSchema,
+  // report
+  ReportDraftSchema,
+  DraftCompletedSchema,
+  ReportAssembledSchema,
+  // memory / evolution
+  MemoryIndexedSchema,
+  IterationProgressSchema,
+  // dimension research lifecycle
+  DimensionResearchStartedSchema,
+  DimensionResearchCompletedSchema,
+  DimensionOutlinePlannedSchema,
+  DimensionIntegratingStartedSchema,
+  DimensionIntegratingCompletedSchema,
+  DimensionIntegratingFailedSchema,
+  DimensionGradedSchema,
+  DimensionDegradedSchema,
+  DimensionRetryingSchema,
+  DimensionRetryFailedSchema,
+  DimensionRetryPhaseStartedSchema,
+  DimensionRetryPhaseCompletedSchema,
+  DimensionsAppendedSchema,
+  // chapter lifecycle
+  ChapterWritingStartedSchema,
+  ChapterWritingCompletedSchema,
+  ChapterReviewStartedSchema,
+  ChapterReviewCompletedSchema,
+  ChapterRevisionSchema,
+  ChapterDoneSchema,
+  ChapterRewrittenSchema,
+  // tools / reconciliation
+  ToolsRecalledSchema,
+  ReconciliationCompletedSchema,
+  ReconciliationSkippedSchema,
+  ReconciliationWarningsOrphanedSchema,
+  // infrastructure events
+  EventOversizedSchema,
+  EventDroppedSchema,
+  SectionRemediationSummarySchema,
+  FailurePatternPreAppliedSchema,
+  // leader
+  LeaderGoalsSetSchema,
+  LeaderDecisionSchema,
+  LeaderForewordSchema,
+  LeaderSignedSchema,
+  LeaderRejectedRevisionRecommendedSchema,
 } from "./agent-playground.event-schemas";
 
 /**
- * T(suffix) — 注册一个事件类型，无 schema（待补）。
  * S(suffix, schema) — 注册带 zod payload schema 的事件，DomainEventBus.emit() 会
  * 自动 safeParse。schema 失败默认 log.warn 静默 drop（不阻断业务），但开发期可由
  * 业务层 broadcast 失败 throw（让 backend 自己炸而不是污染前端）。
  */
-const T = (suffix: string): DomainEventTypeSpec => ({
-  type: `agent-playground.${suffix}`,
-});
-
 const S = <TPayload>(
   suffix: string,
   schema: z.ZodType<TPayload>,
@@ -37,111 +115,115 @@ const S = <TPayload>(
 });
 
 export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
-  T("mission:started"),
-  T("mission:completed"),
-  T("mission:failed"),
-  T("mission:rejected"),
-  T("mission:warning"),
-  T("mission:degraded"),
-  T("mission:cancelled"), // controller.ts manual cancel — 之前未注册被 bus drop（同类 bug 与 P1 修复）
-  T("mission:manual-rerun-from-todo"), // controller.ts 手动 rerun — 同上
+  S("mission:started", MissionStartedSchema),
+  S("mission:completed", MissionCompletedSchema),
+  S("mission:failed", MissionFailedSchema),
+  S("mission:rejected", MissionRejectedSchema),
+  S("mission:warning", MissionWarningSchema),
+  S("mission:degraded", MissionDegradedSchema),
+  S("mission:cancelled", MissionCancelledSchema), // controller.ts manual cancel
+  S("mission:manual-rerun-from-todo", MissionManualRerunFromTodoSchema), // controller.ts 手动 rerun
   // ── 2026-04-30: 单 stage 局部重跑（B 路线）──
-  T("mission:rerun-started"), // 局部重跑开始（payload: scope, todoId, sourceStage）
-  T("mission:rerun-completed"), // 局部重跑成功，patch 已落库（payload: scope, todoId, durationMs）
-  T("mission:rerun-failed"), // 局部重跑失败，原产物保留（payload: scope, todoId, errorMessage）
-  T("stage:started"),
-  T("stage:completed"),
+  S("mission:rerun-started", MissionRerunStartedSchema), // 局部重跑开始（payload: scope, todoId, sourceStage）
+  S("mission:rerun-completed", MissionRerunCompletedSchema), // 局部重跑成功，patch 已落库（payload: scope, todoId, durationMs）
+  S("mission:rerun-failed", MissionRerunFailedSchema), // 局部重跑失败，原产物保留（payload: scope, todoId, errorMessage）
+  S("stage:started", StageStartedSchema),
+  S("stage:completed", StageCompletedSchema),
   // ★ 2026-05-06 (A 架构优化): orchestrator-driven lifecycle 信号，与 stage:started/completed
   //   并存。stage:lifecycle 由 dispatcher onEvent 桥接 orchestrator 内部事件，stage 字段
   //   是 step.id 映射后的前端 SystemStageId；stage:started/completed 仍由 stage 文件 emit
   //   作 metrics（携带 dimensions/results 等 custom payload）。
   //   后续 PR：删 stage:started/completed，全靠 stage:lifecycle + 单独 stage:metrics 事件。
-  T("stage:lifecycle"),
-  T("stage:failed"),
+  S("stage:lifecycle", StageLifecycleSchema),
+  S("stage:failed", StageFailedSchema),
   // ★ 2026-05-06 (A-9): orchestrator watchdog 检测 stage stall（started 后超阈值未完成）
-  T("stage:stalled"),
+  S("stage:stalled", StageStalledSchema),
   // ★ 2026-05-06 (A-6): stage 内部软失败 markDegraded API → orchestrator 透传
-  T("stage:degraded"),
+  S("stage:degraded", StageDegradedSchema),
   // ★ 2026-05-06 (A-2): stage 业务 metrics（取代 stage:completed payload，stepId 索引）
-  T("stage:metrics"),
+  S("stage:metrics", StageMetricsSchema),
   // ★ 2026-05-06 (A-7): S12 fire-and-forget postlude 独立事件流，不与 stage:lifecycle 混
-  T("mission:postlude:started"),
-  T("mission:postlude:completed"),
-  T("mission:postlude:failed"),
+  S("mission:postlude:started", MissionPostludeStartedSchema),
+  S("mission:postlude:completed", MissionPostludeCompletedSchema),
+  S("mission:postlude:failed", MissionPostludeFailedSchema),
   // ★ 2026-05-06 (A-8): dispatcher finally 兜底信号 — runtime 失联（非 stage:failed）
-  T("mission:execution-aborted"),
-  T("agent:lifecycle"),
-  T("agent:thought"),
-  T("agent:action"),
-  T("agent:observation"),
-  T("agent:reflection"),
-  T("agent:error"),
-  T("researcher:completed"),
-  T("verifier:verdict"),
-  T("cost:tick"),
-  T("budget:exhausted"),
-  T("report:draft"),
-  T("draft:completed"), // S8 写作环节完成（区别于 mission:completed —— 此时还要跑 S8B/S9/S9B/S10/S11/S12）
-  T("report:assembled"), // S8 reportArtifact v2 装配完成 light-payload 信号（前端用于触发 re-fetch）
-  T("memory:indexed"),
-  // ── per-dim research lifecycle（并行 dim 状态映射，前端用 payload.dimension 显式匹配）──
-  T("dimension:research:started"), // 单 dim researcher 开始采集（invoke 之前 emit，保证 UI 立即看到）
-  T("dimension:research:completed"), // 单 dim research 阶段完成（含 dimension / state / findingsCount）
+  S("mission:execution-aborted", MissionExecutionAbortedSchema),
+  S("agent:lifecycle", AgentLifecycleSchema),
+  S("agent:thought", AgentThoughtSchema),
+  S("agent:action", AgentActionSchema),
+  S("agent:observation", AgentObservationSchema),
+  S("agent:reflection", AgentReflectionSchema),
+  S("agent:error", AgentErrorSchema),
+  S("researcher:completed", ResearcherCompletedSchema),
+  S("verifier:verdict", VerifierVerdictSchema),
+  S("cost:tick", CostTickSchema),
+  S("budget:exhausted", BudgetExhaustedSchema),
+  S("report:draft", ReportDraftSchema),
+  S("draft:completed", DraftCompletedSchema), // S8 写作环节完成
+  S("report:assembled", ReportAssembledSchema), // S8 reportArtifact v2 装配完成
+  S("memory:indexed", MemoryIndexedSchema),
+  // ── per-dim research lifecycle ──
+  S("dimension:research:started", DimensionResearchStartedSchema),
+  S("dimension:research:completed", DimensionResearchCompletedSchema),
   // ── TI-style per-dimension 子流程事件 ──
-  T("dimension:outline:planned"), // outline agent 产出 N 章节规划
-  T("chapter:writing:started"), // chapter writer 开始写第 i 章
+  S("dimension:outline:planned", DimensionOutlinePlannedSchema),
+  S("chapter:writing:started", ChapterWritingStartedSchema),
   S("chapter:writing:completed", ChapterWritingCompletedSchema), // ★ schema 化
-  T("chapter:review:started"), // chapter reviewer 开始评
-  T("chapter:review:completed"), // chapter reviewer 出 decision
-  T("chapter:revision"), // 触发重写（critique 反馈）
+  S("chapter:review:started", ChapterReviewStartedSchema),
+  S("chapter:review:completed", ChapterReviewCompletedSchema),
+  S("chapter:revision", ChapterRevisionSchema),
   S("chapter:done", ChapterDoneSchema), // ★ schema 化
-  T("dimension:integrating:started"),
-  T("dimension:integrating:completed"),
-  T("dimension:integrating:failed"), // P1-R4-B (round 4): integrator 失败前端切错误态
-  T("dimension:graded"), // 5-axis 评分结果
+  S("dimension:integrating:started", DimensionIntegratingStartedSchema),
+  S("dimension:integrating:completed", DimensionIntegratingCompletedSchema),
+  S("dimension:integrating:failed", DimensionIntegratingFailedSchema), // P1-R4-B
+  S("dimension:graded", DimensionGradedSchema),
   // ── Leader chat 触发的动态追加 ──
   S("dimensions:appended", DimensionsAppendedSchema), // ★ schema 化
   // ── 全链路诊断 / 跨 mission 失败模式记忆 ──
-  T("dimension:degraded"), // researcher 失败 → 维度降级，含 innerFailureCode
-  T("failure-pattern:pre-applied"), // 启动 researcher 前命中历史失败模式 → 预禁用 model
-  // ── Phase P0-4: Reconciler [3.5] 节点（mission-pipeline-reconciler.md）──
+  S("dimension:degraded", DimensionDegradedSchema),
+  S("failure-pattern:pre-applied", FailurePatternPreAppliedSchema),
+  // ── Phase P0-4: Reconciler [3.5] 节点 ──
   S("reconciliation:completed", ReconciliationCompletedSchema), // ★ schema 化
   // ── Phase P0-9: Writer 局部回写 (D11) ──
-  T("chapter:rewritten"), // Reviewer 触发某章重写并完成
+  S("chapter:rewritten", ChapterRewrittenSchema),
   // ── Phase P0-2 / P3-1: Tool Recall trace ──
-  T("tools:recalled"),
-  T("agent:validation-rejected"),
+  S("tools:recalled", ToolsRecalledSchema),
+  S("agent:validation-rejected", AgentValidationRejectedSchema),
   // ── Phase P21-2: Critic L4 verdict 事件 ──
   S("critic:verdict", CriticVerdictSchema), // ★ schema 化
   // ── Phase P0-10: 预算两档闸 ──
-  T("mission:budget-warning-soft"),
-  T("mission:budget-warning-hard"),
+  S("mission:budget-warning-soft", MissionBudgetWarningSoftSchema),
+  S("mission:budget-warning-hard", MissionBudgetWarningHardSchema),
   // ── Phase Lead-1+: Leader-Replanner-Lite ──
   S("leader:goals-set", LeaderGoalsSetSchema), // ★ schema 化（initialRisks 形状漂移过）
   S("leader:decision", LeaderDecisionSchema), // ★ schema 化
-  T("leader:foreword"), // M6 Leader 写完 meta-level Foreword
-  T("leader:signed"), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
+  S("leader:foreword", LeaderForewordSchema), // M6 Leader 写完 meta-level Foreword
+  S("leader:signed", LeaderSignedSchema), // M7 Leader 签字（含 score/verdict/signed/refusalReason）
   S("dimension:retrying", DimensionRetryingSchema), // ★ schema 化
-  T("dimension:retry-failed"),
+  S("dimension:retry-failed", DimensionRetryFailedSchema),
   // ── 人话叙事事件（agent-narrative.md）──
-  // 每个 stage 在关键节点 emit 一条 short 自然语言句子，前端任务详情主时间线
-  // 直接渲染（不再事后翻译 raw JSON）。
-  T("agent:narrative"),
+  S("agent:narrative", AgentNarrativeSchema),
   // ── S12 self-evolution（mission 复盘）──
-  T("mission:evolved"), // mission 完成后异步：postmortem 统计 + 系统建议
+  S("mission:evolved", MissionEvolvedSchema),
   // ── Phase P1 fix (2026-04-29 mission 8c7b4358) — ReAct 死循环防护 ──
-  T("iteration:progress"), // 每轮 ReAct 进度（iter / maxIter / approachingLimit），UI 死循环可视化
-  T("dimension:retry-phase:started"), // Leader patch retry 阶段启动里程碑（前 case 卡 44min 中间 0 milestone）
-  T("dimension:retry-phase:completed"), // Leader patch retry 阶段完成里程碑（含 wallTimeMs / 各 dim 成败）
-  // ── 第二轮深度排查补漏（2026-04-29 round 2）：P0-NEW-1 ──
-  T("reconciliation:skipped"), // S5 单维度短路（无需跨维对账）
-  T("reconciliation:warnings-orphaned"), // S8 reportAssembler 失败但 reconciler warning 仍要 emit
-  T("mission:persist-failed"), // S11 DB 写入失败 —— 关键，不能被 drop 否则前端永远卡 running
-  // ── 第三轮补漏（2026-04-29 round 3）：P1-R3-D ──
-  T("event:oversized"), // socket-broadcast 256KB cap 降级标识，前端按此 type 拉 /replay
-  T("event:dropped"), // socket-broadcast 序列化失败标识，前端可显示"事件丢失"警告
-  // ── Phase 2 (TI RemediationTrace 模式)：S8B 补救成效汇总 ──
-  T("section:remediation:summary"),
-  // ── Phase 6 (2026-04-29): leader 拒签 revision 引导事件 ──
-  T("leader:rejected-revision-recommended"),
+  S("iteration:progress", IterationProgressSchema),
+  S("dimension:retry-phase:started", DimensionRetryPhaseStartedSchema),
+  S("dimension:retry-phase:completed", DimensionRetryPhaseCompletedSchema),
+  // ── 第二轮深度排查补漏 ──
+  S("reconciliation:skipped", ReconciliationSkippedSchema),
+  S("reconciliation:warnings-orphaned", ReconciliationWarningsOrphanedSchema),
+  S("mission:persist-failed", MissionPersistFailedSchema),
+  // ── 第三轮补漏 ──
+  S("event:oversized", EventOversizedSchema),
+  S("event:dropped", EventDroppedSchema),
+  // ── Phase 2 (TI RemediationTrace): S8B 补救成效汇总 ──
+  S("section:remediation:summary", SectionRemediationSummarySchema),
+  // ── Phase 6: leader 拒签 revision 引导事件 ──
+  S(
+    "leader:rejected-revision-recommended",
+    LeaderRejectedRevisionRecommendedSchema,
+  ),
+  // ── budget 独立告警（区别于 mission:budget-warning-*）──
+  S("budget:warning-soft", BudgetWarningSoftSchema),
+  S("budget:warning-hard", BudgetWarningHardSchema),
 ];
