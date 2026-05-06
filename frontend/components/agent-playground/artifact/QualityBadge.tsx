@@ -12,6 +12,8 @@ import type { ArtifactQualityVerdicts } from '@/lib/agent-playground/report-arti
 
 interface Props {
   quality: ArtifactQualityVerdicts;
+  /** 强制默认展开（在"报告分析"slide-over 内为 true，因为整个 tab 就是为查看质量服务的） */
+  defaultOpen?: boolean;
 }
 
 const DIM_LABELS: Record<keyof ArtifactQualityVerdicts['dimensions'], string> =
@@ -42,9 +44,11 @@ function bgFor(score: number): string {
 /**
  * 10 维质量评分 + L4 critic 警告展示
  */
-export function QualityBadge({ quality }: Props) {
-  // Phase P27-1: 有 hardGate 违规时默认展开
-  const [open, setOpen] = useState(quality.hardGateViolations.length > 0);
+export function QualityBadge({ quality, defaultOpen }: Props) {
+  // Phase P27-1: 有 hardGate 违规时默认展开；defaultOpen 强制覆盖（slide-over 用）
+  const [open, setOpen] = useState(
+    defaultOpen ?? quality.hardGateViolations.length > 0
+  );
   const Icon =
     quality.overall >= 80
       ? ShieldCheck

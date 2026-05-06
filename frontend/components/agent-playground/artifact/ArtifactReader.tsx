@@ -3,13 +3,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   BookOpen,
+  BookmarkCheck,
+  Calendar,
+  Clock,
+  Coins,
+  Cpu,
+  Database,
   Download,
+  FileText,
+  GitCompareArrows,
+  ImageIcon,
   Info,
+  Layers,
   List,
   RefreshCw,
   Sparkles,
+  Timer,
   X as XIcon,
+  Zap,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import type { DimensionPipelineState } from '@/lib/agent-playground/derive';
 import { ContinuousReader } from './ContinuousReader';
@@ -19,7 +32,6 @@ import { QualityBadge } from './QualityBadge';
 import { FactTablePanel } from './FactTablePanel';
 import { ReconciliationPanel } from './ReconciliationPanel';
 import { ToolRecallTrace } from './ToolRecallTrace';
-import { ReportHeroStrip } from './ReportHeroStrip';
 
 type ViewMode = 'continuous' | 'chapter' | 'quick';
 
@@ -269,7 +281,7 @@ export function ArtifactReader({
             onClick={() => setInsightsOpen(false)}
           />
           {/* panel */}
-          <div className="fixed right-0 top-0 z-50 flex h-full w-[420px] max-w-[92vw] flex-col border-l border-gray-200 bg-white shadow-2xl">
+          <div className="fixed right-0 top-0 z-50 flex h-full w-[480px] max-w-[92vw] flex-col border-l border-gray-200 bg-white shadow-2xl">
             {/* header + tabs */}
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <h3 className="text-sm font-semibold text-gray-900">报告分析</h3>
@@ -315,43 +327,9 @@ export function ArtifactReader({
             {/* body */}
             <div className="flex-1 overflow-auto p-4">
               {insightsTab === 'quality' && (
-                <div className="space-y-3">
-                  <QualityBadge quality={artifact.quality} />
-                  <ReportHeroStrip artifact={artifact} />
-                </div>
+                <QualityTabBody artifact={artifact} />
               )}
-              {insightsTab === 'meta' && (
-                <div className="space-y-2 text-[12px] text-gray-700">
-                  <div>
-                    <span className="text-gray-500">生成时间：</span>
-                    {artifact.metadata.generatedAt}
-                  </div>
-                  <div>
-                    <span className="text-gray-500">版本：</span> v
-                    {artifact.metadata.version}
-                  </div>
-                  <div>
-                    <span className="text-gray-500">耗时：</span>
-                    {Math.round(artifact.metadata.generationTimeMs / 1000)}s
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Tokens：</span>
-                    {artifact.metadata.totalTokens.total}
-                  </div>
-                  <div>
-                    <span className="text-gray-500">成本：</span>$
-                    {(artifact.metadata.costCents / 100).toFixed(2)}
-                  </div>
-                  {artifact.metadata.modelTrail.length > 0 && (
-                    <div>
-                      <span className="text-gray-500">模型：</span>
-                      <span className="font-mono text-[11px]">
-                        {artifact.metadata.modelTrail.join(' / ')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+              {insightsTab === 'meta' && <MetaTabBody artifact={artifact} />}
               {insightsTab === 'fact' && artifact.factTable.length > 0 && (
                 <FactTablePanel
                   factTable={artifact.factTable}
@@ -613,5 +591,228 @@ function ViewBtn({
       {icon}
       {children}
     </button>
+  );
+}
+
+/* ============================================================
+ * 报告分析 slide-over —— 紧凑版面（专为 480px 窄面板设计）
+ *   2026-05-06 重构：原来塞了主区域用的 ReportHeroStrip 6-cell grid，
+ *   在 sidebar 里挤成一坨。换成单列 stat row + 版本徽章。
+ * ============================================================ */
+
+const VERDICT_LABEL: Record<
+  string,
+  { label: string; tone: string; hint: string }
+> = {
+  excellent: {
+    label: '优秀',
+    tone: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+    hint: '10 维全部达标，可直接交付。',
+  },
+  good: {
+    label: '良好',
+    tone: 'bg-blue-50 text-blue-700 ring-blue-200',
+    hint: '主要维度通过，少量提醒可酌情处理。',
+  },
+  acceptable: {
+    label: '合格',
+    tone: 'bg-amber-50 text-amber-700 ring-amber-200',
+    hint: '基本可用，建议针对弱项补强后再交付。',
+  },
+  poor: {
+    label: '不达标',
+    tone: 'bg-red-50 text-red-700 ring-red-200',
+    hint: '存在硬卡违规或严重弱项，建议 rerun。',
+  },
+};
+
+function QualityTabBody({ artifact }: { artifact: ReportArtifact }) {
+  const verdict = artifact.quality.finalVerdict;
+  const v = verdict ? VERDICT_LABEL[verdict] : undefined;
+  return (
+    <div className="space-y-3">
+      {v && (
+        <div
+          className={`flex items-start gap-2 rounded-lg px-3 py-2 text-[12px] ring-1 ${v.tone}`}
+        >
+          <span className="mt-0.5 inline-flex h-5 items-center rounded px-1.5 text-[11px] font-semibold">
+            {v.label}
+          </span>
+          <span className="leading-relaxed">{v.hint}</span>
+        </div>
+      )}
+      <QualityBadge quality={artifact.quality} defaultOpen />
+    </div>
+  );
+}
+
+const TRIGGER_LABEL: Record<string, string> = {
+  initial: '首次生成',
+  'rerun-fresh': '全量重跑',
+  'rerun-incremental': '增量重跑',
+  'todo-rerun': 'Todo 修订',
+};
+
+function MetaTabBody({ artifact }: { artifact: ReportArtifact }) {
+  const m = artifact.metadata;
+  const generatedAt = (() => {
+    try {
+      const d = new Date(m.generatedAt);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    } catch {
+      return m.generatedAt;
+    }
+  })();
+  const tokens = m.totalTokens.total;
+  const cost = (m.costCents / 100).toFixed(2);
+  const seconds = Math.round(m.generationTimeMs / 1000);
+  const wordValue =
+    m.wordCount >= 1000
+      ? `${(m.wordCount / 1000).toFixed(1)}k`
+      : String(m.wordCount);
+
+  // changesFromPrev 来自 ReportArtifact metadata（有的话），不是来自 mission_report_versions 表
+  const changeCount = m.changesFromPrev?.length ?? 0;
+
+  return (
+    <div className="space-y-4">
+      {/* 版本头部条 */}
+      <div className="rounded-lg border border-gray-200 bg-gradient-to-r from-violet-50/40 to-sky-50/40 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono inline-flex items-center rounded-md bg-violet-100 px-2 py-0.5 text-[12px] font-bold text-violet-800">
+            v{m.version}
+          </span>
+          {m.versionLabel && (
+            <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10.5px] text-gray-700">
+              {m.versionLabel}
+            </span>
+          )}
+          {m.isIncremental && (
+            <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10.5px] font-medium text-emerald-700">
+              <GitCompareArrows className="h-2.5 w-2.5" />
+              增量
+            </span>
+          )}
+          {changeCount > 0 && (
+            <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10.5px] text-amber-800">
+              vs 前一版：{changeCount} 处变更
+            </span>
+          )}
+        </div>
+        <p className="mt-1.5 line-clamp-2 text-[12px] font-medium text-gray-800">
+          {m.topic}
+        </p>
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          版本历史 · 后续 PR 接入版本切换器
+        </p>
+      </div>
+
+      {/* 内容统计 */}
+      <StatGroup title="内容统计">
+        <StatRow Icon={FileText} label="总字数" value={wordValue} />
+        <StatRow
+          Icon={Layers}
+          label="章节数"
+          value={artifact.sections.length}
+        />
+        <StatRow Icon={BookmarkCheck} label="引用源" value={m.sourceCount} />
+        <StatRow Icon={ImageIcon} label="图表" value={m.figureCount} />
+        <StatRow Icon={Database} label="事实条目" value={m.factCount} />
+        <StatRow
+          Icon={Clock}
+          label="阅读时长"
+          value={`${m.readingTimeMinutes} 分钟`}
+        />
+        <StatRow
+          Icon={Sparkles}
+          label="研究维度"
+          value={m.dimensionCount || '—'}
+        />
+      </StatGroup>
+
+      {/* 生成元数据 */}
+      <StatGroup title="生成元数据">
+        <StatRow Icon={Calendar} label="生成时间" value={generatedAt} />
+        <StatRow Icon={Timer} label="耗时" value={`${seconds}s`} />
+        <StatRow Icon={Zap} label="Tokens" value={tokens.toLocaleString()} />
+        <StatRow Icon={Coins} label="成本" value={`$${cost}`} />
+        {m.modelTrail.length > 0 && (
+          <StatRow
+            Icon={Cpu}
+            label="模型链路"
+            value={
+              <span
+                className="font-mono text-[11px] text-gray-700"
+                title={m.modelTrail.join(', ')}
+              >
+                {m.modelTrail.length <= 3
+                  ? m.modelTrail.join(' › ')
+                  : `${m.modelTrail.slice(0, 3).join(' › ')} +${m.modelTrail.length - 3}`}
+              </span>
+            }
+          />
+        )}
+      </StatGroup>
+
+      {/* 配置画像 */}
+      <StatGroup title="配置画像">
+        <StatRow label="风格" value={m.styleProfile} />
+        <StatRow label="长度" value={m.lengthProfile} />
+        <StatRow label="受众" value={m.audienceProfile} />
+        <StatRow label="语言" value={m.language} />
+      </StatGroup>
+
+      {/* triggerType 不在 ArtifactMetadata 内，但 versionLabel 可能含线索；仅当显式标 trigger 才显示 */}
+      {m.versionLabel && TRIGGER_LABEL[m.versionLabel] && (
+        <p className="text-[11px] text-gray-500">
+          触发类型：{TRIGGER_LABEL[m.versionLabel]}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function StatGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+        {title}
+      </p>
+      <div className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StatRow({
+  Icon,
+  label,
+  value,
+}: {
+  Icon?: LucideIcon;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2 text-[12px]">
+      <span className="flex items-center gap-2 text-gray-500">
+        {Icon && (
+          <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+            <Icon className="h-3 w-3" />
+          </span>
+        )}
+        {label}
+      </span>
+      <span className="truncate text-right font-medium text-gray-900">
+        {value}
+      </span>
+    </div>
   );
 }

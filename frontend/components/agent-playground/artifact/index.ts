@@ -8,4 +8,3 @@ export { QualityBadge } from './QualityBadge';
 export { FactTablePanel } from './FactTablePanel';
 export { ToolRecallTrace } from './ToolRecallTrace';
 export { ReconciliationPanel } from './ReconciliationPanel';
-export { ReportHeroStrip } from './ReportHeroStrip';
