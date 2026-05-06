@@ -1,26 +1,24 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Key,
-  Shield,
-  TestTube2,
-  Check,
-  X,
-  ChevronDown,
-  ChevronUp,
+  Edit,
   Heart,
-  Lock,
-  Trash2,
+  Key,
   Loader2,
-  Info,
+  Lock,
   Plus,
+  RefreshCw,
+  Search,
+  Settings2,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import {
   useUserApiKeys,
-  type UserApiKeyInfo,
   type ProviderInfo,
+  type UserApiKeyInfo,
 } from '@/hooks/features/useUserApiKeys';
 import { apiClient } from '@/lib/api/client';
 import { UserApiKeyDrawer } from './UserApiKeyDrawer';
@@ -54,415 +52,18 @@ const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   voyage: { color: 'bg-teal-100 text-teal-700', icon: '' },
 };
 
-function ProviderKeyCard({
-  provider,
-  existingKey,
-  providerKeys,
-  loading,
-  onSave,
-  onSaveWithLabel,
-  onDelete,
-  onDeleteWithLabel,
-  onTest,
-  onWithdrawDonation,
-  saving,
-  testing,
-}: {
-  provider: ProviderInfo;
-  existingKey?: UserApiKeyInfo;
-  /** 该 provider 下全部 label 的 keys（多 key 面板用） */
-  providerKeys: UserApiKeyInfo[];
-  loading: boolean;
-  onSave: (
-    provider: string,
-    apiKey: string,
-    mode: 'personal' | 'donated',
-    preferredModelId?: string,
-    apiEndpoint?: string
-  ) => Promise<boolean>;
-  /** 全签名版本（含 label）— 多 key 面板调用 */
-  onSaveWithLabel: (
-    provider: string,
-    apiKey: string,
-    mode: 'personal' | 'donated',
-    preferredModelId?: string,
-    apiEndpoint?: string,
-    label?: string
-  ) => Promise<boolean>;
-  onDelete: (provider: string) => Promise<boolean>;
-  /** 含 label 的删除（多 key 面板用） */
-  onDeleteWithLabel: (provider: string, label?: string) => Promise<boolean>;
-  onTest: (
-    provider: string,
-    apiKey: string,
-    apiEndpoint?: string
-  ) => Promise<{ success: boolean; message: string }>;
-  onWithdrawDonation: (provider: string) => Promise<boolean>;
-  saving: boolean;
-  testing: boolean;
-}) {
-  const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
-  // ★ 多 KEY 管理抽屉（与 admin SecretKeysDrawer 视觉行为一致）
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [mode, setMode] = useState<'personal' | 'donated'>('personal');
-  const [apiEndpoint, setApiEndpoint] = useState('');
-  const [preferredModelId, setPreferredModelId] = useState(
-    existingKey?.preferredModelId || ''
-  );
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
-  const [showKey, setShowKey] = useState(false);
+type CategoryFilter = 'ALL' | 'BUILTIN' | 'CUSTOM';
+type StatusFilter = 'ALL' | 'CONFIGURED' | 'DONATED' | 'UNCONFIGURED';
 
-  const iconInfo = PROVIDER_ICONS[provider.id] || {
-    color: 'bg-gray-100 text-gray-700',
-    icon: '',
-  };
-
-  const statusLabel = existingKey
-    ? existingKey.mode === 'donated'
-      ? t('profile.apiKeys.statusDonated')
-      : t('profile.apiKeys.statusPersonal')
-    : t('profile.apiKeys.statusNotConfigured');
-
-  const statusColor = existingKey
-    ? existingKey.mode === 'donated'
-      ? 'text-pink-600'
-      : 'text-green-600'
-    : 'text-gray-400';
-
-  const statusIcon = existingKey ? (
-    existingKey.mode === 'donated' ? (
-      <Heart className="h-3.5 w-3.5" />
-    ) : (
-      <Lock className="h-3.5 w-3.5" />
-    )
-  ) : null;
-
-  const handleTest = useCallback(async () => {
-    if (!apiKey.trim() || testing) return;
-    const result = await onTest(provider.id, apiKey, apiEndpoint || undefined);
-    setTestResult(result);
-  }, [apiKey, apiEndpoint, provider.id, onTest, testing]);
-
-  const handleSave = useCallback(async () => {
-    if (!apiKey.trim() || saving) return;
-    const success = await onSave(
-      provider.id,
-      apiKey,
-      mode,
-      preferredModelId.trim() || undefined,
-      apiEndpoint || undefined
-    );
-    if (success) {
-      setApiKey('');
-      setExpanded(false);
-      setTestResult(null);
-    }
-  }, [
-    apiKey,
-    mode,
-    preferredModelId,
-    apiEndpoint,
-    provider.id,
-    onSave,
-    saving,
-  ]);
-
-  const handleDelete = useCallback(async () => {
-    if (saving) return;
-    await onDelete(provider.id);
-  }, [provider.id, onDelete, saving]);
-
-  const handleWithdraw = useCallback(async () => {
-    if (saving) return;
-    await onWithdrawDonation(provider.id);
-  }, [provider.id, onWithdrawDonation, saving]);
-
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white">
-      <div
-        className="flex cursor-pointer items-center justify-between px-4 py-3"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconInfo.color}`}
-          >
-            {iconInfo.icon ? (
-              <img
-                src={iconInfo.icon}
-                alt={provider.name}
-                className="h-5 w-5"
-              />
-            ) : (
-              <Key className="h-4 w-4" />
-            )}
-          </div>
-          <span className="font-medium text-gray-900">{provider.name}</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className={`flex items-center gap-1 text-sm ${statusColor}`}>
-            {statusIcon}
-            {statusLabel}
-          </span>
-          <button className="text-sm text-blue-600 hover:text-blue-800">
-            {existingKey
-              ? t('profile.apiKeys.manage')
-              : t('profile.apiKeys.configure')}
-          </button>
-          {expanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
-          )}
-        </div>
-      </div>
-
-      {existingKey && !expanded && (
-        <div className="border-t border-gray-100 px-4 py-2 text-sm text-gray-500">
-          <span>{existingKey.keyHint}</span>
-          {existingKey.mode === 'donated' && existingKey.usageCount > 0 && (
-            <span className="ml-3">
-              {t('profile.apiKeys.callsContributed', {
-                count: existingKey.usageCount,
-              })}
-            </span>
-          )}
-        </div>
-      )}
-
-      {expanded && (
-        <div className="space-y-4 border-t border-gray-100 px-4 py-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              API Key *
-            </label>
-            <div className="relative">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => {
-                  setApiKey(e.target.value);
-                  setTestResult(null);
-                }}
-                placeholder={
-                  existingKey
-                    ? t('profile.apiKeys.enterNewKey')
-                    : t('profile.apiKeys.enterKey')
-                }
-                className="w-full rounded-md border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showKey ? (
-                  <X className="h-4 w-4" />
-                ) : (
-                  <Shield className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          {existingKey && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-              下一步：前往「我的模型」Tab，为这个 Key 添加自定义模型
-              （界面和字段与管理员的「模型管理」完全一致）。
-            </div>
-          )}
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              {t('profile.apiKeys.usageMode')}
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setMode('personal')}
-                className={`rounded-lg border-2 p-3 text-left transition-colors ${
-                  mode === 'personal'
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-blue-600" />
-                  <span className="text-sm font-medium">
-                    {t('profile.apiKeys.modePersonal')}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  {t('profile.apiKeys.modePersonalDesc')}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('donated')}
-                className={`rounded-lg border-2 p-3 text-left transition-colors ${
-                  mode === 'donated'
-                    ? 'border-pink-500 bg-pink-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Heart className="h-4 w-4 text-pink-600" />
-                  <span className="text-sm font-medium">
-                    {t('profile.apiKeys.modeDonated')}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  {t('profile.apiKeys.modeDonatedDesc')}
-                </p>
-              </button>
-            </div>
-          </div>
-
-          {mode === 'donated' && (
-            <div className="flex items-start gap-2 rounded-md bg-pink-50 p-3 text-sm text-pink-800">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>{t('profile.apiKeys.donationNote')}</p>
-            </div>
-          )}
-
-          <div>
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-            >
-              {showAdvanced ? (
-                <ChevronUp className="h-3 w-3" />
-              ) : (
-                <ChevronDown className="h-3 w-3" />
-              )}
-              {t('profile.apiKeys.advancedSettings')}
-            </button>
-            {showAdvanced && (
-              <div className="mt-2">
-                <label className="mb-1 block text-xs text-gray-500">
-                  {t('profile.apiKeys.customEndpoint')}
-                </label>
-                <input
-                  type="text"
-                  value={apiEndpoint}
-                  onChange={(e) => setApiEndpoint(e.target.value)}
-                  placeholder={provider.endpoint}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-            )}
-          </div>
-
-          {testResult && (
-            <div
-              className={`flex items-center gap-2 rounded-md p-2 text-sm ${
-                testResult.success
-                  ? 'bg-green-50 text-green-700'
-                  : 'bg-red-50 text-red-700'
-              }`}
-            >
-              {testResult.success ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <X className="h-4 w-4" />
-              )}
-              {testResult.message}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleTest}
-              disabled={!apiKey.trim() || testing}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {testing ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <TestTube2 className="h-3.5 w-3.5" />
-              )}
-              {t('profile.apiKeys.testConnection')}
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!apiKey.trim() || saving}
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="h-3.5 w-3.5" />
-              )}
-              {t('profile.apiKeys.save')}
-            </button>
-
-            {existingKey && (
-              <>
-                {existingKey.mode === 'donated' ? (
-                  <button
-                    type="button"
-                    onClick={handleWithdraw}
-                    disabled={saving}
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50"
-                  >
-                    {t('profile.apiKeys.withdrawDonation')}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={saving}
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {t('profile.apiKeys.delete')}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* 多 KEY 管理触发：打开 drawer（与 admin SecretKeysDrawer 一致形态） */}
-          {existingKey && (
-            <div className="mt-3 border-t border-gray-100 pt-3">
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
-              >
-                Manage all keys ({providerKeys.length})
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 多 KEY drawer（与 admin SecretKeysDrawer 一致形态，共享 MultiKeyTable） */}
-      <UserApiKeyDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        provider={provider}
-        keys={providerKeys}
-        loading={loading}
-        saving={saving}
-        testing={testing}
-        onSave={onSaveWithLabel}
-        onDelete={onDeleteWithLabel}
-      />
-    </div>
-  );
-}
-
+/**
+ * BYOK API Key 管理 tab —— 视觉与 admin /admin/access/secrets 完全对齐：
+ *
+ * - 顶部 banner + 已配置 / 已捐赠 stats
+ * - search + category filter + Add Custom Provider
+ * - 真表格列：Name(icon+slug) / Category(badge) / Value(masked hint) /
+ *   Status(personal/donated/未配置) / Usage Count / Actions
+ * - 操作走共享的 UserApiKeyDrawer（多 KEY 管理 + Add Key 流）
+ */
 export function UserApiKeysTab() {
   const { t } = useTranslation();
   const {
@@ -473,15 +74,68 @@ export function UserApiKeysTab() {
     testing,
     saveKey,
     deleteKey,
-    testKey,
     withdrawDonation,
+    refresh,
     getKeyForProvider,
     getKeysForProvider,
   } = useUserApiKeys();
 
-  const donatedCount = keys.filter((k) => k.mode === 'donated').length;
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [drawerProvider, setDrawerProvider] = useState<ProviderInfo | null>(
+    null
+  );
+  const [showAddCustomModal, setShowAddCustomModal] = useState(false);
 
-  if (loading) {
+  const donatedCount = keys.filter((k) => k.mode === 'donated').length;
+  const configuredCount = keys.length;
+
+  const filteredProviders = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return providers.filter((p) => {
+      const isBuiltin = p.id in PROVIDER_ICONS;
+      const existing = getKeyForProvider(p.id);
+      const status: StatusFilter = existing
+        ? existing.mode === 'donated'
+          ? 'DONATED'
+          : 'CONFIGURED'
+        : 'UNCONFIGURED';
+
+      if (categoryFilter === 'BUILTIN' && !isBuiltin) return false;
+      if (categoryFilter === 'CUSTOM' && isBuiltin) return false;
+      if (statusFilter !== 'ALL' && status !== statusFilter) return false;
+      if (
+        term &&
+        !p.name.toLowerCase().includes(term) &&
+        !p.id.toLowerCase().includes(term)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [providers, searchTerm, categoryFilter, statusFilter, getKeyForProvider]);
+
+  const handleDelete = async (provider: ProviderInfo) => {
+    const existing = getKeyForProvider(provider.id);
+    if (!existing) return;
+    if (
+      !confirm(
+        `确定删除「${provider.name}」的 API Key？此操作不可恢复（保留多 KEY 时请用「Manage Keys」）。`
+      )
+    ) {
+      return;
+    }
+    await deleteKey(provider.id);
+  };
+
+  const handleWithdraw = async (provider: ProviderInfo) => {
+    if (!confirm(`撤回「${provider.name}」的捐赠 KEY？将转回个人模式。`))
+      return;
+    await withdrawDonation(provider.id);
+  };
+
+  if (loading && providers.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -499,7 +153,7 @@ export function UserApiKeysTab() {
 
       <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm">
         <span className="text-gray-500">
-          {t('profile.apiKeys.configured')}: <strong>{keys.length}</strong>
+          {t('profile.apiKeys.configured')}: <strong>{configuredCount}</strong>
         </span>
         <span className="text-gray-300">|</span>
         <span className="text-gray-500">
@@ -507,51 +161,271 @@ export function UserApiKeysTab() {
         </span>
       </div>
 
-      {/* 老的全局多 key 平铺表格 (UserApiKeysTable) 已被各 provider 卡片下的
-          UserApiKeyMultiKeyPanel 替代（设计文档 v0.7 共享 MultiKeyTable）。 */}
-
-      <div className="space-y-3">
-        {providers.map((provider) => (
-          <ProviderKeyCard
-            key={provider.id}
-            provider={provider}
-            existingKey={getKeyForProvider(provider.id)}
-            providerKeys={getKeysForProvider(provider.id)}
-            loading={loading}
-            onSave={(p, k, m, mid, ep) => saveKey(p, k, m, mid, ep)}
-            onSaveWithLabel={saveKey}
-            onDelete={(p) => deleteKey(p)}
-            onDeleteWithLabel={deleteKey}
-            onTest={testKey}
-            onWithdrawDonation={withdrawDonation}
-            saving={saving}
-            testing={testing}
+      {/* Search + filters + actions（与 admin SecretsManager 一致结构） */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[240px] flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="搜索 Provider 名称 / slug…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500"
           />
-        ))}
-        <AddCustomProviderTile />
+        </div>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="ALL">所有分类</option>
+          <option value="BUILTIN">内置 Provider</option>
+          <option value="CUSTOM">自定义 Provider</option>
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="ALL">所有状态</option>
+          <option value="CONFIGURED">已配置（个人）</option>
+          <option value="DONATED">已捐赠</option>
+          <option value="UNCONFIGURED">未配置</option>
+        </select>
+        <button
+          onClick={() => refresh()}
+          className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-100"
+          title="刷新"
+        >
+          <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+        <button
+          onClick={() => setShowAddCustomModal(true)}
+          className="ml-auto inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+        >
+          <Plus className="h-4 w-4" />
+          添加自定义 Provider
+        </button>
       </div>
+
+      {/* 表格（结构和列宽与 admin SecretsManager 完全一致） */}
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Name
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Category
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Value
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Status
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Usage Count
+              </th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {filteredProviders.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  {searchTerm ||
+                  categoryFilter !== 'ALL' ||
+                  statusFilter !== 'ALL'
+                    ? '无匹配 Provider'
+                    : '暂无 Provider'}
+                </td>
+              </tr>
+            ) : (
+              filteredProviders.map((provider) => (
+                <ProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  existingKey={getKeyForProvider(provider.id)}
+                  providerKeys={getKeysForProvider(provider.id)}
+                  onOpenDrawer={() => setDrawerProvider(provider)}
+                  onDelete={() => handleDelete(provider)}
+                  onWithdraw={() => handleWithdraw(provider)}
+                  saving={saving}
+                />
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 共享 drawer：Configure（空 keys 走 Add Key）+ Manage Keys 都进它 */}
+      {drawerProvider && (
+        <UserApiKeyDrawer
+          open={true}
+          onClose={() => setDrawerProvider(null)}
+          provider={drawerProvider}
+          keys={getKeysForProvider(drawerProvider.id)}
+          loading={loading}
+          saving={saving}
+          testing={testing}
+          onSave={saveKey}
+          onDelete={deleteKey}
+        />
+      )}
+
+      {showAddCustomModal && (
+        <AddCustomProviderModal onClose={() => setShowAddCustomModal(false)} />
+      )}
     </div>
   );
 }
 
-// ─── PR-3: 自定义 Provider tile + modal ────────────────────────────────
+function ProviderRow({
+  provider,
+  existingKey,
+  providerKeys,
+  onOpenDrawer,
+  onDelete,
+  onWithdraw,
+  saving,
+}: {
+  provider: ProviderInfo;
+  existingKey?: UserApiKeyInfo;
+  providerKeys: UserApiKeyInfo[];
+  onOpenDrawer: () => void;
+  onDelete: () => void;
+  onWithdraw: () => void;
+  saving: boolean;
+}) {
+  const { t } = useTranslation();
+  const iconInfo = PROVIDER_ICONS[provider.id] ?? {
+    color: 'bg-gray-100 text-gray-700',
+    icon: '',
+  };
+  const isBuiltin = provider.id in PROVIDER_ICONS;
+  // provider 下可能多 KEY（label 区分），usageCount 累加
+  const totalUsage = providerKeys.reduce((s, k) => s + k.usageCount, 0);
+  const keyHint = existingKey?.keyHint ?? '—';
 
-function AddCustomProviderTile() {
-  const [open, setOpen] = useState(false);
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
-      >
-        <Plus className="h-5 w-5" />
-        添加自定义 Provider（OpenAI 兼容）
-      </button>
-      {open && <AddCustomProviderModal onClose={() => setOpen(false)} />}
-    </>
+    <tr className="hover:bg-gray-50">
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${iconInfo.color}`}
+          >
+            {iconInfo.icon ? (
+              <img
+                src={iconInfo.icon}
+                alt={provider.name}
+                className="h-5 w-5"
+              />
+            ) : (
+              <Key className="h-4 w-4" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="font-medium text-gray-900">{provider.name}</div>
+            <div className="font-mono truncate text-xs text-gray-500">
+              {provider.id}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-4">
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+            isBuiltin
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-purple-100 text-purple-800'
+          }`}
+        >
+          {isBuiltin ? 'AI Model' : 'Custom Provider'}
+        </span>
+        {providerKeys.length > 1 && (
+          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+            {providerKeys.length} keys
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-4">
+        <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm text-gray-700">
+          {keyHint}
+        </code>
+      </td>
+      <td className="px-4 py-4">
+        {existingKey ? (
+          existingKey.mode === 'donated' ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-800">
+              <Heart className="h-3 w-3" />
+              {t('profile.apiKeys.statusDonated')}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
+              <Lock className="h-3 w-3" />
+              {t('profile.apiKeys.statusPersonal')}
+            </span>
+          )
+        ) : (
+          <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+            {t('profile.apiKeys.statusNotConfigured')}
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm text-gray-500">{totalUsage}</td>
+      <td className="px-4 py-4 text-right">
+        <div className="flex items-center justify-end gap-2">
+          {existingKey ? (
+            <>
+              <button
+                onClick={onOpenDrawer}
+                disabled={saving}
+                className="rounded p-1.5 hover:bg-gray-100 disabled:opacity-50"
+                title="管理多 KEY"
+              >
+                <Edit className="h-4 w-4 text-gray-500" />
+              </button>
+              {existingKey.mode === 'donated' ? (
+                <button
+                  onClick={onWithdraw}
+                  disabled={saving}
+                  className="rounded p-1.5 hover:bg-orange-50 disabled:opacity-50"
+                  title={t('profile.apiKeys.withdrawDonation')}
+                >
+                  <Heart className="h-4 w-4 text-orange-500" />
+                </button>
+              ) : null}
+              <button
+                onClick={onDelete}
+                disabled={saving}
+                className="rounded p-1.5 hover:bg-red-50 disabled:opacity-50"
+                title={t('profile.apiKeys.delete')}
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onOpenDrawer}
+              disabled={saving}
+              className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+              title={t('profile.apiKeys.configure')}
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {t('profile.apiKeys.configure')}
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
+
+// ─── Add Custom Provider modal（保留原有 OpenAI 兼容自助接入流） ─────────────
 
 function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
   const [slug, setSlug] = useState('');
@@ -595,7 +469,6 @@ function AddCustomProviderModal({ onClose }: { onClose: () => void }) {
         testModel,
         capabilities,
       });
-      // 重新加载页面以拉到新 provider
       window.location.reload();
     } catch (e) {
       setError(
