@@ -321,7 +321,7 @@ export function MissionGalleryView({
     const q = searchQuery.toLowerCase();
     return missions.filter(
       (m) =>
-        m.topic.toLowerCase().includes(q) ||
+        m.topic?.toLowerCase().includes(q) ||
         m.reportSummary?.toLowerCase().includes(q) ||
         m.reportTitle?.toLowerCase().includes(q)
     );
