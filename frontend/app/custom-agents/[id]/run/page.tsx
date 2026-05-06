@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Play } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { launchCustomAgentMission } from '@/services/custom-agents/api';
 import type { CustomAgentRecord } from '@/components/custom-agents/types';
 
 export default function RunCustomAgentPage({
@@ -52,15 +53,12 @@ export default function RunCustomAgentPage({
     setError(null);
     setSubmitting(true);
     try {
-      const translated = await apiClient.post<{
-        input: Record<string, unknown>;
-        metadata: { customAgentId: string };
-      }>(`/user/custom-agents/${id}/translate`, { topic });
-      const launched = await apiClient.post<{
-        missionId: string;
-        streamNamespace: string;
-      }>('/agent-playground/team/run', translated.input);
-      router.push(`/agent-playground/missions/${launched.missionId}`);
+      // ★ 2026-05-05 R-CA: 一站式 /launch endpoint（translate + 启动 + 写 launch 行）
+      //   旧的两步 API（/translate + /agent-playground/team/run）不会写 launches 表，
+      //   导致 agent 主页 mission 历史拉不到。
+      const launched = await launchCustomAgentMission(id, { topic });
+      // 启动后跳回 agent 主页（mission 详情通过 agent 主页卡片点击进入）
+      router.push(`/custom-agents/${id}?lastMission=${launched.missionId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : '启动失败');
     } finally {

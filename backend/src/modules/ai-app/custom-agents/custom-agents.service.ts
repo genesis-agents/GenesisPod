@@ -8,8 +8,11 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { Prisma } from "@prisma/client";
 import {
@@ -18,6 +21,13 @@ import {
   ModelRecommendationsService,
   type ISkill,
 } from "@/modules/ai-engine/facade";
+import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
+import { PlaygroundPipelineDispatcher } from "@/modules/ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service";
+import {
+  MissionStore,
+  type MissionListItem,
+} from "@/modules/ai-app/agent-playground/services/mission/lifecycle/mission-store.service";
+import { RunMissionInputSchema } from "@/modules/ai-app/agent-playground/dto/run-mission.dto";
 import {
   CUSTOM_AGENT_PRIMITIVES,
   validateCustomAgentCompleteness,
@@ -25,6 +35,7 @@ import {
   type CustomAgentConfig,
   type UpdateCustomAgentDto,
 } from "./dto/custom-agent.dto";
+import { CustomAgentLaunchesService } from "./custom-agent-launches.service";
 
 export interface CustomAgentOptionsResponse {
   primitives: ReadonlyArray<{
@@ -63,11 +74,18 @@ export interface CustomAgentOptionsResponse {
 
 @Injectable()
 export class CustomAgentsService {
+  private readonly log = new Logger(CustomAgentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly skillRegistry: SkillRegistry,
     private readonly toolRegistry: ToolRegistry,
     private readonly modelRecommendations: ModelRecommendationsService,
+    // R-CA: launch + missions endpoint 依赖
+    private readonly launches: CustomAgentLaunchesService,
+    private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
+    private readonly missionStore: MissionStore,
+    private readonly ownership: MissionOwnershipRegistry,
   ) {}
 
   async list(userId: string) {
@@ -251,6 +269,70 @@ export class CustomAgentsService {
         version: existing.version,
       },
     };
+  }
+
+  /**
+   * POST /user/custom-agents/:id/launch  (R-CA 2026-05-05)
+   *
+   * 一站式启动：translate → 调 dispatcher 启动 mission → 写 launch 行 → 返 missionId。
+   * 让前端 "启动" 按钮一次调用即可。playground 不感知 custom agent 存在；
+   * "我用这个 agent 跑过哪些 mission" 由本模块的 launches 表自己跟踪。
+   */
+  async launch(
+    userId: string,
+    id: string,
+    body: { topic: string; overrides?: Record<string, unknown> },
+  ): Promise<{ missionId: string; streamNamespace: string }> {
+    const translated = await this.translate(userId, id, body);
+    const parsed = RunMissionInputSchema.safeParse(translated.input);
+    if (!parsed.success) {
+      throw new BadRequestException(
+        `Translated input invalid: ${parsed.error.issues
+          .map((i) => `${i.path.join(".")}:${i.message}`)
+          .join("; ")}`,
+      );
+    }
+    const missionId = randomUUID();
+    this.ownership.assign(missionId, userId);
+    void this.pipelineDispatcher
+      .runMission(missionId, parsed.data, userId)
+      .catch((err: unknown) => {
+        this.log.error(
+          `[launch ${translated.metadata.customAgentId}→${missionId}] failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      });
+    await this.launches.record({
+      userId,
+      customAgentId: translated.metadata.customAgentId,
+      missionId,
+      topic: parsed.data.topic,
+    });
+    return { missionId, streamNamespace: "agent-playground" };
+  }
+
+  /**
+   * GET /user/custom-agents/:id/missions  (R-CA 2026-05-05)
+   *
+   * 拿该用户用此 custom agent 启动过的所有 mission（cards 数据）。
+   * 内部：先从 launches 表拉该 agent 的 missionId 列表，再 join playground
+   * mission 表拿状态/topic/score 等渲染字段。已删除的 mission 自动跳过。
+   */
+  async listMissionsByAgent(
+    userId: string,
+    id: string,
+  ): Promise<{ items: MissionListItem[] }> {
+    const agent = await this.prisma.customAgentDefinition
+      .findUnique({ where: { id }, select: { userId: true } })
+      .catch(() => null);
+    if (!agent) throw new NotFoundException("Custom agent not found");
+    if (agent.userId !== userId) {
+      throw new ForbiddenException("Not owner of this custom agent");
+    }
+    const missionIds = await this.launches.listMissionIdsForAgent(userId, id);
+    const items = await this.missionStore.listByMissionIds(userId, missionIds);
+    return { items };
   }
 
   /**

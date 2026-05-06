@@ -489,6 +489,44 @@ export class MissionStore {
   }
 
   /**
+   * ★ 2026-05-05 R-CA: 按 missionId 列表批量拉 mission 卡片数据。
+   * 给 custom-agents 主页用 —— 上层（CustomAgentLaunchesService）拿到该 agent
+   * 启动过的 missionId[]，再回调本方法拿完整渲染信息。
+   *
+   * 顺序保留入参顺序（DB IN 不保证顺序，业务期望按 launches 表 startedAt 已排序）。
+   * 已删除的 mission（DB 不存在）静默跳过。
+   */
+  async listByMissionIds(
+    userId: string,
+    missionIds: ReadonlyArray<string>,
+  ): Promise<MissionListItem[]> {
+    if (missionIds.length === 0) return [];
+    const rows = await this.prisma.agentPlaygroundMission.findMany({
+      where: { userId, id: { in: missionIds as string[] } },
+      select: {
+        id: true,
+        topic: true,
+        depth: true,
+        language: true,
+        status: true,
+        startedAt: true,
+        completedAt: true,
+        wallTimeMs: true,
+        finalScore: true,
+        tokensUsed: true,
+        costUsd: true,
+        reportTitle: true,
+        reportSummary: true,
+        errorMessage: true,
+      },
+    });
+    const map = new Map(rows.map((r) => [r.id, r]));
+    return missionIds
+      .map((id) => map.get(id))
+      .filter((r): r is MissionListItem => !!r);
+  }
+
+  /**
    * S12 真沉淀 —— 把 mission postmortem 写到 harness_vector_memory，
    * namespace=userId，tags=['agent-playground', 'mission-postmortem']。
    *

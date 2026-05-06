@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import type { CustomAgentConfig } from './types';
+import { notifyCustomAgentPublished } from './usePublishedCustomAgents';
 
 interface PublishIssue {
   step: string;
@@ -38,6 +39,8 @@ export function ReviewStep({
     setIssues([]);
     try {
       await apiClient.post(`/user/custom-agents/${agentId}/publish`);
+      // ★ R-CA: 通知 Sidebar 立即重新拉 published agents 列表
+      notifyCustomAgentPublished();
       onPublished();
     } catch (e) {
       // ★ 2026-05-05 修：apiClient 抛 ApiError { message, code, status, details }，

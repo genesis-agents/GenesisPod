@@ -184,6 +184,8 @@ model User {
 
   // 2026-05-05 E R4 Phase 2: 我自定义的 agent 定义
   customAgentDefinitions CustomAgentDefinition[]
+  // 2026-05-05 R-CA: 我用 custom agent 启动过的 mission 映射
+  customAgentLaunches    CustomAgentLaunch[]
 
   @@map("users")
 }
@@ -9455,6 +9457,31 @@ model CustomAgentDefinition {
   @@unique([userId, slug])
   @@index([userId, status, isEnabled])
   @@map("custom_agent_definitions")
+}
+
+/// CustomAgentLaunch (2026-05-05 R-CA)
+///
+/// custom-agents 模块自己持有的 mission 启动记录，作用：
+///   - 让每个 custom agent 主页（/custom-agents/:id）能 list "我用这个 agent 跑过的所有 mission"
+///   - 不污染 base 层 agent_playground_missions 表（playground 不感知 custom agent 存在）
+///
+/// 设计：
+///   - missionId 不加 FK 约束 —— mission 删除后 launch 仍保留 snapshot；UI 拿不到 mission 时显示"已删除"
+///   - 启动失败的 mission 也写一条（debug 用）；mission_id null 时表示 launch 失败前抛错
+model CustomAgentLaunch {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customAgentId String   @map("custom_agent_id")
+  /// 关联的 mission id（playground 表的 row id），不强制 FK
+  missionId     String?  @map("mission_id")
+  /// 启动时的 topic 快照（mission 被删后仍可读）
+  topic         String   @db.VarChar(500)
+  startedAt     DateTime @default(now()) @map("started_at")
+
+  @@index([userId, customAgentId, startedAt(sort: Desc)])
+  @@index([missionId])
+  @@map("custom_agent_launches")
 }
 
 /// AI Provider catalog（数据驱动 BYOK / 模型配置）

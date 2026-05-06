@@ -12,6 +12,7 @@ import { BrandLogo } from '@/components/brand/BrandLogo';
 import { config } from '@/lib/utils/config';
 import { useUnreadNotificationCount } from '@/hooks/domain/useNotifications';
 import { useNotificationSocket } from '@/hooks/domain/useNotificationSocket';
+import { usePublishedCustomAgents } from '@/components/custom-agents/usePublishedCustomAgents';
 
 // Sidebar Panel Toggle Icon - left narrow, right wide
 // Fill shows current visible state: expanded = right filled, collapsed = left filled
@@ -87,6 +88,11 @@ export default function Sidebar({ className = '' }: SidebarProps) {
     onNewNotification: () => void refreshUnreadCount(),
     onBroadcast: () => void refreshUnreadCount(),
   });
+
+  // ★ 2026-05-05 R-CA: 我自定义的 PUBLISHED agents（动态侧栏菜单项，截 5 个）
+  const { items: publishedAgents } = usePublishedCustomAgents();
+  const sidebarAgents = publishedAgents.slice(0, 5);
+  const hasMoreAgents = publishedAgents.length > sidebarAgents.length;
 
   // 展开逻辑：pinned时始终展开，collapsed时hover展开，expanded时展开
   const showExpanded =
@@ -661,6 +667,86 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           </Link>
 
           {/* AI 商店 / 工具市场 — 暂时不要 */}
+
+          {/* Section: 我的 Agent ★ 2026-05-05 R-CA: 动态列出 PUBLISHED custom agents */}
+          {sidebarAgents.length > 0 && (
+            <>
+              {showExpanded && (
+                <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  {t('nav.sections.myAgents')}
+                </div>
+              )}
+              {!showExpanded && (
+                <div className="my-1 border-t border-gray-200/60" />
+              )}
+              {sidebarAgents.map((agent) => {
+                const href = `/custom-agents/${agent.id}`;
+                const isActive = pathname === href;
+                return (
+                  <Link
+                    key={agent.id}
+                    href={href}
+                    className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+                      isActive
+                        ? 'bg-rose-50 text-rose-700'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title={agent.displayName}
+                  >
+                    <svg
+                      className="h-5 w-5 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
+                      />
+                    </svg>
+                    {showExpanded && (
+                      <span className="line-clamp-1">{agent.displayName}</span>
+                    )}
+                  </Link>
+                );
+              })}
+              {showExpanded && hasMoreAgents && (
+                <Link
+                  href="/me/ai?tab=agents"
+                  className="flex items-center gap-3 rounded-lg px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+                  title={t('nav.myAgentsViewAll')}
+                >
+                  <span className="ml-8">
+                    {t('nav.myAgentsViewAll')}（{publishedAgents.length}）
+                  </span>
+                </Link>
+              )}
+              {showExpanded && (
+                <Link
+                  href="/me/ai?tab=agents"
+                  className="flex items-center gap-3 rounded-lg px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
+                  title={t('nav.myAgentsManage')}
+                >
+                  <svg
+                    className="ml-1 h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  <span>{t('nav.myAgentsManage')}</span>
+                </Link>
+              )}
+            </>
+          )}
 
           {/* 管理后台 — 直接接在创新 Labs 下，admin only */}
           {isAdmin && (

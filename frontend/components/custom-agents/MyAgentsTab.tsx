@@ -170,11 +170,11 @@ export function MyAgentsTab() {
                   <td className="px-4 py-2 text-right">
                     {it.status === 'PUBLISHED' && (
                       <a
-                        href={`/custom-agents/${it.id}/run`}
+                        href={`/custom-agents/${it.id}`}
                         className="mr-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                        title="启动 mission"
+                        title="打开 agent 主页 + 历史 mission"
                       >
-                        <Play className="h-3 w-3" /> 启动
+                        <Play className="h-3 w-3" /> 打开
                       </a>
                     )}
                     <button

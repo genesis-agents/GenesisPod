@@ -103,4 +103,30 @@ export class CustomAgentsController {
   ) {
     return this.service.translate(req.user.id, id, body);
   }
+
+  /**
+   * POST /user/custom-agents/:id/launch  (R-CA 2026-05-05)
+   *
+   * 一站式启动：translate + 启动 mission + 写 launch 行
+   * body: { topic, overrides? }  resp: { missionId, streamNamespace }
+   */
+  @Post(":id/launch")
+  async launch(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() body: { topic: string; overrides?: Record<string, unknown> },
+  ) {
+    return this.service.launch(req.user.id, id, body);
+  }
+
+  /**
+   * GET /user/custom-agents/:id/missions  (R-CA 2026-05-05)
+   *
+   * 该 custom agent 启动过的所有 mission cards
+   * （驱动 /custom-agents/:id 主页的 mission 网格）
+   */
+  @Get(":id/missions")
+  async missions(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
+    return this.service.listMissionsByAgent(req.user.id, id);
+  }
 }

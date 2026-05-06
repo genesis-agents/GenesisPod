@@ -98,8 +98,10 @@ export class MissionRerunOrchestratorService {
     );
 
     const input = this.cloneInputFromMission(original, {
-      maxCreditsFallback:
-        (original as { maxCredits?: number }).maxCredits ?? 300,
+      // ★ 2026-05-06 (P0-G regression): 之前硬编码 ?? 300 兜底，把 budgetProfile=unlimited
+      //   的 mission rerun 后强制限到 300 credits → budget:exhausted。改为不传 maxCredits
+      //   让 resolveMissionCredits 按 budgetProfile 推导（unlimited=10_000）。
+      maxCreditsFallback: undefined,
       // ★ 2026-05-05: incremental 模式注入 inheritFromMissionId 让 dispatcher 载入
       //   source plan 跳过 S2 Leader LLM；fresh 模式不传，正常从头跑
       inheritFromMissionId:
@@ -191,7 +193,8 @@ export class MissionRerunOrchestratorService {
     const focusedTopic = original.topic.slice(0, TOPIC_LIMIT);
     const input = this.cloneInputFromMission(original, {
       topic: focusedTopic,
-      maxCreditsFallback: 300,
+      // ★ 2026-05-06 (P0-G): 同上，让 budgetProfile 决定 maxCredits
+      maxCreditsFallback: undefined,
     });
 
     const newMissionId = randomUUID();
@@ -232,7 +235,8 @@ export class MissionRerunOrchestratorService {
     original: NonNullable<Awaited<ReturnType<MissionStore["getById"]>>>,
     overrides: {
       topic?: string;
-      maxCreditsFallback: number;
+      /** undefined = 不传 maxCredits，让 resolveMissionCredits 按 budgetProfile 推导 */
+      maxCreditsFallback?: number;
       inheritFromMissionId?: string;
     },
   ): RunMissionInput {
@@ -257,6 +261,8 @@ export class MissionRerunOrchestratorService {
       auditLayers: originalProfile?.auditLayers ?? "default",
       concurrency: originalProfile?.concurrency ?? 3,
       viewMode: originalProfile?.viewMode ?? "continuous",
+      // ★ 2026-05-06 (P0-G): 没有 originalProfile.maxCredits 时不强加 fallback，让
+      //   resolveMissionCredits 按 budgetProfile 路径走（unlimited=10_000 而非 300）。
       maxCredits: originalProfile?.maxCredits ?? overrides.maxCreditsFallback,
       inheritFromMissionId: overrides.inheritFromMissionId,
     };
