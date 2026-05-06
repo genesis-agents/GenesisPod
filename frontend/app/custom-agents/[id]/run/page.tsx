@@ -20,26 +20,16 @@ import type { CustomAgentRecord } from '@/components/custom-agents/types';
 export default function RunCustomAgentPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
   const router = useRouter();
-  // ★ 2026-05-06: 改 useEffect 异步解 params，避开 React 19 use(params) hydration #438
-  const [id, setId] = useState<string | null>(null);
+  // Next.js 14：params 是同步对象，直接取 id（详见 [id]/page.tsx 注释）
+  const { id } = params;
   const [record, setRecord] = useState<CustomAgentRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [topic, setTopic] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void params.then((p) => {
-      if (!cancelled) setId(p.id);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [params]);
 
   useEffect(() => {
     if (!id) return;
@@ -57,7 +47,7 @@ export default function RunCustomAgentPage({
   }, [id]);
 
   const launch = async () => {
-    if (!record || !id) return;
+    if (!record) return;
     if (topic.trim().length < 2) {
       setError('topic 至少 2 个字符');
       return;

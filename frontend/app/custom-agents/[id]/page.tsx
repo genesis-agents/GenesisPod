@@ -33,13 +33,14 @@ import { MissionGalleryView } from '@/components/missions/MissionGalleryView';
 export default function CustomAgentHomePage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
   const router = useRouter();
-  // ★ 2026-05-06: 改用 useEffect 异步解 params，避开 React 19 `use(params)` 在
-  //   client component 触发 React error #438 / #418 / #423 hydration 不稳定的问题。
-  //   症状：进入 /custom-agents/{id} 直接 ErrorBoundary 兜底"出错了"。
-  const [id, setId] = useState<string | null>(null);
+  // Next.js 14 + React 18：params 是同步对象，直接取 id。
+  // 历史误区：旧代码用 `use(params)` 或 `params.then(...)`，都基于
+  // "params 是 Promise" 的错误前提（那是 Next.js 15 的约定），在 Next 14
+  // 必然抛 "c.then is not a function"，整页落 ErrorBoundary。
+  const { id } = params;
   const [agent, setAgent] = useState<CustomAgentRecord | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [agentNotFound, setAgentNotFound] = useState(false);
@@ -49,16 +50,6 @@ export default function CustomAgentHomePage({
   // gallery reload trigger（launch 成功 / rerun 成功后 inc）
   const [galleryReloadKey, setGalleryReloadKey] = useState(0);
   const triggerGalleryReload = () => setGalleryReloadKey((n) => n + 1);
-
-  useEffect(() => {
-    let cancelled = false;
-    void params.then((p) => {
-      if (!cancelled) setId(p.id);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [params]);
 
   useEffect(() => {
     if (!id) return;
@@ -92,13 +83,9 @@ export default function CustomAgentHomePage({
   }, [id]);
 
   // fetchMissions 必须 stable reference 否则 MissionGalleryView useEffect 死循环
-  const fetchMissions = useCallback(
-    () => (id ? listCustomAgentMissions(id) : Promise.resolve([])),
-    [id]
-  );
+  const fetchMissions = useCallback(() => listCustomAgentMissions(id), [id]);
 
   const handleRerun = async (mission: MissionListItem) => {
-    if (!id) return;
     if (!confirm(`重新运行「${mission.topic}」？将创建一个新的 Mission。`))
       return;
     try {
@@ -143,7 +130,7 @@ export default function CustomAgentHomePage({
     }
   };
 
-  if (agentLoading || !id) {
+  if (agentLoading) {
     return (
       <div className="h-full overflow-auto bg-gray-50 px-8 py-6">
         <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center text-sm text-gray-500">
