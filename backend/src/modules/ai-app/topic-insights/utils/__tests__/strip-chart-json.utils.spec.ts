@@ -25,6 +25,89 @@ describe("stripChartJsonFromContent", () => {
     });
   });
 
+  // ★ 2026-05-06 #81 regression: chapter writer 用 ```chartjs fence 包 Chart.js
+  //   配置 JSON，前端 markdown renderer 不识别这种 fence 当 code block 显示 raw JSON。
+  //   strip-chart-json.utils 必须删除 chartjs / chart-data / chart fence 整段。
+  describe("#81 chartjs fence regression (Mission 1520783d 实证)", () => {
+    it("should strip ```chartjs fence with Chart.js config", () => {
+      const text = [
+        "# 第 4 章 硬件基础设施",
+        "",
+        "推理芯片市场规模达500亿美元。",
+        "",
+        "```chartjs",
+        '{"type": "line", "data": {"labels": ["2024", "2025", "2026"]}}',
+        "```",
+        "",
+        "供应链依赖：NVIDIA。",
+      ].join("\n");
+      const result = stripChartJsonFromContent(text);
+      expect(result).toContain("推理芯片市场规模");
+      expect(result).toContain("供应链依赖");
+      expect(result).not.toContain("```chartjs");
+      expect(result).not.toContain('"labels"');
+      expect(result).not.toContain('"datasets"');
+    });
+
+    it("should strip ```chart-data fence with Chart.js config", () => {
+      const text = '正文。\n\n```chart-data\n{"type": "bar"}\n```\n\n后续。';
+      const result = stripChartJsonFromContent(text);
+      expect(result).toContain("正文");
+      expect(result).toContain("后续");
+      expect(result).not.toContain("chart-data");
+      expect(result).not.toContain('"type"');
+    });
+
+    it("should strip ```chart fence with Chart.js config", () => {
+      const text = '正文。\n\n```chart\n{"datasets": []}\n```\n\n后续。';
+      const result = stripChartJsonFromContent(text);
+      expect(result).toContain("正文");
+      expect(result).toContain("后续");
+      expect(result).not.toContain("```chart");
+    });
+
+    it("should NOT strip non-chart fences (preserve normal code blocks)", () => {
+      const text = [
+        "正文。",
+        "",
+        "```javascript",
+        'const x = {"labels": ["a"]};',
+        "```",
+        "",
+        "结尾。",
+      ].join("\n");
+      const result = stripChartJsonFromContent(text);
+      // javascript fence 应保留（不能被误删）
+      expect(result).toContain("```javascript");
+      expect(result).toContain("const x =");
+    });
+
+    it("should strip multiple chart fences in same document", () => {
+      const text = [
+        "标题。",
+        "```chartjs",
+        '{"type": "line"}',
+        "```",
+        "中间。",
+        "```chart-data",
+        '{"type": "bar"}',
+        "```",
+        "结尾。",
+      ].join("\n");
+      const result = stripChartJsonFromContent(text);
+      expect(result).toContain("标题");
+      expect(result).toContain("中间");
+      expect(result).toContain("结尾");
+      expect(result).not.toContain("chartjs");
+      expect(result).not.toContain("chart-data");
+    });
+
+    it("should be case-insensitive (Chartjs / CHART-DATA)", () => {
+      const text = '正文。\n\n```Chartjs\n{"x": 1}\n```\n';
+      expect(stripChartJsonFromContent(text)).not.toContain("Chartjs");
+    });
+  });
+
   describe("---CHARTS--- pattern", () => {
     it("should strip ---CHARTS--- block with JSON", () => {
       const text =

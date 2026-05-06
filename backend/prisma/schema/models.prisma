@@ -7938,6 +7938,7 @@ model Secret {
   // 关联
   versions   SecretVersion[]
   accessLogs SecretAccessLog[]
+  keys       SecretKey[]
 
   // 索引
   @@index([category])
@@ -7951,6 +7952,54 @@ model Secret {
   @@index([provider, isActive])
   @@index([isActive, updatedAt])
   @@map("secrets")
+}
+
+/// 一个 Secret name 下的多 KEY 并存（fallback chain + 健康熔断）
+/// Secret.encryptedValue/iv/keyVersion 仍保留作为兼容字段（dual-track），
+/// 业务侧切到 getSecretKey() 后再下线（P3 之后）
+model SecretKey {
+  id       String @id @default(cuid())
+  secretId String @map("secret_id")
+
+  /// 标签（同一 secret 下唯一），用户输入或默认 "primary" / "backup-1"
+  label String @db.VarChar(100)
+
+  /// 加密存储 (AES-256-CBC)
+  encryptedValue String @map("encrypted_value") @db.Text
+  iv             String @db.VarChar(32)
+  keyVersion     Int    @default(1) @map("key_version")
+
+  /// 脱敏指纹用于 UI 显示（"sk-...3f8a"），不参与解密
+  keyHint String? @map("key_hint") @db.VarChar(40)
+
+  /// 是否启用（fallback chain 仅遍历 isActive=true）
+  isActive Boolean @default(true) @map("is_active")
+
+  /// fallback 优先级，数字越小越优先
+  priority Int @default(0)
+
+  /// 健康状态（与 UserApiKey 对齐）
+  lastTestedAt DateTime? @map("last_tested_at")
+  testStatus   String?   @map("test_status") @db.VarChar(20) // 'success' | 'failed'
+
+  /// 最近一次失败的错误摘要（不存敏感数据），用于 UI 提示
+  lastErrorMessage String? @map("last_error_message") @db.Text
+
+  /// 调用次数（业务侧 markSuccess/markFailure 累加）
+  accessCount Int @default(0) @map("access_count")
+
+  /// 审计
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?  @map("created_by") @db.VarChar(100)
+  updatedBy String?  @map("updated_by") @db.VarChar(100)
+
+  secret Secret @relation(fields: [secretId], references: [id], onDelete: Cascade)
+
+  @@unique([secretId, label])
+  @@index([secretId, isActive, priority])
+  @@index([secretId, testStatus])
+  @@map("secret_keys")
 }
 
 // 密钥版本历史
@@ -9357,6 +9406,8 @@ model AgentPlaygroundMission {
   /// ★ P0-D 完整版 (2026-05-06): trajectory 持久化关系
   researchResults AgentPlaygroundResearchResult[]
   chapterDrafts   AgentPlaygroundChapterDraft[]
+  /// ★ 报告版本化（rerun 产生新版本而不覆盖旧版本）
+  reportVersions  MissionReportVersion[]
 
   /// ★ PR-H v1 (2026-05-01): pod-aware mission lifecycle —— pod 重启检测 + 后续 resume 接续
   /// lastCompletedStage: 0~12（S0~S12）；null = 还没完成 S1
@@ -9442,6 +9493,40 @@ model AgentPlaygroundChapterDraft {
   @@unique([missionId, dimension, chapterIndex])
   @@index([missionId])
   @@map("agent_playground_chapter_drafts")
+}
+
+/// ★ 报告版本化 (2026-05-06): rerun 每次产生新版本，不覆盖旧版本。
+/// version 单调递增（1, 2, 3 ...），由 MissionStore.saveReportVersion 原子分配。
+/// 旧版本 mission.report_full 保留，版本历史在此表查询。
+model MissionReportVersion {
+  id            String    @id @default(uuid())
+  missionId     String    @map("mission_id")
+  /// 单调递增版本号（1 = 首次 initial run，2+ = rerun）
+  version       Int
+  /// 人读版本标签，如 "initial-2026-05-06" / "rerun-fresh-2026-05-07"
+  versionLabel  String?   @map("version_label") @db.VarChar(120)
+  /// 完整 ReportArtifact v2（或 ResearchReport v1）
+  reportFull    Json?     @map("report_full") @db.JsonB
+  /// 报告标题（从 reportFull 提取，便于列表展示）
+  reportTitle   String?   @map("report_title") @db.VarChar(500)
+  /// 报告摘要（executiveSummary.markdown，便于列表展示）
+  reportSummary String?   @map("report_summary") @db.Text
+  /// Leader 总分（来自 leaderSignOff.leaderOverallScore）
+  finalScore    Int?      @map("final_score")
+  /// Leader 是否签字（true=completed, false=quality-failed, null=failed/cancelled）
+  leaderSigned  Boolean?  @map("leader_signed")
+  /// 触发类型：initial / rerun-fresh / rerun-incremental / todo-rerun
+  triggerType   String    @map("trigger_type") @db.VarChar(40)
+  /// diff vs 前一版本（可选，供将来 diff UI 用；首版本为 null）
+  changesFromPrev Json?   @map("changes_from_prev") @db.JsonB
+  /// 本版本生成时间
+  generatedAt   DateTime  @default(now()) @map("generated_at")
+
+  mission       AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@unique([missionId, version])
+  @@index([missionId, generatedAt(sort: Desc)])
+  @@map("mission_report_versions")
 }
 
 /// agent-playground 中用户与 mission Leader 的对话记录

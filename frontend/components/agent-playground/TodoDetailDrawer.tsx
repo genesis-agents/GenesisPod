@@ -116,6 +116,10 @@ const ORIGIN_LABEL: Record<
     label: '系统阶段',
     cls: 'bg-gray-50 text-gray-700 ring-gray-200',
   },
+  'chapter-pipeline': {
+    label: '章节撰写',
+    cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  },
 };
 
 // ─── Time helpers ─────────────────────────────────────

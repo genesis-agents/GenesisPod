@@ -448,6 +448,12 @@ function originBadge(td: MissionTodo): {
         tone: 'bg-gray-100 text-gray-700 ring-gray-200',
         hint: '系统级阶段任务',
       };
+    case 'chapter-pipeline':
+      return {
+        label: '章节撰写',
+        tone: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+        hint: 'Writer 按维度逐章撰写 + Reviewer 复审，每章独立推进',
+      };
   }
 }
 

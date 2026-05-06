@@ -847,6 +847,152 @@ export class MissionStore {
       });
   }
 
+  // ── ★ 报告版本化 (2026-05-06) ────────────────────────────────────────────
+  //
+  // rerun 每次调 saveReportVersion，version 自动 MAX+1（Serializable tx 防并发）。
+  // mission.report_full 保持向后兼容不删，版本历史在 mission_report_versions 查询。
+
+  /**
+   * 保存一个新报告版本（version = MAX(version)+1，幂等原子）。
+   *
+   * 调用方：s11-persist 成功路径 + handleMissionFailure 有 report 时。
+   * triggerType: 'initial' | 'rerun-fresh' | 'rerun-incremental' | 'todo-rerun'
+   */
+  async saveReportVersion(args: {
+    missionId: string;
+    triggerType: string;
+    report?: { title?: string; summary?: string; [k: string]: unknown };
+    finalScore?: number;
+    leaderSigned?: boolean;
+    versionLabel?: string;
+  }): Promise<number> {
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          // 原子取 MAX(version)，不存在时 = 0
+          const agg = await tx.missionReportVersion.aggregate({
+            where: { missionId: args.missionId },
+            _max: { version: true },
+          });
+          const nextVersion = (agg._max.version ?? 0) + 1;
+
+          const reportTitle = args.report?.title?.slice(0, 500) ?? null;
+          const reportSummary = args.report?.summary ?? null;
+
+          await tx.missionReportVersion.create({
+            data: {
+              missionId: args.missionId,
+              version: nextVersion,
+              versionLabel:
+                args.versionLabel ??
+                `${args.triggerType}-${new Date().toISOString().slice(0, 10)}`,
+              reportFull: (args.report ?? null) as Prisma.InputJsonValue,
+              reportTitle,
+              reportSummary,
+              finalScore: args.finalScore ?? null,
+              leaderSigned: args.leaderSigned ?? null,
+              triggerType: args.triggerType.slice(0, 40),
+            },
+          });
+          return nextVersion;
+        },
+        { isolationLevel: "Serializable" },
+      );
+    } catch (err) {
+      this.log.warn(
+        `[saveReportVersion ${args.missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return 0;
+    }
+  }
+
+  /**
+   * 列出某 mission 所有报告版本（按 generatedAt DESC，最新在前）。
+   */
+  async listReportVersions(missionId: string): Promise<
+    Array<{
+      id: string;
+      version: number;
+      versionLabel: string | null;
+      reportTitle: string | null;
+      reportSummary: string | null;
+      finalScore: number | null;
+      leaderSigned: boolean | null;
+      triggerType: string;
+      generatedAt: Date;
+    }>
+  > {
+    const rows = await this.prisma.missionReportVersion
+      .findMany({
+        where: { missionId },
+        orderBy: { generatedAt: "desc" },
+        select: {
+          id: true,
+          version: true,
+          versionLabel: true,
+          reportTitle: true,
+          reportSummary: true,
+          finalScore: true,
+          leaderSigned: true,
+          triggerType: true,
+          generatedAt: true,
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[listReportVersions ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return [];
+      });
+    return rows;
+  }
+
+  /**
+   * 获取某 mission 的指定版本（含完整 reportFull）。
+   * 不存在时返回 null。
+   */
+  async getReportVersion(
+    missionId: string,
+    version: number,
+  ): Promise<{
+    id: string;
+    version: number;
+    versionLabel: string | null;
+    reportFull: unknown;
+    reportTitle: string | null;
+    reportSummary: string | null;
+    finalScore: number | null;
+    leaderSigned: boolean | null;
+    triggerType: string;
+    changesFromPrev: unknown;
+    generatedAt: Date;
+  } | null> {
+    const row = await this.prisma.missionReportVersion
+      .findUnique({
+        where: { missionId_version: { missionId, version } },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[getReportVersion ${missionId} v${version}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      });
+    if (!row) return null;
+    return {
+      id: row.id,
+      version: row.version,
+      versionLabel: row.versionLabel,
+      reportFull: row.reportFull,
+      reportTitle: row.reportTitle,
+      reportSummary: row.reportSummary,
+      finalScore: row.finalScore,
+      leaderSigned: row.leaderSigned,
+      triggerType: row.triggerType,
+      changesFromPrev: row.changesFromPrev,
+      generatedAt: row.generatedAt,
+    };
+  }
+
   async getById(id: string, userId: string): Promise<MissionDetail | null> {
     const row = await this.prisma.agentPlaygroundMission.findFirst({
       where: { id, userId },

@@ -244,4 +244,92 @@ describe('deriveView regression — prod fixtures', () => {
     expect(view.agents).toHaveLength(0);
     expect(view.stages).toHaveLength(5); // STAGE_ORDER always populated
   });
+
+  // ---------------------------------------------------------------------------
+  // ★ 2026-05-06 #75 regression: "兜底完成 · 整合降级" 误标
+  // backend integrator state='degraded' 时 emit dimension:integrating:completed
+  // with degraded=true，前端 derive 设 pipeline.integrationDegraded=true。
+  // 但 fullMarkdown 由代码确定性拼接（per-dim-pipeline.util.ts:1225），不依赖
+  // integrator LLM。后续 quality-judge 给该 dim 92 excellent 时不该再展示
+  // "兜底完成"误导用户。修：dim:graded overall>=60 且未 failed → 清 flag。
+  // ---------------------------------------------------------------------------
+  it('#75: dim:graded overall>=60 clears integrationDegraded set by integrating:completed', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.dimension:integrating:completed',
+        payload: { dimension: '推理成本', degraded: true },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.dimension:graded',
+        payload: { dimension: '推理成本', overall: 92, grade: 'excellent' },
+        timestamp: 2000,
+      },
+    ];
+    const view = deriveView(events);
+    const pipeline = view.dimensionPipelines.get('推理成本');
+    expect(pipeline).toBeDefined();
+    // 关键：grade 通过后 integrationDegraded 必须被清掉
+    expect(pipeline!.integrationDegraded).toBeFalsy();
+    expect(pipeline!.grade?.overall).toBe(92);
+  });
+
+  it('#75: dim:graded overall<60 keeps integrationDegraded (low score 不清 flag)', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.dimension:integrating:completed',
+        payload: { dimension: '低分 dim', degraded: true },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.dimension:graded',
+        payload: { dimension: '低分 dim', overall: 50, grade: 'poor' },
+        timestamp: 2000,
+      },
+    ];
+    const view = deriveView(events);
+    const pipeline = view.dimensionPipelines.get('低分 dim');
+    // 低分时保留 degraded flag（用户看到"兜底完成"是合理的）
+    expect(pipeline!.integrationDegraded).toBe(true);
+  });
+
+  it('#75: dim:graded failed=true keeps integrationDegraded even with high overall', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.dimension:integrating:completed',
+        payload: { dimension: 'failed dim', degraded: true },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.dimension:graded',
+        payload: {
+          dimension: 'failed dim',
+          overall: 80,
+          grade: 'good',
+          failed: true,
+          phase: 'grade-failed',
+        },
+        timestamp: 2000,
+      },
+    ];
+    const view = deriveView(events);
+    const pipeline = view.dimensionPipelines.get('failed dim');
+    // failed=true 时保留 degraded（即使 overall 80，grade 是兜底 sentinel 不可信）
+    expect(pipeline!.integrationDegraded).toBe(true);
+  });
+
+  it('#75: dim:graded without prior integrating:completed (no degraded set) - 不变', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.dimension:graded',
+        payload: { dimension: 'normal', overall: 92, grade: 'excellent' },
+        timestamp: 1000,
+      },
+    ];
+    const view = deriveView(events);
+    const pipeline = view.dimensionPipelines.get('normal');
+    expect(pipeline!.grade?.overall).toBe(92);
+    // 没有 prior degraded，flag 应该是 false 或 undefined
+    expect(pipeline!.integrationDegraded).toBeFalsy();
+  });
 });

@@ -770,6 +770,23 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           }`,
         );
       });
+    // ★ 报告版本化 (2026-05-06): 失败路径有 partial report 时也写版本，
+    //   让用户能查看失败前生成的报告内容
+    if (reportPayload && entry) {
+      await this.store
+        .saveReportVersion({
+          missionId,
+          triggerType: this.resolveTriggerType(entry),
+          report: reportPayload as { title?: string; summary?: string },
+          finalScore: entry.lastLeaderSignOff?.leaderOverallScore,
+          leaderSigned: entry.lastLeaderSignOff?.signed ?? undefined,
+        })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[handleMissionFailure] saveReportVersion for ${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
   }
 
   // ── pipeline 构造 ──────────────────────────────────────────────────────
@@ -1800,13 +1817,22 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
    * 接受自定义 PersistInput 形态（不直接吃 MissionContext）—— hook 显式拼装。
    * 落库后 clear checkpoint（mission 已成功写入 markCompleted）。
    */
+  /**
+   * 从 entry.input 推导版本触发类型：
+   *   inheritFromMissionId 存在 → 本次是 rerun；否则是 initial。
+   */
+  private resolveTriggerType(entry: SessionEntry): string {
+    return entry.input.inheritFromMissionId ? "rerun-fresh" : "initial";
+  }
+
   private buildS11PersistHooks(): ResolvedStageHooks {
     const hooks = {
       persist: async (args: { ctx: StageRunArgs["ctx"] }): Promise<void> => {
         const entry = this.getEntry(args.ctx.missionId);
+        const missionId = entry.session.missionId;
         await runPersistStage(
           {
-            missionId: entry.session.missionId,
+            missionId,
             userId: entry.session.userId,
             t0: entry.t0,
             result: {
@@ -1838,9 +1864,29 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           this.stageBindings.buildDeps(),
         );
         // mission 已落库，clear checkpoint
-        await this.missionCheckpoint
-          .clear(entry.session.missionId)
-          .catch(() => undefined);
+        await this.missionCheckpoint.clear(missionId).catch(() => undefined);
+        // ★ 报告版本化 (2026-05-06): S11 成功落库后同时写版本快照
+        //   leaderSigned === true 时 runPersistStage 调 markCompleted，
+        //   leaderSigned === false 时调 markFailed(quality-failed)；两路都写版本。
+        const reportPayload = entry.lastReportArtifact ?? entry.lastReport;
+        if (reportPayload) {
+          await this.store
+            .saveReportVersion({
+              missionId,
+              triggerType: this.resolveTriggerType(entry),
+              report: reportPayload as {
+                title?: string;
+                summary?: string;
+              },
+              finalScore: entry.lastLeaderSignOff?.leaderOverallScore,
+              leaderSigned: entry.lastLeaderSignOff?.signed,
+            })
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[s11-persist] saveReportVersion for ${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        }
       },
     };
     return hooks as unknown as ResolvedStageHooks;

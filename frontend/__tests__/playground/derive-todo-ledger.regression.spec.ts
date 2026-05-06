@@ -82,6 +82,7 @@ const VALID_TODO_ORIGINS = new Set([
   'critic-blindspot',
   'reconciler-gap',
   'system-stage',
+  'chapter-pipeline',
 ]);
 
 const VALID_TODO_SCOPES = new Set([
@@ -368,5 +369,221 @@ describe('deriveTodoLedger regression — prod fixtures', () => {
     expect(Array.isArray(todos)).toBe(true);
     // With no mission:started, no presets are inserted
     expect(todos.length).toBe(0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // ★ 2026-05-06 #86 regression: 自我进化"已放弃"
+  // mission:completed 触发时 cancel 所有 pending todos，但 s12-self-evolution
+  // 是 fire-and-forget postlude（mission:completed 之后才 emit
+  // mission:postlude:started），不能被误标 cancelled 否则 line 624 if(pending) 失效。
+  // ---------------------------------------------------------------------------
+  it('#86: mission:completed does NOT cancel pending s12-self-evolution', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.mission:started',
+        payload: { input: { topic: 'Test', depth: 'quick', language: 'en' } },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.mission:completed',
+        payload: { reportFull: { title: 'x' } },
+        timestamp: 2000,
+      },
+    ];
+    const todos = runPipeline(events);
+    const s12 = todos.find((t) => t.id === 'system:s12-self-evolution');
+    if (s12) {
+      // mission:completed 时 s12 应保持 pending（未被白名单逻辑误 cancel）
+      expect(s12.status).toBe('pending');
+    }
+  });
+
+  it('#86: mission:postlude:started after mission:completed transitions s12 to in_progress', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.mission:started',
+        payload: { input: { topic: 'Test', depth: 'quick', language: 'en' } },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.mission:completed',
+        payload: { reportFull: { title: 'x' } },
+        timestamp: 2000,
+      },
+      {
+        type: 'agent-playground.mission:postlude:started',
+        payload: {},
+        timestamp: 3000,
+      },
+    ];
+    const todos = runPipeline(events);
+    const s12 = todos.find((t) => t.id === 'system:s12-self-evolution');
+    expect(s12).toBeDefined();
+    // 关键：必须切到 in_progress（而不是被前面 mission:completed 的 cancel 误标 cancelled）
+    expect(s12!.status).toBe('in_progress');
+  });
+
+  it('#86: mission:postlude:completed transitions s12 to done', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.mission:started',
+        payload: { input: { topic: 'Test', depth: 'quick', language: 'en' } },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.mission:completed',
+        payload: { reportFull: { title: 'x' } },
+        timestamp: 2000,
+      },
+      {
+        type: 'agent-playground.mission:postlude:started',
+        payload: {},
+        timestamp: 3000,
+      },
+      {
+        type: 'agent-playground.mission:postlude:completed',
+        payload: { qualityHitRate: 0.8 },
+        timestamp: 4000,
+      },
+    ];
+    const todos = runPipeline(events);
+    const s12 = todos.find((t) => t.id === 'system:s12-self-evolution');
+    expect(s12!.status).toBe('done');
+  });
+
+  // ---------------------------------------------------------------------------
+  // ★ 2026-05-06 chapter todo regression specs
+  // chapter:writing:started creates a child todo under the dim todo,
+  // chapter:done finalizes it to 'done', and mission:completed cancels
+  // any still-pending chapter todos.
+  // ---------------------------------------------------------------------------
+
+  it('chapter:writing:started creates chapter todo with parentId = dim todo id', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.mission:started',
+        payload: {
+          input: { topic: 'Test', depth: 'thorough', language: 'en' },
+        },
+        timestamp: 1000,
+      },
+      // S2: leader plan emits dimensions (stage + stepId both required; id field used for todo key)
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: {
+          stage: 's2-leader-plan',
+          stepId: 's2-leader-plan',
+          status: 'completed',
+          output: {
+            dimensions: [
+              { id: 'dim-a', name: 'Dim A', rationale: 'test rationale' },
+            ],
+            themeSummary: 'Test theme',
+          },
+        },
+        timestamp: 2000,
+      },
+      {
+        type: 'agent-playground.chapter:writing:started',
+        payload: {
+          dimension: 'Dim A',
+          chapterIndex: 0,
+          heading: '第一章',
+          attempt: 1,
+        },
+        timestamp: 3000,
+      },
+    ];
+
+    const todos = runPipeline(events);
+
+    const chapterTodo = todos.find((t) => t.id === 'chapter:Dim A:0');
+    expect(chapterTodo).toBeDefined();
+    expect(chapterTodo!.scope).toBe('chapter');
+    expect(chapterTodo!.origin).toBe('chapter-pipeline');
+    expect(chapterTodo!.status).toBe('in_progress');
+    expect(chapterTodo!.title).toBe('第一章');
+    expect(chapterTodo!.assignee.role).toBe('writer');
+
+    // parentId should point to the dim todo (keyed by dimension id)
+    const dimTodo = todos.find(
+      (t) => t.scope === 'dimension' && t.dimensionRef === 'Dim A'
+    );
+    expect(dimTodo).toBeDefined();
+    expect(chapterTodo!.parentId).toBe(dimTodo!.id);
+  });
+
+  it('chapter:done transitions chapter todo to done; in_progress chapter finalized on mission:completed', () => {
+    const events: PlaygroundEvent[] = [
+      {
+        type: 'agent-playground.mission:started',
+        payload: {
+          input: { topic: 'Test', depth: 'thorough', language: 'en' },
+        },
+        timestamp: 1000,
+      },
+      {
+        type: 'agent-playground.stage:lifecycle',
+        payload: {
+          stage: 's2-leader-plan',
+          stepId: 's2-leader-plan',
+          status: 'completed',
+          output: {
+            dimensions: [{ id: 'dim-b', name: 'Dim B', rationale: 'test' }],
+            themeSummary: 'Theme B',
+          },
+        },
+        timestamp: 2000,
+      },
+      // chapter 0 starts and finishes
+      {
+        type: 'agent-playground.chapter:writing:started',
+        payload: {
+          dimension: 'Dim B',
+          chapterIndex: 0,
+          heading: '章节 0',
+          attempt: 1,
+        },
+        timestamp: 3000,
+      },
+      {
+        type: 'agent-playground.chapter:done',
+        payload: {
+          dimension: 'Dim B',
+          chapterIndex: 0,
+          qualified: true,
+          wordCount: 500,
+        },
+        timestamp: 4000,
+      },
+      // chapter 1 starts but never receives chapter:done — mission completes first
+      {
+        type: 'agent-playground.chapter:writing:started',
+        payload: {
+          dimension: 'Dim B',
+          chapterIndex: 1,
+          heading: '章节 1',
+          attempt: 1,
+        },
+        timestamp: 5000,
+      },
+      {
+        type: 'agent-playground.mission:completed',
+        payload: { reportFull: { title: 'x' } },
+        timestamp: 6000,
+      },
+    ];
+
+    const todos = runPipeline(events);
+
+    const ch0 = todos.find((t) => t.id === 'chapter:Dim B:0');
+    expect(ch0).toBeDefined();
+    expect(ch0!.status).toBe('done');
+    expect(ch0!.artifacts.some((a) => a.label === '字数')).toBe(true);
+
+    // chapter 1 was in_progress when mission completed → auto-finalized to 'done'
+    const ch1 = todos.find((t) => t.id === 'chapter:Dim B:1');
+    expect(ch1).toBeDefined();
+    expect(ch1!.status).toBe('done');
   });
 });

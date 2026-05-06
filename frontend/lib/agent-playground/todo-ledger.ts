@@ -38,7 +38,8 @@ export type MissionTodoOrigin =
   | 'reviewer-revise'
   | 'critic-blindspot'
   | 'reconciler-gap'
-  | 'system-stage';
+  | 'system-stage'
+  | 'chapter-pipeline';
 
 export type MissionTodoScope =
   | 'mission'
@@ -1506,6 +1507,166 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           ],
         }));
       }
+    } else if (t === 'agent-playground.chapter:writing:started') {
+      // ★ 2026-05-06: 为每个章节在其 dim todo 下创建子 todo，展示章节级写作进度。
+      const dim = p.dimension as string | undefined;
+      const idx = p.chapterIndex as number | undefined;
+      const heading =
+        (p.heading as string | undefined) ?? `第 ${idx ?? '?'} 章`;
+      const attempt = (p.attempt as number | undefined) ?? 1;
+      if (dim != null && idx != null) {
+        // 找最近的 dimension todo（原始或重派）作为 parent
+        const dimTodo = order
+          .map((id) => todos.get(id)!)
+          .reverse()
+          .find((td) => td.scope === 'dimension' && td.dimensionRef === dim);
+        const chapterId = `chapter:${dim}:${idx}`;
+        upsert(
+          chapterId,
+          () => ({
+            id: chapterId,
+            parentId: dimTodo?.id,
+            origin: 'chapter-pipeline' as const,
+            createdBy: 'system' as const,
+            createdAt: ev.timestamp,
+            reasonText: `维度「${dim}」第 ${idx} 章撰写任务`,
+            scope: 'chapter' as const,
+            title: heading,
+            assignee: { role: 'writer' as const, dimensionName: dim },
+            status: 'in_progress' as const,
+            startedAt: ev.timestamp,
+            artifacts: [],
+            narrativeLog: [
+              {
+                ts: ev.timestamp,
+                text: attempt > 1 ? `第 ${attempt} 次撰写开始` : '章节撰写开始',
+                tone: 'info' as const,
+              },
+            ],
+            dimensionRef: dim,
+          }),
+          (t0) => {
+            // 重试时重置到 in_progress
+            if (
+              t0.status === 'done' ||
+              t0.status === 'failed' ||
+              t0.status === 'cancelled'
+            ) {
+              t0.status = 'in_progress';
+              t0.endedAt = undefined;
+            }
+            // 更新 heading（outline:planned 可能后到）
+            t0.title = heading;
+            t0.startedAt = t0.startedAt ?? ev.timestamp;
+            if (attempt > 1) {
+              t0.narrativeLog.push({
+                ts: ev.timestamp,
+                text: `第 ${attempt} 次撰写开始（重写）`,
+                tone: 'warn' as const,
+              });
+            }
+          }
+        );
+      }
+    } else if (t === 'agent-playground.chapter:writing:completed') {
+      const dim = p.dimension as string | undefined;
+      const idx = p.chapterIndex as number | undefined;
+      const wordCount = p.wordCount as number | undefined;
+      if (dim != null && idx != null) {
+        const chapterId = `chapter:${dim}:${idx}`;
+        const chTodo = todos.get(chapterId);
+        if (chTodo) {
+          if (wordCount != null) {
+            const existing = chTodo.artifacts.find((a) => a.label === '字数');
+            if (existing) {
+              existing.value = wordCount;
+            } else {
+              chTodo.artifacts.push({
+                kind: 'chapter',
+                label: '字数',
+                value: wordCount,
+              });
+            }
+          }
+          chTodo.narrativeLog.push({
+            ts: ev.timestamp,
+            text:
+              wordCount != null
+                ? `撰写完成（${wordCount} 字），进入复审`
+                : '撰写完成，进入复审',
+            tone: 'info' as const,
+          });
+        }
+      }
+    } else if (t === 'agent-playground.chapter:review:started') {
+      const dim = p.dimension as string | undefined;
+      const idx = p.chapterIndex as number | undefined;
+      if (dim != null && idx != null) {
+        const chapterId = `chapter:${dim}:${idx}`;
+        addNarrative(chapterId, ev.timestamp, 'Reviewer 审查中…', 'info');
+      }
+    } else if (t === 'agent-playground.chapter:review:completed') {
+      const dim = p.dimension as string | undefined;
+      const idx = p.chapterIndex as number | undefined;
+      const score = p.score as number | undefined;
+      const decision = p.decision as string | undefined;
+      const critique = p.critique as string | undefined;
+      if (dim != null && idx != null) {
+        const chapterId = `chapter:${dim}:${idx}`;
+        const chTodo = todos.get(chapterId);
+        if (chTodo) {
+          const passed = decision === 'pass' || (score ?? 0) >= 75;
+          if (score != null) {
+            const existing = chTodo.artifacts.find((a) => a.label === '评分');
+            if (existing) {
+              existing.value = score;
+            } else {
+              chTodo.artifacts.push({
+                kind: 'verdict-score',
+                label: '评分',
+                value: score,
+              });
+            }
+          }
+          chTodo.narrativeLog.push({
+            ts: ev.timestamp,
+            text: passed
+              ? `审查通过（分数 ${score ?? '—'}）`
+              : `审查未通过（分数 ${score ?? '—'}）${critique ? `：${critique.slice(0, 80)}` : ''}，将重写`,
+            tone: passed ? 'success' : 'warn',
+          });
+        }
+      }
+    } else if (t === 'agent-playground.chapter:done') {
+      const dim = p.dimension as string | undefined;
+      const idx = p.chapterIndex as number | undefined;
+      const qualified = p.qualified as boolean | undefined;
+      const wordCount = p.wordCount as number | undefined;
+      if (dim != null && idx != null) {
+        const chapterId = `chapter:${dim}:${idx}`;
+        const chTodo = todos.get(chapterId);
+        if (chTodo) {
+          chTodo.status = qualified !== false ? 'done' : 'failed';
+          chTodo.endedAt = ev.timestamp;
+          if (wordCount != null) {
+            const existing = chTodo.artifacts.find((a) => a.label === '字数');
+            if (existing) {
+              existing.value = wordCount;
+            } else {
+              chTodo.artifacts.push({
+                kind: 'chapter',
+                label: '字数',
+                value: wordCount,
+              });
+            }
+          }
+          chTodo.narrativeLog.push({
+            ts: ev.timestamp,
+            text: qualified !== false ? '章节定稿通过' : '章节最终落地（降级）',
+            tone: qualified !== false ? 'success' : 'warn',
+          });
+        }
+      }
     } else if (t === 'agent-playground.chapter:revision') {
       // ★ 不再为每个 chapter 创建独立 todo —— 聚合为 dim todo 的"章节重写"
       //   计数 + 把 critique 追加到 dim 的 narrativeLog（保留可读时间线）。
@@ -1861,6 +2022,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
     'leader-assess-extend': 600,
     'leader-assess-abort': 600,
     'self-heal-retry': 600,
+    'chapter-pipeline': 650, // dim todo 内部子章节，跟在对应 dim todo 后
     'reviewer-revise': 1050, // s8 之后
     'critic-blindspot': 1250, // s9 之后（理论上已不再创建独立 todo，仅向后兼容）
     'reconciler-gap': 750, // s5 之后
