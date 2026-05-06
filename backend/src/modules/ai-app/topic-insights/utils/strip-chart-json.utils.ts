@@ -16,10 +16,21 @@
  * ★ Also strips "Figure References" metadata sections.
  */
 export function stripChartJsonFromContent(content: string): string {
+  // ★ 2026-05-06 #81: chapter writer LLM 经常用 ```chartjs / ```chart-data /
+  //   ```chart 等 fence 包 Chart.js JSON 配置（Mission 1520783d 实证 — dim 4
+  //   "硬件基础设施" 第 4 章正文）。前端 markdown renderer 不识别这种 fence →
+  //   当 code block 显示 raw JSON，用户看到一堆 {"type":"line","data":{"labels":...}}
+  //   既不美观也无信息价值（图表数据本应由 figures[] 走 FigureRenderer 路径）。
+  //   修法：sanitize 阶段直接删除整个 ```{chartjs|chart-data|chart} ... ``` fence。
+  let result = content.replace(
+    /```(?:chartjs|chart-data|chart)\b[^\n]*\n[\s\S]*?\n```\s*/gi,
+    "",
+  );
+
   // ★ Strip "Figure References" metadata sections (LLM leaks internal figure allocation data)
   // Pattern: "Figure References" header followed by non-empty lines until first blank line or heading.
   // Each continuation line must be non-empty and NOT a heading.
-  let result = content.replace(
+  result = result.replace(
     /(?:^|\n)\s*\*{0,2}Figure\s*References\*{0,2}\s*\n(?:(?!#{1,6}\s)[^\n]+\n)*/gim,
     "\n",
   );

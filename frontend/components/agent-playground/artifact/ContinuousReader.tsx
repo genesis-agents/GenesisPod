@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type {
   ArtifactCitation,
   ReportArtifact,
@@ -13,10 +13,26 @@ interface Props {
   artifact: ReportArtifact;
 }
 
+/**
+ * ★ 2026-05-06 #87: 剥除末尾 "## 参考文献" / "## References" 段，避免与
+ *   下方独立的 ReferencePanel 重复显示（两份参考文献）。
+ *   后端 report-artifact-assembler.service.ts:195 追加 references section
+ *   到 fullMarkdown 是为了导出 markdown 完整性；前端 reader 由 ReferencePanel
+ *   接管参考文献渲染（含引用次数、来源类型、反向溯源），不需要 markdown 里的版本。
+ */
+function stripTrailingReferences(md: string): string {
+  return md.replace(/\n+##\s*(参考文献|参考资料|References)[\s\S]*$/m, '\n');
+}
+
 /** 连续视图：整篇 markdown 一篇到底（对齐 TI preview 模式，无左 TOC） */
 export function ContinuousReader({ artifact }: Props) {
   const [highlightedCite] = useState<number | null>(null);
   const [reverseHighlight, setReverseHighlight] = useState<number | null>(null);
+  // ★ 2026-05-06 #87: 剥除 fullMarkdown 末尾参考文献段，由 ReferencePanel 独立渲染
+  const bodyMarkdown = useMemo(
+    () => stripTrailingReferences(artifact.content.fullMarkdown),
+    [artifact.content.fullMarkdown]
+  );
 
   // ★ Phase P1-12: 反向溯源 — 点击 ReferencePanel 引用条目 → 高亮文中所有位置
   const handleReverseHighlight = (citation: ArtifactCitation) => {
@@ -104,7 +120,7 @@ export function ContinuousReader({ artifact }: Props) {
         {/* TI 同款极简包裹：bg-white + p-6，无 card shadow，让 prose 自己掌握排版 */}
         <div className="bg-white p-6">
           <ArtifactMarkdown
-            markdown={artifact.content.fullMarkdown}
+            markdown={bodyMarkdown}
             citations={artifact.citations}
             figures={artifact.figures}
           />
