@@ -294,22 +294,95 @@ export class CustomAgentsService {
     }
     const missionId = randomUUID();
     this.ownership.assign(missionId, userId);
+
+    // ★ R-CA 时序保证（清零风险 #3）：
+    //   等 dispatcher 跑完 Phase A（store.create + session 装配）+ 同步触发
+    //   afterRowCreated 写 launches；rowReadyResolve 解锁本 endpoint return。
+    //   长耗时 Phase B（orchestrator stages）继续 fire-and-forget。
+    let rowReadyResolve!: () => void;
+    let rowReadyReject!: (err: unknown) => void;
+    const rowReady = new Promise<void>((resolve, reject) => {
+      rowReadyResolve = resolve;
+      rowReadyReject = reject;
+    });
+    const customAgentId = translated.metadata.customAgentId;
     void this.pipelineDispatcher
-      .runMission(missionId, parsed.data, userId)
+      .runMission(missionId, parsed.data, userId, undefined, async () => {
+        // 此时 mission row 已 INSERT、session 已 register；写 launches 后让 endpoint 返回
+        await this.launches.record({
+          userId,
+          customAgentId,
+          missionId,
+          topic: parsed.data.topic,
+        });
+        rowReadyResolve();
+      })
       .catch((err: unknown) => {
         this.log.error(
-          `[launch ${translated.metadata.customAgentId}→${missionId}] failed: ${
+          `[launch ${customAgentId}→${missionId}] failed: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );
+        // afterRowCreated 之前抛错（罕见，DB create 失败）→ 让 endpoint 也失败
+        rowReadyReject(err);
       });
+    await rowReady;
+    return { missionId, streamNamespace: "agent-playground" };
+  }
+
+  /**
+   * POST /user/custom-agents/:id/missions/attach  (R-CA 2026-05-05 风险#1 清零)
+   *
+   * 把一个已有的 playground mission 关联到该 custom agent（写一条 launch 行）。
+   * 用途：用户在 agent 主页点 mission 卡片"重跑"，前端拿到 rerun 出的新 missionId
+   * 后立即调本接口，让新 mission 也归属到该 agent，主页 mission 网格里能看到。
+   *
+   * 防越权 + 防垃圾数据：
+   *   - 校验 agent 归属当前用户
+   *   - 校验 mission 归属当前用户
+   *   - 重复 attach 同 missionId 仅写一行（PostgreSQL upsert 用 missionId 索引去重）
+   */
+  async attachMissionToAgent(
+    userId: string,
+    id: string,
+    body: { missionId: string; topic?: string },
+  ): Promise<{ ok: true }> {
+    if (!body?.missionId || typeof body.missionId !== "string") {
+      throw new BadRequestException("missionId required");
+    }
+    const agent = await this.prisma.customAgentDefinition
+      .findUnique({ where: { id }, select: { userId: true } })
+      .catch(() => null);
+    if (!agent) throw new NotFoundException("Custom agent not found");
+    if (agent.userId !== userId) {
+      throw new ForbiddenException("Not owner of this custom agent");
+    }
+    // 校验 mission 归当前用户（防越权挂接别人的 mission 到自己 agent）
+    const mission = await this.prisma.agentPlaygroundMission
+      .findUnique({
+        where: { id: body.missionId },
+        select: { userId: true, topic: true },
+      })
+      .catch(() => null);
+    if (!mission) throw new NotFoundException("Mission not found");
+    if (mission.userId !== userId) {
+      throw new ForbiddenException("Not owner of this mission");
+    }
+    // 已存在则不重复写（idempotent）
+    const existing = await this.prisma.customAgentLaunch
+      .findFirst({
+        where: { userId, customAgentId: id, missionId: body.missionId },
+        select: { id: true },
+      })
+      .catch(() => null);
+    if (existing) return { ok: true };
     await this.launches.record({
       userId,
-      customAgentId: translated.metadata.customAgentId,
-      missionId,
-      topic: parsed.data.topic,
+      customAgentId: id,
+      missionId: body.missionId,
+      topic: body.topic ?? mission.topic,
     });
-    return { missionId, streamNamespace: "agent-playground" };
+    return { ok: true };
   }
 
   /**

@@ -67,6 +67,37 @@ interface SidebarProps {
   className?: string;
 }
 
+// ★ R-CA 风险#2 清零：每个 custom agent 用首字 + hash 颜色 chip，
+//   collapsed 状态下也能区分。
+const AGENT_COLORS: Array<{ bg: string; text: string }> = [
+  { bg: 'bg-rose-100', text: 'text-rose-700' },
+  { bg: 'bg-violet-100', text: 'text-violet-700' },
+  { bg: 'bg-amber-100', text: 'text-amber-700' },
+  { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  { bg: 'bg-sky-100', text: 'text-sky-700' },
+  { bg: 'bg-fuchsia-100', text: 'text-fuchsia-700' },
+  { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  { bg: 'bg-teal-100', text: 'text-teal-700' },
+];
+
+function agentInitial(displayName: string): string {
+  const trimmed = (displayName ?? '').trim();
+  if (!trimmed) return '?';
+  // 中文取第一个字符；英文取首字大写（数字 / emoji 也直接取第一）
+  return trimmed.codePointAt(0)
+    ? String.fromCodePoint(trimmed.codePointAt(0)!).toUpperCase()
+    : '?';
+}
+
+function hashAgentColor(id: string): number {
+  // 简单 djb2 哈希取色板索引
+  let hash = 5381;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) + hash + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % AGENT_COLORS.length;
+}
+
 export default function Sidebar({ className = '' }: SidebarProps) {
   // 三种状态: expanded(默认展开), collapsed(收起), pinned(固定)
   const [sidebarState, setSidebarState] = useState<
@@ -682,6 +713,11 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               {sidebarAgents.map((agent) => {
                 const href = `/custom-agents/${agent.id}`;
                 const isActive = pathname === href;
+                // ★ R-CA 风险#2 清零：首字 + 按 agent.id hash 取颜色，
+                //   collapsed 状态下也能区分多个 agent（不再都是同一 sparkles 图标）
+                const initial = agentInitial(agent.displayName);
+                const colorIdx = hashAgentColor(agent.id);
+                const palette = AGENT_COLORS[colorIdx];
                 return (
                   <Link
                     key={agent.id}
@@ -693,19 +729,12 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                     }`}
                     title={agent.displayName}
                   >
-                    <svg
-                      className="h-5 w-5 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    <span
+                      className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-[10px] font-semibold ${palette.bg} ${palette.text}`}
+                      aria-hidden="true"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
-                      />
-                    </svg>
+                      {initial}
+                    </span>
                     {showExpanded && (
                       <span className="line-clamp-1">{agent.displayName}</span>
                     )}

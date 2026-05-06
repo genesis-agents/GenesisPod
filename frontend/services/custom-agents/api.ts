@@ -34,3 +34,19 @@ export async function listCustomAgentMissions(
   );
   return data.items ?? [];
 }
+
+/**
+ * POST /user/custom-agents/:id/missions/attach  (R-CA 风险#1 清零)
+ *
+ * 把已存在 mission 关联到该 agent（agent 主页 rerun 后调一次，让新 mission 也算这个 agent 的）
+ * idempotent：重复 attach 同 missionId 不会重复写
+ */
+export async function attachMissionToCustomAgent(
+  agentId: string,
+  body: { missionId: string; topic?: string }
+): Promise<{ ok: true }> {
+  return apiClient.post<{ ok: true }>(
+    `/user/custom-agents/${agentId}/missions/attach`,
+    body
+  );
+}

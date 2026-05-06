@@ -261,6 +261,14 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     input: RunMissionInput,
     userId: string,
     workspaceId?: string,
+    /**
+     * ★ R-CA (2026-05-05) 时序回调：mission row 已经 INSERT + session/ownership 装配完成、
+     * orchestrator 长耗时 stages 启动之前，回调一次。
+     * 用法：custom-agents.launch 在此回调里 await 写 launches 行，保证主调方 endpoint
+     * 返回时 launches 行已就位（消除 mission row vs launches 写入时序窗口）。
+     * 异常：本回调抛错只 log warn，不阻断 orchestrator（launches 写失败属可容忍 degrade）。
+     */
+    afterRowCreated?: () => Promise<void>,
   ): Promise<PipelineMissionSummary> {
     const t0 = Date.now();
     const session = await this.runtimeShell.openSession({
@@ -282,6 +290,19 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       this.buildLeaderInvocation(missionId, userId, session.billing),
     );
     this.sessions.set(missionId, { session, t0, input, workspaceId, leader });
+    // ★ R-CA: row 已落 + session 已 register，但 stages 尚未跑 —— 给上层回调
+    //   一个时机做"挂接关联"（launches.record 等）。回调失败仅 log，不影响 mission。
+    if (afterRowCreated) {
+      try {
+        await afterRowCreated();
+      } catch (err) {
+        this.log.warn(
+          `[runMission ${missionId}] afterRowCreated callback threw (non-fatal): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
     // ★ 2026-05-05 增量更新："更新"按钮 → input.inheritFromMissionId 携带源 mission；
     //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.lastPlan，
     //   下游 S2 hook 检测到 lastPlan 已就绪即跳过 LLM 调用并 emit synthetic plan event。
@@ -301,6 +322,50 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           userId,
           tenantId: workspaceId,
           signal: session.missionAbort.signal,
+          // ★ 2026-05-06 (A 架构优化): orchestrator 已内置 stage:started/completed/failed
+          //   事件机制，但之前 dispatcher 没传 onEvent → 全部丢弃，导致 stage 文件
+          //   被迫各自手写 emit stage:started/completed（5 个文件还漏发）。
+          //   现在桥接：orchestrator 主导 lifecycle 信号 (agent-playground.stage:lifecycle)，
+          //   stage 文件保留的 stage:completed 仅作 metrics 携带 custom payload (artifacts)。
+          //   workflow 控制权回归 harness/orchestrator，漏 emit 物理上不可能。
+          onEvent: async (event) => {
+            if (
+              event.type !== "stage:started" &&
+              event.type !== "stage:completed" &&
+              event.type !== "stage:failed"
+            ) {
+              return;
+            }
+            if (!event.stepId) return;
+            const stage = mapStepIdToFrontendStageId(event.stepId);
+            const status =
+              event.type === "stage:started"
+                ? "started"
+                : event.type === "stage:completed"
+                  ? "completed"
+                  : "failed";
+            await this.missionEventBuffer
+              .broadcast({
+                type: "agent-playground.stage:lifecycle",
+                scope: { missionId, userId },
+                payload: {
+                  stage,
+                  stepId: event.stepId,
+                  primitive: event.primitive,
+                  status,
+                  ...(status === "failed"
+                    ? {
+                        error:
+                          event.error instanceof Error
+                            ? event.error.message
+                            : String(event.error ?? ""),
+                      }
+                    : {}),
+                },
+                timestamp: event.timestamp,
+              })
+              .catch(() => undefined);
+          },
         });
         // ★ R2-A.13.1 失败兜底：orchestrator 返 status=failed/aborted 时，
         //   补齐 legacy team.mission.ts 的 mission:failed event + markFailed 行为

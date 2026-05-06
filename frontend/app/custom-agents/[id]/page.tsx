@@ -21,9 +21,13 @@ import {
   updateMission,
   type MissionListItem,
 } from '@/services/agent-playground/api';
-import { listCustomAgentMissions } from '@/services/custom-agents/api';
+import {
+  attachMissionToCustomAgent,
+  listCustomAgentMissions,
+} from '@/services/custom-agents/api';
 import { apiClient } from '@/lib/api/client';
 import type { CustomAgentRecord } from '@/components/custom-agents/types';
+import { LaunchMissionModal } from '@/components/custom-agents/LaunchMissionModal';
 import { MissionGalleryView } from '@/components/missions/MissionGalleryView';
 
 export default function CustomAgentHomePage({
@@ -36,6 +40,11 @@ export default function CustomAgentHomePage({
   const [agent, setAgent] = useState<CustomAgentRecord | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [agentLoading, setAgentLoading] = useState(true);
+  // ★ R-CA 风险#4 清零：Modal 内联启动，不跳 /run
+  const [launchOpen, setLaunchOpen] = useState(false);
+  // gallery reload trigger（launch 成功 / rerun 成功后 inc）
+  const [galleryReloadKey, setGalleryReloadKey] = useState(0);
+  const triggerGalleryReload = () => setGalleryReloadKey((n) => n + 1);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +77,12 @@ export default function CustomAgentHomePage({
       return;
     try {
       const result = await rerunMission(mission.id);
-      router.push(`/agent-playground/team/${result.missionId}`);
+      // ★ R-CA 风险#1 清零：新 mission 归属本 agent
+      await attachMissionToCustomAgent(id, {
+        missionId: result.missionId,
+        topic: mission.topic,
+      }).catch(() => undefined);
+      triggerGalleryReload();
     } catch (e) {
       alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
     }
@@ -125,26 +139,36 @@ export default function CustomAgentHomePage({
   const purpose = agent.config?.basicInfo?.purpose;
 
   return (
-    <MissionGalleryView
-      title={agent.displayName}
-      subtitle={
-        purpose ? purpose : `自定义 Agent · ${agent.slug} · v${agent.version}`
-      }
-      iconGradient="from-rose-500 to-pink-600"
-      createButtonLabel="启动 Mission"
-      onCreateMission={() => router.push(`/custom-agents/${id}/run`)}
-      fetchMissions={fetchMissions}
-      onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
-      onRerun={handleRerun}
-      onCancel={handleCancel}
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-      emptyState={{
-        title: '还没用这个 Agent 启动过 Mission',
-        hint: `点击「启动 Mission」用「${agent.displayName}」做你的第一次研究`,
-        ctaLabel: '启动 Mission',
-      }}
-      searchPlaceholder={`在「${agent.displayName}」的 Mission 历史中搜索…`}
-    />
+    <>
+      <MissionGalleryView
+        title={agent.displayName}
+        subtitle={
+          purpose ? purpose : `自定义 Agent · ${agent.slug} · v${agent.version}`
+        }
+        iconGradient="from-rose-500 to-pink-600"
+        createButtonLabel="启动 Mission"
+        // ★ R-CA 风险#4 清零：内联 Modal 启动，不跳 /run 独立页
+        onCreateMission={() => setLaunchOpen(true)}
+        fetchMissions={fetchMissions}
+        onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
+        onRerun={handleRerun}
+        onCancel={handleCancel}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        emptyState={{
+          title: '还没用这个 Agent 启动过 Mission',
+          hint: `点击「启动 Mission」用「${agent.displayName}」做你的第一次研究`,
+          ctaLabel: '启动 Mission',
+        }}
+        searchPlaceholder={`在「${agent.displayName}」的 Mission 历史中搜索…`}
+        reloadKey={galleryReloadKey}
+      />
+      <LaunchMissionModal
+        agent={agent}
+        open={launchOpen}
+        onClose={() => setLaunchOpen(false)}
+        onLaunched={() => triggerGalleryReload()}
+      />
+    </>
   );
 }

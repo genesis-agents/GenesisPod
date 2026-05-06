@@ -129,4 +129,19 @@ export class CustomAgentsController {
   async missions(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     return this.service.listMissionsByAgent(req.user.id, id);
   }
+
+  /**
+   * POST /user/custom-agents/:id/missions/attach  (R-CA 风险#1 清零)
+   *
+   * 把已有 mission 关联到该 agent（agent 主页 rerun 后调一次，让新 mission 也归属）。
+   * body: { missionId, topic? }
+   */
+  @Post(":id/missions/attach")
+  async attachMission(
+    @Req() req: AuthenticatedRequest,
+    @Param("id") id: string,
+    @Body() body: { missionId: string; topic?: string },
+  ) {
+    return this.service.attachMissionToAgent(req.user.id, id, body);
+  }
 }
