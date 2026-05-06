@@ -982,14 +982,30 @@ describe("SecretsService", () => {
   describe("getExpectedSecrets", () => {
     it("marks secrets as configured when they exist in DB and missing otherwise", async () => {
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([
-        { id: "s1", name: "tavily-search-api-key", displayName: "Tavily Search API Key", category: "SEARCH", provider: "Tavily" },
-        { id: "s2", name: "perplexity-api-key", displayName: "Perplexity API Key", category: "SEARCH", provider: "Perplexity" },
+        {
+          id: "s1",
+          name: "tavily-search-api-key",
+          displayName: "Tavily Search API Key",
+          category: "SEARCH",
+          provider: "Tavily",
+        },
+        {
+          id: "s2",
+          name: "perplexity-api-key",
+          displayName: "Perplexity API Key",
+          category: "SEARCH",
+          provider: "Perplexity",
+        },
       ]);
 
       const result = await service.getExpectedSecrets();
 
-      const tavily = result.items.find((i) => i.name === "tavily-search-api-key");
-      const perplexity = result.items.find((i) => i.name === "perplexity-api-key");
+      const tavily = result.items.find(
+        (i) => i.name === "tavily-search-api-key",
+      );
+      const perplexity = result.items.find(
+        (i) => i.name === "perplexity-api-key",
+      );
       const serper = result.items.find((i) => i.name === "serper-api-key");
 
       expect(tavily?.status).toBe("configured");
@@ -1007,8 +1023,20 @@ describe("SecretsService", () => {
 
     it("puts non-LLM non-preset unknown DB secrets into customSecrets (not orphans)", async () => {
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([
-        { id: "s1", name: "tavily-search-api-key", displayName: "Tavily Search API Key", category: "SEARCH", provider: "Tavily" },
-        { id: "s99", name: "legacy-foo-key", displayName: "Legacy Foo Key", category: "OTHER", provider: null },
+        {
+          id: "s1",
+          name: "tavily-search-api-key",
+          displayName: "Tavily Search API Key",
+          category: "SEARCH",
+          provider: "Tavily",
+        },
+        {
+          id: "s99",
+          name: "legacy-foo-key",
+          displayName: "Legacy Foo Key",
+          category: "OTHER",
+          provider: null,
+        },
       ]);
 
       const result = await service.getExpectedSecrets();
@@ -1027,7 +1055,9 @@ describe("SecretsService", () => {
 
       const result = await service.getExpectedSecrets();
 
-      const tavily = result.items.find((i) => i.name === "tavily-search-api-key");
+      const tavily = result.items.find(
+        (i) => i.name === "tavily-search-api-key",
+      );
       expect(tavily?.relatedToolIds).toContain("tavily");
     });
 
@@ -1045,22 +1075,44 @@ describe("SecretsService", () => {
 
     it("routes openai-api-key and claude-api-key into llmProviders (B class)", async () => {
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([
-        { id: "llm1", name: "openai-api-key", displayName: "OpenAI API Key", category: "AI_MODEL", provider: "openai" },
-        { id: "llm2", name: "claude-api-key", displayName: "Claude API Key", category: "AI_MODEL", provider: "anthropic" },
+        {
+          id: "llm1",
+          name: "openai-api-key",
+          displayName: "OpenAI API Key",
+          category: "AI_MODEL",
+          provider: "openai",
+        },
+        {
+          id: "llm2",
+          name: "claude-api-key",
+          displayName: "Claude API Key",
+          category: "AI_MODEL",
+          provider: "anthropic",
+        },
       ]);
 
       const result = await service.getExpectedSecrets();
 
       expect(result.llmProviders).toHaveLength(2);
-      expect(result.llmProviders.map((p) => p.name)).toContain("openai-api-key");
-      expect(result.llmProviders.map((p) => p.name)).toContain("claude-api-key");
+      expect(result.llmProviders.map((p) => p.name)).toContain(
+        "openai-api-key",
+      );
+      expect(result.llmProviders.map((p) => p.name)).toContain(
+        "claude-api-key",
+      );
       expect(result.customSecrets).toHaveLength(0);
       expect(result.orphans).toHaveLength(0);
     });
 
     it("routes internal-rag-token into customSecrets (C class), not orphans", async () => {
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([
-        { id: "c1", name: "internal-rag-token", displayName: "Internal RAG Token", category: "OTHER", provider: null },
+        {
+          id: "c1",
+          name: "internal-rag-token",
+          displayName: "Internal RAG Token",
+          category: "OTHER",
+          provider: null,
+        },
       ]);
 
       const result = await service.getExpectedSecrets();
@@ -1073,18 +1125,30 @@ describe("SecretsService", () => {
 
     it("routes tavily-search-api-key into presetTools with status=configured", async () => {
       (mockPrisma.secret!.findMany as jest.Mock).mockResolvedValue([
-        { id: "pt1", name: "tavily-search-api-key", displayName: "Tavily Search API Key", category: "SEARCH", provider: "Tavily" },
+        {
+          id: "pt1",
+          name: "tavily-search-api-key",
+          displayName: "Tavily Search API Key",
+          category: "SEARCH",
+          provider: "Tavily",
+        },
       ]);
 
       const result = await service.getExpectedSecrets();
 
-      const preset = result.presetTools.items.find((i) => i.name === "tavily-search-api-key");
+      const preset = result.presetTools.items.find(
+        (i) => i.name === "tavily-search-api-key",
+      );
       expect(preset).toBeDefined();
       expect(preset?.status).toBe("configured");
       expect(preset?.secretId).toBe("pt1");
       // Must NOT also appear in llmProviders or customSecrets
-      expect(result.llmProviders.map((p) => p.name)).not.toContain("tavily-search-api-key");
-      expect(result.customSecrets.map((c) => c.name)).not.toContain("tavily-search-api-key");
+      expect(result.llmProviders.map((p) => p.name)).not.toContain(
+        "tavily-search-api-key",
+      );
+      expect(result.customSecrets.map((c) => c.name)).not.toContain(
+        "tavily-search-api-key",
+      );
     });
 
     it("returns all 4 blocks empty (except presetTools missing items) when DB is empty", async () => {
@@ -1098,7 +1162,9 @@ describe("SecretsService", () => {
       expect(result.presetTools.summary.configured).toBe(0);
       expect(result.presetTools.summary.missing).toBeGreaterThan(0);
       // All preset items are missing
-      expect(result.presetTools.items.every((i) => i.status === "missing")).toBe(true);
+      expect(
+        result.presetTools.items.every((i) => i.status === "missing"),
+      ).toBe(true);
     });
   });
 
@@ -1311,4 +1377,3 @@ describe("SecretsService", () => {
     });
   });
 });
-
