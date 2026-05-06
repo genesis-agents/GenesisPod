@@ -1,4 +1,4 @@
-import { Logger } from "@nestjs/common";
+import { Logger, OnModuleDestroy } from "@nestjs/common";
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -58,17 +58,29 @@ interface NotificationBroadcastEvent {
   namespace: "notifications",
   cors: { origin: "*", credentials: true },
 })
-export class NotificationGateway implements OnGatewayConnection {
+export class NotificationGateway
+  implements OnGatewayConnection, OnModuleDestroy
+{
   @WebSocketServer() io!: Server;
   private readonly log = new Logger(NotificationGateway.name);
 
   private static readonly MAX_EMIT_RETRIES = 3;
   private static readonly RETRY_DELAY_MS = 2000;
 
+  /** 追踪所有 in-flight retry timers，模块销毁时统一清理 */
+  private readonly retryTimers = new Set<NodeJS.Timeout>();
+
   constructor(
     private readonly jwt: JwtService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  onModuleDestroy(): void {
+    for (const timer of this.retryTimers) {
+      clearTimeout(timer);
+    }
+    this.retryTimers.clear();
+  }
 
   async handleConnection(client: Socket): Promise<void> {
     let userId: string;
@@ -106,12 +118,14 @@ export class NotificationGateway implements OnGatewayConnection {
         this.log.warn(
           `Failed to push notification:new for user=${event.userId} (attempt ${retryCount + 1}/${NotificationGateway.MAX_EMIT_RETRIES}): ${errMsg} — scheduling retry`,
         );
-        setTimeout(() => {
+        const timer = setTimeout(() => {
+          this.retryTimers.delete(timer);
           this.eventEmitter.emit("notification.created", {
             ...event,
             _retryCount: retryCount + 1,
           });
         }, NotificationGateway.RETRY_DELAY_MS);
+        this.retryTimers.add(timer);
       } else {
         this.log.warn(
           `Gave up pushing notification:new for user=${event.userId} after ${NotificationGateway.MAX_EMIT_RETRIES} attempts: ${errMsg}. Notification persisted in DB; client will receive on next poll/reconnect.`,

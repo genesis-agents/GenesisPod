@@ -81,27 +81,46 @@ export class CreditsService implements OnModuleInit {
     });
 
     if (!account) {
-      // 创建新账户
-      account = await this.prisma.creditAccount.create({
-        data: {
-          userId,
-          balance: 10000,
-          totalEarned: 10000,
-        },
-      });
+      // 创建新账户（并发时可能抛 P2002，取赢家创建的账户）
+      try {
+        account = await this.prisma.creditAccount.create({
+          data: {
+            userId,
+            balance: 10000,
+            totalEarned: 10000,
+          },
+        });
 
-      // 创建初始积分交易记录
-      await this.prisma.creditTransaction.create({
-        data: {
-          accountId: account.id,
-          type: CreditTransactionType.INITIAL,
-          amount: 10000,
-          balanceAfter: 10000,
-          description: "Welcome bonus credits",
-        },
-      });
+        // 创建初始积分交易记录
+        await this.prisma.creditTransaction.create({
+          data: {
+            accountId: account.id,
+            type: CreditTransactionType.INITIAL,
+            amount: 10000,
+            balanceAfter: 10000,
+            description: "Welcome bonus credits",
+          },
+        });
 
-      this.logger.log(`Created new credit account for user ${userId}`);
+        this.logger.log(`Created new credit account for user ${userId}`);
+      } catch (err: unknown) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2002"
+        ) {
+          // 并发场景：另一个 pod 已创建成功，直接读取
+          const existing = await this.prisma.creditAccount.findUnique({
+            where: { userId },
+          });
+          if (existing) {
+            account = existing;
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
     }
 
     return this.formatAccountInfo(account);

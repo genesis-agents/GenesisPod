@@ -11,7 +11,7 @@
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
-import { CreditTransactionType } from "@prisma/client";
+import { CreditTransactionType, Prisma } from "@prisma/client";
 import { CreditsService } from "../credits.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CreditRulesService } from "../policy/credit-rules.service";
@@ -154,6 +154,35 @@ describe("CreditsService", () => {
       const result = await service.getOrCreateAccount("user-123");
 
       expect(result.isCritical).toBe(true);
+    });
+
+    it("should recover from P2002 race by re-fetching the winning account", async () => {
+      // findUnique returns null (triggering create path), but create throws P2002 (concurrent pod won)
+      const p2002 = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed",
+        { code: "P2002", clientVersion: "5.x" },
+      );
+      mockPrisma.creditAccount.findUnique
+        .mockResolvedValueOnce(null) // initial check → no account
+        .mockResolvedValueOnce({ ...mockAccount, balance: 10000 }); // re-fetch after P2002
+      mockPrisma.creditAccount.create.mockRejectedValueOnce(p2002);
+
+      const result = await service.getOrCreateAccount("new-user-race");
+
+      expect(result.balance).toBe(10000);
+      expect(mockPrisma.creditAccount.create).toHaveBeenCalledTimes(1);
+      // Second findUnique fetches the existing account
+      expect(mockPrisma.creditAccount.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it("should rethrow non-P2002 errors from create", async () => {
+      const dbErr = new Error("DB connection lost");
+      mockPrisma.creditAccount.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.creditAccount.create.mockRejectedValueOnce(dbErr);
+
+      await expect(service.getOrCreateAccount("err-user")).rejects.toThrow(
+        "DB connection lost",
+      );
     });
   });
 

@@ -142,6 +142,67 @@ describe("NotificationGateway", () => {
       // No further retry scheduled
       expect(mockEventEmitter.emit).not.toHaveBeenCalled();
     });
+
+    it("should remove timer from retryTimers set after it fires", () => {
+      mockRoom.emit.mockImplementationOnce(() => {
+        throw new Error("socket broken");
+      });
+
+      gateway.handleNotificationCreated({
+        userId: "user-abc",
+        type: "SYSTEM",
+        title: "Self-cleanup",
+        message: "msg",
+      });
+
+      const timers = (
+        gateway as unknown as { retryTimers: Set<NodeJS.Timeout> }
+      ).retryTimers;
+      expect(timers.size).toBe(1);
+
+      jest.runAllTimers();
+
+      // Timer removed from set after firing
+      expect(timers.size).toBe(0);
+    });
+  });
+
+  // =========================================================================
+  // onModuleDestroy — timer cleanup
+  // =========================================================================
+
+  describe("onModuleDestroy", () => {
+    it("should clear all pending retry timers on destroy", () => {
+      mockRoom.emit.mockImplementation(() => {
+        throw new Error("socket broken");
+      });
+
+      // Queue two retries
+      gateway.handleNotificationCreated({
+        userId: "user-abc",
+        type: "SYSTEM",
+        title: "Pending 1",
+        message: "msg",
+      });
+      gateway.handleNotificationCreated({
+        userId: "user-abc",
+        type: "SYSTEM",
+        title: "Pending 2",
+        message: "msg",
+      });
+
+      const timers = (
+        gateway as unknown as { retryTimers: Set<NodeJS.Timeout> }
+      ).retryTimers;
+      expect(timers.size).toBe(2);
+
+      gateway.onModuleDestroy();
+
+      expect(timers.size).toBe(0);
+      // Advancing timers after destroy must not call eventEmitter
+      jest.runAllTimers();
+      expect(mockEventEmitter.emit).not.toHaveBeenCalled();
+    });
   });
 
   // =========================================================================
