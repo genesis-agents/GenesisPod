@@ -42,10 +42,29 @@ export function ModelBadges({ model }: { model: BadgeShape | AIModel }) {
  * 用于：app/page.tsx, app/explore/youtube/page.tsx, app/admin/workspace/page.tsx
  *      及 ai-teams 等所有用原生 select 的地方。
  *
- * 例：`{model.name} ({model.provider}){modelLabelSuffix(model)}`
- *     渲染："ChatGPT (OpenAI) · 我的 Key"
+ * 例：`{model.name} ({model.provider}){modelLabelSuffix(model, t)}`
+ *     渲染："ChatGPT (OpenAI) · My Key" 或 "...· 我的 Key"
+ *
+ * 接收可选的 t 函数让 i18n 生效；不传时退回中文（旧调用方兼容）。
+ * Translator 签名匹配项目 `useI18n().t`：
+ *   `(key, params?: Record<string, string | number>) => string`
+ * 项目 t 不支持 fallback 参数，因此本函数自己做 fallback 兜底（key 缺失返回 key 本身）。
  */
-export function modelLabelSuffix(model: BadgeShape): string {
-  if (model.isUserKey) return ' · 我的 Key';
-  return ' · 系统 Key';
+type Translator = (
+  key: string,
+  params?: Record<string, string | number>
+) => string;
+
+export function modelLabelSuffix(model: BadgeShape, t?: Translator): string {
+  const fallback = model.isUserKey ? '我的 Key' : '系统 Key';
+  if (t) {
+    const key = model.isUserKey
+      ? 'common.modelKeyLabel.myKey'
+      : 'common.modelKeyLabel.systemKey';
+    const result = t(key);
+    // 项目 t 在 key 不存在时直接返回 key 本身；这种情况退回中文兜底
+    const label = result === key ? fallback : result;
+    return ` · ${label}`;
+  }
+  return ` · ${fallback}`;
 }

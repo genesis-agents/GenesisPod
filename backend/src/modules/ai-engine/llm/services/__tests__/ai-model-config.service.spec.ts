@@ -114,6 +114,9 @@ describe("AiModelConfigService", () => {
         findFirst: jest.fn(),
         findUnique: jest.fn(),
       },
+      userApiKey: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     const mockSecretsService = {
@@ -675,6 +678,158 @@ describe("AiModelConfigService", () => {
       // Assert
       expect(models[0]).toHaveProperty("iconUrl");
       expect(models[0].iconUrl).toContain("/icons/ai/");
+    });
+
+    // ─── BYOK isUserKey 标记（W4-byok 2026-05-05 真根因覆盖）──────────
+
+    it("isUserKey=true when user has PERSONAL key for matching provider", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel, // openai
+        mockGeminiModel, // google
+      ]);
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai" }, // user has openai key
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      const openai = models.find((m) => m.provider.toLowerCase() === "openai");
+      const google = models.find((m) => m.provider.toLowerCase() === "google");
+      expect(openai?.isUserKey).toBe(true);
+      expect(google?.isUserKey).toBeUndefined(); // 没 isUserKey 字段（mapModel conditional spread）
+    });
+
+    it("provider name comparison is case-insensitive", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        { ...mockChatModel, provider: "OpenAI" }, // 大小写混
+      ]);
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai" }, // 用户存的是小写
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      expect(models[0].isUserKey).toBe(true);
+    });
+
+    it("no isUserKey when no userId passed (anonymous)", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel,
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend();
+
+      // 没 userId → 不查 user keys → 全 false
+      expect(models[0].isUserKey).toBeUndefined();
+    });
+
+    it("no isUserKey when user has no PERSONAL keys", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel,
+      ]);
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      expect(models[0].isUserKey).toBeUndefined();
+    });
+
+    it("graceful degrade when user key DB lookup fails", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel,
+      ]);
+      (prismaService.userApiKey.findMany as jest.Mock).mockRejectedValue(
+        new Error("DB unreachable"),
+      );
+
+      // 不抛错，退回无 BYOK 模式
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      expect(models).toHaveLength(1);
+      expect(models[0].isUserKey).toBeUndefined();
+    });
+
+    it("BYOK_DEFAULT_MODELS dynamically generates xai models when user has xai key but no enabled xai model", async () => {
+      // DB 只有 openai enabled，用户配了 xai PERSONAL key
+      (prismaService.aIModel.findMany as jest.Mock)
+        .mockResolvedValueOnce([mockChatModel]) // 第一次调用：enabled openai
+        .mockResolvedValueOnce([]); // 第二次：disabled xai (none)
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
+        { provider: "xai" },
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        AIModelType.CHAT,
+        "user-1",
+      );
+
+      // 应该有 openai (system, no isUserKey) + xai grok (BYOK 生成, isUserKey=true)
+      const xaiModels = models.filter((m) =>
+        m.provider.toLowerCase().includes("xai"),
+      );
+      expect(xaiModels.length).toBeGreaterThan(0);
+      xaiModels.forEach((m) => {
+        expect(m.isUserKey).toBe(true);
+      });
+    });
+
+    it("preserves model ordering (admin isDefault first)", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        { ...mockChatModel, isDefault: true, displayName: "GPT-5 Default" },
+        { ...mockReasoningModel, isDefault: false, displayName: "O1 Sub" },
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend();
+
+      // findMany 已按 [{isDefault: 'desc'}, {name: 'asc'}] 排序，service 不应重排
+      expect(models[0].isDefault).toBe(true);
+      expect(models[1].isDefault).toBe(false);
+    });
+
+    it("user has key for provider AND BYOK extra → both branches kept distinct", async () => {
+      // openai 同时是 system enabled + 用户配 key（同 provider）
+      // → openai 模型 isUserKey=true
+      // 用户额外配 xai key 但 xai 没 enabled → BYOK_DEFAULT_MODELS 生成
+      (prismaService.aIModel.findMany as jest.Mock)
+        .mockResolvedValueOnce([mockChatModel])
+        .mockResolvedValueOnce([]); // disabled xai not in DB
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai" },
+        { provider: "xai" },
+      ]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        AIModelType.CHAT,
+        "user-1",
+      );
+
+      const openai = models.find((m) => m.provider.toLowerCase() === "openai");
+      const xai = models.find((m) => m.provider.toLowerCase().includes("xai"));
+      expect(openai?.isUserKey).toBe(true);
+      expect(xai?.isUserKey).toBe(true);
+    });
+
+    it("returns empty array when DB throws on main findMany (defensive)", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockRejectedValue(
+        new Error("DB down"),
+      );
+
+      const models = await service.getEnabledModelsForFrontend();
+
+      expect(Array.isArray(models)).toBe(true);
+      expect(models).toHaveLength(0);
     });
   });
 

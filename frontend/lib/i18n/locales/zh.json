@@ -1,5 +1,10 @@
 {
   "common": {
+    "modelKeyLabel": {
+      "myKey": "我的 Key",
+      "systemKey": "系统 Key",
+      "myKeyChip": "My Key"
+    },
     "loading": "加载中...",
     "error": "错误",
     "success": "成功",

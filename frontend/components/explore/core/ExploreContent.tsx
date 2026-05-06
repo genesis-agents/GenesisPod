@@ -40,6 +40,7 @@ import {
   FlaskConical,
 } from 'lucide-react';
 import { useAIModels, pickPreferredModel } from '@/hooks';
+import { modelLabelSuffix } from '@/components/common/ModelBadges';
 import { ClientDate } from '@/components/common/ClientDate';
 import { formatDateSafe } from '@/lib/utils/date';
 
@@ -2841,7 +2842,7 @@ function HomeContent() {
                       {aiModels.map((model) => (
                         <option key={model.id} value={model.modelId}>
                           {model.name} ({model.provider})
-                          {model.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
+                          {modelLabelSuffix(model, t)}
                         </option>
                       ))}
                     </select>

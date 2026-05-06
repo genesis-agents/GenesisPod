@@ -80,4 +80,35 @@ describe('modelLabelSuffix', () => {
     expect(modelLabelSuffix({ isUserKey: true }).startsWith(' ')).toBe(true);
     expect(modelLabelSuffix({}).startsWith(' ')).toBe(true);
   });
+
+  // ─── i18n-aware path（W4-byok 2026-05-05 i18n 支持）────────────
+
+  it('uses translator when t function is provided', () => {
+    const t = (key: string) => {
+      if (key === 'common.modelKeyLabel.myKey') return 'My Key';
+      if (key === 'common.modelKeyLabel.systemKey') return 'System Key';
+      return key;
+    };
+    expect(modelLabelSuffix({ isUserKey: true }, t)).toBe(' · My Key');
+    expect(modelLabelSuffix({ isUserKey: false }, t)).toBe(' · System Key');
+  });
+
+  it('falls back to chinese when t returns key as-is (key not registered)', () => {
+    // 项目 t 在 key 缺失时返回 key 字符串本身 → modelLabelSuffix 应识别并退回中文
+    const tNoOp = (key: string) => key;
+    expect(modelLabelSuffix({ isUserKey: true }, tNoOp)).toBe(' · 我的 Key');
+    expect(modelLabelSuffix({ isUserKey: false }, tNoOp)).toBe(' · 系统 Key');
+  });
+
+  it('Translator signature compatible with project useI18n().t (params arg)', () => {
+    // 仿真项目实际签名：(key, params?: Record<string, string | number>) => string
+    const t = (
+      key: string,
+      _params?: Record<string, string | number>
+    ): string => {
+      if (key === 'common.modelKeyLabel.myKey') return '我的密钥';
+      return key;
+    };
+    expect(modelLabelSuffix({ isUserKey: true }, t)).toBe(' · 我的密钥');
+  });
 });

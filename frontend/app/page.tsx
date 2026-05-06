@@ -181,6 +181,7 @@ import { useResourceStore } from '@/stores/aiOfficeStore';
 import type { Resource as AIOfficeResource } from '@/types/ai-office';
 import { ThumbsUp, TrendingUp, Clock, Star, ChevronDown } from 'lucide-react';
 import { useAIModels, pickPreferredModel } from '@/hooks';
+import { modelLabelSuffix } from '@/components/common/ModelBadges';
 import { useImageSourceStore, toast as showToast } from '@/stores';
 
 import { logger } from '@/lib/utils/logger';
@@ -3196,7 +3197,7 @@ function HomeContent() {
                       {aiModels.map((model) => (
                         <option key={model.id} value={model.modelId}>
                           {model.name} ({model.provider})
-                          {model.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
+                          {modelLabelSuffix(model)}
                         </option>
                       ))}
                     </select>

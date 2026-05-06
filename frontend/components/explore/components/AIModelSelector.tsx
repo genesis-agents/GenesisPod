@@ -1,5 +1,7 @@
 'use client';
 
+import { modelLabelSuffix } from '@/components/common/ModelBadges';
+
 interface AIModelSelectorProps {
   aiModel: string;
   setAiModel: (model: string) => void;

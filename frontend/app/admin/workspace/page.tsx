@@ -18,6 +18,7 @@ import {
   useAIModels,
   pickPreferredModel,
 } from '@/hooks';
+import { modelLabelSuffix } from '@/components/common/ModelBadges';
 import ClientDate from '@/components/common/ClientDate';
 
 const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILED']);
@@ -794,8 +795,7 @@ export default function WorkspacePage() {
                     >
                       {aiModels.map((m) => (
                         <option key={m.id} value={m.modelId}>
-                          {m.name} ({m.provider})
-                          {m.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
+                          {m.name} ({m.provider}){modelLabelSuffix(m)}
                         </option>
                       ))}
                     </select>

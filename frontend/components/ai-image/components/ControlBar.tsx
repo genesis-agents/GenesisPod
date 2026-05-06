@@ -1,5 +1,6 @@
 import type { AIModel, AspectRatio, TemplateLayout } from '../types';
 import { ASPECT_RATIOS, IMAGE_STYLES } from '../constants';
+import { modelLabelSuffix } from '@/components/common/ModelBadges';
 
 interface ControlBarProps {
   models: AIModel[];
@@ -51,7 +52,7 @@ export function ControlBar({
             {models.map((model) => (
               <option key={model.id} value={model.id}>
                 {model.name}
-                {model.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
+                {modelLabelSuffix(model)}
               </option>
             ))}
           </select>

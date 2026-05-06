@@ -23,6 +23,7 @@ import KeyMomentsPanel, {
 } from '@/components/explore/youtube/KeyMomentsPanel';
 import { SubtitleExportButton } from '@/components/explore/youtube';
 import { useAIModels, pickPreferredModel } from '@/hooks';
+import { modelLabelSuffix } from '@/components/common/ModelBadges';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -1654,7 +1655,7 @@ function YouTubeTLDWContent() {
                         {aiModels.map((model) => (
                           <option key={model.id} value={model.modelId}>
                             {model.name} ({model.provider})
-                            {model.isUserKey ? ' · 我的 Key' : ' · 系统 Key'}
+                            {modelLabelSuffix(model, t)}
                           </option>
                         ))}
                       </select>
