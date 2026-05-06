@@ -366,4 +366,168 @@ describe("ReActLoop (Phase 2)", () => {
     // chat must NOT have been called — exhausted before reasoning
     expect(chat.chat).not.toHaveBeenCalled();
   });
+
+  // ── P0-6: skipOnApiError stop hook guard ──────────────────────────────────
+  it("P0-6: does NOT invoke skipOnApiError=true Stop hook when LLM throws API error", async () => {
+    // chat always throws a provider API error
+    const chat = {
+      chat: jest.fn().mockRejectedValue(new Error("rate limit exceeded (429)")),
+    };
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    const stopCalls: string[] = [];
+
+    // Stop hook marked skipOnApiError=true — must be skipped
+    hooks.register({
+      event: "Stop",
+      scope: "global",
+      skipOnApiError: true,
+      handler: () => {
+        stopCalls.push("skip-on-api-error");
+      },
+    });
+    // Stop hook without skipOnApiError — must still run
+    hooks.register({
+      event: "Stop",
+      scope: "global",
+      handler: () => {
+        stopCalls.push("always-run");
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(
+        makeEnvelope(),
+        { maxIterations: 1, terminateOn: ["finalize"] },
+        {
+          agentId: "api-err-test",
+        },
+      ),
+    );
+
+    // Loop should have emitted error + terminated
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "error" });
+
+    // skipOnApiError=true hook must NOT have been called
+    expect(stopCalls).not.toContain("skip-on-api-error");
+    // regular stop hook must have been called
+    expect(stopCalls).toContain("always-run");
+  });
+
+  // ── P0-2: hasUnexecutedToolUse — 防回归测试 ──────────────────────────────
+  it("P0-2: continues loop when LLM returns stop_reason=end_turn but content contains tool_call intent (parse failed)", async () => {
+    // Scenario: LLM first returns truncated/broken JSON with a tool_call inside
+    // (simulating stop_reason='end_turn' but content has unexecuted tool intent).
+    // parseDecision will fall back to finalize-raw, but the loop should detect
+    // the tool_call intent and retry instead of terminating prematurely.
+    const brokenToolCall =
+      '{"thinking":"I should search","action":{"kind":"tool_call","toolId":"calc","input":';
+    // Second response: proper finalize after retry nudge
+    const properFinalize = JSON.stringify({
+      thinking: "Now I finalize",
+      action: { kind: "finalize", output: "42" },
+    });
+    const chat = mkChat([brokenToolCall, properFinalize]);
+    const reg = mkToolRegistry({ calc: { success: true, data: 42 } });
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(["calc"]), criteria, { agentId: "p02-test" }),
+    );
+
+    // Loop must NOT have terminated on the first (broken) response
+    // Instead it should have continued and eventually finalized with "42"
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "completed" });
+
+    const output = events.find((e) => e.type === "output");
+    expect(output?.payload).toEqual({ output: "42" });
+
+    // chat.chat must have been called twice (once for broken, once for retry)
+    expect(chat.chat).toHaveBeenCalledTimes(2);
+  });
+
+  it("P0-2: does NOT inject retry nudge when parse succeeded cleanly (no false positive)", async () => {
+    // Normal scenario: LLM outputs valid finalize JSON (no parseError)
+    // The loop should terminate normally without injecting a retry nudge
+    const chat = mkChat([
+      JSON.stringify({
+        thinking: "I have the answer",
+        action: { kind: "finalize", output: "clean answer" },
+      }),
+    ]);
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(), criteria, { agentId: "p02-no-false-pos" }),
+    );
+
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "completed" });
+
+    const output = events.find((e) => e.type === "output");
+    expect(output?.payload).toEqual({ output: "clean answer" });
+
+    // chat.chat must have been called exactly once (no retry)
+    expect(chat.chat).toHaveBeenCalledTimes(1);
+  });
+
+  it("P0-6: invokes all Stop hooks (including skipOnApiError=true) on normal completion", async () => {
+    const chat = mkChat([
+      JSON.stringify({
+        thinking: "done",
+        action: { kind: "finalize", output: "result" },
+      }),
+    ]);
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    const stopCalls: string[] = [];
+
+    hooks.register({
+      event: "Stop",
+      scope: "global",
+      skipOnApiError: true,
+      handler: () => {
+        stopCalls.push("skip-on-api-error-hook");
+      },
+    });
+    hooks.register({
+      event: "Stop",
+      scope: "global",
+      handler: () => {
+        stopCalls.push("always-run-hook");
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(), criteria, { agentId: "normal-stop-test" }),
+    );
+
+    const terminated = events.find((e) => e.type === "terminated");
+    expect(terminated?.payload).toMatchObject({ reason: "completed" });
+
+    // On normal completion, both hooks run
+    expect(stopCalls).toContain("skip-on-api-error-hook");
+    expect(stopCalls).toContain("always-run-hook");
+  });
 });

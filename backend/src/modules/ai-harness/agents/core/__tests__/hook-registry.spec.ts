@@ -149,4 +149,106 @@ describe("HookRegistry", () => {
 
     expect(calls).toEqual([]);
   });
+
+  // ── P0-6: skipOnApiError ────────────────────────────────────
+
+  it("P0-6: dispatchStop skips skipOnApiError=true hooks when isApiError=true", async () => {
+    const reg = new HookRegistry();
+    const calls: string[] = [];
+
+    // This hook has skipOnApiError=true — must NOT run on API error path
+    reg.register({
+      event: "Stop",
+      scope: "global",
+      skipOnApiError: true,
+      handler: () => {
+        calls.push("skip-on-api-error");
+      },
+    });
+    // This hook has no skipOnApiError — must ALWAYS run
+    reg.register({
+      event: "Stop",
+      scope: "global",
+      handler: () => {
+        calls.push("always-run");
+      },
+    });
+
+    await reg.dispatchStop(
+      { reason: "error" },
+      { agentId: "a1", envelope: makeEnv() },
+      true, // isApiError=true
+    );
+
+    expect(calls).toEqual(["always-run"]);
+    expect(calls).not.toContain("skip-on-api-error");
+  });
+
+  it("P0-6: dispatchStop runs all Stop hooks when isApiError=false", async () => {
+    const reg = new HookRegistry();
+    const calls: string[] = [];
+
+    reg.register({
+      event: "Stop",
+      scope: "global",
+      skipOnApiError: true,
+      handler: () => {
+        calls.push("skip-on-api-error");
+      },
+    });
+    reg.register({
+      event: "Stop",
+      scope: "global",
+      handler: () => {
+        calls.push("always-run");
+      },
+    });
+
+    await reg.dispatchStop(
+      { reason: "completed" },
+      { agentId: "a1", envelope: makeEnv() },
+      false, // isApiError=false → all hooks run
+    );
+
+    // Both hooks must run when it's not an API error
+    expect(calls).toContain("skip-on-api-error");
+    expect(calls).toContain("always-run");
+  });
+
+  it("P0-6: hasAnySkipOnApiErrorStopHook returns true when at least one Stop hook has skipOnApiError=true", () => {
+    const reg = new HookRegistry();
+
+    expect(reg.hasAnySkipOnApiErrorStopHook()).toBe(false);
+
+    reg.register({
+      event: "Stop",
+      scope: "global",
+      skipOnApiError: true,
+      handler: () => undefined,
+    });
+
+    expect(reg.hasAnySkipOnApiErrorStopHook()).toBe(true);
+  });
+
+  it("P0-6: dispatchStop with all skipOnApiError=true hooks and isApiError=true runs zero handlers", async () => {
+    const reg = new HookRegistry();
+    const calls: string[] = [];
+
+    reg.register({
+      event: "Stop",
+      scope: "global",
+      skipOnApiError: true,
+      handler: () => {
+        calls.push("should-be-skipped");
+      },
+    });
+
+    await reg.dispatchStop(
+      { reason: "error" },
+      { agentId: "a1", envelope: makeEnv() },
+      true,
+    );
+
+    expect(calls).toEqual([]);
+  });
 });

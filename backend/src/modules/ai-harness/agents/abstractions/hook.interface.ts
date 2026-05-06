@@ -53,6 +53,12 @@ export interface IHookBinding<E extends HookEvent = HookEvent> {
   scopeTarget?: string; // agentId / roleId / skillId
   handler: HookCallback<E>;
   priority?: number; // 默认 0，数字大先跑
+  /**
+   * P0-6: 借鉴 Claude Code query.ts:1262-1264。
+   * true = API error 路径不执行此 Stop hook（防止 hook 注入新 token → PTL → retry storm）。
+   * 默认 undefined（视为 false），向后兼容。
+   */
+  skipOnApiError?: boolean;
 }
 
 /** Hook Registry 对外接口 */
@@ -63,4 +69,12 @@ export interface IHookRegistry {
     payload: HookPayloadMap[E],
     context: { agentId: string; envelope: IContextEnvelope },
   ): Promise<IHookResult>;
+  /** P0-6: 带 isApiError 标志的 Stop 派发，跳过 skipOnApiError=true 的 hook */
+  dispatchStop(
+    payload: HookPayloadMap["Stop"],
+    context: { agentId: string; envelope: IContextEnvelope },
+    isApiError: boolean,
+  ): Promise<IHookResult>;
+  /** P0-6: 是否有任何 Stop hook 标记了 skipOnApiError=true */
+  hasAnySkipOnApiErrorStopHook(): boolean;
 }

@@ -81,6 +81,79 @@ export class HookRegistry implements IHookRegistry {
     };
   }
 
+  /**
+   * P0-6: 查询 Stop 事件的某个（或所有）binding 是否标记 skipOnApiError=true。
+   *
+   * 调用方（loop）在 API error catch 路径调用此方法，决定是否跳过对应 stop hook。
+   * 返回 true 表示"至少有一个 Stop binding 要跳过（skipOnApiError=true）"，
+   * loop 在 finally 中应调用 dispatchStopFiltered(isApiError=true) 而不是普通 dispatch。
+   */
+  hasAnySkipOnApiErrorStopHook(): boolean {
+    const list = this.bindings.get("Stop") ?? [];
+    return list.some((s) => s.binding.skipOnApiError === true);
+  }
+
+  /**
+   * P0-6: 带 isApiError 标志的 Stop 派发——跳过 skipOnApiError=true 的 binding。
+   * isApiError=false 时行为与普通 dispatch 完全相同（全量跑，向后兼容）。
+   */
+  async dispatchStop(
+    payload: HookPayloadMap["Stop"],
+    context: { agentId: string; envelope: IContextEnvelope },
+    isApiError: boolean,
+  ): Promise<IHookResult> {
+    const list = this.bindings.get("Stop") ?? [];
+    let currentPayload: unknown = payload;
+
+    for (const { binding } of list) {
+      // P0-6: API error 路径跳过 skipOnApiError=true 的 hook
+      if (isApiError && binding.skipOnApiError === true) {
+        this.logger.debug(
+          `[P0-6] skipping Stop hook (scope=${binding.scope}) on API error path (skipOnApiError=true)`,
+        );
+        continue;
+      }
+
+      if (!this.matchesScope(binding, context)) continue;
+
+      let result: IHookResult | void;
+      try {
+        const r = binding.handler(
+          currentPayload as HookPayloadMap["Stop"],
+          context,
+        );
+        if (r && typeof (r as Promise<unknown>).then === "function") {
+          result = await withTimeout(
+            r as Promise<IHookResult | void>,
+            DEFAULT_HOOK_TIMEOUT_MS,
+            `Stop/${binding.scope}`,
+          );
+        } else {
+          result = r as IHookResult | void;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `hook Stop/${binding.scope} threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        continue;
+      }
+
+      if (!result || typeof result !== "object") continue;
+
+      if ("replacePayload" in result && result.replacePayload !== undefined) {
+        currentPayload = result.replacePayload;
+      }
+      if ("block" in result && result.block) {
+        return result;
+      }
+    }
+
+    if (currentPayload !== payload) {
+      return { replacePayload: currentPayload };
+    }
+    return {};
+  }
+
   async dispatch<E extends HookEvent>(
     event: E,
     payload: HookPayloadMap[E],

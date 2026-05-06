@@ -48,6 +48,10 @@ import { HookRegistry } from "../../agents/core/hook-registry";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 import type { IAgent, ISubagentSpawner } from "../../agents/abstractions";
+import {
+  rawContentHasUnexecutedToolIntent,
+  envelopeHasUnexecutedToolUse,
+} from "./utils/follow-up-detector";
 
 interface ParsedDecision {
   thinking: string;
@@ -218,6 +222,13 @@ export class ReActLoop implements IAgentLoop {
      * 用，让前端 UI 可视化"researcher 正在第 12/15 轮，还在 search"。
      */
     let lastActionKind: string | undefined;
+    /**
+     * ★ Claude Code P0-2 借鉴：记录本轮 reason() 的 rawContent + parseError 状态，
+     * 供终止判定块检查是否是 parseDecision fallback 造成的假 finalize。
+     * 参考 query.ts:553-557："stop_reason === 'tool_use' is unreliable"。
+     */
+    let lastIterRawContent = "";
+    let lastIterHadParseError = false;
 
     // ─── Anthropic P0-3 fix (2026-05-05): SessionStart / UserPromptSubmit fire ───
     //   Hook 类型早就定义但全库 0 dispatch site，导致 SDK 上 hook 注册者收不到事件。
@@ -227,6 +238,8 @@ export class ReActLoop implements IAgentLoop {
     const sessionUserId = currentEnvelope.memory?.userId;
     let stopReason: "completed" | "error" | "budget" | "cancelled" =
       "completed";
+    /** P0-6: true = 因 provider API error 退出（Stop hook 中 skipOnApiError=true 的 binding 会被跳过） */
+    let stopCausedByApiError = false;
     try {
       await this.hookRegistry
         .dispatch(
@@ -508,6 +521,9 @@ export class ReActLoop implements IAgentLoop {
           decision = reasoned.decision;
           usage = reasoned.usage;
           if (usage.modelId) lastModelId = usage.modelId;
+          // ★ Claude Code P0-2: 保存原始 content + parse 状态，供后段终止判定使用
+          lastIterRawContent = reasoned.rawContent;
+          lastIterHadParseError = !!reasoned.parseError;
 
           // ★ 诊断：解析层兜底抛错（正常情况 parseDecision 会 catch JSON.parse /
           // InvalidActionError 自己包装。如果走到这条说明 catch 之外的异常）
@@ -728,6 +744,8 @@ export class ReActLoop implements IAgentLoop {
               : undefined,
           });
           stopReason = "error"; // ternary fallback
+          // P0-6: 标记 API error 路径，让 finally 中 dispatchStop 跳过 skipOnApiError=true 的 hook
+          if (!aborted) stopCausedByApiError = true;
           yield this.makeEvent(agentId, "terminated", {
             reason: aborted ? "cancelled" : "error",
           });
@@ -853,6 +871,58 @@ export class ReActLoop implements IAgentLoop {
           decision,
           actionResult,
         );
+
+        // ★ Claude Code P0-2 借鉴：hasUnexecutedToolUse 检查
+        //
+        // 场景：LLM 本意是 tool_call，但 parseDecision 因 JSON 截断 / 围栏嵌套
+        // 失败，catch 分支把 rawContent 塞进 finalize.output → 假终止。
+        // 同时检查 envelope messages 里是否有原生 tool_use blocks 尚未执行。
+        //
+        // 对应 Claude Code query.ts:553-557:
+        //   "stop_reason === 'tool_use' is unreliable — check content for
+        //    unexecuted tool_use blocks instead."
+        //
+        // 只在 finalize 路径触发（tool_call / parallel_tool_call 已在下方 continue）。
+        if (
+          decision.action.kind === "finalize" &&
+          !criteria.terminateOn?.includes("finalize")
+        ) {
+          // 1) ReAct JSON 协议：parseError + rawContent 含工具调用意图
+          const hasRawToolIntent = rawContentHasUnexecutedToolIntent(
+            lastIterRawContent,
+            lastIterHadParseError,
+          );
+          // 2) 原生 tool_use blocks（function-calling adapter 路径）
+          const hasNativeToolUse = envelopeHasUnexecutedToolUse(
+            currentEnvelope.messages,
+          );
+
+          if (hasRawToolIntent || hasNativeToolUse) {
+            // 假终止 → 注入纠错提示，继续 loop
+            this.logger.warn(
+              `[${agentId}] iter=${iteration} ★ P0-2 hasUnexecutedToolUse detected — ` +
+                `parseError=${lastIterHadParseError} rawToolIntent=${hasRawToolIntent} ` +
+                `nativeToolUse=${hasNativeToolUse}. Injecting retry nudge instead of finalizing.`,
+            );
+            if (currentEnvelope instanceof ContextEnvelope) {
+              currentEnvelope = currentEnvelope.append([
+                {
+                  role: "user",
+                  content:
+                    `[P0-2 TOOL_USE_DETECTED] Your previous response contained a tool call ` +
+                    `that was not executed because the JSON could not be parsed. ` +
+                    `Please re-emit the tool call as valid JSON using the Decision Protocol format: ` +
+                    `{"thinking":"...","action":{"kind":"tool_call","toolId":"...","input":{...}}}`,
+                  timestamp: Date.now(),
+                },
+              ]).envelope;
+            }
+            lastIterRawContent = "";
+            lastIterHadParseError = false;
+            lastActionKind = undefined;
+            continue;
+          }
+        }
 
         // termination
         if (
@@ -1032,11 +1102,13 @@ export class ReActLoop implements IAgentLoop {
       stopReason = "error";
     } finally {
       // P0-3: Stop hook fire — 所有 termination 路径都会 finally
+      // P0-6: API error 路径走 dispatchStop(isApiError=true)，跳过 skipOnApiError=true 的 hook
+      //   防止 hook 注入新 token → PTL → retry storm（借鉴 Claude Code query.ts:1262-1264）
       await this.hookRegistry
-        .dispatch(
-          "Stop",
+        .dispatchStop(
           { reason: stopReason },
           { agentId, envelope: currentEnvelope },
+          stopCausedByApiError,
         )
         .catch(() => undefined);
     }

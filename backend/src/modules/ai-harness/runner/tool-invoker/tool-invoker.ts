@@ -25,6 +25,7 @@ import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import type { ToolContext } from "../../../ai-engine/tools/abstractions/tool.interface";
 import { ToolCircuitBreaker } from "./tool-circuit-breaker";
 import { AgentTracer } from "../../tracing/tracer/otel-tracer";
+import { ToolOutputTruncatorMiddleware } from "../../../ai-engine/tools/middleware/output-truncator.middleware";
 
 /**
  * PR-I 修复 #6：tool result 默认截断阈值（约 4K tokens for cl100k）
@@ -97,6 +98,8 @@ export class ToolInvoker {
     private readonly toolRegistry: ToolRegistry,
     @Optional() private readonly circuitBreaker?: ToolCircuitBreaker,
     @Optional() private readonly tracer?: AgentTracer,
+    @Optional()
+    private readonly outputTruncator?: ToolOutputTruncatorMiddleware,
   ) {}
 
   async invoke(
@@ -257,15 +260,50 @@ export class ToolInvoker {
         };
       }
 
-      // PR-I 修复 #6: result truncation（保护 envelope 不爆）
-      const { output: maybeTruncated, truncated } =
-        maxChars > 0
-          ? truncateResult(result.data, maxChars)
-          : { output: result.data, truncated: false };
-      if (truncated) {
-        this.logger.warn(
-          `Tool ${action.toolId} output truncated to ${maxChars} chars`,
-        );
+      // PR-I 修复 #6 + P0-3: result truncation（保护 envelope 不爆 + 落盘）
+      // 优先用 tool.maxResultSizeChars；缺省回落到调用方 maxResultChars 或 DEFAULT_RESULT_MAX_CHARS
+      const toolSpillThreshold = tool.maxResultSizeChars;
+      const effectiveMaxChars =
+        toolSpillThreshold != null ? toolSpillThreshold : maxChars;
+
+      let maybeTruncated: unknown = result.data;
+      let truncated = false;
+
+      if (effectiveMaxChars > 0) {
+        // 如果 outputTruncator 可用且 data 是字符串，走落盘路径
+        if (
+          this.outputTruncator &&
+          typeof result.data === "string" &&
+          result.data.length > effectiveMaxChars
+        ) {
+          const truncateResult2 = await this.outputTruncator.truncate({
+            toolName: action.toolId,
+            toolUseId: toolContext.executionId,
+            output: result.data,
+            maxResultSizeChars: effectiveMaxChars,
+          });
+          maybeTruncated = truncateResult2.output;
+          truncated = true;
+          if (truncateResult2.spilled) {
+            this.logger.warn(
+              `Tool ${action.toolId} output spilled (${truncateResult2.originalLength} chars) to ${truncateResult2.spillPath ?? "storage"}`,
+            );
+          } else {
+            this.logger.warn(
+              `Tool ${action.toolId} output truncated to ${effectiveMaxChars} chars (originalLength=${truncateResult2.originalLength})`,
+            );
+          }
+        } else {
+          // 非字符串或无 outputTruncator → 沿用原有 truncateResult 函数
+          const legacyResult = truncateResult(result.data, effectiveMaxChars);
+          maybeTruncated = legacyResult.output;
+          truncated = legacyResult.truncated;
+          if (truncated) {
+            this.logger.warn(
+              `Tool ${action.toolId} output truncated to ${effectiveMaxChars} chars`,
+            );
+          }
+        }
       }
 
       // PR-I: 成功重置 breaker

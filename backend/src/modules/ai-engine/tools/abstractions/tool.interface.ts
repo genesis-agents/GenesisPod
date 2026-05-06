@@ -474,6 +474,21 @@ export interface ITool<TInput = unknown, TOutput = unknown> {
   readonly requiredEntitlements?: readonly string[];
 
   /**
+   * ★ 输出超此字符数自动落盘 + 给模型 preview + spillPath（P0-3 借鉴 Anthropic Claude Code）
+   *
+   * - 超阈值时 ToolOutputTruncatorMiddleware 将完整内容上传到 object storage，
+   *   并在返回给模型的 output 中注入 "spillPath: ..." 提示。
+   * - 默认 30_000（参考 Anthropic Claude Code Bash tool 阈值）。
+   * - 设为 Infinity 或不填则跳过落盘检查（只做普通截断保护）。
+   *
+   * 典型配置：
+   *   - bash / shell 类：30_000
+   *   - web fetch / RAG search：100_000
+   *   - read 类（文档全文）：不填（走 tool-invoker DEFAULT_RESULT_MAX_CHARS 保底）
+   */
+  readonly maxResultSizeChars?: number;
+
+  /**
    * 执行工具
    */
   execute(input: TInput, context: ToolContext): Promise<ToolResult<TOutput>>;
