@@ -34,6 +34,7 @@ import { AiChatRetryService } from "./ai-chat-retry.service";
 import { KeyExecutorService } from "@/modules/ai-infra/credentials/executor";
 import { BYOKError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
 import type { ChatCompletionResult } from "./ai-chat.service";
+import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
 
 @Injectable()
 export class AiChatFailoverCallerService {
@@ -103,6 +104,9 @@ export class AiChatFailoverCallerService {
     outputSchema:
       | { type: "json_schema"; schema: Record<string, unknown> }
       | undefined,
+    structuredOutputStrategy?: StructuredOutputStrategy,
+    outputJsonSchema?: Record<string, unknown>,
+    schemaName?: string,
   ): Promise<ChatCompletionResult> {
     if (!this.keyExecutor) {
       throw new Error("KeyExecutor not available — should not reach here");
@@ -153,6 +157,9 @@ export class AiChatFailoverCallerService {
                   outputSchema,
                   useStrictMode,
                   isReasoning,
+                  structuredOutputStrategy,
+                  outputJsonSchema,
+                  schemaName,
                 );
               case "anthropic":
                 return await this.apiCallerService.callAnthropicAPI(
@@ -166,6 +173,9 @@ export class AiChatFailoverCallerService {
                   responseFormat,
                   reasoningDepth,
                   cachePolicy,
+                  structuredOutputStrategy,
+                  outputJsonSchema,
+                  schemaName,
                 );
               case "google":
                 return await this.apiCallerService.callGoogleAPI(
@@ -178,6 +188,9 @@ export class AiChatFailoverCallerService {
                   timeout,
                   responseFormat,
                   reasoningDepth,
+                  structuredOutputStrategy,
+                  outputJsonSchema,
+                  schemaName,
                 );
               case "xai":
                 return await this.apiCallerService.callXAIAPI(
@@ -194,6 +207,9 @@ export class AiChatFailoverCallerService {
                   outputSchema,
                   useStrictMode,
                   isReasoning,
+                  structuredOutputStrategy,
+                  outputJsonSchema,
+                  schemaName,
                 );
               default:
                 return await this.apiCallerService.callOpenAICompatibleAPI(
@@ -210,6 +226,9 @@ export class AiChatFailoverCallerService {
                   outputSchema,
                   useStrictMode,
                   isReasoning,
+                  structuredOutputStrategy,
+                  outputJsonSchema,
+                  schemaName,
                 );
             }
           };

@@ -6,6 +6,16 @@ import {
   reasoningDepthToEffort,
   safeReasoningEffort,
 } from "../types/task-profile.types";
+import {
+  JsonSchemaStrictAdapter,
+  JsonSchemaAdapter,
+  JsonModeAdapter,
+  AnthropicToolUseAdapter,
+  GeminiResponseSchemaAdapter,
+  GbnfGrammarAdapter,
+  PromptOnlyAdapter,
+} from "../structured-output/adapters";
+import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
 
 /**
  * 解析 ChatMessage 的有效内容：优先使用 contentParts（多模态），回退到 content（纯文本）
@@ -171,6 +181,9 @@ export class AiApiCallerService {
     outputSchema?: { type: string; schema: Record<string, unknown> },
     schemaStrict?: boolean,
     isReasoning: boolean = false,
+    structuredOutputStrategy?: StructuredOutputStrategy,
+    outputJsonSchema?: Record<string, unknown>,
+    schemaName?: string,
   ): Promise<ChatCompletionResult> {
     // ★ 关键修复：确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -241,7 +254,35 @@ export class AiApiCallerService {
     // Instead of response_format, inject a JSON constraint into the system prompt
     const isDeepseekReasoner = modelLower.includes("deepseek-reasoner");
 
-    if (!isDeepseekReasoner && outputSchema) {
+    // ★ 2026-05-06 native structured output path: prefer StructuredOutputRouter adapter
+    // over the legacy ad-hoc outputSchema path. When structuredOutputStrategy +
+    // outputJsonSchema are provided, apply the adapter's requestBodyPatch and
+    // any systemPromptAddon — replacing the old manual response_format wiring.
+    if (structuredOutputStrategy && outputJsonSchema && !isDeepseekReasoner) {
+      const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+      const adaptOut = adapter.adapt({
+        jsonSchema: outputJsonSchema,
+        schemaName: schemaName ?? "structured_output",
+        modelId,
+      });
+      Object.assign(requestBody, adaptOut.requestBodyPatch);
+      if (adaptOut.systemPromptAddon) {
+        const msgs = requestBody["messages"] as Array<{
+          role: string;
+          content: unknown;
+        }>;
+        const systemMsg = msgs.find((m) => m.role === "system");
+        if (systemMsg && typeof systemMsg.content === "string") {
+          systemMsg.content += adaptOut.systemPromptAddon;
+        } else {
+          msgs.unshift({
+            role: "system",
+            content: adaptOut.systemPromptAddon.trim(),
+          });
+        }
+      }
+    } else if (!isDeepseekReasoner && outputSchema) {
+      // ★ Legacy ad-hoc path (fallback when new fields not provided)
       requestBody["response_format"] = {
         type: "json_schema",
         json_schema: {
@@ -254,7 +295,7 @@ export class AiApiCallerService {
       requestBody["response_format"] = { type: "json_object" };
     } else if (
       isDeepseekReasoner &&
-      (outputSchema || responseFormat === "json")
+      (outputSchema || responseFormat === "json" || outputJsonSchema)
     ) {
       // ★ deepseek-reasoner: 用 system prompt 替代 response_format 约束 JSON 输出
       // 在第一条 system message 末尾追加 JSON 约束指令
@@ -372,6 +413,9 @@ export class AiApiCallerService {
     responseFormat?: string,
     _reasoningDepth?: string,
     cachePolicy?: string,
+    structuredOutputStrategy?: StructuredOutputStrategy,
+    outputJsonSchema?: Record<string, unknown>,
+    schemaName?: string,
   ): Promise<ChatCompletionResult> {
     if (responseFormat === "json") {
       this.logger.warn(
@@ -417,6 +461,39 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
+    // ★ 2026-05-06 native structured output path for Anthropic (tool_use strategy)
+    // adapter.adapt() sets requestBody.tools + requestBody.tool_choice
+    let anthropicStructuredStrategy: StructuredOutputStrategy | undefined;
+    if (structuredOutputStrategy && outputJsonSchema) {
+      const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+      const adaptOut = adapter.adapt({
+        jsonSchema: outputJsonSchema,
+        schemaName: schemaName ?? "structured_output",
+        modelId,
+      });
+      Object.assign(requestBody, adaptOut.requestBodyPatch);
+      if (adaptOut.systemPromptAddon) {
+        // Append to system if present, or add a new system field
+        if (typeof requestBody.system === "string") {
+          requestBody.system = requestBody.system + adaptOut.systemPromptAddon;
+        } else if (
+          Array.isArray(requestBody.system) &&
+          requestBody.system.length > 0
+        ) {
+          // cache_control format — append to last text block
+          const sys = requestBody.system as Array<{
+            type: string;
+            text: string;
+            cache_control?: unknown;
+          }>;
+          sys[sys.length - 1].text += adaptOut.systemPromptAddon;
+        } else {
+          requestBody.system = adaptOut.systemPromptAddon.trim();
+        }
+      }
+      anthropicStructuredStrategy = structuredOutputStrategy;
+    }
+
     this.logger.debug(
       `[callAnthropicAPI] model=${modelId}, maxTokens=${maxTokens}`,
     );
@@ -434,8 +511,26 @@ export class AiApiCallerService {
 
     const data = response.data;
     const anthropicUsage = data.usage || {};
+
+    // ★ postParse: for tool_use strategy, extract JSON from the tool_use content block
+    let textContent = data.content?.[0]?.text || "";
+    if (anthropicStructuredStrategy === "tool_use") {
+      const toolUseBlock = data.content?.find(
+        (b: { type: string }) => b.type === "tool_use",
+      ) as { type: string; name?: string; input?: unknown } | undefined;
+      if (toolUseBlock?.input != null) {
+        textContent = JSON.stringify(toolUseBlock.input);
+      } else if (!textContent) {
+        // fallback: check if any text block present
+        textContent =
+          data.content?.find(
+            (b: { type: string; text?: string }) => b.type === "text",
+          )?.text || "";
+      }
+    }
+
     return {
-      content: data.content?.[0]?.text || "",
+      content: textContent,
       model: modelId,
       tokensUsed:
         (anthropicUsage.input_tokens || 0) +
@@ -464,6 +559,9 @@ export class AiApiCallerService {
     timeout: number = 120000,
     responseFormat?: string,
     _reasoningDepth?: string,
+    structuredOutputStrategy?: StructuredOutputStrategy,
+    outputJsonSchema?: Record<string, unknown>,
+    schemaName?: string,
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -515,7 +613,24 @@ export class AiApiCallerService {
       generationConfig.temperature = temperature;
     }
 
-    if (responseFormat === "json") {
+    // ★ 2026-05-06 native structured output path for Gemini (gemini_response_schema)
+    // adapter merges responseMimeType + responseSchema into generationConfig
+    if (structuredOutputStrategy && outputJsonSchema) {
+      const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+      const adaptOut = adapter.adapt({
+        jsonSchema: outputJsonSchema,
+        schemaName: schemaName ?? "structured_output",
+        modelId,
+      });
+      // The Gemini adapter patches { generationConfig: { responseMimeType, responseSchema } }
+      const gcPatch = adaptOut.requestBodyPatch.generationConfig as
+        | Record<string, unknown>
+        | undefined;
+      if (gcPatch) {
+        Object.assign(generationConfig, gcPatch);
+      }
+      // Other patches (e.g. non-generationConfig fields) applied to requestBody later
+    } else if (responseFormat === "json") {
       generationConfig["responseMimeType"] = "application/json";
     }
 
@@ -581,6 +696,9 @@ export class AiApiCallerService {
     outputSchema?: { type: string; schema: Record<string, unknown> },
     schemaStrict?: boolean,
     isReasoning: boolean = false,
+    structuredOutputStrategy?: StructuredOutputStrategy,
+    outputJsonSchema?: Record<string, unknown>,
+    schemaName?: string,
   ): Promise<ChatCompletionResult> {
     // ★ 确保 apiEndpoint 有效
     const effectiveEndpoint =
@@ -634,9 +752,34 @@ export class AiApiCallerService {
       requestBody.temperature = temperature;
     }
 
-    // ★ xAI reasoning models DO support response_format (unlike temperature)
-    // Without it, reasoning models produce interleaved/malformed JSON output
-    if (outputSchema) {
+    // ★ 2026-05-06 native structured output path for xAI (same OpenAI compat)
+    if (structuredOutputStrategy && outputJsonSchema) {
+      const adapter = this.getStructuredOutputAdapter(structuredOutputStrategy);
+      const adaptOut = adapter.adapt({
+        jsonSchema: outputJsonSchema,
+        schemaName: schemaName ?? "structured_output",
+        modelId,
+      });
+      Object.assign(requestBody, adaptOut.requestBodyPatch);
+      if (adaptOut.systemPromptAddon) {
+        const msgs = requestBody["messages"] as Array<{
+          role: string;
+          content: unknown;
+        }>;
+        const systemMsg = msgs.find((m) => m.role === "system");
+        if (systemMsg && typeof systemMsg.content === "string") {
+          systemMsg.content += adaptOut.systemPromptAddon;
+        } else {
+          msgs.unshift({
+            role: "system",
+            content: adaptOut.systemPromptAddon.trim(),
+          });
+        }
+      }
+    } else if (outputSchema) {
+      // ★ Legacy ad-hoc path
+      // xAI reasoning models DO support response_format (unlike temperature)
+      // Without it, reasoning models produce interleaved/malformed JSON output
       requestBody["response_format"] = {
         type: "json_schema",
         json_schema: {
@@ -674,6 +817,47 @@ export class AiApiCallerService {
       inputTokens: data.usage?.prompt_tokens || 0,
       outputTokens: data.usage?.completion_tokens || 0,
     };
+  }
+
+  // ==================== Structured Output Adapter Helper ====================
+
+  /**
+   * Returns the IStructuredOutputAdapter instance for the given strategy.
+   * Uses simple lazy-init singleton map — no DI needed (adapters are stateless).
+   */
+  private readonly _soAdapters = new Map<
+    StructuredOutputStrategy,
+    {
+      adapt: (input: {
+        jsonSchema: Record<string, unknown>;
+        schemaName: string;
+        modelId: string;
+      }) => {
+        requestBodyPatch: Record<string, unknown>;
+        systemPromptAddon?: string;
+      };
+    }
+  >([
+    ["json_schema_strict", new JsonSchemaStrictAdapter()],
+    ["json_schema", new JsonSchemaAdapter()],
+    ["json_mode", new JsonModeAdapter()],
+    ["tool_use", new AnthropicToolUseAdapter()],
+    ["gemini_response_schema", new GeminiResponseSchemaAdapter()],
+    ["gbnf_grammar", new GbnfGrammarAdapter()],
+    ["prompt", new PromptOnlyAdapter()],
+  ]);
+
+  private getStructuredOutputAdapter(strategy: StructuredOutputStrategy): {
+    adapt: (input: {
+      jsonSchema: Record<string, unknown>;
+      schemaName: string;
+      modelId: string;
+    }) => {
+      requestBodyPatch: Record<string, unknown>;
+      systemPromptAddon?: string;
+    };
+  } {
+    return this._soAdapters.get(strategy) ?? new PromptOnlyAdapter();
   }
 
   // ==================== Embedding API Methods ====================

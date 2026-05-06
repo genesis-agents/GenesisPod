@@ -218,6 +218,232 @@ describe("NoneAdapter (无 structured output)", () => {
   });
 });
 
+// ============================================================
+// AiApiCallerService integration: verify requestBody per provider
+// ============================================================
+
+import { HttpService } from "@nestjs/axios";
+import { of } from "rxjs";
+import { AiApiCallerService } from "../../services/ai-api-caller.service";
+
+function makeHttpService(mockFn: jest.Mock): HttpService {
+  return { post: mockFn } as unknown as HttpService;
+}
+
+const BASE_MESSAGES = [
+  { role: "system" as const, content: "You are helpful." },
+  { role: "user" as const, content: "Hello" },
+];
+
+describe("AiApiCallerService — OpenAI json_schema_strict via router", () => {
+  it("callOpenAICompatibleAPI sends response_format.type=json_schema strict=true", async () => {
+    const mockPost = jest.fn().mockReturnValue(
+      of({
+        data: {
+          choices: [
+            {
+              message: { content: '{"title":"hi","score":1}' },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { total_tokens: 10, prompt_tokens: 5, completion_tokens: 5 },
+        },
+      }),
+    );
+    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    await caller.callOpenAICompatibleAPI(
+      "https://api.openai.com/v1/chat/completions",
+      "sk-test",
+      "gpt-4o",
+      BASE_MESSAGES,
+      1000,
+      0.0,
+      30000,
+      "max_tokens",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      "json_schema_strict",
+      SAMPLE_SCHEMA,
+      "result",
+    );
+    const body = mockPost.mock.calls[0][1] as Record<string, unknown>;
+    const rf = body.response_format as Record<string, unknown>;
+    expect(rf.type).toBe("json_schema");
+    const js = rf.json_schema as Record<string, unknown>;
+    expect(js.strict).toBe(true);
+    expect(js.name).toBe("result");
+  });
+});
+
+describe("AiApiCallerService — Anthropic tool_use via router", () => {
+  it("callAnthropicAPI sends tools + tool_choice for tool_use strategy", async () => {
+    const mockPost = jest.fn().mockReturnValue(
+      of({
+        data: {
+          content: [
+            {
+              type: "tool_use",
+              name: "extract_result",
+              input: { title: "hi", score: 1 },
+            },
+          ],
+          usage: { input_tokens: 5, output_tokens: 5 },
+          stop_reason: "tool_use",
+        },
+      }),
+    );
+    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    const result = await caller.callAnthropicAPI(
+      "https://api.anthropic.com/v1/messages",
+      "sk-ant-test",
+      "claude-3-5-sonnet",
+      BASE_MESSAGES,
+      1000,
+      0.0,
+      30000,
+      undefined,
+      undefined,
+      undefined,
+      "tool_use",
+      SAMPLE_SCHEMA,
+      "extract_result",
+    );
+    const body = mockPost.mock.calls[0][1] as Record<string, unknown>;
+    expect(Array.isArray(body.tools)).toBe(true);
+    expect(body.tool_choice).toMatchObject({
+      type: "tool",
+      name: "extract_result",
+    });
+    // postParse: content should be the tool_use input serialised as JSON
+    expect(JSON.parse(result.content)).toEqual({ title: "hi", score: 1 });
+  });
+});
+
+describe("AiApiCallerService — Gemini responseSchema via router", () => {
+  it("callGoogleAPI merges responseMimeType + responseSchema into generationConfig", async () => {
+    const mockPost = jest.fn().mockReturnValue(
+      of({
+        data: {
+          candidates: [
+            {
+              content: { parts: [{ text: '{"title":"hi","score":1}' }] },
+              finishReason: "STOP",
+            },
+          ],
+          usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 },
+        },
+      }),
+    );
+    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    await caller.callGoogleAPI(
+      "https://generativelanguage.googleapis.com/v1beta",
+      "goog-test",
+      "gemini-2.0-flash",
+      BASE_MESSAGES,
+      1000,
+      0.0,
+      30000,
+      undefined,
+      undefined,
+      "gemini_response_schema",
+      SAMPLE_SCHEMA,
+      "result",
+    );
+    const body = mockPost.mock.calls[0][1] as Record<string, unknown>;
+    const gc = body.generationConfig as Record<string, unknown>;
+    expect(gc.responseMimeType).toBe("application/json");
+    expect(gc.responseSchema).toBeDefined();
+    expect((gc.responseSchema as Record<string, unknown>).type).toBe("object");
+  });
+});
+
+describe("AiApiCallerService — xAI json_schema_strict via router", () => {
+  it("callXAIAPI sends response_format.type=json_schema strict=true", async () => {
+    const mockPost = jest.fn().mockReturnValue(
+      of({
+        data: {
+          choices: [
+            {
+              message: { content: '{"title":"hi","score":1}' },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { total_tokens: 10, prompt_tokens: 5, completion_tokens: 5 },
+        },
+      }),
+    );
+    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    await caller.callXAIAPI(
+      "https://api.x.ai/v1/chat/completions",
+      "xai-test",
+      "grok-3",
+      BASE_MESSAGES,
+      1000,
+      0.0,
+      30000,
+      "max_tokens",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      "json_schema_strict",
+      SAMPLE_SCHEMA,
+      "result",
+    );
+    const body = mockPost.mock.calls[0][1] as Record<string, unknown>;
+    const rf = body.response_format as Record<string, unknown>;
+    expect(rf.type).toBe("json_schema");
+    const js = rf.json_schema as Record<string, unknown>;
+    expect(js.strict).toBe(true);
+  });
+});
+
+describe("AiApiCallerService — prompt-only strategy injects system addon", () => {
+  it("callOpenAICompatibleAPI prepends systemPromptAddon for prompt strategy", async () => {
+    const mockPost = jest.fn().mockReturnValue(
+      of({
+        data: {
+          choices: [
+            {
+              message: { content: '{"title":"hi","score":1}' },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { total_tokens: 10, prompt_tokens: 5, completion_tokens: 5 },
+        },
+      }),
+    );
+    const caller = new AiApiCallerService(makeHttpService(mockPost));
+    await caller.callOpenAICompatibleAPI(
+      "https://api.openai.com/v1/chat/completions",
+      "sk-test",
+      "gpt-4o",
+      BASE_MESSAGES,
+      1000,
+      undefined,
+      30000,
+      "max_tokens",
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      "prompt",
+      SAMPLE_SCHEMA,
+      "result",
+    );
+    const body = mockPost.mock.calls[0][1] as Record<string, unknown>;
+    const msgs = body.messages as Array<{ role: string; content: string }>;
+    const sysMsg = msgs.find((m) => m.role === "system");
+    expect(sysMsg?.content).toContain("CRITICAL OUTPUT FORMAT");
+    expect(sysMsg?.content).toContain("score");
+  });
+});
+
 describe("Cross-adapter: 多种 LLM 异常输出兜底", () => {
   const adapter = new JsonSchemaStrictAdapter();
 

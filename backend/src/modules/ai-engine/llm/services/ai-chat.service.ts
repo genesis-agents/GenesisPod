@@ -74,6 +74,11 @@ export interface ChatCompletionOptions {
   cachePolicy?: "auto";
   /** Native structured output schema */
   outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
+  /** 2026-05-06 router: 让 AiApiCallerService 按 strategy 走 native API 路径
+   * （response_format / tools / generationConfig）而非仅 system-prompt hint */
+  structuredOutputStrategy?: import("../structured-output/structured-output-strategy.types").StructuredOutputStrategy;
+  outputJsonSchema?: Record<string, unknown>;
+  schemaName?: string;
   /**
    * LLM Function Calling: tool schemas to expose to the model.
    * Passed through transparently; actual provider support depends on the
@@ -163,6 +168,10 @@ export interface ChatOptions {
   cachePolicy?: "auto";
   /** Native structured output schema */
   outputSchema?: { type: "json_schema"; schema: Record<string, unknown> };
+  /** 2026-05-06 router native API path 透传（见 ChatCompletionOptions 注释）*/
+  structuredOutputStrategy?: import("../structured-output/structured-output-strategy.types").StructuredOutputStrategy;
+  outputJsonSchema?: Record<string, unknown>;
+  schemaName?: string;
   /** Shared cache prefix from PromptCacheCoordinatorService — uses frozen system prompt + tools */
   sharedCachePrefix?: {
     systemPromptText: string;
@@ -696,6 +705,9 @@ export class AiChatService {
       reasoningDepth,
       cachePolicy,
       outputSchema,
+      structuredOutputStrategy,
+      outputJsonSchema,
+      schemaName,
     } = options;
 
     this.logger.debug(`Generating chat completion with model: ${model}`);
@@ -723,6 +735,9 @@ export class AiChatService {
         reasoningDepth,
         cachePolicy,
         outputSchema,
+        structuredOutputStrategy,
+        outputJsonSchema,
+        schemaName,
       );
     }
 
@@ -780,6 +795,9 @@ export class AiChatService {
     reasoningDepth?: import("../types").ReasoningDepth,
     cachePolicy?: "auto",
     outputSchema?: { type: "json_schema"; schema: Record<string, unknown> },
+    structuredOutputStrategy?: import("../structured-output/structured-output-strategy.types").StructuredOutputStrategy,
+    outputJsonSchema?: Record<string, unknown>,
+    schemaName?: string,
   ): Promise<ChatCompletionResult> {
     const { modelId, apiEndpoint, provider } = config;
 
@@ -796,6 +814,9 @@ export class AiChatService {
         reasoningDepth,
         cachePolicy,
         outputSchema,
+        structuredOutputStrategy,
+        outputJsonSchema,
+        schemaName,
       );
     }
 
@@ -873,6 +894,9 @@ export class AiChatService {
               outputSchema,
               useStrictMode,
               isReasoning,
+              structuredOutputStrategy,
+              outputJsonSchema,
+              schemaName,
             );
 
           case "anthropic":
@@ -887,6 +911,9 @@ export class AiChatService {
               responseFormat,
               reasoningDepth,
               cachePolicy,
+              structuredOutputStrategy,
+              outputJsonSchema,
+              schemaName,
             );
 
           case "google":
@@ -900,6 +927,9 @@ export class AiChatService {
               timeout,
               responseFormat,
               reasoningDepth,
+              structuredOutputStrategy,
+              outputJsonSchema,
+              schemaName,
             );
 
           case "xai":
@@ -917,6 +947,9 @@ export class AiChatService {
               outputSchema,
               useStrictMode,
               isReasoning,
+              structuredOutputStrategy,
+              outputJsonSchema,
+              schemaName,
             );
 
           default:
@@ -934,6 +967,9 @@ export class AiChatService {
               outputSchema,
               useStrictMode,
               isReasoning,
+              structuredOutputStrategy,
+              outputJsonSchema,
+              schemaName,
             );
         }
       };
@@ -1360,6 +1396,9 @@ export class AiChatService {
       skipGuardrails,
       cachePolicy,
       outputSchema,
+      structuredOutputStrategy,
+      outputJsonSchema,
+      schemaName,
       sharedCachePrefix,
       tools,
     } = options;
@@ -1765,6 +1804,9 @@ export class AiChatService {
         reasoningDepth: effectiveReasoningDepth,
         cachePolicy: effectiveCachePolicy,
         outputSchema,
+        structuredOutputStrategy,
+        outputJsonSchema,
+        schemaName,
         tools,
       });
       const duration = Date.now() - startTime;

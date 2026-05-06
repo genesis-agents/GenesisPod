@@ -118,6 +118,106 @@ export function isStubModeEnabled(): boolean {
   return process.env.AI_ENGINE_AGENT_STUB === "1";
 }
 
+// ============ 工具：Zod → JSON Schema 转换（最小实现，不依赖 zod-to-json-schema） ============
+
+/**
+ * 把常用 Zod schema 转成 JSON Schema 对象（供 native structured output API 使用）。
+ * 覆盖：ZodObject / ZodArray / ZodString / ZodNumber / ZodBoolean / ZodEnum /
+ *       ZodOptional / ZodNullable / ZodDefault / ZodUnion / ZodLiteral / ZodAny.
+ * 复杂 schema（ZodDiscriminatedUnion / ZodIntersection 等）退化为 { type: "object" }。
+ */
+export function zodToJsonSchema(
+  schema: import("zod").ZodTypeAny,
+  depth = 0,
+): Record<string, unknown> {
+  if (depth > 8) return {};
+  const def = schema._def as { typeName?: string };
+  const typeName = def.typeName;
+
+  // Strip wrappers
+  if (typeName === "ZodOptional") {
+    return zodToJsonSchema(
+      (schema as import("zod").ZodOptional<import("zod").ZodTypeAny>).unwrap(),
+      depth,
+    );
+  }
+  if (typeName === "ZodNullable") {
+    const inner = zodToJsonSchema(
+      (schema as import("zod").ZodNullable<import("zod").ZodTypeAny>).unwrap(),
+      depth,
+    );
+    const t = inner.type;
+    return { ...inner, type: t ? [t, "null"] : ["null"] };
+  }
+  if (typeName === "ZodDefault") {
+    return zodToJsonSchema(
+      (
+        schema as import("zod").ZodDefault<import("zod").ZodTypeAny>
+      ).removeDefault(),
+      depth,
+    );
+  }
+
+  if (typeName === "ZodString") return { type: "string" };
+  if (typeName === "ZodNumber") return { type: "number" };
+  if (typeName === "ZodBoolean") return { type: "boolean" };
+  if (typeName === "ZodNull") return { type: "null" };
+  if (typeName === "ZodAny" || typeName === "ZodUnknown") return {};
+  if (typeName === "ZodLiteral") {
+    const v = (schema as import("zod").ZodLiteral<unknown>)._def.value;
+    return { const: v };
+  }
+  if (typeName === "ZodEnum") {
+    const values = (schema as import("zod").ZodEnum<[string, ...string[]]>)
+      .options;
+    return { type: "string", enum: values };
+  }
+  if (typeName === "ZodUnion") {
+    const opts = (
+      schema as import("zod").ZodUnion<
+        [import("zod").ZodTypeAny, ...import("zod").ZodTypeAny[]]
+      >
+    ).options;
+    return {
+      anyOf: opts.map((o: import("zod").ZodTypeAny) =>
+        zodToJsonSchema(o, depth + 1),
+      ),
+    };
+  }
+  if (typeName === "ZodArray") {
+    const el = (schema as import("zod").ZodArray<import("zod").ZodTypeAny>)
+      .element;
+    return { type: "array", items: zodToJsonSchema(el, depth + 1) };
+  }
+  if (typeName === "ZodObject") {
+    const shape = (schema as import("zod").ZodObject<import("zod").ZodRawShape>)
+      .shape;
+    const properties: Record<string, unknown> = {};
+    const required: string[] = [];
+    for (const [key, child] of Object.entries(shape)) {
+      const childDef = child._def as {
+        typeName?: string;
+      };
+      properties[key] = zodToJsonSchema(child, depth + 1);
+      if (
+        childDef.typeName !== "ZodOptional" &&
+        childDef.typeName !== "ZodDefault"
+      ) {
+        required.push(key);
+      }
+    }
+    const result: Record<string, unknown> = { type: "object", properties };
+    if (required.length > 0) result.required = required;
+    result.additionalProperties = false;
+    return result;
+  }
+  if (typeName === "ZodRecord") {
+    return { type: "object", additionalProperties: true };
+  }
+  // Fallback for unsupported types
+  return {};
+}
+
 // ============ 工具：JSON 提取 ============
 
 /**
@@ -301,6 +401,10 @@ export class LlmExecutor {
     //   chain；每次 retry 切下一个 strategy，注入对应 system-prompt hint。
     const strategyChain = await this.resolveOutputStrategyChain(input.model);
 
+    // ★ 2026-05-06 native structured output: convert Zod schema → JSON Schema once
+    const outputJsonSchema: Record<string, unknown> | undefined =
+      input.outputSchema ? zodToJsonSchema(input.outputSchema) : undefined;
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (input.signal?.aborted) {
         throw new DOMException(
@@ -344,6 +448,14 @@ export class LlmExecutor {
           processId,
           operationName: input.operationName ?? input.agentId,
           signal: input.signal,
+          // ★ 2026-05-06 native structured output fields
+          // Pass strategy + JSON Schema so AiApiCallerService uses native API path.
+          // strategyAddon covers prompt-only strategies; native strategies use requestBodyPatch.
+          structuredOutputStrategy: outputJsonSchema
+            ? currentStrategy
+            : undefined,
+          outputJsonSchema,
+          schemaName: input.agentId,
         });
       } catch (err) {
         this.logger.warn(

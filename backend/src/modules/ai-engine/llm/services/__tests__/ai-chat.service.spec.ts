@@ -586,6 +586,9 @@ describe("AiChatService", () => {
         undefined, // outputSchema
         false, // useStrictMode
         expect.any(Boolean), // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
       );
     });
 
@@ -617,6 +620,9 @@ describe("AiChatService", () => {
         undefined, // outputSchema
         false, // useStrictMode
         expect.any(Boolean), // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
       );
     });
 
@@ -644,6 +650,9 @@ describe("AiChatService", () => {
         undefined, // outputSchema
         false, // useStrictMode
         expect.any(Boolean), // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
       );
     });
 
@@ -1672,6 +1681,9 @@ describe("AiChatService", () => {
         undefined, // outputSchema
         false, // useStrictMode
         expect.any(Boolean), // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
       );
     });
 
@@ -1702,6 +1714,9 @@ describe("AiChatService", () => {
         undefined, // outputSchema
         false, // useStrictMode
         expect.any(Boolean), // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
       );
     });
 
@@ -1757,6 +1772,9 @@ describe("AiChatService", () => {
         undefined, // outputSchema
         false, // useStrictMode
         expect.any(Boolean), // isReasoning
+        undefined, // structuredOutputStrategy
+        undefined, // outputJsonSchema
+        undefined, // schemaName
       );
     });
   });
@@ -2162,7 +2180,10 @@ describe("AiChatService", () => {
       {
         name: "web-search",
         description: "Search the web",
-        parameters: { type: "object" as const, properties: { query: { type: "string" } } },
+        parameters: {
+          type: "object" as const,
+          properties: { query: { type: "string" } },
+        },
       },
     ];
 
@@ -2210,5 +2231,3 @@ describe("AiChatService", () => {
     });
   });
 });
-
-
