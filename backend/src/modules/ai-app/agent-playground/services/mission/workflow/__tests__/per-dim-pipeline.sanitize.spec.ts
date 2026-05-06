@@ -145,7 +145,10 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
   return {
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
-    invoker: { invoke: jest.fn(), tickCost: jest.fn().mockResolvedValue(undefined) },
+    invoker: {
+      invoke: jest.fn(),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    },
     writer,
     reviewer,
     ...overrides,
@@ -177,47 +180,54 @@ describe("G 三道清理管线 — chapter body sanitize", () => {
     );
 
     const invoker = {
-      invoke: jest.fn().mockImplementation((AgentClass: { new (): unknown }) => {
-        if (AgentClass === ChapterWriterAgent) {
+      invoke: jest
+        .fn()
+        .mockImplementation((AgentClass: { new (): unknown }) => {
+          if (AgentClass === ChapterWriterAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: { body: chartBody, wordCount: 800, citationsUsed: [] },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }
+          if (AgentClass === ChapterReviewerAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: {
+                decision: "pass",
+                score: 85,
+                summary: "OK",
+                issues: [],
+              },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 50,
+            });
+          }
+          if (AgentClass === DimensionIntegratorAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: {
+                abstract: "Abstract",
+                keyFindings: ["Finding"],
+                fullMarkdown: "# Dim\n\nContent",
+                totalWordCount: 800,
+              },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 200,
+            });
+          }
           return Promise.resolve({
-            state: "completed",
-            output: { body: chartBody, wordCount: 800, citationsUsed: [] },
+            state: "failed",
+            output: undefined,
             events: [],
             iterations: 1,
             wallTimeMs: 100,
           });
-        }
-        if (AgentClass === ChapterReviewerAgent) {
-          return Promise.resolve({
-            state: "completed",
-            output: { decision: "pass", score: 85, summary: "OK", issues: [] },
-            events: [],
-            iterations: 1,
-            wallTimeMs: 50,
-          });
-        }
-        if (AgentClass === DimensionIntegratorAgent) {
-          return Promise.resolve({
-            state: "completed",
-            output: {
-              abstract: "Abstract",
-              keyFindings: ["Finding"],
-              fullMarkdown: "# Dim\n\nContent",
-              totalWordCount: 800,
-            },
-            events: [],
-            iterations: 1,
-            wallTimeMs: 200,
-          });
-        }
-        return Promise.resolve({
-          state: "failed",
-          output: undefined,
-          events: [],
-          iterations: 1,
-          wallTimeMs: 100,
-        });
-      }),
+        }),
       tickCost: jest.fn().mockResolvedValue(undefined),
     };
     const deps = makeDeps({ invoker: invoker as never });
@@ -250,47 +260,54 @@ describe("G 三道清理管线 — chapter body sanitize", () => {
     );
 
     const invoker = {
-      invoke: jest.fn().mockImplementation((AgentClass: { new (): unknown }) => {
-        if (AgentClass === ChapterWriterAgent) {
+      invoke: jest
+        .fn()
+        .mockImplementation((AgentClass: { new (): unknown }) => {
+          if (AgentClass === ChapterWriterAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: { body: chartBody, wordCount: 600, citationsUsed: [] },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          }
+          if (AgentClass === ChapterReviewerAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: {
+                decision: "pass",
+                score: 90,
+                summary: "OK",
+                issues: [],
+              },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 50,
+            });
+          }
+          if (AgentClass === DimensionIntegratorAgent) {
+            return Promise.resolve({
+              state: "completed",
+              output: {
+                abstract: "Abstract",
+                keyFindings: [],
+                fullMarkdown: "# Dim\n\nClean",
+                totalWordCount: 600,
+              },
+              events: [],
+              iterations: 1,
+              wallTimeMs: 200,
+            });
+          }
           return Promise.resolve({
-            state: "completed",
-            output: { body: chartBody, wordCount: 600, citationsUsed: [] },
+            state: "failed",
+            output: undefined,
             events: [],
             iterations: 1,
             wallTimeMs: 100,
           });
-        }
-        if (AgentClass === ChapterReviewerAgent) {
-          return Promise.resolve({
-            state: "completed",
-            output: { decision: "pass", score: 90, summary: "OK", issues: [] },
-            events: [],
-            iterations: 1,
-            wallTimeMs: 50,
-          });
-        }
-        if (AgentClass === DimensionIntegratorAgent) {
-          return Promise.resolve({
-            state: "completed",
-            output: {
-              abstract: "Abstract",
-              keyFindings: [],
-              fullMarkdown: "# Dim\n\nClean",
-              totalWordCount: 600,
-            },
-            events: [],
-            iterations: 1,
-            wallTimeMs: 200,
-          });
-        }
-        return Promise.resolve({
-          state: "failed",
-          output: undefined,
-          events: [],
-          iterations: 1,
-          wallTimeMs: 100,
-        });
-      }),
+        }),
       tickCost: jest.fn().mockResolvedValue(undefined),
     };
     const deps = makeDeps({ invoker: invoker as never });
