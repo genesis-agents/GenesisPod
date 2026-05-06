@@ -1,6 +1,7 @@
 import { Logger } from "@nestjs/common";
 import {
   DomainEventBus,
+  MissionAbortRegistry,
   MissionBudgetPool,
   type DomainEvent,
   type IAgentEvent,
@@ -13,8 +14,21 @@ function estimateUsdFromTokens(tokens: number): number {
 
 export class AgentPlaygroundEventRelay {
   private readonly log = new Logger(AgentPlaygroundEventRelay.name);
+  /**
+   * ★ 业务链修2 (2026-05-06): 之前 tickCost 内 recordSpend 后不检查 isExhausted，
+   * S5+ chapter writing budget 耗尽要 wall-time 4h 才被发现。tickCost 后立即
+   * 检查 + emit budget:exhausted + abort 让所有 in-flight LLM 调用立即停。
+   * 通过可选 setter 注入 abortRegistry（不破坏现有 constructor 签名）。
+   */
+  private abortRegistry?: MissionAbortRegistry;
+  /** 防重复发：单 mission 仅 emit budget:exhausted + abort 一次 */
+  private readonly exhaustedMissions = new Set<string>();
 
   constructor(private readonly eventBus: DomainEventBus) {}
+
+  setAbortRegistry(registry: MissionAbortRegistry): void {
+    this.abortRegistry = registry;
+  }
 
   async emitEvent(args: {
     type: string;
@@ -84,6 +98,21 @@ export class AgentPlaygroundEventRelay {
         costUsd: snap.poolCostUsd,
       },
     });
+    // ★ 业务链修2: budget exhausted 立即 emit + abort（覆盖所有 stage / chapter writer
+    //   tickCost 路径）。之前只在 S3 末尾检查一次，S5+ 阶段 budget 用尽要 wall-time
+    //   4h 才被发现。recordSpend 后立即检查，单 mission 只触发一次 abort 防重复。
+    if (pool.isExhausted() && !this.exhaustedMissions.has(missionId)) {
+      this.exhaustedMissions.add(missionId);
+      await this.emitEvent({
+        type: "agent-playground.budget:exhausted",
+        missionId,
+        userId,
+        payload: snap,
+      });
+      if (this.abortRegistry) {
+        this.abortRegistry.abort(missionId, "budget_exhausted");
+      }
+    }
   }
 
   async relayAgentEvents(

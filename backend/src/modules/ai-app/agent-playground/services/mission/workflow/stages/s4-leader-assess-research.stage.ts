@@ -540,6 +540,23 @@ async function dispatchAssessActions(args: {
         }
       }
     }
+    // ★ 业务链修3 (2026-05-06): S4 retry 后 researcherResults 已被覆盖（line 282 abort
+    //   / 465/492/498 retry / 614 extend），但首轮 saveResearchResult 不会再跑。
+    //   在 retry 阶段尾部把所有 researcherResults 重新 saveResearchResult 一遍（upsert
+    //   按 missionId+dim+retryLabel(null) 唯一，覆盖原 findings）。下次 rerun cache hit
+    //   能拿到 retry 优化后的产物，与 trajectory 持久化一致。
+    for (const r of researcherResults) {
+      await deps.store
+        ?.saveResearchResult?.({
+          missionId,
+          dimension: r.dimension,
+          findings: r.findings,
+          summary: r.summary,
+          state: r.findings.length === 0 ? "failed" : "completed",
+        })
+        .catch(() => undefined);
+    }
+
     // ★ retry 阶段后做一次 mission-level 显式 emit, 让前端 / Leader signoff 看到
     if (skipped > 0) {
       await deps

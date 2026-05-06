@@ -118,6 +118,10 @@ export class MissionRuntimeShellService {
           auditLayers: input.auditLayers,
           concurrency: input.concurrency,
           viewMode: input.viewMode,
+          // ★ 业务链修1 (2026-05-06): 用户侧定义的预算必须持久化，否则 rerun 时
+          //   cloneInputFromMission 读不到 → fallback 1000 硬编码（违反 P0-K 用户侧定义）
+          maxCredits: input.maxCredits,
+          budgetMultiplierOverride: input.budgetMultiplierOverride,
         } as Record<string, unknown>,
       });
 

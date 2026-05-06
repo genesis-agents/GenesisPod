@@ -50,6 +50,9 @@ export class AgentInvoker {
   ) {
     this.execution = new AgentExecutionSupport(runner, abortRegistry);
     this.relay = new AgentPlaygroundEventRelay(eventBus);
+    // ★ 业务链修2 (2026-05-06): 把 abortRegistry 注入 relay，让 tickCost 在 budget
+    //   exhausted 时立即触发 abort（不再要等到 S3 末尾才检查一次）
+    this.relay.setAbortRegistry(abortRegistry);
     this.policy = new AgentInvocationPolicy(failureLearner);
   }
 

@@ -712,6 +712,50 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         if (out && stepId) {
           const artifacts = deriveStageArtifacts(stepId, out);
           if (artifacts.length > 0) todo.artifacts.push(...artifacts);
+          // ★ 业务链修4-2 (2026-05-06): 单轨化删 stage:metrics handler 时把"创建
+          //   dim:xxx leader-plan todos"逻辑也一起删了，导致 rerun cache hit 时
+          //   用户看不到"7 个研究维度任务"拆解。补回：S2 完成时按 dimensions[]
+          //   创建 dim leader-plan todos，挂在 s3-researchers 占位卡之下。
+          if (stepId === 's2-leader-plan') {
+            const dims =
+              (out.dimensions as
+                | { id: string; name: string; rationale?: string }[]
+                | undefined) ?? [];
+            const themeSummary = (out.themeSummary as string | undefined) ?? '';
+            // 把 themeSummary 同步到 mission state 显示在头部 banner（如果消费方需要）
+            void themeSummary;
+            dims.forEach((d, i) => {
+              const id = `dim:${d.id}`;
+              upsert(id, () => ({
+                id,
+                parentId: 'system:s3-researchers',
+                origin: 'leader-plan',
+                createdBy: 'leader',
+                createdAt: ev.timestamp,
+                reasonText: d.rationale ?? '',
+                scope: 'dimension',
+                title: d.name,
+                assignee: {
+                  role: 'researcher',
+                  agentId: `researcher#${i}`,
+                  dimensionName: d.name,
+                },
+                status: 'pending',
+                artifacts: [],
+                narrativeLog: [
+                  {
+                    ts: ev.timestamp,
+                    text: d.rationale
+                      ? `Leader 派下来：${d.rationale.slice(0, 120)}${d.rationale.length > 120 ? '…' : ''}`
+                      : `Leader 派下来：${d.name}`,
+                    tone: 'info',
+                  },
+                ],
+                dimensionRef: d.name,
+                agentRefId: `researcher#${i}`,
+              }));
+            });
+          }
         }
       } else if (status === 'failed') {
         if (todo.status !== 'cancelled') {
@@ -843,6 +887,56 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           dimensionRef: d.name,
         }));
       });
+    } else if (t === 'agent-playground.leader:goals-set') {
+      // ★ 业务链修4 (2026-05-06): backend S2 emit leader:goals-set 含 successCriteria /
+      //   qualityBar / deliverables，之前前端无 handler → dead event。补上挂到
+      //   s2-leader-plan todo 的 narrative + artifacts，让用户看到 leader 在 S2
+      //   设的成功标准（mission 进展可见性的关键一环）。
+      const goals =
+        (p.goals as
+          | {
+              successCriteria?: string[];
+              qualityBar?: { minCoverage?: number };
+            }
+          | undefined) ?? undefined;
+      const successCriteria = goals?.successCriteria ?? [];
+      const minCoverage = goals?.qualityBar?.minCoverage;
+      const initialRisks = (p.initialRisks as string[] | undefined) ?? [];
+      const s2 = todos.get('system:s2-leader-plan');
+      if (s2) {
+        if (successCriteria.length > 0) {
+          s2.artifacts.push({
+            kind: 'finding-count',
+            label: '成功标准',
+            value: `${successCriteria.length} 条`,
+          });
+          s2.narrativeLog.push({
+            ts: ev.timestamp,
+            text: `Leader 声明成功标准：${successCriteria
+              .slice(0, 3)
+              .map((s) => s.slice(0, 50))
+              .join(' / ')}${successCriteria.length > 3 ? '…' : ''}`,
+            tone: 'info',
+          });
+        }
+        if (minCoverage != null) {
+          s2.artifacts.push({
+            kind: 'verdict-score',
+            label: '质量阈值',
+            value: `≥ ${minCoverage}`,
+          });
+        }
+        if (initialRisks.length > 0) {
+          s2.narrativeLog.push({
+            ts: ev.timestamp,
+            text: `Leader 初步风险：${initialRisks
+              .slice(0, 2)
+              .map((s) => s.slice(0, 50))
+              .join(' / ')}${initialRisks.length > 2 ? '…' : ''}`,
+            tone: 'warn',
+          });
+        }
+      }
     } else if (t === 'agent-playground.leader:decision') {
       const phase = p.phase as string | undefined;
       if (phase === 'assess-research-dispatched') {

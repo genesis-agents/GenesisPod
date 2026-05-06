@@ -45,6 +45,8 @@ function makePool() {
     snapshot: jest
       .fn()
       .mockReturnValue({ poolTokensUsed: 100, poolCostUsd: 0.0003 }),
+    // ★ 业务链修2: tickCost 后立即检查 isExhausted，spec mock 必须实现
+    isExhausted: jest.fn().mockReturnValue(false),
   };
 }
 

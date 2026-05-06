@@ -292,6 +292,14 @@ export async function runPerDimPipeline(
         finalScore: d.score ?? 80,
       }));
 
+      // ★ 业务链修5 (2026-05-06): cache hit 时同步连续 emit 让前端"瞬移"，
+      //   用户感受不到任务并行节奏。加 sleep 让每章节 emit 之间有 ~80ms 间隔，
+      //   让 7 dim 并行 cache hit 在 ~1-2s 内有节奏完成（dim 之间仍是真并行
+      //   因为 runPerDimPipeline 在 invoker.runWithConcurrency 里跑）。
+      const SYNTH_EMIT_INTERVAL_MS = 80;
+      const sleep = (ms: number): Promise<void> =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
       // emit dimension:outline:planned 让前端 derive 知道章节列表
       await deps
         .emit({
@@ -309,9 +317,59 @@ export async function runPerDimPipeline(
           },
         })
         .catch(() => undefined);
+      await sleep(SYNTH_EMIT_INTERVAL_MS);
 
-      // 逐章 emit 合成 chapter:done
+      // 逐章 emit 合成 chapter:writing:started → chapter:writing:completed →
+      //   chapter:review:completed → chapter:done（让前端 derive.ts 走完
+      //   完整章节状态机：writing → reviewing → passed → done）
       for (const c of synthesizedChapters) {
+        // writing:started
+        await deps
+          .emit({
+            type: "agent-playground.chapter:writing:started",
+            missionId,
+            userId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: c.index,
+              attempt: 1,
+              fromCache: true,
+            },
+          })
+          .catch(() => undefined);
+        await sleep(SYNTH_EMIT_INTERVAL_MS);
+        // writing:completed
+        await deps
+          .emit({
+            type: "agent-playground.chapter:writing:completed",
+            missionId,
+            userId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: c.index,
+              wordCount: c.wordCount,
+              fromCache: true,
+            },
+          })
+          .catch(() => undefined);
+        await sleep(SYNTH_EMIT_INTERVAL_MS);
+        // review:completed (pass)
+        await deps
+          .emit({
+            type: "agent-playground.chapter:review:completed",
+            missionId,
+            userId,
+            payload: {
+              dimension: dimensionName,
+              chapterIndex: c.index,
+              decision: "pass",
+              score: c.finalScore,
+              fromCache: true,
+            },
+          })
+          .catch(() => undefined);
+        await sleep(SYNTH_EMIT_INTERVAL_MS);
+        // chapter:done
         await deps
           .emit({
             type: "agent-playground.chapter:done",
@@ -330,6 +388,7 @@ export async function runPerDimPipeline(
             },
           })
           .catch(() => undefined);
+        await sleep(SYNTH_EMIT_INTERVAL_MS);
       }
 
       // narrative 提示用户
