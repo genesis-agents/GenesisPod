@@ -316,6 +316,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       saveChapterDraft: jest.fn().mockResolvedValue(undefined),
       loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
       loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+      // ★ #85 (2026-05-06): 报告版本化 fire-and-forget mock
+      saveReportVersion: jest.fn().mockResolvedValue(1),
     };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
