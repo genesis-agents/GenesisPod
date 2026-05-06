@@ -372,7 +372,10 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
             if (!event.stepId) return;
             const stage = mapStepIdToFrontendStageId(event.stepId);
 
-            // ── lifecycle 事件（status transition 唯一来源）──
+            // ── lifecycle 事件：status transition + 业务 output 单一来源 ──
+            // ★ 2026-05-06 单轨化彻底版: orchestrator stage:completed 携带 hook 返回的
+            //   output（业务产物）。dispatcher 把 output 拍平到 lifecycle payload，
+            //   stage 文件不再 emit stage:metrics（双轨彻底删除）。前端只看 lifecycle。
             if (
               event.type === "stage:started" ||
               event.type === "stage:completed" ||
@@ -384,6 +387,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
                   : event.type === "stage:completed"
                     ? "completed"
                     : "failed";
+              const output = event.output as
+                | Record<string, unknown>
+                | undefined;
               await this.missionEventBuffer
                 .broadcast({
                   type: "agent-playground.stage:lifecycle",
@@ -393,6 +399,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
                     stepId: event.stepId,
                     primitive: event.primitive,
                     status,
+                    // hook 业务返回值（dimensions / themeSummary / results /
+                    // finalScore 等 artifact 来源）整体挂 output 字段
+                    ...(output ? { output } : {}),
                     ...(status === "failed"
                       ? {
                           error:

@@ -136,6 +136,173 @@ export interface DeriveTodoArgs {
   dimensionPipelines: Map<string, DimensionPipelineState>;
 }
 
+/**
+ * ★ 2026-05-06 单轨化: 把 orchestrator stage:completed 的 hook output 解析为
+ * todo.artifacts（前端展示用）。每 stepId 的 output schema 不同：
+ *   s2-leader-plan       → { dimensions[], themeSummary }
+ *   s3-researcher-collect→ { results[][], failureCount } (按 fanOut perItem 数组)
+ *   s4-leader-assess     → { decision }
+ *   s5-reconciler        → { result: { reconciliationReport } }
+ *   s6-analyst           → { result: { ... } }
+ *   s7-writer-outline    → { artifact?: { chapters[] } }
+ *   s8-writer            → { artifact: { metadata: { wordCount? } }, finalScore? }
+ *   s8b-quality-enhancement → { evaluatedCount?, remediatedCount?, avgScoreDelta? }
+ *   s9-critic            → 无 artifact 关键字段
+ *   s9b-objective-eval   → { overallScore?, grade? }
+ *   s10-leader-foreword-signoff → { signoff: { signed, leaderVerdict, refusalReason } }
+ *   s11-persist          → { persisted: true }
+ * dispatcher.STEP_ID_TO_FRONTEND_STAGE_ID 已映射，所以 stepId 是 backend step.id。
+ */
+function deriveStageArtifacts(
+  stepId: string,
+  out: Record<string, unknown>
+): MissionTodoArtifact[] {
+  const artifacts: MissionTodoArtifact[] = [];
+  const num = (v: unknown): number | undefined =>
+    typeof v === 'number' ? v : undefined;
+  const str = (v: unknown): string | undefined =>
+    typeof v === 'string' ? v : undefined;
+  switch (stepId) {
+    case 's2-leader-plan': {
+      const dims = (out.dimensions as unknown[]) ?? [];
+      artifacts.push({
+        kind: 'finding-count',
+        label: '维度数',
+        value: dims.length,
+      });
+      if (str(out.themeSummary)) {
+        artifacts.push({ kind: 'finding-count', label: '主题摘要已产出' });
+      }
+      break;
+    }
+    case 's3-researcher-collect': {
+      const results = (out.results as unknown[][]) ?? [];
+      const dimDone = results.length;
+      const failureCount = (out.failureCount as number) ?? 0;
+      artifacts.push({
+        kind: 'finding-count',
+        label: '完成 / 总数',
+        value: `${dimDone - failureCount} / ${dimDone}`,
+      });
+      break;
+    }
+    case 's4-leader-assess': {
+      const decision = str(out.decision);
+      if (decision) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: 'Leader 决策',
+          value: decision,
+        });
+      }
+      break;
+    }
+    case 's6-analyst': {
+      const result = out.result as Record<string, unknown> | undefined;
+      const insights = num(result?.insightsCount);
+      if (insights != null) {
+        artifacts.push({
+          kind: 'insight-count',
+          label: '核心洞察',
+          value: insights,
+        });
+      }
+      break;
+    }
+    case 's7-writer-outline': {
+      const artifact = out.artifact as Record<string, unknown> | undefined;
+      const chapters = (artifact?.chapters as unknown[]) ?? [];
+      if (chapters.length > 0) {
+        artifacts.push({
+          kind: 'chapter',
+          label: '章节大纲',
+          value: `${chapters.length} 章`,
+        });
+      }
+      break;
+    }
+    case 's8-writer': {
+      const finalScore = num(out.finalScore);
+      const attempts = num(out.attempts);
+      if (finalScore != null) {
+        artifacts.push({
+          kind: 'verdict-score',
+          label: '最终评分',
+          value: finalScore,
+        });
+      }
+      if (attempts != null && attempts > 1) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '撰写迭代',
+          value: `${attempts} 轮`,
+        });
+      }
+      break;
+    }
+    case 's8b-quality-enhancement': {
+      const evalCount = num(out.evaluatedCount);
+      const remCount = num(out.remediatedCount);
+      const delta = num(out.avgScoreDelta);
+      if (evalCount != null) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '评估章节',
+          value: evalCount,
+        });
+      }
+      if (remCount != null) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '补救章节',
+          value: remCount,
+        });
+      }
+      if (delta != null && delta !== 0) {
+        artifacts.push({
+          kind: 'verdict-score',
+          label: '平均提升',
+          value: `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`,
+        });
+      }
+      break;
+    }
+    case 's9b-objective-eval': {
+      const overall = num(out.overallScore);
+      const grade = str(out.grade);
+      if (overall != null) {
+        artifacts.push({
+          kind: 'verdict-score',
+          label: '总分',
+          value: `${overall}/100${grade ? ` (${grade})` : ''}`,
+        });
+      }
+      break;
+    }
+    case 's10-leader-foreword-signoff': {
+      const signoff = out.signoff as Record<string, unknown> | undefined;
+      const verdict = str(signoff?.leaderVerdict);
+      const refusal = str(signoff?.refusalReason);
+      if (verdict) {
+        artifacts.push({
+          kind: 'verdict-score',
+          label: 'Leader 判定',
+          value: verdict,
+        });
+      }
+      if (refusal) {
+        artifacts.push({
+          kind: 'finding-count',
+          label: '拒签原因',
+          value: refusal,
+        });
+      }
+      break;
+    }
+  }
+  return artifacts;
+}
+
 export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
   const { events, agents, dimensionPipelines } = args;
   const todos = new Map<string, MissionTodo>();
@@ -389,662 +556,10 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           : `预算软告警：估算超出建议但可继续`,
         isHard ? 'error' : 'warn'
       );
-    } else if (
-      t === 'agent-playground.stage:metrics' &&
-      (p.status === undefined ||
-        p.status === 'started' ||
-        p.startedAtMs !== undefined)
-    ) {
-      // ★ 2026-05-06 (A-2 完整版): backend 14 stage 文件 stage:started → stage:metrics 重命名。
-      //   metrics 是 status transition 的"启动信号"（含 started 半态 + 携带配置 metrics）。
-      //   status transition 唯一来源是 stage:lifecycle，本 handler 保留是为了 artifacts。
-      //   注意：stage:lifecycle 推 in_progress 才是机制保证，本 handler 推 in_progress 是冗余但幂等。
-      const stage = p.stage as string | undefined;
-      if (stage === 'leader') {
-        upsert(
-          'system:s2-leader-plan',
-          () =>
-            systemStageInit(
-              's2-leader-plan',
-              'Leader 拆解任务',
-              'Leader 看 topic，产出 themeSummary + 多个研究维度并声明 successCriteria',
-              'leader',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-            const s1 = todos.get('system:s1-budget');
-            if (s1 && s1.status !== 'done' && s1.status !== 'failed') {
-              s1.status = 'done';
-              s1.endedAt = ev.timestamp;
-              s1.artifacts.push({
-                kind: 'finding-count',
-                label: '余额校验通过',
-              });
-            }
-          }
-        );
-      } else if (stage === 'researchers') {
-        const count = (p.count as number) ?? 0;
-        const dims = (p.dimensions as string[]) ?? [];
-        upsert(
-          'system:s3-researchers',
-          () =>
-            systemStageInit(
-              's3-researchers',
-              `维度并行研究 · ${count} 个 Researcher`,
-              '按 Leader 拆解的维度并行派遣 Researcher，每人负责一个维度的资料采集',
-              'researcher',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-            t0.title = `维度并行研究 · ${count} 个 Researcher`;
-          }
-        );
-        if (dims.length > 0) {
-          addNarrative(
-            'system:s3-researchers',
-            ev.timestamp,
-            `派遣 ${count} 个 Researcher：${dims.slice(0, 3).join(' / ')}${dims.length > 3 ? '…' : ''}`
-          );
-        }
-      } else if (stage === 'reconciler') {
-        upsert(
-          'system:s5-reconciler',
-          () =>
-            systemStageInit(
-              's5-reconciler',
-              '跨维度对账',
-              'Reconciler 把所有维度的 finding 收齐做事实抽取、冲突检测、缺口识别',
-              'reconciler',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 'analyst') {
-        upsert(
-          'system:s6-analyst',
-          () =>
-            systemStageInit(
-              's6-analyst',
-              '综合分析',
-              'Analyst 把对账后的 fact + 各维度 findings 综合成 mission-level insight',
-              'analyst',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 'writer') {
-        upsert(
-          'system:s8-writer-draft',
-          () =>
-            systemStageInit(
-              's8-writer-draft',
-              '撰写报告',
-              'Writer 起草报告并由 L3 verifier 三路评分；若分数低于阈值会触发重写',
-              'writer',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 's7-writer-outline') {
-        // ★ 2026-04-30 (#62 截图 16): 补 s7-writer-outline stage:started handler
-        upsert(
-          'system:s7-writer-outline',
-          () =>
-            systemStageInit(
-              's7-writer-outline',
-              '撰写大纲',
-              'Writer 规划 mission-level 章节大纲（thorough+ 档位启用）',
-              'writer',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 'critic') {
-        upsert(
-          'system:s9-critic-l4',
-          () =>
-            systemStageInit(
-              's9-critic-l4',
-              'L4 独立复审 · 盲点 / 偏见 / 建议',
-              'Critic 独立复审，从盲点 / 偏见 / 改进建议三个维度审视报告',
-              'critic',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 's8b-quality-enhancement') {
-        // ★ 2026-04-30: 沉淀 v3 quality 闭环阶段（4 维写中自评 + 弱维度自动补救）
-        upsert(
-          'system:s8b-quality-enhancement',
-          () =>
-            systemStageInit(
-              's8b-quality-enhancement',
-              '章节质量闭环',
-              '对每个章节跑 4 维自评（深度/证据/可操作/写作），弱维度自动 LLM 补救并强制重评',
-              'writer',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 's9b-objective-evaluation') {
-        // ★ 2026-04-30: 沉淀 v3 quality 闭环阶段（10 维 EVALUATOR 模型客观评分）
-        upsert(
-          'system:s9b-objective-evaluation',
-          () =>
-            systemStageInit(
-              's9b-objective-evaluation',
-              '10 维客观评审',
-              'EVALUATOR 模型独立给每章按 10 维打分（事实/深度/证据/密度/逻辑/可视/写作/原创/时效/可操作）',
-              'critic',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 's12-self-evolution') {
-        // ★ S12 自我进化（2026-04-30）：mission 完成后跑 fire-and-forget 复盘 +
-        //   FailureLearner / postmortem 入向量记忆，下次同主题召回历史经验
-        upsert(
-          'system:s12-self-evolution',
-          () =>
-            systemStageInit(
-              's12-self-evolution',
-              '自我进化',
-              '复盘 + FailureLearner / postmortem 入向量记忆，下次同主题召回历史经验',
-              'mission',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 's1-budget') {
-        // ★ 2026-05-06 (P0-A): S1 显式 stage:started 兜底
-        const s1 = todos.get('system:s1-budget');
-        if (s1 && s1.status === 'pending') {
-          s1.status = 'in_progress';
-          s1.startedAt = ev.timestamp;
-        }
-      } else if (stage === 's4-leader-assess') {
-        // ★ 2026-05-06 (P0-A 截图 4 红框 #11): S4 此前从不发 stage:started
-        upsert(
-          'system:s4-leader-assess',
-          () =>
-            systemStageInit(
-              's4-leader-assess',
-              'Leader 评审 Researcher 产出',
-              '看 finding 数量 / summary 质量，决定 retry / abort / extend / accept',
-              'leader',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 's10-leader-signoff') {
-        upsert(
-          'system:s10-leader-signoff',
-          () =>
-            systemStageInit(
-              's10-leader-signoff',
-              'Leader 签字',
-              'Leader 综合所有产出 + Critic 警示，写综合摘要 + 签字',
-              'leader',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      } else if (stage === 's11-persist') {
-        upsert(
-          'system:s11-persist',
-          () =>
-            systemStageInit(
-              's11-persist',
-              '持久化',
-              '把 reportArtifact + leaderSignOff + verdicts 等终态产物落盘到 DB',
-              'mission',
-              ev.timestamp
-            ),
-          (t0) => {
-            t0.status = 'in_progress';
-            t0.startedAt = ev.timestamp;
-          }
-        );
-      }
-    } else if (
-      t === 'agent-playground.stage:metrics' &&
-      (p.status === 'completed' ||
-        p.status === 'failed' ||
-        p.status === 'aborted' ||
-        p.status === 'rejected' ||
-        p.status === 'cancelled')
-    ) {
-      // ★ 2026-05-06 (A-2 完整版): backend 14 stage 文件 stage:completed → stage:metrics 重命名。
-      //   metrics 是 status transition 的"完成信号"（含 completed/failed/aborted 终态 + custom payload）。
-      //   status transition 唯一来源是 stage:lifecycle，本 handler 保留是为了 artifacts/narrativeLog 累加。
-      //   注意：stage:lifecycle 推 done/failed 才是机制保证，本 handler 重复推是冗余但幂等。
-      const stage = p.stage as string | undefined;
-      if (stage === 'leader') {
-        const dims =
-          (p.dimensions as
-            | { id: string; name: string; rationale: string }[]
-            | undefined) ?? [];
-        const themeSummary = p.themeSummary as string | undefined;
-        const s2 = upsert('system:s2-leader-plan', () =>
-          systemStageInit(
-            's2-leader-plan',
-            'Leader 拆解任务',
-            '规划',
-            'leader',
-            ev.timestamp
-          )
-        );
-        s2.status = 'done';
-        s2.endedAt = ev.timestamp;
-        s2.artifacts = [
-          { kind: 'finding-count', label: '维度数', value: dims.length },
-          ...(themeSummary
-            ? [{ kind: 'finding-count' as const, label: '主题摘要已产出' }]
-            : []),
-        ];
-        // 为每个 dim 创建 leader-plan todo（挂在 S3 并行研究阶段下，形成树状层级）
-        dims.forEach((d, i) => {
-          const id = `dim:${d.id}`;
-          upsert(id, () => ({
-            id,
-            parentId: 'system:s3-researchers',
-            origin: 'leader-plan',
-            createdBy: 'leader',
-            createdAt: ev.timestamp,
-            reasonText: d.rationale,
-            scope: 'dimension',
-            title: d.name,
-            assignee: {
-              role: 'researcher',
-              agentId: `researcher#${i}`,
-              dimensionName: d.name,
-            },
-            status: 'pending',
-            artifacts: [],
-            narrativeLog: [
-              {
-                ts: ev.timestamp,
-                text: `Leader 派下来：${d.rationale.slice(0, 120)}${d.rationale.length > 120 ? '…' : ''}`,
-                tone: 'info',
-              },
-            ],
-            dimensionRef: d.name,
-            agentRefId: `researcher#${i}`,
-          }));
-        });
-      } else if (stage === 'researchers') {
-        const results =
-          (p.results as
-            | { dimension: string; findingsCount: number; summary: string }[]
-            | undefined) ?? [];
-        const s3 = upsert('system:s3-researchers', () =>
-          systemStageInit(
-            's3-researchers',
-            '维度并行研究',
-            '按 Leader 拆解的维度并行派遣 Researcher',
-            'researcher',
-            ev.timestamp
-          )
-        );
-        s3.status = 'done';
-        s3.endedAt = ev.timestamp;
-        const okCount = results.filter((r) => r.findingsCount > 0).length;
-        s3.artifacts = [
-          {
-            kind: 'finding-count',
-            label: '完成 / 总数',
-            value: `${okCount} / ${results.length}`,
-          },
-        ];
-      } else if (stage === 'reconciler') {
-        const s5 = upsert('system:s5-reconciler', () =>
-          systemStageInit(
-            's5-reconciler',
-            '跨维度对账',
-            '对账',
-            'reconciler',
-            ev.timestamp
-          )
-        );
-        s5.status = (p.state as string) === 'completed' ? 'done' : 'failed';
-        s5.endedAt = ev.timestamp;
-      } else if (stage === 'analyst') {
-        const s6 = upsert('system:s6-analyst', () =>
-          systemStageInit(
-            's6-analyst',
-            '综合分析',
-            '综合',
-            'analyst',
-            ev.timestamp
-          )
-        );
-        s6.status = 'done';
-        s6.endedAt = ev.timestamp;
-        s6.artifacts = [
-          {
-            kind: 'insight-count',
-            label: '核心洞察',
-            value: (p.insightsCount as number) ?? 0,
-          },
-        ];
-        // ★ P1-LIVE-STATUS-INCONSISTENT (2026-04-30): reconciler-gap todo 之前
-        //   永远停在 pending，drawer 顶部显示"待启动"但下方 narrative 已经有
-        //   "Reconciler 标记 N 处缺口"。Analyst stage 完成 = 这些 gap 已被
-        //   显式纳入综合分析（ctx.reconciliationReport 透传给 analyst.analyze），
-        //   所以同步把 reconciler-gap todo 标 done。
-        for (const t of todos.values()) {
-          if (t.origin === 'reconciler-gap' && t.status === 'pending') {
-            t.status = 'done';
-            t.endedAt = ev.timestamp;
-            t.narrativeLog.push({
-              ts: ev.timestamp,
-              text: 'Analyst 已纳入综合分析',
-              tone: 'success',
-            });
-          }
-        }
-      } else if (stage === 's7-writer-outline') {
-        // ★ 2026-04-30 (#62 截图 16): s7-writer-outline stage:completed handler
-        const status = (p.status as string) ?? 'completed';
-        const s7 = upsert('system:s7-writer-outline', () =>
-          systemStageInit(
-            's7-writer-outline',
-            '撰写大纲',
-            'Writer 规划 mission-level 章节大纲',
-            'writer',
-            ev.timestamp
-          )
-        );
-        s7.status = status === 'failed' ? 'failed' : 'done';
-        s7.endedAt = ev.timestamp;
-        const chapterCount = p.chapterCount as number | undefined;
-        if (typeof chapterCount === 'number' && chapterCount > 0) {
-          s7.artifacts = [
-            {
-              kind: 'chapter',
-              label: '章节大纲',
-              value: `${chapterCount} 章`,
-            },
-          ];
-        }
-      } else if (stage === 'writer') {
-        const s8 = upsert('system:s8-writer-draft', () =>
-          systemStageInit(
-            's8-writer-draft',
-            '撰写报告',
-            '撰写',
-            'writer',
-            ev.timestamp
-          )
-        );
-        s8.status = 'done';
-        s8.endedAt = ev.timestamp;
-        const finalScore = p.finalScore as number | undefined;
-        const attempts = p.attempts as number | undefined;
-        s8.artifacts = [
-          ...(finalScore != null
-            ? [
-                {
-                  kind: 'verdict-score' as const,
-                  label: '最终评分',
-                  value: finalScore,
-                },
-              ]
-            : []),
-          ...(attempts != null && attempts > 1
-            ? [
-                {
-                  kind: 'finding-count' as const,
-                  label: '撰写迭代',
-                  value: `${attempts} 轮`,
-                },
-              ]
-            : []),
-        ];
-      } else if (stage === 's8b-quality-enhancement') {
-        // ★ 2026-04-30 S8B 质量闭环 stage:completed
-        const s8b = upsert('system:s8b-quality-enhancement', () =>
-          systemStageInit(
-            's8b-quality-enhancement',
-            '章节质量闭环',
-            '4 维自评 + 弱维度补救',
-            'writer',
-            ev.timestamp
-          )
-        );
-        s8b.status = 'done';
-        s8b.endedAt = ev.timestamp;
-        const evalCount = p.evaluatedCount as number | undefined;
-        const remCount = p.remediatedCount as number | undefined;
-        const delta = p.avgScoreDelta as number | undefined;
-        s8b.artifacts = [
-          ...(typeof evalCount === 'number'
-            ? [
-                {
-                  kind: 'finding-count' as const,
-                  label: '评估章节',
-                  value: evalCount,
-                },
-              ]
-            : []),
-          ...(typeof remCount === 'number'
-            ? [
-                {
-                  kind: 'finding-count' as const,
-                  label: '补救章节',
-                  value: remCount,
-                },
-              ]
-            : []),
-          ...(typeof delta === 'number' && delta !== 0
-            ? [
-                {
-                  kind: 'verdict-score' as const,
-                  label: '平均提升',
-                  value: `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`,
-                },
-              ]
-            : []),
-        ];
-      } else if (stage === 's9b-objective-evaluation') {
-        // ★ 2026-04-30 S9B 10 维客观评审 stage:completed
-        const status = (p.status as string) ?? 'completed';
-        const s9b = upsert('system:s9b-objective-evaluation', () =>
-          systemStageInit(
-            's9b-objective-evaluation',
-            '10 维客观评审',
-            'EVALUATOR 模型独立打分',
-            'critic',
-            ev.timestamp
-          )
-        );
-        s9b.status = status === 'failed' ? 'failed' : 'done';
-        s9b.endedAt = ev.timestamp;
-        const overall = p.overallScore as number | undefined;
-        const grade = p.grade as string | undefined;
-        s9b.artifacts = [
-          ...(typeof overall === 'number'
-            ? [
-                {
-                  kind: 'verdict-score' as const,
-                  label: '总分',
-                  value: `${overall}/100${grade ? ` (${grade})` : ''}`,
-                },
-              ]
-            : []),
-        ];
-      } else if (stage === 's12-self-evolution') {
-        // ★ S12 自我进化 stage:completed
-        const status = (p.status as string) ?? 'completed';
-        const s12 = upsert('system:s12-self-evolution', () =>
-          systemStageInit(
-            's12-self-evolution',
-            '自我进化',
-            '复盘 + 入向量记忆',
-            'mission',
-            ev.timestamp
-          )
-        );
-        s12.status =
-          status === 'failed'
-            ? 'failed'
-            : status === 'cancelled'
-              ? 'cancelled'
-              : 'done';
-        s12.endedAt = ev.timestamp;
-        const recCount = p.recommendationsCount as number | undefined;
-        const leaderSigned = p.leaderSigned as boolean | null | undefined;
-        s12.artifacts = [
-          ...(recCount != null
-            ? [
-                {
-                  kind: 'finding-count' as const,
-                  label: '改进建议',
-                  value: recCount,
-                },
-              ]
-            : []),
-          ...(leaderSigned === false
-            ? [
-                {
-                  kind: 'finding-count' as const,
-                  label: 'Leader 拒签',
-                  value: '已记入 FailureLearner',
-                },
-              ]
-            : []),
-        ];
-      } else if (stage === 's1-budget') {
-        // ★ 2026-05-06 (P0-A): S1 显式 stage:completed
-        const s1 = todos.get('system:s1-budget');
-        if (s1 && s1.status !== 'done' && s1.status !== 'failed') {
-          const status = (p.status as string) ?? 'completed';
-          s1.status = status === 'failed' ? 'failed' : 'done';
-          s1.endedAt = ev.timestamp;
-        }
-      } else if (stage === 's4-leader-assess') {
-        // ★ 2026-05-06 (P0-A 截图 4 红框 #11): S4 stage:completed handler
-        const status = (p.status as string) ?? 'completed';
-        const s4 = upsert('system:s4-leader-assess', () =>
-          systemStageInit(
-            's4-leader-assess',
-            'Leader 评审 Researcher 产出',
-            '评审 / 决策 / 派发',
-            'leader',
-            ev.timestamp
-          )
-        );
-        s4.status =
-          status === 'failed' || status === 'aborted' ? 'failed' : 'done';
-        s4.endedAt = ev.timestamp;
-        const decision = p.decision as string | undefined;
-        if (decision) {
-          s4.artifacts = [
-            { kind: 'finding-count', label: 'Leader 决策', value: decision },
-          ];
-        }
-      } else if (stage === 'critic') {
-        // ★ 2026-05-06 (P0-A): S9 critic stage:completed handler
-        const status = (p.status as string) ?? 'completed';
-        const s9 = upsert('system:s9-critic-l4', () =>
-          systemStageInit(
-            's9-critic-l4',
-            'L4 独立复审 · 盲点 / 偏见 / 建议',
-            'Critic 独立复审',
-            'critic',
-            ev.timestamp
-          )
-        );
-        s9.status = status === 'failed' ? 'failed' : 'done';
-        s9.endedAt = ev.timestamp;
-      } else if (stage === 's10-leader-signoff') {
-        // ★ 2026-05-06 (P0-A): S10 stage:completed handler（成功 / 拒签都算 stage 完成）
-        const status = (p.status as string) ?? 'completed';
-        const s10 = upsert('system:s10-leader-signoff', () =>
-          systemStageInit(
-            's10-leader-signoff',
-            'Leader 签字',
-            'Leader 综合所有产出 + 签字',
-            'leader',
-            ev.timestamp
-          )
-        );
-        s10.status = status === 'failed' ? 'failed' : 'done';
-        s10.endedAt = ev.timestamp;
-        const verdict = p.leaderVerdict as string | undefined;
-        const refusal = p.refusalReason as string | undefined;
-        if (verdict || refusal) {
-          s10.artifacts = [
-            ...(verdict
-              ? [
-                  {
-                    kind: 'verdict-score' as const,
-                    label: 'Leader 判定',
-                    value: verdict,
-                  },
-                ]
-              : []),
-            ...(refusal
-              ? [
-                  {
-                    kind: 'finding-count' as const,
-                    label: '拒签原因',
-                    value: refusal,
-                  },
-                ]
-              : []),
-          ];
-        }
-      } else if (stage === 's11-persist') {
-        // ★ 2026-05-06 (P0-A): S11 stage:completed handler
-        const status = (p.status as string) ?? 'completed';
-        const s11 = upsert('system:s11-persist', () =>
-          systemStageInit(
-            's11-persist',
-            '持久化',
-            '终态产物落盘',
-            'mission',
-            ev.timestamp
-          )
-        );
-        s11.status = status === 'failed' ? 'failed' : 'done';
-        s11.endedAt = ev.timestamp;
-      }
+      // ★ 2026-05-06 (单轨化彻底版): stage:metrics handler 已删除。
+      //   理由：stage:lifecycle handler 通过 dispatcher 桥接的 payload.output 拍平
+      //   已能拿到 hook 业务返回值（含 dimensions/themeSummary/finalScore 等）。
+      //   stage 文件后端仍 emit stage:metrics（DB 写入兼容性保留），但前端不消费。
     } else if (
       t === 'agent-playground.mission:postlude:started' ||
       t === 'agent-playground.mission:postlude:completed' ||
@@ -1117,11 +632,12 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         'error'
       );
     } else if (t === 'agent-playground.stage:lifecycle') {
-      // ★ 2026-05-06 (A 架构优化): orchestrator-driven lifecycle 事件，dispatcher 桥接
-      //   orchestrator 内部 stage:started/completed/failed → agent-playground.stage:lifecycle。
-      //   stage 字段已经过 step.id → SystemStageId 映射，可直接用作 todo key。
-      //   workflow 控制权回归 harness/orchestrator —— 漏 emit 物理不可能（orchestrator 必发）。
+      // ★ 2026-05-06 单轨化彻底版: orchestrator-driven lifecycle 是 stage 状态 +
+      //   业务 metrics 的唯一来源。dispatcher 把 hook 业务返回值（output 字段）
+      //   拍平到 payload.output，前端按 stepId 解析为 artifacts。
+      //   workflow 控制权回归 harness/orchestrator —— 漏 emit 物理不可能。
       const stage = p.stage as string | undefined;
+      const stepId = p.stepId as string | undefined;
       const status = p.status as 'started' | 'completed' | 'failed' | undefined;
       if (!stage || !status) continue;
       const todoId = `system:${stage}` as const;
@@ -1134,12 +650,16 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         }
       } else if (status === 'completed') {
         if (todo.status !== 'failed' && todo.status !== 'cancelled') {
-          // ★ 不覆盖 stage:completed metrics handler 已经设的 'failed'/特殊状态，
-          //   只在还在 in_progress 时 promote 到 done。
           if (todo.status !== 'done') {
             todo.status = 'done';
             todo.endedAt = ev.timestamp;
           }
+        }
+        // 拍平 hook output 为 artifacts（按 stepId 分发）
+        const out = p.output as Record<string, unknown> | undefined;
+        if (out && stepId) {
+          const artifacts = deriveStageArtifacts(stepId, out);
+          if (artifacts.length > 0) todo.artifacts.push(...artifacts);
         }
       } else if (status === 'failed') {
         if (todo.status !== 'cancelled') {
