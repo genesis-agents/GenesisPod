@@ -229,7 +229,10 @@ export function TeamRosterPanel({
                   itemStatus === 'working'
                     ? '调研中'
                     : itemStatus === 'completed'
-                      ? '完成'
+                      ? // ★ 2026-05-06 (P1-E): dim agent.phase=completed 只表示研究阶段完成，
+                        //   后续还有 chapter writing / grade / signoff，避免用户误以为整个
+                        //   mission 完成。改成"研究完成"更精确。
+                        '研究完成'
                       : itemStatus === 'failed'
                         ? '失败'
                         : '待启动',
@@ -251,7 +254,8 @@ export function TeamRosterPanel({
                 groupStatus === 'working'
                   ? `${runningAgents} 调研中`
                   : groupStatus === 'completed'
-                    ? `${completedAgents}/${dimCount} 完成`
+                    ? // ★ 2026-05-06 (P1-E): 同上，"研究阶段完成"语义更精确
+                      `${completedAgents}/${dimCount} 研究完成`
                     : groupStatus === 'failed'
                       ? `${failedAgents} 失败`
                       : dimCount > 0
