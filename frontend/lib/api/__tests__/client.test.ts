@@ -371,6 +371,16 @@ describe('ApiClient', () => {
   // -------------------------------------------------------------------------
 
   describe('401 handling', () => {
+    // ★ 2026-05-06: 已登录用户场景（token 过期但 refresh 有效）。
+    // 配合 client.ts:227-242 的"未登录直接 throw UNAUTHENTICATED"逻辑：只有
+    // 已登录用户才走 refresh→retry→logout 链路；spec 这里都模拟已登录。
+    beforeEach(() => {
+      mockGetAuthTokens.mockReturnValue({
+        accessToken: 'expired-tok',
+        refreshToken: 'still-valid-ref',
+      });
+    });
+
     it('should refresh token and retry on 401, returning successful response', async () => {
       const newTokens = { accessToken: 'new-tok', refreshToken: 'new-ref' };
       mockRefreshAccessToken.mockResolvedValueOnce(newTokens);
