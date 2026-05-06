@@ -9,7 +9,7 @@
  *   3. POST /agent-playground/team/run → 启动 mission
  *   4. 跳转到 /agent-playground/missions/:missionId
  */
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Play } from 'lucide-react';
@@ -22,8 +22,9 @@ export default function RunCustomAgentPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
   const router = useRouter();
+  // ★ 2026-05-06: 改 useEffect 异步解 params，避开 React 19 use(params) hydration #438
+  const [id, setId] = useState<string | null>(null);
   const [record, setRecord] = useState<CustomAgentRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,17 @@ export default function RunCustomAgentPage({
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    void params.then((p) => {
+      if (!cancelled) setId(p.id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [params]);
+
+  useEffect(() => {
+    if (!id) return;
     setLoading(true);
     apiClient
       .get<CustomAgentRecord>(`/user/custom-agents/${id}`)
@@ -45,7 +57,7 @@ export default function RunCustomAgentPage({
   }, [id]);
 
   const launch = async () => {
-    if (!record) return;
+    if (!record || !id) return;
     if (topic.trim().length < 2) {
       setError('topic 至少 2 个字符');
       return;

@@ -124,19 +124,23 @@ function MissionCard({
   onEdit: (mission: MissionListItem) => void;
   onDelete: (mission: MissionListItem) => void;
 }) {
-  const status = STATUS_CONFIG[mission.status] ?? STATUS_CONFIG.running;
+  // ★ 2026-05-06: 后端字段可能为 null（DB 老数据 / mission 启动失败 partial）→ 防 toUpperCase / DEPTH_GRADIENT[null] 触发 ErrorBoundary
+  const safeStatus = mission.status || 'running';
+  const safeDepth = mission.depth || 'standard';
+  const safeLanguage = mission.language || 'zh';
+  const status = STATUS_CONFIG[safeStatus] ?? STATUS_CONFIG.running;
   const StatusIcon = status.icon;
-  const gradient = DEPTH_GRADIENT[mission.depth] ?? DEPTH_GRADIENT.standard;
+  const gradient = DEPTH_GRADIENT[safeDepth] ?? DEPTH_GRADIENT.standard;
 
   const badges: AssetCardBadge[] = [
     {
       key: 'depth',
-      label: mission.depth.toUpperCase(),
+      label: safeDepth.toUpperCase(),
       className: 'bg-gray-100 text-gray-600 uppercase tracking-wide',
     },
     {
       key: 'language',
-      label: mission.language,
+      label: safeLanguage,
       className: 'bg-gray-100 text-gray-600',
     },
     {
@@ -145,7 +149,7 @@ function MissionCard({
       className: status.color,
       icon: (
         <StatusIcon
-          className={`h-3 w-3 ${mission.status === 'running' ? 'animate-spin' : ''}`}
+          className={`h-3 w-3 ${safeStatus === 'running' ? 'animate-spin' : ''}`}
         />
       ),
     },

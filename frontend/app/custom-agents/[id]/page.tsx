@@ -12,7 +12,7 @@
  * - "启动 Mission" → /custom-agents/:id/run（既有 topic 输入 + 启动页）
  * - rerun / cancel / edit / delete 复用 playground mission API（mission 本身就是 playground mission）
  */
-import { use, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   cancelMission,
@@ -35,10 +35,14 @@ export default function CustomAgentHomePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
   const router = useRouter();
+  // ★ 2026-05-06: 改用 useEffect 异步解 params，避开 React 19 `use(params)` 在
+  //   client component 触发 React error #438 / #418 / #423 hydration 不稳定的问题。
+  //   症状：进入 /custom-agents/{id} 直接 ErrorBoundary 兜底"出错了"。
+  const [id, setId] = useState<string | null>(null);
   const [agent, setAgent] = useState<CustomAgentRecord | null>(null);
   const [agentError, setAgentError] = useState<string | null>(null);
+  const [agentNotFound, setAgentNotFound] = useState(false);
   const [agentLoading, setAgentLoading] = useState(true);
   // ★ R-CA 风险#4 清零：Modal 内联启动，不跳 /run
   const [launchOpen, setLaunchOpen] = useState(false);
@@ -48,7 +52,19 @@ export default function CustomAgentHomePage({
 
   useEffect(() => {
     let cancelled = false;
+    void params.then((p) => {
+      if (!cancelled) setId(p.id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [params]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
     setAgentLoading(true);
+    setAgentNotFound(false);
     apiClient
       .get<CustomAgentRecord>(`/user/custom-agents/${id}`)
       .then((data) => {
@@ -60,7 +76,13 @@ export default function CustomAgentHomePage({
       })
       .catch((e: unknown) => {
         if (!cancelled) {
-          setAgentError(e instanceof Error ? e.message : String(e));
+          // 404 → friendly not-found UI（Sidebar stale 缓存指向已删 agent 时的兜底）
+          const status = (e as { status?: number } | undefined)?.status;
+          if (status === 404) {
+            setAgentNotFound(true);
+          } else {
+            setAgentError(e instanceof Error ? e.message : String(e));
+          }
           setAgentLoading(false);
         }
       });
@@ -70,9 +92,13 @@ export default function CustomAgentHomePage({
   }, [id]);
 
   // fetchMissions 必须 stable reference 否则 MissionGalleryView useEffect 死循环
-  const fetchMissions = useCallback(() => listCustomAgentMissions(id), [id]);
+  const fetchMissions = useCallback(
+    () => (id ? listCustomAgentMissions(id) : Promise.resolve([])),
+    [id]
+  );
 
   const handleRerun = async (mission: MissionListItem) => {
+    if (!id) return;
     if (!confirm(`重新运行「${mission.topic}」？将创建一个新的 Mission。`))
       return;
     try {
@@ -117,11 +143,33 @@ export default function CustomAgentHomePage({
     }
   };
 
-  if (agentLoading) {
+  if (agentLoading || !id) {
     return (
       <div className="h-full overflow-auto bg-gray-50 px-8 py-6">
         <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center text-sm text-gray-500">
           加载 agent 信息…
+        </div>
+      </div>
+    );
+  }
+  if (agentNotFound) {
+    return (
+      <div className="h-full overflow-auto bg-gray-50 px-8 py-6">
+        <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <h2 className="text-lg font-semibold text-amber-900">
+            Agent 不存在或已删除
+          </h2>
+          <p className="mt-1 text-sm text-amber-800">
+            这个 agent 可能已被删除或归档。请前往「管理 Agent」选择有效的
+            agent。
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/me/ai?tab=agents')}
+            className="mt-4 inline-flex items-center rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700"
+          >
+            管理 Agent
+          </button>
         </div>
       </div>
     );

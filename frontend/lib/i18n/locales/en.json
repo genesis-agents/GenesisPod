@@ -143,8 +143,11 @@
       "researchAnalysis": "Research & Analysis",
       "planningDecision": "Planning & Decision",
       "creativeWriting": "Content Output",
-      "collabLab": "Innovation Labs"
-    }
+      "collabLab": "Innovation Labs",
+      "myAgents": "My Agents"
+    },
+    "myAgentsViewAll": "View all",
+    "myAgentsManage": "Manage Agents"
   },
   "playground": {
     "researchTeam": {

@@ -10,7 +10,7 @@
  */
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { BasicInfoStep } from './BasicInfoStep';
 import { TopicSchemaStep } from './TopicSchemaStep';
@@ -72,6 +72,61 @@ export function CustomAgentWizard({
     setState((prev) => ({
       ...prev,
       config: { ...prev.config, ...patch },
+    }));
+  };
+
+  /**
+   * ★ 2026-05-06: 一键填入示例配置（仅 create 模式 + 仅填 user 还没填的字段）
+   * 4 步预填：basicInfo / topicSchema / pipeline / integration.default*
+   * skills + integration.allowedModels 仍需用户自己挑（白名单业务相关，不预填）
+   */
+  const fillDefaults = () => {
+    setState((prev) => ({
+      ...prev,
+      slug: prev.slug || 'my-research-agent',
+      displayName: prev.displayName || '我的研究 Agent',
+      description:
+        prev.description || '深度研究类 Agent —— 基于 Genesis Harness',
+      config: {
+        ...prev.config,
+        basicInfo: {
+          ...prev.config.basicInfo,
+          name: prev.config.basicInfo?.name || '我的研究 Agent',
+          purpose:
+            prev.config.basicInfo?.purpose ||
+            '深度调研指定主题、输出结构化报告',
+          language: prev.config.basicInfo?.language || 'zh',
+          audience: prev.config.basicInfo?.audience || 'general',
+        },
+        topicSchema: {
+          ...prev.config.topicSchema,
+          goalTemplate:
+            prev.config.topicSchema?.goalTemplate || '聚焦核心要点 + 数据支撑',
+          dimensions: prev.config.topicSchema?.dimensions?.length
+            ? prev.config.topicSchema.dimensions
+            : [
+                { name: '市场现状', description: '行业规模 / 玩家分布' },
+                { name: '关键洞察', description: '趋势 / 机会 / 风险' },
+                { name: '建议结论', description: '可落地策略' },
+              ],
+        },
+        pipeline: {
+          ...prev.config.pipeline,
+          steps: prev.config.pipeline?.steps?.length
+            ? prev.config.pipeline.steps
+            : [
+                { id: 'plan', primitive: 'plan' as const },
+                { id: 'research', primitive: 'research' as const },
+                { id: 'synthesize', primitive: 'synthesize' as const },
+                { id: 'draft', primitive: 'draft' as const },
+              ],
+        },
+        integration: {
+          ...prev.config.integration,
+          defaultDepth: prev.config.integration?.defaultDepth || 'standard',
+          defaultBudget: prev.config.integration?.defaultBudget || 'medium',
+        },
+      },
     }));
   };
 
@@ -173,6 +228,26 @@ export function CustomAgentWizard({
 
   return (
     <div>
+      {/* ★ 2026-05-06: 一键填入示例配置（仅 create 模式）—— 用户从 mostly-empty
+          → mostly-filled，只需在 skills/models 步挑选，省去 8 步逐个手填 */}
+      {isCreate && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-violet-200 bg-violet-50 px-4 py-2.5">
+          <div className="text-xs text-violet-800">
+            <span className="font-medium">提示：</span>
+            点击右侧按钮一键填入合理默认值（仍需在「技能」「集成」两步挑选
+            skill/model）。
+          </div>
+          <button
+            type="button"
+            onClick={fillDefaults}
+            className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-violet-700"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            一键填默认
+          </button>
+        </div>
+      )}
+
       {/* Stepper —— ★ 2026-05-05 绿勾按"该步骤实际完整性"上色，
           而非"已经走过"。review 步骤特殊：所有前 5 步 0 issue 才算完成 */}
       <ol className="mb-6 flex items-center gap-2 text-xs">

@@ -143,8 +143,11 @@
       "researchAnalysis": "洞察研究",
       "planningDecision": "规划决策",
       "creativeWriting": "内容产出",
-      "collabLab": "创新 Labs"
-    }
+      "collabLab": "创新 Labs",
+      "myAgents": "专属 Agent"
+    },
+    "myAgentsViewAll": "查看全部",
+    "myAgentsManage": "管理 Agent"
   },
   "playground": {
     "researchTeam": {
