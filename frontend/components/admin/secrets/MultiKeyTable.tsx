@@ -1,0 +1,387 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  CircleHelp,
+  CirclePause,
+} from 'lucide-react';
+import type {
+  SecretKeyRow,
+  AddKeyInput,
+  UpdateKeyMetaInput,
+} from '@/hooks/domain/useSecretKeys';
+
+/**
+ * 多 KEY 表格共享组件（admin /admin/access/secrets + 用户 /me/ai?tab=keys 共用）。
+ *
+ * 与设计文档 §4.5.4 对齐：
+ * - 列：LABEL / VALUE(hint) / PRIORITY / STATUS / LAST TESTED / OPS
+ * - OPS：Test / Replace / Edit / Delete
+ * - 顶部 [+ Add Key]
+ * - readOnly：只读模式（admin donatedKeys 等场景；BYOK 用户对自己的 key 不读 only）
+ */
+export interface MultiKeyTableProps {
+  keys: SecretKeyRow[];
+  loading: boolean;
+  actionLoading: boolean;
+  onAdd: (input: AddKeyInput) => Promise<void>;
+  onReplace: (keyId: string, value: string) => Promise<void>;
+  onUpdate: (keyId: string, meta: UpdateKeyMetaInput) => Promise<void>;
+  onDelete: (keyId: string) => Promise<void>;
+  onTest: (keyId: string) => Promise<void>;
+  readOnly?: boolean;
+}
+
+function StatusBadge({ row }: { row: SecretKeyRow }) {
+  if (!row.isActive) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+        <CirclePause className="h-3 w-3" /> Disabled
+      </span>
+    );
+  }
+  if (row.testStatus === 'success') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+        <CheckCircle2 className="h-3 w-3" /> OK
+      </span>
+    );
+  }
+  if (row.testStatus === 'failed') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800"
+        title={row.lastErrorMessage ?? undefined}
+      >
+        <XCircle className="h-3 w-3" /> Failed
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+      <CircleHelp className="h-3 w-3" /> Unknown
+    </span>
+  );
+}
+
+function fmtRelative(iso: string | null): string {
+  if (!iso) return '—';
+  const ms = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
+
+export function MultiKeyTable({
+  keys,
+  loading,
+  actionLoading,
+  onAdd,
+  onReplace,
+  onUpdate,
+  onDelete,
+  onTest,
+  readOnly = false,
+}: MultiKeyTableProps) {
+  const [addOpen, setAddOpen] = useState(false);
+  const [addLabel, setAddLabel] = useState('');
+  const [addValue, setAddValue] = useState('');
+  const [addPriority, setAddPriority] = useState(0);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editPriority, setEditPriority] = useState(0);
+  const [editActive, setEditActive] = useState(true);
+
+  const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [replaceValue, setReplaceValue] = useState('');
+
+  const handleAdd = async () => {
+    if (!addLabel.trim() || !addValue.trim()) return;
+    await onAdd({
+      label: addLabel.trim(),
+      value: addValue,
+      priority: addPriority,
+    });
+    setAddLabel('');
+    setAddValue('');
+    setAddPriority(0);
+    setAddOpen(false);
+  };
+
+  const handleStartEdit = (row: SecretKeyRow) => {
+    setEditingId(row.id);
+    setEditLabel(row.label);
+    setEditPriority(row.priority);
+    setEditActive(row.isActive);
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    await onUpdate(id, {
+      label: editLabel.trim(),
+      priority: editPriority,
+      isActive: editActive,
+    });
+    setEditingId(null);
+  };
+
+  const handleStartReplace = (row: SecretKeyRow) => {
+    setReplacingId(row.id);
+    setReplaceValue('');
+  };
+
+  const handleSaveReplace = async (id: string) => {
+    if (!replaceValue.trim()) return;
+    await onReplace(id, replaceValue);
+    setReplacingId(null);
+    setReplaceValue('');
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-500">
+          {loading
+            ? 'Loading…'
+            : `${keys.length} key${keys.length === 1 ? '' : 's'} configured`}
+        </div>
+        {!readOnly && (
+          <button
+            onClick={() => setAddOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" /> Add Key
+          </button>
+        )}
+      </div>
+
+      {addOpen && !readOnly && (
+        <div className="space-y-2 rounded-md border border-blue-200 bg-blue-50 p-3">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            <input
+              type="text"
+              value={addLabel}
+              onChange={(e) => setAddLabel(e.target.value)}
+              placeholder="label (e.g. backup-1)"
+              className="rounded border px-2 py-1 text-sm"
+            />
+            <input
+              type="password"
+              value={addValue}
+              onChange={(e) => setAddValue(e.target.value)}
+              placeholder="API key value"
+              className="rounded border px-2 py-1 text-sm md:col-span-2"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-600">Priority:</label>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              value={addPriority}
+              onChange={(e) => setAddPriority(parseInt(e.target.value) || 0)}
+              className="w-20 rounded border px-2 py-1 text-sm"
+            />
+            <button
+              onClick={handleAdd}
+              disabled={actionLoading || !addLabel.trim() || !addValue.trim()}
+              className="ml-auto rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => setAddOpen(false)}
+              className="rounded bg-gray-200 px-3 py-1 text-sm text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="overflow-x-auto rounded-md border border-gray-200">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-xs uppercase text-gray-600">
+            <tr>
+              <th className="px-3 py-2 text-left">Label</th>
+              <th className="px-3 py-2 text-left">Value</th>
+              <th className="px-3 py-2 text-left">Priority</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Last Tested</th>
+              {!readOnly && <th className="px-3 py-2 text-right">Actions</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {keys.length === 0 && !loading && (
+              <tr>
+                <td
+                  colSpan={readOnly ? 5 : 6}
+                  className="px-3 py-6 text-center text-gray-400"
+                >
+                  No keys configured.{' '}
+                  {!readOnly && 'Click "Add Key" to add one.'}
+                </td>
+              </tr>
+            )}
+            {keys.map((row) => {
+              const isEditing = editingId === row.id;
+              const isReplacing = replacingId === row.id;
+              return (
+                <tr key={row.id} className="hover:bg-gray-50">
+                  <td className="font-mono px-3 py-2 text-xs">
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editLabel}
+                        onChange={(e) => setEditLabel(e.target.value)}
+                        className="w-32 rounded border px-1 py-0.5 text-sm"
+                      />
+                    ) : (
+                      row.label
+                    )}
+                  </td>
+                  <td className="font-mono px-3 py-2 text-xs text-gray-600">
+                    {isReplacing ? (
+                      <input
+                        type="password"
+                        value={replaceValue}
+                        onChange={(e) => setReplaceValue(e.target.value)}
+                        placeholder="new key value"
+                        className="w-48 rounded border px-1 py-0.5 text-sm"
+                      />
+                    ) : (
+                      (row.keyHint ?? '••••••••')
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        min={0}
+                        max={999}
+                        value={editPriority}
+                        onChange={(e) =>
+                          setEditPriority(parseInt(e.target.value) || 0)
+                        }
+                        className="w-16 rounded border px-1 py-0.5 text-sm"
+                      />
+                    ) : (
+                      row.priority
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <label className="inline-flex items-center gap-1 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={editActive}
+                          onChange={(e) => setEditActive(e.target.checked)}
+                        />
+                        Active
+                      </label>
+                    ) : (
+                      <StatusBadge row={row} />
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-500">
+                    {fmtRelative(row.lastTestedAt)}
+                  </td>
+                  {!readOnly && (
+                    <td className="px-3 py-2 text-right">
+                      {isEditing ? (
+                        <div className="inline-flex gap-1">
+                          <button
+                            onClick={() => handleSaveEdit(row.id)}
+                            disabled={actionLoading}
+                            className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : isReplacing ? (
+                        <div className="inline-flex gap-1">
+                          <button
+                            onClick={() => handleSaveReplace(row.id)}
+                            disabled={actionLoading || !replaceValue.trim()}
+                            className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white disabled:opacity-50"
+                          >
+                            Replace
+                          </button>
+                          <button
+                            onClick={() => setReplacingId(null)}
+                            className="rounded bg-gray-200 px-2 py-0.5 text-xs text-gray-700"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="inline-flex gap-1">
+                          <button
+                            title="Test"
+                            onClick={() => onTest(row.id)}
+                            disabled={actionLoading}
+                            className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            <RefreshCw className="h-4 w-4 text-gray-600" />
+                          </button>
+                          <button
+                            title="Replace value"
+                            onClick={() => handleStartReplace(row)}
+                            disabled={actionLoading}
+                            className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            <RefreshCw className="h-4 w-4 text-blue-600" />
+                          </button>
+                          <button
+                            title="Edit meta"
+                            onClick={() => handleStartEdit(row)}
+                            disabled={actionLoading}
+                            className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            <Edit2 className="h-4 w-4 text-gray-600" />
+                          </button>
+                          <button
+                            title="Delete"
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Delete key "${row.label}"? This cannot be undone.`
+                                )
+                              )
+                                void onDelete(row.id);
+                            }}
+                            disabled={actionLoading}
+                            className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

@@ -24,6 +24,7 @@ import { SecretAccessLogs } from './SecretAccessLogs';
 import { SecretVersions } from './SecretVersions';
 import { SecretValueModal } from './SecretValueModal';
 import { ExpectedSecretsPanel } from './ExpectedSecretsPanel';
+import { SecretKeysDrawer } from './SecretKeysDrawer';
 import type { ExpectedSecretItem } from '@/hooks/domain/useAdminSecrets';
 
 const CATEGORY_OPTIONS: {
@@ -135,6 +136,8 @@ export function SecretsManager({
     name: string;
     displayName: string;
   } | null>(null);
+  // ★ 多 KEY 管理抽屉（点击 Edit 图标触发；与 SecretForm 元信息编辑解耦）
+  const [keysDrawerSecret, setKeysDrawerSecret] = useState<Secret | null>(null);
 
   // Reset editingSecret when modal is closed
   useEffect(() => {
@@ -380,12 +383,9 @@ export function SecretsManager({
                         <History className="h-4 w-4 text-gray-500" />
                       </button>
                       <button
-                        onClick={() => {
-                          setEditingSecret(secret);
-                          setShowAddModal(true);
-                        }}
+                        onClick={() => setKeysDrawerSecret(secret)}
                         className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        title="Edit"
+                        title="Manage Keys"
                       >
                         <Edit className="h-4 w-4 text-gray-500" />
                       </button>
@@ -449,6 +449,12 @@ export function SecretsManager({
           getSecretValue={getSecretValue}
         />
       )}
+
+      {/* 多 KEY 管理抽屉 */}
+      <SecretKeysDrawer
+        secret={keysDrawerSecret}
+        onClose={() => setKeysDrawerSecret(null)}
+      />
     </div>
   );
 }
