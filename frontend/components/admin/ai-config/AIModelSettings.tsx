@@ -119,6 +119,14 @@ interface AIModel {
   priceInputPerMillion?: number;
   priceOutputPerMillion?: number;
   priority?: number;
+  // ★ Structured Output capability matrix (2026-05-06)
+  structuredOutputStrategy?: string | null;
+  fallbackStrategies?: string[];
+  supportsJsonSchemaStrict?: boolean;
+  supportsJsonSchema?: boolean;
+  supportsToolUse?: boolean;
+  supportsJsonMode?: boolean;
+  supportsGbnfGrammar?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -766,6 +774,14 @@ export default function AIModelSettings({
         priority: model.priority,
         // ★ 新增：Secret Manager 引用
         secretKey: model.secretKey,
+        // ★ Structured Output capability matrix (2026-05-06)
+        structuredOutputStrategy: model.structuredOutputStrategy,
+        fallbackStrategies: model.fallbackStrategies,
+        supportsJsonSchemaStrict: model.supportsJsonSchemaStrict,
+        supportsJsonSchema: model.supportsJsonSchema,
+        supportsToolUse: model.supportsToolUse,
+        supportsJsonMode: model.supportsJsonMode,
+        supportsGbnfGrammar: model.supportsGbnfGrammar,
       };
 
       // Only send apiKey if it was changed
@@ -2261,6 +2277,151 @@ function EditModelModal({
                     placeholder="例: 10.00"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
+                </div>
+              </div>
+            </div>
+          </details>
+
+          {/* ★ Structured Output Capability (2026-05-06) */}
+          <details className="rounded-lg border border-violet-200 bg-violet-50">
+            <summary className="cursor-pointer px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-100">
+              Structured Output Capability
+            </summary>
+            <div className="space-y-3 border-t border-violet-200 p-4">
+              {/* Primary strategy */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  主策略 (structuredOutputStrategy)
+                </label>
+                <select
+                  value={formData.structuredOutputStrategy ?? ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      structuredOutputStrategy: e.target.value || null,
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                >
+                  <option value="">auto（按 provider 推断，留空）</option>
+                  <option value="json_schema_strict">
+                    json_schema_strict（OpenAI / xAI strict mode）
+                  </option>
+                  <option value="json_schema">
+                    json_schema（OpenAI / xAI，非 strict）
+                  </option>
+                  <option value="tool_use">
+                    tool_use（Anthropic Tools API）
+                  </option>
+                  <option value="json_mode">
+                    json_mode（response_format: json_object）
+                  </option>
+                  <option value="gemini_response_schema">
+                    gemini_response_schema（Gemini responseSchema）
+                  </option>
+                  <option value="gbnf_grammar">
+                    gbnf_grammar（Llama.cpp / vLLM GBNF）
+                  </option>
+                  <option value="prompt">
+                    prompt（system prompt + post-parse 兜底）
+                  </option>
+                  <option value="none">none（禁用，直返文本）</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  留空则运行时按 provider 自动推断；精确控制请显式选择。
+                </p>
+              </div>
+
+              {/* Fallback strategies */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  降级链 (fallbackStrategies)
+                </label>
+                <input
+                  type="text"
+                  value={(formData.fallbackStrategies ?? []).join(', ')}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      fallbackStrategies: e.target.value
+                        ? e.target.value
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                        : [],
+                    })
+                  }
+                  placeholder="例: json_schema_strict, json_schema, json_mode, prompt"
+                  className="font-mono w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  逗号分隔，主策略失败时按顺序降级尝试。
+                </p>
+              </div>
+
+              {/* Boolean capability flags */}
+              <div>
+                <p className="mb-2 text-xs font-medium text-gray-600">
+                  支持的格式（勾选即表示模型原生支持）
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      [
+                        'supportsJsonSchemaStrict',
+                        'JSON Schema Strict',
+                        'OpenAI / xAI strict mode',
+                      ],
+                      [
+                        'supportsJsonSchema',
+                        'JSON Schema',
+                        'OpenAI / xAI / DeepSeek',
+                      ],
+                      ['supportsToolUse', 'Tool Use', 'Anthropic Tools API'],
+                      [
+                        'supportsJsonMode',
+                        'JSON Mode',
+                        'response_format: json_object',
+                      ],
+                      [
+                        'supportsGbnfGrammar',
+                        'GBNF Grammar',
+                        'Llama.cpp / vLLM',
+                      ],
+                    ] as [
+                      keyof Pick<
+                        typeof formData,
+                        | 'supportsJsonSchemaStrict'
+                        | 'supportsJsonSchema'
+                        | 'supportsToolUse'
+                        | 'supportsJsonMode'
+                        | 'supportsGbnfGrammar'
+                      >,
+                      string,
+                      string,
+                    ][]
+                  ).map(([field, label, hint]) => (
+                    <label
+                      key={field}
+                      className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 p-2 hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData[field] === true}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            [field]: e.target.checked,
+                          })
+                        }
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-violet-600"
+                      />
+                      <span className="flex flex-col">
+                        <span className="text-sm font-medium">{label}</span>
+                        <span className="text-xs text-gray-500">{hint}</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>

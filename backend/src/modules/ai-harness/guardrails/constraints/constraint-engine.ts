@@ -32,16 +32,39 @@ import type {
   DegradationStrategy,
 } from "@/modules/ai-harness/teams/constraints/constraint-engine.interface";
 import { CostController } from "../resources/cost-controller";
+import {
+  ModelPricingRegistry,
+  type ModelTier,
+} from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
+import { Optional } from "@nestjs/common";
 
 /**
- * 模型成本配置（每 1K tokens）
+ * 把 ConstraintEngine 的 ModelPreference 映射到 ModelPricingRegistry 的 ModelTier。
+ *   cheap    ↔ basic
+ *   balanced ↔ standard
+ *   premium  ↔ strong
  */
-const MODEL_COSTS: Record<ModelPreference, { input: number; output: number }> =
-  {
-    cheap: { input: 0.1, output: 0.2 },
-    balanced: { input: 0.5, output: 1.0 },
-    premium: { input: 2.0, output: 4.0 },
-  };
+const PREFERENCE_TO_TIER: Record<ModelPreference, ModelTier> = {
+  cheap: "basic",
+  balanced: "standard",
+  premium: "strong",
+};
+
+/**
+ * 当 ModelPricingRegistry 没注入 / 该 tier 还没注册任何模型时使用的兜底估算
+ * （USD per 1K tokens）。这些数字仅用于"mission 大概多少钱"的事前 ROI 估算，
+ * 不影响真实记账（真实记账走 ModelPricingRegistry → DB ai_models 表）。
+ *
+ * 当 admin 在后台为某 tier 配置了至少一个模型 + price，这里的值不再被使用。
+ */
+const FALLBACK_TIER_COSTS: Record<
+  ModelPreference,
+  { input: number; output: number }
+> = {
+  cheap: { input: 0.1, output: 0.2 },
+  balanced: { input: 0.5, output: 1.0 },
+  premium: { input: 2.0, output: 4.0 },
+};
 
 /**
  * 模型层级映射
@@ -68,7 +91,36 @@ const MODEL_MAPPING: Record<ModelPreference, string> = {
  */
 @Injectable()
 export class ConstraintEngine implements IConstraintEngine {
-  constructor(private readonly costController?: CostController) {}
+  constructor(
+    private readonly costController?: CostController,
+    @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
+  ) {}
+
+  /**
+   * 取该 ModelPreference 对应的 (input, output) per-1K USD 价格。
+   * 优先：ModelPricingRegistry → 该 tier 注册的代表模型 (pickModelForTier) →
+   *       priceInputPerM/1000、priceOutputPerM/1000
+   * 降级：FALLBACK_TIER_COSTS（仅 admin 没配置任何模型时）
+   */
+  private getCostPerKTokens(pref: ModelPreference): {
+    input: number;
+    output: number;
+  } {
+    if (this.pricingRegistry) {
+      const tier = PREFERENCE_TO_TIER[pref];
+      const modelId = this.pricingRegistry.pickModelForTier(tier);
+      if (modelId) {
+        const p = this.pricingRegistry.get(modelId);
+        if (p) {
+          return {
+            input: p.inputPricePerM / 1000,
+            output: p.outputPricePerM / 1000,
+          };
+        }
+      }
+    }
+    return FALLBACK_TIER_COSTS[pref];
+  }
 
   /**
    * 记录成本（委托给 CostController）
@@ -349,7 +401,7 @@ export class ConstraintEngine implements IConstraintEngine {
     constraints: ConstraintProfile,
   ): CostEstimate {
     const modelTier = constraints.cost.modelPreference;
-    const costs = MODEL_COSTS[modelTier];
+    const costs = this.getCostPerKTokens(modelTier);
 
     // 假设输入输出 token 比例为 3:1
     const inputTokens = requirements.estimatedTokens * 0.75;
@@ -758,7 +810,7 @@ export class ConstraintEngine implements IConstraintEngine {
    * 计算指定模型的成本
    */
   private estimateCostForModel(tokens: number, tier: ModelPreference): number {
-    const costs = MODEL_COSTS[tier];
+    const costs = this.getCostPerKTokens(tier);
     const inputTokens = tokens * 0.75;
     const outputTokens = tokens * 0.25;
     return (
@@ -770,7 +822,7 @@ export class ConstraintEngine implements IConstraintEngine {
    * 计算最大 Token 数
    */
   private calculateMaxTokens(budget: number, tier: ModelPreference): number {
-    const costs = MODEL_COSTS[tier];
+    const costs = this.getCostPerKTokens(tier);
     const avgCostPer1K = costs.input * 0.75 + costs.output * 0.25;
     return Math.floor((budget / avgCostPer1K) * 1000);
   }

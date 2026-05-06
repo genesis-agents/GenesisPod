@@ -15,6 +15,9 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { z } from "zod";
 import { ModelPricingRegistry } from "../../../ai-engine/llm/pricing/model-pricing.registry";
+import { StructuredOutputRouter } from "../../../ai-engine/llm/structured-output/structured-output-router.service";
+import type { StructuredOutputStrategy } from "../../../ai-engine/llm/structured-output/structured-output-strategy.types";
+import { AiModelConfigService } from "../../../ai-engine/llm/services/ai-model-config.service";
 // ★ 直接相对路径导入，绕开 facade barrel。
 // 原因：facade/index.ts 是 L3 AI App 的单向入口；L2 harness 内部代码
 // 若也从 facade 导入，会触发 barrel → 众多子模块 → harness 的回环加载，
@@ -174,7 +177,64 @@ export class LlmExecutor {
   constructor(
     private readonly aiChatService: AiChatService,
     @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
+    @Optional() private readonly outputRouter?: StructuredOutputRouter,
+    @Optional() private readonly modelConfigService?: AiModelConfigService,
   ) {}
+
+  /**
+   * 解析 model 应使用的 structured-output strategy 链。
+   * 缺 router/modelConfigService 时返 ['prompt']（最低兜底）。
+   */
+  private async resolveOutputStrategyChain(
+    modelId: string | undefined,
+  ): Promise<readonly StructuredOutputStrategy[]> {
+    if (!modelId || !this.outputRouter) return ["prompt"];
+    try {
+      const cfg = this.modelConfigService
+        ? await this.modelConfigService.getModelConfig(modelId)
+        : null;
+      return this.outputRouter.resolveChain({
+        provider: cfg?.provider ?? modelId,
+        modelId: cfg?.modelId ?? modelId,
+        structuredOutputStrategy: cfg?.structuredOutputStrategy ?? null,
+        fallbackStrategies: cfg?.fallbackStrategies ?? [],
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[resolveOutputStrategyChain] modelId="${modelId}" failed: ${
+          err instanceof Error ? err.message : String(err)
+        } — falling back to ['prompt']`,
+      );
+      return ["prompt"];
+    }
+  }
+
+  /**
+   * 把 strategy 对应的"格式约束 hint" 注入 system prompt（最小侵入接入）。
+   * 后续 PR 把 strategy 真正推到 chat options 让 OpenAI/Anthropic native API 生效。
+   */
+  private buildStrategySystemAddon(
+    strategy: StructuredOutputStrategy,
+    hasSchema: boolean,
+  ): string {
+    if (!hasSchema) return "";
+    switch (strategy) {
+      case "prompt":
+        return "\n\n[CRITICAL OUTPUT FORMAT] You MUST output ONLY a valid JSON object that matches the schema described above. No prose, no markdown wrapper. Return the JSON object directly.";
+      case "json_mode":
+        return "\n\nReturn ONLY a valid JSON object. No prose, no markdown.";
+      case "tool_use":
+        return "\n\nIMPORTANT: Return your output as a JSON object only. No prose.";
+      case "gbnf_grammar":
+        return "\n\nOutput a JSON object only. No prose, no markdown.";
+      case "json_schema_strict":
+      case "json_schema":
+      case "gemini_response_schema":
+      case "none":
+      default:
+        return "";
+    }
+  }
 
   /**
    * 执行一次"prompt → LLM → JSON → Zod → business-rule 校验 → 产出 TOutput"。
@@ -237,6 +297,10 @@ export class LlmExecutor {
     let totalCost = 0;
     let lastModel = "";
 
+    // ★ 2026-05-06 接入 StructuredOutputRouter：按 model capability 拿 strategy
+    //   chain；每次 retry 切下一个 strategy，注入对应 system-prompt hint。
+    const strategyChain = await this.resolveOutputStrategyChain(input.model);
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       if (input.signal?.aborted) {
         throw new DOMException(
@@ -244,6 +308,13 @@ export class LlmExecutor {
           "AbortError",
         );
       }
+
+      const currentStrategy: StructuredOutputStrategy =
+        strategyChain[Math.min(attempt, strategyChain.length - 1)];
+      const strategyAddon = this.buildStrategySystemAddon(
+        currentStrategy,
+        Boolean(input.outputSchema),
+      );
 
       const userPrompt =
         attempt === 0
@@ -260,7 +331,7 @@ export class LlmExecutor {
       let res;
       try {
         res = await this.aiChatService.chat({
-          systemPrompt: input.systemPrompt,
+          systemPrompt: input.systemPrompt + strategyAddon,
           messages: [{ role: "user", content: userPrompt }],
           // Election 选出的 modelId（SpecBasedAgent 已完成环境感知选举）
           model: input.model,

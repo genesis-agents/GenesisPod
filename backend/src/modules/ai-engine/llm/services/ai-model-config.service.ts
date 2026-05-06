@@ -212,6 +212,17 @@ export interface AIModelConfig {
   priceInputPerMillion?: number; // 输入价格
   priceOutputPerMillion?: number; // 输出价格
   priority?: number; // 模型优先级
+
+  // ★ 2026-05-06 Structured Output capability matrix
+  // 由 StructuredOutputRouter.resolveChain(model) 消费，未配置时按 provider slug
+  // 自动推断默认链。详见 ai-engine/llm/structured-output/。
+  structuredOutputStrategy?: string | null;
+  fallbackStrategies?: string[];
+  supportsJsonSchemaStrict?: boolean;
+  supportsJsonSchema?: boolean;
+  supportsToolUse?: boolean;
+  supportsJsonMode?: boolean;
+  supportsGbnfGrammar?: boolean;
 }
 
 /**
@@ -419,6 +430,22 @@ export class AiModelConfigService {
         ? Number(model.priceOutputPerMillion)
         : undefined,
       priority: (model.priority as number | undefined) ?? 50,
+
+      // ★ 2026-05-06 Structured Output capability matrix
+      structuredOutputStrategy:
+        (model.structuredOutputStrategy as string | null | undefined) ?? null,
+      fallbackStrategies: Array.isArray(model.fallbackStrategies)
+        ? (model.fallbackStrategies as string[])
+        : [],
+      supportsJsonSchemaStrict:
+        (model.supportsJsonSchemaStrict as boolean | undefined) ?? false,
+      supportsJsonSchema:
+        (model.supportsJsonSchema as boolean | undefined) ?? false,
+      supportsToolUse: (model.supportsToolUse as boolean | undefined) ?? false,
+      supportsJsonMode:
+        (model.supportsJsonMode as boolean | undefined) ?? false,
+      supportsGbnfGrammar:
+        (model.supportsGbnfGrammar as boolean | undefined) ?? false,
     };
   }
 

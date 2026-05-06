@@ -467,6 +467,14 @@ export class AdminController {
       priceInputPerMillion?: number;
       priceOutputPerMillion?: number;
       priority?: number;
+      // ★ Structured Output capability matrix (2026-05-06)
+      structuredOutputStrategy?: string | null;
+      fallbackStrategies?: string[];
+      supportsJsonSchemaStrict?: boolean;
+      supportsJsonSchema?: boolean;
+      supportsToolUse?: boolean;
+      supportsJsonMode?: boolean;
+      supportsGbnfGrammar?: boolean;
     },
   ) {
     this.logger.log(`Admin: Updating AI model ${id}, type=${body.modelType}`);
@@ -2375,4 +2383,3 @@ export class AdminController {
     );
   }
 }
-

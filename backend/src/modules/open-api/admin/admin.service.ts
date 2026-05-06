@@ -685,6 +685,14 @@ export class AdminService {
       priceInputPerMillion?: number;
       priceOutputPerMillion?: number;
       priority?: number;
+      // ★ Structured Output capability matrix (2026-05-06)
+      structuredOutputStrategy?: string | null;
+      fallbackStrategies?: string[];
+      supportsJsonSchemaStrict?: boolean;
+      supportsJsonSchema?: boolean;
+      supportsToolUse?: boolean;
+      supportsJsonMode?: boolean;
+      supportsGbnfGrammar?: boolean;
     },
   ) {
     const model = await this.prisma.aIModel.findUnique({
@@ -756,6 +764,14 @@ export class AdminService {
         priceInputPerMillion: data.priceInputPerMillion,
         priceOutputPerMillion: data.priceOutputPerMillion,
         priority: data.priority,
+        // ★ Structured Output capability matrix (2026-05-06)
+        structuredOutputStrategy: data.structuredOutputStrategy,
+        fallbackStrategies: data.fallbackStrategies,
+        supportsJsonSchemaStrict: data.supportsJsonSchemaStrict,
+        supportsJsonSchema: data.supportsJsonSchema,
+        supportsToolUse: data.supportsToolUse,
+        supportsJsonMode: data.supportsJsonMode,
+        supportsGbnfGrammar: data.supportsGbnfGrammar,
       },
     });
 
