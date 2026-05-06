@@ -258,6 +258,52 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     this.log.log(
       `[playground-pipeline] registered "${PLAYGROUND_PIPELINE.id}" (14 step / ALL WIRED ★ 试用就绪)`,
     );
+    // ★ 2026-05-06 #88: pod restart 后扫 orphan running missions（hb_age > 5min
+    //   = pod 失联标志），立即 mark failed 不让用户等 15min Liveness Guard。
+    //   Liveness Guard 仍在跑作为兜底（处理 boot 后才死的 mission）。
+    void this.cleanupOrphanRunningMissions();
+  }
+
+  /**
+   * #88 (2026-05-06): pod restart 时 dispatcher 内存丢失所有 active session，
+   * 但 DB 上 status='running' 不会自动改。本方法在 onModuleInit 扫描所有
+   * heartbeat 已停 5+ min 的 'running' mission，立即 mark failed 并 emit
+   * mission:failed event，用户体验从"等 15 min" → "boot 后 1s 即失败提示"。
+   */
+  private async cleanupOrphanRunningMissions(): Promise<void> {
+    try {
+      const orphanThresholdMs = 5 * 60 * 1000; // 5 min
+      const orphans =
+        await this.store.cleanupOrphanRunningMissions?.(orphanThresholdMs);
+      if (!orphans || orphans.length === 0) {
+        this.log.log("[#88 orphan-cleanup] no orphan running missions found");
+        return;
+      }
+      this.log.warn(
+        `[#88 orphan-cleanup] cleaned ${orphans.length} orphan running missions ` +
+          `(heartbeat > ${Math.round(orphanThresholdMs / 60000)}min stale)`,
+      );
+      for (const o of orphans) {
+        await this.missionEventBuffer
+          .broadcast({
+            type: "agent-playground.mission:failed",
+            scope: { missionId: o.id, userId: o.userId },
+            payload: {
+              message:
+                "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
+                "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
+              failureCode: "DISPATCHER_BOOT_ORPHAN_CLEANUP",
+              source: "dispatcher-boot-orphan-cleanup",
+            },
+            timestamp: Date.now(),
+          })
+          .catch(() => undefined);
+      }
+    } catch (err) {
+      this.log.error(
+        `[#88 orphan-cleanup] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   /** spec / hook 闭包用：取出指定 missionId 的活动 session（不存在抛错）*/

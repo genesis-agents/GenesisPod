@@ -146,6 +146,54 @@ export class MissionStore {
   }
 
   /**
+   * ★ #88 (2026-05-06): pod restart 时 dispatcher 内存丢失所有 active session，
+   * 但 DB status='running' 不会自动改。本方法扫所有 heartbeat 已停 ≥ thresholdMs
+   * 的 'running' mission，主动 mark failed，让用户立即看到状态而非等 15 min
+   * Liveness Guard 兜底。
+   *
+   * 返回被清理的 mission 列表（id + userId），让 dispatcher 可以 emit mission:failed event。
+   *
+   * 静默吞 catch — cleanup 失败不能阻断 dispatcher boot。
+   */
+  async cleanupOrphanRunningMissions(
+    thresholdMs: number,
+  ): Promise<{ id: string; userId: string }[]> {
+    try {
+      const cutoff = new Date(Date.now() - thresholdMs);
+      // 找 orphan: status='running' 且 heartbeatAt < cutoff
+      const orphans = await this.prisma.agentPlaygroundMission.findMany({
+        where: {
+          status: "running",
+          heartbeatAt: { lt: cutoff },
+        },
+        select: { id: true, userId: true },
+        take: 200,
+      });
+      if (orphans.length === 0) return [];
+      // 批量 mark failed（updateMany 防误改 status='completed' 的 race）
+      await this.prisma.agentPlaygroundMission.updateMany({
+        where: {
+          id: { in: orphans.map((o) => o.id) },
+          status: "running",
+        },
+        data: {
+          status: "failed",
+          completedAt: new Date(),
+          errorMessage:
+            "Mission 在执行中遇到后端重启或异常退出（dispatcher 内存丢失）。" +
+            "已自动标记为失败，建议使用顶部「重新运行」按钮重启相同主题。",
+        },
+      });
+      return orphans;
+    } catch (err) {
+      this.log.error(
+        `[#88 cleanupOrphanRunningMissions] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return [];
+    }
+  }
+
+  /**
    * ★ PR-H v1: stage 完成进度（单调递增）
    *
    * 每个 stage 完成后调用，写 last_completed_stage 字段。
