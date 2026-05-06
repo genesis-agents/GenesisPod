@@ -306,6 +306,189 @@ describe("SecretsService", () => {
     });
   });
 
+  // ==================== getValueInternal — multi-key delegation ====================
+
+  describe("getValueInternal - multi-key delegation (P3)", () => {
+    it("delegates to SecretKeysService.getSecretKey when injected", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { getSecretKey: jest.Mock };
+        }
+      ).secretKeys;
+      sk.getSecretKey.mockResolvedValue({
+        value: "resolved-via-multi-key",
+        keyId: "sk-1",
+        label: "primary",
+      });
+      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+        id: "secret-1",
+      });
+
+      const value = await service.getValueInternal("test-api-key");
+
+      expect(value).toBe("resolved-via-multi-key");
+      expect(sk.getSecretKey).toHaveBeenCalledWith("test-api-key");
+    });
+
+    it("falls back to legacy path when multi-key returns null", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { getSecretKey: jest.Mock };
+        }
+      ).secretKeys;
+      sk.getSecretKey.mockResolvedValue(null);
+
+      // create real secret so we have valid encrypted blob to decrypt
+      (mockPrisma.secret!.create as jest.Mock).mockResolvedValue(makeSecret());
+      await service.create({
+        name: "legacy-key",
+        displayName: "Legacy",
+        value: "legacy-value",
+        category: SecretCategory.AI_MODEL,
+      });
+      const createCall = (mockPrisma.secret!.create as jest.Mock).mock
+        .calls[0][0];
+      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(
+        makeSecret({
+          encryptedValue: createCall.data.encryptedValue,
+          iv: createCall.data.iv,
+        }),
+      );
+
+      const value = await service.getValueInternal("legacy-key");
+
+      expect(value).toBe("legacy-value");
+      expect(sk.getSecretKey).toHaveBeenCalled();
+    });
+  });
+
+  describe("markSecretSuccess / markSecretFailure", () => {
+    it("calls SecretKeysService.markSuccess when keyId resolved", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { getSecretKey: jest.Mock; markSuccess: jest.Mock };
+        }
+      ).secretKeys;
+      sk.getSecretKey.mockResolvedValue({
+        value: "v",
+        keyId: "sk-42",
+        label: "primary",
+      });
+
+      await service.markSecretSuccess("test-api-key");
+
+      expect(sk.markSuccess).toHaveBeenCalledWith("sk-42");
+    });
+
+    it("no-ops when SecretKey resolution returns null keyId (legacy fallback)", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { getSecretKey: jest.Mock; markFailure: jest.Mock };
+        }
+      ).secretKeys;
+      sk.getSecretKey.mockResolvedValue({
+        value: "v",
+        keyId: null,
+        label: "(legacy)",
+      });
+
+      await service.markSecretFailure("test-api-key", "rate limited");
+
+      expect(sk.markFailure).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("create / update - dual-write to secret_keys", () => {
+    it("create() mirrors initial value as 'primary' SecretKey", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { addKey: jest.Mock };
+        }
+      ).secretKeys;
+      (mockPrisma.secret!.create as jest.Mock).mockResolvedValue(makeSecret());
+
+      await service.create({
+        name: "new-key",
+        displayName: "New",
+        value: "sk-fresh-value",
+        category: SecretCategory.AI_MODEL,
+      });
+
+      expect(sk.addKey).toHaveBeenCalledWith(
+        "secret-1",
+        expect.objectContaining({
+          label: "primary",
+          value: "sk-fresh-value",
+          priority: 0,
+        }),
+        undefined,
+      );
+    });
+
+    it("update() with new value replaces existing 'primary' SecretKey", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { replaceKeyValue: jest.Mock };
+        }
+      ).secretKeys;
+      const existing = makeSecret();
+      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secretKey!.findUnique as jest.Mock).mockResolvedValue({
+        id: "sk-primary-1",
+      });
+
+      await service.update("test-api-key", { value: "rotated-value" });
+
+      expect(sk.replaceKeyValue).toHaveBeenCalledWith(
+        "sk-primary-1",
+        { value: "rotated-value" },
+        undefined,
+      );
+    });
+
+    it("update() adds 'primary' SecretKey when none exists yet", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { addKey: jest.Mock };
+        }
+      ).secretKeys;
+      const existing = makeSecret();
+      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secret!.update as jest.Mock).mockResolvedValue(existing);
+      (mockPrisma.secretKey!.findUnique as jest.Mock).mockResolvedValue(null);
+
+      await service.update("test-api-key", { value: "rotated-value" });
+
+      expect(sk.addKey).toHaveBeenCalledWith(
+        existing.id,
+        expect.objectContaining({ label: "primary", value: "rotated-value" }),
+        undefined,
+      );
+    });
+
+    it("dual-write failure is logged but does not break create()", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { addKey: jest.Mock };
+        }
+      ).secretKeys;
+      sk.addKey.mockRejectedValueOnce(new Error("simulated"));
+      (mockPrisma.secret!.create as jest.Mock).mockResolvedValue(makeSecret());
+
+      const result = await service.create({
+        name: "tolerant-key",
+        displayName: "Tolerant",
+        value: "v",
+        category: SecretCategory.AI_MODEL,
+      });
+
+      expect(result.name).toBe("test-api-key");
+      // primary log still emitted
+      expect(mockPrisma.secretAccessLog!.create).toHaveBeenCalled();
+    });
+  });
+
   // ==================== findAll ====================
 
   describe("findAll", () => {
