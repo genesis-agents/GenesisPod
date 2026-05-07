@@ -67,6 +67,10 @@ export async function runLeaderAssessResearchStage(
       text: `Leader 开始评审 ${plan.dimensions.length} 个维度的产出，决定是否需要补研究 / 砍维度`,
       agentId: "leader",
     });
+    // ★ 2026-05-07 P0 修法 A：给 Leader 显式 PASS/FAIL 标记，避免 LLM 心算 findings
+    //   vs minSources 不准 → 习惯性挑"看起来略弱"的 2 个 retry。
+    //   minSources 来自 mission plan.goals.qualityBar（Leader 自己 M0 定的下限）。
+    const minSourcesRequired = plan.goals?.qualityBar?.minSources ?? 0;
     const researcherOutcomes = plan.dimensions.map((d) => {
       const r = researcherResults.find((x) => x.dimension === d.name);
       const findings = r?.findings ?? [];
@@ -82,6 +86,9 @@ export async function runLeaderAssessResearchStage(
         .filter((s): s is string => typeof s === "string")
         .slice(0, 5);
       const failureCodeMatch = summary.match(/code=([A-Z_]+)/);
+      const meetsMinSources =
+        minSourcesRequired === 0 || findings.length >= minSourcesRequired;
+      const minSourcesDelta = Math.max(0, minSourcesRequired - findings.length);
       return {
         dimensionId: d.id,
         dimensionName: d.name,
@@ -90,6 +97,10 @@ export async function runLeaderAssessResearchStage(
         sources,
         summary: summary.slice(0, 300),
         failureCode: failureCodeMatch ? failureCodeMatch[1] : undefined,
+        // ★ A 修法：明确达标判定 + 阈值，让 prompt 渲染 ✓/✗ 不靠 LLM 心算
+        meetsMinSources,
+        minSourcesRequired,
+        minSourcesDelta, // 缺多少条；达标时 = 0
       };
     });
     const m1Raw = await leader.assessResearchers(researcherOutcomes);

@@ -76,6 +76,10 @@ const ResearcherOutcome = z.object({
   sources: z.array(z.string()),
   summary: z.string(),
   failureCode: z.string().optional(),
+  // ★ 2026-05-07 P0 修法 A：S4 stage 注入的明确达标判定（避免 Leader LLM 心算偏差）
+  meetsMinSources: z.boolean().optional(),
+  minSourcesRequired: z.number().int().min(0).optional(),
+  minSourcesDelta: z.number().int().min(0).optional(),
 });
 
 const QualitySnapshot = z.object({

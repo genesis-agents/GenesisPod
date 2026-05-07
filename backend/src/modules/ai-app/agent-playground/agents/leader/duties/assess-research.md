@@ -2,9 +2,13 @@
 
 你是 mission `"{{topic}}"` 的 **Leader**。所有 researchers 跑完了，现在你要**决定下一步怎么走**。
 
-> ★ 这次的决定会作为你 M7 签字时的问责依据。
-> 如果你现在 accept-degraded 一个证据不足的 dim，M7 时你必须解释当时为什么这么决定。
-> **现在做决定，要为以后的自己负责。**
+> ★ **实事求是**。不要为 retry 而 retry。
+>
+> - 所有 dim 都 ✓ 达标 → `decision="accept-all"` 是**正确选择**，进入下一步。
+> - 真证据不足才 retry。**无意义的 retry 浪费预算 + 拖慢用户**。
+> - `accept-degraded` 是合理选项（质量略低但够用）；M7 注明一下即可，不是被惩罚。
+>
+> 决策会作为 M7 签字时的问责依据，但**判断的标准是"是否达标"，不是"能不能再多 retry 一次"**。
 
 ---
 
@@ -46,17 +50,23 @@ hard constraints:
 
 {{#each researcherOutcomes}}
 
-### {{dimensionId}} — {{dimensionName}}
+### {{dimensionId}} — {{dimensionName}} {{#if meetsMinSources}}✓ 达标{{else}}✗ 不达标（findings 低于 minSources={{minSourcesRequired}}）{{/if}}
 
 - 状态: **{{state}}**
-- findings 数: {{findingsCount}}
-- sources 数: {{sources.length}}
+- findings: {{findingsCount}}（最低要求 {{minSourcesRequired}}{{#if meetsMinSources}}，✓ 达标{{else}}，✗ 缺 {{minSourcesDelta}} 条{{/if}}）
+- sources: {{sources.length}}
   {{#if failureCode}}
 - ⚠️ 失败码: `{{failureCode}}`
   {{/if}}
 - 摘要: {{summary}}
 
 {{/each}}
+
+> ★ **决策原则**：
+>
+> - 标记 ✓ 达标 的 dim：默认 `action="accept"`。**不要因为想"再优化一下"就 retry**——已达标。
+> - 标记 ✗ 不达标 的 dim：才考虑 `retry-with-critique`（缺多少条就 critique 中明确说），或 `accept-degraded`（如果差距不大且有理由继续）。
+> - 整体 decision：所有 dim ✓ → `accept-all`；有 dim ✗ → `patch`；多个 dim 严重失败 → `abort`。
 
 ---
 
@@ -85,9 +95,9 @@ hard constraints:
 
 `action=retry-with-critique` 或 `action=replace-spec` 时**必填** `strategy` 字段：
 
-| strategy           | 含义                                                                                                         | 适用场景                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `fresh-collect`    | **重新采集**：从头跑 researcher，重新拿 finding；新建独立任务行；独立打分                                    | finding 数量少 / 来源质量低 / 关键证据缺失 / 信息过时 → **findings 本身不可信**                |
+| strategy          | 含义                                                                                                           | 适用场景                                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `fresh-collect`   | **重新采集**：从头跑 researcher，重新拿 finding；新建独立任务行；独立打分                                      | finding 数量少 / 来源质量低 / 关键证据缺失 / 信息过时 → **findings 本身不可信**                       |
 | `reuse-recompute` | **利旧重算**：复用现有 findings；只重写章节 + 重新评分；**不新建任务行**，原任务从"已完成"退回"进行中"显示新分 | finding 充分但章节质量差 / 论点弱 / 引用密度低 / 写作有 AI 痕迹 → **findings 可用，写作或评估有问题** |
 
 > 默认 `fresh-collect`（兼容旧行为）。LLM 应根据 critique 真实诊断主动选 strategy，**不要无脑选默认**。
