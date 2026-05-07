@@ -339,7 +339,6 @@ export {
 
 // ★ PR-A0 (2026-05-06 v1.4 报告装配重构):
 //   ReportSegments / ReportTemplate Slot 抽象 + 默认模板 + 不变量辅助函数
-//   PR-A2 实现 StructuralReportAssembler 时复用本套 DTO
 export {
   MULTI_DIMENSION_REPORT_TEMPLATE,
   SINGLE_AGENT_FREEFORM_TEMPLATE,
@@ -351,6 +350,15 @@ export type {
   ReportTemplateSlot,
   SlotBodySource,
 } from "../evaluation/critique/report-artifact/report-segments.dto";
+
+// ★ PR-A2 (2026-05-06 v1.4 报告装配重构):
+//   StructuralReportAssembler — 接收 ReportSegments → 拼装 ReportArtifact
+//   stateless / 0 LLM call / offset 一次性确定 / template-aware
+export {
+  StructuralReportAssembler,
+  defaultStructuralReportAssembler,
+  assembleStructuralReport,
+} from "../evaluation/critique/report-artifact/structural-report-assembler.service";
 
 // ★ 2026-05-01: FailureLearnerService 从 ai-app/{app} 上提
 // ★ 2026-05-02 (W1 MECE): governance/learning → lifecycle/learning（失败学习是生命周期闭环）
