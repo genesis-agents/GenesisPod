@@ -21,14 +21,23 @@ echo "[0a/5] god-class size guard..."
 GOD_CLASS_THRESHOLD=2500
 GOD_CLASS_MAX_GROWTH=50
 VIOLATIONS=""
+# rename 映射：new_path -> old_path（>=70% 相似度才算 rename，纯重命名 R100，结构整理仍 R09x）
+RENAME_MAP=$(git diff --find-renames=70% --name-status origin/main HEAD -- '*.ts' '*.tsx' 2>/dev/null | awk '$1 ~ /^R/ {print $3"|"$2}')
 for f in $(git diff --name-only origin/main HEAD -- '*.ts' '*.tsx' 2>/dev/null); do
     [ -f "$f" ] || continue
     cur=$(wc -l < "$f" 2>/dev/null | tr -d ' ')
     [ -n "$cur" ] || continue
     if [ "$cur" -gt "$GOD_CLASS_THRESHOLD" ]; then
-        # 取 origin/main 该文件的行数（不存在视为 0 = 新文件）
+        # 取 origin/main 该文件的行数（不存在 = 新文件 / rename target → 用 rename 源文件行数）
         prev=$(git show "origin/main:$f" 2>/dev/null | wc -l | tr -d ' ')
         prev=${prev:-0}
+        if [ "$prev" = "0" ]; then
+            old_path=$(echo "$RENAME_MAP" | grep "^$f|" | head -1 | cut -d'|' -f2)
+            if [ -n "$old_path" ]; then
+                prev=$(git show "origin/main:$old_path" 2>/dev/null | wc -l | tr -d ' ')
+                prev=${prev:-0}
+            fi
+        fi
         delta=$((cur - prev))
         if [ "$delta" -gt "$GOD_CLASS_MAX_GROWTH" ]; then
             VIOLATIONS="$VIOLATIONS  $f: $prev → $cur (+$delta, 超 ${GOD_CLASS_MAX_GROWTH} 行容差)\n"
