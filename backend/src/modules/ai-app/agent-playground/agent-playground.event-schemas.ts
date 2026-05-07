@@ -166,6 +166,15 @@ export type MissionRerunFailedPayload = z.infer<
   typeof MissionRerunFailedSchema
 >;
 
+// PR-R3 (2026-05-07 per-task rerun + cascade): mission failed/quality-failed → running 反向状态机审计
+export const MissionReopenedSchema = z
+  .object({
+    triggeredBy: z.string().optional(),
+    ts: z.number().optional(),
+  })
+  .passthrough();
+export type MissionReopenedPayload = z.infer<typeof MissionReopenedSchema>;
+
 // ─────────── stage:started ───────────
 // prod: { count, stage, dimensions: string[] }
 export const StageStartedSchema = z
