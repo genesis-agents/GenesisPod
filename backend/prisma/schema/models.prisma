@@ -9414,6 +9414,11 @@ model AgentPlaygroundMission {
   /// Leader 自评的 verdict，与 quality.finalVerdict 独立（前者由 Lead 决定，后者由 Writer 评分器算）
   leaderVerdict      String?  @map("leader_verdict") @db.VarChar(20)
 
+  /// ★ PR-R0 (2026-05-07 per-task rerun + cascade)：S6 analyst 输出主动持久化（cascade rerun ctx 还原用）
+  analystOutput      Json?    @map("analyst_output")
+  /// ★ PR-R0 (2026-05-07 per-task rerun + cascade)：S7 writer outline 输出主动持久化（cascade rerun ctx 还原用）
+  outlinePlan        Json?    @map("outline_plan")
+
   /// Leader 对话历史（点击 Leader 节点弹出聊天框）
   leaderChats     AgentPlaygroundLeaderChat[]
   /// ★ P0-D 完整版 (2026-05-06): trajectory 持久化关系
@@ -9421,6 +9426,8 @@ model AgentPlaygroundMission {
   chapterDrafts   AgentPlaygroundChapterDraft[]
   /// ★ 报告版本化（rerun 产生新版本而不覆盖旧版本）
   reportVersions  MissionReportVersion[]
+  /// ★ PR-R0 (per-task rerun + cascade)：单 stage 重跑频次记录（24h × 5 次/mission+stepId 防滥用）
+  rerunAttempts   AgentPlaygroundRerunAttempt[]
 
   /// ★ PR-H v1 (2026-05-01): pod-aware mission lifecycle —— pod 重启检测 + 后续 resume 接续
   /// lastCompletedStage: 0~12（S0~S12）；null = 还没完成 S1
@@ -9437,6 +9444,22 @@ model AgentPlaygroundMission {
   @@index([status])
   @@index([status, heartbeatAt]) // PR-H: pod recovery 扫描
   @@map("agent_playground_missions")
+}
+
+/// PR-R0 (2026-05-07 per-task rerun + cascade)：单 stage 重跑尝试记录
+/// 用途：24h 内 mission+stepId 重跑次数限制（≤ 5 次防滥用）
+/// 清理：cron job 每天清 7 天前的行（不影响 24h 频次窗口）
+model AgentPlaygroundRerunAttempt {
+  id          String                 @id @default(uuid())
+  missionId   String                 @map("mission_id")
+  mission     AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  userId      String                 @map("user_id")
+  stepId      String                 @map("step_id") @db.VarChar(120)
+  triggeredAt DateTime               @default(now()) @map("triggered_at")
+
+  @@index([missionId, stepId, triggeredAt(sort: Desc)])
+  @@index([userId, triggeredAt(sort: Desc)])
+  @@map("agent_playground_rerun_attempts")
 }
 
 /// agent-playground mission 的事件流持久化
