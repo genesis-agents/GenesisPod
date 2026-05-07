@@ -6,8 +6,10 @@
  */
 
 import {
+  BadRequestException,
   Injectable,
   Logger,
+  NotFoundException,
   Optional,
   PayloadTooLargeException,
 } from "@nestjs/common";
@@ -905,6 +907,206 @@ export class MissionStore {
       .catch((err: unknown) => {
         this.log.warn(
           `[markRerunPatch ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  // ── ★ PR-R3 (2026-05-07 per-task rerun + cascade) ──────────────────────
+  //
+  // 上游：docs/architecture/ai-harness/runner/per-task-rerun-with-cascade.md v1.2 §3.5
+  //
+  // 三个新方法：
+  //   - markIntermediateState：stage 中间产物落盘（任何 status 都允许）
+  //   - markReopened：failed/quality-failed → running（乐观锁防 TOCTOU）
+  //   - resetFields：cascade 起点前 reset 列（防 stale 残留）
+
+  /**
+   * v1.2 类别 A1：stage 中间产物落盘，不动 status。
+   *
+   * 任何 stage 都可调用，让 ctx-hydrator 永远从 DB 读到最新中间状态。
+   * 与 markRerunPatch 的区别：本方法不限定 rerun 路径，正常 mission 跑期 + 重跑期都可用。
+   *
+   * 典型用例：
+   *   - S6 analyst 输出后调 markIntermediateState({ analystOutput, ... })
+   *   - S7 outline 输出后调 markIntermediateState({ outlinePlan, ... })
+   *   - S8 writer 装配 reportArtifact 后调 markIntermediateState({ reportFull, reportArtifactVersion: 2 })
+   */
+  async markIntermediateState(
+    id: string,
+    patch: {
+      reportFull?: unknown;
+      reportArtifactVersion?: number;
+      outlinePlan?: unknown;
+      analystOutput?: unknown;
+      verdicts?: unknown;
+      reconciliationReport?: unknown;
+      dimensions?: unknown;
+      themeSummary?: string;
+      leaderJournal?: unknown;
+      leaderSigned?: boolean;
+      leaderOverallScore?: number;
+      leaderVerdict?: string;
+      lastCompletedStage?: number;
+    },
+  ): Promise<void> {
+    const update: Prisma.AgentPlaygroundMissionUpdateInput = {
+      heartbeatAt: new Date(),
+    };
+    if (patch.reportFull !== undefined)
+      update.reportFull = (patch.reportFull ?? null) as Prisma.InputJsonValue;
+    if (patch.reportArtifactVersion !== undefined)
+      update.reportArtifactVersion = patch.reportArtifactVersion;
+    if (patch.outlinePlan !== undefined)
+      update.outlinePlan = (patch.outlinePlan ?? null) as Prisma.InputJsonValue;
+    if (patch.analystOutput !== undefined)
+      update.analystOutput = (patch.analystOutput ??
+        null) as Prisma.InputJsonValue;
+    if (patch.verdicts !== undefined)
+      update.verdicts = (patch.verdicts ?? null) as Prisma.InputJsonValue;
+    if (patch.reconciliationReport !== undefined)
+      update.reconciliationReport = (patch.reconciliationReport ??
+        null) as Prisma.InputJsonValue;
+    if (patch.dimensions !== undefined)
+      update.dimensions = (patch.dimensions ?? null) as Prisma.InputJsonValue;
+    if (patch.themeSummary !== undefined)
+      update.themeSummary = patch.themeSummary;
+    if (patch.leaderJournal !== undefined)
+      update.leaderJournal = (patch.leaderJournal ??
+        null) as Prisma.InputJsonValue;
+    if (patch.leaderSigned !== undefined)
+      update.leaderSigned = patch.leaderSigned;
+    if (patch.leaderOverallScore !== undefined)
+      update.leaderOverallScore = patch.leaderOverallScore;
+    if (patch.leaderVerdict !== undefined)
+      update.leaderVerdict = patch.leaderVerdict;
+    if (patch.lastCompletedStage !== undefined)
+      update.lastCompletedStage = patch.lastCompletedStage;
+    await this.prisma.agentPlaygroundMission
+      .update({ where: { id }, data: update })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[markIntermediateState ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /**
+   * v1.2 类别 B+E2：把 failed / quality-failed mission 反向 transition 回 running。
+   *
+   * 用乐观锁（updateMany where status in [...]） + 检查 affectedRows，避免
+   * v1.0 findFirst+update 的 TOCTOU race（双 reopen 都通过 status 检查再都写入）。
+   *
+   * 完整 reset 字段集（v1.2 类别 B1）：status/completedAt/errorMessage/finalScore/
+   * leaderSigned/leaderOverallScore/leaderVerdict/heartbeatAt 全清；
+   * leader_journal 保留（含 __checkpoint key 已在 markCompleted 时删除）。
+   *
+   * 5×5 状态转移矩阵（spec 见 ctx-hydrator.service.spec / mission-store.markReopened.spec）：
+   *   from=failed         → running ✅
+   *   from=quality-failed → running ✅
+   *   from=cancelled      → BadRequest（用户主动 cancel 不允许 reopen）
+   *   from=completed      → BadRequest（已成功 mission 不允许反向）
+   *   from=running        → BadRequest（in-flight mission 不允许并发 reopen）
+   */
+  async markReopened(missionId: string, userId: string): Promise<void> {
+    const allowedFromStatuses = ["failed", "quality-failed"] as const;
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.agentPlaygroundMission.updateMany({
+        where: {
+          id: missionId,
+          userId,
+          status: { in: [...allowedFromStatuses] },
+        },
+        data: {
+          status: "running",
+          errorMessage: null,
+          completedAt: null,
+          finalScore: null,
+          leaderSigned: null,
+          leaderOverallScore: null,
+          leaderVerdict: null,
+          heartbeatAt: new Date(),
+        },
+      });
+      if (updated.count === 0) {
+        // 探测原因：mission 不存在 / userId 不匹配 / status 不在白名单
+        const probe = await tx.agentPlaygroundMission.findFirst({
+          where: { id: missionId, userId },
+          select: { status: true },
+        });
+        if (!probe) {
+          throw new NotFoundException(
+            `mission ${missionId} not found or not owned by ${userId}`,
+          );
+        }
+        throw new BadRequestException(
+          `cannot reopen mission in status=${probe.status} (allowed: ${allowedFromStatuses.join("|")})`,
+        );
+      }
+      // 审计事件（同一事务内）
+      await tx.agentPlaygroundMissionEvent.create({
+        data: {
+          missionId,
+          type: "agent-playground.mission:reopened",
+          payload: {
+            triggeredBy: userId,
+            ts: Date.now(),
+          } as Prisma.InputJsonValue,
+          ts: BigInt(Date.now()),
+        },
+      });
+    });
+  }
+
+  /**
+   * v1.2 cascade 用：reset 受影响列（cascade 起点前一次性清，避免 stale 残留）。
+   *
+   * MissionColumnKey 类型严格（在 ai-harness/runner/dag/stage-dag-meta.types.ts），
+   * 调用方只能传该 union 内的列名；非法列名 TypeScript 编译期拒。
+   *
+   * 注意：本方法**不动 status**（rerun 期间 status 变更由 markReopened 控制）。
+   */
+  async resetFields(
+    missionId: string,
+    fields: ReadonlyArray<string>,
+  ): Promise<void> {
+    if (fields.length === 0) return;
+    // 把 snake_case 列名转成 prisma model 的 camelCase 字段名
+    const camelMap: Record<string, string> = {
+      report_full: "reportFull",
+      report_artifact_version: "reportArtifactVersion",
+      completed_at: "completedAt",
+      final_score: "finalScore",
+      status: "status",
+      error_message: "errorMessage",
+      dimensions: "dimensions",
+      theme_summary: "themeSummary",
+      reconciliation_report: "reconciliationReport",
+      verdicts: "verdicts",
+      leader_journal: "leaderJournal",
+      leader_signed: "leaderSigned",
+      leader_overall_score: "leaderOverallScore",
+      leader_verdict: "leaderVerdict",
+      outline_plan: "outlinePlan",
+      analyst_output: "analystOutput",
+      tokens_used: "tokensUsed",
+      cost_usd: "costUsd",
+      trajectory_stored: "trajectoryStored",
+      last_completed_stage: "lastCompletedStage",
+      max_credits: "maxCredits",
+    };
+    const data: Record<string, null> = {};
+    for (const f of fields) {
+      // status 不允许在这里被 null 化（status 由 markReopened/markCompleted 等专属方法管理）
+      if (f === "status") continue;
+      const camel = camelMap[f];
+      if (camel) data[camel] = null;
+    }
+    if (Object.keys(data).length === 0) return;
+    await this.prisma.agentPlaygroundMission
+      .update({ where: { id: missionId }, data })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[resetFields ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
   }
