@@ -10,6 +10,7 @@ describe("KeyResolverService.resolveKeyChain", () => {
   let userApiKeys: jest.Mocked<Partial<UserApiKeysService>>;
   let assignments: jest.Mocked<Partial<KeyAssignmentsService>>;
   let healthStore: jest.Mocked<Partial<KeyHealthStore>>;
+  let prismaUpdate: jest.Mock;
 
   beforeEach(async () => {
     userApiKeys = {
@@ -25,13 +26,19 @@ describe("KeyResolverService.resolveKeyChain", () => {
     healthStore = {
       filterUsable: jest.fn(async (ids: string[]) => ids),
       getLastGood: jest.fn().mockResolvedValue(null),
+      markSuccess: jest.fn().mockResolvedValue(undefined),
+      markFailure: jest.fn().mockResolvedValue(undefined),
     };
+    prismaUpdate = jest.fn().mockResolvedValue({});
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KeyResolverService,
         {
           provide: PrismaService,
-          useValue: { user: { findUnique: jest.fn() } },
+          useValue: {
+            user: { findUnique: jest.fn() },
+            userApiKey: { update: prismaUpdate },
+          },
         },
         { provide: UserApiKeysService, useValue: userApiKeys },
         { provide: KeyAssignmentsService, useValue: assignments },
@@ -231,5 +238,72 @@ describe("KeyResolverService.resolveKeyChain", () => {
       expect.objectContaining({ reason: "AUTH_FAILED" }),
       "openai",
     );
+  });
+
+  // ★ 2026-05-06: 业务流量也要写 DB（让 admin/BYOK UI "上次活动状态/时间"反映真实使用）
+  describe("reportSuccess / reportFailure persistence to user_api_keys (personal)", () => {
+    beforeEach(() => {
+      (userApiKeys.listPersonalKeys as jest.Mock).mockResolvedValue([
+        {
+          keyRowId: "r1",
+          label: "default",
+          apiKey: "sk-d",
+          apiEndpoint: null,
+          preferredModelId: null,
+        },
+      ]);
+    });
+
+    it("reportSuccess writes testStatus='success' + lastTestedAt + clears errorCode + accessCount++", async () => {
+      const chain = await service.resolveKeyChain("u1", "openai");
+      const k = await chain.next();
+      if (!k) throw new Error("expected key");
+      await chain.reportSuccess(k);
+      expect(prismaUpdate).toHaveBeenCalledTimes(1);
+      const call = prismaUpdate.mock.calls[0][0];
+      expect(call.where).toEqual({
+        userId_provider_label: {
+          userId: "u1",
+          provider: "openai",
+          label: "default",
+        },
+      });
+      expect(call.data.testStatus).toBe("success");
+      expect(call.data.lastErrorCode).toBeNull();
+      expect(call.data.lastErrorMessage).toBeNull();
+      expect(call.data.lastTestedAt).toBeInstanceOf(Date);
+      expect(call.data.usageCount).toEqual({ increment: 1 });
+    });
+
+    it("reportFailure writes testStatus='failed' + lastErrorCode from classified.reason", async () => {
+      const chain = await service.resolveKeyChain("u1", "openai");
+      const k = await chain.next();
+      if (!k) throw new Error("expected key");
+      await chain.reportFailure(k, {
+        action: "NEXT_KEY",
+        reason: "RATE_LIMIT_KEY",
+        cooldownMs: 60_000,
+        markDead: false,
+        shouldStopChain: false,
+        originalMessage: "rate limited by upstream",
+        httpStatus: 429,
+      });
+      expect(prismaUpdate).toHaveBeenCalledTimes(1);
+      const call = prismaUpdate.mock.calls[0][0];
+      expect(call.data.testStatus).toBe("failed");
+      expect(call.data.lastErrorCode).toBe("RATE_LIMIT_KEY");
+      expect(call.data.lastErrorMessage).toBe("rate limited by upstream");
+      expect(call.data.lastTestedAt).toBeInstanceOf(Date);
+      // failure path 不增 usageCount
+      expect(call.data.usageCount).toBeUndefined();
+    });
+
+    it("DB write failure 不抛错（健康熔断仍生效）", async () => {
+      prismaUpdate.mockRejectedValueOnce(new Error("DB connection lost"));
+      const chain = await service.resolveKeyChain("u1", "openai");
+      const k = await chain.next();
+      if (!k) throw new Error("expected key");
+      await expect(chain.reportSuccess(k)).resolves.not.toThrow();
+    });
   });
 });

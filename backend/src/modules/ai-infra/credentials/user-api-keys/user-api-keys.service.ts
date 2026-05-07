@@ -20,78 +20,19 @@ import {
   Prisma,
 } from "@prisma/client";
 import { ApiKeyMode } from "./dto";
-import { KeyHealthStore, buildPersonalKeyId } from "../health";
+import {
+  KeyHealthStore,
+  buildPersonalKeyId,
+  ProviderProbeService,
+} from "../health";
 
 /** Valid provider name pattern */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
 
 /** Minimal model for Anthropic API key validation (cheapest available) */
-const ANTHROPIC_VALIDATION_MODEL = "claude-3-haiku-20240307";
-
-/** Provider 默认 API 端点和测试模型映射 */
-const PROVIDER_DEFAULTS: Record<
-  string,
-  { endpoint: string; testModel: string; apiFormat: string }
-> = {
-  openai: {
-    endpoint: "https://api.openai.com/v1",
-    testModel: "gpt-4o-mini",
-    apiFormat: "openai",
-  },
-  anthropic: {
-    endpoint: "https://api.anthropic.com/v1",
-    testModel: "claude-3-haiku-20240307",
-    apiFormat: "anthropic",
-  },
-  deepseek: {
-    endpoint: "https://api.deepseek.com/v1",
-    testModel: "deepseek-chat",
-    apiFormat: "openai",
-  },
-  google: {
-    endpoint: "https://generativelanguage.googleapis.com/v1beta",
-    testModel: "gemini-2.0-flash-lite",
-    apiFormat: "google",
-  },
-  xai: {
-    endpoint: "https://api.x.ai/v1",
-    testModel: "grok-3-mini-fast",
-    apiFormat: "openai",
-  },
-  qwen: {
-    endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    testModel: "qwen-turbo",
-    apiFormat: "openai",
-  },
-  cohere: {
-    endpoint: "https://api.cohere.com/v2",
-    testModel: "command-r",
-    apiFormat: "openai",
-  },
-  groq: {
-    endpoint: "https://api.groq.com/openai/v1",
-    testModel: "llama-3.3-70b-versatile",
-    apiFormat: "openai",
-  },
-  openrouter: {
-    endpoint: "https://openrouter.ai/api/v1",
-    testModel: "openrouter/auto",
-    apiFormat: "openai",
-  },
-  minimax: {
-    endpoint: "https://api.minimax.chat/v1",
-    testModel: "MiniMax-Text-01",
-    apiFormat: "openai",
-  },
-  // 2026-05-05: Voyage AI — embedding/rerank 专用 provider，OpenAI 兼容。
-  // 200M tokens/月免费（voyage-3-lite），用于替代 OpenAI text-embedding-3-small
-  // 触 429 时的兜底；同时支持 rerank。
-  voyage: {
-    endpoint: "https://api.voyageai.com/v1",
-    testModel: "voyage-3-lite",
-    apiFormat: "openai",
-  },
-};
+// ★ 2026-05-06: PROVIDER_DEFAULTS 已提到 ../health/provider-defaults 共享层，
+//   避免与 UserModelConfigsService / SecretKeysService 三处重复维护。
+import { PROVIDER_DEFAULTS } from "../health/provider-defaults";
 
 /** 捐赠奖励积分 */
 const DONATION_REWARD_CREDITS = 5000;
@@ -107,6 +48,7 @@ export class UserApiKeysService {
     private readonly secretsService: SecretsService,
     private readonly creditsService: CreditsService,
     private readonly encryption: EncryptionService,
+    private readonly providerProbe: ProviderProbeService,
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly keyHealthStore?: KeyHealthStore,
   ) {}
@@ -485,14 +427,20 @@ export class UserApiKeysService {
   }
 
   /**
-   * 测试 API Key 是否有效
+   * 测试 API Key 是否有效（pre-save 表单验证用）。
+   *
+   * ★ 2026-05-06: BYOK 场景下 testKey 接收的是用户在表单输入的明文 apiKey
+   *   （未必对应已保存行）。即便 user 已存有同 provider 的 key，也不能用
+   *   updateMany 把状态写到所有 label —— 用户测的是这条新值，不是已存行。
+   *   所以 BYOK testKey 只返回结果，不写 DB；保存后的健康状态由业务流量调用
+   *   时的 markSuccess/markFailure 写入（它们知道具体 keyId）。
    */
   async testKey(
     provider: string,
     apiKey: string,
     apiEndpoint?: string,
     userId?: string,
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; errorCode?: string }> {
     const normalizedProvider = this.validateProvider(provider);
     if (apiEndpoint) {
       this.validateEndpointUrl(apiEndpoint);
@@ -507,29 +455,26 @@ export class UserApiKeysService {
       return {
         success: false,
         message: "Unknown provider. Please provide a custom API endpoint.",
+        errorCode: "UNKNOWN",
       };
     }
 
-    try {
-      const apiFormat = defaults?.apiFormat || "openai";
-      const isValid = await this.testProviderKey(
-        apiFormat,
-        apiKey,
-        endpoint,
-        normalizedProvider,
-      );
-      return isValid
-        ? { success: true, message: "Connection successful" }
-        : { success: false, message: "API Key validation failed" };
-    } catch (error) {
-      this.logger.warn(
-        `Test key failed for ${normalizedProvider}: ${(error as Error).message}`,
-      );
-      return {
-        success: false,
-        message: "Connection failed. Please check your API key and endpoint.",
-      };
+    const apiFormat = defaults?.apiFormat || "openai";
+    const result = await this.providerProbe.probe({
+      apiFormat,
+      apiKey,
+      endpoint,
+      providerLabel: normalizedProvider,
+    });
+
+    if (result.ok) {
+      return { success: true, message: "Connection successful" };
     }
+    return {
+      success: false,
+      message: result.errorMessage ?? "API Key validation failed",
+      errorCode: result.errorCode,
+    };
   }
 
   /**
@@ -896,63 +841,6 @@ export class UserApiKeysService {
           this.logger.warn(`Failed to delete donated secret: ${msg}`);
         }
       }
-    }
-  }
-
-  private async testProviderKey(
-    apiFormat: string,
-    apiKey: string,
-    endpoint: string,
-    provider: string,
-  ): Promise<boolean> {
-    const timeout = 15000; // 15s timeout
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
-
-      try {
-        if (apiFormat === "anthropic") {
-          // Use a minimal request with max_tokens=1 to validate the key
-          // without generating meaningful output
-          const response = await fetch(`${endpoint}/messages`, {
-            method: "POST",
-            headers: {
-              "x-api-key": apiKey,
-              "anthropic-version": "2023-06-01",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: ANTHROPIC_VALIDATION_MODEL,
-              max_tokens: 1,
-              messages: [{ role: "user", content: "." }],
-            }),
-            signal: controller.signal,
-          });
-          return response.status !== 401 && response.status !== 403;
-        }
-
-        if (apiFormat === "google") {
-          const response = await fetch(
-            `${endpoint}/models?key=${apiKey}&pageSize=1`,
-            { signal: controller.signal },
-          );
-          return response.status !== 401 && response.status !== 403;
-        }
-
-        // Default: OpenAI-compatible — list models
-        const response = await fetch(`${endpoint}/models`, {
-          headers: { Authorization: `Bearer ${apiKey}` },
-          signal: controller.signal,
-        });
-        return response.status !== 401 && response.status !== 403;
-      } finally {
-        clearTimeout(timer);
-      }
-    } catch (error) {
-      this.logger.warn(
-        `API Key test failed for ${provider}: ${(error as Error).message}`,
-      );
-      return false;
     }
   }
 

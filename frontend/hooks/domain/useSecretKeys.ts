@@ -18,6 +18,9 @@ export interface SecretKeyRow {
   priority: number;
   testStatus: 'success' | 'failed' | null;
   lastTestedAt: string | null;
+  /** ★ 2026-05-06: 归一化错误码 — AUTH_FAILED / RATE_LIMIT_KEY / QUOTA_EXCEEDED /
+   *   PROVIDER_DOWN / TIMEOUT / NETWORK_ERROR / DECRYPTION_FAILED / UNKNOWN */
+  lastErrorCode: string | null;
   lastErrorMessage: string | null;
   accessCount: number;
   createdAt: string;

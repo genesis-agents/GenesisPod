@@ -12,6 +12,7 @@ import {
   KeyHealthStore,
   buildAssignedKeyId,
   buildPersonalKeyId,
+  parseKeyId,
 } from "../health";
 import { NoAvailableKeyError } from "./key-resolver.errors";
 
@@ -318,6 +319,7 @@ export class KeyResolverService {
       usable,
       this.keyHealthStore,
       normalizedProvider,
+      this.prisma,
     );
   }
 
@@ -329,17 +331,78 @@ export class KeyResolverService {
 }
 
 /**
+ * ★ 2026-05-06: 业务流量调用上游成功/失败时，把状态写到对应 DB 行：
+ *   personal:* → user_api_keys 表（按 userId+provider+label 命中）
+ *   system:*   → secret_keys 表（找 secret.name 下首条 active SecretKey）
+ *   assigned:* → 暂不写（KeyAssignment 自有用量记账）
+ *
+ * 这是为了让 admin / BYOK UI 看到的"上次活动状态/时间"能反映真实业务流量，
+ * 而不是只反映"上次手动按 Test 按钮"。失败 try-catch 不抛，避免阻塞调用链。
+ */
+async function persistDbHealthOutcome(
+  prisma: PrismaService,
+  healthKeyId: string,
+  outcome: { ok: true } | { ok: false; classified: ClassifiedError },
+  logger: Logger,
+): Promise<void> {
+  const parsed = parseKeyId(healthKeyId);
+  if (!parsed) return;
+  const now = new Date();
+  try {
+    if (parsed.type === "personal") {
+      const { userId, provider, label } = parsed;
+      if (!userId || !provider || !label) return;
+      if (outcome.ok) {
+        await prisma.userApiKey.update({
+          where: { userId_provider_label: { userId, provider, label } },
+          data: {
+            testStatus: "success",
+            lastTestedAt: now,
+            lastErrorCode: null,
+            lastErrorMessage: null,
+            usageCount: { increment: 1 },
+          },
+        });
+      } else {
+        await prisma.userApiKey.update({
+          where: { userId_provider_label: { userId, provider, label } },
+          data: {
+            testStatus: "failed",
+            lastTestedAt: now,
+            lastErrorCode: outcome.classified.reason.slice(0, 40),
+            lastErrorMessage: outcome.classified.originalMessage.slice(0, 500),
+          },
+        });
+      }
+    } else if (parsed.type === "system") {
+      // SYSTEM key 当前由 ai-model-config 直接查 secrets 用，不走 KeyResolver。
+      // 留 hook 给将来 system 路径接入：找 Secret.name → 首个 active SecretKey 行。
+      // 暂不实现，避免没人触发的死代码。
+    }
+    // assigned 类型用量在 KeyAssignment 自有 usage log，跳过这里
+  } catch (e) {
+    logger.warn(
+      `[persistDbHealthOutcome ${healthKeyId}] DB write failed (non-fatal): ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
+}
+
+/**
  * 物化 KeyChain：候选 key 在 resolveKeyChain 一次性 fetch 完成后传入，
  * next() 仅做指针推进，O(1) 不再 hit DB。
  */
 class MaterializedKeyChain implements KeyChain {
   private cursor = 0;
   private _triedCount = 0;
+  private readonly logger = new Logger(MaterializedKeyChain.name);
 
   constructor(
     private readonly keys: ResolvedKey[],
     private readonly healthStore: KeyHealthStore | undefined,
     private readonly provider: string,
+    private readonly prisma: PrismaService,
   ) {}
 
   get size(): number {
@@ -361,22 +424,37 @@ class MaterializedKeyChain implements KeyChain {
     key: ResolvedKey,
     classified: ClassifiedError,
   ): Promise<void> {
-    if (!this.healthStore) return;
-    await this.healthStore.markFailure(
+    // 1. in-memory 健康熔断（fallback chain 决策用）
+    if (this.healthStore) {
+      await this.healthStore.markFailure(
+        key.healthKeyId,
+        classified,
+        this.provider,
+      );
+    }
+    // 2. ★ 2026-05-06: 写 DB 持久化健康（UI 显示"上次使用 / 错误码"用）
+    await persistDbHealthOutcome(
+      this.prisma,
       key.healthKeyId,
-      classified,
-      this.provider,
+      { ok: false, classified },
+      this.logger,
     );
   }
 
   async reportSuccess(key: ResolvedKey): Promise<void> {
-    if (!this.healthStore) return;
-    // markSuccess 会从 healthKeyId 自解析 user/provider 来 setLastGood；
-    // assigned 类型 keyId 不带 user/provider，主动 hint。
-    await this.healthStore.markSuccess(
+    if (this.healthStore) {
+      await this.healthStore.markSuccess(
+        key.healthKeyId,
+        this.provider,
+        key.userId,
+      );
+    }
+    // ★ 2026-05-06: 同上，业务流量成功也写 DB
+    await persistDbHealthOutcome(
+      this.prisma,
       key.healthKeyId,
-      this.provider,
-      key.userId,
+      { ok: true },
+      this.logger,
     );
   }
 }

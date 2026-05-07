@@ -24,6 +24,7 @@ import {
   ReplaceSecretKeyValueDto,
 } from "./dto/secret-key.dto";
 import { normalizeSecretName } from "./secret-name.catalog";
+import { ProviderProbeService } from "../credentials/health/provider-probe.service";
 
 export interface SecretKeyListItem {
   id: string;
@@ -34,6 +35,8 @@ export interface SecretKeyListItem {
   priority: number;
   testStatus: string | null;
   lastTestedAt: Date | null;
+  /** ★ 2026-05-06: 归一化错误码（AUTH_FAILED / RATE_LIMIT_KEY / 等），UI 据此出语义 badge */
+  lastErrorCode: string | null;
   lastErrorMessage: string | null;
   accessCount: number;
   createdAt: Date;
@@ -67,6 +70,7 @@ export class SecretKeysService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
+    private readonly providerProbe: ProviderProbeService,
   ) {}
 
   // ========== Admin CRUD ==========
@@ -164,8 +168,10 @@ export class SecretKeysService {
         keyVersion: this.encryption.currentKeyVersion,
         keyHint: this.makeHint(dto.value),
         // 替换 value 后健康状态置回 unknown，等下次 test/调用回写
+        // ★ 2026-05-06: lastErrorCode 也要清，否则旧错误码残留 → UI 误判失败
         testStatus: null,
         lastTestedAt: null,
+        lastErrorCode: null,
         lastErrorMessage: null,
         updatedBy: context?.userEmail || context?.userId,
       },
@@ -206,32 +212,112 @@ export class SecretKeysService {
     );
   }
 
-  /// P1 占位：实际 provider 调测试在 P3 落地（每个 provider 单独 health probe）。
-  /// 现在仅校验解密能解出 + 写回 testStatus（明确 unknown→null，不强行打绿）。
+  /**
+   * ★ 2026-05-06 重写：手动 Test 按钮做真上游探测（不再只看 AES 解密）。
+   *
+   * 流程：
+   *   1. 解密 KEY；失败 → markFailure('DECRYPTION_FAILED')
+   *   2. 拿 Secret.provider 调 ProviderProbeService.probeByProvider 真发 HTTP
+   *   3. 结果走 markSuccess / markFailure 同一写库路径；UI 看到的 testStatus /
+   *      lastTestedAt / lastErrorCode / lastErrorMessage 永远是"最近一次真实活动"
+   *
+   * 业务流量也调 markSuccess / markFailure，所以"OK / Failed 的时间"自动是
+   * 上一次实际命中的时间，不会被手动按钮的伪绿章覆盖。
+   *
+   * 单写库原则：所有分支只调用一次 prisma.secretKey.update（直接写或经
+   * markSuccess/markFailure），避免双写覆盖混乱 + 减少 race。
+   */
   async testKey(
     keyId: string,
     context?: AuditContext,
-  ): Promise<{ ok: boolean; reason: string }> {
+  ): Promise<{ ok: boolean; errorCode?: string; errorMessage?: string }> {
     const existing = await this.requireKey(keyId);
+    const updatedBy = context?.userEmail || context?.userId;
+    const now = new Date();
     const decrypted = this.encryption.decrypt(
       existing.encryptedValue,
       existing.iv,
     );
-    const ok = !!decrypted && decrypted.length > 0;
-    await this.prisma.secretKey.update({
-      where: { id: keyId },
-      data: {
-        testStatus: ok ? "success" : "failed",
-        lastTestedAt: new Date(),
-        lastErrorMessage: ok ? null : "decryption failed",
-        updatedBy: context?.userEmail || context?.userId,
-      },
+
+    if (!decrypted || decrypted.length === 0) {
+      await this.prisma.secretKey.update({
+        where: { id: keyId },
+        data: {
+          testStatus: "failed",
+          lastTestedAt: now,
+          lastErrorCode: "DECRYPTION_FAILED",
+          lastErrorMessage:
+            "decryption failed (encryptedValue or iv corrupted)",
+          updatedBy,
+        },
+      });
+      return {
+        ok: false,
+        errorCode: "DECRYPTION_FAILED",
+        errorMessage: "decryption failed",
+      };
+    }
+
+    // 拉 Secret.provider 找 endpoint / apiFormat
+    const secret = await this.prisma.secret.findUnique({
+      where: { id: existing.secretId },
+      select: { provider: true, name: true },
     });
+    const providerSlug = secret?.provider ?? null;
+
+    if (!providerSlug) {
+      // Secret 没绑定 provider（SkillsMP / Tools 类）→ 暂无上游可调，
+      // 退化为"解密 OK"。仍标 success 是因为 KEY 本身可用；errorMessage 提示
+      // 真上游探测被跳过，让运维知道这条路径是降级状态。
+      await this.prisma.secretKey.update({
+        where: { id: keyId },
+        data: {
+          testStatus: "success",
+          lastTestedAt: now,
+          lastErrorCode: null,
+          lastErrorMessage: "decrypted (no provider bound, real probe skipped)",
+          updatedBy,
+        },
+      });
+      return { ok: true };
+    }
+
+    const probeResult = await this.providerProbe.probeByProvider({
+      provider: providerSlug,
+      apiKey: decrypted,
+    });
+
+    // 注意：手动 probe 不算业务调用次数，markSuccess 走 incrementAccessCount=false
+    if (probeResult.ok) {
+      await this.prisma.secretKey.update({
+        where: { id: keyId },
+        data: {
+          testStatus: "success",
+          lastTestedAt: now,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          updatedBy,
+        },
+      });
+    } else {
+      await this.prisma.secretKey.update({
+        where: { id: keyId },
+        data: {
+          testStatus: "failed",
+          lastTestedAt: now,
+          lastErrorCode: (probeResult.errorCode ?? "UNKNOWN").slice(0, 40),
+          lastErrorMessage: (probeResult.errorMessage ?? "probe failed").slice(
+            0,
+            500,
+          ),
+          updatedBy,
+        },
+      });
+    }
     return {
-      ok,
-      reason: ok
-        ? "decrypted (provider health check pending P3)"
-        : "decryption failed",
+      ok: probeResult.ok,
+      errorCode: probeResult.errorCode,
+      errorMessage: probeResult.errorMessage,
     };
   }
 
@@ -278,26 +364,50 @@ export class SecretKeysService {
     return { value: decrypted, keyId: null, label: "(legacy)" };
   }
 
-  async markSuccess(keyId: string): Promise<void> {
+  /**
+   * ★ 2026-05-06: 业务流量成功调用上游 + 手动 probe 通过都走它。
+   * 写入：testStatus='success'、lastTestedAt=now、清错误码/消息、可选 accessCount++。
+   * incrementAccessCount=true 仅在真实业务流量成功时；手动 probe 不算"业务调用次数"。
+   */
+  async markSuccess(
+    keyId: string,
+    options: { incrementAccessCount?: boolean } = {
+      incrementAccessCount: true,
+    },
+  ): Promise<void> {
     await this.prisma.secretKey.update({
       where: { id: keyId },
       data: {
         testStatus: "success",
         lastTestedAt: new Date(),
+        lastErrorCode: null,
         lastErrorMessage: null,
-        accessCount: { increment: 1 },
+        ...(options.incrementAccessCount !== false
+          ? { accessCount: { increment: 1 } }
+          : {}),
       },
     });
   }
 
-  async markFailure(keyId: string, errorMessage: string): Promise<void> {
-    const trimmed = errorMessage.slice(0, 500);
+  /**
+   * ★ 2026-05-06: 业务流量失败 + 手动 probe 失败统一入口。
+   * errorCode 用 ProbeErrorCode 同款命名（AUTH_FAILED / RATE_LIMIT_KEY / 等），
+   * UI 据此出语义化 badge（"未授权" / "限流" / 等）。
+   */
+  async markFailure(
+    keyId: string,
+    errorCode: string,
+    errorMessage: string,
+  ): Promise<void> {
+    const trimmedMessage = errorMessage.slice(0, 500);
+    const trimmedCode = errorCode.slice(0, 40);
     await this.prisma.secretKey.update({
       where: { id: keyId },
       data: {
         testStatus: "failed",
         lastTestedAt: new Date(),
-        lastErrorMessage: trimmed,
+        lastErrorCode: trimmedCode,
+        lastErrorMessage: trimmedMessage,
       },
     });
   }
@@ -360,6 +470,7 @@ export class SecretKeysService {
       priority: row.priority,
       testStatus: row.testStatus,
       lastTestedAt: row.lastTestedAt,
+      lastErrorCode: row.lastErrorCode,
       lastErrorMessage: row.lastErrorMessage,
       accessCount: row.accessCount,
       createdAt: row.createdAt,

@@ -15,3 +15,8 @@ export {
   buildSystemKeyId,
 } from "./key-health.store";
 export { KeyHealthModule } from "./key-health.module";
+export {
+  ProviderProbeService,
+  type ProbeErrorCode,
+  type ProviderProbeResult,
+} from "./provider-probe.service";

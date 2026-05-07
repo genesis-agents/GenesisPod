@@ -7854,7 +7854,13 @@ model UserApiKey {
   isActive           Boolean        @default(true) @map("is_active")
   lastTestedAt       DateTime?      @map("last_tested_at")
   testStatus         String?        @map("test_status") @db.VarChar(20) // success | failed
-  usageCount         Int            @default(0) @map("usage_count") // 调用次数统计（捐赠模式）
+  /// ★ 2026-05-06: 归一化错误码（与 SecretKey 对齐）
+  /// 401 / 403 / 429 / 5xx / network / timeout / decryption_failed / null（成功）
+  lastErrorCode    String? @map("last_error_code") @db.VarChar(40)
+  lastErrorMessage String? @map("last_error_message") @db.Text
+  /// 调用次数统计：捐赠模式 + 个人模式都累加（业务流量调用上游成功时 +1）
+  /// ★ 2026-05-06: 之前仅捐赠模式累加；现 KeyChain.reportSuccess 持久化扩展至 personal
+  usageCount Int @default(0) @map("usage_count")
   donationRewardedAt DateTime?      @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
@@ -7979,8 +7985,15 @@ model SecretKey {
   priority Int @default(0)
 
   /// 健康状态（与 UserApiKey 对齐）
+  /// ★ 2026-05-06: testStatus / lastTestedAt / lastErrorCode / lastErrorMessage 都
+  /// 由"真使用反馈"统一写入：手动 Test 按钮调上游探测、业务流量 markSuccess /
+  /// markFailure 都走同一路径。UI 看到的状态永远是"最近一次真实活动"的结果。
   lastTestedAt DateTime? @map("last_tested_at")
   testStatus   String?   @map("test_status") @db.VarChar(20) // 'success' | 'failed'
+
+  /// 最近一次失败的归一化错误码：401 / 403 / 429 / 5xx / network / timeout / decryption_failed
+  /// 用于 UI 出语义化 badge（"未授权" / "限流" / 等），而不是只显示 "Failed"
+  lastErrorCode String? @map("last_error_code") @db.VarChar(40)
 
   /// 最近一次失败的错误摘要（不存敏感数据），用于 UI 提示
   lastErrorMessage String? @map("last_error_message") @db.Text

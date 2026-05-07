@@ -21,7 +21,7 @@ import type {
  * 多 KEY 表格共享组件（admin /admin/access/secrets + 用户 /me/ai?tab=keys 共用）。
  *
  * 与设计文档 §4.5.4 对齐：
- * - 列：LABEL / VALUE(hint) / PRIORITY / STATUS / LAST TESTED / OPS
+ * - 列：LABEL / VALUE(hint) / PRIORITY / STATUS / LAST USED / OPS
  * - OPS：Test / Replace / Edit / Delete
  * - 顶部 [+ Add Key]
  * - readOnly：只读模式（admin donatedKeys 等场景；BYOK 用户对自己的 key 不读 only）
@@ -42,34 +42,67 @@ export interface MultiKeyTableProps {
   hideTest?: boolean;
 }
 
+/**
+ * ★ 2026-05-06: status badge 完全由"上次真实使用"驱动 —— testStatus 由
+ *   ProviderProbeService 真上游探测 + 业务流量 markSuccess/markFailure 共写。
+ *   失败时按 errorCode 出语义化文案（"未授权" / "限流" / 等），而不是模糊 "Failed"。
+ */
+const ERROR_CODE_LABEL: Record<
+  string,
+  { text: string; tone: 'red' | 'amber' | 'gray' }
+> = {
+  AUTH_FAILED: { text: '未授权', tone: 'red' },
+  RATE_LIMIT_KEY: { text: '限流', tone: 'amber' },
+  QUOTA_EXCEEDED: { text: '额度超', tone: 'red' },
+  PROVIDER_DOWN: { text: '上游故障', tone: 'red' },
+  TIMEOUT: { text: '超时', tone: 'amber' },
+  NETWORK_ERROR: { text: '网络错误', tone: 'gray' },
+  DECRYPTION_FAILED: { text: '解密失败', tone: 'red' },
+  UNKNOWN: { text: '失败', tone: 'red' },
+};
+const TONE_CLASS: Record<'red' | 'amber' | 'gray', string> = {
+  red: 'bg-red-100 text-red-800',
+  amber: 'bg-amber-100 text-amber-800',
+  gray: 'bg-gray-100 text-gray-700',
+};
+
 function StatusBadge({ row }: { row: SecretKeyRow }) {
   if (!row.isActive) {
     return (
       <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-        <CirclePause className="h-3 w-3" /> Disabled
+        <CirclePause className="h-3 w-3" /> 已禁用
       </span>
     );
   }
   if (row.testStatus === 'success') {
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-        <CheckCircle2 className="h-3 w-3" /> OK
+      <span
+        className="inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800"
+        title={
+          row.accessCount > 0
+            ? `上次成功命中 · 累计 ${row.accessCount} 次`
+            : '上次成功（手动 probe 或业务调用）'
+        }
+      >
+        <CheckCircle2 className="h-3 w-3" /> 正常
       </span>
     );
   }
   if (row.testStatus === 'failed') {
+    const code = row.lastErrorCode ?? 'UNKNOWN';
+    const def = ERROR_CODE_LABEL[code] ?? ERROR_CODE_LABEL.UNKNOWN;
     return (
       <span
-        className="inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800"
-        title={row.lastErrorMessage ?? undefined}
+        className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${TONE_CLASS[def.tone]}`}
+        title={row.lastErrorMessage ? `${code}: ${row.lastErrorMessage}` : code}
       >
-        <XCircle className="h-3 w-3" /> Failed
+        <XCircle className="h-3 w-3" /> {def.text}
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-      <CircleHelp className="h-3 w-3" /> Unknown
+    <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+      <CircleHelp className="h-3 w-3" /> 未使用
     </span>
   );
 }
@@ -224,7 +257,12 @@ export function MultiKeyTable({
               <th className="px-3 py-2 text-left">Value</th>
               <th className="px-3 py-2 text-left">Priority</th>
               <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-left">Last Tested</th>
+              <th
+                className="px-3 py-2 text-left"
+                title="最近一次活动时间（手动测试 或 业务流量命中）"
+              >
+                Last Used
+              </th>
               {!readOnly && <th className="px-3 py-2 text-right">Actions</th>}
             </tr>
           </thead>

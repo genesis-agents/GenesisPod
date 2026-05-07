@@ -6,38 +6,7 @@ import {
 } from "@nestjs/common";
 import { AIModelType, Prisma, UserModelConfig } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-
-/** Provider → 默认 endpoint / apiFormat（与 UserApiKeysService.PROVIDER_DEFAULTS 保持一致） */
-const PROVIDER_API_DEFAULTS: Record<
-  string,
-  { endpoint: string; apiFormat: string }
-> = {
-  openai: { endpoint: "https://api.openai.com/v1", apiFormat: "openai" },
-  anthropic: {
-    endpoint: "https://api.anthropic.com/v1",
-    apiFormat: "anthropic",
-  },
-  deepseek: {
-    endpoint: "https://api.deepseek.com/v1",
-    apiFormat: "openai",
-  },
-  google: {
-    endpoint: "https://generativelanguage.googleapis.com/v1beta",
-    apiFormat: "google",
-  },
-  xai: { endpoint: "https://api.x.ai/v1", apiFormat: "openai" },
-  qwen: {
-    endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    apiFormat: "openai",
-  },
-  cohere: { endpoint: "https://api.cohere.com/v2", apiFormat: "openai" },
-  groq: { endpoint: "https://api.groq.com/openai/v1", apiFormat: "openai" },
-  openrouter: {
-    endpoint: "https://openrouter.ai/api/v1",
-    apiFormat: "openai",
-  },
-  minimax: { endpoint: "https://api.minimax.chat/v1", apiFormat: "openai" },
-};
+import { PROVIDER_DEFAULTS } from "../health/provider-defaults";
 
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
 
@@ -86,7 +55,7 @@ export class UserModelConfigsService {
     provider: string,
   ): Prisma.UserModelConfigCreateInput {
     const providerDefaults =
-      PROVIDER_API_DEFAULTS[provider] ?? PROVIDER_API_DEFAULTS.openai;
+      PROVIDER_DEFAULTS[provider] ?? PROVIDER_DEFAULTS.openai;
     return {
       provider,
       modelId: input.modelId.trim(),

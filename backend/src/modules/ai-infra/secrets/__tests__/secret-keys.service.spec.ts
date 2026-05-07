@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { SecretKeysService } from "../secret-keys.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { EncryptionService } from "../../encryption/encryption.service";
+import { ProviderProbeService } from "../../credentials/health/provider-probe.service";
 
 const buildEncryption = (): EncryptionService =>
   new EncryptionService({
@@ -90,11 +91,17 @@ describe("SecretKeysService", () => {
     };
     encryption = buildEncryption();
 
+    const probeMock: Pick<ProviderProbeService, "probe" | "probeByProvider"> = {
+      probe: jest.fn().mockResolvedValue({ ok: true }),
+      probeByProvider: jest.fn().mockResolvedValue({ ok: true }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SecretKeysService,
         { provide: PrismaService, useValue: prisma },
         { provide: EncryptionService, useValue: encryption },
+        { provide: ProviderProbeService, useValue: probeMock },
       ],
     }).compile();
 
@@ -255,10 +262,18 @@ describe("SecretKeysService", () => {
     it("trims long error messages to 500 chars", async () => {
       prisma.secretKey.update.mockResolvedValue(makeKeyRow());
       const longMsg = "x".repeat(2000);
-      await service.markFailure("key-a", longMsg);
+      await service.markFailure("key-a", "AUTH_FAILED", longMsg);
       const call = prisma.secretKey.update.mock.calls[0][0];
       expect(call.data.lastErrorMessage.length).toBe(500);
       expect(call.data.testStatus).toBe("failed");
+      expect(call.data.lastErrorCode).toBe("AUTH_FAILED");
+    });
+
+    it("trims errorCode to 40 chars", async () => {
+      prisma.secretKey.update.mockResolvedValue(makeKeyRow());
+      await service.markFailure("key-a", "X".repeat(80), "msg");
+      const call = prisma.secretKey.update.mock.calls[0][0];
+      expect(call.data.lastErrorCode.length).toBe(40);
     });
   });
 

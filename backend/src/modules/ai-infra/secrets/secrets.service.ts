@@ -1249,17 +1249,22 @@ export class SecretsService {
     name: string,
     errorMessage: string,
     keyId?: string,
+    /** ★ 2026-05-06: 归一化错误码（AUTH_FAILED / RATE_LIMIT_KEY / 等）。
+     *   不传时默认 'UNKNOWN'，UI 会出"失败（未分类）"灰章；caller 应优先调
+     *   KeyErrorClassifier.classify(err) 拿 reason 后传入。*/
+    errorCode?: string,
   ): Promise<void> {
     if (!this.secretKeys) return;
+    const code = errorCode ?? "UNKNOWN";
     if (keyId) {
-      await this.secretKeys.markFailure(keyId, errorMessage);
+      await this.secretKeys.markFailure(keyId, code, errorMessage);
       return;
     }
     const resolved = await this.secretKeys.getSecretKey(
       normalizeSecretName(name),
     );
     if (resolved?.keyId)
-      await this.secretKeys.markFailure(resolved.keyId, errorMessage);
+      await this.secretKeys.markFailure(resolved.keyId, code, errorMessage);
   }
 
   /**

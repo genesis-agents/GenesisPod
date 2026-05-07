@@ -26,6 +26,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, BadRequestException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { UserApiKeysService } from "../user-api-keys.service";
+import { ProviderProbeService } from "../../health/provider-probe.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { CreditsService } from "../../../../ai-infra/credits/credits.service";
@@ -119,6 +120,9 @@ describe("UserApiKeysService (additional coverage)", () => {
         { provide: CreditsService, useValue: mockCreditsService },
         { provide: EncryptionService, useValue: buildEncryption() },
         { provide: CacheService, useValue: mockCacheService },
+        // 用真 ProviderProbeService 让 testKey - provider-specific paths 那批测试
+        // 仍能通过 mockFetch 触达分支（probe 内部用 global fetch）
+        ProviderProbeService,
       ],
     }).compile();
 
@@ -353,6 +357,7 @@ describe("UserApiKeysService (additional coverage)", () => {
           { provide: SecretsService, useValue: mockSecretsService },
           { provide: CreditsService, useValue: mockCreditsService },
           { provide: EncryptionService, useValue: buildEncryption() },
+          ProviderProbeService,
         ],
       }).compile();
 

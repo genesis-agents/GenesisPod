@@ -18,6 +18,7 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { CreditsService } from "../../../../ai-infra/credits/credits.service";
 import { EncryptionService } from "../../../../ai-infra/encryption/encryption.service";
+import { ProviderProbeService } from "../../health/provider-probe.service";
 import { UserApiKeyMode, CreditTransactionType } from "@prisma/client";
 import { ApiKeyMode } from "../dto";
 
@@ -89,6 +90,13 @@ describe("UserApiKeysService", () => {
         { provide: SecretsService, useValue: mockSecretsService },
         { provide: CreditsService, useValue: mockCreditsService },
         { provide: EncryptionService, useValue: buildEncryption() },
+        {
+          provide: ProviderProbeService,
+          useValue: {
+            probe: jest.fn().mockResolvedValue({ ok: true }),
+            probeByProvider: jest.fn().mockResolvedValue({ ok: true }),
+          },
+        },
       ],
     }).compile();
 
