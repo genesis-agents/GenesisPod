@@ -8,6 +8,7 @@ import {
 import { Prisma } from "@prisma/client";
 import {
   getRegistryToolId,
+  isMultiProviderRegistry,
   TOOL_ID_ALIAS_TO_REGISTRY_ID,
 } from "@/common/ai/tool-id-aliases";
 import { PrismaService } from "../../../common/prisma/prisma.service";
@@ -1687,12 +1688,20 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
 
     // ★ 同步 Provider ID → Registry Tool ID 的关键字段
     // 前端用 provider ID（如 openalex）保存，运行时用 registry ID（如 openalex-search）查询
-    // 需同步：secretKey、config（密钥读取）、enabled（能力开关）
+    // 需同步：config（密钥读取）、enabled（能力开关）
+    //
+    // ★ 2026-05-07: secretKey + config(apiKey) 在 N:1 映射时**绝不**同步。
+    // 例：tavily/perplexity/serper 都映到 'web-search'，若同步 secretKey →
+    // last-write-wins → 谁后配的覆盖前面，再被前端 bridge 灌回所有 sibling
+    // → Perplexity dialog 显示 Tavily 的 key（Screenshot_5 真因）。
+    // 1:1 映射（arxiv→arxiv-search 等）继续 sync —— 它们语义上是同一工具。
     const registryToolId = getRegistryToolId(toolId);
+    const isMultiProviderParent = isMultiProviderRegistry(registryToolId);
     if (registryToolId !== toolId) {
       const syncData: Record<string, unknown> = {};
-      if (update.secretKey !== undefined) syncData.secretKey = update.secretKey;
-      if (update.config !== undefined)
+      if (update.secretKey !== undefined && !isMultiProviderParent)
+        syncData.secretKey = update.secretKey;
+      if (update.config !== undefined && !isMultiProviderParent)
         syncData.config = update.config as Prisma.InputJsonValue;
       if (update.enabled !== undefined) syncData.enabled = update.enabled;
       if (update.displayName !== undefined)

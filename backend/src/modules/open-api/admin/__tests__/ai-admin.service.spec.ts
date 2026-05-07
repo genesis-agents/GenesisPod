@@ -2,7 +2,13 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { AIAdminService } from "../ai-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { MCPManager } from "../../../ai-harness/facade";
-import { ToolRegistry, SkillRegistry, SkillLoaderService, SkillContentService, SearchService } from "../../../ai-engine/facade";
+import {
+  ToolRegistry,
+  SkillRegistry,
+  SkillLoaderService,
+  SkillContentService,
+  SearchService,
+} from "../../../ai-engine/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 
 describe("AIAdminService", () => {
@@ -1150,6 +1156,58 @@ describe("AIAdminService", () => {
 
       expect(result.success).toBe(true);
       expect(mockSecretsService.exists).not.toHaveBeenCalled();
+    });
+
+    // ★ 2026-05-07: 看护 Screenshot_5 真因回归 ——
+    // N:1 映射（tavily/perplexity/serper/duckduckgo → web-search）下，绝不能把
+    // provider 的 secretKey 同步到 multi-provider parent 行；否则 last-write-wins
+    // 让 parent secretKey 变垃圾，再被前端 bridge 灌回所有 sibling provider。
+    it("does NOT sync secretKey to multi-provider parent (N:1 mapping)", async () => {
+      mockSecretsService.exists.mockResolvedValue(true);
+      mockPrismaService.toolConfig.upsert.mockResolvedValue({
+        toolId: "tavily",
+        enabled: true,
+        secretKey: "tavily-search-api-key",
+      });
+
+      await service.updateToolConfig("tavily", {
+        secretKey: "tavily-search-api-key",
+        enabled: true,
+      });
+
+      const upsertCalls = mockPrismaService.toolConfig.upsert.mock.calls;
+      // 第 1 次 upsert: tavily 自己（必须有 secretKey）
+      expect(upsertCalls[0][0].where).toEqual({ toolId: "tavily" });
+      expect(upsertCalls[0][0].update.secretKey).toBe("tavily-search-api-key");
+      // 第 2 次 upsert（如果有）: web-search parent（**禁止** secretKey 字段）
+      if (upsertCalls.length > 1) {
+        expect(upsertCalls[1][0].where).toEqual({ toolId: "web-search" });
+        expect(upsertCalls[1][0].update.secretKey).toBeUndefined();
+        expect(upsertCalls[1][0].create.secretKey).toBeUndefined();
+        // enabled 仍然同步（capability-level on/off 是有意义的）
+        expect(upsertCalls[1][0].update.enabled).toBe(true);
+      }
+    });
+
+    // 1:1 映射（arxiv → arxiv-search）继续 sync —— 那种情况 provider 和 parent
+    // 语义上是同一工具，sync 是为了与 ToolRegistry 注册名对齐。
+    it("DOES sync secretKey to single-provider parent (1:1 mapping)", async () => {
+      mockSecretsService.exists.mockResolvedValue(true);
+      mockPrismaService.toolConfig.upsert.mockResolvedValue({
+        toolId: "arxiv",
+        enabled: true,
+        secretKey: "arxiv-api-key",
+      });
+
+      await service.updateToolConfig("arxiv", {
+        secretKey: "arxiv-api-key",
+        enabled: true,
+      });
+
+      const upsertCalls = mockPrismaService.toolConfig.upsert.mock.calls;
+      expect(upsertCalls.length).toBe(2);
+      expect(upsertCalls[1][0].where).toEqual({ toolId: "arxiv-search" });
+      expect(upsertCalls[1][0].update.secretKey).toBe("arxiv-api-key");
     });
   });
 

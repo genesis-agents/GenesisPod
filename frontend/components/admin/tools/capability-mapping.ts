@@ -495,6 +495,29 @@ export function getToolIdForProvider(providerId: string): string {
 }
 
 /**
+ * ★ 2026-05-07: 多 provider 映射到同一 registry tool 的 set。
+ * 例：web-search ← {tavily, perplexity, serper, duckduckgo}
+ *
+ * 这些 registry id 上的 secretKey 是无意义的（last-write-wins，被随机 sibling
+ * 覆盖），ToolsManagement bridge 不能从这些 parent 继承 secret 给 sibling
+ * provider —— 那会让一个 sibling 的 key 泄漏给另一个（Screenshot_5 真因）。
+ *
+ * 1:1 映射（如 arxiv→arxiv-search / pubmed→pubmed）不在此 set，bridge 仍然
+ * useful（语义上是同一工具的两个 ID）。
+ */
+export const MULTI_PROVIDER_REGISTRY_IDS: Set<string> = (() => {
+  const counts = new Map<string, number>();
+  for (const registryId of Object.values(PROVIDER_TO_TOOL_ID)) {
+    counts.set(registryId, (counts.get(registryId) ?? 0) + 1);
+  }
+  const set = new Set<string>();
+  for (const [id, count] of counts) {
+    if (count >= 2) set.add(id);
+  }
+  return set;
+})();
+
+/**
  * 按类别分组并排序能力
  */
 export function getCapabilitiesByCategory(): Map<
