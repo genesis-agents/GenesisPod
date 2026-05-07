@@ -1,8 +1,8 @@
 import { Controller, Get, UseGuards, Logger } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { PermissionsService } from "./services/permissions.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { PermissionsService } from "../services/permissions.service";
 
 @ApiTags("Admin - Permissions")
 @Controller("admin")

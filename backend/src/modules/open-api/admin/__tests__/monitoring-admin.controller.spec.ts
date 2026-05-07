@@ -1,11 +1,14 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException } from "@nestjs/common";
-import { MonitoringAdminController } from "../monitoring-admin.controller";
+import { MonitoringAdminController } from "../monitoring/monitoring-admin.controller";
 import { ErrorTrackingService } from "../../../ai-infra/monitoring";
 import { AIMetricsService } from "../../../ai-infra/monitoring";
-import { AIAdminService } from "../ai-admin.service";
+import { AIAdminService } from "../ai/ai-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { TraceCollectorService, EvalPipelineService } from "../../../ai-harness/facade";
+import {
+  TraceCollectorService,
+  EvalPipelineService,
+} from "../../../ai-harness/facade";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 

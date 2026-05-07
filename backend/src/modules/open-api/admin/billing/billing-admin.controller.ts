@@ -1,8 +1,8 @@
 import { Controller, Get, Param, UseGuards, Logger } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { BillingService } from "./services/billing.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { BillingService } from "../services/billing.service";
 
 @ApiTags("Admin - Billing")
 @Controller("admin")

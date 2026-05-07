@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { PermissionsAdminController } from "../permissions-admin.controller";
+import { PermissionsAdminController } from "../permissions/permissions-admin.controller";
 import { PermissionsService } from "../services/permissions.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";

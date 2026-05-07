@@ -25,7 +25,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { MemoryLayer, ProcessState } from "@prisma/client";
-import { KernelAdminController } from "../kernel-admin.controller";
+import { KernelAdminController } from "../kernel/kernel-admin.controller";
 import { KernelApiService } from "../../../ai-harness/facade";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";

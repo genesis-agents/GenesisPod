@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { NotificationsAdminController } from "../notifications-admin.controller";
+import { NotificationsAdminController } from "../notifications/notifications-admin.controller";
 import { NotificationsAdminService } from "../services/notifications-admin.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";

@@ -15,7 +15,7 @@ jest.mock("../../../ai-harness/facade", () => {
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger, NotFoundException, BadRequestException } from "@nestjs/common";
-import { AITeamsAdminService } from "../ai-teams-admin.service";
+import { AITeamsAdminService } from "../teams/ai-teams-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ChatFacade } from "../../../ai-harness/facade";
 import { AITeamTemplateStatus } from "@prisma/client";

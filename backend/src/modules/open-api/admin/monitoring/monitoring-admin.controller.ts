@@ -12,24 +12,27 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
 import { Request } from "express";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { ErrorTrackingService, AIMetricsService } from "../../ai-infra/facade";
-import { AIAdminService } from "./ai-admin.service";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import {
+  ErrorTrackingService,
+  AIMetricsService,
+} from "../../../ai-infra/facade";
+import { AIAdminService } from "../ai/ai-admin.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   TraceCollectorService,
   TraceType,
   EvalPipelineService,
-} from "../../ai-harness/facade";
+} from "../../../ai-harness/facade";
 import { NotFoundException } from "@nestjs/common";
 import {
   RateLimitGuard,
   DistributedRateLimitGuard,
-} from "../../../common/guards";
-import { runSecurityChecks } from "../../../common/config/security.config";
-import { MetricsService } from "../../../common/observability/metrics.service";
-import { MCPServerService } from "../../open-api/mcp-server/mcp-server.service";
+} from "../../../../common/guards";
+import { runSecurityChecks } from "../../../../common/config/security.config";
+import { MetricsService } from "../../../../common/observability/metrics.service";
+import { MCPServerService } from "../../../open-api/mcp-server/mcp-server.service";
 
 interface AuthenticatedRequest extends Request {
   user?: { id: string; email?: string };

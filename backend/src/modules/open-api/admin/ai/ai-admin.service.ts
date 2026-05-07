@@ -11,9 +11,9 @@ import {
   isMultiProviderRegistry,
   TOOL_ID_ALIAS_TO_REGISTRY_ID,
 } from "@/common/ai/tool-id-aliases";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../ai-infra/secrets/secret-name.catalog";
-import { DEFAULT_PAGE_SIZE } from "../../../common/constants/pagination.constants";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { EXTERNAL_TOOL_SECRET_MAPPING } from "../../../ai-infra/secrets/secret-name.catalog";
+import { DEFAULT_PAGE_SIZE } from "../../../../common/constants/pagination.constants";
 
 /**
  * MCP Tool 类型定义
@@ -278,9 +278,9 @@ import {
   SearchService,
   MultiKeyRegistry,
   KeyHealthStatus,
-} from "../../ai-engine/facade";
-import { MCPManager } from "../../ai-harness/facade";
-import { SecretsService } from "../../ai-infra/secrets/secrets.service";
+} from "../../../ai-engine/facade";
+import { MCPManager } from "../../../ai-harness/facade";
+import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 
 /**
  * AI 能力管理服务

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
-import { ResearchAdminController } from "../research-admin.controller";
+import { ResearchAdminController } from "../research/research-admin.controller";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";

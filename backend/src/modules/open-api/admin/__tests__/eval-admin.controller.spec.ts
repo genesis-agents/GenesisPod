@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { EvalAdminController } from "../eval-admin.controller";
+import { EvalAdminController } from "../eval/eval-admin.controller";
 import {
   EvalExperimentService,
   EvalHarnessService,

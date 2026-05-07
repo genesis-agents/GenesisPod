@@ -12,8 +12,8 @@ import {
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { AITeamsAdminService } from "./ai-teams-admin.service";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import {
   CreateTeamDto,
   UpdateTeamDto,
@@ -21,7 +21,7 @@ import {
   UpdateTeamMemberDto,
   ReorderMembersDto,
   QueryTeamsDto,
-} from "./dto/ai-team.dto";
+} from "../dto/ai-team.dto";
 import { AITeamTemplateStatus } from "@prisma/client";
 
 /**

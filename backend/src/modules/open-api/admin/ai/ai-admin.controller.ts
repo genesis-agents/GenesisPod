@@ -22,13 +22,13 @@ import {
   ApiParam,
   ApiBody,
 } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { AIAdminService } from "./ai-admin.service";
 import {
   GuardrailsPipelineService,
   SkillSandboxService,
-} from "../../ai-engine/facade";
+} from "../../../ai-engine/facade";
 
 /**
  * AI 能力管理控制器

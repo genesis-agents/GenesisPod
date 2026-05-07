@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { AIAdminService } from "../ai-admin.service";
+import { AIAdminService } from "../ai/ai-admin.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { MCPManager } from "../../../ai-harness/facade";
 import {

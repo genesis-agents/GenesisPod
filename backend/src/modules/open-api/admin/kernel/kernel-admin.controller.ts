@@ -14,10 +14,10 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { KernelApiService } from "../../ai-harness/facade";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { KernelApiService } from "../../../ai-harness/facade";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { MemoryLayer, ProcessState } from "@prisma/client";
 
 @ApiTags("Admin - AI Kernel")

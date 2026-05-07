@@ -27,9 +27,9 @@ import {
   Matches,
   Min,
 } from "class-validator";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 class UpsertAIProviderDto {
   @IsString()

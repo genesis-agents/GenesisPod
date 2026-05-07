@@ -4,16 +4,16 @@ import {
   NotFoundException,
   BadRequestException,
 } from "@nestjs/common";
-import { PrismaService } from "../../../common/prisma/prisma.service";
-import { ChatFacade } from "../../ai-harness/facade";
-import { TaskProfile } from "../../ai-harness/facade";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { ChatFacade } from "../../../ai-harness/facade";
+import { TaskProfile } from "../../../ai-harness/facade";
 import {
   CreateTeamDto,
   UpdateTeamDto,
   CreateTeamMemberDto,
   UpdateTeamMemberDto,
   QueryTeamsDto,
-} from "./dto/ai-team.dto";
+} from "../dto/ai-team.dto";
 import { AITeamTemplateStatus, Prisma } from "@prisma/client";
 
 @Injectable()

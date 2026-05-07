@@ -10,8 +10,8 @@ import { Test, TestingModule } from "@nestjs/testing";
 import {
   AITeamsAdminController,
   AITeamsTemplatesController,
-} from "../ai-teams-admin.controller";
-import { AITeamsAdminService } from "../ai-teams-admin.service";
+} from "../teams/ai-teams-admin.controller";
+import { AITeamsAdminService } from "../teams/ai-teams-admin.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { AITeamTemplateStatus } from "@prisma/client";
@@ -23,7 +23,7 @@ import {
   ReorderMembersDto,
 } from "../dto/ai-team.dto";
 
-jest.mock("../ai-teams-admin.service");
+jest.mock("../teams/ai-teams-admin.service");
 
 describe("AITeamsAdminController", () => {
   let controller: AITeamsAdminController;

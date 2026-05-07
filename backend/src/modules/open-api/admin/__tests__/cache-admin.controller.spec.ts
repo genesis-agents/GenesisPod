@@ -15,7 +15,7 @@ jest.mock(
 );
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { CacheAdminController } from "../cache-admin.controller";
+import { CacheAdminController } from "../cache/cache-admin.controller";
 import { CacheService, CachePrefix } from "../../../../common/cache";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";

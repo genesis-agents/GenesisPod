@@ -12,9 +12,9 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { NotificationsAdminService } from "./services/notifications-admin.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { NotificationsAdminService } from "../services/notifications-admin.service";
 
 @ApiTags("Admin - Notifications")
 @Controller("admin")

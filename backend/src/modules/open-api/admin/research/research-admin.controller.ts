@@ -19,14 +19,14 @@ import {
   ApiParam,
   ApiQuery,
 } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { Prisma } from "@prisma/client";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   CreateResearchTemplateDto,
   UpdateResearchTemplateDto,
-} from "./dto/research-template-admin.dto";
+} from "../dto/research-template-admin.dto";
 
 @ApiTags("Admin - Research Templates")
 @Controller("admin/research/templates")

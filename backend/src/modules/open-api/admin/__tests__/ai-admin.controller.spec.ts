@@ -1,7 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
-import { AIAdminController } from "../ai-admin.controller";
-import { AIAdminService } from "../ai-admin.service";
+import { AIAdminController } from "../ai/ai-admin.controller";
+import { AIAdminService } from "../ai/ai-admin.service";
 import {
   GuardrailsPipelineService,
   SkillSandboxService,

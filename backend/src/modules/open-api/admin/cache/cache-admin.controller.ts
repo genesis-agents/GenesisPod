@@ -8,9 +8,9 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { CacheService, CachePrefix } from "../../../common/cache";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { CacheService, CachePrefix } from "../../../../common/cache";
 
 /**
  * 缓存管理控制器

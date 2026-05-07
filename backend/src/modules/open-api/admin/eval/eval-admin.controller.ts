@@ -11,8 +11,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
 import {
   EvalDataset,
   EvalExperimentPolicy,
@@ -21,7 +21,7 @@ import {
   EvalHarnessService,
   EvalRunResult,
   EvalScorer,
-} from "../../ai-harness/facade";
+} from "../../../ai-harness/facade";
 
 interface EvalAdminScorerSpec {
   type: "exact_match" | "contains_text";

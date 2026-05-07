@@ -12,9 +12,9 @@ import {
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { AIModelType } from "@prisma/client";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { ModelRecommendationsService } from "../../ai-engine/llm/selection/model-recommendations.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { ModelRecommendationsService } from "../../../ai-engine/llm/selection/model-recommendations.service";
 
 interface AuthedReq {
   user: { id: string; email: string };

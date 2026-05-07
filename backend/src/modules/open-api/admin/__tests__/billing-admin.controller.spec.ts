@@ -1,5 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { BillingAdminController } from "../billing-admin.controller";
+import { BillingAdminController } from "../billing/billing-admin.controller";
 import { BillingService } from "../services/billing.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";

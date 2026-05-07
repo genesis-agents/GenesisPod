@@ -11,9 +11,9 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { PrismaService } from "../../../common/prisma/prisma.service";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 // ─── Types ────────────────────────────────────────────────
 

@@ -17,13 +17,13 @@ import {
   ApiParam,
   ApiQuery,
 } from "@nestjs/swagger";
-import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
-import { AdminGuard } from "../../../common/guards/admin.guard";
-import { AgentConfigService } from "../../ai-harness/facade";
+import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import { AdminGuard } from "../../../../common/guards/admin.guard";
+import { AgentConfigService } from "../../../ai-harness/facade";
 import {
   CreateAgentConfigDto,
   UpdateAgentConfigDto,
-} from "./dto/agent-config-admin.dto";
+} from "../dto/agent-config-admin.dto";
 
 @ApiTags("Admin - Agent Configuration")
 @Controller("admin/agents")

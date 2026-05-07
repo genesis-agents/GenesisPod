@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ServiceUnavailableException } from "@nestjs/common";
-import { ApprovalsAdminController } from "../approvals-admin.controller";
+import { ApprovalsAdminController } from "../approvals/approvals-admin.controller";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../../common/guards/admin.guard";
