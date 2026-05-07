@@ -248,32 +248,15 @@ describe("CtxHydratorService.hydrate", () => {
     });
   });
 
-  describe("heartbeat 时间窗（v1.2 类别 B2）", () => {
-    it("status=running 且 heartbeat 5s 前 → throw（in-flight）", async () => {
+  // ★ 2026-05-07 rerun-overhaul v1.1 §4：in-flight 检查从 ctx-hydrator 删除（迁到
+  //   RerunGuardService 单点判定）。原 7 个 in-flight 相关 case 全部删除（迁到
+  //   rerun-guard.service.spec.ts 9-cell 矩阵）。这里只保 hydrate 业务路径 spec：
+  describe("status 行为（in-flight 判定已迁到 RerunGuard）", () => {
+    it("status=running 任何 heartbeat 状态都允许 hydrate（不再做 in-flight 判定）", async () => {
       const detail = buildDetail({
         status: "running",
-        heartbeatAt: new Date(Date.now() - 5_000),
+        heartbeatAt: new Date(Date.now() - 1000),
       });
-      const store = makeMockStore(detail);
-      const prisma = makeMockPrisma();
-      const hydrator = new CtxHydratorService(store, prisma);
-      await expect(hydrator.hydrate("m1", "u1")).rejects.toThrow(/in-flight/);
-    });
-
-    it("status=running 且 heartbeat 120s 前 → 允许（reopen 等待）", async () => {
-      const detail = buildDetail({
-        status: "running",
-        heartbeatAt: new Date(Date.now() - 120_000),
-      });
-      const store = makeMockStore(detail);
-      const prisma = makeMockPrisma();
-      const hydrator = new CtxHydratorService(store, prisma);
-      const ctx = await hydrator.hydrate("m1", "u1");
-      expect(ctx.__hydrated).toBe(true);
-    });
-
-    it("status=running 且 heartbeatAt=null → 允许（reopen 后 hb 还没刷）", async () => {
-      const detail = buildDetail({ status: "running", heartbeatAt: null });
       const store = makeMockStore(detail);
       const prisma = makeMockPrisma();
       const hydrator = new CtxHydratorService(store, prisma);
@@ -288,49 +271,6 @@ describe("CtxHydratorService.hydrate", () => {
       const hydrator = new CtxHydratorService(store, prisma);
       const ctx = await hydrator.hydrate("m1", "u1");
       expect(ctx.__hydrated).toBe(true);
-    });
-
-    // 2026-05-07 zombie heartbeat 真因（c195035f mission）：mission 实际 7h 前死，
-    // postlude 完成后 setInterval refreshHeartbeat 没停 → heartbeat 持续刷到现在；
-    // 但 stage event 7h+ 没新。单 heartbeat 信号会误拒 rerun。
-    // 双信号判定：heartbeat fresh + event stale → 视为 zombie，允许 rerun。
-    it("status=running + heartbeat 2s 前 + event 7h 前 → 允许（zombie heartbeat fix）", async () => {
-      const detail = buildDetail({
-        status: "running",
-        heartbeatAt: new Date(Date.now() - 2_000),
-      });
-      const store = makeMockStore(detail);
-      const prisma = makeMockPrisma({
-        latestEventTs: Date.now() - 7 * 60 * 60 * 1000,
-      });
-      const hydrator = new CtxHydratorService(store, prisma);
-      const ctx = await hydrator.hydrate("m1", "u1");
-      expect(ctx.__hydrated).toBe(true);
-    });
-
-    it("status=running + heartbeat fresh + 无任何 event → 允许（pod 启动期 / DB 错）", async () => {
-      const detail = buildDetail({
-        status: "running",
-        heartbeatAt: new Date(Date.now() - 5_000),
-      });
-      const store = makeMockStore(detail);
-      const prisma = makeMockPrisma({ latestEventTs: null });
-      const hydrator = new CtxHydratorService(store, prisma);
-      const ctx = await hydrator.hydrate("m1", "u1");
-      expect(ctx.__hydrated).toBe(true);
-    });
-
-    it("status=running + heartbeat fresh + event fresh 双 fresh → throw（真活）", async () => {
-      const detail = buildDetail({
-        status: "running",
-        heartbeatAt: new Date(Date.now() - 3_000),
-      });
-      const store = makeMockStore(detail);
-      const prisma = makeMockPrisma({
-        latestEventTs: Date.now() - 4_000,
-      });
-      const hydrator = new CtxHydratorService(store, prisma);
-      await expect(hydrator.hydrate("m1", "u1")).rejects.toThrow(/in-flight/);
     });
   });
 

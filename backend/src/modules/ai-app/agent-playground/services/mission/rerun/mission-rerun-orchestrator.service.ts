@@ -29,6 +29,7 @@ import {
   MissionOwnershipRegistry,
 } from "@/modules/ai-harness/facade";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
+import { RerunGuardService } from "./rerun-guard.service";
 
 interface RerunResult {
   missionId: string;
@@ -54,6 +55,8 @@ export class MissionRerunOrchestratorService {
     private readonly buffer: MissionEventBuffer,
     private readonly ownership: MissionOwnershipRegistry,
     private readonly checkpoint: MissionCheckpointService,
+    // ★ 2026-05-07 rerun-overhaul v1.1 §3.6：source mission in-flight + zombie 判定
+    private readonly rerunGuard: RerunGuardService,
   ) {}
 
   /**
@@ -66,6 +69,12 @@ export class MissionRerunOrchestratorService {
     sourceMissionId: string,
     userId: string,
   ): Promise<NonNullable<Awaited<ReturnType<MissionStore["getById"]>>>> {
+    // ★ 2026-05-07 rerun-overhaul v1.1 §3.6：先调 RerunGuard ensureRerunable
+    //   - in-flight=true → 抛 BadRequest（真在跑，拒绝并发 rerun 覆盖产物）
+    //   - zombieDetected=true → 主动 cleanup（status: running→failed）后放行
+    //   - 然后下面白名单 status 检查继续做（与 RerunGuard 互补正交）
+    await this.rerunGuard.ensureRerunable(sourceMissionId, userId);
+
     const original = await this.store.getById(sourceMissionId, userId);
     if (!original) {
       throw new ForbiddenException(`mission ${sourceMissionId} not found`);

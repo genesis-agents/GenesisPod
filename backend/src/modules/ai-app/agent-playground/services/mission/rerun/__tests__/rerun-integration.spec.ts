@@ -15,7 +15,7 @@
  *     交互验证三方协作（service-level 集成）。
  */
 
-import { Logger } from "@nestjs/common";
+import { BadRequestException, Logger } from "@nestjs/common";
 import { LocalRerunService } from "../local-rerun.service";
 import { StageRerunDispatcher } from "../stage-rerun.dispatcher";
 import type { CtxHydratorService } from "../ctx-hydrator.service";
@@ -228,12 +228,26 @@ function buildIntegratedHarness(opts: {
     bindingsMock as never,
   );
 
+  // ★ 2026-05-07 rerun-overhaul v1.1: RerunGuard 注入（缺省放过）
+  const rerunGuardMock = {
+    ensureRerunable: jest.fn().mockResolvedValue(undefined),
+    checkInFlight: jest.fn().mockResolvedValue({
+      inFlight: false,
+      zombieDetected: false,
+      status: "failed",
+      heartbeatAgeMs: null,
+      latestBusinessEventAgeMs: null,
+    }),
+  };
+
   const service = new LocalRerunService(
     hydratorMock as unknown as CtxHydratorService,
     lockRegMock as unknown as RerunLockRegistry,
     dispatcher,
     prismaMock as unknown as PrismaService,
     storeMock as unknown as MissionStore,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rerunGuardMock as any,
   );
 
   return {
@@ -244,6 +258,7 @@ function buildIntegratedHarness(opts: {
     prismaMock,
     hydratorMock,
     lockRegMock,
+    rerunGuardMock,
   };
 }
 
@@ -384,11 +399,16 @@ describe("Rerun integration (PR-R8)", () => {
       ).rejects.toThrow(/累积 cost.*已达 maxCredits/);
     });
 
-    it("running + heartbeat < 60s → 拒（in-flight 不允许）", async () => {
+    // ★ 2026-05-07 rerun-overhaul v1.1：原"running + heartbeat < 60s → 拒"测试改为
+    //   委托验证。in-flight 判定全归 RerunGuard（spec 在 rerun-guard.service.spec）。
+    //   这里只验证 LocalRerunService 把 in-flight 透传出去（不吞）。
+    it("rerunGuard.ensureRerunable 抛 in-flight 错 → run 透传 BadRequest", async () => {
       const h = buildIntegratedHarness({
-        missionStatus: "running",
-        heartbeatMsAgo: 30_000,
+        missionStatus: "failed",
       });
+      h.rerunGuardMock.ensureRerunable.mockRejectedValueOnce(
+        new BadRequestException("mission m-int-1 is in-flight (...)"),
+      );
       await expect(
         h.service.run(
           {
@@ -401,7 +421,7 @@ describe("Rerun integration (PR-R8)", () => {
           },
           noopEmit,
         ),
-      ).rejects.toThrow(/还在跑/);
+      ).rejects.toThrow(/in-flight/);
     });
   });
 

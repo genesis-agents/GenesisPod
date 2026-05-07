@@ -40,6 +40,7 @@ import { LeaderChatService } from "./services/chat/leader-chat.service";
 // ── 2026-04-30 (B 路线): 单 stage 局部重跑 ──
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
+import { RerunGuardService } from "./services/mission/rerun/rerun-guard.service";
 // RerunLockRegistry 已上提到 ai-harness/facade（@Global TeamsModule provider）
 import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
 // ★ PR-R5b-FULL (2026-05-07): rerun runtime builder（billing/pool/leader 装配 stub）
@@ -123,6 +124,8 @@ import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
     // ── 局部重跑 ──
     LocalRerunService,
     CtxHydratorService,
+    // ★ 2026-05-07 rerun-overhaul v1.1：唯一 in-flight 判定 + zombie 主动清理
+    RerunGuardService,
     // RerunLockRegistry 已上提到 ai-harness/facade（PR-3 standardize playground）
     StageRerunDispatcher,
     // ★ PR-R5b-FULL (2026-05-07): RerunRuntimeBuilder — dispatcher 8 stage handler 必读

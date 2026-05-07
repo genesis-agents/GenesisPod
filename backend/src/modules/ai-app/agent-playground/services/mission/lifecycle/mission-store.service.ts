@@ -152,6 +152,29 @@ export class MissionStore {
   }
 
   /**
+   * 清空 mission 的 heartbeat_at（设 NULL）。
+   *
+   * 设计来源：rerun-overhaul-design-v1.md §3.5。mission lifecycle 转 final（completed /
+   * failed / cancelled）时显式清，治 zombie heartbeat 来源（pod 还在跑 setInterval 但
+   * mission 早死）。
+   *
+   * 安全：三元 WHERE `id + user_id`，跨用户 missionId 触发 affectedRows=0 不影响他人数据。
+   * best-effort：失败记 warn 不抛错（与 refreshHeartbeat 对称）。
+   */
+  async clearHeartbeat(id: string, userId: string): Promise<void> {
+    await this.prisma.agentPlaygroundMission
+      .updateMany({
+        where: { id, userId },
+        data: { heartbeatAt: null },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[clearHeartbeat ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /**
    * ★ #88 (2026-05-06): pod restart 时 dispatcher 内存丢失所有 active session，
    * 但 DB status='running' 不会自动改。本方法扫所有 heartbeat 已停 ≥ thresholdMs
    * 的 'running' mission，主动 mark failed，让用户立即看到状态而非等 15 min
@@ -1057,8 +1080,12 @@ export class MissionStore {
    * v1.0 findFirst+update 的 TOCTOU race（双 reopen 都通过 status 检查再都写入）。
    *
    * 完整 reset 字段集（v1.2 类别 B1）：status/completedAt/errorMessage/finalScore/
-   * leaderSigned/leaderOverallScore/leaderVerdict/heartbeatAt 全清；
-   * leader_journal 保留（含 __checkpoint key 已在 markCompleted 时删除）。
+   * leaderSigned/leaderOverallScore/leaderVerdict 全清；leader_journal 保留
+   * （含 __checkpoint key 已在 markCompleted 时删除）。
+   *
+   * ★ 2026-05-07 rerun-overhaul v1.1 §3.5.2：heartbeat_at **不再**清/写。reopen 期间
+   *   保留旧值（reopen 之前的 stale 或 NULL），由 mission shell setInterval 接管时
+   *   第一时间刷（mission-runtime-shell.service.ts:150）。详见 line 1110+ 的删除注释。
    *
    * 5×5 状态转移矩阵（spec 见 ctx-hydrator.service.spec / mission-store.markReopened.spec）：
    *   from=failed         → running ✅
@@ -1084,7 +1111,18 @@ export class MissionStore {
           leaderSigned: null,
           leaderOverallScore: null,
           leaderVerdict: null,
-          heartbeatAt: new Date(),
+          // ★ 2026-05-07 rerun-overhaul v1.1 §3.5.2：markReopened 不再写 heartbeat_at。
+          //   理由：markReopened 是状态机转换（failed→running），职责单一改 status；
+          //   heartbeat 是 pod-level 信号，应由 mission shell setInterval 接管 mission
+          //   时第一时间刷（mission-runtime-shell.service.ts:150）。
+          //
+          //   原行为 `heartbeatAt: new Date()` 会让用户连点重跑出现因果倒置：
+          //   第一次 reopen 后 cascade 失败但还没回写 status=failed 的窗口期，第二次
+          //   ensureRerunable 看到 status=running + heartbeat 1s ago + 0 BUSINESS 事件
+          //   → zombieDetected → cleanup 把刚 reopen 覆盖回 failed（design v1.1 §3.5.2 真因）。
+          //
+          //   修后 reopen 期间 heartbeat_at 保留旧值（reopen 前的 stale 或 NULL）—— RerunGuard
+          //   "heartbeat null/stale 永不 inFlight=true" 不变量保证连点重跑安全。
         },
       });
       if (updated.count === 0) {

@@ -71,6 +71,8 @@ interface Mocks {
   lock: { acquire: jest.Mock; release: jest.Mock };
   dispatcher: { dispatch: jest.Mock; runFromStageWithCascade: jest.Mock };
   store: { getById: jest.Mock; markReopened: jest.Mock };
+  // ★ 2026-05-07 rerun-overhaul v1.1: RerunGuardService 注入
+  rerunGuard: { ensureRerunable: jest.Mock; checkInFlight: jest.Mock };
   prisma: MockPrisma;
   emit: jest.Mock;
 }
@@ -97,6 +99,17 @@ function makeMocks(missionRow: Record<string, unknown> | null = null): Mocks {
       markReopened: jest.fn().mockResolvedValue(undefined),
       markFailed: jest.fn().mockResolvedValue(undefined),
     },
+    rerunGuard: {
+      // 缺省：放过（不 in-flight、无 zombie）
+      ensureRerunable: jest.fn().mockResolvedValue(undefined),
+      checkInFlight: jest.fn().mockResolvedValue({
+        inFlight: false,
+        zombieDetected: false,
+        status: "failed",
+        heartbeatAgeMs: null,
+        latestBusinessEventAgeMs: null,
+      }),
+    },
     prisma: makePrisma(missionRow),
     emit: jest.fn().mockResolvedValue(undefined),
   };
@@ -109,6 +122,8 @@ function makeService(m: Mocks): LocalRerunService {
     m.dispatcher as unknown as StageRerunDispatcher,
     m.prisma as unknown as PrismaService,
     m.store as unknown as MissionStore,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    m.rerunGuard as any,
   );
 }
 
@@ -205,7 +220,24 @@ describe("LocalRerunService.run (PR-R6)", () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it("mission status=running 且 heartbeat < 60s → throw BadRequest", async () => {
+  // ★ 2026-05-07 rerun-overhaul v1.1：原"heartbeat < 60s 拒"3 case 删除（迁到
+  //   rerun-guard.service.spec 9-cell 矩阵）。这里只验证 LocalRerunService 调
+  //   ensureRerunable 一次（委托正确性，不重复测判定逻辑）。
+  it("rerun 入口必调 rerunGuard.ensureRerunable", async () => {
+    const m = makeMocks({
+      id: "m1",
+      status: "failed",
+      heartbeatAt: null,
+      costUsd: 0,
+      maxCredits: 1,
+    });
+    const svc = makeService(m);
+    await svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit);
+    expect(m.rerunGuard.ensureRerunable).toHaveBeenCalledTimes(1);
+    expect(m.rerunGuard.ensureRerunable).toHaveBeenCalledWith("m1", "u1");
+  });
+
+  it("rerunGuard.ensureRerunable 抛 BadRequest → run 透传不吞", async () => {
     const m = makeMocks({
       id: "m1",
       status: "running",
@@ -213,39 +245,13 @@ describe("LocalRerunService.run (PR-R6)", () => {
       costUsd: 0,
       maxCredits: 1,
     });
+    m.rerunGuard.ensureRerunable.mockRejectedValueOnce(
+      new BadRequestException("mission m1 is in-flight (...)"),
+    );
     const svc = makeService(m);
     await expect(
       svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit),
-    ).rejects.toThrow(/还在跑/);
-  });
-
-  it("mission status=running 但 heartbeat ≥ 60s → 允许", async () => {
-    const m = makeMocks({
-      id: "m1",
-      status: "running",
-      heartbeatAt: new Date(Date.now() - 120_000),
-      costUsd: 0,
-      maxCredits: 1,
-    });
-    const svc = makeService(m);
-    await expect(
-      svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit),
-    ).resolves.toMatchObject({ ok: true });
-  });
-
-  // ★ 收尾评审 P0-R2 (2026-05-07): heartbeatAt=null 与 ctx-hydrator 策略对齐
-  it("mission status=running 但 heartbeatAt=null → 允许（reopen 后还没刷的合法窗口）", async () => {
-    const m = makeMocks({
-      id: "m1",
-      status: "running",
-      heartbeatAt: null,
-      costUsd: 0,
-      maxCredits: 1,
-    });
-    const svc = makeService(m);
-    await expect(
-      svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit),
-    ).resolves.toMatchObject({ ok: true });
+    ).rejects.toThrow(/in-flight/);
   });
 
   it("实时 cost guard：cost_usd >= max_credits → throw BadRequest", async () => {

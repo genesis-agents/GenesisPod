@@ -110,12 +110,24 @@ function buildController() {
   const {
     MissionRerunOrchestratorService,
   } = require("../services/mission/rerun/mission-rerun-orchestrator.service");
+  // ★ 2026-05-07 rerun-overhaul v1.1: RerunGuardService 注入（缺省放过）
+  const rerunGuardMock = {
+    ensureRerunable: jest.fn().mockResolvedValue(undefined),
+    checkInFlight: jest.fn().mockResolvedValue({
+      inFlight: false,
+      zombieDetected: false,
+      status: "completed",
+      heartbeatAgeMs: null,
+      latestBusinessEventAgeMs: null,
+    }),
+  };
   const rerunOrchestrator = new MissionRerunOrchestratorService(
     orchestrator as never,
     store as never,
     buffer as never,
     ownership as never,
     checkpoint as never,
+    rerunGuardMock as never,
   );
 
   // ★ R2-C 单轨化 (2026-05-04)：pipelineDispatcher 是唯一 mission orchestrator；

@@ -157,7 +157,7 @@ describe("MissionStore.markReopened (PR-R3 真 5×5 矩阵)", () => {
     );
   });
 
-  it("成功 reopen 时 reset 字段集完整", async () => {
+  it("成功 reopen 时 reset 字段集完整（markReopened 不写 heartbeat_at —— rerun-overhaul v1.1 §3.5.2）", async () => {
     const prisma = makeMockPrisma();
     prisma.agentPlaygroundMission.updateMany.mockResolvedValue({ count: 1 });
     const store = makeStore(prisma);
@@ -170,7 +170,13 @@ describe("MissionStore.markReopened (PR-R3 真 5×5 矩阵)", () => {
     expect(arg.data.leaderSigned).toBeNull();
     expect(arg.data.leaderOverallScore).toBeNull();
     expect(arg.data.leaderVerdict).toBeNull();
-    expect(arg.data.heartbeatAt).toBeInstanceOf(Date);
+    // ★ 2026-05-07 rerun-overhaul v1.1 §3.5.2 + R1 architect P0-3：markReopened 不写
+    //   heartbeat_at（删 mission-store.service.ts:1087）。理由：
+    //   防止用户连点重跑出现新一轮因果倒置 race（cascade 失败但还没回写 status=failed
+    //   的窗口期，第二次 ensureRerunable 看到 status=running + heartbeat 1s ago + 0
+    //   BUSINESS 事件 → zombieDetected → cleanup 把刚 reopen 覆盖回 failed）。
+    //   修后 heartbeat 由 mission shell setInterval 接管时刷（mission-runtime-shell:150）。
+    expect(arg.data).not.toHaveProperty("heartbeatAt");
   });
 
   it("audit event 在同一 transaction 内创建", async () => {

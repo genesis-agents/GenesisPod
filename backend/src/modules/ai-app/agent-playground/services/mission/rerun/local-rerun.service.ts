@@ -33,6 +33,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { CtxHydratorService } from "./ctx-hydrator.service";
+import { RerunGuardService } from "./rerun-guard.service";
 import { RerunLockRegistry } from "@/modules/ai-harness/facade";
 import { StageRerunDispatcher } from "./stage-rerun.dispatcher";
 import type { EmitFn } from "../workflow/mission-deps";
@@ -97,6 +98,8 @@ export class LocalRerunService {
     // ★ 全覆盖审计修 (2026-05-06): TOCTOU fix — 改为 prisma $transaction 原子校验
     private readonly prisma: PrismaService,
     private readonly store: MissionStore,
+    // ★ 2026-05-07 rerun-overhaul v1.1：唯一 in-flight 判定单元（替代 line 206 的旧检查）
+    private readonly rerunGuard: RerunGuardService,
   ) {}
 
   /**
@@ -182,14 +185,17 @@ export class LocalRerunService {
       throw new BadRequestException(eligibility.reason ?? "局部重跑不允许");
     }
 
-    // ── 2+3. 状态 + 实时 cost guard（事务内原子）──
+    // ── 2. in-flight + zombie 判定（rerun-overhaul v1.1）──
+    // 唯一 in-flight 判定单元：RerunGuardService 内部做 9-cell 矩阵 + zombie 主动 cleanup。
+    // 删除原 line 202-214 单 heartbeat 判定（与 ctx-hydrator 阈值/文案不一致 + 不区分 lifecycle vs business 事件 → 因果倒置真因）。
+    await this.rerunGuard.ensureRerunable(missionId, userId);
+
+    // ── 3. 实时 cost guard（事务内原子）──
     await this.prisma.$transaction(async (tx) => {
       const exists = await tx.agentPlaygroundMission.findFirst({
         where: { id: missionId, userId },
         select: {
           id: true,
-          status: true,
-          heartbeatAt: true,
           costUsd: true,
           maxCredits: true,
         },
@@ -197,19 +203,6 @@ export class LocalRerunService {
       if (!exists) {
         throw new NotFoundException(
           `mission ${missionId} not found or not owned by ${userId}`,
-        );
-      }
-      // running 但 heartbeat < 60s → 真在跑，不允许重跑
-      // ★ 收尾评审 P0-R1 (2026-05-07): heartbeatAt=null 与 ctx-hydrator 策略对齐 —
-      //   视同 hbAge=Infinity（reopen 后 heartbeat 还没刷的合法窗口）。
-      //   仅当 heartbeatAt 真存在且 < 60s 才拒（in-flight 真在跑）。
-      if (
-        exists.status === "running" &&
-        exists.heartbeatAt &&
-        Date.now() - exists.heartbeatAt.getTime() < 60_000
-      ) {
-        throw new BadRequestException(
-          "原 mission 还在跑（heartbeat < 60s），无法局部重跑 —— 取消或等结束后再操作",
         );
       }
       // 实时 cost guard：累积成本超 maxCredits → 拒绝（防 rerun 无限烧钱）
