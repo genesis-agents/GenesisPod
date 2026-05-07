@@ -140,10 +140,27 @@ function makeMockPrisma(
       content: string;
       wordCount: number | null;
     }>;
+    /** 2026-05-07 zombie heartbeat fix: ctx-hydrator 双信号判定需要 mock 最近事件 ts。
+     *  缺省 fresh（5s 前）—— 让原 in-flight spec 保持原行为（heartbeat fresh + event fresh → 拒）。
+     *  传 null 模拟无事件；传 number 直接用作 ts(ms)。 */
+    latestEventTs?: number | null;
   } = {},
 ) {
+  const eventTs = opts.latestEventTs;
+  const eventRows: { ts: bigint }[] =
+    eventTs === null
+      ? []
+      : eventTs === undefined
+        ? [{ ts: BigInt(Date.now() - 5_000) }]
+        : [{ ts: BigInt(eventTs) }];
   return {
-    $queryRawUnsafe: jest.fn().mockResolvedValue(opts.rrRows ?? []),
+    $queryRawUnsafe: jest.fn((sql: string) => {
+      // 双信号判定 events 查询走 SELECT ts FROM agent_playground_mission_events
+      if (sql.includes("agent_playground_mission_events")) {
+        return Promise.resolve(eventRows);
+      }
+      return Promise.resolve(opts.rrRows ?? []);
+    }),
     agentPlaygroundChapterDraft: {
       findMany: jest.fn().mockResolvedValue(opts.cdRows ?? []),
     },
@@ -271,6 +288,49 @@ describe("CtxHydratorService.hydrate", () => {
       const hydrator = new CtxHydratorService(store, prisma);
       const ctx = await hydrator.hydrate("m1", "u1");
       expect(ctx.__hydrated).toBe(true);
+    });
+
+    // 2026-05-07 zombie heartbeat 真因（c195035f mission）：mission 实际 7h 前死，
+    // postlude 完成后 setInterval refreshHeartbeat 没停 → heartbeat 持续刷到现在；
+    // 但 stage event 7h+ 没新。单 heartbeat 信号会误拒 rerun。
+    // 双信号判定：heartbeat fresh + event stale → 视为 zombie，允许 rerun。
+    it("status=running + heartbeat 2s 前 + event 7h 前 → 允许（zombie heartbeat fix）", async () => {
+      const detail = buildDetail({
+        status: "running",
+        heartbeatAt: new Date(Date.now() - 2_000),
+      });
+      const store = makeMockStore(detail);
+      const prisma = makeMockPrisma({
+        latestEventTs: Date.now() - 7 * 60 * 60 * 1000,
+      });
+      const hydrator = new CtxHydratorService(store, prisma);
+      const ctx = await hydrator.hydrate("m1", "u1");
+      expect(ctx.__hydrated).toBe(true);
+    });
+
+    it("status=running + heartbeat fresh + 无任何 event → 允许（pod 启动期 / DB 错）", async () => {
+      const detail = buildDetail({
+        status: "running",
+        heartbeatAt: new Date(Date.now() - 5_000),
+      });
+      const store = makeMockStore(detail);
+      const prisma = makeMockPrisma({ latestEventTs: null });
+      const hydrator = new CtxHydratorService(store, prisma);
+      const ctx = await hydrator.hydrate("m1", "u1");
+      expect(ctx.__hydrated).toBe(true);
+    });
+
+    it("status=running + heartbeat fresh + event fresh 双 fresh → throw（真活）", async () => {
+      const detail = buildDetail({
+        status: "running",
+        heartbeatAt: new Date(Date.now() - 3_000),
+      });
+      const store = makeMockStore(detail);
+      const prisma = makeMockPrisma({
+        latestEventTs: Date.now() - 4_000,
+      });
+      const hydrator = new CtxHydratorService(store, prisma);
+      await expect(hydrator.hydrate("m1", "u1")).rejects.toThrow(/in-flight/);
     });
   });
 

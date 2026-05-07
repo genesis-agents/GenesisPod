@@ -41,6 +41,21 @@ import {
 /** v1.2 类别 B2：60s heartbeat 窗口 — < 60s 拒（mission 真在跑），≥ 60s 允许（reopen 等待 cascade） */
 const HEARTBEAT_INFLIGHT_THRESHOLD_MS = 60_000;
 
+/**
+ * 双信号判定补丁（2026-05-07，c195035f bug fix）：与 mission-liveness-guard 对齐。
+ *
+ * 单 heartbeat 信号会被 zombie heartbeat 误判：mission 在 7h+ 前 fail / postlude
+ * 完成后 setInterval refreshHeartbeat 没停（pod 仍在跑 → setInterval 持续 fire），
+ * heartbeat_at 持续刷到现在；但 stage event 7h+ 没新 → mission 实际死了。
+ *
+ * 改双信号 — heartbeat fresh AND event fresh 才认 in-flight，否则视为 stale 允许 rerun。
+ * event 阈值放宽到 5min（stage 间最长正常空隙），heartbeat 阈值仍 60s（pod 级心跳更紧）。
+ *
+ * 修复对象：c195035f mission 重跑被 "in-flight (heartbeat 2s ago)" 误拒，但
+ * 最近真 stage event 在 7h 前，是 zombie heartbeat。
+ */
+const EVENT_INFLIGHT_THRESHOLD_MS = 5 * 60_000;
+
 /** v1.2 类别 E5：mission.report_full 反序列化后大小硬上限（与 zod schema 一致） */
 const MAX_REPORT_FULL_BYTES = 2_000_000;
 
@@ -78,21 +93,39 @@ export class CtxHydratorService {
       );
     }
 
-    // v1.2 类别 B2：mission 在 reopen 后 status=running 是合法的；
-    // 用 heartbeat 时间窗判断 — < 60s 拒（其它 pod 真在跑），≥ 60s 允许
+    // v1.2 类别 B2 + 2026-05-07 bug fix：mission 在 reopen 后 status=running 合法；
+    // 双信号判定（heartbeat AND 最近事件）—— 治 zombie heartbeat 误拒 rerun 问题。
+    // 见 EVENT_INFLIGHT_THRESHOLD_MS 注释（c195035f mission 真因）。
     if (detail.status === "running") {
+      const now = Date.now();
       const hbAt = detail.heartbeatAt;
-      const hbAge = hbAt
-        ? Date.now() - hbAt.getTime()
-        : Number.POSITIVE_INFINITY;
-      if (hbAge < HEARTBEAT_INFLIGHT_THRESHOLD_MS) {
+      const hbAge = hbAt ? now - hbAt.getTime() : Number.POSITIVE_INFINITY;
+      const heartbeatFresh = hbAge < HEARTBEAT_INFLIGHT_THRESHOLD_MS;
+      // 取最近一条 mission 事件（不限类型 — 任何 lifecycle / stage / failure 都算"活迹"）
+      const lastEventTs = await this.getLatestEventTs(missionId).catch(
+        () => null,
+      );
+      const eventAge =
+        lastEventTs != null ? now - lastEventTs : Number.POSITIVE_INFINITY;
+      const eventFresh = eventAge < EVENT_INFLIGHT_THRESHOLD_MS;
+      if (heartbeatFresh && eventFresh) {
         throw new BadRequestException(
-          `mission ${missionId} is in-flight (heartbeat ${Math.round(hbAge / 1000)}s ago) — cannot rerun while live`,
+          `mission ${missionId} is in-flight (heartbeat ${Math.round(hbAge / 1000)}s ago, ` +
+            `event ${Math.round(eventAge / 1000)}s ago) — cannot rerun while live`,
         );
       }
-      this.log.warn(
-        `[hydrate ${missionId}] status=running but heartbeat stale (${Math.round(hbAge / 1000)}s ago) — allowing hydrate (reopen pending)`,
-      );
+      // 单信号 fresh（zombie 心跳 / 静默 worker）允许 hydrate；记 warn 供观测
+      if (heartbeatFresh && !eventFresh) {
+        this.log.warn(
+          `[hydrate ${missionId}] zombie heartbeat detected — hb fresh (${Math.round(hbAge / 1000)}s) ` +
+            `but no event for ${Math.round(eventAge / 1000)}s — allowing rerun`,
+        );
+      } else {
+        this.log.warn(
+          `[hydrate ${missionId}] status=running but stale (hb ${Math.round(hbAge / 1000)}s, ` +
+            `event ${Math.round(eventAge / 1000)}s) — allowing hydrate (reopen pending)`,
+        );
+      }
     }
 
     const userProfile =
@@ -202,6 +235,23 @@ export class CtxHydratorService {
       `[hydrate ${missionId}] artifactVersion=${detail.reportArtifactVersion} sections=${reportArtifact?.sections.length ?? 0} dimensions=${dimensions.length} researchResults=${researcherResults?.length ?? 0} verdicts=${(detail.verdicts as unknown[] | null)?.length ?? 0} outlinePlan=${detail.outlinePlan ? "yes" : "no"} analystOutput=${detail.analystOutput ? "yes" : "no"}`,
     );
     return ctx;
+  }
+
+  /**
+   * 取 mission 最近一条事件的 ts（毫秒）。
+   * 用于 hydrate 双信号 in-flight 判定 —— event freshness 配合 heartbeat。
+   * 查不到（无事件 / DB 错）返 null，调用方按"无事件"处理（≥ 阈值）。
+   */
+  private async getLatestEventTs(missionId: string): Promise<number | null> {
+    const rows = await this.prisma.$queryRawUnsafe<{ ts: bigint }[]>(
+      `SELECT ts FROM agent_playground_mission_events
+       WHERE mission_id = $1
+       ORDER BY ts DESC LIMIT 1`,
+      missionId,
+    );
+    if (rows.length === 0) return null;
+    const tsMs = Number(rows[0].ts);
+    return Number.isFinite(tsMs) ? tsMs : null;
   }
 
   /**

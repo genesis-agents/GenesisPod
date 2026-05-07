@@ -92,13 +92,11 @@ class InvalidActionError extends Error {
   }
 }
 
-// PR-1 native-FC: 拆 SUFFIX 成两段。结构段（JSON envelope 形态）只在 prompt-driven
-// 路径 append；native FC 由 vLLM tool parser 处理 wire 格式，结构段会变成噪音 /
-// 与 tools 字段冲突。运营段（reserved kinds 防误冒用 / tool 失败重试守则 / 别 invent
-// tool id）两路径都需要 —— native FC 也可能吐出名叫 "skill_invoke" 的 tool_call。
-const DECISION_STRUCTURAL_SUFFIX = `
+// flag-off / prompt-driven 路径用 SUFFIX —— 字节字面与 commit f50b50d36a 之前的
+// 原版完全等价（保 prompt cache prefix 命中率，避免切 flag 触发 cache miss）。
+const DECISION_SYSTEM_SUFFIX = `
 
-## Decision Protocol (JSON envelope)
+## Decision Protocol
 
 You MUST reply with a single JSON object that has EXACTLY this two-level wrapper:
 {
@@ -131,12 +129,33 @@ The "action" field must be EXACTLY one of these 3 kinds:
 Shorthand: you may also send "actions": [<tool_call>, <tool_call>, ...] at the
 top level — it will be auto-wrapped to parallel_tool_call.
 
-Format rules:
+Rules:
 - Respond with raw JSON only, no markdown fences, no prose outside the JSON.
 - If all information is sufficient, use "finalize".
+- Do not invent tool ids; only use ones listed in <available_tools>. Each
+  catalog entry has an "example:" line — copy that shape literally and replace
+  placeholders with real values.
+- If a tool failed previously, choose a different tool or finalize gracefully.
+- Only the 3 action kinds above are supported. Do NOT emit "skill_invoke",
+  "subagent_spawn", or "llm_generate" — these are reserved internals.
 `;
 
-const DECISION_OPERATIONAL_SUFFIX = `
+// 协议保留 action kind 集合 —— 用于 normalizeAction toolId-as-kind 容错判定。
+// 提到模块级避免 normalizeAction 每轮调用 new Set([...])（高频 agent loop 的小 GC 压力）。
+const RESERVED_ACTION_KINDS = new Set([
+  "tool_call",
+  "parallel_tool_call",
+  "finalize",
+  "subagent_spawn",
+  "skill_invoke",
+  "llm_generate",
+]);
+
+// flag-on / native FC 路径用 SUFFIX —— 不含 JSON envelope 结构段（vLLM tool parser
+// 处理 wire 格式，prompt 再描述 envelope 形态会和 tools 字段冲突或变噪音）。
+// 仍保留运营段：模型可能吐协议外的 skill_invoke / subagent_spawn / llm_generate
+// 当 toolId 用，需要明确告诉它别这样；tool 失败重试守则也通用。
+const DECISION_FC_SUFFIX = `
 
 ## Operational Rules
 
@@ -147,10 +166,6 @@ const DECISION_OPERATIONAL_SUFFIX = `
 - Reserved internal action names: "skill_invoke", "subagent_spawn",
   "llm_generate" — never request these as tool names.
 `;
-
-// 旧名保留为 backward-compat 别名（避免悄悄重命名破坏外部引用）。
-const DECISION_SYSTEM_SUFFIX =
-  DECISION_STRUCTURAL_SUFFIX + DECISION_OPERATIONAL_SUFFIX;
 
 @Injectable()
 export class ReActLoop implements IAgentLoop {
@@ -208,15 +223,11 @@ export class ReActLoop implements IAgentLoop {
       Awaited<ReturnType<AiChatService["chat"]>>["toolCalls"]
     >,
   ): ParsedDecision {
-    const toCall = (
-      tc: (typeof toolCalls)[number],
-    ): IToolCallAction => ({
+    const toCall = (tc: (typeof toolCalls)[number]): IToolCallAction => ({
       kind: "tool_call",
       toolId: tc.name,
       input:
-        tc.arguments && typeof tc.arguments === "object"
-          ? (tc.arguments as Record<string, unknown>)
-          : {},
+        tc.arguments && typeof tc.arguments === "object" ? tc.arguments : {},
       // 透传 LLM 给的 tool_use_id —— IToolCallAction.callId 字段就是为 native FC
       // 配套设计的（见 action.interface.ts:19）。多轮 FC 时 assistant/tool 配对靠这个 id。
       callId: tc.id,
@@ -1228,10 +1239,21 @@ export class ReActLoop implements IAgentLoop {
       });
     }
     for (const m of envelope.messages) {
-      msgs.push({
-        role: m.role === "tool" ? "user" : m.role,
-        content: m.content,
-      });
+      // PR-1 native-FC P1#2: ChatMessage 当前不支持 role:"tool" + tool_call_id，
+      // 将 role:"tool" 降级成 "user"。若有 toolCallId（callback from native FC tool_calls），
+      // 在 content 前缀以 [tool_use_id:xxx] 标记 — LLM 至少能识别"这是 X 次 call 的结果"，
+      // 不依赖 ChatMessage 扩展（独立 PR 完整化 P2 native tool_use_id 配对）。
+      if (m.role === "tool" && m.toolCallId) {
+        msgs.push({
+          role: "user",
+          content: `[tool_result name=${m.name ?? ""} call_id=${m.toolCallId}] ${m.content}`,
+        });
+      } else {
+        msgs.push({
+          role: m.role === "tool" ? "user" : m.role,
+          content: m.content,
+        });
+      }
     }
     // ★ 删除 envelope.tools 追加的降级版工具列表。
     // catalog block（在 envelope.system 里）已经有完整 <available_tools> 含
@@ -1280,9 +1302,10 @@ export class ReActLoop implements IAgentLoop {
       ? this.buildFunctionDefinitions(recalledToolIds ?? [])
       : [];
     const useNativeFCThisCall = fcDefs.length > 0;
-    // Native FC: 结构 suffix 删，运营 suffix 留 —— 见 DECISION_*_SUFFIX 注释。
+    // FC 路径用 DECISION_FC_SUFFIX（仅运营段）；prompt-driven 用原版
+    // DECISION_SYSTEM_SUFFIX（字节字面与 commit f50b50d36a 之前等价 —— 保 cache 命中）。
     const systemPrompt = useNativeFCThisCall
-      ? baseSystem + DECISION_OPERATIONAL_SUFFIX
+      ? baseSystem + DECISION_FC_SUFFIX
       : baseSystem + DECISION_SYSTEM_SUFFIX;
     const response = await this.chatService.chat({
       messages,
@@ -1353,7 +1376,9 @@ export class ReActLoop implements IAgentLoop {
     // {id, name, arguments}），直接构造 decision，跳过文本 JSON 解析。
     // toolCalls 为空才回退 parseDecision —— 旧 prompt-driven 路径 + 方言容错继续兜底。
     let decision: ParsedDecision;
-    let parseError: { name: string; message: string; subCode?: string } | undefined;
+    let parseError:
+      | { name: string; message: string; subCode?: string }
+      | undefined;
     if (
       useNativeFCThisCall &&
       response.toolCalls &&
@@ -1647,18 +1672,10 @@ export class ReActLoop implements IAgentLoop {
     // （input 存在是"这是 tool call 形状"的强信号；纯无效 kind 不会带 input）。
     // 兜底转 tool_call 后由 ToolRegistry 校验 toolId 是否已注册：未注册照样报
     // ToolNotFound（合理错误），不会把无效 kind 偷偷塞给随便一个 tool。
-    const RESERVED_KINDS = new Set([
-      "tool_call",
-      "parallel_tool_call",
-      "finalize",
-      "subagent_spawn",
-      "skill_invoke",
-      "llm_generate",
-    ]);
     if (
       typeof a.kind === "string" &&
       a.kind.trim().length > 0 &&
-      !RESERVED_KINDS.has(a.kind) &&
+      !RESERVED_ACTION_KINDS.has(a.kind) &&
       a.input !== undefined
     ) {
       return {
@@ -1854,6 +1871,10 @@ export class ReActLoop implements IAgentLoop {
         role: "tool",
         content: this.stringifyObservation(result),
         name: result.action.toolId,
+        // PR-1 native-FC P1#2: 透传 callId（来自 LLM tool_use_id）让 IContextMessage 不丢；
+        // buildMessages 当前会把 role:"tool" 降级成 user（ChatMessage 不支持 tool role），
+        // 严格 native 配对需要后续 PR 扩 ChatMessage —— 但 envelope 这层数据完整性先保住。
+        toolCallId: result.action.callId,
         timestamp: Date.now(),
       });
     } else if (result.action.kind === "parallel_tool_call") {
@@ -1864,6 +1885,8 @@ export class ReActLoop implements IAgentLoop {
             role: "tool",
             content: this.stringifyObservation(sub),
             name: sub.action.toolId,
+            // 同上 — 透传 callId，每个 sub 的 callId 独立（parallel_tool_call.calls[i].callId）
+            toolCallId: sub.action.callId,
             timestamp: Date.now(),
           });
         }

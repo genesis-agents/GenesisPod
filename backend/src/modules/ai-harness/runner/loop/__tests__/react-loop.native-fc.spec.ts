@@ -168,7 +168,9 @@ describe("ReActLoop · PR-1 native function-calling", () => {
     // 与 prompt-driven 路径关键差异：responseFormat 没设
     expect(firstChatArg.responseFormat).toBeUndefined();
     // 结构 suffix 不应再追加（DO NOT put the action content 是 structural 段标志）
-    expect(firstChatArg.systemPrompt).not.toMatch(/DO NOT put the action content/);
+    expect(firstChatArg.systemPrompt).not.toMatch(
+      /DO NOT put the action content/,
+    );
     // 但运营 suffix 还要保留（reserved internals 警告 / "if a tool failed"）
     expect(firstChatArg.systemPrompt).toMatch(/Reserved internal action names/);
   });
@@ -433,5 +435,60 @@ describe("ReActLoop · PR-1 native function-calling", () => {
     );
     expect(events.filter((e) => e.type === "action_executed").length).toBe(2);
     expect(reg.get).toHaveBeenCalledWith("web-search");
+  });
+
+  // P1#2 (2026-05-07 review fix): callId 端到端透传 — LLM tool_use_id 必须传到
+  // ToolInvoker.invoke action.callId + envelope role:"tool" message toolCallId
+  // + buildMessages 把 callId 嵌入 content prefix 让下轮 LLM 看到配对线索。
+  it("D. callId E2E: native FC tool_use_id 透传到 invoker + envelope + 下轮 prompt", async () => {
+    process.env.HARNESS_REACT_NATIVE_FC = "true";
+    const chat = mkChat([
+      {
+        toolCalls: [
+          { id: "call_abc123", name: "web-search", arguments: { q: "x" } },
+        ],
+      },
+      {
+        content: JSON.stringify({
+          thinking: "done",
+          action: { kind: "finalize", output: { ok: true } },
+        }),
+      },
+    ]);
+    const reg = mkToolRegistry({ "web-search": { success: true, data: "ok" } });
+    const atr = mkAgentToolRegistry(["web-search"]);
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    const invokeSpy = jest.spyOn(invoker, "invoke");
+    const loop = new ReActLoop(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      chat as any,
+      invoker,
+      hooks,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      atr as any,
+    );
+    await drain(
+      loop.run(makeEnvelope(["web-search"]), criteria, { agentId: "a1" }),
+    );
+    // 1. ToolInvoker 收到的 action 必须带 callId（来自 LLM tc.id）
+    const invokedAction = invokeSpy.mock.calls[0][0];
+    expect((invokedAction as { callId?: string }).callId).toBe("call_abc123");
+    // 2. 第二轮 chat 收到的 messages 里 tool result 必须带 call_id 标记 ——
+    //    buildMessages role:"tool" → "user" 降级 + content prefix（P1#2 当前形态；
+    //    后续 PR 扩 ChatMessage 改 native role:"tool" + tool_call_id 字段）
+    const secondChatArg = (chat.chat as jest.Mock).mock.calls[1][0];
+    const userMsgs = (
+      secondChatArg.messages as Array<{ role: string; content: string }>
+    ).filter((m) => m.role === "user");
+    const hasMarker = userMsgs.some((m) =>
+      m.content.includes("call_id=call_abc123"),
+    );
+    expect(hasMarker).toBe(true);
   });
 });
