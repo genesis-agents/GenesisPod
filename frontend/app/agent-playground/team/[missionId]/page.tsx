@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
+import { QualityGapBanner } from '@/components/agent-playground/overhaul/QualityGapBanner';
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import { ensureRenderableArtifact } from '@/lib/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
@@ -728,6 +729,22 @@ export default function MissionDetailPage() {
           </button>
         </div>
       </header>
+
+      {/* PR-8 v1.6 D4: 硬合约 qualityGap banner（mission completed 但 contract 不达预期时显示） */}
+      {persisted &&
+        persisted.status === 'completed' &&
+        Array.isArray(persisted.qualityGaps) &&
+        persisted.qualityGaps.length > 0 && (
+          <div className="border-b border-gray-200 bg-white px-4 py-3">
+            <QualityGapBanner
+              gaps={persisted.qualityGaps}
+              missionId={missionId}
+              onAccept={() => {
+                /* 用户接受现状，未来可支持 dismissed 持久化；当前重新进入页面会再显示 */
+              }}
+            />
+          </div>
+        )}
 
       {/* Main — flex split exactly like TopicResearchLayout */}
       <div className="flex flex-1 overflow-hidden">

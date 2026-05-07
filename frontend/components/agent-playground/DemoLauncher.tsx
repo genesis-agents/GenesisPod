@@ -9,11 +9,13 @@ import {
   type AuditLayers,
   type BudgetProfile,
   type LengthProfile,
+  type ReportScale,
   type RunMissionInput,
   type StyleProfile,
 } from '@/services/agent-playground/api';
 import { ChevronDown, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
+import { ScalePresetCardGrid } from '@/components/agent-playground/overhaul/ScalePresetCardGrid';
 
 export function DemoLauncher() {
   const { t } = useTranslation();
@@ -102,6 +104,22 @@ export function DemoLauncher() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // PR-8 v1.6 D1: 单轴 reportScale（默认开启，老用户可切回 legacy 3-axis）
+  const [useScalePreset, setUseScalePreset] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('playground:useScalePreset') !== '0';
+  });
+  const [reportScale, setReportScale] = useState<ReportScale>(() => {
+    if (typeof window === 'undefined') return 'standard';
+    const stored = localStorage.getItem('playground:reportScale');
+    if (
+      stored &&
+      ['quick', 'standard', 'deep', 'professional'].includes(stored)
+    ) {
+      return stored as ReportScale;
+    }
+    return 'standard';
+  });
 
   // Phase P5-11: 预算估算（粗估）
   function estimateTokens(): number {
@@ -190,6 +208,9 @@ export function DemoLauncher() {
           selectedKnowledgeBaseIds.length > 0
             ? selectedKnowledgeBaseIds
             : undefined,
+        // PR-8 v1.6 D1: 用户走单轴 reportScale 时一并传，backend dual-write 期 14d 内
+        // 仍读 depth/lengthProfile（不丢弃 legacy 字段）
+        ...(useScalePreset ? { reportScale } : {}),
         // P98-2: concurrency 由 backend 默认 3
       });
       if (!missionId || missionId === 'undefined') {
@@ -259,63 +280,142 @@ export function DemoLauncher() {
         )}
       </div>
 
-      {/* 基础三档（默认就是深度 + 中文 + 中等预算） */}
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            研究深度
-          </label>
-          <select
-            value={depth}
-            onChange={(e) => {
-              const v = e.target.value as RunMissionInput['depth'];
-              setDepth(v);
-              persist('depth', v);
+      {/* PR-8 v1.6 D1: 单轴 reportScale（推荐） + 切回 legacy 3-axis */}
+      {useScalePreset ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-900">
+              报告档位
+              <span className="ml-2 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                推荐
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setUseScalePreset(false);
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('playground:useScalePreset', '0');
+                }
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              切换到自定义档位 →
+            </button>
+          </div>
+          <ScalePresetCardGrid
+            value={reportScale}
+            onChange={(v) => {
+              setReportScale(v);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('playground:reportScale', v);
+              }
+              // 同步 legacy 字段（dual-write 14d 期，backend 兼容）
+              // 简易映射：scale → legacy depth + lengthProfile（backend 也会自己 deriveScaleFromLegacy 反向推导）
+              const SCALE_TO_LEGACY: Record<
+                ReportScale,
+                {
+                  depth: RunMissionInput['depth'];
+                  lengthProfile: LengthProfile;
+                }
+              > = {
+                quick: { depth: 'quick', lengthProfile: 'brief' },
+                standard: { depth: 'standard', lengthProfile: 'standard' },
+                deep: { depth: 'deep', lengthProfile: 'deep' },
+                professional: { depth: 'deep', lengthProfile: 'extended' },
+                publication: { depth: 'deep', lengthProfile: 'epic' },
+                encyclopedia: { depth: 'deep', lengthProfile: 'mega' },
+              };
+              const legacy = SCALE_TO_LEGACY[v];
+              if (legacy) {
+                setDepth(legacy.depth);
+                persist('depth', legacy.depth);
+                setLengthProfile(legacy.lengthProfile);
+                persist('lengthProfile', legacy.lengthProfile);
+              }
             }}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-          >
-            <option value="quick">快速（2-3 维度）</option>
-            <option value="standard">标准（3-5 维度）</option>
-            <option value="deep">深度（5-7 维度，默认）</option>
-          </select>
+            userTier="free"
+          />
         </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            输出语言
-          </label>
-          <select
-            value={language}
-            onChange={(e) =>
-              setLanguage(e.target.value as RunMissionInput['language'])
-            }
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-          >
-            <option value="zh-CN">中文</option>
-            <option value="en-US">English</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-900">
-            预算档位
-          </label>
-          <select
-            value={budgetProfile}
-            onChange={(e) => {
-              const v = e.target.value as BudgetProfile;
-              setBudgetProfile(v);
-              persist('budgetProfile', v);
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            自定义档位（旧版 3 轴：深度 + 长度 + 预算）
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setUseScalePreset(true);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('playground:useScalePreset', '1');
+              }
             }}
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            className="text-xs text-violet-600 hover:text-violet-700"
           >
-            <option value="low">低（约 $0.1）</option>
-            <option value="medium">中（约 $0.5，默认）</option>
-            <option value="high">高（约 $2）</option>
-            <option value="unlimited">不限（仅 BYOK）</option>
-          </select>
+            ← 回到推荐档位
+          </button>
         </div>
-      </div>
+      )}
+
+      {/* 基础三档（默认就是深度 + 中文 + 中等预算）— useScalePreset 模式下 depth/budget 由档位驱动，仅用作显示 */}
+      {!useScalePreset && (
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-900">
+              研究深度
+            </label>
+            <select
+              value={depth}
+              onChange={(e) => {
+                const v = e.target.value as RunMissionInput['depth'];
+                setDepth(v);
+                persist('depth', v);
+              }}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            >
+              <option value="quick">快速（2-3 维度）</option>
+              <option value="standard">标准（3-5 维度）</option>
+              <option value="deep">深度（5-7 维度，默认）</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-900">
+              输出语言
+            </label>
+            <select
+              value={language}
+              onChange={(e) =>
+                setLanguage(e.target.value as RunMissionInput['language'])
+              }
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            >
+              <option value="zh-CN">中文</option>
+              <option value="en-US">English</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-900">
+              预算档位
+            </label>
+            <select
+              value={budgetProfile}
+              onChange={(e) => {
+                const v = e.target.value as BudgetProfile;
+                setBudgetProfile(v);
+                persist('budgetProfile', v);
+              }}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            >
+              <option value="low">低（约 $0.1）</option>
+              <option value="medium">中（约 $0.5，默认）</option>
+              <option value="high">高（约 $2）</option>
+              <option value="unlimited">不限（仅 BYOK）</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* 图文 + 审核层级 */}
       <div className="grid grid-cols-2 gap-4">

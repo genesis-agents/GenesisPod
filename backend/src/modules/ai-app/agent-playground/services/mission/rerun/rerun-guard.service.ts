@@ -177,6 +177,37 @@ export class RerunGuardService {
   }
 
   /**
+   * ★ PR-7 v1.6 D5 fresh-research 专用守护（PR13-S8 v1.4）
+   *
+   * fresh-research 创建新 mission（不重跑原 mission），不需要检查 rerunable 状态机；
+   * 但仍需校验"用户对原 mission 有所有权"（CWE-639 防跨用户引用他人 mission 作为 parent）。
+   *
+   * 与 ensureRerunable 区别：
+   *   - ensureRerunable: 校验 ownership + in-flight + status ∈ rerunable
+   *   - ensureMissionOwnership: 仅校验 ownership（mission_id + user_id 双重 WHERE）
+   */
+  async ensureMissionOwnership(
+    missionId: string,
+    userId: string,
+  ): Promise<void> {
+    const mission = await this.store
+      .getById(missionId, userId)
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[rerun-guard ${missionId}] ownership check threw: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        return null;
+      });
+    if (!mission) {
+      throw new BadRequestException(
+        `mission ${missionId} not found or not owned by user`,
+      );
+    }
+  }
+
+  /**
    * 取 mission 最近一条 BUSINESS 事件的 ts（毫秒）。
    *
    * SQL 用全限定前缀 LIKE，与 event-categories.ts BUSINESS_PREFIXES 字面同源

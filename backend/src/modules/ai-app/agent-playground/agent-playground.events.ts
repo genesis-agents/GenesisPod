@@ -85,6 +85,7 @@ import {
   ChapterRevisionSchema,
   ChapterDoneSchema,
   ChapterRewrittenSchema,
+  ChapterSubSectionCompletedSchema,
   // tools / reconciliation
   ToolsRecalledSchema,
   ReconciliationCompletedSchema,
@@ -195,6 +196,8 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("reconciliation:completed", ReconciliationCompletedSchema), // ★ schema 化
   // ── Phase P0-9: Writer 局部回写 (D11) ──
   S("chapter:rewritten", ChapterRewrittenSchema),
+  // ── PR-8 v1.6 D1: deep/professional 单章 N 段拼接，每段完成 emit 一次 ──
+  S("chapter:sub-section:completed", ChapterSubSectionCompletedSchema),
   // ── Phase P0-2 / P3-1: Tool Recall trace ──
   S("tools:recalled", ToolsRecalledSchema),
   S("agent:validation-rejected", AgentValidationRejectedSchema),

@@ -69,6 +69,34 @@ export const RunMissionInputSchema = z
      * 要把上次 reportArtifact 喂进 prompt 做 "在上一次基础上更新" 语义。
      */
     inheritFromMissionId: z.string().uuid().optional(),
+    /**
+     * ★ PR-4' v1.6 D1 reportScale 单一轴（2026-05-07 overhaul）
+     * 提供 → 优先于 lengthProfile/depth 推算字数与章数；走 SCALE_PRESETS 派生路径
+     * 不提供 → 兼容老 lengthProfile/depth；deriveScaleFromLegacy 在 backend 反推
+     *
+     * publication / encyclopedia 是 lock-experimental，前端禁选；后端接收到也返回 BadRequest
+     * （由 controller 层拦截，DTO 仅做 enum 校验）。
+     */
+    reportScale: z
+      .enum([
+        "quick",
+        "standard",
+        "deep",
+        "professional",
+        "publication",
+        "encyclopedia",
+      ])
+      .optional(),
+    /**
+     * ★ PR-4' v1.6 D1: D5 fresh-research 创建新 mission 用 — 关联到原 mission 的 version chain。
+     * 不提供 → 普通新创建（首次 mission）；提供 → fresh-research，原 mission 保留
+     */
+    parentMissionId: z.string().uuid().optional(),
+    /**
+     * ★ PR-1 v1.6: withCitations 硬合约（D4 assertHardContract 用）
+     * true → 每章必有 ≥1 引用，否则 markCompleted + qualityGap("citationsPerCh")
+     */
+    withCitations: z.boolean().default(false),
   })
   // ★ P2 (2026-05-06): 矛盾组合校验 —— quick 档只跑 1 round，不可能生成 epic/mega
   //   体量的报告；前端应禁止此组合，后端加 refine 兜底防误传。

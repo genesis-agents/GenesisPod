@@ -43,6 +43,11 @@ import { restoreGlobalIndices } from "@/modules/ai-harness/facade";
 import { scanContentDefects } from "@/modules/ai-harness/facade";
 // ★ 沉淀 v4: LLM 输出白名单清理（"铁墙函数"，13 个正交修复）
 import { sanitizeSectionOutput } from "@/modules/ai-harness/facade";
+import { countCJKWords } from "@/common/utils/word-count";
+import { sanitizeLlmOutput } from "@/common/utils/llm-content-sanitizer";
+import { SubSectionPlannerAgent } from "../../../agents/writer/sub-section-planner.agent";
+import { SubSectionPlannerService } from "../../sub-section/sub-section-planner.service";
+import { SCALE_PRESETS, usesSubSectionPath } from "../../../scale-presets";
 // ★ G 三道清理管线 (2026-05-06): TI 同款 chart JSON / Figure refs / bare JSON 剥除
 import { stripChartJsonFromContent } from "@/modules/ai-app/topic-insights/utils/strip-chart-json.utils";
 
@@ -73,6 +78,17 @@ export interface PerDimPipelineArgs {
    * 前端 derive.ts 用此值组装 pipelineKey 索引 dimensionPipelines map
    */
   retryLabel?: string;
+
+  /**
+   * ★ PR-13 v1.6 D1 reportScale 单一轴（2026-05-07 overhaul）
+   *
+   * 提供 → 覆盖 lengthProfile/depth 派生的 targetWordsPerChapter / targetChapterCount；
+   * 若 SCALE_PRESETS[scale].subSectionsPerCh ≥ 2，章节写作走 sub-section 拼接路径
+   * （SubSectionPlannerAgent + ChapterWriterAgent.subSection mode × N）。
+   *
+   * 不提供 → 兼容老 mission，走 lengthProfile/depth 派生路径。
+   */
+  reportScale?: import("../../../scale-presets").ReportScale;
 }
 
 export interface PerDimPipelineResult {
@@ -100,6 +116,263 @@ export interface PerDimPipelineResult {
     axes: Record<string, { score: number; comment: string }>;
     summary: string;
   };
+}
+
+/**
+ * ★ PR-13 v1.6 § 13.3 — sub-section 拼接路径 helper
+ *
+ * 1. 调 SubSectionPlannerAgent 规划章内 N 个 sub-section
+ * 2. 校验 planner 输出（SubSectionPlannerService.plan，硬约束 ±5% / count / position）
+ * 3. 顺序调 ChapterWriterAgent.subSection mode × N
+ * 4. previousContext 经 sanitizeLlmOutput 防 indirect prompt injection（PR13-S1）
+ * 5. emit chapter:sub-section-completed × N（business 前缀，被 LivenessGuard 当活迹）
+ * 6. assemble 章节 body / wordCount = backend countCJKWords 累加（D2 真值不信 LLM）
+ *
+ * 失败模式：
+ *   - planner LLM 失败 / 校验失败 → throw（reflexion loop 上层捕获，重试单 LLM call 路径）
+ *   - sub-section LLM 失败 → throw（不 refund，cost 已付，PR13-S4）
+ *
+ * 输出 shape 与 ChapterWriterAgent.invoke 兼容（writerRes-shaped），让 caller 不区分路径。
+ */
+async function invokeChapterViaSubSections(args: {
+  deps: MissionDeps;
+  missionId: string;
+  userId: string;
+  chapter: {
+    index: number;
+    heading: string;
+    thesis: string;
+    keyPoints: string[];
+  };
+  chapterSources: { claim: string; evidence: string; source: string }[];
+  topic: string;
+  dimensionName: string;
+  dimensionIdx: number;
+  language: "zh-CN" | "en-US";
+  scalePreset: import("../../../scale-presets").ScalePreset;
+  attempt: number;
+  billing: BillingRuntimeEnvAdapter;
+  budgetMultiplier: number;
+}): Promise<Awaited<ReturnType<MissionDeps["invoker"]["invoke"]>>> {
+  const {
+    deps,
+    missionId,
+    userId,
+    chapter,
+    chapterSources,
+    topic,
+    dimensionName,
+    dimensionIdx,
+    language,
+    scalePreset,
+    attempt,
+    billing,
+    budgetMultiplier,
+  } = args;
+
+  const N = scalePreset.subSectionsPerCh ?? 1;
+  if (N < 2) {
+    throw new Error(
+      `invokeChapterViaSubSections called with subSectionsPerCh=${N} (must be ≥ 2)`,
+    );
+  }
+  const wordsPerSubSection = scalePreset.wordsPerSubSection ?? [4_000, 5_000];
+  const [minWpc, maxWpc] = scalePreset.wordsPerCh;
+  const chapterTargetWordCount = Math.round((minWpc + maxWpc) / 2);
+
+  // 1. 调 sub-section planner（LLM）
+  const plannerAgentId = `sub-section-planner#${dimensionIdx}.${chapter.index}.${attempt}`;
+  const plannerRes = await deps.invoker.invoke(
+    SubSectionPlannerAgent,
+    {
+      topic,
+      dimension: dimensionName,
+      language,
+      chapter: {
+        chapterIndex: chapter.index,
+        heading: chapter.heading,
+        thesis: chapter.thesis,
+        targetWordCount: chapterTargetWordCount,
+      },
+      subSectionsPerCh: N,
+      wordsPerSubSection,
+    },
+    {
+      missionId,
+      userId,
+      agentId: plannerAgentId,
+      role: "sub-section-planner",
+      envAdapter: billing,
+      budgetMultiplier,
+    },
+  );
+  await deps.invoker.tickCost(
+    missionId,
+    userId,
+    "researchers",
+    /* pool 由 caller 维护；此处用 noop 占位让结构对齐 */ {} as MissionBudgetPool,
+    extractTokenSpend(plannerRes.events),
+  );
+  if (plannerRes.state !== "completed" && plannerRes.state !== "degraded") {
+    throw new Error(
+      `sub-section planner failed for "${dimensionName}" §${chapter.index}: state=${plannerRes.state}`,
+    );
+  }
+  const plannerOutput = plannerRes.output as {
+    subSections: Array<{
+      index: number;
+      heading: string;
+      thesis: string;
+      targetWordCount: number;
+    }>;
+  };
+
+  // 2. validate（硬约束 RV-13.1 / RV-13.2 / RV-13.6）
+  const plannerService = new SubSectionPlannerService();
+  const plan = plannerService.plan(
+    {
+      missionId,
+      userId,
+      chapterDraft: {
+        chapterIndex: chapter.index,
+        dimension: dimensionName,
+        heading: chapter.heading,
+        thesis: chapter.thesis,
+        targetWordCount: chapterTargetWordCount,
+      },
+      subSectionsPerCh: N,
+      wordsPerSubSection,
+    },
+    plannerOutput,
+  );
+
+  // 3. 顺序写 N 个 sub-section（不并行 — 后续读前一末尾衔接）
+  const writtenBodies: { content: string; wordCount: number }[] = [];
+  let aggregatedTokens = 0;
+  for (const ss of plan.subSections) {
+    const previousContext =
+      writtenBodies.length > 0
+        ? sanitizeLlmOutput(
+            writtenBodies[writtenBodies.length - 1].content.slice(-500),
+            500,
+          )
+        : null;
+
+    const writerAgentId = `chapter-writer-sub#${dimensionIdx}.${chapter.index}.${ss.index}.${attempt}`;
+    const subRes = await deps.invoker.invoke(
+      ChapterWriterAgent,
+      {
+        topic,
+        dimension: dimensionName,
+        language,
+        chapter: {
+          index: chapter.index,
+          heading: chapter.heading,
+          thesis: chapter.thesis,
+          keyPoints: chapter.keyPoints,
+        },
+        sources: chapterSources,
+        // sub-section 模式下 targetWords 用 sub-section 的目标字数
+        targetWords: ss.targetWordCount,
+        previousChapterHeadings: undefined,
+        previousCritique: undefined,
+        previousDraft: undefined,
+        subSection: {
+          index: ss.index,
+          heading: ss.heading,
+          thesis: ss.thesis,
+          targetWordCount: ss.targetWordCount,
+          positionInChapter: ss.positionInChapter,
+          previousContext,
+        },
+      },
+      {
+        missionId,
+        userId,
+        agentId: writerAgentId,
+        role: "chapter-writer",
+        envAdapter: billing,
+        budgetMultiplier,
+      },
+    );
+    aggregatedTokens += extractTokenSpend(subRes.events);
+
+    if (subRes.state !== "completed" && subRes.state !== "degraded") {
+      throw new Error(
+        `sub-section ${ss.index} writer failed for "${dimensionName}" §${chapter.index}: state=${subRes.state}`,
+      );
+    }
+    const subOutput = subRes.output as { body: string };
+    const subBody = subOutput?.body ?? "";
+    const cleaned = sanitizeSectionOutput(subBody);
+    writtenBodies.push({
+      content: cleaned,
+      wordCount: countCJKWords(cleaned),
+    });
+
+    // emit business 事件（被 LivenessGuard 当活迹 — 防 mission 卡 #11 复发）
+    await deps
+      .emit({
+        type: "agent-playground.chapter:sub-section:completed",
+        missionId,
+        userId,
+        agentId: writerAgentId,
+        payload: {
+          dimension: dimensionName,
+          chapterIndex: chapter.index,
+          subSectionIndex: ss.index,
+          subSectionTotal: plan.subSections.length,
+          wordCount: writtenBodies[writtenBodies.length - 1].wordCount,
+        },
+      })
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${missionId}] emit chapter:sub-section:completed failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  // 4. 拼接 + assemble writerRes-shaped 输出（兼容下游消费）
+  const assembledBody = writtenBodies.map((w) => w.content).join("\n\n");
+  const totalWordCount = writtenBodies.reduce((s, w) => s + w.wordCount, 0);
+
+  // 模拟 invoker 返回结构（state / output / events 字段）
+  const fakeEvent: Awaited<
+    ReturnType<MissionDeps["invoker"]["invoke"]>
+  >["events"][number] = {
+    type: "sub-section-aggregated",
+    ts: Date.now(),
+    payload: {
+      tokens: aggregatedTokens,
+      subSectionCount: writtenBodies.length,
+    },
+  } as unknown as Awaited<
+    ReturnType<MissionDeps["invoker"]["invoke"]>
+  >["events"][number];
+
+  return {
+    state: "completed",
+    output: {
+      index: chapter.index,
+      heading: chapter.heading,
+      body: assembledBody,
+      wordCount: totalWordCount,
+      citationsUsed: [],
+      // PR-13 § 13.4: sub-section 元信息（chapters 表 sub_section_structure JSONB 列写入用）
+      _subSectionMeta: {
+        subSectionCount: writtenBodies.length,
+        subSectionStructure: plan.subSections.map((ss, i) => ({
+          index: ss.index,
+          heading: ss.heading,
+          thesis: ss.thesis,
+          targetWordCount: ss.targetWordCount,
+          actualWordCount: writtenBodies[i].wordCount,
+          positionInChapter: ss.positionInChapter,
+        })),
+      },
+    } as unknown,
+    events: [fakeEvent],
+  } as unknown as Awaited<ReturnType<MissionDeps["invoker"]["invoke"]>>;
 }
 
 const MIN_CHAPTER_SUBSTANTIVE_CHARS = 60;
@@ -150,12 +423,27 @@ export async function runPerDimPipeline(
   // 每章字数 cap 在 [400, 25000]，先按"理想 6 章/dim"推
   const idealChapters = lp === "brief" ? 3 : lp === "standard" ? 5 : 8;
   const naivePerChapter = Math.round(dimTargetWords / idealChapters);
-  const targetWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
+  let targetWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
   // 章节数 = dim 字数 / 每章字数（保持 ≥3 ≤ 25 章）
-  const targetChapterCount = Math.max(
+  let targetChapterCount = Math.max(
     3,
     Math.min(25, Math.round(dimTargetWords / targetWordsPerChapter)),
   );
+
+  // ★ PR-13 v1.6 D1 reportScale 单一轴覆盖（2026-05-07 overhaul）
+  //   reportScale 提供时优先用 SCALE_PRESETS 派生（弃 lengthProfile/depth 推算）
+  //   见 docs/architecture/ai-app/agent-playground/agent-playground-overhaul-v1.6.md § 2.D1
+  const scalePreset = args.reportScale
+    ? SCALE_PRESETS[args.reportScale]
+    : undefined;
+  if (scalePreset) {
+    // 单章目标字数 = wordsPerCh 区间中位数
+    const [minWpc, maxWpc] = scalePreset.wordsPerCh;
+    targetWordsPerChapter = Math.round((minWpc + maxWpc) / 2);
+    // 章数 = scale.chPerDim（每 dim 几章；总章数 = dim × chPerDim 由 leader 规划层保证）
+    targetChapterCount = scalePreset.chPerDim;
+  }
+
   const dimAgentTag = `researcher#${dimensionIdx}`;
 
   // ★ 2026-05-01 INVARIANT: 每个 dim 必发一次 dimension:graded 终态事件，杜绝
@@ -682,34 +970,61 @@ export async function runPerDimPipeline(
               `[${missionId}] emit chapter:writing:started for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
             );
           });
-        const writerRes = await deps.invoker.invoke(
-          ChapterWriterAgent,
-          {
-            topic,
-            dimension: dimensionName,
-            language,
-            chapter: {
-              index: chapter.index,
-              heading: chapter.heading,
-              thesis: chapter.thesis,
-              keyPoints: chapter.keyPoints,
-            },
-            sources: chapterSources,
-            targetWords: targetWordsPerChapter,
-            lengthProfile: lp,
-            previousChapterHeadings: previousHeadingsSnapshot,
-            previousCritique: lastCritique,
-            previousDraft: lastDraft?.body,
-          },
-          {
+        // ★ PR-13 v1.6 § 13.3 — sub-section 拼接路径（deep / professional scale）
+        //   仅在 attempt=1 触发；retry 时回退单 LLM call 路径（sub-section 重 plan 成本太高）
+        const useSubSectionPath =
+          attempt === 1 &&
+          args.reportScale &&
+          usesSubSectionPath(args.reportScale) &&
+          scalePreset !== undefined;
+
+        let writerRes: Awaited<ReturnType<typeof deps.invoker.invoke>>;
+        if (useSubSectionPath) {
+          writerRes = await invokeChapterViaSubSections({
+            deps,
             missionId,
             userId,
-            agentId: writerAgentId,
-            role: "chapter-writer",
-            envAdapter: billing,
+            chapter,
+            chapterSources,
+            topic,
+            dimensionName,
+            dimensionIdx,
+            language,
+            scalePreset: scalePreset,
+            attempt,
+            billing,
             budgetMultiplier,
-          },
-        );
+          });
+        } else {
+          writerRes = await deps.invoker.invoke(
+            ChapterWriterAgent,
+            {
+              topic,
+              dimension: dimensionName,
+              language,
+              chapter: {
+                index: chapter.index,
+                heading: chapter.heading,
+                thesis: chapter.thesis,
+                keyPoints: chapter.keyPoints,
+              },
+              sources: chapterSources,
+              targetWords: targetWordsPerChapter,
+              lengthProfile: lp,
+              previousChapterHeadings: previousHeadingsSnapshot,
+              previousCritique: lastCritique,
+              previousDraft: lastDraft?.body,
+            },
+            {
+              missionId,
+              userId,
+              agentId: writerAgentId,
+              role: "chapter-writer",
+              envAdapter: billing,
+              budgetMultiplier,
+            },
+          );
+        }
         await deps.invoker.tickCost(
           missionId,
           userId,
@@ -752,7 +1067,15 @@ export async function runPerDimPipeline(
         // ★ 沉淀 v4 接入: sanitizeSectionOutput 白名单清理 LLM 输出
         //   去掉非内容行（编辑备注 / 字数统计 / 元注释 / 营销空话等）
         const cleanedBody = sanitizeSectionOutput(rawDraft.body);
-        const draft = { ...rawDraft, body: cleanedBody };
+        // ★ PR-2' v1.6 D2 派生真值（2026-05-07 overhaul）
+        //   触发：c195035f mission 全章节 word_count=1428（LLM 输出占位 / backend 不重算）。
+        //   修法：cleanedBody 落地前 backend 用 countCJKWords 重算，覆盖 LLM 报的 wordCount。
+        //   见 docs/architecture/ai-app/agent-playground/agent-playground-overhaul-v1.6.md § 2.D2
+        const draft = {
+          ...rawDraft,
+          body: cleanedBody,
+          wordCount: countCJKWords(cleanedBody),
+        };
         // ★ L1-1: stuck-revision 检测 — revision 后 Jaccard 相似度 > 0.9 视为无进展
         if (attempt > 1 && prevDraftBody !== undefined) {
           const sim = jaccardSimilarity(prevDraftBody, draft.body);
@@ -1061,6 +1384,110 @@ export async function runPerDimPipeline(
                 wordCount: draft.wordCount,
               })
               .catch(() => undefined);
+          }
+          // ★ PR-3 v1.6 D3 dual-write: 同时写 chapters 新表（rerun 重建源 / D2 真值 / user_id 隔离）
+          //   chapter_drafts 是 attempts 历史；chapters 是发布态最终源。
+          //   本调用与 saveChapterDraft 不在同一事务（防 mock spec 中 store 缺方法时整体失败）；
+          //   PR-10 切读源后旧表停写，本路径变唯一持久化。
+          //   PR-13: writer 走 sub-section 路径时，draft 内 _subSectionMeta 含结构信息
+          if (deps.store?.upsertPublishedChapter) {
+            const subMeta = (
+              draft as unknown as {
+                _subSectionMeta?: {
+                  subSectionCount: number;
+                  subSectionStructure: unknown;
+                };
+              }
+            )._subSectionMeta;
+            await deps.store
+              .upsertPublishedChapter({
+                missionId,
+                userId,
+                dimension: dimensionName,
+                chapterIndex: chapter.index,
+                heading: chapter.heading,
+                thesis: chapter.thesis,
+                content: remappedBody,
+                wordCount: draft.wordCount,
+                status:
+                  chapterDecision === "passed" ? "passed" : "failed-finalized",
+                score: verdict.score,
+                // PR-13: sub-section 路径写 N 段元信息；单 call 路径不写
+                subSectionCount: subMeta?.subSectionCount,
+                subSectionStructure: subMeta?.subSectionStructure,
+              })
+              .catch(() => undefined);
+
+            // ★ PR-5 v1.6 D6 figure-curator wire（2026-05-07 overhaul）
+            //   chapter passed 后调 figureCuratorService 抽图 → 写 chapter_figures 表
+            //   - figPerCh > 0 才执行（quick scale figPerCh=0 跳过）
+            //   - deps.figureCurator + deps.imageSearch 由 caller 注入；缺失即跳过（mock spec 兼容）
+            //   - 失败软处理：mission 不阻塞，下游硬合约 D4 标记 figPerCh gap
+            if (
+              chapterDecision === "passed" &&
+              scalePreset &&
+              scalePreset.figPerCh > 0 &&
+              deps.figureCurator &&
+              deps.imageSearch
+            ) {
+              try {
+                // 加载 chapter 真实 id（upsertPublishedChapter 后查回）
+                const publishedRows = await deps.store
+                  .loadPublishedChapters?.(missionId, userId)
+                  .catch(
+                    () =>
+                      [] as Awaited<
+                        ReturnType<
+                          NonNullable<typeof deps.store.loadPublishedChapters>
+                        >
+                      >,
+                  );
+                const targetRow = (publishedRows ?? []).find(
+                  (r) =>
+                    r.dimension === dimensionName &&
+                    r.chapterIndex === chapter.index,
+                );
+                if (targetRow) {
+                  // 从 researcher findings.sources 抽出图片候选（先简单用 sources URL）
+                  const scrapedCandidates = chapterSources
+                    .filter((s) =>
+                      /\.(png|jpg|jpeg|gif|svg|webp)(\?|$)/i.test(s.source),
+                    )
+                    .map((s) => ({ url: s.source, caption: s.claim }));
+                  const figures = await deps.figureCurator.curate({
+                    input: {
+                      missionId,
+                      userId,
+                      chapter: {
+                        chapterIndex: chapter.index,
+                        dimension: dimensionName,
+                        heading: chapter.heading,
+                        thesis: chapter.thesis,
+                      },
+                      scrapedCandidates,
+                      targetFigCount: scalePreset.figPerCh,
+                      aiGenerateFiguresFallback: false, // 默认 OFF（用户开关在 mission user_profile）
+                    },
+                    imageSearch: deps.imageSearch,
+                    aiGenerate: deps.aiGenerate,
+                    aiRateCounter: deps.aiRateCounter,
+                    budgetGuard: deps.budgetGuard,
+                  });
+                  if (figures.length > 0 && deps.store.replaceChapterFigures) {
+                    await deps.store.replaceChapterFigures({
+                      chapterId: targetRow.id,
+                      missionId,
+                      userId,
+                      figures,
+                    });
+                  }
+                }
+              } catch (err) {
+                deps.log.warn(
+                  `[${missionId}] figure-curator failed for "${dimensionName}" §${chapter.index}: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              }
+            }
           }
 
           // 仅当兜底（非 passed）emit warning narrative，让用户看到"质量未达标但被兜底"

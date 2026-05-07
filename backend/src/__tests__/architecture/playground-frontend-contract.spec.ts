@@ -31,7 +31,7 @@ const CONTROLLER_FILE = path.resolve(
 
 // ── Baseline 1: 事件 type（v5.1 R1-D 锁定基线）──────────────────────────────
 //
-// 70 events from agent-playground.events.ts (2026-05-04)。改本数组前先确认
+// 71 events from agent-playground.events.ts (2026-05-07 PR-8 v1.6 +chapter:sub-section:completed)。改本数组前先确认
 // 前端 socket handler 已同步（grep frontend `agent-playground.${suffix}`）。
 const EVENT_BASELINE: ReadonlyArray<string> = [
   "agent-playground.agent:action",
@@ -50,6 +50,7 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "agent-playground.chapter:review:started",
   "agent-playground.chapter:revision",
   "agent-playground.chapter:rewritten",
+  "agent-playground.chapter:sub-section:completed",
   "agent-playground.chapter:writing:completed",
   "agent-playground.chapter:writing:started",
   "agent-playground.cost:tick",

@@ -27,6 +27,14 @@ export type LengthProfile =
 export type AudienceProfile = 'executive' | 'domain-expert' | 'general-public';
 export type AuditLayers = 'minimal' | 'default' | 'thorough' | 'thorough+';
 export type ViewMode = 'continuous' | 'chapter' | 'quick';
+/** PR-8 v1.6 D1 单轴 reportScale（替代 depth × lengthProfile 笛卡尔积） */
+export type ReportScale =
+  | 'quick'
+  | 'standard'
+  | 'deep'
+  | 'professional'
+  | 'publication'
+  | 'encyclopedia';
 
 export interface RunMissionInput {
   topic: string;
@@ -58,6 +66,12 @@ export interface RunMissionInput {
    * 不传 / 空数组 → researcher 跳过 rag-search 走纯 web-search。
    */
   knowledgeBaseIds?: string[];
+  /** PR-8 v1.6 D1 单轴 reportScale（与 depth/lengthProfile 二选一，14d 沉淀期 dual-write） */
+  reportScale?: ReportScale;
+  /** PR-8 v1.6 D5 fresh-research 重跑时父 mission ID（version chain） */
+  parentMissionId?: string;
+  /** PR-8 v1.6 D5 是否带引用（默认按 reportScale 推导） */
+  withCitations?: boolean;
 }
 
 export interface RunMissionResponse {
@@ -139,6 +153,20 @@ export interface MissionListItem {
   reportTitle: string | null;
   reportSummary: string | null;
   errorMessage: string | null;
+  /** PR-8 v1.6 D4 mission completed 但有质量未达预期时填充（hard contract gaps） */
+  qualityGaps?: Array<{
+    contractKey: string;
+    expected: string;
+    actual: string;
+    affectedScope: string;
+    retriesAttempted: number;
+    userActionsAvailable: Array<
+      | 'retry-budget-allowed'
+      | 'downgrade-scale'
+      | 'accept-as-is'
+      | 'contact-support'
+    >;
+  }>;
 }
 
 export interface MissionDetail extends MissionListItem {

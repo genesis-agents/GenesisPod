@@ -900,6 +900,22 @@ export const ChapterRewrittenSchema = z
   .passthrough();
 export type ChapterRewrittenPayload = z.infer<typeof ChapterRewrittenSchema>;
 
+// ─────────── chapter:sub-section:completed ───────────
+// PR-8 v1.6 D1 deep/professional scale 单章 N 段 LLM 调用拼接，每完成 1 段 emit 1 次。
+// LivenessGuard 把它当 business 活迹（防 mission 卡 #11 复发）。
+export const ChapterSubSectionCompletedSchema = z
+  .object({
+    dimension: z.string(),
+    chapterIndex: z.number(),
+    subSectionIndex: z.number(),
+    subSectionTotal: z.number(),
+    wordCount: z.number().optional(),
+  })
+  .passthrough();
+export type ChapterSubSectionCompletedPayload = z.infer<
+  typeof ChapterSubSectionCompletedSchema
+>;
+
 // ─────────── tools:recalled ───────────
 // prod: { role, source, agentId, preferIds, categories, originalTs, recalledIds }
 export const ToolsRecalledSchema = z
