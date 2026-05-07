@@ -260,6 +260,12 @@ export interface RerunTodoInput {
   chapterIndex?: number;
   todoTitle?: string;
   reasonText?: string;
+  /**
+   * v1.2 PR-R7：后端 stepId（PLAYGROUND_PIPELINE.steps[i].id）。
+   * 优先级 > scope/todoId — 后端按 stepId 直接路由 + cascade 链。
+   * 前端从 todo.systemStageId 经 FRONTEND_STAGE_TO_STEP_ID 映射得到。
+   */
+  stepId?: string;
 }
 
 /**
@@ -311,6 +317,12 @@ export async function localRerunTodo(
   missionId: string;
   scope: string;
   durationMs: number;
+  /** v1.2 PR-R7：cascade 路径下报告完成情况（无 stepId 时不返） */
+  cascade?: {
+    completed: string[];
+    abortedAt?: string;
+    remaining?: string[];
+  };
 }> {
   const res = await fetch(
     `${API_BASE}/missions/${encodeURIComponent(missionId)}/todos/${encodeURIComponent(todoId)}/local-rerun`,
@@ -333,6 +345,11 @@ export async function localRerunTodo(
     missionId: string;
     scope: string;
     durationMs: number;
+    cascade?: {
+      completed: string[];
+      abortedAt?: string;
+      remaining?: string[];
+    };
   }>(raw);
 }
 

@@ -489,6 +489,11 @@ export class AgentPlaygroundController {
       chapterIndex?: number;
       todoTitle?: string;
       reasonText?: string;
+      /**
+       * v1.2 PR-R7：后端 stepId 直接路由 + cascade 链。
+       * 优先级 > scope/todoId 老路径。
+       */
+      stepId?: string;
     },
     @Request() req: RequestWithUser,
   ): Promise<{
@@ -496,6 +501,11 @@ export class AgentPlaygroundController {
     missionId: string;
     scope: string;
     durationMs: number;
+    cascade?: {
+      completed: string[];
+      abortedAt?: string;
+      remaining?: string[];
+    };
   }> {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
@@ -517,6 +527,7 @@ export class AgentPlaygroundController {
         chapterIndex: body?.chapterIndex,
         todoTitle: body?.todoTitle?.trim() || undefined,
         reasonText: body?.reasonText?.trim() || undefined,
+        stepId: body?.stepId?.trim() || undefined,
       },
       // emit fn —— 直接走 buffer.broadcast（与老 rerunTodo 同款）
       async (args) => {

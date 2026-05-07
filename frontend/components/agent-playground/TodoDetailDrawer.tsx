@@ -122,6 +122,145 @@ const ORIGIN_LABEL: Record<
   },
 };
 
+// ─── PR-R7: 前端 systemStageId → 后端 PLAYGROUND_PIPELINE.stepId 映射 ────
+//
+// 后端 mission-stage-bindings.service.ts STEP_ID_TO_FRONTEND_STAGE_ID 的逆映射
+// （必须保持镜像一致；后端如果改了名，这里也得跟 — 用 frontend-contract spec 兜底）
+const FRONTEND_STAGE_TO_STEP_ID: Record<string, string> = {
+  's1-budget': 's1-budget',
+  's2-leader-plan': 's2-leader-plan',
+  's3-researchers': 's3-researcher-collect',
+  's4-leader-assess': 's4-leader-assess',
+  's5-reconciler': 's5-reconciler',
+  's6-analyst': 's6-analyst',
+  's7-writer-outline': 's7-writer-outline',
+  's8-writer-draft': 's8-writer',
+  's8b-quality-enhancement': 's8b-quality-enhancement',
+  's9-critic-l4': 's9-critic',
+  's9b-objective-evaluation': 's9b-objective-eval',
+  's10-leader-signoff': 's10-leader-foreword-signoff',
+  's11-persist': 's11-persist',
+  's12-self-evolution': 's12-self-evolution',
+};
+
+/** 后端 stepId → 中文标签（cascade preview 显示）*/
+const STEP_LABEL: Record<string, string> = {
+  's1-budget': 'S1 预算闸',
+  's2-leader-plan': 'S2 Leader 规划',
+  's3-researcher-collect': 'S3 Researcher 采集',
+  's4-leader-assess': 'S4 Leader 评审',
+  's5-reconciler': 'S5 Reconciler 跨维核对',
+  's6-analyst': 'S6 Analyst 综合',
+  's7-writer-outline': 'S7 Writer 大纲',
+  's8-writer': 'S8 Writer 起草',
+  's8b-quality-enhancement': 'S8B 章节质量补救',
+  's9-critic': 'S9 Critic L4',
+  's9b-objective-eval': 'S9B 10 维客观评分',
+  's10-leader-foreword-signoff': 'S10 Leader 前言+签字',
+  's11-persist': 'S11 持久化',
+  's12-self-evolution': 'S12 自演化（异步）',
+};
+
+/**
+ * cascade chain — 镜像后端 PLAYGROUND_PIPELINE.steps[i].dag.successors
+ * 显示给用户看"重跑此阶段会顺带跑哪些下游"。后端是单一信源，前端只用于 preview
+ * 二次确认，实际 cascade 仍由后端按 dag 计算（防漂移）。
+ */
+const STEP_SUCCESSORS: Record<string, string[]> = {
+  's1-budget': [],
+  's2-leader-plan': [
+    's3-researcher-collect',
+    's4-leader-assess',
+    's5-reconciler',
+    's6-analyst',
+    's7-writer-outline',
+    's8-writer',
+    's8b-quality-enhancement',
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's3-researcher-collect': [
+    's4-leader-assess',
+    's5-reconciler',
+    's6-analyst',
+    's7-writer-outline',
+    's8-writer',
+    's8b-quality-enhancement',
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's4-leader-assess': [
+    's5-reconciler',
+    's6-analyst',
+    's7-writer-outline',
+    's8-writer',
+    's8b-quality-enhancement',
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's5-reconciler': [
+    's6-analyst',
+    's7-writer-outline',
+    's8-writer',
+    's8b-quality-enhancement',
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's6-analyst': [
+    's7-writer-outline',
+    's8-writer',
+    's8b-quality-enhancement',
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's7-writer-outline': [
+    's8-writer',
+    's8b-quality-enhancement',
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's8-writer': [
+    's8b-quality-enhancement',
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's8b-quality-enhancement': [
+    's9-critic',
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's9-critic': [
+    's9b-objective-eval',
+    's10-leader-foreword-signoff',
+    's11-persist',
+  ],
+  's9b-objective-eval': ['s10-leader-foreword-signoff', 's11-persist'],
+  's10-leader-foreword-signoff': ['s11-persist'],
+  's11-persist': [],
+  's12-self-evolution': [],
+};
+
+function cascadeChainFor(stepId: string): string[] {
+  const successors = STEP_SUCCESSORS[stepId];
+  if (!successors) return [stepId];
+  return [stepId, ...successors];
+}
+
 // ─── Time helpers ─────────────────────────────────────
 function fmtTime(ts: number): string {
   const d = new Date(ts);
@@ -651,13 +790,20 @@ export function TodoDetailDrawer({
 
   if (!todo) return null;
 
-  // ★ 2026-04-30 (B 路线): 重跑按钮只在 v1 真实支持的 scope 显示，避免误导。
-  //   v1 真实支持: system:s9b（10 维客观评审局部重跑，不创建新 mission）
-  //   其它 scope（dimension / chapter / s10 / retry todo 等）当前不显示重跑按钮 ——
-  //   避免点了走老 rerunTodo 创建新 mission，这违反"按钮意图 = 局部重跑"的语义。
-  //   v1.1 扩容 chapter / dimension 后会扩展此处的 supportsLocalRerun 判定。
+  // ★ 2026-05-07 (PR-R7): 局部重跑扩展 — 用 stepId 走 cascade 路径
+  //   - 老路径：scope=system + s9b → 走老 dispatch（保留兼容）
+  //   - 新路径：todo 有 systemStageId（且非 s1-budget）→ 经 FRONTEND_STAGE_TO_STEP_ID
+  //     映射成后端 stepId，调 localRerunTodo({stepId}) 走 cascade
+  //   - 后端按 dag.successors 自动展开链：reset 整链 + 顺序执行 + best-effort partial
+  //   - reopen 自动：cascade 终点是 s11-persist 且 status=failed → markReopened
+  const stepId = todo.systemStageId
+    ? FRONTEND_STAGE_TO_STEP_ID[todo.systemStageId]
+    : undefined;
   const supportsLocalRerun =
-    todo.scope === 'system' && todo.id.endsWith('s9b-objective-evaluation');
+    // 老路径：v1 已支持的 s9b
+    (todo.scope === 'system' && todo.id.endsWith('s9b-objective-evaluation')) ||
+    // 新路径：有可映射的 stepId 且不在黑名单
+    (!!stepId && stepId !== 's1-budget');
 
   const canRerun =
     !!(missionId && missionTerminal) &&
@@ -668,8 +814,22 @@ export function TodoDetailDrawer({
       todo.status === 'failed' ||
       todo.status === 'cancelled');
 
+  // PR-R7: cascade preview — 仅 stepId 路径展示
+  const cascadeChain = stepId ? cascadeChainFor(stepId) : undefined;
+
   const handleRerun = async () => {
     if (!missionId || rerunning || !supportsLocalRerun) return;
+    // PR-R7: cascade preview 二次确认（只在 stepId 路径显示，老路径直接走）
+    if (cascadeChain && cascadeChain.length > 1) {
+      const ok = window.confirm(
+        `局部重跑将顺序执行以下 ${cascadeChain.length} 个阶段：\n\n` +
+          `${cascadeChain.map((s, i) => `${i + 1}. ${STEP_LABEL[s] ?? s}`).join('\n')}\n\n` +
+          `产物会 patch 回原 mission（不创建新 mission）。\n` +
+          `若 mission 当前 failed，重跑会自动 reopen 让最终步骤能 markCompleted。\n\n` +
+          `是否继续？`
+      );
+      if (!ok) return;
+    }
     setRerunning(true);
     try {
       // 局部重跑：不跳转，保留在原 mission detail 页（mission:rerun-completed
@@ -680,6 +840,7 @@ export function TodoDetailDrawer({
         dimensionRef: todo.dimensionRef,
         todoTitle: todo.title,
         reasonText: todo.reasonText,
+        stepId, // PR-R7: undefined 时后端走老路径
       });
       setRerunning(false);
     } catch (e) {
