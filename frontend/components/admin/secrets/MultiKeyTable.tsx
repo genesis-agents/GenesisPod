@@ -214,7 +214,7 @@ export function MultiKeyTable({
               placeholder="label (e.g. backup-1)"
               name="secret-key-label"
               autoComplete="off"
-              className="rounded border px-2 py-1 text-sm"
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400"
             />
             {/* ★ autoComplete="new-password" + 唯一 name —— 阻止 Chrome 把
                  此 password 当成登录表单触发上方搜索框自动填充 */}
@@ -226,7 +226,7 @@ export function MultiKeyTable({
               name="secret-key-add-value"
               autoComplete="new-password"
               spellCheck={false}
-              className="rounded border px-2 py-1 text-sm md:col-span-2"
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 md:col-span-2"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -237,7 +237,7 @@ export function MultiKeyTable({
               max={999}
               value={addPriority}
               onChange={(e) => setAddPriority(parseInt(e.target.value) || 0)}
-              className="w-20 rounded border px-2 py-1 text-sm"
+              className="w-20 rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900"
             />
             <button
               onClick={handleAdd}

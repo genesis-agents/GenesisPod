@@ -1,6 +1,10 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
+  // 锁定浅色：default 'media' 会跟随 OS 偏好把 `dark:` 全打开；
+  // 切到 'class' + 不给 <html> 加 `dark` 类，全站永远浅色。
+  // 注：app 当前没有 dark mode 切换 UI（profile.darkMode 是占位 setting，未接 <html>）。
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
