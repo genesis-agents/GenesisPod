@@ -53,6 +53,8 @@ import {
 } from "@/modules/ai-harness/facade";
 import { narrate } from "../narrative.util";
 import { clampScore, scaleScore } from "@/modules/ai-harness/facade";
+import { defaultStructuralReportAssembler } from "@/modules/ai-harness/facade";
+import { extractReportSegments } from "../util/segment-extractors.util";
 
 // ★ 2026-05-01 (PR-G iter8): 走 ai-harness 集中阈值（quality-thresholds.constants.ts）
 const MAX_WRITER_ATTEMPTS = MISSION_WRITER_MAX_ATTEMPTS;
@@ -663,6 +665,71 @@ export async function runWriterStage(
           timestamp: Date.now(),
         });
       }
+    }
+  }
+
+  // ── 4.5 v1.4 structural assembler 旁路（feature flag 控制） ──
+  //
+  // 文档：docs/architecture/ai-harness/evaluation/report-assembly-invariant-redesign.md v1.4
+  //
+  // 设计：扩展原 legacy reportArtifact，用 StructuralReportAssembler 重新拼装
+  // sections + fullMarkdown，保留 legacy 装配的质量信号融合代码（§5 上文）。
+  // legacy 异常或 structural 异常都不阻塞 mission，自动降级到 legacy。
+  //
+  // 启用条件：PLAYGROUND_USE_STRUCTURAL_ASSEMBLER 环境变量 != "false"（默认开启）
+  // PR-A6 完成 per-workspace flag service 后改为 service 调用。
+  const useStructural =
+    process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER !== "false";
+  if (useStructural && reportArtifact) {
+    try {
+      const segments = extractReportSegments({
+        plan: {
+          themeSummary: plan.themeSummary,
+          dimensions: plan.dimensions.map((d) => ({
+            id: d.id,
+            name: d.name,
+            rationale: d.rationale,
+          })),
+        },
+        analystOutput: analyst as Parameters<
+          typeof extractReportSegments
+        >[0]["analystOutput"],
+        reconcilerOutput: reconciliationReport as Parameters<
+          typeof extractReportSegments
+        >[0]["reconcilerOutput"],
+        researcherResults: researcherResults.map((r) => ({
+          dimension: r.dimension,
+          fullMarkdown: (r as { fullMarkdown?: string }).fullMarkdown,
+          summary: r.summary,
+        })),
+        citations: reportArtifact.citations,
+        figures: reportArtifact.figures,
+        factTable: reportArtifact.factTable,
+        metadata: reportArtifact.metadata,
+        qualityInputs: {
+          verifierScores: { reviewer: reviewScore || 70 },
+          warnings: reportArtifact.quality.warnings.map((w) => ({
+            severity: "warn" as const,
+            scopeKey: w.dimension,
+            message: w.message,
+          })),
+        },
+      });
+      const structural = defaultStructuralReportAssembler.assemble(segments);
+      // 用 structural 的 fullMarkdown + sections 替换；保留 legacy 的 quality 信号
+      reportArtifact = {
+        ...reportArtifact,
+        content: structural.content,
+        sections: structural.sections,
+        quickView: structural.quickView,
+        metadata: structural.metadata,
+      };
+    } catch (err) {
+      deps.log.warn(
+        `[${missionId}] structural assembler failed (non-fatal, fallback to legacy): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
     }
   }
 
