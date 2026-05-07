@@ -267,20 +267,19 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
 
   describe("runFromStageWithCascade — cascade 链 + reset", () => {
     it("从 s8-writer 重跑：cascade 链覆盖到 s11-persist", async () => {
+      // ★ 2026-05-07 c195035f bug fix：cascade 不再 reset-before-rerun
+      //   旧行为是 reset 整链 → cascade 跑失败时主行字段全 NULL（数据废墟）。
+      //   现在 dispatcher 不调 store.resetFields，每个 stage 自己 markIntermediateState
+      //   持久化新值；cascade 跑失败时主行保持 hydrate 时旧值（best-effort partial）。
       const { dispatcher, store } = makeDispatcher();
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
-      // PR-R5 阶段 s8-writer handler 是 placeholder，会 throw → cascade 在第 1 步停
       await dispatcher.runFromStageWithCascade({
         ctx: makeCtx(),
         fromStepId: "s8-writer",
         emit,
       });
-      // resetFields 应当被调过一次（cascade 的整链 resetFields 集合）
-      expect(store.resetFields).toHaveBeenCalledTimes(1);
-      const fields = store.resetFields.mock.calls[0][1] as string[];
-      // s8 dbWrites 含 reportFull/reportArtifactVersion，s11 含 status/completedAt
-      // 至少应包含 report_full 之类的 key（具体取决于 playground.config 的 dag.resetFields）
-      expect(fields.length).toBeGreaterThan(0);
+      // 关键回归断言：cascade dispatcher 不应再调 store.resetFields
+      expect(store.resetFields).not.toHaveBeenCalled();
     });
 
     it("cascade chain 起点 emit rerun:stage-started 含 fromStepId + completedSoFar=[]", async () => {
@@ -297,6 +296,34 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
       expect(startedCall).toBeDefined();
       expect(startedCall[0].payload.fromStepId).toBe("s8-writer");
       expect(startedCall[0].payload.completedSoFar).toEqual([]);
+    });
+
+    // ★ R1 共识 P0 (tester, 2026-05-07): best-effort partial 反向证据
+    //   cascade 起点 stage 立即抛错时，dispatcher 必须满足：
+    //   1. store.resetFields 不调（不破坏主行旧值）
+    //   2. store.markIntermediateState 不调（没有 stage 跑成功覆盖 → 主行保持 hydrate 时的值）
+    //   3. cascade 已 abort（emit cascade-aborted）
+    //   这是 c195035f 数据废墟修复的核心 invariant —— 缺了这条 spec，未来有人重新加
+    //   reset-before-rerun 或意外把"清零调用"塞进 loop 都不会被 spec 拦下。
+    it("cascade 起点 stage 立即抛错 → 主行字段保留（resetFields/markIntermediateState 都不调）", async () => {
+      const { dispatcher, store } = makeDispatcher();
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s8-writer", // s8 placeholder handler 立即 throw
+        emit,
+      });
+      expect(store.resetFields).not.toHaveBeenCalled();
+      // markIntermediateState 在 cascade 里只由 stage 函数自己调；spec 用 mock bindings
+      // 不真跑 stage，所以这里断言"dispatcher 自己没在 cascade abort 路径调它"。
+      expect(store.markIntermediateState).not.toHaveBeenCalled();
+      // emit cascade-aborted 三元组应该出现
+      const abortedCall = (emit as jest.Mock).mock.calls.find(
+        (c) => c[0].type === "agent-playground.rerun:cascade-aborted",
+      );
+      expect(abortedCall).toBeDefined();
+      expect(abortedCall[0].payload.abortedAt).toBe("s8-writer");
+      expect(abortedCall[0].payload.completed).toEqual([]);
     });
   });
 

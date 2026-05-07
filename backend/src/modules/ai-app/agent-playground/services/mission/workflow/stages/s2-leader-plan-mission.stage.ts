@@ -111,6 +111,31 @@ export async function runLeaderPlanStage(
         initialRisks: planResult.initialRisks ?? [],
       };
 
+      // ★ 2026-05-07 R2 共识 P0 (architect): cascade rerun 删 reset-before-rerun 后
+      //   s2 必须主动持久化 dimensions + themeSummary 到主行 — 否则从 s2 重跑且
+      //   cascade 中途失败时主行字段保持旧值（vs 本次新 plan）→ 前端任务列表 / 维度
+      //   渲染指向上一轮 plan 不一致。与 s6/s7/s8/s8b/s10 同模式（PR-R4 主动持久化）。
+      //   ★ 防御：旧 wiring（spec mock / 老 deps）可能没装 markIntermediateState — 用
+      //   typeof 判断兜底，缺失时记 warn 但不阻塞 stage 流程。
+      if (typeof deps.store?.markIntermediateState === "function") {
+        await deps.store
+          .markIntermediateState(
+            ctx.missionId,
+            {
+              dimensions: planResult.dimensions as unknown,
+              themeSummary: planResult.themeSummary,
+            },
+            ctx.userId,
+          )
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${ctx.missionId}] S2 markIntermediateState failed (non-fatal): ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          });
+      }
+
       return ctx.plan as unknown as PlanResult;
     },
   );

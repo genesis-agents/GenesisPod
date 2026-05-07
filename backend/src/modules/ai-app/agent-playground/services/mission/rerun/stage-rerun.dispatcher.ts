@@ -13,8 +13,7 @@
  *   2. runFromStageWithCascade(args)：v1.2 新路径（PR-R5）
  *      - 按 stepId 直接路由（前端 todo 卡片可指定 stepId）
  *      - 自动展开 cascade 链 = [stepId, ...successors]
- *      - 一次性 reset 链路全部 dbWrites + resetFields
- *      - 顺序执行 chain，每完成一个 stage 更新 last_completed_stage
+ *      - 顺序执行 chain，每 stage 自己 markIntermediateState 写新值（无预 reset）
  *      - 失败 best-effort partial：已成 patch 保留，未跑下游不动
  *      - 失败原因 emit cascade-aborted 三元组（completed / abortedAt / remaining）
  *
@@ -31,11 +30,7 @@ import type { LocalRerunInput } from "./local-rerun.service";
 import type { HydratedMissionContext } from "./ctx-hydrator.service";
 import type { EmitFn } from "../workflow/mission-deps";
 import { PLAYGROUND_PIPELINE } from "../../../playground.config";
-import {
-  collectResetFieldsForCascade,
-  computeCascadeChain,
-  type MissionColumnKey,
-} from "@/modules/ai-harness/facade";
+import { computeCascadeChain } from "@/modules/ai-harness/facade";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import type { ReportArtifact } from "@/modules/ai-harness/facade";
 // ★ PR-R5b R2 共识 P0 (architect, 2026-05-07): 集中字面量在
@@ -223,9 +218,19 @@ export class StageRerunDispatcher {
    *
    * 1. 校验 stepId 存在 + dag.rerunable
    * 2. 计算 cascade 链 = [stepId, ...successors]
-   * 3. 一次性 reset 整链 dbWrites + resetFields（防 stale 残留）
-   * 4. 顺序执行 chain，每完成一个 stage 更新 last_completed_stage
-   * 5. 失败 best-effort partial：已成 patch 保留，未跑下游不动
+   * 3. 顺序执行 chain，每完成一个 stage 更新 last_completed_stage
+   * 4. 失败 best-effort partial：已成 patch 保留，未跑下游不动
+   *
+   * ★ 致命 bug 修复（2026-05-07，c195035f mission 数据废墟事件）：
+   *   旧实现在步骤 3 之前 "一次性 reset 整链 dbWrites + resetFields"，跑失败时
+   *   主行字段（dimensions / outline_plan / report_full / leader_signed 等）
+   *   永久丢失（无回滚机制）—— 与设计文档 v1.2 §3.3 "已成 patch 保留" 直接矛盾。
+   *
+   *   修法：删 reset-before-cascade，依赖每个 stage 自己的 markIntermediateState
+   *   主动持久化（PR-R4 落地）。stage 跑成功 → 写新值天然覆盖旧值 → 不需要预 reset。
+   *   stage 跑失败 → 主行字段保持 hydrate 时的状态（best-effort partial 真正生效）。
+   *   collectResetFieldsForCascade 函数保留供调用方按需用，但 cascade dispatcher
+   *   不再调用。
    */
   async runFromStageWithCascade(
     args: RunFromStageArgs,
@@ -252,8 +257,11 @@ export class StageRerunDispatcher {
       `[cascade ${ctx.missionId}] from=${fromStepId} chain=${cascadeChain.join(" → ")}`,
     );
 
-    // ── 2. reset 整链 dbWrites + resetFields ──
-    await this.resetFieldsForCascade(ctx.missionId, ctx.userId, cascadeChain);
+    // ── 2. ★ 已删除原 reset-before-cascade 调用（c195035f 数据废墟 bug fix） ──
+    //   旧逻辑：await this.resetFieldsForCascade(missionId, userId, cascadeChain)
+    //   问题：reset 完所有字段后第一个 stage 失败 → 主行字段全 NULL 永久丢失。
+    //   现在：每个 stage 自己 markIntermediateState 写新值（PR-R4 落地），
+    //         跑成功天然覆盖旧值；跑失败保留旧值（best-effort partial 真生效）。
 
     // ── 3. 起 rerun runtime session（billing/pool/leader/missionAbort），cascade 内共享 ──
     //   ★ PR-R5b-FULL: 必须 try/finally 保证 cleanup 执行（否则 abortRegistry 残留）
@@ -348,24 +356,12 @@ export class StageRerunDispatcher {
 
   // ────────────────────────── helpers ──────────────────────────
 
-  private async resetFieldsForCascade(
-    missionId: string,
-    userId: string,
-    cascadeChain: string[],
-  ): Promise<void> {
-    const fields = collectResetFieldsForCascade(
-      PLAYGROUND_PIPELINE.steps,
-      cascadeChain,
-    );
-    if (fields.length > 0) {
-      // ★ 收尾评审 P0-S2 (2026-05-07): 传 userId 走严格隔离路径
-      await this.store.resetFields(
-        missionId,
-        fields as ReadonlyArray<MissionColumnKey>,
-        userId,
-      );
-    }
-  }
+  // ★ 已删除 resetFieldsForCascade（2026-05-07 c195035f 数据废墟 bug fix）。
+  // 旧实现把 cascade 链上所有 stage 的 resetFields 并集 SET NULL —— cascade 跑失败
+  // 时主行字段（dimensions / outline_plan / report_full / leader_signed 等）永久
+  // 丢失，前端 mission 详情页变废墟。修法：删调用，依靠每个 stage 自己的
+  // markIntermediateState 主动持久化（PR-R4 落地）。stage 跑成功 → 写新值天然
+  // 覆盖；stage 跑失败 → 主行保持旧值（best-effort partial 真生效）。
 
   private stepIndexOf(stepId: string): number {
     const idx = PLAYGROUND_PIPELINE.steps.findIndex((s) => s.id === stepId);
@@ -721,6 +717,12 @@ export class StageRerunDispatcher {
             ? detail.leaderSigned
             : undefined,
         leaderVerdict,
+        // ★ R2 共识 P2 (security follow-up, 2026-05-07): 当前从 detail 回读旧
+        //   tokensUsed/costUsd 是合理保留 —— c195035f 类用例（s11 重跑 chain=1）
+        //   不调 LLM 不增 token，写回上次累计值 = 不重复也不丢。但更上游 cascade
+        //   起点（s2/s4 重跑 chain=10+ 全链跑 LLM）当前 session 的增量 token 没
+        //   单独累加，会让 billing 偏低/偏高。本次不在 scope 内修，独立 PR
+        //   配合各 stage markIntermediateState 全量化时一并改成"session 增量累加"语义。
         tokensUsed:
           typeof detail.tokensUsed === "number" ? detail.tokensUsed : 0,
         costUsd: typeof detail.costUsd === "number" ? detail.costUsd : 0,

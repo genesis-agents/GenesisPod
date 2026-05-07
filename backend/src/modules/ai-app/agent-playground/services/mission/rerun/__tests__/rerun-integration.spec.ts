@@ -266,8 +266,8 @@ describe("Rerun integration (PR-R8)", () => {
         emit,
       );
 
-      // 整链 reset 调过
-      expect(h.storeMock.resetFields).toHaveBeenCalledTimes(1);
+      // ★ 2026-05-07 c195035f bug fix：整链 reset 已删除（reset-before-rerun 反模式）
+      expect(h.storeMock.resetFields).not.toHaveBeenCalled();
       // s9b 真 handler 写了 reportFull
       expect(h.storeMock.markRerunPatch).toHaveBeenCalledWith(
         "m-int-1",

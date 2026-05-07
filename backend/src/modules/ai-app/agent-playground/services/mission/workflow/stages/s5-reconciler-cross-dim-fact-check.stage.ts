@@ -119,6 +119,24 @@ export async function runReconcilerStage(
     if (reconRes.state === "completed" && reconRes.output) {
       ctx.reconciliationReport =
         reconRes.output as unknown as typeof ctx.reconciliationReport;
+
+      // ★ 2026-05-07 R2 共识 P0 (architect): cascade rerun 删 reset-before-rerun 后
+      //   s5 必须主动持久化 reconciliation_report 到主行 — 否则从 s5 重跑 cascade
+      //   中途失败时主行字段保持旧值，前端对账面板指向上一轮 reconciliation 数据。
+      if (typeof deps.store?.markIntermediateState === "function") {
+        await deps.store
+          .markIntermediateState(
+            ctx.missionId,
+            { reconciliationReport: ctx.reconciliationReport as unknown },
+            ctx.userId,
+          )
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[${missionId}] S5 markIntermediateState failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      }
+
       await deps
         .emit({
           type: "agent-playground.reconciliation:completed",

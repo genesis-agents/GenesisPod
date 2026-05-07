@@ -84,6 +84,11 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
       tickCost: jest.fn().mockResolvedValue(undefined),
       preDisableKnownFailingModels: jest.fn().mockResolvedValue(undefined),
     },
+    // ★ 2026-05-07 R2 共识 P0 (architect): s5 加 markIntermediateState 持久化
+    //   reconciliation_report 到主行（cascade rerun 删 reset-before-rerun 后必需）
+    store: {
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+    },
     ...overrides,
   } as unknown as MissionDeps;
 }

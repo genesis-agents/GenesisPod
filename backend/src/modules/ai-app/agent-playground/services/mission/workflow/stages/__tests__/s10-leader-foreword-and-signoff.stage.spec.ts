@@ -108,11 +108,50 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
       error: jest.fn(),
     },
     lifecycle: jest.fn().mockResolvedValue(undefined),
+    // ★ 2026-05-07 R1 共识 P0 (architect+tester): s10 加 markIntermediateState
+    //   持久化 leaderSigned/leaderOverallScore/leaderVerdict 到主行（cascade rerun
+    //   删 reset-before-rerun 后的核心数据流）。spec 必须 mock store。
+    store: {
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+    },
     ...overrides,
   } as unknown as MissionDeps;
 }
 
 describe("runLeaderForewordAndSignoffStage (S10)", () => {
+  // ★ 2026-05-07 R1 共识 P0 (architect+tester): cascade rerun 删 reset-before-rerun
+  //   后，s10 必须主动持久化 leaderSigned/leaderOverallScore/leaderVerdict 到主行，
+  //   否则从 s10 重跑且 cascade 在 s11 失败时主行 leader_* 字段保持 NULL，前端看不到
+  //   本次签收结果。本 invariant spec 必须保留 — 否则未来有人删了主动持久化不会被拦下。
+  it("PR-R4 主动持久化: signoff 完成后调 store.markIntermediateState 写 leaderSigned/Score/Verdict", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    expect(deps.store.markIntermediateState).toHaveBeenCalled();
+    const callArgs = (deps.store.markIntermediateState as jest.Mock).mock
+      .calls[0];
+    expect(callArgs[0]).toBe(ctx.missionId);
+    const patch = callArgs[1];
+    // 至少包含 leaderSigned / leaderOverallScore / leaderVerdict 之一（非 undefined）
+    expect(
+      patch.leaderSigned !== undefined ||
+        patch.leaderOverallScore !== undefined ||
+        patch.leaderVerdict !== undefined,
+    ).toBe(true);
+    // 第三参 userId 走严格隔离路径
+    expect(callArgs[2]).toBe(ctx.userId);
+  });
+
+  it("PR-R4 主动持久化: forced unsigned 路径也写 leaderSigned=false（拒签产物入库）", async () => {
+    const ctx = makeCtx({ reportArtifact: undefined });
+    const deps = makeDeps();
+    await runLeaderForewordAndSignoffStage(ctx, deps);
+    expect(deps.store.markIntermediateState).toHaveBeenCalled();
+    const patch = (deps.store.markIntermediateState as jest.Mock).mock
+      .calls[0][1];
+    expect(patch.leaderSigned).toBe(false);
+  });
+
   it("forces unsigned signoff if reportArtifact is undefined", async () => {
     const ctx = makeCtx({ reportArtifact: undefined });
     const deps = makeDeps();

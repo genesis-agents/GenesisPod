@@ -47,6 +47,9 @@ function makeDeps(
     lifecycle: jest.fn().mockResolvedValue(undefined),
     store: {
       listRecentPostmortems: jest.fn().mockResolvedValue([]),
+      // ★ 2026-05-07 R2 共识 P0 (architect): s2 加 markIntermediateState 主动持久化
+      //   dimensions + themeSummary 到主行（cascade rerun 删 reset-before-rerun 后必需）
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
       ...storeOverrides,
     },
   } as unknown as MissionDeps;

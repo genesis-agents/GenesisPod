@@ -275,6 +275,10 @@ export class LocalRerunService {
       }
 
       // ── 8. hydrate ctx ──
+      // ★ 2026-05-07 c195035f bug fix：hydrate 此处读到的字段是原 mission **旧值**
+      //   （cascade dispatcher 已删 reset-before-rerun，主行字段不再被预清成 NULL）。
+      //   旧值即"上次跑剩下的产物"，作为 best-effort partial 的基础 — stage 跑成功
+      //   覆盖、跑失败保留。详见 stage-rerun.dispatcher.runFromStageWithCascade 注释。
       const ctx = await this.hydrator.hydrate(missionId, userId);
 
       // ── 9. dispatch（stepId 路径走 cascade，老路径走 scope dispatch）──

@@ -191,7 +191,30 @@ function makeFakeStageBindings() {
   const emittedEvents: Array<{ type: string; missionId: string }> = [];
   const buildDeps = jest.fn().mockReturnValue({
     invoker: {} as never,
-    store: {} as never,
+    // ★ 2026-05-07 R2 共识 P0 (architect): s2/s5/s10 加 markIntermediateState
+    //   主动持久化 — buildDeps 必须 mock 防 stage 调 deps.store.* 时报 undefined.fn。
+    //   用 Proxy 兜底任何未列出的方法返 () => Promise.resolve(undefined)
+    store: new Proxy(
+      {
+        markIntermediateState: jest.fn().mockResolvedValue(undefined),
+        listRecentPostmortems: jest.fn().mockResolvedValue([]),
+        loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
+        loadBaselineResearchResults: jest.fn().mockResolvedValue([]),
+        saveResearchResult: jest.fn().mockResolvedValue(undefined),
+        saveChapterDraft: jest.fn().mockResolvedValue(undefined),
+        saveReportVersion: jest.fn().mockResolvedValue(1),
+        markStageComplete: jest.fn().mockResolvedValue(undefined),
+        markFailed: jest.fn().mockResolvedValue(undefined),
+        markCompleted: jest.fn().mockResolvedValue(undefined),
+      } as Record<string, jest.Mock>,
+      {
+        get(target, prop: string) {
+          if (!(prop in target))
+            target[prop] = jest.fn().mockResolvedValue(undefined);
+          return target[prop];
+        },
+      },
+    ) as never,
     missionState: {} as never,
     abortRegistry: {} as never,
     runner: {} as never,
@@ -324,6 +347,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       loadQualifiedChapterDrafts: jest.fn().mockResolvedValue([]),
       // ★ #85 (2026-05-06): 报告版本化 fire-and-forget mock
       saveReportVersion: jest.fn().mockResolvedValue(1),
+      // ★ 2026-05-07 R2 共识 P0 (architect): s2/s5/s10 加 markIntermediateState
+      //   主动持久化 — dispatcher spec 必须 mock 防 undefined 调用栈炸 stage
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
     };
     // ★ 2026-05-06 真治：dispatcher 现在直接走 eventBus.emit，需要注入。
     //   spec 只需要 emit() 是 thenable —— 真 broadcast 路径在 module wiring 上由

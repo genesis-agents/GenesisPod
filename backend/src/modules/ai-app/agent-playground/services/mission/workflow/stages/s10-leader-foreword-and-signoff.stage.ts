@@ -59,6 +59,29 @@ async function emitLeaderSigned(
   deps: MissionDeps,
 ): Promise<void> {
   if (!ctx.leaderSignOff) return;
+
+  // ★ 2026-05-07 R1 共识 P0 (architect+tester): cascade rerun 删 reset-before-rerun 后
+  //   s10 必须主动持久化 leaderSigned/leaderOverallScore/leaderVerdict 到主行，否则
+  //   从 s10 重跑且 cascade 在 s11 失败时主行 leader_* 字段保持 markReopened 后的 NULL，
+  //   用户看不到本次签收结果。与 s6/s7/s8/s8b 同模式（PR-R4 主动持久化）。
+  if (typeof deps.store?.markIntermediateState === "function") {
+    await deps.store
+      .markIntermediateState(
+        ctx.missionId,
+        {
+          leaderSigned: ctx.leaderSignOff.signed ?? undefined,
+          leaderOverallScore: ctx.leaderSignOff.leaderOverallScore ?? undefined,
+          leaderVerdict: ctx.leaderSignOff.leaderVerdict ?? undefined,
+        },
+        ctx.userId,
+      )
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[${ctx.missionId}] S10 markIntermediateState (leaderSignOff) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
   await deps
     .emit({
       type: "agent-playground.leader:signed",
