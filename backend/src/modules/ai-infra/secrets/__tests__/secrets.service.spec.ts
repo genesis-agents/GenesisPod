@@ -340,6 +340,62 @@ describe("SecretsService", () => {
       expect(sk.getSecretKey).toHaveBeenCalledWith("test-api-key");
     });
 
+    // ★ 2026-05-07: 看护 Bug B 回归 —— 修复前 getValueInternal 完全不累加
+    // SecretKey.accessCount，UI Hits 列只反映迁移种值（Secret.lifetime 拷贝），
+    // 实时业务流量贡献为 0。修法：fire-and-forget increment，只动 count，
+    // 不动 testStatus（避免 retrieval 后 upstream 401 的红绿闪烁）。
+    it("increments SecretKey.accessCount on successful retrieve (per-key hit counter)", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { getSecretKey: jest.Mock };
+        }
+      ).secretKeys;
+      sk.getSecretKey.mockResolvedValue({
+        value: "v",
+        keyId: "sk-99",
+        label: "primary",
+      });
+      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+        id: "secret-1",
+        name: "test-api-key",
+      });
+
+      await service.getValueInternal("test-api-key");
+
+      expect(mockPrisma.secretKey!.update).toHaveBeenCalledWith({
+        where: { id: "sk-99" },
+        data: { accessCount: { increment: 1 } },
+      });
+      // 关键：不能写 testStatus —— 那是 markSuccess/Failure 的职责
+      const calls = (mockPrisma.secretKey!.update as jest.Mock).mock.calls;
+      const dataArgs = calls.map((c) => c[0]?.data ?? {});
+      for (const d of dataArgs) {
+        expect(d).not.toHaveProperty("testStatus");
+      }
+    });
+
+    it("skips SecretKey.accessCount increment for legacy dual-track path (keyId=null)", async () => {
+      const sk = (
+        service as unknown as {
+          secretKeys: { getSecretKey: jest.Mock };
+        }
+      ).secretKeys;
+      sk.getSecretKey.mockResolvedValue({
+        value: "legacy-v",
+        keyId: null,
+        label: "(legacy)",
+      });
+      (mockPrisma.secret!.findUnique as jest.Mock).mockResolvedValue({
+        id: "secret-1",
+        name: "test-api-key",
+      });
+
+      await service.getValueInternal("test-api-key");
+
+      // legacy 路径无 SecretKey 行可累加
+      expect(mockPrisma.secretKey!.update).not.toHaveBeenCalled();
+    });
+
     it("falls back to legacy path when multi-key returns null", async () => {
       const sk = (
         service as unknown as {

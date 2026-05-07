@@ -173,6 +173,9 @@ export class SecretKeysService {
         lastTestedAt: null,
         lastErrorCode: null,
         lastErrorMessage: null,
+        // ★ 2026-05-07: accessCount 是"当前物理 KEY 值的命中数"。Replace 后是
+        // 全新物理 value，旧 hits 不属于它 → 重置为 0（与 testStatus reset 同语义）。
+        accessCount: 0,
         updatedBy: context?.userEmail || context?.userId,
       },
     });

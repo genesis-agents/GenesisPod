@@ -324,6 +324,20 @@ export class SecretsService {
             secretName: sec.name,
           });
         }
+        // ★ 2026-05-07: 给当前物理 KEY 累加命中数。这是唯一自动累加路径，
+        // 业务侧不需要逐 caller 加 markSuccess 装饰。语义 = "secrets-service
+        // 把这个物理 KEY value 交给 caller 用了一次"。**不动 testStatus**——
+        // testStatus 只能由 markSuccess/markFailure 写（"上游真的成功/失败"），
+        // 否则 retrieval 之后即使 upstream 401，badge 也会先闪绿再翻红。
+        // dual-track legacy 路径 keyId=null（直接读 Secret.encryptedValue），跳过。
+        if (resolved.keyId) {
+          await this.prisma.secretKey
+            .update({
+              where: { id: resolved.keyId },
+              data: { accessCount: { increment: 1 } },
+            })
+            .catch(() => undefined);
+        }
         return resolved.value;
       }
     }

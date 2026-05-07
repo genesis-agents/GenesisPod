@@ -301,5 +301,19 @@ describe("SecretKeysService", () => {
       expect(call.data.encryptedValue).not.toBe("sk-new-secret-value");
       expect(updated.keyHint).toContain("…");
     });
+
+    // ★ 2026-05-07: 看护 Bug C 回归 —— 替换 KEY value = 全新物理 key，旧
+    // accessCount 不属于它，必须重置为 0；与 testStatus reset 同语义。
+    it("resets accessCount to 0 (new physical key value, fresh hit counter)", async () => {
+      prisma.secretKey.findUnique.mockResolvedValue(
+        makeKeyRow({ accessCount: 12345 }),
+      );
+      prisma.secretKey.update.mockImplementation(async ({ data }) =>
+        makeKeyRow({ ...data }),
+      );
+      await service.replaceKeyValue("key-a", { value: "sk-fresh-value" });
+      const call = prisma.secretKey.update.mock.calls[0][0];
+      expect(call.data.accessCount).toBe(0);
+    });
   });
 });
