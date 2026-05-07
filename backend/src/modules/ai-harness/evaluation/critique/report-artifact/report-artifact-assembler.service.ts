@@ -965,7 +965,12 @@ export class ReportArtifactAssembler {
         }
         const title = line.slice(3).trim();
         const type = this.inferSectionType(title);
-        const dimMatch = input.plan.dimensions.find((d) => d.name === title);
+        // ★ PR-A7 (2026-05-07): legacy invariant fallback —— 加 fuzzy match
+        //   原 exact match (d.name === title) 在 LLM 改写章节标题（加 emoji /
+        //   微调名 / 加序号"1. 维度 X"）时静默失败，sourceDimensionId=undefined →
+        //   现网 mission 章节 vs 维度对不上。fuzzy match 阈值 0.7 + 8 字前缀
+        //   includes 启发式（具体阈值与 design v1.3 §5 PR-A7 一致）。
+        const dimMatch = this.fuzzyMatchDimension(title, input.plan.dimensions);
         const id = dimMatch
           ? dimMatch.id
           : `sec-${slugify(title)}-${sections.length + 1}`;
@@ -995,12 +1000,105 @@ export class ReportArtifactAssembler {
     }
     // ★ Phase 2 (TI report-assembler:268-387 模式): 两遍处理 —— 过滤纯标题无内容的空 section
     // 防止"维度 N 没产出但占位"导致下游 quality.coverage 错误归零
-    return sections.filter((s) => {
+    const filteredSections = sections.filter((s) => {
       const body = fullMarkdown.slice(s.startOffset, s.endOffset);
       // 纯标题（剥离所有 #...）后非空才保留
       const stripped = body.replace(/^#+\s+.*\n?/gm, "").trim();
       return stripped.length > 0;
     });
+
+    // ★ PR-A7 (2026-05-07): missing-dim 显式标签 —— plan.dimensions 中
+    //   没有任何 section 命中的维度，加占位 section 让 quality.coverage 不漏报。
+    //   不修改 fullMarkdown（offset 一致性），仅追加 zero-width section
+    //   （startOffset === endOffset === fullMarkdown.length）+ title 加显式标签。
+    const matchedDimIds = new Set(
+      filteredSections
+        .map((s) => s.sourceDimensionId)
+        .filter((id): id is string => !!id),
+    );
+    const missingDims = input.plan.dimensions.filter(
+      (d) => !matchedDimIds.has(d.id),
+    );
+    if (missingDims.length > 0) {
+      this.logger.warn(
+        `[buildSectionTree] missing-dim 显式标签: ${missingDims.length} 维度无对应 section`,
+      );
+      // ★ R2 共识 P0 (architect P0-3, 2026-05-07): missing-dim 占位 section
+      //   必须保证 offset 严格单调递增，否则下游 sort by offset / binary search
+      //   会得到不稳定排序。把每个 missing dim 放到 EOF 之后的虚拟 offset
+      //   (eofOffset + i)；虚拟 offset 超出 fullMarkdown.length 是显式语义：
+      //   slice(start, end) 返回空字符串（zero-width 占位本来就无内容），
+      //   下游消费方用 sourceDimensionId 关联，offset 仅作排序用。
+      const eofOffset = fullMarkdown.length;
+      for (let i = 0; i < missingDims.length; i++) {
+        const d = missingDims[i];
+        const virtualOffset = eofOffset + i + 1;
+        filteredSections.push({
+          id: d.id,
+          type: "dimension",
+          level: 2,
+          title: `${d.name}（本维度内容缺失）`,
+          anchor: slugify(d.name),
+          startOffset: virtualOffset,
+          endOffset: virtualOffset,
+          wordCount: 0,
+          readingTimeMinutes: 0,
+          citations: [],
+          figureIds: [],
+          factIds: [],
+          sourceDimensionId: d.id,
+        });
+      }
+    }
+
+    return filteredSections;
+  }
+
+  /**
+   * ★ PR-A7 (2026-05-07): 维度名 fuzzy match
+   *
+   * 优先级：
+   *   1. exact match (d.name === title) — 旧行为
+   *   2. case-insensitive includes — title 是否包含 dim.name 前 8 字 / dim.name 是否包含 title
+   *   3. 简单字符相似度 ≥ 0.7（基于 LCS 长度比例）
+   *
+   * 阈值 0.7 来自 design v1.3 §5 PR-A7：spec 锁 dim 名 90% 能正确对齐（5+ 数据点）。
+   */
+  private fuzzyMatchDimension(
+    title: string,
+    dimensions: AssembleInput["plan"]["dimensions"],
+  ): AssembleInput["plan"]["dimensions"][number] | undefined {
+    // 1. exact match 优先
+    const exact = dimensions.find((d) => d.name === title);
+    if (exact) return exact;
+
+    const t = title.toLowerCase().trim();
+    if (!t) return undefined;
+
+    // 2. includes 启发式（dim 名前 8 字符）
+    for (const d of dimensions) {
+      const n = d.name.toLowerCase().trim();
+      if (!n) continue;
+      const prefix = n.slice(0, 8);
+      if (t.includes(prefix) || n.includes(t.slice(0, 8))) {
+        return d;
+      }
+    }
+
+    // 3. LCS 相似度（O(n*m)，n/m ≤ 200 通常合理）
+    let best: {
+      dim: AssembleInput["plan"]["dimensions"][number];
+      score: number;
+    } | null = null;
+    for (const d of dimensions) {
+      const n = d.name.toLowerCase().trim();
+      if (!n) continue;
+      const score = lcsSimilarity(t, n);
+      if (score >= 0.7 && (!best || score > best.score)) {
+        best = { dim: d, score };
+      }
+    }
+    return best?.dim;
   }
 
   private inferSectionType(title: string): ArtifactSection["type"] {
@@ -1897,6 +1995,36 @@ export function lengthTargetFor(
     default:
       return 8000;
   }
+}
+
+/**
+ * ★ PR-A7 (2026-05-07): LCS-based 字符串相似度（buildSectionTree fuzzy match）
+ *
+ * 返回 [0, 1] 区间值：LCS(a, b) * 2 / (a.length + b.length)。
+ * 阈值 ≥ 0.7 用于 dim 名 fuzzy 对齐（design v1.3 §5 PR-A7 阈值锁定）。
+ *
+ * 复杂度 O(n*m)；caller 应限制输入长度（dim.name 当前 200 字符上限，安全）。
+ */
+function lcsSimilarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const n = a.length;
+  const m = b.length;
+  // DP 表用滚动数组：prev / curr 各长 m+1
+  let prev = new Array<number>(m + 1).fill(0);
+  let curr = new Array<number>(m + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= m; j++) {
+      curr[j] =
+        a[i - 1] === b[j - 1]
+          ? prev[j - 1] + 1
+          : Math.max(prev[j], curr[j - 1]);
+    }
+    [prev, curr] = [curr, prev];
+    curr.fill(0);
+  }
+  const lcs = prev[m];
+  return (lcs * 2) / (n + m);
 }
 
 /** 4-gram Jaccard 相似度（章节间冗余检测） */

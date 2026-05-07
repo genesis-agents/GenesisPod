@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import rehypeSanitize from 'rehype-sanitize';
 import type {
   ArtifactCitation,
   ArtifactFigure,
@@ -18,6 +19,10 @@ import {
   stripProseBullets,
   KATEX_OPTIONS,
 } from '@/components/common/markdown-viewer';
+// ★ PR-A6 (2026-05-07): rehype-sanitize + KaTeX-aware schema
+//   防御 LLM 产出的 markdown 含 <script> / onerror / onclick 等 XSS 向量；
+//   KaTeX 渲染所需的 <math>/<semantics>/<mrow>... 元素由 katexAwareSchema 显式放行。
+import { katexAwareSchema } from './artifact-markdown.utils';
 
 interface Props {
   markdown: string;
@@ -198,7 +203,17 @@ function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
     <article className="prose prose-gray prose-strong:text-blue-600 dark:prose-strong:text-blue-400 prose-headings:font-semibold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h4:text-base prose-h5:text-sm prose-h6:text-sm prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-a:text-blue-600 prose-a:no-underline hover:prose-a:underline prose-code:text-purple-600 prose-code:bg-purple-50 prose-code:px-1 prose-code:rounded max-w-none">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[[rehypeKatex, KATEX_OPTIONS]]}
+        // ★ PR-A6 R2 共识 P0 (2026-05-07): rehypeSanitize 必须放在 rehypeKatex
+        //   之后（rehype-sanitize 官方 README："put it last in the list"）。
+        //   pipeline 是串行变换：先跑 rehypeKatex 把 $...$ 渲染成 MathML/SVG
+        //   节点，再由 rehypeSanitize 按 katexAwareSchema 白名单过滤
+        //   KaTeX 输出 + 原始 markdown，让两者都受 sanitize 保护。
+        //   反过来（sanitize 在前）会让 KaTeX 后续输出的 SVG path / svg 节点
+        //   完全绕过 sanitize（一旦 KaTeX 有 CVE 漏洞 → 直接 XSS 落地）。
+        rehypePlugins={[
+          [rehypeKatex, KATEX_OPTIONS],
+          [rehypeSanitize, katexAwareSchema],
+        ]}
         components={components as never}
       >
         {cleaned}

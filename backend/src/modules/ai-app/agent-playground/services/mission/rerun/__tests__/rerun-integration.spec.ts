@@ -135,18 +135,38 @@ function buildIntegratedHarness(opts: {
       count: jest.fn().mockResolvedValue(rerunCount),
       create: jest.fn().mockResolvedValue({}),
     },
+    // ★ PR-R5b 切片 (2026-05-07): s11 真 handler fallback 路径
+    agentPlaygroundChapterDraft: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   };
   prismaMock.$transaction.mockImplementation(
     async (cb: (tx: typeof prismaMock) => Promise<unknown>) => cb(prismaMock),
   );
 
   const storeMock = {
-    getById: jest.fn().mockResolvedValue({ status: missionStatus }),
+    getById: jest.fn().mockResolvedValue({
+      status: missionStatus,
+      themeSummary: "test",
+      dimensions: [],
+      verdicts: [],
+      reconciliationReport: null,
+      userProfile: null,
+      leaderJournal: null,
+      leaderOverallScore: null,
+      leaderSigned: null,
+      leaderVerdict: null,
+      tokensUsed: 0,
+      costUsd: 0,
+    }),
     markReopened: jest.fn().mockResolvedValue(undefined),
     markFailed: jest.fn().mockResolvedValue(undefined),
     markIntermediateState: jest.fn().mockResolvedValue(undefined),
     resetFields: jest.fn().mockResolvedValue(undefined),
     markRerunPatch: jest.fn().mockResolvedValue(undefined),
+    markCompleted: jest.fn().mockResolvedValue(undefined),
+    // ★ PR-R5b 评审 P0-A (2026-05-07): 报告版本化写入 mock
+    saveReportVersion: jest.fn().mockResolvedValue(1),
   };
 
   const reportEvalMock = {
@@ -181,6 +201,7 @@ function buildIntegratedHarness(opts: {
   const dispatcher = new StageRerunDispatcher(
     storeMock as unknown as MissionStore,
     reportEvalMock as unknown as ReportEvaluationService,
+    prismaMock as unknown as PrismaService,
   );
 
   const service = new LocalRerunService(
@@ -461,6 +482,161 @@ describe("Rerun integration (PR-R8)", () => {
           stepId: "s9b-objective-eval",
         }),
       });
+    });
+  });
+
+  // ★ PR-R5b 切片 (2026-05-07): c195035f 真用例 — stepId=s11-persist 直接入库重跑
+  describe("场景 7: c195035f stepId=s11-persist 直接入库（PR-R5b 切片）", () => {
+    it("ctx 有 reportArtifact → cascade [s11] 全跑成 + markCompleted + 不 markFailed", async () => {
+      const h = buildIntegratedHarness({ missionStatus: "failed" });
+      // hydrator 返回 c195035f missionId（dispatcher 用 ctx.missionId 调 markCompleted）
+      h.hydratorMock.hydrate.mockResolvedValue({
+        missionId: "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+        userId: "u1",
+        input: {
+          topic: "2026 全球碳中和政策进展",
+          depth: "deep",
+          language: "zh-CN",
+          auditLayers: "thorough",
+        },
+        reportArtifact: makeReportArtifact(),
+        __hydrated: true,
+        t0: Date.now(),
+      });
+      h.storeMock.getById.mockResolvedValue({
+        status: "failed",
+        themeSummary: "2026 全球碳中和政策进展",
+        dimensions: [],
+        verdicts: [],
+        reconciliationReport: null,
+        userProfile: null,
+        leaderJournal: null,
+        leaderOverallScore: 75,
+        leaderSigned: null, // c195035f 没真签
+        leaderVerdict: null,
+        tokensUsed: 1138475,
+        costUsd: 3.42,
+      });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+
+      const result = await h.service.run(
+        {
+          missionId: "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+          userId: "u1",
+          todoId: "todo-c195-s11",
+          origin: "manual",
+          scope: "system",
+          stepId: "s11-persist",
+        },
+        emit,
+      );
+
+      // 1) cascade 链 = [s11-persist] 仅 1 步全跑成
+      expect(result.cascade?.completed).toEqual(["s11-persist"]);
+      expect(result.cascade?.abortedAt).toBeUndefined();
+      // 2) maybeReopen 把 failed → running
+      expect(h.storeMock.markReopened).toHaveBeenCalledWith(
+        "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+        "u1",
+      );
+      // 3) markCompleted 写库（不是 markFailed）
+      //    ★ PR-R5b 评审 P0-B (2026-05-07): 第三参 userId 走严格隔离
+      //    ★ R2 共识 P1 (architect P1-5): wallTimeMs 必传
+      expect(h.storeMock.markCompleted).toHaveBeenCalledWith(
+        "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+        expect.objectContaining({
+          report: expect.objectContaining({
+            title: expect.any(String),
+          }),
+          reportArtifactVersion: 2,
+          wallTimeMs: expect.any(Number),
+          // c195035f 没真签 → fallback verdict
+          leaderVerdict: "auto-rerun-recovered",
+        }),
+        "u1",
+      );
+      // 4) 不 markFailed（cascade 全成功）
+      expect(h.storeMock.markFailed).not.toHaveBeenCalled();
+      // 5b) ★ PR-R5b P0-A: saveReportVersion 也被调用（todo-rerun triggerType）
+      expect(h.storeMock.saveReportVersion).toHaveBeenCalledWith(
+        expect.objectContaining({
+          missionId: "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+          triggerType: "todo-rerun",
+        }),
+      );
+      // 5) emit mission:completed
+      const completedEmit = (emit as jest.Mock).mock.calls.find(
+        (c) => c[0].type === "agent-playground.mission:completed",
+      );
+      expect(completedEmit).toBeDefined();
+      expect(completedEmit[0].payload.rerunRecovered).toBe(false);
+    });
+
+    it("ctx 缺 reportArtifact + chapter_drafts 有内容 → 重建 + markCompleted + recovered=true", async () => {
+      const h = buildIntegratedHarness({ missionStatus: "failed" });
+      h.hydratorMock.hydrate.mockResolvedValue({
+        missionId: "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+        userId: "u1",
+        input: {
+          topic: "2026 全球碳中和政策进展",
+          depth: "deep",
+          language: "zh-CN",
+          auditLayers: "thorough",
+        },
+        reportArtifact: undefined,
+        __hydrated: true,
+        t0: Date.now(),
+      });
+      h.storeMock.getById.mockResolvedValue({
+        status: "failed",
+        themeSummary: "2026 全球碳中和政策进展",
+        dimensions: [],
+        verdicts: [],
+        leaderOverallScore: null,
+        leaderSigned: null,
+        leaderVerdict: null,
+        tokensUsed: 0,
+        costUsd: 0,
+      });
+      h.prismaMock.agentPlaygroundChapterDraft.findMany.mockResolvedValue([
+        {
+          id: "d1",
+          missionId: "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+          dimension: "Policy",
+          chapterIndex: 0,
+          heading: "全球碳定价机制演进",
+          thesis: "碳价快速上涨",
+          content: "Body content text ".repeat(80),
+          status: "passed",
+          score: 80,
+          critique: null,
+          attempts: 1,
+          wordCount: 800,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+
+      const result = await h.service.run(
+        {
+          missionId: "c195035f-d6fd-4dae-a9a0-d5176048e4e6",
+          userId: "u1",
+          todoId: "todo-c195-s11",
+          origin: "manual",
+          scope: "system",
+          stepId: "s11-persist",
+        },
+        emit,
+      );
+
+      expect(result.cascade?.completed).toEqual(["s11-persist"]);
+      expect(h.storeMock.markCompleted).toHaveBeenCalled();
+      const completedEmit = (emit as jest.Mock).mock.calls.find(
+        (c) => c[0].type === "agent-playground.mission:completed",
+      );
+      expect(completedEmit[0].payload.rerunRecovered).toBe(true);
+      expect(completedEmit[0].payload.rerunSource).toBe("chapter_drafts");
     });
   });
 });

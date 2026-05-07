@@ -243,6 +243,10 @@ export class MissionStore {
       leaderSigned?: boolean;
       leaderVerdict?: string;
     },
+    // ★ PR-R5b 评审 P0-B (2026-05-07): 与 markRerunPatch / resetFields /
+    //   markIntermediateState / markFailed 一致 — 可选 userId 走严格隔离
+    //   (rerun 路径必传，原始 mission 跑期可不传保持兼容)
+    userId?: string,
   ): Promise<void> {
     // Phase P17-2: report JSONB 大小 guard（PostgreSQL JSONB 默认 max ~1GB，
     // 但 Prisma 序列化中间步会爆内存；超 10MB 时硬拒，超 5MB 时截断 fullMarkdown）
@@ -311,9 +315,16 @@ export class MissionStore {
     };
     // 防止覆盖用户已取消的 mission（updateMany 带 status='running' guard，
     // 已 cancelled / failed 的不会被改写为 completed）
+    // ★ PR-R5b 评审 P0-B (2026-05-07): 传 userId 时加 userId 到 where 走严格隔离，
+    //   与 markFailed / markIntermediateState / markRerunPatch / resetFields 一致。
+    const completeWhere: Prisma.AgentPlaygroundMissionWhereInput = {
+      id,
+      status: "running",
+      ...(userId ? { userId } : {}),
+    };
     await this.prisma.agentPlaygroundMission
       .updateMany({
-        where: { id, status: "running" },
+        where: completeWhere,
         data: update,
       })
       .catch((err: unknown) => {

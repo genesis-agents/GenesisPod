@@ -11,6 +11,8 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { CommonModule } from "./common/common.module";
 import { PrismaModule } from "./common/prisma/prisma.module";
+// ★ PR-A6 (2026-05-07): per-workspace 灰度 @Global service（无业务依赖，仅 Prisma）
+import { FeatureFlagModule } from "./common/feature-flag/feature-flag.module";
 import { RawDataModule } from "./common/rawdata/rawdata.module";
 import { GraphModule } from "./common/graph/graph.module";
 // AiOrchestrationModule removed (PR-X28): only error-classifier was used; it
@@ -163,6 +165,9 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     PrismaModule,
     RawDataModule,
     GraphModule,
+
+    // ★ PR-A6 (2026-05-07): per-workspace feature flag (@Global)
+    FeatureFlagModule,
 
     // å…¬å…±æœåŠ¡æ¨¡å—
     CacheModule, // Redis/å†…å­˜ç¼“å­˜ï¼ˆå…¨å±€ï¼‰

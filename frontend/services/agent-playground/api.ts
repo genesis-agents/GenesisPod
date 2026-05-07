@@ -201,7 +201,11 @@ export interface MissionDetail extends MissionListItem {
   } | null;
   leaderOverallScore?: number | null;
   leaderSigned?: boolean | null;
-  leaderVerdict?: 'excellent' | 'good' | 'acceptable' | 'failed' | null;
+  // ★ R2 共识 P0-NEW (architect, 2026-05-07): leaderVerdict union 必须包含
+  //   后端写入的 'auto-rerun-recovered' / 'signed-pass' / 'signed-fail'，
+  //   否则 R5b s11-persist rerun 入库的 mission 在前端 union 外失配。
+  //   单一源在 lib/types/leader-verdict.ts（镜像 backend types）。
+  leaderVerdict?: import('@/lib/types/leader-verdict').LeaderVerdict | null;
 }
 
 export async function listMissions(): Promise<MissionListItem[]> {

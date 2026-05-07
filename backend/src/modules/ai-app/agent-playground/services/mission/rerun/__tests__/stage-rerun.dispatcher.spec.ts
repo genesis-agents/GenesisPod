@@ -17,12 +17,16 @@
  */
 
 import { BadRequestException, Logger } from "@nestjs/common";
-import { StageRerunDispatcher } from "../stage-rerun.dispatcher";
+import {
+  StageRerunDispatcher,
+  LEADER_VERDICT_AUTO_RERUN_RECOVERED,
+} from "../stage-rerun.dispatcher";
 import type { HydratedMissionContext } from "../ctx-hydrator.service";
 import type { EmitFn } from "../../workflow/mission-deps";
 import type { MissionStore } from "../../lifecycle/mission-store.service";
 import type { ReportEvaluationService } from "@/modules/ai-harness/facade";
 import type { ReportArtifact } from "@/modules/ai-harness/facade";
+import type { PrismaService } from "../../../../../../../common/prisma/prisma.service";
 
 // silence Logger
 beforeAll(() => {
@@ -35,6 +39,9 @@ interface MockStore {
   markRerunPatch: jest.Mock;
   markIntermediateState: jest.Mock;
   resetFields: jest.Mock;
+  markCompleted: jest.Mock;
+  getById: jest.Mock;
+  saveReportVersion: jest.Mock;
 }
 
 function makeMockStore(): MockStore {
@@ -42,6 +49,34 @@ function makeMockStore(): MockStore {
     markRerunPatch: jest.fn().mockResolvedValue(undefined),
     markIntermediateState: jest.fn().mockResolvedValue(undefined),
     resetFields: jest.fn().mockResolvedValue(undefined),
+    markCompleted: jest.fn().mockResolvedValue(undefined),
+    // ★ PR-R5b 评审 P0-A (2026-05-07): 报告版本化写入 mock
+    saveReportVersion: jest.fn().mockResolvedValue(1),
+    getById: jest.fn().mockResolvedValue({
+      themeSummary: "test theme",
+      dimensions: [],
+      verdicts: [],
+      reconciliationReport: null,
+      userProfile: null,
+      leaderJournal: null,
+      leaderOverallScore: null,
+      leaderSigned: null,
+      leaderVerdict: null,
+      tokensUsed: 0,
+      costUsd: 0,
+    }),
+  };
+}
+
+interface MockPrisma {
+  agentPlaygroundChapterDraft: { findMany: jest.Mock };
+}
+
+function makeMockPrisma(): MockPrisma {
+  return {
+    agentPlaygroundChapterDraft: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   };
 }
 
@@ -152,15 +187,18 @@ function makeDispatcher(
   args: {
     store?: MockStore;
     reportEval?: MockReportEval;
+    prisma?: MockPrisma;
   } = {},
 ) {
   const store = args.store ?? makeMockStore();
   const reportEval = args.reportEval ?? makeMockReportEval();
+  const prisma = args.prisma ?? makeMockPrisma();
   const dispatcher = new StageRerunDispatcher(
     store as unknown as MissionStore,
     reportEval as unknown as ReportEvaluationService,
+    prisma as unknown as PrismaService,
   );
-  return { dispatcher, store, reportEval };
+  return { dispatcher, store, reportEval, prisma };
 }
 
 const noopEmit: EmitFn = jest.fn().mockResolvedValue(undefined) as EmitFn;
@@ -226,8 +264,9 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
   });
 
   describe("runFromStageWithCascade — best-effort partial abort", () => {
-    // ★ 收尾评审 P0-R4 (2026-05-07): 11 个 PR-R5b placeholder 全部验证 throw "PR-R5b"
+    // ★ 收尾评审 P0-R4 (2026-05-07): 10 个 PR-R5b placeholder 全部验证 throw "PR-R5b"
     //   防个别 handler 被实装/重命名时漏网（构造期注册依赖循环 + Map.has key 拼写）
+    // ★ PR-R5b 切片 (2026-05-07): s11-persist 已实装真 handler，从此 list 删
     const PR_R5B_PENDING_STEPS = [
       "s2-leader-plan",
       "s3-researcher-collect",
@@ -239,7 +278,6 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
       "s8b-quality-enhancement",
       "s9-critic",
       "s10-leader-foreword-signoff",
-      "s11-persist",
     ];
     it.each(PR_R5B_PENDING_STEPS)(
       "%s placeholder handler 抛 [PR-R5b] 错误信息 + cascade abort 在自身位置",
@@ -408,6 +446,322 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
         }),
         "u-1",
       );
+    });
+  });
+
+  // ★ PR-R5b 切片 (2026-05-07): s11-persist 真 handler 反向证据
+  describe("s11-persist 真 handler (PR-R5b 切片)", () => {
+    it("ctx.reportArtifact 存在 → 直接 markCompleted（不 fallback 到 chapter_drafts）", async () => {
+      const { dispatcher, store, prisma } = makeDispatcher();
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      // s11-persist cascade chain = [s11-persist] 仅 1 步
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(), // 含 reportArtifact
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.completed).toEqual(["s11-persist"]);
+      expect(result.abortedAt).toBeUndefined();
+      // ★ PR-R5b 评审 P0-B (2026-05-07): markCompleted 第三参 userId 走严格隔离
+      // ★ R2 共识 P1 (architect P1-5): wallTimeMs 必传（rerun 自身耗时）
+      expect(store.markCompleted).toHaveBeenCalledWith(
+        "m-1",
+        expect.objectContaining({
+          reportArtifactVersion: 2,
+          wallTimeMs: expect.any(Number),
+          report: expect.objectContaining({
+            title: expect.any(String),
+          }),
+        }),
+        "u-1",
+      );
+      // ctx.reportArtifact 已有 → 不读 chapter_drafts
+      expect(
+        prisma.agentPlaygroundChapterDraft.findMany,
+      ).not.toHaveBeenCalled();
+      // emit mission:completed
+      const completedEmit = (emit as jest.Mock).mock.calls.find(
+        (c) => c[0].type === "agent-playground.mission:completed",
+      );
+      expect(completedEmit).toBeDefined();
+      expect(completedEmit[0].payload.rerunRecovered).toBe(false);
+    });
+
+    it("ctx 缺 reportArtifact → 从 chapter_drafts 重建 → markCompleted", async () => {
+      const prisma = makeMockPrisma();
+      prisma.agentPlaygroundChapterDraft.findMany.mockResolvedValue([
+        {
+          id: "d1",
+          missionId: "m-1",
+          dimension: "Market",
+          chapterIndex: 0,
+          heading: "市场规模",
+          thesis: "AI 市场快速增长",
+          content: "Body content ".repeat(50),
+          status: "passed",
+          score: 80,
+          critique: null,
+          attempts: 1,
+          wordCount: 500,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          id: "d2",
+          missionId: "m-1",
+          dimension: "Tech",
+          chapterIndex: 0,
+          heading: "技术演进",
+          thesis: "模型快速演进",
+          content: "More body ".repeat(60),
+          status: "done",
+          score: 85,
+          critique: null,
+          attempts: 1,
+          wordCount: 600,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+      const { dispatcher, store } = makeDispatcher({ prisma });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx({ reportArtifact: undefined }),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.completed).toEqual(["s11-persist"]);
+      expect(prisma.agentPlaygroundChapterDraft.findMany).toHaveBeenCalled();
+      expect(store.markCompleted).toHaveBeenCalled();
+      const markArg = store.markCompleted.mock.calls[0][1];
+      // 重建产物：finalScore=65（降级标记）
+      expect(markArg.finalScore).toBe(65);
+      const completedEmit = (emit as jest.Mock).mock.calls.find(
+        (c) => c[0].type === "agent-playground.mission:completed",
+      );
+      expect(completedEmit[0].payload.rerunRecovered).toBe(true);
+      expect(completedEmit[0].payload.rerunSource).toBe("chapter_drafts");
+    });
+
+    it("ctx 缺 reportArtifact 且 chapter_drafts 空 → throw BadRequest", async () => {
+      const prisma = makeMockPrisma();
+      prisma.agentPlaygroundChapterDraft.findMany.mockResolvedValue([]);
+      const { dispatcher } = makeDispatcher({ prisma });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx({ reportArtifact: undefined }),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      // cascade aborted（handler throw）
+      expect(result.abortedAt).toBe("s11-persist");
+      expect(result.errorMessage).toMatch(/无法重跑 S11 持久化/);
+    });
+
+    it("leader 没真签时 → leaderVerdict=auto-rerun-recovered（前端可识别）", async () => {
+      const { dispatcher, store } = makeDispatcher();
+      // store.getById mock 默认 leaderVerdict=null
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      const markArg = store.markCompleted.mock.calls[0][1];
+      expect(markArg.leaderVerdict).toBe("auto-rerun-recovered");
+    });
+
+    it("leader 已真签时 → 保留原 leaderVerdict", async () => {
+      const store = makeMockStore();
+      store.getById.mockResolvedValue({
+        themeSummary: "test",
+        dimensions: [],
+        verdicts: [],
+        leaderOverallScore: 85,
+        leaderSigned: true,
+        leaderVerdict: "good",
+        tokensUsed: 1000,
+        costUsd: 0.5,
+      });
+      const { dispatcher } = makeDispatcher({ store });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      const markArg = store.markCompleted.mock.calls[0][1];
+      expect(markArg.leaderVerdict).toBe("good");
+      expect(markArg.leaderSigned).toBe(true);
+      expect(markArg.leaderOverallScore).toBe(85);
+    });
+
+    it("getById 返回 null（mission 不存在/非 owner） → throw", async () => {
+      const store = makeMockStore();
+      store.getById.mockResolvedValue(null);
+      const { dispatcher } = makeDispatcher({ store });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.abortedAt).toBe("s11-persist");
+      expect(result.errorMessage).toMatch(/mission.*不存在或非 owner/);
+    });
+
+    // ★ PR-R5b 评审 P0-A (2026-05-07): 反向证据 — markCompleted 后必须 saveReportVersion
+    it("成功路径 → saveReportVersion 被调用（triggerType='todo-rerun'）", async () => {
+      const { dispatcher, store } = makeDispatcher();
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(store.saveReportVersion).toHaveBeenCalledTimes(1);
+      const arg = store.saveReportVersion.mock.calls[0][0];
+      expect(arg.missionId).toBe("m-1");
+      expect(arg.triggerType).toBe("todo-rerun");
+      expect(arg.report).toBeDefined();
+    });
+
+    // ★ PR-R5b 评审 P0-A (2026-05-07): saveReportVersion 失败不阻断 markCompleted（fire-and-forget）
+    it("saveReportVersion 抛错 → markCompleted 仍成功（fire-and-forget catch）", async () => {
+      const store = makeMockStore();
+      store.saveReportVersion.mockRejectedValue(new Error("DB transient"));
+      const { dispatcher } = makeDispatcher({ store });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.completed).toEqual(["s11-persist"]);
+      expect(result.abortedAt).toBeUndefined();
+      expect(store.markCompleted).toHaveBeenCalled();
+    });
+
+    // ★ PR-R5b 评审 P0-C (2026-05-07): rebuildArtifactFromDrafts 包含 'failed-finalized'
+    it("chapter_drafts 'failed-finalized' 也被纳入重建（c195035f 类用例核心）", async () => {
+      const prisma = makeMockPrisma();
+      // 模拟 c195035f 类：13 章节是 'failed-finalized'（S11 guard 拒之前 writer 已落库），
+      // 1 章节是 'passed'。fallback 路径必须把全 14 章节都收回来。
+      prisma.agentPlaygroundChapterDraft.findMany.mockImplementation(
+        async (args: { where?: { status?: { in?: string[] } } }) => {
+          const allowed = args.where?.status?.in ?? [];
+          // 反向证据：dispatcher 必须传 'failed-finalized' 进 where.status.in
+          if (!allowed.includes("failed-finalized")) {
+            throw new Error(
+              "dispatcher 没把 failed-finalized 包含进 where.status.in — P0-C regression",
+            );
+          }
+          return [
+            {
+              id: "d1",
+              missionId: "m-1",
+              dimension: "Market",
+              chapterIndex: 0,
+              heading: "市场规模",
+              content: "Body content ".repeat(50),
+              status: "failed-finalized",
+              attempts: 3,
+              wordCount: 500,
+            },
+          ];
+        },
+      );
+      const { dispatcher, store } = makeDispatcher({ prisma });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx({ reportArtifact: undefined }),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.completed).toEqual(["s11-persist"]);
+      expect(store.markCompleted).toHaveBeenCalled();
+      // findMany 第一参 where.status.in 必须含 'failed-finalized'
+      const findCall = prisma.agentPlaygroundChapterDraft.findMany.mock
+        .calls[0][0] as { where: { status: { in: string[] } } };
+      expect(findCall.where.status.in).toContain("failed-finalized");
+      expect(findCall.where.status.in).toContain("passed");
+      expect(findCall.where.status.in).toContain("done");
+    });
+
+    // ★ PR-R5b 评审 P1 (2026-05-07): 常量 export 反向证据
+    it("LEADER_VERDICT_AUTO_RERUN_RECOVERED 常量与 dispatcher 写入值一致（防漂移）", async () => {
+      expect(LEADER_VERDICT_AUTO_RERUN_RECOVERED).toBe("auto-rerun-recovered");
+      const { dispatcher, store } = makeDispatcher();
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      const markArg = store.markCompleted.mock.calls[0][1];
+      expect(markArg.leaderVerdict).toBe(LEADER_VERDICT_AUTO_RERUN_RECOVERED);
+    });
+
+    // ★ R2 共识 P1 (tester): getById 抛错（非 null）的场景 — cascade abort 不 throw
+    it("getById 抛 DB error → cascade abort + errorMessage 含错误", async () => {
+      const store = makeMockStore();
+      store.getById.mockRejectedValue(new Error("DB transient"));
+      const { dispatcher } = makeDispatcher({ store });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx(),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.abortedAt).toBe("s11-persist");
+      expect(result.errorMessage).toMatch(/DB transient/);
+    });
+
+    // ★ R2 共识 P0 (architect P0-1): rebuild 路径必须打 recoveryDegraded + recoveryMode
+    it("rebuild 路径产物含 quality.recoveryDegraded=true + metadata.recoveryMode='chapter_drafts_rebuild'", async () => {
+      const prisma = makeMockPrisma();
+      prisma.agentPlaygroundChapterDraft.findMany.mockResolvedValue([
+        {
+          id: "d1",
+          missionId: "m-1",
+          dimension: "X",
+          chapterIndex: 0,
+          heading: "标题",
+          content: "Body content ".repeat(50),
+          status: "failed-finalized",
+          attempts: 3,
+          wordCount: 500,
+        },
+      ]);
+      const { dispatcher, store } = makeDispatcher({ prisma });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      await dispatcher.runFromStageWithCascade({
+        ctx: makeCtx({ reportArtifact: undefined }),
+        fromStepId: "s11-persist",
+        emit,
+      });
+      // markCompleted 收到的 report payload 含 recovery flags
+      const markArg = store.markCompleted.mock.calls[0][1];
+      const report = markArg.report;
+      expect(report.quality.recoveryDegraded).toBe(true);
+      expect(report.metadata.recoveryMode).toBe("chapter_drafts_rebuild");
+    });
+
+    // ★ R2 共识 P1 (reviewer P1-3): 错误信息含 missionId + userId 上下文
+    it("errorMessage 含 missionId + userId 上下文（线上排查友好）", async () => {
+      const prisma = makeMockPrisma();
+      prisma.agentPlaygroundChapterDraft.findMany.mockResolvedValue([]);
+      const { dispatcher } = makeDispatcher({ prisma });
+      const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+      const ctx = makeCtx({ reportArtifact: undefined });
+      const result = await dispatcher.runFromStageWithCascade({
+        ctx,
+        fromStepId: "s11-persist",
+        emit,
+      });
+      expect(result.abortedAt).toBe("s11-persist");
+      expect(result.errorMessage).toContain("missionId=m-1");
+      expect(result.errorMessage).toContain("userId=u-1");
     });
   });
 });

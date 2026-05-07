@@ -45,6 +45,11 @@ export {
   type SanitizeRule as MarkdownSanitizeRule,
   type SanitizeRuleApplied as MarkdownSanitizeRuleApplied,
 } from "../content/markdown/markdown-sanitizer.types";
+// ★ PR-A8 (2026-05-07): sanitizer 监控聚合器（in-memory，admin metrics endpoint 拉 snapshot）
+export {
+  SanitizerMetricsService,
+  type SanitizerMetricSnapshot,
+} from "../content/markdown/sanitizer-metrics.service";
 
 /**
  * Minimal interface matching MCPManager for ai-engine internal use.

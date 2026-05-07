@@ -23,9 +23,37 @@
  *   - 不再有 `as never` cast
  */
 
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { sanitizeMarkdownBody } from "../../../../ai-engine/content/markdown/markdown-sanitizer.util";
 import type { SanitizeOptions } from "../../../../ai-engine/content/markdown/markdown-sanitizer.types";
+// ★ PR-A8 (2026-05-07): metrics 聚合（Optional 注入：DI 没接通时安静 noop，不影响装配）
+import { SanitizerMetricsService } from "../../../../ai-engine/content/markdown/sanitizer-metrics.service";
+
+/**
+ * ★ R2 共识 P1 (security P2-B, 2026-05-07): dim.id 来自 LLM 输出，
+ * 写入 metrics label 前必须 sanitize，防 Prometheus label / 日志解析注入。
+ *
+ * R3 改进 (security R2 P1-NEW)：纯字符过滤会让中文 dim.id（如 "宏观环境"
+ * vs "微观经济"）全替换成 "____" 撞一起，导致 metrics 维度区分度丢失。
+ * 改用：
+ *   1. 已是 alphanumeric/dash/underscore 的 raw 直接保留（截 64 字符）
+ *   2. 含非 ASCII 字符时改用 base64url encode（保唯一性 + 可逆 + Prometheus 兼容）
+ *
+ * Empty/null 输入返回 'unknown'，让 caller 仍能 record 而非 crash。
+ */
+function sanitizeMetricsLabel(raw: string | null | undefined): string {
+  if (!raw) return "unknown";
+  const s = String(raw);
+  // 全 ASCII 安全字符 → 直接用（短、可读）
+  if (/^[a-zA-Z0-9_\-]+$/.test(s)) return s.slice(0, 64);
+  // 含特殊字符（中文 / 空格 / 标点）→ base64url 保唯一性
+  const encoded = Buffer.from(s, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return `b64_${encoded.slice(0, 60)}`;
+}
 import {
   MULTI_DIMENSION_REPORT_TEMPLATE,
   expectedSectionCount,
@@ -48,6 +76,14 @@ interface AssembledChunk {
 
 @Injectable()
 export class StructuralReportAssembler {
+  // ★ PR-A8 (2026-05-07): 唯一允许的实例字段 —— DI 注入的 metrics 单例。
+  //   不破坏 stateless 约束（caller 仍互不污染：metrics 服务自身有内部 Map，
+  //   每次 record 是 thread-safe append；assemble() 仍不写实例字段）。
+  constructor(
+    @Optional()
+    private readonly sanitizerMetrics?: SanitizerMetricsService,
+  ) {}
+
   /**
    * 主入口 — 拼装 ReportArtifact
    * stateless：所有中间变量局部，无实例字段
@@ -79,6 +115,13 @@ export class StructuralReportAssembler {
                   bodyRaw,
                   safePlan.dimensions.map((d) => d.name),
                   sanitizerAcc,
+                  // ★ PR-A8 (2026-05-07): 让 metrics 知道哪段触发的 rule
+                  //   （仅 dim.id，不含 dim.name 或 body 内容，避免 PII 泄露）
+                  // ★ R2 共识 P1 (security P2-B): dim.id 来自 LLM 输出，
+                  //   写入 metrics label 前 sanitize 防 Prometheus label /
+                  //   日志解析注入：仅保留 alphanumeric / dash / underscore，
+                  //   截到 64 字符。
+                  `dim:${sanitizeMetricsLabel(dim.id)}`,
                 );
           const chunk = this.makeChunk(
             cursor,
@@ -96,6 +139,8 @@ export class StructuralReportAssembler {
 
       if (slot.kind === "fixed" || slot.kind === "optional") {
         const body = this.resolveSlotBody(slot, safeSegments, sanitizerAcc);
+        // (slot.key 是 backend 定义的 ReportTemplate enum 字面量，本身已安全；
+        //  不需要 sanitizeMetricsLabel)
         if (slot.kind === "optional" && !body.trim()) continue;
         const type = this.slotTypeFor(slot.key);
         const chunk = this.makeChunk(cursor, slot.title, type, 2, body);
@@ -187,6 +232,8 @@ export class StructuralReportAssembler {
             text,
             segments.plan.dimensions.map((d) => d.name),
             sanitizerAcc,
+            // ★ PR-A8 (2026-05-07): slot.key 标识哪个 fixed/optional slot 触发了 rule
+            `slot:${slot.key}`,
           )
         : "";
     }
@@ -241,10 +288,20 @@ export class StructuralReportAssembler {
     raw: string,
     knownDimNames: string[],
     acc: { sanitizerVersion?: string },
+    segmentName?: string,
   ): string {
-    const opts: SanitizeOptions = { knownDimNames };
+    const opts: SanitizeOptions = { knownDimNames, segmentName };
     const result = sanitizeMarkdownBody(raw, opts);
     acc.sanitizerVersion = result.sanitizerVersion;
+    // ★ PR-A8 (2026-05-07): 触发了任意 sanitize rule 时把 appliedRules 汇入 metrics。
+    //   try/catch 包裹防 metrics service 异常阻断装配（observability 失败 ≠ 装配失败）。
+    if (this.sanitizerMetrics && result.appliedRules.length > 0) {
+      try {
+        this.sanitizerMetrics.record(result.appliedRules);
+      } catch {
+        /* noop — metrics 失败不能拖垮装配 */
+      }
+    }
     return result.body;
   }
 

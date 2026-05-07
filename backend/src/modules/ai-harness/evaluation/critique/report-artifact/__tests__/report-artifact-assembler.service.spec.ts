@@ -689,3 +689,174 @@ describe("lengthTargetFor", () => {
   it("unknown → 8000 (default)", () =>
     expect(lengthTargetFor("unknown" as never)).toBe(8000));
 });
+
+// ★ PR-A7 (2026-05-07): legacy assembler invariant fallback —— fuzzy match + missing-dim 显式标签
+describe("PR-A7: buildSectionTree fuzzy match + missing-dim 显式标签", () => {
+  function makeAssemblerWithGate() {
+    return new ReportArtifactAssembler(makeQualityGate() as never);
+  }
+
+  function makeInputWithDims(
+    dims: Array<{ id: string; name: string; rationale: string }>,
+    sections: Array<{ heading: string; body: string }>,
+  ) {
+    return {
+      topic: "Test",
+      language: "zh-CN" as const,
+      styleProfile: "analytical" as const,
+      lengthProfile: "standard" as const,
+      audienceProfile: "professional" as const,
+      plan: { themeSummary: "test", dimensions: dims },
+      researcherResults: dims.map((d) => ({
+        dimension: d.name,
+        findings: [
+          {
+            claim: `${d.name} finding`,
+            evidence: "evidence",
+            source: "https://example.com",
+          },
+        ],
+        summary: `${d.name} summary`,
+      })),
+      analyst: { themeSummary: "test theme" },
+      writerReport: {
+        title: "Test Report",
+        summary: "Summary",
+        sections,
+      },
+      figureCandidates: [],
+      reconciliationReport: undefined,
+    };
+  }
+
+  it("exact match 优先（不走 fuzzy）—— LLM 写规范名时仍命中", () => {
+    const assembler = makeAssemblerWithGate();
+    const input = makeInputWithDims(
+      [
+        { id: "d1", name: "Market", rationale: "..." },
+        { id: "d2", name: "Technology", rationale: "..." },
+      ],
+      [
+        { heading: "Market", body: "Body for market." },
+        { heading: "Technology", body: "Body for tech." },
+      ],
+    );
+    const result = assembler.assemble(input as never);
+    const dimSecs = result.sections.filter((s) => s.type === "dimension");
+    expect(dimSecs.find((s) => s.title === "Market")?.sourceDimensionId).toBe(
+      "d1",
+    );
+    expect(
+      dimSecs.find((s) => s.title === "Technology")?.sourceDimensionId,
+    ).toBe("d2");
+  });
+
+  it("fuzzy match —— LLM 给章节加序号 '1. Market' 仍能对齐到 d1", () => {
+    const assembler = makeAssemblerWithGate();
+    const input = makeInputWithDims(
+      [
+        { id: "d1", name: "Market", rationale: "..." },
+        { id: "d2", name: "Technology", rationale: "..." },
+      ],
+      [
+        // LLM 加序号 — 旧 exact match 失败
+        { heading: "1. Market 分析", body: "Body for market analysis." },
+        { heading: "2. Technology 演进", body: "Body for tech evolution." },
+      ],
+    );
+    const result = assembler.assemble(input as never);
+    const dimSecs = result.sections.filter((s) => s.type === "dimension");
+    // includes 启发式应当对齐
+    expect(
+      dimSecs.find((s) => s.title.includes("Market"))?.sourceDimensionId,
+    ).toBe("d1");
+    expect(
+      dimSecs.find((s) => s.title.includes("Technology"))?.sourceDimensionId,
+    ).toBe("d2");
+  });
+
+  it("missing-dim 显式标签 —— writer 漏写一个维度时保留占位 section + sourceDimensionId 对齐", () => {
+    const assembler = makeAssemblerWithGate();
+    const input = makeInputWithDims(
+      [
+        { id: "d1", name: "Market", rationale: "..." },
+        { id: "d2", name: "Technology", rationale: "..." },
+        { id: "d3", name: "Regulation", rationale: "..." }, // writer 漏写
+      ],
+      [
+        { heading: "Market", body: "Body for market." },
+        { heading: "Technology", body: "Body for tech." },
+      ],
+    );
+    const result = assembler.assemble(input as never);
+    const dimSecs = result.sections.filter((s) => s.type === "dimension");
+    const regSec = dimSecs.find((s) => s.sourceDimensionId === "d3");
+    expect(regSec).toBeDefined();
+    expect(regSec!.title).toContain("本维度内容缺失");
+    expect(regSec!.startOffset).toBe(regSec!.endOffset); // zero-width
+    expect(regSec!.wordCount).toBe(0);
+  });
+
+  it("两个 dim 都有 section + 一个全新假 section —— 假 section 不算 missing", () => {
+    const assembler = makeAssemblerWithGate();
+    const input = makeInputWithDims(
+      [
+        { id: "d1", name: "Market", rationale: "..." },
+        { id: "d2", name: "Technology", rationale: "..." },
+      ],
+      [
+        { heading: "Market", body: "Body market." },
+        { heading: "Technology", body: "Body tech." },
+        { heading: "AI Trends 2030", body: "未规划维度，但 LLM 自己加的." },
+      ],
+    );
+    const result = assembler.assemble(input as never);
+    const dimSecs = result.sections.filter((s) => s.type === "dimension");
+    // d1, d2 都对齐；不应有 missing 标签
+    const missing = dimSecs.filter((s) => s.title.includes("本维度内容缺失"));
+    expect(missing).toHaveLength(0);
+  });
+
+  it("LCS 相似度阈值 ≥ 0.7 才命中 —— 相似度低拒绝", () => {
+    const assembler = makeAssemblerWithGate();
+    const input = makeInputWithDims(
+      [{ id: "d1", name: "Market Analysis", rationale: "..." }],
+      [
+        // 完全无关的章节标题；LCS / includes 都不应命中
+        { heading: "Foreword", body: "Some preface body." },
+      ],
+    );
+    const result = assembler.assemble(input as never);
+    const dimSecs = result.sections.filter((s) => s.type === "dimension");
+    // d1 应当作为 missing 被加进来
+    const missing = dimSecs.find((s) => s.sourceDimensionId === "d1");
+    expect(missing).toBeDefined();
+    expect(missing!.title).toContain("本维度内容缺失");
+  });
+
+  // ★ R2 共识 P1 (tester R2): missing-dim 虚拟 offset 严格单调递增（架构 P0-3 修复）
+  it("多个 missing-dim 时 startOffset 严格单调递增（architect R2 P0-3 反向证据）", () => {
+    const assembler = makeAssemblerWithGate();
+    const input = makeInputWithDims(
+      [
+        { id: "d1", name: "Market", rationale: "..." }, // 命中
+        { id: "d2", name: "Tech", rationale: "..." }, // missing
+        { id: "d3", name: "Regulation", rationale: "..." }, // missing
+        { id: "d4", name: "Risk", rationale: "..." }, // missing
+      ],
+      [{ heading: "Market", body: "Body for market analysis." }],
+    );
+    const result = assembler.assemble(input as never);
+    const missingSecs = result.sections.filter(
+      (s) => s.type === "dimension" && s.title.includes("本维度内容缺失"),
+    );
+    expect(missingSecs).toHaveLength(3);
+    // 严格单调递增 + zero-width
+    for (let i = 1; i < missingSecs.length; i++) {
+      expect(missingSecs[i].startOffset).toBeGreaterThan(
+        missingSecs[i - 1].startOffset,
+      );
+      expect(missingSecs[i].startOffset).toBe(missingSecs[i].endOffset);
+    }
+  });
+});

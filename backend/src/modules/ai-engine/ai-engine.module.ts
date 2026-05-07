@@ -61,6 +61,8 @@ import { ImageModule } from "./content/image/image.module";
 // ★ 沉淀（2026-04-29）: figure 抽取（来自 {app}，TI 暂不切换）
 //   不创建 sub-module，直接作为 provider 注册（ai-engine.module 已 @Global + imports AiEngineToolsModule）
 import { FigureExtractorService } from "./content/figure";
+// ★ PR-A8 (2026-05-07): markdown sanitizer 监控聚合器（in-memory，admin metrics 拉 snapshot）
+import { SanitizerMetricsService } from "./content/markdown/sanitizer-metrics.service";
 // ★ 沉淀（2026-04-29）: LLM Reranker（来自 {app}）
 //   位置严格遵守"rerank 是 RAG 第二阶段（knowledge 子领域）"+"单向依赖"两条原则：
 //   放 ai-engine/knowledge/rerank/ + 用 AiChatService（ai-engine 内层 LLM 调用）
@@ -154,6 +156,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     FigureExtractorService,
     // ★ 沉淀: LLM Reranker
     LlmRerankerAdapter,
+    // ★ PR-A8 (2026-05-07): sanitizer metrics 聚合器
+    SanitizerMetricsService,
   ],
   exports: [
     // ★ 重新导出子模块
@@ -199,6 +203,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ 沉淀: figure-extractor 作为顶层 export
     FigureExtractorService,
     LlmRerankerAdapter,
+    // ★ PR-A8 (2026-05-07): sanitizer metrics 顶层 export，admin / observability 拉 snapshot
+    SanitizerMetricsService,
   ],
 })
 export class AiEngineModule implements OnModuleInit {
