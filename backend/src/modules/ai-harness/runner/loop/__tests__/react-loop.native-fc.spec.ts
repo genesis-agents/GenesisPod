@@ -437,10 +437,10 @@ describe("ReActLoop · PR-1 native function-calling", () => {
     expect(reg.get).toHaveBeenCalledWith("web-search");
   });
 
-  // P1#2 (2026-05-07 review fix): callId 端到端透传 — LLM tool_use_id 必须传到
-  // ToolInvoker.invoke action.callId + envelope role:"tool" message toolCallId
-  // + buildMessages 把 callId 嵌入 content prefix 让下轮 LLM 看到配对线索。
-  it("D. callId E2E: native FC tool_use_id 透传到 invoker + envelope + 下轮 prompt", async () => {
+  // Layer 4/5 (2026-05-07): native FC callId 全链透传 —— LLM tool_use_id 必须到
+  // ToolInvoker.action.callId + envelope role:"tool".toolCallId + 下轮 ChatMessage
+  // role:"tool" + toolCallId 字段（buildMessages 不再 user 降级，wire 字段权威）。
+  it("D. callId E2E: tool_use_id 透到 invoker + envelope + 下轮 ChatMessage role:tool/toolCallId", async () => {
     process.env.HARNESS_REACT_NATIVE_FC = "true";
     const chat = mkChat([
       {
@@ -479,16 +479,22 @@ describe("ReActLoop · PR-1 native function-calling", () => {
     // 1. ToolInvoker 收到的 action 必须带 callId（来自 LLM tc.id）
     const invokedAction = invokeSpy.mock.calls[0][0];
     expect((invokedAction as { callId?: string }).callId).toBe("call_abc123");
-    // 2. 第二轮 chat 收到的 messages 里 tool result 必须带 call_id 标记 ——
-    //    buildMessages role:"tool" → "user" 降级 + content prefix（P1#2 当前形态；
-    //    后续 PR 扩 ChatMessage 改 native role:"tool" + tool_call_id 字段）
+    // 2. 第二轮 chat 收到的 messages 里：role:"tool" + toolCallId 字段直接出现
+    //    （之前是降级 user + content prefix [tool_result ... call_id=Y]，layer 4/5 拿掉占位）
     const secondChatArg = (chat.chat as jest.Mock).mock.calls[1][0];
-    const userMsgs = (
-      secondChatArg.messages as Array<{ role: string; content: string }>
-    ).filter((m) => m.role === "user");
-    const hasMarker = userMsgs.some((m) =>
-      m.content.includes("call_id=call_abc123"),
-    );
-    expect(hasMarker).toBe(true);
+    const toolMsgs = (
+      secondChatArg.messages as Array<{
+        role: string;
+        toolCallId?: string;
+        content: string;
+      }>
+    ).filter((m) => m.role === "tool");
+    expect(toolMsgs.length).toBe(1);
+    expect(toolMsgs[0].toolCallId).toBe("call_abc123");
+    // 3. 不应再有 [tool_result ... call_id=...] 这种 prompt prefix 占位
+    const allContent = (secondChatArg.messages as Array<{ content: string }>)
+      .map((m) => m.content)
+      .join("\n");
+    expect(allContent).not.toMatch(/\[tool_result.*call_id=/);
   });
 });

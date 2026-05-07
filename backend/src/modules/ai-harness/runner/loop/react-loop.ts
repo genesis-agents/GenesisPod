@@ -1239,21 +1239,16 @@ export class ReActLoop implements IAgentLoop {
       });
     }
     for (const m of envelope.messages) {
-      // PR-1 native-FC P1#2: ChatMessage 当前不支持 role:"tool" + tool_call_id，
-      // 将 role:"tool" 降级成 "user"。若有 toolCallId（callback from native FC tool_calls），
-      // 在 content 前缀以 [tool_use_id:xxx] 标记 — LLM 至少能识别"这是 X 次 call 的结果"，
-      // 不依赖 ChatMessage 扩展（独立 PR 完整化 P2 native tool_use_id 配对）。
-      if (m.role === "tool" && m.toolCallId) {
-        msgs.push({
-          role: "user",
-          content: `[tool_result name=${m.name ?? ""} call_id=${m.toolCallId}] ${m.content}`,
-        });
-      } else {
-        msgs.push({
-          role: m.role === "tool" ? "user" : m.role,
-          content: m.content,
-        });
-      }
+      // Layer 4/5 native FC（2026-05-07）：role:"tool" + toolCallId 直接透传到 ChatMessage。
+      // ai-api-caller.callOpenAICompatibleAPI 用 tool_call_id 字段透 OpenAI/vLLM；
+      // callAnthropicAPI 把 role:"tool" 转 user + content:[{type:"tool_result",tool_use_id,...}] 形态。
+      // 旧 content prefix [tool_result ... call_id=Y] 兜底已删，wire 字段是单一权威源。
+      msgs.push({
+        role: m.role,
+        content: m.content,
+        ...(m.name ? { name: m.name } : {}),
+        ...(m.toolCallId ? { toolCallId: m.toolCallId } : {}),
+      });
     }
     // ★ 删除 envelope.tools 追加的降级版工具列表。
     // catalog block（在 envelope.system 里）已经有完整 <available_tools> 含

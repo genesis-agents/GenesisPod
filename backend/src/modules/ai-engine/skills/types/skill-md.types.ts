@@ -452,10 +452,11 @@ export interface GetSkillsOptions {
  * chatWithSkills 请求参数（Anthropic 风格：description-based matching）
  */
 export interface ChatWithSkillsRequest {
-  /** 消息列表 */
+  /** 消息列表（含 native FC tool result 支持，2026-05-07 layer 4/5） */
   messages: Array<{
-    role: "system" | "user" | "assistant";
+    role: "system" | "user" | "assistant" | "tool";
     content: string;
+    toolCallId?: string;
   }>;
 
   /** 领域（可选） */

@@ -246,7 +246,11 @@ export class ToolExecSubFacade {
   }
 
   async chatWithTools(request: {
-    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    messages: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string;
+      toolCallId?: string;
+    }>;
     context: AICapabilityContext;
     modelType?: AIModelType;
     model?: string;

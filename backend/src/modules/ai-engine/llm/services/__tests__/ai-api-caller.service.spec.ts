@@ -1293,5 +1293,111 @@ describe("AiApiCallerService", () => {
       expect(callArgs[1]).toHaveProperty("input_type", "search_query");
     });
   });
-});
 
+  // ==================== Layer 4/5 native FC tool_call_id wire ====================
+
+  describe("native FC tool_call_id wire (layer 4/5)", () => {
+    it("OpenAI compatible: role:'tool' + toolCallId → wire tool_call_id 字段", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "ack" } }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "k",
+        "gpt-4o",
+        [
+          { role: "user", content: "Q" },
+          {
+            role: "assistant",
+            content: '{"tool_calls":[{"id":"call_1","name":"search"}]}',
+          },
+          {
+            role: "tool",
+            content: "result-data",
+            name: "search",
+            toolCallId: "call_1",
+          },
+        ],
+        4000,
+        0.7,
+      );
+      const body = (mockHttpService.post as jest.Mock).mock.calls[0][1];
+      const toolMsg = body.messages.find(
+        (m: { role: string }) => m.role === "tool",
+      );
+      expect(toolMsg).toBeDefined();
+      expect(toolMsg.tool_call_id).toBe("call_1");
+      expect(toolMsg.name).toBe("search");
+    });
+
+    it("Anthropic: role:'tool' + toolCallId → user + content[{type:'tool_result',tool_use_id}]", async () => {
+      const apiResponse = {
+        content: [{ type: "text", text: "ack" }],
+        usage: { input_tokens: 5, output_tokens: 2 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      await service.callAnthropicAPI(
+        "https://api.anthropic.com/v1/messages",
+        "k",
+        "claude-sonnet-4-6",
+        [
+          { role: "user", content: "Q" },
+          { role: "assistant", content: "calling search" },
+          {
+            role: "tool",
+            content: "result-data",
+            toolCallId: "toolu_abc",
+          },
+        ],
+        4000,
+        0.7,
+      );
+      const body = (mockHttpService.post as jest.Mock).mock.calls[0][1];
+      const last = body.messages[body.messages.length - 1];
+      expect(last.role).toBe("user");
+      expect(Array.isArray(last.content)).toBe(true);
+      expect(last.content[0]).toEqual({
+        type: "tool_result",
+        tool_use_id: "toolu_abc",
+        content: "result-data",
+      });
+    });
+
+    it("xAI: role:'tool' + toolCallId → wire tool_call_id（OpenAI 兼容协议）", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "ack" } }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      await service.callXAIAPI(
+        "https://api.x.ai/v1/chat/completions",
+        "k",
+        "grok-2",
+        [
+          { role: "user", content: "Q" },
+          {
+            role: "tool",
+            content: "result-data",
+            toolCallId: "call_xai_9",
+          },
+        ],
+        4000,
+        0.7,
+      );
+      const body = (mockHttpService.post as jest.Mock).mock.calls[0][1];
+      const toolMsg = body.messages.find(
+        (m: { role: string }) => m.role === "tool",
+      );
+      expect(toolMsg).toBeDefined();
+      expect(toolMsg.tool_call_id).toBe("call_xai_9");
+    });
+  });
+});

@@ -247,13 +247,21 @@ export interface ImageUrlContentPart {
  *
  * 当 contentParts 存在时，AiApiCallerService 会优先使用 contentParts 构建 API 请求，
  * content 字段仍然需要提供（作为纯文本 fallback / 日志摘要）。
+ *
+ * Native function-calling 支持（layer 4/5，2026-05-07）：
+ * - role: "tool" — 工具调用结果消息（前一轮 LLM 吐 tool_calls，本轮把执行结果回传）
+ * - toolCallId — 与 LLM 上一轮 tool_calls[].id 配对（OpenAI tool_call_id /
+ *   Anthropic tool_use_id）。callOpenAICompatibleAPI 透传到 wire 字段；
+ *   callAnthropicAPI 转 content:[{type:"tool_result",tool_use_id,...}] 形态
  */
 export interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
   name?: string;
   /** 多模态内容部分，设置后 API 调用会使用此字段代替 content */
   contentParts?: ContentPart[];
+  /** Native FC tool result 配对 id（仅 role:"tool" 用） */
+  toolCallId?: string;
 }
 
 /**

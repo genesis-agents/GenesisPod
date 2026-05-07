@@ -142,7 +142,7 @@ export class AiApiCallerService {
     modelId: string,
     estimatedTokens: number,
     estimatedChars: number,
-    messages: Array<{ role: string; content: unknown }>,
+    messages: ReadonlyArray<Record<string, unknown>>,
   ): void {
     if (estimatedTokens <= OVERSIZED_REQUEST_TOKEN_THRESHOLD) return;
     const messageSizes = messages.map((m, i) => {
@@ -212,10 +212,21 @@ export class AiApiCallerService {
     }
 
     // ★ 构建请求体 - 只包含有效的参数（支持多模态 contentParts）
-    const resolvedMessages = messages.map((m) => ({
-      role: m.role,
-      content: resolveOpenAIContent(m),
-    }));
+    // Layer 4/5 (2026-05-07): role:"tool" + toolCallId 透到 OpenAI native tool_call_id 字段，
+    // 让 vLLM / OpenAI 支持 native tool_use_id 配对（多轮 FC 场景必需）。
+    // role:"tool" 不带 toolCallId 时（回退路径）OpenAI 会拒绝 — 此场景实际不发生：
+    // updateEnvelope 写 role:"tool" 时 callId 来自 LLM tool_calls[].id，必然存在。
+    const resolvedMessages = messages.map((m) => {
+      const base: Record<string, unknown> = {
+        role: m.role,
+        content: resolveOpenAIContent(m),
+      };
+      if (m.role === "tool" && m.toolCallId) {
+        base.tool_call_id = m.toolCallId;
+      }
+      if (m.name) base.name = m.name;
+      return base;
+    });
 
     // ★ 安全阀：检测异常大请求并记录诊断信息
     const estimatedChars = resolvedMessages.reduce((sum, m) => {
@@ -432,13 +443,33 @@ export class AiApiCallerService {
     const otherMessages = messages.filter((m) => m.role !== "system");
 
     // ★ 构建请求体 - 只包含有效的参数（支持多模态 contentParts）
+    // Layer 4/5 (2026-05-07): role:"tool" + toolCallId 转 Anthropic native tool_result block。
+    // Anthropic wire 形态：role:"user" + content:[{type:"tool_result",tool_use_id,content}]
+    // 不带 toolCallId 的 tool 消息（数据缺失/旧路径）退到 plain text user 兜底。
     const requestBody: Record<string, unknown> = {
       model: modelId,
       max_tokens: maxTokens,
-      messages: otherMessages.map((m) => ({
-        role: m.role === "assistant" ? "assistant" : "user",
-        content: resolveAnthropicContent(m),
-      })),
+      messages: otherMessages.map((m) => {
+        if (m.role === "tool" && m.toolCallId) {
+          return {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: m.toolCallId,
+                content:
+                  typeof m.content === "string"
+                    ? m.content
+                    : JSON.stringify(m.content),
+              },
+            ],
+          };
+        }
+        return {
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: resolveAnthropicContent(m),
+        };
+      }),
     };
 
     // 只有当 system 有内容时才包含（system 仅支持纯文本）
@@ -594,10 +625,34 @@ export class AiApiCallerService {
     const otherMessages = messages.filter((m) => m.role !== "system");
 
     // Convert to Gemini format（支持多模态 contentParts）
-    const contents = otherMessages.map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: resolveGeminiParts(m),
-    }));
+    // Layer 4/5 (2026-05-07): role:"tool" + toolCallId 转 Gemini native functionResponse part。
+    // Gemini wire 形态：role:"function" + parts:[{functionResponse:{name,response:{content}}}]
+    // （Gemini 没 tool_use_id 概念，靠 name 配对；toolCallId 暂保留进 functionResponse.id 字段）
+    const contents = otherMessages.map((m) => {
+      if (m.role === "tool" && m.toolCallId) {
+        return {
+          role: "function",
+          parts: [
+            {
+              functionResponse: {
+                name: m.name ?? "tool",
+                response: {
+                  id: m.toolCallId,
+                  content:
+                    typeof m.content === "string"
+                      ? m.content
+                      : JSON.stringify(m.content),
+                },
+              },
+            },
+          ],
+        };
+      }
+      return {
+        role: m.role === "assistant" ? "model" : "user",
+        parts: resolveGeminiParts(m),
+      };
+    });
 
     // ★ 构建请求体 - 不硬编码 topP/topK。
     // 之前硬编码 topP=0.95/topK=40 会覆盖 Gemini 各模型的服务端默认值，
@@ -713,10 +768,19 @@ export class AiApiCallerService {
       : tokenParamName;
 
     // ★ 数据库驱动：使用配置的 tokenParamName（支持多模态 contentParts）
-    const resolvedXaiMessages = messages.map((m) => ({
-      role: m.role,
-      content: resolveOpenAIContent(m),
-    }));
+    // Layer 4/5 (2026-05-07): xAI 走 OpenAI 兼容协议，role:"tool" + toolCallId
+    // 直接透 tool_call_id 字段。
+    const resolvedXaiMessages = messages.map((m) => {
+      const base: Record<string, unknown> = {
+        role: m.role,
+        content: resolveOpenAIContent(m),
+      };
+      if (m.role === "tool" && m.toolCallId) {
+        base.tool_call_id = m.toolCallId;
+      }
+      if (m.name) base.name = m.name;
+      return base;
+    });
 
     // ★ 安全阀：检测异常大请求并记录诊断信息
     const xaiEstimatedChars = resolvedXaiMessages.reduce((sum, m) => {

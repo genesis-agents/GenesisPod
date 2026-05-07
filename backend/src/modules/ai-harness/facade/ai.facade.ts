@@ -2376,7 +2376,11 @@ export class AIFacade {
    * });
    */
   async chatWithTools(request: {
-    messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+    messages: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string;
+      toolCallId?: string;
+    }>;
     context: AICapabilityContext;
     modelType?: AIModelType;
     model?: string;
@@ -2797,9 +2801,7 @@ export class AIFacade {
     return (await this.knowledge?.embedding?.generateEmbedding(text)) ?? null;
   }
   /** Batch — 推荐入口。详见 RagFacade.embeddingGenerateBatch JSDoc */
-  async embeddingGenerateBatch(
-    texts: string[],
-  ): Promise<{
+  async embeddingGenerateBatch(texts: string[]): Promise<{
     texts: string[];
     embeddings: number[][];
     totalTokens: number;
