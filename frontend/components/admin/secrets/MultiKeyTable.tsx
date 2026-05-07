@@ -212,13 +212,20 @@ export function MultiKeyTable({
               value={addLabel}
               onChange={(e) => setAddLabel(e.target.value)}
               placeholder="label (e.g. backup-1)"
+              name="secret-key-label"
+              autoComplete="off"
               className="rounded border px-2 py-1 text-sm"
             />
+            {/* ★ autoComplete="new-password" + 唯一 name —— 阻止 Chrome 把
+                 此 password 当成登录表单触发上方搜索框自动填充 */}
             <input
               type="password"
               value={addValue}
               onChange={(e) => setAddValue(e.target.value)}
               placeholder="API key value"
+              name="secret-key-add-value"
+              autoComplete="new-password"
+              spellCheck={false}
               className="rounded border px-2 py-1 text-sm md:col-span-2"
             />
           </div>
@@ -308,6 +315,9 @@ export function MultiKeyTable({
                         value={replaceValue}
                         onChange={(e) => setReplaceValue(e.target.value)}
                         placeholder="new key value"
+                        name={`secret-key-replace-${row.id}`}
+                        autoComplete="new-password"
+                        spellCheck={false}
                         className="w-48 rounded border px-1 py-0.5 text-sm"
                       />
                     ) : (
