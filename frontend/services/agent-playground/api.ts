@@ -8,6 +8,8 @@
 
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import type { RerunIntent } from '@/lib/agent-playground/rerun-intents';
+export type { RerunIntent } from '@/lib/agent-playground/rerun-intents';
 
 const API_BASE = `${config.apiBaseUrl}/api/v1/agent-playground`;
 
@@ -409,6 +411,38 @@ export async function rerunMission(
   }
   const raw: unknown = await res.json();
   return unwrapStandard<{ missionId: string; streamNamespace: string }>(raw);
+}
+
+/**
+ * PR-8 v1.6 D5：8 RerunIntent 单端口路由。
+ *
+ * fresh-research → 创建新 mission（runMissionId !== missionId），page 应跳新 missionId
+ * 其他 7 意图 → 同 mission 局部重跑（runMissionId === missionId）
+ */
+export async function rerunMissionWithIntent(
+  missionId: string,
+  intent: RerunIntent,
+  payload?: unknown
+): Promise<{ runMissionId: string; intent: RerunIntent }> {
+  const res = await fetch(
+    `${API_BASE}/missions/${encodeURIComponent(missionId)}/rerun-with-intent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ intent, payload: payload ?? {} }),
+    }
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(
+      `Rerun-with-intent failed: ${res.status} ${text.slice(0, 200)}`
+    );
+  }
+  const raw: unknown = await res.json();
+  return unwrapStandard<{ runMissionId: string; intent: RerunIntent }>(raw);
 }
 
 export async function deleteMission(missionId: string): Promise<{ ok: true }> {

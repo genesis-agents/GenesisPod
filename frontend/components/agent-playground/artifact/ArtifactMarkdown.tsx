@@ -97,6 +97,9 @@ function toRenderableChart(f: ArtifactFigure): RenderableChart {
     sectionId: f.sectionId,
     position: f.position,
     data: undefined,
+    // PR-8 v1.6 D6: 透传图源类型 + watermark 标记，FigureRenderer 据此叠 CSS overlay
+    sourceFigureType: f.sourceFigureType,
+    watermarkOverlayRequired: f.watermarkOverlayRequired,
   };
 }
 

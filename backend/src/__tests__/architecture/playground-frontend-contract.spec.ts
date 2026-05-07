@@ -144,6 +144,7 @@ const ENDPOINT_BASELINE: ReadonlyArray<EndpointSpec> = [
   ["POST", "missions/:id/cancel"],
   ["POST", "missions/:id/leader-chat"],
   ["POST", "missions/:id/rerun"],
+  ["POST", "missions/:id/rerun-with-intent"],
   ["POST", "missions/:id/todos/:todoId/local-rerun"],
   ["POST", "missions/:id/todos/:todoId/rerun"],
   ["POST", "team/run"],

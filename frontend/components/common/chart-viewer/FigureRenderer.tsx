@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { ImageOff, ZoomIn, Loader2, AlertTriangle } from 'lucide-react';
+import { ImageOff, ZoomIn, Loader2, AlertTriangle, Bot } from 'lucide-react';
 import type { RenderableChart } from './types';
 import { ReportChartRenderer } from './ReportChartRenderer';
 import { ChartErrorBoundary } from './ChartErrorBoundary';
@@ -210,6 +210,21 @@ function ReferenceFigureRenderer({
             onLoad={handleImageLoad}
             unoptimized // 外部图片不进行优化
           />
+          {/* PR-8 v1.6 D6: AI 生成图必须叠加 CSS 水印（EU AI Act Art.50 best-effort）。
+              - 老 mission 无 sourceFigureType → 不显示（向后兼容）
+              - pointer-events-none + select-none → 不影响交互 / 不被复制
+              - 用户右键保存图片不会带这层（仅页面渲染）→ 治标 */}
+          {!imageLoading &&
+            (chart.sourceFigureType === 'ai-generated' ||
+              chart.watermarkOverlayRequired) && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-2 top-2 flex select-none items-center gap-1 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white shadow-md"
+              >
+                <Bot className="h-3 w-3" />
+                AI generated
+              </div>
+            )}
           {allowZoom && !imageLoading && (
             <div className="absolute bottom-2 right-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100">
               <ZoomIn className="h-4 w-4" aria-hidden="true" />
@@ -238,6 +253,17 @@ function ReferenceFigureRenderer({
               className="max-h-[90vh] w-auto object-contain"
               unoptimized
             />
+            {/* PR-8 v1.6 D6: zoom 模态框中的水印（EU AI Act 合规：放大视图也必须保留披露） */}
+            {(chart.sourceFigureType === 'ai-generated' ||
+              chart.watermarkOverlayRequired) && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-2 top-2 flex select-none items-center gap-1 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white shadow-md"
+              >
+                <Bot className="h-3 w-3" />
+                AI generated
+              </div>
+            )}
             <button
               onClick={() => setIsZoomed(false)}
               className="absolute -right-2 -top-2 rounded-full bg-white p-1 shadow-lg hover:bg-gray-100"

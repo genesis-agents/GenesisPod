@@ -79,4 +79,12 @@ export interface RenderableChart {
   evidenceCitationIndex?: number;
   /** 全文顺序编号（图 1 / 图 2 / ...） */
   figureNumber?: number;
+  /**
+   * PR-8 v1.6 D6: 图源类型（'scraped' | 'ai-generated' | 'user-uploaded' | 'hotlink'）。
+   * 用于在 reference 图片上叠加 AI 生成水印（EU AI Act Art.50 best-effort）。
+   * 老 mission（PR-10 切读源前）可能为 undefined → 不显示水印（向后兼容）。
+   */
+  sourceFigureType?: string;
+  /** PR-8 v1.6 D6: 显式标记是否需要 CSS overlay（figure-curator 写入） */
+  watermarkOverlayRequired?: boolean;
 }

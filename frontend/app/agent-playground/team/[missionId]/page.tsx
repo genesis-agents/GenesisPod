@@ -45,6 +45,7 @@ import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
 import { QualityGapBanner } from '@/components/agent-playground/overhaul/QualityGapBanner';
+import { RerunIntentModal } from '@/components/agent-playground/overhaul/RerunIntentModal';
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import { ensureRenderableArtifact } from '@/lib/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
@@ -55,7 +56,6 @@ import {
   getMissionDetail,
   getReportVersion,
   listReportVersions,
-  rerunMission,
   type MissionDetail,
   type ReportVersionListItem,
 } from '@/services/agent-playground/api';
@@ -371,6 +371,8 @@ export default function MissionDetailPage() {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [leaderChatOpen, setLeaderChatOpen] = useState(false);
   const [researchTeamOpen, setResearchTeamOpen] = useState(false);
+  // PR-8 v1.6 D5: 8 RerunIntent modal — 替换 onUpdate 二元 incremental 入口
+  const [rerunModalOpen, setRerunModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskKey, setSelectedTaskKey] = useState<string | null>(null);
   // ★ P1-UI-DISMISS-BANNER (2026-04-30): mission failed banner 支持手动关闭，
@@ -490,6 +492,22 @@ export default function MissionDetailPage() {
     view.mission.failedMessage,
     view.mission.topic,
   ]);
+
+  // PR-8 v1.6 D5：revise-chapter 意图的章节选择源。
+  //   ArtifactSection 没有 chapter_index 字段，用 type === 'dimension' 顶层 section 的位置序号（1-based）。
+  //   useMemo 依赖 reportArtifact，避免每次 page render 重算。
+  const chapterIndicesForRerun = useMemo(() => {
+    const sections = (
+      reportArtifact as {
+        sections?: Array<{ type?: string; level?: number }>;
+      } | null
+    )?.sections;
+    if (!Array.isArray(sections)) return [];
+    const dimensionSections = sections.filter(
+      (s) => s?.type === 'dimension' && s?.level === 2
+    );
+    return dimensionSections.map((_, i) => i + 1);
+  }, [reportArtifact]);
 
   const reportDefaultView = useMemo(() => {
     const userProfile = (
@@ -802,40 +820,11 @@ export default function MissionDetailPage() {
               onCollapse={() => setLeftCollapsed(true)}
               onLeaderClick={() => setLeaderChatOpen(true)}
               onResearchTeamClick={() => setResearchTeamOpen(true)}
-              onRerun={() => {
-                // "开始"按钮 = fresh：清 checkpoint，全新从头跑
-                void (async () => {
-                  try {
-                    const { missionId: newId } = await rerunMission(
-                      missionId,
-                      'fresh'
-                    );
-                    router.push(`/agent-playground/team/${newId}`);
-                  } catch (e) {
-                    window.alert(
-                      `启动失败：${e instanceof Error ? e.message : String(e)}`
-                    );
-                  }
-                })();
-              }}
-              onUpdate={() => {
-                // "更新"按钮 = incremental：clone checkpoint，跳过已完成 stage
-                // 对齐 Topic Insight handleContinueResearch
-                //   ('incremental' 模式：保留已完成任务，只跑未完成的维度)
-                // 复用原 mission 全部 input 字段（不只 topic/depth/language 3 个）
-                void (async () => {
-                  try {
-                    const { missionId: newId } = await rerunMission(
-                      missionId,
-                      'incremental'
-                    );
-                    router.push(`/agent-playground/team/${newId}`);
-                  } catch (e) {
-                    window.alert(
-                      `更新失败：${e instanceof Error ? e.message : String(e)}`
-                    );
-                  }
-                })();
+              onRerunIntent={() => {
+                // PR-8 v1.6 D5：单一重跑入口 → 8 RerunIntent modal。
+                //   原"开始"(fresh) + "更新"(incremental) 双源 → 收敛单源。
+                //   fresh-research 是 modal 内 8 选 1 之一（不再单独入口）。
+                setRerunModalOpen(true);
               }}
               onCancel={() => {
                 if (!window.confirm('确认取消该 mission？')) return;
@@ -1076,6 +1065,27 @@ export default function MissionDetailPage() {
           getMissionDetail(missionId)
             .then((d) => setPersisted(d))
             .catch(() => {});
+        }}
+      />
+
+      {/* PR-8 v1.6 D5: 8 RerunIntent modal — 单一重跑入口（替换 fresh + incremental 双源） */}
+      <RerunIntentModal
+        missionId={missionId}
+        open={rerunModalOpen}
+        onClose={() => setRerunModalOpen(false)}
+        chapterIndices={chapterIndicesForRerun}
+        currentLanguage={view.mission.language}
+        onPicked={(result) => {
+          // fresh-research → 创建新 mission，跳新 missionId
+          // 其他 7 意图 → 同 mission 局部重跑，刷当前页等 events / re-fetch
+          if (result.runMissionId !== missionId) {
+            router.push(`/agent-playground/team/${result.runMissionId}`);
+          } else {
+            // 局部重跑：拉最新 detail 让 reportArtifact / qualityGaps 等更新
+            getMissionDetail(missionId)
+              .then((d) => setPersisted(d))
+              .catch(() => {});
+          }
         }}
       />
 
