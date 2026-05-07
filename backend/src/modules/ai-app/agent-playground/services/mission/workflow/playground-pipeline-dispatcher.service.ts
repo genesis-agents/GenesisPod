@@ -66,8 +66,7 @@ import {
   LeaderService,
   type SupervisedMission,
 } from "../../roles";
-import { LeaderAgent } from "../../../agents/leader/leader.agent";
-import type { LeaderRunFn } from "../../roles/leader.service";
+import { LeaderInvocationFactory } from "../leader-invocation.factory";
 
 export interface PipelineMissionSummary {
   readonly missionId: string;
@@ -143,6 +142,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly stageBindings: MissionStageBindingsService,
     private readonly leaderService: LeaderService,
     private readonly invoker: AgentInvoker,
+    private readonly leaderInvocationFactory: LeaderInvocationFactory,
     // R2-A.13: s11/s12 hook 需要 missionCheckpoint.clear + eventBuffer.read
     private readonly missionCheckpoint: MissionCheckpointService,
     private readonly missionEventBuffer: MissionEventBuffer,
@@ -385,7 +385,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         language: input.language,
         userProfile: input,
       },
-      this.buildLeaderInvocation(missionId, userId, session.billing),
+      this.leaderInvocationFactory.build(missionId, userId, session.billing),
     );
     this.sessions.set(missionId, { session, t0, input, workspaceId, leader });
     // ★ R-CA: row 已落 + session 已 register，但 stages 尚未跑 —— 给上层回调
@@ -932,53 +932,6 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       return this.buildS12LearnHooks();
     }
     return this.buildNotYetWiredHooks(stepId, primitive);
-  }
-
-  /**
-   * 构造 LeaderRunFn —— 给 SupervisedMission 用的 LLM 调用闭包。
-   * 与 team.mission.ts.buildLeaderInvocation 行为一致（走 invoker.invoke +
-   * BillingContext + event relay）；唯一差别是这里在 dispatcher 而非 trunk。
-   */
-  private buildLeaderInvocation(
-    missionId: string,
-    userId: string,
-    billing: unknown,
-  ): LeaderRunFn {
-    return async <TIn, TOut>({
-      spec,
-      input,
-      agentId,
-    }: {
-      spec: typeof LeaderAgent;
-      input: TIn;
-      agentId: string;
-    }): Promise<{
-      state: "completed" | "failed" | "cancelled";
-      output?: TOut;
-      events?: readonly unknown[];
-    }> => {
-      const result = await this.invoker.invoke(
-        spec as unknown as typeof LeaderAgent,
-        input as unknown as Record<string, unknown>,
-        {
-          missionId,
-          userId,
-          agentId,
-          role: "leader",
-          envAdapter: billing as never,
-        },
-      );
-      return {
-        state:
-          result.state === "completed"
-            ? "completed"
-            : result.state === "cancelled"
-              ? "cancelled"
-              : "failed",
-        output: result.output as TOut | undefined,
-        events: result.events,
-      };
-    };
   }
 
   /**

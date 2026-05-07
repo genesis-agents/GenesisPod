@@ -25,13 +25,8 @@ import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
 import { RuntimeEnvironmentService } from "@/modules/ai-harness/facade";
 import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
-import {
-  LeaderService,
-  AgentInvoker,
-  type SupervisedMission,
-} from "../../roles";
-import type { LeaderRunFn } from "../../roles/leader.service";
-import type { LeaderAgent } from "../../../agents/leader/leader.agent";
+import { LeaderService, type SupervisedMission } from "../../roles";
+import { LeaderInvocationFactory } from "../leader-invocation.factory";
 import {
   resolveBudgetMultiplier,
   resolveMissionCredits,
@@ -55,7 +50,7 @@ export class RerunMissionRuntimeBuilder {
   private readonly log = new Logger(RerunMissionRuntimeBuilder.name);
 
   constructor(
-    private readonly invoker: AgentInvoker,
+    private readonly leaderInvocationFactory: LeaderInvocationFactory,
     private readonly credits: CreditsService,
     private readonly runtimeEnv: RuntimeEnvironmentService,
     private readonly abortRegistry: MissionAbortRegistry,
@@ -111,7 +106,7 @@ export class RerunMissionRuntimeBuilder {
         language: input.language,
         userProfile: input as Record<string, unknown>,
       },
-      this.buildLeaderInvocation(missionId, userId, billing),
+      this.leaderInvocationFactory.build(missionId, userId, billing),
     );
 
     let cleaned = false;
@@ -208,52 +203,6 @@ export class RerunMissionRuntimeBuilder {
       ...hydrated,
       ...phaseAndInvariants,
       __hydrated: true,
-    };
-  }
-
-  /**
-   * 与 playground-pipeline-dispatcher.buildLeaderInvocation 行为一致的副本。
-   * 单一源放在这里让 rerun 不依赖 dispatcher 私有方法。
-   */
-  private buildLeaderInvocation(
-    missionId: string,
-    userId: string,
-    billing: BillingRuntimeEnvAdapter,
-  ): LeaderRunFn {
-    return async <TIn, TOut>({
-      spec,
-      input,
-      agentId,
-    }: {
-      spec: typeof LeaderAgent;
-      input: TIn;
-      agentId: string;
-    }): Promise<{
-      state: "completed" | "failed" | "cancelled";
-      output?: TOut;
-      events?: readonly unknown[];
-    }> => {
-      const result = await this.invoker.invoke(
-        spec as unknown as typeof LeaderAgent,
-        input as unknown as Record<string, unknown>,
-        {
-          missionId,
-          userId,
-          agentId,
-          role: "leader",
-          envAdapter: billing as never,
-        },
-      );
-      return {
-        state:
-          result.state === "completed"
-            ? "completed"
-            : result.state === "cancelled"
-              ? "cancelled"
-              : "failed",
-        output: result.output as TOut | undefined,
-        events: result.events,
-      };
     };
   }
 }

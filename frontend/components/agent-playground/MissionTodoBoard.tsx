@@ -43,6 +43,7 @@ import type {
 import { Card, StatusPill, RoleChip } from '@/components/playground-ui';
 import { statusToken } from '@/lib/playground-design/tokens';
 import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
+import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/agent-playground/stage-id-mapping';
 import {
   AgentInspector,
   type AgentInspectorAgent,
@@ -671,25 +672,6 @@ export function MissionTodoBoard({
   const router = useRouter();
   const [inspectorTodo, setInspectorTodo] = useState<MissionTodo | null>(null);
   const [rerunningId, setRerunningId] = useState<string | null>(null);
-
-  // ★ PR-R5b-FULL (2026-05-07): 把 13 stage 的 systemStageId 映射到后端 stepId。
-  //   单一源应在 lib/agent-playground/，但当前与 TodoDetailDrawer 同款（防漂移）。
-  //   完整列表（与 backend STEP_ID_TO_FRONTEND_STAGE_ID 对称）：
-  const FRONTEND_STAGE_TO_STEP_ID: Record<string, string> = {
-    's1-budget': 's1-budget',
-    's2-leader-plan': 's2-leader-plan',
-    's3-researchers': 's3-researcher-collect',
-    's4-leader-assess': 's4-leader-assess',
-    's5-reconciler': 's5-reconciler',
-    's6-analyst': 's6-analyst',
-    's7-writer-outline': 's7-writer-outline',
-    's8-writer-draft': 's8-writer',
-    's8b-quality-enhancement': 's8b-quality-enhancement',
-    's9-critic-l4': 's9-critic',
-    's9b-objective-evaluation': 's9b-objective-eval',
-    's10-leader-signoff': 's10-leader-foreword-signoff',
-    's11-persist': 's11-persist',
-  };
 
   const canRerunTodo = (td: MissionTodo): boolean => {
     if (!missionTerminal || !missionId) return false;

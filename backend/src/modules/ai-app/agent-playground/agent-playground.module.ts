@@ -44,6 +44,8 @@ import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.servic
 import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
 // ★ PR-R5b-FULL (2026-05-07): rerun runtime builder（billing/pool/leader 装配 stub）
 import { RerunMissionRuntimeBuilder } from "./services/mission/rerun/rerun-runtime-builder.service";
+// ★ 单源 LeaderRunFn 工厂（dispatcher + rerun 共用，去 buildLeaderInvocation 双源）
+import { LeaderInvocationFactory } from "./services/mission/leader-invocation.factory";
 import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "./services/export/mission-export.service";
 // PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
@@ -109,6 +111,7 @@ import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
     // MissionStateService → HandoffCompactorService 已上提到 @Global RuntimeMemoryModule（PR-5 standardize playground）
     // ── Per-role services（Phase Lead-Services）──
     AgentInvoker,
+    LeaderInvocationFactory,
     LeaderService,
     ResearcherService,
     ReconcilerService,
