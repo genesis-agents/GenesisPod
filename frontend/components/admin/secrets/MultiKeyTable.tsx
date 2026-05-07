@@ -258,6 +258,12 @@ export function MultiKeyTable({
               <th className="px-3 py-2 text-left">Priority</th>
               <th className="px-3 py-2 text-left">Status</th>
               <th
+                className="px-3 py-2 text-right"
+                title="累计命中次数（业务调用 markSuccess 累加；replace 后从 0 重新计）"
+              >
+                Hits
+              </th>
+              <th
                 className="px-3 py-2 text-left"
                 title="最近一次活动时间（手动测试 或 业务流量命中）"
               >
@@ -270,7 +276,7 @@ export function MultiKeyTable({
             {keys.length === 0 && !loading && (
               <tr>
                 <td
-                  colSpan={readOnly ? 5 : 6}
+                  colSpan={readOnly ? 6 : 7}
                   className="px-3 py-6 text-center text-gray-400"
                 >
                   No keys configured.{' '}
@@ -336,6 +342,22 @@ export function MultiKeyTable({
                       </label>
                     ) : (
                       <StatusBadge row={row} />
+                    )}
+                  </td>
+                  <td
+                    className="font-mono px-3 py-2 text-right text-xs"
+                    title={
+                      row.accessCount > 0
+                        ? `累计 ${row.accessCount.toLocaleString()} 次命中`
+                        : '尚未被业务流量命中'
+                    }
+                  >
+                    {row.accessCount > 0 ? (
+                      <span className="text-gray-700">
+                        {row.accessCount.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">0</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-500">
