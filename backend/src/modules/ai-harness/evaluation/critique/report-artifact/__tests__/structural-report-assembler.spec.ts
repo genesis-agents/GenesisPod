@@ -236,6 +236,39 @@ describe("StructuralReportAssembler", () => {
       expect(r.content.fullMarkdown).toContain("（本维度内容缺失）");
     });
 
+    it("F-EVIL-7 (2026-05-07 hotfix mission c195035f) preface body 空 → preface section 不产出，不再触发 S11 guard", () => {
+      // mission c195035f 暴露：leader signoff 没 wire preface body，
+      // preface 原是 fixed slot 总产 section（bodyBytes=0）→ S11 chapter_content_incomplete
+      // 修：preface 改 optional + fromBuilder('foreword-preface')。这里反向锁住：
+      //   bodies.preface 空 → 该 slot 跳过 → 没有 type='preface' 且 title='前言' 的 section
+      const segments = buildSegments({
+        bodies: {
+          ...buildSegments().bodies,
+          preface: "", // 空 preface（leader 未填 foreword）
+        },
+      });
+      const r = defaultStructuralReportAssembler.assemble(segments);
+      const prefaceSec = r.sections.find(
+        (s) => s.title === "前言" && s.type === "preface",
+      );
+      expect(prefaceSec).toBeUndefined();
+      // sectionCountMismatch 保持一致（expectedSectionCount 与 assembler 同步跳过）
+      expect(r.metadata.sectionCountMismatch).toBeUndefined();
+    });
+
+    it("F-EVIL-7b preface body 非空 → preface section 正常产出", () => {
+      const segments = buildSegments({
+        bodies: {
+          ...buildSegments().bodies,
+          preface: "本报告综合评估了... 共计 N 个维度。",
+        },
+      });
+      const r = defaultStructuralReportAssembler.assemble(segments);
+      const prefaceSec = r.sections.find((s) => s.title === "前言");
+      expect(prefaceSec).toBeDefined();
+      expect(prefaceSec?.type).toBe("preface");
+    });
+
     it("F-EVIL-6 optional 段全空 → sections 仅保留有内容的段", () => {
       const segments = buildSegments({
         bodies: {

@@ -115,8 +115,16 @@ export const MULTI_DIMENSION_REPORT_TEMPLATE: ReportTemplate = {
       title: "执行摘要",
       bodySource: { kind: "fromBodies", field: "executiveSummary" },
     },
+    // ★ 2026-05-07 hotfix（mission c195035f 暴露）：preface 从 fixed → optional。
+    //   Why：当前 leader signoff 没有 stage 把 leaderForeword wire 到 segments.bodies.preface，
+    //   fixed 总产出 section 但 body 全空 → 触发 S11 chapter_content_incomplete guard
+    //   (MIN_NON_EMPTY_SECTION_CHARS=40) → markFailed → report 不落 DB。
+    //   How：optional + fromBuilder('foreword-preface') 已 resolveBuilderHasContent
+    //   检查 segments.bodies.preface?.trim()，空时 expectedSectionCount 与 assembler
+    //   都跳过该 slot，sectionCountMismatch 保持一致。后续 leader signoff stage 真
+    //   wire foreword 时，optional 自动升起为 section（无需改回 fixed）。
     {
-      kind: "fixed",
+      kind: "optional",
       key: "preface",
       title: "前言",
       bodySource: { kind: "fromBuilder", builder: "foreword-preface" },
