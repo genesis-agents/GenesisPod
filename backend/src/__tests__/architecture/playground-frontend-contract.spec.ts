@@ -98,6 +98,7 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "agent-playground.mission:rerun-started",
   "agent-playground.mission:started",
   "agent-playground.mission:warning",
+  "agent-playground.mission:zombie-cleanup",
   "agent-playground.reconciliation:completed",
   "agent-playground.reconciliation:skipped",
   "agent-playground.reconciliation:warnings-orphaned",
