@@ -11,6 +11,7 @@ import {
   type CapabilityCategory,
   type ProviderDefinition,
 } from './capability-mapping';
+import { useToolAliases } from '@/hooks/domain/useToolAliases';
 import UnifiedCapabilityCard from './UnifiedCapabilityCard';
 import type { BuiltinTool, ExternalToolStatus, ProviderStatus } from './types';
 
@@ -40,6 +41,9 @@ export function CapabilitiesTab({
 }: CapabilitiesTabProps) {
   const { t } = useTranslation();
 
+  // ★ 2026-05-07 (PR-S0a): alias map 从 hook 拉，单源真理 backend
+  const { aliasToRegistry } = useToolAliases();
+
   // 获取独立 Provider ID 列表（如政策研究工具）
   const independentProviderIds = useMemo(() => getIndependentProviderIds(), []);
 
@@ -51,7 +55,7 @@ export function CapabilitiesTab({
         const providerStatuses: ProviderStatus[] = capability.providers.map(
           (provider) => {
             // 独立 provider：先用 provider.id 查找，找不到则用映射后的 tool ID 查找
-            const toolId = getToolIdForProvider(provider.id);
+            const toolId = getToolIdForProvider(provider.id, aliasToRegistry);
             const builtinTool =
               builtinTools.find((t) => t.id === provider.id) ||
               builtinTools.find((t) => t.id === toolId);
@@ -122,7 +126,11 @@ export function CapabilitiesTab({
         providerStatuses,
       };
     });
-  }, [builtinTools, externalToolStatuses]);
+    // ★ 2026-05-07 (PR-S0a Round 2 fix): aliasToRegistry 必须在 deps —— hook
+    // 拉取后 map 从 {} 变成真值，capabilitiesData 必须重算，否则 independentProviders
+    // (arxiv / federal-register / congress-gov / whitehouse-news) 的 toolId 永远停在
+    // fallback (provider id 自身) → builtinTool 找不到对应 row → enabled 永显默认值。
+  }, [builtinTools, externalToolStatuses, aliasToRegistry]);
 
   // 按类别分组并排序
   const groupedCapabilities = useMemo(() => {

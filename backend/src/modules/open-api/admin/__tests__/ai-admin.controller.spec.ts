@@ -156,6 +156,54 @@ describe("AIAdminController", () => {
     });
   });
 
+  // ★ 2026-05-07 (PR-S0a): tool aliases endpoint —— 单源真理输出给前端
+  // useToolAliases() hook 替代前端硬编码 PROVIDER_TO_TOOL_ID。
+  describe("getToolAliases()", () => {
+    it("returns alias map + multi-provider parents from service", async () => {
+      const expected = {
+        aliasToRegistry: {
+          tavily: "web-search",
+          perplexity: "web-search",
+          arxiv: "arxiv-search",
+        },
+        multiProviderRegistryIds: ["web-search"],
+      };
+      mockAIAdminService.getToolAliases = jest.fn().mockReturnValue(expected);
+
+      const result = await controller.getToolAliases();
+
+      expect(mockAIAdminService.getToolAliases).toHaveBeenCalled();
+      expect(result).toEqual(expected);
+    });
+
+    // 看护 Sec-6（v1.4 §5）：endpoint 必须挂在 admin-guarded controller 上
+    // ★ Round 2 加强：同时校验 method 级别**没有** @Public/@UseGuards override
+    //   把 class 级 guard shadow 掉
+    it("inherits @AdminGuard from controller AND has no method-level guard override", () => {
+      // class 级 guards 存在（JwtAuthGuard + AdminGuard）
+      const classGuards = Reflect.getMetadata(
+        "__guards__",
+        AIAdminController,
+      ) as unknown[] | undefined;
+      expect(classGuards).toBeDefined();
+      expect(classGuards!.length).toBeGreaterThanOrEqual(2);
+
+      // method 级别**不应**有 override（任何方法级 @UseGuards 会 shadow class 级）
+      const methodGuards = Reflect.getMetadata(
+        "__guards__",
+        AIAdminController.prototype.getToolAliases,
+      );
+      expect(methodGuards).toBeUndefined();
+
+      // method 级别**不应**有 @Public()（IS_PUBLIC_KEY 会让 JwtAuthGuard 跳过校验）
+      const isPublic = Reflect.getMetadata(
+        "isPublic",
+        AIAdminController.prototype.getToolAliases,
+      );
+      expect(isPublic).toBeFalsy();
+    });
+  });
+
   describe("updateTool()", () => {
     it("should update a tool configuration", async () => {
       const body = { enabled: true, displayName: "Web Search Enhanced" };

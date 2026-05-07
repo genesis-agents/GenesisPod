@@ -1096,6 +1096,68 @@ describe("AIAdminService", () => {
     });
   });
 
+  // ==================== getToolAliases (PR-S0a) ====================
+
+  describe("getToolAliases", () => {
+    // ★ 2026-05-07 (PR-S0a Round 2): 架构师 follow-up — 看护 alias map 派生
+    // 单源真理。若 backend tool-id-aliases.ts 改动后此 spec 不更新，立即红。
+    it("returns aliasToRegistry shallow copy (no source-of-truth mutation risk)", () => {
+      const result1 = service.getToolAliases();
+      const result2 = service.getToolAliases();
+      // 不同调用返回不同对象引用（浅拷贝），防止 caller 改 map 污染源
+      expect(result1.aliasToRegistry).not.toBe(result2.aliasToRegistry);
+      expect(result1.aliasToRegistry).toEqual(result2.aliasToRegistry);
+    });
+
+    it("computes multiProviderRegistryIds for N:1 parents only", () => {
+      const result = service.getToolAliases();
+      // 当前 N:1 父：web-search (4 providers) / web-scraper (3) / audio-generation (2)
+      expect(result.multiProviderRegistryIds).toEqual(
+        expect.arrayContaining([
+          "web-search",
+          "web-scraper",
+          "audio-generation",
+        ]),
+      );
+      expect(result.multiProviderRegistryIds.length).toBe(3);
+    });
+
+    it("does NOT include 1:1 mapping registry ids in multiProviderRegistryIds", () => {
+      const result = service.getToolAliases();
+      // 1:1 映射不应出现在 multiProvider 集合
+      const oneToOneIds = [
+        "arxiv-search",
+        "pubmed",
+        "openalex-search",
+        "finance-api",
+        "weather-api",
+        "github-search",
+        "federal-register",
+        "congress-gov",
+        "whitehouse-news",
+        "hackernews-search",
+        "industry-report-search",
+        "semantic-scholar",
+      ];
+      for (const id of oneToOneIds) {
+        expect(result.multiProviderRegistryIds).not.toContain(id);
+      }
+    });
+
+    it("aliasToRegistry contains expected provider→registry mappings", () => {
+      const { aliasToRegistry } = service.getToolAliases();
+      // 看护几个关键 N:1 + 1:1 mapping
+      expect(aliasToRegistry.tavily).toBe("web-search");
+      expect(aliasToRegistry.perplexity).toBe("web-search");
+      expect(aliasToRegistry.serper).toBe("web-search");
+      expect(aliasToRegistry.duckduckgo).toBe("web-search");
+      expect(aliasToRegistry.arxiv).toBe("arxiv-search");
+      expect(aliasToRegistry.pubmed).toBe("pubmed");
+      expect(aliasToRegistry.elevenlabs).toBe("audio-generation");
+      expect(aliasToRegistry.googleTts).toBe("audio-generation");
+    });
+  });
+
   // ==================== updateToolConfig ====================
 
   describe("updateToolConfig", () => {

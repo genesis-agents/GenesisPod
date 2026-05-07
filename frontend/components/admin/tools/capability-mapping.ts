@@ -443,79 +443,32 @@ export function getIndependentProviderIds(): string[] {
 }
 
 /**
- * 前端 Provider ID → 后端 Tool Registry ID 映射
- * 前端 capability-mapping 中的 provider.id 与 ToolRegistry 注册的 tool.id 不一定一致
- * 用于前端查找 builtinTool 时将 provider.id 映射到实际的 tool ID
+ * ★ 2026-05-07 (PR-S0a): 单源真理收敛
+ *
+ * **删除** `PROVIDER_TO_TOOL_ID` 硬编码 + `MULTI_PROVIDER_REGISTRY_IDS` 派生。
+ * provider id ↔ registry id 映射的唯一真理源是 backend `tool-id-aliases.ts`，
+ * 通过 `useToolAliases()` hook 拉取（design v1.4 §2.4）。
+ *
+ * 历史：前端 28 项 ≠ 后端 21 项，已发生漂移事故（Screenshot_5 直接表现）。
+ *
+ * 调用方：
+ *   - `ToolsManagement.tsx` bridge → 直接消费 `useToolAliases()`
+ *   - `CapabilitiesTab.tsx` provider→tool lookup → 用 `getToolIdForProvider(id, aliasToRegistry)` helper
  */
-export const PROVIDER_TO_TOOL_ID: Record<string, string> = {
-  // Web Search providers → web-search tool
-  tavily: 'web-search',
-  perplexity: 'web-search',
-  serper: 'web-search',
-  duckduckgo: 'web-search',
-  // Extraction providers → web-scraper tool
-  jina: 'web-scraper',
-  firecrawl: 'web-scraper',
-  tavilyExtract: 'web-scraper',
-  // Academic providers → respective tools
-  arxiv: 'arxiv-search',
-  'semantic-scholar': 'semantic-scholar',
-  pubmed: 'pubmed',
-  openalex: 'openalex-search',
-  // Community
-  hackernews: 'hackernews-search',
-  // GitHub
-  'github-search': 'github-search',
-  // Curated content sources
-  'industry-report': 'industry-report-search',
-  // YouTube
-  supadata: 'web-scraper',
-  // Policy
-  'federal-register': 'federal-register',
-  'congress-gov': 'congress-gov',
-  'whitehouse-news': 'whitehouse-news',
-  // Finance & Weather
-  'alpha-vantage': 'finance-api',
-  'weather-api': 'weather-api',
-  // Audio Generation
-  elevenlabs: 'audio-generation',
-  googleTts: 'audio-generation',
-  // Image Search providers — each has its own API key, no aggregator sync
-  'serpapi-image-search': 'serpapi-image-search',
-  'bing-image-search': 'bing-image-search',
-  'google-image-search': 'google-image-search',
-};
 
 /**
- * 根据 Provider ID 获取对应的 Tool Registry ID
- * 如果映射表中没有，则返回原始 provider ID
+ * 根据 Provider ID 获取对应的 Tool Registry ID。
+ * 若未在 aliasToRegistry 映射中，返回原始 provider id（与 backend `getRegistryToolId` 行为一致）。
+ *
+ * @param providerId provider 标识
+ * @param aliasToRegistry 来自 useToolAliases() hook，启动时拉一次缓存
  */
-export function getToolIdForProvider(providerId: string): string {
-  return PROVIDER_TO_TOOL_ID[providerId] || providerId;
+export function getToolIdForProvider(
+  providerId: string,
+  aliasToRegistry: Record<string, string>
+): string {
+  return aliasToRegistry[providerId] ?? providerId;
 }
-
-/**
- * ★ 2026-05-07: 多 provider 映射到同一 registry tool 的 set。
- * 例：web-search ← {tavily, perplexity, serper, duckduckgo}
- *
- * 这些 registry id 上的 secretKey 是无意义的（last-write-wins，被随机 sibling
- * 覆盖），ToolsManagement bridge 不能从这些 parent 继承 secret 给 sibling
- * provider —— 那会让一个 sibling 的 key 泄漏给另一个（Screenshot_5 真因）。
- *
- * 1:1 映射（如 arxiv→arxiv-search / pubmed→pubmed）不在此 set，bridge 仍然
- * useful（语义上是同一工具的两个 ID）。
- */
-export const MULTI_PROVIDER_REGISTRY_IDS: Set<string> = (() => {
-  const counts = new Map<string, number>();
-  for (const registryId of Object.values(PROVIDER_TO_TOOL_ID)) {
-    counts.set(registryId, (counts.get(registryId) ?? 0) + 1);
-  }
-  const set = new Set<string>();
-  for (const [id, count] of counts) {
-    if (count >= 2) set.add(id);
-  }
-  return set;
-})();
 
 /**
  * 按类别分组并排序能力

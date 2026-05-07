@@ -224,6 +224,27 @@ export class AIAdminController {
     return this.aiAdminService.getToolConfigs();
   }
 
+  /**
+   * ★ 2026-05-07 (PR-S0a): 工具 ID 别名映射统一对外 endpoint。
+   * 前端用 provider id（如 'perplexity'），ToolRegistry 用 registry id
+   * （如 'web-search'）；过去前后端各持一份硬编码映射表，**已发生漂移事故**
+   * （前端 28 项 ≠ 后端 21 项，详见 secret-reference-overhaul-design-v1.4.md
+   * §1.2 / §2.4）。本 endpoint 把 backend `tool-id-aliases.ts` 作为唯一真理源
+   * 输出给前端 `useToolAliases()` hook，从根上消除双源。
+   */
+  @Get("tool-aliases")
+  @ApiOperation({
+    summary: "获取工具 ID 别名映射（provider id → registry id 单源）",
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      "返回 { aliasToRegistry: Record<string,string>, multiProviderRegistryIds: string[] }",
+  })
+  async getToolAliases() {
+    return this.aiAdminService.getToolAliases();
+  }
+
   @Patch("tools/:toolId")
   @ApiOperation({ summary: "更新工具配置" })
   @ApiParam({ name: "toolId", description: "工具 ID" })

@@ -896,6 +896,32 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
   // ==================== Tools ====================
 
   /**
+   * ★ 2026-05-07 (PR-S0a): 工具别名映射对外公开。
+   * 把 backend `tool-id-aliases.ts`（唯一真理源）派生的两件事情一次返回：
+   *   1. aliasToRegistry：provider id → registry id 完整映射
+   *   2. multiProviderRegistryIds：N:1 父 registry id 集合（前端 bridge 不
+   *      从这些 parent 继承 secretKey 给 sibling provider，详见 v1.4 §1.2）
+   * 前端 `useToolAliases()` 启动时拉一次，消除双源硬编码。
+   */
+  getToolAliases(): {
+    aliasToRegistry: Record<string, string>;
+    multiProviderRegistryIds: string[];
+  } {
+    const counts = new Map<string, number>();
+    for (const registryId of Object.values(TOOL_ID_ALIAS_TO_REGISTRY_ID)) {
+      counts.set(registryId, (counts.get(registryId) ?? 0) + 1);
+    }
+    const multiProviderRegistryIds: string[] = [];
+    for (const [id, count] of counts) {
+      if (count >= 2) multiProviderRegistryIds.push(id);
+    }
+    return {
+      aliasToRegistry: { ...TOOL_ID_ALIAS_TO_REGISTRY_ID },
+      multiProviderRegistryIds,
+    };
+  }
+
+  /**
    * 获取所有工具配置
    * ★ 从 ToolRegistry 获取实际注册的工具，确保 Admin 与运行时一致
    * ★ 同时返回外部工具的配置（如 firecrawl、jina 等），这些工具不在 Registry 中

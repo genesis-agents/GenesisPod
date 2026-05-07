@@ -23,10 +23,9 @@ import IndustryReportSourcesTab from './tools/IndustryReportSourcesTab';
 import {
   CAPABILITY_DEFINITIONS,
   getIndependentProviderIds,
-  MULTI_PROVIDER_REGISTRY_IDS,
-  PROVIDER_TO_TOOL_ID,
   type ProviderDefinition,
 } from './tools/capability-mapping';
+import { useToolAliases } from '@/hooks/domain/useToolAliases';
 
 const logger = createLogger('ToolsManagement');
 
@@ -240,6 +239,12 @@ type TabType = 'ai-tools' | 'mcp' | 'report-sources';
 export default function ToolsManagement() {
   const { t } = useTranslation();
   const { secrets: availableSecrets } = useAdminSecrets();
+  // ★ 2026-05-07 (PR-S0a): alias map 从 backend 单源拉取，消除前端硬编码漂移
+  const {
+    aliasToRegistry,
+    multiProviderRegistryIds,
+    loading: aliasesLoading,
+  } = useToolAliases();
 
   const [activeTab, setActiveTab] = useState<TabType>('ai-tools');
   const [loading, setLoading] = useState(true);
@@ -362,12 +367,14 @@ export default function ToolsManagement() {
       // 的 secretKey 是被任一 sibling 配置时 last-write-wins 写入的垃圾值，**绝不**
       // 能继承给其他 sibling provider —— 那会让 Tavily 的 key 显示在 Perplexity 的
       // dialog 里。1:1 映射（arxiv→arxiv-search 等）继续走 bridge。
-      for (const [providerId, registryId] of Object.entries(
-        PROVIDER_TO_TOOL_ID
-      )) {
+      //
+      // ★ 2026-05-07 (PR-S0a): aliasToRegistry / multiProviderRegistryIds 从
+      // backend 单源 hook 来；hook loading 期间 map 是空 → 此循环零次迭代 →
+      // bridge 跳过，admin 看到的 secret/tool 关联仍直读 ToolConfig 不会出现
+      // 幻觉链接（接受短暂"无 inferred 关联"的状态优于双源漂移）。
+      for (const [providerId, registryId] of Object.entries(aliasToRegistry)) {
         if (providerId === registryId) continue;
-        const isMultiProviderParent =
-          MULTI_PROVIDER_REGISTRY_IDS.has(registryId);
+        const isMultiProviderParent = multiProviderRegistryIds.has(registryId);
 
         const providerSecret = secretKeyMap.get(providerId);
         const registrySecret = secretKeyMap.get(registryId);
@@ -544,11 +551,18 @@ export default function ToolsManagement() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+    // ★ aliasToRegistry / multiProviderRegistryIds: hook 拉取后变化时 bridge
+    // 重算（首次拉取从 {} → 真值会触发一次重 load，把链接补齐）
+  }, [t, aliasToRegistry, multiProviderRegistryIds]);
 
   useEffect(() => {
+    // ★ 2026-05-07 (PR-S0a Round 2 SRE fix): hook loading 期间跳过 first load，
+    // 避免双触发浪费 5 个 backend 请求。alias 拉到（loading=false）后单次 load
+    // 把 bridge 关联 + tool config 一起取齐。useToolAliases 失败时 hook
+    // 立即把 loading 切为 false（fallback 到 EMPTY），仍然会触发 load。
+    if (aliasesLoading) return;
     loadConfigs();
-  }, [loadConfigs]);
+  }, [loadConfigs, aliasesLoading]);
 
   // Builtin tools handlers
   const handleToggleBuiltinTool = async (toolId: string, enabled: boolean) => {
