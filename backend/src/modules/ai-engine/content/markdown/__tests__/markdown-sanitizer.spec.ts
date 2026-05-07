@@ -339,6 +339,45 @@ describe("MarkdownSanitizer (18 fixture)", () => {
     });
   });
 
+  describe("F22 mermaid 大小写写法 stateDiagram / sequenceDiagram 也命中（v1.7 安全审 fix）", () => {
+    it("```stateDiagram fence 内 H2 触发就近补关（lang 经 toLowerCase 命中 ORPHAN_FENCE_LANGS）", () => {
+      const raw = [
+        "```stateDiagram",
+        "[*] --> Idle",
+        "Idle --> Running",
+        "## 维度二：技术",
+        "本应是顶级章节",
+      ].join("\n");
+      const r = sanitizeMarkdownBody(raw);
+      const lines = r.body.split("\n");
+      // ## 维度二 必须落在 fence 外（被作为顶级章节恢复）
+      let inFence = false;
+      let h2Outside = false;
+      for (const l of lines) {
+        if (/^```/.test(l)) {
+          inFence = !inFence;
+          continue;
+        }
+        if (l.startsWith("## 维度二") && !inFence) {
+          h2Outside = true;
+          break;
+        }
+      }
+      expect(h2Outside).toBe(true);
+    });
+    it("```sequenceDiagram 也走相同路径", () => {
+      const raw = ["```sequenceDiagram", "Alice->>Bob: hi", "## 真实 H2"].join(
+        "\n",
+      );
+      const r = sanitizeMarkdownBody(raw);
+      expect(r.body).toContain("## 真实 H2");
+      // 真实 H2 必须不在代码块内
+      expect(r.body).not.toMatch(
+        /```sequencediagram[\s\S]*## 真实 H2[\s\S]*```/i,
+      );
+    });
+  });
+
   describe("F18 prompt injection redaction", () => {
     it("Ignore previous instructions → [indirect prompt redacted]", () => {
       const r = sanitizeMarkdownBody(

@@ -147,7 +147,7 @@ const ORPHAN_FENCE_LANGS = new Set([
   "flowchart",
   "sequencediagram",
   "classdiagram",
-  "stateDiagram",
+  "statediagram",
   "erdiagram",
   "gantt",
   "journey",
