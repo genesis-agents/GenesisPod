@@ -16,7 +16,11 @@ export interface ProviderDefaults {
 
 export const PROVIDER_DEFAULTS: Readonly<Record<string, ProviderDefaults>> = {
   openai: {
-    endpoint: "https://api.openai.com/v1",
+    // Allow OPENAI_BASE_URL to override the public OpenAI endpoint — needed
+    // for self-hosted setups (LiteLLM gateway, Azure OpenAI, vLLM) where the
+    // BYOK row's api_endpoint isn't read by the test/probe/fetch-models path
+    // (which falls back to PROVIDER_DEFAULTS instead).
+    endpoint: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
     testModel: "gpt-4o-mini",
     apiFormat: "openai",
   },

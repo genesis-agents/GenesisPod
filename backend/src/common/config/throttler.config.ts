@@ -39,9 +39,12 @@ export const ThrottlerConfig = {
   },
 
   // AI 限制 - AI 生成相关端点（成本敏感）
+  // 默认 20/min；自部署 / 本机 dev 把 LiteLLM gateway 自带预算守护时，
+  // 业务层 throttle 反而会干扰 UI 自动 fetch / 频繁切 BYOK 这类合法操作 ——
+  // 通过 THROTTLE_AI_LIMIT 环境变量按部署放宽（缺省保持 20，prod 不受影响）。
   ai: {
     ttl: 60000,
-    limit: 20, // 20次/分钟 - 控制 AI 调用成本
+    limit: Number(process.env.THROTTLE_AI_LIMIT) || 20,
   },
 
   // 导出限制 - 文件导出端点（资源敏感）
