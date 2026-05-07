@@ -138,6 +138,28 @@ describe("StructuralReportAssembler", () => {
       expect(r.metadata.sectionCountMismatch).toBeUndefined();
     });
 
+    it("sectionCountMismatch 不一致时真写 metadata（v1.6 二轮反向证据）", async () => {
+      // 通过 jest.spyOn mock expectedSectionCount 返回与实际 sections.length 不同的值，
+      // 验证 assembler 真的在 metadata 里记录 mismatch（observability 信号路径）
+      const dtoModule = await import("../report-segments.dto");
+      const spy = jest
+        .spyOn(dtoModule, "expectedSectionCount")
+        .mockReturnValue(999);
+      try {
+        const r = defaultStructuralReportAssembler.assemble(
+          buildSegmentsWithNDims(3),
+        );
+        // 真实 sections.length = 3 dim + 3 fixed (exec/preface/toc) + ?
+        //   optional 段（cross/risk/rec/conclusion）按 buildSegmentsWithNDims 全有 = 4
+        // → 3 + 3 + 4 + 1 references = 11；mock 返回 999 → mismatch 触发
+        expect(r.metadata.sectionCountMismatch).toBeDefined();
+        expect(r.metadata.sectionCountMismatch?.expected).toBe(999);
+        expect(r.metadata.sectionCountMismatch?.actual).toBe(r.sections.length);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
     it("dim sections 顺序与 plan.dimensions 一一对齐（template 含 loop slot）", () => {
       const segments = buildSegmentsWithNDims(5);
       const r = defaultStructuralReportAssembler.assemble(segments);

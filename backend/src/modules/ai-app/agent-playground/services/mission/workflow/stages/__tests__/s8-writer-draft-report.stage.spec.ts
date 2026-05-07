@@ -402,30 +402,13 @@ describe("runWriterStage (S8)", () => {
     expect(invokeArg.outlinePlan).toBeDefined();
   });
 
-  // ── v1.5 收尾（测试评审 P0-T2）：structural shadow path 三 spec ─────
-  describe("structural shadow path (v1.4 报告装配重构)", () => {
-    const ORIGINAL_FLAG = process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
+  // ── v1.6 切主线 — structural 永远开启（env flag 删除）—————————————
+  describe("structural assembler 主路径 (v1.6 切主线)", () => {
     afterEach(() => {
-      if (ORIGINAL_FLAG === undefined) {
-        delete process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
-      } else {
-        process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER = ORIGINAL_FLAG;
-      }
+      jest.restoreAllMocks();
     });
 
-    it("flag=false → 完全跳过 structural，保留 legacy reportArtifact", async () => {
-      process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER = "false";
-      const ctx = makeCtx();
-      const deps = makeDeps();
-      await runWriterStage(ctx, deps, analyst, undefined);
-      // legacy mock 返回的 sections 仅 1 段（id: 'd1' / title: 'Market'），
-      // 若 structural 跑过会被替换为多段。
-      expect(ctx.reportArtifact?.sections).toHaveLength(1);
-      expect(ctx.reportArtifact?.sections[0].title).toBe("Market");
-    });
-
-    it("flag=on (默认) → structural 替换 sections 但保留 legacy quality 信号", async () => {
-      delete process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
+    it("structural 主路径替换 sections + sanitizerVersion 写 metadata + 关联回填", async () => {
       const ctx = makeCtx({
         plan: {
           themeSummary: "AI 行业",
@@ -470,32 +453,68 @@ describe("runWriterStage (S8)", () => {
         },
       });
       const deps = makeDeps();
+      // v1.6 deps 新增两个 public helper（关联回填）— mock 一并补
+      (
+        deps.reportAssembler as {
+          recomputeCitationOccurrencesPublic: jest.Mock;
+        }
+      ).recomputeCitationOccurrencesPublic = jest.fn();
+      (
+        deps.reportAssembler as { recomputeSectionFigureIdsPublic: jest.Mock }
+      ).recomputeSectionFigureIdsPublic = jest.fn();
+
       await runWriterStage(ctx, deps, analyst, undefined);
       // structural 拼装后 sections 数 ≥ 2 dim + fixed slots > legacy 的 1 段
       expect(ctx.reportArtifact?.sections.length).toBeGreaterThan(1);
-      // structural metadata 含 templateId
+      // structural metadata 含 templateId（v1.5）
       expect(ctx.reportArtifact?.metadata.templateId).toBe(
         "multi-dimension-report@v1",
       );
+      // v1.6 NB-8 收尾：sanitizerVersion 真合并到 metadata
+      expect(ctx.reportArtifact?.metadata.sanitizerVersion).toBeDefined();
+      expect(ctx.reportArtifact?.metadata.sanitizerVersion).toMatch(
+        /^\d+\.\d+\.\d+$/,
+      );
       // legacy quality 信号保留（quality 字段未被 structural 覆盖）
       expect(ctx.reportArtifact?.quality.qualityTrace).toBeDefined();
+      // v1.6 NB-A 关联回填：recompute helper 被 stage 调用
+      expect(
+        (
+          deps.reportAssembler as {
+            recomputeCitationOccurrencesPublic: jest.Mock;
+          }
+        ).recomputeCitationOccurrencesPublic,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        (deps.reportAssembler as { recomputeSectionFigureIdsPublic: jest.Mock })
+          .recomputeSectionFigureIdsPublic,
+      ).toHaveBeenCalledTimes(1);
     });
 
-    it("structural assembler throw → 自动降级到 legacy（不 throw 不污染 ctx）", async () => {
-      delete process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
+    it("structural throw → 自动降级到 legacy（v1.6: 显式 mock 触发，不依赖 .replace(null) 实现细节）", async () => {
       const ctx = makeCtx();
       const deps = makeDeps();
-      // 制造 segment-extractor 输入异常：plan.dimensions 为非数组让 sanitizePlan 内 .map 抛错
-      // 直接 mock plan.dimensions 为非法 → analyst undefined 时 extractor 仍 OK
-      // 改为 mock 内部 assemble 抛异常更直接
-      jest.spyOn(console, "warn").mockImplementation(() => {});
-      // 触发 structural 路径异常：plan.dimensions[].name 含恶意非 string 类型
-      ctx.plan = {
-        ...ctx.plan!,
-        dimensions: [{ id: "x", name: null as never, rationale: "" } as never],
-      };
-      await runWriterStage(ctx, deps, analyst, undefined);
-      // 即使 structural 异常，legacy reportArtifact 仍存在
+      (
+        deps.reportAssembler as {
+          recomputeCitationOccurrencesPublic: jest.Mock;
+        }
+      ).recomputeCitationOccurrencesPublic = jest.fn();
+      (
+        deps.reportAssembler as { recomputeSectionFigureIdsPublic: jest.Mock }
+      ).recomputeSectionFigureIdsPublic = jest.fn();
+      // v1.6 改用显式 mock 让 assembler 抛错
+      const facade = jest.requireActual("@/modules/ai-harness/facade");
+      const spy = jest
+        .spyOn(facade.defaultStructuralReportAssembler, "assemble")
+        .mockImplementationOnce(() => {
+          throw new Error("structural mock failure");
+        });
+      try {
+        await runWriterStage(ctx, deps, analyst, undefined);
+      } finally {
+        spy.mockRestore();
+      }
+      // 降级：legacy reportArtifact 仍存在
       expect(ctx.reportArtifact).toBeDefined();
       // log.warn 含 'structural assembler' 关键字
       const warnCalls = (deps.log.warn as jest.Mock).mock.calls.map((c) =>

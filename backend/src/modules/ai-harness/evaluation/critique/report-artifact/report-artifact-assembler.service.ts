@@ -320,6 +320,56 @@ export class ReportArtifactAssembler {
     return result;
   }
 
+  /**
+   * 重新扫描 fullMarkdown 计算 citation.occurrences + section.citations
+   *
+   * ★ v1.6 切主线 (2026-05-06): 改 public — StructuralReportAssembler 主路径
+   *   也需要按 fullMarkdown 内的 [N] 编号回填 section.citations / citation.occurrences，
+   *   避免 quality.citationDensity = 0 的关联断链（v1.5 二轮架构师 hard miss）。
+   *   同步暴露 figures.sectionId 重建逻辑（recomputeSectionFigureIds）。
+   */
+  recomputeCitationOccurrencesPublic(
+    citations: ArtifactCitation[],
+    sections: ArtifactSection[],
+    fullMarkdown: string,
+  ): void {
+    return this.recomputeCitationOccurrences(citations, sections, fullMarkdown);
+  }
+
+  /**
+   * 把 figures.sectionId 重新映射到 sections（按 sourceDimensionId 优先 +
+   * paragraph 落点 fallback），让 structural 重拼后 figures 仍指向正确章节。
+   */
+  recomputeSectionFigureIdsPublic(
+    figures: ArtifactFigure[],
+    sections: ArtifactSection[],
+    legacySections: ArtifactSection[],
+  ): void {
+    for (const sec of sections) sec.figureIds = [];
+    for (const fig of figures) {
+      // 1. 优先按 sourceDimensionId 找新 section
+      const oldSec = legacySections.find((s) => s.id === fig.sectionId);
+      const newSec = oldSec?.sourceDimensionId
+        ? sections.find((s) => s.sourceDimensionId === oldSec.sourceDimensionId)
+        : sections.find((s) => s.title === oldSec?.title);
+      if (newSec) {
+        fig.sectionId = newSec.id;
+        if (!newSec.figureIds.includes(fig.id)) {
+          newSec.figureIds.push(fig.id);
+        }
+      } else {
+        // fallback: 挂第一个 dimension section
+        const firstDim = sections.find((s) => s.type === "dimension");
+        if (firstDim) {
+          fig.sectionId = firstDim.id;
+          if (!firstDim.figureIds.includes(fig.id)) {
+            firstDim.figureIds.push(fig.id);
+          }
+        }
+      }
+    }
+  }
+
   /** 重新扫描 fullMarkdown 计算 citation.occurrences */
   private recomputeCitationOccurrences(
     citations: ArtifactCitation[],

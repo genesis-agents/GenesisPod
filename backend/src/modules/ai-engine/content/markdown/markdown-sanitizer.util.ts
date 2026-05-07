@@ -176,10 +176,30 @@ function scanLines(
       continue;
     }
 
-    // 仍在 fence 内 → 保留原样
+    // 仍在 fence 内 → 检查是否遇到看起来像 H2 的行（孤儿 fence 治理）
+    //
+    // ★ v1.6 二轮（测试评审反馈 / mission eafceb32 真实 case）：
+    // sanitizer 原行为是只在 EOF 补关 fence，但若 fence 漏关后下游内容含
+    // 多个 ## H2，按 EOF 补关会让所有 H2 都仍在 fence 内（前端渲染为代码块）。
+    // 真正的修复是在 fence 内遇到 H2 就近补关，让该 H2 作为 fence 外的真章节。
+    //
+    // 启发式：fence 内出现 `^##\s` 开头的行（且非 `^### ` 等更深层）→ 视为
+    // LLM 漏写关 fence 的信号 → 在该 H2 前补关 + 出栈 fence stack。
     if (fenceStack.length > 0) {
-      out.push(line);
-      continue;
+      const looksLikeH2 = /^##\s/.test(line) && !/^###/.test(line);
+      if (looksLikeH2) {
+        // 在 H2 前补关所有未关 fence（最常见情况是 1 个，即 mermaid 的 ```）
+        while (fenceStack.length > 0) {
+          const f = fenceStack.pop()!;
+          out.push(f.type);
+          inc("unclosed-fence-appended");
+        }
+        // 然后正常处理这个 H2（落到下面的"在 fence 外"分支）
+      } else {
+        // 普通 fence 内行（代码块内容）→ 保留原样
+        out.push(line);
+        continue;
+      }
     }
 
     // 嵌入 TOC 标记移除

@@ -668,20 +668,20 @@ export async function runWriterStage(
     }
   }
 
-  // ── 4.5 v1.4 structural assembler 旁路（feature flag 控制） ──
+  // ── 4.5 v1.6 切主线 — StructuralReportAssembler 接管 fullMarkdown + sections ──
   //
-  // 文档：docs/architecture/ai-harness/evaluation/report-assembly-invariant-redesign.md v1.4
+  // 文档：docs/architecture/ai-harness/evaluation/report-assembly-invariant-redesign.md v1.4/v1.5/v1.6
   //
-  // 设计：扩展原 legacy reportArtifact，用 StructuralReportAssembler 重新拼装
-  // sections + fullMarkdown，保留 legacy 装配的质量信号融合代码（§5 上文）。
-  // legacy 异常或 structural 异常都不阻塞 mission，自动降级到 legacy。
-  //
-  // 启用条件：PLAYGROUND_USE_STRUCTURAL_ASSEMBLER 环境变量 != "false"（默认开启）
-  // PR-A6 完成 per-workspace flag service 后改为 service 调用。
-  const useStructural =
-    process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER !== "false";
-  if (useStructural && reportArtifact) {
+  // v1.4-v1.5 是 shadow path（feature flag 控制）；v1.6 删 flag 切主线：
+  //   - structural 永远开启（无 env 切换）
+  //   - structural 异常时 legacy fullMarkdown / sections 保留为 catch fallback
+  //   - structural 成功时 fullMarkdown 来自结构化拼装（offset 一次性确定，不依赖 buildSectionTree
+  //     反向解析），sections[].citations / figureIds 通过 legacy reportAssembler.recomputeXxx
+  //     公共方法重新关联到 structural sections（NB 二轮架构师 hard miss A 修）
+  //   - sanitizerVersion 真正合并到 metadata（NB-8 收尾）
+  if (reportArtifact) {
     try {
+      const legacySectionsSnapshot = reportArtifact.sections;
       const segments = extractReportSegments({
         plan: {
           themeSummary: plan.themeSummary,
@@ -716,7 +716,22 @@ export async function runWriterStage(
         },
       });
       const structural = defaultStructuralReportAssembler.assemble(segments);
-      // 用 structural 的 fullMarkdown + sections 替换；保留 legacy 的 quality 信号
+      // 关联回填（v1.6 NB-A 修）：structural.sections 仅含基本元信息，
+      // citations / figureIds / factIds 全是 []。legacy assembler 提供两个
+      // public helper 让我们按 structural 的 fullMarkdown 重新扫 [N] 编号
+      // + 按 sourceDimensionId 映射 figures.sectionId。
+      deps.reportAssembler.recomputeCitationOccurrencesPublic(
+        reportArtifact.citations,
+        structural.sections,
+        structural.content.fullMarkdown,
+      );
+      deps.reportAssembler.recomputeSectionFigureIdsPublic(
+        reportArtifact.figures,
+        structural.sections,
+        legacySectionsSnapshot,
+      );
+      // 用 structural 的 fullMarkdown + sections + quickView + metadata；
+      // 保留 legacy 的 citations / figures（已重新关联）/ factTable / quality 信号
       reportArtifact = {
         ...reportArtifact,
         content: structural.content,

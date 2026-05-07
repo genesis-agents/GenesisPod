@@ -55,6 +55,9 @@ export class StructuralReportAssembler {
   assemble(segments: ReportSegments): ReportArtifact {
     const tpl = segments.template ?? MULTI_DIMENSION_REPORT_TEMPLATE;
 
+    // 局部 accumulator 收集 sanitizerVersion（v1.6: stateless 严守 — 不放实例字段）
+    const sanitizerAcc: { sanitizerVersion?: string } = {};
+
     // 1. dim.name 入装前防御（B9）
     const safePlan = this.sanitizePlan(segments.plan);
     const safeSegments: ReportSegments = { ...segments, plan: safePlan };
@@ -75,6 +78,7 @@ export class StructuralReportAssembler {
               : this.runSanitizer(
                   bodyRaw,
                   safePlan.dimensions.map((d) => d.name),
+                  sanitizerAcc,
                 );
           const chunk = this.makeChunk(
             cursor,
@@ -91,7 +95,7 @@ export class StructuralReportAssembler {
       }
 
       if (slot.kind === "fixed" || slot.kind === "optional") {
-        const body = this.resolveSlotBody(slot, safeSegments);
+        const body = this.resolveSlotBody(slot, safeSegments, sanitizerAcc);
         if (slot.kind === "optional" && !body.trim()) continue;
         const type = this.slotTypeFor(slot.key);
         const chunk = this.makeChunk(cursor, slot.title, type, 2, body);
@@ -142,19 +146,25 @@ export class StructuralReportAssembler {
       metadata: {
         ...segments.metadata,
         templateId: tpl.id,
+        sanitizerVersion: sanitizerAcc.sanitizerVersion,
         sectionCountMismatch,
       },
       quality: this.buildQualityVerdicts(segments.qualityInputs, sections),
     };
   }
 
-  /** dim.name 多重防御：strip newline + trim + slice(0, 200) */
+  /**
+   * dim.name 多重防御：strip newline + trim + slice(0, 200)
+   * v1.6 (代码评审反馈): 加 null/non-string guard，避免 sanitizePlan
+   * 因 LLM/上游意外返回 null/undefined/number 而抛 TypeError（spec 测试
+   * 应通过显式 mock 触发降级，而非靠 .replace(null) 这种实现细节脆弱性）。
+   */
   private sanitizePlan(plan: ReportSegments["plan"]): ReportSegments["plan"] {
     return {
       themeSummary: plan.themeSummary,
       dimensions: plan.dimensions.map((d) => ({
         id: d.id,
-        name: d.name
+        name: String(d.name ?? "")
           .replace(/[\r\n]/g, " ")
           .trim()
           .slice(0, 200),
@@ -166,6 +176,7 @@ export class StructuralReportAssembler {
   private resolveSlotBody(
     slot: Extract<ReportTemplateSlot, { kind: "fixed" | "optional" }>,
     segments: ReportSegments,
+    sanitizerAcc: { sanitizerVersion?: string },
   ): string {
     const src: SlotBodySource = slot.bodySource;
     if (src.kind === "fromBodies") {
@@ -175,6 +186,7 @@ export class StructuralReportAssembler {
         ? this.runSanitizer(
             text,
             segments.plan.dimensions.map((d) => d.name),
+            sanitizerAcc,
           )
         : "";
     }
@@ -220,10 +232,20 @@ export class StructuralReportAssembler {
 
   /**
    * 单段 sanitize：注入 knownDimNames 让 sanitizer 精确剥首行 H2
+   *
+   * v1.6 (架构师二轮 hard miss B 修): 通过局部 accumulator 收集 sanitizerVersion
+   * 让 assemble() 写入 metadata.sanitizerVersion，同时**严守 stateless**
+   * （B6 约束：不允许实例字段）—— accumulator 是 caller 局部对象的引用。
    */
-  private runSanitizer(raw: string, knownDimNames: string[]): string {
+  private runSanitizer(
+    raw: string,
+    knownDimNames: string[],
+    acc: { sanitizerVersion?: string },
+  ): string {
     const opts: SanitizeOptions = { knownDimNames };
-    return sanitizeMarkdownBody(raw, opts).body;
+    const result = sanitizeMarkdownBody(raw, opts);
+    acc.sanitizerVersion = result.sanitizerVersion;
+    return result.body;
   }
 
   /**

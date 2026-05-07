@@ -51,13 +51,34 @@ describe("MarkdownSanitizer (18 fixture)", () => {
       expect(
         r.appliedRules.find((x) => x.rule === "unclosed-fence-appended"),
       ).toBeDefined();
-      // 末尾必有 1 行 ```（sanitizer 补关；开场行是 ```mermaid 不是裸 ```）
       const lines = r.body.split("\n");
-      expect(lines[lines.length - 1]).toBe("```");
+      // ★ v1.6 行为升级（从 EOF 补关 → H2 前就近补关）：
+      // 输出末尾不再是 ```（不再在 EOF 补关），而是被吞章节本体（## 维度二）
+      // 因为 sanitizer 在遇到 H2 前已就近补关 fence，让 H2 作为正常章节出现
+      expect(lines[lines.length - 1]).toBe("## 维度二");
       // ★ v1.5 收尾（测试评审 P0-T1）：被吞内容补关后必须可见
       // mission eafceb32 真实 case：dim 7 mermaid 孤儿 fence 之后的"## 维度二"
       // 在补关之前会被识别为代码块内容，永远不出现在 sections。补关后应当还原。
       expect(r.body).toContain("## 维度二");
+
+      // ★ v1.6 二轮（测试评审 fence 上下文）：被吞内容必须在 fence 外
+      // 仅 toContain 不够 — sanitizer 若错误把 ## 维度二 留在 fence 内，
+      // 渲染时仍是代码块。验"## 维度二"位于补关 fence 之后（fence 外）。
+      let inFence = false;
+      let foundOutsideFence = false;
+      for (const line of lines) {
+        if (line.startsWith("```")) {
+          inFence = !inFence;
+          continue;
+        }
+        if (!inFence && line === "## 维度二") {
+          foundOutsideFence = true;
+          break;
+        }
+      }
+      expect(foundOutsideFence).toBe(true);
+      // 同样的下游内容（普通段落）也应当在 fence 外可见
+      expect(r.body).toContain("下面的内容不该被吞");
     });
   });
 
