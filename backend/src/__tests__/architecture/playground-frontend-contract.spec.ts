@@ -104,6 +104,8 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "agent-playground.report:assembled",
   "agent-playground.report:draft",
   "agent-playground.researcher:completed",
+  "agent-playground.rerun:cascade-aborted",
+  "agent-playground.rerun:stage-started",
   "agent-playground.section:remediation:summary",
   "agent-playground.stage:completed",
   "agent-playground.stage:degraded",

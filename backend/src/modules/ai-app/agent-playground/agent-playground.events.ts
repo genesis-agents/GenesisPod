@@ -100,6 +100,9 @@ import {
   LeaderForewordSchema,
   LeaderSignedSchema,
   LeaderRejectedRevisionRecommendedSchema,
+  // PR-R5 cascade rerun
+  RerunStageStartedSchema,
+  RerunCascadeAbortedSchema,
 } from "./agent-playground.event-schemas";
 
 /**
@@ -229,4 +232,7 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   // ── budget 独立告警（区别于 mission:budget-warning-*）──
   S("budget:warning-soft", BudgetWarningSoftSchema),
   S("budget:warning-hard", BudgetWarningHardSchema),
+  // ── PR-R5 (2026-05-07): cascade rerun 链路事件 ──
+  S("rerun:stage-started", RerunStageStartedSchema),
+  S("rerun:cascade-aborted", RerunCascadeAbortedSchema),
 ];

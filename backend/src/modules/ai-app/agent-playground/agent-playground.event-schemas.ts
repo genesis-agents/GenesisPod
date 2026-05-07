@@ -175,6 +175,31 @@ export const MissionReopenedSchema = z
   .passthrough();
 export type MissionReopenedPayload = z.infer<typeof MissionReopenedSchema>;
 
+// PR-R5 (2026-05-07 cascade rerun): cascade 链每步开跑前 emit
+export const RerunStageStartedSchema = z
+  .object({
+    stepId: z.string(),
+    fromStepId: z.string(),
+    cascadeChain: z.array(z.string()),
+    completedSoFar: z.array(z.string()),
+  })
+  .passthrough();
+export type RerunStageStartedPayload = z.infer<typeof RerunStageStartedSchema>;
+
+// PR-R5 (2026-05-07 cascade rerun): best-effort partial 中止时 emit 三元组
+export const RerunCascadeAbortedSchema = z
+  .object({
+    abortedAt: z.string(),
+    completed: z.array(z.string()),
+    remaining: z.array(z.string()),
+    errorMessage: z.string(),
+    partialModeNote: z.string().optional(),
+  })
+  .passthrough();
+export type RerunCascadeAbortedPayload = z.infer<
+  typeof RerunCascadeAbortedSchema
+>;
+
 // ─────────── stage:started ───────────
 // prod: { count, stage, dimensions: string[] }
 export const StageStartedSchema = z
