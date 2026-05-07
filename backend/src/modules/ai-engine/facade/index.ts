@@ -27,6 +27,26 @@ export {
   type JsonFenceParseResult,
 } from "../content/json-fence-parser.utils";
 
+// ★ PR-A1 (2026-05-06 v1.4 报告装配重构):
+//   MarkdownSanitizer — 状态机 fence 配对 / H2 精确剥离 / TOC 移除 /
+//   blockquote fence 修复 / CRLF 归一 / BOM 剥除 / thinking 整块剥 /
+//   prompt injection redaction（18 fixture 全覆盖）
+//   任何输出 markdown 的 stage 都可复用（playground / topic-insights /
+//   writing / office / social）
+//
+//   注意：SanitizeOptions / SanitizeResult 与 safety/security/llm-injection 同名，
+//   故重命名为 MarkdownSanitize* 暴露
+export { sanitizeMarkdownBody } from "../content/markdown/markdown-sanitizer.util";
+export {
+  MARKDOWN_SANITIZER_VERSION,
+  InputTooLargeError as MarkdownSanitizerInputTooLargeError,
+  SanitizerAbortedError as MarkdownSanitizerAbortedError,
+  type SanitizeOptions as MarkdownSanitizeOptions,
+  type SanitizeResult as MarkdownSanitizeResult,
+  type SanitizeRule as MarkdownSanitizeRule,
+  type SanitizeRuleApplied as MarkdownSanitizeRuleApplied,
+} from "../content/markdown/markdown-sanitizer.types";
+
 /**
  * Minimal interface matching MCPManager for ai-engine internal use.
  * ai-engine executor/capability files inject MCPManager at runtime via harness DI;
