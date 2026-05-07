@@ -1,11 +1,18 @@
 /**
- * CtxHydratorService — 从 DB 重建 MissionContext 给单 stage 局部重跑用
+ * CtxHydratorService —— 从 DB 重建 MissionContext 给单 stage 局部重跑用
  *
- * 局部重跑不跑 S1-S2-S3 等上游 stage，但下游 stage 需要 ctx 里的 plan / researcherResults /
- * reconciliationReport / reportArtifact / verdicts 等已经存在的产物。
+ * 上游：docs/architecture/ai-harness/runner/per-task-rerun-with-cascade.md v1.2 §3.2
  *
- * 本服务从 agent_playground_missions 行读出这些字段，重新组装成 MissionContext
- * 让 stage 函数看上去和正常 mission 流程没差别。
+ * v1.2 修订（vs v1.0）：
+ *   - 类别 A：单一信源 — researcherResults / reportArtifact / outlinePlan / analystOutput 全
+ *     从 mission 行字段 + 子表读，不再读 event payload（v1.0 BLOCKER 修）
+ *   - 类别 D1+D2：retry_label 取 latest（DISTINCT ON dimension ORDER BY created_at DESC）+ dim
+ *     字符串作 chapter ↔ research join key（不用数组 index 漂移）
+ *   - 类别 D3：补全 5 字段 ctx 重建（researcherResults / reportArtifact / outlinePlan /
+ *     analystOutput / verifierVerdicts）
+ *   - 类别 E1：reportArtifact 必须 zod parse；失败 throw BadRequest
+ *   - 类别 E5：mission.report_full payload 大小硬上限（与 zod 一致 2MB）
+ *   - 类别 B2：hydrate guard 改 heartbeat 时间窗（< 60s 拒，>= 60s 允许）
  *
  * 限制：
  *   - 装配阶段的 leader / billing / pool / abortRegistry / budgetMultiplier 不能从 DB 重建
@@ -13,14 +20,29 @@
  *   - userProfile 必须存在（mission create 时就写了），用于重建 input
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import type { MissionContext } from "../workflow/mission-context";
 import { MissionStore } from "../lifecycle/mission-store.service";
+import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import type {
   RunMissionInput,
   ResearchReport,
 } from "../../../dto/run-mission.dto";
-import type { ReportArtifact } from "@/modules/ai-harness/facade";
+import {
+  parseReportArtifact,
+  type ReportArtifact,
+} from "@/modules/ai-harness/facade";
+
+/** v1.2 类别 B2：60s heartbeat 窗口 — < 60s 拒（mission 真在跑），≥ 60s 允许（reopen 等待 cascade） */
+const HEARTBEAT_INFLIGHT_THRESHOLD_MS = 60_000;
+
+/** v1.2 类别 E5：mission.report_full 反序列化后大小硬上限（与 zod schema 一致） */
+const MAX_REPORT_FULL_BYTES = 2_000_000;
 
 /**
  * Hydrated ctx 提供给 stage 函数 —— 缺装配期纯 runtime 字段（leader/billing/pool 等），
@@ -40,7 +62,10 @@ export type HydratedMissionContext = Omit<
 export class CtxHydratorService {
   private readonly log = new Logger(CtxHydratorService.name);
 
-  constructor(private readonly store: MissionStore) {}
+  constructor(
+    private readonly store: MissionStore,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async hydrate(
     missionId: string,
@@ -52,16 +77,27 @@ export class CtxHydratorService {
         `mission ${missionId} not found or not owned by ${userId}`,
       );
     }
+
+    // v1.2 类别 B2：mission 在 reopen 后 status=running 是合法的；
+    // 用 heartbeat 时间窗判断 — < 60s 拒（其它 pod 真在跑），≥ 60s 允许
     if (detail.status === "running") {
-      throw new Error(
-        `mission ${missionId} is still running — cannot rerun while in flight`,
+      const hbAt = detail.heartbeatAt;
+      const hbAge = hbAt
+        ? Date.now() - hbAt.getTime()
+        : Number.POSITIVE_INFINITY;
+      if (hbAge < HEARTBEAT_INFLIGHT_THRESHOLD_MS) {
+        throw new BadRequestException(
+          `mission ${missionId} is in-flight (heartbeat ${Math.round(hbAge / 1000)}s ago) — cannot rerun while live`,
+        );
+      }
+      this.log.warn(
+        `[hydrate ${missionId}] status=running but heartbeat stale (${Math.round(hbAge / 1000)}s ago) — allowing hydrate (reopen pending)`,
       );
     }
 
     const userProfile =
       (detail.userProfile as Partial<RunMissionInput> | null) ?? {};
 
-    // 重建 input（local-rerun 必须沿用原 mission 配置，不允许调用方自定义档位）
     const input: RunMissionInput = {
       topic: detail.topic,
       depth: (userProfile.depth ??
@@ -80,19 +116,32 @@ export class CtxHydratorService {
       auditLayers: userProfile.auditLayers ?? "default",
       concurrency: userProfile.concurrency ?? 3,
       viewMode: userProfile.viewMode ?? "continuous",
-      // ★ P4 (2026-05-06): maxCredits 从行字段读（权威源），不再从 userProfile JSON 读
       maxCredits: detail.maxCredits,
-      // budgetMultiplierOverride 无独立行字段，从 userProfile 读；缺省 1.0
       budgetMultiplierOverride: userProfile.budgetMultiplierOverride ?? 1.0,
     };
 
-    const reportFull = detail.reportFull as Record<string, unknown> | null;
+    // v1.2 类别 A1+E1+E5：reportArtifact 必从 mission.report_full 读 + zod 校验
     let reportArtifact: ReportArtifact | undefined;
     let report: ResearchReport | undefined;
-    if (detail.reportArtifactVersion === 2 && reportFull) {
-      reportArtifact = reportFull as unknown as ReportArtifact;
-    } else if (reportFull) {
-      report = reportFull as unknown as ResearchReport;
+    if (detail.reportFull) {
+      // size guard（防 OOM）
+      const serialized = JSON.stringify(detail.reportFull);
+      if (serialized.length > MAX_REPORT_FULL_BYTES) {
+        throw new BadRequestException(
+          `mission ${missionId} report_full size ${serialized.length} > ${MAX_REPORT_FULL_BYTES} (DoS 防护)`,
+        );
+      }
+      if (detail.reportArtifactVersion === 2) {
+        const parsed = parseReportArtifact(detail.reportFull);
+        if (!parsed.ok) {
+          throw new BadRequestException(
+            `mission ${missionId} report_full validation failed: ${parsed.errorMessage}`,
+          );
+        }
+        reportArtifact = parsed.data as unknown as ReportArtifact;
+      } else {
+        report = detail.reportFull as unknown as ResearchReport;
+      }
     }
 
     const dimensions =
@@ -104,6 +153,9 @@ export class CtxHydratorService {
     type LeaderVerdict = "excellent" | "good" | "acceptable" | "failed";
     const leaderVerdict =
       (detail.leaderVerdict as LeaderVerdict | null) ?? null;
+
+    // v1.2 类别 D1+D2：从子表重建 researcherResults
+    const researcherResults = await this.hydrateResearcherResults(missionId);
 
     const ctx: HydratedMissionContext = {
       __hydrated: true,
@@ -122,10 +174,12 @@ export class CtxHydratorService {
           MissionContext["plan"]
         >["initialRisks"],
       },
-      // researcherResults 没单独存 DB 字段（融在 reportArtifact.sections 里）
-      researcherResults: undefined,
+      researcherResults,
       reconciliationReport:
         detail.reconciliationReport as MissionContext["reconciliationReport"],
+      // v1.2 类别 D3：从 mission 行字段读（PR-R0 加的列）
+      outlinePlan: detail.outlinePlan as MissionContext["outlinePlan"],
+      analystOutput: detail.analystOutput,
       report,
       reportArtifact,
       reviewScore:
@@ -145,8 +199,73 @@ export class CtxHydratorService {
     };
 
     this.log.log(
-      `[hydrate ${missionId}] artifactVersion=${detail.reportArtifactVersion} sections=${reportArtifact?.sections.length ?? 0} dimensions=${dimensions.length} verdicts=${(detail.verdicts as unknown[] | null)?.length ?? 0}`,
+      `[hydrate ${missionId}] artifactVersion=${detail.reportArtifactVersion} sections=${reportArtifact?.sections.length ?? 0} dimensions=${dimensions.length} researchResults=${researcherResults?.length ?? 0} verdicts=${(detail.verdicts as unknown[] | null)?.length ?? 0} outlinePlan=${detail.outlinePlan ? "yes" : "no"} analystOutput=${detail.analystOutput ? "yes" : "no"}`,
     );
     return ctx;
+  }
+
+  /**
+   * v1.2 类别 D1+D2：从子表重建 researcherResults
+   *
+   * - DISTINCT ON (dimension) ORDER BY dimension, created_at DESC：取每个 dim 的 latest
+   *   retry_label（leader-assess-retry 产生多行时只用最后一轮）
+   * - cdByDim Map<string, ...>：用 dim 字符串作 join key（不依赖数组 index 漂移）
+   */
+  private async hydrateResearcherResults(
+    missionId: string,
+  ): Promise<MissionContext["researcherResults"]> {
+    interface ResearchRow {
+      dimension: string;
+      findings: unknown;
+      summary: string | null;
+    }
+    const rrRows = await this.prisma.$queryRawUnsafe<ResearchRow[]>(
+      `SELECT DISTINCT ON (dimension) dimension, findings, summary
+       FROM agent_playground_research_results
+       WHERE mission_id = $1
+       ORDER BY dimension, created_at DESC`,
+      missionId,
+    );
+    if (rrRows.length === 0) return undefined;
+
+    const cdRows = await this.prisma.agentPlaygroundChapterDraft.findMany({
+      where: { missionId },
+      orderBy: [{ dimension: "asc" }, { chapterIndex: "asc" }],
+    });
+    const cdByDim = new Map<string, typeof cdRows>();
+    for (const cd of cdRows) {
+      if (!cdByDim.has(cd.dimension)) cdByDim.set(cd.dimension, []);
+      cdByDim.get(cd.dimension)!.push(cd);
+    }
+
+    return rrRows.map((rr) => {
+      const findings = (rr.findings ?? []) as Array<{
+        claim: string;
+        evidence: string;
+        source: string;
+      }>;
+      const chapters = cdByDim.get(rr.dimension) ?? [];
+      const fullMarkdown =
+        chapters.length > 0
+          ? chapters.map((c) => `### ${c.heading}\n\n${c.content}`).join("\n\n")
+          : undefined;
+      return {
+        dimension: rr.dimension,
+        findings,
+        summary: rr.summary ?? "",
+        // 扩展字段（per-dim chapter pipeline 产物）
+        ...(fullMarkdown ? { fullMarkdown } : {}),
+        ...(chapters.length > 0
+          ? {
+              chapters: chapters.map((c) => ({
+                index: c.chapterIndex,
+                heading: c.heading,
+                body: c.content,
+                wordCount: c.wordCount ?? 0,
+              })),
+            }
+          : {}),
+      };
+    }) as MissionContext["researcherResults"];
   }
 }

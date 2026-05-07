@@ -49,6 +49,10 @@ export interface MissionDetail extends MissionListItem {
   leaderSigned: boolean | null;
   leaderVerdict: string | null;
   lastCompletedStage?: number | null;
+  // ★ PR-R0/R2 (2026-05-07 per-task rerun + cascade): cascade rerun 中间产物字段
+  outlinePlan?: unknown;
+  analystOutput?: unknown;
+  heartbeatAt?: Date | null;
 }
 
 @Injectable()
@@ -1087,6 +1091,10 @@ export class MissionStore {
       leaderSigned: row.leaderSigned,
       leaderVerdict: row.leaderVerdict,
       lastCompletedStage: row.lastCompletedStage,
+      // ★ PR-R0/R2 (per-task rerun + cascade)：cascade rerun ctx 中间产物
+      outlinePlan: row.outlinePlan,
+      analystOutput: row.analystOutput,
+      heartbeatAt: row.heartbeatAt,
     };
   }
 
