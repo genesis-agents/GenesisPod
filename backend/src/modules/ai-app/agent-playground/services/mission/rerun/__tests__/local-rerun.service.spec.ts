@@ -435,6 +435,7 @@ describe("LocalRerunService.run (PR-R6)", () => {
       expect.objectContaining({
         errorMessage: expect.stringContaining("cascade_aborted_at_s9-critic"),
       }),
+      "u1", // ★ 收尾评审第三轮 P0-S: 严格 userId 隔离
     );
   });
 
@@ -462,6 +463,7 @@ describe("LocalRerunService.run (PR-R6)", () => {
           /cascade_aborted_at_s9-critic: unknown/,
         ),
       }),
+      "u1", // ★ 收尾评审第三轮 P0-S: 严格 userId 隔离
     );
   });
 

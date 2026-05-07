@@ -463,6 +463,10 @@ export class MissionStore {
       leaderSigned?: boolean;
       leaderVerdict?: string;
     },
+    // ★ 收尾评审第三轮 P0-S (2026-05-07): 与 markRerunPatch / resetFields /
+    //   markIntermediateState 同款 — 可选 userId 走严格隔离路径（防深度防御缺口）。
+    //   生产路径（dispatcher cascade abort 回写）应一律传 userId。
+    userId?: string,
   ): Promise<void> {
     // P2: markFailed 路径同样做 10MB 硬限检查（避免 quality-failed 路径写入超大 report）
     if (data.report && typeof data.report === "object") {
@@ -521,8 +525,14 @@ export class MissionStore {
       update.leaderJournal = (data.leaderJournal ??
         null) as Prisma.InputJsonValue;
     // ★ P0-1: 仅 status='running' 才能转为终态 —— 否则 race 中 markFailed 会覆盖 completed/cancelled
+    // ★ 收尾评审第三轮 P0-S (2026-05-07): 传 userId 时加 userId 到 where 走严格隔离
+    const failWhere: Prisma.AgentPlaygroundMissionWhereInput = {
+      id,
+      status: "running",
+      ...(userId ? { userId } : {}),
+    };
     await this.prisma.agentPlaygroundMission
-      .updateMany({ where: { id, status: "running" }, data: update })
+      .updateMany({ where: failWhere, data: update })
       .catch((err: unknown) => {
         this.log.warn(
           `[markFailed ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,

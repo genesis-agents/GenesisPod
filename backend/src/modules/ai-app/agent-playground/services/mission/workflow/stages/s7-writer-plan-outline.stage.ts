@@ -177,9 +177,12 @@ export async function runWriterOutlineStage(
         };
         // ★ PR-R4 (2026-05-07): stage 主动持久化 outlinePlan 到 mission 行，
         //   让 cdHydrate 在 S8/S9/S11 等下游 stage 重跑时读到最新 outline。
-        await deps.store.markIntermediateState(missionId, {
-          outlinePlan: ctx.outlinePlan,
-        });
+        // ★ 收尾评审第三轮 P0-S (2026-05-07): 传 userId 走严格隔离
+        await deps.store.markIntermediateState(
+          missionId,
+          { outlinePlan: ctx.outlinePlan },
+          userId,
+        );
       }
       await deps
         .emit({

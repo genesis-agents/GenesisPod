@@ -255,10 +255,15 @@ export async function runSectionQualityEnhancementStage(
     );
     // ★ PR-R4 (2026-05-07): S8B 修订 reportArtifact 后立即持久化覆盖，
     //   让 S11 之前的 reopen 路径读到 remediated 后的版本。
-    await deps.store.markIntermediateState(missionId, {
-      reportFull: reportArtifact,
-      reportArtifactVersion: 2,
-    });
+    // ★ 收尾评审第三轮 P0-S (2026-05-07): 传 userId 走严格隔离
+    await deps.store.markIntermediateState(
+      missionId,
+      {
+        reportFull: reportArtifact,
+        reportArtifactVersion: 2,
+      },
+      userId,
+    );
   }
 
   await narrate(deps.emit, missionId, userId, {

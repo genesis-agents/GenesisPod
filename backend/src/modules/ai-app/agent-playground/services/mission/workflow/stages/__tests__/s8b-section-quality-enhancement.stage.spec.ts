@@ -430,7 +430,7 @@ describe("runSectionQualityEnhancementStage (S8B)", () => {
 
   // ★ PR-R4 (2026-05-07): stage 主动持久化反向证据
   describe("PR-R4 markIntermediateState", () => {
-    it("有 remediation 时持久化 reportArtifact + version=2", async () => {
+    it("有 remediation 时持久化 reportArtifact + version=2 + userId 严格隔离", async () => {
       const ctx = makeCtx();
       const deps = makeDeps();
       // 默认 mock 让两个 section 都弱 → 触发 remediate → 写回 fullMarkdown → markIntermediateState
@@ -442,6 +442,8 @@ describe("runSectionQualityEnhancementStage (S8B)", () => {
         reportFull: expect.any(Object),
         reportArtifactVersion: 2,
       });
+      // ★ 收尾评审第三轮 P0-S: 必传 userId 走严格隔离
+      expect(calls[0][2]).toBe("u1");
     });
 
     it("零 remediation 时不持久化（避免空写）", async () => {

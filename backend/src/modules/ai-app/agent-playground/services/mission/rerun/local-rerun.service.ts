@@ -303,14 +303,19 @@ export class LocalRerunService {
             !!eligibility.cascadeChain &&
             eligibility.cascadeChain.includes(TERMINAL_STEP_ID);
           if (reachesTerminal) {
+            // ★ 收尾评审第三轮 P0-S (2026-05-07): 传 userId 走严格隔离路径
             await this.store
-              .markFailed(missionId, {
-                errorMessage:
-                  `cascade_aborted_at_${result.abortedAt}: ${result.errorMessage ?? "unknown"}`.slice(
-                    0,
-                    500,
-                  ),
-              })
+              .markFailed(
+                missionId,
+                {
+                  errorMessage:
+                    `cascade_aborted_at_${result.abortedAt}: ${result.errorMessage ?? "unknown"}`.slice(
+                      0,
+                      500,
+                    ),
+                },
+                userId,
+              )
               .catch((err: unknown) => {
                 this.log.warn(
                   `[local-rerun ${missionId}] markFailed after cascade abort failed: ${err instanceof Error ? err.message : String(err)}`,

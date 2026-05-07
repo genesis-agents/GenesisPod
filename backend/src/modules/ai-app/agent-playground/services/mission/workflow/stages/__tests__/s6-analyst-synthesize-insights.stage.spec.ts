@@ -240,6 +240,7 @@ describe("runAnalystStage (S6)", () => {
             themeSummary: expect.any(String),
           }),
         }),
+        "u1", // ★ 收尾评审第三轮 P0-S: 严格 userId 隔离
       );
     });
 
