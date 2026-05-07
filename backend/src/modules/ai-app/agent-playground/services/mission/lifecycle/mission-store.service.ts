@@ -967,6 +967,9 @@ export class MissionStore {
       leaderVerdict?: string;
       lastCompletedStage?: number;
     },
+    // ★ 收尾评审第二轮 P0-S2-完成 (2026-05-07): 与 markRerunPatch / resetFields 同款。
+    //   传入 userId 时走 updateMany + where{id, userId} 严格隔离；不传保持向后兼容。
+    userId?: string,
   ): Promise<void> {
     const update: Prisma.AgentPlaygroundMissionUpdateInput = {
       heartbeatAt: new Date(),
@@ -1000,13 +1003,30 @@ export class MissionStore {
       update.leaderVerdict = patch.leaderVerdict;
     if (patch.lastCompletedStage !== undefined)
       update.lastCompletedStage = patch.lastCompletedStage;
-    await this.prisma.agentPlaygroundMission
-      .update({ where: { id }, data: update })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[markIntermediateState ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
+    if (userId) {
+      // 严格路径：updateMany + userId 隔离（与 markRerunPatch / resetFields 一致）
+      await this.prisma.agentPlaygroundMission
+        .updateMany({
+          where: { id, userId },
+          data: update as Prisma.AgentPlaygroundMissionUpdateManyMutationInput,
+        })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[markIntermediateState ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    } else {
+      // 兼容路径（旧 caller 如 stage 文件，无 userId 上下文）
+      // ★ 注：stage 文件流经过 controller assertOwnership 是安全的，但 dispatcher
+      //   cascade 路径应一律传 userId 走严格隔离。
+      await this.prisma.agentPlaygroundMission
+        .update({ where: { id }, data: update })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[markIntermediateState ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
   }
 
   /**

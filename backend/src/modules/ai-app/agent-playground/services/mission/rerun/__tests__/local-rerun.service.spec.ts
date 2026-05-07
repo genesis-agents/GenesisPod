@@ -438,6 +438,33 @@ describe("LocalRerunService.run (PR-R6)", () => {
     );
   });
 
+  // ★ 收尾评审第二轮 P1 (2026-05-07): result.errorMessage=undefined 兜底为 "unknown"
+  it("cascade aborted 时 result.errorMessage=undefined → markFailed 写 'unknown' 兜底", async () => {
+    const m = makeMocks({
+      id: "m1",
+      status: "failed",
+      heartbeatAt: new Date(Date.now() - 120_000),
+      costUsd: 0,
+      maxCredits: 1,
+    });
+    m.dispatcher.runFromStageWithCascade.mockResolvedValue({
+      completed: ["s8-writer"],
+      abortedAt: "s9-critic",
+      errorMessage: undefined,
+      remaining: ["s9-critic", "s9b-objective-eval", "s10", "s11-persist"],
+    });
+    const svc = makeService(m);
+    await svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit);
+    expect(m.store.markFailed).toHaveBeenCalledWith(
+      "m1",
+      expect.objectContaining({
+        errorMessage: expect.stringMatching(
+          /cascade_aborted_at_s9-critic: unknown/,
+        ),
+      }),
+    );
+  });
+
   // ★ 收尾评审 P0-T2 配套：cascadeChain 不含 s11 → 不 markFailed（无需回写，老状态保留）
   it("cascade aborted + cascadeChain 不到 s11-persist → 不 markFailed", async () => {
     const m = makeMocks({

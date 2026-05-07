@@ -240,10 +240,15 @@ export class StageRerunDispatcher {
         await handler(ctx, emit, stubs);
         completed.push(stepId);
         // 更新 last_completed_stage 让前端看到进度
+        // ★ 收尾评审第二轮 P0-S2-完成 (2026-05-07): 传 userId 走严格隔离路径
         await this.store
-          .markIntermediateState(ctx.missionId, {
-            lastCompletedStage: this.stepIndexOf(stepId),
-          })
+          .markIntermediateState(
+            ctx.missionId,
+            {
+              lastCompletedStage: this.stepIndexOf(stepId),
+            },
+            ctx.userId,
+          )
           .catch(() => {});
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err);
