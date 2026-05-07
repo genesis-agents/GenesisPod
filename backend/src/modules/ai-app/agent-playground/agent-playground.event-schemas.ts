@@ -175,6 +175,19 @@ export const MissionReopenedSchema = z
   .passthrough();
 export type MissionReopenedPayload = z.infer<typeof MissionReopenedSchema>;
 
+// rerun-overhaul v1.1 (2026-05-07): RerunGuard 主动清 zombie heartbeat 审计事件
+// （heartbeat 新但 BUSINESS 事件 stale ≥ 5min → 主动 markFailed + clearHeartbeat）
+export const MissionZombieCleanupSchema = z
+  .object({
+    triggeredBy: z.string().optional(),
+    ts: z.number().optional(),
+    reason: z.string().optional(),
+  })
+  .passthrough();
+export type MissionZombieCleanupPayload = z.infer<
+  typeof MissionZombieCleanupSchema
+>;
+
 // PR-R5 (2026-05-07 cascade rerun): cascade 链每步开跑前 emit
 export const RerunStageStartedSchema = z
   .object({
