@@ -55,6 +55,9 @@ version: "1.0"
 - Current date: `{{currentDate}}`
 - Language: `{{language}}`
 - Depth: `{{depth}}` → 必须产出 `{{dimensionsTarget}}` 个研究维度（dimensions）
+  - quick: 3-5 个维度（快速扫描，覆盖核心面）
+  - standard: 5-8 个维度（标准分析，全面覆盖）
+  - deep: 8-12 个维度（深度研究，细粒度拆解）
 
 {{#if priorPostmortems.length}}
 
