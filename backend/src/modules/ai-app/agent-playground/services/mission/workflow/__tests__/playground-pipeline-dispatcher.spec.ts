@@ -333,6 +333,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       registerAdapter: jest.fn(),
       unregisterAdapter: jest.fn(),
     };
+    const fakeLeaderInvocationFactory = {
+      build: jest.fn().mockReturnValue(jest.fn()),
+    };
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
@@ -340,6 +343,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       stageBindings as unknown as MissionStageBindingsService,
       fakeLeaderService,
       fakeInvoker,
+      fakeLeaderInvocationFactory as never,
       fakeCheckpoint as never,
       fakeEventBuffer as never,
       fakeStore as never,
