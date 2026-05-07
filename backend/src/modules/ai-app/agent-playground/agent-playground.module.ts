@@ -42,6 +42,8 @@ import { LocalRerunService } from "./services/mission/rerun/local-rerun.service"
 import { CtxHydratorService } from "./services/mission/rerun/ctx-hydrator.service";
 // RerunLockRegistry 已上提到 ai-harness/facade（@Global TeamsModule provider）
 import { StageRerunDispatcher } from "./services/mission/rerun/stage-rerun.dispatcher";
+// ★ PR-R5b-FULL (2026-05-07): rerun runtime builder（billing/pool/leader 装配 stub）
+import { RerunMissionRuntimeBuilder } from "./services/mission/rerun/rerun-runtime-builder.service";
 import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "./services/export/mission-export.service";
 // PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
@@ -120,6 +122,8 @@ import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
     CtxHydratorService,
     // RerunLockRegistry 已上提到 ai-harness/facade（PR-3 standardize playground）
     StageRerunDispatcher,
+    // ★ PR-R5b-FULL (2026-05-07): RerunRuntimeBuilder — dispatcher 8 stage handler 必读
+    RerunMissionRuntimeBuilder,
     MissionRerunOrchestratorService,
     // ── 导出装配（CSV / Markdown / JSON）──
     MissionExportService,

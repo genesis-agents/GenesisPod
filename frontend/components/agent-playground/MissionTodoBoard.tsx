@@ -672,11 +672,32 @@ export function MissionTodoBoard({
   const [inspectorTodo, setInspectorTodo] = useState<MissionTodo | null>(null);
   const [rerunningId, setRerunningId] = useState<string | null>(null);
 
+  // ★ PR-R5b-FULL (2026-05-07): 把 13 stage 的 systemStageId 映射到后端 stepId。
+  //   单一源应在 lib/agent-playground/，但当前与 TodoDetailDrawer 同款（防漂移）。
+  //   完整列表（与 backend STEP_ID_TO_FRONTEND_STAGE_ID 对称）：
+  const FRONTEND_STAGE_TO_STEP_ID: Record<string, string> = {
+    's1-budget': 's1-budget',
+    's2-leader-plan': 's2-leader-plan',
+    's3-researchers': 's3-researcher-collect',
+    's4-leader-assess': 's4-leader-assess',
+    's5-reconciler': 's5-reconciler',
+    's6-analyst': 's6-analyst',
+    's7-writer-outline': 's7-writer-outline',
+    's8-writer-draft': 's8-writer',
+    's8b-quality-enhancement': 's8b-quality-enhancement',
+    's9-critic-l4': 's9-critic',
+    's9b-objective-evaluation': 's9b-objective-eval',
+    's10-leader-signoff': 's10-leader-foreword-signoff',
+    's11-persist': 's11-persist',
+  };
+
   const canRerunTodo = (td: MissionTodo): boolean => {
     if (!missionTerminal || !missionId) return false;
-    // s11 持久化 / s12 自我进化阶段不能单独重跑
-    if (td.systemStageId === 's11-persist') return false;
+    // ★ PR-R5b-FULL (2026-05-07): s11-persist 已实装真 handler（c195035f 主用例）
+    //   s12-self-evolution 是 postlude 异步任务，不在 cascade 体系，仍排除
     if (td.systemStageId === 's12-self-evolution') return false;
+    // s1-budget 黑名单（后端 dag.rerunable=false）
+    if (td.systemStageId === 's1-budget') return false;
     // 已放弃的维度不重跑（应整体 rerun 重新规划）
     if (td.origin === 'leader-assess-abort') return false;
     // 仅终态 / 失败 / 完成 任务允许（pending / in_progress 不显示）
@@ -690,21 +711,28 @@ export function MissionTodoBoard({
   const handleRerunTodo = async (td: MissionTodo) => {
     if (!missionId || rerunningId) return;
 
-    // ★ 2026-05-01 防"跑了整个项目"：先尝试局部重跑（仅 s9b 后端真支持），
-    //   不支持的 scope 友好弹窗确认"另起新 mission（跑全 12 stage）"才走 rerunTodo。
+    // ★ PR-R5b-FULL (2026-05-07): 13 stage 全部装真 handler 后，所有 systemStageId 映射
+    //   到 stepId 都走局部重跑（cascade 自动展开下游）。仅 s12 / 无 stepId 走"开新研究对比"。
+    const stepId = td.systemStageId
+      ? FRONTEND_STAGE_TO_STEP_ID[td.systemStageId]
+      : undefined;
     const supportsLocalRerun =
-      td.scope === 'system' && td.id.endsWith('s9b-objective-evaluation');
+      // 老路径兼容：s9b legacy todo id 后缀路径
+      (td.scope === 'system' && td.id.endsWith('s9b-objective-evaluation')) ||
+      // 新路径：systemStageId 可映射到 stepId 且非黑名单
+      (!!stepId && stepId !== 's1-budget');
 
     setRerunningId(td.id);
     try {
       if (supportsLocalRerun) {
-        // 真正的局部重跑：单 stage 重跑 + patch 回原 mission，不跳转
+        // 真正的局部重跑：单 stage 重跑 + cascade 下游 + patch 回原 mission，不跳转
         await localRerunTodo(missionId, td.id, {
           origin: td.origin,
           scope: td.scope,
           dimensionRef: td.dimensionRef,
           todoTitle: td.title,
           reasonText: td.reasonText,
+          stepId,
         });
         // 局部重跑成功 → mission:rerun-completed 事件触发外层 re-fetch persisted
         return;

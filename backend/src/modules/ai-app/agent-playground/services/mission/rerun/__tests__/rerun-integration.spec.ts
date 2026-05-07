@@ -198,10 +198,34 @@ function buildIntegratedHarness(opts: {
     }),
   };
 
+  // ★ PR-R5b-FULL (2026-05-07): 8 stage real handler 必须 inject 这两个 deps
+  const runtimeBuilderMock = {
+    startSession: jest.fn().mockReturnValue({
+      missionId: "m-int-1",
+      userId: "u1",
+      billing: {},
+      pool: {},
+      leader: {},
+      budgetMultiplier: 1,
+      missionAbort: { signal: { aborted: false } },
+      cleanup: jest.fn(),
+    }),
+    composeMissionContext: jest.fn((ctx) => ({ ...ctx })),
+    writeBackToHydrated: jest.fn((composed, hydrated) => ({
+      ...hydrated,
+      ...composed,
+    })),
+  };
+  const bindingsMock = {
+    buildDeps: jest.fn().mockReturnValue({}),
+    buildCtx: jest.fn(),
+  };
   const dispatcher = new StageRerunDispatcher(
     storeMock as unknown as MissionStore,
     reportEvalMock as unknown as ReportEvaluationService,
     prismaMock as unknown as PrismaService,
+    runtimeBuilderMock as never,
+    bindingsMock as never,
   );
 
   const service = new LocalRerunService(

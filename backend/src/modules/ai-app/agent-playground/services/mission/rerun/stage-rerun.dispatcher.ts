@@ -41,6 +41,25 @@ import type { ReportArtifact } from "@/modules/ai-harness/facade";
 // ★ PR-R5b R2 共识 P0 (architect, 2026-05-07): 集中字面量在
 //   types/leader-verdict.types.ts，避免前后端 contract drift。
 import { LEADER_VERDICT_AUTO_RERUN_RECOVERED } from "../../../types/leader-verdict.types";
+// ★ PR-R5b-FULL (2026-05-07): 8 个 stage handler 装真实现 — 复用原 stage 函数
+import {
+  RerunMissionRuntimeBuilder,
+  type RerunRuntimeSession,
+} from "./rerun-runtime-builder.service";
+import { MissionStageBindingsService } from "../workflow/mission-stage-bindings.service";
+import type { MissionContext } from "../workflow/mission-context";
+import type { MissionDeps } from "../workflow/mission-deps";
+// 原 stage 函数 import — handler 直接调用
+import { runLeaderPlanStage } from "../workflow/stages/s2-leader-plan-mission.stage";
+import { runResearcherDispatchStage } from "../workflow/stages/s3-researcher-collect-findings.stage";
+import { runLeaderAssessResearchStage } from "../workflow/stages/s4-leader-assess-research.stage";
+import { runReconcilerStage } from "../workflow/stages/s5-reconciler-cross-dim-fact-check.stage";
+import { runAnalystStage } from "../workflow/stages/s6-analyst-synthesize-insights.stage";
+import { runWriterOutlineStage } from "../workflow/stages/s7-writer-plan-outline.stage";
+import { runWriterStage } from "../workflow/stages/s8-writer-draft-report.stage";
+import { runSectionQualityEnhancementStage } from "../workflow/stages/s8b-section-quality-enhancement.stage";
+import { runCriticStage } from "../workflow/stages/s9-reviewer-critic-l4.stage";
+import { runLeaderForewordAndSignoffStage } from "../workflow/stages/s10-leader-foreword-and-signoff.stage";
 
 // Re-export 让现有 spec / caller 通过本文件 import 路径继续可用（不破坏既有契约）
 export { LEADER_VERDICT_AUTO_RERUN_RECOVERED };
@@ -62,13 +81,23 @@ export interface StageRerunStubs {
   readonly store: MissionStore;
   readonly reportEvaluation: ReportEvaluationService;
   readonly log: Logger;
+  // ★ PR-R5b-FULL (2026-05-07): 原 stage 函数所需的运行时 deps + ctx 拼装。
+  //   nullable —— legacy s9b/s11 placeholder 路径不依赖；新的 8 个 real handler 必读。
+  readonly runtimeBuilder?: RerunMissionRuntimeBuilder;
+  readonly bindings?: MissionStageBindingsService;
+  readonly session?: RerunRuntimeSession;
 }
 
+/**
+ * Handler 返回值（PR-R5b-FULL）：
+ *   - undefined / void：handler 没产生新的 hydrated ctx 字段（legacy s9b/s11 走这条）
+ *   - HydratedMissionContext：handler 调原 stage 后写回了 ctx 字段，cascade 后续步骤用此最新版
+ */
 export type StageRerunHandler = (
   ctx: HydratedMissionContext,
   emit: EmitFn,
   stubs: StageRerunStubs,
-) => Promise<void>;
+) => Promise<HydratedMissionContext | void>;
 
 export interface RunFromStageArgs {
   ctx: HydratedMissionContext;
@@ -97,6 +126,9 @@ export class StageRerunDispatcher {
     private readonly reportEvaluation: ReportEvaluationService,
     // ★ PR-R5b 切片 (2026-05-07): s11 真 handler 需要 prisma 读 chapter_drafts fallback
     private readonly prisma: PrismaService,
+    // ★ PR-R5b-FULL (2026-05-07): 8 stage real handler 必须的 runtime 装配 + ctx 拼装
+    private readonly runtimeBuilder: RerunMissionRuntimeBuilder,
+    private readonly bindings: MissionStageBindingsService,
   ) {
     // ── v1.1 C1: 构造期注册（避免 switch 漂移）──
     this.handlers.set("s9b-objective-eval", this.handleS9bObjectiveEval);
@@ -105,33 +137,42 @@ export class StageRerunDispatcher {
     //   不走原 stage 的 chapter_content guard（那是 v1 mission 跑期的硬闸），rerun
     //   模式信任已有产物 → 直接 markCompleted 写库。
     this.handlers.set("s11-persist", this.handleS11Persist);
-    // 其它 10 stage handler 暂以 placeholder 注册：throw 时给出明确 PR-R5b 字样指引
-    // PR-R5b 将填入真实 handler（需要 RerunMissionDepsBuilder 把 billing/pool stub 装配齐全）
-    //
-    // ★ 收尾评审 P0-A2 (2026-05-07): s12-self-evolution 不在 cascade 体系（postlude
-    //   异步任务），从此 list 删；同时 s12 不在 PLAYGROUND_PIPELINE.steps 中，留在
-    //   handler registry 会让 stepIndexOf 在运行期 throw "step not in pipeline"。
-    const PR_R5B_PENDING = [
+    // ★ PR-R5b-FULL (2026-05-07): 8 个 stage handler 全部装真实现，复用原 stage 函数。
+    //   每个 handler 走 stubs.runtimeBuilder.composeMissionContext + stubs.bindings.buildDeps()
+    //   → 调原 runStage(composed, deps) → writeBackToHydrated 让 cascade chain 共享产物。
+    this.handlers.set(
       "s2-leader-plan",
+      this.makeStageHandler(runLeaderPlanStage),
+    );
+    this.handlers.set(
       "s3-researcher-collect",
+      this.makeStageHandler(runResearcherDispatchStage),
+    );
+    this.handlers.set(
       "s4-leader-assess",
+      this.makeStageHandler(runLeaderAssessResearchStage),
+    );
+    this.handlers.set(
       "s5-reconciler",
-      "s6-analyst",
+      this.makeStageHandler(runReconcilerStage),
+    );
+    // s6: runAnalystStage 返回 AnalystOutputShape — 自定义 handler 把返回值写到 ctx.analystOutput
+    this.handlers.set("s6-analyst", this.makeS6Handler());
+    this.handlers.set(
       "s7-writer-outline",
-      "s8-writer",
+      this.makeStageHandler(runWriterOutlineStage),
+    );
+    // s8: runWriterStage 签名是 (ctx, deps, analyst, workspaceId) — 自定义 handler 拼装额外参数
+    this.handlers.set("s8-writer", this.makeS8Handler());
+    this.handlers.set(
       "s8b-quality-enhancement",
-      "s9-critic",
+      this.makeStageHandler(runSectionQualityEnhancementStage),
+    );
+    this.handlers.set("s9-critic", this.makeStageHandler(runCriticStage));
+    this.handlers.set(
       "s10-leader-foreword-signoff",
-    ];
-    for (const stepId of PR_R5B_PENDING) {
-      this.handlers.set(stepId, async () => {
-        throw new BadRequestException(
-          `[PR-R5b] ${stepId} rerun handler 待补 — 需要 RerunMissionDepsBuilder ` +
-            `把 mission-runtime stub（billing/pool/leader/abort/credits）装配齐再调原 stage 函数。` +
-            `当前可用 scope：system:s9b（10 维客观评审）。其它请用"开新研究对比"按钮。`,
-        );
-      });
-    }
+      this.makeStageHandler(runLeaderForewordAndSignoffStage),
+    );
     // ★ 收尾评审 P0-A3 (2026-05-07): 构造期 invariant — 把"延迟拒绝"提前到 boot fail-fast。
     //   PLAYGROUND_PIPELINE.steps 中 dag.rerunable=true 的 stage 必须有 handler 注册；
     //   否则 boot 期 throw（防 pipeline 加新 rerunable stage 但忘 register handler）。
@@ -189,7 +230,8 @@ export class StageRerunDispatcher {
   async runFromStageWithCascade(
     args: RunFromStageArgs,
   ): Promise<RunFromStageResult> {
-    const { ctx, fromStepId, emit } = args;
+    const { fromStepId, emit } = args;
+    let ctx = args.ctx; // mutable across cascade — handler 写产物后 cascade 后续步骤共享
 
     // ── 1. 入参校验 ──
     const fromStep = PLAYGROUND_PIPELINE.steps.find((s) => s.id === fromStepId);
@@ -213,74 +255,95 @@ export class StageRerunDispatcher {
     // ── 2. reset 整链 dbWrites + resetFields ──
     await this.resetFieldsForCascade(ctx.missionId, ctx.userId, cascadeChain);
 
-    // ── 3. 顺序执行 best-effort partial ──
+    // ── 3. 起 rerun runtime session（billing/pool/leader/missionAbort），cascade 内共享 ──
+    //   ★ PR-R5b-FULL: 必须 try/finally 保证 cleanup 执行（否则 abortRegistry 残留）
+    const session = this.runtimeBuilder.startSession(ctx);
     const stubs: StageRerunStubs = {
       store: this.store,
       reportEvaluation: this.reportEvaluation,
       log: this.log,
+      runtimeBuilder: this.runtimeBuilder,
+      bindings: this.bindings,
+      session,
     };
-    const completed: string[] = [];
-    for (let i = 0; i < cascadeChain.length; i++) {
-      const stepId = cascadeChain[i];
 
-      await emit({
-        type: "agent-playground.rerun:stage-started",
-        missionId: ctx.missionId,
-        userId: ctx.userId,
-        payload: {
-          stepId,
-          fromStepId,
-          cascadeChain,
-          completedSoFar: [...completed],
-        },
-      }).catch(() => {});
+    try {
+      const completed: string[] = [];
+      for (let i = 0; i < cascadeChain.length; i++) {
+        const stepId = cascadeChain[i];
 
-      const handler = this.handlers.get(stepId);
-      if (!handler) {
-        const errorMessage = `stage ${stepId} 未注册 rerun handler`;
-        this.log.error(`[cascade ${ctx.missionId}] ${errorMessage}`);
-        const remaining = cascadeChain.slice(i);
-        await this.emitCascadeAborted(emit, {
-          ctx,
-          stepId,
-          completed,
-          remaining,
-          errorMessage,
-        });
-        return { completed, abortedAt: stepId, errorMessage, remaining };
+        await emit({
+          type: "agent-playground.rerun:stage-started",
+          missionId: ctx.missionId,
+          userId: ctx.userId,
+          payload: {
+            stepId,
+            fromStepId,
+            cascadeChain,
+            completedSoFar: [...completed],
+          },
+        }).catch(() => {});
+
+        const handler = this.handlers.get(stepId);
+        if (!handler) {
+          const errorMessage = `stage ${stepId} 未注册 rerun handler`;
+          this.log.error(`[cascade ${ctx.missionId}] ${errorMessage}`);
+          const remaining = cascadeChain.slice(i);
+          await this.emitCascadeAborted(emit, {
+            ctx,
+            stepId,
+            completed,
+            remaining,
+            errorMessage,
+          });
+          return { completed, abortedAt: stepId, errorMessage, remaining };
+        }
+
+        try {
+          // ★ PR-R5b-FULL: handler 可返回更新后的 hydrated ctx — cascade 串起来
+          const updated = await handler(ctx, emit, stubs);
+          if (updated) {
+            ctx = updated;
+          }
+          completed.push(stepId);
+          // 更新 last_completed_stage 让前端看到进度
+          // ★ 收尾评审第二轮 P0-S2-完成 (2026-05-07): 传 userId 走严格隔离路径
+          await this.store
+            .markIntermediateState(
+              ctx.missionId,
+              {
+                lastCompletedStage: this.stepIndexOf(stepId),
+              },
+              ctx.userId,
+            )
+            .catch(() => {});
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          this.log.warn(
+            `[cascade ${ctx.missionId}] aborted at ${stepId}: ${errorMessage}`,
+          );
+          const remaining = cascadeChain.slice(i + 1);
+          await this.emitCascadeAborted(emit, {
+            ctx,
+            stepId,
+            completed,
+            remaining,
+            errorMessage,
+          });
+          return { completed, abortedAt: stepId, errorMessage, remaining };
+        }
       }
-
+      return { completed };
+    } finally {
+      // ★ PR-R5b-FULL: 一定要 cleanup（abortRegistry.unregister）
       try {
-        await handler(ctx, emit, stubs);
-        completed.push(stepId);
-        // 更新 last_completed_stage 让前端看到进度
-        // ★ 收尾评审第二轮 P0-S2-完成 (2026-05-07): 传 userId 走严格隔离路径
-        await this.store
-          .markIntermediateState(
-            ctx.missionId,
-            {
-              lastCompletedStage: this.stepIndexOf(stepId),
-            },
-            ctx.userId,
-          )
-          .catch(() => {});
+        session.cleanup();
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
         this.log.warn(
-          `[cascade ${ctx.missionId}] aborted at ${stepId}: ${errorMessage}`,
+          `[cascade ${ctx.missionId}] session.cleanup failed: ${err instanceof Error ? err.message : String(err)}`,
         );
-        const remaining = cascadeChain.slice(i + 1);
-        await this.emitCascadeAborted(emit, {
-          ctx,
-          stepId,
-          completed,
-          remaining,
-          errorMessage,
-        });
-        return { completed, abortedAt: stepId, errorMessage, remaining };
       }
     }
-    return { completed };
   }
 
   // ────────────────────────── helpers ──────────────────────────
@@ -338,6 +401,106 @@ export class StageRerunDispatcher {
   }
 
   // ────────────────────────── handlers ──────────────────────────
+
+  /**
+   * ★ PR-R5b-FULL (2026-05-07): 真 stage handler 工厂
+   *
+   * 给 8 个原生 stage 函数（s2/s3/s4/s5/s6/s7/s8/s8b/s9/s10）通用包装：
+   *   1. composeMissionContext: hydrated ctx + session 合成完整 MissionContext
+   *   2. bindings.buildDeps(): 注入 leader/writer/reviewer/... 完整 DI 图
+   *   3. 调原 runStage(composed, deps) — 与 mission 跑期完全相同语义
+   *   4. writeBackToHydrated: 把新写的 plan/researcherResults/... 拷回 hydrated
+   *      让 cascade 后续 step 看到上游产物
+   *
+   * stage 函数本身的 emit / lifecycle / narrative 由 runWithStageInstrumentation
+   * wrapper 自动产生（与 mission 跑期一致）—— 用户在前端看到的事件流和初次跑无差别。
+   *
+   * stage throw → cascade abort（best-effort partial：上游已成 stage 不丢）。
+   */
+  private makeStageHandler(
+    runStage: (ctx: MissionContext, deps: MissionDeps) => Promise<void>,
+  ): StageRerunHandler {
+    return async (ctx, _emit, stubs): Promise<HydratedMissionContext> => {
+      if (!stubs.runtimeBuilder || !stubs.bindings || !stubs.session) {
+        throw new BadRequestException(
+          "[PR-R5b-FULL] stage handler 缺 runtimeBuilder/bindings/session — " +
+            "本路径需经 runFromStageWithCascade 调用，不能走 legacy dispatch()",
+        );
+      }
+      const composed = stubs.runtimeBuilder.composeMissionContext(
+        ctx,
+        stubs.session,
+      );
+      const deps = stubs.bindings.buildDeps();
+      await runStage(composed, deps);
+      // 把 stage 写到 composed 的产物（plan/researcherResults/...）拷回 hydrated
+      return stubs.runtimeBuilder.writeBackToHydrated(composed, ctx);
+    };
+  }
+
+  /**
+   * S6 自定义 handler：runAnalystStage 返回 AnalystOutputShape，需要把返回值
+   * 写到 composed.analystOutput（与 pipeline-dispatcher.buildS6AnalystHooks 行为一致）。
+   */
+  private makeS6Handler(): StageRerunHandler {
+    return async (ctx, _emit, stubs): Promise<HydratedMissionContext> => {
+      if (!stubs.runtimeBuilder || !stubs.bindings || !stubs.session) {
+        throw new BadRequestException(
+          "[PR-R5b-FULL] s6 handler 缺 runtimeBuilder/bindings/session",
+        );
+      }
+      const composed = stubs.runtimeBuilder.composeMissionContext(
+        ctx,
+        stubs.session,
+      );
+      const deps = stubs.bindings.buildDeps();
+      const out = await runAnalystStage(composed, deps);
+      composed.analystOutput = out;
+      return stubs.runtimeBuilder.writeBackToHydrated(composed, ctx);
+    };
+  }
+
+  /**
+   * S8 自定义 handler：runWriterStage 签名是 (ctx, deps, analyst, workspaceId)。
+   * - analyst 从 ctx.analystOutput（s6 已 cascade 上游写入；hydrated 也可能有）
+   * - workspaceId 暂走 undefined（rerun 路径无 workspaceId 上下文 — 与 mission 跑期一致）
+   */
+  private makeS8Handler(): StageRerunHandler {
+    return async (ctx, _emit, stubs): Promise<HydratedMissionContext> => {
+      if (!stubs.runtimeBuilder || !stubs.bindings || !stubs.session) {
+        throw new BadRequestException(
+          "[PR-R5b-FULL] s8 handler 缺 runtimeBuilder/bindings/session",
+        );
+      }
+      const composed = stubs.runtimeBuilder.composeMissionContext(
+        ctx,
+        stubs.session,
+      );
+      const deps = stubs.bindings.buildDeps();
+      const analystRaw = composed.analystOutput as
+        | {
+            insights?: unknown[];
+            themeSummary?: string;
+            contradictions?: unknown[];
+          }
+        | undefined;
+      const analyst = analystRaw ?? {
+        insights: [],
+        themeSummary: composed.plan?.themeSummary ?? "",
+      };
+      await runWriterStage(
+        composed,
+        deps,
+        {
+          insights: analyst.insights ?? [],
+          themeSummary: analyst.themeSummary ?? "",
+          contradictions: analyst.contradictions,
+        },
+        undefined,
+      );
+      return stubs.runtimeBuilder.writeBackToHydrated(composed, ctx);
+    };
+  }
 
   /**
    * S9B — 10 维客观评审局部重跑（v1 真实实现）
