@@ -80,6 +80,10 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
     invoker: {
       tickCost: jest.fn().mockResolvedValue(undefined),
     },
+    // ★ PR-R4 (2026-05-07): MissionStore 注入
+    store: {
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+    },
     ...overrides,
   } as unknown as MissionDeps;
 }
@@ -206,6 +210,48 @@ describe("runWriterOutlineStage (S7)", () => {
     });
     await runWriterOutlineStage(ctx, deps);
     expect(ctx.outlinePlan?.chapterOutlines[0].subheadings).toEqual([]);
+  });
+
+  // ★ PR-R4 (2026-05-07): stage 主动持久化反向证据
+  describe("PR-R4 markIntermediateState", () => {
+    it("happy path: persists outlinePlan to mission row after success", async () => {
+      const ctx = makeCtx("thorough");
+      const deps = makeDeps();
+      await runWriterOutlineStage(ctx, deps);
+      expect(deps.store.markIntermediateState).toHaveBeenCalledWith(
+        "m7",
+        expect.objectContaining({
+          outlinePlan: expect.objectContaining({
+            chapterOutlines: expect.any(Array),
+          }),
+        }),
+      );
+    });
+
+    it("skip path: standard auditLayers 不持久化（不调 markIntermediateState）", async () => {
+      const ctx = makeCtx("standard");
+      const deps = makeDeps();
+      await runWriterOutlineStage(ctx, deps);
+      expect(deps.store.markIntermediateState).not.toHaveBeenCalled();
+    });
+
+    it("empty chapterOutlines 不持久化（避免覆盖前一轮 outline）", async () => {
+      const ctx = makeCtx("thorough");
+      const deps = makeDeps();
+      (deps.writer.planMissionOutline as jest.Mock).mockResolvedValue({
+        state: "completed",
+        output: {
+          chapterOutlines: [],
+          targetWordsPerChapter: {},
+          factAllocation: {},
+        },
+        events: [],
+        wallTimeMs: 500,
+        iterations: 1,
+      });
+      await runWriterOutlineStage(ctx, deps);
+      expect(deps.store.markIntermediateState).not.toHaveBeenCalled();
+    });
   });
 
   it("reconciliationReport factTable passed to planMissionOutline", async () => {

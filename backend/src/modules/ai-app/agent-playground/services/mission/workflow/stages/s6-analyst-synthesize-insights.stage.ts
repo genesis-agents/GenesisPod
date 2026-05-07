@@ -207,6 +207,12 @@ export async function runAnalystStage(
     };
 
     ctx.analystOutput = fallback;
+    // ★ PR-R4 (2026-05-07): stage 主动持久化中间产物（analystOutput 落盘 mission 行）
+    //   让 ctx-hydrator 在重跑时永远从 DB 读到最新中间状态，不依赖 S11。
+    //   失败不阻塞主流程（markIntermediateState 内部 catch + log.warn）。
+    await deps.store.markIntermediateState(missionId, {
+      analystOutput: fallback,
+    });
     return fallback;
   }
   const analyst = analystRes.output as AnalystOutputShape;
@@ -219,5 +225,9 @@ export async function runAnalystStage(
     agentId: "analyst",
   });
   ctx.analystOutput = analyst;
+  // ★ PR-R4 (2026-05-07): stage 主动持久化 — 写 analystOutput
+  await deps.store.markIntermediateState(missionId, {
+    analystOutput: analyst,
+  });
   return analyst;
 }

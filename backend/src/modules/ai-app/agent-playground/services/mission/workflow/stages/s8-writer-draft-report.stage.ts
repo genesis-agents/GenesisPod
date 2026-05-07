@@ -755,6 +755,16 @@ export async function runWriterStage(
   ctx.verifierVerdicts = verifierVerdicts;
   ctx.trajectoryStored = indexed;
 
+  // ★ PR-R4 (2026-05-07): stage 主动持久化 reportArtifact 到 mission 行，
+  //   让 S9/S9b/S10/S11 重跑路径在 cdHydrate 时读到 S8 已生成的 v2 artifact，
+  //   不必从 S6 全量回跑。reportArtifact 缺失时不写（避免覆盖前一轮成功值）。
+  if (reportArtifact) {
+    await deps.store.markIntermediateState(missionId, {
+      reportFull: reportArtifact,
+      reportArtifactVersion: 2,
+    });
+  }
+
   // ★ 2026-04-30: reportArtifact 装配完成后 emit 一个 light 事件让 socket store 知道
   //   v2 artifact 已就绪。前端不接收 full artifact（避免 256K event cap），而是收到此事件
   //   后异步 re-fetch getMissionDetail 拿持久化好的 reportFull。

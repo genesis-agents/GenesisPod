@@ -236,6 +236,10 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
     credits: {
       consumeCredits: jest.fn().mockResolvedValue(undefined),
     },
+    // ★ PR-R4 (2026-05-07): MissionStore 注入，stage 主动持久化中间产物
+    store: {
+      markIntermediateState: jest.fn().mockResolvedValue(undefined),
+    },
     ...overrides,
   } as unknown as MissionDeps;
 }
@@ -379,6 +383,32 @@ describe("runWriterStage (S8)", () => {
     const deps = makeDeps();
     await runWriterStage(ctx, deps, analyst, undefined);
     expect(deps.credits.consumeCredits).not.toHaveBeenCalled();
+  });
+
+  // ★ PR-R4 (2026-05-07): stage 主动持久化反向证据
+  describe("PR-R4 markIntermediateState", () => {
+    it("happy path: persists reportArtifact + reportArtifactVersion=2 after assembly", async () => {
+      const ctx = makeCtx();
+      const deps = makeDeps();
+      await runWriterStage(ctx, deps, analyst, undefined);
+      expect(deps.store.markIntermediateState).toHaveBeenCalledWith(
+        "m8",
+        expect.objectContaining({
+          reportFull: expect.any(Object),
+          reportArtifactVersion: 2,
+        }),
+      );
+    });
+
+    it("reportAssembler 失败 → reportArtifact undefined → 不持久化（不覆盖前轮）", async () => {
+      const ctx = makeCtx();
+      const deps = makeDeps();
+      (deps.reportAssembler.assemble as jest.Mock).mockImplementation(() => {
+        throw new Error("assembler failed");
+      });
+      await runWriterStage(ctx, deps, analyst, undefined);
+      expect(deps.store.markIntermediateState).not.toHaveBeenCalled();
+    });
   });
 
   it("outlinePlan in ctx injected into writer invoke call", async () => {
