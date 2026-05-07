@@ -19,7 +19,7 @@ import {
   pickPreferredModel,
   userHasBYOK,
 } from '@/hooks';
-import { modelLabelSuffix } from '@/components/common/ModelBadges';
+import { ModelSelect } from '@/components/common/ModelSelect';
 import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
 import ClientDate from '@/components/common/ClientDate';
 
@@ -794,17 +794,12 @@ export default function WorkspacePage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="flex flex-col gap-2 text-sm">
                     <span className="font-medium text-gray-900">推理模型</span>
-                    <select
+                    <ModelSelect
                       value={model}
-                      onChange={(event) => setModel(event.target.value)}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
-                    >
-                      {aiModels.map((m) => (
-                        <option key={m.id} value={m.modelId}>
-                          {m.name} ({m.provider}){modelLabelSuffix(m)}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setModel}
+                      models={aiModels}
+                      size="md"
+                    />
                   </label>
                   <label className="flex flex-col gap-2 text-sm">
                     <span className="font-medium text-gray-900">

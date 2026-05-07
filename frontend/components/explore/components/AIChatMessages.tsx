@@ -9,12 +9,13 @@ import { Base64Image } from '../resources/Base64Image';
 import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
 import { useTranslation } from '@/lib/i18n/i18n-context';
 import { ClientDate } from '@/components/common/ClientDate';
+import type { AIModel } from '@/hooks';
 
 interface AIChatMessagesProps {
   aiMessages: AIMessage[];
   isStreaming: boolean;
   aiModel: string;
-  aiModels: Array<Record<string, unknown>>;
+  aiModels: AIModel[];
   resourceId?: string;
   onContextMenu?: (e: React.MouseEvent, text: string) => void;
   onAskAI?: (text: string) => void;

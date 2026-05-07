@@ -1,6 +1,6 @@
 import type { AIModel, AspectRatio, TemplateLayout } from '../types';
 import { ASPECT_RATIOS, IMAGE_STYLES } from '../constants';
-import { modelLabelSuffix } from '@/components/common/ModelBadges';
+import { ModelSelect } from '@/components/common/ModelSelect';
 
 interface ControlBarProps {
   models: AIModel[];
@@ -43,19 +43,15 @@ export function ControlBar({
         {isLoadingModels ? (
           <div className="h-7 w-20 animate-pulse rounded-md bg-gray-100" />
         ) : models.length > 0 ? (
-          <select
-            value={selectedModelId}
-            onChange={(e) => onModelChange(e.target.value)}
-            className="h-7 rounded-md border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 transition-colors hover:border-gray-300 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-100"
-            disabled={isGenerating}
-          >
-            {models.map((model) => (
-              <option key={model.id} value={model.id}>
-                {model.name}
-                {modelLabelSuffix(model)}
-              </option>
-            ))}
-          </select>
+          <div className="min-w-[180px]">
+            <ModelSelect
+              value={selectedModelId}
+              onChange={onModelChange}
+              models={models}
+              valueKey="id"
+              disabled={isGenerating}
+            />
+          </div>
         ) : (
           <span className="text-xs text-amber-600">N/A</span>
         )}

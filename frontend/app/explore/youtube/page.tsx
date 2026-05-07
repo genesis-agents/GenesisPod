@@ -23,7 +23,7 @@ import KeyMomentsPanel, {
 } from '@/components/explore/youtube/KeyMomentsPanel';
 import { SubtitleExportButton } from '@/components/explore/youtube';
 import { useAIModels, pickPreferredModel, userHasBYOK } from '@/hooks';
-import { modelLabelSuffix } from '@/components/common/ModelBadges';
+import { ModelSelect } from '@/components/common/ModelSelect';
 import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -1653,19 +1653,14 @@ function YouTubeTLDWContent() {
                       <span className="text-xs font-medium text-gray-500">
                         AI 模型:
                       </span>
-                      <select
-                        value={aiModel}
-                        onChange={(e) => setAiModel(e.target.value)}
-                        disabled={isStreaming}
-                        className={`cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium shadow-sm transition-all hover:border-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 ${isStreaming ? 'cursor-not-allowed opacity-50' : ''}`}
-                      >
-                        {aiModels.map((model) => (
-                          <option key={model.id} value={model.modelId}>
-                            {model.name} ({model.provider})
-                            {modelLabelSuffix(model, t)}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="min-w-[200px] flex-1">
+                        <ModelSelect
+                          value={aiModel}
+                          onChange={setAiModel}
+                          models={aiModels}
+                          disabled={isStreaming}
+                        />
+                      </div>
                     </div>
                     <div className="flex gap-2">
                       <input

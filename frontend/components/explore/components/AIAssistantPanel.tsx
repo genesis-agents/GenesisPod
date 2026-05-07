@@ -11,6 +11,7 @@ import NotesList from '@/components/library/resources/NotesList';
 import CommentsList from '@/components/common/comments/CommentsList';
 import SimilarResourcesList from '@/components/library/resources/SimilarResourcesList';
 import AIModelSelector from './AIModelSelector';
+import type { AIModel } from '@/hooks';
 import QuickActions from './QuickActions';
 import AISummaryCard from './AISummaryCard';
 import AIInsightsCard from './AIInsightsCard';
@@ -27,7 +28,7 @@ interface AIAssistantPanelProps {
   setAiRightTab: (tab: 'assistant' | 'notes' | 'comments' | 'similar') => void;
   aiModel: string;
   setAiModel: (model: string) => void;
-  aiModels: Array<Record<string, unknown>>;
+  aiModels: AIModel[];
   aiLoading: boolean;
   isStreaming: boolean;
   aiSummary: string | null;

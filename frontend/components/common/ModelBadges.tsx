@@ -13,6 +13,7 @@
  */
 'use client';
 
+import { KeyRound, Layers } from 'lucide-react';
 import type { AIModel } from '@/hooks';
 
 interface BadgeShape {
@@ -24,12 +25,14 @@ export function ModelBadges({ model }: { model: BadgeShape | AIModel }) {
   return (
     <>
       {(model as BadgeShape).isMixture && (
-        <span className="shrink-0 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
+        <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-gradient-to-r from-violet-500 to-fuchsia-500 px-1 py-0.5 text-[10px] text-white">
+          <Layers size={10} aria-hidden />
           Multi
         </span>
       )}
       {(model as BadgeShape).isUserKey && (
-        <span className="shrink-0 rounded bg-gradient-to-r from-emerald-500 to-teal-500 px-1 py-0.5 text-[10px] text-white">
+        <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-gradient-to-r from-emerald-500 to-teal-500 px-1 py-0.5 text-[10px] text-white">
+          <KeyRound size={10} aria-hidden />
           My Key
         </span>
       )}
