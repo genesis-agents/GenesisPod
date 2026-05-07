@@ -380,25 +380,32 @@ module.exports = {
               },
 
               // ════════════════════════════════════════════════════════════
-              // ★ SECTION 10 (2026-05-01 PR-X-N): ai-harness 内部路径锁定
+              // ★ SECTION 10 (2026-05-06 v1.4 报告装配重构 + MECE 11 顶层聚合):
               //   ai-app 必须通过 ai-harness/facade 访问 harness 能力，不得穿透。
               //   每个 export 都已通过 facade 暴露，ai-app 没有理由绕开。
+              //
+              //   v1.2 旧路径（kernel/execution/governance/process/protocol/runtime）已删，
+              //   现行 10 个顶层聚合（不含 facade 自身）按 standards/16 写入。
               // ════════════════════════════════════════════════════════════
               {
                 group: [
-                  // 7 大聚合内部路径：kernel / execution / governance / memory /
-                  // process / protocol / runtime — 全部走 facade
-                  "**/ai-harness/kernel/**",
-                  "**/ai-harness/execution/**",
-                  "**/ai-harness/governance/**",
+                  "**/ai-harness/agents/**",
+                  "**/ai-harness/runner/**",
+                  "**/ai-harness/teams/**",
+                  "**/ai-harness/handoffs/**",
                   "**/ai-harness/memory/**",
-                  "**/ai-harness/process/**",
-                  "**/ai-harness/protocol/**",
-                  "**/ai-harness/runtime/**",
+                  "**/ai-harness/protocols/**",
+                  "**/ai-harness/evaluation/**",
+                  "**/ai-harness/guardrails/**",
+                  "**/ai-harness/tracing/**",
+                  "**/ai-harness/lifecycle/**",
                 ],
                 message:
                   "Access AI Harness internals only through 'ai-harness/facade'. " +
-                  "If a symbol is missing from facade/index.ts, add it there first.",
+                  "If a symbol is missing from facade/index.ts, add it there first. " +
+                  "Includes new symbols: ReportSegments / ReportTemplate / SlotBodySource / " +
+                  "MULTI_DIMENSION_REPORT_TEMPLATE / SINGLE_AGENT_FREEFORM_TEMPLATE / " +
+                  "expectedSectionCount / StructuralReportAssembler.",
               },
             ],
           },

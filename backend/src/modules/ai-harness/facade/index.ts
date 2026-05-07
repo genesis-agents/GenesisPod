@@ -337,6 +337,21 @@ export {
   lengthTargetFor,
 } from "../evaluation/critique/report-artifact/report-artifact-assembler.service";
 
+// ★ PR-A0 (2026-05-06 v1.4 报告装配重构):
+//   ReportSegments / ReportTemplate Slot 抽象 + 默认模板 + 不变量辅助函数
+//   PR-A2 实现 StructuralReportAssembler 时复用本套 DTO
+export {
+  MULTI_DIMENSION_REPORT_TEMPLATE,
+  SINGLE_AGENT_FREEFORM_TEMPLATE,
+  expectedSectionCount,
+} from "../evaluation/critique/report-artifact/report-segments.dto";
+export type {
+  ReportSegments,
+  ReportTemplate,
+  ReportTemplateSlot,
+  SlotBodySource,
+} from "../evaluation/critique/report-artifact/report-segments.dto";
+
 // ★ 2026-05-01: FailureLearnerService 从 ai-app/{app} 上提
 // ★ 2026-05-02 (W1 MECE): governance/learning → lifecycle/learning（失败学习是生命周期闭环）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费

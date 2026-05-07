@@ -43,7 +43,15 @@ const InitialRisk = z.object({
 
 const Dimension = z.object({
   id: z.string(),
-  name: z.string(),
+  // ★ PR-A0 (2026-05-06 v1.4 安全 B9): dim.name 入装前防 CRLF / H2 注入：
+  //   - 长度 ≤200（防超长撑爆）
+  //   - 禁 \r / \n（StructuralReportAssembler 会 prepend `## {name}`，多行注入会插入新章节）
+  //   下游 sanitizePlan 仍会再 strip + slice 兜底，但 schema 层先拒不合规输入
+  name: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[^\r\n]+$/, "dim.name 不得含换行（防 H2 章节注入）"),
   rationale: z.string(),
   toolHint: z.object({
     categories: z.array(z.string()).min(1),

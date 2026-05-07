@@ -9706,3 +9706,40 @@ model AIProvider {
   @@index([ownerUserId])
   @@map("ai_providers")
 }
+
+/// PR-A0 (2026-05-06 v1.4 报告装配重构)
+/// per-workspace feature flag grant —— 支持 admin RBAC 防 IDOR + 审计可溯源
+/// 见 docs/architecture/ai-harness/evaluation/report-assembly-invariant-redesign.md §5.2
+model FeatureFlagWorkspaceGrant {
+  id          String    @id @default(uuid()) @db.Uuid
+  flagKey     String    @map("flag_key")
+  workspaceId String    @map("workspace_id") @db.Uuid
+  enabled     Boolean   @default(true)
+  grantedAt   DateTime  @default(now()) @map("granted_at")
+  /// admin 用户 id；NOT NULL 强制每条 grant 都有责任人
+  grantedBy   String    @map("granted_by") @db.Uuid
+  expiresAt   DateTime? @map("expires_at")
+  reason      String?
+
+  @@unique([flagKey, workspaceId])
+  @@index([flagKey, workspaceId, enabled])
+  @@index([expiresAt])
+  @@map("feature_flag_workspace_grant")
+}
+
+/// PR-A0 配套 audit log —— grant/revoke/update 全程可溯源
+model FeatureFlagAuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  flagKey      String   @map("flag_key")
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  /// 'grant' | 'revoke' | 'update'（DB CHECK 约束）
+  action       String
+  actorUserId  String   @map("actor_user_id") @db.Uuid
+  prevEnabled  Boolean? @map("prev_enabled")
+  nextEnabled  Boolean? @map("next_enabled")
+  reason       String?
+  occurredAt   DateTime @default(now()) @map("occurred_at")
+
+  @@index([flagKey, workspaceId, occurredAt(sort: Desc)])
+  @@map("feature_flag_audit_log")
+}

@@ -87,6 +87,9 @@ const Output = z.object({
   crossDimAnalysis: z.string().optional(),
   riskAssessment: z.string().optional(),
   strategicRecommendations: z.string().optional(),
+  // ★ PR-A0 (2026-05-06 Report Assembly Invariant Redesign v1.4):
+  // 报告 segments 5/5 闭环 — 让 StructuralReportAssembler 不必依赖 leader foreword 出 conclusion 段
+  conclusion: z.string().optional(),
 });
 
 @DefineAgent({
@@ -148,11 +151,12 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       `- ★ MANDATORY: 必须在 contradictions 字段中列出 Reconciler 识别的所有 conflicts，`,
       `  并对每个冲突写出最终采用的立场（preferred-one / kept-both 双方并列）。`,
       `  不能假装没看到冲突。`,
-      `- ★ MANDATORY 报告章节（4 字段必须全部输出，不能省略）：`,
+      `- ★ MANDATORY 报告章节（5 字段必须全部输出，不能省略）：`,
       `  preface:                  200-300 字引言，交代研究背景和本报告的意义`,
       `  crossDimAnalysis:         400-600 字跨维度综合分析，找出各 dim 之间的因果链 / 相互强化 / 张力`,
       `  riskAssessment:           400-600 字风险评估，按"高/中/低"三级列主要风险 + 每条附应对建议`,
       `  strategicRecommendations: 400-600 字战略建议，按受众（决策者 / 执行者 / 研究者）分组，每组 ≥ 2 条可行建议`,
+      `  conclusion:               150-250 字结论，提炼 3 个最重要的洞察 + 报告整体定调`,
       ...conflictBlock,
       ...reportBlock,
       ...termBlock,
@@ -164,6 +168,7 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       `  "crossDimAnalysis": "<400-600 字跨维度综合分析>",`,
       `  "riskAssessment": "<400-600 字风险评估，高/中/低分级 + 应对建议>",`,
       `  "strategicRecommendations": "<400-600 字战略建议，按受众分组>",`,
+      `  "conclusion": "<150-250 字结论，3 个核心洞察 + 整体定调>",`,
       `  "insights": [`,
       `    {`,
       `      "headline": "<short insight title>",`,
@@ -180,7 +185,7 @@ export class AnalystAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `Use field names exactly as shown.`,
       `confidence is a number between 0 and 1.`,
-      `★ preface / crossDimAnalysis / riskAssessment / strategicRecommendations 四个字段是报告章节骨架，`,
+      `★ preface / crossDimAnalysis / riskAssessment / strategicRecommendations / conclusion 五个字段是报告章节骨架，`,
       `  必须输出真实内容（非占位符）。缺失任何一项将导致报告章节空白，质量评分自动 -20。`,
       ...(input.retryHint
         ? ["", `## ★ Retry 提示（上一次失败原因）`, input.retryHint, ""]

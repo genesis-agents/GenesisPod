@@ -153,6 +153,14 @@ export interface WriterPhaseCtx {
   reportArtifact?: ReportArtifact;
   reviewScore?: number;
   verifierVerdicts?: unknown[];
+
+  /**
+   * ★ PR-A0 (2026-05-06 v1.4 NB-2): s8-pre 写入，s8-final / S8B 读取（拆 stage 后 ctx 共享键）。
+   * 取代旧 v1 路径（writer LLM 一次产出 fullMarkdown）；s8-pre 从 analystOutput / reconciliationReport /
+   * researcherResults / criticVerdict 等已就绪 stage 产物中采集，0 LLM call，emit report:preview 事件。
+   * 类型从 ai-harness/facade 导出（StructuralReportAssembler 的 input 类型）。
+   */
+  reportSegments?: import("@/modules/ai-harness/facade").ReportSegments;
 }
 
 // ─── Phase 5: Quality（s8b section enhancement + s9b objective eval）
