@@ -401,4 +401,109 @@ describe("runWriterStage (S8)", () => {
     const invokeArg = (deps.invoker.invoke as jest.Mock).mock.calls[0][1];
     expect(invokeArg.outlinePlan).toBeDefined();
   });
+
+  // ── v1.5 收尾（测试评审 P0-T2）：structural shadow path 三 spec ─────
+  describe("structural shadow path (v1.4 报告装配重构)", () => {
+    const ORIGINAL_FLAG = process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
+    afterEach(() => {
+      if (ORIGINAL_FLAG === undefined) {
+        delete process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
+      } else {
+        process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER = ORIGINAL_FLAG;
+      }
+    });
+
+    it("flag=false → 完全跳过 structural，保留 legacy reportArtifact", async () => {
+      process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER = "false";
+      const ctx = makeCtx();
+      const deps = makeDeps();
+      await runWriterStage(ctx, deps, analyst, undefined);
+      // legacy mock 返回的 sections 仅 1 段（id: 'd1' / title: 'Market'），
+      // 若 structural 跑过会被替换为多段。
+      expect(ctx.reportArtifact?.sections).toHaveLength(1);
+      expect(ctx.reportArtifact?.sections[0].title).toBe("Market");
+    });
+
+    it("flag=on (默认) → structural 替换 sections 但保留 legacy quality 信号", async () => {
+      delete process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
+      const ctx = makeCtx({
+        plan: {
+          themeSummary: "AI 行业",
+          dimensions: [
+            {
+              id: "d1",
+              name: "市场",
+              rationale: "...",
+              goals: {
+                successCriteria: [],
+                qualityBar: {
+                  minSources: 0,
+                  minCoverage: 0,
+                  hardConstraints: [],
+                },
+                deliverables: [],
+              },
+              initialRisks: [],
+            } as never,
+            {
+              id: "d2",
+              name: "技术",
+              rationale: "...",
+              goals: {
+                successCriteria: [],
+                qualityBar: {
+                  minSources: 0,
+                  minCoverage: 0,
+                  hardConstraints: [],
+                },
+                deliverables: [],
+              },
+              initialRisks: [],
+            } as never,
+          ],
+          goals: {
+            successCriteria: [],
+            qualityBar: { minSources: 0, minCoverage: 0, hardConstraints: [] },
+            deliverables: [],
+          },
+          initialRisks: [],
+        },
+      });
+      const deps = makeDeps();
+      await runWriterStage(ctx, deps, analyst, undefined);
+      // structural 拼装后 sections 数 ≥ 2 dim + fixed slots > legacy 的 1 段
+      expect(ctx.reportArtifact?.sections.length).toBeGreaterThan(1);
+      // structural metadata 含 templateId
+      expect(ctx.reportArtifact?.metadata.templateId).toBe(
+        "multi-dimension-report@v1",
+      );
+      // legacy quality 信号保留（quality 字段未被 structural 覆盖）
+      expect(ctx.reportArtifact?.quality.qualityTrace).toBeDefined();
+    });
+
+    it("structural assembler throw → 自动降级到 legacy（不 throw 不污染 ctx）", async () => {
+      delete process.env.PLAYGROUND_USE_STRUCTURAL_ASSEMBLER;
+      const ctx = makeCtx();
+      const deps = makeDeps();
+      // 制造 segment-extractor 输入异常：plan.dimensions 为非数组让 sanitizePlan 内 .map 抛错
+      // 直接 mock plan.dimensions 为非法 → analyst undefined 时 extractor 仍 OK
+      // 改为 mock 内部 assemble 抛异常更直接
+      jest.spyOn(console, "warn").mockImplementation(() => {});
+      // 触发 structural 路径异常：plan.dimensions[].name 含恶意非 string 类型
+      ctx.plan = {
+        ...ctx.plan!,
+        dimensions: [{ id: "x", name: null as never, rationale: "" } as never],
+      };
+      await runWriterStage(ctx, deps, analyst, undefined);
+      // 即使 structural 异常，legacy reportArtifact 仍存在
+      expect(ctx.reportArtifact).toBeDefined();
+      // log.warn 含 'structural assembler' 关键字
+      const warnCalls = (deps.log.warn as jest.Mock).mock.calls.map((c) =>
+        String(c[0]),
+      );
+      expect(warnCalls.some((m) => m.includes("structural assembler"))).toBe(
+        true,
+      );
+    });
+  });
 });

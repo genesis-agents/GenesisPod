@@ -54,6 +54,10 @@ describe("MarkdownSanitizer (18 fixture)", () => {
       // 末尾必有 1 行 ```（sanitizer 补关；开场行是 ```mermaid 不是裸 ```）
       const lines = r.body.split("\n");
       expect(lines[lines.length - 1]).toBe("```");
+      // ★ v1.5 收尾（测试评审 P0-T1）：被吞内容补关后必须可见
+      // mission eafceb32 真实 case：dim 7 mermaid 孤儿 fence 之后的"## 维度二"
+      // 在补关之前会被识别为代码块内容，永远不出现在 sections。补关后应当还原。
+      expect(r.body).toContain("## 维度二");
     });
   });
 

@@ -188,6 +188,24 @@ export interface ArtifactMetadata {
    * ★ 沉淀消费 v3 (2026-04-29): 10 维 EVALUATOR 模型独立评分 + 模型对比
    */
   pipelineEvaluation?: import("../../../facade").EvaluationResult;
+  /**
+   * ★ PR-A2 + v1.5 收尾 (2026-05-06 v1.4 报告装配重构):
+   * StructuralReportAssembler 拼装时使用的 ReportTemplate.id（如
+   * "multi-dimension-report@v1" / "single-agent-freeform@v1"），
+   * 用于 observability：监控不同 template 形态的报告产出占比 + 失败率。
+   */
+  templateId?: string;
+  /**
+   * ★ PR-A1 + v1.5 (2026-05-06): MarkdownSanitizer 规则集版本，
+   * 让历史 ReportArtifact 在规则升级后能识别"按哪个版本 sanitize 的"。
+   */
+  sanitizerVersion?: string;
+  /**
+   * ★ v1.5 (代码评审反馈): structural assembler 检测到
+   * sections.length !== expectedSectionCount(template, segments) 时
+   * 写入此字段，作为 observability 信号。caller 可据此进入 fallback 流程。
+   */
+  sectionCountMismatch?: { expected: number; actual: number };
 }
 
 /** 10 维质量评分 */

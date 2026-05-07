@@ -561,8 +561,18 @@ export class MissionStore {
         const baseIdx = existing.length;
         const newDims = items.map((it, i) => ({
           id: `dim-user-${baseIdx + i + 1}`,
-          name: it.name.slice(0, 80),
-          rationale: it.rationale.slice(0, 500),
+          // ★ v1.5 安全评审 (B9 收尾): 用户聊天追加的 dim.name 可能含
+          //   \r/\n（多行注入），写入 DB 后会经 segment-extractors 进入
+          //   StructuralReportAssembler.sanitizePlan() 兜底，但事件
+          //   emit / Redis 状态会泄露原始 CRLF。源头剥离让全链路干净。
+          name: it.name
+            .replace(/[\r\n]/g, " ")
+            .trim()
+            .slice(0, 80),
+          rationale: it.rationale
+            .replace(/[\r\n]/g, " ")
+            .trim()
+            .slice(0, 500),
           source: "user-chat" as const,
         }));
         const merged = [...existing, ...newDims];

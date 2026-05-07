@@ -122,18 +122,20 @@ describe("StructuralReportAssembler", () => {
       expect(r.sections.length).toBe(1);
     });
 
-    it("templateId 持久化到 metadata（observability）", () => {
+    it("templateId 持久化到 metadata（observability）— v1.5 直接读字段", () => {
       const a = defaultStructuralReportAssembler.assemble(buildSegments());
       const b = defaultStructuralReportAssembler.assemble(
         buildSegments({ template: SINGLE_AGENT_FREEFORM_TEMPLATE }),
       );
-      // metadata.templateId 是新加字段（v1.4），用 cast 兼容
-      expect((a.metadata as unknown as { templateId: string }).templateId).toBe(
-        MULTI_DIMENSION_REPORT_TEMPLATE.id,
+      expect(a.metadata.templateId).toBe(MULTI_DIMENSION_REPORT_TEMPLATE.id);
+      expect(b.metadata.templateId).toBe(SINGLE_AGENT_FREEFORM_TEMPLATE.id);
+    });
+
+    it("sectionCountMismatch 一致时不写字段（v1.5 收尾）", () => {
+      const r = defaultStructuralReportAssembler.assemble(
+        buildSegmentsWithNDims(5),
       );
-      expect((b.metadata as unknown as { templateId: string }).templateId).toBe(
-        SINGLE_AGENT_FREEFORM_TEMPLATE.id,
-      );
+      expect(r.metadata.sectionCountMismatch).toBeUndefined();
     });
 
     it("dim sections 顺序与 plan.dimensions 一一对齐（template 含 loop slot）", () => {

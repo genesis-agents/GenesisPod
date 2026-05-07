@@ -122,12 +122,12 @@ export class StructuralReportAssembler {
       sourceDimensionId: c.sourceDimensionId,
     }));
 
-    // 5. 不变量自检（防御性）
+    // 5. 不变量自检（v1.5 收尾：从 noop 改为真实写 metadata）
     const expected = expectedSectionCount(tpl, safeSegments);
-    if (sections.length !== expected) {
-      // 不直接 throw（避免单 mission 卡死），用占位 marker 记录到 metadata
-      // caller 可在 ctx 见 sectionCountMismatch 进入 fallback 流程
-    }
+    const sectionCountMismatch =
+      sections.length !== expected
+        ? { expected, actual: sections.length }
+        : undefined;
 
     return {
       content: {
@@ -142,9 +142,10 @@ export class StructuralReportAssembler {
       metadata: {
         ...segments.metadata,
         templateId: tpl.id,
-      } as ReportArtifact["metadata"] & { templateId: string },
+        sectionCountMismatch,
+      },
       quality: this.buildQualityVerdicts(segments.qualityInputs, sections),
-    } as ReportArtifact;
+    };
   }
 
   /** dim.name 多重防御：strip newline + trim + slice(0, 200) */
