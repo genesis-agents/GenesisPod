@@ -28,9 +28,6 @@ jest.mock("p-limit", () => {
 jest.mock("../../../../agents/writer/chapter-writer.agent", () => ({
   ChapterWriterAgent: class ChapterWriterAgent {},
 }));
-jest.mock("../../../../agents/writer/sub-section-planner.agent", () => ({
-  SubSectionPlannerAgent: class SubSectionPlannerAgent {},
-}));
 jest.mock("../../../../agents/writer/chapter-reviewer.agent", () => ({
   ChapterReviewerAgent: class ChapterReviewerAgent {},
 }));

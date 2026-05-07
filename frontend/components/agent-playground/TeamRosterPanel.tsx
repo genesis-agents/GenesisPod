@@ -20,7 +20,6 @@ import {
   CheckCircle2,
   Loader2,
   Lightbulb,
-  RotateCcw,
 } from 'lucide-react';
 import {
   TeamTopologyCanvas,
@@ -119,11 +118,10 @@ interface Props {
   onLeaderClick?: () => void;
   /** 点击 Research Team 节点时触发（展开 group 内部 micro-pipeline） */
   onResearchTeamClick?: () => void;
-  /**
-   * PR-8 v1.6 D5：单一重跑入口 → 打开 8 RerunIntent modal。
-   * 替换原 onRerun(fresh) + onUpdate(incremental) 双源（违反 no-dual-sources）。
-   */
-  onRerunIntent?: () => void;
+  /** 重新运行（用相同配置开新 mission） */
+  onRerun?: () => void;
+  /** 用相同 topic 进入新建表单（编辑配置后再跑） */
+  onUpdate?: () => void;
   /** 取消运行中的 mission（暂未实现 → undefined） */
   onCancel?: () => void;
 }
@@ -137,7 +135,8 @@ export function TeamRosterPanel({
   onCollapse,
   onLeaderClick,
   onResearchTeamClick,
-  onRerunIntent,
+  onRerun,
+  onUpdate,
   onCancel,
 }: Props) {
   const stageMap = useMemo(
@@ -624,25 +623,39 @@ export function TeamRosterPanel({
           </div>
         )}
 
-        {/* PR-8 v1.6 D5：单一重跑入口（modal 内 8 RerunIntent 选项） + 取消 */}
-        {(onRerunIntent || onCancel) && (
-          <div
-            className={`mt-3 grid gap-2 ${onRerunIntent && onCancel ? 'grid-cols-3' : 'grid-cols-1'}`}
-          >
-            {onRerunIntent && (
+        {/* 操作按钮：开始 / 更新 / 取消 —— 完全照搬 TI TopicTeamPanel 尺寸 + 样式 */}
+        {(onRerun || onUpdate || onCancel) && (
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {onRerun && (
               <button
                 type="button"
-                onClick={onRerunIntent}
+                onClick={onRerun}
                 disabled={missionStatus === 'running'}
-                className={`col-span-2 flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                   missionStatus === 'running'
                     ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
                     : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
                 }`}
-                title="选择重跑意图（加章字数 / 加图 / 改单章 / 换语言 / 重做研究 等 8 选 1）"
+                title="用相同配置启动一个新 mission"
               >
-                <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                重跑…
+                <span>▶</span>
+                开始
+              </button>
+            )}
+            {onUpdate && (
+              <button
+                type="button"
+                onClick={onUpdate}
+                disabled={missionStatus === 'running'}
+                className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  missionStatus === 'running'
+                    ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
+                    : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
+                }`}
+                title="编辑 topic / depth / language 后重新启动"
+              >
+                <span>🔄</span>
+                更新
               </button>
             )}
             {onCancel && (

@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   listMissions,
-  rerunMissionWithIntent,
+  rerunMission,
   cancelMission,
   deleteMission,
   updateMission,
@@ -28,10 +28,8 @@ export default function PlaygroundIndexPage() {
       return;
     }
     try {
-      // PR-8 v1.6 D5：列表快捷重跑 = fresh-research 意图（创建新 mission，原 mission 保留）
-      // 单源端口（与 mission detail 重跑 modal 共用 rerunMissionWithIntent）。
-      const result = await rerunMissionWithIntent(mission.id, 'fresh-research');
-      router.push(`/agent-playground/team/${result.runMissionId}`);
+      const result = await rerunMission(mission.id);
+      router.push(`/agent-playground/team/${result.missionId}`);
     } catch (e) {
       alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
     }

@@ -290,8 +290,6 @@ export class MissionRerunOrchestratorService {
       budgetMultiplierOverride:
         originalProfile?.budgetMultiplierOverride ?? 1.0,
       inheritFromMissionId: overrides.inheritFromMissionId,
-      // ★ PR-4' v1.6: rerun 重建保留原 mission 的 withCitations 设置
-      withCitations: originalProfile?.withCitations ?? false,
     };
   }
 }

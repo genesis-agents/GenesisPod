@@ -1,7 +1,6 @@
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
-import { BudgetGuardService } from "../../budget/budget-guard.service";
 import { BillingContext } from "../../../../../ai-infra/credits/billing-context.store";
 import { withUserContext } from "../../../../../../common/context";
 import { CreditsService } from "../../../../../ai-infra/credits/credits.service";
@@ -31,8 +30,6 @@ export interface MissionRuntimeSession {
 @Injectable()
 export class MissionRuntimeShellService {
   private readonly log = new Logger(MissionRuntimeShellService.name);
-  // 别名兼容已有调用点 (this.logger.warn ...)
-  private readonly logger = this.log;
 
   constructor(
     private readonly invoker: AgentInvoker,
@@ -40,9 +37,6 @@ export class MissionRuntimeShellService {
     private readonly runtimeEnv: RuntimeEnvironmentService,
     private readonly store: MissionStore,
     private readonly abortRegistry: MissionAbortRegistry,
-    // ★ PR-6 v1.6: BudgetGuard 可选注入（向后兼容，spec 不传也不影响）
-    @Optional()
-    private readonly budgetGuard?: BudgetGuardService,
   ) {}
 
   async openSession(args: {
@@ -114,14 +108,6 @@ export class MissionRuntimeShellService {
       clearTimeout(wallTimer);
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       this.abortRegistry.unregister(missionId);
-      // ★ PR-6 v1.6 D4: mission 终态时清理 BudgetGuard 内存（防 Map 泄漏）
-      try {
-        this.budgetGuard?.clearBudget(missionId);
-      } catch (err) {
-        this.log.warn(
-          `[mission-runtime ${missionId}] budgetGuard.clearBudget failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
     };
 
     try {
@@ -154,26 +140,8 @@ export class MissionRuntimeShellService {
           wallTimeMs: input.wallTimeMs,
           knowledgeBaseIds: input.knowledgeBaseIds,
           inheritFromMissionId: input.inheritFromMissionId,
-          // ★ PR-4' v1.6 D1 reportScale 单一轴 + D4 硬合约 withCitations 持久化
-          //   不存于 row 字段，rerun hydrator 从 userProfile 读取
-          reportScale: input.reportScale,
-          withCitations: input.withCitations,
-          parentMissionId: input.parentMissionId,
         } as Record<string, unknown>,
       });
-
-      // ★ PR-6 v1.6 D4 BudgetGuard 初始化（atomic deduct 起点）
-      //   mission 创建时填充预算池；per-dim-pipeline 内 LLM 调用前 atomic tryDeduct；
-      //   mission completed/failed 时 clearBudget（在 markCompleted / markFailed 后由 caller）
-      try {
-        if (this.budgetGuard) {
-          this.budgetGuard.initBudget(missionId, effectiveMaxCredits);
-        }
-      } catch (err) {
-        this.logger.warn(
-          `[mission-runtime ${missionId}] budgetGuard.initBudget failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
 
       const podId =
         process.env.RAILWAY_REPLICA_ID ??

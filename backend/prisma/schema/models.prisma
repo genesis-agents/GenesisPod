@@ -3577,7 +3577,7 @@ model DeepResearchSession {
 
   // 讨论驱动型研究
   discussion Json[] @default([]) // DiscussionMessage[]
-  directions Json? // { directions: ResearchDirection[] }
+  directions Json?               // { directions: ResearchDirection[] }
 
   // 时间戳
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -3597,14 +3597,14 @@ model DeepResearchSession {
 // ============ 研究创意 & 演示 ============
 
 enum ResearchIdeaType {
-  INSIGHT // 观点荟萃 - 从讨论中提炼的分析判断和洞察
+  INSIGHT       // 观点荟萃 - 从讨论中提炼的分析判断和洞察
   CREATIVE_IDEA // 研究创意 - 从观点中衍生的创新方案
 }
 
 enum ResearchIdeaStatus {
   DISCOVERED // 从讨论中自动发现
-  STARRED // 用户标记收藏
-  ARCHIVED // 用户归档
+  STARRED    // 用户标记收藏
+  ARCHIVED   // 用户归档
 }
 
 enum ResearchDemoStatus {
@@ -4338,23 +4338,23 @@ model CreditAccount {
 
 // 积分交易记录
 model CreditTransaction {
-  id                  String                @id @default(uuid())
-  accountId           String                @map("account_id")
-  type                CreditTransactionType
-  amount              Int // 正数为收入，负数为支出
-  balanceAfter        Int                   @map("balance_after")
-  description         String                @db.VarChar(500)
-  moduleType          String?               @map("module_type") // ai-ask, deep-research 等
-  operationType       String?               @map("operation_type") // chat, research-deep 等
-  referenceId         String?               @map("reference_id") // 关联的业务ID
-  tokenCount          Int?                  @map("token_count") // AI调用消耗的token数
-  inputTokens         Int?                  @map("input_tokens") // 输入token数
-  outputTokens        Int?                  @map("output_tokens") // 输出token数
-  cacheCreationTokens Int?                  @map("cache_creation_tokens") // Prompt Cache 写入token数
-  cacheReadTokens     Int?                  @map("cache_read_tokens") // Prompt Cache 命中token数
-  modelName           String?               @map("model_name") // 使用的AI模型
-  idempotencyKey      String?               @unique @map("idempotency_key") // 幂等性key
-  createdAt           DateTime              @default(now()) @map("created_at")
+  id             String                @id @default(uuid())
+  accountId      String                @map("account_id")
+  type           CreditTransactionType
+  amount         Int // 正数为收入，负数为支出
+  balanceAfter   Int                   @map("balance_after")
+  description    String                @db.VarChar(500)
+  moduleType     String?               @map("module_type") // ai-ask, deep-research 等
+  operationType  String?               @map("operation_type") // chat, research-deep 等
+  referenceId    String?               @map("reference_id") // 关联的业务ID
+  tokenCount     Int?                  @map("token_count") // AI调用消耗的token数
+  inputTokens    Int?                  @map("input_tokens") // 输入token数
+  outputTokens   Int?                  @map("output_tokens") // 输出token数
+  cacheCreationTokens Int?             @map("cache_creation_tokens") // Prompt Cache 写入token数
+  cacheReadTokens     Int?             @map("cache_read_tokens") // Prompt Cache 命中token数
+  modelName      String?               @map("model_name") // 使用的AI模型
+  idempotencyKey String?               @unique @map("idempotency_key") // 幂等性key
+  createdAt      DateTime              @default(now()) @map("created_at")
 
   account CreditAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -6380,17 +6380,17 @@ model SkillConfig {
   tags   String[] @default([])
 
   // ★ Skills 系统升级 — Prompt 内容管理
-  promptContent    String?   @map("prompt_content") @db.Text // SKILL.md 完整 prompt 正文
-  frontmatter      Json? // 解析后的 YAML frontmatter
-  contentHash      String?   @map("content_hash") // MD5 内容指纹（变更检测）
-  version          String?   @default("1.0.0") // 语义版本号
-  source           String?   @default("local") // "local" | "db" | "marketplace"
-  filePath         String?   @map("file_path") // 原始 .skill.md 路径（DB-only 为 null）
-  taskProfileJson  Json?     @map("task_profile_json") // TaskProfile 覆盖配置
-  inputSchemaJson  Json?     @map("input_schema_json") // 输入 JSON Schema
-  outputSchemaJson Json?     @map("output_schema_json") // 输出 JSON Schema
-  lastUsedAt       DateTime? @map("last_used_at") // 最后使用时间
-  usageCount       Int       @default(0) @map("usage_count") // 反规范化计数器
+  promptContent   String?  @map("prompt_content") @db.Text // SKILL.md 完整 prompt 正文
+  frontmatter     Json?                                     // 解析后的 YAML frontmatter
+  contentHash     String?  @map("content_hash")             // MD5 内容指纹（变更检测）
+  version         String?  @default("1.0.0")                // 语义版本号
+  source          String?  @default("local")                // "local" | "db" | "marketplace"
+  filePath        String?  @map("file_path")                // 原始 .skill.md 路径（DB-only 为 null）
+  taskProfileJson Json?    @map("task_profile_json")        // TaskProfile 覆盖配置
+  inputSchemaJson Json?    @map("input_schema_json")        // 输入 JSON Schema
+  outputSchemaJson Json?   @map("output_schema_json")       // 输出 JSON Schema
+  lastUsedAt      DateTime? @map("last_used_at")            // 最后使用时间
+  usageCount      Int      @default(0) @map("usage_count")  // 反规范化计数器
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
@@ -6475,11 +6475,11 @@ model AIUsageLog {
   errorCode  String? @map("error_code")
 
   // ★ Skills 系统升级 — 增强执行日志
-  modelUsed    String? @map("model_used") // 实际使用的 LLM 模型
+  modelUsed    String? @map("model_used")    // 实际使用的 LLM 模型
   skillVersion String? @map("skill_version") // 执行时的 Skill 版本
-  inputTokens  Int?    @map("input_tokens") // 提示词 tokens
+  inputTokens  Int?    @map("input_tokens")  // 提示词 tokens
   outputTokens Int?    @map("output_tokens") // 补全 tokens
-  domain       String? // 域上下文
+  domain       String?                       // 域上下文
 
   // 时间戳
   createdAt DateTime @default(now()) @map("created_at")
@@ -6498,10 +6498,10 @@ model SystemErrorLog {
   id String @id @default(uuid())
 
   // 错误分类
-  errorCode String  @map("error_code") // 错误码: INTERNAL_ERROR, DATABASE_ERROR 等
-  errorType String  @map("error_type") // 错误类型: exception, rejection, timeout
-  severity  String  @default("error") // 严重级别: error, warning, critical
-  component String? // 组件: ai-engine, api, database
+  errorCode    String  @map("error_code") // 错误码: INTERNAL_ERROR, DATABASE_ERROR 等
+  errorType    String  @map("error_type") // 错误类型: exception, rejection, timeout
+  severity     String  @default("error") // 严重级别: error, warning, critical
+  component    String? // 组件: ai-engine, api, database
 
   // 错误详情
   message     String  @db.Text
@@ -6542,18 +6542,18 @@ model AIEngineMetric {
   metricType String @map("metric_type") // llm_call, tool_execution, agent_execution, mission_execution
 
   // 标识
-  operationId String? @map("operation_id") // 操作名称
-  modelId     String? @map("model_id") // 模型 ID
-  providerId  String? @map("provider_id") // 提供商
-  agentId     String? @map("agent_id")
-  missionId   String? @map("mission_id")
-  userId      String? @map("user_id")
+  operationId   String? @map("operation_id") // 操作名称
+  modelId       String? @map("model_id") // 模型 ID
+  providerId    String? @map("provider_id") // 提供商
+  agentId       String? @map("agent_id")
+  missionId     String? @map("mission_id")
+  userId        String? @map("user_id")
 
   // 性能指标
-  duration      Int?     @db.Integer // 耗时 ms
-  inputTokens   Int?     @map("input_tokens")
-  outputTokens  Int?     @map("output_tokens")
-  totalTokens   Int?     @map("total_tokens")
+  duration     Int?     @db.Integer // 耗时 ms
+  inputTokens  Int?     @map("input_tokens")
+  outputTokens Int?     @map("output_tokens")
+  totalTokens  Int?     @map("total_tokens")
   estimatedCost Decimal? @map("estimated_cost") @db.Decimal(10, 6) // 估算成本 USD
 
   // 结果
@@ -6794,8 +6794,8 @@ model TopicCollaborator {
 /// 专题维度定义
 /// 每个专题由多个维度组成，如"政策法规"、"市场概览"等
 model TopicDimension {
-  id        String  @id @default(uuid())
-  topicId   String  @map("topic_id")
+  id      String @id @default(uuid())
+  topicId String @map("topic_id")
   // ★ 每个 dim 归属到一次 mission（NULL = legacy/topic-template）。
   //   引入此字段是为了根治"重复任务"bug：原本 dim 只按 topicId 隔离，
   //   旧 mission 失败/卡死后残留的 dim 会被新 mission 一并拉走，
@@ -6842,7 +6842,7 @@ model DimensionAnalysis {
   reportId    String @map("report_id")
 
   // ========== 分析内容 ==========
-  summary        String  @db.Text // 维度摘要（2-3 段文字，保留 DB——平均 <1KB）
+  summary     String  @db.Text // 维度摘要（2-3 段文字，保留 DB——平均 <1KB）
   // summaryUri/summarySize 预留，当前 summary 全部都小于 2KB 未实际使用；
   // 真正的空间大头是 dataPoints，下方走 off-load。
   summaryUri     String? @map("summary_uri")
@@ -6938,10 +6938,10 @@ model TopicEvidence {
   analysisId String? @map("analysis_id") // 可选：关联到特定维度分析
 
   // ========== 来源信息 ==========
-  title       String  @db.VarChar(500) // 来源标题
-  url         String  @db.Text // 来源 URL
-  domain      String? @db.VarChar(200) // 域名
-  snippet     String? @db.Text // 内容片段/摘要
+  title   String  @db.VarChar(500) // 来源标题
+  url     String  @db.Text // 来源 URL
+  domain  String? @db.VarChar(200) // 域名
+  snippet String? @db.Text // 内容片段/摘要
   // 正文外链：非空表示 snippet 内容存在对象存储。key 格式："topic-evidences/{id}/snippet.txt"
   snippetUri  String? @map("snippet_uri")
   snippetSize Int?    @map("snippet_size")
@@ -7283,13 +7283,13 @@ model TaskCheckpoint {
   stepIndex Int    @default(0) @map("step_index")
 
   // 恢复快照
-  observations          Json // 历史观察
-  reasoningMemory       Json @map("reasoning_memory") // scratchpad
+  observations         Json // 历史观察
+  reasoningMemory      Json @map("reasoning_memory") // scratchpad
   toolInvocationHistory Json @default("[]") @map("tool_invocation_history")
-  budgetSnapshot        Json @map("budget_snapshot")
+  budgetSnapshot       Json @map("budget_snapshot")
 
   status ResearchTaskStatus
-  reason String?            @db.VarChar(200) // budget_exhausted / human_pause / crash_recovery / ...
+  reason String? @db.VarChar(200) // budget_exhausted / human_pause / crash_recovery / ...
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -7305,9 +7305,9 @@ model VerificationRecord {
   taskId    String @map("task_id")
   iteration Int
 
-  judgeVerdicts Json    @map("judge_verdicts") // [{judgeId, score, critique, criteria}, ...]
-  consensus     String  @db.VarChar(50) // pass / fail / escalate_to_meta / escalate_to_human
-  decidedScore  Int     @map("decided_score")
+  judgeVerdicts Json   @map("judge_verdicts") // [{judgeId, score, critique, criteria}, ...]
+  consensus     String @db.VarChar(50) // pass / fail / escalate_to_meta / escalate_to_human
+  decidedScore  Int    @map("decided_score")
   metaJudgeNote String? @map("meta_judge_note") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -7603,10 +7603,10 @@ model CredibilityReport {
   aiQualityMetrics Json @map("ai_quality_metrics") // { planningRounds, revisionAvg, approvalRate }
 
   // ========== AI 评审结果 (10 维) ==========
-  aiEvaluation  Json?   @map("ai_evaluation") // 10 维评审结果 { dimensions: [...], overallScore, feedback }
-  combinedScore Float?  @map("combined_score") // 综合评分 (来源可信度 ×0.4 + AI评审 ×0.6)
-  combinedGrade String? @map("combined_grade") @db.VarChar(2) // A/B/C/D/F
-  summaryText   String? @map("summary_text") // 一句话总评
+  aiEvaluation  Json?    @map("ai_evaluation")    // 10 维评审结果 { dimensions: [...], overallScore, feedback }
+  combinedScore Float?   @map("combined_score")    // 综合评分 (来源可信度 ×0.4 + AI评审 ×0.6)
+  combinedGrade String?  @map("combined_grade") @db.VarChar(2) // A/B/C/D/F
+  summaryText   String?  @map("summary_text")      // 一句话总评
 
   // ========== 局限性声明 ==========
   limitations String[] // 局限性列表
@@ -7856,11 +7856,11 @@ model UserApiKey {
   testStatus         String?        @map("test_status") @db.VarChar(20) // success | failed
   /// ★ 2026-05-06: 归一化错误码（与 SecretKey 对齐）
   /// 401 / 403 / 429 / 5xx / network / timeout / decryption_failed / null（成功）
-  lastErrorCode      String?        @map("last_error_code") @db.VarChar(40)
-  lastErrorMessage   String?        @map("last_error_message") @db.Text
+  lastErrorCode    String? @map("last_error_code") @db.VarChar(40)
+  lastErrorMessage String? @map("last_error_message") @db.Text
   /// 调用次数统计：捐赠模式 + 个人模式都累加（业务流量调用上游成功时 +1）
   /// ★ 2026-05-06: 之前仅捐赠模式累加；现 KeyChain.reportSuccess 持久化扩展至 personal
-  usageCount         Int            @default(0) @map("usage_count")
+  usageCount Int @default(0) @map("usage_count")
   donationRewardedAt DateTime?      @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
@@ -8417,7 +8417,7 @@ model SocialContent {
   retryCount   Int     @default(0) @map("retry_count")
 
   // 系列发布
-  seriesId    String? @map("series_id") // UUID grouping series articles together
+  seriesId    String? @map("series_id")    // UUID grouping series articles together
   seriesOrder Int?    @map("series_order") // 1-based order within the series
 
   // 时间戳
@@ -8932,10 +8932,10 @@ model AgentProcess {
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
-  parent           AgentProcess?    @relation("ProcessTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children         AgentProcess[]   @relation("ProcessTree")
-  events           ProcessEvent[]
-  memories         ProcessMemory[]
+  parent   AgentProcess?  @relation("ProcessTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children AgentProcess[] @relation("ProcessTree")
+  events   ProcessEvent[]
+  memories ProcessMemory[]
   sentMessages     ProcessMessage[] @relation("SentMessages")
   receivedMessages ProcessMessage[] @relation("ReceivedMessages")
 
@@ -9210,16 +9210,16 @@ model StorageSnapshot {
 /// 每次 harness pipeline run 的结果记录（Group N-1）
 /// 用于灰度监控 dashboard / 历史 P95 / 跨 pod 聚合 / 事故 post-mortem
 model HarnessRunMetric {
-  id        String @id @default(uuid())
-  missionId String @map("mission_id") @db.VarChar(100)
-  userId    String @map("user_id") @db.VarChar(100)
+  id        String  @id @default(uuid())
+  missionId String  @map("mission_id") @db.VarChar(100)
+  userId    String  @map("user_id") @db.VarChar(100)
 
-  success      Boolean
-  durationMs   Int     @map("duration_ms")
+  success    Boolean
+  durationMs Int     @map("duration_ms")
   /// ST-08-QGATE 产出的 overall score（0-100），失败时可为 null
-  qualityScore Int?    @map("quality_score")
-  tokensUsed   Int     @default(0) @map("tokens_used")
-  costUsd      Decimal @default(0) @map("cost_usd") @db.Decimal(10, 4)
+  qualityScore Int? @map("quality_score")
+  tokensUsed Int    @default(0) @map("tokens_used")
+  costUsd    Decimal @default(0) @map("cost_usd") @db.Decimal(10, 4)
   /// 失败时填 error message 前 500 字符
   errorMessage String? @map("error_message") @db.VarChar(500)
 
@@ -9235,21 +9235,21 @@ model HarnessRunMetric {
 /// resume 时加载 completedStages + stageResults + budgetSnapshot 跳过已完成 stage。
 /// 单 mission 单行：用 missionId 作为 unique key，后续 stage 成功直接 upsert。
 model PipelineRunCheckpoint {
-  id               String   @id @default(uuid())
-  missionId        String   @unique @map("mission_id") @db.VarChar(100)
+  id               String  @id @default(uuid())
+  missionId        String  @unique @map("mission_id") @db.VarChar(100)
   /// 已完成 stage 的 id 列表，顺序执行顺序（JSON string array）
-  completedStages  Json     @map("completed_stages")
+  completedStages  Json    @map("completed_stages")
   /// stageId -> stage 输出对象 的 map（JSON object）
-  stageResults     Json     @map("stage_results")
+  stageResults     Json    @map("stage_results")
   /// PipelineBudget.snapshot() — 恢复 budget 计数用
-  budgetSnapshot   Json     @map("budget_snapshot")
+  budgetSnapshot   Json    @map("budget_snapshot")
   /// 恢复时需要的 identity 片段：depth, mode, capabilities（JSON object）
   /// 完整 AbortController / budget 在 runtime 重建，不持久化
-  identitySnapshot Json     @map("identity_snapshot")
+  identitySnapshot Json    @map("identity_snapshot")
   /// 最后一个完成的 stage id，便于监控
-  lastStageId      String?  @map("last_stage_id") @db.VarChar(50)
+  lastStageId      String? @map("last_stage_id") @db.VarChar(50)
   createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  updatedAt        DateTime @updatedAt        @map("updated_at")
 
   @@index([updatedAt(sort: Desc)])
   @@map("pipeline_run_checkpoints")
@@ -9269,23 +9269,23 @@ model PipelineRunCheckpoint {
 /// ============================================================
 
 model HarnessCheckpoint {
-  id            String   @id @default(uuid())
-  agentId       String   @map("agent_id") @db.VarChar(64)
+  id              String   @id @default(uuid())
+  agentId         String   @map("agent_id") @db.VarChar(64)
   /// auto-interval / key-event / manual / pre-cancel / pre-terminate
-  reason        String   @db.VarChar(32)
+  reason          String   @db.VarChar(32)
   /// "idle" | "running" | "completed" | "failed" | "cancelled"
-  agentState    String   @map("agent_state") @db.VarChar(16)
+  agentState      String   @map("agent_state") @db.VarChar(16)
   /// envelope snapshot (system / messages / reminders / tools / memory / budget / metadata)
-  envelope      Json
+  envelope        Json
   /// identity snapshot (role / persona / goal / constraints / skills / tools)
-  identity      Json
+  identity        Json
   /// 已发射的事件计数 — 与 HarnessAgentEvent.seq 对齐用于 replay
-  eventsEmitted Int      @map("events_emitted")
+  eventsEmitted   Int      @map("events_emitted")
   /// task snapshot { goal, input } 用于 resume 时还原入口；可空
-  taskSnapshot  Json?    @map("task_snapshot")
+  taskSnapshot    Json?    @map("task_snapshot")
   /// 业务可塞自己的索引字段（missionId / topicId / sessionId 等）
-  scope         Json?
-  takenAt       DateTime @default(now()) @map("taken_at")
+  scope           Json?
+  takenAt         DateTime @default(now()) @map("taken_at")
 
   @@index([agentId, takenAt(sort: Desc)])
   @@index([takenAt(sort: Desc)])
@@ -9293,18 +9293,18 @@ model HarnessCheckpoint {
 }
 
 model HarnessAgentEvent {
-  id        String   @id @default(uuid())
-  agentId   String   @map("agent_id") @db.VarChar(64)
+  id              String   @id @default(uuid())
+  agentId         String   @map("agent_id") @db.VarChar(64)
   /// 全局严格递增（按 agent 分区即可）— resume 时按 seq 读取并重放
-  seq       Int
+  seq             Int
   /// thinking / action_planned / action_executed / reflection / output / error / budget_warning / terminated
-  type      String   @db.VarChar(32)
+  type            String   @db.VarChar(32)
   /// payload 原样存（任意 IAgentEvent.payload）
-  payload   Json
+  payload         Json
   /// trace 关联（PR-G 的 SpanRecord）
-  traceId   String?  @map("trace_id") @db.VarChar(40)
-  spanId    String?  @map("span_id") @db.VarChar(20)
-  emittedAt DateTime @default(now()) @map("emitted_at")
+  traceId         String?  @map("trace_id") @db.VarChar(40)
+  spanId          String?  @map("span_id") @db.VarChar(20)
+  emittedAt       DateTime @default(now()) @map("emitted_at")
 
   @@unique([agentId, seq])
   @@index([agentId, emittedAt])
@@ -9324,24 +9324,24 @@ model HarnessAgentEvent {
 /// 大规模生产应改用 pgvector 扩展（schema 加 @db.Vector(1536)）。
 /// ============================================================
 model HarnessVectorMemory {
-  id             String   @id @default(uuid())
+  id            String    @id @default(uuid())
   /// namespace = userId / workspaceId / sessionId（业务方决定隔离粒度）
-  namespace      String   @db.VarChar(128)
+  namespace     String    @db.VarChar(128)
   /// 业务可塞 'topic-insights:mission' / 'research:report' 等
-  source         String?  @db.VarChar(64)
+  source        String?   @db.VarChar(64)
   /// 业务自定义 key（'mission:abc123' / 'topic:xyz'）
-  entryKey       String   @map("entry_key") @db.VarChar(128)
+  entryKey      String    @map("entry_key") @db.VarChar(128)
   /// 原文（compaction 后入库的精炼文本，<= 2000 chars）
-  content        String
+  content       String
   /// embedding 向量（OpenAI text-embedding-3-small = 1536 维）
-  embedding      Float[]
+  embedding     Float[]
   /// confidence: 0..1（learner 置信度；越高优先召回）
-  confidence     Float    @default(1.0)
+  confidence    Float     @default(1.0)
   /// 业务标签：['mission', 'success'], ['topic', 'finance'] 等
-  tags           String[]
+  tags          String[]
   /// 任意业务 metadata
-  metadata       Json?
-  createdAt      DateTime @default(now()) @map("created_at")
+  metadata      Json?
+  createdAt     DateTime  @default(now()) @map("created_at")
   /// LRU 淘汰用：每次召回更新 lastAccessedAt
   lastAccessedAt DateTime @default(now()) @map("last_accessed_at")
 
@@ -9389,19 +9389,19 @@ model AgentPlaygroundMission {
   errorMessage     String? @map("error_message") @db.Text
 
   /// 持久化的 blob（detail 页重新渲染用）
-  themeSummary          String? @map("theme_summary") @db.Text
-  dimensions            Json? // [{id, name, rationale, toolHint?}]
-  reportFull            Json?   @map("report_full") // 完整 ResearchReport（v1）或 ReportArtifact（v2+）
+  themeSummary String? @map("theme_summary") @db.Text
+  dimensions   Json? // [{id, name, rationale, toolHint?}]
+  reportFull   Json?   @map("report_full") // 完整 ResearchReport（v1）或 ReportArtifact（v2+）
   /// ★ ReportArtifact schema 版本号（mission-pipeline-writer-artifact.md / D15）
   /// v1 = 旧 ResearchReport（单 markdown）
   /// v2 = ReportArtifact（sections / citations / figures / quickView / factTable）
-  reportArtifactVersion Int?    @map("report_artifact_version")
-  verdicts              Json? // [{verifierId, score, critique, attempt}]
+  reportArtifactVersion Int? @map("report_artifact_version")
+  verdicts     Json? // [{verifierId, score, critique, attempt}]
   /// ★ 用户档位（mission-pipeline-user-profiles.md §11 / D20）
   /// merged after defaults applied + auto-rules applied
-  userProfile           Json?   @map("user_profile")
+  userProfile  Json?   @map("user_profile")
   /// ★ Reconciler [3.5] 节点产物（factTable / conflicts / overlaps / gaps / figureCandidates）
-  reconciliationReport  Json?   @map("reconciliation_report")
+  reconciliationReport Json? @map("reconciliation_report")
 
   /// ★ Leader-Replanner-Lite 务实 leader 方案（Phase Lead-1+）
   /// leader_journal: { plan: M0 输出含 goals/qualityBar/successCriteria/initialRisks,
@@ -9414,33 +9414,20 @@ model AgentPlaygroundMission {
   /// Leader 自评的 verdict，与 quality.finalVerdict 独立（前者由 Lead 决定，后者由 Writer 评分器算）
   leaderVerdict      String?  @map("leader_verdict") @db.VarChar(20)
 
-  /// ★ PR-6 v1.6 (2026-05-07 overhaul)：D4 硬合约 qualityGap 持久化
-  /// JSONB schema: QualityGap[]（见 services/hard-contract/assert-hard-contract.ts）
-  /// markCompleted 时若 assertHardContract 返回 gaps，写入此列；UI 读此渲染黄色 banner
-  /// null = 全合约满足；非空数组 = 部分质量未达标但 markCompleted（绝不 fail mission）
-  qualityGaps   Json? @map("quality_gaps")
   /// ★ PR-R0 (2026-05-07 per-task rerun + cascade)：S6 analyst 输出主动持久化（cascade rerun ctx 还原用）
-  analystOutput Json? @map("analyst_output")
+  analystOutput      Json?    @map("analyst_output")
   /// ★ PR-R0 (2026-05-07 per-task rerun + cascade)：S7 writer outline 输出主动持久化（cascade rerun ctx 还原用）
-  outlinePlan   Json? @map("outline_plan")
+  outlinePlan        Json?    @map("outline_plan")
 
   /// Leader 对话历史（点击 Leader 节点弹出聊天框）
-  leaderChats      AgentPlaygroundLeaderChat[]
+  leaderChats     AgentPlaygroundLeaderChat[]
   /// ★ P0-D 完整版 (2026-05-06): trajectory 持久化关系
-  researchResults  AgentPlaygroundResearchResult[]
-  chapterDrafts    AgentPlaygroundChapterDraft[]
-  /// ★ PR-1 (2026-05-07 overhaul v1.6): 章节最终态独立表（rerun 重建源）
-  chapters         AgentPlaygroundChapter[]         @relation("MissionChapters")
-  chapterFigures   AgentPlaygroundChapterFigure[]   @relation("MissionFigures")
-  chapterCitations AgentPlaygroundChapterCitation[] @relation("MissionCitations")
-  /// ★ PR-1 D5 fresh-research version chain：原 mission 永远保留，新 mission 通过 parent 链接
-  parentMissionId  String?                          @map("parent_mission_id")
-  parentMission    AgentPlaygroundMission?          @relation("MissionVersionChain", fields: [parentMissionId], references: [id])
-  derivedMissions  AgentPlaygroundMission[]         @relation("MissionVersionChain")
+  researchResults AgentPlaygroundResearchResult[]
+  chapterDrafts   AgentPlaygroundChapterDraft[]
   /// ★ 报告版本化（rerun 产生新版本而不覆盖旧版本）
-  reportVersions   MissionReportVersion[]
+  reportVersions  MissionReportVersion[]
   /// ★ PR-R0 (per-task rerun + cascade)：单 stage 重跑频次记录（24h × 5 次/mission+stepId 防滥用）
-  rerunAttempts    AgentPlaygroundRerunAttempt[]
+  rerunAttempts   AgentPlaygroundRerunAttempt[]
 
   /// ★ PR-H v1 (2026-05-01): pod-aware mission lifecycle —— pod 重启检测 + 后续 resume 接续
   /// lastCompletedStage: 0~12（S0~S12）；null = 还没完成 S1
@@ -9456,102 +9443,7 @@ model AgentPlaygroundMission {
   @@index([userId, startedAt(sort: Desc)])
   @@index([status])
   @@index([status, heartbeatAt]) // PR-H: pod recovery 扫描
-  @@index([parentMissionId]) // PR-1 v1.6: fresh-research version chain 反向查
   @@map("agent_playground_missions")
-}
-
-/// ★ PR-1 v1.6 (2026-05-07 agent-playground overhaul):
-///   章节最终态独立表（rerun 重建源；与 chapter_drafts attempts 分离）。
-///   chapter_drafts 表降级为 attempts 历史（PR-3 dual-write 期同时写两表，PR-10 切读源）。
-///   全部读写带 user_id WHERE（CWE-639 cross-user 隔离）。
-model AgentPlaygroundChapter {
-  id           String                 @id @default(uuid())
-  missionId    String                 @map("mission_id")
-  mission      AgentPlaygroundMission @relation("MissionChapters", fields: [missionId], references: [id], onDelete: Cascade)
-  /// 冗余 user_id 列（双重隔离 — DB 层强制 WHERE user_id；CWE-639）
-  userId       String                 @map("user_id")
-  dimension    String                 @db.VarChar(200)
-  chapterIndex Int                    @map("chapter_index")
-  heading      String                 @db.VarChar(500)
-  thesis       String?                @db.Text
-  content      String                 @db.Text
-  /// backend 重算真值（D2 派生 — 不信任 LLM 输出的 wordCount）
-  wordCount    Int                    @map("word_count")
-  /// 章节态：writing / reviewing / passed / done / failed-finalized
-  status       String                 @db.VarChar(30)
-  score        Int?
-
-  /// PR-13 v1.3 章内 sub-section LLM call 拼接路径（仅 deep / professional scale 启用）
-  /// quick / standard scale = null（单 LLM call 路径）
-  subSectionCount     Int?  @map("sub_section_count")
-  /// JSONB: [{index, heading, thesis, targetWordCount, actualWordCount, positionInChapter}]
-  subSectionStructure Json? @map("sub_section_structure")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  figures   AgentPlaygroundChapterFigure[]
-  citations AgentPlaygroundChapterCitation[]
-
-  @@unique([missionId, dimension, chapterIndex])
-  @@index([userId])
-  @@index([missionId, userId])
-  @@map("agent_playground_chapters")
-}
-
-/// ★ PR-1 v1.6: 章节图独立表（D6 figure-curator stage 写）
-///   sourceType: scraped (从 findings 抽) | ai-generated (DALL-E) | user-uploaded | hotlink (DMCA 默认)
-model AgentPlaygroundChapterFigure {
-  id                       String                 @id @default(uuid())
-  chapterId                String                 @map("chapter_id")
-  chapter                  AgentPlaygroundChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  /// 冗余 mission_id + user_id（双重隔离）
-  missionId                String                 @map("mission_id")
-  mission                  AgentPlaygroundMission @relation("MissionFigures", fields: [missionId], references: [id], onDelete: Cascade)
-  userId                   String                 @map("user_id")
-  sourceUrl                String?                @map("source_url") @db.Text
-  /// CDN URL（scraped 白名单 license 才存 CDN；hotlink 直接热链 source_url）
-  imageUrl                 String                 @map("image_url") @db.Text
-  caption                  String                 @db.Text
-  altText                  String?                @map("alt_text") @db.Text
-  width                    Int?
-  height                   Int?
-  sourceType               String                 @map("source_type") @db.VarChar(30)
-  /// AI 生成时记录 prompt（事后审计 / DMCA 应对）
-  aiGenerationPrompt       String?                @map("ai_generation_prompt") @db.Text
-  /// CSS overlay 强制（前端读此字段渲染 "🤖 AI generated" 不可剥离覆盖）
-  watermarkOverlayRequired Boolean                @default(false) @map("watermark_overlay_required")
-  /// CC0 / CC-BY / 已授权 / null (hotlink)
-  sourceLicense            String?                @map("source_license") @db.VarChar(60)
-  /// 章节内序号（1, 2, 3...）
-  positionInChapter        Int                    @map("position_in_chapter")
-  createdAt                DateTime               @default(now()) @map("created_at")
-
-  @@index([chapterId])
-  @@index([userId])
-  @@index([missionId, userId])
-  @@map("agent_playground_chapter_figures")
-}
-
-/// ★ PR-1 v1.6: 引用独立表
-model AgentPlaygroundChapterCitation {
-  id                  String                 @id @default(uuid())
-  chapterId           String                 @map("chapter_id")
-  chapter             AgentPlaygroundChapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  missionId           String                 @map("mission_id")
-  mission             AgentPlaygroundMission @relation("MissionCitations", fields: [missionId], references: [id], onDelete: Cascade)
-  userId              String                 @map("user_id")
-  sourceUrl           String                 @map("source_url") @db.Text
-  sourceTitle         String?                @map("source_title") @db.Text
-  citationText        String                 @map("citation_text") @db.Text
-  /// 章节内段落定位（前端 hover 引用时跳转到段）
-  citedParagraphIndex Int?                   @map("cited_paragraph_index")
-  createdAt           DateTime               @default(now()) @map("created_at")
-
-  @@index([chapterId])
-  @@index([userId])
-  @@index([missionId, userId])
-  @@map("agent_playground_chapter_citations")
 }
 
 /// PR-R0 (2026-05-07 per-task rerun + cascade)：单 stage 重跑尝试记录
@@ -9590,23 +9482,23 @@ model AgentPlaygroundMissionEvent {
 /// rerun incremental 模式从此表 hydrate entry.lastResearcherResults 跳过 S3 重做。
 /// 单 mission × 多 dim × 可选 retryLabel → 复合唯一索引避免重复写入。
 model AgentPlaygroundResearchResult {
-  id         String                 @id @default(uuid())
-  missionId  String                 @map("mission_id")
-  mission    AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  id           String                 @id @default(uuid())
+  missionId    String                 @map("mission_id")
+  mission      AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
   /// dim 名（中文，与事件流 payload.dimension 对齐）
-  dimension  String                 @db.VarChar(200)
+  dimension    String                 @db.VarChar(200)
   /// retryLabel（fresh-collect retry 路径独立 pipeline）；默认空串确保 UNIQUE 索引无 NULL 歧义
-  retryLabel String                 @default("") @map("retry_label") @db.VarChar(60)
+  retryLabel   String                 @default("") @map("retry_label") @db.VarChar(60)
   /// 完整 findings 数组：[{claim, evidence, source}]
-  findings   Json                   @db.JsonB
+  findings     Json                   @db.JsonB
   /// summary（前端展示 + leader assess 输入）
-  summary    String                 @db.Text
+  summary      String                 @db.Text
   /// state: completed / degraded / failed
-  state      String                 @db.VarChar(20)
-  iterations Int?
-  wallTimeMs Int?                   @map("wall_time_ms")
-  createdAt  DateTime               @default(now()) @map("created_at")
-  updatedAt  DateTime               @updatedAt @map("updated_at")
+  state        String                 @db.VarChar(20)
+  iterations   Int?
+  wallTimeMs   Int?                   @map("wall_time_ms")
+  createdAt    DateTime               @default(now()) @map("created_at")
+  updatedAt    DateTime               @updatedAt @map("updated_at")
 
   @@unique([missionId, dimension, retryLabel])
   @@index([missionId])
@@ -9643,30 +9535,30 @@ model AgentPlaygroundChapterDraft {
 /// version 单调递增（1, 2, 3 ...），由 MissionStore.saveReportVersion 原子分配。
 /// 旧版本 mission.report_full 保留，版本历史在此表查询。
 model MissionReportVersion {
-  id              String   @id @default(uuid())
-  missionId       String   @map("mission_id")
+  id            String    @id @default(uuid())
+  missionId     String    @map("mission_id")
   /// 单调递增版本号（1 = 首次 initial run，2+ = rerun）
-  version         Int
+  version       Int
   /// 人读版本标签，如 "initial-2026-05-06" / "rerun-fresh-2026-05-07"
-  versionLabel    String?  @map("version_label") @db.VarChar(120)
+  versionLabel  String?   @map("version_label") @db.VarChar(120)
   /// 完整 ReportArtifact v2（或 ResearchReport v1）
-  reportFull      Json?    @map("report_full") @db.JsonB
+  reportFull    Json?     @map("report_full") @db.JsonB
   /// 报告标题（从 reportFull 提取，便于列表展示）
-  reportTitle     String?  @map("report_title") @db.VarChar(500)
+  reportTitle   String?   @map("report_title") @db.VarChar(500)
   /// 报告摘要（executiveSummary.markdown，便于列表展示）
-  reportSummary   String?  @map("report_summary") @db.Text
+  reportSummary String?   @map("report_summary") @db.Text
   /// Leader 总分（来自 leaderSignOff.leaderOverallScore）
-  finalScore      Int?     @map("final_score")
+  finalScore    Int?      @map("final_score")
   /// Leader 是否签字（true=completed, false=quality-failed, null=failed/cancelled）
-  leaderSigned    Boolean? @map("leader_signed")
+  leaderSigned  Boolean?  @map("leader_signed")
   /// 触发类型：initial / rerun-fresh / rerun-incremental / todo-rerun
-  triggerType     String   @map("trigger_type") @db.VarChar(40)
+  triggerType   String    @map("trigger_type") @db.VarChar(40)
   /// diff vs 前一版本（可选，供将来 diff UI 用；首版本为 null）
-  changesFromPrev Json?    @map("changes_from_prev") @db.JsonB
+  changesFromPrev Json?   @map("changes_from_prev") @db.JsonB
   /// 本版本生成时间
-  generatedAt     DateTime @default(now()) @map("generated_at")
+  generatedAt   DateTime  @default(now()) @map("generated_at")
 
-  mission AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  mission       AgentPlaygroundMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
 
   @@unique([missionId, version])
   @@index([missionId, generatedAt(sort: Desc)])
@@ -9752,7 +9644,7 @@ model CustomAgentDefinition {
   config Json
 
   /// 状态机：DRAFT / PUBLISHED / ARCHIVED
-  status  String @default("DRAFT") @db.VarChar(16)
+  status String @default("DRAFT") @db.VarChar(16)
   /// 版本号（每次发布递增；下游引用版本而非 mutable id）
   version Int    @default(1)
 
@@ -9803,18 +9695,18 @@ model CustomAgentLaunch {
 /// AIModel.provider 字段保持 string，等价于此表 slug 的软外键（不强制 FK
 /// 是为兼容历史数据，且某些 provider 短暂出现/消失不应级联删模型）。
 model AIProvider {
-  id              String   @id @default(uuid())
-  slug            String   @db.VarChar(50) // kebab-case 唯一标识（"voyage", "openai"）
-  name            String   @db.VarChar(100) // 显示名 "Voyage AI"
-  endpoint        String   @db.VarChar(500) // base URL
-  apiFormat       String   @map("api_format") @db.VarChar(20) // openai / anthropic / google / cohere
-  testModel       String   @map("test_model") @db.VarChar(100) // health check 探活模型 id
+  id           String  @id @default(uuid())
+  slug         String  @db.VarChar(50) // kebab-case 唯一标识（"voyage", "openai"）
+  name         String  @db.VarChar(100) // 显示名 "Voyage AI"
+  endpoint     String  @db.VarChar(500) // base URL
+  apiFormat    String  @map("api_format") @db.VarChar(20) // openai / anthropic / google / cohere
+  testModel    String  @map("test_model") @db.VarChar(100) // health check 探活模型 id
   /// 支持的 AIModelType 列表（CHAT / EMBEDDING / RERANK 等），驱动 capabilities 路由
-  capabilities    String[]
-  iconUrl         String?  @map("icon_url") @db.VarChar(500)
-  description     String?  @db.Text
-  docUrl          String?  @map("doc_url") @db.VarChar(500)
-  freeTierNote    String?  @map("free_tier_note") @db.VarChar(300)
+  capabilities String[]
+  iconUrl      String? @map("icon_url") @db.VarChar(500)
+  description  String? @db.Text
+  docUrl       String? @map("doc_url") @db.VarChar(500)
+  freeTierNote String? @map("free_tier_note") @db.VarChar(300)
   /// 模型探测正则（一键自动配置时按此 patterns 匹配 GET /v1/models 返回的 ids）
   /// 形如 [{"modelType": "EMBEDDING", "patterns": ["^voyage-3"]}]
   recommendations Json?
@@ -9860,16 +9752,16 @@ model FeatureFlagWorkspaceGrant {
 
 /// PR-A0 配套 audit log —— grant/revoke/update 全程可溯源
 model FeatureFlagAuditLog {
-  id          String   @id @default(uuid()) @db.Uuid
-  flagKey     String   @map("flag_key")
-  workspaceId String   @map("workspace_id") @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  flagKey      String   @map("flag_key")
+  workspaceId  String   @map("workspace_id") @db.Uuid
   /// 'grant' | 'revoke' | 'update'（DB CHECK 约束）
-  action      String
-  actorUserId String   @map("actor_user_id") @db.Uuid
-  prevEnabled Boolean? @map("prev_enabled")
-  nextEnabled Boolean? @map("next_enabled")
-  reason      String?
-  occurredAt  DateTime @default(now()) @map("occurred_at")
+  action       String
+  actorUserId  String   @map("actor_user_id") @db.Uuid
+  prevEnabled  Boolean? @map("prev_enabled")
+  nextEnabled  Boolean? @map("next_enabled")
+  reason       String?
+  occurredAt   DateTime @default(now()) @map("occurred_at")
 
   @@index([flagKey, workspaceId, occurredAt(sort: Desc)])
   @@map("feature_flag_audit_log")

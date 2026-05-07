@@ -78,14 +78,6 @@ export interface ArtifactFigure {
   referencedBy: { sectionId: string; phrase: string }[];
   width?: 'full' | 'half' | 'quarter';
   position?: 'left' | 'center' | 'right';
-  /**
-   * PR-8 v1.6 D6: 图源类型（'scraped' | 'ai-generated' | 'user-uploaded' | 'hotlink'）。
-   * AI 生成图必须叠 CSS 水印（EU AI Act Art.50 best-effort）。
-   * 老 mission 可能 undefined → 不显示水印（向后兼容，PR-10 切读源后填充率上升）。
-   */
-  sourceFigureType?: string;
-  /** PR-8 v1.6 D6: 显式标记需要水印（与 sourceFigureType === 'ai-generated' 等价） */
-  watermarkOverlayRequired?: boolean;
 }
 
 export interface ArtifactQuickView {

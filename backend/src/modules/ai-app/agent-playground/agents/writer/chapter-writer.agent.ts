@@ -53,35 +53,12 @@ const Input = z.object({
   previousChapterHeadings: z.array(z.string()).optional(),
   previousCritique: z.string().optional(),
   previousDraft: z.string().optional(),
-  /**
-   * ★ PR-13 v1.6 § 13.3 sub-section 拼接路径（deep / professional scale 启用）
-   * 提供时：prompt 切到"只写这一个 sub-section"模式；targetWords 用 sub-section.targetWordCount
-   * 不提供时：保留原有"写整个章节"行为（quick / standard scale）
-   */
-  subSection: z
-    .object({
-      index: z.number().int().min(1),
-      heading: z.string(),
-      thesis: z.string(),
-      targetWordCount: z.number().int().min(500).max(20_000),
-      positionInChapter: z.enum(["opening", "middle", "closing"]),
-      /** 上一 sub-section 末尾内容（已 sanitizeLlmOutput 处理；首 sub-section 为 null） */
-      previousContext: z.string().nullable(),
-    })
-    .optional(),
 });
 
 const Output = z.object({
   index: z.number().int(),
   heading: z.string(),
   body: z.string(),
-  /**
-   * @deprecated PR-2' v1.6 D2 派生真值（2026-05-07 overhaul）
-   * LLM 输出值不可信任（c195035f mission 全章节假报 1428 占位）。
-   * 真值由 per-dim-pipeline.util.ts 调用 countCJKWords(body) 后端重算覆盖。
-   * 保留字段是为了兼容 reflexion loop 内部参照、不破坏 LLM prompt 模板。
-   * 任何下游消费（DB 写入 / UI 显示 / D4 硬合约）必须用 backend 重算值，禁止用此字段。
-   */
   wordCount: z.number().int(),
   citationsUsed: z.array(z.string()),
 });
@@ -112,10 +89,6 @@ const Output = z.object({
 })
 export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    // ★ PR-13 v1.6 § 13.3 sub-section 模式：subSection 字段存在 → 切单 sub-section prompt
-    if (input.subSection) {
-      return this.buildSubSectionPrompt(input);
-    }
     // ★ lengthProfile-aware 字数范围表（E 档位约束，与 per-dim-pipeline 计算对齐）
     const PROFILE_WORD_RANGES: Record<
       NonNullable<z.infer<typeof Input>["lengthProfile"]>,
@@ -293,103 +266,6 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `❌ 错误（直接发 output 顶层）：{ "index": ..., "heading": ..., "body": ... }`,
       `✅ 正确（包装在 action.output 里）：{ "thinking": "...", "action": { "kind": "finalize", "output": {...} } }`,
-    ].join("\n");
-  }
-
-  /**
-   * ★ PR-13 v1.6 § 13.3 sub-section 模式 prompt builder
-   *
-   * 调用条件：input.subSection 字段存在（per-dim-pipeline 检测 scale.subSectionsPerCh ≥ 2 后注入）
-   *
-   * 关键差异 vs 整章模式：
-   *   1. 字数 target 用 subSection.targetWordCount（不是 input.targetWords）
-   *   2. 不复述完整 keyPoints；focus 在 sub-section.thesis
-   *   3. positionInChapter 决定开场 / 衔接 / 收束的 prompt 提示语
-   *   4. previousContext 提供前一 sub-section 末尾以便衔接
-   *   5. output schema 同（heading 字段填 sub-section.heading；body 是该 sub-section 的内容）
-   *
-   * 防御:
-   *   - 上层（per-dim-pipeline）已在 previousContext 调 sanitizeLlmOutput
-   *   - 章节 heading / thesis 已在 SubSectionPlannerAgent 经 sanitizeUserDerivedField
-   *   - 本 prompt 内不再二次 sanitize（避免双层处理破坏内容）
-   */
-  private buildSubSectionPrompt(input: z.infer<typeof Input>): string {
-    const ss = input.subSection!;
-    const lang =
-      input.language === "zh-CN"
-        ? "用简体中文撰写。"
-        : "Write in formal English.";
-
-    const positionGuidance: Record<typeof ss.positionInChapter, string> = {
-      opening:
-        "本节是章节开场：从问题背景出发，引出后续 sub-section 的论证脉络。不要在末尾做总结性陈述（留给最后一节）。",
-      middle:
-        "本节是章节中段：开头 1 句承接上一 sub-section 的结论；结尾 1 句铺垫下一 sub-section。深入论证 thesis，避免走题。",
-      closing:
-        "本节是章节收束：必须在末尾包含总结性表述（如「综上」「因此」「总而言之」）；呼应章核心命题；不开新论点。",
-    };
-
-    const sourceList = input.sources
-      .map((s, i) => {
-        const wrappedEvidence = wrapExternalContent(s.evidence, {
-          source: "research-evidence",
-          maxLength: 200,
-        });
-        return `  [${i + 1}] ${s.claim} | source=${s.source}\n${wrappedEvidence}`;
-      })
-      .join("\n");
-
-    const previousBlock =
-      ss.previousContext && ss.previousContext.length > 0
-        ? `\n## 上一 sub-section 末尾（用于衔接）\n${ss.previousContext}\n`
-        : "";
-
-    return [
-      `你是研究报告章节撰写助手，本次只写第 ${input.chapter.index} 章中的第 ${ss.index} 个 sub-section。`,
-      lang,
-      ``,
-      `## 章节规格`,
-      `- 维度: ${input.dimension}（topic: ${input.topic}）`,
-      `- 章节标题: ${input.chapter.heading}`,
-      `- 章节核心命题: ${input.chapter.thesis}`,
-      ``,
-      `## 本 sub-section 规格`,
-      `- 顺序: 第 ${ss.index} 个（位置 = ${ss.positionInChapter}）`,
-      `- sub-section 标题: ${ss.heading}`,
-      `- sub-section 论点: ${ss.thesis}`,
-      `- **目标字数: ${ss.targetWordCount} 字（合格区间 ${Math.round(ss.targetWordCount * 0.85)} - ${Math.round(ss.targetWordCount * 1.2)} 字）**`,
-      ``,
-      `## 位置策略`,
-      positionGuidance[ss.positionInChapter],
-      previousBlock,
-      `## 可引用资料 (claim → source)`,
-      sourceList,
-      ``,
-      `## 严禁`,
-      `- 不要复述章节标题或重复整章核心命题作为开篇（这是 sub-section 不是章节）`,
-      `- 不要列其他 sub-section 的内容（每个 sub-section 互不重叠）`,
-      `- 不要凑字数（垃圾段落 / 空话 / 套话）`,
-      `- 仅产出 sub-section 正文，不要附 sub-section 大纲、不要附章节总结`,
-      ``,
-      `## 必含`,
-      `- 引用编号 [N]（与上面 sources 列表对齐）`,
-      `- 衔接性短语（按 positionInChapter 提示）`,
-      ``,
-      `## 输出包装格式（reflexion loop 强制）`,
-      `必须包装在 thinking + action.output 内：`,
-      `{`,
-      `  "thinking": "...",`,
-      `  "action": {`,
-      `    "kind": "finalize",`,
-      `    "output": {`,
-      `      "index": ${input.chapter.index},`,
-      `      "heading": "${ss.heading.replace(/"/g, '\\"')}",`,
-      `      "body": "<sub-section 正文 markdown>",`,
-      `      "wordCount": <真实字数>,`,
-      `      "citationsUsed": ["<source url 1>", "<source url 2>"]`,
-      `    }`,
-      `  }`,
-      `}`,
     ].join("\n");
   }
 }

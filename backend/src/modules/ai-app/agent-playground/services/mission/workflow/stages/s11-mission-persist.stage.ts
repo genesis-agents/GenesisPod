@@ -21,11 +21,6 @@
 
 import type { MissionDeps } from "../mission-deps";
 import { extractSubstantiveSectionText } from "../report-artifact-sections.util";
-import { assertHardContract } from "../../../hard-contract/assert-hard-contract";
-import {
-  deriveScaleFromLegacy,
-  type ReportScale,
-} from "../../../../scale-presets";
 
 // ★ 假完成防御：chapter content guard 阈值常量
 const MIN_CHAPTER_CHARS = 500; // 单章最小内容长度（字符数）
@@ -254,88 +249,6 @@ async function runPersistInner(
         leaderVerdict: result.leaderSignOff.leaderVerdict,
       });
     } else {
-      // ★ PR-6 v1.6 D4 硬合约校验（2026-05-07 overhaul）
-      //   markCompleted 前调 assertHardContract → 不达标也 markCompleted（绝不 fail mission），
-      //   只把 gaps 写入 mission.qualityGaps（UI 渲染黄色 banner + 3 action 按钮）
-      //   见 docs/architecture/ai-app/agent-playground/agent-playground-overhaul-v1.6.md § 2.D4
-      let computedQualityGaps: unknown[] | undefined;
-      try {
-        const userProfile = result.userProfile as
-          | {
-              reportScale?: ReportScale;
-              lengthProfile?: string;
-              depth?: string;
-              withCitations?: boolean;
-            }
-          | null
-          | undefined;
-        const scale: ReportScale =
-          userProfile?.reportScale ??
-          deriveScaleFromLegacy(userProfile?.lengthProfile, userProfile?.depth)
-            .scale;
-        const withCitations = userProfile?.withCitations ?? false;
-
-        // load published chapters + figures/citations counts
-        const chapters = await deps.store
-          .loadPublishedChapters?.(missionId, userId)
-          .catch(
-            () =>
-              [] as Awaited<
-                ReturnType<NonNullable<typeof deps.store.loadPublishedChapters>>
-              >,
-          );
-
-        if (chapters && chapters.length > 0) {
-          const chapterContractInputs = await Promise.all(
-            chapters.map(async (ch) => {
-              const figures = deps.store.loadChapterFigures
-                ? await deps.store
-                    .loadChapterFigures(ch.id, userId)
-                    .catch(
-                      () =>
-                        [] as Awaited<
-                          ReturnType<
-                            NonNullable<typeof deps.store.loadChapterFigures>
-                          >
-                        >,
-                    )
-                : [];
-              return {
-                dimension: ch.dimension,
-                chapterIndex: ch.chapterIndex,
-                wordCount: ch.wordCount,
-                figureCount: (figures ?? []).length,
-                citationCount: 0, // citations 表 wire 待补；当前 0 → 触发 gap 提示
-                subSectionCount: ch.subSectionCount,
-              };
-            }),
-          );
-          const remaining = deps.budgetGuard
-            ? deps.budgetGuard.getRemaining(missionId)
-            : 0;
-          const contractResult = assertHardContract({
-            scale,
-            withCitations,
-            chapters: chapterContractInputs,
-            retriesAttempted: {}, // TODO: 后续从 mission events 聚合 retry 计数
-            budgetRemaining: remaining,
-          });
-          if (!contractResult.allPassed) {
-            computedQualityGaps = contractResult.gaps;
-            deps.log.warn(
-              `[s11 ${missionId}] hard-contract gaps=${contractResult.gaps.length}: ${contractResult.gaps
-                .map((g) => g.contractKey)
-                .join(",")}`,
-            );
-          }
-        }
-      } catch (err) {
-        // 硬合约评估失败不阻断 mission 完成（防御性编程）
-        deps.log.warn(
-          `[s11 ${missionId}] assertHardContract evaluation failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
       await deps.store.markCompleted(missionId, {
         finalScore: result.reviewScore,
         tokensUsed: snap.poolTokensUsed,
@@ -355,8 +268,6 @@ async function runPersistInner(
         leaderOverallScore: result.leaderSignOff?.leaderOverallScore,
         leaderSigned: result.leaderSignOff?.signed,
         leaderVerdict: result.leaderSignOff?.leaderVerdict,
-        // ★ PR-6 v1.6 D4 硬合约 gaps（绝不 fail mission；只标 quality 缺口）
-        qualityGaps: computedQualityGaps,
       });
       // ★ 2026-04-30: 真正的 mission:completed —— 在 markCompleted 写库成功后 emit。
       //   之前 S8 提前 emit 导致前端"假成功"且 DB 行还是 running。

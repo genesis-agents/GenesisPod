@@ -96,18 +96,6 @@ export interface CommonDeps {
     stepId: string,
     reason: string,
   ) => Promise<void>;
-
-  /**
-   * ★ PR-5 v1.6 D6 figure-curator 依赖（2026-05-07 overhaul）
-   *
-   * 这些 deps 由 mission orchestrator 注入；spec 不注入则 per-dim-pipeline 跳过 figure-curator
-   * 路径（向后兼容）。production 由 orchestrator wire from FigureCuratorService instance。
-   */
-  readonly figureCurator?: import("../../figure-curator/figure-curator.service").FigureCuratorService;
-  readonly imageSearch?: import("../../figure-curator/figure-curator.service").ImageSearchFn;
-  readonly aiGenerate?: import("../../figure-curator/figure-curator.service").AiGenerateFn;
-  readonly aiRateCounter?: import("../../figure-curator/figure-curator.service").AiGenRateCounter;
-  readonly budgetGuard?: import("../../budget/budget-guard.service").BudgetGuardService;
 }
 
 // ─── Phase 1: Plan（s1/s2）──────────────────────────────────────────

@@ -110,8 +110,6 @@ export class CtxHydratorService {
       viewMode: userProfile.viewMode ?? "continuous",
       maxCredits: detail.maxCredits,
       budgetMultiplierOverride: userProfile.budgetMultiplierOverride ?? 1.0,
-      // ★ PR-4' v1.6: rerun 重建时不强制 withCitations（保留原 mission user_profile 行为）
-      withCitations: userProfile.withCitations ?? false,
     };
 
     // v1.2 类别 A1+E1+E5：reportArtifact 必从 mission.report_full 读 + zod 校验

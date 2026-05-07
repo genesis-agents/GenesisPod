@@ -30,13 +30,6 @@ jest.mock("../../../../agents/writer/chapter-reviewer.agent", () => ({
 jest.mock("../../../../agents/writer/dimension-integrator.agent", () => ({
   DimensionIntegratorAgent: class DimensionIntegratorAgent {},
 }));
-// PR-8 v1.6 D5: per-dim-pipeline 现在静态 import sub-section-planner.agent，
-//   该文件 extends AgentSpec<...>（来自 ai-harness facade），ai-harness facade
-//   被本 spec mock 后 AgentSpec 变 undefined → "Class extends value undefined"。
-//   配 stub 让 import side-effect 不炸（spec 不实际跑 sub-section 路径）。
-jest.mock("../../../../agents/writer/sub-section-planner.agent", () => ({
-  SubSectionPlannerAgent: class SubSectionPlannerAgent {},
-}));
 
 jest.mock("@/modules/ai-harness/facade", () => ({
   restoreGlobalIndices: jest.fn((body: string) => body),

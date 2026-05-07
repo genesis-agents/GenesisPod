@@ -18,12 +18,6 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
-// ★ PR-1~13 v1.6 (2026-05-07 overhaul) 新增服务
-import { BudgetGuardService } from "./services/budget/budget-guard.service";
-import { FigureCuratorService } from "./services/figure-curator/figure-curator.service";
-import { SubSectionPlannerService } from "./services/sub-section/sub-section-planner.service";
-import { RerunIntentDispatcher } from "./services/rerun/rerun-intent-dispatcher.service";
-import { RerunIntentHandlerRegistrar } from "./services/rerun/rerun-intent-handlers";
 import { MissionRuntimeShellService } from "./services/mission/workflow/mission-runtime-shell.service";
 import { MissionStageBindingsService } from "./services/mission/workflow/mission-stage-bindings.service";
 // ★ R2-C 单轨化 (2026-05-04)：pipelineDispatcher 是唯一 mission orchestrator
@@ -99,15 +93,6 @@ import { EXTRA_SKILL_DIRS } from "@/modules/ai-harness/facade";
       useValue: [path.resolve(__dirname, "skills/built-in")],
     },
     AgentPlaygroundGateway,
-    // ★ PR-6 v1.6 D4 BudgetGuard atomic tryDeduct/tryReserve（in-memory；prod 升级 Redis Lua）
-    BudgetGuardService,
-    // ★ PR-5 v1.6 D6 figure-curator 三 step orchestrator
-    FigureCuratorService,
-    // ★ PR-13 v1.6 § 13.2 sub-section planner 校验服务
-    SubSectionPlannerService,
-    // ★ PR-7 v1.6 D5 RerunIntent dispatcher（前置 ensureRerunable 守护）
-    RerunIntentDispatcher,
-    RerunIntentHandlerRegistrar,
     MissionRuntimeShellService,
     MissionStageBindingsService,
     // MissionOwnershipRegistry / MissionAbortRegistry 由 @Global HarnessModule 提供（PR-X-E 上提）
@@ -173,8 +158,6 @@ export class AgentPlaygroundModule implements OnModuleInit {
     //   下推到 ai-app/agent-playground/skills/，需要在这里 register 到 SkillRegistry
     //   否则 SkillActivator 在 leader/researcher role 启动时报 "skipped: <skill-id>"
     private readonly skillLoader: SkillLoaderService,
-    // ★ PR-7 v1.6 D5 RerunIntent handler 注册器（onModuleInit 时绑全 8 意图到 dispatcher）
-    private readonly rerunIntentRegistrar: RerunIntentHandlerRegistrar,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -185,9 +168,6 @@ export class AgentPlaygroundModule implements OnModuleInit {
       domain: "agent-playground",
       recursive: false,
     });
-
-    // ★ PR-7 v1.6 D5: 注册 8 RerunIntent handlers 到 dispatcher（无条件前置 ensureRerunable）
-    this.rerunIntentRegistrar.registerAll();
 
     // 1. 注册事件类型 —— DomainEventBus 校验未注册的 type 会 drop+warn
     this.registry.registerAll(AGENT_PLAYGROUND_EVENTS);

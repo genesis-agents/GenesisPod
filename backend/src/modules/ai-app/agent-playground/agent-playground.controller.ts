@@ -19,7 +19,6 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { randomUUID, timingSafeEqual } from "crypto";
-import { z } from "zod";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import {
   RateLimit,
@@ -42,12 +41,6 @@ import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import { LocalRerunService } from "./services/mission/rerun/local-rerun.service";
 import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "./services/export/mission-export.service";
-import { RerunIntentDispatcher } from "./services/rerun/rerun-intent-dispatcher.service";
-import { RerunGuardService } from "./services/mission/rerun/rerun-guard.service";
-import {
-  INTENT_STAGES,
-  type RerunIntent,
-} from "./services/rerun/rerun-intents";
 // ★ R2-C 单轨化（2026-05-04）：删除 legacy TeamMission + RuntimeFlagService
 //   pipeline-v1 现在是唯一 mission 路径。dispatcher 即 trunk。
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
@@ -70,9 +63,6 @@ export class AgentPlaygroundController {
     private readonly rerunOrchestrator: MissionRerunOrchestratorService,
     // ★ R2-C 单轨化：pipelineDispatcher 是唯一 mission orchestrator
     private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
-    // ★ PR-8 v1.6 D5: 8 RerunIntent 调度器 + 状态机守护
-    private readonly rerunIntentDispatcher: RerunIntentDispatcher,
-    private readonly rerunGuard: RerunGuardService,
   ) {}
 
   private isDevTriggerAuthorized(presentedToken?: string): boolean {
@@ -423,80 +413,6 @@ export class AgentPlaygroundController {
       missionId,
       userId,
       resolvedMode,
-    );
-  }
-
-  /**
-   * POST /api/v1/agent-playground/missions/:id/rerun-with-intent
-   *
-   * PR-8 v1.6 D5：8 RerunIntent 单端口路由（取代 fresh/incremental 二元开关）。
-   *
-   * Body:
-   *   {
-   *     intent: "extend-length" | "add-figures" | "revise-chapter"
-   *           | "extend-research" | "fresh-research"
-   *           | "change-style" | "change-language" | "change-audience"
-   *           | "publish-only";
-   *     payload?: unknown;  // intent-specific（如 revise-chapter 需 chapterIndex）
-   *   }
-   *
-   * fresh-research → 创建新 mission 沿用原 input + parent_mission_id（version chain）
-   * 其他 7 意图 → 同 mission 局部重跑（INTENT_STAGES 选择性执行）
-   *
-   * 守护：dispatcher 内部无条件前置 ensureRerunable / ensureMissionOwnership（CWE-639）
-   */
-  @Post("missions/:id/rerun-with-intent")
-  @UseGuards(RateLimitGuard)
-  @RateLimit({
-    maxRequests: 10,
-    windowSeconds: 60,
-    message: "意图重跑过于频繁，请稍后再试",
-  })
-  async rerunWithIntent(
-    @Param("id") missionId: string,
-    @Body() body: unknown,
-    @Request() req: RequestWithUser,
-  ): Promise<{ runMissionId: string; intent: RerunIntent }> {
-    const userId = req.user?.id;
-    if (!userId) throw new ForbiddenException("Authentication required");
-
-    // PR-8 v1.6 D5：intent + payload 显式 zod 校验（不信任 controller body 的 unknown）
-    //   - intent: 必为 INTENT_STAGES key（已注册的 8 意图之一）
-    //   - payload: 各 intent 字段限定窗口（chapterIndex 0-99 / language 枚举 / style 枚举 / audience 枚举）
-    //     畸形 payload（如 chapterIndex: -1 / chapterIndex: 999 / arbitrary string）会被 reject 在
-    //     进 dispatcher / handler / LLM prompt 之前。
-    const Schema = z.object({
-      intent: z.enum(
-        Object.keys(INTENT_STAGES) as [string, ...string[]],
-      ) as z.ZodType<RerunIntent>,
-      payload: z
-        .object({
-          chapterIndex: z.number().int().min(1).max(99).optional(),
-          style: z
-            .enum(["academic", "executive", "journalistic", "technical"])
-            .optional(),
-          language: z.enum(["zh-CN", "en-US"]).optional(),
-          audience: z
-            .enum(["executive", "domain-expert", "general-public"])
-            .optional(),
-        })
-        .strict()
-        .optional(),
-    });
-    const parsed = Schema.safeParse(body);
-    if (!parsed.success) {
-      throw new BadRequestException(
-        `Invalid rerun-with-intent payload: ${parsed.error.issues
-          .map((i) => `${i.path.join(".")}: ${i.message}`)
-          .join("; ")}`,
-      );
-    }
-    return await this.rerunIntentDispatcher.dispatch(
-      missionId,
-      userId,
-      parsed.data.intent,
-      parsed.data.payload ?? {},
-      this.rerunGuard,
     );
   }
 

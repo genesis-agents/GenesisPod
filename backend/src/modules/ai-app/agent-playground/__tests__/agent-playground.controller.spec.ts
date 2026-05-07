@@ -134,18 +134,6 @@ function buildController() {
   //   orchestrator (TeamMission) + runtimeFlag 已从 controller 删除
   const pipelineDispatcher = orchestrator; // 复用 makeOrchestrator() 的 runMission stub
 
-  // ★ PR-8 v1.6 D5: 8 RerunIntent dispatcher mock（默认 dispatch 走通）
-  const rerunIntentDispatcher = {
-    dispatch: jest.fn(
-      async (missionId: string, _userId: string, intent: string) => ({
-        runMissionId:
-          intent === "fresh-research" ? `${missionId}-new` : missionId,
-        intent,
-      }),
-    ),
-  };
-  const rerunGuard = rerunGuardMock; // 复用同一个 RerunGuard mock（dispatcher 内部调）
-
   const controller = new AgentPlaygroundController(
     buffer as never,
     ownership as never,
@@ -158,8 +146,6 @@ function buildController() {
     exportService as never,
     rerunOrchestrator as never,
     pipelineDispatcher as never,
-    rerunIntentDispatcher as never,
-    rerunGuard as never,
   );
 
   return {
@@ -172,8 +158,6 @@ function buildController() {
     abortRegistry,
     prisma,
     pipelineDispatcher,
-    rerunIntentDispatcher,
-    rerunGuard,
   };
 }
 
@@ -1302,103 +1286,6 @@ describe("AgentPlaygroundController", () => {
         changesFromPrev: [{ sectionId: "s1", type: "modified" }],
       });
       expect(store.getReportVersion).toHaveBeenCalledWith("m-1", 2);
-    });
-  });
-
-  // ── PR-8 v1.6 D5: rerunWithIntent ─────────────────────────────────────
-  describe("rerunWithIntent", () => {
-    it("throws ForbiddenException when not authenticated", async () => {
-      const { controller } = buildController();
-      await expect(
-        controller.rerunWithIntent("m-1", { intent: "fresh-research" }, {
-          user: undefined,
-        } as never),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
-    it("throws BadRequestException when intent is missing", async () => {
-      const { controller } = buildController();
-      await expect(
-        controller.rerunWithIntent("m-1", {}, makeReq("user-1")),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("throws BadRequestException when intent is not in INTENT_STAGES", async () => {
-      const { controller } = buildController();
-      await expect(
-        controller.rerunWithIntent(
-          "m-1",
-          { intent: "invalid-intent" },
-          makeReq("user-1"),
-        ),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("throws BadRequestException when payload.chapterIndex out of range", async () => {
-      const { controller } = buildController();
-      await expect(
-        controller.rerunWithIntent(
-          "m-1",
-          { intent: "revise-chapter", payload: { chapterIndex: 999 } },
-          makeReq("user-1"),
-        ),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("throws BadRequestException when payload has unknown field (strict)", async () => {
-      const { controller } = buildController();
-      await expect(
-        controller.rerunWithIntent(
-          "m-1",
-          { intent: "fresh-research", payload: { hackerField: "x" } },
-          makeReq("user-1"),
-        ),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it("dispatches fresh-research → returns new missionId (parent_mission_id chain)", async () => {
-      const { controller, rerunIntentDispatcher } = buildController();
-      const result = await controller.rerunWithIntent(
-        "m-1",
-        { intent: "fresh-research" },
-        makeReq("user-1"),
-      );
-      expect(rerunIntentDispatcher.dispatch).toHaveBeenCalledWith(
-        "m-1",
-        "user-1",
-        "fresh-research",
-        {},
-        expect.anything(),
-      );
-      expect(result.runMissionId).toBe("m-1-new");
-      expect(result.intent).toBe("fresh-research");
-    });
-
-    it("dispatches add-figures → returns same missionId (local rerun)", async () => {
-      const { controller, rerunIntentDispatcher } = buildController();
-      const result = await controller.rerunWithIntent(
-        "m-1",
-        { intent: "add-figures" },
-        makeReq("user-1"),
-      );
-      expect(rerunIntentDispatcher.dispatch).toHaveBeenCalled();
-      expect(result.runMissionId).toBe("m-1");
-    });
-
-    it("dispatches revise-chapter with valid chapterIndex", async () => {
-      const { controller, rerunIntentDispatcher } = buildController();
-      await controller.rerunWithIntent(
-        "m-1",
-        { intent: "revise-chapter", payload: { chapterIndex: 3 } },
-        makeReq("user-1"),
-      );
-      expect(rerunIntentDispatcher.dispatch).toHaveBeenCalledWith(
-        "m-1",
-        "user-1",
-        "revise-chapter",
-        { chapterIndex: 3 },
-        expect.anything(),
-      );
     });
   });
 });
