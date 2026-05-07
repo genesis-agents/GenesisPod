@@ -13,12 +13,55 @@
  */
 'use client';
 
-import { KeyRound, Layers } from 'lucide-react';
+import { KeyRound, Layers, Server } from 'lucide-react';
 import type { AIModel } from '@/hooks';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface BadgeShape {
   isUserKey?: boolean;
   isMixture?: boolean;
+}
+
+interface MetaShape extends BadgeShape {
+  provider?: string;
+}
+
+/**
+ * 模型来源元信息行 — 在自定义下拉 / 列表 / 卡片里替代纯 provider 文本：
+ *   `<provider> · [KeyRound] 我的 Key`（emerald）
+ *   `<provider> · [Server]   系统 Key`（slate）
+ *
+ * 与 `ModelSelect` 下拉行视觉一致，让 AI Ask / ai-teams 等已自定义 UI 的下拉
+ * 也能拿到同款专业图标，而不是仅靠右上角小 chip。
+ */
+export function ModelKeyMeta({
+  model,
+  className,
+}: {
+  model: MetaShape | AIModel;
+  className?: string;
+}) {
+  const { t } = useI18n();
+  const m = model as MetaShape;
+  const isUserKey = !!m.isUserKey;
+  const Icon = isUserKey ? KeyRound : Server;
+  const labelKey = isUserKey
+    ? 'common.modelKeyLabel.myKey'
+    : 'common.modelKeyLabel.systemKey';
+  const fallback = isUserKey ? '我的 Key' : '系统 Key';
+  const labelRaw = t(labelKey);
+  const label = labelRaw === labelKey ? fallback : labelRaw;
+  const tone = isUserKey ? 'text-emerald-600' : 'text-slate-500';
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[11px] text-gray-500 ${className ?? ''}`}
+    >
+      {m.provider ? <span className="truncate">{m.provider}</span> : null}
+      {m.provider ? <span aria-hidden>·</span> : null}
+      <Icon size={11} className={`shrink-0 ${tone}`} aria-hidden />
+      <span className={tone}>{label}</span>
+    </span>
+  );
 }
 
 export function ModelBadges({ model }: { model: BadgeShape | AIModel }) {

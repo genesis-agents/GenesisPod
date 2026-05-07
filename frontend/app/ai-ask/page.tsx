@@ -4,7 +4,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 // W4-byok 2026-05-05: 提到共享组件，让所有用到 BYOK 标识的地方走同一来源
-import { ModelBadges } from '@/components/common/ModelBadges';
+// 2026-05-06 截图 40：ModelKeyMeta 让 AI Ask 模型行也走 KeyRound/Server lucide 图标
+import { ModelBadges, ModelKeyMeta } from '@/components/common/ModelBadges';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1896,9 +1897,7 @@ export default function AskPage() {
                                           </span>
                                           <ModelBadges model={model} />
                                         </div>
-                                        <span className="text-[11px] text-gray-500">
-                                          {model.provider}
-                                        </span>
+                                        <ModelKeyMeta model={model} />
                                       </div>
                                       {selectedModel === model.id && (
                                         <svg
@@ -2586,9 +2585,7 @@ export default function AskPage() {
                                       </span>
                                       <ModelBadges model={model} />
                                     </div>
-                                    <span className="text-[11px] text-gray-500">
-                                      {model.provider}
-                                    </span>
+                                    <ModelKeyMeta model={model} />
                                   </div>
                                   {selectedModel === model.id && (
                                     <svg
