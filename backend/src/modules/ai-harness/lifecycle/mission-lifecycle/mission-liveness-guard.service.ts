@@ -39,6 +39,16 @@ export interface MissionLivenessRow {
   readonly startedAt: Date;
   /** null 表示从未刷新心跳（极旧的 mission / 启动后立即崩） */
   readonly heartbeatAt: Date | null;
+  /**
+   * 最近一次 reopen 时间（mission failed/quality-failed → running 反向状态机）。
+   * null = 该 mission 从未 reopen 过。
+   *
+   * 设计来源：rerun-overhaul-design-v1.md §3.5（c195035f 类事故修补）。
+   * wall-time 计算应该用 effective start = max(startedAt, lastReopenedAt)，
+   * 否则 7h+ 前 started 的 mission 一旦 reopen 立即触发 wall-time-exceeded 误杀
+   * （与重跑 cascade markCompleted 形成 race，前端读到 mission:failed 误以为重跑挂了）。
+   */
+  readonly lastReopenedAt?: Date | null;
 }
 
 /**
@@ -289,7 +299,13 @@ export class MissionLivenessGuard implements OnModuleDestroy {
     let warned = 0;
     let killed = 0;
     for (const m of candidates) {
-      const ageMs = now - m.startedAt.getTime();
+      // ★ 2026-05-07 rerun-overhaul：wall-time 用 effective start。reopen 后从最近
+      //   reopen 时间起算，不从 mission 创建时间。否则 7h+ 前 started 的 mission 一旦
+      //   reopen 立即被误判 wall-time-exceeded（与 cascade markCompleted 形成 race，
+      //   前端读到 mission:failed 误以为重跑失败）。
+      const reopenedMs = m.lastReopenedAt?.getTime() ?? 0;
+      const effectiveStart = Math.max(m.startedAt.getTime(), reopenedMs);
+      const ageMs = now - effectiveStart;
       // wall-time 硬上限：直接杀
       if (ageMs > config.wallTimeCapMs) {
         await adapter

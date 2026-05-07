@@ -130,6 +130,69 @@ describe("MissionLivenessGuard", () => {
       expect(adapter.killed[0].reason).toBe("wall-time-exceeded");
       expect(adapter.killed[0].errorMessage).toContain("最大执行时长");
     });
+
+    // ★ 2026-05-07 rerun-overhaul：reopen 后 wall-time 应从 lastReopenedAt 起算，
+    //   不从 mission 创建时间。否则 7h+ 前 started 的 mission 一旦 reopen 立即被
+    //   误判超时，与 cascade markCompleted 形成 race 让用户看到"重跑失败：未知错误"
+    //   （c195035f mission 真实事故 2026-05-07）
+    it("reopen 后用 lastReopenedAt 起算 wall-time（不被原 startedAt 误判超时）", async () => {
+      const now = Date.now();
+      const adapter = mockAdapter({
+        rows: [
+          {
+            id: "m1",
+            userId: "u1",
+            // 原 mission 起跑 7 小时前，已超 4h wall-time cap
+            startedAt: new Date(now - 7 * 3600 * 1000),
+            heartbeatAt: new Date(now - 10_000),
+            // 但 5 分钟前刚 reopen → effective start = now - 5min < cap，不应杀
+            lastReopenedAt: new Date(now - 5 * 60_000),
+          },
+        ],
+        eventTsByMissionId: { m1: now - 5_000 },
+      });
+      guard.registerAdapter("test", adapter);
+      await guard.forceScan("test");
+      expect(adapter.killed).toEqual([]);
+    });
+
+    it("reopen 但 reopen 后已超 4h → 仍杀 wall-time-exceeded", async () => {
+      const now = Date.now();
+      const adapter = mockAdapter({
+        rows: [
+          {
+            id: "m1",
+            userId: "u1",
+            startedAt: new Date(now - 10 * 3600 * 1000),
+            heartbeatAt: new Date(now - 10_000),
+            // 5 小时前 reopen，effective start = now - 5h > 4h cap，应该杀
+            lastReopenedAt: new Date(now - 5 * 3600 * 1000),
+          },
+        ],
+      });
+      guard.registerAdapter("test", adapter);
+      await guard.forceScan("test");
+      expect(adapter.killed).toHaveLength(1);
+      expect(adapter.killed[0].reason).toBe("wall-time-exceeded");
+    });
+
+    it("lastReopenedAt=null（未 reopen 过）→ 用 startedAt 起算（向后兼容）", async () => {
+      const adapter = mockAdapter({
+        rows: [
+          {
+            id: "m1",
+            userId: "u1",
+            startedAt: new Date(Date.now() - 5 * 3600 * 1000),
+            heartbeatAt: new Date(Date.now() - 10_000),
+            lastReopenedAt: null,
+          },
+        ],
+      });
+      guard.registerAdapter("test", adapter);
+      await guard.forceScan("test");
+      expect(adapter.killed).toHaveLength(1);
+      expect(adapter.killed[0].reason).toBe("wall-time-exceeded");
+    });
   });
 
   // ── I3 + I4 multi-signal verification ─────────────────────────────

@@ -188,8 +188,8 @@ export class AgentPlaygroundModule implements OnModuleInit {
     this.livenessGuard.registerAdapter(
       "agent-playground",
       {
-        fetchRunningMissions: () =>
-          this.prisma.agentPlaygroundMission
+        fetchRunningMissions: async () => {
+          const rows = await this.prisma.agentPlaygroundMission
             .findMany({
               where: { status: "running" },
               select: {
@@ -200,15 +200,51 @@ export class AgentPlaygroundModule implements OnModuleInit {
               },
               take: 200,
             })
-            .then((rows) =>
-              rows.map((r) => ({
-                id: r.id,
-                userId: r.userId,
-                startedAt: r.startedAt,
-                heartbeatAt: r.heartbeatAt,
-              })),
-            )
-            .catch(() => []),
+            .catch(
+              () =>
+                [] as Array<{
+                  id: string;
+                  userId: string;
+                  startedAt: Date;
+                  heartbeatAt: Date | null;
+                }>,
+            );
+          if (rows.length === 0) return [];
+          // ★ 2026-05-07 rerun-overhaul：wall-time 用 effective start = max(startedAt,
+          //   lastReopenedAt)。reopen 后的 mission 不应被原 startedAt 误判超时。
+          //   按 missionId 取最近一条 mission:reopened 事件 ts。
+          const ids = rows.map((r) => r.id);
+          const reopenedMap = new Map<string, number>();
+          try {
+            const reopens =
+              await this.prisma.agentPlaygroundMissionEvent.findMany({
+                where: {
+                  missionId: { in: ids },
+                  type: "agent-playground.mission:reopened",
+                },
+                select: { missionId: true, ts: true },
+                orderBy: { ts: "desc" },
+              });
+            for (const ev of reopens) {
+              if (!reopenedMap.has(ev.missionId)) {
+                const tsMs = Number(ev.ts);
+                if (Number.isFinite(tsMs)) reopenedMap.set(ev.missionId, tsMs);
+              }
+            }
+          } catch {
+            // best-effort：reopen 查询失败不阻断 liveness 主流程，回退到 startedAt
+          }
+          return rows.map((r) => {
+            const reopenedTs = reopenedMap.get(r.id);
+            return {
+              id: r.id,
+              userId: r.userId,
+              startedAt: r.startedAt,
+              heartbeatAt: r.heartbeatAt,
+              lastReopenedAt: reopenedTs != null ? new Date(reopenedTs) : null,
+            };
+          });
+        },
         getMostRecentEventTs: async (missionIds, sinceMs) => {
           const grouped = await this.prisma.agentPlaygroundMissionEvent
             .groupBy({
