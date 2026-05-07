@@ -67,6 +67,16 @@ export interface StageStepConfig {
   readonly timeoutMs?: number;
   /** stage 自定义参数（passed to hooks via context）*/
   readonly params?: Readonly<Record<string, unknown>>;
+  /**
+   * PR-R1 (2026-05-07 per-task rerun + cascade)：DAG 元数据（可选，向后兼容）
+   *
+   * 用途：cascade 执行器读 successors 决定调度；ctx-hydrator 读 ctxReads 校验完整性；
+   *      mission-store 读 dbWrites + resetFields 决定 reset 范围。
+   *
+   * 不声明则该 stage 不参与 cascade rerun（rerunable 默认视为 false）。
+   * 类型见 ai-harness/runner/dag/stage-dag-meta.types.ts。
+   */
+  readonly dag?: import("../../../../runner/dag/stage-dag-meta.types").StageDagMeta;
 }
 
 /**

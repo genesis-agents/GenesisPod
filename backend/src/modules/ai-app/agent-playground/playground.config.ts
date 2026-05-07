@@ -137,111 +137,388 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
         id: "s1-budget",
         mode: "budget-pre",
         timeoutMs: 30_000,
+        // PR-R1: S1 是预算闸不可重跑（重跑等于改用户 input 配置）
+        dag: {
+          ctxReads: ["input"],
+          ctxWrites: [],
+          dbWrites: ["max_credits"],
+          successors: [],
+          rerunable: false,
+          rerunableReason: "预算闸不可重跑（如需调整请新建 mission）",
+        },
       },
       // S2 — leader plan
-      // leader 生成完整 JSON plan（1500 token），本地模型 CPU 推理 30-75s + first-token latency
-      // → 普通云模型 ~30s，本地慢模型可能 2-3min；给 15min 兜底
       {
         primitive: "plan",
         id: "s2-leader-plan",
         roleId: "leader",
         timeoutMs: 900_000,
+        // PR-R1: S2 重跑 = 改 plan = 全 mission 重跑（cascade 链覆盖 S3-S11）
+        // 真允许但 UI 应警告等于全跑
+        dag: {
+          ctxReads: ["input"],
+          ctxWrites: ["plan"],
+          dbWrites: ["dimensions", "theme_summary"],
+          successors: [
+            "s3-researcher-collect",
+            "s4-leader-assess",
+            "s5-reconciler",
+            "s6-analyst",
+            "s7-writer-outline",
+            "s8-writer",
+            "s8b-quality-enhancement",
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "dimensions",
+            "theme_summary",
+            "reconciliation_report",
+            "analyst_output",
+            "outline_plan",
+            "report_full",
+            "report_artifact_version",
+            "verdicts",
+            "leader_signed",
+            "leader_overall_score",
+            "leader_verdict",
+            "final_score",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
-      // S3 — researcher fan-out (per dimension chapter pipeline 在 hook 内做)
-      // 多维度并行 + 工具调用（web/academic search）；20min 给并发工具调用充裕时间
+      // S3 — researcher fan-out
       {
         primitive: "research",
         id: "s3-researcher-collect",
         roleId: "researcher",
         mode: "byPlanDimensions",
         timeoutMs: 1_200_000,
+        dag: {
+          ctxReads: ["plan", "input"],
+          ctxWrites: ["researcherResults"],
+          // research_results / chapter_drafts 存独立子表，dbWrites 仅列 mission 行字段
+          dbWrites: [],
+          successors: [
+            "s4-leader-assess",
+            "s5-reconciler",
+            "s6-analyst",
+            "s7-writer-outline",
+            "s8-writer",
+            "s8b-quality-enhancement",
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "reconciliation_report",
+            "analyst_output",
+            "outline_plan",
+            "report_full",
+            "report_artifact_version",
+            "verdicts",
+            "leader_signed",
+            "leader_overall_score",
+            "leader_verdict",
+            "final_score",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
       // S4 — leader assess
-      // 评估研究结果，LLM 单轮；10min
       {
         primitive: "assess",
         id: "s4-leader-assess",
         roleId: "leader",
         timeoutMs: 600_000,
+        dag: {
+          ctxReads: ["plan", "researcherResults"],
+          ctxWrites: [],
+          dbWrites: ["leader_journal"],
+          successors: [
+            "s5-reconciler",
+            "s6-analyst",
+            "s7-writer-outline",
+            "s8-writer",
+            "s8b-quality-enhancement",
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "reconciliation_report",
+            "analyst_output",
+            "outline_plan",
+            "report_full",
+            "report_artifact_version",
+            "verdicts",
+            "leader_signed",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
       // S5 — reconciler
-      // 整合多维度研究结果；5min
       {
         primitive: "synthesize",
         id: "s5-reconciler",
         roleId: "reconciler",
         mode: "reconcile",
         timeoutMs: 300_000,
+        dag: {
+          ctxReads: ["researcherResults"],
+          ctxWrites: ["reconciliationReport"],
+          dbWrites: ["reconciliation_report"],
+          successors: [
+            "s6-analyst",
+            "s7-writer-outline",
+            "s8-writer",
+            "s8b-quality-enhancement",
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "reconciliation_report",
+            "analyst_output",
+            "outline_plan",
+            "report_full",
+            "report_artifact_version",
+            "verdicts",
+            "leader_signed",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
       // S6 — analyst
-      // 深度分析；10min
       {
         primitive: "synthesize",
         id: "s6-analyst",
         roleId: "analyst",
         mode: "analyze",
         timeoutMs: 600_000,
+        dag: {
+          ctxReads: ["researcherResults", "reconciliationReport"],
+          ctxWrites: ["analystOutput"],
+          dbWrites: ["analyst_output"],
+          successors: [
+            "s7-writer-outline",
+            "s8-writer",
+            "s8b-quality-enhancement",
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "analyst_output",
+            "outline_plan",
+            "report_full",
+            "report_artifact_version",
+            "verdicts",
+            "leader_signed",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
-      // S7 — writer outline (mission-level)
-      // 生成大纲；5min
+      // S7 — writer outline
       {
         primitive: "draft",
         id: "s7-writer-outline",
         roleId: "writer",
         mode: "outline",
         timeoutMs: 300_000,
+        dag: {
+          ctxReads: ["analystOutput", "plan"],
+          ctxWrites: ["outlinePlan"],
+          dbWrites: ["outline_plan"],
+          successors: [
+            "s8-writer",
+            "s8b-quality-enhancement",
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "outline_plan",
+            "report_full",
+            "report_artifact_version",
+            "verdicts",
+            "leader_signed",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
       // S8 — writer full draft
-      // 多章节完整写作，全流程最慢 stage；25min
       {
         primitive: "draft",
         id: "s8-writer",
         roleId: "writer",
         mode: "full",
         timeoutMs: 1_500_000,
+        dag: {
+          ctxReads: [
+            "outlinePlan",
+            "analystOutput",
+            "researcherResults",
+            "reconciliationReport",
+            "plan",
+          ],
+          ctxWrites: [
+            "report",
+            "reportArtifact",
+            "reviewScore",
+            "verifierVerdicts",
+            "trajectoryStored",
+          ],
+          dbWrites: ["report_full", "report_artifact_version"],
+          successors: [
+            "s8b-quality-enhancement",
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "report_full",
+            "report_artifact_version",
+            "verdicts",
+            "leader_signed",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
-      // S8B — section quality enhancement (review primitive afterReview hook)
-      // 质量增强；10min
+      // S8B — section quality enhancement
       {
         primitive: "review",
         id: "s8b-quality-enhancement",
         roleId: "reviewer",
         mode: "quality-enhance",
         timeoutMs: 600_000,
+        dag: {
+          ctxReads: ["reportArtifact"],
+          ctxWrites: ["reportArtifact"],
+          dbWrites: ["report_full"],
+          successors: [
+            "s9-critic",
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: [
+            "report_full",
+            "verdicts",
+            "leader_signed",
+            "completed_at",
+            "error_message",
+          ],
+        },
       },
       // S9 — meta critic
-      // 批评性审阅；5min
       {
         primitive: "review",
         id: "s9-critic",
         roleId: "reviewer",
         mode: "meta-critic",
         timeoutMs: 300_000,
+        dag: {
+          ctxReads: ["reportArtifact"],
+          ctxWrites: ["reportArtifact"],
+          dbWrites: ["report_full"],
+          successors: [
+            "s9b-objective-eval",
+            "s10-leader-foreword-signoff",
+            "s11-persist",
+          ],
+          rerunable: true,
+          resetFields: ["leader_signed", "completed_at", "error_message"],
+        },
       },
       // S9B — objective evaluation
-      // 客观评估；5min
       {
         primitive: "review",
         id: "s9b-objective-eval",
         roleId: "reviewer",
         mode: "objective",
         timeoutMs: 300_000,
+        dag: {
+          ctxReads: ["reportArtifact"],
+          ctxWrites: ["reportArtifact"],
+          dbWrites: ["report_full", "verdicts"],
+          successors: ["s10-leader-foreword-signoff", "s11-persist"],
+          rerunable: true,
+          resetFields: ["leader_signed", "completed_at", "error_message"],
+        },
       },
       // S10 — leader foreword + signoff
-      // leader 写前言 + 决策放行；5min
       {
         primitive: "signoff",
         id: "s10-leader-foreword-signoff",
         roleId: "leader",
         timeoutMs: 300_000,
+        dag: {
+          ctxReads: ["reportArtifact", "verifierVerdicts"],
+          ctxWrites: ["leaderSignOff"],
+          dbWrites: [
+            "leader_signed",
+            "leader_overall_score",
+            "leader_verdict",
+            "leader_journal",
+          ],
+          successors: ["s11-persist"],
+          rerunable: true,
+          resetFields: ["completed_at", "error_message", "final_score"],
+        },
       },
-      // S11 — final persist
-      // 纯 DB write，无 LLM；2min
+      // S11 — final persist (c195035f 主用例：用户最常重跑此 stage)
       {
         primitive: "persist",
         id: "s11-persist",
         mode: "final",
         timeoutMs: 120_000,
+        dag: {
+          ctxReads: [
+            "reportArtifact",
+            "verifierVerdicts",
+            "leaderSignOff",
+            "trajectoryStored",
+          ],
+          ctxWrites: [],
+          dbWrites: [
+            "report_full",
+            "report_artifact_version",
+            "completed_at",
+            "final_score",
+            "status",
+            "tokens_used",
+            "cost_usd",
+            "trajectory_stored",
+            "last_completed_stage",
+          ],
+          successors: [], // 终点
+          rerunable: true,
+          resetFields: ["error_message", "completed_at"],
+        },
       },
       // ★ 2026-05-06 (A-7): S12 self-evolution 从 pipeline.steps 移除，改由 dispatcher
       //   在 mission terminal 后 fire-and-forget 触发，emit mission:postlude:* 事件流。

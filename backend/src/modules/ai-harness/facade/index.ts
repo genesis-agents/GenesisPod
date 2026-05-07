@@ -372,6 +372,16 @@ export type {
   ParseReportArtifactResult,
 } from "../evaluation/critique/report-artifact/report-artifact-zod.schema";
 
+// ★ PR-R1 (2026-05-07 per-task rerun + cascade):
+//   Stage 静态依赖图元数据（每 stage 声明 successors / ctxReads / dbWrites / resetFields）
+//   用途：cascade 执行器调度；ctx-hydrator 校验完整性；mission-store reset 范围
+export {
+  validateStageDag,
+  computeCascadeChain,
+  collectResetFieldsForCascade,
+} from "../runner/dag";
+export type { StageDagMeta, MissionColumnKey } from "../runner/dag";
+
 // ★ 2026-05-01: FailureLearnerService 从 ai-app/{app} 上提
 // ★ 2026-05-02 (W1 MECE): governance/learning → lifecycle/learning（失败学习是生命周期闭环）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
