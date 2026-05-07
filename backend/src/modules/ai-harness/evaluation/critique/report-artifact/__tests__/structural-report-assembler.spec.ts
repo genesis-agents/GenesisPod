@@ -138,26 +138,23 @@ describe("StructuralReportAssembler", () => {
       expect(r.metadata.sectionCountMismatch).toBeUndefined();
     });
 
-    it("sectionCountMismatch 不一致时真写 metadata（v1.6 二轮反向证据）", async () => {
-      // 通过 jest.spyOn mock expectedSectionCount 返回与实际 sections.length 不同的值，
-      // 验证 assembler 真的在 metadata 里记录 mismatch（observability 信号路径）
-      const dtoModule = await import("../report-segments.dto");
-      const spy = jest
-        .spyOn(dtoModule, "expectedSectionCount")
-        .mockReturnValue(999);
-      try {
-        const r = defaultStructuralReportAssembler.assemble(
-          buildSegmentsWithNDims(3),
-        );
-        // 真实 sections.length = 3 dim + 3 fixed (exec/preface/toc) + ?
-        //   optional 段（cross/risk/rec/conclusion）按 buildSegmentsWithNDims 全有 = 4
-        // → 3 + 3 + 4 + 1 references = 11；mock 返回 999 → mismatch 触发
-        expect(r.metadata.sectionCountMismatch).toBeDefined();
-        expect(r.metadata.sectionCountMismatch?.expected).toBe(999);
-        expect(r.metadata.sectionCountMismatch?.actual).toBe(r.sections.length);
-      } finally {
-        spy.mockRestore();
-      }
+    it("sectionCountMismatch 不一致时真写 metadata（v1.7：用 sanitizer 净空触发真分歧，不用 jest.spyOn）", () => {
+      // v1.6 原版用 jest.spyOn(dto, 'expectedSectionCount') mock — tester 三轮指出
+      // 这种对 ES named export 的 spyOn 在不同 transpile target / strict mode 下不稳定。
+      // v1.7 改为构造真实分歧：optional 段 body 在 sanitize 前非空（expectedSectionCount 计入），
+      // 但 sanitize 后净空（assembler 实际跳过）→ actual === expected - 1，真触发 mismatch 写入。
+      const segments = buildSegmentsWithNDims(3);
+      // crossDimAnalysis 是 fromBodies 类型 optional slot：
+      //   expectedSectionCount 看 raw.trim() → "<thinking>...</thinking>".trim() 真 → 计入
+      //   assembler 走 sanitizer，<thinking> 块整段剥离 → body = "" → !body.trim() 真 → 跳过
+      segments.bodies.crossDimAnalysis =
+        "<thinking>本应有内容但 sanitize 后净空</thinking>";
+      const r = defaultStructuralReportAssembler.assemble(segments);
+      expect(r.metadata.sectionCountMismatch).toBeDefined();
+      expect(r.metadata.sectionCountMismatch?.expected).toBe(
+        (r.metadata.sectionCountMismatch?.actual ?? 0) + 1,
+      );
+      expect(r.metadata.sectionCountMismatch?.actual).toBe(r.sections.length);
     });
 
     it("dim sections 顺序与 plan.dimensions 一一对齐（template 含 loop slot）", () => {

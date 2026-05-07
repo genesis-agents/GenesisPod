@@ -253,6 +253,92 @@ describe("MarkdownSanitizer (18 fixture)", () => {
     });
   });
 
+  describe("F19 lang-aware H2 启发式（v1.7）— python 代码块内 ## comment 不误关", () => {
+    it("python fence 内的 `## comment` 行不触发就近补关（保留代码块语义）", () => {
+      const raw = [
+        "前文",
+        "```python",
+        "# 注释 1",
+        "## 这是讲解 markdown 的二级标题示例",
+        "x = 1",
+        "```",
+        "后文",
+      ].join("\n");
+      const r = sanitizeMarkdownBody(raw);
+      // python 不在 ORPHAN_FENCE_LANGS，fence 内 ## 行不触发补关
+      // 完整配对的 python fence 不应有未关 fence
+      const unclosedRule = r.appliedRules.find(
+        (x) => x.rule === "unclosed-fence-appended",
+      );
+      expect(unclosedRule).toBeUndefined();
+      // ## 行原样保留在 fence 内
+      expect(r.body).toContain("## 这是讲解 markdown 的二级标题示例");
+    });
+
+    it("bash 也不触发", () => {
+      const raw = ["```bash", "# script", "## still bash comment", "```"].join(
+        "\n",
+      );
+      const r = sanitizeMarkdownBody(raw);
+      expect(
+        r.appliedRules.find((x) => x.rule === "unclosed-fence-appended"),
+      ).toBeUndefined();
+    });
+  });
+
+  describe("F20 多 H2 顺序触发多次补关（v1.7）", () => {
+    it("mermaid 孤儿 + 多个 dim H2 全部恢复为顶级章节", () => {
+      const raw = [
+        "```mermaid",
+        "graph LR",
+        "  A --> B",
+        "## 维度二",
+        "## 维度三",
+        "## 维度四",
+      ].join("\n");
+      const r = sanitizeMarkdownBody(raw);
+      // 第一个 ## 维度二 触发补关 mermaid fence
+      expect(
+        r.appliedRules.find((x) => x.rule === "unclosed-fence-appended"),
+      ).toBeDefined();
+      // 后续 ## 维度三 / ## 维度四 fence 已关，不再触发补关，
+      // 但应当作为顶级章节正常输出
+      expect(r.body).toContain("## 维度二");
+      expect(r.body).toContain("## 维度三");
+      expect(r.body).toContain("## 维度四");
+      const lines = r.body.split("\n");
+      // 三个 H2 都应位于 fence 外
+      let inFence = false;
+      const found = new Set<string>();
+      for (const line of lines) {
+        if (line.startsWith("```")) {
+          inFence = !inFence;
+          continue;
+        }
+        if (!inFence && /^## 维度[二三四]$/.test(line)) {
+          found.add(line);
+        }
+      }
+      expect(found.size).toBe(3);
+    });
+  });
+
+  describe("F21 fence 内 ### H3 不触发就近补关（v1.7）", () => {
+    it("`### sub` 在 mermaid fence 内保留为代码内容", () => {
+      const raw = ["```mermaid", "graph LR", "### sub heading", "  end"].join(
+        "\n",
+      );
+      const r = sanitizeMarkdownBody(raw);
+      // 没有 ## 触发补关，fence 在 EOF 补关
+      const unclosed = r.appliedRules.find(
+        (x) => x.rule === "unclosed-fence-appended",
+      );
+      expect(unclosed).toBeDefined();
+      // ### sub 在 fence 内保留
+      expect(r.body).toContain("### sub heading");
+    });
+  });
+
   describe("F18 prompt injection redaction", () => {
     it("Ignore previous instructions → [indirect prompt redacted]", () => {
       const r = sanitizeMarkdownBody(

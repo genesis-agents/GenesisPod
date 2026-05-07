@@ -31,8 +31,7 @@ export {
 //   MarkdownSanitizer — 状态机 fence 配对 / H2 精确剥离 / TOC 移除 /
 //   blockquote fence 修复 / CRLF 归一 / BOM 剥除 / thinking 整块剥 /
 //   prompt injection redaction（18 fixture 全覆盖）
-//   任何输出 markdown 的 stage 都可复用（playground / topic-insights /
-//   writing / office / social）
+//   任何输出 markdown 的 stage 都可复用（business-agnostic）。
 //
 //   注意：SanitizeOptions / SanitizeResult 与 safety/security/llm-injection 同名，
 //   故重命名为 MarkdownSanitize* 暴露

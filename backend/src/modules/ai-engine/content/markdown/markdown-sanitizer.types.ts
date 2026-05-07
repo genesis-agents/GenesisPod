@@ -5,8 +5,7 @@
  *
  * 职责：对一段 markdown body 做"无副作用安全化 + 防 ReDoS / DoS / PII 泄露"。
  *
- * 任何输出 markdown 的 stage 都可复用：
- *   - playground / topic-insights / writing / office / social
+ * 任何输出 markdown 的 stage 都可复用（business-agnostic：harness/ai-app 共享）。
  *
  * v1.2-v1.4 关键设计：
  *   - 命名遵循 standards/16: 接口 .types.ts，纯函数实现 .util.ts（单数）

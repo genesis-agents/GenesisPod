@@ -131,6 +131,29 @@ export function sanitizeMarkdownBody(
   };
 }
 
+/**
+ * v1.7 (代码审 / 测试三轮反馈): 仅当 fence info string（lang）属于
+ * "孤儿 fence 高发"语言时，才触发 fence 内 H2 就近补关。
+ *
+ * 真实场景：mission `eafceb32` 是 mermaid 漏关；其他可能漏关的是
+ * 无 lang 标记的纯 ```...```。编程语言（python/bash/js/ts/...）的
+ * 代码块内合法存在 `## comment`（如教 markdown 语法），不应被误判。
+ */
+const ORPHAN_FENCE_LANGS = new Set([
+  "", // 无 lang 标记的裸 fence（最易孤儿）
+  "mermaid",
+  "mmd",
+  "graph",
+  "flowchart",
+  "sequencediagram",
+  "classdiagram",
+  "stateDiagram",
+  "erdiagram",
+  "gantt",
+  "journey",
+  "pie",
+]);
+
 function scanLines(
   body: string,
   opts: SanitizeOptions,
@@ -138,8 +161,8 @@ function scanLines(
 ): string {
   const lines = body.split("\n");
   const out: string[] = [];
-  /** fence stack：每条记录 fence 类型（``` 或 ~~~），多条表示嵌套 */
-  const fenceStack: { type: string; line: number }[] = [];
+  /** fence stack：每条记录 fence 类型 + lang，多条表示嵌套 */
+  const fenceStack: { type: string; lang: string; line: number }[] = [];
   const knownDims = new Set(opts.knownDimNames ?? []);
   /** 是否已经处理首行 H2 剥离（仅首行允许剥） */
   let firstNonEmpty = true;
@@ -158,7 +181,7 @@ function scanLines(
       const fenceType = bqFence[1];
       const top = fenceStack[fenceStack.length - 1];
       if (top && top.type === fenceType) fenceStack.pop();
-      else fenceStack.push({ type: fenceType, line: i });
+      else fenceStack.push({ type: fenceType, lang: "", line: i });
       inc("blockquote-fence-fixed");
       continue;
     }
@@ -166,11 +189,12 @@ function scanLines(
     const fence = FENCE_RE.exec(line);
     if (fence) {
       const fenceType = fence[2];
+      const fenceLang = (fence[3] ?? "").trim().toLowerCase();
       const top = fenceStack[fenceStack.length - 1];
       if (top && top.type === fenceType) {
         fenceStack.pop();
       } else {
-        fenceStack.push({ type: fenceType, line: i });
+        fenceStack.push({ type: fenceType, lang: fenceLang, line: i });
       }
       out.push(line);
       continue;
@@ -178,16 +202,18 @@ function scanLines(
 
     // 仍在 fence 内 → 检查是否遇到看起来像 H2 的行（孤儿 fence 治理）
     //
-    // ★ v1.6 二轮（测试评审反馈 / mission eafceb32 真实 case）：
+    // ★ v1.6 + v1.7 启发式精确化：
     // sanitizer 原行为是只在 EOF 补关 fence，但若 fence 漏关后下游内容含
     // 多个 ## H2，按 EOF 补关会让所有 H2 都仍在 fence 内（前端渲染为代码块）。
     // 真正的修复是在 fence 内遇到 H2 就近补关，让该 H2 作为 fence 外的真章节。
     //
-    // 启发式：fence 内出现 `^##\s` 开头的行（且非 `^### ` 等更深层）→ 视为
-    // LLM 漏写关 fence 的信号 → 在该 H2 前补关 + 出栈 fence stack。
+    // v1.7：仅当 fence lang ∈ ORPHAN_FENCE_LANGS（mermaid / 无 lang）时
+    // 才触发，避免 python/bash 代码块内合法的 `## comment` 被误关。
     if (fenceStack.length > 0) {
       const looksLikeH2 = /^##\s/.test(line) && !/^###/.test(line);
-      if (looksLikeH2) {
+      const top = fenceStack[fenceStack.length - 1];
+      const langOrphanProne = ORPHAN_FENCE_LANGS.has(top.lang);
+      if (looksLikeH2 && langOrphanProne) {
         // 在 H2 前补关所有未关 fence（最常见情况是 1 个，即 mermaid 的 ```）
         while (fenceStack.length > 0) {
           const f = fenceStack.pop()!;

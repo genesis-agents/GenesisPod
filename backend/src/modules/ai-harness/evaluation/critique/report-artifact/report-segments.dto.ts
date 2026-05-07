@@ -59,7 +59,7 @@ export interface ReportTemplate {
 
 /**
  * ReportSegments —— writer / 各 stage 产出后的"段集合"
- * StructuralReportAssembler 的输入；与具体业务（playground / topic-insights）解耦。
+ * StructuralReportAssembler 的输入；与具体业务（任何 ai-app 报告 stage）解耦。
  */
 export interface ReportSegments {
   plan: {
@@ -103,7 +103,7 @@ export interface ReportSegments {
 }
 
 /**
- * 多维度报告模板（playground / topic-insights / research 默认）
+ * 多维度报告模板（多 dim research / report 类 stage 默认）
  * 原 v1.2 名 DEEP_RESEARCH_TEMPLATE，v1.3 改中性词 MULTI_DIMENSION_REPORT_TEMPLATE
  */
 export const MULTI_DIMENSION_REPORT_TEMPLATE: ReportTemplate = {

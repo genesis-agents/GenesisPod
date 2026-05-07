@@ -534,6 +534,150 @@ describe("ReportArtifactAssembler", () => {
   });
 });
 
+// ── v1.7 三轮共识：public helper 直接单测（reviewer 三轮反馈：s8 spec 只验"调用存在"
+//     不足以保证 sections[].citations 真被回填，必须在 owner 模块内单测真实行为） ──
+describe("recomputeCitationOccurrencesPublic — 直接单测（v1.7 加固）", () => {
+  let qualityGate: ReturnType<typeof makeQualityGate>;
+  let service: ReportArtifactAssembler;
+
+  beforeEach(() => {
+    qualityGate = makeQualityGate();
+    service = new ReportArtifactAssembler(qualityGate as never);
+  });
+
+  it("structural sections + fullMarkdown → citations.occurrences + sections[].citations 真被回填", () => {
+    // 模拟 structural assembler 拼装出的 sections / fullMarkdown，
+    // 验证 public helper 真的把 [N] 编号扫到对应 section.citations 数组里。
+    const fullMarkdown =
+      "## 市场\n\n营收增长 [1]，企业采纳上行 [2]。\n\n## 技术\n\nLLM 进步 [3]。";
+    const sections = [
+      {
+        id: "sec-1",
+        type: "dimension" as const,
+        level: 2 as const,
+        title: "市场",
+        anchor: "市场",
+        startOffset: 0,
+        endOffset: 30,
+        wordCount: 12,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+        sourceDimensionId: "d1",
+      },
+      {
+        id: "sec-2",
+        type: "dimension" as const,
+        level: 2 as const,
+        title: "技术",
+        anchor: "技术",
+        startOffset: 30,
+        endOffset: fullMarkdown.length,
+        wordCount: 6,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+        sourceDimensionId: "d2",
+      },
+    ];
+    const citations = [
+      {
+        index: 1,
+        uuid: "u1",
+        title: "Gartner",
+        url: "https://gartner.com",
+        domain: "gartner.com",
+        accessedAt: "2026-01-01",
+        sourceType: "industry" as const,
+        credibilityScore: 80,
+        occurrences: [],
+      },
+      {
+        index: 2,
+        uuid: "u2",
+        title: "McKinsey",
+        url: "https://mckinsey.com",
+        domain: "mckinsey.com",
+        accessedAt: "2026-01-01",
+        sourceType: "industry" as const,
+        credibilityScore: 80,
+        occurrences: [],
+      },
+      {
+        index: 3,
+        uuid: "u3",
+        title: "Arxiv",
+        url: "https://arxiv.org",
+        domain: "arxiv.org",
+        accessedAt: "2026-01-01",
+        sourceType: "academic" as const,
+        credibilityScore: 80,
+        occurrences: [],
+      },
+    ];
+    // 重新对齐 sec-1 的 endOffset 让 [1][2] 真落在它内部
+    sections[0].endOffset = fullMarkdown.indexOf("## 技术");
+    sections[1].startOffset = sections[0].endOffset;
+
+    service.recomputeCitationOccurrencesPublic(
+      citations,
+      sections,
+      fullMarkdown,
+    );
+
+    // 验证真实行为：sections[].citations 不再是空数组
+    expect(sections[0].citations).toEqual([1, 2]);
+    expect(sections[1].citations).toEqual([3]);
+    // citations[].occurrences 也被填写
+    expect(citations[0].occurrences).toHaveLength(1);
+    expect(citations[0].occurrences[0].sectionId).toBe("sec-1");
+    expect(citations[2].occurrences).toHaveLength(1);
+    expect(citations[2].occurrences[0].sectionId).toBe("sec-2");
+  });
+
+  it("空 fullMarkdown / 无 [N] → 不抛错且 sections.citations 保持空", () => {
+    const sections = [
+      {
+        id: "sec-1",
+        type: "dimension" as const,
+        level: 2 as const,
+        title: "市场",
+        anchor: "shichang",
+        startOffset: 0,
+        endOffset: 10,
+        wordCount: 3,
+        readingTimeMinutes: 1,
+        citations: [99], // 老数据
+        figureIds: [],
+        factIds: [],
+      },
+    ];
+    const citations = [
+      {
+        index: 1,
+        uuid: "u1",
+        title: "T",
+        url: "u",
+        domain: "d",
+        accessedAt: "2026-01-01",
+        sourceType: "blog" as const,
+        credibilityScore: 50,
+        occurrences: [
+          { sectionId: "old", paragraphIndex: 0, characterOffset: 0 },
+        ],
+      },
+    ];
+
+    service.recomputeCitationOccurrencesPublic(citations, sections, "");
+
+    // helper 必须 reset 老数据（occurrences.length = 0 / citations.citations = []）
+    expect(sections[0].citations).toEqual([]);
+    expect(citations[0].occurrences).toEqual([]);
+  });
+});
+
 // lengthTargetFor helper
 describe("lengthTargetFor", () => {
   it("brief → 3000", () => expect(lengthTargetFor("brief")).toBe(3000));
