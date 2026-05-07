@@ -58,7 +58,8 @@ const ArtifactCitationZodSchema = z
     index: z.number().int().min(0),
     uuid: z.string().max(64),
     title: z.string().max(500),
-    url: z.string().max(2000),
+    // PR-R0 security 收尾：url 加 .url() 格式校验（防后续抓取被注入非法 URL）
+    url: z.string().url().max(2000),
     domain: z.string().max(200),
     accessedAt: z.string().max(40),
     sourceType: z.string().max(40),
@@ -73,7 +74,8 @@ const ArtifactCitationZodSchema = z
       )
       .max(1000),
   })
-  .passthrough(); // citations 字段可能未来扩展，留 passthrough（不是 metadata 那种风险点）
+  // citations 已界定 occurrences 等内部字段；passthrough 残留扩展字段不进 cascade 关键路径（reviewer 注释完善）
+  .passthrough();
 
 const ArtifactMetadataInnerZodSchema = z.object({
   topic: z.string().min(1).max(500),

@@ -205,6 +205,40 @@ describe("ReportArtifactZodSchema", () => {
       const result = ReportArtifactZodSchema.safeParse(a);
       expect(result.success).toBe(false);
     });
+
+    // PR-R0 reviewer 收尾建议：补 level 反例 spec（仅 2/3 合法）
+    it("section.level=4 拒绝（仅允许 2/3）", () => {
+      const a = buildValidArtifact();
+      (a.sections[0] as { level: number }).level = 4;
+      const result = ReportArtifactZodSchema.safeParse(a);
+      expect(result.success).toBe(false);
+    });
+    it("section.level=2.5 拒绝（必须整数 2/3）", () => {
+      const a = buildValidArtifact();
+      (a.sections[0] as { level: number }).level = 2.5;
+      const result = ReportArtifactZodSchema.safeParse(a);
+      expect(result.success).toBe(false);
+    });
+
+    // PR-R0 security 收尾：url 必须合法格式
+    it("citation.url 非合法 URL 拒绝", () => {
+      const a = buildValidArtifact();
+      a.citations = [
+        {
+          index: 1,
+          uuid: "u1",
+          title: "T",
+          url: "not-a-url",
+          domain: "d",
+          accessedAt: "2026-01-01",
+          sourceType: "blog",
+          credibilityScore: 50,
+          occurrences: [],
+        },
+      ];
+      const result = ReportArtifactZodSchema.safeParse(a);
+      expect(result.success).toBe(false);
+    });
   });
 
   describe("parseReportArtifact helper", () => {
@@ -225,24 +259,15 @@ describe("ReportArtifactZodSchema", () => {
       expect(r.issues!.length).toBeGreaterThan(0);
     });
 
-    it("payload > 2MB 入口快速拒（不进 zod）", () => {
+    it("payload > 2MB 入口快速拒（reviewer 修订：构造确定超 2MB 锁 ok=false）", () => {
+      // 构造确定 > 2MB 的 payload —— 在 metadata 加超长 string（绕过 fullMarkdown 自身 zod 限制
+      // 让 parseReportArtifact 入口 size guard 真触发，验证 ok=false 与 errorMessage 含 "size"）
       const a = buildValidArtifact();
-      // 构造超大对象（不通过 fullMarkdown — fullMarkdown 自身有 zod 限制）
-      a.citations = Array.from({ length: 1000 }, (_, i) => ({
-        index: i,
-        uuid: `u${i}`,
-        title: "x".repeat(500),
-        url: "u",
-        domain: "d",
-        accessedAt: "2026-01-01",
-        sourceType: "blog",
-        credibilityScore: 50,
-        occurrences: [],
-      }));
+      // 4MB 超长 metadata 字段（虽然违反 max(64) 但 size guard 在 zod 之前拒，永远进不到 zod）
+      (a.metadata as Record<string, unknown>).hugeField = "x".repeat(4_000_000);
       const r = parseReportArtifact(a);
-      // citations 1000 项 × 500 byte title ≈ 500K，未到 2MB → 通过 size guard
-      // 但 zod 仍需校验通过
-      expect([true, false]).toContain(r.ok); // 不强求；本 spec 主要是验证 size guard 不抛
+      expect(r.ok).toBe(false);
+      expect(r.errorMessage).toContain("2MB"); // size guard 信息
     });
 
     it("不可序列化对象（含 BigInt）→ JSON.stringify 抛 → 友好错误", () => {

@@ -360,6 +360,18 @@ export {
   assembleStructuralReport,
 } from "../evaluation/critique/report-artifact/structural-report-assembler.service";
 
+// ★ PR-R0 (2026-05-07 per-task rerun + cascade):
+//   ReportArtifactZodSchema 运行期校验 + parseReportArtifact helper
+//   用途：ctx-hydrator 从 mission.report_full 读出后必须 zod parse；防 historic 数据污染
+export {
+  ReportArtifactZodSchema,
+  parseReportArtifact,
+} from "../evaluation/critique/report-artifact/report-artifact-zod.schema";
+export type {
+  ValidatedReportArtifact,
+  ParseReportArtifactResult,
+} from "../evaluation/critique/report-artifact/report-artifact-zod.schema";
+
 // ★ 2026-05-01: FailureLearnerService 从 ai-app/{app} 上提
 // ★ 2026-05-02 (W1 MECE): governance/learning → lifecycle/learning（失败学习是生命周期闭环）
 //   跨 mission 失败模式记忆（harness_failure_patterns 表），供 BillingRuntimeEnvAdapter 等消费
