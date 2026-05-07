@@ -90,8 +90,12 @@ export class StageRerunDispatcher {
   ) {
     // ── v1.1 C1: 构造期注册（避免 switch 漂移）──
     this.handlers.set("s9b-objective-eval", this.handleS9bObjectiveEval);
-    // 其它 12 stage handler 暂以 placeholder 注册：throw 时给出明确 PR-R5b 字样指引
+    // 其它 11 stage handler 暂以 placeholder 注册：throw 时给出明确 PR-R5b 字样指引
     // PR-R5b 将填入真实 handler（需要 RerunMissionDepsBuilder 把 billing/pool stub 装配齐全）
+    //
+    // ★ 收尾评审 P0-A2 (2026-05-07): s12-self-evolution 不在 cascade 体系（postlude
+    //   异步任务），从此 list 删；同时 s12 不在 PLAYGROUND_PIPELINE.steps 中，留在
+    //   handler registry 会让 stepIndexOf 在运行期 throw "step not in pipeline"。
     const PR_R5B_PENDING = [
       "s2-leader-plan",
       "s3-researcher-collect",
@@ -104,7 +108,6 @@ export class StageRerunDispatcher {
       "s9-critic",
       "s10-leader-foreword-signoff",
       "s11-persist",
-      "s12-self-evolution",
     ];
     for (const stepId of PR_R5B_PENDING) {
       this.handlers.set(stepId, async () => {
@@ -114,6 +117,17 @@ export class StageRerunDispatcher {
             `当前可用 scope：system:s9b（10 维客观评审）。其它请用"开新研究对比"按钮。`,
         );
       });
+    }
+    // ★ 收尾评审 P0-A3 (2026-05-07): 构造期 invariant — 把"延迟拒绝"提前到 boot fail-fast。
+    //   PLAYGROUND_PIPELINE.steps 中 dag.rerunable=true 的 stage 必须有 handler 注册；
+    //   否则 boot 期 throw（防 pipeline 加新 rerunable stage 但忘 register handler）。
+    for (const step of PLAYGROUND_PIPELINE.steps) {
+      if (step.dag?.rerunable && !this.handlers.has(step.id)) {
+        throw new Error(
+          `[StageRerunDispatcher boot] step ${step.id} dag.rerunable=true 但未注册 handler — ` +
+            `请在 dispatcher constructor 加 handlers.set("${step.id}", ...)`,
+        );
+      }
     }
   }
 
@@ -183,7 +197,7 @@ export class StageRerunDispatcher {
     );
 
     // ── 2. reset 整链 dbWrites + resetFields ──
-    await this.resetFieldsForCascade(ctx.missionId, cascadeChain);
+    await this.resetFieldsForCascade(ctx.missionId, ctx.userId, cascadeChain);
 
     // ── 3. 顺序执行 best-effort partial ──
     const stubs: StageRerunStubs = {
@@ -254,6 +268,7 @@ export class StageRerunDispatcher {
 
   private async resetFieldsForCascade(
     missionId: string,
+    userId: string,
     cascadeChain: string[],
   ): Promise<void> {
     const fields = collectResetFieldsForCascade(
@@ -261,9 +276,11 @@ export class StageRerunDispatcher {
       cascadeChain,
     );
     if (fields.length > 0) {
+      // ★ 收尾评审 P0-S2 (2026-05-07): 传 userId 走严格隔离路径
       await this.store.resetFields(
         missionId,
         fields as ReadonlyArray<MissionColumnKey>,
+        userId,
       );
     }
   }
@@ -389,10 +406,15 @@ export class StageRerunDispatcher {
       reportArtifact.quality.warnings.push(warning);
     }
 
-    await stubs.store.markRerunPatch(ctx.missionId, {
-      reportFull: reportArtifact as unknown as Record<string, unknown>,
-      reportArtifactVersion: 2,
-    });
+    // ★ 收尾评审 P0-S2 (2026-05-07): 传 userId 走严格隔离路径
+    await stubs.store.markRerunPatch(
+      ctx.missionId,
+      {
+        reportFull: reportArtifact as unknown as Record<string, unknown>,
+        reportArtifactVersion: 2,
+      },
+      ctx.userId,
+    );
 
     await emit({
       type: "agent-playground.agent:narrative",

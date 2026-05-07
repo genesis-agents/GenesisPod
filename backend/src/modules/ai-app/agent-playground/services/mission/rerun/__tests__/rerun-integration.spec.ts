@@ -143,6 +143,7 @@ function buildIntegratedHarness(opts: {
   const storeMock = {
     getById: jest.fn().mockResolvedValue({ status: missionStatus }),
     markReopened: jest.fn().mockResolvedValue(undefined),
+    markFailed: jest.fn().mockResolvedValue(undefined),
     markIntermediateState: jest.fn().mockResolvedValue(undefined),
     resetFields: jest.fn().mockResolvedValue(undefined),
     markRerunPatch: jest.fn().mockResolvedValue(undefined),
@@ -226,6 +227,7 @@ describe("Rerun integration (PR-R8)", () => {
       expect(h.storeMock.markRerunPatch).toHaveBeenCalledWith(
         "m-int-1",
         expect.objectContaining({ reportArtifactVersion: 2 }),
+        "u1",
       );
       // best-effort partial：cascade 中止在 s10
       expect(result.cascade?.completed).toContain("s9b-objective-eval");

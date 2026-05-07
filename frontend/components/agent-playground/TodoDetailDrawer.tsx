@@ -126,6 +126,9 @@ const ORIGIN_LABEL: Record<
 //
 // 后端 mission-stage-bindings.service.ts STEP_ID_TO_FRONTEND_STAGE_ID 的逆映射
 // （必须保持镜像一致；后端如果改了名，这里也得跟 — 用 frontend-contract spec 兜底）
+//
+// ★ 收尾评审 P0-A1 (2026-05-07): s12-self-evolution 不在 backend pipeline.steps
+//   （postlude 异步任务），从此映射删，前端不再渲染重跑按钮。
 const FRONTEND_STAGE_TO_STEP_ID: Record<string, string> = {
   's1-budget': 's1-budget',
   's2-leader-plan': 's2-leader-plan',
@@ -140,7 +143,6 @@ const FRONTEND_STAGE_TO_STEP_ID: Record<string, string> = {
   's9b-objective-evaluation': 's9b-objective-eval',
   's10-leader-signoff': 's10-leader-foreword-signoff',
   's11-persist': 's11-persist',
-  's12-self-evolution': 's12-self-evolution',
 };
 
 /** 后端 stepId → 中文标签（cascade preview 显示）*/
@@ -158,7 +160,6 @@ const STEP_LABEL: Record<string, string> = {
   's9b-objective-eval': 'S9B 10 维客观评分',
   's10-leader-foreword-signoff': 'S10 Leader 前言+签字',
   's11-persist': 'S11 持久化',
-  's12-self-evolution': 'S12 自演化（异步）',
 };
 
 /**
@@ -252,7 +253,6 @@ const STEP_SUCCESSORS: Record<string, string[]> = {
   's9b-objective-eval': ['s10-leader-foreword-signoff', 's11-persist'],
   's10-leader-foreword-signoff': ['s11-persist'],
   's11-persist': [],
-  's12-self-evolution': [],
 };
 
 function cascadeChainFor(stepId: string): string[] {
@@ -805,9 +805,12 @@ export function TodoDetailDrawer({
     // 新路径：有可映射的 stepId 且不在黑名单
     (!!stepId && stepId !== 's1-budget');
 
+  // ★ 收尾评审 P0-T1 (2026-05-07): s11-persist 重跑是 c195035f 主用例，不能硬排除。
+  //   后端 isLocallyRerunable 会按 dag.rerunable 判断（s11 dag.rerunable=true）。
+  //   仅 s1-budget 在前端硬排除（语义上预算闸不应重跑，后端也是黑名单）。
   const canRerun =
     !!(missionId && missionTerminal) &&
-    todo.systemStageId !== 's11-persist' &&
+    todo.systemStageId !== 's1-budget' &&
     todo.origin !== 'leader-assess-abort' &&
     supportsLocalRerun &&
     (todo.status === 'done' ||

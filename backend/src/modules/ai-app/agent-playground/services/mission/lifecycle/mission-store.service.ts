@@ -874,6 +874,10 @@ export class MissionStore {
       reportTitle?: string;
       reportSummary?: string;
     },
+    // ★ 收尾评审 P0-S2 (2026-05-07): 可选 userId 参数 — 与 markReopened 一致的深度防御。
+    //   传入时用 updateMany + count 检查；不传时退化为旧行为（保持向后兼容）。
+    //   生产路径（dispatcher）应一律传 userId 走严格路径。
+    userId?: string,
   ): Promise<void> {
     const update: Prisma.AgentPlaygroundMissionUpdateInput = {};
     if (patch.themeSummary !== undefined)
@@ -902,13 +906,28 @@ export class MissionStore {
       update.reportTitle = patch.reportTitle.slice(0, 500);
     if (patch.reportSummary !== undefined)
       update.reportSummary = patch.reportSummary;
-    await this.prisma.agentPlaygroundMission
-      .update({ where: { id }, data: update })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[markRerunPatch ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
+    if (userId) {
+      // 严格路径：updateMany + userId 隔离（防 depth-defense bypass）
+      await this.prisma.agentPlaygroundMission
+        .updateMany({
+          where: { id, userId },
+          data: update as Prisma.AgentPlaygroundMissionUpdateManyMutationInput,
+        })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[markRerunPatch ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    } else {
+      // 兼容路径（旧 caller，无 userId 上下文）
+      await this.prisma.agentPlaygroundMission
+        .update({ where: { id }, data: update })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[markRerunPatch ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
   }
 
   // ── ★ PR-R3 (2026-05-07 per-task rerun + cascade) ──────────────────────
@@ -1068,6 +1087,8 @@ export class MissionStore {
   async resetFields(
     missionId: string,
     fields: ReadonlyArray<string>,
+    // ★ 收尾评审 P0-S2 (2026-05-07): 可选 userId — 与 markReopened 一致的深度防御
+    userId?: string,
   ): Promise<void> {
     if (fields.length === 0) return;
     // 把 snake_case 列名转成 prisma model 的 camelCase 字段名
@@ -1102,13 +1123,23 @@ export class MissionStore {
       if (camel) data[camel] = null;
     }
     if (Object.keys(data).length === 0) return;
-    await this.prisma.agentPlaygroundMission
-      .update({ where: { id: missionId }, data })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[resetFields ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      });
+    if (userId) {
+      await this.prisma.agentPlaygroundMission
+        .updateMany({ where: { id: missionId, userId }, data })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[resetFields ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    } else {
+      await this.prisma.agentPlaygroundMission
+        .update({ where: { id: missionId }, data })
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[resetFields ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
   }
 
   // ── ★ 报告版本化 (2026-05-06) ────────────────────────────────────────────

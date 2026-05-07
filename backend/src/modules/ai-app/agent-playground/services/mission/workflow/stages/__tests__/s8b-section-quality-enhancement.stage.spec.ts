@@ -433,16 +433,15 @@ describe("runSectionQualityEnhancementStage (S8B)", () => {
     it("有 remediation 时持久化 reportArtifact + version=2", async () => {
       const ctx = makeCtx();
       const deps = makeDeps();
-      // 默认 mock 让第一个 section 弱 → 触发 remediate → 写回 fullMarkdown → markIntermediateState
+      // 默认 mock 让两个 section 都弱 → 触发 remediate → 写回 fullMarkdown → markIntermediateState
       await runSectionQualityEnhancementStage(ctx, deps);
       const calls = (deps.store.markIntermediateState as jest.Mock).mock.calls;
-      // 至少有一次 store 调用（remediation 发生）
-      if (calls.length > 0) {
-        expect(calls[0][1]).toMatchObject({
-          reportFull: expect.any(Object),
-          reportArtifactVersion: 2,
-        });
-      }
+      // ★ 收尾评审 P0-R3 (2026-05-07): 改条件断言为硬断言，防"删实现也通过"
+      expect(calls.length).toBeGreaterThanOrEqual(1);
+      expect(calls[0][1]).toMatchObject({
+        reportFull: expect.any(Object),
+        reportArtifactVersion: 2,
+      });
     });
 
     it("零 remediation 时不持久化（避免空写）", async () => {

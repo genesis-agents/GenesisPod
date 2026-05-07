@@ -200,6 +200,9 @@ export class LocalRerunService {
         );
       }
       // running 但 heartbeat < 60s → 真在跑，不允许重跑
+      // ★ 收尾评审 P0-R1 (2026-05-07): heartbeatAt=null 与 ctx-hydrator 策略对齐 —
+      //   视同 hbAge=Infinity（reopen 后 heartbeat 还没刷的合法窗口）。
+      //   仅当 heartbeatAt 真存在且 < 60s 才拒（in-flight 真在跑）。
       if (
         exists.status === "running" &&
         exists.heartbeatAt &&
@@ -207,12 +210,6 @@ export class LocalRerunService {
       ) {
         throw new BadRequestException(
           "原 mission 还在跑（heartbeat < 60s），无法局部重跑 —— 取消或等结束后再操作",
-        );
-      }
-      // running 但 heartbeat >= 60s → 允许（可能是上次 rerun 留下的状态）
-      if (exists.status === "running" && !exists.heartbeatAt) {
-        throw new BadRequestException(
-          "mission status=running 但无 heartbeat，状态不一致 —— 联系管理员",
         );
       }
       // 实时 cost guard：累积成本超 maxCredits → 拒绝（防 rerun 无限烧钱）
@@ -237,6 +234,19 @@ export class LocalRerunService {
     if (!this.lockRegistry.acquire(missionId, todoId)) {
       throw new BadRequestException(
         "该任务正在重跑，请等待当前一轮完成后再操作",
+      );
+    }
+
+    // ── 5b. 频次表写一笔（成功失败都写）──
+    // ★ 收尾评审 P0-S3 (2026-05-07): 原实现仅成功路径写 → 用户连续触发 LLM 失败可
+    //   绕过 5/24h 配额。改为 lock acquired 后立刻写一笔，不论后续成功/失败都计入频次。
+    if (stepId) {
+      await this.recordRerunAttempt(missionId, userId, stepId).catch(
+        (err: unknown) => {
+          this.log.warn(
+            `[local-rerun ${missionId}] recordRerunAttempt failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        },
       );
     }
 
@@ -285,17 +295,32 @@ export class LocalRerunService {
           this.log.warn(
             `[local-rerun ${missionId}] cascade aborted at ${result.abortedAt}: ${result.errorMessage}`,
           );
+          // ★ 收尾评审 P0-T2 (2026-05-07): cascade aborted 时 mission status 必须回写 failed。
+          //   原实现只 log.warn 后正常 return → mission 卡 running 直到 LivenessGuard
+          //   超时清理（5-15min），用户体验极差。现在显式 markFailed 让 status 同步。
+          //   仅当 maybeReopen 真改过 status 时才回写（cascadeChain 含 s11 的路径）。
+          const reachesTerminal =
+            !!eligibility.cascadeChain &&
+            eligibility.cascadeChain.includes(TERMINAL_STEP_ID);
+          if (reachesTerminal) {
+            await this.store
+              .markFailed(missionId, {
+                errorMessage:
+                  `cascade_aborted_at_${result.abortedAt}: ${result.errorMessage ?? "unknown"}`.slice(
+                    0,
+                    500,
+                  ),
+              })
+              .catch((err: unknown) => {
+                this.log.warn(
+                  `[local-rerun ${missionId}] markFailed after cascade abort failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
+          }
         }
       } else {
         // 老路径：scope dispatch
         await this.dispatcher.dispatch({ ctx, input, emit });
-      }
-
-      // ── 10. 频次表写一笔（成功才写，失败按 catch 处理）──
-      if (stepId) {
-        await this.recordRerunAttempt(missionId, userId, stepId).catch(
-          () => {},
-        );
       }
 
       // ── 11. emit completed ──
@@ -348,13 +373,18 @@ export class LocalRerunService {
    */
   private async enforceRerunFrequency(
     missionId: string,
-    _userId: string,
+    userId: string,
     stepId: string,
   ): Promise<void> {
+    // ★ 收尾评审 P0-S1 (2026-05-07): userId 加入 where 隔离 —
+    //   设计上频次检查应按用户隔离，原实现 _userId 被丢弃是缺陷。
+    //   未来若有 admin / WebSocket / batch 等绕过 controller assertOwnership 的入口，
+    //   userId 隔离仍是深度防御的最后一层。
     const since = new Date(Date.now() - RERUN_FREQUENCY_WINDOW_MS);
     const count = await this.prisma.agentPlaygroundRerunAttempt.count({
       where: {
         missionId,
+        userId,
         stepId,
         triggeredAt: { gte: since },
       },

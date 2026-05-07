@@ -226,6 +226,37 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
   });
 
   describe("runFromStageWithCascade — best-effort partial abort", () => {
+    // ★ 收尾评审 P0-R4 (2026-05-07): 11 个 PR-R5b placeholder 全部验证 throw "PR-R5b"
+    //   防个别 handler 被实装/重命名时漏网（构造期注册依赖循环 + Map.has key 拼写）
+    const PR_R5B_PENDING_STEPS = [
+      "s2-leader-plan",
+      "s3-researcher-collect",
+      "s4-leader-assess",
+      "s5-reconciler",
+      "s6-analyst",
+      "s7-writer-outline",
+      "s8-writer",
+      "s8b-quality-enhancement",
+      "s9-critic",
+      "s10-leader-foreword-signoff",
+      "s11-persist",
+    ];
+    it.each(PR_R5B_PENDING_STEPS)(
+      "%s placeholder handler 抛 [PR-R5b] 错误信息 + cascade abort 在自身位置",
+      async (stepId) => {
+        const { dispatcher } = makeDispatcher();
+        const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
+        const result = await dispatcher.runFromStageWithCascade({
+          ctx: makeCtx(),
+          fromStepId: stepId,
+          emit,
+        });
+        expect(result.abortedAt).toBe(stepId);
+        expect(result.completed).toEqual([]);
+        expect(result.errorMessage).toMatch(/PR-R5b/);
+      },
+    );
+
     it("placeholder handler 抛 → 返回 abortedAt + remaining + emit cascade-aborted", async () => {
       const { dispatcher } = makeDispatcher();
       const emit = jest.fn().mockResolvedValue(undefined) as EmitFn;
@@ -264,6 +295,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
       expect(store.markRerunPatch).toHaveBeenCalledWith(
         "m-1",
         expect.objectContaining({ reportArtifactVersion: 2 }),
+        "u-1",
       );
     });
   });
@@ -374,6 +406,7 @@ describe("StageRerunDispatcher (PR-R5 cascade infra)", () => {
         expect.objectContaining({
           reportArtifactVersion: 2,
         }),
+        "u-1",
       );
     });
   });
