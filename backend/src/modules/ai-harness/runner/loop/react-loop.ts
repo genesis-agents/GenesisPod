@@ -151,21 +151,22 @@ const RESERVED_ACTION_KINDS = new Set([
   "llm_generate",
 ]);
 
-// flag-on / native FC 路径用 SUFFIX —— 不含 JSON envelope 结构段（vLLM tool parser
-// 处理 wire 格式，prompt 再描述 envelope 形态会和 tools 字段冲突或变噪音）。
-// 仍保留运营段：模型可能吐协议外的 skill_invoke / subagent_spawn / llm_generate
-// 当 toolId 用，需要明确告诉它别这样；tool 失败重试守则也通用。
-const DECISION_FC_SUFFIX = `
-
-## Operational Rules
-
-- Do not invent tool ids; only use ones listed in <available_tools>. Each
-  catalog entry has an "example:" line — copy that shape literally and replace
-  placeholders with real values.
-- If a tool failed previously, choose a different tool or finalize gracefully.
-- Reserved internal action names: "skill_invoke", "subagent_spawn",
-  "llm_generate" — never request these as tool names.
-`;
+// flag-on / native FC 路径用 SUFFIX —— 真等于 DECISION_SYSTEM_SUFFIX（同字面）。
+//
+// 历史踩坑（2026-05-07 用户 prod 卡死复盘）：曾经只保留运营段（删 envelope 协议
+// 结构段），假设 vLLM tool parser 接管 wire 格式，prompt 重复描述会噪音。但实际上
+// **vLLM 没装 --tool-call-parser <name>** 时（用户最常见 setup 失败模式），LLM 没
+// 任何指引怎么吐 tool call —— content 不吐 envelope JSON，toolCalls 也空，**双层网
+// 第二层 parseDecision 真兜底拿不到 JSON 来 parse**。Layer 6 等于失效，工具调用全无。
+//
+// 修法：FC 模式也保留完整 envelope 协议描述。三个考量：
+//   1. parser 装对（Nemotron parser → response.toolCalls 直接拿到）：prompt 里多
+//      一份 envelope 描述无害（LLM 自然走 native tool_calls 而不复述 envelope）
+//   2. parser 没装/装错：prompt 引导 LLM 走 envelope JSON content，fallback
+//      parseDecision 真生效（Layer 6 双层网兜底真有效）
+//   3. 字节与 DECISION_SYSTEM_SUFFIX 一致：prompt cache prefix 对 flag-on/off
+//      切换稳定，无 cache miss
+const DECISION_FC_SUFFIX = DECISION_SYSTEM_SUFFIX;
 
 @Injectable()
 export class ReActLoop implements IAgentLoop {
@@ -223,6 +224,24 @@ export class ReActLoop implements IAgentLoop {
       Awaited<ReturnType<AiChatService["chat"]>>["toolCalls"]
     >,
   ): ParsedDecision {
+    // ★ Security R2 修法（2026-05-07）：FC 路径与 prompt-driven 路径必须对称防御 ——
+    //   prompt-driven 走 normalizeAction 时 RESERVED_ACTION_KINDS 把 skill_invoke /
+    //   subagent_spawn / llm_generate 拦在 toolId-as-kind 容错路径之前；FC 路径之前
+    //   完全绕过这层，仅靠 ToolRegistry.has(toolId) 兜底（如果未来有人注册同名 tool
+    //   或 registry 被污染就穿透）。这里加一道镜像 RESERVED 检查关闭非对称缺口。
+    //   命中即抛 InvalidActionError → 由 reason() 的 catch 走 finalize-raw fallback，
+    //   与 prompt-driven 路径行为一致。
+    for (const tc of toolCalls) {
+      if (RESERVED_ACTION_KINDS.has(tc.name)) {
+        throw new InvalidActionError(
+          `LLM returned native tool_call with reserved internal name: ` +
+            `${JSON.stringify(tc.name)}. ` +
+            `Reserved kinds (skill_invoke / subagent_spawn / llm_generate) ` +
+            `cannot be invoked as tools.`,
+          "unknown_kind",
+        );
+      }
+    }
     const toCall = (tc: (typeof toolCalls)[number]): IToolCallAction => ({
       kind: "tool_call",
       toolId: tc.name,
@@ -1297,8 +1316,10 @@ export class ReActLoop implements IAgentLoop {
       ? this.buildFunctionDefinitions(recalledToolIds ?? [])
       : [];
     const useNativeFCThisCall = fcDefs.length > 0;
-    // FC 路径用 DECISION_FC_SUFFIX（仅运营段）；prompt-driven 用原版
-    // DECISION_SYSTEM_SUFFIX（字节字面与 commit f50b50d36a 之前等价 —— 保 cache 命中）。
+    // FC 路径与 prompt-driven 路径都拼 DECISION_SYSTEM_SUFFIX（DECISION_FC_SUFFIX
+    // 当前是它的别名，字节字面一致 —— 保 cache 命中 + 双层网第二层 parseDecision
+    // 真有 envelope JSON 可解。详见 DECISION_FC_SUFFIX 定义处的"vLLM parser 失效"
+    // 历史踩坑注释。
     const systemPrompt = useNativeFCThisCall
       ? baseSystem + DECISION_FC_SUFFIX
       : baseSystem + DECISION_SYSTEM_SUFFIX;
@@ -1379,13 +1400,34 @@ export class ReActLoop implements IAgentLoop {
       response.toolCalls &&
       response.toolCalls.length > 0
     ) {
-      decision = this.decisionFromToolCalls(response.toolCalls);
-      parseError = undefined;
-      // Canary observability: native FC engaged successfully.
-      this.logger.debug(
-        `[react-loop:native-fc] path=tool_calls count=${response.toolCalls.length} ` +
-          `model=${response.model ?? "?"}`,
-      );
+      try {
+        decision = this.decisionFromToolCalls(response.toolCalls);
+        parseError = undefined;
+        // Canary observability: native FC engaged successfully.
+        this.logger.debug(
+          `[react-loop:native-fc] path=tool_calls count=${response.toolCalls.length} ` +
+            `model=${response.model ?? "?"}`,
+        );
+      } catch (err) {
+        // ★ Security R2 修法（2026-05-07）：decisionFromToolCalls 现在会拒绝 LLM
+        //   在 native FC 路径里给出 reserved kind 名（skill_invoke / subagent_spawn /
+        //   llm_generate）。命中即抛 InvalidActionError，与 prompt-driven 路径
+        //   normalizeAction 抛 InvalidActionError 行为对称。这里 catch 后走
+        //   finalize-raw 兜底，rawContent 给 caller 做诊断（reflexion critique 重试）。
+        const errName = err instanceof Error ? err.name : "Unknown";
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const subCode =
+          err instanceof InvalidActionError ? err.subCode : undefined;
+        this.logger.warn(
+          `[react-loop:native-fc] toolCalls rejected (${errName}: ${errMsg}); ` +
+            `falling back to finalize-raw.`,
+        );
+        decision = {
+          thinking: "",
+          action: { kind: "finalize", output: rawContent },
+        };
+        parseError = { name: errName, message: errMsg, subCode };
+      }
     } else {
       // parseDecision 内部 try/catch 自己处理不抛；返回 decision + 可选 parseError
       const parsed = this.parseDecision(rawContent);

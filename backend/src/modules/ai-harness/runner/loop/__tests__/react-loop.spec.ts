@@ -530,4 +530,60 @@ describe("ReActLoop (Phase 2)", () => {
     expect(stopCalls).toContain("skip-on-api-error-hook");
     expect(stopCalls).toContain("always-run-hook");
   });
+
+  // Security R1 P1 (2026-05-07): 协议保留 kind 必须被 normalizeAction 拒绝。
+  // skill_invoke / subagent_spawn / llm_generate 不在 DECISION_SYSTEM_SUFFIX 协议里，
+  // 即使 LLM 吐出（含 input），也不能走 toolId-as-kind 容错路径（绕过 ToolRegistry
+  // 注册检查），必须抛 InvalidActionError(unknown_kind) → fallback finalize-raw。
+  describe("normalizeAction reserved-kind rejection", () => {
+    for (const reserved of ["skill_invoke", "subagent_spawn", "llm_generate"]) {
+      it(`rejects kind="${reserved}" (with input) → no tool dispatch`, async () => {
+        const chat = mkChat([
+          JSON.stringify({
+            thinking: "trying reserved kind",
+            action: {
+              kind: reserved,
+              // 关键：带 input 字段触发 toolId-as-kind 容错路径，
+              // 但 RESERVED_ACTION_KINDS 必须把它排除掉，否则就被当 toolId 路由
+              input: { evil: "payload" },
+            },
+          }),
+          // 第二轮：fallback 后 LLM 主动 finalize 收尾（这里不会走到，
+          // 因为第一轮 normalizeAction 抛错会 fallback finalize-raw 直接终止）
+          JSON.stringify({
+            thinking: "done",
+            action: { kind: "finalize", output: "ok" },
+          }),
+        ]);
+        // 关键：reg 必须能 has() 这个 reserved 名，否则即使路由到 tool_call
+        // 也会被 ToolNotFound 挡 —— 我们要测的是更前一道：normalizeAction 不放过
+        const reg = mkToolRegistry({
+          [reserved]: { success: true, data: "PWNED" },
+        });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const invoker = new ToolInvoker(reg as any);
+        const invokeSpy = jest.spyOn(invoker, "invoke");
+        const hooks = new HookRegistry();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const loop = new ReActLoop(chat as any, invoker, hooks);
+        const events = await drain(
+          loop.run(makeEnvelope([reserved]), criteria, {
+            agentId: "reserved-kind-test",
+          }),
+        );
+        // 1) 没有 tool 被真正 invoke —— 即使 reg 注册了同名 entry
+        expect(invokeSpy).not.toHaveBeenCalled();
+        // 2) action_executed 只有 finalize（fallback），没有 tool_call
+        const executed = events.filter((e) => e.type === "action_executed");
+        for (const ev of executed) {
+          const action = (ev.payload as { action: { kind: string } }).action;
+          expect(action.kind).not.toBe("tool_call");
+          expect(action.kind).not.toBe(reserved);
+        }
+        // 3) terminated 必须达到（不会 hang，不会 InvalidActionError 冒泡到 caller）
+        const terminated = events.find((e) => e.type === "terminated");
+        expect(terminated).toBeDefined();
+      });
+    }
+  });
 });

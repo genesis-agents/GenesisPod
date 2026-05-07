@@ -167,12 +167,12 @@ describe("ReActLoop · PR-1 native function-calling", () => {
     expect(firstChatArg.tools[0].name).toBe("web-search");
     // 与 prompt-driven 路径关键差异：responseFormat 没设
     expect(firstChatArg.responseFormat).toBeUndefined();
-    // 结构 suffix 不应再追加（DO NOT put the action content 是 structural 段标志）
-    expect(firstChatArg.systemPrompt).not.toMatch(
-      /DO NOT put the action content/,
-    );
-    // 但运营 suffix 还要保留（reserved internals 警告 / "if a tool failed"）
-    expect(firstChatArg.systemPrompt).toMatch(/Reserved internal action names/);
+    // ★ 2026-05-07 layer 6 修法：FC 路径也保留完整 envelope 协议描述
+    //   （让 vLLM tool parser 失效时 fallback parseDecision 真兜底有效）
+    //   prompt 描述对 native tool_calls 路径无害 — LLM parser 装对仍走 toolCalls
+    expect(firstChatArg.systemPrompt).toMatch(/DO NOT put the action content/);
+    // reserved internals 警告也仍在（原 SYSTEM_SUFFIX 字面）
+    expect(firstChatArg.systemPrompt).toMatch(/skill_invoke/);
   });
 
   it("2. flag ON: multiple toolCalls become parallel_tool_call", async () => {
@@ -497,4 +497,132 @@ describe("ReActLoop · PR-1 native function-calling", () => {
       .join("\n");
     expect(allContent).not.toMatch(/\[tool_result.*call_id=/);
   });
+
+  // Layer 6 (2026-05-07): vLLM tool parser 失效场景下双层网兜底真生效 ——
+  // 即"FC 模式 prompt 必须包含 envelope 协议描述，让 LLM 即使没 native tool 通道
+  // 也能按 prompt 引导吐 envelope JSON，由 parseDecision 兜底执行"。
+  //
+  // 业务不变量（这条 spec 的语义命名）：
+  //   FC SUFFIX 与 prompt-driven SUFFIX 字节一致 → 切 flag 不掉 cache、双层网真兜底
+  it("E. layer 6 invariant: FC SUFFIX 含完整 envelope 协议（与 prompt-driven 字节一致）", async () => {
+    process.env.HARNESS_REACT_NATIVE_FC = "true";
+    const chat = mkChat([
+      {
+        // LLM 没吐 toolCalls（模拟 vLLM 无 --tool-call-parser），
+        // 但按 prompt 引导吐 envelope JSON content
+        content: JSON.stringify({
+          thinking: "parser missing fallback",
+          action: { kind: "finalize", output: { ok: true } },
+        }),
+      },
+    ]);
+    const reg = mkToolRegistry({});
+    const atr = mkAgentToolRegistry(["web-search"]);
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    const loop = new ReActLoop(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      chat as any,
+      invoker,
+      hooks,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      atr as any,
+    );
+    const events = await drain(
+      loop.run(makeEnvelope(["web-search"]), criteria, { agentId: "a1" }),
+    );
+    // 没 native tool_calls，但 parseDecision 兜底真把 finalize 跑通
+    expect(events.some((e) => e.type === "action_executed")).toBe(true);
+    const firstChatArg = (chat.chat as jest.Mock).mock.calls[0][0];
+    // 关键不变量 1：FC 路径仍 push tools 字段（native FC 通道开启）
+    expect(firstChatArg.tools).toBeDefined();
+    expect(firstChatArg.tools.length).toBe(1);
+    // 关键不变量 2：FC SUFFIX 必含 envelope 协议描述的多个字面签名 ——
+    //   这是 Layer 6 兜底的唯一语义保证，丢了就退化成 commit f50b50d36a 之前的
+    //   "运营段独占"半残状态（vLLM parser 失效 → tool call 全无）
+    expect(firstChatArg.systemPrompt).toContain("## Decision Protocol");
+    expect(firstChatArg.systemPrompt).toContain(
+      "EXACTLY this two-level wrapper",
+    );
+    expect(firstChatArg.systemPrompt).toContain('"thinking"');
+    expect(firstChatArg.systemPrompt).toContain('"action"');
+    expect(firstChatArg.systemPrompt).toContain("parallel_tool_call");
+    // 关键不变量 3：reserved internals 警告也在 FC SUFFIX 里 ——
+    //   防止 LLM 即使在 FC 模式也吐 skill_invoke / subagent_spawn 这种保留 kind
+    expect(firstChatArg.systemPrompt).toContain("skill_invoke");
+    expect(firstChatArg.systemPrompt).toContain("subagent_spawn");
+    expect(firstChatArg.systemPrompt).toContain("llm_generate");
+  });
+
+  // Security R2 P0 (2026-05-07): FC 路径与 prompt-driven 路径对称防御 ——
+  //   prompt-driven 走 normalizeAction 时 RESERVED_ACTION_KINDS 拦保留 kind；
+  //   FC 路径之前完全绕过这层防御，仅靠 ToolRegistry.has() 兜底（如未来有人
+  //   误注册同名 tool 就穿透）。decisionFromToolCalls 现在做对称拒绝。
+  //
+  // 攻击场景：LLM 在 FC 模式吐 toolCalls=[{name:"skill_invoke", arguments:...}]
+  //   → 命中 RESERVED_ACTION_KINDS 抛 InvalidActionError → finalize-raw 兜底
+  //   → ToolInvoker.invoke 永不被调用（即使 reg 注册了同名 entry）
+  for (const reservedName of [
+    "skill_invoke",
+    "subagent_spawn",
+    "llm_generate",
+  ]) {
+    it(`F. FC path: toolCalls.name="${reservedName}" → rejected before invoke (no PWNED)`, async () => {
+      process.env.HARNESS_REACT_NATIVE_FC = "true";
+      const chat = mkChat([
+        {
+          // LLM 在 FC 模式直接吐 reserved name 作为 tool name
+          toolCalls: [
+            { id: "evil_call_1", name: reservedName, arguments: { evil: "x" } },
+          ],
+        },
+      ]);
+      // 故意注册同名 tool entry —— 模拟"如果 RESERVED 检查漏掉，ToolRegistry
+      // 二层防御 has() 返回 true，tool 真被执行返回 PWNED"的最坏场景
+      const reg = mkToolRegistry({
+        [reservedName]: { success: true, data: "PWNED" },
+      });
+      const atr = mkAgentToolRegistry([reservedName]);
+      const hooks = new HookRegistry();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoker = new ToolInvoker(reg as any);
+      const invokeSpy = jest.spyOn(invoker, "invoke");
+      const loop = new ReActLoop(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        chat as any,
+        invoker,
+        hooks,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        atr as any,
+      );
+      const events = await drain(
+        loop.run(makeEnvelope([reservedName]), criteria, { agentId: "fc-sec" }),
+      );
+      // 1) ToolInvoker.invoke 永不被调用 —— 这是核心安全保证（与 prompt-driven
+      //    spec 对称）。即使 ToolRegistry 注册了同名 entry，decisionFromToolCalls
+      //    早一步拒绝。
+      expect(invokeSpy).not.toHaveBeenCalled();
+      expect(reg.get).not.toHaveBeenCalled();
+      // 2) action_executed 不含 tool_call 也不含 reserved kind ——
+      //    保留 kind 不会作为 toolId 路由
+      const executed = events.filter((e) => e.type === "action_executed");
+      for (const ev of executed) {
+        const action = (ev.payload as { action: { kind: string } }).action;
+        expect(action.kind).not.toBe("tool_call");
+        expect(action.kind).not.toBe(reservedName);
+      }
+      // 3) loop terminated（不冒泡 InvalidActionError 到 caller）
+      const terminated = events.find((e) => e.type === "terminated");
+      expect(terminated).toBeDefined();
+    });
+  }
 });
