@@ -42,6 +42,8 @@ import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
 import { ToolInvoker } from "../tool-invoker/tool-invoker";
+import { AgentToolRegistry } from "../env/tool-registry";
+import type { FunctionDefinition } from "@/modules/ai-engine/tools/abstractions/tool.interface";
 import { ContextManager } from "../context/context-manager";
 import { CacheControlPlanner } from "../context/cache-control-planner";
 import { HookRegistry } from "../../agents/core/hook-registry";
@@ -90,9 +92,13 @@ class InvalidActionError extends Error {
   }
 }
 
-const DECISION_SYSTEM_SUFFIX = `
+// PR-1 native-FC: 拆 SUFFIX 成两段。结构段（JSON envelope 形态）只在 prompt-driven
+// 路径 append；native FC 由 vLLM tool parser 处理 wire 格式，结构段会变成噪音 /
+// 与 tools 字段冲突。运营段（reserved kinds 防误冒用 / tool 失败重试守则 / 别 invent
+// tool id）两路径都需要 —— native FC 也可能吐出名叫 "skill_invoke" 的 tool_call。
+const DECISION_STRUCTURAL_SUFFIX = `
 
-## Decision Protocol
+## Decision Protocol (JSON envelope)
 
 You MUST reply with a single JSON object that has EXACTLY this two-level wrapper:
 {
@@ -125,16 +131,26 @@ The "action" field must be EXACTLY one of these 3 kinds:
 Shorthand: you may also send "actions": [<tool_call>, <tool_call>, ...] at the
 top level — it will be auto-wrapped to parallel_tool_call.
 
-Rules:
+Format rules:
 - Respond with raw JSON only, no markdown fences, no prose outside the JSON.
 - If all information is sufficient, use "finalize".
+`;
+
+const DECISION_OPERATIONAL_SUFFIX = `
+
+## Operational Rules
+
 - Do not invent tool ids; only use ones listed in <available_tools>. Each
   catalog entry has an "example:" line — copy that shape literally and replace
   placeholders with real values.
 - If a tool failed previously, choose a different tool or finalize gracefully.
-- Only the 3 action kinds above are supported. Do NOT emit "skill_invoke",
-  "subagent_spawn", or "llm_generate" — these are reserved internals.
+- Reserved internal action names: "skill_invoke", "subagent_spawn",
+  "llm_generate" — never request these as tool names.
 `;
+
+// 旧名保留为 backward-compat 别名（避免悄悄重命名破坏外部引用）。
+const DECISION_SYSTEM_SUFFIX =
+  DECISION_STRUCTURAL_SUFFIX + DECISION_OPERATIONAL_SUFFIX;
 
 @Injectable()
 export class ReActLoop implements IAgentLoop {
@@ -152,7 +168,69 @@ export class ReActLoop implements IAgentLoop {
      *  HookBus；与 harness 内置 hookRegistry 不同，plugin 这条是 onion 链） */
     @Optional()
     private readonly pluginHookBus?: import("@/plugins/core/hook-bus").HookBus,
+    /** PR-1 native-FC: optional —— 启用 native function-calling 路径所需。
+     *  缺省（旧测试 / 旧 wiring）走 prompt-driven JSON 路径，行为不变。 */
+    @Optional() private readonly agentToolRegistry?: AgentToolRegistry,
   ) {}
+
+  /**
+   * PR-1 native-FC: 全局 flag 开关（默认 OFF）。
+   *
+   * ON 时，reason() 用 OpenAI 原生 function-calling 路径：
+   *   - 把 envelope.tools → FunctionDefinition[] 透给 chatService.chat()
+   *   - 不再附加 DECISION_SYSTEM_SUFFIX 强制 JSON 协议
+   *   - 不再 responseFormat="json"
+   *   - 优先消费 response.toolCalls；为空才回退 parseDecision JSON 路径
+   *
+   * 回退保留：当 LLM 不支持 native FC（vLLM 没配 tool parser / 模型自家忽略 tools）
+   * → response.toolCalls 为空 → 走 parseDecision，里面已有方言容错（含本批次的
+   * toolId-as-kind 兜底），双层网安全。
+   */
+  private get useNativeFunctionCalling(): boolean {
+    return process.env.HARNESS_REACT_NATIVE_FC === "true";
+  }
+
+  /** envelope.tools (string[]) → FunctionDefinition[]（剥 ToolSchema 外层 type/function 包装）。 */
+  private buildFunctionDefinitions(
+    toolIds: readonly string[],
+  ): FunctionDefinition[] {
+    if (!this.agentToolRegistry || toolIds.length === 0) return [];
+    return this.agentToolRegistry.getSchemas(toolIds).map((s) => ({
+      name: s.function.name,
+      description: s.function.description,
+      parameters: s.function.parameters as FunctionDefinition["parameters"],
+    }));
+  }
+
+  /** native FC: 把 chat response.toolCalls → ParsedDecision (action 形态)。 */
+  private decisionFromToolCalls(
+    toolCalls: NonNullable<
+      Awaited<ReturnType<AiChatService["chat"]>>["toolCalls"]
+    >,
+  ): ParsedDecision {
+    const toCall = (
+      tc: (typeof toolCalls)[number],
+    ): IToolCallAction => ({
+      kind: "tool_call",
+      toolId: tc.name,
+      input:
+        tc.arguments && typeof tc.arguments === "object"
+          ? (tc.arguments as Record<string, unknown>)
+          : {},
+      // 透传 LLM 给的 tool_use_id —— IToolCallAction.callId 字段就是为 native FC
+      // 配套设计的（见 action.interface.ts:19）。多轮 FC 时 assistant/tool 配对靠这个 id。
+      callId: tc.id,
+    });
+    if (toolCalls.length === 1) {
+      return { thinking: "", action: toCall(toolCalls[0]) };
+    }
+    const calls = toolCalls.map(toCall);
+    const action: IParallelToolCallAction = {
+      kind: "parallel_tool_call",
+      calls,
+    };
+    return { thinking: "", action };
+  }
 
   async *run(
     envelope: IContextEnvelope,
@@ -517,6 +595,9 @@ export class ReActLoop implements IAgentLoop {
             currentEnvelope.memory.userId,
             // Spec 声明的 TaskProfile（如 researcher='long' / leader='medium'）
             specTaskProfile,
+            // PR-1 native-FC: envelope.tools 是上游 performToolRecall 召回的工具 id
+            // 列表，传下去让 reason() 在 flag-on 时构造 FunctionDefinition[]。
+            currentEnvelope.tools,
           );
           decision = reasoned.decision;
           usage = reasoned.usage;
@@ -1172,6 +1253,8 @@ export class ReActLoop implements IAgentLoop {
     userId?: string,
     /** Spec 声明的 TaskProfile —— 优先用 agent 真实意图，缺省走 medium */
     specTaskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile,
+    /** PR-1 native-FC: 当前 envelope 召回的工具 id 列表（envelope.tools） */
+    recalledToolIds?: readonly string[],
   ): Promise<{
     decision: ParsedDecision;
     /** ★ LLM 实际吐回的 raw content（response.content），诊断关键 */
@@ -1190,10 +1273,21 @@ export class ReActLoop implements IAgentLoop {
     if (signal?.aborted) {
       throw new Error("ReAct loop aborted by signal");
     }
-    const systemPrompt = baseSystem + DECISION_SYSTEM_SUFFIX;
+    // PR-1 native-FC: flag-on 时换走 OpenAI 原生 tools 路径，跳过 DECISION_SYSTEM_SUFFIX
+    // 与 responseFormat="json"。响应优先吃 toolCalls；为空回退 parseDecision JSON 路径
+    // （含 toolId-as-kind 容错）—— 双层网，模型不支持 native FC 也不挂。
+    const fcDefs = this.useNativeFunctionCalling
+      ? this.buildFunctionDefinitions(recalledToolIds ?? [])
+      : [];
+    const useNativeFCThisCall = fcDefs.length > 0;
+    // Native FC: 结构 suffix 删，运营 suffix 留 —— 见 DECISION_*_SUFFIX 注释。
+    const systemPrompt = useNativeFCThisCall
+      ? baseSystem + DECISION_OPERATIONAL_SUFFIX
+      : baseSystem + DECISION_SYSTEM_SUFFIX;
     const response = await this.chatService.chat({
       messages,
       systemPrompt,
+      tools: useNativeFCThisCall ? fcDefs : undefined,
       // PR-I 修复 #1: 让 BudgetAccountant.downgrade() 真正生效——
       // 把 tier 选出的 modelId 透给 ChatService（缺省走 election）。
       model: modelOverride,
@@ -1220,7 +1314,10 @@ export class ReActLoop implements IAgentLoop {
       // ReActLoop 收到非空 content 误以为成功，进 parseDecision 失败 → finalize
       // raw text → 误导 trace。
       strictMode: true,
-      responseFormat: "json",
+      // PR-1 native-FC: native FC on 时不强制 JSON —— 模型应该走 tool_calls。
+      // 强制 JSON 会让 vLLM tool parser 失效（content 必须是 JSON），fallback 路径
+      // 反而拿不到自然 tool_calls。
+      responseFormat: useNativeFCThisCall ? undefined : "json",
       // ★ Harness 内部 agent-to-agent 编排，不是用户原始输入；guardrails
       // 对内部系统 prompt 进行内容审查会误杀（特别是含 BUILTIN_TOOL 描述、
       // 评审 prompt 等可能触发敏感词检测的合法系统内容）。
@@ -1252,10 +1349,44 @@ export class ReActLoop implements IAgentLoop {
     // ★ 诊断关键：把 LLM 原始 content 一并返回，让上层在所有 error / empty 路径
     // 都能把 "LLM 实际吐了啥" 带进 event payload 和日志，避免再靠代码反推。
     const rawContent = response.content ?? "";
-    // parseDecision 内部 try/catch 自己处理不抛；返回 decision + 可选 parseError
-    const parsed = this.parseDecision(rawContent);
-    const decision = parsed.decision;
-    const parseError = parsed.parseError;
+    // PR-1 native-FC: 如果模型走了 native tool_calls（vLLM parser 已规范化为
+    // {id, name, arguments}），直接构造 decision，跳过文本 JSON 解析。
+    // toolCalls 为空才回退 parseDecision —— 旧 prompt-driven 路径 + 方言容错继续兜底。
+    let decision: ParsedDecision;
+    let parseError: { name: string; message: string; subCode?: string } | undefined;
+    if (
+      useNativeFCThisCall &&
+      response.toolCalls &&
+      response.toolCalls.length > 0
+    ) {
+      decision = this.decisionFromToolCalls(response.toolCalls);
+      parseError = undefined;
+      // Canary observability: native FC engaged successfully.
+      this.logger.debug(
+        `[react-loop:native-fc] path=tool_calls count=${response.toolCalls.length} ` +
+          `model=${response.model ?? "?"}`,
+      );
+    } else {
+      // parseDecision 内部 try/catch 自己处理不抛；返回 decision + 可选 parseError
+      const parsed = this.parseDecision(rawContent);
+      decision = parsed.decision;
+      parseError = parsed.parseError;
+      if (useNativeFCThisCall) {
+        // Canary observability: native FC requested but model didn't return
+        // tool_calls. Distinguishes "fell back to JSON parse" (有 action 的结构化
+        // content) vs "finalized raw" (parseDecision 兜底把 raw text 当 finalize)。
+        const path =
+          decision.action.kind === "finalize" &&
+          typeof decision.action.output === "string"
+            ? "finalized_raw"
+            : "fellback_json";
+        this.logger.debug(
+          `[react-loop:native-fc] path=${path} content_len=${rawContent.length} ` +
+            `model=${response.model ?? "?"}` +
+            (parseError ? ` parse_error=${parseError.name}` : ""),
+        );
+      }
+    }
     return {
       decision,
       rawContent,
@@ -1422,6 +1553,20 @@ export class ReActLoop implements IAgentLoop {
         input: (a.input as Record<string, unknown>) ?? {},
       };
     }
+    // toolId-as-kind 容错：parallel_tool_call.calls[] 同样可能吐
+    // {"kind":"web-search","input":{...}} 形态。和 normalizeAction 保持对称。
+    if (
+      typeof a.kind === "string" &&
+      a.kind.trim().length > 0 &&
+      a.kind !== "tool_call" &&
+      a.input !== undefined
+    ) {
+      return {
+        kind: "tool_call",
+        toolId: a.kind,
+        input: (a.input as Record<string, unknown>) ?? {},
+      };
+    }
     return null;
   }
 
@@ -1490,6 +1635,36 @@ export class ReActLoop implements IAgentLoop {
       return {
         kind: "finalize",
         output: (a.output as string | Record<string, unknown>) ?? "",
+      };
+    }
+
+    // ── toolId-as-kind 容错（reasoning model 退化形态）─────────────────
+    // Nemotron / Qwen-class reasoning models trained on native OpenAI tool_calls
+    // 经常把 toolId 直接放进 kind，吐 {"kind":"web-search","input":{...}}
+    // 而不是 {"kind":"tool_call","toolId":"web-search","input":{...}}。
+    // 协议里两个字段编码同一信息（tool 名）冗余，模型自然合并。
+    // 触发条件：kind 是非空字符串、不是协议保留 kind、且带 input 字段
+    // （input 存在是"这是 tool call 形状"的强信号；纯无效 kind 不会带 input）。
+    // 兜底转 tool_call 后由 ToolRegistry 校验 toolId 是否已注册：未注册照样报
+    // ToolNotFound（合理错误），不会把无效 kind 偷偷塞给随便一个 tool。
+    const RESERVED_KINDS = new Set([
+      "tool_call",
+      "parallel_tool_call",
+      "finalize",
+      "subagent_spawn",
+      "skill_invoke",
+      "llm_generate",
+    ]);
+    if (
+      typeof a.kind === "string" &&
+      a.kind.trim().length > 0 &&
+      !RESERVED_KINDS.has(a.kind) &&
+      a.input !== undefined
+    ) {
+      return {
+        kind: "tool_call",
+        toolId: a.kind,
+        input: (a.input as Record<string, unknown>) ?? {},
       };
     }
 
