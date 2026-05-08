@@ -1,14 +1,14 @@
 /**
  * BusinessAgentTeam — Mission Store 抽象接口
  *
- * 2026-05-08 PR-E2：从 ai-app/agent-playground/services/mission/lifecycle/
- * mission-store.service.ts 提取核心 lifecycle 方法签名作为框架接口。playground
+ * 2026-05-08 PR-E2：从 ai-app/agent-playground/services/mission/lifecycle/ @migrated-from
+ * mission-store.service.ts 提取核心 lifecycle 方法签名作为框架接口。reference impl
  * store 是 reference 实现（含 28 public 方法 + 业务 schema），其他 BusinessAgentTeam
  * 实例（research / TI / writing 反向迁移时）只需实现本接口的核心 lifecycle 部分，
  * 业务专属方法（saveReportVersion / appendLeaderJournal 等）由各业务方扩展。
  *
  * 框架依赖原则：harness 后续 framework（E3 RerunGuard / E4 BusinessAgentTeamFactory）
- * 通过 IBusinessTeamMissionStore 接口注入业务 store，避免直接依赖 playground 具体类。
+ * 通过 IBusinessTeamMissionStore 接口注入业务 store，避免直接依赖 reference impl 具体类。
  *
  * **暂不强制 implements**：mission-store.service.ts 通过 TypeScript structural
  * typing 隐式 satisfies 本接口（所有方法签名一致）。未来 mission-store 重构拆分
@@ -18,7 +18,7 @@
 /**
  * Mission store 核心 lifecycle 接口。
  *
- * 业务方（playground / research / 等）的 mission store 必须 satisfies 这些方法
+ * 业务方（reference impl / research / 等）的 mission store 必须 satisfies 这些方法
  * 签名以接入 BusinessAgentTeam 框架（mission-runtime-shell / RerunGuard 等）。
  *
  * 字段：
@@ -61,7 +61,7 @@ export interface IBusinessTeamMissionStore {
    * 标记 mission 失败（终态）。args.userId 传入时走 updateMany 严格隔离；
    * 缺失时走 update + assertOwnership 兼容路径。
    *
-   * args.errorMessage 由业务方决定截断长度（playground: 2000 chars）。
+   * args.errorMessage 由业务方决定截断长度（reference impl: 2000 chars）。
    */
   markFailed(
     missionId: string,

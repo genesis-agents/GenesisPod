@@ -1,8 +1,8 @@
 /**
  * BusinessAgentTeam — RerunGuard 抽象接口
  *
- * 2026-05-08 PR-E3：从 ai-app/agent-playground/services/mission/rerun/
- * rerun-guard.service.ts 提取核心方法签名。playground RerunGuardService 是
+ * 2026-05-08 PR-E3：从 ai-app/agent-playground/services/mission/rerun/ @migrated-from
+ * rerun-guard.service.ts 提取核心方法签名。reference impl RerunGuardService 是
  * reference 实现（含 SQL LIKE 业务事件查询 / store.markFailed / emit
  * zombie-cleanup），其他 BusinessAgentTeam 实例反向迁移时只需 satisfies 本
  * 接口签名即可接入 framework。
@@ -20,7 +20,7 @@
 /**
  * RerunGuard 核心方法签名。
  *
- * 业务方（playground / research / 等）的 rerun guard 必须 satisfies 这些方法
+ * 业务方（reference impl / research / 等）的 rerun guard 必须 satisfies 这些方法
  * 签名以接入 BusinessAgentTeam 框架（rerun orchestrator / local rerun 调用方）。
  */
 export interface IBusinessRerunGuard {
@@ -57,7 +57,7 @@ export interface IBusinessRerunGuard {
 /**
  * CtxHydrator 接口（structural typing 占位）。
  *
- * 2026-05-08 PR-E3 决策：暂不强制；业务 ctx schema 各异（playground 的 dimensions /
+ * 2026-05-08 PR-E3 决策：暂不强制；业务 ctx schema 各异（reference impl 的 dimensions /
  * researcherResults 与 research 的 reportArtifact、与 writing 的 chapterDrafts 完全
  * 不同），泛型抽象现阶段只是空壳。等第二个 ai-app 真有 hydrator 需求时按"业务方
  * 注入 ctx 类型 + harness 提供 hydrate skeleton"模式重做。

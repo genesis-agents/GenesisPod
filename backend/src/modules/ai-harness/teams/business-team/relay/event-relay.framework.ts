@@ -1,9 +1,9 @@
 /**
  * BusinessAgentTeam — Event Relay Framework
  *
- * 上提自 ai-app/agent-playground/services/roles/agent-playground-event-relay.ts
+ * 上提自 ai-app/agent-playground/services/roles/agent-playground-event-relay.ts @migrated-from
  * （2026-05-08 PR-E1）。通用 emit + budget exhaustion + IAgentEvent → DomainEvent
- * 翻译现作为框架，业务侧仅注入 eventNamespace（如 "agent-playground" / "research"），
+ * 翻译现作为框架，业务侧仅注入 eventNamespace（如 "my-app" / "research"），
  * 所有 event type 字符串由 framework 用模板拼接（{namespace}.cost:tick 等）。
  *
  * 业务侧扩展模板：
@@ -43,7 +43,7 @@ export class EventRelayFramework {
 
   constructor(
     protected readonly eventBus: DomainEventBus,
-    /** 业务事件 type 字符串前缀（如 "agent-playground" / "research"） */
+    /** 业务事件 type 字符串前缀（如 "my-app" / "research"） */
     protected readonly eventNamespace: string,
   ) {}
 
@@ -352,14 +352,15 @@ export class EventRelayFramework {
       if (
         typeof payload === "object" &&
         payload !== null &&
-        Array.isArray((payload as { results?: unknown[] }).results)
+        Array.isArray((payload as Record<string, unknown>)["results"])
       ) {
-        const obj = payload as { results: unknown[]; [k: string]: unknown };
+        const obj = payload as Record<string, unknown>;
+        const results = obj["results"] as unknown[];
         return {
           ...obj,
-          results: obj.results.slice(0, 10),
-          _resultsTruncated: obj.results.length > 10,
-          _originalResultsCount: obj.results.length,
+          results: results.slice(0, 10),
+          _resultsTruncated: results.length > 10,
+          _originalResultsCount: results.length,
         };
       }
       return { _truncated: true, preview: s.slice(0, 32_000) + "..." };

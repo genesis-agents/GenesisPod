@@ -1,7 +1,7 @@
 /**
  * BusinessAgentTeam — Mission Runtime Shell Framework
  *
- * 上提自 ai-app/agent-playground/services/mission/workflow/mission-runtime-shell.service.ts
+ * 上提自 ai-app/agent-playground/services/mission/workflow/mission-runtime-shell.service.ts @migrated-from
  * （2026-05-08 PR-E0）。通用 lifecycle (wallTimer / heartbeat / abort / cleanup) +
  * billing 装配 + validateModels / validateCredits 现作为框架骨架，业务方通过
  * IMissionRuntimeAdapter 注入业务专属决策。
@@ -212,6 +212,9 @@ export class MissionRuntimeShellFramework {
       if (err instanceof Error && err.message.includes("BYOK 配置")) {
         throw err;
       }
+      this.log.warn(
+        `[${args.missionId}] validateModels non-fatal error (namespace=${args.adapter.eventNamespace}): ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 

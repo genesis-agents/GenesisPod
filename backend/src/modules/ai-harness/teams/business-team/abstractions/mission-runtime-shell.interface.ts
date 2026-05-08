@@ -2,12 +2,12 @@
  * BusinessAgentTeam — Mission Runtime Shell 抽象
  *
  * 设计目标：让 mission lifecycle (wallTimer / heartbeat / abort / cleanup / billing 装配
- * / validateModels / validateCredits) 在 ai-harness 单一源；业务方（playground / research /
- * topic-insights / writing）通过 IMissionRuntimeAdapter 注入业务专属语义（事件 namespace、
+ * / validateModels / validateCredits) 在 ai-harness 单一源；业务方（各 ai-app 模块）
+ * 通过 IMissionRuntimeAdapter 注入业务专属语义（事件 namespace、
  * mission 行 schema、heartbeat 持久化方式、wallTime/credits 解析规则）。
  *
- * 上提自：ai-app/agent-playground/services/mission/workflow/mission-runtime-shell.service.ts
- *   该实现在 playground 侧已稳定运行，5×5 状态矩阵 + 4 层 timeout 守护 + spec 覆盖。
+ * 上提自：ai-app/agent-playground/ @migrated-from
+ *   reference 实现已稳定运行，5×5 状态矩阵 + 4 层 timeout 守护 + spec 覆盖。
  *
  * 2026-05-08 PR-E0
  */
@@ -37,7 +37,7 @@ export interface MissionRuntimeSession {
  *   - resolve* 方法：input → 数值（业务方决定档位映射）
  *   - createMissionRow / refreshHeartbeat：业务方持久化（业务 schema）
  *   - emitMissionEvent：业务方决定走 DomainEventBus / EventEmitter2 / 其他
- *   - eventNamespace：业务事件前缀（如 "agent-playground" / "research"），框架内部
+ *   - eventNamespace：业务事件前缀（如 "my-app" / "research"），框架内部
  *     生成 lifecycle 事件 type 时拼接（{namespace}.mission:rejected / :warning / :budget-warning-hard）
  *   - billingModuleType：BillingContext.run 用，区分计费归属
  */
@@ -69,9 +69,9 @@ export interface IMissionRuntimeAdapter<TInput = unknown> {
     payload: unknown;
   }): Promise<void>;
 
-  /** 业务事件 type 命名空间（如 "agent-playground" / "research" / "topic-insights"） */
+  /** 业务事件 type 命名空间（如 "my-app" / "research"） */
   readonly eventNamespace: string;
 
-  /** BillingContext.run 用的 moduleType（如 "agent-playground" / "research"） */
+  /** BillingContext.run 用的 moduleType（如 "my-app" / "research"） */
   readonly billingModuleType: string;
 }
