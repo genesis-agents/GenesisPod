@@ -274,9 +274,11 @@ export function DemoLauncher() {
             }}
             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
           >
-            <option value="quick">快速（2-3 维度）</option>
-            <option value="standard">标准（3-5 维度）</option>
-            <option value="deep">深度（5-7 维度，默认）</option>
+            <option value="quick">快速（3-5 维度，约 1 万字）</option>
+            <option value="standard">标准（5-8 维度，约 4 万字）</option>
+            <option value="deep">
+              深度（10-12 维度，约 12-15 万字，默认）
+            </option>
           </select>
         </div>
 

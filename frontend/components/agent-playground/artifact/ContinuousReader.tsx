@@ -34,6 +34,17 @@ export function ContinuousReader({ artifact }: Props) {
     [artifact.content.fullMarkdown]
   );
 
+  // ★ 2026-05-07：从 sections 反查"真维度名"列表，传给 ArtifactMarkdown 让
+  //   renumberHeadings fuzzy match 区分"## N. 维度名"（保编号）和"## N. 章节名"
+  //   （老 reportAssembler 把章节误写成 H2 全局累加，需降为 H3 + N.M.）。
+  const dimNames = useMemo(
+    () =>
+      artifact.sections
+        .filter((s) => s.type === 'dimension')
+        .map((s) => s.title),
+    [artifact.sections]
+  );
+
   // ★ Phase P1-12: 反向溯源 — 点击 ReferencePanel 引用条目 → 高亮文中所有位置
   const handleReverseHighlight = (citation: ArtifactCitation) => {
     setReverseHighlight(citation.index);
@@ -123,6 +134,7 @@ export function ContinuousReader({ artifact }: Props) {
             markdown={bodyMarkdown}
             citations={artifact.citations}
             figures={artifact.figures}
+            dimNames={dimNames}
           />
         </div>
         <ReferencePanel

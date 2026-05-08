@@ -28,6 +28,14 @@ interface Props {
   markdown: string;
   citations: readonly ArtifactCitation[];
   figures: readonly ArtifactFigure[];
+  /**
+   * ★ 2026-05-07：真维度名列表（从 plan.dimensions[].name 或
+   * sections.filter(type='dimension').map(s.title) 来）。renumberHeadings 用
+   * fuzzy match 辨认哪些 H2 是维度（加 N. 编号），哪些 H2 是被老 reportAssembler
+   * 错写成 H2 的章节（降为 H3 + N.M. 编号）。
+   * 缺省时所有非 supplementary H2 都按维度处理（适合新格式纯净 markdown）。
+   */
+  dimNames?: readonly string[];
 }
 
 /**
@@ -61,6 +69,132 @@ const StableFigureBlock = React.memo(
     prev.figure.caption === next.figure.caption &&
     (prev.citation?.uuid ?? null) === (next.citation?.uuid ?? null)
 );
+
+/**
+ * ★ 2026-05-07 编号清洗 + 重写（学 TI numberSubHeadings 模式，但纯前端实现）：
+ * 历史 mission 的 fullMarkdown 里可能含老 numberSubHeadings bug 写入的过大编号
+ * （如 "## 36. xxx" / "### 37. 1. xxx"），是后端老代码 dimIndex 累加错误导致的
+ * 字面值（既有 mission 不重跑无法救）。
+ *
+ * 这里在 ReactMarkdown 渲染前做一次预处理：剥光所有 H2/H3 旧编号前缀，按
+ * 当前文档中 H2 出现顺序重新加 "N. "（H2 维度，supplementary 跳过）+ "N.M. "
+ * （H3 章节，N 跟随父维度，M 在每维度内递增）。
+ *
+ * 对**新 mission** 也无害：新报告原本就不带前缀，剥光等于不动；前端再加正确的
+ * "1. xxx" / "1.1. xxx"。
+ *
+ * 对**既有 mission** 有效：错的 "36." / "37. 1." 被剥掉再重新编号成 "1." / "1.1."。
+ */
+const SUPPLEMENTARY_H2_LIST = [
+  '执行摘要',
+  '前言',
+  '目录',
+  '跨维度分析',
+  '风险评估',
+  '战略建议',
+  '结论',
+  '参考文献',
+  '参考资料',
+  'executive summary',
+  'preface',
+  'table of contents',
+  'cross-dimension analysis',
+  'risk assessment',
+  'strategic recommendations',
+  'conclusion',
+  'references',
+];
+function isSupplementaryHeading(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  for (const s of SUPPLEMENTARY_H2_LIST) {
+    if (t === s.toLowerCase()) return true;
+    if (t.startsWith(s.toLowerCase())) return true;
+  }
+  return false;
+}
+
+/** 剥前缀编号（如 "36. " / "37. 1. " / "1.2.3. "）；保留实际标题文本 */
+function stripHeadingNumberPrefix(title: string): string {
+  // 匹配 N / N.M / N.M.K 前缀（中间允许空格、点、全角点）
+  return title.replace(/^\d+(\s*[\.。]\s*\d+)*\s*[\.。]\s*/, '').trim();
+}
+
+/**
+ * H2 是否匹配某真维度名（剥前缀后做"前 8 字 includes" fuzzy match —— 与
+ * 后端 buildSectionTree.fuzzyMatchDimension 同款规则）。
+ * dimNames 缺省时，所有非 supplementary H2 都按维度处理（适合新格式）。
+ */
+function matchDimName(
+  cleaned: string,
+  dimNames: readonly string[] | undefined
+): boolean {
+  if (!dimNames || dimNames.length === 0) return true; // 无信息时按维度处理
+  const t = cleaned.toLowerCase().trim();
+  for (const d of dimNames) {
+    const n = d.toLowerCase().trim();
+    if (!n) continue;
+    if (t === n) return true;
+    const prefix = n.slice(0, 8);
+    if (t.includes(prefix) || n.includes(t.slice(0, 8))) return true;
+  }
+  return false;
+}
+
+function renumberHeadings(
+  markdown: string,
+  dimNames?: readonly string[]
+): string {
+  let dim = 0;
+  let chap = 0;
+  const lines = markdown.split('\n');
+  let inFence = false;
+  let underDim = false; // 当前是否在某真维度下（决定 H3/H2-as-chapter 是否计入子章节）
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^(```|~~~)/.test(line.trim())) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const h2 = line.match(/^(##\s+)(.+)$/);
+    if (h2) {
+      const cleaned = stripHeadingNumberPrefix(h2[2]);
+      if (isSupplementaryHeading(cleaned)) {
+        lines[i] = `${h2[1]}${cleaned}`;
+        underDim = false;
+        continue;
+      }
+      // ★ 关键判断：是否为真维度（用 dimNames 反查）
+      if (matchDimName(cleaned, dimNames)) {
+        dim++;
+        chap = 0;
+        underDim = true;
+        lines[i] = `${h2[1]}${dim}. ${cleaned}`;
+      } else if (underDim && dim > 0) {
+        // 老格式：chapter 被错写成 H2 —— 降为 H3 章节并加 N.M. 编号
+        chap++;
+        lines[i] = `### ${dim}.${chap}. ${cleaned}`;
+      } else {
+        // 不在维度下的非维度 H2（前言开场之类）—— 保持 H2，仅剥前缀
+        lines[i] = `${h2[1]}${cleaned}`;
+      }
+      continue;
+    }
+    const h3 = line.match(/^(###\s+)(.+)$/);
+    if (h3) {
+      const cleaned = stripHeadingNumberPrefix(h3[2]);
+      if (underDim && dim > 0) {
+        chap++;
+        lines[i] = `${h3[1]}${dim}.${chap}. ${cleaned}`;
+      } else {
+        lines[i] = `${h3[1]}${cleaned}`;
+      }
+      continue;
+    }
+  }
+  return lines.join('\n');
+}
 
 /**
  * 把 ArtifactCitation 适配为公共 CitationBadge 的 evidence shape
@@ -106,7 +240,12 @@ function toRenderableChart(f: ArtifactFigure): RenderableChart {
  *   - CitationBadge：[N] 角标 hover 卡 + 跨面板跳 references
  *   - PublicFigureRenderer：![alt](#fig-id) 图占位符 → 图片/Recharts 通用渲染
  */
-function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
+function ArtifactMarkdownInner({
+  markdown,
+  citations,
+  figures,
+  dimNames,
+}: Props) {
   // ★ 2026-04-30 (#64): 全部稳定化 —— 父级 re-render（events 流入 / setNow 500ms tick）
   //   不再触发 ReactMarkdown 整树重建，<img>/figure 不再 unmount-remount。
 
@@ -159,85 +298,11 @@ function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
   );
 
   // 3. 覆盖 img：拦截 #fig-* 占位符 → StableFigureBlock（memo 化避免闪烁）
-  // 4. 覆盖 h2：给"维度" H2（非 supplementary 标题）自动加 N. 编号
-  //    （后端 markdown 不带前缀，前端按渲染顺序自动加，避免破坏 buildSectionTree
-  //    的 dim name 匹配）。
+  //    H2/H3 编号由 cleaned 预处理阶段统一重写（见下方 cleaned useMemo），
+  //    脱离 React closure 状态，对既有报告与新报告同样有效。
   const components = useMemo(() => {
-    // ★ 2026-05-07 维度编号（学 TI hierarchical numbering）：
-    //   不依赖 sections 元数据，直接按 H2 标题文本判断 supplementary。
-    //   维度 H2 → "1. 标题" / "2. 标题"；supplementary H2 不加编号。
-    const SUPPLEMENTARY_H2 = new Set([
-      // 中文 supplementary
-      '执行摘要',
-      '前言',
-      '目录',
-      '跨维度分析',
-      '风险评估',
-      '战略建议',
-      '结论',
-      '参考文献',
-      '参考资料',
-      // 英文 supplementary
-      'executive summary',
-      'preface',
-      'table of contents',
-      'cross-dimension analysis',
-      'risk assessment',
-      'strategic recommendations',
-      'conclusion',
-      'references',
-    ]);
-    const isSupplementaryH2 = (text: string): boolean => {
-      const t = text.trim().toLowerCase();
-      for (const s of SUPPLEMENTARY_H2) {
-        if (t === s.toLowerCase()) return true;
-        if (t.startsWith(s.toLowerCase())) return true;
-      }
-      return false;
-    };
-    // closure-scoped counter（同一次渲染共享）
-    let dimOrdinal = 0;
-    let lastSeenH2: string | null = null;
-
     return {
       ...baseComponents,
-      h2: ({
-        children,
-        ...props
-      }: React.HTMLAttributes<HTMLHeadingElement> & {
-        children?: React.ReactNode;
-      }) => {
-        // 提取纯文本判断 supplementary
-        const text =
-          typeof children === 'string'
-            ? children
-            : Array.isArray(children)
-              ? children.map((c) => (typeof c === 'string' ? c : '')).join('')
-              : '';
-        // 同一 H2 在 React 渲染过程中可能被多次调用（Reconciler、StrictMode）
-        // 用 lastSeenH2 dedupe
-        if (text !== lastSeenH2) {
-          lastSeenH2 = text;
-          if (!isSupplementaryH2(text)) {
-            dimOrdinal++;
-          }
-        }
-        const isDim = !isSupplementaryH2(text);
-        const ordinalForRender = isDim ? dimOrdinal : null;
-        // 委托公共 H2 渲染（保留 anchor / 滚动等行为）
-        const delegatedH2 = baseComponents.h2 as (
-          props: React.HTMLAttributes<HTMLHeadingElement> & {
-            children?: React.ReactNode;
-          }
-        ) => React.ReactElement;
-        const rendered = delegatedH2({
-          ...props,
-          children: ordinalForRender
-            ? [`${ordinalForRender}. `, children]
-            : children,
-        });
-        return rendered;
-      },
       img: ({ src, alt }: { src?: string; alt?: string }) => {
         if (src?.startsWith('#fig-')) {
           const figId = src.slice(1);
@@ -266,10 +331,13 @@ function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
     };
   }, [baseComponents, figures, citations]);
 
-  // 与 TI 报告管线对齐：同样过 preprocessLatex + stripProseBullets + KaTeX
+  // 与 TI 报告管线对齐：preprocessLatex + stripProseBullets + KaTeX +
+  // ★ 2026-05-07 renumberHeadings：剥旧编号 + 按 H2 顺序重写 N. / N.M.
+  // 对既有 mission（错的 "36." / "37. 1."）和新 mission（裸标题）同样有效
   const cleaned = useMemo(
-    () => stripProseBullets(preprocessLatex(markdown)),
-    [markdown]
+    () =>
+      renumberHeadings(stripProseBullets(preprocessLatex(markdown)), dimNames),
+    [markdown, dimNames]
   );
 
   // ★ TI 对齐：与 ChapterizedReportView preview / ReportEditor preview 完全相同的 prose 类
@@ -307,5 +375,6 @@ export const ArtifactMarkdown = React.memo(
   (prev, next) =>
     prev.markdown === next.markdown &&
     prev.citations === next.citations &&
-    prev.figures === next.figures
+    prev.figures === next.figures &&
+    prev.dimNames === next.dimNames
 );

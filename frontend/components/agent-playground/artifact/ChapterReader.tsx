@@ -411,6 +411,9 @@ export function ChapterReader({
                 markdown={sectionMarkdown}
                 citations={sectionCitations}
                 figures={sectionFigures}
+                dimNames={artifact.sections
+                  .filter((s) => s.type === 'dimension')
+                  .map((s) => s.title)}
               />
             )}
 
