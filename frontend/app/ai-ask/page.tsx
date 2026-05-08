@@ -1979,11 +1979,11 @@ export default function AskPage() {
                               disabled={isLoading}
                             />
 
+                            {/* Teams Mode Button (W4 PR6) — 与"知识库"同组，置于工具按钮之前 */}
+                            <AskTeamsButton />
+
                             {/* Tools Button */}
                             <AskToolsButton />
-
-                            {/* Teams Mode Button (W4 PR6) */}
-                            <AskTeamsButton />
                           </div>
 
                           {/* Send/Stop Button */}
@@ -2699,11 +2699,11 @@ export default function AskPage() {
                           disabled={isLoading}
                         />
 
+                        {/* Teams Mode Button (W4 PR6) — 与"知识库"同组，置于工具按钮之前 */}
+                        <AskTeamsButton />
+
                         {/* Tools Button */}
                         <AskToolsButton />
-
-                        {/* Teams Mode Button (W4 PR6) */}
-                        <AskTeamsButton />
                       </div>
                       <button
                         type="button"
