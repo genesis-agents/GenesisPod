@@ -3,14 +3,11 @@ import {
   DomainEventBus,
   MissionAbortRegistry,
   MissionBudgetPool,
+  estimateUsdFromTokens,
   type DomainEvent,
   type IAgentEvent,
 } from "@/modules/ai-harness/facade";
 import type { InvocationContext } from "./agent-invoker.service";
-
-function estimateUsdFromTokens(tokens: number): number {
-  return tokens * 0.000003;
-}
 
 export class AgentPlaygroundEventRelay {
   private readonly log = new Logger(AgentPlaygroundEventRelay.name);
