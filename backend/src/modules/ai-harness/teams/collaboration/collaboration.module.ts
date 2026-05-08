@@ -9,6 +9,7 @@ import { ReviewWorkflowService } from "./review/review-workflow.service";
 import { TodoService } from "./todo/todo.service";
 import { VotingManager } from "./patterns/voting-pattern";
 import { HandoffCoordinator } from "./patterns/handoff-pattern";
+import { DebatePattern } from "./debate";
 
 /**
  * Voting Manager Factory
@@ -30,6 +31,14 @@ const handoffCoordinatorFactory = {
   },
 };
 
+/**
+ * Debate Pattern Factory（W1 PR2：纯编排，无持久化）
+ */
+const debatePatternFactory = {
+  provide: DebatePattern,
+  useFactory: () => new DebatePattern(),
+};
+
 @Module({
   imports: [
     PrismaModule,
@@ -41,6 +50,7 @@ const handoffCoordinatorFactory = {
     // ★ 协作模式服务（从根模块迁移）
     votingManagerFactory,
     handoffCoordinatorFactory,
+    debatePatternFactory,
   ],
   exports: [
     ReviewWorkflowService,
@@ -48,6 +58,7 @@ const handoffCoordinatorFactory = {
     // ★ 协作模式服务导出
     VotingManager,
     HandoffCoordinator,
+    DebatePattern,
   ],
 })
 export class CollaborationModule {}
