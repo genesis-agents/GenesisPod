@@ -13,6 +13,7 @@ import {
   Search,
   Send,
   Settings2,
+  Shield,
   Trash2,
   X,
 } from 'lucide-react';
@@ -23,8 +24,10 @@ import {
   type UserApiKeyInfo,
 } from '@/hooks/features/useUserApiKeys';
 import {
+  useMyKeyAssignments,
   useMyKeyRequests,
   type MyKeyRequest,
+  type UserAssignmentView,
 } from '@/hooks/features/useByokUser';
 import { apiClient } from '@/lib/api/client';
 import { Modal } from '@/components/ui/dialogs/Modal';
@@ -95,6 +98,16 @@ export function UserApiKeysTab() {
   const pendingRequest = useMemo(
     () => myRequests.find((r) => r.status === 'PENDING') ?? null,
     [myRequests]
+  );
+
+  const { assignments, loading: assignmentsLoading } = useMyKeyAssignments();
+  const activeAssignments = useMemo(
+    () => assignments.filter((a) => a.status === 'ACTIVE'),
+    [assignments]
+  );
+  const inactiveAssignments = useMemo(
+    () => assignments.filter((a) => a.status !== 'ACTIVE'),
+    [assignments]
   );
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -189,7 +202,22 @@ export function UserApiKeysTab() {
         <span className="text-gray-500">
           {t('profile.apiKeys.donated')}: <strong>{donatedCount}</strong>
         </span>
+        <span className="text-gray-300">|</span>
+        <span className="text-gray-500">
+          系统授权: <strong>{activeAssignments.length}</strong>
+          {inactiveAssignments.length > 0 && (
+            <span className="ml-1 text-xs text-gray-400">
+              ({inactiveAssignments.length} 已失效)
+            </span>
+          )}
+        </span>
       </div>
+
+      <SystemGrantedAssignmentsSection
+        active={activeAssignments}
+        inactive={inactiveAssignments}
+        loading={assignmentsLoading}
+      />
 
       {/* Search + filters + actions（与 admin SecretsManager 一致结构） */}
       <div className="flex flex-wrap items-center gap-3">
@@ -356,12 +384,14 @@ function PendingRequestBanner({
   onCancel: () => void;
   cancelling: boolean;
 }) {
-  const usageLabel: Record<NonNullable<MyKeyRequest['estimatedUsage']>, string> =
-    {
-      LIGHT: '轻度 < $5',
-      MEDIUM: '中度 $5-20',
-      HEAVY: '重度 > $20',
-    };
+  const usageLabel: Record<
+    NonNullable<MyKeyRequest['estimatedUsage']>,
+    string
+  > = {
+    LIGHT: '轻度 < $5',
+    MEDIUM: '中度 $5-20',
+    HEAVY: '重度 > $20',
+  };
   const submittedAt = new Date(request.createdAt).toLocaleString();
 
   return (
@@ -406,6 +436,216 @@ function PendingRequestBanner({
         {cancelling ? '撤销中...' : '撤销申请'}
       </button>
     </div>
+  );
+}
+
+// ─── 系统授权（KeyAssignment）展示区 ─────────────────────────────────────
+//
+// 后端：KeyAssignment 是 admin 把某个 AIModel 授权给具体用户。表 = key_assignments，
+// 接口 GET /user/key-assignments 返回 UserAssignmentView[]（含 modelDisplayName、
+// userQuotaCents、userSpendCents、expiresAt、status...）。useAIModels 会把 ASSIGNED
+// 的 provider 自动并入业务模型下拉，但用户在哪儿"看见自己被授权了什么"——之前没有
+// 任何 UI 渲染过 useMyKeyAssignments，是一个明显的能力黑洞。这块就是补这块洞。
+//
+// 状态颜色/语义：ACTIVE 绿、SUSPENDED/EXPIRED/REVOKED/STALE 灰红淡化（不可用 + 解释）
+function SystemGrantedAssignmentsSection({
+  active,
+  inactive,
+  loading,
+}: {
+  active: UserAssignmentView[];
+  inactive: UserAssignmentView[];
+  loading: boolean;
+}) {
+  if (loading && active.length === 0 && inactive.length === 0) {
+    return null;
+  }
+  if (active.length === 0 && inactive.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-emerald-200 bg-emerald-50/30">
+      <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5">
+        <Shield className="h-4 w-4 text-emerald-700" />
+        <span className="text-sm font-semibold text-emerald-900">
+          系统授权的模型
+        </span>
+        <span className="text-xs text-emerald-700">
+          管理员已为你授权的 AI 模型，可直接在「AI Ask / Topic Insights /
+          Research」等业务里使用，无需自己配 Key
+        </span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-emerald-50/60">
+            <tr>
+              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-emerald-900">
+                Model
+              </th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-emerald-900">
+                Provider
+              </th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-emerald-900">
+                Quota
+              </th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wider text-emerald-900">
+                Validity
+              </th>
+              <th className="px-4 py-2.5 text-center text-xs font-medium uppercase tracking-wider text-emerald-900">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-emerald-100">
+            {[...active, ...inactive].map((a) => (
+              <AssignmentRow key={a.id} assignment={a} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AssignmentRow({ assignment: a }: { assignment: UserAssignmentView }) {
+  const usedDollars = (a.userSpendCents / 100).toFixed(2);
+  const quotaDollars =
+    a.userQuotaCents !== null ? (a.userQuotaCents / 100).toFixed(2) : null;
+  const quotaPct =
+    a.userQuotaCents && a.userQuotaCents > 0
+      ? Math.min(100, Math.round((a.userSpendCents / a.userQuotaCents) * 100))
+      : null;
+
+  const expired = a.expiresAt
+    ? new Date(a.expiresAt).getTime() < Date.now()
+    : false;
+  const isInactive = a.status !== 'ACTIVE';
+
+  const statusBadge = (() => {
+    switch (a.status) {
+      case 'ACTIVE':
+        return {
+          label: 'Active',
+          className: 'bg-emerald-100 text-emerald-800',
+          icon: <Lock className="h-3 w-3" />,
+        };
+      case 'SUSPENDED':
+        return {
+          label: 'Suspended',
+          className: 'bg-amber-100 text-amber-800',
+          icon: <Clock className="h-3 w-3" />,
+        };
+      case 'EXPIRED':
+        return {
+          label: 'Expired',
+          className: 'bg-gray-100 text-gray-700',
+          icon: <Clock className="h-3 w-3" />,
+        };
+      case 'REVOKED':
+        return {
+          label: 'Revoked',
+          className: 'bg-red-100 text-red-700',
+          icon: <X className="h-3 w-3" />,
+        };
+      case 'STALE':
+        // 关联 AIModel 已被 admin disabled —— 提示用户重新申请
+        return {
+          label: 'Stale (model disabled)',
+          className: 'bg-orange-100 text-orange-800',
+          icon: <X className="h-3 w-3" />,
+        };
+    }
+  })();
+
+  return (
+    <tr className={isInactive ? 'opacity-60' : ''}>
+      {/* Model */}
+      <td className="px-4 py-3">
+        <div className="font-medium text-gray-900">{a.modelDisplayName}</div>
+        <code className="font-mono text-xs text-gray-500">{a.modelId}</code>
+        {!a.modelEnabled && (
+          <div className="mt-0.5 text-xs text-orange-600">
+            ⚠ 模型已被管理员停用
+          </div>
+        )}
+      </td>
+      {/* Provider */}
+      <td className="px-4 py-3">
+        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+          {a.provider}
+        </span>
+      </td>
+      {/* Quota */}
+      <td className="px-4 py-3">
+        {quotaDollars ? (
+          <div>
+            <div className="text-sm">
+              <span className="font-medium text-gray-900">${usedDollars}</span>
+              <span className="text-gray-500"> / ${quotaDollars}</span>
+            </div>
+            {quotaPct !== null && (
+              <div className="mt-1 h-1 w-24 overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className={`h-full ${
+                    quotaPct >= 90
+                      ? 'bg-red-500'
+                      : quotaPct >= 70
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${quotaPct}%` }}
+                />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div className="text-sm font-medium text-gray-900">
+              ${usedDollars}
+            </div>
+            <div className="text-xs text-gray-500">unlimited</div>
+          </div>
+        )}
+      </td>
+      {/* Validity */}
+      <td className="px-4 py-3">
+        <div className="text-xs text-gray-700">
+          {a.validityType === 'ONE_TIME' && '一次性'}
+          {a.validityType === 'PERMANENT' && '永久'}
+          {a.validityType === 'RECURRING' &&
+            `周期${a.recurrenceUnit ? `（${a.recurrenceInterval ?? 1} ${a.recurrenceUnit}）` : ''}`}
+        </div>
+        {a.expiresAt && (
+          <div
+            className={`text-xs ${expired ? 'text-red-600' : 'text-gray-500'}`}
+          >
+            {expired ? '已过期: ' : '到期: '}
+            {new Date(a.expiresAt).toLocaleDateString()}
+          </div>
+        )}
+        {a.nextRenewalAt && a.status === 'ACTIVE' && (
+          <div className="text-xs text-emerald-600">
+            下次续期: {new Date(a.nextRenewalAt).toLocaleDateString()}
+          </div>
+        )}
+      </td>
+      {/* Status */}
+      <td className="px-4 py-3 text-center">
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge.className}`}
+        >
+          {statusBadge.icon}
+          {statusBadge.label}
+        </span>
+        {a.revokedReason && (
+          <div className="mt-1 text-xs text-gray-500" title={a.revokedReason}>
+            原因: {a.revokedReason.slice(0, 24)}
+            {a.revokedReason.length > 24 ? '...' : ''}
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
 

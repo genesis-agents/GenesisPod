@@ -8,6 +8,7 @@ import {
   Plug,
   Plus,
   Search,
+  Shield,
   Star,
   Trash2,
   X,
@@ -20,6 +21,10 @@ import {
   type ModelImportance,
 } from '@/hooks/features/useUserModelConfigs';
 import { useUserApiKeys } from '@/hooks/features/useUserApiKeys';
+import {
+  useMyKeyAssignments,
+  type UserAssignmentView,
+} from '@/hooks/features/useByokUser';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
 import { UserModelConfigModal } from './UserModelConfigModal';
@@ -47,15 +52,98 @@ function typeLabel(t: UserModelType): string {
   return USER_MODEL_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t;
 }
 
+// 统一的"模型行"展示模型（虚拟），把两条来源链路并到同一张表里：
+//   - SOURCE='PERSONAL'：用户在 UserModelConfig 表里自己配的模型（可编辑/删除/启停）
+//   - SOURCE='SYSTEM'  ：admin 通过 KeyAssignment 授权的 AIModel（只读，由 admin 管控）
+type ModelSource = 'PERSONAL' | 'SYSTEM';
+
+interface UnifiedModelRow {
+  source: ModelSource;
+  // 共有字段
+  rowKey: string; // table 唯一 key
+  provider: string;
+  modelId: string;
+  displayName: string;
+  modelType: UserModelType;
+  isReasoning: boolean;
+  maxTokens: number;
+  supportsTemperature: boolean;
+  supportsStreaming: boolean;
+  supportsFunctionCalling: boolean;
+  supportsVision: boolean;
+  isEnabled: boolean;
+  isDefault: boolean;
+  apiFormat: string;
+  priority: number;
+  temperature: number;
+  // 仅 PERSONAL 来源会有完整原始记录（编辑用）
+  personal?: UserModelConfig;
+  // 仅 SYSTEM 来源会有 assignment（展示配额、过期等）
+  assignment?: UserAssignmentView;
+}
+
+function toRow(c: UserModelConfig): UnifiedModelRow {
+  return {
+    source: 'PERSONAL',
+    rowKey: `personal-${c.id}`,
+    provider: c.provider,
+    modelId: c.modelId,
+    displayName: c.displayName,
+    modelType: c.modelType,
+    isReasoning: c.isReasoning,
+    maxTokens: c.maxTokens,
+    supportsTemperature: c.supportsTemperature,
+    supportsStreaming: c.supportsStreaming,
+    supportsFunctionCalling: c.supportsFunctionCalling,
+    supportsVision: c.supportsVision,
+    isEnabled: c.isEnabled,
+    isDefault: c.isDefault,
+    apiFormat: c.apiFormat,
+    priority: c.priority,
+    temperature: c.temperature,
+    personal: c,
+  };
+}
+
+function assignmentToRow(a: UserAssignmentView): UnifiedModelRow {
+  // 仅 ACTIVE 视为"可用"。其余状态 isEnabled=false（行变灰）。
+  const isUsable = a.status === 'ACTIVE' && a.modelEnabled;
+  return {
+    source: 'SYSTEM',
+    rowKey: `system-${a.id}`,
+    provider: a.provider,
+    modelId: a.modelId,
+    displayName: a.modelDisplayName,
+    modelType: (a.modelType as UserModelType) ?? 'CHAT',
+    isReasoning: a.modelIsReasoning,
+    maxTokens: a.modelMaxTokens,
+    supportsTemperature: a.modelSupportsTemperature,
+    supportsStreaming: a.modelSupportsStreaming,
+    supportsFunctionCalling: a.modelSupportsFunctionCalling,
+    supportsVision: a.modelSupportsVision,
+    isEnabled: isUsable,
+    isDefault: false,
+    apiFormat: '—',
+    priority: 0,
+    temperature: 0,
+    assignment: a,
+  };
+}
+
 /**
  * 用户自己的模型管理页 — 布局和字段与管理员 /admin/ai/models 完全一致。
- * 列：MODEL / MODEL ID / TYPE / API KEY / STATUS / CAPABILITIES / ACTIONS
- * 顶部：搜索 + Provider 过滤 + Add Model
+ * 列：MODEL / MODEL ID / TYPE / SOURCE / API KEY / STATUS / CAPABILITIES / ACTIONS
+ *
+ * 2026-05-08：把"系统授权"也合并进来：
+ *   - SOURCE 列区分 PERSONAL（你自配）vs SYSTEM（admin 授权）
+ *   - SYSTEM 行只读，编辑/删除/启停按钮全部禁用，行尾显示配额条
+ *   - Provider 过滤下拉同时考虑 personal keys 和 assignment providers
  */
 export function UserModelsManagement() {
   const { items, loading, update, remove, setDefault, refresh } =
     useUserModelConfigs();
   const { keys: apiKeys } = useUserApiKeys();
+  const { assignments } = useMyKeyAssignments();
 
   const [search, setSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState<string>('');
@@ -93,16 +181,24 @@ export function UserModelsManagement() {
     }
   };
 
-  // Provider 过滤下拉：只列出用户已配过 Key 的 provider
+  // Provider 过滤下拉：personal keys ∪ personal model configs ∪ assignment providers
   const availableProviders = useMemo(() => {
     const set = new Set(apiKeys.map((k) => k.provider));
     items.forEach((m) => set.add(m.provider));
+    assignments.forEach((a) => set.add(a.provider));
     return [...set].sort();
-  }, [apiKeys, items]);
+  }, [apiKeys, items, assignments]);
+
+  // 合并 PERSONAL 配置 + SYSTEM 授权为统一展示行，状态 ACTIVE 的 SYSTEM 排在前面
+  const rows = useMemo<UnifiedModelRow[]>(() => {
+    const sysRows = assignments.map(assignmentToRow);
+    const personalRows = items.map(toRow);
+    return [...sysRows, ...personalRows];
+  }, [items, assignments]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    return items.filter((m) => {
+    return rows.filter((m) => {
       if (providerFilter && m.provider !== providerFilter) return false;
       if (!q) return true;
       return (
@@ -111,13 +207,13 @@ export function UserModelsManagement() {
         m.provider.toLowerCase().includes(q)
       );
     });
-  }, [items, search, providerFilter]);
+  }, [rows, search, providerFilter]);
 
   // 新增 Modal 的 provider：从第一个已配 Key 的 provider 取，否则 openai
   const addProvider = availableProviders[0] ?? 'openai';
   const addApiKeyHint = apiKeys.find((k) => k.provider === addProvider);
 
-  // ★ 需求概览：每个 modelType 是否已有一个启用的模型；没有则提示用户
+  // ★ 需求概览：每个 modelType 是否已有一个可用模型（personal 启用 OR 系统授权 ACTIVE）；没有则提示用户
   const coverage = useMemo(() => {
     const map = new Map<
       UserModelType,
@@ -126,7 +222,7 @@ export function UserModelsManagement() {
     for (const opt of USER_MODEL_TYPE_OPTIONS) {
       map.set(opt.value, { hasEnabled: false, hasDefault: false, count: 0 });
     }
-    for (const m of items) {
+    for (const m of rows) {
       const entry = map.get(m.modelType);
       if (!entry) continue;
       entry.count += 1;
@@ -134,7 +230,7 @@ export function UserModelsManagement() {
       if (m.isEnabled && m.isDefault) entry.hasDefault = true;
     }
     return map;
-  }, [items]);
+  }, [rows]);
 
   const missingRequired = USER_MODEL_TYPE_OPTIONS.filter(
     (o) => o.importance === 'required' && !coverage.get(o.value)?.hasEnabled
@@ -236,7 +332,8 @@ export function UserModelsManagement() {
         </select>
       </div>
 
-      {/* 表格 — 完全复刻管理员列：MODEL / MODEL ID / TYPE / API KEY / STATUS / CAPABILITIES / ACTIONS */}
+      {/* 表格 — MODEL / MODEL ID / TYPE / SOURCE / API KEY / STATUS / CAPABILITIES / ACTIONS
+          SOURCE 列让用户能区分自配 vs 系统授权；SYSTEM 行编辑/启停/删除按钮 disable */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <table className="w-full">
           <thead className="bg-gray-50">
@@ -249,6 +346,9 @@ export function UserModelsManagement() {
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Type
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Source
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 API Key
@@ -268,7 +368,7 @@ export function UserModelsManagement() {
             {loading && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-12 text-center text-sm text-gray-500"
                 >
                   加载中...
@@ -278,13 +378,13 @@ export function UserModelsManagement() {
             {!loading && filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-4 py-12 text-center text-sm text-gray-500"
                 >
-                  {items.length === 0 ? (
+                  {rows.length === 0 ? (
                     <>
-                      还没配置任何模型。点击右上角「Add Model」添加 —
-                      界面和字段与管理员端完全一致。
+                      还没有可用模型。点击右上角「Add Model」自配，或先在「API
+                      Keys」tab 申请系统授权。
                     </>
                   ) : (
                     <>没有匹配的模型</>
@@ -293,18 +393,36 @@ export function UserModelsManagement() {
               </tr>
             )}
             {filtered.map((m) => {
-              const hasKey = apiKeys.some(
-                (k) => k.provider === m.provider && k.isActive
-              );
+              const isSystem = m.source === 'SYSTEM';
+              // PERSONAL 行的 hasKey = 用户自配过该 provider 的 active key
+              // SYSTEM 行的"key" 由 admin 提供，行尾 SOURCE 列显示「Granted」
+              const hasKey =
+                isSystem ||
+                apiKeys.some((k) => k.provider === m.provider && k.isActive);
+              const personal = m.personal;
+              const a = m.assignment;
+              const usedDollars = a
+                ? (a.userSpendCents / 100).toFixed(2)
+                : null;
+              const quotaDollars =
+                a && a.userQuotaCents !== null
+                  ? (a.userQuotaCents / 100).toFixed(2)
+                  : null;
               return (
                 <tr
-                  key={m.id}
+                  key={m.rowKey}
                   className={`hover:bg-gray-50 ${!m.isEnabled ? 'opacity-60' : ''}`}
                 >
                   {/* MODEL */}
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 text-lg font-semibold text-white shadow-sm">
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-lg font-semibold text-white shadow-sm ${
+                          isSystem
+                            ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
+                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                        }`}
+                      >
                         {m.displayName.slice(0, 1).toUpperCase()}
                       </div>
                       <div>
@@ -347,43 +465,106 @@ export function UserModelsManagement() {
                     >
                       {typeLabel(m.modelType)}
                     </span>
-                    <div className="mt-1 text-xs text-gray-400">
-                      {m.apiFormat}
-                    </div>
+                    {!isSystem && (
+                      <div className="mt-1 text-xs text-gray-400">
+                        {m.apiFormat}
+                      </div>
+                    )}
+                  </td>
+
+                  {/* SOURCE */}
+                  <td className="whitespace-nowrap px-4 py-4">
+                    {isSystem ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800"
+                        title="管理员授权（KeyAssignment）"
+                      >
+                        <Shield className="h-3 w-3" />
+                        系统授权
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800"
+                        title="你自己配置的模型"
+                      >
+                        <Edit className="h-3 w-3" />
+                        个人
+                      </span>
+                    )}
+                    {a && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        {usedDollars && quotaDollars
+                          ? `$${usedDollars} / $${quotaDollars}`
+                          : usedDollars
+                            ? `$${usedDollars} · unlimited`
+                            : null}
+                      </div>
+                    )}
                   </td>
 
                   {/* API KEY */}
                   <td className="px-4 py-4">
-                    <span
-                      className={`text-sm font-medium ${
-                        hasKey ? 'text-green-600' : 'text-red-500'
-                      }`}
-                    >
-                      {hasKey ? '✓ Configured' : '✗ Missing'}
-                    </span>
-                    <div className="mt-0.5 text-xs text-gray-400">
-                      via your {m.provider} key
-                    </div>
+                    {isSystem ? (
+                      <>
+                        <span className="text-sm font-medium text-emerald-600">
+                          ✓ Granted
+                        </span>
+                        <div className="mt-0.5 text-xs text-gray-400">
+                          managed by admin
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          className={`text-sm font-medium ${
+                            hasKey ? 'text-green-600' : 'text-red-500'
+                          }`}
+                        >
+                          {hasKey ? '✓ Configured' : '✗ Missing'}
+                        </span>
+                        <div className="mt-0.5 text-xs text-gray-400">
+                          via your {m.provider} key
+                        </div>
+                      </>
+                    )}
                   </td>
 
-                  {/* STATUS toggle */}
+                  {/* STATUS toggle / state */}
                   <td className="px-4 py-4 text-center">
-                    <button
-                      onClick={() =>
-                        update(m.id, { isEnabled: !m.isEnabled }).then(() =>
-                          refresh()
-                        )
-                      }
-                      className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
-                        m.isEnabled ? 'bg-green-500' : 'bg-gray-300'
-                      }`}
-                    >
+                    {isSystem ? (
                       <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                          m.isEnabled ? 'left-[22px]' : 'left-0.5'
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                          a?.status === 'ACTIVE'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-gray-100 text-gray-600'
                         }`}
-                      />
-                    </button>
+                        title={
+                          a?.status === 'ACTIVE'
+                            ? '由管理员管控，可直接在业务中使用'
+                            : `当前状态：${a?.status ?? '—'}`
+                        }
+                      >
+                        {a?.status ?? 'UNKNOWN'}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          personal &&
+                          update(personal.id, { isEnabled: !m.isEnabled }).then(
+                            () => refresh()
+                          )
+                        }
+                        className={`relative inline-flex h-6 w-11 rounded-full transition-colors ${
+                          m.isEnabled ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                            m.isEnabled ? 'left-[22px]' : 'left-0.5'
+                          }`}
+                        />
+                      </button>
+                    )}
                   </td>
 
                   {/* CAPABILITIES */}
@@ -422,67 +603,90 @@ export function UserModelsManagement() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 text-xs text-gray-400">
-                      P:{m.priority} | T:{m.temperature} | {m.maxTokens}tok
-                    </div>
+                    {!isSystem && (
+                      <div className="mt-1 text-xs text-gray-400">
+                        P:{m.priority} | T:{m.temperature} | {m.maxTokens}tok
+                      </div>
+                    )}
+                    {isSystem && (
+                      <div className="mt-1 text-xs text-gray-400">
+                        {m.maxTokens}tok
+                      </div>
+                    )}
                   </td>
 
                   {/* ACTIONS */}
                   <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => void runTest(m)}
-                        disabled={testing === m.id || !hasKey}
-                        title={
-                          !hasKey
-                            ? '先在 API Keys Tab 配置该 provider 的 Key'
-                            : '测试连接（用你的 Key 实际调一次 provider）'
-                        }
-                        className={`rounded p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                          testResults[m.id]?.success === true
-                            ? 'text-green-600 hover:bg-green-50'
-                            : testResults[m.id]?.success === false
-                              ? 'text-red-600 hover:bg-red-50'
-                              : 'text-gray-600 hover:bg-gray-100'
-                        }`}
-                      >
-                        {testing === m.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Plug className="h-4 w-4" />
-                        )}
-                      </button>
-                      {!m.isDefault && m.isEnabled && (
-                        <button
-                          onClick={() => setDefault(m.id)}
-                          title="设为该类型默认"
-                          className="rounded p-1.5 text-amber-600 hover:bg-amber-50"
+                      {isSystem ? (
+                        <span
+                          className="text-xs text-gray-400"
+                          title="系统授权由管理员管理，无需用户操作"
                         >
-                          <Star className="h-4 w-4" />
-                        </button>
+                          管理员管控
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => personal && void runTest(personal)}
+                            disabled={
+                              !personal || testing === personal.id || !hasKey
+                            }
+                            title={
+                              !hasKey
+                                ? '先在 API Keys Tab 配置该 provider 的 Key'
+                                : '测试连接（用你的 Key 实际调一次 provider）'
+                            }
+                            className={`rounded p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                              personal &&
+                              testResults[personal.id]?.success === true
+                                ? 'text-green-600 hover:bg-green-50'
+                                : personal &&
+                                    testResults[personal.id]?.success === false
+                                  ? 'text-red-600 hover:bg-red-50'
+                                  : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                          >
+                            {personal && testing === personal.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plug className="h-4 w-4" />
+                            )}
+                          </button>
+                          {personal && !m.isDefault && m.isEnabled && (
+                            <button
+                              onClick={() => setDefault(personal.id)}
+                              title="设为该类型默认"
+                              className="rounded p-1.5 text-amber-600 hover:bg-amber-50"
+                            >
+                              <Star className="h-4 w-4" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => personal && setEditing(personal)}
+                            title="编辑"
+                            className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (
+                                personal &&
+                                confirm(
+                                  `确定删除模型 ${m.displayName}（${m.modelId}）吗？`
+                                )
+                              ) {
+                                void remove(personal.id);
+                              }
+                            }}
+                            title="删除"
+                            className="rounded p-1.5 text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
                       )}
-                      <button
-                        onClick={() => setEditing(m)}
-                        title="编辑"
-                        className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `确定删除模型 ${m.displayName}（${m.modelId}）吗？`
-                            )
-                          ) {
-                            void remove(m.id);
-                          }
-                        }}
-                        title="删除"
-                        className="rounded p-1.5 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
                     </div>
                   </td>
                 </tr>

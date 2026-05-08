@@ -7,20 +7,48 @@ import { toast } from '@/stores';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+// 2026-05-08 v5（drop_distributable_keys）后，KeyAssignment 直接关联 AIModel：
+// 删除了 keyId / keyLabel / keyHint / poolRemainingCents（旧 DistributableKey 时代字段），
+// 新增 modelId / modelDbId / modelDisplayName / modelEnabled / validityType /
+// recurrence* / nextRenewalAt / assignedBy / revoked* —— 与后端
+// `key-assignments.service.ts:UserAssignmentView` 完全对齐。
+export type AssignmentStatus =
+  | 'ACTIVE'
+  | 'SUSPENDED'
+  | 'EXPIRED'
+  | 'REVOKED'
+  | 'STALE';
+
 export interface UserAssignmentView {
   id: string;
-  keyId: string;
+  modelDbId: string;
+  modelId: string;
   provider: string;
   userId: string;
   userQuotaCents: number | null;
   userSpendCents: number;
-  status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
+  status: AssignmentStatus;
+  validityType: string;
+  recurrenceUnit: string | null;
+  recurrenceInterval: number | null;
+  nextRenewalAt: string | null;
   assignedAt: string;
+  assignedBy: string | null;
   expiresAt: string | null;
-  keyLabel: string;
-  keyHint: string | null;
-  poolRemainingCents: number | null;
+  revokedAt: string | null;
+  revokedBy: string | null;
+  revokedReason: string | null;
   note: string | null;
+  modelDisplayName: string;
+  modelEnabled: boolean;
+  // 扩展字段：让"我的模型"tab 的 SYSTEM-granted 行能与 PERSONAL 行同列展示
+  modelType: string;
+  modelIsReasoning: boolean;
+  modelMaxTokens: number;
+  modelSupportsTemperature: boolean;
+  modelSupportsStreaming: boolean;
+  modelSupportsFunctionCalling: boolean;
+  modelSupportsVision: boolean;
 }
 
 export interface MyKeyRequest {

@@ -44,6 +44,16 @@ export interface AssignmentView {
 export interface UserAssignmentView extends AssignmentView {
   modelDisplayName: string;
   modelEnabled: boolean;
+  // 2026-05-08：扩展给「我的模型」tab 用，让 SYSTEM-granted 行能展示和 PERSONAL
+  // 一致的 Type / Capabilities 列。这些字段都是 AIModel 上的 admin 配置，授权
+  // 时立刻 join 进来比让前端再去 /ai/models 查一次代价更低。
+  modelType: string;
+  modelIsReasoning: boolean;
+  modelMaxTokens: number;
+  modelSupportsTemperature: boolean;
+  modelSupportsStreaming: boolean;
+  modelSupportsFunctionCalling: boolean;
+  modelSupportsVision: boolean;
 }
 
 export interface ResolvedAssignment {
@@ -540,7 +550,17 @@ export class KeyAssignmentsService {
       where: { userId },
       include: {
         model: {
-          select: { displayName: true, isEnabled: true },
+          select: {
+            displayName: true,
+            isEnabled: true,
+            modelType: true,
+            isReasoning: true,
+            maxTokens: true,
+            supportsTemperature: true,
+            supportsStreaming: true,
+            supportsFunctionCalling: true,
+            supportsVision: true,
+          },
         },
       },
       orderBy: [{ status: "asc" }, { assignedAt: "desc" }],
@@ -549,6 +569,13 @@ export class KeyAssignmentsService {
       ...this.toView(a),
       modelDisplayName: a.model?.displayName ?? a.modelId,
       modelEnabled: a.model?.isEnabled ?? false,
+      modelType: a.model?.modelType ?? "CHAT",
+      modelIsReasoning: a.model?.isReasoning ?? false,
+      modelMaxTokens: a.model?.maxTokens ?? 0,
+      modelSupportsTemperature: a.model?.supportsTemperature ?? false,
+      modelSupportsStreaming: a.model?.supportsStreaming ?? false,
+      modelSupportsFunctionCalling: a.model?.supportsFunctionCalling ?? false,
+      modelSupportsVision: a.model?.supportsVision ?? false,
     }));
   }
 
