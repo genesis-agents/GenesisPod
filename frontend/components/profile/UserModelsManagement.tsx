@@ -3,11 +3,13 @@
 import { useMemo, useState } from 'react';
 import {
   Check,
+  Clock,
   Edit,
   Loader2,
   Plug,
   Plus,
   Search,
+  Send,
   Shield,
   Star,
   Trash2,
@@ -23,10 +25,13 @@ import {
 import { useUserApiKeys } from '@/hooks/features/useUserApiKeys';
 import {
   useMyKeyAssignments,
+  useMyKeyRequests,
+  type MyKeyRequest,
   type UserAssignmentView,
 } from '@/hooks/features/useByokUser';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { UserModelConfigModal } from './UserModelConfigModal';
 import { UserModelsAutoConfigureButton } from './UserModelsAutoConfigureButton';
 
@@ -144,6 +149,15 @@ export function UserModelsManagement() {
     useUserModelConfigs();
   const { keys: apiKeys } = useUserApiKeys();
   const { assignments } = useMyKeyAssignments();
+  const {
+    requests: myRequests,
+    submit: submitKeyRequest,
+    cancel: cancelKeyRequest,
+  } = useMyKeyRequests();
+  const pendingRequest = useMemo(
+    () => myRequests.find((r) => r.status === 'PENDING') ?? null,
+    [myRequests]
+  );
 
   const [search, setSearch] = useState('');
   const [providerFilter, setProviderFilter] = useState<string>('');
@@ -153,6 +167,19 @@ export function UserModelsManagement() {
   const [testResults, setTestResults] = useState<Record<string, TestResult>>(
     {}
   );
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
+
+  const handleCancelPending = async () => {
+    if (!pendingRequest) return;
+    if (!confirm('确定撤销当前待审批的申请吗？撤销后可重新提交。')) return;
+    setCancellingRequest(true);
+    try {
+      await cancelKeyRequest(pendingRequest.id);
+    } finally {
+      setCancellingRequest(false);
+    }
+  };
 
   const runTest = async (m: UserModelConfig) => {
     setTesting(m.id);
@@ -253,6 +280,18 @@ export function UserModelsManagement() {
             onDone={() => void refresh()}
           />
           <button
+            onClick={() => setShowRequestModal(true)}
+            disabled={!!pendingRequest}
+            className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+            title={
+              pendingRequest
+                ? '你已有 1 条待审批的申请，请先撤销或等待管理员处理'
+                : '向管理员申请授权一个系统模型（无需自己配 Key）'
+            }
+          >
+            <Send className="h-4 w-4" /> 申请系统模型
+          </button>
+          <button
             onClick={() => setShowAdd(true)}
             disabled={apiKeys.length === 0}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
@@ -266,6 +305,14 @@ export function UserModelsManagement() {
           </button>
         </div>
       </div>
+
+      {pendingRequest && (
+        <PendingRequestBanner
+          request={pendingRequest}
+          onCancel={handleCancelPending}
+          cancelling={cancellingRequest}
+        />
+      )}
 
       {/* 需求概览 —— 告诉用户 Topic Insights / Research / RAG 等功能依赖哪些 modelType，
           以及当前缺什么。一键定位到 Add Modal 并预选缺失类型。 */}
@@ -715,6 +762,13 @@ export function UserModelsManagement() {
           }}
         />
       )}
+
+      {showRequestModal && (
+        <RequestKeyModal
+          onClose={() => setShowRequestModal(false)}
+          submit={submitKeyRequest}
+        />
+      )}
     </div>
   );
 }
@@ -799,5 +853,195 @@ function CoverageCard({
         )}
       </div>
     </div>
+  );
+}
+
+// ─── 待审批申请状态横幅 ─────────────────────────────────────────────────────
+//
+// 后端策略「每用户全局只能有 1 条 PENDING」(see key-requests.service.ts:87-95)。
+// 前端必须在用户点击「申请系统模型」**之前**就把这条 PENDING 暴露出来，
+// 并提供撤销入口，否则用户会反复撞 409。
+function PendingRequestBanner({
+  request,
+  onCancel,
+  cancelling,
+}: {
+  request: MyKeyRequest;
+  onCancel: () => void;
+  cancelling: boolean;
+}) {
+  const usageLabel: Record<
+    NonNullable<MyKeyRequest['estimatedUsage']>,
+    string
+  > = {
+    LIGHT: '轻度 < $5',
+    MEDIUM: '中度 $5-20',
+    HEAVY: '重度 > $20',
+  };
+  const submittedAt = new Date(request.createdAt).toLocaleString();
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+        <Clock className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
+            待审批
+          </span>
+          <span className="text-sm font-medium text-amber-900">
+            你有 1 条待管理员处理的系统模型申请
+          </span>
+        </div>
+        <div className="mt-2 space-y-1 text-xs text-amber-800">
+          <div>提交时间：{submittedAt}</div>
+          {request.estimatedUsage && (
+            <div>预计用量：{usageLabel[request.estimatedUsage]}</div>
+          )}
+          {request.reason && (
+            <div className="truncate" title={request.reason}>
+              使用目的：{request.reason}
+            </div>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-amber-700">
+          提交新申请前，请等待管理员处理或先撤销当前申请。审批通过后会出现在下方表格中（标识为「系统授权」）。
+        </p>
+      </div>
+      <button
+        onClick={onCancel}
+        disabled={cancelling}
+        className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {cancelling ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <X className="h-3.5 w-3.5" />
+        )}
+        {cancelling ? '撤销中...' : '撤销申请'}
+      </button>
+    </div>
+  );
+}
+
+// ─── 申请系统模型 Modal（内嵌，不跳页） ─────────────────────────────────────
+//
+// 用户**不**指定 provider/model。理由：admin 未必有该 provider 可用模型，
+// 强选 provider 反而把申请卡死；同时 provider 列表是动态的（admin 在
+// /admin/ai/models 随时启停 AIModel），前端 hardcode 难以同步。
+// admin 在审批界面根据当前可用 AIModel 自由决定授权。
+function RequestKeyModal({
+  onClose,
+  submit,
+}: {
+  onClose: () => void;
+  submit: ReturnType<typeof useMyKeyRequests>['submit'];
+}) {
+  const [reason, setReason] = useState('');
+  const [estimated, setEstimated] = useState<'LIGHT' | 'MEDIUM' | 'HEAVY'>(
+    'MEDIUM'
+  );
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title="申请系统模型"
+      subtitle="提交后管理员将根据当前可用模型为你授权，通常 24 小时内处理。审批通过后模型会出现在「我的模型」表格里，标识为「系统授权」。"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            disabled={submitting || !reason.trim()}
+            onClick={async () => {
+              setSubmitting(true);
+              const r = await submit({
+                reason: reason.trim() || undefined,
+                estimatedUsage: estimated,
+                note: note.trim() || undefined,
+              });
+              setSubmitting(false);
+              if (r) onClose();
+            }}
+            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            {submitting ? '提交中...' : '提交申请'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            使用目的 *
+          </label>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="例如：毕业设计需要使用 GPT-4o 做文献综述"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            预计月度用量 *
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { v: 'LIGHT', label: '轻度 < $5' },
+                { v: 'MEDIUM', label: '中度 $5-20' },
+                { v: 'HEAVY', label: '重度 > $20' },
+              ] as const
+            ).map((o) => (
+              <label
+                key={o.v}
+                className={`cursor-pointer rounded-md border px-3 py-2 text-center text-sm ${
+                  estimated === o.v
+                    ? 'border-blue-500 bg-blue-50 font-medium text-blue-700'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  className="sr-only"
+                  checked={estimated === o.v}
+                  onChange={() => setEstimated(o.v)}
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            备注（可选）
+          </label>
+          <textarea
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+    </Modal>
   );
 }
