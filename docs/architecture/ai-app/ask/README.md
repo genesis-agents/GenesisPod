@@ -6,6 +6,8 @@
 **版本**: v1.0
 **状态**: 生产环境
 
+> **扩展设计**：[Teams 模式设计方案 v0.2](./teams-mode.md)（多 AI 群聊 / 辩论 / 投票 / 评审 / handoff，集体评审通过）— [评审纪要](./teams-mode-review.md) · [ADR-004](../../../decisions/004-ai-ask-teams-mode.md)
+
 ---
 
 ## 概述
@@ -421,6 +423,9 @@ if (message.ragSources) {
 - [RAG 模块文档](../rag/readme.md)
 - [AI Engine 架构](../../../architecture/ai-engine.md)
 - [积分系统说明](../../../guides/credits-system.md)
+- [Teams 模式设计方案 v0.2](./teams-mode.md)
+- [Teams 模式集体评审纪要](./teams-mode-review.md)
+- [ADR-004 AI Ask Teams 模式](../../../decisions/004-ai-ask-teams-mode.md)
 
 ---
 
