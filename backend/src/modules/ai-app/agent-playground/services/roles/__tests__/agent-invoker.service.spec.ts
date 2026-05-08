@@ -418,56 +418,6 @@ describe("AgentInvoker.preDisableKnownFailingModels", () => {
   });
 });
 
-// ─── runWithConcurrency ───────────────────────────────────────────────────────
-
-describe("AgentInvoker.runWithConcurrency", () => {
-  it("processes all items and returns results in order", async () => {
-    const { svc } = makeSvc();
-    const results = await svc.runWithConcurrency(
-      [1, 2, 3],
-      2,
-      async (n) => n * 2,
-    );
-    expect(results).toEqual([2, 4, 6]);
-  });
-
-  it("handles empty items array", async () => {
-    const { svc } = makeSvc();
-    const results = await svc.runWithConcurrency([], 3, async (n: number) => n);
-    expect(results).toEqual([]);
-  });
-
-  it("works with concurrency=1 (serial)", async () => {
-    const { svc } = makeSvc();
-    const order: number[] = [];
-    await svc.runWithConcurrency([1, 2, 3], 1, async (n) => {
-      order.push(n);
-      return n;
-    });
-    expect(order).toEqual([1, 2, 3]);
-  });
-
-  it("works with concurrency > items.length", async () => {
-    const { svc } = makeSvc();
-    const results = await svc.runWithConcurrency(
-      [10, 20],
-      10,
-      async (n) => n + 1,
-    );
-    expect(results).toEqual([11, 21]);
-  });
-
-  it("passes index to fn", async () => {
-    const { svc } = makeSvc();
-    const indices: number[] = [];
-    await svc.runWithConcurrency(["a", "b", "c"], 2, async (_, i) => {
-      indices.push(i);
-      return i;
-    });
-    expect(indices.sort()).toEqual([0, 1, 2]);
-  });
-});
-
 // ─── runDagConcurrency ────────────────────────────────────────────────────────
 
 describe("AgentInvoker.runDagConcurrency", () => {

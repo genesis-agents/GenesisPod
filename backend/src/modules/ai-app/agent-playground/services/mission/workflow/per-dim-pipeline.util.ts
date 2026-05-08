@@ -302,7 +302,7 @@ export async function runPerDimPipeline(
       // ★ 业务链修5 (2026-05-06): cache hit 时同步连续 emit 让前端"瞬移"，
       //   用户感受不到任务并行节奏。加 sleep 让每章节 emit 之间有 ~80ms 间隔，
       //   让 7 dim 并行 cache hit 在 ~1-2s 内有节奏完成（dim 之间仍是真并行
-      //   因为 runPerDimPipeline 在 invoker.runWithConcurrency 里跑）。
+      //   因为 runPerDimPipeline 在 invoker.runDagConcurrency 里跑）。
       const SYNTH_EMIT_INTERVAL_MS = 80;
       const sleep = (ms: number): Promise<void> =>
         new Promise((resolve) => setTimeout(resolve, ms));

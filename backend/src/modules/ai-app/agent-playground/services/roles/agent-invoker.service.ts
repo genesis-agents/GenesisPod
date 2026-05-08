@@ -142,14 +142,6 @@ export class AgentInvoker {
     this.relay.clearMission(missionId);
   }
 
-  async runWithConcurrency<TIn, TOut>(
-    items: readonly TIn[],
-    concurrency: number,
-    fn: (item: TIn, idx: number) => Promise<TOut>,
-  ): Promise<TOut[]> {
-    return this.execution.runWithConcurrency(items, concurrency, fn);
-  }
-
   async runDagConcurrency<
     TIn extends { id: string; dependsOn?: string[] },
     TOut,

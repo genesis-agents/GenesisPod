@@ -1,5 +1,9 @@
 import { Logger } from "@nestjs/common";
-import { AgentRunner, type IAgentEvent } from "@/modules/ai-harness/facade";
+import {
+  AgentRunner,
+  ConcurrencyLimiter,
+  type IAgentEvent,
+} from "@/modules/ai-harness/facade";
 import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 import type { InvocationContext } from "./agent-invoker.service";
 
@@ -34,26 +38,15 @@ export class AgentExecutionSupport {
     });
   }
 
-  async runWithConcurrency<TIn, TOut>(
-    items: readonly TIn[],
-    concurrency: number,
-    fn: (item: TIn, idx: number) => Promise<TOut>,
-  ): Promise<TOut[]> {
-    const results: TOut[] = [];
-    let cursor = 0;
-    const workers = Array.from(
-      { length: Math.min(concurrency, items.length) },
-      async () => {
-        while (cursor < items.length) {
-          const idx = cursor++;
-          results[idx] = await fn(items[idx], idx);
-        }
-      },
-    );
-    await Promise.all(workers);
-    return results;
-  }
-
+  /**
+   * 内存数组 DAG 并发调度。
+   *
+   * ★ 与 harness DAGExecutor 的边界（避免误判为"双源"）：
+   *   - 本方法：纯内存数组 + dependsOn 字段，编译期拓扑求解，returns TOut[]
+   *   - harness DAGExecutor：DB-backed 任务池调度（fetchExecutable / countPending /
+   *     isCancelled adapter），用于 TI/research 的持久化任务队列。
+   *   两者抽象层次不同，不是双源；本方法服务于 S3 dim 内存并行场景。
+   */
   async runDagConcurrency<
     TIn extends { id: string; dependsOn?: string[] },
     TOut,
@@ -101,7 +94,10 @@ export class AgentExecutionSupport {
       this.log.warn(
         `[runDagConcurrency] cycle or missing deps detected - fallback to flat`,
       );
-      return this.runWithConcurrency(items, concurrency, fn);
+      const limiter = new ConcurrencyLimiter(Math.max(1, concurrency));
+      return Promise.all(
+        items.map((item, idx) => limiter.run(() => fn(item, idx))),
+      );
     }
 
     const results: TOut[] = new Array(items.length);
