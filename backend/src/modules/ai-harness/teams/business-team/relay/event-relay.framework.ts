@@ -18,14 +18,14 @@
  */
 
 import { Logger } from "@nestjs/common";
-import {
-  DomainEventBus,
-  MissionAbortRegistry,
-  MissionBudgetPool,
-  estimateUsdFromTokens,
-  type DomainEvent,
-  type IAgentEvent,
-} from "@/modules/ai-harness/facade";
+// ★ 不走 facade barrel：facade/index.ts 也 re-export 本 framework，
+//   构成循环加载（详见 mission-runtime-shell.framework.ts 注释）。
+import { DomainEventBus } from "@/modules/ai-harness/protocols/events/domain-event-bus";
+import { MissionAbortRegistry } from "@/modules/ai-harness/lifecycle/mission-lifecycle/abort-registry";
+import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
+import { estimateUsdFromTokens } from "@/modules/ai-harness/tracing/observability/token-spend.utils";
+import type { DomainEvent } from "@/modules/ai-harness/protocols/events/domain-event.types";
+import type { IAgentEvent } from "@/modules/ai-harness/agents/abstractions/agent-event.interface";
 
 /** EventRelay 与 invoker 共享的调用上下文 */
 export interface EventRelayContext {

@@ -14,12 +14,15 @@ import { Injectable, Logger } from "@nestjs/common";
 import { withUserContext } from "@/common/context";
 import { BillingContext } from "@/modules/ai-infra/credits/billing-context.store";
 import { CreditsService } from "@/modules/ai-infra/credits/credits.service";
-import {
-  BillingRuntimeEnvAdapter,
-  MissionAbortRegistry,
-  MissionBudgetPool,
-  RuntimeEnvironmentService,
-} from "@/modules/ai-harness/facade";
+// ★ 不走 @/modules/ai-harness/facade barrel：facade/index.ts 也 re-export 本 framework
+//   (PR-E0)，构成 facade ⇄ framework 的模块循环加载，编译产物里
+//   `__metadata("design:paramtypes", [..., facade_1.RuntimeEnvironmentService, ...])`
+//   在 framework 加载时 facade 还没赋 RuntimeEnvironmentService → undefined →
+//   NestJS DI 无法解析 ctor 参数 [1] → 启动崩溃。直接从 source 导入打破循环。
+import { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/guardrails/billing/billing-adapter";
+import { MissionBudgetPool } from "@/modules/ai-harness/guardrails/budget/mission-budget-pool";
+import { MissionAbortRegistry } from "../../../lifecycle/mission-lifecycle/abort-registry";
+import { RuntimeEnvironmentService } from "../../../guardrails/runtime/runtime-environment.service";
 import type {
   IMissionRuntimeAdapter,
   MissionRuntimeSession,

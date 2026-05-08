@@ -115,7 +115,6 @@ import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
 import { CreditsModule } from "../ai-infra/credits/credits.module";
-import { RuntimeResourceModule } from "./guardrails/resources/resource.module";
 import { MissionAbortRegistry } from "./lifecycle/mission-lifecycle/abort-registry";
 
 // PR-X18: Engine 端 DI tokens — harness 提供这 9 个 token 的 useExisting 绑定
@@ -163,11 +162,10 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     // 2026-05-01 (PR-X-K): 让 SkillActivator 能 fallback 到 ai-engine SkillRegistry，
     // 透出用户在 Admin UI / API 自定义的 skill 给 harness agent
     forwardRef(() => AiEngineSkillsModule),
-    // ★ 2026-05-08 PR-E0: MissionRuntimeShellFramework 依赖
-    //   - CreditsService (CreditsModule)
-    //   - RuntimeEnvironmentService (RuntimeResourceModule, 虽然 @Global 但本模块自身构造时需显式 import)
+    // ★ 2026-05-08 PR-E0: MissionRuntimeShellFramework 依赖 CreditsService。
+    //   RuntimeEnvironmentService 由 @Global RuntimeResourceModule 通过 HarnessApiModule
+    //   提供，无需在此 import。MissionAbortRegistry 由本模块 providers 直接注册。
     CreditsModule,
-    RuntimeResourceModule,
   ],
   providers: [
     // Cross-cutting
