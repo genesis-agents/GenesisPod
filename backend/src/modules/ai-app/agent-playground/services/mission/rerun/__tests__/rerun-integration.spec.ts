@@ -357,11 +357,11 @@ describe("Rerun integration (PR-R8)", () => {
     });
   });
 
-  describe("场景 3: 频次 + cost 闸（5/24h + cost guard）", () => {
-    it("第 6 次（已用 5）→ throw 429", async () => {
+  describe("场景 3: 频次 + cost 闸（50/24h + cost guard）", () => {
+    it("第 51 次（已用 50）→ throw 429", async () => {
       const h = buildIntegratedHarness({
         missionStatus: "completed",
-        rerunCount: 5,
+        rerunCount: 50,
       });
       await expect(
         h.service.run(
