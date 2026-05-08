@@ -1278,11 +1278,24 @@ export async function runPerDimPipeline(
       //   修法：章节改用 ### (H3)，让 numberSubHeadings 自动加 "### N.M. 标题"
       //   层级编号（N=维度序，M=章节序）。dim 名也不用单独 H1，
       //   reportAssembler.buildFullMarkdown 已经在外层套 "## ${dim.name}"。
+      // ★ 2026-05-08 PR-9-B (R4 reviewer 阻塞 - 77 空 H3 软约束兜底):
+      //   chapter-writer prompt 已要求 body 第一行不能 H3 子小节（chapter-writer.agent.ts:204-213），
+      //   但 reflexion maxIterations=1 实际不 self-critique。在 stitch 拼装层
+      //   做程序性兜底：检测 body 第一行是 ### 时，前置一行引言占位（避免章节
+      //   heading + 子小节 heading 紧挨着无引言），保证视觉层级清晰。
+      const ensureChapterIntro = (body: string): string => {
+        const trimmed = body.trimStart();
+        // body 首行是 H3 子小节（不带正文段）→ 前置占位引言（让 reviewer 后续可补）
+        if (/^###\s+/.test(trimmed)) {
+          return `> **本章导读**：以下子小节展开论述本章主题。\n\n${trimmed}`;
+        }
+        return body;
+      };
       const parts: string[] = [];
       for (const ch of writtenChapters) {
         parts.push(`### ${ch.heading}`);
         parts.push("");
-        parts.push(stripChartJsonFromContent(ch.body));
+        parts.push(ensureChapterIntro(stripChartJsonFromContent(ch.body)));
         parts.push("");
       }
       return parts.join("\n");

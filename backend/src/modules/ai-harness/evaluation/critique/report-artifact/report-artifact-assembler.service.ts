@@ -409,25 +409,44 @@ export class ReportArtifactAssembler {
     legacySections: ArtifactSection[],
   ): void {
     for (const sec of sections) sec.figureIds = [];
-    for (const fig of figures) {
-      // 1. 优先按 sourceDimensionId 找新 section
-      const oldSec = legacySections.find((s) => s.id === fig.sectionId);
-      const newSec = oldSec?.sourceDimensionId
+    // ★ 2026-05-08 PR-9-A (R4 第 4 路指出 referencedBy 悬挂):
+    //   构造 legacy.id → newSec 映射表 + 第一维度 dim fallback，让 fig.sectionId
+    //   和 fig.referencedBy[].sectionId 一并重映射。
+    const legacyIdToNew = new Map<string, ArtifactSection>();
+    for (const oldSec of legacySections) {
+      const newSec = oldSec.sourceDimensionId
         ? sections.find((s) => s.sourceDimensionId === oldSec.sourceDimensionId)
-        : sections.find((s) => s.title === oldSec?.title);
+        : sections.find((s) => s.title === oldSec.title);
+      if (newSec) legacyIdToNew.set(oldSec.id, newSec);
+    }
+    const firstDim = sections.find((s) => s.type === "dimension");
+    const remap = (oldSecId: string): string => {
+      const newSec = legacyIdToNew.get(oldSecId);
+      if (newSec) return newSec.id;
+      return firstDim ? firstDim.id : oldSecId;
+    };
+    for (const fig of figures) {
+      // 1. fig.sectionId 重映射
+      const oldSec = legacySections.find((s) => s.id === fig.sectionId);
+      const newSec = oldSec
+        ? legacyIdToNew.get(oldSec.id)
+        : sections.find((s) => s.id === fig.sectionId);
       if (newSec) {
         fig.sectionId = newSec.id;
         if (!newSec.figureIds.includes(fig.id)) {
           newSec.figureIds.push(fig.id);
         }
-      } else {
+      } else if (firstDim) {
         // fallback: 挂第一个 dimension section
-        const firstDim = sections.find((s) => s.type === "dimension");
-        if (firstDim) {
-          fig.sectionId = firstDim.id;
-          if (!firstDim.figureIds.includes(fig.id)) {
-            firstDim.figureIds.push(fig.id);
-          }
+        fig.sectionId = firstDim.id;
+        if (!firstDim.figureIds.includes(fig.id)) {
+          firstDim.figureIds.push(fig.id);
+        }
+      }
+      // 2. fig.referencedBy[].sectionId 也重映射（R4 第 4 路指出此前悬挂）
+      if (fig.referencedBy && fig.referencedBy.length > 0) {
+        for (const ref of fig.referencedBy) {
+          ref.sectionId = remap(ref.sectionId);
         }
       }
     }

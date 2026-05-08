@@ -1091,4 +1091,165 @@ describe("PR-7 rebuildSectionTreePublic + figure.sectionId 重映射（mission 8
     expect(figures[0].sectionId).toBe("new-sec-1");
     expect(newSections[0].figureIds).toContain("fig-old-sec-1-0");
   });
+
+  // ★ 2026-05-08 PR-9-A (R4 第 4 路指出 referencedBy 悬挂):
+  it("recomputeSectionFigureIdsPublic 同步重映射 fig.referencedBy[].sectionId", () => {
+    const assembler = makeAssembler();
+    const legacySections = [
+      {
+        id: "old-sec-1",
+        sourceDimensionId: "d1",
+        type: "dimension" as const,
+        title: "Market",
+        anchor: "market",
+        level: 2 as const,
+        startOffset: 0,
+        endOffset: 100,
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+      {
+        id: "old-sec-2",
+        sourceDimensionId: "d2",
+        type: "dimension" as const,
+        title: "Tech",
+        anchor: "tech",
+        level: 2 as const,
+        startOffset: 100,
+        endOffset: 200,
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+    ];
+    const newSections = [
+      {
+        id: "new-sec-1",
+        sourceDimensionId: "d1",
+        type: "dimension" as const,
+        title: "Market",
+        anchor: "market",
+        level: 2 as const,
+        startOffset: 0,
+        endOffset: 150,
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+      {
+        id: "new-sec-2",
+        sourceDimensionId: "d2",
+        type: "dimension" as const,
+        title: "Tech",
+        anchor: "tech",
+        level: 2 as const,
+        startOffset: 150,
+        endOffset: 300,
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+    ];
+    const figures = [
+      {
+        id: "fig-old-sec-1-0",
+        type: "reference" as const,
+        chartType: undefined,
+        title: "test",
+        caption: "test fig",
+        altText: "test",
+        imageUrl: "https://x.com/i.png",
+        sectionId: "old-sec-1",
+        evidenceCitationIndex: undefined,
+        position: undefined,
+        // 关键：referencedBy 含 legacy section id (old-sec-1, old-sec-2)
+        referencedBy: [
+          { sectionId: "old-sec-1", phrase: "Market trend" },
+          { sectionId: "old-sec-2", phrase: "Tech impact" },
+        ],
+      },
+    ];
+    assembler.recomputeSectionFigureIdsPublic(
+      figures as never,
+      newSections,
+      legacySections,
+    );
+    // referencedBy[0].sectionId 应被 remap 到 new-sec-1（按 sourceDimensionId d1）
+    expect(figures[0].referencedBy[0].sectionId).toBe("new-sec-1");
+    // referencedBy[1].sectionId 应被 remap 到 new-sec-2（按 sourceDimensionId d2）
+    expect(figures[0].referencedBy[1].sectionId).toBe("new-sec-2");
+  });
+
+  // ★ 2026-05-08 PR-9-D (R4 第 4 路指出 ID 格式分裂):
+  it("两次 build 产出 sec id 漂移时 figure 不被错误挤到 firstDim 兜底", () => {
+    const assembler = makeAssembler();
+    // 模拟 fuzzyMatch 命中 dim → sec.id = dim.id（UUID 格式）；
+    // 未命中 → sec.id = sec-{slug}-N（slug 格式）
+    const legacySections = [
+      {
+        id: "d1", // fuzzyMatch 命中（UUID）
+        sourceDimensionId: "d1",
+        type: "dimension" as const,
+        title: "Market 分析",
+        anchor: "market",
+        level: 2 as const,
+        startOffset: 0,
+        endOffset: 100,
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+    ];
+    const newSections = [
+      {
+        id: "sec-market-1", // 未命中 fuzzyMatch（slug 格式）— 同章节但 ID 漂移
+        sourceDimensionId: "d1", // sourceDimensionId 仍正确
+        type: "dimension" as const,
+        title: "Market 分析",
+        anchor: "market",
+        level: 2 as const,
+        startOffset: 0,
+        endOffset: 150,
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+    ];
+    const figures = [
+      {
+        id: "fig-d1-0",
+        type: "reference" as const,
+        chartType: undefined,
+        title: "test",
+        caption: "test fig",
+        altText: "test",
+        imageUrl: "https://x.com/i.png",
+        sectionId: "d1",
+        evidenceCitationIndex: undefined,
+        position: undefined,
+        referencedBy: [],
+      },
+    ];
+    assembler.recomputeSectionFigureIdsPublic(
+      figures as never,
+      newSections,
+      legacySections,
+    );
+    // 即使 ID 格式分裂，按 sourceDimensionId 优先策略仍能正确映射
+    expect(figures[0].sectionId).toBe("sec-market-1");
+    expect(newSections[0].figureIds).toContain("fig-d1-0");
+  });
 });
