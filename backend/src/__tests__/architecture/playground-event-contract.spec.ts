@@ -139,6 +139,19 @@ const FRONTEND_LEGACY_LISTENERS_OK = new Set<string>([
 
 /** 这些 backend 注册但暂未 emit（为未来预留 / 测试用 / 兼容历史 fixture） */
 const BACKEND_DEAD_REGISTRATION_OK = new Set<string>([
+  // PR-E1 (2026-05-08): EventRelayFramework.relayAgentEvents() / emitLifecycle() / tickCost()
+  // 通过 `${this.eventNamespace}.xxx` 动态模板 emit；AgentPlaygroundEventRelay extends
+  // EventRelayFramework("agent-playground") → 这些事件确实被 emit，静态扫描因模板化无法检测。
+  "agent-playground.agent:lifecycle",
+  "agent-playground.agent:thought",
+  "agent-playground.agent:action",
+  "agent-playground.agent:observation",
+  "agent-playground.agent:reflection",
+  "agent-playground.agent:error",
+  "agent-playground.cost:tick",
+  "agent-playground.tools:recalled",
+  "agent-playground.agent:validation-rejected",
+  "agent-playground.iteration:progress",
   // SocketBroadcastAdapter 内部降级用，不是业务 emit
   "agent-playground.event:dropped",
   "agent-playground.event:oversized",
