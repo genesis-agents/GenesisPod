@@ -47,7 +47,12 @@ const STAGE_RERUN_BLACKLIST = new Set<string>([
 ]);
 
 /** v1.2 §4.2: 单 (mission, step) 在 24h 内最多 5 次重跑（防滥用）。 */
-const RERUN_FREQUENCY_LIMIT_PER_24H = 5;
+// ★ 2026-05-08 用户反馈"429 限制过严"：原 5 次/24h 误伤正常调试场景（用户对
+//   同一 stage 反复测试 5 次后剩下 24h 全部 429，错误消息又显示"过于频繁"
+//   误导用户以为等几秒可重试）。cost guard（local-rerun.service.ts:193）已独立
+//   防"无限重跑烧钱"，此频次限制改为反恶意脚本保底（50 次/24h），normal
+//   user 调试不会触达。
+const RERUN_FREQUENCY_LIMIT_PER_24H = 50;
 const RERUN_FREQUENCY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /** v1.2 §3.4: cascade 链终点是 S11 → reopen 让 markCompleted 能改 status。 */
@@ -392,8 +397,10 @@ export class LocalRerunService {
       },
     });
     if (count >= RERUN_FREQUENCY_LIMIT_PER_24H) {
+      // ★ 2026-05-08：错误消息明确说明是 "24h 长窗口" 限制，与控制器层 30/60s
+      //   短窗口限流区分（避免用户混淆等几秒就能重试）。
       throw new HttpException(
-        `该任务 ${stepId} 在 24h 内已重跑 ${count} 次，超过上限 ${RERUN_FREQUENCY_LIMIT_PER_24H} 次。请等 24h 后或新建 mission。`,
+        `该 stage (${stepId}) 在过去 24 小时已重跑 ${count} 次，达到 ${RERUN_FREQUENCY_LIMIT_PER_24H} 次保底上限（防恶意脚本）。请新建 mission 或等待 24 小时后再试。`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }

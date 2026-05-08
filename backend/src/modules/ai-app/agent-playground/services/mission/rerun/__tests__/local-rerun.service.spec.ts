@@ -7,7 +7,7 @@
  *   1. isLocallyRerunable — stepId 黑名单 / dag.rerunable / cascade 链
  *   2. run — TOCTOU 状态守门（heartbeat < 60s 拒绝）
  *   3. run — 实时 cost 守门（cost_usd >= max_credits 拒绝）
- *   4. run — 24h 频次闸（5 次 / 24h，超出 throw 429）
+ *   4. run — 24h 频次闸（50 次 / 24h 保底防恶意脚本，超出 throw 429）
  *   5. run — cascade 链终点是 S11 + status=failed → markReopened
  *   6. run — cascade 链终点不到 S11 → 不调 markReopened
  *   7. run — 成功路径 emit rerun-started/completed + 写 rerun_attempts
@@ -268,7 +268,7 @@ describe("LocalRerunService.run (PR-R6)", () => {
     ).rejects.toThrow(/累积 cost.*已达 maxCredits/);
   });
 
-  it("24h 频次 5 次 → 第 6 次 throw 429", async () => {
+  it("24h 频次 50 次 → 第 51 次 throw 429（保底防恶意脚本）", async () => {
     const m = makeMocks({
       id: "m1",
       status: "failed",
@@ -276,7 +276,7 @@ describe("LocalRerunService.run (PR-R6)", () => {
       costUsd: 0,
       maxCredits: 1,
     });
-    m.prisma.agentPlaygroundRerunAttempt.count.mockResolvedValue(5);
+    m.prisma.agentPlaygroundRerunAttempt.count.mockResolvedValue(50);
     const svc = makeService(m);
     await expect(
       svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit),
@@ -286,8 +286,8 @@ describe("LocalRerunService.run (PR-R6)", () => {
     ).rejects.toMatchObject({ status: 429 });
   });
 
-  // ★ 收尾评审 P1-R-边界 (2026-05-07): 频次 count=4（第 5 次允许）正向断言
-  it("24h 频次 count=4 → 第 5 次仍允许（边界正向验证）", async () => {
+  // ★ 收尾评审 P1-R-边界 (2026-05-07): 频次正向断言（边界 limit-1 允许通过）
+  it("24h 频次 count=49 → 第 50 次仍允许（边界正向验证）", async () => {
     const m = makeMocks({
       id: "m1",
       status: "failed",
@@ -295,7 +295,7 @@ describe("LocalRerunService.run (PR-R6)", () => {
       costUsd: 0,
       maxCredits: 1,
     });
-    m.prisma.agentPlaygroundRerunAttempt.count.mockResolvedValue(4);
+    m.prisma.agentPlaygroundRerunAttempt.count.mockResolvedValue(49);
     const svc = makeService(m);
     await expect(
       svc.run({ ...baseInput, stepId: "s8-writer" }, noopEmit),
