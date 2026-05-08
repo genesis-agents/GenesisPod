@@ -31,11 +31,18 @@ interface Props {
   /**
    * ★ 2026-05-07：真维度名列表（从 plan.dimensions[].name 或
    * sections.filter(type='dimension').map(s.title) 来）。renumberHeadings 用
-   * fuzzy match 辨认哪些 H2 是维度（加 N. 编号），哪些 H2 是被老 reportAssembler
+   * 严格 prefix match 辨认哪些 H2 是维度（加 N. 编号），哪些 H2 是被老 reportAssembler
    * 错写成 H2 的章节（降为 H3 + N.M. 编号）。
    * 缺省时所有非 supplementary H2 都按维度处理（适合新格式纯净 markdown）。
    */
   dimNames?: readonly string[];
+  /**
+   * ★ 2026-05-07 集体评审 P0：单章 slice 阅读（ChapterReader）时，slice 只含 1 个
+   * H2，但用户上下文是"第 N 章"。传入 dimStartIndex 让 renumberHeadings 从该编号
+   * 起算（默认 1），避免在第 7 章看到"## 1. xxx"。
+   * ContinuousReader 全文渲染保持默认 1。
+   */
+  dimStartIndex?: number;
 }
 
 /**
@@ -120,9 +127,13 @@ function stripHeadingNumberPrefix(title: string): string {
 }
 
 /**
- * H2 是否匹配某真维度名（剥前缀后做"前 8 字 includes" fuzzy match —— 与
- * 后端 buildSectionTree.fuzzyMatchDimension 同款规则）。
- * dimNames 缺省时，所有非 supplementary H2 都按维度处理（适合新格式）。
+ * H2 是否匹配某真维度名（严格 prefix）。dimNames 缺省时，所有非 supplementary H2
+ * 都按维度处理。
+ *
+ * ★ 2026-05-07 集体评审 P0 收紧：旧版用"前 8 字 substring 双向 includes"，会把
+ * 共享前缀的章节（如"中国训练数据合规"vs 维度"中国训练成本演进"前 4 字"中国训练"）
+ * 误升为维度。改为"必须是 dimName 的精确 prefix（cleaned 以 dimName 开头）或
+ * 反之（dimName 以 cleaned 开头且 cleaned 至少 6 字符）"，杜绝 substring 误判。
  */
 function matchDimName(
   cleaned: string,
@@ -130,14 +141,33 @@ function matchDimName(
 ): boolean {
   if (!dimNames || dimNames.length === 0) return true; // 无信息时按维度处理
   const t = cleaned.toLowerCase().trim();
+  if (!t) return false;
   for (const d of dimNames) {
     const n = d.toLowerCase().trim();
     if (!n) continue;
     if (t === n) return true;
-    const prefix = n.slice(0, 8);
-    if (t.includes(prefix) || n.includes(t.slice(0, 8))) return true;
+    // cleaned 以 dimName 开头（dimName 是 cleaned 的前缀）→ 维度
+    if (t.startsWith(n)) return true;
+    // dimName 以 cleaned 开头且 cleaned 足够长（避免 H2 被截短的边缘 case）
+    if (n.startsWith(t) && t.length >= 6) return true;
   }
   return false;
+}
+
+/**
+ * 检测是否为 JSON 字面片段被 chapter-writer 老 bug 误写成 H3（如
+ * `### "label": "经济型模型"`）。守卫住这类残片，避免渲染成章节标题。
+ * ★ 2026-05-07 集体评审 P0 守卫。
+ */
+function looksLikeJsonFragment(cleaned: string): boolean {
+  const t = cleaned.trim();
+  if (!t) return false;
+  // 以 " { } [ ] 起始，或匹配 `"key": "value"` / `"key":` 模式
+  return (
+    /^["'{}\[\]]/.test(t) ||
+    /^[a-zA-Z_][\w\-]*\s*:\s*["'\d{[]/.test(t) ||
+    /^"[^"]+"\s*:/.test(t)
+  );
 }
 
 /**
@@ -166,9 +196,10 @@ function matchDimName(
  */
 function renumberHeadings(
   markdown: string,
-  dimNames?: readonly string[]
+  dimNames?: readonly string[],
+  dimStartIndex: number = 1
 ): string {
-  let dim = 0;
+  let dim = Math.max(0, dimStartIndex - 1);
   let chap = 0;
   const lines = markdown.split('\n');
   let inFence = false;
@@ -210,6 +241,14 @@ function renumberHeadings(
     const h3 = line.match(/^(###\s+)(.+)$/);
     if (h3) {
       const cleaned = stripHeadingNumberPrefix(h3[2]);
+      // ★ 2026-05-07 集体评审 P0 守卫：legacy chapter-writer 老 bug 把 JSON 字面
+      //   片段写成 `### "label": "经济型模型"`，这类残片不能视作章节，否则
+      //   chap 计数会被污染、目录会出现 4 行 JSON 标题。整行降级为普通段落
+      //   保留原文，让 markdown 自由渲染（用户至少不再看到伪标题）。
+      if (looksLikeJsonFragment(cleaned)) {
+        lines[i] = cleaned;
+        continue;
+      }
       if (underDim && dim > 0) {
         // 跳过"### {dim name}"重复占位（与父维度同名）
         if (
@@ -292,6 +331,7 @@ function ArtifactMarkdownInner({
   citations,
   figures,
   dimNames,
+  dimStartIndex,
 }: Props) {
   // ★ 2026-04-30 (#64): 全部稳定化 —— 父级 re-render（events 流入 / setNow 500ms tick）
   //   不再触发 ReactMarkdown 整树重建，<img>/figure 不再 unmount-remount。
@@ -383,8 +423,12 @@ function ArtifactMarkdownInner({
   // 对既有 mission（错的 "36." / "37. 1."）和新 mission（裸标题）同样有效
   const cleaned = useMemo(
     () =>
-      renumberHeadings(stripProseBullets(preprocessLatex(markdown)), dimNames),
-    [markdown, dimNames]
+      renumberHeadings(
+        stripProseBullets(preprocessLatex(markdown)),
+        dimNames,
+        dimStartIndex
+      ),
+    [markdown, dimNames, dimStartIndex]
   );
 
   // ★ TI 对齐：与 ChapterizedReportView preview / ReportEditor preview 完全相同的 prose 类
@@ -423,5 +467,6 @@ export const ArtifactMarkdown = React.memo(
     prev.markdown === next.markdown &&
     prev.citations === next.citations &&
     prev.figures === next.figures &&
-    prev.dimNames === next.dimNames
+    prev.dimNames === next.dimNames &&
+    prev.dimStartIndex === next.dimStartIndex
 );

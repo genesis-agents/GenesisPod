@@ -324,6 +324,16 @@ export function ChapterReader({
     ? sections.findIndex((s) => s.id === selectedSection.id)
     : -1;
 
+  // ★ 2026-05-07 集体评审 P0：单章 slice 内 H2 编号必须显示真实位置（"## 7. xxx"）
+  //   而不是 slice-local "## 1. xxx"。selectedSection 在 dimension 子集中的 index +1
+  //   作为 dimStartIndex 传给 ArtifactMarkdown。supplementary 章节传 1（不影响）。
+  const dimStartIndex = useMemo(() => {
+    if (!selectedSection || selectedSection.type !== 'dimension') return 1;
+    const dims = sections.filter((s) => s.type === 'dimension');
+    const idx = dims.findIndex((d) => d.id === selectedSection.id);
+    return idx >= 0 ? idx + 1 : 1;
+  }, [sections, selectedSection]);
+
   const sectionMarkdown = useMemo(() => {
     if (!selectedSection) return '';
     return getSectionSlice(
@@ -414,6 +424,7 @@ export function ChapterReader({
                 dimNames={artifact.sections
                   .filter((s) => s.type === 'dimension')
                   .map((s) => s.title)}
+                dimStartIndex={dimStartIndex}
               />
             )}
 
