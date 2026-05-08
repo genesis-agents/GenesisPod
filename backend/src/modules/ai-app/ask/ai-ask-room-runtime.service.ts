@@ -2,10 +2,10 @@
  * AskRoomRuntime - 消息级 turn 编排器
  *
  * 设计：teams-mode.md §6 turn 执行链路
- * 范围（W2 PR3）：
+ * 范围（W2-W4，6 mode 全部覆盖）：
  *   - 选 mode（启发式 + roomConfig + 用户显式）
  *   - 创建 AskRoomTurn
- *   - 调用对应 adapter（本期仅 FREECHAT；其他 mode 抛"待 W3/W4 实现"）
+ *   - 调用对应 adapter（FREECHAT / PARALLEL_MERGE / DEBATE / VOTE / REVIEW / HANDOFF）
  *   - 落库 adapter 产出的消息
  *   - 终结 turn
  *
@@ -30,6 +30,9 @@ import {
 import { FreechatAdapter } from "./adapters/freechat.adapter";
 import { ParallelMergeAdapter } from "./adapters/parallel-merge.adapter";
 import { DebateAdapter } from "./adapters/debate.adapter";
+import { VoteAdapter } from "./adapters/vote.adapter";
+import { ReviewAdapter } from "./adapters/review.adapter";
+import { HandoffAdapter } from "./adapters/handoff.adapter";
 import type {
   IModeAdapter,
   ModeContext,
@@ -55,6 +58,9 @@ export class AskRoomRuntimeService {
     private readonly freechatAdapter: FreechatAdapter,
     private readonly parallelMergeAdapter: ParallelMergeAdapter,
     private readonly debateAdapter: DebateAdapter,
+    private readonly voteAdapter: VoteAdapter,
+    private readonly reviewAdapter: ReviewAdapter,
+    private readonly handoffAdapter: HandoffAdapter,
   ) {}
 
   /**
@@ -298,10 +304,11 @@ export class AskRoomRuntimeService {
       case AskRoomMode.DEBATE:
         return this.debateAdapter;
       case AskRoomMode.VOTE:
+        return this.voteAdapter;
       case AskRoomMode.REVIEW:
+        return this.reviewAdapter;
       case AskRoomMode.HANDOFF:
-        // W4 实现这三个 mode 时，把对应 adapter 注入并 return。
-        return null;
+        return this.handoffAdapter;
       default: {
         const _exhaustive: never = mode;
         return _exhaustive;

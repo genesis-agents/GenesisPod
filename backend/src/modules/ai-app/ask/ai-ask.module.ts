@@ -17,6 +17,9 @@ import { AskRoomGateway } from "./ai-ask-room.gateway";
 import { FreechatAdapter } from "./adapters/freechat.adapter";
 import { ParallelMergeAdapter } from "./adapters/parallel-merge.adapter";
 import { DebateAdapter } from "./adapters/debate.adapter";
+import { VoteAdapter } from "./adapters/vote.adapter";
+import { ReviewAdapter } from "./adapters/review.adapter";
+import { HandoffAdapter } from "./adapters/handoff.adapter";
 
 @Module({
   imports: [
@@ -43,6 +46,9 @@ import { DebateAdapter } from "./adapters/debate.adapter";
     FreechatAdapter,
     ParallelMergeAdapter,
     DebateAdapter,
+    VoteAdapter,
+    ReviewAdapter,
+    HandoffAdapter,
   ],
   exports: [AiAskService, AskRoomService],
 })
