@@ -88,6 +88,8 @@ export function useAskRoomSocket(opts: UseAskRoomSocketOptions): SocketHandle {
 
     socket.on('connect_error', (err: Error) => {
       logger.debug(`[AskRoomSocket] connect_error: ${err.message}`);
+      // 评审 W6 阻塞 #2：连接失败也要通知 UI，否则 RoomChatPage 卡 loading
+      onJoinErrorRef.current?.(`connect_error: ${err.message}`);
     });
 
     socket.on('disconnect', (reason: string) => {

@@ -66,15 +66,18 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
     return () => reset();
   }, [reload, reset]);
 
-  const onEvent = useCallback((event: AskRoomServerEvent) => {
-    if (event.kind === 'turn.complete' || event.kind === 'turn.error') {
-      // 完成后重新拉一次最终消息（此时已落库）
-      // 注：后端目前没有专用 GET /rooms/:id/messages，
-      // 临时方案是 reload getRoom（虽然它不返回 messages，pending 仍可见）
-      // W6 follow-up：补 GET /rooms/:id/messages 端点。
-      logger.debug('[RoomChat] turn ended', event);
-    }
-  }, []);
+  const onEvent = useCallback(
+    (event: AskRoomServerEvent) => {
+      if (event.kind === 'turn.complete' || event.kind === 'turn.error') {
+        // 评审 W6 重要 #5/#10：turn 结束 reload 拉最新 members + recentTurns。
+        // messages 由 store.applyEvent 持续累积（participant.done 已转 final）。
+        // follow-up F12：后端补 GET /rooms/:id/messages 后改拉真实落库内容覆盖
+        logger.debug('[RoomChat] turn ended', event);
+        void reload();
+      }
+    },
+    [reload]
+  );
 
   const socket = useAskRoomSocket({
     sessionId: session ?? roomId,

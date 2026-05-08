@@ -82,21 +82,32 @@ export function RoomComposer({
           ))}
         </select>
         <div className="flex flex-wrap gap-1 text-xs">
-          {enabledMembers.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => toggleMention(m.id)}
-              disabled={disabled}
-              className={`rounded-full border px-2 py-0.5 transition ${
-                mentioned.has(m.id)
-                  ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30'
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
-              }`}
-            >
-              @{m.displayName}
-            </button>
-          ))}
+          {/* 评审 W6 次要 #8：仅 FREECHAT 显示 @mention 路由；其他模式由 adapter 内决定参与者 */}
+          {mode === 'FREECHAT' &&
+            enabledMembers.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => toggleMention(m.id)}
+                disabled={disabled}
+                className={`rounded-full border px-2 py-0.5 transition ${
+                  mentioned.has(m.id)
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30'
+                    : 'border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
+              >
+                @{m.displayName}
+              </button>
+            ))}
+          {mode !== 'FREECHAT' && (
+            <span className="text-gray-400">
+              {mode === 'PARALLEL_MERGE' && '全员并行回答 + leader 合成'}
+              {mode === 'DEBATE' && '正反方多轮辩论'}
+              {mode === 'VOTE' && '成员投票'}
+              {mode === 'REVIEW' && '主答 + 评审 + 修订'}
+              {mode === 'HANDOFF' && '由起始成员决定路由'}
+            </span>
+          )}
         </div>
       </div>
       <div className="flex gap-2">

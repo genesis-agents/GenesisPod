@@ -95,14 +95,14 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
 
   applyEvent(event) {
     set((s) => {
-      // 评审 v3：按 sequenceNum 严格单调；丢弃 stale event
-      if (event.sequenceNum <= s.lastSeq && event.kind !== 'turn.started') {
-        // turn.started 可能 sequenceNum 与 user message 持平；其余应严格递增
-        // 不丢弃，只更新 lastSeq
+      // 评审 W6 重要 #4：所有事件严格单调；stale 直接丢弃。
+      // 后端保证 turn.started seq 严格大于 user message seq。
+      if (event.sequenceNum <= s.lastSeq) {
+        return s;
       }
 
       const next: Partial<RoomState> = {
-        lastSeq: Math.max(s.lastSeq, event.sequenceNum),
+        lastSeq: event.sequenceNum,
       };
 
       switch (event.kind) {
@@ -145,14 +145,32 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
         }
 
         case 'participant.done': {
-          // 把 pending 转换为最终消息（content 还需 GET 接口拉一次）
-          // 简化：保留 pending 直到下次 setRoom 刷新；这里仅 mark done
+          // 评审 W6 重要 #5/#7：done 时 pending → final message 并从 pending 移除，
+          // 避免后续 reload 与 pending 双渲染。content 用 partialText（无 partial 时为空，
+          // turn.complete 后 reload 拉真实落库内容覆盖）。
           const existing = s.pending[event.messageId];
           if (existing) {
-            next.pending = {
-              ...s.pending,
-              [event.messageId]: { ...existing, status: 'done' },
+            const { [event.messageId]: _drop, ...rest } = s.pending;
+            void _drop;
+            next.pending = rest;
+            const finalMsg = {
+              id: event.messageId,
+              sessionId: s.sessionId ?? '',
+              role: 'assistant',
+              content: existing.partialText,
+              modelId: null,
+              modelName: null,
+              tokens: event.tokensUsed,
+              webSearch: false,
+              senderType: 'AI' as const,
+              senderMemberId: existing.memberId,
+              mentionedMemberIds: [],
+              turnId: event.turnId,
+              parentMessageId: null,
+              sequenceNum: event.sequenceNum,
+              createdAt: new Date().toISOString(),
             };
+            next.messages = [...s.messages, finalMsg];
           }
           break;
         }

@@ -64,6 +64,31 @@ interface RoomDetail {
   recentTurns: AskRoomTurn[];
 }
 
+/**
+ * 评审 W6 综合 阻塞 #1：错误消息脱敏，与后端 sanitizeErrorMessage 对齐。
+ */
+const SAFE_ERROR_PATTERNS = [
+  /rate limit/i,
+  /timeout/i,
+  /credits?/i,
+  /quota/i,
+  /unauthor/i,
+  /forbid/i,
+  /not found/i,
+  /already.*room/i,
+];
+
+function sanitizeErrorMessage(status: number, raw: string): string {
+  if (status === 401) return '请先登录';
+  if (status === 403) return '没有权限';
+  if (status === 404) return '资源不存在';
+  if (status === 429) return '请求过于频繁，请稍后再试';
+  if (SAFE_ERROR_PATTERNS.some((re) => re.test(raw))) {
+    return raw.slice(0, 200);
+  }
+  return '请求失败，请稍后重试';
+}
+
 async function jsonRequest<T>(
   path: string,
   init: RequestInit = {}
@@ -79,7 +104,7 @@ async function jsonRequest<T>(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}: ${text}`);
+    throw new Error(sanitizeErrorMessage(res.status, text));
   }
   return res.json() as Promise<T>;
 }
