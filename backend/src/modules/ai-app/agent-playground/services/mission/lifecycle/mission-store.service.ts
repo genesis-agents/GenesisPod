@@ -3,6 +3,14 @@
  *
  * 启动 mission 时插入 record (status=running)，完成/失败时 update。
  * 列表页 / detail 页查询用。
+ *
+ * ★ 2026-05-08 PR-E2: 本类 satisfies harness/teams/business-team/abstractions/
+ *   mission-store.interface.ts 的 IBusinessTeamMissionStore 接口（structural typing，
+ *   无需显式 implements）。playground 是该接口的 reference impl，其他
+ *   BusinessAgentTeam 反向迁移时只需让自己的 store satisfies 接口的 7 个核心
+ *   lifecycle 方法（refreshHeartbeat / clearHeartbeat / markStageComplete /
+ *    countRunningByUser / cleanupOrphanRunningMissions / markFailed / markReopened）
+ *   即可接入框架。
  */
 
 import {

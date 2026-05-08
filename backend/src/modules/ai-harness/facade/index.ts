@@ -420,6 +420,15 @@ export type {
   IMissionRuntimeAdapter,
   MissionRuntimeSession,
 } from "../teams/business-team/abstractions/mission-runtime-shell.interface";
+// ★ 2026-05-08 PR-E1: BusinessAgentTeam event relay 框架（namespace-aware）
+export {
+  EventRelayFramework,
+  type EventRelayContext,
+} from "../teams/business-team/relay/event-relay.framework";
+// ★ 2026-05-08 PR-E2: BusinessAgentTeam mission store 抽象接口
+//   注意：rename 为 IBusinessTeamMissionStore 避免与 line 1103 已有 IMissionStore 冲突
+//   （后者是 harness/teams/abstractions 下的 generic InMemoryMissionStore 契约）
+export type { IBusinessTeamMissionStore } from "../teams/business-team/abstractions/mission-store.interface";
 // ★ 2026-05-04 (PR-3 standardize consumer)
 export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 
