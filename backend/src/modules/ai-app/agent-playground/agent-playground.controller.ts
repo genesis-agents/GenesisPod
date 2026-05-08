@@ -331,7 +331,7 @@ export class AgentPlaygroundController {
   @Post("team/run")
   @UseGuards(RateLimitGuard)
   @RateLimit({
-    maxRequests: 5,
+    maxRequests: 30,
     windowSeconds: 60,
     message: "启动 mission 过于频繁，请稍后再试",
   })
@@ -395,7 +395,7 @@ export class AgentPlaygroundController {
   @Post("missions/:id/rerun")
   @UseGuards(RateLimitGuard)
   @RateLimit({
-    maxRequests: 5,
+    maxRequests: 30,
     windowSeconds: 60,
     message: "重跑 mission 过于频繁，请稍后再试",
   })
@@ -430,7 +430,7 @@ export class AgentPlaygroundController {
   @Post("missions/:id/todos/:todoId/rerun")
   @UseGuards(RateLimitGuard)
   @RateLimit({
-    maxRequests: 10,
+    maxRequests: 30,
     windowSeconds: 60,
     message: "todo 重跑过于频繁，请稍后再试",
   })
