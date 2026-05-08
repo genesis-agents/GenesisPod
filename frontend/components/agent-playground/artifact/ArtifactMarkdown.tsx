@@ -140,6 +140,30 @@ function matchDimName(
   return false;
 }
 
+/**
+ * 重写 H2/H3/H4 编号 + 修复老格式三层结构压扁问题。
+ *
+ * 编号策略（学 TI buildFullReportFromDimensions:351 + 用户偏好）：
+ *   - H2 维度：加 "N. " 前缀
+ *   - H3 章节：加 "N.M. " 前缀
+ *   - H4 子小节：**不加序号**（保留裸标题，避免数字噪声）
+ *
+ * 老格式特征（用户实证 mission ddc90bfd）：
+ *   ## 核心架构与设计哲学              (维度 H2)
+ *   ### 核心架构与设计哲学              (重复占位 — 删)
+ *   ## 1. LangGraph的有状态图架构...    (章节误用 H2 — 降为 H3 章节)
+ *   ### 有状态图架构赋予...             (子小节 — 降为 H4)
+ *   ### 状态持久化机制...               (子小节 — 降为 H4)
+ *   ## 2. LangGraph的循环与分支...      (章节误用 H2 — 降为 H3 章节)
+ *
+ * 重写后（恢复"维度→章节→子小节"包含关系）：
+ *   ## 1. 核心架构与设计哲学            (维度)
+ *   ### 1.1. LangGraph的有状态图架构    (章节)
+ *   #### 有状态图架构赋予...            (子小节，无编号)
+ *   #### 状态持久化机制...              (子小节，无编号)
+ *   ### 1.2. LangGraph的循环与分支...   (章节)
+ *   #### 循环机制赋能...                (子小节，无编号)
+ */
 function renumberHeadings(
   markdown: string,
   dimNames?: readonly string[]
@@ -148,7 +172,8 @@ function renumberHeadings(
   let chap = 0;
   const lines = markdown.split('\n');
   let inFence = false;
-  let underDim = false; // 当前是否在某真维度下（决定 H3/H2-as-chapter 是否计入子章节）
+  let underDim = false;
+  let lastDimNameLower: string | null = null;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (/^(```|~~~)/.test(line.trim())) {
@@ -163,20 +188,21 @@ function renumberHeadings(
       if (isSupplementaryHeading(cleaned)) {
         lines[i] = `${h2[1]}${cleaned}`;
         underDim = false;
+        lastDimNameLower = null;
         continue;
       }
-      // ★ 关键判断：是否为真维度（用 dimNames 反查）
       if (matchDimName(cleaned, dimNames)) {
+        // 真维度
         dim++;
         chap = 0;
         underDim = true;
+        lastDimNameLower = cleaned.toLowerCase().trim();
         lines[i] = `${h2[1]}${dim}. ${cleaned}`;
       } else if (underDim && dim > 0) {
-        // 老格式：chapter 被错写成 H2 —— 降为 H3 章节并加 N.M. 编号
+        // 老格式：章节误用 H2 → 降为 H3 章节
         chap++;
         lines[i] = `### ${dim}.${chap}. ${cleaned}`;
       } else {
-        // 不在维度下的非维度 H2（前言开场之类）—— 保持 H2，仅剥前缀
         lines[i] = `${h2[1]}${cleaned}`;
       }
       continue;
@@ -185,11 +211,32 @@ function renumberHeadings(
     if (h3) {
       const cleaned = stripHeadingNumberPrefix(h3[2]);
       if (underDim && dim > 0) {
-        chap++;
-        lines[i] = `${h3[1]}${dim}.${chap}. ${cleaned}`;
+        // 跳过"### {dim name}"重复占位（与父维度同名）
+        if (
+          lastDimNameLower &&
+          cleaned.toLowerCase().trim() === lastDimNameLower
+        ) {
+          lines[i] = '';
+          continue;
+        }
+        if (chap > 0) {
+          // 子小节：降为 H4，**不加编号**（保留裸标题，避免噪声）
+          lines[i] = `#### ${cleaned}`;
+        } else {
+          // 维度下还未遇章节就出现 H3（少见）→ 升为章节，加 N.M. 编号
+          chap++;
+          lines[i] = `${h3[1]}${dim}.${chap}. ${cleaned}`;
+        }
       } else {
         lines[i] = `${h3[1]}${cleaned}`;
       }
+      continue;
+    }
+    const h4 = line.match(/^(####\s+)(.+)$/);
+    if (h4) {
+      // H4 子小节统一不加编号，仅剥旧前缀（裸标题）
+      const cleaned = stripHeadingNumberPrefix(h4[2]);
+      lines[i] = `${h4[1]}${cleaned}`;
       continue;
     }
   }
