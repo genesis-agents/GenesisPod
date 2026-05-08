@@ -50,6 +50,36 @@ export interface AssignInput {
   note?: string;
 }
 
+// PR-B 2026-05-08: 模型粒度批量授权
+export interface GrantModelInput {
+  modelId: string;
+  userQuotaCents?: number | null;
+}
+
+export type ValidityType = "ONE_TIME" | "RECURRING";
+export type RecurrenceUnit = "WEEK" | "MONTH" | "YEAR";
+
+export interface GrantBatchInput {
+  userId: string;
+  models: GrantModelInput[];
+  validityType: ValidityType;
+  expiresAt?: Date | null; // ONE_TIME 用
+  recurrenceUnit?: RecurrenceUnit; // RECURRING 用
+  recurrenceInterval?: number; // RECURRING 用，1=每月，3=每季度
+  assignedBy?: string;
+  note?: string;
+}
+
+export interface GrantBatchFailure {
+  modelId: string;
+  reason: string;
+}
+
+export interface GrantBatchResult {
+  succeeded: KeyAssignment[];
+  failed: GrantBatchFailure[];
+}
+
 @Injectable()
 export class KeyAssignmentsService {
   private readonly logger = new Logger(KeyAssignmentsService.name);
@@ -77,9 +107,15 @@ export class KeyAssignmentsService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // PR-A 2026-05-08: 旧接口（无 modelId 参数）走 modelId='*' 通配兼容
+      // PR-B 会扩展接口让 admin 可指定具体 modelId 创建多条 assignment
       const existing = await tx.keyAssignment.findUnique({
         where: {
-          userId_provider: { userId: input.userId, provider: key.provider },
+          userId_provider_modelId: {
+            userId: input.userId,
+            provider: key.provider,
+            modelId: "*",
+          },
         },
       });
       if (existing && existing.status === KeyAssignmentStatus.ACTIVE) {
@@ -96,6 +132,7 @@ export class KeyAssignmentsService {
           keyId: input.keyId,
           userId: input.userId,
           provider: key.provider,
+          modelId: "*", // PR-A 旧接口走通配，PR-B 才允许具体 modelId
           userQuotaCents: input.userQuotaCents ?? null,
           expiresAt: input.expiresAt ?? null,
           assignedBy: input.assignedBy,
@@ -172,11 +209,29 @@ export class KeyAssignmentsService {
   async resolveActive(
     userId: string,
     provider: string,
+    modelId?: string, // PR-B 2026-05-08: 可选 modelId，传时先查具体后 fallback '*'
   ): Promise<ResolvedAssignment | null> {
     const normalized = provider.toLowerCase();
-    const assignment = await this.prisma.keyAssignment.findUnique({
-      where: { userId_provider: { userId, provider: normalized } },
-    });
+    // PR-B: 先查具体 modelId（若传入），未命中再 fallback 通配 '*'
+    let assignment = null;
+    if (modelId && modelId !== "*") {
+      assignment = await this.prisma.keyAssignment.findUnique({
+        where: {
+          userId_provider_modelId: { userId, provider: normalized, modelId },
+        },
+      });
+    }
+    if (!assignment) {
+      assignment = await this.prisma.keyAssignment.findUnique({
+        where: {
+          userId_provider_modelId: {
+            userId,
+            provider: normalized,
+            modelId: "*",
+          },
+        },
+      });
+    }
     if (!assignment) return null;
     if (assignment.status !== KeyAssignmentStatus.ACTIVE) return null;
 
@@ -242,11 +297,29 @@ export class KeyAssignmentsService {
   async listActive(
     userId: string,
     provider: string,
+    modelId?: string, // PR-B: 同 resolveActive，可选 modelId
   ): Promise<ResolvedAssignment[]> {
     const normalized = provider.toLowerCase();
-    const assignment = await this.prisma.keyAssignment.findUnique({
-      where: { userId_provider: { userId, provider: normalized } },
-    });
+    // PR-B: 先具体后 fallback '*'
+    let assignment = null;
+    if (modelId && modelId !== "*") {
+      assignment = await this.prisma.keyAssignment.findUnique({
+        where: {
+          userId_provider_modelId: { userId, provider: normalized, modelId },
+        },
+      });
+    }
+    if (!assignment) {
+      assignment = await this.prisma.keyAssignment.findUnique({
+        where: {
+          userId_provider_modelId: {
+            userId,
+            provider: normalized,
+            modelId: "*",
+          },
+        },
+      });
+    }
     if (!assignment) return [];
     if (assignment.status !== KeyAssignmentStatus.ACTIVE) return [];
     if (assignment.expiresAt && assignment.expiresAt < new Date()) return [];
@@ -270,6 +343,218 @@ export class KeyAssignmentsService {
         userSpendCents: assignment.userSpendCents,
       },
     ];
+  }
+
+  /**
+   * PR-B 2026-05-08: 模型粒度批量授权
+   *
+   * Admin 在 UI 选 N 个 model（可跨 provider）+ 单次/周期有效期 → 一次调用：
+   *   - 每个 model：查 ai_models 表得 provider → 找该 provider 下利用率最低的 active pool
+   *     → upsert KeyAssignment(userId, provider, modelId)
+   *   - 单 model 失败不阻塞其他（如 "no available pool" / "user already active"）
+   *   - 返回 succeeded[] + failed[{ modelId, reason }]
+   *
+   * RECURRING 自动计算 nextRenewalAt = now + recurrenceInterval × recurrenceUnit
+   */
+  async grantBatch(input: GrantBatchInput): Promise<GrantBatchResult> {
+    const succeeded: KeyAssignment[] = [];
+    const failed: GrantBatchFailure[] = [];
+
+    if (!input.models.length) {
+      return { succeeded, failed };
+    }
+
+    // RECURRING 校验
+    if (input.validityType === "RECURRING") {
+      if (!input.recurrenceUnit || !input.recurrenceInterval) {
+        throw new ConflictException(
+          "RECURRING validity requires recurrenceUnit + recurrenceInterval",
+        );
+      }
+      if (input.recurrenceInterval < 1) {
+        throw new ConflictException("recurrenceInterval must be >= 1");
+      }
+    }
+
+    const nextRenewalAt =
+      input.validityType === "RECURRING"
+        ? this.computeNextRenewalAt(
+            new Date(),
+            input.recurrenceUnit!,
+            input.recurrenceInterval!,
+          )
+        : null;
+
+    for (const m of input.models) {
+      try {
+        // 1. 找 model 的 provider
+        const model = await this.prisma.aIModel.findFirst({
+          where: { modelId: m.modelId, isEnabled: true },
+          select: { provider: true, modelId: true },
+        });
+        if (!model) {
+          failed.push({
+            modelId: m.modelId,
+            reason: `Model not found or inactive: ${m.modelId}`,
+          });
+          continue;
+        }
+        const provider = model.provider.toLowerCase();
+
+        // 2. 找该 provider 下利用率最低的 active pool
+        const pool = await this.findBestPoolForProvider(provider);
+        if (!pool) {
+          failed.push({
+            modelId: m.modelId,
+            reason: `No available pool for provider "${provider}"`,
+          });
+          continue;
+        }
+
+        // 3. upsert（旧 EXPIRED/REVOKED 删了重建；旧 ACTIVE 拒绝）
+        const created = await this.prisma.$transaction(async (tx) => {
+          const existing = await tx.keyAssignment.findUnique({
+            where: {
+              userId_provider_modelId: {
+                userId: input.userId,
+                provider,
+                modelId: m.modelId,
+              },
+            },
+          });
+          if (existing && existing.status === KeyAssignmentStatus.ACTIVE) {
+            throw new ConflictException(
+              `User already has active assignment for ${provider}/${m.modelId}`,
+            );
+          }
+          if (existing) {
+            await tx.keyAssignment.delete({ where: { id: existing.id } });
+          }
+          return tx.keyAssignment.create({
+            data: {
+              keyId: pool.id,
+              userId: input.userId,
+              provider,
+              modelId: m.modelId,
+              userQuotaCents: m.userQuotaCents ?? null,
+              validityType: input.validityType,
+              expiresAt:
+                input.validityType === "ONE_TIME"
+                  ? (input.expiresAt ?? null)
+                  : null,
+              recurrenceUnit:
+                input.validityType === "RECURRING"
+                  ? input.recurrenceUnit!
+                  : null,
+              recurrenceInterval:
+                input.validityType === "RECURRING"
+                  ? input.recurrenceInterval!
+                  : null,
+              nextRenewalAt,
+              assignedBy: input.assignedBy,
+              note: input.note,
+            },
+          });
+        });
+        succeeded.push(created);
+      } catch (err) {
+        failed.push({
+          modelId: m.modelId,
+          reason: (err as Error).message ?? "Unknown error",
+        });
+      }
+    }
+
+    this.logger.log(
+      `[grantBatch] user=${input.userId} succeeded=${succeeded.length} failed=${failed.length}`,
+    );
+    return { succeeded, failed };
+  }
+
+  /**
+   * 选 provider 下利用率最低的 active pool
+   * 优先未限额 → 利用率最低 → 最早创建
+   */
+  private async findBestPoolForProvider(
+    provider: string,
+  ): Promise<{ id: string } | null> {
+    const now = new Date();
+    const pools = await this.prisma.distributableKey.findMany({
+      where: {
+        provider,
+        isActive: true,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      },
+      select: {
+        id: true,
+        monthlyQuotaCents: true,
+        currentSpendCents: true,
+        createdAt: true,
+      },
+    });
+    if (!pools.length) return null;
+    const usable = pools.filter(
+      (p) =>
+        p.monthlyQuotaCents === null ||
+        p.currentSpendCents < p.monthlyQuotaCents,
+    );
+    if (!usable.length) return null;
+    usable.sort((a, b) => {
+      const aRate =
+        a.monthlyQuotaCents && a.monthlyQuotaCents > 0
+          ? a.currentSpendCents / a.monthlyQuotaCents
+          : 0;
+      const bRate =
+        b.monthlyQuotaCents && b.monthlyQuotaCents > 0
+          ? b.currentSpendCents / b.monthlyQuotaCents
+          : 0;
+      if (aRate !== bRate) return aRate - bRate;
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+    return { id: usable[0].id };
+  }
+
+  /**
+   * RECURRING 推算下次续期时间
+   *
+   * 跨月边界 clamp（修 Path B 评审 FAIL）：
+   * JS `setMonth` 对 1月31日 + 1月 会溢出到 3月3日（2月无31日）。
+   * MONTH/YEAR 分支显式 clamp 到目标月最后一天，符合用户"每月续期"直觉。
+   *
+   * public：cron 续期逻辑也复用此方法，避免双源（feedback_no_dual_sources）。
+   */
+  computeNextRenewalAt(
+    from: Date,
+    unit: RecurrenceUnit,
+    interval: number,
+  ): Date {
+    const next = new Date(from);
+    if (unit === "WEEK") {
+      next.setDate(next.getDate() + 7 * interval);
+    } else if (unit === "MONTH") {
+      const day = next.getDate();
+      next.setDate(1); // 先 reset day=1 防止 setMonth 溢出
+      next.setMonth(next.getMonth() + interval);
+      const maxDay = new Date(
+        next.getFullYear(),
+        next.getMonth() + 1,
+        0,
+      ).getDate();
+      next.setDate(Math.min(day, maxDay));
+    } else if (unit === "YEAR") {
+      const day = next.getDate();
+      const month = next.getMonth();
+      next.setDate(1);
+      next.setFullYear(next.getFullYear() + interval);
+      next.setMonth(month);
+      const maxDay = new Date(
+        next.getFullYear(),
+        next.getMonth() + 1,
+        0,
+      ).getDate();
+      next.setDate(Math.min(day, maxDay));
+    }
+    return next;
   }
 
   /**
