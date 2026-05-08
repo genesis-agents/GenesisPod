@@ -473,8 +473,12 @@ export class AgentPlaygroundController {
    */
   @Post("missions/:id/todos/:todoId/local-rerun")
   @UseGuards(RateLimitGuard)
+  // ★ 2026-05-08 task #152 用户反馈"429 限制过严"：单 stage 局部重跑是最细粒度
+  //   操作（复用 missionId 无新 mission 开销），用户可能连续点多个 stage 修复
+  //   报告。原 10/60s 在 6+ stage mission 中容易打满。改 30/60s（与 Leader Chat
+  //   同档，符合"细粒度交互"特点），仍低于 60/60s 的高频读类限流。
   @RateLimit({
-    maxRequests: 10,
+    maxRequests: 30,
     windowSeconds: 60,
     message: "局部重跑过于频繁，请稍后再试",
   })
