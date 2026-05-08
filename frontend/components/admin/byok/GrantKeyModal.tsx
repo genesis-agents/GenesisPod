@@ -62,13 +62,13 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
     { immediate: true }
   );
 
-  // 该用户当前已有的所有授权
+  // 该用户当前生效中的授权（status=ACTIVE 过滤，避免 REVOKED 历史记录被误渲染成可撤销项）
   const {
     data: existingData,
     loading: existingLoading,
     execute: refreshExisting,
   } = useApiGet<{ items: ExistingAssignment[] }>(
-    `/admin/key-assignments?userId=${encodeURIComponent(userId)}`,
+    `/admin/key-assignments?userId=${encodeURIComponent(userId)}&status=ACTIVE`,
     { immediate: true }
   );
   const existingAssignments = useMemo(
@@ -293,19 +293,21 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
                     {a.expiresAt &&
                       ` · 到期 ${new Date(a.expiresAt).toLocaleDateString()}`}
                   </div>
-                  <button
-                    disabled={revokingId === a.id}
-                    onClick={() => handleRevoke(a.id, a.modelId)}
-                    className="flex items-center gap-1 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
-                    title="撤销授权"
-                  >
-                    {revokingId === a.id ? (
-                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                    撤销
-                  </button>
+                  {a.status === 'ACTIVE' ? (
+                    <button
+                      disabled={revokingId === a.id}
+                      onClick={() => handleRevoke(a.id, a.modelId)}
+                      className="flex items-center gap-1 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      title="撤销授权"
+                    >
+                      {revokingId === a.id ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      撤销
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>
