@@ -14,6 +14,7 @@ import { BYOKRequiredBanner } from '@/components/common/BYOKRequiredBanner';
 import { config } from '@/lib/utils/config';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import AskToolsButton from '@/components/ai-ask/AskToolsButton';
+import AskTeamsButton from '@/components/ai-ask/AskTeamsButton';
 import {
   ActionCards,
   type SuggestedAction,
@@ -1980,6 +1981,9 @@ export default function AskPage() {
 
                             {/* Tools Button */}
                             <AskToolsButton />
+
+                            {/* Teams Mode Button (W4 PR6) */}
+                            <AskTeamsButton />
                           </div>
 
                           {/* Send/Stop Button */}
@@ -2697,6 +2701,9 @@ export default function AskPage() {
 
                         {/* Tools Button */}
                         <AskToolsButton />
+
+                        {/* Teams Mode Button (W4 PR6) */}
+                        <AskTeamsButton />
                       </div>
                       <button
                         type="button"
