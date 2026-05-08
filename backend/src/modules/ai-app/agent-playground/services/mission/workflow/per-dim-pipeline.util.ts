@@ -63,6 +63,19 @@ export interface PerDimPipelineArgs {
     dimension: string;
     findings: { claim: string; evidence: string; source: string }[];
     summary: string;
+    /**
+     * ★ 2026-05-07 图文匹配（学 TI Stage 4-5 figure registry）：
+     * researcher 抽到的候选图列表（s3 stage 通过 figureExtractor + figureRelevance
+     * embedding 过滤后的高相关度图）。chapter-writer 收到后可在合适段落后内联
+     * 引用 `![caption](#FIG-N)` 占位符；reportAssembler 兜底也会在每章末尾追加。
+     */
+    figureCandidates?: {
+      sourceUrl: string;
+      imageUrl?: string;
+      caption: string;
+      sourcePageOrSection?: string;
+      relevanceHint?: "high" | "medium" | "low";
+    }[];
   };
   billing: BillingRuntimeEnvAdapter;
   budgetMultiplier: number;
@@ -695,6 +708,18 @@ export async function runPerDimPipeline(
             previousChapterHeadings: previousHeadingsSnapshot,
             previousCritique: lastCritique,
             previousDraft: lastDraft?.body,
+            // ★ 2026-05-07 图文匹配：把 dim 的 figureCandidates 传给 chapter-writer。
+            //   编号 FIG-1..N 与 reportAssembler.buildFigures 落地后的
+            //   fig-${sec.id}-${i} 通过 reportAssembler 内的 #FIG-N → #fig-id 映射
+            //   闭环（chapter-writer LLM 输出占位符是可选 inline，不强制）。
+            availableFigures: (researcherOut.figureCandidates ?? []).map(
+              (f, i) => ({
+                figureId: `FIG-${i + 1}`,
+                caption: f.caption,
+                sourceUrl: f.sourceUrl,
+                relevanceHint: f.relevanceHint,
+              }),
+            ),
           },
           {
             missionId,

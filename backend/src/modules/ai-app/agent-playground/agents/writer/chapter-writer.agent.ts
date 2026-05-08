@@ -53,6 +53,22 @@ const Input = z.object({
   previousChapterHeadings: z.array(z.string()).optional(),
   previousCritique: z.string().optional(),
   previousDraft: z.string().optional(),
+  /**
+   * ★ 2026-05-07 图文匹配（学 TI Stage 4-5）：
+   * 该维度的候选图列表。LLM 写章节时可在合适段落后插入 `![caption](#FIG-N)`
+   * 占位符引用图，由 reportAssembler 在落地阶段映射到实际图片渲染。
+   * 不传或为空时，仅依赖 reportAssembler 自动追加章节末尾（兼容原行为）。
+   */
+  availableFigures: z
+    .array(
+      z.object({
+        figureId: z.string(), // FIG-1, FIG-2, ...
+        caption: z.string(),
+        sourceUrl: z.string().optional(),
+        relevanceHint: z.enum(["high", "medium", "low"]).optional(),
+      }),
+    )
+    .optional(),
 });
 
 const Output = z.object({
@@ -249,6 +265,30 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
         ? `\n## 上一轮草稿（仅供参考，不要原样重发，针对 critique 重构）\n${input.previousDraft.slice(0, 2500)}\n`
         : "",
       ``,
+      // ★ 2026-05-07 图文匹配（学 TI Stage 4-5 figure registry）：
+      //   告知 LLM 本维度可用的图，让正文中**用文字描述**对应数据/趋势（如
+      //   "近 N 年增速曲线显示..."），与图片表达呼应。
+      //   实际图片渲染由 reportAssembler.injectFigurePlaceholders 在每章节末尾
+      //   兜底追加（与 source URL 对应的 citation 关联），不要求 LLM 直接产出
+      //   `![](#FIG-N)` 占位符 —— 因为 LLM 输出的 #FIG-N 与 reportAssembler 的
+      //   `fig-{sec.id}-{i}` 命名空间不一致，强行 inline 反而会渲染破图。
+      input.availableFigures && input.availableFigures.length > 0
+        ? [
+            `## 可用图片（写正文时配合描述，不要直接 inline ![]() 占位符）`,
+            `本维度从证据源抽出 ${input.availableFigures.length} 张相关度通过过滤的图片。`,
+            `**写作要求**：当章节正文涉及这些图所示的数据/趋势/案例时，用**文字**描述`,
+            `（"如行业报告统计图所示，..." / "近 N 年增速曲线呈倒 V 型 [3]"），让正文与图`,
+            `的内容形成语义呼应。**不要**直接写 \`![](#FIG-N)\` 占位符（reportAssembler`,
+            `会在章节末尾自动追加图片，inline 占位符会渲染失败）。`,
+            ``,
+            `候选图清单（仅供文字描述参考）：`,
+            ...input.availableFigures.map(
+              (f) =>
+                `  • ${f.caption}${f.relevanceHint ? ` (relevance=${f.relevanceHint})` : ""}${f.sourceUrl ? `\n    source=${f.sourceUrl}` : ""}`,
+            ),
+            ``,
+          ].join("\n")
+        : "",
       `## 可用资料（[N] 引用编号 = 下方编号）`,
       sourceList,
       ``,
