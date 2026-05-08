@@ -3031,16 +3031,27 @@ model AskSession {
   modelId      String? @map("model_id") // 默认使用的模型
   isBookmarked Boolean @default(false) @map("is_bookmarked") // 书签标记
 
+  // Teams 模式扩展（teams-mode v0.2）
+  mode       AskSessionMode @default(SOLO)
+  roomConfig Json           @default("{}") @map("room_config") // RoomConfigDto JSON
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   user           User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages       AskMessage[]
   knowledgeBases AskSessionKnowledgeBase[] // 关联的知识库
+  members        AskRoomMember[]
+  turns          AskRoomTurn[]
 
   @@index([userId, updatedAt])
   @@index([userId, isBookmarked])
   @@map("ask_sessions")
+}
+
+enum AskSessionMode {
+  SOLO
+  ROOM
 }
 
 model AskMessage {
@@ -3055,12 +3066,108 @@ model AskMessage {
   tokens    Int? // token 使用量
   webSearch Boolean @default(false) @map("web_search") // 是否启用网页搜索
 
+  // Teams 模式扩展（teams-mode v0.2）
+  senderType         AskSenderType @default(USER) @map("sender_type")
+  senderMemberId     String?       @map("sender_member_id") // AskRoomMember.id, 软删后保留
+  mentionedMemberIds String[]      @default([]) @map("mentioned_member_ids")
+  turnId             String?       @map("turn_id")
+  parentMessageId    String?       @map("parent_message_id") // 自引用：debate / handoff 链路
+  sequenceNum        Int?          @map("sequence_num") // 房间内单调递增；流式排序用
+
   createdAt DateTime @default(now()) @map("created_at")
 
-  session AskSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session       AskSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  senderMember  AskRoomMember? @relation(fields: [senderMemberId], references: [id], onDelete: SetNull)
+  turn          AskRoomTurn?   @relation(fields: [turnId], references: [id], onDelete: SetNull)
+  parent        AskMessage?    @relation(name: "ask_msg_replies", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies       AskMessage[]   @relation(name: "ask_msg_replies")
+  triggeredTurn AskRoomTurn?   @relation(name: "ask_turn_trigger")
 
   @@index([sessionId, createdAt])
+  @@index([sessionId, sequenceNum])
+  @@index([turnId])
+  // mentionedMemberIds GIN 索引在迁移 SQL 中通过 CREATE INDEX CONCURRENTLY 创建
   @@map("ask_messages")
+}
+
+enum AskSenderType {
+  USER
+  AI
+  SYSTEM
+}
+
+// 房间成员（一个 AI = 一行）；软删，不允许硬删除单成员
+model AskRoomMember {
+  id           String            @id @default(uuid())
+  sessionId    String            @map("session_id")
+  memberType   AskRoomMemberType @default(VIRTUAL) @map("member_type")
+  agentId      String?           @map("agent_id") // memberType=REGISTERED 时为 harness AgentRegistry id
+  modelId      String            @map("model_id")
+  displayName  String            @map("display_name") @db.VarChar(100)
+  role         AskRoomMemberRole @default(MEMBER)
+  systemPrompt String?           @map("system_prompt") @db.Text
+  persona      Json? // { tone, expertise, constraints }; ≤ 2KB by app validator
+  order        Int               @default(0)
+  enabled      Boolean           @default(true)
+  deletedAt    DateTime?         @map("deleted_at") // 软删；查询默认过滤
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  session  AskSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  messages AskMessage[]
+
+  @@index([sessionId, order])
+  @@index([sessionId, deletedAt])
+  @@map("ask_room_members")
+}
+
+enum AskRoomMemberRole {
+  LEADER
+  MEMBER
+}
+
+enum AskRoomMemberType {
+  REGISTERED // 已注册的 harness agent
+  VIRTUAL // 用户即兴选 model + persona 构造的虚拟成员
+}
+
+// 每次用户消息触发的一次编排
+model AskRoomTurn {
+  id               String        @id @default(uuid())
+  sessionId        String        @map("session_id")
+  triggerMessageId String        @unique @map("trigger_message_id")
+  mode             AskRoomMode
+  status           AskTurnStatus @default(PENDING)
+  participantIds   String[]      @default([]) @map("participant_ids")
+  partialDeltas    Json?         @map("partial_deltas") // {messageId: {seq: deltaText}}, 断线重连补差用
+  metadata         Json?
+  startedAt        DateTime      @default(now()) @map("started_at")
+  endedAt          DateTime?     @map("ended_at")
+
+  session  AskSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  trigger  AskMessage   @relation(name: "ask_turn_trigger", fields: [triggerMessageId], references: [id], onDelete: Restrict)
+  messages AskMessage[]
+
+  @@index([sessionId, startedAt])
+  @@map("ask_room_turns")
+}
+
+enum AskRoomMode {
+  FREECHAT
+  PARALLEL_MERGE
+  DEBATE
+  VOTE
+  REVIEW
+  HANDOFF
+}
+
+enum AskTurnStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 // ============ 推演 / Simulation ============
