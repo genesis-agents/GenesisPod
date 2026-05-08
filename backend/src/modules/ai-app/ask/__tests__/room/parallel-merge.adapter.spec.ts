@@ -1,0 +1,253 @@
+import { Test } from "@nestjs/testing";
+import {
+  AskRoomMember,
+  AskRoomMemberRole,
+  AskRoomMemberType,
+  AskRoomMode,
+  AskRoomTurn,
+  AskSession,
+  AskSenderType,
+  AskMessage,
+  AskTurnStatus,
+  AskSessionMode,
+} from "@prisma/client";
+import { ChatFacade } from "@/modules/ai-harness/facade";
+import { ParallelMergeAdapter } from "../../adapters/parallel-merge.adapter";
+import type { ModeContext } from "../../adapters/mode-adapter.interface";
+import type { AskRoomServerEvent } from "../../gateway/ask-room-events.types";
+
+const mkMember = (overrides: Partial<AskRoomMember> = {}): AskRoomMember => ({
+  id: overrides.id ?? "m-1",
+  sessionId: "s-1",
+  memberType: AskRoomMemberType.VIRTUAL,
+  agentId: null,
+  modelId: overrides.modelId ?? "model-x",
+  displayName: overrides.displayName ?? "Alice",
+  role: overrides.role ?? AskRoomMemberRole.MEMBER,
+  systemPrompt: null,
+  persona: null,
+  order: overrides.order ?? 0,
+  enabled: overrides.enabled ?? true,
+  deletedAt: overrides.deletedAt ?? null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
+
+const mkContext = (
+  members: AskRoomMember[],
+  roomConfig: Record<string, unknown> = {},
+): ModeContext => ({
+  session: {
+    id: "s-1",
+    userId: "u-1",
+    title: "Room",
+    summary: null,
+    modelId: null,
+    isBookmarked: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    mode: AskSessionMode.ROOM,
+    roomConfig,
+  } as AskSession,
+  members,
+  triggerMessage: {
+    id: "msg-user-1",
+    sessionId: "s-1",
+    role: "user",
+    content: "Compare options",
+    modelId: null,
+    modelName: null,
+    tokens: 0,
+    webSearch: false,
+    createdAt: new Date(),
+    senderType: AskSenderType.USER,
+    senderMemberId: null,
+    mentionedMemberIds: [],
+    turnId: null,
+    parentMessageId: null,
+    sequenceNum: 1,
+  } as AskMessage,
+  history: [],
+  turn: {
+    id: "t-1",
+    sessionId: "s-1",
+    triggerMessageId: "msg-user-1",
+    mode: AskRoomMode.PARALLEL_MERGE,
+    status: AskTurnStatus.RUNNING,
+    participantIds: [],
+    partialDeltas: null,
+    metadata: null,
+    startedAt: new Date(),
+    endedAt: null,
+  } as AskRoomTurn,
+  userId: "u-1",
+  sequenceNumStart: 1,
+  signal: new AbortController().signal,
+});
+
+describe("ParallelMergeAdapter", () => {
+  let adapter: ParallelMergeAdapter;
+  let chat: jest.Mock;
+
+  beforeEach(async () => {
+    chat = jest
+      .fn()
+      .mockImplementation(({ messages }: { messages: { role: string }[] }) => {
+        // Synthesis call has system prompt mentioning "PARALLEL_MERGE"
+        const sys = messages[0]?.role === "system" ? messages[0] : null;
+        const isSynthesis =
+          sys &&
+          (sys as { content?: string }).content?.includes("PARALLEL_MERGE");
+        return Promise.resolve({
+          content: isSynthesis ? "SYNTHESIS" : "INDIVIDUAL_REPLY",
+          tokensUsed: isSynthesis ? 99 : 11,
+        });
+      });
+    const module = await Test.createTestingModule({
+      providers: [
+        ParallelMergeAdapter,
+        { provide: ChatFacade, useValue: { chat } },
+      ],
+    }).compile();
+    adapter = module.get(ParallelMergeAdapter);
+  });
+
+  it("returns N+1 messages (N participants + leader synthesis)", async () => {
+    const a = mkMember({ id: "a", displayName: "A" });
+    const b = mkMember({ id: "b", displayName: "B" });
+    const c = mkMember({
+      id: "c",
+      displayName: "C",
+      role: AskRoomMemberRole.LEADER,
+    });
+    const events: AskRoomServerEvent[] = [];
+    const result = await adapter.execute(mkContext([a, b, c]), (e) =>
+      events.push(e),
+    );
+
+    expect(result.messages).toHaveLength(4); // 3 + 1 synthesis
+    expect(
+      result.messages.find((m) => m.content === "SYNTHESIS"),
+    ).toBeDefined();
+    expect(
+      events.find((e) => e.kind === "leader.synthesis.started"),
+    ).toBeDefined();
+    expect(
+      events.find((e) => e.kind === "leader.synthesis.done"),
+    ).toBeDefined();
+    expect(chat).toHaveBeenCalledTimes(4);
+  });
+
+  it("falls back to order=0 leader when no role=LEADER set", async () => {
+    const a = mkMember({ id: "a", order: 0, displayName: "A" });
+    const b = mkMember({ id: "b", order: 1, displayName: "B" });
+    const result = await adapter.execute(mkContext([a, b]), () => {});
+    const synthesis = result.messages.find((m) => m.content === "SYNTHESIS");
+    expect(synthesis?.senderMemberId).toBe("a");
+  });
+
+  it("single failed member does not block others; partial result with allFailed=false", async () => {
+    chat.mockReset();
+    chat
+      .mockResolvedValueOnce({ content: "OK_A", tokensUsed: 5 })
+      .mockRejectedValueOnce(new Error("rate limit"))
+      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+    const a = mkMember({ id: "a" });
+    const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
+    const result = await adapter.execute(mkContext([a, b]), () => {});
+    expect(result.metadata.successCount).toBe(1);
+    expect(result.metadata.allFailed).toBeUndefined();
+    // 失败成员仍生成消息但 content="[error] rate limit"
+    expect(
+      result.messages.find((m) => m.content.startsWith("[error]")),
+    ).toBeDefined();
+  });
+
+  it("when ALL members fail, no synthesis call and metadata.allFailed=true", async () => {
+    chat.mockReset();
+    chat.mockRejectedValue(new Error("provider down"));
+    const a = mkMember({ id: "a" });
+    const b = mkMember({ id: "b" });
+    const result = await adapter.execute(mkContext([a, b]), () => {});
+    expect(result.metadata.allFailed).toBe(true);
+    expect(result.messages.every((m) => m.content.startsWith("[error]"))).toBe(
+      true,
+    );
+    // 仅 2 次 chat（无 synthesis）
+    expect(chat).toHaveBeenCalledTimes(2);
+  });
+
+  it("respects roomConfig.leaderModelId for leader selection", async () => {
+    const a = mkMember({ id: "a", modelId: "claude" });
+    const b = mkMember({ id: "b", modelId: "gpt", order: 1 });
+    const result = await adapter.execute(
+      mkContext([a, b], { leaderModelId: "gpt" }),
+      () => {},
+    );
+    const synthesis = result.messages.find((m) => m.content === "SYNTHESIS");
+    expect(synthesis?.senderMemberId).toBe("b");
+  });
+
+  it("members succeed but synthesis fails: returns N member messages, synthesisOk=false", async () => {
+    chat.mockReset();
+    chat
+      .mockResolvedValueOnce({ content: "OK_A", tokensUsed: 5 })
+      .mockResolvedValueOnce({ content: "OK_B", tokensUsed: 5 })
+      .mockRejectedValueOnce(new Error("synthesis failed"));
+    const a = mkMember({ id: "a" });
+    const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
+    const result = await adapter.execute(mkContext([a, b]), () => {});
+    expect(result.metadata.synthesisOk).toBe(false);
+    expect(result.metadata.successCount).toBe(2);
+    // 仅 N 条成员消息（无合成消息）
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages.find((m) => m.content === "OK_A")).toBeDefined();
+    expect(result.messages.find((m) => m.content === "OK_B")).toBeDefined();
+  });
+
+  it("error message is sanitized for unsafe text (no provider stack leak)", async () => {
+    chat.mockReset();
+    chat
+      .mockRejectedValueOnce(
+        new Error("Internal server error: Stack at provider.x.y(token=abc)"),
+      )
+      .mockResolvedValueOnce({ content: "OK", tokensUsed: 1 })
+      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+    const a = mkMember({ id: "a" });
+    const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
+    const result = await adapter.execute(mkContext([a, b]), () => {});
+    const errorMsg = result.messages.find((m) =>
+      m.content.startsWith("[error]"),
+    );
+    expect(errorMsg).toBeDefined();
+    expect(errorMsg?.content).not.toContain("token=abc");
+    expect(errorMsg?.content).toContain("AI 服务暂时不可用");
+  });
+
+  it("error message preserves user-visible patterns (rate limit / timeout)", async () => {
+    chat.mockReset();
+    chat
+      .mockRejectedValueOnce(new Error("rate limit exceeded for org"))
+      .mockResolvedValueOnce({ content: "OK", tokensUsed: 1 })
+      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+    const a = mkMember({ id: "a" });
+    const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
+    const result = await adapter.execute(mkContext([a, b]), () => {});
+    const errorMsg = result.messages.find((m) =>
+      m.content.startsWith("[error]"),
+    );
+    expect(errorMsg?.content).toContain("rate limit");
+  });
+
+  it("emits monotonically increasing sequenceNum across all events", async () => {
+    const a = mkMember({ id: "a" });
+    const b = mkMember({ id: "b" });
+    const c = mkMember({ id: "c", role: AskRoomMemberRole.LEADER });
+    const events: AskRoomServerEvent[] = [];
+    await adapter.execute(mkContext([a, b, c]), (e) => events.push(e));
+    const seqs = events.map((e) => e.sequenceNum);
+    for (let i = 1; i < seqs.length; i += 1) {
+      expect(seqs[i]).toBeGreaterThan(seqs[i - 1]);
+    }
+  });
+});

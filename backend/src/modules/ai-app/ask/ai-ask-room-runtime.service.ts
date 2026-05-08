@@ -28,6 +28,8 @@ import {
   askRoomKey,
 } from "./gateway/ask-room-events.types";
 import { FreechatAdapter } from "./adapters/freechat.adapter";
+import { ParallelMergeAdapter } from "./adapters/parallel-merge.adapter";
+import { DebateAdapter } from "./adapters/debate.adapter";
 import type {
   IModeAdapter,
   ModeContext,
@@ -51,6 +53,8 @@ export class AskRoomRuntimeService {
     private readonly prisma: PrismaService,
     private readonly roomService: AskRoomService,
     private readonly freechatAdapter: FreechatAdapter,
+    private readonly parallelMergeAdapter: ParallelMergeAdapter,
+    private readonly debateAdapter: DebateAdapter,
   ) {}
 
   /**
@@ -281,13 +285,27 @@ export class AskRoomRuntimeService {
     }
   }
 
+  /**
+   * 评审 W3 v4 R3 重要：用 never 强制 exhaustiveness check。
+   * W4 添加 VOTE/REVIEW/HANDOFF case 时，TS 编译器会自动检测遗漏。
+   */
   private resolveAdapter(mode: AskRoomMode): IModeAdapter | null {
     switch (mode) {
       case AskRoomMode.FREECHAT:
         return this.freechatAdapter;
-      // W3+ 实现：PARALLEL_MERGE / DEBATE / VOTE / REVIEW / HANDOFF
-      default:
+      case AskRoomMode.PARALLEL_MERGE:
+        return this.parallelMergeAdapter;
+      case AskRoomMode.DEBATE:
+        return this.debateAdapter;
+      case AskRoomMode.VOTE:
+      case AskRoomMode.REVIEW:
+      case AskRoomMode.HANDOFF:
+        // W4 实现这三个 mode 时，把对应 adapter 注入并 return。
         return null;
+      default: {
+        const _exhaustive: never = mode;
+        return _exhaustive;
+      }
     }
   }
 
