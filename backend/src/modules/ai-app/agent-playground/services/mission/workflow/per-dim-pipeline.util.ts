@@ -623,6 +623,17 @@ export async function runPerDimPipeline(
       qualified: boolean;
       decision: "passed" | "fallback-length" | "fallback-exhausted";
       finalScore: number;
+      /**
+       * ★ 2026-05-07 P1 图文匹配闭环（学 TI section.figureReferences）：
+       * LLM 决定本章引用哪些图（按 figureId）+ 段落锚点。
+       * reportAssembler 据此关联到具体 sectionId 落地为 ArtifactFigure。
+       * 留空 / undefined 表示本章未引用图（兜底走 researcher.figureCandidates 末尾追加）。
+       */
+      figureReferences?: {
+        figureId: string;
+        anchorParagraph?: number;
+        caption?: string;
+      }[];
     };
 
     /**
@@ -768,6 +779,12 @@ export async function runPerDimPipeline(
           body: string;
           wordCount: number;
           citationsUsed: string[];
+          // ★ 2026-05-07 P1：LLM 输出的结构化 figureReferences（可空）
+          figureReferences?: {
+            figureId: string;
+            anchorParagraph?: number;
+            caption?: string;
+          }[];
         };
         // ★ 沉淀 v4 接入: sanitizeSectionOutput 白名单清理 LLM 输出
         //   去掉非内容行（编辑备注 / 字数统计 / 元注释 / 营销空话等）
@@ -1108,6 +1125,9 @@ export async function runPerDimPipeline(
             qualified: chapterDecision === "passed",
             decision: chapterDecision,
             finalScore: verdict.score,
+            // ★ 2026-05-07 P1：把 LLM 输出的 figureReferences 透传给上游
+            //   reportAssembler；reviewer pass 路径同样保留（reviewer 不修图引用）
+            figureReferences: draft.figureReferences,
           };
         }
 

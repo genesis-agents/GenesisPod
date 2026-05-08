@@ -77,6 +77,24 @@ const Output = z.object({
   body: z.string(),
   wordCount: z.number().int(),
   citationsUsed: z.array(z.string()),
+  /**
+   * ★ 2026-05-07 P1 图文匹配闭环（学 TI section-writer.figureReferences 模式）：
+   * LLM 决定本章节要引用哪些图（按 input.availableFigures 的 figureId）。
+   * 不嵌入 markdown body，由结构化字段输出，reportAssembler 据此关联到
+   * 章节段落 + 落地为 ArtifactFigure（绕开 LLM 编号空间与 fig-id 不一致的问题）。
+   * 留空表示本章不引用图（reportAssembler 仍可按 researcher.figureCandidates 兜底追加）。
+   */
+  figureReferences: z
+    .array(
+      z.object({
+        figureId: z.string(), // 必须来自 input.availableFigures.figureId
+        /** 段落锚点：1-based。LLM 估计图最适合插在第几个段落之后 */
+        anchorParagraph: z.number().int().min(1).optional(),
+        /** 可选自定义 caption（缺则用 input.availableFigures[i].caption） */
+        caption: z.string().optional(),
+      }),
+    )
+    .default([]),
 });
 
 @DefineAgent({
@@ -265,26 +283,40 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
         ? `\n## 上一轮草稿（仅供参考，不要原样重发，针对 critique 重构）\n${input.previousDraft.slice(0, 2500)}\n`
         : "",
       ``,
-      // ★ 2026-05-07 图文匹配（学 TI Stage 4-5 figure registry）：
-      //   告知 LLM 本维度可用的图，让正文中**用文字描述**对应数据/趋势（如
-      //   "近 N 年增速曲线显示..."），与图片表达呼应。
-      //   实际图片渲染由 reportAssembler.injectFigurePlaceholders 在每章节末尾
-      //   兜底追加（与 source URL 对应的 citation 关联），不要求 LLM 直接产出
-      //   `![](#FIG-N)` 占位符 —— 因为 LLM 输出的 #FIG-N 与 reportAssembler 的
-      //   `fig-{sec.id}-{i}` 命名空间不一致，强行 inline 反而会渲染破图。
+      // ★ 2026-05-07 P1 图文匹配闭环（学 TI Stage 4-5 figure registry）：
+      //   1) 写正文时**用文字描述**对应数据/趋势（"如统计图所示..." / "增速曲线呈倒 V 型 [3]"）
+      //   2) 在 finalize output.figureReferences 数组里**结构化输出**要引用的图（带 figureId
+      //      + anchorParagraph 段落锚点），由 reportAssembler 据此关联渲染
+      //   3) 严禁在 markdown body 里直接写 `![](#FIG-N)` —— LLM 编号空间与 reportAssembler
+      //      的 fig-{sec.id}-{i} 不一致，会渲染破图
       input.availableFigures && input.availableFigures.length > 0
         ? [
-            `## 可用图片（写正文时配合描述，不要直接 inline ![]() 占位符）`,
-            `本维度从证据源抽出 ${input.availableFigures.length} 张相关度通过过滤的图片。`,
-            `**写作要求**：当章节正文涉及这些图所示的数据/趋势/案例时，用**文字**描述`,
-            `（"如行业报告统计图所示，..." / "近 N 年增速曲线呈倒 V 型 [3]"），让正文与图`,
-            `的内容形成语义呼应。**不要**直接写 \`![](#FIG-N)\` 占位符（reportAssembler`,
-            `会在章节末尾自动追加图片，inline 占位符会渲染失败）。`,
+            `## 可用图片（结构化引用 + 文字呼应，禁止 inline ![]()）`,
+            `本维度从证据源抽出 ${input.availableFigures.length} 张相关度通过过滤的图。`,
             ``,
-            `候选图清单（仅供文字描述参考）：`,
+            `**两件事一起做**：`,
+            `1. **正文文字描述**：在合适段落用文字说出对应数据/趋势`,
+            `   ✅ "近三年企业级 LLM 调用量增长 **350%**，呈现明显加速轨迹 [3]"`,
+            `   ✅ "如行业调研所示，60% 公司在 2025-2026 间将 Agent 平台预算翻倍"`,
+            `2. **结构化引用 figureReferences**：在 finalize output 里输出要插入的图：`,
+            `   {`,
+            `     "figureId": "FIG-1",          // 必须来自下方候选图清单`,
+            `     "anchorParagraph": 2,         // 1-based，图插在第几段后面`,
+            `     "caption": "可选自定义说明"   // 缺省用候选图本身 caption`,
+            `   }`,
+            ``,
+            `**严禁**：`,
+            `- ❌ 在 markdown body 里写 \`![alt](#FIG-N)\` 或任何图占位符`,
+            `- ❌ figureId 写候选清单里**不存在**的编号（凭空编 FIG-99）`,
+            `- ❌ anchorParagraph 超出实际段落数（章节只有 5 段就不要写 anchorParagraph: 8）`,
+            ``,
+            `**何时引用图**：只引用与正文论点强相关的图（chart/table 类型优先于 photo）。`,
+            `章节论述不涉及该图主题时，**不要硬塞**。每章 0-2 张图为宜。`,
+            ``,
+            `候选图清单：`,
             ...input.availableFigures.map(
               (f) =>
-                `  • ${f.caption}${f.relevanceHint ? ` (relevance=${f.relevanceHint})` : ""}${f.sourceUrl ? `\n    source=${f.sourceUrl}` : ""}`,
+                `  [${f.figureId}] ${f.caption}${f.relevanceHint ? ` (relevance=${f.relevanceHint})` : ""}${f.sourceUrl ? `\n      source=${f.sourceUrl}` : ""}`,
             ),
             ``,
           ].join("\n")
@@ -303,9 +335,12 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `    "output": {`,
       `      "index": ${input.chapter.index},`,
       `      "heading": "${input.chapter.heading}",`,
-      `      "body": "<完整 markdown 正文，含 [N] 引用编号>",`,
+      `      "body": "<完整 markdown 正文，含 [N] 引用编号；不写 ![](#FIG-N) 占位符>",`,
       `      "wordCount": <实际字数>,`,
-      `      "citationsUsed": ["<source url 1>", "<source url 2>"]`,
+      `      "citationsUsed": ["<source url 1>", "<source url 2>"],`,
+      input.availableFigures && input.availableFigures.length > 0
+        ? `      "figureReferences": [{ "figureId": "FIG-1", "anchorParagraph": 2 }]  // 0-2 张相关图，留空数组也行`
+        : `      "figureReferences": []  // 本章无候选图，留空数组`,
       `    }`,
       `  }`,
       `}`,

@@ -80,6 +80,17 @@ interface AssembleInput {
       heading: string;
       body: string;
       wordCount: number;
+      /**
+       * ★ 2026-05-07 P1 图文匹配闭环（学 TI section.figureReferences）：
+       * chapter-writer LLM 决定本章引用的图（按 figureId）+ 段落锚点。
+       * buildFigures 优先用此字段（精确按 LLM 决定关联 sectionId），
+       * 无此字段时 fallback 到 researcher.figureCandidates 自动追加（兼容路径）。
+       */
+      figureReferences?: {
+        figureId: string;
+        anchorParagraph?: number;
+        caption?: string;
+      }[];
     }[];
     figureCandidates?: {
       sourceUrl: string;
@@ -1342,12 +1353,19 @@ export class ReportArtifactAssembler {
   //     → 映射 sourceUrl → citation.index (evidenceCitationIndex)
   //     → 关联 sectionId（按 fromDimensionId）
   //     → 输出 ArtifactFigure[]
+  //
+  // ★ 2026-05-07 P1 图文匹配闭环（学 TI section.figureReferences）：
+  //   优先路径：扫描 chapter.figureReferences → 按 figureId 解析到
+  //   researcher.figureCandidates[idx] → 关联到该 chapter 所属 dim 的 section。
+  //   这条路径是 LLM 决定的精确匹配（"如图 1 所示" + figureId="FIG-1"）。
+  //   兜底路径：chapter 没有 figureReferences 时，回退到 researcher.figureCandidates
+  //   全量自动追加章节末尾（兼容旧行为）。
   private buildFigures(
     input: AssembleInput,
     citations: ArtifactCitation[],
     sections: ArtifactSection[],
   ): ArtifactFigure[] {
-    // 收集所有 raw figureCandidates，附带 fromDimensionId
+    // 收集所有 raw figureCandidates，附带 fromDimensionId / fromChapterIndex / paragraphIndex
     type Raw = {
       sourceUrl: string;
       imageUrl?: string;
@@ -1355,12 +1373,55 @@ export class ReportArtifactAssembler {
       sourcePageOrSection?: string;
       relevanceHint?: "high" | "medium" | "low";
       fromDimensionId: string;
+      /** 当从 chapter.figureReferences 来时，记录章节 index 用于精确关联 */
+      fromChapterHeading?: string;
+      /** 0-based paragraph index（来自 LLM anchorParagraph - 1） */
+      paragraphIndex?: number;
     };
     const rawAll: Raw[] = [];
+
     for (const r of input.researcherResults) {
       const dim = input.plan.dimensions.find((d) => d.name === r.dimension);
       const dimId = dim?.id ?? `dim-${r.dimension.slice(0, 20)}`;
-      for (const f of r.figureCandidates ?? []) {
+      const candidates = r.figureCandidates ?? [];
+
+      // 优先路径：从 chapter.figureReferences 反查 figureId → candidates[N-1]
+      // figureId 命名约定：FIG-1..N，N 对应 candidates 数组 1-based 下标
+      // （per-dim-pipeline 调 chapter-writer 时正是这样映射的）
+      const chaptersWithFigRefs = (r.chapters ?? []).filter(
+        (ch) => ch.figureReferences && ch.figureReferences.length > 0,
+      );
+      const chapterRefUsed = new Set<number>(); // 已被 chapter ref 使用过的 candidate idx
+
+      for (const ch of chaptersWithFigRefs) {
+        for (const ref of ch.figureReferences ?? []) {
+          // 解析 FIG-N → candidates[N-1]
+          const m = ref.figureId.match(/^FIG-(\d+)$/i);
+          if (!m) continue;
+          const idx = parseInt(m[1], 10) - 1;
+          if (idx < 0 || idx >= candidates.length) continue;
+          const f = candidates[idx];
+          chapterRefUsed.add(idx);
+          rawAll.push({
+            sourceUrl: f.sourceUrl,
+            imageUrl: f.imageUrl,
+            caption: ref.caption || f.caption,
+            sourcePageOrSection: f.sourcePageOrSection,
+            relevanceHint: f.relevanceHint,
+            fromDimensionId: dimId,
+            fromChapterHeading: ch.heading,
+            paragraphIndex: ref.anchorParagraph
+              ? Math.max(0, ref.anchorParagraph - 1)
+              : 0,
+          });
+        }
+      }
+
+      // 兜底路径：未被 chapter.figureReferences 选中的 candidates 仍按 dim 追加章节末尾
+      // （兼容 chapter-writer 不输出 figureReferences 时的旧行为，及 LLM 漏选时的兜底）
+      for (let i = 0; i < candidates.length; i++) {
+        if (chapterRefUsed.has(i)) continue;
+        const f = candidates[i];
         rawAll.push({
           sourceUrl: f.sourceUrl,
           imageUrl: f.imageUrl,
@@ -1429,7 +1490,16 @@ export class ReportArtifactAssembler {
         continue;
       }
       // ★ Phase P1-6: referencedBy 反向定位 — 在 section 文本中找包含图主题词的句子
+      // ★ 2026-05-07 P1：chapter.figureReferences 来源的图额外加 chapter heading 锚点，
+      //   让 referencedBy 包含 chapter 段落，前端能更精准滚到对应章节。
       const referencedBy = this.findReferencingSentences(f.caption, sec, input);
+      const rawFromRef = deduped[i].fromChapterHeading;
+      if (rawFromRef) {
+        referencedBy.unshift({
+          sectionId: sec.id,
+          phrase: rawFromRef.slice(0, 60),
+        });
+      }
       figures.push({
         id: `fig-${sec.id}-${i}`,
         type: "reference",
@@ -1441,7 +1511,7 @@ export class ReportArtifactAssembler {
         caption: f.caption,
         altText: f.caption,
         sectionId: sec.id,
-        paragraphIndex: 0,
+        paragraphIndex: deduped[i].paragraphIndex ?? 0,
         anchorMode: "after_paragraph",
         referencedBy,
       });

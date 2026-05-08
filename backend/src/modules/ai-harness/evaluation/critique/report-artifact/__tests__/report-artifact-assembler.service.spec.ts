@@ -363,6 +363,104 @@ describe("ReportArtifactAssembler", () => {
     expect(result.figures).toBeDefined();
   });
 
+  // ★ 2026-05-07 P1 图文匹配闭环：chapter.figureReferences 优先路径
+  it("assemble: chapter.figureReferences override paragraphIndex + adds chapter heading to referencedBy", () => {
+    const input = {
+      ...makeBaseInput(),
+      researcherResults: [
+        {
+          ...makeBaseInput().researcherResults[0],
+          figureCandidates: [
+            {
+              sourceUrl: "https://gartner.com/ai-report",
+              imageUrl: "https://gartner.com/chart1.png",
+              caption: "AI market growth chart showing 35% CAGR",
+              sourcePageOrSection: "p.5",
+              relevanceHint: "high" as const,
+            },
+            {
+              sourceUrl: "https://mckinsey.com/survey",
+              imageUrl: "https://mckinsey.com/chart2.png",
+              caption: "Enterprise adoption survey",
+              relevanceHint: "medium" as const,
+            },
+          ],
+          // chapter-writer LLM 决定本章只引用 FIG-1，锚点在第 3 段后
+          chapters: [
+            {
+              index: 1,
+              heading: "Market Sizing",
+              body: "Some chapter body",
+              wordCount: 1500,
+              figureReferences: [
+                {
+                  figureId: "FIG-1",
+                  anchorParagraph: 3,
+                  caption: "Custom caption from LLM",
+                },
+              ],
+            },
+          ],
+        },
+        makeBaseInput().researcherResults[1],
+      ],
+    };
+    const result = service.assemble(input);
+    // FIG-1 应被关联到 Market dim，paragraphIndex=2 (anchorParagraph 3 → 0-based 2)
+    const fig1 = result.figures.find(
+      (f) => f.imageUrl === "https://gartner.com/chart1.png",
+    );
+    expect(fig1).toBeDefined();
+    expect(fig1?.paragraphIndex).toBe(2);
+    expect(fig1?.caption).toBe("Custom caption from LLM");
+    // referencedBy 头条 = chapter heading（精确锚点）
+    expect(fig1?.referencedBy[0]?.phrase).toBe("Market Sizing");
+    // FIG-2 未被 chapter 引用，仍由 fallback 路径追加（兜底兼容）
+    const fig2 = result.figures.find(
+      (f) => f.imageUrl === "https://mckinsey.com/chart2.png",
+    );
+    expect(fig2).toBeDefined();
+    expect(fig2?.paragraphIndex).toBe(0); // fallback 默认 paragraphIndex=0
+  });
+
+  it("assemble: invalid figureId in chapter.figureReferences is silently skipped (LLM hallucination guard)", () => {
+    const input = {
+      ...makeBaseInput(),
+      researcherResults: [
+        {
+          ...makeBaseInput().researcherResults[0],
+          figureCandidates: [
+            {
+              sourceUrl: "https://gartner.com/ai-report",
+              imageUrl: "https://gartner.com/chart1.png",
+              caption: "Real chart",
+            },
+          ],
+          chapters: [
+            {
+              index: 1,
+              heading: "Market",
+              body: "body",
+              wordCount: 100,
+              figureReferences: [
+                { figureId: "FIG-99" }, // 不存在的编号
+                { figureId: "INVALID" }, // 错误格式
+                { figureId: "FIG-1" }, // 合法
+              ],
+            },
+          ],
+        },
+        makeBaseInput().researcherResults[1],
+      ],
+    };
+    const result = service.assemble(input);
+    // 只有 FIG-1 被解析为图，FIG-99 / INVALID 静默丢弃
+    const realFigs = result.figures.filter(
+      (f) => f.imageUrl === "https://gartner.com/chart1.png",
+    );
+    expect(realFigs.length).toBe(1);
+  });
+
   // markOrphanCitations: with references section
   it("assemble: orphan citations annotated when references section absent", () => {
     const input = {
