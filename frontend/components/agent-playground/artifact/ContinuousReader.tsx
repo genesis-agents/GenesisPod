@@ -67,7 +67,7 @@ export function ContinuousReader({ artifact }: Props) {
   }, [reverseHighlight]);
 
   return (
-    <div>
+    <div data-export-content="playground-report">
       {/* 主体：连续 markdown（去掉左侧 TOC，对齐 TI ChapterizedReportView preview 模式） */}
       <main className="min-w-0">
         {/* ★ 2026-05-02 Screenshot 56: 原 single-line concat 拼接 dimension+message 在

@@ -38,7 +38,8 @@ export type ExportModuleType =
   | 'social'
   | 'office'
   | 'teams'
-  | 'insights';
+  | 'insights'
+  | 'playground';
 
 export interface ContentScopeOption {
   key: string;
@@ -124,6 +125,10 @@ function buildSource(
       return { type: 'MISSION', missionId: sourceId, topicId: sourceId };
     case 'insights':
       return { type: 'TOPIC_REPORT', topicId: sourceId };
+    case 'playground':
+      // Agent Playground mission：source.type=MISSION，topicId 留空。
+      // 后端 reconstructSource 把 sourceData.topicId='' 当 MISSION 来取数据。
+      return { type: 'MISSION', missionId: sourceId, topicId: '' };
   }
 }
 

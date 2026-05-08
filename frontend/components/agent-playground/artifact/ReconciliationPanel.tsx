@@ -1,7 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { GitMerge, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+
+/**
+ * 清洗 reconciler 输出的 markdown：
+ * - 去掉 `[N]` / `[N][M]` 引用编号（这里没有 CitationBadge 反链，留着是干扰）
+ * - 折叠多余空白
+ */
+function cleanReconcilerMarkdown(md: string): string {
+  return md
+    .replace(/(?:\[\d+\])+/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
 
 interface ReconciliationReport {
   factTable?: unknown[];
@@ -96,14 +111,7 @@ export function ReconciliationPanel({ report }: Props) {
             </div>
           )}
           {report.reconciliationReport && (
-            <div>
-              <p className="mb-1 text-xs font-semibold text-gray-700">
-                Reconciler 总览
-              </p>
-              <pre className="whitespace-pre-wrap rounded bg-gray-50 p-2 text-[11px] text-gray-700">
-                {report.reconciliationReport}
-              </pre>
-            </div>
+            <ReconcilerMarkdownBlock raw={report.reconciliationReport} />
           )}
           {report.conflicts && report.conflicts.length > 0 && (
             <div>
@@ -195,5 +203,29 @@ export function ReconciliationPanel({ report }: Props) {
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Reconciler 总览 markdown 块：
+ * 用 ReactMarkdown + remarkGfm 把 `**`/`-`/列表/表格按真实 markdown 渲染，
+ * 取代之前 `<pre>` 直吐源码（Screenshot_11.png 的"格式不对"根因）。
+ */
+function ReconcilerMarkdownBlock({ raw }: { raw: string }) {
+  const cleaned = useMemo(() => cleanReconcilerMarkdown(raw), [raw]);
+  return (
+    <div>
+      <p className="mb-1 text-xs font-semibold text-gray-700">
+        Reconciler 总览
+      </p>
+      <article className="prose prose-sm prose-gray prose-headings:text-gray-800 prose-p:my-1.5 prose-li:my-0.5 prose-strong:text-gray-900 max-w-none rounded bg-gray-50 p-3 text-[12px] leading-6 text-gray-700">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeSanitize]}
+        >
+          {cleaned}
+        </ReactMarkdown>
+      </article>
+    </div>
   );
 }

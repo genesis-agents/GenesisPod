@@ -32,6 +32,7 @@ import { QualityBadge } from './QualityBadge';
 import { FactTablePanel } from './FactTablePanel';
 import { ReconciliationPanel } from './ReconciliationPanel';
 import { ToolRecallTrace } from './ToolRecallTrace';
+import { ExportDialog } from '@/components/common/ExportDialog';
 
 type ViewMode = 'continuous' | 'chapter' | 'quick';
 
@@ -384,24 +385,27 @@ export function ArtifactReader({
 }
 
 /**
- * ★ 2026-05-02 (#7 报告下载对齐 TI 公共能力 —— 真·公共能力)
+ * ★ 2026-05-07 重构：彻底走 TI WYSIWYG 路径
  *
- * playground 不再有专属导出端点。统一走 TI 同款的：
- *   - useExport.exportMission(missionId, '', format) → POST /api/export
- *   - useExport.downloadExport(jobId) → GET /api/export/:jobId/download
- * 后端 MissionTransformerService.transform 已扩展同时识别 AgentPlaygroundMission
- * 与 TeamMission，前端无需关心是哪类 mission。
+ * 1) 报告导出（PDF / HTML）→ 弹 ExportDialog（TI 同款）
+ *    - HtmlCaptureService 抓 [data-export-content="playground-report"] 的 HTML+CSS
+ *    - POST /api/export 带 renderMode=wysiwyg + wysiwygHtml + wysiwygCss
+ *    - 后端 ExportOrchestrator 走 WysiwygRenderService → puppeteer page.pdf()
+ *    → 真·所见即所得
  *
- * 旧的 sync 导出（Markdown/CSV/JSON）保留 —— 这是 playground 独有的
- * "原始数据"路径，TI 没有对等能力，故保留 GET 端点向后兼容。
+ * 2) DOCX / PPTX 已删（用户要求暂不支持）：availableFormats={['PDF','HTML']} 限制
+ *
+ * 3) 原始数据（Markdown / CSV / JSON）保留为次要二级菜单 —— 这是 playground 独有的
+ *    "原始数据"通道（事实表 / 引用表 / 完整 JSON），TI 没有对等能力。
  */
 function ExportMenu({ missionId }: { missionId: string }) {
-  const [open, setOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [rawOpen, setRawOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   // 同步导出 —— playground 独有的"原始数据"通道（Markdown/CSV/JSON 即取即用）
   const handleSyncExport = async (format: string) => {
-    setOpen(false);
+    setRawOpen(false);
     setBusy(format);
     try {
       const { config } = await import('@/lib/utils/config');
@@ -432,169 +436,80 @@ function ExportMenu({ missionId }: { missionId: string }) {
     }
   };
 
-  // 异步导出 —— 公共能力（PDF / DOCX / PPTX / HTML）
-  // 使用 useExport hook 的同款 API：exportMission(missionId, '', format) + downloadExport(jobId)
-  const handleAsyncExport = async (
-    format: 'PDF' | 'DOCX' | 'PPTX' | 'HTML'
-  ) => {
-    setOpen(false);
-    setBusy(format);
-    try {
-      // useExport hook 是组件内的；这里在事件回调里直接调公共 /api/export 端点，
-      // 走与 useExport 完全一致的请求路径（POST → poll → download blob）。
-      const { apiClient } = await import('@/lib/api/client');
-      const { config } = await import('@/lib/utils/config');
-      const { getAuthHeader } = await import('@/lib/utils/auth');
-
-      // ★ 2026-05-06 #84: 删除 templateId — backend export_templates 表当前为空
-      //   （未 seed 'mission-report'），传 templateId 会被校验拒绝抛 400 "Invalid
-      //   export template: mission-report"。让 backend 走默认渲染逻辑（templateId
-      //   是 optional 字段，没传时直接跳过 templateManager.getTemplate）。
-      // 1. POST /api/export 创建 job（公共端点 —— TI 同款）
-      const job = await apiClient.post<{ jobId: string }>('/export', {
-        source: { type: 'MISSION', missionId, topicId: '' },
-        format,
-        options: {
-          includeCover: true,
-          includeTableOfContents: true,
-        },
-      });
-      const jobId = job.jobId;
-
-      // 2. 轮询 GET /api/export/:jobId（公共端点）
-      type JobStatus = {
-        status: string;
-        downloadUrl?: string;
-        fileName?: string;
-        error?: string;
-      };
-      let result: JobStatus | null = null;
-      for (let i = 0; i < 120; i++) {
-        result = await apiClient.get<JobStatus>(`/export/${jobId}`);
-        if (result.status === 'COMPLETED') break;
-        if (result.status === 'FAILED') {
-          throw new Error(result.error || 'Export job failed');
-        }
-        await new Promise((res) => setTimeout(res, 1000));
-      }
-      if (!result || result.status !== 'COMPLETED') {
-        throw new Error('Export timeout');
-      }
-
-      // 3. GET /api/export/:jobId/download（公共端点）
-      const downloadResp = await fetch(
-        `${config.apiBaseUrl}/api/v1/export/${jobId}/download`,
-        { headers: getAuthHeader() }
-      );
-      if (!downloadResp.ok) throw new Error('Download failed');
-      const blob = await downloadResp.blob();
-      const cd = downloadResp.headers.get('Content-Disposition') || '';
-      let fileName =
-        result.fileName || `mission-${missionId}.${format.toLowerCase()}`;
-      const rfc5987 = cd.match(/filename\*=UTF-8''(.+?)(?:;|$)/i);
-      if (rfc5987) {
-        fileName = decodeURIComponent(rfc5987[1]);
-      } else {
-        const std = cd.match(/filename="?([^";]+)"?/);
-        if (std) fileName = std[1];
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('async export failed', e);
-    } finally {
-      setBusy(null);
-    }
-  };
-
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={busy != null}
-        className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-      >
-        <Download className="h-3 w-3" />
-        {busy ? `导出中…(${busy})` : '导出'}
-      </button>
-      {open && (
-        <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-          {/* 异步导出 —— TI 同款公共能力 */}
-          <div className="border-b border-gray-100 px-3 py-1 text-[10px] uppercase tracking-wider text-gray-400">
-            报告（PDF / Office）
-          </div>
-          <button
-            type="button"
-            onClick={() => void handleAsyncExport('PDF')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
-          >
-            PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleAsyncExport('DOCX')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
-          >
-            Word (DOCX)
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleAsyncExport('PPTX')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
-          >
-            PPT (PPTX)
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleAsyncExport('HTML')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
-          >
-            HTML
-          </button>
+    <>
+      <div className="flex items-center gap-1">
+        {/* 主按钮：报告导出（WYSIWYG PDF / HTML） */}
+        <button
+          type="button"
+          onClick={() => setReportDialogOpen(true)}
+          disabled={busy != null}
+          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          title="导出所见即所得报告（PDF / HTML）"
+        >
+          <Download className="h-3 w-3" />
+          导出报告
+        </button>
 
-          {/* 同步导出 —— playground 独有的原始数据通道 */}
-          <div className="mt-1 border-y border-gray-100 px-3 py-1 text-[10px] uppercase tracking-wider text-gray-400">
-            原始数据
-          </div>
+        {/* 次按钮：原始数据（playground 独有） */}
+        <div className="relative">
           <button
             type="button"
-            onClick={() => void handleSyncExport('markdown')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+            onClick={() => setRawOpen((v) => !v)}
+            disabled={busy != null}
+            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            title="原始数据（Markdown / CSV / JSON）"
           >
-            完整 Markdown
+            <FileText className="h-3 w-3" />
+            {busy ? `导出中…(${busy})` : '原始数据'}
           </button>
-          <button
-            type="button"
-            onClick={() => void handleSyncExport('csv-facts')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
-          >
-            事实表 CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSyncExport('csv-citations')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
-          >
-            引用表 CSV
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSyncExport('json')}
-            className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
-          >
-            完整 JSON
-          </button>
+          {rawOpen && (
+            <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <button
+                type="button"
+                onClick={() => void handleSyncExport('markdown')}
+                className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+              >
+                完整 Markdown
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSyncExport('csv-facts')}
+                className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+              >
+                事实表 CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSyncExport('csv-citations')}
+                className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+              >
+                引用表 CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSyncExport('json')}
+                className="block w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50"
+              >
+                完整 JSON
+              </button>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* WYSIWYG 报告导出对话框 —— PDF / HTML 走 puppeteer 截屏，
+          DOCX / PPTX 用 availableFormats 屏蔽（用户要求暂不支持） */}
+      <ExportDialog
+        isOpen={reportDialogOpen}
+        onClose={() => setReportDialogOpen(false)}
+        contentSelector='[data-export-content="playground-report"]'
+        contentTitle="Mission Report"
+        moduleType="playground"
+        sourceId={missionId}
+        availableFormats={['PDF', 'HTML']}
+      />
+    </>
   );
 }
 
