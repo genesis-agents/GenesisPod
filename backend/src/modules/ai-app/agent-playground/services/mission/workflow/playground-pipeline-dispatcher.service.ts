@@ -37,10 +37,7 @@ import {
   type MissionRuntimeSession,
 } from "./mission-runtime-shell.service";
 import { MissionStageBindingsService } from "./mission-stage-bindings.service";
-import {
-  PLAYGROUND_PIPELINE,
-  PlaygroundHookNotYetWiredError,
-} from "../../../playground.config";
+import { PLAYGROUND_PIPELINE } from "../../../playground.config";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
 import { narrate } from "./narrative.util";
 import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
@@ -867,16 +864,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
   }
 
   /**
-   * 为每个 step 构造 hook 闭包。
-   *
-   * 已实装：
-   *   s1-budget (R2-A.3) → 调 runBudgetEstimateStage
-   *
-   * 待实装（NotYetWired 占位）：
-   *   s2-leader-plan, s3-researcher-collect, s4-leader-assess, s5-reconciler,
-   *   s6-analyst, s7-writer-outline, s8-writer, s8b-quality-enhancement,
-   *   s9-critic, s9b-objective-eval, s10-leader-foreword-signoff,
-   *   s11-persist, s12-self-evolution
+   * 为每个 step 构造 hook 闭包。所有 13 个 step 都已实装；s12-self-evolution
+   * 不在 PLAYGROUND_PIPELINE.steps，由 fireSelfEvolutionPostlude fire-and-forget
+   * 直接调用 runSelfEvolutionStage（见 dispatcher.runMission 末尾 + line 597+）。
    */
   private buildHooksForStep(
     stepId: string,
@@ -889,32 +879,17 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
 
   private buildBaseHooksForStep(
     stepId: string,
-    primitive: string,
+    _primitive: string,
   ): ResolvedStageHooks {
-    if (stepId === "s1-budget") {
-      return this.buildS1BudgetHooks();
-    }
-    if (stepId === "s2-leader-plan") {
-      return this.buildS2LeaderPlanHooks();
-    }
-    if (stepId === "s3-researcher-collect") {
+    if (stepId === "s1-budget") return this.buildS1BudgetHooks();
+    if (stepId === "s2-leader-plan") return this.buildS2LeaderPlanHooks();
+    if (stepId === "s3-researcher-collect")
       return this.buildS3ResearcherCollectHooks();
-    }
-    if (stepId === "s4-leader-assess") {
-      return this.buildS4LeaderAssessHooks();
-    }
-    if (stepId === "s5-reconciler") {
-      return this.buildS5ReconcilerHooks();
-    }
-    if (stepId === "s6-analyst") {
-      return this.buildS6AnalystHooks();
-    }
-    if (stepId === "s7-writer-outline") {
-      return this.buildS7WriterOutlineHooks();
-    }
-    if (stepId === "s8-writer") {
-      return this.buildS8WriterHooks();
-    }
+    if (stepId === "s4-leader-assess") return this.buildS4LeaderAssessHooks();
+    if (stepId === "s5-reconciler") return this.buildS5ReconcilerHooks();
+    if (stepId === "s6-analyst") return this.buildS6AnalystHooks();
+    if (stepId === "s7-writer-outline") return this.buildS7WriterOutlineHooks();
+    if (stepId === "s8-writer") return this.buildS8WriterHooks();
     if (
       stepId === "s8b-quality-enhancement" ||
       stepId === "s9-critic" ||
@@ -922,16 +897,13 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     ) {
       return this.buildReviewHooks(stepId);
     }
-    if (stepId === "s10-leader-foreword-signoff") {
+    if (stepId === "s10-leader-foreword-signoff")
       return this.buildS10SignoffHooks();
-    }
-    if (stepId === "s11-persist") {
-      return this.buildS11PersistHooks();
-    }
-    if (stepId === "s12-self-evolution") {
-      return this.buildS12LearnHooks();
-    }
-    return this.buildNotYetWiredHooks(stepId, primitive);
+    if (stepId === "s11-persist") return this.buildS11PersistHooks();
+    throw new Error(
+      `[playground-pipeline] no hook builder for step "${stepId}". ` +
+        `All steps in PLAYGROUND_PIPELINE.steps must have an explicit branch above.`,
+    );
   }
 
   /**
@@ -1904,86 +1876,6 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       },
     };
     return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s12-self-evolution hook 实装（R2-A.13）
-   *
-   * learn primitive 没有必填 hook（postmortemClassifier / memoryConsolidation
-   * 都是 optional）。我们利用 postmortemClassifier 入口调既有
-   * runSelfEvolutionStage —— 它内部 fire-and-forget 不抛错（self-evolution
-   * 是 best-effort，统计 + memory 索引而已）。
-   */
-  private buildS12LearnHooks(): ResolvedStageHooks {
-    const hooks = {
-      postmortemClassifier: async (args: {
-        ctx: StageRunArgs["ctx"];
-      }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        const bufferedEvents = this.missionEventBuffer
-          .read(entry.session.missionId)
-          .map((e) => ({
-            type: e.type,
-            ts: e.timestamp,
-            payload: e.payload,
-          }));
-        await runSelfEvolutionStage(
-          {
-            missionId: entry.session.missionId,
-            userId: entry.session.userId,
-            t0: entry.t0,
-            pool: entry.session.pool,
-            topic: entry.input.topic,
-            plan: entry.lastPlan
-              ? {
-                  dimensions: (entry.lastPlan.dimensions ?? []) as unknown[],
-                  goals: entry.lastPlan.goals,
-                }
-              : undefined,
-            researcherResults: entry.lastResearcherResults as
-              | unknown[]
-              | undefined,
-            reportArtifact: entry.lastReportArtifact as
-              | { quality?: { overall?: number }; sections?: unknown[] }
-              | undefined,
-            leaderSignOff: entry.lastLeaderSignOff,
-            abortSignal: entry.session.missionAbort.signal,
-            bufferedEvents,
-          },
-          this.stageBindings.buildDeps(),
-        ).catch(() => undefined);
-        return { postmortemDone: true };
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * NotYetWired 占位（R2-A.4~A.13 替换）—— 各 primitive 的必填 hook 全部抛错。
-   */
-  private buildNotYetWiredHooks(
-    stepId: string,
-    primitive: string,
-  ): ResolvedStageHooks {
-    const requiredHooks: Record<string, ReadonlyArray<string>> = {
-      plan: ["runRole"],
-      research: ["fanOut", "perItemPipeline"],
-      assess: ["runRole", "parseDecision"],
-      synthesize: ["synthesize"],
-      draft: ["draftOnce"],
-      review: ["review"],
-      signoff: ["runRole"],
-      persist: ["persist"],
-      learn: [], // postmortemClassifier / memoryConsolidation 都 optional
-    };
-    const hooks: ResolvedStageHooks = {};
-    const required = requiredHooks[primitive] ?? [];
-    for (const name of required) {
-      (hooks as Record<string, unknown>)[name] = () => {
-        throw new PlaygroundHookNotYetWiredError(stepId, name);
-      };
-    }
-    return hooks;
   }
 }
 

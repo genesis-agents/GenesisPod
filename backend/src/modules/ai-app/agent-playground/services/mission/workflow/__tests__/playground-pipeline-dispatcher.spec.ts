@@ -125,10 +125,7 @@ import {
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
 import { PlaygroundPipelineDispatcher } from "../playground-pipeline-dispatcher.service";
-import {
-  PLAYGROUND_PIPELINE,
-  PlaygroundHookNotYetWiredError,
-} from "../../../../playground.config";
+import { PLAYGROUND_PIPELINE } from "../../../../playground.config";
 import type { MissionRuntimeShellService } from "../mission-runtime-shell.service";
 import type { MissionRuntimeSession } from "../mission-runtime-shell.service";
 import type { MissionStageBindingsService } from "../mission-stage-bindings.service";
@@ -619,13 +616,6 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     expect(() => dispatcher.getSession("never-existed")).toThrow(
       /no active session/,
     );
-  });
-
-  it("PlaygroundHookNotYetWiredError 含 stage + hook 名信息", () => {
-    const err = new PlaygroundHookNotYetWiredError("s1-budget", "onPersist");
-    expect(err.message).toContain("s1-budget");
-    expect(err.message).toContain("onPersist");
-    expect(err.name).toBe("PlaygroundHookNotYetWiredError");
   });
 
   it("registry 可重复 onModuleInit（has() 短路返回 + 不抛 duplicate）", () => {

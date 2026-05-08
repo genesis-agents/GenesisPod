@@ -28,20 +28,6 @@ import { loadSkill } from "./utils/skill-md-loader";
 import type { ZodType } from "zod";
 
 /**
- * Hook 暂未接入时抛此错；MissionPipelineOrchestrator 会把它包成
- * stage:failed event。R2-A.1 起把每个 stage hook 的 NOT_YET_WIRED 替换为
- * 真实业务实现。
- */
-export class PlaygroundHookNotYetWiredError extends Error {
-  constructor(stageId: string, hookName: string) {
-    super(
-      `[playground.config] stage "${stageId}" hook "${hookName}" not yet wired (R2-A.0 scaffolding)`,
-    );
-    this.name = "PlaygroundHookNotYetWiredError";
-  }
-}
-
-/**
  * 把 SKILL.md frontmatter + 整个 markdown body 装成最小 IAgentSpec；
  * outputSchema 暂用 always-pass z.unknown() 占位（真实 SkillSpecBuilder 集成
  * 留给 R2-A.1 第一个 stage 迁移时补）。
