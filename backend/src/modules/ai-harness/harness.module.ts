@@ -149,6 +149,8 @@ import { TeamFacade } from "./facade/domain/team.facade";
 import { ToolFacade } from "./facade/domain/tool.facade";
 import { ModelResolverService } from "./facade/model-resolver.service";
 import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
+// ★ 2026-05-08 PR-E0: BusinessAgentTeam 框架——mission runtime shell 上提自 playground
+import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mission-runtime-shell.framework";
 
 @Global()
 @Module({
@@ -162,6 +164,8 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
   providers: [
     // Cross-cutting
     HookRegistry,
+    // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
+    MissionRuntimeShellFramework,
 
     // ai-harness/guardrails (RuntimeResourceModule) 通过 DI token 拿 harness 能力探针，避免反向 import
     {
@@ -332,6 +336,8 @@ import { FACADE_FEATURE_PROVIDERS } from "./facade/facade.providers";
   // HarnessInspectorController moved to open-api/admin/harness-inspector.controller.ts (PR-X17)
   exports: [
     HarnessFacade,
+    // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
+    MissionRuntimeShellFramework,
     AgentFactory,
     SpecAgentRegistry,
     LlmExecutor,

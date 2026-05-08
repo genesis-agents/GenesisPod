@@ -414,6 +414,12 @@ export {
 //   跨 ai-app 复用（research / writing / teams 任何长任务编排都需要）
 export { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 export { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
+// ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
+export { MissionRuntimeShellFramework } from "../teams/business-team/lifecycle/mission-runtime-shell.framework";
+export type {
+  IMissionRuntimeAdapter,
+  MissionRuntimeSession,
+} from "../teams/business-team/abstractions/mission-runtime-shell.interface";
 // ★ 2026-05-04 (PR-3 standardize consumer)
 export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 

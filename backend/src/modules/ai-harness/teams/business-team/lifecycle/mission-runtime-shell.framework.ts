@@ -1,0 +1,240 @@
+/**
+ * BusinessAgentTeam — Mission Runtime Shell Framework
+ *
+ * 上提自 ai-app/agent-playground/services/mission/workflow/mission-runtime-shell.service.ts
+ * （2026-05-08 PR-E0）。通用 lifecycle (wallTimer / heartbeat / abort / cleanup) +
+ * billing 装配 + validateModels / validateCredits 现作为框架骨架，业务方通过
+ * IMissionRuntimeAdapter 注入业务专属决策。
+ *
+ * 4 层 timeout 守护语义保留（HTTP 120/300s + Liveness 5min + Wall 3-4h + Budget），
+ * P0-1 audit (2026-05-06) 修法（try-finally 保证 abort 一定执行）保留。
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import { withUserContext } from "@/common/context";
+import { BillingContext } from "@/modules/ai-infra/credits/billing-context.store";
+import { CreditsService } from "@/modules/ai-infra/credits/credits.service";
+import {
+  BillingRuntimeEnvAdapter,
+  MissionAbortRegistry,
+  MissionBudgetPool,
+  RuntimeEnvironmentService,
+} from "@/modules/ai-harness/facade";
+import type {
+  IMissionRuntimeAdapter,
+  MissionRuntimeSession,
+} from "../abstractions/mission-runtime-shell.interface";
+
+@Injectable()
+export class MissionRuntimeShellFramework {
+  private readonly log = new Logger(MissionRuntimeShellFramework.name);
+
+  constructor(
+    private readonly credits: CreditsService,
+    private readonly runtimeEnv: RuntimeEnvironmentService,
+    private readonly abortRegistry: MissionAbortRegistry,
+  ) {}
+
+  async openSession<TInput>(args: {
+    missionId: string;
+    input: TInput;
+    userId: string;
+    workspaceId?: string;
+    adapter: IMissionRuntimeAdapter<TInput>;
+  }): Promise<MissionRuntimeSession> {
+    const { missionId, input, userId, workspaceId, adapter } = args;
+    const missionAbort = this.abortRegistry.register(missionId);
+    const wallTimeMs = adapter.resolveWallTimeMs(input);
+    this.log.log(
+      `[${missionId}] mission wall-time = ${Math.round(wallTimeMs / 60000)}min ` +
+        `(namespace=${adapter.eventNamespace})`,
+    );
+
+    const billing = new BillingRuntimeEnvAdapter(
+      userId,
+      workspaceId,
+      this.credits,
+      this.runtimeEnv,
+    );
+    const effectiveMaxCredits = adapter.resolveMaxCredits(input);
+    const budgetMultiplier = adapter.resolveBudgetMultiplier(input);
+    const pool = new MissionBudgetPool({
+      maxTokens: effectiveMaxCredits * 1000,
+      maxCostUsd: effectiveMaxCredits * 0.002,
+    });
+
+    const wallTimer = setTimeout(() => {
+      // ★ P0-1 (audit 2026-05-06): try-finally 保证 abortRegistry.abort 一定执行
+      try {
+        this.log.warn(
+          `[${missionId}] mission wall-time exceeded (${wallTimeMs}ms) - auto abort`,
+        );
+        void adapter
+          .emitMissionEvent({
+            type: `${adapter.eventNamespace}.mission:budget-warning-hard`,
+            missionId,
+            userId,
+            payload: {
+              reason: "wall_time_exceeded",
+              wallTimeMs,
+            },
+          })
+          .catch((err) => {
+            this.log.warn(
+              `[${missionId}] wall-timer emit failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      } finally {
+        try {
+          missionAbort.abort("mission_wall_time_exceeded");
+        } catch (err) {
+          this.log.error(
+            `[${missionId}] wall-timer abort failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    }, wallTimeMs);
+    wallTimer.unref?.();
+
+    let heartbeatTimer: NodeJS.Timeout | null = null;
+    let cleaned = false;
+    const cleanup = (): void => {
+      if (cleaned) return;
+      cleaned = true;
+      clearTimeout(wallTimer);
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      this.abortRegistry.unregister(missionId);
+    };
+
+    try {
+      await this.validateModels({ missionId, userId, billing, adapter });
+      await this.validateCredits({ missionId, userId, billing, adapter });
+
+      await adapter.createMissionRow({
+        missionId,
+        userId,
+        workspaceId,
+        input,
+        effectiveMaxCredits,
+      });
+
+      const podId =
+        process.env.RAILWAY_REPLICA_ID ??
+        process.env.HOSTNAME ??
+        `local-${process.pid}`;
+      void adapter.refreshHeartbeat(missionId, podId);
+      heartbeatTimer = setInterval(() => {
+        void adapter.refreshHeartbeat(missionId, podId);
+      }, 30_000);
+      heartbeatTimer.unref?.();
+
+      return {
+        missionId,
+        userId,
+        workspaceId,
+        billing,
+        pool,
+        budgetMultiplier,
+        missionAbort,
+        wallTimeMs,
+        cleanup,
+      };
+    } catch (err) {
+      cleanup();
+      throw err;
+    }
+  }
+
+  async runWithinContext<T>(
+    session: MissionRuntimeSession,
+    billingModuleType: string,
+    operationType: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    return withUserContext(session.userId, () =>
+      BillingContext.run(
+        {
+          userId: session.userId,
+          moduleType: billingModuleType,
+          operationType,
+          referenceId: session.missionId,
+        },
+        fn,
+      ),
+    );
+  }
+
+  private async validateModels<TInput>(args: {
+    missionId: string;
+    userId: string;
+    billing: BillingRuntimeEnvAdapter;
+    adapter: IMissionRuntimeAdapter<TInput>;
+  }): Promise<void> {
+    try {
+      const allModels = await args.billing.listAvailableModels();
+      const healthy = allModels.filter((m) => m.available);
+      if (allModels.length > 0 && healthy.length === 0) {
+        const ids = allModels.map((m) => m.modelId).join(", ");
+        const msg =
+          `用户 BYOK 配置的所有模型均不可用：${ids}。` +
+          `请前往 设置 → 模型 检查 model id 是否真实存在 / API key 是否有效`;
+        await args.adapter.emitMissionEvent({
+          type: `${args.adapter.eventNamespace}.mission:rejected`,
+          missionId: args.missionId,
+          userId: args.userId,
+          payload: {
+            reason: "no_healthy_model",
+            availableCount: 0,
+            totalCount: allModels.length,
+            userMessage: msg,
+          },
+        });
+        throw new Error(msg);
+      }
+      if (healthy.length === 1) {
+        await args.adapter
+          .emitMissionEvent({
+            type: `${args.adapter.eventNamespace}.mission:warning`,
+            missionId: args.missionId,
+            userId: args.userId,
+            payload: {
+              code: "SINGLE_MODEL_NO_FALLBACK",
+              modelId: healthy[0].modelId,
+              userMessage:
+                `当前仅启用 1 个模型 (${healthy[0].modelId})，` +
+                `若该模型 rate-limit 或临时故障，mission 将无 fallback。` +
+                `建议在 设置 → 模型 启用 2+ 模型作为备份`,
+            },
+          })
+          .catch(() => {});
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("BYOK 配置")) {
+        throw err;
+      }
+    }
+  }
+
+  private async validateCredits<TInput>(args: {
+    missionId: string;
+    userId: string;
+    billing: BillingRuntimeEnvAdapter;
+    adapter: IMissionRuntimeAdapter<TInput>;
+  }): Promise<void> {
+    const credit = await args.billing.getCreditState();
+    if (credit.balance <= (credit.hardLimit ?? 0)) {
+      const hint = await args.billing.suggestFallback({ reason: "no_credit" });
+      await args.adapter.emitMissionEvent({
+        type: `${args.adapter.eventNamespace}.mission:rejected`,
+        missionId: args.missionId,
+        userId: args.userId,
+        payload: {
+          reason: "no_credit",
+          balance: credit.balance,
+          userMessage: hint.userMessage,
+        },
+      });
+      throw new Error(hint.userMessage ?? "Credit balance too low");
+    }
+  }
+}
