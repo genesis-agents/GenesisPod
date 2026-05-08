@@ -428,6 +428,7 @@ if (message.ragSources) {
 - [Teams 模式 W1 代码评审纪要 v2](./teams-mode-review-v2.md)
 - [Teams 模式 W2 PR3 代码评审纪要 v3](./teams-mode-review-v3.md)
 - [Teams 模式 W3 PR4 代码评审纪要 v4](./teams-mode-review-v4.md)
+- [Teams 模式 W4 PR5 代码评审纪要 v5](./teams-mode-review-v5.md)
 - [ADR-004 AI Ask Teams 模式](../../../decisions/004-ai-ask-teams-mode.md)
 
 ---
