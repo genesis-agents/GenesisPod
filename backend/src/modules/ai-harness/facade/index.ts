@@ -439,6 +439,10 @@ export {
   type HeartbeatDecision,
 } from "../teams/business-team/rerun/heartbeat-decision";
 export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/rerun-guard.interface";
+// ★ 2026-05-08 PR-E4: BusinessAgentTeam 一站装配规约（聚合 E0/E1/E2/E3 4 个 adapter）
+//   YAGNI: 真 BusinessAgentTeamFactory 类等 2nd consumer (research / writing / TI 反向迁移)
+//   出现时再抽。当前阶段 NestJS DI 完成装配，业务模块只需实现本规约的 4 个字段。
+export type { BusinessAgentTeamSpec } from "../teams/business-team/abstractions/business-team-spec.interface";
 // ★ 2026-05-04 (PR-3 standardize consumer)
 export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 
