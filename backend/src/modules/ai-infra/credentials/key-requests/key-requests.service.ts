@@ -163,6 +163,8 @@ export class KeyRequestsService {
     }
 
     // 用 grantBatch 单 model 创建（单 ONE_TIME 授权）
+    // skipUserNotification=true：approve 路径下游会自己发 KEY_REQUEST_APPROVED，
+    // 避免 grantBatch 再发一条 KEY_GRANTED 让用户收双份通知
     const result = await this.keyAssignments.grantBatch({
       userId: request.userId,
       models: [
@@ -176,6 +178,7 @@ export class KeyRequestsService {
       assignedBy: input.approvedBy,
       note:
         input.note?.trim() || `Approved from request #${requestId.slice(0, 8)}`,
+      skipUserNotification: true,
     });
 
     if (result.failed.length > 0 || result.succeeded.length === 0) {
