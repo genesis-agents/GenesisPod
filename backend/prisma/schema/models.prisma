@@ -9005,6 +9005,7 @@ enum KeyAssignmentStatus {
   SUSPENDED
   EXPIRED
   REVOKED
+  STALE // PR-A 2026-05-08：关联 DistributableKey 停用时进入此态（cron 同步）
 }
 
 /// Key 申请状态
@@ -9044,17 +9045,29 @@ model DistributableKey {
   @@map("distributable_keys")
 }
 
-/// 管理员把 DistributableKey 分配给某用户的关系（含用户级配额）
+/// 管理员把 DistributableKey 分配给某用户的关系（含用户级配额、模型粒度、周期续期）
+///
+/// PR-A 2026-05-08 升级为模型粒度：
+///   - modelId='*' 旧数据兼容（该 provider 全模型通配）
+///   - 唯一约束 [userId, provider, modelId]
+///   - validityType + recurrence* 字段支持订阅式周期续期
 model KeyAssignment {
   id                 String              @id @default(cuid())
   keyId              String              @map("key_id")
   userId             String              @map("user_id")
   // 冗余字段（= key.provider），用于 @@unique 和快速解析
   provider           String              @db.VarChar(50)
+  // PR-A：模型粒度。'*' = 该 provider 全模型通配（旧数据兼容）；具体如 'gpt-4o' / 'claude-opus-4'
+  modelId            String              @default("*") @map("model_id") @db.VarChar(200)
   // 用户级配额（美分），null 表示仅受池级配额约束
   userQuotaCents     Int?                @map("user_quota_cents")
   userSpendCents     Int                 @default(0) @map("user_spend_cents")
   status             KeyAssignmentStatus @default(ACTIVE)
+  // PR-A：有效期类型。ONE_TIME=单次到期；RECURRING=周期续期（cron 自动 reset spendCents）
+  validityType       String              @default("ONE_TIME") @map("validity_type") @db.VarChar(20)
+  recurrenceUnit     String?             @map("recurrence_unit") @db.VarChar(10) // WEEK / MONTH / YEAR
+  recurrenceInterval Int?                @map("recurrence_interval") // 1=每月，3=每季度
+  nextRenewalAt      DateTime?           @map("next_renewal_at")
   assignedAt         DateTime            @default(now()) @map("assigned_at")
   assignedBy         String?             @map("assigned_by") @db.VarChar(100)
   expiresAt          DateTime?           @map("expires_at")
@@ -9068,10 +9081,11 @@ model KeyAssignment {
   key  DistributableKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
   user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider])
+  @@unique([userId, provider, modelId])
   @@index([userId, status])
   @@index([keyId, status])
   @@index([expiresAt, status])
+  @@index([nextRenewalAt])
   @@map("key_assignments")
 }
 
