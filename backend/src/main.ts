@@ -78,9 +78,8 @@ async function bootstrap() {
   //   prod 里淹没真正的业务日志（数千行噪声）。做法：bootstrap 时关 logger，
   //   NestFactory.create 跑完后再 useLogger 切回正常级别。
   const app = await NestFactory.create(AppModule, {
-    logger: false,
+    logger: logLevels,
   });
-  app.useLogger(logLevels);
 
   // 增加请求体大小限制，支持大型字幕数据
   app.use(express.json({ limit: "50mb" }));
