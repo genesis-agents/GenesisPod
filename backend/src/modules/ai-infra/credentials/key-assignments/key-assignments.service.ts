@@ -3,10 +3,12 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { KeyAssignment, KeyAssignmentStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { SecretsService } from "../../secrets/secrets.service";
+import { NotificationPresetsService } from "../../notifications/presets/notification-presets.service";
 import { QuotaExceededError } from "../key-resolver/key-resolver.errors";
 
 /**
@@ -71,6 +73,12 @@ export interface GrantBatchInput {
   recurrenceInterval?: number; // RECURRING 用，1=每月，3=每季度
   assignedBy?: string;
   note?: string;
+  /**
+   * 跳过 KEY_GRANTED 通知（默认 false）。
+   * 由"批准 KeyRequest"流程使用——因 approve 已发 KEY_REQUEST_APPROVED，
+   * 避免给用户重复推送两条通知。
+   */
+  skipUserNotification?: boolean;
 }
 
 export interface GrantBatchFailure {
@@ -90,6 +98,11 @@ export class KeyAssignmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly secrets: SecretsService,
+    /**
+     * Optional：通知发送是 fire-and-forget，模块拼装失败时不应阻塞授权主流程。
+     */
+    @Optional()
+    private readonly notifyPresets?: NotificationPresetsService,
   ) {}
 
   /**
@@ -426,6 +439,27 @@ export class KeyAssignmentsService {
     this.logger.log(
       `[grantBatch] user=${input.userId} succeeded=${succeeded.length} failed=${failed.length}`,
     );
+
+    // fire-and-forget: admin 主动授权时通知被授权用户。approve 流程会自己发
+    // KEY_REQUEST_APPROVED，避免重复故 skipUserNotification=true。
+    if (
+      !input.skipUserNotification &&
+      this.notifyPresets &&
+      succeeded.length > 0
+    ) {
+      const presets = this.notifyPresets;
+      const userId = input.userId;
+      const assignmentIds = succeeded.map((s) => s.id);
+      const modelLabels = succeeded.map((s) => s.modelId);
+      void presets
+        .notifyKeyGranted({ userId, assignmentIds, modelLabels })
+        .catch((err) =>
+          this.logger.warn(
+            `[notify] notifyKeyGranted failed for user ${userId}: ${(err as Error).message}`,
+          ),
+        );
+    }
+
     return { succeeded, failed };
   }
 

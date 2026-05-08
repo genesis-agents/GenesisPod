@@ -25,7 +25,8 @@ export interface UserAssignmentView {
 
 export interface MyKeyRequest {
   id: string;
-  provider: string;
+  // 2026-05-08: 用户提交时不再选 provider；后端字段保留 nullable 仅为兼容历史数据
+  provider: string | null;
   reason: string | null;
   estimatedUsage: 'LIGHT' | 'MEDIUM' | 'HEAVY' | null;
   note: string | null;
@@ -83,7 +84,6 @@ export function useMyKeyRequests() {
 
   const submit = useCallback(
     async (input: {
-      provider: string;
       reason?: string;
       estimatedUsage?: 'LIGHT' | 'MEDIUM' | 'HEAVY';
       note?: string;

@@ -17,7 +17,7 @@ describe("KeyRequestsService", () => {
   const makeRequest = (overrides: Record<string, unknown> = {}) => ({
     id: "r-1",
     userId: "u-1",
-    provider: "openai",
+    provider: null, // 2026-05-08: 用户提交时不再选 provider
     reason: "I need it",
     estimatedUsage: "MEDIUM",
     note: null,
@@ -41,11 +41,15 @@ describe("KeyRequestsService", () => {
         update: jest.fn().mockResolvedValue(makeRequest()),
         count: jest.fn().mockResolvedValue(0),
       },
+      user: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue({ email: "u@x.com" }),
+      },
       $transaction: jest.fn().mockImplementation(async (fn) => fn(prisma)),
     };
     assignments = {
       grantBatch: jest.fn().mockResolvedValue({
-        succeeded: [{ id: "a-1" }],
+        succeeded: [{ id: "a-1", provider: "openai", modelId: "gpt-4o" }],
         failed: [],
       }),
       revoke: jest.fn().mockResolvedValue({ id: "a-1" }),
@@ -61,38 +65,30 @@ describe("KeyRequestsService", () => {
   });
 
   describe("create", () => {
-    it("rejects empty provider", async () => {
-      await expect(service.create("u", { provider: "  " })).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
     it("rejects invalid estimatedUsage", async () => {
       await expect(
         service.create("u", {
-          provider: "openai",
           estimatedUsage: "WRONG" as any,
         }),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("rejects duplicate PENDING request for same provider", async () => {
+    it("rejects when user already has a PENDING request", async () => {
       prisma.keyRequest.findFirst.mockResolvedValueOnce(makeRequest());
-      await expect(
-        service.create("u-1", { provider: "openai" }),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.create("u-1", {})).rejects.toThrow(
+        ConflictException,
+      );
     });
 
-    it("normalizes provider and persists", async () => {
+    it("persists with provider=null (admin chooses model at approve time)", async () => {
       await service.create("u-1", {
-        provider: "OpenAI",
         reason: "  r  ",
         estimatedUsage: "LIGHT",
       });
       expect(prisma.keyRequest.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId: "u-1",
-          provider: "openai",
+          provider: null,
           reason: "r",
           estimatedUsage: "LIGHT",
         }),

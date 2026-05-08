@@ -228,4 +228,110 @@ export class NotificationPresetsService {
       metadata: { balance, threshold },
     });
   }
+
+  /**
+   * 用户提交 BYOK 密钥申请 → fan-out 到所有 admin。
+   * 用户提交时不指定 provider/model（admin 未必有该 provider 可用模型，
+   * 强选会卡死申请）；admin 在审批界面自由选模型授权。
+   * adminUserIds 由调用方查询传入（presets 不感知 user role）。
+   */
+  async notifyKeyRequestSubmitted(params: {
+    adminUserIds: string[];
+    requestId: string;
+    requesterEmail: string;
+    estimatedUsage?: string | null;
+  }) {
+    const { adminUserIds, requestId, requesterEmail, estimatedUsage } = params;
+    if (adminUserIds.length === 0) return;
+
+    const usageSuffix = estimatedUsage ? `（用量预估：${estimatedUsage}）` : "";
+    // batchCreateNotifications DTO 不支持 relatedType/relatedId，故把 requestId 放 metadata；
+    // admin 端列表展示时也优先读 metadata.requestId 跳详情
+    await this.notificationService.batchCreateNotifications({
+      userIds: adminUserIds,
+      type: NotificationTypeDto.KEY_REQUEST_SUBMITTED,
+      title: "新的密钥申请",
+      message: `${requesterEmail} 提交了 API Key 申请${usageSuffix}`,
+      actionUrl: "/admin/access/key-requests",
+      actionLabel: "查看申请",
+      metadata: { requestId, requesterEmail, estimatedUsage },
+    });
+  }
+
+  /**
+   * 申请被批准，通知申请人。provider/model 来自 admin 实际授予的 assignment。
+   */
+  async notifyKeyRequestApproved(params: {
+    userId: string;
+    requestId: string;
+    provider: string;
+    modelId: string;
+  }) {
+    const { userId, requestId, provider, modelId } = params;
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.KEY_REQUEST_APPROVED,
+      title: "密钥申请已批准",
+      message: `你的 API Key 申请已批准，可使用 ${provider} / ${modelId}`,
+      actionUrl: "/me/ai?tab=keys",
+      actionLabel: "查看密钥",
+      relatedType: "key-request",
+      relatedId: requestId,
+      metadata: { requestId, provider, modelId },
+    });
+  }
+
+  /**
+   * 申请被拒绝，通知申请人。reject 流程无 assignment，无 provider 信息。
+   */
+  async notifyKeyRequestRejected(params: {
+    userId: string;
+    requestId: string;
+    reason: string;
+  }) {
+    const { userId, requestId, reason } = params;
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.KEY_REQUEST_REJECTED,
+      title: "密钥申请未通过",
+      message: `你的 API Key 申请未通过：${reason}`,
+      actionUrl: "/me/ai?tab=keys",
+      actionLabel: "查看详情",
+      relatedType: "key-request",
+      relatedId: requestId,
+      metadata: { requestId, reason },
+    });
+  }
+
+  /**
+   * admin 在用户管理界面主动授权（无申请流程），通知被授权用户。
+   * 多模型一次授权时合并成一条通知避免轰炸。
+   */
+  async notifyKeyGranted(params: {
+    userId: string;
+    assignmentIds: string[];
+    modelLabels: string[];
+  }) {
+    const { userId, assignmentIds, modelLabels } = params;
+    if (modelLabels.length === 0) return;
+
+    const summary =
+      modelLabels.length === 1
+        ? modelLabels[0]
+        : `${modelLabels[0]} 等 ${modelLabels.length} 个模型`;
+
+    await this.notificationService.createNotification({
+      userId,
+      type: NotificationTypeDto.KEY_GRANTED,
+      title: "授权已开通",
+      message: `管理员已为你开通 ${summary}`,
+      actionUrl: "/me/ai?tab=keys",
+      actionLabel: "查看授权",
+      relatedType: "key-assignment",
+      relatedId: assignmentIds[0],
+      metadata: { assignmentIds, modelLabels },
+    });
+  }
 }

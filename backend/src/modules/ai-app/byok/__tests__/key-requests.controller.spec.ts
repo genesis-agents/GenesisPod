@@ -57,7 +57,8 @@ describe("UserKeyRequestsController", () => {
 
   describe("create", () => {
     it("forwards user id and dto to service.create", async () => {
-      const dto = { provider: "openai", reason: "学习用途" } as never;
+      // 2026-05-08: dto 不再带 provider；admin 在审批时选模型授权
+      const dto = { reason: "学习用途" } as never;
       const created = { id: "kr-1", status: "PENDING" };
       service.create.mockResolvedValue(created);
 
@@ -76,7 +77,7 @@ describe("UserKeyRequestsController", () => {
       await expect(
         controller.create(
           { user: { id: "user-1", email: "u@x.com" } } as never,
-          { provider: "openai", reason: "x" } as never,
+          { reason: "x" } as never,
         ),
       ).rejects.toThrow("duplicate request");
     });

@@ -8125,6 +8125,12 @@ enum NotificationType {
 
   // AI Social 通知
   SESSION_EXPIRED // 平台会话过期
+
+  // BYOK 密钥申请通知
+  KEY_REQUEST_SUBMITTED // 用户提交了密钥申请，通知所有管理员
+  KEY_REQUEST_APPROVED // 申请被批准，通知用户
+  KEY_REQUEST_REJECTED // 申请被拒绝，通知用户
+  KEY_GRANTED // admin 主动授权（无申请流程），通知被授权用户
 }
 
 /// 用户通知
@@ -9071,12 +9077,18 @@ model KeyAssignment {
 
 /// 用户申请 Key 工单
 model KeyRequest {
-  id                    String           @id @default(cuid())
-  userId                String           @map("user_id")
-  provider              String           @db.VarChar(50)
-  reason                String?          @db.Text
-  estimatedUsage        String?          @map("estimated_usage") @db.VarChar(20) // LIGHT / MEDIUM / HEAVY
-  note                  String?          @db.Text
+  id String @id @default(cuid())
+
+  userId String @map("user_id")
+
+  /// 用户提交申请时**不再选择** provider（admin 未必有该 provider 的可用模型，
+  /// 强制选 provider 反而把申请卡死）。admin 审批时自由选任意 enabled AIModel。
+  /// 字段保留 nullable 仅为向后兼容历史数据；新建申请一律 NULL。
+  provider String? @db.VarChar(50)
+
+  reason         String? @db.Text
+  estimatedUsage String? @map("estimated_usage") @db.VarChar(20) // LIGHT / MEDIUM / HEAVY
+  note           String? @db.Text
   status                KeyRequestStatus @default(PENDING)
   handledBy             String?          @map("handled_by") @db.VarChar(100)
   handledAt             DateTime?        @map("handled_at")

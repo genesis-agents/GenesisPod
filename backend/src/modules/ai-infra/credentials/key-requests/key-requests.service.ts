@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import {
   KeyAssignment,
@@ -13,11 +14,11 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
+import { NotificationPresetsService } from "../../notifications/presets/notification-presets.service";
 
 export type EstimatedUsage = "LIGHT" | "MEDIUM" | "HEAVY";
 
 export interface CreateKeyRequestInput {
-  provider: string;
   reason?: string;
   estimatedUsage?: EstimatedUsage;
   note?: string;
@@ -45,15 +46,37 @@ export class KeyRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly keyAssignments: KeyAssignmentsService,
+    /**
+     * Optional：通知发送是 fire-and-forget，模块拼装失败时不应阻塞密钥申请主流程。
+     * 测试 / 局部场景可以不注入，create/approve/reject 走 graceful no-op。
+     */
+    @Optional()
+    private readonly notifyPresets?: NotificationPresetsService,
   ) {}
+
+  /**
+   * 抓所有 ADMIN role 用户的 id 列表。仅用于 fan-out 通知；
+   * 失败时返回空数组（绝不抛错阻塞 KeyRequest 主流程）。
+   */
+  private async listAdminUserIds(): Promise<string[]> {
+    try {
+      const admins = await this.prisma.user.findMany({
+        where: { role: "ADMIN" },
+        select: { id: true },
+      });
+      return admins.map((a) => a.id);
+    } catch (err) {
+      this.logger.warn(
+        `[notify] listAdminUserIds failed: ${(err as Error).message}`,
+      );
+      return [];
+    }
+  }
 
   async create(
     userId: string,
     input: CreateKeyRequestInput,
   ): Promise<KeyRequest> {
-    const provider = input.provider.toLowerCase().trim();
-    if (!provider) throw new BadRequestException("Provider is required");
-
     if (
       input.estimatedUsage &&
       !ESTIMATED_USAGE_VALUES.includes(input.estimatedUsage)
@@ -61,23 +84,49 @@ export class KeyRequestsService {
       throw new BadRequestException("Invalid estimatedUsage value");
     }
 
+    // 防重复：每用户最多 1 条 PENDING（不再按 provider 分桶）
     const existing = await this.prisma.keyRequest.findFirst({
-      where: { userId, provider, status: KeyRequestStatus.PENDING },
+      where: { userId, status: KeyRequestStatus.PENDING },
     });
     if (existing) {
       throw new ConflictException(
-        `A pending request for "${provider}" already exists`,
+        "You already have a pending key request; please wait for admin to handle it",
       );
     }
 
-    return this.prisma.keyRequest.create({
+    const created = await this.prisma.keyRequest.create({
       data: {
         userId,
-        provider,
+        provider: null,
         reason: input.reason?.trim() || null,
         estimatedUsage: input.estimatedUsage ?? null,
         note: input.note?.trim() || null,
       },
+    });
+
+    // fire-and-forget: fan-out 给所有 admin
+    void this.notifySubmitted(created).catch((err) =>
+      this.logger.warn(
+        `[notify] notifySubmitted failed for request ${created.id}: ${(err as Error).message}`,
+      ),
+    );
+
+    return created;
+  }
+
+  private async notifySubmitted(request: KeyRequest): Promise<void> {
+    if (!this.notifyPresets) return;
+    const adminUserIds = await this.listAdminUserIds();
+    if (adminUserIds.length === 0) return;
+    const requester = await this.prisma.user.findUnique({
+      where: { id: request.userId },
+      select: { email: true },
+    });
+    await this.notifyPresets.notifyKeyRequestSubmitted({
+      adminUserIds,
+      requestId: request.id,
+      requesterEmail: requester?.email ?? request.userId,
+      estimatedUsage: request.estimatedUsage ?? null,
     });
   }
 
@@ -146,6 +195,24 @@ export class KeyRequestsService {
           resultingAssignmentId: assignment.id,
         },
       });
+
+      // fire-and-forget: 通知申请人。provider 取自 assignment（admin 实际给的），
+      // 不取自 request.provider（用户提交时已不指定 provider）。
+      if (this.notifyPresets) {
+        void this.notifyPresets
+          .notifyKeyRequestApproved({
+            userId: updated.userId,
+            requestId: updated.id,
+            provider: assignment.provider,
+            modelId: assignment.modelId,
+          })
+          .catch((err) =>
+            this.logger.warn(
+              `[notify] notifyKeyRequestApproved failed for ${updated.id}: ${(err as Error).message}`,
+            ),
+          );
+      }
+
       return { request: updated, assignment };
     } catch (error) {
       this.logger.error(
@@ -184,7 +251,7 @@ export class KeyRequestsService {
     if (request.status !== KeyRequestStatus.PENDING) {
       throw new ConflictException("Request already handled");
     }
-    return this.prisma.keyRequest.update({
+    const updated = await this.prisma.keyRequest.update({
       where: { id: requestId },
       data: {
         status: KeyRequestStatus.REJECTED,
@@ -193,6 +260,23 @@ export class KeyRequestsService {
         rejectionReason: reason.trim(),
       },
     });
+
+    // fire-and-forget: 通知申请人。reject 路径无 assignment，provider 直接为空。
+    if (this.notifyPresets) {
+      void this.notifyPresets
+        .notifyKeyRequestRejected({
+          userId: updated.userId,
+          requestId: updated.id,
+          reason: reason.trim(),
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `[notify] notifyKeyRequestRejected failed for ${updated.id}: ${(err as Error).message}`,
+          ),
+        );
+    }
+
+    return updated;
   }
 
   async listMine(userId: string): Promise<KeyRequest[]> {

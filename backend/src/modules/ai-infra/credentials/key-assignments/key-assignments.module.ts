@@ -1,10 +1,11 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { SecretsModule } from "../../secrets/secrets.module";
+import { NotificationModule } from "../../notifications/notification.module";
 import { KeyAssignmentsService } from "./key-assignments.service";
 
 @Module({
-  imports: [PrismaModule, SecretsModule],
+  imports: [PrismaModule, SecretsModule, NotificationModule],
   controllers: [],
   providers: [KeyAssignmentsService],
   exports: [KeyAssignmentsService],

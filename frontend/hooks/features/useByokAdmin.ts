@@ -38,7 +38,8 @@ export interface AssignmentView {
 export interface KeyRequestView {
   id: string;
   userId: string;
-  provider: string;
+  // 2026-05-08: 用户提交时不再选 provider；admin 在审批界面自由选 AIModel 授权
+  provider: string | null;
   reason: string | null;
   estimatedUsage: 'LIGHT' | 'MEDIUM' | 'HEAVY' | null;
   note: string | null;

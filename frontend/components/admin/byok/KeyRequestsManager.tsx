@@ -117,9 +117,6 @@ function RequestRow({
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs uppercase text-gray-600">
-              {request.provider}
-            </span>
             <span className="font-mono text-xs text-gray-700">
               user: {request.userId}
             </span>
@@ -197,14 +194,10 @@ function ApproveModal({
     '/admin/ai-models',
     { immediate: true }
   );
+  // 2026-05-08: 用户提交时不再选 provider，admin 看所有 enabled AIModel 自由选授权
   const candidates = useMemo(
-    () =>
-      (modelsData || []).filter(
-        (m) =>
-          m.isEnabled &&
-          m.provider.toLowerCase() === request.provider.toLowerCase()
-      ),
-    [modelsData, request.provider]
+    () => (modelsData || []).filter((m) => m.isEnabled),
+    [modelsData]
   );
   const [selectedModelDbId, setSelectedModelDbId] = useState<string | null>(
     null
@@ -219,8 +212,8 @@ function ApproveModal({
       open
       onClose={onClose}
       size="lg"
-      title={`批准申请 · ${request.provider}`}
-      subtitle="选择要授权给该用户的具体模型"
+      title="批准申请"
+      subtitle="从所有可用模型中选一个授权给该用户（按 provider 分组）"
       footer={
         <div className="flex justify-end gap-2">
           <button
@@ -260,34 +253,15 @@ function ApproveModal({
             <div className="text-sm text-gray-500">加载中...</div>
           ) : candidates.length === 0 ? (
             <div className="rounded-md border border-dashed border-red-300 bg-red-50 p-3 text-sm text-red-700">
-              没有 {request.provider} 的可用模型。请先去「模型管理」启用并配置该
-              provider 的模型。
+              暂无可用模型。请先去「Admin → AI →
+              Models」启用并配置至少一个模型。
             </div>
           ) : (
-            <div className="space-y-2">
-              {candidates.map((m) => (
-                <label
-                  key={m.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${
-                    selectedModelDbId === m.id
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:bg-gray-50'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    checked={selectedModelDbId === m.id}
-                    onChange={() => setSelectedModelDbId(m.id)}
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{m.displayName}</div>
-                    <div className="font-mono text-xs text-gray-500">
-                      {m.modelId} · {m.modelType}
-                    </div>
-                  </div>
-                </label>
-              ))}
-            </div>
+            <ModelPicker
+              candidates={candidates}
+              selectedModelDbId={selectedModelDbId}
+              onSelect={setSelectedModelDbId}
+            />
           )}
         </div>
 
@@ -352,7 +326,7 @@ function RejectModal({
       open
       onClose={onClose}
       size="md"
-      title={`拒绝申请 · ${request.provider}`}
+      title="拒绝申请"
       subtitle="拒绝理由会展示给申请用户"
       footer={
         <div className="flex justify-end gap-2">
@@ -384,5 +358,63 @@ function RejectModal({
         className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
       />
     </Modal>
+  );
+}
+
+// ─── ModelPicker 子组件（按 provider 分组） ─────────────────────────────────
+
+function ModelPicker({
+  candidates,
+  selectedModelDbId,
+  onSelect,
+}: {
+  candidates: ActiveModel[];
+  selectedModelDbId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const grouped = useMemo(() => {
+    const groups = new Map<string, ActiveModel[]>();
+    for (const m of candidates) {
+      const p = (m.provider || 'unknown').toLowerCase();
+      if (!groups.has(p)) groups.set(p, []);
+      groups.get(p)!.push(m);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [candidates]);
+
+  return (
+    <div className="max-h-72 space-y-3 overflow-y-auto rounded-md border border-gray-200 p-3">
+      {grouped.map(([provider, models]) => (
+        <div key={provider}>
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            {provider}
+          </div>
+          <div className="space-y-1.5">
+            {models.map((m) => (
+              <label
+                key={m.id}
+                className={`flex cursor-pointer items-center gap-3 rounded-md border p-2.5 ${
+                  selectedModelDbId === m.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  checked={selectedModelDbId === m.id}
+                  onChange={() => onSelect(m.id)}
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium">{m.displayName}</div>
+                  <div className="font-mono text-xs text-gray-500">
+                    {m.modelId} · {m.modelType}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

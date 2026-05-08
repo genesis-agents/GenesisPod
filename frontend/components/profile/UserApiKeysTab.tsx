@@ -26,16 +26,6 @@ import { apiClient } from '@/lib/api/client';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { UserApiKeyDrawer } from './UserApiKeyDrawer';
 
-const REQUEST_PROVIDERS: Array<{ value: string; label: string }> = [
-  { value: 'openai', label: 'OpenAI (GPT-4o, o1)' },
-  { value: 'anthropic', label: 'Anthropic (Claude)' },
-  { value: 'google', label: 'Google (Gemini)' },
-  { value: 'xai', label: 'xAI (Grok)' },
-  { value: 'deepseek', label: 'DeepSeek' },
-  { value: 'qwen', label: 'Qwen' },
-  { value: 'groq', label: 'Groq' },
-];
-
 const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   openai: {
     color: 'bg-green-100 text-green-700',
@@ -311,9 +301,13 @@ export function UserApiKeysTab() {
 }
 
 // ─── 申请系统 API Key Modal（内嵌，不跳页） ─────────────────────────────────
+//
+// 2026-05-08：用户**不**指定 provider/model。理由：admin 未必有该 provider
+// 可用模型，强选 provider 反而把申请卡死；同时 provider 列表是动态的
+// （admin 在 /admin/ai/models 随时启停 AIModel），前端 hardcode 难以同步。
+// admin 在审批界面根据当前可用 AIModel 自由决定授权。
 function RequestKeyModal({ onClose }: { onClose: () => void }) {
   const { submit } = useMyKeyRequests();
-  const [provider, setProvider] = useState('openai');
   const [reason, setReason] = useState('');
   const [estimated, setEstimated] = useState<'LIGHT' | 'MEDIUM' | 'HEAVY'>(
     'MEDIUM'
@@ -327,7 +321,7 @@ function RequestKeyModal({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       size="lg"
       title="申请系统 API Key"
-      subtitle="管理员审批后会授权你使用该 provider 下的一个具体模型，通常 24 小时内处理"
+      subtitle="提交后管理员将根据当前可用模型为你授权，通常 24 小时内处理"
       footer={
         <div className="flex justify-end gap-2">
           <button
@@ -341,7 +335,6 @@ function RequestKeyModal({ onClose }: { onClose: () => void }) {
             onClick={async () => {
               setSubmitting(true);
               const r = await submit({
-                provider,
                 reason: reason.trim() || undefined,
                 estimatedUsage: estimated,
                 note: note.trim() || undefined,
@@ -362,23 +355,6 @@ function RequestKeyModal({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="space-y-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">
-            Provider *
-          </label>
-          <select
-            value={provider}
-            onChange={(e) => setProvider(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          >
-            {REQUEST_PROVIDERS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div>
           <label className="mb-1 block text-xs font-medium text-gray-700">
             使用目的 *

@@ -31,6 +31,10 @@ const VALID_NOTIFICATION_TYPES: Record<NotificationTypeDto, NotificationType> =
     [NotificationTypeDto.FEEDBACK_REPLIED]: "FEEDBACK_REPLIED",
     [NotificationTypeDto.FEEDBACK_STATUS_CHANGED]: "FEEDBACK_STATUS_CHANGED",
     [NotificationTypeDto.SESSION_EXPIRED]: "SESSION_EXPIRED",
+    [NotificationTypeDto.KEY_REQUEST_SUBMITTED]: "KEY_REQUEST_SUBMITTED",
+    [NotificationTypeDto.KEY_REQUEST_APPROVED]: "KEY_REQUEST_APPROVED",
+    [NotificationTypeDto.KEY_REQUEST_REJECTED]: "KEY_REQUEST_REJECTED",
+    [NotificationTypeDto.KEY_GRANTED]: "KEY_GRANTED",
   };
 
 // 批量操作结果
