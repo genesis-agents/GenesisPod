@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import {
+  Clock,
   Edit,
   Heart,
   Key,
@@ -21,7 +22,10 @@ import {
   type ProviderInfo,
   type UserApiKeyInfo,
 } from '@/hooks/features/useUserApiKeys';
-import { useMyKeyRequests } from '@/hooks/features/useByokUser';
+import {
+  useMyKeyRequests,
+  type MyKeyRequest,
+} from '@/hooks/features/useByokUser';
 import { apiClient } from '@/lib/api/client';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { UserApiKeyDrawer } from './UserApiKeyDrawer';
@@ -83,6 +87,16 @@ export function UserApiKeysTab() {
     getKeysForProvider,
   } = useUserApiKeys();
 
+  const {
+    requests: myRequests,
+    submit: submitKeyRequest,
+    cancel: cancelKeyRequest,
+  } = useMyKeyRequests();
+  const pendingRequest = useMemo(
+    () => myRequests.find((r) => r.status === 'PENDING') ?? null,
+    [myRequests]
+  );
+
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
@@ -91,6 +105,18 @@ export function UserApiKeysTab() {
   );
   const [showAddCustomModal, setShowAddCustomModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
+
+  const handleCancelPending = async () => {
+    if (!pendingRequest) return;
+    if (!confirm('确定撤销当前待审批的申请吗？撤销后可重新提交。')) return;
+    setCancellingRequest(true);
+    try {
+      await cancelKeyRequest(pendingRequest.id);
+    } finally {
+      setCancellingRequest(false);
+    }
+  };
 
   const donatedCount = keys.filter((k) => k.mode === 'donated').length;
   const configuredCount = keys.length;
@@ -205,8 +231,13 @@ export function UserApiKeysTab() {
         </button>
         <button
           onClick={() => setShowRequestModal(true)}
-          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
-          title="向管理员申请系统 API Key"
+          disabled={!!pendingRequest}
+          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+          title={
+            pendingRequest
+              ? '你已有 1 条待审批的申请，请先撤销或等待管理员处理'
+              : '向管理员申请系统 API Key'
+          }
         >
           <Send className="h-4 w-4" />
           申请系统 API Key
@@ -219,6 +250,14 @@ export function UserApiKeysTab() {
           添加自定义 Provider
         </button>
       </div>
+
+      {pendingRequest && (
+        <PendingRequestBanner
+          request={pendingRequest}
+          onCancel={handleCancelPending}
+          cancelling={cancellingRequest}
+        />
+      )}
 
       {/* 表格（结构和列宽与 admin SecretsManager 完全一致） */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
@@ -294,8 +333,78 @@ export function UserApiKeysTab() {
       )}
 
       {showRequestModal && (
-        <RequestKeyModal onClose={() => setShowRequestModal(false)} />
+        <RequestKeyModal
+          onClose={() => setShowRequestModal(false)}
+          submit={submitKeyRequest}
+        />
       )}
+    </div>
+  );
+}
+
+// ─── 待审批申请状态横幅 ─────────────────────────────────────────────────────
+//
+// 2026-05-08：后端策略改为「每用户全局只能有 1 条 PENDING」(see
+// key-requests.service.ts:87-95)。前端必须在用户点击「申请系统 API Key」
+// **之前**就把这条 PENDING 暴露出来，并提供撤销入口，否则用户会反复撞 409。
+function PendingRequestBanner({
+  request,
+  onCancel,
+  cancelling,
+}: {
+  request: MyKeyRequest;
+  onCancel: () => void;
+  cancelling: boolean;
+}) {
+  const usageLabel: Record<NonNullable<MyKeyRequest['estimatedUsage']>, string> =
+    {
+      LIGHT: '轻度 < $5',
+      MEDIUM: '中度 $5-20',
+      HEAVY: '重度 > $20',
+    };
+  const submittedAt = new Date(request.createdAt).toLocaleString();
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+      <div className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+        <Clock className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-medium text-amber-900">
+            待审批
+          </span>
+          <span className="text-sm font-medium text-amber-900">
+            你有 1 条待管理员处理的 API Key 申请
+          </span>
+        </div>
+        <div className="mt-2 space-y-1 text-xs text-amber-800">
+          <div>提交时间：{submittedAt}</div>
+          {request.estimatedUsage && (
+            <div>预计用量：{usageLabel[request.estimatedUsage]}</div>
+          )}
+          {request.reason && (
+            <div className="truncate" title={request.reason}>
+              使用目的：{request.reason}
+            </div>
+          )}
+        </div>
+        <p className="mt-2 text-xs text-amber-700">
+          提交新申请前，请等待管理员处理或先撤销当前申请。
+        </p>
+      </div>
+      <button
+        onClick={onCancel}
+        disabled={cancelling}
+        className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {cancelling ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <X className="h-3.5 w-3.5" />
+        )}
+        {cancelling ? '撤销中...' : '撤销申请'}
+      </button>
     </div>
   );
 }
@@ -306,8 +415,13 @@ export function UserApiKeysTab() {
 // 可用模型，强选 provider 反而把申请卡死；同时 provider 列表是动态的
 // （admin 在 /admin/ai/models 随时启停 AIModel），前端 hardcode 难以同步。
 // admin 在审批界面根据当前可用 AIModel 自由决定授权。
-function RequestKeyModal({ onClose }: { onClose: () => void }) {
-  const { submit } = useMyKeyRequests();
+function RequestKeyModal({
+  onClose,
+  submit,
+}: {
+  onClose: () => void;
+  submit: ReturnType<typeof useMyKeyRequests>['submit'];
+}) {
   const [reason, setReason] = useState('');
   const [estimated, setEstimated] = useState<'LIGHT' | 'MEDIUM' | 'HEAVY'>(
     'MEDIUM'
