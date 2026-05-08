@@ -106,7 +106,25 @@ async function jsonRequest<T>(
     const text = await res.text().catch(() => '');
     throw new Error(sanitizeErrorMessage(res.status, text));
   }
-  return res.json() as Promise<T>;
+  const parsed = await res.json();
+
+  // 解包 ResponseTransformInterceptor 的 { success, data, metadata } envelope，
+  // 与 apiClient(client.ts:341-359) 行为对齐。否则 createRoom 拿到 envelope，
+  // created.id 直接 undefined → 跳到 /ai-ask/rooms/undefined。
+  if (
+    parsed &&
+    typeof parsed === 'object' &&
+    'success' in parsed &&
+    'data' in parsed
+  ) {
+    const otherKeys = Object.keys(parsed).filter(
+      (k) => !['success', 'data', 'metadata', 'message'].includes(k)
+    );
+    if (otherKeys.length === 0) {
+      return (parsed as { data: T }).data;
+    }
+  }
+  return parsed as T;
 }
 
 export const askRoomService = {

@@ -1,8 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  Loader2,
+  Settings2,
+  Users,
+} from 'lucide-react';
 import { askRoomService } from '@/services/ai-ask-room.service';
 import { useAskRoomSocket } from '@/hooks/domain/useAskRoomSocket';
 import { useAskRoomStore } from '@/stores/ask-room.store';
@@ -20,6 +26,15 @@ interface RoomChatPageProps {
   roomId: string;
 }
 
+const MODE_LABELS: Record<AskRoomMode, string> = {
+  FREECHAT: '自由群聊',
+  PARALLEL_MERGE: '并行合并',
+  DEBATE: '辩论',
+  VOTE: '投票',
+  REVIEW: '评审',
+  HANDOFF: '交接',
+};
+
 export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const router = useRouter();
   const session = useAskRoomStore((s) => s.sessionId);
@@ -36,6 +51,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [memberPanelOpen, setMemberPanelOpen] = useState(false);
   const [defaultMode, setDefaultMode] = useState<AskRoomMode>('FREECHAT');
+  const [roomTitle, setRoomTitle] = useState<string>('AI 团队房间');
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -46,8 +62,9 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
       if (typeof cfg.defaultMode === 'string') {
         setDefaultMode(cfg.defaultMode as AskRoomMode);
       }
-      // 详情 API 不返回 messages；W6 follow-up 补 GET /sessions/:id/messages
-      // 当前只用 setRoom 的 messages 字段（后端尚未返回）；初始化为空
+      if (detail.session.title) {
+        setRoomTitle(detail.session.title);
+      }
       setRoom({
         sessionId: detail.session.id,
         members: detail.members,
@@ -69,9 +86,6 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const onEvent = useCallback(
     (event: AskRoomServerEvent) => {
       if (event.kind === 'turn.complete' || event.kind === 'turn.error') {
-        // 评审 W6 重要 #5/#10：turn 结束 reload 拉最新 members + recentTurns。
-        // messages 由 store.applyEvent 持续累积（participant.done 已转 final）。
-        // follow-up F12：后端补 GET /rooms/:id/messages 后改拉真实落库内容覆盖
         logger.debug('[RoomChat] turn ended', event);
         void reload();
       }
@@ -92,7 +106,6 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
     mentionedMemberIds: string[];
   }) => {
     setError(null);
-    // 乐观追加 user 消息（实际值由 backend 决定 sequenceNum，简化为 lastSeq+1）
     const lastSeq = useAskRoomStore.getState().lastSeq;
     appendUserMessage({
       id: `local-${Date.now()}`,
@@ -148,10 +161,18 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
     );
   };
 
+  const activeMembers = useMemo(
+    () => members.filter((m: AskRoomMember) => m.enabled && !m.deletedAt),
+    [members]
+  );
+
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-gray-500">
-        加载中…
+      <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30">
+        <div className="flex items-center gap-3 text-sm text-gray-500">
+          <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+          加载房间...
+        </div>
       </div>
     );
   }
@@ -159,33 +180,99 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const isStreaming = currentTurnStatus === 'RUNNING';
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-700 dark:bg-gray-900">
-        <button
-          type="button"
-          onClick={() => router.push('/ai-ask')}
-          className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-        >
-          <ArrowLeft size={16} />
-          返回
-        </button>
-        <div className="text-sm font-medium">AI 房间</div>
-        <button
-          type="button"
-          onClick={() => setMemberPanelOpen(true)}
-          className="flex items-center gap-1 rounded border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800"
-        >
-          <Users size={14} />
-          成员（{members.filter((m: AskRoomMember) => !m.deletedAt).length}）
-        </button>
-      </div>
+    <div className="flex h-full flex-col bg-gradient-to-br from-slate-50 to-blue-50/30">
+      {/* 商务大气 Header（参考 NewAskRoomModal 风格） */}
+      <header className="border-b border-gray-200/80 bg-white/80 px-6 py-4 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => router.push('/ai-ask')}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            aria-label="返回"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
 
+          <div className="flex flex-1 items-center gap-3 truncate">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md">
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-base font-semibold text-gray-900">
+                {roomTitle}
+              </div>
+              <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                  {MODE_LABELS[defaultMode]}
+                </span>
+                <span>· {activeMembers.length} 名 AI 成员</span>
+                {isStreaming && (
+                  <span className="flex items-center gap-1 text-blue-600">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+                    </span>
+                    生成中
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 在线成员头像簇 */}
+          {activeMembers.length > 0 && (
+            <div className="hidden items-center md:flex">
+              {activeMembers.slice(0, 4).map((m, i) => (
+                <div
+                  key={m.id}
+                  title={m.displayName}
+                  style={{ marginLeft: i === 0 ? 0 : -8 }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-emerald-400 to-teal-500 text-[11px] font-semibold text-white shadow-sm"
+                >
+                  {m.displayName.slice(0, 1).toUpperCase()}
+                </div>
+              ))}
+              {activeMembers.length > 4 && (
+                <div
+                  style={{ marginLeft: -8 }}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-[11px] font-semibold text-gray-600 shadow-sm"
+                >
+                  +{activeMembers.length - 4}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setMemberPanelOpen(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+          >
+            <Settings2 className="h-4 w-4" />
+            <span className="hidden sm:inline">成员管理</span>
+            <ChevronDown className="hidden h-3.5 w-3.5 text-gray-400 sm:inline" />
+          </button>
+        </div>
+      </header>
+
+      {/* Error 浮条 */}
       {error && (
-        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-300">
-          {error}
+        <div className="border-b border-red-200/60 bg-red-50/80 px-6 py-2.5 backdrop-blur-sm">
+          <div className="mx-auto flex max-w-5xl items-center gap-2 text-sm text-red-700">
+            <span className="font-medium">出错了：</span>
+            {error}
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="ml-auto text-xs text-red-500 hover:text-red-700"
+            >
+              关闭
+            </button>
+          </div>
         </div>
       )}
 
+      {/* 消息区 + 输入区 */}
       <RoomMessageList messages={messages} members={members} />
 
       <RoomComposer
