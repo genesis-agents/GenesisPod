@@ -85,6 +85,21 @@ export class AgentPlaygroundEventRelay {
     });
   }
 
+  /**
+   * 记录 stage tokens 消耗 + budget exhaustion 检测 + emit + abort。
+   *
+   * ★ 2026-05-08 PR-C2 决策：暂不上提到 ai-harness/guardrails/budget。
+   *   audit 推荐 P1 抽象 BudgetExhaustionGuard 让 research/TI/writing 复用，但
+   *   邻居 ai-app（4 路审计实证）都没有走 MissionBudgetPool（各自任务级成本统计），
+   *   playground 是 mission-level budget pool 的唯一消费方。按 YAGNI 等第二个
+   *   ai-app 真有 mission-budget exhaustion 需求时再上提（届时把 tick + check +
+   *   emit + abort 抽到 harness/guardrails/budget，event namespace 参数化）。
+   *
+   * 业务链修2 (2026-05-06): budget exhausted 立即 emit + abort（覆盖所有 stage /
+   *   chapter writer tickCost 路径）。之前只在 S3 末尾检查一次，S5+ 阶段 budget
+   *   用尽要 wall-time 4h 才被发现。
+   * P1 leak fix (2026-05-06): exhaustedMissions Map 加 60min 过期清理防内存泄漏。
+   */
   async tickCost(
     missionId: string,
     userId: string,
@@ -107,10 +122,6 @@ export class AgentPlaygroundEventRelay {
         costUsd: snap.poolCostUsd,
       },
     });
-    // ★ 业务链修2: budget exhausted 立即 emit + abort（覆盖所有 stage / chapter writer
-    //   tickCost 路径）。之前只在 S3 末尾检查一次，S5+ 阶段 budget 用尽要 wall-time
-    //   4h 才被发现。recordSpend 后立即检查，单 mission 只触发一次 abort 防重复。
-    // ★ P1 leak fix (2026-05-06): 每次 check 时清 60min 以上的过期条目。
     const now = Date.now();
     for (const [mid, ts] of this.exhaustedMissions) {
       if (now - ts > 60 * 60_000) this.exhaustedMissions.delete(mid);
