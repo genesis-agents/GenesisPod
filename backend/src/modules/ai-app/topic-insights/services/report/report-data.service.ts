@@ -10,7 +10,7 @@ import { toPrismaJson } from "@/common/utils/prisma-json.utils";
 import { sanitizeAllStrings } from "@/common/utils/sanitize-content.utils";
 import { preprocessDimensionContent } from "@/modules/ai-app/contracts/report-template";
 import { isValidFigureUrl } from "../../utils/sanitize-image-url.utils";
-import { stripChartJsonFromContent } from "../../utils/strip-chart-json.utils";
+import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 import { resolveChartPlaceholders } from "../../utils/chart-placeholder.utils";
 import type {
   TopicReport,

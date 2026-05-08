@@ -69,7 +69,7 @@ import {
 import {
   stripChartJsonFromContent,
   extractMarkdownFromJsonString,
-} from "../../utils/strip-chart-json.utils";
+} from "@/modules/ai-engine/facade";
 import { resolveChartPlaceholders as sharedResolveChartPlaceholders } from "../../utils/chart-placeholder.utils";
 import type { ResearchTopic } from "@prisma/client";
 import type { DimensionAnalysisInput } from "../../types/report.types";

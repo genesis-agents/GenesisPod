@@ -1,24 +1,40 @@
 /**
- * Chart JSON Stripping Utilities — 沉淀自 {app}, 2026-04-29
+ * Chart JSON Stripping Utilities — 沉淀自 ai-app, 2026-04-29
  *
  * 纯函数（0 DI，0 LLM）：从 markdown 正文中清理 LLM 泄漏的图表 JSON 块、
  * Figure References 元数据、裸 JSON 行。
  *
- * 标杆参考实现，未来所有 AI App 都从这里 import。
- * 注意：TI 是商用基线，保留独立的本地副本，不切换到本实现。
+ * 单一源：所有 AI App 通过 ai-engine/facade 的 stripChartJsonFromContent / extractMarkdownFromJsonString import。
+ *
+ * 历史：
+ *   2026-04-29 沉淀（标杆参考实现）
+ *   2026-05-06 #81 chartjs/chart-data/chart fence 处理
+ *   2026-05-08 PR-A1 合并业务层本地副本（消除双源）
  */
 
 /**
  * Strip chart JSON blocks that were not properly separated by parseChartOutput.
  * Handles patterns like: ---CHARTS--- {...}, CHARTS--- {...}, ---CHARTS {...},
  * or bare "CHARTS" followed by JSON array/object on next line.
- * ★ Also strips "Figure References" metadata sections.
+ * ★ Also strips "Figure References" metadata sections and ```chartjs / ```chart-data
+ *   / ```chart fenced code blocks (LLM 输出 Chart.js 配置时常用 fence 包裹 JSON)。
  */
 export function stripChartJsonFromContent(content: string): string {
+  // ★ 2026-05-06 #81: chapter writer LLM 经常用 ```chartjs / ```chart-data /
+  //   ```chart 等 fence 包 Chart.js JSON 配置（Mission 1520783d 实证 — dim 4
+  //   "硬件基础设施" 第 4 章正文）。前端 markdown renderer 不识别这种 fence →
+  //   当 code block 显示 raw JSON，用户看到一堆 {"type":"line","data":{"labels":...}}
+  //   既不美观也无信息价值（图表数据本应由 figures[] 走 FigureRenderer 路径）。
+  //   修法：sanitize 阶段直接删除整个 ```{chartjs|chart-data|chart} ... ``` fence。
+  let result = content.replace(
+    /```(?:chartjs|chart-data|chart)\b[^\n]*\n[\s\S]*?\n```\s*/gi,
+    "",
+  );
+
   // ★ Strip "Figure References" metadata sections (LLM leaks internal figure allocation data)
   // Pattern: "Figure References" header followed by non-empty lines until first blank line or heading.
   // Each continuation line must be non-empty and NOT a heading.
-  let result = content.replace(
+  result = result.replace(
     /(?:^|\n)\s*\*{0,2}Figure\s*References\*{0,2}\s*\n(?:(?!#{1,6}\s)[^\n]+\n)*/gim,
     "\n",
   );

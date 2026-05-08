@@ -264,6 +264,49 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
       expect(violations).toEqual([]);
     });
 
+    // ★ 2026-05-08 PR-A1: ai-app/X 不得直接 import ai-app/Y 内部路径
+    //   背景：playground 审计发现 per-dim-pipeline.util.ts 曾 import topic-insights/utils
+    //   （已修正上提到 ai-engine/content/markdown）。本断言守护防回归。
+    //
+    //   合法例外：
+    //   - contracts/ 是显式跨 app 公共契约 shim
+    //   - custom-agents → agent-playground：custom-agents 是 playground 衍生模块，
+    //     playground module.ts 显式 exports dispatcher / mission-store / event-buffer
+    //     供其复用（R-CA 2026-05-05 设计决定）
+    it("ai-app 模块不得跨 app 直接 import 其他 ai-app 内部路径（除 contracts shim 与 allowlist）", () => {
+      const APP_LEVEL_ALLOWLIST: Array<{ from: string; to: string }> = [
+        // R-CA (2026-05-05): custom-agents 复用 agent-playground 启动 + 列表能力
+        { from: "custom-agents", to: "agent-playground" },
+      ];
+      const violations: string[] = [];
+      for (const file of ALL_FILES) {
+        if (fileLayer(file) !== "ai-app") continue;
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        const selfApp = rel.match(/^modules\/ai-app\/([^/]+)\//)?.[1];
+        if (!selfApp) continue;
+        if (selfApp === "contracts") continue;
+        for (const target of extractImportTargets(file)) {
+          const m = target.match(
+            /(?:@\/|\.\.?\/)*modules\/ai-app\/([^/]+)\/(.+)$/,
+          );
+          if (!m) continue;
+          const targetApp = m[1];
+          const subPath = m[2];
+          if (targetApp === selfApp) continue;
+          if (targetApp === "contracts") continue;
+          if (
+            APP_LEVEL_ALLOWLIST.some(
+              (a) => a.from === selfApp && a.to === targetApp,
+            )
+          ) {
+            continue;
+          }
+          violations.push(`${rel} → modules/ai-app/${targetApp}/${subPath}`);
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+
     it("ai-app 不得穿透 ai-infra 内部（除 facade / module .module.ts 入口）", () => {
       // ai-infra 的 .module.ts 是 NestJS 模块装配入口，允许 ai-app .module.ts 引用
       const violations: string[] = [];

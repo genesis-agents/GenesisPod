@@ -43,8 +43,9 @@ import { restoreGlobalIndices } from "@/modules/ai-harness/facade";
 import { scanContentDefects } from "@/modules/ai-harness/facade";
 // ★ 沉淀 v4: LLM 输出白名单清理（"铁墙函数"，13 个正交修复）
 import { sanitizeSectionOutput } from "@/modules/ai-harness/facade";
-// ★ G 三道清理管线 (2026-05-06): TI 同款 chart JSON / Figure refs / bare JSON 剥除
-import { stripChartJsonFromContent } from "@/modules/ai-app/topic-insights/utils/strip-chart-json.utils";
+// ★ G 三道清理管线 (2026-05-06): chart JSON / Figure refs / bare JSON 剥除
+//   2026-05-08 PR-A1: 从 ai-app/topic-insights/utils 上提到 ai-engine/content/markdown
+import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
 export interface PerDimPipelineArgs {
   missionId: string;

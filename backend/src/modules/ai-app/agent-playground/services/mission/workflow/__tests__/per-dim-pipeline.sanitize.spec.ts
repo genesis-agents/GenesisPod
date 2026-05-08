@@ -59,14 +59,16 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 }));
 
 // ★ 模拟 stripChartJsonFromContent 让 spec 可独立验证"被调用"而不依赖真实 strip 逻辑
-jest.mock(
-  "@/modules/ai-app/topic-insights/utils/strip-chart-json.utils",
-  () => ({
+//   2026-05-08 PR-A1: facade 路径已上提到 ai-engine
+jest.mock("@/modules/ai-engine/facade", () => {
+  const actual = jest.requireActual("@/modules/ai-engine/facade");
+  return {
+    ...actual,
     stripChartJsonFromContent: jest.fn((body: string) =>
       body.replace(/```chartjs[\s\S]*?```/gi, ""),
     ),
-  }),
-);
+  };
+});
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 

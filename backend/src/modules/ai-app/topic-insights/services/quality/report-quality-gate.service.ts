@@ -19,7 +19,7 @@ import {
   stripInternalFigureNotation,
   getQualityChecklist,
 } from "@/modules/ai-app/contracts/report-template";
-import { stripChartJsonFromContent } from "../../utils/strip-chart-json.utils";
+import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
 
 /**
  * 质量违规项
