@@ -12,6 +12,7 @@ import {
   Download,
   FileText,
   GitCompareArrows,
+  History,
   ImageIcon,
   Info,
   Layers,
@@ -33,6 +34,7 @@ import { FactTablePanel } from './FactTablePanel';
 import { ReconciliationPanel } from './ReconciliationPanel';
 import { ToolRecallTrace } from './ToolRecallTrace';
 import { ExportDialog } from '@/components/common/ExportDialog';
+import { ReportVersionDrawer } from './ReportVersionDrawer';
 
 type ViewMode = 'continuous' | 'chapter' | 'quick';
 
@@ -165,6 +167,8 @@ export function ArtifactReader({
   const [insightsTab, setInsightsTab] = useState<
     'quality' | 'meta' | 'fact' | 'recon' | 'tool'
   >('quality');
+  // ★ 2026-05-07 学 TI 版本历史抽屉（替代 MetaTabBody 里的 select）
+  const [versionPanelOpen, setVersionPanelOpen] = useState(false);
 
   // Phase P16-7: 视图切换持久到 URL hash
   const [view, setView] = useState<ViewMode>(() => {
@@ -236,6 +240,26 @@ export function ArtifactReader({
               {artifact.quality.overall}
             </span>
           </button>
+          {/* ★ 2026-05-07 版本历史按钮（学 TI TopicContentPanel:1544 sidePanelType='history'） */}
+          {reportVersions && reportVersions.length > 0 && onSelectVersion && (
+            <button
+              type="button"
+              onClick={() => setVersionPanelOpen(true)}
+              className="inline-flex items-center gap-1 rounded-md bg-gray-50 px-2 py-1 text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-gray-100"
+              title="查看历史版本"
+            >
+              <History className="h-3.5 w-3.5" />
+              <span className="font-medium">版本历史</span>
+              <span className="font-mono ml-1 rounded bg-violet-100 px-1 text-[10.5px] font-bold text-violet-700">
+                v{currentVersion ?? artifact.metadata.version}
+              </span>
+              {reportVersions.length > 1 && (
+                <span className="ml-0.5 text-[10px] text-gray-500">
+                  / {reportVersions.length}
+                </span>
+              )}
+            </button>
+          )}
           {missionId && <ExportMenu missionId={missionId} />}
         </div>
       </div>
@@ -356,10 +380,7 @@ export function ArtifactReader({
               {insightsTab === 'meta' && (
                 <MetaTabBody
                   artifact={artifact}
-                  reportVersions={reportVersions}
                   currentVersion={currentVersion}
-                  onSelectVersion={onSelectVersion}
-                  versionSwitching={versionSwitching}
                 />
               )}
               {insightsTab === 'fact' && artifact.factTable.length > 0 && (
@@ -379,6 +400,20 @@ export function ArtifactReader({
             </div>
           </div>
         </>
+      )}
+
+      {/* ★ 2026-05-07 版本历史抽屉 —— 学 TI ReportRevisionHistory 卡片样式 */}
+      {reportVersions && onSelectVersion && (
+        <ReportVersionDrawer
+          open={versionPanelOpen}
+          versions={reportVersions}
+          currentVersion={currentVersion}
+          versionSwitching={versionSwitching}
+          onSelectVersion={(v) => {
+            onSelectVersion(v);
+          }}
+          onClose={() => setVersionPanelOpen(false)}
+        />
       )}
     </div>
   );
@@ -601,21 +636,14 @@ const TRIGGER_LABEL: Record<string, string> = {
 
 function MetaTabBody({
   artifact,
-  reportVersions,
   currentVersion,
-  onSelectVersion,
-  versionSwitching,
 }: {
   artifact: ReportArtifact;
-  reportVersions?: ReportVersionMeta[];
   currentVersion?: number;
-  onSelectVersion?: (v: number) => void;
-  versionSwitching?: boolean;
 }) {
   const m = artifact.metadata;
-  // 2+ 版本时显示下拉；只有 1 个 / 0 个时仅展示当前版本徽章
-  const hasMultipleVersions =
-    !!reportVersions && reportVersions.length >= 2 && !!onSelectVersion;
+  // ★ 2026-05-07：版本切换器已移到顶部工具栏 → ReportVersionDrawer 抽屉。
+  //   元信息 tab 只展示"当前版本"徽章，避免双源（feedback_no_dual_sources）。
   const selectedVersion = currentVersion ?? m.version;
   const generatedAt = (() => {
     try {
@@ -665,45 +693,9 @@ function MetaTabBody({
           {m.topic}
         </p>
 
-        {hasMultipleVersions ? (
-          <div className="mt-2 flex items-center gap-2">
-            <label
-              htmlFor="report-version-select"
-              className="text-[11px] text-gray-500"
-            >
-              切换版本：
-            </label>
-            <select
-              id="report-version-select"
-              className="flex-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px] focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-400 disabled:bg-gray-50 disabled:text-gray-400"
-              value={selectedVersion}
-              disabled={!!versionSwitching}
-              onChange={(e) => {
-                const next = Number.parseInt(e.target.value, 10);
-                if (Number.isFinite(next) && next !== selectedVersion) {
-                  onSelectVersion?.(next);
-                }
-              }}
-            >
-              {reportVersions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  v{v.version}
-                  {v.versionLabel ? ` · ${v.versionLabel}` : ''}
-                  {v.finalScore != null ? ` · ${v.finalScore} 分` : ''}
-                </option>
-              ))}
-            </select>
-            {versionSwitching && (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-violet-500" />
-            )}
-          </div>
-        ) : (
-          <p className="mt-0.5 text-[11px] text-gray-500">
-            {reportVersions && reportVersions.length === 1
-              ? '当前是首次生成版本，rerun 后会出现版本切换器'
-              : '版本历史'}
-          </p>
-        )}
+        <p className="mt-0.5 text-[11px] text-gray-500">
+          点击顶部「版本历史」按钮查看 / 切换历史版本
+        </p>
       </div>
 
       {/* 内容统计 */}
