@@ -53,7 +53,8 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const [defaultMode, setDefaultMode] = useState<AskRoomMode>('FREECHAT');
   const [roomTitle, setRoomTitle] = useState<string>('AI 团队房间');
 
-  const reload = useCallback(async () => {
+  // 初次加载（含 setLoading，会替换整个页面为 "加载房间..."）
+  const initialLoad = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -78,16 +79,36 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
     }
   }, [roomId, setRoom]);
 
+  // turn.complete / turn.error 后的刷新：只刷 members + roomConfig，
+  // **绝不**触碰 messages / setLoading（之前的 reload 会把页面闪回 "加载房间..."
+  // 然后 messages: [] 清空整个对话，用户看到一闪而过回到初始 EmptyState）。
+  const refreshMeta = useCallback(async () => {
+    try {
+      const detail = await askRoomService.getRoom(roomId);
+      const cfg = detail.session.roomConfig;
+      if (typeof cfg.defaultMode === 'string') {
+        setDefaultMode(cfg.defaultMode as AskRoomMode);
+      }
+      if (detail.session.title) {
+        setRoomTitle(detail.session.title);
+      }
+      setMembers(detail.members);
+    } catch (e) {
+      logger.warn(`refreshMeta failed: ${(e as Error).message}`);
+    }
+  }, [roomId, setMembers]);
+
   useEffect(() => {
-    void reload();
+    void initialLoad();
     return () => reset();
-  }, [reload, reset]);
+  }, [initialLoad, reset]);
 
   const onEvent = useCallback(
     (event: AskRoomServerEvent) => {
-      // 暴露后端错误到 UI（之前 turn.error 只 reload，用户看不到原因）
       if (event.kind === 'turn.error') {
         setError(`AI 响应失败：${event.error}`);
+        logger.warn('[RoomChat] turn error', event);
+        void refreshMeta();
       }
       if (event.kind === 'turn.complete') {
         if (event.status === 'FAILED') {
@@ -96,14 +117,10 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
           );
         }
         logger.debug('[RoomChat] turn ended', event);
-        void reload();
-      }
-      if (event.kind === 'turn.error') {
-        logger.warn('[RoomChat] turn error', event);
-        void reload();
+        void refreshMeta();
       }
     },
-    [reload]
+    [refreshMeta]
   );
 
   const socket = useAskRoomSocket({
@@ -181,7 +198,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30">
+      <div className="flex h-full w-full flex-1 items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30">
         <div className="flex items-center gap-3 text-sm text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
           加载房间...
@@ -192,8 +209,10 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
 
   const isStreaming = currentTurnStatus === 'RUNNING';
 
+  // ★ 宽度问题修复：父级 AppShell <main> 是 flex row，子项默认按内容宽度；
+  //   必须显式 w-full + flex-1，否则右半屏空白
   return (
-    <div className="flex h-full flex-col bg-gradient-to-br from-slate-50 to-blue-50/30">
+    <div className="flex h-full w-full flex-1 flex-col bg-gradient-to-br from-slate-50 to-blue-50/30">
       {/* 商务大气 Header（参考 NewAskRoomModal 风格） */}
       <header className="border-b border-gray-200/80 bg-white/80 px-6 py-4 backdrop-blur-sm">
         <div className="flex w-full items-center justify-between gap-4">

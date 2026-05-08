@@ -67,14 +67,17 @@ export function RoomComposer({
     [members]
   );
 
-  // 候选 = enabledMembers 中按 query 模糊匹配的（前缀优先）
+  // 候选 = enabledMembers 中按 query 模糊匹配的（前缀优先 + 字母序兜底）
   const candidates = useMemo(() => {
     if (!mentionState) return [] as AskRoomMember[];
     const q = mentionState.query.toLowerCase();
-    if (!q) return enabledMembers.slice(0, 8);
+    const sortedAlpha = [...enabledMembers].sort((a, b) =>
+      a.displayName.localeCompare(b.displayName)
+    );
+    if (!q) return sortedAlpha.slice(0, 8);
     const starts: AskRoomMember[] = [];
     const contains: AskRoomMember[] = [];
-    for (const m of enabledMembers) {
+    for (const m of sortedAlpha) {
       const name = m.displayName.toLowerCase();
       if (name.startsWith(q)) starts.push(m);
       else if (name.includes(q)) contains.push(m);
@@ -172,12 +175,18 @@ export function RoomComposer({
   const handleSubmit = () => {
     const content = text.trim();
     if (!content) return;
-    // 解析当前文本里出现的 @displayName，补全 mentioned set
+    // ★ Bug fix：之前用 RegExp + `\b` 边界。displayName 末尾若是 `)` / 中文等
+    //   非 word char（实际就是这种情况："Grok (grok-3)"），`\b` 边界匹配
+    //   失败 → 前端识别不出 mention → 后端按 leader 路由错路（screenshot 34）。
+    //   改用 includes：只要文本含 "@<displayName>" 子串就算 mention，不依赖
+    //   word boundary。两个 displayName 互为前缀的极端场景 user 自己看 dropdown
+    //   联想能避开。
     const finalMentioned = new Set<string>();
     for (const m of enabledMembers) {
-      const re = new RegExp(`@${escapeRegex(m.displayName)}\\b`);
-      if (re.test(content)) finalMentioned.add(m.id);
+      if (content.includes(`@${m.displayName}`)) finalMentioned.add(m.id);
     }
+    // 同时 union insertMention 时维护的 set（用户可能粘贴 / 手打省略 displayName）
+    for (const id of mentioned) finalMentioned.add(id);
     onSend({
       content,
       mode,
@@ -187,8 +196,6 @@ export function RoomComposer({
     setMentioned(new Set());
     setMentionState(null);
   };
-
-  void mentioned; // 仅在 insertMention 时维护，最终 send 用文本扫描更可靠
 
   return (
     <div className="border-t border-gray-200/80 bg-white/90 px-6 py-4 backdrop-blur-sm">
@@ -306,8 +313,4 @@ export function RoomComposer({
       </div>
     </div>
   );
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
