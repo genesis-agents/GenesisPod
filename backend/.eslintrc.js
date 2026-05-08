@@ -453,6 +453,49 @@ module.exports = {
       },
     },
     {
+      // ════════════════════════════════════════════════════════════════
+      // ★ 2026-05-08 PR-E0 真因护栏：ai-harness 内部成员禁止反向 import facade barrel。
+      //
+      // 起因：facade/index.ts re-export business-team/lifecycle/mission-runtime-shell.framework，
+      //       同时 re-export RuntimeEnvironmentService。framework 又从 facade barrel 取
+      //       RuntimeEnvironmentService，构成 facade ⇄ framework 循环加载。framework
+      //       加载早于 facade 执行到 RuntimeEnvironmentService 那行 → emit-decorator-metadata
+      //       捕获到 `facade_1.RuntimeEnvironmentService = undefined` → NestJS DI ctor
+      //       参数 [1] 为 undefined token → "Nest can't resolve dependencies" → 启动崩溃。
+      //
+      // 规则：harness 内部所有 ts 文件（除装配 module / 测试 / facade 自身）必须从依赖
+      //       的 source 文件直接导入，不得走 `@/modules/ai-harness/facade`。facade barrel
+      //       是给"外部消费者"（ai-app）用的，harness 内部成员之间互引会构成 barrel 循环。
+      // ════════════════════════════════════════════════════════════════
+      files: ["**/modules/ai-harness/**/*.ts"],
+      excludedFiles: [
+        // facade 自身允许互相 re-export
+        "**/modules/ai-harness/facade/**/*.ts",
+        // *.module.ts 装配时引用 facade 不参与 emit-metadata 闭环，安全
+        "**/modules/ai-harness/**/*.module.ts",
+        // 测试文件
+        "**/modules/ai-harness/**/*.spec.ts",
+        "**/modules/ai-harness/**/*.test.ts",
+        "**/modules/ai-harness/**/__tests__/**/*.ts",
+      ],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["**/ai-harness/facade", "**/ai-harness/facade/**"],
+                message:
+                  "ai-harness 内部成员禁止 import 自身 facade barrel —— facade 也 re-export 你，" +
+                  "构成循环加载会让 emit-decorator-metadata 把 ctor 参数 token 写成 undefined " +
+                  "（参见 PR-E0 真因 commit 30e2a71c4）。请直接从依赖的 source 文件导入。",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       // LLM hardcoding guard: ai-app and core modules must use TaskProfile, not raw params.
       // See CLAUDE.md: "禁止硬编码 model: 'gpt-4o' 或 temperature: 0.7"
       // Legitimate exceptions (ai-engine LLM internals, common direct API calls) are outside this scope.
