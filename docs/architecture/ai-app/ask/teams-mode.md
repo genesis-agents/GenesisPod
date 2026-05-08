@@ -645,6 +645,22 @@ CREATE UNIQUE INDEX promote_to_mission_unique_per_turn
 
 ## 8. API 设计
 
+### 8.0 持久化与列表合流（评审收敛 / 用户提醒）
+
+**ROOM 与 SOLO 共用 `AskSession` 表与既有会话列表 API**，不分流：
+
+| 操作                           | 端点                                                | SOLO | ROOM                                  |
+| ------------------------------ | --------------------------------------------------- | ---- | ------------------------------------- |
+| 会话列表（侧边栏）             | `GET /api/ai-ask/sessions`                          | ✓    | ✓ 同表                                |
+| 会话详情 + 历史消息            | `GET /api/ai-ask/sessions/:id`                      | ✓    | ✓ mode=ROOM 时附 members + 最近 turns |
+| 删除会话                       | `DELETE /api/ai-ask/sessions/:id`                   | ✓    | ✓ cascade 到 AskRoomMember/Turn       |
+| 重命名 / 收藏                  | `PATCH /api/ai-ask/sessions/:id`                    | ✓    | ✓                                     |
+| 用户消息（SOLO 单聊）          | `POST /api/ai-ask/sessions/:id/messages`            | ✓    | — 仅 SOLO                             |
+| 创建房间 / 升级会话            | `POST /api/ai-ask/rooms`                            | —    | ✓                                     |
+| 房间专属操作（成员/turn/升格） | `POST /api/ai-ask/rooms/:id/{members,messages,...}` | —    | ✓                                     |
+
+**意图说明**：用户在前端看到的会话历史是统一的——SOLO 与 ROOM 按 `updatedAt` 混排，前端按 `mode` 字段渲染图标区分（SOLO = 单 AI 头像；ROOM = 成员头像组）。**前端不应该有"我的房间"的独立 tab**——房间就是一种带成员的会话。`/rooms` 路径仅承载 SOLO 没有的专属操作（成员管理、turn 编排、mission 升格）。
+
 ### 8.1 REST
 
 全部以 `/api/ai-ask` 为前缀，新增以 `/rooms` 为子前缀。

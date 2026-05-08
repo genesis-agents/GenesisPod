@@ -424,7 +424,8 @@ if (message.ragSources) {
 - [AI Engine 架构](../../../architecture/ai-engine.md)
 - [积分系统说明](../../../guides/credits-system.md)
 - [Teams 模式设计方案 v0.2](./teams-mode.md)
-- [Teams 模式集体评审纪要](./teams-mode-review.md)
+- [Teams 模式设计评审纪要 v1](./teams-mode-review.md)
+- [Teams 模式 W1 代码评审纪要 v2](./teams-mode-review-v2.md)
 - [ADR-004 AI Ask Teams 模式](../../../decisions/004-ai-ask-teams-mode.md)
 
 ---
