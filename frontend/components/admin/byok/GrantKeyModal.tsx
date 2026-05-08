@@ -18,6 +18,7 @@ interface ActiveModel {
   displayName: string;
   provider: string;
   modelType: string;
+  isEnabled: boolean;
 }
 
 interface GrantBatchResponse {
@@ -47,9 +48,11 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
     { immediate: true }
   );
 
-  // 仅显示 isEnabled=true 的模型；按 provider 分组
+  // 仅显示 isEnabled=true 的模型；按 provider 分组。
+  // 后端 grantBatch 也用 isEnabled=true 过滤，前端 filter 防止 admin 选了禁用
+  // 模型后被后端拒（报"Model not found or inactive"）。
   const grouped = useMemo(() => {
-    const list = modelsData || [];
+    const list = (modelsData || []).filter((m) => m.isEnabled);
     const groups = new Map<string, ActiveModel[]>();
     for (const m of list) {
       const p = (m.provider || 'unknown').toLowerCase();
