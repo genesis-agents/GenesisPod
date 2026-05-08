@@ -123,6 +123,7 @@ function StatusBadge({ status }: { status: AssignmentView['status'] }) {
     SUSPENDED: 'bg-amber-50 text-amber-700',
     EXPIRED: 'bg-gray-50 text-gray-600',
     REVOKED: 'bg-red-50 text-red-700',
+    STALE: 'bg-orange-50 text-orange-700',
   }[status];
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs ${color}`}>

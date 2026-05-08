@@ -1,7 +1,8 @@
 /**
- * ByokMaintenanceScheduler unit tests
- * Covers: resetMonthlyQuotas, expireAssignments, heartbeat cron methods
- *   + PR-E 2026-05-08: markStaleAssignments, renewRecurringAssignments
+ * ByokMaintenanceScheduler unit tests (v5: drop_distributable_keys)
+ *
+ * 2026-05-08 v5 删除 resetMonthlyQuotas 测试（池级配额已废）；
+ * markStaleAssignments 触发条件改为 AIModel.isEnabled=false。
  */
 import { ByokMaintenanceScheduler } from "../byok-maintenance.scheduler";
 import { KeyAssignmentStatus } from "@prisma/client";
@@ -17,16 +18,9 @@ function makePrisma() {
   };
 }
 
-function makeDistributableKeys() {
-  return {
-    resetMonthlyQuotas: jest.fn().mockResolvedValue(0),
-  };
-}
-
 function makeKeyAssignments() {
   return {
     computeNextRenewalAt: jest.fn((from: Date) => {
-      // 简化：每次推 30 天，仅供 spec 验证调用
       const next = new Date(from);
       next.setDate(next.getDate() + 30);
       return next;
@@ -34,57 +28,33 @@ function makeKeyAssignments() {
   };
 }
 
-describe("ByokMaintenanceScheduler", () => {
+describe("ByokMaintenanceScheduler (v5)", () => {
   let service: ByokMaintenanceScheduler;
   let prisma: ReturnType<typeof makePrisma>;
-  let distributableKeys: ReturnType<typeof makeDistributableKeys>;
   let keyAssignments: ReturnType<typeof makeKeyAssignments>;
 
   beforeEach(() => {
     prisma = makePrisma();
-    distributableKeys = makeDistributableKeys();
     keyAssignments = makeKeyAssignments();
     service = new ByokMaintenanceScheduler(
       prisma as unknown as Parameters<
         typeof ByokMaintenanceScheduler.prototype.constructor
       >[0],
-      distributableKeys as unknown as Parameters<
-        typeof ByokMaintenanceScheduler.prototype.constructor
-      >[1],
       keyAssignments as unknown as Parameters<
         typeof ByokMaintenanceScheduler.prototype.constructor
-      >[2],
+      >[1],
     );
   });
 
-  describe("resetMonthlyQuotas", () => {
-    it("calls distributableKeys.resetMonthlyQuotas and logs when count > 0", async () => {
-      distributableKeys.resetMonthlyQuotas.mockResolvedValueOnce(5);
-      await service.resetMonthlyQuotas();
-      expect(distributableKeys.resetMonthlyQuotas).toHaveBeenCalledTimes(1);
-    });
-
-    it("does not throw when count is 0", async () => {
-      distributableKeys.resetMonthlyQuotas.mockResolvedValueOnce(0);
-      await expect(service.resetMonthlyQuotas()).resolves.toBeUndefined();
-    });
-
-    it("catches errors and does not rethrow", async () => {
-      distributableKeys.resetMonthlyQuotas.mockRejectedValueOnce(
-        new Error("DB error"),
-      );
-      await expect(service.resetMonthlyQuotas()).resolves.toBeUndefined();
-    });
-  });
-
   describe("expireAssignments", () => {
-    it("calls prisma.keyAssignment.updateMany with correct status filter", async () => {
+    it("scopes to validityType='ONE_TIME' (not RECURRING)", async () => {
       prisma.keyAssignment.updateMany.mockResolvedValueOnce({ count: 3 });
       await service.expireAssignments();
       expect(prisma.keyAssignment.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             status: KeyAssignmentStatus.ACTIVE,
+            validityType: "ONE_TIME",
             expiresAt: expect.objectContaining({ lt: expect.any(Date) }),
           }),
           data: { status: KeyAssignmentStatus.EXPIRED },
@@ -92,20 +62,7 @@ describe("ByokMaintenanceScheduler", () => {
       );
     });
 
-    // PR-E 2026-05-08: PR-B 限定 ONE_TIME 防误改 RECURRING
-    it("scopes filter to validityType='ONE_TIME' (not RECURRING)", async () => {
-      await service.expireAssignments();
-      const callArg = prisma.keyAssignment.updateMany.mock.calls[0][0];
-      expect(callArg.where.validityType).toBe("ONE_TIME");
-    });
-
-    it("logs when count > 0", async () => {
-      prisma.keyAssignment.updateMany.mockResolvedValueOnce({ count: 2 });
-      await expect(service.expireAssignments()).resolves.toBeUndefined();
-    });
-
-    it("does not log when count is 0", async () => {
-      prisma.keyAssignment.updateMany.mockResolvedValueOnce({ count: 0 });
+    it("does not throw on count=0", async () => {
       await expect(service.expireAssignments()).resolves.toBeUndefined();
     });
 
@@ -123,23 +80,21 @@ describe("ByokMaintenanceScheduler", () => {
     });
   });
 
-  // PR-E 2026-05-08: 联动 cron — 关联 DistributableKey 停用时 ACTIVE→STALE
-  describe("markStaleAssignments", () => {
-    it("executes raw SQL ACTIVE→STALE for assignments under deactivated pools", async () => {
+  describe("markStaleAssignments (v5: based on AIModel.isEnabled)", () => {
+    it("executes raw SQL ACTIVE→STALE for assignments under disabled models", async () => {
       prisma.$executeRaw.mockResolvedValueOnce(2);
       await service.markStaleAssignments();
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
-      // 验证 SQL 模板含 SET status = 'STALE' + WHERE is_active = false
       const sqlTemplate = prisma.$executeRaw.mock.calls[0][0];
       const sqlText = Array.isArray(sqlTemplate)
         ? sqlTemplate.join("?")
         : String(sqlTemplate);
       expect(sqlText).toMatch(/SET\s+status\s*=\s*'STALE'/i);
-      expect(sqlText).toMatch(/is_active\s*=\s*false/i);
+      expect(sqlText).toMatch(/ai_models/);
+      expect(sqlText).toMatch(/is_enabled\s*=\s*false/i);
     });
 
-    it("does not execute reverse STALE→ACTIVE recovery (R2 评审 FAIL 修复)", async () => {
-      // 验证只调一次 raw SQL（仅正向标记），不再做反向自动恢复
+    it("does not do reverse STALE→ACTIVE auto-recovery", async () => {
       prisma.$executeRaw.mockResolvedValueOnce(0);
       await service.markStaleAssignments();
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
@@ -151,9 +106,8 @@ describe("ByokMaintenanceScheduler", () => {
     });
   });
 
-  // PR-E 2026-05-08: RECURRING 周期续期 cron
   describe("renewRecurringAssignments", () => {
-    it("renews due RECURRING assignments via service.computeNextRenewalAt", async () => {
+    it("renews via service.computeNextRenewalAt", async () => {
       const dueDate = new Date("2026-05-08T00:00:00Z");
       prisma.keyAssignment.findMany.mockResolvedValueOnce([
         {
@@ -179,7 +133,7 @@ describe("ByokMaintenanceScheduler", () => {
       });
     });
 
-    it("skips assignment with missing recurrence fields, continues others", async () => {
+    it("skips assignment with missing recurrence fields", async () => {
       prisma.keyAssignment.findMany.mockResolvedValueOnce([
         {
           id: "broken",
@@ -199,7 +153,7 @@ describe("ByokMaintenanceScheduler", () => {
       expect(prisma.keyAssignment.update.mock.calls[0][0].where.id).toBe("a-1");
     });
 
-    it("single update failure does not block other renewals", async () => {
+    it("single update failure does not block others", async () => {
       prisma.keyAssignment.findMany.mockResolvedValueOnce([
         {
           id: "fail",
@@ -233,7 +187,7 @@ describe("ByokMaintenanceScheduler", () => {
       );
     });
 
-    it("catches outer errors and does not rethrow", async () => {
+    it("catches outer errors", async () => {
       prisma.keyAssignment.findMany.mockRejectedValueOnce(new Error("DB"));
       await expect(
         service.renewRecurringAssignments(),

@@ -46,9 +46,10 @@ export default function RequestKeyPage() {
           返回 API Keys
         </Link>
 
-        <h1 className="text-2xl font-semibold text-gray-900">申请 API Key</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">申请使用模型</h1>
         <p className="mt-1 text-sm text-gray-500">
-          管理员会从分发池中选一个 Key 分配给你。通常 24 小时内处理。
+          管理员审批后会授权你使用该 provider 下的一个具体模型。通常 24
+          小时内处理。
         </p>
 
         <div className="mt-6 space-y-4 rounded-lg border border-gray-200 bg-white p-6">

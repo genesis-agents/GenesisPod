@@ -3,12 +3,26 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
 import {
-  type DistributableKeyView,
   type KeyRequestView,
   useAdminKeyRequests,
-  useDistributableKeys,
 } from '@/hooks/features/useByokAdmin';
+import { useApiGet } from '@/hooks/core';
 import { Modal } from '@/components/ui/dialogs/Modal';
+
+/**
+ * 2026-05-08 v5（drop_distributable_keys）:
+ *   审批 modal 从"选 DistributableKey 池"改为"选 AIModel 行"。
+ *   admin 看用户申请的 provider，从该 provider 下 enabled 的 AIModel 选具体一行授权。
+ */
+
+interface ActiveModel {
+  id: string;
+  modelId: string;
+  displayName: string;
+  provider: string;
+  modelType: string;
+  isEnabled: boolean;
+}
 
 const STATUS_TABS = [
   { value: 'PENDING', label: '待处理' },
@@ -139,7 +153,7 @@ function RequestRow({
               onClick={onApprove}
               className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
-              <CheckCircle2 className="h-3.5 w-3.5" /> 批准并分配
+              <CheckCircle2 className="h-3.5 w-3.5" /> 批准并授权
             </button>
           </div>
         )}
@@ -172,18 +186,27 @@ function ApproveModal({
   request: KeyRequestView;
   onClose: () => void;
   onConfirm: (input: {
-    keyId: string;
+    modelDbId: string;
     userQuotaCents?: number | null;
     expiresAt?: string | null;
     note?: string;
   }) => Promise<void>;
 }) {
-  const { keys, loading } = useDistributableKeys({ isActive: true });
-  const candidates = useMemo(
-    () => keys.filter((k) => k.provider === request.provider),
-    [keys, request.provider]
+  // 后端 GET /admin/ai-models 直接返回数组
+  const { data: modelsData, loading } = useApiGet<ActiveModel[]>(
+    '/admin/ai-models',
+    { immediate: true }
   );
-  const [selectedKey, setSelectedKey] = useState<DistributableKeyView | null>(
+  const candidates = useMemo(
+    () =>
+      (modelsData || []).filter(
+        (m) =>
+          m.isEnabled &&
+          m.provider.toLowerCase() === request.provider.toLowerCase()
+      ),
+    [modelsData, request.provider]
+  );
+  const [selectedModelDbId, setSelectedModelDbId] = useState<string | null>(
     null
   );
   const [quota, setQuota] = useState('10');
@@ -197,7 +220,7 @@ function ApproveModal({
       onClose={onClose}
       size="lg"
       title={`批准申请 · ${request.provider}`}
-      subtitle="从分发池中选择一个 Key 分配给该用户"
+      subtitle="选择要授权给该用户的具体模型"
       footer={
         <div className="flex justify-end gap-2">
           <button
@@ -207,12 +230,12 @@ function ApproveModal({
             取消
           </button>
           <button
-            disabled={saving || !selectedKey}
+            disabled={saving || !selectedModelDbId}
             onClick={async () => {
-              if (!selectedKey) return;
+              if (!selectedModelDbId) return;
               setSaving(true);
               await onConfirm({
-                keyId: selectedKey.id,
+                modelDbId: selectedModelDbId,
                 userQuotaCents: quota
                   ? Math.round(parseFloat(quota) * 100)
                   : null,
@@ -223,7 +246,7 @@ function ApproveModal({
             }}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? '处理中...' : '确认批准并分配'}
+            {saving ? '处理中...' : '确认批准并授权'}
           </button>
         </div>
       }
@@ -231,40 +254,35 @@ function ApproveModal({
       <div className="space-y-4">
         <div>
           <label className="mb-2 block text-xs font-medium text-gray-700">
-            选择分发 Key
+            选择具体模型
           </label>
           {loading ? (
             <div className="text-sm text-gray-500">加载中...</div>
           ) : candidates.length === 0 ? (
             <div className="rounded-md border border-dashed border-red-300 bg-red-50 p-3 text-sm text-red-700">
-              没有 {request.provider} 的可用分发 Key。请先去「分发 Key
-              池」添加。
+              没有 {request.provider} 的可用模型。请先去「模型管理」启用并配置该
+              provider 的模型。
             </div>
           ) : (
             <div className="space-y-2">
-              {candidates.map((k) => (
+              {candidates.map((m) => (
                 <label
-                  key={k.id}
+                  key={m.id}
                   className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 ${
-                    selectedKey?.id === k.id
+                    selectedModelDbId === m.id
                       ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   <input
                     type="radio"
-                    checked={selectedKey?.id === k.id}
-                    onChange={() => setSelectedKey(k)}
+                    checked={selectedModelDbId === m.id}
+                    onChange={() => setSelectedModelDbId(m.id)}
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-medium">{k.label}</div>
-                    <div className="text-xs text-gray-500">
-                      配额剩余：
-                      {k.monthlyQuotaCents === null
-                        ? '无限'
-                        : `$${((k.monthlyQuotaCents - k.currentSpendCents) / 100).toFixed(2)} / $${(k.monthlyQuotaCents / 100).toFixed(2)}`}
-                      {' · '}
-                      {k.activeAssignmentCount} 个活跃分配
+                    <div className="text-sm font-medium">{m.displayName}</div>
+                    <div className="font-mono text-xs text-gray-500">
+                      {m.modelId} · {m.modelType}
                     </div>
                   </div>
                 </label>

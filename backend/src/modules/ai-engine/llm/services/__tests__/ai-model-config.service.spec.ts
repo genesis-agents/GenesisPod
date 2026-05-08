@@ -837,7 +837,7 @@ describe("AiModelConfigService", () => {
 
     // W4-byok 2026-05-05 K：ASSIGNED 路径联合查询（管理员分配的 key）
 
-    it("isUserKey=true when user has ASSIGNED key (admin granted DistributableKey)", async () => {
+    it("isUserKey=true when user has ASSIGNED key (admin granted AIModel access)", async () => {
       (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
         mockChatModel, // openai
       ]);

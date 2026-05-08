@@ -6,17 +6,30 @@ import {
 } from "@nestjs/common";
 import { KeyAssignment, KeyAssignmentStatus, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
+import { SecretsService } from "../../secrets/secrets.service";
 import { QuotaExceededError } from "../key-resolver/key-resolver.errors";
+
+/**
+ * 2026-05-08 v5（drop_distributable_keys）:
+ *   - 删除 DistributableKey 双源抽象
+ *   - KeyAssignment 直接关联 AIModel.id（modelDbId）
+ *   - 授权语义=管理员把某模型开放给某用户；不再有"密钥池分配"中间层
+ *   - 解析 apiKey 直接读 AIModel.apiKey/secretKey（支持 SecretsService 间接引用）
+ */
 
 export interface AssignmentView {
   id: string;
-  keyId: string;
+  modelDbId: string;
   provider: string;
+  modelId: string;
   userId: string;
   userQuotaCents: number | null;
   userSpendCents: number;
   status: KeyAssignmentStatus;
+  validityType: string;
+  recurrenceUnit: string | null;
+  recurrenceInterval: number | null;
+  nextRenewalAt: Date | null;
   assignedAt: Date;
   assignedBy: string | null;
   expiresAt: Date | null;
@@ -27,32 +40,22 @@ export interface AssignmentView {
 }
 
 export interface UserAssignmentView extends AssignmentView {
-  keyLabel: string;
-  keyHint: string | null;
-  poolRemainingCents: number | null;
+  modelDisplayName: string;
+  modelEnabled: boolean;
 }
 
 export interface ResolvedAssignment {
   assignmentId: string;
-  keyId: string;
+  modelDbId: string;
   apiKey: string;
   apiEndpoint: string | null;
   userQuotaCents: number | null;
   userSpendCents: number;
 }
 
-export interface AssignInput {
-  keyId: string;
-  userId: string;
-  userQuotaCents?: number | null;
-  expiresAt?: Date | null;
-  assignedBy?: string;
-  note?: string;
-}
-
-// PR-B 2026-05-08: 模型粒度批量授权
 export interface GrantModelInput {
-  modelId: string;
+  /** AIModel.id（不是字符串 modelId；UI 选具体模型行后传 id） */
+  modelDbId: string;
   userQuotaCents?: number | null;
 }
 
@@ -71,7 +74,7 @@ export interface GrantBatchInput {
 }
 
 export interface GrantBatchFailure {
-  modelId: string;
+  modelDbId: string;
   reason: string;
 }
 
@@ -86,64 +89,11 @@ export class KeyAssignmentsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly distributableKeys: DistributableKeysService,
+    private readonly secrets: SecretsService,
   ) {}
 
   /**
-   * 分配 Key 给用户。同 provider 下若已有 ACTIVE 分配，则拒绝。
-   * 返回事务结果，供调用方发送通知。
-   */
-  async assign(input: AssignInput): Promise<KeyAssignment> {
-    const key = await this.prisma.distributableKey.findUnique({
-      where: { id: input.keyId },
-      select: { id: true, provider: true, isActive: true, expiresAt: true },
-    });
-    if (!key) throw new NotFoundException("Distributable key not found");
-    if (!key.isActive) {
-      throw new ConflictException("Cannot assign from an inactive key");
-    }
-    if (key.expiresAt && key.expiresAt < new Date()) {
-      throw new ConflictException("Cannot assign from an expired key");
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      // PR-A 2026-05-08: 旧接口（无 modelId 参数）走 modelId='*' 通配兼容
-      // PR-B 会扩展接口让 admin 可指定具体 modelId 创建多条 assignment
-      const existing = await tx.keyAssignment.findUnique({
-        where: {
-          userId_provider_modelId: {
-            userId: input.userId,
-            provider: key.provider,
-            modelId: "*",
-          },
-        },
-      });
-      if (existing && existing.status === KeyAssignmentStatus.ACTIVE) {
-        throw new ConflictException(
-          `User already has an active assignment for provider "${key.provider}"`,
-        );
-      }
-      // 如已有非 ACTIVE 记录（REVOKED/EXPIRED），先把旧记录删除以满足 unique 约束
-      if (existing) {
-        await tx.keyAssignment.delete({ where: { id: existing.id } });
-      }
-      return tx.keyAssignment.create({
-        data: {
-          keyId: input.keyId,
-          userId: input.userId,
-          provider: key.provider,
-          modelId: "*", // PR-A 旧接口走通配，PR-B 才允许具体 modelId
-          userQuotaCents: input.userQuotaCents ?? null,
-          expiresAt: input.expiresAt ?? null,
-          assignedBy: input.assignedBy,
-          note: input.note,
-        },
-      });
-    });
-  }
-
-  /**
-   * 调整分配（配额 / 到期 / 备注）。不允许从 Revoked 复活。
+   * 调整分配（配额 / 到期 / 备注 / 状态）。不允许从 Revoked 复活。
    */
   async update(
     id: string,
@@ -184,7 +134,7 @@ export class KeyAssignmentsService {
       where: { id },
     });
     if (!existing) throw new NotFoundException("Assignment not found");
-    // 幂等：已经是 REVOKED 的分配不再更新，避免覆盖首次撤销的时间和原因
+    // 幂等：已经是 REVOKED 的分配不再更新
     if (existing.status === KeyAssignmentStatus.REVOKED) return existing;
     return this.prisma.keyAssignment.update({
       where: { id },
@@ -198,161 +148,168 @@ export class KeyAssignmentsService {
   }
 
   /**
-   * 解析用户当前某 provider 的活跃分配；返回已解密的 Key（供 LLM 直调）。
+   * 解析用户对某 provider+modelId 的活跃授权；返回已解密的 Key（供 LLM 直调）。
    * 仅由 KeyResolverService 调用，不暴露给外部。
    *
-   * - 不存在活跃分配 → 返回 null
-   * - 分配已过期 → 标记 EXPIRED 后返回 null
-   * - 用户级配额已耗尽 → 抛 QuotaExceededError
-   * - 池级配额耗尽 / 池 Key 失效 → 返回 null
+   * 行为：
+   *   - 不存在活跃分配 → 返回 null
+   *   - 分配已过期 → 标记 EXPIRED 后返回 null
+   *   - 用户级配额已耗尽 → 抛 QuotaExceededError
+   *   - 关联 AIModel 已 disabled / 解密失败 → 返回 null
+   *
+   * 当前 KeyResolverService.resolveUserKey 调用是 (userId, provider) 二元；
+   * 这里查找逻辑是 modelDbId 唯一约束 [userId, modelDbId]，所以一个 user 在
+   * 一个 provider 下可能有多条 assignment（每个具体 model 一条）。返回首条
+   * 可用的（按 model.priority desc, assignedAt desc 排序）。
    */
   async resolveActive(
     userId: string,
     provider: string,
-    modelId?: string, // PR-B 2026-05-08: 可选 modelId，传时先查具体后 fallback '*'
   ): Promise<ResolvedAssignment | null> {
     const normalized = provider.toLowerCase();
-    // PR-B: 先查具体 modelId（若传入），未命中再 fallback 通配 '*'
-    let assignment = null;
-    if (modelId && modelId !== "*") {
-      assignment = await this.prisma.keyAssignment.findUnique({
-        where: {
-          userId_provider_modelId: { userId, provider: normalized, modelId },
-        },
-      });
-    }
-    if (!assignment) {
-      assignment = await this.prisma.keyAssignment.findUnique({
-        where: {
-          userId_provider_modelId: {
-            userId,
-            provider: normalized,
-            modelId: "*",
+    const candidates = await this.prisma.keyAssignment.findMany({
+      where: {
+        userId,
+        provider: normalized,
+        status: KeyAssignmentStatus.ACTIVE,
+      },
+      include: {
+        model: {
+          select: {
+            id: true,
+            apiKey: true,
+            apiEndpoint: true,
+            secretKey: true,
+            isEnabled: true,
+            priority: true,
           },
         },
-      });
-    }
-    if (!assignment) return null;
-    if (assignment.status !== KeyAssignmentStatus.ACTIVE) return null;
+      },
+      orderBy: [{ assignedAt: "desc" }],
+    });
+    if (!candidates.length) return null;
 
-    // 过期检查
-    if (assignment.expiresAt && assignment.expiresAt < new Date()) {
-      await this.prisma.keyAssignment
-        .update({
-          where: { id: assignment.id },
-          data: { status: KeyAssignmentStatus.EXPIRED },
-        })
-        .catch((err) =>
-          this.logger.warn(
-            `Failed to mark assignment ${assignment.id} as EXPIRED: ${err}`,
-          ),
-        );
-      return null;
-    }
+    // 按 model.priority desc, assignedAt desc 排序
+    const sorted = candidates.slice().sort((a, b) => {
+      const pa = a.model?.priority ?? 0;
+      const pb = b.model?.priority ?? 0;
+      if (pa !== pb) return pb - pa;
+      return b.assignedAt.getTime() - a.assignedAt.getTime();
+    });
 
-    // 用户级配额检查
-    if (
-      assignment.userQuotaCents !== null &&
-      assignment.userSpendCents >= assignment.userQuotaCents
-    ) {
-      throw new QuotaExceededError(normalized, "ASSIGNED", {
-        usedCents: assignment.userSpendCents,
-        limitCents: assignment.userQuotaCents,
-      });
-    }
+    for (const assignment of sorted) {
+      // 过期检查
+      if (assignment.expiresAt && assignment.expiresAt < new Date()) {
+        await this.prisma.keyAssignment
+          .update({
+            where: { id: assignment.id },
+            data: { status: KeyAssignmentStatus.EXPIRED },
+          })
+          .catch((err) =>
+            this.logger.warn(
+              `Failed to mark assignment ${assignment.id} as EXPIRED: ${err}`,
+            ),
+          );
+        continue;
+      }
 
-    const decrypted = await this.distributableKeys.getDecryptedValue(
-      assignment.keyId,
-    );
-    if (!decrypted) {
-      this.logger.warn(
-        `[resolveActive] Pool key ${assignment.keyId} is unavailable ` +
-          `(deactivated/expired/decrypt-failed) but assignment ${assignment.id} ` +
-          `is still ACTIVE. Admin should investigate: disable the assignment ` +
-          `or re-encrypt the pool key.`,
-      );
-      return null; // 池级 Key 已停用/过期/解密失败
-    }
+      // 用户级配额检查
+      if (
+        assignment.userQuotaCents !== null &&
+        assignment.userSpendCents >= assignment.userQuotaCents
+      ) {
+        throw new QuotaExceededError(normalized, "ASSIGNED", {
+          usedCents: assignment.userSpendCents,
+          limitCents: assignment.userQuotaCents,
+        });
+      }
 
-    return {
-      assignmentId: assignment.id,
-      keyId: assignment.keyId,
-      apiKey: decrypted.apiKey,
-      apiEndpoint: decrypted.apiEndpoint,
-      userQuotaCents: assignment.userQuotaCents,
-      userSpendCents: assignment.userSpendCents,
-    };
+      // 关联 model 检查
+      if (!assignment.model || !assignment.model.isEnabled) continue;
+
+      const apiKey = await this.resolveModelApiKey(assignment.model);
+      if (!apiKey) continue;
+
+      return {
+        assignmentId: assignment.id,
+        modelDbId: assignment.modelDbId,
+        apiKey,
+        apiEndpoint: assignment.model.apiEndpoint ?? null,
+        userQuotaCents: assignment.userQuotaCents,
+        userSpendCents: assignment.userSpendCents,
+      };
+    }
+    return null;
   }
 
   /**
-   * PR-1 (2026-05-05) failover: 列出该 user/provider 下所有 ACTIVE 的分配（解密后）。
-   *
-   * 当前 schema `@@unique([userId, provider])` 决定单 user 单 provider 最多 1 个 ACTIVE
-   * 分配，因此实际返回 0 或 1 个。PR-8 改 schema 加 label 后此方法天然支持多条。
-   *
-   * 与 resolveActive 的区别：
-   * - resolveActive 单条 + 抛 QuotaExceededError；本方法批量 + 配额耗尽改为不返回（不抛错）
-   * - 调用方（KeyResolver.resolveKeyChain）需要"过滤掉不可用"的语义，不需要"哪一个是配额耗尽"
+   * failover 入口：列出该 user/provider 下所有 ACTIVE 且可用的分配。
+   * 跟 resolveActive 区别：返回数组，配额耗尽改为不返回（不抛错）。
    */
   async listActive(
     userId: string,
     provider: string,
-    modelId?: string, // PR-B: 同 resolveActive，可选 modelId
   ): Promise<ResolvedAssignment[]> {
     const normalized = provider.toLowerCase();
-    // PR-B: 先具体后 fallback '*'
-    let assignment = null;
-    if (modelId && modelId !== "*") {
-      assignment = await this.prisma.keyAssignment.findUnique({
-        where: {
-          userId_provider_modelId: { userId, provider: normalized, modelId },
-        },
-      });
-    }
-    if (!assignment) {
-      assignment = await this.prisma.keyAssignment.findUnique({
-        where: {
-          userId_provider_modelId: {
-            userId,
-            provider: normalized,
-            modelId: "*",
+    const candidates = await this.prisma.keyAssignment.findMany({
+      where: {
+        userId,
+        provider: normalized,
+        status: KeyAssignmentStatus.ACTIVE,
+      },
+      include: {
+        model: {
+          select: {
+            id: true,
+            apiKey: true,
+            apiEndpoint: true,
+            secretKey: true,
+            isEnabled: true,
+            priority: true,
           },
         },
-      });
-    }
-    if (!assignment) return [];
-    if (assignment.status !== KeyAssignmentStatus.ACTIVE) return [];
-    if (assignment.expiresAt && assignment.expiresAt < new Date()) return [];
-    if (
-      assignment.userQuotaCents !== null &&
-      assignment.userSpendCents >= assignment.userQuotaCents
-    ) {
-      return [];
-    }
-    const decrypted = await this.distributableKeys.getDecryptedValue(
-      assignment.keyId,
-    );
-    if (!decrypted) return [];
-    return [
-      {
+      },
+    });
+    if (!candidates.length) return [];
+
+    const sorted = candidates.slice().sort((a, b) => {
+      const pa = a.model?.priority ?? 0;
+      const pb = b.model?.priority ?? 0;
+      if (pa !== pb) return pb - pa;
+      return b.assignedAt.getTime() - a.assignedAt.getTime();
+    });
+
+    const results: ResolvedAssignment[] = [];
+    for (const assignment of sorted) {
+      if (assignment.expiresAt && assignment.expiresAt < new Date()) continue;
+      if (
+        assignment.userQuotaCents !== null &&
+        assignment.userSpendCents >= assignment.userQuotaCents
+      )
+        continue;
+      if (!assignment.model || !assignment.model.isEnabled) continue;
+      const apiKey = await this.resolveModelApiKey(assignment.model);
+      if (!apiKey) continue;
+      results.push({
         assignmentId: assignment.id,
-        keyId: assignment.keyId,
-        apiKey: decrypted.apiKey,
-        apiEndpoint: decrypted.apiEndpoint,
+        modelDbId: assignment.modelDbId,
+        apiKey,
+        apiEndpoint: assignment.model.apiEndpoint ?? null,
         userQuotaCents: assignment.userQuotaCents,
         userSpendCents: assignment.userSpendCents,
-      },
-    ];
+      });
+    }
+    return results;
   }
 
   /**
-   * PR-B 2026-05-08: 模型粒度批量授权
+   * 模型粒度批量授权
    *
-   * Admin 在 UI 选 N 个 model（可跨 provider）+ 单次/周期有效期 → 一次调用：
-   *   - 每个 model：查 ai_models 表得 provider → 找该 provider 下利用率最低的 active pool
-   *     → upsert KeyAssignment(userId, provider, modelId)
-   *   - 单 model 失败不阻塞其他（如 "no available pool" / "user already active"）
-   *   - 返回 succeeded[] + failed[{ modelId, reason }]
+   * Admin 在 UI 选 N 个 AIModel 行（用 modelDbId 而非字符串 modelId）+ 单次/周期有效期：
+   *   - 每个 modelDbId 查 AIModel 拿 provider/modelId 填充冗余字段
+   *   - upsert KeyAssignment(userId, modelDbId)
+   *   - 单 model 失败不阻塞其他（如 "model not found" / "user already active"）
+   *   - 返回 succeeded[] + failed[{ modelDbId, reason }]
    *
    * RECURRING 自动计算 nextRenewalAt = now + recurrenceInterval × recurrenceUnit
    */
@@ -387,55 +344,56 @@ export class KeyAssignmentsService {
 
     for (const m of input.models) {
       try {
-        // 1. 找 model 的 provider
-        const model = await this.prisma.aIModel.findFirst({
-          where: { modelId: m.modelId, isEnabled: true },
-          select: { provider: true, modelId: true },
+        // 1. 查 model 拿 provider/modelId 填充冗余
+        const model = await this.prisma.aIModel.findUnique({
+          where: { id: m.modelDbId },
+          select: { id: true, provider: true, modelId: true, isEnabled: true },
         });
         if (!model) {
           failed.push({
-            modelId: m.modelId,
-            reason: `Model not found or inactive: ${m.modelId}`,
+            modelDbId: m.modelDbId,
+            reason: `Model not found: ${m.modelDbId}`,
           });
           continue;
         }
+        if (!model.isEnabled) {
+          failed.push({
+            modelDbId: m.modelDbId,
+            reason: `Model is disabled: ${model.modelId}`,
+          });
+          continue;
+        }
+
         const provider = model.provider.toLowerCase();
 
-        // 2. 找该 provider 下利用率最低的 active pool
-        const pool = await this.findBestPoolForProvider(provider);
-        if (!pool) {
-          failed.push({
-            modelId: m.modelId,
-            reason: `No available pool for provider "${provider}"`,
-          });
-          continue;
-        }
-
-        // 3. upsert（旧 EXPIRED/REVOKED 删了重建；旧 ACTIVE 拒绝）
+        // 2. upsert
         const created = await this.prisma.$transaction(async (tx) => {
           const existing = await tx.keyAssignment.findUnique({
             where: {
-              userId_provider_modelId: {
+              userId_modelDbId: {
                 userId: input.userId,
-                provider,
-                modelId: m.modelId,
+                modelDbId: model.id,
               },
             },
           });
           if (existing && existing.status === KeyAssignmentStatus.ACTIVE) {
             throw new ConflictException(
-              `User already has active assignment for ${provider}/${m.modelId}`,
+              `User already has active assignment for ${provider}/${model.modelId}`,
             );
           }
           if (existing) {
             await tx.keyAssignment.delete({ where: { id: existing.id } });
           }
+          // ★ 评审 P1-A1：provider/modelId 是冗余字段（grant 时由 AIModel 派生），
+          //   AIModel.provider/modelId 后续若被 admin 改名，本表不会自动同步。
+          //   单一源是 modelDbId（FK），listing 用冗余字段免 join。如需"重命名后冗余字段
+          //   全量刷新"能力，未来加 cron / trigger（OUT OF SCOPE 本次）。
           return tx.keyAssignment.create({
             data: {
-              keyId: pool.id,
+              modelDbId: model.id,
               userId: input.userId,
               provider,
-              modelId: m.modelId,
+              modelId: model.modelId,
               userQuotaCents: m.userQuotaCents ?? null,
               validityType: input.validityType,
               expiresAt:
@@ -459,7 +417,7 @@ export class KeyAssignmentsService {
         succeeded.push(created);
       } catch (err) {
         failed.push({
-          modelId: m.modelId,
+          modelDbId: m.modelDbId,
           reason: (err as Error).message ?? "Unknown error",
         });
       }
@@ -472,55 +430,7 @@ export class KeyAssignmentsService {
   }
 
   /**
-   * 选 provider 下利用率最低的 active pool
-   * 优先未限额 → 利用率最低 → 最早创建
-   */
-  private async findBestPoolForProvider(
-    provider: string,
-  ): Promise<{ id: string } | null> {
-    const now = new Date();
-    const pools = await this.prisma.distributableKey.findMany({
-      where: {
-        provider,
-        isActive: true,
-        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      },
-      select: {
-        id: true,
-        monthlyQuotaCents: true,
-        currentSpendCents: true,
-        createdAt: true,
-      },
-    });
-    if (!pools.length) return null;
-    const usable = pools.filter(
-      (p) =>
-        p.monthlyQuotaCents === null ||
-        p.currentSpendCents < p.monthlyQuotaCents,
-    );
-    if (!usable.length) return null;
-    usable.sort((a, b) => {
-      const aRate =
-        a.monthlyQuotaCents && a.monthlyQuotaCents > 0
-          ? a.currentSpendCents / a.monthlyQuotaCents
-          : 0;
-      const bRate =
-        b.monthlyQuotaCents && b.monthlyQuotaCents > 0
-          ? b.currentSpendCents / b.monthlyQuotaCents
-          : 0;
-      if (aRate !== bRate) return aRate - bRate;
-      return a.createdAt.getTime() - b.createdAt.getTime();
-    });
-    return { id: usable[0].id };
-  }
-
-  /**
-   * RECURRING 推算下次续期时间
-   *
-   * 跨月边界 clamp（修 Path B 评审 FAIL）：
-   * JS `setMonth` 对 1月31日 + 1月 会溢出到 3月3日（2月无31日）。
-   * MONTH/YEAR 分支显式 clamp 到目标月最后一天，符合用户"每月续期"直觉。
-   *
+   * RECURRING 推算下次续期时间（跨月边界 clamp）。
    * public：cron 续期逻辑也复用此方法，避免双源（feedback_no_dual_sources）。
    */
   computeNextRenewalAt(
@@ -558,29 +468,26 @@ export class KeyAssignmentsService {
   }
 
   /**
-   * 记账：用户级 + 池级双扣，保证两侧累计一致。
+   * 记账：用户级 spend 累加。
+   * 池级 spend 概念已删除（重构后没有"池"），spend 走 userSpendCents +
+   * CreditsService 总账。
    */
   async incrementSpend(assignmentId: string, costCents: number): Promise<void> {
     if (costCents <= 0) return;
-    const assignment = await this.prisma.keyAssignment.findUnique({
-      where: { id: assignmentId },
-      select: { keyId: true },
-    });
-    if (!assignment) return;
-    await this.prisma.$transaction([
-      this.prisma.keyAssignment.update({
+    await this.prisma.keyAssignment
+      .update({
         where: { id: assignmentId },
         data: { userSpendCents: { increment: costCents } },
-      }),
-      this.prisma.distributableKey.update({
-        where: { id: assignment.keyId },
-        data: { currentSpendCents: { increment: costCents } },
-      }),
-    ]);
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `[incrementSpend] failed for assignment ${assignmentId}: ${(err as Error).message}`,
+        ),
+      );
   }
 
   /**
-   * 用户可用的 Provider（仅 ACTIVE 分配）
+   * 用户可用的 Provider（仅 ACTIVE 分配，distinct provider）
    */
   async getAvailableProviders(userId: string): Promise<string[]> {
     const rows = await this.prisma.keyAssignment.findMany({
@@ -592,60 +499,38 @@ export class KeyAssignmentsService {
   }
 
   /**
-   * 用户视角：我被分配的 Key 清单（含剩余配额等展示信息，不包含密文）
+   * 用户视角：我被授权的模型清单（含剩余配额等展示信息，不包含密文）
    */
   async listByUser(userId: string): Promise<UserAssignmentView[]> {
     const rows = await this.prisma.keyAssignment.findMany({
       where: { userId },
       include: {
-        key: {
-          select: {
-            label: true,
-            keyHint: true,
-            monthlyQuotaCents: true,
-            currentSpendCents: true,
-          },
+        model: {
+          select: { displayName: true, isEnabled: true },
         },
       },
       orderBy: [{ status: "asc" }, { assignedAt: "desc" }],
     });
     return rows.map((a) => ({
-      id: a.id,
-      keyId: a.keyId,
-      provider: a.provider,
-      userId: a.userId,
-      userQuotaCents: a.userQuotaCents,
-      userSpendCents: a.userSpendCents,
-      status: a.status,
-      assignedAt: a.assignedAt,
-      assignedBy: a.assignedBy,
-      expiresAt: a.expiresAt,
-      revokedAt: a.revokedAt,
-      revokedBy: a.revokedBy,
-      revokedReason: a.revokedReason,
-      note: a.note,
-      keyLabel: a.key.label,
-      keyHint: a.key.keyHint,
-      poolRemainingCents:
-        a.key.monthlyQuotaCents === null
-          ? null
-          : Math.max(0, a.key.monthlyQuotaCents - a.key.currentSpendCents),
+      ...this.toView(a),
+      modelDisplayName: a.model?.displayName ?? a.modelId,
+      modelEnabled: a.model?.isEnabled ?? false,
     }));
   }
 
   /**
-   * 管理员视角：某 Key 的所有分配
+   * 管理员视角：某 model 的所有授权
    */
-  async listByKey(keyId: string): Promise<AssignmentView[]> {
+  async listByModel(modelDbId: string): Promise<AssignmentView[]> {
     const rows = await this.prisma.keyAssignment.findMany({
-      where: { keyId },
+      where: { modelDbId },
       orderBy: [{ status: "asc" }, { assignedAt: "desc" }],
     });
-    return rows.map(this.toView);
+    return rows.map((a) => this.toView(a));
   }
 
   /**
-   * 管理员视角：全局分配清单（支持分页）
+   * 管理员视角：全局授权清单（支持分页 + provider filter）
    */
   async listAll(filters?: {
     status?: KeyAssignmentStatus;
@@ -662,23 +547,56 @@ export class KeyAssignmentsService {
       take: filters?.take ?? 50,
       skip: filters?.skip ?? 0,
     });
-    return rows.map(this.toView);
+    return rows.map((a) => this.toView(a));
   }
 
-  private toView = (a: KeyAssignment): AssignmentView => ({
-    id: a.id,
-    keyId: a.keyId,
-    provider: a.provider,
-    userId: a.userId,
-    userQuotaCents: a.userQuotaCents,
-    userSpendCents: a.userSpendCents,
-    status: a.status,
-    assignedAt: a.assignedAt,
-    assignedBy: a.assignedBy,
-    expiresAt: a.expiresAt,
-    revokedAt: a.revokedAt,
-    revokedBy: a.revokedBy,
-    revokedReason: a.revokedReason,
-    note: a.note,
-  });
+  private toView(a: KeyAssignment): AssignmentView {
+    return {
+      id: a.id,
+      modelDbId: a.modelDbId,
+      provider: a.provider,
+      modelId: a.modelId,
+      userId: a.userId,
+      userQuotaCents: a.userQuotaCents,
+      userSpendCents: a.userSpendCents,
+      status: a.status,
+      validityType: a.validityType,
+      recurrenceUnit: a.recurrenceUnit,
+      recurrenceInterval: a.recurrenceInterval,
+      nextRenewalAt: a.nextRenewalAt,
+      assignedAt: a.assignedAt,
+      assignedBy: a.assignedBy,
+      expiresAt: a.expiresAt,
+      revokedAt: a.revokedAt,
+      revokedBy: a.revokedBy,
+      revokedReason: a.revokedReason,
+      note: a.note,
+    };
+  }
+
+  /**
+   * 从 AIModel 行解析最终的 apiKey 字符串。
+   *   - 优先 secretKey（SecretsService 间接引用）
+   *   - fallback apiKey（legacy 直存字段）
+   */
+  private async resolveModelApiKey(model: {
+    id: string;
+    apiKey: string | null;
+    secretKey: string | null;
+  }): Promise<string | null> {
+    if (model.secretKey) {
+      try {
+        const secretValue = await this.secrets.getValueInternal(
+          model.secretKey,
+        );
+        if (secretValue?.trim()) return secretValue.trim();
+      } catch (err) {
+        this.logger.warn(
+          `[resolveModelApiKey] secret lookup failed for model ${model.id} (secretKey=${model.secretKey}): ${(err as Error).message}`,
+        );
+      }
+    }
+    if (model.apiKey?.trim()) return model.apiKey.trim();
+    return null;
+  }
 }

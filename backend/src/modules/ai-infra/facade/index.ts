@@ -62,7 +62,6 @@ export { UserApiKeysService } from "../credentials/user-api-keys/user-api-keys.s
 export { KeyResolverService } from "../credentials/key-resolver/key-resolver.service";
 export { ByokMaintenanceScheduler } from "../credentials/scheduling/byok-maintenance.scheduler";
 export { UserModelConfigsService } from "../credentials/user-model-configs/user-model-configs.service";
-export { DistributableKeysService } from "../credentials/distributable-keys/distributable-keys.service";
 export { CreateKeyRequestDto } from "../credentials/key-requests/dto/create-key-request.dto";
 export {
   SaveUserApiKeyDto,

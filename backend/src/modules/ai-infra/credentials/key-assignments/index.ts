@@ -4,5 +4,10 @@ export type {
   AssignmentView,
   UserAssignmentView,
   ResolvedAssignment,
-  AssignInput,
+  GrantModelInput,
+  GrantBatchInput,
+  GrantBatchFailure,
+  GrantBatchResult,
+  ValidityType,
+  RecurrenceUnit,
 } from "./key-assignments.service";

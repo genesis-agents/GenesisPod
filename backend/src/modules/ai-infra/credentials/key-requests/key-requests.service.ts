@@ -24,7 +24,8 @@ export interface CreateKeyRequestInput {
 }
 
 export interface ApproveKeyRequestInput {
-  keyId: string;
+  /** 2026-05-08 v5（drop_distributable_keys）：审批时选具体 AIModel.id，不再选密钥池 */
+  modelDbId: string;
   userQuotaCents?: number | null;
   expiresAt?: Date | null;
   approvedBy: string;
@@ -97,15 +98,13 @@ export class KeyRequestsService {
   /**
    * 管理员批准：先校验 request 状态 → 再创建 Assignment → 再更新 Request。
    *
-   * 不使用外层 $transaction：KeyAssignmentsService.assign 内部已有独立事务，
-   * 外层包裹会构成嵌套事务，外层回滚不会撤销已提交的 assignment，造成数据
-   * 不一致。改为顺序执行 + 末尾更新失败时的补偿撤销。
+   * 2026-05-08 v5: 用 grantBatch 单 model 调用替代旧 assign（assign 已删）。
+   * 失败时补偿 revoke 刚创建的 assignment 保持一致性。
    */
   async approve(
     requestId: string,
     input: ApproveKeyRequestInput,
   ): Promise<{ request: KeyRequest; assignment: KeyAssignment }> {
-    // Step 1：预检查（非事务，仅快速失败）
     const request = await this.prisma.keyRequest.findUnique({
       where: { id: requestId },
     });
@@ -114,18 +113,29 @@ export class KeyRequestsService {
       throw new ConflictException("Request already handled");
     }
 
-    // Step 2：创建 Assignment（自身事务内原子）
-    const assignment = await this.keyAssignments.assign({
-      keyId: input.keyId,
+    // 用 grantBatch 单 model 创建（单 ONE_TIME 授权）
+    const result = await this.keyAssignments.grantBatch({
       userId: request.userId,
-      userQuotaCents: input.userQuotaCents ?? null,
+      models: [
+        {
+          modelDbId: input.modelDbId,
+          userQuotaCents: input.userQuotaCents ?? null,
+        },
+      ],
+      validityType: "ONE_TIME",
       expiresAt: input.expiresAt ?? null,
       assignedBy: input.approvedBy,
       note:
         input.note?.trim() || `Approved from request #${requestId.slice(0, 8)}`,
     });
 
-    // Step 3：更新 KeyRequest 状态。若失败，回滚刚创建的 assignment 以保持一致
+    if (result.failed.length > 0 || result.succeeded.length === 0) {
+      const reason =
+        result.failed[0]?.reason ?? "Unknown error creating assignment";
+      throw new BadRequestException(`Approval failed: ${reason}`);
+    }
+    const assignment = result.succeeded[0];
+
     try {
       const updated = await this.prisma.keyRequest.update({
         where: { id: requestId, status: KeyRequestStatus.PENDING },

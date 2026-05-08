@@ -10,10 +10,13 @@ import {
 } from "class-validator";
 
 export class ApproveKeyRequestDto {
-  @ApiProperty({ description: "Distributable key ID to assign from" })
+  @ApiProperty({
+    description:
+      "AIModel.id to grant access to (2026-05-08 v5: 不再选密钥池，直接选具体模型)",
+  })
   @IsString()
   @MinLength(1)
-  keyId!: string;
+  modelDbId!: string;
 
   @ApiPropertyOptional({
     description: "User-level quota in cents (null = unlimited)",

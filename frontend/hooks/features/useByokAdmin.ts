@@ -1,37 +1,31 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { useApiGet } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-
-export interface DistributableKeyView {
-  id: string;
-  provider: string;
-  label: string;
-  keyHint: string | null;
-  apiEndpoint: string | null;
-  monthlyQuotaCents: number | null;
-  currentSpendCents: number;
-  quotaResetAt: string;
-  isActive: boolean;
-  expiresAt: string | null;
-  activeAssignmentCount: number;
-  createdAt: string;
-  updatedAt: string;
-  createdBy: string | null;
-}
+//
+// 2026-05-08 v5（drop_distributable_keys）:
+//   - 删除 DistributableKeyView 类型 + useDistributableKeys/useDistributableKeyDetail hook
+//   - AssignmentView：keyId → modelDbId（FK 改 AIModel.id），加 modelId / modelDisplayName
+//   - ByokDashboardMetrics：池级指标 → 模型级指标
+//   - approve 入参：keyId → modelDbId
 
 export interface AssignmentView {
   id: string;
-  keyId: string;
+  modelDbId: string;
   provider: string;
+  modelId: string;
   userId: string;
   userQuotaCents: number | null;
   userSpendCents: number;
-  status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED';
+  status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED' | 'STALE';
+  validityType: 'ONE_TIME' | 'RECURRING';
+  recurrenceUnit: 'WEEK' | 'MONTH' | 'YEAR' | null;
+  recurrenceInterval: number | null;
+  nextRenewalAt: string | null;
   assignedAt: string;
   assignedBy: string | null;
   expiresAt: string | null;
@@ -58,137 +52,13 @@ export interface KeyRequestView {
 }
 
 export interface ByokDashboardMetrics {
-  totalKeys: number;
-  activeKeys: number;
+  totalModels: number;
+  enabledModels: number;
   activeAssignments: number;
   pendingRequests: number;
-  monthlySpendCents: number;
-  monthlyQuotaCents: number | null;
+  totalSpendCents: number;
+  totalQuotaCents: number | null;
   utilizationPercent: number | null;
-}
-
-// ─── Distributable Keys ──────────────────────────────────────────────────────
-
-export function useDistributableKeys(filters?: {
-  provider?: string;
-  isActive?: boolean;
-}) {
-  const query = new URLSearchParams();
-  if (filters?.provider) query.set('provider', filters.provider);
-  if (filters?.isActive !== undefined)
-    query.set('isActive', String(filters.isActive));
-  const qs = query.toString();
-
-  const {
-    data,
-    loading,
-    error,
-    execute: refresh,
-  } = useApiGet<{
-    items: DistributableKeyView[];
-  }>(`/admin/distributable-keys${qs ? `?${qs}` : ''}`, { immediate: true });
-
-  const [mutating, setMutating] = useState(false);
-
-  const create = useCallback(
-    async (input: {
-      provider: string;
-      label: string;
-      apiKey: string;
-      apiEndpoint?: string;
-      monthlyQuotaCents?: number;
-      expiresAt?: string;
-    }): Promise<DistributableKeyView | null> => {
-      setMutating(true);
-      try {
-        const result = await apiClient.post<DistributableKeyView>(
-          '/admin/distributable-keys',
-          input
-        );
-        await refresh();
-        toast.success('Key 已添加到分发池');
-        return result;
-      } catch (err) {
-        toast.error((err as Error).message || '创建失败');
-        return null;
-      } finally {
-        setMutating(false);
-      }
-    },
-    [refresh]
-  );
-
-  const update = useCallback(
-    async (
-      id: string,
-      patch: Partial<DistributableKeyView> & { apiKey?: string }
-    ) => {
-      setMutating(true);
-      try {
-        await apiClient.patch(`/admin/distributable-keys/${id}`, patch);
-        await refresh();
-        toast.success('已更新');
-        return true;
-      } catch (err) {
-        toast.error((err as Error).message || '更新失败');
-        return false;
-      } finally {
-        setMutating(false);
-      }
-    },
-    [refresh]
-  );
-
-  const deactivate = useCallback(
-    async (id: string) => {
-      setMutating(true);
-      try {
-        await apiClient.delete(`/admin/distributable-keys/${id}`);
-        await refresh();
-        toast.success('Key 已停用');
-        return true;
-      } catch (err) {
-        toast.error((err as Error).message || '停用失败');
-        return false;
-      } finally {
-        setMutating(false);
-      }
-    },
-    [refresh]
-  );
-
-  return {
-    keys: data?.items || [],
-    loading,
-    error,
-    mutating,
-    refresh,
-    create,
-    update,
-    deactivate,
-  };
-}
-
-export function useDistributableKeyDetail(id: string | null) {
-  const {
-    data,
-    loading,
-    error,
-    execute: refresh,
-  } = useApiGet<{
-    key: DistributableKeyView;
-    assignments: AssignmentView[];
-  }>(`/admin/distributable-keys/${id ?? ''}`, {
-    immediate: !!id,
-    deps: [id],
-  });
-  return {
-    key: data?.key ?? null,
-    assignments: data?.assignments ?? [],
-    loading,
-    error,
-    refresh,
-  };
 }
 
 // ─── Admin Assignments ───────────────────────────────────────────────────────
@@ -218,7 +88,7 @@ export function useAdminKeyAssignments(filters?: {
           headers: { 'Content-Type': 'application/json' },
         });
         await refresh();
-        toast.success('分配已撤销');
+        toast.success('授权已撤销');
         return true;
       } catch (err) {
         toast.error((err as Error).message || '撤销失败');
@@ -280,7 +150,7 @@ export function useAdminKeyRequests(filters?: { status?: string }) {
     async (
       id: string,
       input: {
-        keyId: string;
+        modelDbId: string;
         userQuotaCents?: number | null;
         expiresAt?: string | null;
         note?: string;
@@ -289,7 +159,7 @@ export function useAdminKeyRequests(filters?: { status?: string }) {
       try {
         await apiClient.post(`/admin/key-requests/${id}/approve`, input);
         await refresh();
-        toast.success('申请已批准并完成分配');
+        toast.success('申请已批准并完成授权');
         return true;
       } catch (err) {
         toast.error((err as Error).message || '批准失败');

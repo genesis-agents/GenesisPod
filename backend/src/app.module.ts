@@ -39,7 +39,6 @@ import { CreditsModule } from "./modules/ai-infra/credits/credits.module";
 import { EncryptionModule } from "./modules/ai-infra/encryption/encryption.module";
 import { UserApiKeysModule } from "./modules/ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { ByokModule } from "./modules/ai-app/byok/byok.module";
-import { DistributableKeysModule } from "./modules/ai-infra/credentials/distributable-keys";
 import { KeyAssignmentsModule } from "./modules/ai-infra/credentials/key-assignments";
 import { KeyRequestsModule } from "./modules/ai-infra/credentials/key-requests";
 import { KeyResolverModule } from "./modules/ai-infra/credentials/key-resolver";
@@ -193,7 +192,6 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     UserApiKeysModule,
     ByokModule, // BYOK user-facing controllers (PR-X17: migrated from ai-engine/llm)
     // BYOK v2ï¼šå¯åˆ†å‘ Key æ±  + åˆ†é… + ç”³è¯· + ç»Ÿä¸€è§£æž
-    DistributableKeysModule,
     KeyAssignmentsModule,
     KeyRequestsModule,
     KeyResolverModule,

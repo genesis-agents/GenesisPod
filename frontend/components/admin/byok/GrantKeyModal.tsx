@@ -23,11 +23,12 @@ interface ActiveModel {
 
 interface GrantBatchResponse {
   succeeded: Array<{ id: string; modelId: string; provider: string }>;
-  failed: Array<{ modelId: string; reason: string }>;
+  failed: Array<{ modelDbId: string; reason: string }>;
 }
 
 interface SelectedModel {
-  modelId: string;
+  modelDbId: string; // AIModel.id（v5 重构后用 db id 而非字符串 modelId）
+  modelId: string; // 字符串 modelId 仅用于 UI 显示和错误信息
   userQuotaCents: string; // string for input control
 }
 
@@ -72,23 +73,27 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const toggleModel = (modelId: string) => {
+  const toggleModel = (model: ActiveModel) => {
     setSelected((prev) => {
       const next = new Map(prev);
-      if (next.has(modelId)) {
-        next.delete(modelId);
+      if (next.has(model.id)) {
+        next.delete(model.id);
       } else {
-        next.set(modelId, { modelId, userQuotaCents: '' });
+        next.set(model.id, {
+          modelDbId: model.id,
+          modelId: model.modelId,
+          userQuotaCents: '',
+        });
       }
       return next;
     });
   };
 
-  const updateQuota = (modelId: string, value: string) => {
+  const updateQuota = (modelDbId: string, value: string) => {
     setSelected((prev) => {
       const next = new Map(prev);
-      const cur = next.get(modelId);
-      if (cur) next.set(modelId, { ...cur, userQuotaCents: value });
+      const cur = next.get(modelDbId);
+      if (cur) next.set(modelDbId, { ...cur, userQuotaCents: value });
       return next;
     });
   };
@@ -117,7 +122,7 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
         {
           userId,
           models: Array.from(selected.values()).map((s) => ({
-            modelId: s.modelId,
+            modelDbId: s.modelDbId,
             userQuotaCents: s.userQuotaCents
               ? Math.round(parseFloat(s.userQuotaCents) * 100)
               : null,
@@ -137,7 +142,7 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
         toast.success(`已成功授权 ${result.succeeded.length} 个模型`);
       } else {
         const failedMsg = result.failed
-          .map((f) => `${f.modelId}: ${f.reason}`)
+          .map((f) => `${f.modelDbId}: ${f.reason}`)
           .join('; ');
         toast.error(
           `部分失败 (${result.failed.length}/${selected.size}): ${failedMsg}`
@@ -217,9 +222,8 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
                   </div>
                   <div className="space-y-1.5">
                     {models.map((m) => {
-                      const isSelected = selected.has(m.modelId);
-                      const quota =
-                        selected.get(m.modelId)?.userQuotaCents ?? '';
+                      const isSelected = selected.has(m.id);
+                      const quota = selected.get(m.id)?.userQuotaCents ?? '';
                       return (
                         <label
                           key={m.id}
@@ -232,7 +236,7 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => toggleModel(m.modelId)}
+                            onChange={() => toggleModel(m)}
                             className="h-4 w-4 rounded border-gray-300"
                           />
                           <div className="flex-1">
@@ -254,7 +258,7 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
                                 min="0"
                                 value={quota}
                                 onChange={(e) =>
-                                  updateQuota(m.modelId, e.target.value)
+                                  updateQuota(m.id, e.target.value)
                                 }
                                 onClick={(e) => e.stopPropagation()}
                                 placeholder="无限"

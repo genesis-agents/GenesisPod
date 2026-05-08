@@ -26,8 +26,8 @@ export interface ResolvedKey {
   userId: string;
   /** 仅 ASSIGNED 来源返回，用于消费回写 */
   assignmentId?: string;
-  /** 仅 ASSIGNED 来源返回，用于审计 */
-  keyId?: string;
+  /** 仅 ASSIGNED 来源返回，用于审计（管理员授权的 AIModel.id） */
+  modelDbId?: string;
   /**
    * KeyHealth 命名空间下的统一标识：
    *   personal:{userId}:{provider}:{label}
@@ -215,7 +215,7 @@ export class KeyResolverService {
         provider,
         userId,
         assignmentId: assigned.assignmentId,
-        keyId: assigned.keyId,
+        modelDbId: assigned.modelDbId,
         healthKeyId: buildAssignedKeyId(assigned.assignmentId),
       };
     }
@@ -285,7 +285,7 @@ export class KeyResolverService {
         provider: normalizedProvider,
         userId,
         assignmentId: a.assignmentId,
-        keyId: a.keyId,
+        modelDbId: a.modelDbId,
         healthKeyId: buildAssignedKeyId(a.assignmentId),
       });
     }

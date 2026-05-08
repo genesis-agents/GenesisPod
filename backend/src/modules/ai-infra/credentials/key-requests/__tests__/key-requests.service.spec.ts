@@ -44,7 +44,11 @@ describe("KeyRequestsService", () => {
       $transaction: jest.fn().mockImplementation(async (fn) => fn(prisma)),
     };
     assignments = {
-      assign: jest.fn().mockResolvedValue({ id: "a-1" }),
+      grantBatch: jest.fn().mockResolvedValue({
+        succeeded: [{ id: "a-1" }],
+        failed: [],
+      }),
+      revoke: jest.fn().mockResolvedValue({ id: "a-1" }),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -102,20 +106,43 @@ describe("KeyRequestsService", () => {
         makeRequest({ status: KeyRequestStatus.APPROVED }),
       );
       await expect(
-        service.approve("r-1", { keyId: "k", approvedBy: "admin" }),
+        service.approve("r-1", { modelDbId: "m-1", approvedBy: "admin" }),
       ).rejects.toThrow(ConflictException);
     });
 
-    it("creates assignment and marks request APPROVED in a transaction", async () => {
+    it("throws BadRequestException when grantBatch returns failed[] (request stays PENDING)", async () => {
+      (assignments.grantBatch as jest.Mock).mockResolvedValueOnce({
+        succeeded: [],
+        failed: [{ modelDbId: "ghost", reason: "Model not found: ghost" }],
+      });
+      await expect(
+        service.approve("r-1", { modelDbId: "ghost", approvedBy: "admin@ex" }),
+      ).rejects.toThrow(/Approval failed.*Model not found/);
+      // request 仍是 PENDING（update 没被调用切换状态）
+      const updateCalls = prisma.keyRequest.update.mock.calls;
+      const statusUpdates = updateCalls.filter(
+        (c: unknown[]) =>
+          (c[0] as { data?: { status?: string } }).data?.status === "APPROVED",
+      );
+      expect(statusUpdates).toHaveLength(0);
+    });
+
+    it("creates assignment via grantBatch and marks request APPROVED", async () => {
       await service.approve("r-1", {
-        keyId: "k-1",
+        modelDbId: "m-1",
         userQuotaCents: 500,
         approvedBy: "admin@ex",
       });
-      expect(assignments.assign).toHaveBeenCalledWith(
+      expect(assignments.grantBatch).toHaveBeenCalledWith(
         expect.objectContaining({
-          keyId: "k-1",
-          userQuotaCents: 500,
+          userId: expect.any(String),
+          models: [
+            expect.objectContaining({
+              modelDbId: "m-1",
+              userQuotaCents: 500,
+            }),
+          ],
+          validityType: "ONE_TIME",
           assignedBy: "admin@ex",
         }),
       );

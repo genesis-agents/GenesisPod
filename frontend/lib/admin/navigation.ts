@@ -13,7 +13,6 @@ import {
   Sparkles,
   Users,
   Key,
-  KeySquare,
   Inbox,
   ShieldCheck,
   Globe,
@@ -183,18 +182,6 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.secrets',
         href: '/admin/access/secrets',
         icon: Key,
-      },
-      {
-        key: 'distributable-keys',
-        labelKey: 'admin.nav.distributableKeys',
-        href: '/admin/access/distributable-keys',
-        icon: KeySquare,
-      },
-      {
-        key: 'key-assignments',
-        labelKey: 'admin.nav.keyAssignments',
-        href: '/admin/access/key-assignments',
-        icon: Users,
       },
       {
         key: 'key-requests',

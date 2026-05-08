@@ -2,17 +2,20 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { KeyAssignmentStatus } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { DistributableKeysService } from "../distributable-keys/distributable-keys.service";
 import { KeyAssignmentsService } from "../key-assignments/key-assignments.service";
 
 /**
- * BYOK 自动维护：定时重置分发池月度配额、标过期分配。
+ * BYOK 自动维护：标过期分配、关联模型 disabled 时联动 STALE、RECURRING 续期。
+ *
+ * 2026-05-08 v5（drop_distributable_keys）:
+ *   - 删除 resetMonthlyQuotas（池级配额已废弃，spend 走 userSpendCents + CreditsService）
+ *   - markStaleAssignments：触发条件由 DistributableKey.isActive=false 改为
+ *     AIModel.isEnabled=false（管理员在 /admin/ai/models 关闭某模型时联动）
  *
  * 设计原则（防呆）：
- * - 任务幂等：重置只动 quotaResetAt <= NOW() 的 Key；过期只动 ACTIVE+已过期的分配
+ * - 任务幂等：过期只动 ACTIVE+已过期的分配；STALE 只动关联 disabled 模型的 ACTIVE
  * - 失败自恢复：单次失败不阻塞下一个周期；catch 包裹避免 Nest 进程崩溃
- * - 与管理员手动端点并存：`POST /admin/byok-dashboard/maintenance/*` 保留作为
- *   紧急手动触发入口，两者逻辑共用同一 Service，不会产生二次状态
+ * - 与管理员手动端点并存：保留 service 共用，不会产生二次状态
  */
 @Injectable()
 export class ByokMaintenanceScheduler {
@@ -20,33 +23,8 @@ export class ByokMaintenanceScheduler {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly distributableKeys: DistributableKeysService,
     private readonly keyAssignments: KeyAssignmentsService,
   ) {}
-
-  /**
-   * 每天 UTC 00:10 重置分发池月度配额。
-   * - UTC 对齐：quotaResetAt 本就按 UTC 推进到下月 1 日，选 00:10 留 10 分钟缓冲
-   * - 实际只重置 quotaResetAt 到期的 Key（见 DistributableKeysService.resetMonthlyQuotas）
-   */
-  @Cron("10 0 * * *", {
-    name: "byok.reset-monthly-quotas",
-    timeZone: "UTC",
-  })
-  async resetMonthlyQuotas(): Promise<void> {
-    try {
-      const count = await this.distributableKeys.resetMonthlyQuotas();
-      if (count > 0) {
-        this.logger.log(
-          `[cron:reset-quotas] Reset monthly quota for ${count} distributable keys`,
-        );
-      }
-    } catch (error) {
-      this.logger.error(
-        `[cron:reset-quotas] Failed: ${(error as Error).message}`,
-      );
-    }
-  }
 
   /**
    * 每天 UTC 00:20 把过期的 ACTIVE 分配标为 EXPIRED。
@@ -58,7 +36,7 @@ export class ByokMaintenanceScheduler {
   })
   async expireAssignments(): Promise<void> {
     try {
-      // PR-B 2026-05-08: 限定 validityType='ONE_TIME'，避免误改 RECURRING 周期续期
+      // 限定 validityType='ONE_TIME'，避免误改 RECURRING 周期续期
       const result = await this.prisma.keyAssignment.updateMany({
         where: {
           status: KeyAssignmentStatus.ACTIVE,
@@ -80,13 +58,15 @@ export class ByokMaintenanceScheduler {
   }
 
   /**
-   * PR-B 2026-05-08: 每小时检查关联 DistributableKey 已停用的 ACTIVE 分配 → STALE
+   * 每小时检查关联 AIModel 已 disabled 的 ACTIVE 分配 → STALE
    *
-   * 当前 schema 没有 cascade，DistributableKey.isActive=false 时关联 KeyAssignment 仍 ACTIVE。
-   * 这导致 admin/UI 看到 alice 的权益是绿色 ACTIVE，但实际 KeyResolver 解析时找不到 active 池。
-   * cron 每小时同步 STALE 状态 + admin UI 警告 + 前端用户引导重新申请。
+   * 触发场景：管理员在 /admin/ai/models 把某模型 isEnabled=false
+   * → 该模型下所有 ACTIVE KeyAssignment 同步 STALE
+   * → admin UI 警告 + 前端用户引导重新申请其他模型
    *
-   * 注意：cascade 不撤销 assignment（admin 可能恢复 Key 池），仅打标。
+   * cascade 不撤销 assignment（admin 可能重启 model），仅打标。
+   * 反向 STALE→ACTIVE 不做（admin disable 是有意操作）；恢复路径在 admin
+   * 重启 model 时显式触发。
    */
   @Cron(CronExpression.EVERY_HOUR, {
     name: "byok.mark-stale-assignments",
@@ -94,23 +74,19 @@ export class ByokMaintenanceScheduler {
   })
   async markStaleAssignments(): Promise<void> {
     try {
-      // 用 raw SQL 一次到位（避免先 query 再 updateMany 的并发漂移）
       const result = await this.prisma.$executeRaw`
         UPDATE key_assignments
         SET status = 'STALE'
         WHERE status = 'ACTIVE'
-          AND key_id IN (
-            SELECT id FROM distributable_keys WHERE is_active = false
+          AND model_db_id IN (
+            SELECT id FROM ai_models WHERE is_enabled = false
           )
       `;
       if (result > 0) {
         this.logger.warn(
-          `[cron:mark-stale] Marked ${result} assignments as STALE (associated pool deactivated)`,
+          `[cron:mark-stale] Marked ${result} assignments as STALE (associated model disabled)`,
         );
       }
-      // ⚠️ 不做反向 STALE→ACTIVE 自动恢复（修 Path B 评审 FAIL）：
-      // admin 停用 pool 是有意操作，cron 静默复活会绕过 admin 意图。
-      // 池子重启后的恢复路径应在 service 层显式触发（admin 操作 pool.isActive=true 时同步）。
     } catch (error) {
       this.logger.error(
         `[cron:mark-stale] Failed: ${(error as Error).message}`,
@@ -119,12 +95,10 @@ export class ByokMaintenanceScheduler {
   }
 
   /**
-   * PR-B 2026-05-08: 每天 UTC 00:30 RECURRING 周期续期
+   * 每天 UTC 00:30 RECURRING 周期续期
    *
    * 订阅式周期：到 nextRenewalAt 时 reset userSpendCents=0 + 推下次续期时间。
    * status 不变（保持 ACTIVE），用户体感"额度自动重置"。
-   *
-   * 容错：单条失败不阻塞其他；过期未处理的下次扫描时仍能补救。
    */
   @Cron("30 0 * * *", {
     name: "byok.renew-recurring",
@@ -164,7 +138,7 @@ export class ByokMaintenanceScheduler {
           await this.prisma.keyAssignment.update({
             where: { id: a.id },
             data: {
-              userSpendCents: 0, // 用户已选"重置为 0"订阅式
+              userSpendCents: 0,
               nextRenewalAt: next,
             },
           });
@@ -187,10 +161,7 @@ export class ByokMaintenanceScheduler {
     }
   }
 
-  /**
-   * 每小时 5 分：健康自检，仅记录日志。
-   * 作用：在 Railway 日志里能看到 BYOK 任务调度器活着，便于排查「没跑」的假象。
-   */
+  /** 每小时 5 分：健康自检，让 Railway 日志能看到调度器活着 */
   @Cron(CronExpression.EVERY_HOUR, { name: "byok.heartbeat" })
   async heartbeat(): Promise<void> {
     this.logger.debug("[cron:heartbeat] BYOK scheduler alive");

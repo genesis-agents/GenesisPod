@@ -13,7 +13,10 @@ import { KeyRequestStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { KeyRequestsService } from "../../ai-infra/credentials/key-requests/key-requests.service";
-import { ApproveKeyRequestDto, RejectKeyRequestDto } from "../../ai-infra/credentials/key-requests/dto";
+import {
+  ApproveKeyRequestDto,
+  RejectKeyRequestDto,
+} from "../../ai-infra/credentials/key-requests/dto";
 
 interface AuthenticatedRequest {
   user: { id: string; email: string };
@@ -55,7 +58,7 @@ export class AdminKeyRequestsController {
     @Body() dto: ApproveKeyRequestDto,
   ) {
     return this.service.approve(id, {
-      keyId: dto.keyId,
+      modelDbId: dto.modelDbId,
       userQuotaCents: dto.userQuotaCents ?? null,
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       approvedBy: req.user.email,

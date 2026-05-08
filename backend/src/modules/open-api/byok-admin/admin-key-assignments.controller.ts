@@ -10,33 +10,88 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional, ApiTags } from "@nestjs/swagger";
+import { Type } from "class-transformer";
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from "class-validator";
 import { KeyAssignmentStatus } from "@prisma/client";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
-import {
-  KeyAssignmentsService,
-  type RecurrenceUnit,
-  type ValidityType,
-} from "../../ai-infra/credentials/key-assignments/key-assignments.service";
+import { KeyAssignmentsService } from "../../ai-infra/credentials/key-assignments/key-assignments.service";
 import {
   RevokeAssignmentDto,
   UpdateAssignmentDto,
-} from "../../ai-infra/credentials/distributable-keys/dto";
+} from "../../ai-infra/credentials/key-assignments/dto";
 
-// PR-B 2026-05-08: 模型粒度批量授权 DTO
-interface GrantBatchModelDto {
-  modelId: string;
+/**
+ * 模型粒度批量授权 DTO（v5 重构）
+ *
+ * ★ P0-S2 修复（评审 round 1）：从 plain interface 改为 class + class-validator，
+ *   防止 user-controlled userId 等字段绕过验证。NestJS ValidationPipe (whitelist:true,
+ *   transform:true) 仅对 class 生效，对 interface 静默放行。
+ */
+class GrantBatchModelDto {
+  @ApiProperty({ description: "AIModel.id (cuid/uuid)" })
+  @IsString()
+  @MaxLength(64)
+  modelDbId!: string;
+
+  @ApiPropertyOptional({ description: "User-level quota in cents" })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   userQuotaCents?: number | null;
 }
 
-interface GrantBatchDto {
-  userId: string;
-  models: GrantBatchModelDto[];
-  validityType: ValidityType; // 'ONE_TIME' | 'RECURRING'
-  expiresAt?: string | null; // ISO date string for ONE_TIME
-  recurrenceUnit?: RecurrenceUnit;
+class GrantBatchDto {
+  @ApiProperty({ description: "Target user id" })
+  @IsString()
+  @MaxLength(64)
+  userId!: string;
+
+  @ApiProperty({ type: [GrantBatchModelDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => GrantBatchModelDto)
+  models!: GrantBatchModelDto[];
+
+  @ApiProperty({ enum: ["ONE_TIME", "RECURRING"] })
+  @IsIn(["ONE_TIME", "RECURRING"])
+  validityType!: "ONE_TIME" | "RECURRING";
+
+  @ApiPropertyOptional({ description: "ONE_TIME 用，ISO date string" })
+  @IsOptional()
+  @IsDateString()
+  expiresAt?: string | null;
+
+  @ApiPropertyOptional({ enum: ["WEEK", "MONTH", "YEAR"] })
+  @IsOptional()
+  @IsIn(["WEEK", "MONTH", "YEAR"])
+  recurrenceUnit?: "WEEK" | "MONTH" | "YEAR";
+
+  @ApiPropertyOptional({ description: "RECURRING interval >= 1" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
   recurrenceInterval?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
   note?: string;
 }
 
@@ -101,19 +156,18 @@ export class AdminKeyAssignmentsController {
   }
 
   /**
-   * PR-B 2026-05-08: 模型粒度批量授权
+   * 模型粒度批量授权（v5 重构）
    *
-   * Admin 在用户列表行内点 🔑 → 选 N 个模型 → 一次提交。
-   * 后端按 model 找 provider → 选最低利用率 active pool → 创建 KeyAssignment。
-   *
+   * Admin 在用户列表行内点 🔑 → 选 N 个具体 AIModel 行 → 一次提交。
+   * 后端按 modelDbId 直查 AIModel 派生 provider/modelId → 创建 KeyAssignment。
    * 单 model 失败不阻塞其他，返回 succeeded[] + failed[]。
    *
    * Body 示例：
    * {
    *   "userId": "alice-uuid",
    *   "models": [
-   *     { "modelId": "gpt-4o", "userQuotaCents": 2000 },
-   *     { "modelId": "claude-opus-4", "userQuotaCents": 3000 }
+   *     { "modelDbId": "ai-model-uuid-1", "userQuotaCents": 2000 },
+   *     { "modelDbId": "ai-model-uuid-2", "userQuotaCents": 3000 }
    *   ],
    *   "validityType": "RECURRING",
    *   "recurrenceUnit": "MONTH",

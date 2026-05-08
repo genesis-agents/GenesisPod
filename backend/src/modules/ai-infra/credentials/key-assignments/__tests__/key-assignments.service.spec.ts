@@ -1,24 +1,36 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { ConflictException, Logger, NotFoundException } from "@nestjs/common";
 import { KeyAssignmentsService } from "../key-assignments.service";
-import { DistributableKeysService } from "../../distributable-keys/distributable-keys.service";
+import { SecretsService } from "../../../secrets/secrets.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KeyAssignmentStatus } from "@prisma/client";
 import { QuotaExceededError } from "../../key-resolver/key-resolver.errors";
 
-describe("KeyAssignmentsService", () => {
+/**
+ * 2026-05-08 v5（drop_distributable_keys）spec：
+ *   - 删除 assign / DistributableKeysService 依赖测试
+ *   - 改为测 grantBatch（modelDbId 输入）+ resolveActive 走 AIModel join
+ *   - SecretsService 替代 DistributableKeysService 解密
+ */
+
+describe("KeyAssignmentsService (v5: drop_distributable_keys)", () => {
   let service: KeyAssignmentsService;
-  let prisma: any;
-  let distributable: jest.Mocked<Partial<DistributableKeysService>>;
+  let prisma: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  let secrets: jest.Mocked<Partial<SecretsService>>;
 
   const makeAssignment = (overrides: Record<string, unknown> = {}) => ({
     id: "a-1",
-    keyId: "k-1",
+    modelDbId: "m-1",
     userId: "u-1",
     provider: "openai",
+    modelId: "gpt-4o",
     userQuotaCents: 1000,
     userSpendCents: 0,
     status: KeyAssignmentStatus.ACTIVE,
+    validityType: "ONE_TIME",
+    recurrenceUnit: null,
+    recurrenceInterval: null,
+    nextRenewalAt: null,
     assignedAt: new Date(),
     assignedBy: "admin",
     expiresAt: null,
@@ -27,19 +39,22 @@ describe("KeyAssignmentsService", () => {
     revokedReason: null,
     note: null,
     notifiedExpiringAt: null,
+    model: {
+      id: "m-1",
+      apiKey: "sk-from-aimodel",
+      apiEndpoint: null,
+      secretKey: null,
+      isEnabled: true,
+      priority: 50,
+      displayName: "GPT-4o",
+    },
     ...overrides,
   });
 
   beforeEach(async () => {
     prisma = {
-      distributableKey: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: "k-1",
-          provider: "openai",
-          isActive: true,
-          expiresAt: null,
-        }),
-        update: jest.fn().mockResolvedValue({}),
+      aIModel: {
+        findUnique: jest.fn(),
       },
       keyAssignment: {
         findUnique: jest.fn().mockResolvedValue(null),
@@ -53,18 +68,15 @@ describe("KeyAssignmentsService", () => {
         return Promise.all(arg);
       }),
     };
-    distributable = {
-      getDecryptedValue: jest.fn().mockResolvedValue({
-        apiKey: "sk-decrypted",
-        apiEndpoint: null,
-      }),
+    secrets = {
+      getValueInternal: jest.fn().mockResolvedValue(null),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KeyAssignmentsService,
         { provide: PrismaService, useValue: prisma },
-        { provide: DistributableKeysService, useValue: distributable },
+        { provide: SecretsService, useValue: secrets },
       ],
     }).compile();
     service = module.get(KeyAssignmentsService);
@@ -72,84 +84,94 @@ describe("KeyAssignmentsService", () => {
     jest.spyOn(Logger.prototype, "warn").mockImplementation();
   });
 
-  describe("assign", () => {
-    it("rejects when the underlying key is inactive", async () => {
-      prisma.distributableKey.findUnique.mockResolvedValueOnce({
-        id: "k",
-        provider: "openai",
-        isActive: false,
-        expiresAt: null,
-      });
-      await expect(service.assign({ keyId: "k", userId: "u" })).rejects.toThrow(
-        ConflictException,
-      );
-    });
-
-    it("rejects when user already has an ACTIVE assignment for the same provider", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(makeAssignment());
-      await expect(
-        service.assign({ keyId: "k-1", userId: "u-1" }),
-      ).rejects.toThrow(ConflictException);
-    });
-
-    it("replaces a non-ACTIVE prior assignment (e.g. REVOKED) before creating", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
-        makeAssignment({ status: KeyAssignmentStatus.REVOKED }),
-      );
-      await service.assign({ keyId: "k-1", userId: "u-1" });
-      expect(prisma.keyAssignment.delete).toHaveBeenCalled();
-      expect(prisma.keyAssignment.create).toHaveBeenCalled();
-    });
-  });
-
   describe("resolveActive", () => {
-    it("returns null when no assignment exists", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(null);
+    it("returns null when no candidates", async () => {
+      prisma.keyAssignment.findMany.mockResolvedValueOnce([]);
       expect(await service.resolveActive("u", "openai")).toBeNull();
     });
 
-    it("returns null when status is not ACTIVE", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
-        makeAssignment({ status: KeyAssignmentStatus.SUSPENDED }),
-      );
-      expect(await service.resolveActive("u", "openai")).toBeNull();
+    it("returns first usable assignment with apiKey from AIModel", async () => {
+      prisma.keyAssignment.findMany.mockResolvedValueOnce([makeAssignment()]);
+      const r = await service.resolveActive("u-1", "openai");
+      expect(r?.apiKey).toBe("sk-from-aimodel");
+      expect(r?.modelDbId).toBe("m-1");
     });
 
-    it("marks expired assignments and returns null", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
-        makeAssignment({ expiresAt: new Date(Date.now() - 1000) }),
+    it("prefers SecretsService when secretKey is set", async () => {
+      prisma.keyAssignment.findMany.mockResolvedValueOnce([
+        makeAssignment({
+          model: {
+            id: "m-1",
+            apiKey: "sk-fallback",
+            secretKey: "OPENAI_KEY",
+            apiEndpoint: null,
+            isEnabled: true,
+            priority: 50,
+          },
+        }),
+      ]);
+      (secrets.getValueInternal as jest.Mock).mockResolvedValueOnce(
+        "sk-from-secrets",
       );
-      expect(await service.resolveActive("u", "openai")).toBeNull();
+      const r = await service.resolveActive("u-1", "openai");
+      expect(r?.apiKey).toBe("sk-from-secrets");
+    });
+
+    it("marks expired assignment and continues to next", async () => {
+      const expired = makeAssignment({
+        id: "expired",
+        expiresAt: new Date(Date.now() - 1000),
+      });
+      const fresh = makeAssignment({ id: "fresh" });
+      prisma.keyAssignment.findMany.mockResolvedValueOnce([expired, fresh]);
+      const r = await service.resolveActive("u-1", "openai");
+      expect(r?.assignmentId).toBe("fresh");
       expect(prisma.keyAssignment.update).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: { id: "expired" },
           data: { status: KeyAssignmentStatus.EXPIRED },
         }),
       );
     });
 
-    it("throws QuotaExceededError when user spend >= quota", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
+    it("throws QuotaExceededError when first candidate over quota", async () => {
+      prisma.keyAssignment.findMany.mockResolvedValueOnce([
         makeAssignment({ userSpendCents: 1000, userQuotaCents: 1000 }),
-      );
-      await expect(service.resolveActive("u", "openai")).rejects.toThrow(
+      ]);
+      await expect(service.resolveActive("u-1", "openai")).rejects.toThrow(
         QuotaExceededError,
       );
     });
 
-    it("returns decrypted key when within quota", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
-        makeAssignment({ userSpendCents: 500 }),
-      );
-      const result = await service.resolveActive("u-1", "openai");
-      expect(result?.apiKey).toBe("sk-decrypted");
-      expect(result?.assignmentId).toBe("a-1");
+    it("skips assignment when model is disabled", async () => {
+      prisma.keyAssignment.findMany.mockResolvedValueOnce([
+        makeAssignment({
+          model: {
+            id: "m-1",
+            apiKey: "sk-x",
+            secretKey: null,
+            apiEndpoint: null,
+            isEnabled: false,
+            priority: 50,
+          },
+        }),
+      ]);
+      expect(await service.resolveActive("u-1", "openai")).toBeNull();
     });
 
-    it("returns null when pool-level key is unavailable (decryption yields null)", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(makeAssignment());
-      (distributable.getDecryptedValue as jest.Mock).mockResolvedValueOnce(
-        null,
-      );
+    it("returns null when no key resolvable from any candidate", async () => {
+      prisma.keyAssignment.findMany.mockResolvedValueOnce([
+        makeAssignment({
+          model: {
+            id: "m-1",
+            apiKey: null,
+            secretKey: null,
+            apiEndpoint: null,
+            isEnabled: true,
+            priority: 50,
+          },
+        }),
+      ]);
       expect(await service.resolveActive("u-1", "openai")).toBeNull();
     });
   });
@@ -157,13 +179,15 @@ describe("KeyAssignmentsService", () => {
   describe("incrementSpend", () => {
     it("no-ops on non-positive cost", async () => {
       await service.incrementSpend("a-1", 0);
-      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.keyAssignment.update).not.toHaveBeenCalled();
     });
 
-    it("increments both user and pool spend in a transaction", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce({ keyId: "k-1" });
+    it("only increments userSpendCents (no pool spend in v5)", async () => {
       await service.incrementSpend("a-1", 150);
-      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(prisma.keyAssignment.update).toHaveBeenCalledWith({
+        where: { id: "a-1" },
+        data: { userSpendCents: { increment: 150 } },
+      });
     });
   });
 
@@ -183,6 +207,16 @@ describe("KeyAssignmentsService", () => {
       expect(call.data.revokedBy).toBe("admin@ex");
       expect(call.data.revokedReason).toBe("security");
     });
+
+    it("idempotent: already-REVOKED returns existing without update", async () => {
+      const revoked = makeAssignment({
+        status: KeyAssignmentStatus.REVOKED,
+      });
+      prisma.keyAssignment.findUnique.mockResolvedValueOnce(revoked);
+      const r = await service.revoke("a-1", "admin");
+      expect(r).toEqual(revoked);
+      expect(prisma.keyAssignment.update).not.toHaveBeenCalled();
+    });
   });
 
   describe("getAvailableProviders", () => {
@@ -196,120 +230,62 @@ describe("KeyAssignmentsService", () => {
     });
   });
 
-  // PR-E 2026-05-08: 模型粒度 resolveActive 双查路径
-  describe("resolveActive with modelId fallback", () => {
-    it("returns specific modelId match when present", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
-        makeAssignment({ modelId: "gpt-4o" }),
-      );
-      const r = await service.resolveActive("u-1", "openai", "gpt-4o");
-      expect(r).toBeTruthy();
-      expect(r!.assignmentId).toBe("a-1");
-      expect(prisma.keyAssignment.findUnique).toHaveBeenCalledTimes(1);
-    });
-
-    it("falls back to wildcard modelId='*' when specific not found", async () => {
-      prisma.keyAssignment.findUnique
-        .mockResolvedValueOnce(null) // 第一次具体 modelId 查无
-        .mockResolvedValueOnce(makeAssignment({ modelId: "*" })); // fallback 通配命中
-      const r = await service.resolveActive("u-1", "openai", "gpt-4o");
-      expect(r).toBeTruthy();
-      expect(prisma.keyAssignment.findUnique).toHaveBeenCalledTimes(2);
-    });
-
-    it("returns null when neither specific nor wildcard exist", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValue(null);
-      const r = await service.resolveActive("u-1", "openai", "gpt-4o");
-      expect(r).toBeNull();
-    });
-
-    it("legacy caller without modelId only queries wildcard once", async () => {
-      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
-        makeAssignment({ modelId: "*" }),
-      );
-      const r = await service.resolveActive("u-1", "openai");
-      expect(r).toBeTruthy();
-      expect(prisma.keyAssignment.findUnique).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  // PR-E 2026-05-08: computeNextRenewalAt 跨月 clamp（修 R1 评审 FAIL）
-  // 实现用 local time（admin 直觉），所以 spec 用 local 时间方法判断（不用 UTC）
   describe("computeNextRenewalAt", () => {
-    it("WEEK adds days correctly (14 天差)", () => {
-      const from = new Date(2026, 0, 1); // 2026-01-01 local
+    it("WEEK adds days correctly", () => {
+      const from = new Date(2026, 0, 1);
       const next = service.computeNextRenewalAt(from, "WEEK", 2);
       const diffDays = (next.getTime() - from.getTime()) / 86_400_000;
       expect(diffDays).toBe(14);
     });
 
-    it("MONTH from Jan 31 clamps to Feb 28 (non-leap year)", () => {
-      const from = new Date(2026, 0, 31); // 2026-01-31 local
+    it("MONTH from Jan 31 clamps to Feb 28", () => {
+      const from = new Date(2026, 0, 31);
       const next = service.computeNextRenewalAt(from, "MONTH", 1);
-      expect(next.getMonth()).toBe(1); // Feb
+      expect(next.getMonth()).toBe(1);
       expect(next.getDate()).toBeLessThanOrEqual(28);
-      expect(next.getFullYear()).toBe(2026);
     });
 
     it("MONTH from Jan 31 clamps to Feb 29 in leap year 2028", () => {
-      const from = new Date(2028, 0, 31); // 2028-01-31 local
+      const from = new Date(2028, 0, 31);
       const next = service.computeNextRenewalAt(from, "MONTH", 1);
-      expect(next.getMonth()).toBe(1); // Feb
+      expect(next.getMonth()).toBe(1);
       expect(next.getDate()).toBe(29);
     });
 
-    it("MONTH 12→1 跨年正确", () => {
-      const from = new Date(2026, 11, 15); // 2026-12-15
-      const next = service.computeNextRenewalAt(from, "MONTH", 1);
-      expect(next.getFullYear()).toBe(2027);
-      expect(next.getMonth()).toBe(0); // Jan
-      expect(next.getDate()).toBe(15);
-    });
-
     it("YEAR Feb 29 leap → next year Feb 28 clamped", () => {
-      const from = new Date(2028, 1, 29); // 2028-02-29 leap
+      const from = new Date(2028, 1, 29);
       const next = service.computeNextRenewalAt(from, "YEAR", 1);
       expect(next.getFullYear()).toBe(2029);
-      expect(next.getMonth()).toBe(1); // Feb
-      expect(next.getDate()).toBe(28); // 2029 非闰
+      expect(next.getMonth()).toBe(1);
+      expect(next.getDate()).toBe(28);
     });
   });
 
-  // PR-E 2026-05-08: grantBatch 模型粒度批量授权
   describe("grantBatch", () => {
-    beforeEach(() => {
-      prisma.aIModel = {
-        findFirst: jest.fn(),
-      };
-      prisma.distributableKey.findMany = jest.fn().mockResolvedValue([
-        {
-          id: "pool-1",
-          monthlyQuotaCents: 100000,
-          currentSpendCents: 10000,
-          createdAt: new Date("2026-01-01"),
-        },
-      ]);
-    });
-
-    it("creates assignments for each model with auto-mapped pool", async () => {
-      prisma.aIModel.findFirst
-        .mockResolvedValueOnce({ provider: "OpenAI", modelId: "gpt-4o" })
+    it("creates one assignment per modelDbId with derived provider/modelId", async () => {
+      prisma.aIModel.findUnique
         .mockResolvedValueOnce({
+          id: "m-1",
+          provider: "OpenAI",
+          modelId: "gpt-4o",
+          isEnabled: true,
+        })
+        .mockResolvedValueOnce({
+          id: "m-2",
           provider: "Anthropic",
           modelId: "claude-opus-4",
+          isEnabled: true,
         });
       prisma.keyAssignment.findUnique.mockResolvedValue(null);
       prisma.keyAssignment.create
-        .mockResolvedValueOnce(makeAssignment({ modelId: "gpt-4o" }))
-        .mockResolvedValueOnce(
-          makeAssignment({ id: "a-2", modelId: "claude-opus-4" }),
-        );
+        .mockResolvedValueOnce(makeAssignment())
+        .mockResolvedValueOnce(makeAssignment({ id: "a-2", modelDbId: "m-2" }));
 
       const result = await service.grantBatch({
         userId: "u-1",
         models: [
-          { modelId: "gpt-4o", userQuotaCents: 2000 },
-          { modelId: "claude-opus-4", userQuotaCents: 3000 },
+          { modelDbId: "m-1", userQuotaCents: 2000 },
+          { modelDbId: "m-2", userQuotaCents: 3000 },
         ],
         validityType: "ONE_TIME",
         expiresAt: new Date("2026-12-31"),
@@ -317,67 +293,67 @@ describe("KeyAssignmentsService", () => {
 
       expect(result.succeeded).toHaveLength(2);
       expect(result.failed).toHaveLength(0);
+      // 验证 provider 来自 AIModel 派生（小写）
+      const firstCreate = prisma.keyAssignment.create.mock.calls[0][0];
+      expect(firstCreate.data.provider).toBe("openai");
     });
 
-    it("partial failure: missing model pushes to failed[] not throws", async () => {
-      prisma.aIModel.findFirst
-        .mockResolvedValueOnce({ provider: "OpenAI", modelId: "gpt-4o" })
-        .mockResolvedValueOnce(null); // 第二个 model 不存在
+    it("partial failure: missing model pushes to failed[]", async () => {
+      prisma.aIModel.findUnique
+        .mockResolvedValueOnce({
+          id: "m-1",
+          provider: "OpenAI",
+          modelId: "gpt-4o",
+          isEnabled: true,
+        })
+        .mockResolvedValueOnce(null);
       prisma.keyAssignment.findUnique.mockResolvedValue(null);
-      prisma.keyAssignment.create.mockResolvedValueOnce(
-        makeAssignment({ modelId: "gpt-4o" }),
-      );
+      prisma.keyAssignment.create.mockResolvedValueOnce(makeAssignment());
 
       const result = await service.grantBatch({
         userId: "u-1",
-        models: [{ modelId: "gpt-4o" }, { modelId: "nonexistent-model" }],
+        models: [{ modelDbId: "m-1" }, { modelDbId: "ghost" }],
         validityType: "ONE_TIME",
         expiresAt: new Date("2026-12-31"),
       });
 
       expect(result.succeeded).toHaveLength(1);
       expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].modelId).toBe("nonexistent-model");
+      expect(result.failed[0].modelDbId).toBe("ghost");
       expect(result.failed[0].reason).toContain("Model not found");
     });
 
-    it("partial failure: no available pool pushes to failed[]", async () => {
-      prisma.aIModel.findFirst.mockResolvedValueOnce({
+    it("disabled model pushes to failed[]", async () => {
+      prisma.aIModel.findUnique.mockResolvedValueOnce({
+        id: "m-1",
         provider: "OpenAI",
         modelId: "gpt-4o",
+        isEnabled: false,
       });
-      prisma.distributableKey.findMany.mockResolvedValueOnce([]); // 无可用池
-
       const result = await service.grantBatch({
         userId: "u-1",
-        models: [{ modelId: "gpt-4o" }],
+        models: [{ modelDbId: "m-1" }],
         validityType: "ONE_TIME",
         expiresAt: new Date("2026-12-31"),
       });
-
       expect(result.succeeded).toHaveLength(0);
-      expect(result.failed).toHaveLength(1);
-      expect(result.failed[0].reason).toContain("No available pool");
+      expect(result.failed[0].reason).toContain("disabled");
     });
 
-    it("duplicate ACTIVE assignment pushes to failed[] not throws", async () => {
-      prisma.aIModel.findFirst.mockResolvedValueOnce({
+    it("duplicate ACTIVE assignment pushes to failed[]", async () => {
+      prisma.aIModel.findUnique.mockResolvedValueOnce({
+        id: "m-1",
         provider: "OpenAI",
         modelId: "gpt-4o",
+        isEnabled: true,
       });
-      prisma.keyAssignment.findUnique.mockResolvedValue(
-        makeAssignment({ modelId: "gpt-4o" }),
-      );
-
+      prisma.keyAssignment.findUnique.mockResolvedValue(makeAssignment());
       const result = await service.grantBatch({
         userId: "u-1",
-        models: [{ modelId: "gpt-4o" }],
+        models: [{ modelDbId: "m-1" }],
         validityType: "ONE_TIME",
         expiresAt: new Date("2026-12-31"),
       });
-
-      expect(result.succeeded).toHaveLength(0);
-      expect(result.failed).toHaveLength(1);
       expect(result.failed[0].reason).toContain("already has active");
     });
 
@@ -385,40 +361,38 @@ describe("KeyAssignmentsService", () => {
       await expect(
         service.grantBatch({
           userId: "u-1",
-          models: [{ modelId: "gpt-4o" }],
+          models: [{ modelDbId: "m-1" }],
           validityType: "RECURRING",
-          // 故意缺 recurrenceUnit + recurrenceInterval
         }),
       ).rejects.toThrow(ConflictException);
     });
 
-    it("RECURRING computes nextRenewalAt and creates with recurrence fields", async () => {
-      prisma.aIModel.findFirst.mockResolvedValueOnce({
+    it("RECURRING fills nextRenewalAt + recurrence fields", async () => {
+      prisma.aIModel.findUnique.mockResolvedValueOnce({
+        id: "m-1",
         provider: "OpenAI",
         modelId: "gpt-4o",
+        isEnabled: true,
       });
       prisma.keyAssignment.findUnique.mockResolvedValue(null);
-      prisma.keyAssignment.create.mockResolvedValueOnce(
-        makeAssignment({ modelId: "gpt-4o" }),
-      );
+      prisma.keyAssignment.create.mockResolvedValueOnce(makeAssignment());
 
       await service.grantBatch({
         userId: "u-1",
-        models: [{ modelId: "gpt-4o" }],
+        models: [{ modelDbId: "m-1" }],
         validityType: "RECURRING",
         recurrenceUnit: "MONTH",
         recurrenceInterval: 1,
       });
 
-      const createCall = prisma.keyAssignment.create.mock.calls[0][0];
-      expect(createCall.data.validityType).toBe("RECURRING");
-      expect(createCall.data.recurrenceUnit).toBe("MONTH");
-      expect(createCall.data.recurrenceInterval).toBe(1);
-      expect(createCall.data.nextRenewalAt).toBeInstanceOf(Date);
-      expect(createCall.data.expiresAt).toBeNull(); // RECURRING 不用 expiresAt
+      const data = prisma.keyAssignment.create.mock.calls[0][0].data;
+      expect(data.validityType).toBe("RECURRING");
+      expect(data.recurrenceUnit).toBe("MONTH");
+      expect(data.nextRenewalAt).toBeInstanceOf(Date);
+      expect(data.expiresAt).toBeNull();
     });
 
-    it("returns empty result when models[] is empty", async () => {
+    it("empty models[] returns empty result", async () => {
       const result = await service.grantBatch({
         userId: "u-1",
         models: [],

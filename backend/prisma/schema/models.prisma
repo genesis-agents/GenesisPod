@@ -2559,6 +2559,9 @@ model AIModel {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // 2026-05-08 v5: 管理员把本模型授权给指定用户的关系（KeyAssignment.modelDbId → AIModel.id）
+  keyAssignments KeyAssignment[]
+
   @@index([modelType, isEnabled]) // 按类型快速查询启用的模型
   @@index([modelId]) // 按模型ID查询（支持横向扩展后的多实例查询）
   @@map("ai_models")
@@ -9016,54 +9019,31 @@ enum KeyRequestStatus {
   CANCELLED
 }
 
-/// 可分发 Key 池：管理员专门采购用于分发给无 Key 用户的 API Key，
-/// 与系统自用的 Secret（用于管理员账号）物理隔离，账单清晰。
-model DistributableKey {
-  id                String    @id @default(cuid())
-  provider          String    @db.VarChar(50) // openai / anthropic / google / xai ...
-  label             String    @db.VarChar(200) // "OpenAI 采购-2026Q2"
-  encryptedValue    String    @map("encrypted_value") @db.Text
-  iv                String    @db.VarChar(32)
-  keyHint           String?   @map("key_hint") @db.VarChar(20)
-  keyVersion        Int       @default(1) @map("key_version")
-  apiEndpoint       String?   @map("api_endpoint") @db.Text
-  // 池级配额（美分）：所有 Assignment 共享扣减；null 表示不限
-  monthlyQuotaCents Int?      @map("monthly_quota_cents")
-  currentSpendCents Int       @default(0) @map("current_spend_cents")
-  quotaResetAt      DateTime  @default(now()) @map("quota_reset_at")
-  isActive          Boolean   @default(true) @map("is_active")
-  expiresAt         DateTime? @map("expires_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-  createdBy         String?   @map("created_by") @db.VarChar(100)
-  updatedBy         String?   @map("updated_by") @db.VarChar(100)
-
-  assignments KeyAssignment[]
-
-  @@index([provider, isActive])
-  @@index([expiresAt])
-  @@map("distributable_keys")
-}
-
-/// 管理员把 DistributableKey 分配给某用户的关系（含用户级配额、模型粒度、周期续期）
+/// 管理员把某个 AI 模型授权给指定用户（含用户级配额、周期续期）
 ///
-/// PR-A 2026-05-08 升级为模型粒度：
-///   - modelId='*' 旧数据兼容（该 provider 全模型通配）
-///   - 唯一约束 [userId, provider, modelId]
-///   - validityType + recurrence* 字段支持订阅式周期续期
+/// 2026-05-08 v5（drop_distributable_keys）：
+///   - 删除 DistributableKey 双源抽象，KeyAssignment 直接关联 AIModel
+///   - keyId(FK→DistributableKey) → modelDbId(FK→AIModel.id)
+///   - 唯一约束 [userId, modelDbId]
+///   - provider/modelId 保留为冗余字段（grant 时由 model 派生填充，listing 用免 join）
+///   - 池级配额 monthlyQuotaCents/currentSpendCents 已删（spend 走 userSpendCents
+///     + CreditsService）。如需"全 provider 总配额"概念，未来在 CreditsService 加
+///
+/// 历史 PR-A 模型粒度 + 周期续期 + STALE 状态保留
 model KeyAssignment {
   id                 String              @id @default(cuid())
-  keyId              String              @map("key_id")
+  // FK → AIModel.id（管理员配置的模型）。删 model 时级联删除该授权
+  modelDbId          String              @map("model_db_id")
   userId             String              @map("user_id")
-  // 冗余字段（= key.provider），用于 @@unique 和快速解析
+  // 冗余字段（= AIModel.provider lowercased），grant 时填充，listing/filter 用免 join
   provider           String              @db.VarChar(50)
-  // PR-A：模型粒度。'*' = 该 provider 全模型通配（旧数据兼容）；具体如 'gpt-4o' / 'claude-opus-4'
-  modelId            String              @default("*") @map("model_id") @db.VarChar(200)
-  // 用户级配额（美分），null 表示仅受池级配额约束
+  // 冗余字段（= AIModel.modelId），grant 时填充，UI 显示用免 join
+  modelId            String              @map("model_id") @db.VarChar(200)
+  // 用户级配额（美分）；null 表示无单独限额（受 CreditsService 总账控制）
   userQuotaCents     Int?                @map("user_quota_cents")
   userSpendCents     Int                 @default(0) @map("user_spend_cents")
   status             KeyAssignmentStatus @default(ACTIVE)
-  // PR-A：有效期类型。ONE_TIME=单次到期；RECURRING=周期续期（cron 自动 reset spendCents）
+  // 有效期类型：ONE_TIME=单次到期；RECURRING=周期续期（cron 自动 reset spendCents）
   validityType       String              @default("ONE_TIME") @map("validity_type") @db.VarChar(20)
   recurrenceUnit     String?             @map("recurrence_unit") @db.VarChar(10) // WEEK / MONTH / YEAR
   recurrenceInterval Int?                @map("recurrence_interval") // 1=每月，3=每季度
@@ -9078,12 +9058,12 @@ model KeyAssignment {
   // 过期通知追踪（避免重复通知）
   notifiedExpiringAt DateTime?           @map("notified_expiring_at")
 
-  key  DistributableKey @relation(fields: [keyId], references: [id], onDelete: Cascade)
-  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  model AIModel @relation(fields: [modelDbId], references: [id], onDelete: Cascade)
+  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, provider, modelId])
+  @@unique([userId, modelDbId])
   @@index([userId, status])
-  @@index([keyId, status])
+  @@index([modelDbId, status])
   @@index([expiresAt, status])
   @@index([nextRenewalAt])
   @@map("key_assignments")

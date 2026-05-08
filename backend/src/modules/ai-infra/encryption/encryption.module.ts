@@ -3,7 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { EncryptionService } from "./encryption.service";
 
 /**
- * 全局模块：所有需要存储敏感凭据的模块（Secrets / UserApiKeys / DistributableKeys ...）
+ * 全局模块：所有需要存储敏感凭据的模块（Secrets / UserApiKeys / AIModel apiKey ...）
  * 都复用同一个 EncryptionService 实例，保证加密 Key 和算法完全一致。
  */
 @Global()
