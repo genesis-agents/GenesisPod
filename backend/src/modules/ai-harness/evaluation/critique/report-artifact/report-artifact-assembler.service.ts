@@ -50,7 +50,7 @@ import {
   remapCitationIndices,
 } from "../../../../ai-engine/facade";
 
-interface AssembleInput {
+export interface AssembleInput {
   topic: string;
   language: "zh-CN" | "en-US";
   styleProfile: ArtifactMetadata["styleProfile"];
@@ -272,6 +272,21 @@ export class ReportArtifactAssembler {
   }
 
   /**
+   * ★ 2026-05-08 PR-1: 同 recomputeCitationOccurrencesPublic 模式暴露 public —
+   * v1.6 切主线后 structural assembler 覆盖 fullMarkdown，原 line 189 legacy
+   * 路径的 inject 输出被丢弃，导致 figures 数组有 12 张图但 markdown 0 个 #fig
+   * 占位（mission 843f6958 实证）。s8 stage 在 structural 接管后必须调一次
+   * 才能让 figure 真正落到 markdown。
+   */
+  injectFigurePlaceholdersPublic(
+    fullMarkdown: string,
+    sections: ArtifactSection[],
+    figures: ArtifactFigure[],
+  ): string {
+    return this.injectFigurePlaceholders(fullMarkdown, sections, figures);
+  }
+
+  /**
    * 把 ![alt](#fig-id "caption") 占位符注入对应章节内合适位置。
    *
    * Phase P3-12: 智能定位 — 优先用 referencedBy 第一处 phrase 做 anchor，
@@ -329,6 +344,43 @@ export class ReportArtifactAssembler {
         result.slice(0, ins.offset) + ins.block + result.slice(ins.offset);
     }
     return result;
+  }
+
+  /**
+   * ★ 2026-05-08 PR-7 (Round 2 第 4 路指出 inject 后 sectionTree offset 漂移):
+   *   注入 ![](#fig-N) 占位后 fullMarkdown 字符流增长，sections.startOffset/endOffset
+   *   仍是 inject 前的位置，下游 binary-search / slice 会取错段。s8 二次 inject
+   *   后必须调一次 rebuildSectionTreePublic 让 offset 与新 markdown 对齐。
+   *
+   *   接 narrow 参数（plan.dimensions + language）而非整个 AssembleInput，因为
+   *   buildSectionTree 实际只用这两个字段。
+   */
+  rebuildSectionTreePublic(
+    fullMarkdown: string,
+    dimensions: { id: string; name: string; rationale: string }[],
+    language: "zh-CN" | "en-US",
+  ): ArtifactSection[] {
+    // 构造 narrow AssembleInput shape 以复用 buildSectionTree 逻辑
+    const narrowInput: AssembleInput = {
+      topic: "",
+      language,
+      styleProfile: "academic",
+      lengthProfile: "standard",
+      audienceProfile: "general-public",
+      plan: { themeSummary: "", dimensions },
+      researcherResults: [],
+      writerReport: {
+        title: "",
+        summary: "",
+        sections: [],
+        conclusion: "",
+      },
+      generationTimeMs: 0,
+      totalTokens: { prompt: 0, completion: 0, total: 0 },
+      costCents: 0,
+      modelTrail: [],
+    };
+    return this.buildSectionTree(fullMarkdown, narrowInput);
   }
 
   /**
@@ -1922,13 +1974,55 @@ export class ReportArtifactAssembler {
       styleScore = Math.min(100, 55 + (m ? m.length : 0) * 5);
     }
 
+    // ─── formatCorrectness：派生分（mission 843f6958 实证修，2026-05-08 PR-5）──
+    //   原硬编码 80 让 quality 系统看不见明显的 LLM 乱写格式（4 类垃圾 + 35 条
+    //   unused citations + 77 个空 H3 全过 hardGate）。改为扫 fullMarkdown 检测：
+    //     - LLM inline 图标记 ![FIG-N](url) 残留
+    //     - <figureReferences> / <figure> 标签残留
+    //     - JSON 片段被错写为 H3（### "key": ...）
+    //     - 空 H3（标题后立即下一 heading 无正文）
+    //   每发现 1 处扣分，> N 处加 hardGateViolation。
+    let formatCorrectnessScore = 95;
+    let formatDefectCount = 0;
+    if (fullMarkdown) {
+      const inlineFig = (
+        fullMarkdown.match(/!\[FIG-\d+[^\]]*\]\([^)]+\)/gi) ?? []
+      ).length;
+      const figRefTag = (fullMarkdown.match(/<\/?figureReferences?>/gi) ?? [])
+        .length;
+      const figureTag = (fullMarkdown.match(/<\/?figure[^>]*>/gi) ?? []).length;
+      const jsonH3 = (fullMarkdown.match(/^###\s+["{[][^\n]*$/gm) ?? []).length;
+      // 空 H3：标题后直接是另一个 heading（中间只有空行）
+      const emptyH3 = (
+        fullMarkdown.match(/^###\s+[^\n]+\n\s*\n(?=#{2,4}\s)/gm) ?? []
+      ).length;
+      formatDefectCount = inlineFig + figRefTag + figureTag + jsonH3 + emptyH3;
+      // 每处扣 1.5 分，下限 30
+      formatCorrectnessScore = Math.max(
+        30,
+        95 - Math.round(formatDefectCount * 1.5),
+      );
+      if (formatDefectCount > 5) {
+        violations.push({
+          dimension: "formatCorrectness",
+          severity: formatDefectCount > 20 ? "error" : "warning",
+          message: `markdown 格式缺陷 ${formatDefectCount} 处（inline-fig=${inlineFig} / figRefTag=${figRefTag} / figureTag=${figureTag} / jsonH3=${jsonH3} / emptyH3=${emptyH3}）`,
+        });
+      } else if (formatDefectCount > 0) {
+        warnings.push({
+          dimension: "formatCorrectness",
+          message: `markdown 格式缺陷 ${formatDefectCount} 处（轻微）`,
+        });
+      }
+    }
+
     const dimensionScores = {
       traceability: traceabilityScore,
       factualConsistency: factualConsistencyScore,
       novelty: noveltyScore,
       coverage: coverageScore,
       redundancy: redundancyScore,
-      formatCorrectness: 80,
+      formatCorrectness: formatCorrectnessScore,
       citationDensity: citationDensityScore,
       styleConformance: styleScore,
       lengthAccuracy: lengthAccuracyScore,

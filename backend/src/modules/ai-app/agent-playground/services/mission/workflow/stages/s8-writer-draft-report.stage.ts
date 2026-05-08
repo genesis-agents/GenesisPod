@@ -476,6 +476,9 @@ export async function runWriterStage(
         summary: r.summary,
         // ★ per-dim chapter pipeline 产物（fullMarkdown 是 81K 字的"原料"，要传给 assembler）
         fullMarkdown: (r as { fullMarkdown?: string }).fullMarkdown,
+        // ★ 2026-05-08 PR-1: figureReferences 必须透传，否则 reportAssembler.buildFigures
+        //   优先路径（chapter.figureReferences）永远走不到，commit 331b9eebf 设计的图
+        //   文匹配闭环失效，markdown 中 0 个 #fig 占位（mission 843f6958 实证）。
         chapters: (
           r as {
             chapters?: {
@@ -483,6 +486,11 @@ export async function runWriterStage(
               heading: string;
               body: string;
               wordCount: number;
+              figureReferences?: {
+                figureId: string;
+                anchorParagraph?: number;
+                caption?: string;
+              }[];
             }[];
           }
         ).chapters,
@@ -739,6 +747,54 @@ export async function runWriterStage(
         quickView: structural.quickView,
         metadata: structural.metadata,
       };
+      // ★ 2026-05-08 PR-1 (mission 843f6958 实证修): structural 覆盖了
+      //   legacy 的 fullMarkdown，injectFigurePlaceholders（line 189）跑过的
+      //   #fig 占位被全丢失。这里用 structural sections + 已 build 的 figures
+      //   再注入一次，让前端 ArtifactMarkdown 真能渲染图。
+      //   PR-7 (R2 第 4 路指出): 注入后 fullMarkdown 字符流增长，sections offset
+      //   漂移，必须 rebuildSectionTreePublic 重建 + 重映射 figure.sectionId。
+      if (reportArtifact.figures.length > 0) {
+        const withFigs = deps.reportAssembler.injectFigurePlaceholdersPublic(
+          reportArtifact.content.fullMarkdown,
+          reportArtifact.sections,
+          reportArtifact.figures,
+        );
+        if (withFigs !== reportArtifact.content.fullMarkdown) {
+          // ★ PR-7: rebuild sectionTree（offset 漂移修复）
+          const sectionsBeforeInject = reportArtifact.sections;
+          const sectionsAfterInject =
+            deps.reportAssembler.rebuildSectionTreePublic(
+              withFigs,
+              plan.dimensions.map((d) => ({
+                id: d.id,
+                name: d.name,
+                rationale: d.rationale,
+              })),
+              input.language,
+            );
+          // figure.sectionId 重映射到 inject 后 sections（按 sourceDimensionId 优先）
+          deps.reportAssembler.recomputeSectionFigureIdsPublic(
+            reportArtifact.figures,
+            sectionsAfterInject,
+            sectionsBeforeInject,
+          );
+          reportArtifact = {
+            ...reportArtifact,
+            content: {
+              ...reportArtifact.content,
+              fullMarkdown: withFigs,
+              fullReportSize: withFigs.length,
+            },
+            sections: sectionsAfterInject,
+          };
+          // citation occurrences + section.citations 在 inject 后 fullMarkdown 上重扫
+          deps.reportAssembler.recomputeCitationOccurrencesPublic(
+            reportArtifact.citations,
+            reportArtifact.sections,
+            withFigs,
+          );
+        }
+      }
     } catch (err) {
       deps.log.warn(
         `[${missionId}] structural assembler failed (non-fatal, fallback to legacy): ${

@@ -427,4 +427,80 @@ describe("MarkdownSanitizer (18 fixture)", () => {
       expect(rule).not.toHaveProperty("positions");
     });
   });
+
+  // ★ 2026-05-08 PR-8 (mission 843f6958 Round 3 第 4 路要求)：锁住 PR-6 加的 3 条规则
+  describe("PR-6 figure 引用契约垃圾剥离（mission 843f6958 实证）", () => {
+    it("剥 ![FIG-N](url) inline-fig-image 形式（LLM 误把图 url 写 markdown）", () => {
+      const raw = [
+        "正常段落 1。",
+        "![FIG-1](https://agentmag.dev/_next/image?url=xxx)",
+        "正常段落 2。",
+        "![FIG-2](https://example.com/figure.png)",
+      ].join("\n");
+      const r = sanitizeMarkdownBody(raw);
+      expect(r.body).not.toMatch(/!\[FIG-\d+\]/);
+      const rule = r.appliedRules.find(
+        (x) => x.rule === "inline-fig-image-stripped",
+      );
+      expect(rule).toBeDefined();
+      expect(rule!.count).toBe(2);
+    });
+
+    it("不误剥合法 #fig-N 占位（reportAssembler 注入的）", () => {
+      // 流程层面 sanitizer 在 inject 之前跑（s8 stage 顺序保证），但加防御性测试
+      const raw = "![chapter-figure](#fig-sec1-0)\n正常段落。";
+      const r = sanitizeMarkdownBody(raw);
+      expect(r.body).toContain("![chapter-figure](#fig-sec1-0)");
+      const rule = r.appliedRules.find(
+        (x) => x.rule === "inline-fig-image-stripped",
+      );
+      expect(rule).toBeUndefined();
+    });
+
+    it("剥 <figureReferences>...</figureReferences> 标签（LLM 把 JSON 字段名当 XML 标签）", () => {
+      const raw = [
+        "正常段落 1。",
+        "<figureReferences>引用FIG-1，展示三框架对比。</figureReferences>",
+        "正常段落 2。",
+      ].join("\n");
+      const r = sanitizeMarkdownBody(raw);
+      expect(r.body).not.toContain("<figureReferences>");
+      expect(r.body).not.toContain("</figureReferences>");
+      const rule = r.appliedRules.find(
+        (x) => x.rule === "figure-references-tag-stripped",
+      );
+      expect(rule).toBeDefined();
+    });
+
+    it("剥 <figure>...</figure> 标签（LLM 把图引用当 HTML figure）", () => {
+      const raw = [
+        "正常段落 1。",
+        "<figure>参考FIG-2所示LangGraph状态图架构。</figure>",
+        "正常段落 2。",
+      ].join("\n");
+      const r = sanitizeMarkdownBody(raw);
+      expect(r.body).not.toContain("<figure>");
+      expect(r.body).not.toContain("</figure>");
+      const rule = r.appliedRules.find((x) => x.rule === "figure-tag-stripped");
+      expect(rule).toBeDefined();
+    });
+
+    it("3 条规则 severity 都是 medium", () => {
+      const raw = [
+        "![FIG-1](https://x.com/i.png)",
+        "<figureReferences>x</figureReferences>",
+        "<figure>y</figure>",
+      ].join("\n");
+      const r = sanitizeMarkdownBody(raw);
+      const figRules = r.appliedRules.filter((x) =>
+        [
+          "inline-fig-image-stripped",
+          "figure-references-tag-stripped",
+          "figure-tag-stripped",
+        ].includes(x.rule),
+      );
+      expect(figRules.length).toBeGreaterThanOrEqual(3);
+      figRules.forEach((rule) => expect(rule.severity).toBe("medium"));
+    });
+  });
 });

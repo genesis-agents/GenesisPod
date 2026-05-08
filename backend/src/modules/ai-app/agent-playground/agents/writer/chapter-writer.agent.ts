@@ -202,6 +202,14 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       QUALITY_CHECKLIST,
       ``,
       `## 章节结构（柔性，论点驱动而非固定模板）`,
+      // ★ 2026-05-08 PR-3 (mission 843f6958 实证修): body 第一行必须是正文段落
+      //   不能直接是 H3 子小节标题。原因：reportAssembler 拼接时章节 heading 用 H3，
+      //   body 第一行如果也是 H3 子小节 → 章节标题 + 子小节标题紧挨着无引言（77 处实证），
+      //   视觉上"H3 套 H3"且章节没自己的论述。
+      `**关键格式约束**：body **第一行必须是正文段落**（含独立判断 + 引用），`,
+      `**不要以 \`### 子小节标题\` / \`#### \` / 列表 / 表格开头**。`,
+      `章节 heading 由 per-dim 拼接器加在 body 之前，body 自身不重复章节名。`,
+      ``,
       `1. **首段**：直接以独立判断开头（不必加 \`> **核心判断**：\` blockquote 模板；该模板每章重复就形成八股，禁止）`,
       input.targetWords >= 5000
         ? `2. **主体 ${Math.max(5, Math.round(input.targetWords / 800))} 段**：每段围绕 1 个分析维度展开（数据 / 案例 / 因果 / 对比 / 推演），含具体数字 / 时间 / 实体 + \`[N]\` 引用。每段必须 400-800 字`
@@ -291,32 +299,40 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       //      的 fig-{sec.id}-{i} 不一致，会渲染破图
       input.availableFigures && input.availableFigures.length > 0
         ? [
-            `## 可用图片（结构化引用 + 文字呼应，禁止 inline ![]()）`,
-            `本维度从证据源抽出 ${input.availableFigures.length} 张相关度通过过滤的图。`,
+            `## 可用图片（单一契约：仅在 finalize JSON 输出 figureReferences）`,
+            `本维度从证据源抽出 ${input.availableFigures.length} 张图。`,
             ``,
-            `**两件事一起做**：`,
-            `1. **正文文字描述**：在合适段落用文字说出对应数据/趋势`,
-            `   ✅ "近三年企业级 LLM 调用量增长 **350%**，呈现明显加速轨迹 [3]"`,
-            `   ✅ "如行业调研所示，60% 公司在 2025-2026 间将 Agent 平台预算翻倍"`,
-            `2. **结构化引用 figureReferences**：在 finalize output 里输出要插入的图：`,
+            // ★ 2026-05-08 PR-2 (mission 843f6958 实证修): 移除"两件事一起做"双轨措辞
+            //   原版让 LLM 困惑 → 写出 4 类垃圾格式（inline url / prompt 提示语当 url /
+            //   <figureReferences> HTML 标签 / <figure> 标签）。改为单契约：body 只写
+            //   自然语言文字描述，图通过 finalize.figureReferences JSON 字段输出。
+            `**正文（body）**：用自然语言引述数据/趋势，**不要写任何 markdown 图片语法**。`,
+            `   ✅ "近三年 LLM 调用量增长 **350%**，呈现明显加速 [3]"`,
+            `   ✅ "如统计所示，60% 公司将 Agent 预算翻倍"`,
+            ``,
+            `**finalize.figureReferences**：在 JSON envelope 里**结构化**声明本章引用的图：`,
             `   {`,
-            `     "figureId": "FIG-1",          // 必须来自下方候选图清单`,
-            `     "anchorParagraph": 2,         // 1-based，图插在第几段后面`,
-            `     "caption": "可选自定义说明"   // 缺省用候选图本身 caption`,
+            `     "figureId": "FIG-1",          // 必须来自下方候选清单`,
+            `     "anchorParagraph": 2,         // 1-based 段落锚点`,
+            `     "caption": "可选自定义说明"  // 缺省用候选图自带 caption`,
             `   }`,
+            `每章 0-2 张图为宜，不强相关就不要硬塞。reportAssembler 会按 figureId 关联渲染。`,
             ``,
-            `**严禁**：`,
-            `- ❌ 在 markdown body 里写 \`![alt](#FIG-N)\` 或任何图占位符`,
-            `- ❌ figureId 写候选清单里**不存在**的编号（凭空编 FIG-99）`,
-            `- ❌ anchorParagraph 超出实际段落数（章节只有 5 段就不要写 anchorParagraph: 8）`,
+            `**严禁（实证 LLM 高频违规模式）**：`,
+            `- ❌ body 里写 \`![alt](#FIG-N)\` / \`![alt](https://任何URL)\`（任何 markdown 图片语法）`,
+            `- ❌ body 里写 \`![](FIG-1位置由figureReferences控制)\`（把 prompt 提示语当 URL）`,
+            `- ❌ body 里写 \`<figureReferences>引用FIG-N...</figureReferences>\`（JSON 字段名当 XML 标签）`,
+            `- ❌ body 里写 \`<figure>参考FIG-N...</figure>\`（HTML figure 标签）`,
+            `- ❌ figureId 写候选清单里不存在的编号（凭空编 FIG-99）`,
+            `- ❌ anchorParagraph 超出实际段落数（章节 5 段不要写 anchorParagraph: 8）`,
+            `✅ 唯一正确路径：body 只写文字 + finalize.figureReferences JSON 字段声明引用`,
             ``,
-            `**何时引用图**：只引用与正文论点强相关的图（chart/table 类型优先于 photo）。`,
-            `章节论述不涉及该图主题时，**不要硬塞**。每章 0-2 张图为宜。`,
-            ``,
-            `候选图清单：`,
+            `候选图清单（**注意只用 figureId 标识，不要把 caption/source 当 URL 写进 body**）：`,
+            // ★ 2026-05-08 PR-2: 移除 sourceUrl 暴露（旧 prompt 把 URL 给了 LLM，
+            //   LLM 直接写 ![alt](https://...) 绕过 #fig-N 占位机制）
             ...input.availableFigures.map(
               (f) =>
-                `  [${f.figureId}] ${f.caption}${f.relevanceHint ? ` (relevance=${f.relevanceHint})` : ""}${f.sourceUrl ? `\n      source=${f.sourceUrl}` : ""}`,
+                `  [${f.figureId}] ${f.caption}${f.relevanceHint ? ` (relevance=${f.relevanceHint})` : ""}`,
             ),
             ``,
           ].join("\n")

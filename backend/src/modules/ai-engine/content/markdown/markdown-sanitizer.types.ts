@@ -46,7 +46,12 @@ export type SanitizeRule =
   | "crlf-newline-normalized"
   | "bom-stripped"
   | "instruction-injection-redacted"
-  | "html-comment-stripped";
+  | "html-comment-stripped"
+  // ★ 2026-05-08 PR-6 (mission 843f6958 实证修): LLM 写图引用 4 类垃圾
+  //   主路径 (StructuralReportAssembler) 此前 0 figure 规则，4 类垃圾透传到 fullMarkdown
+  | "inline-fig-image-stripped" // ![FIG-N](xxx)
+  | "figure-references-tag-stripped" // <figureReferences>...</figureReferences>
+  | "figure-tag-stripped"; // <figure>...</figure>
 
 export interface SanitizeRuleApplied {
   rule: SanitizeRule;

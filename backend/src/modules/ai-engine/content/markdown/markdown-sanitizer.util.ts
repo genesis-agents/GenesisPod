@@ -106,6 +106,41 @@ export function sanitizeMarkdownBody(
     });
   }
 
+  // ★ 2026-05-08 PR-6 (mission 843f6958 实证修, 4/4 Round 2 第 4 路指出 PR-4 装错管线):
+  //   主路径 (StructuralReportAssembler → sanitizeMarkdownBody) 历史 0 figure
+  //   规则，LLM 写出 4 类图引用垃圾（inline-fig URL / <figureReferences> 标签 /
+  //   <figure> 标签 / prompt 提示语当 url）全透传到 fullMarkdown。这里加 3 条
+  //   主路径规则，与 ai-engine/content/report-template 的 removeHallucinatedImages
+  //   规则等价，但移到主路径生效（feedback_no_dual_sources：单源治理）。
+  //
+  //   注意：保留合法 `![](#fig-N)` 占位（reportAssembler.injectFigurePlaceholders
+  //   注入），因此 inline-fig 规则只剥 `![FIG-N](xxx)` 形式（chapter-writer 严令
+  //   禁止此格式，唯一图引用路径是 finalize.figureReferences 结构化字段）。
+  body = body.replace(/!\[FIG-\d+[^\]]*\]\([^)]+\)/gi, () => {
+    inc("inline-fig-image-stripped");
+    return "";
+  });
+  body = body.replace(
+    /<figureReferences?>[\s\S]*?<\/figureReferences?>/gi,
+    () => {
+      inc("figure-references-tag-stripped");
+      return "";
+    },
+  );
+  // 单边孤立 <figureReferences> / </figureReferences>（无配对）
+  body = body.replace(/<\/?figureReferences?>/gi, () => {
+    inc("figure-references-tag-stripped");
+    return "";
+  });
+  body = body.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, () => {
+    inc("figure-tag-stripped");
+    return "";
+  });
+  body = body.replace(/<\/?figure[^>]*>/gi, () => {
+    inc("figure-tag-stripped");
+    return "";
+  });
+
   // 6. 状态机扫描 — fence 配对 + 顶级 heading 处理 + blockquote fence 修复 + TOC 移除
   body = scanLines(body, opts, inc);
 
@@ -288,5 +323,9 @@ function severityOf(rule: SanitizeRule): "low" | "medium" | "high" {
     case "crlf-newline-normalized":
     case "bom-stripped":
       return "low";
+    case "inline-fig-image-stripped":
+    case "figure-references-tag-stripped":
+    case "figure-tag-stripped":
+      return "medium"; // LLM 写错图引用契约，应被 chapter-writer prompt + reviewer 拦
   }
 }

@@ -958,3 +958,137 @@ describe("PR-A7: buildSectionTree fuzzy match + missing-dim 显式标签", () =>
     }
   });
 });
+
+// ★ 2026-05-08 PR-8 (mission 843f6958 Round 3 第 4 路要求):
+//   PR-7 暴露 rebuildSectionTreePublic + s8 inject 后 rebuild section + 重映射
+//   figure.sectionId。锁住 inject 后 sections offset 与 markdown 对齐 + figure
+//   sourceDimensionId 优先重映射。
+describe("PR-7 rebuildSectionTreePublic + figure.sectionId 重映射（mission 843f6958 修）", () => {
+  function makeAssembler(): ReportArtifactAssembler {
+    const qualityGate = makeQualityGate();
+    return new ReportArtifactAssembler(qualityGate as never);
+  }
+
+  it("rebuildSectionTreePublic 用 narrow 参数（不需要完整 AssembleInput）", () => {
+    const assembler = makeAssembler();
+    const fullMarkdown = [
+      "# 报告",
+      "",
+      "## 1. 维度一",
+      "正文段落 A。",
+      "",
+      "## 2. 维度二",
+      "正文段落 B。",
+    ].join("\n");
+    const dims = [
+      { id: "d1", name: "维度一", rationale: "..." },
+      { id: "d2", name: "维度二", rationale: "..." },
+    ];
+    const sections = assembler.rebuildSectionTreePublic(
+      fullMarkdown,
+      dims,
+      "zh-CN",
+    );
+    const dimSecs = sections.filter((s) => s.type === "dimension");
+    expect(dimSecs).toHaveLength(2);
+    expect(dimSecs[0].sourceDimensionId).toBe("d1");
+    expect(dimSecs[1].sourceDimensionId).toBe("d2");
+  });
+
+  it("inject 占位后 fullMarkdown 字符增长，rebuild 后 offset 对齐新流", () => {
+    const assembler = makeAssembler();
+    const before = [
+      "## 1. Market",
+      "Market body content.",
+      "## 2. Tech",
+      "Tech body content.",
+    ].join("\n");
+    const dims = [
+      { id: "d1", name: "Market", rationale: "..." },
+      { id: "d2", name: "Tech", rationale: "..." },
+    ];
+    // inject 模拟：在第 1 章末尾插一行 ![](#fig-d1-0)
+    const after =
+      before.slice(0, before.indexOf("## 2. Tech")) +
+      "\n![alt](#fig-d1-0)\n\n" +
+      before.slice(before.indexOf("## 2. Tech"));
+    expect(after.length).toBeGreaterThan(before.length);
+
+    const sectionsBefore = assembler.rebuildSectionTreePublic(
+      before,
+      dims,
+      "en-US",
+    );
+    const sectionsAfter = assembler.rebuildSectionTreePublic(
+      after,
+      dims,
+      "en-US",
+    );
+    // Tech 章节 startOffset 在 inject 后必然位移
+    const techBefore = sectionsBefore.find(
+      (s) => s.sourceDimensionId === "d2",
+    )!;
+    const techAfter = sectionsAfter.find((s) => s.sourceDimensionId === "d2")!;
+    expect(techAfter.startOffset).toBeGreaterThan(techBefore.startOffset);
+  });
+
+  it("recomputeSectionFigureIdsPublic 按 sourceDimensionId 优先重映射 figure.sectionId", () => {
+    const assembler = makeAssembler();
+    const legacySections = [
+      {
+        id: "old-sec-1",
+        sourceDimensionId: "d1",
+        type: "dimension" as const,
+        title: "Market",
+        anchor: "market",
+        level: 2 as const,
+        startOffset: 0,
+        endOffset: 100,
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+    ];
+    const newSections = [
+      {
+        id: "new-sec-1",
+        sourceDimensionId: "d1",
+        type: "dimension" as const,
+        title: "Market",
+        anchor: "market",
+        level: 2 as const,
+        startOffset: 0,
+        endOffset: 150, // offset 漂移后
+        wordCount: 50,
+        readingTimeMinutes: 1,
+        citations: [],
+        figureIds: [],
+        factIds: [],
+      },
+    ];
+    const figures = [
+      {
+        id: "fig-old-sec-1-0",
+        type: "reference" as const,
+        chartType: undefined,
+        title: "test",
+        caption: "test fig",
+        altText: "test",
+        imageUrl: "https://x.com/i.png",
+        sectionId: "old-sec-1",
+        evidenceCitationIndex: undefined,
+        position: undefined,
+        referencedBy: [],
+      },
+    ];
+    assembler.recomputeSectionFigureIdsPublic(
+      figures as never,
+      newSections,
+      legacySections,
+    );
+    expect(figures[0].sectionId).toBe("new-sec-1");
+    expect(newSections[0].figureIds).toContain("fig-old-sec-1-0");
+  });
+});

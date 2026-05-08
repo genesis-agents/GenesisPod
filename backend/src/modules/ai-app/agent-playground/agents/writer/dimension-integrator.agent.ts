@@ -64,32 +64,40 @@ export class DimensionIntegratorAgent extends AgentSpec<
   typeof Output
 > {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
+    // ★ 2026-05-08 PR-3 (mission 843f6958 实证修): 给 LLM 看 chapter.body 而非
+    //   仅 heading + 字数。原版只让 LLM 看 "## 1. xxx (5000字)" 列表，导致 abstract
+    //   和 keyFindings 凭骨架编造（quality 63 分但说不出哪差）。fullMarkdown 字段
+    //   实际不被使用（per-dim-pipeline.util.ts:1304 强制 stitch），但保留契约。
+    //   body 摘要到前 600 字，避免 prompt 过长（上限 22K maxTokens）。
     const chapterList = input.chapters
-      .map((c) => `## ${c.index}. ${c.heading} (${c.wordCount}字)`)
-      .join("\n");
+      .map(
+        (c) =>
+          `### 章节 ${c.index}: ${c.heading} (${c.wordCount}字)\n\n${c.body.slice(0, 600)}${c.body.length > 600 ? "...[节选]" : ""}`,
+      )
+      .join("\n\n---\n\n");
     const totalWords = input.chapters.reduce((s, c) => s + c.wordCount, 0);
     return [
       `You integrate the chapters of dimension "${input.dimension}" into a coherent report.`,
       `Language: ${input.language}.`,
       ``,
-      `## 章节列表（${input.chapters.length} 个，总字数 ${totalWords}）`,
+      `## 章节内容节选（${input.chapters.length} 个，总字数 ${totalWords}）`,
       chapterList,
       ``,
       `## Dimension summary 参考`,
       input.dimensionSummary,
       ``,
-      `## 任务`,
-      `1. abstract: 写一段 200 字的维度级摘要（不是简单复制章节，而是综合提炼）`,
-      `2. keyFindings: 提炼 3-7 条跨章节的关键结论（每条 1 句，要可独立成立）`,
-      `3. fullMarkdown: 按章节顺序拼接 markdown，加 H1 维度标题 + 章节 H2`,
+      `## 任务（仅 abstract + keyFindings 为权威输出，fullMarkdown 字段保留契约）`,
+      `1. abstract: 基于上方章节内容**综合提炼** 200 字维度级摘要（非简单复制单章）`,
+      `2. keyFindings: 提炼 3-7 条**跨章节**关键结论（每条 1 句，可独立成立）`,
+      `3. fullMarkdown: 按章节顺序占位拼接（实际渲染由 per-dim-pipeline 代码确定性拼接，此字段保留契约）`,
       ``,
       `## 输出 JSON shape (字段名必须完全匹配)`,
       `{`,
       `  "dimension": "${input.dimension}",`,
-      `  "abstract": "<200 字摘要>",`,
-      `  "keyFindings": ["<关键结论1>", "<关键结论2>", ...],`,
-      `  "totalWordCount": <实际拼接后总字数>,`,
-      `  "fullMarkdown": "# ${input.dimension}\\n\\n## 1. ...\\n..."`,
+      `  "abstract": "<200 字综合摘要>",`,
+      `  "keyFindings": ["<跨章节关键结论1>", "<跨章节关键结论2>", ...],`,
+      `  "totalWordCount": ${totalWords},`,
+      `  "fullMarkdown": "<占位即可，实际不被使用>"`,
       `}`,
     ].join("\n");
   }

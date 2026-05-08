@@ -336,7 +336,25 @@ export function preprocessDimensionContent(
  * - /img/example-*, /images/sample-* 等通用路径模式
  */
 function removeHallucinatedImages(content: string): string {
-  return content.replace(
+  let result = content;
+
+  // ★ 2026-05-08 PR-4 (mission 843f6958 实证修): LLM 把图 URL inline 写到 markdown
+  //   绕过 #fig-N 占位机制。无论 URL 是否真实，所有 ![FIG-N](xxx) 形式都剥掉
+  //   (chapter-writer 严令禁止此用法，唯一图引用路径是 finalize.figureReferences)。
+  result = result.replace(/!\[FIG-\d+[^\]]*\]\([^)]+\)/gi, "");
+
+  // ★ 2026-05-08 PR-4: LLM 把 JSON 字段名当 XML 标签写出 — 整个标签连内容剥光
+  result = result.replace(/<\/?figureReferences?>/gi, "");
+  result = result.replace(
+    /<figureReferences?>[\s\S]*?<\/figureReferences?>/gi,
+    "",
+  );
+  // ★ 2026-05-08 PR-4: HTML <figure> 标签也是 LLM 误把图引用当 HTML 写的产物
+  //   markdown 渲染管线下不该出现（图通过 figure component 由 #fig-N 渲染）
+  result = result.replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, "");
+  result = result.replace(/<\/?figure[^>]*>/gi, "");
+
+  return result.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     (_match, _alt: string, url: string) => {
       const lower = url.toLowerCase();
@@ -352,6 +370,11 @@ function removeHallucinatedImages(content: string): string {
       // Error indicator paths
       if (lower.includes("image-not-found") || lower.includes("no-image"))
         return "";
+      // ★ 2026-05-08 PR-4 (mission 843f6958): LLM 把 prompt 提示语当 url 写
+      //   `![](FIG-1位置由figureReferences控制)` —— 这种"非 URL 文字"剥掉。
+      //   原 line 356 已用 `!startsWith('http')` 剥光所有非 HTTP url，保留兜底。
+      // 保留 #fig-N 占位（这是 reportAssembler 注入的合法占位）
+      if (lower.startsWith("#fig-") || lower.startsWith("#fig_")) return _match;
       // Non-HTTP URLs (relative paths, file://, etc.)
       if (!lower.startsWith("http://") && !lower.startsWith("https://"))
         return "";
