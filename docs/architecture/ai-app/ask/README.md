@@ -429,6 +429,7 @@ if (message.ragSources) {
 - [Teams 模式 W2 PR3 代码评审纪要 v3](./teams-mode-review-v3.md)
 - [Teams 模式 W3 PR4 代码评审纪要 v4](./teams-mode-review-v4.md)
 - [Teams 模式 W4 PR5 代码评审纪要 v5](./teams-mode-review-v5.md)
+- [Teams 模式 FE+W6 综合评审纪要 v6](./teams-mode-review-v6.md)
 - [Teams 模式 v1.0 Release Notes](./teams-mode-release-notes.md)
 - [Teams 模式性能基线](./teams-mode-perf-baseline.md)
 - [ADR-004 AI Ask Teams 模式](../../../decisions/004-ai-ask-teams-mode.md)
