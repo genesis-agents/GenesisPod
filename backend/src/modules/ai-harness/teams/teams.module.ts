@@ -20,7 +20,6 @@ import { ConstraintEngine } from "@/modules/ai-harness/guardrails/constraints/co
 import { TeamsMissionOrchestrator as MissionOrchestrator } from "./orchestrator/teams-mission-orchestrator";
 import { MissionRuntimeStateStore } from "../lifecycle/mission-lifecycle/runtime-state-store";
 import { MissionLivenessGuard } from "../lifecycle/mission-lifecycle/mission-liveness-guard.service";
-import { MissionAbortRegistry } from "../lifecycle/mission-lifecycle/abort-registry";
 import { MissionOwnershipRegistry } from "../lifecycle/mission-lifecycle/ownership-registry";
 import { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 import { AdaptiveReplannerService } from "./orchestrator/adaptive-replanner.service";
@@ -65,8 +64,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     //   ai-app 通过 onModuleInit 调 livenessGuard.registerAdapter('namespace', adapter)
     //   归并/替代旧 4 个 detector（含已删除的 MissionOrphanDetectorService）
     MissionLivenessGuard,
-    // ★ 2026-05-01 (PR-X-E): 通用 mission registry primitive（从 consumer 上提）
-    MissionAbortRegistry,
+    // ★ MissionAbortRegistry 已上提至 @Global HarnessModule（2026-05-08 PR-E0 fix），由全局 DI 注入
     MissionOwnershipRegistry,
     RerunLockRegistry,
     // ★ 2026-04-30: AdaptiveReplannerService 从 ai-engine/planning 搬来 (跨层搬迁)
@@ -199,7 +197,7 @@ import { EventJournalService } from "@/modules/ai-harness/protocols/journal/even
     A2AMessageBusService,
     MissionRuntimeStateStore,
     MissionLivenessGuard,
-    MissionAbortRegistry,
+    // MissionAbortRegistry 由 @Global HarnessModule 提供（2026-05-08 PR-E0 fix）
     MissionOwnershipRegistry,
     RerunLockRegistry,
     AdaptiveReplannerService,

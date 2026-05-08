@@ -114,6 +114,8 @@ import { AiEngineLLMModule } from "../ai-engine/llm/llm.module";
 import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
 // AiEngineMemoryModule 已移除（2026-04-30）—— Memory 服务全部迁到
 // ai-harness/memory（RuntimeMemoryModule @Global），无需在此 forwardRef。
+import { CreditsModule } from "../ai-infra/credits/credits.module";
+import { MissionAbortRegistry } from "./lifecycle/mission-lifecycle/abort-registry";
 
 // PR-X18: Engine 端 DI tokens — harness 提供这 9 个 token 的 useExisting 绑定
 import {
@@ -160,12 +162,15 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     // 2026-05-01 (PR-X-K): 让 SkillActivator 能 fallback 到 ai-engine SkillRegistry，
     // 透出用户在 Admin UI / API 自定义的 skill 给 harness agent
     forwardRef(() => AiEngineSkillsModule),
+    // ★ 2026-05-08 PR-E0: MissionRuntimeShellFramework 依赖 CreditsService
+    CreditsModule,
   ],
   providers: [
     // Cross-cutting
     HookRegistry,
-    // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
+    // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架 + abort registry 上提为 @Global
     MissionRuntimeShellFramework,
+    MissionAbortRegistry,
 
     // ai-harness/guardrails (RuntimeResourceModule) 通过 DI token 拿 harness 能力探针，避免反向 import
     {
@@ -336,8 +341,9 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
   // HarnessInspectorController moved to open-api/admin/harness-inspector.controller.ts (PR-X17)
   exports: [
     HarnessFacade,
-    // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架
+    // ★ 2026-05-08 PR-E0: BusinessAgentTeam mission runtime shell 框架 + abort registry @Global
     MissionRuntimeShellFramework,
+    MissionAbortRegistry,
     AgentFactory,
     SpecAgentRegistry,
     LlmExecutor,
