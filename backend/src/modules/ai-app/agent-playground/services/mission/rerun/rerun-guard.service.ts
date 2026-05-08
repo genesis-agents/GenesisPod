@@ -23,8 +23,9 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
-// Note: categorizeEvent 通过 SQL LIKE 字面前缀直接对应（design §3.3 同源约定）；
-//   helper 在 spec 层用，service 层不直接 import，避免误用。
+// ★ 2026-05-08 PR-C1: 从 event-categories 单一源 import BUSINESS_PREFIXES，
+//   动态拼 SQL LIKE clause —— 替代之前字面复制 5 行 LIKE 字符串（消除字面双源）。
+import { EVENT_CATEGORY } from "../lifecycle/event-categories";
 
 /** heartbeat fresh 阈值：< 60s 视为 pod 心跳新鲜 */
 const HEARTBEAT_FRESH_THRESHOLD_MS = 60_000;
@@ -179,23 +180,23 @@ export class RerunGuardService {
   /**
    * 取 mission 最近一条 BUSINESS 事件的 ts（毫秒）。
    *
-   * SQL 用全限定前缀 LIKE，与 event-categories.ts BUSINESS_PREFIXES 字面同源
-   * （PR review 必查同步性）。索引：(mission_id, ts) 已存在，2238 行最大
-   * mission EXPLAIN 0.056ms，足够。
+   * SQL LIKE clause 由 event-categories.ts BUSINESS_PREFIXES 动态生成 —— 单一源。
+   * 索引：(mission_id, ts) 已存在，2238 行最大 mission EXPLAIN 0.056ms，足够。
    */
   private async getLatestBusinessEventTs(
     missionId: string,
   ): Promise<number | null> {
+    // BUSINESS_PREFIXES → "type LIKE $2 OR type LIKE $3 ..." + 对应 params
+    const prefixes = EVENT_CATEGORY.BUSINESS_PREFIXES;
+    const likeClause = prefixes
+      .map((_, i) => `type LIKE $${i + 2}`)
+      .join(" OR ");
+    const params: unknown[] = [missionId, ...prefixes.map((p) => `${p}%`)];
     const rows = await this.prisma.$queryRawUnsafe<{ ts: bigint }[]>(
       `SELECT ts FROM agent_playground_mission_events
-       WHERE mission_id = $1
-         AND (type LIKE 'agent-playground.dimension:%'
-              OR type LIKE 'agent-playground.chapter:%'
-              OR type LIKE 'agent-playground.stage:%'
-              OR type LIKE 'agent-playground.agent:narrative%'
-              OR type LIKE 'agent-playground.tool:%')
+       WHERE mission_id = $1 AND (${likeClause})
        ORDER BY ts DESC LIMIT 1`,
-      missionId,
+      ...params,
     );
     if (rows.length === 0) return null;
     const tsMs = Number(rows[0].ts);
