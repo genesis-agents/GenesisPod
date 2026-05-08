@@ -138,18 +138,24 @@ export async function runPerDimPipeline(
 
   const lp = args.lengthProfile;
   const dimCount = Math.max(1, args.dimensionCount ?? 5);
-  // ★ 2026-05-07 洞察类型 v1（用户对齐）：depth 单轴决定规模，lengthProfile 已废弃
+  // ★ 2026-05-07 洞察类型 v1：per-dim/章 字数驱动以 depth 为准，三档互不重叠：
   //   quick    : 3-5 维   × 2-3 章/维   × 800-1500 字  ≈ 5K-22K   总
   //   standard : 5-8 维   × 3-5 章/维   × 1200-2000 字 ≈ 18K-80K  总
-  //   deep     : 10-12 维 × 6-8 章/维   × 1500-2500 字 ≈ 90K-240K 总（用户期望 12-15万）
-  //   lengthProfile 老字段仍接受但**优先用 depth**（dual-write 期向后兼容，新逻辑只读 depth）
+  //   deep     : 10-12 维 × 6-8 章/维   × 1500-2500 字 ≈ 90K-240K 总
+  //
+  // lengthProfile 同时仍作为 user-facing 档位字段保留（前端 RunMissionDialog
+  // 6 档），驱动以下三处下游（与 depth 共存而非替代）：
+  //   - mission-outline-planner.agent.ts: lengthTarget(lp) 推 mission 级 outline 总字数
+  //   - chapter-writer.agent.ts:           PROFILE_WORD_RANGES[lp] 注入 prompt 字数 hint
+  //   - s10-leader-foreword-and-signoff.stage.ts: lengthTargetFor(lp) 字数 reconciliation
+  // 故 lp 在 per-dim/章 路径仅作为 chapter-writer hint 透传（下游 prompt 用），
+  // 本函数核心字数计算只读 depth。
   const missionTarget =
     depth === "quick" ? 10000 : depth === "deep" ? 150000 : 40000;
   const dimTargetWords = Math.round(missionTarget / dimCount);
 
   // ★ idealChapters 改为 depth-based（中位）：quick=2 / standard=4 / deep=7
   //   per-dim 章数 = dimTargetWords / idealPerChapter，保持 ≥3 ≤ 25 章
-  //   lp 若仍传入只用作 legacy fallback（最终行为以 depth 为准）
   const idealChapters = depth === "quick" ? 2 : depth === "deep" ? 7 : 4;
   const naivePerChapter = Math.round(dimTargetWords / idealChapters);
   // 单章字数物理上限保留 8000（chapter-writer maxTokens=22K 对应约 10K 中文字 buffer）
@@ -159,8 +165,7 @@ export async function runPerDimPipeline(
     3,
     Math.min(25, Math.round(dimTargetWords / targetWordsPerChapter)),
   );
-  // lengthProfile 仍读以保 chapter-writer prompt 内部细节（老 PROFILE_WORD_RANGES key）
-  // 但运行时分支默认走 depth-driven 数值；lp 仅在 line ~692 透传给 chapter-writer 用
+  // lp 仅在 line ~692 透传给 chapter-writer prompt 用（PROFILE_WORD_RANGES）
   const dimAgentTag = `researcher#${dimensionIdx}`;
 
   // ★ 2026-05-01 INVARIANT: 每个 dim 必发一次 dimension:graded 终态事件，杜绝

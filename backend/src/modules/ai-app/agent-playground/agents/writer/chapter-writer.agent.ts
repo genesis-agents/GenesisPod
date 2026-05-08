@@ -123,8 +123,10 @@ const Output = z.object({
 })
 export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    // ★ 2026-05-07 洞察类型 v1（用户对齐）：lengthProfile 表保留作 legacy fallback
-    //   新逻辑由 targetWords 直接驱动 prompt 牵引（不再展示 lengthProfile 档位范围给 LLM）
+    // ★ 2026-05-07 洞察类型 v1：targetWords 是 per-章 字数硬牵引（per-dim-pipeline
+    //   按 depth 推算）；PROFILE_WORD_RANGES[lengthProfile] 提供档位级 hint 让 LLM
+    //   理解全局规模感（mission level）。两者共存：targetWords 是局部硬目标，
+    //   profileRange 是全局软参考（不冲突）。
     //   字数语义已软化：低于 800 字也接受，不强制 retry（per-章 牵引 ≠ 硬约束）
     const PROFILE_WORD_RANGES: Record<
       NonNullable<z.infer<typeof Input>["lengthProfile"]>,
