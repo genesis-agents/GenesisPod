@@ -3,6 +3,12 @@
  *
  * 设计来源：rerun-overhaul-design-v1.md §3.1 / §3.2 / §3.7
  *
+ * 2026-05-08 PR-E3：9-cell 决策矩阵已上提到
+ * `ai-harness/teams/business-team/rerun/heartbeat-decision.ts` 作为纯函数框架。
+ * 本类是 reference 实现，satisfies harness `IBusinessRerunGuard` 接口（structural
+ * typing），其他 BusinessAgentTeam 反向迁移时只需调用 `decideMissionInFlight`
+ * + 自己的 latest-business-event-ts 查询即得相同语义。
+ *
  * 触发事件：mission c195035f 用户连点重跑被拒，错误"is in-flight (heartbeat 1s ago,
  * event 1s ago)"，但 DB status=failed。真因 = 因果倒置（用户行为 emit 的 lifecycle
  * 事件被自己当 mission 活迹读 → 拒绝用户）。
@@ -26,11 +32,17 @@ import { MissionStore } from "../lifecycle/mission-store.service";
 // ★ 2026-05-08 PR-C1: 从 event-categories 单一源 import BUSINESS_PREFIXES，
 //   动态拼 SQL LIKE clause —— 替代之前字面复制 5 行 LIKE 字符串（消除字面双源）。
 import { EVENT_CATEGORY } from "../lifecycle/event-categories";
+// ★ 2026-05-08 PR-E3: 9-cell 决策矩阵上提到 harness（pure function 框架），
+//   playground 引用，避免与未来 research / TI rerun guard 重复实现。
+import {
+  decideMissionInFlight,
+  HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
+  BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT,
+} from "@/modules/ai-harness/facade";
 
-/** heartbeat fresh 阈值：< 60s 视为 pod 心跳新鲜 */
-const HEARTBEAT_FRESH_THRESHOLD_MS = 60_000;
-/** business event fresh 阈值：< 5min 视为业务真活迹（最长 stage 间正常空隙） */
-const BUSINESS_EVENT_FRESH_THRESHOLD_MS = 5 * 60_000;
+const HEARTBEAT_FRESH_THRESHOLD_MS = HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT;
+const BUSINESS_EVENT_FRESH_THRESHOLD_MS =
+  BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT;
 
 export type MissionStatus =
   | "running"
@@ -104,43 +116,23 @@ export class RerunGuardService {
     const latestBusinessEventAgeMs =
       latestBusinessTs != null ? now - latestBusinessTs : null;
 
-    // 9-cell 决策矩阵（design §3.1.1）
-    const heartbeatFresh =
-      heartbeatAgeMs != null && heartbeatAgeMs < HEARTBEAT_FRESH_THRESHOLD_MS;
-    const businessFresh =
-      latestBusinessEventAgeMs != null &&
-      latestBusinessEventAgeMs < BUSINESS_EVENT_FRESH_THRESHOLD_MS;
-
-    if (heartbeatFresh && businessFresh) {
-      // 真在跑
-      return {
-        inFlight: true,
-        zombieDetected: false,
-        status,
-        heartbeatAgeMs,
-        latestBusinessEventAgeMs,
-        reason: `heartbeat ${Math.round((heartbeatAgeMs ?? 0) / 1000)}s ago + business event ${Math.round((latestBusinessEventAgeMs ?? 0) / 1000)}s ago`,
-      };
-    }
-
-    if (heartbeatFresh && !businessFresh) {
-      // zombie pod：heartbeat 新但业务停了（含 latestBusinessEventAgeMs=null 的 0 事件场景）
-      return {
-        inFlight: false,
-        zombieDetected: true,
-        status,
-        heartbeatAgeMs,
-        latestBusinessEventAgeMs,
-      };
-    }
-
-    // heartbeat stale 或 null → 永不 inFlight=true（design §3.5.2 RV-7 不变量）
-    return {
-      inFlight: false,
-      zombieDetected: false,
+    // ★ 2026-05-08 PR-E3: 9-cell 决策矩阵走 harness 纯函数（business 侧只读 status /
+    //   heartbeat / latest-business-event-ts，不持有判定逻辑）。
+    const decision = decideMissionInFlight({
       status,
       heartbeatAgeMs,
       latestBusinessEventAgeMs,
+      heartbeatFreshThresholdMs: HEARTBEAT_FRESH_THRESHOLD_MS,
+      businessEventFreshThresholdMs: BUSINESS_EVENT_FRESH_THRESHOLD_MS,
+    });
+
+    return {
+      inFlight: decision.inFlight,
+      zombieDetected: decision.zombieDetected,
+      status,
+      heartbeatAgeMs,
+      latestBusinessEventAgeMs,
+      ...(decision.reason ? { reason: decision.reason } : {}),
     };
   }
 

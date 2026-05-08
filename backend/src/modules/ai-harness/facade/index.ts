@@ -429,6 +429,16 @@ export {
 //   注意：rename 为 IBusinessTeamMissionStore 避免与 line 1103 已有 IMissionStore 冲突
 //   （后者是 harness/teams/abstractions 下的 generic InMemoryMissionStore 契约）
 export type { IBusinessTeamMissionStore } from "../teams/business-team/abstractions/mission-store.interface";
+// ★ 2026-05-08 PR-E3: BusinessAgentTeam rerun guard 9-cell 决策矩阵纯函数框架
+//   ctx-hydrator / stage-rerun-dispatcher 接口暂不上提（YAGNI，等第二个业务方来）
+export {
+  decideMissionInFlight,
+  HEARTBEAT_FRESH_THRESHOLD_MS_DEFAULT,
+  BUSINESS_EVENT_FRESH_THRESHOLD_MS_DEFAULT,
+  type HeartbeatDecisionInput,
+  type HeartbeatDecision,
+} from "../teams/business-team/rerun/heartbeat-decision";
+export type { IBusinessRerunGuard } from "../teams/business-team/abstractions/rerun-guard.interface";
 // ★ 2026-05-04 (PR-3 standardize consumer)
 export { RerunLockRegistry } from "../lifecycle/mission-lifecycle/rerun-lock.registry";
 
