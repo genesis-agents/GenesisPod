@@ -195,4 +195,237 @@ describe("KeyAssignmentsService", () => {
       expect(ps).toEqual(expect.arrayContaining(["openai", "anthropic"]));
     });
   });
+
+  // PR-E 2026-05-08: 模型粒度 resolveActive 双查路径
+  describe("resolveActive with modelId fallback", () => {
+    it("returns specific modelId match when present", async () => {
+      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
+        makeAssignment({ modelId: "gpt-4o" }),
+      );
+      const r = await service.resolveActive("u-1", "openai", "gpt-4o");
+      expect(r).toBeTruthy();
+      expect(r!.assignmentId).toBe("a-1");
+      expect(prisma.keyAssignment.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it("falls back to wildcard modelId='*' when specific not found", async () => {
+      prisma.keyAssignment.findUnique
+        .mockResolvedValueOnce(null) // 第一次具体 modelId 查无
+        .mockResolvedValueOnce(makeAssignment({ modelId: "*" })); // fallback 通配命中
+      const r = await service.resolveActive("u-1", "openai", "gpt-4o");
+      expect(r).toBeTruthy();
+      expect(prisma.keyAssignment.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it("returns null when neither specific nor wildcard exist", async () => {
+      prisma.keyAssignment.findUnique.mockResolvedValue(null);
+      const r = await service.resolveActive("u-1", "openai", "gpt-4o");
+      expect(r).toBeNull();
+    });
+
+    it("legacy caller without modelId only queries wildcard once", async () => {
+      prisma.keyAssignment.findUnique.mockResolvedValueOnce(
+        makeAssignment({ modelId: "*" }),
+      );
+      const r = await service.resolveActive("u-1", "openai");
+      expect(r).toBeTruthy();
+      expect(prisma.keyAssignment.findUnique).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // PR-E 2026-05-08: computeNextRenewalAt 跨月 clamp（修 R1 评审 FAIL）
+  // 实现用 local time（admin 直觉），所以 spec 用 local 时间方法判断（不用 UTC）
+  describe("computeNextRenewalAt", () => {
+    it("WEEK adds days correctly (14 天差)", () => {
+      const from = new Date(2026, 0, 1); // 2026-01-01 local
+      const next = service.computeNextRenewalAt(from, "WEEK", 2);
+      const diffDays = (next.getTime() - from.getTime()) / 86_400_000;
+      expect(diffDays).toBe(14);
+    });
+
+    it("MONTH from Jan 31 clamps to Feb 28 (non-leap year)", () => {
+      const from = new Date(2026, 0, 31); // 2026-01-31 local
+      const next = service.computeNextRenewalAt(from, "MONTH", 1);
+      expect(next.getMonth()).toBe(1); // Feb
+      expect(next.getDate()).toBeLessThanOrEqual(28);
+      expect(next.getFullYear()).toBe(2026);
+    });
+
+    it("MONTH from Jan 31 clamps to Feb 29 in leap year 2028", () => {
+      const from = new Date(2028, 0, 31); // 2028-01-31 local
+      const next = service.computeNextRenewalAt(from, "MONTH", 1);
+      expect(next.getMonth()).toBe(1); // Feb
+      expect(next.getDate()).toBe(29);
+    });
+
+    it("MONTH 12→1 跨年正确", () => {
+      const from = new Date(2026, 11, 15); // 2026-12-15
+      const next = service.computeNextRenewalAt(from, "MONTH", 1);
+      expect(next.getFullYear()).toBe(2027);
+      expect(next.getMonth()).toBe(0); // Jan
+      expect(next.getDate()).toBe(15);
+    });
+
+    it("YEAR Feb 29 leap → next year Feb 28 clamped", () => {
+      const from = new Date(2028, 1, 29); // 2028-02-29 leap
+      const next = service.computeNextRenewalAt(from, "YEAR", 1);
+      expect(next.getFullYear()).toBe(2029);
+      expect(next.getMonth()).toBe(1); // Feb
+      expect(next.getDate()).toBe(28); // 2029 非闰
+    });
+  });
+
+  // PR-E 2026-05-08: grantBatch 模型粒度批量授权
+  describe("grantBatch", () => {
+    beforeEach(() => {
+      prisma.aIModel = {
+        findFirst: jest.fn(),
+      };
+      prisma.distributableKey.findMany = jest.fn().mockResolvedValue([
+        {
+          id: "pool-1",
+          monthlyQuotaCents: 100000,
+          currentSpendCents: 10000,
+          createdAt: new Date("2026-01-01"),
+        },
+      ]);
+    });
+
+    it("creates assignments for each model with auto-mapped pool", async () => {
+      prisma.aIModel.findFirst
+        .mockResolvedValueOnce({ provider: "OpenAI", modelId: "gpt-4o" })
+        .mockResolvedValueOnce({
+          provider: "Anthropic",
+          modelId: "claude-opus-4",
+        });
+      prisma.keyAssignment.findUnique.mockResolvedValue(null);
+      prisma.keyAssignment.create
+        .mockResolvedValueOnce(makeAssignment({ modelId: "gpt-4o" }))
+        .mockResolvedValueOnce(
+          makeAssignment({ id: "a-2", modelId: "claude-opus-4" }),
+        );
+
+      const result = await service.grantBatch({
+        userId: "u-1",
+        models: [
+          { modelId: "gpt-4o", userQuotaCents: 2000 },
+          { modelId: "claude-opus-4", userQuotaCents: 3000 },
+        ],
+        validityType: "ONE_TIME",
+        expiresAt: new Date("2026-12-31"),
+      });
+
+      expect(result.succeeded).toHaveLength(2);
+      expect(result.failed).toHaveLength(0);
+    });
+
+    it("partial failure: missing model pushes to failed[] not throws", async () => {
+      prisma.aIModel.findFirst
+        .mockResolvedValueOnce({ provider: "OpenAI", modelId: "gpt-4o" })
+        .mockResolvedValueOnce(null); // 第二个 model 不存在
+      prisma.keyAssignment.findUnique.mockResolvedValue(null);
+      prisma.keyAssignment.create.mockResolvedValueOnce(
+        makeAssignment({ modelId: "gpt-4o" }),
+      );
+
+      const result = await service.grantBatch({
+        userId: "u-1",
+        models: [{ modelId: "gpt-4o" }, { modelId: "nonexistent-model" }],
+        validityType: "ONE_TIME",
+        expiresAt: new Date("2026-12-31"),
+      });
+
+      expect(result.succeeded).toHaveLength(1);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0].modelId).toBe("nonexistent-model");
+      expect(result.failed[0].reason).toContain("Model not found");
+    });
+
+    it("partial failure: no available pool pushes to failed[]", async () => {
+      prisma.aIModel.findFirst.mockResolvedValueOnce({
+        provider: "OpenAI",
+        modelId: "gpt-4o",
+      });
+      prisma.distributableKey.findMany.mockResolvedValueOnce([]); // 无可用池
+
+      const result = await service.grantBatch({
+        userId: "u-1",
+        models: [{ modelId: "gpt-4o" }],
+        validityType: "ONE_TIME",
+        expiresAt: new Date("2026-12-31"),
+      });
+
+      expect(result.succeeded).toHaveLength(0);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0].reason).toContain("No available pool");
+    });
+
+    it("duplicate ACTIVE assignment pushes to failed[] not throws", async () => {
+      prisma.aIModel.findFirst.mockResolvedValueOnce({
+        provider: "OpenAI",
+        modelId: "gpt-4o",
+      });
+      prisma.keyAssignment.findUnique.mockResolvedValue(
+        makeAssignment({ modelId: "gpt-4o" }),
+      );
+
+      const result = await service.grantBatch({
+        userId: "u-1",
+        models: [{ modelId: "gpt-4o" }],
+        validityType: "ONE_TIME",
+        expiresAt: new Date("2026-12-31"),
+      });
+
+      expect(result.succeeded).toHaveLength(0);
+      expect(result.failed).toHaveLength(1);
+      expect(result.failed[0].reason).toContain("already has active");
+    });
+
+    it("RECURRING without recurrenceUnit/Interval throws ConflictException", async () => {
+      await expect(
+        service.grantBatch({
+          userId: "u-1",
+          models: [{ modelId: "gpt-4o" }],
+          validityType: "RECURRING",
+          // 故意缺 recurrenceUnit + recurrenceInterval
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it("RECURRING computes nextRenewalAt and creates with recurrence fields", async () => {
+      prisma.aIModel.findFirst.mockResolvedValueOnce({
+        provider: "OpenAI",
+        modelId: "gpt-4o",
+      });
+      prisma.keyAssignment.findUnique.mockResolvedValue(null);
+      prisma.keyAssignment.create.mockResolvedValueOnce(
+        makeAssignment({ modelId: "gpt-4o" }),
+      );
+
+      await service.grantBatch({
+        userId: "u-1",
+        models: [{ modelId: "gpt-4o" }],
+        validityType: "RECURRING",
+        recurrenceUnit: "MONTH",
+        recurrenceInterval: 1,
+      });
+
+      const createCall = prisma.keyAssignment.create.mock.calls[0][0];
+      expect(createCall.data.validityType).toBe("RECURRING");
+      expect(createCall.data.recurrenceUnit).toBe("MONTH");
+      expect(createCall.data.recurrenceInterval).toBe(1);
+      expect(createCall.data.nextRenewalAt).toBeInstanceOf(Date);
+      expect(createCall.data.expiresAt).toBeNull(); // RECURRING 不用 expiresAt
+    });
+
+    it("returns empty result when models[] is empty", async () => {
+      const result = await service.grantBatch({
+        userId: "u-1",
+        models: [],
+        validityType: "ONE_TIME",
+      });
+      expect(result.succeeded).toHaveLength(0);
+      expect(result.failed).toHaveLength(0);
+    });
+  });
 });
