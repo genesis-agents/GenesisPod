@@ -89,17 +89,19 @@ const Output = z.object({
 })
 export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    // ★ lengthProfile-aware 字数范围表（E 档位约束，与 per-dim-pipeline 计算对齐）
+    // ★ 2026-05-07 洞察类型 v1（用户对齐）：lengthProfile 表保留作 legacy fallback
+    //   新逻辑由 targetWords 直接驱动 prompt 牵引（不再展示 lengthProfile 档位范围给 LLM）
+    //   字数语义已软化：低于 800 字也接受，不强制 retry（per-章 牵引 ≠ 硬约束）
     const PROFILE_WORD_RANGES: Record<
       NonNullable<z.infer<typeof Input>["lengthProfile"]>,
       [number, number]
     > = {
       brief: [600, 1000],
       standard: [1200, 1800],
-      deep: [2000, 2800],
-      extended: [2800, 3500],
-      epic: [3500, 4500],
-      mega: [4500, 6000],
+      deep: [1500, 2500], // 对齐 v1 deep 中位
+      extended: [2000, 3000],
+      epic: [2500, 3500],
+      mega: [3000, 4000],
     };
     const profileRange = input.lengthProfile
       ? PROFILE_WORD_RANGES[input.lengthProfile]
@@ -128,9 +130,13 @@ export class ChapterWriterAgent extends AgentSpec<typeof Input, typeof Output> {
       `- 章节标题: ${input.chapter.heading}`,
       `- 章节核心论点 (thesis): ${input.chapter.thesis}`,
       `- keyPoints: ${input.chapter.keyPoints.map((p, i) => `${i + 1}) ${p}`).join("；")}`,
-      `- **目标字数: ${input.targetWords} 字（必须 ≥ ${Math.round(input.targetWords * 0.85)} 字才算合格；< 70% 必被打回重写）**${profileRange ? `\n- **lengthProfile=${input.lengthProfile} 档位字数范围: ${profileRange[0]}-${profileRange[1]} 字（本章字数应落在此范围内）**` : ""}`,
+      // ★ 2026-05-07 字数软化（用户对齐）：从"必须 ≥ 0.85 才合格"改为"建议范围（牵引）"
+      //   低于 800 字也接受不打回；超出范围也接受。retry 触发条件迁出字数（见 reviewer）。
+      `- **建议字数: ${input.targetWords} 字（这是目标牵引，不是硬约束）**${profileRange ? `\n- 档位范围参考: ${profileRange[0]}-${profileRange[1]} 字` : ""}`,
+      `- 字数语义：**该章话题密度高就多写，密度低就少写**。低于 800 字也可以接受，不会因为字数不足被打回。`,
+      `- **不要为凑字数而堆砌**。1500 字的扎实分析 > 4000 字的注水稀释。`,
       input.targetWords >= 3000
-        ? `- **章节深度: ${input.targetWords} 字相当于 ${Math.round(input.targetWords / 600)} 个论述段落（每段 ~600 字），不要少**`
+        ? `- 章节体量参考: ${input.targetWords} 字 ≈ ${Math.round(input.targetWords / 600)} 个论述段落（每段 ~600 字）`
         : "",
       ``,
       `## 核心要求`,

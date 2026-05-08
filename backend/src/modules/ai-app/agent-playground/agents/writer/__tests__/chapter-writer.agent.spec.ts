@@ -221,14 +221,17 @@ describe("ChapterWriterAgent", () => {
       expect(prompt).toContain("1000");
     });
 
-    it("contains 85% threshold in prompt", () => {
+    it("emits soft word-count guidance instead of hard threshold (2026-05-07)", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      expect(prompt).toContain("850"); // Math.round(1000 * 0.85)
+      // 字数软化后："建议字数: N 字（这是目标牵引，不是硬约束）" 取代 0.85/0.7 硬阈值
+      expect(prompt).toContain("建议字数");
+      expect(prompt).toContain("牵引");
+      expect(prompt).toContain("不是硬约束");
     });
 
-    it("contains 70% threshold in prompt", () => {
+    it("explicitly tells LLM 不要为凑字数堆砌 (anti-padding)", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      expect(prompt).toContain("70%");
+      expect(prompt).toContain("不要为凑字数");
     });
 
     it("language zh-CN produces Chinese guide", () => {

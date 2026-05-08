@@ -317,11 +317,12 @@ export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
     if (input.phase === "plan") {
       enriched.currentDate = new Date().toISOString().slice(0, 10);
       enriched.currentYear = new Date().getFullYear();
+      // ★ 2026-05-07: 洞察类型定义 v1（用户对齐：deep = 10-12 维 × 6-8 章 × 1500-2500 字 ≈ 12-15万字）
       enriched.dimensionsTarget =
         input.depth === "quick"
           ? "3-5"
           : input.depth === "deep"
-            ? "8-12"
+            ? "10-12"
             : "5-8";
     }
     return buildPromptFromDuty("leader", dutyName[input.phase], enriched);

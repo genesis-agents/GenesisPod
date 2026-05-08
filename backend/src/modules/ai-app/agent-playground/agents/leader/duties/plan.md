@@ -7,7 +7,7 @@
 - Depth: `{{depth}}` → 必须产出 `{{dimensionsTarget}}` 个研究维度（dimensions）
   - quick: 3-5 个维度（快速扫描，覆盖核心面）
   - standard: 5-8 个维度（标准分析，全面覆盖）
-  - deep: 8-12 个维度（深度研究，细粒度拆解）
+  - deep: 10-12 个维度（深度研究，每维度 6-8 章 × 1500-2500 字，总 12-15万字洞察报告）
 
 {{#if priorPostmortems.length}}
 

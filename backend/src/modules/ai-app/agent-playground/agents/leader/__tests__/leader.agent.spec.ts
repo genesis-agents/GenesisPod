@@ -1302,7 +1302,7 @@ describe("LeaderAgent — buildSystemPrompt", () => {
     expect(result).toContain("3-5");
   });
 
-  it("injects dimensionsTarget=8-12 for deep depth", () => {
+  it("injects dimensionsTarget=10-12 for deep depth", () => {
     const input = {
       phase: "plan" as const,
       topic: "Deep topic",
@@ -1311,7 +1311,7 @@ describe("LeaderAgent — buildSystemPrompt", () => {
       priorPostmortems: [],
     };
     const result = agent.buildSystemPrompt({ input, identity });
-    expect(result).toContain("8-12");
+    expect(result).toContain("10-12");
   });
 
   it("injects dimensionsTarget=5-8 for standard depth", () => {

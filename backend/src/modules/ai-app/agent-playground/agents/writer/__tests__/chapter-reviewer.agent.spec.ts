@@ -312,12 +312,12 @@ describe("ChapterReviewerAgent", () => {
       expect(prompt).toContain("900");
     });
 
-    it("emphasizes quality over word count (2026-05-01 调整)", () => {
+    it("emphasizes quality over word count (2026-05-07 全软化)", () => {
       const prompt = agent.buildSystemPrompt({ input: baseInput, identity });
-      // 字数权重最低 10/100，仅极端不足（< 40%）触发硬规则
+      // 字数权重最低 10/100；★ 永不触发 revise（用户拍板的全软化策略）
       expect(prompt).toContain("质量优先");
       expect(prompt).toContain("字数权重最低");
-      expect(prompt).toContain("40%");
+      expect(prompt).toContain("字数永不触发 revise");
     });
 
     it("contains pass threshold 60 in decision rules", () => {
