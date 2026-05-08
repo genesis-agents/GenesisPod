@@ -1092,6 +1092,11 @@ export class AiModelConfigService {
       // 同时查 PERSONAL（user_api_keys）+ ASSIGNED（key_assignments）。
       // 2026-05-08 v5：KeyAssignment 直接关联 AIModel，不再走 DistributableKey 池。
       // 仍保留 PERSONAL+ASSIGNED union 用于显示用户能用哪些 provider 的模型。
+      //
+      // 设计前提：admin 只对 isEnabled=true 的模型授权（grantBatch 已拒绝 disabled），
+      //   而 admin 关掉某模型时 byok-maintenance.scheduler 会把对应 assignment 转 STALE。
+      //   因此 ACTIVE assignment 永远对应 isEnabled=true 的 AIModel — 第一段 `models`
+      //   查询足以覆盖全部应该可见的模型。
       let userProviders = new Set<string>();
       if (userId) {
         try {
@@ -1117,6 +1122,50 @@ export class AiModelConfigService {
         } catch (error) {
           this.logger.warn(
             `[getEnabledModelsForFrontend] Failed to fetch user API keys: ${error}`,
+          );
+        }
+      }
+
+      // 用户自定义的 UserModelConfig（personal BYOK v3）：用户在「我的模型」tab 自配的模型，
+      // 跑在自己的 UserApiKey 上。AIModel 是 admin 维护的全局池，UserModelConfig 是 user 级的，
+      // 互不干扰；但业务下拉里两者都该出现。
+      // 设计：以 (provider, modelId) 为身份去重 — admin 的 AIModel 同 (provider, modelId) 优先；
+      //       UserModelConfig 仅补"AIModel 没有"的条目。
+      let userPersonalConfigs: Array<{
+        id: string;
+        modelId: string;
+        displayName: string;
+        provider: string;
+        modelType: string;
+        isDefault: boolean;
+      }> = [];
+      if (userId) {
+        try {
+          const personalWhere: Record<string, unknown> = {
+            userId,
+            isEnabled: true,
+          };
+          if (modelType) {
+            personalWhere.modelType = modelType;
+          }
+          userPersonalConfigs = await this.prisma.userModelConfig.findMany({
+            where: personalWhere,
+            select: {
+              id: true,
+              modelId: true,
+              displayName: true,
+              provider: true,
+              modelType: true,
+              isDefault: true,
+            },
+            orderBy: [{ isDefault: "desc" }, { displayName: "asc" }],
+          });
+          this.logger.debug(
+            `[getEnabledModelsForFrontend] User ${userId} has ${userPersonalConfigs.length} personal UserModelConfig entries`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `[getEnabledModelsForFrontend] Failed to fetch UserModelConfig: ${error}`,
           );
         }
       }
@@ -1234,11 +1283,44 @@ export class AiModelConfigService {
         isByokGenerated: true, // Mark as dynamically generated
       });
 
+      // (provider, modelId) 已被 admin AIModel 或 userExtraModels 覆盖的，不再重复添加 UserModelConfig
+      const existingProviderModelKeys = new Set([
+        ...models.map(
+          (m) => `${m.provider.toLowerCase()}::${m.modelId.toLowerCase()}`,
+        ),
+        ...userExtraModels.map(
+          (m) => `${m.provider.toLowerCase()}::${m.modelId.toLowerCase()}`,
+        ),
+      ]);
+      const userPersonalUnique = userPersonalConfigs.filter(
+        (c) =>
+          !existingProviderModelKeys.has(
+            `${c.provider.toLowerCase()}::${c.modelId.toLowerCase()}`,
+          ),
+      );
+
+      const mapPersonalConfig = (c: (typeof userPersonalConfigs)[0]) => ({
+        id: c.id,
+        dbId: c.id,
+        name: c.displayName,
+        modelName: c.modelId,
+        provider: c.provider,
+        modelId: c.modelId,
+        modelType: c.modelType,
+        icon: null,
+        iconUrl: this.getIconUrl(c.modelId, c.provider),
+        color: null,
+        description: `${c.provider} ${c.displayName} (你的 BYOK 配置)`,
+        isDefault: c.isDefault,
+        isUserKey: true, // UserModelConfig 跑在用户自己 Key 上
+      });
+
       const result = [
         ...models.map((m) =>
           mapModel(m, userProviders.has(m.provider.toLowerCase())),
         ),
         ...userExtraModels.map((m) => mapModel(m, true)),
+        ...userPersonalUnique.map(mapPersonalConfig),
         ...byokGeneratedModels.map(mapByokModel),
       ];
 

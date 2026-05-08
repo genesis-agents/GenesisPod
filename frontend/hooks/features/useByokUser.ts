@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useApiGet } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
+import { clearAIModelsCache } from '@/hooks/features/useAIModels';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,25 @@ export function useMyKeyAssignments() {
   } = useApiGet<{
     items: UserAssignmentView[];
   }>('/user/key-assignments', { immediate: true });
+
+  // assignment 影响 /ai/models 的输出（业务下拉里能不能看到系统授权的模型）。
+  // useAIModels 在 SPA 内有 5min 模块级缓存，admin 端 grant/revoke 后用户 SPA
+  // 不会自动刷新业务下拉。这里：每当本 hook 拿到的 assignment 列表内容变化
+  // （ID/status/modelDbId 任一变），主动 bust useAIModels 缓存 → 下次 chat
+  // 页面挂载 useAIModels 会重新拉 /ai/models。
+  const lastSignatureRef = useRef('');
+  useEffect(() => {
+    if (!data?.items) return;
+    const signature = data.items
+      .map((a) => `${a.id}:${a.status}:${a.modelDbId}`)
+      .sort()
+      .join(',');
+    if (signature !== lastSignatureRef.current) {
+      lastSignatureRef.current = signature;
+      clearAIModelsCache();
+    }
+  }, [data?.items]);
+
   return { assignments: data?.items ?? [], loading, error, refresh };
 }
 

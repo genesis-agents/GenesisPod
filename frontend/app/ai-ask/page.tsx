@@ -1871,7 +1871,7 @@ export default function AskPage() {
                               </button>
 
                               {showModelSelector && (
-                                <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
+                                <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-72 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
                                   <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
                                     Chat Models
                                   </div>
@@ -1892,7 +1892,10 @@ export default function AskPage() {
                                       <ModelIcon model={model} size={16} />
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-1.5">
-                                          <span className="truncate text-sm font-medium text-gray-900">
+                                          <span
+                                            className="truncate text-sm font-medium text-gray-900"
+                                            title={model.name}
+                                          >
                                             {model.name}
                                           </span>
                                           <ModelBadges model={model} />
@@ -2559,7 +2562,7 @@ export default function AskPage() {
                           </button>
 
                           {showModelSelector && (
-                            <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
+                            <div className="absolute bottom-full left-0 z-50 mb-2 max-h-80 w-72 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1.5 shadow-xl">
                               <div className="px-3 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
                                 Chat Models
                               </div>
