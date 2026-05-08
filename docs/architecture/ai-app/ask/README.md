@@ -426,6 +426,7 @@ if (message.ragSources) {
 - [Teams 模式设计方案 v0.2](./teams-mode.md)
 - [Teams 模式设计评审纪要 v1](./teams-mode-review.md)
 - [Teams 模式 W1 代码评审纪要 v2](./teams-mode-review-v2.md)
+- [Teams 模式 W2 PR3 代码评审纪要 v3](./teams-mode-review-v3.md)
 - [ADR-004 AI Ask Teams 模式](../../../decisions/004-ai-ask-teams-mode.md)
 
 ---
