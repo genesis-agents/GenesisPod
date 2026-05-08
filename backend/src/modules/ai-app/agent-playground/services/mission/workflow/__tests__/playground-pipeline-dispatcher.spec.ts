@@ -621,4 +621,22 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
   it("registry 可重复 onModuleInit（has() 短路返回 + 不抛 duplicate）", () => {
     expect(() => dispatcher.onModuleInit()).not.toThrow();
   });
+
+  // ★ 2026-05-08 PR-A3 review round 1 P1：buildBaseHooksForStep fallback throw
+  //   覆盖（tester 路评审要求）。删 PlaygroundHookNotYetWiredError 后必须有 spec
+  //   锁定新 throw 行为，防 silent regression（如 PLAYGROUND_PIPELINE.steps 加新
+  //   step 但忘记加 hook builder 分支时立即拍下而非静默跑过）。
+  it("buildBaseHooksForStep 未知 stepId 抛 Error 且消息含 stepId 名（fallback 守护）", () => {
+    const fn = (
+      dispatcher as unknown as {
+        buildBaseHooksForStep: (stepId: string, primitive: string) => unknown;
+      }
+    ).buildBaseHooksForStep.bind(dispatcher);
+    expect(() => fn("never-registered-step", "plan")).toThrow(
+      /no hook builder for step "never-registered-step"/,
+    );
+    expect(() => fn("s99-future-stage", "synthesize")).toThrow(
+      /must have an explicit branch above/,
+    );
+  });
 });

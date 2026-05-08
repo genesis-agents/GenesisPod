@@ -964,6 +964,17 @@ export class MissionStore {
    *   - userId 传入 → updateMany + where{id, userId}（深度防御，防 TOCTOU）
    *   - userId 缺失 → update + where{id}（兼容路径，stage 流经过 controller 已 assertOwnership）
    *   - 失败统一 catch + warn log（best-effort，不阻塞 stage 主流程）
+   *
+   * SECURITY (review round 1, 2026-05-08)：callers 必须传 userId 走 depth-defense。
+   * else 分支的 update where{id} 不验证 userId，依赖上游 controller 已 assertOwnership。
+   * 当前所有真实 caller (s2/s5/s6/s7/s8/s8b/s10 stage + dispatcher cascade) 都传
+   * ctx.userId；为防未来新增 caller 遗漏 userId 静默降级，else 分支显式 warn log
+   * 让 prod 可观测（grep "_runMissionUpdate ... missing userId" 即可定位）。
+   *
+   * Type cast 说明：updateMany 分支用 `Prisma.AgentPlaygroundMissionUpdateManyMutationInput`
+   * 二次 cast。两种类型在标量字段（含 JSONB Prisma.InputJsonValue）上结构兼容；
+   * relations/nested writes 在 Many 版本不可用，但本 helper 三个 caller 都不传
+   * relation field，运行时安全。
    */
   private async _runMissionUpdate(
     id: string,
@@ -978,6 +989,11 @@ export class MissionStore {
           data: data as Prisma.AgentPlaygroundMissionUpdateManyMutationInput,
         });
       } else {
+        // SECURITY observability：兼容路径，标记 missing userId 让 prod 可观测
+        this.log.warn(
+          `[${label} ${id}] missing userId — falling back to update where{id}; ` +
+            `caller must rely on upstream controller assertOwnership`,
+        );
         await this.prisma.agentPlaygroundMission.update({
           where: { id },
           data,

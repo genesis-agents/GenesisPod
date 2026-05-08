@@ -14,6 +14,15 @@
  *   本次同步消除：rerun-guard.service.ts 的 SQL LIKE 字面量改为动态 from BUSINESS_PREFIXES，
  *   单一源约束已锁定。
  *
+ * ★ SQL 安全守护（review round 1, 2026-05-08 architect MEDIUM）：
+ *   BUSINESS_PREFIXES 必须保持 `as const` 编译期常量。rerun-guard 的
+ *   `$queryRawUnsafe` 通过 `prefixes.map((_, i) => 'type LIKE \$\${i+2}')` 动态
+ *   拼接占位符，参数走 spread params 参数化（注入安全的前提是 prefix 值非用户
+ *   可控）。**禁止把 BUSINESS_PREFIXES 改成从 DB / 环境变量 / 用户输入读取**，
+ *   否则 SQL LIKE clause 仍是字面量但 params 引入用户可控字符串可能触发
+ *   wildcard 滥用（用户传 % 把 LIKE 撑爆）。新增 prefix 直接在本数组追加 const
+ *   字符串。
+ *
  * 决策（4 路 R1+R2 共识）：
  *   - BUSINESS：全限定前缀 + startsWith 匹配（不能用 includes，防 type="mission:lifecycle-note-dimension:fake" 子串攻击）
  *   - LIFECYCLE：精确字符串集合（Set.has，不会误伤）
