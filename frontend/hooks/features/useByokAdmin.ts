@@ -169,25 +169,6 @@ export function useDistributableKeys(filters?: {
   };
 }
 
-export async function assignKeyToUser(
-  keyId: string,
-  input: {
-    userId: string;
-    userQuotaCents?: number;
-    expiresAt?: string;
-    note?: string;
-  }
-): Promise<boolean> {
-  try {
-    await apiClient.post(`/admin/distributable-keys/${keyId}/assign`, input);
-    toast.success('Key 已分配给用户');
-    return true;
-  } catch (err) {
-    toast.error((err as Error).message || '分配失败');
-    return false;
-  }
-}
-
 export function useDistributableKeyDetail(id: string | null) {
   const {
     data,

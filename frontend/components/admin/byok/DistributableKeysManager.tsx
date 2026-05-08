@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle,
   Edit,
   Key,
+  KeyRound,
   Power,
   Trash2,
   Users,
@@ -13,7 +15,6 @@ import {
 import {
   type AssignmentView,
   type DistributableKeyView,
-  assignKeyToUser,
   formatCents,
   useDistributableKeyDetail,
   useDistributableKeys,
@@ -376,8 +377,7 @@ function KeyEditorModal({
 // ─── Detail & Assign Modal ───────────────────────────────────────────────────
 
 function KeyDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const { key, assignments, loading, refresh } = useDistributableKeyDetail(id);
-  const [showAssign, setShowAssign] = useState(false);
+  const { key, assignments, loading } = useDistributableKeyDetail(id);
   const utilization = useMemo(() => {
     if (!key?.monthlyQuotaCents || key.monthlyQuotaCents <= 0) return null;
     return Math.round((key.currentSpendCents / key.monthlyQuotaCents) * 100);
@@ -402,17 +402,34 @@ function KeyDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
           >
             关闭
           </button>
-          {key?.isActive && (
-            <button
-              onClick={() => setShowAssign(true)}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
-            >
-              分配给用户
-            </button>
-          )}
+          <Link
+            href="/admin/access/users"
+            className="flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
+          >
+            <KeyRound className="h-4 w-4" />
+            前往用户管理授权
+          </Link>
         </div>
       }
     >
+      {/*
+        本视图为 Key 池只读运维/审计。授权动作的入口语义中心是"用户"——
+        从用户列表行内 ACTIONS 列分配模型权益（feedback_admin_workflow_must_match_intuition）。
+      */}
+      <div className="mb-3 flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+        <KeyRound className="h-4 w-4 shrink-0" />
+        <span>
+          <span className="font-medium">分配权益请去</span>{' '}
+          <Link
+            href="/admin/access/users"
+            className="underline hover:text-blue-700"
+          >
+            用户管理
+          </Link>{' '}
+          — 用户行内授权按钮支持选模型多选 + 单次/周期有效期。
+        </span>
+      </div>
+
       {loading ? (
         <div className="text-sm text-gray-500">加载中...</div>
       ) : (
@@ -425,16 +442,6 @@ function KeyDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
             assignments.map((a) => <AssignmentRow key={a.id} assignment={a} />)
           )}
         </div>
-      )}
-      {showAssign && key && (
-        <AssignmentFormModal
-          keyData={key}
-          onClose={() => setShowAssign(false)}
-          onDone={async () => {
-            setShowAssign(false);
-            await refresh();
-          }}
-        />
       )}
     </Modal>
   );
@@ -471,104 +478,6 @@ function StatusBadge({ status }: { status: AssignmentView['status'] }) {
     <span className={`rounded-full px-2 py-0.5 text-xs ${color}`}>
       {status}
     </span>
-  );
-}
-
-function AssignmentFormModal({
-  keyData,
-  onClose,
-  onDone,
-}: {
-  keyData: DistributableKeyView;
-  onClose: () => void;
-  onDone: () => Promise<void>;
-}) {
-  const [userId, setUserId] = useState('');
-  const [quota, setQuota] = useState('');
-  const [expiresAt, setExpiresAt] = useState('');
-  const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      size="lg"
-      title={`分配 ${keyData.label}`}
-      subtitle="用户 ID 可以从「用户管理」或直接用 email 查找后粘贴"
-      footer={
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            取消
-          </button>
-          <button
-            disabled={saving || !userId}
-            onClick={async () => {
-              setSaving(true);
-              const ok = await assignKeyToUser(keyData.id, {
-                userId,
-                userQuotaCents: quota
-                  ? Math.round(parseFloat(quota) * 100)
-                  : undefined,
-                expiresAt: expiresAt || undefined,
-                note: note || undefined,
-              });
-              setSaving(false);
-              if (ok) {
-                await onDone();
-              }
-            }}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? '分配中...' : '确认分配'}
-          </button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <Field label="用户 ID" required>
-          <input
-            type="text"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="粘贴用户 UUID"
-            className="font-mono w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-        </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="用户配额（USD，空=无限）">
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={quota}
-              onChange={(e) => setQuota(e.target.value)}
-              placeholder="10.00"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </Field>
-          <Field label="有效期（可选）">
-            <input
-              type="date"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </Field>
-        </div>
-        <Field label="备注（可选）">
-          <textarea
-            rows={2}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          />
-        </Field>
-      </div>
-    </Modal>
   );
 }
 

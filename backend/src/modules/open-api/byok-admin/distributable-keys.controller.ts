@@ -105,6 +105,13 @@ export class DistributableKeysController {
     return { success: true };
   }
 
+  /**
+   * Provider 级单 Key 分配（旧"选秘钥"语义，modelId='*' 通配权益）。
+   *
+   * Frontend 主流程已迁到模型粒度授权（用户列表行内按钮 →
+   * POST /admin/key-assignments/grant，PR-A/B/D 2026-05-08）。本端点保留供
+   * admin curl/postman 脚本与 self-assign-all 复用 service.assign()。
+   */
   @Post(":id/assign")
   async assign(
     @Req() req: AuthenticatedRequest,
