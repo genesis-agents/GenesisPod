@@ -90,7 +90,7 @@ WHERE ka.model_db_id IS NULL
   AND ka.model_id != '*'
   AND LOWER(m.provider) = LOWER(ka.provider)
   AND m.model_id = ka.model_id
-  AND m."isEnabled" = true;
+  AND m.is_enabled = true;
 
 -- 4b. 备份找不到 AIModel 的具体 model 行（dangling），然后从 KeyAssignment 删除
 INSERT INTO "_orphan_key_assignments_backup" (
@@ -140,7 +140,7 @@ SELECT
   ka.note,
   ka.notified_expiring_at
 FROM "key_assignments" ka
-JOIN "ai_models" m ON LOWER(m.provider) = LOWER(ka.provider) AND m."isEnabled" = true
+JOIN "ai_models" m ON LOWER(m.provider) = LOWER(ka.provider) AND m.is_enabled = true
 WHERE ka.model_id = '*' AND ka.model_db_id IS NULL
 ON CONFLICT (user_id, provider, model_id) DO NOTHING;
 -- ON CONFLICT 用旧三键约束（此时 5c 还没 DROP，约束仍生效）。逻辑：通配展开
