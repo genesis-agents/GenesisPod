@@ -85,8 +85,21 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
 
   const onEvent = useCallback(
     (event: AskRoomServerEvent) => {
-      if (event.kind === 'turn.complete' || event.kind === 'turn.error') {
+      // 暴露后端错误到 UI（之前 turn.error 只 reload，用户看不到原因）
+      if (event.kind === 'turn.error') {
+        setError(`AI 响应失败：${event.error}`);
+      }
+      if (event.kind === 'turn.complete') {
+        if (event.status === 'FAILED') {
+          setError(
+            (prev) => prev ?? 'AI 未返回内容（请检查模型配置 / API Key / 余额）'
+          );
+        }
         logger.debug('[RoomChat] turn ended', event);
+        void reload();
+      }
+      if (event.kind === 'turn.error') {
+        logger.warn('[RoomChat] turn error', event);
         void reload();
       }
     },
@@ -183,7 +196,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
     <div className="flex h-full flex-col bg-gradient-to-br from-slate-50 to-blue-50/30">
       {/* 商务大气 Header（参考 NewAskRoomModal 风格） */}
       <header className="border-b border-gray-200/80 bg-white/80 px-6 py-4 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
+        <div className="flex w-full items-center justify-between gap-4">
           <button
             type="button"
             onClick={() => router.push('/ai-ask')}
@@ -258,7 +271,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
       {/* Error 浮条 */}
       {error && (
         <div className="border-b border-red-200/60 bg-red-50/80 px-6 py-2.5 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-5xl items-center gap-2 text-sm text-red-700">
+          <div className="flex w-full items-center gap-2 text-sm text-red-700">
             <span className="font-medium">出错了：</span>
             {error}
             <button

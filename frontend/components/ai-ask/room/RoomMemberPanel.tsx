@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Trash2, Crown, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, Crown, Loader2, Plus, Trash2, Users, X } from 'lucide-react';
+import { useAIModels, type AIModel } from '@/hooks/features/useAIModels';
 import type {
   AskRoomMember,
   AskRoomMemberRole,
@@ -22,6 +23,14 @@ interface RoomMemberPanelProps {
   onClose: () => void;
 }
 
+// 与 NewAskRoomModal 一致：群聊场景能用的模型类型，不含 IMAGE_*
+const CHAT_LIKE_TYPES: AIModel['modelType'][] = [
+  'CHAT',
+  'CHAT_FAST',
+  'CODE',
+  'MULTIMODAL',
+];
+
 export function RoomMemberPanel({
   members,
   onAdd,
@@ -29,37 +38,49 @@ export function RoomMemberPanel({
   onClose,
 }: RoomMemberPanelProps) {
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({
-    displayName: '',
-    modelId: '',
-    role: 'MEMBER' as AskRoomMemberRole,
-    systemPrompt: '',
-  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { models, loading: modelsLoading } = useAIModels();
+  const chatLikeModels = useMemo(
+    () => models.filter((m) => CHAT_LIKE_TYPES.includes(m.modelType)),
+    [models]
+  );
   const enabled = members.filter((m) => !m.deletedAt);
+
+  // 选中模型 + 角色 + 可选 displayName 覆盖 + system prompt
+  const [selectedModelDbId, setSelectedModelDbId] = useState<string | null>(
+    null
+  );
+  const [role, setRole] = useState<AskRoomMemberRole>('MEMBER');
+  const [displayNameOverride, setDisplayNameOverride] = useState('');
+  const [systemPrompt, setSystemPrompt] = useState('');
+
+  useEffect(() => {
+    // 进入添加模式时重置
+    if (!adding) return;
+    setSelectedModelDbId(null);
+    setRole('MEMBER');
+    setDisplayNameOverride('');
+    setSystemPrompt('');
+    setError(null);
+  }, [adding]);
 
   const submit = async () => {
     setError(null);
-    if (!form.displayName.trim() || !form.modelId.trim()) {
-      setError('显示名和模型必填');
+    const picked = chatLikeModels.find((m) => m.id === selectedModelDbId);
+    if (!picked) {
+      setError('请先选择一个模型');
       return;
     }
     setSubmitting(true);
     try {
       await onAdd({
         memberType: 'VIRTUAL',
-        modelId: form.modelId.trim(),
-        displayName: form.displayName.trim(),
-        role: form.role,
-        systemPrompt: form.systemPrompt.trim() || undefined,
-      });
-      setForm({
-        displayName: '',
-        modelId: '',
-        role: 'MEMBER',
-        systemPrompt: '',
+        modelId: picked.modelId,
+        displayName: displayNameOverride.trim() || picked.name,
+        role,
+        systemPrompt: systemPrompt.trim() || undefined,
       });
       setAdding(false);
     } catch (e) {
@@ -70,125 +91,241 @@ export function RoomMemberPanel({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 z-30 w-full max-w-sm border-l border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-        <h2 className="text-base font-medium">
-          房间成员（{enabled.length}/8）
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-        >
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="max-h-[calc(100vh-60px)] overflow-y-auto p-4">
-        <ul className="space-y-2">
-          {enabled.map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center gap-2 rounded border border-gray-200 px-2 py-2 dark:border-gray-700"
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-1 text-sm font-medium">
-                  {m.role === 'LEADER' && (
-                    <Crown size={12} className="text-amber-500" />
-                  )}
-                  {m.displayName}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {m.modelId} · {m.memberType}
-                </div>
+    <>
+      {/* 蒙层 + 抽屉 */}
+      <div
+        className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      <aside className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col border-l border-gray-200 bg-white shadow-xl">
+        <header className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm">
+              <Users className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-base font-semibold text-gray-900">
+                房间成员
               </div>
-              <button
-                type="button"
-                onClick={() => onRemove(m.id)}
-                className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30"
-              >
-                <Trash2 size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-
-        {!adding ? (
-          <button
-            type="button"
-            onClick={() => setAdding(true)}
-            disabled={enabled.length >= 8}
-            className="mt-3 flex w-full items-center justify-center gap-1 rounded border border-dashed border-gray-300 py-2 text-sm text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-800"
-          >
-            <Plus size={14} />
-            添加 AI 成员
-          </button>
-        ) : (
-          <div className="mt-3 space-y-2 rounded border border-gray-200 p-3 dark:border-gray-700">
-            <input
-              type="text"
-              placeholder="显示名（如 Alice）"
-              value={form.displayName}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, displayName: e.target.value }))
-              }
-              className="w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800"
-            />
-            <input
-              type="text"
-              placeholder="模型 ID（与后端 AIModel 一致）"
-              value={form.modelId}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, modelId: e.target.value }))
-              }
-              className="w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800"
-            />
-            <select
-              value={form.role}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  role: e.target.value as AskRoomMemberRole,
-                }))
-              }
-              className="w-full rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800"
-            >
-              <option value="MEMBER">成员</option>
-              <option value="LEADER">主持人 (Leader)</option>
-            </select>
-            <textarea
-              placeholder="System Prompt（可选）"
-              value={form.systemPrompt}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, systemPrompt: e.target.value }))
-              }
-              rows={3}
-              className="w-full resize-none rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-800"
-            />
-            {error && <div className="text-xs text-red-500">{error}</div>}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={submit}
-                disabled={submitting}
-                className="flex-1 rounded bg-blue-500 py-1 text-sm text-white hover:bg-blue-600 disabled:opacity-50"
-              >
-                {submitting ? '添加中...' : '确认'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAdding(false);
-                  setError(null);
-                }}
-                className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-              >
-                取消
-              </button>
+              <div className="text-xs text-gray-500">
+                {enabled.length}/8 · 多 AI 协作
+              </div>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          {/* 现有成员 */}
+          <ul className="space-y-2">
+            {enabled.map((m) => (
+              <li
+                key={m.id}
+                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5"
+              >
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white shadow-sm ${
+                    m.role === 'LEADER'
+                      ? 'bg-gradient-to-br from-amber-400 to-orange-500'
+                      : 'bg-gradient-to-br from-emerald-400 to-teal-500'
+                  }`}
+                >
+                  {m.displayName.slice(0, 1).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-sm font-medium text-gray-900">
+                    {m.role === 'LEADER' && (
+                      <Crown className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                    <span className="truncate">{m.displayName}</span>
+                  </div>
+                  <div className="font-mono truncate text-[11px] text-gray-500">
+                    {m.modelId} · {m.memberType}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(m.id)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                  title="移除"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {/* 添加面板 */}
+          {!adding ? (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              disabled={enabled.length >= 8}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50/50 py-3 text-sm font-medium text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              添加 AI 成员
+            </button>
+          ) : (
+            <div className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/30 p-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-800">
+                  选择模型
+                </label>
+                {modelsLoading ? (
+                  <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  </div>
+                ) : chatLikeModels.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs text-amber-700">
+                    暂无可用模型。先到「我的模型」配置 API Key。
+                  </div>
+                ) : (
+                  <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">
+                    {chatLikeModels.map((m) => {
+                      const checked = selectedModelDbId === m.id;
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModelDbId(m.id);
+                            // 选中时自动带 displayName（如果用户没改过）
+                            if (!displayNameOverride) {
+                              // 不强制写入，留空意味着 submit 时用 picked.name
+                            }
+                          }}
+                          className={`flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left transition-all ${
+                            checked
+                              ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500/20'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded ${
+                              checked
+                                ? 'bg-blue-500 text-white'
+                                : 'border border-gray-300 bg-white'
+                            }`}
+                          >
+                            {checked && <Check className="h-3 w-3" />}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate text-sm font-medium text-gray-900">
+                                {m.name}
+                              </span>
+                              <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] uppercase text-gray-500">
+                                {m.modelType}
+                              </span>
+                            </div>
+                            <div className="font-mono truncate text-[11px] text-gray-500">
+                              {m.provider} / {m.modelId}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                  显示名（可选 · 默认用模型名）
+                </label>
+                <input
+                  type="text"
+                  placeholder={
+                    selectedModelDbId
+                      ? (chatLikeModels.find((m) => m.id === selectedModelDbId)
+                          ?.name ?? '')
+                      : '选择模型后自动带入'
+                  }
+                  value={displayNameOverride}
+                  onChange={(e) => setDisplayNameOverride(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                  角色
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { value: 'MEMBER', label: '成员' },
+                      { value: 'LEADER', label: '主持人 (Leader)' },
+                    ] as const
+                  ).map((opt) => {
+                    const active = role === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setRole(opt.value)}
+                        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-all ${
+                          active
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-700">
+                  System Prompt（可选）
+                </label>
+                <textarea
+                  placeholder="例如：扮演产品经理，关注用户需求和优先级"
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  rows={3}
+                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                />
+              </div>
+
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={submitting || !selectedModelDbId}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
+                >
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {submitting ? '添加中...' : '确认添加'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdding(false)}
+                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }

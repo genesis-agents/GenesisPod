@@ -48,7 +48,7 @@ export function RoomMessageList({ messages, members }: RoomMessageListProps) {
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-6">
-      <div className="mx-auto flex max-w-4xl flex-col gap-5">
+      <div className="flex w-full flex-col gap-5">
         {merged.length === 0 ? (
           <EmptyState />
         ) : (
@@ -113,7 +113,7 @@ function MessageBubble({ message, member }: MessageBubbleProps) {
   if (message.senderType === 'USER') {
     return (
       <div className="flex justify-end">
-        <div className="flex max-w-[85%] items-start gap-3">
+        <div className="flex max-w-[85%] items-start gap-3 lg:max-w-[70%]">
           <div className="whitespace-pre-wrap rounded-2xl rounded-tr-md bg-gradient-to-br from-blue-600 to-indigo-600 px-4 py-2.5 text-sm leading-relaxed text-white shadow-sm">
             {message.content}
           </div>
@@ -136,7 +136,7 @@ function MessageBubble({ message, member }: MessageBubbleProps) {
   }
   return (
     <div className="flex justify-start">
-      <div className="flex max-w-[85%] items-start gap-3">
+      <div className="flex max-w-[85%] items-start gap-3 lg:max-w-[70%]">
         <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-sm">
           <Bot className="h-4 w-4" />
         </div>
@@ -164,7 +164,7 @@ interface PendingBubbleProps {
 function PendingBubble({ member, status, partialText }: PendingBubbleProps) {
   return (
     <div className="flex justify-start">
-      <div className="flex max-w-[85%] items-start gap-3">
+      <div className="flex max-w-[85%] items-start gap-3 lg:max-w-[70%]">
         <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-sm">
           <Sparkles className="h-4 w-4 animate-pulse" />
         </div>
