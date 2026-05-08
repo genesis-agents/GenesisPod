@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertCircle, KeyRound, RefreshCw, X } from 'lucide-react';
+import { AlertCircle, KeyRound, RefreshCw, Trash2, X } from 'lucide-react';
 import { useApiGet } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
 import { toast } from '@/stores';
@@ -26,6 +26,19 @@ interface GrantBatchResponse {
   failed: Array<{ modelDbId: string; reason: string }>;
 }
 
+interface ExistingAssignment {
+  id: string;
+  modelDbId: string;
+  provider: string;
+  modelId: string;
+  status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED' | 'REVOKED' | 'STALE';
+  userQuotaCents: number | null;
+  userSpendCents: number;
+  validityType: 'ONE_TIME' | 'RECURRING';
+  expiresAt: string | null;
+  assignedAt: string;
+}
+
 interface SelectedModel {
   modelDbId: string; // AIModel.id（v5 重构后用 db id 而非字符串 modelId）
   modelId: string; // 字符串 modelId 仅用于 UI 显示和错误信息
@@ -48,6 +61,41 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
     '/admin/ai-models',
     { immediate: true }
   );
+
+  // 该用户当前已有的所有授权
+  const {
+    data: existingData,
+    loading: existingLoading,
+    execute: refreshExisting,
+  } = useApiGet<{ items: ExistingAssignment[] }>(
+    `/admin/key-assignments?userId=${encodeURIComponent(userId)}`,
+    { immediate: true }
+  );
+  const existingAssignments = useMemo(
+    () => existingData?.items ?? [],
+    [existingData]
+  );
+
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const handleRevoke = async (assignmentId: string, modelLabel: string) => {
+    if (!confirm(`确定撤销 ${userLabel} 对模型「${modelLabel}」的授权吗？`)) {
+      return;
+    }
+    setRevokingId(assignmentId);
+    try {
+      await apiClient.delete(`/admin/key-assignments/${assignmentId}`, {
+        body: JSON.stringify({ reason: 'admin manual revoke' }),
+        headers: { 'Content-Type': 'application/json' },
+      });
+      toast.success('授权已撤销');
+      await refreshExisting();
+      onDone?.();
+    } catch (err) {
+      toast.error((err as Error).message || '撤销失败');
+    } finally {
+      setRevokingId(null);
+    }
+  };
 
   // 仅显示 isEnabled=true 的模型；按 provider 分组。
   // 后端 grantBatch 也用 isEnabled=true 过滤，前端 filter 防止 admin 选了禁用
@@ -198,10 +246,78 @@ export function GrantKeyModal({ userId, userLabel, onClose, onDone }: Props) {
       }
     >
       <div className="space-y-5">
+        {/* 已有授权列表（admin 可在此撤销） */}
+        <section>
+          <h3 className="mb-2 text-sm font-medium text-gray-900">
+            当前授权
+            <span className="ml-2 text-xs text-gray-500">
+              （{existingAssignments.length} 项；可点撤销移除）
+            </span>
+          </h3>
+          {existingLoading ? (
+            <div className="text-sm text-gray-500">加载中...</div>
+          ) : existingAssignments.length === 0 ? (
+            <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-xs text-gray-500">
+              该用户尚无任何授权
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {existingAssignments.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center gap-3 rounded-md border border-gray-200 bg-white p-2.5"
+                >
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase ${
+                      a.status === 'ACTIVE'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : a.status === 'STALE'
+                          ? 'bg-orange-50 text-orange-700'
+                          : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {a.status}
+                  </span>
+                  <div className="flex-1 text-sm">
+                    <span className="font-medium text-gray-900">
+                      {a.modelId}
+                    </span>
+                    <span className="ml-2 text-xs uppercase text-gray-500">
+                      {a.provider}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {a.userQuotaCents === null
+                      ? '无限'
+                      : `$${(a.userSpendCents / 100).toFixed(2)} / $${(a.userQuotaCents / 100).toFixed(2)}`}
+                    {a.expiresAt &&
+                      ` · 到期 ${new Date(a.expiresAt).toLocaleDateString()}`}
+                  </div>
+                  <button
+                    disabled={revokingId === a.id}
+                    onClick={() => handleRevoke(a.id, a.modelId)}
+                    className="flex items-center gap-1 rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    title="撤销授权"
+                  >
+                    {revokingId === a.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    撤销
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="border-t border-gray-200" />
+
         {/* 模型选择 */}
         <section>
           <h3 className="mb-2 text-sm font-medium text-gray-900">
-            选择授权模型
+            新增授权
             <span className="ml-2 text-xs text-gray-500">
               （可跨 Provider 多选）
             </span>

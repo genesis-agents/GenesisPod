@@ -10,6 +10,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Send,
   Settings2,
   Trash2,
   X,
@@ -20,8 +21,20 @@ import {
   type ProviderInfo,
   type UserApiKeyInfo,
 } from '@/hooks/features/useUserApiKeys';
+import { useMyKeyRequests } from '@/hooks/features/useByokUser';
 import { apiClient } from '@/lib/api/client';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { UserApiKeyDrawer } from './UserApiKeyDrawer';
+
+const REQUEST_PROVIDERS: Array<{ value: string; label: string }> = [
+  { value: 'openai', label: 'OpenAI (GPT-4o, o1)' },
+  { value: 'anthropic', label: 'Anthropic (Claude)' },
+  { value: 'google', label: 'Google (Gemini)' },
+  { value: 'xai', label: 'xAI (Grok)' },
+  { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'qwen', label: 'Qwen' },
+  { value: 'groq', label: 'Groq' },
+];
 
 const PROVIDER_ICONS: Record<string, { color: string; icon: string }> = {
   openai: {
@@ -87,6 +100,7 @@ export function UserApiKeysTab() {
     null
   );
   const [showAddCustomModal, setShowAddCustomModal] = useState(false);
+  const [showRequestModal, setShowRequestModal] = useState(false);
 
   const donatedCount = keys.filter((k) => k.mode === 'donated').length;
   const configuredCount = keys.length;
@@ -200,8 +214,16 @@ export function UserApiKeysTab() {
           <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
         </button>
         <button
+          onClick={() => setShowRequestModal(true)}
+          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-50"
+          title="向管理员申请系统 API Key"
+        >
+          <Send className="h-4 w-4" />
+          申请系统 API Key
+        </button>
+        <button
           onClick={() => setShowAddCustomModal(true)}
-          className="ml-auto inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
         >
           <Plus className="h-4 w-4" />
           添加自定义 Provider
@@ -280,7 +302,141 @@ export function UserApiKeysTab() {
       {showAddCustomModal && (
         <AddCustomProviderModal onClose={() => setShowAddCustomModal(false)} />
       )}
+
+      {showRequestModal && (
+        <RequestKeyModal onClose={() => setShowRequestModal(false)} />
+      )}
     </div>
+  );
+}
+
+// ─── 申请系统 API Key Modal（内嵌，不跳页） ─────────────────────────────────
+function RequestKeyModal({ onClose }: { onClose: () => void }) {
+  const { submit } = useMyKeyRequests();
+  const [provider, setProvider] = useState('openai');
+  const [reason, setReason] = useState('');
+  const [estimated, setEstimated] = useState<'LIGHT' | 'MEDIUM' | 'HEAVY'>(
+    'MEDIUM'
+  );
+  const [note, setNote] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title="申请系统 API Key"
+      subtitle="管理员审批后会授权你使用该 provider 下的一个具体模型，通常 24 小时内处理"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            取消
+          </button>
+          <button
+            disabled={submitting || !reason.trim()}
+            onClick={async () => {
+              setSubmitting(true);
+              const r = await submit({
+                provider,
+                reason: reason.trim() || undefined,
+                estimatedUsage: estimated,
+                note: note.trim() || undefined,
+              });
+              setSubmitting(false);
+              if (r) onClose();
+            }}
+            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            {submitting ? '提交中...' : '提交申请'}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            Provider *
+          </label>
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          >
+            {REQUEST_PROVIDERS.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            使用目的 *
+          </label>
+          <textarea
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="例如：毕业设计需要使用 GPT-4o 做文献综述"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            预计月度用量 *
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                { v: 'LIGHT', label: '轻度 < $5' },
+                { v: 'MEDIUM', label: '中度 $5-20' },
+                { v: 'HEAVY', label: '重度 > $20' },
+              ] as const
+            ).map((o) => (
+              <label
+                key={o.v}
+                className={`cursor-pointer rounded-md border px-3 py-2 text-center text-sm ${
+                  estimated === o.v
+                    ? 'border-blue-500 bg-blue-50 font-medium text-blue-700'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  className="sr-only"
+                  checked={estimated === o.v}
+                  onChange={() => setEstimated(o.v)}
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium text-gray-700">
+            备注（可选）
+          </label>
+          <textarea
+            rows={2}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+    </Modal>
   );
 }
 

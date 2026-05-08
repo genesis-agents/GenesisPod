@@ -109,6 +109,7 @@ export class AdminKeyAssignmentsController {
   async list(
     @Query("status") status?: string,
     @Query("provider") provider?: string,
+    @Query("userId") userId?: string,
     @Query("take") take?: string,
     @Query("skip") skip?: string,
   ) {
@@ -120,6 +121,7 @@ export class AdminKeyAssignmentsController {
     const items = await this.service.listAll({
       status: parsedStatus,
       provider,
+      userId,
       take: take ? Number(take) : undefined,
       skip: skip ? Number(skip) : undefined,
     });

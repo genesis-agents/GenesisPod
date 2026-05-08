@@ -535,12 +535,14 @@ export class KeyAssignmentsService {
   async listAll(filters?: {
     status?: KeyAssignmentStatus;
     provider?: string;
+    userId?: string;
     take?: number;
     skip?: number;
   }): Promise<AssignmentView[]> {
     const where: Prisma.KeyAssignmentWhereInput = {};
     if (filters?.status) where.status = filters.status;
     if (filters?.provider) where.provider = filters.provider.toLowerCase();
+    if (filters?.userId) where.userId = filters.userId;
     const rows = await this.prisma.keyAssignment.findMany({
       where,
       orderBy: [{ assignedAt: "desc" }],

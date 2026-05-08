@@ -3,7 +3,7 @@
 /**
  * ByokOnboardingBanner — 首页顶部引导横幅
  *
- * 跟已有 ByokOnboardingGuard（强制跳 /settings/api-keys/onboarding）互补：
+ * 跟已有 ByokOnboardingGuard（强制跳 /me/ai?tab=keys）互补：
  * Guard 拦新用户（<7 天 + 未完成引导）；此 Banner 是"温和提示"：
  * 已老用户但没 key 的人 / dismiss 过 onboarding 的人 / 删过 key 又来的人。
  *
@@ -24,8 +24,8 @@ export function ByokOnboardingBanner() {
   if (!shouldShowBanner || !status) return null;
 
   return (
-    <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 md:items-center dark:border-amber-900/50 dark:bg-amber-950/30">
-      <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 md:mt-0 dark:text-amber-400" />
+    <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30 md:items-center">
+      <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400 md:mt-0" />
       <div className="flex-1 text-sm text-amber-900 dark:text-amber-200">
         <span className="font-medium">尚未配置 AI API Key</span>
         <span className="ml-1 text-amber-700 dark:text-amber-300/80">
