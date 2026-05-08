@@ -56,6 +56,10 @@ export interface DebatePatternConfig {
  *
  * Pattern 不知道 Prisma、不知道 Topic、不知道 AskRoom；
  * 它仅依赖该接口提供"chat 能力 + 角色 + 历史"。
+ *
+ * 评审修订（R2 重要）：增加 metadata 透传字段，让 adapter 层可携带房间 id /
+ * 会话 id / billing referenceId 等上下文，pattern 不解读，仅在跨 adapter 协作
+ * 时由消费方原样读取（pattern 自己不会读）。
  */
 export interface IDebateAgent {
   /** Agent 唯一 id（在本次辩论会话中） */
@@ -67,12 +71,19 @@ export interface IDebateAgent {
   /** 在本场辩论中的立场（描述性文本，用于 system prompt） */
   readonly stance: string;
   /**
+   * adapter 携带的不透明上下文（pattern 不解读）。
+   * 典型用途：room/session/turn id、billing referenceId、模型偏好。
+   * pattern 不会修改或读取该字段；adapter 在自己的 chat() 实现中通过 closure
+   * capture 即可使用，无需经过 pattern 流转。
+   */
+  readonly metadata?: Record<string, unknown>;
+  /**
    * 调用底层 LLM 输出本回合发言。
    *
    * @param systemPrompt 完整的 system prompt（由 pattern 拼好）
    * @param history 该 agent 自己的历史发言（不含他人，独立隔离）
    * @param userMessage 本回合的"用户消息"（如：对手的上一轮发言）
-   * @param signal 取消信号
+   * @param signal 取消信号；adapter 实现应在 chat 进入与流式接收阶段都检查
    */
   chat(input: {
     systemPrompt: string;

@@ -120,6 +120,9 @@ export function composeRoundUserMessage(
  * 构造 Judge 的总结请求消息。
  *
  * 输入是双方各回合的发言摘要；输出由 judge 自由发挥按其 system prompt 给出评判。
+ *
+ * 评审修订（R2 阻塞）：标签可定制，默认中文「正方/反方」；
+ * adapter 层（如 ai-app/teams 或 ai-app/ask）可注入本地化标签或自定义术语。
  */
 export function composeJudgeUserMessage(input: {
   topic: string;
@@ -127,9 +130,23 @@ export function composeJudgeUserMessage(input: {
   blueDisplayName: string;
   redSpeeches: string[];
   blueSpeeches: string[];
+  /** 正方在评判记录中的标签，默认「正方」 */
+  redLabel?: string;
+  /** 反方在评判记录中的标签，默认「反方」 */
+  blueLabel?: string;
+  /** 评判提示语，默认中文，可覆盖 */
+  judgeInstruction?: string;
 }): string {
-  const { topic, redDisplayName, blueDisplayName, redSpeeches, blueSpeeches } =
-    input;
+  const {
+    topic,
+    redDisplayName,
+    blueDisplayName,
+    redSpeeches,
+    blueSpeeches,
+    redLabel = "正方",
+    blueLabel = "反方",
+    judgeInstruction = "请按你的评判格式输出综合评判。",
+  } = input;
   const redBlock = redSpeeches
     .map((s, i) => `[${redDisplayName} - 第 ${i + 1} 轮]\n${s}`)
     .join("\n\n");
@@ -139,12 +156,12 @@ export function composeJudgeUserMessage(input: {
   return [
     `【辩论主题】${topic}`,
     "",
-    "【正方发言记录】",
+    `【${redLabel}发言记录】`,
     redBlock || "（无）",
     "",
-    "【反方发言记录】",
+    `【${blueLabel}发言记录】`,
     blueBlock || "（无）",
     "",
-    "请按你的评判格式输出综合评判。",
+    judgeInstruction,
   ].join("\n");
 }

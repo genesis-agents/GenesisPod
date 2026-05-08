@@ -895,6 +895,19 @@ export {
   HandoffCoordinator,
   HandoffContextBuilder,
 } from "../teams/collaboration/patterns/handoff-pattern";
+// Debate pattern (W1 PR2: 抽象编排基元，无持久化)
+export {
+  DebatePattern,
+  buildAgentSystemPrompt,
+  composeJudgeUserMessage,
+  composeRoundUserMessage,
+} from "../teams/collaboration/debate";
+export type {
+  DebatePatternConfig,
+  DebateRole,
+  DebateRoundResult,
+  IDebateAgent,
+} from "../teams/collaboration/debate";
 export type {
   CollaborationMessage,
   ICollaborator,
