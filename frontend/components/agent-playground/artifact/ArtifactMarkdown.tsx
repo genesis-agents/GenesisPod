@@ -159,9 +159,85 @@ function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
   );
 
   // 3. 覆盖 img：拦截 #fig-* 占位符 → StableFigureBlock（memo 化避免闪烁）
-  const components = useMemo(
-    () => ({
+  // 4. 覆盖 h2：给"维度" H2（非 supplementary 标题）自动加 N. 编号
+  //    （后端 markdown 不带前缀，前端按渲染顺序自动加，避免破坏 buildSectionTree
+  //    的 dim name 匹配）。
+  const components = useMemo(() => {
+    // ★ 2026-05-07 维度编号（学 TI hierarchical numbering）：
+    //   不依赖 sections 元数据，直接按 H2 标题文本判断 supplementary。
+    //   维度 H2 → "1. 标题" / "2. 标题"；supplementary H2 不加编号。
+    const SUPPLEMENTARY_H2 = new Set([
+      // 中文 supplementary
+      '执行摘要',
+      '前言',
+      '目录',
+      '跨维度分析',
+      '风险评估',
+      '战略建议',
+      '结论',
+      '参考文献',
+      '参考资料',
+      // 英文 supplementary
+      'executive summary',
+      'preface',
+      'table of contents',
+      'cross-dimension analysis',
+      'risk assessment',
+      'strategic recommendations',
+      'conclusion',
+      'references',
+    ]);
+    const isSupplementaryH2 = (text: string): boolean => {
+      const t = text.trim().toLowerCase();
+      for (const s of SUPPLEMENTARY_H2) {
+        if (t === s.toLowerCase()) return true;
+        if (t.startsWith(s.toLowerCase())) return true;
+      }
+      return false;
+    };
+    // closure-scoped counter（同一次渲染共享）
+    let dimOrdinal = 0;
+    let lastSeenH2: string | null = null;
+
+    return {
       ...baseComponents,
+      h2: ({
+        children,
+        ...props
+      }: React.HTMLAttributes<HTMLHeadingElement> & {
+        children?: React.ReactNode;
+      }) => {
+        // 提取纯文本判断 supplementary
+        const text =
+          typeof children === 'string'
+            ? children
+            : Array.isArray(children)
+              ? children.map((c) => (typeof c === 'string' ? c : '')).join('')
+              : '';
+        // 同一 H2 在 React 渲染过程中可能被多次调用（Reconciler、StrictMode）
+        // 用 lastSeenH2 dedupe
+        if (text !== lastSeenH2) {
+          lastSeenH2 = text;
+          if (!isSupplementaryH2(text)) {
+            dimOrdinal++;
+          }
+        }
+        const isDim = !isSupplementaryH2(text);
+        const ordinalForRender = isDim ? dimOrdinal : null;
+        // 委托公共 H2 渲染（保留 anchor / 滚动等行为）
+        const delegatedH2 = baseComponents.h2 as (
+          props: React.HTMLAttributes<HTMLHeadingElement> & {
+            children?: React.ReactNode;
+          }
+        ) => React.ReactElement;
+        const rendered = delegatedH2({
+          ...props,
+          children: ordinalForRender
+            ? [`${ordinalForRender}. `, children]
+            : children,
+        });
+        return rendered;
+      },
       img: ({ src, alt }: { src?: string; alt?: string }) => {
         if (src?.startsWith('#fig-')) {
           const figId = src.slice(1);
@@ -187,9 +263,8 @@ function ArtifactMarkdownInner({ markdown, citations, figures }: Props) {
         // 普通图片：交给公共 MarkdownImage
         return baseComponents.img({ src, alt });
       },
-    }),
-    [baseComponents, figures, citations]
-  );
+    };
+  }, [baseComponents, figures, citations]);
 
   // 与 TI 报告管线对齐：同样过 preprocessLatex + stripProseBullets + KaTeX
   const cleaned = useMemo(

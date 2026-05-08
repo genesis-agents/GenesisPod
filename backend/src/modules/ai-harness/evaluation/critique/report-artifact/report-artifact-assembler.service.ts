@@ -787,8 +787,11 @@ export class ReportArtifactAssembler {
     for (const l of tocLines) parts.push(l);
 
     // ── Emit dimension sections ──────────────────────────────────────────────
-    // ★ 不加序号前缀 "N. " —— buildSectionTree 用 d.name 匹配 section 标题，
-    //   加序号会导致 dimMatch 失败（"1. Market" ≠ "Market"），sections.id 退化。
+    // ★ 不加序号前缀 "N. " —— buildSectionTree 用 d.name 匹配 section 标题；
+    //   维度编号由前端 ArtifactMarkdown 用 CSS counter / React 渲染时自动加上
+    //   （H2 显式索引），后端 markdown 保持纯净，不破坏 dimMatch / formatDim。
+    //   章节级编号（### N.M. {chapter}）由 formatDimensionContent.numberSubHeadings
+    //   自动注入，无需在这里处理。
     for (const ds of dimSections) {
       parts.push(`## ${ds.heading}`);
       parts.push("");

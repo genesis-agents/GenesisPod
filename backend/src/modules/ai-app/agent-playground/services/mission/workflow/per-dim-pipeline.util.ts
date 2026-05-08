@@ -395,8 +395,12 @@ export async function runPerDimPipeline(
       });
 
       // 直接拼接 cached chapter bodies 作为 fullMarkdown（跳过 integrator LLM）
+      // ★ 2026-05-07 编号修复：章节用 H3 (### )，不用 H2。
+      //   原因：reportAssembler 的 formatDimensionContent → sanitizeHeadingLevels
+      //   会把所有 H2 strip 掉（#{1,2} 被 strip），导致章节标题彻底消失。
+      //   H3 会被 numberSubHeadings 自动编号为 "### N.M. 标题"。
       const fullMarkdownFromCache = synthesizedChapters
-        .map((c) => `## ${c.heading}\n\n${c.body}`)
+        .map((c) => `### ${c.heading}\n\n${c.body}`)
         .join("\n\n");
       const totalWordCount = synthesizedChapters.reduce(
         (s, c) => s + c.wordCount,
@@ -1222,9 +1226,16 @@ export async function runPerDimPipeline(
     //   chapter writer 输出后 G-1 已经跑过一次，但 cache-hit 路径 / 兜底路径的
     //   body 可能未经 G-1 清理（直接从 DB 读出），所以 stitchedFullMarkdown 前再跑一遍。
     const stitchedFullMarkdown = (() => {
-      const parts: string[] = [`# ${dimensionName}`, ""];
+      // ★ 2026-05-07 编号修复（用户实证报告无章节标题）：
+      //   之前 chapter 用 ## (H2) + ${ch.index}. 序号前缀。但
+      //   reportAssembler 的 formatDimensionContent → sanitizeHeadingLevels
+      //   会把所有 H1/H2 strip 掉，导致章节标题彻底消失。
+      //   修法：章节改用 ### (H3)，让 numberSubHeadings 自动加 "### N.M. 标题"
+      //   层级编号（N=维度序，M=章节序）。dim 名也不用单独 H1，
+      //   reportAssembler.buildFullMarkdown 已经在外层套 "## ${dim.name}"。
+      const parts: string[] = [];
       for (const ch of writtenChapters) {
-        parts.push(`## ${ch.index}. ${ch.heading}`);
+        parts.push(`### ${ch.heading}`);
         parts.push("");
         parts.push(stripChartJsonFromContent(ch.body));
         parts.push("");
