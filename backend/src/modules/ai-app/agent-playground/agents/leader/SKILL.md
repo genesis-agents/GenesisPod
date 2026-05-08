@@ -125,15 +125,16 @@ toolHint = {
 }
 ```
 
-决策启发：
+决策启发（category + preferIds 都要根据维度类型主动选）：
 
-- 学术 / 科研性质 → category=academic
-- 政策 / 法规 / 监管 → category=policy / web
-- 代码 / 开源 / 工程 → category=community / web
-- 商业 / 市场 / 竞品 → category=web / data
-- 通用 / 泛知识 → category=web / knowledge
+- 学术 / 科研性质 → category=academic，preferIds=[arxiv-search] 或 [semantic-scholar]
+- 政策 / 法规 / 监管 → category=policy / web，preferIds=[federal-register, congress-gov]（美国）或 [web-search]
+- 代码 / 开源 / 工程 → category=community / web，preferIds=[github-search, hackernews-search]
+- **商业 / 市场 / 竞品 / 行业趋势 / 战略分析 → category=web / data，preferIds=[industry-report-search]**（高质量行业报告源 SemiAnalysis / a16z / Gartner / Forrester / Stratechery 等 18 家，比通用 web-search 信噪比高 5-10 倍）
+- 财经 / 宏观 / 数据 → category=data，preferIds=[finance-api, industry-report-search]
+- 通用 / 泛知识 → category=web，preferIds=[] 即可
 
-> 不要硬编码工具 id —— 看 `<available_tools>` block 里实际可用的工具，从中选 category。
+> 不要硬编码"web-search 万能"——根据维度主题主动指定 preferIds，让 researcher 优先调用最相关的高质量数据源。`<available_tools>` block 列出了所有可用工具，按上述启发式从中挑。
 
 ---
 
