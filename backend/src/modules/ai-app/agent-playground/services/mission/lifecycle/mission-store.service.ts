@@ -950,27 +950,43 @@ export class MissionStore {
       update.reportTitle = patch.reportTitle.slice(0, 500);
     if (patch.reportSummary !== undefined)
       update.reportSummary = patch.reportSummary;
-    if (userId) {
-      // 严格路径：updateMany + userId 隔离（防 depth-defense bypass）
-      await this.prisma.agentPlaygroundMission
-        .updateMany({
+    await this._runMissionUpdate(id, userId, update, "markRerunPatch");
+  }
+
+  /**
+   * 内部 helper：mission 行 update 双分支统一（PR-B3, 2026-05-08）。
+   *
+   * 三个 caller (markRerunPatch / markIntermediateState / resetFields) 之前各有
+   * 复制粘贴的 if(userId) updateMany else update 双分支 + catch+warn 块（合计 ~60 行
+   * 重复）。统一到本 helper 后每处 caller 收敛为 1 行。
+   *
+   * 行为不变：
+   *   - userId 传入 → updateMany + where{id, userId}（深度防御，防 TOCTOU）
+   *   - userId 缺失 → update + where{id}（兼容路径，stage 流经过 controller 已 assertOwnership）
+   *   - 失败统一 catch + warn log（best-effort，不阻塞 stage 主流程）
+   */
+  private async _runMissionUpdate(
+    id: string,
+    userId: string | undefined,
+    data: Prisma.AgentPlaygroundMissionUpdateInput,
+    label: string,
+  ): Promise<void> {
+    try {
+      if (userId) {
+        await this.prisma.agentPlaygroundMission.updateMany({
           where: { id, userId },
-          data: update as Prisma.AgentPlaygroundMissionUpdateManyMutationInput,
-        })
-        .catch((err: unknown) => {
-          this.log.warn(
-            `[markRerunPatch ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          data: data as Prisma.AgentPlaygroundMissionUpdateManyMutationInput,
         });
-    } else {
-      // 兼容路径（旧 caller，无 userId 上下文）
-      await this.prisma.agentPlaygroundMission
-        .update({ where: { id }, data: update })
-        .catch((err: unknown) => {
-          this.log.warn(
-            `[markRerunPatch ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
+      } else {
+        await this.prisma.agentPlaygroundMission.update({
+          where: { id },
+          data,
         });
+      }
+    } catch (err: unknown) {
+      this.log.warn(
+        `[${label} ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
   }
 
@@ -1047,30 +1063,7 @@ export class MissionStore {
       update.leaderVerdict = patch.leaderVerdict;
     if (patch.lastCompletedStage !== undefined)
       update.lastCompletedStage = patch.lastCompletedStage;
-    if (userId) {
-      // 严格路径：updateMany + userId 隔离（与 markRerunPatch / resetFields 一致）
-      await this.prisma.agentPlaygroundMission
-        .updateMany({
-          where: { id, userId },
-          data: update as Prisma.AgentPlaygroundMissionUpdateManyMutationInput,
-        })
-        .catch((err: unknown) => {
-          this.log.warn(
-            `[markIntermediateState ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-    } else {
-      // 兼容路径（旧 caller 如 stage 文件，无 userId 上下文）
-      // ★ 注：stage 文件流经过 controller assertOwnership 是安全的，但 dispatcher
-      //   cascade 路径应一律传 userId 走严格隔离。
-      await this.prisma.agentPlaygroundMission
-        .update({ where: { id }, data: update })
-        .catch((err: unknown) => {
-          this.log.warn(
-            `[markIntermediateState ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-    }
+    await this._runMissionUpdate(id, userId, update, "markIntermediateState");
   }
 
   /**
@@ -1202,23 +1195,12 @@ export class MissionStore {
       if (camel) data[camel] = null;
     }
     if (Object.keys(data).length === 0) return;
-    if (userId) {
-      await this.prisma.agentPlaygroundMission
-        .updateMany({ where: { id: missionId, userId }, data })
-        .catch((err: unknown) => {
-          this.log.warn(
-            `[resetFields ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-    } else {
-      await this.prisma.agentPlaygroundMission
-        .update({ where: { id: missionId }, data })
-        .catch((err: unknown) => {
-          this.log.warn(
-            `[resetFields ${missionId}] failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        });
-    }
+    await this._runMissionUpdate(
+      missionId,
+      userId,
+      data as Prisma.AgentPlaygroundMissionUpdateInput,
+      "resetFields",
+    );
   }
 
   // ── ★ 报告版本化 (2026-05-06) ────────────────────────────────────────────
