@@ -22,7 +22,9 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  KeyRound,
 } from 'lucide-react';
+import { GrantKeyModal } from '@/components/admin/byok/GrantKeyModal';
 import {
   useAdminUsers,
   useUserStats,
@@ -611,6 +613,12 @@ export default function UsersSettings({
     name: string;
   } | null>(null);
 
+  // PR-D 2026-05-08: 模型权益授权 Modal（截图红框位置 ACTIONS 列 🔑 按钮）
+  const [grantKeyUser, setGrantKeyUser] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
+
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   // Login history state
@@ -752,6 +760,15 @@ export default function UsersSettings({
         user={editingUser}
         isLoading={isUpdating}
       />
+
+      {/* PR-D 2026-05-08: 授权模型权益 Modal（行内 🔑 按钮触发） */}
+      {grantKeyUser && (
+        <GrantKeyModal
+          userId={grantKeyUser.id}
+          userLabel={grantKeyUser.label}
+          onClose={() => setGrantKeyUser(null)}
+        />
+      )}
 
       <LoginHistoryModal
         isOpen={!!loginHistoryUser}
@@ -920,6 +937,23 @@ export default function UsersSettings({
                           )}
                         </button>
                       )}
+                      {/* PR-D 2026-05-08: 授权模型权益（KeyRound 图标，截图红框位置） */}
+                      <button
+                        onClick={() =>
+                          setGrantKeyUser({
+                            id: user.id,
+                            label:
+                              user.email ||
+                              user.name ||
+                              user.username ||
+                              user.id,
+                          })
+                        }
+                        className="rounded p-1.5 text-gray-400 hover:bg-blue-50 hover:text-blue-600"
+                        title="授权 API Key 模型权益"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </button>
                       {/* Edit */}
                       <button
                         onClick={() => setEditingUser(user)}
