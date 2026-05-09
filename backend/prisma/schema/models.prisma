@@ -3811,6 +3811,7 @@ enum ExportSourceType {
   SOCIAL // AI Social 社交内容
   SLIDES // AI Slides 演示文稿
   TOPIC_REPORT // AI Insights 专题报告
+  WIKI // ★ v1.5.3 LLM Wiki tarball export
 }
 
 enum ExportFormat {
@@ -3820,6 +3821,7 @@ enum ExportFormat {
   XLSX
   MARKDOWN
   HTML
+  TARBALL // ★ v1.5.3 LLM Wiki raw/+wiki/ directory tarball
 }
 
 enum ExportJobStatus {
@@ -4140,6 +4142,14 @@ model KnowledgeBase {
   topics           TopicKnowledgeBase[]
   officeDocuments  OfficeDocumentKnowledgeBase[]
 
+  // ★ v1.5.3 LLM Wiki 主形态（Library 默认 tab）
+  wikiEnabled Boolean @default(false) @map("wiki_enabled")
+  wikiPages   WikiPage[]
+  wikiDiffs   WikiDiff[]
+  wikiOps     WikiOperationLog[]
+  wikiFinds   WikiLintFinding[]
+  wikiConfig  WikiKnowledgeBaseConfig?
+
   @@index([userId])
   @@index([status])
   @@index([type])
@@ -4208,6 +4218,9 @@ model KnowledgeBaseDocument {
 
   // Relations
   parentChunks ParentChunk[]
+
+  // ★ v1.5.3 LLM Wiki citation reverse relation
+  wikiSources WikiPageSource[]
 
   @@index([knowledgeBaseId])
   @@index([sourceId])

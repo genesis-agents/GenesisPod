@@ -81,6 +81,7 @@ export const MIME_TYPES: Record<ExportFormat, string> = {
   XLSX: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   MARKDOWN: "text/markdown",
   HTML: "text/html",
+  TARBALL: "application/gzip", // ★ v1.5.3 LLM Wiki raw/+wiki/ tarball
 };
 
 /**
@@ -93,4 +94,5 @@ export const FILE_EXTENSIONS: Record<ExportFormat, string> = {
   XLSX: ".xlsx",
   MARKDOWN: ".md",
   HTML: ".html",
+  TARBALL: ".tar.gz", // ★ v1.5.3 LLM Wiki raw/+wiki/ tarball
 };

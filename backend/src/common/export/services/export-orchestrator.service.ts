@@ -552,6 +552,7 @@ export class ExportOrchestratorService implements OnModuleInit {
       XLSX: 8,
       MARKDOWN: 2,
       HTML: 3,
+      TARBALL: 30, // ★ v1.5.3 wiki tarball — streaming many files, larger estimate
     };
     return estimates[format] || 10;
   }
