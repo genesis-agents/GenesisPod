@@ -257,10 +257,13 @@ export const wikiApi = {
     ),
 
   // Ingest / Diff
+  // Wiki ingest triggers a single-turn LLM call against full doc context;
+  // typical latency is 10-60s, so override the default 30s apiClient timeout.
   ingest: (kbId: string, documentIds: string[]) =>
     apiClient.post<{ diff: WikiDiffSummary }>(
       `${base}/${encodeURIComponent(kbId)}/ingest`,
-      { documentIds }
+      { documentIds },
+      { timeout: 180_000 }
     ),
 
   getDiff: (kbId: string, diffId: string) =>
@@ -280,6 +283,8 @@ export const wikiApi = {
     ),
 
   // Query
+  // Wiki query also calls an LLM (inline or RAG branch); 30s default is too
+  // tight when the model is busy or the inline budget is large.
   query: (
     kbId: string,
     request: {
@@ -290,7 +295,8 @@ export const wikiApi = {
   ) =>
     apiClient.post<WikiQueryResponse>(
       `${base}/${encodeURIComponent(kbId)}/query`,
-      request
+      request,
+      { timeout: 120_000 }
     ),
 
   // Config (KB-level wiki settings)
@@ -304,10 +310,12 @@ export const wikiApi = {
     ),
 
   // Lint
+  // runLint触发的全量 lint 检查在大 KB 下也会跑数十秒。
   runLint: (kbId: string) =>
     apiClient.post<WikiLintRunResult>(
       `${base}/${encodeURIComponent(kbId)}/lint`,
-      {}
+      {},
+      { timeout: 120_000 }
     ),
 
   listLintFindings: (
