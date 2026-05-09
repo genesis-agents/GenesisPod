@@ -454,6 +454,42 @@ module.exports = {
     },
     {
       // ════════════════════════════════════════════════════════════════
+      // ★ Rev 5 / S0-6 (2026-05-09): R8 agent/skill primitive isolation
+      //
+      // ai-harness/agents/**(含 skill-runtime 子树)是 agent / role / tool primitive
+      // 层；不得逆向 import mission/stage/pipeline 概念,防止 mission-aware 类型污染
+      // primitive 抽象。详见 docs/architecture/ai-harness/sediment-topology.md §4 +
+      // boundary audit §6.5。
+      // ════════════════════════════════════════════════════════════════
+      files: ["**/modules/ai-harness/agents/**/*.ts"],
+      excludedFiles: [
+        "**/modules/ai-harness/agents/**/*.spec.ts",
+        "**/modules/ai-harness/agents/**/*.test.ts",
+        "**/modules/ai-harness/agents/**/__tests__/**/*.ts",
+      ],
+      rules: {
+        "no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "**/ai-harness/teams/**",
+                  "**/ai-harness/lifecycle/mission-lifecycle/**",
+                ],
+                message:
+                  "R8 agent/skill primitive isolation: ai-harness/agents/** 不得 import " +
+                  "mission/stage/pipeline 类型(ai-harness/teams/** 或 ai-harness/lifecycle/" +
+                  "mission-lifecycle/**)。primitive 层应保持 mission-unaware。" +
+                  "详见 docs/architecture/ai-harness/sediment-topology.md §4。",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      // ════════════════════════════════════════════════════════════════
       // ★ 2026-05-08 PR-E0 真因护栏：ai-harness 内部成员禁止反向 import facade barrel。
       //
       // 起因：facade/index.ts re-export business-team/lifecycle/mission-runtime-shell.framework，

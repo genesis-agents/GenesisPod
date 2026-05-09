@@ -149,10 +149,10 @@ export function validateStageDag(
  * 计算给定 fromStepId 的 cascade 链（含起点 + 所有 successors）。
  *
  * 用法（cascade 执行器 / UI preview）：
- *   const chain = computeCascadeChain(PLAYGROUND_PIPELINE.steps, "s11-persist");
- *   // → ["s11-persist"]
- *   const chain2 = computeCascadeChain(PLAYGROUND_PIPELINE.steps, "s8-writer");
- *   // → ["s8-writer", "s8b-quality-enhancement", "s9-critic", "s9b-objective-eval", "s10-leader-foreword-signoff", "s11-persist"]
+ *   const chain = computeCascadeChain(MY_PIPELINE.steps, "step-final");
+ *   // → ["step-final"]
+ *   const chain2 = computeCascadeChain(MY_PIPELINE.steps, "step-draft");
+ *   // → ["step-draft", "step-review", "step-signoff", "step-final"]
  */
 export function computeCascadeChain(
   steps: ReadonlyArray<{ id: string; dag?: StageDagMeta }>,

@@ -1,21 +1,12 @@
 /**
- * playground.config.ts —— v5.1 §3.2 / §5 R2-A pipeline 声明（双轨第一阶段）
+ * playground.config.ts —— Mission Pipeline 配置（v5.1 §3.2 / §5）
  *
- * 目的：把现有 13 stage（s1-budget → s12-self-evolution）映射到 R1 generic
- * primitive，让 MissionPipelineOrchestrator 可以替代 team.mission.ts 跑同样的
- * mission 流程。
+ * 把 13 step（s1-budget → s11-persist，含 s8b / s9b）映射到 R1 generic primitive，
+ * 由 `MissionPipelineOrchestrator` 执行；s12 self-evolution 由 dispatcher 在 mission
+ * terminal 后 fire-and-forget 触发（非 pipeline.steps 一员）。
  *
- * 双轨期（R2-A → R2-B 1 周观察）：
- *   - PLAYGROUND_RUNTIME=legacy（默认）   → 走 team.mission.ts（当前生产代码）
- *   - PLAYGROUND_RUNTIME=pipeline-v1     → 走本 config + Orchestrator
- *
- * R2-A 这一个 PR 仅落 scaffolding：
- *   1. pipeline 声明（13 step + 8 role + skillSpec from SKILL.md）
- *   2. hooks 暂为 NOT_YET_WIRED 占位 —— 真实迁移在 R2-A.1 ~ R2-A.13 增量推进
- *   3. registry 注册不抛错 + primitive id 解析正确（spec 守门）
- *
- * 未实现 hook 调用时 stage 会抛 NotYetWiredError，pipeline-v1 路径目前不能跑
- * 真实 mission；但 legacy 路径不受影响，feature flag=off 时永远不会走过来。
+ * R2-C 单轨化（2026-05-04）后：本 config 是 mission orchestrator 的唯一配置来源，
+ * legacy `team.mission.ts` 已删除，`PLAYGROUND_RUNTIME` flag 已删除。
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -514,8 +505,7 @@ export const PLAYGROUND_PIPELINE: MissionPipelineConfig = defineMissionPipeline(
     ],
     defaultStepTimeoutMs: 10 * 60_000, // 10 分钟 / step（playground 长任务保守值）
     meta: {
-      description:
-        "agent-playground full mission pipeline (v5.1 R2-A scaffolding)",
+      description: "agent-playground full mission pipeline (v5.1)",
       eventPrefix: "agent-playground",
       runtimeVersion: "pipeline-v1",
     },
