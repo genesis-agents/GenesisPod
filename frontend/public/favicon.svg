@@ -1,112 +1,41 @@
 <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
-    节点坐标：中心(32,32)，半径R=22，正六边形间隔60°
-    Top    (0°):   (32, 10)
-    TR    (60°):   (51, 21)
-    BR   (120°):   (51, 43)
-    Bottom(180°):  (32, 54)
-    BL   (240°):   (13, 43)
-    TL   (300°):   (13, 21)
+    Genesis Logo · v2 (Business Monogram)
+    深墨蓝 #0B1E3F badge + 暖金 #C9A961 双线描边 + 衬线 G monogram。
+    无动画。设计基准 64×64，缩放至 16/24/32/48/96 仍清晰。
   -->
   <defs>
-    <radialGradient id="gN" cx="35%" cy="25%" r="75%">
-      <stop offset="0%"   stop-color="#BAE6FD"/>
-      <stop offset="50%"  stop-color="#38BDF8"/>
-      <stop offset="100%" stop-color="#0284C7"/>
+    <radialGradient id="genesisLogoBg" cx="32%" cy="22%" r="95%">
+      <stop offset="0%"   stop-color="#1B3461"/>
+      <stop offset="55%"  stop-color="#0B1E3F"/>
+      <stop offset="100%" stop-color="#050E22"/>
     </radialGradient>
-    <radialGradient id="gC" cx="40%" cy="30%" r="70%">
-      <stop offset="0%"   stop-color="#A5B4FC"/>
-      <stop offset="45%"  stop-color="#6366F1"/>
-      <stop offset="100%" stop-color="#4338CA"/>
-    </radialGradient>
-    <linearGradient id="gR" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#0EA5E9"/>
-      <stop offset="50%"  stop-color="#6366F1"/>
-      <stop offset="100%" stop-color="#7C3AED"/>
+    <linearGradient id="genesisLogoGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#E8CE93"/>
+      <stop offset="48%"  stop-color="#C9A961"/>
+      <stop offset="100%" stop-color="#9C7E3D"/>
     </linearGradient>
-    <filter id="fN" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="1.5" stdDeviation="2"
-        flood-color="#0284C7" flood-opacity="0.35"/>
-    </filter>
-    <filter id="fC" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3"
-        flood-color="#4338CA" flood-opacity="0.4"/>
-    </filter>
   </defs>
 
-  <style>
-    /* 信号从中心向节点流动：dashoffset 正→0 */
-    @keyframes flow {
-      0%   { stroke-dashoffset: 28; stroke-opacity: 0.25; }
-      60%  { stroke-opacity: 0.75; }
-      100% { stroke-dashoffset: 0;  stroke-opacity: 0.25; }
-    }
-    /* 六边形轮廓缓慢旋转 opacity */
-    @keyframes ring-pulse {
-      0%, 100% { opacity: 0.55; }
-      50%       { opacity: 0.9; }
-    }
-    .spoke {
-      stroke-dasharray: 5 4;
-      animation: flow 1.8s linear infinite;
-    }
-    .s1 { animation-delay: 0s; }
-    .s2 { animation-delay: -0.3s; }
-    .s3 { animation-delay: -0.6s; }
-    .s4 { animation-delay: -0.9s; }
-    .s5 { animation-delay: -1.2s; }
-    .s6 { animation-delay: -1.5s; }
-    .ring { animation: ring-pulse 3s ease-in-out infinite; }
-  </style>
+  <!-- Badge: deep navy rounded square -->
+  <rect x="2" y="2" width="60" height="60" rx="13" ry="13"
+        fill="url(#genesisLogoBg)"/>
 
-  <!-- Hexagonal ring -->
-  <polygon
-    class="ring"
-    points="32,10 51,21 51,43 32,54 13,43 13,21"
-    stroke="url(#gR)" stroke-width="1.4" fill="none"/>
+  <!-- 主金线（外框） -->
+  <rect x="2" y="2" width="60" height="60" rx="13" ry="13"
+        fill="none" stroke="url(#genesisLogoGold)" stroke-width="1.25"/>
 
-  <!-- Spokes: center → each node (animated) -->
-  <line class="spoke s1" x1="32" y1="32" x2="32" y2="10" stroke="#0EA5E9" stroke-width="1.2"/>
-  <line class="spoke s2" x1="32" y1="32" x2="51" y2="21" stroke="#6366F1" stroke-width="1.2"/>
-  <line class="spoke s3" x1="32" y1="32" x2="51" y2="43" stroke="#7C3AED" stroke-width="1.2"/>
-  <line class="spoke s4" x1="32" y1="32" x2="32" y2="54" stroke="#0EA5E9" stroke-width="1.2"/>
-  <line class="spoke s5" x1="32" y1="32" x2="13" y2="43" stroke="#7C3AED" stroke-width="1.2"/>
-  <line class="spoke s6" x1="32" y1="32" x2="13" y2="21" stroke="#6366F1" stroke-width="1.2"/>
+  <!-- 内细金线（双框，珠宝/银行式精致感） -->
+  <rect x="5.5" y="5.5" width="53" height="53" rx="9.75" ry="9.75"
+        fill="none" stroke="#C9A961" stroke-width="0.5" opacity="0.4"/>
 
-  <!-- Top (32, 10) -->
-  <circle cx="32" cy="10" r="5.5" fill="white"/>
-  <circle cx="32" cy="10" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="30.6" cy="8.8" r="1.5" fill="white" opacity="0.6"/>
-
-  <!-- Top-right (51, 21) -->
-  <circle cx="51" cy="21" r="5.5" fill="white"/>
-  <circle cx="51" cy="21" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="49.6" cy="19.8" r="1.5" fill="white" opacity="0.6"/>
-
-  <!-- Bottom-right (51, 43) -->
-  <circle cx="51" cy="43" r="5.5" fill="white"/>
-  <circle cx="51" cy="43" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="49.6" cy="41.8" r="1.5" fill="white" opacity="0.6"/>
-
-  <!-- Bottom (32, 54) -->
-  <circle cx="32" cy="54" r="5.5" fill="white"/>
-  <circle cx="32" cy="54" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="30.6" cy="52.8" r="1.5" fill="white" opacity="0.6"/>
-
-  <!-- Bottom-left (13, 43) -->
-  <circle cx="13" cy="43" r="5.5" fill="white"/>
-  <circle cx="13" cy="43" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="11.6" cy="41.8" r="1.5" fill="white" opacity="0.6"/>
-
-  <!-- Top-left (13, 21) -->
-  <circle cx="13" cy="21" r="5.5" fill="white"/>
-  <circle cx="13" cy="21" r="4.8" fill="url(#gN)" filter="url(#fN)"/>
-  <circle cx="11.6" cy="19.8" r="1.5" fill="white" opacity="0.6"/>
-
-  <!-- Center orchestrator (32, 32) -->
-  <circle cx="32" cy="32" r="11" fill="#6366F1" opacity="0.08"/>
-  <circle cx="32" cy="32" r="9"  fill="white"/>
-  <circle cx="32" cy="32" r="8.5" fill="url(#gC)" filter="url(#fC)"/>
-  <circle cx="29.8" cy="29.8" r="2.8" fill="white" opacity="0.25"/>
-  <circle cx="32"   cy="32"   r="3"   fill="white" opacity="0.9"/>
+  <!-- G monogram
+       圆心 (32,32)，半径 16；从右上 30° 起笔，沿左侧绕到右下 30° 收笔，
+       向内收一道终止横笔到圆心（衬线 G 的标志特征）。 -->
+  <path d="M 45.86 24 A 16 16 0 1 0 45.86 40 L 45.86 32 L 33 32"
+        stroke="url(#genesisLogoGold)"
+        stroke-width="4.5"
+        stroke-linecap="butt"
+        stroke-linejoin="round"
+        fill="none"/>
 </svg>

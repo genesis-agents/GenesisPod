@@ -28,8 +28,7 @@ export function BrandLogo({
       <div
         className="flex-shrink-0"
         style={{
-          filter:
-            'drop-shadow(0 2px 6px rgba(2,132,199,0.3)) drop-shadow(0 1px 3px rgba(99,102,241,0.2))',
+          filter: 'drop-shadow(0 1px 2px rgba(11,30,63,0.18))',
         }}
       >
         <Image

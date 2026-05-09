@@ -72,22 +72,12 @@ export class BrandLogoService {
     return this.cachedLogoHtml;
   }
 
-  /** Default fallback logo — Genesis.ai tech squirrel (simple SVG) */
-  private readonly DEFAULT_LOGO = `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M16.25 30 Q8.75 27.5 6.875 21.25 Q5 15 8.125 10.625 Q10.625 6.875 14.375 6.25" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-  <path d="M16.25 30 Q10.625 25 10 19.375 Q9.375 13.75 12.5 10" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-  <path d="M16.25 30 Q13.125 24.375 13.75 19.375 Q14.375 15 17.5 12.5" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-  <circle cx="14.375" cy="6.25" r="1.5" fill="#06B6D4"/>
-  <circle cx="8.125" cy="10.625" r="1.5" fill="#8B5CF6"/>
-  <circle cx="6.875" cy="21.25" r="1.5" fill="#EC4899"/>
-  <ellipse cx="20" cy="28.75" rx="5" ry="6" stroke="#1E293B" stroke-width="1.5" fill="none"/>
-  <ellipse cx="25.625" cy="20" rx="4.75" ry="5" stroke="#1E293B" stroke-width="1.5" fill="none"/>
-  <path d="M27.5 15.625 L29.375 11.875 L26.25 14.375" stroke="#1E293B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <circle cx="27.5" cy="18.75" r="1" fill="#1E293B"/>
-  <circle cx="30" cy="21.25" r="0.625" fill="#1E293B"/>
-  <path d="M26.875 24.375 Q28.75 25.625 29.375 27.5" stroke="#1E293B" stroke-width="1.375" stroke-linecap="round" fill="none"/>
-  <circle cx="30" cy="28.125" r="1.25" stroke="#1E293B" stroke-width="1" fill="none"/>
-</svg>`;
+  /**
+   * Default fallback logo — Genesis G monogram (deep navy + warm gold).
+   * 与 frontend/public/favicon.svg 保持视觉一致。
+   * id 加 `Pdf` 后缀避免与前端 inline SVG 命名冲突（同一 HTML 多次嵌入时）。
+   */
+  private readonly DEFAULT_LOGO = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="genesisLogoBgPdf" cx="32%" cy="22%" r="95%"><stop offset="0%" stop-color="#1B3461"/><stop offset="55%" stop-color="#0B1E3F"/><stop offset="100%" stop-color="#050E22"/></radialGradient><linearGradient id="genesisLogoGoldPdf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#E8CE93"/><stop offset="48%" stop-color="#C9A961"/><stop offset="100%" stop-color="#9C7E3D"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="13" ry="13" fill="url(#genesisLogoBgPdf)"/><rect x="2" y="2" width="60" height="60" rx="13" ry="13" fill="none" stroke="url(#genesisLogoGoldPdf)" stroke-width="1.25"/><rect x="5.5" y="5.5" width="53" height="53" rx="9.75" ry="9.75" fill="none" stroke="#C9A961" stroke-width="0.5" opacity="0.4"/><path d="M 45.86 24 A 16 16 0 1 0 45.86 40 L 45.86 32 L 33 32" stroke="url(#genesisLogoGoldPdf)" stroke-width="4.5" stroke-linecap="butt" stroke-linejoin="round" fill="none"/></svg>`;
 
   /** Get brand name for watermarks and footers */
   getBrandName(): string {
