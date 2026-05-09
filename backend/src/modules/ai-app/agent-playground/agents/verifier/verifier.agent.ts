@@ -124,7 +124,12 @@ export type VerifierOutput = z.infer<typeof Output>;
   loop: "simple",
   // PR-X-skill-bridge: 引用工具核验协议
   skills: ["citation-audit"],
-  toolCategories: ["information"],
+  // 2026-05-09 工具矩阵审计：loop="simple" 决定 verifier 一次性产出，无 ReAct
+  // 循环可调 tool；之前 ["information"] 仍把 25 工具 catalog 注入 prompt 烧
+  // token，对单次 LLM 评分零价值。清空。
+  // 未来若 verifier 需要主动检索佐证，先改 loop="react"+在 prompt 里说明何时
+  // 调用，再恢复 toolCategories。
+  toolCategories: [],
   taskProfile: {
     creativity: "deterministic",
     outputLength: "medium",

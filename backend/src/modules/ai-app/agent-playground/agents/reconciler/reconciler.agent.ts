@@ -156,8 +156,13 @@ const Output = z.object({
   loop: "react",
   // PR-X-skill-bridge: cross-dim-fact-check SKILL.md 提供完整对账协议
   skills: ["cross-dim-fact-check"],
-  // ★ 用 information 类二次确认（rag-search / web-search 验证存疑事实）
-  toolCategories: ["information", "processing"],
+  // 2026-05-09 工具矩阵审计：之前 ["information","processing"] 注入 ~30 工具
+  // catalog 到 prompt（每次 mission 烧 3-5K tokens × 6 dim ≈ 30K），但 prompt
+  // body 6 步全部是"do NOT produce new research, only reconcile"，从未调用任
+  // 何 tool。"二次确认 rag-search / web-search 验证存疑事实"是过期意图——
+  // budget(maxTokens=20k/maxIter=3) 也不支持。清空避免无谓 token 烧。
+  // 未来若要做事实复核，应先把 prompt 改成显式调用，再恢复 toolCategories。
+  toolCategories: [],
   taskProfile: {
     creativity: "deterministic",
     outputLength: "medium",
