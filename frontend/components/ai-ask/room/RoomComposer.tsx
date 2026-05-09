@@ -2,25 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Send, X } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 import type { AskRoomMember, AskRoomMode } from '@/types/ask-room';
 
-const MODE_LABELS: Record<AskRoomMode, string> = {
-  FREECHAT: '自由群聊',
-  PARALLEL_MERGE: '并行合并',
-  DEBATE: '辩论',
-  VOTE: '投票',
-  REVIEW: '评审',
-  HANDOFF: '交接',
-};
-
-const MODE_HINTS: Record<AskRoomMode, string> = {
-  FREECHAT: '输入 @ 联想成员；不 @ 时由 leader 决定',
-  PARALLEL_MERGE: '全员并行回答 → leader 合成',
-  DEBATE: '正反方多轮辩论',
-  VOTE: '成员投票表决',
-  REVIEW: '主答 + 评审 + 修订',
-  HANDOFF: '由起始成员决定下一棒',
-};
+const MODE_VALUES: AskRoomMode[] = [
+  'FREECHAT',
+  'PARALLEL_MERGE',
+  'DEBATE',
+  'VOTE',
+  'REVIEW',
+  'HANDOFF',
+];
 
 interface RoomComposerProps {
   members: AskRoomMember[];
@@ -55,6 +47,7 @@ export function RoomComposer({
   onCancel,
   isStreaming,
 }: RoomComposerProps) {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const [mode, setModeState] = useState<AskRoomMode>(defaultMode);
   const setMode = (next: AskRoomMode) => {
@@ -211,7 +204,7 @@ export function RoomComposer({
       <div className="w-full">
         {/* 协作模式 chips */}
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          {(Object.keys(MODE_LABELS) as AskRoomMode[]).map((m) => {
+          {MODE_VALUES.map((m) => {
             const active = mode === m;
             return (
               <button
@@ -225,12 +218,12 @@ export function RoomComposer({
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {MODE_LABELS[m]}
+                {t(`askRoom.modes.${m}.label`)}
               </button>
             );
           })}
           <span className="ml-2 text-[11px] text-gray-400">
-            · {MODE_HINTS[mode]}
+            · {t(`askRoom.modes.${mode}.hint`)}
           </span>
         </div>
 
@@ -290,8 +283,8 @@ export function RoomComposer({
               }
               placeholder={
                 isStreaming
-                  ? '正在生成回复...'
-                  : '输入消息，输入 @ 召唤指定成员（⌘+Enter 发送）'
+                  ? t('askRoom.composer.streamingPlaceholder')
+                  : t('askRoom.composer.placeholder')
               }
               disabled={disabled || isStreaming}
               rows={2}
@@ -304,7 +297,7 @@ export function RoomComposer({
                 className="flex h-10 items-center gap-1.5 rounded-xl bg-red-500 px-4 text-sm font-medium text-white transition-colors hover:bg-red-600"
               >
                 <X className="h-4 w-4" />
-                停止
+                {t('askRoom.composer.cancel')}
               </button>
             ) : (
               <button
@@ -314,7 +307,7 @@ export function RoomComposer({
                 className="flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-700 hover:to-indigo-700 disabled:opacity-40"
               >
                 <Send className="h-4 w-4" />
-                发送
+                {t('askRoom.composer.send')}
               </button>
             )}
           </div>

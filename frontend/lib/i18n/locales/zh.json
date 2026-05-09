@@ -1,4 +1,107 @@
 {
+  "askRoom": {
+    "modes": {
+      "FREECHAT": {
+        "label": "自由群聊",
+        "hint": "输入 @ 联想成员；不 @ 时由 leader 决定",
+        "shortDescription": "推荐 / 多 AI 自由发言"
+      },
+      "PARALLEL_MERGE": {
+        "label": "并行合并",
+        "hint": "全员并行回答 → leader 合成",
+        "shortDescription": "同时回答 → 汇总"
+      },
+      "DEBATE": {
+        "label": "辩论",
+        "hint": "正反方多轮辩论",
+        "shortDescription": "正反方多轮辩论"
+      },
+      "VOTE": {
+        "label": "投票",
+        "hint": "成员投票表决",
+        "shortDescription": "各自投票 + 计票"
+      },
+      "REVIEW": {
+        "label": "评审",
+        "hint": "主答 + 评审 + 修订",
+        "shortDescription": "主稿 + 多审稿人"
+      },
+      "HANDOFF": {
+        "label": "交接",
+        "hint": "由起始成员决定下一棒",
+        "shortDescription": "依次交接接力"
+      }
+    },
+    "button": {
+      "label": "团队",
+      "title": "多 AI 协作（辩论 / 投票 / 评审 / 交接）",
+      "aria": "AI 团队模式"
+    },
+    "newRoom": {
+      "title": "新建 AI 团队房间",
+      "subtitle": "多 AI 协作 · 自由群聊 / 辩论 / 投票 / 评审 / 交接",
+      "footerHint": "创建后可在房间内调整成员、prompt、协作模式",
+      "cancel": "取消",
+      "create": "创建房间",
+      "creating": "创建中...",
+      "defaultTitle": "AI 团队房间",
+      "nameLabel": "房间名",
+      "namePlaceholder": "给房间起个名字",
+      "modeLabel": "协作模式",
+      "modeHint": "选定后房间默认按此模式响应；可在房间内随时切换",
+      "membersLabel": "成员",
+      "membersCount": "你 + AI {{count}} 个 · 最多 8 个 AI",
+      "youHost": "你（{{label}}）",
+      "youHostHint": "房主 / 主持人，发消息触发 AI 协作",
+      "selfFallback": "我",
+      "errorMinMembers": "至少勾选 2 个 AI 成员",
+      "errorModelOffline": "选中的模型已下线，请重新勾选",
+      "noModels": "暂无可用模型。先到「我的模型」配置 API Key，或向管理员申请系统"
+    },
+    "chat": {
+      "loading": "加载房间...",
+      "backAria": "返回",
+      "membersCount": "· {{count}} 名 AI 成员",
+      "streaming": "生成中",
+      "memberManage": "成员管理",
+      "errorLabel": "出错了：",
+      "errorClose": "关闭",
+      "nullContentError": "AI 未返回内容（请检查模型配置 / API Key / 余额）"
+    },
+    "composer": {
+      "placeholder": "输入消息，输入 @ 召唤指定成员（⌘+Enter 发送）",
+      "streamingPlaceholder": "正在生成回复...",
+      "cancel": "停止",
+      "send": "发送",
+      "errorAiResponse": "AI 响应失败：{{detail}}",
+      "errorSocketJoin": "Socket 加入失败：{{detail}}"
+    },
+    "message": {
+      "thinking": "思考中...",
+      "streaming": "回复中...",
+      "emptyTitle": "房间已就绪，等待开场白",
+      "emptyHint": "发送一条消息开启对话；可使用 @成员名 路由到指定 AI（仅自由群聊模式）"
+    },
+    "member": {
+      "drawerTitle": "房间成员",
+      "drawerSubtitle": "{{count}}/8 · 多 AI 协作",
+      "addTitle": "添加 AI 成员",
+      "selectModel": "选择模型",
+      "noModels": "暂无可用模型。先到「我的模型」配置 API Key。",
+      "displayName": "显示名（可选 · 默认用模型名）",
+      "displayNamePlaceholder": "选择模型后自动带入",
+      "role": "角色",
+      "roleMember": "成员",
+      "roleLeader": "主持人 (Leader)",
+      "systemPrompt": "System Prompt（可选）",
+      "systemPromptPlaceholder": "例如：扮演产品经理，关注用户需求和优先级",
+      "confirm": "确认添加",
+      "confirming": "添加中...",
+      "cancel": "取消",
+      "selectModelFirst": "请先选择一个模型",
+      "removeTitle": "移除"
+    }
+  },
   "common": {
     "modelKeyLabel": {
       "myKey": "我的 Key",

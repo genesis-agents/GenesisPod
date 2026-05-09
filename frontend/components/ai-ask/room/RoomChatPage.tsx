@@ -13,6 +13,7 @@ import { askRoomService } from '@/services/ai-ask-room.service';
 import { useAskRoomSocket } from '@/hooks/domain/useAskRoomSocket';
 import { useAskRoomStore } from '@/stores/ask-room.store';
 import { logger } from '@/lib/utils/logger';
+import { useTranslation } from '@/lib/i18n';
 import type {
   AskRoomMember,
   AskRoomMode,
@@ -26,16 +27,8 @@ interface RoomChatPageProps {
   roomId: string;
 }
 
-const MODE_LABELS: Record<AskRoomMode, string> = {
-  FREECHAT: '自由群聊',
-  PARALLEL_MERGE: '并行合并',
-  DEBATE: '辩论',
-  VOTE: '投票',
-  REVIEW: '评审',
-  HANDOFF: '交接',
-};
-
 export function RoomChatPage({ roomId }: RoomChatPageProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const session = useAskRoomStore((s) => s.sessionId);
   const members = useAskRoomStore((s) => s.members);
@@ -55,7 +48,9 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   // 用户在 composer 切换协作模式（如 辩论）时不会更新。改为追踪 composer 当前
   // 模式，header 反映用户实际将发送的 mode。
   const [activeMode, setActiveMode] = useState<AskRoomMode>('FREECHAT');
-  const [roomTitle, setRoomTitle] = useState<string>('AI 团队房间');
+  const [roomTitle, setRoomTitle] = useState<string>(
+    t('askRoom.newRoom.defaultTitle')
+  );
 
   // 初次加载（含 setLoading，会替换整个页面为 "加载房间..."）
   const initialLoad = useCallback(async () => {
@@ -112,28 +107,29 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const onEvent = useCallback(
     (event: AskRoomServerEvent) => {
       if (event.kind === 'turn.error') {
-        setError(`AI 响应失败：${event.error}`);
+        setError(
+          t('askRoom.composer.errorAiResponse', { detail: event.error })
+        );
         logger.warn('[RoomChat] turn error', event);
         void refreshMeta();
       }
       if (event.kind === 'turn.complete') {
         if (event.status === 'FAILED') {
-          setError(
-            (prev) => prev ?? 'AI 未返回内容（请检查模型配置 / API Key / 余额）'
-          );
+          setError((prev) => prev ?? t('askRoom.chat.nullContentError'));
         }
         logger.debug('[RoomChat] turn ended', event);
         void refreshMeta();
       }
     },
-    [refreshMeta]
+    [refreshMeta, t]
   );
 
   const socket = useAskRoomSocket({
     sessionId: session ?? roomId,
     enabled: !!session,
     onEvent,
-    onJoinError: (reason) => setError(`Socket join 失败: ${reason}`),
+    onJoinError: (reason) =>
+      setError(t('askRoom.composer.errorSocketJoin', { detail: reason })),
   });
 
   const handleSend = async (input: {
@@ -207,7 +203,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
       <div className="flex h-full w-full flex-1 items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/30">
         <div className="flex items-center gap-3 text-sm text-gray-500">
           <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-          加载房间...
+          {t('askRoom.chat.loading')}
         </div>
       </div>
     );
@@ -226,7 +222,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
             type="button"
             onClick={() => router.push('/ai-ask')}
             className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
-            aria-label="返回"
+            aria-label={t('askRoom.chat.backAria')}
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -241,16 +237,20 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                  {MODE_LABELS[activeMode]}
+                  {t(`askRoom.modes.${activeMode}.label`)}
                 </span>
-                <span>· {activeMembers.length} 名 AI 成员</span>
+                <span>
+                  {t('askRoom.chat.membersCount', {
+                    count: activeMembers.length,
+                  })}
+                </span>
                 {isStreaming && (
                   <span className="flex items-center gap-1 text-blue-600">
                     <span className="relative flex h-1.5 w-1.5">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
                       <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-blue-500"></span>
                     </span>
-                    生成中
+                    {t('askRoom.chat.streaming')}
                   </span>
                 )}
               </div>
@@ -287,7 +287,9 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
             className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
           >
             <Settings2 className="h-4 w-4" />
-            <span className="hidden sm:inline">成员管理</span>
+            <span className="hidden sm:inline">
+              {t('askRoom.chat.memberManage')}
+            </span>
             <ChevronDown className="hidden h-3.5 w-3.5 text-gray-400 sm:inline" />
           </button>
         </div>
@@ -297,14 +299,14 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
       {error && (
         <div className="border-b border-red-200/60 bg-red-50/80 px-6 py-2.5 backdrop-blur-sm">
           <div className="flex w-full items-center gap-2 text-sm text-red-700">
-            <span className="font-medium">出错了：</span>
+            <span className="font-medium">{t('askRoom.chat.errorLabel')}</span>
             {error}
             <button
               type="button"
               onClick={() => setError(null)}
               className="ml-auto text-xs text-red-500 hover:text-red-700"
             >
-              关闭
+              {t('askRoom.chat.errorClose')}
             </button>
           </div>
         </div>

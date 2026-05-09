@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Crown, Loader2, Plus, Trash2, Users, X } from 'lucide-react';
 import { useAIModels, type AIModel } from '@/hooks/features/useAIModels';
+import { useTranslation } from '@/lib/i18n';
 import type {
   AskRoomMember,
   AskRoomMemberRole,
@@ -37,6 +38,7 @@ export function RoomMemberPanel({
   onRemove,
   onClose,
 }: RoomMemberPanelProps) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +72,7 @@ export function RoomMemberPanel({
     setError(null);
     const picked = chatLikeModels.find((m) => m.id === selectedModelDbId);
     if (!picked) {
-      setError('请先选择一个模型');
+      setError(t('askRoom.member.selectModelFirst'));
       return;
     }
     setSubmitting(true);
@@ -106,10 +108,10 @@ export function RoomMemberPanel({
             </div>
             <div>
               <div className="text-base font-semibold text-gray-900">
-                房间成员
+                {t('askRoom.member.drawerTitle')}
               </div>
               <div className="text-xs text-gray-500">
-                {enabled.length}/8 · 多 AI 协作
+                {t('askRoom.member.drawerSubtitle', { count: enabled.length })}
               </div>
             </div>
           </div>
@@ -154,7 +156,7 @@ export function RoomMemberPanel({
                   type="button"
                   onClick={() => onRemove(m.id)}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
-                  title="移除"
+                  title={t('askRoom.member.removeTitle')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -171,13 +173,13 @@ export function RoomMemberPanel({
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50/50 py-3 text-sm font-medium text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus className="h-4 w-4" />
-              添加 AI 成员
+              {t('askRoom.member.addTitle')}
             </button>
           ) : (
             <div className="space-y-4 rounded-xl border border-blue-200 bg-blue-50/30 p-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-800">
-                  选择模型
+                  {t('askRoom.member.selectModel')}
                 </label>
                 {modelsLoading ? (
                   <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white py-6">
@@ -185,7 +187,7 @@ export function RoomMemberPanel({
                   </div>
                 ) : chatLikeModels.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs text-amber-700">
-                    暂无可用模型。先到「我的模型」配置 API Key。
+                    {t('askRoom.member.noModels')}
                   </div>
                 ) : (
                   <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">
@@ -239,7 +241,7 @@ export function RoomMemberPanel({
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-700">
-                  显示名（可选 · 默认用模型名）
+                  {t('askRoom.member.displayName')}
                 </label>
                 <input
                   type="text"
@@ -247,7 +249,7 @@ export function RoomMemberPanel({
                     selectedModelDbId
                       ? (chatLikeModels.find((m) => m.id === selectedModelDbId)
                           ?.name ?? '')
-                      : '选择模型后自动带入'
+                      : t('askRoom.member.displayNamePlaceholder')
                   }
                   value={displayNameOverride}
                   onChange={(e) => setDisplayNameOverride(e.target.value)}
@@ -257,15 +259,19 @@ export function RoomMemberPanel({
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-700">
-                  角色
+                  {t('askRoom.member.role')}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { value: 'MEMBER', label: '成员' },
-                      { value: 'LEADER', label: '主持人 (Leader)' },
-                    ] as const
-                  ).map((opt) => {
+                  {[
+                    {
+                      value: 'MEMBER' as const,
+                      labelKey: 'askRoom.member.roleMember' as const,
+                    },
+                    {
+                      value: 'LEADER' as const,
+                      labelKey: 'askRoom.member.roleLeader' as const,
+                    },
+                  ].map((opt) => {
                     const active = role === opt.value;
                     return (
                       <button
@@ -278,7 +284,7 @@ export function RoomMemberPanel({
                             : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
                         }`}
                       >
-                        {opt.label}
+                        {t(opt.labelKey)}
                       </button>
                     );
                   })}
@@ -287,10 +293,10 @@ export function RoomMemberPanel({
 
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-700">
-                  System Prompt（可选）
+                  {t('askRoom.member.systemPrompt')}
                 </label>
                 <textarea
-                  placeholder="例如：扮演产品经理，关注用户需求和优先级"
+                  placeholder={t('askRoom.member.systemPromptPlaceholder')}
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   rows={3}
@@ -312,14 +318,16 @@ export function RoomMemberPanel({
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
                 >
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {submitting ? '添加中...' : '确认添加'}
+                  {submitting
+                    ? t('askRoom.member.confirming')
+                    : t('askRoom.member.confirm')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setAdding(false)}
                   className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
                 >
-                  取消
+                  {t('askRoom.member.cancel')}
                 </button>
               </div>
             </div>

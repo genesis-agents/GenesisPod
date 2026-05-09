@@ -1,4 +1,107 @@
 {
+  "askRoom": {
+    "modes": {
+      "FREECHAT": {
+        "label": "Group Chat",
+        "hint": "Type @ to mention a specific member; without @, the leader replies",
+        "shortDescription": "Recommended / free-form multi-AI chat"
+      },
+      "PARALLEL_MERGE": {
+        "label": "Parallel Merge",
+        "hint": "All members answer in parallel → leader synthesizes",
+        "shortDescription": "Parallel answers → merged"
+      },
+      "DEBATE": {
+        "label": "Debate",
+        "hint": "Multi-round structured debate (pro vs con)",
+        "shortDescription": "Multi-round pro/con debate"
+      },
+      "VOTE": {
+        "label": "Vote",
+        "hint": "Members cast votes",
+        "shortDescription": "Each votes + tally"
+      },
+      "REVIEW": {
+        "label": "Review",
+        "hint": "Author + reviewers + revision",
+        "shortDescription": "Draft + multi-reviewer"
+      },
+      "HANDOFF": {
+        "label": "Handoff",
+        "hint": "Starting member decides who's next",
+        "shortDescription": "Sequential handoff"
+      }
+    },
+    "button": {
+      "label": "Team",
+      "title": "Multi-AI collaboration (debate / vote / review / handoff)",
+      "aria": "AI Team mode"
+    },
+    "newRoom": {
+      "title": "New AI Team Room",
+      "subtitle": "Multi-AI collaboration · group chat / debate / vote / review / handoff",
+      "footerHint": "Members, prompts, and collaboration mode can be adjusted later inside the room",
+      "cancel": "Cancel",
+      "create": "Create Room",
+      "creating": "Creating...",
+      "defaultTitle": "AI Team Room",
+      "nameLabel": "Room Name",
+      "namePlaceholder": "Give the room a name",
+      "modeLabel": "Collaboration Mode",
+      "modeHint": "The room will default to this mode; switch any time inside the room",
+      "membersLabel": "Members",
+      "membersCount": "You + {{count}} AI · max 8 AIs",
+      "youHost": "You ({{label}})",
+      "youHostHint": "Owner / host. Your messages trigger AI collaboration.",
+      "selfFallback": "Me",
+      "errorMinMembers": "Select at least 2 AI members",
+      "errorModelOffline": "Selected model is offline, please re-select",
+      "noModels": "No models available. Configure an API Key in 'My Models', or request a system key from your admin."
+    },
+    "chat": {
+      "loading": "Loading room...",
+      "backAria": "Back",
+      "membersCount": "· {{count}} AI members",
+      "streaming": "generating",
+      "memberManage": "Members",
+      "errorLabel": "Error:",
+      "errorClose": "Close",
+      "nullContentError": "AI returned no content (check model config / API Key / balance)"
+    },
+    "composer": {
+      "placeholder": "Type a message; use @ to mention a member (⌘+Enter to send)",
+      "streamingPlaceholder": "Generating reply...",
+      "cancel": "Stop",
+      "send": "Send",
+      "errorAiResponse": "AI response failed: {{detail}}",
+      "errorSocketJoin": "Socket join failed: {{detail}}"
+    },
+    "message": {
+      "thinking": "Thinking...",
+      "streaming": "Replying...",
+      "emptyTitle": "Room is ready — say something",
+      "emptyHint": "Send a message to start the conversation; in group-chat mode, use @<member> to route to a specific AI"
+    },
+    "member": {
+      "drawerTitle": "Room Members",
+      "drawerSubtitle": "{{count}}/8 · multi-AI collaboration",
+      "addTitle": "Add AI Member",
+      "selectModel": "Select Model",
+      "noModels": "No models available. Configure an API Key in 'My Models'.",
+      "displayName": "Display Name (optional · defaults to model name)",
+      "displayNamePlaceholder": "Auto-filled after selecting a model",
+      "role": "Role",
+      "roleMember": "Member",
+      "roleLeader": "Leader (host)",
+      "systemPrompt": "System Prompt (optional)",
+      "systemPromptPlaceholder": "e.g. Play a product manager focused on user needs and priorities",
+      "confirm": "Add",
+      "confirming": "Adding...",
+      "cancel": "Cancel",
+      "selectModelFirst": "Select a model first",
+      "removeTitle": "Remove"
+    }
+  },
   "common": {
     "modelKeyLabel": {
       "myKey": "My Key",

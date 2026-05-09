@@ -11,9 +11,11 @@
 
 import { useState } from 'react';
 import { Users } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 import NewAskRoomModal from './NewAskRoomModal';
 
 export default function AskTeamsButton() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   return (
@@ -22,11 +24,11 @@ export default function AskTeamsButton() {
         type="button"
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-100"
-        title="多 AI 协作（辩论 / 投票 / 评审 / 交接）"
-        aria-label="AI 团队模式"
+        title={t('askRoom.button.title')}
+        aria-label={t('askRoom.button.aria')}
       >
         <Users className="h-4 w-4" />
-        <span className="whitespace-nowrap">团队</span>
+        <span className="whitespace-nowrap">{t('askRoom.button.label')}</span>
       </button>
       <NewAskRoomModal open={open} onClose={() => setOpen(false)} />
     </>

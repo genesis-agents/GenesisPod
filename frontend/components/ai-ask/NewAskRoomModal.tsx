@@ -17,6 +17,7 @@ import { Modal } from '@/components/ui/dialogs/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, type AIModel } from '@/hooks/features/useAIModels';
 import { askRoomService } from '@/services/ai-ask-room.service';
+import { useTranslation } from '@/lib/i18n';
 import type { AskRoomMode } from '@/types/ask-room';
 
 interface Props {
@@ -24,25 +25,13 @@ interface Props {
   onClose: () => void;
 }
 
-const MODE_OPTIONS: {
-  value: AskRoomMode;
-  label: string;
-  description: string;
-}[] = [
-  {
-    value: 'FREECHAT',
-    label: '自由群聊',
-    description: '推荐 / 多 AI 自由发言',
-  },
-  {
-    value: 'PARALLEL_MERGE',
-    label: '并行合并',
-    description: '同时回答 → 汇总',
-  },
-  { value: 'DEBATE', label: '辩论', description: '正反方多轮辩论' },
-  { value: 'VOTE', label: '投票', description: '各自投票 + 计票' },
-  { value: 'REVIEW', label: '评审', description: '主稿 + 多审稿人' },
-  { value: 'HANDOFF', label: '交接', description: '依次交接接力' },
+const MODE_VALUES: AskRoomMode[] = [
+  'FREECHAT',
+  'PARALLEL_MERGE',
+  'DEBATE',
+  'VOTE',
+  'REVIEW',
+  'HANDOFF',
 ];
 
 const CHAT_LIKE_TYPES: AIModel['modelType'][] = [
@@ -53,11 +42,13 @@ const CHAT_LIKE_TYPES: AIModel['modelType'][] = [
 ];
 
 export default function NewAskRoomModal({ open, onClose }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuth();
   const { models, loading: modelsLoading } = useAIModels();
 
-  const [title, setTitle] = useState('AI 团队房间');
+  const defaultRoomTitle = t('askRoom.newRoom.defaultTitle');
+  const [title, setTitle] = useState(defaultRoomTitle);
   const [defaultMode, setDefaultMode] = useState<AskRoomMode>('FREECHAT');
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -71,12 +62,12 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
   // 打开时重置 + 默认勾选前 2 个
   useEffect(() => {
     if (!open) return;
-    setTitle('AI 团队房间');
+    setTitle(defaultRoomTitle);
     setDefaultMode('FREECHAT');
     setError(null);
     setSubmitting(false);
     setSelectedModelIds(chatLikeModels.slice(0, 2).map((m) => m.id));
-  }, [open, chatLikeModels]);
+  }, [open, chatLikeModels, defaultRoomTitle]);
 
   const toggleModel = (id: string) => {
     setSelectedModelIds((prev) => {
@@ -89,21 +80,21 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
   const handleCreate = async () => {
     setError(null);
     if (selectedModelIds.length < 2) {
-      setError('至少勾选 2 个 AI 成员');
+      setError(t('askRoom.newRoom.errorMinMembers'));
       return;
     }
     const picked = chatLikeModels.filter((m) =>
       selectedModelIds.includes(m.id)
     );
     if (picked.length < 2) {
-      setError('选中的模型已下线，请重新勾选');
+      setError(t('askRoom.newRoom.errorModelOffline'));
       return;
     }
 
     setSubmitting(true);
     try {
       const created = await askRoomService.createRoom({
-        title: title.trim() || 'AI 团队房间',
+        title: title.trim() || defaultRoomTitle,
         roomConfig: { defaultMode, maxParticipants: 8 },
         initialMembers: picked.map((m, i) => ({
           memberType: 'VIRTUAL',
@@ -123,7 +114,10 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
   };
 
   const userLabel =
-    user?.fullName?.trim() || user?.username?.trim() || user?.email || '我';
+    user?.fullName?.trim() ||
+    user?.username?.trim() ||
+    user?.email ||
+    t('askRoom.newRoom.selfFallback');
 
   return (
     <Modal
@@ -137,10 +131,10 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
           </div>
           <div>
             <div className="text-xl font-semibold text-gray-900">
-              新建 AI 团队房间
+              {t('askRoom.newRoom.title')}
             </div>
             <div className="mt-0.5 text-xs font-normal text-gray-500">
-              多 AI 协作 · 自由群聊 / 辩论 / 投票 / 评审 / 交接
+              {t('askRoom.newRoom.subtitle')}
             </div>
           </div>
         </div>
@@ -148,7 +142,7 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
       footer={
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-400">
-            创建后可在房间内调整成员、prompt、协作模式
+            {t('askRoom.newRoom.footerHint')}
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -157,7 +151,7 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
               disabled={submitting}
               className="rounded-lg px-5 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
             >
-              取消
+              {t('askRoom.newRoom.cancel')}
             </button>
             <button
               type="button"
@@ -166,7 +160,9 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
               className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {submitting ? '创建中...' : '创建房间'}
+              {submitting
+                ? t('askRoom.newRoom.creating')
+                : t('askRoom.newRoom.create')}
             </button>
           </div>
         </div>
@@ -176,13 +172,13 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
         {/* 房间名 */}
         <div>
           <label className="mb-2 block text-sm font-semibold text-gray-800">
-            房间名
+            {t('askRoom.newRoom.nameLabel')}
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="给房间起个名字"
+            placeholder={t('askRoom.newRoom.namePlaceholder')}
             className="w-full rounded-xl border border-gray-200 bg-white px-5 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           />
         </div>
@@ -190,19 +186,19 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
         {/* 协作模式 */}
         <div>
           <label className="mb-2 block text-sm font-semibold text-gray-800">
-            协作模式
+            {t('askRoom.newRoom.modeLabel')}
             <span className="ml-2 text-xs font-normal text-gray-400">
-              选定后房间默认按此模式响应；可在房间内随时切换
+              {t('askRoom.newRoom.modeHint')}
             </span>
           </label>
           <div className="grid grid-cols-3 gap-3">
-            {MODE_OPTIONS.map((opt) => {
-              const active = defaultMode === opt.value;
+            {MODE_VALUES.map((mode) => {
+              const active = defaultMode === mode;
               return (
                 <button
-                  key={opt.value}
+                  key={mode}
                   type="button"
-                  onClick={() => setDefaultMode(opt.value)}
+                  onClick={() => setDefaultMode(mode)}
                   className={`rounded-xl border px-4 py-3.5 text-left transition-all ${
                     active
                       ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm shadow-blue-500/10'
@@ -212,12 +208,12 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
                   <div
                     className={`text-sm font-semibold ${active ? 'text-blue-700' : 'text-gray-800'}`}
                   >
-                    {opt.label}
+                    {t(`askRoom.modes.${mode}.label`)}
                   </div>
                   <div
                     className={`mt-1 text-xs ${active ? 'text-blue-500' : 'text-gray-400'}`}
                   >
-                    {opt.description}
+                    {t(`askRoom.modes.${mode}.shortDescription`)}
                   </div>
                 </button>
               );
@@ -229,9 +225,11 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
         <div>
           <div className="mb-2 flex items-center justify-between">
             <label className="text-sm font-semibold text-gray-800">
-              成员
+              {t('askRoom.newRoom.membersLabel')}
               <span className="ml-2 text-xs font-normal text-gray-400">
-                你 + AI {selectedModelIds.length} 个 · 最多 8 个 AI
+                {t('askRoom.newRoom.membersCount', {
+                  count: selectedModelIds.length,
+                })}
               </span>
             </label>
           </div>
@@ -243,10 +241,10 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-blue-900">
-                你（{userLabel}）
+                {t('askRoom.newRoom.youHost', { label: userLabel })}
               </div>
               <div className="mt-0.5 text-xs text-blue-600">
-                房主 / 主持人，发消息触发 AI 协作
+                {t('askRoom.newRoom.youHostHint')}
               </div>
             </div>
           </div>
@@ -258,8 +256,7 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
             </div>
           ) : chatLikeModels.length === 0 ? (
             <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-sm text-amber-700">
-              暂无可用模型。先到「我的模型」配置 API Key，或向管理员申请系统
-              Key。
+              {t('askRoom.newRoom.noModels')}
             </div>
           ) : (
             <div className="max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50/50 p-3">

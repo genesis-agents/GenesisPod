@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AskRoomMember, AskRoomMessage } from '@/types/ask-room';
 import { useAskRoomStore } from '@/stores/ask-room.store';
+import { useTranslation } from '@/lib/i18n';
 
 interface RoomMessageListProps {
   messages: AskRoomMessage[];
@@ -87,20 +88,17 @@ export function RoomMessageList({ messages, members }: RoomMessageListProps) {
 }
 
 function EmptyState() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 shadow-sm">
         <MessageCircle className="h-7 w-7" />
       </div>
       <div className="text-base font-semibold text-gray-800">
-        房间已就绪，等待开场白
+        {t('askRoom.message.emptyTitle')}
       </div>
       <div className="mt-2 max-w-md text-sm text-gray-500">
-        发送一条消息开启对话；可使用{' '}
-        <kbd className="font-mono rounded border border-gray-200 bg-white px-1.5 py-0.5 text-[11px]">
-          @成员名
-        </kbd>{' '}
-        路由到指定 AI（仅自由群聊模式）
+        {t('askRoom.message.emptyHint')}
       </div>
     </div>
   );
@@ -249,6 +247,7 @@ interface PendingBubbleProps {
 }
 
 function PendingBubble({ member, status, partialText }: PendingBubbleProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex justify-start">
       <div className="flex max-w-[85%] items-start gap-3 lg:max-w-[70%]">
@@ -259,8 +258,8 @@ function PendingBubble({ member, status, partialText }: PendingBubbleProps) {
           <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
             {member?.displayName ?? 'AI'}
             <span className="text-[11px] font-normal text-gray-400">
-              {status === 'thinking' && '思考中...'}
-              {status === 'streaming' && '回复中...'}
+              {status === 'thinking' && t('askRoom.message.thinking')}
+              {status === 'streaming' && t('askRoom.message.streaming')}
             </span>
           </div>
           {partialText && <AssistantMarkdown content={partialText} />}
