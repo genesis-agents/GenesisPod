@@ -2,7 +2,7 @@
 -- 与 topic_reports.full_report / research_tasks.result 同模式：
 --   1. 加 raw_content_uri / raw_content_size 两列（nullable）
 --   2. 写入路径不变（仍写 raw_content 列）
---   3. StorageOffloadService 24h cron 把 status=COMPLETED 行的 raw_content 搬到 R2
+--   3. StorageOffloadService 24h cron 把 status=READY 行的 raw_content 搬到 R2
 --      并把 raw_content 置 ""，raw_content_uri 写入 key
 --   4. 读路径走 PrismaService.installKnowledgeBaseDocumentHydration 透明回填
 --

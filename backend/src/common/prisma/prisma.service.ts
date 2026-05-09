@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { isOffloadKeyAllowed } from "../storage/offload-key-allowlist";
 
 // 慢查询阈值 (毫秒)
 const SLOW_QUERY_THRESHOLD = parseInt(
@@ -213,6 +214,14 @@ export class PrismaService
   }
 
   private async downloadText(key: string): Promise<string | null> {
+    // 安全防御 (2026-05-09 review P0)：拒绝白名单外的 key，避免恶意 row.uri
+    // 让 hydrate 拉取 bucket 内任意路径（object substitution / SSRF-within-bucket）
+    if (!isOffloadKeyAllowed(key)) {
+      this.logger.warn(
+        `[hydrate] downloadText rejected disallowed key prefix: ${key.slice(0, 80)}`,
+      );
+      return null;
+    }
     const storage = this.initObjectStorage();
     if (!storage) return null;
     try {

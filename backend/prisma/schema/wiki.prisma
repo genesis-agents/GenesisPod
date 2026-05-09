@@ -88,7 +88,7 @@ model WikiPageLink {
 /// apply / edit / revert 前的 body 快照（解决 revert + stale lint 历史比对）。
 /// opId nullable —— page 删除后 op 行 SetNull，revision 仍保留作为审计。
 /// body off-load (2026-05-09): 极冷数据（仅 revert 时读），24h cron 搬到
-/// `wiki-revisions/{pageId}/{revisionId}.md`，DB body 列置 ""，bodyUri 写入 key。
+/// `wiki-revisions/{revisionId}/body.md`，DB body 列置 ""，bodyUri 写入 key。
 /// 读路径走 PrismaService hydrate 透明回填。
 model WikiPageRevision {
   id          String   @id @default(uuid())

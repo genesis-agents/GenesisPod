@@ -7,11 +7,11 @@
  * - research_tasks.result → `research-tasks/{id}/result.json`
  * - knowledge_base_documents.raw_content → `kb-documents/{id}/raw.txt`
  *   （仅 status=READY 行：避免 chunking pipeline 还在用 raw_content 时被搬走）
- * - wiki_page_revisions.body → `wiki-revisions/{pageId}/{revisionId}.md`
+ * - wiki_page_revisions.body → `wiki-revisions/{revisionId}/body.md`
  *   （revision 是 append-only 极冷数据，写完即可迁；revert 走 hydrate）
  * - wiki_diffs.items → `wiki-diffs/{id}/items.json`
- *   （仅 status=APPLIED|DISMISSED 且 createdAt > 30d 的终态归档；
- *    PENDING 必须留 DB 给 apply 事务；items 非空字段 → 写 JSON null）
+ *   （仅 status=APPLIED|DISMISSED 且 createdAt > OFFLOAD_GRACE_DAYS_WIKI_DIFF
+ *    (env, default 30) 天的终态归档；PENDING 留 DB；items 非空字段 → 写 JSON null）
  *
  * 处理逻辑（每个表独立）：
  * 1. 扫 {uri} IS NULL AND {content} IS NOT NULL AND len > 2KB 的行
@@ -37,12 +37,22 @@ import {
 import { Prisma, KnowledgeBaseStatus, WikiDiffStatus } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../runtime/r2-storage.service";
+import { OFFLOAD_PREFIXES } from "./offload-prefixes";
 
 const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const FIRST_RUN_DELAY_MS = 5 * 60 * 1000; // 启动 5 分钟后首次触发
 const BATCH_SIZE = 50;
 const CONCURRENCY = 4;
 const OFFLOAD_THRESHOLD = 2048; // <2KB 不迁
+
+// 30 天 grace 给 UI 历史 diff 查看走 DB 不打 R2；env 可调
+const WIKI_DIFF_GRACE_DAYS = parseInt(
+  process.env.OFFLOAD_GRACE_DAYS_WIKI_DIFF ?? "30",
+  10,
+);
+
+// 孤儿清理批量枚举上限（每次 run 扫的 R2 对象数）
+const ORPHAN_LIST_BATCH = 1000;
 
 // pg_advisory_lock 键：任意 64bit 整数；取自 crc32("storage_offload") 便于唯一识别
 const ADVISORY_LOCK_KEY = 834_612_099;
@@ -288,7 +298,7 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
             data: { bodySize: size },
           });
         },
-        keyFor: (id) => `wiki-revisions/${id}.md`,
+        keyFor: (id) => `wiki-revisions/${id}/body.md`,
         contentType: "text/markdown; charset=utf-8",
       },
       {
@@ -298,7 +308,9 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
         // items 是 Json 非空字段 → 写 JSONB null（'null'::jsonb）保留 NOT NULL 约束。
         name: "wiki_diffs.items",
         list: async (p, take) => {
-          const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          const cutoff = new Date(
+            Date.now() - WIKI_DIFF_GRACE_DAYS * 24 * 60 * 60 * 1000,
+          );
           const rows = await p.wikiDiff.findMany({
             where: {
               itemsUri: null,
@@ -368,12 +380,17 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
       { migrated: number; failed: number; mb: number }
     > = {};
 
+    let orphansDeleted = 0;
     try {
       for (const target of this.buildTargets()) {
         summary[target.name] = await this.runTarget(target);
       }
+      // 2026-05-09 (security review P0)：cascade delete 后 R2 残留对象清理。
+      // 每天扫一批（ORPHAN_LIST_BATCH 个对象），按前缀提 ID 反查 DB，DB 不存在
+      // 即认定为孤儿删除。每 R2 GET listObjects 是廉价操作，单 cron 跑足以覆盖。
+      orphansDeleted = await this.cleanupOrphans();
       this.logger.log(
-        `[StorageOffload] run complete in ${Math.round((Date.now() - start) / 1000)}s: ${JSON.stringify(summary)}`,
+        `[StorageOffload] run complete in ${Math.round((Date.now() - start) / 1000)}s: ${JSON.stringify(summary)} orphansDeleted=${orphansDeleted}`,
       );
     } catch (error) {
       this.logger.error(
@@ -466,5 +483,62 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
         }
       }),
     );
+  }
+
+  /**
+   * 孤儿对象清理：每次 cron run 扫一批 R2 对象（最多 ORPHAN_LIST_BATCH），
+   * 按前缀分组 → 提取 ID → 反查 DB 是否存在 → 不存在即删 R2 对象。
+   *
+   * 设计：
+   * - 单次 run 不分页扫全 bucket，避免长跑；24h 间隔下迟早扫到全部对象
+   * - 按 OFFLOAD_PREFIXES 分组反查 DB，每个表一次 IN 查询
+   * - 单对象删除失败不阻塞其他对象（log warn 即可，下次 run 重试）
+   */
+  private async cleanupOrphans(): Promise<number> {
+    if (!this.storage.isEnabled()) return 0;
+    const list = await this.storage.listObjects({
+      maxKeys: ORPHAN_LIST_BATCH,
+    });
+    if (list.objects.length === 0) return 0;
+
+    // 按前缀分组：prefix -> Array<{ key, id }>
+    const grouped = new Map<string, Array<{ key: string; id: string }>>();
+    for (const obj of list.objects) {
+      for (const reg of OFFLOAD_PREFIXES) {
+        if (!obj.key.startsWith(reg.prefix)) continue;
+        const id = reg.extractId(obj.key);
+        if (!id) break;
+        if (!grouped.has(reg.prefix)) grouped.set(reg.prefix, []);
+        grouped.get(reg.prefix)!.push({ key: obj.key, id });
+        break;
+      }
+    }
+
+    let deleted = 0;
+    for (const reg of OFFLOAD_PREFIXES) {
+      const items = grouped.get(reg.prefix);
+      if (!items || items.length === 0) continue;
+      const ids = [...new Set(items.map((i) => i.id))];
+      let live: Set<string>;
+      try {
+        live = await reg.listLiveIds(this.prisma, ids);
+      } catch (error) {
+        this.logger.warn(
+          `[StorageOffload] orphan check failed for ${reg.prefix}: ${(error as Error).message}`,
+        );
+        continue;
+      }
+      const orphans = items.filter((i) => !live.has(i.id));
+      for (const o of orphans) {
+        const ok = await this.storage.deleteObject(o.key).catch(() => false);
+        if (ok) deleted++;
+      }
+      if (orphans.length > 0) {
+        this.logger.log(
+          `[StorageOffload] orphan cleanup ${reg.prefix}: ${orphans.length} candidates (best-effort delete)`,
+        );
+      }
+    }
+    return deleted;
   }
 }

@@ -37,15 +37,15 @@ describe("PrismaService — wikiPageRevision hydration", () => {
     const row = {
       id: "rev-1",
       body: "",
-      bodyUri: "wiki-revisions/rev-1.md",
+      bodyUri: "wiki-revisions/rev-1/body.md",
     };
     await asInternals(service).hydrateWikiPageRevisionRow(row);
-    expect(downloadSpy).toHaveBeenCalledWith("wiki-revisions/rev-1.md");
+    expect(downloadSpy).toHaveBeenCalledWith("wiki-revisions/rev-1/body.md");
     expect(row.body).toBe("revision-body-from-r2");
   });
 
   it("skips hydrate when body already has data (pre-migration row)", async () => {
-    const row = { body: "still-in-db", bodyUri: "wiki-revisions/x.md" };
+    const row = { body: "still-in-db", bodyUri: "wiki-revisions/x/body.md" };
     await asInternals(service).hydrateWikiPageRevisionRow(row);
     expect(downloadSpy).not.toHaveBeenCalled();
     expect(row.body).toBe("still-in-db");
@@ -83,7 +83,7 @@ describe("PrismaService — wikiPageRevision hydration", () => {
 
   it("does not overwrite when downloadText returns null (R2 miss)", async () => {
     downloadSpy.mockResolvedValueOnce(null);
-    const row = { body: "", bodyUri: "wiki-revisions/missing.md" };
+    const row = { body: "", bodyUri: "wiki-revisions/missing/body.md" };
     await asInternals(service).hydrateWikiPageRevisionRow(row);
     expect(row.body).toBe("");
   });

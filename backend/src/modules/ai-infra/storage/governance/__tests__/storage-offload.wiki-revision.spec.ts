@@ -53,8 +53,8 @@ describe("StorageOffloadService — wiki_page_revisions.body target", () => {
   });
 
   describe("keyFor", () => {
-    it("produces wiki-revisions/{id}.md", () => {
-      expect(target.keyFor("rev-abc")).toBe("wiki-revisions/rev-abc.md");
+    it("produces wiki-revisions/{id}/body.md (matches topic-reports/{id}/v{n}.md style)", () => {
+      expect(target.keyFor("rev-abc")).toBe("wiki-revisions/rev-abc/body.md");
     });
   });
 
@@ -113,13 +113,18 @@ describe("StorageOffloadService — wiki_page_revisions.body target", () => {
     it("uses raw SQL to clear body + write uri/size atomically", async () => {
       executeRawUnsafe.mockResolvedValue(1);
 
-      await target.commit(mockPrisma, "rev-1", "wiki-revisions/rev-1.md", 2048);
+      await target.commit(
+        mockPrisma,
+        "rev-1",
+        "wiki-revisions/rev-1/body.md",
+        2048,
+      );
 
       expect(executeRawUnsafe).toHaveBeenCalledWith(
         expect.stringContaining(
           "UPDATE wiki_page_revisions SET body='', body_uri=$1, body_size=$2 WHERE id=$3",
         ),
-        "wiki-revisions/rev-1.md",
+        "wiki-revisions/rev-1/body.md",
         2048,
         "rev-1",
       );
