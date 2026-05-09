@@ -24,10 +24,10 @@
  *     appendDecision / getDecisions / saveCrossStageState / getCrossStageState）
  *     —— v5.1 §3.4 R1-C 抽象,关心"mission record 怎么读写"
  *
- *   - **Z3 `IBusinessTeamMissionStore`(本接口)**: BusinessAgentTeam **lifecycle 视角子集**
- *     （refreshHeartbeat / clearHeartbeat / markStageComplete / countRunningByUser /
- *     cleanupOrphanRunningMissions / markFailed / markReopened）
- *     —— Z3 framework 关心"mission 在生命周期上发生什么"
+ *   - **Z3 `IBusinessTeamMissionStore`(本接口)**: BusinessAgentTeam lifecycle 视角的
+ *     **互补集合**(refreshHeartbeat / clearHeartbeat / markStageComplete / countRunningByUser /
+ *     cleanupOrphanRunningMissions / markFailed / markReopened) —— **method 名与 Z1 不重叠**,
+ *     Z3 framework 关心"mission 在生命周期上发生什么"。
  *
  * benchmark consumer 的 mission store(如 `ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts`)
  * **同时 satisfies 两者**(structural typing),分别对应:
@@ -35,7 +35,8 @@
  *   - 被 R1 generic 调用方(reproducible CRUD)使用 → Z1 接口
  *   - 被 Z3 framework(`MissionRuntimeShellFramework` / `RerunGuard` / `MissionLivenessGuard` 调度)使用 → Z3 接口
  *
- * S2-7 计划在 Stage 2 阶段用 `Pick<IMissionStore, "..."> & {...}` 类型层固化此子集关系。
+ * S2-7 计划在 Stage 2 阶段用类型层 `IMissionStore<TBusiness> & IBusinessTeamMissionStore`
+ * intersection 固化"同一 store 的两个视角"(非 Pick<> 子集 — 两接口 method 名互补不重叠)。
  *
  * 详见 `docs/architecture/ai-harness/sediment-topology.md` §5 T1 与
  * `docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md` §2.5。

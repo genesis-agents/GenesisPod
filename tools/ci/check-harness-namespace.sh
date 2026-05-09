@@ -22,8 +22,10 @@
 #   ✓  [ENGINE]    ai-engine must not import mission-aware types
 #
 # 使用:
-#   ./tools/ci/check-harness-namespace.sh             # 检查全仓库
-#   ./tools/ci/check-harness-namespace.sh --quiet     # 仅在命中时输出
+#   ./tools/ci/check-harness-namespace.sh                # strict 模式,任一项 fail 即 exit 1
+#   ./tools/ci/check-harness-namespace.sh --quiet        # 仅在命中时输出
+#   ./tools/ci/check-harness-namespace.sh --stage-0-mode # Stage 0 advisory:[S1-2] 命中 warn 不 fail
+#                                                        # (Stage 1 完成 S1-2 后移除此 flag,转 strict)
 #
 # 详见:
 #   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md §6.4 / §6.5 / §7 S0-6
@@ -32,7 +34,18 @@
 set -uo pipefail
 
 QUIET=0
-if [[ "${1:-}" == "--quiet" ]]; then QUIET=1; fi
+STAGE_0_MODE=0
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    --stage-0-mode)
+      # Stage 0 advisory mode: [S1-2] rule(dispatcher cross-stage cache fields)
+      # 命中只 warn 不阻塞,允许 Stage 0 PR 在 S1-2 未完成时通过 PR CI。
+      # 其他规则违规仍 exit 1(防止 Stage 0 引入新 smell)。
+      STAGE_0_MODE=1
+      ;;
+  esac
+done
 
 cd "$(dirname "$0")/../.."
 ROOT="$(pwd)"
@@ -134,10 +147,16 @@ DISPATCHER="backend/src/modules/ai-app/agent-playground/services/mission/workflo
 if [[ -f "$DISPATCHER" ]]; then
   CACHE_HITS=$(grep -nE "^\\s+(private|protected|public)?\\s+(readonly\\s+)?(lastPlan|lastResearcherResults|s4PatchFailures)\\b" "$DISPATCHER" 2>/dev/null || true)
   if [[ -n "$CACHE_HITS" ]]; then
-    echo "  ✗  [S1-2] PlaygroundPipelineDispatcher class body cross-stage cache fields  — VIOLATIONS:"
-    echo "$CACHE_HITS" | sed "s|^|      $DISPATCHER:|"
-    FAILED+=("[S1-2] dispatcher cross-stage cache fields")
-    EXIT=1
+    if [[ $STAGE_0_MODE -eq 1 ]]; then
+      echo "  ⚠  [S1-2] dispatcher cross-stage cache fields  — Stage 0 mode: advisory only"
+      echo "$CACHE_HITS" | sed "s|^|      $DISPATCHER:|"
+      echo "      (此规则将在 Stage 1 完成 S1-2 后转 strict;Stage 0 不阻塞 merge)"
+    else
+      echo "  ✗  [S1-2] PlaygroundPipelineDispatcher class body cross-stage cache fields  — VIOLATIONS:"
+      echo "$CACHE_HITS" | sed "s|^|      $DISPATCHER:|"
+      FAILED+=("[S1-2] dispatcher cross-stage cache fields")
+      EXIT=1
+    fi
   else
     [[ $QUIET -eq 1 ]] || echo "  ✓  [S1-2] PlaygroundPipelineDispatcher class body cross-stage cache fields"
   fi
