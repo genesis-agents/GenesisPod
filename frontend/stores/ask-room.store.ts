@@ -188,6 +188,30 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
           // 当前 store 不专门追踪这些事件；UI 可订阅 onEvent 自行展示
           break;
 
+        case 'system.notice': {
+          // 2026-05-08：SYSTEM 提示（边界场景 / 错误兜底）。adapter 已同步
+          // push 到 messages[] 持久化；这里作为 SYSTEM 消息进 store 即时显示。
+          const finalMsg = {
+            id: event.messageId,
+            sessionId: s.sessionId ?? '',
+            role: 'system',
+            content: event.content,
+            modelId: null,
+            modelName: null,
+            tokens: 0,
+            webSearch: false,
+            senderType: 'SYSTEM' as const,
+            senderMemberId: null,
+            mentionedMemberIds: [],
+            turnId: event.turnId,
+            parentMessageId: null,
+            sequenceNum: event.sequenceNum,
+            createdAt: new Date().toISOString(),
+          };
+          next.messages = [...s.messages, finalMsg];
+          break;
+        }
+
         case 'turn.complete':
           next.currentTurnStatus = event.status;
           break;

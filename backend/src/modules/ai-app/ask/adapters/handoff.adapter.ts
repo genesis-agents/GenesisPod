@@ -20,11 +20,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { v4 as uuid } from "uuid";
 import { AIModelType, AskRoomMember, AskRoomMode } from "@prisma/client";
 import { ChatFacade, type ChatMessage } from "@/modules/ai-harness/facade";
-import type {
-  IModeAdapter,
-  ModeContext,
-  ModeResult,
-  PendingMessage,
+import {
+  emitSystemNotice,
+  type IModeAdapter,
+  type ModeContext,
+  type ModeResult,
+  type PendingMessage,
 } from "./mode-adapter.interface";
 import type { AskRoomServerEvent } from "../gateway/ask-room-events.types";
 
@@ -47,17 +48,35 @@ export class HandoffAdapter implements IModeAdapter {
     onEvent: (e: AskRoomServerEvent) => void,
   ): Promise<ModeResult> {
     const enabled = ctx.members.filter((m) => m.enabled && !m.deletedAt);
+    let seq = ctx.sequenceNumStart;
+    const messages: PendingMessage[] = [];
+
     if (enabled.length === 0) {
-      return { messages: [], metadata: { reason: "no_participants" } };
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "房间内没有可用的成员。请在右侧成员面板启用至少一名成员后重试。",
+        ),
+      );
+      return { messages, metadata: { reason: "no_participants" } };
     }
 
     const start = this.pickStart(enabled, ctx.modeOptions);
     if (!start) {
-      return { messages: [], metadata: { reason: "no_start_member" } };
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "未能确定 HANDOFF 起始成员。请检查 modeOptions.startMemberId 或确保至少有一名启用成员。",
+        ),
+      );
+      return { messages, metadata: { reason: "no_start_member" } };
     }
-
-    let seq = ctx.sequenceNumStart;
-    const messages: PendingMessage[] = [];
     const visited = new Set<string>();
     const chain: string[] = [];
 
@@ -70,6 +89,15 @@ export class HandoffAdapter implements IModeAdapter {
       if (visited.has(current.id)) {
         this.logger.warn(
           `[HANDOFF] cycle detected at member=${current.displayName}; stopping`,
+        );
+        seq += 1;
+        messages.push(
+          emitSystemNotice(
+            onEvent,
+            ctx.turn.id,
+            seq,
+            `检测到 handoff 环路（${current.displayName} 已发言），链路终止。`,
+          ),
         );
         break;
       }
@@ -86,11 +114,45 @@ export class HandoffAdapter implements IModeAdapter {
         messageId,
       });
 
-      const result = await this.askMember(current, ctx, enabled);
-      const tagged = result.content.match(HANDOFF_TAG_RE);
+      // 2026-05-08：单成员 chat() 失败用 error 占位 done，不阻断整 turn（之前
+      // 抛错让整 turn FAIL，用户什么都看不到）。
+      let chatResult: { content: string; tokensUsed: number };
+      try {
+        chatResult = await this.askMember(current, ctx, enabled);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `[HANDOFF] member=${current.displayName} chat failed: ${errMsg}`,
+        );
+        seq += 1;
+        const failContent = "[error] AI 服务暂时不可用，请稍后重试";
+        onEvent({
+          kind: "participant.done",
+          turnId: ctx.turn.id,
+          sequenceNum: seq,
+          memberId: current.id,
+          messageId,
+          tokensUsed: 0,
+          content: failContent,
+        });
+        messages.push({
+          id: messageId,
+          senderType: "AI",
+          senderMemberId: current.id,
+          content: failContent,
+          modelId: current.modelId,
+          modelName: null,
+          tokens: 0,
+          parentMessageId: lastMessageId ?? ctx.triggerMessage.id,
+          sequenceNum: seq,
+        });
+        break;
+      }
+
+      const tagged = chatResult.content.match(HANDOFF_TAG_RE);
       const cleanContent = tagged
-        ? result.content.replace(HANDOFF_TAG_RE, "").trimEnd()
-        : result.content;
+        ? chatResult.content.replace(HANDOFF_TAG_RE, "").trimEnd()
+        : chatResult.content;
       seq += 1;
       onEvent({
         kind: "participant.done",
@@ -98,7 +160,7 @@ export class HandoffAdapter implements IModeAdapter {
         sequenceNum: seq,
         memberId: current.id,
         messageId,
-        tokensUsed: result.tokensUsed,
+        tokensUsed: chatResult.tokensUsed,
         content: cleanContent, // 推送已剥掉 [handoff:xxx] 标签的内容
       });
 
@@ -109,7 +171,7 @@ export class HandoffAdapter implements IModeAdapter {
         content: cleanContent,
         modelId: current.modelId,
         modelName: null,
-        tokens: result.tokensUsed,
+        tokens: chatResult.tokensUsed,
         parentMessageId: lastMessageId ?? ctx.triggerMessage.id,
         sequenceNum: seq,
       });
@@ -137,6 +199,15 @@ export class HandoffAdapter implements IModeAdapter {
         this.logger.warn(
           `[HANDOFF] target not found: ${targetId}; chain ends at ${current.displayName}`,
         );
+        seq += 1;
+        messages.push(
+          emitSystemNotice(
+            onEvent,
+            ctx.turn.id,
+            seq,
+            `${current.displayName} 试图交接给 "${targetId}"，但该成员不在房间或已禁用，链路终止。`,
+          ),
+        );
         break;
       }
       if (visited.has(target.id)) {
@@ -148,6 +219,15 @@ export class HandoffAdapter implements IModeAdapter {
           from: current.id,
           to: target.id,
         });
+        seq += 1;
+        messages.push(
+          emitSystemNotice(
+            onEvent,
+            ctx.turn.id,
+            seq,
+            `${current.displayName} 试图交接给 ${target.displayName}（已发言过），为避免环路链路终止。`,
+          ),
+        );
         break;
       }
 

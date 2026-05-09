@@ -20,11 +20,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { v4 as uuid } from "uuid";
 import { AIModelType, AskRoomMember, AskRoomMode } from "@prisma/client";
 import { ChatFacade, type ChatMessage } from "@/modules/ai-harness/facade";
-import type {
-  IModeAdapter,
-  ModeContext,
-  ModeResult,
-  PendingMessage,
+import {
+  emitSystemNotice,
+  type IModeAdapter,
+  type ModeContext,
+  type ModeResult,
+  type PendingMessage,
 } from "./mode-adapter.interface";
 import type { AskRoomServerEvent } from "../gateway/ask-room-events.types";
 
@@ -56,18 +57,36 @@ export class ReviewAdapter implements IModeAdapter {
     onEvent: (e: AskRoomServerEvent) => void,
   ): Promise<ModeResult> {
     const enabled = ctx.members.filter((m) => m.enabled && !m.deletedAt);
+    let seq = ctx.sequenceNumStart;
+    const messages: PendingMessage[] = [];
+
     if (enabled.length < 2) {
-      return { messages: [], metadata: { reason: "insufficient_members" } };
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "REVIEW 模式至少需要 2 名启用成员（1 主答 + 1 评审）。请添加或启用更多成员后重试。",
+        ),
+      );
+      return { messages, metadata: { reason: "insufficient_members" } };
     }
 
     const roles = this.assignRoles(enabled, ctx.modeOptions);
     if (!roles) {
-      return { messages: [], metadata: { reason: "no_author_or_reviewers" } };
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "未能确定 REVIEW 角色（主答者或评审者）。请检查 modeOptions.authorMemberId / reviewerMemberIds 或确保至少有 2 名启用成员。",
+        ),
+      );
+      return { messages, metadata: { reason: "no_author_or_reviewers" } };
     }
     const { author, reviewers } = roles;
-
-    let seq = ctx.sequenceNumStart;
-    const messages: PendingMessage[] = [];
 
     // 1. 初稿
     this.assertNotAborted(ctx.signal);
@@ -136,20 +155,18 @@ export class ReviewAdapter implements IModeAdapter {
     const successFeedbacks = feedbacks.filter((f) => !f.error);
     if (successFeedbacks.length === 0) {
       this.logger.warn(`[REVIEW] turn=${ctx.turn.id} all reviewers failed`);
-      // 评审 W4 v5 重要：补一条 SYSTEM 消息，让用户在 UI 看到为何跳过修订
+      // 评审 W4 v5 重要：补一条 SYSTEM 消息让用户看到为何跳过修订。
+      // 2026-05-08：之前只 push 不 emit → 当前 turn UI 看不到，需 reload。
+      // 改用 emitSystemNotice 即时推流并保证持久化一致。
       seq += 1;
-      messages.push({
-        id: uuid(),
-        senderType: "SYSTEM",
-        senderMemberId: null,
-        content:
-          "所有评审者暂不可用，已跳过修订阶段。可重试 turn 或切换 mode（FREECHAT / PARALLEL_MERGE）。",
-        modelId: null,
-        modelName: null,
-        tokens: 0,
-        parentMessageId: draftId,
-        sequenceNum: seq,
-      });
+      const notice = emitSystemNotice(
+        onEvent,
+        ctx.turn.id,
+        seq,
+        "所有评审者暂不可用，已跳过修订阶段。可重试 turn 或切换 mode（FREECHAT / PARALLEL_MERGE）。",
+      );
+      // parentMessageId 关联到 draft 让消息树可追溯
+      messages.push({ ...notice, parentMessageId: draftId });
       return {
         messages,
         metadata: {

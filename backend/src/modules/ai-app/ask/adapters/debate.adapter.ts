@@ -26,11 +26,12 @@ import {
   type DebateRoundResult,
   type IDebateAgent,
 } from "@/modules/ai-harness/facade";
-import type {
-  IModeAdapter,
-  ModeContext,
-  ModeResult,
-  PendingMessage,
+import {
+  emitSystemNotice,
+  type IModeAdapter,
+  type ModeContext,
+  type ModeResult,
+  type PendingMessage,
 } from "./mode-adapter.interface";
 import type { AskRoomServerEvent } from "../gateway/ask-room-events.types";
 
@@ -67,7 +68,16 @@ export class DebateAdapter implements IModeAdapter {
       this.logger.warn(
         `[DEBATE] turn=${ctx.turn.id} not enough members for RED+BLUE`,
       );
-      return { messages: [], metadata: { reason: "insufficient_members" } };
+      const notice = emitSystemNotice(
+        onEvent,
+        ctx.turn.id,
+        ctx.sequenceNumStart + 1,
+        "DEBATE 模式至少需要 2 名启用成员（正方 + 反方）。请添加或启用更多成员后重试。",
+      );
+      return {
+        messages: [notice],
+        metadata: { reason: "insufficient_members" },
+      };
     }
     const { red, blue, judge } = roles;
 
@@ -148,19 +158,35 @@ export class DebateAdapter implements IModeAdapter {
             ...history,
             { role: "user", content: userMessage },
           ];
-          const result = await this.chatFacade.chat({
-            messages: llmMessages,
-            model: member.modelId,
-            modelType: AIModelType.CHAT,
-            taskProfile: { creativity: "medium", outputLength: "standard" },
-            billing: {
-              userId: ctx.userId,
-              moduleType: "ai-ask",
-              operationType: "room-debate",
-              referenceId: ctx.turn.id,
-              description: `AI Ask Room DEBATE - ${member.displayName} (${role})`,
-            },
-          });
+          // 2026-05-08：单成员单回合 chat() 失败用 error 占位，不抛错让整 turn
+          // FAIL（之前抛错让 DebatePattern 直接 throw，整 turn FAIL 用户什么
+          // 都看不到）。返回非空 content 让 pattern 继续走完后续回合。
+          let chatContent: string;
+          let chatTokens: number;
+          try {
+            const result = await this.chatFacade.chat({
+              messages: llmMessages,
+              model: member.modelId,
+              modelType: AIModelType.CHAT,
+              taskProfile: { creativity: "medium", outputLength: "standard" },
+              billing: {
+                userId: ctx.userId,
+                moduleType: "ai-ask",
+                operationType: "room-debate",
+                referenceId: ctx.turn.id,
+                description: `AI Ask Room DEBATE - ${member.displayName} (${role})`,
+              },
+            });
+            chatContent = result.content;
+            chatTokens = result.tokensUsed ?? 0;
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            this.logger.warn(
+              `[DEBATE] member=${member.displayName} role=${role} chat failed: ${errMsg}`,
+            );
+            chatContent = "[error] AI 服务暂时不可用，请稍后重试";
+            chatTokens = 0;
+          }
 
           seq += 1;
           onEvent({
@@ -169,10 +195,10 @@ export class DebateAdapter implements IModeAdapter {
             sequenceNum: seq,
             memberId: member.id,
             messageId,
-            tokensUsed: result.tokensUsed ?? 0,
-            content: result.content, // 同步 adapter：随 done 推送完整内容
+            tokensUsed: chatTokens,
+            content: chatContent,
           });
-          return { content: result.content, tokensUsed: result.tokensUsed };
+          return { content: chatContent, tokensUsed: chatTokens };
         },
       };
     };

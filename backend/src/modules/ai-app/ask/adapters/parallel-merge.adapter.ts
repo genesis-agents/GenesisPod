@@ -20,11 +20,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { v4 as uuid } from "uuid";
 import { AIModelType, AskRoomMember, AskRoomMode } from "@prisma/client";
 import { ChatFacade, type ChatMessage } from "@/modules/ai-harness/facade";
-import type {
-  IModeAdapter,
-  ModeContext,
-  ModeResult,
-  PendingMessage,
+import {
+  emitSystemNotice,
+  type IModeAdapter,
+  type ModeContext,
+  type ModeResult,
+  type PendingMessage,
 } from "./mode-adapter.interface";
 import type { AskRoomServerEvent } from "../gateway/ask-room-events.types";
 
@@ -52,12 +53,25 @@ export class ParallelMergeAdapter implements IModeAdapter {
     onEvent: (e: AskRoomServerEvent) => void,
   ): Promise<ModeResult> {
     const enabled = ctx.members.filter((m) => m.enabled && !m.deletedAt);
+    let seq = ctx.sequenceNumStart;
     if (enabled.length === 0) {
-      return { messages: [], metadata: { reason: "no_participants" } };
+      const messages: PendingMessage[] = [];
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "房间内没有可用的成员。请在右侧成员面板启用至少一名成员后重试。",
+        ),
+      );
+      return {
+        messages,
+        metadata: { reason: "no_participants" },
+      };
     }
 
     const leader = this.pickLeader(ctx, enabled);
-    let seq = ctx.sequenceNumStart;
 
     // 并发 fan-out
     const responses = await this.fanOut(enabled, ctx, onEvent, () => {
@@ -85,6 +99,15 @@ export class ParallelMergeAdapter implements IModeAdapter {
       this.logger.warn(
         `[PARALLEL_MERGE] turn=${ctx.turn.id} all participants failed`,
       );
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "所有成员暂时不可用，请稍后重试。可在右侧切换到 FREECHAT 模式由单成员单独回答。",
+        ),
+      );
       return {
         messages,
         metadata: { participantCount: enabled.length, allFailed: true },
@@ -92,11 +115,25 @@ export class ParallelMergeAdapter implements IModeAdapter {
     }
 
     // Leader 合成
+    // 2026-05-08：之前 synthesis 只发 leader.synthesis.started/done（无 content），
+    // 而 done 在 store 是 no-op，合成消息只 push 到 messages[] 持久化但永远不
+    // 流到前端 UI。修法：与其他 adapter 一致 emit participant.thinking + done
+    // 让 synthesis 作为 leader AI 气泡自然渲染；leader.synthesis.* 事件保留
+    // 用于未来 banner UI（"合成中..." 提示）。
+    const synthesisMessageId = uuid();
     seq += 1;
     onEvent({
       kind: "leader.synthesis.started",
       turnId: ctx.turn.id,
       sequenceNum: seq,
+    });
+    seq += 1;
+    onEvent({
+      kind: "participant.thinking",
+      turnId: ctx.turn.id,
+      sequenceNum: seq,
+      memberId: leader.id,
+      messageId: synthesisMessageId,
     });
 
     let synthesis: { content: string; tokensUsed: number } | null = null;
@@ -113,7 +150,16 @@ export class ParallelMergeAdapter implements IModeAdapter {
     // turn 仍标 COMPLETED，前端按 metadata.synthesisOk 决定是否展示"合成失败"提示。
     if (synthesis) {
       seq += 1;
-      const synthesisMessageId = uuid();
+      onEvent({
+        kind: "participant.done",
+        turnId: ctx.turn.id,
+        sequenceNum: seq,
+        memberId: leader.id,
+        messageId: synthesisMessageId,
+        tokensUsed: synthesis.tokensUsed,
+        content: synthesis.content,
+      });
+      seq += 1;
       onEvent({
         kind: "leader.synthesis.done",
         turnId: ctx.turn.id,
@@ -128,6 +174,33 @@ export class ParallelMergeAdapter implements IModeAdapter {
         modelId: leader.modelId,
         modelName: null,
         tokens: synthesis.tokensUsed,
+        parentMessageId: ctx.triggerMessage.id,
+        sequenceNum: seq,
+      });
+    } else {
+      // synthesis 失败：emit done 占位避免 thinking 气泡悬挂；同时 push 到
+      // messages[] 持久化，让 reload 后用户仍能看到失败提示（之前只 emit
+      // 不 push 导致双源不一致）。
+      const failContent =
+        "[error] 综合答复生成失败，可基于上方各成员独立回答参考";
+      seq += 1;
+      onEvent({
+        kind: "participant.done",
+        turnId: ctx.turn.id,
+        sequenceNum: seq,
+        memberId: leader.id,
+        messageId: synthesisMessageId,
+        tokensUsed: 0,
+        content: failContent,
+      });
+      messages.push({
+        id: synthesisMessageId,
+        senderType: "AI",
+        senderMemberId: leader.id,
+        content: failContent,
+        modelId: leader.modelId,
+        modelName: null,
+        tokens: 0,
         parentMessageId: ctx.triggerMessage.id,
         sequenceNum: seq,
       });

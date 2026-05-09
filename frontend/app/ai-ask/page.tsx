@@ -1254,6 +1254,15 @@ export default function AskPage() {
           const result = await response.json();
           // Handle wrapped response { success: true, data: { messages: [...] } }
           const data = result?.data ?? result;
+          // 2026-05-08（screenshot 40）：会话历史里的"AI 团队房间"被错误地以
+          // SOLO 单模型 UI 加载，导致用户看不到团队对话。session.mode='ROOM'
+          // 时跳转到团队房间路由 /ai-ask/rooms/{id}。
+          // 后端返回结构：{ session: { mode, ... }, messages: [...] }（见
+          // backend/src/modules/ai-app/ask/ai-ask.service.ts getSession）。
+          if (data?.session?.mode === 'ROOM') {
+            router.push(`/ai-ask/rooms/${sessionId}`);
+            return;
+          }
           setCurrentSessionId(sessionId);
           setMessages(
             (data.messages || []).map((m: unknown) => {
@@ -1275,7 +1284,7 @@ export default function AskPage() {
         logger.error('Failed to load session:', error);
       }
     },
-    [token]
+    [token, router]
   );
 
   // ?sessionId=xxx — auto-load session from Global AI Bar "继续对话" link

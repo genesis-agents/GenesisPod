@@ -168,6 +168,12 @@ export type AskRoomServerEvent =
   | (BaseServerEvent & { kind: 'handoff.rejected'; from: string; to: string })
   | (BaseServerEvent & { kind: 'leader.synthesis.started' })
   | (BaseServerEvent & { kind: 'leader.synthesis.done'; messageId: string })
+  // 2026-05-08：SYSTEM 类提示（边界场景 / 错误兜底 / 流程跳过等）。
+  | (BaseServerEvent & {
+      kind: 'system.notice';
+      messageId: string;
+      content: string;
+    })
   | (BaseServerEvent & {
       kind: 'turn.complete';
       status: 'COMPLETED' | 'FAILED' | 'CANCELLED';

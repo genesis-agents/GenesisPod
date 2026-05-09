@@ -19,11 +19,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { v4 as uuid } from "uuid";
 import { AIModelType, AskRoomMember, AskRoomMode } from "@prisma/client";
 import { ChatFacade, type ChatMessage } from "@/modules/ai-harness/facade";
-import type {
-  IModeAdapter,
-  ModeContext,
-  ModeResult,
-  PendingMessage,
+import {
+  emitSystemNotice,
+  type IModeAdapter,
+  type ModeContext,
+  type ModeResult,
+  type PendingMessage,
 } from "./mode-adapter.interface";
 import type { AskRoomServerEvent } from "../gateway/ask-room-events.types";
 
@@ -53,15 +54,24 @@ export class FreechatAdapter implements IModeAdapter {
       participants = leader ? [leader] : [];
     }
 
+    let seq = ctx.sequenceNumStart;
+    const messages: PendingMessage[] = [];
+
     if (participants.length === 0) {
       this.logger.warn(
         `[FREECHAT] turn=${ctx.turn.id} no eligible participants`,
       );
-      return { messages: [], metadata: { reason: "no_participants" } };
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "房间内没有可用的成员。请在右侧成员面板启用至少一名成员后重试。",
+        ),
+      );
+      return { messages, metadata: { reason: "no_participants" } };
     }
-
-    let seq = ctx.sequenceNumStart;
-    const messages: PendingMessage[] = [];
 
     for (const member of participants) {
       this.assertNotAborted(ctx.signal);
@@ -81,19 +91,37 @@ export class FreechatAdapter implements IModeAdapter {
       const llmMessages = this.buildLlmMessages(ctx, member);
       const startedAt = Date.now();
 
-      const result = await this.chatFacade.chat({
-        messages: llmMessages,
-        model: member.modelId,
-        modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "medium", outputLength: "standard" },
-        billing: {
-          userId: ctx.userId,
-          moduleType: "ai-ask",
-          operationType: "room-freechat",
-          referenceId: ctx.turn.id,
-          description: `AI Ask Room FREECHAT - ${member.displayName}`,
-        },
-      });
+      // 2026-05-08：单成员 chat() 失败用 error 占位 done 并继续后续成员，不阻断
+      // 整 turn（之前抛错让整 turn FAIL，用户什么都看不到）。
+      let chatResult: { content: string; tokensUsed: number };
+      try {
+        const result = await this.chatFacade.chat({
+          messages: llmMessages,
+          model: member.modelId,
+          modelType: AIModelType.CHAT,
+          taskProfile: { creativity: "medium", outputLength: "standard" },
+          billing: {
+            userId: ctx.userId,
+            moduleType: "ai-ask",
+            operationType: "room-freechat",
+            referenceId: ctx.turn.id,
+            description: `AI Ask Room FREECHAT - ${member.displayName}`,
+          },
+        });
+        chatResult = {
+          content: result.content,
+          tokensUsed: result.tokensUsed ?? 0,
+        };
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `[FREECHAT] member=${member.displayName} chat failed: ${errMsg}`,
+        );
+        chatResult = {
+          content: "[error] AI 服务暂时不可用，请稍后重试",
+          tokensUsed: 0,
+        };
+      }
 
       seq += 1;
       onEvent({
@@ -102,25 +130,25 @@ export class FreechatAdapter implements IModeAdapter {
         sequenceNum: seq,
         memberId: member.id,
         messageId,
-        tokensUsed: result.tokensUsed ?? 0,
-        content: result.content, // 同步 adapter：随 done 直接推送完整内容
+        tokensUsed: chatResult.tokensUsed,
+        content: chatResult.content,
       });
 
       messages.push({
         id: messageId,
         senderType: "AI",
         senderMemberId: member.id,
-        content: result.content,
+        content: chatResult.content,
         modelId: member.modelId,
         modelName: null,
-        tokens: result.tokensUsed ?? 0,
+        tokens: chatResult.tokensUsed,
         parentMessageId: ctx.triggerMessage.id,
         sequenceNum: seq,
       });
 
       this.logger.debug(
         `[FREECHAT] turn=${ctx.turn.id} member=${member.displayName} ` +
-          `tokens=${result.tokensUsed ?? 0} elapsed=${Date.now() - startedAt}ms`,
+          `tokens=${chatResult.tokensUsed} elapsed=${Date.now() - startedAt}ms`,
       );
     }
 

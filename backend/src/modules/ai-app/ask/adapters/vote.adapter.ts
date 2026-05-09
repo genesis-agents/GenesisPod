@@ -21,11 +21,12 @@ import {
   VotingManager,
   type ChatMessage,
 } from "@/modules/ai-harness/facade";
-import type {
-  IModeAdapter,
-  ModeContext,
-  ModeResult,
-  PendingMessage,
+import {
+  emitSystemNotice,
+  type IModeAdapter,
+  type ModeContext,
+  type ModeResult,
+  type PendingMessage,
 } from "./mode-adapter.interface";
 import type {
   AskRoomServerEvent,
@@ -61,14 +62,35 @@ export class VoteAdapter implements IModeAdapter {
     onEvent: (e: AskRoomServerEvent) => void,
   ): Promise<ModeResult> {
     const enabled = ctx.members.filter((m) => m.enabled && !m.deletedAt);
+    let earlySeq = ctx.sequenceNumStart;
     if (enabled.length < 2) {
-      return { messages: [], metadata: { reason: "insufficient_members" } };
+      earlySeq += 1;
+      const notice = emitSystemNotice(
+        onEvent,
+        ctx.turn.id,
+        earlySeq,
+        "VOTE 模式至少需要 2 名启用成员（1 主持 + 1 投票）。请添加或启用更多成员后重试。",
+      );
+      return {
+        messages: [notice],
+        metadata: { reason: "insufficient_members" },
+      };
     }
 
     const leader = this.pickLeader(enabled);
     const voters = enabled.filter((m) => m.id !== leader.id);
     if (voters.length === 0) {
-      return { messages: [], metadata: { reason: "no_voters" } };
+      earlySeq += 1;
+      const notice = emitSystemNotice(
+        onEvent,
+        ctx.turn.id,
+        earlySeq,
+        "VOTE 模式没有可参与投票的成员。请确保除 LEADER 外至少还有 1 名启用成员。",
+      );
+      return {
+        messages: [notice],
+        metadata: { reason: "no_voters" },
+      };
     }
 
     const seq = ctx.sequenceNumStart;
@@ -279,21 +301,46 @@ export class VoteAdapter implements IModeAdapter {
       });
     }
     if (result) {
-      seq += 1;
       const conclusionId = uuid();
       const winnerLabel = result.winner
         ? (options.find((o) => o.id === result.winner)?.label ?? result.winner)
         : "无定论";
+      const conclusionContent = this.formatConclusion(
+        winnerLabel,
+        result.consensus,
+        result.tally,
+        options,
+      );
+
+      // 2026-05-08：之前结论只 push 到 messages[]（DB 持久化），从未通过
+      // participant.done 推流，导致前端 UI 永远看不到投票最终结果（user
+      // screenshot 39："投票和评审，前端没有任何显示"）。修法：与其他终
+      // 端消息保持一致，emit thinking + done 让结论作为 leader 的 AI 气泡
+      // 自然渲染；vote.closed 仍单独 emit 用于未来 tally UI。
+      seq += 1;
+      onEvent({
+        kind: "participant.thinking",
+        turnId: ctx.turn.id,
+        sequenceNum: seq,
+        memberId: leader.id,
+        messageId: conclusionId,
+      });
+      seq += 1;
+      onEvent({
+        kind: "participant.done",
+        turnId: ctx.turn.id,
+        sequenceNum: seq,
+        memberId: leader.id,
+        messageId: conclusionId,
+        tokensUsed: 0,
+        content: conclusionContent,
+      });
+
       messages.push({
         id: conclusionId,
         senderType: "AI",
         senderMemberId: leader.id,
-        content: this.formatConclusion(
-          winnerLabel,
-          result.consensus,
-          result.tally,
-          options,
-        ),
+        content: conclusionContent,
         modelId: leader.modelId,
         modelName: null,
         tokens: 0,

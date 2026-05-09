@@ -98,6 +98,15 @@ export type AskRoomServerEvent =
   | (BaseServerEvent & { kind: "handoff.rejected"; from: string; to: string })
   | (BaseServerEvent & { kind: "leader.synthesis.started" })
   | (BaseServerEvent & { kind: "leader.synthesis.done"; messageId: string })
+  // 2026-05-08：SYSTEM 类提示（边界场景 / 错误兜底 / 流程跳过等）。
+  // 配合 adapter 同步 push 到 messages[] 让流式 UI + reload 后 DB 取回一致。
+  // 之前各 adapter 边界场景直接 return 空 messages 让前端一片空白；或仅
+  // push 不 emit 让当前 turn UI 看不到 → 用 system.notice 即时推流并保证持久化。
+  | (BaseServerEvent & {
+      kind: "system.notice";
+      messageId: string;
+      content: string;
+    })
   | (BaseServerEvent & {
       kind: "turn.complete";
       status: "COMPLETED" | "FAILED" | "CANCELLED";

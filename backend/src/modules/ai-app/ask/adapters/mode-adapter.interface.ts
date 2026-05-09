@@ -14,6 +14,7 @@ import type {
   AskRoomTurn,
   AskSession,
 } from "@prisma/client";
+import { v4 as uuid } from "uuid";
 import type { AskRoomServerEvent } from "../gateway/ask-room-events.types";
 
 export interface ModeContext {
@@ -60,4 +61,41 @@ export interface IModeAdapter {
     ctx: ModeContext,
     onEvent: (e: AskRoomServerEvent) => void,
   ): Promise<ModeResult>;
+}
+
+/**
+ * 2026-05-08：所有 adapter 共享的 SYSTEM 通知工具。
+ *
+ * 用途：边界场景（无成员 / 角色不足 / 失败兜底 / 流程跳过）即时推流并保证持久化。
+ * 调用方：在拿到下一个 seq 后调用，把返回的 PendingMessage push 到 messages[]。
+ *
+ * 不变量：
+ *   - emit system.notice 一定与一条 PendingMessage 一一对应（messageId/sequenceNum 同步）
+ *   - 调用方负责保证 sequenceNum 已递增
+ */
+export function emitSystemNotice(
+  onEvent: (e: AskRoomServerEvent) => void,
+  turnId: string,
+  sequenceNum: number,
+  content: string,
+): PendingMessage {
+  const messageId = uuid();
+  onEvent({
+    kind: "system.notice",
+    turnId,
+    sequenceNum,
+    messageId,
+    content,
+  });
+  return {
+    id: messageId,
+    senderType: "SYSTEM",
+    senderMemberId: null,
+    content,
+    modelId: null,
+    modelName: null,
+    tokens: 0,
+    parentMessageId: null,
+    sequenceNum,
+  };
 }
