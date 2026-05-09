@@ -126,5 +126,19 @@ describe("parseMarkdownWikiLinks (v1.5.3 §10 — 10 锁定用例)", () => {
       const md = "```\n[[fenced]]\n```\n[[outside]]";
       expect(parseMarkdownWikiLinks(md)).toEqual(["outside"]);
     });
+
+    it("skips to EOF on unclosed inline code", () => {
+      // Branch coverage: unterminated inline code path (i = len fallback)
+      expect(
+        parseMarkdownWikiLinks("`unclosed [[ignored]] still in code"),
+      ).toEqual([]);
+    });
+
+    it("skips to EOF on unclosed HTML comment", () => {
+      // Branch coverage: indexOf('-->') === -1 fallback
+      expect(
+        parseMarkdownWikiLinks("<!-- unclosed [[ignored]] never closes"),
+      ).toEqual([]);
+    });
   });
 });

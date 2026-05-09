@@ -146,7 +146,7 @@ export function parseMarkdownWikiLinks(body: string): string[] {
     // ───────────────────────── wiki link `[[ ... ]]` ─────────────────────────
     if (ch === "[" && body[i + 1] === "[") {
       // Find closing `]]` on the same logical span. We require the contents
-      // to NOT contain `[`, `]`, or newline (matches WIKI_LINK_PATTERN
+      // to NOT contain `[`, `]`, or newline (matches v1.5.3 §3.1 spec pattern
       // `/\[\[([^\[\]\/]+)\]\]/g` plus our additional `/` rejection).
       let j = i + 2;
       let bad = false;

@@ -59,6 +59,33 @@ describe("normalizeMarkdownSlug (v1.5.3 §4.4)", () => {
       expect(result).toBe("a".repeat(200));
     });
 
+    it("strips trailing hyphen produced by truncation at boundary", () => {
+      // 199 a + '-' + 50 b → slice(0,200) = 199a + '-' → trim → 199a
+      // Regression: previous trim → slice order would output 'aaa...aaa-'
+      // and violate DTO regex `[a-z0-9]$` tail constraint.
+      const input = "a".repeat(199) + "-" + "b".repeat(50);
+      const result = normalizeMarkdownSlug(input);
+      expect(result.length).toBe(199);
+      expect(result).toMatch(/[a-z0-9]$/); // tail must be alnum (DTO §11)
+      expect(result).toBe("a".repeat(199));
+    });
+
+    it("handles length boundary 199 / 200 / 201 chars", () => {
+      expect(normalizeMarkdownSlug("a".repeat(199)).length).toBe(199);
+      expect(normalizeMarkdownSlug("a".repeat(200)).length).toBe(200);
+      expect(normalizeMarkdownSlug("a".repeat(201)).length).toBe(200);
+    });
+
+    it("returns empty string for all-hyphen input after truncation", () => {
+      expect(normalizeMarkdownSlug("-".repeat(250))).toBe("");
+    });
+
+    it("produces single-char output for single alnum input (DTO will reject len < 2)", () => {
+      // util does not enforce ≥ 2 char length; DTO `@Matches` regex
+      // (start alnum + `[a-z0-9-]{0,198}` + end alnum) rejects len < 2 itself.
+      expect(normalizeMarkdownSlug("a")).toBe("a");
+    });
+
     it("strips leading/trailing hyphen runs", () => {
       expect(normalizeMarkdownSlug("---hello---")).toBe("hello");
     });
