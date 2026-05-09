@@ -17,6 +17,7 @@ import { AdminService } from "./admin.service";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
 import { AdminGuard } from "../../../common/guards/admin.guard";
 import { ChatFacade } from "../../ai-harness/facade";
+import { normalizeMarkdownSlug } from "../../ai-engine/facade";
 import { AIModelType } from "@prisma/client";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
 import { APP_CONFIG } from "../../../common/config/app.config";
@@ -1802,8 +1803,7 @@ export class AdminController {
               );
             }
             for (const skill of skills) {
-              const id =
-                skill.id || skill.name?.toLowerCase().replace(/\s+/g, "-");
+              const id = skill.id || normalizeMarkdownSlug(skill.name || "");
               if (id && !seenIds.has(id)) {
                 seenIds.add(id);
                 allSkills.push(skill);

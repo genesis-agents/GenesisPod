@@ -17,6 +17,7 @@ import {
 } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
+import { normalizeMarkdownSlug } from "../../../modules/ai-engine/content/markdown/slug-normalize.util";
 
 @Injectable()
 export class HtmlRenderer implements ExportRenderer {
@@ -610,7 +611,7 @@ export class HtmlRenderer implements ExportRenderer {
 
     const items = headings
       .map((h) => {
-        const anchor = this.slugify(h.content || "");
+        const anchor = normalizeMarkdownSlug(h.content || "");
         return `
           <li class="toc-item toc-item-level-${h.level}">
             <a href="#${anchor}">${this.escapeHtml(h.content || "")}</a>
@@ -649,7 +650,7 @@ export class HtmlRenderer implements ExportRenderer {
     switch (section.type) {
       case "heading":
         const level = Math.min(section.level || 1, 6);
-        const anchor = this.slugify(section.content || "");
+        const anchor = normalizeMarkdownSlug(section.content || "");
         return `<h${level} id="${anchor}">${this.escapeHtml(section.content || "")}</h${level}>`;
 
       case "paragraph":
@@ -858,16 +859,6 @@ export class HtmlRenderer implements ExportRenderer {
 </body>
 </html>`;
     return Buffer.from(html, "utf-8");
-  }
-
-  /**
-   * 生成 slug
-   */
-  private slugify(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\u4e00-\u9fa5]+/g, "-")
-      .replace(/^-+|-+$/g, "");
   }
 
   /**

@@ -25,6 +25,7 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { ReportEvaluationService } from "@/modules/ai-harness/facade";
+import { normalizeMarkdownSlug } from "@/modules/ai-engine/facade";
 import type { ChapterInput } from "@/modules/ai-harness/facade";
 import type { LocalRerunInput } from "./local-rerun.service";
 import type { HydratedMissionContext } from "./ctx-hydrator.service";
@@ -818,7 +819,7 @@ export class StageRerunDispatcher {
         type: "dimension" as const,
         level: 2,
         title: d.heading,
-        anchor: d.heading.toLowerCase().replace(/\s+/g, "-").slice(0, 80),
+        anchor: normalizeMarkdownSlug(d.heading).slice(0, 80),
         startOffset,
         endOffset,
         wordCount: d.wordCount ?? Math.floor(d.content.length / 5),

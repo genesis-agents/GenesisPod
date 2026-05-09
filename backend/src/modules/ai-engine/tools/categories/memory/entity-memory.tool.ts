@@ -26,6 +26,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
+import { normalizeMarkdownSlug } from "../../../content/markdown/slug-normalize.util";
 
 // ============================================================================
 // Types
@@ -963,6 +964,6 @@ export class EntityMemoryTool extends BaseTool<
    * 生成实体 ID
    */
   private generateEntityId(name: string): string {
-    return `entity-${name.toLowerCase().replace(/\s+/g, "-")}`;
+    return `entity-${normalizeMarkdownSlug(name)}`;
   }
 }

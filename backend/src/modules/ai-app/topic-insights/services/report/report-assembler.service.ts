@@ -3,6 +3,7 @@ import {
   sanitizeMarkdownContent,
   stripLeadingHeading,
 } from "@/common/utils/sanitize-content.utils";
+import { normalizeMarkdownSlug } from "@/modules/ai-engine/facade";
 import {
   filterJunkReferences,
   deduplicateReferencesByUrl,
@@ -360,26 +361,26 @@ export class ReportAssemblerService {
     for (const { dim } of nonEmptyDims) {
       tocIndex++;
       const dimName = dim.dimensionName || `${labels.dimension}${tocIndex}`;
-      const anchor = `${tocIndex}-${dimName.toLowerCase().replace(/\s+/g, "-")}`;
+      const anchor = `${tocIndex}-${normalizeMarkdownSlug(dimName)}`;
       tocParts.push(`${tocIndex}. [${dimName}](#${anchor})`);
     }
     // Only add TOC entries for non-empty supplementary sections
     if (sc.crossDimensionAnalysis) {
       tocIndex++;
       tocParts.push(
-        `${tocIndex}. [${labels.crossDimension}](#${labels.crossDimension.toLowerCase().replace(/\s+/g, "-")})`,
+        `${tocIndex}. [${labels.crossDimension}](#${normalizeMarkdownSlug(labels.crossDimension)})`,
       );
     }
     if (sc.riskAssessment) {
       tocIndex++;
       tocParts.push(
-        `${tocIndex}. [${labels.riskAssessment}](#${labels.riskAssessment.toLowerCase().replace(/\s+/g, "-")})`,
+        `${tocIndex}. [${labels.riskAssessment}](#${normalizeMarkdownSlug(labels.riskAssessment)})`,
       );
     }
     if (sc.strategicRecommendations) {
       tocIndex++;
       tocParts.push(
-        `${tocIndex}. [${labels.strategicRec}](#${labels.strategicRec.toLowerCase().replace(/\s+/g, "-")})`,
+        `${tocIndex}. [${labels.strategicRec}](#${normalizeMarkdownSlug(labels.strategicRec)})`,
       );
     }
     tocParts.push("\n\n");

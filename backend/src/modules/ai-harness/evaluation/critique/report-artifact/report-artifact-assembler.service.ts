@@ -49,6 +49,7 @@ import {
   decodeUrlEntities,
   remapCitationIndices,
 } from "../../../../ai-engine/facade";
+import { normalizeMarkdownSlug } from "../../../../ai-engine/content/markdown/slug-normalize.util";
 
 export interface AssembleInput {
   topic: string;
@@ -843,27 +844,26 @@ export class ReportArtifactAssembler {
 
     // ── Section 4: 目录 ───────────────────────────────────────────────────────
     // Build TOC now that we know which sections will be present
-    const slugify = (s: string) =>
-      s
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^\w-]/g, "");
     const tocLines: string[] = [`## ${labels.toc}`, ""];
     let tocIdx = 0;
     for (const ds of dimSections) {
       tocIdx++;
-      tocLines.push(`${tocIdx}. [${ds.heading}](#${slugify(ds.heading)})`);
+      tocLines.push(
+        `${tocIdx}. [${ds.heading}](#${normalizeMarkdownSlug(ds.heading)})`,
+      );
     }
     // Supplementary sections always appear in TOC
     tocIdx++;
     tocLines.push(
-      `${tocIdx}. [${labels.crossDim}](#${slugify(labels.crossDim)})`,
+      `${tocIdx}. [${labels.crossDim}](#${normalizeMarkdownSlug(labels.crossDim)})`,
     );
     tocIdx++;
-    tocLines.push(`${tocIdx}. [${labels.risk}](#${slugify(labels.risk)})`);
+    tocLines.push(
+      `${tocIdx}. [${labels.risk}](#${normalizeMarkdownSlug(labels.risk)})`,
+    );
     tocIdx++;
     tocLines.push(
-      `${tocIdx}. [${labels.strategy}](#${slugify(labels.strategy)})`,
+      `${tocIdx}. [${labels.strategy}](#${normalizeMarkdownSlug(labels.strategy)})`,
     );
     tocLines.push("");
     for (const l of tocLines) parts.push(l);
@@ -1058,13 +1058,13 @@ export class ReportArtifactAssembler {
         const dimMatch = this.fuzzyMatchDimension(title, input.plan.dimensions);
         const id = dimMatch
           ? dimMatch.id
-          : `sec-${slugify(title)}-${sections.length + 1}`;
+          : `sec-${normalizeMarkdownSlug(title)}-${sections.length + 1}`;
         currentSection = {
           id,
           type,
           level: 2,
           title,
-          anchor: slugify(title),
+          anchor: normalizeMarkdownSlug(title),
           startOffset: charOffset,
           endOffset: charOffset,
           wordCount: 0,
@@ -1123,7 +1123,7 @@ export class ReportArtifactAssembler {
           type: "dimension",
           level: 2,
           title: `${d.name}（本维度内容缺失）`,
-          anchor: slugify(d.name),
+          anchor: normalizeMarkdownSlug(d.name),
           startOffset: virtualOffset,
           endOffset: virtualOffset,
           wordCount: 0,
@@ -2123,14 +2123,6 @@ export class ReportArtifactAssembler {
 }
 
 // ─── helpers ─────────────────────────────────────────────────────
-
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^\w一-龥]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
 
 function countWords(s: string, lang: "zh-CN" | "en-US"): number {
   if (lang === "zh-CN") {

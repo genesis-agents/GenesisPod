@@ -28,6 +28,7 @@ import { sanitizeMarkdownBody } from "../../../../ai-engine/content/markdown/mar
 import type { SanitizeOptions } from "../../../../ai-engine/content/markdown/markdown-sanitizer.types";
 // ★ PR-A8 (2026-05-07): metrics 聚合（Optional 注入：DI 没接通时安静 noop，不影响装配）
 import { SanitizerMetricsService } from "../../../../ai-engine/content/markdown/sanitizer-metrics.service";
+import { normalizeMarkdownSlug } from "../../../../ai-engine/content/markdown/slug-normalize.util";
 
 /**
  * ★ R2 共识 P1 (security P2-B, 2026-05-07): dim.id 来自 LLM 输出，
@@ -160,7 +161,7 @@ export class StructuralReportAssembler {
       type: c.type,
       level: c.level,
       title: c.title,
-      anchor: this.slugify(c.title),
+      anchor: normalizeMarkdownSlug(c.title),
       startOffset: c.startOffset,
       endOffset: c.endOffset,
       wordCount: this.countWords(c.body),
@@ -262,7 +263,7 @@ export class StructuralReportAssembler {
   /** 自动目录 — 用 plan.dimensions 构造（fallback：从 sections 派生） */
   private buildToc(segments: ReportSegments): string {
     const lines = segments.plan.dimensions.map(
-      (d, i) => `${i + 1}. [${d.name}](#${this.slugify(d.name)})`,
+      (d, i) => `${i + 1}. [${d.name}](#${normalizeMarkdownSlug(d.name)})`,
     );
     return lines.length === 0 ? "*（本报告无章节）*" : lines.join("\n");
   }
@@ -529,15 +530,6 @@ export class StructuralReportAssembler {
               ? "acceptable"
               : "poor",
     };
-  }
-
-  private slugify(s: string): string {
-    return s
-      .toLowerCase()
-      .replace(/[^\w一-鿿\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .slice(0, 64);
   }
 
   private countWords(s: string): number {

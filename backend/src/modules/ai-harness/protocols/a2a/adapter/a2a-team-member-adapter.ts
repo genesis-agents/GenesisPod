@@ -14,7 +14,11 @@ import type {
   IRole,
   WorkStyle,
 } from "../../../teams/abstractions/role.interface";
-import type { SkillId, ToolId } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import type {
+  SkillId,
+  ToolId,
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
+import { normalizeMarkdownSlug } from "@/modules/ai-engine/facade";
 import { A2AAgentCard, A2ATaskStatus } from "../a2a.types";
 
 /**
@@ -37,7 +41,7 @@ class ExternalA2ARole implements IRole {
   readonly metadata?: Record<string, unknown>;
 
   constructor(agentCard: A2AAgentCard) {
-    this.id = `a2a-${agentCard.name.toLowerCase().replace(/\s+/g, "-")}`;
+    this.id = `a2a-${normalizeMarkdownSlug(agentCard.name)}`;
     this.name = agentCard.name;
     this.description = agentCard.description;
     this.icon = undefined;

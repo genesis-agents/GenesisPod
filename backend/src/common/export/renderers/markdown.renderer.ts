@@ -16,6 +16,7 @@ import {
 } from "../types/unified-content";
 import { ThemeConfig, LayoutConfig } from "../types/theme-config";
 import { ExportOptions } from "../types/export-options";
+import { normalizeMarkdownSlug } from "../../../modules/ai-engine/content/markdown/slug-normalize.util";
 
 @Injectable()
 export class MarkdownRenderer implements ExportRenderer {
@@ -95,7 +96,7 @@ export class MarkdownRenderer implements ExportRenderer {
 
     for (const h of headings) {
       const indent = "  ".repeat((h.level || 1) - 1);
-      const anchor = this.slugify(h.content || "");
+      const anchor = normalizeMarkdownSlug(h.content || "");
       lines.push(`${indent}- [${h.content}](#${anchor})`);
     }
 
@@ -210,16 +211,6 @@ export class MarkdownRenderer implements ExportRenderer {
     }
 
     return lines.join("\n");
-  }
-
-  /**
-   * 生成 slug
-   */
-  private slugify(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\u4e00-\u9fa5]+/g, "-")
-      .replace(/^-+|-+$/g, "");
   }
 
   /**

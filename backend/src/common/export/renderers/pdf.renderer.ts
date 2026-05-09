@@ -26,6 +26,7 @@ import { PDFOptions } from "puppeteer";
 import * as PDFDocument from "pdfkit";
 import { accessSync, constants as fsConstants } from "fs";
 import { WysiwygRenderService } from "../services/wysiwyg-render.service";
+import { normalizeMarkdownSlug } from "../../../modules/ai-engine/content/markdown/slug-normalize.util";
 
 @Injectable()
 export class PdfRenderer implements ExportRenderer {
@@ -685,7 +686,7 @@ export class PdfRenderer implements ExportRenderer {
 
     const items = headings
       .map((h) => {
-        const anchor = this.slugify(h.content || "");
+        const anchor = normalizeMarkdownSlug(h.content || "");
         return `
       <div class="toc-item toc-item-level-${h.level}">
         <a href="#${anchor}" style="text-decoration:none;color:inherit">${this.escapeHtml(h.content || "")}</a>
@@ -722,7 +723,7 @@ export class PdfRenderer implements ExportRenderer {
     switch (section.type) {
       case "heading": {
         const level = Math.min(section.level || 1, 6);
-        const anchor = this.slugify(section.content || "");
+        const anchor = normalizeMarkdownSlug(section.content || "");
         return `<h${level} id="${anchor}">${this.escapeHtml(section.content || "")}</h${level}>`;
       }
 
@@ -825,16 +826,6 @@ export class PdfRenderer implements ExportRenderer {
       /\[(\d+)\]/g,
       '<a href="#ref-$1" class="citation" style="text-decoration:none">[$1]</a>',
     );
-  }
-
-  /**
-   * 生成 URL-safe 的锚点 slug（与 html.renderer.ts 一致）
-   */
-  private slugify(text: string): string {
-    return text
-      .toLowerCase()
-      .replace(/[^\w\u4e00-\u9fa5]+/g, "-")
-      .replace(/^-+|-+$/g, "");
   }
 
   /**
