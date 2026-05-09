@@ -32,6 +32,8 @@ import { AiEngineKnowledgeModule } from "./knowledge/knowledge.module";
 // ★ P2 能力下沉：新增子模块导入
 import { EvidenceModule } from "./knowledge/evidence/evidence.module";
 import { QualityModule } from "./safety/quality/quality.module";
+// ★ v1.5.3 P0a-3: LLM Wiki 共享一致性原语（StaleDetectorService）
+import { ConsistencyModule } from "./knowledge/consistency/consistency.module";
 // ★ HarnessModule / HarnessApiModule / RealtimeModule + CollaborationModule 由
 // app.module.ts / harness.module.ts 直接装配（@Global，跨模块可注入）。
 // AI Engine 不再反向依赖 ai-harness。
@@ -116,6 +118,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块
     EvidenceModule,
     QualityModule,
+    // ★ v1.5.3 P0a-3: LLM Wiki / research / writing 共享一致性原语
+    ConsistencyModule,
     // CollaborationModule 已搬到 ai-harness/teams/collaboration（@Global），
     // 由 harness.module 装配，无需在 engine 重复
 
@@ -170,6 +174,8 @@ import { ITool } from "./tools/abstractions/tool.interface";
     // ★ P2 能力下沉：新增子模块导出
     EvidenceModule,
     QualityModule,
+    // ★ v1.5.3 P0a-3: LLM Wiki / research / writing 共享一致性原语
+    ConsistencyModule,
     // CollaborationModule 已搬到 ai-harness/teams/collaboration（@Global），
     // 由 harness.module 装配，无需在 engine 重复
 

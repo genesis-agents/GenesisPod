@@ -618,7 +618,19 @@ export type {
   Contradiction,
   ResearchGap,
   SynthesisResult,
+  // v1.5.3 P0a-3: low-level detect API types (shared with wiki-lint)
+  SynthesisDocument,
+  DataGap,
 } from "../knowledge/synthesis/cross-cutting-synthesis.service";
+
+// ★ v1.5.3 P0a-3: LLM Wiki STALE detection primitive (also reusable for
+// research/writing "this citation may be outdated" warnings)
+export { StaleDetectorService } from "../knowledge/consistency/stale-detector.service";
+export type {
+  StaleSourceEntry,
+  StaleResult,
+  DetectStaleOptions,
+} from "../knowledge/consistency/stale-detector.service";
 
 // ★ Phase 5: Prompt Cache Coordination
 export { PromptCacheCoordinatorService } from "@/modules/ai-engine/llm/services/prompt-cache-coordinator.service";

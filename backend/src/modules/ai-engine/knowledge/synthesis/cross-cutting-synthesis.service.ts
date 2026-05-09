@@ -44,6 +44,26 @@ export interface ResearchGap {
 }
 
 /**
+ * Generic markdown document input for low-level detect APIs.
+ *
+ * v1.5.3 P0a-3: shared input shape for `detectContradictions` / `detectDataGaps`,
+ * reused by wiki-lint and downstream cross-cutting analysis.
+ */
+export interface SynthesisDocument {
+  id: string;
+  title?: string;
+  body: string;
+  category?: string;
+}
+
+/**
+ * Data gap (alias of ResearchGap for wiki-lint DATA_GAP semantic alignment).
+ *
+ * v1.5.3 P0a-3: same shape; named alias to avoid concept duplication in callers.
+ */
+export type DataGap = ResearchGap;
+
+/**
  * Complete synthesis result
  */
 export interface SynthesisResult {
@@ -242,5 +262,110 @@ export class CrossCuttingSynthesisService {
         tokensUsed: 0,
       },
     };
+  }
+
+  // ─── Low-level public APIs (v1.5.3 P0a-3) ───
+  // Shared by wiki-lint (CONTRADICTION / DATA_GAP) and downstream cross-cutting
+  // analysis. Internally reuse synthesize() to avoid prompt duplication; callers
+  // pay for unused themes/summary fields but project policy of "no concept double
+  // sourcing" outweighs the marginal token cost.
+
+  /**
+   * Detect contradictions across markdown documents.
+   *
+   * v1.5.3 P0a-3: low-level public API extracted from inline orchestration.
+   * Used by wiki-lint CONTRADICTION + downstream cross-cutting analysis.
+   *
+   * @param documents - markdown docs (e.g. WikiPage bodies grouped by category)
+   * @param chatFn - injected LLM call function (decoupled from specific chat service)
+   * @param options - sampling and recency preferences
+   * @returns array of detected contradictions
+   */
+  async detectContradictions(
+    documents: SynthesisDocument[],
+    chatFn: (
+      systemPrompt: string,
+      userPrompt: string,
+    ) => Promise<{ content: string; tokensUsed: number }>,
+    options?: {
+      samplingLimit?: number;
+      preferRecent?: { sinceHours: number };
+    },
+  ): Promise<Contradiction[]> {
+    if (documents.length === 0) return [];
+
+    const sampled = options?.samplingLimit
+      ? documents.slice(0, options.samplingLimit)
+      : documents;
+
+    const dimensions = this.documentsAsDimensions(sampled);
+    const result = await this.synthesize(dimensions, chatFn);
+    return result.contradictions;
+  }
+
+  /**
+   * Detect data gaps — areas under-covered relative to mentions.
+   *
+   * v1.5.3 P0a-3: low-level public API. Used by wiki-lint DATA_GAP +
+   * research/cross-cutting consumers gap analysis (same ResearchGap concept).
+   *
+   * @param documents - markdown docs to analyze
+   * @param chatFn - injected LLM call function
+   * @param options - existingEntityIds excludes already-covered entities;
+   *                  minMentions reserved for future precision tuning
+   * @returns array of data gaps
+   */
+  async detectDataGaps(
+    documents: SynthesisDocument[],
+    chatFn: (
+      systemPrompt: string,
+      userPrompt: string,
+    ) => Promise<{ content: string; tokensUsed: number }>,
+    options?: {
+      minMentions?: number;
+      existingEntityIds?: string[];
+    },
+  ): Promise<DataGap[]> {
+    if (documents.length === 0) return [];
+
+    const dimensions = this.documentsAsDimensions(documents);
+    const result = await this.synthesize(dimensions, chatFn);
+
+    if (!options?.existingEntityIds || options.existingEntityIds.length === 0) {
+      return result.gaps;
+    }
+    // Normalize both sides to a comparable form: lowercase + collapse all
+    // non-alphanumeric to hyphens. Lets callers pass either kebab-case slugs
+    // (e.g. "renewable-energy") or natural-language ids; both compare against
+    // LLM-output gap.area like "Renewable Energy".
+    const toCompareForm = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    const normalizedIds = options.existingEntityIds
+      .map(toCompareForm)
+      .filter((id) => id.length > 0);
+    return result.gaps.filter((gap) => {
+      const normalizedArea = toCompareForm(gap.area);
+      return !normalizedIds.some((id) => normalizedArea.includes(id));
+    });
+  }
+
+  /**
+   * Adapt SynthesisDocument[] to DimensionResult[] for reusing synthesize().
+   * Title falls back to id; keyFindings/sources are empty (wiki/document inputs
+   * don't have these as separate fields, the LLM extracts from body directly).
+   */
+  private documentsAsDimensions(
+    documents: SynthesisDocument[],
+  ): DimensionResult[] {
+    return documents.map((d) => ({
+      dimensionId: d.id,
+      dimensionName: d.title ?? d.id,
+      content: d.body,
+      keyFindings: [],
+      sources: [],
+    }));
   }
 }
