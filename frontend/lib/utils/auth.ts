@@ -99,6 +99,25 @@ export function getCurrentUser(): User | null {
 }
 
 /**
+ * Stable per-user hash for client-side storage key isolation.
+ *
+ * v1.5.3 §11 cross-user localStorage isolation requirement: keys like
+ * `lastWikiKbId:<hash>` and `libraryDefaultTab:<hash>` must produce
+ * different namespaces for different users sharing the same browser.
+ *
+ * The hash does NOT need cryptographic strength — only deterministic
+ * uniqueness across users. We derive from User.id (UUID), strip dashes,
+ * and truncate to 16 chars. Returns 'anon' when no user is logged in
+ * (the anon namespace is acceptable to leak across logged-out sessions).
+ */
+export function getUserHash(): string {
+  const user = getCurrentUser();
+  if (!user || !user.id) return 'anon';
+  const raw = user.id.replace(/-/g, '').toLowerCase();
+  return raw.length >= 16 ? raw.slice(0, 16) : raw.padEnd(16, '0');
+}
+
+/**
  * Save current user to localStorage
  */
 export function saveCurrentUser(user: User): void {

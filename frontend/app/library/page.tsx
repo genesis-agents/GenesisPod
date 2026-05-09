@@ -24,7 +24,7 @@ import LibraryTabs, {
 import { Tag, UserStats } from '@/components/library/resources/CollectionNav';
 import ReadStatusBadge from '@/components/library/resources/ReadStatusBadge';
 import TagList from '@/components/library/resources/TagList';
-import { getAuthHeader } from '@/lib/utils/auth';
+import { getAuthHeader, getUserHash } from '@/lib/utils/auth';
 import {
   useMultiSelect,
   useCollections,
@@ -1776,7 +1776,7 @@ function LibraryPageContent() {
             )}
 
           {/* ★ v1.5.3 Wiki Tab (主形态) — Library 默认 tab */}
-          {activeTab === 'wiki' && <WikiTab userHash={'session'} />}
+          {activeTab === 'wiki' && <WikiTab userHash={getUserHash()} />}
 
           {/* Personal Knowledge Base Tab */}
           {activeTab === 'personal-kb' && (
