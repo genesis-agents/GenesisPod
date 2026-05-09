@@ -219,13 +219,13 @@ export class PlaygroundBusinessOrchestrator {
     const hooks = {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const entry = this.getEntry(args.ctx.missionId);
-        // ★ 2026-05-05 增量更新:runMission 已 hydrate entry.lastPlan from source mission;
+        // ★ 2026-05-05 增量更新:runMission 已 hydrate entry.crossState.lastPlan from source mission;
         //   走 runWithStageInstrumentation 跳过 LLM 调用,保留所有 UI 关键事件
-        if (entry.lastPlan && entry.input.inheritFromMissionId) {
+        if (entry.crossState.lastPlan && entry.input.inheritFromMissionId) {
           this.log.log(
             `[s2-leader-plan] inheriting from mission ${entry.input.inheritFromMissionId}, skip LLM`,
           );
-          const inheritedPlan = entry.lastPlan;
+          const inheritedPlan = entry.crossState.lastPlan;
           const sourceMissionId = entry.input.inheritFromMissionId;
           const deps = this.stageBindings.buildDeps();
           const result = await runWithStageInstrumentation(
@@ -277,7 +277,7 @@ export class PlaygroundBusinessOrchestrator {
               initialRisks: inheritedPlan.initialRisks ?? [],
             }),
           );
-          entry.lastPlan = inheritedPlan;
+          entry.crossState.lastPlan = inheritedPlan;
           return result;
         }
         const stageCtx = this.stageBindings.buildCtx({
@@ -296,7 +296,7 @@ export class PlaygroundBusinessOrchestrator {
             "[s2-leader-plan] stage returned without populating ctx.plan (unexpected)",
           );
         }
-        entry.lastPlan = stageCtx.plan;
+        entry.crossState.lastPlan = stageCtx.plan;
         return stageCtx.plan;
       },
       extractPlanFields: (raw: unknown) => {
@@ -332,7 +332,7 @@ export class PlaygroundBusinessOrchestrator {
         ctx: StageRunArgs["ctx"];
       }): Promise<unknown> => {
         const entry = this.getEntry(args.ctx.missionId);
-        const cachedPlan = entry.lastPlan;
+        const cachedPlan = entry.crossState.lastPlan;
         if (!cachedPlan) {
           throw new Error(
             "[s3-researcher-collect] no plan from s2 (sessions[missionId].lastPlan undefined)",
@@ -341,13 +341,17 @@ export class PlaygroundBusinessOrchestrator {
 
         // ★ P0-D 完整版: rerun cache hit
         if (
-          entry.inheritedResearchResults &&
-          entry.inheritedResearchResults.length > 0
+          entry.crossState.inheritedResearchResults &&
+          entry.crossState.inheritedResearchResults.length > 0
         ) {
           const inheritedByDim = new Map(
-            entry.inheritedResearchResults.map((r) => [r.dimension, r]),
+            entry.crossState.inheritedResearchResults.map((r) => [
+              r.dimension,
+              r,
+            ]),
           );
-          const reusedResults: typeof entry.inheritedResearchResults = [];
+          const reusedResults: typeof entry.crossState.inheritedResearchResults =
+            [];
           const remainingDims: typeof cachedPlan.dimensions = [];
           for (const d of cachedPlan.dimensions) {
             const cached = inheritedByDim.get(d.name);
@@ -395,20 +399,23 @@ export class PlaygroundBusinessOrchestrator {
             });
             await runResearcherDispatchStage(stageCtx, deps);
             const freshResults = stageCtx.researcherResults ?? [];
-            entry.lastResearcherResults = [...reusedResults, ...freshResults];
+            entry.crossState.lastResearcherResults = [
+              ...reusedResults,
+              ...freshResults,
+            ];
             if (
               stageCtx.s4PatchFailures &&
               stageCtx.s4PatchFailures.length > 0
             ) {
-              entry.s4PatchFailures = stageCtx.s4PatchFailures;
+              entry.crossState.s4PatchFailures = stageCtx.s4PatchFailures;
             }
           } else {
-            entry.lastResearcherResults = reusedResults;
+            entry.crossState.lastResearcherResults = reusedResults;
           }
           this.log.log(
             `[s3-researcher-collect] cache reuse 节省 ${Math.round((Date.now() - t0) / 1000)}s(cache 路径仅 emit synth events)`,
           );
-          return entry.lastResearcherResults;
+          return entry.crossState.lastResearcherResults;
         }
 
         // ── 正常 fresh 路径 ──
@@ -427,9 +434,9 @@ export class PlaygroundBusinessOrchestrator {
           stageCtx,
           this.stageBindings.buildDeps(),
         );
-        entry.lastResearcherResults = stageCtx.researcherResults;
+        entry.crossState.lastResearcherResults = stageCtx.researcherResults;
         if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
-          entry.s4PatchFailures = stageCtx.s4PatchFailures;
+          entry.crossState.s4PatchFailures = stageCtx.s4PatchFailures;
         }
         // ★ P0-D 完整版: 持久化 baseline researcher 产物
         if (stageCtx.researcherResults) {
@@ -495,10 +502,10 @@ export class PlaygroundBusinessOrchestrator {
     const hooks = {
       runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
         const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan) {
+        if (!entry.crossState.lastPlan) {
           throw new Error("[s4-leader-assess] no plan from s2");
         }
-        if (!entry.lastResearcherResults) {
+        if (!entry.crossState.lastResearcherResults) {
           throw new Error("[s4-leader-assess] no researcherResults from s3");
         }
         const stageCtx = this.stageBindings.buildCtx({
@@ -510,18 +517,18 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          sharedState: { s4PatchFailures: entry.s4PatchFailures },
+          plan: entry.crossState.lastPlan,
+          researcherResults: entry.crossState.lastResearcherResults,
+          sharedState: { s4PatchFailures: entry.crossState.s4PatchFailures },
         });
         await runLeaderAssessResearchStage(
           stageCtx,
           this.stageBindings.buildDeps(),
         );
-        entry.lastResearcherResults = stageCtx.researcherResults;
-        entry.lastPlan = stageCtx.plan;
+        entry.crossState.lastResearcherResults = stageCtx.researcherResults;
+        entry.crossState.lastPlan = stageCtx.plan;
         if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
-          entry.s4PatchFailures = stageCtx.s4PatchFailures;
+          entry.crossState.s4PatchFailures = stageCtx.s4PatchFailures;
         }
         return { ok: true };
       },
@@ -541,7 +548,10 @@ export class PlaygroundBusinessOrchestrator {
         ctx: StageRunArgs["ctx"];
       }): Promise<unknown> => {
         const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan || !entry.lastResearcherResults) {
+        if (
+          !entry.crossState.lastPlan ||
+          !entry.crossState.lastResearcherResults
+        ) {
           throw new Error(
             "[s5-reconciler] missing plan/researcherResults from prev stages",
           );
@@ -555,11 +565,12 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
+          plan: entry.crossState.lastPlan,
+          researcherResults: entry.crossState.lastResearcherResults,
         });
         await runReconcilerStage(stageCtx, this.stageBindings.buildDeps());
-        entry.lastReconciliationReport = stageCtx.reconciliationReport;
+        entry.crossState.lastReconciliationReport =
+          stageCtx.reconciliationReport;
         return stageCtx.reconciliationReport;
       },
     };
@@ -575,7 +586,10 @@ export class PlaygroundBusinessOrchestrator {
         ctx: StageRunArgs["ctx"];
       }): Promise<unknown> => {
         const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan || !entry.lastResearcherResults) {
+        if (
+          !entry.crossState.lastPlan ||
+          !entry.crossState.lastResearcherResults
+        ) {
           throw new Error(
             "[s6-analyst] missing plan/researcherResults from prev stages",
           );
@@ -589,12 +603,12 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
+          plan: entry.crossState.lastPlan,
+          researcherResults: entry.crossState.lastResearcherResults,
+          reconciliationReport: entry.crossState.lastReconciliationReport,
         });
         await runAnalystStage(stageCtx, this.stageBindings.buildDeps());
-        entry.lastAnalystOutput = stageCtx.analystOutput;
+        entry.crossState.lastAnalystOutput = stageCtx.analystOutput;
         return stageCtx.analystOutput;
       },
     };
@@ -619,12 +633,12 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
+          plan: entry.crossState.lastPlan,
+          researcherResults: entry.crossState.lastResearcherResults,
+          reconciliationReport: entry.crossState.lastReconciliationReport,
         });
         await runWriterOutlineStage(stageCtx, this.stageBindings.buildDeps());
-        entry.lastOutlinePlan = stageCtx.outlinePlan;
+        entry.crossState.lastOutlinePlan = stageCtx.outlinePlan;
         return stageCtx.outlinePlan ?? null;
       },
     };
@@ -640,7 +654,10 @@ export class PlaygroundBusinessOrchestrator {
         ctx: StageRunArgs["ctx"];
       }): Promise<unknown> => {
         const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan || !entry.lastResearcherResults) {
+        if (
+          !entry.crossState.lastPlan ||
+          !entry.crossState.lastResearcherResults
+        ) {
           throw new Error("[s8-writer] missing plan/researcherResults");
         }
         const stageCtx = this.stageBindings.buildCtx({
@@ -652,15 +669,15 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
+          plan: entry.crossState.lastPlan,
+          researcherResults: entry.crossState.lastResearcherResults,
+          reconciliationReport: entry.crossState.lastReconciliationReport,
         });
-        if (entry.lastOutlinePlan) {
+        if (entry.crossState.lastOutlinePlan) {
           (stageCtx as { outlinePlan?: unknown }).outlinePlan =
-            entry.lastOutlinePlan;
+            entry.crossState.lastOutlinePlan;
         }
-        const analyst = (entry.lastAnalystOutput as
+        const analyst = (entry.crossState.lastAnalystOutput as
           | {
               insights?: unknown[];
               themeSummary?: string;
@@ -668,7 +685,7 @@ export class PlaygroundBusinessOrchestrator {
             }
           | undefined) ?? {
           insights: [],
-          themeSummary: entry.lastPlan?.themeSummary ?? "",
+          themeSummary: entry.crossState.lastPlan?.themeSummary ?? "",
         };
         await runWriterStage(
           stageCtx,
@@ -680,10 +697,11 @@ export class PlaygroundBusinessOrchestrator {
           },
           entry.workspaceId,
         );
-        entry.lastReport = stageCtx.report;
-        entry.lastReportArtifact = stageCtx.reportArtifact;
-        entry.lastReviewScore = stageCtx.reviewScore;
-        entry.lastVerifierVerdicts = stageCtx.verifierVerdicts as unknown[];
+        entry.crossState.lastReport = stageCtx.report;
+        entry.crossState.lastReportArtifact = stageCtx.reportArtifact;
+        entry.crossState.lastReviewScore = stageCtx.reviewScore;
+        entry.crossState.lastVerifierVerdicts =
+          stageCtx.verifierVerdicts as unknown[];
         return stageCtx.reportArtifact ?? stageCtx.report ?? null;
       },
     };
@@ -712,17 +730,17 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
-          reportArtifact: entry.lastReportArtifact,
-          report: entry.lastReport,
-          reviewScore: entry.lastReviewScore,
-          verifierVerdicts: entry.lastVerifierVerdicts,
+          plan: entry.crossState.lastPlan,
+          researcherResults: entry.crossState.lastResearcherResults,
+          reconciliationReport: entry.crossState.lastReconciliationReport,
+          reportArtifact: entry.crossState.lastReportArtifact,
+          report: entry.crossState.lastReport,
+          reviewScore: entry.crossState.lastReviewScore,
+          verifierVerdicts: entry.crossState.lastVerifierVerdicts,
         });
         await stageFn(stageCtx, this.stageBindings.buildDeps());
-        entry.lastReportArtifact = stageCtx.reportArtifact;
-        entry.lastReviewScore = stageCtx.reviewScore;
+        entry.crossState.lastReportArtifact = stageCtx.reportArtifact;
+        entry.crossState.lastReviewScore = stageCtx.reviewScore;
         return {
           score: stageCtx.reviewScore,
           verdict: stageCtx.reportArtifact?.quality,
@@ -748,21 +766,21 @@ export class PlaygroundBusinessOrchestrator {
           pool: entry.session.pool,
           leader: entry.leader,
           budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
-          reportArtifact: entry.lastReportArtifact,
-          report: entry.lastReport,
-          reviewScore: entry.lastReviewScore,
-          verifierVerdicts: entry.lastVerifierVerdicts,
-          sharedState: { s4PatchFailures: entry.s4PatchFailures },
+          plan: entry.crossState.lastPlan,
+          researcherResults: entry.crossState.lastResearcherResults,
+          reconciliationReport: entry.crossState.lastReconciliationReport,
+          reportArtifact: entry.crossState.lastReportArtifact,
+          report: entry.crossState.lastReport,
+          reviewScore: entry.crossState.lastReviewScore,
+          verifierVerdicts: entry.crossState.lastVerifierVerdicts,
+          sharedState: { s4PatchFailures: entry.crossState.s4PatchFailures },
         });
         await runLeaderForewordAndSignoffStage(
           stageCtx,
           this.stageBindings.buildDeps(),
         );
-        entry.lastLeaderForeword = stageCtx.leaderForeword;
-        entry.lastLeaderSignOff = stageCtx.leaderSignOff;
+        entry.crossState.lastLeaderForeword = stageCtx.leaderForeword;
+        entry.crossState.lastLeaderSignOff = stageCtx.leaderSignOff;
         return {
           foreword: stageCtx.leaderForeword,
           signoff: stageCtx.leaderSignOff,
@@ -786,8 +804,8 @@ export class PlaygroundBusinessOrchestrator {
             userId: entry.session.userId,
             t0: entry.t0,
             result: {
-              report: entry.lastReport,
-              reportArtifact: entry.lastReportArtifact as
+              report: entry.crossState.lastReport,
+              reportArtifact: entry.crossState.lastReportArtifact as
                 | {
                     metadata: { topic?: string; modelTrail?: string[] };
                     quickView?: {
@@ -801,20 +819,23 @@ export class PlaygroundBusinessOrchestrator {
                     content?: { fullMarkdown: string };
                   }
                 | undefined,
-              reviewScore: entry.lastReviewScore,
-              themeSummary: entry.lastPlan?.themeSummary,
-              dimensions: entry.lastPlan?.dimensions as unknown[] | undefined,
-              verdicts: entry.lastVerifierVerdicts,
+              reviewScore: entry.crossState.lastReviewScore,
+              themeSummary: entry.crossState.lastPlan?.themeSummary,
+              dimensions: entry.crossState.lastPlan?.dimensions as
+                | unknown[]
+                | undefined,
+              verdicts: entry.crossState.lastVerifierVerdicts,
               userProfile: entry.input,
-              reconciliationReport: entry.lastReconciliationReport,
-              leaderSignOff: entry.lastLeaderSignOff,
+              reconciliationReport: entry.crossState.lastReconciliationReport,
+              leaderSignOff: entry.crossState.lastLeaderSignOff,
             },
             pool: entry.session.pool,
           },
           this.stageBindings.buildDeps(),
         );
         await this.missionCheckpoint.clear(missionId).catch(() => undefined);
-        const reportPayload = entry.lastReportArtifact ?? entry.lastReport;
+        const reportPayload =
+          entry.crossState.lastReportArtifact ?? entry.crossState.lastReport;
         if (reportPayload) {
           await this.store
             .saveReportVersion({
@@ -824,8 +845,9 @@ export class PlaygroundBusinessOrchestrator {
                 title?: string;
                 summary?: string;
               },
-              finalScore: entry.lastLeaderSignOff?.leaderOverallScore,
-              leaderSigned: entry.lastLeaderSignOff?.signed,
+              finalScore:
+                entry.crossState.lastLeaderSignOff?.leaderOverallScore,
+              leaderSigned: entry.crossState.lastLeaderSignOff?.signed,
             })
             .catch((err: unknown) => {
               this.log.warn(

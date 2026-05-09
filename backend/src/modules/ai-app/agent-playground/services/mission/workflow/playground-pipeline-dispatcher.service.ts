@@ -53,6 +53,8 @@ import {
 import { LeaderInvocationFactory } from "../leader-invocation.factory";
 // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
 import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
+// ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
+import { PlaygroundCrossStageState } from "./playground-cross-stage-state";
 
 export interface PipelineMissionSummary {
   readonly missionId: string;
@@ -78,48 +80,15 @@ export interface SessionEntry {
    */
   readonly leader: SupervisedMission;
   /**
-   * 跨 stage 缓存的中间产物（legacy stage 内部依赖完整 ctx，hook 闭包只能拿到
-   * primitive 暴露的 args；这里把每个 stage 写入的 ctx 字段缓存起来供下游重建）。
+   * Stage 1 / S1-2 (2026-05-09,closes T3):跨 stage 缓存中间产物 + 共享状态 +
+   * trajectory rerun cache 统一通过 PlaygroundCrossStageState 容器暴露
+   * (内部 wrap Z5 CrossStageState)。
+   *
+   * 之前 14 个 ad-hoc fields(`lastPlan` / `lastResearcherResults` / ... /
+   * `s4PatchFailures` / `inheritedResearchResults` / `inheritedChapters`)
+   * 已迁移到此 typed container,保 in-memory 性能 + grep gate 转 green。
    */
-  lastPlan?: import("./mission-context").MissionContext["plan"];
-  lastResearcherResults?: import("./mission-context").MissionContext["researcherResults"];
-  lastReconciliationReport?: import("./mission-context").MissionContext["reconciliationReport"];
-  lastAnalystOutput?: import("./mission-context").MissionContext["analystOutput"];
-  lastOutlinePlan?: import("./mission-context").MissionContext["outlinePlan"];
-  lastReport?: import("./mission-context").MissionContext["report"];
-  lastReportArtifact?: import("./mission-context").MissionContext["reportArtifact"];
-  lastReviewScore?: import("./mission-context").MissionContext["reviewScore"];
-  lastVerifierVerdicts?: unknown[];
-  lastLeaderForeword?: import("./mission-context").MissionContext["leaderForeword"];
-  lastLeaderSignOff?: import("./mission-context").MissionContext["leaderSignOff"];
-  /**
-   * s4PatchFailures 跨 stage 共享状态（legacy team.mission.ts 用 sharedState
-   * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
-   */
-  s4PatchFailures?: import("./mission-context").MissionContext["s4PatchFailures"];
-  /**
-   * ★ P0-D 完整版 (2026-05-06): trajectory 持久化 cache hit 标志位
-   * inheritedResearchResults: rerun 时从 DB 加载 baseline researcher 产物
-   *   S3 hook 检测到此 entry 字段不空 → 跳过 invoker.invoke + 直接复用 + emit
-   *   合成 dimension:research:completed 事件给前端 todo-ledger
-   * inheritedChapters: rerun 时从 DB 加载合格 chapter drafts
-   *   下游 chapter pipeline 检测到 chapter 已存（status=passed/done）→ 跳过重写
-   */
-  inheritedResearchResults?: Array<{
-    dimension: string;
-    findings: { claim: string; evidence: string; source: string }[];
-    summary: string;
-  }>;
-  inheritedChapters?: Array<{
-    dimension: string;
-    chapterIndex: number;
-    heading: string;
-    thesis?: string;
-    content: string;
-    score?: number;
-    attempts: number;
-    wordCount?: number;
-  }>;
+  readonly crossState: PlaygroundCrossStageState;
 }
 
 @Injectable()
@@ -357,7 +326,16 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       },
       this.leaderInvocationFactory.build(missionId, userId, session.billing),
     );
-    this.sessions.set(missionId, { session, t0, input, workspaceId, leader });
+    // ★ Stage 1 / S1-2 (2026-05-09): 初始化 PlaygroundCrossStageState 容器
+    //   (替代 14 个 ad-hoc lastXxx / s4PatchFailures / inheritedX fields)
+    this.sessions.set(missionId, {
+      session,
+      t0,
+      input,
+      workspaceId,
+      leader,
+      crossState: new PlaygroundCrossStageState(),
+    });
     // ★ R-CA: row 已落 + session 已 register，但 stages 尚未跑 —— 给上层回调
     //   一个时机做"挂接关联"（launches.record 等）。回调失败仅 log，不影响 mission。
     if (afterRowCreated) {
@@ -372,7 +350,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
     }
     // ★ 2026-05-05 增量更新："更新"按钮 → input.inheritFromMissionId 携带源 mission；
-    //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.lastPlan，
+    //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.crossState.lastPlan，
     //   下游 S2 hook 检测到 lastPlan 已就绪即跳过 LLM 调用并 emit synthetic plan event。
     if (input.inheritFromMissionId) {
       await this.hydrateInheritedPlan(
@@ -598,17 +576,20 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         t0: entry.t0,
         pool: entry.session.pool,
         topic: entry.input.topic,
-        plan: entry.lastPlan
+        plan: entry.crossState.lastPlan
           ? {
-              dimensions: (entry.lastPlan.dimensions ?? []) as unknown[],
-              goals: entry.lastPlan.goals,
+              dimensions: (entry.crossState.lastPlan.dimensions ??
+                []) as unknown[],
+              goals: entry.crossState.lastPlan.goals,
             }
           : undefined,
-        researcherResults: entry.lastResearcherResults as unknown[] | undefined,
-        reportArtifact: entry.lastReportArtifact as
+        researcherResults: entry.crossState.lastResearcherResults as
+          | unknown[]
+          | undefined,
+        reportArtifact: entry.crossState.lastReportArtifact as
           | { quality?: { overall?: number }; sections?: unknown[] }
           | undefined,
-        leaderSignOff: entry.lastLeaderSignOff,
+        leaderSignOff: entry.crossState.lastLeaderSignOff,
         abortSignal: entry.session.missionAbort.signal,
         bufferedEvents,
       },
@@ -770,29 +751,33 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
 
     // 写 partial 产物到 DB —— 与 legacy team.mission.ts:317-339 一致
     const entry = this.sessions.get(missionId);
-    const reportPayload = entry?.lastReportArtifact ?? entry?.lastReport;
+    const reportPayload =
+      entry?.crossState.lastReportArtifact ?? entry?.crossState.lastReport;
     await this.store
       .markFailed(missionId, {
         errorMessage: message,
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
         wallTimeMs: Date.now() - t0,
-        themeSummary: entry?.lastPlan?.themeSummary,
-        dimensions: entry?.lastPlan?.dimensions as unknown[] | undefined,
+        themeSummary: entry?.crossState.lastPlan?.themeSummary,
+        dimensions: entry?.crossState.lastPlan?.dimensions as
+          | unknown[]
+          | undefined,
         report: reportPayload as
           | { title?: string; summary?: string }
           | undefined,
-        reportArtifactVersion: entry?.lastReportArtifact
+        reportArtifactVersion: entry?.crossState.lastReportArtifact
           ? 2
-          : entry?.lastReport
+          : entry?.crossState.lastReport
             ? 1
             : undefined,
         userProfile: entry?.input,
-        reconciliationReport: entry?.lastReconciliationReport,
-        verdicts: entry?.lastVerifierVerdicts,
-        leaderOverallScore: entry?.lastLeaderSignOff?.leaderOverallScore,
-        leaderSigned: entry?.lastLeaderSignOff?.signed,
-        leaderVerdict: entry?.lastLeaderSignOff?.leaderVerdict,
+        reconciliationReport: entry?.crossState.lastReconciliationReport,
+        verdicts: entry?.crossState.lastVerifierVerdicts,
+        leaderOverallScore:
+          entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
+        leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
+        leaderVerdict: entry?.crossState.lastLeaderSignOff?.leaderVerdict,
       })
       .catch((dbErr) => {
         this.log.error(
@@ -809,8 +794,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           missionId,
           triggerType: this.businessOrch.resolveTriggerType(entry),
           report: reportPayload as { title?: string; summary?: string },
-          finalScore: entry.lastLeaderSignOff?.leaderOverallScore,
-          leaderSigned: entry.lastLeaderSignOff?.signed ?? undefined,
+          finalScore: entry.crossState.lastLeaderSignOff?.leaderOverallScore,
+          leaderSigned: entry.crossState.lastLeaderSignOff?.signed ?? undefined,
         })
         .catch((err: unknown) => {
           this.log.warn(
@@ -876,14 +861,14 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
   /**
    * ★ 2026-05-05 增量更新（"更新"按钮）helper：
    * 从 source mission DB row 重建 plan（dimensions+themeSummary+goals）写入
-   * entry.lastPlan，让 S2 hook 检测到后跳过 Leader LLM 调用直接用继承的 plan。
+   * entry.crossState.lastPlan，让 S2 hook 检测到后跳过 Leader LLM 调用直接用继承的 plan。
    *
-   * 失败兜底：source 不存在 / dimensions 缺失 → log warn，不写 entry.lastPlan，
+   * 失败兜底：source 不存在 / dimensions 缺失 → log warn，不写 entry.crossState.lastPlan，
    * S2 走原有 runLeaderPlanStage 路径（fallback to fresh plan）。
    */
   /**
    * ★ P0-D 完整版 (2026-05-06): 从源 mission DB hydrate baseline researcher 产物。
-   * S3 hook 检测到 entry.inheritedResearchResults 不空 → skip invoker + 复用 findings。
+   * S3 hook 检测到 entry.crossState.inheritedResearchResults 不空 → skip invoker + 复用 findings。
    */
   private async hydrateInheritedResearchResults(
     missionId: string,
@@ -900,7 +885,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
       const entry = this.sessions.get(missionId);
       if (!entry) return;
-      entry.inheritedResearchResults = results;
+      entry.crossState.inheritedResearchResults = results;
       // ★ P0-D 完整版: 复制到新 mission 的 research_results 表，让 stage 通过
       //   missionId 自然查到 cache（避免传 entry 跨多层 stage 调用）
       for (const r of results) {
@@ -941,7 +926,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
       const entry = this.sessions.get(missionId);
       if (!entry) return;
-      entry.inheritedChapters = drafts;
+      entry.crossState.inheritedChapters = drafts;
       // ★ P0-D 完整版: 复制到新 mission 的 chapter_drafts 表，让 chapter pipeline
       //   通过 deps.store.loadQualifiedChapterDrafts(missionId) 自然查到 cache
       for (const d of drafts) {
@@ -1020,7 +1005,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
       const entry = this.sessions.get(missionId);
       if (!entry) return;
-      entry.lastPlan = {
+      entry.crossState.lastPlan = {
         themeSummary: themeSummary ?? "",
         dimensions: dimensions as NonNullable<
           import("./mission-context").MissionContext["plan"]
