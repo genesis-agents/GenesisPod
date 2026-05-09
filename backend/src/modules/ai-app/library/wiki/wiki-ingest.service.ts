@@ -86,13 +86,18 @@ export class WikiIngestService {
     );
 
     // Wrap each doc's rawContent with explicit maxLength (security R2 P2).
-    const wrappedDocs = documents.map((d) =>
-      wrapExternalContent(d.rawContent ?? "", {
-        source: "kb_document",
-        title: d.title,
-        maxLength: perDocMaxLength,
-      }),
+    // Prefix each wrapped block with the documentId so the LLM can quote it
+    // verbatim in `sources[].documentId` (otherwise it hallucinates UUIDs).
+    const wrappedDocs = documents.map(
+      (d) =>
+        `[documentId: ${d.id}]\n` +
+        wrapExternalContent(d.rawContent ?? "", {
+          source: "kb_document",
+          title: d.title,
+          maxLength: perDocMaxLength,
+        }),
     );
+    const allowedDocumentIds = new Set(documents.map((d) => d.id));
 
     // Compute baseline hash from current wiki index.
     const baselineHash =
@@ -145,6 +150,36 @@ export class WikiIngestService {
 
     // Parse LLM JSON into items shape.
     const rawItems = this.extractJson(llmResponse.content);
+
+    // Pre-clean: drop sources whose documentId is not in the supplied set
+    // (LLMs hallucinate IDs; we keep the items + valid sources rather than
+    // rejecting the whole diff). Mutates the parsed JSON in place; zod runs
+    // after to enforce the rest of the shape.
+    let droppedSources = 0;
+    if (rawItems && typeof rawItems === "object" && !Array.isArray(rawItems)) {
+      const obj = rawItems as Record<string, unknown>;
+      const filterArr = (arr: unknown[]) => {
+        for (const it of arr) {
+          if (it && typeof it === "object" && "sources" in it) {
+            const sources = (it as { sources?: unknown }).sources;
+            if (Array.isArray(sources)) {
+              const kept = sources.filter((s) => {
+                if (!s || typeof s !== "object") return false;
+                const id = (s as { documentId?: unknown }).documentId;
+                if (typeof id !== "string") return false;
+                if (allowedDocumentIds.has(id)) return true;
+                droppedSources += 1;
+                return false;
+              });
+              (it as { sources: unknown[] }).sources = kept;
+            }
+          }
+        }
+      };
+      if (Array.isArray(obj.creates)) filterArr(obj.creates);
+      if (Array.isArray(obj.updates)) filterArr(obj.updates);
+    }
+
     const validated = WikiDiffItemsSchema.safeParse(rawItems);
     if (!validated.success) {
       this.logger.warn(
@@ -155,6 +190,11 @@ export class WikiIngestService {
       );
     }
     const items = validated.data;
+    if (droppedSources > 0) {
+      this.logger.warn(
+        `[ingest] kb=${knowledgeBaseId} dropped ${droppedSources} sources with unknown documentId`,
+      );
+    }
 
     // Compute affectedSlugs from validated items.
     const affectedSlugs = [
@@ -206,6 +246,11 @@ export class WikiIngestService {
       "  - body: full markdown",
       "  - oneLiner: ≤ 280 chars summary",
       "  - sources: cite the documents used (documentId + spanStart + spanEnd + quote)",
+      "",
+      "CRITICAL — sources[].documentId MUST be copied verbatim from the",
+      "`[documentId: ...]` line that precedes each <external_source> block.",
+      "Do NOT invent, shorten, or reformat the documentId. Sources with",
+      "unknown documentId values will be silently dropped.",
       "",
       "Respond ONLY with a single JSON object:",
       "{",

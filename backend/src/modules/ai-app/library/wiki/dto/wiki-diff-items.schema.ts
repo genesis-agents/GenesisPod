@@ -21,7 +21,10 @@ const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,198}[a-z0-9]$/;
 
 export const WikiPageSourceItemSchema = z
   .object({
-    documentId: z.string().uuid(),
+    // Accept any non-empty string. Service layer enforces the documentId is in
+    // the caller-supplied whitelist (LLMs hallucinate UUIDs even when given the
+    // real ones; strict uuid() here would fail entire diffs over one bad cite).
+    documentId: z.string().min(1).max(200),
     spanStart: z.number().int().min(0),
     spanEnd: z.number().int().min(0),
     quote: z.string().min(1).max(2000),
