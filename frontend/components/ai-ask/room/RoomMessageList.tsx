@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import { Bot, Info, MessageCircle, Sparkles, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { AskRoomMember, AskRoomMessage } from '@/types/ask-room';
 import { useAskRoomStore } from '@/stores/ask-room.store';
 
@@ -146,11 +148,96 @@ function MessageBubble({ message, member }: MessageBubbleProps) {
               {member.displayName}
             </div>
           )}
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-            {message.content}
-          </div>
+          <AssistantMarkdown content={message.content} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * AI 气泡 markdown 渲染器（截图 38：之前 whitespace-pre-wrap 导致 **bold** /
+ * 列表 / 链接 / 标题全显示为 raw markdown 字符）。
+ *
+ * 项目未装 @tailwindcss/typography（`prose` 不生效），所以用 component-level
+ * className 显式控制每种节点。列表 / 链接 / 表格 / 删除线走 remark-gfm。
+ */
+function AssistantMarkdown({ content }: { content: string }) {
+  return (
+    <div className="text-sm leading-relaxed text-gray-800 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ ...p }) => (
+            <h1 className="my-2 text-base font-semibold text-gray-900" {...p} />
+          ),
+          h2: ({ ...p }) => (
+            <h2 className="my-2 text-base font-semibold text-gray-900" {...p} />
+          ),
+          h3: ({ ...p }) => (
+            <h3 className="my-1.5 text-sm font-semibold text-gray-900" {...p} />
+          ),
+          h4: ({ ...p }) => (
+            <h4 className="my-1.5 text-sm font-semibold text-gray-900" {...p} />
+          ),
+          p: ({ ...p }) => <p className="my-1.5 leading-relaxed" {...p} />,
+          ul: ({ ...p }) => (
+            <ul className="my-1.5 list-disc space-y-0.5 pl-5" {...p} />
+          ),
+          ol: ({ ...p }) => (
+            <ol className="my-1.5 list-decimal space-y-0.5 pl-5" {...p} />
+          ),
+          li: ({ ...p }) => <li className="leading-relaxed" {...p} />,
+          strong: ({ ...p }) => (
+            <strong className="font-semibold text-gray-900" {...p} />
+          ),
+          em: ({ ...p }) => <em className="italic" {...p} />,
+          code: ({ ...p }) => (
+            <code
+              className="font-mono rounded bg-gray-100 px-1 py-0.5 text-[12px] text-gray-800"
+              {...p}
+            />
+          ),
+          pre: ({ ...p }) => (
+            <pre
+              className="font-mono my-2 overflow-x-auto rounded-md bg-gray-900 p-3 text-xs text-gray-100"
+              {...p}
+            />
+          ),
+          a: ({ ...p }) => (
+            <a
+              {...p}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline hover:text-blue-700"
+            />
+          ),
+          blockquote: ({ ...p }) => (
+            <blockquote
+              className="my-2 border-l-4 border-gray-200 pl-3 italic text-gray-600"
+              {...p}
+            />
+          ),
+          hr: () => <hr className="my-3 border-gray-200" />,
+          table: ({ ...p }) => (
+            <div className="my-2 overflow-x-auto">
+              <table className="min-w-full border-collapse text-xs" {...p} />
+            </div>
+          ),
+          thead: ({ ...p }) => <thead className="bg-gray-50" {...p} />,
+          th: ({ ...p }) => (
+            <th
+              className="border border-gray-200 px-2 py-1 text-left font-semibold"
+              {...p}
+            />
+          ),
+          td: ({ ...p }) => (
+            <td className="border border-gray-200 px-2 py-1" {...p} />
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -176,11 +263,7 @@ function PendingBubble({ member, status, partialText }: PendingBubbleProps) {
               {status === 'streaming' && '回复中...'}
             </span>
           </div>
-          {partialText && (
-            <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-              {partialText}
-            </div>
-          )}
+          {partialText && <AssistantMarkdown content={partialText} />}
         </div>
       </div>
     </div>
