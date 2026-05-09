@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -45,4 +46,20 @@ export class WikiLintFindingsQueryDto {
   @IsOptional()
   @IsString()
   resolved?: string; // "true" | "false" — parsed in service
+}
+
+export class WikiPageSearchQueryDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  q!: string;
+
+  @IsOptional()
+  @IsString()
+  limit?: string; // parsed to int in service (1–50)
+}
+
+export class ToggleWikiEnabledDto {
+  @IsBoolean()
+  enabled!: boolean;
 }

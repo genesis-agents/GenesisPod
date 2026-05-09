@@ -9,7 +9,9 @@ import { WikiDiffService } from "./wiki-diff.service";
 import { WikiIngestService } from "./wiki-ingest.service";
 import { WikiLintService } from "./wiki-lint.service";
 import { WikiQueryService } from "./wiki-query.service";
+import { WikiKbAdminService } from "./wiki-kb-admin.service";
 import { WikiController } from "./wiki.controller";
+import { WikiKbAdminController } from "./wiki-kb-admin.controller";
 
 /**
  * LLM Wiki module (v1.5.3 P1).
@@ -28,13 +30,14 @@ import { WikiController } from "./wiki.controller";
  */
 @Module({
   imports: [PrismaModule, AiEngineModule, RAGModule, CreditsModule],
-  controllers: [WikiController],
+  controllers: [WikiController, WikiKbAdminController],
   providers: [
     WikiPageService,
     WikiDiffService,
     WikiIngestService,
     WikiLintService,
     WikiQueryService,
+    WikiKbAdminService,
   ],
   exports: [
     WikiPageService,
@@ -42,6 +45,7 @@ import { WikiController } from "./wiki.controller";
     WikiIngestService,
     WikiLintService,
     WikiQueryService,
+    WikiKbAdminService,
   ],
 })
 export class WikiModule {}
