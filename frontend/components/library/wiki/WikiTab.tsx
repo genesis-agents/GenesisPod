@@ -204,6 +204,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
 
   const [ingestOpen, setIngestOpen] = useState(false);
   const [enableOpen, setEnableOpen] = useState(false);
+  const [queryOpen, setQueryOpen] = useState(false);
 
   // Persist resolved kbId to URL + localStorage for back/forward & refresh
   useEffect(() => {
@@ -272,7 +273,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           params.delete('diff');
           router.replace(`/library?${params.toString()}`);
         }}
-        onQuery={() => alert('Query 浮动面板在 P3a 后续迭代上线')}
+        onQuery={() => setQueryOpen(true)}
         onLog={() => {
           const params = new URLSearchParams(searchParams?.toString() ?? '');
           params.set('log', '1');
@@ -291,6 +292,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
             params.set('page', slug);
             router.replace(`/library?${params.toString()}`);
           }}
+          onIngest={() => setIngestOpen(true)}
         />
       </div>
 
@@ -339,6 +341,10 @@ export default function WikiTab({ userHash }: WikiTabProps) {
             router.replace(`/library?${params.toString()}`);
           }}
         />
+      )}
+
+      {queryOpen && (
+        <WikiQueryPanel kbId={kbId} onClose={() => setQueryOpen(false)} />
       )}
     </div>
   );
@@ -485,12 +491,14 @@ interface WikiPageReaderProps {
   kbId: string;
   activeSlug: string | null;
   onSelectSlug: (slug: string) => void;
+  onIngest?: () => void;
 }
 
 function WikiPageReader({
   kbId,
   activeSlug,
   onSelectSlug,
+  onIngest,
 }: WikiPageReaderProps) {
   const [pages, setPages] = useState<WikiPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -551,7 +559,7 @@ function WikiPageReader({
   }
 
   if (pages.length === 0) {
-    return <ZeroPageGuide kbId={kbId} />;
+    return <ZeroPageGuide kbId={kbId} onIngest={onIngest} />;
   }
 
   // Group pages by category
@@ -788,7 +796,13 @@ function WikiEmptyState({
   );
 }
 
-function ZeroPageGuide({ kbId }: { kbId: string }) {
+function ZeroPageGuide({
+  kbId,
+  onIngest,
+}: {
+  kbId: string;
+  onIngest?: () => void;
+}) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white">
@@ -803,8 +817,12 @@ function ZeroPageGuide({ kbId }: { kbId: string }) {
       </p>
       <div className="mt-8 flex items-center justify-center gap-3">
         <button
-          onClick={() =>
-            alert(`Ingest picker 在 P3a 后续上线（kbId=${kbId.slice(0, 8)}…）`)
+          onClick={
+            onIngest ??
+            (() =>
+              alert(
+                `Ingest picker 在 P3a 后续上线（kbId=${kbId.slice(0, 8)}…）`
+              ))
           }
           className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
         >
@@ -817,6 +835,157 @@ function ZeroPageGuide({ kbId }: { kbId: string }) {
           手动创建第一页
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Query 浮动面板（询问 wiki，调 wikiApi.query）───
+
+interface QueryMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  citations?: Array<{ slug: string }>;
+}
+
+function WikiQueryPanel({
+  kbId,
+  onClose,
+}: {
+  kbId: string;
+  onClose: () => void;
+}) {
+  const [question, setQuestion] = useState('');
+  const [history, setHistory] = useState<QueryMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const ask = async () => {
+    const q = question.trim();
+    if (!q || loading) return;
+    setLoading(true);
+    const nextHistory: QueryMessage[] = [
+      ...history,
+      { role: 'user', content: q },
+    ];
+    setHistory(nextHistory);
+    setQuestion('');
+    try {
+      const result = await wikiApi.query(kbId, {
+        question: q,
+        history: history.map((m) => ({ role: m.role, content: m.content })),
+      });
+      setHistory((h) => [
+        ...h,
+        {
+          role: 'assistant',
+          content: result.answer,
+          citations: result.citations,
+        },
+      ]);
+    } catch (err) {
+      logger?.error?.('[wiki] query failed', err);
+      setHistory((h) => [
+        ...h,
+        {
+          role: 'assistant',
+          content:
+            '查询失败：' + (err instanceof Error ? err.message : '未知错误'),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-y-0 right-0 z-50 flex w-[420px] flex-col border-l border-gray-200 bg-white shadow-xl">
+      <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">询问 Wiki</h3>
+          <p className="text-xs text-gray-500">
+            基于已索引的 wiki 页内容（inline + RAG）回答
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          aria-label="关闭"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </header>
+
+      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+        {history.length === 0 && (
+          <p className="mt-12 text-center text-sm text-gray-500">
+            问问这个 wiki 里的任何问题。
+          </p>
+        )}
+        {history.map((m, i) => (
+          <div
+            key={i}
+            className={
+              m.role === 'user' ? 'flex justify-end' : 'flex justify-start'
+            }
+          >
+            <div
+              className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                m.role === 'user'
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-gray-100 text-gray-900'
+              }`}
+            >
+              <div className="whitespace-pre-wrap break-words">{m.content}</div>
+              {m.citations && m.citations.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {m.citations.map((c) => (
+                    <span
+                      key={c.slug}
+                      className={`inline-block rounded px-1.5 py-0.5 text-[10px] ${
+                        m.role === 'user'
+                          ? 'bg-white/20 text-white'
+                          : 'bg-violet-100 text-violet-700'
+                      }`}
+                    >
+                      [[{c.slug}]]
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="inline-block rounded-lg bg-gray-100 px-3 py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <footer className="flex items-center gap-2 border-t border-gray-100 p-3">
+        <input
+          type="text"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              void ask();
+            }
+          }}
+          placeholder="问问这个 wiki..."
+          disabled={loading}
+          className="flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+        />
+        <button
+          onClick={() => void ask()}
+          disabled={loading || !question.trim()}
+          className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+        >
+          问
+        </button>
+      </footer>
     </div>
   );
 }
@@ -1417,7 +1586,7 @@ function WikiEnableToggleModal({
       setError(
         err instanceof Error
           ? err.message
-          : '需要 OWNER/ADMIN 角色才能启用 Wiki'
+          : '启用 Wiki 失败，请确认你对该知识库有访问权'
       );
     } finally {
       setBusyKbId(null);

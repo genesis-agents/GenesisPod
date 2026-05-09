@@ -294,17 +294,20 @@ describe("WikiKbAdminService", () => {
       expect(tx.wikiOperationLog.create).not.toHaveBeenCalled();
     });
 
-    it("[8] EDITOR (hasAccess ADMIN=false) throws ForbiddenException", async () => {
+    it("[8] no KB access (hasAccess VIEWER=false) throws ForbiddenException", async () => {
+      // Per 2026-05-09 product decision the role gate was relaxed from
+      // ADMIN+ to VIEWER+ — anyone with KB access (incl. shared-with-me)
+      // can enable wiki. Only users with no access at all are rejected.
       kbService.hasAccess.mockResolvedValue(false);
 
       await expect(service.toggleWikiEnabled("u", "kb", true)).rejects.toThrow(
         ForbiddenException,
       );
       await expect(service.toggleWikiEnabled("u", "kb", true)).rejects.toThrow(
-        "Only KB OWNER or ADMIN can toggle wikiEnabled",
+        "Need at least KB access to toggle wikiEnabled",
       );
-      // Asserts the ADMIN role gate is what's being checked
-      expect(kbService.hasAccess).toHaveBeenCalledWith("kb", "u", "ADMIN");
+      // Asserts the VIEWER role gate is what's being checked now
+      expect(kbService.hasAccess).toHaveBeenCalledWith("kb", "u", "VIEWER");
       expect(prisma.knowledgeBase.findUnique).not.toHaveBeenCalled();
     });
 

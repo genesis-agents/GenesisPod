@@ -886,19 +886,27 @@ export class KnowledgeBaseService {
     // 所有者总是有访问权限
     if (kb.userId === userId) return true;
 
-    // 个人知识库只有所有者可以访问
-    if (kb.type === "PERSONAL") return false;
-
     // 团队知识库检查成员资格
-    const member = await this.prisma.knowledgeBaseMember.findFirst({
-      where: { knowledgeBaseId, userId },
+    if (kb.type !== "PERSONAL") {
+      const member = await this.prisma.knowledgeBaseMember.findFirst({
+        where: { knowledgeBaseId, userId },
+      });
+      if (member) {
+        if (!minRole || minRole === "VIEWER") return true;
+        const roleHierarchy = { OWNER: 0, ADMIN: 1, EDITOR: 2, VIEWER: 3 };
+        if (roleHierarchy[member.role] <= roleHierarchy[minRole]) return true;
+      }
+    }
+
+    // Platform admin bypass: User.role === 'ADMIN' grants full access to any KB
+    // (per product decision 2026-05-09: platform admins manage all KBs).
+    // Checked last so owner / KbMember short-circuit before this extra query.
+    // findFirst (not findUnique) keeps spec mocks portable since both existing
+    // KB service specs only stub user.findFirst.
+    const platformUser = await this.prisma.user.findFirst({
+      where: { id: userId },
+      select: { role: true },
     });
-
-    if (!member) return false;
-
-    if (!minRole || minRole === "VIEWER") return true;
-
-    const roleHierarchy = { OWNER: 0, ADMIN: 1, EDITOR: 2, VIEWER: 3 };
-    return roleHierarchy[member.role] <= roleHierarchy[minRole];
+    return platformUser?.role === "ADMIN";
   }
 }

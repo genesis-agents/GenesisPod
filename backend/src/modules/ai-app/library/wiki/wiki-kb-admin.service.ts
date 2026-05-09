@@ -116,7 +116,13 @@ export class WikiKbAdminService {
   }
 
   /**
-   * Toggle wikiEnabled on a KB. Requires OWNER or ADMIN.
+   * Toggle wikiEnabled on a KB. Requires any KB access (VIEWER+) — i.e. owner,
+   * any KbMember role, or platform admin (per kbService.hasAccess fallback).
+   *
+   * Note: 2026-05-09 product decision relaxed this from ADMIN+ to VIEWER+ —
+   * shared-with-me KBs should also be wiki-enable-able. The original P0-5
+   * concern (EDITOR exposing ingest surface) is mitigated downstream by
+   * existing per-action checks on /ingest, /lint, /query, etc.
    *
    * On enable: upsert WikiKnowledgeBaseConfig with v1.5.3 defaults so
    * subsequent reads (query / lint / ingest) have config to consult.
@@ -132,10 +138,14 @@ export class WikiKbAdminService {
     wikiEnabled: boolean;
     configCreated: boolean;
   }> {
-    const ok = await this.kbService.hasAccess(knowledgeBaseId, userId, "ADMIN");
+    const ok = await this.kbService.hasAccess(
+      knowledgeBaseId,
+      userId,
+      "VIEWER",
+    );
     if (!ok) {
       throw new ForbiddenException(
-        "Only KB OWNER or ADMIN can toggle wikiEnabled",
+        "Need at least KB access to toggle wikiEnabled",
       );
     }
 

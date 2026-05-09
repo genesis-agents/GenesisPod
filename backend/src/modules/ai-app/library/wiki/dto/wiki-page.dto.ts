@@ -8,6 +8,7 @@ import {
   Min,
   MinLength,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { WikiPageCategory } from "@prisma/client";
 
 const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,198}[a-z0-9]$/;
@@ -78,7 +79,10 @@ export class ListWikiPagesQueryDto {
   @IsEnum(WikiPageCategory)
   category?: WikiPageCategory;
 
+  // @Type forces string "200" -> 200 so @IsInt passes (query strings are
+  // always strings; ValidationPipe transform alone doesn't infer number).
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number = 100;

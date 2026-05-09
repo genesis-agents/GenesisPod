@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma, WikiDiff, WikiDiffStatus } from "@prisma/client";
+import { AIModelType, Prisma, WikiDiff, WikiDiffStatus } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../rag/services/knowledge-base.service";
 import { WikiDiffService } from "./wiki-diff.service";
@@ -117,12 +117,18 @@ export class WikiIngestService {
 
     let llmResponse;
     try {
+      // Use semantic TaskProfile per .claude/rules/ai-engine.md — never hardcode
+      // model/temperature/maxTokens. deterministic+long fits structured JSON
+      // extraction (was temperature 0.2 / maxTokens 8000).
       llmResponse = await this.chat.chat({
         messages: [{ role: "user", content: userPrompt }],
         systemPrompt,
-        temperature: 0.2,
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "deterministic",
+          outputLength: "long",
+        },
         responseFormat: "json_object",
-        maxTokens: 8000,
         operationName: "library-wiki-ingest",
         userId,
       });
