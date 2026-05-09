@@ -10,9 +10,11 @@
 
 `ai-harness` is **not** a single sediment area. New benchmark Agent Team(MissionPipeline 派)consumers — `agent-playground`、`writing-team`、未来的 `debate-team` / `planning-team` 等 — 必须知道:
 
-- 哪些 zone 是 **canonical**(应该被新 team 直接 import);
-- 哪些 zone 是 **foundational**(底层 primitive,新 team 通常通过更高层 zone 间接消费,但**也可平行直接 import**,见 §3 实际拓扑);
+- 哪些 zone 是 **canonical**(facade 暴露给新 team 主消费的 surface);
+- 哪些 zone 是 **foundational**(底层 primitive,被 canonical zone 内部依赖,facade 也直接 re-export 部分公开符号);
 - 哪一区是 **parallel / 待裁定**(目前无 ai-app 消费,benchmark **不**消费,等独立 ADR)。
+
+**重要**:无论 zone 角色如何,新 team **所有 ai-harness import 路径必须为 `@/modules/ai-harness/facade`**(由 lint Section 10 强制);本文档说明 facade 暴露的 symbol 来自哪个 sediment 区,**不**是直接 import 子路径授权。
 
 不写明这些区分,新 team 会随机选 zone import,要么落在 deprecated 处,要么自造 wrapper 与现有 sediment 冲突。本文档把审计 §2.5 的拓扑共识固化为可独立引用的架构条目。
 
@@ -22,7 +24,7 @@
 
 | Zone                                    | Path                                      | Role                                                                                                                                                                                                                                                                                                                  | Canonical for benchmark?                                                                                                                                     |
 | --------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Z1 Mission-lifecycle primitives**     | `ai-harness/lifecycle/mission-lifecycle/` | 通用 mission 持久化 + 执行原语:`IMissionStore<TBusiness>` / `MissionRerunOrchestrator` / `InMemoryMissionStore` / `MissionLivenessGuard` / `AbortRegistry` / `OwnershipRegistry` / `RuntimeStateStore` / `HealthMonitor` / `RerunLockRegistry`                                                                        | ✅ Foundational(被 Z3 局部依赖,被 ai-app services 平行直接 import)                                                                                           |
+| **Z1 Mission-lifecycle primitives**     | `ai-harness/lifecycle/mission-lifecycle/` | 通用 mission 持久化 + 执行原语:`IMissionStore<TBusiness>` / `MissionRerunOrchestrator` / `InMemoryMissionStore` / `MissionLivenessGuard` / `AbortRegistry` / `OwnershipRegistry` / `RuntimeStateStore` / `HealthMonitor` / `RerunLockRegistry`                                                                        | ✅ Foundational(被 Z3 内部依赖,公开符号经 facade re-export 给 ai-app services)                                                                               |
 | **Z2 Mission-checkpoint**               | `ai-harness/memory/mission-checkpoint/`   | `CheckpointStore` 接口 + `checkpoint.service` + in-memory impl                                                                                                                                                                                                                                                        | ✅ Foundational                                                                                                                                              |
 | **Z3 BusinessAgentTeam framework**      | `ai-harness/teams/business-team/`         | E0–E4 框架:`MissionRuntimeShellFramework`(per-mission lifecycle wrap,7 项守护:wallTimer / heartbeat / abort / cleanup / billing / validateModels / validateCredits)+ `EventRelayFramework`(namespace-injected 事件转发)+ `IBusinessTeamMissionStore`(7 个 lifecycle 方法子集)+ `RerunGuard` / `BusinessTeamSpec` 聚合 | ✅ Canonical(R1 新轨 benchmark 落点)                                                                                                                         |
 | **Z4 Mission pipeline orchestrator**    | `ai-harness/teams/orchestrator/pipeline/` | `MissionPipelineOrchestrator` + `MissionPipelineRegistry` + `MissionPipelineConfig` + stage hooks 类型                                                                                                                                                                                                                | ✅ Canonical(playground 与 writing-team 同时消费)                                                                                                            |
@@ -69,7 +71,7 @@ ai-app benchmark consumer **逻辑上**与 5 个 zone(Z1 / Z2 / Z3 / Z4 / Z5)发
 - **Z5 闭环**(只 import 自身 `./abstractions`):
   - `ai-harness/teams/services/stages/{plan,persist,research,assess,synthesize,draft,review,signoff,learn}.primitive.ts` 全部仅 import `./abstractions`
   - **Z5 不依赖 Z1 / Z2**(grep 命中 0)
-- **Z1 / Z2 自包含**(被 Z3 局部依赖 + 被 ai-app 平行直接 import,**不**经 Z3/Z4 中转)
+- **Z1 / Z2 自包含**(被 Z3 局部依赖 + 公开符号通过 facade re-export 给 ai-app,**不**经 Z3/Z4 中转)
 - **Z6 在拓扑外**:`ai-harness/lifecycle/manager/teams-mission-orchestrator.ts` import Z1 `RuntimeStateStore`,但无任何 ai-app 消费 Z6,benchmark 不引用
 
 ### Consumer 现状(grep verified)
