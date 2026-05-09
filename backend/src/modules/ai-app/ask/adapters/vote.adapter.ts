@@ -131,40 +131,70 @@ export class VoteAdapter implements IModeAdapter {
     let options = this.parseOptions(ctx.modeOptions);
     let optionsGenerationMessage: PendingMessage | null = null;
     if (!options) {
-      const generated = await this.generateOptions(leader, ctx);
-      options = generated.options;
-      // leader 先发一条消息说明候选项（可选输出）
-      if (generated.content) {
+      // 2026-05-08 R2 评审：generateOptions 内部 chat() 失败之前裸抛，
+      // 让整 turn FAIL 用户看不到原因。改为 catch + fallback 选项 +
+      // system.notice，与其他 adapter 错误兜底一致。
+      let generated: {
+        options: VoteOption[];
+        content: string;
+        tokensUsed: number;
+      } | null = null;
+      try {
+        generated = await this.generateOptions(leader, ctx);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `[VOTE] generateOptions failed: ${errMsg}; using default options`,
+        );
+      }
+      if (generated) {
+        options = generated.options;
+        // leader 先发一条消息说明候选项（可选输出）
+        if (generated.content) {
+          seq += 1;
+          const optsMessageId = uuid();
+          onEvent({
+            kind: "participant.thinking",
+            turnId: ctx.turn.id,
+            sequenceNum: seq,
+            memberId: leader.id,
+            messageId: optsMessageId,
+          });
+          seq += 1;
+          onEvent({
+            kind: "participant.done",
+            turnId: ctx.turn.id,
+            sequenceNum: seq,
+            memberId: leader.id,
+            messageId: optsMessageId,
+            tokensUsed: generated.tokensUsed,
+            content: generated.content,
+          });
+          optionsGenerationMessage = {
+            id: optsMessageId,
+            senderType: "AI",
+            senderMemberId: leader.id,
+            content: generated.content,
+            modelId: leader.modelId,
+            modelName: null,
+            tokens: generated.tokensUsed,
+            parentMessageId: ctx.triggerMessage.id,
+            sequenceNum: seq,
+          };
+        }
+      } else {
+        // generateOptions 失败：用默认 a/支持 b/反对 + emit notice
+        options = [
+          { id: "a", label: "支持" },
+          { id: "b", label: "反对" },
+        ];
         seq += 1;
-        const optsMessageId = uuid();
-        onEvent({
-          kind: "participant.thinking",
-          turnId: ctx.turn.id,
-          sequenceNum: seq,
-          memberId: leader.id,
-          messageId: optsMessageId,
-        });
-        seq += 1;
-        onEvent({
-          kind: "participant.done",
-          turnId: ctx.turn.id,
-          sequenceNum: seq,
-          memberId: leader.id,
-          messageId: optsMessageId,
-          tokensUsed: generated.tokensUsed,
-          content: generated.content,
-        });
-        optionsGenerationMessage = {
-          id: optsMessageId,
-          senderType: "AI",
-          senderMemberId: leader.id,
-          content: generated.content,
-          modelId: leader.modelId,
-          modelName: null,
-          tokens: generated.tokensUsed,
-          parentMessageId: ctx.triggerMessage.id,
-          sequenceNum: seq,
-        };
+        optionsGenerationMessage = emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "投票主持暂不可用，已使用默认选项（支持/反对）继续投票。",
+        );
       }
     }
 

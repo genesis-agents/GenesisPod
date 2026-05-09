@@ -252,6 +252,20 @@ export class HandoffAdapter implements IModeAdapter {
       depth += 1;
     }
 
+    // 2026-05-08 R2 评审：max_depth 退出之前只在 metadata 标记，UI 看不到原因。
+    // 补 system.notice 让用户知道链路因深度上限被截断。
+    if (depth >= MAX_HANDOFF_DEPTH) {
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          `已达到 handoff 最大深度（${MAX_HANDOFF_DEPTH}），链路自动终止。`,
+        ),
+      );
+    }
+
     return {
       messages,
       metadata: {

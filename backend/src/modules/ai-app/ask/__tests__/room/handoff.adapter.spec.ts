@@ -235,5 +235,53 @@ describe("HandoffAdapter", () => {
     // depth=5 → chain a→b→c→d→e→f (6 个 member)
     expect(result.metadata.depth).toBeLessThanOrEqual(6);
     expect(result.metadata.chain[0]).toBe("a");
+    // 2026-05-08 R2 评审：max_depth 退出补 system.notice 让 UI 知道为何截断
+    const sysMessages = result.messages.filter(
+      (m) => m.senderType === "SYSTEM",
+    );
+    expect(sysMessages.some((m) => m.content.includes("最大深度"))).toBe(true);
+  });
+
+  it("mid-chain chat() failure produces error placeholder + breaks chain (no throw)", async () => {
+    // 2026-05-08 R2 评审：单成员 chat() 失败之前裸抛让整 turn FAIL；
+    // 现在用 error 占位 done + break 链路，与其他 adapter 一致。
+    const a = mkMember({ id: "a", order: 0 });
+    const b = mkMember({ id: "b", order: 1 });
+    chat
+      .mockResolvedValueOnce({
+        content: "first speaker\n[HANDOFF: b]",
+        tokensUsed: 1,
+      })
+      .mockRejectedValueOnce(new Error("provider down"));
+    const events: AskRoomServerEvent[] = [];
+    const result = await adapter.execute(mkContext([a, b]), (e) =>
+      events.push(e),
+    );
+    // 不抛错（结果正常返回）
+    expect(result).toBeDefined();
+    // 链路：a 正常说话 → 切到 b → b chat 失败 → 占位 + break
+    expect(result.metadata.chain).toEqual(["a", "b"]);
+    // b 的消息应是 error 占位
+    const bMessage = result.messages.find((m) => m.senderMemberId === "b");
+    expect(bMessage).toBeDefined();
+    expect(bMessage?.content).toContain("[error]");
+    // 仅 2 次 chat（不会继续触发后续）
+    expect(chat).toHaveBeenCalledTimes(2);
+  });
+
+  it("emits system.notice on handoff.rejected (target not found)", async () => {
+    const a = mkMember({ id: "a", order: 0 });
+    chat.mockResolvedValueOnce({
+      content: "go to nobody\n[HANDOFF: ghost]",
+      tokensUsed: 1,
+    });
+    const events: AskRoomServerEvent[] = [];
+    const result = await adapter.execute(mkContext([a]), (e) => events.push(e));
+    // handoff.rejected 事件 + 配套 system.notice
+    expect(events.some((e) => e.kind === "handoff.rejected")).toBe(true);
+    const sysMessages = result.messages.filter(
+      (m) => m.senderType === "SYSTEM",
+    );
+    expect(sysMessages.some((m) => m.content.includes("ghost"))).toBe(true);
   });
 });

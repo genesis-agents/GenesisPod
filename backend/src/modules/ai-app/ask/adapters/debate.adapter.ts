@@ -105,6 +105,10 @@ export class DebateAdapter implements IModeAdapter {
 
     const memberById = new Map(ctx.members.map((m) => [m.id, m]));
     const messageIdByRoundAndMember = new Map<string, string>();
+    // 2026-05-08 R2 评审：之前 messages.map 重新分配 seq，与 participant.done
+    // 事件的 seq 不一致 → 违反 PendingMessage.sequenceNum 契约。改为捕获每条
+    // done 事件的 seq，messages[].sequenceNum 直接复用。
+    const doneSeqByRoundAndMember = new Map<string, number>();
 
     const buildAgent = (
       member: AskRoomMember,
@@ -189,6 +193,7 @@ export class DebateAdapter implements IModeAdapter {
           }
 
           seq += 1;
+          doneSeqByRoundAndMember.set(`${round}:${member.id}`, seq);
           onEvent({
             kind: "participant.done",
             turnId: ctx.turn.id,
@@ -223,10 +228,38 @@ export class DebateAdapter implements IModeAdapter {
         },
       });
     } catch (err) {
+      // 2026-05-08 R2 评审：runDebate 自身抛错（非 chat() 失败 — 已在 buildAgent
+      // 内 catch）也用 system.notice 兜底，避免整 turn FAIL 让用户看不到原因。
+      // AbortError 仍透传到 runtime 让其分类为 CANCELLED。
+      if (ctx.signal.aborted || err instanceof DebateAbortError) {
+        throw err;
+      }
+      const errMsg = err instanceof Error ? err.message : String(err);
       this.logger.error(
-        `[DEBATE] runDebate failed turn=${ctx.turn.id}: ${err instanceof Error ? err.message : String(err)}`,
+        `[DEBATE] runDebate failed turn=${ctx.turn.id}: ${errMsg}`,
       );
-      throw err;
+      const messages: PendingMessage[] = [];
+      seq += 1;
+      messages.push(
+        emitSystemNotice(
+          onEvent,
+          ctx.turn.id,
+          seq,
+          "辩论流程异常中断，请稍后重试或切换到 PARALLEL_MERGE 模式。",
+        ),
+      );
+      return {
+        messages,
+        metadata: {
+          rounds: maxRounds,
+          enableJudge,
+          red: red.id,
+          blue: blue.id,
+          judge: judge?.id ?? null,
+          speeches: 0,
+          patternFailed: true,
+        },
+      };
     }
 
     // round.end 事件（每个 round RED+BLUE 完成后发一次）
@@ -247,7 +280,11 @@ export class DebateAdapter implements IModeAdapter {
       const member = memberById.get(r.speakerId);
       const lookupKey = `${r.round}:${r.speakerId}`;
       const messageId = messageIdByRoundAndMember.get(lookupKey) ?? uuid();
-      seq += 1;
+      // 2026-05-08 R2 评审：复用 participant.done 时捕获的 seq，保证与事件契约
+      // PendingMessage.sequenceNum === participant.done.sequenceNum 一致。
+      // 兜底：JUDGE 等极端情况未命中时用新 seq（不应发生，但防御）。
+      const doneSeq = doneSeqByRoundAndMember.get(lookupKey);
+      const messageSeq = doneSeq ?? ++seq;
       return {
         id: messageId,
         senderType: "AI",
@@ -257,7 +294,7 @@ export class DebateAdapter implements IModeAdapter {
         modelName: null,
         tokens: r.tokensUsed ?? 0,
         parentMessageId: ctx.triggerMessage.id,
-        sequenceNum: seq,
+        sequenceNum: messageSeq,
       };
     });
 

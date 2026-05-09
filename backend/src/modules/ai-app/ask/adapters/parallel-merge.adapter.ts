@@ -292,6 +292,10 @@ export class ParallelMergeAdapter implements IModeAdapter {
           this.logger.warn(
             `[PARALLEL_MERGE] member=${member.displayName} failed: ${errMsg}`,
           );
+          // 2026-05-08 R2 评审：失败时 content 不再留空（之前前端气泡空白
+          // 让用户以为成员"什么都没说"，与持久化的 sanitizeErrorMessage 双源
+          // 不一致）。改为 emit 与持久化相同的脱敏错误占位。
+          const sanitized = this.sanitizeErrorMessage(errMsg);
           const doneSeq = nextSeq();
           onEvent({
             kind: "participant.done",
@@ -300,7 +304,7 @@ export class ParallelMergeAdapter implements IModeAdapter {
             memberId: member.id,
             messageId,
             tokensUsed: 0,
-            content: "", // 失败时 content 留空，前端气泡空白即可
+            content: sanitized,
           });
           responses.push({
             member,

@@ -177,12 +177,16 @@ describe("ReviewAdapter", () => {
     expect(systemMsg?.content).toContain("跳过修订");
   });
 
-  it("rejects with insufficient_members when only 1 enabled", async () => {
+  it("rejects with insufficient_members when only 1 enabled (returns SYSTEM notice)", async () => {
     const result = await adapter.execute(
       mkContext([mkMember({ id: "only" })]),
       () => {},
     );
     expect(result.metadata.reason).toBe("insufficient_members");
+    // 2026-05-08 R2：返回 1 条 system.notice 让前端 UI 看到为何中止
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].senderType).toBe("SYSTEM");
+    expect(result.messages[0].content).toContain("REVIEW 模式至少需要 2 名");
   });
 
   it("clamps invalid score to [0,100]", async () => {

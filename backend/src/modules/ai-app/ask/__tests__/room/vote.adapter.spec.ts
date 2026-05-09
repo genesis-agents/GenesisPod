@@ -159,10 +159,16 @@ describe("VoteAdapter", () => {
     expect(result.metadata.voteCount).toBe(2);
   });
 
-  it("rejects with insufficient_members when only 1 enabled", async () => {
+  it("rejects with insufficient_members when only 1 enabled (returns SYSTEM notice)", async () => {
     const m = mkMember({ id: "m" });
-    const result = await adapter.execute(mkContext([m]), () => {});
+    const events: AskRoomServerEvent[] = [];
+    const result = await adapter.execute(mkContext([m]), (e) => events.push(e));
     expect(result.metadata.reason).toBe("insufficient_members");
+    // 2026-05-08 R2：返回 1 条 system.notice 让前端 UI 看到为何中止
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].senderType).toBe("SYSTEM");
+    expect(result.messages[0].content).toContain("VOTE 模式至少需要 2 名");
+    expect(events.some((e) => e.kind === "system.notice")).toBe(true);
   });
 
   it("invalid optionId returned by member is recorded but not counted", async () => {
