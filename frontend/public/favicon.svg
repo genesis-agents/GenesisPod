@@ -1,41 +1,62 @@
 <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Genesis Logo · v2 (Business Monogram)
-    深墨蓝 #0B1E3F badge + 暖金 #C9A961 双线描边 + 衬线 G monogram。
-    无动画。设计基准 64×64，缩放至 16/24/32/48/96 仍清晰。
+    Genesis Logo · v5 (Business Blue · Agent Fabric)
+    深 navy badge + blue→indigo 渐变菱形 fabric + 5 个 agent 粗点。
+    - Fabric: 菱形外环（4 条编织边） + 4 条向心放射线
+    - Agent: 4 个外围粗点 + 1 个中心核心节点（带辉光，orchestrator 隐喻）
+    - 商务: 深 navy 圆角方形 badge，沉稳有质感
+    - 简约: 单层渐变描边，无双线/装饰
+    - 科技: 渐变发光节点 + mesh 通信意象
+    配色对齐 tailwind primary (blue) + indigo 体系。无动画。
   -->
   <defs>
     <radialGradient id="genesisLogoBg" cx="32%" cy="22%" r="95%">
-      <stop offset="0%"   stop-color="#1B3461"/>
-      <stop offset="55%"  stop-color="#0B1E3F"/>
-      <stop offset="100%" stop-color="#050E22"/>
+      <stop offset="0%"   stop-color="#1E3A8A"/>
+      <stop offset="55%"  stop-color="#0F1E47"/>
+      <stop offset="100%" stop-color="#050D26"/>
     </radialGradient>
-    <linearGradient id="genesisLogoGold" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#E8CE93"/>
-      <stop offset="48%"  stop-color="#C9A961"/>
-      <stop offset="100%" stop-color="#9C7E3D"/>
+    <linearGradient id="genesisLogoStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#93C5FD"/>
+      <stop offset="50%"  stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#6366F1"/>
     </linearGradient>
+    <radialGradient id="genesisLogoCore" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="55%"  stop-color="#93C5FD"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </radialGradient>
+    <radialGradient id="genesisLogoAgent" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#BFDBFE"/>
+      <stop offset="55%"  stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#4338CA"/>
+    </radialGradient>
   </defs>
 
   <!-- Badge: deep navy rounded square -->
+  <rect x="2" y="2" width="60" height="60" rx="13" ry="13" fill="url(#genesisLogoBg)"/>
+
+  <!-- 单层 blue→indigo 渐变描边 -->
   <rect x="2" y="2" width="60" height="60" rx="13" ry="13"
-        fill="url(#genesisLogoBg)"/>
+        fill="none" stroke="url(#genesisLogoStroke)" stroke-width="1.4"/>
 
-  <!-- 主金线（外框） -->
-  <rect x="2" y="2" width="60" height="60" rx="13" ry="13"
-        fill="none" stroke="url(#genesisLogoGold)" stroke-width="1.25"/>
+  <!-- Fabric weave: 菱形外环（4 条编织边） + 4 条向心放射线
+       顶点 上(32,14) 右(50,32) 下(32,50) 左(14,32) -->
+  <g stroke="url(#genesisLogoStroke)" stroke-linecap="round" fill="none">
+    <path d="M 32 14 L 50 32 L 32 50 L 14 32 Z" stroke-width="1" opacity="0.6"/>
+    <line x1="32" y1="32" x2="32" y2="14" stroke-width="0.9" opacity="0.4"/>
+    <line x1="32" y1="32" x2="50" y2="32" stroke-width="0.9" opacity="0.4"/>
+    <line x1="32" y1="32" x2="32" y2="50" stroke-width="0.9" opacity="0.4"/>
+    <line x1="32" y1="32" x2="14" y2="32" stroke-width="0.9" opacity="0.4"/>
+  </g>
 
-  <!-- 内细金线（双框，珠宝/银行式精致感） -->
-  <rect x="5.5" y="5.5" width="53" height="53" rx="9.75" ry="9.75"
-        fill="none" stroke="#C9A961" stroke-width="0.5" opacity="0.4"/>
+  <!-- 4 个 agent 节点（粗点） -->
+  <circle cx="32" cy="14" r="2.6" fill="url(#genesisLogoAgent)"/>
+  <circle cx="50" cy="32" r="2.6" fill="url(#genesisLogoAgent)"/>
+  <circle cx="32" cy="50" r="2.6" fill="url(#genesisLogoAgent)"/>
+  <circle cx="14" cy="32" r="2.6" fill="url(#genesisLogoAgent)"/>
 
-  <!-- G monogram
-       圆心 (32,32)，半径 16；从右上 30° 起笔，沿左侧绕到右下 30° 收笔，
-       向内收一道终止横笔到圆心（衬线 G 的标志特征）。 -->
-  <path d="M 45.86 24 A 16 16 0 1 0 45.86 40 L 45.86 32 L 33 32"
-        stroke="url(#genesisLogoGold)"
-        stroke-width="4.5"
-        stroke-linecap="butt"
-        stroke-linejoin="round"
-        fill="none"/>
+  <!-- 中心核心 agent（orchestrator，最大最亮） -->
+  <circle cx="32" cy="32" r="4" fill="url(#genesisLogoCore)"/>
+  <circle cx="32" cy="32" r="4" fill="none"
+          stroke="#BFDBFE" stroke-width="0.4" opacity="0.6"/>
 </svg>
