@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import {
   wikiApi,
+  type KbDocumentSummary,
   type WikiDiff,
   type WikiKbSummary,
   type WikiLintFinding,
@@ -201,6 +202,9 @@ export default function WikiTab({ userHash }: WikiTabProps) {
     urlState.kbId
   );
 
+  const [ingestOpen, setIngestOpen] = useState(false);
+  const [enableOpen, setEnableOpen] = useState(false);
+
   // Persist resolved kbId to URL + localStorage for back/forward & refresh
   useEffect(() => {
     if (!kbId) return;
@@ -223,10 +227,28 @@ export default function WikiTab({ userHash }: WikiTabProps) {
 
   if (!kbId) {
     return (
-      <WikiEmptyState
-        kind={emptyKind ?? 'has-kb-no-wiki'}
-        onRefresh={refresh}
-      />
+      <>
+        <WikiEmptyState
+          kind={emptyKind ?? 'has-kb-no-wiki'}
+          onRefresh={refresh}
+          onEnable={() => setEnableOpen(true)}
+        />
+        {enableOpen && (
+          <WikiEnableToggleModal
+            onClose={() => setEnableOpen(false)}
+            onEnabled={(newKbId) => {
+              setEnableOpen(false);
+              const params = new URLSearchParams(
+                searchParams?.toString() ?? ''
+              );
+              params.set('tab', 'wiki');
+              params.set('kb', newKbId);
+              router.replace(`/library?${params.toString()}`);
+              refresh();
+            }}
+          />
+        )}
+      </>
     );
   }
 
@@ -242,7 +264,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           params.delete('page');
           router.replace(`/library?${params.toString()}`);
         }}
-        onIngest={() => alert('Ingest 文档 picker 在 P3a 后续迭代上线')}
+        onIngest={() => setIngestOpen(true)}
         onLint={() => {
           const params = new URLSearchParams(searchParams?.toString() ?? '');
           params.set('lint', '1');
@@ -301,6 +323,19 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           onClose={() => {
             const params = new URLSearchParams(searchParams?.toString() ?? '');
             params.delete('log');
+            router.replace(`/library?${params.toString()}`);
+          }}
+        />
+      )}
+
+      {ingestOpen && (
+        <IngestPickerModal
+          kbId={kbId}
+          onClose={() => setIngestOpen(false)}
+          onIngested={(diffId) => {
+            setIngestOpen(false);
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.set('diff', diffId);
             router.replace(`/library?${params.toString()}`);
           }}
         />
@@ -714,9 +749,11 @@ function renderInline(
 function WikiEmptyState({
   kind,
   onRefresh,
+  onEnable,
 }: {
   kind: 'no-kb' | 'has-kb-no-wiki';
   onRefresh: () => void;
+  onEnable: () => void;
 }) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">
@@ -732,7 +769,7 @@ function WikiEmptyState({
       </p>
       <div className="mt-8 flex items-center justify-center gap-3">
         <button
-          onClick={() => alert('启用 Wiki UI 在 P3b 后续迭代上线')}
+          onClick={onEnable}
           className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
         >
           为知识库启用 Wiki
@@ -1174,6 +1211,308 @@ function formatRelativeTime(iso: string | null | undefined): string {
   const days = Math.round(hours / 24);
   if (days < 30) return `${days}d ago`;
   return date.toLocaleDateString();
+}
+
+// ─── Ingest picker modal ───
+
+function IngestPickerModal({
+  kbId,
+  onClose,
+  onIngested,
+}: {
+  kbId: string;
+  onClose: () => void;
+  onIngested: (diffId: string) => void;
+}) {
+  const [docs, setDocs] = useState<KbDocumentSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    wikiApi
+      .listKbDocuments(kbId)
+      .then((res) => {
+        if (cancelled) return;
+        const items = Array.isArray(res)
+          ? res
+          : ((res as { items?: KbDocumentSummary[] }).items ?? []);
+        setDocs(items);
+      })
+      .catch((err) => {
+        logger?.error?.('[wiki] listKbDocuments failed', err);
+        if (!cancelled) setError('Failed to load documents');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kbId]);
+
+  const toggle = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+
+  const submit = async () => {
+    if (selected.size === 0) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await wikiApi.ingest(kbId, Array.from(selected));
+      onIngested(result.diff.id);
+    } catch (err) {
+      logger?.error?.('[wiki] ingest failed', err);
+      setError(err instanceof Error ? err.message : 'Ingest failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
+      <div className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              选择要 Ingest 的文档
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              LLM 将把所选文档编译为 wiki 提议供你逐项审阅。
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <main className="flex-1 overflow-y-auto px-6 py-4">
+          {loading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+          ) : error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {error}
+            </div>
+          ) : docs.length === 0 ? (
+            <div className="py-8 text-center text-sm text-gray-500">
+              该知识库还没有文档。请先在「数据源」tab 上传文档。
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {docs.map((d) => (
+                <li
+                  key={d.id}
+                  className="flex items-start gap-3 rounded border border-gray-100 px-3 py-2.5 hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(d.id)}
+                    onChange={() => toggle(d.id)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-violet-600"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-gray-900">
+                      {d.title || d.id}
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {d.sourceType} · {d.status} ·{' '}
+                      {formatRelativeTime(d.createdAt)}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </main>
+        <footer className="flex items-center justify-between border-t border-gray-200 px-6 py-3">
+          <div className="text-xs text-gray-500">
+            已选 {selected.size} / {docs.length} 篇
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              disabled={submitting || selected.size === 0}
+              onClick={submit}
+              className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+            >
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              运行 Ingest
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+// ─── Wiki enable toggle modal ───
+
+interface KbWithOwnership {
+  id: string;
+  name: string;
+  type: string;
+  wikiEnabled?: boolean;
+}
+
+function WikiEnableToggleModal({
+  onClose,
+  onEnabled,
+}: {
+  onClose: () => void;
+  onEnabled: (kbId: string) => void;
+}) {
+  const [kbs, setKbs] = useState<KbWithOwnership[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyKbId, setBusyKbId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    // Reuse the existing /knowledge-bases endpoint to list ALL user-accessible
+    // KBs (not just wikiEnabled ones — we need to enable disabled ones here).
+    fetch('/api/v1/library/knowledge-bases', {
+      credentials: 'include',
+      headers: getAuthHeaderSafe(),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const items = Array.isArray(data)
+          ? (data as KbWithOwnership[])
+          : ((data as { items?: KbWithOwnership[] }).items ?? []);
+        setKbs(items);
+      })
+      .catch((err) => {
+        logger?.error?.('[wiki] list KBs for toggle failed', err);
+        if (!cancelled) setError('Failed to load knowledge bases');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const enable = async (kbId: string) => {
+    setBusyKbId(kbId);
+    setError(null);
+    try {
+      const result = await wikiApi.toggleWikiEnabled(kbId, true);
+      onEnabled(result.kbId);
+    } catch (err) {
+      logger?.error?.('[wiki] toggleWikiEnabled failed', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : '需要 OWNER/ADMIN 角色才能启用 Wiki'
+      );
+    } finally {
+      setBusyKbId(null);
+    }
+  };
+
+  const eligible = kbs.filter((kb) => !kb.wikiEnabled);
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
+      <div className="flex h-[70vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              为知识库启用 Wiki
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              选择一个知识库启用 Wiki — 需要 OWNER 或 ADMIN 角色。
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <main className="flex-1 overflow-y-auto px-6 py-4">
+          {loading ? (
+            <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+          ) : error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {error}
+            </div>
+          ) : eligible.length === 0 ? (
+            <div className="py-8 text-center text-sm text-gray-500">
+              {kbs.length === 0
+                ? '你还没有任何知识库。请先在「个人知识库」或「团队知识库」tab 创建一个。'
+                : '所有知识库都已启用 Wiki。'}
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {eligible.map((kb) => (
+                <li
+                  key={kb.id}
+                  className="flex items-center justify-between rounded border border-gray-200 px-4 py-3 hover:border-violet-300"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {kb.name}
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-500">
+                      {kb.type === 'TEAM' ? '团队知识库' : '个人知识库'}
+                    </div>
+                  </div>
+                  <button
+                    disabled={busyKbId === kb.id}
+                    onClick={() => enable(kb.id)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    {busyKbId === kb.id && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    启用 Wiki
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </main>
+        <footer className="border-t border-gray-200 px-6 py-3 text-xs text-gray-500">
+          启用后会创建 WikiKnowledgeBaseConfig 默认行（inlinePageCount=200 /
+          ingestMaxTokens=80000）。EDITOR / VIEWER 角色尝试启用会被服务端拒绝
+          (403)。
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function getAuthHeaderSafe(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem('auth_tokens');
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as { accessToken?: string };
+    return parsed.accessToken
+      ? { Authorization: `Bearer ${parsed.accessToken}` }
+      : {};
+  } catch {
+    return {};
+  }
 }
 
 // re-export FileSearch import to avoid unused-import lint warning when

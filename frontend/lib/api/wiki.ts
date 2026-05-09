@@ -128,6 +128,14 @@ export interface ToggleWikiEnabledResult {
   configCreated: boolean;
 }
 
+export interface KbDocumentSummary {
+  id: string;
+  title: string;
+  sourceType: string;
+  status: string;
+  createdAt: string;
+}
+
 // ─── Endpoints ────────────────────────────────────────────────────
 
 const base = '/api/v1/library/wiki';
@@ -135,6 +143,15 @@ const base = '/api/v1/library/wiki';
 export const wikiApi = {
   // Admin / KB selector
   listKbs: () => apiClient.get<{ items: WikiKbSummary[] }>(`${base}/kbs`),
+
+  /**
+   * List documents in a KB (used by Ingest picker). Reuses the existing
+   * RAG controller endpoint — no new wiki-specific endpoint needed.
+   */
+  listKbDocuments: (kbId: string) =>
+    apiClient.get<{ items: KbDocumentSummary[] } | KbDocumentSummary[]>(
+      `/api/v1/library/knowledge-bases/${encodeURIComponent(kbId)}/documents`
+    ),
 
   toggleWikiEnabled: (kbId: string, enabled: boolean) =>
     apiClient.patch<ToggleWikiEnabledResult>(
