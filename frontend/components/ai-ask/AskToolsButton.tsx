@@ -64,14 +64,16 @@ export default function AskToolsButton() {
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+        className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
           isOpen
             ? 'bg-gray-200 text-gray-700'
-            : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+            : 'text-gray-500 hover:bg-gray-100'
         }`}
         title={t('aiAsk.tools')}
+        aria-label={t('aiAsk.tools')}
       >
-        <Wrench className="h-[18px] w-[18px]" />
+        <Wrench className="h-4 w-4" />
+        <span className="whitespace-nowrap">{t('aiAsk.tools')}</span>
       </button>
 
       {isOpen &&
