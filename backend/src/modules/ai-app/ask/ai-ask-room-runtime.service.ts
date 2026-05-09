@@ -367,26 +367,61 @@ export class AskRoomRuntimeService {
     }>,
   ): Promise<void> {
     if (messages.length === 0) return;
-    // 评审 W2 v3 R1 重要：用 callback 形式确保原子回滚（数组形式仅 best-effort）。
-    await this.prisma.$transaction(async (tx) => {
-      for (const m of messages) {
-        await tx.askMessage.create({
-          data: {
-            id: m.id,
-            sessionId,
-            role: m.senderType === "AI" ? "assistant" : "system",
-            senderType: m.senderType,
-            senderMemberId: m.senderMemberId,
-            content: m.content,
-            modelId: m.modelId,
-            modelName: m.modelName,
-            tokens: m.tokens,
-            parentMessageId: m.parentMessageId ?? null,
-            sequenceNum: m.sequenceNum,
-            turnId,
-          },
-        });
+
+    // ★ 真因修复（2026-05-08 turn=a70c75a2 P2002）：
+    //   adapter 自己算的 sequenceNum 仅用于 socket emit + 前端 store 排序；
+    //   写库时若直接用，并发 turn 或历史撞库会整 transaction 回滚 → turn FAILED。
+    //   评审 W2 v3 R1 只给 appendUserMessage 加了 nextSequenceNum + retry，
+    //   persistMessages 漏修。
+    //
+    //   修法：写库前 forEach 调用 nextSequenceNum 重新分配 db-seq（保持相对顺序）；
+    //   单条 P2002 retry 最多 5 次。db-seq 与 emit-seq 解耦——前端 store 用
+    //   emit-seq 排序流式渲染，reload 时从 db 读 db-seq 也单调，两者独立单调即可。
+    for (const m of messages) {
+      let attempt = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        attempt += 1;
+        const seq = await this.roomService.nextSequenceNum(sessionId);
+        try {
+          await this.prisma.askMessage.create({
+            data: {
+              id: m.id,
+              sessionId,
+              role: m.senderType === "AI" ? "assistant" : "system",
+              senderType: m.senderType,
+              senderMemberId: m.senderMemberId,
+              content: m.content,
+              modelId: m.modelId,
+              modelName: m.modelName,
+              tokens: m.tokens,
+              parentMessageId: m.parentMessageId ?? null,
+              sequenceNum: seq,
+              turnId,
+            },
+          });
+          break;
+        } catch (err) {
+          if (this.isUniqueViolation(err) && attempt < 5) {
+            await this.delay(20 * attempt);
+            continue;
+          }
+          throw err;
+        }
       }
-    });
+    }
+  }
+
+  private isUniqueViolation(err: unknown): boolean {
+    return (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code: unknown }).code === "P2002"
+    );
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
