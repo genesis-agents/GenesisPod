@@ -6,7 +6,9 @@
  * - dimension_analyses.data_points → `dimension-analyses/{id}/data_points.json`
  * - research_tasks.result → `research-tasks/{id}/result.json`
  * - knowledge_base_documents.raw_content → `kb-documents/{id}/raw.txt`
- *   （仅 status=COMPLETED 行：避免 chunking pipeline 还在用 raw_content 时被搬走）
+ *   （仅 status=READY 行：避免 chunking pipeline 还在用 raw_content 时被搬走）
+ * - wiki_page_revisions.body → `wiki-revisions/{pageId}/{revisionId}.md`
+ *   （revision 是 append-only 极冷数据，写完即可迁；revert 走 hydrate）
  *
  * 处理逻辑（每个表独立）：
  * 1. 扫 {uri} IS NULL AND {content} IS NOT NULL AND len > 2KB 的行
@@ -250,6 +252,41 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
         },
         keyFor: (id) => `kb-documents/${id}/raw.txt`,
         contentType: "text/plain; charset=utf-8",
+      },
+      {
+        // 2026-05-09: WikiPageRevision.body off-load
+        // Revision 是 append-only 极冷数据（仅 revert 时读），写后即可迁。
+        name: "wiki_page_revisions.body",
+        list: async (p, take) => {
+          const rows = await p.wikiPageRevision.findMany({
+            where: {
+              bodyUri: null,
+              NOT: { body: "" },
+            },
+            select: { id: true, body: true, bodyUri: true },
+            take,
+          });
+          return rows.map((r) => ({
+            id: r.id,
+            content: r.body ?? "",
+          }));
+        },
+        commit: async (p, id, uri, size) => {
+          await p.$executeRawUnsafe(
+            `UPDATE wiki_page_revisions SET body='', body_uri=$1, body_size=$2 WHERE id=$3`,
+            uri,
+            size,
+            id,
+          );
+        },
+        recordSmall: async (p, id, size) => {
+          await p.wikiPageRevision.update({
+            where: { id },
+            data: { bodySize: size },
+          });
+        },
+        keyFor: (id) => `wiki-revisions/${id}.md`,
+        contentType: "text/markdown; charset=utf-8",
       },
     ];
   }
