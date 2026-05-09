@@ -187,6 +187,9 @@ model User {
   // 2026-05-05 R-CA: 我用 custom agent 启动过的 mission 映射
   customAgentLaunches    CustomAgentLaunch[]
 
+  // 2026-05-08 YouTube 视频页 AI 聊天历史（user × videoId）
+  youtubeAiChatMessages YouTubeAiChatMessage[]
+
   @@map("users")
 }
 
@@ -855,6 +858,25 @@ model YouTubeTranscriptCache {
   @@index([videoId])
   @@index([expiresAt])
   @@map("youtube_transcript_cache")
+}
+
+// YouTube 视频页 AI 聊天历史（user × videoId 维度）
+// 同一用户在同一视频内的对话会持续追加；切换视频或切换用户即另起一段
+model YouTubeAiChatMessage {
+  id      String @id @default(uuid())
+  userId  String @map("user_id")
+  videoId String @map("video_id") @db.VarChar(100)
+
+  role    String  @db.VarChar(16) // 'user' | 'assistant'
+  content String  @db.Text
+  modelId String? @map("model_id") @db.VarChar(100) // assistant 消息使用的模型，可空
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, videoId, createdAt])
+  @@map("youtube_ai_chat_messages")
 }
 
 // ============ 报告相关 (Reports TAB) ============
