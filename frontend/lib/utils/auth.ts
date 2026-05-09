@@ -118,6 +118,71 @@ export function getUserHash(): string {
 }
 
 /**
+ * Library default-tab enum whitelist (v1.5.3 §11 v1.5.x security).
+ *
+ * When reading the `libraryDefaultTab:<hash>` localStorage key (set by
+ * the What's-new toast "切回旧默认" action), the value MUST be matched
+ * against this whitelist. Anything else (XSS-injected value, stale
+ * legacy value like 'graph', etc.) falls back to the v1.5.3 default
+ * 'wiki'. This blocks open-redirect / privilege-escalation via
+ * tampered localStorage.
+ */
+export const LIBRARY_TAB_WHITELIST = [
+  'wiki',
+  'personal-kb',
+  'team-kb',
+  'data-sources',
+] as const;
+export type LibraryTabId = (typeof LIBRARY_TAB_WHITELIST)[number];
+
+export function readLibraryDefaultTab(userHash: string): LibraryTabId {
+  if (typeof window === 'undefined') return 'wiki';
+  try {
+    const raw = window.localStorage.getItem(`libraryDefaultTab:${userHash}`);
+    if (raw && (LIBRARY_TAB_WHITELIST as readonly string[]).includes(raw)) {
+      return raw as LibraryTabId;
+    }
+  } catch {
+    // ignore
+  }
+  return 'wiki';
+}
+
+/**
+ * Clear all Wiki-related localStorage keys for the current user.
+ *
+ * v1.5.3 §11 v1.5.x: must run on every logout path so that a shared
+ * browser doesn't leak the previous user's last-visited KB or
+ * default-tab preference. The 4 paths covered:
+ *   1) explicit logout()           — covered: this is called from logout()
+ *   2) 401 retry → logout()        — covered: apiClient.ts logout() chain
+ *   3) refresh failure → logout()  — covered: apiClient.ts logout() chain
+ *   4) multi-tab sync               — covered: storage event listener in
+ *      providers.tsx watches deepdive_auth_tokens deletion across tabs
+ */
+export function clearWikiLocalStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const ls = window.localStorage;
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      if (!k) continue;
+      if (
+        k.startsWith('lastWikiKbId:') ||
+        k.startsWith('libraryDefaultTab:') ||
+        k.startsWith('wikiWhatsNewSeen:')
+      ) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => ls.removeItem(k));
+  } catch {
+    // ignore (quota / private mode)
+  }
+}
+
+/**
  * Save current user to localStorage
  */
 export function saveCurrentUser(user: User): void {
@@ -169,6 +234,9 @@ export function loginWithGoogle(input?: unknown): void {
  * Logout user
  */
 export function logout(): void {
+  // v1.5.3 §11 v1.5.x: clear Wiki localStorage on every logout path
+  // (explicit / 401 retry → here / refresh failure → here)
+  clearWikiLocalStorage();
   clearAuthTokens();
   // Reload to clear any cached state
   if (typeof window !== 'undefined') {
