@@ -51,6 +51,16 @@ const HISTORY_FOR_LLM = 20;
 export class AskRoomRuntimeService {
   private readonly logger = new Logger(AskRoomRuntimeService.name);
   private readonly turnAbortControllers = new Map<string, AbortController>();
+  // 2026-05-09（screenshot 48-49 / "AI 思考显示在问题的上方"）：
+  // per-session in-memory tracker for max emitted sequenceNum across ALL turns.
+  // 当 turn N 仍在流式（事件 seq 已到 30）+ turn N+1 用户发消息时，必须确保
+  // user_(N+1).seq > 30，否则前端按 emit-seq 升序排会把 turn N+1 user msg
+  // 落到 turn N events 中间（视觉上 AI 思考显示在问题上方）。
+  //
+  // 单进程内有效；多实例部署需用 Redis（W5 follow-up，与 turnAbortControllers
+  // 同一个 caveat）。session 删除时未主动清理（Map 持续累积），属于
+  // bounded-leak（每个 room 一项 number），可接受；下次进程重启释放。
+  private readonly sessionMaxEmittedSeq = new Map<string, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -73,7 +83,11 @@ export class AskRoomRuntimeService {
     userId: string;
     dto: SendRoomMessageDto;
     emit: TurnEmitContext["emit"];
-  }): Promise<{ turnId: string; userMessageId: string }> {
+  }): Promise<{
+    turnId: string;
+    userMessageId: string;
+    userMessageSeq: number | null;
+  }> {
     const { sessionId, userId, dto } = input;
 
     const session = await this.roomService.findUserRoom(sessionId, userId);
@@ -86,11 +100,19 @@ export class AskRoomRuntimeService {
       members.some((m) => m.id === id),
     );
 
+    // 2026-05-09 fix: 把 session 级 in-flight emitted seq 传给 appendUserMessage，
+    // 让其取 max(DB MAX, sessionMaxEmittedSeq) + 1，避免 turn N+1 user msg
+    // emit seq < turn N 仍在飞的事件 seq → 前端排序错乱。
+    const sessionMinSeq = this.sessionMaxEmittedSeq.get(sessionId) ?? 0;
     const userMessage = await this.roomService.appendUserMessage(
       sessionId,
       dto.content,
       mentionedIds,
+      sessionMinSeq,
     );
+    if (userMessage.sequenceNum && userMessage.sequenceNum > sessionMinSeq) {
+      this.sessionMaxEmittedSeq.set(sessionId, userMessage.sequenceNum);
+    }
 
     const mode = this.pickMode({
       explicit: dto.mode,
@@ -128,7 +150,14 @@ export class AskRoomRuntimeService {
       );
     });
 
-    return { turnId: turn.id, userMessageId: userMessage.id };
+    return {
+      turnId: turn.id,
+      userMessageId: userMessage.id,
+      // 2026-05-09 fix: 让前端用真实 DB-assigned seq 渲染 user msg，
+      // 而非依赖 lastSeq+1 乐观估计。后者在多 turn 并发场景下会与 backend
+      // emit seq 错位，导致 user msg 视觉上落到 AI 思考之后。
+      userMessageSeq: userMessage.sequenceNum,
+    };
   }
 
   async cancelTurn(
@@ -181,6 +210,12 @@ export class AskRoomRuntimeService {
     const emit = (event: AskRoomServerEvent): void => {
       if (event.sequenceNum > maxEmittedSeq) {
         maxEmittedSeq = event.sequenceNum;
+      }
+      // 2026-05-09 fix: 同步刷新 session 级 in-flight max。下一次 user 发送时
+      // appendUserMessage 用此值确保 user msg seq 永远在所有 in-flight 事件之后。
+      const prev = this.sessionMaxEmittedSeq.get(sessionId) ?? 0;
+      if (event.sequenceNum > prev) {
+        this.sessionMaxEmittedSeq.set(sessionId, event.sequenceNum);
       }
       emitContext.emit(room, event);
     };
