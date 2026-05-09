@@ -55,6 +55,18 @@ ai-harness/
   - 是 ai-app / open-api 消费 harness 的唯一稳定入口
   - 不允许把内部路径穿透当成长期做法
 
+## benchmark Agent Team 沉淀拓扑
+
+新 MissionPipeline 派 team(`agent-playground` / `writing-team` / 未来 `debate-team`
+/ `planning-team` 等)拷贝时的 canonical reference:
+
+- 架构文档:[`docs/architecture/ai-harness/sediment-topology.md`](../../../../docs/architecture/ai-harness/sediment-topology.md)
+- 6 个共存 sediment zone(Z1 mission-lifecycle / Z2 mission-checkpoint / Z3 business-team
+  framework / Z4 mission-pipeline-orchestrator / Z5 stage primitives / Z6 待裁定 mission
+  executor)与 grep-verified 依赖边
+- **所有 ai-harness import 路径必须为 `@/modules/ai-harness/facade`**(`backend/.eslintrc.js`
+  Section 10 + R8 override 强制),sediment-topology.md 是 facade re-export 的逻辑分区参考
+
 ## 当前收敛重点
 
 - 继续清理 `memory/` 的命名与 contract 一致性
