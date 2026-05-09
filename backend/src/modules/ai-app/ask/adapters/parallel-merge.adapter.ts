@@ -397,6 +397,12 @@ export class ParallelMergeAdapter implements IModeAdapter {
         `你是 ${member.displayName}，与其他 AI 一起协助用户。请仅以 ${member.displayName} 的身份回答。`,
       );
     }
+    // 2026-05-09（screenshot 43）：反 prompt 污染——同 freechat。
+    // 用户消息中常含 @xx 提及，模型容易模仿 IM 群聊格式输出
+    // "[<名字>]:" / "@xx:" / 多人对话等。强制要求只输出本次回答内容。
+    systemParts.push(
+      "请直接给出回答内容，不要在回答前加 `[<名字>]`、`<名字>:`、`@<名字>` 或类似的自报家门前缀；不要在回答中模拟多人对话或扮演其他成员。",
+    );
     if (member.persona && typeof member.persona === "object") {
       systemParts.push(`【人设要点】\n${JSON.stringify(member.persona)}`);
     }

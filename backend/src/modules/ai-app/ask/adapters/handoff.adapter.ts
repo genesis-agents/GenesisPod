@@ -319,6 +319,10 @@ export class HandoffAdapter implements IModeAdapter {
         "可选成员：\n" +
         peers,
     );
+    // 2026-05-09 反 prompt 污染：用户消息常含 @ 提及触发模型模仿群聊格式
+    sysParts.push(
+      "请直接给出回答内容，不要在回答前加 `[<名字>]`、`<名字>:`、`@<名字>` 等自报家门前缀；不要在回答中模拟多人对话或扮演其他成员。",
+    );
 
     const messages: ChatMessage[] = [
       { role: "system", content: sysParts.join("\n\n") },

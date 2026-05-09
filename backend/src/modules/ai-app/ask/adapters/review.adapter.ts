@@ -274,6 +274,10 @@ export class ReviewAdapter implements IModeAdapter {
       `你是 ${author.displayName}，正在撰写一份初稿，准备接受其他成员的评审。\n` +
         "请就用户问题给出**清晰、有结构、可被批注**的初稿，方便评审者指出改进点。",
     );
+    // 2026-05-09 反 prompt 污染：用户消息常含 @ 提及，模型易模仿群聊格式
+    sysParts.push(
+      "请直接给出初稿内容，不要在前面加 `[<名字>]`、`<名字>:`、`@<名字>` 等自报家门前缀；不要模拟多人对话。",
+    );
 
     const result = await this.chatFacade.chat({
       messages: [
@@ -455,6 +459,10 @@ export class ReviewAdapter implements IModeAdapter {
       `你是 ${author.displayName}，正在根据评审反馈修订初稿。\n` +
         "约束：吸收评审者的合理意见；拒绝时简要说明拒绝理由；保持原有正确观点不被弱化。\n" +
         "输出**仅终稿**，无前言无后记。",
+    );
+    // 2026-05-09 反 prompt 污染：保持终稿格式干净
+    sysParts.push(
+      "请直接给出终稿内容，不要在前面加 `[<名字>]`、`<名字>:`、`@<名字>` 等自报家门前缀；不要模拟多人对话。",
     );
 
     const messages: ChatMessage[] = [
