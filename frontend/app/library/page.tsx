@@ -153,6 +153,19 @@ const TeamKnowledgeBaseTab = dynamicImport(
   }
 );
 
+// ★ v1.5.3 Wiki tab placeholder (Library 主形态)
+const WikiTabPlaceholder = dynamicImport(
+  () => import('@/components/library/wiki/WikiTabPlaceholder'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-purple-600"></div>
+      </div>
+    ),
+  }
+);
+
 const DataSourcesTab = dynamicImport(
   () => import('@/components/library/data-sources/DataSourcesTab'),
   {
@@ -217,10 +230,11 @@ function LibraryPageContent() {
 
   // 简化后的4个主TAB：数据源、个人知识库、团队知识库、知识图谱
   const [activeTab, setActiveTab] = useState<
-    'personal-kb' | 'team-kb' | 'data-sources' | 'graph'
+    'wiki' | 'personal-kb' | 'team-kb' | 'data-sources' | 'graph'
   >(() => {
     // Initialize from URL parameter if present
     if (
+      tabParam === 'wiki' ||
       tabParam === 'personal-kb' ||
       tabParam === 'team-kb' ||
       tabParam === 'data-sources' ||
@@ -238,7 +252,8 @@ function LibraryPageContent() {
     ) {
       return 'data-sources';
     }
-    return 'data-sources'; // Default to data sources
+    // ★ v1.5.3: Library 默认 tab 由 'data-sources' 改为 'wiki'（Wiki 主形态升级）
+    return 'wiki';
   });
 
   // 数据源的初始子TAB（根据URL参数）
@@ -260,6 +275,7 @@ function LibraryPageContent() {
   // Update activeTab when URL parameter changes
   useEffect(() => {
     if (
+      tabParam === 'wiki' ||
       tabParam === 'personal-kb' ||
       tabParam === 'team-kb' ||
       tabParam === 'data-sources' ||
@@ -1690,7 +1706,13 @@ function LibraryPageContent() {
   };
 
   // Library 主 Tab 配置（与 LibraryTabs 共用）
+  // ★ v1.5.3: Wiki 升级为 Library 主形态，置首位且默认 active（详见 llm-wiki §7.1）
   const libraryTabs: LibraryTabItem[] = [
+    {
+      id: 'wiki',
+      label: t('library.wiki.title') || 'Wiki',
+      icon: BookOpen,
+    },
     {
       id: 'personal-kb',
       label: t('knowledgeBase.personalKb'),
@@ -1726,7 +1748,9 @@ function LibraryPageContent() {
           tabs={libraryTabs}
           activeTab={activeTab}
           onChange={(id) =>
-            setActiveTab(id as 'personal-kb' | 'team-kb' | 'data-sources')
+            setActiveTab(
+              id as 'wiki' | 'personal-kb' | 'team-kb' | 'data-sources'
+            )
           }
         />
 
@@ -1750,6 +1774,9 @@ function LibraryPageContent() {
                 activeTab={currentDataSourceSubTab}
               />
             )}
+
+          {/* ★ v1.5.3 Wiki Tab (主形态) — Library 默认 tab */}
+          {activeTab === 'wiki' && <WikiTabPlaceholder />}
 
           {/* Personal Knowledge Base Tab */}
           {activeTab === 'personal-kb' && (
