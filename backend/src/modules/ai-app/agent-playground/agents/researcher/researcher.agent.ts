@@ -125,16 +125,44 @@ const Output = z.object({
   //   - pubmed 不带 -search 后缀（历史命名）
   //   - industry-report-search / social-x-search 是新沉淀的 BaseTool 包装
   //     （原 TI SearchAdapter 不在 ToolRegistry，playground 调不到）
+  // 2026-05-09 真因修复：prompt 里被点名引导的工具必须全部进白名单。
+  // 之前缺 web-scraper/web-search/data-fetch → ToolInvoker not_in_whitelist →
+  // RUNNER_OUTPUT_SCHEMA_MISMATCH 自愈死循环（screenshot 47，5m58s/26.5k tokens 烧零产出）。
+  // 全量审计后另发现 8 处遗漏：knowledge-graph / federal-register / congress-gov /
+  // whitehouse-news / github-search / hackernews-search / file-parser / finance-api。
+  //
+  // ★ 扩展规约：以后新增工具/数据源只要打算 researcher 调用，必须同时在两处声明：
+  //   1) 这个数组（白名单）
+  //   2) buildSystem() 里 "Tool selection" 段落的 use-case hint（让 LLM 自然选）
+  // 缺一个 LLM 就废一半（要么调不到，要么不知道何时调）。
   tools: [
+    // === 检索 / 知识库 ===
     "rag-search",
+    "knowledge-graph",
+    // === 学术 ===
     "arxiv-search",
     "openalex-search",
     "semantic-scholar",
     "pubmed",
-    "industry-report-search",
+    // === 政策 ===
+    "federal-register",
+    "congress-gov",
+    "whitehouse-news",
+    // === 社区 / 代码 ===
+    "github-search",
+    "hackernews-search",
     "social-x-search",
+    // === 行业研报 / 财经数据（持续扩展类，向 a16z/McKinsey/SemiAnalysis/Gartner... 加源） ===
+    "industry-report-search",
+    "finance-api",
+    // === 招聘 / 视频 ===
     "job-search",
     "youtube-search",
+    // === 通用 web + 抽取 ===
+    "web-search",
+    "web-scraper",
+    "data-fetch",
+    "file-parser",
   ],
   // PR-X-skill-bridge: dimension-research 协议 + web-research 工具使用规范
   skills: ["dimension-research", "web-research"],
@@ -226,7 +254,10 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       `- 学术/科研性质 → academic 类（arxiv / openalex / pubmed / semantic-scholar 等）`,
       `- 政策/法规 → policy 类（federal-register / congress-gov / whitehouse-news 等）`,
       `- 代码/开源 → community 类（github-search / hackernews-search 等）`,
-      `- 通用网页 → web-search / web-scraper / data-fetch`,
+      `- **商业 / 市场 / 竞品 / 行业趋势 / 战略分析 → industry-report-search**（精选 a16z / McKinsey / BCG / SemiAnalysis / Gartner / Forrester / Stratechery / Brookings 等 18 家高质量研报源，比通用 web-search 信噪比高 5-10×；商战/产业/赛道分析 dim 必首选）`,
+      `- **财经 / 宏观 / 估值 / 财报数据 → finance-api**（结构化金融数据，比 web-search 抓 PDF 表格更准）`,
+      `- 招聘 / 人才动向 → job-search；视频佐证 → youtube-search；社媒舆情 → social-x-search`,
+      `- 通用网页 → web-search / web-scraper / data-fetch（fallback，前述类目都不命中再用）`,
       ``,
       `## Workflow (efficient, do NOT iterate beyond what's needed)`,
       `1. **如果 catalog 中有 rag-search 类**: 1 query 看内部知识够不够。`,
