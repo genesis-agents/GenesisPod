@@ -433,4 +433,186 @@ describe("StructuralReportAssembler", () => {
       expect(r.factTable).toEqual(facts);
     });
   });
+
+  describe("buildQuickView 结构化数据派生（PR-quickview-parity）", () => {
+    it("无 quickViewData 时 5 组数组兜底为空，前端卡片短路", () => {
+      const r = defaultStructuralReportAssembler.assemble(buildSegments());
+      expect(r.quickView.topHighlights).toEqual([]);
+      expect(r.quickView.topTrends).toEqual([]);
+      expect(r.quickView.keyRisks).toEqual([]);
+      expect(r.quickView.topRecommendations).toEqual([]);
+      expect(r.quickView.whatYouWillLearn).toEqual([]);
+      expect(r.quickView.riskMatrix).toEqual([]);
+      expect(r.quickView.keyFindingsByDimension).toEqual([]);
+      expect(r.quickView.recommendationsByAudience).toBeUndefined();
+    });
+
+    it("keyFindingsByDimension 透传 + 派生 topHighlights（带 sourceDimensionId）", () => {
+      const r = defaultStructuralReportAssembler.assemble(
+        buildSegments({
+          quickViewData: {
+            keyFindingsByDimension: [
+              {
+                dimensionName: "维度1",
+                findings: [
+                  { finding: "发现 A", significance: "high" },
+                  { finding: "发现 B", significance: "low" },
+                ],
+              },
+              {
+                dimensionName: "维度2",
+                findings: [{ finding: "发现 C", significance: "medium" }],
+              },
+            ],
+          },
+        }),
+      );
+      expect(r.quickView.keyFindingsByDimension).toHaveLength(2);
+      expect(r.quickView.keyFindingsByDimension[0].dimensionId).toBe("d1");
+      expect(r.quickView.keyFindingsByDimension[0].findings).toHaveLength(2);
+      // topHighlights 派生：3 条 finding
+      expect(r.quickView.topHighlights).toHaveLength(3);
+      expect(r.quickView.topHighlights[0].type).toBe("finding");
+      expect(r.quickView.topHighlights[0].sourceDimensionId).toBe("d1");
+      expect(r.quickView.topHighlights[2].sourceDimensionId).toBe("d2");
+    });
+
+    it("keyFindingsByDimension 缺失时从 insights[] 兜底派生 topHighlights", () => {
+      const r = defaultStructuralReportAssembler.assemble(
+        buildSegments({
+          quickViewData: {
+            insights: [
+              {
+                headline: "洞察 1",
+                narrative: "解释 1",
+                supportingDimensions: ["维度2"],
+                confidence: 0.8,
+              },
+              {
+                headline: "洞察 2",
+                narrative: "解释 2",
+                supportingDimensions: ["维度1", "维度3"],
+                confidence: 0.7,
+              },
+            ],
+          },
+        }),
+      );
+      expect(r.quickView.keyFindingsByDimension).toEqual([]);
+      expect(r.quickView.topHighlights).toHaveLength(2);
+      expect(r.quickView.topHighlights[0].sourceDimensionId).toBe("d2");
+      expect(r.quickView.topHighlights[1].sourceDimensionId).toBe("d1");
+    });
+
+    it("trendsByDimension 展平为 topTrends，保留 direction + timeframe", () => {
+      const r = defaultStructuralReportAssembler.assemble(
+        buildSegments({
+          quickViewData: {
+            trendsByDimension: [
+              {
+                dimensionName: "维度1",
+                trends: [
+                  {
+                    trend: "趋势 A",
+                    direction: "increasing",
+                    timeframe: "12个月",
+                  },
+                  {
+                    trend: "趋势 B",
+                    direction: "emerging",
+                    timeframe: "未来 3 年",
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+      );
+      expect(r.quickView.topTrends).toHaveLength(2);
+      expect(r.quickView.topTrends[0].direction).toBe("increasing");
+      expect(r.quickView.topTrends[0].timeframe).toBe("12个月");
+      expect(r.quickView.topTrends[0].sourceDimensionId).toBe("d1");
+      expect(r.quickView.topTrends[1].direction).toBe("emerging");
+    });
+
+    it("riskMatrix 直透 + 派生扁平 keyRisks（带 prob/impact/timeframe 描述）", () => {
+      const r = defaultStructuralReportAssembler.assemble(
+        buildSegments({
+          quickViewData: {
+            riskMatrix: [
+              {
+                riskType: "市场风险",
+                probability: "高",
+                impact: "中",
+                timeframe: "6-12个月",
+              },
+              {
+                riskType: "合规风险",
+                probability: "低",
+                impact: "高",
+                timeframe: "12-24个月",
+              },
+            ],
+          },
+        }),
+      );
+      expect(r.quickView.riskMatrix).toHaveLength(2);
+      expect(r.quickView.riskMatrix[0].probability).toBe("高");
+      expect(r.quickView.keyRisks).toHaveLength(2);
+      expect(r.quickView.keyRisks[0].title).toBe("市场风险");
+      expect(r.quickView.keyRisks[0].description).toContain("概率 高");
+      expect(r.quickView.keyRisks[0].description).toContain("影响 中");
+      expect(r.quickView.keyRisks[0].description).toContain("6-12个月");
+    });
+
+    it("recommendationsByAudience 直透 + 派生 topRecommendations（按受众×时间窗口）", () => {
+      const r = defaultStructuralReportAssembler.assemble(
+        buildSegments({
+          quickViewData: {
+            recommendationsByAudience: {
+              forEnterprise: {
+                shortTerm: ["企业短期 1", "企业短期 2", "企业短期 3"],
+                midTerm: ["企业中期 1", "企业中期 2"],
+              },
+              forInvestors: {
+                shortTerm: ["投资者短期 1"],
+                midTerm: ["投资者中期 1"],
+              },
+            },
+          },
+        }),
+      );
+      expect(r.quickView.recommendationsByAudience).toEqual({
+        forEnterprise: expect.objectContaining({
+          shortTerm: expect.arrayContaining(["企业短期 1"]),
+        }),
+        forInvestors: expect.any(Object),
+      });
+      // topRecommendations: 企业 (2 short + 1 mid) + 投资者 (1 short + 1 mid) = 5 条
+      expect(r.quickView.topRecommendations).toHaveLength(5);
+      expect(r.quickView.topRecommendations[0]).toEqual({
+        title: "企业·短期",
+        description: "企业短期 1",
+      });
+      expect(r.quickView.topRecommendations[3]).toEqual({
+        title: "投资者·短期",
+        description: "投资者短期 1",
+      });
+    });
+
+    it("whatYouWillLearn 直接透传", () => {
+      const r = defaultStructuralReportAssembler.assemble(
+        buildSegments({
+          quickViewData: {
+            whatYouWillLearn: ["要点 1", "要点 2", "要点 3"],
+          },
+        }),
+      );
+      expect(r.quickView.whatYouWillLearn).toEqual([
+        "要点 1",
+        "要点 2",
+        "要点 3",
+      ]);
+    });
+  });
 });

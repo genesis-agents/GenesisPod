@@ -187,4 +187,74 @@ describe("extractReportSegments", () => {
     });
     expect(r.qualityInputs).toEqual({ verifierScores: {}, warnings: [] });
   });
+
+  it("analyst 5 组结构化 quickView 字段 → segments.quickViewData 透传", () => {
+    const r = extractReportSegments({
+      plan: { themeSummary: "TS", dimensions: [] },
+      analystOutput: {
+        themeSummary: "exec",
+        keyFindingsByDimension: [
+          {
+            dimensionName: "维度1",
+            findings: [{ finding: "发现 X", significance: "high" }],
+          },
+        ],
+        trendsByDimension: [
+          {
+            dimensionName: "维度2",
+            trends: [
+              { trend: "趋势 Y", direction: "stable", timeframe: "12个月" },
+            ],
+          },
+        ],
+        riskMatrix: [
+          {
+            riskType: "技术风险",
+            probability: "中",
+            impact: "高",
+            timeframe: "6个月",
+          },
+        ],
+        recommendationsByAudience: {
+          forEnterprise: { shortTerm: ["s1"], midTerm: ["m1"] },
+          forInvestors: { shortTerm: ["si1"], midTerm: ["mi1"] },
+        },
+        whatYouWillLearn: ["要点 A", "要点 B"],
+        insights: [
+          {
+            headline: "h",
+            narrative: "n",
+            supportingDimensions: ["维度1"],
+            confidence: 0.8,
+          },
+        ],
+      },
+      metadata: baseMetadata,
+    });
+    expect(r.quickViewData?.keyFindingsByDimension).toHaveLength(1);
+    expect(r.quickViewData?.trendsByDimension?.[0].trends[0].direction).toBe(
+      "stable",
+    );
+    expect(r.quickViewData?.riskMatrix?.[0].probability).toBe("中");
+    expect(r.quickViewData?.recommendationsByAudience?.forInvestors).toEqual({
+      shortTerm: ["si1"],
+      midTerm: ["mi1"],
+    });
+    expect(r.quickViewData?.whatYouWillLearn).toEqual(["要点 A", "要点 B"]);
+    expect(r.quickViewData?.insights).toHaveLength(1);
+  });
+
+  it("analyst 缺所有结构化字段 → quickViewData 仍存在但内部字段全 undefined", () => {
+    const r = extractReportSegments({
+      plan: { themeSummary: "TS", dimensions: [] },
+      analystOutput: { themeSummary: "exec" },
+      metadata: baseMetadata,
+    });
+    expect(r.quickViewData).toBeDefined();
+    expect(r.quickViewData?.keyFindingsByDimension).toBeUndefined();
+    expect(r.quickViewData?.trendsByDimension).toBeUndefined();
+    expect(r.quickViewData?.riskMatrix).toBeUndefined();
+    expect(r.quickViewData?.recommendationsByAudience).toBeUndefined();
+    expect(r.quickViewData?.whatYouWillLearn).toBeUndefined();
+  });
 });
