@@ -2,8 +2,8 @@
 
 > 多模型对话 + RAG 知识库问答 + 工具调用能力
 
-**最后更新**: 2026-01-15
-**版本**: v1.0
+**最后更新**: 2026-05-09
+**版本**: v1.1
 **状态**: 生产环境
 
 > **扩展设计**：[Teams 模式设计方案 v0.2](./teams-mode.md)（多 AI 群聊 / 辩论 / 投票 / 评审 / handoff，集体评审通过）— [评审纪要](./teams-mode-review.md) · [ADR-004](../../../decisions/004-ai-ask-teams-mode.md)
@@ -437,6 +437,15 @@ if (message.ragSources) {
 ---
 
 ## 更新日志
+
+### v1.1 (2026-05-09)
+
+- Teams 模式集成（多 AI 群聊 / 并行合并 / 辩论 / 投票 / 评审 / handoff）
+- 6 种协作模式 adapter（FREECHAT / PARALLEL_MERGE / DEBATE / VOTE / REVIEW / HANDOFF）
+- 房间持久化（AskRoomMember 软删 + AskRoomTurn）
+- 流式 socket.io 推送（`/ai-ask-room` namespace，11 个 server event）
+- 工具栏「团队」按钮入口；`/ai-ask/rooms/...` 房间页面
+- 详见 [Teams 模式 v1.0 Release Notes](./teams-mode-release-notes.md)
 
 ### v1.0 (2026-01-15)
 

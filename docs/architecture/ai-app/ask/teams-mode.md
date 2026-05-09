@@ -2,13 +2,16 @@
 
 > 在 AI Ask 内引入「Teams 模式」：单会话内拉入多个 AI 成员，支持自由群聊 / 并行合并 / 辩论 / 投票 / 评审 / handoff，全部基于 ai-harness 与 ai-engine 既有能力。
 
-**最后更新**：2026-05-08
-**版本**：v0.2（集体评审收敛）
-**状态**：待实施
+**最后更新**：2026-05-09
+**版本**：v1.0（已交付）
+**状态**：生产环境
 **关联 ADR**：[004-ai-ask-teams-mode.md](../../../decisions/004-ai-ask-teams-mode.md)
-**评审纪要**：[teams-mode-review.md](./teams-mode-review.md)
-**对应代码区域**：`backend/src/modules/ai-app/ask/`、`backend/src/modules/ai-harness/`、`backend/src/modules/ai-engine/`
+**评审纪要**：[v1](./teams-mode-review.md) · [v2](./teams-mode-review-v2.md) · [v3](./teams-mode-review-v3.md) · [v4](./teams-mode-review-v4.md) · [v5](./teams-mode-review-v5.md) · [v6](./teams-mode-review-v6.md)
+**Release Notes**：[teams-mode-release-notes.md](./teams-mode-release-notes.md)
+**对应代码区域**：`backend/src/modules/ai-app/ask/`、`backend/src/modules/ai-harness/`、`backend/src/modules/ai-engine/`、`frontend/components/ai-ask/room/`
 
+> v1.0 交付（vs v0.2 设计）：6 mode adapter 全部落地（FREECHAT / PARALLEL_MERGE / DEBATE / VOTE / REVIEW / HANDOFF）；房间 CRUD + socket.io 流式（11 server event）；前端工具栏入口 + 房间页面 MVP；E2E smoke + 性能基线。详见 v6 评审收敛（8.5/10）与 release notes。
+>
 > v0.2 变更要点（vs v0.1）：所有 ID 改 `uuid()`；`triggerMessageId` / `parentMessageId` 补 FK；`AskRoomMember` 改软删 + 加 `memberType`；流式协议加 `sequenceNum` 与 `messageId` 生成时机；socket.io namespace 显式声明 `/ai-ask-room`；新增 `ProcessMemory` / `Review` 表迁移；工期 14d → 17.5d；PR1/PR2 串行依赖明示。
 
 ---
