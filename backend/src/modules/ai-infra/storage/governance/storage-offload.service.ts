@@ -5,6 +5,8 @@
  * - topic_reports.full_report → `<consumer-report>s/{id}/v{version}.md`
  * - dimension_analyses.data_points → `dimension-analyses/{id}/data_points.json`
  * - research_tasks.result → `research-tasks/{id}/result.json`
+ * - knowledge_base_documents.raw_content → `kb-documents/{id}/raw.txt`
+ *   （仅 status=COMPLETED 行：避免 chunking pipeline 还在用 raw_content 时被搬走）
  *
  * 处理逻辑（每个表独立）：
  * 1. 扫 {uri} IS NULL AND {content} IS NOT NULL AND len > 2KB 的行
@@ -27,7 +29,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, KnowledgeBaseStatus } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../runtime/r2-storage.service";
 
@@ -204,6 +206,50 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
         },
         keyFor: (id) => `research-tasks/${id}/result.json`,
         contentType: "application/json; charset=utf-8",
+      },
+      {
+        // 2026-05-09: KBDocument.raw_content off-load
+        // 仅扫已完成 chunking 的行（status=READY），防止 PENDING/PROCESSING/UPDATING
+        // 状态下 chunking pipeline 还在读 raw_content 时被搬走 → hydrate 回填
+        // 是 cross-process round-trip，并发场景慢于直读 DB。
+        // ERROR 状态也 skip：admin 可能重试，需要原文。
+        name: "knowledge_base_documents.raw_content",
+        list: async (p, take) => {
+          const rows = await p.knowledgeBaseDocument.findMany({
+            where: {
+              rawContentUri: null,
+              status: KnowledgeBaseStatus.READY,
+              NOT: { rawContent: "" },
+            },
+            select: {
+              id: true,
+              rawContent: true,
+              rawContentUri: true,
+            },
+            take,
+          });
+          return rows.map((r) => ({
+            id: r.id,
+            content: r.rawContent ?? "",
+          }));
+        },
+        commit: async (p, id, uri, size) => {
+          // raw SQL 同时清 raw_content + 写 uri/size，避免 hydrate 拦截 update
+          await p.$executeRawUnsafe(
+            `UPDATE knowledge_base_documents SET raw_content='', raw_content_uri=$1, raw_content_size=$2 WHERE id=$3`,
+            uri,
+            size,
+            id,
+          );
+        },
+        recordSmall: async (p, id, size) => {
+          await p.knowledgeBaseDocument.update({
+            where: { id },
+            data: { rawContentSize: size },
+          });
+        },
+        keyFor: (id) => `kb-documents/${id}/raw.txt`,
+        contentType: "text/plain; charset=utf-8",
       },
     ];
   }

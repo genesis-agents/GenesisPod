@@ -4201,7 +4201,13 @@ model KnowledgeBaseDocument {
   mimeType   String? @map("mime_type")
 
   // Content
-  rawContent String @map("raw_content") @db.Text
+  // rawContent: 写时落 DB；status=COMPLETED 后由 StorageOffloadService 搬到 R2，
+  // 落 R2 后 DB 列置 ""，rawContentUri 写入 key（"kb-documents/{id}/raw.txt"）。
+  // 读路径走 PrismaService.installKnowledgeBaseDocumentHydration 透明回填。
+  // 调用方 select rawContent 必须同时 select rawContentUri（hydrate 守卫会警告）。
+  rawContent     String  @map("raw_content") @db.Text
+  rawContentUri  String? @map("raw_content_uri")
+  rawContentSize Int?    @map("raw_content_size")
 
   // Processing status
   status      KnowledgeBaseStatus @default(PENDING)

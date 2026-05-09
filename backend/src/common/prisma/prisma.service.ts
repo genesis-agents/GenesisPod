@@ -343,6 +343,12 @@ export class PrismaService
     await this.hydrateJsonField(row, "resultUri", "result");
   }
 
+  private async hydrateKnowledgeBaseDocumentRow(
+    row: Record<string, unknown> | null | undefined,
+  ): Promise<void> {
+    await this.hydrateRowField(row, "rawContentUri", "rawContent");
+  }
+
   /**
    * 用 $extends 的 query 钩子拦截 topicReport 所有 find 操作，
    * 把扩展后的 topicReport model 替换回 this.topicReport 属性。
@@ -391,6 +397,9 @@ export class PrismaService
     const hydrateResearchTask = makeHydrator((r) =>
       this.hydrateResearchTaskRow(r),
     );
+    const hydrateKbDocument = makeHydrator((r) =>
+      this.hydrateKnowledgeBaseDocumentRow(r),
+    );
 
     const extended = this.$extends({
       query: {
@@ -426,6 +435,14 @@ export class PrismaService
             return result;
           },
         },
+        knowledgeBaseDocument: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          async $allOperations({ operation, args, query }: any) {
+            const result = await query(args);
+            if (isFindOp(operation)) await hydrateKbDocument(result);
+            return result;
+          },
+        },
       },
     });
 
@@ -445,6 +462,7 @@ export class PrismaService
       "dimensionAnalysis",
       "topicEvidence",
       "researchTask",
+      "knowledgeBaseDocument",
     ] as const) {
       Object.defineProperty(this, modelKey, {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -455,7 +473,7 @@ export class PrismaService
     }
 
     this.logger.log(
-      `[Prisma] hydration installed for topicReport / dimensionAnalysis / topicEvidence / researchTask (bucket=${this.objectStorage?.bucket ?? "lazy"})`,
+      `[Prisma] hydration installed for topicReport / dimensionAnalysis / topicEvidence / researchTask / knowledgeBaseDocument (bucket=${this.objectStorage?.bucket ?? "lazy"})`,
     );
   }
 

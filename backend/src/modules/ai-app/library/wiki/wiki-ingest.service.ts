@@ -64,7 +64,14 @@ export class WikiIngestService {
     // Load + validate documents (must belong to this KB).
     const documents = await this.prisma.knowledgeBaseDocument.findMany({
       where: { id: { in: documentIds }, knowledgeBaseId },
-      select: { id: true, title: true, rawContent: true },
+      // rawContentUri 必须同 select：off-load 后 rawContent 列为 ""，
+      // PrismaService hydrate hook 用 rawContentUri 透明回填 R2 内容。
+      select: {
+        id: true,
+        title: true,
+        rawContent: true,
+        rawContentUri: true,
+      },
     });
     if (documents.length !== documentIds.length) {
       throw new NotFoundException(

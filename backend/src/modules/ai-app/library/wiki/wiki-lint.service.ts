@@ -160,7 +160,8 @@ export class WikiLintService {
             quote: true,
             spanStart: true,
             spanEnd: true,
-            document: { select: { rawContent: true } },
+            // rawContentUri 必须同 select 让 hydrate hook 能回填 off-load 后的内容
+            document: { select: { rawContent: true, rawContentUri: true } },
           },
           take: 5,
         },
@@ -374,7 +375,7 @@ export class WikiLintService {
           quote: string;
           spanStart: number;
           spanEnd: number;
-          document: { rawContent: string | null };
+          document: { rawContent: string | null; rawContentUri: string | null };
         }>;
       }
     >,
