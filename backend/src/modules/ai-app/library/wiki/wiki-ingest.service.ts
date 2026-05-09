@@ -120,7 +120,7 @@ export class WikiIngestService {
     const systemPrompt = this.buildSystemPrompt();
     const userPrompt = this.buildUserPrompt(currentIndex, wrappedDocs);
 
-    let llmResponse;
+    let llmResponse: Awaited<ReturnType<typeof this.chat.chat>>;
     try {
       // Use semantic TaskProfile per .claude/rules/ai-engine.md — never hardcode
       // model/temperature/maxTokens. deterministic+long fits structured JSON
@@ -156,6 +156,7 @@ export class WikiIngestService {
     // rejecting the whole diff). Mutates the parsed JSON in place; zod runs
     // after to enforce the rest of the shape.
     let droppedSources = 0;
+    let totalSourcesSeen = 0;
     if (rawItems && typeof rawItems === "object" && !Array.isArray(rawItems)) {
       const obj = rawItems as Record<string, unknown>;
       const filterArr = (arr: unknown[]) => {
@@ -163,6 +164,7 @@ export class WikiIngestService {
           if (it && typeof it === "object" && "sources" in it) {
             const sources = (it as { sources?: unknown }).sources;
             if (Array.isArray(sources)) {
+              totalSourcesSeen += sources.length;
               const kept = sources.filter((s) => {
                 if (!s || typeof s !== "object") return false;
                 const id = (s as { documentId?: unknown }).documentId;
@@ -178,6 +180,19 @@ export class WikiIngestService {
       };
       if (Array.isArray(obj.creates)) filterArr(obj.creates);
       if (Array.isArray(obj.updates)) filterArr(obj.updates);
+    }
+
+    // If the LLM tried to cite at all but every single citation was
+    // hallucinated, the diff has zero provenance — refuse it rather than
+    // silently persist evidence-less changes (per v1.5.3 §11.1 sources are
+    // evidence). Items that legitimately cite zero sources are still allowed.
+    if (totalSourcesSeen > 0 && droppedSources === totalSourcesSeen) {
+      this.logger.warn(
+        `[ingest] kb=${knowledgeBaseId} rejecting diff: 100% of ${totalSourcesSeen} sources had unknown documentId`,
+      );
+      throw new BadRequestException(
+        "LLM ingest produced no valid source citations; please retry",
+      );
     }
 
     const validated = WikiDiffItemsSchema.safeParse(rawItems);

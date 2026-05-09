@@ -340,6 +340,145 @@
       "other": "Other Resources"
     },
     "loadingGraph": "Loading knowledge graph...",
+    "wiki": {
+      "subheader": {
+        "ingest": "Ingest",
+        "lint": "Lint",
+        "query": "Query",
+        "log": "Log",
+        "graph": "Graph",
+        "export": "Export",
+        "settings": "Settings"
+      },
+      "graph": {
+        "title": "Wiki graph",
+        "subtitle": "{{nodes}} nodes · {{edges}} [[slug]] references",
+        "empty": "No pages in this wiki yet — graph cannot be rendered.",
+        "hint": "Hover to highlight neighbors, click a node to open that page"
+      },
+      "kbSelector": {
+        "selectKb": "Select knowledge base",
+        "switchTo": "Switch knowledge base",
+        "noWikiKb": "No wiki-enabled knowledge bases",
+        "enableOther": "Enable wiki for another KB",
+        "pageCount": "{{count}} pages",
+        "pageCountOne": "{{count}} page",
+        "pageCountOther": "{{count}} pages",
+        "lastIngest": "last ingest {{time}}"
+      },
+      "empty": {
+        "welcome": "Welcome to Wiki",
+        "notEnabled": "Wiki not enabled",
+        "intro": "Wiki continuously compiles uploaded raw documents into markdown entity / concept / summary pages, cross-linked via [[slug]] references.",
+        "enableForKb": "Enable wiki for a knowledge base",
+        "refreshList": "Refresh list",
+        "roleHint": "Enabling wiki requires OWNER or ADMIN role on the KB.",
+        "noPagesTitle": "No wiki pages yet",
+        "noPagesDesc": "Trigger an Ingest from this KB's documents — the LLM will compile them into wiki proposals for your review. Or create the first page manually.",
+        "runIngest": "Run Ingest",
+        "manualCreate": "Create the first page"
+      },
+      "reader": {
+        "selectFromLeft": "Select a page on the left to view",
+        "lastEditedBy": "Last edited by {{by}} · {{time}}",
+        "backlinks": "Backlinks ({{count}})"
+      },
+      "query": {
+        "title": "Ask Wiki",
+        "subtitle": "Answers grounded in indexed wiki pages (inline + RAG)",
+        "close": "Close",
+        "askAnything": "Ask anything about this wiki.",
+        "placeholder": "Ask this wiki...",
+        "ask": "Ask",
+        "queryFailed": "Query failed: {{message}}",
+        "unknownError": "Unknown error"
+      },
+      "export": {
+        "noPagesToExport": "This wiki has no pages to export",
+        "exportFailed": "Export failed: {{message}}"
+      },
+      "create": {
+        "title": "Create wiki page manually",
+        "slugLabel": "Slug (kebab-case, 2-200 chars)",
+        "titleLabel": "Title",
+        "categoryLabel": "Category",
+        "oneLinerLabel": "One-liner (≤280 chars)",
+        "bodyLabel": "Body (Markdown, supports [[slug]] cross-links)",
+        "cancel": "Cancel",
+        "create": "Create",
+        "createFailed": "Create failed",
+        "category": {
+          "entity": "ENTITY",
+          "concept": "CONCEPT",
+          "summary": "SUMMARY",
+          "source": "SOURCE"
+        }
+      },
+      "settings": {
+        "title": "Wiki settings",
+        "subtitle": "Control ingest token budget, inline boundaries, and auto-lint cadence",
+        "inlinePageCountLabel": "Inline page count cap (query-A path, 1-5000)",
+        "inlineTokenBudgetLabel": "Inline token budget (10,000 - 5,000,000)",
+        "ingestMaxTokensLabel": "Ingest max tokens (1,000 - 500,000)",
+        "cronLintDailyBudgetLabel": "Auto-lint daily call cap (0-5000)",
+        "cronLintEnabled": "Enable daily auto-lint",
+        "cancel": "Cancel",
+        "save": "Save",
+        "loadFailed": "Failed to load settings",
+        "saveFailed": "Save failed"
+      },
+      "diff": {
+        "title": "Wiki proposal review",
+        "totalItems": "{{count}} items · status {{status}}",
+        "baselineMismatch": "⚠ Wiki was modified by someone else; this proposal is stale. Please re-run Ingest.",
+        "deletedPreview": "(will be deleted)",
+        "dismissAll": "Dismiss all",
+        "applyFailed": "Apply failed; check connectivity or return to main view and retry",
+        "apply": "Apply",
+        "applyWithCount": "Apply ({{count}})"
+      },
+      "lint": {
+        "emptyForCategory": "No unresolved findings in this category",
+        "runFullLint": "Run full lint (5 categories)",
+        "resolve": "Resolve",
+        "dismiss": "Dismiss"
+      },
+      "log": {
+        "loadFailed": "Failed to load operation log",
+        "loading": "Loading…",
+        "totalOps": "{{count}} operations",
+        "refresh": "Refresh",
+        "empty": "No operation records yet. Ingest / Lint / Edit / Revert events will appear here.",
+        "system": "System"
+      },
+      "ingest": {
+        "title": "Select documents to ingest",
+        "subtitle": "The LLM will compile selected documents into wiki proposals for your review.",
+        "noDocs": "This knowledge base has no documents yet. Please upload via the Data Sources tab first.",
+        "selectedCount": "{{selected}} / {{total}} selected",
+        "cancel": "Cancel",
+        "run": "Run Ingest",
+        "loadFailed": "Failed to load documents",
+        "ingestFailed": "Ingest failed"
+      },
+      "enable": {
+        "failed": "Failed to enable Wiki — please verify you have access to this knowledge base",
+        "title": "Enable Wiki for a knowledge base",
+        "subtitle": "Select a knowledge base to enable Wiki — requires OWNER or ADMIN role.",
+        "noKbsForUser": "You don't have any knowledge bases yet. Please create one in the Personal or Team KB tab first.",
+        "allEnabled": "All knowledge bases already have Wiki enabled.",
+        "kbTypeTeam": "Team KB",
+        "kbTypePersonal": "Personal KB",
+        "enableButton": "Enable Wiki",
+        "footnote": "Enabling will create a WikiKnowledgeBaseConfig row with defaults (inlinePageCount=200 / ingestMaxTokens=80000). EDITOR / VIEWER attempts will be rejected by the server."
+      },
+      "time": {
+        "justNow": "just now",
+        "minutesAgo": "{{minutes}}m ago",
+        "hoursAgo": "{{hours}}h ago",
+        "daysAgo": "{{days}}d ago"
+      }
+    },
     "rag": {
       "status": {
         "title": "RAG Service Status",

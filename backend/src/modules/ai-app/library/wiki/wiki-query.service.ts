@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { WikiPage, WikiPageCategory } from "@prisma/client";
+import { AIModelType, WikiPage, WikiPageCategory } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../rag/services/knowledge-base.service";
 import { AiChatService } from "../../../ai-engine/facade";
@@ -173,6 +173,11 @@ export class WikiQueryService {
     const llmResult = await this.chat.chat({
       systemPrompt,
       messages: this.buildMessages(request, userPrompt),
+      modelType: AIModelType.CHAT,
+      taskProfile: {
+        creativity: "low",
+        outputLength: "medium",
+      },
       responseFormat: "json_object",
       operationName: "library-wiki-query-inline",
       userId,

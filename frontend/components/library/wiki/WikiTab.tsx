@@ -36,6 +36,7 @@ import {
   GitMerge,
   Loader2,
   MessageCircle,
+  Network,
   PencilLine,
   Plus,
   RefreshCw,
@@ -60,6 +61,21 @@ import {
   type WikiQueryResponse,
 } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
+import { useTranslation } from '@/lib/i18n';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+
+// Extend the default sanitizer to allow our internal `wikilink:` scheme on
+// anchor href attributes — without this, rehype-sanitize strips the href and
+// our [[slug]] click handler never fires (silent break).
+const WIKI_SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  protocols: {
+    ...(defaultSchema.protocols ?? {}),
+    href: [...(defaultSchema.protocols?.href ?? []), 'wikilink'],
+  },
+};
 
 // ─── localStorage key helpers (per §7.1 §11 v1.5.x cross-user isolation) ───
 
@@ -167,6 +183,7 @@ interface UrlState {
   diffId: string | null;
   lintOpen: boolean;
   logOpen: boolean;
+  graphOpen: boolean;
 }
 
 function readUrlState(searchParams: URLSearchParams): UrlState {
@@ -181,6 +198,7 @@ function readUrlState(searchParams: URLSearchParams): UrlState {
       !diffId &&
       searchParams.get('log') === '1' &&
       searchParams.get('lint') !== '1',
+    graphOpen: !diffId && searchParams.get('graph') === '1',
   };
 }
 
@@ -197,6 +215,7 @@ interface WikiTabProps {
 }
 
 export default function WikiTab({ userHash }: WikiTabProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlState = readUrlState(
@@ -214,6 +233,9 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   const [createPageOpen, setCreatePageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Bumped after diff apply / page create so the reader re-fetches its list
+  // and active body without requiring a manual browser refresh.
+  const [readerRefreshTick, setReaderRefreshTick] = useState(0);
 
   // Persist resolved kbId to URL + localStorage for back/forward & refresh
   useEffect(() => {
@@ -289,6 +311,15 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           params.set('log', '1');
           params.delete('lint');
           params.delete('diff');
+          params.delete('graph');
+          router.replace(`/library?${params.toString()}`);
+        }}
+        onGraph={() => {
+          const params = new URLSearchParams(searchParams?.toString() ?? '');
+          params.set('graph', '1');
+          params.delete('lint');
+          params.delete('log');
+          params.delete('diff');
           router.replace(`/library?${params.toString()}`);
         }}
         onExport={() => {
@@ -296,7 +327,8 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           setExporting(true);
           void exportWikiAsMarkdown(
             kbId,
-            kbs.find((kb) => kb.id === kbId)?.name ?? 'wiki'
+            kbs.find((kb) => kb.id === kbId)?.name ?? 'wiki',
+            t
           ).finally(() => setExporting(false));
         }}
         exporting={exporting}
@@ -307,6 +339,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
         <WikiPageReader
           kbId={kbId}
           activeSlug={urlState.pageSlug}
+          refreshKey={readerRefreshTick}
           onSelectSlug={(slug) => {
             const params = new URLSearchParams(searchParams?.toString() ?? '');
             params.set('page', slug);
@@ -321,6 +354,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
         <WikiDiffReviewModal
           kbId={kbId}
           diffId={urlState.diffId}
+          onApplied={() => setReaderRefreshTick((n) => n + 1)}
           onClose={() => {
             const params = new URLSearchParams(searchParams?.toString() ?? '');
             params.delete('diff');
@@ -351,6 +385,23 @@ export default function WikiTab({ userHash }: WikiTabProps) {
         />
       )}
 
+      {urlState.graphOpen && (
+        <WikiGraphModal
+          kbId={kbId}
+          onClose={() => {
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.delete('graph');
+            router.replace(`/library?${params.toString()}`);
+          }}
+          onSelectSlug={(slug) => {
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.delete('graph');
+            params.set('page', slug);
+            router.replace(`/library?${params.toString()}`);
+          }}
+        />
+      )}
+
       {ingestOpen && (
         <IngestPickerModal
           kbId={kbId}
@@ -374,6 +425,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           onClose={() => setCreatePageOpen(false)}
           onCreated={(slug) => {
             setCreatePageOpen(false);
+            setReaderRefreshTick((n) => n + 1);
             const params = new URLSearchParams(searchParams?.toString() ?? '');
             params.set('page', slug);
             router.replace(`/library?${params.toString()}`);
@@ -414,6 +466,7 @@ interface WikiSubHeaderProps {
   onLint: () => void;
   onQuery: () => void;
   onLog: () => void;
+  onGraph: () => void;
   onExport: () => void;
   exporting?: boolean;
   onSettings: () => void;
@@ -428,10 +481,12 @@ function WikiSubHeader({
   onLint,
   onQuery,
   onLog,
+  onGraph,
   onExport,
   exporting,
   onSettings,
 }: WikiSubHeaderProps) {
+  const { t } = useTranslation();
   const current = kbs.find((kb) => kb.id === currentKbId);
   const [open, setOpen] = useState(false);
 
@@ -444,15 +499,15 @@ function WikiSubHeader({
           className="flex items-center gap-2 rounded-md px-3 py-1.5 hover:bg-gray-100"
         >
           <span className="font-medium text-gray-900">
-            {current?.name ?? '选择知识库'}
+            {current?.name ?? t('library.wiki.kbSelector.selectKb')}
           </span>
           <span className="text-xs text-gray-500">▾</span>
         </button>
         {current && (
           <span className="text-xs text-gray-500">
-            · {current.pageCount} 页
+            · {pluralizePages(t, current.pageCount)}
             {current.lastIngestAt
-              ? ` · 上次 ingest ${formatRelativeTime(current.lastIngestAt)}`
+              ? ` · ${t('library.wiki.kbSelector.lastIngest', { time: formatRelativeTime(current.lastIngestAt, t) })}`
               : ''}
           </span>
         )}
@@ -465,12 +520,12 @@ function WikiSubHeader({
             />
             <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
               <div className="border-b border-gray-100 px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-                切换到知识库
+                {t('library.wiki.kbSelector.switchTo')}
               </div>
               <div className="max-h-80 overflow-y-auto py-1">
                 {kbs.length === 0 ? (
                   <div className="px-3 py-3 text-sm text-gray-500">
-                    暂无启用 Wiki 的知识库
+                    {t('library.wiki.kbSelector.noWikiKb')}
                   </div>
                 ) : (
                   kbs.map((kb) => (
@@ -488,7 +543,7 @@ function WikiSubHeader({
                     >
                       <span className="truncate">{kb.name}</span>
                       <span className="ml-3 shrink-0 text-xs text-gray-500">
-                        {kb.pageCount} 页
+                        {pluralizePages(t, kb.pageCount)}
                       </span>
                     </button>
                   ))
@@ -503,7 +558,7 @@ function WikiSubHeader({
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-violet-700 hover:bg-violet-50"
                 >
                   <Plus className="h-4 w-4" />
-                  启用其他知识库的 Wiki
+                  {t('library.wiki.kbSelector.enableOther')}
                 </button>
               </div>
             </div>
@@ -513,19 +568,22 @@ function WikiSubHeader({
 
       <div className="flex items-center gap-2">
         <ToolButton icon={<Plus className="h-4 w-4" />} onClick={onIngest}>
-          Ingest
+          {t('library.wiki.subheader.ingest')}
         </ToolButton>
         <ToolButton icon={<GitMerge className="h-4 w-4" />} onClick={onLint}>
-          Lint
+          {t('library.wiki.subheader.lint')}
         </ToolButton>
         <ToolButton
           icon={<MessageCircle className="h-4 w-4" />}
           onClick={onQuery}
         >
-          Query
+          {t('library.wiki.subheader.query')}
         </ToolButton>
         <ToolButton icon={<RefreshCw className="h-4 w-4" />} onClick={onLog}>
-          Log
+          {t('library.wiki.subheader.log')}
+        </ToolButton>
+        <ToolButton icon={<Network className="h-4 w-4" />} onClick={onGraph}>
+          {t('library.wiki.subheader.graph')}
         </ToolButton>
         <ToolButton
           icon={
@@ -537,12 +595,12 @@ function WikiSubHeader({
           }
           onClick={onExport}
         >
-          Export
+          {t('library.wiki.subheader.export')}
         </ToolButton>
         <button
           onClick={onSettings}
           className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          title="Settings"
+          title={t('library.wiki.subheader.settings')}
         >
           <Settings className="h-4 w-4" />
         </button>
@@ -576,6 +634,7 @@ function ToolButton({
 interface WikiPageReaderProps {
   kbId: string;
   activeSlug: string | null;
+  refreshKey?: number;
   onSelectSlug: (slug: string) => void;
   onIngest?: () => void;
   onCreatePage?: () => void;
@@ -584,10 +643,12 @@ interface WikiPageReaderProps {
 function WikiPageReader({
   kbId,
   activeSlug,
+  refreshKey = 0,
   onSelectSlug,
   onIngest,
   onCreatePage,
 }: WikiPageReaderProps) {
+  const { t } = useTranslation();
   const [pages, setPages] = useState<WikiPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<WikiPageWithLinks | null>(null);
@@ -612,7 +673,7 @@ function WikiPageReader({
     return () => {
       cancelled = true;
     };
-  }, [kbId]);
+  }, [kbId, refreshKey]);
 
   useEffect(() => {
     if (!activeSlug) {
@@ -636,7 +697,7 @@ function WikiPageReader({
     return () => {
       cancelled = true;
     };
-  }, [kbId, activeSlug]);
+  }, [kbId, activeSlug, refreshKey]);
 
   if (loading) {
     return (
@@ -713,7 +774,9 @@ function WikiPageReader({
             onSelectSlug={onSelectSlug}
           />
         ) : (
-          <div className="text-sm text-gray-500">从左侧选择一页查看</div>
+          <div className="text-sm text-gray-500">
+            {t('library.wiki.reader.selectFromLeft')}
+          </div>
         )}
       </main>
     </div>
@@ -727,15 +790,20 @@ function WikiMarkdownView({
   pageWithLinks: WikiPageWithLinks;
   onSelectSlug: (slug: string) => void;
 }) {
+  const { t } = useTranslation();
   const { page, outboundLinks, backlinks } = pageWithLinks;
+  const knownSlugs = useMemo(() => new Set(outboundLinks), [outboundLinks]);
 
-  // [[slug]] → clickable chips. Strip script/iframe defensively (frontend
-  // also runs rehype-sanitize via existing markdown components — we keep
-  // a minimal text-level renderer here to avoid pulling rehype into the
-  // initial integration).
-  const rendered = useMemo(
-    () => renderMarkdownWithWikiLinks(page.body, outboundLinks, onSelectSlug),
-    [page.body, outboundLinks, onSelectSlug]
+  // Convert [[slug]] markers to standard markdown links with a sentinel
+  // wikilink: scheme so the ReactMarkdown anchor renderer can intercept and
+  // route them through onSelectSlug.
+  const preprocessed = useMemo(
+    () =>
+      page.body.replace(
+        /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g,
+        (_m, slug) => `[${slug}](wikilink:${slug})`
+      ),
+    [page.body]
   );
 
   return (
@@ -747,15 +815,67 @@ function WikiMarkdownView({
         <h1 className="text-2xl font-semibold text-gray-900">{page.title}</h1>
         <p className="mt-2 text-sm text-gray-600">{page.oneLiner}</p>
         <p className="mt-1 text-xs text-gray-400">
-          Last edited by {page.lastEditedBy.toLowerCase()} ·{' '}
-          {formatRelativeTime(page.updatedAt)}
+          {t('library.wiki.reader.lastEditedBy', {
+            by: (page.lastEditedBy ?? '').toLowerCase() || '—',
+            time: formatRelativeTime(page.updatedAt, t),
+          })}
         </p>
       </header>
-      <div className="prose prose-sm max-w-none text-gray-800">{rendered}</div>
+      <div className="prose prose-sm max-w-none text-gray-800">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[[rehypeSanitize, WIKI_SANITIZE_SCHEMA]]}
+          // Allowlist: pass wikilink:slug (own scheme), http(s)/mailto/tel,
+          // and relative/anchor URLs through; everything else (incl.
+          // javascript:, data:) returns '' so the anchor renders without
+          // href. rehype-sanitize is also applied as defense in depth.
+          urlTransform={(url) => {
+            if (typeof url !== 'string') return '';
+            if (url.startsWith('wikilink:')) return url;
+            if (/^(https?|mailto|tel):/i.test(url)) return url;
+            if (url.startsWith('/') || url.startsWith('#')) return url;
+            return '';
+          }}
+          components={{
+            a({ href, children, ...rest }) {
+              if (typeof href === 'string' && href.startsWith('wikilink:')) {
+                const slug = href.slice('wikilink:'.length);
+                const exists = knownSlugs.has(slug);
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onSelectSlug(slug)}
+                    className={
+                      exists
+                        ? 'rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 no-underline hover:bg-violet-100'
+                        : 'rounded border border-dashed border-red-300 px-1.5 py-0.5 text-red-600 no-underline hover:bg-red-50'
+                    }
+                    title={exists ? `Open ${slug}` : `Create ${slug} (missing)`}
+                  >
+                    {children}
+                  </button>
+                );
+              }
+              return (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  {...rest}
+                >
+                  {children}
+                </a>
+              );
+            },
+          }}
+        >
+          {preprocessed}
+        </ReactMarkdown>
+      </div>
       {backlinks.length > 0 && (
         <section className="mt-8 border-t border-gray-200 pt-4">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Backlinks ({backlinks.length})
+            {t('library.wiki.reader.backlinks', { count: backlinks.length })}
           </div>
           <div className="flex flex-wrap gap-2">
             {backlinks.map((slug) => (
@@ -774,78 +894,6 @@ function WikiMarkdownView({
   );
 }
 
-function renderMarkdownWithWikiLinks(
-  body: string,
-  outboundLinks: string[],
-  onSelectSlug: (slug: string) => void
-): React.ReactNode {
-  // Minimal renderer — preserves paragraphs and turns [[slug]] into chips.
-  // Full rehype-based markdown (with code blocks, tables, etc) is the next
-  // P3a sub-iteration. For initial integration, paragraphs + headings +
-  // wiki-links + line breaks cover the practical 80%.
-  const lines = body.split(/\n\n+/);
-  const linkSet = new Set(outboundLinks);
-  return lines.map((para, idx) => {
-    if (para.startsWith('## ')) {
-      return (
-        <h2 key={idx} className="mb-2 mt-6 text-lg font-semibold text-gray-900">
-          {para.slice(3)}
-        </h2>
-      );
-    }
-    if (para.startsWith('# ')) {
-      return (
-        <h1 key={idx} className="mb-2 mt-6 text-xl font-semibold text-gray-900">
-          {para.slice(2)}
-        </h1>
-      );
-    }
-    return (
-      <p key={idx} className="mb-3 leading-7">
-        {renderInline(para, linkSet, onSelectSlug)}
-      </p>
-    );
-  });
-}
-
-function renderInline(
-  text: string,
-  knownSlugs: Set<string>,
-  onSelectSlug: (slug: string) => void
-): React.ReactNode[] {
-  const parts: React.ReactNode[] = [];
-  const re = /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g;
-  let lastIdx = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-  while ((match = re.exec(text)) !== null) {
-    if (match.index > lastIdx) {
-      parts.push(text.slice(lastIdx, match.index));
-    }
-    const slug = match[1];
-    const exists = knownSlugs.has(slug);
-    parts.push(
-      <button
-        key={`link-${key++}`}
-        onClick={() => onSelectSlug(slug)}
-        className={
-          exists
-            ? 'rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 hover:bg-violet-100'
-            : 'rounded border border-dashed border-red-300 px-1.5 py-0.5 text-red-600 hover:bg-red-50'
-        }
-        title={exists ? `Open ${slug}` : `Create ${slug} (missing)`}
-      >
-        {slug}
-      </button>
-    );
-    lastIdx = re.lastIndex;
-  }
-  if (lastIdx < text.length) {
-    parts.push(text.slice(lastIdx));
-  }
-  return parts;
-}
-
 // ─── Empty state (§7.5 three-state funnel) ───
 
 function WikiEmptyState({
@@ -857,41 +905,43 @@ function WikiEmptyState({
   onRefresh: () => void;
   onEnable: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-500 text-white">
         <BookOpen className="h-8 w-8" />
       </div>
       <h1 className="mt-6 text-2xl font-semibold text-gray-900">
-        {kind === 'no-kb' ? '欢迎使用 Wiki' : '尚未启用 Wiki'}
+        {kind === 'no-kb'
+          ? t('library.wiki.empty.welcome')
+          : t('library.wiki.empty.notEnabled')}
       </h1>
       <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-gray-600">
-        Wiki 把上传的原始文档持续编译为 markdown 形式的实体页 / 概念页 /
-        总结页，跨页通过 <code>[[slug]]</code> 引用相互连接。
+        {t('library.wiki.empty.intro')}
       </p>
       <div className="mt-8 flex items-center justify-center gap-3">
         <button
           onClick={onEnable}
           className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
         >
-          为知识库启用 Wiki
+          {t('library.wiki.empty.enableForKb')}
         </button>
         <button
           onClick={onRefresh}
           className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
-          刷新列表
+          {t('library.wiki.empty.refreshList')}
         </button>
       </div>
       <p className="mt-6 text-xs text-gray-500">
-        启用 Wiki 需要 KB 的 OWNER 或 ADMIN 角色。
+        {t('library.wiki.empty.roleHint')}
       </p>
     </div>
   );
 }
 
 function ZeroPageGuide({
-  kbId,
+  kbId: _kbId,
   onIngest,
   onCreatePage,
 }: {
@@ -899,37 +949,32 @@ function ZeroPageGuide({
   onIngest?: () => void;
   onCreatePage?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white">
         <Sparkles className="h-7 w-7" />
       </div>
       <h2 className="mt-6 text-xl font-semibold text-gray-900">
-        Wiki 还没有页面
+        {t('library.wiki.empty.noPagesTitle')}
       </h2>
       <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-600">
-        从这个 KB 的文档触发一次 Ingest，LLM 会把内容编译成 wiki
-        提议供你逐项审阅。或者手动创建第一页。
+        {t('library.wiki.empty.noPagesDesc')}
       </p>
       <div className="mt-8 flex items-center justify-center gap-3">
         <button
-          onClick={
-            onIngest ??
-            (() =>
-              alert(
-                `Ingest picker 在 P3a 后续上线（kbId=${kbId.slice(0, 8)}…）`
-              ))
-          }
-          className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700"
+          onClick={onIngest}
+          disabled={!onIngest}
+          className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
         >
-          运行 Ingest
+          {t('library.wiki.empty.runIngest')}
         </button>
         <button
           onClick={onCreatePage}
           disabled={!onCreatePage}
           className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
-          手动创建第一页
+          {t('library.wiki.empty.manualCreate')}
         </button>
       </div>
     </div>
@@ -951,6 +996,7 @@ function WikiQueryPanel({
   kbId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [question, setQuestion] = useState('');
   const [history, setHistory] = useState<QueryMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -984,8 +1030,12 @@ function WikiQueryPanel({
         ...h,
         {
           role: 'assistant',
-          content:
-            '查询失败：' + (err instanceof Error ? err.message : '未知错误'),
+          content: t('library.wiki.query.queryFailed', {
+            message:
+              err instanceof Error
+                ? err.message
+                : t('library.wiki.query.unknownError'),
+          }),
         },
       ]);
     } finally {
@@ -997,15 +1047,17 @@ function WikiQueryPanel({
     <div className="fixed inset-y-0 right-0 z-50 flex w-[420px] flex-col border-l border-gray-200 bg-white shadow-xl">
       <header className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">询问 Wiki</h3>
+          <h3 className="text-sm font-semibold text-gray-900">
+            {t('library.wiki.query.title')}
+          </h3>
           <p className="text-xs text-gray-500">
-            基于已索引的 wiki 页内容（inline + RAG）回答
+            {t('library.wiki.query.subtitle')}
           </p>
         </div>
         <button
           onClick={onClose}
           className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          aria-label="关闭"
+          aria-label={t('library.wiki.query.close')}
         >
           <X className="h-4 w-4" />
         </button>
@@ -1014,7 +1066,7 @@ function WikiQueryPanel({
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {history.length === 0 && (
           <p className="mt-12 text-center text-sm text-gray-500">
-            问问这个 wiki 里的任何问题。
+            {t('library.wiki.query.askAnything')}
           </p>
         )}
         {history.map((m, i) => (
@@ -1071,7 +1123,7 @@ function WikiQueryPanel({
               void ask();
             }
           }}
-          placeholder="问问这个 wiki..."
+          placeholder={t('library.wiki.query.placeholder')}
           disabled={loading}
           className="flex-1 rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
         />
@@ -1080,7 +1132,7 @@ function WikiQueryPanel({
           disabled={loading || !question.trim()}
           className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
         >
-          问
+          {t('library.wiki.query.ask')}
         </button>
       </footer>
     </div>
@@ -1091,13 +1143,14 @@ function WikiQueryPanel({
 
 async function exportWikiAsMarkdown(
   kbId: string,
-  kbName: string
+  kbName: string,
+  t: (key: string, params?: Record<string, string | number>) => string
 ): Promise<void> {
   try {
     const list = await wikiApi.listPages(kbId, undefined, 1000);
     const pages = list.items;
     if (pages.length === 0) {
-      alert('当前 wiki 没有页面可以导出');
+      alert(t('library.wiki.export.noPagesToExport'));
       return;
     }
     // 按 category 分组（SUMMARY → ENTITY → CONCEPT → SOURCE）
@@ -1149,7 +1202,14 @@ async function exportWikiAsMarkdown(
     URL.revokeObjectURL(url);
   } catch (err) {
     logger?.error?.('[wiki] export failed', err);
-    alert('导出失败：' + (err instanceof Error ? err.message : '未知错误'));
+    alert(
+      t('library.wiki.export.exportFailed', {
+        message:
+          err instanceof Error
+            ? err.message
+            : t('library.wiki.query.unknownError'),
+      })
+    );
   }
 }
 
@@ -1164,6 +1224,7 @@ function CreateWikiPageModal({
   onClose: () => void;
   onCreated: (slug: string) => void;
 }) {
+  const { t } = useTranslation();
   const [slug, setSlug] = useState('');
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<WikiPageCategory>('CONCEPT');
@@ -1195,7 +1256,11 @@ function CreateWikiPageModal({
       onCreated(result.page.slug);
     } catch (err) {
       logger?.error?.('[wiki] createPage failed', err);
-      setError(err instanceof Error ? err.message : '创建失败');
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('library.wiki.create.createFailed')
+      );
       setSubmitting(false);
     }
   };
@@ -1205,18 +1270,18 @@ function CreateWikiPageModal({
       <div className="flex max-h-[90vh] w-[640px] flex-col rounded-lg bg-white shadow-xl">
         <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <h3 className="text-base font-semibold text-gray-900">
-            手动创建 Wiki 页面
+            {t('library.wiki.create.title')}
           </h3>
           <button
             onClick={onClose}
             className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            aria-label="关闭"
+            aria-label={t('library.wiki.query.close')}
           >
             <X className="h-4 w-4" />
           </button>
         </header>
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-          <Field label="Slug (kebab-case，2-200 字符)">
+          <Field label={t('library.wiki.create.slugLabel')}>
             <input
               type="text"
               value={slug}
@@ -1225,7 +1290,7 @@ function CreateWikiPageModal({
               className="font-mono w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
             />
           </Field>
-          <Field label="标题">
+          <Field label={t('library.wiki.create.titleLabel')}>
             <input
               type="text"
               value={title}
@@ -1234,19 +1299,27 @@ function CreateWikiPageModal({
               className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
             />
           </Field>
-          <Field label="分类">
+          <Field label={t('library.wiki.create.categoryLabel')}>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value as WikiPageCategory)}
               className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
             >
-              <option value="ENTITY">ENTITY 实体</option>
-              <option value="CONCEPT">CONCEPT 概念</option>
-              <option value="SUMMARY">SUMMARY 总结</option>
-              <option value="SOURCE">SOURCE 来源</option>
+              <option value="ENTITY">
+                {t('library.wiki.create.category.entity')}
+              </option>
+              <option value="CONCEPT">
+                {t('library.wiki.create.category.concept')}
+              </option>
+              <option value="SUMMARY">
+                {t('library.wiki.create.category.summary')}
+              </option>
+              <option value="SOURCE">
+                {t('library.wiki.create.category.source')}
+              </option>
             </select>
           </Field>
-          <Field label="一句话描述（≤280 字符）">
+          <Field label={t('library.wiki.create.oneLinerLabel')}>
             <input
               type="text"
               value={oneLiner}
@@ -1255,7 +1328,7 @@ function CreateWikiPageModal({
               className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
             />
           </Field>
-          <Field label="正文（Markdown，支持 [[slug]] 互链）">
+          <Field label={t('library.wiki.create.bodyLabel')}>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
@@ -1275,7 +1348,7 @@ function CreateWikiPageModal({
             disabled={submitting}
             className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            取消
+            {t('library.wiki.create.cancel')}
           </button>
           <button
             onClick={() => void submit()}
@@ -1283,7 +1356,7 @@ function CreateWikiPageModal({
             className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            创建
+            {t('library.wiki.create.create')}
           </button>
         </footer>
       </div>
@@ -1317,6 +1390,7 @@ function WikiSettingsModal({
   kbId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<WikiKbConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1333,7 +1407,7 @@ function WikiSettingsModal({
       })
       .catch((err) => {
         logger?.error?.('[wiki] getConfig failed', err);
-        if (!cancelled) setError('加载设置失败');
+        if (!cancelled) setError(t('library.wiki.settings.loadFailed'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -1341,7 +1415,7 @@ function WikiSettingsModal({
     return () => {
       cancelled = true;
     };
-  }, [kbId]);
+  }, [kbId, t]);
 
   const save = async () => {
     if (!config || saving) return;
@@ -1359,7 +1433,11 @@ function WikiSettingsModal({
       onClose();
     } catch (err) {
       logger?.error?.('[wiki] updateConfig failed', err);
-      setError(err instanceof Error ? err.message : '保存失败');
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('library.wiki.settings.saveFailed')
+      );
       setSaving(false);
     }
   };
@@ -1369,15 +1447,17 @@ function WikiSettingsModal({
       <div className="flex max-h-[90vh] w-[560px] flex-col rounded-lg bg-white shadow-xl">
         <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Wiki 设置</h3>
+            <h3 className="text-base font-semibold text-gray-900">
+              {t('library.wiki.settings.title')}
+            </h3>
             <p className="text-xs text-gray-500">
-              控制 ingest token 预算、inline 边界、自动 lint 节奏
+              {t('library.wiki.settings.subtitle')}
             </p>
           </div>
           <button
             onClick={onClose}
             className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            aria-label="关闭"
+            aria-label={t('library.wiki.query.close')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -1390,7 +1470,7 @@ function WikiSettingsModal({
           )}
           {!loading && config && (
             <>
-              <Field label="Inline 页数上限（query A 路径页数 1-5000）">
+              <Field label={t('library.wiki.settings.inlinePageCountLabel')}>
                 <input
                   type="number"
                   min={1}
@@ -1405,7 +1485,7 @@ function WikiSettingsModal({
                   className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
                 />
               </Field>
-              <Field label="Inline token 预算（10,000 - 5,000,000）">
+              <Field label={t('library.wiki.settings.inlineTokenBudgetLabel')}>
                 <input
                   type="number"
                   min={10000}
@@ -1421,7 +1501,7 @@ function WikiSettingsModal({
                   className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
                 />
               </Field>
-              <Field label="Ingest 最大 token（1,000 - 500,000）">
+              <Field label={t('library.wiki.settings.ingestMaxTokensLabel')}>
                 <input
                   type="number"
                   min={1000}
@@ -1437,7 +1517,9 @@ function WikiSettingsModal({
                   className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
                 />
               </Field>
-              <Field label="自动 Lint 每日调用上限（0-5000）">
+              <Field
+                label={t('library.wiki.settings.cronLintDailyBudgetLabel')}
+              >
                 <input
                   type="number"
                   min={0}
@@ -1463,7 +1545,7 @@ function WikiSettingsModal({
                     })
                   }
                 />
-                启用每日自动 Lint
+                {t('library.wiki.settings.cronLintEnabled')}
               </label>
             </>
           )}
@@ -1479,7 +1561,7 @@ function WikiSettingsModal({
             disabled={saving}
             className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            取消
+            {t('library.wiki.settings.cancel')}
           </button>
           <button
             onClick={() => void save()}
@@ -1487,7 +1569,7 @@ function WikiSettingsModal({
             className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-            保存
+            {t('library.wiki.settings.save')}
           </button>
         </footer>
       </div>
@@ -1501,11 +1583,14 @@ function WikiDiffReviewModal({
   kbId,
   diffId,
   onClose,
+  onApplied,
 }: {
   kbId: string;
   diffId: string;
   onClose: () => void;
+  onApplied?: () => void;
 }) {
+  const { t } = useTranslation();
   const [diff, setDiff] = useState<WikiDiff | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -1545,11 +1630,14 @@ function WikiDiffReviewModal({
         <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              Wiki 提议审阅
+              {t('library.wiki.diff.title')}
             </h2>
             {diff && (
               <p className="text-xs text-gray-500">
-                共 {diff.affectedSlugs.length} 项 · 状态 {diff.status}
+                {t('library.wiki.diff.totalItems', {
+                  count: diff.affectedSlugs.length,
+                  status: diff.status,
+                })}
               </p>
             )}
           </div>
@@ -1562,7 +1650,7 @@ function WikiDiffReviewModal({
         </header>
         {conflicted && (
           <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-800">
-            ⚠ Wiki 已被他人改动，本提议失效。请重跑 Ingest。
+            {t('library.wiki.diff.baselineMismatch')}
           </div>
         )}
         <main className="flex-1 overflow-y-auto px-6 py-4">
@@ -1599,7 +1687,7 @@ function WikiDiffReviewModal({
                   slug={s}
                   selected={selected.has(s)}
                   onToggle={() => toggle(selected, setSelected, s)}
-                  preview="(将被删除)"
+                  preview={t('library.wiki.diff.deletedPreview')}
                   meta=""
                 />
               ))}
@@ -1620,7 +1708,7 @@ function WikiDiffReviewModal({
             }}
             className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
-            全部撤销
+            {t('library.wiki.diff.dismissAll')}
           </button>
           <button
             disabled={applying || conflicted || selected.size === 0}
@@ -1634,10 +1722,11 @@ function WikiDiffReviewModal({
                   'apply',
                   Array.from(selected)
                 );
+                onApplied?.();
                 onClose();
               } catch (err) {
                 logger?.error?.('[wiki] apply diff failed', err);
-                alert('应用失败，请检查网络或返回主视图重试');
+                alert(t('library.wiki.diff.applyFailed'));
               } finally {
                 setApplying(false);
               }
@@ -1645,7 +1734,9 @@ function WikiDiffReviewModal({
             className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
           >
             {applying && <Loader2 className="h-4 w-4 animate-spin" />}
-            应用 {selected.size > 0 ? `(${selected.size})` : ''}
+            {selected.size > 0
+              ? t('library.wiki.diff.applyWithCount', { count: selected.size })
+              : t('library.wiki.diff.apply')}
           </button>
         </footer>
       </div>
@@ -1721,9 +1812,11 @@ function WikiLintDrawer({
   kbId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<WikiLintTypeStr>('CONTRADICTION');
   const [findings, setFindings] = useState<WikiLintFinding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -1737,7 +1830,7 @@ function WikiLintDrawer({
   useEffect(refresh, [refresh]);
 
   return (
-    <DrawerShell title="Lint" onClose={onClose}>
+    <DrawerShell title={t('library.wiki.subheader.lint')} onClose={onClose}>
       <div className="flex flex-wrap gap-1 border-b border-gray-200 px-4 py-2">
         {(
           [
@@ -1747,17 +1840,17 @@ function WikiLintDrawer({
             'MISSING_XREF',
             'DATA_GAP',
           ] as const
-        ).map((t) => (
+        ).map((tabKey) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            onClick={() => setTab(tabKey)}
             className={`rounded px-2.5 py-1 text-xs font-medium ${
-              tab === t
+              tab === tabKey
                 ? 'bg-violet-100 text-violet-800'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            {t}
+            {tabKey}
           </button>
         ))}
       </div>
@@ -1766,7 +1859,7 @@ function WikiLintDrawer({
           <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
         ) : findings.length === 0 ? (
           <div className="py-8 text-center text-sm text-gray-500">
-            该类别下暂无未解决的发现
+            {t('library.wiki.lint.emptyForCategory')}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -1783,22 +1876,24 @@ function WikiLintDrawer({
                     </pre>
                     <div className="mt-2 flex gap-2">
                       <button
-                        onClick={async () => {
-                          await wikiApi.patchLintFinding(kbId, f.id, 'resolve');
-                          refresh();
-                        }}
+                        onClick={() =>
+                          void wikiApi
+                            .patchLintFinding(kbId, f.id, 'resolve')
+                            .then(refresh)
+                        }
                         className="rounded bg-violet-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-violet-700"
                       >
-                        Resolve
+                        {t('library.wiki.lint.resolve')}
                       </button>
                       <button
-                        onClick={async () => {
-                          await wikiApi.patchLintFinding(kbId, f.id, 'dismiss');
-                          refresh();
-                        }}
+                        onClick={() =>
+                          void wikiApi
+                            .patchLintFinding(kbId, f.id, 'dismiss')
+                            .then(refresh)
+                        }
                         className="rounded border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        Dismiss
+                        {t('library.wiki.lint.dismiss')}
                       </button>
                     </div>
                   </div>
@@ -1810,13 +1905,23 @@ function WikiLintDrawer({
       </div>
       <div className="border-t border-gray-200 px-4 py-2">
         <button
+          disabled={running}
           onClick={async () => {
-            await wikiApi.runLint(kbId);
-            refresh();
+            if (running) return;
+            setRunning(true);
+            try {
+              await wikiApi.runLint(kbId);
+              refresh();
+            } catch (err) {
+              logger?.error?.('[wiki] runLint failed', err);
+            } finally {
+              setRunning(false);
+            }
           }}
-          className="w-full rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-60"
         >
-          运行完整 Lint（5 类）
+          {running && <Loader2 className="h-4 w-4 animate-spin" />}
+          {t('library.wiki.lint.runFullLint')}
         </button>
       </div>
     </DrawerShell>
@@ -1830,6 +1935,7 @@ function WikiLogDrawer({
   kbId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<WikiOperationLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1842,22 +1948,26 @@ function WikiLogDrawer({
       .then((res) => setItems(res.items))
       .catch((err) => {
         logger?.error?.('[wiki] listOperations failed', err);
-        setError('加载操作日志失败');
+        setError(t('library.wiki.log.loadFailed'));
       })
       .finally(() => setLoading(false));
-  }, [kbId]);
+  }, [kbId, t]);
 
   useEffect(refresh, [refresh]);
 
   return (
-    <DrawerShell title="Log" onClose={onClose}>
+    <DrawerShell title={t('library.wiki.subheader.log')} onClose={onClose}>
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 text-xs text-gray-500">
-        <span>{loading ? '加载中…' : `共 ${items.length} 条操作`}</span>
+        <span>
+          {loading
+            ? t('library.wiki.log.loading')
+            : t('library.wiki.log.totalOps', { count: items.length })}
+        </span>
         <button
           onClick={refresh}
           disabled={loading}
           className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
-          title="刷新"
+          title={t('library.wiki.log.refresh')}
         >
           <RefreshCw
             className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
@@ -1869,7 +1979,7 @@ function WikiLogDrawer({
           <div className="py-8 text-center text-sm text-red-600">{error}</div>
         ) : !loading && items.length === 0 ? (
           <div className="py-8 text-center text-sm text-gray-500">
-            暂无操作记录。Ingest / Lint / Edit / Revert 后会在此展示。
+            {t('library.wiki.log.empty')}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -1884,6 +1994,7 @@ function WikiLogDrawer({
 }
 
 function WikiLogCard({ item }: { item: WikiOperationLogEntry }) {
+  const { t } = useTranslation();
   const palette = OP_PALETTE[item.op];
   const Icon = palette.icon;
   return (
@@ -1907,7 +2018,8 @@ function WikiLogCard({ item }: { item: WikiOperationLogEntry }) {
             </span>
           </div>
           <div className="mt-0.5 text-xs text-gray-500">
-            {item.actorName ?? '系统'} · {formatRelativeTime(item.createdAt)}
+            {item.actorName ?? t('library.wiki.log.system')} ·{' '}
+            {formatRelativeTime(item.createdAt, t)}
           </div>
           {item.affectedSlugs.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
@@ -1987,19 +2099,264 @@ function DrawerShell({
   );
 }
 
+// ─── Graph view (slug nodes + [[slug]] edges, concentric layout) ───
+
+const GRAPH_CATEGORY_COLORS: Record<WikiPageCategory, string> = {
+  SUMMARY: '#a855f7',
+  ENTITY: '#0ea5e9',
+  CONCEPT: '#22c55e',
+  SOURCE: '#f59e0b',
+};
+
+function WikiGraphModal({
+  kbId,
+  onClose,
+  onSelectSlug,
+}: {
+  kbId: string;
+  onClose: () => void;
+  onSelectSlug: (slug: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [pages, setPages] = useState<WikiPage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hover, setHover] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    wikiApi
+      .listPages(kbId, undefined, 1000)
+      .then((res) => {
+        if (!cancelled) setPages(res.items);
+      })
+      .catch((err) => logger?.error?.('[wiki] graph listPages failed', err))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kbId]);
+
+  // Parse [[slug]] markers from each page body to build the edge list.
+  const { nodes, edges } = useMemo(() => {
+    const slugSet = new Set(pages.map((p) => p.slug));
+    const linkRe = /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g;
+    type Edge = { source: string; target: string };
+    const edgeList: Edge[] = [];
+    for (const p of pages) {
+      const body = p.body ?? '';
+      const seen = new Set<string>();
+      let m: RegExpExecArray | null;
+      while ((m = linkRe.exec(body)) !== null) {
+        const target = m[1];
+        if (target === p.slug || seen.has(target)) continue;
+        if (!slugSet.has(target)) continue;
+        seen.add(target);
+        edgeList.push({ source: p.slug, target });
+      }
+    }
+    return { nodes: pages, edges: edgeList };
+  }, [pages]);
+
+  // Concentric layout: SUMMARY in inner ring, ENTITY/CONCEPT mid, SOURCE outer.
+  const layout = useMemo(() => {
+    const ringOrder: WikiPageCategory[] = [
+      'SUMMARY',
+      'ENTITY',
+      'CONCEPT',
+      'SOURCE',
+    ];
+    const ringRadii: Record<WikiPageCategory, number> = {
+      SUMMARY: 90,
+      ENTITY: 200,
+      CONCEPT: 320,
+      SOURCE: 430,
+    };
+    const grouped: Record<WikiPageCategory, WikiPage[]> = {
+      SUMMARY: [],
+      ENTITY: [],
+      CONCEPT: [],
+      SOURCE: [],
+    };
+    for (const p of nodes) grouped[p.category].push(p);
+    const positions = new Map<string, { x: number; y: number }>();
+    for (const cat of ringOrder) {
+      const items = grouped[cat];
+      const r = ringRadii[cat];
+      const n = items.length;
+      items.forEach((p, i) => {
+        const theta =
+          n === 1 ? -Math.PI / 2 : (i / n) * Math.PI * 2 - Math.PI / 2;
+        positions.set(p.slug, {
+          x: r * Math.cos(theta),
+          y: r * Math.sin(theta),
+        });
+      });
+    }
+    return positions;
+  }, [nodes]);
+
+  const adjacency = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const e of edges) {
+      if (!map.has(e.source)) map.set(e.source, new Set());
+      if (!map.has(e.target)) map.set(e.target, new Set());
+      map.get(e.source)!.add(e.target);
+      map.get(e.target)!.add(e.source);
+    }
+    return map;
+  }, [edges]);
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
+      <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('library.wiki.graph.title')}
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              {t('library.wiki.graph.subtitle', {
+                nodes: nodes.length,
+                edges: edges.length,
+              })}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+        <main className="relative flex-1 overflow-hidden bg-gray-50">
+          {loading ? (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+            </div>
+          ) : nodes.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-sm text-gray-500">
+              {t('library.wiki.graph.empty')}
+            </div>
+          ) : (
+            <svg
+              viewBox="-520 -520 1040 1040"
+              className="h-full w-full"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              {edges.map((e, i) => {
+                const a = layout.get(e.source);
+                const b = layout.get(e.target);
+                if (!a || !b) return null;
+                const highlighted =
+                  hover != null && (e.source === hover || e.target === hover);
+                return (
+                  <line
+                    key={i}
+                    x1={a.x}
+                    y1={a.y}
+                    x2={b.x}
+                    y2={b.y}
+                    stroke={highlighted ? '#7c3aed' : '#cbd5e1'}
+                    strokeWidth={highlighted ? 1.4 : 0.6}
+                    opacity={highlighted ? 0.95 : hover ? 0.2 : 0.6}
+                  />
+                );
+              })}
+              {nodes.map((p) => {
+                const pos = layout.get(p.slug);
+                if (!pos) return null;
+                const highlighted =
+                  hover === p.slug ||
+                  (hover != null && adjacency.get(hover)?.has(p.slug));
+                const dimmed = hover != null && !highlighted;
+                return (
+                  <g
+                    key={p.slug}
+                    transform={`translate(${pos.x},${pos.y})`}
+                    onMouseEnter={() => setHover(p.slug)}
+                    onMouseLeave={() => setHover(null)}
+                    onClick={() => onSelectSlug(p.slug)}
+                    className="cursor-pointer"
+                    opacity={dimmed ? 0.25 : 1}
+                  >
+                    <circle
+                      r={hover === p.slug ? 8 : 5}
+                      fill={GRAPH_CATEGORY_COLORS[p.category]}
+                      stroke="#fff"
+                      strokeWidth={1.5}
+                    />
+                    {(hover === p.slug || nodes.length <= 60) && (
+                      <text
+                        x={0}
+                        y={-12}
+                        textAnchor="middle"
+                        fontSize={10}
+                        fill="#1f2937"
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        {p.title.length > 18
+                          ? p.title.slice(0, 17) + '…'
+                          : p.title}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+        </main>
+        <footer className="flex items-center gap-4 border-t border-gray-200 px-6 py-3 text-xs text-gray-600">
+          {(['SUMMARY', 'ENTITY', 'CONCEPT', 'SOURCE'] as const).map((cat) => (
+            <span key={cat} className="inline-flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: GRAPH_CATEGORY_COLORS[cat] }}
+              />
+              {cat}
+            </span>
+          ))}
+          <span className="ml-auto text-gray-400">
+            {t('library.wiki.graph.hint')}
+          </span>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 // ─── Helpers ───
 
-function formatRelativeTime(iso: string | null | undefined): string {
+// English-style plural for page-count strings: dispatches to the
+// `_one` / `_other` keys based on count. (Project's i18n core has no
+// built-in count branching, so call sites pick the key explicitly.)
+function pluralizePages(
+  t: (key: string, params?: Record<string, string | number>) => string,
+  count: number
+): string {
+  const key =
+    count === 1
+      ? 'library.wiki.kbSelector.pageCountOne'
+      : 'library.wiki.kbSelector.pageCountOther';
+  return t(key, { count });
+}
+
+function formatRelativeTime(
+  iso: string | null | undefined,
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
   if (!iso) return '';
   const date = new Date(iso);
   const diffMs = Date.now() - date.getTime();
   const minutes = Math.round(diffMs / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return t('library.wiki.time.justNow');
+  if (minutes < 60) return t('library.wiki.time.minutesAgo', { minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t('library.wiki.time.hoursAgo', { hours });
   const days = Math.round(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return t('library.wiki.time.daysAgo', { days });
   return date.toLocaleDateString();
 }
 
@@ -2014,6 +2371,7 @@ function IngestPickerModal({
   onClose: () => void;
   onIngested: (diffId: string) => void;
 }) {
+  const { t } = useTranslation();
   const [docs, setDocs] = useState<KbDocumentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -2034,7 +2392,7 @@ function IngestPickerModal({
       })
       .catch((err) => {
         logger?.error?.('[wiki] listKbDocuments failed', err);
-        if (!cancelled) setError('Failed to load documents');
+        if (!cancelled) setError(t('library.wiki.ingest.loadFailed'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -2042,7 +2400,7 @@ function IngestPickerModal({
     return () => {
       cancelled = true;
     };
-  }, [kbId]);
+  }, [kbId, t]);
 
   const toggle = (id: string) => {
     const next = new Set(selected);
@@ -2060,7 +2418,11 @@ function IngestPickerModal({
       onIngested(result.diff.id);
     } catch (err) {
       logger?.error?.('[wiki] ingest failed', err);
-      setError(err instanceof Error ? err.message : 'Ingest failed');
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('library.wiki.ingest.ingestFailed')
+      );
     } finally {
       setSubmitting(false);
     }
@@ -2072,10 +2434,10 @@ function IngestPickerModal({
         <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              选择要 Ingest 的文档
+              {t('library.wiki.ingest.title')}
             </h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              LLM 将把所选文档编译为 wiki 提议供你逐项审阅。
+              {t('library.wiki.ingest.subtitle')}
             </p>
           </div>
           <button
@@ -2094,7 +2456,7 @@ function IngestPickerModal({
             </div>
           ) : docs.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-500">
-              该知识库还没有文档。请先在「数据源」tab 上传文档。
+              {t('library.wiki.ingest.noDocs')}
             </div>
           ) : (
             <ul className="space-y-1">
@@ -2115,7 +2477,7 @@ function IngestPickerModal({
                     </div>
                     <div className="mt-0.5 text-xs text-gray-500">
                       {d.sourceType} · {d.status} ·{' '}
-                      {formatRelativeTime(d.createdAt)}
+                      {formatRelativeTime(d.createdAt, t)}
                     </div>
                   </div>
                 </li>
@@ -2125,22 +2487,25 @@ function IngestPickerModal({
         </main>
         <footer className="flex items-center justify-between border-t border-gray-200 px-6 py-3">
           <div className="text-xs text-gray-500">
-            已选 {selected.size} / {docs.length} 篇
+            {t('library.wiki.ingest.selectedCount', {
+              selected: selected.size,
+              total: docs.length,
+            })}
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
               className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
-              取消
+              {t('library.wiki.ingest.cancel')}
             </button>
             <button
               disabled={submitting || selected.size === 0}
-              onClick={submit}
+              onClick={() => void submit()}
               className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              运行 Ingest
+              {t('library.wiki.ingest.run')}
             </button>
           </div>
         </footer>
@@ -2165,6 +2530,7 @@ function WikiEnableToggleModal({
   onClose: () => void;
   onEnabled: (kbId: string) => void;
 }) {
+  const { t } = useTranslation();
   const [kbs, setKbs] = useState<KbWithOwnership[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyKbId, setBusyKbId] = useState<string | null>(null);
@@ -2205,9 +2571,7 @@ function WikiEnableToggleModal({
     } catch (err) {
       logger?.error?.('[wiki] toggleWikiEnabled failed', err);
       setError(
-        err instanceof Error
-          ? err.message
-          : '启用 Wiki 失败，请确认你对该知识库有访问权'
+        err instanceof Error ? err.message : t('library.wiki.enable.failed')
       );
     } finally {
       setBusyKbId(null);
@@ -2222,10 +2586,10 @@ function WikiEnableToggleModal({
         <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              为知识库启用 Wiki
+              {t('library.wiki.enable.title')}
             </h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              选择一个知识库启用 Wiki — 需要 OWNER 或 ADMIN 角色。
+              {t('library.wiki.enable.subtitle')}
             </p>
           </div>
           <button
@@ -2245,8 +2609,8 @@ function WikiEnableToggleModal({
           ) : eligible.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-500">
               {kbs.length === 0
-                ? '你还没有任何知识库。请先在「个人知识库」或「团队知识库」tab 创建一个。'
-                : '所有知识库都已启用 Wiki。'}
+                ? t('library.wiki.enable.noKbsForUser')
+                : t('library.wiki.enable.allEnabled')}
             </div>
           ) : (
             <ul className="space-y-2">
@@ -2260,7 +2624,9 @@ function WikiEnableToggleModal({
                       {kb.name}
                     </div>
                     <div className="mt-0.5 text-xs text-gray-500">
-                      {kb.type === 'TEAM' ? '团队知识库' : '个人知识库'}
+                      {kb.type === 'TEAM'
+                        ? t('library.wiki.enable.kbTypeTeam')
+                        : t('library.wiki.enable.kbTypePersonal')}
                     </div>
                   </div>
                   <button
@@ -2271,7 +2637,7 @@ function WikiEnableToggleModal({
                     {busyKbId === kb.id && (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     )}
-                    启用 Wiki
+                    {t('library.wiki.enable.enableButton')}
                   </button>
                 </li>
               ))}
@@ -2279,9 +2645,7 @@ function WikiEnableToggleModal({
           )}
         </main>
         <footer className="border-t border-gray-200 px-6 py-3 text-xs text-gray-500">
-          启用后会创建 WikiKnowledgeBaseConfig 默认行（inlinePageCount=200 /
-          ingestMaxTokens=80000）。EDITOR / VIEWER 角色尝试启用会被服务端拒绝
-          (403)。
+          {t('library.wiki.enable.footnote')}
         </footer>
       </div>
     </div>

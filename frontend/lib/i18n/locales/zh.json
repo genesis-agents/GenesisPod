@@ -340,6 +340,145 @@
       "other": "其他资源"
     },
     "loadingGraph": "加载知识图谱中...",
+    "wiki": {
+      "subheader": {
+        "ingest": "Ingest",
+        "lint": "Lint",
+        "query": "Query",
+        "log": "Log",
+        "graph": "图谱",
+        "export": "Export",
+        "settings": "设置"
+      },
+      "graph": {
+        "title": "Wiki 图谱",
+        "subtitle": "{{nodes}} 个节点 · {{edges}} 条 [[slug]] 引用",
+        "empty": "当前 wiki 没有页面，无法渲染图谱。",
+        "hint": "鼠标悬停高亮邻接，点击节点跳转该页"
+      },
+      "kbSelector": {
+        "selectKb": "选择知识库",
+        "switchTo": "切换到知识库",
+        "noWikiKb": "暂无启用 Wiki 的知识库",
+        "enableOther": "启用其他知识库的 Wiki",
+        "pageCount": "{{count}} 页",
+        "pageCountOne": "{{count}} 页",
+        "pageCountOther": "{{count}} 页",
+        "lastIngest": "上次 ingest {{time}}"
+      },
+      "empty": {
+        "welcome": "欢迎使用 Wiki",
+        "notEnabled": "尚未启用 Wiki",
+        "intro": "Wiki 把上传的原始文档持续编译为 markdown 形式的实体页 / 概念页 / 总结页，跨页通过 [[slug]] 引用相互连接。",
+        "enableForKb": "为知识库启用 Wiki",
+        "refreshList": "刷新列表",
+        "roleHint": "启用 Wiki 需要 KB 的 OWNER 或 ADMIN 角色。",
+        "noPagesTitle": "Wiki 还没有页面",
+        "noPagesDesc": "从这个 KB 的文档触发一次 Ingest，LLM 会把内容编译成 wiki 提议供你逐项审阅。或者手动创建第一页。",
+        "runIngest": "运行 Ingest",
+        "manualCreate": "手动创建第一页"
+      },
+      "reader": {
+        "selectFromLeft": "从左侧选择一页查看",
+        "lastEditedBy": "最后编辑：{{by}} · {{time}}",
+        "backlinks": "反向链接 ({{count}})"
+      },
+      "query": {
+        "title": "询问 Wiki",
+        "subtitle": "基于已索引的 wiki 页内容（inline + RAG）回答",
+        "close": "关闭",
+        "askAnything": "问问这个 wiki 里的任何问题。",
+        "placeholder": "问问这个 wiki...",
+        "ask": "问",
+        "queryFailed": "查询失败：{{message}}",
+        "unknownError": "未知错误"
+      },
+      "export": {
+        "noPagesToExport": "当前 wiki 没有页面可以导出",
+        "exportFailed": "导出失败：{{message}}"
+      },
+      "create": {
+        "title": "手动创建 Wiki 页面",
+        "slugLabel": "Slug (kebab-case，2-200 字符)",
+        "titleLabel": "标题",
+        "categoryLabel": "分类",
+        "oneLinerLabel": "一句话描述（≤280 字符）",
+        "bodyLabel": "正文（Markdown，支持 [[slug]] 互链）",
+        "cancel": "取消",
+        "create": "创建",
+        "createFailed": "创建失败",
+        "category": {
+          "entity": "ENTITY 实体",
+          "concept": "CONCEPT 概念",
+          "summary": "SUMMARY 总结",
+          "source": "SOURCE 来源"
+        }
+      },
+      "settings": {
+        "title": "Wiki 设置",
+        "subtitle": "控制 ingest token 预算、inline 边界、自动 lint 节奏",
+        "inlinePageCountLabel": "Inline 页数上限（query A 路径页数 1-5000）",
+        "inlineTokenBudgetLabel": "Inline token 预算（10,000 - 5,000,000）",
+        "ingestMaxTokensLabel": "Ingest 最大 token（1,000 - 500,000）",
+        "cronLintDailyBudgetLabel": "自动 Lint 每日调用上限（0-5000）",
+        "cronLintEnabled": "启用每日自动 Lint",
+        "cancel": "取消",
+        "save": "保存",
+        "loadFailed": "加载设置失败",
+        "saveFailed": "保存失败"
+      },
+      "diff": {
+        "title": "Wiki 提议审阅",
+        "totalItems": "共 {{count}} 项 · 状态 {{status}}",
+        "baselineMismatch": "⚠ Wiki 已被他人改动，本提议失效。请重跑 Ingest。",
+        "deletedPreview": "(将被删除)",
+        "dismissAll": "全部撤销",
+        "applyFailed": "应用失败，请检查网络或返回主视图重试",
+        "apply": "应用",
+        "applyWithCount": "应用 ({{count}})"
+      },
+      "lint": {
+        "emptyForCategory": "该类别下暂无未解决的发现",
+        "runFullLint": "运行完整 Lint（5 类）",
+        "resolve": "解决",
+        "dismiss": "忽略"
+      },
+      "log": {
+        "loadFailed": "加载操作日志失败",
+        "loading": "加载中…",
+        "totalOps": "共 {{count}} 条操作",
+        "refresh": "刷新",
+        "empty": "暂无操作记录。Ingest / Lint / Edit / Revert 后会在此展示。",
+        "system": "系统"
+      },
+      "ingest": {
+        "title": "选择要 Ingest 的文档",
+        "subtitle": "LLM 将把所选文档编译为 wiki 提议供你逐项审阅。",
+        "noDocs": "该知识库还没有文档。请先在「数据源」tab 上传文档。",
+        "selectedCount": "已选 {{selected}} / {{total}} 篇",
+        "cancel": "取消",
+        "run": "运行 Ingest",
+        "loadFailed": "加载文档列表失败",
+        "ingestFailed": "Ingest 失败"
+      },
+      "enable": {
+        "failed": "启用 Wiki 失败，请确认你对该知识库有访问权",
+        "title": "为知识库启用 Wiki",
+        "subtitle": "选择一个知识库启用 Wiki — 需要 OWNER 或 ADMIN 角色。",
+        "noKbsForUser": "你还没有任何知识库。请先在「个人知识库」或「团队知识库」tab 创建一个。",
+        "allEnabled": "所有知识库都已启用 Wiki。",
+        "kbTypeTeam": "团队知识库",
+        "kbTypePersonal": "个人知识库",
+        "enableButton": "启用 Wiki",
+        "footnote": "启用后会创建 WikiKnowledgeBaseConfig 默认行（inlinePageCount=200 / ingestMaxTokens=80000）。EDITOR / VIEWER 角色尝试启用会被服务端拒绝。"
+      },
+      "time": {
+        "justNow": "刚刚",
+        "minutesAgo": "{{minutes}} 分钟前",
+        "hoursAgo": "{{hours}} 小时前",
+        "daysAgo": "{{days}} 天前"
+      }
+    },
     "rag": {
       "status": {
         "title": "RAG 服务状态",
