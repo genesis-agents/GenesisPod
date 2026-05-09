@@ -7,6 +7,8 @@ import { RAGModule } from "../rag/rag.module";
 import { WikiPageService } from "./wiki-page.service";
 import { WikiDiffService } from "./wiki-diff.service";
 import { WikiIngestService } from "./wiki-ingest.service";
+import { WikiLintService } from "./wiki-lint.service";
+import { WikiQueryService } from "./wiki-query.service";
 import { WikiController } from "./wiki.controller";
 
 /**
@@ -27,7 +29,19 @@ import { WikiController } from "./wiki.controller";
 @Module({
   imports: [PrismaModule, AiEngineModule, RAGModule, CreditsModule],
   controllers: [WikiController],
-  providers: [WikiPageService, WikiDiffService, WikiIngestService],
-  exports: [WikiPageService, WikiDiffService, WikiIngestService],
+  providers: [
+    WikiPageService,
+    WikiDiffService,
+    WikiIngestService,
+    WikiLintService,
+    WikiQueryService,
+  ],
+  exports: [
+    WikiPageService,
+    WikiDiffService,
+    WikiIngestService,
+    WikiLintService,
+    WikiQueryService,
+  ],
 })
 export class WikiModule {}

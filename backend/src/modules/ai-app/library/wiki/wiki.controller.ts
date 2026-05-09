@@ -19,6 +19,8 @@ import type { RequestWithUser } from "../../../../common/types/express-request.t
 import { WikiPageService } from "./wiki-page.service";
 import { WikiDiffService } from "./wiki-diff.service";
 import { WikiIngestService } from "./wiki-ingest.service";
+import { WikiLintService } from "./wiki-lint.service";
+import { WikiQueryService } from "./wiki-query.service";
 import {
   CreateWikiPageDto,
   ListWikiPagesQueryDto,
@@ -29,6 +31,10 @@ import {
   PatchWikiDiffDto,
   PatchWikiLintFindingDto,
 } from "./dto/wiki-diff.dto";
+import {
+  WikiQueryRequestDto,
+  WikiLintFindingsQueryDto,
+} from "./dto/wiki-query.dto";
 
 /**
  * LLM Wiki controller — 16 endpoints (v1.5.3 §6).
@@ -51,6 +57,8 @@ export class WikiController {
     private readonly pageService: WikiPageService,
     private readonly diffService: WikiDiffService,
     private readonly ingestService: WikiIngestService,
+    private readonly lintService: WikiLintService,
+    private readonly queryService: WikiQueryService,
   ) {}
 
   // ─── Pages (CRUD + revert) ───────────────────────────────────────
@@ -174,55 +182,54 @@ export class WikiController {
     return this.diffService.dismissDiff(req.user.id, kbId, diffId);
   }
 
-  // ─── Query (stub — P2) ───────────────────────────────────────────
+  // ─── Query ────────────────────────────────────────────────────────
 
   @Post(":kbId/query")
   @UseGuards(JwtAuthGuard)
   async query(
-    @Request() _req: RequestWithUser,
-    @Param("kbId") _kbId: string,
-    @Body() _payload: unknown,
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Body() dto: WikiQueryRequestDto,
   ) {
-    throw new NotImplementedException(
-      "Wiki query is not yet implemented (v1.5.3 P2)",
-    );
+    return this.queryService.query(req.user.id, kbId, dto);
   }
 
-  // ─── Lint (stubs — P2) ───────────────────────────────────────────
+  // ─── Lint ─────────────────────────────────────────────────────────
 
   @Post(":kbId/lint")
   @UseGuards(JwtAuthGuard)
-  async runLint(
-    @Request() _req: RequestWithUser,
-    @Param("kbId") _kbId: string,
-  ) {
-    throw new NotImplementedException(
-      "Wiki lint trigger is not yet implemented (v1.5.3 P2)",
-    );
+  async runLint(@Request() req: RequestWithUser, @Param("kbId") kbId: string) {
+    return this.lintService.runFullLint(req.user.id, kbId);
   }
 
   @Get(":kbId/lint-findings")
   @UseGuards(JwtAuthGuard)
   async listLintFindings(
-    @Request() _req: RequestWithUser,
-    @Param("kbId") _kbId: string,
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Query() query: WikiLintFindingsQueryDto,
   ) {
-    throw new NotImplementedException(
-      "Wiki lint findings list is not yet implemented (v1.5.3 P2)",
-    );
+    const items = await this.lintService.listFindings(req.user.id, kbId, {
+      type: query.type,
+      resolved:
+        query.resolved === "true"
+          ? true
+          : query.resolved === "false"
+            ? false
+            : undefined,
+    });
+    return { items };
   }
 
   @Patch(":kbId/lint-findings/:id")
   @UseGuards(JwtAuthGuard)
   async patchLintFinding(
-    @Request() _req: RequestWithUser,
-    @Param("kbId") _kbId: string,
-    @Param("id") _id: string,
-    @Body() _dto: PatchWikiLintFindingDto,
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Param("id") id: string,
+    @Body() dto: PatchWikiLintFindingDto,
   ) {
-    throw new NotImplementedException(
-      "Wiki lint finding patch is not yet implemented (v1.5.3 P2)",
-    );
+    return this.lintService.patchFinding(req.user.id, kbId, id, dto.action);
   }
 
   // ─── Export (stub — P3a) ─────────────────────────────────────────
