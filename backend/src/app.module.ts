@@ -73,6 +73,8 @@ import { CommentsModule } from "./modules/ai-app/explore/comments/comments.modul
 // Library modules (shared content)
 import { CollectionsModule } from "./modules/ai-app/library/collections/collections.module";
 import { NotesModule } from "./modules/ai-app/library/notes/notes.module";
+// ★ v1.5.3 LLM Wiki — Library 主形态（顶层 tab 第一位）
+import { WikiModule } from "./modules/ai-app/library/wiki/wiki.module";
 import { KnowledgeGraphModule } from "./modules/ai-app/library/knowledge-graph/knowledge-graph.module";
 import { RecommendationsModule } from "./modules/ai-app/library/recommendations/recommendations.module";
 // Admin modules (backend management)
@@ -227,6 +229,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     FeedModule,
     CollectionsModule,
     NotesModule,
+    WikiModule, // ★ v1.5.3 LLM Wiki
     CommentsModule,
     ReportsModule,
     ExploreModule,

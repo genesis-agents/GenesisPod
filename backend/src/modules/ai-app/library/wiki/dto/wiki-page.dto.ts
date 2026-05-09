@@ -1,0 +1,91 @@
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  Min,
+  MinLength,
+} from "class-validator";
+import { WikiPageCategory } from "@prisma/client";
+
+const SLUG_REGEX = /^[a-z0-9][a-z0-9-]{0,198}[a-z0-9]$/;
+const SLUG_MESSAGE =
+  "slug must be kebab-case (a-z, 0-9, hyphens), 2-200 chars, no leading/trailing hyphens";
+
+export class CreateWikiPageDto {
+  @IsString()
+  @Matches(SLUG_REGEX, { message: SLUG_MESSAGE })
+  slug!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  title!: string;
+
+  @IsEnum(WikiPageCategory)
+  category!: WikiPageCategory;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200_000)
+  body!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(280)
+  oneLiner!: string;
+}
+
+export class UpdateWikiPageDto {
+  /** Patch action: 'edit' (default) or 'revert'. */
+  @IsOptional()
+  @IsString()
+  action?: "edit" | "revert";
+
+  /** For action=edit: new body / title / oneLiner / category (any subset). */
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  title?: string;
+
+  @IsOptional()
+  @IsEnum(WikiPageCategory)
+  category?: WikiPageCategory;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200_000)
+  body?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(280)
+  oneLiner?: string;
+
+  /** For action=revert: target revision id. service layer enforces revision.pageId === currentPage.id (404 on mismatch per v1.5.3 §6 IDOR). */
+  @IsOptional()
+  @IsString()
+  toRevisionId?: string;
+}
+
+export class ListWikiPagesQueryDto {
+  @IsOptional()
+  @IsEnum(WikiPageCategory)
+  category?: WikiPageCategory;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  limit?: number = 100;
+}
+
+export class WikiPageSlugParamDto {
+  @IsString()
+  @Matches(SLUG_REGEX, { message: SLUG_MESSAGE })
+  slug!: string;
+}

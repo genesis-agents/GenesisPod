@@ -1,0 +1,31 @@
+import { Module } from "@nestjs/common";
+import { PrismaModule } from "../../../../common/prisma/prisma.module";
+import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
+import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { RAGModule } from "../rag/rag.module";
+
+import { WikiPageService } from "./wiki-page.service";
+import { WikiController } from "./wiki.controller";
+
+/**
+ * LLM Wiki module (v1.5.3 P1).
+ *
+ * Imports:
+ *  - PrismaModule for DB access
+ *  - AiEngineModule for facade (slug-normalize / wiki-link-parser /
+ *    sanitizeMarkdownBody / StaleDetectorService /
+ *    CrossCuttingSynthesisService.detect{Contradictions,DataGaps})
+ *  - RAGModule for KnowledgeBaseService.hasAccess (KB role checks)
+ *  - CreditsModule for upcoming ingest LLM cost accounting (P2)
+ *
+ * Exports WikiPageService for testability and potential cross-app reuse
+ * (e.g. an export job worker may stream pages without going through the
+ * HTTP controller).
+ */
+@Module({
+  imports: [PrismaModule, AiEngineModule, RAGModule, CreditsModule],
+  controllers: [WikiController],
+  providers: [WikiPageService],
+  exports: [WikiPageService],
+})
+export class WikiModule {}
