@@ -35,18 +35,26 @@
 
 ## 3. Topology(实际依赖关系)
 
-ai-app benchmark consumer 平行直接 import 5 个 zone(Z1 / Z2 / Z3 / Z4 / Z5),**并非**单一 stack。
+ai-app benchmark consumer **逻辑上**与 5 个 zone(Z1 / Z2 / Z3 / Z4 / Z5)发生 use 关系
+(并非单一 stack,而是平行 use);**实际 import 路径必须为 `@/modules/ai-harness/facade`**
+(由 `backend/.eslintrc.js` Section 10 强制),5 zone 是 facade 内部 re-export 的逻辑分区,
+本文档用于让新 team 知道"facade 暴露的 symbol 来自哪个 sediment 区"。
 
 ```
    ai-app/<team>(business 语义)
    │
-   ├─ uses ─→ Z3 business-team framework  ─ uses ─→ Z1.AbortRegistry(唯一向下边)
-   ├─ uses ─→ Z4 mission-pipeline-orchestrator  ─ uses ─→ Z5(仅 type:CrossStageState / IStagePrimitive)
-   ├─ uses ─→ Z5 stage primitives(若需 PLAN_PRIMITIVE / PERSIST_PRIMITIVE 等)
-   ├─ uses ─→ Z1 mission-lifecycle primitives(IMissionStore / InMemoryMissionStore / RerunOrchestrator / LivenessGuard / OwnershipRegistry)
-   └─ uses ─→ Z2 mission-checkpoint(CheckpointStore)
-
-   Z6(executor)在拓扑外 — benchmark 不消费,待裁定。
+   └─ import via @/modules/ai-harness/facade ──┐
+                                               │
+        逻辑 use 关系(facade 内部 re-export):  │
+        ├─ Z3 business-team framework          │  facade re-exports:
+        │   └─ uses ─→ Z1.AbortRegistry(唯一向下边)   MissionRuntimeShellFramework
+        ├─ Z4 mission-pipeline-orchestrator           EventRelayFramework
+        │   └─ uses ─→ Z5(仅 type:CrossStageState)   IBusinessTeamMissionStore
+        ├─ Z5 stage primitives                        MissionPipelineOrchestrator
+        ├─ Z1 mission-lifecycle primitives             MissionPipelineRegistry
+        └─ Z2 mission-checkpoint                       IMissionStore / InMemoryMissionStore
+                                                       MissionLivenessGuard
+   Z6(executor)在拓扑外 — benchmark 不消费,待裁定。     CheckpointStore / ...
 ```
 
 ### Grep-verified edges(2026-05-09 验证)
@@ -79,15 +87,28 @@ ai-app benchmark consumer 平行直接 import 5 个 zone(Z1 / Z2 / Z3 / Z4 / Z5)
 
 ## 4. Canonical import surface(给新 benchmark team 的拷贝指引)
 
-新 MissionPipeline 派 team 应按**分层规则** import,避免把 mission/stage 概念污染到 agent/role primitive。
+新 MissionPipeline 派 team **所有 ai-harness import 都必须走 `@/modules/ai-harness/facade`**
+(由 `backend/.eslintrc.js` Section 10 强制,任何 ai-app 子路径 import `ai-harness/{lifecycle,memory,teams}/**`
+均 lint error)。本表说明 facade 之上的**业务 import 分层规则**,目的是防止 mission/stage 概念
+逆向污染 agent/role/tool primitive。
 
-| ai-app 层                  | 允许 import                                                                                      | 禁止 import                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| **`<team>/services/**`\*\* | `@/modules/ai-harness/facade` + 平行直接 Z1 / Z2 / Z3 / Z4 / Z5 公开符号                         | `ai-harness/teams/business-team/abstractions/*` 内部细节(应只 import `facade` re-export 的 surface) |
-| **`<team>/agents/**`\*\*   | **仅** `@/modules/ai-harness/facade`(`AgentSpec` / `DefineAgent` / `BUILTIN_*`)+ 本 app 内部代码 | 任何 `ai-harness/teams/**` / `ai-harness/lifecycle/mission-lifecycle/**`(R8 强制)                   |
-| **`<team>/skills/**`\*\*   | **仅** `@/modules/ai-harness/facade` + 本 app 内部代码                                           | 任何 `ai-harness/teams/**` / `ai-harness/lifecycle/mission-lifecycle/**`(R8 强制)                   |
+| ai-app 层                  | 允许 import                                                                                                 | 禁止 import                                                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **`<team>/services/**`\*\* | `@/modules/ai-harness/facade`(逻辑覆盖 Z1 / Z2 / Z3 / Z4 / Z5 公开符号)+ 本 app 内部代码                    | 任何 `ai-harness/{lifecycle,memory,teams}/**` 子路径(由 Section 10 强制)                                                     |
+| **`<team>/agents/**`\*\*   | **仅** `@/modules/ai-harness/facade`(`AgentSpec` / `DefineAgent` / `BUILTIN_*`)+ 本 app 内部 primitive 代码 | 任何 `ai-harness/teams/**` / `ai-harness/lifecycle/mission-lifecycle/**`(R8 强制)+ 本 app 业务 service 层 mission-aware 类型 |
+| **`<team>/skills/**`\*\*   | **仅** `@/modules/ai-harness/facade` + 本 app 内部 primitive 代码                                           | 任何 `ai-harness/teams/**` / `ai-harness/lifecycle/mission-lifecycle/**`(R8 强制)+ 本 app 业务 service 层 mission-aware 类型 |
 
-补充:`ai-engine/**` 全树**不**含任何 mission-aware 类型(`Mission*` / `Stage*` / `Pipeline*` / `MissionRun*`)— 由 §6.4 + §6.5 + S0-6 grep gate 强制。
+**重点**:三层都不允许 import `ai-harness` 子路径,差异在于"agents/skills 即使是本 app
+代码,也不能 import 业务 service 层的 mission-aware 类型"(防止 mission 概念向 primitive
+逆向污染)。
+
+R8 三组 mechanical 检查由 lint + grep gate 兜底:
+
+- **ai-app/**/agents/** + ai-app/**/skills/\*\*\*\* → `backend/.eslintrc.js` Section 10(2026-05-08 落地)
+- **ai-harness/agents/\*\*** → `backend/.eslintrc.js` 新增 R8 override(2026-05-09 Stage 0 落地)
+- **ai-engine/\*\*** → `backend/.eslintrc.js` ai-engine override(禁止反向 import ai-harness)+ `tools/ci/check-harness-namespace.sh` [ENGINE] grep gate(禁止 `Mission*`/`Stage*`/`Pipeline*`/`MissionRun*` 标识符 import)
+
+补充:`ai-engine/**` 全树**不**含任何 mission-aware 类型 — 由 audit §6.4 + §6.5 + S0-6 grep gate 强制。
 
 ---
 
@@ -95,13 +116,13 @@ ai-app benchmark consumer 平行直接 import 5 个 zone(Z1 / Z2 / Z3 / Z4 / Z5)
 
 (摘自审计 §2.5.3,标 `[Topology]` 影响多消费者契约,标 `[Single-consumer lift mistake]` 仅影响 playground 一家的 lift 落点。)
 
-| #      | 性质                             | 问题                                                                                                                       | 解决方向                                                                                                                                                      |
-| ------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **T1** | `[Topology]` 多消费者契约共识    | 双 IMissionStore 接口:`Z1.IMissionStore<TBusiness>` vs `Z3.IBusinessTeamMissionStore`,playground store 同时 satisfies 两者 | S2-7:`IBusinessTeamMissionStore` = `Pick<IMissionStore, ...>`(类型层固化子集);doc 部分由 S0-8 在 Z3 interface JSDoc 显式声明                                  |
-| **T2** | `[Topology]` 多消费者抽象选择    | 三套 mission 执行抽象:Z3 `MissionRuntimeShellFramework` / Z4 `MissionPipelineOrchestrator` / Z6 `IMissionExecutor`         | Z6 去向另立 ADR,本审计不在 Z6 上做 lift。**ADR 锚点:TBD: pending ADR-NNNN**                                                                                   |
-| **T3** | `[Single-consumer lift mistake]` | dispatcher 用 class body 字段(`lastPlan` / `lastResearcherResults` / `s4PatchFailures`)绕过 Z1+Z5 既有抽象                 | S1-2:迁移到 `Z1.IMissionStore.saveCrossStageState/getCrossStageState` + `Z5.cross-stage-state.ts`(prisma 列若暂无,先用 Z1 `RuntimeStateStore` in-memory 兜底) |
-| **T4** | `[Single-consumer lift mistake]` | dispatcher 用 `CHECKPOINT_AT` 自管 timing,绕过 Z2 `CheckpointStore`                                                        | S2-2:接入 Z2,`CHECKPOINT_AT` 字面值留 app 作为业务决策                                                                                                        |
-| **T5** | `[Single-consumer lift mistake]` | dispatcher 自实现 `cleanupOrphanRunningMissions` 调度,绕过 Z1 `MissionLivenessGuard` + `OwnershipRegistry`                 | S2-3:调度面归 Z1,持久化 hook(`cleanupOrphanRunningMissions`)留 Z3 业务接口                                                                                    |
+| #      | 性质                             | 问题                                                                                                                                                                                                   | 解决方向                                                                                                                                                                                                      |
+| ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **T1** | `[Topology]` 多消费者契约共识    | 双 IMissionStore 接口:`Z1.IMissionStore<TBusiness>`(9 个 generic CRUD method)vs `Z3.IBusinessTeamMissionStore`(7 个 lifecycle method,**与 Z1 method 名互不重叠**),playground store 同时 satisfies 两者 | S2-7:用类型层 `IMissionStore<TBusiness> & IBusinessTeamMissionStore` **intersection** 表达"同一 store 的两个视角"(非 Pick<> 子集 — 两接口 method 名互补不重叠);doc 部分由 S0-8 在 Z3 interface JSDoc 显式声明 |
+| **T2** | `[Topology]` 多消费者抽象选择    | 三套 mission 执行抽象:Z3 `MissionRuntimeShellFramework` / Z4 `MissionPipelineOrchestrator` / Z6 `IMissionExecutor`                                                                                     | Z6 去向另立 ADR,本审计不在 Z6 上做 lift。**ADR 锚点:TBD: pending ADR-NNNN**                                                                                                                                   |
+| **T3** | `[Single-consumer lift mistake]` | dispatcher 用 class body 字段(`lastPlan` / `lastResearcherResults` / `s4PatchFailures`)绕过 Z1+Z5 既有抽象                                                                                             | S1-2:迁移到 `Z1.IMissionStore.saveCrossStageState/getCrossStageState` + `Z5.cross-stage-state.ts`(prisma 列若暂无,先用 Z1 `RuntimeStateStore` in-memory 兜底)                                                 |
+| **T4** | `[Single-consumer lift mistake]` | dispatcher 用 `CHECKPOINT_AT` 自管 timing,绕过 Z2 `CheckpointStore`                                                                                                                                    | S2-2:接入 Z2,`CHECKPOINT_AT` 字面值留 app 作为业务决策                                                                                                                                                        |
+| **T5** | `[Single-consumer lift mistake]` | dispatcher 自实现 `cleanupOrphanRunningMissions` 调度,绕过 Z1 `MissionLivenessGuard` + `OwnershipRegistry`                                                                                             | S2-3:调度面归 Z1,持久化 hook(`cleanupOrphanRunningMissions`)留 Z3 业务接口                                                                                                                                    |
 
 ---
 
