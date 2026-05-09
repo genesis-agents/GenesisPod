@@ -1,62 +1,44 @@
 <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Genesis Logo · v5 (Business Blue · Agent Fabric)
-    深 navy badge + blue→indigo 渐变菱形 fabric + 5 个 agent 粗点。
-    - Fabric: 菱形外环（4 条编织边） + 4 条向心放射线
-    - Agent: 4 个外围粗点 + 1 个中心核心节点（带辉光，orchestrator 隐喻）
-    - 商务: 深 navy 圆角方形 badge，沉稳有质感
-    - 简约: 单层渐变描边，无双线/装饰
-    - 科技: 渐变发光节点 + mesh 通信意象
+    Genesis Logo · v6 (Agent Fabric · Open / No Fill)
+    透明背景，无 badge 填充：菱形 fabric weave + 5 个 agent 节点直接呈现。
+    线条/节点用 blue→indigo 实心渐变，在浅色 UI 背景上对比清晰。
     配色对齐 tailwind primary (blue) + indigo 体系。无动画。
   -->
   <defs>
-    <radialGradient id="genesisLogoBg" cx="32%" cy="22%" r="95%">
-      <stop offset="0%"   stop-color="#1E3A8A"/>
-      <stop offset="55%"  stop-color="#0F1E47"/>
-      <stop offset="100%" stop-color="#050D26"/>
-    </radialGradient>
     <linearGradient id="genesisLogoStroke" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#93C5FD"/>
-      <stop offset="50%"  stop-color="#3B82F6"/>
-      <stop offset="100%" stop-color="#6366F1"/>
+      <stop offset="0%"   stop-color="#3B82F6"/>
+      <stop offset="50%"  stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#4338CA"/>
     </linearGradient>
-    <radialGradient id="genesisLogoCore" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"   stop-color="#FFFFFF"/>
-      <stop offset="55%"  stop-color="#93C5FD"/>
-      <stop offset="100%" stop-color="#3B82F6"/>
+    <radialGradient id="genesisLogoCore" cx="35%" cy="30%" r="75%">
+      <stop offset="0%"   stop-color="#60A5FA"/>
+      <stop offset="55%"  stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#312E81"/>
     </radialGradient>
-    <radialGradient id="genesisLogoAgent" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"   stop-color="#BFDBFE"/>
+    <radialGradient id="genesisLogoAgent" cx="35%" cy="30%" r="75%">
+      <stop offset="0%"   stop-color="#60A5FA"/>
       <stop offset="55%"  stop-color="#3B82F6"/>
       <stop offset="100%" stop-color="#4338CA"/>
     </radialGradient>
   </defs>
 
-  <!-- Badge: deep navy rounded square -->
-  <rect x="2" y="2" width="60" height="60" rx="13" ry="13" fill="url(#genesisLogoBg)"/>
-
-  <!-- 单层 blue→indigo 渐变描边 -->
-  <rect x="2" y="2" width="60" height="60" rx="13" ry="13"
-        fill="none" stroke="url(#genesisLogoStroke)" stroke-width="1.4"/>
-
-  <!-- Fabric weave: 菱形外环（4 条编织边） + 4 条向心放射线
-       顶点 上(32,14) 右(50,32) 下(32,50) 左(14,32) -->
+  <!-- Fabric weave: 菱形外环 + 4 条向心放射
+       顶点 上(32,12) 右(52,32) 下(32,52) 左(12,32) -->
   <g stroke="url(#genesisLogoStroke)" stroke-linecap="round" fill="none">
-    <path d="M 32 14 L 50 32 L 32 50 L 14 32 Z" stroke-width="1" opacity="0.6"/>
-    <line x1="32" y1="32" x2="32" y2="14" stroke-width="0.9" opacity="0.4"/>
-    <line x1="32" y1="32" x2="50" y2="32" stroke-width="0.9" opacity="0.4"/>
-    <line x1="32" y1="32" x2="32" y2="50" stroke-width="0.9" opacity="0.4"/>
-    <line x1="32" y1="32" x2="14" y2="32" stroke-width="0.9" opacity="0.4"/>
+    <path d="M 32 12 L 52 32 L 32 52 L 12 32 Z" stroke-width="1.8" opacity="0.9"/>
+    <line x1="32" y1="32" x2="32" y2="12" stroke-width="1.5" opacity="0.6"/>
+    <line x1="32" y1="32" x2="52" y2="32" stroke-width="1.5" opacity="0.6"/>
+    <line x1="32" y1="32" x2="32" y2="52" stroke-width="1.5" opacity="0.6"/>
+    <line x1="32" y1="32" x2="12" y2="32" stroke-width="1.5" opacity="0.6"/>
   </g>
 
   <!-- 4 个 agent 节点（粗点） -->
-  <circle cx="32" cy="14" r="2.6" fill="url(#genesisLogoAgent)"/>
-  <circle cx="50" cy="32" r="2.6" fill="url(#genesisLogoAgent)"/>
-  <circle cx="32" cy="50" r="2.6" fill="url(#genesisLogoAgent)"/>
-  <circle cx="14" cy="32" r="2.6" fill="url(#genesisLogoAgent)"/>
+  <circle cx="32" cy="12" r="3.2" fill="url(#genesisLogoAgent)"/>
+  <circle cx="52" cy="32" r="3.2" fill="url(#genesisLogoAgent)"/>
+  <circle cx="32" cy="52" r="3.2" fill="url(#genesisLogoAgent)"/>
+  <circle cx="12" cy="32" r="3.2" fill="url(#genesisLogoAgent)"/>
 
-  <!-- 中心核心 agent（orchestrator，最大最亮） -->
-  <circle cx="32" cy="32" r="4" fill="url(#genesisLogoCore)"/>
-  <circle cx="32" cy="32" r="4" fill="none"
-          stroke="#BFDBFE" stroke-width="0.4" opacity="0.6"/>
+  <!-- 中心核心 agent（orchestrator，最大） -->
+  <circle cx="32" cy="32" r="4.8" fill="url(#genesisLogoCore)"/>
 </svg>
