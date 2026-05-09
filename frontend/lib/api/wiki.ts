@@ -154,6 +154,23 @@ export const wikiApi = {
       `/rag/knowledge-bases/${encodeURIComponent(kbId)}/documents`
     ),
 
+  /**
+   * List ALL user-accessible KBs (not just wikiEnabled ones), so the
+   * "enable Wiki" modal can show disabled KBs. Reuses RAG controller endpoint.
+   */
+  listAllKbs: () =>
+    apiClient.get<
+      | {
+          items: Array<{
+            id: string;
+            name: string;
+            type: string;
+            wikiEnabled?: boolean;
+          }>;
+        }
+      | Array<{ id: string; name: string; type: string; wikiEnabled?: boolean }>
+    >(`/rag/knowledge-bases`),
+
   toggleWikiEnabled: (kbId: string, enabled: boolean) =>
     apiClient.patch<ToggleWikiEnabledResult>(
       `/library/kbs/${encodeURIComponent(kbId)}/wiki-enabled`,

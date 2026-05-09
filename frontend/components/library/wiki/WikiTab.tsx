@@ -1383,14 +1383,11 @@ function WikiEnableToggleModal({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    // Reuse the existing /knowledge-bases endpoint to list ALL user-accessible
-    // KBs (not just wikiEnabled ones — we need to enable disabled ones here).
-    fetch('/api/v1/rag/knowledge-bases', {
-      credentials: 'include',
-      headers: getAuthHeaderSafe(),
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((data: unknown) => {
+    // Reuse the existing /rag/knowledge-bases endpoint via apiClient (auto base
+    // URL + auth + 401 refresh handling, same plumbing as the rest of wikiApi).
+    wikiApi
+      .listAllKbs()
+      .then((data) => {
         if (cancelled) return;
         const items = Array.isArray(data)
           ? (data as KbWithOwnership[])
