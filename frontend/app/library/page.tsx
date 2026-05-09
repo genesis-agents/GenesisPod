@@ -153,9 +153,9 @@ const TeamKnowledgeBaseTab = dynamicImport(
   }
 );
 
-// ★ v1.5.3 Wiki tab placeholder (Library 主形态)
-const WikiTabPlaceholder = dynamicImport(
-  () => import('@/components/library/wiki/WikiTabPlaceholder'),
+// ★ v1.5.3 Wiki tab (Library 主形态) — KB selector + 三栏 + Diff 审阅
+const WikiTab = dynamicImport(
+  () => import('@/components/library/wiki/WikiTab'),
   {
     ssr: false,
     loading: () => (
@@ -1776,7 +1776,7 @@ function LibraryPageContent() {
             )}
 
           {/* ★ v1.5.3 Wiki Tab (主形态) — Library 默认 tab */}
-          {activeTab === 'wiki' && <WikiTabPlaceholder />}
+          {activeTab === 'wiki' && <WikiTab userHash={'session'} />}
 
           {/* Personal Knowledge Base Tab */}
           {activeTab === 'personal-kb' && (
