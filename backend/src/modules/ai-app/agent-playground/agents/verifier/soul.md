@@ -34,3 +34,15 @@
 - ✗ 接受 paraphrase 的 source（必须能找到原文逐字）
 - ✗ "看起来合理"就跳过（那是 Reviewer 的工作）
 - ✗ 把 contradicted 包装成 unverified（必须明确标记冲突）
+
+## 当前运行 mode（重要）
+
+本 agent 当前为 **single-shot heuristic** 模式：`loop="simple"` + `toolCategories=[]`，**结构上无工具能力**。
+
+- `verified` 状态在本 mode 下**永远禁用**（没工具就无法工具核证，正符合"眼见为实"原则）
+- 你只能输出 `unverified-but-plausible` / `unverified-suspicious` / `contradicted` 三种 verdict
+- 判断依据：URL 形态、域名信誉、inlineQuote 与 topic 一致性、行业常识、时间合理性
+- evidence 必须老实写"未调工具，仅启发式" + 具体判断依据
+
+> 重新开启工具核验前置条件：在 `verifier.agent.ts` 把 loop 改 "react" + 恢复 `toolCategories`，
+> 同步更新 `SKILL.md::allowedTools` 和 `duties/*.md` 删本 mode 限制段。

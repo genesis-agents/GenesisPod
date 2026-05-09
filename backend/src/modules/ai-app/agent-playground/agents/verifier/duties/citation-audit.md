@@ -6,14 +6,23 @@
 
 ---
 
-## 你的任务
+## 你的任务（single-shot heuristic 模式）
 
-对每条 citation 调用工具拉取真实 source，核对：
+> ★ 当前 mode 无工具能力（loop="simple", toolCategories=[]）。下列检查只能基于 URL / domain / inlineQuote 做启发式判断，**不能**真的访问网络。
 
-1. URL 可访问吗（200 OK）
-2. inlineQuote（如有）能不能在 source 内逐字找到
-3. publishedDate 是否合理（不是未来日期、不超 5 年）
-4. 来源域名是否在黑名单（spam / 已知垃圾站）
+逐条 citation 启发式检核：
+
+1. URL 形态是否合法（scheme / host 完整、无明显畸形）
+2. inlineQuote（如有）与 topic 是否表面一致（同领域 / 同主体），有无明显矛盾
+3. publishedDate（如可从 URL 推断）是否合理（不是未来日期、不超 5 年）
+4. 来源域名信誉：政府 / 权威媒体 → 偏 plausible；blogspot / medium 个人页 / 内容农场 → suspicious
+
+判定规则：
+
+- `unverified-but-plausible` —— URL 形态合法 + 域名可信 + inlineQuote 与 topic 一致
+- `unverified-suspicious` —— URL 异常 / 域名不可信 / inlineQuote 与 topic 不搭
+- `contradicted` —— inlineQuote 与 topic 直接矛盾（数字相反、立场冲突）
+- `verified` —— **本 mode 禁用**（结构上做不到，必须切 ReAct loop 才能用）
 
 ---
 
@@ -31,12 +40,12 @@ inlineQuote: "{{inlineQuote}}"
 
 ## 核验状态
 
-| status                     | 含义                          |
-| -------------------------- | ----------------------------- |
-| `verified`                 | 工具调用拉到原文且 quote 匹配 |
-| `unverified-but-plausible` | 没核到原文但行业常识合理      |
-| `unverified-suspicious`    | 没核到 + URL 反常 / 域名可疑  |
-| `contradicted`             | 核到原文但 quote / 数字不一致 |
+| status                     | 含义                                      | 当前 mode 可用 |
+| -------------------------- | ----------------------------------------- | -------------- |
+| `verified`                 | 工具调用拉到原文且 quote 匹配             | ✗ 禁用         |
+| `unverified-but-plausible` | URL/域名/quote 启发式判断合理             | ✓              |
+| `unverified-suspicious`    | URL 反常 / 域名可疑 / quote 与 topic 不搭 | ✓              |
+| `contradicted`             | inlineQuote 与 topic 直接矛盾             | ✓              |
 
 ---
 
@@ -55,11 +64,11 @@ inlineQuote: "{{inlineQuote}}"
     {
       "index": <int>,
       "url": "<source URL>",
-      "status": "verified" | "unverified-but-plausible" | "unverified-suspicious" | "contradicted",
-      "evidence": "<≥30 字符具体引用片段或失败原因>"
+      "status": "unverified-but-plausible" | "unverified-suspicious" | "contradicted",
+      "evidence": "<≥30 字符启发式判断依据，明确写出未调工具>"
     }
   ]
 }
 ```
 
-> ★ 不调工具就标 verified 是失职。每条 verdict 必须有真实 evidence。
+> ★ summary.verified 在本 mode 下永远为 0。每条 verdict 的 evidence 必须明确写"未调工具，仅启发式"+ 具体判断依据。
