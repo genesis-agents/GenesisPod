@@ -31,7 +31,36 @@ interface AnalystOutputShape {
   riskAssessment?: string;
   strategicRecommendations?: string;
   conclusion?: string;
-  insights?: unknown[];
+  insights?: {
+    headline: string;
+    narrative: string;
+    supportingDimensions: string[];
+    confidence: number;
+  }[];
+  // ★ PR-quickview-parity (2026-05-09): 5 组结构化 quickView 字段
+  keyFindingsByDimension?: {
+    dimensionName: string;
+    findings: { finding: string; significance: "high" | "medium" | "low" }[];
+  }[];
+  trendsByDimension?: {
+    dimensionName: string;
+    trends: {
+      trend: string;
+      direction: "increasing" | "decreasing" | "stable" | "emerging";
+      timeframe: string;
+    }[];
+  }[];
+  riskMatrix?: {
+    riskType: string;
+    probability: "高" | "中" | "低";
+    impact: "高" | "中" | "低";
+    timeframe: string;
+  }[];
+  recommendationsByAudience?: {
+    forEnterprise?: { shortTerm: string[]; midTerm: string[] };
+    forInvestors?: { shortTerm: string[]; midTerm: string[] };
+  };
+  whatYouWillLearn?: string[];
 }
 
 interface ReconcilerOutputShape {
@@ -95,6 +124,14 @@ export function extractReportSegments(
       riskAssessment: analyst.riskAssessment?.trim(),
       recommendations: analyst.strategicRecommendations?.trim(),
       conclusion: analyst.conclusion?.trim(),
+    },
+    quickViewData: {
+      keyFindingsByDimension: analyst.keyFindingsByDimension,
+      trendsByDimension: analyst.trendsByDimension,
+      riskMatrix: analyst.riskMatrix,
+      recommendationsByAudience: analyst.recommendationsByAudience,
+      whatYouWillLearn: analyst.whatYouWillLearn,
+      insights: analyst.insights,
     },
     citations: input.citations ?? [],
     figures: input.figures ?? [],

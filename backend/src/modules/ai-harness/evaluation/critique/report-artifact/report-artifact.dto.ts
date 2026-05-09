@@ -99,13 +99,49 @@ export interface ArtifactQuickView {
     title: string;
     description: string;
     sourceDimensionId?: string;
+    direction?: "increasing" | "decreasing" | "stable" | "emerging";
+    timeframe?: string;
   }[];
   keyRisks: { title: string; description: string }[];
   topRecommendations: { title: string; description: string }[];
   keyCitations: number[];
+  /**
+   * 兼容字段：v1 设计含图表，v2 (PR-quickview-parity 2026-05-09) 决定快速视图不展示图，
+   * 字段保留但前端不再渲染；assembler 仍填前 N 个 figure id 以便其他消费方使用。
+   */
   keyFigures: string[];
   estimatedReadingTime: number;
   whatYouWillLearn: string[];
+  /**
+   * ★ PR-quickview-parity (2026-05-09): 结构化风险矩阵（参照 TI riskAssessment.riskMatrix shape）。
+   * 来源 analyst.riskMatrix；缺失时为空数组，前端表格短路。
+   */
+  riskMatrix: {
+    riskType: string;
+    probability: "高" | "中" | "低";
+    impact: "高" | "中" | "低";
+    timeframe: string;
+  }[];
+  /**
+   * ★ PR-quickview-parity (2026-05-09): 按受众分组的战略建议（参照 TI strategicRecommendations.{forEnterprise, forInvestors}）。
+   * 来源 analyst.recommendationsByAudience；缺失时 forEnterprise/forInvestors 都 undefined，前端卡片短路。
+   */
+  recommendationsByAudience?: {
+    forEnterprise?: { shortTerm: string[]; midTerm: string[] };
+    forInvestors?: { shortTerm: string[]; midTerm: string[] };
+  };
+  /**
+   * ★ PR-quickview-parity (2026-05-09): 按维度分组的核心发现（参照 TI dimensionAnalyses[].keyFindings）。
+   * 来源 analyst.keyFindingsByDimension；缺失时 assembler 用 insights[] supportingDimensions[0] 兜底分组。
+   */
+  keyFindingsByDimension: {
+    dimensionId?: string;
+    dimensionName: string;
+    findings: {
+      finding: string;
+      significance: "high" | "medium" | "low";
+    }[];
+  }[];
 }
 
 export interface ArtifactHighlight {
