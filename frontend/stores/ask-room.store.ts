@@ -36,6 +36,11 @@ interface RoomState {
   currentTurnStatus: AskTurnStatus | null;
   /** turn 内最新的 sequenceNum（防乱序） */
   lastSeq: number;
+  // 2026-05-08（screenshot 41）：用户在前一 turn 流式中再次发送时（如先 VOTE
+  // 再切 DEBATE），两个 turn 的事件交错到达，单一 lastSeq 会丢弃后到 turn 的
+  // 早期事件（因其 seq 小于前一 turn 的尾部 seq）。改为 per-turnId 追踪 seq，
+  // 让每个 turn 独立单调而不互相阻塞。
+  lastSeqByTurn: Record<string, number>;
 }
 
 interface RoomActions {
@@ -59,6 +64,7 @@ const initial: RoomState = {
   currentTurnId: null,
   currentTurnStatus: null,
   lastSeq: 0,
+  lastSeqByTurn: {},
 };
 
 export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
@@ -79,6 +85,7 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
             m.sequenceNum && m.sequenceNum > max ? m.sequenceNum : max,
           0
         ) ?? 0,
+      lastSeqByTurn: {},
     });
   },
 
@@ -96,13 +103,20 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
   applyEvent(event) {
     set((s) => {
       // 评审 W6 重要 #4：所有事件严格单调；stale 直接丢弃。
-      // 后端保证 turn.started seq 严格大于 user message seq。
-      if (event.sequenceNum <= s.lastSeq) {
+      // 2026-05-08（screenshot 41）：改为 per-turnId 单调，避免并发 turn 互相
+      // 屏蔽。两个 turn 同时 streaming 时，turn B 的早期事件 seq 可能小于
+      // turn A 的尾部事件 seq，单 lastSeq 会错误丢弃 turn B。
+      const turnLastSeq = s.lastSeqByTurn[event.turnId] ?? 0;
+      if (event.sequenceNum <= turnLastSeq) {
         return s;
       }
 
       const next: Partial<RoomState> = {
-        lastSeq: event.sequenceNum,
+        lastSeq: Math.max(s.lastSeq, event.sequenceNum),
+        lastSeqByTurn: {
+          ...s.lastSeqByTurn,
+          [event.turnId]: event.sequenceNum,
+        },
       };
 
       switch (event.kind) {
