@@ -1,0 +1,840 @@
+/**
+ * PlaygroundBusinessOrchestrator —— Stage 1 / S1-1 拆分(2026-05-09)
+ *
+ * 从 PlaygroundPipelineDispatcher 抽出"业务编排"职责。本 service 持有:
+ *
+ *   - 业务字面量(STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE 表)
+ *   - 11 个 stage hook builders(buildSXxxHooks)
+ *   - SessionEntry "view"(只读,通过 dispatcher 注入的 sessionLookup 拿)
+ *   - buildStageInvariants / resolveTriggerType 等 stage script helper
+ *
+ * dispatcher(playground-pipeline-dispatcher.service.ts)留 runtime-glue 职责:
+ * sessions Map / runMission 主入口 / withProgressTracking / hydrate inherited /
+ * orphan cleanup / handleMissionFailure / fireSelfEvolutionPostlude 等。
+ *
+ * 关系:dispatcher inject business-orchestrator,在 onModuleInit 调
+ * `bindSessionLookup` 把 sessions Map lookup 注入业务 service;hook closures 内通过
+ * 此 lookup 访问 SessionEntry。**单向依赖**:dispatcher → business-orchestrator,
+ * business-orchestrator 不引用 dispatcher 运行时类(只 type-import SessionEntry)。
+ *
+ * 详见:
+ *   - docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md §7 S1-1
+ *   - docs/architecture/ai-harness/sediment-topology.md §4
+ */
+
+import { Injectable, Logger } from "@nestjs/common";
+import {
+  runWithStageInstrumentation,
+  type ResolvedStageHooks,
+  type StageRunArgs,
+} from "@/modules/ai-harness/facade";
+import { MissionStageBindingsService } from "./mission-stage-bindings.service";
+import { narrate } from "./narrative.util";
+import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
+import { runLeaderPlanStage } from "./stages/s2-leader-plan-mission.stage";
+import { runResearcherDispatchStage } from "./stages/s3-researcher-collect-findings.stage";
+import { runLeaderAssessResearchStage } from "./stages/s4-leader-assess-research.stage";
+import { runReconcilerStage } from "./stages/s5-reconciler-cross-dim-fact-check.stage";
+import { runAnalystStage } from "./stages/s6-analyst-synthesize-insights.stage";
+import { runWriterOutlineStage } from "./stages/s7-writer-plan-outline.stage";
+import { runWriterStage } from "./stages/s8-writer-draft-report.stage";
+import { runSectionQualityEnhancementStage } from "./stages/s8b-section-quality-enhancement.stage";
+import { runCriticStage } from "./stages/s9-reviewer-critic-l4.stage";
+import { runReportObjectiveEvaluationStage } from "./stages/s9b-report-objective-evaluation.stage";
+import { runLeaderForewordAndSignoffStage } from "./stages/s10-leader-foreword-and-signoff.stage";
+import { runPersistStage } from "./stages/s11-mission-persist.stage";
+import { MissionCheckpointService } from "@/modules/ai-harness/facade";
+import { MissionStore } from "../lifecycle/mission-store.service";
+import type { MissionInvariants } from "./mission-context";
+import type { SessionEntry } from "./playground-pipeline-dispatcher.service";
+
+type SessionLookup = (missionId: string) => SessionEntry;
+
+@Injectable()
+export class PlaygroundBusinessOrchestrator {
+  private readonly log = new Logger(PlaygroundBusinessOrchestrator.name);
+  private sessionLookup?: SessionLookup;
+
+  constructor(
+    private readonly stageBindings: MissionStageBindingsService,
+    private readonly missionCheckpoint: MissionCheckpointService,
+    private readonly store: MissionStore,
+  ) {}
+
+  /**
+   * dispatcher.onModuleInit 调一次,把 sessions Map lookup 函数注入。
+   * stage hook closures 在执行时通过 this.lookupEntry(missionId) 访问 SessionEntry,
+   * 避免 business-orchestrator 直接持有 sessions Map(那是 runtime-glue 职责)。
+   */
+  bindSessionLookup(lookup: SessionLookup): void {
+    this.sessionLookup = lookup;
+  }
+
+  // ── stepId → DB stageNumber(与 legacy team.mission.ts 对齐)──
+  // 用于 markStageComplete + missionCheckpoint.save 的进度索引
+  readonly STAGE_NUMBER: Record<string, number> = {
+    "s1-budget": 1,
+    "s2-leader-plan": 2,
+    "s3-researcher-collect": 3,
+    "s4-leader-assess": 4,
+    "s5-reconciler": 5,
+    "s6-analyst": 6,
+    "s7-writer-outline": 7,
+    "s8-writer": 8,
+    "s8b-quality-enhancement": 8, // 同 s8(quality 增强)
+    "s9-critic": 9,
+    "s9b-objective-eval": 9,
+    "s10-leader-foreword-signoff": 10,
+    "s11-persist": 11,
+    // s12 在 legacy 不入 stage 计数(fire-and-forget)
+  };
+
+  /** S3/S8 milestone 后 save checkpoint,让 pod 崩溃可 resume */
+  readonly CHECKPOINT_AT: Record<string, string> = {
+    "s2-leader-plan": "s2-leader-plan",
+    "s3-researcher-collect": "s3-researcher-dispatch",
+    "s8-writer": "s8-writer-draft",
+  };
+
+  /**
+   * 每 primitive 的"主 hook"名 —— success-after-this 视为 stage 完成。
+   * 助手 hook(extractPlanFields / parseDecision / scoreScaling 等同步)不包,
+   * 否则会把同步函数变成 Promise,破坏 primitive 的同步消费链。
+   */
+  readonly PRIMARY_HOOK_BY_PRIMITIVE: Record<string, string> = {
+    plan: "runRole",
+    research: "perItemPipeline",
+    assess: "runRole",
+    synthesize: "synthesize",
+    draft: "draftOnce",
+    review: "review",
+    signoff: "runRole",
+    persist: "persist",
+    learn: "postmortemClassifier",
+  };
+
+  /**
+   * 主入口:为 stepId 构建 stage hooks(由 dispatcher.buildBaseHooksForStep 调用)。
+   */
+  buildHooksForStep(stepId: string, _primitive: string): ResolvedStageHooks {
+    if (stepId === "s1-budget") return this.buildS1BudgetHooks();
+    if (stepId === "s2-leader-plan") return this.buildS2LeaderPlanHooks();
+    if (stepId === "s3-researcher-collect")
+      return this.buildS3ResearcherCollectHooks();
+    if (stepId === "s4-leader-assess") return this.buildS4LeaderAssessHooks();
+    if (stepId === "s5-reconciler") return this.buildS5ReconcilerHooks();
+    if (stepId === "s6-analyst") return this.buildS6AnalystHooks();
+    if (stepId === "s7-writer-outline") return this.buildS7WriterOutlineHooks();
+    if (stepId === "s8-writer") return this.buildS8WriterHooks();
+    if (
+      stepId === "s8b-quality-enhancement" ||
+      stepId === "s9-critic" ||
+      stepId === "s9b-objective-eval"
+    ) {
+      return this.buildReviewHooks(stepId);
+    }
+    if (stepId === "s10-leader-foreword-signoff")
+      return this.buildS10SignoffHooks();
+    if (stepId === "s11-persist") return this.buildS11PersistHooks();
+    throw new Error(
+      `[playground-business-orch] no hook builder for step "${stepId}". ` +
+        `All steps in PLAYGROUND_PIPELINE.steps must have an explicit branch above.`,
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Helpers
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 通过 dispatcher 注入的 sessionLookup 拿 SessionEntry。
+   * 未 bind 时抛错 —— bindSessionLookup 必须在 onModuleInit 阶段被调用。
+   */
+  private getEntry(missionId: string): SessionEntry {
+    if (!this.sessionLookup) {
+      throw new Error(
+        `[playground-business-orch] sessionLookup not bound; ` +
+          `dispatcher must call bindSessionLookup() in onModuleInit`,
+      );
+    }
+    return this.sessionLookup(missionId);
+  }
+
+  /**
+   * 构造单 stage 用的 MissionContext invariants(每 stage 独立 ctx)。
+   */
+  private buildStageInvariants(entry: SessionEntry): MissionInvariants {
+    return {
+      missionId: entry.session.missionId,
+      userId: entry.session.userId,
+      input: entry.input,
+      t0: entry.t0,
+      billing: entry.session.billing,
+      pool: entry.session.pool,
+      leader: entry.leader,
+      budgetMultiplier: entry.session.budgetMultiplier,
+    };
+  }
+
+  /**
+   * 从 entry.input 推导版本触发类型:
+   *   inheritFromMissionId 存在 → 本次是 rerun;否则是 initial。
+   *
+   * public 让 dispatcher.handleMissionFailure 也能复用(saveReportVersion 失败路径)。
+   */
+  resolveTriggerType(entry: SessionEntry): string {
+    return entry.input.inheritFromMissionId ? "rerun-fresh" : "initial";
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 11 个 stage hook builders(从 dispatcher 移过来,逻辑保持一致)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /**
+   * s1-budget hook 实装(R2-A.3)
+   *
+   * persist primitive 期望 hooks.persist;s1 模式下"persist"行为是"预算闸门
+   * + emit mission:started",调既有 runBudgetEstimateStage thin adapter。
+   */
+  private buildS1BudgetHooks(): ResolvedStageHooks {
+    const hooks = {
+      persist: async (args: {
+        ctx: StageRunArgs["ctx"];
+        previousOutputs: StageRunArgs["previousOutputs"];
+        crossStageState: StageRunArgs["crossStageState"];
+      }): Promise<void> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const invariants = this.buildStageInvariants(entry);
+        const deps = this.stageBindings.buildDeps();
+        await runBudgetEstimateStage(invariants, deps, entry.workspaceId);
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s2-leader-plan hook 实装(R2-A.4)
+   */
+  private buildS2LeaderPlanHooks(): ResolvedStageHooks {
+    const hooks = {
+      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        // ★ 2026-05-05 增量更新:runMission 已 hydrate entry.lastPlan from source mission;
+        //   走 runWithStageInstrumentation 跳过 LLM 调用,保留所有 UI 关键事件
+        if (entry.lastPlan && entry.input.inheritFromMissionId) {
+          this.log.log(
+            `[s2-leader-plan] inheriting from mission ${entry.input.inheritFromMissionId}, skip LLM`,
+          );
+          const inheritedPlan = entry.lastPlan;
+          const sourceMissionId = entry.input.inheritFromMissionId;
+          const deps = this.stageBindings.buildDeps();
+          const result = await runWithStageInstrumentation(
+            {
+              missionId: entry.session.missionId,
+              userId: entry.session.userId,
+              pool: entry.session.pool,
+            },
+            deps,
+            {
+              eventPrefix: "agent-playground",
+              stageId: "s2-leader-plan",
+              role: "leader",
+              narrate,
+              narrateThinking: `Leader 继承自 mission ${sourceMissionId.slice(0, 8)} 的研究方案(${inheritedPlan.dimensions.length} 个维度),跳过重新规划`,
+              narrateSuccess: (out) =>
+                `继承方案:${out.dimensions.length} 个维度(${out.dimensions
+                  .map((d) => d.name)
+                  .slice(0, 3)
+                  .join(" / ")}${out.dimensions.length > 3 ? " 等" : ""})`,
+              customMetrics: (out) => ({
+                dimensions: out.dimensions,
+                themeSummary: out.themeSummary,
+                inherited: true,
+                sourceMissionId,
+              }),
+              emitExtras: async (out) => {
+                await deps
+                  .emit({
+                    type: "agent-playground.leader:goals-set",
+                    missionId: entry.session.missionId,
+                    userId: entry.session.userId,
+                    payload: {
+                      goals: out.goals ?? [],
+                      initialRisks: out.initialRisks ?? [],
+                    },
+                  })
+                  .catch((err: unknown) => {
+                    this.log.warn(
+                      `[${entry.session.missionId}] emit leader:goals-set (rerun) failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  });
+              },
+            },
+            async () => ({
+              themeSummary: inheritedPlan.themeSummary,
+              dimensions: inheritedPlan.dimensions,
+              goals: inheritedPlan.goals ?? [],
+              initialRisks: inheritedPlan.initialRisks ?? [],
+            }),
+          );
+          entry.lastPlan = inheritedPlan;
+          return result;
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+        });
+        await runLeaderPlanStage(stageCtx, this.stageBindings.buildDeps());
+        if (!stageCtx.plan) {
+          throw new Error(
+            "[s2-leader-plan] stage returned without populating ctx.plan (unexpected)",
+          );
+        }
+        entry.lastPlan = stageCtx.plan;
+        return stageCtx.plan;
+      },
+      extractPlanFields: (raw: unknown) => {
+        const plan = raw as
+          | {
+              dimensions?: ReadonlyArray<unknown>;
+              goals?: unknown;
+            }
+          | undefined;
+        return {
+          dimensions: plan?.dimensions ?? [],
+          goals: plan?.goals as ReadonlyArray<unknown> | undefined,
+        };
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s3-researcher-collect hook 实装(R2-A.5)
+   */
+  private buildS3ResearcherCollectHooks(): ResolvedStageHooks {
+    const hooks = {
+      fanOut: (_args: {
+        ctx: StageRunArgs["ctx"];
+        previousOutputs: StageRunArgs["previousOutputs"];
+      }): ReadonlyArray<unknown> => {
+        return [{ kind: "all-dimensions" }];
+      },
+      perItemPipeline: async (args: {
+        item: unknown;
+        role: StageRunArgs["role"];
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const cachedPlan = entry.lastPlan;
+        if (!cachedPlan) {
+          throw new Error(
+            "[s3-researcher-collect] no plan from s2 (sessions[missionId].lastPlan undefined)",
+          );
+        }
+
+        // ★ P0-D 完整版: rerun cache hit
+        if (
+          entry.inheritedResearchResults &&
+          entry.inheritedResearchResults.length > 0
+        ) {
+          const inheritedByDim = new Map(
+            entry.inheritedResearchResults.map((r) => [r.dimension, r]),
+          );
+          const reusedResults: typeof entry.inheritedResearchResults = [];
+          const remainingDims: typeof cachedPlan.dimensions = [];
+          for (const d of cachedPlan.dimensions) {
+            const cached = inheritedByDim.get(d.name);
+            if (cached) {
+              reusedResults.push(cached);
+            } else {
+              remainingDims.push(d);
+            }
+          }
+          this.log.log(
+            `[s3-researcher-collect] cache hit: 复用 ${reusedResults.length}/${cachedPlan.dimensions.length} 个 dim 的 researcher 产物,剩余 ${remainingDims.length} 个走 fresh`,
+          );
+          const deps = this.stageBindings.buildDeps();
+          const t0 = Date.now();
+          for (const r of reusedResults) {
+            await deps
+              .emit({
+                type: "agent-playground.dimension:research:completed",
+                missionId: entry.session.missionId,
+                userId: entry.session.userId,
+                payload: {
+                  dimension: r.dimension,
+                  state: "completed",
+                  findingsCount: r.findings.length,
+                  fromCache: true,
+                },
+              })
+              .catch((err: unknown) => {
+                this.log.warn(
+                  `[${entry.session.missionId}] emit dimension:research:completed (cache) for "${r.dimension}" failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
+          }
+          if (remainingDims.length > 0) {
+            const stageCtx = this.stageBindings.buildCtx({
+              missionId: entry.session.missionId,
+              userId: entry.session.userId,
+              input: entry.input,
+              t0: entry.t0,
+              billing: entry.session.billing,
+              pool: entry.session.pool,
+              leader: entry.leader,
+              budgetMultiplier: entry.session.budgetMultiplier,
+              plan: { ...cachedPlan, dimensions: remainingDims },
+            });
+            await runResearcherDispatchStage(stageCtx, deps);
+            const freshResults = stageCtx.researcherResults ?? [];
+            entry.lastResearcherResults = [...reusedResults, ...freshResults];
+            if (
+              stageCtx.s4PatchFailures &&
+              stageCtx.s4PatchFailures.length > 0
+            ) {
+              entry.s4PatchFailures = stageCtx.s4PatchFailures;
+            }
+          } else {
+            entry.lastResearcherResults = reusedResults;
+          }
+          this.log.log(
+            `[s3-researcher-collect] cache reuse 节省 ${Math.round((Date.now() - t0) / 1000)}s(cache 路径仅 emit synth events)`,
+          );
+          return entry.lastResearcherResults;
+        }
+
+        // ── 正常 fresh 路径 ──
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: cachedPlan,
+        });
+        await runResearcherDispatchStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+        );
+        entry.lastResearcherResults = stageCtx.researcherResults;
+        if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
+          entry.s4PatchFailures = stageCtx.s4PatchFailures;
+        }
+        // ★ P0-D 完整版: 持久化 baseline researcher 产物
+        if (stageCtx.researcherResults) {
+          for (const r of stageCtx.researcherResults) {
+            await this.store
+              .saveResearchResult({
+                missionId: entry.session.missionId,
+                dimension: r.dimension,
+                findings: r.findings,
+                summary: r.summary,
+                state: r.findings.length === 0 ? "failed" : "completed",
+              })
+              .catch(async (err: unknown) => {
+                const message =
+                  err instanceof Error ? err.message : String(err);
+                this.log.warn(
+                  `[s3 saveResearchResult] dim=${r.dimension} failed: ${message}`,
+                );
+                await this.stageBindings
+                  .buildDeps()
+                  .markStageDegraded(
+                    entry.session.missionId,
+                    entry.session.userId,
+                    "s3-researcher-collect",
+                    `trajectory 持久化失败 (${r.dimension}):${message.slice(0, 200)}`,
+                  )
+                  .catch(() => undefined);
+              });
+          }
+        }
+        // ★ P1-修1 (2026-05-06): S3 软失败上报
+        const allResults = stageCtx.researcherResults ?? [];
+        const failedCount = allResults.filter(
+          (r) => r.findings.length === 0,
+        ).length;
+        const totalCount = allResults.length;
+        if (totalCount > 0 && failedCount === totalCount) {
+          throw new Error(
+            `S3-AllDimensionsFailed: ${totalCount}/${totalCount} dim 采集失败(无 findings 可用),mission 无法继续`,
+          );
+        }
+        if (totalCount > 0 && failedCount * 2 > totalCount) {
+          await this.stageBindings
+            .buildDeps()
+            .markStageDegraded(
+              entry.session.missionId,
+              entry.session.userId,
+              "s3-researcher-collect",
+              `S3 半数以上 dim 采集失败:${failedCount}/${totalCount}(mission 继续走退化路径)`,
+            )
+            .catch(() => undefined);
+        }
+        return stageCtx.researcherResults;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s4-leader-assess hook 实装(R2-A.6)
+   */
+  private buildS4LeaderAssessHooks(): ResolvedStageHooks {
+    const hooks = {
+      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan) {
+          throw new Error("[s4-leader-assess] no plan from s2");
+        }
+        if (!entry.lastResearcherResults) {
+          throw new Error("[s4-leader-assess] no researcherResults from s3");
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          sharedState: { s4PatchFailures: entry.s4PatchFailures },
+        });
+        await runLeaderAssessResearchStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+        );
+        entry.lastResearcherResults = stageCtx.researcherResults;
+        entry.lastPlan = stageCtx.plan;
+        if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
+          entry.s4PatchFailures = stageCtx.s4PatchFailures;
+        }
+        return { ok: true };
+      },
+      parseDecision: (_raw: unknown): "continue" => {
+        return "continue";
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s5-reconciler hook 实装(R2-A.7)
+   */
+  private buildS5ReconcilerHooks(): ResolvedStageHooks {
+    const hooks = {
+      synthesize: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan || !entry.lastResearcherResults) {
+          throw new Error(
+            "[s5-reconciler] missing plan/researcherResults from prev stages",
+          );
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+        });
+        await runReconcilerStage(stageCtx, this.stageBindings.buildDeps());
+        entry.lastReconciliationReport = stageCtx.reconciliationReport;
+        return stageCtx.reconciliationReport;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s6-analyst hook 实装(R2-A.8)
+   */
+  private buildS6AnalystHooks(): ResolvedStageHooks {
+    const hooks = {
+      synthesize: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan || !entry.lastResearcherResults) {
+          throw new Error(
+            "[s6-analyst] missing plan/researcherResults from prev stages",
+          );
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+        });
+        await runAnalystStage(stageCtx, this.stageBindings.buildDeps());
+        entry.lastAnalystOutput = stageCtx.analystOutput;
+        return stageCtx.analystOutput;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s7-writer-outline hook 实装(R2-A.9)
+   */
+  private buildS7WriterOutlineHooks(): ResolvedStageHooks {
+    const hooks = {
+      draftOnce: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+        });
+        await runWriterOutlineStage(stageCtx, this.stageBindings.buildDeps());
+        entry.lastOutlinePlan = stageCtx.outlinePlan;
+        return stageCtx.outlinePlan ?? null;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s8-writer hook 实装(R2-A.10)—— 14 stage 中最大的(450+ 行业务逻辑)
+   */
+  private buildS8WriterHooks(): ResolvedStageHooks {
+    const hooks = {
+      draftOnce: async (args: {
+        ctx: StageRunArgs["ctx"];
+      }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        if (!entry.lastPlan || !entry.lastResearcherResults) {
+          throw new Error("[s8-writer] missing plan/researcherResults");
+        }
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+        });
+        if (entry.lastOutlinePlan) {
+          (stageCtx as { outlinePlan?: unknown }).outlinePlan =
+            entry.lastOutlinePlan;
+        }
+        const analyst = (entry.lastAnalystOutput as
+          | {
+              insights?: unknown[];
+              themeSummary?: string;
+              contradictions?: unknown[];
+            }
+          | undefined) ?? {
+          insights: [],
+          themeSummary: entry.lastPlan?.themeSummary ?? "",
+        };
+        await runWriterStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+          {
+            insights: analyst.insights ?? [],
+            themeSummary: analyst.themeSummary ?? "",
+            contradictions: analyst.contradictions,
+          },
+          entry.workspaceId,
+        );
+        entry.lastReport = stageCtx.report;
+        entry.lastReportArtifact = stageCtx.reportArtifact;
+        entry.lastReviewScore = stageCtx.reviewScore;
+        entry.lastVerifierVerdicts = stageCtx.verifierVerdicts as unknown[];
+        return stageCtx.reportArtifact ?? stageCtx.report ?? null;
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s8b/s9/s9b review hooks 实装(R2-A.11)—— 三个 review primitive stage
+   */
+  private buildReviewHooks(stepId: string): ResolvedStageHooks {
+    const stageFn =
+      stepId === "s8b-quality-enhancement"
+        ? runSectionQualityEnhancementStage
+        : stepId === "s9-critic"
+          ? runCriticStage
+          : runReportObjectiveEvaluationStage;
+    const hooks = {
+      review: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+          reportArtifact: entry.lastReportArtifact,
+          report: entry.lastReport,
+          reviewScore: entry.lastReviewScore,
+          verifierVerdicts: entry.lastVerifierVerdicts,
+        });
+        await stageFn(stageCtx, this.stageBindings.buildDeps());
+        entry.lastReportArtifact = stageCtx.reportArtifact;
+        entry.lastReviewScore = stageCtx.reviewScore;
+        return {
+          score: stageCtx.reviewScore,
+          verdict: stageCtx.reportArtifact?.quality,
+        };
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s10-leader-foreword-signoff hook 实装(R2-A.12)
+   */
+  private buildS10SignoffHooks(): ResolvedStageHooks {
+    const hooks = {
+      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const stageCtx = this.stageBindings.buildCtx({
+          missionId: entry.session.missionId,
+          userId: entry.session.userId,
+          input: entry.input,
+          t0: entry.t0,
+          billing: entry.session.billing,
+          pool: entry.session.pool,
+          leader: entry.leader,
+          budgetMultiplier: entry.session.budgetMultiplier,
+          plan: entry.lastPlan,
+          researcherResults: entry.lastResearcherResults,
+          reconciliationReport: entry.lastReconciliationReport,
+          reportArtifact: entry.lastReportArtifact,
+          report: entry.lastReport,
+          reviewScore: entry.lastReviewScore,
+          verifierVerdicts: entry.lastVerifierVerdicts,
+          sharedState: { s4PatchFailures: entry.s4PatchFailures },
+        });
+        await runLeaderForewordAndSignoffStage(
+          stageCtx,
+          this.stageBindings.buildDeps(),
+        );
+        entry.lastLeaderForeword = stageCtx.leaderForeword;
+        entry.lastLeaderSignOff = stageCtx.leaderSignOff;
+        return {
+          foreword: stageCtx.leaderForeword,
+          signoff: stageCtx.leaderSignOff,
+        };
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+
+  /**
+   * s11-persist hook 实装(R2-A.13)
+   */
+  private buildS11PersistHooks(): ResolvedStageHooks {
+    const hooks = {
+      persist: async (args: { ctx: StageRunArgs["ctx"] }): Promise<void> => {
+        const entry = this.getEntry(args.ctx.missionId);
+        const missionId = entry.session.missionId;
+        await runPersistStage(
+          {
+            missionId,
+            userId: entry.session.userId,
+            t0: entry.t0,
+            result: {
+              report: entry.lastReport,
+              reportArtifact: entry.lastReportArtifact as
+                | {
+                    metadata: { topic?: string; modelTrail?: string[] };
+                    quickView?: {
+                      executiveSummary?: { markdown?: string };
+                    };
+                    sections?: Array<{
+                      title?: string;
+                      startOffset: number;
+                      endOffset: number;
+                    }>;
+                    content?: { fullMarkdown: string };
+                  }
+                | undefined,
+              reviewScore: entry.lastReviewScore,
+              themeSummary: entry.lastPlan?.themeSummary,
+              dimensions: entry.lastPlan?.dimensions as unknown[] | undefined,
+              verdicts: entry.lastVerifierVerdicts,
+              userProfile: entry.input,
+              reconciliationReport: entry.lastReconciliationReport,
+              leaderSignOff: entry.lastLeaderSignOff,
+            },
+            pool: entry.session.pool,
+          },
+          this.stageBindings.buildDeps(),
+        );
+        await this.missionCheckpoint.clear(missionId).catch(() => undefined);
+        const reportPayload = entry.lastReportArtifact ?? entry.lastReport;
+        if (reportPayload) {
+          await this.store
+            .saveReportVersion({
+              missionId,
+              triggerType: this.resolveTriggerType(entry),
+              report: reportPayload as {
+                title?: string;
+                summary?: string;
+              },
+              finalScore: entry.lastLeaderSignOff?.leaderOverallScore,
+              leaderSigned: entry.lastLeaderSignOff?.signed,
+            })
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[s11-persist] saveReportVersion for ${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
+        }
+      },
+    };
+    return hooks as unknown as ResolvedStageHooks;
+  }
+}

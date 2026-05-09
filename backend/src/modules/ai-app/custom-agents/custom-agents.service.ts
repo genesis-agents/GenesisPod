@@ -6,6 +6,7 @@
  * PR-E3 集成到 agent-playground.runMission 启动路径。
  */
 import {
+  Inject,
   Injectable,
   BadRequestException,
   ConflictException,
@@ -23,11 +24,16 @@ import {
   type ISkill,
 } from "@/modules/ai-engine/facade";
 import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
-import { PlaygroundPipelineDispatcher } from "@/modules/ai-app/agent-playground/services/mission/workflow/playground-pipeline-dispatcher.service";
+// ★ Rev 5 / S1-5 (2026-05-09): closes back-coupling via ai-app/contracts/ path —
+//   custom-agents 不再直接 import PlaygroundPipelineDispatcher / MissionStore 具体类,
+//   改 inject IMissionRunner / IMissionListReader 接口 token。
 import {
-  MissionStore,
+  MISSION_RUNNER,
+  MISSION_LIST_READER,
+  type IMissionRunner,
+  type IMissionListReader,
   type MissionListItem,
-} from "@/modules/ai-app/agent-playground/services/mission/lifecycle/mission-store.service";
+} from "@/modules/ai-app/contracts/mission-platform.contract";
 import { RunMissionInputSchema } from "@/modules/ai-app/agent-playground/dto/run-mission.dto";
 import {
   CUSTOM_AGENT_PRIMITIVES,
@@ -84,8 +90,14 @@ export class CustomAgentsService {
     private readonly modelRecommendations: ModelRecommendationsService,
     // R-CA: launch + missions endpoint 依赖
     private readonly launches: CustomAgentLaunchesService,
-    private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
-    private readonly missionStore: MissionStore,
+    // ★ Rev 5 / S1-5 (2026-05-09): inject via contract tokens(IMissionRunner /
+    //   IMissionListReader),不再 import PlaygroundPipelineDispatcher / MissionStore
+    //   具体类。playground 在 agent-playground.module.ts 用 useExisting 把具体实现
+    //   注册到 token,custom-agents 通过 contract interface 调用,实现 Dependency Inversion。
+    @Inject(MISSION_RUNNER)
+    private readonly missionRunner: IMissionRunner,
+    @Inject(MISSION_LIST_READER)
+    private readonly missionList: IMissionListReader,
     private readonly ownership: MissionOwnershipRegistry,
   ) {}
 
@@ -377,7 +389,7 @@ export class CustomAgentsService {
       else rowReadyRejectInner(err);
     };
     const customAgentId = translated.metadata.customAgentId;
-    void this.pipelineDispatcher
+    void this.missionRunner
       .runMission(missionId, parsed.data, userId, undefined, async () => {
         // 此时 mission row 已 INSERT、session 已 register；写 launches 后解锁 endpoint
         try {
@@ -485,7 +497,7 @@ export class CustomAgentsService {
       throw new ForbiddenException("Not owner of this custom agent");
     }
     const missionIds = await this.launches.listMissionIdsForAgent(userId, id);
-    const items = await this.missionStore.listByMissionIds(userId, missionIds);
+    const items = await this.missionList.listByMissionIds(userId, missionIds);
     return { items };
   }
 
