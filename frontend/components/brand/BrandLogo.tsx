@@ -15,25 +15,51 @@ interface BrandLogoProps {
   subtitle?: React.ReactNode;
 }
 
-/**
- * Inline formula SVG（不走 next/image，直接嵌入 DOM 让浏览器稳定渲染 <text>）。
- * f(n,s) → {0,1}：康威生命游戏状态转移函数。
- */
-function FormulaIcon({ className }: { className?: string }) {
+/** Compact 方形图标：单 italic `f` 居中。折叠 sidebar / favicon tab 等小尺寸场合用。 */
+function FormulaIconCompact({ className }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 64 64"
+      viewBox="0 0 32 32"
       className={className}
       aria-label={config.brand.name}
       role="img"
     >
       <text
-        x="32"
-        y="38"
+        x="16"
+        y="24"
         textAnchor="middle"
         fontFamily="Georgia, 'Times New Roman', serif"
-        fontSize="11"
+        fontSize="26"
+        fontStyle="italic"
+        fill="#18181b"
+      >
+        f
+      </text>
+    </svg>
+  );
+}
+
+/** Wide 矩形图标：完整公式 f(n,s) → {0,1}。展开 sidebar / 登录 hero 等大尺寸场合用。
+ *  viewBox 高度收紧到 26（公式实际只占 22 高，padding 上下 2px），
+ *  让 fontSize 22 在画布上占比 ≈85%，配合更高的 iconClassName 渲染像素更大。 */
+function FormulaIconWide({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 130 26"
+      className={className}
+      aria-label={`${config.brand.name} formula`}
+      role="img"
+    >
+      <text
+        x="65"
+        y="20"
+        textAnchor="middle"
+        textLength="118"
+        lengthAdjust="spacingAndGlyphs"
+        fontFamily="Georgia, 'Times New Roman', serif"
+        fontSize="22"
         fill="#18181b"
       >
         <tspan fontStyle="italic">f(n,s)</tspan>
@@ -49,12 +75,17 @@ function FormulaIcon({ className }: { className?: string }) {
 
 export function BrandLogo({
   variant = 'icon',
-  iconClassName = 'h-10 w-10',
+  iconClassName,
   className = '',
   nameAddon,
   subtitle,
 }: BrandLogoProps) {
   const isFull = variant === 'full';
+
+  // variant 自适应默认尺寸
+  const Icon = isFull ? FormulaIconWide : FormulaIconCompact;
+  const defaultIconClass = isFull ? 'h-12 w-auto' : 'h-8 w-8';
+  const finalIconClass = iconClassName ?? defaultIconClass;
 
   return (
     <div className={`inline-flex flex-col items-start ${className}`}>
@@ -62,22 +93,25 @@ export function BrandLogo({
         className="flex-shrink-0"
         style={{ filter: 'drop-shadow(0 1px 2px rgba(24,24,27,0.15))' }}
       >
-        <FormulaIcon className={iconClassName} />
+        <Icon className={finalIconClass} />
       </div>
 
       {isFull && (
-        <div className="mt-1.5 flex items-baseline gap-1">
-          <span className="font-serif text-[15px] font-bold leading-none tracking-[0.06em] text-[#18181b]">
+        <div className="mt-1.5 flex items-baseline gap-1.5">
+          <span
+            className="logo-shimmer text-[16px] font-extrabold leading-none tracking-[0.06em]"
+            style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+          >
             {config.brand.name}
           </span>
           {nameAddon}
           {subtitle !== null && subtitle !== undefined && (
-            <span className="text-[9px] font-medium leading-none tracking-wider text-[#a19a8d]">
+            <span className="text-[7px] font-medium leading-none tracking-wider text-[#a19a8d]">
               {subtitle}
             </span>
           )}
           {subtitle === undefined && config.brand.subtitle && (
-            <span className="text-[9px] font-medium leading-none tracking-wider text-[#a19a8d]">
+            <span className="text-[7px] font-medium leading-none tracking-wider text-[#a19a8d]">
               {config.brand.subtitle}
             </span>
           )}

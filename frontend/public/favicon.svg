@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <text x="32" y="38" text-anchor="middle"
-        font-family="Georgia, serif" font-size="11" fill="#18181b">
-    <tspan font-style="italic">f(n,s)</tspan> &#8594; {<tspan fill="#D97706" font-style="italic" font-weight="700">0,1</tspan>}
-  </text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <text x="16" y="24" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="26" font-style="italic" fill="#18181b">f</text>
 </svg>

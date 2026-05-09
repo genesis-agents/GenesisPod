@@ -468,12 +468,12 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
         <Link href="/" className="flex items-center">
           <BrandLogo
             variant="full"
-            iconClassName="h-8 w-8"
+            iconClassName="h-8 w-auto"
             subtitle={
               <Link
                 href="/changelog"
                 onClick={(e) => e.stopPropagation()}
-                className="w-fit rounded bg-gradient-to-r from-indigo-500 to-violet-500 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white transition-opacity hover:opacity-80"
+                className="transition-colors hover:text-[#18181b]"
               >
                 v{CURRENT_VERSION}
               </Link>

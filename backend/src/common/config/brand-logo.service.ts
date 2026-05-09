@@ -73,11 +73,11 @@ export class BrandLogoService {
   }
 
   /**
-   * Default fallback logo — Game-of-Life state-transition formula.
+   * Default fallback logo — Game-of-Life state-transition formula (wide).
    * f(n, s) → {0, 1}：邻居 n + 当前态 s → 下一态。
-   * 与 frontend/public/favicon.svg 保持一致；editorial ink + amber 突出 {0,1}。
+   * 矩形 130×32 让公式占满，editorial ink + amber 突出 {0,1}。
    */
-  private readonly DEFAULT_LOGO = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="32" y="32" text-anchor="middle" dominant-baseline="central" textLength="52" lengthAdjust="spacingAndGlyphs" font-family="Georgia, 'Times New Roman', 'Cambria', serif" font-size="14" fill="#18181b"><tspan font-style="italic">f</tspan><tspan font-style="italic">(n,s)</tspan><tspan font-style="normal"> → {</tspan><tspan fill="#D97706" font-weight="700" font-style="italic">0,1</tspan><tspan font-style="normal">}</tspan></text></svg>`;
+  private readonly DEFAULT_LOGO = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 26"><text x="65" y="20" text-anchor="middle" textLength="118" lengthAdjust="spacingAndGlyphs" font-family="Georgia, 'Times New Roman', serif" font-size="22" fill="#18181b"><tspan font-style="italic">f(n,s)</tspan> → {<tspan fill="#D97706" font-style="italic" font-weight="700">0,1</tspan>}</text></svg>`;
 
   /** Get brand name for watermarks and footers */
   getBrandName(): string {

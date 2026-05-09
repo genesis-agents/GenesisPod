@@ -921,15 +921,14 @@ body {
 }
 
 .logo-shimmer {
+  /* Editorial palette: ink → mid-gray → amber-600 highlight sweeps across → mid-gray → ink */
   background: linear-gradient(
     90deg,
-    #4338CA 0%,
-    #6366F1 15%,
-    #06B6D4 35%,
-    #8B5CF6 55%,
-    #EC4899 70%,
-    #6366F1 85%,
-    #4338CA 100%
+    #18181b 0%,
+    #3f3f46 30%,
+    #D97706 50%,
+    #3f3f46 70%,
+    #18181b 100%
   );
   background-size: 200% auto;
   background-clip: text;
