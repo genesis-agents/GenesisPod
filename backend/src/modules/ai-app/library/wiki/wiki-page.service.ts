@@ -356,26 +356,47 @@ export class WikiPageService {
     const clamp = (v: number | undefined, min: number, max: number) =>
       v === undefined ? undefined : Math.max(min, Math.min(max, Math.floor(v)));
 
-    const data: Prisma.WikiKnowledgeBaseConfigUpdateInput = {};
+    const update: Prisma.WikiKnowledgeBaseConfigUpdateInput = {};
+    // Defaults match wiki.prisma schema; create branch is only hit if the
+    // config row was somehow never written (upsert from a pre-existing KB).
+    const create: Prisma.WikiKnowledgeBaseConfigUncheckedCreateInput = {
+      knowledgeBaseId,
+      inlinePageCount: 200,
+      inlineTokenBudget: 500_000,
+      ingestMaxTokens: 80_000,
+      cronLintEnabled: true,
+      cronLintDailyBudgetCalls: 50,
+    };
+
     const ipc = clamp(patch.inlinePageCount, 1, 5_000);
-    if (ipc !== undefined) data.inlinePageCount = ipc;
+    if (ipc !== undefined) {
+      update.inlinePageCount = ipc;
+      create.inlinePageCount = ipc;
+    }
     const itb = clamp(patch.inlineTokenBudget, 10_000, 5_000_000);
-    if (itb !== undefined) data.inlineTokenBudget = itb;
+    if (itb !== undefined) {
+      update.inlineTokenBudget = itb;
+      create.inlineTokenBudget = itb;
+    }
     const imt = clamp(patch.ingestMaxTokens, 1_000, 500_000);
-    if (imt !== undefined) data.ingestMaxTokens = imt;
+    if (imt !== undefined) {
+      update.ingestMaxTokens = imt;
+      create.ingestMaxTokens = imt;
+    }
     if (patch.cronLintEnabled !== undefined) {
-      data.cronLintEnabled = patch.cronLintEnabled;
+      update.cronLintEnabled = patch.cronLintEnabled;
+      create.cronLintEnabled = patch.cronLintEnabled;
     }
     const cdb = clamp(patch.cronLintDailyBudgetCalls, 0, 5_000);
-    if (cdb !== undefined) data.cronLintDailyBudgetCalls = cdb;
+    if (cdb !== undefined) {
+      update.cronLintDailyBudgetCalls = cdb;
+      create.cronLintDailyBudgetCalls = cdb;
+    }
 
     return this.prisma.wikiKnowledgeBaseConfig.upsert({
       where: { knowledgeBaseId },
-      update: data,
-      create: {
-        knowledgeBaseId,
-        ...(data as Prisma.WikiKnowledgeBaseConfigCreateInput),
-      },
+      update,
+      create,
     });
   }
 
