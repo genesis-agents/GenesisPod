@@ -174,7 +174,9 @@ export class WikiDiffService {
         status: WikiDiffStatus.PENDING,
         id: { not: diffRow.id },
       },
-      select: { id: true, items: true },
+      // itemsUri 必须同 select：hydrate guard 警告 + 终态归档后透明回填
+      // (PENDING 永远不会被 off-load，但 hydrate guard 不区分 status)
+      select: { id: true, items: true, itemsUri: true },
     });
     for (const other of otherPending) {
       const otherParsed = WikiDiffItemsSchema.safeParse(other.items);

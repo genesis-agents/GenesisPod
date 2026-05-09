@@ -136,11 +136,16 @@ enum WikiPageEmbedResolution {
 /// items: { creates, updates, deletes } — apply 入事务前 zod parse。
 /// affectedSlugs: diff 涉及 slug 集合（service 层用于"slug 集合冲突"并发判定）。
 /// 配套 GIN partial index `WHERE status = 'PENDING'` 在手写 SQL migration 中追加。
+/// items off-load (2026-05-09): 终态行（APPLIED/DISMISSED）30 天后搬到
+/// `wiki-diffs/{id}/items.json`，DB items 列写 JSON null（'null'::jsonb）。
+/// 读路径走 PrismaService hydrate JSON 变体（与 dimensionAnalysis.dataPoints 同形）。
 model WikiDiff {
   id              String         @id @default(uuid())
   knowledgeBaseId String         @map("knowledge_base_id")
   status          WikiDiffStatus @default(PENDING)
   items           Json
+  itemsUri        String?        @map("items_uri")
+  itemsSize       Int?           @map("items_size")
   baselineHash    String         @map("baseline_hash") @db.VarChar(64)
   affectedSlugs   String[]       @map("affected_slugs")
   createdByUserId String         @map("created_by_user_id")

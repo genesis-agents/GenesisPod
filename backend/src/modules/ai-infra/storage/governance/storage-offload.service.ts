@@ -9,6 +9,9 @@
  *   （仅 status=READY 行：避免 chunking pipeline 还在用 raw_content 时被搬走）
  * - wiki_page_revisions.body → `wiki-revisions/{pageId}/{revisionId}.md`
  *   （revision 是 append-only 极冷数据，写完即可迁；revert 走 hydrate）
+ * - wiki_diffs.items → `wiki-diffs/{id}/items.json`
+ *   （仅 status=APPLIED|DISMISSED 且 createdAt > 30d 的终态归档；
+ *    PENDING 必须留 DB 给 apply 事务；items 非空字段 → 写 JSON null）
  *
  * 处理逻辑（每个表独立）：
  * 1. 扫 {uri} IS NULL AND {content} IS NOT NULL AND len > 2KB 的行
@@ -31,7 +34,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
-import { Prisma, KnowledgeBaseStatus } from "@prisma/client";
+import { Prisma, KnowledgeBaseStatus, WikiDiffStatus } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../runtime/r2-storage.service";
 
@@ -287,6 +290,51 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
         },
         keyFor: (id) => `wiki-revisions/${id}.md`,
         contentType: "text/markdown; charset=utf-8",
+      },
+      {
+        // 2026-05-09: WikiDiff.items 终态归档
+        // 仅扫 APPLIED|DISMISSED 且 30 天前的终态行：PENDING 必须留 DB（apply 事务读 items），
+        // CONFLICTED 留 DB（debug 历史），30d grace 给 UI 展示历史 diff 不打 R2。
+        // items 是 Json 非空字段 → 写 JSONB null（'null'::jsonb）保留 NOT NULL 约束。
+        name: "wiki_diffs.items",
+        list: async (p, take) => {
+          const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          const rows = await p.wikiDiff.findMany({
+            where: {
+              itemsUri: null,
+              status: {
+                in: [WikiDiffStatus.APPLIED, WikiDiffStatus.DISMISSED],
+              },
+              createdAt: { lt: cutoff },
+              NOT: { items: { equals: Prisma.JsonNull } },
+            },
+            select: { id: true, items: true, itemsUri: true },
+            take,
+          });
+          return rows
+            .filter((r) => r.items !== null)
+            .map((r) => ({
+              id: r.id,
+              content: JSON.stringify(r.items),
+            }));
+        },
+        commit: async (p, id, uri, size) => {
+          // 写 JSONB null 而非 SQL NULL（schema items NOT NULL）
+          await p.$executeRawUnsafe(
+            `UPDATE wiki_diffs SET items='null'::jsonb, items_uri=$1, items_size=$2 WHERE id=$3`,
+            uri,
+            size,
+            id,
+          );
+        },
+        recordSmall: async (p, id, size) => {
+          await p.wikiDiff.update({
+            where: { id },
+            data: { itemsSize: size },
+          });
+        },
+        keyFor: (id) => `wiki-diffs/${id}/items.json`,
+        contentType: "application/json; charset=utf-8",
       },
     ];
   }
