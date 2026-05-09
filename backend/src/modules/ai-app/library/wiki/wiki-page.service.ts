@@ -298,6 +298,87 @@ export class WikiPageService {
     });
   }
 
+  /**
+   * Read WikiKnowledgeBaseConfig for the KB. VIEWER+ access required.
+   * Returns the row directly (auto-created on enable per WikiKbAdminService).
+   */
+  async getConfig(userId: string, knowledgeBaseId: string) {
+    await this.assertViewerAccess(userId, knowledgeBaseId);
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: knowledgeBaseId },
+      select: { wikiEnabled: true },
+    });
+    if (!kb) throw new NotFoundException("Knowledge base not found");
+    const config = await this.prisma.wikiKnowledgeBaseConfig.findUnique({
+      where: { knowledgeBaseId },
+    });
+    // If somehow missing (e.g. legacy KB enabled before defaults landed),
+    // synthesize the schema defaults so the UI always has values to show.
+    return (
+      config ?? {
+        knowledgeBaseId,
+        inlinePageCount: 200,
+        inlineTokenBudget: 500_000,
+        ingestMaxTokens: 80_000,
+        cronLintEnabled: true,
+        cronLintDailyBudgetCalls: 50,
+        updatedAt: new Date(),
+      }
+    );
+  }
+
+  /**
+   * Update WikiKnowledgeBaseConfig (numeric / boolean fields). VIEWER+ access
+   * required (matches the relaxed wiki-toggle policy: shared-with-me KBs
+   * editable). Numeric fields clamped to safe ranges to prevent abuse.
+   */
+  async updateConfig(
+    userId: string,
+    knowledgeBaseId: string,
+    patch: {
+      inlinePageCount?: number;
+      inlineTokenBudget?: number;
+      ingestMaxTokens?: number;
+      cronLintEnabled?: boolean;
+      cronLintDailyBudgetCalls?: number;
+    },
+  ) {
+    await this.assertViewerAccess(userId, knowledgeBaseId);
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: knowledgeBaseId },
+      select: { wikiEnabled: true },
+    });
+    if (!kb) throw new NotFoundException("Knowledge base not found");
+    if (!kb.wikiEnabled) {
+      throw new ForbiddenException("Wiki is not enabled for this KB");
+    }
+
+    const clamp = (v: number | undefined, min: number, max: number) =>
+      v === undefined ? undefined : Math.max(min, Math.min(max, Math.floor(v)));
+
+    const data: Prisma.WikiKnowledgeBaseConfigUpdateInput = {};
+    const ipc = clamp(patch.inlinePageCount, 1, 5_000);
+    if (ipc !== undefined) data.inlinePageCount = ipc;
+    const itb = clamp(patch.inlineTokenBudget, 10_000, 5_000_000);
+    if (itb !== undefined) data.inlineTokenBudget = itb;
+    const imt = clamp(patch.ingestMaxTokens, 1_000, 500_000);
+    if (imt !== undefined) data.ingestMaxTokens = imt;
+    if (patch.cronLintEnabled !== undefined) {
+      data.cronLintEnabled = patch.cronLintEnabled;
+    }
+    const cdb = clamp(patch.cronLintDailyBudgetCalls, 0, 5_000);
+    if (cdb !== undefined) data.cronLintDailyBudgetCalls = cdb;
+
+    return this.prisma.wikiKnowledgeBaseConfig.upsert({
+      where: { knowledgeBaseId },
+      update: data,
+      create: {
+        knowledgeBaseId,
+        ...(data as Prisma.WikiKnowledgeBaseConfigCreateInput),
+      },
+    });
+  }
+
   private async assertViewerAccess(
     userId: string,
     knowledgeBaseId: string,

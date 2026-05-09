@@ -46,10 +46,12 @@ import {
   wikiApi,
   type KbDocumentSummary,
   type WikiDiff,
+  type WikiKbConfig,
   type WikiKbSummary,
   type WikiLintFinding,
   type WikiLintTypeStr,
   type WikiPage,
+  type WikiPageCategory,
   type WikiPageWithLinks,
   type WikiQueryResponse,
 } from '@/lib/api/wiki';
@@ -205,6 +207,9 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   const [ingestOpen, setIngestOpen] = useState(false);
   const [enableOpen, setEnableOpen] = useState(false);
   const [queryOpen, setQueryOpen] = useState(false);
+  const [createPageOpen, setCreatePageOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Persist resolved kbId to URL + localStorage for back/forward & refresh
   useEffect(() => {
@@ -281,6 +286,16 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           params.delete('diff');
           router.replace(`/library?${params.toString()}`);
         }}
+        onExport={() => {
+          if (exporting) return;
+          setExporting(true);
+          void exportWikiAsMarkdown(
+            kbId,
+            kbs.find((kb) => kb.id === kbId)?.name ?? 'wiki'
+          ).finally(() => setExporting(false));
+        }}
+        exporting={exporting}
+        onSettings={() => setSettingsOpen(true)}
       />
 
       <div className="flex-1 overflow-hidden">
@@ -293,6 +308,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
             router.replace(`/library?${params.toString()}`);
           }}
           onIngest={() => setIngestOpen(true)}
+          onCreatePage={() => setCreatePageOpen(true)}
         />
       </div>
 
@@ -346,6 +362,23 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       {queryOpen && (
         <WikiQueryPanel kbId={kbId} onClose={() => setQueryOpen(false)} />
       )}
+
+      {createPageOpen && (
+        <CreateWikiPageModal
+          kbId={kbId}
+          onClose={() => setCreatePageOpen(false)}
+          onCreated={(slug) => {
+            setCreatePageOpen(false);
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.set('page', slug);
+            router.replace(`/library?${params.toString()}`);
+          }}
+        />
+      )}
+
+      {settingsOpen && (
+        <WikiSettingsModal kbId={kbId} onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   );
 }
@@ -360,6 +393,9 @@ interface WikiSubHeaderProps {
   onLint: () => void;
   onQuery: () => void;
   onLog: () => void;
+  onExport: () => void;
+  exporting?: boolean;
+  onSettings: () => void;
 }
 
 function WikiSubHeader({
@@ -370,6 +406,9 @@ function WikiSubHeader({
   onLint,
   onQuery,
   onLog,
+  onExport,
+  exporting,
+  onSettings,
 }: WikiSubHeaderProps) {
   const current = kbs.find((kb) => kb.id === currentKbId);
   const [open, setOpen] = useState(false);
@@ -448,13 +487,19 @@ function WikiSubHeader({
           Log
         </ToolButton>
         <ToolButton
-          icon={<Download className="h-4 w-4" />}
-          onClick={() => alert('Export 在 P3a 后续上线')}
+          icon={
+            exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )
+          }
+          onClick={onExport}
         >
           Export
         </ToolButton>
         <button
-          onClick={() => alert('Settings 在 P3a 后续上线')}
+          onClick={onSettings}
           className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
           title="Settings"
         >
@@ -492,6 +537,7 @@ interface WikiPageReaderProps {
   activeSlug: string | null;
   onSelectSlug: (slug: string) => void;
   onIngest?: () => void;
+  onCreatePage?: () => void;
 }
 
 function WikiPageReader({
@@ -499,6 +545,7 @@ function WikiPageReader({
   activeSlug,
   onSelectSlug,
   onIngest,
+  onCreatePage,
 }: WikiPageReaderProps) {
   const [pages, setPages] = useState<WikiPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -559,7 +606,13 @@ function WikiPageReader({
   }
 
   if (pages.length === 0) {
-    return <ZeroPageGuide kbId={kbId} onIngest={onIngest} />;
+    return (
+      <ZeroPageGuide
+        kbId={kbId}
+        onIngest={onIngest}
+        onCreatePage={onCreatePage}
+      />
+    );
   }
 
   // Group pages by category
@@ -799,9 +852,11 @@ function WikiEmptyState({
 function ZeroPageGuide({
   kbId,
   onIngest,
+  onCreatePage,
 }: {
   kbId: string;
   onIngest?: () => void;
+  onCreatePage?: () => void;
 }) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">
@@ -829,8 +884,9 @@ function ZeroPageGuide({
           运行 Ingest
         </button>
         <button
-          onClick={() => alert('手动建页 UI 在 P3a 后续上线')}
-          className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          onClick={onCreatePage}
+          disabled={!onCreatePage}
+          className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           手动创建第一页
         </button>
@@ -986,6 +1042,414 @@ function WikiQueryPanel({
           问
         </button>
       </footer>
+    </div>
+  );
+}
+
+// ─── 客户端 Markdown 导出（不依赖后端 P3a tarball stub）───
+
+async function exportWikiAsMarkdown(
+  kbId: string,
+  kbName: string
+): Promise<void> {
+  try {
+    const list = await wikiApi.listPages(kbId, undefined, 1000);
+    const pages = list.items;
+    if (pages.length === 0) {
+      alert('当前 wiki 没有页面可以导出');
+      return;
+    }
+    // 按 category 分组（SUMMARY → ENTITY → CONCEPT → SOURCE）
+    const order: WikiPageCategory[] = [
+      'SUMMARY',
+      'ENTITY',
+      'CONCEPT',
+      'SOURCE',
+    ];
+    const sorted = [...pages].sort((a, b) => {
+      const ca = order.indexOf(a.category);
+      const cb = order.indexOf(b.category);
+      if (ca !== cb) return ca - cb;
+      return a.title.localeCompare(b.title);
+    });
+    // 拉每页 body（getPage 返回 page+links；我们只用 page.body）
+    const parts: string[] = [
+      `# ${kbName} — Wiki Export`,
+      `_Exported at ${new Date().toISOString()}_`,
+      `_Total pages: ${sorted.length}_`,
+      '',
+      '---',
+      '',
+    ];
+    for (const p of sorted) {
+      const detail = await wikiApi.getPage(kbId, p.slug);
+      parts.push(
+        `## ${detail.page.title}`,
+        `*${detail.page.category}* · slug: \`${detail.page.slug}\``,
+        '',
+        `> ${detail.page.oneLiner}`,
+        '',
+        detail.page.body,
+        '',
+        '---',
+        ''
+      );
+    }
+    const markdown = parts.join('\n');
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const safeName = kbName.replace(/[^a-zA-Z0-9_\-一-龥]+/g, '_');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}-wiki.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    logger?.error?.('[wiki] export failed', err);
+    alert('导出失败：' + (err instanceof Error ? err.message : '未知错误'));
+  }
+}
+
+// ─── 手动建页 modal ───
+
+function CreateWikiPageModal({
+  kbId,
+  onClose,
+  onCreated,
+}: {
+  kbId: string;
+  onClose: () => void;
+  onCreated: (slug: string) => void;
+}) {
+  const [slug, setSlug] = useState('');
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState<WikiPageCategory>('CONCEPT');
+  const [oneLiner, setOneLiner] = useState('');
+  const [body, setBody] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const valid =
+    /^[a-z0-9][a-z0-9-]{0,198}[a-z0-9]$/.test(slug) &&
+    title.trim().length > 0 &&
+    title.length <= 500 &&
+    oneLiner.trim().length > 0 &&
+    oneLiner.length <= 280 &&
+    body.trim().length > 0;
+
+  const submit = async () => {
+    if (!valid || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await wikiApi.createPage(kbId, {
+        slug,
+        title: title.trim(),
+        category,
+        body,
+        oneLiner: oneLiner.trim(),
+      });
+      onCreated(result.page.slug);
+    } catch (err) {
+      logger?.error?.('[wiki] createPage failed', err);
+      setError(err instanceof Error ? err.message : '创建失败');
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="flex max-h-[90vh] w-[640px] flex-col rounded-lg bg-white shadow-xl">
+        <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <h3 className="text-base font-semibold text-gray-900">
+            手动创建 Wiki 页面
+          </h3>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <Field label="Slug (kebab-case，2-200 字符)">
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              placeholder="my-page-slug"
+              className="font-mono w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+            />
+          </Field>
+          <Field label="标题">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={500}
+              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+            />
+          </Field>
+          <Field label="分类">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as WikiPageCategory)}
+              className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-violet-500"
+            >
+              <option value="ENTITY">ENTITY 实体</option>
+              <option value="CONCEPT">CONCEPT 概念</option>
+              <option value="SUMMARY">SUMMARY 总结</option>
+              <option value="SOURCE">SOURCE 来源</option>
+            </select>
+          </Field>
+          <Field label="一句话描述（≤280 字符）">
+            <input
+              type="text"
+              value={oneLiner}
+              onChange={(e) => setOneLiner(e.target.value)}
+              maxLength={280}
+              className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+            />
+          </Field>
+          <Field label="正文（Markdown，支持 [[slug]] 互链）">
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={12}
+              className="font-mono w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+            />
+          </Field>
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+        <footer className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-4">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={() => void submit()}
+            disabled={!valid || submitting}
+            className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+          >
+            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            创建
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-gray-600">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+// ─── Wiki settings modal (config view + edit) ───
+
+function WikiSettingsModal({
+  kbId,
+  onClose,
+}: {
+  kbId: string;
+  onClose: () => void;
+}) {
+  const [config, setConfig] = useState<WikiKbConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    wikiApi
+      .getConfig(kbId)
+      .then((c) => {
+        if (cancelled) return;
+        setConfig(c);
+      })
+      .catch((err) => {
+        logger?.error?.('[wiki] getConfig failed', err);
+        if (!cancelled) setError('加载设置失败');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [kbId]);
+
+  const save = async () => {
+    if (!config || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await wikiApi.updateConfig(kbId, {
+        inlinePageCount: config.inlinePageCount,
+        inlineTokenBudget: config.inlineTokenBudget,
+        ingestMaxTokens: config.ingestMaxTokens,
+        cronLintEnabled: config.cronLintEnabled,
+        cronLintDailyBudgetCalls: config.cronLintDailyBudgetCalls,
+      });
+      setConfig(result);
+      onClose();
+    } catch (err) {
+      logger?.error?.('[wiki] updateConfig failed', err);
+      setError(err instanceof Error ? err.message : '保存失败');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="flex max-h-[90vh] w-[560px] flex-col rounded-lg bg-white shadow-xl">
+        <header className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Wiki 设置</h3>
+            <p className="text-xs text-gray-500">
+              控制 ingest token 预算、inline 边界、自动 lint 节奏
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            aria-label="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          {loading && (
+            <div className="flex h-32 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+            </div>
+          )}
+          {!loading && config && (
+            <>
+              <Field label="Inline 页数上限（query A 路径页数 1-5000）">
+                <input
+                  type="number"
+                  min={1}
+                  max={5000}
+                  value={config.inlinePageCount}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      inlinePageCount: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+                />
+              </Field>
+              <Field label="Inline token 预算（10,000 - 5,000,000）">
+                <input
+                  type="number"
+                  min={10000}
+                  max={5000000}
+                  step={1000}
+                  value={config.inlineTokenBudget}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      inlineTokenBudget: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+                />
+              </Field>
+              <Field label="Ingest 最大 token（1,000 - 500,000）">
+                <input
+                  type="number"
+                  min={1000}
+                  max={500000}
+                  step={1000}
+                  value={config.ingestMaxTokens}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      ingestMaxTokens: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+                />
+              </Field>
+              <Field label="自动 Lint 每日调用上限（0-5000）">
+                <input
+                  type="number"
+                  min={0}
+                  max={5000}
+                  value={config.cronLintDailyBudgetCalls}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      cronLintDailyBudgetCalls: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-violet-500"
+                />
+              </Field>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={config.cronLintEnabled}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      cronLintEnabled: e.target.checked,
+                    })
+                  }
+                />
+                启用每日自动 Lint
+              </label>
+            </>
+          )}
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+        <footer className="flex items-center justify-end gap-3 border-t border-gray-100 px-5 py-4">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={() => void save()}
+            disabled={loading || saving || !config}
+            className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            保存
+          </button>
+        </footer>
+      </div>
     </div>
   );
 }

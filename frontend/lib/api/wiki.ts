@@ -128,6 +128,27 @@ export interface ToggleWikiEnabledResult {
   configCreated: boolean;
 }
 
+export interface WikiKbConfig {
+  knowledgeBaseId: string;
+  inlinePageCount: number;
+  inlineTokenBudget: number;
+  ingestMaxTokens: number;
+  cronLintEnabled: boolean;
+  cronLintDailyBudgetCalls: number;
+  updatedAt: string;
+}
+
+export type WikiKbConfigPatch = Partial<
+  Pick<
+    WikiKbConfig,
+    | 'inlinePageCount'
+    | 'inlineTokenBudget'
+    | 'ingestMaxTokens'
+    | 'cronLintEnabled'
+    | 'cronLintDailyBudgetCalls'
+  >
+>;
+
 export interface KbDocumentSummary {
   id: string;
   title: string;
@@ -270,6 +291,16 @@ export const wikiApi = {
     apiClient.post<WikiQueryResponse>(
       `${base}/${encodeURIComponent(kbId)}/query`,
       request
+    ),
+
+  // Config (KB-level wiki settings)
+  getConfig: (kbId: string) =>
+    apiClient.get<WikiKbConfig>(`${base}/${encodeURIComponent(kbId)}/config`),
+
+  updateConfig: (kbId: string, patch: WikiKbConfigPatch) =>
+    apiClient.patch<WikiKbConfig>(
+      `${base}/${encodeURIComponent(kbId)}/config`,
+      patch
     ),
 
   // Lint

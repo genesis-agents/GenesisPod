@@ -232,13 +232,61 @@ export class WikiController {
     return this.lintService.patchFinding(req.user.id, kbId, id, dto.action);
   }
 
-  // ─── Export (stub — P3a) ─────────────────────────────────────────
+  // ─── Config (KB-level wiki settings) ─────────────────────────────
+
+  @Get(":kbId/config")
+  @UseGuards(JwtAuthGuard)
+  async getConfig(
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+  ) {
+    return this.pageService.getConfig(req.user.id, kbId);
+  }
+
+  @Patch(":kbId/config")
+  @UseGuards(JwtAuthGuard)
+  async updateConfig(
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    // Light-weight typed pass-through: service layer clamps each numeric
+    // field and ignores unknown keys, so a plain object DTO is enough.
+    const patch = {
+      inlinePageCount:
+        typeof body.inlinePageCount === "number"
+          ? body.inlinePageCount
+          : undefined,
+      inlineTokenBudget:
+        typeof body.inlineTokenBudget === "number"
+          ? body.inlineTokenBudget
+          : undefined,
+      ingestMaxTokens:
+        typeof body.ingestMaxTokens === "number"
+          ? body.ingestMaxTokens
+          : undefined,
+      cronLintEnabled:
+        typeof body.cronLintEnabled === "boolean"
+          ? body.cronLintEnabled
+          : undefined,
+      cronLintDailyBudgetCalls:
+        typeof body.cronLintDailyBudgetCalls === "number"
+          ? body.cronLintDailyBudgetCalls
+          : undefined,
+    };
+    return this.pageService.updateConfig(req.user.id, kbId, patch);
+  }
+
+  // ─── Export (stub — P3a server-side tarball; client-side md export
+  //     is handled in the frontend by joining listPages + getPage)
+  // ─────────────────────────────────────────
 
   @Post(":kbId/export")
   @UseGuards(JwtAuthGuard)
   async export(@Request() _req: RequestWithUser, @Param("kbId") _kbId: string) {
     throw new NotImplementedException(
-      "Wiki tarball export is not yet implemented (v1.5.3 P3a)",
+      "Server-side wiki tarball export is not yet implemented; the UI " +
+        "exports as concatenated markdown client-side via listPages + getPage.",
     );
   }
 }
