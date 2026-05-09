@@ -1,8 +1,8 @@
 /**
  * BusinessAgentTeam — Mission Store 抽象接口
  *
- * 2026-05-08 PR-E2：从 ai-app/agent-playground/services/mission/lifecycle/ @migrated-from
- * mission-store.service.ts 提取核心 lifecycle 方法签名作为框架接口。reference impl
+ * 2026-05-08 PR-E2：从业务侧 reference mission store @migrated-from
+ * 提取核心 lifecycle 方法签名作为框架接口。reference impl
  * store 是 reference 实现（含 28 public 方法 + 业务 schema），其他 BusinessAgentTeam
  * 实例（research / TI / writing 反向迁移时）只需实现本接口的核心 lifecycle 部分，
  * 业务专属方法（saveReportVersion / appendLeaderJournal 等）由各业务方扩展。
@@ -29,7 +29,7 @@
  *     cleanupOrphanRunningMissions / markFailed / markReopened) —— **method 名与 Z1 不重叠**,
  *     Z3 framework 关心"mission 在生命周期上发生什么"。
  *
- * benchmark consumer 的 mission store(如 `ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts`)
+ * benchmark consumer 的 mission store(reference 实现，@migrated-from 业务侧 mission store)
  * **同时 satisfies 两者**(structural typing),分别对应:
  *
  *   - 被 R1 generic 调用方(reproducible CRUD)使用 → Z1 接口
@@ -38,8 +38,7 @@
  * S2-7 计划在 Stage 2 阶段用类型层 `IMissionStore<TBusiness> & IBusinessTeamMissionStore`
  * intersection 固化"同一 store 的两个视角"(非 Pick<> 子集 — 两接口 method 名互补不重叠)。
  *
- * 详见 `docs/architecture/ai-harness/sediment-topology.md` §5 T1 与
- * `docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md` §2.5。
+ * 详见 `docs/architecture/ai-harness/sediment-topology.md` §5 T1 与对应业务边界审计记录。 @migrated-from
  */
 
 /**
@@ -93,7 +92,7 @@ export interface IBusinessTeamMissionStore {
    *
    * `args.errorMessage` 截断契约(S0-7 codified):
    *   - 由**业务方实现侧**截断,framework / caller **不**截断
-   *   - reference impl(`agent-playground/services/mission/lifecycle/mission-store.service.ts`):
+   *   - reference impl:
    *     2000 chars(UTF-16 code units),超出 truncate 末尾保留 `…[truncated]` 标记
    *   - 其他 BusinessAgentTeam impl 可选不同上限,但必须保证 DB 列 NVARCHAR/TEXT 容纳
    *   - 上限选择应平衡:足够保留诊断信息(stack / message)且不撑爆 DB 行
