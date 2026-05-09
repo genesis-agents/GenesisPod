@@ -157,6 +157,17 @@ export interface KbDocumentSummary {
   createdAt: string;
 }
 
+export interface WikiOperationLogEntry {
+  id: string;
+  op: WikiOp;
+  title: string;
+  meta: Record<string, unknown>;
+  actorUserId: string | null;
+  actorName: string | null;
+  createdAt: string;
+  affectedSlugs: string[];
+}
+
 // ─── Endpoints ────────────────────────────────────────────────────
 
 // apiClient already prepends `/api/v1`; paths here are relative to that.
@@ -341,4 +352,12 @@ export const wikiApi = {
       `${base}/${encodeURIComponent(kbId)}/lint-findings/${encodeURIComponent(findingId)}`,
       { action }
     ),
+
+  // Operation log (Log drawer — ingest / lint / edit / revert history)
+  listOperations: (kbId: string, limit = 50) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    return apiClient.get<{ items: WikiOperationLogEntry[] }>(
+      `${base}/${encodeURIComponent(kbId)}/operations?${params.toString()}`
+    );
+  },
 };

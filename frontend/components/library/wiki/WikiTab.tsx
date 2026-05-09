@@ -36,10 +36,12 @@ import {
   GitMerge,
   Loader2,
   MessageCircle,
+  PencilLine,
   Plus,
   RefreshCw,
   Settings,
   Sparkles,
+  Undo2,
   X,
 } from 'lucide-react';
 import {
@@ -50,6 +52,8 @@ import {
   type WikiKbSummary,
   type WikiLintFinding,
   type WikiLintTypeStr,
+  type WikiOp,
+  type WikiOperationLogEntry,
   type WikiPage,
   type WikiPageCategory,
   type WikiPageWithLinks,
@@ -270,6 +274,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           params.delete('page');
           router.replace(`/library?${params.toString()}`);
         }}
+        onEnableOther={() => setEnableOpen(true)}
         onIngest={() => setIngestOpen(true)}
         onLint={() => {
           const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -379,6 +384,21 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       {settingsOpen && (
         <WikiSettingsModal kbId={kbId} onClose={() => setSettingsOpen(false)} />
       )}
+
+      {enableOpen && (
+        <WikiEnableToggleModal
+          onClose={() => setEnableOpen(false)}
+          onEnabled={(newKbId) => {
+            setEnableOpen(false);
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.set('tab', 'wiki');
+            params.set('kb', newKbId);
+            params.delete('page');
+            router.replace(`/library?${params.toString()}`);
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -389,6 +409,7 @@ interface WikiSubHeaderProps {
   kbs: WikiKbSummary[];
   currentKbId: string;
   onSelectKb: (id: string) => void;
+  onEnableOther: () => void;
   onIngest: () => void;
   onLint: () => void;
   onQuery: () => void;
@@ -402,6 +423,7 @@ function WikiSubHeader({
   kbs,
   currentKbId,
   onSelectKb,
+  onEnableOther,
   onIngest,
   onLint,
   onQuery,
@@ -435,38 +457,57 @@ function WikiSubHeader({
           </span>
         )}
         {open && (
-          <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
-            <div className="border-b border-gray-100 px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-              切换到知识库
+          <>
+            <div
+              className="fixed inset-0 z-20"
+              onClick={() => setOpen(false)}
+              aria-hidden
+            />
+            <div className="absolute left-0 top-full z-30 mt-2 w-80 rounded-lg border border-gray-200 bg-white shadow-lg">
+              <div className="border-b border-gray-100 px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                切换到知识库
+              </div>
+              <div className="max-h-80 overflow-y-auto py-1">
+                {kbs.length === 0 ? (
+                  <div className="px-3 py-3 text-sm text-gray-500">
+                    暂无启用 Wiki 的知识库
+                  </div>
+                ) : (
+                  kbs.map((kb) => (
+                    <button
+                      key={kb.id}
+                      onClick={() => {
+                        onSelectKb(kb.id);
+                        setOpen(false);
+                      }}
+                      className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                        kb.id === currentKbId
+                          ? 'bg-violet-50 text-violet-700'
+                          : 'text-gray-900'
+                      }`}
+                    >
+                      <span className="truncate">{kb.name}</span>
+                      <span className="ml-3 shrink-0 text-xs text-gray-500">
+                        {kb.pageCount} 页
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="border-t border-gray-100 py-1">
+                <button
+                  onClick={() => {
+                    onEnableOther();
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-violet-700 hover:bg-violet-50"
+                >
+                  <Plus className="h-4 w-4" />
+                  启用其他知识库的 Wiki
+                </button>
+              </div>
             </div>
-            <div className="max-h-80 overflow-y-auto py-1">
-              {kbs.length === 0 ? (
-                <div className="px-3 py-3 text-sm text-gray-500">
-                  暂无启用 Wiki 的知识库
-                </div>
-              ) : (
-                kbs.map((kb) => (
-                  <button
-                    key={kb.id}
-                    onClick={() => {
-                      onSelectKb(kb.id);
-                      setOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                      kb.id === currentKbId
-                        ? 'bg-violet-50 text-violet-700'
-                        : 'text-gray-900'
-                    }`}
-                  >
-                    <span className="truncate">{kb.name}</span>
-                    <span className="ml-3 shrink-0 text-xs text-gray-500">
-                      {kb.pageCount} 页
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -1789,21 +1830,137 @@ function WikiLogDrawer({
   kbId: string;
   onClose: () => void;
 }) {
+  const [items, setItems] = useState<WikiOperationLogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    wikiApi
+      .listOperations(kbId, 100)
+      .then((res) => setItems(res.items))
+      .catch((err) => {
+        logger?.error?.('[wiki] listOperations failed', err);
+        setError('加载操作日志失败');
+      })
+      .finally(() => setLoading(false));
+  }, [kbId]);
+
+  useEffect(refresh, [refresh]);
+
   return (
     <DrawerShell title="Log" onClose={onClose}>
-      <div className="px-4 py-6 text-sm text-gray-600">
-        <p>
-          KB <code>{kbId.slice(0, 8)}…</code> 的操作日志（log.md 形态）将在 P3a
-          后续迭代上线。
-        </p>
-        <p className="mt-3 text-xs text-gray-500">
-          后端 WikiOperationLog 已每次 ingest / apply / edit / revert 时写入；
-          UI 端将以时间倒序卡片形式展示。
-        </p>
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 text-xs text-gray-500">
+        <span>{loading ? '加载中…' : `共 ${items.length} 条操作`}</span>
+        <button
+          onClick={refresh}
+          disabled={loading}
+          className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+          title="刷新"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
+          />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {error ? (
+          <div className="py-8 text-center text-sm text-red-600">{error}</div>
+        ) : !loading && items.length === 0 ? (
+          <div className="py-8 text-center text-sm text-gray-500">
+            暂无操作记录。Ingest / Lint / Edit / Revert 后会在此展示。
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {items.map((item) => (
+              <WikiLogCard key={item.id} item={item} />
+            ))}
+          </ul>
+        )}
       </div>
     </DrawerShell>
   );
 }
+
+function WikiLogCard({ item }: { item: WikiOperationLogEntry }) {
+  const palette = OP_PALETTE[item.op];
+  const Icon = palette.icon;
+  return (
+    <li className="rounded border border-gray-200 bg-white px-3 py-2 text-sm">
+      <div className="flex items-start gap-2">
+        <span
+          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded ${palette.bg}`}
+          aria-hidden
+        >
+          <Icon className={`h-3.5 w-3.5 ${palette.fg}`} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${palette.bg} ${palette.fg}`}
+            >
+              {item.op}
+            </span>
+            <span className="truncate text-sm font-medium text-gray-900">
+              {item.title}
+            </span>
+          </div>
+          <div className="mt-0.5 text-xs text-gray-500">
+            {item.actorName ?? '系统'} · {formatRelativeTime(item.createdAt)}
+          </div>
+          {item.affectedSlugs.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {item.affectedSlugs.slice(0, 6).map((slug) => (
+                <code
+                  key={slug}
+                  className="font-mono rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-700"
+                >
+                  {slug}
+                </code>
+              ))}
+              {item.affectedSlugs.length > 6 && (
+                <span className="text-[10px] text-gray-500">
+                  +{item.affectedSlugs.length - 6}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+const OP_PALETTE: Record<
+  WikiOp,
+  {
+    icon: typeof Plus;
+    bg: string;
+    fg: string;
+  }
+> = {
+  INGEST: {
+    icon: Plus,
+    bg: 'bg-violet-50',
+    fg: 'text-violet-700',
+  },
+  LINT: {
+    icon: GitMerge,
+    bg: 'bg-amber-50',
+    fg: 'text-amber-700',
+  },
+  EDIT: {
+    icon: PencilLine,
+    bg: 'bg-sky-50',
+    fg: 'text-sky-700',
+  },
+  REVERT: {
+    icon: Undo2,
+    bg: 'bg-rose-50',
+    fg: 'text-rose-700',
+  },
+};
 
 function DrawerShell({
   title,

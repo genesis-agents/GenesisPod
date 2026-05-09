@@ -68,4 +68,17 @@ export class WikiKbAdminController {
     );
     return { items };
   }
+
+  @Get("wiki/:kbId/operations")
+  @UseGuards(JwtAuthGuard)
+  async listOperations(
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Query("limit") rawLimit?: string,
+  ) {
+    const parsed = rawLimit ? Number.parseInt(rawLimit, 10) : 50;
+    const limit = Number.isFinite(parsed) ? parsed : 50;
+    const items = await this.admin.listOperations(req.user.id, kbId, limit);
+    return { items };
+  }
 }

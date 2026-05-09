@@ -24,6 +24,17 @@ export interface WikiPageSearchHit {
   category: string;
 }
 
+export interface WikiOperationLogEntry {
+  id: string;
+  op: "INGEST" | "LINT" | "EDIT" | "REVERT";
+  title: string;
+  meta: Record<string, unknown>;
+  actorUserId: string | null;
+  actorName: string | null;
+  createdAt: Date;
+  affectedSlugs: string[];
+}
+
 const SEARCH_REGEX = /^[\p{L}\p{N}\p{M}\s\-]+$/u;
 
 /**
@@ -274,6 +285,83 @@ export class WikiKbAdminService {
       title: p.title,
       oneLiner: p.oneLiner,
       category: p.category,
+    }));
+  }
+
+  /**
+   * List recent operation log entries for a KB. Time-reverse cards on the
+   * frontend "Log" drawer surface ingest / lint / edit / revert history.
+   *
+   * Access: VIEWER+ (consistent with read-only wiki surfaces).
+   * Returns up to `limit` entries (clamped to 1–200, default 50).
+   */
+  async listOperations(
+    userId: string,
+    knowledgeBaseId: string,
+    limit: number = 50,
+  ): Promise<WikiOperationLogEntry[]> {
+    const ok = await this.kbService.hasAccess(
+      knowledgeBaseId,
+      userId,
+      "VIEWER",
+    );
+    if (!ok) throw new ForbiddenException("Access denied");
+
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: knowledgeBaseId },
+      select: { wikiEnabled: true },
+    });
+    if (!kb || !kb.wikiEnabled) {
+      throw new NotFoundException("Knowledge base not found");
+    }
+
+    const safeLimit = Math.max(1, Math.min(200, Math.floor(limit)));
+
+    const rows = await this.prisma.wikiOperationLog.findMany({
+      where: { knowledgeBaseId },
+      orderBy: { createdAt: "desc" },
+      take: safeLimit,
+      include: {
+        pages: {
+          include: {
+            page: { select: { slug: true } },
+          },
+        },
+      },
+    });
+
+    const actorIds = Array.from(
+      new Set(
+        rows
+          .map((r) => r.actorUserId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const actorMap = new Map<string, string>();
+    if (actorIds.length > 0) {
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: actorIds } },
+        select: { id: true, username: true, email: true },
+      });
+      for (const u of users) {
+        actorMap.set(u.id, u.username || u.email || u.id.slice(0, 8));
+      }
+    }
+
+    return rows.map((r) => ({
+      id: r.id,
+      op: r.op,
+      title: r.title,
+      meta:
+        r.meta && typeof r.meta === "object" && !Array.isArray(r.meta)
+          ? (r.meta as Record<string, unknown>)
+          : {},
+      actorUserId: r.actorUserId,
+      actorName: r.actorUserId ? (actorMap.get(r.actorUserId) ?? null) : null,
+      createdAt: r.createdAt,
+      affectedSlugs: r.pages
+        .map((p) => p.page?.slug)
+        .filter((s): s is string => Boolean(s)),
     }));
   }
 }
