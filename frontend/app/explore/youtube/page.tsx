@@ -148,6 +148,32 @@ interface AIMessage {
   timestamp: Date;
 }
 
+// 服务端持久化的 chat 消息形态（GET /api/v1/youtube/ai-chat 返回）
+interface PersistedChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  modelId: string | null;
+  createdAt: string; // ISO
+}
+
+async function persistAiChatMessage(
+  videoId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  modelId: string | undefined
+): Promise<void> {
+  try {
+    await fetch(`${config.apiBaseUrl}/api/v1/youtube/ai-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ videoId, role, content, modelId }),
+    });
+  } catch (err) {
+    logger.warn('Failed to persist AI chat message:', err);
+  }
+}
+
 interface CommentUser {
   id: string;
   username: string;
@@ -652,6 +678,67 @@ function YouTubeTLDWContent() {
     }
   }, [aiMessages]);
 
+  // Load persisted AI chat history when (videoId, accessToken) changes.
+  // Anon users (no token) keep an empty in-memory log only.
+  useEffect(() => {
+    if (!videoId || !accessToken) {
+      setAiMessages([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${config.apiBaseUrl}/api/v1/youtube/ai-chat?videoId=${encodeURIComponent(videoId)}`,
+          { headers: { ...getAuthHeader() } }
+        );
+        if (!res.ok) return;
+        const result = await res.json();
+        const data = result?.data ?? result;
+        const messages: PersistedChatMessage[] = Array.isArray(data?.messages)
+          ? data.messages
+          : [];
+        if (cancelled) return;
+        setAiMessages(
+          messages.map((m) => ({
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.createdAt),
+          }))
+        );
+      } catch (err) {
+        logger.warn('Failed to load AI chat history:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId, accessToken]);
+
+  // Clear persisted AI chat history (per user × videoId)
+  const clearAIChatHistory = useCallback(async () => {
+    if (!videoId) return;
+    if (!accessToken) {
+      setAiMessages([]);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `${config.apiBaseUrl}/api/v1/youtube/ai-chat/${encodeURIComponent(videoId)}`,
+        { method: 'DELETE', headers: { ...getAuthHeader() } }
+      );
+      if (!res.ok) {
+        toast.error('清空失败');
+        return;
+      }
+      setAiMessages([]);
+      toast.success('已清空对话');
+    } catch (err) {
+      logger.error('Failed to clear chat history:', err);
+      toast.error('清空失败');
+    }
+  }, [videoId, accessToken]);
+
   /**
    * Save selected AI-chat text to notes. Invoked by TextSelectionToolbar
    * when the user picks "Add to Notes" from the floating selection toolbar
@@ -724,6 +811,15 @@ function YouTubeTLDWContent() {
     setAiInput('');
     setIsStreaming(true);
 
+    // 持久化：登录用户的消息写库（fire-and-forget，失败不阻塞 UI）
+    if (accessToken) {
+      void persistAiChatMessage(videoId, 'user', currentInput, undefined);
+    }
+
+    // 累积 assistant 内容，stream 正常结束后再 POST，避免每个 chunk 一次写
+    let assistantContent = '';
+    let streamFailed = false;
+
     // Create abort controller for this request
     abortControllerRef.current = new AbortController();
 
@@ -790,6 +886,7 @@ function YouTubeTLDWContent() {
             try {
               const parsed = JSON.parse(data);
               if (parsed.content) {
+                assistantContent += parsed.content;
                 setAiMessages((prev) => {
                   const newMessages = [...prev];
                   // Always update the last message (assistant's response)
@@ -813,9 +910,19 @@ function YouTubeTLDWContent() {
         }
       }
     } catch (error: unknown) {
+      streamFailed = true;
       // Check if it was an abort
       if (error instanceof Error && error.name === 'AbortError') {
         logger.debug('AI message streaming was stopped by user');
+        // 用户主动停止：仍持久化已收到的部分（如果非空），保留对话连续性
+        if (accessToken && assistantContent) {
+          void persistAiChatMessage(
+            videoId,
+            'assistant',
+            assistantContent,
+            aiModel || undefined
+          );
+        }
         return;
       }
       logger.error('Failed to send message:', error);
@@ -825,7 +932,17 @@ function YouTubeTLDWContent() {
         timestamp: new Date(),
       };
       setAiMessages((prev) => [...prev, errorMessage]);
+      // 不持久化错误占位文案，避免污染历史
     } finally {
+      // 正常完成：persist 完整 assistant 内容
+      if (!streamFailed && accessToken && assistantContent) {
+        void persistAiChatMessage(
+          videoId,
+          'assistant',
+          assistantContent,
+          aiModel || undefined
+        );
+      }
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
@@ -1519,6 +1636,19 @@ function YouTubeTLDWContent() {
 
               {activeTab === 'chat' && (
                 <div className="flex h-full flex-col">
+                  {/* History toolbar — only shown when there are persisted messages */}
+                  {accessToken && aiMessages.length > 0 && (
+                    <div className="flex items-center justify-end border-b border-gray-100 bg-white px-4 py-2">
+                      <button
+                        onClick={() => void clearAIChatHistory()}
+                        disabled={isStreaming}
+                        className="text-xs text-gray-500 transition-colors hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                        title="清空当前视频的对话历史"
+                      >
+                        清空对话
+                      </button>
+                    </div>
+                  )}
                   {/* Chat Messages - wrapped with TextSelectionToolbar so users
                       keep the browser's native right-click menu (copy / search /
                       inspect) and get a Papers-style floating toolbar only when
