@@ -368,11 +368,18 @@ export class AskRoomService {
     if (!turn) {
       throw new NotFoundException("Turn not found");
     }
+    // 2026-05-09（screenshot 42 / "停止按钮无效"）：cancel 改为幂等。
+    // 之前 turn 已 COMPLETED/FAILED/CANCELLED 时抛 400，前端流式终态事件
+    // 偶尔被 seq 过滤丢弃 → 用户看到 停止 按钮残留 → 多次点击 → 4×400。
+    // 已结束的 turn 直接返回当前 turn 视为 noop，与"用户取消"语义一致。
     if (
       turn.status !== AskTurnStatus.RUNNING &&
       turn.status !== AskTurnStatus.PENDING
     ) {
-      throw new BadRequestException(`Turn already ${turn.status}`);
+      this.logger.debug?.(
+        `[cancelTurn] turn=${turnId} already ${turn.status}; returning idempotent ok`,
+      );
+      return turn;
     }
     return this.prisma.askRoomTurn.update({
       where: { id: turnId },

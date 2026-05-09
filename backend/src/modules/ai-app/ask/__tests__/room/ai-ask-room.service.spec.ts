@@ -279,20 +279,25 @@ describe("AskRoomService", () => {
   });
 
   describe("cancelTurn", () => {
-    it("rejects cancelling a turn that already terminated", async () => {
+    it("is idempotent — already-terminated turn returns current state without throwing", async () => {
+      // 2026-05-09（screenshot 42 / "停止按钮无效"）：cancel 改幂等。
+      // 之前用户多次点 停止 在 turn 即将完成时会收 4×400 BadRequest；
+      // 现在已结束 turn 直接返回 noop。
       prisma.askSession.findFirst.mockResolvedValue({
         id: "s-1",
         userId: "u-1",
         mode: AskSessionMode.ROOM,
       });
-      prisma.askRoomTurn.findFirst.mockResolvedValue({
+      const completedTurn = {
         id: "t-1",
         sessionId: "s-1",
         status: AskTurnStatus.COMPLETED,
-      });
-      await expect(
-        service.cancelTurn("s-1", "t-1", "u-1"),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      };
+      prisma.askRoomTurn.findFirst.mockResolvedValue(completedTurn);
+      const result = await service.cancelTurn("s-1", "t-1", "u-1");
+      expect(result).toEqual(completedTurn);
+      // update 不应被调用
+      expect(prisma.askRoomTurn.update).not.toHaveBeenCalled();
     });
   });
 

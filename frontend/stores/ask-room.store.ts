@@ -106,8 +106,16 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
       // 2026-05-08（screenshot 41）：改为 per-turnId 单调，避免并发 turn 互相
       // 屏蔽。两个 turn 同时 streaming 时，turn B 的早期事件 seq 可能小于
       // turn A 的尾部事件 seq，单 lastSeq 会错误丢弃 turn B。
+      // 2026-05-09（screenshot 42 / "停止按钮无效"）：turn.complete / turn.error
+      // 是 turn 生命周期的终态事件，必须始终被应用。adapter 计算 finalSeq 时
+      // 用的是 lastMessage.sequenceNum + 1，但中间还有 round.end / vote.closed /
+      // handoff.* / leader.synthesis.* 等无消息事件已把 turn 内 seq 推得更高，
+      // 导致 turn.complete 的 seq 反而小于 turnLastSeq → 被 filter 丢弃 →
+      // currentTurnStatus 永远停在 RUNNING → 停止按钮一直显示。
+      const isTerminal =
+        event.kind === 'turn.complete' || event.kind === 'turn.error';
       const turnLastSeq = s.lastSeqByTurn[event.turnId] ?? 0;
-      if (event.sequenceNum <= turnLastSeq) {
+      if (!isTerminal && event.sequenceNum <= turnLastSeq) {
         return s;
       }
 
@@ -115,7 +123,7 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
         lastSeq: Math.max(s.lastSeq, event.sequenceNum),
         lastSeqByTurn: {
           ...s.lastSeqByTurn,
-          [event.turnId]: event.sequenceNum,
+          [event.turnId]: Math.max(turnLastSeq, event.sequenceNum),
         },
       };
 
@@ -228,10 +236,18 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
 
         case 'turn.complete':
           next.currentTurnStatus = event.status;
+          // 2026-05-09：清除 currentTurnId 让前端不会对已结束 turn 发 cancel
+          // 请求（之前 currentTurnId 残留 → 用户多点几次 停止 → 后端 4×400）。
+          if (s.currentTurnId === event.turnId) {
+            next.currentTurnId = null;
+          }
           break;
 
         case 'turn.error':
           next.currentTurnStatus = 'FAILED';
+          if (s.currentTurnId === event.turnId) {
+            next.currentTurnId = null;
+          }
           break;
 
         default: {

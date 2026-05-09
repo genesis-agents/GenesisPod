@@ -172,7 +172,19 @@ export class AskRoomRuntimeService {
     this.turnAbortControllers.set(turnId, controller);
 
     const seqStart = userMessage.sequenceNum ?? 0;
-    emitContext.emit(room, {
+    // 2026-05-09（screenshot 42）：跟踪本 turn 已 emit 的最大 seq，让 turn.complete /
+    // turn.error 用 maxEmitted+1 而非 lastMessage.sequenceNum+1。后者在
+    // round.end / vote.closed / handoff.* / leader.synthesis.* 等无消息事件
+    // 之后会落后于实际 turn 内 seq → 前端 per-turn 单调过滤会丢弃终态事件 →
+    // currentTurnStatus 永远 RUNNING → 停止按钮残留。
+    let maxEmittedSeq = seqStart;
+    const emit = (event: AskRoomServerEvent): void => {
+      if (event.sequenceNum > maxEmittedSeq) {
+        maxEmittedSeq = event.sequenceNum;
+      }
+      emitContext.emit(room, event);
+    };
+    emit({
       kind: "turn.started",
       turnId,
       sequenceNum: seqStart + 1,
@@ -184,16 +196,16 @@ export class AskRoomRuntimeService {
     if (!adapter) {
       const errMsg = `Mode ${mode} adapter not implemented in W2 PR3`;
       this.logger.warn(errMsg);
-      emitContext.emit(room, {
+      emit({
         kind: "turn.error",
         turnId,
-        sequenceNum: seqStart + 2,
+        sequenceNum: maxEmittedSeq + 1,
         error: errMsg,
       });
-      emitContext.emit(room, {
+      emit({
         kind: "turn.complete",
         turnId,
-        sequenceNum: seqStart + 3,
+        sequenceNum: maxEmittedSeq + 1,
         status: "FAILED",
       });
       await this.roomService.finalizeTurn(turnId, AskTurnStatus.FAILED, {
@@ -235,19 +247,19 @@ export class AskRoomRuntimeService {
 
     try {
       const result = await adapter.execute(ctx, (event) => {
-        emitContext.emit(room, event);
+        emit(event);
       });
 
       // 落库 adapter 产出的消息
       await this.persistMessages(sessionId, turnId, result.messages);
 
-      const finalSeq = result.messages.length
-        ? result.messages[result.messages.length - 1].sequenceNum + 1
-        : seqStart + 2;
-      emitContext.emit(room, {
+      // 2026-05-09：用 maxEmittedSeq+1 而非 lastMessage.sequenceNum+1，
+      // 确保覆盖 round.end / vote.closed / handoff.* / leader.synthesis.* 等
+      // 无消息事件已推过的 seq。
+      emit({
         kind: "turn.complete",
         turnId,
-        sequenceNum: finalSeq,
+        sequenceNum: maxEmittedSeq + 1,
         status: "COMPLETED",
       });
       await this.roomService.finalizeTurn(turnId, AskTurnStatus.COMPLETED, {
@@ -261,23 +273,23 @@ export class AskRoomRuntimeService {
         `[runTurn] turn=${turnId} ${cancelled ? "CANCELLED" : "FAILED"}: ${errMessage}`,
       );
       if (cancelled) {
-        emitContext.emit(room, {
+        emit({
           kind: "turn.complete",
           turnId,
-          sequenceNum: seqStart + 99,
+          sequenceNum: maxEmittedSeq + 1,
           status: "CANCELLED",
         });
       } else {
-        emitContext.emit(room, {
+        emit({
           kind: "turn.error",
           turnId,
-          sequenceNum: seqStart + 99,
+          sequenceNum: maxEmittedSeq + 1,
           error: errMessage,
         });
-        emitContext.emit(room, {
+        emit({
           kind: "turn.complete",
           turnId,
-          sequenceNum: seqStart + 100,
+          sequenceNum: maxEmittedSeq + 1,
           status: "FAILED",
         });
       }
