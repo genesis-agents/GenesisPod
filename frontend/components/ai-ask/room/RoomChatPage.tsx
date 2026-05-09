@@ -73,7 +73,9 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
       setRoom({
         sessionId: detail.session.id,
         members: detail.members,
-        messages: [],
+        // 2026-05-09（screenshot 44 / "进入 room 没有任何历史信息"）：用 backend
+        // 返回的最近消息填充，而非每次进入清空；让用户能看到此前对话。
+        messages: detail.messages ?? [],
         recentTurns: detail.recentTurns,
       });
     } catch (e) {

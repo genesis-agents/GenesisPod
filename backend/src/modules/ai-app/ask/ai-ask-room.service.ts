@@ -20,6 +20,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import {
+  AskMessage,
   AskRoomMember,
   AskRoomMemberRole,
   AskRoomMemberType,
@@ -158,6 +159,7 @@ export class AskRoomService {
   ): Promise<{
     session: AskSession;
     members: AskRoomMember[];
+    messages: AskMessage[];
     recentTurns: AskRoomTurn[];
   }> {
     const session = await this.findUserRoom(sessionId, userId);
@@ -165,12 +167,25 @@ export class AskRoomService {
       where: { sessionId, deletedAt: null },
       orderBy: { order: "asc" },
     });
+    // 2026-05-09（screenshot 44 / "进入 room 没有任何历史信息"）：之前 getRoom
+    // 不返 messages，前端 RoomChatPage initialLoad 总以空 messages 渲染。
+    // 改为返回最近 200 条消息（按 sequenceNum desc 取 + reverse 让 UI 升序），
+    // 让用户进入房间能看到历史对话。turn 流式仍走 socket.io，新消息追加到末尾。
+    const recentDesc = await this.prisma.askMessage.findMany({
+      where: { sessionId },
+      orderBy: [
+        { sequenceNum: { sort: "desc", nulls: "last" } },
+        { createdAt: "desc" },
+      ],
+      take: 200,
+    });
+    const messages = recentDesc.reverse();
     const recentTurns = await this.prisma.askRoomTurn.findMany({
       where: { sessionId },
       orderBy: { startedAt: "desc" },
       take: 20,
     });
-    return { session, members, recentTurns };
+    return { session, members, messages, recentTurns };
   }
 
   async updateRoom(

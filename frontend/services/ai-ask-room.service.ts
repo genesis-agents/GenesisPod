@@ -11,6 +11,7 @@ import type {
   AskRoomMember,
   AskRoomMemberRole,
   AskRoomMemberType,
+  AskRoomMessage,
   AskRoomMode,
   AskRoomSession,
   AskRoomTurn,
@@ -61,6 +62,9 @@ interface SendRoomMessageInput {
 interface RoomDetail {
   session: AskRoomSession;
   members: AskRoomMember[];
+  // 2026-05-09（screenshot 44）：getRoom 返回历史消息（最近 200 条），让用户
+  // 进入房间能看到此前对话；新流式消息通过 socket.io 追加到末尾。
+  messages: AskRoomMessage[];
   recentTurns: AskRoomTurn[];
 }
 
