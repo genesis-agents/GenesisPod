@@ -156,7 +156,10 @@ describe("DebateAdapter", () => {
       mkContext([only], { debateRounds: 2 }),
       () => {},
     );
-    expect(result.messages).toHaveLength(0);
+    // 2026-05-08：返回 1 条 system.notice 让前端 UI 看到为何中止（之前空 messages 让 UI 一片空白）
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].senderType).toBe("SYSTEM");
+    expect(result.messages[0].content).toContain("DEBATE 模式至少需要 2 名");
     expect(result.metadata.reason).toBe("insufficient_members");
   });
 

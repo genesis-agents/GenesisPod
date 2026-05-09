@@ -170,9 +170,15 @@ describe("ParallelMergeAdapter", () => {
     const b = mkMember({ id: "b" });
     const result = await adapter.execute(mkContext([a, b]), () => {});
     expect(result.metadata.allFailed).toBe(true);
-    expect(result.messages.every((m) => m.content.startsWith("[error]"))).toBe(
-      true,
+    // 2026-05-08：N 条成员错误占位 + 1 条 system.notice（"所有成员暂不可用..."）
+    const aiMessages = result.messages.filter((m) => m.senderType === "AI");
+    const sysMessages = result.messages.filter(
+      (m) => m.senderType === "SYSTEM",
     );
+    expect(aiMessages).toHaveLength(2);
+    expect(aiMessages.every((m) => m.content.startsWith("[error]"))).toBe(true);
+    expect(sysMessages).toHaveLength(1);
+    expect(sysMessages[0].content).toContain("所有成员暂时不可用");
     // 仅 2 次 chat（无 synthesis）
     expect(chat).toHaveBeenCalledTimes(2);
   });
@@ -188,7 +194,7 @@ describe("ParallelMergeAdapter", () => {
     expect(synthesis?.senderMemberId).toBe("b");
   });
 
-  it("members succeed but synthesis fails: returns N member messages, synthesisOk=false", async () => {
+  it("members succeed but synthesis fails: returns N member messages + 1 error placeholder", async () => {
     chat.mockReset();
     chat
       .mockResolvedValueOnce({ content: "OK_A", tokensUsed: 5 })
@@ -199,10 +205,15 @@ describe("ParallelMergeAdapter", () => {
     const result = await adapter.execute(mkContext([a, b]), () => {});
     expect(result.metadata.synthesisOk).toBe(false);
     expect(result.metadata.successCount).toBe(2);
-    // 仅 N 条成员消息（无合成消息）
-    expect(result.messages).toHaveLength(2);
+    // 2026-05-08：N 条成员消息 + 1 条 synthesis-failed 占位（持久化让 reload 后仍可见）
+    expect(result.messages).toHaveLength(3);
     expect(result.messages.find((m) => m.content === "OK_A")).toBeDefined();
     expect(result.messages.find((m) => m.content === "OK_B")).toBeDefined();
+    const failPlaceholder = result.messages.find((m) =>
+      m.content.includes("综合答复生成失败"),
+    );
+    expect(failPlaceholder).toBeDefined();
+    expect(failPlaceholder?.senderMemberId).toBe("b");
   });
 
   it("error message is sanitized for unsafe text (no provider stack leak)", async () => {

@@ -200,14 +200,17 @@ describe("FreechatAdapter", () => {
     ).rejects.toThrow(/aborted/);
   });
 
-  it("returns empty result when no enabled participants", async () => {
+  it("returns system notice when no enabled participants", async () => {
     const result = await adapter.execute(
       mkContext({
         members: [mkMember({ enabled: false })],
       }),
       () => {},
     );
-    expect(result.messages).toHaveLength(0);
+    // 2026-05-08：返回 1 条 system.notice 让前端 UI 看到为何中止
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0].senderType).toBe("SYSTEM");
+    expect(result.messages[0].content).toContain("没有可用的成员");
     expect(result.metadata.reason).toBe("no_participants");
   });
 });
