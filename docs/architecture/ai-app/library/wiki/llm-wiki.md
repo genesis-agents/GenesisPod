@@ -708,14 +708,14 @@ slug: string;
 
 **例**：
 
-| 输入               | 输出                              |
-| ------------------ | --------------------------------- |
-| `Machine Learning` | `machine-learning`                |
-| `OpenAI's GPT-4`   | `openai-s-gpt-4`                  |
-| `   spaces   `     | `spaces`                          |
-| `数据科学`         | `数据科学` → DTO 拒（必须 ascii） |
-| `[[evil]]`         | `evil`                            |
-| `../etc/passwd`    | `etc-passwd`（不会有路径穿越）    |
+| 输入               | 输出                                                                            |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `Machine Learning` | `machine-learning`                                                              |
+| `OpenAI's GPT-4`   | `openai-s-gpt-4`                                                                |
+| `   spaces   `     | `spaces`                                                                        |
+| `数据科学`         | `''`（NFKD 后非 ASCII 全被剥除→empty string；DTO 因 len<2 拒；P0a-1 R7.1 修订） |
+| `[[evil]]`         | `evil`                                                                          |
+| `../etc/passwd`    | `etc-passwd`（不会有路径穿越）                                                  |
 
 > **本期 slug 仅 ASCII**；i18n（中文/日文等 non-ASCII slug 渲染）后续单独 ADR。
 
