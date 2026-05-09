@@ -257,7 +257,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           >
             <BrandLogo
               variant="full"
-              iconClassName="h-10 w-auto flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              iconClassName="h-7 w-auto flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
               subtitle={
                 <Link
                   href="/changelog"
