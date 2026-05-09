@@ -85,16 +85,25 @@ const mkContext = (
   signal: new AbortController().signal,
 });
 
+type StreamChunk = { content: string; done: boolean; error?: string };
+
+function streamOf(content: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content, done: false };
+    yield { content: "", done: true };
+  })();
+}
+
 describe("DebateAdapter", () => {
   let adapter: DebateAdapter;
-  let chat: jest.Mock;
+  let chatStream: jest.Mock;
 
   beforeEach(async () => {
-    chat = jest.fn().mockResolvedValue({ content: "SPEECH", tokensUsed: 13 });
+    chatStream = jest.fn().mockImplementation(() => streamOf("SPEECH"));
     const module = await Test.createTestingModule({
       providers: [
         DebateAdapter,
-        { provide: ChatFacade, useValue: { chat } },
+        { provide: ChatFacade, useValue: { chatStream } },
         { provide: DebatePattern, useValue: new DebatePattern() },
       ],
     }).compile();
@@ -113,7 +122,7 @@ describe("DebateAdapter", () => {
     expect(result.messages).toHaveLength(4); // 2 rounds × 2 speakers
     expect(result.metadata.rounds).toBe(2);
     expect(result.metadata.enableJudge).toBe(false);
-    expect(chat).toHaveBeenCalledTimes(4);
+    expect(chatStream).toHaveBeenCalledTimes(4);
   });
 
   it("emits round.start once per round and round.end once per round", async () => {
@@ -192,10 +201,15 @@ describe("DebateAdapter", () => {
 
   it("propagates abort signal into chat (cancels mid-debate)", async () => {
     const ctl = new AbortController();
-    chat.mockImplementationOnce(() => {
-      ctl.abort();
-      return Promise.resolve({ content: "R1", tokensUsed: 5 });
-    });
+    chatStream.mockImplementationOnce(() =>
+      (async function* () {
+        // 第一个 chunk 带内容；abort 在内容产出前触发，迫使 for-await 循环
+        // 在收到下一 chunk 时抛 DebateAbortError。
+        ctl.abort();
+        yield { content: "R1", done: false };
+        yield { content: "", done: true };
+      })(),
+    );
     const red = mkMember({ id: "r", order: 0 });
     const blue = mkMember({ id: "b", order: 1 });
     const ctx = mkContext([red, blue], { debateRounds: 3 });
@@ -215,7 +229,7 @@ describe("DebateAdapter", () => {
     const failingModule = await Test.createTestingModule({
       providers: [
         DebateAdapter,
-        { provide: ChatFacade, useValue: { chat } },
+        { provide: ChatFacade, useValue: { chatStream } },
         { provide: DebatePattern, useValue: failingPattern },
       ],
     }).compile();

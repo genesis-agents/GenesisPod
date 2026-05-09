@@ -99,3 +99,31 @@ export function emitSystemNotice(
     sequenceNum,
   };
 }
+
+/**
+ * 评审 2026-05-09 [BLOCKER B3]：流式 chunk.error / catch 抛错前必须脱敏。
+ *
+ * 背景：chatFacade.chatStream 把底层 provider 错误（含 stack / auth header / token）
+ * 透传到 chunk.error 字段。adapter 直接 `throw new Error(chunk.error)` 会让原文
+ * 顺着 runtime catch 进入 `turn.error.error` 字段直推前端。
+ *
+ * 白名单：用户可见的运维类错误（rate limit / timeout / credits / quota /
+ * content moderation / context length）原文保留并截断 200 字。其余统一兜底。
+ *
+ * 与 parallel-merge.adapter.ts:sanitizeErrorMessage 等价（已收敛到此处共享）。
+ */
+const SAFE_ERROR_PATTERNS: RegExp[] = [
+  /rate limit/i,
+  /timeout/i,
+  /credits?/i,
+  /quota/i,
+  /content.*moderat/i,
+  /context length/i,
+];
+
+export function sanitizeStreamError(raw: string): string {
+  if (SAFE_ERROR_PATTERNS.some((re) => re.test(raw))) {
+    return `[error] ${raw.slice(0, 200)}`;
+  }
+  return "[error] AI 服务暂时不可用，请稍后重试";
+}

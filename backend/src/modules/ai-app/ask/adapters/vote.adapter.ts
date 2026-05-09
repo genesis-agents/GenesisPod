@@ -11,6 +11,13 @@
  *   5. 输出消息：N 条成员理由 + 1 条 leader 结论（N+1）
  *
  * 备注：harness `VotingManager` 在 ai-harness/teams/collaboration/patterns/voting-pattern。
+ *
+ * 流式：generateOptions 与 askMemberVote 都走 chatFacade.chatStream，按 chunk
+ * 推 participant.partial。
+ *
+ * [B4 2026-05-09] 让模型直接产出最终展示格式（"投票：xxx / 理由：yyy"），
+ * 末尾追加 [VOTE_ID: x] 解析 tag。落库前 parseVoteResponse 剥掉 tag。
+ * 流式期间用户看到的就是最终格式，仅末尾的 tag 会在 done 一刻消失（轻量跳变）。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -41,7 +48,8 @@ interface MemberVote {
   member: AskRoomMember;
   messageId: string;
   optionId: string;
-  reason: string;
+  /** 已剥掉 [VOTE_ID:x] tag 的展示正文（"投票：xxx / 理由：yyy"） */
+  content: string;
   doneSeq: number;
   tokensUsed: number;
   error?: string;
@@ -131,63 +139,81 @@ export class VoteAdapter implements IModeAdapter {
     let options = this.parseOptions(ctx.modeOptions);
     let optionsGenerationMessage: PendingMessage | null = null;
     if (!options) {
-      // 2026-05-08 R2 评审：generateOptions 内部 chat() 失败之前裸抛，
-      // 让整 turn FAIL 用户看不到原因。改为 catch + fallback 选项 +
-      // system.notice，与其他 adapter 错误兜底一致。
+      // 流式：先 emit thinking + messageId，generateOptions 内部边 stream 边 emit
+      // partial，最后 emit done。失败回退到默认选项 + system.notice。
+      const optsMessageId = uuid();
+      seq += 1;
+      onEvent({
+        kind: "participant.thinking",
+        turnId: ctx.turn.id,
+        sequenceNum: seq,
+        memberId: leader.id,
+        messageId: optsMessageId,
+      });
+
       let generated: {
         options: VoteOption[];
         content: string;
         tokensUsed: number;
       } | null = null;
       try {
-        generated = await this.generateOptions(leader, ctx);
+        generated = await this.generateOptions(leader, ctx, {
+          messageId: optsMessageId,
+          onEvent,
+          nextSeq: () => {
+            seq += 1;
+            return seq;
+          },
+        });
       } catch (err) {
+        if (ctx.signal.aborted) throw err;
         const errMsg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
           `[VOTE] generateOptions failed: ${errMsg}; using default options`,
         );
       }
-      if (generated) {
+      if (generated?.content) {
         options = generated.options;
-        // leader 先发一条消息说明候选项（可选输出）
-        if (generated.content) {
-          seq += 1;
-          const optsMessageId = uuid();
-          onEvent({
-            kind: "participant.thinking",
-            turnId: ctx.turn.id,
-            sequenceNum: seq,
-            memberId: leader.id,
-            messageId: optsMessageId,
-          });
-          seq += 1;
-          onEvent({
-            kind: "participant.done",
-            turnId: ctx.turn.id,
-            sequenceNum: seq,
-            memberId: leader.id,
-            messageId: optsMessageId,
-            tokensUsed: generated.tokensUsed,
-            content: generated.content,
-          });
-          optionsGenerationMessage = {
-            id: optsMessageId,
-            senderType: "AI",
-            senderMemberId: leader.id,
-            content: generated.content,
-            modelId: leader.modelId,
-            modelName: null,
-            tokens: generated.tokensUsed,
-            parentMessageId: ctx.triggerMessage.id,
-            sequenceNum: seq,
-          };
-        }
+        seq += 1;
+        onEvent({
+          kind: "participant.done",
+          turnId: ctx.turn.id,
+          sequenceNum: seq,
+          memberId: leader.id,
+          messageId: optsMessageId,
+          tokensUsed: generated.tokensUsed,
+          content: generated.content,
+        });
+        optionsGenerationMessage = {
+          id: optsMessageId,
+          senderType: "AI",
+          senderMemberId: leader.id,
+          content: generated.content,
+          modelId: leader.modelId,
+          modelName: null,
+          tokens: generated.tokensUsed,
+          parentMessageId: ctx.triggerMessage.id,
+          sequenceNum: seq,
+        };
       } else {
-        // generateOptions 失败：用默认 a/支持 b/反对 + emit notice
+        // generateOptions 失败：emit done 占位让 thinking 气泡不悬挂，
+        // 然后再走默认选项 + notice。
         options = [
           { id: "a", label: "支持" },
           { id: "b", label: "反对" },
         ];
+        seq += 1;
+        const fallbackContent =
+          "[error] 选项生成失败，已使用默认选项（支持/反对）继续投票";
+        onEvent({
+          kind: "participant.done",
+          turnId: ctx.turn.id,
+          sequenceNum: seq,
+          memberId: leader.id,
+          messageId: optsMessageId,
+          tokensUsed: 0,
+          content: fallbackContent,
+        });
         seq += 1;
         optionsGenerationMessage = emitSystemNotice(
           onEvent,
@@ -229,7 +255,15 @@ export class VoteAdapter implements IModeAdapter {
         messageId,
       });
       try {
-        const decision = await this.askMemberVote(voter, options, ctx);
+        const decision = await this.askMemberVote(voter, options, ctx, {
+          messageId,
+          memberId: voter.id,
+          onEvent,
+          nextSeq: () => {
+            seq += 1;
+            return seq;
+          },
+        });
         const valid = options.find((o) => o.id === decision.optionId);
         if (valid) {
           this.votingManager.castVote(
@@ -252,11 +286,11 @@ export class VoteAdapter implements IModeAdapter {
           );
         }
         seq += 1;
-        const partialVote = {
+        const partialVote: MemberVote = {
           member: voter,
           messageId,
           optionId: decision.optionId,
-          reason: decision.reason,
+          content: decision.content,
           doneSeq: seq,
           tokensUsed: decision.tokensUsed,
         };
@@ -267,7 +301,9 @@ export class VoteAdapter implements IModeAdapter {
           memberId: voter.id,
           messageId,
           tokensUsed: decision.tokensUsed,
-          content: this.formatVoteContent(partialVote, options),
+          // [B4] decision.content 已是展示正文，与流式 partialText 一致，
+          // done 时不再发生从 raw 跳变到 formatted 的视觉断层
+          content: decision.content,
         });
         votes.push(partialVote);
       } catch (err) {
@@ -286,7 +322,7 @@ export class VoteAdapter implements IModeAdapter {
           member: voter,
           messageId,
           optionId: "",
-          reason: "",
+          content: "",
           doneSeq: seq,
           tokensUsed: 0,
           error: errMsg,
@@ -320,9 +356,7 @@ export class VoteAdapter implements IModeAdapter {
         id: v.messageId,
         senderType: "AI",
         senderMemberId: v.member.id,
-        content: v.error
-          ? "[error] AI 服务暂时不可用，请稍后重试"
-          : this.formatVoteContent(v, options),
+        content: v.error ? "[error] AI 服务暂时不可用，请稍后重试" : v.content,
         modelId: v.member.modelId,
         modelName: null,
         tokens: v.tokensUsed,
@@ -414,6 +448,11 @@ export class VoteAdapter implements IModeAdapter {
   private async generateOptions(
     leader: AskRoomMember,
     ctx: ModeContext,
+    emit: {
+      messageId: string;
+      onEvent: (e: AskRoomServerEvent) => void;
+      nextSeq: () => number;
+    },
   ): Promise<{
     options: VoteOption[];
     content: string;
@@ -430,7 +469,9 @@ export class VoteAdapter implements IModeAdapter {
       },
       { role: "user", content: ctx.triggerMessage.content },
     ];
-    const result = await this.chatFacade.chat({
+
+    let streamed = "";
+    for await (const chunk of this.chatFacade.chatStream({
       messages,
       model: leader.modelId,
       modelType: AIModelType.CHAT,
@@ -442,9 +483,28 @@ export class VoteAdapter implements IModeAdapter {
         referenceId: ctx.turn.id,
         description: `AI Ask Room VOTE options - ${leader.displayName}`,
       },
-    });
+    })) {
+      if (ctx.signal.aborted) {
+        throw new Error("VOTE adapter aborted");
+      }
+      if (chunk.error) {
+        throw new Error(chunk.error);
+      }
+      if (chunk.content) {
+        streamed += chunk.content;
+        emit.onEvent({
+          kind: "participant.partial",
+          turnId: ctx.turn.id,
+          sequenceNum: emit.nextSeq(),
+          memberId: leader.id,
+          messageId: emit.messageId,
+          deltaText: chunk.content,
+        });
+      }
+    }
 
-    const options = this.extractOptions(result.content);
+    const tokensUsed = Math.ceil(streamed.length / 4);
+    const options = this.extractOptions(streamed);
     if (options.length < 2) {
       // fallback: 用两个标准选项
       return {
@@ -452,14 +512,14 @@ export class VoteAdapter implements IModeAdapter {
           { id: "a", label: "支持" },
           { id: "b", label: "反对" },
         ],
-        content: result.content,
-        tokensUsed: result.tokensUsed ?? 0,
+        content: streamed,
+        tokensUsed,
       };
     }
     return {
       options,
-      content: result.content,
-      tokensUsed: result.tokensUsed ?? 0,
+      content: streamed,
+      tokensUsed,
     };
   }
 
@@ -485,19 +545,37 @@ export class VoteAdapter implements IModeAdapter {
     voter: AskRoomMember,
     options: VoteOption[],
     ctx: ModeContext,
-  ): Promise<{ optionId: string; reason: string; tokensUsed: number }> {
+    emit: {
+      messageId: string;
+      memberId: string;
+      onEvent: (e: AskRoomServerEvent) => void;
+      nextSeq: () => number;
+    },
+  ): Promise<{
+    optionId: string;
+    /** 用于前端展示与落库的正文（不含末尾解析 tag） */
+    content: string;
+    tokensUsed: number;
+  }> {
     const sysParts: string[] = [];
     if (voter.systemPrompt) sysParts.push(voter.systemPrompt);
+    // [B4 2026-05-09] 让模型直接产出最终展示格式（"投票：xxx / 理由：yyy"），
+    // 仅在末尾追加一行隐藏解析 tag `[VOTE_ID: x]`，落库前剥掉。
+    // 流式期间用户看到的就是最终格式，不再有从 "VOTE: a / REASON:" 跳变到
+    // "投票：xxx / 理由：yyy" 的体验断层。
     sysParts.push(
-      `你是 ${voter.displayName}，正在为用户问题投票。\n请按下面格式输出（不要其他内容）：\n` +
-        "VOTE: <optionId>\n" +
-        "REASON: <一句话理由>",
+      `你是 ${voter.displayName}，正在为用户问题投票。请按以下格式作答：\n` +
+        "投票：<选项 label>\n" +
+        "理由：<1-3 句简短理由>\n" +
+        "[VOTE_ID: <optionId>]\n\n" +
+        "（最后一行的 [VOTE_ID: ...] 是必须的解析标签，optionId 必须从下方候选中选）",
     );
     sysParts.push(
       "可选项：\n" + options.map((o) => `- ${o.id}: ${o.label}`).join("\n"),
     );
 
-    const result = await this.chatFacade.chat({
+    let streamed = "";
+    for await (const chunk of this.chatFacade.chatStream({
       messages: [
         { role: "system", content: sysParts.join("\n\n") },
         { role: "user", content: ctx.triggerMessage.content },
@@ -512,33 +590,69 @@ export class VoteAdapter implements IModeAdapter {
         referenceId: ctx.turn.id,
         description: `AI Ask Room VOTE - ${voter.displayName}`,
       },
-    });
+    })) {
+      if (ctx.signal.aborted) {
+        throw new Error("VOTE adapter aborted");
+      }
+      if (chunk.error) {
+        throw new Error(chunk.error);
+      }
+      if (chunk.content) {
+        streamed += chunk.content;
+        emit.onEvent({
+          kind: "participant.partial",
+          turnId: ctx.turn.id,
+          sequenceNum: emit.nextSeq(),
+          memberId: emit.memberId,
+          messageId: emit.messageId,
+          deltaText: chunk.content,
+        });
+      }
+    }
 
-    const parsed = this.parseVoteResponse(result.content);
+    const parsed = this.parseVoteResponse(streamed);
     return {
       optionId: parsed.optionId,
-      reason: parsed.reason,
-      tokensUsed: result.tokensUsed ?? 0,
+      content: parsed.content,
+      tokensUsed: Math.ceil(streamed.length / 4),
     };
   }
 
+  /**
+   * 解析 askMemberVote 的流式输出。
+   * 模型应输出：
+   *   投票：选项A
+   *   理由：因为...
+   *   [VOTE_ID: a]
+   * 我们提取 [VOTE_ID: x] tag 拿 optionId，剥掉 tag 行后剩下的就是展示正文。
+   *
+   * 兜底：若 tag 缺失，optionId="" 让计票路径忽略；content 用整段或老格式回退。
+   */
   private parseVoteResponse(text: string): {
     optionId: string;
-    reason: string;
+    content: string;
   } {
-    const voteMatch = text.match(/VOTE\s*[:：]\s*([a-zA-Z0-9_-]{1,12})/i);
-    const reasonMatch = text.match(/REASON\s*[:：]\s*(.+)/i);
-    return {
-      optionId: voteMatch ? voteMatch[1].toLowerCase() : "",
-      reason: reasonMatch
-        ? reasonMatch[1].trim().slice(0, 500)
-        : text.slice(0, 200),
-    };
-  }
+    const tagMatch = text.match(
+      /\[\s*VOTE_ID\s*[:：]\s*([a-zA-Z0-9_-]{1,12})\s*\]/i,
+    );
+    const optionId = tagMatch ? tagMatch[1].toLowerCase() : "";
+    const content = tagMatch
+      ? text.replace(tagMatch[0], "").trim()
+      : text.trim();
 
-  private formatVoteContent(v: MemberVote, options: VoteOption[]): string {
-    const label = options.find((o) => o.id === v.optionId)?.label ?? v.optionId;
-    return `投票：${label}\n理由：${v.reason}`;
+    // 兜底兼容老格式 `VOTE: x / REASON: y`：若新格式没匹配到 tag，
+    // 看是否是老格式输出，重组成新展示格式（仅旧模型残留场景）。
+    if (!tagMatch) {
+      const oldVote = text.match(/VOTE\s*[:：]\s*([a-zA-Z0-9_-]{1,12})/i);
+      const oldReason = text.match(/REASON\s*[:：]\s*(.+)/i);
+      if (oldVote && oldReason) {
+        return {
+          optionId: oldVote[1].toLowerCase(),
+          content: `投票：${oldVote[1]}\n理由：${oldReason[1].trim().slice(0, 500)}`,
+        };
+      }
+    }
+    return { optionId, content: content.slice(0, 800) };
   }
 
   private formatConclusion(

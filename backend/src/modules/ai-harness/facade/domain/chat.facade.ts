@@ -731,12 +731,16 @@ export class ChatFacade {
       return;
     }
 
+    // 评审 2026-05-09 [BLOCKER B1]：handleBilling 必须在 finally 内，
+    // 否则消费方对生成器 break/throw（chunk.error 提前退出 / signal.aborted）时
+    // 会触发 iterator.return()，post-yield 的 handleBilling 整段不执行 → 漏扣。
+    // 变量提到 try 外让 finally 能读；handleBilling 自身用 try-catch 兜住避免 finally 抛错吞掉原始 abort signal。
+    let streamApiKeySource: string | undefined;
+    let tokensUsed = 0;
+    let accumulatedContentLength = 0;
+
     try {
       this.orchestration?.circuitBreaker?.incrementLoad(entityId);
-
-      let streamApiKeySource: string | undefined;
-      let tokensUsed = 0;
-      let accumulatedContentLength = 0;
 
       for await (const chunk of this.aiChatService.chatStream({
         messages: request.messages.map((m) => ({
@@ -774,24 +778,7 @@ export class ChatFacade {
         }
       }
 
-      if (tokensUsed === 0 && accumulatedContentLength > 0) {
-        const estimatedCompletionTokens = Math.ceil(
-          accumulatedContentLength / 4,
-        );
-        const estimatedPromptTokens = Math.ceil(
-          request.messages.reduce((sum, m) => sum + m.content.length, 0) / 4,
-        );
-        tokensUsed = estimatedCompletionTokens + estimatedPromptTokens;
-      }
-
       this.orchestration?.circuitBreaker?.recordSuccess(entityId, 0);
-
-      await this.handleBilling(
-        request,
-        streamApiKeySource,
-        tokensUsed,
-        request.model || "unknown",
-      );
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       this.orchestration?.circuitBreaker?.recordFailure(
@@ -803,6 +790,38 @@ export class ChatFacade {
       this.logger.error(`[chatStream] Stream failed: ${errorMsg}`);
       yield { content: "", done: true, error: errorMsg };
     } finally {
+      // Token 估算 fallback（provider 不 yield usage 时用 char/4 估）
+      if (tokensUsed === 0 && accumulatedContentLength > 0) {
+        const estimatedCompletionTokens = Math.ceil(
+          accumulatedContentLength / 4,
+        );
+        const estimatedPromptTokens = Math.ceil(
+          request.messages.reduce((sum, m) => sum + m.content.length, 0) / 4,
+        );
+        tokensUsed = estimatedCompletionTokens + estimatedPromptTokens;
+      }
+
+      // 计费在 finally：success / catch 中 yield error / 消费方 break/throw 全覆盖。
+      // 只在实际有内容生成时计费（防 circuit breaker 空跑被错误扣费）。
+      if (tokensUsed > 0 || accumulatedContentLength > 0) {
+        try {
+          await this.handleBilling(
+            request,
+            streamApiKeySource,
+            tokensUsed,
+            request.model || "unknown",
+          );
+        } catch (billingErr) {
+          this.logger.warn(
+            `[chatStream] handleBilling in finally failed: ${
+              billingErr instanceof Error
+                ? billingErr.message
+                : String(billingErr)
+            }`,
+          );
+        }
+      }
+
       this.orchestration?.circuitBreaker?.decrementLoad(entityId);
     }
   }

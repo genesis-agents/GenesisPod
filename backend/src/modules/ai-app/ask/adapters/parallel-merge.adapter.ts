@@ -13,7 +13,9 @@
  *   每次 chat 各自 BillingContext referenceId=turnId，消费独立扣费；
  *   并发 BillingContext 嵌套行为已通过 W3 启动前 spike 验证（v3 follow-up 已确认）。
  *
- * 流式：本期 chat() 同步返回完整内容；token-by-token 推送留 v0.3。
+ * 流式：fan-out worker 与 leader synthesize 都改用 chatFacade.chatStream，
+ * 每个增量 chunk 推 participant.partial。多 worker 并发的 partial 事件按
+ * 全局 seq 交错入流；前端 store 按 messageId 各自累积 partialText。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -136,12 +138,24 @@ export class ParallelMergeAdapter implements IModeAdapter {
       messageId: synthesisMessageId,
     });
 
+    // Leader 合成走流式：thinking → 多 partial → done（与成员一致）。
     let synthesis: { content: string; tokensUsed: number } | null = null;
+    let synthesisErrorMsg: string | null = null;
     try {
-      synthesis = await this.synthesize(successful, leader, ctx);
+      synthesis = await this.synthesizeStream(successful, leader, ctx, {
+        messageId: synthesisMessageId,
+        onEvent,
+        nextSeq: () => {
+          seq += 1;
+          return seq;
+        },
+      });
     } catch (err) {
+      if (ctx.signal.aborted) throw err;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      synthesisErrorMsg = this.sanitizeErrorMessage(errMsg);
       this.logger.error(
-        `[PARALLEL_MERGE] leader synthesis failed turn=${ctx.turn.id}: ${err instanceof Error ? err.message : String(err)}`,
+        `[PARALLEL_MERGE] leader synthesis failed turn=${ctx.turn.id}: ${errMsg}`,
       );
     }
 
@@ -213,6 +227,9 @@ export class ParallelMergeAdapter implements IModeAdapter {
         successCount: successful.length,
         synthesizedBy: leader.id,
         synthesisOk: synthesis !== null,
+        // [2026-05-09] synthesis 失败原因进 metadata，前端可据此展示更具体的提示
+        // （之前只有 synthesisOk:false，无法区分 rate limit / context length 等）。
+        ...(synthesisErrorMsg ? { synthesisError: synthesisErrorMsg } : {}),
       },
     };
   }
@@ -256,8 +273,12 @@ export class ParallelMergeAdapter implements IModeAdapter {
           memberId: member.id,
           messageId,
         });
+
+        // 流式：增量 chunk 推 participant.partial；不再 await chat() 整段完成。
+        let streamed = "";
+        let streamError: string | null = null;
         try {
-          const result = await this.chatFacade.chat({
+          for await (const chunk of this.chatFacade.chatStream({
             messages: this.buildLlmMessages(ctx, member),
             model: member.modelId,
             modelType: AIModelType.CHAT,
@@ -269,33 +290,42 @@ export class ParallelMergeAdapter implements IModeAdapter {
               referenceId: ctx.turn.id,
               description: `AI Ask Room PARALLEL_MERGE - ${member.displayName}`,
             },
-          });
-          const doneSeq = nextSeq();
-          onEvent({
-            kind: "participant.done",
-            turnId: ctx.turn.id,
-            sequenceNum: doneSeq,
-            memberId: member.id,
-            messageId,
-            tokensUsed: result.tokensUsed ?? 0,
-            content: result.content,
-          });
-          responses.push({
-            member,
-            messageId,
-            content: result.content,
-            tokensUsed: result.tokensUsed ?? 0,
-            doneSeq,
-          });
+          })) {
+            if (ctx.signal.aborted) {
+              throw new Error("PARALLEL_MERGE adapter aborted");
+            }
+            if (chunk.error) {
+              streamError = chunk.error;
+              break;
+            }
+            if (chunk.content) {
+              streamed += chunk.content;
+              onEvent({
+                kind: "participant.partial",
+                turnId: ctx.turn.id,
+                sequenceNum: nextSeq(),
+                memberId: member.id,
+                messageId,
+                deltaText: chunk.content,
+              });
+            }
+          }
         } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
+          if (ctx.signal.aborted) throw err;
+          streamError = err instanceof Error ? err.message : String(err);
           this.logger.warn(
-            `[PARALLEL_MERGE] member=${member.displayName} failed: ${errMsg}`,
+            `[PARALLEL_MERGE] member=${member.displayName} stream failed: ${streamError}`,
           );
-          // 2026-05-08 R2 评审：失败时 content 不再留空（之前前端气泡空白
-          // 让用户以为成员"什么都没说"，与持久化的 sanitizeErrorMessage 双源
-          // 不一致）。改为 emit 与持久化相同的脱敏错误占位。
-          const sanitized = this.sanitizeErrorMessage(errMsg);
+        }
+
+        // [B2 2026-05-09] streamError 即视为失败（即便有半截内容已累积），
+        // 不能让 leader 合成把半截答复当完整发言用。
+        // 半截 + 错误后缀展示给用户，response.error 仍标记，从 successful 过滤。
+        if (streamError) {
+          const sanitized = this.sanitizeErrorMessage(streamError);
+          const errorContent = streamed
+            ? `${streamed}\n\n[输出被中断：${sanitized}]`
+            : sanitized;
           const doneSeq = nextSeq();
           onEvent({
             kind: "participant.done",
@@ -304,15 +334,34 @@ export class ParallelMergeAdapter implements IModeAdapter {
             memberId: member.id,
             messageId,
             tokensUsed: 0,
-            content: sanitized,
+            content: errorContent,
           });
           responses.push({
             member,
             messageId,
-            content: "",
+            content: "", // 不进 synthesis
             tokensUsed: 0,
             doneSeq,
-            error: errMsg,
+            error: streamError,
+          });
+        } else {
+          const tokensUsed = Math.ceil(streamed.length / 4);
+          const doneSeq = nextSeq();
+          onEvent({
+            kind: "participant.done",
+            turnId: ctx.turn.id,
+            sequenceNum: doneSeq,
+            memberId: member.id,
+            messageId,
+            tokensUsed,
+            content: streamed,
+          });
+          responses.push({
+            member,
+            messageId,
+            content: streamed,
+            tokensUsed,
+            doneSeq,
           });
         }
       }
@@ -330,10 +379,15 @@ export class ParallelMergeAdapter implements IModeAdapter {
     return responses;
   }
 
-  private async synthesize(
+  private async synthesizeStream(
     successful: MemberResponse[],
     leader: AskRoomMember,
     ctx: ModeContext,
+    emit: {
+      messageId: string;
+      onEvent: (e: AskRoomServerEvent) => void;
+      nextSeq: () => number;
+    },
   ): Promise<{ content: string; tokensUsed: number }> {
     const synthesisName =
       leader.role === "LEADER" ? leader.displayName : SYNTHESIS_DISPLAY_NAME;
@@ -365,7 +419,9 @@ export class ParallelMergeAdapter implements IModeAdapter {
       { role: "user", content: userBlocks },
     ];
 
-    const result = await this.chatFacade.chat({
+    let streamed = "";
+    let streamError: string | null = null;
+    for await (const chunk of this.chatFacade.chatStream({
       messages,
       model: leader.modelId,
       modelType: AIModelType.CHAT,
@@ -377,11 +433,35 @@ export class ParallelMergeAdapter implements IModeAdapter {
         referenceId: ctx.turn.id,
         description: `AI Ask Room PARALLEL_MERGE synthesis - ${synthesisName}`,
       },
-    });
+    })) {
+      if (ctx.signal.aborted) {
+        throw new Error("PARALLEL_MERGE adapter aborted");
+      }
+      if (chunk.error) {
+        streamError = chunk.error;
+        break;
+      }
+      if (chunk.content) {
+        streamed += chunk.content;
+        emit.onEvent({
+          kind: "participant.partial",
+          turnId: ctx.turn.id,
+          sequenceNum: emit.nextSeq(),
+          memberId: leader.id,
+          messageId: emit.messageId,
+          deltaText: chunk.content,
+        });
+      }
+    }
+
+    // 流式期间出错且没有任何内容 → 抛出让 execute() 走 synthesis=null 失败分支。
+    if (streamError && !streamed) {
+      throw new Error(streamError);
+    }
 
     return {
-      content: result.content,
-      tokensUsed: result.tokensUsed ?? 0,
+      content: streamed,
+      tokensUsed: Math.ceil(streamed.length / 4),
     };
   }
 

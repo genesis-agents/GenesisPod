@@ -14,6 +14,10 @@
  * 备注：harness `HandoffCoordinator` 在 ai-harness/teams/collaboration/patterns/handoff-pattern。
  * 本期采用"标记驱动"简化版（agent 自然语言判断 + 结构化标记）；
  * v0.3 升级为 ToolCall-based handoff（agent 通过工具显式发起）。
+ *
+ * 流式：askMember 走 chatFacade.chatStream，按 chunk 推 participant.partial（含
+ * `[HANDOFF: x]` tag 原始字符）。caller 在 participant.done emit 时用 cleanContent
+ * （已剥掉 tag）替换前端展示。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -118,7 +122,15 @@ export class HandoffAdapter implements IModeAdapter {
       // 抛错让整 turn FAIL，用户什么都看不到）。
       let chatResult: { content: string; tokensUsed: number };
       try {
-        chatResult = await this.askMember(current, ctx, enabled);
+        chatResult = await this.askMember(current, ctx, enabled, {
+          messageId,
+          memberId: current.id,
+          onEvent,
+          nextSeq: () => {
+            seq += 1;
+            return seq;
+          },
+        });
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         this.logger.warn(
@@ -303,6 +315,12 @@ export class HandoffAdapter implements IModeAdapter {
     current: AskRoomMember,
     ctx: ModeContext,
     allEnabled: AskRoomMember[],
+    emit: {
+      messageId: string;
+      memberId: string;
+      onEvent: (e: AskRoomServerEvent) => void;
+      nextSeq: () => number;
+    },
   ): Promise<{ content: string; tokensUsed: number }> {
     const peers = allEnabled
       .filter((m) => m.id !== current.id)
@@ -328,7 +346,11 @@ export class HandoffAdapter implements IModeAdapter {
       { role: "system", content: sysParts.join("\n\n") },
       { role: "user", content: ctx.triggerMessage.content },
     ];
-    const result = await this.chatFacade.chat({
+
+    // 流式：partial 推原始内容（含 [HANDOFF: x] tag）；最终 participant.done
+    // 由 caller emit 时会用解析后剥掉 tag 的 cleanContent 替换前端展示。
+    let streamed = "";
+    for await (const chunk of this.chatFacade.chatStream({
       messages,
       model: current.modelId,
       modelType: AIModelType.CHAT,
@@ -340,10 +362,29 @@ export class HandoffAdapter implements IModeAdapter {
         referenceId: ctx.turn.id,
         description: `AI Ask Room HANDOFF - ${current.displayName}`,
       },
-    });
+    })) {
+      if (ctx.signal.aborted) {
+        throw new Error("HANDOFF adapter aborted");
+      }
+      if (chunk.error) {
+        throw new Error(chunk.error);
+      }
+      if (chunk.content) {
+        streamed += chunk.content;
+        emit.onEvent({
+          kind: "participant.partial",
+          turnId: ctx.turn.id,
+          sequenceNum: emit.nextSeq(),
+          memberId: emit.memberId,
+          messageId: emit.messageId,
+          deltaText: chunk.content,
+        });
+      }
+    }
+
     return {
-      content: result.content,
-      tokensUsed: result.tokensUsed ?? 0,
+      content: streamed,
+      tokensUsed: Math.ceil(streamed.length / 4),
     };
   }
 

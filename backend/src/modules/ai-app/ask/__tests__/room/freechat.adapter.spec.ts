@@ -92,15 +92,27 @@ const mkContext = (overrides: Partial<ModeContext> = {}): ModeContext => ({
   signal: overrides.signal ?? new AbortController().signal,
 });
 
+// 把"一段完整内容"包装成 chatFacade.chatStream 期望的 async generator chunk 流。
+// chunks 默认拆成 [{content, done:false}, {content:"", done:true}]，
+// 模拟 LLM 真实流式返回（首块带正文，末块仅 done=true）。
+function streamOf(content: string): AsyncIterable<{
+  content: string;
+  done: boolean;
+  error?: string;
+}> {
+  return (async function* () {
+    yield { content, done: false };
+    yield { content: "", done: true };
+  })();
+}
+
 describe("FreechatAdapter", () => {
   let adapter: FreechatAdapter;
-  let chatFacade: { chat: jest.Mock };
+  let chatFacade: { chatStream: jest.Mock };
 
   beforeEach(async () => {
     chatFacade = {
-      chat: jest
-        .fn()
-        .mockResolvedValue({ content: "Hi from AI", tokensUsed: 7 }),
+      chatStream: jest.fn().mockImplementation(() => streamOf("Hi from AI")),
     };
     const module = await Test.createTestingModule({
       providers: [
@@ -126,7 +138,7 @@ describe("FreechatAdapter", () => {
 
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0].senderMemberId).toBe("leader");
-    expect(chatFacade.chat).toHaveBeenCalledTimes(1);
+    expect(chatFacade.chatStream).toHaveBeenCalledTimes(1);
     expect(events.find((e) => e.kind === "participant.thinking")).toBeDefined();
     expect(events.find((e) => e.kind === "participant.done")).toBeDefined();
   });
@@ -151,7 +163,7 @@ describe("FreechatAdapter", () => {
       "a",
       "c",
     ]);
-    expect(chatFacade.chat).toHaveBeenCalledTimes(2);
+    expect(chatFacade.chatStream).toHaveBeenCalledTimes(2);
   });
 
   it("filters out disabled and soft-deleted members from leader fallback", async () => {

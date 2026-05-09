@@ -12,7 +12,9 @@
  * 注意：本 adapter 是 W1 PR2 DebatePattern 的第一个真实消费方，
  * pattern 接口本身已通过 16/16 单测；adapter 只做投影和事件桥接。
  *
- * 流式：每回合调用 chat() 一次性返回内容；token streaming 留 v0.3。
+ * 流式：每回合的 chat 调用走 chatFacade.chatStream，按 chunk 推 participant.partial。
+ * DebatePattern 本身不变（它只看 chat 回调的最终 {content, tokensUsed}）；
+ * adapter 在回调内部完成 streaming → 累积 → 返回。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -162,13 +164,12 @@ export class DebateAdapter implements IModeAdapter {
             ...history,
             { role: "user", content: userMessage },
           ];
-          // 2026-05-08：单成员单回合 chat() 失败用 error 占位，不抛错让整 turn
-          // FAIL（之前抛错让 DebatePattern 直接 throw，整 turn FAIL 用户什么
-          // 都看不到）。返回非空 content 让 pattern 继续走完后续回合。
-          let chatContent: string;
-          let chatTokens: number;
+          // 流式：增量 chunk 推 participant.partial。失败/中断用占位回退，
+          // 让 DebatePattern 仍能拿到非空 content 继续后续回合。
+          let streamed = "";
+          let streamError: string | null = null;
           try {
-            const result = await this.chatFacade.chat({
+            for await (const chunk of this.chatFacade.chatStream({
               messages: llmMessages,
               model: member.modelId,
               modelType: AIModelType.CHAT,
@@ -180,16 +181,48 @@ export class DebateAdapter implements IModeAdapter {
                 referenceId: ctx.turn.id,
                 description: `AI Ask Room DEBATE - ${member.displayName} (${role})`,
               },
-            });
-            chatContent = result.content;
-            chatTokens = result.tokensUsed ?? 0;
+            })) {
+              if (ctx.signal.aborted) {
+                throw new DebateAbortError();
+              }
+              if (chunk.error) {
+                streamError = chunk.error;
+                break;
+              }
+              if (chunk.content) {
+                streamed += chunk.content;
+                seq += 1;
+                onEvent({
+                  kind: "participant.partial",
+                  turnId: ctx.turn.id,
+                  sequenceNum: seq,
+                  memberId: member.id,
+                  messageId,
+                  deltaText: chunk.content,
+                });
+              }
+            }
           } catch (err) {
-            const errMsg = err instanceof Error ? err.message : String(err);
+            if (err instanceof DebateAbortError || ctx.signal.aborted)
+              throw err;
+            streamError = err instanceof Error ? err.message : String(err);
             this.logger.warn(
-              `[DEBATE] member=${member.displayName} role=${role} chat failed: ${errMsg}`,
+              `[DEBATE] member=${member.displayName} role=${role} stream failed: ${streamError}`,
             );
-            chatContent = "[error] AI 服务暂时不可用，请稍后重试";
+          }
+
+          // [B2 2026-05-09] streamError 即视为失败：保留半截 + 错误后缀让下一轮
+          // 辩手看到上一轮被中断而非整段静默通过。
+          let chatContent: string;
+          let chatTokens: number;
+          if (streamError) {
+            chatContent = streamed
+              ? `${streamed}\n\n[输出被中断]`
+              : "[error] AI 服务暂时不可用，请稍后重试";
             chatTokens = 0;
+          } else {
+            chatContent = streamed;
+            chatTokens = Math.ceil(streamed.length / 4);
           }
 
           seq += 1;
@@ -231,7 +264,13 @@ export class DebateAdapter implements IModeAdapter {
       // 2026-05-08 R2 评审：runDebate 自身抛错（非 chat() 失败 — 已在 buildAgent
       // 内 catch）也用 system.notice 兜底，避免整 turn FAIL 让用户看不到原因。
       // AbortError 仍透传到 runtime 让其分类为 CANCELLED。
-      if (ctx.signal.aborted || err instanceof DebateAbortError) {
+      // [2026-05-09] 加 err.name === "AbortError" 兜底标准 AbortError（DebatePattern
+      // 内部 sleep/setTimeout 触发的 abort 可能用标准 AbortError 而非 DebateAbortError）。
+      const isAbort =
+        ctx.signal.aborted ||
+        err instanceof DebateAbortError ||
+        (err instanceof Error && err.name === "AbortError");
+      if (isAbort) {
         throw err;
       }
       const errMsg = err instanceof Error ? err.message : String(err);

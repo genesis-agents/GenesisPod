@@ -86,20 +86,38 @@ const mkContext = (
   signal: new AbortController().signal,
 });
 
+type StreamChunk = { content: string; done: boolean; error?: string };
+
+function streamOf(content: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content, done: false };
+    yield { content: "", done: true };
+  })();
+}
+
+function streamErr(msg: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content: "", done: true, error: msg };
+  })();
+}
+
 describe("HandoffAdapter", () => {
   let adapter: HandoffAdapter;
-  let chat: jest.Mock;
+  let chatStream: jest.Mock;
 
   beforeEach(async () => {
-    chat = jest.fn();
+    chatStream = jest.fn();
     const module = await Test.createTestingModule({
-      providers: [HandoffAdapter, { provide: ChatFacade, useValue: { chat } }],
+      providers: [
+        HandoffAdapter,
+        { provide: ChatFacade, useValue: { chatStream } },
+      ],
     }).compile();
     adapter = module.get(HandoffAdapter);
   });
 
   it("single agent answers without handoff tag → chain length 1", async () => {
-    chat.mockResolvedValueOnce({ content: "Final answer.", tokensUsed: 5 });
+    chatStream.mockReturnValueOnce(streamOf("Final answer."));
     const a = mkMember({ id: "a", role: AskRoomMemberRole.LEADER });
     const b = mkMember({ id: "b" });
     const result = await adapter.execute(mkContext([a, b]), () => {});
@@ -110,12 +128,9 @@ describe("HandoffAdapter", () => {
   });
 
   it("hands off via [HANDOFF: id] tag; emits handoff.request + accepted", async () => {
-    chat
-      .mockResolvedValueOnce({
-        content: "I cannot answer.\n[HANDOFF: b]",
-        tokensUsed: 3,
-      })
-      .mockResolvedValueOnce({ content: "I can: ...", tokensUsed: 5 });
+    chatStream
+      .mockReturnValueOnce(streamOf("I cannot answer.\n[HANDOFF: b]"))
+      .mockReturnValueOnce(streamOf("I can: ..."));
     const a = mkMember({ id: "a", role: AskRoomMemberRole.LEADER });
     const b = mkMember({ id: "b", displayName: "Specialist" });
     const events: AskRoomServerEvent[] = [];
@@ -130,10 +145,9 @@ describe("HandoffAdapter", () => {
   });
 
   it("rejects handoff to unknown target id", async () => {
-    chat.mockResolvedValueOnce({
-      content: "passing.\n[HANDOFF: nonexistent]",
-      tokensUsed: 1,
-    });
+    chatStream.mockReturnValueOnce(
+      streamOf("passing.\n[HANDOFF: nonexistent]"),
+    );
     const a = mkMember({ id: "a", role: AskRoomMemberRole.LEADER });
     const b = mkMember({ id: "b" });
     const events: AskRoomServerEvent[] = [];
@@ -145,15 +159,9 @@ describe("HandoffAdapter", () => {
   });
 
   it("rejects handoff back to already-visited member (cycle prevention)", async () => {
-    chat
-      .mockResolvedValueOnce({
-        content: "first\n[HANDOFF: b]",
-        tokensUsed: 1,
-      })
-      .mockResolvedValueOnce({
-        content: "back\n[HANDOFF: a]",
-        tokensUsed: 1,
-      });
+    chatStream
+      .mockReturnValueOnce(streamOf("first\n[HANDOFF: b]"))
+      .mockReturnValueOnce(streamOf("back\n[HANDOFF: a]"));
     const a = mkMember({ id: "a", role: AskRoomMemberRole.LEADER });
     const b = mkMember({ id: "b" });
     const events: AskRoomServerEvent[] = [];
@@ -165,13 +173,10 @@ describe("HandoffAdapter", () => {
   });
 
   it("prevents indirect cycle A→B→C→B", async () => {
-    chat
-      .mockResolvedValueOnce({ content: "to b\n[HANDOFF: b]", tokensUsed: 1 })
-      .mockResolvedValueOnce({ content: "to c\n[HANDOFF: c]", tokensUsed: 1 })
-      .mockResolvedValueOnce({
-        content: "back to b\n[HANDOFF: b]",
-        tokensUsed: 1,
-      });
+    chatStream
+      .mockReturnValueOnce(streamOf("to b\n[HANDOFF: b]"))
+      .mockReturnValueOnce(streamOf("to c\n[HANDOFF: c]"))
+      .mockReturnValueOnce(streamOf("back to b\n[HANDOFF: b]"));
     const a = mkMember({ id: "a", role: AskRoomMemberRole.LEADER, order: 0 });
     const b = mkMember({ id: "b", order: 1 });
     const c = mkMember({ id: "c", order: 2 });
@@ -186,10 +191,7 @@ describe("HandoffAdapter", () => {
   });
 
   it("rejects ambiguous displayName when two members share name", async () => {
-    chat.mockResolvedValueOnce({
-      content: "to expert\n[HANDOFF: Expert]",
-      tokensUsed: 1,
-    });
+    chatStream.mockReturnValueOnce(streamOf("to expert\n[HANDOFF: Expert]"));
     const a = mkMember({
       id: "a",
       role: AskRoomMemberRole.LEADER,
@@ -207,7 +209,7 @@ describe("HandoffAdapter", () => {
   });
 
   it("respects modeOptions.startMemberId", async () => {
-    chat.mockResolvedValueOnce({ content: "Hi.", tokensUsed: 1 });
+    chatStream.mockReturnValueOnce(streamOf("Hi."));
     const a = mkMember({ id: "a", role: AskRoomMemberRole.LEADER });
     const b = mkMember({ id: "b" });
     const c = mkMember({ id: "c" });
@@ -225,12 +227,9 @@ describe("HandoffAdapter", () => {
     );
     const next = ["b", "c", "d", "e", "f", "g"];
     for (const target of next) {
-      chat.mockResolvedValueOnce({
-        content: `bridge\n[HANDOFF: ${target}]`,
-        tokensUsed: 1,
-      });
+      chatStream.mockReturnValueOnce(streamOf(`bridge\n[HANDOFF: ${target}]`));
     }
-    chat.mockResolvedValueOnce({ content: "tail", tokensUsed: 1 });
+    chatStream.mockReturnValueOnce(streamOf("tail"));
     const result = await adapter.execute(mkContext(members), () => {});
     // depth=5 → chain a→b→c→d→e→f (6 个 member)
     expect(result.metadata.depth).toBeLessThanOrEqual(6);
@@ -247,12 +246,9 @@ describe("HandoffAdapter", () => {
     // 现在用 error 占位 done + break 链路，与其他 adapter 一致。
     const a = mkMember({ id: "a", order: 0 });
     const b = mkMember({ id: "b", order: 1 });
-    chat
-      .mockResolvedValueOnce({
-        content: "first speaker\n[HANDOFF: b]",
-        tokensUsed: 1,
-      })
-      .mockRejectedValueOnce(new Error("provider down"));
+    chatStream
+      .mockReturnValueOnce(streamOf("first speaker\n[HANDOFF: b]"))
+      .mockReturnValueOnce(streamErr("provider down"));
     const events: AskRoomServerEvent[] = [];
     const result = await adapter.execute(mkContext([a, b]), (e) =>
       events.push(e),
@@ -266,15 +262,12 @@ describe("HandoffAdapter", () => {
     expect(bMessage).toBeDefined();
     expect(bMessage?.content).toContain("[error]");
     // 仅 2 次 chat（不会继续触发后续）
-    expect(chat).toHaveBeenCalledTimes(2);
+    expect(chatStream).toHaveBeenCalledTimes(2);
   });
 
   it("emits system.notice on handoff.rejected (target not found)", async () => {
     const a = mkMember({ id: "a", order: 0 });
-    chat.mockResolvedValueOnce({
-      content: "go to nobody\n[HANDOFF: ghost]",
-      tokensUsed: 1,
-    });
+    chatStream.mockReturnValueOnce(streamOf("go to nobody\n[HANDOFF: ghost]"));
     const events: AskRoomServerEvent[] = [];
     const result = await adapter.execute(mkContext([a]), (e) => events.push(e));
     // handoff.rejected 事件 + 配套 system.notice

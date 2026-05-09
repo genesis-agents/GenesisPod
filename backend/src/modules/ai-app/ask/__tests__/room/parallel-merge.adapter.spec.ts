@@ -85,12 +85,27 @@ const mkContext = (
   signal: new AbortController().signal,
 });
 
+type StreamChunk = { content: string; done: boolean; error?: string };
+
+function streamOf(content: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content, done: false };
+    yield { content: "", done: true };
+  })();
+}
+
+function streamErr(msg: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content: "", done: true, error: msg };
+  })();
+}
+
 describe("ParallelMergeAdapter", () => {
   let adapter: ParallelMergeAdapter;
-  let chat: jest.Mock;
+  let chatStream: jest.Mock;
 
   beforeEach(async () => {
-    chat = jest
+    chatStream = jest
       .fn()
       .mockImplementation(({ messages }: { messages: { role: string }[] }) => {
         // Synthesis call has system prompt mentioning "PARALLEL_MERGE"
@@ -98,15 +113,12 @@ describe("ParallelMergeAdapter", () => {
         const isSynthesis =
           sys &&
           (sys as { content?: string }).content?.includes("PARALLEL_MERGE");
-        return Promise.resolve({
-          content: isSynthesis ? "SYNTHESIS" : "INDIVIDUAL_REPLY",
-          tokensUsed: isSynthesis ? 99 : 11,
-        });
+        return streamOf(isSynthesis ? "SYNTHESIS" : "INDIVIDUAL_REPLY");
       });
     const module = await Test.createTestingModule({
       providers: [
         ParallelMergeAdapter,
-        { provide: ChatFacade, useValue: { chat } },
+        { provide: ChatFacade, useValue: { chatStream } },
       ],
     }).compile();
     adapter = module.get(ParallelMergeAdapter);
@@ -135,7 +147,7 @@ describe("ParallelMergeAdapter", () => {
     expect(
       events.find((e) => e.kind === "leader.synthesis.done"),
     ).toBeDefined();
-    expect(chat).toHaveBeenCalledTimes(4);
+    expect(chatStream).toHaveBeenCalledTimes(4);
   });
 
   it("falls back to order=0 leader when no role=LEADER set", async () => {
@@ -147,11 +159,11 @@ describe("ParallelMergeAdapter", () => {
   });
 
   it("single failed member does not block others; partial result with allFailed=false", async () => {
-    chat.mockReset();
-    chat
-      .mockResolvedValueOnce({ content: "OK_A", tokensUsed: 5 })
-      .mockRejectedValueOnce(new Error("rate limit"))
-      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(streamOf("OK_A"))
+      .mockReturnValueOnce(streamErr("rate limit"))
+      .mockReturnValueOnce(streamOf("SYNTH"));
     const a = mkMember({ id: "a" });
     const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
     const result = await adapter.execute(mkContext([a, b]), () => {});
@@ -164,8 +176,8 @@ describe("ParallelMergeAdapter", () => {
   });
 
   it("when ALL members fail, no synthesis call and metadata.allFailed=true", async () => {
-    chat.mockReset();
-    chat.mockRejectedValue(new Error("provider down"));
+    chatStream.mockReset();
+    chatStream.mockImplementation(() => streamErr("provider down"));
     const a = mkMember({ id: "a" });
     const b = mkMember({ id: "b" });
     const result = await adapter.execute(mkContext([a, b]), () => {});
@@ -179,8 +191,8 @@ describe("ParallelMergeAdapter", () => {
     expect(aiMessages.every((m) => m.content.startsWith("[error]"))).toBe(true);
     expect(sysMessages).toHaveLength(1);
     expect(sysMessages[0].content).toContain("所有成员暂时不可用");
-    // 仅 2 次 chat（无 synthesis）
-    expect(chat).toHaveBeenCalledTimes(2);
+    // 仅 2 次 chatStream（无 synthesis）
+    expect(chatStream).toHaveBeenCalledTimes(2);
   });
 
   it("respects roomConfig.leaderModelId for leader selection", async () => {
@@ -195,11 +207,11 @@ describe("ParallelMergeAdapter", () => {
   });
 
   it("members succeed but synthesis fails: returns N member messages + 1 error placeholder", async () => {
-    chat.mockReset();
-    chat
-      .mockResolvedValueOnce({ content: "OK_A", tokensUsed: 5 })
-      .mockResolvedValueOnce({ content: "OK_B", tokensUsed: 5 })
-      .mockRejectedValueOnce(new Error("synthesis failed"));
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(streamOf("OK_A"))
+      .mockReturnValueOnce(streamOf("OK_B"))
+      .mockReturnValueOnce(streamErr("synthesis failed"));
     const a = mkMember({ id: "a" });
     const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
     const result = await adapter.execute(mkContext([a, b]), () => {});
@@ -217,13 +229,13 @@ describe("ParallelMergeAdapter", () => {
   });
 
   it("error message is sanitized for unsafe text (no provider stack leak)", async () => {
-    chat.mockReset();
-    chat
-      .mockRejectedValueOnce(
-        new Error("Internal server error: Stack at provider.x.y(token=abc)"),
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(
+        streamErr("Internal server error: Stack at provider.x.y(token=abc)"),
       )
-      .mockResolvedValueOnce({ content: "OK", tokensUsed: 1 })
-      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+      .mockReturnValueOnce(streamOf("OK"))
+      .mockReturnValueOnce(streamOf("SYNTH"));
     const a = mkMember({ id: "a" });
     const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
     const result = await adapter.execute(mkContext([a, b]), () => {});
@@ -236,11 +248,11 @@ describe("ParallelMergeAdapter", () => {
   });
 
   it("error message preserves user-visible patterns (rate limit / timeout)", async () => {
-    chat.mockReset();
-    chat
-      .mockRejectedValueOnce(new Error("rate limit exceeded for org"))
-      .mockResolvedValueOnce({ content: "OK", tokensUsed: 1 })
-      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(streamErr("rate limit exceeded for org"))
+      .mockReturnValueOnce(streamOf("OK"))
+      .mockReturnValueOnce(streamOf("SYNTH"));
     const a = mkMember({ id: "a" });
     const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
     const result = await adapter.execute(mkContext([a, b]), () => {});
@@ -265,11 +277,11 @@ describe("ParallelMergeAdapter", () => {
   it("failed-member participant.done event carries sanitized error content (no empty stream/persist drift)", async () => {
     // 2026-05-08 R2 评审：之前 fanOut 失败成员的 participant.done 推 content=""，
     // 与持久化的 sanitizeErrorMessage 双源不一致。修复后事件也带脱敏占位。
-    chat.mockReset();
-    chat
-      .mockResolvedValueOnce({ content: "OK_A", tokensUsed: 5 })
-      .mockRejectedValueOnce(new Error("rate limit hit"))
-      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(streamOf("OK_A"))
+      .mockReturnValueOnce(streamErr("rate limit hit"))
+      .mockReturnValueOnce(streamOf("SYNTH"));
     const a = mkMember({ id: "a" });
     const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
     const events: AskRoomServerEvent[] = [];

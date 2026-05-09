@@ -86,16 +86,31 @@ const mkContext = (
   signal: new AbortController().signal,
 });
 
+type StreamChunk = { content: string; done: boolean; error?: string };
+
+function streamOf(content: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content, done: false };
+    yield { content: "", done: true };
+  })();
+}
+
+function streamErr(msg: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content: "", done: true, error: msg };
+  })();
+}
+
 describe("VoteAdapter", () => {
   let adapter: VoteAdapter;
-  let chat: jest.Mock;
+  let chatStream: jest.Mock;
 
   beforeEach(async () => {
-    chat = jest.fn();
+    chatStream = jest.fn();
     const module = await Test.createTestingModule({
       providers: [
         VoteAdapter,
-        { provide: ChatFacade, useValue: { chat } },
+        { provide: ChatFacade, useValue: { chatStream } },
         { provide: VotingManager, useValue: new VotingManager() },
       ],
     }).compile();
@@ -103,19 +118,10 @@ describe("VoteAdapter", () => {
   });
 
   it("uses explicit voteOptions and tallies majority winner", async () => {
-    chat
-      .mockResolvedValueOnce({
-        content: "VOTE: a\nREASON: A is better",
-        tokensUsed: 5,
-      })
-      .mockResolvedValueOnce({
-        content: "VOTE: a\nREASON: agree",
-        tokensUsed: 4,
-      })
-      .mockResolvedValueOnce({
-        content: "VOTE: b\nREASON: prefer B",
-        tokensUsed: 4,
-      });
+    chatStream
+      .mockReturnValueOnce(streamOf("VOTE: a\nREASON: A is better"))
+      .mockReturnValueOnce(streamOf("VOTE: a\nREASON: agree"))
+      .mockReturnValueOnce(streamOf("VOTE: b\nREASON: prefer B"));
     const leader = mkMember({ id: "leader", role: AskRoomMemberRole.LEADER });
     const v1 = mkMember({ id: "v1", displayName: "V1" });
     const v2 = mkMember({ id: "v2", displayName: "V2" });
@@ -142,14 +148,11 @@ describe("VoteAdapter", () => {
   });
 
   it("generates options via leader chat when no explicit voteOptions", async () => {
-    chat.mockReset();
-    chat
-      .mockResolvedValueOnce({
-        content: "- [a] Adopt\n- [b] Reject",
-        tokensUsed: 3,
-      })
-      .mockResolvedValueOnce({ content: "VOTE: a\nREASON: r", tokensUsed: 2 })
-      .mockResolvedValueOnce({ content: "VOTE: b\nREASON: r", tokensUsed: 2 });
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(streamOf("- [a] Adopt\n- [b] Reject"))
+      .mockReturnValueOnce(streamOf("VOTE: a\nREASON: r"))
+      .mockReturnValueOnce(streamOf("VOTE: b\nREASON: r"));
     const leader = mkMember({ id: "leader", role: AskRoomMemberRole.LEADER });
     const v1 = mkMember({ id: "v1" });
     const v2 = mkMember({ id: "v2" });
@@ -172,13 +175,10 @@ describe("VoteAdapter", () => {
   });
 
   it("invalid optionId returned by member is recorded but not counted", async () => {
-    chat.mockReset();
-    chat
-      .mockResolvedValueOnce({ content: "VOTE: a\nREASON: ok", tokensUsed: 1 })
-      .mockResolvedValueOnce({
-        content: "VOTE: zzz\nREASON: bad",
-        tokensUsed: 1,
-      });
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(streamOf("VOTE: a\nREASON: ok"))
+      .mockReturnValueOnce(streamOf("VOTE: zzz\nREASON: bad"));
     const leader = mkMember({ id: "leader", role: AskRoomMemberRole.LEADER });
     const v1 = mkMember({ id: "v1" });
     const v2 = mkMember({ id: "v2" });
@@ -196,9 +196,9 @@ describe("VoteAdapter", () => {
   });
 
   it("emits monotonically increasing sequenceNum", async () => {
-    chat
-      .mockResolvedValueOnce({ content: "VOTE: a\nREASON: r", tokensUsed: 1 })
-      .mockResolvedValueOnce({ content: "VOTE: b\nREASON: r", tokensUsed: 1 });
+    chatStream
+      .mockReturnValueOnce(streamOf("VOTE: a\nREASON: r"))
+      .mockReturnValueOnce(streamOf("VOTE: b\nREASON: r"));
     const leader = mkMember({ id: "leader", role: AskRoomMemberRole.LEADER });
     const v1 = mkMember({ id: "v1" });
     const v2 = mkMember({ id: "v2" });
@@ -221,15 +221,12 @@ describe("VoteAdapter", () => {
   it("generateOptions chat() failure falls back to default options + emits system.notice", async () => {
     // 2026-05-08 R2 评审：之前 generateOptions 失败裸抛让整 turn FAIL；
     // 修复后捕获异常 + 默认 a/支持 b/反对 + system.notice。
-    chat.mockReset();
-    chat
-      .mockRejectedValueOnce(new Error("provider down"))
+    chatStream.mockReset();
+    chatStream
+      .mockReturnValueOnce(streamErr("provider down"))
       // 两个投票者各 vote 一次（用默认选项）
-      .mockResolvedValueOnce({ content: "VOTE: a\nREASON: yes", tokensUsed: 1 })
-      .mockResolvedValueOnce({
-        content: "VOTE: a\nREASON: yes",
-        tokensUsed: 1,
-      });
+      .mockReturnValueOnce(streamOf("VOTE: a\nREASON: yes"))
+      .mockReturnValueOnce(streamOf("VOTE: a\nREASON: yes"));
     const leader = mkMember({ id: "leader", role: AskRoomMemberRole.LEADER });
     const v1 = mkMember({ id: "v1" });
     const v2 = mkMember({ id: "v2" });

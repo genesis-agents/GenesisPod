@@ -85,30 +85,46 @@ const mkContext = (
   signal: new AbortController().signal,
 });
 
+type StreamChunk = { content: string; done: boolean; error?: string };
+
+function streamOf(content: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content, done: false };
+    yield { content: "", done: true };
+  })();
+}
+
+function streamErr(msg: string): AsyncIterable<StreamChunk> {
+  return (async function* () {
+    yield { content: "", done: true, error: msg };
+  })();
+}
+
 describe("ReviewAdapter", () => {
   let adapter: ReviewAdapter;
-  let chat: jest.Mock;
+  let chatStream: jest.Mock;
 
   beforeEach(async () => {
-    chat = jest.fn();
+    chatStream = jest.fn();
     const module = await Test.createTestingModule({
-      providers: [ReviewAdapter, { provide: ChatFacade, useValue: { chat } }],
+      providers: [
+        ReviewAdapter,
+        { provide: ChatFacade, useValue: { chatStream } },
+      ],
     }).compile();
     adapter = module.get(ReviewAdapter);
   });
 
   it("draft + N feedbacks + revision; total messages = N+2", async () => {
-    chat
-      .mockResolvedValueOnce({ content: "DRAFT", tokensUsed: 10 })
-      .mockResolvedValueOnce({
-        content: "STATUS: needs_revision\nSCORE: 70\nFEEDBACK: clarify intro",
-        tokensUsed: 5,
-      })
-      .mockResolvedValueOnce({
-        content: "STATUS: approved\nSCORE: 90\nFEEDBACK: solid",
-        tokensUsed: 5,
-      })
-      .mockResolvedValueOnce({ content: "FINAL_DRAFT", tokensUsed: 12 });
+    chatStream
+      .mockReturnValueOnce(streamOf("DRAFT"))
+      .mockReturnValueOnce(
+        streamOf("STATUS: needs_revision\nSCORE: 70\nFEEDBACK: clarify intro"),
+      )
+      .mockReturnValueOnce(
+        streamOf("STATUS: approved\nSCORE: 90\nFEEDBACK: solid"),
+      )
+      .mockReturnValueOnce(streamOf("FINAL_DRAFT"));
 
     const author = mkMember({
       id: "author",
@@ -131,13 +147,12 @@ describe("ReviewAdapter", () => {
   });
 
   it("respects modeOptions.authorMemberId and reviewerMemberIds", async () => {
-    chat
-      .mockResolvedValueOnce({ content: "DRAFT", tokensUsed: 1 })
-      .mockResolvedValueOnce({
-        content: "STATUS: approved\nSCORE: 100\nFEEDBACK: ok",
-        tokensUsed: 1,
-      })
-      .mockResolvedValueOnce({ content: "FINAL", tokensUsed: 1 });
+    chatStream
+      .mockReturnValueOnce(streamOf("DRAFT"))
+      .mockReturnValueOnce(
+        streamOf("STATUS: approved\nSCORE: 100\nFEEDBACK: ok"),
+      )
+      .mockReturnValueOnce(streamOf("FINAL"));
 
     const a = mkMember({ id: "a" });
     const b = mkMember({ id: "b" });
@@ -156,10 +171,10 @@ describe("ReviewAdapter", () => {
   });
 
   it("when ALL reviewers fail, no revision is applied", async () => {
-    chat
-      .mockResolvedValueOnce({ content: "DRAFT", tokensUsed: 1 })
-      .mockRejectedValueOnce(new Error("boom"))
-      .mockRejectedValueOnce(new Error("boom"));
+    chatStream
+      .mockReturnValueOnce(streamOf("DRAFT"))
+      .mockReturnValueOnce(streamErr("boom"))
+      .mockReturnValueOnce(streamErr("boom"));
     const author = mkMember({
       id: "author",
       role: AskRoomMemberRole.LEADER,
@@ -171,7 +186,7 @@ describe("ReviewAdapter", () => {
     expect(result.metadata.revisionApplied).toBe(false);
     // 1 draft + 2 error messages + 1 SYSTEM "skip revision" message = 4
     expect(result.messages).toHaveLength(4);
-    expect(chat).toHaveBeenCalledTimes(3); // no 4th revision call
+    expect(chatStream).toHaveBeenCalledTimes(3); // no 4th revision call
     const systemMsg = result.messages.find((m) => m.senderType === "SYSTEM");
     expect(systemMsg).toBeDefined();
     expect(systemMsg?.content).toContain("跳过修订");
@@ -193,13 +208,12 @@ describe("ReviewAdapter", () => {
   });
 
   it("clamps invalid score to [0,100]", async () => {
-    chat
-      .mockResolvedValueOnce({ content: "DRAFT", tokensUsed: 1 })
-      .mockResolvedValueOnce({
-        content: "STATUS: approved\nSCORE: 999\nFEEDBACK: ok",
-        tokensUsed: 1,
-      })
-      .mockResolvedValueOnce({ content: "FINAL", tokensUsed: 1 });
+    chatStream
+      .mockReturnValueOnce(streamOf("DRAFT"))
+      .mockReturnValueOnce(
+        streamOf("STATUS: approved\nSCORE: 999\nFEEDBACK: ok"),
+      )
+      .mockReturnValueOnce(streamOf("FINAL"));
     const author = mkMember({ id: "author", role: AskRoomMemberRole.LEADER });
     const r1 = mkMember({ id: "r1" });
     const result = await adapter.execute(mkContext([author, r1]), () => {});

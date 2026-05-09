@@ -24,6 +24,9 @@ interface PendingMessage {
   status: 'thinking' | 'streaming' | 'done';
   partialText: string;
   sequenceNum: number;
+  // [2026-05-09] 加 turnId 让 turn 终态迁移能精确过滤当前 turn 的 pending，
+  // 避免多 turn 并发场景下 turn A 取消会错清 turn B 的活 pending。
+  turnId: string;
 }
 
 interface RoomState {
@@ -66,6 +69,61 @@ const initial: RoomState = {
   lastSeq: 0,
   lastSeqByTurn: {},
 };
+
+/**
+ * [2026-05-09] turn 终态时把**该 turn 的** pending 残留迁移到 messages，
+ * 留下其他 turn 的 pending 不动（多 turn 并发场景下不能误清）。
+ *
+ * 后端 runtime 在失败路径会先 emit turn.error 再 emit turn.complete FAILED，
+ * 第一次迁移后该 turn 已无 pending 条目，第二次自动 no-op（幂等）。
+ *
+ * 返回 null 表示该 turn 没有需要迁移的 pending（caller 不需要 set state）。
+ */
+function migratePendingForTurn(
+  s: RoomState,
+  turnId: string,
+  suffix: string
+): {
+  pending: Record<string, PendingMessage>;
+  messages: AskRoomMessage[];
+} | null {
+  const targetIds: string[] = [];
+  for (const [id, p] of Object.entries(s.pending)) {
+    if (p.turnId === turnId) targetIds.push(id);
+  }
+  if (targetIds.length === 0) return null;
+
+  const migrated = targetIds.map<AskRoomMessage>((id) => {
+    const p = s.pending[id];
+    return {
+      id: p.id,
+      sessionId: s.sessionId ?? '',
+      role: 'assistant',
+      content: p.partialText ? `${p.partialText}\n\n${suffix}` : suffix,
+      modelId: null,
+      modelName: null,
+      tokens: 0,
+      webSearch: false,
+      senderType: 'AI' as const,
+      senderMemberId: p.memberId,
+      mentionedMemberIds: [],
+      turnId,
+      parentMessageId: null,
+      sequenceNum: p.sequenceNum,
+      createdAt: new Date().toISOString(),
+    };
+  });
+
+  const remaining: Record<string, PendingMessage> = {};
+  for (const [id, p] of Object.entries(s.pending)) {
+    if (p.turnId !== turnId) remaining[id] = p;
+  }
+
+  return {
+    pending: remaining,
+    messages: [...s.messages, ...migrated],
+  };
+}
 
 export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
   ...initial,
@@ -143,6 +201,7 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
               status: 'thinking',
               partialText: '',
               sequenceNum: event.sequenceNum,
+              turnId: event.turnId,
             },
           };
           break;
@@ -154,6 +213,7 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
             status: 'streaming' as const,
             partialText: '',
             sequenceNum: event.sequenceNum,
+            turnId: event.turnId,
           };
           next.pending = {
             ...s.pending,
@@ -241,14 +301,33 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
           if (s.currentTurnId === event.turnId) {
             next.currentTurnId = null;
           }
+          // [2026-05-09] turn 终态时把**该 turn 的** pending 残留迁移到 messages。
+          // 关键：用 turnId 过滤，多 turn 并发时不会误清其他 turn 的活 pending。
+          // 后端 runtime 在失败路径会先 emit turn.error 再 emit turn.complete FAILED，
+          // 第一次迁移后 pending 已无该 turn 条目，第二次自动 no-op（幂等）。
+          if (event.status === 'CANCELLED' || event.status === 'FAILED') {
+            const suffix = event.status === 'CANCELLED' ? '[已取消]' : '[出错]';
+            const result = migratePendingForTurn(s, event.turnId, suffix);
+            if (result) {
+              next.pending = result.pending;
+              next.messages = result.messages;
+            }
+          }
           break;
 
-        case 'turn.error':
+        case 'turn.error': {
           next.currentTurnStatus = 'FAILED';
           if (s.currentTurnId === event.turnId) {
             next.currentTurnId = null;
           }
+          // 同 turn.complete CANCELLED：迁移**该 turn** pending 到 messages 标 [出错]
+          const result = migratePendingForTurn(s, event.turnId, '[出错]');
+          if (result) {
+            next.pending = result.pending;
+            next.messages = result.messages;
+          }
           break;
+        }
 
         default: {
           const _exhaustive: never = event;

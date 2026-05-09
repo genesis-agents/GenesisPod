@@ -8,11 +8,11 @@
  *   2. 命中：仅这些成员各自回一条
  *   3. 未命中：本期降级到 leader（或 order=0 成员）回一条
  *      （评审 follow-up：v0.3 把 fan-out selector 下沉到 harness/freechat-pattern）
- *   4. 每个被选中成员通过 ChatFacade.chat 调用 LLM
+ *   4. 每个被选中成员通过 ChatFacade.chatStream 调用 LLM
  *   5. 输出 N 条 AI 消息（无 leader 合成）
  *
- * 流式：本 adapter 同步 chat() 一次返回完整内容，不发 participant.partial。
- * 流式 token-by-token 推送将在 v0.3 改为 chatFacade.chatStream 时启用。
+ * 流式：使用 chatFacade.chatStream，把每个增量 chunk 推为 participant.partial 事件。
+ * 前端 store 累积 partialText 直到 participant.done。done 时仍带最终 content 兜底。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -91,11 +91,13 @@ export class FreechatAdapter implements IModeAdapter {
       const llmMessages = this.buildLlmMessages(ctx, member);
       const startedAt = Date.now();
 
-      // 2026-05-08：单成员 chat() 失败用 error 占位 done 并继续后续成员，不阻断
-      // 整 turn（之前抛错让整 turn FAIL，用户什么都看不到）。
-      let chatResult: { content: string; tokensUsed: number };
+      // 流式：增量 chunk 推 participant.partial；失败/取消用占位回退。
+      // 之前是 await chat() 一次返回，从 thinking 到 done 之间前端无任何反馈，
+      // 体感"特别慢"。现在按 chunk 推 deltaText，前端 store 累积 partialText。
+      let streamed = "";
+      let streamError: string | null = null;
       try {
-        const result = await this.chatFacade.chat({
+        for await (const chunk of this.chatFacade.chatStream({
           messages: llmMessages,
           model: member.modelId,
           modelType: AIModelType.CHAT,
@@ -107,21 +109,49 @@ export class FreechatAdapter implements IModeAdapter {
             referenceId: ctx.turn.id,
             description: `AI Ask Room FREECHAT - ${member.displayName}`,
           },
-        });
-        chatResult = {
-          content: result.content,
-          tokensUsed: result.tokensUsed ?? 0,
-        };
+        })) {
+          if (ctx.signal.aborted) {
+            throw new Error("FREECHAT adapter aborted");
+          }
+          if (chunk.error) {
+            streamError = chunk.error;
+            break;
+          }
+          if (chunk.content) {
+            streamed += chunk.content;
+            seq += 1;
+            onEvent({
+              kind: "participant.partial",
+              turnId: ctx.turn.id,
+              sequenceNum: seq,
+              memberId: member.id,
+              messageId,
+              deltaText: chunk.content,
+            });
+          }
+        }
       } catch (err) {
-        const errMsg = err instanceof Error ? err.message : String(err);
+        if (ctx.signal.aborted) throw err;
+        streamError = err instanceof Error ? err.message : String(err);
         this.logger.warn(
-          `[FREECHAT] member=${member.displayName} chat failed: ${errMsg}`,
+          `[FREECHAT] member=${member.displayName} stream failed: ${streamError}`,
         );
-        chatResult = {
-          content: "[error] AI 服务暂时不可用，请稍后重试",
-          tokensUsed: 0,
-        };
       }
+
+      // [B2 2026-05-09] streamError 即视为失败：哪怕已累积一半内容，也不能
+      // 当成功落库（之前 `streamError && !streamed` 让半截内容静默通过）。
+      // 保留半截 + 错误后缀让用户知道流被中断，比直接占位更有信息量。
+      let finalContent: string;
+      if (streamError) {
+        finalContent = streamed
+          ? `${streamed}\n\n[输出被中断：${streamError.slice(0, 100)}]`
+          : "[error] AI 服务暂时不可用，请稍后重试";
+      } else {
+        finalContent = streamed;
+      }
+      // chatStream 不直接 yield tokensUsed（计费在 facade 内部完成），
+      // 这里给 AskMessage.tokens 一个粗略估算（4 chars/token），不影响计费。
+      const tokensUsed = Math.ceil(finalContent.length / 4);
 
       seq += 1;
       onEvent({
@@ -130,25 +160,25 @@ export class FreechatAdapter implements IModeAdapter {
         sequenceNum: seq,
         memberId: member.id,
         messageId,
-        tokensUsed: chatResult.tokensUsed,
-        content: chatResult.content,
+        tokensUsed,
+        content: finalContent,
       });
 
       messages.push({
         id: messageId,
         senderType: "AI",
         senderMemberId: member.id,
-        content: chatResult.content,
+        content: finalContent,
         modelId: member.modelId,
         modelName: null,
-        tokens: chatResult.tokensUsed,
+        tokens: tokensUsed,
         parentMessageId: ctx.triggerMessage.id,
         sequenceNum: seq,
       });
 
       this.logger.debug(
         `[FREECHAT] turn=${ctx.turn.id} member=${member.displayName} ` +
-          `tokens=${chatResult.tokensUsed} elapsed=${Date.now() - startedAt}ms`,
+          `tokens=${tokensUsed} elapsed=${Date.now() - startedAt}ms`,
       );
     }
 
