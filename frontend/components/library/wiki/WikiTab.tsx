@@ -1385,7 +1385,7 @@ function WikiEnableToggleModal({
     setLoading(true);
     // Reuse the existing /knowledge-bases endpoint to list ALL user-accessible
     // KBs (not just wikiEnabled ones — we need to enable disabled ones here).
-    fetch('/api/v1/library/knowledge-bases', {
+    fetch('/api/v1/rag/knowledge-bases', {
       credentials: 'include',
       headers: getAuthHeaderSafe(),
     })

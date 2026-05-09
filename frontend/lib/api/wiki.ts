@@ -138,7 +138,8 @@ export interface KbDocumentSummary {
 
 // ─── Endpoints ────────────────────────────────────────────────────
 
-const base = '/api/v1/library/wiki';
+// apiClient already prepends `/api/v1`; paths here are relative to that.
+const base = '/library/wiki';
 
 export const wikiApi = {
   // Admin / KB selector
@@ -150,12 +151,12 @@ export const wikiApi = {
    */
   listKbDocuments: (kbId: string) =>
     apiClient.get<{ items: KbDocumentSummary[] } | KbDocumentSummary[]>(
-      `/api/v1/library/knowledge-bases/${encodeURIComponent(kbId)}/documents`
+      `/rag/knowledge-bases/${encodeURIComponent(kbId)}/documents`
     ),
 
   toggleWikiEnabled: (kbId: string, enabled: boolean) =>
     apiClient.patch<ToggleWikiEnabledResult>(
-      `/api/v1/library/kbs/${encodeURIComponent(kbId)}/wiki-enabled`,
+      `/library/kbs/${encodeURIComponent(kbId)}/wiki-enabled`,
       { enabled }
     ),
 
