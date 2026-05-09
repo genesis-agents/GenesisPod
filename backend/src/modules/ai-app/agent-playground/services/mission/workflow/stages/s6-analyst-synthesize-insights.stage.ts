@@ -38,6 +38,38 @@ export interface AnalystOutputShape {
     conflictingSources: string[];
     resolution: string;
   }[];
+  // ★ PR-quickview-parity (2026-05-09): 结构化 quickView 字段（与 analyst.agent.ts Output 一致）。
+  preface?: string;
+  crossDimAnalysis?: string;
+  riskAssessment?: string;
+  strategicRecommendations?: string;
+  conclusion?: string;
+  keyFindingsByDimension?: {
+    dimensionName: string;
+    findings: {
+      finding: string;
+      significance: "high" | "medium" | "low";
+    }[];
+  }[];
+  trendsByDimension?: {
+    dimensionName: string;
+    trends: {
+      trend: string;
+      direction: "increasing" | "decreasing" | "stable" | "emerging";
+      timeframe: string;
+    }[];
+  }[];
+  riskMatrix?: {
+    riskType: string;
+    probability: "高" | "中" | "低";
+    impact: "高" | "中" | "低";
+    timeframe: string;
+  }[];
+  recommendationsByAudience?: {
+    forEnterprise?: { shortTerm: string[]; midTerm: string[] };
+    forInvestors?: { shortTerm: string[]; midTerm: string[] };
+  };
+  whatYouWillLearn?: string[];
 }
 
 export async function runAnalystStage(
@@ -204,6 +236,12 @@ export async function runAnalystStage(
       insights: [],
       themeSummary: `（analyst 阶段未产出有效综合分析；下游基于 ${researcherResults.length} 个维度的原始研究发现直接撰写报告）`,
       contradictions: [],
+      // ★ PR-quickview-parity: 兜底空数组让 buildQuickView 走"卡片短路"，前端不渲染对应区块
+      keyFindingsByDimension: [],
+      trendsByDimension: [],
+      riskMatrix: [],
+      recommendationsByAudience: undefined,
+      whatYouWillLearn: [],
     };
 
     ctx.analystOutput = fallback;

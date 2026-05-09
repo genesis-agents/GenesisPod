@@ -462,7 +462,10 @@ describe("AnalystAgent — buildSystemPrompt", () => {
   });
 
   it("reconciliationReport report is truncated to 1500 chars max in prompt", () => {
-    const longReport = "Long report content. ".repeat(100); // >1500 chars
+    // 头部 1500 字与尾部 600 字用唯一 marker 区分，避免重复字串带来的误判
+    const head = "HEAD_KEEP_" + "x".repeat(1490); // 1500 chars
+    const tail = "TAIL_TRUNCATE_" + "y".repeat(586); // 600 chars
+    const longReport = head + tail;
     const inputWithLongReport = {
       ...validInput(),
       reconciliationReport: { reconciliationReport: longReport },
@@ -471,10 +474,8 @@ describe("AnalystAgent — buildSystemPrompt", () => {
       input: inputWithLongReport,
       identity,
     });
-    // The prompt should contain the truncated version (first 1500 chars)
-    expect(result).toContain(longReport.slice(0, 100));
-    // But not the full 2100+ char version
-    expect(result.length).toBeLessThan(longReport.length + 2000);
+    expect(result).toContain("HEAD_KEEP_"); // 头部保留
+    expect(result).not.toContain("TAIL_TRUNCATE_"); // 尾部被截
   });
 
   it("conflict block truncates rationale to 120 chars", () => {
