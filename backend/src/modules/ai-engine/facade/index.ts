@@ -51,6 +51,13 @@ export {
   type SanitizerMetricSnapshot,
 } from "../content/markdown/sanitizer-metrics.service";
 
+// ★ P0a-1 (2026-05-09, llm wiki v1.5.3 §3.1+§4.4+§10): wiki-link 与 slug 规范化基元
+//   - parseMarkdownWikiLinks: 抽 [[slug]] 引用（跳过代码块/行内代码/HTML 注释/转义）
+//   - normalizeMarkdownSlug:  title → kebab-case ASCII slug（NFKD + 变音符剥除 + 200 长度上限）
+//   两者纯函数，business-agnostic；wiki/writing/research/office 跨引用解析复用。
+export { parseMarkdownWikiLinks } from "../content/markdown/wiki-link-parser.util";
+export { normalizeMarkdownSlug } from "../content/markdown/slug-normalize.util";
+
 /**
  * Minimal interface matching MCPManager for ai-engine internal use.
  * ai-engine executor/capability files inject MCPManager at runtime via harness DI;
