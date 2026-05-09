@@ -78,15 +78,21 @@ Aggregate `researcherResults[*].figureCandidates` into a single deduplicated arr
 ## Reconciliation report (≤ 1500 chars markdown)
 
 ```
-# 对账总览
-## 事实表概要 (count + key entities)
-## 冲突 (each conflict + resolution + rationale snippet)
-## 重叠 (each overlap + action)
-## 空白 (each gap + severity)
-## 下游消费指引 (one-line guidance for Analyst/Writer)
+### 对账总览
+- 事实表概要 (count + key entities)
+- 冲突 (each conflict + resolution + rationale snippet)
+- 重叠 (each overlap + action)
+- 空白 (each gap + severity)
+- 下游消费指引 (one-line guidance for Analyst/Writer)
 ```
 
 Downstream Analyst & Writer **MUST** consume this — be precise and quotable.
+
+**Heading discipline**: this report becomes the cross-dim chapter body when the
+analyst skips `crossDimAnalysis`. The chapter title `## 跨维度分析` is added by
+the report assembler, so **never use `# ` or `## ` headings inside this report**
+— they would split into top-level chapters in the rendered report. Use `### `
+or list bullets for sub-sections.
 
 ## Hard rules (never violate)
 

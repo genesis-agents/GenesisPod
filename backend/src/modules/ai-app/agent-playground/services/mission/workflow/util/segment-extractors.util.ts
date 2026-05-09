@@ -112,6 +112,14 @@ export function extractReportSegments(
  *   优先 analyst.crossDimAnalysis（LLM 写过的 400-600 字章节）
  *   fallback 到 reconciler.reconciliationReport markdown 文本
  *   都没有则 undefined → optional slot 跳过该段
+ *
+ * fallback 归一化：
+ *   reconciliationReport 按 cross-dim-fact-check SKILL.md 契约会写成
+ *   `# 对账总览` + 多个 `## 事实表概要/冲突/重叠/空白/下游消费指引` H2 子段。
+ *   StructuralReportAssembler 会再用 `## 跨维度分析` 包裹这段 body，
+ *   而前端 splitFullReportIntoChapters 按 `## ` 切章节，会把 reconciler
+ *   的 H2 子段全部裂成独立章节。因此 fallback 时把所有 H1/H2 统一降到 H3，
+ *   保证整段作为单一连续章节渲染。
  */
 function pickCrossDim(
   analyst: AnalystOutputShape,
@@ -119,7 +127,11 @@ function pickCrossDim(
 ): string | undefined {
   if (analyst.crossDimAnalysis?.trim()) return analyst.crossDimAnalysis.trim();
   if (recon.reconciliationReport?.trim()) {
-    return recon.reconciliationReport.trim();
+    return demoteTopHeadingsToH3(recon.reconciliationReport.trim());
   }
   return undefined;
+}
+
+function demoteTopHeadingsToH3(md: string): string {
+  return md.replace(/^(#{1,2})(?=\s+\S)/gm, "###");
 }

@@ -104,6 +104,61 @@ describe("extractReportSegments", () => {
     expect(r.bodies.crossDimAnalysis).toBe("对账总览");
   });
 
+  it("crossDim fallback 把 reconciliationReport 内部 H1/H2 降为 H3，避免被前端切成多章", () => {
+    const recon = [
+      "# 对账总览",
+      "## 事实表概要",
+      "20 facts",
+      "## 冲突",
+      "4 字段",
+      "## 重叠",
+      "## 空白",
+      "## 下游消费指引",
+    ].join("\n");
+    const r = extractReportSegments({
+      plan: { themeSummary: "TS", dimensions: [] },
+      analystOutput: { themeSummary: "exec" },
+      reconcilerOutput: { reconciliationReport: recon },
+      metadata: baseMetadata,
+    });
+    const body = r.bodies.crossDimAnalysis ?? "";
+    expect(body).not.toMatch(/^#\s/m);
+    expect(body).not.toMatch(/^##\s/m);
+    expect(body).toContain("### 对账总览");
+    expect(body).toContain("### 事实表概要");
+    expect(body).toContain("### 冲突");
+    expect(body).toContain("### 重叠");
+    expect(body).toContain("### 空白");
+    expect(body).toContain("### 下游消费指引");
+    // 段落正文保留
+    expect(body).toContain("20 facts");
+    expect(body).toContain("4 字段");
+  });
+
+  it("crossDim fallback 不误改代码块 / 行内 # 字符", () => {
+    const recon = ["### 已经是 H3 不变", "正文里 # 不在行首应保留"].join("\n");
+    const r = extractReportSegments({
+      plan: { themeSummary: "TS", dimensions: [] },
+      reconcilerOutput: { reconciliationReport: recon },
+      metadata: baseMetadata,
+    });
+    expect(r.bodies.crossDimAnalysis).toContain("### 已经是 H3 不变");
+    expect(r.bodies.crossDimAnalysis).toContain("正文里 # 不在行首应保留");
+  });
+
+  it("analyst.crossDimAnalysis 优先时不触发降级（保留原始内容）", () => {
+    const r = extractReportSegments({
+      plan: { themeSummary: "TS", dimensions: [] },
+      analystOutput: {
+        themeSummary: "exec",
+        crossDimAnalysis: "## analyst 自己写的标题保留",
+      },
+      reconcilerOutput: { reconciliationReport: "## 对账" },
+      metadata: baseMetadata,
+    });
+    expect(r.bodies.crossDimAnalysis).toBe("## analyst 自己写的标题保留");
+  });
+
   it("两个 cross 来源都缺 → undefined（optional slot 跳过）", () => {
     const r = extractReportSegments({
       plan: { themeSummary: "TS", dimensions: [] },
