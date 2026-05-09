@@ -26,6 +26,8 @@ interface RoomComposerProps {
   members: AskRoomMember[];
   defaultMode: AskRoomMode;
   disabled?: boolean;
+  /** 用户切换协作模式时回调（让 header 显示当前模式，而非 roomConfig.defaultMode） */
+  onModeChange?: (mode: AskRoomMode) => void;
   onSend: (input: {
     content: string;
     mode: AskRoomMode;
@@ -48,18 +50,25 @@ export function RoomComposer({
   members,
   defaultMode,
   disabled,
+  onModeChange,
   onSend,
   onCancel,
   isStreaming,
 }: RoomComposerProps) {
   const [text, setText] = useState('');
-  const [mode, setMode] = useState<AskRoomMode>(defaultMode);
+  const [mode, setModeState] = useState<AskRoomMode>(defaultMode);
+  const setMode = (next: AskRoomMode) => {
+    setModeState(next);
+    onModeChange?.(next);
+  };
   const [mentioned, setMentioned] = useState<Set<string>>(new Set());
   const [mentionState, setMentionState] = useState<MentionState | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    setMode(defaultMode);
+    setModeState(defaultMode);
+    onModeChange?.(defaultMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultMode]);
 
   const enabledMembers = useMemo(

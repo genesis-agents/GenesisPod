@@ -51,6 +51,10 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [memberPanelOpen, setMemberPanelOpen] = useState(false);
   const [defaultMode, setDefaultMode] = useState<AskRoomMode>('FREECHAT');
+  // 2026-05-08（screenshot 41）：header 之前固定显示 roomConfig.defaultMode，
+  // 用户在 composer 切换协作模式（如 辩论）时不会更新。改为追踪 composer 当前
+  // 模式，header 反映用户实际将发送的 mode。
+  const [activeMode, setActiveMode] = useState<AskRoomMode>('FREECHAT');
   const [roomTitle, setRoomTitle] = useState<string>('AI 团队房间');
 
   // 初次加载（含 setLoading，会替换整个页面为 "加载房间..."）
@@ -235,7 +239,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
                 <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-                  {MODE_LABELS[defaultMode]}
+                  {MODE_LABELS[activeMode]}
                 </span>
                 <span>· {activeMembers.length} 名 AI 成员</span>
                 {isStreaming && (
@@ -312,6 +316,7 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
         defaultMode={defaultMode}
         disabled={loading}
         isStreaming={isStreaming}
+        onModeChange={setActiveMode}
         onSend={handleSend}
         onCancel={handleCancel}
       />
