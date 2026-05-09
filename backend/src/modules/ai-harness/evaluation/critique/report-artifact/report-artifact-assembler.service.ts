@@ -1742,6 +1742,10 @@ export class ReportArtifactAssembler {
       keyFigures,
       estimatedReadingTime: 3 + Math.ceil(execWordCount / 400),
       whatYouWillLearn: input.plan.dimensions.slice(0, 5).map((d) => d.name),
+      // ★ PR-quickview-parity (2026-05-09): 老 v1 assembler 不消费 analyst 结构化 quickView 字段，
+      //   保留空兜底以满足 ArtifactQuickView 类型契约。新 mission 走 StructuralReportAssembler。
+      riskMatrix: [],
+      keyFindingsByDimension: [],
     };
   }
 

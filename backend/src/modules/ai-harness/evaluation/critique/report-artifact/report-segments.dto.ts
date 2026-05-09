@@ -81,6 +81,46 @@ export interface ReportSegments {
     recommendations?: string;
     conclusion?: string;
   };
+  /**
+   * ★ PR-quickview-parity (2026-05-09): 结构化 quickView 数据（来源 analyst Output 的同名字段）。
+   *   与 bodies 的 prose 章节并行存在：bodies 喂全文章节，quickViewData 喂 ArtifactQuickView 卡片区。
+   *   全 optional：缺失时 assembler buildQuickView 兜底空数组，前端卡片短路。
+   */
+  quickViewData?: {
+    keyFindingsByDimension?: {
+      dimensionName: string;
+      findings: {
+        finding: string;
+        significance: "high" | "medium" | "low";
+      }[];
+    }[];
+    trendsByDimension?: {
+      dimensionName: string;
+      trends: {
+        trend: string;
+        direction: "increasing" | "decreasing" | "stable" | "emerging";
+        timeframe: string;
+      }[];
+    }[];
+    riskMatrix?: {
+      riskType: string;
+      probability: "高" | "中" | "低";
+      impact: "高" | "中" | "低";
+      timeframe: string;
+    }[];
+    recommendationsByAudience?: {
+      forEnterprise?: { shortTerm: string[]; midTerm: string[] };
+      forInvestors?: { shortTerm: string[]; midTerm: string[] };
+    };
+    whatYouWillLearn?: string[];
+    /** insights 透传，供 buildQuickView 兜底生成 topHighlights */
+    insights?: {
+      headline: string;
+      narrative: string;
+      supportingDimensions: string[];
+      confidence: number;
+    }[];
+  };
   citations: ArtifactCitation[];
   figures: ArtifactFigure[];
   factTable: ArtifactFactTriple[];

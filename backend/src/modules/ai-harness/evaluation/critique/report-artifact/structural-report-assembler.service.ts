@@ -355,27 +355,128 @@ export class StructuralReportAssembler {
     }
   }
 
+  /**
+   * ★ PR-quickview-parity (2026-05-09): 从 segments.quickViewData 填实快速视图卡片。
+   *
+   * 数据来源：analyst Output 的 5 组结构化字段（keyFindingsByDimension /
+   * trendsByDimension / riskMatrix / recommendationsByAudience / whatYouWillLearn），
+   * 经 segment-extractors 透传到 segments.quickViewData。
+   *
+   * 兜底语义：任一字段缺失 → 对应数组为空，前端卡片短路不渲染（无回归）。
+   * topHighlights 由 keyFindingsByDimension 派生（type='finding'，significance→ranking）；
+   * 若 analyst 没产 keyFindingsByDimension 但有 insights[]，按 supportingDimensions[0] 兜底分组成 topHighlights。
+   */
   private buildQuickView(
     segments: ReportSegments,
     sections: ArtifactSection[],
   ): ReportArtifact["quickView"] {
     const exec = sections.find((s) => s.type === "executive_summary");
+    const qd = segments.quickViewData ?? {};
+
+    // dim name → dim id 反查表（让 highlight 携带 sourceDimensionId 让前端定位章节）
+    const dimNameToId = new Map<string, string>();
+    for (const d of segments.plan.dimensions) {
+      dimNameToId.set(d.name, d.id);
+    }
+
+    // keyFindingsByDimension → topHighlights (type='finding')
+    const findingHighlights: ReportArtifact["quickView"]["topHighlights"] = [];
+    const keyFindingsByDimension: ReportArtifact["quickView"]["keyFindingsByDimension"] =
+      [];
+    for (const group of qd.keyFindingsByDimension ?? []) {
+      const dimId = dimNameToId.get(group.dimensionName);
+      keyFindingsByDimension.push({
+        dimensionId: dimId,
+        dimensionName: group.dimensionName,
+        findings: group.findings,
+      });
+      for (const f of group.findings) {
+        findingHighlights.push({
+          type: "finding",
+          title: f.finding.slice(0, 80),
+          oneLineSummary: f.finding,
+          sourceDimensionId: dimId ?? "",
+          citations: [],
+        });
+      }
+    }
+
+    // 没 keyFindingsByDimension 时，从 insights[] 兜底派生 topHighlights
+    if (findingHighlights.length === 0 && (qd.insights ?? []).length > 0) {
+      for (const ins of qd.insights ?? []) {
+        const firstDim = ins.supportingDimensions[0];
+        const dimId = firstDim ? (dimNameToId.get(firstDim) ?? "") : "";
+        findingHighlights.push({
+          type: "finding",
+          title: ins.headline.slice(0, 80),
+          oneLineSummary: ins.narrative.slice(0, 200),
+          sourceDimensionId: dimId,
+          citations: [],
+        });
+      }
+    }
+
+    // trendsByDimension → topTrends（直接展平，保留 dim 关联）
+    const topTrends: ReportArtifact["quickView"]["topTrends"] = [];
+    for (const group of qd.trendsByDimension ?? []) {
+      const dimId = dimNameToId.get(group.dimensionName);
+      for (const t of group.trends) {
+        topTrends.push({
+          title: t.trend.slice(0, 80),
+          description: t.trend,
+          sourceDimensionId: dimId,
+          direction: t.direction,
+          timeframe: t.timeframe,
+        });
+      }
+    }
+
+    // riskMatrix → keyRisks（保留扁平兼容字段）+ 同时把结构化 riskMatrix 直透到 quickView
+    const keyRisks = (qd.riskMatrix ?? []).map((r) => ({
+      title: r.riskType,
+      description: `概率 ${r.probability} · 影响 ${r.impact} · ${r.timeframe}`,
+    }));
+
+    // recommendationsByAudience → topRecommendations（扁平兼容字段，每受众×时间窗口取头几条）
+    const topRecommendations: ReportArtifact["quickView"]["topRecommendations"] =
+      [];
+    const rba = qd.recommendationsByAudience;
+    if (rba?.forEnterprise) {
+      for (const s of rba.forEnterprise.shortTerm.slice(0, 2)) {
+        topRecommendations.push({ title: "企业·短期", description: s });
+      }
+      for (const s of rba.forEnterprise.midTerm.slice(0, 1)) {
+        topRecommendations.push({ title: "企业·中期", description: s });
+      }
+    }
+    if (rba?.forInvestors) {
+      for (const s of rba.forInvestors.shortTerm.slice(0, 2)) {
+        topRecommendations.push({ title: "投资者·短期", description: s });
+      }
+      for (const s of rba.forInvestors.midTerm.slice(0, 1)) {
+        topRecommendations.push({ title: "投资者·中期", description: s });
+      }
+    }
+
     return {
       executiveSummary: {
         markdown: segments.bodies.executiveSummary ?? "",
         wordCount: exec?.wordCount ?? 0,
       },
-      topHighlights: [],
-      topTrends: [],
-      keyRisks: [],
-      topRecommendations: [],
+      topHighlights: findingHighlights,
+      topTrends,
+      keyRisks,
+      topRecommendations,
       keyCitations: segments.citations.slice(0, 5).map((c) => c.index),
       keyFigures: segments.figures.slice(0, 3).map((f) => f.id),
       estimatedReadingTime: sections.reduce(
         (sum, s) => sum + s.readingTimeMinutes,
         0,
       ),
-      whatYouWillLearn: [],
+      whatYouWillLearn: qd.whatYouWillLearn ?? [],
+      riskMatrix: qd.riskMatrix ?? [],
+      recommendationsByAudience: rba,
+      keyFindingsByDimension,
     };
   }
 
