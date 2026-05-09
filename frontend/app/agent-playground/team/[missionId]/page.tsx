@@ -377,6 +377,23 @@ export default function MissionDetailPage() {
   const [dismissedFailedBanner, setDismissedFailedBanner] = useState<
     Record<string, boolean>
   >({});
+  // 2026-05-09 (screenshot 47): WS 退化提示同样需要关闭按钮（之前一直挂在
+  //   任务列表上方无法消除）。短期 dismiss 即可——下次 connState 再变非 live
+  //   时（仍/又断）这个 key 会重置，让 banner 重新出现。
+  const [dismissedWsBanner, setDismissedWsBanner] = useState<
+    Record<string, boolean>
+  >({});
+  // connState 切回 live 时清掉 dismiss，让下次断开能再提示
+  useEffect(() => {
+    if (connState === 'live') {
+      setDismissedWsBanner((prev) => {
+        if (!prev[missionId]) return prev;
+        const { [missionId]: _drop, ...rest } = prev;
+        void _drop;
+        return rest;
+      });
+    }
+  }, [connState, missionId]);
 
   const allSources = useMemo(() => {
     const set = new Set<string>();
@@ -851,7 +868,9 @@ export default function MissionDetailPage() {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Status banners */}
           {(() => {
-            const showWsError = !!(error && connState !== 'live');
+            const wsDismissed = !!dismissedWsBanner[missionId];
+            const showWsError =
+              !!(error && connState !== 'live') && !wsDismissed;
             const failedDismissed = !!dismissedFailedBanner[missionId];
             const showFailedBanner =
               !!view.mission.failedMessage && !failedDismissed;
@@ -859,9 +878,22 @@ export default function MissionDetailPage() {
             return (
               <div className="space-y-2 border-b border-gray-200 bg-white px-4 py-2">
                 {showWsError && (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                  <div className="relative flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2 pr-8 text-xs text-amber-800">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <p>WebSocket 不可用 · 已退化为 4s 轮询 /replay</p>
+                    <button
+                      type="button"
+                      aria-label="关闭"
+                      onClick={() =>
+                        setDismissedWsBanner((prev) => ({
+                          ...prev,
+                          [missionId]: true,
+                        }))
+                      }
+                      className="absolute right-1.5 top-1.5 rounded p-0.5 text-amber-700 hover:bg-amber-100"
+                    >
+                      <XIcon className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 )}
                 {showFailedBanner &&
