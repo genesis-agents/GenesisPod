@@ -73,12 +73,11 @@ export class BrandLogoService {
   }
 
   /**
-   * Default fallback logo — Genesis Agent Fabric (open / no fill, blue→indigo).
-   * 透明背景，无 badge 填充；与 frontend/public/favicon.svg 保持一致。
-   * 配色对齐 tailwind primary (blue) + indigo 体系。
-   * id 加 `Pdf` 后缀避免与前端 inline SVG 命名冲突。
+   * Default fallback logo — Game-of-Life state-transition formula.
+   * f(n, s) → {0, 1}：邻居 n + 当前态 s → 下一态。
+   * 与 frontend/public/favicon.svg 保持一致；editorial ink + amber 突出 {0,1}。
    */
-  private readonly DEFAULT_LOGO = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="genesisLogoStrokePdf" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#3B82F6"/><stop offset="50%" stop-color="#4F46E5"/><stop offset="100%" stop-color="#4338CA"/></linearGradient><radialGradient id="genesisLogoCorePdf" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#60A5FA"/><stop offset="55%" stop-color="#4F46E5"/><stop offset="100%" stop-color="#312E81"/></radialGradient><radialGradient id="genesisLogoAgentPdf" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#60A5FA"/><stop offset="55%" stop-color="#3B82F6"/><stop offset="100%" stop-color="#4338CA"/></radialGradient></defs><g stroke="url(#genesisLogoStrokePdf)" stroke-linecap="round" fill="none"><path d="M 32 12 L 52 32 L 32 52 L 12 32 Z" stroke-width="1.8" opacity="0.9"/><line x1="32" y1="32" x2="32" y2="12" stroke-width="1.5" opacity="0.6"/><line x1="32" y1="32" x2="52" y2="32" stroke-width="1.5" opacity="0.6"/><line x1="32" y1="32" x2="32" y2="52" stroke-width="1.5" opacity="0.6"/><line x1="32" y1="32" x2="12" y2="32" stroke-width="1.5" opacity="0.6"/></g><circle cx="32" cy="12" r="3.2" fill="url(#genesisLogoAgentPdf)"/><circle cx="52" cy="32" r="3.2" fill="url(#genesisLogoAgentPdf)"/><circle cx="32" cy="52" r="3.2" fill="url(#genesisLogoAgentPdf)"/><circle cx="12" cy="32" r="3.2" fill="url(#genesisLogoAgentPdf)"/><circle cx="32" cy="32" r="4.8" fill="url(#genesisLogoCorePdf)"/></svg>`;
+  private readonly DEFAULT_LOGO = `<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="32" y="32" text-anchor="middle" dominant-baseline="central" textLength="52" lengthAdjust="spacingAndGlyphs" font-family="Georgia, 'Times New Roman', 'Cambria', serif" font-size="14" fill="#18181b"><tspan font-style="italic">f</tspan><tspan font-style="italic">(n,s)</tspan><tspan font-style="normal"> → {</tspan><tspan fill="#D97706" font-weight="700" font-style="italic">0,1</tspan><tspan font-style="normal">}</tspan></text></svg>`;
 
   /** Get brand name for watermarks and footers */
   getBrandName(): string {

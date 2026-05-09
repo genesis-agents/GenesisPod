@@ -262,7 +262,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 <Link
                   href="/changelog"
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-0.5 w-fit rounded bg-gradient-to-r from-indigo-500 to-violet-500 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white transition-opacity hover:opacity-80"
+                  className="transition-colors hover:text-[#18181b]"
                 >
                   v{CURRENT_VERSION}
                 </Link>

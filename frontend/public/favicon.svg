@@ -1,44 +1,6 @@
-<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!--
-    Genesis Logo · v6 (Agent Fabric · Open / No Fill)
-    透明背景，无 badge 填充：菱形 fabric weave + 5 个 agent 节点直接呈现。
-    线条/节点用 blue→indigo 实心渐变，在浅色 UI 背景上对比清晰。
-    配色对齐 tailwind primary (blue) + indigo 体系。无动画。
-  -->
-  <defs>
-    <linearGradient id="genesisLogoStroke" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%"   stop-color="#3B82F6"/>
-      <stop offset="50%"  stop-color="#4F46E5"/>
-      <stop offset="100%" stop-color="#4338CA"/>
-    </linearGradient>
-    <radialGradient id="genesisLogoCore" cx="35%" cy="30%" r="75%">
-      <stop offset="0%"   stop-color="#60A5FA"/>
-      <stop offset="55%"  stop-color="#4F46E5"/>
-      <stop offset="100%" stop-color="#312E81"/>
-    </radialGradient>
-    <radialGradient id="genesisLogoAgent" cx="35%" cy="30%" r="75%">
-      <stop offset="0%"   stop-color="#60A5FA"/>
-      <stop offset="55%"  stop-color="#3B82F6"/>
-      <stop offset="100%" stop-color="#4338CA"/>
-    </radialGradient>
-  </defs>
-
-  <!-- Fabric weave: 菱形外环 + 4 条向心放射
-       顶点 上(32,12) 右(52,32) 下(32,52) 左(12,32) -->
-  <g stroke="url(#genesisLogoStroke)" stroke-linecap="round" fill="none">
-    <path d="M 32 12 L 52 32 L 32 52 L 12 32 Z" stroke-width="1.8" opacity="0.9"/>
-    <line x1="32" y1="32" x2="32" y2="12" stroke-width="1.5" opacity="0.6"/>
-    <line x1="32" y1="32" x2="52" y2="32" stroke-width="1.5" opacity="0.6"/>
-    <line x1="32" y1="32" x2="32" y2="52" stroke-width="1.5" opacity="0.6"/>
-    <line x1="32" y1="32" x2="12" y2="32" stroke-width="1.5" opacity="0.6"/>
-  </g>
-
-  <!-- 4 个 agent 节点（粗点） -->
-  <circle cx="32" cy="12" r="3.2" fill="url(#genesisLogoAgent)"/>
-  <circle cx="52" cy="32" r="3.2" fill="url(#genesisLogoAgent)"/>
-  <circle cx="32" cy="52" r="3.2" fill="url(#genesisLogoAgent)"/>
-  <circle cx="12" cy="32" r="3.2" fill="url(#genesisLogoAgent)"/>
-
-  <!-- 中心核心 agent（orchestrator，最大） -->
-  <circle cx="32" cy="32" r="4.8" fill="url(#genesisLogoCore)"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <text x="32" y="38" text-anchor="middle"
+        font-family="Georgia, serif" font-size="11" fill="#18181b">
+    <tspan font-style="italic">f(n,s)</tspan> &#8594; {<tspan fill="#D97706" font-style="italic" font-weight="700">0,1</tspan>}
+  </text>
 </svg>

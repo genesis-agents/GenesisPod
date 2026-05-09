@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description:
     'AI-powered research platform for intelligent knowledge discovery',
   icons: {
-    icon: [{ url: config.brand.logo.faviconPath, type: 'image/png' }],
+    icon: [{ url: config.brand.logo.faviconPath, type: 'image/svg+xml' }],
     apple: config.brand.logo.faviconPath,
   },
 };
