@@ -87,6 +87,10 @@ export class HandoffAdapter implements IModeAdapter {
       });
 
       const result = await this.askMember(current, ctx, enabled);
+      const tagged = result.content.match(HANDOFF_TAG_RE);
+      const cleanContent = tagged
+        ? result.content.replace(HANDOFF_TAG_RE, "").trimEnd()
+        : result.content;
       seq += 1;
       onEvent({
         kind: "participant.done",
@@ -95,12 +99,8 @@ export class HandoffAdapter implements IModeAdapter {
         memberId: current.id,
         messageId,
         tokensUsed: result.tokensUsed,
+        content: cleanContent, // 推送已剥掉 [handoff:xxx] 标签的内容
       });
-
-      const tagged = result.content.match(HANDOFF_TAG_RE);
-      const cleanContent = tagged
-        ? result.content.replace(HANDOFF_TAG_RE, "").trimEnd()
-        : result.content;
 
       messages.push({
         id: messageId,

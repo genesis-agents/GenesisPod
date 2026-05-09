@@ -170,6 +170,7 @@ export class DebateAdapter implements IModeAdapter {
             memberId: member.id,
             messageId,
             tokensUsed: result.tokensUsed ?? 0,
+            content: result.content, // 同步 adapter：随 done 推送完整内容
           });
           return { content: result.content, tokensUsed: result.tokensUsed };
         },

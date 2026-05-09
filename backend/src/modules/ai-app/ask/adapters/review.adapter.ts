@@ -81,6 +81,7 @@ export class ReviewAdapter implements IModeAdapter {
       messageId: draftId,
     });
     const draft = await this.askDraft(author, ctx);
+    const draftBubble = `# 初稿（by ${author.displayName}）\n\n${draft.content}`;
     seq += 1;
     onEvent({
       kind: "participant.done",
@@ -89,12 +90,13 @@ export class ReviewAdapter implements IModeAdapter {
       memberId: author.id,
       messageId: draftId,
       tokensUsed: draft.tokensUsed,
+      content: draftBubble,
     });
     messages.push({
       id: draftId,
       senderType: "AI",
       senderMemberId: author.id,
-      content: `# 初稿（by ${author.displayName}）\n\n${draft.content}`,
+      content: draftBubble,
       modelId: author.modelId,
       modelName: null,
       tokens: draft.tokensUsed,
@@ -175,6 +177,7 @@ export class ReviewAdapter implements IModeAdapter {
       draft.content,
       successFeedbacks,
     );
+    const finalBubble = `# 终稿（${author.displayName} 修订）\n\n${final.content}`;
     seq += 1;
     onEvent({
       kind: "participant.done",
@@ -183,12 +186,13 @@ export class ReviewAdapter implements IModeAdapter {
       memberId: author.id,
       messageId: finalId,
       tokensUsed: final.tokensUsed,
+      content: finalBubble,
     });
     messages.push({
       id: finalId,
       senderType: "AI",
       senderMemberId: author.id,
-      content: `# 终稿（${author.displayName} 修订）\n\n${final.content}`,
+      content: finalBubble,
       modelId: author.modelId,
       modelName: null,
       tokens: final.tokensUsed,
@@ -296,7 +300,17 @@ export class ReviewAdapter implements IModeAdapter {
       });
       try {
         const fb = await this.askReview(reviewer, draft, ctx);
+        const partial: ReviewerFeedback = {
+          member: reviewer,
+          messageId,
+          status: fb.status,
+          score: fb.score,
+          feedback: fb.feedback,
+          doneSeq: 0, // 占位，下面赋
+          tokensUsed: fb.tokensUsed,
+        };
         const doneSeq = nextSeq();
+        partial.doneSeq = doneSeq;
         onEvent({
           kind: "participant.done",
           turnId: ctx.turn.id,
@@ -304,16 +318,9 @@ export class ReviewAdapter implements IModeAdapter {
           memberId: reviewer.id,
           messageId,
           tokensUsed: fb.tokensUsed,
+          content: this.formatFeedback(partial),
         });
-        return {
-          member: reviewer,
-          messageId,
-          status: fb.status,
-          score: fb.score,
-          feedback: fb.feedback,
-          doneSeq,
-          tokensUsed: fb.tokensUsed,
-        } satisfies ReviewerFeedback;
+        return partial;
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         const doneSeq = nextSeq();
@@ -324,6 +331,7 @@ export class ReviewAdapter implements IModeAdapter {
           memberId: reviewer.id,
           messageId,
           tokensUsed: 0,
+          content: "[error] AI 服务暂时不可用，请稍后重试",
         });
         return {
           member: reviewer,

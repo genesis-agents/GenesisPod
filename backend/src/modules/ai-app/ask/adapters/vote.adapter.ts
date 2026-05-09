@@ -130,6 +130,7 @@ export class VoteAdapter implements IModeAdapter {
           memberId: leader.id,
           messageId: optsMessageId,
           tokensUsed: generated.tokensUsed,
+          content: generated.content,
         });
         optionsGenerationMessage = {
           id: optsMessageId,
@@ -199,6 +200,14 @@ export class VoteAdapter implements IModeAdapter {
           );
         }
         seq += 1;
+        const partialVote = {
+          member: voter,
+          messageId,
+          optionId: decision.optionId,
+          reason: decision.reason,
+          doneSeq: seq,
+          tokensUsed: decision.tokensUsed,
+        };
         onEvent({
           kind: "participant.done",
           turnId: ctx.turn.id,
@@ -206,15 +215,9 @@ export class VoteAdapter implements IModeAdapter {
           memberId: voter.id,
           messageId,
           tokensUsed: decision.tokensUsed,
+          content: this.formatVoteContent(partialVote, options),
         });
-        votes.push({
-          member: voter,
-          messageId,
-          optionId: decision.optionId,
-          reason: decision.reason,
-          doneSeq: seq,
-          tokensUsed: decision.tokensUsed,
-        });
+        votes.push(partialVote);
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         seq += 1;
@@ -225,6 +228,7 @@ export class VoteAdapter implements IModeAdapter {
           memberId: voter.id,
           messageId,
           tokensUsed: 0,
+          content: "[error] AI 服务暂时不可用，请稍后重试",
         });
         votes.push({
           member: voter,

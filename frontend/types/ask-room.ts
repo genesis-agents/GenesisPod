@@ -141,6 +141,9 @@ export type AskRoomServerEvent =
       memberId: string;
       messageId: string;
       tokensUsed: number;
+      // 2026-05-08: 同步 chat() adapter 把最终内容随 done 推送（无 partial 时
+      // 前端用此渲染气泡）；流式 adapter 省略，store 用累积的 partialText
+      content?: string;
     })
   | (BaseServerEvent & { kind: 'round.start'; round: number })
   | (BaseServerEvent & { kind: 'round.end'; round: number })

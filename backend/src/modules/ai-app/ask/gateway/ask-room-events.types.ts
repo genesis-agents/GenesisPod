@@ -70,6 +70,10 @@ export type AskRoomServerEvent =
       memberId: string;
       messageId: string;
       tokensUsed: number;
+      // 2026-05-08: adapter 用同步 chat() 不发 partial 时，最终内容直接随 done
+      // 推送，前端 store 据此渲染气泡（否则 partialText="" 显示空白）。流式
+      // adapter 可省略此字段，前端会回退到累积的 partialText。
+      content?: string;
     })
   | (BaseServerEvent & { kind: "round.start"; round: number })
   | (BaseServerEvent & { kind: "round.end"; round: number })

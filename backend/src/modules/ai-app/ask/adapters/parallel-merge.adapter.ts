@@ -205,6 +205,7 @@ export class ParallelMergeAdapter implements IModeAdapter {
             memberId: member.id,
             messageId,
             tokensUsed: result.tokensUsed ?? 0,
+            content: result.content,
           });
           responses.push({
             member,
@@ -226,6 +227,7 @@ export class ParallelMergeAdapter implements IModeAdapter {
             memberId: member.id,
             messageId,
             tokensUsed: 0,
+            content: "", // 失败时 content 留空，前端气泡空白即可
           });
           responses.push({
             member,

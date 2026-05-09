@@ -145,9 +145,9 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
         }
 
         case 'participant.done': {
-          // 评审 W6 重要 #5/#7：done 时 pending → final message 并从 pending 移除，
-          // 避免后续 reload 与 pending 双渲染。content 用 partialText（无 partial 时为空，
-          // turn.complete 后 reload 拉真实落库内容覆盖）。
+          // done 时 pending → final message。content 优先用 event.content（同步
+          // adapter 直接推送的完整内容），否则回退到累积的 partialText（流式 adapter）。
+          // 2026-05-08：之前永远用空 partialText 导致同步 adapter 气泡空白。
           const existing = s.pending[event.messageId];
           if (existing) {
             const { [event.messageId]: _drop, ...rest } = s.pending;
@@ -157,7 +157,7 @@ export const useAskRoomStore = create<RoomState & RoomActions>((set) => ({
               id: event.messageId,
               sessionId: s.sessionId ?? '',
               role: 'assistant',
-              content: existing.partialText,
+              content: event.content ?? existing.partialText,
               modelId: null,
               modelName: null,
               tokens: event.tokensUsed,
