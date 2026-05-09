@@ -5,6 +5,8 @@ import { CreditsModule } from "../../../ai-infra/credits/credits.module";
 import { RAGModule } from "../rag/rag.module";
 
 import { WikiPageService } from "./wiki-page.service";
+import { WikiDiffService } from "./wiki-diff.service";
+import { WikiIngestService } from "./wiki-ingest.service";
 import { WikiController } from "./wiki.controller";
 
 /**
@@ -25,7 +27,7 @@ import { WikiController } from "./wiki.controller";
 @Module({
   imports: [PrismaModule, AiEngineModule, RAGModule, CreditsModule],
   controllers: [WikiController],
-  providers: [WikiPageService],
-  exports: [WikiPageService],
+  providers: [WikiPageService, WikiDiffService, WikiIngestService],
+  exports: [WikiPageService, WikiDiffService, WikiIngestService],
 })
 export class WikiModule {}

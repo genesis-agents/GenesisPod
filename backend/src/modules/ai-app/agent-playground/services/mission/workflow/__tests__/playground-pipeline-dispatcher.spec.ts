@@ -125,6 +125,10 @@ import {
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
 import { PlaygroundPipelineDispatcher } from "../playground-pipeline-dispatcher.service";
+// ★ Stage 1 / S1-1 (2026-05-09): dispatcher 拆分后,业务编排在独立 service。
+//   spec 实例化 real PlaygroundBusinessOrchestrator(用 stub deps),保持外部行为
+//   完全等价(idempotent refactor):同样的 stage hooks, 同样的事件流, 同样的 DB 写。
+import { PlaygroundBusinessOrchestrator } from "../playground-business-orchestrator.service";
 import { PLAYGROUND_PIPELINE } from "../../../../playground.config";
 import type { MissionRuntimeShellService } from "../mission-runtime-shell.service";
 import type { MissionRuntimeSession } from "../mission-runtime-shell.service";
@@ -359,6 +363,13 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     const fakeLeaderInvocationFactory = {
       build: jest.fn().mockReturnValue(jest.fn()),
     };
+    // ★ Stage 1 / S1-1 (2026-05-09): real PlaygroundBusinessOrchestrator with stub deps
+    //   — STAGE_NUMBER / CHECKPOINT_AT / 11 build*Hooks 完全等价 of pre-refactor 行为
+    const businessOrch = new PlaygroundBusinessOrchestrator(
+      stageBindings as unknown as MissionStageBindingsService,
+      fakeCheckpoint as never,
+      fakeStore as never,
+    );
     dispatcher = new PlaygroundPipelineDispatcher(
       registry,
       orchestrator,
@@ -371,6 +382,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeEventBuffer as never,
       fakeStore as never,
       fakeEventBus as never,
+      businessOrch,
     );
     dispatcher.onModuleInit();
   });

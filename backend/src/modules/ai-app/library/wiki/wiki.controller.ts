@@ -17,6 +17,8 @@ import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 import { WikiPageService } from "./wiki-page.service";
+import { WikiDiffService } from "./wiki-diff.service";
+import { WikiIngestService } from "./wiki-ingest.service";
 import {
   CreateWikiPageDto,
   ListWikiPagesQueryDto,
@@ -45,7 +47,11 @@ import {
 @ApiTags("LibraryWiki")
 @Controller("library/wiki")
 export class WikiController {
-  constructor(private readonly pageService: WikiPageService) {}
+  constructor(
+    private readonly pageService: WikiPageService,
+    private readonly diffService: WikiDiffService,
+    private readonly ingestService: WikiIngestService,
+  ) {}
 
   // ─── Pages (CRUD + revert) ───────────────────────────────────────
 
@@ -114,43 +120,58 @@ export class WikiController {
     await this.pageService.deletePage(req.user.id, kbId, slug);
   }
 
-  // ─── Ingest / Diff (stubs — wiring in P1 next iteration) ─────────
+  // ─── Ingest / Diff ────────────────────────────────────────────────
 
   @Post(":kbId/ingest")
   @UseGuards(JwtAuthGuard)
   async ingest(
-    @Request() _req: RequestWithUser,
-    @Param("kbId") _kbId: string,
-    @Body() _dto: IngestWikiDto,
-  ): Promise<{ diffId: string }> {
-    throw new NotImplementedException(
-      "Wiki ingest is not yet implemented (v1.5.3 P1 next iteration)",
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Body() dto: IngestWikiDto,
+  ): Promise<{
+    diff: { id: string; status: string; affectedSlugs: string[] };
+  }> {
+    const diff = await this.ingestService.ingest(
+      req.user.id,
+      kbId,
+      dto.documentIds,
     );
+    return {
+      diff: {
+        id: diff.id,
+        status: diff.status,
+        affectedSlugs: diff.affectedSlugs,
+      },
+    };
   }
 
   @Get(":kbId/diffs/:diffId")
   @UseGuards(JwtAuthGuard)
   async getDiff(
-    @Request() _req: RequestWithUser,
-    @Param("kbId") _kbId: string,
-    @Param("diffId") _diffId: string,
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Param("diffId") diffId: string,
   ) {
-    throw new NotImplementedException(
-      "Wiki diff inspection is not yet implemented",
-    );
+    return this.diffService.getDiff(req.user.id, kbId, diffId);
   }
 
   @Patch(":kbId/diffs/:diffId")
   @UseGuards(JwtAuthGuard)
   async patchDiff(
-    @Request() _req: RequestWithUser,
-    @Param("kbId") _kbId: string,
-    @Param("diffId") _diffId: string,
-    @Body() _dto: PatchWikiDiffDto,
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Param("diffId") diffId: string,
+    @Body() dto: PatchWikiDiffDto,
   ) {
-    throw new NotImplementedException(
-      "Wiki diff apply/dismiss is not yet implemented",
-    );
+    if (dto.action === "apply") {
+      return this.diffService.applyDiff(
+        req.user.id,
+        kbId,
+        diffId,
+        dto.selectedItemIds,
+      );
+    }
+    return this.diffService.dismissDiff(req.user.id, kbId, diffId);
   }
 
   // ─── Query (stub — P2) ───────────────────────────────────────────

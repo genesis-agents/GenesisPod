@@ -27,7 +27,6 @@ import {
   DomainEventBus,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
-  runWithStageInstrumentation,
   type MissionPipelineConfig,
   type ResolvedStageHooks,
   type StageRunArgs,
@@ -39,31 +38,23 @@ import {
 import { MissionStageBindingsService } from "./mission-stage-bindings.service";
 import { PLAYGROUND_PIPELINE } from "../../../playground.config";
 import { type RunMissionInput } from "../../../dto/run-mission.dto";
-import { narrate } from "./narrative.util";
-import { runBudgetEstimateStage } from "./stages/s1-mission-estimate-budget.stage";
-import { runLeaderPlanStage } from "./stages/s2-leader-plan-mission.stage";
-import { runResearcherDispatchStage } from "./stages/s3-researcher-collect-findings.stage";
-import { runLeaderAssessResearchStage } from "./stages/s4-leader-assess-research.stage";
-import { runReconcilerStage } from "./stages/s5-reconciler-cross-dim-fact-check.stage";
-import { runAnalystStage } from "./stages/s6-analyst-synthesize-insights.stage";
-import { runWriterOutlineStage } from "./stages/s7-writer-plan-outline.stage";
-import { runWriterStage } from "./stages/s8-writer-draft-report.stage";
-import { runSectionQualityEnhancementStage } from "./stages/s8b-section-quality-enhancement.stage";
-import { runCriticStage } from "./stages/s9-reviewer-critic-l4.stage";
-import { runReportObjectiveEvaluationStage } from "./stages/s9b-report-objective-evaluation.stage";
-import { runLeaderForewordAndSignoffStage } from "./stages/s10-leader-foreword-and-signoff.stage";
-import { runPersistStage } from "./stages/s11-mission-persist.stage";
+// ★ Stage 1 / S1-1 (2026-05-09): 11 个 stage 函数 + narrate / runWithStageInstrumentation
+//   + MissionInvariants 已随 stage hooks 移到 PlaygroundBusinessOrchestrator;dispatcher
+//   只保留 runtime-glue 必要的 runSelfEvolutionStage (S12 fire-and-forget postlude)。
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
 import { MissionCheckpointService } from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "../lifecycle/mission-event-buffer.service";
 import { MissionStore } from "../lifecycle/mission-store.service";
-import type { MissionInvariants } from "./mission-context";
 import {
   AgentInvoker,
   LeaderService,
   type SupervisedMission,
 } from "../../roles";
 import { LeaderInvocationFactory } from "../leader-invocation.factory";
+// ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service —— dispatcher inject + delegate
+import { PlaygroundBusinessOrchestrator } from "./playground-business-orchestrator.service";
+// ★ Stage 1 / S1-2 (2026-05-09,closes T3): cross-stage cache 改用 Z5 CrossStageState 容器
+import { PlaygroundCrossStageState } from "./playground-cross-stage-state";
 
 export interface PipelineMissionSummary {
   readonly missionId: string;
@@ -72,7 +63,13 @@ export interface PipelineMissionSummary {
   readonly error?: unknown;
 }
 
-interface SessionEntry {
+/**
+ * Per-mission session 状态容器(runtime-glue).
+ *
+ * Stage 1 / S1-1(2026-05-09):interface 改为 export 让 PlaygroundBusinessOrchestrator
+ * type-import,通过 dispatcher 注入的 sessionLookup 访问。详见 audit §7 S1-1。
+ */
+export interface SessionEntry {
   readonly session: MissionRuntimeSession;
   readonly t0: number;
   readonly input: RunMissionInput;
@@ -83,48 +80,15 @@ interface SessionEntry {
    */
   readonly leader: SupervisedMission;
   /**
-   * 跨 stage 缓存的中间产物（legacy stage 内部依赖完整 ctx，hook 闭包只能拿到
-   * primitive 暴露的 args；这里把每个 stage 写入的 ctx 字段缓存起来供下游重建）。
+   * Stage 1 / S1-2 (2026-05-09,closes T3):跨 stage 缓存中间产物 + 共享状态 +
+   * trajectory rerun cache 统一通过 PlaygroundCrossStageState 容器暴露
+   * (内部 wrap Z5 CrossStageState)。
+   *
+   * 之前 14 个 ad-hoc fields(`lastPlan` / `lastResearcherResults` / ... /
+   * `s4PatchFailures` / `inheritedResearchResults` / `inheritedChapters`)
+   * 已迁移到此 typed container,保 in-memory 性能 + grep gate 转 green。
    */
-  lastPlan?: import("./mission-context").MissionContext["plan"];
-  lastResearcherResults?: import("./mission-context").MissionContext["researcherResults"];
-  lastReconciliationReport?: import("./mission-context").MissionContext["reconciliationReport"];
-  lastAnalystOutput?: import("./mission-context").MissionContext["analystOutput"];
-  lastOutlinePlan?: import("./mission-context").MissionContext["outlinePlan"];
-  lastReport?: import("./mission-context").MissionContext["report"];
-  lastReportArtifact?: import("./mission-context").MissionContext["reportArtifact"];
-  lastReviewScore?: import("./mission-context").MissionContext["reviewScore"];
-  lastVerifierVerdicts?: unknown[];
-  lastLeaderForeword?: import("./mission-context").MissionContext["leaderForeword"];
-  lastLeaderSignOff?: import("./mission-context").MissionContext["leaderSignOff"];
-  /**
-   * s4PatchFailures 跨 stage 共享状态（legacy team.mission.ts 用 sharedState
-   * 对象 reference 注入，pipeline-v1 用本字段 + buildCtx args.sharedState 同步）
-   */
-  s4PatchFailures?: import("./mission-context").MissionContext["s4PatchFailures"];
-  /**
-   * ★ P0-D 完整版 (2026-05-06): trajectory 持久化 cache hit 标志位
-   * inheritedResearchResults: rerun 时从 DB 加载 baseline researcher 产物
-   *   S3 hook 检测到此 entry 字段不空 → 跳过 invoker.invoke + 直接复用 + emit
-   *   合成 dimension:research:completed 事件给前端 todo-ledger
-   * inheritedChapters: rerun 时从 DB 加载合格 chapter drafts
-   *   下游 chapter pipeline 检测到 chapter 已存（status=passed/done）→ 跳过重写
-   */
-  inheritedResearchResults?: Array<{
-    dimension: string;
-    findings: { claim: string; evidence: string; source: string }[];
-    summary: string;
-  }>;
-  inheritedChapters?: Array<{
-    dimension: string;
-    chapterIndex: number;
-    heading: string;
-    thesis?: string;
-    content: string;
-    score?: number;
-    attempts: number;
-    wordCount?: number;
-  }>;
+  readonly crossState: PlaygroundCrossStageState;
 }
 
 @Injectable()
@@ -151,6 +115,10 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     //   现在统一走 eventBus.emit() —— buffer 仍作为 adapter 接收（agent-playground.module.ts:165
     //   注册），同时 socket adapter 也分发 → 前端实时刷新。
     private readonly eventBus: DomainEventBus,
+    // ★ Stage 1 / S1-1 (2026-05-09): 业务编排(STAGE_NUMBER / CHECKPOINT_AT 字面量 +
+    //   11 个 build*Hooks)已抽到独立 service。dispatcher 在 onModuleInit bind sessionLookup
+    //   后,buildBaseHooksForStep 改为 delegate 到此 service。
+    private readonly businessOrch: PlaygroundBusinessOrchestrator,
   ) {}
 
   /**
@@ -177,48 +145,9 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       .catch(() => undefined);
   }
 
-  // ── stepId → DB stageNumber（与 legacy team.mission.ts 对齐）──
-  // 用于 markStageComplete + missionCheckpoint.save 的进度索引
-  private readonly STAGE_NUMBER: Record<string, number> = {
-    "s1-budget": 1,
-    "s2-leader-plan": 2,
-    "s3-researcher-collect": 3,
-    "s4-leader-assess": 4,
-    "s5-reconciler": 5,
-    "s6-analyst": 6,
-    "s7-writer-outline": 7,
-    "s8-writer": 8,
-    "s8b-quality-enhancement": 8, // 同 s8（quality 增强）
-    "s9-critic": 9,
-    "s9b-objective-eval": 9,
-    "s10-leader-foreword-signoff": 10,
-    "s11-persist": 11,
-    // s12 在 legacy 不入 stage 计数（fire-and-forget）
-  };
-
-  /** S3/S8 milestone 后 save checkpoint，让 pod 崩溃可 resume */
-  private readonly CHECKPOINT_AT: Record<string, string> = {
-    "s2-leader-plan": "s2-leader-plan",
-    "s3-researcher-collect": "s3-researcher-dispatch",
-    "s8-writer": "s8-writer-draft",
-  };
-
-  /**
-   * 每 primitive 的"主 hook"名 —— success-after-this 视为 stage 完成。
-   * 助手 hook（extractPlanFields / parseDecision / scoreScaling 等同步）不包，
-   * 否则会把同步函数变成 Promise，破坏 primitive 的同步消费链。
-   */
-  private readonly PRIMARY_HOOK_BY_PRIMITIVE: Record<string, string> = {
-    plan: "runRole",
-    research: "perItemPipeline",
-    assess: "runRole",
-    synthesize: "synthesize",
-    draft: "draftOnce",
-    review: "review",
-    signoff: "runRole",
-    persist: "persist",
-    learn: "postmortemClassifier",
-  };
+  // ── Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
+  //   已移到 PlaygroundBusinessOrchestrator(business 字面量)。withProgressTracking 通过
+  //   this.businessOrch.STAGE_NUMBER 访问。
 
   /**
    * 把"主 hook"包一层进度跟踪：成功后 markStageComplete + 选择性 save
@@ -231,13 +160,17 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     stepId: string,
     stageHooks: ResolvedStageHooks,
   ): ResolvedStageHooks {
-    const stageNumber = this.STAGE_NUMBER[stepId];
-    const checkpointTag = this.CHECKPOINT_AT[stepId];
+    // ★ Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
+    //   是 business 字面量,在 PlaygroundBusinessOrchestrator 持有;mechanism(包 hook 加
+    //   markStageComplete + checkpoint 保存)留 dispatcher 作 runtime-glue。
+    const stageNumber = this.businessOrch.STAGE_NUMBER[stepId];
+    const checkpointTag = this.businessOrch.CHECKPOINT_AT[stepId];
 
     // 找该 step 对应的 primitive，取主 hook 名
     const step = PLAYGROUND_PIPELINE.steps.find((s) => s.id === stepId);
     if (!step) return stageHooks;
-    const primaryHookName = this.PRIMARY_HOOK_BY_PRIMITIVE[step.primitive];
+    const primaryHookName =
+      this.businessOrch.PRIMARY_HOOK_BY_PRIMITIVE[step.primitive];
     if (!primaryHookName) return stageHooks;
     const original = (stageHooks as Record<string, unknown>)[primaryHookName];
     if (typeof original !== "function") return stageHooks;
@@ -255,8 +188,10 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       if (missionId && checkpointTag) {
         const entry = this.sessions.get(missionId);
         if (entry) {
-          const completedKeys = Object.keys(this.STAGE_NUMBER).filter(
-            (k) => this.STAGE_NUMBER[k] <= (stageNumber ?? 0),
+          const completedKeys = Object.keys(
+            this.businessOrch.STAGE_NUMBER,
+          ).filter(
+            (k) => this.businessOrch.STAGE_NUMBER[k] <= (stageNumber ?? 0),
           );
           await this.missionCheckpoint
             .save(
@@ -281,6 +216,13 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
   }
 
   onModuleInit(): void {
+    // ★ Stage 1 / S1-1 (2026-05-09): bind sessionLookup 让 PlaygroundBusinessOrchestrator
+    //   能通过 missionId 访问 SessionEntry。必须在 register pipeline 之前 bind,因为
+    //   buildPipelineWithHooks → buildBaseHooksForStep → businessOrch.buildHooksForStep
+    //   会创建 hook closures,closures 内部调 businessOrch.getEntry(missionId)。
+    this.businessOrch.bindSessionLookup((missionId) =>
+      this.getEntry(missionId),
+    );
     if (this.registry.has(PLAYGROUND_PIPELINE.id)) return;
     this.registry.register(this.buildPipelineWithHooks());
     this.log.log(
@@ -384,7 +326,16 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       },
       this.leaderInvocationFactory.build(missionId, userId, session.billing),
     );
-    this.sessions.set(missionId, { session, t0, input, workspaceId, leader });
+    // ★ Stage 1 / S1-2 (2026-05-09): 初始化 PlaygroundCrossStageState 容器
+    //   (替代 14 个 ad-hoc lastXxx / s4PatchFailures / inheritedX fields)
+    this.sessions.set(missionId, {
+      session,
+      t0,
+      input,
+      workspaceId,
+      leader,
+      crossState: new PlaygroundCrossStageState(),
+    });
     // ★ R-CA: row 已落 + session 已 register，但 stages 尚未跑 —— 给上层回调
     //   一个时机做"挂接关联"（launches.record 等）。回调失败仅 log，不影响 mission。
     if (afterRowCreated) {
@@ -399,7 +350,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
     }
     // ★ 2026-05-05 增量更新："更新"按钮 → input.inheritFromMissionId 携带源 mission；
-    //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.lastPlan，
+    //   从源 mission DB row hydrate plan（dimensions+themeSummary）到 entry.crossState.lastPlan，
     //   下游 S2 hook 检测到 lastPlan 已就绪即跳过 LLM 调用并 emit synthetic plan event。
     if (input.inheritFromMissionId) {
       await this.hydrateInheritedPlan(
@@ -625,17 +576,20 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         t0: entry.t0,
         pool: entry.session.pool,
         topic: entry.input.topic,
-        plan: entry.lastPlan
+        plan: entry.crossState.lastPlan
           ? {
-              dimensions: (entry.lastPlan.dimensions ?? []) as unknown[],
-              goals: entry.lastPlan.goals,
+              dimensions: (entry.crossState.lastPlan.dimensions ??
+                []) as unknown[],
+              goals: entry.crossState.lastPlan.goals,
             }
           : undefined,
-        researcherResults: entry.lastResearcherResults as unknown[] | undefined,
-        reportArtifact: entry.lastReportArtifact as
+        researcherResults: entry.crossState.lastResearcherResults as
+          | unknown[]
+          | undefined,
+        reportArtifact: entry.crossState.lastReportArtifact as
           | { quality?: { overall?: number }; sections?: unknown[] }
           | undefined,
-        leaderSignOff: entry.lastLeaderSignOff,
+        leaderSignOff: entry.crossState.lastLeaderSignOff,
         abortSignal: entry.session.missionAbort.signal,
         bufferedEvents,
       },
@@ -797,29 +751,33 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
 
     // 写 partial 产物到 DB —— 与 legacy team.mission.ts:317-339 一致
     const entry = this.sessions.get(missionId);
-    const reportPayload = entry?.lastReportArtifact ?? entry?.lastReport;
+    const reportPayload =
+      entry?.crossState.lastReportArtifact ?? entry?.crossState.lastReport;
     await this.store
       .markFailed(missionId, {
         errorMessage: message,
         tokensUsed: snap.poolTokensUsed,
         costUsd: snap.poolCostUsd,
         wallTimeMs: Date.now() - t0,
-        themeSummary: entry?.lastPlan?.themeSummary,
-        dimensions: entry?.lastPlan?.dimensions as unknown[] | undefined,
+        themeSummary: entry?.crossState.lastPlan?.themeSummary,
+        dimensions: entry?.crossState.lastPlan?.dimensions as
+          | unknown[]
+          | undefined,
         report: reportPayload as
           | { title?: string; summary?: string }
           | undefined,
-        reportArtifactVersion: entry?.lastReportArtifact
+        reportArtifactVersion: entry?.crossState.lastReportArtifact
           ? 2
-          : entry?.lastReport
+          : entry?.crossState.lastReport
             ? 1
             : undefined,
         userProfile: entry?.input,
-        reconciliationReport: entry?.lastReconciliationReport,
-        verdicts: entry?.lastVerifierVerdicts,
-        leaderOverallScore: entry?.lastLeaderSignOff?.leaderOverallScore,
-        leaderSigned: entry?.lastLeaderSignOff?.signed,
-        leaderVerdict: entry?.lastLeaderSignOff?.leaderVerdict,
+        reconciliationReport: entry?.crossState.lastReconciliationReport,
+        verdicts: entry?.crossState.lastVerifierVerdicts,
+        leaderOverallScore:
+          entry?.crossState.lastLeaderSignOff?.leaderOverallScore,
+        leaderSigned: entry?.crossState.lastLeaderSignOff?.signed,
+        leaderVerdict: entry?.crossState.lastLeaderSignOff?.leaderVerdict,
       })
       .catch((dbErr) => {
         this.log.error(
@@ -834,10 +792,10 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       await this.store
         .saveReportVersion({
           missionId,
-          triggerType: this.resolveTriggerType(entry),
+          triggerType: this.businessOrch.resolveTriggerType(entry),
           report: reportPayload as { title?: string; summary?: string },
-          finalScore: entry.lastLeaderSignOff?.leaderOverallScore,
-          leaderSigned: entry.lastLeaderSignOff?.signed ?? undefined,
+          finalScore: entry.crossState.lastLeaderSignOff?.leaderOverallScore,
+          leaderSigned: entry.crossState.lastLeaderSignOff?.signed ?? undefined,
         })
         .catch((err: unknown) => {
           this.log.warn(
@@ -879,31 +837,12 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
 
   private buildBaseHooksForStep(
     stepId: string,
-    _primitive: string,
+    primitive: string,
   ): ResolvedStageHooks {
-    if (stepId === "s1-budget") return this.buildS1BudgetHooks();
-    if (stepId === "s2-leader-plan") return this.buildS2LeaderPlanHooks();
-    if (stepId === "s3-researcher-collect")
-      return this.buildS3ResearcherCollectHooks();
-    if (stepId === "s4-leader-assess") return this.buildS4LeaderAssessHooks();
-    if (stepId === "s5-reconciler") return this.buildS5ReconcilerHooks();
-    if (stepId === "s6-analyst") return this.buildS6AnalystHooks();
-    if (stepId === "s7-writer-outline") return this.buildS7WriterOutlineHooks();
-    if (stepId === "s8-writer") return this.buildS8WriterHooks();
-    if (
-      stepId === "s8b-quality-enhancement" ||
-      stepId === "s9-critic" ||
-      stepId === "s9b-objective-eval"
-    ) {
-      return this.buildReviewHooks(stepId);
-    }
-    if (stepId === "s10-leader-foreword-signoff")
-      return this.buildS10SignoffHooks();
-    if (stepId === "s11-persist") return this.buildS11PersistHooks();
-    throw new Error(
-      `[playground-pipeline] no hook builder for step "${stepId}". ` +
-        `All steps in PLAYGROUND_PIPELINE.steps must have an explicit branch above.`,
-    );
+    // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到 PlaygroundBusinessOrchestrator
+    //   delegate 到 businessOrch.buildHooksForStep,内部调对应 build*Hooks 并通过
+    //   注入的 sessionLookup 访问 SessionEntry(在 onModuleInit 阶段已 bind)。
+    return this.businessOrch.buildHooksForStep(stepId, primitive);
   }
 
   /**
@@ -922,14 +861,14 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
   /**
    * ★ 2026-05-05 增量更新（"更新"按钮）helper：
    * 从 source mission DB row 重建 plan（dimensions+themeSummary+goals）写入
-   * entry.lastPlan，让 S2 hook 检测到后跳过 Leader LLM 调用直接用继承的 plan。
+   * entry.crossState.lastPlan，让 S2 hook 检测到后跳过 Leader LLM 调用直接用继承的 plan。
    *
-   * 失败兜底：source 不存在 / dimensions 缺失 → log warn，不写 entry.lastPlan，
+   * 失败兜底：source 不存在 / dimensions 缺失 → log warn，不写 entry.crossState.lastPlan，
    * S2 走原有 runLeaderPlanStage 路径（fallback to fresh plan）。
    */
   /**
    * ★ P0-D 完整版 (2026-05-06): 从源 mission DB hydrate baseline researcher 产物。
-   * S3 hook 检测到 entry.inheritedResearchResults 不空 → skip invoker + 复用 findings。
+   * S3 hook 检测到 entry.crossState.inheritedResearchResults 不空 → skip invoker + 复用 findings。
    */
   private async hydrateInheritedResearchResults(
     missionId: string,
@@ -946,7 +885,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
       const entry = this.sessions.get(missionId);
       if (!entry) return;
-      entry.inheritedResearchResults = results;
+      entry.crossState.inheritedResearchResults = results;
       // ★ P0-D 完整版: 复制到新 mission 的 research_results 表，让 stage 通过
       //   missionId 自然查到 cache（避免传 entry 跨多层 stage 调用）
       for (const r of results) {
@@ -987,7 +926,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
       const entry = this.sessions.get(missionId);
       if (!entry) return;
-      entry.inheritedChapters = drafts;
+      entry.crossState.inheritedChapters = drafts;
       // ★ P0-D 完整版: 复制到新 mission 的 chapter_drafts 表，让 chapter pipeline
       //   通过 deps.store.loadQualifiedChapterDrafts(missionId) 自然查到 cache
       for (const d of drafts) {
@@ -1066,7 +1005,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       }
       const entry = this.sessions.get(missionId);
       if (!entry) return;
-      entry.lastPlan = {
+      entry.crossState.lastPlan = {
         themeSummary: themeSummary ?? "",
         dimensions: dimensions as NonNullable<
           import("./mission-context").MissionContext["plan"]
@@ -1090,792 +1029,6 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         }`,
       );
     }
-  }
-
-  /**
-   * 构造单 stage 用的 MissionContext（每 stage 独立 ctx，避免 mutable 状态串扰）。
-   * partial = caller 已知的 ctx 字段（如 plan，从 previousOutputs 重建）
-   */
-  private buildStageInvariants(entry: SessionEntry): MissionInvariants {
-    return {
-      missionId: entry.session.missionId,
-      userId: entry.session.userId,
-      input: entry.input,
-      t0: entry.t0,
-      billing: entry.session.billing,
-      pool: entry.session.pool,
-      leader: entry.leader,
-      budgetMultiplier: entry.session.budgetMultiplier,
-    };
-  }
-
-  /**
-   * s1-budget hook 实装（R2-A.3）
-   *
-   * persist primitive 期望 hooks.persist；s1 模式下"persist"行为是"预算闸门
-   * + emit mission:started"，调既有 runBudgetEstimateStage thin adapter。
-   *
-   * 失败模式（runBudgetEstimateStage 抛 Error "余额不足..."）会被 orchestrator
-   * 包成 stage:failed 事件，pipeline-v1 mission 标 failed —— 与 legacy 行为一致。
-   */
-  private buildS1BudgetHooks(): ResolvedStageHooks {
-    const hooks = {
-      persist: async (args: {
-        ctx: StageRunArgs["ctx"];
-        previousOutputs: StageRunArgs["previousOutputs"];
-        crossStageState: StageRunArgs["crossStageState"];
-      }): Promise<void> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        const invariants = this.buildStageInvariants(entry);
-        const deps = this.stageBindings.buildDeps();
-        await runBudgetEstimateStage(invariants, deps, entry.workspaceId);
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s2-leader-plan hook 实装（R2-A.4）
-   *
-   * plan primitive 必填 hooks.runRole；额外 hooks.extractPlanFields 让 orchestrator
-   * 把 plan.dimensions 提取到 stage output（前端 / 下游 stage 需要）。
-   *
-   * thin adapter：调既有 runLeaderPlanStage（mutates ctx.plan），然后把
-   * ctx.plan 作为 raw 返回；extractPlanFields 从 raw 取 dimensions/goals。
-   *
-   * 失败模式：runLeaderPlanStage 抛错（leader.plan() 失败 / dimensions[] 空）
-   * → orchestrator 标 stage:failed → mission failed（与 legacy 一致）。
-   */
-  private buildS2LeaderPlanHooks(): ResolvedStageHooks {
-    const hooks = {
-      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        // ★ 2026-05-05 增量更新：runMission 已 hydrate entry.lastPlan from source mission；
-        //   走 runWithStageInstrumentation 跳过 LLM 调用，保留所有 UI 关键事件
-        //   （stage:started / stage:completed with stage='leader' / lifecycle / narrative）
-        if (entry.lastPlan && entry.input.inheritFromMissionId) {
-          this.log.log(
-            `[s2-leader-plan] inheriting from mission ${entry.input.inheritFromMissionId}, skip LLM`,
-          );
-          const inheritedPlan = entry.lastPlan;
-          const sourceMissionId = entry.input.inheritFromMissionId;
-          const deps = this.stageBindings.buildDeps();
-          const result = await runWithStageInstrumentation(
-            {
-              missionId: entry.session.missionId,
-              userId: entry.session.userId,
-              pool: entry.session.pool,
-            },
-            deps,
-            {
-              eventPrefix: "agent-playground",
-              stageId: "s2-leader-plan",
-              role: "leader",
-              narrate,
-              narrateThinking: `Leader 继承自 mission ${sourceMissionId.slice(0, 8)} 的研究方案（${inheritedPlan.dimensions.length} 个维度），跳过重新规划`,
-              narrateSuccess: (out) =>
-                `继承方案：${out.dimensions.length} 个维度（${out.dimensions
-                  .map((d) => d.name)
-                  .slice(0, 3)
-                  .join(" / ")}${out.dimensions.length > 3 ? " 等" : ""}）`,
-              customMetrics: (out) => ({
-                dimensions: out.dimensions,
-                themeSummary: out.themeSummary,
-                inherited: true,
-                sourceMissionId,
-              }),
-              emitExtras: async (out) => {
-                // 同时 emit goals-set 让前端 dim 卡片有 rationale 来源
-                await deps
-                  .emit({
-                    type: "agent-playground.leader:goals-set",
-                    missionId: entry.session.missionId,
-                    userId: entry.session.userId,
-                    payload: {
-                      goals: out.goals ?? [],
-                      initialRisks: out.initialRisks ?? [],
-                    },
-                  })
-                  .catch((err: unknown) => {
-                    this.log.warn(
-                      `[${entry.session.missionId}] emit leader:goals-set (rerun) failed: ${err instanceof Error ? err.message : String(err)}`,
-                    );
-                  });
-              },
-            },
-            async () => ({
-              themeSummary: inheritedPlan.themeSummary,
-              dimensions: inheritedPlan.dimensions,
-              goals: inheritedPlan.goals ?? [],
-              initialRisks: inheritedPlan.initialRisks ?? [],
-            }),
-          );
-          // 已 hydrate；result 与 inheritedPlan 等价，写一遍给类型上的 entry 同步
-          entry.lastPlan = inheritedPlan;
-          return result;
-        }
-        // buildCtx 复用现有 stageBindings 服务，确保字段映射与 legacy 一致
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-        });
-        await runLeaderPlanStage(stageCtx, this.stageBindings.buildDeps());
-        if (!stageCtx.plan) {
-          // runLeaderPlanStage 已经在 dimensions 空时抛错；不应到这里
-          throw new Error(
-            "[s2-leader-plan] stage returned without populating ctx.plan (unexpected)",
-          );
-        }
-        // 缓存 plan 供 s3 hook 重建 stageCtx 时用（hook 闭包不直接拿到 previousOutputs）
-        entry.lastPlan = stageCtx.plan;
-        return stageCtx.plan;
-      },
-      extractPlanFields: (raw: unknown) => {
-        const plan = raw as
-          | {
-              dimensions?: ReadonlyArray<unknown>;
-              goals?: unknown;
-            }
-          | undefined;
-        return {
-          dimensions: plan?.dimensions ?? [],
-          goals: plan?.goals as ReadonlyArray<unknown> | undefined,
-        };
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s3-researcher-collect hook 实装（R2-A.5）
-   *
-   * research primitive 必填 hooks.fanOut + hooks.perItemPipeline。
-   * 因为 legacy runResearcherDispatchStage 内部已自带 fan-out + 并发 + DAG +
-   * per-dim chapter pipeline + 三层容错（S1 self-heal / S2 cross-mission /
-   * S3 dim degraded），本 hook 不重复实现 fan-out 逻辑：
-   *   - hooks.fanOut 返回 [singleton]，让 primitive 跑 1 次 perItemPipeline
-   *   - hooks.perItemPipeline 调整个 runResearcherDispatchStage（mutates ctx.researcherResults）
-   *   - 返回 ctx.researcherResults 让 orchestrator 写到 stageOutputs
-   *
-   * 这是 thin adapter 妥协：让 legacy stage 自管 fan-out，primitive 退化为
-   * "单次包装"。R2-C 删 legacy 后再考虑用 primitive 原生 fan-out 重写。
-   *
-   * 失败模式：
-   *   · runResearcherDispatchStage 自身吞掉单 dim 失败（emit ORCH_DIMENSION_DEGRADED）
-   *   · 整 stage 抛错（如 ctx.plan 缺失）→ orchestrator 标 stage:failed
-   *   · 跨 stage 状态：s4PatchFailures 由 ctx.s4PatchFailures 持续，下游 hook
-   *     通过 sessions[missionId] 共享 ctx 读取（R2-A.6 起处理）
-   */
-  private buildS3ResearcherCollectHooks(): ResolvedStageHooks {
-    const hooks = {
-      fanOut: (_args: {
-        ctx: StageRunArgs["ctx"];
-        previousOutputs: StageRunArgs["previousOutputs"];
-      }): ReadonlyArray<unknown> => {
-        // 单 singleton —— legacy stage 自管 fan-out
-        return [{ kind: "all-dimensions" }];
-      },
-      perItemPipeline: async (args: {
-        item: unknown;
-        role: StageRunArgs["role"];
-        ctx: StageRunArgs["ctx"];
-      }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        // research primitive 的 perItemPipeline 签名不直接给 previousOutputs；
-        // 从 entry.lastPlan 取（s2 hook 末尾把 stageCtx.plan 缓存到 entry）
-        const cachedPlan = entry.lastPlan;
-        if (!cachedPlan) {
-          throw new Error(
-            "[s3-researcher-collect] no plan from s2 (sessions[missionId].lastPlan undefined)",
-          );
-        }
-
-        // ★ P0-D 完整版 (2026-05-06): rerun cache hit — entry.inheritedResearchResults
-        //   非空 = dispatcher 已从源 mission DB 加载了 researcher baseline 产物。
-        //   覆盖 plan.dimensions 的 dim 直接复用，未覆盖的 dim 仍跑 invoker（兼容 redirect）。
-        if (
-          entry.inheritedResearchResults &&
-          entry.inheritedResearchResults.length > 0
-        ) {
-          const inheritedByDim = new Map(
-            entry.inheritedResearchResults.map((r) => [r.dimension, r]),
-          );
-          const reusedResults: typeof entry.inheritedResearchResults = [];
-          const remainingDims: typeof cachedPlan.dimensions = [];
-          for (const d of cachedPlan.dimensions) {
-            const cached = inheritedByDim.get(d.name);
-            if (cached) {
-              reusedResults.push(cached);
-            } else {
-              remainingDims.push(d);
-            }
-          }
-          this.log.log(
-            `[s3-researcher-collect] cache hit: 复用 ${reusedResults.length}/${cachedPlan.dimensions.length} 个 dim 的 researcher 产物，剩余 ${remainingDims.length} 个走 fresh`,
-          );
-          // 复用的 dim 立即 emit 合成 dimension:research:completed 让前端 todo-ledger
-          // 推进（与 fresh 路径事件流一致）
-          const deps = this.stageBindings.buildDeps();
-          const t0 = Date.now();
-          for (const r of reusedResults) {
-            await deps
-              .emit({
-                type: "agent-playground.dimension:research:completed",
-                missionId: entry.session.missionId,
-                userId: entry.session.userId,
-                payload: {
-                  dimension: r.dimension,
-                  state: "completed",
-                  findingsCount: r.findings.length,
-                  fromCache: true,
-                },
-              })
-              .catch((err: unknown) => {
-                this.log.warn(
-                  `[${entry.session.missionId}] emit dimension:research:completed (cache) for "${r.dimension}" failed: ${err instanceof Error ? err.message : String(err)}`,
-                );
-              });
-          }
-          // 如果还有未覆盖的 dim，跑 fresh pipeline 处理它们（仅 patch 那些）
-          if (remainingDims.length > 0) {
-            const stageCtx = this.stageBindings.buildCtx({
-              missionId: entry.session.missionId,
-              userId: entry.session.userId,
-              input: entry.input,
-              t0: entry.t0,
-              billing: entry.session.billing,
-              pool: entry.session.pool,
-              leader: entry.leader,
-              budgetMultiplier: entry.session.budgetMultiplier,
-              plan: { ...cachedPlan, dimensions: remainingDims },
-            });
-            await runResearcherDispatchStage(stageCtx, deps);
-            // 合并：reused + 新跑的 = 完整 researcherResults
-            const freshResults = stageCtx.researcherResults ?? [];
-            entry.lastResearcherResults = [...reusedResults, ...freshResults];
-            if (
-              stageCtx.s4PatchFailures &&
-              stageCtx.s4PatchFailures.length > 0
-            ) {
-              entry.s4PatchFailures = stageCtx.s4PatchFailures;
-            }
-          } else {
-            // 全部 cache hit，直接用复用产物
-            entry.lastResearcherResults = reusedResults;
-          }
-          this.log.log(
-            `[s3-researcher-collect] cache reuse 节省 ${Math.round((Date.now() - t0) / 1000)}s（cache 路径仅 emit synth events）`,
-          );
-          return entry.lastResearcherResults;
-        }
-
-        // ── 正常 fresh 路径 ──
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: cachedPlan,
-        });
-        await runResearcherDispatchStage(
-          stageCtx,
-          this.stageBindings.buildDeps(),
-        );
-        // 缓存 researcherResults 给下游 hook 用
-        entry.lastResearcherResults = stageCtx.researcherResults;
-        // s4PatchFailures sharedState 同步（s3 内部可能积累）
-        if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
-          entry.s4PatchFailures = stageCtx.s4PatchFailures;
-        }
-        // ★ P0-D 完整版: 持久化 baseline researcher 产物（让下次 rerun cache hit）
-        // ★ 业务链修6 (2026-05-06): 持久化失败必须可见（之前 prisma table not exist
-        //   无 catch → 整 S3 hook throw → mission:failed 但前端看不到具体原因）。
-        //   改为 catch + emit stage:degraded 让前端 narrativeLog 显示真因。
-        if (stageCtx.researcherResults) {
-          for (const r of stageCtx.researcherResults) {
-            await this.store
-              .saveResearchResult({
-                missionId: entry.session.missionId,
-                dimension: r.dimension,
-                findings: r.findings,
-                summary: r.summary,
-                state: r.findings.length === 0 ? "failed" : "completed",
-              })
-              .catch(async (err: unknown) => {
-                const message =
-                  err instanceof Error ? err.message : String(err);
-                this.log.warn(
-                  `[s3 saveResearchResult] dim=${r.dimension} failed: ${message}`,
-                );
-                await this.stageBindings
-                  .buildDeps()
-                  .markStageDegraded(
-                    entry.session.missionId,
-                    entry.session.userId,
-                    "s3-researcher-collect",
-                    `trajectory 持久化失败 (${r.dimension})：${message.slice(0, 200)}`,
-                  )
-                  .catch(() => undefined);
-              });
-          }
-        }
-        // ★ P1-修1 (2026-05-06): S3 软失败上报 — 关闭"dim 全失败但 stage:lifecycle 仍发
-        //   completed"的盲区。orchestrator 默认看 hook return 即 success，但 dim 全空
-        //   等于 mission 后续没数据可用，必须显式拒绝（throw 让 orchestrator emit
-        //   stage:failed → markFailed）。
-        const allResults = stageCtx.researcherResults ?? [];
-        const failedCount = allResults.filter(
-          (r) => r.findings.length === 0,
-        ).length;
-        const totalCount = allResults.length;
-        if (totalCount > 0 && failedCount === totalCount) {
-          // 全部 dim 失败 → 硬抛错让 orchestrator 标 stage:failed
-          throw new Error(
-            `S3-AllDimensionsFailed: ${totalCount}/${totalCount} dim 采集失败（无 findings 可用），mission 无法继续`,
-          );
-        }
-        if (totalCount > 0 && failedCount * 2 > totalCount) {
-          // > 50% dim 失败 → 软失败上报（不阻断，但前端 narrativeLog 可见）
-          await this.stageBindings
-            .buildDeps()
-            .markStageDegraded(
-              entry.session.missionId,
-              entry.session.userId,
-              "s3-researcher-collect",
-              `S3 半数以上 dim 采集失败：${failedCount}/${totalCount}（mission 继续走退化路径）`,
-            )
-            .catch(() => undefined);
-        }
-        return stageCtx.researcherResults;
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s4-leader-assess hook 实装（R2-A.6）
-   *
-   * assess primitive 必填 hooks.runRole + hooks.parseDecision。
-   * 与 s3 同款 thin adapter：legacy runLeaderAssessResearchStage 内部已经
-   * 完成 leader.assessResearchers + per-dim dispatch（retry/abort/extend）+
-   * mutates ctx.researcherResults/plan，本 hook 不重写决策逻辑：
-   *   hooks.runRole → 调整个 runLeaderAssessResearchStage（mutates ctx）
-   *                   返回 "ok" 标记（assess 决策已被 legacy stage 内部处理 + 落地）
-   *   hooks.parseDecision → 返 "continue"（legacy 决定 abort 时自己 throw，到不了这）
-   *
-   * 失败模式：
-   *   · runLeaderAssessResearchStage 主动 throw "Leader aborted mission..."
-   *     → orchestrator 标 stage:failed → mission failed
-   *   · per-dim retry 失败累积到 entry.s4PatchFailures（s10 签字时读）
-   */
-  private buildS4LeaderAssessHooks(): ResolvedStageHooks {
-    const hooks = {
-      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan) {
-          throw new Error("[s4-leader-assess] no plan from s2");
-        }
-        if (!entry.lastResearcherResults) {
-          throw new Error("[s4-leader-assess] no researcherResults from s3");
-        }
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          sharedState: { s4PatchFailures: entry.s4PatchFailures },
-        });
-        await runLeaderAssessResearchStage(
-          stageCtx,
-          this.stageBindings.buildDeps(),
-        );
-        // legacy stage mutates ctx.researcherResults / ctx.plan.dimensions / s4PatchFailures —
-        // 把变化回写到 entry 让下游 hook 能读
-        entry.lastResearcherResults = stageCtx.researcherResults;
-        entry.lastPlan = stageCtx.plan;
-        if (stageCtx.s4PatchFailures && stageCtx.s4PatchFailures.length > 0) {
-          entry.s4PatchFailures = stageCtx.s4PatchFailures;
-        }
-        return { ok: true };
-      },
-      parseDecision: (_raw: unknown): "continue" => {
-        // legacy stage 已经内部 dispatch 了所有 action（retry / abort / extend）；
-        // 主动 abort 在 stage 内 throw 不到这里。返 "continue" 让 primitive
-        // 走完 happy path，stageOutputs[s4-leader-assess]={ decision:"continue", raw:{ok:true} }
-        return "continue";
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s5-reconciler hook 实装（R2-A.7）
-   *
-   * synthesize primitive (mode=reconcile) 必填 hooks.synthesize。
-   * thin adapter：调 runReconcilerStage（mutates ctx.reconciliationReport），
-   * 返回 stageCtx.reconciliationReport（synthesize primitive 包成 { result }）。
-   */
-  private buildS5ReconcilerHooks(): ResolvedStageHooks {
-    const hooks = {
-      synthesize: async (args: {
-        ctx: StageRunArgs["ctx"];
-      }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan || !entry.lastResearcherResults) {
-          throw new Error(
-            "[s5-reconciler] missing plan/researcherResults from prev stages",
-          );
-        }
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-        });
-        await runReconcilerStage(stageCtx, this.stageBindings.buildDeps());
-        entry.lastReconciliationReport = stageCtx.reconciliationReport;
-        return stageCtx.reconciliationReport;
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s6-analyst hook 实装（R2-A.8）
-   *
-   * synthesize primitive (mode=analyze) 必填 hooks.synthesize。
-   * thin adapter：调 runAnalystStage（mutates ctx.analystOutput）。
-   */
-  private buildS6AnalystHooks(): ResolvedStageHooks {
-    const hooks = {
-      synthesize: async (args: {
-        ctx: StageRunArgs["ctx"];
-      }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan || !entry.lastResearcherResults) {
-          throw new Error(
-            "[s6-analyst] missing plan/researcherResults from prev stages",
-          );
-        }
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
-        });
-        await runAnalystStage(stageCtx, this.stageBindings.buildDeps());
-        entry.lastAnalystOutput = stageCtx.analystOutput;
-        return stageCtx.analystOutput;
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s7-writer-outline hook 实装（R2-A.9）
-   *
-   * draft primitive (mode=outline) 必填 hooks.draftOnce。
-   * thin adapter：调 runWriterOutlineStage（仅 thorough+ 档位真跑，否则 no-op）。
-   * 写入 entry.lastOutlinePlan 给 s8 用。
-   */
-  private buildS7WriterOutlineHooks(): ResolvedStageHooks {
-    const hooks = {
-      draftOnce: async (args: {
-        ctx: StageRunArgs["ctx"];
-      }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
-        });
-        await runWriterOutlineStage(stageCtx, this.stageBindings.buildDeps());
-        entry.lastOutlinePlan = stageCtx.outlinePlan;
-        return stageCtx.outlinePlan ?? null;
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s8-writer hook 实装（R2-A.10）—— 14 stage 中最大的（450+ 行业务逻辑）
-   *
-   * draft primitive (mode=full) 必填 hooks.draftOnce。
-   * thin adapter 调 runWriterStage（mutates ctx.report / reportArtifact /
-   * reviewScore / verifierVerdicts，含 judgeConsensusRetry + memoryIndexer +
-   * reportArtifactAssembler 全部业务逻辑）。
-   */
-  private buildS8WriterHooks(): ResolvedStageHooks {
-    const hooks = {
-      draftOnce: async (args: {
-        ctx: StageRunArgs["ctx"];
-      }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        if (!entry.lastPlan || !entry.lastResearcherResults) {
-          throw new Error("[s8-writer] missing plan/researcherResults");
-        }
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
-        });
-        // s7 outlinePlan 通过 mutable ctx 字段透传（buildCtx 不直接接受 outlinePlan，
-        // 但 runWriterStage 从 ctx.outlinePlan 读 —— 直接 assign 到 stageCtx）
-        if (entry.lastOutlinePlan) {
-          (stageCtx as { outlinePlan?: unknown }).outlinePlan =
-            entry.lastOutlinePlan;
-        }
-        // runWriterStage 接受 (ctx, deps, analyst, workspaceId)
-        const analyst = (entry.lastAnalystOutput as
-          | {
-              insights?: unknown[];
-              themeSummary?: string;
-              contradictions?: unknown[];
-            }
-          | undefined) ?? {
-          insights: [],
-          themeSummary: entry.lastPlan?.themeSummary ?? "",
-        };
-        await runWriterStage(
-          stageCtx,
-          this.stageBindings.buildDeps(),
-          {
-            insights: analyst.insights ?? [],
-            themeSummary: analyst.themeSummary ?? "",
-            contradictions: analyst.contradictions,
-          },
-          entry.workspaceId,
-        );
-        // 缓存 s8 产物供 s8b/s9/s9b/s10/s11 用
-        entry.lastReport = stageCtx.report;
-        entry.lastReportArtifact = stageCtx.reportArtifact;
-        entry.lastReviewScore = stageCtx.reviewScore;
-        entry.lastVerifierVerdicts = stageCtx.verifierVerdicts as unknown[];
-        return stageCtx.reportArtifact ?? stageCtx.report ?? null;
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s8b/s9/s9b review hooks 实装（R2-A.11）—— 三个 review primitive stage
-   *
-   * review primitive 必填 hooks.review。三个 stage 都是 thin adapter：
-   *   s8b-quality-enhancement → runSectionQualityEnhancementStage
-   *   s9-critic               → runCriticStage
-   *   s9b-objective-eval      → runReportObjectiveEvaluationStage
-   *
-   * 全部 mutates ctx.reportArtifact / qualityTraceCtx / reportEvaluation 等；
-   * 缓存到 entry 让 s10 leader signoff 读 quality 快照。
-   */
-  private buildReviewHooks(stepId: string): ResolvedStageHooks {
-    const stageFn =
-      stepId === "s8b-quality-enhancement"
-        ? runSectionQualityEnhancementStage
-        : stepId === "s9-critic"
-          ? runCriticStage
-          : runReportObjectiveEvaluationStage;
-    const hooks = {
-      review: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
-          reportArtifact: entry.lastReportArtifact,
-          report: entry.lastReport,
-          reviewScore: entry.lastReviewScore,
-          verifierVerdicts: entry.lastVerifierVerdicts,
-        });
-        await stageFn(stageCtx, this.stageBindings.buildDeps());
-        // 回写更新（s8b 可能改 reportArtifact / s9 可能改 reviewScore / s9b 可能加 reportEvaluation）
-        entry.lastReportArtifact = stageCtx.reportArtifact;
-        entry.lastReviewScore = stageCtx.reviewScore;
-        return {
-          score: stageCtx.reviewScore,
-          verdict: stageCtx.reportArtifact?.quality,
-        };
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s10-leader-foreword-signoff hook 实装（R2-A.12）
-   *
-   * signoff primitive 必填 hooks.runRole。thin adapter 调
-   * runLeaderForewordAndSignoffStage（mutates ctx.leaderForeword + leaderSignOff）。
-   */
-  private buildS10SignoffHooks(): ResolvedStageHooks {
-    const hooks = {
-      runRole: async (args: { ctx: StageRunArgs["ctx"] }): Promise<unknown> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        const stageCtx = this.stageBindings.buildCtx({
-          missionId: entry.session.missionId,
-          userId: entry.session.userId,
-          input: entry.input,
-          t0: entry.t0,
-          billing: entry.session.billing,
-          pool: entry.session.pool,
-          leader: entry.leader,
-          budgetMultiplier: entry.session.budgetMultiplier,
-          plan: entry.lastPlan,
-          researcherResults: entry.lastResearcherResults,
-          reconciliationReport: entry.lastReconciliationReport,
-          reportArtifact: entry.lastReportArtifact,
-          report: entry.lastReport,
-          reviewScore: entry.lastReviewScore,
-          verifierVerdicts: entry.lastVerifierVerdicts,
-          sharedState: { s4PatchFailures: entry.s4PatchFailures },
-        });
-        await runLeaderForewordAndSignoffStage(
-          stageCtx,
-          this.stageBindings.buildDeps(),
-        );
-        entry.lastLeaderForeword = stageCtx.leaderForeword;
-        entry.lastLeaderSignOff = stageCtx.leaderSignOff;
-        return {
-          foreword: stageCtx.leaderForeword,
-          signoff: stageCtx.leaderSignOff,
-        };
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
-  }
-
-  /**
-   * s11-persist hook 实装（R2-A.13）
-   *
-   * persist primitive 必填 hooks.persist。s11 是 mission 终态落库，
-   * 接受自定义 PersistInput 形态（不直接吃 MissionContext）—— hook 显式拼装。
-   * 落库后 clear checkpoint（mission 已成功写入 markCompleted）。
-   */
-  /**
-   * 从 entry.input 推导版本触发类型：
-   *   inheritFromMissionId 存在 → 本次是 rerun；否则是 initial。
-   */
-  private resolveTriggerType(entry: SessionEntry): string {
-    return entry.input.inheritFromMissionId ? "rerun-fresh" : "initial";
-  }
-
-  private buildS11PersistHooks(): ResolvedStageHooks {
-    const hooks = {
-      persist: async (args: { ctx: StageRunArgs["ctx"] }): Promise<void> => {
-        const entry = this.getEntry(args.ctx.missionId);
-        const missionId = entry.session.missionId;
-        await runPersistStage(
-          {
-            missionId,
-            userId: entry.session.userId,
-            t0: entry.t0,
-            result: {
-              report: entry.lastReport,
-              reportArtifact: entry.lastReportArtifact as
-                | {
-                    metadata: { topic?: string; modelTrail?: string[] };
-                    quickView?: {
-                      executiveSummary?: { markdown?: string };
-                    };
-                    sections?: Array<{
-                      title?: string;
-                      startOffset: number;
-                      endOffset: number;
-                    }>;
-                    content?: { fullMarkdown: string };
-                  }
-                | undefined,
-              reviewScore: entry.lastReviewScore,
-              themeSummary: entry.lastPlan?.themeSummary,
-              dimensions: entry.lastPlan?.dimensions as unknown[] | undefined,
-              verdicts: entry.lastVerifierVerdicts,
-              userProfile: entry.input,
-              reconciliationReport: entry.lastReconciliationReport,
-              leaderSignOff: entry.lastLeaderSignOff,
-            },
-            pool: entry.session.pool,
-          },
-          this.stageBindings.buildDeps(),
-        );
-        // mission 已落库，clear checkpoint
-        await this.missionCheckpoint.clear(missionId).catch(() => undefined);
-        // ★ 报告版本化 (2026-05-06): S11 成功落库后同时写版本快照
-        //   leaderSigned === true 时 runPersistStage 调 markCompleted，
-        //   leaderSigned === false 时调 markFailed(quality-failed)；两路都写版本。
-        const reportPayload = entry.lastReportArtifact ?? entry.lastReport;
-        if (reportPayload) {
-          await this.store
-            .saveReportVersion({
-              missionId,
-              triggerType: this.resolveTriggerType(entry),
-              report: reportPayload as {
-                title?: string;
-                summary?: string;
-              },
-              finalScore: entry.lastLeaderSignOff?.leaderOverallScore,
-              leaderSigned: entry.lastLeaderSignOff?.signed,
-            })
-            .catch((err: unknown) => {
-              this.log.warn(
-                `[s11-persist] saveReportVersion for ${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-              );
-            });
-        }
-      },
-    };
-    return hooks as unknown as ResolvedStageHooks;
   }
 }
 

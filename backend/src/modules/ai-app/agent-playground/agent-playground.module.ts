@@ -23,6 +23,9 @@ import { MissionStageBindingsService } from "./services/mission/workflow/mission
 // ★ R2-C 单轨化 (2026-05-04)：pipelineDispatcher 是唯一 mission orchestrator
 //   legacy TeamMission 已删除，flag service 已删除
 import { PlaygroundPipelineDispatcher } from "./services/mission/workflow/playground-pipeline-dispatcher.service";
+// ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到独立 service(STAGE_NUMBER / CHECKPOINT_AT
+//   字面量 + 11 个 build*Hooks),dispatcher inject + delegate
+import { PlaygroundBusinessOrchestrator } from "./services/mission/workflow/playground-business-orchestrator.service";
 import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
@@ -69,6 +72,12 @@ import {
 } from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
 import { PrismaService } from "../../../common/prisma/prisma.service";
+// ★ Rev 5 / S1-5 (2026-05-09): mission platform contract tokens — 让 custom-agents
+//   通过 contract interface 注入,而非直接 import dispatcher / store 具体类。
+import {
+  MISSION_RUNNER,
+  MISSION_LIST_READER,
+} from "@/modules/ai-app/contracts/mission-platform.contract";
 
 @Module({
   imports: [
@@ -130,11 +139,34 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
     //   legacy TeamMission 已删除，PlaygroundRuntimeFlagService 已删除
     MissionPipelineRegistry,
     MissionPipelineOrchestrator,
+    // ★ Stage 1 / S1-1 (2026-05-09): business-orch 必须在 dispatcher 之前 register,
+    //   保证 dispatcher.onModuleInit 调 businessOrch.bindSessionLookup 时 instance 已存在
+    PlaygroundBusinessOrchestrator,
     PlaygroundPipelineDispatcher,
     // ── S12 postmortem 失败模式分类（已上提到 @Global HarnessModule）──
+    // ★ Rev 5 / S1-5 (2026-05-09): mission-platform contract token bindings —
+    //   custom-agents 通过 contract interface 注入(useExisting 复用同一实例,
+    //   不重复 instantiate)。closes audit §3.3 custom-agents back-coupling
+    //   via "ai-app/contracts/" path(三选项中 (b) 选项)。
+    {
+      provide: MISSION_RUNNER,
+      useExisting: PlaygroundPipelineDispatcher,
+    },
+    {
+      provide: MISSION_LIST_READER,
+      useExisting: MissionStore,
+    },
   ],
   // R-CA (2026-05-05): 导出 dispatcher + store 让 custom-agents 模块复用启动 + 列表能力
-  exports: [MissionEventBuffer, PlaygroundPipelineDispatcher, MissionStore],
+  // Rev 5 / S1-5: 同时 export contract tokens — custom-agents 通过 token 注入,
+  //               playground 内部仍 export 具体类(其他 ai-app module 可能直接消费)。
+  exports: [
+    MissionEventBuffer,
+    PlaygroundPipelineDispatcher,
+    MissionStore,
+    MISSION_RUNNER,
+    MISSION_LIST_READER,
+  ],
 })
 export class AgentPlaygroundModule implements OnModuleInit {
   constructor(
