@@ -297,15 +297,25 @@ export class AskRoomService {
     sessionId: string,
     content: string,
     mentionedMemberIds: string[],
+    minSeq = 0,
   ) {
     // 评审 W2 v3 R1 阻塞：sequenceNum 并发竞态防护。
     // 依赖 schema 的 partial unique index `(session_id, sequence_num) WHERE sequence_num IS NOT NULL`。
     // 拿到 max+1 后 create，若并发拿到相同值会 P2002，retry 最多 5 次。
+    //
+    // 2026-05-09（screenshot 48-49 / "AI 思考显示在问题的上方"）：
+    // 多 turn 场景下，turn 1 仍在流式中（in-flight emitted seq 已到 30）但 AI 消息
+    // 尚未持久化（DB MAX 仍是 turn 1 的 user msg seq=1）。turn 2 用户发消息时
+    // nextSequenceNum 只看 DB → 返回 2 → user_2 emit seq=2 < turn 1 in-flight
+    // events seq 2-30 → 前端按 emit seq 升序排，user_2 落到 turn 1 events 中间或之前。
+    // 修法：runtime 调用本方法时传入 sessionMaxEmittedSeq（in-memory 单进程跟踪），
+    // 这里取 max(dbMax, minSeq) + 1，确保 user msg emit seq 永远在所有 in-flight
+    // 事件之后。db-seq / emit-seq 解耦保留（reload 后按 db-seq 升序仍单调）。
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       attempt += 1;
-      const seq = await this.nextSequenceNum(sessionId);
+      const seq = await this.nextSequenceNum(sessionId, minSeq);
       try {
         return await this.prisma.askMessage.create({
           data: {
@@ -402,12 +412,13 @@ export class AskRoomService {
     });
   }
 
-  async nextSequenceNum(sessionId: string): Promise<number> {
+  async nextSequenceNum(sessionId: string, minSeq = 0): Promise<number> {
     const max = await this.prisma.askMessage.aggregate({
       where: { sessionId, sequenceNum: { not: null } },
       _max: { sequenceNum: true },
     });
-    return (max._max.sequenceNum ?? 0) + 1;
+    const dbMax = max._max.sequenceNum ?? 0;
+    return Math.max(dbMax, minSeq) + 1;
   }
 
   // ============ Helpers ============

@@ -257,12 +257,12 @@ export default function Sidebar({ className = '' }: SidebarProps) {
           >
             <BrandLogo
               variant="full"
-              iconClassName="h-11 w-11 flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
+              iconClassName="h-7 w-auto flex-shrink-0 transition-transform duration-300 group-hover:scale-105"
               subtitle={
                 <Link
                   href="/changelog"
                   onClick={(e) => e.stopPropagation()}
-                  className="mt-0.5 w-fit rounded bg-gradient-to-r from-indigo-500 to-violet-500 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white transition-opacity hover:opacity-80"
+                  className="transition-colors hover:text-[#18181b]"
                 >
                   v{CURRENT_VERSION}
                 </Link>

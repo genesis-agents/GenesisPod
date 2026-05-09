@@ -138,29 +138,37 @@ export function RoomChatPage({ roomId }: RoomChatPageProps) {
     mentionedMemberIds: string[];
   }) => {
     setError(null);
-    const lastSeq = useAskRoomStore.getState().lastSeq;
-    appendUserMessage({
-      id: `local-${Date.now()}`,
-      sessionId: session ?? roomId,
-      role: 'user',
-      content: input.content,
-      modelId: null,
-      modelName: null,
-      tokens: null,
-      webSearch: false,
-      senderType: 'USER',
-      senderMemberId: null,
-      mentionedMemberIds: input.mentionedMemberIds,
-      turnId: null,
-      parentMessageId: null,
-      sequenceNum: lastSeq + 1,
-      createdAt: new Date().toISOString(),
-    });
+    // 2026-05-09（screenshot 48-49）：之前用 `lastSeq + 1` 乐观估计 sequenceNum，
+    // 在 in-flight 流式 + 多 turn 并发场景下会与 backend emit seq 错位 → 视觉
+    // 上 user msg 落到 AI 思考之后。改为：先调用 API 拿 backend 真实 DB-assigned
+    // seq（backend 已在 runtime 用 sessionMaxEmittedSeq 确保 user.seq > 所有
+    // in-flight events.seq），再 append 到 store。代价是 ~50-200ms HTTP 来回，
+    // 期间用户看不到自己的 bubble；为了正确性可接受。
     try {
-      await askRoomService.sendMessage(roomId, {
+      const res = await askRoomService.sendMessage(roomId, {
         content: input.content,
         mode: input.mode,
         mentionedMemberIds: input.mentionedMemberIds,
+      });
+      const lastSeq = useAskRoomStore.getState().lastSeq;
+      appendUserMessage({
+        id: res.userMessageId,
+        sessionId: session ?? roomId,
+        role: 'user',
+        content: input.content,
+        modelId: null,
+        modelName: null,
+        tokens: null,
+        webSearch: false,
+        senderType: 'USER',
+        senderMemberId: null,
+        mentionedMemberIds: input.mentionedMemberIds,
+        turnId: res.turnId,
+        parentMessageId: null,
+        // backend 给的 DB-assigned seq 已确保 > sessionMaxEmittedSeq（含 in-flight
+        // 流式中的 events）；fallback 到 lastSeq+1 仅在 backend 漏返回时兜底。
+        sequenceNum: res.userMessageSeq ?? lastSeq + 1,
+        createdAt: new Date().toISOString(),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

@@ -276,6 +276,39 @@ describe("AskRoomService", () => {
         }),
       );
     });
+
+    it("respects minSeq when in-flight events exceed DB max (multi-turn race)", async () => {
+      // 2026-05-09 screenshot 48-49："AI 思考显示在问题的上方" 真因 regression。
+      // turn 1 流式中：DB MAX=1（仅 user_1），但 in-flight events 已 emit 到 seq=30。
+      // turn 2 user msg 必须取 max(dbMax=1, minSeq=30) + 1 = 31，否则 user_2 emit
+      // seq=2 会落到 turn 1 events 中间，前端排序错乱。
+      prisma.askMessage.aggregate.mockResolvedValue({
+        _max: { sequenceNum: 1 },
+      });
+      prisma.askMessage.create.mockResolvedValue({ id: "m" });
+
+      await service.appendUserMessage("s-1", "hi", [], 30);
+      expect(prisma.askMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sequenceNum: 31 }),
+        }),
+      );
+    });
+
+    it("uses dbMax+1 when minSeq is lower than DB max", async () => {
+      // minSeq 兜底不得退化常规路径：DB max=42 + minSeq=10 → 应仍是 43 而非 11。
+      prisma.askMessage.aggregate.mockResolvedValue({
+        _max: { sequenceNum: 42 },
+      });
+      prisma.askMessage.create.mockResolvedValue({ id: "m" });
+
+      await service.appendUserMessage("s-1", "hi", [], 10);
+      expect(prisma.askMessage.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ sequenceNum: 43 }),
+        }),
+      );
+    });
   });
 
   describe("cancelTurn", () => {

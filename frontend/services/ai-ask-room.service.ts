@@ -184,14 +184,19 @@ export const askRoomService = {
   sendMessage(
     roomId: string,
     input: SendRoomMessageInput
-  ): Promise<{ turnId: string; userMessageId: string }> {
-    return jsonRequest<{ turnId: string; userMessageId: string }>(
-      `/ask/rooms/${roomId}/messages`,
-      {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }
-    );
+  ): Promise<{
+    turnId: string;
+    userMessageId: string;
+    userMessageSeq: number | null;
+  }> {
+    return jsonRequest<{
+      turnId: string;
+      userMessageId: string;
+      userMessageSeq: number | null;
+    }>(`/ask/rooms/${roomId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
   },
 
   cancelTurn(roomId: string, turnId: string): Promise<{ ok: boolean }> {
