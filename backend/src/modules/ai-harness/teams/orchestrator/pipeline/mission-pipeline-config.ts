@@ -63,10 +63,10 @@ export interface MissionPipelineConfig {
  * defineMissionPipeline helper（identity + freeze，作为 ai-app 的声明式入口）
  *
  * 用法（ai-app 在 const 文件）：
- *   export const PLAYGROUND_PIPELINE = defineMissionPipeline({
+ *   export const MY_PIPELINE = defineMissionPipeline({
  *     id: "{app}",
  *     roles: [...],
- *     steps: [{ primitive: "plan", id: "s2-leader-plan", roleId: "leader", ... }, ...],
+ *     steps: [{ primitive: "plan", id: "step-plan", roleId: "leader", ... }, ...],
  *   });
  */
 export function defineMissionPipeline(

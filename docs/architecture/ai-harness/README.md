@@ -26,6 +26,15 @@
 - 一切对外消费走 `ai-harness/facade`
 - 依赖方向：`ai-app → ai-harness → ai-engine → ai-infra`，禁止反向
 
+## benchmark Agent Team 沉淀拓扑
+
+详见 [sediment-topology.md](sediment-topology.md) — `ai-harness` 内部存在 6 个共存
+sediment zone(Z1 mission-lifecycle / Z2 mission-checkpoint / Z3 business-team
+framework / Z4 mission-pipeline-orchestrator / Z5 stage primitives / Z6 待裁定
+mission executor)。新 benchmark Agent Team(MissionPipeline 派)拷贝时,**仍通过
+`ai-harness/facade` 间接消费 5 zone 公开符号**,sediment-topology.md 是 facade
+re-export 的逻辑分区参考,不是直接 import 子路径授权。
+
 ## L2 vs L2.5 速查
 
 | 概念                       | 归属         |

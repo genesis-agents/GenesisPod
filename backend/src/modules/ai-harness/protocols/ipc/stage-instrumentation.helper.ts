@@ -74,7 +74,7 @@ export type NarrateFn = (
 export interface StageInstrumentationConfig<TOutput> {
   /** 业务方 event prefix（如 "<ai-app>"），不硬编码 */
   readonly eventPrefix: string;
-  /** stage id，narrate 用（如 "s2-leader-plan"） */
+  /** stage id，narrate 用（业务方自定义，例如 "step-plan" 或 "phase-research"） */
   readonly stageId: string;
   /** role id（lifecycle 事件 role / narrate role） */
   readonly role: string;

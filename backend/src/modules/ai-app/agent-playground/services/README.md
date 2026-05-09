@@ -12,18 +12,18 @@ services/
 ├── README.md                                      ← 本文档
 │
 ├── mission/                                       ← Mission 总目录（剧本 + 生命周期）
-│   ├── workflow/                                  ← Mission 业务剧本（trunk + stages）
-│   │   ├── team.mission.ts                        ← Trunk 主剧本
+│   ├── workflow/                                  ← Mission 业务剧本（pipeline + stages）
+│   │   ├── playground-pipeline-dispatcher.service.ts ← Mission orchestrator dispatcher（hooks + sessions）
 │   │   ├── mission-context.ts                     ← 跨 stage 共享状态（ctx）
 │   │   ├── mission-deps.ts                        ← stage 函数依赖包
-│   │   ├── mission-runtime-shell.service.ts       ← session 装配（billing / pool / heartbeat / wallTimer / cleanup）
+│   │   ├── mission-runtime-shell.service.ts       ← Z3 framework adapter（billing / heartbeat / wallTimer / cleanup）
 │   │   ├── mission-stage-bindings.service.ts      ← buildCtx / buildDeps（stage 函数参数装配）
 │   │   ├── narrative.util.ts                      ← 人话叙事事件辅助（stage 内 narrate 入口）
 │   │   ├── per-dim-pipeline.util.ts               ← per-dim chapter pipeline 子流程
 │   │   ├── report-artifact-sections.util.ts       ← report section 切片归一化
 │   │   ├── similarity.util.ts                     ← 文本相似度（jaccard，stuck-revision 检测）
 │   │   ├── word-count-normalizer.util.ts          ← 章节字数归一化（playground 预设 wrapper）
-│   │   └── stages/                                ← 12 个 stage 函数（s1 → s12，含 s8b/s9b）
+│   │   └── stages/                                ← 14 个 stage 函数（s1 → s12，含 s8b/s9b）
 │   │       ├── s1-mission-estimate-budget.stage.ts
 │   │       ├── s2-leader-plan-mission.stage.ts
 │   │       ├── s3-researcher-collect-findings.stage.ts
@@ -32,9 +32,12 @@ services/
 │   │       ├── s6-analyst-synthesize-insights.stage.ts
 │   │       ├── s7-writer-plan-outline.stage.ts
 │   │       ├── s8-writer-draft-report.stage.ts
+│   │       ├── s8b-section-quality-enhancement.stage.ts
 │   │       ├── s9-reviewer-critic-l4.stage.ts
+│   │       ├── s9b-report-objective-evaluation.stage.ts
 │   │       ├── s10-leader-foreword-and-signoff.stage.ts
-│   │       └── s11-mission-persist.stage.ts
+│   │       ├── s11-mission-persist.stage.ts
+│   │       └── s12-self-evolution.stage.ts        ← 终态后 fire-and-forget（非 pipeline.steps 一员）
 │   │
 │   └── lifecycle/                                 ← Mission 生命周期 / 状态 / 持久化
 │       ├── mission-store.service.ts               ← Prisma 持久化（mission row + leader_journal jsonb）
@@ -73,9 +76,9 @@ services/
 ## 三层架构
 
 ```
-Mission（业务剧本）        ← team.mission.ts + 11 个 stage
+Mission（业务剧本）        ← playground.config.ts + dispatcher + 14 stage
    │
-   ├─ 决定调用顺序、分支、交接
+   ├─ 决定调用顺序、分支、交接（pipeline DAG declarative）
    ├─ 持有 MissionContext（跨 stage 状态）
    └─ 通过 MissionDeps 注入下层依赖
         ↓
@@ -84,18 +87,20 @@ Agent（一次完整认知任务）   ← agents/<role>/<role>.agent.ts + duty.m
    ├─ 单次 LLM 调用 + schema-bound input/output
    └─ 由对应 role service 包装暴露
         ↓
-Harness（执行底座）         ← ai-engine/runtime/*
+Harness（执行底座）         ← ai-harness sediment topology
    │
-   ├─ react / reflexion loop
-   ├─ tool catalog / billing / budget guard
-   └─ 业务无关，完全通用
+   ├─ Z3 BusinessAgentTeam framework（mission-runtime-shell / event-relay）
+   ├─ Z4 MissionPipelineOrchestrator（stage 编排）
+   ├─ Z1 lifecycle primitives（store / abort / liveness / ownership）
+   ├─ Z2 checkpoint store / Z5 stage primitives
+   └─ 业务无关，benchmark consumer 同时 import 5 个 zone（详见 docs/architecture/ai-harness/sediment-topology.md）
 ```
 
 ## Stage 命名规则
 
 每个 stage 文件名：`s{序号}-{agent}-{职责}.stage.ts`
 
-- 序号：阶段顺序（1..11）
+- 序号：阶段顺序（1..12，含 s8b / s9b 子阶段）
 - agent：执行该 stage 的角色名（leader / researcher / writer / reviewer / mission 等）
 - 职责：动词短语描述实际在做什么（plan-mission / collect-findings / draft-report 等）
 
@@ -104,27 +109,31 @@ Harness（执行底座）         ← ai-engine/runtime/*
 ## Stage 调用图
 
 ```
-runMission()
-  ├─ 装配 MissionContext + MissionDeps
-  ├─ s1  mission     estimate-budget         预算闸门 + mission:started
-  ├─ s2  leader      plan-mission            Leader 维度规划 + 声明 goals
-  ├─ s3  researcher  collect-findings        researcher×N + per-dim pipeline
-  ├─ s4  leader      assess-research         Leader 看 researcher 产出做 retry/abort
-  ├─ s5  reconciler  cross-dim-fact-check    跨 dim 对账
-  ├─ s6  analyst     synthesize-insights     综合 insights / themeSummary
-  ├─ s7  writer      plan-outline            mission 级章节大纲（thorough+ 档位）
-  ├─ s8  writer      draft-report            起草 + L3 三路评分 + memory + assemble
-  ├─ s9  reviewer    critic-l4               独立 meta-review
-  ├─ s10 leader      foreword-and-signoff    综合摘要 + 签字
-  └─ s11 mission     persist                 markCompleted / markFailed
+PlaygroundPipelineDispatcher.runMission()
+  ├─ 通过 MissionRuntimeShellService（Z3 adapter）开 session
+  ├─ MissionPipelineOrchestrator（Z4）按 playground.config.ts 跑 13 step
+  │   ├─ s1   mission     estimate-budget          预算闸门 + mission:started
+  │   ├─ s2   leader      plan-mission             Leader 维度规划 + 声明 goals
+  │   ├─ s3   researcher  collect-findings         researcher×N + per-dim pipeline
+  │   ├─ s4   leader      assess-research          Leader 看 researcher 产出做 retry/abort
+  │   ├─ s5   reconciler  cross-dim-fact-check     跨 dim 对账
+  │   ├─ s6   analyst     synthesize-insights      综合 insights / themeSummary
+  │   ├─ s7   writer      plan-outline             mission 级章节大纲（thorough+ 档位）
+  │   ├─ s8   writer      draft-report             起草 + L3 三路评分 + memory + assemble
+  │   ├─ s8b  reviewer    section-quality-enhance  分章节质量增强
+  │   ├─ s9   reviewer    critic-l4                独立 meta-review
+  │   ├─ s9b  reviewer    objective-eval           客观核验
+  │   ├─ s10  leader      foreword-and-signoff     综合摘要 + 签字
+  │   └─ s11  mission     persist                  markCompleted / markFailed
+  └─ s12 mission：fire-and-forget postlude（self-evolution，非 pipeline.steps 一员）
 ```
 
 ## 设计原则
 
 ### 1. Mission 是"剧本"，不是"实现"
 
-`team.mission.ts` 应只串调度 —— stage A → stage B → stage C，每个 stage 委托给对应
-role service 执行。
+`playground.config.ts` + `playground-pipeline-dispatcher.service.ts` 应只串调度 ——
+stage A → stage B → stage C，每个 stage 委托给对应 role service 执行。
 
 不应在 Mission 里写：
 

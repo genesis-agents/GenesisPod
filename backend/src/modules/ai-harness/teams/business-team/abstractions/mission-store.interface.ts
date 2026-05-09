@@ -13,6 +13,33 @@
  * **暂不强制 implements**：mission-store.service.ts 通过 TypeScript structural
  * typing 隐式 satisfies 本接口（所有方法签名一致）。未来 mission-store 重构拆分
  * 时再显式 `implements IBusinessTeamMissionStore` 锁定契约。
+ *
+ * ─── Rev 5 / S0-8 — 与 Z1 `IMissionStore<TBusiness>` 关系（doc-only,closes T1）───
+ *
+ * 本接口（Z3）与 `ai-harness/lifecycle/mission-lifecycle/abstractions/mission-store.interface.ts`
+ * 的 `IMissionStore<TBusiness>`（Z1）**不冲突,而是同一 store 概念的两个视角**:
+ *
+ *   - **Z1 `IMissionStore<TBusiness>`**: 通用 generic CRUD 端口
+ *     （create / getById / listByUser / updateStatus / setLastCompletedStepId /
+ *     appendDecision / getDecisions / saveCrossStageState / getCrossStageState）
+ *     —— v5.1 §3.4 R1-C 抽象,关心"mission record 怎么读写"
+ *
+ *   - **Z3 `IBusinessTeamMissionStore`(本接口)**: BusinessAgentTeam lifecycle 视角的
+ *     **互补集合**(refreshHeartbeat / clearHeartbeat / markStageComplete / countRunningByUser /
+ *     cleanupOrphanRunningMissions / markFailed / markReopened) —— **method 名与 Z1 不重叠**,
+ *     Z3 framework 关心"mission 在生命周期上发生什么"。
+ *
+ * benchmark consumer 的 mission store(如 `ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts`)
+ * **同时 satisfies 两者**(structural typing),分别对应:
+ *
+ *   - 被 R1 generic 调用方(reproducible CRUD)使用 → Z1 接口
+ *   - 被 Z3 framework(`MissionRuntimeShellFramework` / `RerunGuard` / `MissionLivenessGuard` 调度)使用 → Z3 接口
+ *
+ * S2-7 计划在 Stage 2 阶段用类型层 `IMissionStore<TBusiness> & IBusinessTeamMissionStore`
+ * intersection 固化"同一 store 的两个视角"(非 Pick<> 子集 — 两接口 method 名互补不重叠)。
+ *
+ * 详见 `docs/architecture/ai-harness/sediment-topology.md` §5 T1 与
+ * `docs/architecture/ai-app/agent-playground/agent-team-boundary-audit-2026-05-08.md` §2.5。
  */
 
 /**
@@ -58,10 +85,22 @@ export interface IBusinessTeamMissionStore {
   }>;
 
   /**
-   * 标记 mission 失败（终态）。args.userId 传入时走 updateMany 严格隔离；
-   * 缺失时走 update + assertOwnership 兼容路径。
+   * 标记 mission 失败（终态）。
    *
-   * args.errorMessage 由业务方决定截断长度（reference impl: 2000 chars）。
+   * 隔离语义:
+   *   - `args.userId` 传入时走 `updateMany where { id, userId }` 严格隔离
+   *   - 缺失时走 `update + assertOwnership` 兼容路径
+   *
+   * `args.errorMessage` 截断契约(S0-7 codified):
+   *   - 由**业务方实现侧**截断,framework / caller **不**截断
+   *   - reference impl(`agent-playground/services/mission/lifecycle/mission-store.service.ts`):
+   *     2000 chars(UTF-16 code units),超出 truncate 末尾保留 `…[truncated]` 标记
+   *   - 其他 BusinessAgentTeam impl 可选不同上限,但必须保证 DB 列 NVARCHAR/TEXT 容纳
+   *   - 上限选择应平衡:足够保留诊断信息(stack / message)且不撑爆 DB 行
+   *
+   * @param missionId - mission 唯一 ID
+   * @param args.userId - 可选,depth-defense 隔离
+   * @param args.errorMessage - 可选,失败原因诊断文本(实现侧负责截断)
    */
   markFailed(
     missionId: string,
