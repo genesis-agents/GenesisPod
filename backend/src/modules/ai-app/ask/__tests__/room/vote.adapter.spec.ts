@@ -217,4 +217,33 @@ describe("VoteAdapter", () => {
       expect(seqs[i]).toBeGreaterThan(seqs[i - 1]);
     }
   });
+
+  it("generateOptions chat() failure falls back to default options + emits system.notice", async () => {
+    // 2026-05-08 R2 评审：之前 generateOptions 失败裸抛让整 turn FAIL；
+    // 修复后捕获异常 + 默认 a/支持 b/反对 + system.notice。
+    chat.mockReset();
+    chat
+      .mockRejectedValueOnce(new Error("provider down"))
+      // 两个投票者各 vote 一次（用默认选项）
+      .mockResolvedValueOnce({ content: "VOTE: a\nREASON: yes", tokensUsed: 1 })
+      .mockResolvedValueOnce({
+        content: "VOTE: a\nREASON: yes",
+        tokensUsed: 1,
+      });
+    const leader = mkMember({ id: "leader", role: AskRoomMemberRole.LEADER });
+    const v1 = mkMember({ id: "v1" });
+    const v2 = mkMember({ id: "v2" });
+    const events: AskRoomServerEvent[] = [];
+    // 不传 voteOptions → 触发 generateOptions 路径
+    const result = await adapter.execute(mkContext([leader, v1, v2]), (e) =>
+      events.push(e),
+    );
+    // notice 出现在 messages 头部
+    const notice = result.messages.find((m) => m.senderType === "SYSTEM");
+    expect(notice).toBeDefined();
+    expect(notice?.content).toContain("默认选项");
+    expect(events.some((e) => e.kind === "system.notice")).toBe(true);
+    // 投票仍正常完成（默认选项 a=支持 胜出）
+    expect(result.metadata.winner).toBe("a");
+  });
 });

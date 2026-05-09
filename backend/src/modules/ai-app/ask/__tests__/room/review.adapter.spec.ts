@@ -178,15 +178,18 @@ describe("ReviewAdapter", () => {
   });
 
   it("rejects with insufficient_members when only 1 enabled (returns SYSTEM notice)", async () => {
+    const events: AskRoomServerEvent[] = [];
     const result = await adapter.execute(
       mkContext([mkMember({ id: "only" })]),
-      () => {},
+      (e) => events.push(e),
     );
     expect(result.metadata.reason).toBe("insufficient_members");
     // 2026-05-08 R2：返回 1 条 system.notice 让前端 UI 看到为何中止
     expect(result.messages).toHaveLength(1);
     expect(result.messages[0].senderType).toBe("SYSTEM");
     expect(result.messages[0].content).toContain("REVIEW 模式至少需要 2 名");
+    // 2026-05-08 R2-second: 同时断言 system.notice 事件已 emit（与 vote 一致）
+    expect(events.some((e) => e.kind === "system.notice")).toBe(true);
   });
 
   it("clamps invalid score to [0,100]", async () => {

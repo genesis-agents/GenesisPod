@@ -261,4 +261,32 @@ describe("ParallelMergeAdapter", () => {
       expect(seqs[i]).toBeGreaterThan(seqs[i - 1]);
     }
   });
+
+  it("failed-member participant.done event carries sanitized error content (no empty stream/persist drift)", async () => {
+    // 2026-05-08 R2 评审：之前 fanOut 失败成员的 participant.done 推 content=""，
+    // 与持久化的 sanitizeErrorMessage 双源不一致。修复后事件也带脱敏占位。
+    chat.mockReset();
+    chat
+      .mockResolvedValueOnce({ content: "OK_A", tokensUsed: 5 })
+      .mockRejectedValueOnce(new Error("rate limit hit"))
+      .mockResolvedValueOnce({ content: "SYNTH", tokensUsed: 7 });
+    const a = mkMember({ id: "a" });
+    const b = mkMember({ id: "b", role: AskRoomMemberRole.LEADER });
+    const events: AskRoomServerEvent[] = [];
+    const result = await adapter.execute(mkContext([a, b]), (e) =>
+      events.push(e),
+    );
+    const failedDone = events.find(
+      (e): e is Extract<AskRoomServerEvent, { kind: "participant.done" }> =>
+        e.kind === "participant.done" &&
+        typeof e.content === "string" &&
+        e.content.startsWith("[error]"),
+    );
+    expect(failedDone).toBeDefined();
+    // 事件 content 与 messages[].content 一致（均含 "rate limit"）
+    const failedMsg = result.messages.find((m) =>
+      m.content.startsWith("[error]"),
+    );
+    expect(failedMsg?.content).toBe(failedDone?.content);
+  });
 });

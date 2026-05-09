@@ -202,4 +202,36 @@ describe("DebateAdapter", () => {
     (ctx as { signal: AbortSignal }).signal = ctl.signal;
     await expect(adapter.execute(ctx, () => {})).rejects.toThrow();
   });
+
+  it("runDebate-level non-abort failure emits system.notice + returns gracefully (no throw)", async () => {
+    // 2026-05-08 R2 评审：之前 runDebate 自身异常裸抛让整 turn FAIL；
+    // 修复后非 abort 异常捕获 + system.notice + metadata.patternFailed=true。
+    // 通过 mock DebatePattern.runDebate 模拟 pattern 内部异常。
+    const failingPattern = {
+      runDebate: jest
+        .fn()
+        .mockRejectedValue(new Error("debate pattern internal failure")),
+    };
+    const failingModule = await Test.createTestingModule({
+      providers: [
+        DebateAdapter,
+        { provide: ChatFacade, useValue: { chat } },
+        { provide: DebatePattern, useValue: failingPattern },
+      ],
+    }).compile();
+    const failingAdapter = failingModule.get(DebateAdapter);
+
+    const red = mkMember({ id: "r", order: 0 });
+    const blue = mkMember({ id: "b", order: 1 });
+    const events: AskRoomServerEvent[] = [];
+    const result = await failingAdapter.execute(
+      mkContext([red, blue], { debateRounds: 2 }),
+      (e) => events.push(e),
+    );
+    expect(result.metadata.patternFailed).toBe(true);
+    const notice = result.messages.find((m) => m.senderType === "SYSTEM");
+    expect(notice).toBeDefined();
+    expect(notice?.content).toContain("辩论流程异常中断");
+    expect(events.some((e) => e.kind === "system.notice")).toBe(true);
+  });
 });
