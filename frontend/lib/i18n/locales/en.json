@@ -354,7 +354,10 @@
         "title": "Wiki graph",
         "subtitle": "{{nodes}} nodes · {{edges}} [[slug]] references",
         "empty": "No pages in this wiki yet — graph cannot be rendered.",
-        "hint": "Hover to highlight neighbors, click a node to open that page"
+        "hint": "Scroll to zoom · drag to pan · hover to highlight · click to open",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "resetView": "Reset view"
       },
       "kbSelector": {
         "selectKb": "Select knowledge base",

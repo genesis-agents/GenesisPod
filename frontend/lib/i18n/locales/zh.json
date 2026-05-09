@@ -354,7 +354,10 @@
         "title": "Wiki 图谱",
         "subtitle": "{{nodes}} 个节点 · {{edges}} 条 [[slug]] 引用",
         "empty": "当前 wiki 没有页面，无法渲染图谱。",
-        "hint": "鼠标悬停高亮邻接，点击节点跳转该页"
+        "hint": "滚轮缩放 · 拖拽平移 · 悬停高亮 · 点击跳页",
+        "zoomIn": "放大",
+        "zoomOut": "缩小",
+        "resetView": "重置视图"
       },
       "kbSelector": {
         "selectKb": "选择知识库",

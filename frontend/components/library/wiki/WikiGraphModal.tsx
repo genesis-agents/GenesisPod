@@ -6,8 +6,16 @@
  * the project's god-class size guard (>2500 LOC + 50-line per-push cap).
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from 'react';
+import { Loader2, Maximize2, Minus, Plus, X } from 'lucide-react';
 import { wikiApi, type WikiPage, type WikiPageCategory } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
@@ -19,11 +27,14 @@ const GRAPH_CATEGORY_COLORS: Record<WikiPageCategory, string> = {
   SOURCE: '#f59e0b',
 };
 
+// Inner-to-outer ring radii (SVG units; scaled to the viewBox half-width).
+// Tuned so the outer SOURCE ring sits inside the 520-unit half so labels
+// don't clip; bigger gaps = more breathing room when zoomed out.
 const RING_RADII: Record<WikiPageCategory, number> = {
-  SUMMARY: 90,
-  ENTITY: 200,
-  CONCEPT: 320,
-  SOURCE: 430,
+  SUMMARY: 100,
+  ENTITY: 230,
+  CONCEPT: 360,
+  SOURCE: 470,
 };
 
 const RING_ORDER: WikiPageCategory[] = [
@@ -32,6 +43,12 @@ const RING_ORDER: WikiPageCategory[] = [
   'CONCEPT',
   'SOURCE',
 ];
+
+// Base viewBox is symmetric square `[-VB_HALF, VB_HALF]`. Scale=1 fits the
+// outer SOURCE ring (radius 430) with margin. Pan/zoom move (cx,cy,scale).
+const VB_HALF = 520;
+const MIN_SCALE = 0.4;
+const MAX_SCALE = 6;
 
 export default function WikiGraphModal({
   kbId,
@@ -46,6 +63,16 @@ export default function WikiGraphModal({
   const [pages, setPages] = useState<WikiPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [hover, setHover] = useState<string | null>(null);
+  const [view, setView] = useState({ cx: 0, cy: 0, scale: 1 });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    startCx: number;
+    startCy: number;
+  } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,9 +149,124 @@ export default function WikiGraphModal({
     return map;
   }, [edges]);
 
+  // Convert browser pixel coords to SVG-space coords (respecting current
+  // viewBox + preserveAspectRatio="xMidYMid meet"). Used so wheel zoom and
+  // pan happen relative to the cursor position rather than always centered.
+  const screenToSvg = useCallback(
+    (clientX: number, clientY: number): { x: number; y: number } | null => {
+      const svg = svgRef.current;
+      if (!svg) return null;
+      const rect = svg.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+      const vbW = (2 * VB_HALF) / view.scale;
+      const vbH = (2 * VB_HALF) / view.scale;
+      // 'meet' = uniform scale, the smaller of width/height ratios wins.
+      const fit = Math.min(rect.width / vbW, rect.height / vbH);
+      const renderedW = vbW * fit;
+      const renderedH = vbH * fit;
+      const padX = (rect.width - renderedW) / 2;
+      const padY = (rect.height - renderedH) / 2;
+      const localX = (clientX - rect.left - padX) / fit;
+      const localY = (clientY - rect.top - padY) / fit;
+      return { x: localX + view.cx - VB_HALF, y: localY + view.cy - VB_HALF };
+    },
+    [view]
+  );
+
+  const handleWheel = useCallback(
+    (e: ReactWheelEvent<SVGSVGElement>) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15;
+      setView((prev) => {
+        const nextScale = clamp(prev.scale * factor, MIN_SCALE, MAX_SCALE);
+        if (nextScale === prev.scale) return prev;
+        // Zoom toward cursor: keep the SVG-space point under the mouse fixed.
+        const anchor = screenToSvg(e.clientX, e.clientY);
+        if (!anchor) return { ...prev, scale: nextScale };
+        const ratio = prev.scale / nextScale;
+        const nextCx = anchor.x - (anchor.x - prev.cx) * ratio;
+        const nextCy = anchor.y - (anchor.y - prev.cy) * ratio;
+        return { cx: nextCx, cy: nextCy, scale: nextScale };
+      });
+    },
+    [screenToSvg]
+  );
+
+  const handlePointerDown = useCallback(
+    (e: ReactPointerEvent<SVGSVGElement>) => {
+      // Left button only; ignore clicks that originate on a node group so
+      // node click-to-open still works.
+      if (e.button !== 0) return;
+      const target = e.target as SVGElement;
+      if (target.closest('g[data-wiki-node="1"]')) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      dragRef.current = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        startCx: view.cx,
+        startCy: view.cy,
+      };
+      setDragging(true);
+    },
+    [view]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: ReactPointerEvent<SVGSVGElement>) => {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const vbW = (2 * VB_HALF) / view.scale;
+      const vbH = (2 * VB_HALF) / view.scale;
+      const fit = Math.min(rect.width / vbW, rect.height / vbH);
+      const dx = (e.clientX - drag.startX) / fit;
+      const dy = (e.clientY - drag.startY) / fit;
+      setView((prev) => ({
+        ...prev,
+        cx: drag.startCx - dx,
+        cy: drag.startCy - dy,
+      }));
+    },
+    [view.scale]
+  );
+
+  const handlePointerUp = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (drag && drag.pointerId === e.pointerId) {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      dragRef.current = null;
+      setDragging(false);
+    }
+  }, []);
+
+  const zoomBy = useCallback((factor: number) => {
+    setView((prev) => ({
+      ...prev,
+      scale: clamp(prev.scale * factor, MIN_SCALE, MAX_SCALE),
+    }));
+  }, []);
+
+  const resetView = useCallback(() => setView({ cx: 0, cy: 0, scale: 1 }), []);
+
+  // Reset view whenever a new KB's pages are loaded so the user always sees
+  // the full graph on first render.
+  useEffect(() => {
+    setView({ cx: 0, cy: 0, scale: 1 });
+  }, [kbId]);
+
+  const viewBox = `${view.cx - VB_HALF / view.scale} ${view.cy - VB_HALF / view.scale} ${(2 * VB_HALF) / view.scale} ${(2 * VB_HALF) / view.scale}`;
+
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-6">
-      <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+      <div className="flex h-[95vh] w-full max-w-[1600px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
@@ -155,9 +297,15 @@ export default function WikiGraphModal({
             </div>
           ) : (
             <svg
-              viewBox="-520 -520 1040 1040"
-              className="h-full w-full"
+              ref={svgRef}
+              viewBox={viewBox}
+              className={`h-full w-full select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
               preserveAspectRatio="xMidYMid meet"
+              onWheel={handleWheel}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
             >
               {edges.map((e, i) => {
                 const a = layout.get(e.source);
@@ -173,8 +321,8 @@ export default function WikiGraphModal({
                     x2={b.x}
                     y2={b.y}
                     stroke={highlighted ? '#7c3aed' : '#cbd5e1'}
-                    strokeWidth={highlighted ? 1.4 : 0.6}
-                    opacity={highlighted ? 0.95 : hover ? 0.2 : 0.6}
+                    strokeWidth={highlighted ? 2.2 : 1.0}
+                    opacity={highlighted ? 0.95 : hover ? 0.25 : 0.7}
                   />
                 );
               })}
@@ -188,25 +336,30 @@ export default function WikiGraphModal({
                 return (
                   <g
                     key={p.slug}
+                    data-wiki-node="1"
                     transform={`translate(${pos.x},${pos.y})`}
                     onMouseEnter={() => setHover(p.slug)}
                     onMouseLeave={() => setHover(null)}
-                    onClick={() => onSelectSlug(p.slug)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectSlug(p.slug);
+                    }}
                     className="cursor-pointer"
                     opacity={dimmed ? 0.25 : 1}
                   >
                     <circle
-                      r={hover === p.slug ? 8 : 5}
+                      r={hover === p.slug ? 12 : 8}
                       fill={GRAPH_CATEGORY_COLORS[p.category]}
                       stroke="#fff"
-                      strokeWidth={1.5}
+                      strokeWidth={2}
                     />
                     {(hover === p.slug || nodes.length <= 60) && (
                       <text
                         x={0}
-                        y={-12}
+                        y={-16}
                         textAnchor="middle"
-                        fontSize={10}
+                        fontSize={14}
+                        fontWeight={hover === p.slug ? 600 : 400}
                         fill="#1f2937"
                         style={{ pointerEvents: 'none' }}
                       >
@@ -219,6 +372,34 @@ export default function WikiGraphModal({
                 );
               })}
             </svg>
+          )}
+          {!loading && nodes.length > 0 && (
+            <div className="absolute right-4 top-4 flex flex-col gap-1 rounded-md border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+              <button
+                onClick={() => zoomBy(1.25)}
+                className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                title={t('library.wiki.graph.zoomIn')}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => zoomBy(1 / 1.25)}
+                className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                title={t('library.wiki.graph.zoomOut')}
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <button
+                onClick={resetView}
+                className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                title={t('library.wiki.graph.resetView')}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </button>
+              <div className="border-t border-gray-200 px-1 py-0.5 text-center text-[10px] text-gray-500">
+                {Math.round(view.scale * 100)}%
+              </div>
+            </div>
           )}
         </main>
         <footer className="flex items-center gap-4 border-t border-gray-200 px-6 py-3 text-xs text-gray-600">
@@ -238,4 +419,8 @@ export default function WikiGraphModal({
       </div>
     </div>
   );
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v;
 }
