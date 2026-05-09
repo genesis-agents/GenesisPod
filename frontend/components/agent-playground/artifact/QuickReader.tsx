@@ -8,35 +8,11 @@ import {
   TrendingUp,
   AlertCircle,
   Lightbulb,
-  Star,
   Clock,
   ExternalLink,
   Target,
 } from 'lucide-react';
-import type {
-  ReportArtifact,
-  ArtifactHighlight,
-} from '@/lib/agent-playground/report-artifact.types';
-import { FigureRenderer as PublicFigureRenderer } from '@/components/common/chart-viewer/FigureRenderer';
-import type { RenderableChart } from '@/components/common/chart-viewer/types';
-import type { ArtifactFigure } from '@/lib/agent-playground/report-artifact.types';
-
-function toRenderableChart(f: ArtifactFigure): RenderableChart {
-  return {
-    id: f.id,
-    chartType:
-      f.type === 'extracted_chart' || f.type === 'reference'
-        ? 'reference'
-        : 'generated',
-    type: f.chartType,
-    title: f.title,
-    description: f.caption,
-    imageUrl: f.imageUrl,
-    evidenceCitationIndex: f.evidenceCitationIndex,
-    sectionId: f.sectionId,
-    position: f.position,
-  };
-}
+import type { ReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 
 /**
  * 清洗快速视图纯文本字段（按 TI cleanQuickViewText）：
@@ -68,62 +44,74 @@ interface Props {
   onSwitchToFull?: () => void;
 }
 
+const DIRECTION_LABEL: Record<string, string> = {
+  increasing: '↑',
+  decreasing: '↓',
+  stable: '→',
+  emerging: '✦',
+};
+
 /**
- * ★ 2026-05-07 重构：参考 Topic Insight QuickViewReport 布局
+ * ★ 2026-05-09 PR-quickview-parity：完整复刻 Topic Insight QuickViewReport 数据结构。
  *
- * 关键差异（vs 旧版）：
- * 1. 执行摘要用 ReactMarkdown + remarkGfm 渲染（旧版 whitespace-pre-line 不渲染 markdown）
- * 2. 全局 topHighlights 按 sourceDimensionId 分组 → "维度 keyFindings"卡片
- * 3. 风险机遇红绿对比卡（risk vs opportunity）— TI 同款"风险与机遇速览"
- * 4. 战略建议保留 topRecommendations（无受众细分时不强加）
- * 5. 关键图保留独立板块（playground 独有，TI 没有）
+ * 数据来源（全部从 artifact.quickView，由 backend StructuralReportAssembler 派生）：
+ *   - executiveSummary.markdown          → 执行摘要
+ *   - keyFindingsByDimension[]           → 维度核心发现（结构化，含 significance）
+ *   - topTrends[]                        → 关键趋势（带 direction / timeframe）
+ *   - riskMatrix[]                       → 风险矩阵表格（TI 同款 prob / impact / timeframe）
+ *   - recommendationsByAudience          → 战略建议按 forEnterprise / forInvestors 分组
+ *   - whatYouWillLearn[]                 → 头部"读完你将了解"
+ *   - keyCitations + citations           → 重点引用
  *
- * 数据来源：artifact.quickView.{executiveSummary / topHighlights / topTrends /
- * keyRisks / topRecommendations / keyFigures / keyCitations} —— 不依赖新字段。
+ * v1 → v2 删除：「关键图表」section（用户决定快速视图不展示图）。
+ * 兼容：keyFigures 字段保留在 dto，但前端不再 render。
  */
 export function QuickReader({ artifact, onSwitchToFull }: Props) {
   const qv = artifact.quickView;
 
-  // 按 sourceDimensionId 分组 topHighlights（type='finding' 优先）
+  // 维度核心发现：优先用 backend 派生的结构化 keyFindingsByDimension；
+  // 缺失时回退到 topHighlights 按 sourceDimensionId 分组（兼容存量数据）。
   const dimensionFindings = useMemo(() => {
-    type Group = {
-      dimId: string;
-      dimName: string;
-      findings: ArtifactHighlight[];
-    };
-    const map = new Map<string, Group>();
+    if (qv.keyFindingsByDimension && qv.keyFindingsByDimension.length > 0) {
+      return qv.keyFindingsByDimension.map((g) => ({
+        dimId: g.dimensionId ?? g.dimensionName,
+        dimName: g.dimensionName,
+        items: g.findings.slice(0, 3),
+      }));
+    }
+    // legacy fallback: 从 topHighlights 派生
+    const map = new Map<
+      string,
+      {
+        dimId: string;
+        dimName: string;
+        items: { finding: string; significance: 'high' | 'medium' | 'low' }[];
+      }
+    >();
     for (const h of qv.topHighlights) {
-      // 跳过非 finding 类型（risk / opportunity 单独走红绿卡）
       if (h.type !== 'finding' && h.type !== 'trend') continue;
       const dimId = h.sourceDimensionId;
-      // dim 名从 sections 反查（type=dimension）
       const dimSec = artifact.sections.find(
         (s) => s.sourceDimensionId === dimId
       );
       const dimName = dimSec?.title ?? dimId ?? '未分类';
       if (!map.has(dimId)) {
-        map.set(dimId, { dimId, dimName, findings: [] });
+        map.set(dimId, { dimId, dimName, items: [] });
       }
-      map.get(dimId)!.findings.push(h);
+      map.get(dimId)!.items.push({
+        finding: h.title,
+        significance: 'medium',
+      });
     }
     return Array.from(map.values()).map((g) => ({
       ...g,
-      findings: g.findings.slice(0, 3), // 每维度 Top 3
+      items: g.items.slice(0, 3),
     }));
-  }, [qv.topHighlights, artifact.sections]);
-
-  // 风险机遇分组：keyRisks（红） + topHighlights type=opportunity（绿）
-  const opportunities = useMemo(
-    () => qv.topHighlights.filter((h) => h.type === 'opportunity').slice(0, 5),
-    [qv.topHighlights]
-  );
+  }, [qv.keyFindingsByDimension, qv.topHighlights, artifact.sections]);
 
   const keyCites = qv.keyCitations
     .map((idx) => artifact.citations.find((c) => c.index === idx))
     .filter((c): c is NonNullable<typeof c> => Boolean(c));
-  const keyFigures = qv.keyFigures
-    .map((id) => artifact.figures.find((f) => f.id === id))
-    .filter((f): f is NonNullable<typeof f> => Boolean(f));
 
   return (
     <div className="space-y-4">
@@ -233,7 +221,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
         </section>
       )}
 
-      {/* 维度 keyFindings —— 参考 TI QuickViewReport "Key Findings by Dimension" */}
+      {/* 维度核心发现（结构化 keyFindingsByDimension，含 significance 高/中/低） */}
       {dimensionFindings.length > 0 && (
         <section>
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
@@ -250,26 +238,21 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
                   {dim.dimName}
                 </h4>
                 <ul className="space-y-1.5">
-                  {dim.findings.map((h, idx) => (
+                  {dim.items.map((f, idx) => (
                     <li
                       key={idx}
                       className="flex items-start gap-2 text-sm leading-relaxed text-gray-600"
                     >
                       <span
                         className={`mt-1 inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${
-                          h.type === 'finding'
-                            ? 'bg-blue-400'
-                            : 'bg-emerald-400'
+                          f.significance === 'high'
+                            ? 'bg-red-400'
+                            : f.significance === 'medium'
+                              ? 'bg-amber-400'
+                              : 'bg-green-400'
                         }`}
                       />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-800">{h.title}</p>
-                        {h.oneLineSummary && (
-                          <p className="mt-0.5 text-xs text-gray-500">
-                            {cleanText(h.oneLineSummary)}
-                          </p>
-                        )}
-                      </div>
+                      <span>{cleanText(f.finding)}</span>
                     </li>
                   ))}
                 </ul>
@@ -279,43 +262,7 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
         </section>
       )}
 
-      {/* 关键图 —— playground 独有（TI 没图） */}
-      {keyFigures.length > 0 && (
-        <section>
-          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
-            <Sparkles className="h-4 w-4 text-violet-500" />
-            关键图表
-          </h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            {keyFigures.map((f) => {
-              const cite = artifact.citations.find(
-                (c) => c.index === f.evidenceCitationIndex
-              );
-              return (
-                <PublicFigureRenderer
-                  key={f.id}
-                  chart={toRenderableChart(f)}
-                  showSource
-                  allowZoom
-                  evidenceInfo={
-                    cite
-                      ? {
-                          id: cite.uuid || `cite-${cite.index}`,
-                          title: cite.title,
-                          url: cite.url,
-                          snippet: cite.snippet,
-                          domain: cite.domain,
-                        }
-                      : null
-                  }
-                />
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* 关键趋势 */}
+      {/* 关键趋势（带方向 + 时间窗口） */}
       {qv.topTrends.length > 0 && (
         <section>
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
@@ -323,111 +270,206 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
             关键趋势
           </h3>
           <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <ul className="space-y-1.5 text-sm">
-              {qv.topTrends.map((t, i) => (
-                <li key={i} className="flex items-start gap-2 text-gray-700">
-                  <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
-                  <div className="min-w-0 flex-1">
-                    <span className="font-medium">{t.title}</span>
-                    {t.description && (
-                      <span className="ml-1 text-gray-600">
-                        — {cleanText(t.description)}
+            <div className="space-y-2">
+              {qv.topTrends.map((t, idx) => (
+                <div key={idx} className="flex items-start gap-2 text-sm">
+                  <span className="mt-0.5 w-5 flex-shrink-0 text-center text-base">
+                    {t.direction ? DIRECTION_LABEL[t.direction] : '→'}
+                  </span>
+                  <div className="leading-relaxed">
+                    <span className="font-medium text-gray-800">
+                      {cleanText(t.description || t.title)}
+                    </span>
+                    {t.timeframe && (
+                      <span className="ml-1.5 text-xs text-gray-400">
+                        · {t.timeframe}
                       </span>
                     )}
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </section>
       )}
 
-      {/* 风险与机遇速览 —— TI 同款 红绿对比卡 */}
-      {(qv.keyRisks.length > 0 || opportunities.length > 0) && (
+      {/* 风险评估表（结构化 riskMatrix —— TI 同款 prob × impact × timeframe） */}
+      {qv.riskMatrix && qv.riskMatrix.length > 0 && (
         <section>
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
-            <Star className="h-4 w-4 text-amber-500" />
-            风险与机遇速览
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            风险评估
           </h3>
-          <div className="grid gap-3 md:grid-cols-2">
-            {/* 风险 */}
-            {qv.keyRisks.length > 0 && (
-              <div className="rounded-xl border border-red-100 bg-red-50/50 p-4">
-                <h4 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-red-700">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  关键风险
-                </h4>
-                <ol className="list-decimal space-y-2 pl-5">
-                  {qv.keyRisks.slice(0, 5).map((r, i) => (
-                    <li
-                      key={i}
-                      className="text-sm leading-relaxed text-red-700/85"
-                    >
-                      <span className="font-bold text-red-700">{r.title}</span>
-                      {r.description && (
-                        <span className="ml-1 text-red-700/70">
-                          — {cleanText(r.description)}
+          <div className="overflow-x-auto rounded-xl border border-red-100">
+            <table className="w-full text-sm">
+              <thead className="bg-red-50">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-medium text-red-700">
+                    风险类型
+                  </th>
+                  <th className="px-3 py-1.5 text-center font-medium text-red-700">
+                    概率
+                  </th>
+                  <th className="px-3 py-1.5 text-center font-medium text-red-700">
+                    影响
+                  </th>
+                  <th className="px-3 py-1.5 text-center font-medium text-red-700">
+                    时间窗口
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {qv.riskMatrix.map((risk, idx) => {
+                  const probColor =
+                    risk.probability === '高'
+                      ? 'bg-red-100 text-red-700'
+                      : risk.probability === '中'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-green-100 text-green-700';
+                  const impactColor =
+                    risk.impact === '高'
+                      ? 'bg-red-100 text-red-700'
+                      : risk.impact === '中'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-green-100 text-green-700';
+                  return (
+                    <tr key={idx} className="border-t border-red-50">
+                      <td className="px-3 py-1.5 text-gray-700">
+                        {risk.riskType}
+                      </td>
+                      <td className="px-3 py-1.5 text-center">
+                        <span
+                          className={`inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium ${probColor}`}
+                        >
+                          {risk.probability}
                         </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-            {/* 机遇（来源 topHighlights type=opportunity） */}
-            {opportunities.length > 0 && (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                <h4 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-emerald-700">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  机遇方向
-                </h4>
-                <ol className="list-decimal space-y-2 pl-5">
-                  {opportunities.map((h, i) => (
-                    <li
-                      key={i}
-                      className="text-sm leading-relaxed text-emerald-700/85"
-                    >
-                      <span className="font-bold text-emerald-700">
-                        {h.title}
+                      </td>
+                      <td className="px-3 py-1.5 text-center">
+                        <span
+                          className={`inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium ${impactColor}`}
+                        >
+                          {risk.impact}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-center text-gray-500">
+                        {risk.timeframe}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* 战略建议（按受众分组 forEnterprise / forInvestors × shortTerm / midTerm） */}
+      {qv.recommendationsByAudience &&
+        (qv.recommendationsByAudience.forEnterprise ||
+          qv.recommendationsByAudience.forInvestors) && (
+          <section>
+            <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
+              <Lightbulb className="h-4 w-4 text-amber-500" />
+              战略建议
+            </h3>
+            <div className="space-y-2.5">
+              {qv.recommendationsByAudience.forEnterprise && (
+                <div className="rounded-xl border border-gray-100 bg-white p-3">
+                  <h4 className="mb-2 text-sm font-bold text-indigo-700">
+                    对企业决策者
+                  </h4>
+                  {qv.recommendationsByAudience.forEnterprise.shortTerm.length >
+                    0 && (
+                    <div className="mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        短期 (6-12月)
                       </span>
-                      {h.oneLineSummary && (
-                        <span className="ml-1 text-emerald-700/70">
-                          — {cleanText(h.oneLineSummary)}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* 战略建议 */}
-      {qv.topRecommendations.length > 0 && (
-        <section>
-          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-bold text-gray-900">
-            <Lightbulb className="h-4 w-4 text-amber-500" />
-            战略建议
-          </h3>
-          <ul className="space-y-1.5 rounded-xl border border-gray-100 bg-white p-4 text-sm">
-            {qv.topRecommendations.map((r, i) => (
-              <li key={i} className="flex items-start gap-2 text-gray-700">
-                <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-500" />
-                <div className="min-w-0 flex-1">
-                  <span className="font-medium">{r.title}</span>
-                  {r.description && (
-                    <span className="ml-1 text-gray-600">
-                      — {cleanText(r.description)}
-                    </span>
+                      <ul className="mt-1 space-y-0.5">
+                        {qv.recommendationsByAudience.forEnterprise.shortTerm.map(
+                          (s, i) => (
+                            <li
+                              key={i}
+                              className="text-sm leading-relaxed text-gray-600"
+                            >
+                              {cleanText(s)}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  {qv.recommendationsByAudience.forEnterprise.midTerm.length >
+                    0 && (
+                    <div>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        中期 (1-3年)
+                      </span>
+                      <ul className="mt-1 space-y-0.5">
+                        {qv.recommendationsByAudience.forEnterprise.midTerm.map(
+                          (s, i) => (
+                            <li
+                              key={i}
+                              className="text-sm leading-relaxed text-gray-600"
+                            >
+                              {cleanText(s)}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
                   )}
                 </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+              )}
+              {qv.recommendationsByAudience.forInvestors && (
+                <div className="rounded-xl border border-gray-100 bg-white p-3">
+                  <h4 className="mb-2 text-sm font-bold text-emerald-700">
+                    对投资者
+                  </h4>
+                  {qv.recommendationsByAudience.forInvestors.shortTerm.length >
+                    0 && (
+                    <div className="mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        短期 (6-12月)
+                      </span>
+                      <ul className="mt-1 space-y-0.5">
+                        {qv.recommendationsByAudience.forInvestors.shortTerm.map(
+                          (s, i) => (
+                            <li
+                              key={i}
+                              className="text-sm leading-relaxed text-gray-600"
+                            >
+                              {cleanText(s)}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  {qv.recommendationsByAudience.forInvestors.midTerm.length >
+                    0 && (
+                    <div>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                        中期 (1-3年)
+                      </span>
+                      <ul className="mt-1 space-y-0.5">
+                        {qv.recommendationsByAudience.forInvestors.midTerm.map(
+                          (s, i) => (
+                            <li
+                              key={i}
+                              className="text-sm leading-relaxed text-gray-600"
+                            >
+                              {cleanText(s)}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
       {/* Top Citations */}
       {keyCites.length > 0 && (

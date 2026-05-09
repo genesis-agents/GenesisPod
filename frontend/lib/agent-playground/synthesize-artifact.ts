@@ -200,6 +200,10 @@ export function synthesizeArtifactFromV1(v1: V1Report): ReportArtifact {
       keyFigures: [],
       estimatedReadingTime: Math.max(1, Math.ceil(fullMarkdown.length / 400)),
       whatYouWillLearn: [],
+      // ★ PR-quickview-parity (2026-05-09): synthesize-artifact 走 v1 老路径，
+      //   不消费 analyst 结构化字段；保留空兜底以满足 ArtifactQuickView 类型契约。
+      riskMatrix: [],
+      keyFindingsByDimension: [],
     },
   };
 }

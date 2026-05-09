@@ -87,13 +87,37 @@ export interface ArtifactQuickView {
     title: string;
     description: string;
     sourceDimensionId?: string;
+    direction?: 'increasing' | 'decreasing' | 'stable' | 'emerging';
+    timeframe?: string;
   }[];
   keyRisks: { title: string; description: string }[];
   topRecommendations: { title: string; description: string }[];
   keyCitations: number[];
+  /** 兼容字段：v2 (PR-quickview-parity) 起前端不渲染，但 backend 仍填充供其他消费方。 */
   keyFigures: string[];
   estimatedReadingTime: number;
   whatYouWillLearn: string[];
+  /** 结构化风险矩阵（TI 同款），来源 analyst.riskMatrix。空数组时表格短路。 */
+  riskMatrix: {
+    riskType: string;
+    probability: '高' | '中' | '低';
+    impact: '高' | '中' | '低';
+    timeframe: string;
+  }[];
+  /** 按受众分组的战略建议（TI 同款）。来源 analyst.recommendationsByAudience。 */
+  recommendationsByAudience?: {
+    forEnterprise?: { shortTerm: string[]; midTerm: string[] };
+    forInvestors?: { shortTerm: string[]; midTerm: string[] };
+  };
+  /** 按维度分组的核心发现（TI 同款）。来源 analyst.keyFindingsByDimension。 */
+  keyFindingsByDimension: {
+    dimensionId?: string;
+    dimensionName: string;
+    findings: {
+      finding: string;
+      significance: 'high' | 'medium' | 'low';
+    }[];
+  }[];
 }
 
 export interface ArtifactHighlight {
