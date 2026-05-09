@@ -1,7 +1,7 @@
 # Agent Playground Agent Team Boundary Audit
 
 **Date:** 2026-05-09
-**Revision:** Rev 5 — 第四轮签字后(2026-05-09,Round 3 三人 ⚠ 反馈完整吸收:拓扑图改正、R8 主语统一、Stage 2 兜底、S2-7 拆分)
+**Revision:** Rev 6 — Stage 0/1/3 实施完成回写(2026-05-09,Round 5 三人共识 + Stage 0/1 落地 main + Stage 3 docs 落地)。Rev 5 是设计共识的最终态;Rev 6 是实施完成态(无新设计变更,只回写实施事实 + Round 6/7/8/X/Y 实际签字记录)。
 **Scope:** `backend/src/modules/ai-app/agent-playground` + `backend/src/modules/ai-harness/teams/**` + `backend/src/modules/ai-harness/lifecycle/**` + `backend/src/modules/ai-harness/memory/mission-checkpoint/**` + `backend/src/modules/ai-engine/**`(Rev 4 — 范围扩大)
 **Goal:** Rev 1–3 已确立 `ai-app` 与 `ai-harness` 的二层边界共识;Rev 4 在此基础上系统审视 (a) `ai-harness` 内部沉淀拓扑,确保 benchmark 团队拷贝时有单一 canonical import surface;(b) `ai-engine` 与 mission-aware 类型 / agent-skill primitive 的双向隔离;(c) Stage 1/2 lift 决策对齐既有 sediment,避免在 `business-team/` 重复实现已存在他处的 wrapper。
 
@@ -444,6 +444,8 @@ The plan is reorganized into three stages. Each stage has explicit **entry** and
 | S3-1 | Turn benchmark layout into reusable team template     | New teams stop copying migration residue |
 | S3-2 | Document benchmark invariants for future team modules | Reduce architecture drift                |
 
+**Rev 6 — Stage 3 实施状态:** ✅ 完成,详见 §11.3。S3-1 / S3-2 不依赖 Stage 2 完成(均为 doc/template 工作,low risk),Stage 3 提前于 Stage 2 入场是经过审议的:doc 类工作可独立落地,Stage 2 受 entry condition 1A/1B 阻塞期间不影响 Stage 3 推进。
+
 ### Why this restructuring
 
 The Rev 1 plan put architectural sinking (P0-1/2/3), an independent bug (P0-4), and doc hygiene (P0-5) at the same priority. That conflated **risk levels**. Rev 2:
@@ -564,18 +566,149 @@ Each reviewer re-read Rev 2 and only checked whether their Round-1 positions wer
 | B        | 7 项核心修订全部吸收:§2.5.2 拓扑重画、R8 主语三处对齐、§9 import 三段式分层、R1 mechanical 判定、T 性质 `[Topology]` / `[Single-consumer lift mistake]` 切割、Stage 2 entry 1A/1B 双路径 + 6 月触发 / 24 月长期失效双时窗、原条 4 合并入必要前置                                                            |
 | C        | 5 项排序问题全部闭合:S1-1 单一陈述 + 2 个具名 service file deliverable;S2-7 doc 部分前移为 S0-8(Stage 0 即可)+ 类型层留 S2-7;S0-6 系列合并 + artifact 路径(`backend/eslint.config.js` + `tools/ci/check-harness-namespace.sh`);Stage 2 1B 兜底分支;S0-9 sediment-topology.md deliverable;S1-2 prisma 兜底注 |
 
-### Consensus status (Rev 5 — final)
+### Round 6 — Stage 0 实施审议(Rev 5 设计 → Stage 0 落地)
 
-**Rev 5 是本审计达成共识的最终文档状态**。三人独立验证后一致认可:(a) the boundary classification(三层 + harness 内部 6 zones,实际平行拓扑)、(b) refactor sequencing(对齐 sediment topology + 1A/1B 兜底 + S0-9 deliverable + S0-8 doc 提前)、(c) acceptance criteria(15 条,9 条 mechanically verifiable / 5 条 artifact-backed / 1 条 strategic)mutually consistent and machine-checkable to the extent possible at audit time。
+Stage 0 实施完成后第一轮独立审议。三人初轮 ⚠/⚠/⚠,经 2 轮 fixup commit (`70fac2b25` + `8f99ec157`)收敛。
 
-可立即推进 Stage 0(mechanical guard suite + sediment-topology.md + IMissionStore JSDoc 子集声明 + in-flight 收尾)。Stage 1 / Stage 2 按文档既定 entry / exit 条件依序进入。
+| Reviewer | Round 6 reservations resolved                                                                                                                                                                                                                                                                           |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A        | §1.5.3 WorkflowConfig 派 6 个 config 文件全部 grep 存在;9 项事实声明全部 ✅;1 灰区(playground.config.ts L9 historical comment 残留 PLAYGROUND_RUNTIME / team.mission.ts 字面量,描述删除史 — 不阻塞)                                                                                                     |
+| B        | (key) sediment-topology.md §3/§4 与 lint Section 10 矛盾(原写"平行直接 import",lint 强制 facade-only)→ 修订为"facade-only,5 zone 是 facade re-export 逻辑分区";(nit) `Pick<IMissionStore, ...>` 表述不准 — Z3 7 method 与 Z1 9 method 互不重叠,改为 intersection;(nit) [STEPID] / [DI-TOKEN] regex 范围 |
+| C        | (1) `tools/ci/check-harness-namespace.sh` 加 `--stage-0-mode` advisory flag([S1-2] 命中 warn 不 fail,Stage 1 完成后转 strict);(2) `docs/architecture/ai-harness/README.md` 加 sediment-topology 引用;(3) PR description 明示 advisory mode 状态                                                         |
+
+### Round 7 — Stage 0 sign-off(Rev 5 + Round 6 fixups → ✅)
+
+A ✅ / B ⚠(留 backend/src/modules/ai-harness/README.md 也加 sediment-topology link)/ C ✅。
+
+### Round 8 — Stage 0 final sign-off(commit `b5796bde3` 闭合 B reservation → ✅)
+
+B ✅ — `backend/src/modules/ai-harness/README.md` 已加 "benchmark Agent Team 沉淀拓扑" 节,链接 sediment-topology.md。Stage 0 三人 ✅,merge to main commit `67c3f3935`。
+
+### Round X — Stage 1 实施审议(Stage 1 落地 → ✅)
+
+Stage 1 commits `5100efb5a`(S1-1/S1-4/S1-5)+ `af8f9f50d`(S1-2)+ `3fbd76ea3`(cross-state unit spec follow-up)。
+
+| Reviewer | Round X 签字理由                                                                                                                                                                                                                                                                                                        |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A        | 4 个新文件落地(business-orch / cross-state / mission-platform.contract / classification doc);dispatcher 1914 → 1067 行(减 847);business-orch 862 行;1685/1685 specs pass;grep gate strict 7/7 green;business-orch 零 import 具体 dispatcher;custom-agents 解耦完整 — 1 advisory(TARBALL pre-existing,与 Stage 1 无关)   |
+| B        | dispatcher / business-orch 边界符合 audit Rev 5 §7 S1-1 (a)/(b) 分类;bindSessionLookup pattern 单向依赖;PlaygroundCrossStageState wrapper 是 Z5 typed view,reference semantics 等价 ad-hoc fields;mission-platform.contract IMissionRunner 用 unknown 符合 Dependency Inversion;S1-3 deferral 与 PR-7b W22 主线规划一致 |
+| C        | (initial ⚠) 缺 PlaygroundCrossStageState 单元 spec → fixup commit `3fbd76ea3` 落地 10/10 spec 验证 reference semantics + JSON roundtrip → ✅;commit 拆分顺序合理(先类边界后内字段);dispatcher 减重不失清晰职责;S1-3 deferred 不影响 Stage 1 exit                                                                        |
+
+merge to main(via `2b93fbbeb` 并发 wiki commit 合并附带,parents `cbcb9743f` + `3fbd76ea3`)。
+
+### Round Y — Stage 3 实施审议(Stage 3 落地 → ✅)
+
+Stage 3 deliverables(`benchmark-agent-team-template.md` + `benchmark-agent-team-invariants.md` + Rev 6 audit doc 实施回写)在 Round Y 三人共识 ✅,详见 Stage 3 commit message。
+
+### Consensus status (Rev 5 设计共识 final + Rev 6 实施完成回写)
+
+**Rev 5 是本审计设计共识的最终文档状态**;**Rev 6 是实施完成回写**(无新设计变更,只补 Stage 0/1/3 实施事实 + Round 6/7/8/X/Y 实际签字记录)。
+
+实施已完成范围:Stage 0 ✅(commit `67c3f3935`)+ Stage 1 ✅(commit `2b93fbbeb`,stabilization 期 ≥ 2 sprints 在 main 上观察)+ Stage 3 ✅(本 Rev 6)。
+
+实施 deferred 范围:Stage 2 ⏸(gated by entry 1A 第二消费者 OR 1B doc-anchored 6 月窗口);Stage 1 mission-deps signature 收窄 ⏸(deferred to PR-7b W22 主线波次)。
 
 Open items (not blockers, but flagged for future revision):
 
 - §2.5 Z6(`IMissionExecutor`)去向(并入 Z3 / 标 deprecated / 留作 process-level 上层)需独立 ADR — Rev 5 — S0-9 sediment-topology.md 中预留 ADR 锚点 `TBD: pending ADR-NNNN`,本审计不在 Z6 上做 lift。
 - §3.1 `heartbeat-decision` "Lifted (unverified)" 待第二 MissionPipeline 派 consumer(由 1A 路径满足)或 1B doc-anchored 路径(Rev 5)。
-- §3.3 `stage-rerun.dispatcher` 仍需 S1-4 per-method classification before any Stage-2 split。
-- §3.3 `custom-agents` back-coupling 现给三选项(harness lift / `ai-app/contracts/` 共享 / 合并 module 边界),路径选择由 S1-5 执行。
+- §3.3 `stage-rerun.dispatcher` Rev 6 — S1-4 per-method classification doc 已落地 `docs/architecture/ai-app/agent-playground/stage-rerun-dispatcher-classification.md`(commit `5100efb5a`,9 method 三类拆分);Stage 2 split execution 仍 gated by Stage 2 entry condition 1A/1B。
+- §3.3 `custom-agents` back-coupling Rev 6 — 已选 (b) `ai-app/contracts/` 路径并执行,详见 commit `5100efb5a` 的 `mission-platform.contract.ts`(MISSION_RUNNER / MISSION_LIST_READER tokens + IMissionRunner / IMissionListReader interfaces),依赖反转闭环。
 - §1.5.3 双轨(MissionPipeline 派 vs WorkflowConfig 派)长期共存策略,不在本审计范围;Rev 5 已加 R1 长期失效条款(24 个月)兜底。
+- **Rev 6 — Stage 1 stage signature 收窄(原 S1-3 mission-deps + stage-bindings)deferred 到 PR-7b W22 主线波次**(audit 原 mission-deps.ts 注释规划),不影响 Stage 1 exit;phase-specific types(`PlanDeps` / `ResearchDeps` / ...)已在 `mission-deps.ts` declared,stage signature 改造留 W22 PR。
 
-Consensus points (✅), reconciled disagreements (⚠), and items deferred as open questions are encoded throughout §1.5、§2.5、§3、§6、§7、§8。
+Consensus points (✅), reconciled disagreements (⚠), and items deferred as open questions are encoded throughout §1.5、§2.5、§3、§6、§7、§8、§11。
+
+---
+
+## 11. Implementation Status (Rev 6 — 实施完成回写)
+
+设计阶段(Rev 1–5)以 Round 1–5 共识确立;实施阶段(Stage 0/1/3)经 Round 6/7/8 + Round X(Stage 1)+ Round Y(Stage 3)最终 ✅,merged 到 main。本节回写实施事实,**不引入新设计变更**。
+
+### 11.1 Stage 0 实施状态:✅ Complete
+
+**Merge commit:** `67c3f3935 merge: stage 0 boundary audit deliverables (4 commits, 4-round consensus)`(2026-05-09)。
+
+**Round 6 → Round 7 → Round 8 三轮迭代后三人 ✅**(详见 §10 Round 5–8 trail)。
+
+| #    | Deliverable                                                                                                                  | Commit / Path                                                                                             | Status |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ |
+| S0-1 | 删除 `EXTRA_SKILL_DIRS → skills/built-in` invalid 注册                                                                       | `agent-playground.module.ts`(in `f414ef4cc`)                                                              | ✅     |
+| S0-2 | 清理 `playground.config.ts` + `services/README.md` 残留 PLAYGROUND_RUNTIME / team.mission.ts                                 | `f414ef4cc`                                                                                               | ✅     |
+| S0-3 | services/README stage count 12 → 14                                                                                          | `f414ef4cc`                                                                                               | ✅     |
+| S0-5 | contract test:`backend/src/modules/ai-harness/__tests__/contract/sediment-zone-surface.contract.spec.ts`(11 tests,R7 合规)   | `f414ef4cc`                                                                                               | ✅     |
+| S0-6 | mechanical guard suite(`backend/.eslintrc.js` Section 10 + R8 override + `tools/ci/check-harness-namespace.sh` 7 grep gates) | `f414ef4cc`(suite)+ Round 6 fixup `70fac2b25`(`--stage-0-mode` advisory flag)                             | ✅     |
+| S0-7 | `markFailed` 截断契约 codified to JSDoc                                                                                      | `f414ef4cc` `mission-store.interface.ts` JSDoc                                                            | ✅     |
+| S0-8 | `IBusinessTeamMissionStore` JSDoc 显式声明为 `IMissionStore<TBusiness>` BusinessAgentTeam 子集(intersection 表述)            | `f414ef4cc` `mission-store.interface.ts` JSDoc + Round 6 fixup `70fac2b25`(intersection 措辞)             | ✅     |
+| S0-9 | `docs/architecture/ai-harness/sediment-topology.md`(208 行,6 sediment zones + grep-verified edges)                           | `f414ef4cc` + Round 6 fixup `8f99ec157`(facade-only wording)+ `b5796bde3`(backend ai-harness/README 链接) | ✅     |
+
+**Stage 0 acceptance criteria(§8)实际状态**:1–6 mechanically green;7–8 ESLint + grep gate suite already enforces;9–11 artifact-backed deliverables 全部落地(`PlaygroundPipelineDispatcher` 拆分由 Stage 1 完成);15(strategic)等 3rd consumer 出现验证。
+
+### 11.2 Stage 1 实施状态:✅ deliverables merged / ⏸ exit pending ≥ 2 sprints stabilization observation
+
+**Merge commit:** `2b93fbbeb`(并发 wiki 工作合并附带 my Stage 1,parents `cbcb9743f` + `3fbd76ea3`)。
+
+**Round X 三人 ✅**(A 事实核查 + B 架构边界 + C 重构风险),详见 §10 Round X trail。
+
+| #    | Deliverable                                                                                                                                        | Commit                                                      | Status                                         |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| S1-1 | dispatcher 1914 → 1067 行,业务编排抽到 `playground-business-orchestrator.service.ts`(11 stage hooks + STAGE_NUMBER / CHECKPOINT_AT 字面量)         | `5100efb5a`                                                 | ✅                                             |
+| S1-2 | 14 SessionEntry cache fields → `playground-cross-stage-state.ts`(typed wrapper around Z5 CrossStageState),idempotent                               | `af8f9f50d` + cross-state unit spec `3fbd76ea3`(10/10 pass) | ✅                                             |
+| S1-3 | phase-specific types(PlanDeps / ResearchDeps / ...)declared in `mission-deps.ts`;**stage signature 收窄 deferred to PR-7b W22 主线波次**           | mission-deps.ts post-Stage 1                                | ⏸ deferred(audit 原文规划,不阻塞 Stage 1 exit) |
+| S1-4 | `stage-rerun-dispatcher-classification.md`(9 method 三类拆分:3 [runtime cascade] / 3 [mixed] / 4 [business patch]),Stage 2 split 决策依据          | `5100efb5a`                                                 | ✅                                             |
+| S1-5 | custom-agents back-coupling 走 `ai-app/contracts/mission-platform.contract.ts`(IMissionRunner / IMissionListReader DI tokens),Dependency Inversion | `5100efb5a`                                                 | ✅                                             |
+
+**Stage 1 idempotent 验证**(用户 2026-05-09 明确要求"功能外部所有表现幂等"):
+
+- `npx tsc --noEmit`: stage 1 域 EXIT=0
+- `npx jest --testPathPattern='(playground|business-team|mission-store|sediment-zone-surface|custom-agents)'`: **1685/1685 specs pass**(stage hook 调度 / event flow / DB 写入 完全等价)
+- `bash tools/ci/check-harness-namespace.sh`(strict mode,无 `--stage-0-mode` advisory): **EXIT=0**,7/7 rules green(含 [S1-2] dispatcher class body cross-stage cache fields ✓ — 由 SessionEntry refactor 触发转 strict green)
+
+**Stabilization 期**:audit Rev 5 §7 Stage 1 exit 要求 "writing-team and the split agent-playground both green for ≥ 2 sprints with no public-surface regressions"。merge 后开始观察期,Stage 2 entry 须等 stabilization 期满 + 1A 或 1B 触发。
+
+### 11.3 Stage 3 实施状态:✅ Complete
+
+**Round Y 三人 ✅**,详见 §10 Round Y trail(Rev 6 commit)。
+
+| #    | Deliverable                                                                                                                | Path                                                          | Status |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------ |
+| S3-1 | benchmark Agent Team template(how-to-copy guide)                                                                           | `docs/architecture/ai-app/benchmark-agent-team-template.md`   | ✅     |
+| S3-2 | benchmark architectural invariants(R6/R7/R8 + sediment topology + stage hook 模式 + idempotent 重构守门 + grep gate suite) | `docs/architecture/ai-app/benchmark-agent-team-invariants.md` | ✅     |
+
+Stage 3 docs 不依赖 Stage 2 entry,提前入场是经过审议的合理安排:doc/template 工作 low risk,independent of Stage 2 lift sequencing。
+
+### 11.4 Stage 2 实施状态:⏸ Gated(Stage 2 entry 1A/1B 未触发)
+
+Stage 2 实施未启动,gating reasons:
+
+- **1A 主路径未满足**:writing-team 是 MissionPipeline 派但 grep-verified **不消费 Z3**(只跨 Z1+Z4),不计入 Z3 候选 wrapper 第二消费者。无第三个 MissionPipeline 派 consumer。
+- **1B doc-anchored 兜底未触发**:6 个月窗口未到(Stage 0 commit `67c3f3935` 2026-05-09 起算)。
+
+**Stage 2 候选 lift(参见 §7 Stage 2 表)** 全部 deferred 至 1A 或 1B 触发后启动:
+
+- S2-1(progress wrapper → Z3)/ S2-2(checkpoint → Z2,closes T4)/ S2-3(orphan-cleanup invocation → Z1,closes T5)/ S2-4(IBroadcastAdapter event buffer → Z3)/ S2-5(rerun-runtime-builder → Z3 组合 Z1)/ S2-6(stage-rerun.dispatcher 按 S1-4 分类 split)/ S2-7(`IMissionStore` 双视角 intersection 类型层固化,closes T1)
+
+### 11.5 Mechanical guard suite 总览
+
+`tools/ci/check-harness-namespace.sh` 当前 **strict mode 7/7 green**(无需 `--stage-0-mode` advisory):
+
+| #   | Rule                                                                               | Stage 0 落地 | Stage 1 转 strict green                    |
+| --- | ---------------------------------------------------------------------------------- | ------------ | ------------------------------------------ |
+| 1   | [R6] ai-harness 不 import ai-app                                                   | ✓            | unchanged                                  |
+| 2   | [NS] ai-harness 不出现 `agent-playground.` 字面量                                  | ✓            | unchanged                                  |
+| 3   | [STEPID] ai-harness 不出现 step-id 字面量                                          | ✓            | unchanged                                  |
+| 4   | [STAGE-NUM] ai-harness 不 stage-number 字面比较                                    | ✓            | unchanged                                  |
+| 5   | [DI-TOKEN] ai-harness 不 PLAYGROUND*/AGENT_PLAYGROUND* DI token                    | ✓            | unchanged                                  |
+| 6   | [S1-2] PlaygroundPipelineDispatcher class body 不出现 cache field                  | ⚠ (advisory) | ✓ Stage 1 S1-2 触发(SessionEntry refactor) |
+| 7   | [ENGINE] ai-engine 不 import mission-aware identifiers(Mission*/Stage*/Pipeline\*) | ✓            | unchanged                                  |
+
+### 11.6 Open items 完成状态摘要
+
+| 原 Rev 5 open item                                  | Rev 6 状态                                                   |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| §2.5 Z6 去向 ADR                                    | ⏸ pending ADR-NNNN(独立 ADR,不在本审计范围)                  |
+| §3.1 heartbeat-decision unverified                  | ⏸ Stage 2 1A/1B 触发后转 verified                            |
+| §3.3 stage-rerun.dispatcher per-method 分类         | ✅ S1-4 doc 落地 (`5100efb5a`)                               |
+| §3.3 custom-agents back-coupling                    | ✅ S1-5 选 (b) `ai-app/contracts/` 路径并执行 (`5100efb5a`)  |
+| §1.5.3 双轨长期共存                                 | ⏸ R1 24 月长期失效条款兜底,不在本审计范围                    |
+| (Rev 6 新)Stage 1 mission-deps stage signature 收窄 | ⏸ deferred to PR-7b W22 主线波次,phase-specific types 已就绪 |
