@@ -34,10 +34,14 @@ import {
   OnModuleInit,
   OnModuleDestroy,
 } from "@nestjs/common";
-import { Prisma, KnowledgeBaseStatus, WikiDiffStatus } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../runtime/r2-storage.service";
 import { OFFLOAD_PREFIXES } from "./offload-prefixes";
+import {
+  OFFLOAD_TARGETS,
+  type OffloadRow,
+  type OffloadTarget,
+} from "./storage-offload.registry";
 
 const INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
 const FIRST_RUN_DELAY_MS = 5 * 60 * 1000; // 启动 5 分钟后首次触发
@@ -45,41 +49,11 @@ const BATCH_SIZE = 50;
 const CONCURRENCY = 4;
 const OFFLOAD_THRESHOLD = 2048; // <2KB 不迁
 
-// 30 天 grace 给 UI 历史 diff 查看走 DB 不打 R2；env 可调
-const WIKI_DIFF_GRACE_DAYS = parseInt(
-  process.env.OFFLOAD_GRACE_DAYS_WIKI_DIFF ?? "30",
-  10,
-);
-
 // 孤儿清理批量枚举上限（每次 run 扫的 R2 对象数）
 const ORPHAN_LIST_BATCH = 1000;
 
 // pg_advisory_lock 键：任意 64bit 整数；取自 crc32("storage_offload") 便于唯一识别
 const ADVISORY_LOCK_KEY = 834_612_099;
-
-interface OffloadTarget {
-  name: string;
-  // 查询符合条件的行（uri IS NULL, 内容非空/非 null）
-  list: (
-    prisma: PrismaService,
-    take: number,
-  ) => Promise<Array<{ id: string; content: string; version?: number }>>;
-  // 上传成功后写 uri + size 并清空 content
-  commit: (
-    prisma: PrismaService,
-    id: string,
-    uri: string,
-    size: number,
-  ) => Promise<void>;
-  // 太小跳过时只记录 size
-  recordSmall: (
-    prisma: PrismaService,
-    id: string,
-    size: number,
-  ) => Promise<void>;
-  keyFor: (id: string, version?: number) => string;
-  contentType: string;
-}
 
 @Injectable()
 export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
@@ -113,242 +87,7 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
   }
 
   private buildTargets(): OffloadTarget[] {
-    return [
-      {
-        name: "topic_reports.full_report",
-        list: async (p, take) => {
-          const rows = await p.topicReport.findMany({
-            where: { fullReportUri: null, fullReport: { not: "" } },
-            select: { id: true, version: true, fullReport: true },
-            take,
-          });
-          return rows.map((r) => ({
-            id: r.id,
-            version: r.version,
-            content: r.fullReport ?? "",
-          }));
-        },
-        commit: async (p, id, uri, size) => {
-          await p.topicReport.update({
-            where: { id },
-            data: {
-              fullReport: "",
-              fullReportUri: uri,
-              fullReportSize: size,
-            },
-          });
-        },
-        recordSmall: async (p, id, size) => {
-          await p.topicReport.update({
-            where: { id },
-            data: { fullReportSize: size },
-          });
-        },
-        keyFor: (id, version) => `topic-reports/${id}/v${version ?? 1}.md`,
-        contentType: "text/markdown; charset=utf-8",
-      },
-      {
-        name: "dimension_analyses.data_points",
-        list: async (p, take) => {
-          // DbNull 表示 SQL NULL；Prisma 下过滤 JSON 字段"不为 NULL"要用 Prisma.DbNull 取反
-          const rows = await p.dimensionAnalysis.findMany({
-            where: {
-              dataPointsUri: null,
-              NOT: { dataPoints: { equals: Prisma.DbNull } },
-            },
-            select: { id: true, dataPoints: true },
-            take,
-          });
-          return rows
-            .filter((r) => r.dataPoints !== null)
-            .map((r) => ({
-              id: r.id,
-              content: JSON.stringify(r.dataPoints),
-            }));
-        },
-        commit: async (p, id, uri, size) => {
-          // 一条 raw SQL 同时写 URI + 清 data_points（原子更新）
-          await p.$executeRawUnsafe(
-            `UPDATE dimension_analyses SET data_points=NULL, data_points_uri=$1, data_points_size=$2 WHERE id=$3`,
-            uri,
-            size,
-            id,
-          );
-        },
-        recordSmall: async (p, id, size) => {
-          await p.dimensionAnalysis.update({
-            where: { id },
-            data: { dataPointsSize: size },
-          });
-        },
-        keyFor: (id) => `dimension-analyses/${id}/data_points.json`,
-        contentType: "application/json; charset=utf-8",
-      },
-      {
-        name: "research_tasks.result",
-        list: async (p, take) => {
-          const rows = await p.researchTask.findMany({
-            where: {
-              resultUri: null,
-              NOT: { result: { equals: Prisma.DbNull } },
-            },
-            // P0 (2026-05-05): 同时 select resultUri 避免 PrismaService hydrate
-            //   hook 触发 "result without resultUri" warn —— 此处虽明知
-            //   resultUri 为 null，但 hydrate 不知道，select 缺它就 warn 警告
-            select: { id: true, result: true, resultUri: true },
-            take,
-          });
-          return rows
-            .filter((r) => r.result !== null)
-            .map((r) => ({
-              id: r.id,
-              content: JSON.stringify(r.result),
-            }));
-        },
-        commit: async (p, id, uri, size) => {
-          await p.$executeRawUnsafe(
-            `UPDATE research_tasks SET result=NULL, result_uri=$1, result_size=$2 WHERE id=$3`,
-            uri,
-            size,
-            id,
-          );
-        },
-        recordSmall: async (p, id, size) => {
-          await p.researchTask.update({
-            where: { id },
-            data: { resultSize: size },
-          });
-        },
-        keyFor: (id) => `research-tasks/${id}/result.json`,
-        contentType: "application/json; charset=utf-8",
-      },
-      {
-        // 2026-05-09: KBDocument.raw_content off-load
-        // 仅扫已完成 chunking 的行（status=READY），防止 PENDING/PROCESSING/UPDATING
-        // 状态下 chunking pipeline 还在读 raw_content 时被搬走 → hydrate 回填
-        // 是 cross-process round-trip，并发场景慢于直读 DB。
-        // ERROR 状态也 skip：admin 可能重试，需要原文。
-        name: "knowledge_base_documents.raw_content",
-        list: async (p, take) => {
-          const rows = await p.knowledgeBaseDocument.findMany({
-            where: {
-              rawContentUri: null,
-              status: KnowledgeBaseStatus.READY,
-              NOT: { rawContent: "" },
-            },
-            select: {
-              id: true,
-              rawContent: true,
-              rawContentUri: true,
-            },
-            take,
-          });
-          return rows.map((r) => ({
-            id: r.id,
-            content: r.rawContent ?? "",
-          }));
-        },
-        commit: async (p, id, uri, size) => {
-          // raw SQL 同时清 raw_content + 写 uri/size，避免 hydrate 拦截 update
-          await p.$executeRawUnsafe(
-            `UPDATE knowledge_base_documents SET raw_content='', raw_content_uri=$1, raw_content_size=$2 WHERE id=$3`,
-            uri,
-            size,
-            id,
-          );
-        },
-        recordSmall: async (p, id, size) => {
-          await p.knowledgeBaseDocument.update({
-            where: { id },
-            data: { rawContentSize: size },
-          });
-        },
-        keyFor: (id) => `kb-documents/${id}/raw.txt`,
-        contentType: "text/plain; charset=utf-8",
-      },
-      {
-        // 2026-05-09: WikiPageRevision.body off-load
-        // Revision 是 append-only 极冷数据（仅 revert 时读），写后即可迁。
-        name: "wiki_page_revisions.body",
-        list: async (p, take) => {
-          const rows = await p.wikiPageRevision.findMany({
-            where: {
-              bodyUri: null,
-              NOT: { body: "" },
-            },
-            select: { id: true, body: true, bodyUri: true },
-            take,
-          });
-          return rows.map((r) => ({
-            id: r.id,
-            content: r.body ?? "",
-          }));
-        },
-        commit: async (p, id, uri, size) => {
-          await p.$executeRawUnsafe(
-            `UPDATE wiki_page_revisions SET body='', body_uri=$1, body_size=$2 WHERE id=$3`,
-            uri,
-            size,
-            id,
-          );
-        },
-        recordSmall: async (p, id, size) => {
-          await p.wikiPageRevision.update({
-            where: { id },
-            data: { bodySize: size },
-          });
-        },
-        keyFor: (id) => `wiki-revisions/${id}/body.md`,
-        contentType: "text/markdown; charset=utf-8",
-      },
-      {
-        // 2026-05-09: WikiDiff.items 终态归档
-        // 仅扫 APPLIED|DISMISSED 且 30 天前的终态行：PENDING 必须留 DB（apply 事务读 items），
-        // CONFLICTED 留 DB（debug 历史），30d grace 给 UI 展示历史 diff 不打 R2。
-        // items 是 Json 非空字段 → 写 JSONB null（'null'::jsonb）保留 NOT NULL 约束。
-        name: "wiki_diffs.items",
-        list: async (p, take) => {
-          const cutoff = new Date(
-            Date.now() - WIKI_DIFF_GRACE_DAYS * 24 * 60 * 60 * 1000,
-          );
-          const rows = await p.wikiDiff.findMany({
-            where: {
-              itemsUri: null,
-              status: {
-                in: [WikiDiffStatus.APPLIED, WikiDiffStatus.DISMISSED],
-              },
-              createdAt: { lt: cutoff },
-              NOT: { items: { equals: Prisma.JsonNull } },
-            },
-            select: { id: true, items: true, itemsUri: true },
-            take,
-          });
-          return rows
-            .filter((r) => r.items !== null)
-            .map((r) => ({
-              id: r.id,
-              content: JSON.stringify(r.items),
-            }));
-        },
-        commit: async (p, id, uri, size) => {
-          // 写 JSONB null 而非 SQL NULL（schema items NOT NULL）
-          await p.$executeRawUnsafe(
-            `UPDATE wiki_diffs SET items='null'::jsonb, items_uri=$1, items_size=$2 WHERE id=$3`,
-            uri,
-            size,
-            id,
-          );
-        },
-        recordSmall: async (p, id, size) => {
-          await p.wikiDiff.update({
-            where: { id },
-            data: { itemsSize: size },
-          });
-        },
-        keyFor: (id) => `wiki-diffs/${id}/items.json`,
-        contentType: "application/json; charset=utf-8",
-      },
-    ];
+    return [...OFFLOAD_TARGETS];
   }
 
   /** 外部可手动触发（健康检查 / 手动测试） */
@@ -421,7 +160,7 @@ export class StorageOffloadService implements OnModuleInit, OnModuleDestroy {
       const rows = await target.list(this.prisma, BATCH_SIZE);
       if (rows.length === 0) break;
 
-      await this.mapPool(rows, CONCURRENCY, async (r) => {
+      await this.mapPool(rows, CONCURRENCY, async (r: OffloadRow) => {
         const size = Buffer.byteLength(r.content, "utf-8");
         if (size === 0) return;
         if (size < OFFLOAD_THRESHOLD) {

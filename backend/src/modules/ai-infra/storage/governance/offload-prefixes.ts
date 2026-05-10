@@ -111,6 +111,28 @@ export const OFFLOAD_PREFIXES: readonly OffloadPrefix[] = [
       return new Set(rows.map((r) => r.id));
     },
   },
+  {
+    prefix: "playground-missions/",
+    extractId: extractAfterPrefix("playground-missions/"),
+    listLiveIds: async (p, ids) => {
+      const rows = await p.agentPlaygroundMission.findMany({
+        where: { id: { in: ids } },
+        select: { id: true },
+      });
+      return new Set(rows.map((r) => r.id));
+    },
+  },
+  {
+    prefix: "playground-report-versions/",
+    extractId: extractAfterPrefix("playground-report-versions/"),
+    listLiveIds: async (p, ids) => {
+      const rows = await p.missionReportVersion.findMany({
+        where: { id: { in: ids } },
+        select: { id: true },
+      });
+      return new Set(rows.map((r) => r.id));
+    },
+  },
 ];
 
 // 一致性自检（启动期 dev 期发现）：OFFLOAD_PREFIXES 必须覆盖 OFFLOAD_KEY_PREFIXES

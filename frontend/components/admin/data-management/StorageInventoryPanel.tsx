@@ -1,20 +1,9 @@
 'use client';
 
-/**
- * StorageInventoryPanel — 数据存储清单面板（Tier A + B 优化版）
- *
- * 改进：
- * - i18n via useTranslation
- * - 共享 ResponsiveCard 组件做布局（视觉风格对齐）
- * - 运行 Off-load 加 ConfirmDialog 确认
- * - 相对时间 ("5 分钟前") + 手动刷新
- * - R2 bucket 名可点击跳 Cloudflare dashboard
- * - 进度条颜色分段 (<50% 灰 / 50-90% 蓝 / >90% 绿) + aria-progressbar
- * - 防御性 null check，单字段失败不崩整个面板
- */
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ArrowRight,
+  ChartColumn,
   Cloud,
   Database,
   Download,
@@ -22,8 +11,9 @@ import {
   HardDrive,
   Play,
   RefreshCw,
+  Rows3,
+  ShieldCheck,
 } from 'lucide-react';
-import { useTranslation } from '@/lib/i18n';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { toast } from '@/stores';
@@ -40,6 +30,7 @@ interface TableStat {
   totalBytes: number;
   totalHuman: string;
 }
+
 interface OffloadFieldStat {
   table: string;
   field: string;
@@ -49,12 +40,14 @@ interface OffloadFieldStat {
   rowsWithUri: number;
   rowsWithDbContent: number;
 }
+
 interface R2PrefixStat {
   prefix: string;
   objects: number;
   bytes: number;
   bytesHuman: string;
 }
+
 interface StorageInventory {
   database: {
     totalBytes: number;
@@ -80,10 +73,37 @@ interface TrendPoint {
   r2Objects: number;
 }
 
-type TabKey = 'overview' | 'offload' | 'trend' | 'buckets' | 'tables';
+type TabKey = 'overview' | 'pipeline' | 'catalog' | 'database' | 'trend';
+
+const TABS: Array<{ key: TabKey; label: string; hint: string }> = [
+  {
+    key: 'overview',
+    label: '概览',
+    hint: '管理层总览',
+  },
+  {
+    key: 'pipeline',
+    label: 'Offload Pipeline',
+    hint: 'DB 到 R2 迁移能力',
+  },
+  {
+    key: 'catalog',
+    label: 'R2 Catalog',
+    hint: 'R2 实际对象目录',
+  },
+  {
+    key: 'database',
+    label: 'DB Footprint',
+    hint: '数据库占用明细',
+  },
+  {
+    key: 'trend',
+    label: 'Trend',
+    hint: '30 天体量走势',
+  },
+];
 
 export default function StorageInventoryPanel() {
-  const { t } = useTranslation();
   const [data, setData] = useState<StorageInventory | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +113,6 @@ export default function StorageInventoryPanel() {
   const [now, setNow] = useState(Date.now());
   const [tab, setTab] = useState<TabKey>('overview');
 
-  // 每 30 秒 tick 一次让 "X 分钟前" 自动更新（不重新 fetch）
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
@@ -123,32 +142,36 @@ export default function StorageInventoryPanel() {
           ? (invRaw as { data: StorageInventory }).data
           : (invRaw as StorageInventory);
       setData(payload);
+
       if (trendRes.ok) {
         const trendRaw = (await trendRes.json()) as
           | TrendPoint[]
           | { data?: TrendPoint[] };
-        const trendPoints = Array.isArray(trendRaw)
-          ? trendRaw
-          : (trendRaw.data ?? []);
-        setTrend(trendPoints);
+        setTrend(Array.isArray(trendRaw) ? trendRaw : (trendRaw.data ?? []));
       }
     } catch (e) {
       const msg = (e as Error).message;
       setError(
         msg === 'UNAUTHORIZED'
-          ? t('admin.storageInventory.errorUnauthorized')
-          : t('admin.storageInventory.errorGeneric')
+          ? '未授权访问存储管理接口。'
+          : '存储管理数据获取失败。'
       );
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const exportJson = useCallback(() => {
     if (!data) return;
     const blob = new Blob(
       [JSON.stringify({ inventory: data, trend }, null, 2)],
-      { type: 'application/json' }
+      {
+        type: 'application/json',
+      }
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -157,10 +180,6 @@ export default function StorageInventoryPanel() {
     a.click();
     URL.revokeObjectURL(url);
   }, [data, trend]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const confirmRun = useCallback(async () => {
     setTriggering(true);
@@ -175,43 +194,37 @@ export default function StorageInventoryPanel() {
         }
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      // 后端是 fire-and-forget，POST 瞬间就返回 200；
-      // UI 上：弹 toast 明确告诉用户"已触发"，按钮保持禁用 20 秒，
-      // 期间每 5 秒 poll 一次 inventory 拉新进度。
-      toast.success(
-        t('admin.storageInventory.offload.runNow'),
-        t('admin.storageInventory.offload.runTriggered')
-      );
-      const pollEvery = 5_000;
-      const rounds = 4;
-      for (let i = 0; i < rounds; i++) {
-        await new Promise((r) => setTimeout(r, pollEvery));
+      toast.success('Offload 已触发', '后台已经开始执行 DB 到 R2 的迁移批次。');
+      for (let i = 0; i < 4; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
         await load();
       }
     } catch (e) {
       const msg = (e as Error).message;
       setError(msg);
-      toast.error(t('admin.storageInventory.offload.runNow'), msg);
+      toast.error('Offload 触发失败', msg);
     } finally {
       setTriggering(false);
     }
-  }, [load, t]);
+  }, [load]);
 
   const relative = useMemo(() => {
     if (!data?.generatedAt) return '';
     const diff = Math.max(0, now - new Date(data.generatedAt).getTime());
-    if (diff < 60_000) return t('common.justNow', { default: 'just now' });
-    const m = Math.round(diff / 60_000);
-    if (m < 60) return `${m}m ago`;
-    return `${Math.round(m / 60)}h ago`;
-  }, [data, now, t]);
+    if (diff < 60_000) return '刚刚';
+    const minutes = Math.round(diff / 60_000);
+    if (minutes < 60) return `${minutes} 分钟前`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours} 小时前`;
+    return `${Math.round(hours / 24)} 天前`;
+  }, [data, now]);
 
   if (loading && !data) {
     return (
       <ResponsiveCard>
         <ResponsiveCardContent>
-          <div className="animate-pulse text-sm text-gray-500">
-            {t('admin.storageInventory.loading')}
+          <div className="animate-pulse py-10 text-base text-slate-500">
+            正在加载存储管理视图...
           </div>
         </ResponsiveCardContent>
       </ResponsiveCard>
@@ -222,17 +235,14 @@ export default function StorageInventoryPanel() {
     return (
       <ResponsiveCard>
         <ResponsiveCardContent>
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-red-700 dark:text-red-400">
-              {error}
-            </div>
+          <div className="flex items-center justify-between gap-4 py-6">
+            <div className="text-base text-rose-700">{error}</div>
             <button
               onClick={() => void load()}
-              aria-label={t('admin.storageInventory.errorRetry')}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
             >
-              <RefreshCw className="h-3 w-3" />
-              {t('admin.storageInventory.errorRetry')}
+              <RefreshCw className="h-4 w-4" />
+              重新加载
             </button>
           </div>
         </ResponsiveCardContent>
@@ -242,18 +252,74 @@ export default function StorageInventoryPanel() {
 
   if (!data) return null;
 
-  const db = data.database ?? { totalBytes: 0, totalHuman: '0 B', tables: [] };
-  const r2 = data.r2 ?? {
-    configured: false,
-    bucket: null,
-    totalObjects: 0,
-    totalBytes: 0,
-    totalHuman: '0 B',
-    byPrefix: [],
-  };
-  const offloadFields = data.offloadFields ?? [];
+  const db = data.database;
+  const r2 = data.r2;
+  const offloadFields = [...data.offloadFields].sort((a, b) =>
+    `${a.table}.${a.field}`.localeCompare(`${b.table}.${b.field}`)
+  );
+  const registeredPrefixMap = new Map<
+    string,
+    {
+      targetCount: number;
+      dbRows: number;
+      migratedRows: number;
+      remainingRows: number;
+    }
+  >();
+  for (const row of offloadFields) {
+    const entry = registeredPrefixMap.get(row.r2Prefix) ?? {
+      targetCount: 0,
+      dbRows: 0,
+      migratedRows: 0,
+      remainingRows: 0,
+    };
+    entry.targetCount += 1;
+    entry.dbRows += row.totalRows;
+    entry.migratedRows += row.rowsWithUri;
+    entry.remainingRows += row.rowsWithDbContent;
+    registeredPrefixMap.set(row.r2Prefix, entry);
+  }
 
-  const cloudflareUrl = r2.bucket
+  const catalogRows = Array.from(
+    new Set([
+      ...Array.from(registeredPrefixMap.keys()),
+      ...(r2.byPrefix ?? []).map((row) => row.prefix),
+    ])
+  )
+    .map((prefix) => {
+      const live = r2.byPrefix.find((row) => row.prefix === prefix);
+      const registered = registeredPrefixMap.get(prefix);
+      return {
+        prefix,
+        objects: live?.objects ?? 0,
+        bytes: live?.bytes ?? 0,
+        bytesHuman: live?.bytesHuman ?? '0 B',
+        targetCount: registered?.targetCount ?? 0,
+        managed: Boolean(registered),
+        dbRows: registered?.dbRows ?? 0,
+        migratedRows: registered?.migratedRows ?? 0,
+        remainingRows: registered?.remainingRows ?? 0,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.bytes - a.bytes ||
+        b.objects - a.objects ||
+        a.prefix.localeCompare(b.prefix)
+    );
+
+  const totalManagedTargets = offloadFields.length;
+  const totalMigratedRows = offloadFields.reduce(
+    (sum, row) => sum + row.rowsWithUri,
+    0
+  );
+  const totalRemainingRows = offloadFields.reduce(
+    (sum, row) => sum + row.rowsWithDbContent,
+    0
+  );
+  const managedPrefixCount = registeredPrefixMap.size;
+  const observedPrefixCount = r2.byPrefix.length;
+  const bucketUrl = r2.bucket
     ? `https://dash.cloudflare.com/?to=/:account/r2/default/buckets/${r2.bucket}`
     : null;
 
@@ -261,190 +327,427 @@ export default function StorageInventoryPanel() {
     <>
       <ResponsiveCard>
         <ResponsiveCardHeader>
-          <div className="flex items-center justify-between">
-            <div className="inline-flex items-center gap-2">
-              <ResponsiveCardTitle>
-                {t('admin.storageInventory.title')}
-              </ResponsiveCardTitle>
-              <span className="text-xs font-normal text-gray-500">
-                DB {db.totalHuman} · R2 {r2.totalHuman}
-              </span>
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
+                  Storage Governance
+                </div>
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-end">
+                  <ResponsiveCardTitle className="text-3xl font-semibold tracking-tight text-slate-950">
+                    存储治理控制台
+                  </ResponsiveCardTitle>
+                  <div className="text-sm text-slate-500">
+                    DB {db.totalHuman} · R2 {r2.totalHuman} · {relative}
+                  </div>
+                </div>
+                <p className="max-w-4xl text-base leading-7 text-slate-600">
+                  统一审视数据库冷数据迁移、R2
+                  实际对象分布、各业务前缀的落盘情况。未来新增 offload
+                  目标只要接入统一注册表，就会自动进入本页展示。
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={exportJson}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <Download className="h-4 w-4" />
+                  导出快照
+                </button>
+                <button
+                  onClick={() => void load()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                  />
+                  刷新
+                </button>
+                <button
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={!r2.configured || triggering}
+                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Play className="h-4 w-4" />
+                  {triggering ? '执行中' : '立即运行 Offload'}
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              {relative && (
-                <span>
-                  {t('admin.storageInventory.footer.generatedAt', {
-                    ago: relative,
-                  })}
-                </span>
-              )}
-              <button
-                onClick={exportJson}
-                aria-label={t('admin.storageInventory.footer.export')}
-                title={t('admin.storageInventory.footer.export')}
-                className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => void load()}
-                aria-label={t('admin.storageInventory.footer.refresh')}
-                title={t('admin.storageInventory.footer.refresh')}
-                className="inline-flex items-center gap-1 rounded px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
-                />
-              </button>
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+              <HeadlineStat
+                icon={<Database className="h-5 w-5" />}
+                label="Database Footprint"
+                value={db.totalHuman}
+                detail={`${db.tables.length} 张表纳入统计`}
+                tone="slate"
+              />
+              <HeadlineStat
+                icon={<Cloud className="h-5 w-5" />}
+                label="R2 Object Footprint"
+                value={r2.totalHuman}
+                detail={
+                  r2.configured
+                    ? `${r2.totalObjects.toLocaleString()} 个对象 · ${r2.bucket ?? 'bucket'}`
+                    : 'R2 未配置'
+                }
+                tone={r2.configured ? 'blue' : 'amber'}
+              />
+              <HeadlineStat
+                icon={<ShieldCheck className="h-5 w-5" />}
+                label="Managed Offload Targets"
+                value={String(totalManagedTargets)}
+                detail={`${managedPrefixCount} 个注册前缀 · ${totalMigratedRows.toLocaleString()} 行已迁移`}
+                tone="emerald"
+              />
+              <HeadlineStat
+                icon={<Rows3 className="h-5 w-5" />}
+                label="Observed R2 Prefixes"
+                value={String(observedPrefixCount)}
+                detail={`${catalogRows.filter((row) => !row.managed).length} 个仅观测前缀`}
+                tone="violet"
+              />
             </div>
-          </div>
-          <div className="mt-3 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-700">
-            {(
-              [
-                { k: 'overview', label: '概览' },
-                { k: 'offload', label: 'Off-load 进度' },
-                { k: 'trend', label: '趋势' },
-                { k: 'buckets', label: 'R2 Bucket' },
-                { k: 'tables', label: 'DB 表' },
-              ] as const
-            ).map((t) => (
-              <button
-                key={t.k}
-                onClick={() => setTab(t.k)}
-                className={`whitespace-nowrap border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
-                  tab === t.k
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+
+            <div className="flex flex-wrap gap-3">
+              {TABS.map((item) => {
+                const active = tab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => setTab(item.key)}
+                    className={`rounded-2xl border px-4 py-3 text-left transition ${
+                      active
+                        ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="text-sm font-semibold">{item.label}</div>
+                    <div className="mt-1 text-xs uppercase tracking-[0.16em] opacity-70">
+                      {item.hint}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </ResponsiveCardHeader>
+
         <ResponsiveCardContent>
-          {tab === 'overview' && (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              <MiniStat
-                icon={<Database className="h-4 w-4" />}
-                label={t('admin.storageInventory.summary.db')}
-                value={db.totalHuman}
-                sub={t('admin.storageInventory.summary.tablesCount', {
-                  count: String(db.tables.length),
-                })}
-                tone="blue"
-              />
-              <MiniStat
-                icon={<Cloud className="h-4 w-4" />}
-                label={
-                  <span className="flex items-center gap-1">
-                    {t('admin.storageInventory.summary.r2')}
-                    {cloudflareUrl && (
-                      <a
-                        href={cloudflareUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={t(
-                          'admin.storageInventory.bucket.openCloudflare'
-                        )}
-                        title={t(
-                          'admin.storageInventory.bucket.openCloudflare'
-                        )}
-                        className="opacity-60 hover:opacity-100"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                    <span className="font-mono text-[10px] opacity-70">
-                      {r2.bucket ??
-                        t('admin.storageInventory.summary.r2Unconfigured')}
-                    </span>
-                  </span>
-                }
-                value={r2.totalHuman}
-                sub={t('admin.storageInventory.summary.objectsCount', {
-                  count: String(r2.totalObjects),
-                })}
-                tone={r2.configured ? 'green' : 'gray'}
-              />
-              <MiniStat
-                icon={<HardDrive className="h-4 w-4" />}
-                label={t('admin.storageInventory.summary.total')}
-                value={humanBytes(db.totalBytes + r2.totalBytes)}
-                sub={t('admin.storageInventory.summary.subTotal')}
-                tone="purple"
-              />
+          {error && (
+            <div className="mb-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {error}
             </div>
           )}
 
-          {tab === 'offload' && (
-            <div>
-              <div className="mb-2 flex items-start justify-between">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {t('admin.storageInventory.offload.title')}
-                  </h4>
-                  <p className="text-xs text-gray-500">
-                    {t('admin.storageInventory.offload.subtitle')}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setConfirmOpen(true)}
-                  disabled={triggering || !r2.configured}
-                  aria-label={t('admin.storageInventory.offload.runNow')}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+          {tab === 'overview' && (
+            <div className="space-y-6">
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <SummaryCard
+                  title="Offload 覆盖面"
+                  description="统一注册表覆盖所有当前已接入的 DB 到 R2 冷迁移目标。"
+                  rows={[
+                    ['注册目标', `${totalManagedTargets} 个字段`],
+                    ['已迁移行数', totalMigratedRows.toLocaleString()],
+                    ['仍在 DB', totalRemainingRows.toLocaleString()],
+                  ]}
+                />
+                <SummaryCard
+                  title="R2 目录生态"
+                  description="R2 Catalog 展示实际 bucket 内的全部顶级前缀，不依赖手工枚举。"
+                  rows={[
+                    ['活跃前缀', `${observedPrefixCount} 个`],
+                    ['注册前缀', `${managedPrefixCount} 个`],
+                    [
+                      '仅观测前缀',
+                      `${catalogRows.filter((row) => !row.managed).length} 个`,
+                    ],
+                  ]}
+                />
+                <SummaryCard
+                  title="执行状态"
+                  description="可手动触发一次 offload 批次，后台按统一注册表调度。"
+                  rows={[
+                    ['R2 配置', r2.configured ? '已启用' : '未启用'],
+                    ['Bucket', r2.bucket ?? '未配置'],
+                    ['最近快照', relative || '刚刚'],
+                  ]}
+                  action={
+                    bucketUrl ? (
+                      <a
+                        href={bucketUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        打开 Cloudflare R2
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    ) : null
+                  }
+                />
+              </section>
+
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <PanelFrame
+                  title="前缀全景"
+                  subtitle="注册前缀与实际 bucket 前缀统一对照。"
                 >
-                  <Play className="h-3 w-3" />
-                  {triggering
-                    ? t('admin.storageInventory.offload.running')
-                    : t('admin.storageInventory.offload.runNow')}
-                </button>
-              </div>
-              <OffloadTable rows={offloadFields} t={t} />
+                  <div className="space-y-3">
+                    {catalogRows.slice(0, 6).map((row) => (
+                      <CatalogRow key={row.prefix} row={row} />
+                    ))}
+                  </div>
+                </PanelFrame>
+
+                <PanelFrame
+                  title="重点大表"
+                  subtitle="按数据库体量排序，帮助识别主要存储压力来源。"
+                >
+                  <div className="space-y-3">
+                    {db.tables.slice(0, 6).map((row) => (
+                      <div
+                        key={row.table}
+                        className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                      >
+                        <div>
+                          <div className="font-mono text-sm font-semibold text-slate-900">
+                            {row.table}
+                          </div>
+                          <div className="mt-1 text-sm text-slate-500">
+                            {row.rows.toLocaleString()} rows
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-semibold text-slate-900">
+                            {row.totalHuman}
+                          </div>
+                          <div className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
+                            table size
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </PanelFrame>
+              </section>
             </div>
+          )}
+
+          {tab === 'pipeline' && (
+            <div className="space-y-6">
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <SummaryCard
+                  title="Pipeline 状态"
+                  description="一个目标对应一个 DB 字段，统一从注册表派生。"
+                  rows={[
+                    ['字段目标', `${totalManagedTargets} 个`],
+                    ['已迁移', totalMigratedRows.toLocaleString()],
+                    ['待迁移', totalRemainingRows.toLocaleString()],
+                  ]}
+                />
+                <SummaryCard
+                  title="Playground 覆盖"
+                  description="主 mission 和 report version 已纳入统一 offload 能力。"
+                  rows={[
+                    [
+                      'Mission 字段',
+                      String(
+                        offloadFields.filter((row) =>
+                          row.table.startsWith('agent_playground_missions')
+                        ).length
+                      ),
+                    ],
+                    [
+                      'Version 字段',
+                      String(
+                        offloadFields.filter((row) =>
+                          row.table.startsWith('mission_report_versions')
+                        ).length
+                      ),
+                    ],
+                    ['主前缀', 'playground-missions/'],
+                  ]}
+                />
+                <SummaryCard
+                  title="执行原则"
+                  description="小于阈值的内容只记录 size，不搬运；大字段才会进入 R2。"
+                  rows={[
+                    ['迁移方向', 'DB → R2'],
+                    ['Orphan 清理', '已纳入 prefix registry'],
+                    ['透明回填', 'Prisma hydration'],
+                  ]}
+                />
+              </section>
+
+              <section className="grid grid-cols-1 gap-4">
+                {offloadFields.map((row) => (
+                  <OffloadTargetCard
+                    key={`${row.table}.${row.field}`}
+                    row={row}
+                  />
+                ))}
+              </section>
+            </div>
+          )}
+
+          {tab === 'catalog' && (
+            <PanelFrame
+              title="R2 Catalog"
+              subtitle="展示 bucket 中当前实际存在的全部顶级 prefix，并标记哪些属于受管 offload 前缀。"
+            >
+              <div className="overflow-hidden rounded-3xl border border-slate-200">
+                <table className="w-full min-w-[980px] text-left">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-5 py-4">Prefix</th>
+                      <th className="px-5 py-4">Status</th>
+                      <th className="px-5 py-4 text-right">Objects</th>
+                      <th className="px-5 py-4 text-right">R2 Size</th>
+                      <th className="px-5 py-4 text-right">
+                        Registered Targets
+                      </th>
+                      <th className="px-5 py-4 text-right">DB Rows</th>
+                      <th className="px-5 py-4 text-right">Migrated</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white text-sm text-slate-700">
+                    {catalogRows.map((row) => (
+                      <tr key={row.prefix}>
+                        <td className="font-mono px-5 py-4 font-semibold text-slate-900">
+                          {row.prefix}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${
+                              row.managed
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {row.managed ? 'Managed' : 'Observed'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          {row.objects.toLocaleString()}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          {row.bytesHuman}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          {row.targetCount}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          {row.dbRows.toLocaleString()}
+                        </td>
+                        <td className="px-5 py-4 text-right text-emerald-700">
+                          {row.migratedRows.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </PanelFrame>
+          )}
+
+          {tab === 'database' && (
+            <PanelFrame
+              title="Database Footprint"
+              subtitle="按体量查看表级占用，便于识别存储热点与 offload 优先级。"
+            >
+              <div className="overflow-hidden rounded-3xl border border-slate-200">
+                <table className="w-full min-w-[860px] text-left">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-[0.16em] text-slate-500">
+                    <tr>
+                      <th className="px-5 py-4">Table</th>
+                      <th className="px-5 py-4 text-right">Rows</th>
+                      <th className="px-5 py-4 text-right">Size</th>
+                      <th className="px-5 py-4 text-right">Share</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white text-sm text-slate-700">
+                    {db.tables.map((row) => {
+                      const pct =
+                        db.totalBytes > 0
+                          ? (row.totalBytes / db.totalBytes) * 100
+                          : 0;
+                      return (
+                        <tr key={row.table}>
+                          <td className="font-mono px-5 py-4 font-semibold text-slate-900">
+                            {row.table}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            {row.rows.toLocaleString()}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            {row.totalHuman}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="inline-flex min-w-[180px] items-center gap-3">
+                              <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+                                <div
+                                  className="h-full rounded-full bg-slate-800"
+                                  style={{ width: `${Math.min(100, pct)}%` }}
+                                />
+                              </div>
+                              <span className="w-12 text-right text-xs font-semibold text-slate-500">
+                                {pct.toFixed(1)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </PanelFrame>
           )}
 
           {tab === 'trend' && (
-            <div>
-              <div className="mb-2">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {t('admin.storageInventory.trend.title')}
-                </h4>
-                <p className="text-xs text-gray-500">
-                  {t('admin.storageInventory.trend.subtitle')}
-                </p>
-              </div>
-              <TrendChart points={trend} t={t} />
-            </div>
-          )}
-
-          {tab === 'buckets' &&
-            r2.configured &&
-            (r2.byPrefix?.length ?? 0) > 0 && (
-              <div>
-                <div className="mb-2">
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {t('admin.storageInventory.bucket.title')} ({r2.bucket})
-                  </h4>
-                  <p className="text-xs text-gray-500">
-                    {t('admin.storageInventory.bucket.subtitle')}
-                  </p>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+              <PanelFrame
+                title="Storage Trend"
+                subtitle="过去 30 天 DB 与 R2 总量变化。"
+              >
+                <TrendChart points={trend} />
+              </PanelFrame>
+              <PanelFrame
+                title="趋势解读"
+                subtitle="帮助判断 offload 是否在把冷数据逐步移出 DB。"
+              >
+                <div className="space-y-4 text-sm leading-7 text-slate-600">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="font-semibold text-slate-900">
+                      看 DB 曲线
+                    </div>
+                    <div className="mt-1">
+                      如果 DB 长期陡增，但 R2 不增长，说明新增大字段尚未纳入
+                      offload。
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="font-semibold text-slate-900">
+                      看 R2 曲线
+                    </div>
+                    <div className="mt-1">
+                      R2 增长而 DB 放缓，通常说明冷数据迁移路径正常工作。
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="font-semibold text-slate-900">
+                      看 Prefix Catalog
+                    </div>
+                    <div className="mt-1">
+                      如果 bucket 出现新 prefix，但 Pipeline
+                      没有对应受管目标，说明还有业务写入未接入治理。
+                    </div>
+                  </div>
                 </div>
-                <BucketTable rows={r2.byPrefix} t={t} />
-              </div>
-            )}
-
-          {tab === 'tables' && (
-            <div>
-              <div className="mb-2">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  {t('admin.storageInventory.tables.title')}
-                </h4>
-                <p className="text-xs text-gray-500">
-                  {t('admin.storageInventory.tables.subtitle')}
-                </p>
-              </div>
-              <DbTopTable rows={db.tables.slice(0, 10)} t={t} />
+              </PanelFrame>
             </div>
           )}
         </ResponsiveCardContent>
@@ -454,328 +757,342 @@ export default function StorageInventoryPanel() {
         open={confirmOpen}
         onClose={() => setConfirmOpen(false)}
         onConfirm={confirmRun}
-        title={t('admin.storageInventory.offload.confirmTitle')}
-        description={t('admin.storageInventory.offload.confirmDesc')}
+        title="确认立即运行 Offload"
+        description="这会触发一次后台 DB 到 R2 的迁移扫描，适合在新增能力接入后做一次手工验证。"
         type="info"
-        confirmText={t('admin.storageInventory.offload.confirmOk')}
+        confirmText="立即执行"
         loading={triggering}
       />
     </>
   );
 }
 
-function MiniStat({
+function HeadlineStat({
   icon,
   label,
   value,
-  sub,
+  detail,
   tone,
 }: {
   icon: React.ReactNode;
-  label: React.ReactNode;
+  label: string;
   value: string;
-  sub: string;
-  tone: 'blue' | 'green' | 'purple' | 'gray';
+  detail: string;
+  tone: 'slate' | 'blue' | 'emerald' | 'violet' | 'amber';
 }) {
-  const tones: Record<string, string> = {
-    blue: 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900',
-    green:
-      'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900',
-    purple:
-      'bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-900',
-    gray: 'bg-gray-50 dark:bg-gray-900/50 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800',
+  const tones: Record<typeof tone, string> = {
+    slate: 'border-slate-200 bg-white text-slate-900',
+    blue: 'border-blue-200 bg-blue-50/60 text-blue-900',
+    emerald: 'border-emerald-200 bg-emerald-50/60 text-emerald-900',
+    violet: 'border-violet-200 bg-violet-50/70 text-violet-900',
+    amber: 'border-amber-200 bg-amber-50 text-amber-900',
   };
+
   return (
-    <div className={`rounded-md border px-3 py-2 ${tones[tone]}`}>
-      <div className="flex items-center gap-1.5 text-xs font-medium opacity-80">
+    <div className={`rounded-3xl border px-5 py-5 shadow-sm ${tones[tone]}`}>
+      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] opacity-75">
         {icon}
-        <span>{label}</span>
+        {label}
       </div>
-      <div className="mt-1 text-xl font-semibold">{value}</div>
-      <div className="text-[11px] opacity-70">{sub}</div>
+      <div className="mt-4 text-3xl font-semibold tracking-tight">{value}</div>
+      <div className="mt-2 text-sm opacity-75">{detail}</div>
     </div>
   );
 }
 
-function OffloadTable({
-  rows,
-  t,
+function PanelFrame({
+  title,
+  subtitle,
+  children,
 }: {
-  rows: OffloadFieldStat[];
-  t: ReturnType<typeof useTranslation>['t'];
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
 }) {
-  if (rows.length === 0) return null;
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
-            <th className="py-2 pr-4">
-              {t('admin.storageInventory.offload.col.field')}
-            </th>
-            <th className="hidden py-2 pr-4 md:table-cell">
-              {t('admin.storageInventory.offload.col.prefix')}
-            </th>
-            <th className="py-2 pr-4 text-right">
-              {t('admin.storageInventory.offload.col.total')}
-            </th>
-            <th className="py-2 pr-4 text-right">
-              {t('admin.storageInventory.offload.col.r2')}
-            </th>
-            <th className="hidden py-2 pr-4 text-right md:table-cell">
-              {t('admin.storageInventory.offload.col.db')}
-            </th>
-            <th className="py-2">
-              {t('admin.storageInventory.offload.col.progress')}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((f) => {
-            const pct =
-              f.totalRows > 0
-                ? Math.round((f.rowsWithUri * 100) / f.totalRows)
-                : 0;
-            const barColor =
-              pct >= 90
+    <section className="rounded-[28px] border border-slate-200 bg-slate-50/70 p-5">
+      <div className="mb-5 flex flex-col gap-2">
+        <div className="text-2xl font-semibold tracking-tight text-slate-950">
+          {title}
+        </div>
+        <div className="text-sm leading-6 text-slate-500">{subtitle}</div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function SummaryCard({
+  title,
+  description,
+  rows,
+  action,
+}: {
+  title: string;
+  description: string;
+  rows: Array<[string, string]>;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="text-xl font-semibold tracking-tight text-slate-950">
+        {title}
+      </div>
+      <div className="mt-2 text-sm leading-6 text-slate-500">{description}</div>
+      <div className="mt-5 space-y-3">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-4">
+            <div className="text-sm text-slate-500">{label}</div>
+            <div className="text-sm font-semibold text-slate-900">{value}</div>
+          </div>
+        ))}
+      </div>
+      {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  );
+}
+
+function OffloadTargetCard({ row }: { row: OffloadFieldStat }) {
+  const progress =
+    row.totalRows > 0 ? (row.rowsWithUri / row.totalRows) * 100 : 0;
+  const state =
+    row.rowsWithDbContent === 0
+      ? 'Complete'
+      : row.rowsWithUri === 0
+        ? 'Pending'
+        : 'Active';
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="font-mono text-lg font-semibold text-slate-950">
+              {row.table}.{row.field}
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                state === 'Complete'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : state === 'Active'
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'bg-amber-50 text-amber-700'
+              }`}
+            >
+              {state}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+            <span className="font-mono rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+              {row.r2Prefix}
+            </span>
+            <ArrowRight className="h-4 w-4" />
+            <span className="font-mono rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+              {row.uriField}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <MetricPill
+            label="Total Rows"
+            value={row.totalRows.toLocaleString()}
+          />
+          <MetricPill
+            label="Migrated"
+            value={row.rowsWithUri.toLocaleString()}
+          />
+          <MetricPill
+            label="Still In DB"
+            value={row.rowsWithDbContent.toLocaleString()}
+          />
+          <MetricPill label="Coverage" value={`${progress.toFixed(0)}%`} />
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="mb-2 flex items-center justify-between text-sm text-slate-500">
+          <span>迁移进度</span>
+          <span className="font-semibold text-slate-700">
+            {progress.toFixed(1)}%
+          </span>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+          <div
+            className={`h-full rounded-full ${
+              progress >= 95
                 ? 'bg-emerald-500'
-                : pct >= 50
-                  ? 'bg-blue-500'
-                  : 'bg-gray-400';
-            return (
-              <tr
-                key={`${f.table}.${f.field}`}
-                className="border-b border-gray-100 dark:border-gray-800"
-              >
-                <td className="font-mono py-2 pr-4">
-                  {f.table}.{f.field}
-                </td>
-                <td className="font-mono hidden py-2 pr-4 text-gray-500 md:table-cell">
-                  {f.r2Prefix}
-                </td>
-                <td className="py-2 pr-4 text-right">{f.totalRows}</td>
-                <td className="py-2 pr-4 text-right font-medium text-emerald-600 dark:text-emerald-400">
-                  {f.rowsWithUri}
-                </td>
-                <td className="hidden py-2 pr-4 text-right md:table-cell">
-                  {f.rowsWithDbContent}
-                </td>
-                <td className="w-32 py-2 md:w-40">
-                  <div
-                    className="flex items-center gap-2"
-                    role="progressbar"
-                    aria-valuenow={pct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${f.table}.${f.field} ${pct}%`}
-                  >
-                    <div className="h-1.5 flex-1 overflow-hidden rounded bg-gray-200 dark:bg-gray-700">
-                      <div
-                        className={`h-full ${barColor} transition-all`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="w-8 text-right text-[10px] text-gray-500">
-                      {pct}%
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                : progress >= 50
+                  ? 'bg-blue-600'
+                  : 'bg-amber-500'
+            }`}
+            style={{ width: `${Math.min(100, progress)}%` }}
+          />
+        </div>
+      </div>
     </div>
   );
 }
 
-function BucketTable({
-  rows,
-  t,
-}: {
-  rows: R2PrefixStat[];
-  t: ReturnType<typeof useTranslation>['t'];
-}) {
+function MetricPill({ label, value }: { label: string; value: string }) {
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
-          <th className="py-2 pr-4">
-            {t('admin.storageInventory.bucket.col.prefix')}
-          </th>
-          <th className="py-2 pr-4 text-right">
-            {t('admin.storageInventory.bucket.col.objects')}
-          </th>
-          <th className="py-2 text-right">
-            {t('admin.storageInventory.bucket.col.size')}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((p) => (
-          <tr
-            key={p.prefix}
-            className="border-b border-gray-100 dark:border-gray-800"
-          >
-            <td className="font-mono py-2 pr-4">{p.prefix}</td>
-            <td className="py-2 pr-4 text-right">{p.objects}</td>
-            <td className="py-2 text-right">{p.bytesHuman}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+        {label}
+      </div>
+      <div className="mt-2 text-lg font-semibold text-slate-900">{value}</div>
+    </div>
   );
 }
 
-function DbTopTable({
-  rows,
-  t,
+function CatalogRow({
+  row,
 }: {
-  rows: TableStat[];
-  t: ReturnType<typeof useTranslation>['t'];
+  row: {
+    prefix: string;
+    objects: number;
+    bytesHuman: string;
+    targetCount: number;
+    managed: boolean;
+    remainingRows: number;
+  };
 }) {
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
-          <th className="py-2 pr-4">
-            {t('admin.storageInventory.tables.col.table')}
-          </th>
-          <th className="py-2 pr-4 text-right">
-            {t('admin.storageInventory.tables.col.rows')}
-          </th>
-          <th className="py-2 text-right">
-            {t('admin.storageInventory.tables.col.size')}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((tbl) => (
-          <tr
-            key={tbl.table}
-            className="border-b border-gray-100 dark:border-gray-800"
-          >
-            <td className="font-mono py-2 pr-4">{tbl.table}</td>
-            <td className="py-2 pr-4 text-right">
-              {tbl.rows.toLocaleString()}
-            </td>
-            <td className="py-2 text-right">{tbl.totalHuman}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div>
+          <div className="font-mono text-sm font-semibold text-slate-900">
+            {row.prefix}
+          </div>
+          <div className="mt-1 text-sm text-slate-500">
+            {row.managed ? '受管前缀' : '仅观测到对象前缀'}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
+          <span>{row.objects.toLocaleString()} objects</span>
+          <span>{row.bytesHuman}</span>
+          <span>{row.targetCount} targets</span>
+          <span>{row.remainingRows.toLocaleString()} rows in DB</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function TrendChart({
-  points,
-  t,
-}: {
-  points: TrendPoint[];
-  t: ReturnType<typeof useTranslation>['t'];
-}) {
+function TrendChart({ points }: { points: TrendPoint[] }) {
   if (points.length < 2) {
     return (
-      <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-900">
-        {t('admin.storageInventory.trend.empty')}
+      <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center text-sm text-slate-500">
+        还没有足够的趋势数据，请等待定时快照累积。
       </div>
     );
   }
-  const W = 600;
-  const H = 140;
-  const pad = { l: 36, r: 8, t: 8, b: 20 };
-  const iw = W - pad.l - pad.r;
-  const ih = H - pad.t - pad.b;
-  const max = Math.max(1, ...points.flatMap((p) => [p.dbMb, p.r2Mb]));
-  const xFor = (i: number) => pad.l + (i * iw) / Math.max(1, points.length - 1);
-  const yFor = (v: number) => pad.t + ih - (v * ih) / max;
+
+  const width = 900;
+  const height = 260;
+  const pad = { left: 56, right: 18, top: 18, bottom: 28 };
+  const innerWidth = width - pad.left - pad.right;
+  const innerHeight = height - pad.top - pad.bottom;
+  const max = Math.max(
+    1,
+    ...points.flatMap((point) => [point.dbMb, point.r2Mb])
+  );
+  const xFor = (index: number) =>
+    pad.left + (index * innerWidth) / Math.max(1, points.length - 1);
+  const yFor = (value: number) =>
+    pad.top + innerHeight - (value * innerHeight) / max;
   const path = (key: 'dbMb' | 'r2Mb') =>
     points
-      .map((p, i) => `${i === 0 ? 'M' : 'L'}${xFor(i)},${yFor(p[key])}`)
+      .map(
+        (point, index) =>
+          `${index === 0 ? 'M' : 'L'}${xFor(index)},${yFor(point[key])}`
+      )
       .join(' ');
+
   return (
-    <div className="overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
-        aria-label="storage size trend chart"
-      >
-        {/* Y axis gridlines */}
-        {[0.25, 0.5, 0.75, 1].map((r) => (
+    <div className="overflow-x-auto rounded-3xl border border-slate-200 bg-white p-4">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[720px]">
+        {[0.25, 0.5, 0.75, 1].map((ratio) => (
           <line
-            key={r}
-            x1={pad.l}
-            x2={W - pad.r}
-            y1={pad.t + ih * (1 - r)}
-            y2={pad.t + ih * (1 - r)}
-            stroke="currentColor"
-            strokeOpacity={0.08}
+            key={ratio}
+            x1={pad.left}
+            x2={width - pad.right}
+            y1={pad.top + innerHeight * (1 - ratio)}
+            y2={pad.top + innerHeight * (1 - ratio)}
+            stroke="rgb(148 163 184)"
+            strokeOpacity="0.18"
           />
         ))}
-        {[0, 0.5, 1].map((r) => (
+        {[0, 0.5, 1].map((ratio) => (
           <text
-            key={r}
-            x={pad.l - 4}
-            y={pad.t + ih * (1 - r) + 4}
-            fontSize="10"
+            key={ratio}
+            x={pad.left - 8}
+            y={pad.top + innerHeight * (1 - ratio) + 4}
+            fontSize="11"
             textAnchor="end"
-            fill="currentColor"
-            opacity={0.5}
+            fill="rgb(100 116 139)"
           >
-            {Math.round(max * r)}
+            {Math.round(max * ratio)}
           </text>
         ))}
-        {/* DB line */}
+
         <path
           d={path('dbMb')}
           fill="none"
-          stroke="rgb(59 130 246)"
-          strokeWidth="2"
+          stroke="rgb(15 23 42)"
+          strokeWidth="3"
         />
-        {/* R2 line */}
         <path
           d={path('r2Mb')}
           fill="none"
-          stroke="rgb(16 185 129)"
-          strokeWidth="2"
+          stroke="rgb(37 99 235)"
+          strokeWidth="3"
         />
-        {/* First & last x labels */}
-        <text
-          x={xFor(0)}
-          y={H - 4}
-          fontSize="10"
-          fill="currentColor"
-          opacity={0.5}
-        >
+
+        {points.map((point, index) => (
+          <g key={point.at}>
+            <circle
+              cx={xFor(index)}
+              cy={yFor(point.dbMb)}
+              r="3"
+              fill="rgb(15 23 42)"
+            />
+            <circle
+              cx={xFor(index)}
+              cy={yFor(point.r2Mb)}
+              r="3"
+              fill="rgb(37 99 235)"
+            />
+          </g>
+        ))}
+
+        <text x={xFor(0)} y={height - 6} fontSize="11" fill="rgb(100 116 139)">
           {new Date(points[0].at).toISOString().slice(5, 10)}
         </text>
         <text
-          x={xFor(points.length - 1) - 32}
-          y={H - 4}
-          fontSize="10"
-          fill="currentColor"
-          opacity={0.5}
+          x={xFor(points.length - 1) - 36}
+          y={height - 6}
+          fontSize="11"
+          fill="rgb(100 116 139)"
         >
           {new Date(points[points.length - 1].at).toISOString().slice(5, 10)}
         </text>
       </svg>
-      <div className="mt-1 flex items-center gap-4 text-[11px] text-gray-500">
-        <span className="inline-flex items-center gap-1">
-          <span className="h-0.5 w-3 bg-blue-500" />
-          {t('admin.storageInventory.trend.db')}
+
+      <div className="mt-4 flex flex-wrap items-center gap-5 text-sm text-slate-600">
+        <span className="inline-flex items-center gap-2">
+          <span className="h-1.5 w-6 rounded-full bg-slate-900" />
+          DB total MB
         </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="h-0.5 w-3 bg-emerald-500" />
-          {t('admin.storageInventory.trend.r2')}
+        <span className="inline-flex items-center gap-2">
+          <span className="h-1.5 w-6 rounded-full bg-blue-600" />
+          R2 total MB
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <ChartColumn className="h-4 w-4 text-slate-400" />
+          采样来自 storage_snapshots
         </span>
       </div>
     </div>
   );
-}
-
-function humanBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} kB`;
-  if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
-  return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }

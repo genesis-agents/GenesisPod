@@ -18,6 +18,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { R2StorageService } from "../runtime/r2-storage.service";
+import { OFFLOAD_TARGETS } from "./storage-offload.registry";
 
 export interface TableStat {
   table: string;
@@ -63,54 +64,6 @@ export interface StorageInventory {
   };
   generatedAt: string;
 }
-
-/**
- * Off-load 字段定义 — 跟 StorageOffloadService 里保持一致
- */
-const OFFLOAD_FIELDS = [
-  {
-    table: "topic_reports",
-    field: "full_report",
-    uriField: "full_report_uri",
-    r2Prefix: "topic-reports/",
-    contentKind: "string",
-  },
-  {
-    table: "dimension_analyses",
-    field: "data_points",
-    uriField: "data_points_uri",
-    r2Prefix: "dimension-analyses/",
-    contentKind: "json",
-  },
-  {
-    table: "research_tasks",
-    field: "result",
-    uriField: "result_uri",
-    r2Prefix: "research-tasks/",
-    contentKind: "json",
-  },
-  {
-    table: "knowledge_base_documents",
-    field: "raw_content",
-    uriField: "raw_content_uri",
-    r2Prefix: "kb-documents/",
-    contentKind: "string",
-  },
-  {
-    table: "wiki_page_revisions",
-    field: "body",
-    uriField: "body_uri",
-    r2Prefix: "wiki-revisions/",
-    contentKind: "string",
-  },
-  {
-    table: "wiki_diffs",
-    field: "items",
-    uriField: "items_uri",
-    r2Prefix: "wiki-diffs/",
-    contentKind: "json",
-  },
-] as const;
 
 function humanBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -300,7 +253,7 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
 
   private async queryOffloadFields(): Promise<OffloadFieldStat[]> {
     const results: OffloadFieldStat[] = [];
-    for (const def of OFFLOAD_FIELDS) {
+    for (const def of OFFLOAD_TARGETS) {
       const dbContentCountSql =
         def.contentKind === "string"
           ? `SELECT COUNT(*)::bigint AS n FROM "${def.table}" WHERE char_length("${def.field}") > 0`

@@ -9545,7 +9545,10 @@ model AgentPlaygroundMission {
   /// 持久化的 blob（detail 页重新渲染用）
   themeSummary String? @map("theme_summary") @db.Text
   dimensions   Json? // [{id, name, rationale, toolHint?}]
-  reportFull   Json?   @map("report_full") // 完整 ResearchReport（v1）或 ReportArtifact（v2+）
+  reportFull   Json?   @map("report_full") @db.JsonB // 完整 ResearchReport（v1）或 ReportArtifact（v2+）
+  /// Off-load 到 R2 后：DB 置 NULL，reportFullUri 写 key，reportFullSize 记原始字节数
+  reportFullUri  String? @map("report_full_uri")
+  reportFullSize Int?    @map("report_full_size")
   /// ★ ReportArtifact schema 版本号（mission-pipeline-writer-artifact.md / D15）
   /// v1 = 旧 ResearchReport（单 markdown）
   /// v2 = ReportArtifact（sections / citations / figures / quickView / factTable）
@@ -9555,12 +9558,16 @@ model AgentPlaygroundMission {
   /// merged after defaults applied + auto-rules applied
   userProfile  Json?   @map("user_profile")
   /// ★ Reconciler [3.5] 节点产物（factTable / conflicts / overlaps / gaps / figureCandidates）
-  reconciliationReport Json? @map("reconciliation_report")
+  reconciliationReport Json? @map("reconciliation_report") @db.JsonB
+  reconciliationReportUri  String? @map("reconciliation_report_uri")
+  reconciliationReportSize Int?    @map("reconciliation_report_size")
 
   /// ★ Leader-Replanner-Lite 务实 leader 方案（Phase Lead-1+）
   /// leader_journal: { plan: M0 输出含 goals/qualityBar/successCriteria/initialRisks,
   ///                   decisions[]: M1/M4 决策记录, foreword: M6 输出 }
-  leaderJournal      Json?    @map("leader_journal")
+  leaderJournal      Json?    @map("leader_journal") @db.JsonB
+  leaderJournalUri   String?  @map("leader_journal_uri")
+  leaderJournalSize  Int?     @map("leader_journal_size")
   /// Leader 在 M7 sign-off 给整 mission 的总分（不同于 reviewer / critic 评分）
   leaderOverallScore Int?     @map("leader_overall_score")
   /// Leader 在 M7 是否签字接受交付；false → mission status = quality-failed
@@ -9569,9 +9576,13 @@ model AgentPlaygroundMission {
   leaderVerdict      String?  @map("leader_verdict") @db.VarChar(20)
 
   /// ★ PR-R0 (2026-05-07 per-task rerun + cascade)：S6 analyst 输出主动持久化（cascade rerun ctx 还原用）
-  analystOutput      Json?    @map("analyst_output")
+  analystOutput      Json?    @map("analyst_output") @db.JsonB
+  analystOutputUri   String?  @map("analyst_output_uri")
+  analystOutputSize  Int?     @map("analyst_output_size")
   /// ★ PR-R0 (2026-05-07 per-task rerun + cascade)：S7 writer outline 输出主动持久化（cascade rerun ctx 还原用）
-  outlinePlan        Json?    @map("outline_plan")
+  outlinePlan        Json?    @map("outline_plan") @db.JsonB
+  outlinePlanUri     String?  @map("outline_plan_uri")
+  outlinePlanSize    Int?     @map("outline_plan_size")
 
   /// Leader 对话历史（点击 Leader 节点弹出聊天框）
   leaderChats     AgentPlaygroundLeaderChat[]
@@ -9697,6 +9708,8 @@ model MissionReportVersion {
   versionLabel  String?   @map("version_label") @db.VarChar(120)
   /// 完整 ReportArtifact v2（或 ResearchReport v1）
   reportFull    Json?     @map("report_full") @db.JsonB
+  reportFullUri String?   @map("report_full_uri")
+  reportFullSize Int?     @map("report_full_size")
   /// 报告标题（从 reportFull 提取，便于列表展示）
   reportTitle   String?   @map("report_title") @db.VarChar(500)
   /// 报告摘要（executiveSummary.markdown，便于列表展示）

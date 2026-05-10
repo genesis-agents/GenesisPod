@@ -372,6 +372,26 @@ export class PrismaService
     await this.hydrateJsonField(row, "itemsUri", "items");
   }
 
+  private async hydrateAgentPlaygroundMissionRow(
+    row: Record<string, unknown> | null | undefined,
+  ): Promise<void> {
+    await this.hydrateJsonField(row, "reportFullUri", "reportFull");
+    await this.hydrateJsonField(
+      row,
+      "reconciliationReportUri",
+      "reconciliationReport",
+    );
+    await this.hydrateJsonField(row, "leaderJournalUri", "leaderJournal");
+    await this.hydrateJsonField(row, "analystOutputUri", "analystOutput");
+    await this.hydrateJsonField(row, "outlinePlanUri", "outlinePlan");
+  }
+
+  private async hydrateMissionReportVersionRow(
+    row: Record<string, unknown> | null | undefined,
+  ): Promise<void> {
+    await this.hydrateJsonField(row, "reportFullUri", "reportFull");
+  }
+
   /**
    * 用 $extends 的 query 钩子拦截 topicReport 所有 find 操作，
    * 把扩展后的 topicReport model 替换回 this.topicReport 属性。
@@ -427,6 +447,12 @@ export class PrismaService
       this.hydrateWikiPageRevisionRow(r),
     );
     const hydrateWikiDiff = makeHydrator((r) => this.hydrateWikiDiffRow(r));
+    const hydratePlaygroundMission = makeHydrator((r) =>
+      this.hydrateAgentPlaygroundMissionRow(r),
+    );
+    const hydrateMissionReportVersion = makeHydrator((r) =>
+      this.hydrateMissionReportVersionRow(r),
+    );
 
     const extended = this.$extends({
       query: {
@@ -486,6 +512,22 @@ export class PrismaService
             return result;
           },
         },
+        agentPlaygroundMission: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          async $allOperations({ operation, args, query }: any) {
+            const result = await query(args);
+            if (isFindOp(operation)) await hydratePlaygroundMission(result);
+            return result;
+          },
+        },
+        missionReportVersion: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          async $allOperations({ operation, args, query }: any) {
+            const result = await query(args);
+            if (isFindOp(operation)) await hydrateMissionReportVersion(result);
+            return result;
+          },
+        },
       },
     });
 
@@ -508,6 +550,8 @@ export class PrismaService
       "knowledgeBaseDocument",
       "wikiPageRevision",
       "wikiDiff",
+      "agentPlaygroundMission",
+      "missionReportVersion",
     ] as const) {
       Object.defineProperty(this, modelKey, {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -518,7 +562,7 @@ export class PrismaService
     }
 
     this.logger.log(
-      `[Prisma] hydration installed for topicReport / dimensionAnalysis / topicEvidence / researchTask / knowledgeBaseDocument / wikiPageRevision / wikiDiff (bucket=${this.objectStorage?.bucket ?? "lazy"})`,
+      `[Prisma] hydration installed for topicReport / dimensionAnalysis / topicEvidence / researchTask / knowledgeBaseDocument / wikiPageRevision / wikiDiff / agentPlaygroundMission / missionReportVersion (bucket=${this.objectStorage?.bucket ?? "lazy"})`,
     );
   }
 
