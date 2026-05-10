@@ -94,9 +94,6 @@ export default function WikiChromeHeader({
                     </>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  LLM Wiki knowledge base workspace
-                </p>
               </div>
             </div>
             {open && (
