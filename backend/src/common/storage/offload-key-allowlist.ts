@@ -21,8 +21,8 @@ export const OFFLOAD_KEY_PREFIXES = [
   "kb-documents/",
   "wiki-revisions/",
   "wiki-diffs/",
-  "playground-missions/",
-  "playground-report-versions/",
+  "mission-records/",
+  "report-versions/",
 ] as const;
 
 /** Allow-list 校验：uri 必须以白名单前缀之一开头 */

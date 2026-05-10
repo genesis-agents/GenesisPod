@@ -112,8 +112,8 @@ export const OFFLOAD_PREFIXES: readonly OffloadPrefix[] = [
     },
   },
   {
-    prefix: "playground-missions/",
-    extractId: extractAfterPrefix("playground-missions/"),
+    prefix: "mission-records/",
+    extractId: extractAfterPrefix("mission-records/"),
     listLiveIds: async (p, ids) => {
       const rows = await p.agentPlaygroundMission.findMany({
         where: { id: { in: ids } },
@@ -123,8 +123,8 @@ export const OFFLOAD_PREFIXES: readonly OffloadPrefix[] = [
     },
   },
   {
-    prefix: "playground-report-versions/",
-    extractId: extractAfterPrefix("playground-report-versions/"),
+    prefix: "report-versions/",
+    extractId: extractAfterPrefix("report-versions/"),
     listLiveIds: async (p, ids) => {
       const rows = await p.missionReportVersion.findMany({
         where: { id: { in: ids } },

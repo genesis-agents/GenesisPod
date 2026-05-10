@@ -101,7 +101,7 @@ describe("StorageOffloadService - playground targets", () => {
         content: JSON.stringify({ title: "A" }),
       },
     ]);
-    expect(target.keyFor("m1")).toBe("playground-missions/m1/report_full.json");
+    expect(target.keyFor("m1")).toBe("mission-records/m1/report_full.json");
     expect(target.contentType).toBe("application/json; charset=utf-8");
   });
 
@@ -112,7 +112,7 @@ describe("StorageOffloadService - playground targets", () => {
     await target.commit(
       mockPrisma,
       "m1",
-      "playground-missions/m1/report_full.json",
+      "mission-records/m1/report_full.json",
       8192,
     );
 
@@ -120,7 +120,7 @@ describe("StorageOffloadService - playground targets", () => {
       expect.stringContaining(
         "UPDATE agent_playground_missions SET report_full=NULL, report_full_uri=$1, report_full_size=$2 WHERE id=$3",
       ),
-      "playground-missions/m1/report_full.json",
+      "mission-records/m1/report_full.json",
       8192,
       "m1",
     );
@@ -152,8 +152,6 @@ describe("StorageOffloadService - playground targets", () => {
         content: JSON.stringify({ title: "Version 1" }),
       },
     ]);
-    expect(target.keyFor("rv1")).toBe(
-      "playground-report-versions/rv1/report_full.json",
-    );
+    expect(target.keyFor("rv1")).toBe("report-versions/rv1/report_full.json");
   });
 });

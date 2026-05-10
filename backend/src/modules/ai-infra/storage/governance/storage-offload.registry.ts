@@ -280,7 +280,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
     table: "agent_playground_missions",
     field: "report_full",
     uriField: "report_full_uri",
-    r2Prefix: "playground-missions/",
+    r2Prefix: "mission-records/",
     contentKind: "json",
     list: async (p, take) => {
       const rows = await p.agentPlaygroundMission.findMany({
@@ -309,7 +309,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
         data: { reportFullSize: size },
       });
     },
-    keyFor: (id) => `playground-missions/${id}/report_full.json`,
+    keyFor: (id) => `mission-records/${id}/report_full.json`,
     contentType: "application/json; charset=utf-8",
   },
   {
@@ -317,7 +317,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
     table: "agent_playground_missions",
     field: "reconciliation_report",
     uriField: "reconciliation_report_uri",
-    r2Prefix: "playground-missions/",
+    r2Prefix: "mission-records/",
     contentKind: "json",
     list: async (p, take) => {
       const rows = await p.agentPlaygroundMission.findMany({
@@ -353,7 +353,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
         data: { reconciliationReportSize: size },
       });
     },
-    keyFor: (id) => `playground-missions/${id}/reconciliation_report.json`,
+    keyFor: (id) => `mission-records/${id}/reconciliation_report.json`,
     contentType: "application/json; charset=utf-8",
   },
   {
@@ -361,7 +361,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
     table: "agent_playground_missions",
     field: "leader_journal",
     uriField: "leader_journal_uri",
-    r2Prefix: "playground-missions/",
+    r2Prefix: "mission-records/",
     contentKind: "json",
     list: async (p, take) => {
       const rows = await p.agentPlaygroundMission.findMany({
@@ -390,7 +390,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
         data: { leaderJournalSize: size },
       });
     },
-    keyFor: (id) => `playground-missions/${id}/leader_journal.json`,
+    keyFor: (id) => `mission-records/${id}/leader_journal.json`,
     contentType: "application/json; charset=utf-8",
   },
   {
@@ -398,7 +398,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
     table: "agent_playground_missions",
     field: "analyst_output",
     uriField: "analyst_output_uri",
-    r2Prefix: "playground-missions/",
+    r2Prefix: "mission-records/",
     contentKind: "json",
     list: async (p, take) => {
       const rows = await p.agentPlaygroundMission.findMany({
@@ -427,7 +427,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
         data: { analystOutputSize: size },
       });
     },
-    keyFor: (id) => `playground-missions/${id}/analyst_output.json`,
+    keyFor: (id) => `mission-records/${id}/analyst_output.json`,
     contentType: "application/json; charset=utf-8",
   },
   {
@@ -435,7 +435,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
     table: "agent_playground_missions",
     field: "outline_plan",
     uriField: "outline_plan_uri",
-    r2Prefix: "playground-missions/",
+    r2Prefix: "mission-records/",
     contentKind: "json",
     list: async (p, take) => {
       const rows = await p.agentPlaygroundMission.findMany({
@@ -464,7 +464,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
         data: { outlinePlanSize: size },
       });
     },
-    keyFor: (id) => `playground-missions/${id}/outline_plan.json`,
+    keyFor: (id) => `mission-records/${id}/outline_plan.json`,
     contentType: "application/json; charset=utf-8",
   },
   {
@@ -472,7 +472,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
     table: "mission_report_versions",
     field: "report_full",
     uriField: "report_full_uri",
-    r2Prefix: "playground-report-versions/",
+    r2Prefix: "report-versions/",
     contentKind: "json",
     list: async (p, take) => {
       const rows = await p.missionReportVersion.findMany({
@@ -501,7 +501,7 @@ export const OFFLOAD_TARGETS: readonly OffloadTarget[] = [
         data: { reportFullSize: size },
       });
     },
-    keyFor: (id) => `playground-report-versions/${id}/report_full.json`,
+    keyFor: (id) => `report-versions/${id}/report_full.json`,
     contentType: "application/json; charset=utf-8",
   },
 ] as const;
