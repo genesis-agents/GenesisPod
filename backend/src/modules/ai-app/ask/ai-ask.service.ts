@@ -385,13 +385,21 @@ export class AiAskService {
               ) {
                 ragContext = ragResponse.context.text;
                 // Collect RAG sources to return to frontend
-                ragSources = ragResponse.context.sources.map((s: any) => ({
-                  documentTitle: s.documentTitle,
-                  excerpt: s.excerpt,
-                  score: s.score,
-                }));
+                ragSources = ragResponse.context.sources.map(
+                  (s: {
+                    documentTitle: string;
+                    excerpt: string;
+                    score: number;
+                  }) => ({
+                    documentTitle: s.documentTitle,
+                    excerpt: s.excerpt,
+                    score: s.score,
+                  }),
+                );
                 this.logger.log(
-                  `[sendMessage] RAG context added (${ragSources.length} sources): ${ragSources.map((s: any) => s.documentTitle).join(", ")}`,
+                  `[sendMessage] RAG context added (${ragSources.length} sources): ${ragSources
+                    .map((s) => s.documentTitle)
+                    .join(", ")}`,
                 );
               } else {
                 this.logger.log(
@@ -616,6 +624,259 @@ export class AiAskService {
         }
       },
     );
+  }
+
+  /**
+   * 流式发送消息（SSE）
+   *
+   * 2026-05-10 §4：sendMessage() 是完全同步的 await chatFacade.chat()，
+   * 用户从输入到首字要等 5-30s 白屏，所有 token 一次性砸下来。本方法走
+   * chatFacade.chatStream()（已存在），把 LLM 输出按 chunk 增量 yield 给
+   * controller，controller 写 SSE 给前端。
+   *
+   * 行为差异：
+   * - 仅覆盖非 tool 路径（dto.enableTools/webSearch=false）；tool 路径仍用
+   *   sendMessage 的传统同步流（toolFacade.chatWithToolsStream 内部已
+   *   消费完整 stream 拼 finalContent，加 SSE 涉及更深改造）。
+   * - RAG 检索仍同步阻塞（通常 < 1s），完成后 emit `sources` 事件再开始
+   *   生成；前端在等 sources 时显示"检索中"占位。
+   * - LLM 流式 chunk emit `chunk` 事件，前端逐字追加；流结束 emit `done`
+   *   事件携带 messageId / tokens / 完整内容。
+   */
+  async *sendMessageStream(
+    sessionId: string,
+    userId: string,
+    dto: SendMessageDto,
+  ): AsyncGenerator<
+    | { type: "status"; stage: "rag" | "generating" }
+    | {
+        type: "sources";
+        sources: Array<{
+          documentTitle: string;
+          excerpt: string;
+          score: number;
+        }>;
+      }
+    | { type: "chunk"; content: string }
+    | {
+        type: "done";
+        userMessageId: string;
+        assistantMessageId: string;
+        tokensUsed: number;
+        fullContent: string;
+      }
+    | { type: "error"; message: string },
+    void,
+    unknown
+  > {
+    const session = await this.prisma.askSession.findFirst({
+      where: { id: sessionId, userId },
+    });
+    if (!session) {
+      throw new NotFoundException("Session not found");
+    }
+
+    if (this.missionExecutor && !this.sessionProcessIds.has(sessionId)) {
+      try {
+        const kernelResult = await this.missionExecutor.execute({
+          userId,
+          agentId: "ai-ask",
+          teamSessionId: sessionId,
+          input: { title: session.title },
+        });
+        this.sessionProcessIds.set(sessionId, kernelResult.processId);
+      } catch (err) {
+        this.logger.warn(
+          `[Kernel] Failed to spawn process: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    const modelId = dto.modelId || session.modelId;
+    const modelConfig = await this.getModelConfig(modelId);
+
+    const isRagQuery = dto.knowledgeBaseIds && dto.knowledgeBaseIds.length > 0;
+    const operationType = isRagQuery ? "rag-chat" : "chat";
+    const estimatedCredits = isRagQuery ? 15 : 10;
+
+    if (this.creditsService) {
+      const balanceCheck = await this.creditsService.checkBalance(
+        userId,
+        estimatedCredits,
+      );
+      if (!balanceCheck.sufficient) {
+        throw new InsufficientCreditsException(
+          estimatedCredits,
+          balanceCheck.balance,
+        );
+      }
+    }
+
+    const contextMessages = await this.buildContext(sessionId);
+
+    const userMessage = await this.prisma.askMessage.create({
+      data: {
+        sessionId,
+        role: "user",
+        content: dto.content,
+        modelId: modelConfig.id,
+        modelName: modelConfig.name,
+        webSearch: dto.webSearch || false,
+      },
+    });
+
+    contextMessages.push({ role: "user" as const, content: dto.content });
+
+    // RAG 检索（同步阻塞，但 emit status 让前端显示"检索中"）
+    let ragContext = "";
+    let ragSources: Array<{
+      documentTitle: string;
+      excerpt: string;
+      score: number;
+    }> = [];
+
+    if (isRagQuery && this.ragPipelineService) {
+      yield { type: "status", stage: "rag" };
+      try {
+        const ragResponse = await this.ragPipelineService.query({
+          query: dto.content,
+          knowledgeBaseIds: dto.knowledgeBaseIds!,
+          options: {
+            topK: 5,
+            useHyde: false,
+            useRerank: false,
+            minScore: 0.001,
+          },
+        });
+        if (ragResponse.context && ragResponse.context.sources.length > 0) {
+          ragContext = ragResponse.context.text;
+          ragSources = ragResponse.context.sources.map(
+            (s: { documentTitle: string; excerpt: string; score: number }) => ({
+              documentTitle: s.documentTitle,
+              excerpt: s.excerpt,
+              score: s.score,
+            }),
+          );
+          yield { type: "sources", sources: ragSources };
+        }
+      } catch (ragError) {
+        const msg = ragError instanceof Error ? ragError.message : "unknown";
+        this.logger.warn(`[sendMessageStream] RAG query failed: ${msg}`);
+      }
+    }
+
+    yield { type: "status", stage: "generating" };
+
+    // chatFacade.chatStream 内置 billing 上报（request.billing → handleBilling
+    // 在 finally 里跑），不需要外层再包 BillingContext.run。
+    let assistantContent = "";
+    const tokensUsed = 0; // chatStream 内部已上报，本地不再累计
+    try {
+      const systemPrompt = this.buildSystemPromptForChat(
+        dto.content,
+        ragContext,
+      );
+      const messagesWithSystem = [
+        { role: "system" as const, content: systemPrompt },
+        ...contextMessages,
+      ];
+
+      for await (const chunk of this.chatFacade.chatStream({
+        messages: messagesWithSystem,
+        model: modelConfig.modelId,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "medium", outputLength: "standard" },
+        billing: { userId, moduleType: "ai-ask", operationType },
+      })) {
+        if (chunk.error) {
+          yield { type: "error", message: chunk.error };
+          return;
+        }
+        if (chunk.content) {
+          assistantContent += chunk.content;
+          yield { type: "chunk", content: chunk.content };
+        }
+        if (chunk.done) {
+          break;
+        }
+      }
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message.includes("timeout") ||
+            error.message.includes("rate limit") ||
+            error.message.includes("credits")
+            ? error.message
+            : "Failed to get response. Please try again."
+          : "Failed to get response. Please try again.";
+      yield { type: "error", message: msg };
+
+      const errorMessage = await this.prisma.askMessage.create({
+        data: {
+          sessionId,
+          role: "assistant",
+          content: `Error: ${msg}`,
+          modelId: modelConfig.id,
+          modelName: modelConfig.name,
+        },
+      });
+      yield {
+        type: "done",
+        userMessageId: userMessage.id,
+        assistantMessageId: errorMessage.id,
+        tokensUsed: 0,
+        fullContent: `Error: ${msg}`,
+      };
+      return;
+    }
+
+    if (!assistantContent) {
+      assistantContent = "抱歉，我无法完成这个请求。";
+    }
+
+    // 持久化 assistant message
+    const assistantMessage = await this.prisma.askMessage.create({
+      data: {
+        sessionId,
+        role: "assistant",
+        content: assistantContent,
+        modelId: modelConfig.id,
+        modelName: modelConfig.name,
+        webSearch: dto.webSearch || false,
+        tokens: tokensUsed,
+      },
+    });
+
+    await this.prisma.askSession.update({
+      where: { id: sessionId },
+      data: { updatedAt: new Date() },
+    });
+
+    await this.updateConversationMemory(
+      sessionId,
+      { role: "user", content: this.sanitizeMessageContent(dto.content) },
+      {
+        role: "assistant",
+        content: this.sanitizeMessageContent(assistantContent),
+      },
+    );
+
+    const messageCount = await this.prisma.askMessage.count({
+      where: { sessionId },
+    });
+    if (messageCount === 2 && session.title === "New Chat") {
+      void this.generateSessionTitle(sessionId, dto.content).catch((err) => {
+        this.logger.warn(`Failed to generate session title: ${err.message}`);
+      });
+    }
+
+    yield {
+      type: "done",
+      userMessageId: userMessage.id,
+      assistantMessageId: assistantMessage.id,
+      tokensUsed,
+      fullContent: assistantContent,
+    };
   }
 
   /**

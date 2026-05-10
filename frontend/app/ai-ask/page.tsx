@@ -1166,9 +1166,21 @@ export default function AskPage() {
     return null;
   }, [token, selectedModel]);
 
-  // Send message to session
+  // Send message to session（流式 SSE）
   const sendMessageToSession = useCallback(
-    async (sessionId: string, content: string, modelId?: string) => {
+    async (
+      sessionId: string,
+      content: string,
+      modelId?: string,
+      onChunk?: (
+        accumulated: string,
+        sources?: Array<{
+          documentTitle: string;
+          excerpt: string;
+          score: number;
+        }>
+      ) => void
+    ) => {
       if (!token) {
         logger.warn('Cannot send message: no auth token');
         return null;
@@ -1198,9 +1210,12 @@ export default function AskPage() {
         knowledgeBaseIds: requestBody.knowledgeBaseIds,
       });
 
+      // 2026-05-10 §4：走 SSE 流式端点逐 chunk 更新 UI；onChunk 回调在每个
+      // delta 到达时触发，调用方可立即追加到当前 assistant message 文本里
+      // 实现"打字机"效果。后端整流完成后通过 done event 给最终 messageIds。
       try {
         const response = await fetch(
-          `${config.apiUrl}/ask/sessions/${sessionId}/messages`,
+          `${config.apiUrl}/ask/sessions/${sessionId}/messages/stream`,
           {
             method: 'POST',
             headers: {
@@ -1211,22 +1226,89 @@ export default function AskPage() {
           }
         );
 
-        if (response.ok) {
-          const rawResult = await response.json();
-          // Handle wrapped response { success: true, data: { ... } }
-          const result = rawResult?.data ?? rawResult;
-          logger.debug('[AiAsk] sendMessageToSession response:', {
-            hasRagSources: !!result.ragSources,
-            ragSourcesCount: result.ragSources?.length || 0,
-          });
-          return result;
-        } else {
+        if (!response.ok || !response.body) {
           const errorData = await response.json().catch(() => ({}));
-          logger.error('Failed to send message:', {
+          logger.error('Failed to start stream:', {
             status: response.status,
             error: errorData,
           });
+          return null;
         }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let accumulatedContent = '';
+        let ragSources:
+          | Array<{ documentTitle: string; excerpt: string; score: number }>
+          | undefined;
+        let userMessageId: string | null = null;
+        let assistantMessageId: string | null = null;
+        let tokensUsed = 0;
+        let errorMsg: string | null = null;
+
+        const handleEvent = (event: any) => {
+          if (event.type === 'sources') {
+            ragSources = event.sources;
+          } else if (event.type === 'chunk') {
+            accumulatedContent += event.content;
+            onChunk?.(accumulatedContent, ragSources);
+          } else if (event.type === 'done') {
+            userMessageId = event.userMessageId;
+            assistantMessageId = event.assistantMessageId;
+            tokensUsed = event.tokensUsed;
+            // 后端最终内容覆盖（兜底，正常情况下与 accumulated 一致）
+            if (event.fullContent) accumulatedContent = event.fullContent;
+          } else if (event.type === 'error') {
+            errorMsg = event.message;
+          }
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split('\n\n');
+          buffer = events.pop() ?? '';
+          for (const raw of events) {
+            const line = raw.trim();
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (!payload) continue;
+            try {
+              handleEvent(JSON.parse(payload));
+            } catch (parseErr) {
+              logger.warn('[AiAsk] Failed to parse SSE event:', parseErr);
+            }
+          }
+        }
+
+        if (errorMsg) {
+          logger.error('[AiAsk] Stream error:', errorMsg);
+          return null;
+        }
+
+        return {
+          userMessage: {
+            id: userMessageId ?? 'temp-user',
+            content,
+            createdAt: new Date().toISOString(),
+            modelId: requestBody.modelId,
+            modelName: undefined as string | undefined,
+          },
+          assistantMessage: {
+            id: assistantMessageId ?? 'temp-assistant',
+            content: accumulatedContent,
+            createdAt: new Date().toISOString(),
+            modelId: requestBody.modelId,
+            modelName: undefined as string | undefined,
+            tokens: tokensUsed,
+          },
+          ragSources,
+          suggestedActions: undefined as
+            | Array<{ type: string; label: string; data?: unknown }>
+            | undefined,
+        };
       } catch (error) {
         logger.error('Failed to send message:', error);
       }
@@ -1559,52 +1641,82 @@ export default function AskPage() {
         }
 
         if (sessionId) {
-          // Optimistically add user message (display truncated quote)
+          // 2026-05-10 §4 流式：先注入临时 user + 占位 assistant 消息，
+          // onChunk 每次 delta 更新占位 assistant 内容（打字机效果），
+          // done 时把临时 ID 替换为后端真实 ID。
+          const tempUserId = 'temp-user-' + Date.now();
+          const tempAssistantId = 'temp-assistant-' + Date.now();
           const tempUserMessage: Message = {
-            id: 'temp-user-' + Date.now(),
+            id: tempUserId,
             role: 'user',
             content: displayContent,
             createdAt: new Date().toISOString(),
           };
-          setMessages((prev) => [...prev, tempUserMessage]);
+          const tempAssistantMessage: Message = {
+            id: tempAssistantId,
+            role: 'assistant',
+            content: '',
+            createdAt: new Date().toISOString(),
+          };
+          setMessages((prev) => [
+            ...prev,
+            tempUserMessage,
+            tempAssistantMessage,
+          ]);
 
-          // Send message and get response (send full quote to AI)
-          const result = await sendMessageToSession(sessionId, userContent);
+          const result = await sendMessageToSession(
+            sessionId,
+            userContent,
+            undefined,
+            (accumulated, sources) => {
+              // 增量更新占位 assistant message
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === tempAssistantId
+                    ? { ...m, content: accumulated, ragSources: sources }
+                    : m
+                )
+              );
+            }
+          );
 
           if (result) {
-            // Replace temp message with real messages
-            setMessages((prev) => {
-              const withoutTemp = prev.filter((m) => !m.id.startsWith('temp-'));
-              return [
-                ...withoutTemp,
-                {
-                  id: result.userMessage.id,
-                  role: 'user',
-                  content: result.userMessage.content,
-                  modelId: result.userMessage.modelId,
-                  modelName: result.userMessage.modelName,
-                  createdAt: result.userMessage.createdAt,
-                },
-                {
-                  id: result.assistantMessage.id,
-                  role: 'assistant',
-                  content: result.assistantMessage.content,
-                  modelId: result.assistantMessage.modelId,
-                  modelName: result.assistantMessage.modelName,
-                  createdAt: result.assistantMessage.createdAt,
-                  // Include RAG sources from session response
-                  ragSources: result.ragSources,
-                },
-              ];
-            });
-            // Store suggested actions for this assistant message
-            if (result.suggestedActions?.length > 0) {
-              setMessageSuggestions((prev) => {
-                const next = new Map(prev);
-                next.set(result.assistantMessage.id, result.suggestedActions);
-                return next;
-              });
-            }
+            // 流式结束：把 temp IDs 换成真实 IDs
+            setMessages((prev) =>
+              prev.map((m) => {
+                if (m.id === tempUserId) {
+                  return {
+                    ...m,
+                    id: result.userMessage.id,
+                    content: result.userMessage.content,
+                    modelId: result.userMessage.modelId,
+                    modelName: result.userMessage.modelName,
+                    createdAt: result.userMessage.createdAt,
+                  };
+                }
+                if (m.id === tempAssistantId) {
+                  return {
+                    ...m,
+                    id: result.assistantMessage.id,
+                    content: result.assistantMessage.content,
+                    modelId: result.assistantMessage.modelId,
+                    modelName: result.assistantMessage.modelName,
+                    createdAt: result.assistantMessage.createdAt,
+                    ragSources: result.ragSources,
+                  };
+                }
+                return m;
+              })
+            );
+            // 注：suggestedActions / IntentRouter 链路 2026-04-30 已删（backend
+            // ai-ask.service.ts:46-48 注释），前端这里也不再消费。
+          } else {
+            // 流式失败：移除临时消息
+            setMessages((prev) =>
+              prev.filter(
+                (m) => m.id !== tempUserId && m.id !== tempAssistantId
+              )
+            );
           }
         } else {
           // Fallback to simple chat if session creation fails

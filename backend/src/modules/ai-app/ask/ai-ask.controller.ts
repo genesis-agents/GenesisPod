@@ -9,9 +9,11 @@ import {
   Query,
   UseGuards,
   Request,
+  Res,
   Logger,
   BadRequestException,
 } from "@nestjs/common";
+import { Response } from "express";
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../../common/guards/jwt-auth.guard";
@@ -154,6 +156,59 @@ export class AiAskController {
       );
     }
     return this.aiAskService.sendMessage(sessionId, req.user.id, dto);
+  }
+
+  /**
+   * 流式发送消息（SSE）
+   * POST /api/v1/ask/sessions/:sessionId/messages/stream
+   *
+   * 2026-05-10 §4：sendMessage 同步阻塞导致用户白屏 5-30s。新流式端点 yield
+   * SSE 事件：status / sources / chunk / done / error。前端用 fetch + ReadableStream
+   * 消费，逐字渲染。
+   */
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Post(":sessionId/messages/stream")
+  @ApiOperation({ summary: "流式发送消息（SSE）" })
+  async streamMessage(
+    @Request() req: { user: { id: string } },
+    @Param("sessionId") sessionId: string,
+    @Body() dto: SendMessageDto,
+    @Res() res: Response,
+  ) {
+    if (dto.knowledgeBaseIds && dto.knowledgeBaseIds.length > 10) {
+      throw new BadRequestException(
+        "Invalid knowledgeBaseIds: must be an array of at most 10 IDs",
+      );
+    }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // nginx 关闭 buffer
+    res.flushHeaders();
+
+    const writeEvent = (event: unknown) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    try {
+      for await (const event of this.aiAskService.sendMessageStream(
+        sessionId,
+        req.user.id,
+        dto,
+      )) {
+        writeEvent(event);
+        if (event.type === "done" || event.type === "error") {
+          break;
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`[streamMessage] Stream failed: ${msg}`);
+      writeEvent({ type: "error", message: msg });
+    } finally {
+      res.end();
+    }
   }
 
   /**
