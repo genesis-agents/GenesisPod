@@ -231,7 +231,22 @@ export class ModelElectionService {
     return distance === 1 ? 10 : 0;
   }
 
-  /** role 偏好 */
+  /**
+   * role 偏好（2026-05-10 §3 反 multi-model 坍缩）
+   *
+   * 之前 writer/reviewer 都给 STRONG 同一个 +15，配合 priority 决定
+   * 让所有 STRONG 角色一边倒选 priority 最高那个 provider（如 grok-3），
+   * "多模型自动选择"实际坍缩成"单模型一拉到底"。
+   *
+   * 新规则按角色专长再分一档：
+   * - leader / reviewer 偏 reasoning（规划 / 批判性思考）
+   * - writer 反偏 reasoning（reasoning 模型话术僵硬，叙事型 STRONG 更佳）
+   *
+   * 用户在只配了 xai + deepseek 时：
+   *   leader/reviewer → deepseek-r1（reasoning 加分）
+   *   writer/researcher → grok-3（非 reasoning STRONG 加分）
+   * 自然分布到两个 provider，不再坍缩。
+   */
   private scoreRole(
     role: ElectionRoleHint,
     config: AIModelConfig,
@@ -239,15 +254,16 @@ export class ModelElectionService {
   ): number {
     switch (role) {
       case "leader":
-        // 规划/分配任务：reasoning 模型最佳
+        // 规划/分配：reasoning 模型最佳
         return config.isReasoning ? 20 : tier === ModelTier.STRONG ? 10 : 0;
-      case "writer":
       case "reviewer":
-        return tier === ModelTier.STRONG
-          ? 15
-          : tier === ModelTier.STANDARD
-            ? 5
-            : 0;
+        // 批判性思考 → reasoning 优先；非 reasoning STRONG 也合格
+        if (tier === ModelTier.STRONG) return config.isReasoning ? 18 : 12;
+        return tier === ModelTier.STANDARD ? 5 : 0;
+      case "writer":
+        // 叙事/长文：非 reasoning STRONG 最佳；reasoning 反偏（话术僵硬）
+        if (tier === ModelTier.STRONG) return config.isReasoning ? 8 : 18;
+        return tier === ModelTier.STANDARD ? 5 : 0;
       case "extractor":
       case "classifier":
         // 结构化抽取：BASIC 够用，不浪费 STRONG
@@ -374,4 +390,3 @@ export class ModelElectionService {
     );
   }
 }
-

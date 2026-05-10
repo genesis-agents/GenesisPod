@@ -249,6 +249,80 @@ describe("ModelElectionService", () => {
       expect(res.elected.modelId).toBe("deepseek-r1");
     });
 
+    // 2026-05-10 §3 反 multi-model 坍缩：writer 反偏 reasoning，reviewer 偏 reasoning
+    it("role=writer: 同 STRONG tier 下非 reasoning 模型胜出（叙事型 STRONG 优先）", async () => {
+      modelConfigService.getModelConfig.mockImplementation((id: string) => {
+        if (id === "grok-3-latest")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "grok-3-latest",
+              provider: "xai",
+              isReasoning: false,
+              priority: 50,
+            }),
+          );
+        if (id === "deepseek-r1")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "deepseek-r1",
+              provider: "deepseek",
+              isReasoning: true,
+              priority: 50,
+            }),
+          );
+        return Promise.resolve(null);
+      });
+
+      const res = await service.elect(
+        baseRequest({
+          candidates: [
+            cand({ modelId: "grok-3-latest", provider: "xai" }),
+            cand({ modelId: "deepseek-r1", provider: "deepseek" }),
+          ],
+          role: "writer",
+        }),
+      );
+      // writer + STRONG: 非 reasoning +18，reasoning +8 → grok 胜
+      expect(res.elected.modelId).toBe("grok-3-latest");
+    });
+
+    it("role=reviewer: 同 STRONG tier 下 reasoning 模型胜出（批判性思考优先）", async () => {
+      modelConfigService.getModelConfig.mockImplementation((id: string) => {
+        if (id === "grok-3-latest")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "grok-3-latest",
+              provider: "xai",
+              isReasoning: false,
+              priority: 80, // 高 priority 模拟用户复盘的 prod 场景
+            }),
+          );
+        if (id === "deepseek-r1")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "deepseek-r1",
+              provider: "deepseek",
+              isReasoning: true,
+              priority: 50,
+            }),
+          );
+        return Promise.resolve(null);
+      });
+
+      const res = await service.elect(
+        baseRequest({
+          candidates: [
+            cand({ modelId: "grok-3-latest", provider: "xai" }),
+            cand({ modelId: "deepseek-r1", provider: "deepseek" }),
+          ],
+          role: "reviewer",
+        }),
+      );
+      // reviewer + STRONG: reasoning +18 vs 非 reasoning +12（差 6 分），即使
+      // grok 有 priority +3 优势仍敌不过 reasoning 加分 → deepseek-r1 胜
+      expect(res.elected.modelId).toBe("deepseek-r1");
+    });
+
     it("role=extractor: BASIC 候选比 STRONG 多 10 分", async () => {
       modelConfigService.getModelConfig.mockImplementation((id: string) => {
         if (id === "gpt-4o-mini")
