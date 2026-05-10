@@ -1,4 +1,4 @@
-export { DemoLauncher } from './DemoLauncher';
+export { PlaygroundMissionDialog } from './PlaygroundMissionDialog';
 export { CapabilityMeters } from './CapabilityMeters';
 export { PipelineTimeline } from './PipelineTimeline';
 export { AgentLiveGrid } from './AgentLiveGrid';

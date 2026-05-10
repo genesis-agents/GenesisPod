@@ -12,3 +12,5 @@ export { default as AddToAIStudioDialog } from './AddToAIStudioDialog';
 export { ImportFileDialog } from './ImportFileDialog';
 export { ImportUrlDialog } from './ImportUrlDialog';
 export { UploadFileDialog } from './UploadFileDialog';
+export { MissionDialogShell } from './MissionDialogShell';
+export type { MissionDialogShellProps } from './MissionDialogShell';

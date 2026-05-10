@@ -4,9 +4,12 @@
  * Agent Playground Index Page
  *
  * 2026-05-05 R-CA: 重构为 MissionGalleryView 公共组件的薄壳。
- * UI 不变；与 /custom-agents/:id 主页（每个用户自定义 agent 自己的主页）共用同一组件。
+ * 2026-05-10: 创建入口由 /agent-playground/team 全页 launcher 改为内联 modal
+ *             （PlaygroundMissionDialog + 共享 MissionDialogShell），与 Topic
+ *             Insight / Custom Agents 视觉一致。
  */
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -18,10 +21,13 @@ import {
   type MissionListItem,
 } from '@/services/agent-playground/api';
 import { MissionGalleryView } from '@/components/missions/MissionGalleryView';
+import { PlaygroundMissionDialog } from '@/components/agent-playground';
 
 export default function PlaygroundIndexPage() {
   const { t } = useTranslation();
   const router = useRouter();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [galleryReloadKey, setGalleryReloadKey] = useState(0);
 
   const handleRerun = async (mission: MissionListItem) => {
     if (!confirm(`重新运行「${mission.topic}」？将创建一个新的 Mission。`)) {
@@ -65,23 +71,34 @@ export default function PlaygroundIndexPage() {
   };
 
   return (
-    <MissionGalleryView
-      title={t('nav.playground') || 'Agent Playground'}
-      subtitle="基于 Harness runtime 的多智能体协作演示"
-      iconGradient="from-violet-500 to-purple-600"
-      createButtonLabel="新建 Mission"
-      onCreateMission={() => router.push('/agent-playground/team')}
-      fetchMissions={listMissions}
-      onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
-      onRerun={handleRerun}
-      onCancel={handleCancel}
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-      emptyState={{
-        title: '还没有 Mission',
-        hint: '基于 Harness runtime 启动你的第一个研究 mission',
-        ctaLabel: '启动研究 Mission',
-      }}
-    />
+    <>
+      <MissionGalleryView
+        title={t('nav.playground') || 'Agent Playground'}
+        subtitle="基于 Harness runtime 的多智能体协作演示"
+        iconGradient="from-violet-500 to-purple-600"
+        createButtonLabel="新建 Mission"
+        onCreateMission={() => setCreateOpen(true)}
+        fetchMissions={listMissions}
+        onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
+        onRerun={handleRerun}
+        onCancel={handleCancel}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        reloadKey={galleryReloadKey}
+        emptyState={{
+          title: '还没有 Mission',
+          hint: '基于 Harness runtime 启动你的第一个研究 mission',
+          ctaLabel: '启动研究 Mission',
+        }}
+      />
+      <PlaygroundMissionDialog
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(missionId) => {
+          setGalleryReloadKey((n) => n + 1);
+          router.push(`/agent-playground/team/${missionId}`);
+        }}
+      />
+    </>
   );
 }
