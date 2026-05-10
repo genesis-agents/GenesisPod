@@ -1184,7 +1184,10 @@ export default function AskPage() {
     ) => {
       if (!token) {
         logger.warn('Cannot send message: no auth token');
-        return null;
+        return {
+          ok: false as const,
+          error: '登录状态已过期，请重新登录后再试。',
+        };
       }
 
       // Build request body with optional knowledgeBaseIds
@@ -1590,7 +1593,7 @@ export default function AskPage() {
             }
           );
 
-          if (result) {
+          if (result.ok) {
             // 流式结束：把 temp IDs 换成真实 IDs
             const finalAssistantTempId = tempAssistantId;
             setMessages((prev) => {
@@ -1639,17 +1642,28 @@ export default function AskPage() {
             // 注：suggestedActions / IntentRouter 链路 2026-04-30 已删（backend
             // ai-ask.service.ts:46-48 注释），前端这里也不再消费。
           } else {
-            // 流式失败：移除临时消息
+            // 2026-05-10 §4 流式失败：保留 user 气泡，把 thinking 占位替换为
+            // **inline 错误气泡**。原"silent filter 双气泡"路径会让用户看见
+            // "thinking..." 几秒后整个会话突然变空 → 误以为被登出（screenshot 19）。
             const failedAssistantTempId = tempAssistantId;
-            setMessages((prev) =>
-              prev.filter(
-                (m) =>
-                  m.id !== tempUserId &&
-                  (failedAssistantTempId
-                    ? m.id !== failedAssistantTempId
-                    : true)
-              )
-            );
+            const errorBubble: Message = {
+              id: 'error-' + Date.now(),
+              role: 'assistant',
+              content:
+                (result.partialContent
+                  ? `${result.partialContent}\n\n---\n\n`
+                  : '') + `⚠ ${result.error}`,
+              modelId: selectedModel,
+              createdAt: new Date().toISOString(),
+            };
+            setMessages((prev) => {
+              if (failedAssistantTempId) {
+                return prev.map((m) =>
+                  m.id === failedAssistantTempId ? errorBubble : m
+                );
+              }
+              return [...prev, errorBubble];
+            });
           }
         } else {
           // Fallback to simple chat if session creation fails

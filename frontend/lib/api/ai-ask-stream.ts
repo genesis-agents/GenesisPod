@@ -26,7 +26,8 @@ export interface AskStreamRequestBody {
   knowledgeBaseIds?: string[];
 }
 
-export interface AskStreamResult {
+export interface AskStreamSuccess {
+  ok: true;
   userMessage: {
     id: string;
     content: string;
@@ -49,6 +50,17 @@ export interface AskStreamResult {
    */
   suggestedActions?: Array<{ type: string; label: string; data?: unknown }>;
 }
+
+export interface AskStreamFailure {
+  ok: false;
+  /** 用户可读的错误（来自 SSE error event / HTTP 错误体 / 网络异常）。 */
+  error: string;
+  /** 失败前已经累积的部分内容（如果有），可作为 inline 错误气泡的 prefix。 */
+  partialContent?: string;
+  status?: number;
+}
+
+export type AskStreamResult = AskStreamSuccess | AskStreamFailure;
 
 export type AskOnChunk = (
   accumulated: string,
@@ -89,20 +101,37 @@ type SseEvent =
   | DoneEvent
   | ErrorEvent;
 
+const networkErrorMessage = (status: number, raw: unknown): string => {
+  const data = (raw ?? {}) as Record<string, unknown>;
+  const direct = typeof data.message === 'string' ? data.message : '';
+  const nested =
+    typeof (data.error as { message?: string } | undefined)?.message ===
+    'string'
+      ? (data.error as { message: string }).message
+      : '';
+  const human = direct || nested;
+  if (human) return human;
+  if (status === 401) return '登录状态已过期，请重新登录后再试。';
+  if (status === 403)
+    return '没有权限调用此模型，请检查 BYOK 配置或管理员授权。';
+  if (status === 404) return '会话不存在或已被删除。';
+  return `调用失败 (HTTP ${status})。请稍后重试或更换模型。`;
+};
+
 /**
  * 发起 SSE 流式发送消息。
  *
- * 失败语义：
- * - 非 2xx 或 body 缺失 → 返回 null（caller 应清理临时消息）
- * - 流中 type='error' event → 返回 null
- * - 网络层抛错 → 返回 null（错误已 logger.error）
+ * 返回 discriminated union：
+ * - { ok: true, ... }：流式成功（含 done event）
+ * - { ok: false, error, partialContent? }：流式失败，caller 可把错误作为 inline
+ *   bubble 渲染到聊天区，避免"thinking 几秒后消失 → 用户以为被登出"的 UX 黑洞。
  */
 export async function streamAskMessage(
   sessionId: string,
   token: string,
   body: AskStreamRequestBody,
   onChunk?: AskOnChunk
-): Promise<AskStreamResult | null> {
+): Promise<AskStreamResult> {
   try {
     const response = await fetch(
       `${config.apiUrl}/ask/sessions/${sessionId}/messages/stream`,
@@ -122,7 +151,11 @@ export async function streamAskMessage(
         status: response.status,
         error: errorData,
       });
-      return null;
+      return {
+        ok: false,
+        status: response.status,
+        error: networkErrorMessage(response.status, errorData),
+      };
     }
 
     const reader = response.body.getReader();
@@ -172,10 +205,15 @@ export async function streamAskMessage(
 
     if (errorMsg) {
       logger.error('[AiAsk] Stream error:', errorMsg);
-      return null;
+      return {
+        ok: false,
+        error: errorMsg,
+        partialContent: accumulatedContent || undefined,
+      };
     }
 
     return {
+      ok: true,
       userMessage: {
         id: userMessageId ?? 'temp-user',
         content: body.content,
@@ -196,6 +234,7 @@ export async function streamAskMessage(
     };
   } catch (error) {
     logger.error('[AiAsk] streamAskMessage failed:', error);
-    return null;
+    const msg = error instanceof Error ? error.message : '网络异常';
+    return { ok: false, error: `网络中断：${msg}` };
   }
 }
