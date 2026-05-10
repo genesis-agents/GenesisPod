@@ -24,7 +24,7 @@
  */
 
 import { useMemo, type ReactNode } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import ReactMarkdown, { type Components, type Options } from 'react-markdown';
 import type { PluggableList } from 'unified';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -97,6 +97,15 @@ export interface MarkdownViewerProps {
    * 一般用 MarkdownChartSplitViewer 而不是手动管理。
    */
   sharedSlugCounts?: Map<string, number>;
+  /** Optional component overrides merged on top of platform defaults. */
+  components?: Partial<Components>;
+  /** Optional URL transformer passed to ReactMarkdown. */
+  urlTransform?: Options['urlTransform'];
+  /**
+   * Optional rehype plugins appended after the platform defaults.
+   * Use this for call-site specific sanitation or post-processing.
+   */
+  rehypePluginsExtra?: PluggableList;
 }
 
 const IDENTITY: (text: string) => ReactNode = (t) => t;
@@ -115,6 +124,9 @@ export function MarkdownViewer({
   processBlockquote = false,
   processInlineElements = true,
   sharedSlugCounts,
+  components: componentOverrides,
+  urlTransform,
+  rehypePluginsExtra,
 }: MarkdownViewerProps) {
   // 兼容 deprecated `preprocess`：未显式传细分 flag 时按旧聚合规则
   const doLatex = enableLatexPreprocess ?? preprocess ?? true;
@@ -131,18 +143,22 @@ export function MarkdownViewer({
   // (slugCounts / lastH2Text 是闭包态，sharedSlugCounts 由调用方注入支持跨实例去重)
   const components = useMemo(
     () =>
-      createMarkdownComponents(processText ?? IDENTITY, {
-        applyTextProcessingToHeadings: processHeadings,
-        applyTextProcessingToBlockquote: processBlockquote,
-        applyTextProcessingToInlineElements: processInlineElements,
-        sharedSlugCounts,
-      }),
+      ({
+        ...createMarkdownComponents(processText ?? IDENTITY, {
+          applyTextProcessingToHeadings: processHeadings,
+          applyTextProcessingToBlockquote: processBlockquote,
+          applyTextProcessingToInlineElements: processInlineElements,
+          sharedSlugCounts,
+        }),
+        ...(componentOverrides ?? {}),
+      }) as Components,
     [
       processText,
       processHeadings,
       processBlockquote,
       processInlineElements,
       sharedSlugCounts,
+      componentOverrides,
     ]
   );
 
@@ -159,15 +175,17 @@ export function MarkdownViewer({
     const plugins: PluggableList = [];
     if (enableRawHtml) plugins.push(rehypeRaw);
     if (enableMath) plugins.push([rehypeKatex, KATEX_OPTIONS]);
+    if (rehypePluginsExtra?.length) plugins.push(...rehypePluginsExtra);
     return plugins;
-  }, [enableMath, enableRawHtml]);
+  }, [enableMath, enableRawHtml, rehypePluginsExtra]);
 
   return (
     <div className={cn('markdown-viewer', className)}>
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={rehypePlugins}
-        components={components as Components}
+        components={components}
+        urlTransform={urlTransform}
       >
         {finalText}
       </ReactMarkdown>

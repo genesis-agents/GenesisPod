@@ -62,9 +62,9 @@ import {
 } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import rehypeSanitize from 'rehype-sanitize';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
+import { katexAwareSchema } from '@/lib/markdown/katexAwareSchema';
 import WikiGraphModal from './WikiGraphModal';
 import WikiSettingsModal from './WikiSettingsModal';
 import WikiCardGrid from './WikiCardGrid';
@@ -73,10 +73,10 @@ import WikiCardGrid from './WikiCardGrid';
 // anchor href attributes — without this, rehype-sanitize strips the href and
 // our [[slug]] click handler never fires (silent break).
 const WIKI_SANITIZE_SCHEMA = {
-  ...defaultSchema,
+  ...katexAwareSchema,
   protocols: {
-    ...(defaultSchema.protocols ?? {}),
-    href: [...(defaultSchema.protocols?.href ?? []), 'wikilink'],
+    ...(katexAwareSchema.protocols ?? {}),
+    href: [...(katexAwareSchema.protocols?.href ?? []), 'wikilink'],
   },
 };
 
@@ -908,20 +908,9 @@ function WikiMarkdownView({
         </p>
       </header>
       <div className="prose prose-sm max-w-none text-gray-800">
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[[rehypeSanitize, WIKI_SANITIZE_SCHEMA]]}
-          // Allowlist: pass wikilink:slug (own scheme), http(s)/mailto/tel,
-          // and relative/anchor URLs through; everything else (incl.
-          // javascript:, data:) returns '' so the anchor renders without
-          // href. rehype-sanitize is also applied as defense in depth.
-          urlTransform={(url) => {
-            if (typeof url !== 'string') return '';
-            if (url.startsWith('wikilink:')) return url;
-            if (/^(https?|mailto|tel):/i.test(url)) return url;
-            if (url.startsWith('/') || url.startsWith('#')) return url;
-            return '';
-          }}
+        <MarkdownViewer
+          content={preprocessed}
+          enableBulletStrip={false}
           components={{
             a({ href, children, ...rest }) {
               if (typeof href === 'string' && href.startsWith('wikilink:')) {
@@ -954,9 +943,19 @@ function WikiMarkdownView({
               );
             },
           }}
-        >
-          {preprocessed}
-        </ReactMarkdown>
+          rehypePluginsExtra={[[rehypeSanitize, WIKI_SANITIZE_SCHEMA]]}
+          // Allowlist: pass wikilink:slug (own scheme), http(s)/mailto/tel,
+          // and relative/anchor URLs through; everything else (incl.
+          // javascript:, data:) returns '' so the anchor renders without
+          // href. rehype-sanitize is also applied as defense in depth.
+          urlTransform={(url) => {
+            if (typeof url !== 'string') return '';
+            if (url.startsWith('wikilink:')) return url;
+            if (/^(https?|mailto|tel):/i.test(url)) return url;
+            if (url.startsWith('/') || url.startsWith('#')) return url;
+            return '';
+          }}
+        />
       </div>
       {backlinks.length > 0 && (
         <section className="mt-8 border-t border-gray-200 pt-4">

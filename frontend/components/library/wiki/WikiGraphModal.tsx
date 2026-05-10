@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * Wiki Graph Modal — concentric SVG layout of pages (nodes) and `[[slug]]`
- * references (edges). Extracted from WikiTab.tsx to keep that file under
- * the project's god-class size guard (>2500 LOC + 50-line per-push cap).
+ * Wiki Graph Modal - concentric SVG layout of pages (nodes) and `[[slug]]`
+ * references (edges). Tuned for a lighter, more productized visual treatment
+ * while preserving the existing pan/zoom + click-to-open interaction model.
  */
 
 import {
@@ -27,9 +27,6 @@ const GRAPH_CATEGORY_COLORS: Record<WikiPageCategory, string> = {
   SOURCE: '#f59e0b',
 };
 
-// Inner-to-outer ring radii (SVG units; scaled to the viewBox half-width).
-// Tuned so the outer SOURCE ring sits inside the 520-unit half so labels
-// don't clip; bigger gaps = more breathing room when zoomed out.
 const RING_RADII: Record<WikiPageCategory, number> = {
   SUMMARY: 100,
   ENTITY: 230,
@@ -44,11 +41,17 @@ const RING_ORDER: WikiPageCategory[] = [
   'SOURCE',
 ];
 
-// Base viewBox is symmetric square `[-VB_HALF, VB_HALF]`. Scale=1 fits the
-// outer SOURCE ring (radius 430) with margin. Pan/zoom move (cx,cy,scale).
 const VB_HALF = 520;
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 6;
+const CATEGORY_START_ANGLE: Record<WikiPageCategory, number> = {
+  SUMMARY: -Math.PI / 2,
+  ENTITY: -Math.PI / 3,
+  CONCEPT: Math.PI / 2,
+  SOURCE: Math.PI / 6,
+};
+
+type Point = { x: number; y: number };
 
 export default function WikiGraphModal({
   kbId,
@@ -91,7 +94,6 @@ export default function WikiGraphModal({
     };
   }, [kbId]);
 
-  // Parse [[slug]] markers from each page body to build the edge list.
   const { nodes, edges } = useMemo(() => {
     const slugSet = new Set(pages.map((p) => p.slug));
     const linkRe = /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g;
@@ -112,7 +114,6 @@ export default function WikiGraphModal({
     return { nodes: pages, edges: edgeList };
   }, [pages]);
 
-  // Concentric layout: SUMMARY in inner ring, ENTITY/CONCEPT mid, SOURCE outer.
   const layout = useMemo(() => {
     const grouped: Record<WikiPageCategory, WikiPage[]> = {
       SUMMARY: [],
@@ -121,14 +122,14 @@ export default function WikiGraphModal({
       SOURCE: [],
     };
     for (const p of nodes) grouped[p.category].push(p);
-    const positions = new Map<string, { x: number; y: number }>();
+    const positions = new Map<string, Point>();
     for (const cat of RING_ORDER) {
       const items = grouped[cat];
       const r = RING_RADII[cat];
       const n = items.length;
       items.forEach((p, i) => {
-        const theta =
-          n === 1 ? -Math.PI / 2 : (i / n) * Math.PI * 2 - Math.PI / 2;
+        const start = CATEGORY_START_ANGLE[cat];
+        const theta = n === 1 ? start : start + (i / n) * Math.PI * 2;
         positions.set(p.slug, {
           x: r * Math.cos(theta),
           y: r * Math.sin(theta),
@@ -149,18 +150,24 @@ export default function WikiGraphModal({
     return map;
   }, [edges]);
 
-  // Convert browser pixel coords to SVG-space coords (respecting current
-  // viewBox + preserveAspectRatio="xMidYMid meet"). Used so wheel zoom and
-  // pan happen relative to the cursor position rather than always centered.
+  const degreeBySlug = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of nodes) map.set(p.slug, 0);
+    for (const e of edges) {
+      map.set(e.source, (map.get(e.source) ?? 0) + 1);
+      map.set(e.target, (map.get(e.target) ?? 0) + 1);
+    }
+    return map;
+  }, [edges, nodes]);
+
   const screenToSvg = useCallback(
-    (clientX: number, clientY: number): { x: number; y: number } | null => {
+    (clientX: number, clientY: number): Point | null => {
       const svg = svgRef.current;
       if (!svg) return null;
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return null;
       const vbW = (2 * VB_HALF) / view.scale;
       const vbH = (2 * VB_HALF) / view.scale;
-      // 'meet' = uniform scale, the smaller of width/height ratios wins.
       const fit = Math.min(rect.width / vbW, rect.height / vbH);
       const renderedW = vbW * fit;
       const renderedH = vbH * fit;
@@ -180,7 +187,6 @@ export default function WikiGraphModal({
       setView((prev) => {
         const nextScale = clamp(prev.scale * factor, MIN_SCALE, MAX_SCALE);
         if (nextScale === prev.scale) return prev;
-        // Zoom toward cursor: keep the SVG-space point under the mouse fixed.
         const anchor = screenToSvg(e.clientX, e.clientY);
         if (!anchor) return { ...prev, scale: nextScale };
         const ratio = prev.scale / nextScale;
@@ -194,8 +200,6 @@ export default function WikiGraphModal({
 
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
-      // Left button only; ignore clicks that originate on a node group so
-      // node click-to-open still works.
       if (e.button !== 0) return;
       const target = e.target as SVGElement;
       if (target.closest('g[data-wiki-node="1"]')) return;
@@ -256,8 +260,6 @@ export default function WikiGraphModal({
 
   const resetView = useCallback(() => setView({ cx: 0, cy: 0, scale: 1 }), []);
 
-  // Reset view whenever a new KB's pages are loaded so the user always sees
-  // the full graph on first render.
   useEffect(() => {
     setView({ cx: 0, cy: 0, scale: 1 });
   }, [kbId]);
@@ -265,14 +267,14 @@ export default function WikiGraphModal({
   const viewBox = `${view.cx - VB_HALF / view.scale} ${view.cy - VB_HALF / view.scale} ${(2 * VB_HALF) / view.scale} ${(2 * VB_HALF) / view.scale}`;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex h-[95vh] w-full max-w-[1600px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div className="flex h-[95vh] w-full max-w-[1600px] flex-col overflow-hidden rounded-3xl border border-white/60 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+        <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-slate-900">
               {t('library.wiki.graph.title')}
             </h2>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-slate-500">
               {t('library.wiki.graph.subtitle', {
                 nodes: nodes.length,
                 edges: edges.length,
@@ -281,18 +283,18 @@ export default function WikiGraphModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           >
             <X className="h-5 w-5" />
           </button>
         </header>
-        <main className="relative flex-1 overflow-hidden bg-gray-50">
+        <main className="relative flex-1 overflow-hidden bg-slate-50">
           {loading ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
             </div>
           ) : nodes.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-gray-500">
+            <div className="flex h-full items-center justify-center text-sm text-slate-500">
               {t('library.wiki.graph.empty')}
             </div>
           ) : (
@@ -307,32 +309,148 @@ export default function WikiGraphModal({
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
             >
+              <defs>
+                <radialGradient id="wiki-graph-bg" cx="50%" cy="42%" r="75%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="68%" stopColor="#f8fafc" />
+                  <stop offset="100%" stopColor="#eef2ff" />
+                </radialGradient>
+                {RING_ORDER.map((cat) => (
+                  <radialGradient
+                    key={`glow-${cat}`}
+                    id={`wiki-node-glow-${cat}`}
+                    cx="50%"
+                    cy="50%"
+                    r="50%"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor={GRAPH_CATEGORY_COLORS[cat]}
+                      stopOpacity="0.24"
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={GRAPH_CATEGORY_COLORS[cat]}
+                      stopOpacity="0"
+                    />
+                  </radialGradient>
+                ))}
+                <filter
+                  id="wiki-soft-shadow"
+                  x="-50%"
+                  y="-50%"
+                  width="200%"
+                  height="200%"
+                >
+                  <feDropShadow
+                    dx="0"
+                    dy="8"
+                    stdDeviation="12"
+                    floodColor="#0f172a"
+                    floodOpacity="0.12"
+                  />
+                </filter>
+                <filter
+                  id="wiki-edge-glow"
+                  x="-50%"
+                  y="-50%"
+                  width="200%"
+                  height="200%"
+                >
+                  <feGaussianBlur stdDeviation="2.4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <rect
+                x={-VB_HALF}
+                y={-VB_HALF}
+                width={VB_HALF * 2}
+                height={VB_HALF * 2}
+                fill="url(#wiki-graph-bg)"
+              />
+
+              {RING_ORDER.map((cat) => {
+                const ringR = RING_RADII[cat];
+                return (
+                  <g key={`ring-${cat}`} opacity={hover ? 0.38 : 1}>
+                    <circle
+                      cx={0}
+                      cy={0}
+                      r={ringR}
+                      fill={GRAPH_CATEGORY_COLORS[cat]}
+                      fillOpacity={0.02}
+                      stroke={GRAPH_CATEGORY_COLORS[cat]}
+                      strokeOpacity={0.12}
+                      strokeWidth={1.2}
+                      strokeDasharray="5 10"
+                    />
+                    <text
+                      x={0}
+                      y={-ringR - 14}
+                      textAnchor="middle"
+                      fontSize={10}
+                      fontWeight={700}
+                      letterSpacing="0.18em"
+                      fill="#94a3b8"
+                    >
+                      {cat}
+                    </text>
+                  </g>
+                );
+              })}
+
               {edges.map((e, i) => {
                 const a = layout.get(e.source);
                 const b = layout.get(e.target);
                 if (!a || !b) return null;
                 const highlighted =
                   hover != null && (e.source === hover || e.target === hover);
+                const mx = (a.x + b.x) / 2;
+                const my = (a.y + b.y) / 2;
+                const dist = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+                const nx = -(b.y - a.y) / dist;
+                const ny = (b.x - a.x) / dist;
+                const centerBias = clamp(
+                  1 - Math.hypot(mx, my) / VB_HALF,
+                  0.15,
+                  1
+                );
+                const curve = clamp(dist * 0.14 + 18, 18, 56) * centerBias;
+                const cx = mx + nx * curve - mx * 0.14;
+                const cy = my + ny * curve - my * 0.14;
                 return (
-                  <line
-                    key={i}
-                    x1={a.x}
-                    y1={a.y}
-                    x2={b.x}
-                    y2={b.y}
+                  <path
+                    key={`${e.source}-${e.target}-${i}`}
+                    d={`M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`}
+                    fill="none"
                     stroke={highlighted ? '#7c3aed' : '#cbd5e1'}
-                    strokeWidth={highlighted ? 2.2 : 1.0}
-                    opacity={highlighted ? 0.95 : hover ? 0.25 : 0.7}
+                    strokeWidth={highlighted ? 2.4 : 1.15}
+                    strokeLinecap="round"
+                    opacity={highlighted ? 0.98 : hover ? 0.12 : 0.45}
+                    filter={highlighted ? 'url(#wiki-edge-glow)' : undefined}
                   />
                 );
               })}
+
               {nodes.map((p) => {
                 const pos = layout.get(p.slug);
                 if (!pos) return null;
+                const degree = degreeBySlug.get(p.slug) ?? 0;
+                const nodeRadius =
+                  hover === p.slug ? 12 : Math.min(11, 7 + degree * 0.55);
                 const highlighted =
                   hover === p.slug ||
                   (hover != null && adjacency.get(hover)?.has(p.slug));
                 const dimmed = hover != null && !highlighted;
+                const showLabel =
+                  hover === p.slug || highlighted || nodes.length <= 24;
+                const label =
+                  p.title.length > 18 ? `${p.title.slice(0, 17)}…` : p.title;
+                const labelWidth = Math.max(68, label.length * 6.3 + 18);
                 return (
                   <g
                     key={p.slug}
@@ -348,71 +466,102 @@ export default function WikiGraphModal({
                     opacity={dimmed ? 0.25 : 1}
                   >
                     <circle
-                      r={hover === p.slug ? 12 : 8}
+                      r={nodeRadius + 11}
+                      fill={`url(#wiki-node-glow-${p.category})`}
+                      opacity={highlighted ? 1 : 0.8}
+                    />
+                    <circle
+                      r={nodeRadius + 2}
+                      fill="#ffffff"
+                      fillOpacity={0.9}
+                      stroke={GRAPH_CATEGORY_COLORS[p.category]}
+                      strokeOpacity={0.18}
+                      strokeWidth={1}
+                      filter="url(#wiki-soft-shadow)"
+                    />
+                    <circle
+                      r={nodeRadius}
                       fill={GRAPH_CATEGORY_COLORS[p.category]}
                       stroke="#fff"
-                      strokeWidth={2}
+                      strokeWidth={highlighted ? 3 : 2}
                     />
-                    {(hover === p.slug || nodes.length <= 60) && (
-                      <text
-                        x={0}
-                        y={-16}
-                        textAnchor="middle"
-                        fontSize={14}
-                        fontWeight={hover === p.slug ? 600 : 400}
-                        fill="#1f2937"
-                        style={{ pointerEvents: 'none' }}
-                      >
-                        {p.title.length > 18
-                          ? p.title.slice(0, 17) + '…'
-                          : p.title}
-                      </text>
+                    {showLabel && (
+                      <g transform={`translate(0, ${-nodeRadius - 18})`}>
+                        <rect
+                          x={-labelWidth / 2}
+                          y={-15}
+                          rx={10}
+                          ry={10}
+                          width={labelWidth}
+                          height={22}
+                          fill="#ffffff"
+                          fillOpacity={highlighted ? 0.96 : 0.88}
+                          stroke={highlighted ? '#c4b5fd' : '#e2e8f0'}
+                          strokeWidth={1}
+                          filter="url(#wiki-soft-shadow)"
+                        />
+                        <text
+                          x={0}
+                          y={0}
+                          textAnchor="middle"
+                          fontSize={12}
+                          fontWeight={
+                            hover === p.slug ? 700 : highlighted ? 600 : 500
+                          }
+                          fill={highlighted ? '#0f172a' : '#334155'}
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          {label}
+                        </text>
+                      </g>
                     )}
                   </g>
                 );
               })}
             </svg>
           )}
+
           {!loading && nodes.length > 0 && (
-            <div className="absolute right-4 top-4 flex flex-col gap-1 rounded-md border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+            <div className="bg-white/92 absolute right-4 top-4 flex flex-col gap-1 rounded-xl border border-slate-200 p-1.5 shadow-lg backdrop-blur">
               <button
                 onClick={() => zoomBy(1.25)}
-                className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                className="rounded-lg p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 title={t('library.wiki.graph.zoomIn')}
               >
                 <Plus className="h-4 w-4" />
               </button>
               <button
                 onClick={() => zoomBy(1 / 1.25)}
-                className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                className="rounded-lg p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 title={t('library.wiki.graph.zoomOut')}
               >
                 <Minus className="h-4 w-4" />
               </button>
               <button
                 onClick={resetView}
-                className="rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                className="rounded-lg p-1.5 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 title={t('library.wiki.graph.resetView')}
               >
                 <Maximize2 className="h-4 w-4" />
               </button>
-              <div className="border-t border-gray-200 px-1 py-0.5 text-center text-[10px] text-gray-500">
+              <div className="border-t border-slate-200 px-1 py-1 text-center text-[10px] font-medium text-slate-500">
                 {Math.round(view.scale * 100)}%
               </div>
             </div>
           )}
         </main>
-        <footer className="flex items-center gap-4 border-t border-gray-200 px-6 py-3 text-xs text-gray-600">
+
+        <footer className="flex items-center gap-4 border-t border-slate-200 px-6 py-3 text-xs text-slate-600">
           {RING_ORDER.map((cat) => (
             <span key={cat} className="inline-flex items-center gap-1.5">
               <span
-                className="h-2.5 w-2.5 rounded-full"
+                className="h-2.5 w-2.5 rounded-full ring-4 ring-white"
                 style={{ backgroundColor: GRAPH_CATEGORY_COLORS[cat] }}
               />
               {cat}
             </span>
           ))}
-          <span className="ml-auto text-gray-400">
+          <span className="ml-auto text-slate-400">
             {t('library.wiki.graph.hint')}
           </span>
         </footer>
