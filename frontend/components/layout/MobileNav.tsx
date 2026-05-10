@@ -468,7 +468,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
         <Link href="/" className="flex items-center">
           <BrandLogo
             variant="full"
-            iconClassName="h-8 w-auto"
+            iconClassName="h-[18px] w-auto"
             subtitle={
               <Link
                 href="/changelog"

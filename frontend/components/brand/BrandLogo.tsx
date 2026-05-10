@@ -32,7 +32,7 @@ function FormulaIconCompact({ className }: { className?: string }) {
         fontFamily="Georgia, 'Times New Roman', serif"
         fontSize="26"
         fontStyle="italic"
-        fill="#18181b"
+        fill="#60a5fa"
       >
         f
       </text>
@@ -60,11 +60,11 @@ function FormulaIconWide({ className }: { className?: string }) {
         lengthAdjust="spacingAndGlyphs"
         fontFamily="Georgia, 'Times New Roman', serif"
         fontSize="22"
-        fill="#18181b"
+        fill="#60a5fa"
       >
         <tspan fontStyle="italic">f(n,s)</tspan>
         {' → {'}
-        <tspan fill="#D97706" fontStyle="italic" fontWeight="700">
+        <tspan fill="#38bdf8" fontStyle="italic" fontWeight="700">
           0,1
         </tspan>
         {'}'}
@@ -84,39 +84,41 @@ export function BrandLogo({
 
   // variant 自适应默认尺寸
   const Icon = isFull ? FormulaIconWide : FormulaIconCompact;
-  const defaultIconClass = isFull ? 'h-12 w-auto' : 'h-8 w-8';
+  const defaultIconClass = isFull ? 'h-[18px] w-auto' : 'h-8 w-8';
   const finalIconClass = iconClassName ?? defaultIconClass;
 
   return (
-    <div className={`inline-flex flex-col items-start ${className}`}>
-      <div
-        className="flex-shrink-0"
-        style={{ filter: 'drop-shadow(0 1px 2px rgba(24,24,27,0.15))' }}
-      >
-        <Icon className={finalIconClass} />
-      </div>
-
+    <div
+      className={`inline-flex ${isFull ? 'flex-col items-start gap-0.5' : 'flex-col items-start'} ${className}`}
+    >
       {isFull && (
-        <div className="mt-1.5 flex items-baseline gap-1.5">
+        <div className="flex items-end gap-1.5">
           <span
-            className="logo-shimmer text-[16px] font-extrabold leading-none tracking-[0.06em]"
+            className="logo-shimmer text-[18px] font-bold leading-none tracking-[0.1em]"
             style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
           >
             {config.brand.name}
           </span>
           {nameAddon}
           {subtitle !== null && subtitle !== undefined && (
-            <span className="text-[7px] font-medium leading-none tracking-wider text-[#a19a8d]">
+            <span className="rounded-full bg-sky-50 px-1.5 py-[2px] text-[7px] font-semibold leading-none tracking-[0.14em] text-slate-500">
               {subtitle}
             </span>
           )}
           {subtitle === undefined && config.brand.subtitle && (
-            <span className="text-[7px] font-medium leading-none tracking-wider text-[#a19a8d]">
+            <span className="rounded-full bg-sky-50 px-1.5 py-[2px] text-[7px] font-semibold leading-none tracking-[0.14em] text-slate-500">
               {config.brand.subtitle}
             </span>
           )}
         </div>
       )}
+
+      <div
+        className="flex-shrink-0"
+        style={{ filter: 'drop-shadow(0 1px 2px rgba(96,165,250,0.14))' }}
+      >
+        <Icon className={finalIconClass} />
+      </div>
     </div>
   );
 }
