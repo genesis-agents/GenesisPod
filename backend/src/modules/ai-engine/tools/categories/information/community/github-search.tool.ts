@@ -220,7 +220,13 @@ export class GithubSearchTool extends BaseTool<
     input: GithubSearchInput,
     _context: ToolContext,
   ): Promise<GithubSearchOutput> {
-    const { query, maxResults = 10, language, sort = "stars", timeRange = "all" } = input;
+    const {
+      query,
+      maxResults = 10,
+      language,
+      sort = "stars",
+      timeRange = "all",
+    } = input;
 
     this.logger.log(
       `[doExecute] Searching GitHub: query="${query}", language=${language}, sort=${sort}`,

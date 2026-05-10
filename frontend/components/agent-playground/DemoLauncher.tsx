@@ -520,7 +520,8 @@ export function DemoLauncher() {
                 <div className="mt-3 flex items-start gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-600">
                   <Search className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
                   <span>
-                    不选知识库时默认全量使用 web-search；选择知识库后，mission 会优先吸收本地材料，再用外部搜索补齐缺口。
+                    不选知识库时默认全量使用 web-search；选择知识库后，mission
+                    会优先吸收本地材料，再用外部搜索补齐缺口。
                   </span>
                 </div>
               </div>
@@ -608,9 +609,13 @@ export function DemoLauncher() {
                         }}
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
                       >
-                        <option value="executive">executive · 管理层简报</option>
+                        <option value="executive">
+                          executive · 管理层简报
+                        </option>
                         <option value="academic">academic · 学术论证</option>
-                        <option value="journalistic">journalistic · 新闻型</option>
+                        <option value="journalistic">
+                          journalistic · 新闻型
+                        </option>
                         <option value="technical">technical · 技术型</option>
                       </select>
                     </Field>
@@ -797,13 +802,7 @@ function SummaryRow({
   );
 }
 
-function MetricCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-blue-100 bg-white px-4 py-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -814,13 +813,7 @@ function MetricCard({
   );
 }
 
-function HintRow({
-  Icon,
-  text,
-}: {
-  Icon: typeof Search;
-  text: string;
-}) {
+function HintRow({ Icon, text }: { Icon: typeof Search; text: string }) {
   return (
     <div className="flex items-start gap-2">
       <Icon className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />

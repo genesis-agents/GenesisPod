@@ -200,4 +200,3 @@ export class SocialXSearchTool extends BaseTool<
     }
   }
 }
-

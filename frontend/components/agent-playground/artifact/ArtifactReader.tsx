@@ -635,12 +635,12 @@ const TRIGGER_LABEL: Record<string, string> = {
 };
 
 const SEARCH_TIME_RANGE_LABEL: Record<string, string> = {
-  "30d": "1 个月",
-  "90d": "3 个月",
-  "180d": "6 个月",
-  "365d": "12 个月",
-  "730d": "24 个月",
-  all: "不限",
+  '30d': '1 个月',
+  '90d': '3 个月',
+  '180d': '6 个月',
+  '365d': '12 个月',
+  '730d': '24 个月',
+  all: '不限',
 };
 
 function MetaTabBody({
@@ -763,7 +763,9 @@ function MetaTabBody({
         {m.searchTimeRange && (
           <StatRow
             label="时效窗口"
-            value={SEARCH_TIME_RANGE_LABEL[m.searchTimeRange] ?? m.searchTimeRange}
+            value={
+              SEARCH_TIME_RANGE_LABEL[m.searchTimeRange] ?? m.searchTimeRange
+            }
           />
         )}
       </StatGroup>

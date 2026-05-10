@@ -521,7 +521,7 @@ describe("ResearcherAgent — buildSystemPrompt", () => {
       identity,
     });
     expect(result).toContain("freshness");
-    expect(result).toContain('selected searchTimeRange = 90d');
+    expect(result).toContain("selected searchTimeRange = 90d");
     expect(result).toContain('"timeRange": "90d"');
     expect(result).toContain("after:");
   });

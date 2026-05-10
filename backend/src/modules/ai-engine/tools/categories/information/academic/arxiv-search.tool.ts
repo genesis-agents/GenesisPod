@@ -241,7 +241,9 @@ export class ArxivSearchTool extends BaseTool<
       const mailto = await this.policyDataService.getApiKey("openalex-search");
 
       const since = resolveSearchTimeRangeSince(timeRange);
-      const filters = [`primary_location.source.id:${ARXIV_OPENALEX_SOURCE_ID}`];
+      const filters = [
+        `primary_location.source.id:${ARXIV_OPENALEX_SOURCE_ID}`,
+      ];
       if (since) {
         filters.push(`from_publication_date:${formatDateYmd(since)}`);
       }

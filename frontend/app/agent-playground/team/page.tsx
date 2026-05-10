@@ -29,7 +29,9 @@ export default function ResearchTeamLauncherPage() {
                   研究团队配置台
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  用一套清晰的配置启动多 Agent 研究任务。搜索时效、知识源、审核深度和输出风格会被完整写入 mission，并沿研究链路持续生效。
+                  用一套清晰的配置启动多 Agent
+                  研究任务。搜索时效、知识源、审核深度和输出风格会被完整写入
+                  mission，并沿研究链路持续生效。
                 </p>
               </div>
             </div>

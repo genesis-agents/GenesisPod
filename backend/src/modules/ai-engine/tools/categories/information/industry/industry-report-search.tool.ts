@@ -21,7 +21,10 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { PrismaService } from "@/common/prisma/prisma.service";
-import { SEARCH_TIME_RANGE_VALUES, type SearchTimeRange } from "@/common/search/search-time-range";
+import {
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types

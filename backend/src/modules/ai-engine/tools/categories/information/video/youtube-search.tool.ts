@@ -247,4 +247,3 @@ export class YouTubeSearchTool extends BaseTool<
     }
   }
 }
-

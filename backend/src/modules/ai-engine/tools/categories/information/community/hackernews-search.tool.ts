@@ -207,7 +207,13 @@ export class HackerNewsSearchTool extends BaseTool<
     input: HackerNewsSearchInput,
     _context: ToolContext,
   ): Promise<HackerNewsSearchOutput> {
-    const { query, maxResults = 20, tags, numericFilters, timeRange = "all" } = input;
+    const {
+      query,
+      maxResults = 20,
+      tags,
+      numericFilters,
+      timeRange = "all",
+    } = input;
 
     this.logger.log(
       `[doExecute] Searching HackerNews: query="${query}", tags=${tags}`,

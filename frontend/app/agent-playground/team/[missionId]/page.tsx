@@ -1467,7 +1467,7 @@ function SettingRow({ label, value }: { label: string; value: string }) {
       <p className="text-[10px] uppercase tracking-wide text-slate-500">
         {label}
       </p>
-      <p className="mt-1 truncate font-mono text-sm text-slate-900">{value}</p>
+      <p className="font-mono mt-1 truncate text-sm text-slate-900">{value}</p>
     </div>
   );
 }

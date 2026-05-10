@@ -11,7 +11,10 @@ export type SearchTimeRange = (typeof SEARCH_TIME_RANGE_VALUES)[number];
 
 export const DEFAULT_SEARCH_TIME_RANGE: SearchTimeRange = "365d";
 
-const SEARCH_TIME_RANGE_DAYS: Record<Exclude<SearchTimeRange, "all">, number> = {
+const SEARCH_TIME_RANGE_DAYS: Record<
+  Exclude<SearchTimeRange, "all">,
+  number
+> = {
   "30d": 30,
   "90d": 90,
   "180d": 180,

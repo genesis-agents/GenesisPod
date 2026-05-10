@@ -229,7 +229,8 @@ export class PubMedSearchTool extends BaseTool<
     try {
       // Step 1: esearch — 获取匹配查询的 PMIDs
       const since = resolveSearchTimeRangeSince(timeRange);
-      const effectiveMinDate = minDate ?? (since ? formatDateYmdSlash(since) : undefined);
+      const effectiveMinDate =
+        minDate ?? (since ? formatDateYmdSlash(since) : undefined);
       const esearchBase =
         "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
       const esearchParams: Record<string, string | number> = {
