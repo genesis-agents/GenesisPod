@@ -73,18 +73,42 @@ const OFFLOAD_FIELDS = [
     field: "full_report",
     uriField: "full_report_uri",
     r2Prefix: "topic-reports/",
+    contentKind: "string",
   },
   {
     table: "dimension_analyses",
     field: "data_points",
     uriField: "data_points_uri",
     r2Prefix: "dimension-analyses/",
+    contentKind: "json",
   },
   {
     table: "research_tasks",
     field: "result",
     uriField: "result_uri",
     r2Prefix: "research-tasks/",
+    contentKind: "json",
+  },
+  {
+    table: "knowledge_base_documents",
+    field: "raw_content",
+    uriField: "raw_content_uri",
+    r2Prefix: "kb-documents/",
+    contentKind: "string",
+  },
+  {
+    table: "wiki_page_revisions",
+    field: "body",
+    uriField: "body_uri",
+    r2Prefix: "wiki-revisions/",
+    contentKind: "string",
+  },
+  {
+    table: "wiki_diffs",
+    field: "items",
+    uriField: "items_uri",
+    r2Prefix: "wiki-diffs/",
+    contentKind: "json",
   },
 ] as const;
 
@@ -277,6 +301,10 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
   private async queryOffloadFields(): Promise<OffloadFieldStat[]> {
     const results: OffloadFieldStat[] = [];
     for (const def of OFFLOAD_FIELDS) {
+      const dbContentCountSql =
+        def.contentKind === "string"
+          ? `SELECT COUNT(*)::bigint AS n FROM "${def.table}" WHERE char_length("${def.field}") > 0`
+          : `SELECT COUNT(*)::bigint AS n FROM "${def.table}" WHERE NOT ("${def.field}" = 'null'::jsonb OR "${def.field}" IS NULL)`;
       const [total, withUri, withContent] = await Promise.all([
         this.prisma.$queryRawUnsafe<{ n: bigint }[]>(
           `SELECT COUNT(*)::bigint AS n FROM "${def.table}"`,
@@ -284,11 +312,7 @@ export class StorageInventoryService implements OnModuleInit, OnModuleDestroy {
         this.prisma.$queryRawUnsafe<{ n: bigint }[]>(
           `SELECT COUNT(*)::bigint AS n FROM "${def.table}" WHERE "${def.uriField}" IS NOT NULL`,
         ),
-        this.prisma.$queryRawUnsafe<{ n: bigint }[]>(
-          def.field === "full_report"
-            ? `SELECT COUNT(*)::bigint AS n FROM "${def.table}" WHERE char_length("${def.field}") > 0`
-            : `SELECT COUNT(*)::bigint AS n FROM "${def.table}" WHERE "${def.field}" IS NOT NULL`,
-        ),
+        this.prisma.$queryRawUnsafe<{ n: bigint }[]>(dbContentCountSql),
       ]);
       results.push({
         table: def.table,
