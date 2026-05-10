@@ -127,6 +127,11 @@ export class KeyExecutorService {
    * PR-4b (2026-05-05) 流式调用辅助：当 caller 不能用 execute() 包裹（比如 generator
    * 流式响应），手动在流完成 / 流出错时调此方法上报健康状态。
    * 与 execute() 路径互补：execute = 自动 failover；track = 仅记账（无 failover）。
+   *
+   * 2026-05-10：补 DB 持久化（user_api_keys.usage_count++ / lastTestedAt /
+   * testStatus）—— 之前 trackSuccess 只更新 in-memory KeyHealthStore，
+   * DB 永远 0 → AI Ask 流式调用 + 任何流式 caller 都没命中统计。
+   * 现行行为与 KeyExecutor.execute() 路径（KeyChain.reportSuccess）完全对齐。
    */
   async trackSuccess(
     healthKeyId: string,
@@ -134,6 +139,7 @@ export class KeyExecutorService {
     userId: string,
   ): Promise<void> {
     await this.healthStore.markSuccess(healthKeyId, provider, userId);
+    await this.resolver.persistOutcome(healthKeyId, { ok: true });
   }
 
   async trackFailure(
@@ -143,6 +149,10 @@ export class KeyExecutorService {
   ): Promise<void> {
     const classified = this.classifier.classify(error);
     await this.healthStore.markFailure(healthKeyId, classified, provider);
+    await this.resolver.persistOutcome(healthKeyId, {
+      ok: false,
+      classified,
+    });
     if (
       classified.shouldStopChain &&
       Number.isFinite(classified.cooldownMs) &&

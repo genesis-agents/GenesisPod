@@ -160,6 +160,29 @@ export class KeyResolverService {
   }
 
   /**
+   * 持久化 key 健康状态到 DB（usage_count++ / lastTestedAt / testStatus）。
+   *
+   * 2026-05-10：流式 chatStream / 任何不能用 KeyExecutor.execute 包裹的
+   * caller 调 KeyExecutor.trackSuccess/trackFailure 时，需要这条 DB 写入路径
+   * 才能让 user_api_keys.usage_count 真正递增（之前只更新 in-memory KeyHealthStore，
+   * DB 永远 0 → 用户看不到 key 命中统计）。
+   *
+   * 与 KeyChain.reportSuccess/Failure 共用同一份 persistDbHealthOutcome 实现，
+   * 让"自动 failover 路径"和"流式 manual track 路径"行为完全对齐。
+   */
+  async persistOutcome(
+    healthKeyId: string,
+    outcome: { ok: true } | { ok: false; classified: ClassifiedError },
+  ): Promise<void> {
+    await persistDbHealthOutcome(
+      this.prisma,
+      healthKeyId,
+      outcome,
+      this.logger,
+    );
+  }
+
+  /**
    * Assignment 来源的调用完成后回写配额。
    * 其他来源调用这个方法是 no-op，便于调用方统一处理。
    */
