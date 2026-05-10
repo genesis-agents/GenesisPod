@@ -956,7 +956,16 @@ export class AiModelConfigService {
       //   而 admin 关掉某模型时 byok-maintenance.scheduler 会把对应 assignment 转 STALE。
       //   因此 ACTIVE assignment 永远对应 isEnabled=true 的 AIModel — 第一段 `models`
       //   查询足以覆盖全部应该可见的模型。
+      // 2026-05-10 §1 v3 — "My Key" 严格语义修正：
+      //   - assignedModelIds：用户被 admin 专门授权（ACTIVE KeyAssignment）的具体
+      //     AIModel.id Set。这是"我的 key"在 admin 侧的唯一合法依据。
+      //   - userProviders：仅供向后兼容 / debug log；mapModel 不再用它判 isUserKey。
+      //
+      // 旧逻辑（错）：admin enabled AIModel + user 有该 provider PERSONAL key →
+      //   isUserKey=true。但 PERSONAL key 不等于"被授权使用这个具体 model"，
+      //   admin 模型对该用户应该是"系统 Key"标识，除非有 KeyAssignment。
       let userProviders = new Set<string>();
+      let assignedModelIds = new Set<string>();
       if (userId) {
         try {
           const [personalKeys, assignedKeys] = await Promise.all([
@@ -966,17 +975,19 @@ export class AiModelConfigService {
             }),
             this.prisma.keyAssignment.findMany({
               where: { userId, status: "ACTIVE" },
-              select: { provider: true },
+              select: { provider: true, modelDbId: true },
             }),
           ]);
           userProviders = new Set([
             ...personalKeys.map((k) => k.provider.toLowerCase()),
             ...assignedKeys.map((k) => k.provider.toLowerCase()),
           ]);
+          assignedModelIds = new Set(assignedKeys.map((k) => k.modelDbId));
           this.logger.debug(
             `[getEnabledModelsForFrontend] User ${userId} has keys for providers: ` +
               `[${[...userProviders].join(", ")}] ` +
-              `(personal=${personalKeys.length}, assigned=${assignedKeys.length})`,
+              `(personal=${personalKeys.length}, assigned=${assignedKeys.length}, ` +
+              `assignedModelIds=${assignedModelIds.size})`,
           );
         } catch (error) {
           this.logger.warn(
@@ -1096,10 +1107,11 @@ export class AiModelConfigService {
         isUserKey: true, // UserModelConfig 跑在用户自己 Key 上
       });
 
+      // 2026-05-10 §1 v3：admin AIModel 的 isUserKey 现仅由 ACTIVE KeyAssignment
+      // 指向**这个具体 model.id** 决定，不再用 provider 匹配（provider PERSONAL
+      // key 不等于"被授权使用这个 admin model"）。
       const result = [
-        ...models.map((m) =>
-          mapModel(m, userProviders.has(m.provider.toLowerCase())),
-        ),
+        ...models.map((m) => mapModel(m, assignedModelIds.has(m.id))),
         ...userExtraModels.map((m) => mapModel(m, true)),
         ...userPersonalUnique.map(mapPersonalConfig),
       ];

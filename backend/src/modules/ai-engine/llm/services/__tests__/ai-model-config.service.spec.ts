@@ -683,15 +683,42 @@ describe("AiModelConfigService", () => {
       expect(models[0].iconUrl).toContain("/icons/ai/");
     });
 
-    // ─── BYOK isUserKey 标记（W4-byok 2026-05-05 真根因覆盖）──────────
+    // ─── BYOK isUserKey 严格语义（2026-05-10 §1 v3）──────────
+    // 规则：admin AIModel 仅在 user 有 ACTIVE KeyAssignment 指向**这个具体
+    // AIModel.id**时才标 isUserKey=true。仅有该 provider 的 PERSONAL key 不够
+    //（PERSONAL key ≠ "被授权使用这个 admin model"，admin 模型对该用户应是
+    // 系统 Key 标识，除非有 KeyAssignment）。
 
-    it("isUserKey=true when user has PERSONAL key for matching provider", async () => {
+    it("PERSONAL key alone does NOT make admin AIModel isUserKey=true (严格语义)", async () => {
       (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
-        mockChatModel, // openai
+        mockChatModel, // openai, id='model-1'
         mockGeminiModel, // google
       ]);
       (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
-        { provider: "openai" }, // user has openai key
+        { provider: "openai" }, // PERSONAL key for openai but no KeyAssignment
+      ]);
+      (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([]);
+
+      const models = await service.getEnabledModelsForFrontend(
+        undefined,
+        "user-1",
+      );
+
+      const openai = models.find((m) => m.provider.toLowerCase() === "openai");
+      const google = models.find((m) => m.provider.toLowerCase() === "google");
+      // 都不该是 My Key——用户没专门被授权这俩 admin 模型
+      expect(openai?.isUserKey).toBeUndefined();
+      expect(google?.isUserKey).toBeUndefined();
+    });
+
+    it("ACTIVE KeyAssignment matching specific modelDbId → isUserKey=true", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
+        mockChatModel, // id='model-1'
+        mockGeminiModel,
+      ]);
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([]);
+      (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai", modelDbId: "model-1" }, // 专门授权 openai 这条
       ]);
 
       const models = await service.getEnabledModelsForFrontend(
@@ -702,23 +729,7 @@ describe("AiModelConfigService", () => {
       const openai = models.find((m) => m.provider.toLowerCase() === "openai");
       const google = models.find((m) => m.provider.toLowerCase() === "google");
       expect(openai?.isUserKey).toBe(true);
-      expect(google?.isUserKey).toBeUndefined(); // 没 isUserKey 字段（mapModel conditional spread）
-    });
-
-    it("provider name comparison is case-insensitive", async () => {
-      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
-        { ...mockChatModel, provider: "OpenAI" }, // 大小写混
-      ]);
-      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
-        { provider: "openai" }, // 用户存的是小写
-      ]);
-
-      const models = await service.getEnabledModelsForFrontend(
-        undefined,
-        "user-1",
-      );
-
-      expect(models[0].isUserKey).toBe(true);
+      expect(google?.isUserKey).toBeUndefined(); // 无 google KeyAssignment
     });
 
     it("no isUserKey when no userId passed (anonymous)", async () => {
@@ -802,9 +813,8 @@ describe("AiModelConfigService", () => {
     });
 
     it("user has multiple provider keys but only providers with AIModel/UserModelConfig rows show up", async () => {
-      // 2026-05-10：去除 BYOK 合成兜底后的真源行为。
-      // openai：admin AIModel enabled + 用户有 personal key → isUserKey=true
-      // xai：用户有 key 但无任何 AIModel/UserModelConfig row → 不出现
+      // 2026-05-10 v3：admin AIModel + PERSONAL provider key（无 KeyAssignment） →
+      // 模型仍出现在 dropdown，但 isUserKey=undefined（系统 Key 而非 My Key）
       (prismaService.aIModel.findMany as jest.Mock)
         .mockResolvedValueOnce([mockChatModel])
         .mockResolvedValueOnce([]);
@@ -812,6 +822,7 @@ describe("AiModelConfigService", () => {
         { provider: "openai" },
         { provider: "xai" },
       ]);
+      (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([]);
 
       const models = await service.getEnabledModelsForFrontend(
         AIModelType.CHAT,
@@ -820,7 +831,8 @@ describe("AiModelConfigService", () => {
 
       const openai = models.find((m) => m.provider.toLowerCase() === "openai");
       const xai = models.find((m) => m.provider.toLowerCase().includes("xai"));
-      expect(openai?.isUserKey).toBe(true);
+      expect(openai).toBeDefined();
+      expect(openai?.isUserKey).toBeUndefined(); // 严格：仅 PERSONAL 不算 My Key
       expect(xai).toBeUndefined();
     });
 
@@ -837,14 +849,13 @@ describe("AiModelConfigService", () => {
 
     // W4-byok 2026-05-05 K：ASSIGNED 路径联合查询（管理员分配的 key）
 
-    it("isUserKey=true when user has ASSIGNED key (admin granted AIModel access)", async () => {
+    it("isUserKey=true when user has ASSIGNED key matching specific modelDbId", async () => {
       (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
-        mockChatModel, // openai
+        mockChatModel, // id='model-1'
       ]);
-      // 用户没 PERSONAL，但有管理员分配的 ASSIGNED openai
       (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([]);
       (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([
-        { provider: "openai" },
+        { provider: "openai", modelDbId: "model-1" }, // 严格匹配 modelDbId
       ]);
 
       const models = await service.getEnabledModelsForFrontend(
@@ -855,17 +866,15 @@ describe("AiModelConfigService", () => {
       expect(models[0].isUserKey).toBe(true);
     });
 
-    it("PERSONAL + ASSIGNED both contribute to providers union", async () => {
+    it("ASSIGNED for different modelDbId does NOT cross-mark", async () => {
+      // 严格语义：ACTIVE KeyAssignment 仅作用于其 modelDbId 指向的具体 model
       (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
-        mockChatModel, // openai
-        mockGeminiModel, // google
+        mockChatModel, // id='model-1', openai
+        mockGeminiModel, // id='model-3', google
       ]);
-      // PERSONAL openai + ASSIGNED google
-      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
-        { provider: "openai" },
-      ]);
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([]);
       (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([
-        { provider: "google" },
+        { provider: "openai", modelDbId: "model-1" }, // 仅授权 openai 这条
       ]);
 
       const models = await service.getEnabledModelsForFrontend(
@@ -876,15 +885,21 @@ describe("AiModelConfigService", () => {
       const openai = models.find((m) => m.provider.toLowerCase() === "openai");
       const google = models.find((m) => m.provider.toLowerCase() === "google");
       expect(openai?.isUserKey).toBe(true);
-      expect(google?.isUserKey).toBe(true);
+      expect(google?.isUserKey).toBeUndefined(); // 同 provider 名也不串
     });
 
-    it("ASSIGNED case-insensitive provider matching", async () => {
+    it("PERSONAL + ASSIGNED：仅被 ASSIGNED 的具体 model 标 My Key", async () => {
       (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([
-        { ...mockChatModel, provider: "OpenAI" },
+        mockChatModel, // id='model-1', openai
+        mockGeminiModel, // id='model-3', google
+      ]);
+      // PERSONAL 全有，ASSIGNED 仅 google 这条
+      (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
+        { provider: "openai" },
+        { provider: "google" },
       ]);
       (prismaService.keyAssignment.findMany as jest.Mock).mockResolvedValue([
-        { provider: "OPENAI" }, // 上层不该有大写但仍要兜
+        { provider: "google", modelDbId: "model-3" },
       ]);
 
       const models = await service.getEnabledModelsForFrontend(
@@ -892,7 +907,12 @@ describe("AiModelConfigService", () => {
         "user-1",
       );
 
-      expect(models[0].isUserKey).toBe(true);
+      const openai = models.find((m) => m.provider.toLowerCase() === "openai");
+      const google = models.find((m) => m.provider.toLowerCase() === "google");
+      // openai：仅 PERSONAL → 不算 My Key（严格语义）
+      expect(openai?.isUserKey).toBeUndefined();
+      // google：ACTIVE KeyAssignment 指向 model-3 → My Key
+      expect(google?.isUserKey).toBe(true);
     });
 
     it("ASSIGNED query failure does NOT break main flow (defensive)", async () => {
