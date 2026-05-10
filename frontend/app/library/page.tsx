@@ -227,6 +227,10 @@ function LibraryPageContent() {
   const { t } = useTranslation();
   const searchParams = useSearchParams();
   const tabParam = searchParams?.get('tab');
+  // Wiki detail (tab=wiki + ?kb=) is a focused full-page surface — hide the
+  // shared Library header / tabs / px-8 padding so the wiki subheader and
+  // page reader own the viewport. The grid landing keeps the shell.
+  const wikiKbParam = searchParams?.get('kb');
 
   // 简化后的4个主TAB：数据源、个人知识库、团队知识库、知识图谱
   const [activeTab, setActiveTab] = useState<
@@ -1730,32 +1734,38 @@ function LibraryPageContent() {
     },
   ];
 
+  const inWikiDetail = activeTab === 'wiki' && Boolean(wikiKbParam);
+
   return (
     <AppShell>
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto bg-gray-50">
-        {/* Unified Header: 标题 + 副标题 + 搜索框 */}
-        <LibraryHeader
-          title={t('library.title') || '知识库'}
-          subtitle={t('library.subtitle') || '管理你的资源、笔记与团队知识'}
-          searchPlaceholder={t('library.search.resources')}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
+        {/* Unified Header: 标题 + 副标题 + 搜索框 — hidden in wiki detail */}
+        {!inWikiDetail && (
+          <LibraryHeader
+            title={t('library.title') || '知识库'}
+            subtitle={t('library.subtitle') || '管理你的资源、笔记与团队知识'}
+            searchPlaceholder={t('library.search.resources')}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        )}
 
-        {/* Unified Tabs: 中性灰底 + 紫色下划线 indicator */}
-        <LibraryTabs
-          tabs={libraryTabs}
-          activeTab={activeTab}
-          onChange={(id) =>
-            setActiveTab(
-              id as 'wiki' | 'personal-kb' | 'team-kb' | 'data-sources'
-            )
-          }
-        />
+        {/* Unified Tabs: 中性灰底 + 紫色下划线 indicator — hidden in wiki detail */}
+        {!inWikiDetail && (
+          <LibraryTabs
+            tabs={libraryTabs}
+            activeTab={activeTab}
+            onChange={(id) =>
+              setActiveTab(
+                id as 'wiki' | 'personal-kb' | 'team-kb' | 'data-sources'
+              )
+            }
+          />
+        )}
 
-        {/* Main content area */}
-        <div className="px-8 py-6">
+        {/* Main content area — wiki detail owns its own padding via subheader */}
+        <div className={inWikiDetail ? '' : 'px-8 py-6'}>
           {/* AI Organize Panel - Show for bookmarks, notes, images sub-tabs */}
           {activeTab === 'data-sources' &&
             (currentDataSourceSubTab === 'bookmarks' ||
