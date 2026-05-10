@@ -15,6 +15,12 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { PolicyDataService } from "../policy/policy-data.service";
+import {
+  formatDateYmdSlash,
+  resolveSearchTimeRangeSince,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -34,6 +40,8 @@ export interface PubMedSearchInput {
   minDate?: string;
   /** 结束日期（YYYY/MM/DD 格式） */
   maxDate?: string;
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 /**
@@ -157,6 +165,13 @@ export class PubMedSearchTool extends BaseTool<
         type: "string",
         description: "最晚发布日期（YYYY/MM/DD 格式），如 '2024/12/31'",
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -201,6 +216,7 @@ export class PubMedSearchTool extends BaseTool<
       sortBy = "relevance",
       minDate,
       maxDate,
+      timeRange = "all",
     } = input;
 
     this.logger.log(
@@ -212,6 +228,8 @@ export class PubMedSearchTool extends BaseTool<
 
     try {
       // Step 1: esearch — 获取匹配查询的 PMIDs
+      const since = resolveSearchTimeRangeSince(timeRange);
+      const effectiveMinDate = minDate ?? (since ? formatDateYmdSlash(since) : undefined);
       const esearchBase =
         "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi";
       const esearchParams: Record<string, string | number> = {
@@ -221,9 +239,9 @@ export class PubMedSearchTool extends BaseTool<
         retmode: "json",
         sort: sortBy === "date" ? "pub+date" : "relevance",
       };
-      if (minDate) esearchParams["mindate"] = minDate;
+      if (effectiveMinDate) esearchParams["mindate"] = effectiveMinDate;
       if (maxDate) esearchParams["maxdate"] = maxDate;
-      if (minDate || maxDate) esearchParams["datetype"] = "pdat";
+      if (effectiveMinDate || maxDate) esearchParams["datetype"] = "pdat";
       if (apiKey) esearchParams["api_key"] = apiKey;
 
       this.logger.debug(

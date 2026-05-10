@@ -21,6 +21,7 @@ import {
   ToolContext,
   ToolResult,
 } from "../../../../abstractions/tool.interface";
+import { resolveSearchTimeRangeSince } from "@/common/search/search-time-range";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -183,6 +184,7 @@ describe("WebSearchTool", () => {
       expect(mockSearchService.search).toHaveBeenCalledWith(
         "quantum computing",
         5,
+        undefined,
       );
     });
 
@@ -198,6 +200,7 @@ describe("WebSearchTool", () => {
       expect(mockSearchService.search).toHaveBeenCalledWith(
         "machine learning",
         3,
+        undefined,
       );
     });
 
@@ -211,6 +214,7 @@ describe("WebSearchTool", () => {
       expect(mockSearchService.search).toHaveBeenCalledWith(
         "deep learning",
         10,
+        undefined,
       );
     });
 
@@ -220,7 +224,26 @@ describe("WebSearchTool", () => {
       const input: WebSearchInput = { query: "nlp", numResults: 10 };
       await tool.execute(input, makeContext());
 
-      expect(mockSearchService.search).toHaveBeenCalledWith("nlp", 10);
+      expect(mockSearchService.search).toHaveBeenCalledWith(
+        "nlp",
+        10,
+        undefined,
+      );
+    });
+
+    it("should pass provider since date when timeRange is specified", async () => {
+      mockSearchService.search.mockResolvedValue(makeSearchResponse([]));
+
+      await tool.execute(
+        { query: "agent framework", timeRange: "90d" },
+        makeContext(),
+      );
+
+      expect(mockSearchService.search).toHaveBeenCalledWith(
+        "agent framework",
+        5,
+        resolveSearchTimeRangeSince("90d"),
+      );
     });
   });
 

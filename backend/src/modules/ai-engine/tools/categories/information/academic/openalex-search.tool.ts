@@ -15,6 +15,12 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { PolicyDataService } from "../policy/policy-data.service";
+import {
+  formatDateYmd,
+  resolveSearchTimeRangeSince,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -32,6 +38,8 @@ export interface OpenAlexSearchInput {
   year?: string;
   /** 按引用数排序（默认按相关性） */
   sortByCitations?: boolean;
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 /**
@@ -165,6 +173,13 @@ export class OpenAlexSearchTool extends BaseTool<
         description: "是否按引用数降序排列，默认按相关性",
         default: false,
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -206,7 +221,13 @@ export class OpenAlexSearchTool extends BaseTool<
     input: OpenAlexSearchInput,
     _context: ToolContext,
   ): Promise<OpenAlexSearchOutput> {
-    const { query, maxResults = 10, year, sortByCitations = false } = input;
+    const {
+      query,
+      maxResults = 10,
+      year,
+      sortByCitations = false,
+      timeRange = "all",
+    } = input;
 
     this.logger.log(
       `[doExecute] Searching OpenAlex: query="${query}", maxResults=${maxResults}, year=${year ?? "any"}`,
@@ -236,13 +257,20 @@ export class OpenAlexSearchTool extends BaseTool<
       }
 
       // 年份过滤
+      const since = resolveSearchTimeRangeSince(timeRange);
+      const filters: string[] = [];
       if (year) {
         if (year.includes("-")) {
           const [from, to] = year.split("-");
-          params["filter"] = `publication_year:${from}-${to}`;
+          filters.push(`publication_year:${from}-${to}`);
         } else {
-          params["filter"] = `publication_year:${year}`;
+          filters.push(`publication_year:${year}`);
         }
+      } else if (since) {
+        filters.push(`from_publication_date:${formatDateYmd(since)}`);
+      }
+      if (filters.length > 0) {
+        params["filter"] = filters.join(",");
       }
 
       // 排序

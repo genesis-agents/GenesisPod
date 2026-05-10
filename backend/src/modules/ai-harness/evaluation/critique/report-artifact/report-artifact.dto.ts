@@ -191,6 +191,7 @@ export interface ArtifactMetadata {
   lengthProfile: "brief" | "standard" | "deep" | "extended" | "epic" | "mega";
   audienceProfile: "executive" | "domain-expert" | "general-public";
   language: "zh-CN" | "en-US";
+  searchTimeRange?: "30d" | "90d" | "180d" | "365d" | "730d" | "all";
   totalTokens: { prompt: number; completion: number; total: number };
   costCents: number;
   modelTrail: string[];

@@ -348,7 +348,8 @@ export class WikiIngestService {
       // real rawContent is perfectly ingestable.
       if (doc.status === "ERROR") {
         ingestState = "BLOCKED";
-        reason = "Document processing failed; repair the source before ingest.";
+        reason =
+          "Document processing failed; repair the source before ingest.";
       } else if (this.isContentPending(doc.metadata, doc.rawContentUri)) {
         ingestState = "BLOCKED";
         reason =

@@ -95,6 +95,7 @@ export class MissionRuntimeShellService {
             auditLayers: input.auditLayers,
             concurrency: input.concurrency,
             viewMode: input.viewMode,
+            searchTimeRange: input.searchTimeRange,
             // ★ P4 (2026-05-06): maxCredits / budgetMultiplierOverride 已在 row 字段
             //   存储，userProfile 不再双写（行字段是权威源）；wallTimeMs /
             //   knowledgeBaseIds / inheritFromMissionId 仅存于此 JSON

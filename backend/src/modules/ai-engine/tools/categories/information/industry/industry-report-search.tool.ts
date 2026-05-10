@@ -21,6 +21,7 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { SEARCH_TIME_RANGE_VALUES, type SearchTimeRange } from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -33,6 +34,8 @@ export interface IndustryReportSearchInput {
   maxResults?: number;
   /** 主题类型过滤（technology / finance / energy / 等），按 source.topicTypes 收窄 */
   topicType?: string;
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 export interface IndustryReportItem {
@@ -113,6 +116,13 @@ export class IndustryReportSearchTool extends BaseTool<
         description:
           "主题类型，按来源 topicTypes 字段过滤（如 'technology' / 'finance' / 'energy'），可选。",
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -152,7 +162,7 @@ export class IndustryReportSearchTool extends BaseTool<
     input: IndustryReportSearchInput,
     context: ToolContext,
   ): Promise<IndustryReportSearchOutput> {
-    const { query, maxResults = 10, topicType } = input;
+    const { query, maxResults = 10, topicType, timeRange = "all" } = input;
 
     try {
       const sources = await this.getEnabledSources(topicType);
@@ -183,7 +193,7 @@ export class IndustryReportSearchTool extends BaseTool<
       }
 
       const result = await webSearchTool.execute(
-        { query: siteQuery, numResults: maxResults },
+        { query: siteQuery, numResults: maxResults, timeRange },
         context,
       );
 

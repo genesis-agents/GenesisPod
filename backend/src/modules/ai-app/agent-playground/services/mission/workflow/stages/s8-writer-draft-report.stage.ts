@@ -462,6 +462,7 @@ export async function runWriterStage(
       styleProfile: input.styleProfile,
       lengthProfile: input.lengthProfile,
       audienceProfile: input.audienceProfile,
+      searchTimeRange: input.searchTimeRange,
       plan: {
         themeSummary: plan.themeSummary,
         dimensions: plan.dimensions.map((d) => ({

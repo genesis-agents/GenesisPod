@@ -890,6 +890,7 @@ export class StageRerunDispatcher {
         lengthProfile: ctx.input.lengthProfile ?? "standard",
         audienceProfile: ctx.input.audienceProfile ?? "domain-expert",
         language: ctx.input.language ?? "zh-CN",
+        searchTimeRange: ctx.input.searchTimeRange ?? "365d",
         totalTokens: { prompt: 0, completion: 0, total: 0 },
         costCents: 0,
         modelTrail: [],

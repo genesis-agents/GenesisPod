@@ -27,6 +27,12 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { PolicyDataService } from "../policy/policy-data.service";
+import {
+  formatDateYmd,
+  resolveSearchTimeRangeSince,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types — 与之前 ArXiv tool 完全一致，researcher 接口零变更
@@ -39,6 +45,7 @@ export interface ArxivSearchInput {
   maxResults?: number;
   category?: string;
   sortBy?: ArxivSortBy;
+  timeRange?: SearchTimeRange;
 }
 
 export interface ArxivPaper {
@@ -155,6 +162,13 @@ export class ArxivSearchTool extends BaseTool<
           "排序方式：relevance=相关性，lastUpdatedDate=按 OpenAlex updated 排序，submittedDate=按 publication_date 排序",
         default: "relevance",
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -194,7 +208,13 @@ export class ArxivSearchTool extends BaseTool<
     input: ArxivSearchInput,
     _context: ToolContext,
   ): Promise<ArxivSearchOutput> {
-    const { query, maxResults = 10, category, sortBy = "relevance" } = input;
+    const {
+      query,
+      maxResults = 10,
+      category,
+      sortBy = "relevance",
+      timeRange = "all",
+    } = input;
 
     this.logger.log(
       `[doExecute] Searching ArXiv (via OpenAlex): query="${query}", maxResults=${maxResults}, category=${category}`,
@@ -220,10 +240,14 @@ export class ArxivSearchTool extends BaseTool<
       // OpenAlex 的 mailto 走 polite pool（避免限速）。复用 openalex-api-key 配置。
       const mailto = await this.policyDataService.getApiKey("openalex-search");
 
-      const filter = `primary_location.source.id:${ARXIV_OPENALEX_SOURCE_ID}`;
+      const since = resolveSearchTimeRangeSince(timeRange);
+      const filters = [`primary_location.source.id:${ARXIV_OPENALEX_SOURCE_ID}`];
+      if (since) {
+        filters.push(`from_publication_date:${formatDateYmd(since)}`);
+      }
       const params: Record<string, string | number> = {
         search: query,
-        filter,
+        filter: filters.join(","),
         per_page: Math.min(maxResults, 100),
         select:
           "id,title,display_name,authorships,abstract_inverted_index,publication_year,publication_date,doi,primary_location,open_access,ids,topics,updated_date,created_date",

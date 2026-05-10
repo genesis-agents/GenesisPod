@@ -15,6 +15,12 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { PolicyDataService } from "../policy/policy-data.service";
+import {
+  formatDateYmd,
+  resolveSearchTimeRangeSince,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -37,6 +43,8 @@ export interface GithubSearchInput {
   language?: string;
   /** 排序方式 */
   sort?: GithubSortType;
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 /**
@@ -160,6 +168,13 @@ export class GithubSearchTool extends BaseTool<
           "排序方式：stars=按 Star 数排序，forks=按 Fork 数排序，updated=按更新时间排序",
         default: "stars",
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -205,7 +220,7 @@ export class GithubSearchTool extends BaseTool<
     input: GithubSearchInput,
     _context: ToolContext,
   ): Promise<GithubSearchOutput> {
-    const { query, maxResults = 10, language, sort = "stars" } = input;
+    const { query, maxResults = 10, language, sort = "stars", timeRange = "all" } = input;
 
     this.logger.log(
       `[doExecute] Searching GitHub: query="${query}", language=${language}, sort=${sort}`,
@@ -219,6 +234,10 @@ export class GithubSearchTool extends BaseTool<
       let searchQuery = query;
       if (language) {
         searchQuery += ` language:${language}`;
+      }
+      const since = resolveSearchTimeRangeSince(timeRange);
+      if (since) {
+        searchQuery += ` pushed:>=${formatDateYmd(since)}`;
       }
 
       // 构建 API URL 和参数

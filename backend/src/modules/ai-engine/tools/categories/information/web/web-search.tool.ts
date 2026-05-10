@@ -15,6 +15,11 @@ import {
   SearchService,
   SearchResult,
 } from "../../../../knowledge/search/search.service";
+import {
+  resolveSearchTimeRangeSince,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -53,6 +58,12 @@ export interface WebSearchInput {
    * 每个域名最多保留的结果数，默认 3（groupByDomain=true 时生效）
    */
   perDomainLimit?: number;
+
+  /**
+   * 搜索资料的时间范围。
+   * 30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限
+   */
+  timeRange?: SearchTimeRange;
 }
 
 export interface WebSearchOutput {
@@ -183,6 +194,13 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
           "每个域名最多保留的结果数，默认 3（groupByDomain=true 时生效）",
         default: 3,
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -251,13 +269,14 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
     input: WebSearchInput,
     _context: ToolContext,
   ): Promise<WebSearchOutput> {
-    const { query, numResults = 5 } = input;
+    const { query, numResults = 5, timeRange = "all" } = input;
 
     // 限制最大结果数
     const maxResults = Math.min(numResults, 10);
+    const since = resolveSearchTimeRangeSince(timeRange);
 
     // 调用搜索服务
-    const response = await this.searchService.search(query, maxResults);
+    const response = await this.searchService.search(query, maxResults, since);
 
     return {
       results: response.results,

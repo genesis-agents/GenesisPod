@@ -14,6 +14,11 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { PolicyDataService } from "../policy/policy-data.service";
+import {
+  resolveSearchTimeRangeYearWindow,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -31,6 +36,8 @@ export interface SemanticScholarSearchInput {
   fields?: string;
   /** 年份范围过滤，如 "2023-2025" 或 "2020" */
   year?: string;
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 /**
@@ -169,6 +176,13 @@ export class SemanticScholarSearchTool extends BaseTool<
         description:
           "年份范围过滤。格式：单年 '2024'，范围 '2020-2024'，起始 '2020-'，截止 '-2024'",
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -213,6 +227,7 @@ export class SemanticScholarSearchTool extends BaseTool<
       maxResults = 10,
       fields = "title,authors,abstract,year,citationCount,url,externalIds",
       year,
+      timeRange = "all",
     } = input;
 
     this.logger.log(
@@ -230,8 +245,9 @@ export class SemanticScholarSearchTool extends BaseTool<
         limit: Math.min(maxResults, 100),
         fields,
       };
-      if (year) {
-        params["year"] = year;
+      const effectiveYear = year ?? resolveSearchTimeRangeYearWindow(timeRange);
+      if (effectiveYear) {
+        params["year"] = effectiveYear;
       }
 
       // 构建请求头

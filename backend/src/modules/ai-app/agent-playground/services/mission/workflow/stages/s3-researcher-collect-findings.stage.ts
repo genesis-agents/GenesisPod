@@ -398,6 +398,7 @@ async function runOneDim(
           language: input.language,
           withFigures: input.withFigures,
           knowledgeBaseIds: input.knowledgeBaseIds,
+          searchTimeRange: input.searchTimeRange,
         },
         {
           missionId,

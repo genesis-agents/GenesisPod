@@ -634,6 +634,15 @@ const TRIGGER_LABEL: Record<string, string> = {
   'todo-rerun': 'Todo 修订',
 };
 
+const SEARCH_TIME_RANGE_LABEL: Record<string, string> = {
+  "30d": "1 个月",
+  "90d": "3 个月",
+  "180d": "6 个月",
+  "365d": "12 个月",
+  "730d": "24 个月",
+  all: "不限",
+};
+
 function MetaTabBody({
   artifact,
   currentVersion,
@@ -751,6 +760,12 @@ function MetaTabBody({
         <StatRow label="长度" value={m.lengthProfile} />
         <StatRow label="受众" value={m.audienceProfile} />
         <StatRow label="语言" value={m.language} />
+        {m.searchTimeRange && (
+          <StatRow
+            label="时效窗口"
+            value={SEARCH_TIME_RANGE_LABEL[m.searchTimeRange] ?? m.searchTimeRange}
+          />
+        )}
       </StatGroup>
 
       {/* triggerType 不在 ArtifactMetadata 内，但 versionLabel 可能含线索；仅当显式标 trigger 才显示 */}

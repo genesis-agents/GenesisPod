@@ -281,6 +281,7 @@ export class MissionRerunOrchestratorService {
       auditLayers: originalProfile?.auditLayers ?? "default",
       concurrency: originalProfile?.concurrency ?? 3,
       viewMode: originalProfile?.viewMode ?? "continuous",
+      searchTimeRange: originalProfile?.searchTimeRange ?? "365d",
       // ★ 2026-05-06 (P0-K): maxCredits 必填，rerun 直接沿用原 mission 用户传入值；
       //   原 mission 缺失（旧数据）则用 fallback（caller 传 1000 等显式值，不再有
       //   "BUDGET_PROFILE_CREDITS[unlimited]=10000" 类的内部硬编码默认）。

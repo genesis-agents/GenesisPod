@@ -17,6 +17,12 @@ import {
 } from "../../../abstractions/tool.interface";
 import { firstValueFrom } from "rxjs";
 import { APP_CONFIG } from "@/common/config/app.config";
+import {
+  getUnixTimestampSeconds,
+  resolveSearchTimeRangeSince,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -44,6 +50,8 @@ export interface HackerNewsSearchInput {
   tags?: HackerNewsTagType;
   /** 数值过滤器，如 'points>100' 或 'created_at_i>1577836800' */
   numericFilters?: string;
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 /**
@@ -153,6 +161,13 @@ export class HackerNewsSearchTool extends BaseTool<
         description:
           "数值过滤器，如 'points>100'（点赞数>100）或 'created_at_i>1577836800'（时间戳过滤）",
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -192,7 +207,7 @@ export class HackerNewsSearchTool extends BaseTool<
     input: HackerNewsSearchInput,
     _context: ToolContext,
   ): Promise<HackerNewsSearchOutput> {
-    const { query, maxResults = 20, tags, numericFilters } = input;
+    const { query, maxResults = 20, tags, numericFilters, timeRange = "all" } = input;
 
     this.logger.log(
       `[doExecute] Searching HackerNews: query="${query}", tags=${tags}`,
@@ -212,8 +227,15 @@ export class HackerNewsSearchTool extends BaseTool<
       }
 
       // 添加数值过滤
-      if (numericFilters) {
-        params.numericFilters = numericFilters;
+      const since = resolveSearchTimeRangeSince(timeRange);
+      const timeFilter = since
+        ? `created_at_i>${getUnixTimestampSeconds(since)}`
+        : undefined;
+      const mergedNumericFilters = [numericFilters, timeFilter]
+        .filter((v): v is string => typeof v === "string" && v.length > 0)
+        .join(",");
+      if (mergedNumericFilters) {
+        params.numericFilters = mergedNumericFilters;
       }
 
       // 发送请求

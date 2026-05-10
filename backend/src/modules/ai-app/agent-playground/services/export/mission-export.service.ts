@@ -198,6 +198,7 @@ export class MissionExportService {
     if (meta.styleProfile) s += `styleProfile: ${meta.styleProfile}\n`;
     if (meta.lengthProfile) s += `lengthProfile: ${meta.lengthProfile}\n`;
     if (meta.audienceProfile) s += `audienceProfile: ${meta.audienceProfile}\n`;
+    if (meta.searchTimeRange) s += `searchTimeRange: ${meta.searchTimeRange}\n`;
     s += "---\n\n";
     return s;
   }

@@ -21,6 +21,13 @@ import {
   RESEARCHER_MAX_ITERATIONS_HARD_CAP,
   RESEARCHER_MAX_WALL_TIME_MS,
 } from "@/modules/ai-harness/facade";
+import {
+  DEFAULT_SEARCH_TIME_RANGE,
+  formatDateYmd,
+  getSearchTimeRangeLabel,
+  resolveSearchTimeRangeSince,
+  SEARCH_TIME_RANGE_VALUES,
+} from "@/common/search/search-time-range";
 
 const Input = z.object({
   topic: z.string(),
@@ -40,6 +47,9 @@ const Input = z.object({
    * 空 / 不传 → 直接跳过 rag-search 走 web-search。
    */
   knowledgeBaseIds: z.array(z.string().uuid()).optional(),
+  searchTimeRange: z
+    .enum(SEARCH_TIME_RANGE_VALUES)
+    .default(DEFAULT_SEARCH_TIME_RANGE),
 });
 
 const Output = z.object({
@@ -196,16 +206,11 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
     const currentDate = new Date().toISOString().slice(0, 10);
     // ★ Iter 2a: 时效性约束 —— 默认查询 12 个月内来源（深度档可放宽到 24 个月，
     //   由 Researcher 自己根据题材判断）。这避免 LLM 拉到 5 年前旧文章导致评分 freshness 低。
-    const since12mo = (() => {
-      const d = new Date();
-      d.setFullYear(d.getFullYear() - 1);
-      return d.toISOString().slice(0, 10);
-    })();
-    const since24mo = (() => {
-      const d = new Date();
-      d.setFullYear(d.getFullYear() - 2);
-      return d.toISOString().slice(0, 10);
-    })();
+    const searchTimeRange = input.searchTimeRange ?? DEFAULT_SEARCH_TIME_RANGE;
+    const since = resolveSearchTimeRangeSince(searchTimeRange);
+    const sinceYmd = since ? formatDateYmd(since) : undefined;
+    const sinceYm = sinceYmd?.slice(0, 7);
+    const selectedRangeLabel = getSearchTimeRangeLabel(searchTimeRange);
     const critiqueBlock = input.critique
       ? [
           ``,
@@ -278,11 +283,17 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       ``,
       `## ★ 时效性约束（freshness — 影响 dim 5-axis 评分中的 freshness 维度）`,
       `currentDate = ${currentDate}`,
-      `- 优先选择 ${since12mo} 之后的来源（最近 12 个月）—— 这是默认硬约束`,
-      `- 仅当某事实只能用更早的奠基性来源（论文 / 政策原文）解释时，才放宽到 ${since24mo}（24 个月）`,
-      `- 超过 24 个月的来源，必须在 finding.evidence 里标注"作为 background context"，不能作为支撑当前判断的主要证据`,
-      `- 调用 web-search 时建议在 query 末尾追加 "after:${since12mo.slice(0, 7)}" 帮搜索引擎过滤`,
-      `- 调用 arxiv-search 时优先选择 ${since12mo.slice(0, 4)}-${currentDate.slice(0, 4)} 区间论文`,
+      `selected searchTimeRange = ${searchTimeRange} (${selectedRangeLabel})`,
+      ...(sinceYmd
+        ? [
+            `- 只把 ${sinceYmd} 及之后发布的资料作为当前判断的主要证据，不要自行放宽时间窗`,
+            `- 调用支持 timeRange 参数的搜索工具时，必须显式传入 { "timeRange": "${searchTimeRange}" }`,
+            `- 调用 web-search 时，可在 query 末尾补充 "after:${sinceYm}" 帮搜索引擎进一步过滤，但这只是补强，不能代替 timeRange 参数`,
+            `- 调用不支持结构化 timeRange 的工具时，必须在 query 或数值过滤中带上等价的时间约束`,
+          ]
+        : [
+            `- 当前 mission 允许 all time 检索，但仍应优先选最近资料，并清楚写明发布日期`,
+          ]),
       `- finding.source 写明发布日期（如 "2025-08-15"）让评分器能识别 freshness`,
       ``,
       `## Figure candidates (★★ 图来源红线 — 编造图直接 mission 失败)`,

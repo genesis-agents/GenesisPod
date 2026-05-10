@@ -108,6 +108,7 @@ export class CtxHydratorService {
       auditLayers: userProfile.auditLayers ?? "default",
       concurrency: userProfile.concurrency ?? 3,
       viewMode: userProfile.viewMode ?? "continuous",
+      searchTimeRange: userProfile.searchTimeRange ?? "365d",
       maxCredits: detail.maxCredits,
       budgetMultiplierOverride: userProfile.budgetMultiplierOverride ?? 1.0,
     };

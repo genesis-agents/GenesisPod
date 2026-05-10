@@ -27,6 +27,7 @@ export type LengthProfile =
 export type AudienceProfile = 'executive' | 'domain-expert' | 'general-public';
 export type AuditLayers = 'minimal' | 'default' | 'thorough' | 'thorough+';
 export type ViewMode = 'continuous' | 'chapter' | 'quick';
+export type SearchTimeRange = '30d' | '90d' | '180d' | '365d' | '730d' | 'all';
 
 export interface RunMissionInput {
   topic: string;
@@ -48,6 +49,8 @@ export interface RunMissionInput {
   concurrency?: number;
   /** 默认进入哪个视图 */
   viewMode?: ViewMode;
+  /** 搜索资料时的时间范围约束 */
+  searchTimeRange?: SearchTimeRange;
   /** ★ P0-K (2026-05-06): mission 级 credits 上限（必填，由用户侧决定）。1 credit ≈ 1k tokens */
   maxCredits: number;
   /** ★ P0-K: agent budget 倍率（必填，前端按 budgetProfile × depth 推荐用户可改） */

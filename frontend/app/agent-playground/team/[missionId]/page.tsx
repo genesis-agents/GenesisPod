@@ -1158,6 +1158,7 @@ function MissionSettingsModal({
   type SP = 'academic' | 'executive' | 'journalistic' | 'technical';
   type AP = 'executive' | 'domain-expert' | 'general-public';
   type AL = 'minimal' | 'default' | 'thorough' | 'thorough+';
+  type STR = '30d' | '90d' | '180d' | '365d' | '730d' | 'all';
 
   const router = useRouter();
   const [topic, setTopic] = useState('');
@@ -1169,6 +1170,7 @@ function MissionSettingsModal({
   const [auditLayers, setAuditLayers] = useState<AL>('default');
   const [withFigures, setWithFigures] = useState(true);
   const [concurrency, setConcurrency] = useState(3);
+  const [searchTimeRange, setSearchTimeRange] = useState<STR>('365d');
   const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1185,6 +1187,7 @@ function MissionSettingsModal({
     setAuditLayers((userProfile?.auditLayers as AL) ?? 'default');
     setWithFigures((userProfile?.withFigures as boolean) ?? true);
     setConcurrency((userProfile?.concurrency as number) ?? 3);
+    setSearchTimeRange((userProfile?.searchTimeRange as STR) ?? '365d');
     const kbIds = userProfile?.knowledgeBaseIds as string[] | undefined;
     setKnowledgeBaseIds(Array.isArray(kbIds) ? kbIds : []);
     setSaveError(null);
@@ -1217,6 +1220,7 @@ function MissionSettingsModal({
         auditLayers,
         withFigures,
         concurrency,
+        searchTimeRange,
         maxCredits: inheritedMax ?? 1000,
         budgetMultiplierOverride: inheritedMul ?? 1.0,
         knowledgeBaseIds:
@@ -1235,16 +1239,23 @@ function MissionSettingsModal({
       onClick={onClose}
     >
       <div
-        className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        className="flex w-full max-w-3xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_30px_100px_-40px_rgba(15,23,42,0.45)]"
         style={{ maxHeight: '90vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-semibold text-gray-900">Mission 设置</h3>
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-600">
+              Mission Settings
+            </p>
+            <h3 className="mt-1 text-lg font-semibold text-slate-950">
+              Mission 设置
+            </h3>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
             <svg
               className="h-4 w-4"
@@ -1262,8 +1273,7 @@ function MissionSettingsModal({
           </button>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4 text-sm">
-          {/* 当前 mission 运行信息（只读） */}
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <SettingRow
               label="耗时"
@@ -1279,13 +1289,12 @@ function MissionSettingsModal({
             />
           </div>
 
-          {/* 可编辑表单 */}
           <FormField label="主题（必填）">
             <textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-[13px] text-gray-900 focus:border-blue-400 focus:outline-none"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-[13px] text-slate-900 focus:border-blue-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-100"
               placeholder="例：系统洞察一下 Anthropic Managed Agent"
             />
           </FormField>
@@ -1295,7 +1304,7 @@ function MissionSettingsModal({
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as Lang)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[13px]"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
               >
                 <option value="zh-CN">中文</option>
                 <option value="en-US">English</option>
@@ -1305,18 +1314,32 @@ function MissionSettingsModal({
               <select
                 value={depth}
                 onChange={(e) => setDepth(e.target.value as Depth)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[13px]"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
               >
                 <option value="quick">quick · 快速</option>
                 <option value="standard">standard · 标准</option>
                 <option value="deep">deep · 深度</option>
               </select>
             </FormField>
+            <FormField label="搜索时效">
+              <select
+                value={searchTimeRange}
+                onChange={(e) => setSearchTimeRange(e.target.value as STR)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
+              >
+                <option value="30d">1 个月</option>
+                <option value="90d">3 个月</option>
+                <option value="180d">6 个月</option>
+                <option value="365d">12 个月</option>
+                <option value="730d">24 个月</option>
+                <option value="all">不限</option>
+              </select>
+            </FormField>
             <FormField label="长度档位">
               <select
                 value={lengthProfile}
                 onChange={(e) => setLengthProfile(e.target.value as LP)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[13px]"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
               >
                 <option value="brief">brief · 3K</option>
                 <option value="standard">standard · 8K</option>
@@ -1330,7 +1353,7 @@ function MissionSettingsModal({
               <select
                 value={styleProfile}
                 onChange={(e) => setStyleProfile(e.target.value as SP)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[13px]"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
               >
                 <option value="executive">executive · 管理</option>
                 <option value="academic">academic · 学术</option>
@@ -1342,7 +1365,7 @@ function MissionSettingsModal({
               <select
                 value={audienceProfile}
                 onChange={(e) => setAudienceProfile(e.target.value as AP)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[13px]"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
               >
                 <option value="executive">executive · 高管</option>
                 <option value="domain-expert">domain-expert · 专家</option>
@@ -1353,7 +1376,7 @@ function MissionSettingsModal({
               <select
                 value={auditLayers}
                 onChange={(e) => setAuditLayers(e.target.value as AL)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[13px]"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
               >
                 <option value="minimal">minimal · 最小</option>
                 <option value="default">default · 默认</option>
@@ -1370,11 +1393,11 @@ function MissionSettingsModal({
                 onChange={(e) =>
                   setConcurrency(Math.max(1, Math.min(6, +e.target.value)))
                 }
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-[13px]"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900"
               />
             </FormField>
             <FormField label="图文并茂">
-              <label className="flex items-center gap-2 px-2 py-1.5 text-[13px]">
+              <label className="flex min-h-[50px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-[13px] text-slate-900">
                 <input
                   type="checkbox"
                   checked={withFigures}
@@ -1394,7 +1417,7 @@ function MissionSettingsModal({
             />
           </FormField>
 
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[11px] leading-relaxed text-blue-900">
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[11px] leading-relaxed text-blue-900">
             <p className="font-semibold">
               说明：「另存为新 mission」会用以上配置创建新 mission，原 mission
               保留作对比。
@@ -1406,18 +1429,18 @@ function MissionSettingsModal({
           </div>
 
           {saveError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] leading-relaxed text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-[11px] leading-relaxed text-red-700">
               {saveError}
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-5 py-4">
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 disabled:opacity-50"
+            className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-slate-700 ring-1 ring-slate-200 transition-colors hover:bg-slate-100 disabled:opacity-50"
           >
             关闭
           </button>
@@ -1425,7 +1448,7 @@ function MissionSettingsModal({
             type="button"
             onClick={() => void handleSaveAsNew()}
             disabled={saving || !topic.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw
               className={cn('h-3.5 w-3.5', saving && 'animate-spin')}
@@ -1440,11 +1463,11 @@ function MissionSettingsModal({
 
 function SettingRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-gray-50 px-3 py-2">
-      <p className="text-[10px] uppercase tracking-wide text-gray-500">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+      <p className="text-[10px] uppercase tracking-wide text-slate-500">
         {label}
       </p>
-      <p className="font-mono mt-0.5 truncate text-sm text-gray-900">{value}</p>
+      <p className="mt-1 truncate font-mono text-sm text-slate-900">{value}</p>
     </div>
   );
 }
@@ -1458,7 +1481,7 @@ function FormField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+      <label className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
         {label}
       </label>
       {children}

@@ -85,6 +85,16 @@ describe("ResearcherAgent — inputSchema", () => {
     expect(r.success).toBe(true);
   });
 
+  it("accepts explicit searchTimeRange", () => {
+    const r = inputSchema.safeParse({
+      topic: "AI Regulation",
+      dimension: "Policy Analysis",
+      language: "en-US",
+      searchTimeRange: "90d",
+    });
+    expect(r.success).toBe(true);
+  });
+
   it("rejects input missing topic", () => {
     const r = inputSchema.safeParse({
       dimension: "Policy Analysis",
@@ -499,17 +509,35 @@ describe("ResearcherAgent — buildSystemPrompt", () => {
     expect(result).toContain(year);
   });
 
-  it("contains freshness constraints with since12mo date", () => {
+  it("contains structured freshness constraints for bounded timeRange", () => {
     const result = agent.buildSystemPrompt({
       input: {
         topic: "AI",
         dimension: "Policy",
         language: "en-US",
         withFigures: false,
+        searchTimeRange: "90d",
       },
       identity,
     });
     expect(result).toContain("freshness");
+    expect(result).toContain('selected searchTimeRange = 90d');
+    expect(result).toContain('"timeRange": "90d"');
     expect(result).toContain("after:");
+  });
+
+  it("allows all-time missions but still mentions freshness expectations", () => {
+    const result = agent.buildSystemPrompt({
+      input: {
+        topic: "AI",
+        dimension: "Policy",
+        language: "en-US",
+        withFigures: false,
+        searchTimeRange: "all",
+      },
+      identity,
+    });
+    expect(result).toContain("selected searchTimeRange = all");
+    expect(result).toContain("all time");
   });
 });

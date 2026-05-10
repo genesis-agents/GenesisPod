@@ -17,6 +17,10 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../../abstractions/tool.interface";
+import {
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -29,6 +33,8 @@ export interface YouTubeSearchInput {
   maxResults?: number;
   /** 平台子集（不传 = 全平台）。可选：youtube / vimeo / bilibili */
   platforms?: string[];
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 export interface VideoItem {
@@ -99,6 +105,13 @@ export class YouTubeSearchTool extends BaseTool<
         description:
           "平台子集（不传 = 全平台）。可选：youtube / vimeo / bilibili",
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -134,7 +147,7 @@ export class YouTubeSearchTool extends BaseTool<
     input: YouTubeSearchInput,
     context: ToolContext,
   ): Promise<YouTubeSearchOutput> {
-    const { query, maxResults = 10, platforms } = input;
+    const { query, maxResults = 10, platforms, timeRange = "all" } = input;
 
     try {
       const selected =
@@ -166,7 +179,7 @@ export class YouTubeSearchTool extends BaseTool<
       const siteQuery = `(${siteFilter}) ${query}`;
 
       const result = await webSearchTool.execute(
-        { query: siteQuery, numResults: maxResults },
+        { query: siteQuery, numResults: maxResults, timeRange },
         context,
       );
 

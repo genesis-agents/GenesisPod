@@ -165,6 +165,7 @@ const VALID_INPUT = {
   topic: "AI trends 2024",
   depth: "deep",
   language: "zh-CN",
+  searchTimeRange: "365d",
   // ★ P0-K (2026-05-06): maxCredits + budgetMultiplierOverride 必填
   maxCredits: 1000,
   budgetMultiplierOverride: 1.4,

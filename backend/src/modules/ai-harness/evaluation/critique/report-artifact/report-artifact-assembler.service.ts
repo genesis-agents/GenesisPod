@@ -57,6 +57,7 @@ export interface AssembleInput {
   styleProfile: ArtifactMetadata["styleProfile"];
   lengthProfile: ArtifactMetadata["lengthProfile"];
   audienceProfile: ArtifactMetadata["audienceProfile"];
+  searchTimeRange?: ArtifactMetadata["searchTimeRange"];
   plan: {
     themeSummary: string;
     dimensions: { id: string; name: string; rationale: string }[];
@@ -1776,6 +1777,7 @@ export class ReportArtifactAssembler {
       lengthProfile: input.lengthProfile,
       audienceProfile: input.audienceProfile,
       language: input.language,
+      searchTimeRange: input.searchTimeRange,
       totalTokens: input.totalTokens,
       costCents: input.costCents,
       modelTrail: input.modelTrail,

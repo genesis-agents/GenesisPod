@@ -18,6 +18,10 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../../abstractions/tool.interface";
+import {
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 // ============================================================================
 // Types
@@ -28,6 +32,8 @@ export interface SocialXSearchInput {
   query: string;
   /** 最大结果数，默认 10 */
   maxResults?: number;
+  /** 搜索时间范围 */
+  timeRange?: SearchTimeRange;
 }
 
 export interface SocialXItem {
@@ -85,6 +91,13 @@ export class SocialXSearchTool extends BaseTool<
         description: "最大结果数，默认 10",
         default: 10,
       },
+      timeRange: {
+        type: "string",
+        description:
+          "搜索时间范围：30d=最近1个月，90d=最近3个月，180d=最近6个月，365d=最近12个月，730d=最近24个月，all=不限",
+        enum: [...SEARCH_TIME_RANGE_VALUES],
+        default: "all",
+      },
     },
     required: ["query"],
   };
@@ -118,7 +131,7 @@ export class SocialXSearchTool extends BaseTool<
     input: SocialXSearchInput,
     context: ToolContext,
   ): Promise<SocialXSearchOutput> {
-    const { query, maxResults = 10 } = input;
+    const { query, maxResults = 10, timeRange = "all" } = input;
 
     try {
       const webSearchTool = this.toolRegistry.tryGet("web-search");
@@ -133,7 +146,7 @@ export class SocialXSearchTool extends BaseTool<
 
       const siteQuery = `(site:x.com OR site:twitter.com) ${query}`;
       const result = await webSearchTool.execute(
-        { query: siteQuery, numResults: maxResults },
+        { query: siteQuery, numResults: maxResults, timeRange },
         context,
       );
 

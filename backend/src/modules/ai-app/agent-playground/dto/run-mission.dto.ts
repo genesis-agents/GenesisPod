@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  DEFAULT_SEARCH_TIME_RANGE,
+  SEARCH_TIME_RANGE_VALUES,
+  type SearchTimeRange,
+} from "@/common/search/search-time-range";
 
 /**
  * 预算档位 —— 给前端 UI 选档用的语义标签。
@@ -9,6 +14,8 @@ import { z } from "zod";
  */
 export const BUDGET_PROFILE = ["low", "medium", "high", "unlimited"] as const;
 export type BudgetProfile = (typeof BUDGET_PROFILE)[number];
+export { SEARCH_TIME_RANGE_VALUES };
+export type { SearchTimeRange };
 
 export const RunMissionInputSchema = z
   .object({
@@ -34,6 +41,9 @@ export const RunMissionInputSchema = z
       .default("default"),
     concurrency: z.number().int().min(1).max(10).default(3),
     viewMode: z.enum(["continuous", "chapter", "quick"]).default("continuous"),
+    searchTimeRange: z
+      .enum(SEARCH_TIME_RANGE_VALUES)
+      .default(DEFAULT_SEARCH_TIME_RANGE),
     /**
      * ★ P0-K (2026-05-06): mission 级 maxCredits 上限（必填，由用户侧决定）。
      * 1 credit ≈ 1k tokens；前端按 budgetProfile / depth 给推荐值，但用户必须显式传。
