@@ -2,6 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { streamAskMessage } from '@/lib/api/ai-ask-stream';
 
 // W4-byok 2026-05-05: 提到共享组件，让所有用到 BYOK 标识的地方走同一来源
 // 2026-05-06 截图 40：ModelKeyMeta 让 AI Ask 模型行也走 KeyRound/Server lucide 图标
@@ -1210,109 +1211,9 @@ export default function AskPage() {
         knowledgeBaseIds: requestBody.knowledgeBaseIds,
       });
 
-      // 2026-05-10 §4：走 SSE 流式端点逐 chunk 更新 UI；onChunk 回调在每个
-      // delta 到达时触发，调用方可立即追加到当前 assistant message 文本里
-      // 实现"打字机"效果。后端整流完成后通过 done event 给最终 messageIds。
-      try {
-        const response = await fetch(
-          `${config.apiUrl}/ask/sessions/${sessionId}/messages/stream`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(requestBody),
-          }
-        );
-
-        if (!response.ok || !response.body) {
-          const errorData = await response.json().catch(() => ({}));
-          logger.error('Failed to start stream:', {
-            status: response.status,
-            error: errorData,
-          });
-          return null;
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let accumulatedContent = '';
-        let ragSources:
-          | Array<{ documentTitle: string; excerpt: string; score: number }>
-          | undefined;
-        let userMessageId: string | null = null;
-        let assistantMessageId: string | null = null;
-        let tokensUsed = 0;
-        let errorMsg: string | null = null;
-
-        const handleEvent = (event: any) => {
-          if (event.type === 'sources') {
-            ragSources = event.sources;
-          } else if (event.type === 'chunk') {
-            accumulatedContent += event.content;
-            onChunk?.(accumulatedContent, ragSources);
-          } else if (event.type === 'done') {
-            userMessageId = event.userMessageId;
-            assistantMessageId = event.assistantMessageId;
-            tokensUsed = event.tokensUsed;
-            // 后端最终内容覆盖（兜底，正常情况下与 accumulated 一致）
-            if (event.fullContent) accumulatedContent = event.fullContent;
-          } else if (event.type === 'error') {
-            errorMsg = event.message;
-          }
-        };
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const events = buffer.split('\n\n');
-          buffer = events.pop() ?? '';
-          for (const raw of events) {
-            const line = raw.trim();
-            if (!line.startsWith('data:')) continue;
-            const payload = line.slice(5).trim();
-            if (!payload) continue;
-            try {
-              handleEvent(JSON.parse(payload));
-            } catch (parseErr) {
-              logger.warn('[AiAsk] Failed to parse SSE event:', parseErr);
-            }
-          }
-        }
-
-        if (errorMsg) {
-          logger.error('[AiAsk] Stream error:', errorMsg);
-          return null;
-        }
-
-        return {
-          userMessage: {
-            id: userMessageId ?? 'temp-user',
-            content,
-            createdAt: new Date().toISOString(),
-            modelId: requestBody.modelId,
-            modelName: undefined as string | undefined,
-          },
-          assistantMessage: {
-            id: assistantMessageId ?? 'temp-assistant',
-            content: accumulatedContent,
-            createdAt: new Date().toISOString(),
-            modelId: requestBody.modelId,
-            modelName: undefined as string | undefined,
-            tokens: tokensUsed,
-          },
-          ragSources,
-          suggestedActions: undefined as
-            | Array<{ type: string; label: string; data?: unknown }>
-            | undefined,
-        };
-      } catch (error) {
-        logger.error('Failed to send message:', error);
-      }
-      return null;
+      // 2026-05-10 §4：SSE 解析 + result 构造拆到 lib/api/ai-ask-stream.ts
+      // 避免本文件突破 god-class +50 行 pre-push 阈值
+      return streamAskMessage(sessionId, token, requestBody, onChunk);
     },
     [token, selectedModel, webSearchEnabled, selectedKnowledgeBases]
   );
