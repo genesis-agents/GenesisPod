@@ -23,6 +23,7 @@
  */
 
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { KernelContext } from "@/common/context/kernel-context";
 import { MissionStore } from "../lifecycle/mission-store.service";
 import { ReportEvaluationService } from "@/modules/ai-harness/facade";
 import { normalizeMarkdownSlug } from "@/modules/ai-engine/facade";
@@ -234,6 +235,22 @@ export class StageRerunDispatcher {
    *   不再调用。
    */
   async runFromStageWithCascade(
+    args: RunFromStageArgs,
+  ): Promise<RunFromStageResult> {
+    // 2026-05-10 §3：cascade rerun 也要进 KernelContext，让 SpecBasedAgent
+    // 通过 missionId 拿到 MissionElectionTracker 的 previouslyElected。
+    // 之前 rerun 路径完全没 KernelContext.run，diversity 评分等同关闭。
+    return KernelContext.run(
+      {
+        processId: args.ctx.missionId,
+        missionId: args.ctx.missionId,
+        userId: args.ctx.userId,
+      },
+      () => this.runFromStageWithCascadeInner(args),
+    );
+  }
+
+  private async runFromStageWithCascadeInner(
     args: RunFromStageArgs,
   ): Promise<RunFromStageResult> {
     const { fromStepId, emit } = args;

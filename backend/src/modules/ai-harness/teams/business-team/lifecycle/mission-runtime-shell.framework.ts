@@ -12,6 +12,7 @@
 
 import { Injectable, Logger } from "@nestjs/common";
 import { withUserContext } from "@/common/context";
+import { KernelContext } from "@/common/context/kernel-context";
 import { BillingContext } from "@/modules/ai-infra/credits/billing-context.store";
 import { CreditsService } from "@/modules/ai-infra/credits/credits.service";
 // ★ 不走 @/modules/ai-harness/facade barrel：facade/index.ts 也 re-export 本 framework
@@ -162,7 +163,21 @@ export class MissionRuntimeShellFramework {
           operationType,
           referenceId: session.missionId,
         },
-        fn,
+        // 2026-05-10 §3：把 missionId / userId 透到 KernelContext，让下游
+        // SpecBasedAgent.electModelOrNull 能从 MissionElectionTracker 取到本
+        // mission 已选过的 modelId，触发 diversity 评分（-10 × occurrences）。
+        // 之前 playground / business-team 整条链没 KernelContext.run，
+        // missionId 始终 undefined → tracker 取不到 previouslyElected → 全 grok。
+        // 与 topic-insights / writing / research 现有模式对齐。
+        () =>
+          KernelContext.run(
+            {
+              processId: session.missionId,
+              missionId: session.missionId,
+              userId: session.userId,
+            },
+            fn,
+          ),
       ),
     );
   }
