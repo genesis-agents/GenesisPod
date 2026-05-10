@@ -295,6 +295,13 @@ export class WikiIngestService {
         processedAt: true,
         chunkCount: true,
         lastError: true,
+        // metadata.pendingFetch=true marks docs whose rawContent is still
+        // a "[Pending content fetch from X]" placeholder — those genuinely
+        // have no text to ingest. rawContentUri is included so we can
+        // recognize off-loaded content (always real) without paying the R2
+        // hydrate roundtrip in this list endpoint.
+        metadata: true,
+        rawContentUri: true,
       },
     });
 
@@ -334,14 +341,18 @@ export class WikiIngestService {
       let recommended = false;
       let reason = "";
 
-      if (doc.status !== "READY") {
+      // Wiki ingest only consumes `rawContent` — it does NOT consume the
+      // RAG chunks or embeddings produced by the "向量化" button. So the
+      // BLOCKED gate is on content availability, not on doc.status===READY
+      // (which historically meant "chunking finished"). A PENDING doc with
+      // real rawContent is perfectly ingestable.
+      if (doc.status === "ERROR") {
+        ingestState = "BLOCKED";
+        reason = "Document processing failed; repair the source before ingest.";
+      } else if (this.isContentPending(doc.metadata, doc.rawContentUri)) {
         ingestState = "BLOCKED";
         reason =
-          doc.status === "ERROR"
-            ? "Document processing failed; repair the source before ingest."
-            : doc.status === "PROCESSING" || doc.status === "UPDATING"
-              ? "Document is still processing and not ready for ingest."
-              : "Document is not ready for wiki ingest yet.";
+          "Document content has not been fetched yet from the external source.";
       } else if (pageReferenceCount === 0) {
         ingestState = "READY_NEW";
         recommended = true;
@@ -377,6 +388,38 @@ export class WikiIngestService {
   }
 
   // ─── Internal ───
+
+  /**
+   * Detect docs whose `rawContent` is still a placeholder (e.g.
+   * `[Pending content fetch from NOTION]`). These have no real text for the
+   * wiki LLM to ingest, so they stay BLOCKED until the upstream fetcher
+   * fills them in.
+   *
+   * Two signals — either is sufficient:
+   *  - `metadata.pendingFetch === true` (set by the bookmark-import path
+   *    in rag.controller.ts when content fetch is deferred)
+   *  - rawContentUri is null AND we have no other proof of content
+   *    (we don't read rawContent here to avoid the R2 hydrate roundtrip;
+   *    off-loaded docs always have real content by construction)
+   *
+   * Off-loaded docs (`rawContentUri != null`) are always considered ready —
+   * the off-load step only runs after content is materialized.
+   */
+  private isContentPending(
+    metadata: Prisma.JsonValue,
+    rawContentUri: string | null,
+  ): boolean {
+    if (rawContentUri) return false;
+    if (
+      metadata &&
+      typeof metadata === "object" &&
+      !Array.isArray(metadata) &&
+      (metadata as Record<string, unknown>).pendingFetch === true
+    ) {
+      return true;
+    }
+    return false;
+  }
 
   private buildSystemPrompt(): string {
     return [

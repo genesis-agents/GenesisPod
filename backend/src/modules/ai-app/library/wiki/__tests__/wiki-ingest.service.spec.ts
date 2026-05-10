@@ -401,4 +401,117 @@ describe("WikiIngestService", () => {
       expect(createArgs.data.affectedSlugs).toEqual(["fenced-slug"]);
     });
   });
+
+  // ─── BLOCKED gate: now content-based, NOT chunking-based ─────────────────
+  //
+  // Wiki ingest only consumes rawContent — it never reads chunks or
+  // embeddings. So a doc that has rawContent but is still PENDING (because
+  // the user hasn't clicked the KB-level "向量化" button) must be ingestable.
+  // The gate is: ERROR → BLOCKED, pendingFetch placeholder → BLOCKED, else
+  // READY_NEW / STALE / COVERED based on wiki page reference history.
+  describe("listIngestCandidates — content-availability gate", () => {
+    function mockKbReady() {
+      prisma.knowledgeBase.findUnique.mockResolvedValue({ wikiEnabled: true });
+    }
+
+    it("PENDING doc with real rawContent is READY_NEW (was BLOCKED before)", async () => {
+      mockKbReady();
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        {
+          id: "doc-pending",
+          title: "Real upload",
+          sourceType: "MANUAL",
+          mimeType: "text/plain",
+          status: "PENDING", // user has NOT clicked 向量化
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          processedAt: null,
+          chunkCount: 0,
+          lastError: null,
+          metadata: {},
+          rawContentUri: null,
+        },
+      ]);
+
+      const result = await service.listIngestCandidates("u-1", "kb-1");
+
+      expect(result).toHaveLength(1);
+      expect(result[0].ingestState).toBe("READY_NEW");
+      expect(result[0].recommended).toBe(true);
+    });
+
+    it("placeholder doc (metadata.pendingFetch=true) stays BLOCKED", async () => {
+      mockKbReady();
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        {
+          id: "doc-pending-fetch",
+          title: "Awaiting Notion sync",
+          sourceType: "NOTION",
+          mimeType: null,
+          status: "PENDING",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          processedAt: null,
+          chunkCount: 0,
+          lastError: null,
+          metadata: { pendingFetch: true, externalSource: "NOTION" },
+          rawContentUri: null,
+        },
+      ]);
+
+      const result = await service.listIngestCandidates("u-1", "kb-1");
+
+      expect(result[0].ingestState).toBe("BLOCKED");
+      expect(result[0].reason).toContain("not been fetched yet");
+    });
+
+    it("ERROR doc stays BLOCKED with the existing reason", async () => {
+      mockKbReady();
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        {
+          id: "doc-broken",
+          title: "Broken parser",
+          sourceType: "MANUAL",
+          mimeType: "application/pdf",
+          status: "ERROR",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          processedAt: null,
+          chunkCount: 0,
+          lastError: "PDF parser crashed",
+          metadata: {},
+          rawContentUri: null,
+        },
+      ]);
+
+      const result = await service.listIngestCandidates("u-1", "kb-1");
+
+      expect(result[0].ingestState).toBe("BLOCKED");
+      expect(result[0].reason).toContain("processing failed");
+    });
+
+    it("off-loaded doc (rawContentUri set) is treated as ready even if metadata is missing", async () => {
+      mockKbReady();
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        {
+          id: "doc-offloaded",
+          title: "Big PDF in R2",
+          sourceType: "MANUAL",
+          mimeType: "application/pdf",
+          status: "PENDING",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          processedAt: null,
+          chunkCount: 0,
+          lastError: null,
+          metadata: null,
+          rawContentUri: "s3://bucket/kb-1/doc-offloaded.txt",
+        },
+      ]);
+
+      const result = await service.listIngestCandidates("u-1", "kb-1");
+
+      expect(result[0].ingestState).toBe("READY_NEW");
+    });
+  });
 });
