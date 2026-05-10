@@ -367,7 +367,15 @@
         "pageCount": "{{count}} 页",
         "pageCountOne": "{{count}} 页",
         "pageCountOther": "{{count}} 页",
-        "lastIngest": "上次 ingest {{time}}"
+        "lastIngest": "上次 ingest {{time}}",
+        "backToGrid": "返回 Wiki 列表"
+      },
+      "grid": {
+        "title": "Wiki 库",
+        "subtitle": "已启用 Wiki 的知识库 · 共 {{count}} 个",
+        "enableMore": "启用其他知识库",
+        "noDescription": "暂无描述",
+        "lastIngestLabel": "上次 ingest"
       },
       "empty": {
         "welcome": "欢迎使用 Wiki",

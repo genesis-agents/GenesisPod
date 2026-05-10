@@ -31,6 +31,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
   BookOpen,
+  ChevronLeft,
   Download,
   FileSearch,
   GitMerge,
@@ -66,6 +67,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import WikiGraphModal from './WikiGraphModal';
 import WikiSettingsModal from './WikiSettingsModal';
+import WikiCardGrid from './WikiCardGrid';
 
 // Extend the default sanitizer to allow our internal `wikilink:` scheme on
 // anchor href attributes — without this, rehype-sanitize strips the href and
@@ -84,15 +86,6 @@ function userKey(prefix: string, userHash: string): string {
   return `${prefix}:${userHash}`;
 }
 
-function readLocalStorage(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
 function writeLocalStorage(key: string, value: string): void {
   if (typeof window === 'undefined') return;
   try {
@@ -102,7 +95,13 @@ function writeLocalStorage(key: string, value: string): void {
   }
 }
 
-// ─── KB context resolver (§7.3 5-step chain) ───
+// ─── KB context resolver ───
+//
+// Landing UX: when no `?kb=` is in the URL we render a card grid so the
+// user explicitly picks a KB. Once `?kb={id}` is set we render the detail
+// view. The previous 5-step auto-pick (URL → localStorage → unique →
+// most-recent → empty funnel) was bypassing the grid for returning users
+// and is now reduced to "URL only".
 
 interface ResolveResult {
   kbId: string | null;
@@ -146,27 +145,19 @@ function useResolvedKb(
   }>(() => {
     if (loading) return { kbId: null, emptyKind: null };
 
-    // Step 1: explicit URL kbId — must exist in the wikiEnabled set
+    // Only honor an explicit URL kbId that exists in the wikiEnabled set.
     if (urlKbId && kbs.some((kb) => kb.id === urlKbId)) {
       return { kbId: urlKbId, emptyKind: null };
     }
 
-    // Step 2: localStorage:lastWikiKbId
-    const stored = readLocalStorage(userKey('lastWikiKbId', userHash));
-    if (stored && kbs.some((kb) => kb.id === stored)) {
-      return { kbId: stored, emptyKind: null };
+    // No URL kb → caller decides between grid (kbs.length > 0) and the
+    // empty funnel (kbs.length === 0). We surface emptyKind for the latter.
+    if (kbs.length === 0) {
+      return { kbId: null, emptyKind: 'has-kb-no-wiki' };
     }
 
-    // Steps 3+4: unique wikiEnabled KB → first sorted (most-recently-ingested)
-    if (kbs.length === 1) return { kbId: kbs[0].id, emptyKind: null };
-    if (kbs.length > 1) return { kbId: kbs[0].id, emptyKind: null };
-
-    // Step 5: empty (0 wikiEnabled). UI will offer the funnel; we cannot
-    // distinguish 0-KB from 0-wikiEnabled here without the global KB list,
-    // so signal "has-kb-no-wiki" optimistically and let the empty state
-    // component refine via a second backend call if needed.
-    return { kbId: null, emptyKind: 'has-kb-no-wiki' };
-  }, [kbs, loading, urlKbId, userHash]);
+    return { kbId: null, emptyKind: null };
+  }, [kbs, loading, urlKbId]);
 
   return {
     ...resolved,
@@ -238,17 +229,25 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   // and active body without requiring a manual browser refresh.
   const [readerRefreshTick, setReaderRefreshTick] = useState(0);
 
-  // Persist resolved kbId to URL + localStorage for back/forward & refresh
+  // Persist active kbId to localStorage so other surfaces (e.g. ingest
+  // shortcut from elsewhere) still know the user's last picked KB. We
+  // intentionally no longer auto-resolve from it — see useResolvedKb.
   useEffect(() => {
     if (!kbId) return;
-    if (urlState.kbId !== kbId) {
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
-      params.set('tab', 'wiki');
-      params.set('kb', kbId);
-      router.replace(`/library?${params.toString()}`);
-    }
     writeLocalStorage(userKey('lastWikiKbId', userHash), kbId);
-  }, [kbId, urlState.kbId, router, searchParams, userHash]);
+  }, [kbId, userHash]);
+
+  const goToGrid = useCallback(() => {
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
+    params.set('tab', 'wiki');
+    params.delete('kb');
+    params.delete('page');
+    params.delete('diff');
+    params.delete('lint');
+    params.delete('log');
+    params.delete('graph');
+    router.replace(`/library?${params.toString()}`);
+  }, [router, searchParams]);
 
   if (loading) {
     return (
@@ -259,12 +258,46 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   }
 
   if (!kbId) {
+    // 0 wiki-enabled KBs → empty funnel; otherwise → card grid landing
+    if (kbs.length === 0) {
+      return (
+        <>
+          <WikiEmptyState
+            kind={emptyKind ?? 'has-kb-no-wiki'}
+            onRefresh={refresh}
+            onEnable={() => setEnableOpen(true)}
+          />
+          {enableOpen && (
+            <WikiEnableToggleModal
+              onClose={() => setEnableOpen(false)}
+              onEnabled={(newKbId) => {
+                setEnableOpen(false);
+                const params = new URLSearchParams(
+                  searchParams?.toString() ?? ''
+                );
+                params.set('tab', 'wiki');
+                params.set('kb', newKbId);
+                router.replace(`/library?${params.toString()}`);
+                refresh();
+              }}
+            />
+          )}
+        </>
+      );
+    }
+
     return (
       <>
-        <WikiEmptyState
-          kind={emptyKind ?? 'has-kb-no-wiki'}
-          onRefresh={refresh}
-          onEnable={() => setEnableOpen(true)}
+        <WikiCardGrid
+          kbs={kbs}
+          onOpen={(id) => {
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.set('tab', 'wiki');
+            params.set('kb', id);
+            params.delete('page');
+            router.replace(`/library?${params.toString()}`);
+          }}
+          onEnableMore={() => setEnableOpen(true)}
         />
         {enableOpen && (
           <WikiEnableToggleModal
@@ -290,6 +323,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       <WikiSubHeader
         kbs={kbs}
         currentKbId={kbId}
+        onBackToGrid={goToGrid}
         onSelectKb={(id) => {
           const params = new URLSearchParams(searchParams?.toString() ?? '');
           params.set('tab', 'wiki');
@@ -461,6 +495,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
 interface WikiSubHeaderProps {
   kbs: WikiKbSummary[];
   currentKbId: string;
+  onBackToGrid: () => void;
   onSelectKb: (id: string) => void;
   onEnableOther: () => void;
   onIngest: () => void;
@@ -476,6 +511,7 @@ interface WikiSubHeaderProps {
 function WikiSubHeader({
   kbs,
   currentKbId,
+  onBackToGrid,
   onSelectKb,
   onEnableOther,
   onIngest,
@@ -494,6 +530,14 @@ function WikiSubHeader({
   return (
     <div className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200 bg-white px-8 py-3">
       <div className="relative flex items-center gap-3 text-sm">
+        <button
+          onClick={onBackToGrid}
+          className="-ml-1 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-violet-700"
+          title={t('library.wiki.kbSelector.backToGrid')}
+        >
+          <ChevronLeft className="h-4 w-4" />
+          {t('library.wiki.kbSelector.backToGrid')}
+        </button>
         <BookOpen className="h-5 w-5 text-violet-500" />
         <button
           onClick={() => setOpen((o) => !o)}

@@ -367,7 +367,15 @@
         "pageCount": "{{count}} pages",
         "pageCountOne": "{{count}} page",
         "pageCountOther": "{{count}} pages",
-        "lastIngest": "last ingest {{time}}"
+        "lastIngest": "last ingest {{time}}",
+        "backToGrid": "Back to wiki list"
+      },
+      "grid": {
+        "title": "Wiki library",
+        "subtitle": "Wiki-enabled knowledge bases · {{count}} total",
+        "enableMore": "Enable another KB",
+        "noDescription": "No description",
+        "lastIngestLabel": "Last ingest"
       },
       "empty": {
         "welcome": "Welcome to Wiki",
