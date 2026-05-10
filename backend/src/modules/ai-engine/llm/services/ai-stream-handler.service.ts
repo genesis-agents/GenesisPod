@@ -1,7 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
-import { ChatMessage, reasoningDepthToEffort } from "../types";
+import {
+  ChatMessage,
+  ensureChatCompletionsPath,
+  ensureMessagesPath,
+  reasoningDepthToEffort,
+} from "../types";
 
 export interface StreamChunk {
   content: string;
@@ -74,12 +79,25 @@ export class AiStreamHandlerService {
       ? { reasoning_effort: reasoningDepthToEffort(reasoningDepth) }
       : {};
 
+    // 2026-05-10 §2/§4：单源归一化。BYOK 兜底 endpoint（如 deepseek 默认
+    // `https://api.deepseek.com/v1`）不含 `/chat/completions`，直接 POST 必 404。
+    const chatUrl = ensureChatCompletionsPath(apiEndpoint);
+    if (!chatUrl) {
+      yield {
+        content: "",
+        done: true,
+        error:
+          "Empty chat-completions endpoint — provider 未在 ai_providers / AIModel.apiEndpoint 配置",
+      };
+      return;
+    }
+
     try {
       // ★ TTFT: 在发出请求前记录时间，以准确测量从请求发起到首个 token 的延迟
       const streamStartTime = Date.now();
       const response = await firstValueFrom(
         this.httpService.post(
-          apiEndpoint,
+          chatUrl,
           {
             model: modelId,
             messages: messages.map((m) => ({
@@ -193,12 +211,23 @@ export class AiStreamHandlerService {
     const systemMessage = messages.find((m) => m.role === "system");
     const otherMessages = messages.filter((m) => m.role !== "system");
 
+    const messagesUrl = ensureMessagesPath(apiEndpoint);
+    if (!messagesUrl) {
+      yield {
+        content: "",
+        done: true,
+        error:
+          "Empty Anthropic messages endpoint — provider 未在 ai_providers / AIModel.apiEndpoint 配置",
+      };
+      return;
+    }
+
     try {
       // ★ TTFT: 在发出请求前记录时间
       const streamStartTime = Date.now();
       const response = await firstValueFrom(
         this.httpService.post(
-          apiEndpoint,
+          messagesUrl,
           {
             model: modelId,
             max_tokens: maxTokens,

@@ -33,6 +33,17 @@ export {
 
 export { inferIsReasoning, getKnownModelLimit } from "./model.utils";
 
+// 2026-05-10 §2/§4：单源 provider endpoint URL 归一化（chat + embedding + image）
+export {
+  ensureChatCompletionsPath,
+  ensureMessagesPath,
+  ensureGeminiGenerateContentPath,
+  ensureOpenAIEmbeddingsPath,
+  ensureCohereEmbedPath,
+  ensureGeminiBatchEmbedContentsPath,
+  ensureGeminiEmbedContentPath,
+  ensureOpenAIImagesGenerationsPath,
+} from "./endpoint.utils";
+
 // 2026-05-01 (PR-X-M2): AiCallerFn 通用 LLM 调用函数签名
 export type { AiCallerFn } from "./ai-caller.types";
-

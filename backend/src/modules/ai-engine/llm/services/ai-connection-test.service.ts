@@ -3,6 +3,15 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AiModelConfigService } from "./ai-model-config.service";
 import { inferIsReasoning } from "../types/model.utils";
+import {
+  ensureChatCompletionsPath,
+  ensureMessagesPath,
+  ensureGeminiGenerateContentPath,
+  ensureOpenAIEmbeddingsPath,
+  ensureCohereEmbedPath,
+  ensureGeminiEmbedContentPath,
+  ensureOpenAIImagesGenerationsPath,
+} from "../types/endpoint.utils";
 import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 
 /**
@@ -44,18 +53,14 @@ export class AiConnectionTestService {
     provider: string,
     override?: string,
   ): Promise<string | null> {
-    const trimmed = override?.trim();
-    if (trimmed) {
-      const noTrailing = trimmed.replace(/\/+$/, "");
-      return noTrailing.endsWith("/chat/completions")
-        ? noTrailing
-        : `${noTrailing}/chat/completions`;
-    }
+    // 用户显式 override 直接走单源 helper
+    const overrideNormalized = ensureChatCompletionsPath(override);
+    if (overrideNormalized) return overrideNormalized;
+    // 否则走 DB ai_providers 真源 + 单源 helper
     const defaults = await this.userApiKeys?.resolveProviderDefaults(
       provider.toLowerCase(),
     );
-    if (!defaults?.endpoint) return null;
-    return `${defaults.endpoint.replace(/\/+$/, "")}/chat/completions`;
+    return ensureChatCompletionsPath(defaults?.endpoint);
   }
 
   /**
@@ -170,7 +175,8 @@ export class AiConnectionTestService {
           ];
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint || "https://api.x.ai/v1/chat/completions",
+              ensureChatCompletionsPath(apiEndpoint) ||
+                "https://api.x.ai/v1/chat/completions",
               {
                 model: modelId || "",
                 messages: grokTestMessages,
@@ -204,7 +210,8 @@ export class AiConnectionTestService {
 
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint || "https://api.openai.com/v1/chat/completions",
+              ensureChatCompletionsPath(apiEndpoint) ||
+                "https://api.openai.com/v1/chat/completions",
               {
                 model: effectiveOpenAIModel,
                 messages: testMessages,
@@ -227,7 +234,8 @@ export class AiConnectionTestService {
         case "claude":
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint || "https://api.anthropic.com/v1/messages",
+              ensureMessagesPath(apiEndpoint) ||
+                "https://api.anthropic.com/v1/messages",
               {
                 model: modelId || "",
                 max_tokens: 50,
@@ -344,15 +352,11 @@ export class AiConnectionTestService {
                 };
 
             const effectiveGeminiModel = modelId || "";
-            let geminiEndpoint: string;
-            if (apiEndpoint && apiEndpoint.includes(":generateContent")) {
-              geminiEndpoint = apiEndpoint;
-            } else {
-              const baseUrl =
-                apiEndpoint?.replace(/\/$/, "") ||
-                "https://generativelanguage.googleapis.com/v1beta/models";
-              geminiEndpoint = `${baseUrl}/${effectiveGeminiModel}:generateContent`;
-            }
+            // 2026-05-10 §2/§4：单源归一化。
+            const geminiEndpoint = ensureGeminiGenerateContentPath(
+              apiEndpoint,
+              effectiveGeminiModel,
+            );
 
             this.logger.log(`Testing Gemini API: ${geminiEndpoint}`);
 
@@ -386,7 +390,8 @@ export class AiConnectionTestService {
         case "perplexity":
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint || "https://api.perplexity.ai/chat/completions",
+              ensureChatCompletionsPath(apiEndpoint) ||
+                "https://api.perplexity.ai/chat/completions",
               {
                 model: modelId || "",
                 messages: testMessages,
@@ -525,15 +530,10 @@ export class AiConnectionTestService {
       switch (provider.toLowerCase()) {
         case "openai":
         case "gpt": {
-          let openaiEmbeddingsUrl = "https://api.openai.com/v1/embeddings";
-          if (apiEndpoint) {
-            const baseUrl = apiEndpoint.replace(/\/+$/, "");
-            if (baseUrl.endsWith("/embeddings")) {
-              openaiEmbeddingsUrl = baseUrl;
-            } else {
-              openaiEmbeddingsUrl = `${baseUrl}/embeddings`;
-            }
-          }
+          // 2026-05-10 §2/§4：单源归一化。
+          const openaiEmbeddingsUrl =
+            ensureOpenAIEmbeddingsPath(apiEndpoint) ||
+            "https://api.openai.com/v1/embeddings";
           response = await firstValueFrom(
             this.httpService.post(
               openaiEmbeddingsUrl,
@@ -564,15 +564,10 @@ export class AiConnectionTestService {
         }
 
         case "cohere": {
-          let cohereEmbedUrl = "https://api.cohere.ai/v1/embed";
-          if (apiEndpoint) {
-            const baseUrl = apiEndpoint.replace(/\/+$/, "");
-            if (baseUrl.endsWith("/embed")) {
-              cohereEmbedUrl = baseUrl;
-            } else {
-              cohereEmbedUrl = `${baseUrl}/embed`;
-            }
-          }
+          // 2026-05-10 §2/§4：单源归一化。
+          const cohereEmbedUrl =
+            ensureCohereEmbedPath(apiEndpoint) ||
+            "https://api.cohere.ai/v1/embed";
           response = await firstValueFrom(
             this.httpService.post(
               cohereEmbedUrl,
@@ -605,10 +600,11 @@ export class AiConnectionTestService {
 
         case "google":
         case "gemini": {
-          const geminiBaseUrl = apiEndpoint
-            ? apiEndpoint.replace(/\/models\/?$/, "").replace(/\/+$/, "")
-            : "https://generativelanguage.googleapis.com/v1beta";
-          const geminiEndpoint = `${geminiBaseUrl}/models/${modelId || "text-embedding-004"}:embedContent`;
+          // 2026-05-10 §2/§4：单源归一化。
+          const geminiEndpoint = ensureGeminiEmbedContentPath(
+            apiEndpoint,
+            modelId || "text-embedding-004",
+          );
 
           response = await firstValueFrom(
             this.httpService.post(
@@ -838,13 +834,10 @@ export class AiConnectionTestService {
         // IMAGE_EDITING 真正的 API 是 /v1/images/edits，需要上传一张图。
         // 这里测"连接可用性"——对 dall-e-2 也用 generations 端点做一次最小 prompt 探测，
         // 只要返回结构正确即算成功。避免上传图片素材。
-        const baseUrl =
-          apiEndpoint
-            ?.replace(/\/+$/, "")
-            .replace(/\/chat\/completions$/, "") || "https://api.openai.com/v1";
-        const url = baseUrl.endsWith("/v1")
-          ? `${baseUrl}/images/generations`
-          : `${baseUrl}/v1/images/generations`;
+        // 2026-05-10 §2/§4：单源归一化。
+        const url =
+          ensureOpenAIImagesGenerationsPath(apiEndpoint) ||
+          "https://api.openai.com/v1/images/generations";
 
         const body: Record<string, unknown> = {
           model: modelId,

@@ -4,7 +4,12 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { ChatMessage, ChatCompletionResult } from "./ai-chat.service";
 import type { TaskProfile } from "../types";
-import { reasoningDepthToEffort, safeReasoningEffort } from "../types";
+import {
+  reasoningDepthToEffort,
+  safeReasoningEffort,
+  ensureChatCompletionsPath,
+  ensureMessagesPath,
+} from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService } from "./ai-model-config.service";
 import { AiImageGenerationService } from "./ai-image-generation.service";
@@ -254,7 +259,8 @@ export class AiDirectKeyService {
           );
 
           return await this.callApiWithKey(
-            apiEndpoint || "https://api.openai.com/v1/chat/completions",
+            ensureChatCompletionsPath(apiEndpoint) ||
+              "https://api.openai.com/v1/chat/completions",
             {
               model: effectiveModelId,
               messages: fullMessages.map((m) => ({
@@ -285,7 +291,8 @@ export class AiDirectKeyService {
           const systemMessage = fullMessages.find((m) => m.role === "system");
           const otherMessages = fullMessages.filter((m) => m.role !== "system");
           return await this.callClaudeApiWithKey(
-            apiEndpoint || "https://api.anthropic.com/v1/messages",
+            ensureMessagesPath(apiEndpoint) ||
+              "https://api.anthropic.com/v1/messages",
             apiKey,
             modelId || "",
             systemMessage?.content,
@@ -324,13 +331,14 @@ export class AiDirectKeyService {
         case "glm":
         case "kimi":
         case "moonshot": {
-          if (!apiEndpoint) {
+          const compatChatUrl = ensureChatCompletionsPath(apiEndpoint);
+          if (!compatChatUrl) {
             throw new Error(
               `API endpoint is required for provider: ${provider}`,
             );
           }
           return await this.callApiWithKey(
-            apiEndpoint,
+            compatChatUrl,
             {
               model: modelId || "",
               messages: fullMessages.map((m) => ({
@@ -351,7 +359,8 @@ export class AiDirectKeyService {
         default:
           this.logger.warn(`Unknown provider: ${provider}, using Grok`);
           return await this.callApiWithKey(
-            "https://api.x.ai/v1/chat/completions",
+            ensureChatCompletionsPath(apiEndpoint) ||
+              "https://api.x.ai/v1/chat/completions",
             {
               model: modelId || "",
               messages: fullMessages.map((m) => ({
@@ -1092,5 +1101,3 @@ export class AiDirectKeyService {
     };
   }
 }
-
-

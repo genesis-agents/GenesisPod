@@ -7,6 +7,14 @@ import {
   safeReasoningEffort,
 } from "../types/task-profile.types";
 import {
+  ensureChatCompletionsPath,
+  ensureMessagesPath,
+  ensureGeminiGenerateContentPath,
+  ensureOpenAIEmbeddingsPath,
+  ensureCohereEmbedPath,
+  ensureGeminiBatchEmbedContentsPath,
+} from "../types/endpoint.utils";
+import {
   JsonSchemaStrictAdapter,
   JsonSchemaAdapter,
   JsonModeAdapter,
@@ -185,9 +193,11 @@ export class AiApiCallerService {
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
   ): Promise<ChatCompletionResult> {
-    // ★ 关键修复：确保 apiEndpoint 有效
+    // 2026-05-10 §2/§4：单源归一化（base URL → /chat/completions），与
+    // streamOpenAICompatible / connection-test 共用 ensureChatCompletionsPath。
     const effectiveEndpoint =
-      apiEndpoint?.trim() || "https://api.openai.com/v1/chat/completions";
+      ensureChatCompletionsPath(apiEndpoint) ||
+      "https://api.openai.com/v1/chat/completions";
 
     // ★ 数据库驱动：使用配置的 tokenParamName，无需硬编码判断
     const tokenParam = { [tokenParamName]: maxTokens };
@@ -434,9 +444,10 @@ export class AiApiCallerService {
           `Relying on system prompt constraint only.`,
       );
     }
-    // ★ 确保 apiEndpoint 有效
+    // 2026-05-10 §2/§4：单源归一化（base URL → /messages）。
     const effectiveEndpoint =
-      apiEndpoint?.trim() || "https://api.anthropic.com/v1/messages";
+      ensureMessagesPath(apiEndpoint) ||
+      "https://api.anthropic.com/v1/messages";
 
     // Extract system message
     const systemMessage = messages.find((m) => m.role === "system");
@@ -594,31 +605,11 @@ export class AiApiCallerService {
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
   ): Promise<ChatCompletionResult> {
-    // ★ 确保 apiEndpoint 有效
-    const effectiveEndpoint =
-      apiEndpoint?.trim() || "https://generativelanguage.googleapis.com/v1beta";
-
     // 直接使用数据库配置的模型 ID，不做额外验证
     const effectiveModelId = modelId;
 
-    // 构建正确的 Gemini API URL
-    let apiUrl: string;
-    if (effectiveEndpoint.includes(":generateContent")) {
-      // 完整 URL，直接使用
-      apiUrl = `${effectiveEndpoint}?key=${apiKey}`;
-    } else if (effectiveEndpoint.includes("/models")) {
-      // 已包含 /models，只需添加模型 ID
-      const baseUrl = effectiveEndpoint.endsWith("/")
-        ? effectiveEndpoint.slice(0, -1)
-        : effectiveEndpoint;
-      apiUrl = `${baseUrl}/${effectiveModelId}:generateContent?key=${apiKey}`;
-    } else {
-      // 基础 URL，需要添加 /models/
-      const baseUrl = effectiveEndpoint.endsWith("/")
-        ? effectiveEndpoint.slice(0, -1)
-        : effectiveEndpoint;
-      apiUrl = `${baseUrl}/models/${effectiveModelId}:generateContent?key=${apiKey}`;
-    }
+    // 2026-05-10 §2/§4：单源归一化（容忍 base / 含 /models / 完整 URL 三种形态）
+    const apiUrl = `${ensureGeminiGenerateContentPath(apiEndpoint, effectiveModelId)}?key=${apiKey}`;
 
     // Extract system message
     const systemMessage = messages.find((m) => m.role === "system");
@@ -755,9 +746,10 @@ export class AiApiCallerService {
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
   ): Promise<ChatCompletionResult> {
-    // ★ 确保 apiEndpoint 有效
+    // 2026-05-10 §2/§4：单源归一化。
     const effectiveEndpoint =
-      apiEndpoint?.trim() || "https://api.x.ai/v1/chat/completions";
+      ensureChatCompletionsPath(apiEndpoint) ||
+      "https://api.x.ai/v1/chat/completions";
 
     // ★ 数据库驱动：是否走 reasoning 路径由 AIModelConfig.isReasoning 决定
     // 不再用模型名 includes("reasoning") 启发式判断
@@ -937,12 +929,10 @@ export class AiApiCallerService {
     inputs: string[],
     timeout: number = 60000,
   ): Promise<EmbeddingApiResult> {
-    let embeddingsUrl = apiEndpoint?.trim() || "https://api.openai.com/v1";
-    // Ensure URL ends with /embeddings
-    embeddingsUrl = embeddingsUrl.replace(/\/+$/, "");
-    if (!embeddingsUrl.endsWith("/embeddings")) {
-      embeddingsUrl = `${embeddingsUrl}/embeddings`;
-    }
+    // 2026-05-10 §2/§4：单源归一化。
+    const embeddingsUrl =
+      ensureOpenAIEmbeddingsPath(apiEndpoint) ||
+      "https://api.openai.com/v1/embeddings";
 
     this.logger.debug(
       `[callOpenAICompatibleEmbeddingAPI] model=${modelId}, inputs=${inputs.length}, endpoint=${embeddingsUrl.substring(0, 60)}...`,
@@ -984,14 +974,8 @@ export class AiApiCallerService {
     inputs: string[],
     timeout: number = 60000,
   ): Promise<EmbeddingApiResult> {
-    // Normalize base URL: strip trailing /models, /models/, or trailing slashes
-    const baseUrl = (
-      apiEndpoint?.trim() || "https://generativelanguage.googleapis.com/v1beta"
-    )
-      .replace(/\/models\/?$/, "")
-      .replace(/\/+$/, "");
-
-    const apiUrl = `${baseUrl}/models/${modelId}:batchEmbedContents`;
+    // 2026-05-10 §2/§4：单源归一化。
+    const apiUrl = ensureGeminiBatchEmbedContentsPath(apiEndpoint, modelId);
 
     this.logger.debug(
       `[callGoogleEmbeddingAPI] model=${modelId}, inputs=${inputs.length} (google format)`,
@@ -1039,11 +1023,9 @@ export class AiApiCallerService {
     inputType: string = "search_document",
     timeout: number = 60000,
   ): Promise<EmbeddingApiResult> {
-    let embedUrl = apiEndpoint?.trim() || "https://api.cohere.com/v1";
-    embedUrl = embedUrl.replace(/\/+$/, "");
-    if (!embedUrl.endsWith("/embed")) {
-      embedUrl = `${embedUrl}/embed`;
-    }
+    // 2026-05-10 §2/§4：单源归一化。
+    const embedUrl =
+      ensureCohereEmbedPath(apiEndpoint) || "https://api.cohere.com/v1/embed";
 
     this.logger.debug(
       `[callCohereEmbeddingAPI] model=${modelId}, inputs=${inputs.length} (cohere format)`,
