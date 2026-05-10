@@ -13,6 +13,7 @@ import { randomUUID } from "crypto";
 // timing issues on sibling providers (LlmExecutor was losing AiChatService
 // resolution in prod when this was a constructor @Optional inject).
 import type { ModelElectionService } from "../../../ai-engine/llm/selection";
+import type { MissionElectionTracker } from "../../../ai-engine/llm/selection/mission-election-tracker.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type {
   IAgent,
@@ -48,6 +49,12 @@ export class AgentFactory {
    * in prod). Setter injection runs after all constructors, so no timing risk.
    */
   private electionService?: ModelElectionService;
+  /**
+   * 2026-05-10 §3：mission-scoped 选举多样性 tracker。同 electionService 一样
+   * 走 setter injection 避免 OnModuleInit 时序坑。spec agent 选举时把 modelId
+   * 累积到 tracker，下次同 mission 选举时按已选次数扣分驱动多 provider 分布。
+   */
+  private electionTracker?: MissionElectionTracker;
 
   constructor(
     @Optional() reactLoop?: ReActLoop,
@@ -97,6 +104,11 @@ export class AgentFactory {
     this.electionService = election;
   }
 
+  /** Called by HarnessModule.onApplicationBootstrap; mission-scoped diversity tracker. */
+  setElectionTracker(tracker: MissionElectionTracker): void {
+    this.electionTracker = tracker;
+  }
+
   /**
    * ★ 目标架构 v2：从声明式 IAgentSpec 创建 SpecBasedAgent。
    * Spec 必须包含 outputSchema 或 stubFn 之一（否则使用 createAgent 走 ReActLoop）。
@@ -127,6 +139,7 @@ export class AgentFactory {
       this.llmExecutor,
       () => this.electionService,
       envSnapshot,
+      () => this.electionTracker,
     );
   }
 

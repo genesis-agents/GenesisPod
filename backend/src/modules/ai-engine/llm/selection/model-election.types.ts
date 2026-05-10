@@ -79,6 +79,17 @@ export interface ElectionRequest {
 
   /** 运营 hint：禁用这些 modelId（动态黑名单，如最近几分钟频繁失败的） */
   readonly excludeModelIds?: ReadonlyArray<string>;
+
+  /**
+   * Mission-scoped 多样性输入：本 mission 中已被选过的 modelId 列表（含重复）。
+   * Election 在打分时会按出现次数衰减（diversityScore = -10 × occurrences），
+   * 使无状态选举具备"用过越多越扣分"的宏观分布特性，避免 11 个 agent 全选
+   * 同一 model 的坍缩。
+   *
+   * 由 mission orchestrator（如 SpecBasedAgent + MissionElectionTracker）
+   * 维护并按调用顺序传入。空数组 → 等价于无 diversity bias。
+   */
+  readonly previouslyElected?: ReadonlyArray<string>;
 }
 
 /**
@@ -94,6 +105,8 @@ export interface ElectionScore {
     readonly health: number;
     readonly priority: number;
     readonly isDefault: number;
+    /** 2026-05-10 §3：mission-scoped 多样性扣分（已被选过越多扣越多） */
+    readonly diversity: number;
   };
   readonly rejected?: string;
 }

@@ -6,6 +6,7 @@
  */
 
 export { ModelElectionService } from "./model-election.service";
+export { MissionElectionTracker } from "./mission-election-tracker.service";
 export type {
   ElectionRoleHint,
   ElectionCostBias,
@@ -35,4 +36,3 @@ export type {
   ModelFallbackResult,
   ModelPriorityConfig,
 } from "./model-fallback.service";
-

@@ -57,6 +57,7 @@ import { ModelRecommendationsService } from "./selection/model-recommendations.s
 
 // Environment-aware model election (pick modelId from env snapshot + request hints)
 import { ModelElectionService } from "./selection/model-election.service";
+import { MissionElectionTracker } from "./selection/mission-election-tracker.service";
 
 // Single source of truth for model pricing (DB AIModel table → in-memory hydrate)
 import { ModelPricingRegistry } from "./pricing/model-pricing.registry";
@@ -131,8 +132,9 @@ import { StructuredOutputRouter } from "./structured-output/structured-output-ro
     // Admin — 系统模型全景
     SystemModelInventoryService,
 
-    // Environment-aware model election
+    // Environment-aware model election + mission-scoped diversity tracker
     ModelElectionService,
+    MissionElectionTracker,
 
     // Pricing single source of truth (replaces 3 hardcoded tables)
     ModelPricingRegistry,
@@ -163,6 +165,7 @@ import { StructuredOutputRouter } from "./structured-output/structured-output-ro
     ModelRecommendationsService,
     SystemModelInventoryService,
     ModelElectionService,
+    MissionElectionTracker,
     AutoConfigureService,
     ModelPricingRegistry,
     StructuredOutputRouter,

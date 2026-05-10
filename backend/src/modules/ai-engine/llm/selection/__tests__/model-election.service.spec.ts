@@ -323,6 +323,78 @@ describe("ModelElectionService", () => {
       expect(res.elected.modelId).toBe("deepseek-r1");
     });
 
+    // 2026-05-10 §3 通用机制：mission-scoped diversity（无状态选举的反坍缩）
+    it("previouslyElected: 同 modelId 选过 N 次 → 扣 -10 × N，让多次同 shape 选举分散", async () => {
+      modelConfigService.getModelConfig.mockImplementation((id: string) => {
+        if (id === "grok-3-latest")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "grok-3-latest",
+              provider: "xai",
+              isReasoning: false,
+              priority: 80, // 模拟 admin 给 grok 高 priority 的 prod 场景
+            }),
+          );
+        if (id === "deepseek-r1")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "deepseek-r1",
+              provider: "deepseek",
+              isReasoning: true,
+              priority: 50,
+            }),
+          );
+        return Promise.resolve(null);
+      });
+
+      const candidates = [
+        cand({ modelId: "grok-3-latest", provider: "xai" }),
+        cand({ modelId: "deepseek-r1", provider: "deepseek" }),
+      ];
+
+      // 第 1 次选举（无前序）：role=default 让 priority 主导 → grok 胜
+      const r1 = await service.elect(
+        baseRequest({ candidates, role: "default" }),
+      );
+      expect(r1.elected.modelId).toBe("grok-3-latest");
+
+      // 第 2 次选举：把 grok-3 加入 previouslyElected → grok 扣 10 分 →
+      // deepseek-r1 反超
+      const r2 = await service.elect(
+        baseRequest({
+          candidates,
+          role: "default",
+          previouslyElected: ["grok-3-latest"],
+        }),
+      );
+      expect(r2.elected.modelId).toBe("deepseek-r1");
+
+      // 第 3 次：grok 已选 1 次 + deepseek 已选 1 次 → 各扣 10 分相互抵消，
+      // 决胜回到 priority → grok 又胜
+      const r3 = await service.elect(
+        baseRequest({
+          candidates,
+          role: "default",
+          previouslyElected: ["grok-3-latest", "deepseek-r1"],
+        }),
+      );
+      expect(r3.elected.modelId).toBe("grok-3-latest");
+    });
+
+    it("previouslyElected 空数组 → diversityScore=0 → 行为退化为无 diversity", async () => {
+      modelConfigService.getModelConfig.mockResolvedValue(
+        makeConfig({ modelId: "gpt-4o" }),
+      );
+      const res = await service.elect(
+        baseRequest({
+          candidates: [cand({ modelId: "gpt-4o" })],
+          previouslyElected: [],
+        }),
+      );
+      const breakdown = res.scores[0].breakdown;
+      expect(breakdown.diversity).toBe(0);
+    });
+
     it("role=extractor: BASIC 候选比 STRONG 多 10 分", async () => {
       modelConfigService.getModelConfig.mockImplementation((id: string) => {
         if (id === "gpt-4o-mini")

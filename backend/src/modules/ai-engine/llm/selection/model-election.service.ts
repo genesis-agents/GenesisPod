@@ -61,6 +61,7 @@ export class ModelElectionService {
       userId,
       costBias = "balanced",
       excludeModelIds = [],
+      previouslyElected = [],
     } = request;
 
     // ============ Step 1 · 候选池归一化 ============
@@ -139,6 +140,7 @@ export class ModelElectionService {
         targetTier,
         role,
         costBias,
+        previouslyElected,
       });
       scored.push({ config: cfg, score });
     }
@@ -190,8 +192,10 @@ export class ModelElectionService {
     targetTier: ModelTier;
     role: ElectionRoleHint;
     costBias: "cheap" | "balanced" | "quality";
+    previouslyElected: ReadonlyArray<string>;
   }): ElectionScore {
-    const { candidate, config, targetTier, role, costBias } = args;
+    const { candidate, config, targetTier, role, costBias, previouslyElected } =
+      args;
     const tier = classifyModelTier(config.modelId);
 
     const tierScore = this.scoreTier(tier, targetTier);
@@ -200,6 +204,10 @@ export class ModelElectionService {
     const healthScore = this.scoreHealth(candidate.recentErrorRate);
     const priorityScore = (config.priority ?? 50) / 10; // 0-10
     const isDefaultScore = config.isDefault ? 5 : 0;
+    const diversityScore = this.scoreDiversity(
+      config.modelId,
+      previouslyElected,
+    );
 
     const total =
       tierScore +
@@ -207,7 +215,8 @@ export class ModelElectionService {
       costScore +
       healthScore +
       priorityScore +
-      isDefaultScore;
+      isDefaultScore +
+      diversityScore;
 
     return {
       modelId: config.modelId,
@@ -219,8 +228,31 @@ export class ModelElectionService {
         health: healthScore,
         priority: priorityScore,
         isDefault: isDefaultScore,
+        diversity: diversityScore,
       },
     };
+  }
+
+  /**
+   * Mission-scoped 多样性扣分（2026-05-10 §3 通用机制）
+   *
+   * 当 caller（mission orchestrator）传入"本 mission 已选过的 modelId 列表"时，
+   * 同一 modelId 出现 N 次 → 扣 -10 × N 分。让无状态 elect() 在宏观上呈现
+   * 多模型分布特性，避免 11 个 agent 全选 grok-3 这类坍缩。
+   *
+   * 设计要点：
+   * - 不强制硬切，仅扣分。reasoning role 重大优势仍能压住 diversity penalty
+   *   （例如 leader+reasoning +20 vs 已用过 1 次扣 -10 仍是净 +10）
+   * - 调用方完全控制是否启用：previouslyElected 默认空 → score=0 → 行为不变
+   * - 不需要新服务/新 DI；caller 负责维护 list（如 MissionElectionTracker）
+   */
+  private scoreDiversity(
+    modelId: string,
+    previouslyElected: ReadonlyArray<string>,
+  ): number {
+    if (previouslyElected.length === 0) return 0;
+    const occurrences = previouslyElected.filter((id) => id === modelId).length;
+    return -10 * occurrences;
   }
 
   /** tier 匹配：目标命中 +25；相邻 +10；更远 0 */

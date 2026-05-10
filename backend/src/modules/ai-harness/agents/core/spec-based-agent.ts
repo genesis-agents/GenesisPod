@@ -31,6 +31,7 @@ import {
   type ElectionCandidate,
   type ElectionRoleHint,
 } from "../../../ai-engine/llm/selection";
+import { MissionElectionTracker } from "../../../ai-engine/llm/selection/mission-election-tracker.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type {
   IAgent,
@@ -89,6 +90,15 @@ export class SpecBasedAgent<
      * identity.capabilities.env）。没有 snapshot 时，election 退化到 DB 全表。
      */
     private readonly envSnapshot?: EnvironmentSnapshot,
+    /**
+     * 2026-05-10 §3：mission-scoped 选举多样性 tracker。每次选举把已选 modelId
+     * 通过 KernelContext.missionId 累积到这里，下一次同 mission 的选举会读出来
+     * 并在 score 维度按 -10 × occurrences 扣分，自然分布到多 provider。
+     * 同 electionProvider 一样 lazy，避免 DI 时序坑。
+     */
+    private readonly electionTrackerProvider?: () =>
+      | MissionElectionTracker
+      | undefined,
   ) {
     this.logger = new Logger(`SpecBasedAgent:${id}`);
     this._identity =
@@ -274,6 +284,13 @@ export class SpecBasedAgent<
       requestedModelType,
     );
 
+    // 2026-05-10 §3 通用机制：取本 mission 已选过的 modelId，让 election 在
+    // 同 mission 内 -10 × occurrences 分散选择；mission 外 / tracker 缺失 →
+    // 空数组 → 行为退化到无 diversity（单次选举打分）。
+    const tracker = this.electionTrackerProvider?.();
+    const missionId = KernelContext.get()?.missionId;
+    const previouslyElected = tracker?.getElected(missionId) ?? [];
+
     try {
       const res = await electionService.elect({
         modelType: requestedModelType,
@@ -281,10 +298,12 @@ export class SpecBasedAgent<
         taskProfile,
         role,
         userId,
+        previouslyElected,
       });
       this.logger.debug(
         `[electModel] ${this.id} → ${res.elected.modelId} (${res.reason})`,
       );
+      tracker?.recordElection(missionId, res.elected.modelId);
       return res.elected.modelId;
     } catch (err) {
       if (err instanceof NoEligibleModelError) throw err;

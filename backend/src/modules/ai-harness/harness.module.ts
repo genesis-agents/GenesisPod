@@ -28,6 +28,7 @@ import {
 import { HarnessFacade } from "./facade/harness.facade";
 import { AgentFactory } from "./agents/core/agent-factory";
 import { ModelElectionService } from "../ai-engine/llm/selection";
+import { MissionElectionTracker } from "../ai-engine/llm/selection/mission-election-tracker.service";
 import { SpecAgentRegistry } from "./agents/core/spec-agent-registry";
 import {
   SPEC_AGENT_REGISTRY_PROBE,
@@ -452,6 +453,9 @@ export class HarnessModule implements OnApplicationBootstrap {
     @Optional()
     @Inject(ModelElectionService)
     private readonly election?: ModelElectionService,
+    @Optional()
+    @Inject(MissionElectionTracker)
+    private readonly electionTracker?: MissionElectionTracker,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -464,6 +468,11 @@ export class HarnessModule implements OnApplicationBootstrap {
     // inject here resolves cleanly without sibling-provider timing side effects.
     if (this.election) {
       this.factory.setElectionService(this.election);
+    }
+    // 2026-05-10 §3：mission-scoped diversity tracker — 让 elect() 在同 mission
+    // 内已选过的 modelId 按出现次数扣分，自然分布到多 provider
+    if (this.electionTracker) {
+      this.factory.setElectionTracker(this.electionTracker);
     }
 
     // v2: 把内置 loops 注册到 LoopRegistry。
