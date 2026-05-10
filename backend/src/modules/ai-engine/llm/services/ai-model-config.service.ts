@@ -1193,8 +1193,13 @@ export class AiModelConfigService {
       return configByModelId;
     }
 
-    // 2. 如果是 UUID 格式，尝试按数据库 ID 查找
-    if (idOrModelId.length > 30) {
+    // 2. 按数据库 ID 查找（AIModel UUID 36 字符 OR UserModelConfig CUID 25 字符）
+    //
+    // 2026-05-10：把阈值从 >30 降到 >20，覆盖 CUID（dropdown 选 UserModelConfig
+    // 时前端传的就是 CUID，不是 modelId 字符串）。之前 CUID < 30 直接跳过这步，
+    // 又因 UserModelConfig 没在 step 1/3/4 任何路径按 id 查，导致 lookup 全 miss
+    // → fallback default → 0 enabled AIModel → "No CHAT AI model is available"。
+    if (idOrModelId.length > 20) {
       try {
         const model = await this.prisma.aIModel.findFirst({
           where: {
@@ -1207,6 +1212,23 @@ export class AiModelConfigService {
         }
       } catch (error) {
         this.logger.warn(`[getModelById] Database query failed: ${error}`);
+      }
+
+      // ★ BYOK v3 (2026-05-10)：UserModelConfig 也按 id 查（dropdown 传 CUID 走这条）
+      const userId = RequestContext.getUserId();
+      if (userId && this.userModelConfigs) {
+        try {
+          const userCfg = await this.prisma.userModelConfig.findFirst({
+            where: { id: idOrModelId, userId, isEnabled: true },
+          });
+          if (userCfg) {
+            return this.toAIModelConfigFromUserConfig(userCfg);
+          }
+        } catch (error) {
+          this.logger.warn(
+            `[getModelById] UserModelConfig query failed: ${error}`,
+          );
+        }
       }
     }
 

@@ -3,6 +3,7 @@ import { AiModelConfigService } from "../ai-model-config.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
+import { UserModelConfigsService } from "@/modules/ai-infra/credentials/user-model-configs/user-model-configs.service";
 import { AIModelType } from "@prisma/client";
 
 describe("AiModelConfigService", () => {
@@ -120,6 +121,10 @@ describe("AiModelConfigService", () => {
       keyAssignment: {
         findMany: jest.fn().mockResolvedValue([]),
       },
+      userModelConfig: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
 
     const mockSecretsService = {
@@ -132,12 +137,21 @@ describe("AiModelConfigService", () => {
       getAvailableProviders: jest.fn().mockResolvedValue([]),
     };
 
+    const mockUserModelConfigsService = {
+      findByModelId: jest.fn().mockResolvedValue(null),
+      findDefaultForType: jest.fn().mockResolvedValue(null),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiModelConfigService,
         { provide: PrismaService, useValue: mockPrismaService },
         { provide: SecretsService, useValue: mockSecretsService },
         { provide: UserApiKeysService, useValue: mockUserApiKeysService },
+        {
+          provide: UserModelConfigsService,
+          useValue: mockUserModelConfigsService,
+        },
       ],
     }).compile();
 
@@ -1464,6 +1478,49 @@ describe("AiModelConfigService", () => {
 
       const result = await service.getModelById("dall-e-3");
       expect(result?.modelId).toBe("dall-e-3");
+    });
+
+    // 2026-05-10：dropdown 选 UserModelConfig 时前端传 CUID（25 字符），
+    // getModelById 需要按 CUID 查 UserModelConfig 表，否则 fallback default 抛
+    // "No CHAT AI model is available"。
+    it("should find UserModelConfig by CUID when admin AIModel lookup misses", async () => {
+      (prismaService.aIModel.findMany as jest.Mock).mockResolvedValue([]);
+      await service.refreshModelConfigCache();
+
+      const cuid = "cmozx0oj600almv01iuogi49p"; // 25 字符 CUID
+      const userCfg = {
+        id: cuid,
+        userId: "user-1",
+        modelId: "deepseek-v4-flash",
+        displayName: "deepseek-v4-flash",
+        provider: "deepseek",
+        modelType: "CHAT" as const,
+        apiEndpoint: null,
+        isEnabled: true,
+        isDefault: false,
+        isReasoning: false,
+        maxTokens: 4096,
+        temperature: 0.7,
+        priority: 50,
+      };
+
+      // AIModel.findFirst 全部 miss（任何调用次数都返回 null）
+      (prismaService.aIModel.findFirst as jest.Mock).mockResolvedValue(null);
+
+      // UserModelConfig.findFirst 命中（CUID 查询）
+      (prismaService.userModelConfig.findFirst as jest.Mock).mockResolvedValue(
+        userCfg,
+      );
+
+      // RequestContext.run 真实运行上下文（jest.mock 没声明，requireMock 不工作）
+      const { RequestContext } =
+        await import("../../../../../common/context/request-context");
+      const result = await RequestContext.run({ userId: "user-1" }, async () =>
+        service.getModelById(cuid),
+      );
+      expect(result).not.toBeNull();
+      expect(result?.modelId).toBe("deepseek-v4-flash");
+      expect(result?.provider).toBe("deepseek");
     });
 
     it("should handle UUID-based lookup error gracefully", async () => {
