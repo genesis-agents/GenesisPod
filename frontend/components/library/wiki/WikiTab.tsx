@@ -457,7 +457,16 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       )}
 
       {queryOpen && (
-        <WikiQueryDrawer kbId={kbId} onClose={() => setQueryOpen(false)} />
+        <WikiQueryDrawer
+          kbId={kbId}
+          onClose={() => setQueryOpen(false)}
+          onSelectSlug={(slug) => {
+            setQueryOpen(false);
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.set('page', slug);
+            router.replace(`/library?${params.toString()}`);
+          }}
+        />
       )}
 
       {createPageOpen && (

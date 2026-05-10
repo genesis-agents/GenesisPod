@@ -2,8 +2,11 @@
 
 import { useState } from 'react';
 import { Loader2, X } from 'lucide-react';
+import rehypeSanitize from 'rehype-sanitize';
+import { MarkdownViewer } from '@/components/common/markdown-viewer';
 import { wikiApi } from '@/lib/api/wiki';
 import { useTranslation } from '@/lib/i18n';
+import { katexAwareSchema } from '@/lib/markdown/katexAwareSchema';
 import { logger } from '@/lib/utils/logger';
 
 interface QueryMessage {
@@ -15,9 +18,11 @@ interface QueryMessage {
 export default function WikiQueryDrawer({
   kbId,
   onClose,
+  onSelectSlug,
 }: {
   kbId: string;
   onClose: () => void;
+  onSelectSlug?: (slug: string) => void;
 }) {
   const { t } = useTranslation();
   const [question, setQuestion] = useState('');
@@ -143,9 +148,59 @@ export default function WikiQueryDrawer({
                   : 'border border-slate-200 bg-white text-slate-900'
               }`}
             >
-              <div className="whitespace-pre-wrap break-words">
-                {message.content}
-              </div>
+              {message.role === 'user' ? (
+                <div className="whitespace-pre-wrap break-words">
+                  {message.content}
+                </div>
+              ) : (
+                <div className="prose prose-sm prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 max-w-none break-words text-slate-800">
+                  <MarkdownViewer
+                    content={preprocessWikiLinks(message.content)}
+                    enableBulletStrip={false}
+                    components={{
+                      a({ href, children, ...rest }) {
+                        if (
+                          typeof href === 'string' &&
+                          href.startsWith('wikilink:')
+                        ) {
+                          const slug = href.slice('wikilink:'.length);
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => onSelectSlug?.(slug)}
+                              className="rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 no-underline hover:bg-violet-100"
+                              title={`Open ${slug}`}
+                            >
+                              {children}
+                            </button>
+                          );
+                        }
+                        return (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            {...rest}
+                          >
+                            {children}
+                          </a>
+                        );
+                      },
+                    }}
+                    rehypePluginsExtra={[
+                      [rehypeSanitize, WIKI_SANITIZE_SCHEMA],
+                    ]}
+                    urlTransform={(url) => {
+                      if (typeof url !== 'string') return '';
+                      if (url.startsWith('wikilink:')) return url;
+                      if (/^(https?|mailto|tel):/i.test(url)) return url;
+                      if (url.startsWith('/') || url.startsWith('#'))
+                        return url;
+                      return '';
+                    }}
+                  />
+                </div>
+              )}
               {message.citations && message.citations.length > 0 && (
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {message.citations.map((citation) => (
@@ -205,5 +260,20 @@ export default function WikiQueryDrawer({
         </div>
       </footer>
     </div>
+  );
+}
+
+const WIKI_SANITIZE_SCHEMA = {
+  ...katexAwareSchema,
+  protocols: {
+    ...(katexAwareSchema.protocols ?? {}),
+    href: [...(katexAwareSchema.protocols?.href ?? []), 'wikilink'],
+  },
+};
+
+function preprocessWikiLinks(content: string): string {
+  return content.replace(
+    /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/gi,
+    (_match, slug) => `[${slug}](wikilink:${String(slug).toLowerCase()})`
   );
 }

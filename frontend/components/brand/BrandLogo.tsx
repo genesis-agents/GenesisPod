@@ -32,7 +32,7 @@ function FormulaIconCompact({ className }: { className?: string }) {
         fontFamily="Georgia, 'Times New Roman', serif"
         fontSize="26"
         fontStyle="italic"
-        fill="#60a5fa"
+        fill="#4f46e5"
       >
         f
       </text>
@@ -60,11 +60,11 @@ function FormulaIconWide({ className }: { className?: string }) {
         lengthAdjust="spacingAndGlyphs"
         fontFamily="Georgia, 'Times New Roman', serif"
         fontSize="22"
-        fill="#60a5fa"
+        fill="#4f46e5"
       >
         <tspan fontStyle="italic">f(n,s)</tspan>
         {' → {'}
-        <tspan fill="#38bdf8" fontStyle="italic" fontWeight="700">
+        <tspan fill="#0ea5e9" fontStyle="italic" fontWeight="700">
           0,1
         </tspan>
         {'}'}
@@ -101,12 +101,12 @@ export function BrandLogo({
           </span>
           {nameAddon}
           {subtitle !== null && subtitle !== undefined && (
-            <span className="rounded-full bg-sky-50 px-1.5 py-[2px] text-[7px] font-semibold leading-none tracking-[0.14em] text-slate-500">
+            <span className="rounded-full bg-indigo-50 px-1.5 py-[2px] text-[7px] font-semibold leading-none tracking-[0.14em] text-slate-500">
               {subtitle}
             </span>
           )}
           {subtitle === undefined && config.brand.subtitle && (
-            <span className="rounded-full bg-sky-50 px-1.5 py-[2px] text-[7px] font-semibold leading-none tracking-[0.14em] text-slate-500">
+            <span className="rounded-full bg-indigo-50 px-1.5 py-[2px] text-[7px] font-semibold leading-none tracking-[0.14em] text-slate-500">
               {config.brand.subtitle}
             </span>
           )}
@@ -115,7 +115,7 @@ export function BrandLogo({
 
       <div
         className="flex-shrink-0"
-        style={{ filter: 'drop-shadow(0 1px 2px rgba(96,165,250,0.14))' }}
+        style={{ filter: 'drop-shadow(0 1px 2px rgba(79,70,229,0.14))' }}
       >
         <Icon className={finalIconClass} />
       </div>
