@@ -26,7 +26,7 @@
  *    the fallback warning)
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
@@ -685,6 +685,24 @@ interface WikiPageReaderProps {
   onCreatePage?: () => void;
 }
 
+function pickFirstSlug(pages: WikiPage[]): string | null {
+  if (pages.length === 0) return null;
+  const grouped: Record<string, WikiPage[]> = {
+    SUMMARY: [],
+    ENTITY: [],
+    CONCEPT: [],
+    SOURCE: [],
+  };
+  for (const p of pages) grouped[p.category].push(p);
+  return (
+    grouped.SUMMARY[0]?.slug ??
+    grouped.ENTITY[0]?.slug ??
+    grouped.CONCEPT[0]?.slug ??
+    pages[0]?.slug ??
+    null
+  );
+}
+
 function WikiPageReader({
   kbId,
   activeSlug,
@@ -698,6 +716,13 @@ function WikiPageReader({
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<WikiPageWithLinks | null>(null);
   const [activeLoading, setActiveLoading] = useState(false);
+  // Per-KB latch so the auto-redirect to the first page only fires once
+  // when the user enters the KB without a `?page=` selection.
+  const autoPickedKbRef = useRef<string | null>(null);
+  // Hold the latest onSelectSlug without making it a deps-trigger; the
+  // parent recreates it on every render so adding it to deps would loop.
+  const onSelectSlugRef = useRef(onSelectSlug);
+  onSelectSlugRef.current = onSelectSlug;
 
   useEffect(() => {
     let cancelled = false;
@@ -719,6 +744,27 @@ function WikiPageReader({
       cancelled = true;
     };
   }, [kbId, refreshKey]);
+
+  // Reset the auto-pick latch when switching KBs so each KB can auto-pick
+  // its first page exactly once.
+  useEffect(() => {
+    if (autoPickedKbRef.current !== kbId) {
+      autoPickedKbRef.current = null;
+    }
+  }, [kbId]);
+
+  // No `?page=` in URL but pages are loaded → align URL to the first slug
+  // so the right pane fetches and renders instead of showing the
+  // "select from left" hint.
+  useEffect(() => {
+    if (loading) return;
+    if (activeSlug) return;
+    if (autoPickedKbRef.current === kbId) return;
+    const first = pickFirstSlug(pages);
+    if (!first) return;
+    autoPickedKbRef.current = kbId;
+    onSelectSlugRef.current(first);
+  }, [loading, activeSlug, pages, kbId]);
 
   useEffect(() => {
     if (!activeSlug) {
@@ -771,13 +817,8 @@ function WikiPageReader({
   };
   for (const p of pages) grouped[p.category].push(p);
 
-  const effectiveActiveSlug =
-    activeSlug ??
-    grouped.SUMMARY[0]?.slug ??
-    grouped.ENTITY[0]?.slug ??
-    grouped.CONCEPT[0]?.slug ??
-    pages[0]?.slug ??
-    null;
+  // Highlight the first available page until the URL redirect lands.
+  const effectiveActiveSlug = activeSlug ?? pickFirstSlug(pages);
 
   return (
     <div className="flex h-full">
