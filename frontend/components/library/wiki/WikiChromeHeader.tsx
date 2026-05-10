@@ -52,108 +52,112 @@ export default function WikiChromeHeader({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="sticky top-0 z-20 border-b border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-6 py-4 backdrop-blur">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="relative flex min-w-0 flex-1 items-start gap-3">
-          <button
-            onClick={onBackToGrid}
-            className="mt-1 inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-violet-200 hover:text-violet-700"
-            title={t('library.wiki.kbSelector.backToGrid')}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            {t('library.wiki.kbSelector.backToGrid')}
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-500 text-white shadow-sm">
+    <div className="sticky top-0 z-20 border-b border-gray-200 bg-white">
+      <div className="space-y-4 px-6 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="relative min-w-0 flex-1">
+            <div className="flex items-start gap-3">
+              <button
+                onClick={onBackToGrid}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                title={t('library.wiki.kbSelector.backToGrid')}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                {t('library.wiki.kbSelector.backToGrid')}
+              </button>
+              <div className="rounded-lg bg-emerald-100 p-2.5 text-emerald-600">
                 <BookOpen className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-500">
-                  LLM Wiki
-                </div>
-                <button
-                  onClick={() => setOpen((value) => !value)}
-                  className="flex items-center gap-2 rounded-xl px-1 py-0.5 hover:bg-slate-100"
-                >
-                  <span className="truncate text-left text-lg font-semibold text-slate-900">
-                    {current?.name ?? t('library.wiki.kbSelector.selectKb')}
-                  </span>
-                  <span className="text-xs text-slate-400">v</span>
-                </button>
               </div>
-            </div>
-            {current && (
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span className="rounded-full bg-violet-50 px-2.5 py-1 font-medium text-violet-700">
-                  {pluralizePages(t, current.pageCount)}
-                </span>
-                {current.lastIngestAt && (
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1">
-                    {t('library.wiki.kbSelector.lastIngest', {
-                      time: formatRelativeTime(current.lastIngestAt, t),
-                    })}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          {open && (
-            <>
-              <div
-                className="fixed inset-0 z-20"
-                onClick={() => setOpen(false)}
-                aria-hidden
-              />
-              <div className="absolute left-0 top-full z-30 mt-2 w-96 rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                <div className="border-b border-slate-100 px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {t('library.wiki.kbSelector.switchTo')}
-                </div>
-                <div className="max-h-80 overflow-y-auto p-2">
-                  {kbs.length === 0 ? (
-                    <div className="px-3 py-3 text-sm text-slate-500">
-                      {t('library.wiki.kbSelector.noWikiKb')}
-                    </div>
-                  ) : (
-                    kbs.map((kb) => (
-                      <button
-                        key={kb.id}
-                        onClick={() => {
-                          onSelectKb(kb.id);
-                          setOpen(false);
-                        }}
-                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-slate-50 ${
-                          kb.id === currentKbId
-                            ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-100'
-                            : 'text-slate-900'
-                        }`}
-                      >
-                        <span className="truncate font-medium">{kb.name}</span>
-                        <span className="ml-3 shrink-0 text-xs text-slate-500">
-                          {pluralizePages(t, kb.pageCount)}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => setOpen((value) => !value)}
+                    className="inline-flex min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-left hover:bg-gray-50"
+                  >
+                    <span className="truncate text-lg font-semibold text-gray-900">
+                      {current?.name ?? t('library.wiki.kbSelector.selectKb')}
+                    </span>
+                    <span className="text-xs text-gray-400">v</span>
+                  </button>
+                  {current && (
+                    <>
+                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                        {pluralizePages(t, current.pageCount)}
+                      </span>
+                      {current.lastIngestAt && (
+                        <span className="text-sm text-gray-500">
+                          {t('library.wiki.kbSelector.lastIngest', {
+                            time: formatRelativeTime(current.lastIngestAt, t),
+                          })}
                         </span>
-                      </button>
-                    ))
+                      )}
+                    </>
                   )}
                 </div>
-                <div className="border-t border-slate-100 p-2">
-                  <button
-                    onClick={() => {
-                      onEnableOther();
-                      setOpen(false);
-                    }}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-violet-700 hover:bg-violet-50"
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t('library.wiki.kbSelector.enableOther')}
-                  </button>
-                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  LLM Wiki knowledge base workspace
+                </p>
               </div>
-            </>
-          )}
+            </div>
+            {open && (
+              <>
+                <div
+                  className="fixed inset-0 z-20"
+                  onClick={() => setOpen(false)}
+                  aria-hidden
+                />
+                <div className="absolute left-0 top-full z-30 mt-2 w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-lg">
+                  <div className="border-b border-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    {t('library.wiki.kbSelector.switchTo')}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto p-2">
+                    {kbs.length === 0 ? (
+                      <div className="px-3 py-3 text-sm text-gray-500">
+                        {t('library.wiki.kbSelector.noWikiKb')}
+                      </div>
+                    ) : (
+                      kbs.map((kb) => (
+                        <button
+                          key={kb.id}
+                          onClick={() => {
+                            onSelectKb(kb.id);
+                            setOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
+                            kb.id === currentKbId
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'text-gray-900'
+                          }`}
+                        >
+                          <span className="truncate font-medium">
+                            {kb.name}
+                          </span>
+                          <span className="ml-3 shrink-0 text-xs text-gray-500">
+                            {pluralizePages(t, kb.pageCount)}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <div className="border-t border-gray-100 p-2">
+                    <button
+                      onClick={() => {
+                        onEnableOther();
+                        setOpen(false);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t('library.wiki.kbSelector.enableOther')}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <HeaderButton
             icon={<Plus className="h-4 w-4" />}
             onClick={onIngest}
@@ -186,6 +190,7 @@ export default function WikiChromeHeader({
           >
             {t('library.wiki.subheader.graph')}
           </HeaderButton>
+          <div className="flex-1" />
           <HeaderButton
             icon={
               exporting ? (
@@ -200,7 +205,7 @@ export default function WikiChromeHeader({
           </HeaderButton>
           <button
             onClick={onSettings}
-            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:border-slate-300 hover:text-slate-700"
+            className="rounded-lg border border-gray-300 bg-white p-2 text-gray-600 hover:bg-gray-50"
             title={t('library.wiki.subheader.settings')}
           >
             <Settings className="h-4 w-4" />
@@ -223,17 +228,16 @@ function HeaderButton({
   variant?: 'default' | 'primary' | 'soft';
 }) {
   const className = {
-    default:
-      'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+    default: 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
     primary:
-      'border-violet-600 bg-violet-600 text-white hover:border-violet-700 hover:bg-violet-700',
-    soft: 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100',
+      'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100',
+    soft: 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100',
   }[variant];
 
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-medium shadow-sm transition ${className}`}
+      className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition ${className}`}
     >
       {icon}
       {children}

@@ -1,10 +1,24 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FileSearch, Loader2 } from 'lucide-react';
+import {
+  Clock3,
+  FileSearch,
+  FileText,
+  FolderTree,
+  Link2,
+  Loader2,
+  Search,
+  Tag,
+} from 'lucide-react';
 import rehypeSanitize from 'rehype-sanitize';
 import { MarkdownViewer } from '@/components/common/markdown-viewer';
-import { wikiApi, type WikiPage, type WikiPageWithLinks } from '@/lib/api/wiki';
+import {
+  wikiApi,
+  type WikiPage,
+  type WikiPageCategory,
+  type WikiPageWithLinks,
+} from '@/lib/api/wiki';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 import { katexAwareSchema } from '@/lib/markdown/katexAwareSchema';
@@ -16,6 +30,13 @@ const WIKI_SANITIZE_SCHEMA = {
     href: [...(katexAwareSchema.protocols?.href ?? []), 'wikilink'],
   },
 };
+
+const CATEGORY_ORDER: WikiPageCategory[] = [
+  'SUMMARY',
+  'ENTITY',
+  'CONCEPT',
+  'SOURCE',
+];
 
 interface WikiReaderPaneProps {
   kbId: string;
@@ -40,6 +61,9 @@ export default function WikiReaderPane({
   const [active, setActive] = useState<WikiPageWithLinks | null>(null);
   const [activeLoading, setActiveLoading] = useState(false);
   const [pageQuery, setPageQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<
+    'ALL' | WikiPageCategory
+  >('ALL');
   const autoPickedKbRef = useRef<string | null>(null);
   const onSelectSlugRef = useRef(onSelectSlug);
   onSelectSlugRef.current = onSelectSlug;
@@ -105,7 +129,7 @@ export default function WikiReaderPane({
   if (loading) {
     return (
       <div className="flex h-72 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
+        <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
       </div>
     );
   }
@@ -115,102 +139,179 @@ export default function WikiReaderPane({
   }
 
   const normalizedQuery = pageQuery.trim().toLowerCase();
-  const visiblePages = normalizedQuery
-    ? pages.filter((p) =>
-        `${p.title} ${p.slug} ${p.oneLiner}`
-          .toLowerCase()
-          .includes(normalizedQuery)
-      )
-    : pages;
+  const filteredPages = pages.filter((page) => {
+    if (categoryFilter !== 'ALL' && page.category !== categoryFilter) {
+      return false;
+    }
+    if (!normalizedQuery) return true;
+    return `${page.title} ${page.slug} ${page.oneLiner}`
+      .toLowerCase()
+      .includes(normalizedQuery);
+  });
 
-  const grouped: Record<string, WikiPage[]> = {
+  const grouped: Record<WikiPageCategory, WikiPage[]> = {
     SUMMARY: [],
     ENTITY: [],
     CONCEPT: [],
     SOURCE: [],
   };
-  for (const page of visiblePages) grouped[page.category].push(page);
+  for (const page of filteredPages) grouped[page.category].push(page);
 
   const effectiveActiveSlug = activeSlug ?? pickFirstSlug(pages);
+  const activePage = active?.page ?? null;
+  const activeCategoryCount = activePage
+    ? pages.filter((page) => page.category === activePage.category).length
+    : 0;
+  const totalLinks =
+    (active?.outboundLinks.length ?? 0) + (active?.backlinks.length ?? 0);
 
   return (
-    <div className="flex h-full bg-[radial-gradient(circle_at_top_left,rgba(245,243,255,0.85),transparent_28%),linear-gradient(180deg,#ffffff,#f8fafc)]">
-      <aside className="w-80 shrink-0 overflow-y-auto border-r border-slate-200 bg-white/70 px-4 py-4 backdrop-blur">
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-            Browse pages
-          </div>
-          <div className="mt-3 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-            <FileSearch className="h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={pageQuery}
-              onChange={(e) => setPageQuery(e.target.value)}
-              placeholder="Search titles, slugs, and summaries"
-              className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-            />
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-            <span>{visiblePages.length} visible</span>
-            <span>{pages.length} total</span>
+    <div className="h-full overflow-y-auto bg-gray-50/50 px-6 py-6">
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+          <StatCard
+            label="Visible pages"
+            value={filteredPages.length}
+            hint={`${pages.length} total`}
+            icon={<FileText className="h-5 w-5" />}
+            tone="emerald"
+          />
+          <StatCard
+            label="Active category"
+            value={activePage?.category ?? '-'}
+            hint={
+              activePage
+                ? `${activeCategoryCount} in this category`
+                : 'Select a page'
+            }
+            icon={<Tag className="h-5 w-5" />}
+            tone="blue"
+          />
+          <StatCard
+            label="Link coverage"
+            value={totalLinks}
+            hint={
+              active
+                ? `${active.outboundLinks.length} outbound / ${active.backlinks.length} backlinks`
+                : 'No active page'
+            }
+            icon={<Link2 className="h-5 w-5" />}
+            tone="violet"
+          />
+          <StatCard
+            label="Last update"
+            value={
+              activePage?.updatedAt
+                ? formatRelativeTime(activePage.updatedAt, t)
+                : '-'
+            }
+            hint={activePage?.lastEditedBy ?? 'No active page'}
+            icon={<Clock3 className="h-5 w-5" />}
+            tone="amber"
+          />
+        </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px] max-w-md flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={pageQuery}
+                onChange={(e) => setPageQuery(e.target.value)}
+                placeholder="Search titles, slugs, and summaries"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm text-gray-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            <div className="inline-flex items-center rounded-lg border border-gray-300 bg-white p-1 shadow-sm">
+              <CategoryTab
+                active={categoryFilter === 'ALL'}
+                onClick={() => setCategoryFilter('ALL')}
+              >
+                All
+              </CategoryTab>
+              {CATEGORY_ORDER.map((category) => (
+                <CategoryTab
+                  key={category}
+                  active={categoryFilter === category}
+                  onClick={() => setCategoryFilter(category)}
+                >
+                  {category}
+                </CategoryTab>
+              ))}
+            </div>
+            <div className="flex-1" />
+            <div className="text-sm text-gray-500">
+              {filteredPages.length} visible / {pages.length} total
+            </div>
           </div>
         </div>
-        {visiblePages.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-            No pages match the current search.
-          </div>
-        )}
-        {(['SUMMARY', 'ENTITY', 'CONCEPT', 'SOURCE'] as const).map(
-          (category) =>
-            grouped[category].length > 0 ? (
-              <div key={category} className="mb-4">
-                <div className="mb-2 flex items-center justify-between px-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <span>{category}</span>
-                  <span>{grouped[category].length}</span>
-                </div>
-                <ul className="space-y-1">
-                  {grouped[category].map((page) => (
-                    <li key={page.id}>
-                      <button
-                        onClick={() => onSelectSlug(page.slug)}
-                        className={`block w-full rounded-2xl border px-3 py-2.5 text-left transition ${
-                          effectiveActiveSlug === page.slug
-                            ? 'border-violet-200 bg-violet-50 text-violet-900 shadow-sm'
-                            : 'border-transparent bg-white text-slate-700 hover:border-slate-200 hover:bg-slate-50'
-                        }`}
-                        title={page.oneLiner}
-                      >
-                        <div className="truncate text-sm font-medium">
-                          {page.title}
-                        </div>
-                        <div className="mt-1 truncate text-xs text-slate-500">
-                          {page.oneLiner}
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null
-        )}
-      </aside>
 
-      <main className="flex-1 overflow-y-auto px-8 py-8 xl:px-10">
-        {activeLoading ? (
-          <div className="flex h-72 items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-          </div>
-        ) : active ? (
-          <WikiMarkdownView
-            pageWithLinks={active}
-            onSelectSlug={onSelectSlug}
-          />
-        ) : (
-          <div className="rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center text-sm text-slate-500 shadow-sm">
-            {t('library.wiki.reader.selectFromLeft')}
-          </div>
-        )}
-      </main>
+        <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+          <aside className="rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="border-b border-gray-200 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <FolderTree className="h-4 w-4 text-gray-500" />
+                Browse pages
+              </div>
+            </div>
+            <div className="max-h-[calc(100vh-22rem)] overflow-y-auto px-4 py-4">
+              {filteredPages.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
+                  No pages match the current search.
+                </div>
+              ) : (
+                CATEGORY_ORDER.map((category) =>
+                  grouped[category].length > 0 ? (
+                    <section key={category} className="mb-5 last:mb-0">
+                      <div className="mb-2 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-gray-600">
+                        <span>{category}</span>
+                        <span>{grouped[category].length}</span>
+                      </div>
+                      <ul className="space-y-1">
+                        {grouped[category].map((page) => (
+                          <li key={page.id}>
+                            <button
+                              onClick={() => onSelectSlug(page.slug)}
+                              className={`block w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                                effectiveActiveSlug === page.slug
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                                  : 'border-transparent bg-white text-gray-700 hover:border-gray-200 hover:bg-gray-50'
+                              }`}
+                              title={page.oneLiner}
+                            >
+                              <div className="truncate text-sm font-medium">
+                                {page.title}
+                              </div>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null
+                )
+              )}
+            </div>
+          </aside>
+
+          <main className="min-w-0">
+            {activeLoading ? (
+              <div className="flex h-72 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm">
+                <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+              </div>
+            ) : active ? (
+              <WikiMarkdownView
+                pageWithLinks={active}
+                onSelectSlug={onSelectSlug}
+              />
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center text-sm text-gray-500 shadow-sm">
+                {t('library.wiki.reader.selectFromLeft')}
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
     </div>
   );
 }
@@ -236,45 +337,59 @@ function WikiMarkdownView({
   );
 
   return (
-    <article className="mx-auto max-w-4xl">
-      <header className="mb-6 rounded-[28px] border border-slate-200 bg-white px-8 py-7 shadow-sm">
-        <div className="mb-3 inline-flex items-center rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-700">
-          {page.category}
+    <article className="space-y-6">
+      <header className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 px-6 py-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              {page.category}
+            </span>
+            <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+              <code className="font-mono">{page.slug}</code>
+            </span>
+          </div>
+          <h1 className="mt-3 text-2xl font-semibold text-gray-900">
+            {page.title}
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
+            {page.oneLiner}
+          </p>
+          <p className="mt-3 text-xs text-gray-500">
+            {t('library.wiki.reader.lastEditedBy', {
+              by: (page.lastEditedBy ?? '').toLowerCase() || '-',
+              time: formatRelativeTime(page.updatedAt, t),
+            })}
+          </p>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-          {page.title}
-        </h1>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          {page.oneLiner}
-        </p>
-        <p className="mt-3 text-xs text-slate-400">
-          {t('library.wiki.reader.lastEditedBy', {
-            by: (page.lastEditedBy ?? '').toLowerCase() || '-',
-            time: formatRelativeTime(page.updatedAt, t),
-          })}
-        </p>
+
         {outboundLinks.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {outboundLinks.slice(0, 8).map((slug) => (
-              <button
-                key={slug}
-                type="button"
-                onClick={() => onSelectSlug(slug)}
-                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-violet-50 hover:text-violet-700"
-              >
-                [[{slug}]]
-              </button>
-            ))}
-            {outboundLinks.length > 8 && (
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500">
-                +{outboundLinks.length - 8}
-              </span>
-            )}
+          <div className="px-6 py-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
+              Referenced pages
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {outboundLinks.slice(0, 10).map((slug) => (
+                <button
+                  key={slug}
+                  type="button"
+                  onClick={() => onSelectSlug(slug)}
+                  className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  [[{slug}]]
+                </button>
+              ))}
+              {outboundLinks.length > 10 && (
+                <span className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-500">
+                  +{outboundLinks.length - 10}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </header>
-      <div className="rounded-[28px] border border-slate-200 bg-white px-8 py-8 shadow-sm">
-        <div className="prose prose-sm max-w-none text-slate-800">
+
+      <div className="rounded-xl border border-gray-200 bg-white px-6 py-6 shadow-sm">
+        <div className="prose prose-sm max-w-none text-gray-800">
           <MarkdownViewer
             content={preprocessed}
             enableBulletStrip={false}
@@ -289,7 +404,7 @@ function WikiMarkdownView({
                       onClick={() => onSelectSlug(slug)}
                       className={
                         exists
-                          ? 'rounded bg-violet-50 px-1.5 py-0.5 text-violet-700 no-underline hover:bg-violet-100'
+                          ? 'rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700 no-underline hover:bg-emerald-100'
                           : 'rounded border border-dashed border-red-300 px-1.5 py-0.5 text-red-600 no-underline hover:bg-red-50'
                       }
                       title={
@@ -323,9 +438,10 @@ function WikiMarkdownView({
           />
         </div>
       </div>
+
       {backlinks.length > 0 && (
-        <section className="mt-6 rounded-[28px] border border-slate-200 bg-white px-8 py-6 shadow-sm">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <section className="rounded-xl border border-gray-200 bg-white px-6 py-5 shadow-sm">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
             {t('library.wiki.reader.backlinks', { count: backlinks.length })}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -333,7 +449,7 @@ function WikiMarkdownView({
               <button
                 key={slug}
                 onClick={() => onSelectSlug(slug)}
-                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-violet-700 hover:bg-violet-50"
+                className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
               >
                 {slug}
               </button>
@@ -342,6 +458,77 @@ function WikiMarkdownView({
         </section>
       )}
     </article>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  hint,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  hint: string;
+  icon: React.ReactNode;
+  tone: 'emerald' | 'blue' | 'violet' | 'amber';
+}) {
+  const palette = {
+    emerald: {
+      iconBg: 'bg-emerald-100 text-emerald-600',
+      text: 'text-emerald-700',
+    },
+    blue: {
+      iconBg: 'bg-blue-100 text-blue-600',
+      text: 'text-blue-700',
+    },
+    violet: {
+      iconBg: 'bg-violet-100 text-violet-600',
+      text: 'text-violet-700',
+    },
+    amber: {
+      iconBg: 'bg-amber-100 text-amber-600',
+      text: 'text-amber-700',
+    },
+  }[tone];
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-500">{label}</p>
+          <p className={`mt-1 truncate text-2xl font-bold ${palette.text}`}>
+            {value}
+          </p>
+          <p className="mt-1 truncate text-xs text-gray-400">{hint}</p>
+        </div>
+        <div className={`rounded-lg p-2.5 ${palette.iconBg}`}>{icon}</div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+        active
+          ? 'bg-emerald-50 text-emerald-700'
+          : 'text-gray-600 hover:bg-gray-50'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -354,31 +541,33 @@ function ZeroPageGuide({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 text-white">
-        <FileSearch className="h-7 w-7" />
-      </div>
-      <h2 className="mt-6 text-xl font-semibold text-gray-900">
-        {t('library.wiki.empty.noPagesTitle')}
-      </h2>
-      <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-600">
-        {t('library.wiki.empty.noPagesDesc')}
-      </p>
-      <div className="mt-8 flex items-center justify-center gap-3">
-        <button
-          onClick={onIngest}
-          disabled={!onIngest}
-          className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
-        >
-          {t('library.wiki.empty.runIngest')}
-        </button>
-        <button
-          onClick={onCreatePage}
-          disabled={!onCreatePage}
-          className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {t('library.wiki.empty.manualCreate')}
-        </button>
+    <div className="px-6 py-6">
+      <div className="rounded-xl border border-gray-200 bg-white px-6 py-12 text-center shadow-sm">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-gray-100 text-gray-500">
+          <FileSearch className="h-7 w-7" />
+        </div>
+        <h2 className="mt-6 text-xl font-semibold text-gray-900">
+          {t('library.wiki.empty.noPagesTitle')}
+        </h2>
+        <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-gray-600">
+          {t('library.wiki.empty.noPagesDesc')}
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            onClick={onIngest}
+            disabled={!onIngest}
+            className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+          >
+            {t('library.wiki.empty.runIngest')}
+          </button>
+          <button
+            onClick={onCreatePage}
+            disabled={!onCreatePage}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {t('library.wiki.empty.manualCreate')}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -386,7 +575,7 @@ function ZeroPageGuide({
 
 function pickFirstSlug(pages: WikiPage[]): string | null {
   if (pages.length === 0) return null;
-  const grouped: Record<string, WikiPage[]> = {
+  const grouped: Record<WikiPageCategory, WikiPage[]> = {
     SUMMARY: [],
     ENTITY: [],
     CONCEPT: [],
