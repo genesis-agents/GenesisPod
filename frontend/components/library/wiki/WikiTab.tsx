@@ -1,21 +1,21 @@
 'use client';
 
 /**
- * Wiki Tab — v1.5.3 P3a/P3b core UI.
+ * Wiki Tab � v1.5.3 P3a/P3b core UI.
  *
  * Single-file composition of the core surface (kept together to minimize
  * cross-file orchestration during initial integration). Splits naturally
  * into one-component-per-file when iteration begins.
  *
- * Implements (per llm-wiki §7):
- *  §7.1 LibraryTabs first-tab + default-active (handled in page.tsx)
- *  §7.3 KB selector with 5-step resolution chain
- *      URL ?kb= → localStorage:lastWikiKbId:<userHash> → unique
- *      wikiEnabled → most-recently-edited wikiEnabled → guidance
- *  §7.5 three-state empty funnel (0 KB / 0 wikiEnabled / 0 page)
- *  §7.7 URL state machine with mutex for ?diff= modal vs ?lint=1/?log=1
+ * Implements (per llm-wiki �7):
+ *  �7.1 LibraryTabs first-tab + default-active (handled in page.tsx)
+ *  �7.3 KB selector with 5-step resolution chain
+ *      URL ?kb= ? localStorage:lastWikiKbId:<userHash> ? unique
+ *      wikiEnabled ? most-recently-edited wikiEnabled ? guidance
+ *  �7.5 three-state empty funnel (0 KB / 0 wikiEnabled / 0 page)
+ *  �7.7 URL state machine with mutex for ?diff= modal vs ?lint=1/?log=1
  *      drawer (drawers can stack with ?page=, but ?diff= preempts both)
- *  §7.2 Wiki sub-header (KB selector + Toolbar)
+ *  �7.2 Wiki sub-header (KB selector + Toolbar)
  *
  * Defers (P3a follow-up sub-iteration):
  *  - Full split-diff renderer with three-color edges (uses textual
@@ -48,7 +48,6 @@ import {
 } from 'lucide-react';
 import {
   wikiApi,
-  type KbDocumentSummary,
   type WikiDiff,
   type WikiKbSummary,
   type WikiLintFinding,
@@ -68,9 +67,16 @@ import { katexAwareSchema } from '@/lib/markdown/katexAwareSchema';
 import WikiGraphModal from './WikiGraphModal';
 import WikiSettingsModal from './WikiSettingsModal';
 import WikiCardGrid from './WikiCardGrid';
+import WikiIngestWorkspaceModal from './WikiIngestModal';
+import WikiChromeHeader from './WikiChromeHeader';
+import WikiReaderPane from './WikiReaderPane';
+import WikiQueryDrawer from './WikiQueryDrawer';
+import WikiDiffModal from './WikiDiffModal';
+import WikiLintPanel from './WikiLintPanel';
+import WikiActivityDrawer from './WikiActivityDrawer';
 
 // Extend the default sanitizer to allow our internal `wikilink:` scheme on
-// anchor href attributes — without this, rehype-sanitize strips the href and
+// anchor href attributes � without this, rehype-sanitize strips the href and
 // our [[slug]] click handler never fires (silent break).
 const WIKI_SANITIZE_SCHEMA = {
   ...katexAwareSchema,
@@ -80,7 +86,7 @@ const WIKI_SANITIZE_SCHEMA = {
   },
 };
 
-// ─── localStorage key helpers (per §7.1 §11 v1.5.x cross-user isolation) ───
+// --- localStorage key helpers (per �7.1 �11 v1.5.x cross-user isolation) ---
 
 function userKey(prefix: string, userHash: string): string {
   return `${prefix}:${userHash}`;
@@ -95,12 +101,12 @@ function writeLocalStorage(key: string, value: string): void {
   }
 }
 
-// ─── KB context resolver ───
+// --- KB context resolver ---
 //
 // Landing UX: when no `?kb=` is in the URL we render a card grid so the
 // user explicitly picks a KB. Once `?kb={id}` is set we render the detail
-// view. The previous 5-step auto-pick (URL → localStorage → unique →
-// most-recent → empty funnel) was bypassing the grid for returning users
+// view. The previous 5-step auto-pick (URL ? localStorage ? unique ?
+// most-recent ? empty funnel) was bypassing the grid for returning users
 // and is now reduced to "URL only".
 
 interface ResolveResult {
@@ -150,7 +156,7 @@ function useResolvedKb(
       return { kbId: urlKbId, emptyKind: null };
     }
 
-    // No URL kb → caller decides between grid (kbs.length > 0) and the
+    // No URL kb ? caller decides between grid (kbs.length > 0) and the
     // empty funnel (kbs.length === 0). We surface emptyKind for the latter.
     if (kbs.length === 0) {
       return { kbId: null, emptyKind: 'has-kb-no-wiki' };
@@ -167,7 +173,7 @@ function useResolvedKb(
   };
 }
 
-// ─── URL state derivation (§7.7) ───
+// --- URL state derivation (�7.7) ---
 
 interface UrlState {
   kbId: string | null;
@@ -194,7 +200,7 @@ function readUrlState(searchParams: URLSearchParams): UrlState {
   };
 }
 
-// ─── Public component ───
+// --- Public component ---
 
 interface WikiTabProps {
   /**
@@ -231,7 +237,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
 
   // Persist active kbId to localStorage so other surfaces (e.g. ingest
   // shortcut from elsewhere) still know the user's last picked KB. We
-  // intentionally no longer auto-resolve from it — see useResolvedKb.
+  // intentionally no longer auto-resolve from it � see useResolvedKb.
   useEffect(() => {
     if (!kbId) return;
     writeLocalStorage(userKey('lastWikiKbId', userHash), kbId);
@@ -258,7 +264,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   }
 
   if (!kbId) {
-    // 0 wiki-enabled KBs → empty funnel; otherwise → card grid landing
+    // 0 wiki-enabled KBs ? empty funnel; otherwise ? card grid landing
     if (kbs.length === 0) {
       return (
         <>
@@ -320,7 +326,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <WikiSubHeader
+      <WikiChromeHeader
         kbs={kbs}
         currentKbId={kbId}
         onBackToGrid={goToGrid}
@@ -371,7 +377,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       />
 
       <div className="flex-1 overflow-hidden">
-        <WikiPageReader
+        <WikiReaderPane
           kbId={kbId}
           activeSlug={urlState.pageSlug}
           refreshKey={readerRefreshTick}
@@ -386,7 +392,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       </div>
 
       {urlState.diffId && (
-        <WikiDiffReviewModal
+        <WikiDiffModal
           kbId={kbId}
           diffId={urlState.diffId}
           onApplied={() => setReaderRefreshTick((n) => n + 1)}
@@ -399,7 +405,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       )}
 
       {urlState.lintOpen && (
-        <WikiLintDrawer
+        <WikiLintPanel
           kbId={kbId}
           onClose={() => {
             const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -410,7 +416,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       )}
 
       {urlState.logOpen && (
-        <WikiLogDrawer
+        <WikiActivityDrawer
           kbId={kbId}
           onClose={() => {
             const params = new URLSearchParams(searchParams?.toString() ?? '');
@@ -451,7 +457,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
       )}
 
       {queryOpen && (
-        <WikiQueryPanel kbId={kbId} onClose={() => setQueryOpen(false)} />
+        <WikiQueryDrawer kbId={kbId} onClose={() => setQueryOpen(false)} />
       )}
 
       {createPageOpen && (
@@ -490,7 +496,7 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   );
 }
 
-// ─── Sub-components ───
+// --- Sub-components ---
 
 interface WikiSubHeaderProps {
   kbs: WikiKbSummary[];
@@ -546,13 +552,13 @@ function WikiSubHeader({
           <span className="font-medium text-gray-900">
             {current?.name ?? t('library.wiki.kbSelector.selectKb')}
           </span>
-          <span className="text-xs text-gray-500">▾</span>
+          <span className="text-xs text-gray-500">?</span>
         </button>
         {current && (
           <span className="text-xs text-gray-500">
-            · {pluralizePages(t, current.pageCount)}
+            � {pluralizePages(t, current.pageCount)}
             {current.lastIngestAt
-              ? ` · ${t('library.wiki.kbSelector.lastIngest', { time: formatRelativeTime(current.lastIngestAt, t) })}`
+              ? ` � ${t('library.wiki.kbSelector.lastIngest', { time: formatRelativeTime(current.lastIngestAt, t) })}`
               : ''}
           </span>
         )}
@@ -674,7 +680,7 @@ function ToolButton({
   );
 }
 
-// ─── Page reader (left list + center markdown) ───
+// --- Page reader (left list + center markdown) ---
 
 interface WikiPageReaderProps {
   kbId: string;
@@ -753,7 +759,7 @@ function WikiPageReader({
     }
   }, [kbId]);
 
-  // No `?page=` in URL but pages are loaded → align URL to the first slug
+  // No `?page=` in URL but pages are loaded ? align URL to the first slug
   // so the right pane fetches and renders instead of showing the
   // "select from left" hint.
   useEffect(() => {
@@ -902,7 +908,7 @@ function WikiMarkdownView({
         <p className="mt-2 text-sm text-gray-600">{page.oneLiner}</p>
         <p className="mt-1 text-xs text-gray-400">
           {t('library.wiki.reader.lastEditedBy', {
-            by: (page.lastEditedBy ?? '').toLowerCase() || '—',
+            by: (page.lastEditedBy ?? '').toLowerCase() || '�',
             time: formatRelativeTime(page.updatedAt, t),
           })}
         </p>
@@ -969,7 +975,7 @@ function WikiMarkdownView({
                 onClick={() => onSelectSlug(slug)}
                 className="rounded bg-gray-100 px-2 py-0.5 text-xs text-violet-700 hover:bg-violet-50"
               >
-                ← {slug}
+                ? {slug}
               </button>
             ))}
           </div>
@@ -979,7 +985,7 @@ function WikiMarkdownView({
   );
 }
 
-// ─── Empty state (§7.5 three-state funnel) ───
+// --- Empty state (�7.5 three-state funnel) ---
 
 function WikiEmptyState({
   kind,
@@ -1066,7 +1072,7 @@ function ZeroPageGuide({
   );
 }
 
-// ─── Query 浮动面板（询问 wiki，调 wikiApi.query）───
+// --- Query ????(?? wiki,? wikiApi.query)---
 
 interface QueryMessage {
   role: 'user' | 'assistant';
@@ -1224,7 +1230,7 @@ function WikiQueryPanel({
   );
 }
 
-// ─── 客户端 Markdown 导出（不依赖后端 P3a tarball stub）───
+// --- ??? Markdown ??(????? P3a tarball stub)---
 
 async function exportWikiAsMarkdown(
   kbId: string,
@@ -1238,7 +1244,7 @@ async function exportWikiAsMarkdown(
       alert(t('library.wiki.export.noPagesToExport'));
       return;
     }
-    // 按 category 分组（SUMMARY → ENTITY → CONCEPT → SOURCE）
+    // ? category ??(SUMMARY ? ENTITY ? CONCEPT ? SOURCE)
     const order: WikiPageCategory[] = [
       'SUMMARY',
       'ENTITY',
@@ -1251,9 +1257,9 @@ async function exportWikiAsMarkdown(
       if (ca !== cb) return ca - cb;
       return a.title.localeCompare(b.title);
     });
-    // 拉每页 body（getPage 返回 page+links；我们只用 page.body）
+    // ??? body(getPage ?? page+links;???? page.body)
     const parts: string[] = [
-      `# ${kbName} — Wiki Export`,
+      `# ${kbName} � Wiki Export`,
       `_Exported at ${new Date().toISOString()}_`,
       `_Total pages: ${sorted.length}_`,
       '',
@@ -1264,7 +1270,7 @@ async function exportWikiAsMarkdown(
       const detail = await wikiApi.getPage(kbId, p.slug);
       parts.push(
         `## ${detail.page.title}`,
-        `*${detail.page.category}* · slug: \`${detail.page.slug}\``,
+        `*${detail.page.category}* � slug: \`${detail.page.slug}\``,
         '',
         `> ${detail.page.oneLiner}`,
         '',
@@ -1277,7 +1283,7 @@ async function exportWikiAsMarkdown(
     const markdown = parts.join('\n');
     const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const safeName = kbName.replace(/[^a-zA-Z0-9_\-一-龥]+/g, '_');
+    const safeName = kbName.replace(/[^a-zA-Z0-9_\-?-?]+/g, '_');
     const a = document.createElement('a');
     a.href = url;
     a.download = `${safeName}-wiki.md`;
@@ -1298,7 +1304,7 @@ async function exportWikiAsMarkdown(
   }
 }
 
-// ─── 手动建页 modal ───
+// --- ???? modal ---
 
 function CreateWikiPageModal({
   kbId,
@@ -1466,7 +1472,7 @@ function Field({
   );
 }
 
-// ─── Diff review modal (split view, three-color edges) ───
+// --- Diff review modal (split view, three-color edges) ---
 
 function WikiDiffReviewModal({
   kbId,
@@ -1555,7 +1561,7 @@ function WikiDiffReviewModal({
                   selected={selected.has(c.slug)}
                   onToggle={() => toggle(selected, setSelected, c.slug)}
                   preview={c.body.slice(0, 600)}
-                  meta={`${c.category} · ${c.title}`}
+                  meta={`${c.category} � ${c.title}`}
                 />
               ))}
               {diff.items.updates.map((u) => (
@@ -1672,7 +1678,7 @@ function DiffItemCard({
           {kind}
         </span>
         <code className="text-sm font-medium text-gray-900">{slug}</code>
-        {meta && <span className="text-xs text-gray-500">— {meta}</span>}
+        {meta && <span className="text-xs text-gray-500">� {meta}</span>}
       </div>
       <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap break-words px-4 py-3 text-xs leading-5 text-gray-700">
         {preview}
@@ -1692,7 +1698,7 @@ function toggle(
   setter(next);
 }
 
-// ─── Lint Drawer ───
+// --- Lint Drawer ---
 
 function WikiLintDrawer({
   kbId,
@@ -1907,7 +1913,7 @@ function WikiLogCard({ item }: { item: WikiOperationLogEntry }) {
             </span>
           </div>
           <div className="mt-0.5 text-xs text-gray-500">
-            {item.actorName ?? t('library.wiki.log.system')} ·{' '}
+            {item.actorName ?? t('library.wiki.log.system')} �{' '}
             {formatRelativeTime(item.createdAt, t)}
           </div>
           {item.affectedSlugs.length > 0 && (
@@ -1988,7 +1994,7 @@ function DrawerShell({
   );
 }
 
-// ─── Helpers ───
+// --- Helpers ---
 
 // English-style plural for page-count strings: dispatches to the
 // `_one` / `_other` keys based on count. (Project's i18n core has no
@@ -2021,7 +2027,7 @@ function formatRelativeTime(
   return date.toLocaleDateString();
 }
 
-// ─── Ingest picker modal ───
+// --- Ingest picker modal ---
 
 function IngestPickerModal({
   kbId,
@@ -2032,150 +2038,15 @@ function IngestPickerModal({
   onClose: () => void;
   onIngested: (diffId: string) => void;
 }) {
-  const { t } = useTranslation();
-  const [docs, setDocs] = useState<KbDocumentSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    wikiApi
-      .listKbDocuments(kbId)
-      .then((res) => {
-        if (cancelled) return;
-        const items = Array.isArray(res)
-          ? res
-          : ((res as { items?: KbDocumentSummary[] }).items ?? []);
-        setDocs(items);
-      })
-      .catch((err) => {
-        logger?.error?.('[wiki] listKbDocuments failed', err);
-        if (!cancelled) setError(t('library.wiki.ingest.loadFailed'));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [kbId, t]);
-
-  const toggle = (id: string) => {
-    const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelected(next);
-  };
-
-  const submit = async () => {
-    if (selected.size === 0) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const result = await wikiApi.ingest(kbId, Array.from(selected));
-      onIngested(result.diff.id);
-    } catch (err) {
-      logger?.error?.('[wiki] ingest failed', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : t('library.wiki.ingest.ingestFailed')
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
-      <div className="flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {t('library.wiki.ingest.title')}
-            </h2>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {t('library.wiki.ingest.subtitle')}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </header>
-        <main className="flex-1 overflow-y-auto px-6 py-4">
-          {loading ? (
-            <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
-          ) : error ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-              {error}
-            </div>
-          ) : docs.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-500">
-              {t('library.wiki.ingest.noDocs')}
-            </div>
-          ) : (
-            <ul className="space-y-1">
-              {docs.map((d) => (
-                <li
-                  key={d.id}
-                  className="flex items-start gap-3 rounded border border-gray-100 px-3 py-2.5 hover:bg-gray-50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selected.has(d.id)}
-                    onChange={() => toggle(d.id)}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-violet-600"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-gray-900">
-                      {d.title || d.id}
-                    </div>
-                    <div className="mt-0.5 text-xs text-gray-500">
-                      {d.sourceType} · {d.status} ·{' '}
-                      {formatRelativeTime(d.createdAt, t)}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </main>
-        <footer className="flex items-center justify-between border-t border-gray-200 px-6 py-3">
-          <div className="text-xs text-gray-500">
-            {t('library.wiki.ingest.selectedCount', {
-              selected: selected.size,
-              total: docs.length,
-            })}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="rounded-md border border-gray-200 bg-white px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              {t('library.wiki.ingest.cancel')}
-            </button>
-            <button
-              disabled={submitting || selected.size === 0}
-              onClick={() => void submit()}
-              className="inline-flex items-center gap-1.5 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
-            >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t('library.wiki.ingest.run')}
-            </button>
-          </div>
-        </footer>
-      </div>
-    </div>
+    <WikiIngestWorkspaceModal
+      kbId={kbId}
+      onClose={onClose}
+      onIngested={onIngested}
+    />
   );
 }
-
-// ─── Wiki enable toggle modal ───
+// --- Wiki enable toggle modal ---
 
 interface KbWithOwnership {
   id: string;

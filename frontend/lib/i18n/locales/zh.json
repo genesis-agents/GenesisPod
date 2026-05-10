@@ -466,12 +466,43 @@
       "ingest": {
         "title": "选择要 Ingest 的文档",
         "subtitle": "LLM 将把所选文档编译为 wiki 提议供你逐项审阅。",
+        "workspaceBadge": "Ingest 工作台",
         "noDocs": "该知识库还没有文档。请先在「数据源」tab 上传文档。",
+        "searchPlaceholder": "搜索文档、来源或推荐原因...",
+        "selectionHint": "系统会默认选中推荐文档。已覆盖文档仍可手动再次选择，以便强制刷新相关 wiki 页面。",
         "selectedCount": "已选 {{selected}} / {{total}} 篇",
         "cancel": "取消",
         "run": "运行 Ingest",
+        "runWithCount": "运行 Ingest（{{count}}）",
         "loadFailed": "加载文档列表失败",
-        "ingestFailed": "Ingest 失败"
+        "ingestFailed": "Ingest 失败",
+        "noMatch": "当前搜索或筛选条件下没有匹配文档。",
+        "never": "从未",
+        "actions": {
+          "selectRecommended": "选择推荐项",
+          "selectVisibleReady": "选择当前可见就绪项",
+          "clearSelection": "清空选择"
+        },
+        "filters": {
+          "recommended": "推荐",
+          "ready": "可处理",
+          "covered": "已覆盖",
+          "blocked": "阻塞",
+          "all": "全部"
+        },
+        "summary": {
+          "recommended": "当前推荐",
+          "ready": "可处理",
+          "stale": "需要刷新",
+          "covered": "已覆盖",
+          "blocked": "阻塞"
+        },
+        "metric": {
+          "references": "引用数",
+          "chunks": "分块数",
+          "updated": "更新时间",
+          "lastCited": "最后引用"
+        }
       },
       "enable": {
         "failed": "启用 Wiki 失败，请确认你对该知识库有访问权",

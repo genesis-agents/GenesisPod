@@ -41,6 +41,7 @@ const wrapExternalContentMock = wrapExternalContent as unknown as jest.Mock;
 
 function makePrismaMock() {
   const prisma: any = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     knowledgeBaseDocument: {
       findMany: jest.fn().mockResolvedValue([]),
     },

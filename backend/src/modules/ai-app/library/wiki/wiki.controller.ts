@@ -153,6 +153,19 @@ export class WikiController {
     };
   }
 
+  @Get(":kbId/ingest-candidates")
+  @UseGuards(JwtAuthGuard)
+  async listIngestCandidates(
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+  ) {
+    const items = await this.ingestService.listIngestCandidates(
+      req.user.id,
+      kbId,
+    );
+    return { items };
+  }
+
   @Get(":kbId/diffs/:diffId")
   @UseGuards(JwtAuthGuard)
   async getDiff(

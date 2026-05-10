@@ -157,6 +157,30 @@ export interface KbDocumentSummary {
   createdAt: string;
 }
 
+export type WikiIngestCandidateState =
+  | 'READY_NEW'
+  | 'READY_STALE'
+  | 'READY_COVERED'
+  | 'BLOCKED';
+
+export interface WikiIngestCandidate {
+  id: string;
+  title: string;
+  sourceType: string;
+  mimeType: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  processedAt: string | null;
+  chunkCount: number;
+  lastError: string | null;
+  pageReferenceCount: number;
+  lastCitedAt: string | null;
+  ingestState: WikiIngestCandidateState;
+  recommended: boolean;
+  reason: string;
+}
+
 export interface WikiOperationLogEntry {
   id: string;
   op: WikiOp;
@@ -275,6 +299,11 @@ export const wikiApi = {
       `${base}/${encodeURIComponent(kbId)}/ingest`,
       { documentIds },
       { timeout: 180_000 }
+    ),
+
+  listIngestCandidates: (kbId: string) =>
+    apiClient.get<{ items: WikiIngestCandidate[] }>(
+      `${base}/${encodeURIComponent(kbId)}/ingest-candidates`
     ),
 
   getDiff: (kbId: string, diffId: string) =>

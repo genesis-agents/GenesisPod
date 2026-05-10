@@ -12,6 +12,30 @@ import { WikiDiffService } from "./wiki-diff.service";
 import { WikiDiffItemsSchema } from "./dto/wiki-diff-items.schema";
 import { AiChatService, wrapExternalContent } from "../../../ai-engine/facade";
 
+export type WikiIngestCandidateState =
+  | "READY_NEW"
+  | "READY_STALE"
+  | "READY_COVERED"
+  | "BLOCKED";
+
+export interface WikiIngestCandidate {
+  id: string;
+  title: string;
+  sourceType: string;
+  mimeType: string | null;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  processedAt: Date | null;
+  chunkCount: number;
+  lastError: string | null;
+  pageReferenceCount: number;
+  lastCitedAt: Date | null;
+  ingestState: WikiIngestCandidateState;
+  recommended: boolean;
+  reason: string;
+}
+
 /**
  * WikiIngestService — LLM orchestration for wiki diff proposal (v1.5.3 §5.1).
  *
@@ -246,6 +270,112 @@ export class WikiIngestService {
     return diff;
   }
 
+  /**
+   * Return KB documents enriched with wiki-specific ingest state so the
+   * frontend can present a professional candidate picker instead of the raw
+   * RAG document list.
+   */
+  async listIngestCandidates(
+    userId: string,
+    knowledgeBaseId: string,
+  ): Promise<WikiIngestCandidate[]> {
+    await this.assertViewerAccessAndWikiEnabled(userId, knowledgeBaseId);
+
+    const documents = await this.prisma.knowledgeBaseDocument.findMany({
+      where: { knowledgeBaseId },
+      orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        sourceType: true,
+        mimeType: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        processedAt: true,
+        chunkCount: true,
+        lastError: true,
+      },
+    });
+
+    const usageRows = await this.prisma.$queryRaw<
+      Array<{
+        document_id: string;
+        page_reference_count: bigint;
+        last_cited_at: Date | null;
+      }>
+    >`
+      SELECT
+        s.document_id,
+        COUNT(DISTINCT s.page_id) AS page_reference_count,
+        MAX(p.updated_at) AS last_cited_at
+      FROM wiki_page_sources s
+      JOIN wiki_pages p ON p.id = s.page_id
+      WHERE p.knowledge_base_id = ${knowledgeBaseId}::text
+      GROUP BY s.document_id
+    `;
+
+    const usageMap = new Map(
+      usageRows.map((row) => [
+        row.document_id,
+        {
+          pageReferenceCount: Number(row.page_reference_count),
+          lastCitedAt: row.last_cited_at,
+        },
+      ]),
+    );
+
+    return documents.map((doc) => {
+      const usage = usageMap.get(doc.id);
+      const pageReferenceCount = usage?.pageReferenceCount ?? 0;
+      const lastCitedAt = usage?.lastCitedAt ?? null;
+
+      let ingestState: WikiIngestCandidateState;
+      let recommended = false;
+      let reason = "";
+
+      if (doc.status !== "READY") {
+        ingestState = "BLOCKED";
+        reason =
+          doc.status === "ERROR"
+            ? "Document processing failed; repair the source before ingest."
+            : doc.status === "PROCESSING" || doc.status === "UPDATING"
+              ? "Document is still processing and not ready for ingest."
+              : "Document is not ready for wiki ingest yet.";
+      } else if (pageReferenceCount === 0) {
+        ingestState = "READY_NEW";
+        recommended = true;
+        reason = "Ready and not yet represented in the wiki.";
+      } else if (lastCitedAt && doc.updatedAt > lastCitedAt) {
+        ingestState = "READY_STALE";
+        recommended = true;
+        reason =
+          "Document changed after the last wiki citation; re-ingest recommended.";
+      } else {
+        ingestState = "READY_COVERED";
+        reason = "Already represented in current wiki pages.";
+      }
+
+      return {
+        id: doc.id,
+        title: doc.title,
+        sourceType: doc.sourceType,
+        mimeType: doc.mimeType,
+        status: doc.status,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+        processedAt: doc.processedAt,
+        chunkCount: doc.chunkCount,
+        lastError: doc.lastError,
+        pageReferenceCount,
+        lastCitedAt,
+        ingestState,
+        recommended,
+        reason,
+      };
+    });
+  }
+
   // ─── Internal ───
 
   private buildSystemPrompt(): string {
@@ -343,6 +473,26 @@ export class WikiIngestService {
       "EDITOR",
     );
     if (!ok) throw new ForbiddenException("Editor access required");
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: knowledgeBaseId },
+      select: { wikiEnabled: true },
+    });
+    if (!kb) throw new NotFoundException("Knowledge base not found");
+    if (!kb.wikiEnabled) {
+      throw new ForbiddenException("Wiki is not enabled for this KB");
+    }
+  }
+
+  private async assertViewerAccessAndWikiEnabled(
+    userId: string,
+    knowledgeBaseId: string,
+  ): Promise<void> {
+    const ok = await this.kbService.hasAccess(
+      knowledgeBaseId,
+      userId,
+      "VIEWER",
+    );
+    if (!ok) throw new ForbiddenException("Viewer access required");
     const kb = await this.prisma.knowledgeBase.findUnique({
       where: { id: knowledgeBaseId },
       select: { wikiEnabled: true },
