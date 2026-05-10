@@ -728,10 +728,14 @@ export class UserApiKeysService {
   }
 
   /**
-   * 解析 provider 默认配置（DB 优先 + hardcoded fallback）
-   * 用于 testKey / saveKey 时拿 endpoint / apiFormat。
+   * 解析 provider 默认配置（DB ai_providers 真源 + hardcoded fallback）
+   * 用于 testKey / saveKey / connection-test 时拿 endpoint / apiFormat / testModel。
+   *
+   * 2026-05-10：从 private 提到 public，AiConnectionTestService 走同一份单源
+   * 决定 chat-completions 端点（之前 OpenAI-compatible 一族 endpoint 为空时
+   * 直接 POST "" 全军覆没）。
    */
-  private async resolveProviderDefaults(
+  async resolveProviderDefaults(
     slug: string,
     userId?: string,
   ): Promise<{

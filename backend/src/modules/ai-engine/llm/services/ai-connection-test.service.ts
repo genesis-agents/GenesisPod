@@ -3,6 +3,7 @@ import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AiModelConfigService } from "./ai-model-config.service";
 import { inferIsReasoning } from "../types/model.utils";
+import { UserApiKeysService } from "@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service";
 
 /**
  * AI Connection Test Service
@@ -22,7 +23,40 @@ export class AiConnectionTestService {
   constructor(
     private readonly httpService: HttpService,
     @Optional() private readonly modelConfigService?: AiModelConfigService,
+    @Optional() private readonly userApiKeys?: UserApiKeysService,
   ) {}
+
+  /**
+   * 解析 OpenAI-compatible provider 的 chat-completions 完整 URL。
+   *
+   * 优先级：
+   *   1. 调用方传入的 override（用户在 UserModelConfig.apiEndpoint 显式配置）—
+   *      尾部已含 /chat/completions 直接用，否则按"base + /chat/completions"拼。
+   *   2. DB `ai_providers` 单源（admin 维护 + scope=user 自定义）— 经
+   *      UserApiKeysService.resolveProviderDefaults() 查询，自动兜底
+   *      hardcoded PROVIDER_DEFAULTS（DB 未 seed 时的迁移期 fallback）。
+   *
+   * 2026-05-10 §2：之前 OpenAI-compatible 一族（deepseek/qwen/groq/doubao/zhipu/
+   * kimi/moonshot 等）在 override 为空时直接 POST 到空字符串导致测试按钮几乎
+   * 全部失败。新 provider 走 DB seed（ai_providers 表），不再加 TS 硬编码。
+   */
+  private async resolveOpenAICompatibleChatEndpoint(
+    provider: string,
+    override?: string,
+  ): Promise<string | null> {
+    const trimmed = override?.trim();
+    if (trimmed) {
+      const noTrailing = trimmed.replace(/\/+$/, "");
+      return noTrailing.endsWith("/chat/completions")
+        ? noTrailing
+        : `${noTrailing}/chat/completions`;
+    }
+    const defaults = await this.userApiKeys?.resolveProviderDefaults(
+      provider.toLowerCase(),
+    );
+    if (!defaults?.endpoint) return null;
+    return `${defaults.endpoint.replace(/\/+$/, "")}/chat/completions`;
+  }
 
   /**
    * 推断模型是否为推理模型（用于 tokenParamName 决策）
@@ -369,7 +403,7 @@ export class AiConnectionTestService {
           );
           break;
 
-        // OpenAI-compatible providers
+        // OpenAI-compatible providers — endpoint 走 DB ai_providers 真源
         case "groq":
         case "openrouter":
         case "minimax":
@@ -381,10 +415,24 @@ export class AiConnectionTestService {
         case "zhipu":
         case "glm":
         case "kimi":
-        case "moonshot":
+        case "moonshot": {
+          const chatUrl = await this.resolveOpenAICompatibleChatEndpoint(
+            provider,
+            apiEndpoint,
+          );
+          if (!chatUrl) {
+            return {
+              success: false,
+              message:
+                `Provider "${provider}" 没有可用的 chat endpoint：` +
+                `请在 admin /admin/ai/providers 维护 ai_providers 行，` +
+                `或在该模型 UserModelConfig.apiEndpoint 显式填写完整 URL。`,
+              latency: Date.now() - startTime,
+            };
+          }
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint,
+              chatUrl,
               {
                 model: modelId,
                 messages: testMessages,
@@ -401,6 +449,7 @@ export class AiConnectionTestService {
             ),
           );
           break;
+        }
 
         default:
           return {
@@ -876,4 +925,3 @@ export class AiConnectionTestService {
     }
   }
 }
-

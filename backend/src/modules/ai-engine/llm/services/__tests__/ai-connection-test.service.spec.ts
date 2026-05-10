@@ -480,6 +480,93 @@ describe("AiConnectionTestService", () => {
 
         expect(mockHttpService.post).toHaveBeenCalled();
       });
+
+      // 2026-05-10 §2 回归：endpoint 为空时走 DB ai_providers 真源（经
+      // UserApiKeysService.resolveProviderDefaults）而不是 POST 空字符串
+      it("resolves OpenAI-compatible endpoint via DB when override is empty", async () => {
+        const userApiKeysMock = {
+          resolveProviderDefaults: jest.fn().mockResolvedValue({
+            endpoint: "https://api.deepseek.com/v1",
+            apiFormat: "openai",
+            testModel: "deepseek-chat",
+          }),
+        };
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [
+            AiConnectionTestService,
+            { provide: HttpService, useValue: mockHttpService },
+            {
+              provide: (
+                await import("@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service")
+              ).UserApiKeysService,
+              useValue: userApiKeysMock,
+            },
+          ],
+        }).compile();
+        const svcWithDb = module.get<AiConnectionTestService>(
+          AiConnectionTestService,
+        );
+
+        mockHttpService.post.mockReturnValue(
+          of({
+            data: { choices: [{ message: { content: "OK" } }] },
+            status: 200,
+            statusText: "OK",
+            headers: {},
+            config: {} as any,
+          } as AxiosResponse),
+        );
+
+        await svcWithDb.testModelConnectionWithKey(
+          "deepseek",
+          "deepseek-reasoner",
+          "test-key",
+          "", // override 为空 → 应走 DB 真源
+        );
+
+        expect(userApiKeysMock.resolveProviderDefaults).toHaveBeenCalledWith(
+          "deepseek",
+        );
+        expect(mockHttpService.post).toHaveBeenCalledWith(
+          "https://api.deepseek.com/v1/chat/completions",
+          expect.any(Object),
+          expect.any(Object),
+        );
+      });
+
+      it("returns clean error when DB has no row for provider and override empty", async () => {
+        const userApiKeysMock = {
+          resolveProviderDefaults: jest.fn().mockResolvedValue(null),
+        };
+        const module: TestingModule = await Test.createTestingModule({
+          providers: [
+            AiConnectionTestService,
+            { provide: HttpService, useValue: mockHttpService },
+            {
+              provide: (
+                await import("@/modules/ai-infra/credentials/user-api-keys/user-api-keys.service")
+              ).UserApiKeysService,
+              useValue: userApiKeysMock,
+            },
+          ],
+        }).compile();
+        const svcWithDb = module.get<AiConnectionTestService>(
+          AiConnectionTestService,
+        );
+
+        // 用 deepseek（在 OpenAI-compatible switch 列表里）让分支命中新逻辑；
+        // DB resolver 返回 null → 测试服务应给清晰错误而不是 POST 空字符串
+        const result = await svcWithDb.testModelConnectionWithKey(
+          "deepseek",
+          "deepseek-chat",
+          "test-key",
+          "",
+        );
+
+        expect(result.success).toBe(false);
+        expect(result.message).toContain("没有可用的 chat endpoint");
+        expect(mockHttpService.post).not.toHaveBeenCalled();
+      });
     });
 
     describe("Error Handling", () => {
