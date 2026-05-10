@@ -1019,7 +1019,9 @@ describe("AiModelConfigService", () => {
       expect(isByok).toHaveLength(0);
     });
 
-    it("should include disabled models from DB for user's provider", async () => {
+    it("should NOT auto-revive disabled AIModel rows from user's provider key (双源根治 v2)", async () => {
+      // 2026-05-10：删除 userExtraModels（disabled AIModel + provider key 自动捞回）
+      // 路径。admin 主动禁用 = 真消失。用户想用必须显式 UserModelConfig。
       const disabledAnthropicModel = {
         ...mockChatModel,
         id: "disabled-model",
@@ -1030,10 +1032,9 @@ describe("AiModelConfigService", () => {
         description: null,
       };
 
-      // Enabled models: only openai
       (prismaService.aIModel.findMany as jest.Mock)
-        .mockResolvedValueOnce([mockChatModel]) // enabled models
-        .mockResolvedValueOnce([disabledAnthropicModel]); // disabled anthropic models found in DB
+        .mockResolvedValueOnce([mockChatModel]) // enabled openai
+        .mockResolvedValueOnce([disabledAnthropicModel]); // disabled anthropic 即使存在也不再回显
 
       (prismaService as any).userApiKey = {
         findMany: jest.fn().mockResolvedValue([{ provider: "anthropic" }]),
@@ -1044,12 +1045,15 @@ describe("AiModelConfigService", () => {
         "user-anthropic",
       );
 
-      // Should include openai + the disabled anthropic model (with isUserKey)
+      // anthropic 行被 admin 禁用 → 即使 user 有 provider key 也不回显
       const anthropicModels = result.filter(
         (m) => m.provider.toLowerCase() === "anthropic",
       );
-      expect(anthropicModels.length).toBeGreaterThan(0);
-      anthropicModels.forEach((m) => expect(m.isUserKey).toBe(true));
+      expect(anthropicModels).toHaveLength(0);
+      // openai 仍在
+      expect(result.some((m) => m.provider.toLowerCase() === "openai")).toBe(
+        true,
+      );
     });
 
     it("should handle user API key fetch error gracefully", async () => {

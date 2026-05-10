@@ -1542,49 +1542,59 @@ export default function AskPage() {
         }
 
         if (sessionId) {
-          // 2026-05-10 §4 流式：先注入临时 user + 占位 assistant 消息，
-          // onChunk 每次 delta 更新占位 assistant 内容（打字机效果），
-          // done 时把临时 ID 替换为后端真实 ID。
+          // 2026-05-10 §4 流式（v2 修 UI 错位）：
+          //   - 只先注入 temp user（用户消息立即可见）
+          //   - assistant 消息**懒注入**：第一个 chunk 到达时才创建（避免空 bubble
+          //     渲染 action toolbar 与原 "is thinking..." 占位重叠错位）
+          //   - 后续 chunk 更新该 assistant 消息内容
           const tempUserId = 'temp-user-' + Date.now();
-          const tempAssistantId = 'temp-assistant-' + Date.now();
           const tempUserMessage: Message = {
             id: tempUserId,
             role: 'user',
             content: displayContent,
             createdAt: new Date().toISOString(),
           };
-          const tempAssistantMessage: Message = {
-            id: tempAssistantId,
-            role: 'assistant',
-            content: '',
-            createdAt: new Date().toISOString(),
-          };
-          setMessages((prev) => [
-            ...prev,
-            tempUserMessage,
-            tempAssistantMessage,
-          ]);
+          setMessages((prev) => [...prev, tempUserMessage]);
+
+          let tempAssistantId: string | null = null;
 
           const result = await sendMessageToSession(
             sessionId,
             userContent,
             undefined,
             (accumulated, sources) => {
-              // 增量更新占位 assistant message
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === tempAssistantId
-                    ? { ...m, content: accumulated, ragSources: sources }
-                    : m
-                )
-              );
+              if (tempAssistantId === null) {
+                // 第一个 chunk：lazy 注入 assistant bubble
+                tempAssistantId = 'temp-assistant-' + Date.now();
+                const id = tempAssistantId;
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id,
+                    role: 'assistant',
+                    content: accumulated,
+                    createdAt: new Date().toISOString(),
+                    ragSources: sources,
+                  } as Message,
+                ]);
+              } else {
+                const id = tempAssistantId;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === id
+                      ? { ...m, content: accumulated, ragSources: sources }
+                      : m
+                  )
+                );
+              }
             }
           );
 
           if (result) {
             // 流式结束：把 temp IDs 换成真实 IDs
-            setMessages((prev) =>
-              prev.map((m) => {
+            const finalAssistantTempId = tempAssistantId;
+            setMessages((prev) => {
+              let updated = prev.map((m) => {
                 if (m.id === tempUserId) {
                   return {
                     ...m,
@@ -1595,7 +1605,7 @@ export default function AskPage() {
                     createdAt: result.userMessage.createdAt,
                   };
                 }
-                if (m.id === tempAssistantId) {
+                if (finalAssistantTempId && m.id === finalAssistantTempId) {
                   return {
                     ...m,
                     id: result.assistantMessage.id,
@@ -1607,15 +1617,37 @@ export default function AskPage() {
                   };
                 }
                 return m;
-              })
-            );
+              });
+              // 兜底：极快模型可能直接 done 而无 chunk → assistant bubble
+              // 还没创建 → 这里追加上
+              if (!finalAssistantTempId && result.assistantMessage.content) {
+                updated = [
+                  ...updated,
+                  {
+                    id: result.assistantMessage.id,
+                    role: 'assistant',
+                    content: result.assistantMessage.content,
+                    modelId: result.assistantMessage.modelId,
+                    modelName: result.assistantMessage.modelName,
+                    createdAt: result.assistantMessage.createdAt,
+                    ragSources: result.ragSources,
+                  } as Message,
+                ];
+              }
+              return updated;
+            });
             // 注：suggestedActions / IntentRouter 链路 2026-04-30 已删（backend
             // ai-ask.service.ts:46-48 注释），前端这里也不再消费。
           } else {
             // 流式失败：移除临时消息
+            const failedAssistantTempId = tempAssistantId;
             setMessages((prev) =>
               prev.filter(
-                (m) => m.id !== tempUserId && m.id !== tempAssistantId
+                (m) =>
+                  m.id !== tempUserId &&
+                  (failedAssistantTempId
+                    ? m.id !== failedAssistantTempId
+                    : true)
               )
             );
           }
@@ -2317,32 +2349,39 @@ export default function AskPage() {
                   </div>
                 )}
 
-                {/* Single model loading */}
-                {isLoading && !isMixtureMode && (
-                  <div className="flex justify-start">
-                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
-                      <div className="flex items-center gap-2">
-                        <div className="flex gap-1">
-                          <span
-                            className="h-2 w-2 animate-bounce rounded-full bg-purple-500"
-                            style={{ animationDelay: '0ms' }}
-                          />
-                          <span
-                            className="h-2 w-2 animate-bounce rounded-full bg-purple-500"
-                            style={{ animationDelay: '150ms' }}
-                          />
-                          <span
-                            className="h-2 w-2 animate-bounce rounded-full bg-purple-500"
-                            style={{ animationDelay: '300ms' }}
-                          />
+                {/* Single model loading — 2026-05-10 §4：流式期间一旦
+                    temp-assistant 出现就隐藏，避免与流式 bubble 重叠错位 */}
+                {isLoading &&
+                  !isMixtureMode &&
+                  !messages.some(
+                    (m) =>
+                      m.role === 'assistant' &&
+                      m.id.startsWith('temp-assistant-')
+                  ) && (
+                    <div className="flex justify-start">
+                      <div className="rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-gray-100">
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            <span
+                              className="h-2 w-2 animate-bounce rounded-full bg-purple-500"
+                              style={{ animationDelay: '0ms' }}
+                            />
+                            <span
+                              className="h-2 w-2 animate-bounce rounded-full bg-purple-500"
+                              style={{ animationDelay: '150ms' }}
+                            />
+                            <span
+                              className="h-2 w-2 animate-bounce rounded-full bg-purple-500"
+                              style={{ animationDelay: '300ms' }}
+                            />
+                          </div>
+                          <span className="text-sm text-gray-500">
+                            {selectedModelInfo?.name || 'AI'} is thinking...
+                          </span>
                         </div>
-                        <span className="text-sm text-gray-500">
-                          {selectedModelInfo?.name || 'AI'} is thinking...
-                        </span>
                       </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 <div ref={messagesEndRef} />
               </div>

@@ -1029,33 +1029,23 @@ export class AiModelConfigService {
         }
       }
 
-      // 用户持有 provider key 但 admin 把 AIModel 关掉时，仍允许该 user 用自己的 key
-      // 跑该模型 — 这是合法的 BYOK 模式（admin 不愿付费，user 自付）。
-      // 但**不再合成"DB 没有任何 row 的虚拟模型"** — 用户必须显式 UserModelConfig，
-      // 否则 dropdown 只信任 AIModel 表 + UserModelConfig 表两条真源。
-      let userExtraModels: typeof models = [];
-      if (userProviders.size > 0) {
-        const enabledProviders = new Set(
-          models.map((m) => m.provider.toLowerCase()),
-        );
-        const extraProviders = [...userProviders].filter(
-          (p) => !enabledProviders.has(p),
-        );
-        if (extraProviders.length > 0) {
-          const extraWhere: Record<string, unknown> = {
-            isEnabled: false,
-            provider: { in: extraProviders, mode: "insensitive" as const },
-          };
-          if (modelType) {
-            extraWhere.modelType = modelType;
-          }
-          userExtraModels = await this.prisma.aIModel.findMany({
-            where: extraWhere,
-            orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-            select: modelSelect,
-          });
-        }
-      }
+      // 2026-05-10 §1 v2：删除 userExtraModels（disabled AIModel + provider key
+      // 自动捞回）路径。
+      //
+      // 旧逻辑：admin 关掉某 AIModel 后，只要 user 有对应 provider 的
+      // KeyAssignment / UserApiKey，仍把 disabled 行拉回 dropdown 标 isUserKey=true。
+      // 设计意图："admin 不付费，user 自付"。
+      //
+      // 实战问题（用户多次反馈"我没有 R1，为啥还显示"）：用户在 BYOK"我的模型" UI
+      // 看不到 disabled AIModel 行（那个 UI 列 UserModelConfig + KeyAssignment），
+      // 但 AI Ask 下拉里凭空冒出 → 三处不一致 → 困惑 + 选中后运行时 401（admin
+      // 已禁用）。
+      //
+      // 现行（双源根治 v2）：dropdown 只信任两条真源
+      //   1. AIModel where isEnabled=true（admin 主动启用）
+      //   2. UserModelConfig where user 显式添加（"我的模型"页面手动 / 获取按钮）
+      // disabled AIModel 真消失。需要"自付"模式的用户走 UserModelConfig 自配。
+      const userExtraModels: typeof models = [];
 
       const mapModel = (model: (typeof models)[0], isUserKey: boolean) => ({
         id: model.id,
