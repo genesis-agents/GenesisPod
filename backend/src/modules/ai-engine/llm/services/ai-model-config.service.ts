@@ -31,147 +31,6 @@ export interface ResolvedApiKey {
 }
 
 /**
- * BYOK 默认模型配置
- * 当用户配置了 API Key 但数据库中没有对应 provider 的模型时，
- * 使用这些默认配置动态生成模型列表
- */
-const BYOK_DEFAULT_MODELS: Record<
-  string,
-  Array<{
-    name: string;
-    displayName: string;
-    modelId: string;
-    modelType: string;
-    icon: string;
-    color: string;
-    description: string;
-  }>
-> = {
-  anthropic: [
-    {
-      name: "claude-sonnet",
-      displayName: "Claude Sonnet 4",
-      modelId: "claude-sonnet-4-20250514",
-      modelType: "CHAT",
-      icon: "/icons/ai/claude.svg",
-      color: "from-orange-500 to-orange-600",
-      description: "Anthropic Claude Sonnet 4 - 高性能对话模型",
-    },
-    {
-      name: "claude-opus",
-      displayName: "Claude Opus 4",
-      modelId: "claude-opus-4-20250514",
-      modelType: "CHAT",
-      icon: "/icons/ai/claude.svg",
-      color: "from-orange-500 to-orange-600",
-      description: "Anthropic Claude Opus 4 - 最强分析能力",
-    },
-    {
-      name: "claude-haiku",
-      displayName: "Claude Haiku 3.5",
-      modelId: "claude-3-5-haiku-20241022",
-      modelType: "CHAT_FAST",
-      icon: "/icons/ai/claude.svg",
-      color: "from-orange-400 to-orange-500",
-      description: "Anthropic Claude Haiku - 快速响应",
-    },
-  ],
-  openai: [
-    {
-      name: "gpt-4o",
-      displayName: "GPT-4o",
-      modelId: "gpt-4o",
-      modelType: "CHAT",
-      icon: "/icons/ai/openai.svg",
-      color: "from-green-500 to-green-600",
-      description: "OpenAI GPT-4o - 多模态旗舰模型",
-    },
-    {
-      name: "gpt-4o-mini",
-      displayName: "GPT-4o Mini",
-      modelId: "gpt-4o-mini",
-      modelType: "CHAT_FAST",
-      icon: "/icons/ai/openai.svg",
-      color: "from-green-400 to-green-500",
-      description: "OpenAI GPT-4o Mini - 快速经济",
-    },
-  ],
-  google: [
-    {
-      name: "gemini-2-flash",
-      displayName: "Gemini 2.0 Flash",
-      modelId: "gemini-2.0-flash",
-      modelType: "CHAT",
-      icon: "/icons/ai/gemini.svg",
-      color: "from-blue-500 to-purple-600",
-      description: "Google Gemini 2.0 Flash - 快速多模态",
-    },
-    {
-      name: "gemini-2-pro",
-      displayName: "Gemini 2.0 Pro",
-      modelId: "gemini-2.0-pro-exp-02-05",
-      modelType: "CHAT",
-      icon: "/icons/ai/gemini.svg",
-      color: "from-blue-500 to-purple-600",
-      description: "Google Gemini 2.0 Pro - 高级推理",
-    },
-  ],
-  deepseek: [
-    {
-      name: "deepseek-chat",
-      displayName: "DeepSeek Chat",
-      modelId: "deepseek-chat",
-      modelType: "CHAT",
-      icon: "/icons/ai/deepseek.svg",
-      color: "from-blue-500 to-blue-600",
-      description: "DeepSeek Chat - 高性价比对话模型",
-    },
-    {
-      name: "deepseek-reasoner",
-      displayName: "DeepSeek R1",
-      modelId: "deepseek-reasoner",
-      modelType: "CHAT",
-      icon: "/icons/ai/deepseek.svg",
-      color: "from-blue-500 to-blue-600",
-      description: "DeepSeek R1 - 深度推理模型",
-    },
-  ],
-  xai: [
-    {
-      name: "grok-3",
-      displayName: "Grok 3",
-      modelId: "grok-3-latest",
-      modelType: "CHAT",
-      icon: "/icons/ai/grok.svg",
-      color: "from-gray-700 to-gray-800",
-      description: "xAI Grok 3 - 实时信息对话",
-    },
-  ],
-  qwen: [
-    {
-      name: "qwen-max",
-      displayName: "Qwen Max",
-      modelId: "qwen-max",
-      modelType: "CHAT",
-      icon: "/icons/ai/qwen.svg",
-      color: "from-purple-500 to-purple-600",
-      description: "Qwen Max - 通义千问旗舰模型",
-    },
-  ],
-  cohere: [
-    {
-      name: "command-r-plus",
-      displayName: "Command R+",
-      modelId: "command-r-plus",
-      modelType: "CHAT",
-      icon: "",
-      color: "from-indigo-500 to-indigo-600",
-      description: "Cohere Command R+ - 企业级对话模型",
-    },
-  ],
-};
-
-/**
  * 数据库中的 AI 模型配置
  * ★ 所有模型行为完全由数据库配置驱动，消除硬编码
  */
@@ -1170,21 +1029,11 @@ export class AiModelConfigService {
         }
       }
 
-      // Find additional models from user's API key providers that are not already enabled
+      // 用户持有 provider key 但 admin 把 AIModel 关掉时，仍允许该 user 用自己的 key
+      // 跑该模型 — 这是合法的 BYOK 模式（admin 不愿付费，user 自付）。
+      // 但**不再合成"DB 没有任何 row 的虚拟模型"** — 用户必须显式 UserModelConfig，
+      // 否则 dropdown 只信任 AIModel 表 + UserModelConfig 表两条真源。
       let userExtraModels: typeof models = [];
-      const byokGeneratedModels: Array<{
-        id: string;
-        name: string;
-        displayName: string;
-        provider: string;
-        modelId: string;
-        modelType: string;
-        icon: string | null;
-        color: string | null;
-        description: string | null;
-        isDefault: boolean;
-      }> = [];
-
       if (userProviders.size > 0) {
         const enabledProviders = new Set(
           models.map((m) => m.provider.toLowerCase()),
@@ -1193,7 +1042,6 @@ export class AiModelConfigService {
           (p) => !enabledProviders.has(p),
         );
         if (extraProviders.length > 0) {
-          // First, try to find disabled models in database
           const extraWhere: Record<string, unknown> = {
             isEnabled: false,
             provider: { in: extraProviders, mode: "insensitive" as const },
@@ -1206,44 +1054,6 @@ export class AiModelConfigService {
             orderBy: [{ isDefault: "desc" }, { name: "asc" }],
             select: modelSelect,
           });
-
-          // Check which providers still have no models (not in DB at all)
-          const foundProviders = new Set(
-            userExtraModels.map((m) => m.provider.toLowerCase()),
-          );
-          const missingProviders = extraProviders.filter(
-            (p) => !foundProviders.has(p),
-          );
-
-          // Generate BYOK default models for missing providers
-          for (const provider of missingProviders) {
-            const defaultModels = BYOK_DEFAULT_MODELS[provider];
-            if (defaultModels) {
-              const providerDisplayName =
-                provider.charAt(0).toUpperCase() + provider.slice(1);
-              for (const dm of defaultModels) {
-                // Filter by modelType if specified
-                if (modelType && dm.modelType !== modelType) {
-                  continue;
-                }
-                byokGeneratedModels.push({
-                  id: `byok-${provider}-${dm.name}`,
-                  name: dm.name,
-                  displayName: dm.displayName,
-                  provider: providerDisplayName,
-                  modelId: dm.modelId,
-                  modelType: dm.modelType,
-                  icon: dm.icon || null,
-                  color: dm.color || null,
-                  description: dm.description || null,
-                  isDefault: false,
-                });
-              }
-              this.logger.debug(
-                `[getEnabledModelsForFrontend] Generated ${defaultModels.length} BYOK default models for provider: ${provider}`,
-              );
-            }
-          }
         }
       }
 
@@ -1262,25 +1072,6 @@ export class AiModelConfigService {
           model.description || `${model.provider} ${model.displayName}`,
         isDefault: model.isDefault,
         ...(isUserKey ? { isUserKey: true } : {}),
-      });
-
-      // Map BYOK generated models (they don't have all fields from DB)
-      const mapByokModel = (model: (typeof byokGeneratedModels)[0]) => ({
-        id: model.id,
-        dbId: model.id,
-        name: model.displayName,
-        modelName: model.name,
-        provider: model.provider,
-        modelId: model.modelId,
-        modelType: model.modelType,
-        icon: model.icon,
-        iconUrl: this.getIconUrl(model.name, model.provider),
-        color: model.color,
-        description:
-          model.description || `${model.provider} ${model.displayName}`,
-        isDefault: model.isDefault,
-        isUserKey: true, // BYOK models are always user key models
-        isByokGenerated: true, // Mark as dynamically generated
       });
 
       // (provider, modelId) 已被 admin AIModel 或 userExtraModels 覆盖的，不再重复添加 UserModelConfig
@@ -1321,16 +1112,12 @@ export class AiModelConfigService {
         ),
         ...userExtraModels.map((m) => mapModel(m, true)),
         ...userPersonalUnique.map(mapPersonalConfig),
-        ...byokGeneratedModels.map(mapByokModel),
       ];
 
       if (userId) {
         const userKeyModels = result.filter((m) => m.isUserKey);
-        const byokModels = result.filter(
-          (m) => (m as Record<string, unknown>).isByokGenerated,
-        );
         this.logger.debug(
-          `[getEnabledModelsForFrontend] Returning ${result.length} models, ${userKeyModels.length} with isUserKey (${byokModels.length} BYOK generated): [${userKeyModels.map((m) => m.name).join(", ")}]`,
+          `[getEnabledModelsForFrontend] Returning ${result.length} models, ${userKeyModels.length} with isUserKey: [${userKeyModels.map((m) => m.name).join(", ")}]`,
         );
       }
 

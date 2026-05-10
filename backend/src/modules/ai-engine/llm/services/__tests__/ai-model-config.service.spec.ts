@@ -764,11 +764,12 @@ describe("AiModelConfigService", () => {
       expect(models[0].isUserKey).toBeUndefined();
     });
 
-    it("BYOK_DEFAULT_MODELS dynamically generates xai models when user has xai key but no enabled xai model", async () => {
-      // DB 只有 openai enabled，用户配了 xai PERSONAL key
+    it("does NOT synthesize phantom models when user has provider key but no AIModel/UserModelConfig row", async () => {
+      // 2026-05-10：BYOK_DEFAULT_MODELS 兜底已删除（双源根治）。
+      // 仅有 provider key 不再凭空生成模型 — 用户必须显式 UserModelConfig 或 admin 配 AIModel。
       (prismaService.aIModel.findMany as jest.Mock)
-        .mockResolvedValueOnce([mockChatModel]) // 第一次调用：enabled openai
-        .mockResolvedValueOnce([]); // 第二次：disabled xai (none)
+        .mockResolvedValueOnce([mockChatModel]) // enabled openai
+        .mockResolvedValueOnce([]); // disabled xai (none)
       (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
         { provider: "xai" },
       ]);
@@ -778,14 +779,13 @@ describe("AiModelConfigService", () => {
         "user-1",
       );
 
-      // 应该有 openai (system, no isUserKey) + xai grok (BYOK 生成, isUserKey=true)
+      // openai 仍在，但 xai 不应被幻觉出来（DB 无 row + UserModelConfig 无 row）
+      expect(models).toHaveLength(1);
+      expect(models[0].provider.toLowerCase()).toBe("openai");
       const xaiModels = models.filter((m) =>
         m.provider.toLowerCase().includes("xai"),
       );
-      expect(xaiModels.length).toBeGreaterThan(0);
-      xaiModels.forEach((m) => {
-        expect(m.isUserKey).toBe(true);
-      });
+      expect(xaiModels).toHaveLength(0);
     });
 
     it("preserves model ordering (admin isDefault first)", async () => {
@@ -801,13 +801,13 @@ describe("AiModelConfigService", () => {
       expect(models[1].isDefault).toBe(false);
     });
 
-    it("user has key for provider AND BYOK extra → both branches kept distinct", async () => {
-      // openai 同时是 system enabled + 用户配 key（同 provider）
-      // → openai 模型 isUserKey=true
-      // 用户额外配 xai key 但 xai 没 enabled → BYOK_DEFAULT_MODELS 生成
+    it("user has multiple provider keys but only providers with AIModel/UserModelConfig rows show up", async () => {
+      // 2026-05-10：去除 BYOK 合成兜底后的真源行为。
+      // openai：admin AIModel enabled + 用户有 personal key → isUserKey=true
+      // xai：用户有 key 但无任何 AIModel/UserModelConfig row → 不出现
       (prismaService.aIModel.findMany as jest.Mock)
         .mockResolvedValueOnce([mockChatModel])
-        .mockResolvedValueOnce([]); // disabled xai not in DB
+        .mockResolvedValueOnce([]);
       (prismaService.userApiKey.findMany as jest.Mock).mockResolvedValue([
         { provider: "openai" },
         { provider: "xai" },
@@ -821,7 +821,7 @@ describe("AiModelConfigService", () => {
       const openai = models.find((m) => m.provider.toLowerCase() === "openai");
       const xai = models.find((m) => m.provider.toLowerCase().includes("xai"));
       expect(openai?.isUserKey).toBe(true);
-      expect(xai?.isUserKey).toBe(true);
+      expect(xai).toBeUndefined();
     });
 
     it("returns empty array when DB throws on main findMany (defensive)", async () => {
@@ -993,17 +993,12 @@ describe("AiModelConfigService", () => {
   // ==================== getEnabledModelsForFrontend - BYOK paths ====================
 
   describe("getEnabledModelsForFrontend - BYOK coverage", () => {
-    it("should generate BYOK default models for providers not in DB", async () => {
-      // Enabled models: none from anthropic
+    it("should NOT synthesize phantom models for providers absent from DB (双源根治)", async () => {
+      // 2026-05-10：BYOK_DEFAULT_MODELS 兜底已删除 — provider key 存在但 DB 无 row
+      // 时不再合成虚拟模型；用户必须显式 UserModelConfig 或 admin 配 AIModel 才能使用。
       (prismaService.aIModel.findMany as jest.Mock)
-        .mockResolvedValueOnce([mockChatModel]) // enabled models (openai)
-        .mockResolvedValueOnce([]); // disabled anthropic models - none in DB
-
-      const _mockUserApiKeysService = (service as any).userApiKeysService as {
-        getPersonalKey: jest.Mock;
-        getDonatedKey: jest.Mock;
-      };
-      // Simulate user having anthropic key
+        .mockResolvedValueOnce([mockChatModel]) // enabled openai
+        .mockResolvedValueOnce([]); // anthropic 在 DB 完全没 row
       (prismaService as any).userApiKey = {
         findMany: jest.fn().mockResolvedValue([{ provider: "anthropic" }]),
       };
@@ -1013,13 +1008,15 @@ describe("AiModelConfigService", () => {
         "user-with-anthropic",
       );
 
-      // Should include enabled openai model + BYOK anthropic models
-      const byokModels = result.filter(
+      // 仅 openai 入选，anthropic 被正确排除（不应被幻觉出来）
+      const anthropic = result.filter(
+        (m) => m.provider.toLowerCase() === "anthropic",
+      );
+      expect(anthropic).toHaveLength(0);
+      const isByok = result.filter(
         (m) => (m as Record<string, unknown>).isByokGenerated,
       );
-      expect(byokModels.length).toBeGreaterThan(0);
-      // They should be marked with isUserKey
-      byokModels.forEach((m) => expect(m.isUserKey).toBe(true));
+      expect(isByok).toHaveLength(0);
     });
 
     it("should include disabled models from DB for user's provider", async () => {
@@ -1072,26 +1069,21 @@ describe("AiModelConfigService", () => {
       expect(result).toHaveLength(1);
     });
 
-    it("should filter BYOK generated models by modelType", async () => {
-      // User has anthropic key, but filter by IMAGE modelType
+    it("returns empty when modelType filter has no AIModel/UserModelConfig matches even with provider key", async () => {
+      // 2026-05-10：合成兜底已去除，单纯持有 provider key + modelType 过滤无任何真源 → 空。
       (prismaService.aIModel.findMany as jest.Mock)
-        .mockResolvedValueOnce([]) // no enabled models
-        .mockResolvedValueOnce([]); // no disabled models
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
       (prismaService as any).userApiKey = {
         findMany: jest.fn().mockResolvedValue([{ provider: "anthropic" }]),
       };
 
-      // anthropic BYOK models are all CHAT type, filtering by IMAGE should return none from BYOK
       const result = await service.getEnabledModelsForFrontend(
         "IMAGE" as any,
         "user-123",
       );
 
-      const byokModels = result.filter(
-        (m) => (m as Record<string, unknown>).isByokGenerated,
-      );
-      // All anthropic default models are CHAT type, filtering by IMAGE = 0 BYOK models
-      expect(byokModels.length).toBe(0);
+      expect(result).toHaveLength(0);
     });
   });
 
