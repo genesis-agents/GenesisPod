@@ -166,9 +166,8 @@ export class MissionRuntimeShellFramework {
         // 2026-05-10 §3：把 missionId / userId 透到 KernelContext，让下游
         // SpecBasedAgent.electModelOrNull 能从 MissionElectionTracker 取到本
         // mission 已选过的 modelId，触发 diversity 评分（-10 × occurrences）。
-        // 之前 playground / business-team 整条链没 KernelContext.run，
-        // missionId 始终 undefined → tracker 取不到 previouslyElected → 全 grok。
-        // 与 topic-insights / writing / research 现有模式对齐。
+        // 之前 business-team 整条链没 KernelContext.run，missionId 始终
+        // undefined → tracker 取不到 previouslyElected → 模型坍缩。
         () =>
           KernelContext.run(
             {
