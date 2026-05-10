@@ -109,37 +109,72 @@ echo ""
 
 # 3. 变更相关测试（只跑与本次变更相关的测试；无变更则跳过）
 echo "[3/5] 变更相关测试..."
-TEST_LOG=$(mktemp)
+BACKEND_TEST_LOG=$(mktemp)
+FRONTEND_TEST_LOG=$(mktemp)
+BASE_REF="${PRE_PUSH_BASE_REF:-origin/main}"
+BASE_SHA=$(git merge-base "$BASE_REF" HEAD 2>/dev/null || printf "%s" "$BASE_REF")
+BACKEND_CHANGED=$(git diff --name-only "$BASE_SHA" HEAD -- 'backend/**' 2>/dev/null)
+FRONTEND_CHANGED=$(git diff --name-only "$BASE_SHA" HEAD -- 'frontend/**' 2>/dev/null)
+BACKEND_EXIT=0
+FRONTEND_EXIT=0
 
-# 后端：只跑与 origin/main 之后变更文件相关的测试
-# --forceExit：个别测试（SSE / setInterval）会留 open handle，不加会卡很久
-cd backend
-npx jest --changedSince=origin/main --passWithNoTests --forceExit > "$TEST_LOG" 2>&1
-BACKEND_EXIT=$?
-cd ..
+echo "  diff base: $BASE_SHA"
 
-# 前端：只跑与变更相关的测试
-cd frontend
-npx vitest run --changed HEAD~1 --passWithNoTests >> "$TEST_LOG" 2>&1 || true
-cd ..
+if [ -n "$BACKEND_CHANGED" ]; then
+    echo "  backend: running jest --changedSince=$BASE_SHA"
+    cd backend
+    npx jest --changedSince="$BASE_SHA" --passWithNoTests --forceExit > "$BACKEND_TEST_LOG" 2>&1
+    BACKEND_EXIT=$?
+    cd ..
+else
+    echo "  backend: no changed files"
+    printf '%s\n' "No tests found related to backend changes." > "$BACKEND_TEST_LOG"
+fi
+
+if [ -n "$FRONTEND_CHANGED" ]; then
+    echo "  frontend: running vitest --changed $BASE_SHA"
+    cd frontend
+    npx vitest run --changed "$BASE_SHA" --passWithNoTests > "$FRONTEND_TEST_LOG" 2>&1
+    FRONTEND_EXIT=$?
+    cd ..
+else
+    echo "  frontend: no changed files"
+    printf '%s\n' "No tests found related to frontend changes." > "$FRONTEND_TEST_LOG"
+fi
 
 if [ $BACKEND_EXIT -ne 0 ]; then
     echo ""
-    echo "  测试失败！"
+    echo "  backend 变更相关测试失败！"
     echo "── 最后 30 行输出 ──"
-    tail -30 "$TEST_LOG"
+    tail -30 "$BACKEND_TEST_LOG"
     echo ""
-    rm -f "$TEST_LOG"
+    rm -f "$BACKEND_TEST_LOG" "$FRONTEND_TEST_LOG"
     exit 1
 fi
 
-SUMMARY=$(grep -E "^(Tests|Test Suites|No tests found)" "$TEST_LOG" | tail -3)
-if [ -n "$SUMMARY" ]; then
-    echo "$SUMMARY" | while read -r line; do echo "  $line"; done
-else
+if [ $FRONTEND_EXIT -ne 0 ]; then
+    echo ""
+    echo "  frontend 变更相关测试失败！"
+    echo "── 最后 30 行输出 ──"
+    tail -30 "$FRONTEND_TEST_LOG"
+    echo ""
+    rm -f "$BACKEND_TEST_LOG" "$FRONTEND_TEST_LOG"
+    exit 1
+fi
+
+BACKEND_SUMMARY=$(grep -E "^(Tests|Test Suites|No tests found)" "$BACKEND_TEST_LOG" | tail -3)
+FRONTEND_SUMMARY=$(grep -E "^(Tests|Test Suites|No tests found)" "$FRONTEND_TEST_LOG" | tail -3)
+
+if [ -n "$BACKEND_SUMMARY" ]; then
+    echo "$BACKEND_SUMMARY" | while read -r line; do echo "  backend: $line"; done
+fi
+if [ -n "$FRONTEND_SUMMARY" ]; then
+    echo "$FRONTEND_SUMMARY" | while read -r line; do echo "  frontend: $line"; done
+fi
+if [ -z "$BACKEND_SUMMARY" ] && [ -z "$FRONTEND_SUMMARY" ]; then
     echo "  无变更相关测试"
 fi
-rm -f "$TEST_LOG"
+rm -f "$BACKEND_TEST_LOG" "$FRONTEND_TEST_LOG"
 echo ""
 
 echo "============================================================"
