@@ -1,12 +1,13 @@
-# 统一存储生命周期管理架构设计 v1.0
+# 统一存储生命周期管理架构设计 v1.2
 
-> Genesis 平台所有持久化数据的统一生命周期管理（Hot/Warm/Cold/Glacier 四态），沉淀到 `ai-infra/storage` 基础层，业务模块只消费门面，不关心介质和迁移。
+> Genesis 平台所有持久化数据的统一生命周期管理（HOT / WARM / COLD 三态 + DELETED 终态），沉淀到 `ai-infra/storage` 基础层；业务模块只消费门面，不关心介质和迁移。
 
-**状态**: Draft v1.0  
+**状态**: Draft v1.2（v1.1 第 2 轮 4 路评审 3/4 后修订；新发现 1 P0 + 多项 P1）  
 **作者**: Claude Code  
 **日期**: 2026-05-10  
 **对应代码**: `backend/src/modules/ai-infra/storage/`（待 PR-S 系列实施）  
-**当前现状**: 仅有 R2 field-offload（13 个字段级 target，2KB 阈值，24h cron）；mission_events 99MB 等行级数据未纳入
+**当前现状**: 已有 R2 field-offload（**12 个**字段级 target，2KB 阈值，24h cron）；mission_events 99 MB / 90K 行行级数据未纳入  
+**v1.2 vs v1.1**: 修复 Security P0（ACL 列缺失）+ 12 项 P1（详见 §13 修订记录）
 
 ---
 
@@ -14,323 +15,493 @@
 
 ### 1.1 现状盘点（2026-05-10 prod）
 
-| 数据类型                               | 体量              | 当前归属           | 治理状态                                    |
-| -------------------------------------- | ----------------- | ------------------ | ------------------------------------------- |
-| `agent_playground_mission_events`      | 99 MB / 90,689 行 | DB 单表            | ❌ **未治理**，与 mission 同寿命无限累积    |
-| `topic_reports.full_report`            | ≈ 几十 MB         | DB JSONB           | ✅ field offload (R2 `topic-reports/`)      |
-| `dimension_analyses.data_points`       | ≈ 几 MB           | DB JSONB           | ✅ field offload (R2 `dimension-analyses/`) |
-| `research_tasks.result`                | 5,344 行待迁      | DB JSONB           | ✅ field offload (R2 `research-tasks/`)     |
-| `knowledge_base_documents.raw_content` | 20 docs           | DB Text            | ✅ field offload (R2 `kb-documents/`)       |
-| `wiki_page_revisions.body`             | append-only 极冷  | DB Text            | ✅ field offload (R2 `wiki-revisions/`)     |
-| `wiki_diffs.items`                     | 30d 后归档        | DB JSONB           | ✅ field offload (R2 `wiki-diffs/`)         |
-| `agent_playground_research_results`    | 151 行 / 912 KB   | DB                 | ❌ 未治理                                   |
-| `agent_playground_chapter_drafts`      | 877 行 / 4.4 MB   | DB                 | ❌ 未治理                                   |
-| `mission_report_versions.report_full`  | 0 行（新表）      | DB JSONB           | ✅ field offload                            |
-| `notifications`                        | 不详（增长中）    | DB                 | ❌ 未治理                                   |
-| `Redis cache`                          | 散点缓存          | Redis              | ❌ 无 TTL 治理面板                          |
-| 用户头像 / library 资源                | R2 直存           | R2（无 lifecycle） | ❌ 无冷数据归档/删除                        |
+| 数据类型                                                                                                           | 体量              | 当前归属           | 治理状态                                         |
+| ------------------------------------------------------------------------------------------------------------------ | ----------------- | ------------------ | ------------------------------------------------ |
+| `agent_playground_mission_events`                                                                                  | 99 MB / 90,689 行 | DB 单表            | ❌ **未治理**（行级归档模式现注册表装不下）      |
+| `topic_reports.full_report`                                                                                        | 几十 MB           | DB JSONB           | ✅ field offload (R2 `topic-reports/`)           |
+| `dimension_analyses.data_points`                                                                                   | 几 MB             | DB JSONB           | ✅ field offload                                 |
+| `research_tasks.result`                                                                                            | 5,344 行待迁      | DB JSONB           | ✅ field offload                                 |
+| `knowledge_base_documents.raw_content`                                                                             | 20 docs           | DB Text            | ✅ field offload                                 |
+| `wiki_page_revisions.body`                                                                                         | append-only 极冷  | DB Text            | ✅ field offload                                 |
+| `wiki_diffs.items`                                                                                                 | 30d 后归档        | DB JSONB           | ✅ field offload                                 |
+| `agent_playground_missions.{report_full / reconciliation_report / leader_journal / analyst_output / outline_plan}` | 5 字段            | DB JSONB           | ✅ field offload（5 个 target，不是 1 个）       |
+| `mission_report_versions.report_full`                                                                              | 0 行              | DB JSONB           | ✅ field offload                                 |
+| `agent_playground_research_results` / `agent_playground_chapter_drafts` / `notifications`                          | 3 表共 ~5MB       | DB                 | ⚠ v2 候选                                        |
+| Redis cache                                                                                                        | 散点缓存          | Redis              | ⚠ **不在本设计范围**（独立 `cache-governance/`） |
+| 用户头像 / library 资源                                                                                            | R2 直存           | R2（无 lifecycle） | ⚠ v2 候选                                        |
+
+OFFLOAD_TARGETS 实际 **12 个**（v1.0 写 13 个为口径错误）。
 
 ### 1.2 三个根本问题
 
-**问题 A：模式碎片化**
+A. **模式碎片化**：现 OFFLOAD_TARGETS 只支持字段级，行级归档（mission_events 90K 小行 → 1 个 R2 对象）装不下。
 
-现有 OFFLOAD_TARGETS 只支持"字段级搬迁"（单行的某个大字段 → R2，行保留）。但 `mission_events` 是"行级归档"模式（90K 小行按 mission_id 打包成 1 个 R2 对象，行删除）。两种模式不能塞进同一个注册表。
+B. **生命周期单向**：DB → R2 后无回流、无 cold 转换、无合规删除。
 
-**问题 B：数据生命周期缺失**
-
-当前是**单向**：DB → R2，数据进入 R2 就永久留存。缺：
-
-- **温→冷**：R2 内对象老于 N 月，转 R2 Infrequent Access 或 Glacier 策略
-- **冷→删**：超过法律保留期 / 合规保留期 → 删除（含 R2 + DB 主表）
-- **手动召回**：admin 想把某个老 mission 拉回 DB 调试
-
-**问题 C：抽象层缺失**
-
-业务模块（research / playground / library）直接知道 R2 / Prisma JSONB / Redis 在哪。换底（比如未来从 R2 切到 S3 / Cloudflare Durable Objects KV）需要全仓改。应该让业务只调 `storage.get(id) / storage.put(id, data, policy)`，介质由基础层决定。
-
-**问题 D：可观测性 / 可审计缺失**
-
-- 当前 admin/storage 页只能看 DB / R2 总量，看不到**单条数据**的生命周期
-- 没有 `who archived what at when` 审计流（合规要求）
-- 没有 metric / alert（"R2 未启用了 24h" / "归档失败率 > 5%"）
+C. **抽象层缺失**：业务直接 import R2/Prisma；换底要全仓改。
 
 ---
 
-## 2. 设计目标
+## 2. 设计目标与边界
 
-### 2.1 用户故事
+### 2.1 接管 / 不接管
+
+✅ **接管**：
+
+- 字段级冷数据搬迁（FieldOffload）— 12 个现有 target 改造
+- 行级冷数据归档（RowArchive）— 解决 mission_events 99 MB
+- 透明读路径 + DB+R2 mixed merge 查询
+- 合规删除（GDPR）路径在 R2 standard / IA 范围内同步保证
+- 应用层敏感字段加密（v1.2 新增 — 下文 §4.7）
+
+❌ **不接管**：
+
+- HOT 态业务自治（Prisma + Redis）；facade 只接管"已离 DB"的对象
+- GLACIER 态 v1 不实施
+- EDGE_HOT 完全删除
+- Redis cache 治理（拆独立 `ai-infra/cache-governance/`）
+- 跨区复制 / 多活灾备
+- 多 vendor 抽象（v1 仅 Cloudflare R2）
+
+### 2.2 用户故事
 
 ```
-作为 admin，我想：
-  - 一个面板看到所有数据的生命周期阶段（hot/warm/cold/glacier 各占多少）
-  - 手动促 mission 的 events 立即归档（不用等 30 天 cron）
-  - 看到任何一次归档 / 召回的审计记录（时间、操作者、对象、结果）
-  - R2 配额 / Redis 内存 任一指标超阈值时收到告警
-
-作为业务开发者，我想：
-  - 写代码不知道 R2 / Postgres / Redis 在哪
-  - 调 storage.put(id, data, { tier: 'hot', warmAfter: '7d' }) 完事
-  - 调 storage.get(id) 透明拿到内容（哪怕已经在 R2 / Glacier）
-
-作为合规审计员，我想：
-  - 查任意一条用户数据的当前位置 / 历史迁移
-  - 应用户删除请求时，一键删除所有副本（DB + R2 + Glacier + 备份）
+作为 admin：看冷数据分布、手动促归档、查任意对象迁移轨迹、关键失败有告警
+作为业务开发者：调 storage.put / get / scan 不关心介质，schema 有版本演进
+作为合规审计员：查任意数据当前位置 / 历史；GDPR 删除一键删 R2 std + IA + DB
+作为合规官（legal-admin）：可独立设置 / 解除 legal_hold；普通 admin 不能改
 ```
-
-### 2.2 非目标
-
-- **不做实时事务保证**：迁移是 best-effort 异步任务，不接入业务事务
-- **不做跨区复制**：当前 Genesis 单区部署，CDR 不在 v1 范围
-- **不做 query engine**：不提供"按生命周期 SQL"，业务直接用 Prisma 拿主表
 
 ---
 
-## 3. 四态生命周期模型
+## 3. 三态生命周期模型
 
 ### 3.1 状态机
 
 ```
-       ┌──────────┐  warmAfter   ┌──────────┐  coldAfter   ┌──────────┐  glacierAfter  ┌──────────┐
-       │   HOT    │ ───────────→ │   WARM   │ ───────────→ │   COLD   │ ─────────────→ │ GLACIER  │
-       │ (DB +    │              │ (R2 std) │              │ (R2 IA)  │                │ (R2 GLA) │
-       │  Redis)  │              │          │              │          │                │          │
-       └──────────┘              └──────────┘              └──────────┘                └──────────┘
-            ↑                          │                          │                           │
-            │                          │                          │                           │
-            └──── recall (admin) ──────┴──────────────────────────┴───────────────────────────┘
+┌─────────────────┐
+│ HOT (业务自治)  │  ← Prisma + Redis；facade 不接管
+└────────┬────────┘
+         │ archive() 业务终态触发
+         ↓ 或 cron 按 policy.archiveAfter
+┌─────────────────┐
+│  WARM (R2 std)  │ ← facade 接管起点
+└────────┬────────┘
+         │ cron 按 policy.coolAfter
+         ↓
+┌─────────────────┐
+│  COLD (R2 IA)   │
+└────────┬────────┘
+         │ policy.deleteAfter（合规期满 + 非 legal_hold）
+         ↓
+      DELETED
 
-                                       deleteAfter ─────→ DELETED (gone)
+召回：COLD → WARM → HOT (业务侧 prisma.create + storage.delete)
 ```
 
-| 态          | 介质                                     | 访问延迟   | 单价相对值 | 用例                                             |
-| ----------- | ---------------------------------------- | ---------- | ---------- | ------------------------------------------------ |
-| **HOT**     | Postgres + Redis cache                   | < 10 ms    | 100x       | 活跃 mission events / 当前用户数据 / 实时聊天    |
-| **WARM**    | R2 standard                              | 50-200 ms  | 10x        | 完结 < 30d mission / 已发布 report / 月活资源    |
-| **COLD**    | R2 Infrequent Access                     | 200-500 ms | 3x         | 完结 > 30d mission events / 1 年前 wiki revision |
-| **GLACIER** | R2 + Cloudflare lifecycle policy（深存） | 数小时     | 1x         | 法律保留 / 合规归档（5+ 年）                     |
+| 态      | 介质             | 延迟    | 谁管     |
+| ------- | ---------------- | ------- | -------- |
+| HOT     | Postgres + Redis | < 10 ms | 业务自治 |
+| WARM    | R2 standard      | ~50 ms  | facade   |
+| COLD    | R2 IA            | ~200 ms | facade   |
+| DELETED | —                | —       | facade   |
 
-### 3.2 状态转换规则
+### 3.2 状态转换原则
 
-- **同步转换**（业务触发）：`storage.put()` 默认 HOT
-- **异步转换**（cron 触发）：每 24h 扫所有 lifecycle policy，按 age 推进
-- **手动转换**（admin 触发）：admin/storage 面板可强制推进或召回
-- **不可跳级**：HOT → WARM → COLD → GLACIER 单向流；GLACIER → HOT 必须经过 WARM hydrate 中间态
-
-### 3.3 KV 时代的"零态"
-
-> 现代场景下还有"比 HOT 更热"的层：边缘 KV（Cloudflare KV / DO storage / Redis edge replica）。
-
-- **EDGE_HOT**: < 1 ms 边缘读取，用于**纯读**场景（feature flags / 公共配置 / brand settings / 实时计数器）
-- 不在 v1 范围内但保留扩展位（在 `StorageTier` enum 里预留 `'edge'` 值，对应 `IEdgeStorageAdapter`）
+- 业务触发归档：`storage.archive(id, archiver, payload, policy, ownerContext)`
+- Cron 触发降温：每 24h 扫 `next_transition_at < now()` AND `legal_hold = false`
+- Cron 触发合规删除：扫 `delete_after < now()` AND `legal_hold = false`
+- Admin 触发召回：`storage.requestHydrate(id, ownerContext) → ticket`
+- 不可跳级；GDPR delete 是同步路径，不走 cron
+- **读路径不写状态机**
 
 ---
 
-## 4. 抽象层（沉淀到 `ai-infra/storage/`）
+## 4. 抽象层
 
-### 4.1 顶层门面
+### 4.1 顶层目录
 
 ```
 ai-infra/storage/
   facade/
     storage.facade.ts                  ← 业务唯一入口
+    storage.module.ts
     abstractions/
-      storage.contract.ts              ← IStorageFacade 接口定义
-      lifecycle-policy.ts              ← LifecyclePolicy / Tier 类型
+      storage.contract.ts              ← IStorageFacade
+      lifecycle-policy.ts              ← LifecyclePolicy / Tier
+      owner-context.ts                 ← OwnerContext
+      versioned-schema.ts              ← VersionedSchema<T>（v1.2 新增，详见 §4.2）
 
-  lifecycle/                           ← 核心生命周期引擎
-    lifecycle.service.ts
-    lifecycle-manager.ts               ← 状态机
-    abstractions/
-      lifecycle-target.ts              ← LifecycleTarget 接口（field/row 两种）
-    targets/
-      field-offload.target.ts          ← 现有 OFFLOAD_TARGETS 适配
-      row-archive.target.ts            ← mission_events 这种行级归档
-      ttl-cleanup.target.ts            ← Redis cache / 通知等带 TTL 的
+  lifecycle/
+    lifecycle-manager.service.ts
+    abstractions/lifecycle-target.ts   ← LifecycleTarget（仅 Field/Row 两种）
+    targets/field-offload.target.ts    ← 12 个改造
+    targets/row-archive.target.ts      ← mission_events
 
-  adapters/                            ← 介质适配器
-    postgres-hot.adapter.ts            ← Prisma 读写
-    redis-cache.adapter.ts             ← Redis L2 cache
+  archiver/
+    abstractions/archiver.contract.ts  ← IArchiver
+    archiver-registry.ts
+    helpers/sanitize-key-segment.ts    ← path traversal 防护
+
+  adapters/
     r2-warm.adapter.ts                 ← R2 standard
     r2-cold.adapter.ts                 ← R2 IA
-    r2-glacier.adapter.ts              ← R2 lifecycle policy
-    abstractions/
-      tier-adapter.ts                  ← ITierAdapter
+    abstractions/tier-adapter.ts
 
-  governance/                          ← 已存在（field offload）
-    storage-inventory.service.ts       ← 统计面板的数据源
-    storage-offload.registry.ts        ← 改造为 LifecycleTarget 的注册器
-    storage-offload.service.ts         ← 改造为 LifecycleManager 的实施层
+  encryption/                          ← v1.2 新增（§4.7）
+    application-layer-encryptor.ts
+    abstractions/encryptor.contract.ts
 
-  audit/                               ← 新增
-    audit-log.service.ts               ← 每次 transition / recall / delete 写入 storage_audit_log 表
-    abstractions/
-      audit-event.ts
+  governance/                          ← 已存在改造
+    storage-inventory.service.ts       ← 数据源切到 storage_objects
+    storage-offload.registry.ts        ← 改造为 LifecycleTarget 注册器
+    storage-offload.service.ts         ← 改名 lifecycle-manager 兼容 export
 
-  monitoring/                          ← 新增
-    storage-metrics.service.ts         ← 暴露 prom metrics
-    health-check.service.ts            ← health endpoint
+  ❌ monitoring/   ← 不建，用 common/observability/MetricsService
+  ❌ audit/        ← 不建，用 common/audit/（v1.2 见 §4.5）
 ```
 
-### 4.2 业务侧 API（Facade）
+### 4.2 业务侧 API（IStorageFacade）— v1.2 修复 ACL
 
 ```typescript
-// 1. 写入 — 业务关心的只是逻辑 ID + 数据 + 策略
-await storage.put("mission-events:mission-id-xxx", eventArray, {
-  tier: "hot", // 起始 tier
-  contentType: "application/json",
-  policy: "agent-playground-events", // 政策名（lifecycle 注册表里查）
-});
+/**
+ * v1.2 新增：版本化 schema 包装（解决 Reviewer P1-A）
+ * z.ZodType<T> 标准接口无 _currentSchemaVersion，需显式包装
+ */
+export interface VersionedSchema<T> {
+  schema: z.ZodType<T>;
+  schemaVersion: number; // 与 archiver schemaVersion 对齐
+  /** 旧版本数据迁移到当前版本 */
+  migrate?: (legacyPayload: unknown, fromVersion: number) => unknown;
+}
 
-// 2. 读取 — 透明 hydrate（不管在哪，自动拉回内存）
-const events = await storage.get<MissionEvent[]>(
-  "mission-events:mission-id-xxx",
-);
+/**
+ * v1.2 强化：所有读 / 召回 / 删除接口必传 OwnerContext，DB 也持久化（§5.2）
+ */
+export interface OwnerContext {
+  userId: string; // 调用者 user id（JWT 注入）
+  workspaceId?: string; // 调用者所在 workspace（可选，多租户场景）
+  roles?: string[]; // 角色列表（如 ['admin', 'legal-admin']）
+}
 
-// 3. 删除 — 用户行权 / 合规
-await storage.delete("mission-events:mission-id-xxx", {
-  reason: "gdpr-delete",
-});
+interface IStorageFacade {
+  /**
+   * 归档：HOT → WARM 唯一入口；ownerContext 持久化到 storage_objects
+   */
+  archive(
+    id: string,
+    archiverName: string,
+    payload: unknown,
+    policy: string,
+    ownerContext: OwnerContext, // 持久化为 storage_objects.owner_id / workspace_id
+  ): Promise<{ tier: "warm" }>;
 
-// 4. 查询 lifecycle 状态
-const status = await storage.statusOf("mission-events:mission-id-xxx");
-// { tier: 'warm', medium: 'r2-standard', sizeBytes: 1.2e6, transitions: [...] }
+  /**
+   * 透明读 — 强制 VersionedSchema + ownerContext + allowTiers
+   */
+  get<T>(
+    id: string,
+    schema: VersionedSchema<T>, // 不再裸 z.ZodType
+    ownerContext: OwnerContext,
+    options?: { allowTiers?: ("warm" | "cold")[] },
+  ): Promise<T>;
+
+  /**
+   * 集合查询 — DB+R2 mixed merge
+   */
+  scan<T>(
+    scope: { groupBy: string; value: string },
+    archiverName: string,
+    schema: VersionedSchema<T[]>,
+    ownerContext: OwnerContext,
+  ): Promise<T[]>;
+
+  /**
+   * 召回 ticket — v1.2 强化：getHydrateStatus 也要 ownerContext（解决 Security P1-1）
+   */
+  requestHydrate(
+    id: string,
+    ownerContext: OwnerContext,
+  ): Promise<{ ticketId: string; eta: Date }>;
+
+  getHydrateStatus(
+    ticketId: string,
+    ownerContext: OwnerContext, // v1.2 新增 — 防 ticketId 枚举泄露
+  ): Promise<HydrateStatus>;
+
+  /**
+   * 删除 — v1.2 修复：legal_hold + GDPR 不再自动覆盖（解决 Security P1-3）
+   */
+  delete(
+    id: string,
+    ownerContext: OwnerContext,
+    reason: "gdpr" | "user-request" | "admin-purge" | "lifecycle-expired",
+  ): Promise<DeleteResult>; // 可能返回 'pending-legal-review'
+
+  statusOf(
+    id: string,
+    ownerContext: OwnerContext,
+  ): Promise<StorageObjectStatus>;
+}
+
+export type DeleteResult =
+  | { status: "deleted" }
+  | { status: "pending-legal-review"; reason: string; auditEventId: string };
 ```
 
-### 4.3 Lifecycle Policy 定义
+**v1.2 关键修复**：
 
-每个业务在启动时注册自己的 policy，落到 `storage_lifecycle_policies` 表：
+- `VersionedSchema<T>` 替代裸 `z.ZodType<T>` — Reviewer P1-A
+- `getHydrateStatus(ticketId, ownerContext)` — Security P1-1（防信息泄露）
+- `delete()` 返回类型可能为 `pending-legal-review`，不再自动覆盖 legal_hold（Security P1-3）
+
+### 4.3 Archiver 责任反转（v1.2 强化）
+
+```typescript
+interface IArchiver<TScope = Record<string, string>, TPayload = unknown> {
+  name: string;
+  schemaVersion: number;
+
+  /** 业务自取数据（storage 不知 prisma 表名）*/
+  listForArchive(scope: TScope): Promise<TPayload>;
+
+  /** v1.2 新增：业务声明 ID 模板，scan/delete 时按此反查（解决 Architect P1-N2）*/
+  idTemplate(scope: TScope): string; // 如 'mission-events:{missionId}'
+
+  /** 业务定义 R2 key（含 sanitize）*/
+  keyFor(scope: TScope, schemaVersion: number): string;
+
+  /** 业务自实现 mixed merge（DB HOT + R2 archived）*/
+  scanMixed(scope: TScope, hydrate: () => Promise<TPayload>): Promise<TPayload>;
+
+  serialize(payload: TPayload, schemaVersion: number): string;
+  deserialize(raw: string, fromVersion: number, toVersion: number): TPayload;
+
+  /** v1.2 新增：声明本 archiver 写入数据是否含敏感内容 */
+  encryption?: {
+    enabled: true;
+    keyId: string; // 引用 secrets resolver
+  };
+}
+```
+
+> **v1.2 Architect P1-N3 落点**：`scanMixed` 中的 `hydrate` 闭包**不可跨调用缓存**，必须在 facade 内单次创建并由 archiver 立即消费。文档约束 + spec test 验证。
+
+### 4.4 Lifecycle Policy
 
 ```typescript
 storage.registerPolicy({
-  name: 'agent-playground-events',
-  // 触发条件：mission 终态后开始计时
-  hotUntil: { trigger: 'mission.completed', within: '30d' },
-  warmAfter: '30d',     // 30 天后转 R2 standard
-  coldAfter: '90d',     // 90 天后转 R2 IA
-  glacierAfter: '365d', // 1 年后转 Glacier
-  deleteAfter: '5y',    // 5 年后删除（合规保留期）
-
-  // R2 路径模板
-  keyTemplate: 'mission-events/{mission_id}/{archive_at}.jsonl',
-
-  // 行级归档（不是字段）
-  archiveStrategy: 'row-batch',
-  archiveQuery: (prisma) => prisma.agentPlaygroundMissionEvent.findMany({
-    where: { mission: { status: 'COMPLETED', completedAt: { lt: ... } } },
-  }),
-
-  // 审计
+  name: "agent-playground-events",
+  ownerModule: "agent-playground",
+  archiverName: "agent-playground:mission-events",
+  archiveTrigger: { kind: "business-event", eventName: "mission.completed" },
+  archiveAfter: "0d",
+  coolAfter: "90d",
+  deleteAfter: null, // 默认不自动删
+  r2Prefix: "mission-events/",
+  currentSchemaVersion: 1,
   audit: true,
 });
 ```
 
-### 4.4 两种 LifecycleTarget 类型
+### 4.5 审计接入（v1.2 强化 — common/audit）
+
+> **v1.2 Arch-Auditor P1-1/P1-3 修复**：现 `backend/src/common/audit/audit.service.ts` 是**纯内存实现**（line 147 `auditLogs: StoredAuditLog[] = []`，最多 1000 条，无 DB 持久化、无 RULE、无 legal-hold）。命名冲突 + 实现缺口必须正面解决。
+
+```
+common/audit/
+  audit.service.ts                          ← 现存内存版，**重命名** → in-memory-audit.service.ts（向后兼容 alias 1 周）
+  persistent-audit.service.ts               ← v1.2 新增：DB 持久化 + RULE INSERT-only + legal-hold
+  abstractions/
+    audit-event.ts
+  audit-log.module.ts
+```
+
+**Schema**：
+
+```sql
+CREATE TABLE common_audit_log (
+  id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  entity_type     TEXT NOT NULL,                  -- 'storage' | 'story-bible' | 'feature-flag' | 'key-request'
+  entity_id       TEXT NOT NULL,
+  action          TEXT NOT NULL,
+  actor_kind      TEXT NOT NULL,                  -- 'cron' | 'user' | 'system' | 'legal-admin'
+  actor_id        TEXT,
+  payload         JSONB NOT NULL,
+  legal_hold      BOOLEAN NOT NULL DEFAULT false, -- 该审计行本身是否锁定（不被自身 lifecycle 删）
+  occurred_at     TIMESTAMP NOT NULL DEFAULT NOW()
+)
+PARTITION BY RANGE (occurred_at);
+
+-- v1.2 必备：schema 级 INSERT only
+CREATE RULE common_audit_log_no_update ON common_audit_log AS ON UPDATE DO INSTEAD NOTHING;
+CREATE RULE common_audit_log_no_delete ON common_audit_log AS ON DELETE DO INSTEAD NOTHING;
+
+-- 月分区预建 12 个月
+CREATE INDEX common_audit_entity_idx ON common_audit_log (entity_type, entity_id, occurred_at DESC);
+CREATE INDEX common_audit_action_idx ON common_audit_log (action, occurred_at DESC) WHERE action LIKE '%failed%';
+```
+
+**审计读取 RBAC（v1.2 修复 Security 跨域泄露）**：
 
 ```typescript
-interface LifecycleTarget {
-  name: string;
-  policy: LifecyclePolicy;
+class PersistentAuditService {
+  async listByEntityType(
+    entityType: string,
+    requesterRoles: string[],
+  ): Promise<AuditEvent[]> {
+    // entityType 级 RBAC
+    const allowedRoles = AUDIT_ROLE_MAP[entityType];     // 如 'storage' → ['admin', 'legal-admin']
+    if (!requesterRoles.some(r => allowedRoles.includes(r))) {
+      throw new ForbiddenError(`role missing for ${entityType} audit`);
+    }
+    return this.prisma.commonAuditLog.findMany({ where: { entityType }, ... });
+  }
 
-  // 当前状态查询（给 inventory.service 用）
-  collectStats(): Promise<TargetStats>;
+  async export(entityType: string, requesterRoles: string[]): Promise<NDJSON> {
+    // export 必须 admin role + 自身写一条 audit-of-audit
+    if (!requesterRoles.includes('admin')) throw new ForbiddenError();
+    await this.write({ entityType: 'audit-export', action: 'exported', ... });
+    return this.streamNDJSON({ entityType });
+  }
 
-  // 状态推进（给 lifecycle-manager 用）
-  promote(tier: Tier): Promise<TransitionResult>;
-
-  // 召回到上一态
-  recall(id: string, toTier: Tier): Promise<void>;
-}
-
-// 字段级（现有 OFFLOAD_TARGETS 改造）
-interface FieldOffloadTarget extends LifecycleTarget {
-  kind: "field";
-  table: string;
-  field: string;
-  uriField: string;
-  threshold: number; // 单字段大小阈值
-}
-
-// 行级（新增，用于 mission_events）
-interface RowArchiveTarget extends LifecycleTarget {
-  kind: "row-archive";
-  table: string;
-  groupBy: string; // 'mission_id' / 'user_id' / etc.
-  triggerCondition: string; // SQL 谓词
-  deleteAfterArchive: boolean;
-}
-
-// TTL 清理（新增，用于 Redis cache / 通知）
-interface TTLCleanupTarget extends LifecycleTarget {
-  kind: "ttl-cleanup";
-  medium: "redis" | "postgres";
-  retentionDuration: string;
+  /** v1.2 新增：legal-admin 角色专属（解决 Security P1-2）*/
+  async setLegalHold(
+    entityType: string,
+    entityId: string,
+    reason: string,
+    requesterRoles: string[],
+  ): Promise<void> {
+    if (!requesterRoles.includes('legal-admin')) {
+      throw new ForbiddenError('legal-admin role required to set legal hold');
+    }
+    // 写 hold 记录到 common_audit_log（不可篡改）+ 更新 storage_objects.legal_hold = true
+    ...
+  }
 }
 ```
+
+### 4.6 Metrics 接入（现有 common/observability）
+
+```
+storage_objects_total{policy, tier}
+storage_size_bytes{policy, tier}
+storage_transitions_total{from, to, status, reason}
+storage_transition_duration_seconds_bucket{...}
+storage_orphans_deleted_total
+storage_legal_hold_active_total{entity_type}      ← v1.2 新增
+```
+
+### 4.7 应用层加密（v1.2 新增 — 解决 Security 风险）
+
+> **背景**：v1.2 之前归档对象仅靠 Cloudflare R2 SSE 服务端加密，bucket 配置错误时 PII 全裸。Security 提出 v1 至少敏感字段应用层加密。
+
+**适用范围（v1）**：
+
+- `topic_reports.full_report` — 含用户研究内容
+- `agent_playground_mission_events` — 含用户提示词 / AI 对话
+- `wiki_page_revisions.body` — 含用户编辑内容
+- 其余字段（如 `dimension_analyses.data_points`、`research_tasks.result` 中明显是 LLM 输出指标的）暂不加密，单独审计
+
+**实现**（archiver 声明触发）：
+
+```typescript
+// archiver 声明 encryption.enabled = true 的 payload 自动经 ApplicationLayerEncryptor 处理
+class ApplicationLayerEncryptor {
+  // AES-256-GCM；keyId 由 secrets resolver 提供（user-tenant or system-tier）
+  async encrypt(plaintext: string, keyId: string): Promise<EncryptedPayload> {
+    const key = await this.secrets.getKey(keyId);
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+    return {
+      _enc: 'aes-256-gcm',
+      _keyId: keyId,
+      iv: iv.toString('base64'),
+      tag: cipher.getAuthTag().toString('base64'),
+      ciphertext: ciphertext.toString('base64'),
+    };
+  }
+  async decrypt(payload: EncryptedPayload): Promise<string> { ... }
+}
+```
+
+**密钥管理**：复用现有 `secrets/secret-resolver.service.ts`；用户级密钥未来可对接 BYOK（v2 候选 — "删 key 即删数据"，物理删除证明）。
+
+**当前限制（合规明示）**：v1 不提供"物理删除证明"。BYOK + per-user key 是 v2 单独立项，不在本设计范围（Architect P1-N5 修复）。
 
 ---
 
 ## 5. 数据库 schema
 
-### 5.1 `storage_lifecycle_policies`（policy 注册表）
+### 5.1 `storage_lifecycle_policies`
 
 ```sql
 CREATE TABLE storage_lifecycle_policies (
-  id              TEXT PRIMARY KEY,
-  name            TEXT UNIQUE NOT NULL,         -- 'agent-playground-events'
-  kind            TEXT NOT NULL,                -- 'field' | 'row-archive' | 'ttl-cleanup'
-  config          JSONB NOT NULL,               -- 完整 policy 配置
-  enabled         BOOLEAN NOT NULL DEFAULT true,
-  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+  id                      TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  name                    TEXT UNIQUE NOT NULL,
+  owner_module            TEXT NOT NULL,
+  archiver_name           TEXT NOT NULL,
+  config                  JSONB NOT NULL,
+  current_schema_version  INT NOT NULL DEFAULT 1,
+  enabled                 BOOLEAN NOT NULL DEFAULT true,
+  created_at              TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at              TIMESTAMP NOT NULL DEFAULT NOW()
 );
 ```
 
-### 5.2 `storage_objects`（每个对象的位置 + 状态）
+### 5.2 `storage_objects`（v1.2 关键修复 — 加 owner 列）
 
 ```sql
 CREATE TABLE storage_objects (
-  id              TEXT PRIMARY KEY,             -- 业务 ID（mission-events:xxx）
-  policy_name     TEXT NOT NULL REFERENCES storage_lifecycle_policies(name),
-  current_tier    TEXT NOT NULL,                -- 'hot' | 'warm' | 'cold' | 'glacier'
-  medium          TEXT NOT NULL,                -- 'postgres' | 'redis' | 'r2-standard' | 'r2-ia' | 'r2-glacier'
-  uri             TEXT,                         -- R2 key 或 Postgres locator
-  size_bytes      BIGINT,
-  content_type    TEXT,
-  hot_until_at    TIMESTAMP,                    -- HOT 期截止
-  next_transition_at TIMESTAMP,                 -- 下次 cron 检查
-  delete_after    TIMESTAMP,                    -- 应删除时间
-  created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMP NOT NULL DEFAULT NOW(),
+  id                  TEXT PRIMARY KEY,
+  policy_name         TEXT NOT NULL REFERENCES storage_lifecycle_policies(name),
+  current_tier        TEXT NOT NULL,
+  uri                 TEXT NOT NULL,
+  size_bytes          BIGINT,
+  schema_version      INT NOT NULL,
 
-  -- 索引：cron 扫待迁移 / 待删除
-  INDEX (next_transition_at) WHERE current_tier != 'glacier',
-  INDEX (delete_after) WHERE delete_after IS NOT NULL,
-  INDEX (policy_name, current_tier)
-);
+  -- v1.2 新增：ACL 列（解决 Security P0-1 / CWE-863）
+  owner_user_id       TEXT,                       -- archiver 写入时持久化 ownerContext.userId
+  owner_workspace_id  TEXT,                       -- ownerContext.workspaceId（多租户）
+
+  -- v1.2 新增：加密元信息
+  encrypted           BOOLEAN NOT NULL DEFAULT false,
+  encryption_key_id   TEXT,                       -- 引用 secrets resolver
+
+  next_transition_at  TIMESTAMP NOT NULL,
+  delete_after        TIMESTAMP,
+  legal_hold          BOOLEAN NOT NULL DEFAULT false,
+  legal_hold_reason   TEXT,
+  legal_hold_set_by   TEXT,                       -- legal-admin user id
+  legal_hold_set_at   TIMESTAMP,
+
+  -- v1.2 新增：backfill 续传游标
+  backfill_cursor     JSONB,
+
+  created_at          TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMP NOT NULL DEFAULT NOW()
+)
+PARTITION BY RANGE (created_at);
+
+-- v1.2 必备索引：ACL 校验路径（owner 列 + policy 联合）
+CREATE INDEX storage_objects_owner_idx ON storage_objects (owner_user_id, policy_name);
+CREATE INDEX storage_objects_workspace_idx ON storage_objects (owner_workspace_id, policy_name) WHERE owner_workspace_id IS NOT NULL;
+
+-- 现有索引
+CREATE INDEX storage_objects_pending_idx ON storage_objects (next_transition_at)
+  WHERE current_tier = 'warm' AND legal_hold = false;
+CREATE INDEX storage_objects_delete_idx ON storage_objects (delete_after)
+  WHERE delete_after IS NOT NULL AND legal_hold = false;
+CREATE INDEX storage_objects_policy_tier_idx ON storage_objects (policy_name, current_tier);
 ```
 
-### 5.3 `storage_audit_log`（审计流）
+### 5.3 Migration 注意事项
 
-```sql
-CREATE TABLE storage_audit_log (
-  id              TEXT PRIMARY KEY,
-  object_id       TEXT NOT NULL,
-  policy_name     TEXT NOT NULL,
-  action          TEXT NOT NULL,                -- 'create' | 'transition' | 'recall' | 'delete' | 'failed'
-  from_tier       TEXT,
-  to_tier         TEXT,
-  triggered_by    TEXT NOT NULL,                -- 'cron' | 'admin:user-uuid' | 'system'
-  reason          TEXT,                         -- 'age-threshold' | 'manual' | 'gdpr-delete'
-  size_bytes      BIGINT,
-  duration_ms     INT,
-  error           TEXT,
-  occurred_at     TIMESTAMP NOT NULL DEFAULT NOW(),
-
-  INDEX (object_id, occurred_at DESC),
-  INDEX (occurred_at DESC),
-  INDEX (action, occurred_at DESC) WHERE action = 'failed'
-);
-```
+- 全部 `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`
+- 月分区预建 12 个月（手写 SQL）
+- 避免 `CREATE INDEX CONCURRENTLY`（已知 prisma migrate deploy 静默回滚坑）
+- `audit_log` PARTITION BY RANGE(occurred_at) 月分区在 PR-A0b 同步建立（不能等表大了再加）
 
 ---
 
@@ -339,65 +510,179 @@ CREATE TABLE storage_audit_log (
 ### 6.1 cron 主循环
 
 ```typescript
-@Injectable()
-class LifecycleManagerService {
-  // 每 24h 跑一次（pg_advisory_lock 多实例同步）
-  async runOnce() {
-    for (const policy of await this.policies.listEnabled()) {
-      const target = this.targets.resolve(policy.kind);
-      const stats = await target.collectStats(policy);
+async runOnce() {
+  const policies = await this.prisma.storageLifecyclePolicy.findMany({ where: { enabled: true } });
+  const locked = await acquireAdvisoryLock();
+  if (!locked) return;
 
-      // 推进：HOT 过期 → WARM
-      const hotExpired = await this.objects.findHotExpired(policy.name);
-      for (const obj of hotExpired) {
-        await this.transition(obj, 'warm');
-      }
+  try {
+    for (const policy of policies) {
+      const due = await this.findDueForCool(policy);
+      for (const obj of due) await this.transition(obj, 'cold');
 
-      // WARM → COLD / COLD → GLACIER 同理
-
-      // 删除超期对象
-      const expired = await this.objects.findDeleteExpired(policy.name);
+      const expired = await this.findDueForDelete(policy);
+      // legal_hold 直接在 SQL WHERE 过滤（不依赖应用层判断）
       for (const obj of expired) {
-        await this.delete(obj);
+        await this.deleteInternal(obj, 'lifecycle-expired');
       }
     }
-  }
-
-  private async transition(obj: StorageObject, toTier: Tier) {
-    const start = Date.now();
-    try {
-      // 1. 拷贝到目标 tier
-      const newUri = await this.adapters[toTier].copy(obj);
-      // 2. 更新 storage_objects 表
-      await this.objects.update(obj.id, { current_tier: toTier, uri: newUri, ... });
-      // 3. 删除原 tier 对象
-      await this.adapters[obj.current_tier].delete(obj);
-      // 4. 写审计
-      await this.audit.write({ action: 'transition', from: obj.current_tier, to: toTier, ... });
-    } catch (e) {
-      await this.audit.write({ action: 'failed', error: e.message, ... });
-      // 不抛 — 单对象失败不阻塞其他
-    }
+    await this.orphanScanner.scan();
+  } finally {
+    await releaseAdvisoryLock();
   }
 }
 ```
 
-### 6.2 透明读路径（`storage.get`）
+### 6.2 transition 序列（commit-then-delete + audit pending）
 
 ```typescript
-async get<T>(id: string): Promise<T | null> {
-  const obj = await this.objects.findById(id);
-  if (!obj) return null;
+async transition(obj: StorageObject, toTier: Tier) {
+  const auditId = await this.audit.write({
+    entityType: 'storage',
+    entityId: obj.id,
+    action: 'transition.pending',
+    payload: { from: obj.current_tier, to: toTier },
+  });
 
-  const adapter = this.adapters[obj.current_tier];
-  const content = await adapter.read(obj);
+  try {
+    const newUri = await this.adapters[toTier].copyIfNotExists(obj.uri); // v1.2: 显式幂等接口
+    await this.prisma.storageObject.update({
+      where: { id: obj.id },
+      data: { current_tier: toTier, uri: newUri, updated_at: new Date() },
+    });
+    await this.adapters[obj.current_tier].delete(obj.uri);
+    await this.audit.write({ entityType: 'storage', entityId: obj.id, action: 'transition.success', payload: { auditPendingId: auditId, ...} });
+  } catch (e) {
+    await this.audit.write({ entityType: 'storage', entityId: obj.id, action: 'transition.failed', payload: { auditPendingId: auditId, error: e.message } });
+    // 不抛 — 单对象失败不阻塞其他
+  }
+}
+```
 
-  // 命中冷数据 → 自动 promote 一档（"刚被读过的数据总是要再读"）
-  if (obj.current_tier === 'cold') {
-    void this.lifecycleManager.recall(id, 'warm'); // fire-and-forget
+> **Reviewer P1-D 落点**：`copyIfNotExists` 是显式 adapter 接口；R2 原生不支持 if-not-exists copy，adapter 内部用 `headObject` 检查 + `putObject`（两步幂等，竞争窗口由 advisory lock 收敛）。
+
+### 6.3 Orphan Scanner
+
+继承 v1.1 设计，每次扫一批 R2 对象（1000）按 prefix 反查 storage_objects：
+
+- DB 不存在 → 删
+- DB 存在但 URI 与 R2 key 不匹配（旧 URI 残留）→ 删
+
+### 6.4 透明读路径（v1.2 ACL 强化）
+
+```typescript
+async get<T>(id, schema, ownerContext, options) {
+  const obj = await this.prisma.storageObject.findFirst({ where: { id } });
+  if (!obj) throw new NotFoundError(id);
+
+  // v1.2: 真实 ACL 检查（基于 storage_objects.owner_user_id / workspace_id）
+  await this.acl.assertCanRead(obj, ownerContext);
+
+  const allowTiers = options?.allowTiers ?? ['warm'];
+  if (!allowTiers.includes(obj.current_tier)) {
+    throw new NeedsHydrationError(id, obj.current_tier);
   }
 
-  return JSON.parse(content);
+  let raw = await this.adapters[obj.current_tier].read(obj.uri);
+
+  // v1.2: 应用层解密（如果 archived 时启用）
+  if (obj.encrypted) {
+    raw = await this.encryptor.decrypt(JSON.parse(raw));
+  }
+
+  const archiver = this.archivers.get(obj.policy.archiverName);
+  const data = archiver.deserialize(raw, obj.schema_version, schema.schemaVersion);
+
+  return schema.schema.parse(data);
+}
+
+// v1.2 ACL 实现核心
+class StorageAclService {
+  async assertCanRead(obj: StorageObject, ctx: OwnerContext): Promise<void> {
+    // 1. 同 user 直读
+    if (obj.owner_user_id === ctx.userId) return;
+    // 2. 同 workspace 且 caller 是 workspace member（业务 RBAC 上层校验）
+    if (obj.owner_workspace_id && obj.owner_workspace_id === ctx.workspaceId) return;
+    // 3. admin role 可读所有（含 audit 审查）
+    if (ctx.roles?.includes('admin')) return;
+    throw new ForbiddenError(`user ${ctx.userId} cannot read storage object ${obj.id}`);
+  }
+
+  async assertCanDelete(obj: StorageObject, ctx: OwnerContext): Promise<void> {
+    // GDPR / user-request 必须是 owner；admin-purge 必须是 admin role
+    if (obj.owner_user_id === ctx.userId) return;
+    if (ctx.roles?.includes('admin')) return;
+    throw new ForbiddenError();
+  }
+}
+```
+
+### 6.5 Mixed-Source Scan（v1.2 修复 ACL null guard）
+
+```typescript
+async scan<T>(scope, archiverName, schema, ownerContext) {
+  const archiver = this.archivers.get(archiverName);
+  const expectedId = archiver.idTemplate(scope);  // v1.2: 业务侧明确模板，不靠 startsWith
+  const obj = await this.prisma.storageObject.findFirst({ where: { id: expectedId } });
+
+  // v1.2 修复 P1-C：obj 为 null（未归档）时跳过 storage 层 ACL，由业务方 archiver 在 scanMixed 内自行校验 scope 归属
+  if (obj) {
+    await this.acl.assertCanRead(obj, ownerContext);
+  }
+
+  const result = await archiver.scanMixed(scope, async () => {
+    if (!obj) return [];
+    let raw = await this.adapters[obj.current_tier].read(obj.uri);
+    if (obj.encrypted) raw = await this.encryptor.decrypt(JSON.parse(raw));
+    return archiver.deserialize(raw, obj.schema_version, schema.schemaVersion);
+  });
+
+  return schema.schema.parse(result);
+}
+```
+
+### 6.6 GDPR / 删除路径（v1.2 修复 legal_hold）
+
+```typescript
+async delete(id, ownerContext, reason): Promise<DeleteResult> {
+  const obj = await this.prisma.storageObject.findFirst({ where: { id } });
+  if (!obj) return { status: 'deleted' };
+
+  await this.acl.assertCanDelete(obj, ownerContext);
+
+  // v1.2 修复 Security P1-3：legal_hold 不再被 GDPR 自动覆盖
+  if (obj.legal_hold) {
+    const eventId = await this.audit.write({
+      entityType: 'storage',
+      entityId: id,
+      action: 'delete.legal-hold-blocked',
+      actorKind: 'user',
+      actorId: ownerContext.userId,
+      payload: { reason, legalHoldReason: obj.legal_hold_reason },
+    });
+    // 通知合规审批通道
+    await this.notify.toLegalAdmin({
+      kind: 'gdpr-vs-legal-hold-conflict',
+      objectId: id,
+      reason,
+      auditEventId: eventId,
+    });
+    return { status: 'pending-legal-review', reason: 'legal-hold-active', auditEventId: eventId };
+  }
+
+  // v1.2 实装承诺：同时跑 orphan scan for 该 id 命中的所有 prefix（解决 Reviewer P1-B）
+  await this.orphanScanner.scanForObject(obj);
+
+  try {
+    await this.adapters[obj.current_tier].delete(obj.uri);
+    await this.prisma.storageObject.delete({ where: { id } });
+    await this.audit.write({ entityType: 'storage', entityId: id, action: 'deleted', payload: { reason, formerUri: obj.uri } });
+    return { status: 'deleted' };
+  } catch (e) {
+    // v1.2 修复 Security P0-1（Round 2 残留）：R2 删成功 + DB 删失败的半完成路径
+    await this.audit.write({ entityType: 'storage', entityId: id, action: 'delete.partial', payload: { reason, error: e.message, formerUri: obj.uri } });
+    throw e;
+  }
 }
 ```
 
@@ -405,105 +690,122 @@ async get<T>(id: string): Promise<T | null> {
 
 ## 7. 可视化 / 可管理 / 可监控 / 可审计
 
-### 7.1 可视化（admin/storage 升级）
+### 7.1 可视化（admin/storage UI — v1.2 修正 tab 数）
 
-新增 4 个 tab（在现有的 Pipeline / Catalog / DB Footprint / Trend 基础上）：
+**最终 6 tab = 3 现有 + 3 新增**：
 
-| Tab                          | 内容                                                                |
-| ---------------------------- | ------------------------------------------------------------------- |
-| **Lifecycle Overview**（新） | 4 个大饼：Hot / Warm / Cold / Glacier 各占多少（按 size + by 数量） |
-| **Policies**（新）           | policy 列表 + 启用/禁用开关 + 命中对象数                            |
-| **Objects**（新）            | 单对象搜索（输入 ID 看完整轨迹）                                    |
-| **Audit Log**（新）          | 时间倒序的 transition / recall / delete 流，带筛选                  |
-| Pipeline                     | 现有：field offload 字段进度                                        |
-| DB Footprint                 | 现有：DB 表占用                                                     |
-| Trend                        | 现有                                                                |
+| 现有保留                       | 新增                                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| Pipeline（field offload 进度） | Lifecycle Overview（取代 DB Footprint，数据切到 storage_objects 表） |
+| Catalog（R2 prefix 实际分布）  | Policies（policy 列表 + 启用 / 命中数 / last cron）                  |
+| Trend（30d 体量走势）          | Objects（单对象 ID 搜索 + tier 时序 + audit 轨迹）                   |
 
-### 7.2 可管理
+**移除**：DB Footprint（被 Lifecycle Overview 取代，数据来源同源）
 
-- **手动促转**：单对象 / 单 policy 立即推进一档
-- **手动召回**：把 R2 对象拉回 DB（Hot），用于 admin 调试
-- **policy 编辑**：DB 里改 policy 的 `warmAfter` / `coldAfter`，下一轮 cron 生效（不要在文件里硬编码）
-- **暂停 policy**：紧急时单击禁用某 policy（事故隔离）
+### 7.2 可管理（v1.2 RBAC 细分）
+
+| 操作                                 | 角色                                |
+| ------------------------------------ | ----------------------------------- |
+| 看面板 / 看 audit                    | `admin`                             |
+| 单对象推转 / 召回                    | `admin`                             |
+| policy 启用 / 禁用                   | `admin`                             |
+| policy 编辑（warmAfter / coolAfter） | `admin`                             |
+| **强制 delete object**               | `admin`                             |
+| **设置 / 解除 legal_hold**           | `legal-admin`（独立 role）          |
+| **审计导出**                         | `admin` + 自身写一条 audit-of-audit |
+
+新建 destructive endpoints 必须 `JwtAuthGuard + @Roles(...)`，不再用现有 `StorageGovernanceController` 的 `@Public + x-admin-key` 模式（Round 1 Security P1）。
 
 ### 7.3 可监控
 
-暴露 Prometheus metrics（`/metrics` 端点）：
+接入现有 `common/observability/MetricsService`，告警规则在现有 alert 配置：
 
-```
-storage_objects_total{policy="agent-playground-events", tier="warm"} 87
-storage_size_bytes{policy="agent-playground-events", tier="warm"} 99000000
-storage_transitions_total{from="hot", to="warm", status="success"} 1234
-storage_transitions_total{from="hot", to="warm", status="failed"} 5
-storage_transition_duration_seconds_bucket{...}
-storage_recall_total{...}
-storage_orphans_deleted_total
-```
-
-告警规则（Grafana / Railway alerts）：
-
-- `rate(storage_transitions_total{status="failed"}[1h]) > 0.05` → 迁移失败率 > 5%
-- `storage_size_bytes{tier="hot"} > 5_000_000_000` → DB 热数据 > 5GB（提前预警）
-- `time() - storage_last_run_timestamp > 86400 * 1.5` → cron 36h 没跑
+- 迁移失败率 1h > 5% → warn
+- HOT 数据 > 5 GB → warn
+- cron 36h 未跑 → critical
+- legal_hold 数量月增 > 50 → 通知 legal-admin
 
 ### 7.4 可审计
 
-`storage_audit_log` 表全量记录：
-
-- **不可修改**：表设为只允许 INSERT，没有 UPDATE/DELETE 权限
-- **保留期**：审计日志本身按 lifecycle 治理（5 年保留 → glacier → 删除），自举
-- **导出 API**：`GET /admin/storage/audit/export?from=...&to=...&objectId=...&action=...` → CSV / NDJSON
+- 所有 transition / hydrate / delete / orphan / legal-hold-set / audit-export 写 `common_audit_log`
+- schema-level RULE INSERT only + spec test 断言
+- 保留期 7 年（明示依据：金融行业最严格 + GDPR 处理记录 Article 30）
+- entityType 级 RBAC（admin 看 storage / story-bible 等不同业务域可独立配 role）
+- legal-admin 能 set 但不能 unset 别人设的 hold（spec test 验证）
 
 ---
 
-## 8. 落地路径（PR 序列）
+## 8. PR 实施序列（v1.2 重排）
 
-### Phase 1：抽象层重构（不改业务）
+### Phase 0：项目级前置（v1.2 拆细）
 
-| PR        | 内容                                                                                                  | 工作量 |
-| --------- | ----------------------------------------------------------------------------------------------------- | ------ |
-| **PR-S1** | 新建 `ai-infra/storage/lifecycle/` + `audit/` + `monitoring/` 目录 + abstractions（接口定义，无实现） | 0.5 天 |
-| **PR-S2** | 数据库 schema（3 张新表 + migration）                                                                 | 0.5 天 |
-| **PR-S3** | `StorageFacade` + `LifecycleManagerService` 骨架 + cron skeleton（不接业务）                          | 1 天   |
-| **PR-S4** | 现有 `storage-offload.service.ts` 改造为 `FieldOffloadTarget`（向后兼容，零业务改动）                 | 1 天   |
+| PR          | 内容                                                                                                                                                                      | 工作量 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **PR-A0a**  | `common/audit/abstractions/`（IAuditLogService 接口契约 + AuditEvent 类型）                                                                                               | 0.5 天 |
+| **PR-A0b**  | `PersistentAuditService` 实装（DB 表 + RULE + 月分区 + entityType RBAC + legal-hold）；现 `audit.service.ts` 重命名为 `in-memory-audit.service.ts`（向后兼容 alias 1 周） | 2 天   |
+| **PR-A0.5** | `StoryBibleAuditLog` / `FeatureFlagAuditLog` 接入 `PersistentAuditService`（DB 迁移脚本 + caller 修改 + 回归 spec）                                                       | 1.5 天 |
 
-### Phase 2：mission_events 接入（关键收益）
+**Phase 0 合计：4 天**（v1.1 估 1.5 天，依据 arch-auditor 实读 audit.service.ts 修正）
 
-| PR        | 内容                                                                         | 工作量 |
-| --------- | ---------------------------------------------------------------------------- | ------ |
-| **PR-S5** | `RowArchiveTarget` 实现 + mission_events policy 注册（30d 阈值）             | 1 天   |
-| **PR-S6** | `MissionEventsService` 改造：`findByMission` 调用 `storage.get` 透明 hydrate | 1 天   |
-| **PR-S7** | 一次性 backfill：把当前 90K 老 events 立刻归档到 R2                          | 0.5 天 |
+### Phase 1：抽象骨架
 
-### Phase 3：可观测性补齐
+| PR             | 内容                                                                                                                                    | 工作量         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| **PR-S1**      | 目录 + abstractions（StorageFacade / OwnerContext / IArchiver / VersionedSchema / LifecycleTarget / IEncryptor）+ ArchiverRegistry 骨架 | 1 天           |
+| **PR-S2**      | DB migration（storage_lifecycle_policies / storage_objects + owner 列 + 月分区）                                                        | 1 天           |
+| **PR-S3**      | LifecycleManagerService 骨架 + R2WarmAdapter / R2ColdAdapter（含 copyIfNotExists 幂等）                                                 | 1.5 天         |
+| **PR-S4a-S4d** | 12 个 OFFLOAD_TARGETS 拆 4 PR 改造（每 PR 3 个 target，避免 god-class guard 拦）                                                        | 4 × 0.5 = 2 天 |
+| **PR-S5**      | RowArchiveTarget + sample IArchiver                                                                                                     | 1 天           |
 
-| PR         | 内容                                                                                | 工作量 |
-| ---------- | ----------------------------------------------------------------------------------- | ------ |
-| **PR-S8**  | `storage_audit_log` 接入 + 所有 transition / recall / delete 写审计                 | 0.5 天 |
-| **PR-S9**  | `StorageMetricsService` Prometheus metrics + health check endpoint                  | 0.5 天 |
-| **PR-S10** | admin/storage UI 升级：Lifecycle Overview / Policies / Objects / Audit Log 4 个 tab | 2 天   |
+**Phase 1 合计：6.5 天**
 
-### Phase 4：扩展接入（按需）
+### Phase 2：业务接入 + 加密 + 监控
 
-- `notifications` → policy `'notifications-30d-archive'`
-- `library/youtube_video_transcripts` 老视频字幕 → policy
-- 用户头像 / library 资源 → R2 lifecycle policy（年龄超 1 年迁 IA）
-- Redis cache 治理面板（TTLCleanupTarget 启动）
+| PR          | 内容                                                                                                                          | 工作量 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------- | ------ |
+| **PR-S6a**  | MissionEventsArchiver 实现（含 idTemplate / scanMixed / encryption.enabled）+ 注册                                            | 1.5 天 |
+| **PR-S6b**  | MissionEventsService 改造：`findByMission` 调 `storage.scan`；活跃 mission 走原 in-memory + DB（互斥条件 + spec test）        | 2.5 天 |
+| **PR-S7a**  | Backfill dry-run 脚本（独立 advisory lock key）                                                                               | 0.5 天 |
+| **PR-S7b**  | Backfill 正式（分批 + 续传游标 in storage_objects.backfill_cursor + 失败可恢复）                                              | 1 天   |
+| **PR-S8**   | Audit 接入：所有 transition / hydrate / delete / orphan / archive / legal-hold-set / audit-export 写 `PersistentAuditService` | 1 天   |
+| **PR-S9**   | Metrics 注册 + 健康检查 + 告警规则                                                                                            | 0.5 天 |
+| **PR-S9.5** | ApplicationLayerEncryptor 实现 + topic_reports / mission_events / wiki revisions 接入加密                                     | 1.5 天 |
 
-**总工作量估计**：Phase 1+2+3 约 **8.5 工作日**（含本 design + 实施 + 测试 + UI）
+**Phase 2 合计：8.5 天**
+
+### Phase 3：admin UI + RBAC
+
+| PR         | 内容                                                                                        | 工作量 |
+| ---------- | ------------------------------------------------------------------------------------------- | ------ |
+| **PR-S10** | admin UI 新增 3 tab（Lifecycle Overview / Policies / Objects）；移除 DB Footprint；6 tab 总 | 4 天   |
+| **PR-S11** | destructive endpoints + JwtAuthGuard + Roles（admin / legal-admin 二级）+ legal-hold UI     | 2 天   |
+
+**Phase 3 合计：6 天**
+
+### **总工作量：Phase 0+1+2+3 = 25 工作日**（v1.1 估 17.5 天偏乐观，主因 Phase 0 audit 重建）
 
 ---
 
 ## 9. 风险与对策
 
-| 风险                                | 影响                    | 对策                                                                   |
-| ----------------------------------- | ----------------------- | ---------------------------------------------------------------------- |
-| 透明 hydrate 失败 → 业务读到 null   | mission replay 突然空白 | adapter 失败时抛具体错（404 / timeout），业务侧 surface 错误，不静默吞 |
-| cron 跨 pod 重复跑                  | 数据重复迁/双写         | 现有 `pg_advisory_lock` 模式继承                                       |
-| backfill 90K events 一次跑挂掉      | 中途状态混乱            | 分批（每批 1000 行）+ 每批落 audit 记录 + 失败可断点续传               |
-| policy 写错（warmAfter < hotUntil） | 数据被立即归档          | policy 注册时 zod 校验 + 单元测试                                      |
-| R2 配额超                           | 上传失败                | metric 告警 + 业务侧 fallback 留 DB（不阻塞写）                        |
-| GDPR 删除请求                       | 必须删除所有副本        | `storage.delete` 同步删 DB + R2 + 审计落"reason: gdpr"，不入 cron 异步 |
+| 风险                                 | 影响                  | 对策                                                                               |
+| ------------------------------------ | --------------------- | ---------------------------------------------------------------------------------- |
+| 透明 hydrate 失败 → 业务读 null      | mission replay 假成功 | adapter 失败抛具体错（404 / timeout）；facade 不静默吞                             |
+| transition 双写孤儿                  | DB+R2 不一致          | §6.2 commit-then-delete + audit pending + §6.3 orphan scanner                      |
+| GDPR delete + legal_hold 冲突        | 合规进退两难          | §6.6 抛 `pending-legal-review` 通知合规人工决策，不自动                            |
+| Cloudflare 内部副本                  | 物理删除不可证        | v1 文档明示限制；BYOK 物理删除证明列为 v2 单独立项（不在 backlog 含混留）          |
+| Cron pod SIGKILL                     | 半完成 transition     | audit pending + 下次 cron + orphan scanner                                         |
+| backfill 90K 一次跑挂                | 状态混乱              | dry-run + 分批续传 + 独立 lock                                                     |
+| policy 写错                          | 数据立即降温          | zod 校验 + spec test                                                               |
+| R2 配额超                            | 上传失败              | metric 告警 + adapter 抛 quota error                                               |
+| R2 key path traversal                | 跨租户                | `sanitizeKeySegment` helper + spec test                                            |
+| 跨租户 IDOR                          | 数据泄露              | `storage_objects.owner_user_id` + `assertCanRead` 真实比对 + spec test             |
+| ticketId 枚举                        | 信息泄露              | `getHydrateStatus` 强制 `ownerContext` 校验                                        |
+| legal-admin 滥用                     | 越权                  | legal-admin 不能 unset 别人 set 的 hold；所有变更写 audit                          |
+| 应用层加密 key 丢失                  | 归档对象不可读        | secrets resolver 多副本 + 启动时 boot-test 解密一条 + alert                        |
+| audit 表跨业务域看见                 | 合规违规              | entityType 级 RBAC + admin 导出再写一条 audit-of-audit                             |
+| 单 vendor R2 故障                    | WARM/COLD 不可用      | SLA: 24h 内业务 fallback 走 DB（已归档对象返回 NeedsHydrationError，业务 surface） |
+| `common/audit/AuditService` 命名冲突 | 现有 caller 断        | 重命名 → `InMemoryAuditService` + 1 周向后兼容 alias，spec 双覆盖                  |
 
 ---
 
@@ -511,92 +813,111 @@ storage_orphans_deleted_total
 
 ### 10.1 层级归属
 
-按 CLAUDE.md L1-L4 分层：
-
 ```
-L4 Open API
-L3 AI Apps（research / playground / library）
-                ↓ 调
-L2.5 AI Harness（agent runtime）— 不直接消费 storage，通过 engine 桥
-                ↓ 调
-L2 AI Engine
-                ↓ 调
-L1 Infrastructure ← ★ storage facade 落在这里
+L4 Open API / L3 AI Apps                              ← 调 storage facade + 实现 IArchiver
+              ↓
+L2.5 AI Harness / L2 AI Engine                        ← 不直接消费
+              ↓
+L1 ai-infra/storage（facade + lifecycle + adapters + encryption）
+       │
+       ├ 依赖 L1 common/audit （PR-A0a/b 前置）
+       ├ 依赖 L1 common/observability/MetricsService
+       └ 依赖 L1 common/secrets （key resolver）
 ```
 
-业务（research / playground）import `from '@/modules/ai-infra/storage'`，绝不 import `from '@/modules/ai-infra/storage/adapters/r2-warm.adapter'` 直接路径。
+### 10.2 端口模式（合法 adapter）
 
-### 10.2 与已有规范的兼容
+业务方实现 `IArchiver` 注册到 `ArchiverRegistry` —— 与 SkillRegistry / ToolRegistry 一致；不违反 ESLint `no-restricted-imports`。
 
-- **Karpathy 简洁原则**：v1 只做 4 态，不做 EDGE / multi-region；预留接口位即可
-- **MECE 原则**：lifecycle 只在 ai-infra/storage，不在 ai-engine 或 ai-harness 重新实现
-- **不绕 facade**：业务一律走 `storage.facade.ts`，禁止穿透 `lifecycle/` 内部
-- **TaskProfile 风格**：policy 用语义化字段（warmAfter: '30d'）而非硬编码秒数
+### 10.3 现有代码迁移路径
 
-### 10.3 与现有代码的迁移路径
-
-- 现 `OFFLOAD_TARGETS` 13 个 target 一对一对应到 v1 的 `FieldOffloadTarget` 注册条目
-- 现 `StorageOffloadService.runOnce()` 改名为 `LifecycleManagerService.runOnce()`，内部对 field-target 行为不变
-- 现 `storage-inventory.service.ts` 数据源改为查 `storage_objects` 表（不再自己 SQL 算）
-- 现 admin/storage UI 4 tab 保留 + 上面新增 4 tab
+- 现 12 个 OFFLOAD_TARGETS → PR-S4a-S4d 拆 4 PR 改造
+- 现 `StorageOffloadService.runOnce` → 改名 `LifecycleManagerService.runOnce`，alias export 兼容
+- 现 `storage-inventory.service.ts` → 切到 `storage_objects` 表（双轨并跑 1 周校验）
+- 现 `MissionEventBuffer` in-memory + DB → PR-S6b 显式区分双路径
+- 现 `common/audit/audit.service.ts`（内存版）→ 重命名 + 新建 `PersistentAuditService`
 
 ---
 
-## 11. 验证标准（实施后必须满足）
+## 11. 验证标准（实施完毕后）
 
-完成 Phase 1+2+3 后，下列断言必须为真：
-
-- [ ] `mission_events` 表 90 天前的行 < 1000 行（其余已归档到 R2）
-- [ ] DB 总量在 mission 体量翻倍时**不**线性增长（受 lifecycle 控制）
-- [ ] admin 任何对象搜索能在 < 200ms 看到 4 态分布 + 完整 audit 轨迹
-- [ ] `storage.get('any-archived-id')` 透明返回数据，业务无感
-- [ ] Prometheus 指标 `up` + cron 心跳 / 失败率全部接入告警
-- [ ] 任意业务模块 grep 不到 `r2-warm.adapter` 等内部路径直接 import
-- [ ] policy 配置可以在 admin 修改并 hot reload，不需要重启 pod
-
----
-
-## 12. 后续讨论点（待评审）
-
-1. **EDGE_HOT 是否在 v1 包含**：当前留扩展位但不实施。如果近期需要做 brand-config / feature-flag 边缘缓存，可一并 v1 上
-2. **GDPR 删除链路**：需要法务确认保留期。当前 `deleteAfter: 5y` 是占位
-3. **跨 pod cron 锁是否够强**：advisory lock 在 Pod 突然崩溃时的行为需要验证（是否会卡住）
-4. **policy 表 schema 演进**：JSONB 全配置 vs 拆列，影响 admin UI 编辑体验
-5. **mission_events 归档 zip vs JSONL**：JSONL 流式友好但体积稍大；zip 体积小但全或无
-6. **是否需要 audit 表分区**：5 年保留期下日志单表会很大，按月分区是否提前规划
+- [ ] `agent_playground_mission_events` 90d 前的行 < 1000 行
+- [ ] DB 总量在 mission 翻倍时**不**线性增长
+- [ ] `storage.scan(...)` 返回完整 events（DB+R2 merge），spec 覆盖 backfill 前后两侧
+- [ ] `storage.get<T>(id, schema, ctx)` 拒绝 `as T` 调用，所有 caller 必传 VersionedSchema
+- [ ] `storage.get(id, schema, wrongUserCtx)` 抛 `ForbiddenError`，spec 覆盖
+- [ ] `storage.delete(id, ctx, 'gdpr')` 同步删 R2 std + IA + DB，spec 覆盖
+- [ ] `delete()` 命中 legal_hold 返回 `pending-legal-review`，不自动覆盖，spec 覆盖
+- [ ] `getHydrateStatus(ticketId, otherUserCtx)` 抛 `ForbiddenError`，spec 覆盖
+- [ ] `common_audit_log` UPDATE / DELETE 0 行影响（RULE 强制），spec 断言
+- [ ] `legal_hold = true` 对象不被 cron 删除，spec 覆盖
+- [ ] R2 key 含 `..` / `/` 注入被拒，spec 覆盖
+- [ ] orphan scanner 识别 transition 半完成产生的旧 URI 副本并清理，spec 覆盖
+- [ ] 应用层加密：`encrypted = true` 对象 R2 read 后 plaintext 不出现在 audit log
+- [ ] `setLegalHold` 仅 `legal-admin` role 可调用，spec 覆盖
+- [ ] `audit export` 必须 admin role 且自身写 audit，spec 覆盖
+- [ ] `entityType` 级 RBAC：caller role 不在 AUDIT_ROLE_MAP 抛 ForbiddenError，spec 覆盖
+- [ ] Prom metrics 标签基数 < 100
+- [ ] `common/audit/AuditService` 现有 caller 不破（重命名 + alias 1 周）
 
 ---
 
-## 附录 A：术语对照
+## 12. 后续讨论点（v2 候选）
 
-| 术语          | 含义                                                                       |
-| ------------- | -------------------------------------------------------------------------- |
-| Tier / 态     | 数据生命周期阶段（HOT / WARM / COLD / GLACIER）                            |
-| Medium / 介质 | 实际存储位置（postgres / redis / r2-standard / r2-ia / r2-glacier）        |
-| Policy / 策略 | 一组业务的 tier 转换规则（hotUntil / warmAfter / coldAfter / deleteAfter） |
-| Target        | policy 的实施单位（field / row-archive / ttl-cleanup 三种）                |
-| Transition    | tier 之间的迁移操作                                                        |
-| Recall        | 反向迁移（COLD → WARM / WARM → HOT），admin 主动                           |
-| Hydrate       | `storage.get` 时透明从冷介质拉回内存                                       |
-| Backfill      | 一次性把存量数据按新 policy 归档                                           |
+1. GLACIER tier（含同步删除能力）
+2. EDGE_HOT
+3. 多 vendor 适配（S3 / Azure）
+4. 跨区灾备 (CDR)
+5. Phase 4 接入：notifications / library 资源 / chapter_drafts / research_results
+6. **BYOK + per-user 加密密钥**（独立立项）：解决"物理删除证明"——删除用户密钥即数据不可读，与 GDPR Article 17 "可证明删除"对接
 
-## 附录 B：当前 OFFLOAD_TARGETS → 新 policy 的映射
+---
 
-| 现有                                       | 新 policy 名                 | tier 推进                      |
-| ------------------------------------------ | ---------------------------- | ------------------------------ |
-| `topic_reports.full_report`                | `topic-reports-archive`      | hot 90d → warm                 |
-| `dimension_analyses.data_points`           | `dimension-analyses-archive` | hot 30d → warm → cold 365d     |
-| `research_tasks.result`                    | `research-tasks-archive`     | hot 30d → warm                 |
-| `knowledge_base_documents.raw_content`     | `kb-documents-archive`       | hot until READY → warm         |
-| `wiki_page_revisions.body`                 | `wiki-revisions-archive`     | append → warm immediately      |
-| `wiki_diffs.items`                         | `wiki-diffs-archive`         | hot 30d → warm                 |
-| `agent_playground_missions.report_full`    | `playground-mission-report`  | hot 30d → warm                 |
-| `agent_playground_missions.{4 个 reports}` | 同上 policy                  | 同上                           |
-| `mission_report_versions.report_full`      | `mission-report-versions`    | hot 30d → warm                 |
-| **新增** `agent_playground_mission_events` | `playground-mission-events`  | hot 30d → warm（**关键收益**） |
+## 13. 修订记录
+
+### v1.2（2026-05-10）— Round 2 后修订
+
+**Security P0（关键）**：
+
+- ✅ `storage_objects` 加 `owner_user_id` / `owner_workspace_id` 列 + 索引（CWE-863）
+- ✅ `assertCanRead` / `assertCanDelete` 实装真实 ACL，不再空实现
+
+**多路 P1 全采纳**：
+
+| #   | 来源              | 修复                                                                             |
+| --- | ----------------- | -------------------------------------------------------------------------------- |
+| 1   | Architect P1-N1   | tab 数自洽：3 现有 + 3 新增 = 6                                                  |
+| 2   | Architect P1-N2   | archiver 加 `idTemplate(scope)` 显式声明，scan 不靠 startsWith                   |
+| 3   | Architect P1-N3   | scanMixed hydrate 闭包不可跨调用缓存（文档约束 + spec）                          |
+| 4   | Architect P1-N4   | Phase 0 拆 PR-A0a（接口契约）+ PR-A0b（实现）                                    |
+| 5   | Architect P1-N5   | BYOK 物理删除证明从 backlog 移到 v2 单独立项                                     |
+| 6   | Arch-Auditor P1-1 | Phase 0 工作量重估 1.5d → 4d（PR-A0=2d+1.5d / 现 audit.service 重命名）          |
+| 7   | Arch-Auditor P1-2 | PR-S4 拆 PR-S4a~S4d 4 个（防 god-class guard）                                   |
+| 8   | Arch-Auditor P1-3 | `common/audit/audit.service` 命名冲突明确解决：重命名 + alias                    |
+| 9   | Reviewer P1-A     | 新增 `VersionedSchema<T>` 包装类型                                               |
+| 10  | Reviewer P1-B     | §6.6 GDPR delete 实装 `orphanScanner.scanForObject(obj)`                         |
+| 11  | Reviewer P1-C     | §6.5 obj=null 时 ACL guard，业务侧 archiver 自校验 scope                         |
+| 12  | Reviewer P1-D     | adapter 显式 `copyIfNotExists` 接口；R2 内部 headObject + putObject 两步幂等     |
+| 13  | Security P1-1     | `getHydrateStatus(ticketId, ownerContext)` 必传                                  |
+| 14  | Security P1-2     | `legal_hold` 写权限独立 `legal-admin` role；setLegalHold 入 RBAC                 |
+| 15  | Security P1-3     | GDPR delete 命中 legal_hold 不自动覆盖，返回 `pending-legal-review` 通知合规决策 |
+| 16  | Security 加密     | 新增 §4.7 应用层加密；topic_reports / mission_events / wiki revisions 强制加密   |
+| 17  | Security 跨域     | audit_log entityType 级 RBAC + export 必须 admin + 自审计                        |
+| 18  | Security 部分删除 | `delete()` R2 删成功 + DB 删失败路径写 `delete.partial` audit                    |
+
+**总工期重估**：v1.1 17.5d → **v1.2 25 工作日**（主因：Phase 0 audit 实际是重建 + 加密层 + RBAC 细分）
+
+### v1.1（2026-05-10）
+
+- 修复 v1.0 9 个 P0 + P1 共识采纳
+- Round 2: Architect / Arch-Auditor / Reviewer APPROVED-WITH-COMMENTS；Security NEEDS-CHANGES（新发现 ACL 列缺失 P0）
+
+### v1.0（2026-05-10）
+
+- 初版设计；Round 1: 4 路 0/4 APPROVED，9 个 P0
 
 ---
 
 **最后更新**: 2026-05-10  
-**状态**: Draft v1.0，等待评审  
-**审议人选**: 项目 owner / 一位资深架构 reviewer / 一位运维代表
+**状态**: Draft v1.2，Security 第 3 轮评审待  
+**审议人选**: Security 单路验证（其余 3 路 Round 2 已 APPROVED-WITH-COMMENTS，不重复评审）
