@@ -374,6 +374,7 @@
         "title": "Wiki library",
         "subtitle": "Wiki-enabled knowledge bases · {{count}} total",
         "enableMore": "Enable another KB",
+        "createCardDescription": "Turn on wiki for an existing KB; entity / concept / summary pages auto-derive from source docs",
         "noDescription": "No description",
         "lastIngestLabel": "Last ingest"
       },

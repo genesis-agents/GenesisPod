@@ -374,6 +374,7 @@
         "title": "Wiki 库",
         "subtitle": "已启用 Wiki 的知识库 · 共 {{count}} 个",
         "enableMore": "启用其他知识库",
+        "createCardDescription": "为已有知识库开启 Wiki，自动从源文档生成实体页 / 概念页 / 摘要",
         "noDescription": "暂无描述",
         "lastIngestLabel": "上次 ingest"
       },

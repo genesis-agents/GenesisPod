@@ -20,6 +20,7 @@ import { BookOpen, FileText, Plus } from 'lucide-react';
 import { AssetCard } from '@/components/common/asset-card';
 import { useTranslation } from '@/lib/i18n';
 import type { WikiKbSummary } from '@/lib/api/wiki';
+import CreateKnowledgeBaseCard from '../knowledge-base/CreateKnowledgeBaseCard';
 
 interface WikiCardGridProps {
   kbs: WikiKbSummary[];
@@ -55,6 +56,13 @@ export default function WikiCardGrid({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {/* "+ enable wiki for another KB" placeholder — first cell, mirrors
+            the new-KB card in the personal/team KB grids. */}
+        <CreateKnowledgeBaseCard
+          title={t('library.wiki.grid.enableMore')}
+          description={t('library.wiki.grid.createCardDescription')}
+          onClick={onEnableMore}
+        />
         {kbs.map((kb) => (
           <AssetCard
             key={kb.id}
