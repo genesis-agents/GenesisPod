@@ -842,6 +842,8 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     // ★ Stage 1 / S1-1 (2026-05-09): 业务编排已抽到 PlaygroundBusinessOrchestrator
     //   delegate 到 businessOrch.buildHooksForStep,内部调对应 build*Hooks 并通过
     //   注入的 sessionLookup 访问 SessionEntry(在 onModuleInit 阶段已 bind)。
+    //   stage degraded narrative contract still lives there: hooks must keep
+    //   calling markStageDegraded instead of swallowing S3/S4/S9 failures.
     return this.businessOrch.buildHooksForStep(stepId, primitive);
   }
 
