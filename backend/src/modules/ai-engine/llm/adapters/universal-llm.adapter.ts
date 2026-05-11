@@ -15,6 +15,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AiChatService } from "../services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { AiModelConfigService } from "../services/ai-model-config.service";
 import {
   ILLMAdapter,
   LLMRequestOptions,
@@ -65,6 +66,7 @@ export class UniversalLLMAdapter implements ILLMAdapter {
   constructor(
     private readonly aiChatService: AiChatService,
     private readonly prisma: PrismaService,
+    private readonly aiModelConfig: AiModelConfigService,
   ) {
     void this.initializeFromDatabase();
   }
@@ -273,32 +275,16 @@ export class UniversalLLMAdapter implements ILLMAdapter {
 
   /**
    * 从数据库获取默认模型
+   *
+   * 2026-05-12 严格 BYOK 单源：走 pickBYOKModelForUser
+   *   - 有 userId → 用户 BYOK 配置的 CHAT 模型；用户没配 → 返回 fallback
+   *   - 无 userId（cron / 适配器初始化）→ admin AIModel 兜底
    */
   private async getDefaultModelFromDb(): Promise<string> {
     try {
-      const defaultModel = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType: "CHAT",
-          isDefault: true,
-          isEnabled: true,
-        },
-        select: { modelId: true },
-      });
-
-      if (defaultModel) {
-        return defaultModel.modelId;
-      }
-
-      // Fallback: 任意启用的 CHAT 模型
-      const anyModel = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType: "CHAT",
-          isEnabled: true,
-        },
-        select: { modelId: true },
-      });
-
-      return anyModel?.modelId || this.defaultModel;
+      const picked = await this.aiModelConfig.pickBYOKModelForUser("CHAT");
+      if (picked) return picked.modelId;
+      return this.defaultModel;
     } catch (error) {
       this.logger.warn(`Failed to get default model from DB: ${error}`);
       return this.defaultModel;
