@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ArrowRight, Network, Radio, type LucideIcon } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { useApiGet } from '@/hooks/core';
+import { useTranslation } from '@/lib/i18n';
 import KernelMemoryPageContent from '../../kernel/memory/content';
 import KernelSchedulerPageContent from '../../kernel/scheduler/content';
 import KernelProcessesPageContent from '../../kernel/processes/content';
@@ -87,29 +88,30 @@ function statValue(
   return overviewStats?.[key] ?? 0;
 }
 
-const ENTITY_META: Record<
+const ENTITY_I18N: Record<
   HarnessEntity,
-  { title: string; description: string }
+  { titleKey: string; descriptionKey: string }
 > = {
   execution: {
-    title: 'AI Harness — 运行调度',
-    description: 'Agent loops、调度器、进程/DAG、Mission Orchestrator',
+    titleKey: 'admin.architecture.cards.harnessExecution',
+    descriptionKey: 'admin.architecture.cards.harnessExecutionDesc',
   },
   memory: {
-    title: 'AI Harness — 记忆状态',
-    description: 'Working/Vector/Checkpoint、Event Store、自动索引',
+    titleKey: 'admin.architecture.cards.harnessMemory',
+    descriptionKey: 'admin.architecture.cards.harnessMemoryDesc',
   },
   governance: {
-    title: 'AI Harness — 评估治理',
-    description: 'Trace、Eval Judge、Guardrails、Observability',
+    titleKey: 'admin.architecture.cards.harnessGovernance',
+    descriptionKey: 'admin.architecture.cards.harnessGovernanceDesc',
   },
   interop: {
-    title: 'AI Harness — 互联协议',
-    description: 'Facade 门面、A2A/IPC/Events/Realtime、Handoffs',
+    titleKey: 'admin.architecture.cards.harnessInterop',
+    descriptionKey: 'admin.architecture.cards.harnessInteropDesc',
   },
 };
 
 function HarnessAdminPageInner() {
+  const { t } = useTranslation();
   const { data: overviewStats } = useApiGet<Record<string, number>>(
     '/admin/overview-stats'
   );
@@ -123,12 +125,12 @@ function HarnessAdminPageInner() {
       ? rawTab
       : 'execution';
 
-  const meta = ENTITY_META[tab];
+  const meta = ENTITY_I18N[tab];
 
   return (
     <AdminPageLayout
-      title={meta.title}
-      description={meta.description}
+      title={`AI Harness — ${t(meta.titleKey)}`}
+      description={t(meta.descriptionKey)}
       icon={Network}
       domain="ai"
     >
