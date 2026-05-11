@@ -35,9 +35,16 @@ function makeIngestMock() {
   } as any;
 }
 
+function makeKeyResolverMock(defaultProviders: string[] = ["openai"]): {
+  getAvailableProviders: jest.Mock<Promise<string[]>, [string]>;
+} {
+  return {
+    getAvailableProviders: jest.fn().mockResolvedValue(defaultProviders),
+  } as any;
+}
+
 const KB_DEFAULT = {
   id: "kb-1",
-  userId: "user-1",
   wikiConfig: {
     autoIngestEnabled: true,
     autoIngestDailyBudgetCalls: 20,
@@ -45,8 +52,17 @@ const KB_DEFAULT = {
   },
 };
 
+const CONSUMER_USER_ID = "consumer-user-1";
+
+/**
+ * 2026-05-11 BYOK consumer model：scheduler 每个 KB 先调 pickConsumerUserId
+ * （= wikiDiff.findFirst 非哨兵），再调 findIngestableDocIds（= wikiDiff.findFirst
+ * 哨兵 debounce）。spec 必须按这个顺序连续 mock findFirst 两次。
+ */
 function setupNoBlockers(prisma: any) {
-  prisma.wikiDiff.findFirst.mockResolvedValueOnce(null); // debounce probe
+  prisma.wikiDiff.findFirst
+    .mockResolvedValueOnce({ createdByUserId: CONSUMER_USER_ID }) // consumer
+    .mockResolvedValueOnce(null); // debounce
   prisma.wikiDiff.count.mockResolvedValue(0); // budget
   prisma.wikiDocumentCoverage.findMany.mockResolvedValue([]);
 }
@@ -54,19 +70,20 @@ function setupNoBlockers(prisma: any) {
 describe("WikiAutoIngestScheduler", () => {
   let prisma: any;
   let ingest: any;
+  let keyResolver: any;
   let scheduler: WikiAutoIngestScheduler;
 
   beforeEach(() => {
     prisma = makePrismaMock();
     ingest = makeIngestMock();
-    scheduler = new WikiAutoIngestScheduler(prisma, ingest);
+    keyResolver = makeKeyResolverMock();
+    scheduler = new WikiAutoIngestScheduler(prisma, ingest, keyResolver);
   });
 
   it("skips KBs whose autoIngestEnabled is explicitly false", async () => {
     prisma.knowledgeBase.findMany.mockResolvedValue([
       {
         id: "kb-off",
-        userId: "user-off",
         wikiConfig: {
           autoIngestEnabled: false,
           autoIngestDailyBudgetCalls: 20,
@@ -83,7 +100,7 @@ describe("WikiAutoIngestScheduler", () => {
 
   it("treats missing wikiConfig row as autoIngestEnabled (defaults true)", async () => {
     prisma.knowledgeBase.findMany.mockResolvedValue([
-      { id: "kb-legacy", userId: "user-legacy", wikiConfig: null },
+      { id: "kb-legacy", wikiConfig: null },
     ]);
     setupNoBlockers(prisma);
     prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
@@ -95,7 +112,7 @@ describe("WikiAutoIngestScheduler", () => {
     expect(ingest.ingestAsCron).toHaveBeenCalledWith(
       "kb-legacy",
       ["doc-1"],
-      "user-legacy",
+      CONSUMER_USER_ID,
     );
   });
 
@@ -112,7 +129,7 @@ describe("WikiAutoIngestScheduler", () => {
     expect(ingest.ingestAsCron).toHaveBeenCalledWith(
       "kb-1",
       ["doc-new", "doc-changed"],
-      "user-1",
+      CONSUMER_USER_ID,
     );
   });
 
@@ -133,7 +150,7 @@ describe("WikiAutoIngestScheduler", () => {
     expect(ingest.ingestAsCron).toHaveBeenCalledWith(
       "kb-1",
       ["doc-real"],
-      "user-1",
+      CONSUMER_USER_ID,
     );
   });
 
@@ -154,7 +171,7 @@ describe("WikiAutoIngestScheduler", () => {
     expect(ingest.ingestAsCron).toHaveBeenCalledWith(
       "kb-1",
       ["doc-offloaded"],
-      "user-1",
+      CONSUMER_USER_ID,
     );
   });
 
@@ -170,8 +187,9 @@ describe("WikiAutoIngestScheduler", () => {
 
   it("debounce: skips KB when an auto-ingest WikiDiff exists within the window", async () => {
     prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
-    // First findFirst (debounce probe) returns a recent auto diff.
-    prisma.wikiDiff.findFirst.mockResolvedValueOnce({ id: "diff-recent" });
+    prisma.wikiDiff.findFirst
+      .mockResolvedValueOnce({ createdByUserId: CONSUMER_USER_ID }) // consumer
+      .mockResolvedValueOnce({ id: "diff-recent" }); // debounce probe → hit
 
     await scheduler.tick();
 
@@ -182,7 +200,9 @@ describe("WikiAutoIngestScheduler", () => {
 
   it("daily budget: skips KB when today's auto-ingest count >= budget", async () => {
     prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
-    prisma.wikiDiff.findFirst.mockResolvedValueOnce(null); // debounce clear
+    prisma.wikiDiff.findFirst
+      .mockResolvedValueOnce({ createdByUserId: CONSUMER_USER_ID }) // consumer
+      .mockResolvedValueOnce(null); // debounce clear
     prisma.wikiDiff.count.mockResolvedValueOnce(20); // budget exhausted
 
     await scheduler.tick();
@@ -207,11 +227,11 @@ describe("WikiAutoIngestScheduler", () => {
       KB_DEFAULT,
       { ...KB_DEFAULT, id: "kb-2" },
     ]);
-    // First KB blows up at the debounce probe.
+    // kb-1: consumer lookup throws (DB hiccup). kb-2: clean run.
     prisma.wikiDiff.findFirst
-      .mockRejectedValueOnce(new Error("DB hiccup"))
-      // Second KB: clean run.
-      .mockResolvedValueOnce(null); // debounce
+      .mockRejectedValueOnce(new Error("DB hiccup")) // kb-1 consumer
+      .mockResolvedValueOnce({ createdByUserId: CONSUMER_USER_ID }) // kb-2 consumer
+      .mockResolvedValueOnce(null); // kb-2 debounce
     prisma.wikiDiff.count.mockResolvedValue(0);
     prisma.wikiDocumentCoverage.findMany.mockResolvedValue([]);
     prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
@@ -224,7 +244,7 @@ describe("WikiAutoIngestScheduler", () => {
     expect(ingest.ingestAsCron).toHaveBeenCalledWith(
       "kb-2",
       ["doc-x"],
-      expect.any(String),
+      CONSUMER_USER_ID,
     );
   });
 
@@ -245,7 +265,7 @@ describe("WikiAutoIngestScheduler", () => {
     expect(ingest.ingestAsCron).toHaveBeenCalledWith(
       "kb-1",
       ["doc-after-pending"],
-      "user-1",
+      CONSUMER_USER_ID,
     );
   });
 
@@ -282,7 +302,7 @@ describe("WikiAutoIngestScheduler", () => {
     expect(ingest.ingestAsCron).toHaveBeenCalledWith(
       "kb-1",
       ["doc-newer"],
-      "user-1",
+      CONSUMER_USER_ID,
     );
   });
 
@@ -292,5 +312,65 @@ describe("WikiAutoIngestScheduler", () => {
     await expect(scheduler.tick()).resolves.toBeUndefined();
 
     expect(ingest.ingestAsCron).not.toHaveBeenCalled();
+  });
+
+  // ===== 2026-05-11 BYOK consumer model: 谁消费谁付钱 =====
+
+  it("skips KB with no manual WikiDiff history (no consumer yet)", async () => {
+    prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+    // pickConsumerUserId → wikiDiff.findFirst returns null (zero manual ingest)
+    prisma.wikiDiff.findFirst.mockResolvedValueOnce(null);
+
+    await scheduler.tick();
+
+    // Should not even hit debounce probe / doc query / ingest
+    expect(prisma.wikiDiff.count).not.toHaveBeenCalled();
+    expect(prisma.knowledgeBaseDocument.findMany).not.toHaveBeenCalled();
+    expect(ingest.ingestAsCron).not.toHaveBeenCalled();
+    expect(keyResolver.getAvailableProviders).not.toHaveBeenCalled();
+  });
+
+  it("skips KB when the consumer's BYOK is empty", async () => {
+    prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+    prisma.wikiDiff.findFirst.mockResolvedValueOnce({
+      createdByUserId: "consumer-no-byok",
+    });
+    // KeyResolver returns empty providers → no BYOK
+    keyResolver.getAvailableProviders.mockResolvedValueOnce([]);
+
+    await scheduler.tick();
+
+    expect(keyResolver.getAvailableProviders).toHaveBeenCalledWith(
+      "consumer-no-byok",
+    );
+    expect(prisma.wikiDiff.count).not.toHaveBeenCalled();
+    expect(ingest.ingestAsCron).not.toHaveBeenCalled();
+  });
+
+  it("uses latest non-system WikiDiff creator as the consumer (not KB creator)", async () => {
+    prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+    // pickConsumerUserId picks "user-junjie" who manually ingested most recently
+    prisma.wikiDiff.findFirst
+      .mockResolvedValueOnce({ createdByUserId: "user-junjie" }) // consumer
+      .mockResolvedValueOnce(null); // debounce clear
+    prisma.wikiDiff.count.mockResolvedValueOnce(0);
+    prisma.wikiDocumentCoverage.findMany.mockResolvedValue([]);
+    prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+      { id: "doc-1", metadata: {}, rawContentUri: null },
+    ]);
+
+    await scheduler.tick();
+
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-1",
+      ["doc-1"],
+      "user-junjie",
+    );
+    // Consumer lookup must exclude the AUTO_INGEST sentinel
+    const consumerQuery = prisma.wikiDiff.findFirst.mock.calls[0][0];
+    expect(consumerQuery.where.createdByUserId).toEqual({
+      not: AUTO_INGEST_SYSTEM_USER_ID,
+    });
+    expect(consumerQuery.orderBy).toEqual({ createdAt: "desc" });
   });
 });

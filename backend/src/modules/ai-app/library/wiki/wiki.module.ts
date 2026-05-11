@@ -2,6 +2,7 @@ import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
 import { CreditsModule } from "../../../ai-infra/credits/credits.module";
+import { KeyResolverModule } from "../../../ai-infra/credentials/key-resolver/key-resolver.module";
 import { RAGModule } from "../rag/rag.module";
 import { PromptSkillBridge } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
@@ -41,7 +42,13 @@ import { WIKI_SKILL_DOMAIN } from "./skills";
  * HTTP controller).
  */
 @Module({
-  imports: [PrismaModule, AiEngineModule, RAGModule, CreditsModule],
+  imports: [
+    PrismaModule,
+    AiEngineModule,
+    RAGModule,
+    CreditsModule,
+    KeyResolverModule,
+  ],
   controllers: [WikiController, WikiKbAdminController],
   providers: [
     WikiPageService,
