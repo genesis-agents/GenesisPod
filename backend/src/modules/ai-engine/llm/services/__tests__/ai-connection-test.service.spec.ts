@@ -636,16 +636,42 @@ describe("AiConnectionTestService", () => {
         expect(result.latency).toBeGreaterThanOrEqual(0);
       });
 
-      it("should handle unsupported provider", async () => {
+      it("should fallback to OpenAI-compat dispatch for unknown provider with endpoint", async () => {
+        // 2026-05-11 P4: 未知 provider + 给了 apiEndpoint → 走 generic openai-compat
+        // dispatcher，不再硬拒"Unsupported provider"。admin 在 UI 加新 provider
+        // 时不必改代码。
+        const mockResponse: AxiosResponse = {
+          data: { choices: [{ message: { content: "OK" } }] },
+          status: 200,
+          statusText: "OK",
+          headers: {},
+          config: {} as any,
+        };
+        mockHttpService.post.mockReturnValue(of(mockResponse));
+
         const result = await service.testModelConnectionWithKey(
           "unsupported-provider",
           "some-model",
           "test-api-key",
-          "https://api.example.com",
+          "https://api.example.com/v1/chat/completions",
+        );
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain("Connection successful");
+        expect(result.latency).toBeGreaterThanOrEqual(0);
+      });
+
+      it("should return failure for unknown provider WITHOUT endpoint", async () => {
+        // 兜底真没法：DB 也没该 provider，调用方也没给 endpoint → 友好报错
+        const result = await service.testModelConnectionWithKey(
+          "unsupported-provider",
+          "some-model",
+          "test-api-key",
+          "",
         );
 
         expect(result.success).toBe(false);
-        expect(result.message).toContain("Unsupported provider");
+        expect(result.message).toContain("admin /admin/ai-providers");
         expect(result.latency).toBeGreaterThanOrEqual(0);
       });
     });

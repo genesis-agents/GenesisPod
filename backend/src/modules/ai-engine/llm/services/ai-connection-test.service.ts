@@ -454,12 +454,45 @@ export class AiConnectionTestService {
           break;
         }
 
-        default:
-          return {
-            success: false,
-            message: `Unsupported provider: ${provider}`,
-            latency: Date.now() - startTime,
-          };
+        default: {
+          // 2026-05-11 P4: 不再硬拒"未知 provider"。admin 在 UI 加的新 provider
+          // 走通用 OpenAI-兼容派发：DB ai_providers.endpoint + Bearer auth +
+          // /chat/completions 后缀。apiFormat=anthropic/google 走专用分支由前面
+          // 的 case 处理；其他全部归 openai-compat 默认。
+          const chatUrl = await this.resolveOpenAICompatibleChatEndpoint(
+            provider,
+            apiEndpoint,
+          );
+          if (!chatUrl) {
+            return {
+              success: false,
+              message:
+                `Provider "${provider}" 没有可用的 chat endpoint：` +
+                `请在 admin /admin/ai-providers 维护页添加该 provider 行，` +
+                `或在该模型 UserModelConfig.apiEndpoint 显式填写完整 URL。`,
+              latency: Date.now() - startTime,
+            };
+          }
+          response = await firstValueFrom(
+            this.httpService.post(
+              chatUrl,
+              {
+                model: modelId,
+                messages: testMessages,
+                max_tokens: 50,
+                temperature: 0,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+          break;
+        }
       }
 
       const latency = Date.now() - startTime;
@@ -774,22 +807,18 @@ export class AiConnectionTestService {
       //   POST /rerank  body { model, query, documents, top_n }  Bearer auth
       // 主要差异在响应字段：cohere = `results[].relevance_score`、
       // voyage/jina = `data[].relevance_score`。
+      //
+      // 2026-05-11 P4: 删除 ensureRerankPath 的"防呆抛错"逻辑（admin 填错
+      // endpoint 后缀时强行 throw）。改为正向：
+      //   - 空 endpoint → 用 provider 默认 URL
+      //   - 含 /rerank → 直接用
+      //   - 不含 /rerank → 拼一个（信任 endpoint base，不主动判错）
+      // admin 填错时由远端 provider 返回真实错误（如 cohere 404 "unknown route"）。
+      // 前端 Add Model 表单在 P8 加柔性提示帮 admin 自检。
       const ensureRerankPath = (url: string, defaultUrl: string): string => {
         const trimmed = url.trim().replace(/\/+$/, "");
         if (!trimmed) return defaultUrl;
         if (trimmed.endsWith("/rerank")) return trimmed;
-        // 防呆：admin 错填了 /chat / /chat/completions 的 endpoint
-        if (
-          trimmed.endsWith("/chat") ||
-          trimmed.endsWith("/chat/completions") ||
-          trimmed.endsWith("/embeddings") ||
-          trimmed.endsWith("/embed")
-        ) {
-          throw new Error(
-            `Rerank model endpoint 看起来不像 rerank 路径："${trimmed}"。` +
-              `请确认 API Endpoint 以 /rerank 结尾（或留空走 ${defaultUrl}）。`,
-          );
-        }
         return `${trimmed}/rerank`;
       };
 
