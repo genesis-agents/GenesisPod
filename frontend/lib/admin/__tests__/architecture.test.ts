@@ -14,17 +14,18 @@ function getLayer(id: string): ArchitectureLayer {
 }
 
 describe('ARCHITECTURE_LAYERS', () => {
-  it('contains the five backend-aligned layers', () => {
-    expect(ARCHITECTURE_LAYERS).toHaveLength(5);
+  // 2026-05-12: L4 Open API 已从首页隐藏（prototype 阶段, 不属于运维日常视角）,
+  // openApiLayer 定义保留但不导出。
+  it('contains the four visible backend-aligned layers', () => {
+    expect(ARCHITECTURE_LAYERS).toHaveLength(4);
     expect(ARCHITECTURE_LAYERS.map((layer) => layer.id)).toEqual([
-      'openApi',
       'aiApps',
       'aiHarness',
       'aiEngine',
       'infrastructure',
     ]);
     expect(ARCHITECTURE_LAYERS.map((layer) => layer.level)).toEqual([
-      4, 3, 5, 2, 1,
+      3, 5, 2, 1,
     ]);
   });
 
@@ -102,7 +103,9 @@ describe('AI Harness layer', () => {
   });
 });
 
-describe('Open API layer', () => {
+// Open API layer (L4) 已从首页隐藏（2026-05-12），openApiLayer 定义保留但不导出.
+// 启用时取消 architecture.ts ARCHITECTURE_LAYERS 中 openApiLayer 注释 + 恢复本 describe.
+describe.skip('Open API layer (hidden)', () => {
   it('contains the externally visible API surface', () => {
     const layer = getLayer('openApi');
     expect(layer.cards).toHaveLength(5);

@@ -384,8 +384,11 @@ const infrastructureLayer: ArchitectureLayer = {
 };
 
 // Export all layers in order (top to bottom)
+// 2026-05-12: L4 Open API 暂从架构图首页隐藏 — MCP / Webhooks / Public API /
+// Admin API / A2A 这些"对外接口"还在 prototype 阶段, 不属于运维日常视角。
+// openApiLayer 定义保留, 后续启用时取消下方注释即可。
 export const ARCHITECTURE_LAYERS: ArchitectureLayer[] = [
-  openApiLayer,
+  // openApiLayer,
   aiAppsLayer,
   aiHarnessLayer,
   aiEngineLayer,
