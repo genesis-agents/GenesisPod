@@ -961,8 +961,37 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
 
     // ★ 外部工具配置（在数据库中但不在 Registry 中）
     // 这些是 API 服务配置，如 firecrawl、jina、elevenlabs 等
+    //
+    // ★ 2026-05-11 W3r5: 1:1 alias dedup
+    //   PR-S0a syncToolConfigs 为每个 alias 维护双行（toolId=arxiv +
+    //   toolId=arxiv-search），让前后端历史代码各用各 id 都能 patch。但
+    //   1:1 alias（aliasCount === 1）这种"假冗余"在 UI 上是同概念双行
+    //   （displayName 都是 "ArXiv Search"），用户视觉混乱。
+    //
+    //   策略：DB 双行保留不动（保兼容 PATCH /tools/:aliasId），但 admin
+    //   list 返回前剔除 1:1 alias 行。N:1 case（tavily/perplexity 多 provider
+    //   → web-search）保留所有 provider 行（每个独立 key 必须分行）。
+    const registryAliasCount = new Map<string, number>();
+    for (const [aliasId, registryId] of Object.entries(
+      TOOL_ID_ALIAS_TO_REGISTRY_ID,
+    )) {
+      if (aliasId === registryId) continue; // 自映射不算 alias
+      registryAliasCount.set(
+        registryId,
+        (registryAliasCount.get(registryId) ?? 0) + 1,
+      );
+    }
+    const isRedundant1to1Alias = (toolId: string): boolean => {
+      const registryId = TOOL_ID_ALIAS_TO_REGISTRY_ID[toolId];
+      if (!registryId || registryId === toolId) return false;
+      const aliasCount = registryAliasCount.get(registryId) ?? 0;
+      // 仅 1:1 (该 registry 只有这一个 alias) + canonical 在 Registry 才剔除
+      return aliasCount === 1 && registeredToolIds.has(registryId);
+    };
+
     const externalToolConfigs = dbConfigs
       .filter((c) => !registeredToolIds.has(c.toolId))
+      .filter((c) => !isRedundant1to1Alias(c.toolId))
       .map((c) => ({
         id: c.id,
         toolId: c.toolId,
