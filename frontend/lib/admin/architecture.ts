@@ -80,7 +80,12 @@ export interface ArchitectureLayer {
   id: string;
   titleKey: string; // i18n key for layer title
   subtitleKey?: string; // i18n key for subtitle
-  level: 1 | 2 | 3 | 4 | 5; // Layer level for styling (5 = AI Harness / L2.5)
+  level: 1 | 2 | 3 | 4 | 5; // Layer level for styling (5 = AI Harness L2.5 slot)
+  /**
+   * Badge label override. Defaults to `L${level}`. AI Harness 占用 L5 slot 但语义
+   * 是 L2.5（位于 L2 AI Engine 和 L3 AI Apps 之间），所以显示 'L2.5' 而非 'L5'。
+   */
+  displayLevel?: string;
   cards?: ArchitectureCard[];
   groups?: CardGroup[]; // For grouped cards (AI Engine, AI Apps, Infrastructure)
 }
@@ -277,6 +282,7 @@ const aiHarnessLayer: ArchitectureLayer = {
   titleKey: 'admin.architecture.layers.aiHarness',
   subtitleKey: 'admin.architecture.layers.aiHarnessDesc',
   level: 5,
+  displayLevel: 'L2.5',
   cards: [
     {
       id: 'harnessExecution',

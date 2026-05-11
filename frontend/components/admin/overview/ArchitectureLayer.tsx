@@ -65,7 +65,7 @@ export default function ArchitectureLayer({
                   styles.badge
                 )}
               >
-                L{layer.level}
+                {layer.displayLevel ?? `L${layer.level}`}
               </span>
 
               {/* Title and description */}

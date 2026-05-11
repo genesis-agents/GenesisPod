@@ -16,9 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
-import { AdminTabs, type AdminTab } from '@/components/admin/shared';
 import { useApiGet } from '@/hooks/core';
-import { useTranslation } from '@/lib/i18n';
 import KernelMemoryPageContent from '../../kernel/memory/content';
 import KernelSchedulerPageContent from '../../kernel/scheduler/content';
 import EvalDashboardPageContent from '../eval/content';
@@ -160,8 +158,29 @@ function statValue(
   return overviewStats?.[key] ?? 0;
 }
 
+const ENTITY_META: Record<
+  HarnessEntity,
+  { title: string; description: string }
+> = {
+  execution: {
+    title: 'AI Harness — 运行调度',
+    description: 'Agent loops、调度器、进程/DAG、Mission Orchestrator',
+  },
+  memory: {
+    title: 'AI Harness — 记忆状态',
+    description: 'Working/Vector/Checkpoint、Event Store、自动索引',
+  },
+  governance: {
+    title: 'AI Harness — 评估治理',
+    description: 'Trace、Eval Judge、Guardrails、Observability',
+  },
+  interop: {
+    title: 'AI Harness — 互联协议',
+    description: 'Facade 门面、A2A/IPC/Events/Realtime、Handoffs',
+  },
+};
+
 function HarnessAdminPageInner() {
-  const { t } = useTranslation();
   const { data: overviewStats } = useApiGet<Record<string, number>>(
     '/admin/overview-stats'
   );
@@ -175,42 +194,16 @@ function HarnessAdminPageInner() {
       ? rawTab
       : 'execution';
 
-  const tabs: AdminTab[] = [
-    {
-      key: 'execution',
-      label: t('admin.architecture.cards.harnessExecution'),
-      icon: Workflow,
-    },
-    {
-      key: 'memory',
-      label: t('admin.architecture.cards.harnessMemory'),
-      icon: MemoryStick,
-    },
-    {
-      key: 'governance',
-      label: t('admin.architecture.cards.harnessGovernance'),
-      icon: BarChart3,
-    },
-    {
-      key: 'interop',
-      label: t('admin.architecture.cards.harnessInterop'),
-      icon: Network,
-    },
-  ];
-
+  const meta = ENTITY_META[tab];
   const filtered = SUBSYSTEMS.filter((s) => s.entity === tab);
 
   return (
     <AdminPageLayout
-      title="AI Harness"
-      description="L2.5 Agent runtime scaffold — 4 entities, 6 subsystem panels."
+      title={meta.title}
+      description={meta.description}
       icon={Network}
       domain="ai"
     >
-      <div className="mb-6">
-        <AdminTabs tabs={tabs} mode="route" />
-      </div>
-
       {tab === 'memory' && <KernelMemoryPageContent embedded />}
 
       {tab === 'governance' && (
