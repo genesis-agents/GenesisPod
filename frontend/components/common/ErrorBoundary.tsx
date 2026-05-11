@@ -135,26 +135,32 @@ export class ErrorBoundary extends Component<Props, State> {
               应用遇到了一个意外错误。我们已经记录了这个问题，会尽快修复。
             </p>
 
-            {/* 错误详情（开发模式显示） */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mb-6 rounded-lg bg-red-50 p-4">
-                <h3 className="mb-2 font-semibold text-red-900">
-                  错误详情（仅开发模式显示）
-                </h3>
-                <pre className="mb-2 overflow-x-auto text-sm text-red-800">
+            {/* 2026-05-11: 错误详情 prod 也显示（可折叠），让 admin 能复制
+                stack 给 debug，避免 prod ErrorBoundary 吞掉错误细节导致定位困难 */}
+            {this.state.error && (
+              <details className="mb-6 rounded-lg bg-red-50 p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-red-900">
+                  展开错误详情（复制后发给技术支持）
+                </summary>
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs text-red-800">
                   {this.state.error.toString()}
                 </pre>
-                {this.state.errorInfo && (
+                {this.state.error.stack && (
+                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-[10px] text-red-700">
+                    {this.state.error.stack}
+                  </pre>
+                )}
+                {this.state.errorInfo?.componentStack && (
                   <details className="mt-2">
-                    <summary className="cursor-pointer text-sm font-medium text-red-900">
+                    <summary className="cursor-pointer text-xs font-medium text-red-900">
                       组件堆栈
                     </summary>
-                    <pre className="mt-2 overflow-x-auto text-xs text-red-700">
+                    <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-[10px] text-red-700">
                       {this.state.errorInfo.componentStack}
                     </pre>
                   </details>
                 )}
-              </div>
+              </details>
             )}
 
             {/* 操作按钮 */}
