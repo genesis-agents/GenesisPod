@@ -3729,8 +3729,8 @@
         "grantFailed": "Grant failed",
         "stats": {
           "balance": "Balance",
-          "earned": "Total Earned",
-          "spent": "Total Spent",
+          "earned": "Earned",
+          "spent": "Spent",
           "status": "Status"
         },
         "grantSection": "Grant Credits",

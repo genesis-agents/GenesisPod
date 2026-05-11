@@ -3728,9 +3728,9 @@
         "grantSuccess": "已发放 {amount} 积分",
         "grantFailed": "发放积分失败",
         "stats": {
-          "balance": "当前余额",
-          "earned": "累计获得",
-          "spent": "累计消耗",
+          "balance": "余额",
+          "earned": "获得",
+          "spent": "消耗",
           "status": "状态"
         },
         "grantSection": "发放积分",
@@ -3749,9 +3749,9 @@
       "billing": {
         "title": "计费",
         "stats": {
-          "balance": "当前余额",
-          "earned": "累计获得",
-          "spent": "累计消耗",
+          "balance": "余额",
+          "earned": "获得",
+          "spent": "消耗",
           "net": "净额"
         },
         "subscriptionSection": "订阅档位",
