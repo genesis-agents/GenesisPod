@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { AiServiceUnavailableError } from "@/modules/ai-engine/llm/abstractions/ai-service.exception";
 import { AIModelType } from "@prisma/client";
 import { RequestContext } from "@/common/context/request-context";
+import { withUserContext } from "@/common/context/with-user-context";
 import { TaskProfile, ChatMessage } from "../types";
 import { TaskProfileMapperService } from "./task-profile-mapper.service";
 import { AiModelConfigService, AIModelConfig } from "./ai-model-config.service";
@@ -1233,6 +1234,23 @@ export class AiChatService {
    * Observer 故障不影响主流程返回。
    */
   async chat(options: ChatOptions): Promise<ChatResult> {
+    // ★ 2026-05-11 [BYOK ctx propagation] 显式 options.userId 必须在异步链路
+    //   全程可见。chatLegacy 已合并 options.userId + RequestContext.getUserId()，
+    //   但下游 getModelConfig → findUserModelConfigByModelId / synthesizeConfigForUserModel
+    //   只读 RequestContext.getUserId()（不接受 userId 参数透传）。Cron / async
+    //   path 里 RequestContext 是空的 → 用户 UserModelConfig 里自定义的模型
+    //   找不到 → 误报"未在数据库中配置"。在入口用 withUserContext 兜底设置。
+    //   已有上下文（HTTP 请求链路）不覆盖。
+    const ctxUserId = RequestContext.getUserId();
+    if (options.userId && !ctxUserId) {
+      return withUserContext(options.userId, () =>
+        this.chatRaceWrapped(options),
+      );
+    }
+    return this.chatRaceWrapped(options);
+  }
+
+  private async chatRaceWrapped(options: ChatOptions): Promise<ChatResult> {
     // ★ 2026-05-05 [task #22 机制根因] 强制 wall-time race
     //   截图 12 真因：mission 卡 S4 30+ 分钟。链路：ReAct loop wall-time check
     //   只在 iteration 开始时做（react-loop.ts:338）→ LLM await hang 期间
