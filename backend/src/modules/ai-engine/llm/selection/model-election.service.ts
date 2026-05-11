@@ -7,7 +7,7 @@
  * 打分维度（v1，可演进）：
  *   [硬过滤]   isEnabled · modelType 匹配 · healthy · BYOK · 黑名单
  *   [Tier]     根据 TaskProfile 目标 tier（STRONG / STANDARD / BASIC）加权
- *   [Role]     leader → reasoning; writer/reviewer → STRONG; extractor → BASIC
+ *   [Role]     leader → reasoning; researcher/writer/reviewer → STRONG; extractor → BASIC
  *   [Cost]     costBias cheap/balanced/quality
  *   [Health]   recentErrorRate 越低越好；> 0.5 直接 reject
  *   [Tie-break] priority DESC → isDefault → stable
@@ -292,6 +292,10 @@ export class ModelElectionService {
         // 批判性思考 → reasoning 优先；非 reasoning STRONG 也合格
         if (tier === ModelTier.STRONG) return config.isReasoning ? 18 : 12;
         return tier === ModelTier.STANDARD ? 5 : 0;
+      case "researcher":
+        // 综合研究：需要强模型，但不应像 pure reasoning 那样重偏审稿型语气
+        if (tier === ModelTier.STRONG) return config.isReasoning ? 14 : 16;
+        return tier === ModelTier.STANDARD ? 6 : 0;
       case "writer":
         // 叙事/长文：非 reasoning STRONG 最佳；reasoning 反偏（话术僵硬）
         if (tier === ModelTier.STRONG) return config.isReasoning ? 8 : 18;
@@ -361,6 +365,7 @@ export class ModelElectionService {
     // Role 兜底
     switch (role) {
       case "leader":
+      case "researcher":
       case "writer":
       case "reviewer":
         return ModelTier.STRONG;
@@ -418,7 +423,7 @@ export class ModelElectionService {
       `elected=${winner.config.modelId} tier=${tier} role=${role} ` +
       `costBias=${bias} score=${winner.score.total} ` +
       `[tier=${b.tier} role=${b.role} cost=${b.cost} health=${b.health} ` +
-      `prio=${b.priority} default=${b.isDefault}]`
+      `prio=${b.priority} default=${b.isDefault} diversity=${b.diversity}]`
     );
   }
 }

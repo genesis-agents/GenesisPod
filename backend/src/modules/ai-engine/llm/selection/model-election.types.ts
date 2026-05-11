@@ -19,6 +19,7 @@ import type { AIModelConfig } from "../services/ai-chat-model-config.service";
  */
 export type ElectionRoleHint =
   | "leader" // 规划 / 分配子任务 —— 倾向推理模型
+  | "researcher" // 搜索 / 综合研究 —— 倾向 STRONG，轻微偏非 reasoning
   | "writer" // 长文写作 —— 倾向 STRONG
   | "reviewer" // 质量评审 —— 倾向 STRONG / reasoning
   | "extractor" // 结构化抽取 —— BASIC 够用，cheap

@@ -27,10 +27,16 @@ interface MissionEntry {
   lastAccessedAt: number;
 }
 
+interface SerializedElectionResult<T> {
+  readonly result: T;
+  readonly electedModelId?: string;
+}
+
 @Injectable()
 export class MissionElectionTracker {
   private readonly logger = new Logger(MissionElectionTracker.name);
   private readonly missions = new Map<string, MissionEntry>();
+  private readonly missionQueues = new Map<string, Promise<void>>();
 
   /** 取本 mission 已选过的 modelId 列表（按选举顺序）。空 → 返回空数组 */
   getElected(missionId: string | undefined): ReadonlyArray<string> {
@@ -67,6 +73,46 @@ export class MissionElectionTracker {
   /** 主动清理一个 mission（mission complete / cancel 时调用） */
   clear(missionId: string): void {
     this.missions.delete(missionId);
+    this.missionQueues.delete(missionId);
+  }
+
+  /**
+   * 串行执行同一 mission 内的 model election。
+   * 目标不是全局锁，而是确保并发 researcher 在打分前能看到前序已选模型，
+   * 让 diversity penalty 真正生效。
+   */
+  async runSerializedElection<T>(
+    missionId: string | undefined,
+    run: (
+      previouslyElected: ReadonlyArray<string>,
+    ) => Promise<SerializedElectionResult<T>>,
+  ): Promise<T> {
+    if (!missionId) {
+      const { result } = await run([]);
+      return result;
+    }
+
+    const previousTail = this.missionQueues.get(missionId) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tail = previousTail.finally(() => gate);
+    this.missionQueues.set(missionId, tail);
+
+    await previousTail;
+    try {
+      const { result, electedModelId } = await run(this.getElected(missionId));
+      if (electedModelId) {
+        this.recordElection(missionId, electedModelId);
+      }
+      return result;
+    } finally {
+      release();
+      if (this.missionQueues.get(missionId) === tail) {
+        this.missionQueues.delete(missionId);
+      }
+    }
   }
 
   /** 测试 / 监控用 */

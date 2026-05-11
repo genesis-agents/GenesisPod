@@ -36,10 +36,13 @@ describe("classifyModelTier", () => {
       // Grok
       "grok-3",
       "grok-3-beta",
+      "grok-4-1-fast-reasoning",
+      "grok-4-fast",
       // DeepSeek
       "deepseek-r1",
       "deepseek-r1-distill-qwen-32b",
       "deepseek-v3",
+      "deepseek-v4-pro",
     ];
 
     it.each(strongModels)("classifies %s as STRONG", (modelId) => {
@@ -61,6 +64,7 @@ describe("classifyModelTier", () => {
       "gemini-2.0-flash-001",
       "grok-3-mini",
       "grok-3-mini-beta",
+      "deepseek-v4-flash",
     ];
 
     it.each(standardModels)("classifies %s as STANDARD", (modelId) => {
@@ -116,6 +120,18 @@ describe("classifyModelTier", () => {
       expect(classifyModelTier("grok-3-mini")).toBe(ModelTier.STANDARD);
     });
 
+    it("classifies current grok-4 family correctly", () => {
+      expect(classifyModelTier("grok-4-1-fast-reasoning")).toBe(
+        ModelTier.STRONG,
+      );
+      expect(classifyModelTier("grok-4-mini")).toBe(ModelTier.BASIC);
+    });
+
+    it("classifies current deepseek-v4 family correctly", () => {
+      expect(classifyModelTier("deepseek-v4-pro")).toBe(ModelTier.STRONG);
+      expect(classifyModelTier("deepseek-v4-flash")).toBe(ModelTier.STANDARD);
+    });
+
     // ★ gemini-2.5-flash 是 STRONG（thinking 能力强）
     it("classifies gemini-2.5-flash as STRONG", () => {
       expect(classifyModelTier("gemini-2.5-flash")).toBe(ModelTier.STRONG);
@@ -133,4 +149,3 @@ describe("classifyModelTier", () => {
     });
   });
 });
-

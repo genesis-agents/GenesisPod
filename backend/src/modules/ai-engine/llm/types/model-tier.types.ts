@@ -21,9 +21,10 @@ const STRONG_PATTERNS = [
   /gemini-2.*pro/i,
   /gemini-2\.5-flash/i,
   /gemini-3/i,
-  /grok-3(?!-mini)/i,
+  /grok-(?:3|4(?:[-.]1)?)(?!-mini)/i,
   /deepseek-r1/i,
   /deepseek-v3/i,
+  /deepseek-v4(?!-flash)/i,
 ];
 
 /** STANDARD tier: 中端模型，基线行为 */
@@ -33,6 +34,7 @@ const STANDARD_PATTERNS = [
   /claude-haiku/i,
   /gemini-2.*flash(?!-thinking)/i,
   /grok-3-mini/i,
+  /deepseek-v4-flash/i,
 ];
 
 /**

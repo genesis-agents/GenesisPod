@@ -13,7 +13,7 @@
  * - spawnSubagent (throws)
  * - electModelOrNull: no electionProvider → returns undefined
  * - electModelOrNull: electionProvider returns undefined
- * - resolveRoleHint: leader/writer/reviewer/extractor/classifier/default
+ * - resolveRoleHint: leader/researcher/writer/reviewer/extractor/classifier/default
  * - buildCandidatesFromSnapshot: no env → empty candidates
  */
 
@@ -300,6 +300,8 @@ describe("SpecBasedAgent resolveRoleHint — role ID patterns", () => {
   const testRoles = [
     ["leader-agent", "leader"],
     ["planner-v2", "leader"],
+    ["researcher#2", "researcher"],
+    ["research-analyst", "researcher"],
     ["writer-section", "writer"],
     ["section-editor", "writer"],
     ["reviewer-quality", "reviewer"],

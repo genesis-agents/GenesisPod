@@ -121,19 +121,25 @@ export class AgentFactory {
 
     const candidates = this.buildElectionCandidates(args.envSnapshot);
     const missionId = KernelContext.get()?.missionId;
-    const previouslyElected = this.electionTracker?.getElected(missionId) ?? [];
     const role = this.resolveElectionRoleHint(args.roleId);
+    const runElection = async (previouslyElected: ReadonlyArray<string>) => {
+      const result = await this.electionService!.elect({
+        modelType: AIModelType.CHAT,
+        candidates,
+        taskProfile: args.taskProfile,
+        role,
+        userId: args.userId,
+        previouslyElected,
+      });
+      return {
+        result,
+        electedModelId: result.elected.modelId,
+      };
+    };
+    const result = this.electionTracker
+      ? await this.electionTracker.runSerializedElection(missionId, runElection)
+      : (await runElection([])).result;
 
-    const result = await this.electionService.elect({
-      modelType: AIModelType.CHAT,
-      candidates,
-      taskProfile: args.taskProfile,
-      role,
-      userId: args.userId,
-      previouslyElected,
-    });
-
-    this.electionTracker?.recordElection(missionId, result.elected.modelId);
     return result.elected.modelId;
   }
 
@@ -370,12 +376,20 @@ export class AgentFactory {
 
   private resolveElectionRoleHint(
     roleId: string,
-  ): "leader" | "writer" | "reviewer" | "extractor" | "classifier" | "default" {
+  ):
+    | "leader"
+    | "researcher"
+    | "writer"
+    | "reviewer"
+    | "extractor"
+    | "classifier"
+    | "default" {
     const lc = roleId.toLowerCase();
     if (/leader|planner|dispatch|adjust/.test(lc)) return "leader";
+    if (/research/.test(lc)) return "researcher";
     if (/writer|section|synthes|editor|report/.test(lc)) return "writer";
     if (/review|evaluat|check|verif|repair|critic/.test(lc)) return "reviewer";
-    if (/extract|miner|meta|research/.test(lc)) return "extractor";
+    if (/extract|miner|meta/.test(lc)) return "extractor";
     if (/classif|intent/.test(lc)) return "classifier";
     return "default";
   }

@@ -4,7 +4,7 @@
  * 覆盖：
  *  - 硬过滤：type 不匹配 / unhealthy / 黑名单
  *  - Tier 打分：TaskProfile 目标 tier 命中 vs 相邻 vs 远距
- *  - Role 偏好：leader → reasoning、writer → STRONG、extractor → BASIC
+ *  - Role 偏好：leader → reasoning、researcher/writer → STRONG、extractor → BASIC
  *  - Cost bias：cheap / balanced / quality
  *  - Health：recentErrorRate 分档 + 硬过滤阈值
  *  - Tie-break：priority DESC → isDefault → stable lex
@@ -321,6 +321,53 @@ describe("ModelElectionService", () => {
       // reviewer + STRONG: reasoning +18 vs 非 reasoning +12（差 6 分），即使
       // grok 有 priority +3 优势仍敌不过 reasoning 加分 → deepseek-r1 胜
       expect(res.elected.modelId).toBe("deepseek-r1");
+    });
+
+    it("role=researcher: 同 STRONG tier 下轻微偏非 reasoning，但仍保留强模型分布空间", async () => {
+      modelConfigService.getModelConfig.mockImplementation((id: string) => {
+        if (id === "grok-4-1-fast-reasoning")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "grok-4-1-fast-reasoning",
+              provider: "xai",
+              isReasoning: false,
+              priority: 50,
+            }),
+          );
+        if (id === "deepseek-v4-pro")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "deepseek-v4-pro",
+              provider: "deepseek",
+              isReasoning: true,
+              priority: 50,
+            }),
+          );
+        return Promise.resolve(null);
+      });
+
+      const res = await service.elect(
+        baseRequest({
+          candidates: [
+            cand({
+              modelId: "grok-4-1-fast-reasoning",
+              provider: "xai",
+            }),
+            cand({ modelId: "deepseek-v4-pro", provider: "deepseek" }),
+          ],
+          role: "researcher",
+        }),
+      );
+
+      expect(res.elected.modelId).toBe("grok-4-1-fast-reasoning");
+      const deepseekScore = res.scores.find(
+        (score) => score.modelId === "deepseek-v4-pro",
+      );
+      const grokScore = res.scores.find(
+        (score) => score.modelId === "grok-4-1-fast-reasoning",
+      );
+      expect(grokScore?.breakdown.role).toBe(16);
+      expect(deepseekScore?.breakdown.role).toBe(14);
     });
 
     // 2026-05-10 §3 通用机制：mission-scoped diversity（无状态选举的反坍缩）

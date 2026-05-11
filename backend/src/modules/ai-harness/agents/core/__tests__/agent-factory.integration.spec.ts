@@ -30,6 +30,8 @@ import type {
   LlmExecutorResult,
 } from "../../../runner/executor/llm-executor";
 import { LoopRegistry } from "../../../runner/loop/loop-registry";
+import { MissionElectionTracker } from "../../../../ai-engine/llm/selection/mission-election-tracker.service";
+import { KernelContext } from "../../../../../common/context/kernel-context";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -131,6 +133,52 @@ describe("AgentFactory.setElectionService", () => {
     const factory = new AgentFactory();
     const mockElection = { elect: jest.fn() } as never;
     expect(() => factory.setElectionService(mockElection)).not.toThrow();
+  });
+
+  it("serializes same-mission elections and maps research role to researcher", async () => {
+    const factory = new AgentFactory();
+    const tracker = new MissionElectionTracker();
+    const histories: string[][] = [];
+    const roles: string[] = [];
+    factory.setElectionTracker(tracker);
+    factory.setElectionService({
+      elect: jest
+        .fn()
+        .mockImplementation(async ({ previouslyElected, role }) => {
+          histories.push([...previouslyElected]);
+          roles.push(role);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return {
+            elected: {
+              modelId:
+                previouslyElected.length === 0
+                  ? "grok-4-1-fast-reasoning"
+                  : "deepseek-v4-pro",
+            },
+            scores: [],
+            reason: "test",
+          };
+        }),
+    } as never);
+
+    const run = () =>
+      KernelContext.run(
+        {
+          missionId: "mission-serialized",
+          userId: "user-1",
+        },
+        () =>
+          Promise.all([
+            factory.electPreferredModel({ roleId: "researcher#0" }),
+            factory.electPreferredModel({ roleId: "researcher#1" }),
+          ]),
+      );
+
+    const models = await run();
+
+    expect(models).toEqual(["grok-4-1-fast-reasoning", "deepseek-v4-pro"]);
+    expect(histories).toEqual([[], ["grok-4-1-fast-reasoning"]]);
+    expect(roles).toEqual(["researcher", "researcher"]);
   });
 });
 

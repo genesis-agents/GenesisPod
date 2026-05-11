@@ -289,21 +289,28 @@ export class SpecBasedAgent<
     // 空数组 → 行为退化到无 diversity（单次选举打分）。
     const tracker = this.electionTrackerProvider?.();
     const missionId = KernelContext.get()?.missionId;
-    const previouslyElected = tracker?.getElected(missionId) ?? [];
 
     try {
-      const res = await electionService.elect({
-        modelType: requestedModelType,
-        candidates,
-        taskProfile,
-        role,
-        userId,
-        previouslyElected,
-      });
+      const runElection = async (previouslyElected: ReadonlyArray<string>) => {
+        const res = await electionService.elect({
+          modelType: requestedModelType,
+          candidates,
+          taskProfile,
+          role,
+          userId,
+          previouslyElected,
+        });
+        return {
+          result: res,
+          electedModelId: res.elected.modelId,
+        };
+      };
+      const res = tracker
+        ? await tracker.runSerializedElection(missionId, runElection)
+        : (await runElection([])).result;
       this.logger.debug(
         `[electModel] ${this.id} → ${res.elected.modelId} (${res.reason})`,
       );
-      tracker?.recordElection(missionId, res.elected.modelId);
       return res.elected.modelId;
     } catch (err) {
       if (err instanceof NoEligibleModelError) throw err;
@@ -324,6 +331,7 @@ export class SpecBasedAgent<
   private resolveRoleHint(roleId: string): ElectionRoleHint {
     const lc = roleId.toLowerCase();
     if (/leader|planner|dispatch|adjust/.test(lc)) return "leader";
+    if (/research/.test(lc)) return "researcher";
     if (/writer|section|synthes|editor|report/.test(lc)) return "writer";
     if (/review|evaluat|check|verif|repair/.test(lc)) return "reviewer";
     if (/extract|miner|meta/.test(lc)) return "extractor";
