@@ -204,6 +204,17 @@ export class WikiIngestService {
       // Use semantic TaskProfile per .claude/rules/ai-engine.md — never hardcode
       // model/temperature/maxTokens. deterministic+long fits structured JSON
       // extraction (was temperature 0.2 / maxTokens 8000).
+      //
+      // ★ 2026-05-11: 解耦 createdByUserId（哨兵字符串，只用于 WikiDiff 行记账）
+      //   和 chat.chat({ userId })（用于 BYOK key 解析）。cron 路径 userId 是
+      //   "__system_auto_ingest__"，DB 里根本不存在；之前把它传给 chat.chat
+      //   会让 strict BYOK 预检（getAvailableProviders）→ user_not_found →
+      //   抛 NoAvailableKeyError "No API Key configured"。
+      //
+      //   解法：cron 路径 chat.chat 不传 userId，让其按"无用户上下文"走 SYSTEM
+      //   key 分支（ai-model-config.resolveApiKey 自查 ai_models.secretKey →
+      //   Secret Manager），跟 key-resolver.service.ts:349 的注释意图对齐。
+      const isCronContext = userId === AUTO_INGEST_SYSTEM_USER_ID;
       llmResponse = await this.chat.chat({
         messages: [{ role: "user", content: userPrompt }],
         systemPrompt,
@@ -214,7 +225,7 @@ export class WikiIngestService {
         },
         responseFormat: "json_object",
         operationName: "library-wiki-ingest",
-        userId,
+        ...(isCronContext ? {} : { userId }),
       });
     } catch (error) {
       this.logger.error(
