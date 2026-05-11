@@ -19,6 +19,8 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/facade";
 import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
+import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+import { RequestContext } from "@/common/context/request-context";
 
 // Default fallback values
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
@@ -61,9 +63,15 @@ export interface EmbeddingBatch {
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
-  private cachedConfig: EmbeddingModelConfig | null = null;
-  private configCacheTime: number = 0;
+  // 2026-05-11 BYOK 改造：cache 从 single → Map keyed by `userId | "__system__"`，
+  //   不同用户用各自 BYOK key，cache 必须按 user 隔离。TTL 60s 自动过期，
+  //   并发用户数 ≤ 1k 时 Map 不会无限增长。
+  private readonly cachedConfigByUser: Map<
+    string,
+    { config: EmbeddingModelConfig; time: number }
+  > = new Map();
   private readonly CONFIG_CACHE_TTL = 60000; // 1 minute cache
+  private static readonly SYSTEM_CACHE_KEY = "__system__";
 
   // ★ 2026-05-04 加：429 退避 + 熔断器（防止 OpenAI embedding 429 风暴
   //   带垮 RAG 检索 + Figure relevance 筛选）
@@ -105,6 +113,10 @@ export class EmbeddingService {
      *  plugin 可拦截 / 替换 embedding（缓存 / fallback provider）。 */
     @Optional()
     private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
+    /** 2026-05-11 BYOK 改造：可选注入 KeyResolverService 解析用户 BYOK key。
+     *  Optional 是为了不破坏现有 spec 的 mock。运行时实际总会拿到。 */
+    @Optional()
+    private readonly keyResolver?: KeyResolverService,
   ) {}
 
   private isRateLimitError(err: unknown): boolean {
@@ -209,17 +221,33 @@ export class EmbeddingService {
 
   /**
    * 从数据库加载 Embedding 模型配置
+   *
+   * ★ 2026-05-11 BYOK 改造：知识库 / RAG / AI-Ask 等所有 embedding 调用必须用
+   *   用户的 BYOK key（与"知识库使用 BYOK 不用系统 key"原则一致）。
+   *
+   *   解析顺序：
+   *   1. 取 userId（参数显式传 > RequestContext.getUserId() > undefined）
+   *   2. 有 userId：keyResolver.resolveKey(userId, provider) 走 PERSONAL/ASSIGNED
+   *      BYOK；命中 → 使用；NoAvailableKeyError → WARN log + 软回退到 system
+   *      Secret Manager（避免 user 没配 embedding key 时整个 KB 流程崩）
+   *   3. 无 userId（无用户上下文的后台任务）：直接 system Secret Manager 或 env
+   *      OPENAI_API_KEY 兜底
+   *
+   *   Cache 按 userId 隔离（不同用户不同 key），TTL 60s 自动过期。
    */
-  async getEmbeddingConfig(): Promise<EmbeddingModelConfig> {
-    // Check cache
-    if (
-      this.cachedConfig &&
-      Date.now() - this.configCacheTime < this.CONFIG_CACHE_TTL
-    ) {
-      return this.cachedConfig;
+  async getEmbeddingConfig(
+    userIdOverride?: string,
+  ): Promise<EmbeddingModelConfig> {
+    const userId = userIdOverride ?? RequestContext.getUserId() ?? undefined;
+    const cacheKey = userId ?? EmbeddingService.SYSTEM_CACHE_KEY;
+
+    // Check per-user cache
+    const cached = this.cachedConfigByUser.get(cacheKey);
+    if (cached && Date.now() - cached.time < this.CONFIG_CACHE_TTL) {
+      return cached.config;
     }
 
-    // Try to get EMBEDDING type model from database
+    // Load EMBEDDING model row（全局共享，不分用户）
     const model = await this.prisma.aIModel.findFirst({
       where: {
         modelType: "EMBEDDING",
@@ -228,77 +256,105 @@ export class EmbeddingService {
       orderBy: { isDefault: "desc" },
     });
 
-    if (model) {
-      // ★ 优先使用 secretKey 从 Secret Manager 获取 API Key
-      let apiKey: string | null = null;
-      if (model.secretKey) {
-        const secretValue = await this.secretsService.getValueInternal(
-          model.secretKey,
+    let apiKey: string | null = null;
+    let apiEndpoint: string | undefined = model?.apiEndpoint || undefined;
+    let keySource: "byok" | "system" | "env" = "system";
+
+    // ── 1) BYOK 优先 ──
+    if (model && userId && this.keyResolver) {
+      try {
+        const resolved = await this.keyResolver.resolveKey(
+          userId,
+          model.provider.toLowerCase(),
         );
-        if (secretValue) {
-          apiKey = secretValue.trim();
+        if (resolved.apiKey) {
+          apiKey = resolved.apiKey.trim();
+          apiEndpoint = resolved.apiEndpoint ?? apiEndpoint;
+          keySource = "byok";
           this.logger.debug(
-            `Resolved API key from Secret Manager for embedding model: ${model.modelId}`,
-          );
-        } else {
-          this.logger.error(
-            `Secret '${model.secretKey}' not found for embedding model ${model.modelId}. Check Secret Manager configuration.`,
+            `[embedding] Using BYOK key for user=${userId} provider=${model.provider}`,
           );
         }
-      }
-
-      if (apiKey) {
-        const modelAny = model as Record<string, unknown>;
-        const apiFormat = this.resolveApiFormat(
-          modelAny.apiFormat as string | null | undefined,
-          model.provider,
+      } catch (err) {
+        // 用户没配该 provider 的 BYOK key — 软回退到 system Secret
+        // （硬失败会让 KB ingest / RAG retrieval 整条链崩，对老 KB 不友好）
+        this.logger.warn(
+          `[embedding] User ${userId} has no BYOK key for ${model.provider}, ` +
+            `falling back to system Secret Manager: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
         );
-        this.cachedConfig = {
-          modelId: model.modelId,
-          dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
-          apiKey,
-          apiEndpoint: model.apiEndpoint || undefined,
-          provider: model.provider,
-          apiFormat,
-          maxInputTokens: model.maxInputTokens || undefined,
-        };
-        this.configCacheTime = Date.now();
-        this.logger.log(
-          `Loaded embedding config from database: ${model.modelId} (${this.cachedConfig.dimensions}D, format=${apiFormat})`,
-        );
-        return this.cachedConfig;
       }
     }
 
-    // Fallback to environment variable (不推荐，应该在 Admin 中配置)
-    const apiKey = this.configService.get<string>("OPENAI_API_KEY")?.trim();
-    if (!apiKey) {
+    // ── 2) 系统 Secret Manager 兜底 ──
+    if (!apiKey && model?.secretKey) {
+      const secretValue = await this.secretsService.getValueInternal(
+        model.secretKey,
+      );
+      if (secretValue) {
+        apiKey = secretValue.trim();
+        keySource = "system";
+      } else {
+        this.logger.error(
+          `Secret '${model.secretKey}' not found for embedding model ${model.modelId}. Check Secret Manager configuration.`,
+        );
+      }
+    }
+
+    if (model && apiKey) {
+      const modelAny = model as Record<string, unknown>;
+      const apiFormat = this.resolveApiFormat(
+        modelAny.apiFormat as string | null | undefined,
+        model.provider,
+      );
+      const config: EmbeddingModelConfig = {
+        modelId: model.modelId,
+        dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
+        apiKey,
+        apiEndpoint,
+        provider: model.provider,
+        apiFormat,
+        maxInputTokens: model.maxInputTokens || undefined,
+      };
+      this.cachedConfigByUser.set(cacheKey, { config, time: Date.now() });
+      this.logger.log(
+        `Loaded embedding config: ${model.modelId} (${config.dimensions}D, format=${apiFormat}, source=${keySource}, userScope=${userId ?? "system"})`,
+      );
+      return config;
+    }
+
+    // ── 3) env 兜底（不推荐，应该在 Admin 中配置） ──
+    const envApiKey = this.configService.get<string>("OPENAI_API_KEY")?.trim();
+    if (!envApiKey) {
       throw new ServiceUnavailableException(
         "No embedding model configured. Please add an EMBEDDING type model in Admin > AI Models, or set OPENAI_API_KEY.",
       );
     }
 
-    this.cachedConfig = {
+    const fallbackConfig: EmbeddingModelConfig = {
       modelId: DEFAULT_EMBEDDING_MODEL,
       dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
-      apiKey,
+      apiKey: envApiKey,
       provider: "openai",
       apiFormat: "openai",
     };
-    this.configCacheTime = Date.now();
+    this.cachedConfigByUser.set(cacheKey, {
+      config: fallbackConfig,
+      time: Date.now(),
+    });
     this.logger.log(
-      `Using default embedding config: ${DEFAULT_EMBEDDING_MODEL} (${DEFAULT_EMBEDDING_DIMENSIONS}D)`,
+      `Using default embedding config: ${DEFAULT_EMBEDDING_MODEL} (${DEFAULT_EMBEDDING_DIMENSIONS}D, source=env)`,
     );
-    return this.cachedConfig;
+    return fallbackConfig;
   }
 
   /**
-   * 清除配置缓存
+   * 清除配置缓存（所有用户的）
    */
   clearConfigCache(): void {
-    this.cachedConfig = null;
-    this.configCacheTime = 0;
-    this.logger.log("Embedding config cache cleared");
+    this.cachedConfigByUser.clear();
+    this.logger.log("Embedding config cache cleared (all users)");
   }
 
   /**
