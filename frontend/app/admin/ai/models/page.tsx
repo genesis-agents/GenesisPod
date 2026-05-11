@@ -195,16 +195,19 @@ export default function AIModelsPage() {
           setShowAddModal={setShowAddModal}
         />
 
-        <ProviderDiscoverModal
-          open={showDiscoverModal}
-          onClose={() => setShowDiscoverModal(false)}
-          onConfirm={handleDiscoverConfirm}
-        />
+        {/* 2026-05-11: Modal render 条件化 — 若哪个 Modal hydration 时
+            unmount/conditional bug，只在 open 时挂载避免 SSR hydrate mismatch */}
+        {showDiscoverModal && (
+          <ProviderDiscoverModal
+            open
+            onClose={() => setShowDiscoverModal(false)}
+            onConfirm={handleDiscoverConfirm}
+          />
+        )}
 
-        <BYOKDictionaryModal
-          open={showDictionary}
-          onClose={() => setShowDictionary(false)}
-        />
+        {showDictionary && (
+          <BYOKDictionaryModal open onClose={() => setShowDictionary(false)} />
+        )}
       </div>
     </AdminPageLayout>
   );
