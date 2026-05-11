@@ -103,6 +103,21 @@ interface DoneEvent extends SseEventBase {
   assistantMessageId: string;
   tokensUsed: number;
   fullContent?: string;
+  userMessage: {
+    id: string;
+    content: string;
+    createdAt: string;
+    modelId?: string;
+    modelName?: string;
+  };
+  assistantMessage: {
+    id: string;
+    content: string;
+    createdAt: string;
+    modelId?: string;
+    modelName?: string;
+    tokens: number;
+  };
 }
 
 interface ErrorEvent extends SseEventBase {
@@ -179,10 +194,9 @@ export async function streamAskMessage(
     let buffer = '';
     let accumulatedContent = '';
     let ragSources: AskRagSource[] | undefined;
-    let userMessageId: string | null = null;
-    let assistantMessageId: string | null = null;
-    let tokensUsed = 0;
+    let donePayload: DoneEvent | null = null;
     let errorMsg: string | null = null;
+    let sawDone = false;
 
     const handleEvent = (event: SseEvent): void => {
       if (event.type === 'sources') {
@@ -191,22 +205,16 @@ export async function streamAskMessage(
         accumulatedContent += event.content;
         onChunk?.(accumulatedContent, ragSources);
       } else if (event.type === 'done') {
-        userMessageId = event.userMessageId;
-        assistantMessageId = event.assistantMessageId;
-        tokensUsed = event.tokensUsed;
+        sawDone = true;
+        donePayload = event;
         if (event.fullContent) accumulatedContent = event.fullContent;
       } else if (event.type === 'error') {
         errorMsg = event.message;
       }
     };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split('\n\n');
-      buffer = events.pop() ?? '';
-      for (const raw of events) {
+    const consumeBufferedEvents = (chunks: readonly string[]): void => {
+      for (const raw of chunks) {
         const line = raw.trim();
         if (!line.startsWith('data:')) continue;
         const payload = line.slice(5).trim();
@@ -217,9 +225,24 @@ export async function streamAskMessage(
           logger.warn('[AiAsk] Failed to parse SSE event:', parseErr);
         }
       }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        if (buffer.trim()) {
+          consumeBufferedEvents([buffer]);
+          buffer = '';
+        }
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split('\n\n');
+      buffer = events.pop() ?? '';
+      consumeBufferedEvents(events);
     }
 
-    if (errorMsg) {
+    if (errorMsg && (!sawDone || !donePayload)) {
       logger.error('[AiAsk] Stream error:', errorMsg);
       return {
         ok: false,
@@ -228,22 +251,22 @@ export async function streamAskMessage(
       };
     }
 
+    if (!sawDone || !donePayload) {
+      return {
+        ok: false,
+        error: '流式响应意外中断，未收到完成事件。',
+        partialContent: accumulatedContent || undefined,
+      };
+    }
+    const finalDone = donePayload as DoneEvent;
+
     return {
       ok: true,
-      userMessage: {
-        id: userMessageId ?? 'temp-user',
-        content: body.content,
-        createdAt: new Date().toISOString(),
-        modelId: body.modelId,
-        modelName: undefined,
-      },
+      userMessage: finalDone.userMessage,
       assistantMessage: {
-        id: assistantMessageId ?? 'temp-assistant',
-        content: accumulatedContent,
-        createdAt: new Date().toISOString(),
-        modelId: body.modelId,
-        modelName: undefined,
-        tokens: tokensUsed,
+        ...finalDone.assistantMessage,
+        content: finalDone.assistantMessage.content ?? accumulatedContent,
+        tokens: finalDone.tokensUsed,
       },
       ragSources,
       suggestedActions: undefined,

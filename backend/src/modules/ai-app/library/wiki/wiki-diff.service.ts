@@ -472,10 +472,14 @@ export class WikiDiffService {
           }
 
           // Step M: mark diff APPLIED.
-          return tx.wikiDiff.update({
+          const appliedDiff = await tx.wikiDiff.update({
             where: { id: diff.id },
             data: { status: WikiDiffStatus.APPLIED, appliedAt: new Date() },
           });
+
+          await this.refreshDocumentCoverage(tx, knowledgeBaseId, appliedDiff.id);
+
+          return appliedDiff;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
@@ -528,6 +532,76 @@ export class WikiDiffService {
       })),
       skipDuplicates: true,
     });
+  }
+
+  /**
+   * Refresh document coverage from the CURRENT wiki state, not from diff
+   * proposal time. Auto-ingest correctness depends on knowing which source
+   * documents are actually represented by applied wiki pages.
+   */
+  private async refreshDocumentCoverage(
+    tx: Prisma.TransactionClient,
+    knowledgeBaseId: string,
+    appliedDiffId: string,
+  ): Promise<void> {
+    const coverageRows = await tx.$queryRaw<
+      Array<{
+        documentId: string;
+        lastCoveredDocumentUpdatedAt: Date;
+      }>
+    >`
+      SELECT DISTINCT
+        s.document_id AS "documentId",
+        d.updated_at AS "lastCoveredDocumentUpdatedAt"
+      FROM wiki_page_sources s
+      JOIN wiki_pages p ON p.id = s.page_id
+      JOIN knowledge_base_documents d ON d.id = s.document_id
+      WHERE p.knowledge_base_id = ${knowledgeBaseId}::text
+    `;
+
+    const now = new Date();
+    if (coverageRows.length === 0) {
+      await tx.$executeRaw`
+        DELETE FROM wiki_document_coverages
+        WHERE knowledge_base_id = ${knowledgeBaseId}::text
+      `;
+      return;
+    }
+
+    for (const row of coverageRows) {
+      await tx.$executeRaw`
+        INSERT INTO wiki_document_coverages (
+          knowledge_base_id,
+          document_id,
+          last_covered_document_updated_at,
+          last_applied_diff_id,
+          last_applied_at,
+          updated_at
+        )
+        VALUES (
+          ${knowledgeBaseId}::text,
+          ${row.documentId}::text,
+          ${row.lastCoveredDocumentUpdatedAt},
+          ${appliedDiffId}::text,
+          ${now},
+          ${now}
+        )
+        ON CONFLICT (knowledge_base_id, document_id)
+        DO UPDATE SET
+          last_covered_document_updated_at =
+            EXCLUDED.last_covered_document_updated_at,
+          last_applied_diff_id = EXCLUDED.last_applied_diff_id,
+          last_applied_at = EXCLUDED.last_applied_at,
+          updated_at = EXCLUDED.updated_at
+      `;
+    }
+
+    const activeDocumentIds = coverageRows.map((row) => row.documentId);
+    await tx.$executeRaw`
+      DELETE FROM wiki_document_coverages
+      WHERE knowledge_base_id = ${knowledgeBaseId}::text
+        AND NOT (document_id = ANY(${activeDocumentIds}::text[]))
+    `;
   }
 
   /**

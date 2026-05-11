@@ -30,6 +30,7 @@ import type { CheckpointService } from "../../memory/checkpoint/checkpoint.servi
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import type { AgentRegistry } from "../../handoffs/agent-registry";
+import type { MissionElectionReservation } from "../../../ai-engine/llm/selection";
 
 export interface HarnessedAgentInit {
   identity: IAgentIdentity;
@@ -63,6 +64,16 @@ export interface HarnessedAgentInit {
    */
   taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
   preferredModelId?: string;
+  preferredModelReservation?: MissionElectionReservation;
+  preferredModelMissionId?: string;
+  onCommitPreferredModelReservation?: (
+    missionId: string | undefined,
+    token: string | undefined,
+  ) => Promise<void>;
+  onReleasePreferredModelReservation?: (
+    missionId: string | undefined,
+    token: string | undefined,
+  ) => Promise<void>;
   /**
    * ★ 内容驱动退出闸 —— 由 agent-runner 根据 spec.outputSchema 包装后注入。
    * Loop 在 finalize action 时调它校验 LLM 输出，不达标就让 LLM 原地补缺
@@ -99,6 +110,10 @@ export class HarnessedAgent implements IAgent {
   private readonly agentRegistry?: AgentRegistry;
   private readonly taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
   private readonly preferredModelId?: string;
+  private readonly preferredModelReservation?: MissionElectionReservation;
+  private readonly preferredModelMissionId?: string;
+  private readonly onCommitPreferredModelReservation?: HarnessedAgentInit["onCommitPreferredModelReservation"];
+  private readonly onReleasePreferredModelReservation?: HarnessedAgentInit["onReleasePreferredModelReservation"];
   private readonly outputSchemaValidator?: HarnessedAgentInit["outputSchemaValidator"];
   private readonly validateBusinessRules?: HarnessedAgentInit["validateBusinessRules"];
   /** Persistent AbortController — lives from construction. cancel() before execute() still aborts. */
@@ -122,12 +137,19 @@ export class HarnessedAgent implements IAgent {
     this.agentRegistry = init.agentRegistry;
     this.taskProfile = init.taskProfile;
     this.preferredModelId = init.preferredModelId;
+    this.preferredModelReservation = init.preferredModelReservation;
+    this.preferredModelMissionId = init.preferredModelMissionId;
+    this.onCommitPreferredModelReservation =
+      init.onCommitPreferredModelReservation;
+    this.onReleasePreferredModelReservation =
+      init.onReleasePreferredModelReservation;
     this.outputSchemaValidator = init.outputSchemaValidator;
     this.validateBusinessRules = init.validateBusinessRules;
     this.state = "idle";
   }
 
   async *execute(task: IAgentTask): AsyncIterable<IAgentEvent> {
+    let shouldCommitPreferredModel = false;
     // ★ Phase P13-1: 外部 task.signal 触发本 agent 的 abortController.abort()
     // 这样 mission 级 cancel 能链到 ReActLoop 内的 chat / tool call
     //
@@ -156,6 +178,7 @@ export class HarnessedAgent implements IAgent {
     if (this.state === "cancelled" || this.abortController.signal.aborted) {
       this.state = "cancelled";
       abortListenerCleanup?.();
+      await this.releasePreferredModelReservation();
       yield {
         type: "terminated",
         agentId: this.id,
@@ -317,6 +340,11 @@ export class HarnessedAgent implements IAgent {
 
           if (ev.type === "terminated") {
             this.updateStateFromTerminated(ev);
+            const reason =
+              typeof ev.payload === "object" && ev.payload !== null
+                ? (ev.payload as { reason?: string }).reason
+                : undefined;
+            shouldCommitPreferredModel = reason === "completed";
             // Final snapshot before actual termination
             if (this.checkpointService) {
               await this.checkpointService
@@ -353,6 +381,11 @@ export class HarnessedAgent implements IAgent {
           payload: { reason: "error" as const },
         };
       } finally {
+        if (shouldCommitPreferredModel) {
+          await this.commitPreferredModelReservation();
+        } else {
+          await this.releasePreferredModelReservation();
+        }
         skillCleanup?.();
         abortListenerCleanup?.();
         // PR-R: 终止时自动注销，防止 registry 持有死引用
@@ -384,12 +417,14 @@ export class HarnessedAgent implements IAgent {
       },
     };
     this.state = "completed";
+    shouldCommitPreferredModel = true;
     yield {
       type: "terminated",
       agentId: this.id,
       timestamp: Date.now(),
       payload: { reason: "completed" as const },
     };
+    await this.commitPreferredModelReservation();
     skillCleanup?.();
     abortListenerCleanup?.();
   }
@@ -423,5 +458,19 @@ export class HarnessedAgent implements IAgent {
     if (reason === "error") this.state = "failed";
     else if (reason === "cancelled") this.state = "cancelled";
     else this.state = "completed";
+  }
+
+  private async commitPreferredModelReservation(): Promise<void> {
+    await this.onCommitPreferredModelReservation?.(
+      this.preferredModelMissionId,
+      this.preferredModelReservation?.token,
+    );
+  }
+
+  private async releasePreferredModelReservation(): Promise<void> {
+    await this.onReleasePreferredModelReservation?.(
+      this.preferredModelMissionId,
+      this.preferredModelReservation?.token,
+    );
   }
 }

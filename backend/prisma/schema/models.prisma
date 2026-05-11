@@ -3076,6 +3076,16 @@ enum AskSessionMode {
   ROOM
 }
 
+/// room runtime shared watermark / ephemeral coordination state
+model AskRoomSessionRuntimeState {
+  sessionId      String   @id @map("session_id")
+  maxEmittedSeq  Int      @default(0) @map("max_emitted_seq")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("ask_room_session_runtime_states")
+}
+
 model AskMessage {
   id        String  @id @default(uuid())
   sessionId String  @map("session_id")
@@ -4149,6 +4159,7 @@ model KnowledgeBase {
   wikiOps     WikiOperationLog[]
   wikiFinds   WikiLintFinding[]
   wikiConfig  WikiKnowledgeBaseConfig?
+  wikiDocumentCoverages WikiDocumentCoverage[] @relation("WikiDocumentCoverageKnowledgeBase")
 
   @@index([userId])
   @@index([status])
@@ -4227,6 +4238,7 @@ model KnowledgeBaseDocument {
 
   // ★ v1.5.3 LLM Wiki citation reverse relation
   wikiSources WikiPageSource[]
+  wikiDocumentCoverages WikiDocumentCoverage[] @relation("WikiDocumentCoverageDocument")
 
   @@index([knowledgeBaseId])
   @@index([sourceId])
@@ -9641,6 +9653,18 @@ model AgentPlaygroundMissionEvent {
 
   @@index([missionId, ts])
   @@map("agent_playground_mission_events")
+}
+
+/// mission-scoped model election state
+/// advisory-lock transaction 内的 authoritative source，用于跨实例多模型分配一致性。
+model MissionElectionState {
+  missionId          String   @id @map("mission_id")
+  committedModelIds  String[] @default([]) @map("committed_model_ids")
+  reservations       Json     @default("[]") @db.JsonB
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("mission_election_states")
 }
 
 /// agent-playground per-dim researcher 完整产物持久化（P0-D 完整版）

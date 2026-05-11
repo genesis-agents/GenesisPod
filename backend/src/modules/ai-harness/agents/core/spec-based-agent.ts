@@ -27,11 +27,12 @@ import { AIModelType } from "@prisma/client";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import {
   ModelElectionService,
+  MissionElectionTracker,
   NoEligibleModelError,
+  type MissionElectionReservation,
   type ElectionCandidate,
   type ElectionRoleHint,
 } from "../../../ai-engine/llm/selection";
-import { MissionElectionTracker } from "../../../ai-engine/llm/selection/mission-election-tracker.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import type {
   IAgent,
@@ -61,6 +62,12 @@ export interface SpecAgentResult<TOutput> {
   readonly model: string;
   readonly wallTimeMs: number;
   readonly errors?: readonly string[];
+}
+
+interface ElectedModelSelection {
+  readonly missionId?: string;
+  readonly modelId?: string;
+  readonly reservation?: MissionElectionReservation;
 }
 
 export class SpecBasedAgent<
@@ -165,18 +172,19 @@ export class SpecBasedAgent<
       outputLength: "medium",
     };
     const effectiveEnv = envOverride ?? this.envSnapshot;
-    const electedModelId = await this.electModelOrNull(
-      taskProfile,
-      effectiveUserId,
-      effectiveEnv,
-    );
+    let election: ElectedModelSelection = {};
 
     try {
+      election = await this.electModelOrNull(
+        taskProfile,
+        effectiveUserId,
+        effectiveEnv,
+      );
       const result = await this.llmExecutor.execute<TOutput>({
         agentId: this.id,
         systemPrompt,
         userPrompt,
-        model: electedModelId,
+        model: election.modelId,
         outputSchema: this.spec.outputSchema,
         validateBusinessRules: this.spec.validateBusinessRules
           ? (output) => this.spec.validateBusinessRules!(output, ctx)
@@ -187,6 +195,11 @@ export class SpecBasedAgent<
         operationName: this.id,
         stubFn: this.spec.stubFn ? () => this.spec.stubFn!(ctx) : undefined,
       });
+      if (election.reservation) {
+        await this.electionTrackerProvider
+          ?.()
+          ?.commitReservation(election.missionId, election.reservation.token);
+      }
       this._state = "completed";
       return {
         output: result.output,
@@ -198,6 +211,11 @@ export class SpecBasedAgent<
         wallTimeMs: Date.now() - startMs,
       };
     } catch (err) {
+      if (election.reservation) {
+        await this.electionTrackerProvider
+          ?.()
+          ?.releaseReservation(election.missionId, election.reservation.token);
+      }
       this._state = "failed";
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.warn(`executeSpec failed: ${msg}`);
@@ -272,10 +290,10 @@ export class SpecBasedAgent<
     taskProfile: IAgentSpec<TInput, TOutput>["taskProfile"],
     userId: string | undefined,
     env: EnvironmentSnapshot | undefined,
-  ): Promise<string | undefined> {
+  ): Promise<ElectedModelSelection> {
     // Lazy resolve — 此时 OnApplicationBootstrap 已跑过，factory.electionService 已 wire
     const electionService = this.electionProvider?.();
-    if (!electionService) return undefined;
+    if (!electionService) return {};
 
     const role = this.resolveRoleHint(this._identity.role.id);
     const requestedModelType = AIModelType.CHAT;
@@ -306,19 +324,29 @@ export class SpecBasedAgent<
         };
       };
       const res = tracker
-        ? await tracker.runSerializedElection(missionId, runElection)
-        : (await runElection([])).result;
+        ? await tracker.reserveSerializedElection(missionId, runElection)
+        : { result: (await runElection([])).result };
       this.logger.debug(
-        `[electModel] ${this.id} → ${res.elected.modelId} (${res.reason})`,
+        `[electModel] ${this.id} → ${res.result.elected.modelId} (${res.result.reason})`,
       );
-      return res.elected.modelId;
+      return {
+        missionId,
+        modelId: res.result.elected.modelId,
+        reservation: res.reservation,
+      };
     } catch (err) {
       if (err instanceof NoEligibleModelError) throw err;
+      if (missionId) {
+        throw new Error(
+          `[electModel] ${this.id} election infrastructure failed in mission context: ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
       this.logger.warn(
         `[electModel] ${this.id} election failed (non-fatal, falling back to AiChatService default): ` +
           `${err instanceof Error ? err.message : String(err)}`,
       );
-      return undefined;
+      return {};
     }
   }
 

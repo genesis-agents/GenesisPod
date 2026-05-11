@@ -7,7 +7,9 @@
 
 import { AgentFactory } from "../agent-factory";
 import { AgentIdentity } from "../agent-identity";
-import type { IAgentEvent, IAgentSpec } from "../../abstractions";
+import { ContextEnvelope } from "../context-envelope";
+import { HarnessedAgent } from "../harnessed-agent";
+import type { IAgentEvent, IAgentLoop, IAgentSpec } from "../../abstractions";
 
 describe("HarnessedAgent (Phase 1 skeleton)", () => {
   const factory = new AgentFactory();
@@ -24,6 +26,17 @@ describe("HarnessedAgent (Phase 1 skeleton)", () => {
       ),
       sessionId: "session-1",
       userId: "user-1",
+    };
+  }
+
+  function makeLoop(events: IAgentEvent[], shouldThrow = false): IAgentLoop {
+    return {
+      run: async function* () {
+        for (const ev of events) yield ev;
+        if (shouldThrow) {
+          throw new Error("loop failed");
+        }
+      },
     };
   }
 
@@ -96,5 +109,171 @@ describe("HarnessedAgent (Phase 1 skeleton)", () => {
     const agent = factory.create(makeSpec());
     await agent.cancel("user aborted");
     expect(agent.state).toBe("cancelled");
+  });
+
+  it("commits preferred model reservation after successful completion", async () => {
+    const onCommit = jest.fn().mockResolvedValue(undefined);
+    const onRelease = jest.fn().mockResolvedValue(undefined);
+    const identity = makeSpec().identity as AgentIdentity;
+    const agent = new HarnessedAgent({
+      identity,
+      envelope: new ContextEnvelope({
+        system: identity.toSystemPrompt(),
+        messages: [],
+        reminders: [],
+        tools: [...identity.tools],
+        memory: { sessionId: "session-1" },
+        budget: {
+          tokensUsed: 0,
+          tokensRemaining: 1000,
+          iterationsUsed: 0,
+          iterationsRemaining: 5,
+          wallTimeStartMs: Date.now(),
+        },
+      }),
+      preferredModelId: "deepseek-v4-pro",
+      preferredModelMissionId: "mission-1",
+      preferredModelReservation: {
+        token: "reservation-1",
+        modelId: "deepseek-v4-pro",
+        createdAt: Date.now(),
+      },
+      onCommitPreferredModelReservation: onCommit,
+      onReleasePreferredModelReservation: onRelease,
+    });
+
+    for await (const _ of agent.execute({ goal: "hello" })) {
+      void _;
+    }
+
+    expect(onCommit).toHaveBeenCalledWith("mission-1", "reservation-1");
+    expect(onRelease).not.toHaveBeenCalled();
+  });
+
+  it("releases preferred model reservation when loop terminates via max_iterations", async () => {
+    const onCommit = jest.fn().mockResolvedValue(undefined);
+    const onRelease = jest.fn().mockResolvedValue(undefined);
+    const identity = makeSpec().identity as AgentIdentity;
+    const agent = new HarnessedAgent({
+      identity,
+      envelope: new ContextEnvelope({
+        system: identity.toSystemPrompt(),
+        messages: [],
+        reminders: [],
+        tools: [...identity.tools],
+        memory: { sessionId: "session-1" },
+        budget: {
+          tokensUsed: 0,
+          tokensRemaining: 1000,
+          iterationsUsed: 0,
+          iterationsRemaining: 5,
+          wallTimeStartMs: Date.now(),
+        },
+      }),
+      loop: makeLoop([
+        {
+          type: "terminated",
+          agentId: "agent-1",
+          timestamp: Date.now(),
+          payload: { reason: "max_iterations" },
+        },
+      ]),
+      preferredModelId: "deepseek-v4-pro",
+      preferredModelMissionId: "mission-1",
+      preferredModelReservation: {
+        token: "reservation-1",
+        modelId: "deepseek-v4-pro",
+        createdAt: Date.now(),
+      },
+      onCommitPreferredModelReservation: onCommit,
+      onReleasePreferredModelReservation: onRelease,
+    });
+
+    for await (const _ of agent.execute({ goal: "hello" })) {
+      void _;
+    }
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onRelease).toHaveBeenCalledWith("mission-1", "reservation-1");
+  });
+
+  it("releases preferred model reservation when loop execution fails", async () => {
+    const onCommit = jest.fn().mockResolvedValue(undefined);
+    const onRelease = jest.fn().mockResolvedValue(undefined);
+    const identity = makeSpec().identity as AgentIdentity;
+    const agent = new HarnessedAgent({
+      identity,
+      envelope: new ContextEnvelope({
+        system: identity.toSystemPrompt(),
+        messages: [],
+        reminders: [],
+        tools: [...identity.tools],
+        memory: { sessionId: "session-1" },
+        budget: {
+          tokensUsed: 0,
+          tokensRemaining: 1000,
+          iterationsUsed: 0,
+          iterationsRemaining: 5,
+          wallTimeStartMs: Date.now(),
+        },
+      }),
+      loop: makeLoop([], true),
+      preferredModelId: "deepseek-v4-pro",
+      preferredModelMissionId: "mission-1",
+      preferredModelReservation: {
+        token: "reservation-2",
+        modelId: "deepseek-v4-pro",
+        createdAt: Date.now(),
+      },
+      onCommitPreferredModelReservation: onCommit,
+      onReleasePreferredModelReservation: onRelease,
+    });
+
+    for await (const _ of agent.execute({ goal: "hello" })) {
+      void _;
+    }
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onRelease).toHaveBeenCalledWith("mission-1", "reservation-2");
+  });
+
+  it("releases preferred model reservation when already cancelled before execute", async () => {
+    const onCommit = jest.fn().mockResolvedValue(undefined);
+    const onRelease = jest.fn().mockResolvedValue(undefined);
+    const identity = makeSpec().identity as AgentIdentity;
+    const agent = new HarnessedAgent({
+      identity,
+      envelope: new ContextEnvelope({
+        system: identity.toSystemPrompt(),
+        messages: [],
+        reminders: [],
+        tools: [...identity.tools],
+        memory: { sessionId: "session-1" },
+        budget: {
+          tokensUsed: 0,
+          tokensRemaining: 1000,
+          iterationsUsed: 0,
+          iterationsRemaining: 5,
+          wallTimeStartMs: Date.now(),
+        },
+      }),
+      preferredModelId: "deepseek-v4-pro",
+      preferredModelMissionId: "mission-1",
+      preferredModelReservation: {
+        token: "reservation-3",
+        modelId: "deepseek-v4-pro",
+        createdAt: Date.now(),
+      },
+      onCommitPreferredModelReservation: onCommit,
+      onReleasePreferredModelReservation: onRelease,
+    });
+    await agent.cancel("user aborted");
+
+    for await (const _ of agent.execute({ goal: "hello" })) {
+      void _;
+    }
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onRelease).toHaveBeenCalledWith("mission-1", "reservation-3");
   });
 });

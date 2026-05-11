@@ -24,6 +24,7 @@ import type {
   IAgentSpec,
   IRuntimeEnvironment,
 } from "../abstractions";
+import type { MissionElectionReservation } from "../../../ai-engine/llm/selection";
 import { ToolRegistry } from "../../../ai-engine/tools/registry/tool.registry";
 import { BuiltinSkillCatalog } from "../skill-runtime";
 import { BillingContext } from "../../../ai-infra/credits/billing-context.store";
@@ -314,7 +315,7 @@ export class AgentRunner {
       recall.recalledIds,
       recall.effectivePreferIds,
     );
-    const preferredModelId = await this.resolvePreferredModel(meta, opts);
+    const preferredModelSelection = await this.resolvePreferredModel(meta, opts);
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
@@ -327,7 +328,8 @@ export class AgentRunner {
       opts.workspaceId,
       opts.environment,
       opts.loopOverride,
-      preferredModelId,
+      preferredModelSelection.modelId,
+      preferredModelSelection,
     );
 
     // ── 自动包 BillingContext（如果 userId 已知）──
@@ -534,7 +536,7 @@ export class AgentRunner {
       recall.recalledIds,
       recall.effectivePreferIds,
     );
-    const preferredModelId = await this.resolvePreferredModel(meta, opts);
+    const preferredModelSelection = await this.resolvePreferredModel(meta, opts);
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
@@ -547,7 +549,8 @@ export class AgentRunner {
       opts.workspaceId,
       opts.environment,
       opts.loopOverride,
-      preferredModelId,
+      preferredModelSelection.modelId,
+      preferredModelSelection,
     );
 
     const inputForExec: Record<string, unknown> | string = parsedInput as
@@ -1319,6 +1322,10 @@ export class AgentRunner {
     /** ★ Phase P1-3: loop 覆盖（thorough+ 档位切 reflexion） */
     loopOverride?: import("../abstractions").AgentLoopKind,
     preferredModelId?: string,
+    preferredModelSelection?: {
+      missionId?: string;
+      reservation?: MissionElectionReservation;
+    },
   ): {
     agent: IAgent;
     instance: AgentSpec<z.ZodType, z.ZodType>;
@@ -1417,20 +1424,28 @@ export class AgentRunner {
       runtimeEnv,
     };
 
-    const agent = this.factory.create(agentSpec, preferredModelId);
+    const agent = this.factory.create(
+      agentSpec,
+      preferredModelId,
+      preferredModelSelection,
+    );
     return { agent, instance, parsedInput };
   }
 
   private async resolvePreferredModel(
     meta: DefineAgentOptions,
     opts: RunOptions,
-  ): Promise<string | undefined> {
-    if (opts.preferredModelId) return opts.preferredModelId;
+  ): Promise<{
+    modelId?: string;
+    missionId?: string;
+    reservation?: { token: string; modelId: string; createdAt: number };
+  }> {
+    if (opts.preferredModelId) return { modelId: opts.preferredModelId };
     const envSnapshot = await opts.environment?.getEnvironmentSnapshot?.();
-    if (typeof this.factory.electPreferredModel !== "function") {
-      return undefined;
+    if (typeof this.factory.electPreferredModelSelection !== "function") {
+      return {};
     }
-    return this.factory.electPreferredModel({
+    return this.factory.electPreferredModelSelection({
       roleId:
         typeof meta.identity.role === "string"
           ? meta.identity.role

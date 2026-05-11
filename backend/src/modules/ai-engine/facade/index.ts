@@ -355,12 +355,14 @@ export { ModelElectionService } from "../llm/selection";
 export { ModelRecommendationsService } from "../llm/selection";
 export {
   NoEligibleModelError,
+  MissionElectionTracker,
   type ElectionCandidate,
   type ElectionRequest,
   type ElectionResult,
   type ElectionRoleHint,
   type ElectionScore,
   type ElectionCostBias,
+  type MissionElectionReservation,
 } from "../llm/selection";
 export { SearchService } from "../knowledge/search/search.service";
 export { SkillLoaderService } from "../skills/loader/loading/skill-loader.service";

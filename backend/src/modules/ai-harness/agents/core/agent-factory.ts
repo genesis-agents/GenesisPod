@@ -13,7 +13,10 @@ import { randomUUID } from "crypto";
 // timing issues on sibling providers (LlmExecutor was losing AiChatService
 // resolution in prod when this was a constructor @Optional inject).
 import type { ModelElectionService } from "../../../ai-engine/llm/selection";
-import type { MissionElectionTracker } from "../../../ai-engine/llm/selection/mission-election-tracker.service";
+import type {
+  MissionElectionReservation,
+  MissionElectionTracker,
+} from "../../../ai-engine/llm/selection";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 import { KernelContext } from "../../../../common/context/kernel-context";
 import { AIModelType } from "@prisma/client";
@@ -117,7 +120,21 @@ export class AgentFactory {
     userId?: string;
     envSnapshot?: EnvironmentSnapshot;
   }): Promise<string | undefined> {
-    if (!this.electionService) return undefined;
+    const selection = await this.electPreferredModelSelection(args);
+    return selection.modelId;
+  }
+
+  async electPreferredModelSelection(args: {
+    roleId: string;
+    taskProfile?: IAgentSpec["taskProfile"];
+    userId?: string;
+    envSnapshot?: EnvironmentSnapshot;
+  }): Promise<{
+    modelId?: string;
+    missionId?: string;
+    reservation?: MissionElectionReservation;
+  }> {
+    if (!this.electionService) return {};
 
     const candidates = this.buildElectionCandidates(args.envSnapshot);
     const missionId = KernelContext.get()?.missionId;
@@ -136,11 +153,15 @@ export class AgentFactory {
         electedModelId: result.elected.modelId,
       };
     };
-    const result = this.electionTracker
-      ? await this.electionTracker.runSerializedElection(missionId, runElection)
-      : (await runElection([])).result;
+    const selection = this.electionTracker
+      ? await this.electionTracker.reserveSerializedElection(missionId, runElection)
+      : { result: (await runElection([])).result };
 
-    return result.elected.modelId;
+    return {
+      modelId: selection.result.elected.modelId,
+      missionId,
+      reservation: selection.reservation,
+    };
   }
 
   /**
@@ -185,7 +206,14 @@ export class AgentFactory {
     this.subagentSpawner = spawner;
   }
 
-  create(spec: IAgentSpec, preferredModelId?: string): IAgent {
+  create(
+    spec: IAgentSpec,
+    preferredModelId?: string,
+    preferredModelReservation?: {
+      missionId?: string;
+      reservation?: MissionElectionReservation;
+    },
+  ): IAgent {
     const identity =
       spec.identity instanceof AgentIdentity
         ? spec.identity
@@ -310,6 +338,18 @@ export class AgentFactory {
       // 透传 spec.taskProfile —— Loop 内 chat() 用 agent 真实意图
       taskProfile: spec.taskProfile,
       preferredModelId,
+      preferredModelReservation: preferredModelReservation?.reservation,
+      preferredModelMissionId: preferredModelReservation?.missionId,
+      onCommitPreferredModelReservation:
+        preferredModelReservation?.reservation && this.electionTracker
+          ? (missionId, token) =>
+              this.electionTracker!.commitReservation(missionId, token)
+          : undefined,
+      onReleasePreferredModelReservation:
+        preferredModelReservation?.reservation && this.electionTracker
+          ? (missionId, token) =>
+              this.electionTracker!.releaseReservation(missionId, token)
+          : undefined,
       // ★ 内容驱动退出闸 validator
       outputSchemaValidator,
       validateBusinessRules: validateBusinessRulesWrapper,

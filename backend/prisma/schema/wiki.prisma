@@ -73,6 +73,29 @@ model WikiPageSource {
   @@map("wiki_page_sources")
 }
 
+/// Tracks which source documents are actually represented by the current wiki
+/// state. Auto-ingest must key off applied coverage, not diff proposal time:
+/// a PENDING/DISMISSED diff is not proof that the latest doc update was
+/// absorbed. Coverage is refreshed after each successful diff apply by
+/// scanning current wiki_page_sources for the KB.
+model WikiDocumentCoverage {
+  knowledgeBaseId            String   @map("knowledge_base_id")
+  documentId                 String   @map("document_id")
+  lastCoveredDocumentUpdatedAt DateTime @map("last_covered_document_updated_at")
+  lastAppliedDiffId          String   @map("last_applied_diff_id")
+  lastAppliedAt              DateTime @map("last_applied_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  knowledgeBase KnowledgeBase          @relation("WikiDocumentCoverageKnowledgeBase", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  document      KnowledgeBaseDocument  @relation("WikiDocumentCoverageDocument", fields: [documentId], references: [id], onDelete: Cascade)
+  lastAppliedDiff WikiDiff             @relation("WikiDocumentCoverageLastAppliedDiff", fields: [lastAppliedDiffId], references: [id], onDelete: Cascade)
+
+  @@id([knowledgeBaseId, documentId])
+  @@index([knowledgeBaseId, lastAppliedAt])
+  @@index([documentId])
+  @@map("wiki_document_coverages")
+}
+
 /// `[[slug]]` 解析结果。toSlug 软引用，目标可能尚不存在 → lint 报 missing_xref。
 model WikiPageLink {
   fromPageId String @map("from_page_id")
@@ -154,6 +177,7 @@ model WikiDiff {
   dismissedAt     DateTime?      @map("dismissed_at")
 
   knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  documentCoverages WikiDocumentCoverage[] @relation("WikiDocumentCoverageLastAppliedDiff")
 
   @@index([knowledgeBaseId, status])
   @@map("wiki_diffs")

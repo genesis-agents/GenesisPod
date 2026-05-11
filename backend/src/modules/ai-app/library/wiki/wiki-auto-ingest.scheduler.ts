@@ -15,12 +15,13 @@ import {
  * Cadence: every 5 minutes. Each tick:
  *  1. Find KBs with `wikiEnabled=true` AND `wikiConfig.autoIngestEnabled
  *     != false` (default true when config row absent).
- *  2. For each KB, compute the cursor = MAX(WikiDiff.createdAt) — any
- *     diff (user-triggered or auto) advances the cursor, so user manual
- *     ingest naturally suppresses redundant auto-ingest.
- *  3. Find candidate docs whose `updatedAt > cursor` AND have real
- *     content (status != ERROR, not the `[Pending content fetch from X]`
- *     placeholder via metadata.pendingFetch flag, OR off-loaded).
+ *  2. For each KB, load the persisted document coverage watermark produced
+ *     only by successful diff apply. Pending/dismissed diffs are proposals,
+ *     not proof that raw doc updates were absorbed into the wiki.
+ *  3. Find candidate docs that have real content (status != ERROR, not the
+ *     `[Pending content fetch from X]` placeholder via metadata.pendingFetch
+ *     flag, OR off-loaded) AND whose `updatedAt` is newer than the last
+ *     applied coverage watermark for that document (or have no coverage row).
  *  4. Apply per-KB gates:
  *       a. debounce — skip if any WikiDiff from this scheduler created
  *          within `autoIngestDebounceSeconds`
@@ -155,34 +156,39 @@ export class WikiAutoIngestScheduler {
     });
     if (todayAutoCount >= dailyBudget) return null;
 
-    // Cursor: most recent diff from any source (user or auto). Manual user
-    // ingest right after a doc edit will advance the cursor and suppress
-    // duplicate auto-ingest.
-    const lastDiff = await this.prisma.wikiDiff.findFirst({
-      where: { knowledgeBaseId },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    });
-    const cursor = lastDiff?.createdAt ?? new Date(0);
-
-    // Candidate docs: changed since cursor, status != ERROR, content is
-    // not a `[Pending content fetch from X]` placeholder.
-    // We deliberately do NOT select rawContent — selecting it would trigger
-    // PrismaService's R2 hydrate hook for off-loaded docs (N round-trips).
+    // Candidate docs: content is real and the latest raw doc update has not
+    // yet been covered by an APPLIED wiki diff. We deliberately do NOT
+    // select rawContent — selecting it would trigger PrismaService's R2
+    // hydrate hook for off-loaded docs (N round-trips).
     const docs = await this.prisma.knowledgeBaseDocument.findMany({
       where: {
         knowledgeBaseId,
-        updatedAt: { gt: cursor },
         status: { not: "ERROR" },
       },
-      select: { id: true, metadata: true, rawContentUri: true },
+      select: { id: true, metadata: true, rawContentUri: true, updatedAt: true },
     });
+
+    const coverageRows = await this.prisma.wikiDocumentCoverage.findMany({
+      where: { knowledgeBaseId },
+      select: {
+        documentId: true,
+        lastCoveredDocumentUpdatedAt: true,
+      },
+    });
+    const coverageByDocId = new Map(
+      coverageRows.map((row) => [row.documentId, row.lastCoveredDocumentUpdatedAt]),
+    );
 
     return docs
       .filter((d) => {
-        if (d.rawContentUri) return true; // off-loaded docs always real
-        const meta = d.metadata as { pendingFetch?: boolean } | null;
-        return meta?.pendingFetch !== true;
+        if (!d.rawContentUri) {
+          const meta = d.metadata as { pendingFetch?: boolean } | null;
+          if (meta?.pendingFetch === true) return false;
+        }
+
+        const coveredAt = coverageByDocId.get(d.id);
+        if (!coveredAt) return true;
+        return d.updatedAt > coveredAt;
       })
       .map((d) => d.id);
   }

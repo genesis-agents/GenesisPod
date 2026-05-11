@@ -676,6 +676,21 @@ export class AiAskService {
         assistantMessageId: string;
         tokensUsed: number;
         fullContent: string;
+        userMessage: {
+          id: string;
+          content: string;
+          createdAt: string;
+          modelId?: string;
+          modelName?: string;
+        };
+        assistantMessage: {
+          id: string;
+          content: string;
+          createdAt: string;
+          modelId?: string;
+          modelName?: string;
+          tokens: number;
+        };
       }
     | { type: "error"; message: string },
     void,
@@ -847,6 +862,21 @@ export class AiAskService {
         assistantMessageId: errorMessage.id,
         tokensUsed: 0,
         fullContent: `Error: ${msg}`,
+        userMessage: {
+          id: userMessage.id,
+          content: userMessage.content,
+          createdAt: userMessage.createdAt.toISOString(),
+          modelId: userMessage.modelId ?? undefined,
+          modelName: userMessage.modelName ?? undefined,
+        },
+        assistantMessage: {
+          id: errorMessage.id,
+          content: errorMessage.content,
+          createdAt: errorMessage.createdAt.toISOString(),
+          modelId: errorMessage.modelId ?? undefined,
+          modelName: errorMessage.modelName ?? undefined,
+          tokens: errorMessage.tokens ?? 0,
+        },
       };
       return;
     }
@@ -897,6 +927,21 @@ export class AiAskService {
       assistantMessageId: assistantMessage.id,
       tokensUsed,
       fullContent: assistantContent,
+      userMessage: {
+        id: userMessage.id,
+        content: userMessage.content,
+        createdAt: userMessage.createdAt.toISOString(),
+        modelId: userMessage.modelId ?? undefined,
+        modelName: userMessage.modelName ?? undefined,
+      },
+      assistantMessage: {
+        id: assistantMessage.id,
+        content: assistantMessage.content,
+        createdAt: assistantMessage.createdAt.toISOString(),
+        modelId: assistantMessage.modelId ?? undefined,
+        modelName: assistantMessage.modelName ?? undefined,
+        tokens: assistantMessage.tokens ?? 0,
+      },
     };
   }
 

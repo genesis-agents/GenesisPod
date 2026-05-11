@@ -4,11 +4,12 @@
  *
  * Gates exercised (each test isolates one):
  *  - eligibility: only wikiEnabled + autoIngestEnabled != false KBs
- *  - cursor: only docs whose updatedAt > MAX(WikiDiff.createdAt) are ingested
+ *  - coverage: only docs whose updatedAt is newer than APPLIED coverage are ingested
  *  - placeholder docs (metadata.pendingFetch=true) are filtered out
  *  - off-loaded docs (rawContentUri set) are always considered ready
  *  - debounce window pre-empts a tick
  *  - daily budget caps auto-ingest count per KB per day
+ *  - pending diffs do not suppress auto-ingest by themselves
  *  - per-KB failure does not abort the loop
  *  - top-level catch keeps the cron alive
  */
@@ -23,6 +24,7 @@ function makePrismaMock() {
       findFirst: jest.fn(),
       count: jest.fn(),
     },
+    wikiDocumentCoverage: { findMany: jest.fn() },
     knowledgeBaseDocument: { findMany: jest.fn() },
   } as any;
 }
@@ -43,10 +45,9 @@ const KB_DEFAULT = {
 };
 
 function setupNoBlockers(prisma: any) {
-  prisma.wikiDiff.findFirst
-    .mockResolvedValueOnce(null) // debounce probe
-    .mockResolvedValueOnce(null); // cursor lookup → epoch
+  prisma.wikiDiff.findFirst.mockResolvedValueOnce(null); // debounce probe
   prisma.wikiDiff.count.mockResolvedValue(0); // budget
+  prisma.wikiDocumentCoverage.findMany.mockResolvedValue([]);
 }
 
 describe("WikiAutoIngestScheduler", () => {
@@ -195,9 +196,9 @@ describe("WikiAutoIngestScheduler", () => {
     prisma.wikiDiff.findFirst
       .mockRejectedValueOnce(new Error("DB hiccup"))
       // Second KB: clean run.
-      .mockResolvedValueOnce(null) // debounce
-      .mockResolvedValueOnce(null); // cursor
+      .mockResolvedValueOnce(null); // debounce
     prisma.wikiDiff.count.mockResolvedValue(0);
+    prisma.wikiDocumentCoverage.findMany.mockResolvedValue([]);
     prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
       { id: "doc-x", metadata: {}, rawContentUri: null },
     ]);
@@ -206,6 +207,58 @@ describe("WikiAutoIngestScheduler", () => {
 
     // kb-2 still got ingested.
     expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-2", ["doc-x"]);
+  });
+
+  it("does not let pending diffs suppress docs with no applied coverage", async () => {
+    prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+    setupNoBlockers(prisma);
+    prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+      {
+        id: "doc-after-pending",
+        metadata: {},
+        rawContentUri: null,
+        updatedAt: new Date("2026-05-10T10:00:00.000Z"),
+      },
+    ]);
+
+    await scheduler.tick();
+
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-1", [
+      "doc-after-pending",
+    ]);
+  });
+
+  it("skips docs already covered by an applied coverage watermark", async () => {
+    prisma.knowledgeBase.findMany.mockResolvedValue([KB_DEFAULT]);
+    setupNoBlockers(prisma);
+    prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+      {
+        id: "doc-covered",
+        metadata: {},
+        rawContentUri: null,
+        updatedAt: new Date("2026-05-10T10:00:00.000Z"),
+      },
+      {
+        id: "doc-newer",
+        metadata: {},
+        rawContentUri: null,
+        updatedAt: new Date("2026-05-10T11:00:00.000Z"),
+      },
+    ]);
+    prisma.wikiDocumentCoverage.findMany.mockResolvedValue([
+      {
+        documentId: "doc-covered",
+        lastCoveredDocumentUpdatedAt: new Date("2026-05-10T10:00:00.000Z"),
+      },
+      {
+        documentId: "doc-newer",
+        lastCoveredDocumentUpdatedAt: new Date("2026-05-10T10:30:00.000Z"),
+      },
+    ]);
+
+    await scheduler.tick();
+
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-1", ["doc-newer"]);
   });
 
   it("does not throw if the top-level scan query itself fails", async () => {

@@ -1142,4 +1142,73 @@ describe("AiAskService", () => {
       expect(result.session).toBeDefined();
     });
   });
+
+  // =========================================================================
+  // sendMessageStream
+  // =========================================================================
+
+  describe("sendMessageStream", () => {
+    it("should emit done with persisted backend-truth message envelopes", async () => {
+      const userCreatedAt = new Date("2026-05-10T10:00:00.000Z");
+      const assistantCreatedAt = new Date("2026-05-10T10:00:01.000Z");
+      const userRecord = {
+        id: "user-msg-1",
+        sessionId,
+        role: "user",
+        content: "Question",
+        createdAt: userCreatedAt,
+        modelId: "db-1",
+        modelName: "GPT-4o",
+        webSearch: false,
+      };
+      const assistantRecord = {
+        id: "assistant-msg-1",
+        sessionId,
+        role: "assistant",
+        content: "Hello world",
+        createdAt: assistantCreatedAt,
+        modelId: "db-1",
+        modelName: "GPT-4o",
+        tokens: 0,
+        webSearch: false,
+      };
+
+      mockPrisma.askMessage.create
+        .mockResolvedValueOnce(userRecord)
+        .mockResolvedValueOnce(assistantRecord);
+      mockPrisma.askMessage.count.mockResolvedValue(2);
+      mockFacade.chatStream.mockImplementation(async function* () {
+        yield { content: "Hello" };
+        yield { content: " world" };
+        yield { done: true };
+      });
+
+      const events = [];
+      for await (const event of service.sendMessageStream(sessionId, userId, {
+        content: "Question",
+        webSearch: false,
+      } as any)) {
+        events.push(event);
+      }
+
+      const doneEvent = events.find((event: any) => event.type === "done");
+      expect(doneEvent).toBeDefined();
+      expect(doneEvent.userMessage).toEqual({
+        id: "user-msg-1",
+        content: "Question",
+        createdAt: userCreatedAt.toISOString(),
+        modelId: "db-1",
+        modelName: "GPT-4o",
+      });
+      expect(doneEvent.assistantMessage).toEqual({
+        id: "assistant-msg-1",
+        content: "Hello world",
+        createdAt: assistantCreatedAt.toISOString(),
+        modelId: "db-1",
+        modelName: "GPT-4o",
+        tokens: 0,
+      });
+      expect(doneEvent.fullContent).toBe("Hello world");
+    });
+  });
 });

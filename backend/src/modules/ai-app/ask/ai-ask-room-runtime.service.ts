@@ -39,6 +39,7 @@ import type {
 } from "./adapters/mode-adapter.interface";
 import { AskRoomService } from "./ai-ask-room.service";
 import { SendRoomMessageDto } from "./dto/send-room-message.dto";
+import { AskRoomRuntimeStateStore } from "./ai-ask-room-runtime-state.store";
 
 interface TurnEmitContext {
   sessionId: string;
@@ -46,25 +47,23 @@ interface TurnEmitContext {
 }
 
 const HISTORY_FOR_LLM = 20;
+const TURN_CANCEL_POLL_BASE_MS = 500;
+const TURN_CANCEL_POLL_MAX_MS = 5_000;
+const TURN_CANCEL_DB_FALLBACK_MS = 5_000;
 
 @Injectable()
 export class AskRoomRuntimeService {
   private readonly logger = new Logger(AskRoomRuntimeService.name);
   private readonly turnAbortControllers = new Map<string, AbortController>();
-  // 2026-05-09（screenshot 48-49 / "AI 思考显示在问题的上方"）：
-  // per-session in-memory tracker for max emitted sequenceNum across ALL turns.
-  // 当 turn N 仍在流式（事件 seq 已到 30）+ turn N+1 用户发消息时，必须确保
-  // user_(N+1).seq > 30，否则前端按 emit-seq 升序排会把 turn N+1 user msg
-  // 落到 turn N events 中间（视觉上 AI 思考显示在问题上方）。
-  //
-  // 单进程内有效；多实例部署需用 Redis（W5 follow-up，与 turnAbortControllers
-  // 同一个 caveat）。session 删除时未主动清理（Map 持续累积），属于
-  // bounded-leak（每个 room 一项 number），可接受；下次进程重启释放。
-  private readonly sessionMaxEmittedSeq = new Map<string, number>();
+  private readonly turnCancellationPollers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly roomService: AskRoomService,
+    private readonly runtimeStateStore: AskRoomRuntimeStateStore,
     private readonly freechatAdapter: FreechatAdapter,
     private readonly parallelMergeAdapter: ParallelMergeAdapter,
     private readonly debateAdapter: DebateAdapter,
@@ -103,16 +102,18 @@ export class AskRoomRuntimeService {
     // 2026-05-09 fix: 把 session 级 in-flight emitted seq 传给 appendUserMessage，
     // 让其取 max(DB MAX, sessionMaxEmittedSeq) + 1，避免 turn N+1 user msg
     // emit seq < turn N 仍在飞的事件 seq → 前端排序错乱。
-    const sessionMinSeq = this.sessionMaxEmittedSeq.get(sessionId) ?? 0;
+    const sessionMinSeq =
+      await this.runtimeStateStore.getSessionMaxEmittedSeq(sessionId);
     const userMessage = await this.roomService.appendUserMessage(
       sessionId,
       dto.content,
       mentionedIds,
       sessionMinSeq,
     );
-    if (userMessage.sequenceNum && userMessage.sequenceNum > sessionMinSeq) {
-      this.sessionMaxEmittedSeq.set(sessionId, userMessage.sequenceNum);
-    }
+    await this.runtimeStateStore.warmSessionMaxEmittedSeq(
+      sessionId,
+      userMessage.sequenceNum,
+    );
 
     const mode = this.pickMode({
       explicit: dto.mode,
@@ -166,6 +167,7 @@ export class AskRoomRuntimeService {
     userId: string,
   ): Promise<void> {
     await this.roomService.cancelTurn(sessionId, turnId, userId);
+    await this.runtimeStateStore.markTurnCancelled(turnId);
     const controller = this.turnAbortControllers.get(turnId);
     if (controller && !controller.signal.aborted) {
       controller.abort();
@@ -200,6 +202,7 @@ export class AskRoomRuntimeService {
     const room = askRoomKey(sessionId);
     const controller = new AbortController();
     this.turnAbortControllers.set(turnId, controller);
+    this.attachTurnCancellationMonitor(turnId, controller);
 
     const seqStart = userMessage.sequenceNum ?? 0;
     // 2026-05-09（screenshot 42）：跟踪本 turn 已 emit 的最大 seq，让 turn.complete /
@@ -212,12 +215,15 @@ export class AskRoomRuntimeService {
       if (event.sequenceNum > maxEmittedSeq) {
         maxEmittedSeq = event.sequenceNum;
       }
-      // 2026-05-09 fix: 同步刷新 session 级 in-flight max。下一次 user 发送时
-      // appendUserMessage 用此值确保 user msg seq 永远在所有 in-flight 事件之后。
-      const prev = this.sessionMaxEmittedSeq.get(sessionId) ?? 0;
-      if (event.sequenceNum > prev) {
-        this.sessionMaxEmittedSeq.set(sessionId, event.sequenceNum);
-      }
+      void this.runtimeStateStore
+        .recordSessionMaxEmittedSeq(sessionId, event.sequenceNum)
+        .catch((err) => {
+          this.logger.warn(
+            `[emit] session=${sessionId} seq=${event.sequenceNum} runtime-state sync failed: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
       emitContext.emit(room, event);
     };
     emit({
@@ -248,6 +254,8 @@ export class AskRoomRuntimeService {
         reason: "adapter_not_implemented",
       });
       this.turnAbortControllers.delete(turnId);
+      this.detachTurnCancellationMonitor(turnId);
+      await this.runtimeStateStore.clearTurn(turnId);
       return;
     }
 
@@ -337,7 +345,81 @@ export class AskRoomRuntimeService {
       );
     } finally {
       this.turnAbortControllers.delete(turnId);
+      this.detachTurnCancellationMonitor(turnId);
+      await this.runtimeStateStore.clearTurn(turnId);
     }
+  }
+
+  private attachTurnCancellationMonitor(
+    turnId: string,
+    controller: AbortController,
+  ): void {
+    let nextDbPollAt = 0;
+    const poll = async () => {
+      if (controller.signal.aborted) return;
+      if (await this.runtimeStateStore.isTurnCancelled(turnId)) {
+        controller.abort();
+        return;
+      }
+      if (Date.now() < nextDbPollAt) {
+        return;
+      }
+      nextDbPollAt = Date.now() + TURN_CANCEL_DB_FALLBACK_MS;
+      const turn = await this.prisma.askRoomTurn.findUnique({
+        where: { id: turnId },
+        select: { status: true },
+      });
+      if (turn?.status === AskTurnStatus.CANCELLED) {
+        await this.runtimeStateStore.markTurnCancelled(turnId);
+        controller.abort();
+      }
+    };
+    let failureCount = 0;
+    let inFlight = false;
+
+    const schedule = (delayMs: number) => {
+      if (controller.signal.aborted) return;
+      const timer = setTimeout(() => {
+        void tick();
+      }, delayMs);
+      timer.unref?.();
+      this.turnCancellationPollers.set(turnId, timer);
+    };
+
+    const tick = async () => {
+      if (controller.signal.aborted || inFlight) return;
+      inFlight = true;
+      try {
+        await poll();
+        failureCount = 0;
+      } catch (err) {
+        failureCount += 1;
+        this.logger.warn(
+          `[attachTurnCancellationMonitor] turn=${turnId} poll failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      } finally {
+        inFlight = false;
+      }
+
+      if (!controller.signal.aborted) {
+        const delayMs = Math.min(
+          TURN_CANCEL_POLL_MAX_MS,
+          TURN_CANCEL_POLL_BASE_MS * 2 ** failureCount,
+        );
+        schedule(delayMs);
+      }
+    };
+
+    void tick();
+  }
+
+  private detachTurnCancellationMonitor(turnId: string): void {
+    const timer = this.turnCancellationPollers.get(turnId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.turnCancellationPollers.delete(turnId);
   }
 
   /**

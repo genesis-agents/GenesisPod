@@ -11,6 +11,7 @@
  *  - access checks (VIEWER for getDiff, EDITOR + wikiEnabled for write)
  */
 
+import * as crypto from "crypto";
 import {
   ConflictException,
   ForbiddenException,
@@ -56,6 +57,7 @@ function makePrismaMock() {
       })),
     },
     $queryRaw: jest.fn().mockResolvedValue([]),
+    $executeRaw: jest.fn().mockResolvedValue(1),
   };
 
   const prisma: any = {
@@ -94,10 +96,12 @@ describe("WikiDiffService", () => {
   let service: WikiDiffService;
   let prisma: any;
   let kbService: any;
+  let tx: any;
 
   beforeEach(() => {
     const m = makePrismaMock();
     prisma = m.prisma;
+    tx = m.tx;
     kbService = makeKbService();
     service = new WikiDiffService(prisma, kbService, makePageService());
   });
@@ -308,6 +312,71 @@ describe("WikiDiffService", () => {
       });
       await expect(service.applyDiff("user-1", "kb-1", "d1")).rejects.toThrow(
         NotFoundException,
+      );
+    });
+
+    it("refreshes document coverage from current wiki sources after apply", async () => {
+      const baselineHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify([]), "utf8")
+        .digest("hex");
+
+      prisma.wikiDiff.findUnique.mockResolvedValue({
+        id: "d1",
+        knowledgeBaseId: "kb-1",
+        status: WikiDiffStatus.PENDING,
+        baselineHash,
+        items: {
+          creates: [
+            {
+              slug: "page-a",
+              title: "A",
+              category: "ENTITY",
+              body: "Body text",
+              oneLiner: "Line",
+              sources: [
+                {
+                  documentId: "doc-1",
+                  spanStart: 0,
+                  spanEnd: 8,
+                  quote: "Body",
+                },
+              ],
+            },
+          ],
+          updates: [],
+          deletes: [],
+        },
+      });
+      tx.wikiPage.upsert.mockResolvedValue({
+        id: "page-1",
+        slug: "page-a",
+        body: "Body text",
+      });
+      tx.$queryRaw
+        .mockResolvedValueOnce([]) // FOR UPDATE
+        .mockResolvedValueOnce([
+          {
+            documentId: "doc-1",
+            lastCoveredDocumentUpdatedAt: new Date("2026-05-10T10:00:00.000Z"),
+          },
+        ]); // coverage refresh query
+      tx.wikiDiff.update.mockResolvedValueOnce({
+        id: "diff-applied-xyz",
+        knowledgeBaseId: "kb-1",
+        status: WikiDiffStatus.APPLIED,
+        appliedAt: new Date("2026-05-10T10:05:00.000Z"),
+      });
+
+      await service.applyDiff("user-1", "kb-1", "d1");
+
+      expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(tx.$executeRaw.mock.calls[0][0].join("")).toContain(
+        "INSERT INTO wiki_document_coverages",
+      );
+      expect(tx.$executeRaw.mock.calls[0][4]).toBe("diff-applied-xyz");
+      expect(tx.$executeRaw.mock.calls[1][0].join("")).toContain(
+        "DELETE FROM wiki_document_coverages",
       );
     });
   });

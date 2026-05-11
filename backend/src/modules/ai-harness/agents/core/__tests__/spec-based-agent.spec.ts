@@ -19,11 +19,13 @@
 
 import { SpecBasedAgent } from "../spec-based-agent";
 import { AgentIdentity } from "../agent-identity";
+import { KernelContext } from "../../../../../common/context/kernel-context";
 import type {
   LlmExecutor,
   LlmExecutorResult,
 } from "../../../runner/executor/llm-executor";
 import type { IAgentSpec, IAgentTask, IAgentEvent } from "../../abstractions";
+import { MissionElectionTracker } from "../../../../ai-engine/llm/selection/mission-election-tracker.service";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -412,6 +414,89 @@ describe("SpecBasedAgent electModelOrNull — generic election error returns und
 
     const call = executor.execute.mock.calls[0][0];
     expect(call.model).toBeUndefined();
+  });
+
+  it("fails closed when election infrastructure breaks inside a mission", async () => {
+    const executor = makeLlmExecutor();
+    const electionService = {
+      elect: jest.fn().mockRejectedValue(new Error("redis unavailable")),
+    };
+    const tracker = new MissionElectionTracker();
+    const agent = new SpecBasedAgent(
+      "agent-id",
+      makeSpec(),
+      executor,
+      () => electionService as never,
+      undefined,
+      () => tracker,
+    );
+
+    const result = await KernelContext.run(
+      { missionId: "mission-strict", userId: "user-1" },
+      () => agent.executeSpec("input"),
+    );
+
+    expect(result.state).toBe("failed");
+    expect(result.errors?.[0]).toContain("election infrastructure failed");
+    expect(executor.execute).not.toHaveBeenCalled();
+  });
+});
+
+describe("SpecBasedAgent election reservation lifecycle", () => {
+  it("commits reservation after successful execution", async () => {
+    const executor = makeLlmExecutor();
+    const tracker = new MissionElectionTracker();
+    const electionService = {
+      elect: jest.fn().mockResolvedValue({
+        elected: { modelId: "deepseek-v4-pro" },
+        reason: "test",
+      }),
+    };
+    const agent = new SpecBasedAgent(
+      "agent-id",
+      makeSpec(),
+      executor,
+      () => electionService as never,
+      undefined,
+      () => tracker,
+    );
+
+    await KernelContext.run(
+      { missionId: "mission-commit", userId: "user-1" },
+      () => agent.executeSpec("input"),
+    );
+
+    await expect(tracker.getElected("mission-commit")).resolves.toEqual([
+      "deepseek-v4-pro",
+    ]);
+  });
+
+  it("releases reservation when execution fails", async () => {
+    const executor = makeLlmExecutor({
+      execute: jest.fn().mockRejectedValue(new Error("model crashed")),
+    });
+    const tracker = new MissionElectionTracker();
+    const electionService = {
+      elect: jest.fn().mockResolvedValue({
+        elected: { modelId: "deepseek-v4-pro" },
+        reason: "test",
+      }),
+    };
+    const agent = new SpecBasedAgent(
+      "agent-id",
+      makeSpec(),
+      executor,
+      () => electionService as never,
+      undefined,
+      () => tracker,
+    );
+
+    await KernelContext.run(
+      { missionId: "mission-release", userId: "user-1" },
+      () => agent.executeSpec("input"),
+    );
+
+    await expect(tracker.getElected("mission-release")).resolves.toEqual([]);
   });
 });
 

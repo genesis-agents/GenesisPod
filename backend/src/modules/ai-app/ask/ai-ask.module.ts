@@ -17,6 +17,7 @@ import { CollaborationModule } from "../../ai-harness/teams/collaboration/collab
 import { AskRoomController } from "./ai-ask-room.controller";
 import { AskRoomService } from "./ai-ask-room.service";
 import { AskRoomRuntimeService } from "./ai-ask-room-runtime.service";
+import { AskRoomRuntimeStateStore } from "./ai-ask-room-runtime-state.store";
 import { AskRoomGateway } from "./ai-ask-room.gateway";
 import { FreechatAdapter } from "./adapters/freechat.adapter";
 import { ParallelMergeAdapter } from "./adapters/parallel-merge.adapter";
@@ -47,6 +48,7 @@ import { HandoffAdapter } from "./adapters/handoff.adapter";
     AiAskService,
     AskRoomService,
     AskRoomRuntimeService,
+    AskRoomRuntimeStateStore,
     AskRoomGateway,
     FreechatAdapter,
     ParallelMergeAdapter,
