@@ -26,7 +26,7 @@ import {
   Th,
   fmtTime,
   statusBadgeClass,
-} from './shared';
+} from '../_shared/admin-tables';
 
 interface KBRow {
   id: string;

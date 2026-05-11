@@ -25,7 +25,7 @@ import {
   StatGrid,
   Th,
   fmtTime,
-} from './shared';
+} from '../_shared/admin-tables';
 
 interface WikiRow {
   id: string;

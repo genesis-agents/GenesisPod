@@ -27,7 +27,7 @@ import {
   fmtBytes,
   fmtTime,
   statusBadgeClass,
-} from './shared';
+} from '../_shared/admin-tables';
 
 interface DocRow {
   id: string;
