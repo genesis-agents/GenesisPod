@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
@@ -58,7 +59,9 @@ export function CollectionMonitor() {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch(`${config.apiUrl}/data-management/tasks`);
+      const response = await fetch(`${config.apiUrl}/data-management/tasks`, {
+        headers: getAuthHeader(),
+      });
       const result = await response.json();
       // Handle wrapped response { success: true, data: [...] }
       const data = result?.data ?? result;

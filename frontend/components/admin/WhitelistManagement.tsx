@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import {
   AlertCircle,
   Check,
@@ -104,7 +105,9 @@ export default function WhitelistManagement() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${config.apiUrl}/data-management/whitelists`);
+      const res = await fetch(`${config.apiUrl}/data-management/whitelists`, {
+        headers: getAuthHeader(),
+      });
       if (!res.ok) throw new Error('Failed to fetch whitelists');
       const result = await res.json();
       // Handle wrapped API response { success: true, data: T }
@@ -127,7 +130,7 @@ export default function WhitelistManagement() {
         `${config.apiUrl}/data-management/whitelists/${resourceType}/domains`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ domain: newDomain }),
         }
       );
@@ -137,7 +140,8 @@ export default function WhitelistManagement() {
       await fetchWhitelists();
       // Update selected whitelist
       const updated = await fetch(
-        `${config.apiUrl}/data-management/whitelists`
+        `${config.apiUrl}/data-management/whitelists`,
+        { headers: getAuthHeader() }
       );
       const result = await updated.json();
       // Handle wrapped API response { success: true, data: T }
@@ -155,14 +159,15 @@ export default function WhitelistManagement() {
     try {
       const res = await fetch(
         `${config.apiUrl}/data-management/whitelists/${resourceType}/domains/${encodeURIComponent(domain)}`,
-        { method: 'DELETE' }
+        { method: 'DELETE', headers: getAuthHeader() }
       );
 
       if (!res.ok) throw new Error('Failed to remove domain');
       await fetchWhitelists();
       // Update selected whitelist
       const updated = await fetch(
-        `${config.apiUrl}/data-management/whitelists`
+        `${config.apiUrl}/data-management/whitelists`,
+        { headers: getAuthHeader() }
       );
       const result = await updated.json();
       // Handle wrapped API response { success: true, data: T }
@@ -188,7 +193,7 @@ export default function WhitelistManagement() {
         `${config.apiUrl}/data-management/whitelists/${resourceType}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...whitelist,
             isActive: !isActive,

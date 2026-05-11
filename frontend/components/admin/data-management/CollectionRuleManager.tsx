@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
@@ -39,7 +40,9 @@ export function CollectionRuleManager() {
   const fetchRules = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${config.apiUrl}/data-management/rules`);
+      const response = await fetch(`${config.apiUrl}/data-management/rules`, {
+        headers: getAuthHeader(),
+      });
       const result = await response.json();
       // Handle wrapped response { success: true, data: [...] }
       const data = result?.data ?? result;
@@ -68,7 +71,7 @@ export function CollectionRuleManager() {
       const endpoint = isActive ? 'disable' : 'enable';
       const response = await fetch(
         `${config.apiUrl}/data-management/rules/${resourceType}/${endpoint}`,
-        { method: 'POST' }
+        { method: 'POST', headers: getAuthHeader() }
       );
       const result = await response.json();
       // Handle wrapped response { success: true, data: {...} }

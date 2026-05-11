@@ -101,9 +101,16 @@ export default function DataQualityManagement() {
       setError(null);
 
       const res = await fetch(
-        `${config.apiUrl}/data-management/dashboard/summary`
+        `${config.apiUrl}/data-management/dashboard/summary`,
+        { headers: getAuthHeader() }
       );
-      if (!res.ok) throw new Error('Failed to fetch quality metrics');
+      if (!res.ok) {
+        throw new Error(
+          res.status === 401
+            ? 'Unauthorized (session expired — please re-login)'
+            : `Failed to fetch quality metrics: HTTP ${res.status}`
+        );
+      }
 
       const result = await res.json();
       // Handle wrapped API response { success: true, data: T }
@@ -112,7 +119,8 @@ export default function DataQualityManagement() {
 
       // Fetch detailed metrics (in a real app, this would be paginated)
       const metricsRes = await fetch(
-        `${config.apiUrl}/data-management/quality-metrics`
+        `${config.apiUrl}/data-management/quality-metrics`,
+        { headers: getAuthHeader() }
       );
       if (metricsRes.ok) {
         const metricsData = await metricsRes.json();
