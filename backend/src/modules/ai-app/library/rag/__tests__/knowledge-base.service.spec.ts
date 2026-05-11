@@ -397,11 +397,16 @@ describe("KnowledgeBaseService", () => {
       ).mockResolvedValue(3);
       (
         embeddingProcessor.generateEmbeddingsForKnowledgeBase as jest.Mock
-      ).mockResolvedValue(15);
+      ).mockResolvedValue({
+        generatedCount: 15,
+        totalNeeded: 15,
+        failedBatches: 0,
+      });
 
       const result = await service.processAllDocuments("kb-123");
 
-      expect(result).toEqual({ processedCount: 3, embeddingCount: 15 });
+      expect(result.processedCount).toBe(3);
+      expect(result.embeddingCount).toBe(15);
       expect(documentProcessor.processAllPendingDocuments).toHaveBeenCalledWith(
         "kb-123",
       );

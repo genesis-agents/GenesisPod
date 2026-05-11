@@ -26,6 +26,9 @@ describe("EmbeddingProcessorService", () => {
       childChunk: {
         findMany: jest.fn(),
       },
+      knowledgeBase: {
+        update: jest.fn().mockResolvedValue({}),
+      },
     };
 
     const mockAiFacade = {
@@ -67,12 +70,16 @@ describe("EmbeddingProcessorService", () => {
   });
 
   describe("generateEmbeddingsForKnowledgeBase", () => {
-    it("should return 0 when no chunks need embeddings", async () => {
+    it("should return zero counts when no chunks need embeddings", async () => {
       (prisma.childChunk.findMany as jest.Mock).mockResolvedValue([]);
 
       const result = await service.generateEmbeddingsForKnowledgeBase("kb-1");
 
-      expect(result).toBe(0);
+      expect(result).toEqual({
+        generatedCount: 0,
+        totalNeeded: 0,
+        failedBatches: 0,
+      });
       expect(mockEmbeddingService.generateEmbeddings).not.toHaveBeenCalled();
     });
 
@@ -91,7 +98,9 @@ describe("EmbeddingProcessorService", () => {
 
       const result = await service.generateEmbeddingsForKnowledgeBase("kb-1");
 
-      expect(result).toBe(2);
+      expect(result.generatedCount).toBe(2);
+      expect(result.totalNeeded).toBe(2);
+      expect(result.failedBatches).toBe(0);
       expect(mockEmbeddingService.generateEmbeddings).toHaveBeenCalledWith([
         "First chunk content",
         "Second chunk content",
@@ -108,26 +117,82 @@ describe("EmbeddingProcessorService", () => {
 
       const result = await service.generateEmbeddingsForKnowledgeBase("kb-1");
 
-      expect(result).toBe(0);
+      expect(result.generatedCount).toBe(0);
+      expect(result.totalNeeded).toBe(1);
       expect(mockVectorService.storeEmbedding).not.toHaveBeenCalled();
     });
 
-    it("should continue processing when one batch fails", async () => {
-      // Create more than BATCH_SIZE (50) chunks to test batch processing
+    it("should record failed batches and surface lastError on non-circuit-open errors", async () => {
       const chunks = Array.from({ length: 3 }, (_, i) => ({
         id: `chunk-${i}`,
         content: `Content ${i}`,
       }));
       (prisma.childChunk.findMany as jest.Mock).mockResolvedValue(chunks);
-      mockEmbeddingService.generateEmbeddings
-        .mockRejectedValueOnce(new Error("Batch error"))
-        .mockResolvedValueOnce({ embeddings: [[0.1]] });
+      mockEmbeddingService.generateEmbeddings.mockRejectedValue(
+        new Error("Batch error"),
+      );
 
-      // Should not throw but continue
       const result = await service.generateEmbeddingsForKnowledgeBase("kb-1");
 
-      // First batch fails, second call is not made as all chunks fit in one batch (< 50)
-      expect(result).toBe(0);
+      expect(result.generatedCount).toBe(0);
+      expect(result.totalNeeded).toBe(3);
+      expect(result.failedBatches).toBe(1);
+      expect(result.lastError).toBe("Batch error");
+    });
+
+    it("should retry batch after circuit-open cooldown", async () => {
+      const chunks = [
+        { id: "chunk-1", content: "c1" },
+        { id: "chunk-2", content: "c2" },
+      ];
+      (prisma.childChunk.findMany as jest.Mock).mockResolvedValue(chunks);
+      // 第一次抛 circuit-open（cooldown 已过去 → wait 接近 0），第二次成功
+      const pastIso = new Date(Date.now() - 1000).toISOString();
+      mockEmbeddingService.generateEmbeddings
+        .mockRejectedValueOnce(
+          new Error(
+            `Embedding circuit-open (5 recent 429s). Upstream rate-limit cooldown until ${pastIso}`,
+          ),
+        )
+        .mockResolvedValueOnce({
+          embeddings: [
+            [0.1, 0.2],
+            [0.3, 0.4],
+          ],
+        });
+
+      const result = await service.generateEmbeddingsForKnowledgeBase("kb-1");
+
+      expect(mockEmbeddingService.generateEmbeddings).toHaveBeenCalledTimes(2);
+      expect(result.generatedCount).toBe(2);
+      expect(result.totalNeeded).toBe(2);
+      expect(result.failedBatches).toBe(0);
+    });
+
+    it("should write progress to knowledge base during processing", async () => {
+      const chunks = [{ id: "chunk-1", content: "c1" }];
+      (prisma.childChunk.findMany as jest.Mock).mockResolvedValue(chunks);
+      mockEmbeddingService.generateEmbeddings.mockResolvedValue({
+        embeddings: [[0.1, 0.2]],
+      });
+
+      await service.generateEmbeddingsForKnowledgeBase("kb-1");
+
+      // 至少：init + 完成 batch + 清空（3 次 update）
+      const updates = (prisma.knowledgeBase.update as jest.Mock).mock.calls;
+      expect(updates.length).toBeGreaterThanOrEqual(3);
+      // 首次：初始进度
+      expect(updates[0][0].data.progressJson).toMatchObject({
+        stage: "embedding",
+        processed: 0,
+        total: 1,
+      });
+      // 最后：清空（Prisma.JsonNull 字面值在 mock 比较时是对象引用，断言不是 plain progress）
+      const lastCall = updates[updates.length - 1][0];
+      expect(lastCall.data.progressJson).not.toMatchObject({
+        stage: "embedding",
+        processed: 0,
+      });
     });
   });
 

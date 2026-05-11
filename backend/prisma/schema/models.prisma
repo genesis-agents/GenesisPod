@@ -4140,6 +4140,9 @@ model KnowledgeBase {
   lastSyncedAt DateTime? @map("last_synced_at")
   lastError    String?   @map("last_error") @db.Text
 
+  // 向量化进度（仅 PROCESSING 中非 null；shape: KbVectorizeProgress in embedding-processor）
+  progressJson Json? @map("progress_json")
+
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

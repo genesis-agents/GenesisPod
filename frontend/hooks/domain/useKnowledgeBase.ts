@@ -1,8 +1,26 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useApiGet, useApiPost, useApiMutation } from '@/hooks/core';
 import { apiClient } from '@/lib/api/client';
+
+/**
+ * KB 向量化进度形状（与后端 KbVectorizeProgress 对齐，2026-05-12）
+ */
+export interface KbVectorizeProgress {
+  stage: 'embedding' | 'cooling';
+  processed: number;
+  total: number;
+  startedAt: string;
+  cooldownUntil?: string;
+  lastError?: string;
+}
+
+export interface KbProgressResponse {
+  status: KnowledgeBase['status'];
+  progress: KbVectorizeProgress | null;
+  lastError?: string | null;
+}
 
 /**
  * Knowledge Base 类型定义
@@ -254,6 +272,65 @@ export function useKnowledgeBaseDetail(id: string | null) {
   // 删除文档状态
   const [deletingDocument, setDeletingDocument] = useState(false);
 
+  // 向量化进度（2026-05-12）：当 KB.status === 'PROCESSING' 时 2s 轮询 /progress
+  const [progress, setProgress] = useState<KbVectorizeProgress | null>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    // 清理已有轮询
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
+    }
+
+    if (!id) return;
+
+    const shouldPoll = processing || knowledgeBase?.status === 'PROCESSING';
+    if (!shouldPoll) {
+      setProgress(null);
+      return;
+    }
+
+    let aborted = false;
+    const fetchProgress = async () => {
+      try {
+        const resp = await apiClient.get<KbProgressResponse>(
+          `/rag/knowledge-bases/${id}/progress`
+        );
+        if (aborted) return;
+        setProgress(resp?.progress ?? null);
+        // status 切走（READY/ERROR）→ 刷新 KB / stats / docs 并停轮询
+        if (resp?.status && resp.status !== 'PROCESSING') {
+          await Promise.all([refresh(), fetchStats(), fetchDocuments()]);
+          if (progressTimerRef.current) {
+            clearInterval(progressTimerRef.current);
+            progressTimerRef.current = null;
+          }
+        }
+      } catch {
+        // 网络抖动忽略，下次 tick 再试
+      }
+    };
+
+    void fetchProgress();
+    progressTimerRef.current = setInterval(fetchProgress, 2000);
+
+    return () => {
+      aborted = true;
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+    };
+  }, [
+    id,
+    processing,
+    knowledgeBase?.status,
+    refresh,
+    fetchStats,
+    fetchDocuments,
+  ]);
+
   return {
     knowledgeBase: id ? knowledgeBase : undefined,
     stats: id ? stats : undefined,
@@ -263,6 +340,7 @@ export function useKnowledgeBaseDetail(id: string | null) {
     processing,
     syncing,
     addingDocument,
+    progress,
     error: id ? error : null,
     refresh,
     fetchStats,

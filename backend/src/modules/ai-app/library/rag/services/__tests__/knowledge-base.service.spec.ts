@@ -415,14 +415,17 @@ describe("KnowledgeBaseService", () => {
       mockPrisma.knowledgeBase.update.mockResolvedValue({ id: "kb-1" });
       mockDocumentProcessor.processAllPendingDocuments.mockResolvedValueOnce(3);
       mockEmbeddingProcessor.generateEmbeddingsForKnowledgeBase.mockResolvedValueOnce(
-        150,
+        { generatedCount: 150, totalNeeded: 150, failedBatches: 0 },
       );
 
       const result = await service.processAllDocuments("kb-1");
 
+      // 第一次：切 PROCESSING + 清 lastError
       expect(mockPrisma.knowledgeBase.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: { status: KnowledgeBaseStatus.PROCESSING },
+          data: expect.objectContaining({
+            status: KnowledgeBaseStatus.PROCESSING,
+          }),
         }),
       );
       expect(result.processedCount).toBe(3);
@@ -435,7 +438,54 @@ describe("KnowledgeBaseService", () => {
       expect(lastUpdateCall.data.status).toBe(KnowledgeBaseStatus.READY);
     });
 
-    it("sets KB to ERROR status when processing fails", async () => {
+    it("sets KB to ERROR with lastError when 0 embeddings generated (full failure)", async () => {
+      mockPrisma.knowledgeBase.update.mockResolvedValue({ id: "kb-1" });
+      mockDocumentProcessor.processAllPendingDocuments.mockResolvedValueOnce(2);
+      mockEmbeddingProcessor.generateEmbeddingsForKnowledgeBase.mockResolvedValueOnce(
+        {
+          generatedCount: 0,
+          totalNeeded: 100,
+          failedBatches: 2,
+          lastError:
+            "Embedding circuit-open (0 recent 429s). Upstream rate-limit cooldown until 2026-05-11T21:28:45.615Z",
+        },
+      );
+
+      const result = await service.processAllDocuments("kb-1");
+
+      const lastUpdateCall =
+        mockPrisma.knowledgeBase.update.mock.calls[
+          mockPrisma.knowledgeBase.update.mock.calls.length - 1
+        ][0];
+      expect(lastUpdateCall.data.status).toBe(KnowledgeBaseStatus.ERROR);
+      expect(lastUpdateCall.data.lastError).toMatch(/向量化失败|熔断|限流|429/);
+      expect(result.embeddingCount).toBe(0);
+    });
+
+    it("sets KB to ERROR for partial failure (X < N)", async () => {
+      mockPrisma.knowledgeBase.update.mockResolvedValue({ id: "kb-1" });
+      mockDocumentProcessor.processAllPendingDocuments.mockResolvedValueOnce(2);
+      mockEmbeddingProcessor.generateEmbeddingsForKnowledgeBase.mockResolvedValueOnce(
+        {
+          generatedCount: 50,
+          totalNeeded: 100,
+          failedBatches: 1,
+          lastError: "Network error",
+        },
+      );
+
+      const result = await service.processAllDocuments("kb-1");
+
+      const lastUpdateCall =
+        mockPrisma.knowledgeBase.update.mock.calls[
+          mockPrisma.knowledgeBase.update.mock.calls.length - 1
+        ][0];
+      expect(lastUpdateCall.data.status).toBe(KnowledgeBaseStatus.ERROR);
+      expect(lastUpdateCall.data.lastError).toMatch(/部分失败|50\/100/);
+      expect(result.embeddingCount).toBe(50);
+    });
+
+    it("sets KB to ERROR status when processing throws", async () => {
       mockPrisma.knowledgeBase.update.mockResolvedValue({ id: "kb-1" });
       mockDocumentProcessor.processAllPendingDocuments.mockRejectedValueOnce(
         new Error("processing failed"),

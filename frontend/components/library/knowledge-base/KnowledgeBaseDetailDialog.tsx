@@ -64,12 +64,37 @@ export default function KnowledgeBaseDetailDialog({
     loading,
     syncing,
     processing,
+    progress,
     syncGoogleDrive,
     processDocuments,
     deleteDocument,
     deletingDocument,
     error,
   } = useKnowledgeBaseDetail(knowledgeBaseId);
+
+  // cooldown 剩余秒数（每秒 tick）
+  const [cooldownLeft, setCooldownLeft] = useState<number>(0);
+  useEffect(() => {
+    if (!progress?.cooldownUntil) {
+      setCooldownLeft(0);
+      return;
+    }
+    const target = new Date(progress.cooldownUntil).getTime();
+    const tick = () => {
+      const remain = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+      setCooldownLeft(remain);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [progress?.cooldownUntil]);
+
+  const isProcessing =
+    processing || knowledgeBase?.status === 'PROCESSING' || !!progress;
+  const pct =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.processed / progress.total) * 100))
+      : 0;
 
   // 文档列表分页状态
   const [showAllDocs, setShowAllDocs] = useState(false);
@@ -282,6 +307,68 @@ export default function KnowledgeBaseDetailDialog({
                 )}
               </div>
 
+              {/* 向量化进度条（PROCESSING 中） */}
+              {isProcessing && (
+                <div className="space-y-2 rounded-xl border border-blue-200 bg-blue-50/60 px-4 py-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 font-medium text-blue-900">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {progress?.stage === 'cooling'
+                        ? `Embedding 限流冷却中${cooldownLeft > 0 ? ` · ${cooldownLeft}s` : ''}`
+                        : '向量化中'}
+                    </div>
+                    {progress && (
+                      <span className="font-mono text-xs text-blue-700">
+                        {progress.processed}/{progress.total} · {pct}%
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-blue-100">
+                    <div
+                      className={`h-full transition-all ${
+                        progress?.stage === 'cooling'
+                          ? 'bg-amber-500'
+                          : 'bg-blue-600'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {progress?.lastError && progress.stage !== 'cooling' && (
+                    <p
+                      className="line-clamp-2 text-xs text-amber-700"
+                      title={progress.lastError}
+                    >
+                      最近错误：{progress.lastError}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* ERROR 状态横幅 + 重试 */}
+              {!isProcessing &&
+                knowledgeBase.status === 'ERROR' &&
+                knowledgeBase.lastError && (
+                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                    <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-900">
+                        向量化未完成
+                      </p>
+                      <p className="mt-1 text-xs text-red-700">
+                        {knowledgeBase.lastError}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => processDocuments()}
+                      disabled={processing}
+                      className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      重试向量化
+                    </button>
+                  </div>
+                )}
+
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
                 {stats && (stats.embeddingCount ?? 0) > 0 && onSearchTest && (
@@ -295,13 +382,13 @@ export default function KnowledgeBaseDetailDialog({
                 )}
                 <button
                   onClick={() => processDocuments()}
-                  disabled={processing}
+                  disabled={isProcessing}
                   className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
                 >
                   <Layers
-                    className={`h-4 w-4 ${processing ? 'animate-spin' : ''}`}
+                    className={`h-4 w-4 ${isProcessing ? 'animate-spin' : ''}`}
                   />
-                  {processing ? '处理中...' : '向量化'}
+                  {isProcessing ? '处理中...' : '向量化'}
                 </button>
                 {(knowledgeBase.sourceType === 'GOOGLE_DRIVE' ||
                   knowledgeBase.sourceTypes?.includes('GOOGLE_DRIVE')) && (

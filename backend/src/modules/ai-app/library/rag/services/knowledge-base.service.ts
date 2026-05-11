@@ -431,6 +431,9 @@ export class KnowledgeBaseService {
 
   /**
    * Process all pending documents and generate embeddings
+   *
+   * 2026-05-12 失败要红：generatedCount=0 但 totalNeeded>0 → ERROR；部分失败也 ERROR
+   * 携带 lastError，前端可见后点重试。原行为是无论 0/X 一律 READY + lastSyncedAt 撒谎。
    */
   async processAllDocuments(knowledgeBaseId: string) {
     this.logger.log(`Processing all documents for KB ${knowledgeBaseId}`);
@@ -438,7 +441,10 @@ export class KnowledgeBaseService {
     // Update KB status
     await this.prisma.knowledgeBase.update({
       where: { id: knowledgeBaseId },
-      data: { status: KnowledgeBaseStatus.PROCESSING },
+      data: {
+        status: KnowledgeBaseStatus.PROCESSING,
+        lastError: null,
+      },
     });
 
     try {
@@ -449,35 +455,127 @@ export class KnowledgeBaseService {
         );
 
       // Generate embeddings
-      const embeddingCount =
+      const embedResult =
         await this.embeddingProcessor.generateEmbeddingsForKnowledgeBase(
           knowledgeBaseId,
         );
 
-      // Update KB status
+      // 全失败：0/N → 红
+      if (embedResult.totalNeeded > 0 && embedResult.generatedCount === 0) {
+        const errMsg = this.buildEmbedErrorMessage(embedResult);
+        await this.prisma.knowledgeBase.update({
+          where: { id: knowledgeBaseId },
+          data: {
+            status: KnowledgeBaseStatus.ERROR,
+            lastError: errMsg,
+          },
+        });
+        this.logger.error(
+          `KB ${knowledgeBaseId}: vectorization failed entirely. ${errMsg}`,
+        );
+        return {
+          processedCount,
+          embeddingCount: 0,
+          totalNeeded: embedResult.totalNeeded,
+          failedBatches: embedResult.failedBatches,
+          error: errMsg,
+        };
+      }
+
+      // 部分失败：X/N → 也算红，但保留已成功的向量
+      if (embedResult.generatedCount < embedResult.totalNeeded) {
+        const errMsg = this.buildEmbedErrorMessage(embedResult);
+        await this.prisma.knowledgeBase.update({
+          where: { id: knowledgeBaseId },
+          data: {
+            status: KnowledgeBaseStatus.ERROR,
+            lastError: errMsg,
+          },
+        });
+        this.logger.warn(
+          `KB ${knowledgeBaseId}: partial vectorization ${embedResult.generatedCount}/${embedResult.totalNeeded}. ${errMsg}`,
+        );
+        return {
+          processedCount,
+          embeddingCount: embedResult.generatedCount,
+          totalNeeded: embedResult.totalNeeded,
+          failedBatches: embedResult.failedBatches,
+          error: errMsg,
+        };
+      }
+
+      // 全部成功
       await this.prisma.knowledgeBase.update({
         where: { id: knowledgeBaseId },
         data: {
           status: KnowledgeBaseStatus.READY,
           lastSyncedAt: new Date(),
+          lastError: null,
         },
       });
 
       this.logger.log(
-        `KB ${knowledgeBaseId}: processed ${processedCount} docs, ${embeddingCount} embeddings`,
+        `KB ${knowledgeBaseId}: processed ${processedCount} docs, ${embedResult.generatedCount} embeddings`,
       );
 
-      return { processedCount, embeddingCount };
+      return {
+        processedCount,
+        embeddingCount: embedResult.generatedCount,
+        totalNeeded: embedResult.totalNeeded,
+      };
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       await this.prisma.knowledgeBase.update({
         where: { id: knowledgeBaseId },
         data: {
           status: KnowledgeBaseStatus.ERROR,
-          lastError: error instanceof Error ? error.message : String(error),
+          lastError: msg,
         },
       });
       throw error;
     }
+  }
+
+  private buildEmbedErrorMessage(result: {
+    generatedCount: number;
+    totalNeeded: number;
+    failedBatches: number;
+    lastError?: string;
+  }): string {
+    const head =
+      result.generatedCount === 0
+        ? `向量化失败：${result.totalNeeded} 个分块全部失败`
+        : `向量化部分失败：完成 ${result.generatedCount}/${result.totalNeeded}`;
+    const tail = result.lastError
+      ? `（${this.summarizeError(result.lastError)}）`
+      : "";
+    return `${head}${tail}`;
+  }
+
+  private summarizeError(raw: string): string {
+    if (/429|rate.?limit|too many requests/i.test(raw))
+      return "上游限流 429，请稍后重试";
+    if (/circuit-open/i.test(raw))
+      return "Embedding 服务熔断冷却中，请稍后重试";
+    if (/401|unauthorized|invalid.*api.?key/i.test(raw))
+      return "Embedding 模型 API Key 无效或失效，请检查 Admin > AI Models";
+    return raw.length > 200 ? `${raw.slice(0, 200)}...` : raw;
+  }
+
+  /**
+   * 取 KB 当前向量化进度（用于前端轮询）
+   */
+  async getProgress(knowledgeBaseId: string) {
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: knowledgeBaseId },
+      select: { status: true, progressJson: true, lastError: true },
+    });
+    if (!kb) return null;
+    return {
+      status: kb.status,
+      progress: kb.progressJson,
+      lastError: kb.lastError,
+    };
   }
 
   /**

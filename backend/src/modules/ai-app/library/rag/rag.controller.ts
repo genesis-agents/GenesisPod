@@ -206,6 +206,14 @@ export class RAGController {
     return this.knowledgeBaseService.processAllDocuments(id);
   }
 
+  @Get("knowledge-bases/:id/progress")
+  @ApiOperation({ summary: "Get knowledge base vectorization progress" })
+  @ApiResponse({ status: 200, description: "Current progress (or null)" })
+  async getProgress(@Req() req: RequestWithUser, @Param("id") id: string) {
+    await this.knowledgeBaseService.findById(id, req.user.id);
+    return this.knowledgeBaseService.getProgress(id);
+  }
+
   @Post("knowledge-bases/:id/add-resources")
   @ApiOperation({
     summary:
