@@ -1,15 +1,55 @@
 /**
- * ProviderProbeService 错误码归一化回归（2026-05-06）
+ * ProviderProbeService 错误码归一化 + apiFormat 派发回归。
+ *
+ * 2026-05-11 P2: PROVIDER_DEFAULTS 硬编码迁移至 DB ai_providers，spec 用
+ * mock PrismaService 模拟 DB 返回不同 apiFormat 行，验证按 apiFormat 派发
+ * 到不同请求 path（避免 mock-self-confirming：mock 设 endpoint=X 又断言 url=X
+ * 同义反复，这里改断言 url **path** 是按 apiFormat 派发的差异化路径）。
  */
 import { ProviderProbeService } from "../provider-probe.service";
+
+type DbProviderRow = {
+  slug: string;
+  endpoint: string;
+  apiFormat: string;
+};
+
+const makePrismaMock = (rows: DbProviderRow[]) => ({
+  aIProvider: {
+    findFirst: jest.fn(
+      async ({ where }: { where: { slug: string } }) =>
+        rows.find((r) => r.slug === where.slug) ?? null,
+    ),
+  },
+});
 
 describe("ProviderProbeService", () => {
   let svc: ProviderProbeService;
   let mockFetch: jest.Mock;
   let originalFetch: typeof fetch;
 
+  const seedRows: DbProviderRow[] = [
+    {
+      slug: "openai",
+      endpoint: "https://api.openai.com/v1",
+      apiFormat: "openai",
+    },
+    {
+      slug: "anthropic",
+      endpoint: "https://api.anthropic.com/v1",
+      apiFormat: "anthropic",
+    },
+    {
+      slug: "google",
+      endpoint: "https://generativelanguage.googleapis.com/v1beta",
+      apiFormat: "google",
+    },
+  ];
+
   beforeEach(() => {
-    svc = new ProviderProbeService();
+    const prismaMock = makePrismaMock(seedRows);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    svc = new ProviderProbeService(prismaMock as any);
     mockFetch = jest.fn();
     originalFetch = global.fetch;
     global.fetch = mockFetch as unknown as typeof fetch;
@@ -19,7 +59,7 @@ describe("ProviderProbeService", () => {
   });
 
   describe("probeByProvider", () => {
-    it("UNKNOWN provider 没传 override → errorCode UNKNOWN", async () => {
+    it("UNKNOWN provider (DB 无记录 + 无 override) → errorCode UNKNOWN", async () => {
       const r = await svc.probeByProvider({
         provider: "no-such-provider",
         apiKey: "x",
@@ -80,21 +120,21 @@ describe("ProviderProbeService", () => {
       expect(r.errorCode).toBe("NETWORK_ERROR");
     });
 
-    it("anthropic uses /messages endpoint", async () => {
+    it("anthropic uses /messages endpoint (按 apiFormat 派发)", async () => {
       mockFetch.mockResolvedValue({ status: 200, text: async () => "" });
       await svc.probeByProvider({ provider: "anthropic", apiKey: "k" });
       const url = mockFetch.mock.calls[0][0] as string;
       expect(url).toContain("/messages");
     });
 
-    it("google uses /models?key= endpoint", async () => {
+    it("google uses /models?key= endpoint (按 apiFormat 派发)", async () => {
       mockFetch.mockResolvedValue({ status: 200, text: async () => "" });
       await svc.probeByProvider({ provider: "google", apiKey: "AIza-xxx" });
       const url = mockFetch.mock.calls[0][0] as string;
       expect(url).toContain("models?key=");
     });
 
-    it("override endpoint 覆盖默认", async () => {
+    it("override endpoint 覆盖 DB 默认", async () => {
       mockFetch.mockResolvedValue({ status: 200, text: async () => "" });
       await svc.probeByProvider({
         provider: "openai",

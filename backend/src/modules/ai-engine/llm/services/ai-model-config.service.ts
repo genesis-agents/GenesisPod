@@ -503,17 +503,24 @@ export class AiModelConfigService {
     }
   }
 
-  private toAIModelConfigFromUserConfig(cfg: UserModelConfig): AIModelConfig {
-    const providerDefaults =
-      AiModelConfigService.PROVIDER_API_DEFAULTS[cfg.provider] ??
-      AiModelConfigService.PROVIDER_API_DEFAULTS.openai;
+  /**
+   * 2026-05-11 P2: 从硬编码 PROVIDER_API_DEFAULTS 改为 DB ai_providers 兜底，
+   * cfg.apiEndpoint 优先（用户在 UserModelConfig 显式填的最高优先级）。
+   */
+  private async toAIModelConfigFromUserConfig(
+    cfg: UserModelConfig,
+  ): Promise<AIModelConfig> {
+    const fallbackEndpoint = cfg.apiEndpoint
+      ? cfg.apiEndpoint
+      : ((await this.userApiKeysService.resolveProviderDefaults(cfg.provider))
+          ?.endpoint ?? "");
     return {
       id: `user-model-config-${cfg.id}`,
       name: cfg.modelId,
       displayName: cfg.displayName,
       provider: cfg.provider,
       modelId: cfg.modelId,
-      apiEndpoint: cfg.apiEndpoint || providerDefaults.endpoint,
+      apiEndpoint: fallbackEndpoint,
       apiKey: null, // resolveApiKey 会用用户 Key
       secretKey: null,
       maxTokens: cfg.maxTokens,
@@ -538,49 +545,8 @@ export class AiModelConfigService {
     };
   }
 
-  /**
-   * Provider → API 默认端点/格式。与 UserApiKeysService.PROVIDER_DEFAULTS 对齐
-   * （复制以避免循环依赖；两处长期应迁到 shared util）。
-   */
-  private static readonly PROVIDER_API_DEFAULTS: Record<
-    string,
-    { endpoint: string; apiFormat: string }
-  > = {
-    openai: {
-      endpoint: "https://api.openai.com/v1",
-      apiFormat: "openai",
-    },
-    anthropic: {
-      endpoint: "https://api.anthropic.com/v1",
-      apiFormat: "anthropic",
-    },
-    deepseek: {
-      endpoint: "https://api.deepseek.com/v1",
-      apiFormat: "openai",
-    },
-    google: {
-      endpoint: "https://generativelanguage.googleapis.com/v1beta",
-      apiFormat: "google",
-    },
-    xai: { endpoint: "https://api.x.ai/v1", apiFormat: "openai" },
-    qwen: {
-      endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-      apiFormat: "openai",
-    },
-    cohere: { endpoint: "https://api.cohere.com/v2", apiFormat: "openai" },
-    groq: {
-      endpoint: "https://api.groq.com/openai/v1",
-      apiFormat: "openai",
-    },
-    openrouter: {
-      endpoint: "https://openrouter.ai/api/v1",
-      apiFormat: "openai",
-    },
-    minimax: {
-      endpoint: "https://api.minimax.chat/v1",
-      apiFormat: "openai",
-    },
-  };
+  // 2026-05-11 P2: PROVIDER_API_DEFAULTS 硬编码已删。synthesizeConfigForUserModel
+  // 走 userApiKeysService.resolveProviderDefaults（DB ai_providers 唯一真源）。
 
   private async synthesizeConfigForUserModel(
     modelId: string,
@@ -603,9 +569,15 @@ export class AiModelConfigService {
         personal.preferredModelId &&
         personal.preferredModelId.toLowerCase() === modelId.toLowerCase()
       ) {
-        const defaults =
-          AiModelConfigService.PROVIDER_API_DEFAULTS[provider] ??
-          AiModelConfigService.PROVIDER_API_DEFAULTS.openai;
+        // 2026-05-11 P2: 从 DB ai_providers 拿默认 endpoint/apiFormat，
+        // 找不到时 personal.apiEndpoint 必填（用户配 Key 时已强制要求）。
+        const defaults = (await this.userApiKeysService.resolveProviderDefaults(
+          provider,
+        )) ?? {
+          endpoint: "",
+          apiFormat: "openai",
+          testModel: "",
+        };
         this.logger.log(
           `[synthesizeConfigForUserModel] Synthesizing config for user ` +
             `${userId}: provider=${provider}, modelId=${modelId}`,
@@ -767,7 +739,9 @@ export class AiModelConfigService {
             this.logger.debug(
               `[getAllEnabledModelsByType] Using ${userRows.length} UserModelConfig rows for user=${userId}, type=${modelType}`,
             );
-            return userRows.map((r) => this.toAIModelConfigFromUserConfig(r));
+            return Promise.all(
+              userRows.map((r) => this.toAIModelConfigFromUserConfig(r)),
+            );
           }
 
           // ★ 严格 BYOK 隔离：用户有 UserModelConfig 但都被排除（本次失败重试链耗尽）→

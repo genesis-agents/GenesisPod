@@ -12,7 +12,7 @@
  * UI 拿 errorCode 出语义化 badge（"未授权" / "限流" / 等）。
  */
 import { Injectable, Logger } from "@nestjs/common";
-import { PROVIDER_DEFAULTS } from "./provider-defaults";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
 
 const ANTHROPIC_VALIDATION_MODEL = "claude-3-haiku-20240307";
 const PROBE_TIMEOUT_MS = 15_000;
@@ -41,11 +41,13 @@ export interface ProviderProbeResult {
 export class ProviderProbeService {
   private readonly log = new Logger(ProviderProbeService.name);
 
+  constructor(private readonly prisma: PrismaService) {}
+
   /**
    * 通过 provider slug 探测（推荐入口，自动查 endpoint / apiFormat）。
    *
-   * 不认识的 provider 且没传 endpointOverride / apiFormatOverride 时返回
-   * UNKNOWN（admin 自定义 provider 必须传 override）。
+   * 2026-05-11 P2: 从 DB ai_providers 读，删除 PROVIDER_DEFAULTS 硬编码。
+   * DB 未配 + 调用方没传 override → UNKNOWN，引导 admin 去维护页配置。
    */
   async probeByProvider(args: {
     provider: string;
@@ -54,14 +56,28 @@ export class ProviderProbeService {
     apiFormatOverride?: string;
   }): Promise<ProviderProbeResult> {
     const slug = args.provider.toLowerCase();
-    const defaults = PROVIDER_DEFAULTS[slug];
-    const endpoint = args.endpointOverride ?? defaults?.endpoint;
-    const apiFormat = args.apiFormatOverride ?? defaults?.apiFormat;
+    let endpoint = args.endpointOverride;
+    let apiFormat = args.apiFormatOverride;
+    if (!endpoint || !apiFormat) {
+      try {
+        const dbProvider = await this.prisma.aIProvider.findFirst({
+          where: { slug, isEnabled: true, scope: "system" },
+        });
+        if (dbProvider) {
+          endpoint = endpoint ?? dbProvider.endpoint;
+          apiFormat = apiFormat ?? dbProvider.apiFormat;
+        }
+      } catch (err) {
+        this.log.warn(
+          `[probeByProvider] DB lookup failed for "${slug}": ${(err as Error).message}`,
+        );
+      }
+    }
     if (!endpoint || !apiFormat) {
       return {
         ok: false,
         errorCode: "UNKNOWN",
-        errorMessage: `Unknown provider '${slug}' (no default endpoint, override not provided)`,
+        errorMessage: `Provider '${slug}' 未在 ai_providers 表配置，请在 /admin/ai-providers 维护或提供 endpoint+apiFormat override`,
       };
     }
     return this.probe({

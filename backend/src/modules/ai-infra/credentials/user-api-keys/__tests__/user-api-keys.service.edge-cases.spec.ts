@@ -83,6 +83,42 @@ describe("UserApiKeysService (additional coverage)", () => {
     } as unknown as ConfigService);
 
   beforeEach(async () => {
+    // 2026-05-11 P2: ProviderProbeService.probeByProvider 现在走 DB ai_providers
+    const seedProviders = [
+      {
+        slug: "openai",
+        endpoint: "https://api.openai.com/v1",
+        apiFormat: "openai",
+        testModel: "gpt-4o-mini",
+        capabilities: ["CHAT"],
+        iconUrl: null,
+        freeTierNote: null,
+        docUrl: null,
+        scope: "system",
+      },
+      {
+        slug: "anthropic",
+        endpoint: "https://api.anthropic.com/v1",
+        apiFormat: "anthropic",
+        testModel: "claude-3-haiku-20240307",
+        capabilities: ["CHAT"],
+        iconUrl: null,
+        freeTierNote: null,
+        docUrl: null,
+        scope: "system",
+      },
+      {
+        slug: "google",
+        endpoint: "https://generativelanguage.googleapis.com/v1beta",
+        apiFormat: "google",
+        testModel: "gemini-2.0-flash-lite",
+        capabilities: ["CHAT"],
+        iconUrl: null,
+        freeTierNote: null,
+        docUrl: null,
+        scope: "system",
+      },
+    ];
     mockPrisma = {
       userApiKey: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -93,6 +129,13 @@ describe("UserApiKeysService (additional coverage)", () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         delete: jest.fn().mockResolvedValue(makeApiKey()),
       } as unknown as PrismaService["userApiKey"],
+      aIProvider: {
+        findMany: jest.fn().mockResolvedValue(seedProviders),
+        findFirst: jest.fn(
+          async ({ where }: { where: { slug: string } }) =>
+            seedProviders.find((p) => p.slug === where.slug) ?? null,
+        ),
+      } as unknown as PrismaService["aIProvider"],
     };
 
     mockSecretsService = {

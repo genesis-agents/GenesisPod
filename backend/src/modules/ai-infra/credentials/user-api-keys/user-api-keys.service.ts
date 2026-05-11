@@ -29,10 +29,9 @@ import {
 /** Valid provider name pattern */
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
 
-/** Minimal model for Anthropic API key validation (cheapest available) */
-// ★ 2026-05-06: PROVIDER_DEFAULTS 已提到 ../health/provider-defaults 共享层，
-//   避免与 UserModelConfigsService / SecretKeysService 三处重复维护。
-import { PROVIDER_DEFAULTS } from "../health/provider-defaults";
+// 2026-05-11 P2: PROVIDER_DEFAULTS hardcoded 表删除。Provider 配置完全
+// 数据驱动 —— resolveProviderDefaults 只读 DB ai_providers 表，找不到
+// 返回 null + 友好报错，让 admin 在 UI 配置（不再硬编码 fallback）。
 
 /** 捐赠奖励积分 */
 const DONATION_REWARD_CREDITS = 5000;
@@ -454,7 +453,9 @@ export class UserApiKeysService {
     if (!endpoint) {
       return {
         success: false,
-        message: "Unknown provider. Please provide a custom API endpoint.",
+        message:
+          `Provider "${normalizedProvider}" 未在 ai_providers 表配置，` +
+          `请填写完整 API Endpoint，或让 admin 在 /admin/ai-providers 维护页添加。`,
         errorCode: "UNKNOWN",
       };
     }
@@ -677,10 +678,10 @@ export class UserApiKeysService {
   }
 
   /**
-   * 获取支持的 Provider 列表
+   * 获取支持的 Provider 列表 —— 数据驱动单一真源（DB ai_providers）。
    *
-   * ★ PR-1 (2026-05-05): 从 DB ai_providers 表读取（数据驱动），fallback 到
-   * hardcoded PROVIDER_DEFAULTS（兼容首次启动 / DB 未初始化场景）。
+   * 2026-05-11 P2: 删除 PROVIDER_DEFAULTS 硬编码 fallback。DB 未 seed 时
+   * 返回空数组，前端展示空态引导 admin 去 /admin/ai-providers 维护页配置。
    * 包含：scope=system 的全局 provider + 该 user 自定义的 scope=user provider。
    */
   async getSupportedProviders(userId?: string) {
@@ -695,45 +696,34 @@ export class UserApiKeysService {
         },
         orderBy: [{ scope: "asc" }, { displayOrder: "asc" }],
       });
-      if (dbProviders.length > 0) {
-        return dbProviders.map((p) => ({
-          id: p.slug,
-          name: p.name,
-          endpoint: p.endpoint,
-          iconUrl: p.iconUrl,
-          freeTierNote: p.freeTierNote,
-          docUrl: p.docUrl,
-          capabilities: p.capabilities,
-          scope: p.scope,
-          isCustom: p.scope === "user",
-        }));
-      }
+      return dbProviders.map((p) => ({
+        id: p.slug,
+        name: p.name,
+        endpoint: p.endpoint,
+        iconUrl: p.iconUrl,
+        freeTierNote: p.freeTierNote,
+        docUrl: p.docUrl,
+        capabilities: p.capabilities,
+        scope: p.scope,
+        isCustom: p.scope === "user",
+      }));
     } catch (err) {
       this.logger.warn(
-        `[getSupportedProviders] DB query failed (${(err as Error).message}); falling back to hardcoded catalog`,
+        `[getSupportedProviders] DB query failed (${(err as Error).message}); returning empty list`,
       );
+      return [];
     }
-    // Fallback：DB 空或查询失败时用 hardcoded 兜底
-    return Object.entries(PROVIDER_DEFAULTS).map(([id, config]) => ({
-      id,
-      name: this.getProviderDisplayName(id),
-      endpoint: config.endpoint,
-      iconUrl: null,
-      freeTierNote: null,
-      docUrl: null,
-      capabilities: [],
-      scope: "system",
-      isCustom: false,
-    }));
   }
 
   /**
-   * 解析 provider 默认配置（DB ai_providers 真源 + hardcoded fallback）
-   * 用于 testKey / saveKey / connection-test 时拿 endpoint / apiFormat / testModel。
+   * 解析 provider 默认配置 —— DB ai_providers 唯一真源。
    *
-   * 2026-05-10：从 private 提到 public，AiConnectionTestService 走同一份单源
-   * 决定 chat-completions 端点（之前 OpenAI-compatible 一族 endpoint 为空时
-   * 直接 POST "" 全军覆没）。
+   * 2026-05-11 P2: 删除 PROVIDER_DEFAULTS 硬编码 fallback。DB 找不到该 slug
+   * 时返回 null，调用方负责出友好报错（"请在 /admin/ai-providers 维护该 provider"
+   * 或者 "请显式填写 apiEndpoint"）。
+   *
+   * 用于 testKey / saveKey / connection-test 时拿 endpoint / apiFormat / testModel
+   * 兜底（AIModel.apiEndpoint 优先）。
    */
   async resolveProviderDefaults(
     slug: string,
@@ -761,16 +751,12 @@ export class UserApiKeysService {
           testModel: dbProvider.testModel,
         };
       }
-    } catch {
-      // fall through to hardcoded
+    } catch (err) {
+      this.logger.warn(
+        `[resolveProviderDefaults] DB query failed for "${slug}": ${(err as Error).message}`,
+      );
     }
-    const hardcoded = PROVIDER_DEFAULTS[slug];
-    if (!hardcoded) return null;
-    return {
-      endpoint: hardcoded.endpoint,
-      apiFormat: hardcoded.apiFormat,
-      testModel: hardcoded.testModel,
-    };
+    return null;
   }
 
   // ==================== Private Helpers ====================

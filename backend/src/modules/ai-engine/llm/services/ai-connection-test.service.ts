@@ -42,12 +42,10 @@ export class AiConnectionTestService {
    *   1. 调用方传入的 override（用户在 UserModelConfig.apiEndpoint 显式配置）—
    *      尾部已含 /chat/completions 直接用，否则按"base + /chat/completions"拼。
    *   2. DB `ai_providers` 单源（admin 维护 + scope=user 自定义）— 经
-   *      UserApiKeysService.resolveProviderDefaults() 查询，自动兜底
-   *      hardcoded PROVIDER_DEFAULTS（DB 未 seed 时的迁移期 fallback）。
+   *      UserApiKeysService.resolveProviderDefaults() 查询。
    *
-   * 2026-05-10 §2：之前 OpenAI-compatible 一族（deepseek/qwen/groq/doubao/zhipu/
-   * kimi/moonshot 等）在 override 为空时直接 POST 到空字符串导致测试按钮几乎
-   * 全部失败。新 provider 走 DB seed（ai_providers 表），不再加 TS 硬编码。
+   * 2026-05-11 P2: PROVIDER_DEFAULTS 硬编码已删除。DB 未配该 provider 时
+   *   resolveProviderDefaults 返回 null，下游报"请去 admin 维护页配置"。
    */
   private async resolveOpenAICompatibleChatEndpoint(
     provider: string,

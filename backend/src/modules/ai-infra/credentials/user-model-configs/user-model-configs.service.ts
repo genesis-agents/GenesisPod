@@ -6,9 +6,11 @@ import {
 } from "@nestjs/common";
 import { AIModelType, Prisma, UserModelConfig } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { PROVIDER_DEFAULTS } from "../health/provider-defaults";
 
 const PROVIDER_NAME_PATTERN = /^[a-z0-9-]+$/;
+// 2026-05-11 P2: 删除 PROVIDER_DEFAULTS 硬编码。apiFormat 没填且 DB 也没配
+// 时用 "openai" 作最通用兜底（覆盖 95% OpenAI-compatible provider）。
+const DEFAULT_API_FORMAT_FALLBACK = "openai";
 
 export interface CreateUserModelConfigInput {
   provider: string;
@@ -50,12 +52,25 @@ export class UserModelConfigsService {
     return normalized;
   }
 
-  private applyDefaults(
+  /**
+   * 2026-05-11 P2: apiFormat 兜底从硬编码 PROVIDER_DEFAULTS 改为 DB ai_providers。
+   * 没填 + DB 也没该 provider → "openai" 兜底（覆盖绝大多数 OpenAI-兼容场景）。
+   */
+  private async applyDefaults(
     input: CreateUserModelConfigInput,
     provider: string,
-  ): Prisma.UserModelConfigCreateInput {
-    const providerDefaults =
-      PROVIDER_DEFAULTS[provider] ?? PROVIDER_DEFAULTS.openai;
+  ): Promise<Prisma.UserModelConfigCreateInput> {
+    let apiFormat = input.apiFormat;
+    if (!apiFormat) {
+      try {
+        const dbProvider = await this.prisma.aIProvider.findFirst({
+          where: { slug: provider, isEnabled: true, scope: "system" },
+        });
+        apiFormat = dbProvider?.apiFormat || DEFAULT_API_FORMAT_FALLBACK;
+      } catch {
+        apiFormat = DEFAULT_API_FORMAT_FALLBACK;
+      }
+    }
     return {
       provider,
       modelId: input.modelId.trim(),
@@ -67,7 +82,7 @@ export class UserModelConfigsService {
       embeddingDimensions: input.embeddingDimensions ?? null,
       maxInputTokens: input.maxInputTokens ?? null,
       isReasoning: input.isReasoning ?? false,
-      apiFormat: input.apiFormat ?? providerDefaults.apiFormat,
+      apiFormat,
       supportsTemperature: input.supportsTemperature ?? true,
       supportsStreaming: input.supportsStreaming ?? true,
       supportsFunctionCalling: input.supportsFunctionCalling ?? true,
@@ -96,7 +111,7 @@ export class UserModelConfigsService {
       input.displayName = input.modelId;
     }
     const provider = this.validateProvider(input.provider);
-    const data = this.applyDefaults(input, provider);
+    const data = await this.applyDefaults(input, provider);
     data.user = { connect: { id: userId } };
 
     try {

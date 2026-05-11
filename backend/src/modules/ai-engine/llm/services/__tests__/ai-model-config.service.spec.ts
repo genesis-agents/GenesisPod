@@ -135,6 +135,24 @@ describe("AiModelConfigService", () => {
       getPersonalKey: jest.fn().mockResolvedValue(null),
       getDonatedKey: jest.fn().mockResolvedValue(null),
       getAvailableProviders: jest.fn().mockResolvedValue([]),
+      // 2026-05-11 P2: toAIModelConfigFromUserConfig 走 DB ai_providers 兜底
+      resolveProviderDefaults: jest.fn().mockImplementation((slug: string) =>
+        Promise.resolve(
+          slug === "deepseek"
+            ? {
+                endpoint: "https://api.deepseek.com/v1",
+                apiFormat: "openai",
+                testModel: "deepseek-chat",
+              }
+            : slug === "openai"
+              ? {
+                  endpoint: "https://api.openai.com/v1",
+                  apiFormat: "openai",
+                  testModel: "gpt-4o-mini",
+                }
+              : null,
+        ),
+      ),
     };
 
     const mockUserModelConfigsService = {

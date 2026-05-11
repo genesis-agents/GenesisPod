@@ -60,6 +60,33 @@ describe("UserApiKeysService", () => {
   });
 
   beforeEach(async () => {
+    // 2026-05-11 P2: 加 aIProvider mock，spec 覆盖 DB 真源场景
+    const seedProviders = [
+      {
+        slug: "openai",
+        name: "OpenAI",
+        endpoint: "https://api.openai.com/v1",
+        apiFormat: "openai",
+        testModel: "gpt-4o-mini",
+        capabilities: ["CHAT"],
+        iconUrl: null,
+        freeTierNote: null,
+        docUrl: null,
+        scope: "system",
+      },
+      {
+        slug: "anthropic",
+        name: "Anthropic",
+        endpoint: "https://api.anthropic.com/v1",
+        apiFormat: "anthropic",
+        testModel: "claude-3-haiku-20240307",
+        capabilities: ["CHAT"],
+        iconUrl: null,
+        freeTierNote: null,
+        docUrl: null,
+        scope: "system",
+      },
+    ];
     mockPrisma = {
       userApiKey: {
         findMany: jest.fn().mockResolvedValue([]),
@@ -70,6 +97,13 @@ describe("UserApiKeysService", () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         delete: jest.fn().mockResolvedValue(makeApiKey()),
       } as unknown as PrismaService["userApiKey"],
+      aIProvider: {
+        findMany: jest.fn().mockResolvedValue(seedProviders),
+        findFirst: jest.fn(
+          async ({ where }: { where: { slug: string } }) =>
+            seedProviders.find((p) => p.slug === where.slug) ?? null,
+        ),
+      } as unknown as PrismaService["aIProvider"],
     };
 
     mockSecretsService = {
@@ -389,7 +423,8 @@ describe("UserApiKeysService", () => {
       const result = await service.testKey("completely-unknown", "sk-test");
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain("Unknown provider");
+      // 2026-05-11 P2: 消息文本改为指引 admin 维护页（保留 errorCode UNKNOWN 做契约断言）
+      expect(result.errorCode).toBe("UNKNOWN");
     });
 
     it("validates endpoint URL before testing", async () => {
