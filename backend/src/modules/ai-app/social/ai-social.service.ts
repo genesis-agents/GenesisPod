@@ -1135,7 +1135,7 @@ export class AiSocialService {
     };
     return contentProcessId
       ? KernelContext.run(
-          { processId: contentProcessId, userId: content.userId || "" },
+          { agentProcessId: contentProcessId, userId: content.userId || "" },
           executeGeneration,
         )
       : executeGeneration();

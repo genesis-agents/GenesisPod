@@ -20,7 +20,12 @@ import {
 } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { ChatFacade, TeamFacade, TeamRegistry, RoleRegistry } from "@/modules/ai-harness/facade";
+import {
+  ChatFacade,
+  TeamFacade,
+  TeamRegistry,
+  RoleRegistry,
+} from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
   KernelContext,
@@ -188,7 +193,7 @@ export class WritingMissionLifecycleService {
         const missionProcessId = this.kernelProcessIds.get(missionId);
         void (missionProcessId
           ? KernelContext.run(
-              { processId: missionProcessId, userId },
+              { agentProcessId: missionProcessId, userId },
               wrappedRun,
             )
           : wrappedRun());

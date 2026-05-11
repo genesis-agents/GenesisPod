@@ -18,11 +18,7 @@ import {
   AIModelType,
   MemoryLayer as _MemoryLayer,
 } from "@prisma/client";
-import {
-  ChatFacade,
-  TeamFacade,
-  RAGFacade,
-} from "@/modules/ai-harness/facade";
+import { ChatFacade, TeamFacade, RAGFacade } from "@/modules/ai-harness/facade";
 import { ProgressTrackerService } from "@/modules/ai-harness/facade";
 import {
   MissionExecutorService,
@@ -652,7 +648,7 @@ export class PlanningOrchestratorService {
         const processId = this.kernelProcessIds.get(planId);
         const inner = () => this.executePhaseAsyncInner(planId, userId, phase);
         return processId
-          ? KernelContext.run({ processId, userId }, inner)
+          ? KernelContext.run({ agentProcessId: processId, userId }, inner)
           : inner();
       },
     );

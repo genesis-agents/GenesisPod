@@ -2,7 +2,12 @@
 // Mock @prisma/client to provide enums that may not be available if Prisma
 // schema hasn't been generated in this environment.
 jest.mock("@prisma/client", () => ({
-  PrismaClient: class PrismaClient { $connect = jest.fn(); $disconnect = jest.fn(); $on = jest.fn(); }, AIModelType: {
+  PrismaClient: class PrismaClient {
+    $connect = jest.fn();
+    $disconnect = jest.fn();
+    $on = jest.fn();
+  },
+  AIModelType: {
     CHAT: "CHAT",
     CHAT_FAST: "CHAT_FAST",
     REASONING: "REASONING",
@@ -81,7 +86,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   KernelContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),
     get: () => undefined,
-    getProcessId: () => undefined,
+    getAgentProcessId: () => undefined,
   },
 }));
 jest.mock("@/modules/ai-harness/facade", () => ({
@@ -96,7 +101,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
   KernelContext: {
     run: <T>(_data: unknown, fn: () => T): T => fn(),
     get: () => undefined,
-    getProcessId: () => undefined,
+    getAgentProcessId: () => undefined,
   },
 }));
 // ─────────────────────────────────────────────────────────────────────────────

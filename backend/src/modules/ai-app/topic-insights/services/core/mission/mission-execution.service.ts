@@ -139,7 +139,11 @@ export class MissionExecutionService {
 
     return KernelContext.run(
       {
-        processId: "", // 不设置 processId，避免 EventJournal 外键违约
+        // 2026-05-11: agentProcessId left undefined — topic-insights doesn't
+        // spawn a kernel AgentProcess, so EventJournal correctly skips the
+        // journal write. (Previously this used `processId: ""` as a sentinel
+        // workaround for the FK violation; the field is now optional and
+        // properly named.)
         userId: topic.userId,
         latencySessionId,
       },
@@ -315,7 +319,8 @@ export class MissionExecutionService {
     });
 
     await KernelContext.run(
-      { processId: "", userId: topic.userId, latencySessionId },
+      // 2026-05-11: agentProcessId omitted — see startExecution() comment.
+      { userId: topic.userId, latencySessionId },
       async () => {
         if (latencySessionId) {
           this.latencyTracker?.startStep(latencySessionId, {

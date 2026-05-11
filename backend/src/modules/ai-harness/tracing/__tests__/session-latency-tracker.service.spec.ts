@@ -1968,7 +1968,7 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
 
     await KernelContext.run(
       {
-        processId: "proc-1",
+        agentProcessId: "proc-1",
         latencySessionId: sessionId,
         latencyPhaseId: stepId,
       },
@@ -2013,7 +2013,7 @@ describe("SessionLatencyTrackerService – KernelContext integration", () => {
 
     await KernelContext.run(
       {
-        processId: "proc-outer",
+        agentProcessId: "proc-outer",
         latencySessionId: sessionId,
         latencyPhaseId: outerStepId,
       },
@@ -2124,7 +2124,7 @@ describe("SessionLatencyTrackerService – production parallel flow (Topic Insig
 
     await KernelContext.run(
       {
-        processId: "mission-proc-1",
+        agentProcessId: "mission-proc-1",
         latencySessionId: sessionId,
       },
       async () => {

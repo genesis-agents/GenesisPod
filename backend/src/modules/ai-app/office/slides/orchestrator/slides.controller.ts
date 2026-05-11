@@ -1782,8 +1782,9 @@ export class SlidesController {
     }
 
     try {
-      const result = await KernelContext.run({ processId, userId }, async () =>
-        fn(),
+      const result = await KernelContext.run(
+        { agentProcessId: processId, userId },
+        async () => fn(),
       );
       void this.missionExecutor
         .complete(processId)

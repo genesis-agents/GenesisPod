@@ -9,7 +9,11 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { AgentId, AgentInput, AgentEvent } from "@/modules/ai-harness/agents/abstractions/agent.types";
+import {
+  AgentId,
+  AgentInput,
+  AgentEvent,
+} from "@/modules/ai-harness/agents/abstractions/agent.types";
 import { AgentRegistry } from "./plan-based-agent-registry";
 import { GuardrailsPipelineService } from "../../../ai-engine/safety/guardrails/guardrails-pipeline.service";
 import { AgentConfigService } from "../config/agent-config.service";
@@ -67,7 +71,8 @@ export class AgentOrchestrator {
     processId?: string,
   ): AsyncGenerator<AgentEvent> {
     // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
-    const resolvedProcessId = processId ?? KernelContext.getProcessId();
+    //   (renamed slot 2026-05-11; see kernel-context.ts header)
+    const resolvedProcessId = processId ?? KernelContext.getAgentProcessId();
     // Input validation with guardrails
     if (this.guardrailsEnabled && this.guardrailsPipeline) {
       try {

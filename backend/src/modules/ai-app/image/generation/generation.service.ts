@@ -819,7 +819,7 @@ export class AiImageService {
 
     if (imgProcessId) {
       await KernelContext.run(
-        { processId: imgProcessId, userId, agentId: "image-generation" },
+        { agentProcessId: imgProcessId, userId, agentId: "image-generation" },
         runGeneration,
       );
     } else {

@@ -6,7 +6,11 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { MessageContentType } from "@prisma/client";
-import { ChatFacade, ToolFacade, type ChatMessage } from "@/modules/ai-harness/facade";
+import {
+  ChatFacade,
+  ToolFacade,
+  type ChatMessage,
+} from "@/modules/ai-harness/facade";
 import {
   KernelContext,
   MissionExecutorService,
@@ -1345,7 +1349,10 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
       );
 
     return kernelProcessId
-      ? KernelContext.run({ processId: kernelProcessId, userId }, billingRun)
+      ? KernelContext.run(
+          { agentProcessId: kernelProcessId, userId },
+          billingRun,
+        )
       : billingRun();
   }
 

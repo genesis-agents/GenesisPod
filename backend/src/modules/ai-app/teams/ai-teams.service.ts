@@ -1143,7 +1143,7 @@ ${messagesForSummary
       () =>
         kernelProcessId
           ? KernelContext.run(
-              { processId: kernelProcessId, userId },
+              { agentProcessId: kernelProcessId, userId },
               runSummary,
             )
           : runSummary(),

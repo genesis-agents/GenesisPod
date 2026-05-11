@@ -168,10 +168,15 @@ export class MissionRuntimeShellFramework {
         // mission 已选过的 modelId，触发 diversity 评分（-10 × occurrences）。
         // 之前 business-team 整条链没 KernelContext.run，missionId 始终
         // undefined → tracker 取不到 previouslyElected → 模型坍缩。
+        //
+        // 2026-05-11 fix：不再把 missionId 灌进 agentProcessId 槽 —— 那个槽是
+        // FK→agent_processes.id 的真 AgentProcess id，business-team 链路从未
+        // 调 MissionExecutor.execute() 创建 AgentProcess 行，伪填会让 EventJournal
+        // 每次 INSERT 都 FK 23503。tracker 读的是 missionId 槽，单一 missionId
+        // 字段够了。
         () =>
           KernelContext.run(
             {
-              processId: session.missionId,
               missionId: session.missionId,
               userId: session.userId,
             },

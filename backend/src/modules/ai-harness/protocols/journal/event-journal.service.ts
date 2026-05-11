@@ -58,7 +58,7 @@ export class EventJournalService implements OnModuleInit {
     //   变成 0 行 INSERT（没 SQL 异常 → PrismaService 不再在 ERROR 级刷屏）。
     //
     //   背景：多条 L3 链路把 KernelContext.processId 设成 missionId / sessionId
-    //   而不是 AgentProcess.id。下游 ai-chat.service 会读 KernelContext.getProcessId()
+    //   而不是 AgentProcess.id。下游 ai-chat.service 会读 KernelContext.getAgentProcessId()
     //   并 emit "llm.journal.record"。EventJournal 之前 INSERT 直发会触发 23503 FK 违规，
     //   每分钟数十条 [PrismaService] ERROR。
     //

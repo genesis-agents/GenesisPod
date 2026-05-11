@@ -386,9 +386,10 @@ export class LlmExecutor {
 
     const maxRetries = input.maxRetries ?? 2;
 
-    // KernelContext 自动带出 processId / userId（若 caller 未显式传）
+    // KernelContext 自动带出 agentProcessId / userId（若 caller 未显式传）。
+    //   2026-05-11: slot renamed processId → agentProcessId（见 kernel-context.ts header）。
     const kctx = KernelContext.get();
-    const processId = input.processId ?? kctx?.processId;
+    const processId = input.processId ?? kctx?.agentProcessId;
     const userId = input.userId ?? kctx?.userId;
 
     let lastError: string | undefined;

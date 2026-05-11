@@ -1432,8 +1432,12 @@ export class AiChatService {
       );
     }
 
-    // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided
-    const processId = explicitProcessId ?? KernelContext.getProcessId();
+    // ★ KernelContext: fallback to AsyncLocalStorage if processId not explicitly provided.
+    //   2026-05-11: reads renamed `agentProcessId` slot — only set when caller
+    //   actually spawned an AgentProcess via MissionExecutor.execute(). When
+    //   undefined, downstream emitJournalRecord is skipped (`if (processId)`),
+    //   so non-kernel mission paths no longer trigger EventJournal FK 23503.
+    const processId = explicitProcessId ?? KernelContext.getAgentProcessId();
 
     // ★ Observability: Start trace span
     let spanId: string | undefined;

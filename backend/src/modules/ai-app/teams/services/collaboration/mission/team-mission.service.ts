@@ -935,7 +935,7 @@ export class TeamMissionService implements OnModuleInit {
 
     await (teamProcessId
       ? KernelContext.run(
-          { processId: teamProcessId, userId: _userId },
+          { agentProcessId: teamProcessId, userId: _userId },
           runMission,
         )
       : runMission());

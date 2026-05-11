@@ -1,14 +1,36 @@
 /**
- * Kernel Context - AsyncLocalStorage carrier for processId propagation
+ * Kernel Context — AsyncLocalStorage carrier for cross-cutting metadata.
  *
- * Similar to BillingContext, this provides transparent processId propagation
- * so that AiChatService and AgentOrchestrator automatically pick up the
- * Kernel processId without explicit parameter threading.
+ * Similar to BillingContext, this lets AiChatService / AgentOrchestrator
+ * pick up the surrounding agent-process / mission / latency-session
+ * identifiers without each layer having to thread them as parameters.
+ *
+ * ★ 2026-05-11 hard-renamed `processId` → `agentProcessId` after the
+ *   prod log flood incident: previously the field was named `processId`
+ *   which read like a generic "current operation id", and 4+ callers
+ *   stuffed missionId / sessionId in it. Downstream EventJournal then
+ *   tried to insert into `process_events.process_id` (FK to
+ *   `agent_processes.id`), and Postgres screamed 23503 at ERROR level
+ *   on every LLM call. The field is now explicit about what it carries
+ *   and is optional — leave it undefined when there's no real
+ *   AgentProcess row.
  */
 import { AsyncLocalStorage } from "async_hooks";
 
 export interface KernelContextData {
-  processId: string;
+  /**
+   * Real `AgentProcess.id` (FK to `agent_processes` table). MUST come
+   * from `MissionExecutor.execute(...)` or `ProcessManager.spawn(...)`.
+   *
+   * If your code path does NOT spawn a kernel-managed AgentProcess
+   * (e.g. business-team / agent-playground / topic-insights), leave
+   * this undefined — EventJournal will then skip the journal write
+   * instead of FK-failing.
+   *
+   * For mission/session-level identifiers that are not AgentProcess
+   * rows, use `missionId` below.
+   */
+  agentProcessId?: string;
   userId?: string;
   agentId?: string;
   /** 活跃的时延跟踪会话 ID */
@@ -16,8 +38,10 @@ export interface KernelContextData {
   /** 当前活跃的时延跟踪阶段 ID */
   latencyPhaseId?: string;
   /**
-   * Topic Insights mission ID（用于 BaselineRecorder 过滤 + 分组）
-   * 只在 topic-insights 的 mission execution 流程中设置
+   * Mission / session identifier — any string. Not FK-bound. Used by
+   * cross-cutting concerns (BaselineRecorder, MissionElectionTracker,
+   * etc.) that need to scope by mission lifecycle regardless of
+   * whether a kernel AgentProcess was spawned.
    */
   missionId?: string;
   /** 用于 fixture 分组的 topicId + depth 标签（topic-insights baseline 录制使用） */
@@ -35,8 +59,8 @@ class KernelContextStore {
     return this.storage.getStore();
   }
 
-  getProcessId(): string | undefined {
-    return this.storage.getStore()?.processId;
+  getAgentProcessId(): string | undefined {
+    return this.storage.getStore()?.agentProcessId;
   }
 
   getMissionId(): string | undefined {

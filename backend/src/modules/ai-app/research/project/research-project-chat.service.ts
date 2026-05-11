@@ -8,12 +8,8 @@ import {
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { InputJsonValue } from "@prisma/client/runtime/library";
 import { SendChatMessageDto, CreateNoteDto, UpdateNoteDto } from "./dto";
-import {
-  ChatFacade,
-} from "@/modules/ai-harness/facade";
-import type {
-  ChatMessage as FacadeChatMessage,
-} from "@/modules/ai-harness/facade";
+import { ChatFacade } from "@/modules/ai-harness/facade";
+import type { ChatMessage as FacadeChatMessage } from "@/modules/ai-harness/facade";
 import {
   KernelContext,
   MissionExecutorService,
@@ -116,7 +112,10 @@ export class ResearchProjectChatService {
 
     try {
       const result = await (kernelProcessId
-        ? KernelContext.run({ processId: kernelProcessId, userId }, billingRun)
+        ? KernelContext.run(
+            { agentProcessId: kernelProcessId, userId },
+            billingRun,
+          )
         : billingRun());
       if (kernelProcessId && this.missionExecutor) {
         void this.missionExecutor

@@ -682,7 +682,7 @@ export class DiscussionPhaseCoordinatorService {
 
     await (sessionProcessId
       ? KernelContext.run(
-          { processId: sessionProcessId, userId: project.userId },
+          { agentProcessId: sessionProcessId, userId: project.userId },
           runPhases,
         )
       : runPhases());
@@ -1047,7 +1047,10 @@ export class DiscussionPhaseCoordinatorService {
     };
 
     await (sessionProcessId
-      ? KernelContext.run({ processId: sessionProcessId, userId }, runPhases)
+      ? KernelContext.run(
+          { agentProcessId: sessionProcessId, userId },
+          runPhases,
+        )
       : runPhases());
   }
 

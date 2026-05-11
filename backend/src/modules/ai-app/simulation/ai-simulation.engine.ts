@@ -555,7 +555,7 @@ ${worldState.blackSwan ? `⚠️ 黑天鹅事件：${(worldState.blackSwan as Bl
 
     await (runProcessId
       ? KernelContext.run(
-          { processId: runProcessId, userId: run.startedById || "" },
+          { agentProcessId: runProcessId, userId: run.startedById || "" },
           runSimulation,
         )
       : runSimulation());

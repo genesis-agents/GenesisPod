@@ -166,9 +166,11 @@ export class TopicTeamOrchestratorService {
     });
 
     // ★ 设置 KernelContext 以便嵌套的 AiChatService 调用能自动归属到此时延会话
+    // 2026-05-11: agentProcessId omitted — topic-insights doesn't spawn a kernel
+    // AgentProcess (no missionExecutor.execute call), so leave the FK-bound slot
+    // empty. Latency session ID + userId is enough for the downstream consumers.
     return KernelContext.run(
       {
-        processId: "",
         userId: topic.userId,
         latencySessionId,
       },

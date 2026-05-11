@@ -240,9 +240,12 @@ export class StageRerunDispatcher {
     // 2026-05-10 §3：cascade rerun 也要进 KernelContext，让 SpecBasedAgent
     // 通过 missionId 拿到 MissionElectionTracker 的 previouslyElected。
     // 之前 rerun 路径完全没 KernelContext.run，diversity 评分等同关闭。
+    //
+    // 2026-05-11 fix：原写法把 missionId 灌进 agentProcessId 槽，触发 prod
+    // EventJournal FK 23503 洪水。rerun 同样不 spawn AgentProcess，只填
+    // missionId 即可（tracker 读 missionId 槽）。
     return KernelContext.run(
       {
-        processId: args.ctx.missionId,
         missionId: args.ctx.missionId,
         userId: args.ctx.userId,
       },

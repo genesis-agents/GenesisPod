@@ -104,7 +104,7 @@ export class DiscussionResearchService {
       try {
         await (kernelProcessId
           ? KernelContext.run(
-              { processId: kernelProcessId, userId },
+              { agentProcessId: kernelProcessId, userId },
               billingRun,
             )
           : billingRun());
