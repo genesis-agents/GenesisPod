@@ -248,25 +248,31 @@ export function ApiFormatsSettings() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white">
+            {/* 2026-05-11: 单行不换行 + 长内容 truncate + title 提示 */}
             {items.map((f) => (
               <tr key={f.id} className="hover:bg-gray-50">
                 <td className="font-mono whitespace-nowrap px-4 py-3 text-sm text-gray-900">
                   {f.slug}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900">{f.name}</td>
-                <td className="px-4 py-3 text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                  {f.name}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                   {f.authStyle}
                 </td>
-                <td className="font-mono px-4 py-3 text-xs text-gray-600">
+                <td
+                  className="font-mono max-w-[220px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
+                  title={f.customHeaderName ?? ''}
+                >
                   {f.customHeaderName ?? '—'}
                 </td>
-                <td className="px-4 py-3 text-sm">
+                <td className="whitespace-nowrap px-4 py-3 text-sm">
                   {f.isBuiltin ? (
-                    <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                    <span className="inline-flex whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
                       内置
                     </span>
                   ) : (
-                    <span className="inline-flex rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700">
+                    <span className="inline-flex whitespace-nowrap rounded-full bg-purple-100 px-2 py-1 text-xs font-medium text-purple-700">
                       自定义
                     </span>
                   )}
@@ -275,7 +281,7 @@ export function ApiFormatsSettings() {
                   <button
                     type="button"
                     onClick={() => openEdit(f)}
-                    className="mr-2 inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                    className="mr-2 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
                   >
                     <Pencil className="h-3 w-3" />
                     编辑
@@ -284,7 +290,7 @@ export function ApiFormatsSettings() {
                     <button
                       type="button"
                       onClick={() => remove(f)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                      className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="h-3 w-3" />
                       删除

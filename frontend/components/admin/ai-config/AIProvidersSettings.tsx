@@ -315,52 +315,66 @@ export function AIProvidersSettings() {
                 </td>
               </tr>
             )}
-            {providers.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50">
-                <td className="font-mono whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                  {p.slug}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-900">{p.name}</td>
-                <td className="font-mono px-4 py-3 text-xs text-gray-600">
-                  {p.endpoint}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-700">
-                  {p.apiFormat}
-                </td>
-                <td className="px-4 py-3 text-xs text-gray-600">
-                  {p.capabilities.join(', ')}
-                </td>
-                <td className="px-4 py-3 text-sm">
-                  {p.isEnabled ? (
-                    <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
-                      启用
-                    </span>
-                  ) : (
-                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
-                      禁用
-                    </span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
-                  <button
-                    type="button"
-                    onClick={() => openEdit(p)}
-                    className="mr-2 inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+            {/* 2026-05-11: 表格单行不换行规则 —— 每个 cell whitespace-nowrap；
+                长内容列（endpoint / capabilities）用 truncate max-w + title 提示。
+                用户："每一行还是每一行，超过用省略号，鼠标上去有提示"。 */}
+            {providers.map((p) => {
+              const caps = p.capabilities.join(', ');
+              return (
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="font-mono whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                    {p.slug}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                    {p.name}
+                  </td>
+                  <td
+                    className="font-mono max-w-[240px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
+                    title={p.endpoint}
                   >
-                    <Pencil className="h-3 w-3" />
-                    编辑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(p)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                    {p.endpoint}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
+                    {p.apiFormat}
+                  </td>
+                  <td
+                    className="max-w-[220px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
+                    title={caps}
                   >
-                    <Trash2 className="h-3 w-3" />
-                    删除
-                  </button>
-                </td>
-              </tr>
-            ))}
+                    {caps}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm">
+                    {p.isEnabled ? (
+                      <span className="inline-flex whitespace-nowrap rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                        启用
+                      </span>
+                    ) : (
+                      <span className="inline-flex whitespace-nowrap rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
+                        禁用
+                      </span>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(p)}
+                      className="mr-2 inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(p)}
+                      className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      删除
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
