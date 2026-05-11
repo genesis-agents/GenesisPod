@@ -17,6 +17,7 @@
 
 import { useState } from 'react';
 import { BookOpen, FileText, BookText, Construction } from 'lucide-react';
+import { KnowledgeBaseTable } from './KnowledgeBaseTable';
 
 type TabKey = 'kbs' | 'documents' | 'wiki';
 
@@ -26,8 +27,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: typeof BookOpen }> = [
   { key: 'wiki', label: 'Wiki', icon: BookText },
 ];
 
-const PLACEHOLDER_HINT: Record<TabKey, string> = {
-  kbs: '跨用户 KB 列表（name / owner / 类型 / 文档数 / 已嵌入 chunks / 大小 / 上次同步 / 状态）。行点击 → 抽屉看文档列表、Wiki/KG 启用开关、自动同步配置、强制重嵌入。',
+const PLACEHOLDER_HINT: Record<Exclude<TabKey, 'kbs'>, string> = {
   documents:
     '跨 KB 的全局文档列表（title / KB / sourceType / 大小 / chunk 数 / status / 上次处理时间）。行点击 → 抽屉看 raw 内容预览、chunks 列表、embedding 状态、错误日志、重新处理按钮。',
   wiki: '跨 KB 的 Wiki 页面列表（slug / KB / 维度 / 字数 / 最近改动）。行点击 → 抽屉看 markdown 渲染 + 最近 WikiDiff 列表 + revert 操作。',
@@ -63,21 +63,25 @@ export default function KnowledgeManagement() {
         </nav>
       </div>
 
-      {/* Tab content — W1 stub placeholder */}
-      <div className="rounded-lg border border-gray-200 bg-white p-12">
-        <div className="mx-auto flex max-w-xl flex-col items-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
-            <Construction className="h-6 w-6 text-amber-600" />
+      {/* Tab content */}
+      {activeTab === 'kbs' ? (
+        <KnowledgeBaseTable />
+      ) : (
+        <div className="rounded-lg border border-gray-200 bg-white p-12">
+          <div className="mx-auto flex max-w-xl flex-col items-center gap-3 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
+              <Construction className="h-6 w-6 text-amber-600" />
+            </div>
+            <h3 className="text-base font-semibold text-gray-900">建设中</h3>
+            <p className="text-sm leading-relaxed text-gray-600">
+              {PLACEHOLDER_HINT[activeTab]}
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
+              后续 W2c / W2d 接通 documents / wiki 列表接口
+            </p>
           </div>
-          <h3 className="text-base font-semibold text-gray-900">建设中</h3>
-          <p className="text-sm leading-relaxed text-gray-600">
-            {PLACEHOLDER_HINT[activeTab]}
-          </p>
-          <p className="mt-2 text-xs text-gray-400">
-            W2 接通 backend admin 列表接口，表格 + 抽屉真数据上线
-          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
