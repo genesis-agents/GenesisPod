@@ -14,12 +14,12 @@ import { AdminPageLayout } from '@/components/admin/layout';
 import { AdminTabs, type AdminTab } from '@/components/admin/shared';
 import SystemSettings from '@/components/admin/settings/SystemSettings';
 import EmailSettings from '@/components/admin/settings/EmailSettings';
-import MonitoringPage from './monitoring/page';
-import LogsPage from './logs/page';
-import NotificationsPage from './notifications/page';
-import McpServerPage from './mcp-server/page';
-import SecurityPage from '../access/security/page';
-import FeedbackPage from '../feedback/page';
+import MonitoringPageContent from './monitoring/content';
+import LogsPageContent from './logs/content';
+import NotificationsPageContent from './notifications/content';
+import MCPServerPageContent from './mcp-server/content';
+import SecurityPageContent from '../access/security/content';
+import FeedbackPageContent from '../feedback/content';
 
 /**
  * 系统管理 Hub（L1 Infrastructure 4 卡之一）
@@ -85,9 +85,9 @@ function SystemHubInner() {
 
         {activeTab === 'ops' && (
           <div className="space-y-8">
-            <MonitoringPage embedded />
+            <MonitoringPageContent embedded />
             <div className="border-t border-gray-200 pt-8">
-              <LogsPage embedded />
+              <LogsPageContent embedded />
             </div>
           </div>
         )}
@@ -99,21 +99,21 @@ function SystemHubInner() {
               <EmailSettings />
             </div>
             <div className="border-t border-gray-200 pt-8">
-              <McpServerPage embedded />
+              <MCPServerPageContent embedded />
             </div>
           </div>
         )}
 
         {activeTab === 'messages' && (
           <div className="space-y-8">
-            <NotificationsPage embedded />
+            <NotificationsPageContent embedded />
             <div className="border-t border-gray-200 pt-8">
-              <FeedbackPage embedded />
+              <FeedbackPageContent embedded />
             </div>
           </div>
         )}
 
-        {activeTab === 'security' && <SecurityPage embedded />}
+        {activeTab === 'security' && <SecurityPageContent embedded />}
       </div>
     </AdminPageLayout>
   );
