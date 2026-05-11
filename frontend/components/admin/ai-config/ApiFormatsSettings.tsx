@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Save, Loader2, KeyRound } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -211,17 +211,8 @@ export function ApiFormatsSettings() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <KeyRound className="h-5 w-5 text-blue-600" />
-            API Formats
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            API 协议模板。4 内置 + admin 自定义 OpenAI-兼容微调（覆盖 auth
-            header）。
-          </p>
-        </div>
+      {/* 2026-05-11: 删冗余内页标题（drawer + tab 已表达），仅保留操作按钮 */}
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={openCreate}

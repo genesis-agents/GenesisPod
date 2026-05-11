@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Save, Loader2, Tag } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -217,17 +217,8 @@ export function ModelTypesSettings() {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Tag className="h-5 w-5 text-blue-600" />
-            Model Types
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            模型类型字典。11 内置 + admin 自定义（如
-            VIDEO_GENERATION），不改代码。
-          </p>
-        </div>
+      {/* 2026-05-11: 删冗余内页标题（drawer + tab 已表达），仅保留操作按钮 */}
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={openCreate}

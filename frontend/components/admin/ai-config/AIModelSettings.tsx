@@ -409,6 +409,7 @@ function ModelIdSelector({
   apiKey,
   secretKey,
   modelType,
+  apiEndpoint,
   placeholder,
 }: {
   value: string;
@@ -417,6 +418,8 @@ function ModelIdSelector({
   apiKey: string;
   secretKey?: string | null;
   modelType: AIModelType;
+  /** 2026-05-11: 自定义/未硬编码 provider 走 backend default 分支时必须传 endpoint */
+  apiEndpoint?: string;
   placeholder?: string;
 }) {
   const [availableModels, setAvailableModels] = useState<
@@ -447,7 +450,15 @@ function ModelIdSelector({
             'Content-Type': 'application/json',
             ...getAuthHeader(),
           },
-          body: JSON.stringify({ provider, apiKey, secretKey, modelType }),
+          // 2026-05-11: 自定义/未硬编码 provider（如 Voyage/Cohere/Jina）必须传
+          // apiEndpoint，否则后端 switch 走 default 分支报 "Unknown provider"。
+          body: JSON.stringify({
+            provider,
+            apiKey,
+            secretKey,
+            modelType,
+            apiEndpoint,
+          }),
         }
       );
       const result = await response.json();
@@ -1718,7 +1729,8 @@ function EditModelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+      {/* 2026-05-11: max-w-lg (512px) 太窄，表单字段挤；改 max-w-3xl (768px) 给两列布局喘息 */}
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Edit {model.displayName}
         </h3>
@@ -1972,6 +1984,7 @@ function EditModelModal({
                   keySourceMode === 'secret' ? formData.secretKey : null
                 }
                 modelType={formData.modelType}
+                apiEndpoint={formData.apiEndpoint}
                 placeholder={getModelIdPlaceholder(formData.name)}
               />
             </div>
@@ -2409,7 +2422,8 @@ function AddModelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+      {/* 2026-05-11: max-w-lg (512px) 太窄，表单字段挤；改 max-w-3xl (768px) 给两列布局喘息 */}
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Add New AI Model
         </h3>
@@ -2428,11 +2442,14 @@ function AddModelModal({
                   (p) => p.slug === e.target.value
                 );
                 if (dyn) {
+                  // ★ 2026-05-11: provider 字段必须填 slug（小写 kebab-case），
+                  //   不是 display name（"Voyage AI" 带空格 toLowerCase 后
+                  //   "voyage ai" 匹配不上后端 switch 的 voyage / voyageai 分支）。
                   setFormData({
                     ...formData,
                     name: dyn.slug,
                     displayName: dyn.name,
-                    provider: dyn.name,
+                    provider: dyn.slug,
                     modelId: '',
                     apiEndpoint: dyn.endpoint,
                     icon: dyn.iconUrl ?? '',
@@ -2467,23 +2484,15 @@ function AddModelModal({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="">选择模型提供商...</option>
-              {/* 优先列出 DB ai_providers（admin 在 UI 维护，含自定义 provider） */}
-              {dynamicProviders.length > 0 && (
-                <optgroup label="数据驱动（admin 在 /admin/ai/models 顶部维护）">
-                  {dynamicProviders.map((p) => (
-                    <option key={`db-${p.slug}`} value={p.slug}>
-                      {p.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              <optgroup label="预置模板（向后兼容，将来退役）">
-                {STANDARD_MODEL_CONFIGS.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
-                  </option>
-                ))}
-              </optgroup>
+              {/* 2026-05-11: 删掉 STANDARD_MODEL_CONFIGS 退役 optgroup（双源 → DB 单源），
+                  dedupe by slug 防止 P1 migration seed 跟旧硬编码同名重复。 */}
+              {Array.from(
+                new Map(dynamicProviders.map((p) => [p.slug, p])).values()
+              ).map((p) => (
+                <option key={`db-${p.slug}`} value={p.slug}>
+                  {p.name}
+                </option>
+              ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
               <strong>可跳过此下拉：</strong>下方 Provider / Endpoint / Model ID
@@ -2721,6 +2730,7 @@ function AddModelModal({
                   keySourceMode === 'secret' ? formData.secretKey : null
                 }
                 modelType={formData.modelType}
+                apiEndpoint={formData.apiEndpoint}
                 placeholder={getModelIdPlaceholder(formData.name)}
               />
             </div>

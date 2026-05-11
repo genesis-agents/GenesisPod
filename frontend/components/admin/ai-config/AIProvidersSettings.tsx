@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, X, Save, Loader2, Globe } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, Loader2 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -263,18 +263,9 @@ export function AIProvidersSettings() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-            <Globe className="h-5 w-5 text-blue-600" />
-            AI Providers
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            数据驱动 BYOK：admin 在此添加新
-            provider，前端自动出现下拉，无需改代码 / 重启。
-          </p>
-        </div>
+      {/* 2026-05-11: 删除冗余内页标题（drawer header + tab 已表达"字典管理 → AI Providers"），
+          仅保留操作按钮。用户指令："保留必要的，不要事无巨细"。 */}
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={openCreate}
