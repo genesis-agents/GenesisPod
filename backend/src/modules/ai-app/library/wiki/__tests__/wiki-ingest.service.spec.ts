@@ -84,6 +84,12 @@ function makeChat(content: string) {
   } as any;
 }
 
+function makeSkillLoader(content = "wiki-ingest mock system prompt") {
+  return {
+    getSkillById: jest.fn().mockResolvedValue({ content }),
+  } as any;
+}
+
 const VALID_LLM_OUTPUT = JSON.stringify({
   creates: [
     {
@@ -109,6 +115,7 @@ describe("WikiIngestService", () => {
   let kbService: any;
   let diffService: any;
   let chat: any;
+  let skillLoader: any;
   let service: WikiIngestService;
 
   beforeEach(() => {
@@ -117,7 +124,14 @@ describe("WikiIngestService", () => {
     kbService = makeKbService();
     diffService = makeDiffService();
     chat = makeChat(VALID_LLM_OUTPUT);
-    service = new WikiIngestService(prisma, kbService, diffService, chat);
+    skillLoader = makeSkillLoader();
+    service = new WikiIngestService(
+      prisma,
+      kbService,
+      diffService,
+      chat,
+      skillLoader,
+    );
   });
 
   // ─── Gate 6: empty documentIds ─────────────────────────────────────────────
@@ -268,7 +282,13 @@ describe("WikiIngestService", () => {
           deletes: [],
         }),
       );
-      service = new WikiIngestService(prisma, kbService, diffService, chat);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
 
       await expect(service.ingest("u-1", "kb-1", ["doc-1"])).rejects.toThrow(
         BadRequestException,
@@ -284,7 +304,13 @@ describe("WikiIngestService", () => {
       chat = {
         chat: jest.fn().mockRejectedValue(new Error("upstream LLM 500")),
       } as any;
-      service = new WikiIngestService(prisma, kbService, diffService, chat);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
 
       await expect(service.ingest("u-1", "kb-1", ["doc-1"])).rejects.toThrow(
         /Wiki ingest LLM call failed; please retry/,
@@ -297,7 +323,13 @@ describe("WikiIngestService", () => {
       ]);
       // extractJson yields {} on parse failure → schema parse fails.
       chat = makeChat("not json at all, just prose");
-      service = new WikiIngestService(prisma, kbService, diffService, chat);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
 
       await expect(service.ingest("u-1", "kb-1", ["doc-1"])).rejects.toThrow(
         BadRequestException,
@@ -352,7 +384,13 @@ describe("WikiIngestService", () => {
           deletes: ["gamma-page", "beta-page"], // beta overlaps with updates
         }),
       );
-      service = new WikiIngestService(prisma, kbService, diffService, chat);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
 
       const result = await service.ingest("u-1", "kb-1", ["doc-1"]);
 
@@ -393,7 +431,13 @@ describe("WikiIngestService", () => {
           }) +
           "\n```",
       );
-      service = new WikiIngestService(prisma, kbService, diffService, chat);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
 
       await service.ingest("u-1", "kb-1", ["doc-1"]);
 
