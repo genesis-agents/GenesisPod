@@ -4,6 +4,7 @@ import { EmbeddingService } from "../embedding.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
+import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 
 // ─── Mocks ────────────────────────────────────────────────
 
@@ -70,6 +71,11 @@ describe("EmbeddingService", () => {
         { provide: SecretsService, useValue: mockSecretsService },
         { provide: AiApiCallerService, useValue: mockAiApiCallerService },
         { provide: ConfigService, useValue: mockConfigService },
+        // 2026-05-12: keyResolver 已改为 non-Optional 强依赖，spec 必须提供
+        {
+          provide: KeyResolverService,
+          useValue: { resolveKey: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -215,7 +221,9 @@ describe("EmbeddingService", () => {
         isDefault: false,
         maxInputTokens: 2048,
       };
-      const mockVoyageAdminDefault = {
+      // 保留以便回顾"严格 BYOK 不看 isDefault" 的反向证据用例（之前的 admin default 模型）
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _mockVoyageAdminDefault = {
         id: "ai-voyage",
         modelId: "voyage-4-lite",
         embeddingDimensions: 1024,
@@ -276,13 +284,10 @@ describe("EmbeddingService", () => {
 
       it("picks user's BYOK model by provider match when preferredModelId not set", async () => {
         mockPrisma.userApiKey.findMany.mockResolvedValueOnce([
-          { provider: "google", preferredModelId: null },
+          { provider: "google", preferredModelId: null, updatedAt: new Date() },
         ]);
-        // preferredModelId null → 走 candidates findMany
-        mockPrisma.aIModel.findMany.mockResolvedValueOnce([
-          mockVoyageAdminDefault,
-          mockGeminiModel,
-        ]);
+        // 新逻辑：每个 user key 一次 findFirst({provider equals, modelType=EMBEDDING})
+        mockPrisma.aIModel.findFirst.mockResolvedValueOnce(mockGeminiModel);
         mockKeyResolver.resolveKey.mockResolvedValueOnce({
           source: "PERSONAL",
           apiKey: "user-google-key",
@@ -296,6 +301,40 @@ describe("EmbeddingService", () => {
 
         expect(config.modelId).toBe("gemini-embedding-001");
         expect(config.apiKey).toBe("user-google-key");
+      });
+
+      it("strictly skips admin default — picks user's google over admin's voyage when user has both BYOK", async () => {
+        // 用户同时有 openai BYOK（chat 用）和 google BYOK（embedding 用），
+        // admin 默认 EMBEDDING 是 voyage（provider=openai）。新逻辑不看 isDefault，
+        // 用户 BYOK 自己说了算：google 先（updatedAt 新）→ 命中 gemini。
+        mockPrisma.userApiKey.findMany.mockResolvedValueOnce([
+          {
+            provider: "google",
+            preferredModelId: null,
+            updatedAt: new Date("2026-05-11T22:00:00Z"),
+          },
+          {
+            provider: "openai",
+            preferredModelId: null,
+            updatedAt: new Date("2026-05-01T10:00:00Z"),
+          },
+        ]);
+        // google provider 查 EMBEDDING → 命中 gemini
+        mockPrisma.aIModel.findFirst.mockResolvedValueOnce(mockGeminiModel);
+        mockKeyResolver.resolveKey.mockResolvedValueOnce({
+          source: "PERSONAL",
+          apiKey: "user-google-key",
+          apiEndpoint: null,
+          provider: "google",
+          userId: "user-1",
+          healthKeyId: "personal:user-1:google:default",
+        });
+
+        const config = await service.getEmbeddingConfig("user-1");
+
+        // 关键：是 gemini，**不是** voyage
+        expect(config.modelId).toBe("gemini-embedding-001");
+        expect(config.provider).toBe("Google");
       });
 
       it("throws when user has NO BYOK and NO ASSIGNED (no silent SYSTEM fallback)", async () => {

@@ -112,14 +112,13 @@ export class EmbeddingService {
     private readonly secretsService: SecretsService,
     private readonly aiApiCallerService: AiApiCallerService,
     private readonly configService: ConfigService,
+    /** 2026-05-12: 严格 BYOK 必需依赖，**不**用 @Optional()。
+     *  module imports 配错 → NestFactory 启动直接报错（防 c0eed7c71 类事故）。 */
+    private readonly keyResolver: KeyResolverService,
     /** v5.1 R0.5-E B-#6 (2026-05-05): EMBEDDING_REQUEST hook seam，可选注入。
      *  plugin 可拦截 / 替换 embedding（缓存 / fallback provider）。 */
     @Optional()
     private readonly hookBus?: import("@/plugins/core/hook-bus").HookBus,
-    /** 2026-05-11 BYOK 改造：可选注入 KeyResolverService 解析用户 BYOK key。
-     *  Optional 是为了不破坏现有 spec 的 mock。运行时实际总会拿到。 */
-    @Optional()
-    private readonly keyResolver?: KeyResolverService,
   ) {}
 
   private isRateLimitError(err: unknown): boolean {
@@ -262,12 +261,6 @@ export class EmbeddingService {
         );
       }
 
-      if (!this.keyResolver) {
-        throw new ServiceUnavailableException(
-          "KeyResolverService 未注入，无法解析 BYOK key（运行时配置错误）。",
-        );
-      }
-
       let resolved;
       try {
         resolved = await this.keyResolver.resolveKey(
@@ -382,69 +375,68 @@ export class EmbeddingService {
   }
 
   /**
-   * 按用户 BYOK 选 EMBEDDING 模型（严格 BYOK 模式）
+   * 按用户 BYOK 选 EMBEDDING 模型（严格 BYOK——**完全不看 admin 的 isDefault**）
+   *
+   * 用户范围 = PERSONAL（自己配的 key）∪ ASSIGNED（向 admin 申请的授权，也属 BYOK 范围）
    *
    * 顺序：
-   *   1. PERSONAL.preferredModelId 命中 EMBEDDING 模型
-   *   2. PERSONAL.provider 匹配 ai_models.provider 的 EMBEDDING（isDefault 优先）
-   *   3. ASSIGNED.modelDbId 指向的 EMBEDDING 模型
-   * 都不命中 → null（上层 throw ServiceUnavailable）
+   *   1. PERSONAL key 的 preferredModelId 指向 EMBEDDING 模型 → 用（按 user_api_keys.updatedAt 最近优先）
+   *   2. PERSONAL key 的 provider 有 EMBEDDING 模型 → 用（按 user_api_keys.updatedAt 最近优先）
+   *   3. ASSIGNED 的 modelDbId 是 EMBEDDING 模型 → 用（按 KeyAssignment 最近优先）
+   * 都不命中 → null（上层 throw 引导用户去 BYOK 配置页）
+   *
+   * **绝不**回退 admin default + 用户随便一个 BYOK key 凑合——那是反模式。
    */
   private async pickEmbeddingModelForUser(
     userId: string,
   ): Promise<AIModel | null> {
+    // 最近配置的 BYOK key 优先（用户最新的 intent）
     const userKeys = await this.prisma.userApiKey.findMany({
       where: { userId, isActive: true, mode: "PERSONAL" },
-      select: { provider: true, preferredModelId: true },
+      select: { provider: true, preferredModelId: true, updatedAt: true },
+      orderBy: { updatedAt: "desc" },
     });
 
-    // 1. preferredModelId 精确匹配
-    const preferredIds = userKeys
-      .map((k) => k.preferredModelId)
-      .filter((id): id is string => !!id);
-    if (preferredIds.length > 0) {
+    // 1. PERSONAL.preferredModelId 命中 EMBEDDING（最严格的用户意图）
+    for (const k of userKeys) {
+      if (!k.preferredModelId) continue;
       const m = await this.prisma.aIModel.findFirst({
         where: {
           modelType: "EMBEDDING",
           isEnabled: true,
-          modelId: { in: preferredIds },
+          modelId: k.preferredModelId,
         },
-        orderBy: { isDefault: "desc" },
       });
       if (m) return m;
     }
 
-    // 2. provider 匹配（大小写不敏感）
-    if (userKeys.length > 0) {
-      const userProviders = new Set(
-        userKeys.map((k) => k.provider.toLowerCase()),
-      );
-      const candidates = await this.prisma.aIModel.findMany({
-        where: { modelType: "EMBEDDING", isEnabled: true },
-        orderBy: { isDefault: "desc" },
-      });
-      const match = candidates.find((c) =>
-        userProviders.has(c.provider.toLowerCase()),
-      );
-      if (match) return match;
-    }
-
-    // 3. ASSIGNED（admin 授权）
-    const assigned = await this.prisma.keyAssignment.findMany({
-      where: { userId, status: "ACTIVE" },
-      select: { modelDbId: true },
-    });
-    const assignedModelIds = assigned
-      .map((a) => a.modelDbId)
-      .filter((id): id is string => !!id);
-    if (assignedModelIds.length > 0) {
+    // 2. PERSONAL.provider 下有 EMBEDDING 模型 → 用（按用户 key 最近优先）
+    //    完全不参考 ai_models.isDefault；用户配的 provider 自身的 EMBEDDING 模型谁先就谁
+    for (const k of userKeys) {
       const m = await this.prisma.aIModel.findFirst({
         where: {
-          id: { in: assignedModelIds },
+          modelType: "EMBEDDING",
+          isEnabled: true,
+          provider: { equals: k.provider, mode: "insensitive" },
+        },
+      });
+      if (m) return m;
+    }
+
+    // 3. ASSIGNED（admin 授权 = 用户向 admin 申请的，仍属 BYOK 范围）
+    const assigned = await this.prisma.keyAssignment.findMany({
+      where: { userId, status: "ACTIVE" },
+      select: { modelDbId: true, assignedAt: true },
+      orderBy: { assignedAt: "desc" },
+    });
+    for (const a of assigned) {
+      if (!a.modelDbId) continue;
+      const m = await this.prisma.aIModel.findFirst({
+        where: {
+          id: a.modelDbId,
           modelType: "EMBEDDING",
           isEnabled: true,
         },
-        orderBy: { isDefault: "desc" },
       });
       if (m) return m;
     }
