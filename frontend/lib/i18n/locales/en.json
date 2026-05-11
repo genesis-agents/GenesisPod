@@ -4224,16 +4224,16 @@
       }
     },
     "data": {
-      "description": "Data sources, storage, assets, and governance — all in one place",
+      "description": "Data assets, storage status, and governance — all in one place",
       "groups": {
         "source": "Data Sources",
         "sourceDesc": "Collection sources and whitelists",
-        "storage": "Storage Usage",
-        "storageDesc": "Databases, object storage, and cold/hot tiering",
+        "storage": "Storage Status",
+        "storageDesc": "Database & R2 footprint, Offload pipeline, 30-day trend",
         "asset": "Data Assets",
         "assetDesc": "Table catalog and field metadata",
         "governance": "Data Governance",
-        "governanceDesc": "Quality and resource cleanup"
+        "governanceDesc": "Quality, whitelists, broken-resource cleanup"
       }
     },
     "tools": {

@@ -2,18 +2,7 @@
 
 import { Download, Play, RefreshCw } from 'lucide-react';
 
-export type StorageTabKey = 'pipeline' | 'catalog' | 'database' | 'trend';
-
-const TABS: Array<{ key: StorageTabKey; label: string }> = [
-  { key: 'pipeline', label: 'Offload Pipeline' },
-  { key: 'catalog', label: 'R2 Catalog' },
-  { key: 'database', label: 'DB Footprint' },
-  { key: 'trend', label: 'Trend' },
-];
-
 interface StorageToolbarProps {
-  tab: StorageTabKey;
-  onTabChange: (tab: StorageTabKey) => void;
   onRefresh: () => void;
   onExport: () => void;
   onRun: () => void;
@@ -24,8 +13,6 @@ interface StorageToolbarProps {
 }
 
 export default function StorageToolbar({
-  tab,
-  onTabChange,
   onRefresh,
   onExport,
   onRun,
@@ -36,26 +23,6 @@ export default function StorageToolbar({
 }: StorageToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      {/* Tab Segmented Control */}
-      <div className="inline-flex items-center rounded-lg border border-gray-300 bg-white p-1 shadow-sm">
-        {TABS.map((item) => {
-          const active = tab === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => onTabChange(item.key)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
-                active
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-
       {generatedAtRelative && (
         <span className="text-xs text-gray-400">
           快照: {generatedAtRelative}
@@ -64,7 +31,6 @@ export default function StorageToolbar({
 
       <div className="flex-1" />
 
-      {/* Actions */}
       <button
         onClick={onExport}
         className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"

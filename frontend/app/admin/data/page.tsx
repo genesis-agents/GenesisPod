@@ -1,46 +1,52 @@
 'use client';
 
-import { Suspense } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import {
-  Database,
-  HardDrive,
-  Layers,
-  Compass,
-  Shield,
-  Sparkles,
-  ExternalLink,
-} from 'lucide-react';
+import { Suspense, useEffect } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { Database, HardDrive, Layers, Sparkles } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { AdminTabs, type AdminTab } from '@/components/admin/shared';
 import {
   StorageInventoryPanel,
   TableManagementContent,
-  BrokenResourcesCard,
 } from '@/components/admin/data-management';
 import DataQualityManagement from '@/components/admin/data-management/DataQualityManagement';
-import WhitelistManagement from '@/components/admin/WhitelistManagement';
+import { toast } from '@/stores';
 
 /**
  * 数据管理（L1 Infrastructure 4 卡之一）
  *
- * Wave 4 精化（2026-05-11）：从 dashboard-card → AdminTabs 内嵌形态。
- * 4 Tab 按数据生命周期组织：源 → 存储 → 资产 → 治理。
+ * Wave 4 修订（2026-05-11）：从 4 Tab 精简为 3 Tab。
+ *
+ * - assets（数据资产）：表清单管理 + 诊断 + 清理（首个 Tab，最常用）
+ * - storage（存储状态）：4 卡总览 + Offload Pipeline 主表 + R2 详情抽屉
+ *   （去掉原 inner-tab pipeline/catalog/database/trend，趋势转为 stats 内嵌 30 天 delta）
+ * - governance（数据治理）：质量指标主表 + 顶部治理操作按钮（白名单/失效清理/采集源）
+ *   原 sources Tab 合并到此
  *
  * 子路由（/admin/storage、/admin/data-management、/admin/resources、/admin/data/{collection,whitelists,quality}）
  * 保留可用作 deep-link 兜底（独立页含 AdminPageLayout 包装）。
  */
 
-type DataTab = 'sources' | 'storage' | 'assets' | 'governance';
+type DataTab = 'assets' | 'storage' | 'governance';
+
+const FROM_TOAST: Record<string, string> = {
+  sources: '"数据源"已并入数据治理 — 进入数据治理点 [白名单] / [采集源] 处理',
+};
 
 function DataPageInner() {
   const { t } = useTranslation();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const tabs: AdminTab[] = [
-    { key: 'sources', label: t('admin.data.groups.source'), icon: Compass },
-    { key: 'storage', label: t('admin.data.groups.storage'), icon: HardDrive },
     { key: 'assets', label: t('admin.data.groups.asset'), icon: Layers },
+    {
+      key: 'storage',
+      label: t('admin.data.groups.storage'),
+      icon: HardDrive,
+    },
     {
       key: 'governance',
       label: t('admin.data.groups.governance'),
@@ -48,15 +54,23 @@ function DataPageInner() {
     },
   ];
 
-  const searchParams = useSearchParams();
   const rawTab = searchParams?.get('tab');
+  // 旧 sources tab 透明 redirect 到 governance + toast
   const tab: DataTab =
-    rawTab === 'storage' ||
-    rawTab === 'assets' ||
-    rawTab === 'governance' ||
-    rawTab === 'sources'
+    rawTab === 'storage' || rawTab === 'governance' || rawTab === 'assets'
       ? rawTab
-      : 'sources';
+      : 'assets';
+
+  useEffect(() => {
+    if (rawTab === 'sources') {
+      toast.info('页面已迁移', FROM_TOAST.sources);
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
+      params.set('tab', 'governance');
+      router.replace(`${pathname ?? '/admin/data'}?${params.toString()}`, {
+        scroll: false,
+      });
+    }
+  }, [rawTab, searchParams, router, pathname]);
 
   return (
     <AdminPageLayout
@@ -69,55 +83,11 @@ function DataPageInner() {
         <AdminTabs tabs={tabs} mode="route" />
       </div>
 
-      {tab === 'sources' && (
-        <div className="space-y-6">
-          {/* 白名单 */}
-          <section>
-            <div className="mb-3 flex items-center gap-2">
-              <Shield className="h-4 w-4 text-emerald-600" />
-              <h2 className="text-base font-semibold text-gray-900">
-                {t('admin.nav.whitelists')}
-              </h2>
-            </div>
-            <WhitelistManagement />
-          </section>
-
-          {/* 采集源链接到独立页（页面内容较复杂，未在 Tab 内嵌） */}
-          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Compass className="h-4 w-4 text-emerald-600" />
-                  <h2 className="text-base font-semibold text-gray-900">
-                    {t('admin.nav.collection')}
-                  </h2>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {t('admin.tabDescriptions.collection')}
-                </p>
-              </div>
-              <Link
-                href="/admin/data/collection"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
-              >
-                {t('common.open')}
-                <ExternalLink className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </section>
-        </div>
-      )}
+      {tab === 'assets' && <TableManagementContent />}
 
       {tab === 'storage' && <StorageInventoryPanel />}
 
-      {tab === 'assets' && <TableManagementContent />}
-
-      {tab === 'governance' && (
-        <div className="space-y-6">
-          <BrokenResourcesCard />
-          <DataQualityManagement />
-        </div>
-      )}
+      {tab === 'governance' && <DataQualityManagement />}
     </AdminPageLayout>
   );
 }

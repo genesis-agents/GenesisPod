@@ -1,6 +1,14 @@
 'use client';
 
-import { Cloud, Database, HardDrive, Layers } from 'lucide-react';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Cloud,
+  Database,
+  HardDrive,
+  Layers,
+  Minus,
+} from 'lucide-react';
 
 type StatColor = 'emerald' | 'blue' | 'amber' | 'violet' | 'slate';
 
@@ -15,7 +23,39 @@ interface StorageStatsCardsProps {
   managedPrefixes: number;
   observedPrefixes: number;
   observedOnlyPrefixes: number;
+  /** 30-day delta in MB; null when trend data unavailable */
+  dbDeltaMb?: number | null;
+  r2DeltaMb?: number | null;
+  r2ObjectsDelta?: number | null;
   loading?: boolean;
+}
+
+function formatMbDelta(deltaMb: number | null | undefined): {
+  text: string;
+  tone: 'up' | 'down' | 'flat';
+} | null {
+  if (deltaMb == null || !Number.isFinite(deltaMb)) return null;
+  const abs = Math.abs(deltaMb);
+  // < 1 MB 视为平稳，避免噪点
+  if (abs < 1) return { text: '30 天平稳', tone: 'flat' };
+  const display =
+    abs >= 1024 ? `${(abs / 1024).toFixed(1)} GB` : `${abs.toFixed(1)} MB`;
+  return {
+    text: `${deltaMb > 0 ? '+' : '-'}${display} · 30 天`,
+    tone: deltaMb > 0 ? 'up' : 'down',
+  };
+}
+
+function formatCountDelta(delta: number | null | undefined): {
+  text: string;
+  tone: 'up' | 'down' | 'flat';
+} | null {
+  if (delta == null || !Number.isFinite(delta)) return null;
+  if (delta === 0) return { text: '30 天平稳', tone: 'flat' };
+  return {
+    text: `${delta > 0 ? '+' : ''}${delta.toLocaleString()} 对象 · 30 天`,
+    tone: delta > 0 ? 'up' : 'down',
+  };
 }
 
 export default function StorageStatsCards({
@@ -29,8 +69,14 @@ export default function StorageStatsCards({
   managedPrefixes,
   observedPrefixes,
   observedOnlyPrefixes,
+  dbDeltaMb,
+  r2DeltaMb,
+  r2ObjectsDelta,
   loading,
 }: StorageStatsCardsProps) {
+  const dbDelta = formatMbDelta(dbDeltaMb);
+  const r2Delta = formatMbDelta(r2DeltaMb);
+  const objectsDelta = formatCountDelta(r2ObjectsDelta);
   const cards: Array<{
     id: string;
     label: string;
@@ -38,6 +84,7 @@ export default function StorageStatsCards({
     hint: string;
     icon: typeof Database;
     color: StatColor;
+    delta?: { text: string; tone: 'up' | 'down' | 'flat' } | null;
   }> = [
     {
       id: 'db',
@@ -46,6 +93,7 @@ export default function StorageStatsCards({
       hint: `${dbTableCount} 张表纳入统计`,
       icon: Database,
       color: 'emerald',
+      delta: dbDelta,
     },
     {
       id: 'r2',
@@ -56,6 +104,7 @@ export default function StorageStatsCards({
         : 'R2 未配置',
       icon: Cloud,
       color: r2Configured ? 'blue' : 'amber',
+      delta: r2Delta,
     },
     {
       id: 'targets',
@@ -72,6 +121,7 @@ export default function StorageStatsCards({
       hint: `${observedOnlyPrefixes} 个仅观测前缀`,
       icon: Layers,
       color: 'slate',
+      delta: objectsDelta,
     },
   ];
 
@@ -91,6 +141,18 @@ export default function StorageStatsCards({
       {cards.map((card) => {
         const Icon = card.icon;
         const colors = colorClasses[card.color];
+        const DeltaIcon =
+          card.delta?.tone === 'up'
+            ? ArrowUpRight
+            : card.delta?.tone === 'down'
+              ? ArrowDownRight
+              : Minus;
+        const deltaTone =
+          card.delta?.tone === 'up'
+            ? 'text-rose-600'
+            : card.delta?.tone === 'down'
+              ? 'text-emerald-600'
+              : 'text-gray-400';
         return (
           <div
             key={card.id}
@@ -109,6 +171,14 @@ export default function StorageStatsCards({
                 <p className="mt-1 truncate text-xs text-gray-400">
                   {card.hint}
                 </p>
+                {card.delta && !loading && (
+                  <p
+                    className={`mt-1.5 inline-flex items-center gap-1 text-xs font-medium ${deltaTone}`}
+                  >
+                    <DeltaIcon className="h-3 w-3" />
+                    {card.delta.text}
+                  </p>
+                )}
               </div>
               <div className={`rounded-lg p-2.5 ${colors.icon}`}>
                 <Icon className="h-5 w-5" />

@@ -4224,16 +4224,16 @@
       }
     },
     "data": {
-      "description": "数据源、存储、资产与治理一体化管理",
+      "description": "数据资产、存储状态与治理一体化管理",
       "groups": {
         "source": "数据源",
         "sourceDesc": "采集源接入与白名单",
-        "storage": "存储用量",
-        "storageDesc": "数据库、对象存储与冷热分层",
+        "storage": "存储状态",
+        "storageDesc": "DB 与 R2 体积、Offload 进度、30 天趋势",
         "asset": "数据资产",
         "assetDesc": "数据表清单与字段元数据",
         "governance": "数据治理",
-        "governanceDesc": "数据质量与资源清理"
+        "governanceDesc": "质量指标 + 白名单 + 失效资源清理"
       }
     },
     "tools": {

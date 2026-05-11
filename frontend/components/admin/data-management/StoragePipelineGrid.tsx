@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Database, Info } from 'lucide-react';
+import { ArrowRight, Cloud, Database, Info } from 'lucide-react';
 
 interface OffloadFieldStat {
   table: string;
@@ -15,6 +15,7 @@ interface OffloadFieldStat {
 interface StoragePipelineGridProps {
   rows: OffloadFieldStat[];
   loading?: boolean;
+  onShowR2Detail?: (r2Prefix: string) => void;
 }
 
 const STATE_COLORS = {
@@ -56,6 +57,7 @@ function deriveCoverage(row: OffloadFieldStat): number | null {
 export default function StoragePipelineGrid({
   rows,
   loading,
+  onShowR2Detail,
 }: StoragePipelineGridProps) {
   const columns = [
     { key: 'field', label: 'Field', width: 'w-[260px]' },
@@ -70,6 +72,7 @@ export default function StoragePipelineGrid({
     { key: 'remaining', label: 'In DB', width: 'w-[110px]', align: 'right' },
     { key: 'coverage', label: 'Coverage', width: 'w-[200px]' },
     { key: 'status', label: 'Status', width: 'w-[100px]' },
+    { key: 'actions', label: '操作', width: 'w-[110px]' },
   ];
 
   return (
@@ -227,6 +230,20 @@ export default function StoragePipelineGrid({
                         >
                           {STATE_LABELS[state]}
                         </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3">
+                        {onShowR2Detail && (
+                          <button
+                            type="button"
+                            onClick={() => onShowR2Detail(row.r2Prefix)}
+                            className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                          >
+                            <Cloud className="h-3 w-3" />
+                            R2 详情
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

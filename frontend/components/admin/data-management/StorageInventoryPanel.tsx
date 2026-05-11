@@ -1,17 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { toast } from '@/stores';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import StorageStatsCards from './StorageStatsCards';
-import StorageToolbar, { type StorageTabKey } from './StorageToolbar';
+import StorageToolbar from './StorageToolbar';
 import StoragePipelineGrid from './StoragePipelineGrid';
-import StorageCatalogGrid from './StorageCatalogGrid';
-import StorageDatabaseGrid from './StorageDatabaseGrid';
-import StorageTrendPanel from './StorageTrendPanel';
+import StorageR2DetailDrawer from './StorageR2DetailDrawer';
 
 interface TableStat {
   table: string;
@@ -62,6 +59,18 @@ interface TrendPoint {
   r2Objects: number;
 }
 
+interface R2PrefixDetail {
+  prefix: string;
+  objects: number;
+  bytes: number;
+  bytesHuman: string;
+  managed: boolean;
+  targetCount: number;
+  dbRows: number;
+  migratedRows: number;
+  remainingRows: number;
+}
+
 export default function StorageInventoryPanel() {
   const [data, setData] = useState<StorageInventory | null>(null);
   const [trend, setTrend] = useState<TrendPoint[]>([]);
@@ -70,7 +79,7 @@ export default function StorageInventoryPanel() {
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [tab, setTab] = useState<StorageTabKey>('pipeline');
+  const [r2DetailPrefix, setR2DetailPrefix] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -203,47 +212,56 @@ export default function StorageInventoryPanel() {
       entry.remainingRows += row.rowsWithDbContent;
       registeredPrefixMap.set(row.r2Prefix, entry);
     }
-    const catalogRows = Array.from(
-      new Set([
-        ...Array.from(registeredPrefixMap.keys()),
-        ...(data.r2.byPrefix ?? []).map((r) => r.prefix),
-      ])
-    )
-      .map((prefix) => {
-        const live = data.r2.byPrefix.find((r) => r.prefix === prefix);
-        const reg = registeredPrefixMap.get(prefix);
-        return {
-          prefix,
-          objects: live?.objects ?? 0,
-          bytes: live?.bytes ?? 0,
-          bytesHuman: live?.bytesHuman ?? '0 B',
-          targetCount: reg?.targetCount ?? 0,
-          managed: Boolean(reg),
-          dbRows: reg?.dbRows ?? 0,
-          migratedRows: reg?.migratedRows ?? 0,
-          remainingRows: reg?.remainingRows ?? 0,
-        };
-      })
-      .sort(
-        (a, b) =>
-          b.bytes - a.bytes ||
-          b.objects - a.objects ||
-          a.prefix.localeCompare(b.prefix)
-      );
+    const prefixDetailMap = new Map<string, R2PrefixDetail>();
+    const allPrefixes = new Set<string>([
+      ...Array.from(registeredPrefixMap.keys()),
+      ...(data.r2.byPrefix ?? []).map((r) => r.prefix),
+    ]);
+    for (const prefix of allPrefixes) {
+      const live = data.r2.byPrefix.find((r) => r.prefix === prefix);
+      const reg = registeredPrefixMap.get(prefix);
+      prefixDetailMap.set(prefix, {
+        prefix,
+        objects: live?.objects ?? 0,
+        bytes: live?.bytes ?? 0,
+        bytesHuman: live?.bytesHuman ?? '0 B',
+        targetCount: reg?.targetCount ?? 0,
+        managed: Boolean(reg),
+        dbRows: reg?.dbRows ?? 0,
+        migratedRows: reg?.migratedRows ?? 0,
+        remainingRows: reg?.remainingRows ?? 0,
+      });
+    }
+    const observedOnlyPrefixes = Array.from(prefixDetailMap.values()).filter(
+      (r) => !r.managed
+    ).length;
     return {
       offloadFields,
-      catalogRows,
       managedPrefixCount: registeredPrefixMap.size,
       observedPrefixCount: data.r2.byPrefix.length,
-      observedOnlyPrefixes: catalogRows.filter((r) => !r.managed).length,
+      observedOnlyPrefixes,
+      prefixDetailMap,
     };
   }, [data]);
+
+  // 30-day delta (current - earliest in trend window).
+  const trendDelta = useMemo(() => {
+    if (trend.length < 2)
+      return { dbDeltaMb: null, r2DeltaMb: null, r2ObjectsDelta: null };
+    const first = trend[0];
+    const last = trend[trend.length - 1];
+    return {
+      dbDeltaMb: last.dbMb - first.dbMb,
+      r2DeltaMb: last.r2Mb - first.r2Mb,
+      r2ObjectsDelta: last.r2Objects - first.r2Objects,
+    };
+  }, [trend]);
 
   if (loading && !data) {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
         <div className="animate-pulse text-sm text-gray-500">
-          正在加载存储管理视图...
+          正在加载存储状态视图...
         </div>
       </div>
     );
@@ -267,9 +285,10 @@ export default function StorageInventoryPanel() {
 
   if (!data || !derived) return null;
 
-  const bucketUrl = data.r2.bucket
-    ? `https://dash.cloudflare.com/?to=/:account/r2/default/buckets/${data.r2.bucket}`
-    : null;
+  const selectedR2Detail =
+    r2DetailPrefix !== null
+      ? (derived.prefixDetailMap.get(r2DetailPrefix) ?? null)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -284,12 +303,13 @@ export default function StorageInventoryPanel() {
         managedPrefixes={derived.managedPrefixCount}
         observedPrefixes={derived.observedPrefixCount}
         observedOnlyPrefixes={derived.observedOnlyPrefixes}
+        dbDeltaMb={trendDelta.dbDeltaMb}
+        r2DeltaMb={trendDelta.r2DeltaMb}
+        r2ObjectsDelta={trendDelta.r2ObjectsDelta}
         loading={loading}
       />
 
       <StorageToolbar
-        tab={tab}
-        onTabChange={setTab}
         onRefresh={() => void load()}
         onExport={exportJson}
         onRun={() => setConfirmOpen(true)}
@@ -305,38 +325,18 @@ export default function StorageInventoryPanel() {
         </div>
       )}
 
-      {tab === 'pipeline' && (
-        <StoragePipelineGrid rows={derived.offloadFields} loading={loading} />
-      )}
+      <StoragePipelineGrid
+        rows={derived.offloadFields}
+        loading={loading}
+        onShowR2Detail={(prefix) => setR2DetailPrefix(prefix)}
+      />
 
-      {tab === 'catalog' && (
-        <>
-          <StorageCatalogGrid rows={derived.catalogRows} loading={loading} />
-          {bucketUrl && (
-            <div className="flex justify-end">
-              <a
-                href={bucketUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                打开 Cloudflare R2 Dashboard
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            </div>
-          )}
-        </>
-      )}
-
-      {tab === 'database' && (
-        <StorageDatabaseGrid
-          tables={data.database.tables}
-          totalBytes={data.database.totalBytes}
-          loading={loading}
-        />
-      )}
-
-      {tab === 'trend' && <StorageTrendPanel points={trend} />}
+      <StorageR2DetailDrawer
+        open={r2DetailPrefix !== null}
+        onClose={() => setR2DetailPrefix(null)}
+        detail={selectedR2Detail}
+        bucket={data.r2.bucket}
+      />
 
       <ConfirmDialog
         open={confirmOpen}

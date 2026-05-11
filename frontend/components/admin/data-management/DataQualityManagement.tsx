@@ -1,12 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
+import { toast } from '@/stores';
+import { AdminModal } from '@/components/admin/shared';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
+import WhitelistManagement from '@/components/admin/WhitelistManagement';
 import {
   AlertCircle,
-  RefreshCw,
-  Filter,
+  AlertTriangle,
+  Compass,
   Download,
+  ExternalLink,
+  Filter,
+  RefreshCw,
+  Shield,
+  Trash2,
   TrendingUp,
 } from 'lucide-react';
 
@@ -44,9 +55,44 @@ export default function DataQualityManagement() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [minQualityScore, setMinQualityScore] = useState(50);
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+  // 治理工具栏聚合状态
+  const [whitelistOpen, setWhitelistOpen] = useState(false);
+  const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
+  const [cleanupRunning, setCleanupRunning] = useState(false);
+  const [lastCleanup, setLastCleanup] = useState<{
+    deleted: number;
+    archived: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchQualityData();
+  }, []);
+
+  const runBrokenCleanup = useCallback(async () => {
+    setCleanupConfirmOpen(false);
+    setCleanupRunning(true);
+    try {
+      const res = await fetch(`${config.apiUrl}/resources/cleanup/broken`, {
+        method: 'POST',
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const raw = (await res.json()) as
+        | { deleted: number; archived: number }
+        | { data?: { deleted: number; archived: number } };
+      const result =
+        (raw as { data?: { deleted: number; archived: number } }).data ??
+        (raw as { deleted: number; archived: number });
+      setLastCleanup(result);
+      toast.success(
+        '清理完成',
+        `删除 ${result.deleted} 条，归档 ${result.archived} 条（有用户笔记/评论的保留）`
+      );
+    } catch (e) {
+      toast.error('清理失败', (e as Error).message);
+    } finally {
+      setCleanupRunning(false);
+    }
   }, []);
 
   const fetchQualityData = async () => {
@@ -182,6 +228,59 @@ export default function DataQualityManagement() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* 治理操作按钮 (顶部行) — 学用户管理顶部 Add 按钮形态 */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200/50 bg-white/70 px-5 py-3 shadow-sm backdrop-blur-sm">
+        <div className="text-xs text-gray-500">
+          {lastCleanup ? (
+            <span>
+              上次失效资源清理：删除{' '}
+              <span className="font-medium text-red-600">
+                {lastCleanup.deleted}
+              </span>
+              ，归档{' '}
+              <span className="font-medium text-amber-600">
+                {lastCleanup.archived}
+              </span>
+            </span>
+          ) : (
+            <span>
+              治理工具：白名单接入、失效资源清理与采集源配置，挂在表上方
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setWhitelistOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+          >
+            <Shield className="h-4 w-4" />
+            白名单
+          </button>
+          <button
+            type="button"
+            onClick={() => setCleanupConfirmOpen(true)}
+            disabled={cleanupRunning}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {cleanupRunning ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            {cleanupRunning ? '清理中...' : '失效资源清理'}
+          </button>
+          <Link
+            href="/admin/data/collection"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            <Compass className="h-4 w-4" />
+            采集源
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -424,6 +523,36 @@ export default function DataQualityManagement() {
           </div>
         )}
       </div>
+
+      <AdminModal
+        open={whitelistOpen}
+        onClose={() => setWhitelistOpen(false)}
+        title="白名单管理"
+        description="按资源类型管理允许接入的域名白名单"
+        size="xl"
+      >
+        <div className="p-1">
+          <WhitelistManagement />
+        </div>
+      </AdminModal>
+
+      <ConfirmDialog
+        open={cleanupConfirmOpen}
+        onClose={() => setCleanupConfirmOpen(false)}
+        onConfirm={runBrokenCleanup}
+        title="确认清理无效资源？"
+        description="无笔记/评论的 BROKEN 资源将被物理删除，有用户数据的改为 ARCHIVED 保留。此操作不可撤销。"
+        type="warning"
+        confirmText="确认清理"
+        loading={cleanupRunning}
+      />
+
+      {cleanupRunning && (
+        <div className="fixed bottom-4 right-4 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm text-amber-700 shadow-md">
+          <AlertTriangle className="h-4 w-4" />
+          失效资源清理中...
+        </div>
+      )}
     </div>
   );
 }
