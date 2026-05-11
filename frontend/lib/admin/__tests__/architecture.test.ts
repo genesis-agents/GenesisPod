@@ -66,12 +66,12 @@ describe('AI Harness layer', () => {
     }
   });
 
-  it('routes harness cards to representative admin pages (deep-link fallback)', () => {
+  it('routes 4 harness cards into the /admin/ai/harness hub tabs', () => {
     const expectedCards: Array<{ id: string; href: string }> = [
-      { id: 'harnessExecution', href: '/admin/kernel/scheduler' },
-      { id: 'harnessMemory', href: '/admin/kernel/memory' },
-      { id: 'harnessGovernance', href: '/admin/ai/eval' },
-      { id: 'harnessInterop', href: '/admin/ai/harness' },
+      { id: 'harnessExecution', href: '/admin/ai/harness?tab=execution' },
+      { id: 'harnessMemory', href: '/admin/ai/harness?tab=memory' },
+      { id: 'harnessGovernance', href: '/admin/ai/harness?tab=governance' },
+      { id: 'harnessInterop', href: '/admin/ai/harness?tab=interop' },
     ];
 
     for (const { id, href } of expectedCards) {
