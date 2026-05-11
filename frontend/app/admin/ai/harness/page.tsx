@@ -20,14 +20,21 @@ import { AdminTabs, type AdminTab } from '@/components/admin/shared';
 import { useApiGet } from '@/hooks/core';
 import { useTranslation } from '@/lib/i18n';
 import KernelMemoryPageContent from '../../kernel/memory/content';
+import EvalDashboardPageContent from '../eval/content';
+import GuardrailsPageContent from '../guardrails/content';
 
 /**
  * AI Harness Hub
  *
  * Wave 5 (2026-05-11): L2.5 从 8 卡精简为 4 实体后，本页升级为 4-Tab hub。
  * 架构图 4 卡分别 link 到 ?tab=execution|memory|governance|interop。
- * 原 8 个独立 page（/admin/kernel/* 和 /admin/ai/{traces,eval}）保留作 deep-link
- * 兜底，本 hub 子卡 actions 仍指向它们；下次迭代再做"合并页 + 内嵌 Content"。
+ *
+ * 内嵌进度：
+ *  - memory:     KernelMemoryPageContent 直接内嵌
+ *  - governance: EvalDashboardPageContent + GuardrailsPageContent 堆叠内嵌
+ *  - execution:  暂保持 SUBSYSTEMS 子卡导航（后续再拆 scheduler/processes/
+ *                traces/observability 4 page 的 content）
+ *  - interop:    facade/protocol 无独立 page，永远保持子卡导航形态
  */
 
 type HarnessEntity = 'execution' | 'memory' | 'governance' | 'interop';
@@ -110,27 +117,8 @@ const SUBSYSTEMS: HarnessSubsystem[] = [
       { label: 'Resource breakers', href: '/admin/kernel/resources' },
     ],
   },
-  // 'memory' entity 不再用 SUBSYSTEMS 子卡导航 — hub Tab 直接内嵌
-  // KernelMemoryPageContent (见下方 tab === 'memory' 渲染分支)。
-  {
-    id: 'governance',
-    entity: 'governance',
-    title: 'Governance',
-    description:
-      'Trace quality evaluation, observability, judges, cost/resource controls, and constraints.',
-    modulePath: 'backend/src/modules/ai-harness/governance',
-    icon: BarChart3,
-    stats: [
-      { label: 'eval runs', key: 'harnessEvalRuns' },
-      { label: 'guardrails', key: 'guardrailRules' },
-    ],
-    actions: [
-      { label: 'Evaluation', href: '/admin/ai/eval' },
-      { label: 'Guardrails', href: '/admin/ai/guardrails' },
-      { label: 'Kernel security', href: '/admin/kernel/security' },
-      { label: 'System monitoring', href: '/admin/system?tab=ops' },
-    ],
-  },
+  // 'memory' / 'governance' entity 不再用 SUBSYSTEMS 子卡 —
+  // hub Tab 直接内嵌 PageContent. kernel/security 和 system?tab=ops 不嵌（跨 hub）.
   {
     id: 'facade',
     entity: 'interop',
@@ -213,7 +201,7 @@ function HarnessAdminPageInner() {
   return (
     <AdminPageLayout
       title="AI Harness"
-      description="L2.5 Agent runtime scaffold — 4 entities, 8 subsystem panels."
+      description="L2.5 Agent runtime scaffold — 4 entities, 6 subsystem panels."
       icon={Network}
       domain="ai"
     >
@@ -223,7 +211,16 @@ function HarnessAdminPageInner() {
 
       {tab === 'memory' && <KernelMemoryPageContent embedded />}
 
-      {tab !== 'memory' && (
+      {tab === 'governance' && (
+        <div className="space-y-8">
+          <EvalDashboardPageContent embedded />
+          <div className="border-t border-gray-200 pt-8">
+            <GuardrailsPageContent embedded />
+          </div>
+        </div>
+      )}
+
+      {tab !== 'memory' && tab !== 'governance' && (
         <div className="grid gap-4 lg:grid-cols-2">
           {filtered.map((subsystem) => {
             const Icon = subsystem.icon;
