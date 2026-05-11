@@ -337,6 +337,155 @@ describe("WikiIngestService", () => {
     });
   });
 
+  // ─── Source soft-drop (one bad cite ≠ 400 whole diff) ─────────────────────
+  describe("source field soft-drop", () => {
+    function llmOutputWithSources(sources: unknown[]): string {
+      return JSON.stringify({
+        creates: [
+          {
+            slug: "alpha-page",
+            title: "Alpha",
+            category: "ENTITY",
+            body: "Alpha body",
+            oneLiner: "Alpha one liner",
+            sources,
+          },
+        ],
+        updates: [],
+        deletes: [],
+      });
+    }
+
+    beforeEach(() => {
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        { id: "doc-1", title: "T", rawContent: "raw" },
+      ]);
+    });
+
+    it("drops sources missing spanStart but keeps the diff if any valid cite remains", async () => {
+      chat = makeChat(
+        llmOutputWithSources([
+          // bad: missing spanStart
+          { documentId: "doc-1", spanEnd: 100, quote: "q" },
+          // valid
+          { documentId: "doc-1", spanStart: 0, spanEnd: 50, quote: "ok" },
+        ]),
+      );
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+
+      const result = await service.ingest("u-1", "kb-1", ["doc-1"]);
+
+      expect(prisma.wikiDiff.create).toHaveBeenCalledTimes(1);
+      const [createArgs] = prisma.wikiDiff.create.mock.calls[0];
+      const persistedSources = createArgs.data.items.creates[0].sources;
+      // Only the valid cite survived.
+      expect(persistedSources).toHaveLength(1);
+      expect(persistedSources[0].spanStart).toBe(0);
+      expect((result as any).id).toBe("diff-new");
+    });
+
+    it("drops sources with spanEnd < spanStart", async () => {
+      chat = makeChat(
+        llmOutputWithSources([
+          { documentId: "doc-1", spanStart: 50, spanEnd: 10, quote: "bad" },
+          { documentId: "doc-1", spanStart: 0, spanEnd: 50, quote: "ok" },
+        ]),
+      );
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+      const [createArgs] = prisma.wikiDiff.create.mock.calls[0];
+      const persistedSources = createArgs.data.items.creates[0].sources;
+      expect(persistedSources).toHaveLength(1);
+      expect(persistedSources[0].quote).toBe("ok");
+    });
+
+    it("drops sources with non-integer / negative span values", async () => {
+      chat = makeChat(
+        llmOutputWithSources([
+          { documentId: "doc-1", spanStart: -5, spanEnd: 10, quote: "neg" },
+          { documentId: "doc-1", spanStart: 1.5, spanEnd: 10, quote: "float" },
+          { documentId: "doc-1", spanStart: 0, spanEnd: 50, quote: "ok" },
+        ]),
+      );
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+      const [createArgs] = prisma.wikiDiff.create.mock.calls[0];
+      const persistedSources = createArgs.data.items.creates[0].sources;
+      expect(persistedSources).toHaveLength(1);
+      expect(persistedSources[0].quote).toBe("ok");
+    });
+
+    it("drops sources with missing / empty / oversized quote", async () => {
+      chat = makeChat(
+        llmOutputWithSources([
+          { documentId: "doc-1", spanStart: 0, spanEnd: 10 }, // missing quote
+          { documentId: "doc-1", spanStart: 0, spanEnd: 10, quote: "" }, // empty
+          {
+            documentId: "doc-1",
+            spanStart: 0,
+            spanEnd: 10,
+            quote: "x".repeat(2001),
+          }, // oversize
+          { documentId: "doc-1", spanStart: 0, spanEnd: 10, quote: "ok" },
+        ]),
+      );
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+      const [createArgs] = prisma.wikiDiff.create.mock.calls[0];
+      const persistedSources = createArgs.data.items.creates[0].sources;
+      expect(persistedSources).toHaveLength(1);
+      expect(persistedSources[0].quote).toBe("ok");
+    });
+
+    it("rejects whole diff when 100% of cites are invalid (zero provenance)", async () => {
+      chat = makeChat(
+        llmOutputWithSources([
+          { documentId: "unknown-doc", spanStart: 0, spanEnd: 10, quote: "x" },
+          { documentId: "doc-1", spanEnd: 10, quote: "x" }, // missing spanStart
+        ]),
+      );
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+
+      await expect(service.ingest("u-1", "kb-1", ["doc-1"])).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.wikiDiff.create).not.toHaveBeenCalled();
+    });
+  });
+
   // ─── Gate 3: baselineHash deterministic ────────────────────────────────────
   describe("baselineHash determinism", () => {
     it("produces the same baselineHash on two ingests over identical KB state", async () => {

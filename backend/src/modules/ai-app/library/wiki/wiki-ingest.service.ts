@@ -256,10 +256,11 @@ export class WikiIngestService {
     // Parse LLM JSON into items shape.
     const rawItems = this.extractJson(llmResponse.content);
 
-    // Pre-clean: drop sources whose documentId is not in the supplied set
-    // (LLMs hallucinate IDs; we keep the items + valid sources rather than
-    // rejecting the whole diff). Mutates the parsed JSON in place; zod runs
-    // after to enforce the rest of the shape.
+    // Pre-clean: drop sources that fail any of the 4 source-schema invariants
+    // (one bad cite must not 400 the whole diff — per feedback_llm_id_must_be_
+    // in_prompt_and_whitelist three-prong rule: prompt explicit + service soft-
+    // drop + zod is last-resort net). Mutates the parsed JSON in place; zod
+    // runs after to enforce the rest of the shape.
     let droppedSources = 0;
     let totalSourcesSeen = 0;
     if (rawItems && typeof rawItems === "object" && !Array.isArray(rawItems)) {
@@ -271,12 +272,48 @@ export class WikiIngestService {
             if (Array.isArray(sources)) {
               totalSourcesSeen += sources.length;
               const kept = sources.filter((s) => {
-                if (!s || typeof s !== "object") return false;
-                const id = (s as { documentId?: unknown }).documentId;
-                if (typeof id !== "string") return false;
-                if (allowedDocumentIds.has(id)) return true;
-                droppedSources += 1;
-                return false;
+                if (!s || typeof s !== "object") {
+                  droppedSources += 1;
+                  return false;
+                }
+                const o = s as Record<string, unknown>;
+                // documentId: must be a known id in the supplied whitelist
+                if (
+                  typeof o.documentId !== "string" ||
+                  !allowedDocumentIds.has(o.documentId)
+                ) {
+                  droppedSources += 1;
+                  return false;
+                }
+                // spanStart / spanEnd: required non-negative integers with
+                // spanStart <= spanEnd (LLMs frequently omit these or emit
+                // floats / negatives — drop rather than blow up zod).
+                if (
+                  typeof o.spanStart !== "number" ||
+                  !Number.isInteger(o.spanStart) ||
+                  o.spanStart < 0
+                ) {
+                  droppedSources += 1;
+                  return false;
+                }
+                if (
+                  typeof o.spanEnd !== "number" ||
+                  !Number.isInteger(o.spanEnd) ||
+                  o.spanEnd < o.spanStart
+                ) {
+                  droppedSources += 1;
+                  return false;
+                }
+                // quote: required 1-2000 char string
+                if (
+                  typeof o.quote !== "string" ||
+                  o.quote.length < 1 ||
+                  o.quote.length > 2000
+                ) {
+                  droppedSources += 1;
+                  return false;
+                }
+                return true;
               });
               (it as { sources: unknown[] }).sources = kept;
             }

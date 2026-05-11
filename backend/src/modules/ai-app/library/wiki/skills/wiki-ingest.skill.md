@@ -37,12 +37,38 @@ Each page must have:
 - category: ENTITY | CONCEPT | SUMMARY | SOURCE
 - body: full markdown
 - oneLiner: ≤ 280 chars summary
-- sources: cite the documents used (documentId + spanStart + spanEnd + quote)
+- sources: cite the documents used. EVERY source object MUST include ALL FOUR
+  fields: `documentId` (string from the supplied doc IDs), `spanStart` (number,
+  integer ≥ 0 — start char offset in raw doc), `spanEnd` (number, integer ≥
+  spanStart — end char offset), `quote` (1-2000 char verbatim excerpt). A
+  source missing any field is invalid and will be dropped.
 
-Respond ONLY with a single JSON object:
+Respond ONLY with a single JSON object. Every source MUST be a full 4-field
+object exactly like the template — never abbreviate:
+
 {
-"creates": [{ "slug", "title", "category", "body", "oneLiner", "sources": [...] }],
-"updates": [{ "slug", "newBody", "newOneLiner"?, "sources"?: [...] }],
+"creates": [
+{
+"slug": "...",
+"title": "...",
+"category": "ENTITY",
+"body": "...",
+"oneLiner": "...",
+"sources": [
+{ "documentId": "...", "spanStart": 0, "spanEnd": 100, "quote": "..." }
+]
+}
+],
+"updates": [
+{
+"slug": "...",
+"newBody": "...",
+"newOneLiner": "...",
+"sources": [
+{ "documentId": "...", "spanStart": 0, "spanEnd": 100, "quote": "..." }
+]
+}
+],
 "deletes": []
 }
 
