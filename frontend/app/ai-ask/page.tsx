@@ -802,6 +802,14 @@ interface RagSource {
   documentTitle: string;
   excerpt: string;
   score: number;
+  metadata?: {
+    source?: 'wiki' | 'chunk';
+    kbId?: string;
+    slug?: string;
+    oneLiner?: string;
+    category?: string;
+    [k: string]: unknown;
+  };
 }
 
 interface Message {

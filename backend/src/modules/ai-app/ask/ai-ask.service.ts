@@ -358,6 +358,7 @@ export class AiAskService {
             documentTitle: string;
             excerpt: string;
             score: number;
+            metadata?: Record<string, unknown>;
           }> = [];
 
           this.logger.log(
@@ -390,16 +391,21 @@ export class AiAskService {
                 ragResponse.context.sources.length > 0
               ) {
                 ragContext = ragResponse.context.text;
-                // Collect RAG sources to return to frontend
+                // Collect RAG sources to return to frontend.
+                // Pass `metadata` through (don't strip) — wiki sources carry
+                // { source: 'wiki', kbId, slug, category, oneLiner } so the
+                // UI can render markdown + deep-link back to /library?tab=wiki.
                 ragSources = ragResponse.context.sources.map(
                   (s: {
                     documentTitle: string;
                     excerpt: string;
                     score: number;
+                    metadata?: Record<string, unknown>;
                   }) => ({
                     documentTitle: s.documentTitle,
                     excerpt: s.excerpt,
                     score: s.score,
+                    metadata: s.metadata,
                   }),
                 );
                 this.logger.log(
@@ -739,6 +745,7 @@ export class AiAskService {
       documentTitle: string;
       excerpt: string;
       score: number;
+      metadata?: Record<string, unknown>;
     }> = [];
 
     if (isRagQuery && this.kbQueryService) {
@@ -756,11 +763,19 @@ export class AiAskService {
         });
         if (ragResponse.context && ragResponse.context.sources.length > 0) {
           ragContext = ragResponse.context.text;
+          // Pass metadata through so the UI can branch on
+          // { source: 'wiki', kbId, slug, ... } for markdown + deep-link.
           ragSources = ragResponse.context.sources.map(
-            (s: { documentTitle: string; excerpt: string; score: number }) => ({
+            (s: {
+              documentTitle: string;
+              excerpt: string;
+              score: number;
+              metadata?: Record<string, unknown>;
+            }) => ({
               documentTitle: s.documentTitle,
               excerpt: s.excerpt,
               score: s.score,
+              metadata: s.metadata,
             }),
           );
           yield { type: "sources", sources: ragSources };

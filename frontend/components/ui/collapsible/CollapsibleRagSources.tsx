@@ -1,12 +1,32 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import { ExternalLink, FileText, Sparkles } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
 interface RagSource {
   documentTitle: string;
   excerpt: string;
   score: number;
+  /**
+   * Backend `KbQueryService` tags wiki hits so the UI can branch:
+   *   - `metadata.source === 'wiki'` → render markdown + show Wiki badge +
+   *     deep-link to `/library?tab=wiki&kb={kbId}&page={slug}`
+   *   - undefined / `'chunk'` → original chunk-RAG behavior (plain-text
+   *     excerpt, no link)
+   */
+  metadata?: {
+    source?: 'wiki' | 'chunk';
+    kbId?: string;
+    slug?: string;
+    oneLiner?: string;
+    category?: string;
+    [k: string]: unknown;
+  };
 }
 
 interface CollapsibleRagSourcesProps {
@@ -15,13 +35,27 @@ interface CollapsibleRagSourcesProps {
   defaultExpanded?: boolean;
 }
 
+function isWikiSource(s: RagSource): boolean {
+  return s.metadata?.source === 'wiki';
+}
+
+function wikiHref(s: RagSource): string | null {
+  const kbId = s.metadata?.kbId;
+  const slug = s.metadata?.slug;
+  if (!kbId || !slug) return null;
+  return `/library?tab=wiki&kb=${encodeURIComponent(kbId)}&page=${encodeURIComponent(slug)}`;
+}
+
 /**
  * 可折叠的 RAG 知识库来源组件
  *
  * 功能：
  * - 默认折叠，点击展开查看详情
- * - 显示 TOP N 个来源（默认5个）
- * - 展示完整的摘录内容
+ * - 显示 TOP N 个来源（默认 5 个）
+ * - 来源类型分支：
+ *   - **wiki** → markdown 渲染（标题/列表/粗体保留排版）+ Wiki 徽章 +
+ *     "在 Wiki 中查看" 链接（指向 /library?tab=wiki&kb=…&page=…）
+ *   - **chunk RAG** → 原 plain-text 行为（whitespace-pre-wrap）
  * - 相关度分数可视化
  * - 双语支持
  */
@@ -94,42 +128,87 @@ export function CollapsibleRagSources({
         }`}
       >
         <div className="space-y-2 px-3 pb-3">
-          {displaySources.map((source, idx) => (
-            <div
-              key={idx}
-              className="group rounded-lg border border-purple-100/50 bg-white p-3 shadow-sm transition-colors hover:border-purple-200"
-            >
-              {/* 头部：排名、标题、分数 */}
-              <div className="mb-2 flex items-start gap-2">
-                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-[11px] font-bold text-white shadow-sm">
-                  {idx + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-medium leading-tight text-gray-800">
-                    {source.documentTitle}
-                  </h4>
-                </div>
-                <div className="flex flex-shrink-0 items-center gap-1">
-                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-purple-400 to-purple-600"
-                      style={{ width: `${Math.min(source.score * 100, 100)}%` }}
-                    />
-                  </div>
-                  <span className="min-w-[32px] text-right text-[10px] font-medium text-purple-600">
-                    {(source.score * 100).toFixed(0)}%
+          {displaySources.map((source, idx) => {
+            const isWiki = isWikiSource(source);
+            const href = isWiki ? wikiHref(source) : null;
+            return (
+              <div
+                key={idx}
+                className="group rounded-lg border border-purple-100/50 bg-white p-3 shadow-sm transition-colors hover:border-purple-200"
+              >
+                {/* 头部：排名、标题、徽章、分数 */}
+                <div className="mb-2 flex items-start gap-2">
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-purple-600 text-[11px] font-bold text-white shadow-sm">
+                    {idx + 1}
                   </span>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="flex items-center gap-1.5 text-sm font-medium leading-tight text-gray-800">
+                      <span className="truncate">{source.documentTitle}</span>
+                      {isWiki && (
+                        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-violet-700">
+                          <Sparkles className="h-2.5 w-2.5" />
+                          Wiki
+                        </span>
+                      )}
+                      {!isWiki && (
+                        <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-gray-500">
+                          <FileText className="h-2.5 w-2.5" />
+                          RAG
+                        </span>
+                      )}
+                    </h4>
+                    {isWiki && source.metadata?.oneLiner && (
+                      <p className="mt-0.5 text-[11px] text-gray-500">
+                        {source.metadata.oneLiner}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-1">
+                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-purple-400 to-purple-600"
+                        style={{
+                          width: `${Math.min(source.score * 100, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="min-w-[32px] text-right text-[10px] font-medium text-purple-600">
+                      {(source.score * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* 摘录内容 */}
+                <div className="pl-8">
+                  {isWiki ? (
+                    <div className="prose prose-sm max-w-none text-xs leading-relaxed text-gray-700">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeSanitize]}
+                      >
+                        {source.excerpt}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-600">
+                      {source.excerpt}
+                    </p>
+                  )}
+
+                  {/* Wiki 跳转链接 */}
+                  {isWiki && href && (
+                    <Link
+                      href={href}
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-violet-600 hover:text-violet-800 hover:underline"
+                    >
+                      {t('aiAsk.ragSources.openInWiki') ?? 'Open in Wiki'}
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  )}
                 </div>
               </div>
-
-              {/* 摘录内容 - 完整显示 */}
-              <div className="pl-8">
-                <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-600">
-                  {source.excerpt}
-                </p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* 显示更多提示 */}
           {hasMore && (
@@ -157,6 +236,9 @@ export function CollapsibleRagSources({
                 <span className="max-w-[100px] truncate">
                   {source.documentTitle}
                 </span>
+                {isWikiSource(source) && (
+                  <Sparkles className="h-2.5 w-2.5 text-violet-500" />
+                )}
               </span>
             ))}
             {displaySources.length > 3 && (

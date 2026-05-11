@@ -5,6 +5,8 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 export interface WikiSourceHit {
   /** WikiPage id */
   pageId: string;
+  /** Owning KB id — needed by callers to deep-link back to /library?kb=… */
+  knowledgeBaseId: string;
   /** Wiki page slug — stable cross-page identifier */
   slug: string;
   /** Human-readable page title */
@@ -227,6 +229,7 @@ export class WikiSourceProvider {
       const page = pages[i];
       hits.push({
         pageId: page.id,
+        knowledgeBaseId: page.knowledgeBaseId,
         slug: page.slug,
         title: page.title,
         oneLiner: page.oneLiner,

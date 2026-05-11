@@ -4705,7 +4705,8 @@
       "total": "共 {{count}} 个",
       "moreNotShown": "还有 {{count}} 个来源未显示",
       "expand": "展开详情",
-      "collapse": "收起"
+      "collapse": "收起",
+      "openInWiki": "在 Wiki 中查看"
     },
     "messages": {
       "copied": "已复制到剪贴板",

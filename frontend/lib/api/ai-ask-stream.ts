@@ -17,6 +17,22 @@ export interface AskRagSource {
   documentTitle: string;
   excerpt: string;
   score: number;
+  /**
+   * Backend `KbQueryService` tags wiki hits with metadata so the UI can
+   * branch:
+   *   - `source: 'wiki'` → render excerpt as markdown + show Wiki badge
+   *     + deep-link to `/library?tab=wiki&kb={kbId}&page={slug}`
+   *   - undefined / `source: 'chunk'` → original chunk-RAG behavior
+   *     (plain-text excerpt, no link)
+   */
+  metadata?: {
+    source?: 'wiki' | 'chunk';
+    kbId?: string;
+    slug?: string;
+    oneLiner?: string;
+    category?: string;
+    [k: string]: unknown;
+  };
 }
 
 export interface AskStreamRequestBody {

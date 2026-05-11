@@ -4705,7 +4705,8 @@
       "total": "{{count}} total",
       "moreNotShown": "{{count}} more sources not shown",
       "expand": "Expand details",
-      "collapse": "Collapse"
+      "collapse": "Collapse",
+      "openInWiki": "Open in Wiki"
     },
     "messages": {
       "copied": "Copied to clipboard",

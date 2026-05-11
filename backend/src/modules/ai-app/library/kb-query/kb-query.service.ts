@@ -153,6 +153,9 @@ export class KbQueryService {
         score: h.score,
         metadata: {
           source: "wiki",
+          // kbId + slug let consumers deep-link back to the wiki page
+          // (e.g. `/library?tab=wiki&kb={kbId}&page={slug}`).
+          kbId: h.knowledgeBaseId,
           slug: h.slug,
           oneLiner: h.oneLiner,
           category: h.category,
@@ -185,7 +188,12 @@ export class KbQueryService {
       content: h.body,
       parentContent: h.body,
       score: h.score,
-      metadata: { source: "wiki", slug: h.slug, category: h.category },
+      metadata: {
+        source: "wiki",
+        kbId: h.knowledgeBaseId,
+        slug: h.slug,
+        category: h.category,
+      },
     }));
 
     return {
