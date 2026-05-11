@@ -32,6 +32,7 @@ import {
   CATEGORY_ORDER_KEYS,
   classifyToolId,
   getCategoryById,
+  toolBelongsToTab,
 } from '@/lib/admin/tool-categories';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
 
@@ -90,12 +91,14 @@ export function BuiltinToolsTable() {
       const raw = await res.json();
       const data: ToolsResponse = raw?.data ?? raw;
       const list = Array.isArray(data.tools) ? data.tools : [];
-      // implemented:true 才显示在内置工具 tab；implemented:false 在 API 服务工具 tab。
-      // 第三方信源专属（industry-report*）从这里排除。
+      // 2026-05-11 W3r5：tab 分界按"是否调外部 HTTP 服务"，不再用
+      // implemented 字段。export / data-cleaning / agent-handoff / generation
+      // 等"平台自身能力"归此 tab。industry-report* 第三方信源专属，排除。
       setAllTools(
         list.filter(
           (t) =>
-            t.implemented === true && !EXCLUDED_FROM_GENERAL_TABS.has(t.toolId)
+            !EXCLUDED_FROM_GENERAL_TABS.has(t.toolId) &&
+            toolBelongsToTab(t.toolId, 'builtin', t.category)
         )
       );
     } catch (e) {

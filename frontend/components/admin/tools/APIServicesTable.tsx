@@ -36,13 +36,12 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import {
-  TOOL_CATEGORIES,
-  OTHER_CATEGORY,
   EXCLUDED_FROM_GENERAL_TABS,
-  CATEGORY_FILTER_OPTIONS,
   CATEGORY_ORDER_KEYS,
   classifyToolId,
   getCategoryById,
+  toolBelongsToTab,
+  categoryFilterOptionsForTab,
 } from '@/lib/admin/tool-categories';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
 
@@ -104,11 +103,14 @@ export function APIServicesTable() {
       const raw = await res.json();
       const data: ToolsResponse = raw?.data ?? raw;
       const list = Array.isArray(data.tools) ? data.tools : [];
-      // implemented:false + 排除第三方信源 tab 专属（industry-report 类）
+      // 2026-05-11 W3r5：tab 分界按"是否调外部 HTTP 服务"，不再用
+      // implemented 字段。policy / academic / search 等即便有 BaseTool 实现
+      // 也归 api-services tab。industry-report* 第三方信源 tab 专属，排除。
       setAllTools(
         list.filter(
           (t) =>
-            t.implemented === false && !EXCLUDED_FROM_GENERAL_TABS.has(t.toolId)
+            !EXCLUDED_FROM_GENERAL_TABS.has(t.toolId) &&
+            toolBelongsToTab(t.toolId, 'api-services', t.category)
         )
       );
     } catch (e) {
@@ -249,7 +251,7 @@ export function APIServicesTable() {
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">全部用途</option>
-          {CATEGORY_FILTER_OPTIONS.map((opt) => (
+          {categoryFilterOptionsForTab('api-services').map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>

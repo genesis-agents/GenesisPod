@@ -1,17 +1,20 @@
 /**
  * Tool Categories —— 工具/能力分类共享真源
  *
- * 2026-05-11 W3r4：恢复昨天 (commit ddaeb49e7~1) capability-mapping.ts 的
- *   13 类分类 + 中文 label + 颜色主题，作为两个 tab 共享真源：
- *   - 内置工具 tab (BuiltinToolsTable): implemented:true
- *   - API 服务工具 tab (APIServicesTable): implemented:false
+ * 2026-05-11 W3r5：tab 分界原则 B = 是否调外部 HTTP 服务，**不是** backend
+ *   implemented 字段。federal-register / arxiv-search 等虽然有 BaseTool 类
+ *   实现，本质还是调 .gov / arxiv.org 等外部 HTTP endpoint → API 服务工具 tab。
+ *   平台自身能力（export-pdf 本地渲染 / data-cleaning 本地计算 / agent-handoff
+ *   内部编排 / text-generation 走 ai-engine LLM）才归内置工具 tab。
  *
- * 设计要点：
- *   - tool toolId → category 反向索引由各 category 的 toolIds 列表派生
- *   - toolIds 列表必须含所有变体（backend BaseTool id + DB seed provider id），
- *     如 'arxiv' (provider) 和 'arxiv-search' (BaseTool) 同属 academic
- *   - industry-report / industry-report-search 不归任何 category（专属第三方信源 tab）
- *   - 未命中走 'other' 桶 + 灰色主题
+ * 分类规则（MECE，4 字标签统一）：
+ *   - API 服务工具 tab：12 类（网页/学术/抓取/语音/图像/金融/天气/政策/代码/招聘/通知/云端）
+ *   - 内置工具 tab：6 类（导出/文档/数据/执行/协作/生成）
+ *   - 第三方信源 tab：industry-report* 专属（EXCLUDED_FROM_GENERAL_TABS）
+ *
+ * 注意：audio-generation 是平台 capability（router 决定走 elevenlabs/googleTts），
+ *   归"内容生成"内置工具；elevenlabs / googleTts 是 provider 行，归"语音合成"
+ *   API 服务工具——capability 和 provider 在两 tab 各出现一次，正常。
  */
 
 export interface ToolCategoryTheme {
@@ -21,34 +24,38 @@ export interface ToolCategoryTheme {
   badge: string;
 }
 
+export type TabKind = 'api-services' | 'builtin';
+
 export interface ToolCategoryDef {
   id: string;
-  label: string; // 中文 label（与昨天 capability-mapping 对齐）
+  label: string; // 4 字中文 label
   order: number;
+  tabKind: TabKind;
   toolIds: string[]; // 归属此 category 的所有 toolId 变体
   theme: ToolCategoryTheme;
 }
 
 /**
- * 13 类工具分类，顺序对齐昨天 CATEGORY_CONFIG。
- * 每类颜色主题独立，仿 MCP 工具市场的彩色卡片风格。
+ * 18 个工具分类 = 12 API 服务工具 + 6 内置工具。
+ *
+ * order 在各自 tab 内独立递增（api-services 1-12，builtin 13-18），
+ * 两 tab 排序时用 CATEGORY_ORDER_KEYS 派生的 index。
  */
 export const TOOL_CATEGORIES: ToolCategoryDef[] = [
+  // ============ API 服务工具 tab（调外部 HTTP）============
   {
-    id: 'search',
-    label: '搜索',
+    id: 'web-search',
+    label: '网页检索',
     order: 1,
+    tabKind: 'api-services',
     toolIds: [
-      // capabilities
-      'web-search',
-      'hackernews-search',
-      // providers (DB rows)
       'tavily',
       'perplexity',
       'serper',
       'duckduckgo',
       'brave-search',
       'hackernews',
+      'hackernews-search',
     ],
     theme: {
       border: 'border-blue-200',
@@ -58,9 +65,10 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     },
   },
   {
-    id: 'academic',
-    label: '学术研究',
+    id: 'academic-search',
+    label: '学术检索',
     order: 2,
+    tabKind: 'api-services',
     toolIds: [
       'arxiv',
       'arxiv-search',
@@ -77,18 +85,18 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     },
   },
   {
-    id: 'extraction',
-    label: '内容提取',
+    id: 'content-extraction',
+    label: '内容抓取',
     order: 3,
+    tabKind: 'api-services',
     toolIds: [
-      'web-scraper',
-      'youtube-transcript',
-      // providers
       'jina',
       'firecrawl',
       'tavilyExtract',
       'tavily-extract',
+      'web-scraper',
       'supadata',
+      'youtube-transcript',
     ],
     theme: {
       border: 'border-emerald-200',
@@ -98,21 +106,11 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     },
   },
   {
-    id: 'generation',
-    label: '内容生成',
+    id: 'tts',
+    label: '语音合成',
     order: 4,
-    toolIds: [
-      'audio-generation',
-      'video-generation',
-      'image-generation',
-      'text-generation',
-      'code-generation',
-      'structured-output',
-      // providers
-      'elevenlabs',
-      'googleTts',
-      'google-tts',
-    ],
+    tabKind: 'api-services',
+    toolIds: ['elevenlabs', 'googleTts', 'google-tts'],
     theme: {
       border: 'border-indigo-200',
       headerBg: 'bg-indigo-50',
@@ -121,18 +119,154 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     },
   },
   {
-    id: 'processing',
-    label: '数据处理',
+    id: 'image-search',
+    label: '图像检索',
     order: 5,
+    tabKind: 'api-services',
+    toolIds: [
+      'image-search',
+      'serpapi',
+      'serpapi-image-search',
+      'bing-image-search',
+      'google-image-search',
+    ],
+    theme: {
+      border: 'border-pink-200',
+      headerBg: 'bg-pink-50',
+      headerText: 'text-pink-800',
+      badge: 'bg-pink-100 text-pink-700',
+    },
+  },
+  {
+    id: 'finance',
+    label: '金融数据',
+    order: 6,
+    tabKind: 'api-services',
+    toolIds: ['alpha-vantage', 'finance-api'],
+    theme: {
+      border: 'border-amber-200',
+      headerBg: 'bg-amber-50',
+      headerText: 'text-amber-800',
+      badge: 'bg-amber-100 text-amber-700',
+    },
+  },
+  {
+    id: 'weather',
+    label: '天气数据',
+    order: 7,
+    tabKind: 'api-services',
+    toolIds: ['openweathermap', 'weather-api'],
+    theme: {
+      border: 'border-sky-200',
+      headerBg: 'bg-sky-50',
+      headerText: 'text-sky-800',
+      badge: 'bg-sky-100 text-sky-700',
+    },
+  },
+  {
+    id: 'policy',
+    label: '政策研究',
+    order: 8,
+    tabKind: 'api-services',
+    toolIds: ['federal-register', 'congress-gov', 'whitehouse-news'],
+    theme: {
+      border: 'border-rose-200',
+      headerBg: 'bg-rose-50',
+      headerText: 'text-rose-800',
+      badge: 'bg-rose-100 text-rose-700',
+    },
+  },
+  {
+    id: 'code-hosting',
+    label: '代码托管',
+    order: 9,
+    tabKind: 'api-services',
+    toolIds: ['github', 'github-search', 'gitlab', 'github-integration'],
+    theme: {
+      border: 'border-slate-200',
+      headerBg: 'bg-slate-50',
+      headerText: 'text-slate-800',
+      badge: 'bg-slate-100 text-slate-700',
+    },
+  },
+  {
+    id: 'jobs',
+    label: '招聘检索',
+    order: 10,
+    tabKind: 'api-services',
+    toolIds: ['job-search'],
+    theme: {
+      border: 'border-cyan-200',
+      headerBg: 'bg-cyan-50',
+      headerText: 'text-cyan-800',
+      badge: 'bg-cyan-100 text-cyan-700',
+    },
+  },
+  {
+    id: 'notifications',
+    label: '通知推送',
+    order: 11,
+    tabKind: 'api-services',
+    toolIds: ['email-sender', 'message-push', 'webhook-trigger'],
+    theme: {
+      border: 'border-orange-200',
+      headerBg: 'bg-orange-50',
+      headerText: 'text-orange-800',
+      badge: 'bg-orange-100 text-orange-700',
+    },
+  },
+  {
+    id: 'cloud',
+    label: '云端集成',
+    order: 12,
+    tabKind: 'api-services',
+    toolIds: ['cloud-storage', 'calendar-integration'],
+    theme: {
+      border: 'border-teal-200',
+      headerBg: 'bg-teal-50',
+      headerText: 'text-teal-800',
+      badge: 'bg-teal-100 text-teal-700',
+    },
+  },
+
+  // ============ 内置工具 tab（平台自身能力，不调外部 endpoint）============
+  {
+    id: 'export',
+    label: '文档导出',
+    order: 13,
+    tabKind: 'builtin',
+    toolIds: ['export-docx', 'export-pdf', 'export-image', 'export-pptx'],
+    theme: {
+      border: 'border-stone-200',
+      headerBg: 'bg-stone-50',
+      headerText: 'text-stone-800',
+      badge: 'bg-stone-100 text-stone-700',
+    },
+  },
+  {
+    id: 'document-processing',
+    label: '文档处理',
+    order: 14,
+    tabKind: 'builtin',
     toolIds: [
       'file-parser',
       'document-diff',
       'file-conversion',
       'template-render',
-      'data-validation',
-      'data-cleaning',
-      'data-analysis',
     ],
+    theme: {
+      border: 'border-emerald-200',
+      headerBg: 'bg-emerald-50',
+      headerText: 'text-emerald-800',
+      badge: 'bg-emerald-100 text-emerald-700',
+    },
+  },
+  {
+    id: 'data-processing',
+    label: '数据处理',
+    order: 15,
+    tabKind: 'builtin',
+    toolIds: ['data-validation', 'data-cleaning', 'data-analysis'],
     theme: {
       border: 'border-teal-200',
       headerBg: 'bg-teal-50',
@@ -143,19 +277,21 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
   {
     id: 'execution',
     label: '执行环境',
-    order: 6,
+    order: 16,
+    tabKind: 'builtin',
     toolIds: ['sql-executor', 'container-executor', 'ocr-recognition'],
     theme: {
-      border: 'border-orange-200',
-      headerBg: 'bg-orange-50',
-      headerText: 'text-orange-800',
-      badge: 'bg-orange-100 text-orange-700',
+      border: 'border-amber-200',
+      headerBg: 'bg-amber-50',
+      headerText: 'text-amber-800',
+      badge: 'bg-amber-100 text-amber-700',
     },
   },
   {
     id: 'collaboration',
     label: '协作编排',
-    order: 7,
+    order: 17,
+    tabKind: 'builtin',
     toolIds: [
       'consensus-mechanism',
       'agent-handoff',
@@ -172,123 +308,38 @@ export const TOOL_CATEGORIES: ToolCategoryDef[] = [
     },
   },
   {
-    id: 'integration',
-    label: '外部集成',
-    order: 8,
+    id: 'generation',
+    label: '内容生成',
+    order: 18,
+    tabKind: 'builtin',
     toolIds: [
-      'email-sender',
-      'github-integration',
-      'cloud-storage',
-      'message-push',
-      'webhook-trigger',
-      'calendar-integration',
+      'text-generation',
+      'code-generation',
+      'image-generation',
+      'video-generation',
+      'audio-generation',
+      'structured-output',
     ],
     theme: {
-      border: 'border-slate-200',
-      headerBg: 'bg-slate-50',
-      headerText: 'text-slate-800',
-      badge: 'bg-slate-100 text-slate-700',
-    },
-  },
-  {
-    id: 'export',
-    label: '文档导出',
-    order: 9,
-    toolIds: ['export-docx', 'export-pdf', 'export-image', 'export-pptx'],
-    theme: {
-      border: 'border-stone-200',
-      headerBg: 'bg-stone-50',
-      headerText: 'text-stone-800',
-      badge: 'bg-stone-100 text-stone-700',
-    },
-  },
-  {
-    id: 'finance',
-    label: '金融数据',
-    order: 10,
-    toolIds: ['finance-api', 'alpha-vantage'],
-    theme: {
-      border: 'border-amber-200',
-      headerBg: 'bg-amber-50',
-      headerText: 'text-amber-800',
-      badge: 'bg-amber-100 text-amber-700',
-    },
-  },
-  {
-    id: 'weather',
-    label: '天气数据',
-    order: 11,
-    toolIds: ['weather-api', 'openweathermap'],
-    theme: {
-      border: 'border-sky-200',
-      headerBg: 'bg-sky-50',
-      headerText: 'text-sky-800',
-      badge: 'bg-sky-100 text-sky-700',
-    },
-  },
-  {
-    id: 'image-search',
-    label: '图像搜索',
-    order: 12,
-    toolIds: [
-      'image-search',
-      'serpapi-image-search',
-      'bing-image-search',
-      'google-image-search',
-      'serpapi',
-    ],
-    theme: {
-      border: 'border-pink-200',
-      headerBg: 'bg-pink-50',
-      headerText: 'text-pink-800',
-      badge: 'bg-pink-100 text-pink-700',
-    },
-  },
-  {
-    id: 'policy',
-    label: '政策研究',
-    order: 13,
-    toolIds: ['federal-register', 'congress-gov', 'whitehouse-news'],
-    theme: {
-      border: 'border-rose-200',
-      headerBg: 'bg-rose-50',
-      headerText: 'text-rose-800',
-      badge: 'bg-rose-100 text-rose-700',
-    },
-  },
-  {
-    id: 'devtools',
-    label: '开发工具',
-    order: 14,
-    toolIds: ['github-search', 'github', 'gitlab'],
-    theme: {
-      border: 'border-gray-300',
-      headerBg: 'bg-gray-100',
-      headerText: 'text-gray-800',
-      badge: 'bg-gray-200 text-gray-700',
-    },
-  },
-  {
-    id: 'jobs',
-    label: '招聘信息',
-    order: 15,
-    toolIds: ['job-search'],
-    theme: {
-      border: 'border-cyan-200',
-      headerBg: 'bg-cyan-50',
-      headerText: 'text-cyan-800',
-      badge: 'bg-cyan-100 text-cyan-700',
+      border: 'border-fuchsia-200',
+      headerBg: 'bg-fuchsia-50',
+      headerText: 'text-fuchsia-800',
+      badge: 'bg-fuchsia-100 text-fuchsia-700',
     },
   },
 ];
 
 /**
- * "其他" 桶——未命中以上 14 类的 fallback。
+ * "其他"桶——未命中以上 18 类的 fallback。
+ *
+ * 同时为两 tab 服务（依然按 tabKind 路由："其他"在两 tab 里都可能出现，
+ * 只有在该 tab 实际有未分类工具时才显示）。
  */
 export const OTHER_CATEGORY: ToolCategoryDef = {
   id: 'other',
   label: '其他',
   order: 999,
+  tabKind: 'builtin', // 仅类型占位，实际两 tab 都用
   toolIds: [],
   theme: {
     border: 'border-gray-200',
@@ -323,11 +374,11 @@ const TOOL_ID_TO_CATEGORY: Map<string, string> = (() => {
 })();
 
 /**
- * 把任意 toolId 分到 14 类之一或 'other'。
+ * 把 toolId 归到 18 类之一或 'other'。
  *
  * @param toolId tool 唯一 id（不区分大小写）
- * @param fallbackBackendCategory tool 的 backend `category` 字段，作为兜底
- *   关键字匹配（如 'search' / 'extraction'）。仍未命中走 'other'。
+ * @param fallbackBackendCategory backend `category` 字段兜底关键字匹配；
+ *   仍未命中走 'other'。
  */
 export function classifyToolId(
   toolId: string,
@@ -337,7 +388,6 @@ export function classifyToolId(
   if (direct) return direct;
   if (fallbackBackendCategory) {
     const cat = fallbackBackendCategory.toLowerCase();
-    // 直接按 category id 命中
     if (TOOL_CATEGORIES.some((c) => c.id === cat)) return cat;
   }
   return 'other';
@@ -348,14 +398,67 @@ export function getCategoryById(id: string): ToolCategoryDef {
 }
 
 /**
- * 用于 UI <select> 的 options 列表，含"其他"。
+ * 返回给定 tab 的 categories（按 order 排序），用于 UI 渲染。
+ */
+export function categoriesForTab(kind: TabKind): ToolCategoryDef[] {
+  return TOOL_CATEGORIES.filter((c) => c.tabKind === kind).sort(
+    (a, b) => a.order - b.order
+  );
+}
+
+/**
+ * 判断 toolId 是否归属指定 tab。
+ *
+ * 策略：先 classify 到 category，再看该 category 的 tabKind。
+ * 未命中 18 类（'other'）的 fallback：依据 backend category 字段做关键字
+ * 启发——含 'external' / 'information' / 类外部关键字 → api-services；其余 → builtin。
+ * 实战中绝大多数 toolId 都精确命中，'other' 路径只为兜底。
+ */
+export function toolBelongsToTab(
+  toolId: string,
+  tabKind: TabKind,
+  fallbackBackendCategory?: string | null
+): boolean {
+  const catId = classifyToolId(toolId, fallbackBackendCategory);
+  if (catId === 'other') {
+    // 兜底启发：未分类工具，按 backend category 猜
+    const cat = (fallbackBackendCategory || '').toLowerCase();
+    const looksExternal =
+      cat.includes('external') ||
+      cat.includes('information') ||
+      cat.includes('search') ||
+      cat.includes('extraction');
+    return tabKind === (looksExternal ? 'api-services' : 'builtin');
+  }
+  const cat = getCategoryById(catId);
+  return cat.tabKind === tabKind;
+}
+
+/**
+ * 给定 tab 的 filter <select> options（含"其他"和"全部"由调用方加）。
+ */
+export function categoryFilterOptionsForTab(
+  kind: TabKind
+): Array<{ value: string; label: string }> {
+  return [
+    ...categoriesForTab(kind).map((c) => ({ value: c.id, label: c.label })),
+    { value: 'other', label: OTHER_CATEGORY.label },
+  ];
+}
+
+/**
+ * category 排序 key 列表（含 'other' 在最后），用于 grouped Map 排序。
+ */
+export const CATEGORY_ORDER_KEYS = [
+  ...TOOL_CATEGORIES.map((c) => c.id),
+  OTHER_CATEGORY.id,
+];
+
+/**
+ * 全部 category 的下拉选项（不限 tab），暂保留兼容旧调用，后续清理。
+ * @deprecated 用 categoryFilterOptionsForTab(kind) 替代
  */
 export const CATEGORY_FILTER_OPTIONS = [
   ...TOOL_CATEGORIES.map((c) => ({ value: c.id, label: c.label })),
   { value: OTHER_CATEGORY.id, label: OTHER_CATEGORY.label },
-];
-
-export const CATEGORY_ORDER_KEYS = [
-  ...TOOL_CATEGORIES.map((c) => c.id),
-  OTHER_CATEGORY.id,
 ];
