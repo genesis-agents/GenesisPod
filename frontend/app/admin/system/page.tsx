@@ -1,141 +1,77 @@
 'use client';
 
-import Link from 'next/link';
+import { Suspense, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Settings,
-  Globe,
-  Shield,
-  Mail,
-  Radio,
   Activity,
-  ScrollText,
+  SlidersHorizontal,
   Bell,
-  MessageSquare,
   ShieldCheck,
-  ArrowRight,
-  type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
-import { cn } from '@/lib/utils/common';
+import { AdminTabs, type AdminTab } from '@/components/admin/shared';
+import SystemSettings from '@/components/admin/settings/SystemSettings';
+import EmailSettings from '@/components/admin/settings/EmailSettings';
+import MonitoringPage from './monitoring/page';
+import LogsPage from './logs/page';
+import NotificationsPage from './notifications/page';
+import McpServerPage from './mcp-server/page';
+import SecurityPage from '../access/security/page';
+import FeedbackPage from '../feedback/page';
 
 /**
- * 系统管理（L1 Infrastructure 4 卡之一）
+ * 系统管理 Hub（L1 Infrastructure 4 卡之一）
  *
- * Wave 4 阶段：4 个子区，按运维动作划分：
- *   1. 运行监控（monitoring + logs）
- *   2. 消息通知（notifications + feedback）
- *   3. 基础设置（site + email + mcp-server）
- *   4. 安全审计（security）
+ * 2026-05-12 重构：从 dashboard 中转页改为 AdminTabs(mode='route') 直接聚合。
+ * 旧子页 (/admin/system/{monitoring,logs,notifications,mcp-server,site,email}
+ * 及 /admin/access/security, /admin/feedback) 通过 embedded 属性内嵌于此。
  *
- * 子区以卡片链接到既有子页。后续可演进为 AdminTabs 内嵌。
+ * 4 Tabs（按运维动作划分）：
+ *   - ops:      运行监控 = monitoring + logs
+ *   - settings: 基础配置 = site + email + mcp-server
+ *   - messages: 消息中心 = notifications + feedback
+ *   - security: 安全审计 = access/security
  */
 
-interface SystemSection {
-  id: string;
-  titleKey: string;
-  descriptionKey: string;
-  href: string;
-  icon: LucideIcon;
-  group: 'ops' | 'messages' | 'settings' | 'security';
-}
+type SystemTabKey = 'ops' | 'settings' | 'messages' | 'security';
+const DEFAULT_TAB: SystemTabKey = 'ops';
+const VALID_TABS: readonly SystemTabKey[] = [
+  'ops',
+  'settings',
+  'messages',
+  'security',
+] as const;
 
-const SECTIONS: SystemSection[] = [
-  {
-    id: 'monitoring',
-    titleKey: 'admin.nav.monitoring',
-    descriptionKey: 'admin.tabDescriptions.monitoring',
-    href: '/admin/system/monitoring',
-    icon: Activity,
-    group: 'ops',
-  },
-  {
-    id: 'logs',
-    titleKey: 'admin.nav.logs',
-    descriptionKey: 'admin.tabDescriptions.logs',
-    href: '/admin/system/logs',
-    icon: ScrollText,
-    group: 'ops',
-  },
-  {
-    id: 'notifications',
-    titleKey: 'admin.nav.notifications',
-    descriptionKey: 'admin.tabDescriptions.notifications',
-    href: '/admin/system/notifications',
-    icon: Bell,
-    group: 'messages',
-  },
-  {
-    id: 'feedback',
-    titleKey: 'admin.nav.feedback',
-    descriptionKey: 'admin.tabDescriptions.feedback',
-    href: '/admin/feedback',
-    icon: MessageSquare,
-    group: 'messages',
-  },
-  {
-    id: 'site',
-    titleKey: 'admin.nav.site',
-    descriptionKey: 'admin.tabDescriptions.site',
-    href: '/admin/system/site',
-    icon: Globe,
-    group: 'settings',
-  },
-  {
-    id: 'email',
-    titleKey: 'admin.nav.email',
-    descriptionKey: 'admin.tabDescriptions.email',
-    href: '/admin/system/email',
-    icon: Mail,
-    group: 'settings',
-  },
-  {
-    id: 'mcpServer',
-    titleKey: 'admin.nav.mcpServer',
-    descriptionKey: 'admin.tabDescriptions.mcpServer',
-    href: '/admin/system/mcp-server',
-    icon: Radio,
-    group: 'settings',
-  },
-  {
-    id: 'security',
-    titleKey: 'admin.nav.security',
-    descriptionKey: 'admin.tabDescriptions.security',
-    href: '/admin/access/security',
-    icon: ShieldCheck,
-    group: 'security',
-  },
-];
-
-const GROUPS: {
-  id: SystemSection['group'];
-  titleKey: string;
-  descriptionKey: string;
-}[] = [
-  {
-    id: 'ops',
-    titleKey: 'admin.system.groups.ops',
-    descriptionKey: 'admin.system.groups.opsDesc',
-  },
-  {
-    id: 'messages',
-    titleKey: 'admin.system.groups.messages',
-    descriptionKey: 'admin.system.groups.messagesDesc',
-  },
-  {
-    id: 'settings',
-    titleKey: 'admin.system.groups.settings',
-    descriptionKey: 'admin.system.groups.settingsDesc',
-  },
-  {
-    id: 'security',
-    titleKey: 'admin.system.groups.security',
-    descriptionKey: 'admin.system.groups.securityDesc',
-  },
-];
-
-export default function SystemManagementPage() {
+function SystemHubInner() {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
+
+  const tabs: AdminTab[] = useMemo(
+    () => [
+      { key: 'ops', label: t('admin.system.tabs.ops'), icon: Activity },
+      {
+        key: 'settings',
+        label: t('admin.system.tabs.settings'),
+        icon: SlidersHorizontal,
+      },
+      { key: 'messages', label: t('admin.system.tabs.messages'), icon: Bell },
+      {
+        key: 'security',
+        label: t('admin.system.tabs.security'),
+        icon: ShieldCheck,
+      },
+    ],
+    [t]
+  );
+
+  const rawTab = searchParams?.get('tab');
+  const activeTab: SystemTabKey = (VALID_TABS as readonly string[]).includes(
+    rawTab ?? ''
+  )
+    ? (rawTab as SystemTabKey)
+    : DEFAULT_TAB;
 
   return (
     <AdminPageLayout
@@ -144,56 +80,49 @@ export default function SystemManagementPage() {
       icon={Settings}
       domain="system"
     >
-      <div className="space-y-8">
-        {GROUPS.map((group) => {
-          const sections = SECTIONS.filter((s) => s.group === group.id);
-          return (
-            <section key={group.id}>
-              <div className="mb-3">
-                <h2 className="text-base font-semibold text-gray-900">
-                  {t(group.titleKey)}
-                </h2>
-                <p className="mt-0.5 text-sm text-gray-500">
-                  {t(group.descriptionKey)}
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {sections.map((section) => {
-                  const Icon = section.icon;
-                  return (
-                    <Link
-                      key={section.id}
-                      href={section.href}
-                      className={cn(
-                        'group block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all',
-                        'hover:border-slate-400 hover:shadow-md'
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-slate-200">
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold text-gray-900 group-hover:text-slate-800">
-                            {t(section.titleKey)}
-                          </h3>
-                          <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">
-                            {t(section.descriptionKey)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 flex items-center text-sm font-medium text-slate-700 opacity-0 transition-opacity group-hover:opacity-100">
-                        <span>{t('common.open')}</span>
-                        <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+      <div className="space-y-6">
+        <AdminTabs tabs={tabs} mode="route" paramName="tab" />
+
+        {activeTab === 'ops' && (
+          <div className="space-y-8">
+            <MonitoringPage embedded />
+            <div className="border-t border-gray-200 pt-8">
+              <LogsPage embedded />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-8">
+            <SystemSettings />
+            <div className="border-t border-gray-200 pt-8">
+              <EmailSettings />
+            </div>
+            <div className="border-t border-gray-200 pt-8">
+              <McpServerPage embedded />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'messages' && (
+          <div className="space-y-8">
+            <NotificationsPage embedded />
+            <div className="border-t border-gray-200 pt-8">
+              <FeedbackPage embedded />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'security' && <SecurityPage embedded />}
       </div>
     </AdminPageLayout>
+  );
+}
+
+export default function SystemManagementPage() {
+  return (
+    <Suspense fallback={null}>
+      <SystemHubInner />
+    </Suspense>
   );
 }

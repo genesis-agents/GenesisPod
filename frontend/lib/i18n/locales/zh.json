@@ -4198,6 +4198,12 @@
     },
     "system": {
       "description": "运行监控、消息通知、基础设置与安全审计",
+      "tabs": {
+        "ops": "运行监控",
+        "settings": "基础配置",
+        "messages": "消息中心",
+        "security": "安全审计"
+      },
       "groups": {
         "ops": "运行监控",
         "opsDesc": "监控指标、操作日志与告警",

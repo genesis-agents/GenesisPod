@@ -101,7 +101,7 @@ describe('Open API layer', () => {
     const layer = getLayer('openApi');
     expect(layer.cards).toHaveLength(5);
     expect(layer.cards?.find((card) => card.id === 'mcpServer')?.href).toBe(
-      '/admin/system/mcp-server'
+      '/admin/system?tab=settings'
     );
   });
 });

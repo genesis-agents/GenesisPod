@@ -111,7 +111,7 @@ const SUBSYSTEMS: HarnessSubsystem[] = [
     actions: [
       { label: 'IPC bus', href: '/admin/kernel/ipc' },
       { label: 'Event journal', href: '/admin/kernel/journal' },
-      { label: 'External MCP', href: '/admin/system/mcp-server' },
+      { label: 'External MCP', href: '/admin/system?tab=settings' },
     ],
   },
   {
@@ -129,7 +129,7 @@ const SUBSYSTEMS: HarnessSubsystem[] = [
       { label: 'Evaluation', href: '/admin/ai/eval' },
       { label: 'Guardrails', href: '/admin/ai/guardrails' },
       { label: 'Kernel security', href: '/admin/kernel/security' },
-      { label: 'System monitoring', href: '/admin/system/monitoring' },
+      { label: 'System monitoring', href: '/admin/system?tab=ops' },
     ],
   },
   {

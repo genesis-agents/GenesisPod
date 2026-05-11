@@ -66,7 +66,9 @@ const NOTIFICATION_TYPES = [
   'MENTION',
 ];
 
-export default function NotificationsPage() {
+export default function NotificationsPage({
+  embedded,
+}: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [stats, setStats] = useState<NotificationStats | null>(null);
   const [notifData, setNotifData] = useState<PaginatedResponse | null>(null);
@@ -244,14 +246,8 @@ export default function NotificationsPage() {
       ]
     : [];
 
-  return (
-    <AdminPageLayout
-      title={t('admin.notifications.title')}
-      description={t('admin.notifications.description')}
-      icon={Bell}
-      domain="system"
-      maxWidth="7xl"
-    >
+  const body = (
+    <>
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -490,6 +486,21 @@ export default function NotificationsPage() {
           )}
         </div>
       </div>
+    </>
+  );
+
+  // ★ 2026-05-12: 嵌入模式 (/admin/system?tab=messages 内) 跳过外层 AdminPageLayout.
+  if (embedded) return body;
+
+  return (
+    <AdminPageLayout
+      title={t('admin.notifications.title')}
+      description={t('admin.notifications.description')}
+      icon={Bell}
+      domain="system"
+      maxWidth="7xl"
+    >
+      {body}
     </AdminPageLayout>
   );
 }

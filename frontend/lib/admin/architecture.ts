@@ -98,7 +98,7 @@ const openApiLayer: ArchitectureLayer = {
       id: 'mcpServer',
       i18nKey: 'admin.nav.mcpServer',
       descriptionKey: 'admin.architecture.cards.mcpServerDesc',
-      href: '/admin/system/mcp-server',
+      href: '/admin/system?tab=settings',
       icon: Radio,
       clickable: true,
       stats: [{ label: '已注册工具', key: 'mcpRegisteredTools' }],

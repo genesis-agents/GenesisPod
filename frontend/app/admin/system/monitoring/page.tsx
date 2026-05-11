@@ -335,7 +335,9 @@ function HealthIndicator({
 
 // ==================== Main Component ====================
 
-export default function MonitoringPage() {
+export default function MonitoringPage({
+  embedded,
+}: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -1181,88 +1183,97 @@ export default function MonitoringPage() {
     </>
   );
 
+  const actions = (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => void fetchData()}
+        className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+      >
+        <RefreshCw className="h-4 w-4" />
+        Refresh
+      </button>
+      <button
+        onClick={() => setAutoRefresh(!autoRefresh)}
+        className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+          autoRefresh
+            ? 'bg-green-100 text-green-800'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <RefreshCw className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`} />
+        {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+      </button>
+    </div>
+  );
+
+  const body = (
+    <div>
+      {/* 嵌入模式 (system hub Tab 内) 把 actions 内联到顶部 */}
+      {embedded && <div className="mb-4 flex justify-end">{actions}</div>}
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
+          {error}
+        </div>
+      )}
+
+      {dashboardError && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 p-4 text-amber-800">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span className="text-sm">
+            Dashboard data unavailable: {dashboardError}
+          </span>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          {(['overview', 'errors', 'ai', 'traces'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {tab === 'overview' && 'Overview'}
+              {tab === 'errors' && 'Error Tracking'}
+              {tab === 'ai' && 'AI Metrics'}
+              {tab === 'traces' && 'Agent Traces'}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {loading ? (
+        <div className="p-8 text-center text-gray-500">
+          {t('common.loading')}
+        </div>
+      ) : (
+        <>
+          {activeTab === 'overview' && renderOverviewTab()}
+          {activeTab === 'errors' && renderErrorsTab()}
+          {activeTab === 'ai' && renderAITab()}
+          {activeTab === 'traces' && renderTracesTab()}
+        </>
+      )}
+    </div>
+  );
+
+  // ★ 2026-05-12: 嵌入模式跳过外层 AdminPageLayout (system hub Tab 内).
+  if (embedded) return body;
+
   return (
     <AdminPageLayout
       title={t('admin.monitoring.title')}
       description="System health, error tracking, and AI metrics"
       icon={Activity}
       domain="system"
-      actions={
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => void fetchData()}
-            className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-          <button
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              autoRefresh
-                ? 'bg-green-100 text-green-800'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${autoRefresh ? 'animate-spin' : ''}`}
-            />
-            {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
-          </button>
-        </div>
-      }
+      actions={actions}
     >
-      <div>
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
-            {error}
-          </div>
-        )}
-
-        {dashboardError && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg bg-amber-50 p-4 text-amber-800">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            <span className="text-sm">
-              Dashboard data unavailable: {dashboardError}
-            </span>
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {(['overview', 'errors', 'ai', 'traces'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                {tab === 'overview' && 'Overview'}
-                {tab === 'errors' && 'Error Tracking'}
-                {tab === 'ai' && 'AI Metrics'}
-                {tab === 'traces' && 'Agent Traces'}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">
-            {t('common.loading')}
-          </div>
-        ) : (
-          <>
-            {activeTab === 'overview' && renderOverviewTab()}
-            {activeTab === 'errors' && renderErrorsTab()}
-            {activeTab === 'ai' && renderAITab()}
-            {activeTab === 'traces' && renderTracesTab()}
-          </>
-        )}
-      </div>
+      {body}
     </AdminPageLayout>
   );
 }

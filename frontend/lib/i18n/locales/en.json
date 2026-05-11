@@ -4198,6 +4198,12 @@
     },
     "system": {
       "description": "Runtime monitoring, messaging, base config, and security audit",
+      "tabs": {
+        "ops": "Monitoring",
+        "settings": "Configuration",
+        "messages": "Messages",
+        "security": "Security"
+      },
       "groups": {
         "ops": "Runtime Monitoring",
         "opsDesc": "Metrics, operation logs, and alerts",

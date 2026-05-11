@@ -60,7 +60,7 @@ const TASK_STATUS_COLORS: Record<string, string> = {
   PAUSED: 'bg-purple-100 text-purple-800',
 };
 
-export default function LogsPage() {
+export default function LogsPage({ embedded }: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'login' | 'task'>('login');
   const [stats, setStats] = useState<LogsStats | null>(null);
@@ -193,6 +193,302 @@ export default function LogsPage() {
     );
   };
 
+  const body = (
+    <div>
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
+          {error}
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      {stats && (
+        <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="rounded-lg bg-white p-4 shadow">
+            <div className="text-2xl font-bold text-gray-900">
+              {stats.totalLogins}
+            </div>
+            <div className="text-sm text-gray-500">
+              {t('admin.logs.stats.totalLogins')}
+            </div>
+          </div>
+          <div className="rounded-lg bg-white p-4 shadow">
+            <div className="text-2xl font-bold text-blue-600">
+              {stats.todayLogins}
+            </div>
+            <div className="text-sm text-gray-500">
+              {t('admin.logs.stats.todayLogins')}
+            </div>
+          </div>
+          <div className="rounded-lg bg-white p-4 shadow">
+            <div className="text-2xl font-bold text-green-600">
+              {stats.totalTasks}
+            </div>
+            <div className="text-sm text-gray-500">
+              {t('admin.logs.stats.totalTasks')}
+            </div>
+          </div>
+          <div className="rounded-lg bg-white p-4 shadow">
+            <div className="text-2xl font-bold text-red-600">
+              {stats.failedTasks}
+            </div>
+            <div className="text-sm text-gray-500">
+              {t('admin.logs.stats.failedTasks')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Switcher */}
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setActiveTab('login')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'login'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          {t('admin.logs.loginTab')}
+        </button>
+        <button
+          onClick={() => setActiveTab('task')}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'task'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          {t('admin.logs.taskTab')}
+        </button>
+      </div>
+
+      {/* Login History Tab */}
+      {activeTab === 'login' && (
+        <>
+          <form onSubmit={handleSearch} className="mb-4">
+            <div className="relative max-w-md">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t('admin.logs.searchPlaceholder')}
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm"
+              />
+              <svg
+                className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+          </form>
+
+          <div className="rounded-lg bg-white shadow">
+            {loading ? (
+              <div className="p-8 text-center text-gray-500">
+                {t('common.loading')}
+              </div>
+            ) : !loginData?.items.length ? (
+              <div className="p-8 text-center text-gray-500">
+                {t('admin.logs.noLoginRecords')}
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                      <tr>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.email')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.loginTime')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.ip')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.device')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.browser')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.location')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {loginData.items.map((record) => (
+                        <tr key={record.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            {record.userEmail}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <ClientDate
+                              date={record.loginAt}
+                              format="datetime"
+                            />
+                          </td>
+                          <td className="font-mono px-4 py-3 text-xs text-gray-500">
+                            {record.ipAddress || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {record.device || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {record.browser || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {record.location || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {renderPagination(
+                  loginData.page,
+                  loginData.totalPages,
+                  setLoginPage
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Task History Tab */}
+      {activeTab === 'task' && (
+        <>
+          <div className="mb-4">
+            <select
+              value={taskStatusFilter}
+              onChange={(e) => {
+                setTaskStatusFilter(e.target.value);
+                setTaskPage(1);
+              }}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
+            >
+              <option value="">{t('admin.logs.allStatuses')}</option>
+              {[
+                'PENDING',
+                'RUNNING',
+                'COMPLETED',
+                'FAILED',
+                'CANCELLED',
+                'PAUSED',
+              ].map((status) => (
+                <option key={status} value={status}>
+                  {t(`admin.logs.taskStatuses.${status.toLowerCase()}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="rounded-lg bg-white shadow">
+            {loading ? (
+              <div className="p-8 text-center text-gray-500">
+                {t('common.loading')}
+              </div>
+            ) : !taskData?.items.length ? (
+              <div className="p-8 text-center text-gray-500">
+                {t('admin.logs.noTaskRecords')}
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
+                      <tr>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.taskName')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.source')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.status')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.items')}
+                        </th>
+                        <th className="px-4 py-3">
+                          {t('admin.logs.columns.createdAt')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {taskData.items.map((task) => (
+                        <tr key={task.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            {task.name}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            {task.sourceName}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                TASK_STATUS_COLORS[task.status] ||
+                                'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {t(
+                                `admin.logs.taskStatuses.${task.status.toLowerCase()}`
+                              )}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600">
+                            <span className="text-green-600">
+                              {task.successItems}
+                            </span>
+                            {task.failedItems > 0 && (
+                              <span className="ml-1 text-red-600">
+                                / {task.failedItems} err
+                              </span>
+                            )}
+                            {task.duplicateItems > 0 && (
+                              <span className="ml-1 text-amber-600">
+                                / {task.duplicateItems} dup
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500">
+                            <ClientDate
+                              date={task.createdAt}
+                              format="datetime"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {renderPagination(
+                  taskData.page,
+                  taskData.totalPages,
+                  setTaskPage
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  // ★ 2026-05-12: 嵌入模式 (/admin/system?tab=ops 内) 跳过 AdminPageLayout.
+  if (embedded) return body;
+
   return (
     <AdminPageLayout
       title={t('admin.logs.title')}
@@ -200,296 +496,7 @@ export default function LogsPage() {
       icon={ScrollText}
       domain="system"
     >
-      <div>
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
-            {error}
-          </div>
-        )}
-
-        {/* Stats Cards */}
-        {stats && (
-          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="rounded-lg bg-white p-4 shadow">
-              <div className="text-2xl font-bold text-gray-900">
-                {stats.totalLogins}
-              </div>
-              <div className="text-sm text-gray-500">
-                {t('admin.logs.stats.totalLogins')}
-              </div>
-            </div>
-            <div className="rounded-lg bg-white p-4 shadow">
-              <div className="text-2xl font-bold text-blue-600">
-                {stats.todayLogins}
-              </div>
-              <div className="text-sm text-gray-500">
-                {t('admin.logs.stats.todayLogins')}
-              </div>
-            </div>
-            <div className="rounded-lg bg-white p-4 shadow">
-              <div className="text-2xl font-bold text-green-600">
-                {stats.totalTasks}
-              </div>
-              <div className="text-sm text-gray-500">
-                {t('admin.logs.stats.totalTasks')}
-              </div>
-            </div>
-            <div className="rounded-lg bg-white p-4 shadow">
-              <div className="text-2xl font-bold text-red-600">
-                {stats.failedTasks}
-              </div>
-              <div className="text-sm text-gray-500">
-                {t('admin.logs.stats.failedTasks')}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Tab Switcher */}
-        <div className="mb-4 flex gap-2">
-          <button
-            onClick={() => setActiveTab('login')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'login'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {t('admin.logs.loginTab')}
-          </button>
-          <button
-            onClick={() => setActiveTab('task')}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'task'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {t('admin.logs.taskTab')}
-          </button>
-        </div>
-
-        {/* Login History Tab */}
-        {activeTab === 'login' && (
-          <>
-            <form onSubmit={handleSearch} className="mb-4">
-              <div className="relative max-w-md">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t('admin.logs.searchPlaceholder')}
-                  className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm"
-                />
-                <svg
-                  className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
-              </div>
-            </form>
-
-            <div className="rounded-lg bg-white shadow">
-              {loading ? (
-                <div className="p-8 text-center text-gray-500">
-                  {t('common.loading')}
-                </div>
-              ) : !loginData?.items.length ? (
-                <div className="p-8 text-center text-gray-500">
-                  {t('admin.logs.noLoginRecords')}
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                        <tr>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.email')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.loginTime')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.ip')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.device')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.browser')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.location')}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {loginData.items.map((record) => (
-                          <tr key={record.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">
-                              {record.userEmail}
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">
-                              <ClientDate
-                                date={record.loginAt}
-                                format="datetime"
-                              />
-                            </td>
-                            <td className="font-mono px-4 py-3 text-xs text-gray-500">
-                              {record.ipAddress || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">
-                              {record.device || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">
-                              {record.browser || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">
-                              {record.location || '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {renderPagination(
-                    loginData.page,
-                    loginData.totalPages,
-                    setLoginPage
-                  )}
-                </>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* Task History Tab */}
-        {activeTab === 'task' && (
-          <>
-            <div className="mb-4">
-              <select
-                value={taskStatusFilter}
-                onChange={(e) => {
-                  setTaskStatusFilter(e.target.value);
-                  setTaskPage(1);
-                }}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm"
-              >
-                <option value="">{t('admin.logs.allStatuses')}</option>
-                {[
-                  'PENDING',
-                  'RUNNING',
-                  'COMPLETED',
-                  'FAILED',
-                  'CANCELLED',
-                  'PAUSED',
-                ].map((status) => (
-                  <option key={status} value={status}>
-                    {t(`admin.logs.taskStatuses.${status.toLowerCase()}`)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="rounded-lg bg-white shadow">
-              {loading ? (
-                <div className="p-8 text-center text-gray-500">
-                  {t('common.loading')}
-                </div>
-              ) : !taskData?.items.length ? (
-                <div className="p-8 text-center text-gray-500">
-                  {t('admin.logs.noTaskRecords')}
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="border-b bg-gray-50 text-xs uppercase text-gray-500">
-                        <tr>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.taskName')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.source')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.status')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.items')}
-                          </th>
-                          <th className="px-4 py-3">
-                            {t('admin.logs.columns.createdAt')}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {taskData.items.map((task) => (
-                          <tr key={task.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">
-                              {task.name}
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">
-                              {task.sourceName}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  TASK_STATUS_COLORS[task.status] ||
-                                  'bg-gray-100 text-gray-800'
-                                }`}
-                              >
-                                {t(
-                                  `admin.logs.taskStatuses.${task.status.toLowerCase()}`
-                                )}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-gray-600">
-                              <span className="text-green-600">
-                                {task.successItems}
-                              </span>
-                              {task.failedItems > 0 && (
-                                <span className="ml-1 text-red-600">
-                                  / {task.failedItems} err
-                                </span>
-                              )}
-                              {task.duplicateItems > 0 && (
-                                <span className="ml-1 text-amber-600">
-                                  / {task.duplicateItems} dup
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-gray-500">
-                              <ClientDate
-                                date={task.createdAt}
-                                format="datetime"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {renderPagination(
-                    taskData.page,
-                    taskData.totalPages,
-                    setTaskPage
-                  )}
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+      {body}
     </AdminPageLayout>
   );
 }

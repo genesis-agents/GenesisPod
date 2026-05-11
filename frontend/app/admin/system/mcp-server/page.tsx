@@ -168,7 +168,9 @@ function StatCard({
 
 // ==================== Main Component ====================
 
-export default function MCPServerPage() {
+export default function MCPServerPage({
+  embedded,
+}: { embedded?: boolean } = {}) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<MCPServerStatus | null>(null);
   const [metrics, setMetrics] = useState<MCPServerMetrics | null>(null);
@@ -1559,63 +1561,73 @@ export default function MCPServerPage() {
     'external',
   ] as const;
 
+  const refreshAction = (
+    <button
+      onClick={() => void fetchData()}
+      className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+    >
+      <RefreshCw className="h-4 w-4" />
+      {t('common.refresh') || 'Refresh'}
+    </button>
+  );
+
+  const body = (
+    <div>
+      {embedded && <div className="mb-4 flex justify-end">{refreshAction}</div>}
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
+          {error}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {t(`admin.mcpServer.tabs.${tab}`)}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {loading ? (
+        <div className="p-8 text-center text-gray-500">
+          {t('common.loading')}
+        </div>
+      ) : (
+        <>
+          {activeTab === 'overview' && renderOverviewTab()}
+          {activeTab === 'tools' && renderToolsTab()}
+          {activeTab === 'metrics' && renderMetricsTab()}
+          {activeTab === 'sessions' && renderSessionsTab()}
+          {activeTab === 'apiKeys' && renderApiKeysTab()}
+          {activeTab === 'external' && renderExternalTab()}
+        </>
+      )}
+    </div>
+  );
+
+  // ★ 2026-05-12: 嵌入模式 (/admin/system?tab=settings 内) 跳过外层 AdminPageLayout.
+  if (embedded) return body;
+
   return (
     <AdminPageLayout
       title={t('admin.mcpServer.title')}
       description={t('admin.mcpServer.description')}
       icon={Radio}
       domain="system"
-      actions={
-        <button
-          onClick={() => void fetchData()}
-          className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-        >
-          <RefreshCw className="h-4 w-4" />
-          {t('common.refresh') || 'Refresh'}
-        </button>
-      }
+      actions={refreshAction}
     >
-      <div>
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">
-            {error}
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
-                  activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                {t(`admin.mcpServer.tabs.${tab}`)}
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {loading ? (
-          <div className="p-8 text-center text-gray-500">
-            {t('common.loading')}
-          </div>
-        ) : (
-          <>
-            {activeTab === 'overview' && renderOverviewTab()}
-            {activeTab === 'tools' && renderToolsTab()}
-            {activeTab === 'metrics' && renderMetricsTab()}
-            {activeTab === 'sessions' && renderSessionsTab()}
-            {activeTab === 'apiKeys' && renderApiKeysTab()}
-            {activeTab === 'external' && renderExternalTab()}
-          </>
-        )}
-      </div>
+      {body}
     </AdminPageLayout>
   );
 }
