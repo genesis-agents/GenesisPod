@@ -14,7 +14,7 @@ import {
   ShoppingCart,
   Plus,
 } from 'lucide-react';
-import { LocalSkillsTab } from '@/components/admin/skills/LocalSkillsTab';
+import { LocalSkillsTable } from '@/components/admin/skills/LocalSkillsTable';
 import { SkillsMarketplaceTab } from '@/components/admin/skills/SkillsMarketplaceTab';
 import { SkillsDashboard } from '@/components/admin/skills/SkillsDashboard';
 import { SkillPromptEditor } from '@/components/admin/skills/SkillPromptEditor';
@@ -381,14 +381,14 @@ export default function SkillsManagement() {
             }`}
           >
             <Sparkles className="h-4 w-4" />
-            Analytics
+            技能统计
           </button>
         </div>
       </div>
 
       {/* Tab Content */}
       {activeTab === 'local' && (
-        <LocalSkillsTab
+        <LocalSkillsTable
           skills={skills}
           onToggle={handleToggle}
           onSaveSkill={handleSaveSkill}

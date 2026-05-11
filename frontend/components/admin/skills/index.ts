@@ -1,14 +1,14 @@
 /**
  * Skills Management Components
  *
- * This module provides a 2-tab architecture for managing AI skills:
- * - Local Skills Tab: Manage locally installed skills
- * - Skills Marketplace Tab: Browse and install skills from SkillsMP
+ * 3-tab architecture:
+ * - Local Skills Table: table+drawer view of locally installed skills
+ * - Skills Marketplace Tab: browse and install skills from SkillsMP
+ * - Skills Dashboard: usage analytics / 技能统计
  */
 
-export { LocalSkillsTab } from './LocalSkillsTab';
+export { LocalSkillsTable } from './LocalSkillsTable';
 export { SkillsMarketplaceTab } from './SkillsMarketplaceTab';
-export { SkillRow } from './SkillRow';
 export { EditSkillModal } from './EditSkillModal';
 export { SkillVersionHistory } from './SkillVersionHistory';
 export { SKILL_LAYERS } from './skill-layers';
