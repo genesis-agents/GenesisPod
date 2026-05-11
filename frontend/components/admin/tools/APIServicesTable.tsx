@@ -59,75 +59,195 @@ interface ToolsResponse {
   tools: ToolRow[];
 }
 
-// 用途分组（按业务语义而非 backend category 字符串）。每个 useCase 一组
-// backend category（含 prefix "external-"），未匹配到的归为"其他"。顺序即展示顺序。
+// 用途分组（按业务语义而非 backend category 字符串）。
+//
+// 2026-05-11 W3r3：原版按 backend "category" 字段分类，但实际 DB 里这些工具
+//   category 普遍是粗粒度的 "external" / "information" / "generation"，落不到
+//   网页搜索/学术等具体桶里，导致全部塞进"其他"组。改为按 toolId 精确匹配，
+//   未匹配的才回落到 category 关键词。每组带主题色（仿内置工具彩色分组）。
 const USE_CASE_GROUPS: Array<{
   key: string;
   label: string;
-  categories: string[];
+  toolIds: string[]; // 精确匹配 toolId（最高优先级）
+  categoryHints?: string[]; // 兜底：toolId 没命中时用 category 关键词
+  theme: {
+    border: string;
+    headerBg: string;
+    headerText: string;
+    badge: string;
+  };
 }> = [
   {
     key: 'web-search',
     label: '网页搜索',
-    categories: ['external-search', 'search'],
+    toolIds: [
+      'perplexity',
+      'tavily',
+      'serper',
+      'duckduckgo',
+      'brave-search',
+      'hackernews',
+    ],
+    categoryHints: ['external-search', 'search'],
+    theme: {
+      border: 'border-blue-200',
+      headerBg: 'bg-blue-50',
+      headerText: 'text-blue-800',
+      badge: 'bg-blue-100 text-blue-700',
+    },
   },
   {
     key: 'academic',
     label: '学术搜索',
-    categories: ['external-academic', 'academic'],
+    toolIds: ['semantic-scholar', 'pubmed', 'openalex', 'arxiv'],
+    categoryHints: ['external-academic', 'academic'],
+    theme: {
+      border: 'border-purple-200',
+      headerBg: 'bg-purple-50',
+      headerText: 'text-purple-800',
+      badge: 'bg-purple-100 text-purple-700',
+    },
   },
   {
     key: 'extraction',
     label: '内容抓取',
-    categories: ['external-extraction', 'extraction'],
+    toolIds: ['jina', 'firecrawl', 'tavilyExtract', 'tavily-extract'],
+    categoryHints: ['external-extraction', 'extraction'],
+    theme: {
+      border: 'border-emerald-200',
+      headerBg: 'bg-emerald-50',
+      headerText: 'text-emerald-800',
+      badge: 'bg-emerald-100 text-emerald-700',
+    },
   },
   {
     key: 'policy',
     label: '政策研究',
-    categories: ['policy-research', 'policy'],
+    toolIds: ['federal-register', 'congress-gov', 'whitehouse-news'],
+    categoryHints: ['policy-research', 'policy'],
+    theme: {
+      border: 'border-rose-200',
+      headerBg: 'bg-rose-50',
+      headerText: 'text-rose-800',
+      badge: 'bg-rose-100 text-rose-700',
+    },
+  },
+  {
+    key: 'industry-report',
+    label: '行业研究',
+    toolIds: ['industry-report'],
+    categoryHints: ['industry research'],
+    theme: {
+      border: 'border-cyan-200',
+      headerBg: 'bg-cyan-50',
+      headerText: 'text-cyan-800',
+      badge: 'bg-cyan-100 text-cyan-700',
+    },
   },
   {
     key: 'youtube',
     label: '视频字幕',
-    categories: ['external-youtube', 'youtube'],
+    toolIds: ['supadata'],
+    categoryHints: ['external-youtube', 'youtube'],
+    theme: {
+      border: 'border-red-200',
+      headerBg: 'bg-red-50',
+      headerText: 'text-red-800',
+      badge: 'bg-red-100 text-red-700',
+    },
   },
   {
     key: 'tts',
     label: '语音合成',
-    categories: ['external-tts', 'tts'],
+    toolIds: ['elevenlabs', 'google-tts'],
+    categoryHints: ['external-tts', 'tts'],
+    theme: {
+      border: 'border-indigo-200',
+      headerBg: 'bg-indigo-50',
+      headerText: 'text-indigo-800',
+      badge: 'bg-indigo-100 text-indigo-700',
+    },
   },
   {
     key: 'image-search',
     label: '图片搜索',
-    categories: ['external-image-search', 'image-search'],
+    toolIds: ['serpapi', 'bing-image-search', 'google-image-search'],
+    categoryHints: ['external-image-search', 'image-search'],
+    theme: {
+      border: 'border-pink-200',
+      headerBg: 'bg-pink-50',
+      headerText: 'text-pink-800',
+      badge: 'bg-pink-100 text-pink-700',
+    },
   },
   {
     key: 'finance',
     label: '金融数据',
-    categories: ['external-finance', 'finance'],
+    toolIds: ['alpha-vantage'],
+    categoryHints: ['external-finance', 'finance'],
+    theme: {
+      border: 'border-amber-200',
+      headerBg: 'bg-amber-50',
+      headerText: 'text-amber-800',
+      badge: 'bg-amber-100 text-amber-700',
+    },
   },
   {
     key: 'weather',
     label: '天气数据',
-    categories: ['external-weather', 'weather'],
+    toolIds: ['openweathermap'],
+    categoryHints: ['external-weather', 'weather'],
+    theme: {
+      border: 'border-sky-200',
+      headerBg: 'bg-sky-50',
+      headerText: 'text-sky-800',
+      badge: 'bg-sky-100 text-sky-700',
+    },
   },
   {
     key: 'devtools',
     label: '开发工具',
-    categories: ['external-devtools', 'devtools'],
+    toolIds: ['github'],
+    categoryHints: ['external-devtools', 'devtools'],
+    theme: {
+      border: 'border-slate-200',
+      headerBg: 'bg-slate-50',
+      headerText: 'text-slate-800',
+      badge: 'bg-slate-100 text-slate-700',
+    },
   },
   {
     key: 'skills',
     label: '技能市场',
-    categories: ['external-skills', 'skills'],
+    toolIds: ['skillsmp'],
+    categoryHints: ['external-skills', 'skills'],
+    theme: {
+      border: 'border-violet-200',
+      headerBg: 'bg-violet-50',
+      headerText: 'text-violet-800',
+      badge: 'bg-violet-100 text-violet-700',
+    },
   },
 ];
 
 const OTHER_LABEL = '其他';
+const OTHER_THEME = {
+  border: 'border-gray-200',
+  headerBg: 'bg-gray-50',
+  headerText: 'text-gray-700',
+  badge: 'bg-gray-100 text-gray-600',
+};
 
-function classifyUseCase(category: string): string {
+function classifyUseCase(tool: ToolRow): string {
+  const id = tool.toolId.toLowerCase();
   for (const g of USE_CASE_GROUPS) {
-    if (g.categories.includes(category)) return g.key;
+    if (g.toolIds.some((t) => t.toLowerCase() === id)) return g.key;
+  }
+  const cat = (tool.category || '').toLowerCase();
+  if (cat) {
+    for (const g of USE_CASE_GROUPS) {
+      if (g.categoryHints?.some((c) => c.toLowerCase() === cat)) return g.key;
+    }
   }
   return 'other';
 }
@@ -135,6 +255,12 @@ function classifyUseCase(category: string): string {
 function labelForUseCase(useCaseKey: string): string {
   return (
     USE_CASE_GROUPS.find((g) => g.key === useCaseKey)?.label ?? OTHER_LABEL
+  );
+}
+
+function themeForUseCase(useCaseKey: string) {
+  return (
+    USE_CASE_GROUPS.find((g) => g.key === useCaseKey)?.theme ?? OTHER_THEME
   );
 }
 
@@ -181,8 +307,7 @@ export function APIServicesTable() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return allTools.filter((t) => {
-      if (useCaseFilter && classifyUseCase(t.category) !== useCaseFilter)
-        return false;
+      if (useCaseFilter && classifyUseCase(t) !== useCaseFilter) return false;
       if (enabledFilter && String(t.enabled) !== enabledFilter) return false;
       if (q) {
         const hit =
@@ -199,7 +324,7 @@ export function APIServicesTable() {
   const grouped = useMemo(() => {
     const map = new Map<string, ToolRow[]>();
     for (const t of filtered) {
-      const useCase = classifyUseCase(t.category);
+      const useCase = classifyUseCase(t);
       const arr = map.get(useCase) ?? [];
       arr.push(t);
       map.set(useCase, arr);
@@ -346,138 +471,151 @@ export function APIServicesTable() {
             暂无 API 服务工具
           </div>
         ) : (
-          grouped.map(([useCase, tools]) => (
-            <div
-              key={useCase}
-              className="overflow-hidden rounded-lg border border-gray-200 bg-white"
-            >
-              <div className="flex items-center justify-between bg-gray-50 px-4 py-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700">
-                  {labelForUseCase(useCase)}
-                </h3>
-                <span className="text-xs text-gray-500">
-                  {tools.length} 个 ·{' '}
-                  {tools.filter((t) => hasConfiguredKey(t)).length} 已配置 ·{' '}
-                  {tools.filter((t) => t.enabled).length} 已启用
-                </span>
-              </div>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-white">
-                  <tr>
-                    <Th>名称</Th>
-                    <Th>toolId</Th>
-                    <Th>原始分类</Th>
-                    <Th>密钥</Th>
-                    <Th>启用</Th>
-                    <Th className="text-right">测试</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {tools.map((t) => {
-                    const result = testResults[t.toolId];
-                    const configured = hasConfiguredKey(t);
-                    return (
-                      <tr
-                        key={t.toolId}
-                        onClick={() => setSelectedId(t.toolId)}
-                        className="cursor-pointer hover:bg-gray-50"
-                      >
-                        <td
-                          className="max-w-[260px] truncate whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-900"
-                          title={t.displayName || t.name}
+          grouped.map(([useCase, tools]) => {
+            const theme = themeForUseCase(useCase);
+            return (
+              <div
+                key={useCase}
+                className={`overflow-hidden rounded-lg border ${theme.border} bg-white`}
+              >
+                <div
+                  className={`flex items-center justify-between ${theme.headerBg} px-4 py-2`}
+                >
+                  <h3
+                    className={`text-xs font-semibold uppercase tracking-wider ${theme.headerText}`}
+                  >
+                    {labelForUseCase(useCase)}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${theme.badge}`}
+                    >
+                      {tools.length} 个
+                    </span>
+                    <span className="text-gray-500">
+                      {tools.filter((t) => hasConfiguredKey(t)).length} 已配置 ·{' '}
+                      {tools.filter((t) => t.enabled).length} 已启用
+                    </span>
+                  </div>
+                </div>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-white">
+                    <tr>
+                      <Th>名称</Th>
+                      <Th>toolId</Th>
+                      <Th>原始分类</Th>
+                      <Th>密钥</Th>
+                      <Th>启用</Th>
+                      <Th className="text-right">测试</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {tools.map((t) => {
+                      const result = testResults[t.toolId];
+                      const configured = hasConfiguredKey(t);
+                      return (
+                        <tr
+                          key={t.toolId}
+                          onClick={() => setSelectedId(t.toolId)}
+                          className="cursor-pointer hover:bg-gray-50"
                         >
-                          {t.displayName || t.name}
-                        </td>
-                        <td
-                          className="font-mono max-w-[180px] truncate whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
-                          title={t.toolId}
-                        >
-                          {t.toolId}
-                        </td>
-                        <td
-                          className="font-mono max-w-[160px] truncate whitespace-nowrap px-4 py-2.5 text-[11px] text-gray-500"
-                          title={t.category}
-                        >
-                          {t.category || '—'}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-2.5 text-xs">
-                          {configured ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                              <KeyRound className="h-3 w-3" />
-                              已配置
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                              <KeyRound className="h-3 w-3" />
-                              未配置
-                            </span>
-                          )}
-                        </td>
-                        <td
-                          className="whitespace-nowrap px-4 py-2.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void toggleEnabled(t.toolId, !t.enabled)
-                            }
-                            disabled={togglingId === t.toolId}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                              t.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                            } ${togglingId === t.toolId ? 'opacity-50' : ''}`}
-                            aria-label={t.enabled ? '已启用' : '已禁用'}
+                          <td
+                            className="max-w-[260px] truncate whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-900"
+                            title={t.displayName || t.name}
                           >
-                            <span
-                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                                t.enabled ? 'translate-x-5' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </td>
-                        <td
-                          className="whitespace-nowrap px-4 py-2.5 text-right text-xs"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="inline-flex items-center gap-2">
-                            {result && (
-                              <span
-                                className={`inline-flex items-center gap-1 ${
-                                  result.success
-                                    ? 'text-green-700'
-                                    : 'text-red-700'
-                                }`}
-                                title={result.message}
-                              >
-                                {result.success ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                ) : (
-                                  <XCircle className="h-3.5 w-3.5" />
-                                )}
+                            {t.displayName || t.name}
+                          </td>
+                          <td
+                            className="font-mono max-w-[180px] truncate whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
+                            title={t.toolId}
+                          >
+                            {t.toolId}
+                          </td>
+                          <td
+                            className="font-mono max-w-[160px] truncate whitespace-nowrap px-4 py-2.5 text-[11px] text-gray-500"
+                            title={t.category}
+                          >
+                            {t.category || '—'}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-xs">
+                            {configured ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                <KeyRound className="h-3 w-3" />
+                                已配置
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                                <KeyRound className="h-3 w-3" />
+                                未配置
                               </span>
                             )}
+                          </td>
+                          <td
+                            className="whitespace-nowrap px-4 py-2.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               type="button"
-                              onClick={() => void runTest(t.toolId)}
-                              disabled={testingId === t.toolId}
-                              className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              onClick={() =>
+                                void toggleEnabled(t.toolId, !t.enabled)
+                              }
+                              disabled={togglingId === t.toolId}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                t.enabled ? 'bg-blue-600' : 'bg-gray-300'
+                              } ${togglingId === t.toolId ? 'opacity-50' : ''}`}
+                              aria-label={t.enabled ? '已启用' : '已禁用'}
                             >
-                              {testingId === t.toolId ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <PlayCircle className="h-3 w-3" />
-                              )}
-                              测试
+                              <span
+                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                                  t.enabled ? 'translate-x-5' : 'translate-x-1'
+                                }`}
+                              />
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))
+                          </td>
+                          <td
+                            className="whitespace-nowrap px-4 py-2.5 text-right text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="inline-flex items-center gap-2">
+                              {result && (
+                                <span
+                                  className={`inline-flex items-center gap-1 ${
+                                    result.success
+                                      ? 'text-green-700'
+                                      : 'text-red-700'
+                                  }`}
+                                  title={result.message}
+                                >
+                                  {result.success ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <XCircle className="h-3.5 w-3.5" />
+                                  )}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void runTest(t.toolId)}
+                                disabled={testingId === t.toolId}
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                {testingId === t.toolId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <PlayCircle className="h-3 w-3" />
+                                )}
+                                测试
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -559,7 +697,7 @@ function APIServiceDrawer({
     }
   };
 
-  const useCaseKey = classifyUseCase(tool.category);
+  const useCaseKey = classifyUseCase(tool);
 
   return (
     <DrawerShell

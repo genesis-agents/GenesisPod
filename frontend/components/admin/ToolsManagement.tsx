@@ -28,7 +28,7 @@ const TABS: Array<{ key: TabKey; label: string; icon: typeof Zap }> = [
   { key: 'builtin', label: '内置工具', icon: Zap },
   { key: 'api-services', label: 'API 服务工具', icon: Wrench },
   { key: 'mcp', label: 'MCP 工具', icon: Server },
-  { key: 'third-party', label: '第三方工具', icon: Globe },
+  { key: 'third-party', label: '第三方信源', icon: Globe },
 ];
 
 export default function ToolsManagement() {
