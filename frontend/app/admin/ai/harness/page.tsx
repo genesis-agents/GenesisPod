@@ -20,8 +20,10 @@ import { AdminTabs, type AdminTab } from '@/components/admin/shared';
 import { useApiGet } from '@/hooks/core';
 import { useTranslation } from '@/lib/i18n';
 import KernelMemoryPageContent from '../../kernel/memory/content';
+import KernelSchedulerPageContent from '../../kernel/scheduler/content';
 import EvalDashboardPageContent from '../eval/content';
 import GuardrailsPageContent from '../guardrails/content';
+import TracesPageContent from '../traces/content';
 
 /**
  * AI Harness Hub
@@ -216,6 +218,15 @@ function HarnessAdminPageInner() {
           <EvalDashboardPageContent embedded />
           <div className="border-t border-gray-200 pt-8">
             <GuardrailsPageContent embedded />
+          </div>
+        </div>
+      )}
+
+      {tab === 'execution' && (
+        <div className="mb-8 space-y-8">
+          <KernelSchedulerPageContent embedded />
+          <div className="border-t border-gray-200 pt-8">
+            <TracesPageContent embedded />
           </div>
         </div>
       )}
