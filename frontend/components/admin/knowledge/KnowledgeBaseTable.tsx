@@ -13,10 +13,20 @@
  * 详情：GET /admin/knowledge/kbs/:id
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, RefreshCw, Search, X } from 'lucide-react';
+import { Loader2, RefreshCw, Search } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import {
+  DrawerShell,
+  PaginationBar,
+  Row,
+  Section,
+  StatGrid,
+  Th,
+  fmtTime,
+  statusBadgeClass,
+} from './shared';
 
 interface KBRow {
   id: string;
@@ -74,26 +84,6 @@ interface ListResponse {
     total: number;
     totalPages: number;
   };
-}
-
-function fmtTime(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString();
-}
-
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case 'READY':
-      return 'bg-green-100 text-green-700';
-    case 'PROCESSING':
-      return 'bg-blue-100 text-blue-700';
-    case 'PENDING':
-      return 'bg-amber-100 text-amber-700';
-    case 'ERROR':
-      return 'bg-red-100 text-red-700';
-    default:
-      return 'bg-gray-100 text-gray-700';
-  }
 }
 
 export function KnowledgeBaseTable() {
@@ -285,27 +275,12 @@ export function KnowledgeBaseTable() {
         </table>
       </div>
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2 text-sm text-gray-600">
-          <button
-            type="button"
-            onClick={() => void load(pagination.page - 1)}
-            disabled={pagination.page <= 1 || loading}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs hover:bg-gray-50 disabled:opacity-40"
-          >
-            上一页
-          </button>
-          <button
-            type="button"
-            onClick={() => void load(pagination.page + 1)}
-            disabled={pagination.page >= pagination.totalPages || loading}
-            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs hover:bg-gray-50 disabled:opacity-40"
-          >
-            下一页
-          </button>
-        </div>
-      )}
+      <PaginationBar
+        page={pagination.page}
+        totalPages={pagination.totalPages}
+        loading={loading}
+        onChange={(p) => void load(p)}
+      />
 
       {/* Detail drawer */}
       {selectedId && (
@@ -315,22 +290,6 @@ export function KnowledgeBaseTable() {
         />
       )}
     </div>
-  );
-}
-
-function Th({
-  children,
-  className = '',
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <th
-      className={`whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ${className}`}
-    >
-      {children}
-    </th>
   );
 }
 
@@ -362,6 +321,7 @@ function KnowledgeBaseDrawer({
         if (!cancelled) setDetail(data);
       } catch (e) {
         if (!cancelled) setError((e as Error).message);
+        logger.error('[KnowledgeBaseDrawer] load failed', e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -371,14 +331,6 @@ function KnowledgeBaseDrawer({
     };
   }, [id]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   const docStatusMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const b of detail?.docStatusBuckets ?? []) m.set(b.status, b.count);
@@ -386,253 +338,164 @@ function KnowledgeBaseDrawer({
   }, [detail]);
 
   return (
-    <>
-      <div
-        className="fixed inset-y-0 left-0 right-0 z-40 bg-black/30 md:left-52"
-        onClick={onClose}
-      />
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full flex-col bg-white shadow-2xl md:w-[calc(100vw-13rem-2rem)] md:max-w-[720px]">
-        {/* Header */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-base font-semibold text-gray-900">
-              {loading ? '加载中...' : (detail?.name ?? '—')}
-            </h2>
-            <p className="mt-0.5 truncate text-xs text-gray-500">
-              {detail?.description ?? ''}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ml-3 rounded-lg p-1.5 text-gray-500 hover:bg-gray-100"
-            aria-label="关闭"
-          >
-            <X className="h-5 w-5" />
-          </button>
+    <DrawerShell
+      title={loading ? '加载中...' : (detail?.name ?? '—')}
+      subtitle={detail?.description ?? ''}
+      onClose={onClose}
+    >
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
         </div>
+      )}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          加载失败：{error}
+        </div>
+      )}
+      {detail && !loading && (
+        <div className="space-y-5">
+          <Section title="基本信息">
+            <Row
+              label="ID"
+              value={<code className="font-mono text-xs">{detail.id}</code>}
+            />
+            <Row
+              label="拥有者"
+              value={
+                detail.owner
+                  ? `${detail.owner.email}${detail.owner.fullName ? ` (${detail.owner.fullName})` : ''}`
+                  : '—'
+              }
+            />
+            <Row label="类型" value={detail.type} />
+            <Row
+              label="状态"
+              value={
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(detail.status)}`}
+                >
+                  {detail.status}
+                </span>
+              }
+            />
+            <Row label="主源" value={detail.sourceType} />
+            <Row label="创建时间" value={fmtTime(detail.createdAt)} />
+            <Row label="更新时间" value={fmtTime(detail.updatedAt)} />
+            <Row label="上次同步" value={fmtTime(detail.lastSyncedAt)} />
+          </Section>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-            </div>
-          )}
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              加载失败：{error}
-            </div>
-          )}
-          {detail && !loading && (
-            <div className="space-y-5">
-              {/* 基本信息 */}
-              <Section title="基本信息">
-                <Row
-                  label="ID"
-                  value={<code className="font-mono text-xs">{detail.id}</code>}
-                />
-                <Row
-                  label="拥有者"
-                  value={
-                    detail.owner
-                      ? `${detail.owner.email}${detail.owner.fullName ? ` (${detail.owner.fullName})` : ''}`
-                      : '—'
-                  }
-                />
-                <Row label="类型" value={detail.type} />
-                <Row
-                  label="状态"
-                  value={
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(detail.status)}`}
-                    >
-                      {detail.status}
-                    </span>
-                  }
-                />
-                <Row label="主源" value={detail.sourceType} />
-                <Row label="创建时间" value={fmtTime(detail.createdAt)} />
-                <Row label="更新时间" value={fmtTime(detail.updatedAt)} />
-                <Row label="上次同步" value={fmtTime(detail.lastSyncedAt)} />
-              </Section>
+          <Section title="资产计数">
+            <StatGrid
+              items={[
+                { label: '文档', value: detail.counts.documents },
+                { label: '成员', value: detail.counts.members },
+                { label: 'Wiki 页', value: detail.counts.wikiPages },
+              ]}
+            />
+          </Section>
 
-              {/* 计数 */}
-              <Section title="资产计数">
-                <StatGrid
-                  items={[
-                    { label: '文档', value: detail.counts.documents },
-                    { label: '成员', value: detail.counts.members },
-                    { label: 'Wiki 页', value: detail.counts.wikiPages },
-                  ]}
-                />
-              </Section>
-
-              {/* 文档状态分桶 */}
-              {detail.docStatusBuckets.length > 0 && (
-                <Section title="文档状态分布">
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      'PENDING',
-                      'PROCESSING',
-                      'COMPLETED',
-                      'READY',
-                      'ERROR',
-                    ].map((s) => {
-                      const n = docStatusMap.get(s) ?? 0;
-                      if (n === 0) return null;
-                      return (
-                        <span
-                          key={s}
-                          className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(s)}`}
-                        >
-                          {s}
-                          <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold">
-                            {n}
-                          </span>
+          {detail.docStatusBuckets.length > 0 && (
+            <Section title="文档状态分布">
+              <div className="flex flex-wrap gap-2">
+                {['PENDING', 'PROCESSING', 'COMPLETED', 'READY', 'ERROR'].map(
+                  (s) => {
+                    const n = docStatusMap.get(s) ?? 0;
+                    if (n === 0) return null;
+                    return (
+                      <span
+                        key={s}
+                        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${statusBadgeClass(s)}`}
+                      >
+                        {s}
+                        <span className="rounded-full bg-white/70 px-1.5 py-0.5 text-[10px] font-semibold">
+                          {n}
                         </span>
-                      );
-                    })}
-                  </div>
-                </Section>
-              )}
-
-              {/* Wiki 配置 */}
-              <Section title="Wiki 配置">
-                <Row
-                  label="Wiki 启用"
-                  value={detail.wikiEnabled ? '是' : '否'}
-                />
-                {detail.wikiConfig && (
-                  <>
-                    <Row
-                      label="自动同步"
-                      value={
-                        detail.wikiConfig.autoIngestEnabled === false
-                          ? '禁用'
-                          : '启用'
-                      }
-                    />
-                    <Row
-                      label="去抖秒数"
-                      value={String(
-                        detail.wikiConfig.autoIngestDebounceSeconds ??
-                          '默认 300'
-                      )}
-                    />
-                    <Row
-                      label="每日预算"
-                      value={String(
-                        detail.wikiConfig.autoIngestDailyBudgetCalls ??
-                          '默认 20'
-                      )}
-                    />
-                  </>
+                      </span>
+                    );
+                  }
                 )}
-              </Section>
+              </div>
+            </Section>
+          )}
 
-              {/* 成员 */}
-              {detail.members.length > 0 && (
-                <Section title={`成员 (${detail.members.length})`}>
-                  <div className="overflow-x-auto rounded-md border border-gray-200">
-                    <table className="min-w-full text-xs">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-500">
-                            邮箱
-                          </th>
-                          <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-500">
-                            角色
-                          </th>
-                          <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-500">
-                            加入时间
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {detail.members.map((m) => (
-                          <tr key={m.userId}>
-                            <td
-                              className="max-w-[200px] truncate whitespace-nowrap px-3 py-1.5 text-gray-700"
-                              title={m.email ?? m.userId}
-                            >
-                              {m.email ?? m.userId.slice(0, 8)}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-1.5 text-gray-700">
-                              {m.role}
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-1.5 text-gray-500">
-                              {fmtTime(m.joinedAt)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Section>
-              )}
+          <Section title="Wiki 配置">
+            <Row label="Wiki 启用" value={detail.wikiEnabled ? '是' : '否'} />
+            {detail.wikiConfig && (
+              <>
+                <Row
+                  label="自动同步"
+                  value={
+                    detail.wikiConfig.autoIngestEnabled === false
+                      ? '禁用'
+                      : '启用'
+                  }
+                />
+                <Row
+                  label="去抖秒数"
+                  value={String(
+                    detail.wikiConfig.autoIngestDebounceSeconds ?? '默认 300'
+                  )}
+                />
+                <Row
+                  label="每日预算"
+                  value={String(
+                    detail.wikiConfig.autoIngestDailyBudgetCalls ?? '默认 20'
+                  )}
+                />
+              </>
+            )}
+          </Section>
 
-              {detail.lastError && (
-                <Section title="最近错误">
-                  <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-red-50 p-3 text-xs text-red-700">
-                    {detail.lastError}
-                  </pre>
-                </Section>
-              )}
-            </div>
+          {detail.members.length > 0 && (
+            <Section title={`成员 (${detail.members.length})`}>
+              <div className="overflow-x-auto rounded-md border border-gray-200">
+                <table className="min-w-full text-xs">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-500">
+                        邮箱
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-500">
+                        角色
+                      </th>
+                      <th className="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-500">
+                        加入时间
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {detail.members.map((m) => (
+                      <tr key={m.userId}>
+                        <td
+                          className="max-w-[200px] truncate whitespace-nowrap px-3 py-1.5 text-gray-700"
+                          title={m.email ?? m.userId}
+                        >
+                          {m.email ?? m.userId.slice(0, 8)}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-1.5 text-gray-700">
+                          {m.role}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-1.5 text-gray-500">
+                          {fmtTime(m.joinedAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Section>
+          )}
+
+          {detail.lastError && (
+            <Section title="最近错误">
+              <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-red-50 p-3 text-xs text-red-700">
+                {detail.lastError}
+              </pre>
+            </Section>
           )}
         </div>
-      </div>
-    </>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-        {title}
-      </h3>
-      <div className="space-y-1.5">{children}</div>
-    </section>
-  );
-}
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline gap-3 text-sm">
-      <span className="w-24 flex-shrink-0 text-xs text-gray-500">{label}</span>
-      <span className="min-w-0 flex-1 truncate text-gray-900">{value}</span>
-    </div>
-  );
-}
-
-function StatGrid({
-  items,
-}: {
-  items: Array<{ label: string; value: number | string }>;
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      {items.map((it) => (
-        <div
-          key={it.label}
-          className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2"
-        >
-          <div className="text-[10px] uppercase tracking-wider text-gray-500">
-            {it.label}
-          </div>
-          <div className="mt-0.5 text-base font-semibold tabular-nums text-gray-900">
-            {it.value}
-          </div>
-        </div>
-      ))}
-    </div>
+      )}
+    </DrawerShell>
   );
 }
