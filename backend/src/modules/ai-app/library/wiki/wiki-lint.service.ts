@@ -129,7 +129,28 @@ export class WikiLintService {
     budgetExceeded: boolean;
   }> {
     await this.assertEditorAccessAndWikiEnabled(userId, knowledgeBaseId);
+    return this.runFullLintInternal(knowledgeBaseId, userId);
+  }
 
+  /**
+   * Cron entry — same lint pipeline, but bypasses user auth (trusted internal
+   * caller) and runs as a system LLM call. Wired by WikiLintScheduler at
+   * 03:00 UTC daily; also callable by tests.
+   */
+  async runFullLintAsCron(knowledgeBaseId: string): Promise<{
+    counts: Record<WikiLintType, number>;
+    budgetExceeded: boolean;
+  }> {
+    return this.runFullLintInternal(knowledgeBaseId, undefined);
+  }
+
+  private async runFullLintInternal(
+    knowledgeBaseId: string,
+    userId: string | undefined,
+  ): Promise<{
+    counts: Record<WikiLintType, number>;
+    budgetExceeded: boolean;
+  }> {
     const config = await this.prisma.wikiKnowledgeBaseConfig.findUnique({
       where: { knowledgeBaseId },
     });

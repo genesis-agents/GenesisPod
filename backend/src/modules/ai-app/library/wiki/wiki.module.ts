@@ -8,6 +8,7 @@ import { WikiPageService } from "./wiki-page.service";
 import { WikiDiffService } from "./wiki-diff.service";
 import { WikiIngestService } from "./wiki-ingest.service";
 import { WikiLintService } from "./wiki-lint.service";
+import { WikiLintScheduler } from "./wiki-lint.scheduler";
 import { WikiQueryService } from "./wiki-query.service";
 import { WikiKbAdminService } from "./wiki-kb-admin.service";
 import { WikiController } from "./wiki.controller";
@@ -36,6 +37,7 @@ import { WikiKbAdminController } from "./wiki-kb-admin.controller";
     WikiDiffService,
     WikiIngestService,
     WikiLintService,
+    WikiLintScheduler,
     WikiQueryService,
     WikiKbAdminService,
   ],
