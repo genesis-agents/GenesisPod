@@ -27,6 +27,12 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import {
+  EXCLUDED_FROM_GENERAL_TABS,
+  CATEGORY_ORDER_KEYS,
+  classifyToolId,
+  getCategoryById,
+} from '@/lib/admin/tool-categories';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
 
 interface ToolRow {
@@ -58,23 +64,7 @@ interface ToolsResponse {
   };
 }
 
-// industry-report 是抓取源专用工具，不在 builtin tab 展示（独立于 third-party tab）
-const EXCLUDED_TOOL_IDS = new Set(['industry-report']);
-
-// category 显示顺序（其余按字母序）
-const CATEGORY_ORDER = [
-  'web-search',
-  'web-extraction',
-  'youtube-transcript',
-  'tts',
-  'image-search',
-  'academic-research',
-  'finance-data',
-  'weather-data',
-  'devtools',
-  'policy-research',
-  'skills-marketplace',
-];
+// 2026-05-11 W3r4：分类和排除走 @/lib/admin/tool-categories 共享真源。
 
 export function BuiltinToolsTable() {
   const [allTools, setAllTools] = useState<ToolRow[]>([]);
@@ -100,10 +90,12 @@ export function BuiltinToolsTable() {
       const raw = await res.json();
       const data: ToolsResponse = raw?.data ?? raw;
       const list = Array.isArray(data.tools) ? data.tools : [];
-      // implemented:true 才显示在内置工具 tab；implemented:false 在 API 服务工具 tab
+      // implemented:true 才显示在内置工具 tab；implemented:false 在 API 服务工具 tab。
+      // 第三方信源专属（industry-report*）从这里排除。
       setAllTools(
         list.filter(
-          (t) => t.implemented === true && !EXCLUDED_TOOL_IDS.has(t.toolId)
+          (t) =>
+            t.implemented === true && !EXCLUDED_FROM_GENERAL_TABS.has(t.toolId)
         )
       );
     } catch (e) {
@@ -138,7 +130,7 @@ export function BuiltinToolsTable() {
   const grouped = useMemo(() => {
     const map = new Map<string, ToolRow[]>();
     for (const t of filtered) {
-      const cat = t.category || 'other';
+      const cat = classifyToolId(t.toolId, t.category);
       const arr = map.get(cat) ?? [];
       arr.push(t);
       map.set(cat, arr);
@@ -149,8 +141,8 @@ export function BuiltinToolsTable() {
       );
     }
     const orderIndex = (cat: string) => {
-      const idx = CATEGORY_ORDER.indexOf(cat);
-      return idx === -1 ? CATEGORY_ORDER.length : idx;
+      const idx = CATEGORY_ORDER_KEYS.indexOf(cat);
+      return idx === -1 ? CATEGORY_ORDER_KEYS.length : idx;
     };
     return Array.from(map.entries()).sort(([a], [b]) => {
       const ai = orderIndex(a);
@@ -272,130 +264,143 @@ export function BuiltinToolsTable() {
             暂无内置工具
           </div>
         ) : (
-          grouped.map(([category, tools]) => (
-            <div
-              key={category}
-              className="overflow-hidden rounded-lg border border-gray-200 bg-white"
-            >
-              <div className="flex items-center justify-between bg-gray-50 px-4 py-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700">
-                  {category}
-                </h3>
-                <span className="text-xs text-gray-500">
-                  {tools.length} 个 · {tools.filter((t) => t.enabled).length}{' '}
-                  已启用
-                </span>
-              </div>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-white">
-                  <tr>
-                    <Th>名称</Th>
-                    <Th>toolId</Th>
-                    <Th>密钥</Th>
-                    <Th>启用</Th>
-                    <Th className="text-right">测试</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {tools.map((t) => {
-                    const result = testResults[t.toolId];
-                    const configured = hasConfiguredKey(t);
-                    return (
-                      <tr
-                        key={t.toolId}
-                        onClick={() => setSelectedId(t.toolId)}
-                        className="cursor-pointer hover:bg-gray-50"
-                      >
-                        <td
-                          className="max-w-[280px] truncate whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-900"
-                          title={t.displayName || t.name}
+          grouped.map(([catId, tools]) => {
+            const cat = getCategoryById(catId);
+            return (
+              <div
+                key={catId}
+                className={`overflow-hidden rounded-lg border ${cat.theme.border} bg-white`}
+              >
+                <div
+                  className={`flex items-center justify-between ${cat.theme.headerBg} px-4 py-2`}
+                >
+                  <h3
+                    className={`text-xs font-semibold uppercase tracking-wider ${cat.theme.headerText}`}
+                  >
+                    {cat.label}
+                  </h3>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${cat.theme.badge}`}
+                    >
+                      {tools.length} 个
+                    </span>
+                    <span className="text-gray-500">
+                      {tools.filter((t) => t.enabled).length} 已启用
+                    </span>
+                  </div>
+                </div>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-white">
+                    <tr>
+                      <Th>名称</Th>
+                      <Th>toolId</Th>
+                      <Th>密钥</Th>
+                      <Th>启用</Th>
+                      <Th className="text-right">测试</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {tools.map((t) => {
+                      const result = testResults[t.toolId];
+                      const configured = hasConfiguredKey(t);
+                      return (
+                        <tr
+                          key={t.toolId}
+                          onClick={() => setSelectedId(t.toolId)}
+                          className="cursor-pointer hover:bg-gray-50"
                         >
-                          {t.displayName || t.name}
-                        </td>
-                        <td
-                          className="font-mono max-w-[200px] truncate whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
-                          title={t.toolId}
-                        >
-                          {t.toolId}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-2.5 text-xs">
-                          {configured ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                              <KeyRound className="h-3 w-3" />
-                              已配置
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                              <KeyRound className="h-3 w-3" />
-                              未配置
-                            </span>
-                          )}
-                        </td>
-                        <td
-                          className="whitespace-nowrap px-4 py-2.5"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void toggleEnabled(t.toolId, !t.enabled)
-                            }
-                            disabled={togglingId === t.toolId}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                              t.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                            } ${togglingId === t.toolId ? 'opacity-50' : ''}`}
-                            aria-label={t.enabled ? '已启用' : '已禁用'}
+                          <td
+                            className="max-w-[280px] truncate whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-900"
+                            title={t.displayName || t.name}
                           >
-                            <span
-                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                                t.enabled ? 'translate-x-5' : 'translate-x-1'
-                              }`}
-                            />
-                          </button>
-                        </td>
-                        <td
-                          className="whitespace-nowrap px-4 py-2.5 text-right text-xs"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="inline-flex items-center gap-2">
-                            {result && (
-                              <span
-                                className={`inline-flex items-center gap-1 ${
-                                  result.success
-                                    ? 'text-green-700'
-                                    : 'text-red-700'
-                                }`}
-                                title={result.message}
-                              >
-                                {result.success ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                ) : (
-                                  <XCircle className="h-3.5 w-3.5" />
-                                )}
+                            {t.displayName || t.name}
+                          </td>
+                          <td
+                            className="font-mono max-w-[200px] truncate whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
+                            title={t.toolId}
+                          >
+                            {t.toolId}
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-2.5 text-xs">
+                            {configured ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                <KeyRound className="h-3 w-3" />
+                                已配置
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                                <KeyRound className="h-3 w-3" />
+                                未配置
                               </span>
                             )}
+                          </td>
+                          <td
+                            className="whitespace-nowrap px-4 py-2.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               type="button"
-                              onClick={() => void runTest(t.toolId)}
-                              disabled={testingId === t.toolId}
-                              className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              onClick={() =>
+                                void toggleEnabled(t.toolId, !t.enabled)
+                              }
+                              disabled={togglingId === t.toolId}
+                              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                                t.enabled ? 'bg-blue-600' : 'bg-gray-300'
+                              } ${togglingId === t.toolId ? 'opacity-50' : ''}`}
+                              aria-label={t.enabled ? '已启用' : '已禁用'}
                             >
-                              {testingId === t.toolId ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <PlayCircle className="h-3 w-3" />
-                              )}
-                              测试
+                              <span
+                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                                  t.enabled ? 'translate-x-5' : 'translate-x-1'
+                                }`}
+                              />
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))
+                          </td>
+                          <td
+                            className="whitespace-nowrap px-4 py-2.5 text-right text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="inline-flex items-center gap-2">
+                              {result && (
+                                <span
+                                  className={`inline-flex items-center gap-1 ${
+                                    result.success
+                                      ? 'text-green-700'
+                                      : 'text-red-700'
+                                  }`}
+                                  title={result.message}
+                                >
+                                  {result.success ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <XCircle className="h-3.5 w-3.5" />
+                                  )}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => void runTest(t.toolId)}
+                                disabled={testingId === t.toolId}
+                                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                {testingId === t.toolId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <PlayCircle className="h-3 w-3" />
+                                )}
+                                测试
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })
         )}
       </div>
 

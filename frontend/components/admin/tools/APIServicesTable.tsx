@@ -35,6 +35,15 @@ import {
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
+import {
+  TOOL_CATEGORIES,
+  OTHER_CATEGORY,
+  EXCLUDED_FROM_GENERAL_TABS,
+  CATEGORY_FILTER_OPTIONS,
+  CATEGORY_ORDER_KEYS,
+  classifyToolId,
+  getCategoryById,
+} from '@/lib/admin/tool-categories';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
 
 interface ToolRow {
@@ -59,212 +68,16 @@ interface ToolsResponse {
   tools: ToolRow[];
 }
 
-// 用途分组（按业务语义而非 backend category 字符串）。
+// 2026-05-11 W3r4：分类走 @/lib/admin/tool-categories 共享真源
+// （恢复昨天 capability-mapping.ts 的 13 类 + 中文 label + 颜色主题）。
+// 本文件不再维护本地 USE_CASE_GROUPS 副本，避免与内置工具 tab 漂移。
+
+// 旧 USE_CASE_GROUPS 块已删除——见 lib/admin/tool-categories.ts
 //
 // 2026-05-11 W3r3：原版按 backend "category" 字段分类，但实际 DB 里这些工具
 //   category 普遍是粗粒度的 "external" / "information" / "generation"，落不到
 //   网页搜索/学术等具体桶里，导致全部塞进"其他"组。改为按 toolId 精确匹配，
 //   未匹配的才回落到 category 关键词。每组带主题色（仿内置工具彩色分组）。
-const USE_CASE_GROUPS: Array<{
-  key: string;
-  label: string;
-  toolIds: string[]; // 精确匹配 toolId（最高优先级）
-  categoryHints?: string[]; // 兜底：toolId 没命中时用 category 关键词
-  theme: {
-    border: string;
-    headerBg: string;
-    headerText: string;
-    badge: string;
-  };
-}> = [
-  {
-    key: 'web-search',
-    label: '网页搜索',
-    toolIds: [
-      'perplexity',
-      'tavily',
-      'serper',
-      'duckduckgo',
-      'brave-search',
-      'hackernews',
-    ],
-    categoryHints: ['external-search', 'search'],
-    theme: {
-      border: 'border-blue-200',
-      headerBg: 'bg-blue-50',
-      headerText: 'text-blue-800',
-      badge: 'bg-blue-100 text-blue-700',
-    },
-  },
-  {
-    key: 'academic',
-    label: '学术搜索',
-    toolIds: ['semantic-scholar', 'pubmed', 'openalex', 'arxiv'],
-    categoryHints: ['external-academic', 'academic'],
-    theme: {
-      border: 'border-purple-200',
-      headerBg: 'bg-purple-50',
-      headerText: 'text-purple-800',
-      badge: 'bg-purple-100 text-purple-700',
-    },
-  },
-  {
-    key: 'extraction',
-    label: '内容抓取',
-    toolIds: ['jina', 'firecrawl', 'tavilyExtract', 'tavily-extract'],
-    categoryHints: ['external-extraction', 'extraction'],
-    theme: {
-      border: 'border-emerald-200',
-      headerBg: 'bg-emerald-50',
-      headerText: 'text-emerald-800',
-      badge: 'bg-emerald-100 text-emerald-700',
-    },
-  },
-  {
-    key: 'policy',
-    label: '政策研究',
-    toolIds: ['federal-register', 'congress-gov', 'whitehouse-news'],
-    categoryHints: ['policy-research', 'policy'],
-    theme: {
-      border: 'border-rose-200',
-      headerBg: 'bg-rose-50',
-      headerText: 'text-rose-800',
-      badge: 'bg-rose-100 text-rose-700',
-    },
-  },
-  {
-    key: 'industry-report',
-    label: '行业研究',
-    toolIds: ['industry-report'],
-    categoryHints: ['industry research'],
-    theme: {
-      border: 'border-cyan-200',
-      headerBg: 'bg-cyan-50',
-      headerText: 'text-cyan-800',
-      badge: 'bg-cyan-100 text-cyan-700',
-    },
-  },
-  {
-    key: 'youtube',
-    label: '视频字幕',
-    toolIds: ['supadata'],
-    categoryHints: ['external-youtube', 'youtube'],
-    theme: {
-      border: 'border-red-200',
-      headerBg: 'bg-red-50',
-      headerText: 'text-red-800',
-      badge: 'bg-red-100 text-red-700',
-    },
-  },
-  {
-    key: 'tts',
-    label: '语音合成',
-    toolIds: ['elevenlabs', 'google-tts'],
-    categoryHints: ['external-tts', 'tts'],
-    theme: {
-      border: 'border-indigo-200',
-      headerBg: 'bg-indigo-50',
-      headerText: 'text-indigo-800',
-      badge: 'bg-indigo-100 text-indigo-700',
-    },
-  },
-  {
-    key: 'image-search',
-    label: '图片搜索',
-    toolIds: ['serpapi', 'bing-image-search', 'google-image-search'],
-    categoryHints: ['external-image-search', 'image-search'],
-    theme: {
-      border: 'border-pink-200',
-      headerBg: 'bg-pink-50',
-      headerText: 'text-pink-800',
-      badge: 'bg-pink-100 text-pink-700',
-    },
-  },
-  {
-    key: 'finance',
-    label: '金融数据',
-    toolIds: ['alpha-vantage'],
-    categoryHints: ['external-finance', 'finance'],
-    theme: {
-      border: 'border-amber-200',
-      headerBg: 'bg-amber-50',
-      headerText: 'text-amber-800',
-      badge: 'bg-amber-100 text-amber-700',
-    },
-  },
-  {
-    key: 'weather',
-    label: '天气数据',
-    toolIds: ['openweathermap'],
-    categoryHints: ['external-weather', 'weather'],
-    theme: {
-      border: 'border-sky-200',
-      headerBg: 'bg-sky-50',
-      headerText: 'text-sky-800',
-      badge: 'bg-sky-100 text-sky-700',
-    },
-  },
-  {
-    key: 'devtools',
-    label: '开发工具',
-    toolIds: ['github'],
-    categoryHints: ['external-devtools', 'devtools'],
-    theme: {
-      border: 'border-slate-200',
-      headerBg: 'bg-slate-50',
-      headerText: 'text-slate-800',
-      badge: 'bg-slate-100 text-slate-700',
-    },
-  },
-  {
-    key: 'skills',
-    label: '技能市场',
-    toolIds: ['skillsmp'],
-    categoryHints: ['external-skills', 'skills'],
-    theme: {
-      border: 'border-violet-200',
-      headerBg: 'bg-violet-50',
-      headerText: 'text-violet-800',
-      badge: 'bg-violet-100 text-violet-700',
-    },
-  },
-];
-
-const OTHER_LABEL = '其他';
-const OTHER_THEME = {
-  border: 'border-gray-200',
-  headerBg: 'bg-gray-50',
-  headerText: 'text-gray-700',
-  badge: 'bg-gray-100 text-gray-600',
-};
-
-function classifyUseCase(tool: ToolRow): string {
-  const id = tool.toolId.toLowerCase();
-  for (const g of USE_CASE_GROUPS) {
-    if (g.toolIds.some((t) => t.toLowerCase() === id)) return g.key;
-  }
-  const cat = (tool.category || '').toLowerCase();
-  if (cat) {
-    for (const g of USE_CASE_GROUPS) {
-      if (g.categoryHints?.some((c) => c.toLowerCase() === cat)) return g.key;
-    }
-  }
-  return 'other';
-}
-
-function labelForUseCase(useCaseKey: string): string {
-  return (
-    USE_CASE_GROUPS.find((g) => g.key === useCaseKey)?.label ?? OTHER_LABEL
-  );
-}
-
-function themeForUseCase(useCaseKey: string) {
-  return (
-    USE_CASE_GROUPS.find((g) => g.key === useCaseKey)?.theme ?? OTHER_THEME
-  );
-}
-
-const USE_CASE_ORDER = [...USE_CASE_GROUPS.map((g) => g.key), 'other'];
 
 export function APIServicesTable() {
   const [allTools, setAllTools] = useState<ToolRow[]>([]);
@@ -291,7 +104,13 @@ export function APIServicesTable() {
       const raw = await res.json();
       const data: ToolsResponse = raw?.data ?? raw;
       const list = Array.isArray(data.tools) ? data.tools : [];
-      setAllTools(list.filter((t) => t.implemented === false));
+      // implemented:false + 排除第三方信源 tab 专属（industry-report 类）
+      setAllTools(
+        list.filter(
+          (t) =>
+            t.implemented === false && !EXCLUDED_FROM_GENERAL_TABS.has(t.toolId)
+        )
+      );
     } catch (e) {
       setError((e as Error).message);
       logger.error('[APIServicesTable] load failed', e);
@@ -304,10 +123,13 @@ export function APIServicesTable() {
     void load();
   }, [load]);
 
+  const classifyTool = (t: ToolRow): string =>
+    classifyToolId(t.toolId, t.category);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return allTools.filter((t) => {
-      if (useCaseFilter && classifyUseCase(t) !== useCaseFilter) return false;
+      if (useCaseFilter && classifyTool(t) !== useCaseFilter) return false;
       if (enabledFilter && String(t.enabled) !== enabledFilter) return false;
       if (q) {
         const hit =
@@ -324,10 +146,10 @@ export function APIServicesTable() {
   const grouped = useMemo(() => {
     const map = new Map<string, ToolRow[]>();
     for (const t of filtered) {
-      const useCase = classifyUseCase(t);
-      const arr = map.get(useCase) ?? [];
+      const cat = classifyTool(t);
+      const arr = map.get(cat) ?? [];
       arr.push(t);
-      map.set(useCase, arr);
+      map.set(cat, arr);
     }
     for (const arr of map.values()) {
       arr.sort((a, b) =>
@@ -335,8 +157,8 @@ export function APIServicesTable() {
       );
     }
     const orderIndex = (k: string) => {
-      const idx = USE_CASE_ORDER.indexOf(k);
-      return idx === -1 ? USE_CASE_ORDER.length : idx;
+      const idx = CATEGORY_ORDER_KEYS.indexOf(k);
+      return idx === -1 ? CATEGORY_ORDER_KEYS.length : idx;
     };
     return Array.from(map.entries()).sort(([a], [b]) => {
       const ai = orderIndex(a);
@@ -427,12 +249,11 @@ export function APIServicesTable() {
           className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
           <option value="">全部用途</option>
-          {USE_CASE_GROUPS.map((g) => (
-            <option key={g.key} value={g.key}>
-              {g.label}
+          {CATEGORY_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
             </option>
           ))}
-          <option value="other">{OTHER_LABEL}</option>
         </select>
         <select
           value={enabledFilter}
@@ -471,24 +292,24 @@ export function APIServicesTable() {
             暂无 API 服务工具
           </div>
         ) : (
-          grouped.map(([useCase, tools]) => {
-            const theme = themeForUseCase(useCase);
+          grouped.map(([catId, tools]) => {
+            const cat = getCategoryById(catId);
             return (
               <div
-                key={useCase}
-                className={`overflow-hidden rounded-lg border ${theme.border} bg-white`}
+                key={catId}
+                className={`overflow-hidden rounded-lg border ${cat.theme.border} bg-white`}
               >
                 <div
-                  className={`flex items-center justify-between ${theme.headerBg} px-4 py-2`}
+                  className={`flex items-center justify-between ${cat.theme.headerBg} px-4 py-2`}
                 >
                   <h3
-                    className={`text-xs font-semibold uppercase tracking-wider ${theme.headerText}`}
+                    className={`text-xs font-semibold uppercase tracking-wider ${cat.theme.headerText}`}
                   >
-                    {labelForUseCase(useCase)}
+                    {cat.label}
                   </h3>
                   <div className="flex items-center gap-2 text-xs">
                     <span
-                      className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${theme.badge}`}
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${cat.theme.badge}`}
                     >
                       {tools.length} 个
                     </span>
@@ -697,7 +518,8 @@ function APIServiceDrawer({
     }
   };
 
-  const useCaseKey = classifyUseCase(tool);
+  const categoryId = classifyToolId(tool.toolId, tool.category);
+  const category = getCategoryById(categoryId);
 
   return (
     <DrawerShell
@@ -711,7 +533,7 @@ function APIServiceDrawer({
             label="toolId"
             value={<code className="font-mono text-xs">{tool.toolId}</code>}
           />
-          <Row label="用途" value={labelForUseCase(useCaseKey)} />
+          <Row label="用途" value={category.label} />
           <Row label="原始分类" value={tool.category} />
           <Row
             label="状态"
