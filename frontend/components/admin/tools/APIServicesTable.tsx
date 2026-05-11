@@ -1,18 +1,26 @@
 'use client';
 
 /**
- * BuiltinToolsTable —— 工具管理 Tab 1: 内置工具
+ * APIServicesTable —— 工具管理 Tab 2: API 服务工具
  *
- * 2026-05-11 W3r2: 只展示 implemented:true 工具（Registry 实现），按 category
- *   分组排序。第三方 API 服务（implemented:false，如 firecrawl / jina /
- *   elevenlabs）独立到 API 服务工具 tab。industry-report 独立到 第三方工具
- *   tab（抓取源）。
+ * 2026-05-11 W3r2: 独立 tab，按用途分类展示 implemented:false 的 DB-only
+ *   工具配置（API key 持有者）。如：
+ *     - 网页搜索: perplexity / tavily / serper / duckduckgo / brave-search
+ *     - 学术搜索: semantic-scholar / pubmed / openalex / arxiv
+ *     - 内容抓取: jina / firecrawl / tavily-extract
+ *     - 政策研究: federal-register / congress-gov / whitehouse-news
+ *     - 视频字幕: supadata
+ *     - TTS: elevenlabs / google-tts
+ *     - 金融数据: alpha-vantage / 天气: openweathermap
+ *     - 图片搜索: serpapi / bing-image-search / google-image-search
+ *     - 开发工具: github / 技能市场: skillsmp
  *
+ * 数据：GET /admin/ai/tools 过滤 implemented:false
+ * 分组：将 backend category 字符串映射到 USE_CASE_LABELS
  * 操作：
  *   - 启用 toggle: PATCH /admin/ai/tools/:toolId { enabled }
  *   - 测试: POST /admin/ai/tools/:toolId/test
- *   - 配置 API Key（在抽屉内编辑）: PATCH { config: { apiKey } } 或
- *     PATCH { secretKey } (Secret Manager 引用)
+ *   - 配置 API Key（抽屉内）: PATCH { config: { apiKey } } 或 { secretKey }
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -49,38 +57,95 @@ interface ToolRow {
 
 interface ToolsResponse {
   tools: ToolRow[];
-  stats: {
-    total: number;
-    enabled: number;
-    implemented: number;
-    external: number;
-    byCategory: Record<string, number>;
-  };
 }
 
-// industry-report 是抓取源专用工具，不在 builtin tab 展示（独立于 third-party tab）
-const EXCLUDED_TOOL_IDS = new Set(['industry-report']);
-
-// category 显示顺序（其余按字母序）
-const CATEGORY_ORDER = [
-  'web-search',
-  'web-extraction',
-  'youtube-transcript',
-  'tts',
-  'image-search',
-  'academic-research',
-  'finance-data',
-  'weather-data',
-  'devtools',
-  'policy-research',
-  'skills-marketplace',
+// 用途分组（按业务语义而非 backend category 字符串）。每个 useCase 一组
+// backend category（含 prefix "external-"），未匹配到的归为"其他"。顺序即展示顺序。
+const USE_CASE_GROUPS: Array<{
+  key: string;
+  label: string;
+  categories: string[];
+}> = [
+  {
+    key: 'web-search',
+    label: '网页搜索',
+    categories: ['external-search', 'search'],
+  },
+  {
+    key: 'academic',
+    label: '学术搜索',
+    categories: ['external-academic', 'academic'],
+  },
+  {
+    key: 'extraction',
+    label: '内容抓取',
+    categories: ['external-extraction', 'extraction'],
+  },
+  {
+    key: 'policy',
+    label: '政策研究',
+    categories: ['policy-research', 'policy'],
+  },
+  {
+    key: 'youtube',
+    label: '视频字幕',
+    categories: ['external-youtube', 'youtube'],
+  },
+  {
+    key: 'tts',
+    label: '语音合成',
+    categories: ['external-tts', 'tts'],
+  },
+  {
+    key: 'image-search',
+    label: '图片搜索',
+    categories: ['external-image-search', 'image-search'],
+  },
+  {
+    key: 'finance',
+    label: '金融数据',
+    categories: ['external-finance', 'finance'],
+  },
+  {
+    key: 'weather',
+    label: '天气数据',
+    categories: ['external-weather', 'weather'],
+  },
+  {
+    key: 'devtools',
+    label: '开发工具',
+    categories: ['external-devtools', 'devtools'],
+  },
+  {
+    key: 'skills',
+    label: '技能市场',
+    categories: ['external-skills', 'skills'],
+  },
 ];
 
-export function BuiltinToolsTable() {
+const OTHER_LABEL = '其他';
+
+function classifyUseCase(category: string): string {
+  for (const g of USE_CASE_GROUPS) {
+    if (g.categories.includes(category)) return g.key;
+  }
+  return 'other';
+}
+
+function labelForUseCase(useCaseKey: string): string {
+  return (
+    USE_CASE_GROUPS.find((g) => g.key === useCaseKey)?.label ?? OTHER_LABEL
+  );
+}
+
+const USE_CASE_ORDER = [...USE_CASE_GROUPS.map((g) => g.key), 'other'];
+
+export function APIServicesTable() {
   const [allTools, setAllTools] = useState<ToolRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [useCaseFilter, setUseCaseFilter] = useState<string>('');
   const [enabledFilter, setEnabledFilter] = useState<'' | 'true' | 'false'>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -100,15 +165,10 @@ export function BuiltinToolsTable() {
       const raw = await res.json();
       const data: ToolsResponse = raw?.data ?? raw;
       const list = Array.isArray(data.tools) ? data.tools : [];
-      // implemented:true 才显示在内置工具 tab；implemented:false 在 API 服务工具 tab
-      setAllTools(
-        list.filter(
-          (t) => t.implemented === true && !EXCLUDED_TOOL_IDS.has(t.toolId)
-        )
-      );
+      setAllTools(list.filter((t) => t.implemented === false));
     } catch (e) {
       setError((e as Error).message);
-      logger.error('[BuiltinToolsTable] load failed', e);
+      logger.error('[APIServicesTable] load failed', e);
     } finally {
       setLoading(false);
     }
@@ -121,36 +181,37 @@ export function BuiltinToolsTable() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return allTools.filter((t) => {
+      if (useCaseFilter && classifyUseCase(t.category) !== useCaseFilter)
+        return false;
       if (enabledFilter && String(t.enabled) !== enabledFilter) return false;
       if (q) {
         const hit =
           t.toolId.toLowerCase().includes(q) ||
           t.name.toLowerCase().includes(q) ||
           (t.displayName ?? '').toLowerCase().includes(q) ||
-          (t.description ?? '').toLowerCase().includes(q) ||
-          t.tags.some((tag) => tag.toLowerCase().includes(q));
+          (t.description ?? '').toLowerCase().includes(q);
         if (!hit) return false;
       }
       return true;
     });
-  }, [allTools, search, enabledFilter]);
+  }, [allTools, search, useCaseFilter, enabledFilter]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, ToolRow[]>();
     for (const t of filtered) {
-      const cat = t.category || 'other';
-      const arr = map.get(cat) ?? [];
+      const useCase = classifyUseCase(t.category);
+      const arr = map.get(useCase) ?? [];
       arr.push(t);
-      map.set(cat, arr);
+      map.set(useCase, arr);
     }
     for (const arr of map.values()) {
       arr.sort((a, b) =>
         (a.displayName || a.name).localeCompare(b.displayName || b.name)
       );
     }
-    const orderIndex = (cat: string) => {
-      const idx = CATEGORY_ORDER.indexOf(cat);
-      return idx === -1 ? CATEGORY_ORDER.length : idx;
+    const orderIndex = (k: string) => {
+      const idx = USE_CASE_ORDER.indexOf(k);
+      return idx === -1 ? USE_CASE_ORDER.length : idx;
     };
     return Array.from(map.entries()).sort(([a], [b]) => {
       const ai = orderIndex(a);
@@ -182,7 +243,7 @@ export function BuiltinToolsTable() {
         prev.map((t) => (t.toolId === toolId ? { ...t, enabled: next } : t))
       );
     } catch (e) {
-      logger.error('[BuiltinToolsTable] toggle failed', e);
+      logger.error('[APIServicesTable] toggle failed', e);
       setError((e as Error).message);
     } finally {
       setTogglingId(null);
@@ -228,10 +289,23 @@ export function BuiltinToolsTable() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索 toolId / name / tags..."
+            placeholder="搜索 toolId / name..."
             className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
+        <select
+          value={useCaseFilter}
+          onChange={(e) => setUseCaseFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="">全部用途</option>
+          {USE_CASE_GROUPS.map((g) => (
+            <option key={g.key} value={g.key}>
+              {g.label}
+            </option>
+          ))}
+          <option value="other">{OTHER_LABEL}</option>
+        </select>
         <select
           value={enabledFilter}
           onChange={(e) =>
@@ -253,7 +327,7 @@ export function BuiltinToolsTable() {
           刷新
         </button>
         <span className="text-xs text-gray-500">
-          {filtered.length} / {allTools.length} 个工具 · {grouped.length} 类
+          {filtered.length} / {allTools.length} 个 · {grouped.length} 类
         </span>
       </div>
 
@@ -266,21 +340,22 @@ export function BuiltinToolsTable() {
       <div className="space-y-4">
         {grouped.length === 0 && !loading ? (
           <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-sm text-gray-500">
-            暂无内置工具
+            暂无 API 服务工具
           </div>
         ) : (
-          grouped.map(([category, tools]) => (
+          grouped.map(([useCase, tools]) => (
             <div
-              key={category}
+              key={useCase}
               className="overflow-hidden rounded-lg border border-gray-200 bg-white"
             >
               <div className="flex items-center justify-between bg-gray-50 px-4 py-2">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-700">
-                  {category}
+                  {labelForUseCase(useCase)}
                 </h3>
                 <span className="text-xs text-gray-500">
-                  {tools.length} 个 · {tools.filter((t) => t.enabled).length}{' '}
-                  已启用
+                  {tools.length} 个 ·{' '}
+                  {tools.filter((t) => hasConfiguredKey(t)).length} 已配置 ·{' '}
+                  {tools.filter((t) => t.enabled).length} 已启用
                 </span>
               </div>
               <table className="min-w-full divide-y divide-gray-200">
@@ -288,6 +363,7 @@ export function BuiltinToolsTable() {
                   <tr>
                     <Th>名称</Th>
                     <Th>toolId</Th>
+                    <Th>原始分类</Th>
                     <Th>密钥</Th>
                     <Th>启用</Th>
                     <Th className="text-right">测试</Th>
@@ -304,16 +380,22 @@ export function BuiltinToolsTable() {
                         className="cursor-pointer hover:bg-gray-50"
                       >
                         <td
-                          className="max-w-[280px] truncate whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-900"
+                          className="max-w-[260px] truncate whitespace-nowrap px-4 py-2.5 text-sm font-medium text-gray-900"
                           title={t.displayName || t.name}
                         >
                           {t.displayName || t.name}
                         </td>
                         <td
-                          className="font-mono max-w-[200px] truncate whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
+                          className="font-mono max-w-[180px] truncate whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
                           title={t.toolId}
                         >
                           {t.toolId}
+                        </td>
+                        <td
+                          className="font-mono max-w-[160px] truncate whitespace-nowrap px-4 py-2.5 text-[11px] text-gray-500"
+                          title={t.category}
+                        >
+                          {t.category || '—'}
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-xs">
                           {configured ? (
@@ -397,7 +479,7 @@ export function BuiltinToolsTable() {
       </div>
 
       {selectedId && (
-        <BuiltinToolDrawer
+        <APIServiceDrawer
           toolId={selectedId}
           tools={allTools}
           onClose={() => setSelectedId(null)}
@@ -408,7 +490,7 @@ export function BuiltinToolsTable() {
   );
 }
 
-function BuiltinToolDrawer({
+function APIServiceDrawer({
   toolId,
   tools,
   onClose,
@@ -468,11 +550,13 @@ function BuiltinToolDrawer({
       await onReload();
     } catch (e) {
       setSaveMessage(`保存失败：${(e as Error).message}`);
-      logger.error('[BuiltinToolDrawer] save failed', e);
+      logger.error('[APIServiceDrawer] save failed', e);
     } finally {
       setSaving(false);
     }
   };
+
+  const useCaseKey = classifyUseCase(tool.category);
 
   return (
     <DrawerShell
@@ -486,21 +570,8 @@ function BuiltinToolDrawer({
             label="toolId"
             value={<code className="font-mono text-xs">{tool.toolId}</code>}
           />
-          <Row label="分类" value={tool.category} />
-          <Row
-            label="实现"
-            value={
-              tool.implemented ? (
-                <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                  Registry
-                </span>
-              ) : (
-                <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                  DB-only 配置
-                </span>
-              )
-            }
-          />
+          <Row label="用途" value={labelForUseCase(useCaseKey)} />
+          <Row label="原始分类" value={tool.category} />
           <Row
             label="状态"
             value={
@@ -619,38 +690,10 @@ function BuiltinToolDrawer({
           </div>
         </Section>
 
-        <Section title="权限">
-          <Row label="需要认证" value={tool.requiresAuth ? '是' : '否'} />
-          <Row
-            label="允许角色"
-            value={
-              tool.allowedRoles.length === 0
-                ? '所有用户'
-                : tool.allowedRoles.join(', ')
-            }
-          />
-        </Section>
-
         {tool.config && Object.keys(tool.config).length > 0 && (
           <Section title="原始配置">
             <pre className="max-h-[240px] overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs leading-relaxed text-gray-700">
               {JSON.stringify(maskSecrets(tool.config), null, 2)}
-            </pre>
-          </Section>
-        )}
-
-        {tool.inputSchema != null && (
-          <Section title="输入 Schema">
-            <pre className="max-h-[200px] overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs leading-relaxed text-gray-700">
-              {JSON.stringify(tool.inputSchema, null, 2)}
-            </pre>
-          </Section>
-        )}
-
-        {tool.outputSchema != null && (
-          <Section title="输出 Schema">
-            <pre className="max-h-[200px] overflow-y-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs leading-relaxed text-gray-700">
-              {JSON.stringify(tool.outputSchema, null, 2)}
             </pre>
           </Section>
         )}
