@@ -10,6 +10,7 @@ import { AIAdminController } from "./ai/ai-admin.controller";
 import { AiProvidersAdminController } from "./providers/ai-providers-admin.controller";
 import { ApiFormatsAdminController } from "./providers/api-formats-admin.controller";
 import { ModelTypesAdminController } from "./providers/model-types-admin.controller";
+import { ProviderDiscoveryController } from "./providers/provider-discovery.controller";
 import { AIAdminService } from "./ai/ai-admin.service";
 import { LogsAdminController } from "./logs/logs-admin.controller";
 import { PermissionsAdminController } from "./permissions/permissions-admin.controller";
@@ -79,6 +80,7 @@ import {
     AiProvidersAdminController, // /admin/ai-providers/* PR-1 数据驱动 provider catalog
     ApiFormatsAdminController, // /admin/api-formats/* 2026-05-11 P3 ApiFormat CRUD
     ModelTypesAdminController, // /admin/model-types/* 2026-05-11 P3 ModelType CRUD
+    ProviderDiscoveryController, // /admin/ai-models/discover 2026-05-11 P5 一键探测
     ...(process.env.NODE_ENV === "production"
       ? []
       : [HarnessInspectorController]), // /harness/inspector/* routes (PR-X17: migrated from ai-harness/agents/dev-tools)
