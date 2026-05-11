@@ -15,6 +15,8 @@ import { randomUUID } from "crypto";
 import type { ModelElectionService } from "../../../ai-engine/llm/selection";
 import type { MissionElectionTracker } from "../../../ai-engine/llm/selection/mission-election-tracker.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
+import { KernelContext } from "../../../../common/context/kernel-context";
+import { AIModelType } from "@prisma/client";
 import type {
   IAgent,
   IAgentLoop,
@@ -109,6 +111,32 @@ export class AgentFactory {
     this.electionTracker = tracker;
   }
 
+  async electPreferredModel(args: {
+    roleId: string;
+    taskProfile?: IAgentSpec["taskProfile"];
+    userId?: string;
+    envSnapshot?: EnvironmentSnapshot;
+  }): Promise<string | undefined> {
+    if (!this.electionService) return undefined;
+
+    const candidates = this.buildElectionCandidates(args.envSnapshot);
+    const missionId = KernelContext.get()?.missionId;
+    const previouslyElected = this.electionTracker?.getElected(missionId) ?? [];
+    const role = this.resolveElectionRoleHint(args.roleId);
+
+    const result = await this.electionService.elect({
+      modelType: AIModelType.CHAT,
+      candidates,
+      taskProfile: args.taskProfile,
+      role,
+      userId: args.userId,
+      previouslyElected,
+    });
+
+    this.electionTracker?.recordElection(missionId, result.elected.modelId);
+    return result.elected.modelId;
+  }
+
   /**
    * ★ 目标架构 v2：从声明式 IAgentSpec 创建 SpecBasedAgent。
    * Spec 必须包含 outputSchema 或 stubFn 之一（否则使用 createAgent 走 ReActLoop）。
@@ -151,7 +179,7 @@ export class AgentFactory {
     this.subagentSpawner = spawner;
   }
 
-  create(spec: IAgentSpec): IAgent {
+  create(spec: IAgentSpec, preferredModelId?: string): IAgent {
     const identity =
       spec.identity instanceof AgentIdentity
         ? spec.identity
@@ -275,6 +303,7 @@ export class AgentFactory {
       agentRegistry: this.agentRegistry,
       // 透传 spec.taskProfile —— Loop 内 chat() 用 agent 真实意图
       taskProfile: spec.taskProfile,
+      preferredModelId,
       // ★ 内容驱动退出闸 validator
       outputSchemaValidator,
       validateBusinessRules: validateBusinessRulesWrapper,
@@ -336,6 +365,39 @@ export class AgentFactory {
         sessionId: checkpoint.sessionId,
       },
       checkpoint.envelope,
+    );
+  }
+
+  private resolveElectionRoleHint(
+    roleId: string,
+  ): "leader" | "writer" | "reviewer" | "extractor" | "classifier" | "default" {
+    const lc = roleId.toLowerCase();
+    if (/leader|planner|dispatch|adjust/.test(lc)) return "leader";
+    if (/writer|section|synthes|editor|report/.test(lc)) return "writer";
+    if (/review|evaluat|check|verif|repair|critic/.test(lc)) return "reviewer";
+    if (/extract|miner|meta|research/.test(lc)) return "extractor";
+    if (/classif|intent/.test(lc)) return "classifier";
+    return "default";
+  }
+
+  private buildElectionCandidates(envSnapshot?: EnvironmentSnapshot): Array<{
+    modelId: string;
+    provider: string;
+    modelType: "CHAT" | "REASONING" | "EMBEDDING" | "VISION";
+    healthy: "healthy" | "unhealthy" | "unknown";
+    recentErrorRate?: number;
+    costTier: "basic" | "standard" | "strong" | "unknown";
+  }> {
+    if (!envSnapshot) return [];
+    return [...envSnapshot.models.CHAT, ...envSnapshot.models.REASONING].map(
+      (model) => ({
+        modelId: model.modelId,
+        provider: model.provider,
+        modelType: model.modelType,
+        healthy: model.healthy,
+        recentErrorRate: model.recentErrorRate,
+        costTier: model.costTier,
+      }),
     );
   }
 }

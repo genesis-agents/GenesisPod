@@ -143,6 +143,7 @@ export interface RunOptions {
   readonly userId?: string;
   readonly workspaceId?: string;
   readonly environment?: IRuntimeEnvironment;
+  readonly preferredModelId?: string;
   readonly exposeCatalog?: boolean;
   readonly onMissingByok?: "fail" | "warn" | "allow";
   readonly onEvent?: (ev: IAgentEvent) => void | Promise<void>;
@@ -313,6 +314,7 @@ export class AgentRunner {
       recall.recalledIds,
       recall.effectivePreferIds,
     );
+    const preferredModelId = await this.resolvePreferredModel(meta, opts);
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
@@ -325,6 +327,7 @@ export class AgentRunner {
       opts.workspaceId,
       opts.environment,
       opts.loopOverride,
+      preferredModelId,
     );
 
     // ── 自动包 BillingContext（如果 userId 已知）──
@@ -531,6 +534,7 @@ export class AgentRunner {
       recall.recalledIds,
       recall.effectivePreferIds,
     );
+    const preferredModelId = await this.resolvePreferredModel(meta, opts);
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
@@ -543,6 +547,7 @@ export class AgentRunner {
       opts.workspaceId,
       opts.environment,
       opts.loopOverride,
+      preferredModelId,
     );
 
     const inputForExec: Record<string, unknown> | string = parsedInput as
@@ -1313,6 +1318,7 @@ export class AgentRunner {
     runtimeEnv?: IRuntimeEnvironment,
     /** ★ Phase P1-3: loop 覆盖（thorough+ 档位切 reflexion） */
     loopOverride?: import("../abstractions").AgentLoopKind,
+    preferredModelId?: string,
   ): {
     agent: IAgent;
     instance: AgentSpec<z.ZodType, z.ZodType>;
@@ -1411,8 +1417,28 @@ export class AgentRunner {
       runtimeEnv,
     };
 
-    const agent = this.factory.create(agentSpec);
+    const agent = this.factory.create(agentSpec, preferredModelId);
     return { agent, instance, parsedInput };
+  }
+
+  private async resolvePreferredModel(
+    meta: DefineAgentOptions,
+    opts: RunOptions,
+  ): Promise<string | undefined> {
+    if (opts.preferredModelId) return opts.preferredModelId;
+    const envSnapshot = await opts.environment?.getEnvironmentSnapshot?.();
+    if (typeof this.factory.electPreferredModel !== "function") {
+      return undefined;
+    }
+    return this.factory.electPreferredModel({
+      roleId:
+        typeof meta.identity.role === "string"
+          ? meta.identity.role
+          : meta.identity.role.id,
+      taskProfile: meta.taskProfile,
+      userId: opts.userId,
+      envSnapshot,
+    });
   }
 
   private buildIdentity(

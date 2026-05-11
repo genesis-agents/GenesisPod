@@ -136,16 +136,16 @@ export default function WikiReaderPane({
   const effectiveActiveSlug = activeSlug ?? pickFirstSlug(pages);
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-50/50 px-6 py-6">
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="flex h-full min-h-0 bg-gray-50/50 px-6 py-6">
+      <div className="grid min-h-0 w-full gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="flex min-h-0 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
               <FolderTree className="h-4 w-4 text-gray-500" />
               Browse pages
             </div>
           </div>
-          <div className="max-h-[calc(100vh-22rem)] overflow-y-auto px-4 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             {CATEGORY_ORDER.map((category) =>
               grouped[category].length > 0 ? (
                 <section key={category} className="mb-5 last:mb-0">
@@ -178,7 +178,7 @@ export default function WikiReaderPane({
           </div>
         </aside>
 
-        <main className="min-w-0">
+        <main className="min-h-0 min-w-0 overflow-y-auto pr-1">
           {activeLoading ? (
             <div className="flex h-72 items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm">
               <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />

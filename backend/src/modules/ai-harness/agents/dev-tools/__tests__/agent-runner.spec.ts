@@ -138,6 +138,34 @@ describe("AgentRunner + @DefineAgent (PR-H)", () => {
         { modelId: "claude-3", available: true },
         { modelId: "broken", available: false },
       ] as IModelAvailability[]),
+      getEnvironmentSnapshot: jest.fn().mockResolvedValue({
+        generatedAt: new Date().toISOString(),
+        userId: "u1",
+        models: {
+          CHAT: [
+            {
+              modelId: "gpt-4o",
+              provider: "openai",
+              modelType: "CHAT",
+              contextWindow: 128000,
+              costTier: "strong",
+              healthy: "healthy",
+            },
+          ],
+          REASONING: [],
+          EMBEDDING: [],
+          VISION: [],
+        },
+        agents: [],
+        tools: [],
+        skills: [],
+        userKeys: {
+          hasByok: true,
+          byokProviders: ["openai"],
+          sharedKeyAvailable: false,
+        },
+        externalDeps: {},
+      }),
       getQuotaSnapshot: jest.fn().mockResolvedValue({}),
       suggestFallback: jest.fn(),
       ...overrides,
@@ -195,6 +223,24 @@ describe("AgentRunner + @DefineAgent (PR-H)", () => {
     // unhealthy model 不应出现在 sample 列表
     expect(sp).not.toContain("broken");
     createSpy.mockRestore();
+  });
+
+  it("passes elected preferred model into factory.create for ReAct agents", async () => {
+    const factory = new AgentFactory();
+    const electSpy = jest
+      .spyOn(factory, "electPreferredModel")
+      .mockResolvedValue("gpt-4o");
+    const createSpy = jest.spyOn(factory, "create");
+    const runner = new AgentRunner(factory);
+
+    await runner.run(
+      TopicExtractorAgent,
+      { topic: "x" },
+      { userId: "u1", environment: buildEnv() },
+    );
+
+    expect(electSpy).toHaveBeenCalled();
+    expect(createSpy.mock.calls[0][1]).toBe("gpt-4o");
   });
 
   it("catalog block injected with declared tools + skills (when registries injected)", async () => {

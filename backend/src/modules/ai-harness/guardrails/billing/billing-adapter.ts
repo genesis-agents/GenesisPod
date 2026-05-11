@@ -20,6 +20,7 @@ import type {
 } from "../../agents/abstractions";
 import type { CreditsService } from "../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "../../../ai-harness/guardrails/runtime/runtime-environment.service";
+import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
 
 const LOW_BALANCE_THRESHOLD = 500;
 const CRITICAL_BALANCE_THRESHOLD = 100;
@@ -175,6 +176,10 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
       }
     }
     return all;
+  }
+
+  async getEnvironmentSnapshot(): Promise<EnvironmentSnapshot> {
+    return this.runtimeEnv.snapshot({ userId: this.userId });
   }
 
   /**

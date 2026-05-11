@@ -155,6 +155,32 @@ describe("ReActLoop (Phase 2)", () => {
     expect(output).toBeDefined();
   });
 
+  it("honors preferredModelId when provided by the caller", async () => {
+    const chat = mkChat([
+      JSON.stringify({
+        thinking: "done",
+        action: { kind: "finalize", output: "ok" },
+      }),
+    ]);
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    await drain(
+      loop.run(makeEnvelope(), criteria, {
+        agentId: "a1",
+        preferredModelId: "preferred-model",
+      }),
+    );
+
+    expect(chat.chat).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "preferred-model" }),
+    );
+  });
+
   it("returns tool error as recoverable; loop continues to next iteration", async () => {
     const chat = mkChat([
       JSON.stringify({

@@ -191,6 +191,7 @@ export class AskRoomRuntimeService {
       turnId,
       mode,
       members,
+      participants,
       userMessage,
       modeOptions,
       emitContext,
@@ -224,7 +225,7 @@ export class AskRoomRuntimeService {
       turnId,
       sequenceNum: seqStart + 1,
       mode,
-      participantIds: input.participants.map((m) => m.id),
+      participantIds: participants.map((m) => m.id),
     });
 
     const adapter = this.resolveAdapter(mode);
@@ -271,6 +272,7 @@ export class AskRoomRuntimeService {
         where: { id: sessionId },
       }),
       members,
+      participants,
       triggerMessage: userMessage,
       history,
       turn,
@@ -394,6 +396,9 @@ export class AskRoomRuntimeService {
       }
       const leader = enabled.find((m) => m.role === "LEADER") ?? enabled[0];
       return leader ? [leader] : [];
+    }
+    if (mode === AskRoomMode.DEBATE && mentionedIds.length > 0) {
+      return enabled.filter((m) => mentionedIds.includes(m.id));
     }
     return enabled;
   }

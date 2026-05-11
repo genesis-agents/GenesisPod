@@ -64,7 +64,9 @@ export class DebateAdapter implements IModeAdapter {
     ctx: ModeContext,
     onEvent: (e: AskRoomServerEvent) => void,
   ): Promise<ModeResult> {
-    const enabled = ctx.members.filter((m) => m.enabled && !m.deletedAt);
+    const enabled = (ctx.participants ?? ctx.members).filter(
+      (m) => m.enabled && !m.deletedAt,
+    );
     const roles = this.assignRoles(enabled);
     if (!roles) {
       this.logger.warn(

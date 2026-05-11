@@ -277,6 +277,8 @@ export class ReActLoop implements IAgentLoop {
       spawner?: ISubagentSpawner;
       /** Spec 声明的 TaskProfile —— reason() 内 chat() 用 agent 真实意图 */
       taskProfile?: import("../../../ai-engine/llm/types/task-profile.types").TaskProfile;
+      /** 上层已完成环境感知选举时，强制本次 agent 运行使用该模型 */
+      preferredModelId?: string;
       /**
        * ★ 内容驱动的退出闸：finalize 时框架先用 outputSchema 校验，
        * 失败则注入 critique reminder 让 LLM 直接补缺（continue loop）。
@@ -564,11 +566,12 @@ export class ReActLoop implements IAgentLoop {
         };
         try {
           let tierModelId =
-            budget && this.pricingRegistry
+            options?.preferredModelId ??
+            (budget && this.pricingRegistry
               ? this.pricingRegistry.pickModelForTier(
                   budget.snapshot().currentTier,
                 )
-              : null;
+              : null);
           // PR-J: 环境感知 model 可用性
           if (tierModelId && currentEnvelope.runtimeEnv) {
             const avail = await currentEnvelope.runtimeEnv

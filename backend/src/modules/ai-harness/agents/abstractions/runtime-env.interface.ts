@@ -1,3 +1,5 @@
+import type { EnvironmentSnapshot } from "../../guardrails/runtime/runtime-environment.types";
+
 /**
  * IRuntimeEnvironment — Agent 执行时的"外部世界"快照
  *
@@ -93,6 +95,8 @@ export interface IRuntimeEnvironment {
   /** Model 可用性 —— 单查或全查 */
   getModelAvailability(modelId: string): Promise<IModelAvailability>;
   listAvailableModels(): Promise<readonly IModelAvailability[]>;
+  /** 可选：返回完整环境快照，供上层做环境感知模型选举 */
+  getEnvironmentSnapshot?(): Promise<EnvironmentSnapshot>;
 
   /** Quota 快照 —— UI 展示用 + Agent 决策用 */
   getQuotaSnapshot(): Promise<IQuotaSnapshot>;

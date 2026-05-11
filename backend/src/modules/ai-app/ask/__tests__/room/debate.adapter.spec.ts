@@ -36,6 +36,7 @@ const mkMember = (overrides: Partial<AskRoomMember> = {}): AskRoomMember => ({
 const mkContext = (
   members: AskRoomMember[],
   roomConfig: Record<string, unknown> = {},
+  participants?: AskRoomMember[],
 ): ModeContext => ({
   session: {
     id: "s-1",
@@ -50,6 +51,7 @@ const mkContext = (
     roomConfig,
   } as AskSession,
   members,
+  participants,
   triggerMessage: {
     id: "msg-user-1",
     sessionId: "s-1",
@@ -197,6 +199,33 @@ describe("DebateAdapter", () => {
     expect(result.metadata.red).toBe("a");
     expect(result.metadata.blue).toBe("b");
     expect(result.metadata.judge).toBe("leader");
+  });
+
+  it("uses runtime-selected participants when mentions narrowed the debate roster", async () => {
+    const leader = mkMember({
+      id: "leader",
+      role: AskRoomMemberRole.LEADER,
+      displayName: "Leader",
+    });
+    const alpha = mkMember({ id: "alpha", order: 0, displayName: "Alpha" });
+    const beta = mkMember({ id: "beta", order: 1, displayName: "Beta" });
+    const gamma = mkMember({ id: "gamma", order: 2, displayName: "Gamma" });
+    const delta = mkMember({ id: "delta", order: 3, displayName: "Delta" });
+
+    const result = await adapter.execute(
+      mkContext([leader, alpha, beta, gamma, delta], { debateRounds: 1 }, [
+        alpha,
+        gamma,
+      ]),
+      () => {},
+    );
+
+    expect(result.metadata.red).toBe("alpha");
+    expect(result.metadata.blue).toBe("gamma");
+    expect(result.metadata.enableJudge).toBe(false);
+    expect(
+      new Set(result.messages.map((message) => message.senderMemberId)),
+    ).toEqual(new Set(["alpha", "gamma"]));
   });
 
   it("propagates abort signal into chat (cancels mid-debate)", async () => {

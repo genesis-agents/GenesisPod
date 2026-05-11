@@ -20,6 +20,8 @@ import type { AskRoomServerEvent } from "../gateway/ask-room-events.types";
 export interface ModeContext {
   session: AskSession;
   members: AskRoomMember[];
+  /** runtime 已解析出的本轮实际参与成员（优先于全量 members） */
+  participants?: AskRoomMember[];
   triggerMessage: AskMessage;
   history: AskMessage[];
   turn: AskRoomTurn;
