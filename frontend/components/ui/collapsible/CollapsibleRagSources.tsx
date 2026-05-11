@@ -121,13 +121,14 @@ export function CollapsibleRagSources({
         </svg>
       </button>
 
-      {/* 折叠内容 */}
+      {/* 折叠内容 — 外壳保持 max-h 动画做开合过渡，内层加自身 max-h + overflow-y-auto
+         让来源很多 / wiki 摘录很长时不会被裁切而无法滚动（Screenshot_5 反馈）。 */}
       <div
         className={`overflow-hidden transition-all duration-200 ease-in-out ${
-          isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+          isExpanded ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="space-y-2 px-3 pb-3">
+        <div className="max-h-[70vh] space-y-2 overflow-y-auto px-3 pb-3">
           {displaySources.map((source, idx) => {
             const isWiki = isWikiSource(source);
             const href = isWiki ? wikiHref(source) : null;
