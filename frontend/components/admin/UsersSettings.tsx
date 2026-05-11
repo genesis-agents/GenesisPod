@@ -4,35 +4,32 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Users,
   UserPlus,
-  Shield,
   Trash2,
-  Edit,
   Search,
   Coins,
-  Lock,
-  Unlock,
-  Plus,
-  X,
   History,
   Monitor,
   Globe,
   Calendar,
-  UserCheck,
   UserCog,
   TrendingUp,
   ChevronLeft,
   ChevronRight,
-  KeyRound,
+  Inbox,
 } from 'lucide-react';
-import { CreditCard } from 'lucide-react';
-import { GrantKeyModal } from '@/components/admin/byok/GrantKeyModal';
 import {
   AdminModal,
-  AdminDrawer,
   AdminStatsCards,
-  AdminStatusBadge,
   type AdminStatCard,
 } from '@/components/admin/shared';
+import {
+  UserDetailDrawer,
+  UserRoleDrawer,
+  UserCreditsDrawer,
+  UserModelsDrawer,
+  UserBillingDrawer,
+  PendingApprovalDrawer,
+} from './users';
 import {
   useAdminUsers,
   useUserStats,
@@ -40,19 +37,22 @@ import {
   type CreateUserData,
   type LoginHistoryItem,
 } from '@/hooks/domain';
+import { useAdminKeyRequests } from '@/hooks/features/useByokAdmin';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, ErrorState, useConfirm } from '@/components/ui';
 import ClientDate from '@/components/common/ClientDate';
 
-// Export components for use in page layout
+// ─── Page-level action buttons (used by page.tsx via AdminPageLayout.actions) ─
+
 export function UsersAddButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onClick}
       className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
     >
       <UserPlus className="h-5 w-5" />
-      Add User
+      {t('admin.users.addUser')}
     </button>
   );
 }
@@ -64,15 +64,16 @@ export function UsersSearchBar({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="relative">
       <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
       <input
         type="text"
-        placeholder="Search users by name or email..."
+        placeholder={t('admin.users.searchPlaceholder')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+        className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-12 pr-4 text-sm outline-none transition-all focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
       />
     </div>
   );
@@ -84,7 +85,8 @@ interface UsersSettingsProps {
   setShowAddModal: (show: boolean) => void;
 }
 
-// Add User Modal - Form order: Email, Password, Role
+// ─── AddUserModal (Drawer 化暂不做，保持 Modal) ────────────────────────────────
+
 function AddUserModal({
   isOpen,
   onClose,
@@ -96,6 +98,7 @@ function AddUserModal({
   onCreate: (data: CreateUserData) => Promise<void>;
   isLoading: boolean;
 }) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<CreateUserData>({
     email: '',
     password: '',
@@ -113,7 +116,7 @@ function AddUserModal({
     <AdminModal
       open={isOpen}
       onClose={onClose}
-      title="Add New User"
+      title={t('admin.users.addUserModal.title')}
       size="md"
       footer={
         <>
@@ -121,14 +124,16 @@ function AddUserModal({
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
             disabled={!formData.email || !formData.password || isLoading}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isLoading ? 'Creating...' : 'Create User'}
+            {isLoading
+              ? t('admin.users.addUserModal.creating')
+              : t('admin.users.addUserModal.create')}
           </button>
         </>
       }
@@ -136,7 +141,8 @@ function AddUserModal({
       <div className="space-y-4">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Email <span className="text-red-500">*</span>
+            {t('admin.users.addUserModal.email')}{' '}
+            <span className="text-red-500">*</span>
           </label>
           <input
             type="email"
@@ -150,7 +156,8 @@ function AddUserModal({
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Password <span className="text-red-500">*</span>
+            {t('admin.users.addUserModal.password')}{' '}
+            <span className="text-red-500">*</span>
           </label>
           <input
             type="password"
@@ -158,13 +165,13 @@ function AddUserModal({
             onChange={(e) =>
               setFormData({ ...formData, password: e.target.value })
             }
-            placeholder="Enter password"
+            placeholder={t('admin.users.addUserModal.passwordPlaceholder')}
             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Role
+            {t('admin.users.addUserModal.role')}
           </label>
           <select
             value={formData.role}
@@ -176,8 +183,8 @@ function AddUserModal({
             }
             className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            <option value="USER">User</option>
-            <option value="ADMIN">Admin</option>
+            <option value="USER">{t('admin.users.role.user')}</option>
+            <option value="ADMIN">{t('admin.users.role.admin')}</option>
           </select>
         </div>
       </div>
@@ -185,7 +192,8 @@ function AddUserModal({
   );
 }
 
-// Login History Modal
+// ─── LoginHistoryModal (保留作为表格列 [查看历史] 触发) ─────────────────────────
+
 function LoginHistoryModal({
   isOpen,
   onClose,
@@ -213,7 +221,7 @@ function LoginHistoryModal({
           onClick={onClose}
           className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
         >
-          Close
+          {t('common.close')}
         </button>
       }
     >
@@ -240,7 +248,8 @@ function LoginHistoryModal({
                   </div>
                   <div>
                     <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                      {item.device || 'Unknown Device'}
+                      {item.device ||
+                        t('admin.users.loginHistory.unknownDevice')}
                       {item.browser && (
                         <span className="text-gray-500">- {item.browser}</span>
                       )}
@@ -270,211 +279,8 @@ function LoginHistoryModal({
   );
 }
 
-// Edit User Modal
-function EditUserModal({
-  isOpen,
-  onClose,
-  onSave,
-  user,
-  isLoading,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (id: string, data: Partial<User>) => Promise<void>;
-  user: User | null;
-  isLoading: boolean;
-}) {
-  const [formData, setFormData] = useState({
-    username: '',
-    role: 'USER' as 'USER' | 'ADMIN' | 'user' | 'admin',
-    status: 'active' as 'active' | 'inactive' | 'banned',
-  });
+// ─── UserStatsCards (复用 AdminStatsCards) ────────────────────────────────────
 
-  // Reset form when user changes
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        username: user.username || '',
-        role: user.role,
-        status: user.status,
-      });
-    }
-  }, [user]);
-
-  const handleSubmit = async () => {
-    if (!user) return;
-    await onSave(user.id, formData);
-    onClose();
-  };
-
-  return (
-    <AdminDrawer
-      open={isOpen && !!user}
-      onClose={onClose}
-      title="Edit User"
-      description={user?.email}
-      size="md"
-      footer={
-        <>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isLoading ? 'Saving...' : 'Save Changes'}
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            type="email"
-            value={user?.email ?? ''}
-            disabled
-            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-500"
-          />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">
-            Username
-          </label>
-          <input
-            type="text"
-            value={formData.username}
-            onChange={(e) =>
-              setFormData({ ...formData, username: e.target.value })
-            }
-            placeholder="johndoe"
-            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Role
-            </label>
-            <select
-              value={formData.role}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  role: e.target.value as 'USER' | 'ADMIN',
-                })
-              }
-              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="USER">User</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  status: e.target.value as 'active' | 'inactive' | 'banned',
-                })
-              }
-              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="banned">Banned</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </AdminDrawer>
-  );
-}
-
-// Grant Credits Modal
-function GrantCreditsModal({
-  isOpen,
-  onClose,
-  onGrant,
-  userName,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onGrant: (amount: number, reason: string) => void;
-  userName: string;
-}) {
-  const [amount, setAmount] = useState('100');
-  const [reason, setReason] = useState('');
-
-  return (
-    <AdminModal
-      open={isOpen}
-      onClose={onClose}
-      title="Grant Credits"
-      description={userName}
-      size="sm"
-      footer={
-        <>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              onGrant(parseInt(amount) || 0, reason);
-              onClose();
-            }}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Grant Credits
-          </button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            Amount
-          </label>
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            min="1"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            Reason (optional)
-          </label>
-          <input
-            type="text"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="e.g., Welcome bonus, Promotion reward"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          />
-        </div>
-      </div>
-    </AdminModal>
-  );
-}
-
-// Statistics Cards Component
 function UserStatsCards() {
   const { t } = useTranslation();
   const { stats, loading } = useUserStats();
@@ -511,174 +317,7 @@ function UserStatsCards() {
   return <AdminStatsCards cards={cards} loading={loading} className="mb-6" />;
 }
 
-// Wave 4 精化 (2026-05-11): 行内 [积分] 按钮触发，合并 余额展示 + 发放 + 冻结
-function UserCreditsDrawer({
-  user,
-  onClose,
-  onGrant,
-  onToggleFreeze,
-  isLoading,
-}: {
-  user: User | null;
-  onClose: () => void;
-  onGrant: (amount: number, reason: string) => Promise<void>;
-  onToggleFreeze: (userId: string, currentlyFrozen: boolean) => void;
-  isLoading: boolean;
-}) {
-  const [amount, setAmount] = useState('100');
-  const [reason, setReason] = useState('');
-
-  if (!user) {
-    return null;
-  }
-
-  const balance = user.credits?.balance ?? 0;
-  const isFrozen = user.credits?.isFrozen ?? false;
-
-  return (
-    <AdminDrawer
-      open={!!user}
-      onClose={onClose}
-      title="积分管理"
-      description={user.email ?? user.username ?? user.id}
-      size="md"
-    >
-      <div className="space-y-6">
-        {/* 当前余额卡 */}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-sm text-gray-500">当前余额</div>
-              <div className="mt-1 flex items-center gap-2 text-2xl font-bold text-gray-900">
-                <Coins className="h-6 w-6 text-amber-500" />
-                {balance.toLocaleString()}
-              </div>
-            </div>
-            {isFrozen && <AdminStatusBadge status="error" label="已冻结" dot />}
-          </div>
-        </div>
-
-        {/* 发放积分 */}
-        <div>
-          <h3 className="mb-3 text-sm font-medium text-gray-900">发放积分</h3>
-          <div className="space-y-3">
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="数量"
-              min="1"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="原因（可选，例：欢迎奖励）"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              onClick={async () => {
-                const n = parseInt(amount, 10) || 0;
-                if (n <= 0) return;
-                await onGrant(n, reason);
-                setAmount('100');
-                setReason('');
-              }}
-              disabled={isLoading}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isLoading ? '处理中...' : '发放积分'}
-            </button>
-          </div>
-        </div>
-
-        {/* 账户状态切换 */}
-        <div>
-          <h3 className="mb-3 text-sm font-medium text-gray-900">账户状态</h3>
-          <button
-            onClick={() => onToggleFreeze(user.id, isFrozen)}
-            disabled={isLoading}
-            className={`flex w-full items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
-              isFrozen
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-            } disabled:opacity-50`}
-          >
-            {isFrozen ? (
-              <>
-                <Unlock className="h-4 w-4" /> 解冻账户
-              </>
-            ) : (
-              <>
-                <Lock className="h-4 w-4" /> 冻结账户
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </AdminDrawer>
-  );
-}
-
-// Wave 4 精化: 行内 [计费] 按钮触发的账单 Drawer（骨架）
-function UserBillingDrawer({
-  user,
-  onClose,
-}: {
-  user: User | null;
-  onClose: () => void;
-}) {
-  if (!user) {
-    return null;
-  }
-  const balance = user.credits?.balance ?? 0;
-  const totalEarned = user.credits?.totalEarned ?? 0;
-  const totalSpent = user.credits?.totalSpent ?? 0;
-
-  return (
-    <AdminDrawer
-      open={!!user}
-      onClose={onClose}
-      title="计费"
-      description={user.email ?? user.username ?? user.id}
-      size="md"
-    >
-      <div className="space-y-6">
-        {/* 账单汇总 */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-gray-200 bg-white p-3">
-            <div className="text-xs text-gray-500">余额</div>
-            <div className="mt-1 text-lg font-bold text-blue-700">
-              {balance.toLocaleString()}
-            </div>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-3">
-            <div className="text-xs text-gray-500">累计获得</div>
-            <div className="mt-1 text-lg font-bold text-emerald-700">
-              {totalEarned.toLocaleString()}
-            </div>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-3">
-            <div className="text-xs text-gray-500">累计消耗</div>
-            <div className="mt-1 text-lg font-bold text-amber-700">
-              {totalSpent.toLocaleString()}
-            </div>
-          </div>
-        </div>
-
-        {/* Placeholder 提示 */}
-        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center">
-          <CreditCard className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-sm text-gray-600">订阅与详细账单</p>
-          <p className="mt-1 text-xs text-gray-400">
-            后端 ?scope=self stats API 完成后接入
-          </p>
-        </div>
-      </div>
-    </AdminDrawer>
-  );
-}
+// ─── Main UsersSettings ───────────────────────────────────────────────────────
 
 export default function UsersSettings({
   searchQuery,
@@ -708,24 +347,23 @@ export default function UsersSettings({
     prevPage,
   } = useAdminUsers();
 
-  const [grantModalUser, setGrantModalUser] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-
-  // PR-D 2026-05-08: 模型权益授权 Modal（截图红框位置 ACTIONS 列 🔑 按钮）
-  const [grantKeyUser, setGrantKeyUser] = useState<{
-    id: string;
-    label: string;
-  } | null>(null);
-
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-
-  // Wave 4 精化: 行内 [积分][计费] Drawer state
+  // 行内 5 Drawer state
+  const [detailUser, setDetailUser] = useState<User | null>(null);
+  const [roleUser, setRoleUser] = useState<User | null>(null);
   const [creditsUser, setCreditsUser] = useState<User | null>(null);
+  const [modelsUser, setModelsUser] = useState<User | null>(null);
   const [billingUser, setBillingUser] = useState<User | null>(null);
 
-  // Login history state
+  // 顶部聚合 [待审批 N] Drawer
+  const [showPendingApproval, setShowPendingApproval] = useState(false);
+
+  // 待审批模型请求数 (顶部徽章用)
+  const { requests: pendingRequests } = useAdminKeyRequests({
+    status: 'PENDING',
+  });
+  const pendingCount = pendingRequests.length;
+
+  // Login history 表格列触发
   const [loginHistoryUser, setLoginHistoryUser] = useState<{
     id: string;
     name: string;
@@ -733,7 +371,6 @@ export default function UsersSettings({
   const [loginHistory, setLoginHistory] = useState<LoginHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Fetch login history when user is selected
   const handleViewLoginHistory = async (user: User) => {
     setLoginHistoryUser({
       id: user.id,
@@ -751,19 +388,17 @@ export default function UsersSettings({
   };
 
   const { confirm, dialog } = useConfirm({
-    title: 'Confirm Delete',
-    description:
-      'This action cannot be undone. Are you sure you want to delete this user?',
+    title: t('admin.users.deleteConfirm.title'),
+    description: t('admin.users.deleteConfirm.description'),
     type: 'danger',
-    confirmText: 'Delete',
+    confirmText: t('admin.users.deleteConfirm.confirm'),
   });
 
   const { confirm: confirmFreeze, dialog: freezeDialog } = useConfirm({
-    title: 'Confirm Freeze',
-    description:
-      "This will freeze the user's credit account. They will not be able to use credits.",
+    title: t('admin.users.freezeConfirm.title'),
+    description: t('admin.users.freezeConfirm.description'),
     type: 'warning',
-    confirmText: 'Freeze',
+    confirmText: t('admin.users.freezeConfirm.confirm'),
   });
 
   const filteredUsers = useMemo(
@@ -797,40 +432,16 @@ export default function UsersSettings({
     }
   };
 
-  const handleGrantCredits = async (amount: number, reason: string) => {
-    if (grantModalUser) {
-      await grantCredits(grantModalUser.id, amount, reason);
-    }
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    const normalizedRole = role?.toLowerCase();
-    switch (normalizedRole) {
-      case 'admin':
-        return 'bg-red-100 text-red-700';
-      case 'editor':
-        return 'bg-blue-100 text-blue-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const getStatusBadgeColor = (status: string) => {
-    return status === 'active'
-      ? 'bg-green-100 text-green-700'
-      : 'bg-gray-100 text-gray-500';
-  };
-
   if (loading) {
-    return <LoadingState text="Loading users..." />;
+    return <LoadingState text={t('admin.users.loading')} />;
   }
 
   if (error) {
     return (
       <ErrorState
-        error={error.message || 'Unknown error'}
+        error={error.message || t('admin.users.unknownError')}
         onRetry={refreshUsers}
-        title="Failed to load users"
+        title={t('admin.users.loadFailed')}
       />
     );
   }
@@ -839,13 +450,8 @@ export default function UsersSettings({
     <>
       {dialog}
       {freezeDialog}
-      <GrantCreditsModal
-        isOpen={!!grantModalUser}
-        onClose={() => setGrantModalUser(null)}
-        onGrant={handleGrantCredits}
-        userName={grantModalUser?.name || 'User'}
-      />
 
+      {/* 顶部 Modal/Drawer 挂载 */}
       <AddUserModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -854,25 +460,6 @@ export default function UsersSettings({
         }}
         isLoading={isCreating}
       />
-
-      <EditUserModal
-        isOpen={!!editingUser}
-        onClose={() => setEditingUser(null)}
-        onSave={async (id, data) => {
-          await updateUser(id, data);
-        }}
-        user={editingUser}
-        isLoading={isUpdating}
-      />
-
-      {/* PR-D 2026-05-08: 授权模型权益 Modal（行内 🔑 按钮触发） */}
-      {grantKeyUser && (
-        <GrantKeyModal
-          userId={grantKeyUser.id}
-          userLabel={grantKeyUser.label}
-          onClose={() => setGrantKeyUser(null)}
-        />
-      )}
 
       <LoginHistoryModal
         isOpen={!!loginHistoryUser}
@@ -885,26 +472,68 @@ export default function UsersSettings({
         isLoading={loadingHistory}
       />
 
-      {/* Wave 4 精化: 行内 [积分] Drawer */}
+      {/* 行内 5 Drawer */}
+      <UserDetailDrawer
+        user={detailUser}
+        onClose={() => setDetailUser(null)}
+        onSave={async (id, data) => {
+          await updateUser(id, data);
+        }}
+        isLoading={isUpdating}
+      />
+
+      <UserRoleDrawer
+        user={roleUser}
+        onClose={() => setRoleUser(null)}
+        onRoleChange={async (userId, newRole) => {
+          await updateUser(userId, { role: newRole });
+        }}
+        isLoading={isUpdating}
+      />
+
       <UserCreditsDrawer
         user={creditsUser}
         onClose={() => setCreditsUser(null)}
-        onGrant={async (amount, reason) => {
-          if (creditsUser) {
-            await grantCredits(creditsUser.id, amount, reason);
-          }
+        onGrant={async (userId, amount, reason) => {
+          await grantCredits(userId, amount, reason);
         }}
         onToggleFreeze={handleToggleFreeze}
         isLoading={isCreditsLoading}
       />
 
-      {/* Wave 4 精化: 行内 [计费] Drawer (骨架) */}
+      <UserModelsDrawer user={modelsUser} onClose={() => setModelsUser(null)} />
+
       <UserBillingDrawer
         user={billingUser}
         onClose={() => setBillingUser(null)}
       />
 
-      {/* Statistics Cards */}
+      {/* 顶部全局聚合 Drawer */}
+      <PendingApprovalDrawer
+        open={showPendingApproval}
+        onClose={() => setShowPendingApproval(false)}
+      />
+
+      {/* 顶部 [待审批] 徽章按钮 + Stats Cards */}
+      <div className="mb-4 flex items-center justify-end">
+        <button
+          onClick={() => setShowPendingApproval(true)}
+          className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+            pendingCount > 0
+              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+              : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          <Inbox className="h-4 w-4" />
+          {t('admin.users.pendingApproval.button')}
+          {pendingCount > 0 && (
+            <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
+              {pendingCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       <UserStatsCards />
 
       {/* Users Table */}
@@ -913,22 +542,22 @@ export default function UsersSettings({
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                User
+                {t('admin.users.table.user')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Role
+                {t('admin.users.table.role')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Status
+                {t('admin.users.table.status')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Credits
+                {t('admin.users.table.credits')}
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 {t('admin.users.loginHistory.title')}
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                Actions
+                {t('admin.users.table.actions')}
               </th>
             </tr>
           </thead>
@@ -940,7 +569,7 @@ export default function UsersSettings({
                   className="px-6 py-12 text-center text-gray-500"
                 >
                   <Users className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                  <p>No users found</p>
+                  <p>{t('admin.users.noUsersFound')}</p>
                 </td>
               </tr>
             ) : (
@@ -960,7 +589,7 @@ export default function UsersSettings({
                           {user.name ||
                             user.username ||
                             user.email ||
-                            'Unknown User'}
+                            t('admin.users.unknownUser')}
                         </div>
                         <div className="text-sm text-gray-500">
                           {user.email || '-'}
@@ -970,18 +599,24 @@ export default function UsersSettings({
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${getRoleBadgeColor(
-                        user.role
-                      )}`}
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
+                        (user.role || '').toLowerCase() === 'admin'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}
                     >
                       {user.role?.toLowerCase() || 'user'}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4">
                     <span
-                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${getStatusBadgeColor(
-                        user.status
-                      )}`}
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
+                        user.status === 'active'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : user.status === 'banned'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-gray-100 text-gray-500'
+                      }`}
                     >
                       {user.status || 'active'}
                     </span>
@@ -995,7 +630,9 @@ export default function UsersSettings({
                             {user.credits.balance.toLocaleString()}
                           </div>
                           {user.credits.isFrozen && (
-                            <span className="text-xs text-red-600">Frozen</span>
+                            <span className="text-xs text-red-600">
+                              {t('admin.users.credits.frozen')}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -1009,56 +646,45 @@ export default function UsersSettings({
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50"
                     >
                       <History className="h-4 w-4" />
-                      <span>View History</span>
+                      <span>{t('admin.users.viewHistory')}</span>
                     </button>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
                     {/*
-                      Wave 4 精化 (2026-05-11): 行内 5 图标 → 4 命名按钮 + Delete 兜底
-                      映射: [资料] = Edit, [权限] = 授权 API Key 模型权益,
-                            [积分] = 余额/发放/冻结合并 (UserCreditsDrawer),
-                            [计费] = 订阅与账单 (UserBillingDrawer)
+                      Wave 4 (2026-05-11): 行内 5 命名按钮 + Delete 兜底
+                      - 详情 = UserDetailDrawer (综合身份视图)
+                      - 角色 = UserRoleDrawer (USER↔ADMIN)
+                      - 积分 = UserCreditsDrawer (balance + grant + freeze + 交易)
+                      - 模型 = UserModelsDrawer (KeyAssignment + BYOK 请求)
+                      - 计费 = UserBillingDrawer (订阅 + 累计)
                     */}
                     <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => setEditingUser(user)}
-                        className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                      >
-                        资料
-                      </button>
-                      <button
-                        onClick={() =>
-                          setGrantKeyUser({
-                            id: user.id,
-                            label:
-                              user.email ||
-                              user.name ||
-                              user.username ||
-                              user.id,
-                          })
-                        }
-                        className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                      >
-                        权限
-                      </button>
-                      <button
+                      <RowButton
+                        onClick={() => setDetailUser(user)}
+                        label={t('admin.users.actions.detail')}
+                      />
+                      <RowButton
+                        onClick={() => setRoleUser(user)}
+                        label={t('admin.users.actions.role')}
+                      />
+                      <RowButton
                         onClick={() => setCreditsUser(user)}
                         disabled={isCreditsLoading}
-                        className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
-                      >
-                        积分
-                      </button>
-                      <button
+                        label={t('admin.users.actions.credits')}
+                      />
+                      <RowButton
+                        onClick={() => setModelsUser(user)}
+                        label={t('admin.users.actions.models')}
+                      />
+                      <RowButton
                         onClick={() => setBillingUser(user)}
-                        className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                      >
-                        计费
-                      </button>
+                        label={t('admin.users.actions.billing')}
+                      />
                       <button
                         onClick={() => handleDeleteUser(user.id)}
                         disabled={isDeleting}
                         className="ml-1 rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                        title="Delete"
+                        title={t('admin.users.actions.delete')}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -1126,40 +752,28 @@ export default function UsersSettings({
           </div>
         </div>
       )}
-
-      {/* Role Permissions Info */}
-      <div className="mt-6 rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-2">
-          <Shield className="h-5 w-5 text-blue-600" />
-          <h3 className="font-medium text-gray-900">Role Permissions</h3>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-lg bg-gray-50 p-4">
-            <h4 className="mb-2 font-medium text-red-700">Admin</h4>
-            <ul className="space-y-1 text-sm text-gray-600">
-              <li>Full system access</li>
-              <li>User management</li>
-              <li>System configuration</li>
-            </ul>
-          </div>
-          <div className="rounded-lg bg-gray-50 p-4">
-            <h4 className="mb-2 font-medium text-blue-700">Editor</h4>
-            <ul className="space-y-1 text-sm text-gray-600">
-              <li>Create/edit content</li>
-              <li>Manage resources</li>
-              <li>Run AI features</li>
-            </ul>
-          </div>
-          <div className="rounded-lg bg-gray-50 p-4">
-            <h4 className="mb-2 font-medium text-gray-700">Viewer</h4>
-            <ul className="space-y-1 text-sm text-gray-600">
-              <li>View content only</li>
-              <li>Read-only access</li>
-              <li>No modifications</li>
-            </ul>
-          </div>
-        </div>
-      </div>
     </>
+  );
+}
+
+// ─── Row action button (统一样式) ────────────────────────────────────────────
+
+function RowButton({
+  onClick,
+  label,
+  disabled,
+}: {
+  onClick: () => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
+    >
+      {label}
+    </button>
   );
 }

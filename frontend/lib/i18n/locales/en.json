@@ -3628,9 +3628,198 @@
         "newThisMonth": "New This Month",
         "adminCount": "Admins"
       },
+      "addUser": "Add User",
+      "searchPlaceholder": "Search users by name or email...",
+      "loading": "Loading users...",
+      "unknownError": "Unknown error",
+      "loadFailed": "Failed to load users",
+      "noUsersFound": "No users found",
+      "unknownUser": "Unknown User",
+      "viewHistory": "View History",
+      "addUserModal": {
+        "title": "Add New User",
+        "email": "Email",
+        "password": "Password",
+        "passwordPlaceholder": "Enter password",
+        "role": "Role",
+        "creating": "Creating...",
+        "create": "Create User"
+      },
+      "deleteConfirm": {
+        "title": "Confirm Delete",
+        "description": "This action cannot be undone. Are you sure you want to delete this user?",
+        "confirm": "Delete"
+      },
+      "freezeConfirm": {
+        "title": "Confirm Freeze",
+        "description": "This will freeze the user's credit account. They will not be able to use credits.",
+        "confirm": "Freeze"
+      },
+      "table": {
+        "user": "User",
+        "role": "Role",
+        "status": "Status",
+        "credits": "Credits",
+        "actions": "Actions"
+      },
+      "actions": {
+        "detail": "Detail",
+        "role": "Role",
+        "credits": "Credits",
+        "models": "Models",
+        "billing": "Billing",
+        "delete": "Delete"
+      },
+      "status": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "banned": "Banned"
+      },
+      "role": {
+        "title": "Role Management",
+        "currentRole": "Current Role",
+        "admin": "Administrator",
+        "adminDesc": "Access to all /admin/* backend pages",
+        "user": "Regular User",
+        "userDesc": "Standard user, no backend access",
+        "actions": "Role Actions",
+        "promoteAction": "Promote to Admin",
+        "demoteAction": "Revoke Admin",
+        "promoteSuccess": "Promoted to admin",
+        "demoteSuccess": "Admin revoked",
+        "changeFailed": "Role change failed",
+        "impactTitle": "Role Impact",
+        "impactAdmin1": "Can access all /admin/* pages",
+        "impactAdmin2": "Can perform user/credit/billing management",
+        "impactUser": "Standard front-end features only",
+        "relatedHint": "Model entitlements, credits, and billing are managed via the row-level [Models] / [Credits] / [Billing] buttons."
+      },
+      "detail": {
+        "title": "User Detail",
+        "saved": "Saved",
+        "saveFailed": "Save failed",
+        "neverLoggedIn": "Never logged in",
+        "sections": {
+          "basic": "Basic Info",
+          "statusRole": "Status & Role",
+          "metadata": "Metadata"
+        },
+        "fields": {
+          "email": "Email",
+          "username": "Username",
+          "name": "Full Name",
+          "namePlaceholder": "User's full name (optional)",
+          "role": "Role",
+          "status": "Status",
+          "createdAt": "Created At",
+          "lastLoginAt": "Last Login",
+          "userId": "User ID"
+        },
+        "hints": {
+          "roleManagedHint": "Use the [Role] button to change role or status.",
+          "extendedFields": "Additional fields (OAuth bindings, email verification, subscription tier, preferences) await backend list-response extension."
+        }
+      },
+      "credits": {
+        "title": "Credits Management",
+        "frozen": "Frozen",
+        "active": "Active",
+        "invalidAmount": "Please enter a valid credit amount",
+        "grantSuccess": "Granted {amount} credits",
+        "grantFailed": "Grant failed",
+        "stats": {
+          "balance": "Balance",
+          "earned": "Total Earned",
+          "spent": "Total Spent",
+          "status": "Status"
+        },
+        "grantSection": "Grant Credits",
+        "amountLabel": "Amount",
+        "reasonLabel": "Reason (optional)",
+        "reasonPlaceholder": "e.g. Welcome bonus / Promotion reward",
+        "grantAction": "Grant",
+        "statusSection": "Account Status",
+        "unfreezeAction": "Unfreeze Account",
+        "freezeAction": "Freeze Account",
+        "frozenHint": "Account is frozen — user cannot spend credits.",
+        "activeHint": "Account is active — user can spend credits normally.",
+        "transactionsSection": "Transactions",
+        "noTransactions": "No transactions yet"
+      },
+      "billing": {
+        "title": "Billing",
+        "stats": {
+          "balance": "Balance",
+          "earned": "Earned",
+          "spent": "Spent",
+          "net": "Net"
+        },
+        "subscriptionSection": "Subscription",
+        "tier": {
+          "free": "Free",
+          "paid": "Paid"
+        },
+        "expiresAt": "Expires:",
+        "noExpiry": "No expiration",
+        "subscriptionHint": "Tier upgrade/downgrade is performed via user self-service (/pricing). Admin UI is read-only for tier + expiry.",
+        "invoicesSection": "Invoices",
+        "invoicesUnavailable": "Invoice details not yet available",
+        "invoicesHint": "Full invoice view will be wired up after backend subscription module ships.",
+        "crossRefHint": "For credit transactions use the [Credits] drawer; for model quotas use the [Models] drawer."
+      },
+      "models": {
+        "title": "Model Entitlements",
+        "stats": {
+          "active": "Active",
+          "pending": "Pending",
+          "available": "Available",
+          "totalSpend": "Spent"
+        },
+        "grantSuccess": "Authorization granted",
+        "grantFailed": "Authorization failed",
+        "revokeConfirm": "Revoke this user's access to {model}?",
+        "revokeSuccess": "Authorization revoked",
+        "revokeFailed": "Revoke failed",
+        "revokeAction": "Revoke",
+        "approveSuccess": "Request approved and authorization granted",
+        "approveFailed": "Approval failed",
+        "approveNeedsProvider": "Request is missing provider info — cannot quick-approve",
+        "noEnabledModel": "No enabled model available for that provider",
+        "rejectReasonPrompt": "Enter rejection reason",
+        "rejectSuccess": "Request rejected",
+        "rejectFailed": "Rejection failed",
+        "approveAction": "Approve",
+        "rejectAction": "Reject",
+        "assignmentsSection": "Current Authorizations",
+        "grantAction": "Authorize New Model",
+        "selectModel": "Select Model",
+        "choose": "Choose...",
+        "quotaLabel": "User Quota (cents)",
+        "quotaPlaceholder": "Leave empty for no per-user cap (governed by credits)",
+        "confirmGrant": "Confirm Authorization",
+        "noAssignments": "No model authorizations yet",
+        "quotaUsed": "Used",
+        "requestsSection": "Pending Requests from this User",
+        "noPending": "No pending requests from this user",
+        "providerAny": "(no provider)"
+      },
+      "pendingApproval": {
+        "title": "Pending Model Requests",
+        "subtitle": "All BYOK model authorization requests awaiting approval",
+        "button": "Pending",
+        "empty": "No pending requests",
+        "emptyHint": "All BYOK model authorization requests have been processed.",
+        "stats": {
+          "total": "Total",
+          "uniqueUsers": "Unique Users",
+          "uniqueProviders": "Unique Providers",
+          "oldest": "Oldest"
+        }
+      },
       "loginHistory": {
         "title": "Login History",
         "noHistory": "No login history available",
+        "unknownDevice": "Unknown Device",
         "device": "Device",
         "browser": "Browser",
         "location": "Location",
@@ -4410,6 +4599,39 @@
       }
     },
     "secrets": {
+      "movedNotice": "Page Moved",
+      "title": "Secret Management",
+      "description": "Centralized management of all API keys — encrypted storage + access auditing + health tracking",
+      "addSecret": "Add Secret",
+      "noMatching": "No matching secrets found",
+      "empty": "No secrets yet, click \"Add Secret\" to create",
+      "table": {
+        "name": "Name",
+        "category": "Category",
+        "value": "Value",
+        "status": "Status",
+        "usage": "Usage",
+        "expires": "Expires",
+        "actions": "Actions"
+      },
+      "status": {
+        "ok": "Healthy",
+        "failed": "Failed",
+        "unknown": "Unknown",
+        "disabled": "Disabled",
+        "keys": "{active} active / {total} keys"
+      },
+      "usage": {
+        "hits": "hits",
+        "lastAt": "Last:",
+        "neverUsed": "Never used"
+      },
+      "expires": {
+        "noExpiry": "No expiry",
+        "expired": "Expired",
+        "expiringSoon": "Expires in {days}d",
+        "rotatedAt": "Rotated:"
+      },
       "categories": {
         "aiModel": "AI Model",
         "search": "Search Service",

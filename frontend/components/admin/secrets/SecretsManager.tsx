@@ -24,6 +24,10 @@ import { SecretAccessLogs } from './SecretAccessLogs';
 import { SecretVersions } from './SecretVersions';
 import { SecretValueModal } from './SecretValueModal';
 import { SecretKeysDrawer } from './SecretKeysDrawer';
+import { useTranslation } from '@/lib/i18n';
+import ClientDate from '@/components/common/ClientDate';
+import { AdminStatusBadge } from '@/components/admin/shared';
+import type { StatusType } from '@/lib/admin/styles';
 
 const CATEGORY_OPTIONS: {
   value: SecretCategory;
@@ -100,6 +104,7 @@ export function SecretsManager({
   showAddModal,
   setShowAddModal,
 }: SecretsManagerProps) {
+  const { t } = useTranslation();
   const {
     secrets,
     loading,
@@ -262,32 +267,35 @@ export function SecretsManager({
           <thead className="bg-gray-50 ">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
-                Name
+                {t('admin.secrets.table.name')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
-                Category
+                {t('admin.secrets.table.category')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
-                Value
+                {t('admin.secrets.table.value')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
-                Status
+                {t('admin.secrets.table.status')}
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
-                Access Count
+                {t('admin.secrets.table.usage')}
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
+                {t('admin.secrets.table.expires')}
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 ">
-                Actions
+                {t('admin.secrets.table.actions')}
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 ">
             {filteredSecrets.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                   {searchTerm || categoryFilter !== 'ALL'
-                    ? 'No matching secrets found'
-                    : '暂无密钥，点击"Add Secret"创建'}
+                    ? t('admin.secrets.noMatching')
+                    : t('admin.secrets.empty')}
                 </td>
               </tr>
             ) : (
@@ -334,18 +342,13 @@ export function SecretsManager({
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${
-                        secret.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {secret.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <SecretStatusCell secret={secret} t={t} />
                   </td>
-                  <td className="px-4 py-4 text-sm text-gray-500">
-                    {secret.accessCount}
+                  <td className="px-4 py-4">
+                    <SecretUsageCell secret={secret} t={t} />
+                  </td>
+                  <td className="px-4 py-4">
+                    <SecretExpiresCell secret={secret} t={t} />
                   </td>
                   <td className="px-4 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -436,6 +439,139 @@ export function SecretsManager({
         secret={keysDrawerSecret}
         onClose={() => setKeysDrawerSecret(null)}
       />
+    </div>
+  );
+}
+
+// ─── Wave 4 (2026-05-11): Status / Usage / Expires 单元格组件 ───────────────
+// 用 Secret schema 已有字段（aggregateStatus / activeKeys / totalKeys /
+// accessCount / lastAccessedAt / expiresAt / lastRotatedAt）做单 Key 命中 + 统计 + 状态
+
+function SecretStatusCell({
+  secret,
+  t,
+}: {
+  secret: Secret;
+  t: (k: string) => string;
+}) {
+  const aggregateStatus =
+    secret.aggregateStatus ?? (secret.isActive ? 'unknown' : 'disabled');
+
+  const statusMap: Record<string, { status: StatusType; label: string }> = {
+    ok: { status: 'active', label: t('admin.secrets.status.ok') },
+    failed: { status: 'error', label: t('admin.secrets.status.failed') },
+    unknown: { status: 'pending', label: t('admin.secrets.status.unknown') },
+    disabled: {
+      status: 'inactive',
+      label: t('admin.secrets.status.disabled'),
+    },
+  };
+  const m = statusMap[aggregateStatus] ?? statusMap.unknown;
+
+  const hasKeys =
+    typeof secret.activeKeys === 'number' &&
+    typeof secret.totalKeys === 'number';
+
+  return (
+    <div className="space-y-1">
+      <AdminStatusBadge status={m.status} label={m.label} dot />
+      {hasKeys && (
+        <div className="text-[10px] text-gray-400">
+          {t('admin.secrets.status.keys')
+            .replace('{active}', String(secret.activeKeys))
+            .replace('{total}', String(secret.totalKeys))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SecretUsageCell({
+  secret,
+  t,
+}: {
+  secret: Secret;
+  t: (k: string) => string;
+}) {
+  return (
+    <div className="space-y-0.5 text-sm">
+      <div className="font-mono font-medium text-gray-900">
+        {secret.accessCount.toLocaleString()}{' '}
+        <span className="text-xs font-normal text-gray-400">
+          {t('admin.secrets.usage.hits')}
+        </span>
+      </div>
+      {secret.lastAccessedAt ? (
+        <div className="text-[10px] text-gray-400">
+          {t('admin.secrets.usage.lastAt')}{' '}
+          <ClientDate date={secret.lastAccessedAt} format="datetime" />
+        </div>
+      ) : (
+        <div className="text-[10px] text-gray-300">
+          {t('admin.secrets.usage.neverUsed')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SecretExpiresCell({
+  secret,
+  t,
+}: {
+  secret: Secret;
+  t: (k: string) => string;
+}) {
+  if (!secret.expiresAt && !secret.lastRotatedAt) {
+    return (
+      <span className="text-xs text-gray-400">
+        {t('admin.secrets.expires.noExpiry')}
+      </span>
+    );
+  }
+  const expiresAtMs = secret.expiresAt
+    ? new Date(secret.expiresAt).getTime()
+    : null;
+  const nowMs = Date.now();
+  const daysLeft =
+    expiresAtMs !== null
+      ? Math.floor((expiresAtMs - nowMs) / (1000 * 60 * 60 * 24))
+      : null;
+
+  let warningLabel = '';
+  let warningTone: StatusType | null = null;
+  if (daysLeft !== null) {
+    if (daysLeft < 0) {
+      warningLabel = t('admin.secrets.expires.expired');
+      warningTone = 'error';
+    } else if (daysLeft <= 7) {
+      warningLabel = t('admin.secrets.expires.expiringSoon').replace(
+        '{days}',
+        String(daysLeft)
+      );
+      warningTone = 'pending';
+    }
+  }
+
+  return (
+    <div className="space-y-0.5 text-xs">
+      {secret.expiresAt && (
+        <div>
+          {warningTone ? (
+            <AdminStatusBadge status={warningTone} label={warningLabel} dot />
+          ) : (
+            <span className="text-gray-600">
+              <ClientDate date={secret.expiresAt} format="date" />
+            </span>
+          )}
+        </div>
+      )}
+      {secret.lastRotatedAt && (
+        <div className="text-[10px] text-gray-400">
+          {t('admin.secrets.expires.rotatedAt')}{' '}
+          <ClientDate date={secret.lastRotatedAt} format="date" />
+        </div>
+      )}
     </div>
   );
 }

@@ -3628,9 +3628,198 @@
         "newThisMonth": "本月新增",
         "adminCount": "管理员数"
       },
+      "addUser": "添加用户",
+      "searchPlaceholder": "按名称或邮箱搜索用户...",
+      "loading": "加载用户中...",
+      "unknownError": "未知错误",
+      "loadFailed": "加载用户失败",
+      "noUsersFound": "未找到用户",
+      "unknownUser": "未知用户",
+      "viewHistory": "查看历史",
+      "addUserModal": {
+        "title": "添加新用户",
+        "email": "邮箱",
+        "password": "密码",
+        "passwordPlaceholder": "输入密码",
+        "role": "角色",
+        "creating": "创建中...",
+        "create": "创建用户"
+      },
+      "deleteConfirm": {
+        "title": "确认删除",
+        "description": "此操作无法撤销。确定要删除该用户吗？",
+        "confirm": "删除"
+      },
+      "freezeConfirm": {
+        "title": "确认冻结",
+        "description": "冻结后该用户的积分账户将无法使用积分。",
+        "confirm": "冻结"
+      },
+      "table": {
+        "user": "用户",
+        "role": "角色",
+        "status": "状态",
+        "credits": "积分",
+        "actions": "操作"
+      },
+      "actions": {
+        "detail": "详情",
+        "role": "角色",
+        "credits": "积分",
+        "models": "模型",
+        "billing": "计费",
+        "delete": "删除"
+      },
+      "status": {
+        "active": "已激活",
+        "inactive": "未激活",
+        "banned": "已封禁"
+      },
+      "role": {
+        "title": "角色管理",
+        "currentRole": "当前角色",
+        "admin": "管理员",
+        "adminDesc": "可访问 /admin/* 全部后台管理页面",
+        "user": "普通用户",
+        "userDesc": "标准用户，无后台访问权限",
+        "actions": "角色操作",
+        "promoteAction": "提升为管理员",
+        "demoteAction": "撤销管理员权限",
+        "promoteSuccess": "已提升为管理员",
+        "demoteSuccess": "已撤销管理员权限",
+        "changeFailed": "角色变更失败",
+        "impactTitle": "角色权限影响",
+        "impactAdmin1": "可访问 /admin/* 后台所有页面",
+        "impactAdmin2": "可执行用户/积分/计费等管理操作",
+        "impactUser": "仅可访问前台业务功能",
+        "relatedHint": "模型权益、积分、计费等通过用户行内的对应 [模型] / [积分] / [计费] 按钮管理。"
+      },
+      "detail": {
+        "title": "用户详情",
+        "saved": "已保存",
+        "saveFailed": "保存失败",
+        "neverLoggedIn": "从未登录",
+        "sections": {
+          "basic": "基本信息",
+          "statusRole": "状态与角色",
+          "metadata": "元数据"
+        },
+        "fields": {
+          "email": "邮箱",
+          "username": "用户名",
+          "name": "全名",
+          "namePlaceholder": "用户的全名（可选）",
+          "role": "角色",
+          "status": "状态",
+          "createdAt": "注册时间",
+          "lastLoginAt": "最后登录",
+          "userId": "用户 ID"
+        },
+        "hints": {
+          "roleManagedHint": "角色与状态变更请使用 [角色] 按钮操作。",
+          "extendedFields": "更多字段（OAuth 绑定、邮箱验证、订阅档位、个人偏好等）等待后端 list response 扩展支持。"
+        }
+      },
+      "credits": {
+        "title": "积分管理",
+        "frozen": "已冻结",
+        "active": "正常",
+        "invalidAmount": "请输入有效的积分数量",
+        "grantSuccess": "已发放 {amount} 积分",
+        "grantFailed": "发放积分失败",
+        "stats": {
+          "balance": "当前余额",
+          "earned": "累计获得",
+          "spent": "累计消耗",
+          "status": "状态"
+        },
+        "grantSection": "发放积分",
+        "amountLabel": "数量",
+        "reasonLabel": "原因（可选）",
+        "reasonPlaceholder": "例：欢迎奖励 / 活动补偿",
+        "grantAction": "发放",
+        "statusSection": "账户状态",
+        "unfreezeAction": "解冻账户",
+        "freezeAction": "冻结账户",
+        "frozenHint": "账户已冻结，用户无法消耗积分。",
+        "activeHint": "账户正常，用户可正常消耗积分。",
+        "transactionsSection": "交易记录",
+        "noTransactions": "暂无交易记录"
+      },
+      "billing": {
+        "title": "计费",
+        "stats": {
+          "balance": "当前余额",
+          "earned": "累计获得",
+          "spent": "累计消耗",
+          "net": "净额"
+        },
+        "subscriptionSection": "订阅档位",
+        "tier": {
+          "free": "免费",
+          "paid": "付费"
+        },
+        "expiresAt": "到期时间:",
+        "noExpiry": "无到期限制",
+        "subscriptionHint": "订阅升降级操作由用户自助完成（前台 /pricing），管理后台仅展示当前档位与到期日。",
+        "invoicesSection": "账单流水",
+        "invoicesUnavailable": "账单详情暂未提供",
+        "invoicesHint": "完整账单视图待后端订阅模块上线后接入。",
+        "crossRefHint": "查看用户的积分流水请使用 [积分] 抽屉，模型授权配额请使用 [模型] 抽屉。"
+      },
+      "models": {
+        "title": "模型授权",
+        "stats": {
+          "active": "已授权",
+          "pending": "待审批",
+          "available": "可授权",
+          "totalSpend": "已消费"
+        },
+        "grantSuccess": "授权成功",
+        "grantFailed": "授权失败",
+        "revokeConfirm": "确定撤销该用户对 {model} 的授权？",
+        "revokeSuccess": "授权已撤销",
+        "revokeFailed": "撤销失败",
+        "revokeAction": "撤销",
+        "approveSuccess": "申请已批准并完成授权",
+        "approveFailed": "批准失败",
+        "approveNeedsProvider": "申请缺少 provider 信息，无法快速批准",
+        "noEnabledModel": "该 provider 下没有可用的已启用模型",
+        "rejectReasonPrompt": "请输入拒绝原因",
+        "rejectSuccess": "申请已拒绝",
+        "rejectFailed": "拒绝失败",
+        "approveAction": "批准",
+        "rejectAction": "拒绝",
+        "assignmentsSection": "当前授权",
+        "grantAction": "授权新模型",
+        "selectModel": "选择模型",
+        "choose": "请选择...",
+        "quotaLabel": "用户配额（美分）",
+        "quotaPlaceholder": "留空表示无单独配额（受积分总账控制）",
+        "confirmGrant": "确认授权",
+        "noAssignments": "该用户暂无任何模型授权",
+        "quotaUsed": "已用",
+        "requestsSection": "该用户的待审批申请",
+        "noPending": "该用户暂无待审批申请",
+        "providerAny": "(未指定 provider)"
+      },
+      "pendingApproval": {
+        "title": "待审批模型请求",
+        "subtitle": "所有 PENDING 状态的 BYOK 模型授权申请汇总",
+        "button": "待审批",
+        "empty": "暂无待审批请求",
+        "emptyHint": "所有 BYOK 模型授权申请均已处理。",
+        "stats": {
+          "total": "总数",
+          "uniqueUsers": "申请用户",
+          "uniqueProviders": "涉及 Provider",
+          "oldest": "最早等待"
+        }
+      },
       "loginHistory": {
         "title": "登录历史",
         "noHistory": "暂无登录记录",
+        "unknownDevice": "未知设备",
         "device": "设备",
         "browser": "浏览器",
         "location": "位置",
@@ -4410,6 +4599,39 @@
       }
     },
     "secrets": {
+      "movedNotice": "页面已迁移",
+      "title": "密钥管理",
+      "description": "所有 API 密钥的集中管理 — 加密存储 + 访问审计 + 健康追踪",
+      "addSecret": "添加密钥",
+      "noMatching": "没有匹配的密钥",
+      "empty": "暂无密钥，点击\"添加密钥\"创建",
+      "table": {
+        "name": "名称",
+        "category": "类别",
+        "value": "值",
+        "status": "状态",
+        "usage": "使用",
+        "expires": "过期",
+        "actions": "操作"
+      },
+      "status": {
+        "ok": "正常",
+        "failed": "失败",
+        "unknown": "未知",
+        "disabled": "已禁用",
+        "keys": "活跃 {active} / 共 {total} 个 Key"
+      },
+      "usage": {
+        "hits": "次调用",
+        "lastAt": "最近:",
+        "neverUsed": "尚未使用"
+      },
+      "expires": {
+        "noExpiry": "无过期",
+        "expired": "已过期",
+        "expiringSoon": "{days} 天内过期",
+        "rotatedAt": "最后轮转:"
+      },
       "categories": {
         "aiModel": "AI 模型",
         "search": "搜索服务",
