@@ -1,11 +1,23 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Bot, Eye, EyeOff } from 'lucide-react';
+import {
+  Bot,
+  Eye,
+  EyeOff,
+  Search,
+  RefreshCw,
+  Loader2,
+  Zap,
+  Star,
+  Pencil,
+  Trash2,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
-import { QuotaDashboard } from '../quota';
 
 import { logger } from '@/lib/utils/logger';
 import { ClientDate } from '@/components/common/ClientDate';
@@ -1036,36 +1048,25 @@ export default function AIModelSettings({
         </div>
       )}
 
-      {/* Search and Filter */}
-      <div className="flex gap-4">
+      {/* 2026-05-11 UI 重构：手写 inline SVG → Lucide Search/RefreshCw（项目规范：
+          禁止 emoji + 用 Lucide 图标）；删除 dark: 变体（项目 light-only） */}
+      <div className="flex gap-3">
         <div className="relative flex-1">
-          <svg
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search 模型名称、Model ID、Provider..."
+            placeholder="搜索模型名称、Model ID、Provider..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 "
+            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
         <select
           value={providerFilter}
           onChange={(e) => setProviderFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 "
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         >
-          <option value="all">All Providers ({models.length})</option>
+          <option value="all">全部 Provider ({models.length})</option>
           {providerOptions.map(({ provider, count }) => (
             <option key={provider} value={provider}>
               {provider} ({count})
@@ -1074,54 +1075,43 @@ export default function AIModelSettings({
         </select>
         <button
           onClick={() => fetchModels()}
-          className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-100 "
-          title="Refresh"
+          className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-600 transition-colors hover:bg-gray-50"
+          title="刷新"
+          type="button"
         >
-          <svg
-            className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
       {/* Models Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white ">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="w-full">
-          <thead className="bg-gray-50 ">
+          <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Model ID
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Type
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 API Key
               </th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 ">
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Capabilities
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 ">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 ">
+          <tbody className="divide-y divide-gray-200">
             {filteredModels.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
@@ -1170,7 +1160,7 @@ export default function AIModelSettings({
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900 ">
+                          <span className="font-medium text-gray-900">
                             {model.displayName}
                           </span>
                           {model.isDefault && (
@@ -1184,16 +1174,19 @@ export default function AIModelSettings({
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-500 ">
+                        <div className="text-sm text-gray-500">
                           {model.provider}
                         </div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Model ID */}
+                  {/* Model ID — long IDs truncate + title tooltip on hover */}
                   <td className="px-4 py-4">
-                    <code className="font-mono rounded bg-gray-100 px-2 py-1 text-xs ">
+                    <code
+                      className="font-mono inline-block max-w-[200px] truncate rounded bg-gray-100 px-2 py-1 align-middle text-xs"
+                      title={model.modelId}
+                    >
                       {model.modelId}
                     </code>
                   </td>
@@ -1226,15 +1219,23 @@ export default function AIModelSettings({
                     </div>
                   </td>
 
-                  {/* API Key Status */}
-                  <td className="px-4 py-4">
+                  {/* API Key Status — Lucide 图标替代 ✓/✗ 字符 */}
+                  <td className="whitespace-nowrap px-4 py-4">
                     <span
-                      className={`text-sm font-medium ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
+                      className={`inline-flex items-center gap-1 text-sm font-medium ${model.hasApiKey ? 'text-green-600' : 'text-red-500'}`}
                     >
-                      {model.hasApiKey ? '✓ Configured' : '✗ Missing'}
+                      {model.hasApiKey ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                      {model.hasApiKey ? '已配置' : '未配置'}
                     </span>
                     {model.secretKey && (
-                      <div className="mt-0.5 text-xs text-gray-400">
+                      <div
+                        className="mt-0.5 max-w-[160px] truncate text-xs text-gray-400"
+                        title={model.secretKey}
+                      >
                         via {model.secretKey}
                       </div>
                     )}
@@ -1310,113 +1311,48 @@ export default function AIModelSettings({
                   </td>
 
                   {/* Actions */}
-                  <td className="px-4 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {/* Test */}
+                  <td className="whitespace-nowrap px-4 py-4 text-right">
+                    {/* 2026-05-11: 4 个 inline SVG → Lucide（Zap/Star/Pencil/Trash2 + Loader2） */}
+                    <div className="inline-flex items-center justify-end gap-1">
                       <button
+                        type="button"
                         onClick={() => handleTestConnection(model)}
                         disabled={testingModel === model.id || !model.isEnabled}
-                        className="rounded p-1.5 text-green-600 hover:bg-green-100 disabled:opacity-50 "
-                        title="Test Connection"
+                        className="rounded p-1.5 text-green-600 hover:bg-green-50 disabled:opacity-40"
+                        title="测试连接"
                       >
                         {testingModel === model.id ? (
-                          <svg
-                            className="h-4 w-4 animate-spin"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                          >
-                            <circle
-                              className="opacity-25"
-                              cx="12"
-                              cy="12"
-                              r="10"
-                              stroke="currentColor"
-                              strokeWidth="4"
-                            />
-                            <path
-                              className="opacity-75"
-                              fill="currentColor"
-                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                            />
-                          </svg>
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M13 10V3L4 14h7v7l9-11h-7z"
-                            />
-                          </svg>
+                          <Zap className="h-4 w-4" />
                         )}
                       </button>
-                      {/* Set Default */}
                       {!model.isDefault && model.isEnabled && (
                         <button
+                          type="button"
                           onClick={() => handleSetDefault(model)}
-                          className="rounded p-1.5 text-blue-600 hover:bg-blue-100 "
-                          title="Set as Default"
+                          className="rounded p-1.5 text-blue-600 hover:bg-blue-50"
+                          title="设为默认"
                         >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                            />
-                          </svg>
+                          <Star className="h-4 w-4" />
                         </button>
                       )}
-                      {/* Edit */}
                       <button
+                        type="button"
                         onClick={() => setEditingModel(model)}
-                        className="rounded p-1.5 hover:bg-gray-100 "
-                        title="Edit"
+                        className="rounded p-1.5 text-gray-500 hover:bg-gray-100"
+                        title="编辑"
                       >
-                        <svg
-                          className="h-4 w-4 text-gray-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
+                        <Pencil className="h-4 w-4" />
                       </button>
-                      {/* Delete */}
                       <button
+                        type="button"
                         onClick={() => handleDeleteModel(model)}
                         disabled={model.isDefault}
-                        className="rounded p-1.5 hover:bg-red-100 disabled:opacity-50 "
-                        title="Delete"
+                        className="rounded p-1.5 text-red-500 hover:bg-red-50 disabled:opacity-40"
+                        title="删除"
                       >
-                        <svg
-                          className="h-4 w-4 text-red-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -1627,8 +1563,8 @@ export default function AIModelSettings({
         </div>
       )}
 
-      {/* API Quota Dashboard */}
-      <QuotaDashboard defaultExpanded={true} />
+      {/* 2026-05-11: 移除 QuotaDashboard（API 配额监控）— 已迁到 admin overview，
+          主页面只保留"模型增删改"职责。 */}
     </div>
   );
 }

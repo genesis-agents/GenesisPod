@@ -5,7 +5,6 @@ import { Bot, Plus, Sparkles, Settings2 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import AIModelSettings from '@/components/admin/ai-config/AIModelSettings';
-import SystemModelInventoryPanel from '@/components/admin/ai-config/SystemModelInventoryPanel';
 import { ProviderDiscoverModal } from '@/components/admin/ai-config/ProviderDiscoverModal';
 import { BYOKDictionaryModal } from '@/components/admin/ai-config/BYOKDictionaryModal';
 import { config } from '@/lib/utils/config';
@@ -193,9 +192,9 @@ export default function AIModelsPage() {
       }
     >
       <div className="space-y-6">
-        {/* 系统模型全景：按 type/provider 分布 + 用户配置 + 24h 调用指标 */}
-        <SystemModelInventoryPanel />
-
+        {/* 2026-05-11 UI 重构：移除 SystemModelInventoryPanel（按 type/provider 分布
+            + 24h 调用指标）+ QuotaDashboard（API 配额监控）。统一聚焦"模型增删改"
+            一件事，配额/分布从 admin overview 进入。 */}
         <AIModelSettings
           showAddModal={showAddModal}
           setShowAddModal={setShowAddModal}
