@@ -54,9 +54,23 @@ export class EventJournalService implements OnModuleInit {
       } as JournalEntry;
     }
 
+    // ★ 2026-05-11 FK-guard：用 INSERT ... SELECT WHERE EXISTS 把不存在的 process_id
+    //   变成 0 行 INSERT（没 SQL 异常 → PrismaService 不再在 ERROR 级刷屏）。
+    //
+    //   背景：多条 L3 链路把 KernelContext.processId 设成 missionId / sessionId
+    //   而不是 AgentProcess.id。下游 ai-chat.service 会读 KernelContext.getProcessId()
+    //   并 emit "llm.journal.record"。EventJournal 之前 INSERT 直发会触发 23503 FK 违规，
+    //   每分钟数十条 [PrismaService] ERROR。
+    //
+    //   行为差异：
+    //     - process_id 在 agent_processes 中存在 → 与之前一致（写一行 + 返回 entry）
+    //     - 不存在 → INSERT 0 行 → 返回 disabled 占位（行为同 tableReady=false 路径）
+    //   不再依赖"必须为 AgentProcess id"的隐式约定，但也没有自动建父行（journal 仍只
+    //   是观测，不是数据源）。根因清理（KernelContext.processId 不再被滥用为 missionId）
+    //   走单独的后续 PR。
     const entries = await this.prisma.$queryRaw<JournalEntry[]>(Prisma.sql`
       INSERT INTO process_events (id, process_id, sequence, type, payload, result, created_at)
-      VALUES (
+      SELECT
         gen_random_uuid(),
         ${processId},
         COALESCE((SELECT MAX(sequence) FROM process_events WHERE process_id = ${processId}), 0) + 1,
@@ -64,11 +78,26 @@ export class EventJournalService implements OnModuleInit {
         ${payload ? JSON.stringify(payload) : null}::jsonb,
         ${result ? JSON.stringify(result) : null}::jsonb,
         NOW()
-      )
+      WHERE EXISTS (SELECT 1 FROM agent_processes WHERE id = ${processId})
       RETURNING id, process_id AS "processId", sequence, type, payload, result, created_at AS "createdAt"
     `);
 
     const entry = entries[0];
+    if (!entry) {
+      this.logger.debug(
+        `[record] Skipped: no AgentProcess row for processId=${processId} type="${type}"`,
+      );
+      return {
+        id: "skipped-no-parent",
+        processId,
+        sequence: 0,
+        type,
+        payload: payload ?? null,
+        result: result ?? null,
+        createdAt: new Date(),
+      } as JournalEntry;
+    }
+
     this.logger.debug(
       `[record] Process ${processId} event #${entry.sequence} type="${type}"`,
     );

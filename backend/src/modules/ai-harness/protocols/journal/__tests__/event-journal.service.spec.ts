@@ -132,6 +132,30 @@ describe("EventJournalService", () => {
       expect(returned.payload).toBeNull();
       expect(returned.result).toBeNull();
     });
+
+    // 2026-05-11 FK-guard regression: when KernelContext.processId is set to
+    // a missionId / sessionId that is not a real AgentProcess row, the
+    // INSERT ... SELECT ... WHERE EXISTS short-circuits to 0 rows. record()
+    // must return a stub entry instead of throwing, and must NOT log at
+    // ERROR level (PrismaService used to spam logs with FK 23503).
+    it("should return a 'skipped-no-parent' stub when no AgentProcess row matches the processId", async () => {
+      // 0-row INSERT — the WHERE EXISTS guard kept the row from being written
+      mockPrisma.$queryRaw.mockResolvedValue([]);
+      const errorSpy = jest.spyOn(Logger.prototype, "error");
+
+      const result = await service.record(
+        "missionId-not-an-agent-process",
+        "LLM_CALL",
+        { model: "grok-4" },
+        { tokens: 100 },
+      );
+
+      expect(result.id).toBe("skipped-no-parent");
+      expect(result.processId).toBe("missionId-not-an-agent-process");
+      expect(result.payload).toEqual({ model: "grok-4" });
+      expect(result.result).toEqual({ tokens: 100 });
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
   });
 
   // =========================================================================
