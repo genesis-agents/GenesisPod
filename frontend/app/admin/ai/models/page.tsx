@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Bot, Plus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Bot, Plus, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import AIModelSettings from '@/components/admin/ai-config/AIModelSettings';
@@ -9,17 +9,53 @@ import SystemModelInventoryPanel from '@/components/admin/ai-config/SystemModelI
 import { AIProvidersSettings } from '@/components/admin/ai-config/AIProvidersSettings';
 import { ApiFormatsSettings } from '@/components/admin/ai-config/ApiFormatsSettings';
 import { ModelTypesSettings } from '@/components/admin/ai-config/ModelTypesSettings';
+import { ProviderDiscoverModal } from '@/components/admin/ai-config/ProviderDiscoverModal';
+import { config } from '@/lib/utils/config';
+import { getAuthHeader } from '@/lib/utils/auth';
+import { logger } from '@/lib/utils/logger';
 
 type SectionKey = 'providers' | 'apiFormats' | 'modelTypes';
 
 export default function AIModelsPage() {
   const { t } = useTranslation();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [expanded, setExpanded] = useState<Record<SectionKey, boolean>>({
     providers: false,
     apiFormats: false,
     modelTypes: false,
   });
+
+  const handleDiscoverConfirm = async (payload: {
+    endpoint: string;
+    apiKey: string;
+    apiFormat: string;
+    selected: Array<{ modelId: string; modelType: string }>;
+  }) => {
+    // 批量调 /admin/ai-models POST 创建（沿用现有 admin AIModel CRUD endpoint）
+    for (const item of payload.selected) {
+      try {
+        await fetch(`${config.apiBaseUrl}/admin/ai-models`, {
+          method: 'POST',
+          headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: item.modelId,
+            provider: 'custom',
+            modelId: item.modelId,
+            modelType: item.modelType,
+            displayName: item.modelId,
+            apiEndpoint: payload.endpoint,
+            apiFormat: payload.apiFormat,
+            isEnabled: true,
+            isDefault: false,
+          }),
+        });
+      } catch (err) {
+        logger.error('[discover] create model failed', item.modelId, err);
+      }
+    }
+    window.location.reload();
+  };
 
   const toggle = (key: SectionKey) =>
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -57,13 +93,22 @@ export default function AIModelsPage() {
       icon={Bot}
       domain="ai"
       actions={
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
-        >
-          <Plus className="h-5 w-5" />
-          Add Model
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDiscoverModal(true)}
+            className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            <Sparkles className="h-5 w-5" />
+            AI 一键配置
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+          >
+            <Plus className="h-5 w-5" />
+            Add Model
+          </button>
+        </div>
       }
     >
       <div className="space-y-6">
@@ -106,6 +151,12 @@ export default function AIModelsPage() {
         <AIModelSettings
           showAddModal={showAddModal}
           setShowAddModal={setShowAddModal}
+        />
+
+        <ProviderDiscoverModal
+          open={showDiscoverModal}
+          onClose={() => setShowDiscoverModal(false)}
+          onConfirm={handleDiscoverConfirm}
         />
       </div>
     </AdminPageLayout>
