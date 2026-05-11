@@ -99,29 +99,49 @@ export class WikiIngestService {
 
   /**
    * Cron entry for auto-ingest after raw refresh (PR-1). Bypasses user
-   * auth — caller is the trusted internal scheduler. Records the diff as
-   * `createdByUserId = AUTO_INGEST_SYSTEM_USER_ID` so daily budget queries
-   * can distinguish auto vs user-triggered diffs.
+   * auth — caller is the trusted internal scheduler.
+   *
+   * ★ 2026-05-11 BYOK 一致性原则：知识库相关 LLM 调用必须用 KB owner 的 BYOK
+   *   key，不退回系统 key。Records 的 createdByUserId 用哨兵字符串只是为了
+   *   按 cron / user 分类查每日预算，跟 LLM key 解析完全解耦。
+   *
+   * @param ownerUserId KB.userId — 真实用户 id，作为 chat.chat 的 BYOK 上下文
    */
   async ingestAsCron(
     knowledgeBaseId: string,
     documentIds: string[],
+    ownerUserId: string,
   ): Promise<WikiDiff> {
     if (!documentIds || documentIds.length === 0) {
       throw new BadRequestException("documentIds must not be empty");
+    }
+    if (!ownerUserId) {
+      throw new BadRequestException(
+        "ownerUserId is required for cron ingest (BYOK-only mode)",
+      );
     }
     return this.ingestInternal(
       AUTO_INGEST_SYSTEM_USER_ID,
       knowledgeBaseId,
       documentIds,
+      ownerUserId,
     );
   }
 
+  /**
+   * @param recordUserId 写入 WikiDiff.createdByUserId（用户路径=真实 userId；
+   *   cron 路径=AUTO_INGEST_SYSTEM_USER_ID 哨兵）
+   * @param chatUserId chat.chat({ userId }) 的 BYOK 解析上下文。默认 =
+   *   recordUserId（用户路径）；cron 路径要传 KB owner 的真实 userId
+   *   覆盖哨兵字符串，否则 strict BYOK 预检会 fail。
+   */
   private async ingestInternal(
-    userId: string,
+    recordUserId: string,
     knowledgeBaseId: string,
     documentIds: string[],
+    chatUserId: string = recordUserId,
   ): Promise<WikiDiff> {
+    const userId = recordUserId;
     // Load + validate documents (must belong to this KB).
     const documents = await this.prisma.knowledgeBaseDocument.findMany({
       where: { id: { in: documentIds }, knowledgeBaseId },
@@ -205,16 +225,11 @@ export class WikiIngestService {
       // model/temperature/maxTokens. deterministic+long fits structured JSON
       // extraction (was temperature 0.2 / maxTokens 8000).
       //
-      // ★ 2026-05-11: 解耦 createdByUserId（哨兵字符串，只用于 WikiDiff 行记账）
-      //   和 chat.chat({ userId })（用于 BYOK key 解析）。cron 路径 userId 是
-      //   "__system_auto_ingest__"，DB 里根本不存在；之前把它传给 chat.chat
-      //   会让 strict BYOK 预检（getAvailableProviders）→ user_not_found →
-      //   抛 NoAvailableKeyError "No API Key configured"。
-      //
-      //   解法：cron 路径 chat.chat 不传 userId，让其按"无用户上下文"走 SYSTEM
-      //   key 分支（ai-model-config.resolveApiKey 自查 ai_models.secretKey →
-      //   Secret Manager），跟 key-resolver.service.ts:349 的注释意图对齐。
-      const isCronContext = userId === AUTO_INGEST_SYSTEM_USER_ID;
+      // ★ 2026-05-11 BYOK 一致性原则：知识库 LLM 调用必须用真实 user 的 BYOK
+      //   key，不退回系统 key。
+      //   - user 触发：chatUserId = recordUserId = 真实用户 id（默认值）
+      //   - cron 触发：chatUserId = KB.userId（KB owner）；recordUserId = 哨兵
+      //     字符串（仅写 WikiDiff.createdByUserId 用于分类记账）
       llmResponse = await this.chat.chat({
         messages: [{ role: "user", content: userPrompt }],
         systemPrompt,
@@ -225,7 +240,7 @@ export class WikiIngestService {
         },
         responseFormat: "json_object",
         operationName: "library-wiki-ingest",
-        ...(isCronContext ? {} : { userId }),
+        userId: chatUserId,
       });
     } catch (error) {
       this.logger.error(

@@ -37,6 +37,7 @@ function makeIngestMock() {
 
 const KB_DEFAULT = {
   id: "kb-1",
+  userId: "user-1",
   wikiConfig: {
     autoIngestEnabled: true,
     autoIngestDailyBudgetCalls: 20,
@@ -65,6 +66,7 @@ describe("WikiAutoIngestScheduler", () => {
     prisma.knowledgeBase.findMany.mockResolvedValue([
       {
         id: "kb-off",
+        userId: "user-off",
         wikiConfig: {
           autoIngestEnabled: false,
           autoIngestDailyBudgetCalls: 20,
@@ -81,7 +83,7 @@ describe("WikiAutoIngestScheduler", () => {
 
   it("treats missing wikiConfig row as autoIngestEnabled (defaults true)", async () => {
     prisma.knowledgeBase.findMany.mockResolvedValue([
-      { id: "kb-legacy", wikiConfig: null },
+      { id: "kb-legacy", userId: "user-legacy", wikiConfig: null },
     ]);
     setupNoBlockers(prisma);
     prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
@@ -90,7 +92,11 @@ describe("WikiAutoIngestScheduler", () => {
 
     await scheduler.tick();
 
-    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-legacy", ["doc-1"]);
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-legacy",
+      ["doc-1"],
+      "user-legacy",
+    );
   });
 
   it("ingests docs that changed after the cursor", async () => {
@@ -103,10 +109,11 @@ describe("WikiAutoIngestScheduler", () => {
 
     await scheduler.tick();
 
-    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-1", [
-      "doc-new",
-      "doc-changed",
-    ]);
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-1",
+      ["doc-new", "doc-changed"],
+      "user-1",
+    );
   });
 
   it("filters out placeholder docs (metadata.pendingFetch=true)", async () => {
@@ -123,7 +130,11 @@ describe("WikiAutoIngestScheduler", () => {
 
     await scheduler.tick();
 
-    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-1", ["doc-real"]);
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-1",
+      ["doc-real"],
+      "user-1",
+    );
   });
 
   it("treats off-loaded docs (rawContentUri set) as always ready", async () => {
@@ -140,7 +151,11 @@ describe("WikiAutoIngestScheduler", () => {
 
     await scheduler.tick();
 
-    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-1", ["doc-offloaded"]);
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-1",
+      ["doc-offloaded"],
+      "user-1",
+    );
   });
 
   it("does not call ingestAsCron when no docs changed since cursor", async () => {
@@ -206,7 +221,11 @@ describe("WikiAutoIngestScheduler", () => {
     await expect(scheduler.tick()).resolves.toBeUndefined();
 
     // kb-2 still got ingested.
-    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-2", ["doc-x"]);
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-2",
+      ["doc-x"],
+      expect.any(String),
+    );
   });
 
   it("does not let pending diffs suppress docs with no applied coverage", async () => {
@@ -223,9 +242,11 @@ describe("WikiAutoIngestScheduler", () => {
 
     await scheduler.tick();
 
-    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-1", [
-      "doc-after-pending",
-    ]);
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-1",
+      ["doc-after-pending"],
+      "user-1",
+    );
   });
 
   it("skips docs already covered by an applied coverage watermark", async () => {
@@ -258,7 +279,11 @@ describe("WikiAutoIngestScheduler", () => {
 
     await scheduler.tick();
 
-    expect(ingest.ingestAsCron).toHaveBeenCalledWith("kb-1", ["doc-newer"]);
+    expect(ingest.ingestAsCron).toHaveBeenCalledWith(
+      "kb-1",
+      ["doc-newer"],
+      "user-1",
+    );
   });
 
   it("does not throw if the top-level scan query itself fails", async () => {

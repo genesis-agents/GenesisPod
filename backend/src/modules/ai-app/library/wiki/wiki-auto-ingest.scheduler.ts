@@ -45,10 +45,13 @@ export class WikiAutoIngestScheduler {
   @Cron(CronExpression.EVERY_5_MINUTES, { name: "wiki.auto-ingest" })
   async tick(): Promise<void> {
     try {
+      // ★ 2026-05-11 BYOK 一致性：select KB.userId 作为 chat.chat BYOK 上下文
+      //   ingestAsCron 用 owner 的 BYOK 解析 key（不退回系统 key）。
       const candidates = await this.prisma.knowledgeBase.findMany({
         where: { wikiEnabled: true },
         select: {
           id: true,
+          userId: true,
           wikiConfig: {
             select: {
               autoIngestEnabled: true,
@@ -90,6 +93,7 @@ export class WikiAutoIngestScheduler {
           const diff = await this.ingestService.ingestAsCron(
             kb.id,
             eligibleDocIds,
+            kb.userId,
           );
           this.logger.log(
             `[cron:wiki.auto-ingest] kb=${kb.id} diff=${diff.id} docs=${eligibleDocIds.length}`,
@@ -165,7 +169,12 @@ export class WikiAutoIngestScheduler {
         knowledgeBaseId,
         status: { not: "ERROR" },
       },
-      select: { id: true, metadata: true, rawContentUri: true, updatedAt: true },
+      select: {
+        id: true,
+        metadata: true,
+        rawContentUri: true,
+        updatedAt: true,
+      },
     });
 
     const coverageRows = await this.prisma.wikiDocumentCoverage.findMany({
@@ -176,7 +185,10 @@ export class WikiAutoIngestScheduler {
       },
     });
     const coverageByDocId = new Map(
-      coverageRows.map((row) => [row.documentId, row.lastCoveredDocumentUpdatedAt]),
+      coverageRows.map((row) => [
+        row.documentId,
+        row.lastCoveredDocumentUpdatedAt,
+      ]),
     );
 
     return docs
