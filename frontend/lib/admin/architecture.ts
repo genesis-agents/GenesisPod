@@ -42,6 +42,7 @@ import {
   Share2,
   Cpu,
   Database,
+  GitBranch,
   Network,
   Workflow,
   MemoryStick,
@@ -138,130 +139,65 @@ const openApiLayer: ArchitectureLayer = {
   ],
 };
 
-// Layer 3: AI Apps (Business Applications - Read-only from main sidebar)
+// Layer 3: AI Apps (Business Applications)
+//
+// 2026-05-12 重构：从 5 组 × 多卡片 收成 4 张大卡，对齐 L1 Infrastructure "一卡一类"
+// 范式。每张卡点开是该类目下 ai-app 模块的架构文档聚合页（/admin/ai-app/<category>）。
+//
+// 不在 L3 显示：Explore / Library（资料知识层）、byok / management / contracts /
+// feedback（基础设施类，已在其他卡片体现）。
 const aiAppsLayer: ArchitectureLayer = {
   id: 'aiApps',
   titleKey: 'admin.architecture.layers.aiApps',
   subtitleKey: 'admin.architecture.layers.aiAppsDesc',
   level: 3,
-  groups: [
+  cards: [
     {
-      id: 'knowledge',
-      titleKey: 'nav.sections.materialsKnowledge',
-      cards: [
-        {
-          id: 'aiExplore',
-          i18nKey: 'nav.aiExplore',
-          descriptionKey: 'admin.tabDescriptions.collection',
-          href: '/admin/data/collection',
-          icon: Compass,
-          clickable: true,
-          stats: [{ label: '资源', key: 'resources' }],
-        },
-        {
-          id: 'myLibrary',
-          i18nKey: 'nav.myLibrary',
-          icon: BookOpen,
-          clickable: false,
-          stats: [{ label: '收藏', key: 'bookmarkedResources' }],
-        },
+      id: 'aiAppsInsights',
+      i18nKey: 'admin.architecture.cards.aiAppsInsights',
+      descriptionKey: 'admin.architecture.cards.aiAppsInsightsDesc',
+      href: '/admin/ai-app/insights',
+      icon: Lightbulb,
+      clickable: true,
+      stats: [
+        { label: '主题', key: 'topics' },
+        { label: '研究', key: 'researchMissions' },
       ],
     },
     {
-      id: 'researchAnalysisGroup',
-      titleKey: 'nav.sections.researchAnalysis',
-      cards: [
-        {
-          id: 'aiInsights',
-          i18nKey: 'nav.aiInsights',
-          href: '/admin/overview/dependencies/topic-insights',
-          icon: Lightbulb,
-          clickable: true,
-          stats: [{ label: '主题', key: 'topics' }],
-        },
-        {
-          id: 'aiResearch',
-          i18nKey: 'nav.aiResearch',
-          icon: FileSearch,
-          clickable: false,
-          stats: [{ label: '研究', key: 'researchMissions' }],
-        },
-        {
-          id: 'aiReports',
-          i18nKey: 'nav.aiReports',
-          icon: FileText,
-          clickable: false,
-          stats: [{ label: '文档', key: 'officeDocuments' }],
-        },
+      id: 'aiAppsPlanning',
+      i18nKey: 'admin.architecture.cards.aiAppsPlanning',
+      descriptionKey: 'admin.architecture.cards.aiAppsPlanningDesc',
+      href: '/admin/ai-app/planning',
+      icon: GitBranch,
+      clickable: true,
+      stats: [
+        { label: '辩论', key: 'debateSessions' },
+        { label: '推演', key: 'simRuns' },
       ],
     },
     {
-      id: 'planningDecisionGroup',
-      titleKey: 'nav.sections.planningDecision',
-      cards: [
-        {
-          id: 'myTeams',
-          i18nKey: 'nav.myTeams',
-          icon: UsersRound,
-          clickable: false,
-          stats: [
-            { label: '话题', key: 'topics' },
-            { label: '辩论', key: 'debateSessions' },
-          ],
-        },
-        {
-          id: 'aiPlanning',
-          i18nKey: 'nav.aiPlanning',
-          icon: Hammer,
-          clickable: false,
-          stats: [{ label: '方案', key: 'researchMissions' }],
-        },
-        {
-          id: 'aiSimulation',
-          i18nKey: 'nav.aiSimulation',
-          icon: Brain,
-          clickable: false,
-          stats: [
-            { label: '场景', key: 'simScenarios' },
-            { label: '推演', key: 'simRuns' },
-          ],
-        },
+      id: 'aiAppsContent',
+      i18nKey: 'admin.architecture.cards.aiAppsContent',
+      descriptionKey: 'admin.architecture.cards.aiAppsContentDesc',
+      href: '/admin/ai-app/content',
+      icon: PenTool,
+      clickable: true,
+      stats: [
+        { label: '文档', key: 'officeDocuments' },
+        { label: '内容', key: 'socialContent' },
       ],
     },
     {
-      id: 'creativeWritingGroup',
-      titleKey: 'nav.sections.creativeWriting',
-      cards: [
-        {
-          id: 'aiWriting',
-          i18nKey: 'nav.aiWriting',
-          icon: PenTool,
-          clickable: false,
-          stats: [{ label: '项目', key: 'writingProjects' }],
-        },
-        {
-          id: 'aiSocial',
-          i18nKey: 'nav.aiSocial',
-          icon: Share2,
-          clickable: false,
-          stats: [{ label: '内容', key: 'socialContent' }],
-        },
-      ],
-    },
-    {
-      id: 'toolStoreGroup',
-      titleKey: 'nav.sections.toolStore',
-      cards: [
-        {
-          id: 'aiStore',
-          i18nKey: 'nav.aiStore',
-          icon: Lightbulb,
-          clickable: false,
-          stats: [
-            { label: '工具', key: 'tools' },
-            { label: '技能', key: 'skills' },
-          ],
-        },
+      id: 'aiAppsLabs',
+      i18nKey: 'admin.architecture.cards.aiAppsLabs',
+      descriptionKey: 'admin.architecture.cards.aiAppsLabsDesc',
+      href: '/admin/ai-app/labs',
+      icon: Sparkles,
+      clickable: true,
+      stats: [
+        { label: '工具', key: 'tools' },
+        { label: '技能', key: 'skills' },
       ],
     },
   ],
