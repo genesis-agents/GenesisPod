@@ -59,7 +59,7 @@ export default function QuotaDashboard({
   };
 
   return (
-    <div className="mt-8 rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="mt-8 rounded-xl border border-gray-200 bg-white shadow-sm">
       {/* Header */}
       <div
         className="flex cursor-pointer items-center justify-between p-5"

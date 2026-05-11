@@ -1,6 +1,11 @@
 /**
  * Admin 导航配置
- * 定义侧边栏结构、路由映射和路由重定向
+ *
+ * Wave 4 重构（2026-05-11）：sidebar 与 L1 Infrastructure 架构图对齐。
+ *   - 删除旧 `data` / `access` / `system` 三组（共 18 个 NavItem）
+ *   - 新建 `user` / `secret` / `data` / `system` 4 组（每组 1 个 NavItem，指向合并页）
+ *   - 旧 deep-link 通过 ROUTE_REDIRECTS 重定向（permissions/credits/billing → users
+ *     key-requests → secrets；其余子页保持可直接访问，由合并页索引）
  */
 
 import {
@@ -9,25 +14,18 @@ import {
   UsersRound,
   Wrench,
   Database,
-  Shield,
   Sparkles,
   Users,
   Key,
-  Inbox,
-  ShieldCheck,
-  Globe,
-  Mail,
-  HardDrive,
-  Cpu,
-  Coins,
-  CreditCard,
-  Bell,
-  MessageSquare,
-  ScrollText,
-  Activity,
+  Settings,
   BarChart3,
-  Radio,
   Network,
+  Cpu,
+  Shield,
+  ShieldCheck,
+  Inbox,
+  FileText,
+  Workflow,
   type LucideIcon,
 } from 'lucide-react';
 import { type AdminDomain } from './styles';
@@ -108,10 +106,40 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         icon: Network,
       },
       {
+        key: 'agents',
+        labelKey: 'admin.nav.agents',
+        href: '/admin/ai/agents',
+        icon: Cpu,
+      },
+      {
+        key: 'guardrails',
+        labelKey: 'admin.nav.guardrails',
+        href: '/admin/ai/guardrails',
+        icon: ShieldCheck,
+      },
+      {
+        key: 'approvals',
+        labelKey: 'admin.nav.approvals',
+        href: '/admin/ai/approvals',
+        icon: Inbox,
+      },
+      {
+        key: 'research-templates',
+        labelKey: 'admin.nav.researchTemplates',
+        href: '/admin/ai/research-templates',
+        icon: FileText,
+      },
+      {
         key: 'eval',
         labelKey: 'admin.nav.eval',
         href: '/admin/ai/eval',
         icon: BarChart3,
+      },
+      {
+        key: 'traces',
+        labelKey: 'admin.nav.traces',
+        href: '/admin/ai/traces',
+        icon: Workflow,
       },
       {
         key: 'infra-report',
@@ -122,141 +150,78 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
     ],
   },
   {
-    key: 'data',
-    titleKey: 'admin.nav.dataManagement',
-    domain: 'data',
-    icon: Database,
+    key: 'user',
+    titleKey: 'admin.architecture.cards.infraUserManagement',
+    domain: 'user',
+    icon: Users,
     items: [
       {
-        key: 'collection',
-        labelKey: 'admin.nav.collection',
-        href: '/admin/data/collection',
-        icon: Database,
-      },
-      {
-        key: 'whitelists',
-        labelKey: 'admin.nav.whitelists',
-        href: '/admin/data/whitelists',
-        icon: Shield,
-      },
-      {
-        key: 'quality',
-        labelKey: 'admin.nav.quality',
-        href: '/admin/data/quality',
-        icon: Sparkles,
+        key: 'users',
+        labelKey: 'admin.architecture.cards.infraUserManagement',
+        href: '/admin/access/users',
+        icon: Users,
       },
     ],
   },
   {
-    key: 'access',
-    titleKey: 'admin.nav.accessControl',
-    domain: 'access',
-    icon: ShieldCheck,
+    key: 'secret',
+    titleKey: 'admin.architecture.cards.infraSecretManagement',
+    domain: 'secret',
+    icon: Key,
     items: [
       {
-        key: 'users',
-        labelKey: 'admin.nav.users',
-        href: '/admin/access/users',
-        icon: Users,
-      },
-      {
-        key: 'permissions',
-        labelKey: 'admin.nav.permissions',
-        href: '/admin/access/permissions',
-        icon: Shield,
-      },
-      {
-        key: 'credits',
-        labelKey: 'admin.nav.credits',
-        href: '/admin/access/credits',
-        icon: Coins,
-      },
-      {
-        key: 'billing',
-        labelKey: 'admin.nav.billing',
-        href: '/admin/access/billing',
-        icon: CreditCard,
-      },
-      {
         key: 'secrets',
-        labelKey: 'admin.nav.secrets',
+        labelKey: 'admin.architecture.cards.infraSecretManagement',
         href: '/admin/access/secrets',
         icon: Key,
       },
+    ],
+  },
+  {
+    key: 'data',
+    titleKey: 'admin.architecture.cards.infraDataManagement',
+    domain: 'data',
+    icon: Database,
+    items: [
       {
-        key: 'key-requests',
-        labelKey: 'admin.nav.keyRequests',
-        href: '/admin/access/key-requests',
-        icon: Inbox,
-      },
-      {
-        key: 'feedback',
-        labelKey: 'admin.nav.feedback',
-        href: '/admin/feedback',
-        icon: MessageSquare,
-      },
-      {
-        key: 'security',
-        labelKey: 'admin.nav.security',
-        href: '/admin/access/security',
-        icon: ShieldCheck,
+        key: 'data-hub',
+        labelKey: 'admin.architecture.cards.infraDataManagement',
+        href: '/admin/data',
+        icon: Database,
       },
     ],
   },
   {
     key: 'system',
-    titleKey: 'admin.nav.systemSettings',
+    titleKey: 'admin.architecture.cards.infraSystemManagement',
     domain: 'system',
-    icon: Globe,
+    icon: Settings,
     items: [
       {
-        key: 'site',
-        labelKey: 'admin.nav.site',
-        href: '/admin/system/site',
-        icon: Globe,
-      },
-      {
-        key: 'email',
-        labelKey: 'admin.nav.email',
-        href: '/admin/system/email',
-        icon: Mail,
-      },
-      {
-        key: 'storage',
-        labelKey: 'admin.nav.storage',
-        href: '/admin/storage',
-        icon: HardDrive,
-      },
-      {
-        key: 'notifications',
-        labelKey: 'admin.nav.notifications',
-        href: '/admin/system/notifications',
-        icon: Bell,
-      },
-      {
-        key: 'logs',
-        labelKey: 'admin.nav.logs',
-        href: '/admin/system/logs',
-        icon: ScrollText,
-      },
-      {
-        key: 'monitoring',
-        labelKey: 'admin.nav.monitoring',
-        href: '/admin/system/monitoring',
-        icon: Activity,
-      },
-      {
-        key: 'mcp-server',
-        labelKey: 'admin.nav.mcpServer',
-        href: '/admin/system/mcp-server',
-        icon: Radio,
+        key: 'system-hub',
+        labelKey: 'admin.architecture.cards.infraSystemManagement',
+        href: '/admin/system',
+        icon: Settings,
       },
     ],
   },
 ];
 
 // 旧路由到新路由的重定向映射
+//
+// Wave 4 (2026-05-11) 重组：
+//   permissions / credits / billing → /admin/access/users (行内按钮)
+//   key-requests                   → /admin/access/secrets (Tab)
+//   其余子页保留独立 URL，由合并页索引链接进入
 export const ROUTE_REDIRECTS: Record<string, string> = {
+  // 用户管理合并 (Wave 4A)
+  '/admin/access/permissions': '/admin/access/users',
+  '/admin/access/credits': '/admin/access/users',
+  '/admin/access/billing': '/admin/access/users',
+  // 密钥管理合并 (Wave 4B)
+  '/admin/access/key-requests': '/admin/access/secrets',
+
+  // 历史旧路径
   '/admin/dashboard': '/admin/overview',
   '/admin/ai-models': '/admin/ai/models',
   '/admin/ai-teams': '/admin/ai/teams',

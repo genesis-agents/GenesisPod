@@ -6,68 +6,133 @@ import {
   Globe,
   Shield,
   Mail,
+  Radio,
+  Activity,
+  ScrollText,
+  Bell,
+  MessageSquare,
+  ShieldCheck,
   ArrowRight,
-  CheckCircle,
-  AlertCircle,
+  type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { cn } from '@/lib/utils/common';
 
-interface SystemCard {
+/**
+ * 系统管理（L1 Infrastructure 4 卡之一）
+ *
+ * Wave 4 阶段：4 个子区，按运维动作划分：
+ *   1. 运行监控（monitoring + logs）
+ *   2. 消息通知（notifications + feedback）
+ *   3. 基础设置（site + email + mcp-server）
+ *   4. 安全审计（security）
+ *
+ * 子区以卡片链接到既有子页。后续可演进为 AdminTabs 内嵌。
+ */
+
+interface SystemSection {
   id: string;
   titleKey: string;
   descriptionKey: string;
   href: string;
-  icon: React.ElementType;
-  status: 'configured' | 'pending' | 'warning';
-  statusLabel: string;
+  icon: LucideIcon;
+  group: 'ops' | 'messages' | 'settings' | 'security';
 }
 
-const SYSTEM_CARDS: SystemCard[] = [
+const SECTIONS: SystemSection[] = [
   {
-    id: 'site',
-    titleKey: 'admin.system.cards.site.title',
-    descriptionKey: 'admin.system.cards.site.description',
-    href: '/admin/system/site',
-    icon: Globe,
-    status: 'configured',
-    statusLabel: 'Configured',
+    id: 'monitoring',
+    titleKey: 'admin.nav.monitoring',
+    descriptionKey: 'admin.tabDescriptions.monitoring',
+    href: '/admin/system/monitoring',
+    icon: Activity,
+    group: 'ops',
   },
   {
-    id: 'security',
-    titleKey: 'admin.system.cards.security.title',
-    descriptionKey: 'admin.system.cards.security.description',
-    href: '/admin/access/security',
-    icon: Shield,
-    status: 'configured',
-    statusLabel: 'Active',
+    id: 'logs',
+    titleKey: 'admin.nav.logs',
+    descriptionKey: 'admin.tabDescriptions.logs',
+    href: '/admin/system/logs',
+    icon: ScrollText,
+    group: 'ops',
+  },
+  {
+    id: 'notifications',
+    titleKey: 'admin.nav.notifications',
+    descriptionKey: 'admin.tabDescriptions.notifications',
+    href: '/admin/system/notifications',
+    icon: Bell,
+    group: 'messages',
+  },
+  {
+    id: 'feedback',
+    titleKey: 'admin.nav.feedback',
+    descriptionKey: 'admin.tabDescriptions.feedback',
+    href: '/admin/feedback',
+    icon: MessageSquare,
+    group: 'messages',
+  },
+  {
+    id: 'site',
+    titleKey: 'admin.nav.site',
+    descriptionKey: 'admin.tabDescriptions.site',
+    href: '/admin/system/site',
+    icon: Globe,
+    group: 'settings',
   },
   {
     id: 'email',
-    titleKey: 'admin.system.cards.email.title',
-    descriptionKey: 'admin.system.cards.email.description',
+    titleKey: 'admin.nav.email',
+    descriptionKey: 'admin.tabDescriptions.email',
     href: '/admin/system/email',
     icon: Mail,
-    status: 'pending',
-    statusLabel: 'Not Configured',
+    group: 'settings',
+  },
+  {
+    id: 'mcpServer',
+    titleKey: 'admin.nav.mcpServer',
+    descriptionKey: 'admin.tabDescriptions.mcpServer',
+    href: '/admin/system/mcp-server',
+    icon: Radio,
+    group: 'settings',
+  },
+  {
+    id: 'security',
+    titleKey: 'admin.nav.security',
+    descriptionKey: 'admin.tabDescriptions.security',
+    href: '/admin/access/security',
+    icon: ShieldCheck,
+    group: 'security',
   },
 ];
 
-const STATUS_STYLES = {
-  configured: {
-    badge: 'bg-emerald-100 text-emerald-700',
-    icon: CheckCircle,
+const GROUPS: {
+  id: SystemSection['group'];
+  titleKey: string;
+  descriptionKey: string;
+}[] = [
+  {
+    id: 'ops',
+    titleKey: 'admin.system.groups.ops',
+    descriptionKey: 'admin.system.groups.opsDesc',
   },
-  pending: {
-    badge: 'bg-gray-100 text-gray-600',
-    icon: AlertCircle,
+  {
+    id: 'messages',
+    titleKey: 'admin.system.groups.messages',
+    descriptionKey: 'admin.system.groups.messagesDesc',
   },
-  warning: {
-    badge: 'bg-amber-100 text-amber-700',
-    icon: AlertCircle,
+  {
+    id: 'settings',
+    titleKey: 'admin.system.groups.settings',
+    descriptionKey: 'admin.system.groups.settingsDesc',
   },
-};
+  {
+    id: 'security',
+    titleKey: 'admin.system.groups.security',
+    descriptionKey: 'admin.system.groups.securityDesc',
+  },
+];
 
 export default function SystemManagementPage() {
   const { t } = useTranslation();
@@ -79,50 +144,53 @@ export default function SystemManagementPage() {
       icon={Settings}
       domain="system"
     >
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {SYSTEM_CARDS.map((card) => {
-          const Icon = card.icon;
-          const statusStyle = STATUS_STYLES[card.status];
-          const StatusIcon = statusStyle.icon;
-
+      <div className="space-y-8">
+        {GROUPS.map((group) => {
+          const sections = SECTIONS.filter((s) => s.group === group.id);
           return (
-            <Link
-              key={card.id}
-              href={card.href}
-              className="group block rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:border-blue-300 hover:shadow-md"
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition-colors group-hover:bg-blue-100">
-                  <Icon className="h-6 w-6" />
-                </div>
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
-                    statusStyle.badge
-                  )}
-                >
-                  <StatusIcon className="h-3.5 w-3.5" />
-                  {card.statusLabel}
-                </span>
-              </div>
-
-              {/* Content */}
-              <div className="mt-4">
-                <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600">
-                  {t(card.titleKey)}
-                </h3>
-                <p className="mt-1.5 line-clamp-2 text-sm text-gray-500">
-                  {t(card.descriptionKey)}
+            <section key={group.id}>
+              <div className="mb-3">
+                <h2 className="text-base font-semibold text-gray-900">
+                  {t(group.titleKey)}
+                </h2>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  {t(group.descriptionKey)}
                 </p>
               </div>
-
-              {/* Footer */}
-              <div className="mt-4 flex items-center text-sm font-medium text-blue-600 opacity-0 transition-opacity group-hover:opacity-100">
-                <span>Configure</span>
-                <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {sections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <Link
+                      key={section.id}
+                      href={section.href}
+                      className={cn(
+                        'group block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all',
+                        'hover:border-slate-400 hover:shadow-md'
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 transition-colors group-hover:bg-slate-200">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-gray-900 group-hover:text-slate-800">
+                            {t(section.titleKey)}
+                          </h3>
+                          <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">
+                            {t(section.descriptionKey)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center text-sm font-medium text-slate-700 opacity-0 transition-opacity group-hover:opacity-100">
+                        <span>{t('common.open')}</span>
+                        <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
-            </Link>
+            </section>
           );
         })}
       </div>

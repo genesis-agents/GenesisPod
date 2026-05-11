@@ -2,9 +2,77 @@
 
 > Genesis 后台管理界面（`/admin/*`）的视觉一致性规范，基线参考 `/admin/data-management`。任何新增或重构的 admin 页面必须遵循本规范，否则视为视觉债务。
 
-**版本**: 1.0  
-**最后更新**: 2026-05-10  
-**适用范围**: `frontend/app/admin/**`、`frontend/components/admin/**`
+**版本**: 1.1
+**最后更新**: 2026-05-11
+**适用范围**: `frontend/app/admin/**`、`frontend/components/admin/**`、`frontend/components/admin/shared/**`
+
+## v1.1 变更（2026-05-11）
+
+- L1 Infrastructure 从 4 group × 12 卡 演进为 **4 实体大卡**（用户 / 密钥 / 数据 / 系统）。架构图配置：`frontend/lib/admin/architecture.ts:429-`。
+- `AdminDomain` 重定义：新增 `user`（blue）/ `secret`（amber）/ `data`（emerald）/ `system`（slate）4 域。原 `access` 标记 `@deprecated`，将在所有 access 子页迁移完成后移除。配置：`frontend/lib/admin/styles.ts`。
+- 新增 8 个共享组件（在 `frontend/components/admin/shared/`）：
+  - `AdminStatsCards`（≤4 卡，封装段 1 网格）
+  - `AdminToolbar`（搜索+filter+actions 一条线）
+  - `AdminTabs`（segmented control，支持 `?tab=` URL 同步）
+  - `AdminModal`（强制 `rounded-xl`，禁止 `rounded-2xl`）
+  - `AdminDrawer`（右侧滑出，用于行内编辑/详情）
+  - `AdminEmptyState`（独立空态，table 外使用）
+  - `AdminLoadingSkeleton`（table / cards / list 三个 variant）
+  - `AdminStatusBadge`（强制 `getStatusBadgeClasses`，禁止 inline 拼 className）
+- 新增 1 个工具：`bodyScrollLock`（module-level 计数器，解决嵌套 dialog scroll lock 错乱）
+- Sidebar 4 组对齐 L1：`user / secret / data / system`，旧 `access` / 旧 `system` 平铺组已删除。
+- Release 横幅 `<VersionUpdateBanner />` 已删除；版本更新走后端 `NotificationPresetsService.notifyVersionUpdate` 推送到通知中心。
+- 已废弃文档：`.claude/skills/frontend/admin-config-layout.skill.md` 顶部加 DEPRECATED 注释，新页面请只参照本文。
+- UsersSettings 行内 5 图标按钮 → **4 命名按钮 + Delete 兜底** 模式（`[资料][权限][积分][计费] + ⌫`），对应行内 Drawer 操作。各页面行级操作应遵循此模式。
+
+## v1.1 4 路评审 + UI 专家深度审视已知债（2026-05-11）
+
+以下为 5 路评审共识、按严重度排：
+
+### P0 已修
+
+- 架构测试 `__tests__/architecture.test.ts` 已对齐新 4 卡结构
+- `AdminPageLayout.tsx:68` icon container 改 `rounded-xl`
+- backend `notifyKeyRequestSubmitted` actionUrl 改 `/admin/access/secrets?tab=requests`
+- `data/page.tsx` Tab labels 走 i18n `admin.data.groups.*`
+
+### P1 已修
+
+- UsersSettings: 行内 5 图标 → 4 命名按钮；violet → blue；UserStatsCards 迁 AdminStatsCards
+- AdminModal/AdminDrawer 嵌套 scroll lock 用 module-level 计数器修正
+
+### P1 留单（独立 follow-up）
+
+- AdminModal/AdminDrawer **focus trap**（Tab 键循环、open 时焦点转移、close 时恢复焦点）
+- AdminDrawer **入场动画**（300ms transform ease-out，iOS Safari 体验）
+- 旧 URL `redirect()` 静默无提示，应 `?from=permissions` 触发一次性 toast
+- `/admin/*` 前端路由守卫（`app/admin/layout.tsx` + Next middleware）
+- `/me` 卡跳目标页未做"我的视角"裁剪（`/library` 是全资源库不是"我的"）
+
+### P2 已知违规（清扫单）
+
+- `dark:` 变体残留 **166 处 / 8 文件**（重灾区：`secrets/ExpectedSecretsPanel.tsx`、`ai-config/AIModelSettings.tsx`）
+- `rounded-2xl` 残留 **13 处 / 9 文件**（重灾区：`ai-config/AIModelSettings.tsx` 3 个 Modal、`workspace/page.tsx` 6 处）
+- inline `fixed inset-0 z-50 bg-black/50` Modal **17 处**（应迁 AdminModal/AdminDrawer，重灾区：`secrets/SecretForm.tsx` 等 4 文件）
+- emoji **2 处**（`AIModelSettings.tsx:1151 🤖` / `:2704 🚀`）
+- 自实现 toast **2 处**（`feedback/page.tsx`、`system/notifications/page.tsx`），应换 `toast` from '@/stores'
+- UsersSettings 表格本身未迁 `AdminDataTable`；Search 框 `rounded-xl py-3` 违规（应 `rounded-lg py-2`）
+- 旧 `data-management/StorageStatsCards.tsx` / `TableStatsCards.tsx` 在共享组件之前已存在，未走 `AdminStatsCards`
+
+### P3 可演进性洞察（UI 专家）
+
+- `AdminStatsCards.length > 4` 半强制 slice 是反模式 → 改 tuple 类型或 throw（避免静默丢数据）
+- L1 `lg:grid-cols-4` 硬编码 → 应支持 4-6 卡退化（企业增长必新增横切关注点）
+- `ROUTE_REDIRECTS` 应有退役机制（约定 N 个月后删）
+- `AdminStatusBadge`/`AdminEmptyState`/`AdminLoadingSkeleton` 三个纯展示组件可去掉 `'use client'`（让 RSC 复用，bundle 减小）
+- `/admin/data/page.tsx`、`/admin/access/secrets/page.tsx` 当前整页 `'use client'` + Suspense 包装，**丢失了 SSR 红利**。应改 server shell + client island
+
+### 跨页一致性约定
+
+- 各页面行级操作统一遵循 UsersSettings 的"4 命名按钮 + Delete"模式
+- 各页面 stats 必须走 `AdminStatsCards`，禁止自建 4 卡 grid
+- 各页面 Modal/Drawer 必须走 `AdminModal`/`AdminDrawer`（含 scroll lock 计数器）
+- 各页面 Status badge 必须走 `AdminStatusBadge` / `getStatusBadgeClasses`
 
 ---
 
@@ -437,6 +505,6 @@
 
 ---
 
-**最后更新**: 2026-05-10  
-**维护者**: Claude Code  
-**版本**: 1.0
+**最后更新**: 2026-05-11
+**维护者**: Claude Code
+**版本**: 1.1

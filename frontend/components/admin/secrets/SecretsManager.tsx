@@ -230,7 +230,7 @@ export function SecretsManager({
             autoComplete="off"
             data-1p-ignore
             data-lpignore="true"
-            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 "
           />
         </div>
         <select
@@ -238,7 +238,7 @@ export function SecretsManager({
           onChange={(e) =>
             setCategoryFilter(e.target.value as SecretCategory | 'ALL')
           }
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 "
         >
           <option value="ALL">All Categories</option>
           {CATEGORY_OPTIONS.map((option) => (
@@ -249,7 +249,7 @@ export function SecretsManager({
         </select>
         <button
           onClick={() => refreshSecrets()}
-          className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700"
+          className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-100 "
           title="Refresh"
         >
           <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
@@ -257,31 +257,31 @@ export function SecretsManager({
       </div>
 
       {/* 密钥列表 */}
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white ">
         <table className="w-full">
-          <thead className="bg-gray-50 dark:bg-gray-900">
+          <thead className="bg-gray-50 ">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Name
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Category
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Value
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Access Count
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="divide-y divide-gray-200 ">
             {filteredSecrets.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
@@ -292,18 +292,15 @@ export function SecretsManager({
               </tr>
             ) : (
               filteredSecrets.map((secret) => (
-                <tr
-                  key={secret.id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                >
+                <tr key={secret.id} className="hover:bg-gray-50 ">
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
                       <Key className="h-5 w-5 text-gray-400" />
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white">
+                        <div className="font-medium text-gray-900 ">
                           {secret.displayName}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-sm text-gray-500 ">
                           {secret.name}
                         </div>
                       </div>
@@ -319,7 +316,7 @@ export function SecretsManager({
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
-                      <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm dark:bg-gray-700">
+                      <code className="font-mono rounded bg-gray-100 px-2 py-1 text-sm ">
                         {secret.maskedValue}
                       </code>
                       <button
@@ -329,7 +326,7 @@ export function SecretsManager({
                             displayName: secret.displayName,
                           })
                         }
-                        className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="rounded p-1 hover:bg-gray-100 "
                         title="View Secret"
                       >
                         <Eye className="h-4 w-4 text-gray-500" />
@@ -354,21 +351,21 @@ export function SecretsManager({
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setShowVersionsFor(secret.name)}
-                        className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="rounded p-1.5 hover:bg-gray-100 "
                         title="Version History"
                       >
                         <GitBranch className="h-4 w-4 text-gray-500" />
                       </button>
                       <button
                         onClick={() => setShowLogsFor(secret.name)}
-                        className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="rounded p-1.5 hover:bg-gray-100 "
                         title="Access Logs"
                       >
                         <History className="h-4 w-4 text-gray-500" />
                       </button>
                       <button
                         onClick={() => setKeysDrawerSecret(secret)}
-                        className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="rounded p-1.5 hover:bg-gray-100 "
                         title="Manage Keys"
                       >
                         <Edit className="h-4 w-4 text-gray-500" />
@@ -376,7 +373,7 @@ export function SecretsManager({
                       <button
                         onClick={() => handleDelete(secret.name)}
                         disabled={isDeleting && deletingName === secret.name}
-                        className="rounded p-1.5 hover:bg-red-100 disabled:opacity-50 dark:hover:bg-red-900/30"
+                        className="rounded p-1.5 hover:bg-red-100 disabled:opacity-50 "
                         title="Delete"
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />

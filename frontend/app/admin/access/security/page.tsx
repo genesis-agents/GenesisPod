@@ -13,7 +13,7 @@ export default function SecurityPage() {
       title={t('admin.nav.security')}
       description={t('admin.tabDescriptions.security')}
       icon={ShieldCheck}
-      domain="access"
+      domain="system"
     >
       <div className="space-y-6">
         <AdminPageSection>

@@ -1,5 +1,15 @@
 # Admin 配置界面布局标准 - Admin Config Layout Standard
 
+> ⚠️ **DEPRECATED (2026-05-11)** — 本文档已被 `.claude/standards/20-admin-ui-design.md` v1.0 取代。
+>
+> 已知冲突：
+>
+> - Modal 圆角：本文 `rounded-2xl` → 规范 `rounded-xl`
+> - Emoji 示例（🤖）：规范明确禁止
+> - Domain 命名：本文 `ai/system/content/users` → `lib/admin/styles.ts` 实际 6 域 → 正在演进为 4 实体 `user/secret/data/system`
+>
+> **新页面请直接参照 `standards/20-admin-ui-design.md`，本文档仅保留作历史参考。**
+>
 > 基于 AI Models 配置页面布局，适用于 Admin 下所有配置管理页面。
 
 ## 核心结构

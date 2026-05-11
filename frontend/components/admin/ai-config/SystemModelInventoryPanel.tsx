@@ -111,9 +111,7 @@ export default function SystemModelInventoryPanel() {
       <ResponsiveCard>
         <ResponsiveCardContent>
           <div className="flex items-center justify-between">
-            <div className="text-sm text-red-700 dark:text-red-400">
-              加载失败：{error}
-            </div>
+            <div className="text-sm text-red-700 ">加载失败：{error}</div>
             <button
               onClick={() => void load()}
               className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs hover:bg-gray-50"
@@ -145,7 +143,7 @@ export default function SystemModelInventoryPanel() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setCollapsed((v) => !v)}
-            className="inline-flex items-center gap-2 rounded text-left transition-colors hover:text-blue-600 dark:hover:text-blue-400"
+            className="inline-flex items-center gap-2 rounded text-left transition-colors hover:text-blue-600 "
             aria-expanded={!collapsed}
           >
             {collapsed ? (
@@ -163,7 +161,7 @@ export default function SystemModelInventoryPanel() {
             <button
               onClick={() => void load()}
               aria-label="刷新"
-              className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="inline-flex items-center gap-1 rounded px-1.5 py-1 text-xs text-gray-500 hover:bg-gray-100 "
             >
               <RefreshCw
                 className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
@@ -172,7 +170,7 @@ export default function SystemModelInventoryPanel() {
           )}
         </div>
         {!collapsed && (
-          <div className="mt-3 flex gap-1 border-b border-gray-200 dark:border-gray-700">
+          <div className="mt-3 flex gap-1 border-b border-gray-200 ">
             {(
               [
                 { k: 'summary', label: '概览' },
@@ -185,8 +183,8 @@ export default function SystemModelInventoryPanel() {
                 onClick={() => setTab(t.k)}
                 className={`border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
                   tab === t.k
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                    ? 'border-blue-500 text-blue-600 '
+                    : 'border-transparent text-gray-500 hover:text-gray-700 '
                 }`}
               >
                 {t.label}
@@ -259,14 +257,14 @@ export default function SystemModelInventoryPanel() {
 
           {tab === 'top' && topModels.length > 0 && (
             <div>
-              <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100">
+              <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-gray-900 ">
                 <Activity className="h-4 w-4" />
                 Top 10 热门模型（按用户配置数）
               </h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
+                    <tr className="border-b border-gray-200 text-left uppercase text-gray-500 ">
                       <th className="py-2 pr-4">Model</th>
                       <th className="hidden py-2 pr-4 md:table-cell">
                         Provider
@@ -286,7 +284,7 @@ export default function SystemModelInventoryPanel() {
                       return (
                         <tr
                           key={`${m.provider}/${m.modelId}`}
-                          className="border-b border-gray-100 dark:border-gray-800"
+                          className="border-b border-gray-100 "
                         >
                           <td className="font-mono py-2 pr-4">{m.modelId}</td>
                           <td className="hidden py-2 pr-4 text-gray-500 md:table-cell">
@@ -344,13 +342,11 @@ function DistributionTable({
 }) {
   return (
     <div>
-      <h4 className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
-        {title}
-      </h4>
-      <div className="overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
+      <h4 className="mb-2 text-sm font-semibold text-gray-900 ">{title}</h4>
+      <div className="overflow-hidden rounded-md border border-gray-200 ">
         <table className="w-full text-xs">
-          <thead className="bg-gray-50 dark:bg-gray-900/50">
-            <tr className="border-b border-gray-200 text-left uppercase text-gray-500 dark:border-gray-700">
+          <thead className="bg-gray-50 ">
+            <tr className="border-b border-gray-200 text-left uppercase text-gray-500 ">
               <th className="whitespace-nowrap px-3 py-2">{firstCol}</th>
               <th className="whitespace-nowrap px-3 py-2 text-right">总</th>
               <th className="whitespace-nowrap px-3 py-2 text-right">启用</th>
@@ -361,7 +357,7 @@ function DistributionTable({
             {rows.map((r) => (
               <tr
                 key={r.key}
-                className="border-b border-gray-100 last:border-0 dark:border-gray-800"
+                className="border-b border-gray-100 last:border-0 "
               >
                 <td className="font-mono whitespace-nowrap px-3 py-1.5">
                   {r.label}
@@ -369,7 +365,7 @@ function DistributionTable({
                 <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
                   {r.total}
                 </td>
-                <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-emerald-600 ">
                   {r.enabled}
                 </td>
                 <td
@@ -399,13 +395,10 @@ function Stat({
   tone: 'blue' | 'green' | 'purple' | 'amber';
 }) {
   const tones: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900',
-    green:
-      'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900',
-    purple:
-      'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-900',
-    amber:
-      'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200 ',
+    green: 'bg-emerald-50 text-emerald-700 border-emerald-200 ',
+    purple: 'bg-violet-50 text-violet-700 border-violet-200 ',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200 ',
   };
   return (
     <div className={`rounded-md border px-3 py-2 ${tones[tone]}`}>

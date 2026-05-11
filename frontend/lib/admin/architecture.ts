@@ -425,137 +425,63 @@ const aiEngineLayer: ArchitectureLayer = {
 };
 
 // Layer 1: Infrastructure (Foundation)
-// 12 modules in 4 groups: User & Access, Operations & Billing, Data & Storage, System Ops
+//
+// Wave 4 重构（2026-05-11）：从 4 group × 12 卡 → 4 张大卡（无 sub-group），
+// 对应 4 实体：用户 / 密钥 / 数据 / 系统。每张卡 click 进入合并页（含子区 Tab）。
+//
+// 历史结构见 docs/_archive/2026-q2/prd/infra/core/admin-architecture-l1-groups.md
 const infrastructureLayer: ArchitectureLayer = {
   id: 'infrastructure',
   titleKey: 'admin.architecture.layers.infrastructure',
   subtitleKey: 'admin.architecture.layers.infrastructureDesc',
   level: 1,
-  groups: [
+  cards: [
     {
-      id: 'userAccess',
-      titleKey: 'admin.architecture.groups.userAccess',
-      cards: [
-        {
-          id: 'users',
-          i18nKey: 'admin.architecture.cards.infraUsers',
-          href: '/admin/access/users',
-          icon: Users,
-          clickable: true,
-          stats: [
-            { label: '总用户', key: 'totalUsers' },
-            { label: '活跃', key: 'activeUsers' },
-          ],
-        },
-        {
-          id: 'permissions',
-          i18nKey: 'admin.architecture.cards.infraPermissions',
-          href: '/admin/access/permissions',
-          icon: Shield,
-          clickable: true,
-          stats: [{ label: '管理员', key: 'adminUsers' }],
-        },
-        {
-          id: 'secrets',
-          i18nKey: 'admin.architecture.cards.infraSecrets',
-          href: '/admin/access/secrets',
-          icon: Key,
-          clickable: true,
-          stats: [{ label: '密钥', key: 'secrets' }],
-        },
+      id: 'userManagement',
+      i18nKey: 'admin.architecture.cards.infraUserManagement',
+      descriptionKey: 'admin.architecture.cards.infraUserManagementDesc',
+      href: '/admin/access/users',
+      icon: Users,
+      clickable: true,
+      stats: [
+        { label: '总用户', key: 'totalUsers' },
+        { label: '活跃', key: 'activeUsers' },
       ],
     },
     {
-      id: 'operationBilling',
-      titleKey: 'admin.architecture.groups.operationBilling',
-      cards: [
-        {
-          id: 'credits',
-          i18nKey: 'admin.architecture.cards.infraCredits',
-          href: '/admin/access/credits',
-          icon: Coins,
-          clickable: true,
-          stats: [{ label: '账户', key: 'creditAccounts' }],
-        },
-        {
-          id: 'billing',
-          i18nKey: 'admin.architecture.cards.infraBilling',
-          href: '/admin/access/billing',
-          icon: CreditCard,
-          clickable: true,
-          stats: [{ label: '交易', key: 'creditTransactions' }],
-        },
-        {
-          id: 'notifications',
-          i18nKey: 'admin.architecture.cards.infraNotifications',
-          href: '/admin/system/notifications',
-          icon: Bell,
-          clickable: true,
-          stats: [{ label: '通知', key: 'notifications' }],
-        },
+      id: 'secretManagement',
+      i18nKey: 'admin.architecture.cards.infraSecretManagement',
+      descriptionKey: 'admin.architecture.cards.infraSecretManagementDesc',
+      href: '/admin/access/secrets',
+      icon: Key,
+      clickable: true,
+      stats: [
+        { label: '密钥', key: 'secrets' },
+        { label: '待审', key: 'pendingKeyRequests' },
       ],
     },
     {
-      id: 'dataStorage',
-      titleKey: 'admin.architecture.groups.dataStorage',
-      cards: [
-        {
-          id: 'storage',
-          i18nKey: 'admin.architecture.cards.infraStorage',
-          href: '/admin/storage',
-          icon: HardDrive,
-          clickable: true,
-          stats: [{ label: 'DB + R2', key: 'storageTotal' }],
-        },
-        {
-          id: 'dataManagement',
-          i18nKey: 'admin.architecture.cards.infraDatabase',
-          href: '/admin/data-management',
-          icon: Layers,
-          clickable: true,
-          stats: [{ label: '表', key: 'dbTables' }],
-        },
-        {
-          id: 'resourceManagement',
-          i18nKey: 'admin.architecture.cards.infraResources',
-          href: '/admin/resources',
-          icon: Database,
-          clickable: true,
-          stats: [{ label: '无效', key: 'brokenResources' }],
-        },
+      id: 'dataManagement',
+      i18nKey: 'admin.architecture.cards.infraDataManagement',
+      descriptionKey: 'admin.architecture.cards.infraDataManagementDesc',
+      href: '/admin/data',
+      icon: Database,
+      clickable: true,
+      stats: [
+        { label: 'DB + R2', key: 'storageTotal' },
+        { label: '无效', key: 'brokenResources' },
       ],
     },
     {
-      id: 'systemOps',
-      titleKey: 'admin.architecture.groups.systemOps',
-      cards: [
-        {
-          id: 'system',
-          i18nKey: 'admin.architecture.cards.infraSystem',
-          href: '/admin/system',
-          icon: Settings,
-          clickable: true,
-          stats: [{ label: '设置', key: 'systemSettings' }],
-        },
-        {
-          id: 'logs',
-          i18nKey: 'admin.architecture.cards.infraLogs',
-          href: '/admin/system/logs',
-          icon: ScrollText,
-          clickable: true,
-          stats: [{ label: '登录', key: 'totalLogins' }],
-        },
-        {
-          id: 'monitoring',
-          i18nKey: 'admin.architecture.cards.infraMonitoring',
-          href: '/admin/system/monitoring',
-          icon: Activity,
-          clickable: true,
-          stats: [
-            { label: 'AI调用(24h)', key: 'kernelLLMCalls' },
-            { label: '错误(24h)', key: 'monitoringErrors' },
-          ],
-        },
+      id: 'systemManagement',
+      i18nKey: 'admin.architecture.cards.infraSystemManagement',
+      descriptionKey: 'admin.architecture.cards.infraSystemManagementDesc',
+      href: '/admin/system',
+      icon: Settings,
+      clickable: true,
+      stats: [
+        { label: 'AI调用(24h)', key: 'kernelLLMCalls' },
+        { label: '错误(24h)', key: 'monitoringErrors' },
       ],
     },
   ],

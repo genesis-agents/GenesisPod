@@ -1,6 +1,18 @@
 /**
  * Admin UI 样式常量
  * 统一所有 Admin 模块的色彩系统和样式规范
+ *
+ * Domain 体系（Wave 2 重定义，对应 L1 Infrastructure 4 实体）：
+ *  - user   → 用户实体（蓝，信任/身份）
+ *  - secret → 密钥实体（琥珀，警示/凭据）
+ *  - data   → 数据实体（绿）
+ *  - system → 系统实体（石板灰）
+ *
+ * 保留 domain（不属于 L1 重组）：
+ *  - overview / ai / support
+ *
+ * Deprecated（Wave 6 移除）：
+ *  - access  → 拆为 user + secret + system，pages 迁移完成后删除
  */
 
 // 功能域主色调
@@ -31,6 +43,32 @@ export const ADMIN_COLORS = {
     ring: 'ring-violet-500',
   },
 
+  // 用户管理 - 蓝色（身份/信任）
+  user: {
+    primary: 'blue',
+    gradient: 'from-blue-500 to-indigo-500',
+    bg: 'bg-blue-50',
+    bgHover: 'hover:bg-blue-100',
+    text: 'text-blue-700',
+    textMuted: 'text-blue-600',
+    border: 'border-blue-200',
+    icon: 'text-blue-600',
+    ring: 'ring-blue-500',
+  },
+
+  // 密钥管理 - 琥珀色（凭据/警示）
+  secret: {
+    primary: 'amber',
+    gradient: 'from-amber-500 to-orange-500',
+    bg: 'bg-amber-50',
+    bgHover: 'hover:bg-amber-100',
+    text: 'text-amber-700',
+    textMuted: 'text-amber-600',
+    border: 'border-amber-200',
+    icon: 'text-amber-600',
+    ring: 'ring-amber-500',
+  },
+
   // 数据管理 - 绿色
   data: {
     primary: 'emerald',
@@ -44,7 +82,10 @@ export const ADMIN_COLORS = {
     ring: 'ring-emerald-500',
   },
 
-  // 访问控制 - 琥珀色
+  /**
+   * @deprecated 用 `user` / `secret` / `system` 替代。
+   * 此 key 将在 Wave 6 完成所有 access 页面迁移后移除。
+   */
   access: {
     primary: 'amber',
     gradient: 'from-amber-500 to-orange-500',

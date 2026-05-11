@@ -65,7 +65,7 @@ export default function AdminPageLayout({
               {Icon && (
                 <div
                   className={cn(
-                    'flex h-14 w-14 items-center justify-center rounded-2xl shadow-lg',
+                    'flex h-14 w-14 items-center justify-center rounded-xl shadow-lg',
                     colors
                       ? `bg-gradient-to-br ${colors.gradient} shadow-${colors.primary}-500/25`
                       : 'bg-gradient-to-br from-gray-500 to-gray-600 shadow-gray-500/25'

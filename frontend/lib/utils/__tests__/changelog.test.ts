@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Mock the generated changelog JSON
+import { vi } from 'vitest';
 vi.mock('@/lib/generated/changelog.json', () => ({
   default: [
     {
@@ -26,42 +27,12 @@ import {
   CHANGELOG,
   CURRENT_VERSION,
   getLatestChangelog,
-  hasNewVersion,
-  markVersionAsSeen,
   getChangeTypeInfo,
 } from '@/lib/utils/changelog';
 
-// ---------------------------------------------------------------------------
-// localStorage mock
-// ---------------------------------------------------------------------------
-
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => {
-      store[key] = value;
-    },
-    removeItem: (key: string) => {
-      delete store[key];
-    },
-    clear: () => {
-      store = {};
-    },
-  };
-})();
-
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
+// hasNewVersion / markVersionAsSeen 已删除（版本提示迁移到后端通知中心推送）。
 
 describe('changelog utils', () => {
-  beforeEach(() => {
-    localStorageMock.clear();
-    vi.clearAllMocks();
-  });
-
   // ============================================================
   // CHANGELOG / CURRENT_VERSION
   // ============================================================
@@ -90,53 +61,6 @@ describe('changelog utils', () => {
     expect(latest.changes).toHaveLength(2);
     expect(latest.changes[0].type).toBe('feature');
     expect(latest.changes[1].type).toBe('fix');
-  });
-
-  // ============================================================
-  // hasNewVersion
-  // ============================================================
-
-  it('hasNewVersion returns true when no version is stored', () => {
-    expect(hasNewVersion()).toBe(true);
-  });
-
-  it('hasNewVersion returns false when stored version matches current', () => {
-    localStorageMock.setItem('lastSeenVersion', '2.1.0');
-    expect(hasNewVersion()).toBe(false);
-  });
-
-  it('hasNewVersion returns true when stored version is older', () => {
-    localStorageMock.setItem('lastSeenVersion', '1.0.0');
-    expect(hasNewVersion()).toBe(true);
-  });
-
-  it('hasNewVersion returns false when called server-side (typeof window check)', () => {
-    // We test by simulating the behavior: if lastSeenVersion === CURRENT_VERSION, returns false
-    localStorageMock.setItem('lastSeenVersion', CURRENT_VERSION);
-    expect(hasNewVersion()).toBe(false);
-  });
-
-  // ============================================================
-  // markVersionAsSeen
-  // ============================================================
-
-  it('markVersionAsSeen stores the current version in localStorage', () => {
-    markVersionAsSeen();
-    expect(localStorageMock.getItem('lastSeenVersion')).toBe('2.1.0');
-  });
-
-  it('markVersionAsSeen makes hasNewVersion return false', () => {
-    markVersionAsSeen();
-    expect(hasNewVersion()).toBe(false);
-  });
-
-  it('markVersionAsSeen does not throw when called multiple times', () => {
-    // Calling it repeatedly should be idempotent and not throw
-    expect(() => {
-      markVersionAsSeen();
-      markVersionAsSeen();
-    }).not.toThrow();
-    expect(localStorageMock.getItem('lastSeenVersion')).toBe(CURRENT_VERSION);
   });
 
   // ============================================================

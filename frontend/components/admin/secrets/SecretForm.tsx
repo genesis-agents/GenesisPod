@@ -212,17 +212,14 @@ export function SecretForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-lg rounded-lg bg-white shadow-xl dark:bg-gray-800">
+      <div className="mx-4 w-full max-w-lg rounded-lg bg-white shadow-xl ">
         {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 ">
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 ">
             <Key className="h-5 w-5" />
             {isEditing ? '编辑密钥' : '添加密钥'}
           </h3>
-          <button
-            onClick={onCancel}
-            className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
+          <button onClick={onCancel} className="rounded p-1 hover:bg-gray-100 ">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -236,7 +233,7 @@ export function SecretForm({
           {/* 名称 (仅创建时) */}
           {!isEditing && (
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="mb-1 block text-sm font-medium text-gray-700 ">
                 名称 (唯一标识) <span className="text-red-500">*</span>
               </label>
               <input
@@ -250,10 +247,8 @@ export function SecretForm({
                   })
                 }
                 placeholder="例如: openai-api-key"
-                className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
-                  errors.name
-                    ? 'border-red-500'
-                    : 'border-gray-300 dark:border-gray-600'
+                className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 ${
+                  errors.name ? 'border-red-500' : 'border-gray-300 '
                 }`}
               />
               {errors.name && (
@@ -267,7 +262,7 @@ export function SecretForm({
 
           {/* 显示名称 */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1 block text-sm font-medium text-gray-700 ">
               显示名称 <span className="text-red-500">*</span>
             </label>
             <input
@@ -278,10 +273,8 @@ export function SecretForm({
                 setFormData({ ...formData, displayName: e.target.value })
               }
               placeholder="例如: OpenAI API Key"
-              className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
-                errors.displayName
-                  ? 'border-red-500'
-                  : 'border-gray-300 dark:border-gray-600'
+              className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 ${
+                errors.displayName ? 'border-red-500' : 'border-gray-300 '
               }`}
             />
             {errors.displayName && (
@@ -291,10 +284,10 @@ export function SecretForm({
 
           {/* 密钥值 */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1 block text-sm font-medium text-gray-700 ">
               密钥值 {!isEditing && <span className="text-red-500">*</span>}
               {supportsMultiKey && keyCount > 0 && (
-                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-normal text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-normal text-blue-700 ">
                   {keyCount} 个密钥
                 </span>
               )}
@@ -312,10 +305,8 @@ export function SecretForm({
                       : '每行一个密钥，或用逗号分隔\n例如:\ntvly-xxxxxxxxxxxx\ntvly-yyyyyyyyyyyy'
                   }
                   rows={4}
-                  className={`font-mono w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
-                    errors.value
-                      ? 'border-red-500'
-                      : 'border-gray-300 dark:border-gray-600'
+                  className={`font-mono w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 ${
+                    errors.value ? 'border-red-500' : 'border-gray-300 '
                   }`}
                 />
                 <div className="mt-1 flex items-start gap-1 text-xs text-gray-500">
@@ -326,9 +317,9 @@ export function SecretForm({
                 </div>
                 {/* 健康状态显示（仅编辑时） */}
                 {isEditing && keyHealth.length > 0 && (
-                  <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700">
+                  <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 ">
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      <span className="text-xs font-medium text-gray-700 ">
                         密钥健康状态
                         {healthStats && (
                           <span className="ml-2 font-normal text-gray-500">
@@ -340,7 +331,7 @@ export function SecretForm({
                         type="button"
                         onClick={() => refetchHealth()}
                         disabled={isLoadingHealth}
-                        className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-50 dark:hover:bg-gray-600"
+                        className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-50 "
                       >
                         <RefreshCw
                           className={`h-3 w-3 ${isLoadingHealth ? 'animate-spin' : ''}`}
@@ -365,10 +356,8 @@ export function SecretForm({
                   setFormData({ ...formData, value: e.target.value })
                 }
                 placeholder={isEditing ? '留空则不修改' : '输入密钥值'}
-                className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white ${
-                  errors.value
-                    ? 'border-red-500'
-                    : 'border-gray-300 dark:border-gray-600'
+                className={`w-full rounded-lg border bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 ${
+                  errors.value ? 'border-red-500' : 'border-gray-300 '
                 }`}
               />
             )}
@@ -380,7 +369,7 @@ export function SecretForm({
           {/* 分类和提供商 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="mb-1 block text-sm font-medium text-gray-700 ">
                 分类
               </label>
               <select
@@ -391,7 +380,7 @@ export function SecretForm({
                     category: e.target.value as SecretCategory,
                   })
                 }
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 "
               >
                 {categoryOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -401,7 +390,7 @@ export function SecretForm({
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="mb-1 block text-sm font-medium text-gray-700 ">
                 提供商
               </label>
               <input
@@ -412,14 +401,14 @@ export function SecretForm({
                   setFormData({ ...formData, provider: e.target.value })
                 }
                 placeholder="例如: OpenAI"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 "
               />
             </div>
           </div>
 
           {/* 描述 */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1 block text-sm font-medium text-gray-700 ">
               描述
             </label>
             <textarea
@@ -429,7 +418,7 @@ export function SecretForm({
               }
               placeholder="可选的描述信息"
               rows={2}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 "
             />
           </div>
 
@@ -444,20 +433,17 @@ export function SecretForm({
               }
               className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <label
-              htmlFor="isActive"
-              className="text-sm text-gray-700 dark:text-gray-300"
-            >
+            <label htmlFor="isActive" className="text-sm text-gray-700 ">
               启用此密钥
             </label>
           </div>
 
           {/* 按钮 */}
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
+          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 ">
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-lg px-4 py-2 text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="rounded-lg px-4 py-2 text-gray-700 transition-colors hover:bg-gray-100 "
             >
               取消
             </button>

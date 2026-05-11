@@ -14,8 +14,15 @@ import TableDiagnosisPanel from './TableDiagnosisPanel';
 // StorageInventoryPanel & BrokenResourcesCard 已拆到独立页：
 //   /admin/storage   → 存储管理
 //   /admin/resources → 资源管理
+// Wave 4 精化 (2026-05-11): 拆出 TableManagementContent 供 /admin/data Tab 内嵌
 
-export default function TableManagementPage() {
+/**
+ * 数据表管理内容（不含 AdminPageLayout 包装）。
+ *
+ * 用于 /admin/data Tab=assets 内嵌；以及独立页 /admin/data-management 包到
+ * AdminPageLayout 后渲染（见下方 TableManagementPage default export）。
+ */
+export function TableManagementContent() {
   const { t } = useTranslation();
   const [batchDiagnosing, setBatchDiagnosing] = useState(false);
 
@@ -31,7 +38,6 @@ export default function TableManagementPage() {
     loading,
     detailLoading,
     diagnosisLoading,
-    cleanupLoading,
 
     // Error
     error,
@@ -125,6 +131,78 @@ export default function TableManagementPage() {
   }, [batchCleanup, t, refresh]);
 
   return (
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <TableStatsCards
+        stats={stats}
+        loading={loading}
+        onCleanup={handleBatchCleanup}
+        cleanupLoading={batchCleanupLoading}
+      />
+
+      {/* Toolbar */}
+      <TableToolbar
+        query={query}
+        onSearchChange={updateSearch}
+        onCategoryChange={updateCategory}
+        onHealthStatusChange={updateHealthStatus}
+        onRefresh={refresh}
+        onBatchDiagnose={handleBatchDiagnose}
+        loading={loading}
+        diagnosing={batchDiagnosing}
+      />
+
+      {/* Error State */}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {t('admin.tables.error')}: {error.message || String(error)}
+        </div>
+      )}
+
+      {/* Data Grid */}
+      <TableDataGrid
+        tables={tables}
+        query={query}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        loading={loading}
+        onSort={updateSort}
+        onPageChange={updatePage}
+        onViewDetail={fetchTableDetail}
+        onDiagnose={diagnoseTable}
+        onCleanup={cleanupTable}
+        cleaningTable={cleaningTable}
+      />
+
+      {/* Detail Modal */}
+      <TableDetailModal
+        table={tableDetail}
+        loading={detailLoading}
+        open={!!selectedTable}
+        onClose={closeTableDetail}
+      />
+
+      {/* Diagnosis Panel */}
+      <TableDiagnosisPanel
+        diagnosis={diagnosis}
+        loading={diagnosisLoading}
+        open={!!diagnosingTable}
+        onClose={closeDiagnosis}
+        onCleanup={handleCleanupFromDiagnosis}
+      />
+    </div>
+  );
+}
+
+/**
+ * 数据表管理独立页（含 AdminPageLayout 包装）。
+ *
+ * 通常通过 /admin/data-management 路由访问。Tab 内嵌请用 `TableManagementContent`。
+ */
+export default function TableManagementPage() {
+  const { t } = useTranslation();
+  return (
     <AdminPageLayout
       title={t('admin.tables.title')}
       description={t('admin.tables.description')}
@@ -132,67 +210,7 @@ export default function TableManagementPage() {
       domain="data"
       maxWidth="7xl"
     >
-      <div className="space-y-6">
-        {/* Stats Cards */}
-        <TableStatsCards
-          stats={stats}
-          loading={loading}
-          onCleanup={handleBatchCleanup}
-          cleanupLoading={batchCleanupLoading}
-        />
-
-        {/* Toolbar */}
-        <TableToolbar
-          query={query}
-          onSearchChange={updateSearch}
-          onCategoryChange={updateCategory}
-          onHealthStatusChange={updateHealthStatus}
-          onRefresh={refresh}
-          onBatchDiagnose={handleBatchDiagnose}
-          loading={loading}
-          diagnosing={batchDiagnosing}
-        />
-
-        {/* Error State */}
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {t('admin.tables.error')}: {error.message || String(error)}
-          </div>
-        )}
-
-        {/* Data Grid */}
-        <TableDataGrid
-          tables={tables}
-          query={query}
-          total={total}
-          page={page}
-          pageSize={pageSize}
-          loading={loading}
-          onSort={updateSort}
-          onPageChange={updatePage}
-          onViewDetail={fetchTableDetail}
-          onDiagnose={diagnoseTable}
-          onCleanup={cleanupTable}
-          cleaningTable={cleaningTable}
-        />
-
-        {/* Detail Modal */}
-        <TableDetailModal
-          table={tableDetail}
-          loading={detailLoading}
-          open={!!selectedTable}
-          onClose={closeTableDetail}
-        />
-
-        {/* Diagnosis Panel */}
-        <TableDiagnosisPanel
-          diagnosis={diagnosis}
-          loading={diagnosisLoading}
-          open={!!diagnosingTable}
-          onClose={closeDiagnosis}
-          onCleanup={handleCleanupFromDiagnosis}
-        />
-      </div>
+      <TableManagementContent />
     </AdminPageLayout>
   );
 }

@@ -3,6 +3,10 @@
  * 版本更新日志配置
  *
  * Data is auto-generated from CHANGELOG.md by scripts/generate-changelog.js
+ *
+ * 历史：原本通过 VersionUpdateBanner + localStorage `lastSeenVersion` 做版本提示，
+ * 已迁移到后端通知中心推送（见 NotificationPresetsService.notifyVersionUpdate）。
+ * `hasNewVersion` / `markVersionAsSeen` 已删除。
  */
 
 import generatedChangelog from '@/lib/generated/changelog.json';
@@ -26,25 +30,6 @@ export const CURRENT_VERSION = CHANGELOG[0]?.version ?? '0.0.0';
  */
 export function getLatestChangelog(): ChangelogEntry {
   return CHANGELOG[0];
-}
-
-/**
- * Check if there's a new version
- */
-export function hasNewVersion(): boolean {
-  if (typeof window === 'undefined') return false;
-
-  const lastSeenVersion = localStorage.getItem('lastSeenVersion');
-  return !lastSeenVersion || lastSeenVersion !== CURRENT_VERSION;
-}
-
-/**
- * Mark current version as seen
- */
-export function markVersionAsSeen(): void {
-  if (typeof window === 'undefined') return;
-
-  localStorage.setItem('lastSeenVersion', CURRENT_VERSION);
 }
 
 /**

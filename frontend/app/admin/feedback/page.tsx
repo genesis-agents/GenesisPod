@@ -8,6 +8,7 @@ import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { toast } from '@/stores';
 
 interface Feedback {
   id: string;
@@ -119,16 +120,7 @@ export default function FeedbackPage() {
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
 
-  // Action feedback
-  const [actionMessage, setActionMessage] = useState<{
-    type: 'success' | 'error';
-    text: string;
-  } | null>(null);
-
-  const showMessage = useCallback((type: 'success' | 'error', text: string) => {
-    setActionMessage({ type, text });
-    setTimeout(() => setActionMessage(null), 3000);
-  }, []);
+  // Wave 4 精化 (2026-05-11): 自实现 toast → 项目 toast store
 
   // Type and Status labels (using i18n)
   const getTypeLabel = useCallback(
@@ -290,7 +282,7 @@ export default function FeedbackPage() {
       setAdminNotes('');
       setNewStatus('');
       setNewPriority('');
-      showMessage('success', t('admin.feedback.updateSuccess'));
+      toast.success(t('admin.feedback.updateSuccess'));
     } catch (err) {
       const message =
         err instanceof Error
@@ -390,19 +382,6 @@ export default function FeedbackPage() {
       }
     >
       <div>
-        {/* Action Message Toast */}
-        {actionMessage && (
-          <div
-            className={`fixed right-4 top-4 z-50 rounded-lg px-4 py-3 shadow-lg ${
-              actionMessage.type === 'success'
-                ? 'bg-green-600 text-white'
-                : 'bg-red-600 text-white'
-            }`}
-          >
-            {actionMessage.text}
-          </div>
-        )}
-
         {/* Error State */}
         {error && (
           <div className="mb-4 rounded-lg bg-red-50 p-4 text-red-800">

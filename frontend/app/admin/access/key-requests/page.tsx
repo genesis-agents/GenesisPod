@@ -1,18 +1,11 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { Inbox } from 'lucide-react';
-import AdminPageLayout from '@/components/admin/layout/AdminPageLayout';
-import { KeyRequestsManager } from '@/components/admin/byok/KeyRequestsManager';
-
-export default function KeyRequestsPage() {
-  return (
-    <AdminPageLayout
-      title="Key 申请工单"
-      description="处理用户的 API Key 申请。批准时从分发池选择一个 Key 分配给该用户。"
-      icon={Inbox}
-      domain="access"
-    >
-      <KeyRequestsManager />
-    </AdminPageLayout>
-  );
+/**
+ * 已并入密钥管理（Wave 4B, 2026-05-11）。
+ * 密钥申请审批现在以 /admin/access/secrets 页面的 [申请] Tab 提供。
+ *
+ * 旧 URL 保留为 redirect，避免破坏外链与书签。
+ */
+export default function KeyRequestsPageRedirect() {
+  redirect('/admin/access/secrets?tab=requests&from=key-requests');
 }

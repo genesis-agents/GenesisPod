@@ -137,19 +137,44 @@ describe('AI Engine layer', () => {
 });
 
 describe('Infrastructure layer', () => {
-  it('keeps operational groups and monitoring stats', () => {
+  // Wave 4 (2026-05-11): L1 重构为 4 张大卡（无 groups），对应 4 实体
+  // 用户 / 密钥 / 数据 / 系统。旧 4-group × 12 卡结构已被替代。
+  it('has 4 entity cards (user / secret / data / system) without sub-groups', () => {
     const layer = getLayer('infrastructure');
-    expect(layer.groups).toHaveLength(4);
+    expect(layer.groups).toBeUndefined();
+    expect(layer.cards).toHaveLength(4);
 
-    const systemOps = layer.groups?.find((group) => group.id === 'systemOps');
-    const monitoring = systemOps?.cards.find(
-      (card) => card.id === 'monitoring'
-    );
-    expect(monitoring?.href).toBe('/admin/system/monitoring');
-    expect(monitoring?.stats?.map((stat) => stat.key)).toEqual([
+    const ids = layer.cards?.map((c) => c.id);
+    expect(ids).toEqual([
+      'userManagement',
+      'secretManagement',
+      'dataManagement',
+      'systemManagement',
+    ]);
+  });
+
+  it('system management card links to /admin/system with monitoring stats', () => {
+    const layer = getLayer('infrastructure');
+    const systemCard = layer.cards?.find((c) => c.id === 'systemManagement');
+    expect(systemCard?.href).toBe('/admin/system');
+    expect(systemCard?.stats?.map((stat) => stat.key)).toEqual([
       'kernelLLMCalls',
       'monitoringErrors',
     ]);
+  });
+
+  it('all 4 cards are clickable and point to their merged hubs', () => {
+    const layer = getLayer('infrastructure');
+    const expected: Record<string, string> = {
+      userManagement: '/admin/access/users',
+      secretManagement: '/admin/access/secrets',
+      dataManagement: '/admin/data',
+      systemManagement: '/admin/system',
+    };
+    for (const card of layer.cards ?? []) {
+      expect(card.clickable).toBe(true);
+      expect(card.href).toBe(expected[card.id]);
+    }
   });
 });
 

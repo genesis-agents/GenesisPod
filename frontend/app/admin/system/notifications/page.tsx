@@ -15,6 +15,7 @@ import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
+import { toast } from '@/stores';
 
 interface NotificationStats {
   totalCount: number;
@@ -82,7 +83,7 @@ export default function NotificationsPage() {
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastType, setBroadcastType] = useState('SYSTEM');
   const [sending, setSending] = useState(false);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  // Wave 4 精化 (2026-05-11): 自实现 toast → 项目 toast store
 
   const fetchStats = useCallback(async () => {
     try {
@@ -135,7 +136,6 @@ export default function NotificationsPage() {
     e.preventDefault();
     if (!broadcastTitle.trim() || !broadcastMessage.trim()) return;
     setSending(true);
-    setActionMessage(null);
     try {
       const res = await fetch(
         `${config.apiUrl}/admin/notifications/broadcast`,
@@ -153,7 +153,7 @@ export default function NotificationsPage() {
         throw new Error(t('admin.notifications.errors.broadcastFailed'));
       const json = await res.json();
       const result = json?.data ?? json;
-      setActionMessage(
+      toast.success(
         t('admin.notifications.broadcastSuccess').replace(
           '{count}',
           String(result.sent)
@@ -168,7 +168,7 @@ export default function NotificationsPage() {
         err instanceof Error
           ? err.message
           : t('admin.notifications.errors.broadcastFailed');
-      setActionMessage(message);
+      toast.error(message);
       logger.error('Failed to broadcast notification:', err);
     } finally {
       setSending(false);
@@ -257,12 +257,6 @@ export default function NotificationsPage() {
           {error}
         </div>
       )}
-      {actionMessage && (
-        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
-          {actionMessage}
-        </div>
-      )}
-
       {/* Stats Cards */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (

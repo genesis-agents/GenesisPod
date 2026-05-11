@@ -2,7 +2,6 @@
 
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
-import VersionUpdateBanner from './VersionUpdateBanner';
 import { ByokOnboardingBanner } from '@/components/byok/ByokOnboardingBanner';
 
 interface AppShellProps {
@@ -19,6 +18,9 @@ interface AppShellProps {
  * - Sidebar (hidden on mobile, visible on md+) - can be hidden with hideSidebar prop
  * - Main content area with proper spacing
  *
+ * 版本更新提示已从顶部横幅迁移到通知中心（推送）—— 见
+ * backend `NotificationPresetsService.notifyVersionUpdate`。
+ *
  * ★ Hydration 问题已在 Providers 层面统一处理（isMounted 模式）
  */
 export default function AppShell({
@@ -33,9 +35,6 @@ export default function AppShell({
 
       {/* Main Layout Container */}
       <div className={`flex h-screen flex-col bg-gray-50 ${className}`}>
-        {/* Version Update Banner */}
-        <VersionUpdateBanner />
-
         <div className="flex min-h-0 flex-1">
           {/* Desktop Sidebar - Hidden on mobile, or when hideSidebar is true */}
           {!hideSidebar && <Sidebar />}

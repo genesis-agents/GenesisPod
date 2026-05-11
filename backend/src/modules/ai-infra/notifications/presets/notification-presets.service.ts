@@ -252,7 +252,8 @@ export class NotificationPresetsService {
       type: NotificationTypeDto.KEY_REQUEST_SUBMITTED,
       title: "新的密钥申请",
       message: `${requesterEmail} 提交了 API Key 申请${usageSuffix}`,
-      actionUrl: "/admin/access/key-requests",
+      // Wave 4 (2026-05-11): key-requests 已并入 secrets 页 Tab，旧路径自动 redirect
+      actionUrl: "/admin/access/secrets?tab=requests",
       actionLabel: "查看申请",
       metadata: { requestId, requesterEmail, estimatedUsage },
     });
@@ -332,6 +333,37 @@ export class NotificationPresetsService {
       relatedType: "key-assignment",
       relatedId: assignmentIds[0],
       metadata: { assignmentIds, modelLabels },
+    });
+  }
+
+  /**
+   * 版本更新通知（替代旧的 VersionUpdateBanner 横幅）。
+   *
+   * 调用方（CI / admin 脚本 / admin endpoint）负责按 audience 解析用户 ID 列表：
+   *  - "all"     → 所有用户
+   *  - "admins"  → role=ADMIN 的用户
+   *  - "active"  → 近 N 天有登录的用户
+   *
+   * presets 层不感知用户表与 role 字段，只接 userIds。
+   */
+  async notifyVersionUpdate(params: {
+    userIds: string[];
+    version: string;
+    changesCount: number;
+    /** 默认 "/changelog"。可传入自定义页面（如带 anchor 的 changelog#vX.Y.Z） */
+    changelogUrl?: string;
+  }) {
+    const { userIds, version, changesCount, changelogUrl } = params;
+    if (userIds.length === 0) return;
+
+    await this.notificationService.batchCreateNotifications({
+      userIds,
+      type: NotificationTypeDto.UPDATE,
+      title: `v${version} 新版本上线`,
+      message: `本次更新包含 ${changesCount} 项变更`,
+      actionUrl: changelogUrl ?? "/changelog",
+      actionLabel: "查看更新日志",
+      metadata: { version, changesCount },
     });
   }
 }

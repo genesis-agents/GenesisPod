@@ -92,16 +92,16 @@ export function SecretVersions({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800">
+      <div className="mx-4 flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl ">
         {/* 头部 */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-          <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 ">
+          <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-900 ">
             <GitBranch className="h-5 w-5 text-blue-500" />
             版本历史 - {secretName}
           </h3>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 "
           >
             <X className="h-5 w-5" />
           </button>
@@ -126,19 +126,19 @@ export function SecretVersions({
                   key={version.id}
                   className={`rounded-xl border p-4 transition-all ${
                     version.isCurrent
-                      ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20'
-                      : 'border-gray-200 bg-white hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800'
+                      ? 'border-blue-200 bg-blue-50 '
+                      : 'border-gray-200 bg-white hover:border-gray-300 '
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       {/* 版本号和状态 */}
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                        <span className="text-lg font-semibold text-gray-900 ">
                           v{version.version}
                         </span>
                         {version.isCurrent && (
-                          <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                          <span className="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 ">
                             <Check className="h-3 w-3" />
                             当前版本
                           </span>
@@ -147,7 +147,7 @@ export function SecretVersions({
 
                       {/* 变更说明 */}
                       {version.changeNote && (
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        <p className="mt-1 text-sm text-gray-600 ">
                           {version.changeNote}
                         </p>
                       )}
@@ -175,7 +175,7 @@ export function SecretVersions({
                       {/* 显示值 */}
                       {revealedVersion === version.version && versionValue && (
                         <div className="mt-3">
-                          <code className="font-mono block break-all rounded-lg bg-gray-100 p-2 text-sm dark:bg-gray-700">
+                          <code className="font-mono block break-all rounded-lg bg-gray-100 p-2 text-sm ">
                             {versionValue}
                           </code>
                         </div>
@@ -186,7 +186,7 @@ export function SecretVersions({
                     <div className="ml-4 flex items-center gap-2">
                       <button
                         onClick={() => handleReveal(version.version)}
-                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 "
                         title={
                           revealedVersion === version.version ? '隐藏' : '查看'
                         }
@@ -199,7 +199,7 @@ export function SecretVersions({
                       </button>
                       <button
                         onClick={() => handleCopy(version.version)}
-                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 "
                         title="复制"
                       >
                         {copiedVersion === version.version ? (
@@ -231,7 +231,7 @@ export function SecretVersions({
                               onClick={() =>
                                 setRollbackConfirm(version.version)
                               }
-                              className="rounded-lg p-2 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+                              className="rounded-lg p-2 text-amber-500 hover:bg-amber-50 "
                               title="回滚到此版本"
                             >
                               <RotateCcw className="h-4 w-4" />
@@ -248,7 +248,7 @@ export function SecretVersions({
         </div>
 
         {/* 底部说明 */}
-        <div className="border-t border-gray-200 px-6 py-3 dark:border-gray-700">
+        <div className="border-t border-gray-200 px-6 py-3 ">
           <p className="text-xs text-gray-500">
             每次更新密钥值会自动创建新版本，回滚操作会创建一个包含历史值的新版本
           </p>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { Bot, Eye, EyeOff } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
@@ -318,7 +319,7 @@ const STANDARD_MODEL_CONFIGS = [
     provider: 'Cohere',
     defaultModelId: 'rerank-v3.5',
     defaultEndpoint: 'https://api.cohere.com/v2/rerank',
-    icon: '🔄',
+    icon: '',
     defaultType: 'RERANK',
   },
 ] as const;
@@ -1045,13 +1046,13 @@ export default function AIModelSettings({
             placeholder="Search 模型名称、Model ID、Provider..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 text-gray-900 focus:border-transparent focus:ring-2 focus:ring-blue-500 "
           />
         </div>
         <select
           value={providerFilter}
           onChange={(e) => setProviderFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 focus:ring-2 focus:ring-blue-500 "
         >
           <option value="all">All Providers ({models.length})</option>
           {providerOptions.map(({ provider, count }) => (
@@ -1062,7 +1063,7 @@ export default function AIModelSettings({
         </select>
         <button
           onClick={() => fetchModels()}
-          className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700"
+          className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-100 "
           title="Refresh"
         >
           <svg
@@ -1082,34 +1083,34 @@ export default function AIModelSettings({
       </div>
 
       {/* Models Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white ">
         <table className="w-full">
-          <thead className="bg-gray-50 dark:bg-gray-900">
+          <thead className="bg-gray-50 ">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Model
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Model ID
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Type
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 API Key
               </th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Capabilities
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500 ">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="divide-y divide-gray-200 ">
             {filteredModels.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
@@ -1122,7 +1123,7 @@ export default function AIModelSettings({
               filteredModels.map((model) => (
                 <tr
                   key={model.id}
-                  className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${!model.isEnabled ? 'opacity-60' : ''}`}
+                  className={`hover:bg-gray-50 ${!model.isEnabled ? 'opacity-60' : ''}`}
                 >
                   {/* Model Name + Icon + Provider */}
                   <td className="px-4 py-4">
@@ -1150,12 +1151,15 @@ export default function AIModelSettings({
                               />
                             );
                           }
-                          return model.icon || '🤖';
+                          if (model.icon) {
+                            return model.icon;
+                          }
+                          return <Bot className="h-5 w-5 text-gray-400" />;
                         })()}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900 dark:text-white">
+                          <span className="font-medium text-gray-900 ">
                             {model.displayName}
                           </span>
                           {model.isDefault && (
@@ -1169,7 +1173,7 @@ export default function AIModelSettings({
                             </span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-sm text-gray-500 ">
                           {model.provider}
                         </div>
                       </div>
@@ -1178,7 +1182,7 @@ export default function AIModelSettings({
 
                   {/* Model ID */}
                   <td className="px-4 py-4">
-                    <code className="font-mono rounded bg-gray-100 px-2 py-1 text-xs dark:bg-gray-700">
+                    <code className="font-mono rounded bg-gray-100 px-2 py-1 text-xs ">
                       {model.modelId}
                     </code>
                   </td>
@@ -1301,7 +1305,7 @@ export default function AIModelSettings({
                       <button
                         onClick={() => handleTestConnection(model)}
                         disabled={testingModel === model.id || !model.isEnabled}
-                        className="rounded p-1.5 text-green-600 hover:bg-green-100 disabled:opacity-50 dark:hover:bg-green-900/30"
+                        className="rounded p-1.5 text-green-600 hover:bg-green-100 disabled:opacity-50 "
                         title="Test Connection"
                       >
                         {testingModel === model.id ? (
@@ -1344,7 +1348,7 @@ export default function AIModelSettings({
                       {!model.isDefault && model.isEnabled && (
                         <button
                           onClick={() => handleSetDefault(model)}
-                          className="rounded p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                          className="rounded p-1.5 text-blue-600 hover:bg-blue-100 "
                           title="Set as Default"
                         >
                           <svg
@@ -1365,7 +1369,7 @@ export default function AIModelSettings({
                       {/* Edit */}
                       <button
                         onClick={() => setEditingModel(model)}
-                        className="rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="rounded p-1.5 hover:bg-gray-100 "
                         title="Edit"
                       >
                         <svg
@@ -1386,7 +1390,7 @@ export default function AIModelSettings({
                       <button
                         onClick={() => handleDeleteModel(model)}
                         disabled={model.isDefault}
-                        className="rounded p-1.5 hover:bg-red-100 disabled:opacity-50 dark:hover:bg-red-900/30"
+                        className="rounded p-1.5 hover:bg-red-100 disabled:opacity-50 "
                         title="Delete"
                       >
                         <svg
@@ -1434,7 +1438,7 @@ export default function AIModelSettings({
       {/* Diagnose Modal */}
       {showDiagnose && diagnoseResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">
                 AI Models Diagnostic Report
@@ -1714,7 +1718,7 @@ function EditModelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Edit {model.displayName}
         </h3>
@@ -1913,9 +1917,14 @@ function EditModelModal({
                         <button
                           type="button"
                           onClick={() => setShowApiKey(!showApiKey)}
+                          aria-label={showApiKey ? '隐藏密钥' : '显示密钥'}
                           className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                         >
-                          {showApiKey ? '🙈' : '👁️'}
+                          {showApiKey ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </button>
                       </>
                     )}
@@ -2400,7 +2409,7 @@ function AddModelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
         <h3 className="mb-4 text-lg font-semibold text-gray-900">
           Add New AI Model
         </h3>

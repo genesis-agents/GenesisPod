@@ -586,7 +586,7 @@ export default function WorkspacePage() {
 
         <main className="mx-auto mt-10 grid max-w-7xl gap-8 px-8 xl:grid-cols-[320px,1fr,360px]">
           <section className="space-y-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-gray-900">
                   已选资源
@@ -686,7 +686,7 @@ export default function WorkspacePage() {
               )}
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <h2 className="text-base font-semibold text-gray-900">
                 历史报告
               </h2>
@@ -727,7 +727,7 @@ export default function WorkspacePage() {
           </section>
 
           <section className="space-y-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-gray-900">
@@ -837,7 +837,7 @@ export default function WorkspacePage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-gray-900">
                   任务进度
@@ -935,7 +935,7 @@ export default function WorkspacePage() {
           </section>
 
           <section className="space-y-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <h2 className="text-base font-semibold text-gray-900">
                 任务结果预览
               </h2>
@@ -946,7 +946,7 @@ export default function WorkspacePage() {
               <div className="mt-6">{renderTaskResult()}</div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
               <h2 className="text-base font-semibold text-gray-900">
                 生成报告
               </h2>

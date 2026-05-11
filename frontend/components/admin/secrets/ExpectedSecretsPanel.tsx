@@ -67,31 +67,25 @@ function MissingSecretCard({
   const hasGuide = Boolean(item.setupGuideUrl);
 
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-800/40 dark:bg-orange-900/10">
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 p-4 ">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-gray-900 dark:text-white">
-            {item.displayName}
-          </span>
+          <span className="font-medium text-gray-900 ">{item.displayName}</span>
           {item.provider && (
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600 ">
               {item.provider}
             </span>
           )}
           {item.freeTierAvailable && (
-            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+            <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 ">
               Free tier
             </span>
           )}
         </div>
         {item.description && (
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {item.description}
-          </p>
+          <p className="mt-1 text-sm text-gray-500 ">{item.description}</p>
         )}
-        <p className="font-mono mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-          {item.name}
-        </p>
+        <p className="font-mono mt-0.5 text-xs text-gray-400 ">{item.name}</p>
       </div>
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
         {hasGuide ? (
@@ -99,7 +93,7 @@ function MissingSecretCard({
             onClick={() =>
               window.open(item.setupGuideUrl, '_blank', 'noopener,noreferrer')
             }
-            className="flex items-center gap-1 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-700 dark:bg-gray-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+            className="flex items-center gap-1 rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 "
           >
             <ExternalLink className="h-3 w-3" />
             Apply
@@ -107,7 +101,7 @@ function MissingSecretCard({
         ) : (
           <button
             disabled
-            className="flex cursor-not-allowed items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500"
+            className="flex cursor-not-allowed items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-400 "
             title="Setup guide coming soon"
           >
             <ExternalLink className="h-3 w-3" />
@@ -143,25 +137,21 @@ function Section({
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   const headerColors: Record<string, string> = {
-    neutral:
-      'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50',
-    info: 'border-blue-200 bg-blue-50 dark:border-blue-800/40 dark:bg-blue-900/10',
-    warning:
-      'border-yellow-200 bg-yellow-50 dark:border-yellow-800/40 dark:bg-yellow-900/10',
+    neutral: 'border-gray-200 bg-gray-50 ',
+    info: 'border-blue-200 bg-blue-50 ',
+    warning: 'border-yellow-200 bg-yellow-50 ',
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="rounded-lg border border-gray-200 ">
       <button
         onClick={() => setExpanded((v) => !v)}
         className={`flex w-full items-center justify-between rounded-t-lg px-4 py-3 ${headerColors[variant]}`}
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-            {title}
-          </span>
+          <span className="text-sm font-medium text-gray-800 ">{title}</span>
           {badge && (
-            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+            <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 ">
               {badge}
             </span>
           )}
@@ -172,11 +162,7 @@ function Section({
           <ChevronDown className="h-4 w-4 text-gray-400" />
         )}
       </button>
-      {expanded && (
-        <div className="divide-y divide-gray-100 dark:divide-gray-800">
-          {children}
-        </div>
-      )}
+      {expanded && <div className="divide-y divide-gray-100 ">{children}</div>}
     </div>
   );
 }
@@ -197,23 +183,21 @@ function ReadOnlySecretRow({
     <div className="flex items-center justify-between gap-4 px-4 py-3">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+          <span className="text-sm font-medium text-gray-800 ">
             {displayName}
           </span>
           {provider && (
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 ">
               {provider}
             </span>
           )}
-          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-700 dark:text-gray-500">
+          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 ">
             <CategoryLabel category={category} />
           </span>
         </div>
-        <p className="font-mono mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-          {name}
-        </p>
+        <p className="font-mono mt-0.5 text-xs text-gray-400 ">{name}</p>
       </div>
-      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 ">
         Active
       </span>
     </div>
@@ -232,7 +216,7 @@ export function ExpectedSecretsPanel({
     return (
       <div
         data-testid="expected-loading"
-        className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50"
+        className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 "
       >
         <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
         <span className="text-sm text-gray-500">
@@ -259,10 +243,10 @@ export function ExpectedSecretsPanel({
     return (
       <div
         data-testid="expected-all-configured"
-        className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800/40 dark:bg-green-900/10"
+        className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4 "
       >
-        <CheckCircle className="h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
-        <span className="text-sm font-medium text-green-700 dark:text-green-300">
+        <CheckCircle className="h-5 w-5 shrink-0 text-green-600 " />
+        <span className="text-sm font-medium text-green-700 ">
           All {summary.total} expected secrets configured
         </span>
       </div>
@@ -274,30 +258,30 @@ export function ExpectedSecretsPanel({
   return (
     <div className="space-y-3">
       {/* Top-level overview bar */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-800/50">
-        <span className="text-gray-500 dark:text-gray-400">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm ">
+        <span className="text-gray-500 ">
           Platform:{' '}
-          <span className="font-semibold text-gray-800 dark:text-gray-200">
+          <span className="font-semibold text-gray-800 ">
             {summary.configured}/{summary.total}
           </span>
           {summary.missing > 0 && (
-            <span className="ml-1 font-semibold text-orange-600 dark:text-orange-400">
+            <span className="ml-1 font-semibold text-orange-600 ">
               ({summary.missing} pending)
             </span>
           )}
         </span>
         {llmProviders.length > 0 && (
-          <span className="text-gray-500 dark:text-gray-400">
+          <span className="text-gray-500 ">
             Providers:{' '}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
+            <span className="font-semibold text-gray-800 ">
               {llmProviders.length}
             </span>
           </span>
         )}
         {customSecrets.length > 0 && (
-          <span className="text-gray-500 dark:text-gray-400">
+          <span className="text-gray-500 ">
             Custom:{' '}
-            <span className="font-semibold text-gray-800 dark:text-gray-200">
+            <span className="font-semibold text-gray-800 ">
               {customSecrets.length}
             </span>
           </span>
@@ -306,18 +290,18 @@ export function ExpectedSecretsPanel({
 
       {/* Section A: Platform Tool Keys */}
       {summary.total > 0 && (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="rounded-lg border border-gray-200 ">
           {/* Header */}
           <button
             onClick={() => setPresetExpanded((v) => !v)}
-            className="flex w-full items-center justify-between rounded-t-lg border-b border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
+            className="flex w-full items-center justify-between rounded-t-lg border-b border-gray-200 bg-gray-50 px-4 py-3 "
           >
             <div className="flex items-center gap-2">
               <Settings className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              <span className="text-sm font-medium text-gray-800 ">
                 Platform Tool Keys
               </span>
-              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 ">
                 {summary.configured}/{summary.total}
               </span>
             </div>
@@ -331,7 +315,7 @@ export function ExpectedSecretsPanel({
           {presetExpanded && (
             <div className="p-4">
               {allPresetConfigured ? (
-                <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                <div className="flex items-center gap-2 text-sm text-green-700 ">
                   <CheckCircle className="h-4 w-4" />
                   All {summary.total} platform tool keys configured
                 </div>
@@ -339,7 +323,7 @@ export function ExpectedSecretsPanel({
                 <div className="space-y-4">
                   {Object.entries(grouped).map(([category, items]) => (
                     <div key={category}>
-                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400 ">
                         <CategoryLabel category={category} />
                       </h4>
                       <div className="space-y-2">
@@ -402,11 +386,11 @@ export function ExpectedSecretsPanel({
       {orphans.length > 0 && (
         <div
           data-testid="orphans-alert"
-          className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800/40 dark:bg-yellow-900/10"
+          className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 "
         >
           <div className="mb-2 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-            <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+            <AlertCircle className="h-4 w-4 text-yellow-600 " />
+            <span className="text-sm font-medium text-yellow-700 ">
               Decommissioned — {orphans.length} secret
               {orphans.length > 1 ? 's' : ''} from retired tools
             </span>
@@ -417,7 +401,7 @@ export function ExpectedSecretsPanel({
                 key={orphan.secretId}
                 className="flex items-center justify-between gap-2"
               >
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="text-sm text-gray-600 ">
                   {orphan.displayName}
                   <span className="font-mono ml-1 text-xs text-gray-400">
                     ({orphan.name})
@@ -425,7 +409,7 @@ export function ExpectedSecretsPanel({
                 </span>
                 <button
                   onClick={() => onDeleteOrphan(orphan.secretId, orphan.name)}
-                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/30"
+                  className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-100 "
                 >
                   <Trash2 className="h-3 w-3" />
                   Delete

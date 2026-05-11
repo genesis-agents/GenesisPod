@@ -3350,7 +3350,8 @@
       "harness": "AI Harness",
       "infraReport": "算力底座报告",
       "capabilities": "技能配置",
-      "dataManagement": "数据管理",
+      "dataManagement": "数据表管理",
+      "dataManagementHub": "数据管理",
       "resourceManagement": "资源管理",
       "collection": "采集源",
       "whitelists": "白名单",
@@ -4007,7 +4008,17 @@
       }
     },
     "system": {
-      "description": "配置系统全局设置、安全策略和邮件通知",
+      "description": "运行监控、消息通知、基础设置与安全审计",
+      "groups": {
+        "ops": "运行监控",
+        "opsDesc": "监控指标、操作日志与告警",
+        "messages": "消息通知",
+        "messagesDesc": "推送通知与用户反馈",
+        "settings": "基础设置",
+        "settingsDesc": "站点、邮件与对外服务",
+        "security": "安全审计",
+        "securityDesc": "认证策略与访问控制"
+      },
       "cards": {
         "site": {
           "title": "站点设置",
@@ -4021,6 +4032,19 @@
           "title": "邮件设置",
           "description": "配置SMTP服务器和邮件通知模板"
         }
+      }
+    },
+    "data": {
+      "description": "数据源、存储、资产与治理一体化管理",
+      "groups": {
+        "source": "数据源",
+        "sourceDesc": "采集源接入与白名单",
+        "storage": "存储用量",
+        "storageDesc": "数据库、对象存储与冷热分层",
+        "asset": "数据资产",
+        "assetDesc": "数据表清单与字段元数据",
+        "governance": "数据治理",
+        "governanceDesc": "数据质量与资源清理"
       }
     },
     "tools": {
@@ -4339,6 +4363,14 @@
         "harnessRuntimeDesc": "Teams Registry、Mission Orchestrator",
         "ragKnowledge": "知识库(RAG)",
         "ragKnowledgeDesc": "知识库管理，上传文档并构建语义检索索引",
+        "infraUserManagement": "用户管理",
+        "infraUserManagementDesc": "用户、角色、积分、计费一体化管理",
+        "infraSecretManagement": "密钥管理",
+        "infraSecretManagementDesc": "API 密钥与申请审批",
+        "infraDataManagement": "数据管理",
+        "infraDataManagementDesc": "数据源、存储、资产与治理",
+        "infraSystemManagement": "系统管理",
+        "infraSystemManagementDesc": "运行监控、消息通知、基础设置与安全审计",
         "infraUsers": "用户",
         "infraUsersDesc": "用户账户与登录",
         "infraPermissions": "权限",
@@ -6911,6 +6943,29 @@
       "docxDesc": "可编辑的 Word 文档",
       "pptxDesc": "演示文稿幻灯片",
       "htmlDesc": "独立网页文件"
+    }
+  },
+  "me": {
+    "title": "我的中心",
+    "subtitle": "管理你的资料、密钥、数据和系统偏好",
+    "subtitleWithEmail": "当前登录：{email}",
+    "cards": {
+      "profile": {
+        "title": "用户管理",
+        "description": "我的资料、角色、积分和计费明细"
+      },
+      "keys": {
+        "title": "密钥管理",
+        "description": "我的 API Keys 与模型授权"
+      },
+      "library": {
+        "title": "数据管理",
+        "description": "我的资源库、知识库与存储用量"
+      },
+      "notifications": {
+        "title": "系统管理",
+        "description": "我的通知偏好、活动日志与安全设置"
+      }
     }
   }
 }

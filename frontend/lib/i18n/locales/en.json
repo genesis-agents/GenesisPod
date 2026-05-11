@@ -3350,7 +3350,8 @@
       "harness": "AI Harness",
       "infraReport": "Infra Report",
       "capabilities": "Skills",
-      "dataManagement": "Data Management",
+      "dataManagement": "Data Tables",
+      "dataManagementHub": "Data Management",
       "resourceManagement": "Resource Management",
       "collection": "Collection Sources",
       "whitelists": "Whitelists",
@@ -4007,7 +4008,17 @@
       }
     },
     "system": {
-      "description": "Configure system-wide settings, security policies, and email notifications",
+      "description": "Runtime monitoring, messaging, base config, and security audit",
+      "groups": {
+        "ops": "Runtime Monitoring",
+        "opsDesc": "Metrics, operation logs, and alerts",
+        "messages": "Messaging",
+        "messagesDesc": "Push notifications and user feedback",
+        "settings": "Base Settings",
+        "settingsDesc": "Site, email, and outbound services",
+        "security": "Security Audit",
+        "securityDesc": "Authentication policies and access control"
+      },
       "cards": {
         "site": {
           "title": "Site Settings",
@@ -4021,6 +4032,19 @@
           "title": "Email Settings",
           "description": "Configure SMTP server and email notification templates"
         }
+      }
+    },
+    "data": {
+      "description": "Data sources, storage, assets, and governance — all in one place",
+      "groups": {
+        "source": "Data Sources",
+        "sourceDesc": "Collection sources and whitelists",
+        "storage": "Storage Usage",
+        "storageDesc": "Databases, object storage, and cold/hot tiering",
+        "asset": "Data Assets",
+        "assetDesc": "Table catalog and field metadata",
+        "governance": "Data Governance",
+        "governanceDesc": "Quality and resource cleanup"
       }
     },
     "tools": {
@@ -4339,6 +4363,14 @@
         "harnessRuntimeDesc": "Teams Registry, Mission Orchestrator",
         "ragKnowledge": "Knowledge Base (RAG)",
         "ragKnowledgeDesc": "Knowledge base management, upload documents and build semantic search indexes",
+        "infraUserManagement": "User Management",
+        "infraUserManagementDesc": "Users, roles, credits, and billing in one place",
+        "infraSecretManagement": "Secret Management",
+        "infraSecretManagementDesc": "API keys and request approval workflow",
+        "infraDataManagement": "Data Management",
+        "infraDataManagementDesc": "Data sources, storage, assets, and governance",
+        "infraSystemManagement": "System Management",
+        "infraSystemManagementDesc": "Runtime monitoring, messaging, base config, and security audit",
         "infraUsers": "Users",
         "infraUsersDesc": "User accounts and login",
         "infraPermissions": "Permissions",
@@ -6911,6 +6943,29 @@
       "docxDesc": "Editable Word document",
       "pptxDesc": "Presentation slides",
       "htmlDesc": "Standalone web page"
+    }
+  },
+  "me": {
+    "title": "My Hub",
+    "subtitle": "Manage your profile, keys, data, and system preferences",
+    "subtitleWithEmail": "Signed in as {email}",
+    "cards": {
+      "profile": {
+        "title": "User Management",
+        "description": "My profile, role, credits, and billing details"
+      },
+      "keys": {
+        "title": "Secret Management",
+        "description": "My API keys and model authorizations"
+      },
+      "library": {
+        "title": "Data Management",
+        "description": "My library, knowledge bases, and storage usage"
+      },
+      "notifications": {
+        "title": "System Management",
+        "description": "My notification preferences, activity logs, and security"
+      }
     }
   }
 }

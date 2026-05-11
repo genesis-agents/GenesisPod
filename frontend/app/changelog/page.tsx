@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Sparkles, Bug, Zap, AlertTriangle } from 'lucide-react';
 import {
   CHANGELOG,
   CURRENT_VERSION,
   getChangeTypeInfo,
-  markVersionAsSeen,
 } from '@/lib/utils/changelog';
 import type { ChangelogEntry } from '@/lib/utils/changelog';
 import AppShell from '@/components/layout/AppShell';
@@ -58,10 +57,6 @@ const statConfig: {
 ];
 
 export default function ChangelogPage() {
-  useEffect(() => {
-    markVersionAsSeen();
-  }, []);
-
   const stats = useMemo(() => {
     const counts: Record<ChangeType, number> = {
       feature: 0,
