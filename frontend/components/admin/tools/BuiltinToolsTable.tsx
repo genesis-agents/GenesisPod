@@ -225,7 +225,10 @@ export function BuiltinToolsTable() {
         <div className="relative min-w-[240px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            type="text"
+            type="search"
+            name="builtin-search-noautofill"
+            autoComplete="off"
+            data-form-type="other"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索 toolId / name / tags..."
