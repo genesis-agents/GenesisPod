@@ -278,6 +278,15 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
         // R-CA (2026-05-05): custom-agents 复用 agent-playground 启动 + 列表能力
         { from: "custom-agents", to: "agent-playground" },
       ];
+      // ★ 2026-05-10 PR-2 (wiki-as-KB-source): library/kb-query/ 是跨 app
+      // 共享的 KB 查询门面（wiki BM25 + chunk RAG 透明合一），任何 ai-app
+      // 都可以替代直接吃 RAGPipelineService。架构上等价于 contracts/ shim：
+      // 内部组合细节保留在 library 内部，对外只暴露 KbQueryService 一个入口。
+      // 不开放 library 的其他子目录（wiki / rag / collections / notes …）。
+      const APP_LEVEL_SUBPATH_ALLOWLIST: Array<{
+        targetApp: string;
+        subPathPrefix: string;
+      }> = [{ targetApp: "library", subPathPrefix: "kb-query/" }];
       const violations: string[] = [];
       for (const file of ALL_FILES) {
         if (fileLayer(file) !== "ai-app") continue;
@@ -297,6 +306,15 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
           if (
             APP_LEVEL_ALLOWLIST.some(
               (a) => a.from === selfApp && a.to === targetApp,
+            )
+          ) {
+            continue;
+          }
+          if (
+            APP_LEVEL_SUBPATH_ALLOWLIST.some(
+              (a) =>
+                a.targetApp === targetApp &&
+                subPath.startsWith(a.subPathPrefix),
             )
           ) {
             continue;
