@@ -7,6 +7,7 @@ import { RAGModule } from "../rag/rag.module";
 import { WikiPageService } from "./wiki-page.service";
 import { WikiDiffService } from "./wiki-diff.service";
 import { WikiIngestService } from "./wiki-ingest.service";
+import { WikiAutoIngestScheduler } from "./wiki-auto-ingest.scheduler";
 import { WikiLintService } from "./wiki-lint.service";
 import { WikiLintScheduler } from "./wiki-lint.scheduler";
 import { WikiQueryService } from "./wiki-query.service";
@@ -36,6 +37,7 @@ import { WikiKbAdminController } from "./wiki-kb-admin.controller";
     WikiPageService,
     WikiDiffService,
     WikiIngestService,
+    WikiAutoIngestScheduler,
     WikiLintService,
     WikiLintScheduler,
     WikiQueryService,

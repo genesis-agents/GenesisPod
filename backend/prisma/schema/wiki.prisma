@@ -245,13 +245,22 @@ enum WikiLintType {
 /// 阈值持久化（每 KB 独立配，admin UI 后期可暴露）。
 /// 默认 inlinePageCount=200, inlineTokenBudget=500_000, ingestMaxTokens=80_000。
 model WikiKnowledgeBaseConfig {
-  knowledgeBaseId          String   @id @map("knowledge_base_id")
-  inlinePageCount          Int      @default(200) @map("inline_page_count")
-  inlineTokenBudget        Int      @default(500000) @map("inline_token_budget")
-  ingestMaxTokens          Int      @default(80000) @map("ingest_max_tokens")
-  cronLintEnabled          Boolean  @default(true) @map("cron_lint_enabled")
-  cronLintDailyBudgetCalls Int      @default(50) @map("cron_lint_daily_budget_calls")
-  updatedAt                DateTime @updatedAt @map("updated_at")
+  knowledgeBaseId           String   @id @map("knowledge_base_id")
+  inlinePageCount           Int      @default(200) @map("inline_page_count")
+  inlineTokenBudget         Int      @default(500000) @map("inline_token_budget")
+  ingestMaxTokens           Int      @default(80000) @map("ingest_max_tokens")
+  cronLintEnabled           Boolean  @default(true) @map("cron_lint_enabled")
+  cronLintDailyBudgetCalls  Int      @default(50) @map("cron_lint_daily_budget_calls")
+  /// PR-1 (auto-ingest after raw refresh) — drive the Karpathy "compounding"
+  /// loop. KB doc add/update emits an event; the per-KB scheduler debounces
+  /// for `autoIngestDebounceSeconds` then enqueues an ingest if the KB has
+  /// not consumed its `autoIngestDailyBudgetCalls` quota for the day. The
+  /// ingest still produces a PENDING WikiDiff (governance preserved); user
+  /// must accept to land changes — auto-apply is intentionally not done.
+  autoIngestEnabled         Boolean  @default(true) @map("auto_ingest_enabled")
+  autoIngestDailyBudgetCalls Int     @default(20) @map("auto_ingest_daily_budget_calls")
+  autoIngestDebounceSeconds Int      @default(300) @map("auto_ingest_debounce_seconds")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
 
   knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
 

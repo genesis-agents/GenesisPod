@@ -18,6 +18,14 @@ export type WikiIngestCandidateState =
   | "READY_COVERED"
   | "BLOCKED";
 
+/**
+ * Sentinel value stored in `WikiDiff.createdByUserId` for diffs produced by
+ * the auto-ingest scheduler (PR-1). Daily-budget queries filter by this so
+ * user-triggered diffs are not counted against the cron quota and vice
+ * versa. Not a foreign key — `createdByUserId` is a plain `String` column.
+ */
+export const AUTO_INGEST_SYSTEM_USER_ID = "__system_auto_ingest__";
+
 export interface WikiIngestCandidate {
   id: string;
   title: string;
@@ -84,7 +92,34 @@ export class WikiIngestService {
     }
 
     await this.assertEditorAccessAndWikiEnabled(userId, knowledgeBaseId);
+    return this.ingestInternal(userId, knowledgeBaseId, documentIds);
+  }
 
+  /**
+   * Cron entry for auto-ingest after raw refresh (PR-1). Bypasses user
+   * auth — caller is the trusted internal scheduler. Records the diff as
+   * `createdByUserId = AUTO_INGEST_SYSTEM_USER_ID` so daily budget queries
+   * can distinguish auto vs user-triggered diffs.
+   */
+  async ingestAsCron(
+    knowledgeBaseId: string,
+    documentIds: string[],
+  ): Promise<WikiDiff> {
+    if (!documentIds || documentIds.length === 0) {
+      throw new BadRequestException("documentIds must not be empty");
+    }
+    return this.ingestInternal(
+      AUTO_INGEST_SYSTEM_USER_ID,
+      knowledgeBaseId,
+      documentIds,
+    );
+  }
+
+  private async ingestInternal(
+    userId: string,
+    knowledgeBaseId: string,
+    documentIds: string[],
+  ): Promise<WikiDiff> {
     // Load + validate documents (must belong to this KB).
     const documents = await this.prisma.knowledgeBaseDocument.findMany({
       where: { id: { in: documentIds }, knowledgeBaseId },
