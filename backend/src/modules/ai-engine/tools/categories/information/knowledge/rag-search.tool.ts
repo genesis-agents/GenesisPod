@@ -18,7 +18,7 @@
  *   • 传了 knowledgeBaseIds → 走 RAGPipelineService.simpleQuery 做语义召回。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { BaseTool } from "../../../base/base-tool";
 import {
   ToolContext,
@@ -26,6 +26,10 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import { RAGPipelineService } from "@/modules/ai-engine/rag/pipeline";
+import {
+  KB_QUERY_AUGMENTOR,
+  type IKbQueryAugmentor,
+} from "@/modules/ai-engine/rag/abstractions/kb-query-augmentor.interface";
 
 // ============================================================================
 // Types
@@ -177,7 +181,20 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
     },
   };
 
-  constructor(private readonly ragPipeline: RAGPipelineService) {
+  constructor(
+    private readonly ragPipeline: RAGPipelineService,
+    /**
+     * Optional Dependency-Inversion port (PR-Wiki-Aug 2026-05-10).
+     * When `KbQueryModule` is loaded (i.e. anywhere in the app graph),
+     * `KbQueryService` registers itself against `KB_QUERY_AUGMENTOR` and
+     * `simpleQuery` here gets routed through wiki-first → chunk-RAG
+     * fallback transparently. When the port is not bound, behavior is
+     * identical to the legacy chunk-only path.
+     */
+    @Optional()
+    @Inject(KB_QUERY_AUGMENTOR)
+    private readonly kbAugmentor?: IKbQueryAugmentor,
+  ) {
     super();
   }
 
@@ -246,7 +263,12 @@ export class RAGSearchTool extends BaseTool<RAGSearchInput, RAGSearchOutput> {
     );
 
     try {
-      const raw = await this.ragPipeline.simpleQuery(
+      // Prefer the KB augmentor (wiki-first) when bound; fall through to
+      // the chunk-only pipeline otherwise. The augmentor itself decides
+      // when to short-circuit to wiki vs delegate back to chunk RAG, so
+      // this code path stays wiki-agnostic.
+      const searchService = this.kbAugmentor ?? this.ragPipeline;
+      const raw = await searchService.simpleQuery(
         query,
         knowledgeBaseIds,
         topK,

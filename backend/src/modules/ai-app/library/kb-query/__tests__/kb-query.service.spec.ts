@@ -32,6 +32,17 @@ function makeRagPipelineMock() {
       processingTime: { search: 5, total: 5 },
       quality: "full",
     }),
+    simpleQuery: jest.fn().mockResolvedValue([
+      {
+        childChunkId: "chunk-rag-1",
+        parentChunkId: "parent-rag-1",
+        documentId: "doc-rag-1",
+        content: "chunk-rag-fallback",
+        parentContent: "parent-chunk-rag-fallback",
+        score: 0.42,
+        metadata: { source: "chunk" },
+      },
+    ]),
   } as any;
 }
 
@@ -164,6 +175,76 @@ describe("KbQueryService", () => {
 
     expect(rag.query).not.toHaveBeenCalled();
     expect(response.context.sources[0].metadata?.slug).toBe("saved-by-good");
+  });
+
+  // ─── simpleQuery (IKbQueryAugmentor port surface) ───
+  // PR-Wiki-Playground 2026-05-10: same routing matrix as `query`, but the
+  // shape returned is `SearchResult[]` so ai-engine tools (rag-search) can
+  // 1:1 swap their existing `RAGPipelineService.simpleQuery` call.
+
+  describe("simpleQuery", () => {
+    it("falls through to ragPipeline.simpleQuery when no KB has wikiEnabled", async () => {
+      prisma.knowledgeBase.findMany.mockResolvedValue([]);
+
+      const results = await service.simpleQuery("q", ["kb-1", "kb-2"], 4);
+
+      expect(wiki.search).not.toHaveBeenCalled();
+      expect(rag.simpleQuery).toHaveBeenCalledWith("q", ["kb-1", "kb-2"], 4);
+      expect(results).toHaveLength(1);
+      expect(results[0].metadata?.source).toBe("chunk");
+    });
+
+    it("short-circuits to wiki and tags metadata.source='wiki' on confident hits", async () => {
+      prisma.knowledgeBase.findMany.mockResolvedValue([{ id: "kb-1" }]);
+      wiki.search.mockResolvedValue([
+        strongWikiHit(2.5, "alpha"),
+        strongWikiHit(1.0, "beta"),
+      ]);
+
+      const results = await service.simpleQuery("alpha", ["kb-1"], 5);
+
+      expect(rag.simpleQuery).not.toHaveBeenCalled();
+      expect(results).toHaveLength(2);
+      expect(results[0]).toMatchObject({
+        childChunkId: "wiki-page:p-alpha",
+        parentChunkId: "wiki-page:p-alpha",
+        documentId: "doc-alpha",
+        content: expect.stringContaining("alpha"),
+        score: 2.5,
+        metadata: expect.objectContaining({
+          source: "wiki",
+          slug: "alpha",
+          title: "Title alpha",
+          category: "ENTITY",
+        }),
+      });
+    });
+
+    it("falls back to ragPipeline.simpleQuery when wiki hits are below confidence threshold", async () => {
+      prisma.knowledgeBase.findMany.mockResolvedValue([{ id: "kb-1" }]);
+      wiki.search.mockResolvedValue([strongWikiHit(0.2, "vague")]);
+
+      const results = await service.simpleQuery("fuzzy", ["kb-1"], 5);
+
+      expect(rag.simpleQuery).toHaveBeenCalledWith("fuzzy", ["kb-1"], 5);
+      expect(results[0].metadata?.source).toBe("chunk");
+    });
+
+    it("falls back to ragPipeline.simpleQuery when wiki returns zero hits", async () => {
+      prisma.knowledgeBase.findMany.mockResolvedValue([{ id: "kb-1" }]);
+      wiki.search.mockResolvedValue([]);
+
+      const results = await service.simpleQuery("nothing", ["kb-1"], 5);
+
+      expect(rag.simpleQuery).toHaveBeenCalled();
+      expect(results[0].metadata?.source).toBe("chunk");
+    });
+
+    it("uses default topK=5 when omitted", async () => {
+      prisma.knowledgeBase.findMany.mockResolvedValue([]);
+      await service.simpleQuery("q", ["kb-1"]);
+      expect(rag.simpleQuery).toHaveBeenCalledWith("q", ["kb-1"], 5);
+    });
   });
 
   it("response shape stays drop-in compatible with chunk-RAG response", async () => {

@@ -58,6 +58,63 @@ export class KbQueryService {
     private readonly ragPipeline: RAGPipelineService,
   ) {}
 
+  /**
+   * SearchResult-shaped facade for tool consumers (`rag-search` etc.) that
+   * historically called `RAGPipelineService.simpleQuery`. Wiki-first when
+   * the KB has wikiEnabled and BM25 is confident; otherwise delegates to
+   * the chunk-RAG simple path. Implements `IKbQueryAugmentor` (port in
+   * ai-engine/rag/abstractions/kb-query-augmentor.interface.ts).
+   */
+  async simpleQuery(
+    query: string,
+    knowledgeBaseIds: string[],
+    topK = 5,
+  ): Promise<SearchResult[]> {
+    const wikiEnabledKbIds = await this.filterWikiEnabledKbs(knowledgeBaseIds);
+
+    if (wikiEnabledKbIds.length > 0) {
+      const wikiHits = await this.searchWikiAcrossKbs(
+        wikiEnabledKbIds,
+        query,
+        topK,
+      );
+
+      const cumulativeScore = wikiHits.reduce((s, h) => s + h.score, 0);
+      const topScore = wikiHits[0]?.score ?? 0;
+      const wikiConfident =
+        topScore >= KbQueryService.WIKI_MIN_SCORE &&
+        cumulativeScore >= KbQueryService.WIKI_CUMULATIVE_THRESHOLD;
+
+      if (wikiConfident) {
+        this.logger.log(
+          `[kb-query.simpleQuery] wiki short-circuit: ${wikiHits.length} hits, top=${topScore.toFixed(2)}, cum=${cumulativeScore.toFixed(2)}`,
+        );
+        return wikiHits.map((h) => ({
+          childChunkId: `wiki-page:${h.pageId}`,
+          parentChunkId: `wiki-page:${h.pageId}`,
+          documentId: h.sources[0]?.documentId ?? `wiki-page:${h.pageId}`,
+          content: h.body,
+          parentContent: h.body,
+          score: h.score,
+          metadata: {
+            source: "wiki",
+            kbId: h.knowledgeBaseId,
+            slug: h.slug,
+            title: h.title,
+            oneLiner: h.oneLiner,
+            category: h.category,
+          },
+        }));
+      }
+
+      this.logger.debug(
+        `[kb-query.simpleQuery] wiki low confidence (top=${topScore.toFixed(2)}, cum=${cumulativeScore.toFixed(2)}) — falling through to chunk RAG`,
+      );
+    }
+
+    return this.ragPipeline.simpleQuery(query, knowledgeBaseIds, topK);
+  }
+
   async query(request: RAGQuery): Promise<RAGResponse> {
     const startTime = Date.now();
     const topK = request.options?.topK ?? 5;

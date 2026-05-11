@@ -267,4 +267,82 @@ describe("RAGSearchTool", () => {
       expect(result.data!.error).toBe("opaque");
     });
   });
+
+  // ─── Optional KB augmentor port (PR-Wiki-Playground 2026-05-10) ───
+  // When KbQueryModule is loaded, KbQueryService binds itself to the
+  // KB_QUERY_AUGMENTOR token; rag-search must prefer it (wiki-first
+  // routing happens inside the augmentor itself, transparent to the tool).
+  describe("KB augmentor preference", () => {
+    it("delegates to kbAugmentor.simpleQuery when bound, ignoring ragPipeline", async () => {
+      const augmentor = {
+        simpleQuery: jest.fn().mockResolvedValue([
+          {
+            childChunkId: "wiki-page:p1",
+            parentChunkId: "wiki-page:p1",
+            documentId: "doc-x",
+            content: "wiki body",
+            parentContent: "wiki body",
+            score: 0.95,
+            metadata: { source: "wiki", slug: "x" },
+          },
+        ]),
+      };
+      const toolWithAug = new RAGSearchTool(
+        mockPipeline as never,
+        augmentor as never,
+      );
+
+      const result = await toolWithAug.execute(
+        { query: "what is x", knowledgeBaseIds: ["kb-1"], topK: 3 },
+        buildContext(),
+      );
+
+      expect(augmentor.simpleQuery).toHaveBeenCalledWith(
+        "what is x",
+        ["kb-1"],
+        3,
+      );
+      expect(mockPipeline.simpleQuery).not.toHaveBeenCalled();
+      expect(result.data!.results).toHaveLength(1);
+      expect(result.data!.results[0]).toMatchObject({
+        chunkId: "wiki-page:p1",
+        documentId: "doc-x",
+        score: 0.95,
+        metadata: expect.objectContaining({ source: "wiki", slug: "x" }),
+      });
+    });
+
+    it("uses ragPipeline when augmentor is undefined (legacy chunk-only path)", async () => {
+      mockPipeline.simpleQuery.mockResolvedValue([makeResult("a", 0.9)]);
+      const toolNoAug = new RAGSearchTool(mockPipeline as never, undefined);
+
+      const result = await toolNoAug.execute(
+        { query: "x", knowledgeBaseIds: ["kb-1"] },
+        buildContext(),
+      );
+
+      expect(mockPipeline.simpleQuery).toHaveBeenCalled();
+      expect(result.data!.results).toHaveLength(1);
+      expect(result.data!.results[0].chunkId).toBe("child-a");
+    });
+
+    it("propagates augmentor failure through the same friendly-error path", async () => {
+      const augmentor = {
+        simpleQuery: jest.fn().mockRejectedValue(new Error("429 rate limit")),
+      };
+      const toolWithAug = new RAGSearchTool(
+        mockPipeline as never,
+        augmentor as never,
+      );
+
+      const result = await toolWithAug.execute(
+        { query: "x", knowledgeBaseIds: ["kb-1"] },
+        buildContext(),
+      );
+
+      expect(mockPipeline.simpleQuery).not.toHaveBeenCalled();
+      expect(result.data!.success).toBe(false);
+      expect(result.data!.error).toMatch(/rate-?limit|限流/i);
+    });
+  });
 });
