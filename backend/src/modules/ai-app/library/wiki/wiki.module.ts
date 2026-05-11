@@ -11,6 +11,7 @@ import { WikiAutoIngestScheduler } from "./wiki-auto-ingest.scheduler";
 import { WikiLintService } from "./wiki-lint.service";
 import { WikiLintScheduler } from "./wiki-lint.scheduler";
 import { WikiQueryService } from "./wiki-query.service";
+import { WikiSourceProvider } from "./wiki-source-provider.service";
 import { WikiKbAdminService } from "./wiki-kb-admin.service";
 import { WikiController } from "./wiki.controller";
 import { WikiKbAdminController } from "./wiki-kb-admin.controller";
@@ -41,6 +42,7 @@ import { WikiKbAdminController } from "./wiki-kb-admin.controller";
     WikiLintService,
     WikiLintScheduler,
     WikiQueryService,
+    WikiSourceProvider,
     WikiKbAdminService,
   ],
   exports: [
@@ -49,6 +51,7 @@ import { WikiKbAdminController } from "./wiki-kb-admin.controller";
     WikiIngestService,
     WikiLintService,
     WikiQueryService,
+    WikiSourceProvider,
     WikiKbAdminService,
   ],
 })

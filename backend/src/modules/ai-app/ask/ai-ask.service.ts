@@ -12,12 +12,12 @@ import {
   RAGFacade,
   BUILTIN_TOOLS,
   type BuiltinToolId,
-  RAGPipelineService,
   type AICapabilityContext,
   type ExecutionConfig,
   MissionExecutorService,
   ProcessMemoryManagerService,
 } from "@/modules/ai-harness/facade";
+import { KbQueryService } from "@/modules/ai-app/library/kb-query/kb-query.service";
 import { AIModelType, MemoryLayer } from "@prisma/client";
 import {
   CreditsService,
@@ -75,7 +75,13 @@ export class AiAskService {
     private readonly chatFacade: ChatFacade,
     private readonly toolFacade: ToolFacade,
     private readonly ragFacade: RAGFacade,
-    @Optional() private readonly ragPipelineService: RAGPipelineService,
+    // PR-2: KbQueryService is the wiki-aware unified KB facade. When the
+    // KB has wikiEnabled and BM25 finds confident hits, those wiki pages
+    // become the RAG context (higher signal density than chunk RAG).
+    // When wiki misses, this transparently falls through to the chunk
+    // RAG pipeline. Same RAGQuery → RAGResponse shape, zero behavior
+    // regression for non-wiki KBs.
+    @Optional() private readonly kbQueryService: KbQueryService,
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelMemory?: ProcessMemoryManagerService,
@@ -355,18 +361,18 @@ export class AiAskService {
           }> = [];
 
           this.logger.log(
-            `[sendMessage] Received knowledgeBaseIds: ${dto.knowledgeBaseIds?.join(", ") || "none"}, ragPipelineService available: ${!!this.ragPipelineService}`,
+            `[sendMessage] Received knowledgeBaseIds: ${dto.knowledgeBaseIds?.join(", ") || "none"}, kbQueryService available: ${!!this.kbQueryService}`,
           );
           if (
             dto.knowledgeBaseIds &&
             dto.knowledgeBaseIds.length > 0 &&
-            this.ragPipelineService
+            this.kbQueryService
           ) {
             try {
               this.logger.log(
                 `[sendMessage] Performing RAG query for KBs: ${dto.knowledgeBaseIds.join(", ")}`,
               );
-              const ragResponse = await this.ragPipelineService.query({
+              const ragResponse = await this.kbQueryService.query({
                 query: dto.content,
                 knowledgeBaseIds: dto.knowledgeBaseIds,
                 options: {
@@ -735,10 +741,10 @@ export class AiAskService {
       score: number;
     }> = [];
 
-    if (isRagQuery && this.ragPipelineService) {
+    if (isRagQuery && this.kbQueryService) {
       yield { type: "status", stage: "rag" };
       try {
-        const ragResponse = await this.ragPipelineService.query({
+        const ragResponse = await this.kbQueryService.query({
           query: dto.content,
           knowledgeBaseIds: dto.knowledgeBaseIds!,
           options: {
