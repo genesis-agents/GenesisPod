@@ -19,6 +19,7 @@ import { AdminPageLayout } from '@/components/admin/layout';
 import { AdminTabs, type AdminTab } from '@/components/admin/shared';
 import { useApiGet } from '@/hooks/core';
 import { useTranslation } from '@/lib/i18n';
+import KernelMemoryPageContent from '../../kernel/memory/content';
 
 /**
  * AI Harness Hub
@@ -109,20 +110,8 @@ const SUBSYSTEMS: HarnessSubsystem[] = [
       { label: 'Resource breakers', href: '/admin/kernel/resources' },
     ],
   },
-  {
-    id: 'memory',
-    entity: 'memory',
-    title: 'Memory',
-    description:
-      'Process memory, checkpoints, working memory, and vector-backed recall.',
-    modulePath: 'backend/src/modules/ai-harness/memory',
-    icon: MemoryStick,
-    stats: [{ label: 'entries', key: 'kernelMemories' }],
-    actions: [
-      { label: 'Process memory', href: '/admin/kernel/memory' },
-      { label: 'Event journal', href: '/admin/kernel/journal' },
-    ],
-  },
+  // 'memory' entity 不再用 SUBSYSTEMS 子卡导航 — hub Tab 直接内嵌
+  // KernelMemoryPageContent (见下方 tab === 'memory' 渲染分支)。
   {
     id: 'governance',
     entity: 'governance',
@@ -232,65 +221,69 @@ function HarnessAdminPageInner() {
         <AdminTabs tabs={tabs} mode="route" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {filtered.map((subsystem) => {
-          const Icon = subsystem.icon;
-          return (
-            <section
-              key={subsystem.id}
-              id={subsystem.id}
-              className="scroll-mt-24 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <h2 className="text-base font-semibold text-gray-900">
-                      {subsystem.title}
-                    </h2>
-                    {subsystem.stats && (
-                      <div className="flex flex-wrap justify-end gap-2">
-                        {subsystem.stats.map((stat) => (
-                          <span
-                            key={stat.key}
-                            className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600"
-                          >
-                            <strong className="text-gray-900">
-                              {statValue(overviewStats, stat.key)}
-                            </strong>{' '}
-                            {stat.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-1 text-sm text-gray-600">
-                    {subsystem.description}
-                  </p>
-                  <p className="font-mono mt-2 truncate text-xs text-gray-400">
-                    {subsystem.modulePath}
-                  </p>
-                </div>
-              </div>
+      {tab === 'memory' && <KernelMemoryPageContent embedded />}
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {subsystem.actions.map((action) => (
-                  <Link
-                    key={`${subsystem.id}-${action.href}-${action.label}`}
-                    href={action.href}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
-                  >
-                    {action.label}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                ))}
-              </div>
-            </section>
-          );
-        })}
-      </div>
+      {tab !== 'memory' && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {filtered.map((subsystem) => {
+            const Icon = subsystem.icon;
+            return (
+              <section
+                key={subsystem.id}
+                id={subsystem.id}
+                className="scroll-mt-24 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 className="text-base font-semibold text-gray-900">
+                        {subsystem.title}
+                      </h2>
+                      {subsystem.stats && (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {subsystem.stats.map((stat) => (
+                            <span
+                              key={stat.key}
+                              className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600"
+                            >
+                              <strong className="text-gray-900">
+                                {statValue(overviewStats, stat.key)}
+                              </strong>{' '}
+                              {stat.label}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {subsystem.description}
+                    </p>
+                    <p className="font-mono mt-2 truncate text-xs text-gray-400">
+                      {subsystem.modulePath}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {subsystem.actions.map((action) => (
+                    <Link
+                      key={`${subsystem.id}-${action.href}-${action.label}`}
+                      href={action.href}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
+                    >
+                      {action.label}
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
 
       {tab === 'interop' && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
