@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import type { ChatMessage } from "../types/task-profile.types";
+import type { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import {
   reasoningDepthToEffort,
   safeReasoningEffort,
@@ -113,6 +114,11 @@ export interface ChatCompletionResult {
   cacheReadTokens?: number;
   /** API 返回的完成原因（"stop"=正常完成, "length"=截断） */
   finishReason?: string;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }>;
   /** 标识此响应是否为错误消息（仅在非严格模式下有值） */
   isError?: boolean;
 }
@@ -141,6 +147,100 @@ export class AiApiCallerService {
   private readonly logger = new Logger(AiApiCallerService.name);
 
   constructor(private readonly httpService: HttpService) {}
+
+  /**
+   * OpenAI-compatible providers only accept role:"tool" when paired with a
+   * native tool_call_id. Prompt-driven ReAct observations do not have that id,
+   * so they must be downgraded to plain user messages instead of emitting an
+   * invalid tool protocol payload that strict providers reject.
+   */
+  private buildOpenAICompatibleMessages(messages: ChatMessage[]) {
+    return messages.map((m) => {
+      const isNativeToolResult = m.role === "tool" && !!m.toolCallId;
+      const openAIContent = resolveOpenAIContent(m);
+      const role = isNativeToolResult
+        ? "tool"
+        : m.role === "tool"
+          ? "user"
+          : m.role;
+      const content =
+        m.role === "tool" && !m.toolCallId
+          ? `[tool_result${m.name ? `:${m.name}` : ""}]\n${
+              typeof openAIContent === "string"
+                ? openAIContent
+                : JSON.stringify(openAIContent)
+            }`
+          : openAIContent;
+      const base: Record<string, unknown> = { role, content };
+      if (isNativeToolResult) {
+        base.tool_call_id = m.toolCallId;
+      }
+      if (m.name && role !== "user") {
+        base.name = m.name;
+      }
+      return base;
+    });
+  }
+
+  private buildOpenAICompatibleTools(tools?: FunctionDefinition[]) {
+    if (!tools || tools.length === 0) return undefined;
+    return tools.map((tool) => ({
+      type: "function" as const,
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+        ...(tool.strict !== undefined ? { strict: tool.strict } : {}),
+      },
+    }));
+  }
+
+  private extractOpenAICompatibleToolCalls(
+    messageObj: Record<string, unknown> | undefined,
+  ): ChatCompletionResult["toolCalls"] {
+    const raw = messageObj?.tool_calls;
+    if (!Array.isArray(raw) || raw.length === 0) return undefined;
+    return raw
+      .map((call) => {
+        if (!call || typeof call !== "object") return null;
+        const c = call as {
+          id?: unknown;
+          function?: { name?: unknown; arguments?: unknown };
+        };
+        const id = typeof c.id === "string" ? c.id : undefined;
+        const name =
+          typeof c.function?.name === "string" ? c.function.name : undefined;
+        const rawArgs = c.function?.arguments;
+        let args: Record<string, unknown> = {};
+        if (rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs)) {
+          args = rawArgs as Record<string, unknown>;
+        } else if (typeof rawArgs === "string" && rawArgs.trim().length > 0) {
+          try {
+            const parsed = JSON.parse(rawArgs);
+            if (
+              parsed &&
+              typeof parsed === "object" &&
+              !Array.isArray(parsed)
+            ) {
+              args = parsed as Record<string, unknown>;
+            }
+          } catch {
+            return null;
+          }
+        }
+        if (!id || !name) return null;
+        return { id, name, arguments: args };
+      })
+      .filter(
+        (
+          call,
+        ): call is {
+          id: string;
+          name: string;
+          arguments: Record<string, unknown>;
+        } => call !== null,
+      );
+  }
 
   /**
    * 检测并记录异常大请求（>100K tokens），帮助快速定位 prompt 膨胀来源
@@ -192,6 +292,7 @@ export class AiApiCallerService {
     structuredOutputStrategy?: StructuredOutputStrategy,
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
+    tools?: FunctionDefinition[],
   ): Promise<ChatCompletionResult> {
     // 2026-05-10 §2/§4：单源归一化（base URL → /chat/completions），与
     // streamOpenAICompatible / connection-test 共用 ensureChatCompletionsPath。
@@ -226,17 +327,7 @@ export class AiApiCallerService {
     // 让 vLLM / OpenAI 支持 native tool_use_id 配对（多轮 FC 场景必需）。
     // role:"tool" 不带 toolCallId 时（回退路径）OpenAI 会拒绝 — 此场景实际不发生：
     // updateEnvelope 写 role:"tool" 时 callId 来自 LLM tool_calls[].id，必然存在。
-    const resolvedMessages = messages.map((m) => {
-      const base: Record<string, unknown> = {
-        role: m.role,
-        content: resolveOpenAIContent(m),
-      };
-      if (m.role === "tool" && m.toolCallId) {
-        base.tool_call_id = m.toolCallId;
-      }
-      if (m.name) base.name = m.name;
-      return base;
-    });
+    const resolvedMessages = this.buildOpenAICompatibleMessages(messages);
 
     // ★ 安全阀：检测异常大请求并记录诊断信息
     const estimatedChars = resolvedMessages.reduce((sum, m) => {
@@ -265,6 +356,10 @@ export class AiApiCallerService {
       ...tokenParam,
       ...reasoningParam,
     };
+    const requestTools = this.buildOpenAICompatibleTools(tools);
+    if (requestTools) {
+      requestBody.tools = requestTools;
+    }
 
     // ★ 只有当 temperature 有值时才包含，避免发送 null/undefined
     if (temperature !== undefined && temperature !== null) {
@@ -354,6 +449,7 @@ export class AiApiCallerService {
 
     const data = response.data;
     const messageObj = data.choices?.[0]?.message;
+    const toolCalls = this.extractOpenAICompatibleToolCalls(messageObj);
     const content =
       messageObj?.content ||
       messageObj?.text ||
@@ -369,7 +465,7 @@ export class AiApiCallerService {
     }
 
     // ★ 空内容检查
-    if (!content) {
+    if (!content && (!toolCalls || toolCalls.length === 0)) {
       const usage = data.usage || {};
       const completionDetails = usage.completion_tokens_details || {};
       const reasoningTokens = completionDetails.reasoning_tokens || 0;
@@ -410,13 +506,14 @@ export class AiApiCallerService {
     const openaiUsage = data.usage || {};
     const promptTokensDetails = openaiUsage.prompt_tokens_details || {};
     return {
-      content,
+      content: content || "",
       model: modelId,
       tokensUsed: openaiUsage.total_tokens || 0,
       inputTokens: openaiUsage.prompt_tokens || 0,
       outputTokens: openaiUsage.completion_tokens || 0,
       cacheReadTokens: promptTokensDetails.cached_tokens || 0,
       finishReason: data.choices?.[0]?.finish_reason || undefined,
+      toolCalls,
     };
   }
 
@@ -745,6 +842,7 @@ export class AiApiCallerService {
     structuredOutputStrategy?: StructuredOutputStrategy,
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
+    tools?: FunctionDefinition[],
   ): Promise<ChatCompletionResult> {
     // 2026-05-10 §2/§4：单源归一化。
     const effectiveEndpoint =
@@ -762,17 +860,7 @@ export class AiApiCallerService {
     // ★ 数据库驱动：使用配置的 tokenParamName（支持多模态 contentParts）
     // Layer 4/5 (2026-05-07): xAI 走 OpenAI 兼容协议，role:"tool" + toolCallId
     // 直接透 tool_call_id 字段。
-    const resolvedXaiMessages = messages.map((m) => {
-      const base: Record<string, unknown> = {
-        role: m.role,
-        content: resolveOpenAIContent(m),
-      };
-      if (m.role === "tool" && m.toolCallId) {
-        base.tool_call_id = m.toolCallId;
-      }
-      if (m.name) base.name = m.name;
-      return base;
-    });
+    const resolvedXaiMessages = this.buildOpenAICompatibleMessages(messages);
 
     // ★ 安全阀：检测异常大请求并记录诊断信息
     const xaiEstimatedChars = resolvedXaiMessages.reduce((sum, m) => {
@@ -800,6 +888,10 @@ export class AiApiCallerService {
       messages: resolvedXaiMessages,
       [effectiveTokenParam]: maxTokens,
     };
+    const requestTools = this.buildOpenAICompatibleTools(tools);
+    if (requestTools) {
+      requestBody.tools = requestTools;
+    }
     if (
       temperature !== undefined &&
       temperature !== null &&
@@ -863,15 +955,25 @@ export class AiApiCallerService {
     );
 
     const data = response.data;
+    const messageObj = data.choices?.[0]?.message;
+    const toolCalls = this.extractOpenAICompatibleToolCalls(messageObj);
+    const content = messageObj?.content || "";
+    if (!content && (!toolCalls || toolCalls.length === 0)) {
+      throw new Error(
+        `AI 返回空响应 (原因: ${data.choices?.[0]?.finish_reason || "unknown"})`,
+      );
+    }
     // ★ 2026-05-05 fix: 必须返回 inputTokens / outputTokens 才能让 ReactLoop
     //   thinking 事件携带正确 promptTokens / completionTokens，进而被
     //   extractTokenSpend 累计到 mission pool。否则 UI 显示 tokens 永远 0。
     return {
-      content: data.choices?.[0]?.message?.content || "",
+      content,
       model: modelId,
       tokensUsed: data.usage?.total_tokens || 0,
       inputTokens: data.usage?.prompt_tokens || 0,
       outputTokens: data.usage?.completion_tokens || 0,
+      finishReason: data.choices?.[0]?.finish_reason || undefined,
+      toolCalls,
     };
   }
 

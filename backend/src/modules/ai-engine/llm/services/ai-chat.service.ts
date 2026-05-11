@@ -708,6 +708,7 @@ export class AiChatService {
       structuredOutputStrategy,
       outputJsonSchema,
       schemaName,
+      tools,
     } = options;
 
     this.logger.debug(`Generating chat completion with model: ${model}`);
@@ -738,6 +739,7 @@ export class AiChatService {
         structuredOutputStrategy,
         outputJsonSchema,
         schemaName,
+        tools,
       );
     }
 
@@ -798,6 +800,7 @@ export class AiChatService {
     structuredOutputStrategy?: import("../structured-output/structured-output-strategy.types").StructuredOutputStrategy,
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
+    tools?: import("../../tools/abstractions/tool.interface").FunctionDefinition[],
   ): Promise<ChatCompletionResult> {
     const { modelId, apiEndpoint, provider } = config;
 
@@ -817,6 +820,7 @@ export class AiChatService {
         structuredOutputStrategy,
         outputJsonSchema,
         schemaName,
+        tools,
       );
     }
 
@@ -897,6 +901,7 @@ export class AiChatService {
               structuredOutputStrategy,
               outputJsonSchema,
               schemaName,
+              tools,
             );
 
           case "anthropic":
@@ -950,6 +955,7 @@ export class AiChatService {
               structuredOutputStrategy,
               outputJsonSchema,
               schemaName,
+              tools,
             );
 
           default:
@@ -970,6 +976,7 @@ export class AiChatService {
               structuredOutputStrategy,
               outputJsonSchema,
               schemaName,
+              tools,
             );
         }
       };

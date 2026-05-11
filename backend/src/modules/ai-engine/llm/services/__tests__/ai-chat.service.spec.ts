@@ -589,6 +589,7 @@ describe("AiChatService", () => {
         undefined, // structuredOutputStrategy
         undefined, // outputJsonSchema
         undefined, // schemaName
+        undefined, // tools
       );
     });
 
@@ -623,6 +624,7 @@ describe("AiChatService", () => {
         undefined, // structuredOutputStrategy
         undefined, // outputJsonSchema
         undefined, // schemaName
+        undefined, // tools
       );
     });
 
@@ -653,6 +655,7 @@ describe("AiChatService", () => {
         undefined, // structuredOutputStrategy
         undefined, // outputJsonSchema
         undefined, // schemaName
+        undefined, // tools
       );
     });
 
@@ -1684,6 +1687,7 @@ describe("AiChatService", () => {
         undefined, // structuredOutputStrategy
         undefined, // outputJsonSchema
         undefined, // schemaName
+        undefined, // tools
       );
     });
 
@@ -1717,6 +1721,7 @@ describe("AiChatService", () => {
         undefined, // structuredOutputStrategy
         undefined, // outputJsonSchema
         undefined, // schemaName
+        undefined, // tools
       );
     });
 
@@ -1775,6 +1780,7 @@ describe("AiChatService", () => {
         undefined, // structuredOutputStrategy
         undefined, // outputJsonSchema
         undefined, // schemaName
+        undefined, // tools
       );
     });
   });
@@ -2204,6 +2210,9 @@ describe("AiChatService", () => {
           tools: toolDefs,
         }),
       ).resolves.toBeDefined();
+      expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalled();
+      const args = mockApiCallerService.callOpenAICompatibleAPI.mock.calls[0];
+      expect(args[16]).toEqual(toolDefs);
     });
 
     it("toolCalls returned from adapter are propagated back in ChatResult", async () => {

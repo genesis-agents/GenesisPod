@@ -35,6 +35,7 @@ import { KeyExecutorService } from "@/modules/ai-infra/credentials/executor";
 import { BYOKError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
 import type { ChatCompletionResult } from "./ai-chat.service";
 import type { StructuredOutputStrategy } from "../structured-output/structured-output-strategy.types";
+import type { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 
 @Injectable()
 export class AiChatFailoverCallerService {
@@ -107,6 +108,7 @@ export class AiChatFailoverCallerService {
     structuredOutputStrategy?: StructuredOutputStrategy,
     outputJsonSchema?: Record<string, unknown>,
     schemaName?: string,
+    tools?: FunctionDefinition[],
   ): Promise<ChatCompletionResult> {
     if (!this.keyExecutor) {
       throw new Error("KeyExecutor not available — should not reach here");
@@ -160,6 +162,7 @@ export class AiChatFailoverCallerService {
                   structuredOutputStrategy,
                   outputJsonSchema,
                   schemaName,
+                  tools,
                 );
               case "anthropic":
                 return await this.apiCallerService.callAnthropicAPI(
@@ -210,6 +213,7 @@ export class AiChatFailoverCallerService {
                   structuredOutputStrategy,
                   outputJsonSchema,
                   schemaName,
+                  tools,
                 );
               default:
                 return await this.apiCallerService.callOpenAICompatibleAPI(
@@ -229,6 +233,7 @@ export class AiChatFailoverCallerService {
                   structuredOutputStrategy,
                   outputJsonSchema,
                   schemaName,
+                  tools,
                 );
             }
           };

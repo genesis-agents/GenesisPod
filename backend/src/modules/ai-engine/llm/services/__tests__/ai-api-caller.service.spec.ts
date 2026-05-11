@@ -698,6 +698,105 @@ describe("AiApiCallerService", () => {
       });
     });
 
+    it("should include OpenAI-compatible tools when provided", async () => {
+      mockHttpService.post.mockReturnValueOnce(
+        of(
+          makeHttpResponse({
+            choices: [{ message: { content: "ok" } }],
+            usage: { total_tokens: 1 },
+          }),
+        ) as never,
+      );
+
+      await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        [{ role: "user", content: "Q" }],
+        1000,
+        0.7,
+        120000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        [
+          {
+            name: "web-search",
+            description: "Search the web",
+            parameters: {
+              type: "object",
+              properties: { query: { type: "string" } },
+            },
+          },
+        ],
+      );
+
+      const callArgs = (mockHttpService.post as jest.Mock).mock.calls[0][1];
+      expect(callArgs.tools).toEqual([
+        {
+          type: "function",
+          function: {
+            name: "web-search",
+            description: "Search the web",
+            parameters: {
+              type: "object",
+              properties: { query: { type: "string" } },
+            },
+          },
+        },
+      ]);
+    });
+
+    it("should parse OpenAI-compatible tool_calls into ChatCompletionResult.toolCalls", async () => {
+      mockHttpService.post.mockReturnValueOnce(
+        of(
+          makeHttpResponse({
+            choices: [
+              {
+                message: {
+                  content: "",
+                  tool_calls: [
+                    {
+                      id: "call_1",
+                      function: {
+                        name: "web-search",
+                        arguments: '{"query":"AI demand"}',
+                      },
+                    },
+                  ],
+                },
+                finish_reason: "tool_calls",
+              },
+            ],
+            usage: { total_tokens: 5, prompt_tokens: 3, completion_tokens: 2 },
+          }),
+        ) as never,
+      );
+
+      const result = await service.callOpenAICompatibleAPI(
+        "https://api.openai.com/v1/chat/completions",
+        "test-key",
+        "gpt-4o",
+        [{ role: "user", content: "Q" }],
+        1000,
+      );
+
+      expect(result.finishReason).toBe("tool_calls");
+      expect(result.toolCalls).toEqual([
+        {
+          id: "call_1",
+          name: "web-search",
+          arguments: { query: "AI demand" },
+        },
+      ]);
+    });
+
     it("should prefer outputSchema over responseFormat='json'", async () => {
       const apiResponse = {
         choices: [{ message: { content: '{"k":"v"}' } }],
@@ -1122,6 +1221,75 @@ describe("AiApiCallerService", () => {
         type: "json_object",
       });
     });
+
+    it("should include xAI tools and parse tool_calls", async () => {
+      mockHttpService.post.mockReturnValueOnce(
+        of(
+          makeHttpResponse({
+            choices: [
+              {
+                message: {
+                  content: "",
+                  tool_calls: [
+                    {
+                      id: "call_x1",
+                      function: {
+                        name: "search",
+                        arguments: '{"query":"HBM"}',
+                      },
+                    },
+                  ],
+                },
+                finish_reason: "tool_calls",
+              },
+            ],
+            usage: { total_tokens: 5, prompt_tokens: 3, completion_tokens: 2 },
+          }),
+        ) as never,
+      );
+
+      const result = await service.callXAIAPI(
+        "https://api.x.ai/v1/chat/completions",
+        "test-key",
+        "grok-2",
+        [{ role: "user", content: "Q" }],
+        4000,
+        0.7,
+        120000,
+        "max_tokens",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        false,
+        undefined,
+        undefined,
+        undefined,
+        [
+          {
+            name: "search",
+            description: "Search",
+            parameters: { type: "object", properties: {} },
+          },
+        ],
+      );
+
+      const body = (mockHttpService.post as jest.Mock).mock.calls[0][1];
+      expect(body.tools).toEqual([
+        {
+          type: "function",
+          function: {
+            name: "search",
+            description: "Search",
+            parameters: { type: "object", properties: {} },
+          },
+        },
+      ]);
+      expect(result.finishReason).toBe("tool_calls");
+      expect(result.toolCalls).toEqual([
+        { id: "call_x1", name: "search", arguments: { query: "HBM" } },
+      ]);
+    });
   });
 
   // ==================== Embedding APIs ====================
@@ -1334,6 +1502,39 @@ describe("AiApiCallerService", () => {
       expect(toolMsg.name).toBe("search");
     });
 
+    it("OpenAI compatible: prompt-driven tool observation without toolCallId → downgrade to user", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "ack" } }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      await service.callOpenAICompatibleAPI(
+        "https://api.deepseek.com/v1/chat/completions",
+        "k",
+        "deepseek-v4-pro",
+        [
+          { role: "user", content: "Q" },
+          {
+            role: "tool",
+            content: "result-data",
+            name: "web-search",
+          },
+        ],
+        4000,
+        0.7,
+      );
+      const body = (mockHttpService.post as jest.Mock).mock.calls[0][1];
+      expect(
+        body.messages.find((m: { role: string }) => m.role === "tool"),
+      ).toBeUndefined();
+      const downgraded = body.messages[1];
+      expect(downgraded.role).toBe("user");
+      expect(downgraded.content).toContain("[tool_result:web-search]");
+      expect(downgraded).not.toHaveProperty("tool_call_id");
+    });
+
     it("Anthropic: role:'tool' + toolCallId → user + content[{type:'tool_result',tool_use_id}]", async () => {
       const apiResponse = {
         content: [{ type: "text", text: "ack" }],
@@ -1398,6 +1599,37 @@ describe("AiApiCallerService", () => {
       );
       expect(toolMsg).toBeDefined();
       expect(toolMsg.tool_call_id).toBe("call_xai_9");
+    });
+
+    it("xAI: prompt-driven tool observation without toolCallId → downgrade to user", async () => {
+      const apiResponse = {
+        choices: [{ message: { content: "ack" } }],
+        usage: { total_tokens: 5 },
+      };
+      mockHttpService.post.mockReturnValueOnce(
+        of(makeHttpResponse(apiResponse)) as any,
+      );
+      await service.callXAIAPI(
+        "https://api.x.ai/v1/chat/completions",
+        "k",
+        "grok-2",
+        [
+          { role: "user", content: "Q" },
+          {
+            role: "tool",
+            content: "result-data",
+            name: "search",
+          },
+        ],
+        4000,
+        0.7,
+      );
+      const body = (mockHttpService.post as jest.Mock).mock.calls[0][1];
+      expect(
+        body.messages.find((m: { role: string }) => m.role === "tool"),
+      ).toBeUndefined();
+      expect(body.messages[1].role).toBe("user");
+      expect(body.messages[1].content).toContain("[tool_result:search]");
     });
   });
 });
