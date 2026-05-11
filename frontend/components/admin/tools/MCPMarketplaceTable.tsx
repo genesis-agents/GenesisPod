@@ -326,6 +326,10 @@ export function MCPMarketplaceTable() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [installingPreset, setInstallingPreset] =
     useState<PresetMCPServer | null>(null);
+  const [editingEnvPreset, setEditingEnvPreset] = useState<{
+    preset: PresetMCPServer;
+    initialEnv: Record<string, string>;
+  } | null>(null);
   const [showCustomAdd, setShowCustomAdd] = useState(false);
 
   const load = useCallback(async () => {
@@ -467,6 +471,19 @@ export function MCPMarketplaceTable() {
     await load();
   };
 
+  const updateEnv = async (serverId: string, env: Record<string, string>) => {
+    const res = await fetch(
+      `${config.apiUrl}/admin/ai/mcp-servers/${serverId}/env`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ env }),
+      }
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await load();
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -524,6 +541,12 @@ export function MCPMarketplaceTable() {
                 installed={installedMap.get(p.serverId)}
                 acting={actingId === p.serverId}
                 onInstall={() => setInstallingPreset(p)}
+                onEditEnv={() =>
+                  setEditingEnvPreset({
+                    preset: p,
+                    initialEnv: installedMap.get(p.serverId)?.env ?? {},
+                  })
+                }
                 onConnect={() => void connectServer(p.serverId)}
                 onDisconnect={() => void disconnectServer(p.serverId)}
                 onDelete={() => void deleteServer(p.serverId)}
@@ -556,10 +579,24 @@ export function MCPMarketplaceTable() {
       {installingPreset && (
         <InstallPresetDialog
           preset={installingPreset}
+          mode="install"
           onClose={() => setInstallingPreset(null)}
-          onInstall={async (env) => {
+          onSubmit={async (env) => {
             await installPreset(installingPreset, env);
             setInstallingPreset(null);
+          }}
+        />
+      )}
+
+      {editingEnvPreset && (
+        <InstallPresetDialog
+          preset={editingEnvPreset.preset}
+          mode="edit"
+          initialEnv={editingEnvPreset.initialEnv}
+          onClose={() => setEditingEnvPreset(null)}
+          onSubmit={async (env) => {
+            await updateEnv(editingEnvPreset.preset.serverId, env);
+            setEditingEnvPreset(null);
           }}
         />
       )}
@@ -584,6 +621,7 @@ function PresetCard({
   installed,
   acting,
   onInstall,
+  onEditEnv,
   onConnect,
   onDisconnect,
   onDelete,
@@ -592,6 +630,7 @@ function PresetCard({
   installed: MCPServer | undefined;
   acting: boolean;
   onInstall: () => void;
+  onEditEnv: () => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onDelete: () => void;
@@ -678,6 +717,17 @@ function PresetCard({
                 <Power className="h-3 w-3" />
               )}
               连接
+            </button>
+          )}
+          {needsEnv && (
+            <button
+              type="button"
+              onClick={onEditEnv}
+              disabled={acting}
+              title="编辑环境变量"
+              className="rounded-md border border-gray-300 bg-white p-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <Settings className="h-3 w-3" />
             </button>
           )}
           <button
@@ -802,14 +852,18 @@ function CustomCard({
 
 function InstallPresetDialog({
   preset,
+  mode = 'install',
+  initialEnv,
   onClose,
-  onInstall,
+  onSubmit,
 }: {
   preset: PresetMCPServer;
+  mode?: 'install' | 'edit';
+  initialEnv?: Record<string, string>;
   onClose: () => void;
-  onInstall: (env: Record<string, string>) => Promise<void>;
+  onSubmit: (env: Record<string, string>) => Promise<void>;
 }) {
-  const [env, setEnv] = useState<Record<string, string>>({});
+  const [env, setEnv] = useState<Record<string, string>>(initialEnv ?? {});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -823,7 +877,7 @@ function InstallPresetDialog({
     setSaving(true);
     setError(null);
     try {
-      await onInstall(env);
+      await onSubmit(env);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -831,13 +885,16 @@ function InstallPresetDialog({
     }
   };
 
+  const titlePrefix = mode === 'edit' ? '编辑配置' : '安装';
+  const submitLabel = mode === 'edit' ? '保存' : '安装';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div>
             <h3 className="text-base font-semibold text-gray-900">
-              安装：{preset.name}
+              {titlePrefix}：{preset.name}
             </h3>
             <p className="font-mono mt-0.5 text-xs text-gray-500">
               {preset.serverId}
@@ -909,7 +966,7 @@ function InstallPresetDialog({
               className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              安装
+              {submitLabel}
             </button>
           </div>
         </form>
