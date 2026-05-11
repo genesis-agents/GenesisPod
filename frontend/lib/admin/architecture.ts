@@ -350,76 +350,56 @@ const aiHarnessLayer: ArchitectureLayer = {
 };
 
 // Layer 2: AI Engine (Core Capabilities)
+//
+// 2026-05-11 重构（与 Infra Wave 4 同模式）：从 1 group × 7 卡 → 4 张大卡（无 sub-group），
+// 对应 4 实体：模型 / 工具 / 技能 / 知识。每张卡 click 进入合并页（含子区 Tab）。
+//
+// 迁出（架构合规修正——这些本属 L2.5 Harness）：
+//   - agents → /admin/ai/agents（sidebar 仍可达）
+//   - teams → /admin/ai/teams
+//   - guardrails → /admin/ai/guardrails
+//   - rag 卡片合并到 knowledge（admin 视角的 KB 管理）
 const aiEngineLayer: ArchitectureLayer = {
   id: 'aiEngine',
   titleKey: 'admin.architecture.layers.aiEngine',
   subtitleKey: 'admin.architecture.layers.aiEngineDesc',
   level: 2,
-  groups: [
+  cards: [
     {
-      id: 'engineCore',
-      titleKey: 'admin.architecture.groups.engineCore',
-      cards: [
-        {
-          id: 'models',
-          i18nKey: 'admin.nav.models',
-          href: '/admin/ai/models',
-          icon: Bot,
-          clickable: true,
-          stats: [{ label: '已配置', key: 'aiModels' }],
-        },
-        {
-          id: 'tools',
-          i18nKey: 'admin.nav.tools',
-          href: '/admin/ai/tools',
-          icon: Wrench,
-          clickable: true,
-          stats: [{ label: '工具', key: 'tools' }],
-        },
-        {
-          id: 'skills',
-          i18nKey: 'admin.nav.skills',
-          href: '/admin/ai/skills',
-          icon: Sparkles,
-          clickable: true,
-          stats: [{ label: '技能', key: 'skills' }],
-        },
-        {
-          id: 'rag',
-          i18nKey: 'admin.nav.rag',
-          descriptionKey: 'admin.architecture.cards.ragDesc',
-          href: '/library/rag',
-          icon: Brain,
-          clickable: true,
-          stats: [{ label: '知识库', key: 'knowledgeBases' }],
-        },
-        {
-          id: 'agents',
-          i18nKey: 'admin.nav.agents',
-          descriptionKey: 'admin.architecture.cards.agentsDesc',
-          href: '/admin/ai/agents',
-          icon: Cpu,
-          clickable: true,
-          stats: [{ label: '已注册', key: 'agents' }],
-        },
-        {
-          id: 'teams',
-          i18nKey: 'admin.nav.teams',
-          href: '/admin/ai/teams',
-          icon: UsersRound,
-          clickable: true,
-          stats: [{ label: '辩论话题', key: 'topics' }],
-        },
-        {
-          id: 'guardrails',
-          i18nKey: 'admin.nav.guardrails',
-          descriptionKey: 'admin.architecture.cards.guardrailsDesc',
-          href: '/admin/ai/guardrails',
-          icon: Shield,
-          clickable: true,
-          stats: [{ label: '规则', key: 'guardrailRules' }],
-        },
-      ],
+      id: 'models',
+      i18nKey: 'admin.nav.models',
+      descriptionKey: 'admin.architecture.cards.engineModelsDesc',
+      href: '/admin/ai/models',
+      icon: Bot,
+      clickable: true,
+      stats: [{ label: '已配置', key: 'aiModels' }],
+    },
+    {
+      id: 'tools',
+      i18nKey: 'admin.nav.tools',
+      descriptionKey: 'admin.architecture.cards.engineToolsDesc',
+      href: '/admin/ai/tools',
+      icon: Wrench,
+      clickable: true,
+      stats: [{ label: '工具', key: 'tools' }],
+    },
+    {
+      id: 'skills',
+      i18nKey: 'admin.nav.skills',
+      descriptionKey: 'admin.architecture.cards.engineSkillsDesc',
+      href: '/admin/ai/skills',
+      icon: Sparkles,
+      clickable: true,
+      stats: [{ label: '技能', key: 'skills' }],
+    },
+    {
+      id: 'knowledge',
+      i18nKey: 'admin.nav.knowledge',
+      descriptionKey: 'admin.architecture.cards.engineKnowledgeDesc',
+      href: '/admin/ai/knowledge',
+      icon: Brain,
+      clickable: true,
+      stats: [{ label: '知识库', key: 'knowledgeBases' }],
     },
   ],
 };
