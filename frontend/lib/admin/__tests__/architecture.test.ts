@@ -113,23 +113,27 @@ describe('AI Engine layer', () => {
     layer = getLayer('aiEngine');
   });
 
-  it('has an engineCore group with core capability cards', () => {
-    expect(layer.groups).toHaveLength(1);
-    const group = layer.groups?.find((item) => item.id === 'engineCore');
-    expect(group?.cards).toHaveLength(7);
+  // 2026-05-11 Wave: L2 Engine 与 L1 Infra 同模式重构 — 4 张大卡（无 sub-group），
+  //   对应 4 实体：模型 / 工具 / 技能 / 知识。原 7 卡 + engineCore group 结构作废，
+  //   agents/teams/guardrails 移到 sidebar（架构合规上属 L2.5 Harness）。
+  it('has 4 entity cards (models / tools / skills / knowledge) without sub-groups', () => {
+    expect(layer.groups).toBeUndefined();
+    expect(layer.cards).toHaveLength(4);
+
+    const ids = layer.cards?.map((c) => c.id);
+    expect(ids).toEqual(['models', 'tools', 'skills', 'knowledge']);
   });
 
-  it('routes guardrails, RAG, skills, and models to their admin surfaces', () => {
-    const group = layer.groups?.find((item) => item.id === 'engineCore');
+  it('routes the 4 entity cards to their admin pages', () => {
     const expectedCards: Array<{ id: string; href: string }> = [
       { id: 'models', href: '/admin/ai/models' },
+      { id: 'tools', href: '/admin/ai/tools' },
       { id: 'skills', href: '/admin/ai/skills' },
-      { id: 'rag', href: '/library/rag' },
-      { id: 'guardrails', href: '/admin/ai/guardrails' },
+      { id: 'knowledge', href: '/admin/ai/knowledge' },
     ];
 
     for (const { id, href } of expectedCards) {
-      const card = group?.cards.find((item) => item.id === id);
+      const card = layer.cards?.find((item) => item.id === id);
       expect(card?.clickable).toBe(true);
       expect(card?.href).toBe(href);
     }

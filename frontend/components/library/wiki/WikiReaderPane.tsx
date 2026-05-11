@@ -137,7 +137,7 @@ export default function WikiReaderPane({
 
   return (
     <div className="flex h-full min-h-0 bg-gray-50/50 px-6 py-6">
-      <div className="grid min-h-0 w-full gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid min-h-0 w-full gap-6 md:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="flex min-h-0 flex-col rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-200 px-4 py-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
