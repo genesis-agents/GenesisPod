@@ -16,6 +16,7 @@ import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { KeyExecutorModule } from "../../ai-infra/credentials/executor/key-executor.module";
+import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver/key-resolver.module";
 import { AiEngineLLMModule } from "../llm/llm.module";
 // W2-B: vector backends @Global module（pgvector / jsonb，未来 qdrant / pinecone）
 import { VectorBackendsModule } from "@/plugins/storage/vector-backends.module";
@@ -36,6 +37,7 @@ import { SearchService } from "./search/search.service";
     SecretsModule,
     UserApiKeysModule,
     KeyExecutorModule, // PR-5 (2026-05-05): cohere rerank failover
+    KeyResolverModule, // 2026-05-12: 严格 BYOK——EmbeddingService 需要解析 user BYOK key
     AiEngineLLMModule,
     VectorBackendsModule, // W2-B: VECTOR_BACKENDS_TOKEN provider
   ],
