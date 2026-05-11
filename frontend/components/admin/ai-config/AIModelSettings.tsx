@@ -1781,14 +1781,20 @@ function EditModelModal({
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Provider
+                Provider <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.provider}
-                readOnly
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+                onChange={(e) =>
+                  setFormData({ ...formData, provider: e.target.value })
+                }
+                placeholder="voyage / together-ai / 任意自定义 slug"
+                className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                可手填任意 provider slug，不必从上方下拉选。
+              </p>
             </div>
           </div>
 
@@ -2471,8 +2477,8 @@ function AddModelModal({
               </optgroup>
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              下拉里没有你要的 provider？请到顶部 &quot;AI Providers&quot;
-              展开面板添加，无需改代码。
+              <strong>可跳过此下拉：</strong>下方 Provider / Endpoint / Model ID
+              字段均可手填任意值，自定义新 provider 不必从下拉选。
             </p>
           </div>
 
@@ -2492,14 +2498,20 @@ function AddModelModal({
               value={formData.modelType}
               onChange={(e) => {
                 const newModelType = e.target.value as AIModelType;
-                // 根据新的模型类型自动更新 API 端点
-                const newEndpoint = formData.provider
+                // 2026-05-11 P8b: admin 已手填 endpoint 时不要覆盖（如自定义 provider
+                // 'voyage' 不在 getEndpointForModelType 的 hardcoded 列表里，会被覆盖为 ''）。
+                // 仅当 endpoint 为空时，按 provider 推荐默认值。
+                const recommendedEndpoint = formData.provider
                   ? getEndpointForModelType(formData.provider, newModelType)
-                  : formData.apiEndpoint;
+                  : '';
+                const nextEndpoint =
+                  formData.apiEndpoint && formData.apiEndpoint.trim().length > 0
+                    ? formData.apiEndpoint
+                    : recommendedEndpoint;
                 setFormData({
                   ...formData,
                   modelType: newModelType,
-                  apiEndpoint: newEndpoint,
+                  apiEndpoint: nextEndpoint,
                   modelId: '', // 清空 model ID，需要重新获取
                 });
               }}
@@ -2512,7 +2524,7 @@ function AddModelModal({
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              切换类型会自动更新 API 端点，请点击"获取"按钮获取对应类型的模型
+              切换类型仅在 endpoint 为空时自动推荐默认值，已填则保留你的输入。
             </p>
           </div>
 
@@ -2533,14 +2545,20 @@ function AddModelModal({
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                Provider
+                Provider <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.provider}
-                readOnly
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+                onChange={(e) =>
+                  setFormData({ ...formData, provider: e.target.value })
+                }
+                placeholder="voyage / together-ai / 任意自定义 slug"
+                className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                可手填任意 provider slug，不必从上方下拉选。
+              </p>
             </div>
           </div>
 
