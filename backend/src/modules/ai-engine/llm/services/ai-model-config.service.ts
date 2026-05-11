@@ -35,15 +35,15 @@ export interface ResolvedApiKey {
  * ★ 所有模型行为完全由数据库配置驱动，消除硬编码
  */
 /**
- * 严格 BYOK 下，**不允许**回落到管理员 AIModel 的"增强"类型。
- * 用户没配 → 返回空 → 上层自动跳过（例如 RAG skip rerank 阶段）。
- * 原因：这些 provider 通常按次付费（Cohere rerank $2/1k），不应由 admin 代付。
- * CHAT / CHAT_FAST / EMBEDDING / MULTIMODAL / CODE / IMAGE_* 仍然会 fallback（基础功能必需）。
+ * 2026-05-12 严格 BYOK 升级（用户政策："所有 AI 调用统一 BYOK，绝不用 admin"）：
+ * 不再有"基础功能必需"的软回退例外。**所有 modelType 一律严格**：
+ * - 有 userId 上下文：必须从 UserModelConfig（BYOK）选；没配 → 返回空
+ * - 无 userId 上下文（background cron）：才允许 admin AIModel 兜底
+ *
+ * 原 BYOK_OPTIONAL_TYPES 集合已废弃保留作向后兼容标记，逻辑层不再读取。
  */
-const BYOK_OPTIONAL_TYPES = new Set<AIModelType>([
-  AIModelType.RERANK,
-  AIModelType.EVALUATOR,
-]);
+// 2026-05-12 严格 BYOK：原 BYOK_OPTIONAL_TYPES 区分已废弃，所有 modelType 一律严格。
+// 保留 import AIModelType 引用（其他方法签名需要）。
 
 export interface AIModelConfig {
   id: string;
@@ -653,12 +653,28 @@ export class AiModelConfigService {
   /**
    * 根据类型获取默认模型
    * @param modelType 模型类型（CHAT, EMBEDDING, IMAGE, etc.）
+   *
+   * 2026-05-12 严格 BYOK：有 userId 上下文时**只**从用户 UserModelConfig 选；
+   * 用户没配 → 返回 null（上层 throw 引导 BYOK 配置）。
+   * 无 userId（background cron）→ admin AIModel 兜底（保留）。
    */
   async getDefaultModelByType(
     modelType: AIModelType,
   ): Promise<AIModelConfig | null> {
     try {
-      // 1. 查找该类型的默认模型
+      const userId = RequestContext.getUserId();
+
+      if (userId) {
+        // 严格 BYOK：直接走 getAllEnabledModelsByType（已做用户 BYOK 选择）
+        const models = await this.getAllEnabledModelsByType(modelType);
+        if (models.length > 0) return models[0];
+        this.logger.warn(
+          `[getDefaultModelByType] User ${userId} has no BYOK ${modelType} model`,
+        );
+        return null;
+      }
+
+      // 无 userId（background cron / 系统任务）：admin AIModel 兜底
       const model = await this.prisma.aIModel.findFirst({
         where: {
           modelType,
@@ -672,12 +688,11 @@ export class AiModelConfigService {
 
       if (model) {
         this.logger.debug(
-          `[getDefaultModelByType] Found default ${modelType} model: ${model.modelId}`,
+          `[getDefaultModelByType] (background) default ${modelType}: ${model.modelId}`,
         );
         return this.buildModelConfig(model);
       }
 
-      // 2. 如果没有默认模型，返回该类型优先级最高的启用模型
       const fallback = await this.prisma.aIModel.findFirst({
         where: {
           modelType,
@@ -690,7 +705,7 @@ export class AiModelConfigService {
 
       if (fallback) {
         this.logger.debug(
-          `[getDefaultModelByType] No default ${modelType} model, using highest priority: ${fallback.modelId}`,
+          `[getDefaultModelByType] (background) no isDefault, using priority top: ${fallback.modelId}`,
         );
         return this.buildModelConfig(fallback);
       }
@@ -701,6 +716,148 @@ export class AiModelConfigService {
       this.logger.error(`[getDefaultModelByType] Failed: ${error}`);
       return null;
     }
+  }
+
+  /**
+   * 项目唯一 BYOK 选模型入口 —— 所有 AI 入口（chat / embedding / image / rerank...）
+   * 都调这个，**不要在 service 里写自己的版本**。
+   *
+   * 顺序（全部在 BYOK 范围内）：
+   *   1. UserModelConfig (PERSONAL BYOK)：用户自己配的，isDefault → priority → updatedAt 排序
+   *   2. KeyAssignment (ASSIGNED)：用户向 admin 申请到的 AIModel，仍属 BYOK 范围
+   *   都不命中 → null（caller 负责 throw 引导用户去 BYOK 配置页）
+   *
+   * 无 userId（background cron / health check）→ 走 admin AIModel 兜底（仅此一例）
+   *
+   * 返回原始 DB 行（UserModelConfig 或 AIModel），caller 按需构造自己的 ModelConfig
+   * 形状（chat 用 AIModelConfig，embedding 用 EmbeddingModelConfig 等）。
+   */
+  async pickBYOKModelForUser(
+    modelType: AIModelType,
+    userIdOverride?: string,
+  ): Promise<{
+    source: "user-model-config" | "assigned" | "system";
+    modelId: string;
+    provider: string;
+    apiEndpoint: string | null;
+    apiFormat: string | null;
+    embeddingDimensions: number | null;
+    maxInputTokens: number | null;
+    maxTokens: number;
+    temperature: number;
+    isReasoning: boolean;
+    supportsTemperature: boolean;
+    supportsStreaming: boolean;
+    supportsFunctionCalling: boolean;
+    supportsVision: boolean;
+    tokenParamName: string;
+    defaultTimeoutMs: number;
+    /** 仅 source='system' 时填，指向 Secret Manager 中的 key 名 */
+    secretKey: string | null;
+  } | null> {
+    const userId = userIdOverride ?? RequestContext.getUserId() ?? undefined;
+
+    if (userId) {
+      // 1. UserModelConfig — 用户 PERSONAL BYOK 的模型偏好
+      const userConfig = await this.prisma.userModelConfig.findFirst({
+        where: { userId, modelType, isEnabled: true },
+        orderBy: [
+          { isDefault: "desc" },
+          { priority: "desc" },
+          { updatedAt: "desc" },
+        ],
+      });
+      if (userConfig) {
+        return {
+          source: "user-model-config",
+          modelId: userConfig.modelId,
+          provider: userConfig.provider,
+          apiEndpoint: userConfig.apiEndpoint,
+          apiFormat: userConfig.apiFormat,
+          embeddingDimensions: userConfig.embeddingDimensions,
+          maxInputTokens: userConfig.maxInputTokens,
+          maxTokens: userConfig.maxTokens,
+          temperature: userConfig.temperature,
+          isReasoning: userConfig.isReasoning,
+          supportsTemperature: userConfig.supportsTemperature,
+          supportsStreaming: userConfig.supportsStreaming,
+          supportsFunctionCalling: userConfig.supportsFunctionCalling,
+          supportsVision: userConfig.supportsVision,
+          tokenParamName: userConfig.tokenParamName,
+          defaultTimeoutMs: userConfig.defaultTimeoutMs,
+          secretKey: null,
+        };
+      }
+
+      // 2. KeyAssignment（admin 授权 = 用户向 admin 申请的，仍属 BYOK 范围）
+      const assigned = await this.prisma.keyAssignment.findMany({
+        where: { userId, status: "ACTIVE" },
+        select: { modelDbId: true },
+        orderBy: { assignedAt: "desc" },
+      });
+      const assignedModelIds = assigned
+        .map((a) => a.modelDbId)
+        .filter((id): id is string => !!id);
+      if (assignedModelIds.length > 0) {
+        const m = await this.prisma.aIModel.findFirst({
+          where: {
+            id: { in: assignedModelIds },
+            modelType,
+            isEnabled: true,
+          },
+        });
+        if (m) {
+          return {
+            source: "assigned",
+            modelId: m.modelId,
+            provider: m.provider,
+            apiEndpoint: m.apiEndpoint,
+            apiFormat: m.apiFormat,
+            embeddingDimensions: m.embeddingDimensions,
+            maxInputTokens: m.maxInputTokens,
+            maxTokens: m.maxTokens,
+            temperature: m.temperature,
+            isReasoning: m.isReasoning,
+            supportsTemperature: m.supportsTemperature,
+            supportsStreaming: m.supportsStreaming,
+            supportsFunctionCalling: m.supportsFunctionCalling,
+            supportsVision: m.supportsVision,
+            tokenParamName: m.tokenParamName,
+            defaultTimeoutMs: m.defaultTimeoutMs,
+            secretKey: m.secretKey,
+          };
+        }
+      }
+
+      // 严格 BYOK：用户上下文都不命中 → null，不回退 admin
+      return null;
+    }
+
+    // 无 userId（background cron / 系统任务）→ admin AIModel 兜底
+    const m = await this.prisma.aIModel.findFirst({
+      where: { modelType, isEnabled: true },
+      orderBy: [{ isDefault: "desc" }, { priority: "desc" }],
+    });
+    if (!m) return null;
+    return {
+      source: "system",
+      modelId: m.modelId,
+      provider: m.provider,
+      apiEndpoint: m.apiEndpoint,
+      apiFormat: m.apiFormat,
+      embeddingDimensions: m.embeddingDimensions,
+      maxInputTokens: m.maxInputTokens,
+      maxTokens: m.maxTokens,
+      temperature: m.temperature,
+      isReasoning: m.isReasoning,
+      supportsTemperature: m.supportsTemperature,
+      supportsStreaming: m.supportsStreaming,
+      supportsFunctionCalling: m.supportsFunctionCalling,
+      supportsVision: m.supportsVision,
+      tokenParamName: m.tokenParamName,
+      defaultTimeoutMs: m.defaultTimeoutMs,
+      secretKey: m.secretKey,
+    };
   }
 
   /**
@@ -758,17 +915,17 @@ export class AiModelConfigService {
           );
         }
 
-        // 用户根本没配任何 UserModelConfig 时才走 admin fallback：
-        // - RERANK / EVALUATOR 等"增强"类型：直接返回空（不烧 admin 的付费 key）
-        // - CHAT / EMBEDDING 等"刚需"类型：回落 admin，保证新用户基本功能可用
-        if (BYOK_OPTIONAL_TYPES.has(modelType)) {
-          this.logger.debug(
-            `[getAllEnabledModelsByType] User ${userId} has no ${modelType} UserModelConfig — returning empty (no admin fallback for optional types)`,
-          );
-          return [];
-        }
+        // 2026-05-12 严格 BYOK：用户有 userId 但没配任何 UserModelConfig
+        // → 返回空（**所有 modelType** 都严格）。上层 caller 应 throw 引导
+        // 用户去 BYOK 配置页。**绝不**回落 admin AIModel——这是用户明确要求
+        // 的政策。原 BYOK_OPTIONAL_TYPES 区分已废弃。
+        this.logger.debug(
+          `[getAllEnabledModelsByType] User ${userId} has no ${modelType} UserModelConfig — strict BYOK, returning empty`,
+        );
+        return [];
       }
 
+      // 无 userId 上下文（background cron / health check / 系统任务）：admin AIModel 兜底
       const models = await this.prisma.aIModel.findMany({
         where: {
           modelType,

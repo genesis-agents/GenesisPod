@@ -16,14 +16,13 @@ import {
   Optional,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/facade";
 import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
+import { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 import { RequestContext } from "@/common/context/request-context";
 import { OnEvent } from "@nestjs/event-emitter";
-import type { AIModel } from "@prisma/client";
 
 // Default fallback values
 const DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
@@ -108,13 +107,15 @@ export class EmbeddingService {
   private readonly authErrorEndpoints = new Map<string, number>(); // key → expiry ts
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
     private readonly aiApiCallerService: AiApiCallerService,
     private readonly configService: ConfigService,
     /** 2026-05-12: 严格 BYOK 必需依赖，**不**用 @Optional()。
      *  module imports 配错 → NestFactory 启动直接报错（防 c0eed7c71 类事故）。 */
     private readonly keyResolver: KeyResolverService,
+    /** 2026-05-12: 项目唯一 BYOK 选模型入口——所有 AI 入口都走它，不在 service
+     *  内重复 BYOK 选择逻辑（embedding/chat/image 等共享同一函数）。 */
+    private readonly aiModelConfig: AiModelConfigService,
     /** v5.1 R0.5-E B-#6 (2026-05-05): EMBEDDING_REQUEST hook seam，可选注入。
      *  plugin 可拦截 / 替换 embedding（缓存 / fallback provider）。 */
     @Optional()
@@ -246,27 +247,58 @@ export class EmbeddingService {
     const userId = userIdOverride ?? RequestContext.getUserId() ?? undefined;
     const cacheKey = userId ?? EmbeddingService.SYSTEM_CACHE_KEY;
 
-    // Check per-user cache
     const cached = this.cachedConfigByUser.get(cacheKey);
     if (cached && Date.now() - cached.time < this.CONFIG_CACHE_TTL) {
       return cached.config;
     }
 
-    // ═══════════ 用户上下文：严格 BYOK ═══════════
-    if (userId) {
-      const model = await this.pickEmbeddingModelForUser(userId);
-      if (!model) {
+    // 唯一 BYOK 选模型入口——所有 AI 入口都走它
+    const model = await this.aiModelConfig.pickBYOKModelForUser(
+      "EMBEDDING",
+      userId,
+    );
+    if (!model) {
+      if (userId) {
         throw new ServiceUnavailableException(
           "未配置 EMBEDDING 模型 BYOK。请到「BYOK 配置」页面为支持向量化的 provider（如 Google / OpenAI / Voyage）配置 API Key，或向管理员申请使用授权。",
         );
       }
+      // 无 userId 且 system 兜底也没 → env
+      const envApiKey = this.configService
+        .get<string>("OPENAI_API_KEY")
+        ?.trim();
+      if (!envApiKey) {
+        throw new ServiceUnavailableException(
+          "No embedding model configured. Set OPENAI_API_KEY or configure an EMBEDDING model.",
+        );
+      }
+      const fallbackConfig: EmbeddingModelConfig = {
+        modelId: DEFAULT_EMBEDDING_MODEL,
+        dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
+        apiKey: envApiKey,
+        provider: "openai",
+        apiFormat: "openai",
+      };
+      this.cachedConfigByUser.set(cacheKey, {
+        config: fallbackConfig,
+        time: Date.now(),
+      });
+      return fallbackConfig;
+    }
 
-      let resolved;
+    // 拿 key：userId 走 BYOK keyResolver；无 userId 走 system Secret（cron）
+    let apiKey: string;
+    let apiEndpoint: string | undefined = model.apiEndpoint ?? undefined;
+    let keySource: string = model.source;
+    if (userId) {
       try {
-        resolved = await this.keyResolver.resolveKey(
+        const resolved = await this.keyResolver.resolveKey(
           userId,
           model.provider.toLowerCase(),
         );
+        apiKey = resolved.apiKey.trim();
+        apiEndpoint = resolved.apiEndpoint ?? apiEndpoint;
+        keySource = resolved.source;
       } catch (err) {
         if (err instanceof NoAvailableKeyError) {
           throw new ServiceUnavailableException(
@@ -275,173 +307,55 @@ export class EmbeddingService {
         }
         throw err;
       }
-
-      const apiKey = resolved.apiKey.trim();
-      const apiEndpoint =
-        resolved.apiEndpoint ?? model.apiEndpoint ?? undefined;
-      const apiFormat = this.resolveApiFormat(
-        (model as unknown as Record<string, unknown>).apiFormat as
-          | string
-          | null
-          | undefined,
-        model.provider,
-      );
-      const config: EmbeddingModelConfig = {
-        modelId: model.modelId,
-        dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
-        apiKey,
-        apiEndpoint,
-        provider: model.provider,
-        apiFormat,
-        maxInputTokens: model.maxInputTokens || undefined,
-      };
-      this.cachedConfigByUser.set(cacheKey, { config, time: Date.now() });
-      this.logger.log(
-        `Loaded embedding config (BYOK): ${model.modelId} (${config.dimensions}D, format=${apiFormat}, source=${resolved.source}, userScope=${userId})`,
-      );
-      return config;
-    }
-
-    // ═══════════ 无 userId（background cron）：admin 默认 + SYSTEM 兜底 ═══════════
-    const model = await this.prisma.aIModel.findFirst({
-      where: { modelType: "EMBEDDING", isEnabled: true },
-      orderBy: { isDefault: "desc" },
-    });
-
-    let apiKey: string | null = null;
-    const apiEndpoint: string | undefined = model?.apiEndpoint || undefined;
-    let keySource: "system" | "env" = "system";
-
-    if (model?.secretKey) {
-      const secretValue = await this.secretsService.getValueInternal(
-        model.secretKey,
-      );
-      if (secretValue) {
-        apiKey = secretValue.trim();
-        keySource = "system";
+    } else {
+      // system 兜底（仅 background cron / 无 userId）：用 pickBYOKModelForUser 返回的 secretKey
+      if (!model.secretKey) {
+        // 没 secretKey → env 兜底
+        const envApiKey = this.configService
+          .get<string>("OPENAI_API_KEY")
+          ?.trim();
+        if (!envApiKey) {
+          throw new ServiceUnavailableException(
+            `System EMBEDDING model ${model.modelId} has no secretKey, OPENAI_API_KEY env not set.`,
+          );
+        }
+        apiKey = envApiKey;
       } else {
-        this.logger.error(
-          `Secret '${model.secretKey}' not found for embedding model ${model.modelId}. Check Secret Manager.`,
+        const secretValue = await this.secretsService.getValueInternal(
+          model.secretKey,
         );
+        if (!secretValue) {
+          // Secret Manager 没找到 → env 兜底
+          const envApiKey = this.configService
+            .get<string>("OPENAI_API_KEY")
+            ?.trim();
+          if (!envApiKey) {
+            throw new ServiceUnavailableException(
+              `Secret '${model.secretKey}' not found for ${model.modelId}.`,
+            );
+          }
+          apiKey = envApiKey;
+        } else {
+          apiKey = secretValue.trim();
+        }
       }
     }
 
-    if (model && apiKey) {
-      const apiFormat = this.resolveApiFormat(
-        (model as unknown as Record<string, unknown>).apiFormat as
-          | string
-          | null
-          | undefined,
-        model.provider,
-      );
-      const config: EmbeddingModelConfig = {
-        modelId: model.modelId,
-        dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
-        apiKey,
-        apiEndpoint,
-        provider: model.provider,
-        apiFormat,
-        maxInputTokens: model.maxInputTokens || undefined,
-      };
-      this.cachedConfigByUser.set(cacheKey, { config, time: Date.now() });
-      this.logger.log(
-        `Loaded embedding config (system): ${model.modelId} (${config.dimensions}D, format=${apiFormat}, source=${keySource})`,
-      );
-      return config;
-    }
-
-    // env 兜底（仅 background）
-    const envApiKey = this.configService.get<string>("OPENAI_API_KEY")?.trim();
-    if (!envApiKey) {
-      throw new ServiceUnavailableException(
-        "No embedding model configured. Please add an EMBEDDING type model in Admin > AI Models, or set OPENAI_API_KEY.",
-      );
-    }
-    const fallbackConfig: EmbeddingModelConfig = {
-      modelId: DEFAULT_EMBEDDING_MODEL,
-      dimensions: DEFAULT_EMBEDDING_DIMENSIONS,
-      apiKey: envApiKey,
-      provider: "openai",
-      apiFormat: "openai",
+    const apiFormat = this.resolveApiFormat(model.apiFormat, model.provider);
+    const config: EmbeddingModelConfig = {
+      modelId: model.modelId,
+      dimensions: model.embeddingDimensions || DEFAULT_EMBEDDING_DIMENSIONS,
+      apiKey,
+      apiEndpoint,
+      provider: model.provider,
+      apiFormat,
+      maxInputTokens: model.maxInputTokens || undefined,
     };
-    this.cachedConfigByUser.set(cacheKey, {
-      config: fallbackConfig,
-      time: Date.now(),
-    });
+    this.cachedConfigByUser.set(cacheKey, { config, time: Date.now() });
     this.logger.log(
-      `Using env embedding config: ${DEFAULT_EMBEDDING_MODEL} (source=env)`,
+      `Loaded embedding config: ${model.modelId} (${config.dimensions}D, format=${apiFormat}, source=${keySource}, userScope=${userId ?? "system"})`,
     );
-    return fallbackConfig;
-  }
-
-  /**
-   * 按用户 BYOK 选 EMBEDDING 模型（严格 BYOK——**完全不看 admin 的 isDefault**）
-   *
-   * 用户范围 = PERSONAL（自己配的 key）∪ ASSIGNED（向 admin 申请的授权，也属 BYOK 范围）
-   *
-   * 顺序：
-   *   1. PERSONAL key 的 preferredModelId 指向 EMBEDDING 模型 → 用（按 user_api_keys.updatedAt 最近优先）
-   *   2. PERSONAL key 的 provider 有 EMBEDDING 模型 → 用（按 user_api_keys.updatedAt 最近优先）
-   *   3. ASSIGNED 的 modelDbId 是 EMBEDDING 模型 → 用（按 KeyAssignment 最近优先）
-   * 都不命中 → null（上层 throw 引导用户去 BYOK 配置页）
-   *
-   * **绝不**回退 admin default + 用户随便一个 BYOK key 凑合——那是反模式。
-   */
-  private async pickEmbeddingModelForUser(
-    userId: string,
-  ): Promise<AIModel | null> {
-    // 最近配置的 BYOK key 优先（用户最新的 intent）
-    const userKeys = await this.prisma.userApiKey.findMany({
-      where: { userId, isActive: true, mode: "PERSONAL" },
-      select: { provider: true, preferredModelId: true, updatedAt: true },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    // 1. PERSONAL.preferredModelId 命中 EMBEDDING（最严格的用户意图）
-    for (const k of userKeys) {
-      if (!k.preferredModelId) continue;
-      const m = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType: "EMBEDDING",
-          isEnabled: true,
-          modelId: k.preferredModelId,
-        },
-      });
-      if (m) return m;
-    }
-
-    // 2. PERSONAL.provider 下有 EMBEDDING 模型 → 用（按用户 key 最近优先）
-    //    完全不参考 ai_models.isDefault；用户配的 provider 自身的 EMBEDDING 模型谁先就谁
-    for (const k of userKeys) {
-      const m = await this.prisma.aIModel.findFirst({
-        where: {
-          modelType: "EMBEDDING",
-          isEnabled: true,
-          provider: { equals: k.provider, mode: "insensitive" },
-        },
-      });
-      if (m) return m;
-    }
-
-    // 3. ASSIGNED（admin 授权 = 用户向 admin 申请的，仍属 BYOK 范围）
-    const assigned = await this.prisma.keyAssignment.findMany({
-      where: { userId, status: "ACTIVE" },
-      select: { modelDbId: true, assignedAt: true },
-      orderBy: { assignedAt: "desc" },
-    });
-    for (const a of assigned) {
-      if (!a.modelDbId) continue;
-      const m = await this.prisma.aIModel.findFirst({
-        where: {
-          id: a.modelDbId,
-          modelType: "EMBEDDING",
-          isEnabled: true,
-        },
-      });
-      if (m) return m;
-    }
-
-    return null;
+    return config;
   }
 
   /**
