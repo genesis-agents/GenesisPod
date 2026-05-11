@@ -262,6 +262,12 @@ export class WikiIngestService {
     // drop + zod is last-resort net). Mutates the parsed JSON in place; zod
     // runs after to enforce the rest of the shape.
     let droppedSources = 0;
+    const droppedByReason = {
+      notObject: 0,
+      unknownDoc: 0,
+      spanInvalid: 0,
+      quoteInvalid: 0,
+    };
     let totalSourcesSeen = 0;
     if (rawItems && typeof rawItems === "object" && !Array.isArray(rawItems)) {
       const obj = rawItems as Record<string, unknown>;
@@ -274,6 +280,7 @@ export class WikiIngestService {
               const kept = sources.filter((s) => {
                 if (!s || typeof s !== "object") {
                   droppedSources += 1;
+                  droppedByReason.notObject += 1;
                   return false;
                 }
                 const o = s as Record<string, unknown>;
@@ -283,6 +290,7 @@ export class WikiIngestService {
                   !allowedDocumentIds.has(o.documentId)
                 ) {
                   droppedSources += 1;
+                  droppedByReason.unknownDoc += 1;
                   return false;
                 }
                 // spanStart / spanEnd: required non-negative integers with
@@ -294,6 +302,7 @@ export class WikiIngestService {
                   o.spanStart < 0
                 ) {
                   droppedSources += 1;
+                  droppedByReason.spanInvalid += 1;
                   return false;
                 }
                 if (
@@ -302,6 +311,7 @@ export class WikiIngestService {
                   o.spanEnd < o.spanStart
                 ) {
                   droppedSources += 1;
+                  droppedByReason.spanInvalid += 1;
                   return false;
                 }
                 // quote: required 1-2000 char string
@@ -311,6 +321,7 @@ export class WikiIngestService {
                   o.quote.length > 2000
                 ) {
                   droppedSources += 1;
+                  droppedByReason.quoteInvalid += 1;
                   return false;
                 }
                 return true;
@@ -348,8 +359,12 @@ export class WikiIngestService {
     }
     const items = validated.data;
     if (droppedSources > 0) {
+      const breakdown = Object.entries(droppedByReason)
+        .filter(([, n]) => n > 0)
+        .map(([k, n]) => `${k}=${n}`)
+        .join(", ");
       this.logger.warn(
-        `[ingest] kb=${knowledgeBaseId} dropped ${droppedSources} sources with unknown documentId`,
+        `[ingest] kb=${knowledgeBaseId} dropped ${droppedSources}/${totalSourcesSeen} sources (${breakdown})`,
       );
     }
 

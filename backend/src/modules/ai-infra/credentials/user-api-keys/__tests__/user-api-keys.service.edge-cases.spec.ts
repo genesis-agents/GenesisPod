@@ -55,7 +55,7 @@ const makeApiKey = (overrides: Record<string, unknown> = {}) => ({
   donatedSecretId: null,
   donationRewardedAt: null,
   isActive: true,
-  lastTestedAt: null,
+  lastUsedAt: null,
   testStatus: null,
   usageCount: 0,
   createdAt: new Date(),

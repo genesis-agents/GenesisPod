@@ -8033,7 +8033,8 @@ model UserApiKey {
   /// 调用次数统计：捐赠模式 + 个人模式都累加（业务流量调用上游成功时 +1）
   /// ★ 2026-05-06: 之前仅捐赠模式累加；现 KeyChain.reportSuccess 持久化扩展至 personal
   usageCount         Int            @default(0) @map("usage_count")
-  /// ★ 2026-05-12: 真实业务调用时间，与 lastTestedAt (手动 Test) 区分.
+  /// ★ 2026-05-12: 真实业务调用时间。已归一字段，业务流量 + 手动 Test 都写入此列
+  /// (前 last_tested_at 列在 migration 20260512a 中 drop).
   /// 写入路径：persistDbHealthOutcome (personal 分支) success/failure 都更新.
   lastUsedAt         DateTime?      @map("last_used_at")
   donationRewardedAt DateTime?      @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
@@ -8163,10 +8164,11 @@ model SecretKey {
   priority Int @default(0)
 
   /// 健康状态（与 UserApiKey 对齐）
-  /// ★ 2026-05-06: testStatus / lastTestedAt / lastErrorCode / lastErrorMessage 都
+  /// ★ 2026-05-06: testStatus / lastErrorCode / lastErrorMessage 都
   /// 由"真使用反馈"统一写入：手动 Test 按钮调上游探测、业务流量 markSuccess /
   /// markFailure 都走同一路径。UI 看到的状态永远是"最近一次真实活动"的结果。
-  testStatus   String?   @map("test_status") @db.VarChar(20) // 'success' | 'failed'
+  /// ★ 2026-05-12: last_tested_at 列在 migration 20260512a 中归一到 last_used_at.
+  testStatus String? @map("test_status") @db.VarChar(20) // 'success' | 'failed'
 
   /// 最近一次失败的归一化错误码：401 / 403 / 429 / 5xx / network / timeout / decryption_failed
   /// 用于 UI 出语义化 badge（"未授权" / "限流" / 等），而不是只显示 "Failed"

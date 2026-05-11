@@ -1296,7 +1296,7 @@ L1 ai-infra/storage（facade + lifecycle + adapters + encryption）
 
 ### v1.4（2026-05-11）— v1.3 第 3 轮 4 路评审后穿透修订
 
-> **触发**：v1.3 第 3 轮 4 路评审结果 Security APPROVED-WITH-COMMENTS / Architect NEEDS-CHANGES / Arch-Auditor NEEDS-CHANGES / Reviewer NEEDS-CHANGES。共拍出 1 个**自洽 bug**（tombstone tier 在 cron 路径 TypeError）+ 5 项**事实错误**（caller 数 / raw SQL 数 / enum 数 / secret-resolver / interceptor）+ 1 项**修订穿透漏洞**（§9 line 946 "1 周 alias"）+ 多项契约/spec/抽象问题。v1.4 全部穿透修订并 inline 标注。
+> **触发**：v1.3 第 3 轮 4 路评审结果 Security APPROVED-WITH-COMMENTS / Architect NEEDS-CHANGES / Arch-Auditor NEEDS-CHANGES / Reviewer NEEDS-CHANGES。共拍出 1 个**自洽 bug**（tombstone tier 在 cron 路径 TypeError）+ 5 项**事实错误**（caller 数 / raw SQL 数 / enum 数 / secret-resolver / interceptor）+ 1 项**修订穿透漏洞**（§9 line 946 "1 周 alias"）+ 多项契约/spec/抽象问题。v1.4 在正文穿透修订（事实数据 / SQL / 模块名 inline 替换、状态行/§1.1/§4.5/§4.7 等已就地更新），本节 §13 提供修订映射表作为对照；不在被修订段落附加 `(v1.4 revised)` marker —— 避免 marker 在下一版迭代时再次成为残留。
 
 **自洽 bug 修复（v1.3 引入）**：
 

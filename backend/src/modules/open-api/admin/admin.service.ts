@@ -3154,20 +3154,6 @@ export class AdminService {
   }
 
   /**
-   * 获取 OpenAI API Key（内部使用，返回实际值）
-   */
-  async getOpenAIApiKey(): Promise<string | null> {
-    // First check system settings
-    const settingKey = await this.getSetting("openai.apiKey");
-    if (settingKey) {
-      return settingKey;
-    }
-
-    // Fallback to environment variable
-    return process.env.OPENAI_API_KEY || null;
-  }
-
-  /**
    * 测试 OpenAI 连接
    */
   async testOpenAIConnection(

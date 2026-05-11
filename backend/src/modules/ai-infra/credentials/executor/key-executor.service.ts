@@ -128,7 +128,7 @@ export class KeyExecutorService {
    * 流式响应），手动在流完成 / 流出错时调此方法上报健康状态。
    * 与 execute() 路径互补：execute = 自动 failover；track = 仅记账（无 failover）。
    *
-   * 2026-05-10：补 DB 持久化（user_api_keys.usage_count++ / lastTestedAt /
+   * 2026-05-10：补 DB 持久化（user_api_keys.usage_count++ / lastUsedAt /
    * testStatus）—— 之前 trackSuccess 只更新 in-memory KeyHealthStore，
    * DB 永远 0 → AI Ask 流式调用 + 任何流式 caller 都没命中统计。
    * 现行行为与 KeyExecutor.execute() 路径（KeyChain.reportSuccess）完全对齐。
