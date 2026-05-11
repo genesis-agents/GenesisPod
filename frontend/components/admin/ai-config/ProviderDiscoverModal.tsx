@@ -22,6 +22,10 @@ interface DiscoveredModel {
 }
 
 interface DiscoverPayload {
+  /** Provider slug (kebab-case)。一键配置时 upsert ai_providers 行 */
+  providerSlug: string;
+  /** Provider 显示名 */
+  providerName: string;
   endpoint: string;
   apiKey: string;
   apiFormat: string;
@@ -52,6 +56,8 @@ export function ProviderDiscoverModal({
   onClose: () => void;
   onConfirm: (payload: DiscoverPayload) => Promise<void> | void;
 }) {
+  const [providerSlug, setProviderSlug] = useState('');
+  const [providerName, setProviderName] = useState('');
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [apiFormat, setApiFormat] = useState('openai');
@@ -120,6 +126,14 @@ export function ProviderDiscoverModal({
   };
 
   const confirm = async () => {
+    if (!providerSlug.trim() || !providerName.trim()) {
+      setError('Provider slug 和 显示名 必填（用于 upsert ai_providers 行）');
+      return;
+    }
+    if (!/^[a-z0-9-]+$/.test(providerSlug.trim())) {
+      setError('Provider slug 只允许小写字母、数字、连字符（kebab-case）');
+      return;
+    }
     const selectedList = Object.entries(selected).map(
       ([modelId, modelType]) => ({
         modelId,
@@ -134,6 +148,8 @@ export function ProviderDiscoverModal({
     setError(null);
     try {
       await onConfirm({
+        providerSlug: providerSlug.trim(),
+        providerName: providerName.trim(),
         endpoint: endpoint.trim(),
         apiKey: apiKey.trim(),
         apiFormat,
@@ -178,6 +194,37 @@ export function ProviderDiscoverModal({
 
         {/* Input row */}
         <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">
+                Provider Slug <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={providerSlug}
+                onChange={(e) =>
+                  setProviderSlug(e.target.value.toLowerCase().trim())
+                }
+                placeholder="together-ai"
+                className="font-mono w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <p className="mt-0.5 text-[10px] text-gray-500">
+                kebab-case 唯一标识，将 upsert 到 ai_providers
+              </p>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-700">
+                Provider 显示名 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={providerName}
+                onChange={(e) => setProviderName(e.target.value)}
+                placeholder="Together AI"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="mb-1 block text-xs font-medium text-gray-700">

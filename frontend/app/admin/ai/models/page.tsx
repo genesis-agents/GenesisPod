@@ -18,13 +18,116 @@ export default function AIModelsPage() {
   const [showDiscoverModal, setShowDiscoverModal] = useState(false);
   const [showDictionary, setShowDictionary] = useState(false);
 
+  /**
+   * 2026-05-11 一键 AI 配置完整闭环（覆盖 Provider + Model 参数）：
+   * 1. upsert AIProvider 行（slug/name/endpoint/apiFormat/testModel/capabilities）
+   * 2. 推断每个 modelType 的合理默认参数（maxTokens / temperature / supports*）
+   * 3. 批量创建 AIModel 行（含 apiFormat / apiEndpoint / 参数）
+   */
+  const defaultsByModelType = (modelType: string): Record<string, unknown> => {
+    if (modelType === 'EMBEDDING')
+      return {
+        maxTokens: 0,
+        temperature: 0,
+        embeddingDimensions: 1536,
+        maxInputTokens: 8192,
+        supportsTemperature: false,
+        supportsStreaming: false,
+        supportsFunctionCalling: false,
+        supportsVision: false,
+      };
+    if (modelType === 'RERANK')
+      return {
+        maxTokens: 0,
+        temperature: 0,
+        supportsTemperature: false,
+        supportsStreaming: false,
+        supportsFunctionCalling: false,
+        supportsVision: false,
+      };
+    if (modelType === 'IMAGE_GENERATION' || modelType === 'IMAGE_EDITING')
+      return {
+        maxTokens: 0,
+        temperature: 0,
+        supportsTemperature: false,
+        supportsStreaming: false,
+        supportsFunctionCalling: false,
+        supportsVision: false,
+      };
+    if (modelType === 'TTS' || modelType === 'AUDIO')
+      return {
+        maxTokens: 0,
+        temperature: 0,
+        supportsTemperature: false,
+        supportsStreaming: false,
+        supportsFunctionCalling: false,
+        supportsVision: false,
+      };
+    if (modelType === 'MULTIMODAL')
+      return {
+        maxTokens: 8192,
+        temperature: 0.7,
+        supportsTemperature: true,
+        supportsStreaming: true,
+        supportsFunctionCalling: true,
+        supportsVision: true,
+        tokenParamName: 'max_tokens',
+      };
+    // CHAT / CHAT_FAST / CODE / EVALUATOR 默认
+    return {
+      maxTokens: 4096,
+      temperature: 0.7,
+      supportsTemperature: true,
+      supportsStreaming: true,
+      supportsFunctionCalling: true,
+      supportsVision: false,
+      tokenParamName: 'max_tokens',
+    };
+  };
+
   const handleDiscoverConfirm = async (payload: {
+    providerSlug: string;
+    providerName: string;
     endpoint: string;
     apiKey: string;
     apiFormat: string;
     selected: Array<{ modelId: string; modelType: string }>;
   }) => {
-    // 批量调 /admin/ai-models POST 创建（沿用现有 admin AIModel CRUD endpoint）
+    // 1) Upsert AIProvider 行（PATCH 现有 slug，POST 否则）
+    const capabilities = Array.from(
+      new Set(payload.selected.map((s) => s.modelType))
+    );
+    try {
+      const listRes = await fetch(`${config.apiBaseUrl}/admin/ai-providers`, {
+        headers: getAuthHeader(),
+      });
+      const existing = listRes.ok
+        ? ((await listRes.json()) as Array<{ id: string; slug: string }>)
+        : [];
+      const found = existing.find((p) => p.slug === payload.providerSlug);
+      const providerPayload = {
+        slug: payload.providerSlug,
+        name: payload.providerName,
+        endpoint: payload.endpoint,
+        apiFormat: payload.apiFormat,
+        testModel: payload.selected[0]?.modelId ?? '',
+        capabilities,
+        isEnabled: true,
+      };
+      const provUrl = found
+        ? `${config.apiBaseUrl}/admin/ai-providers/${found.id}`
+        : `${config.apiBaseUrl}/admin/ai-providers`;
+      const provMethod = found ? 'PATCH' : 'POST';
+      await fetch(provUrl, {
+        method: provMethod,
+        headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(providerPayload),
+      });
+    } catch (err) {
+      logger.error('[discover] upsert provider failed', err);
+    }
+
+    // 2) 批量创建 AIModel 行（含 apiFormat + 按 modelType 推默认参数）
     for (const item of payload.selected) {
       try {
         await fetch(`${config.apiBaseUrl}/admin/ai-models`, {
@@ -32,7 +135,7 @@ export default function AIModelsPage() {
           headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: item.modelId,
-            provider: 'custom',
+            provider: payload.providerSlug,
             modelId: item.modelId,
             modelType: item.modelType,
             displayName: item.modelId,
@@ -40,6 +143,7 @@ export default function AIModelsPage() {
             apiFormat: payload.apiFormat,
             isEnabled: true,
             isDefault: false,
+            ...defaultsByModelType(item.modelType),
           }),
         });
       } catch (err) {
