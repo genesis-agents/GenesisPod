@@ -48,6 +48,11 @@ const nextConfig = {
     missingSuspenseWithCSRBailout: false,
     // ★ rewrite 代理超时：默认 30s 太短，AI 操作（MCP/Research 等）需要更长时间
     proxyTimeout: 300000, // 5 minutes
+    // /admin/ai-app/[category] 在 server 端用 fs.readFile 读 bundled md,
+    // standalone 模式默认 trace 不到这种动态字符串路径,显式 include.
+    outputFileTracingIncludes: {
+      '/admin/ai-app/[category]': ['./lib/generated/ai-app-docs/**/*.md'],
+    },
   },
   env: {
     NEXT_PUBLIC_API_URL:

@@ -11,10 +11,10 @@ import UsersSettings, {
 } from '@/components/admin/UsersSettings';
 import { toast } from '@/stores';
 
-const FROM_TOAST: Record<string, string> = {
-  permissions: '"权限管理"已并入用户管理 — 在用户行内点击 [权限] 修改',
-  credits: '"积分管理"已并入用户管理 — 在用户行内点击 [积分] 处理',
-  billing: '"计费管理"已并入用户管理 — 在用户行内点击 [计费] 查看',
+const FROM_TOAST_KEYS: Record<string, string> = {
+  permissions: 'admin.redirect.permissions',
+  credits: 'admin.redirect.credits',
+  billing: 'admin.redirect.billing',
 };
 
 function UsersPageInner() {
@@ -29,8 +29,8 @@ function UsersPageInner() {
   // 让书签用户知道"页面去哪了"。读完即清掉 query 防止 refresh 重复弹。
   useEffect(() => {
     const from = searchParams?.get('from');
-    if (from && FROM_TOAST[from]) {
-      toast.info('页面已迁移', FROM_TOAST[from]);
+    if (from && FROM_TOAST_KEYS[from]) {
+      toast.info(t('admin.redirect.title'), t(FROM_TOAST_KEYS[from]));
       const params = new URLSearchParams(searchParams?.toString() ?? '');
       params.delete('from');
       const qs = params.toString();
@@ -41,7 +41,7 @@ function UsersPageInner() {
         }
       );
     }
-  }, [searchParams, router, pathname]);
+  }, [searchParams, router, pathname, t]);
 
   return (
     <AdminPageLayout

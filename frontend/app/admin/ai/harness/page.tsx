@@ -110,6 +110,21 @@ const ENTITY_I18N: Record<
   },
 };
 
+function SubsystemSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t border-gray-200 pt-6 first:border-t-0 first:pt-0">
+      <h2 className="mb-3 text-base font-semibold text-gray-900">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
 function HarnessAdminPageInner() {
   const { t } = useTranslation();
   const { data: overviewStats } = useApiGet<Record<string, number>>(
@@ -136,22 +151,24 @@ function HarnessAdminPageInner() {
     >
       {tab === 'execution' && (
         <div className="space-y-8">
-          <KernelSchedulerPageContent embedded />
-          <div className="border-t border-gray-200 pt-8">
+          <SubsystemSection title="Scheduler">
+            <KernelSchedulerPageContent embedded />
+          </SubsystemSection>
+          <SubsystemSection title="Processes">
             <KernelProcessesPageContent embedded />
-          </div>
-          <div className="border-t border-gray-200 pt-8">
+          </SubsystemSection>
+          <SubsystemSection title="Traces">
             <TracesPageContent embedded />
-          </div>
-          <div className="border-t border-gray-200 pt-8">
+          </SubsystemSection>
+          <SubsystemSection title="Observability">
             <KernelObservabilityPageContent embedded />
-          </div>
-          <div className="border-t border-gray-200 pt-8">
+          </SubsystemSection>
+          <SubsystemSection title="Event Journal">
             <KernelJournalPageContent embedded />
-          </div>
-          <div className="border-t border-gray-200 pt-8">
+          </SubsystemSection>
+          <SubsystemSection title="Resources">
             <KernelResourcesPageContent embedded />
-          </div>
+          </SubsystemSection>
         </div>
       )}
 
@@ -159,15 +176,22 @@ function HarnessAdminPageInner() {
 
       {tab === 'governance' && (
         <div className="space-y-8">
-          <EvalDashboardPageContent embedded />
-          <div className="border-t border-gray-200 pt-8">
+          <SubsystemSection title="Evaluation Dashboard">
+            <EvalDashboardPageContent embedded />
+          </SubsystemSection>
+          <SubsystemSection title="Guardrails">
             <GuardrailsPageContent embedded />
-          </div>
+          </SubsystemSection>
         </div>
       )}
 
       {tab === 'interop' && (
         <>
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Facade and protocol internals do not have standalone mutation
+            screens yet. Panels below link to the closest runtime / capability /
+            protocol surfaces instead of synthesizing a Harness-only page.
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             {INTEROP_SUBSYSTEMS.map((subsystem) => {
               const Icon = subsystem.icon;
@@ -226,12 +250,6 @@ function HarnessAdminPageInner() {
                 </section>
               );
             })}
-          </div>
-
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Facade and protocol internals do not have standalone mutation
-            screens yet. Panels link to the closest runtime / capability /
-            protocol surfaces instead of synthesizing a Harness-only page.
           </div>
         </>
       )}

@@ -69,11 +69,12 @@ export default function ArchitectureCard({
         {/* Label */}
         <span
           className={cn(
-            'text-sm font-medium',
+            'min-w-0 flex-1 truncate text-sm font-medium',
             card.clickable
               ? 'text-gray-700 group-hover:text-gray-900'
               : 'text-gray-500'
           )}
+          title={t(card.i18nKey)}
         >
           {t(card.i18nKey)}
         </span>

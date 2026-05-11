@@ -2,7 +2,13 @@
 
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
-import { Lightbulb, GitBranch, PenTool, Sparkles } from 'lucide-react';
+import {
+  Lightbulb,
+  GitBranch,
+  PenTool,
+  Sparkles,
+  AlertTriangle,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { AdminTabs, type AdminTab } from '@/components/admin/shared';
@@ -60,9 +66,9 @@ export default function AiAppCategoryView({
       <div className="space-y-6">
         <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-base font-semibold text-gray-900">
-            类目概览
+            {t('admin.aiApp.categoryOverview')}
           </h2>
-          <div className="overflow-x-auto">
+          <div className="max-h-[60vh] overflow-auto">
             <MermaidDiagram chart={overviewDiagram} />
           </div>
         </section>
@@ -83,15 +89,21 @@ export default function AiAppCategoryView({
                 {activeModule.label}
               </h2>
               <p className="mt-1 text-sm text-gray-500">{activeModule.blurb}</p>
-              {activeModule.resolvedDocPath && (
-                <p className="font-mono mt-2 text-xs text-gray-400">
-                  docs/architecture/ai-app/{activeModule.resolvedDocPath}
-                </p>
-              )}
               {!activeModule.loaded && (
-                <p className="mt-2 text-xs text-amber-600">
-                  ⚠ 此文档未能加载，显示占位内容
-                </p>
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>{t('admin.aiApp.docPlaceholderNotice')}</span>
+                </div>
+              )}
+              {activeModule.loaded && activeModule.resolvedDocPath && (
+                <details className="mt-2 text-xs text-gray-400">
+                  <summary className="cursor-pointer hover:text-gray-600">
+                    {t('admin.aiApp.viewSource')}
+                  </summary>
+                  <code className="font-mono mt-1 block">
+                    docs/architecture/ai-app/{activeModule.resolvedDocPath}
+                  </code>
+                </details>
               )}
             </div>
             <MarkdownViewer

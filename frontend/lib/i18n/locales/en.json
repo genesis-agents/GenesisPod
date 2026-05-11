@@ -4197,6 +4197,18 @@
         "empty": "No history yet. Cron samples daily at 00:10 UTC."
       }
     },
+    "aiApp": {
+      "categoryOverview": "Category Overview",
+      "docPlaceholderNotice": "Architecture doc for this module is coming soon",
+      "viewSource": "View source path"
+    },
+    "redirect": {
+      "title": "Page moved",
+      "permissions": "\"Permissions\" merged into User Management — click [Roles] in any user row",
+      "credits": "\"Credits\" merged into User Management — click [Credits] in any user row",
+      "billing": "\"Billing\" merged into User Management — click [Billing] in any user row",
+      "sources": "\"Data Sources\" merged into the Data Management tab"
+    },
     "system": {
       "description": "Runtime monitoring, messaging, base config, and security audit",
       "tabs": {

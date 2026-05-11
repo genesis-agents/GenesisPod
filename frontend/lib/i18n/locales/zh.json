@@ -4197,6 +4197,18 @@
         "empty": "暂无历史数据，cron 将每天 00:10 UTC 采样"
       }
     },
+    "aiApp": {
+      "categoryOverview": "类目概览",
+      "docPlaceholderNotice": "本模块架构文档即将上线",
+      "viewSource": "查看源文件路径"
+    },
+    "redirect": {
+      "title": "页面已迁移",
+      "permissions": "\"权限管理\"已并入用户管理 — 在用户行内点击 [权限] 修改",
+      "credits": "\"积分管理\"已并入用户管理 — 在用户行内点击 [积分] 处理",
+      "billing": "\"计费管理\"已并入用户管理 — 在用户行内点击 [计费] 查看",
+      "sources": "\"数据源管理\"已并入数据管理 Tab"
+    },
     "system": {
       "description": "运行监控、消息通知、基础设置与安全审计",
       "tabs": {

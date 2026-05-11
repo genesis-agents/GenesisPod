@@ -18,14 +18,20 @@ const VALID_CATEGORIES: readonly AiAppCategoryId[] = [
 ];
 
 /**
- * docs/architecture/ai-app 在 repo root。frontend 跑在 `frontend/`，所以从 cwd
- * 往上回两层到达 repo root。Docker 镜像里 frontend 是独立打包，`docs/` 不一定
- * 在 runtime 镜像中——如果文件读不到就回退到占位文案，不抛错。
+ * docs 来源优先级：
+ *  1. `frontend/lib/generated/ai-app-docs/` (build-time bundled, 由
+ *     scripts/sync-architecture-docs.js 在 `next build` 前同步进来)
+ *  2. `<repo>/docs/architecture/ai-app/` (本地 dev 跳过 sync 时的兜底)
+ *
+ * Docker 镜像里只有 frontend/ 在 build context，所以 (1) 是生产路径；
+ * 都读不到就回退到占位文案。
  */
+const BUNDLED_REL_PATH = ['lib', 'generated', 'ai-app-docs'];
 const REPO_ROOT_RELATIVE_DOCS_DIR = ['docs', 'architecture', 'ai-app'];
 
 async function findDocsRoot(): Promise<string | null> {
   const candidates = [
+    path.resolve(process.cwd(), ...BUNDLED_REL_PATH),
     path.resolve(process.cwd(), '..', ...REPO_ROOT_RELATIVE_DOCS_DIR),
     path.resolve(process.cwd(), ...REPO_ROOT_RELATIVE_DOCS_DIR),
   ];
@@ -121,11 +127,6 @@ function missingDocsPlaceholder(mod: AiAppCategoryModule): string {
     '',
     `> ${mod.blurb}`,
     '',
-    '> 此模块的架构文档暂未发布到 runtime 镜像（`docs/` 不随 frontend Docker 镜像打包）。',
-    '> 候选文档路径：',
-    '',
-    ...mod.docCandidates.map((p) => `> - \`docs/architecture/ai-app/${p}\``),
-    '',
-    '请在仓库内查看，或后续将 `docs/architecture/ai-app/` 复制进 frontend 镜像 layer。',
+    '架构文档即将上线。',
   ].join('\n');
 }

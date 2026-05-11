@@ -30,10 +30,6 @@ import { toast } from '@/stores';
 
 type DataTab = 'assets' | 'storage' | 'governance';
 
-const FROM_TOAST: Record<string, string> = {
-  sources: '"数据源"已并入数据治理 — 进入数据治理点 [白名单] / [采集源] 处理',
-};
-
 function DataPageInner() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -63,14 +59,14 @@ function DataPageInner() {
 
   useEffect(() => {
     if (rawTab === 'sources') {
-      toast.info('页面已迁移', FROM_TOAST.sources);
+      toast.info(t('admin.redirect.title'), t('admin.redirect.sources'));
       const params = new URLSearchParams(searchParams?.toString() ?? '');
       params.set('tab', 'governance');
       router.replace(`${pathname ?? '/admin/data'}?${params.toString()}`, {
         scroll: false,
       });
     }
-  }, [rawTab, searchParams, router, pathname]);
+  }, [rawTab, searchParams, router, pathname, t]);
 
   return (
     <AdminPageLayout
