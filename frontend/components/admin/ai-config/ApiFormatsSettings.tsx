@@ -77,7 +77,11 @@ export function ApiFormatsSettings() {
         headers: getAuthHeader(),
       });
       if (!res.ok) throw new Error(`Load failed: ${res.status}`);
-      setItems(await res.json());
+      // 后端全局 ResponseTransformInterceptor 包 { success, data, metadata }，解一层
+      const raw = await res.json();
+      setItems(
+        Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : []
+      );
     } catch (err) {
       const msg = (err as Error).message;
       setError(msg);

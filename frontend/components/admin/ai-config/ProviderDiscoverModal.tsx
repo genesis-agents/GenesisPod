@@ -88,17 +88,22 @@ export function ProviderDiscoverModal({
           apiFormat,
         }),
       });
-      const json = await res.json();
+      const raw = await res.json();
       if (!res.ok) {
-        throw new Error(json?.message || `HTTP ${res.status}`);
+        throw new Error(raw?.message || `HTTP ${res.status}`);
       }
-      if (json.warning) {
-        setError(json.warning);
+      // 后端全局 ResponseTransformInterceptor 包 { success, data, metadata }，解一层
+      const payload = raw?.data ?? raw;
+      if (payload?.warning) {
+        setError(payload.warning);
       }
-      setDiscovered(json.models ?? []);
+      const models: DiscoveredModel[] = Array.isArray(payload?.models)
+        ? payload.models
+        : [];
+      setDiscovered(models);
       // 默认全选
       const init: Record<string, string> = {};
-      for (const m of json.models ?? []) {
+      for (const m of models) {
         init[m.modelId] = m.guessedModelType;
       }
       setSelected(init);

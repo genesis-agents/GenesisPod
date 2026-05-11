@@ -133,9 +133,11 @@ export default function SystemModelInventoryPanel() {
     distinctProviders: 0,
     userConfiguredModels: 0,
   };
-  const byType = data.byType ?? [];
-  const byProvider = data.byProvider ?? [];
-  const topModels = data.topModels ?? [];
+  // 用 Array.isArray 而不是 ?? []：?? 只挡 null/undefined，挡不住返回对象的情况，
+  // 否则下游 .map 会抛 "e.map is not a function"
+  const byType = Array.isArray(data.byType) ? data.byType : [];
+  const byProvider = Array.isArray(data.byProvider) ? data.byProvider : [];
+  const topModels = Array.isArray(data.topModels) ? data.topModels : [];
 
   return (
     <ResponsiveCard>

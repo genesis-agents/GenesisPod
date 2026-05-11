@@ -105,8 +105,15 @@ export function AIProvidersSettings() {
       ]);
       if (!pRes.ok) throw new Error(`Load providers failed: ${pRes.status}`);
       if (!fRes.ok) throw new Error(`Load api-formats failed: ${fRes.status}`);
-      setProviders(await pRes.json());
-      setApiFormats(await fRes.json());
+      // 后端全局 ResponseTransformInterceptor 包 { success, data, metadata }，解一层
+      const pRaw = await pRes.json();
+      const fRaw = await fRes.json();
+      setProviders(
+        Array.isArray(pRaw) ? pRaw : Array.isArray(pRaw?.data) ? pRaw.data : []
+      );
+      setApiFormats(
+        Array.isArray(fRaw) ? fRaw : Array.isArray(fRaw?.data) ? fRaw.data : []
+      );
     } catch (err) {
       const msg = (err as Error).message;
       setError(msg);

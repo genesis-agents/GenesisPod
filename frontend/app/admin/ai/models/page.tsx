@@ -101,9 +101,15 @@ export default function AIModelsPage() {
       const listRes = await fetch(`${config.apiUrl}/admin/ai-providers`, {
         headers: getAuthHeader(),
       });
-      const existing = listRes.ok
-        ? ((await listRes.json()) as Array<{ id: string; slug: string }>)
-        : [];
+      // 后端全局 ResponseTransformInterceptor 包 { success, data, metadata }，解一层
+      const listRaw = listRes.ok ? await listRes.json() : null;
+      const existing: Array<{ id: string; slug: string }> = Array.isArray(
+        listRaw
+      )
+        ? listRaw
+        : Array.isArray(listRaw?.data)
+          ? listRaw.data
+          : [];
       const found = existing.find((p) => p.slug === payload.providerSlug);
       const providerPayload = {
         slug: payload.providerSlug,

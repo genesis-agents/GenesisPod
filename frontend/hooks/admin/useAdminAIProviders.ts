@@ -26,9 +26,16 @@ export function useAdminAIProviders() {
     fetch(`${config.apiUrl}/admin/ai-providers`, {
       headers: getAuthHeader(),
     })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((rows) => {
-        setProviders(rows ?? []);
+      .then((r) => (r.ok ? r.json() : null))
+      .then((raw) => {
+        // 后端全局 ResponseTransformInterceptor 包了 { success, data, metadata }，
+        // 这里要解一层；同时容错 raw 直接是数组（非生产路径）。
+        const rows = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : [];
+        setProviders(rows);
         setLoaded(true);
       })
       .catch(() => {

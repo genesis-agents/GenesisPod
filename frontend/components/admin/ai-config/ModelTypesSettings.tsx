@@ -85,8 +85,15 @@ export function ModelTypesSettings() {
       ]);
       if (!tRes.ok) throw new Error(`Load model-types failed: ${tRes.status}`);
       if (!fRes.ok) throw new Error(`Load api-formats failed: ${fRes.status}`);
-      setItems(await tRes.json());
-      setApiFormats(await fRes.json());
+      // 后端全局 ResponseTransformInterceptor 包 { success, data, metadata }，解一层
+      const tRaw = await tRes.json();
+      const fRaw = await fRes.json();
+      setItems(
+        Array.isArray(tRaw) ? tRaw : Array.isArray(tRaw?.data) ? tRaw.data : []
+      );
+      setApiFormats(
+        Array.isArray(fRaw) ? fRaw : Array.isArray(fRaw?.data) ? fRaw.data : []
+      );
     } catch (err) {
       const msg = (err as Error).message;
       setError(msg);
