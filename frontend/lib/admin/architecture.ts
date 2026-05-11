@@ -18,6 +18,7 @@ import {
   Wrench,
   Shield,
   Sparkles,
+  FlaskConical,
   Users,
   Key,
   HardDrive,
@@ -193,7 +194,7 @@ const aiAppsLayer: ArchitectureLayer = {
       i18nKey: 'admin.architecture.cards.aiAppsLabs',
       descriptionKey: 'admin.architecture.cards.aiAppsLabsDesc',
       href: '/admin/ai-app/labs',
-      icon: Sparkles,
+      icon: FlaskConical,
       clickable: true,
       stats: [
         { label: '工具', key: 'tools' },

@@ -6,7 +6,7 @@ import {
   Lightbulb,
   GitBranch,
   PenTool,
-  Sparkles,
+  FlaskConical,
   AlertTriangle,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
@@ -24,7 +24,7 @@ const CATEGORY_ICON: Record<AiAppCategoryId, typeof Lightbulb> = {
   insights: Lightbulb,
   planning: GitBranch,
   content: PenTool,
-  labs: Sparkles,
+  labs: FlaskConical,
 };
 
 interface AiAppCategoryViewProps {

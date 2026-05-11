@@ -8112,6 +8112,9 @@ model Secret {
   deletedBy String?   @map("deleted_by") @db.VarChar(100)
 
   // 访问记录
+  // ★ accessCount 语义 (Secret-level): 整个 secret 被查询的累计次数,
+  //   getSecretByName / getValueInternal 等多入口都 +1。
+  //   与 SecretKey.accessCount (行级，单 key 命中次数) 不同义,UI 上不可直接对比。
   lastAccessedAt DateTime? @map("last_accessed_at")
   accessCount    Int       @default(0) @map("access_count")
   currentVersion Int       @default(1) @map("current_version") // 当前激活版本号
@@ -8172,7 +8175,9 @@ model SecretKey {
   /// 最近一次失败的错误摘要（不存敏感数据），用于 UI 提示
   lastErrorMessage String? @map("last_error_message") @db.Text
 
-  /// 调用次数（业务侧 markSuccess/markFailure 累加）
+  /// ★ accessCount 语义 (SecretKey 行级): 单 key 被 markSuccess / markFailure 的累计次数,
+  /// = "命中数 + 失败数"。与 Secret.accessCount (整 secret 查询次数,多入口都 +1) 不同义,
+  /// admin UI 拉到一起对比会误导,请保持分列展示。
   accessCount Int @default(0) @map("access_count")
 
   /// ★ 2026-05-12: 真实业务调用时间（不是手动 Test）。
@@ -9224,7 +9229,9 @@ model KeyAssignment {
   // 用户级配额（美分）；null 表示无单独限额（受 CreditsService 总账控制）
   userQuotaCents     Int?                @map("user_quota_cents")
   userSpendCents     Int                 @default(0) @map("user_spend_cents")
-  /// ★ 2026-05-12: 调用次数 (业务流量成功时 +1). 配合 lastUsedAt 提供完整命中视图.
+  /// ★ accessCount 语义 (KeyAssignment 级): assigned 路径业务流量 success 累计 (仅成功,失败不计).
+  /// 与 Secret.accessCount (整 secret 查询累计,含失败) / SecretKey.accessCount (单 key markSuccess+
+  /// markFailure 累计) 同名但 触发面 / 粒度 完全不同, admin UI 拉到一起对比会误导.
   accessCount        Int                 @default(0) @map("access_count")
   /// ★ 2026-05-12: 真实业务调用时间. 写入路径: persistDbHealthOutcome (assigned 分支).
   lastUsedAt         DateTime?           @map("last_used_at")
