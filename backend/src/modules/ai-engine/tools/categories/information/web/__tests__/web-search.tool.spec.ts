@@ -21,8 +21,6 @@ import {
   ToolContext,
   ToolResult,
 } from "../../../../abstractions/tool.interface";
-import { resolveSearchTimeRangeSince } from "@/common/search/search-time-range";
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -234,16 +232,27 @@ describe("WebSearchTool", () => {
     it("should pass provider since date when timeRange is specified", async () => {
       mockSearchService.search.mockResolvedValue(makeSearchResponse([]));
 
+      // resolveSearchTimeRangeSince() captures Date.now() at call time, so a
+      // strict toHaveBeenCalledWith against a fresh resolveSearchTimeRangeSince
+      // call in the assertion will flake under parallel-worker timing drift.
+      // Assert against a tolerance window instead.
+      const before = Date.now();
       await tool.execute(
         { query: "agent framework", timeRange: "90d" },
         makeContext(),
       );
+      const after = Date.now();
 
-      expect(mockSearchService.search).toHaveBeenCalledWith(
-        "agent framework",
-        5,
-        resolveSearchTimeRangeSince("90d"),
-      );
+      expect(mockSearchService.search).toHaveBeenCalledTimes(1);
+      const [queryArg, numResultsArg, sinceArg] =
+        mockSearchService.search.mock.calls[0];
+      expect(queryArg).toBe("agent framework");
+      expect(numResultsArg).toBe(5);
+      expect(sinceArg).toBeInstanceOf(Date);
+      const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+      const sinceMs = (sinceArg as Date).getTime();
+      expect(sinceMs).toBeGreaterThanOrEqual(before - ninetyDaysMs);
+      expect(sinceMs).toBeLessThanOrEqual(after - ninetyDaysMs);
     });
   });
 
