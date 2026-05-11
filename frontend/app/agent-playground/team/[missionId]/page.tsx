@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
+import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/BudgetAndTimeLimitPanel';
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import { ensureRenderableArtifact } from '@/lib/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
@@ -981,7 +982,14 @@ export default function MissionDetailPage() {
               })}
             </div>
             <div className="shrink-0">
-              <CompactMeters view={view} wallTimeMs={wallTimeMs} />
+              <CompactMeters
+                view={view}
+                wallTimeMs={wallTimeMs}
+                maxCredits={
+                  (persisted as { userProfile?: { maxCredits?: number } })
+                    ?.userProfile?.maxCredits ?? null
+                }
+              />
             </div>
           </div>
 
@@ -1172,6 +1180,10 @@ function MissionSettingsModal({
   const [concurrency, setConcurrency] = useState(3);
   const [searchTimeRange, setSearchTimeRange] = useState<STR>('365d');
   const [knowledgeBaseIds, setKnowledgeBaseIds] = useState<string[]>([]);
+  const [maxCredits, setMaxCredits] = useState<number>(2000);
+  const [budgetMultiplierOverride, setBudgetMultiplierOverride] =
+    useState<number>(1.0);
+  const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(60);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -1190,6 +1202,19 @@ function MissionSettingsModal({
     setSearchTimeRange((userProfile?.searchTimeRange as STR) ?? '365d');
     const kbIds = userProfile?.knowledgeBaseIds as string[] | undefined;
     setKnowledgeBaseIds(Array.isArray(kbIds) ? kbIds : []);
+    setMaxCredits(
+      ((userProfile as { maxCredits?: number })?.maxCredits as number) ?? 2000
+    );
+    setBudgetMultiplierOverride(
+      ((userProfile as { budgetMultiplierOverride?: number })
+        ?.budgetMultiplierOverride as number) ?? 1.0
+    );
+    const inheritedWall = (userProfile as { wallTimeMs?: number })?.wallTimeMs;
+    setWallTimeMinutes(
+      inheritedWall && inheritedWall > 0
+        ? Math.round(inheritedWall / 60_000)
+        : 60
+    );
     setSaveError(null);
   }, [open, mission.topic, mission.depth, mission.language, userProfile]);
 
@@ -1202,14 +1227,23 @@ function MissionSettingsModal({
     }
     setSaving(true);
     setSaveError(null);
+    if (maxCredits < 10 || maxCredits > 100_000) {
+      setSaveError('maxCredits 必须在 10 - 100000 之间');
+      setSaving(false);
+      return;
+    }
+    if (budgetMultiplierOverride < 0.3 || budgetMultiplierOverride > 10) {
+      setSaveError('agent 倍率必须在 0.3 - 10 之间');
+      setSaving(false);
+      return;
+    }
+    if (wallTimeMinutes < 1 || wallTimeMinutes > 180) {
+      setSaveError('时长上限必须在 1 - 180 分钟之间');
+      setSaving(false);
+      return;
+    }
     try {
       const { runTeam } = await import('@/services/agent-playground/api');
-      // ★ P0-K (2026-05-06): maxCredits + budgetMultiplierOverride 必填，从原 mission
-      //   userProfile 读取（rerun 沿用原配置；用户可在专门 UI 改）
-      const inheritedMax = (userProfile as { maxCredits?: number })?.maxCredits;
-      const inheritedMul = (
-        userProfile as { budgetMultiplierOverride?: number }
-      )?.budgetMultiplierOverride;
       const { missionId: newId } = await runTeam({
         topic: topic.trim(),
         depth,
@@ -1221,8 +1255,9 @@ function MissionSettingsModal({
         withFigures,
         concurrency,
         searchTimeRange,
-        maxCredits: inheritedMax ?? 1000,
-        budgetMultiplierOverride: inheritedMul ?? 1.0,
+        maxCredits,
+        budgetMultiplierOverride,
+        wallTimeMs: wallTimeMinutes * 60_000,
         knowledgeBaseIds:
           knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
       });
@@ -1281,11 +1316,28 @@ function MissionSettingsModal({
             />
             <SettingRow
               label="累计 token"
-              value={
-                cost.tokensUsed >= 1000
-                  ? `${(cost.tokensUsed / 1000).toFixed(1)}k`
-                  : String(cost.tokensUsed)
-              }
+              value={(() => {
+                const inheritedMax = (
+                  userProfile as { maxCredits?: number } | null
+                )?.maxCredits;
+                const used =
+                  cost.tokensUsed >= 1000
+                    ? `${(cost.tokensUsed / 1000).toFixed(1)}k`
+                    : String(cost.tokensUsed);
+                if (inheritedMax) {
+                  const capTokens = inheritedMax * 1000;
+                  const ratio = Math.min(
+                    100,
+                    Math.round((cost.tokensUsed / capTokens) * 100)
+                  );
+                  const capLabel =
+                    capTokens >= 1_000_000
+                      ? `${(capTokens / 1_000_000).toFixed(1)}M`
+                      : `${(capTokens / 1000).toFixed(0)}k`;
+                  return `${used} / ${capLabel} · ${ratio}%`;
+                }
+                return used;
+              })()}
             />
           </div>
 
@@ -1417,6 +1469,15 @@ function MissionSettingsModal({
             />
           </FormField>
 
+          <BudgetAndTimeLimitPanel
+            maxCredits={maxCredits}
+            setMaxCredits={setMaxCredits}
+            budgetMultiplierOverride={budgetMultiplierOverride}
+            setBudgetMultiplierOverride={setBudgetMultiplierOverride}
+            wallTimeMinutes={wallTimeMinutes}
+            setWallTimeMinutes={setWallTimeMinutes}
+          />
+
           <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-[11px] leading-relaxed text-blue-900">
             <p className="font-semibold">
               说明：「另存为新 mission」会用以上配置创建新 mission，原 mission
@@ -1493,9 +1554,11 @@ function FormField({
 function CompactMeters({
   view,
   wallTimeMs,
+  maxCredits,
 }: {
   view: ReturnType<typeof deriveView>;
   wallTimeMs: number;
+  maxCredits: number | null;
 }) {
   const fmtTokens = (n: number) =>
     n < 1000 ? String(n) : `${(n / 1000).toFixed(1)}k`;
@@ -1515,11 +1578,47 @@ function CompactMeters({
   const fmtWords = (n: number) =>
     n < 1000 ? `${n} 字` : `${(n / 1000).toFixed(1)}k 字`;
 
+  // 预算使用率（tokensUsed / maxCredits）—— 100k 上限 = 100M tokens
+  const maxTokens = maxCredits != null ? maxCredits * 1000 : null;
+  const usageRatio =
+    maxTokens && maxTokens > 0
+      ? Math.min(1, view.cost.tokensUsed / maxTokens)
+      : null;
+  const usageColor =
+    usageRatio == null
+      ? 'text-amber-500'
+      : usageRatio >= 1
+        ? 'text-red-500'
+        : usageRatio >= 0.9
+          ? 'text-orange-500'
+          : 'text-amber-500';
+
   return (
     <div className="hidden items-center gap-4 whitespace-nowrap text-xs text-gray-500 lg:flex">
-      <span className="flex items-center gap-1">
-        <Coins className="h-3.5 w-3.5 text-amber-500" />
+      <span
+        className="flex items-center gap-1"
+        title={
+          maxTokens != null
+            ? `已用 ${view.cost.tokensUsed.toLocaleString()} / 上限 ${maxTokens.toLocaleString()} tokens（maxCredits=${maxCredits}）`
+            : undefined
+        }
+      >
+        <Coins className={`h-3.5 w-3.5 ${usageColor}`} />
         {fmtTokens(view.cost.tokensUsed)} tk
+        {usageRatio != null && (
+          <span
+            className={cn(
+              'font-mono ml-0.5 text-[10px]',
+              usageRatio >= 1
+                ? 'text-red-600'
+                : usageRatio >= 0.9
+                  ? 'text-orange-600'
+                  : 'text-gray-400'
+            )}
+          >
+            {(usageRatio * 100).toFixed(0)}%
+          </span>
+        )}
       </span>
       {totalWords > 0 && (
         <span className="flex items-center gap-1" title="累计已写章节字数">

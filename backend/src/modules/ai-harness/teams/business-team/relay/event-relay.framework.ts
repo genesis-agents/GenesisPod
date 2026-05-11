@@ -40,6 +40,10 @@ export class EventRelayFramework {
   private abortRegistry?: MissionAbortRegistry;
   /** 防重复发：单 mission 仅 emit budget:exhausted + abort 一次（带 60min 过期清理） */
   private readonly exhaustedMissions = new Map<string, number>();
+  /** 防重复发：90% 软告警只 emit 一次 */
+  private readonly softWarnedMissions = new Map<string, number>();
+  /** budget 软告警阈值（已用 / 上限）—— 跨过即 emit budget:soft-warning */
+  private static readonly SOFT_WARN_THRESHOLD = 0.9;
 
   constructor(
     protected readonly eventBus: DomainEventBus,
@@ -53,6 +57,7 @@ export class EventRelayFramework {
 
   clearMission(missionId: string): void {
     this.exhaustedMissions.delete(missionId);
+    this.softWarnedMissions.delete(missionId);
   }
 
   async emitEvent(args: {
@@ -135,6 +140,35 @@ export class EventRelayFramework {
     for (const [mid, ts] of this.exhaustedMissions) {
       if (now - ts > 60 * 60_000) this.exhaustedMissions.delete(mid);
     }
+    for (const [mid, ts] of this.softWarnedMissions) {
+      if (now - ts > 60 * 60_000) this.softWarnedMissions.delete(mid);
+    }
+
+    // 90% soft warning（先于 isExhausted 检查；exhausted 已是 100%，不重复发软告警）
+    if (!pool.isExhausted() && !this.softWarnedMissions.has(missionId)) {
+      const capTokens =
+        snap.poolTokensUsed + snap.poolTokensRemaining || Infinity;
+      const capCost = snap.poolCostUsd + snap.poolCostRemaining || Infinity;
+      const tokenRatio = capTokens > 0 ? snap.poolTokensUsed / capTokens : 0;
+      const costRatio = capCost > 0 ? snap.poolCostUsd / capCost : 0;
+      const ratio = Math.max(tokenRatio, costRatio);
+      if (ratio >= EventRelayFramework.SOFT_WARN_THRESHOLD) {
+        this.softWarnedMissions.set(missionId, now);
+        await this.emitEvent({
+          type: `${this.eventNamespace}.budget:soft-warning`,
+          missionId,
+          userId,
+          payload: {
+            ...snap,
+            ratio,
+            tokenRatio,
+            costRatio,
+            threshold: EventRelayFramework.SOFT_WARN_THRESHOLD,
+          },
+        });
+      }
+    }
+
     if (pool.isExhausted() && !this.exhaustedMissions.has(missionId)) {
       this.exhaustedMissions.set(missionId, now);
       await this.emitEvent({

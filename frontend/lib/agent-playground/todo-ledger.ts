@@ -601,13 +601,40 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       t === 'agent-playground.mission:budget-warning-hard'
     ) {
       const isHard = t.endsWith('hard');
+      const reason = p.reason as string | undefined;
+      const reasonHint =
+        reason === 'wall_time_exceeded'
+          ? `Mission 总时长超出 ${Math.round(((p.wallTimeMs as number) ?? 0) / 60_000)} 分钟上限，已自动停止`
+          : isHard
+            ? `预算硬告警：${(p.suggestion as string) ?? 'abort'}（短缺 ${(p.shortfall as number) ?? '?'} credits）`
+            : `预算软告警：估算超出建议但可继续`;
       addNarrative(
         'system:s1-budget',
         ev.timestamp,
-        isHard
-          ? `预算硬告警：${(p.suggestion as string) ?? 'abort'}（短缺 ${(p.shortfall as number) ?? '?'} credits）`
-          : `预算软告警：估算超出建议但可继续`,
+        reasonHint,
         isHard ? 'error' : 'warn'
+      );
+    } else if (t === 'agent-playground.budget:soft-warning') {
+      const ratio = (p.ratio as number) ?? 0;
+      const tokensUsed = (p.poolTokensUsed as number) ?? 0;
+      const tokensRemain = (p.poolTokensRemaining as number) ?? 0;
+      const fmt = (n: number) =>
+        n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+      addNarrative(
+        'system:s1-budget',
+        ev.timestamp,
+        `预算软告警：已用 ${fmt(tokensUsed)} tokens（${Math.round(ratio * 100)}%），仅剩 ${fmt(tokensRemain)}。如需放宽上限，请提高 maxCredits 后重试`,
+        'warn'
+      );
+    } else if (t === 'agent-playground.budget:exhausted') {
+      const tokensUsed = (p.poolTokensUsed as number) ?? 0;
+      const fmt = (n: number) =>
+        n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
+      addNarrative(
+        'system:s1-budget',
+        ev.timestamp,
+        `预算耗尽：已用 ${fmt(tokensUsed)} tokens 达到 maxCredits 上限，Mission 已自动停止。点击"另存为新 mission"调高预算重试`,
+        'error'
       );
       // ★ 2026-05-06 (单轨化彻底版): stage:metrics handler 已删除。
       //   理由：stage:lifecycle handler 通过 dispatcher 桥接的 payload.output 拍平

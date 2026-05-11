@@ -55,6 +55,8 @@ export interface RunMissionInput {
   maxCredits: number;
   /** ★ P0-K: agent budget 倍率（必填，前端按 budgetProfile × depth 推荐用户可改） */
   budgetMultiplierOverride: number;
+  /** 用户自定义 mission 总时长上限（毫秒）。不传则按 depth × audit × budget 矩阵推。范围 60s ~ 3h。 */
+  wallTimeMs?: number;
   /**
    * 本地知识库 ID 列表（最多 10 个）。
    * researcher 调 rag-search 时会限定在这些 KB 内做语义召回。

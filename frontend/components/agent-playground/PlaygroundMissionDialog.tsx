@@ -23,6 +23,12 @@ import {
 } from '@/services/agent-playground/api';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { MissionDialogShell } from '@/components/common/dialogs/MissionDialogShell';
+import {
+  BudgetAndTimeLimitPanel,
+  MAX_CREDITS_LIMIT,
+  MULTIPLIER_LIMIT,
+  WALL_TIME_LIMIT_MINUTES,
+} from '@/components/agent-playground/BudgetAndTimeLimitPanel';
 
 interface PlaygroundMissionDialogProps {
   isOpen: boolean;
@@ -84,14 +90,56 @@ function loadPref<T extends string>(key: string, fallback: T): T {
   return (localStorage.getItem(`playground:${key}`) as T | null) ?? fallback;
 }
 
-function persistPref(key: string, value: string) {
+function loadPrefNum(key: string, fallback: number): number {
+  if (typeof window === 'undefined') return fallback;
+  const raw = localStorage.getItem(`playground:${key}`);
+  if (raw == null) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function persistPref(key: string, value: string | number) {
   if (typeof window !== 'undefined') {
-    localStorage.setItem(`playground:${key}`, value);
+    localStorage.setItem(`playground:${key}`, String(value));
   }
 }
 
-function depthMul(depth: RunMissionInput['depth']) {
-  return depth === 'quick' ? 0.4 : depth === 'standard' ? 0.7 : 1;
+/**
+ * budgetProfile 档位 → 3 个硬上限的"推荐默认值"。
+ * 用户切换档位时自动填，但仍可在「预算与时限」面板里手动覆盖。
+ */
+function budgetPresetFor(profile: BudgetProfile): {
+  maxCredits: number;
+  budgetMultiplierOverride: number;
+  wallTimeMinutes: number;
+} {
+  switch (profile) {
+    case 'low':
+      return {
+        maxCredits: 500,
+        budgetMultiplierOverride: 0.6,
+        wallTimeMinutes: 15,
+      };
+    case 'medium':
+      return {
+        maxCredits: 2000,
+        budgetMultiplierOverride: 1.0,
+        wallTimeMinutes: 30,
+      };
+    case 'high':
+      return {
+        maxCredits: 8000,
+        budgetMultiplierOverride: 2.0,
+        wallTimeMinutes: 60,
+      };
+    case 'unlimited':
+    default:
+      return {
+        maxCredits: 30000,
+        budgetMultiplierOverride: 4.0,
+        wallTimeMinutes: 180,
+      };
+  }
 }
 
 export function PlaygroundMissionDialog({
@@ -142,8 +190,37 @@ export function PlaygroundMissionDialog({
       return [];
     }
   });
+  // 预算与时限：默认值来自 budgetProfile 档位映射（用户切档位自动重填，也可手动覆盖）
+  const initialPreset = budgetPresetFor(
+    loadPref('budgetProfile', 'medium' as BudgetProfile)
+  );
+  const [maxCredits, setMaxCredits] = useState<number>(() =>
+    loadPrefNum('maxCredits', initialPreset.maxCredits)
+  );
+  const [budgetMultiplierOverride, setBudgetMultiplierOverride] =
+    useState<number>(() =>
+      loadPrefNum(
+        'budgetMultiplierOverride',
+        initialPreset.budgetMultiplierOverride
+      )
+    );
+  const [wallTimeMinutes, setWallTimeMinutes] = useState<number>(() =>
+    loadPrefNum('wallTimeMinutes', initialPreset.wallTimeMinutes)
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function applyBudgetProfile(profile: BudgetProfile) {
+    setBudgetProfile(profile);
+    persistPref('budgetProfile', profile);
+    const preset = budgetPresetFor(profile);
+    setMaxCredits(preset.maxCredits);
+    setBudgetMultiplierOverride(preset.budgetMultiplierOverride);
+    setWallTimeMinutes(preset.wallTimeMinutes);
+    persistPref('maxCredits', preset.maxCredits);
+    persistPref('budgetMultiplierOverride', preset.budgetMultiplierOverride);
+    persistPref('wallTimeMinutes', preset.wallTimeMinutes);
+  }
 
   const isCustomProfile = useMemo(
     () =>
@@ -176,6 +253,10 @@ export function PlaygroundMissionDialog({
     setWithFigures(true);
     setAuditLayers('default');
     setSearchTimeRange('365d');
+    const preset = budgetPresetFor('medium');
+    setMaxCredits(preset.maxCredits);
+    setBudgetMultiplierOverride(preset.budgetMultiplierOverride);
+    setWallTimeMinutes(preset.wallTimeMinutes);
     if (typeof window !== 'undefined') {
       [
         'depth',
@@ -186,6 +267,9 @@ export function PlaygroundMissionDialog({
         'withFigures',
         'auditLayers',
         'searchTimeRange',
+        'maxCredits',
+        'budgetMultiplierOverride',
+        'wallTimeMinutes',
       ].forEach((k) => localStorage.removeItem(`playground:${k}`));
     }
   }
@@ -197,47 +281,36 @@ export function PlaygroundMissionDialog({
       setError('Topic 至少 4 个字符');
       return;
     }
+    if (
+      maxCredits < MAX_CREDITS_LIMIT.min ||
+      maxCredits > MAX_CREDITS_LIMIT.max
+    ) {
+      setError(
+        `Credits 上限必须在 ${MAX_CREDITS_LIMIT.min} - ${MAX_CREDITS_LIMIT.max} 之间`
+      );
+      return;
+    }
+    if (
+      budgetMultiplierOverride < MULTIPLIER_LIMIT.min ||
+      budgetMultiplierOverride > MULTIPLIER_LIMIT.max
+    ) {
+      setError(
+        `Agent 倍率必须在 ${MULTIPLIER_LIMIT.min} - ${MULTIPLIER_LIMIT.max} 之间`
+      );
+      return;
+    }
+    if (
+      wallTimeMinutes < WALL_TIME_LIMIT_MINUTES.min ||
+      wallTimeMinutes > WALL_TIME_LIMIT_MINUTES.max
+    ) {
+      setError(
+        `时长上限必须在 ${WALL_TIME_LIMIT_MINUTES.min} - ${WALL_TIME_LIMIT_MINUTES.max} 分钟之间`
+      );
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
-      const tokens = Math.round(
-        400 *
-          depthMul(depth) *
-          (lengthProfile === 'brief'
-            ? 0.5
-            : lengthProfile === 'standard'
-              ? 1
-              : lengthProfile === 'deep'
-                ? 1.7
-                : 2.5) *
-          (budgetProfile === 'low'
-            ? 0.5
-            : budgetProfile === 'medium'
-              ? 1
-              : budgetProfile === 'high'
-                ? 2
-                : 4) *
-          (auditLayers === 'minimal'
-            ? 0.7
-            : auditLayers === 'thorough'
-              ? 1.5
-              : auditLayers === 'thorough+'
-                ? 2.5
-                : 1) *
-          (withFigures ? 1.15 : 1)
-      );
-      const maxCredits = Math.max(50, Math.round(tokens * 1.5));
-      const budgetMultiplierOverride = +(
-        (budgetProfile === 'low'
-          ? 0.6
-          : budgetProfile === 'medium'
-            ? 1.0
-            : budgetProfile === 'high'
-              ? 2.0
-              : 4.0) *
-        (depth === 'quick' ? 0.7 : depth === 'standard' ? 1.0 : 1.4)
-      ).toFixed(2);
-
       const { missionId } = await runTeam({
         topic: trimmed,
         depth,
@@ -251,6 +324,7 @@ export function PlaygroundMissionDialog({
         searchTimeRange,
         maxCredits,
         budgetMultiplierOverride,
+        wallTimeMs: wallTimeMinutes * 60_000,
         knowledgeBaseIds:
           knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
       });
@@ -356,16 +430,13 @@ export function PlaygroundMissionDialog({
                 <option value="en-US">English</option>
               </select>
             </Field>
-            <Field label="预算档位">
+            <Field label="预算档位（点击切换会重填下方 3 个上限）">
               <div className="grid grid-cols-4 gap-1.5">
                 {BUDGET_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => {
-                      setBudgetProfile(opt.value);
-                      persistPref('budgetProfile', opt.value);
-                    }}
+                    onClick={() => applyBudgetProfile(opt.value)}
                     className={`rounded-lg border px-2 py-2 text-xs font-medium transition-all ${
                       budgetProfile === opt.value
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
@@ -382,6 +453,23 @@ export function PlaygroundMissionDialog({
       }
       advanced={
         <>
+          <BudgetAndTimeLimitPanel
+            maxCredits={maxCredits}
+            setMaxCredits={(n) => {
+              setMaxCredits(n);
+              persistPref('maxCredits', n);
+            }}
+            budgetMultiplierOverride={budgetMultiplierOverride}
+            setBudgetMultiplierOverride={(n) => {
+              setBudgetMultiplierOverride(n);
+              persistPref('budgetMultiplierOverride', n);
+            }}
+            wallTimeMinutes={wallTimeMinutes}
+            setWallTimeMinutes={(n) => {
+              setWallTimeMinutes(n);
+              persistPref('wallTimeMinutes', n);
+            }}
+          />
           <Field label="搜索时效">
             <div className="grid grid-cols-6 gap-1.5">
               {TIME_RANGE_OPTIONS.map((opt) => (
