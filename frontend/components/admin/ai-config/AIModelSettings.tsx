@@ -2370,6 +2370,28 @@ function AddModelModal({
     'direct'
   ); // API Key 来源模式
 
+  // 2026-05-11 P8: 数据驱动 provider 下拉 —— 从 DB ai_providers 动态拉，
+  // 替代之前硬编码的 STANDARD_MODEL_CONFIGS。新 provider 不必改代码。
+  const [dynamicProviders, setDynamicProviders] = useState<
+    Array<{
+      slug: string;
+      name: string;
+      endpoint: string;
+      apiFormat: string;
+      iconUrl: string | null;
+    }>
+  >([]);
+  useEffect(() => {
+    fetch(`${config.apiBaseUrl}/admin/ai-providers`, {
+      headers: getAuthHeader(),
+    })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => setDynamicProviders(rows ?? []))
+      .catch(() => {
+        // DB 没数据 → fallback STANDARD_MODEL_CONFIGS（已在下拉里）
+      });
+  }, []);
+
   // 获取可用的密钥列表（过滤 AI_MODEL 类型）
   const { secrets } = useAdminSecrets();
   const aiModelSecrets =
@@ -2401,6 +2423,24 @@ function AddModelModal({
             <select
               value={formData.name}
               onChange={(e) => {
+                // 2026-05-11 P8: 优先匹配 DB provider；命中则按 DB endpoint/apiFormat 填，
+                // 否则兜底匹配旧的 STANDARD_MODEL_CONFIGS（兼容期）。
+                const dyn = dynamicProviders.find(
+                  (p) => p.slug === e.target.value
+                );
+                if (dyn) {
+                  setFormData({
+                    ...formData,
+                    name: dyn.slug,
+                    displayName: dyn.name,
+                    provider: dyn.name,
+                    modelId: '',
+                    apiEndpoint: dyn.endpoint,
+                    icon: dyn.iconUrl ?? '',
+                    apiFormat: dyn.apiFormat,
+                  });
+                  return;
+                }
                 const selected = STANDARD_MODEL_CONFIGS.find(
                   (m) => m.id === e.target.value
                 );
@@ -2428,16 +2468,64 @@ function AddModelModal({
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="">选择模型提供商...</option>
-              {STANDARD_MODEL_CONFIGS.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                </option>
-              ))}
+              {/* 优先列出 DB ai_providers（admin 在 UI 维护，含自定义 provider） */}
+              {dynamicProviders.length > 0 && (
+                <optgroup label="数据驱动（admin 在 /admin/ai/models 顶部维护）">
+                  {dynamicProviders.map((p) => (
+                    <option key={`db-${p.slug}`} value={p.slug}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label="预置模板（向后兼容，将来退役）">
+                {STANDARD_MODEL_CONFIGS.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              选择后会自动填充默认配置
+              下拉里没有你要的 provider？请到顶部 &quot;AI Providers&quot;
+              展开面板添加，无需改代码。
             </p>
           </div>
+
+          {/* 2026-05-11 P8 柔性提示：endpoint suffix 与 modelType 不匹配时显示
+              黄色 warning，不拦截。admin 自检。 */}
+          {(() => {
+            const ep = (formData.apiEndpoint || '').toLowerCase();
+            const mt = formData.modelType;
+            let warning: string | null = null;
+            if (mt === 'RERANK' && !ep.includes('rerank')) {
+              warning =
+                '当前 modelType=RERANK，但 endpoint 不含 /rerank。Cohere/Voyage/Jina 的 rerank 通常用 /v1/rerank 路径。';
+            } else if (
+              mt === 'EMBEDDING' &&
+              !ep.includes('embed') &&
+              !ep.includes('embeddings')
+            ) {
+              warning =
+                '当前 modelType=EMBEDDING，但 endpoint 不含 /embeddings 或 /embed。';
+            } else if (
+              (mt === 'CHAT' || mt === 'CHAT_FAST' || mt === 'CODE') &&
+              ep &&
+              !ep.includes('chat') &&
+              !ep.includes('messages') &&
+              !ep.includes('generatecontent')
+            ) {
+              warning =
+                '当前 modelType=CHAT/CHAT_FAST/CODE，但 endpoint 看起来不像 chat 路径（应含 /chat/completions / /messages / :generateContent）。';
+            }
+            if (!warning) return null;
+            return (
+              <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-xs text-yellow-800">
+                <strong>提示：</strong>
+                {warning}填错时连接测试会返回远端 4xx 错误。
+              </div>
+            );
+          })()}
 
           {/* Model Type (模型类型) */}
           <div>
