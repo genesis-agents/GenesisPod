@@ -590,7 +590,7 @@ describe("AiConnectionTestService (extended coverage)", () => {
       expect(result.message).toBe("Embedding API responded successfully");
     });
 
-    it("embedding: unsupported provider returns failure", async () => {
+    it("embedding: unsupported provider without endpoint returns failure", async () => {
       const { service } = await buildModule({});
 
       const result = await service.testModelConnectionWithKey(
@@ -602,7 +602,7 @@ describe("AiConnectionTestService (extended coverage)", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain("Embedding not supported");
+      expect(result.message).toContain("未声明 embedding endpoint");
     });
 
     it("embedding: ECONNABORTED error (line 618)", async () => {
@@ -713,7 +713,7 @@ describe("AiConnectionTestService (extended coverage)", () => {
       expect(result.success).toBe(true);
     });
 
-    it("rerank: unsupported provider returns failure (line 685-690)", async () => {
+    it("rerank: unsupported provider without endpoint returns failure", async () => {
       const { service } = await buildModule({});
 
       const result = await service.testModelConnectionWithKey(
@@ -725,7 +725,7 @@ describe("AiConnectionTestService (extended coverage)", () => {
       );
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain("Rerank not supported");
+      expect(result.message).toContain("未声明 rerank endpoint");
     });
 
     it("rerank: ECONNABORTED error (line 709)", async () => {

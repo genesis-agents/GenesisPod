@@ -636,12 +636,90 @@ export class AiConnectionTestService {
           break;
         }
 
-        default:
-          return {
-            success: false,
-            message: `Embedding not supported for provider: ${provider}`,
-            latency: Date.now() - startTime,
-          };
+        // Voyage AI / Jina embedding — OpenAI-compatible (`{ model, input }`)，
+        // 仅 endpoint default 不同。Voyage docs: https://docs.voyageai.com/reference/embeddings-api
+        case "voyage":
+        case "voyageai":
+        case "jina": {
+          const defaultEmbedUrl =
+            provider.toLowerCase() === "jina"
+              ? "https://api.jina.ai/v1/embeddings"
+              : "https://api.voyageai.com/v1/embeddings";
+          const embedUrl =
+            ensureOpenAIEmbeddingsPath(apiEndpoint) || defaultEmbedUrl;
+          response = await firstValueFrom(
+            this.httpService.post(
+              embedUrl,
+              {
+                model: modelId,
+                input: testInput,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+
+          if (response.data?.data?.[0]?.embedding) {
+            const latency = Date.now() - startTime;
+            const dimensions = response.data.data[0].embedding.length;
+            return {
+              success: true,
+              message: `Embedding model connected! Dimensions: ${dimensions}`,
+              latency,
+            };
+          }
+          break;
+        }
+
+        default: {
+          // ★ 2026-05-11 拉齐 BYOK：admin 端不再硬拒未知 provider，按 OpenAI
+          //   兼容协议（{model, input} body + Bearer auth + /embeddings 路径）
+          //   兜底。若 apiEndpoint 缺失或 provider 真不兼容，由远端 API 自身
+          //   报真实错误而非系统层假阴性。
+          if (!apiEndpoint?.trim()) {
+            return {
+              success: false,
+              message:
+                `Provider "${provider}" 未声明 embedding endpoint：` +
+                `请填写完整 API Endpoint（如 https://api.example.com/v1）` +
+                `或在 admin /admin/ai/providers 维护 ai_providers 行。`,
+              latency: Date.now() - startTime,
+            };
+          }
+          const fallbackUrl =
+            ensureOpenAIEmbeddingsPath(apiEndpoint) || apiEndpoint;
+          response = await firstValueFrom(
+            this.httpService.post(
+              fallbackUrl,
+              {
+                model: modelId,
+                input: testInput,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+          if (response.data?.data?.[0]?.embedding) {
+            const latency = Date.now() - startTime;
+            const dimensions = response.data.data[0].embedding.length;
+            return {
+              success: true,
+              message: `Embedding model connected (OpenAI-compat)! Dimensions: ${dimensions}`,
+              latency,
+            };
+          }
+          break;
+        }
       }
 
       const latency = Date.now() - startTime;
@@ -694,11 +772,38 @@ export class AiConnectionTestService {
       ];
       let response;
 
+      // Cohere / Voyage / Jina 的 rerank API 协议高度一致：
+      //   POST /rerank  body { model, query, documents, top_n }  Bearer auth
+      // 主要差异在响应字段：cohere = `results[].relevance_score`、
+      // voyage/jina = `data[].relevance_score`。
+      const ensureRerankPath = (url: string, defaultUrl: string): string => {
+        const trimmed = url.trim().replace(/\/+$/, "");
+        if (!trimmed) return defaultUrl;
+        if (trimmed.endsWith("/rerank")) return trimmed;
+        // 防呆：admin 错填了 /chat / /chat/completions 的 endpoint
+        if (
+          trimmed.endsWith("/chat") ||
+          trimmed.endsWith("/chat/completions") ||
+          trimmed.endsWith("/embeddings") ||
+          trimmed.endsWith("/embed")
+        ) {
+          throw new Error(
+            `Rerank model endpoint 看起来不像 rerank 路径："${trimmed}"。` +
+              `请确认 API Endpoint 以 /rerank 结尾（或留空走 ${defaultUrl}）。`,
+          );
+        }
+        return `${trimmed}/rerank`;
+      };
+
       switch (provider.toLowerCase()) {
-        case "cohere":
+        case "cohere": {
+          const cohereUrl = ensureRerankPath(
+            apiEndpoint,
+            "https://api.cohere.com/v1/rerank",
+          );
           response = await firstValueFrom(
             this.httpService.post(
-              apiEndpoint || "https://api.cohere.ai/v1/rerank",
+              cohereUrl,
               {
                 model: modelId || "rerank-v3.5",
                 query: testQuery,
@@ -726,13 +831,124 @@ export class AiConnectionTestService {
             };
           }
           break;
+        }
 
-        default:
-          return {
-            success: false,
-            message: `Rerank not supported for provider: ${provider}. Supported: cohere`,
-            latency: Date.now() - startTime,
-          };
+        case "voyage":
+        case "voyageai": {
+          const voyageUrl = ensureRerankPath(
+            apiEndpoint,
+            "https://api.voyageai.com/v1/rerank",
+          );
+          response = await firstValueFrom(
+            this.httpService.post(
+              voyageUrl,
+              {
+                model: modelId,
+                query: testQuery,
+                documents: testDocuments,
+                top_k: 2,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+          if (response.data?.data) {
+            const latency = Date.now() - startTime;
+            const topScore =
+              response.data.data[0]?.relevance_score?.toFixed(4) || "N/A";
+            return {
+              success: true,
+              message: `Rerank model connected! Top relevance score: ${topScore}`,
+              latency,
+            };
+          }
+          break;
+        }
+
+        case "jina": {
+          const jinaUrl = ensureRerankPath(
+            apiEndpoint,
+            "https://api.jina.ai/v1/rerank",
+          );
+          response = await firstValueFrom(
+            this.httpService.post(
+              jinaUrl,
+              {
+                model: modelId,
+                query: testQuery,
+                documents: testDocuments,
+                top_n: 2,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+          if (response.data?.results) {
+            const latency = Date.now() - startTime;
+            const topScore =
+              response.data.results[0]?.relevance_score?.toFixed(4) || "N/A";
+            return {
+              success: true,
+              message: `Rerank model connected! Top relevance score: ${topScore}`,
+              latency,
+            };
+          }
+          break;
+        }
+
+        default: {
+          // ★ 2026-05-11 拉齐 BYOK：default 走 Cohere/Voyage 兼容协议。
+          //   未知 provider 但 endpoint 显式提供时由远端 API 报真实错误。
+          if (!apiEndpoint?.trim()) {
+            return {
+              success: false,
+              message:
+                `Provider "${provider}" 未声明 rerank endpoint：` +
+                `请填写完整 API Endpoint（如 https://api.example.com/v1/rerank）。`,
+              latency: Date.now() - startTime,
+            };
+          }
+          const fallbackUrl = ensureRerankPath(apiEndpoint, "");
+          response = await firstValueFrom(
+            this.httpService.post(
+              fallbackUrl,
+              {
+                model: modelId,
+                query: testQuery,
+                documents: testDocuments,
+                top_n: 2,
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                timeout: 30000,
+              },
+            ),
+          );
+          if (response.data?.results || response.data?.data) {
+            const latency = Date.now() - startTime;
+            const rows = response.data?.results || response.data?.data || [];
+            const topScore = rows[0]?.relevance_score?.toFixed(4) || "N/A";
+            return {
+              success: true,
+              message: `Rerank model connected (OpenAI-compat)! Top relevance score: ${topScore}`,
+              latency,
+            };
+          }
+          break;
+        }
       }
 
       const latency = Date.now() - startTime;

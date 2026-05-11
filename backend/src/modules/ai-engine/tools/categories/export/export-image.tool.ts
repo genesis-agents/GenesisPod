@@ -355,7 +355,7 @@ export class ExportImageTool extends BaseTool<
 
       // 设置内容
       const html = this.wrapHTMLContent(htmlContent, background);
-      await page.setContent(html, { waitUntil: "networkidle0" });
+      await page.setContent(html, { waitUntil: "load" });
 
       // 截图
       const screenshotOptions: PuppeteerScreenshotOptions = {

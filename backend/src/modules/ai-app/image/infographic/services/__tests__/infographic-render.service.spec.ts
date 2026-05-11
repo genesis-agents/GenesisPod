@@ -115,7 +115,7 @@ describe("InfographicRenderService", () => {
       expect(page.setContent).toHaveBeenCalledWith(
         html,
         expect.objectContaining({
-          waitUntil: "networkidle0",
+          waitUntil: "load",
           timeout: 30000,
         }),
       );

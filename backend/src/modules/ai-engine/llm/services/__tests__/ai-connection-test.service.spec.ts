@@ -768,17 +768,19 @@ describe("AiConnectionTestService", () => {
       );
     });
 
-    it("should handle unsupported embedding provider", async () => {
+    // ★ 2026-05-11 拉齐 BYOK：未知 provider 但有 endpoint 时按 OpenAI-compat
+    //   兜底，不再硬拒。endpoint 缺失才返失败提示。
+    it("should fail when unsupported embedding provider has no endpoint", async () => {
       const result = await service.testModelConnectionWithKey(
         "unsupported-provider",
         "some-embedding-model",
         "test-api-key",
-        "https://api.example.com",
+        "", // no endpoint
         "EMBEDDING",
       );
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain("Embedding not supported");
+      expect(result.message).toContain("未声明 embedding endpoint");
     });
 
     it("should handle embedding API error", async () => {
@@ -860,18 +862,19 @@ describe("AiConnectionTestService", () => {
       );
     });
 
-    it("should handle unsupported rerank provider", async () => {
+    // ★ 2026-05-11 拉齐 BYOK：rerank 未知 provider 但 endpoint 显式提供时由
+    //   远端 API 报真实错误；endpoint 缺失才返系统层失败提示。
+    it("should fail when unsupported rerank provider has no endpoint", async () => {
       const result = await service.testModelConnectionWithKey(
         "openai",
         "some-rerank-model",
         "test-api-key",
-        "https://api.openai.com/v1",
+        "", // no endpoint
         "RERANK",
       );
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain("Rerank not supported");
-      expect(result.message).toContain("Supported: cohere");
+      expect(result.message).toContain("未声明 rerank endpoint");
     });
 
     it("should handle rerank API error", async () => {

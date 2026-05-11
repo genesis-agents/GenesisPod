@@ -73,7 +73,9 @@ export class PdfRenderer implements ExportRenderer {
     const page = await browser.newPage();
 
     try {
-      await page.setContent(html, { waitUntil: "networkidle0" });
+      // puppeteer 24: setContent 的 waitUntil 已收窄到 'load' | 'domcontentloaded'；
+      // 'load' 等所有 inline 资源（img/css/font）加载完，对 HTML→PDF 渲染足够。
+      await page.setContent(html, { waitUntil: "load" });
 
       // PDF 配置
       const pdfOptions: PDFOptions = {

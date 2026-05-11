@@ -1021,7 +1021,7 @@ export class InfographicTemplateService {
 
       // 加载 HTML
       await page.setContent(html, {
-        waitUntil: "networkidle0",
+        waitUntil: "load",
         timeout: 30000,
       });
 
