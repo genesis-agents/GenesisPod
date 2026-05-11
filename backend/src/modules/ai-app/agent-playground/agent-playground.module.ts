@@ -68,6 +68,7 @@ import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import {
   DomainEventBus,
   DomainEventRegistry,
+  MissionElectionTracker,
   MissionLivenessGuard,
 } from "@/modules/ai-harness/facade";
 import { AGENT_PLAYGROUND_EVENTS } from "./agent-playground.events";
@@ -177,6 +178,9 @@ export class AgentPlaygroundModule implements OnModuleInit {
     private readonly prisma: PrismaService,
     // ★ 2026-05-05 unified harness liveness guard（替代 4 个旧 detector）
     private readonly livenessGuard: MissionLivenessGuard,
+    // ★ Round 4 (2026-05-11): liveness-guard markFailed 路径必须清 election state，
+    //   否则 mission_election_states 行在 heartbeat / wall-time 杀死 mission 后永久残留。
+    private readonly electionTracker: MissionElectionTracker,
     // R0-A3 (2026-05-04): 注册 playground skills 目录到 engine SkillLoader
     //   17 个 SKILL.md (mece-mission-planning / leader-* / dimension-research / web-research 等)
     //   下推到 ai-app/agent-playground/skills/，需要在这里 register 到 SkillRegistry
@@ -296,6 +300,7 @@ export class AgentPlaygroundModule implements OnModuleInit {
         },
         markFailed: async (missionId, reason, errorMessage) => {
           await this.store.markFailed(missionId, { errorMessage });
+          this.electionTracker.clear(missionId);
           await this.eventBus
             .emit({
               type: "agent-playground.mission:failed",

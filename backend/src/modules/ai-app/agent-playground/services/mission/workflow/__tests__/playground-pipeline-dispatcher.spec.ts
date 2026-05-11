@@ -288,6 +288,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     registerAdapter: jest.Mock;
     unregisterAdapter: jest.Mock;
   };
+  // ★ Round 4 (2026-05-11): dispatcher finally 必须调 electionTracker.clear，
+  //   否则 mission_election_states 行残留；提升到 describe 顶层让 it 能断言
+  let fakeElectionTracker: { clear: jest.Mock };
 
   beforeEach(() => {
     registry = new MissionPipelineRegistry();
@@ -360,6 +363,9 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       registerAdapter: jest.fn(),
       unregisterAdapter: jest.fn(),
     };
+    fakeElectionTracker = {
+      clear: jest.fn(),
+    };
     const fakeLeaderInvocationFactory = {
       build: jest.fn().mockReturnValue(jest.fn()),
     };
@@ -381,6 +387,7 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
       fakeCheckpoint as never,
       fakeEventBuffer as never,
       fakeStore as never,
+      fakeElectionTracker as never,
       fakeEventBus as never,
       businessOrch,
     );
@@ -467,6 +474,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     // ★ A-7: s12-self-evolution 已从 pipeline.steps 移出走 fire-and-forget，
     //   stageOutputs 不再包含；改由 mission:postlude:* 事件流跟踪
     expect(result.stageOutputs["s12-self-evolution"]).toBeUndefined();
+    // ★ Round 4 (2026-05-11): finally 块必须清 election state
+    expect(fakeElectionTracker.clear).toHaveBeenCalledWith("m1");
   });
 
   it("s2-leader-plan hook：调 leader.plan + emit leader:goals-set 事件", async () => {
@@ -520,6 +529,8 @@ describe("PlaygroundPipelineDispatcher (v5.1 R2-A.1 smoke)", () => {
     // s1 跑过，s2 抛错：stageOutputs[s1] 有，stageOutputs[s2] 无
     expect(result.stageOutputs["s1-budget"]).toEqual({ persisted: true });
     expect(result.stageOutputs["s2-leader-plan"]).toBeUndefined();
+    // ★ Round 4 (2026-05-11): 失败路径 finally 也必须清 election state
+    expect(fakeElectionTracker.clear).toHaveBeenCalledWith("m-s2-fail");
   });
 
   it("s3-researcher-collect hook：调 runResearcherDispatchStage + 缓存 lastResearcherResults 给下游", async () => {

@@ -1,20 +1,34 @@
 /**
- * MissionElectionTracker · Mission-scoped 选举多样性
+ * MissionElectionTracker · mission-scoped model diversity state.
  *
- * 2026-05-10 §3：解决 ModelElectionService.elect() 无状态导致的多模型坍缩。
- * elect() 是纯函数，11 次同 shape 调用产生 11 次同 modelId。
- * 本 tracker 给同一 mission 内的 elect() 调用之间织入"已选过哪些 modelId"
- * 的共享上下文，让 score 维度新增的 diversityScore（-10 × occurrences）
- * 自然驱动多 provider 分布。
+ * 2026-05-10:
+ * - solves stateless `ModelElectionService.elect()` collapsing to one model
+ * - threads previously-elected modelIds through each mission's election flow
+ * - uses reserve/commit/release so failed executions do not pollute history
  *
- * Storage：in-memory Map<missionId, modelId[]>，按 LRU 淘汰，TTL = 6h
- * （典型 mission wall time）。重启清空可接受——分布属性是 best-effort。
+ * Storage topology:
+ * - authoritative source: `mission_election_states` guarded by
+ *   `pg_advisory_xact_lock`
+ * - cache mirror: CacheService for warm reads and cross-process visibility
+ * - local mirror: in-process LRU/TTL map for low-latency read-through reuse
  *
- * 也可未来切到 Redis 让多 pod 共享；当前本地 Map 够用且 0 网络开销。
+ * The local map is no longer the source of truth. Terminal mission paths must
+ * clear durable state so completed/cancelled missions do not accumulate rows.
+ *
+ * ⚠ Layering caveat (2026-05-11 Round 4 arch review, P3 grey area):
+ * `mission_election_states.mission_id` has an ai-app-level FK to reflect the
+ * single-caller reality (only one ai-app currently invokes election).
+ * Election is an engine-level primitive in principle, but YAGNI applies:
+ * do not abstract for hypothetical future callers. If another ai-app later
+ * needs election, refactor the FK (soft reference + missionType enum, or
+ * a shared `missions` base table) at that point, not now.
+ * See `models.prisma` MissionElectionState model comment for the schema-level
+ * version of this caveat.
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { randomUUID } from "crypto";
+import type { Prisma } from "@prisma/client";
 import { CacheService } from "@/common/cache/cache.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 
@@ -147,7 +161,9 @@ export class MissionElectionTracker {
     await previousTail;
     try {
       const entry = await this.ensureLoadedEntry(missionId);
-      const { result, electedModelId } = await run(this.toVisibleHistory(entry));
+      const { result, electedModelId } = await run(
+        this.toVisibleHistory(entry),
+      );
       if (!electedModelId) {
         return { result };
       }
@@ -180,7 +196,9 @@ export class MissionElectionTracker {
         SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))
       `;
       const entry = await this.ensureLoadedDistributedEntry(tx, missionId);
-      const { result, electedModelId } = await run(this.toVisibleHistory(entry));
+      const { result, electedModelId } = await run(
+        this.toVisibleHistory(entry),
+      );
       if (!electedModelId) {
         return { result };
       }
@@ -302,7 +320,7 @@ export class MissionElectionTracker {
   }
 
   private async ensureLoadedDistributedEntry(
-    tx: any,
+    tx: Prisma.TransactionClient,
     missionId: string,
   ): Promise<MissionEntry> {
     const row = await tx.missionElectionState.findUnique({
@@ -314,7 +332,7 @@ export class MissionElectionTracker {
   }
 
   private async persistMissionDistributed(
-    tx: any,
+    tx: Prisma.TransactionClient,
     missionId: string,
     entry: MissionEntry,
   ): Promise<void> {
@@ -324,11 +342,11 @@ export class MissionElectionTracker {
       create: {
         missionId,
         committedModelIds: entry.committed,
-        reservations: entry.reservations,
+        reservations: this.serializeReservations(entry.reservations),
       },
       update: {
         committedModelIds: entry.committed,
-        reservations: entry.reservations,
+        reservations: this.serializeReservations(entry.reservations),
       },
     });
     await this.persistMissionMirror(missionId, entry);
@@ -382,6 +400,16 @@ export class MissionElectionTracker {
       }
       return [{ token, modelId, createdAt }];
     });
+  }
+
+  private serializeReservations(
+    reservations: ReadonlyArray<MissionElectionReservation>,
+  ): Prisma.InputJsonValue {
+    return reservations.map((reservation) => ({
+      token: reservation.token,
+      modelId: reservation.modelId,
+      createdAt: reservation.createdAt,
+    })) as Prisma.InputJsonValue;
   }
 
   private buildLockKey(missionId: string): string {

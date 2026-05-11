@@ -27,8 +27,10 @@ import {
 } from "@nestjs/common";
 import { HarnessFacade } from "./facade/harness.facade";
 import { AgentFactory } from "./agents/core/agent-factory";
-import { ModelElectionService } from "../ai-engine/llm/selection";
-import { MissionElectionTracker } from "../ai-engine/llm/selection/mission-election-tracker.service";
+import {
+  MissionElectionTracker,
+  ModelElectionService,
+} from "../ai-engine/llm/selection";
 import { SpecAgentRegistry } from "./agents/core/spec-agent-registry";
 import {
   SPEC_AGENT_REGISTRY_PROBE,

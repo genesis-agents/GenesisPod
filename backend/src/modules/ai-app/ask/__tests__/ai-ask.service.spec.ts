@@ -18,11 +18,13 @@ import { Logger, NotFoundException } from "@nestjs/common";
 import { AiAskService } from "../ai-ask.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { ChatFacade, RAGFacade, ToolFacade } from "@/modules/ai-harness/facade";
+import { AskRoomRuntimeStateStore } from "../ai-ask-room-runtime-state.store";
 
 describe("AiAskService", () => {
   let service: AiAskService;
   let mockPrisma: any;
   let mockFacade: any;
+  let mockRuntimeStateStore: any;
 
   const userId = "user-123";
   const sessionId = "session-456";
@@ -104,6 +106,9 @@ describe("AiAskService", () => {
       sessionMemorySet: jest.fn().mockResolvedValue(undefined),
       sessionMemoryClear: jest.fn().mockResolvedValue(undefined),
     };
+    mockRuntimeStateStore = {
+      clearSession: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -112,6 +117,10 @@ describe("AiAskService", () => {
         { provide: ChatFacade, useValue: mockFacade },
         { provide: RAGFacade, useValue: mockFacade },
         { provide: ToolFacade, useValue: mockFacade },
+        {
+          provide: AskRoomRuntimeStateStore,
+          useValue: mockRuntimeStateStore,
+        },
         // All other dependencies are @Optional
       ],
     }).compile();
@@ -270,6 +279,9 @@ describe("AiAskService", () => {
       expect(mockPrisma.askSession.delete).toHaveBeenCalledWith({
         where: { id: sessionId },
       });
+      expect(mockRuntimeStateStore.clearSession).toHaveBeenCalledWith(
+        sessionId,
+      );
     });
 
     it("should throw NotFoundException when session not found", async () => {

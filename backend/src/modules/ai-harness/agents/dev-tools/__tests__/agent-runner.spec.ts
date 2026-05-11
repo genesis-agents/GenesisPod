@@ -227,9 +227,11 @@ describe("AgentRunner + @DefineAgent (PR-H)", () => {
 
   it("passes elected preferred model into factory.create for ReAct agents", async () => {
     const factory = new AgentFactory();
+    // ★ Round 4 (2026-05-11): AgentRunner 改走 electPreferredModelSelection
+    //   返回 { modelId, missionId?, reservation? }，旧 electPreferredModel 仅 wrapper。
     const electSpy = jest
-      .spyOn(factory, "electPreferredModel")
-      .mockResolvedValue("gpt-4o");
+      .spyOn(factory, "electPreferredModelSelection")
+      .mockResolvedValue({ modelId: "gpt-4o" });
     const createSpy = jest.spyOn(factory, "create");
     const runner = new AgentRunner(factory);
 

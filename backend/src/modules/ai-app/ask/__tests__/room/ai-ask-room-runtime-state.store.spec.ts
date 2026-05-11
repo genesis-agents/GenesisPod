@@ -55,10 +55,16 @@ describe("AskRoomRuntimeStateStore", () => {
       askRoomSessionRuntimeState: {
         findUnique: jest.fn(async () => ({ maxEmittedSeq: persisted })),
       },
-      $queryRaw: jest.fn(async (_strings: TemplateStringsArray, sessionId: string, seq: number) => {
-        persisted = Math.max(persisted, seq);
-        return [{ max_emitted_seq: persisted, session_id: sessionId }];
-      }),
+      $queryRaw: jest.fn(
+        async (
+          _strings: TemplateStringsArray,
+          sessionId: string,
+          seq: number,
+        ) => {
+          persisted = Math.max(persisted, seq);
+          return [{ max_emitted_seq: persisted, session_id: sessionId }];
+        },
+      ),
     } as never;
 
     const storeA = new AskRoomRuntimeStateStore(undefined, prisma);
@@ -86,5 +92,25 @@ describe("AskRoomRuntimeStateStore", () => {
 
     expect(await store.getSessionMaxEmittedSeq("s-fallback")).toBe(9);
     expect(await store.isTurnCancelled("turn-fallback")).toBe(false);
+  });
+
+  it("clears local and cached session watermarks", async () => {
+    const shared = new Map<string, unknown>();
+    const cache = {
+      get: jest.fn(async (key: string) => shared.get(key)),
+      set: jest.fn(async (key: string, value: unknown) => {
+        shared.set(key, value);
+      }),
+      del: jest.fn(async (key: string) => {
+        shared.delete(key);
+      }),
+    } as never;
+
+    const store = new AskRoomRuntimeStateStore(cache);
+    await store.recordSessionMaxEmittedSeq("s-clear", 14);
+    expect(await store.getSessionMaxEmittedSeq("s-clear")).toBe(14);
+
+    await store.clearSession("s-clear");
+    expect(await store.getSessionMaxEmittedSeq("s-clear")).toBe(0);
   });
 });

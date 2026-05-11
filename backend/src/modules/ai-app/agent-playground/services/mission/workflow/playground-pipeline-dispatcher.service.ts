@@ -25,6 +25,7 @@
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import {
   DomainEventBus,
+  MissionElectionTracker,
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
   type MissionPipelineConfig,
@@ -109,6 +110,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
     private readonly missionEventBuffer: MissionEventBuffer,
     // R2-A.13.1: 失败兜底需要 store.markFailed
     private readonly store: MissionStore,
+    private readonly electionTracker: MissionElectionTracker,
     // ★ 2026-05-06 真治：dispatcher 之前 7 处直调 missionEventBuffer.broadcast() bypass
     //   eventBus → SocketBroadcastAdapter 拿不到事件 → 前端 stage:lifecycle / stage:stalled
     //   / stage:degraded / mission:execution-aborted / mission:postlude:* 全部不实时。
@@ -538,6 +540,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       // ★ P0-1 (2026-05-06): relay exhaustedMissions cleanup —— short mission 不 leak Map 条目
       this.invoker.clearMissionRelayState(missionId);
       this.sessions.delete(missionId);
+      this.electionTracker.clear(missionId);
     }
   }
 

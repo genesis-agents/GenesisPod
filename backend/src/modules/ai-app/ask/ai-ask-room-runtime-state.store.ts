@@ -24,12 +24,12 @@ export class AskRoomRuntimeStateStore {
       SESSION_SEQ_KEY_PREFIX + sessionId,
     );
     const persisted = this.prisma
-      ? (
-          await (this.prisma as any).askRoomSessionRuntimeState.findUnique({
+      ? ((
+          await this.prisma.askRoomSessionRuntimeState.findUnique({
             where: { sessionId },
             select: { maxEmittedSeq: true },
           })
-        )?.maxEmittedSeq ?? 0
+        )?.maxEmittedSeq ?? 0)
       : 0;
     return Math.max(local, cached ?? 0, persisted);
   }
@@ -64,7 +64,11 @@ export class AskRoomRuntimeStateStore {
     }
 
     this.localSessionMaxSeq.set(sessionId, next);
-    await this.cache?.set(SESSION_SEQ_KEY_PREFIX + sessionId, next, SESSION_SEQ_TTL_SECONDS);
+    await this.cache?.set(
+      SESSION_SEQ_KEY_PREFIX + sessionId,
+      next,
+      SESSION_SEQ_TTL_SECONDS,
+    );
     return next;
   }
 
@@ -97,15 +101,17 @@ export class AskRoomRuntimeStateStore {
     await this.cache?.del(TURN_CANCEL_KEY_PREFIX + turnId);
   }
 
-  clearSession(sessionId: string): void {
+  async clearSession(sessionId: string): Promise<void> {
     this.localSessionMaxSeq.delete(sessionId);
+    await this.cache?.del(SESSION_SEQ_KEY_PREFIX + sessionId);
   }
 
   async warmSessionMaxEmittedSeq(
     sessionId: string,
     sequenceNum: number | null | undefined,
   ): Promise<void> {
-    if (typeof sequenceNum !== "number" || !Number.isFinite(sequenceNum)) return;
+    if (typeof sequenceNum !== "number" || !Number.isFinite(sequenceNum))
+      return;
     try {
       await this.recordSessionMaxEmittedSeq(sessionId, sequenceNum);
     } catch (err) {

@@ -42,6 +42,7 @@ import {
   RESPONSE_REQUIREMENTS,
 } from "./prompts/ask-system.prompt";
 import { CreateSessionDto, SendMessageDto } from "./dto";
+import { AskRoomRuntimeStateStore } from "./ai-ask-room-runtime-state.store";
 
 // 2026-04-30: SuggestedAction / detectIntent / buildSuggestedActions / IntentRouter
 // 链路全部删除 —— 后端往响应里塞 suggestedActions 字段但前端 0 处消费（grep 验证）。
@@ -85,6 +86,8 @@ export class AiAskService {
     @Optional() private readonly creditsService: CreditsService,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelMemory?: ProcessMemoryManagerService,
+    @Optional()
+    private readonly runtimeStateStore?: AskRoomRuntimeStateStore,
   ) {}
 
   /**
@@ -264,6 +267,18 @@ export class AiAskService {
           ),
         );
       this.sessionProcessIds.delete(sessionId);
+    }
+
+    if (this.runtimeStateStore) {
+      await this.runtimeStateStore
+        .clearSession(sessionId)
+        .catch((err) =>
+          this.logger.warn(
+            `[deleteSession] Failed to clear runtime state for ${sessionId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          ),
+        );
     }
 
     return { success: true };

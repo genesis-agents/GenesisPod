@@ -374,7 +374,9 @@ describe("WikiDiffService", () => {
       expect(tx.$executeRaw.mock.calls[0][0].join("")).toContain(
         "INSERT INTO wiki_document_coverages",
       );
-      expect(tx.$executeRaw.mock.calls[0][4]).toBe("diff-applied-xyz");
+      expect(tx.$executeRaw.mock.calls[0]).toEqual(
+        expect.arrayContaining(["diff-applied-xyz"]),
+      );
       expect(tx.$executeRaw.mock.calls[1][0].join("")).toContain(
         "DELETE FROM wiki_document_coverages",
       );

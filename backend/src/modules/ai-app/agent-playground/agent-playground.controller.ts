@@ -31,7 +31,10 @@ import {
   RunMissionInputSchema,
   type RunMissionInput,
 } from "./dto/run-mission.dto";
-import { MissionOwnershipRegistry } from "@/modules/ai-harness/facade";
+import {
+  MissionElectionTracker,
+  MissionOwnershipRegistry,
+} from "@/modules/ai-harness/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 // ★ Phase 5 (2026-04-29): 接入 ai-harness 沉淀的 MissionCheckpointService
@@ -61,6 +64,7 @@ export class AgentPlaygroundController {
     private readonly localRerun: LocalRerunService,
     private readonly exportService: MissionExportService,
     private readonly rerunOrchestrator: MissionRerunOrchestratorService,
+    private readonly electionTracker: MissionElectionTracker,
     // ★ R2-C 单轨化：pipelineDispatcher 是唯一 mission orchestrator
     private readonly pipelineDispatcher: PlaygroundPipelineDispatcher,
   ) {}
@@ -611,6 +615,7 @@ export class AgentPlaygroundController {
     // ★ Phase P12-1: 真触发 abort signal，让正在跑的 LLM/tool call 立即中断
     this.abortRegistry.abort(missionId, "user_cancelled");
     await this.store.markCancelled(missionId);
+    this.electionTracker.clear(missionId);
     // ★ 通过事件缓冲广播 mission:cancelled，让正在监听的前端实时切到「已取消」
     await this.buffer.broadcast({
       type: "agent-playground.mission:cancelled",
@@ -636,6 +641,7 @@ export class AgentPlaygroundController {
     if (!persisted)
       throw new ForbiddenException(`mission ${missionId} not found`);
     await this.store.deleteByUser(missionId, userId);
+    this.electionTracker.clear(missionId);
     this.ownership.release(missionId);
     return { ok: true };
   }

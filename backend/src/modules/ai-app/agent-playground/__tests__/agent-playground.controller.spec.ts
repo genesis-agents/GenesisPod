@@ -133,6 +133,9 @@ function buildController() {
   // ★ R2-C 单轨化 (2026-05-04)：pipelineDispatcher 是唯一 mission orchestrator；
   //   orchestrator (TeamMission) + runtimeFlag 已从 controller 删除
   const pipelineDispatcher = orchestrator; // 复用 makeOrchestrator() 的 runMission stub
+  const electionTracker = {
+    clear: jest.fn(),
+  };
 
   const controller = new AgentPlaygroundController(
     buffer as never,
@@ -145,6 +148,7 @@ function buildController() {
     localRerun as never,
     exportService as never,
     rerunOrchestrator as never,
+    electionTracker as never,
     pipelineDispatcher as never,
   );
 
@@ -158,6 +162,7 @@ function buildController() {
     abortRegistry,
     prisma,
     pipelineDispatcher,
+    electionTracker,
   };
 }
 
@@ -712,8 +717,14 @@ describe("AgentPlaygroundController", () => {
     });
 
     it("cancels running mission successfully", async () => {
-      const { controller, ownership, store, abortRegistry, buffer } =
-        buildController();
+      const {
+        controller,
+        ownership,
+        store,
+        abortRegistry,
+        buffer,
+        electionTracker,
+      } = buildController();
       ownership.getOwner.mockReturnValue("user-1");
       store.getById.mockResolvedValue({
         id: "m-1",
@@ -724,6 +735,7 @@ describe("AgentPlaygroundController", () => {
       expect(result).toEqual({ ok: true, status: "cancelled" });
       expect(abortRegistry.abort).toHaveBeenCalledWith("m-1", "user_cancelled");
       expect(store.markCancelled).toHaveBeenCalledWith("m-1");
+      expect(electionTracker.clear).toHaveBeenCalledWith("m-1");
       expect(buffer.broadcast).toHaveBeenCalled();
     });
   });
@@ -745,11 +757,13 @@ describe("AgentPlaygroundController", () => {
     });
 
     it("deletes mission and returns ok", async () => {
-      const { controller, store, ownership } = buildController();
+      const { controller, store, ownership, electionTracker } =
+        buildController();
       store.getById.mockResolvedValue({ id: "m-1", topic: "test" });
       const result = await controller.deleteMission("m-1", makeReq("user-1"));
       expect(result).toEqual({ ok: true });
       expect(store.deleteByUser).toHaveBeenCalledWith("m-1", "user-1");
+      expect(electionTracker.clear).toHaveBeenCalledWith("m-1");
       expect(ownership.release).toHaveBeenCalledWith("m-1");
     });
   });
