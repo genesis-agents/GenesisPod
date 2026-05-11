@@ -73,7 +73,7 @@ export function ApiFormatsSettings() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${config.apiBaseUrl}/admin/api-formats`, {
+      const res = await fetch(`${config.apiUrl}/admin/api-formats`, {
         headers: getAuthHeader(),
       });
       if (!res.ok) throw new Error(`Load failed: ${res.status}`);
@@ -132,8 +132,8 @@ export function ApiFormatsSettings() {
     setSuccess(null);
     try {
       const url = editing
-        ? `${config.apiBaseUrl}/admin/api-formats/${editing.id}`
-        : `${config.apiBaseUrl}/admin/api-formats`;
+        ? `${config.apiUrl}/admin/api-formats/${editing.id}`
+        : `${config.apiUrl}/admin/api-formats`;
       const method = editing ? 'PATCH' : 'POST';
       const payload = {
         slug: formData.slug.trim(),
@@ -171,13 +171,10 @@ export function ApiFormatsSettings() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(
-        `${config.apiBaseUrl}/admin/api-formats/${f.id}`,
-        {
-          method: 'DELETE',
-          headers: getAuthHeader(),
-        }
-      );
+      const res = await fetch(`${config.apiUrl}/admin/api-formats/${f.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
       if (!res.ok) {
         const body = await res.text();
         throw new Error(`Delete failed (${res.status}): ${body}`);

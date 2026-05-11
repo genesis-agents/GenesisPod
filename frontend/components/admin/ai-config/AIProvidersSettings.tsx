@@ -96,10 +96,10 @@ export function AIProvidersSettings() {
     setError(null);
     try {
       const [pRes, fRes] = await Promise.all([
-        fetch(`${config.apiBaseUrl}/admin/ai-providers`, {
+        fetch(`${config.apiUrl}/admin/ai-providers`, {
           headers: getAuthHeader(),
         }),
-        fetch(`${config.apiBaseUrl}/admin/api-formats`, {
+        fetch(`${config.apiUrl}/admin/api-formats`, {
           headers: getAuthHeader(),
         }),
       ]);
@@ -174,8 +174,8 @@ export function AIProvidersSettings() {
     setSuccess(null);
     try {
       const url = editing
-        ? `${config.apiBaseUrl}/admin/ai-providers/${editing.id}`
-        : `${config.apiBaseUrl}/admin/ai-providers`;
+        ? `${config.apiUrl}/admin/ai-providers/${editing.id}`
+        : `${config.apiUrl}/admin/ai-providers`;
       const method = editing ? 'PATCH' : 'POST';
       const payload = {
         slug: formData.slug.trim(),
@@ -220,13 +220,10 @@ export function AIProvidersSettings() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(
-        `${config.apiBaseUrl}/admin/ai-providers/${p.id}`,
-        {
-          method: 'DELETE',
-          headers: getAuthHeader(),
-        }
-      );
+      const res = await fetch(`${config.apiUrl}/admin/ai-providers/${p.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
       if (!res.ok) {
         const body = await res.text();
         throw new Error(`Delete failed (${res.status}): ${body}`);

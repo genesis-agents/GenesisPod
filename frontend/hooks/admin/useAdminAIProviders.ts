@@ -23,7 +23,7 @@ export function useAdminAIProviders() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetch(`${config.apiBaseUrl}/admin/ai-providers`, {
+    fetch(`${config.apiUrl}/admin/ai-providers`, {
       headers: getAuthHeader(),
     })
       .then((r) => (r.ok ? r.json() : []))

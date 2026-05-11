@@ -98,7 +98,7 @@ export default function AIModelsPage() {
       new Set(payload.selected.map((s) => s.modelType))
     );
     try {
-      const listRes = await fetch(`${config.apiBaseUrl}/admin/ai-providers`, {
+      const listRes = await fetch(`${config.apiUrl}/admin/ai-providers`, {
         headers: getAuthHeader(),
       });
       const existing = listRes.ok
@@ -115,8 +115,8 @@ export default function AIModelsPage() {
         isEnabled: true,
       };
       const provUrl = found
-        ? `${config.apiBaseUrl}/admin/ai-providers/${found.id}`
-        : `${config.apiBaseUrl}/admin/ai-providers`;
+        ? `${config.apiUrl}/admin/ai-providers/${found.id}`
+        : `${config.apiUrl}/admin/ai-providers`;
       const provMethod = found ? 'PATCH' : 'POST';
       await fetch(provUrl, {
         method: provMethod,
@@ -130,7 +130,7 @@ export default function AIModelsPage() {
     // 2) 批量创建 AIModel 行（含 apiFormat + 按 modelType 推默认参数）
     for (const item of payload.selected) {
       try {
-        await fetch(`${config.apiBaseUrl}/admin/ai-models`, {
+        await fetch(`${config.apiUrl}/admin/ai-models`, {
           method: 'POST',
           headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({

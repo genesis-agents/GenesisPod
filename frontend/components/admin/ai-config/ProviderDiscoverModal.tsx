@@ -79,7 +79,7 @@ export function ProviderDiscoverModal({
     setDiscovered([]);
     setSelected({});
     try {
-      const res = await fetch(`${config.apiBaseUrl}/admin/ai-models/discover`, {
+      const res = await fetch(`${config.apiUrl}/admin/ai-models/discover`, {
         method: 'POST',
         headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -76,10 +76,10 @@ export function ModelTypesSettings() {
     setError(null);
     try {
       const [tRes, fRes] = await Promise.all([
-        fetch(`${config.apiBaseUrl}/admin/model-types`, {
+        fetch(`${config.apiUrl}/admin/model-types`, {
           headers: getAuthHeader(),
         }),
-        fetch(`${config.apiBaseUrl}/admin/api-formats`, {
+        fetch(`${config.apiUrl}/admin/api-formats`, {
           headers: getAuthHeader(),
         }),
       ]);
@@ -136,8 +136,8 @@ export function ModelTypesSettings() {
     setSuccess(null);
     try {
       const url = editing
-        ? `${config.apiBaseUrl}/admin/model-types/${editing.id}`
-        : `${config.apiBaseUrl}/admin/model-types`;
+        ? `${config.apiUrl}/admin/model-types/${editing.id}`
+        : `${config.apiUrl}/admin/model-types`;
       const method = editing ? 'PATCH' : 'POST';
       const payload = {
         slug: formData.slug.trim(),
@@ -174,13 +174,10 @@ export function ModelTypesSettings() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(
-        `${config.apiBaseUrl}/admin/model-types/${t.id}`,
-        {
-          method: 'DELETE',
-          headers: getAuthHeader(),
-        }
-      );
+      const res = await fetch(`${config.apiUrl}/admin/model-types/${t.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
       if (!res.ok) {
         const body = await res.text();
         throw new Error(`Delete failed (${res.status}): ${body}`);
