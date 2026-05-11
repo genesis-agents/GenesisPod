@@ -371,7 +371,9 @@ export function MultiKeyTable({
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs text-gray-500">
-                    {fmtRelative(row.lastTestedAt)}
+                    {/* 2026-05-12 (C方案): LAST USED 唯一读 lastUsedAt
+                        (业务流量 + 手动 Test 都写). lastTestedAt 已弃用. */}
+                    {fmtRelative(row.lastUsedAt)}
                   </td>
                   {!readOnly && (
                     <td className="px-3 py-2 text-right">

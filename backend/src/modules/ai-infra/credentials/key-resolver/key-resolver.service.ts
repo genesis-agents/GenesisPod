@@ -160,7 +160,7 @@ export class KeyResolverService {
   }
 
   /**
-   * 持久化 key 健康状态到 DB（usage_count++ / lastTestedAt / testStatus）。
+   * 持久化 key 健康状态到 DB（usage_count++ / lastUsedAt / testStatus）。
    *
    * 2026-05-10：流式 chatStream / 任何不能用 KeyExecutor.execute 包裹的
    * caller 调 KeyExecutor.trackSuccess/trackFailure 时，需要这条 DB 写入路径
@@ -380,7 +380,7 @@ async function persistDbHealthOutcome(
           where: { userId_provider_label: { userId, provider, label } },
           data: {
             testStatus: "success",
-            lastTestedAt: now,
+            lastUsedAt: now,
             lastErrorCode: null,
             lastErrorMessage: null,
             usageCount: { increment: 1 },
@@ -391,10 +391,30 @@ async function persistDbHealthOutcome(
           where: { userId_provider_label: { userId, provider, label } },
           data: {
             testStatus: "failed",
-            lastTestedAt: now,
+            lastUsedAt: now,
             lastErrorCode: outcome.classified.reason.slice(0, 40),
             lastErrorMessage: outcome.classified.originalMessage.slice(0, 500),
           },
+        });
+      }
+    } else if (parsed.type === "assigned") {
+      // 2026-05-12 (C方案): assigned 路径接入命中计数 + lastUsedAt.
+      // 配额(userSpendCents) 由 recordSpend 另路径写; 这里只写命中视图字段.
+      const { assignmentId } = parsed;
+      if (!assignmentId) return;
+      if (outcome.ok) {
+        await prisma.keyAssignment.update({
+          where: { id: assignmentId },
+          data: {
+            accessCount: { increment: 1 },
+            lastUsedAt: now,
+          },
+        });
+      } else {
+        // 失败也记 lastUsedAt 表示"尝试过", 不增 accessCount.
+        await prisma.keyAssignment.update({
+          where: { id: assignmentId },
+          data: { lastUsedAt: now },
         });
       }
     } else if (parsed.type === "system") {

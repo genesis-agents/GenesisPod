@@ -119,7 +119,7 @@ export class UserApiKeysService {
         apiEndpoint: true,
         preferredModelId: true,
         isActive: true,
-        lastTestedAt: true,
+        lastUsedAt: true,
         testStatus: true,
         usageCount: true,
         createdAt: true,
@@ -505,7 +505,7 @@ export class UserApiKeysService {
       }
     }
 
-    // PR-2: 多 key 支持 — label="default" 优先；其次按 lastTestedAt desc + label asc。
+    // PR-2: 多 key 支持 — label="default" 优先；其次按 lastUsedAt desc + label asc。
     //   后续若加 key health probing 可改为按 testStatus/score 排序。
     const key = await this.prisma.userApiKey.findFirst({
       where: {
@@ -516,7 +516,7 @@ export class UserApiKeysService {
       },
       orderBy: [
         { label: "asc" }, // "default" 字典序最小，优先命中
-        { lastTestedAt: { sort: "desc", nulls: "last" } },
+        { lastUsedAt: { sort: "desc", nulls: "last" } },
       ],
     });
 
@@ -558,7 +558,7 @@ export class UserApiKeysService {
   /**
    * PR-1 (2026-05-05) failover: 列出该 user/provider 下所有可用 PERSONAL key（解密后）。
    *
-   * 排序：label asc（"default" 字典序最小，自然第一），同 label 内 lastTestedAt desc。
+   * 排序：label asc（"default" 字典序最小，自然第一），同 label 内 lastUsedAt desc。
    * 仅返回 isActive=true & PERSONAL mode；DONATED key 不进个人调用链路。
    *
    * 调用方（KeyResolver.resolveKeyChain）拿到列表后再叠加 KeyHealthStore.filterUsable
@@ -586,7 +586,7 @@ export class UserApiKeysService {
       },
       orderBy: [
         { label: "asc" },
-        { lastTestedAt: { sort: "desc", nulls: "last" } },
+        { lastUsedAt: { sort: "desc", nulls: "last" } },
       ],
     });
     const result: Array<{

@@ -17,7 +17,9 @@ export interface SecretKeyRow {
   isActive: boolean;
   priority: number;
   testStatus: 'success' | 'failed' | null;
-  lastTestedAt: string | null;
+  /** ★ 2026-05-12 (C方案): 真实"最后使用"时间(业务流量 + 手动 Test 都写).
+   *  UI 唯一的"上次使用"字段, 取代旧 lastTestedAt. */
+  lastUsedAt: string | null;
   /** ★ 2026-05-06: 归一化错误码 — AUTH_FAILED / RATE_LIMIT_KEY / QUOTA_EXCEEDED /
    *   PROVIDER_DOWN / TIMEOUT / NETWORK_ERROR / DECRYPTION_FAILED / UNKNOWN */
   lastErrorCode: string | null;

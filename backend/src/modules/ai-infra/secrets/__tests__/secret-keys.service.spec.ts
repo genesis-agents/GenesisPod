@@ -52,7 +52,7 @@ const makeKeyRow = (overrides: Record<string, unknown> = {}) => ({
   isActive: true,
   priority: 0,
   testStatus: null,
-  lastTestedAt: null,
+  lastUsedAt: null,
   lastErrorMessage: null,
   accessCount: 0,
   createdAt: new Date(),
@@ -203,7 +203,7 @@ describe("SecretKeysService", () => {
           id: "k1",
           priority: 0,
           testStatus: "failed",
-          lastTestedAt: recentFailure,
+          lastUsedAt: recentFailure,
           encryptedValue: enc1.encryptedValue,
           iv: enc1.iv,
         }),
@@ -230,7 +230,7 @@ describe("SecretKeysService", () => {
           id: "k1",
           priority: 0,
           testStatus: "failed",
-          lastTestedAt: oldFailure,
+          lastUsedAt: oldFailure,
           encryptedValue: enc1.encryptedValue,
           iv: enc1.iv,
         }),
@@ -275,6 +275,48 @@ describe("SecretKeysService", () => {
       const call = prisma.secretKey.update.mock.calls[0][0];
       expect(call.data.lastErrorCode.length).toBe(40);
     });
+
+    // ★ 2026-05-12 (C方案): 失败也写 lastUsedAt (Test 也算 Used).
+    it("writes lastUsedAt on failure (Test also counts as Used)", async () => {
+      prisma.secretKey.update.mockResolvedValue(makeKeyRow());
+      const before = Date.now();
+      await service.markFailure("key-a", "AUTH_FAILED", "msg");
+      const after = Date.now();
+      const call = prisma.secretKey.update.mock.calls[0][0];
+      expect(call.data.lastUsedAt).toBeInstanceOf(Date);
+      const ts = (call.data.lastUsedAt as Date).getTime();
+      expect(ts).toBeGreaterThanOrEqual(before);
+      expect(ts).toBeLessThanOrEqual(after);
+    });
+  });
+
+  // ★ 2026-05-12 (C方案): markSuccess 必须同时写入 accessCount + lastUsedAt,
+  // 让 admin UI "HITS" + "LAST USED" 列反映真实业务调用而不仅"上次手动 Test".
+  describe("markSuccess (Wave C accessCount + lastUsedAt)", () => {
+    it("increments accessCount and sets lastUsedAt on success", async () => {
+      prisma.secretKey.update.mockResolvedValue(makeKeyRow());
+      const before = Date.now();
+      await service.markSuccess("key-a");
+      const after = Date.now();
+      const call = prisma.secretKey.update.mock.calls[0][0];
+      expect(call.data.testStatus).toBe("success");
+      expect(call.data.lastErrorCode).toBeNull();
+      expect(call.data.lastErrorMessage).toBeNull();
+      expect(call.data.accessCount).toEqual({ increment: 1 });
+      expect(call.data.lastUsedAt).toBeInstanceOf(Date);
+      const ts = (call.data.lastUsedAt as Date).getTime();
+      expect(ts).toBeGreaterThanOrEqual(before);
+      expect(ts).toBeLessThanOrEqual(after);
+    });
+
+    it("does NOT increment accessCount when incrementAccessCount=false (manual probe)", async () => {
+      prisma.secretKey.update.mockResolvedValue(makeKeyRow());
+      await service.markSuccess("key-a", { incrementAccessCount: false });
+      const call = prisma.secretKey.update.mock.calls[0][0];
+      expect(call.data.accessCount).toBeUndefined();
+      // 但 lastUsedAt 仍然写 — Test 也算 Used.
+      expect(call.data.lastUsedAt).toBeInstanceOf(Date);
+    });
   });
 
   describe("deleteKey", () => {
@@ -297,7 +339,7 @@ describe("SecretKeysService", () => {
       });
       const call = prisma.secretKey.update.mock.calls[0][0];
       expect(call.data.testStatus).toBeNull();
-      expect(call.data.lastTestedAt).toBeNull();
+      expect(call.data.lastUsedAt).toBeNull();
       expect(call.data.encryptedValue).not.toBe("sk-new-secret-value");
       expect(updated.keyHint).toContain("…");
     });

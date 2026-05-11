@@ -330,11 +330,17 @@ export class SecretsService {
         // testStatus 只能由 markSuccess/markFailure 写（"上游真的成功/失败"），
         // 否则 retrieval 之后即使 upstream 401，badge 也会先闪绿再翻红。
         // dual-track legacy 路径 keyId=null（直接读 Secret.encryptedValue），跳过。
+        //
+        // ★ 2026-05-12 (C方案): 同步写 lastUsedAt = now. UI 显示的"上次使用时间"
+        // 改读这个字段, 不再用 lastUsedAt (lastUsedAt 留作手动 Test 历史).
         if (resolved.keyId) {
           await this.prisma.secretKey
             .update({
               where: { id: resolved.keyId },
-              data: { accessCount: { increment: 1 } },
+              data: {
+                accessCount: { increment: 1 },
+                lastUsedAt: new Date(),
+              },
             })
             .catch(() => undefined);
         }
@@ -465,7 +471,7 @@ export class SecretsService {
               keyVersion: this.currentKeyVersion,
               keyHint: this.makeHint(dto.value!),
               testStatus: null,
-              lastTestedAt: null,
+              lastUsedAt: null,
               lastErrorMessage: null,
               updatedBy: context?.userEmail || context?.userId,
             },
@@ -1311,6 +1317,19 @@ export class SecretsService {
           await this.logAccess(sec.id, SecretAction.VIEW, undefined, {
             secretName: sec.name,
           });
+        }
+        // ★ 2026-05-12 (C方案): 同步 SecretKey 行级 accessCount + lastUsedAt.
+        // 与 getValueInternal 路径对齐, 避免该 API 漏写命中视图字段.
+        if (resolved.keyId) {
+          await this.prisma.secretKey
+            .update({
+              where: { id: resolved.keyId },
+              data: {
+                accessCount: { increment: 1 },
+                lastUsedAt: new Date(),
+              },
+            })
+            .catch(() => undefined);
         }
         return { value: resolved.value, keyId: resolved.keyId };
       }

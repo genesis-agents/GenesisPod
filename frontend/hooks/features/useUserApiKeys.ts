@@ -13,7 +13,9 @@ export interface UserApiKeyInfo {
   apiEndpoint: string | null;
   preferredModelId: string | null;
   isActive: boolean;
-  lastTestedAt: string | null;
+  /** ★ 2026-05-12 (C方案): 真实"最后使用"时间(业务流量 + 手动 Test 都写).
+   *  取代旧 lastTestedAt. UI 唯一的"上次使用"字段. */
+  lastUsedAt: string | null;
   testStatus: string | null;
   usageCount: number;
   createdAt: string;

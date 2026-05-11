@@ -362,12 +362,15 @@ describe("SecretsService", () => {
 
       await service.getValueInternal("test-api-key");
 
-      expect(mockPrisma.secretKey!.update).toHaveBeenCalledWith({
-        where: { id: "sk-99" },
-        data: { accessCount: { increment: 1 } },
-      });
-      // 关键：不能写 testStatus —— 那是 markSuccess/Failure 的职责
+      // ★ 2026-05-12 (C方案): SecretKey.update 写入 accessCount + lastUsedAt 两字段.
+      // admin UI "HITS" + "LAST USED" 列从此反映真实业务流量, 不再仅"上次手动 Test".
       const calls = (mockPrisma.secretKey!.update as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const firstCall = calls[0][0];
+      expect(firstCall.where).toEqual({ id: "sk-99" });
+      expect(firstCall.data.accessCount).toEqual({ increment: 1 });
+      expect(firstCall.data.lastUsedAt).toBeInstanceOf(Date);
+      // 关键：不能写 testStatus —— 那是 markSuccess/Failure 的职责
       const dataArgs = calls.map((c) => c[0]?.data ?? {});
       for (const d of dataArgs) {
         expect(d).not.toHaveProperty("testStatus");
@@ -498,12 +501,13 @@ describe("SecretsService", () => {
       await service.update("test-api-key", { value: "rotated-value" });
 
       // 走 $transaction 路径：tx.secretKey.update（不是 SecretKeysService.replaceKeyValue）
+      // ★ 2026-05-12 (C方案): lastTestedAt 字段已删除并归一到 lastUsedAt.
       expect(mockPrisma.secretKey!.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "sk-primary-1" },
           data: expect.objectContaining({
             testStatus: null,
-            lastTestedAt: null,
+            lastUsedAt: null,
           }),
         }),
       );

@@ -11,6 +11,7 @@ describe("KeyResolverService.resolveKeyChain", () => {
   let assignments: jest.Mocked<Partial<KeyAssignmentsService>>;
   let healthStore: jest.Mocked<Partial<KeyHealthStore>>;
   let prismaUpdate: jest.Mock;
+  let prismaAssignmentUpdate: jest.Mock;
 
   beforeEach(async () => {
     userApiKeys = {
@@ -30,6 +31,7 @@ describe("KeyResolverService.resolveKeyChain", () => {
       markFailure: jest.fn().mockResolvedValue(undefined),
     };
     prismaUpdate = jest.fn().mockResolvedValue({});
+    prismaAssignmentUpdate = jest.fn().mockResolvedValue({});
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         KeyResolverService,
@@ -38,6 +40,7 @@ describe("KeyResolverService.resolveKeyChain", () => {
           useValue: {
             user: { findUnique: jest.fn() },
             userApiKey: { update: prismaUpdate },
+            keyAssignment: { update: prismaAssignmentUpdate },
           },
         },
         { provide: UserApiKeysService, useValue: userApiKeys },
@@ -254,7 +257,7 @@ describe("KeyResolverService.resolveKeyChain", () => {
       ]);
     });
 
-    it("reportSuccess writes testStatus='success' + lastTestedAt + clears errorCode + accessCount++", async () => {
+    it("reportSuccess writes testStatus='success' + lastUsedAt + clears errorCode + accessCount++", async () => {
       const chain = await service.resolveKeyChain("u1", "openai");
       const k = await chain.next();
       if (!k) throw new Error("expected key");
@@ -271,7 +274,7 @@ describe("KeyResolverService.resolveKeyChain", () => {
       expect(call.data.testStatus).toBe("success");
       expect(call.data.lastErrorCode).toBeNull();
       expect(call.data.lastErrorMessage).toBeNull();
-      expect(call.data.lastTestedAt).toBeInstanceOf(Date);
+      expect(call.data.lastUsedAt).toBeInstanceOf(Date);
       expect(call.data.usageCount).toEqual({ increment: 1 });
     });
 
@@ -293,7 +296,7 @@ describe("KeyResolverService.resolveKeyChain", () => {
       expect(call.data.testStatus).toBe("failed");
       expect(call.data.lastErrorCode).toBe("RATE_LIMIT_KEY");
       expect(call.data.lastErrorMessage).toBe("rate limited by upstream");
-      expect(call.data.lastTestedAt).toBeInstanceOf(Date);
+      expect(call.data.lastUsedAt).toBeInstanceOf(Date);
       // failure path 不增 usageCount
       expect(call.data.usageCount).toBeUndefined();
     });
@@ -304,6 +307,47 @@ describe("KeyResolverService.resolveKeyChain", () => {
       const k = await chain.next();
       if (!k) throw new Error("expected key");
       await expect(chain.reportSuccess(k)).resolves.not.toThrow();
+    });
+  });
+
+  // ★ 2026-05-12 (C方案): persistOutcome for ASSIGNED healthKeyId 写入 KeyAssignment.
+  // 之前 assigned 路径在 persistDbHealthOutcome 注释 "跳过", 现在已实装.
+  describe("persistOutcome — assigned path writes KeyAssignment", () => {
+    beforeEach(() => {
+      prismaAssignmentUpdate.mockClear();
+    });
+
+    it("success: increments accessCount + sets lastUsedAt", async () => {
+      const before = Date.now();
+      await service.persistOutcome("assigned:assn-123", { ok: true });
+      const after = Date.now();
+      expect(prismaAssignmentUpdate).toHaveBeenCalledTimes(1);
+      const call = prismaAssignmentUpdate.mock.calls[0][0];
+      expect(call.where).toEqual({ id: "assn-123" });
+      expect(call.data.accessCount).toEqual({ increment: 1 });
+      expect(call.data.lastUsedAt).toBeInstanceOf(Date);
+      const ts = (call.data.lastUsedAt as Date).getTime();
+      expect(ts).toBeGreaterThanOrEqual(before);
+      expect(ts).toBeLessThanOrEqual(after);
+    });
+
+    it("failure: writes lastUsedAt only (no accessCount++)", async () => {
+      await service.persistOutcome("assigned:assn-123", {
+        ok: false,
+        classified: {
+          reason: "AUTH_FAILED",
+          cooldownMs: 0,
+          markDead: false,
+          shouldStopChain: false,
+          originalMessage: "401 unauthorized",
+          httpStatus: 401,
+        },
+      });
+      expect(prismaAssignmentUpdate).toHaveBeenCalledTimes(1);
+      const call = prismaAssignmentUpdate.mock.calls[0][0];
+      expect(call.where).toEqual({ id: "assn-123" });
+      expect(call.data.accessCount).toBeUndefined();
+      expect(call.data.lastUsedAt).toBeInstanceOf(Date);
     });
   });
 });

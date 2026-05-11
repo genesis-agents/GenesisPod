@@ -56,7 +56,7 @@ export function UserApiKeyDrawer({
     isActive: k.isActive,
     priority: 0,
     testStatus: (k.testStatus as 'success' | 'failed' | null) ?? null,
-    lastTestedAt: k.lastTestedAt,
+    lastUsedAt: k.lastUsedAt,
     // ★ 2026-05-06: BYOK 后端 testKey 现在写回 lastErrorCode/lastErrorMessage；
     //   useUserApiKeys hook 当前的 UserApiKeyInfo 还没扩这两字段，下个 PR 补
     lastErrorCode: null,

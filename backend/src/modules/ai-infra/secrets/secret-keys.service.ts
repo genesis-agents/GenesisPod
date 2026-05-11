@@ -34,7 +34,9 @@ export interface SecretKeyListItem {
   isActive: boolean;
   priority: number;
   testStatus: string | null;
-  lastTestedAt: Date | null;
+  /** ★ 2026-05-12 (C方案): 真实"最后使用"时间(业务流量 + 手动 Test 都写).
+   *   admin UI 唯一的"上次使用"字段, 取代旧 lastUsedAt (DB 列保留兼容但不暴露). */
+  lastUsedAt: Date | null;
   /** ★ 2026-05-06: 归一化错误码（AUTH_FAILED / RATE_LIMIT_KEY / 等），UI 据此出语义 badge */
   lastErrorCode: string | null;
   lastErrorMessage: string | null;
@@ -170,7 +172,7 @@ export class SecretKeysService {
         // 替换 value 后健康状态置回 unknown，等下次 test/调用回写
         // ★ 2026-05-06: lastErrorCode 也要清，否则旧错误码残留 → UI 误判失败
         testStatus: null,
-        lastTestedAt: null,
+        lastUsedAt: null,
         lastErrorCode: null,
         lastErrorMessage: null,
         // ★ 2026-05-07: accessCount 是"当前物理 KEY 值的命中数"。Replace 后是
@@ -222,7 +224,7 @@ export class SecretKeysService {
    *   1. 解密 KEY；失败 → markFailure('DECRYPTION_FAILED')
    *   2. 拿 Secret.provider 调 ProviderProbeService.probeByProvider 真发 HTTP
    *   3. 结果走 markSuccess / markFailure 同一写库路径；UI 看到的 testStatus /
-   *      lastTestedAt / lastErrorCode / lastErrorMessage 永远是"最近一次真实活动"
+   *      lastUsedAt / lastErrorCode / lastErrorMessage 永远是"最近一次真实活动"
    *
    * 业务流量也调 markSuccess / markFailure，所以"OK / Failed 的时间"自动是
    * 上一次实际命中的时间，不会被手动按钮的伪绿章覆盖。
@@ -247,7 +249,7 @@ export class SecretKeysService {
         where: { id: keyId },
         data: {
           testStatus: "failed",
-          lastTestedAt: now,
+          lastUsedAt: now,
           lastErrorCode: "DECRYPTION_FAILED",
           lastErrorMessage:
             "decryption failed (encryptedValue or iv corrupted)",
@@ -276,7 +278,7 @@ export class SecretKeysService {
         where: { id: keyId },
         data: {
           testStatus: "success",
-          lastTestedAt: now,
+          lastUsedAt: now,
           lastErrorCode: null,
           lastErrorMessage: "decrypted (no provider bound, real probe skipped)",
           updatedBy,
@@ -296,7 +298,7 @@ export class SecretKeysService {
         where: { id: keyId },
         data: {
           testStatus: "success",
-          lastTestedAt: now,
+          lastUsedAt: now,
           lastErrorCode: null,
           lastErrorMessage: null,
           updatedBy,
@@ -307,7 +309,7 @@ export class SecretKeysService {
         where: { id: keyId },
         data: {
           testStatus: "failed",
-          lastTestedAt: now,
+          lastUsedAt: now,
           lastErrorCode: (probeResult.errorCode ?? "UNKNOWN").slice(0, 40),
           lastErrorMessage: (probeResult.errorMessage ?? "probe failed").slice(
             0,
@@ -369,8 +371,9 @@ export class SecretKeysService {
 
   /**
    * ★ 2026-05-06: 业务流量成功调用上游 + 手动 probe 通过都走它。
-   * 写入：testStatus='success'、lastTestedAt=now、清错误码/消息、可选 accessCount++。
-   * incrementAccessCount=true 仅在真实业务流量成功时；手动 probe 不算"业务调用次数"。
+   * 写入：testStatus='success'、lastUsedAt=now、lastUsedAt=now、清错误码/消息、可选 accessCount++。
+   * incrementAccessCount=true 仅在真实业务流量成功时；手动 probe 不算"业务调用次数"
+   * (但仍写 lastUsedAt — Test 也算 Used, 见 2026-05-12 用户指示).
    */
   async markSuccess(
     keyId: string,
@@ -378,11 +381,12 @@ export class SecretKeysService {
       incrementAccessCount: true,
     },
   ): Promise<void> {
+    const now = new Date();
     await this.prisma.secretKey.update({
       where: { id: keyId },
       data: {
         testStatus: "success",
-        lastTestedAt: new Date(),
+        lastUsedAt: now,
         lastErrorCode: null,
         lastErrorMessage: null,
         ...(options.incrementAccessCount !== false
@@ -396,6 +400,7 @@ export class SecretKeysService {
    * ★ 2026-05-06: 业务流量失败 + 手动 probe 失败统一入口。
    * errorCode 用 ProbeErrorCode 同款命名（AUTH_FAILED / RATE_LIMIT_KEY / 等），
    * UI 据此出语义化 badge（"未授权" / "限流" / 等）。
+   * ★ 2026-05-12: lastUsedAt 失败也写 (用户角度 "Test 是 Used").
    */
   async markFailure(
     keyId: string,
@@ -404,11 +409,12 @@ export class SecretKeysService {
   ): Promise<void> {
     const trimmedMessage = errorMessage.slice(0, 500);
     const trimmedCode = errorCode.slice(0, 40);
+    const now = new Date();
     await this.prisma.secretKey.update({
       where: { id: keyId },
       data: {
         testStatus: "failed",
-        lastTestedAt: new Date(),
+        lastUsedAt: now,
         lastErrorCode: trimmedCode,
         lastErrorMessage: trimmedMessage,
       },
@@ -426,8 +432,8 @@ export class SecretKeysService {
 
     const now = Date.now();
     for (const k of candidates) {
-      if (k.testStatus === "failed" && k.lastTestedAt) {
-        const since = now - k.lastTestedAt.getTime();
+      if (k.testStatus === "failed" && k.lastUsedAt) {
+        const since = now - k.lastUsedAt.getTime();
         if (since < FAILED_CIRCUIT_BREAK_MS) continue; // 仍在熔断窗口内，跳过
       }
       return k;
@@ -472,7 +478,7 @@ export class SecretKeysService {
       isActive: row.isActive,
       priority: row.priority,
       testStatus: row.testStatus,
-      lastTestedAt: row.lastTestedAt,
+      lastUsedAt: row.lastUsedAt,
       lastErrorCode: row.lastErrorCode,
       lastErrorMessage: row.lastErrorMessage,
       accessCount: row.accessCount,

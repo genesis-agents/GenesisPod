@@ -8022,7 +8022,6 @@ model UserApiKey {
   preferredModelId   String?        @map("preferred_model_id") @db.VarChar(200)
   donatedSecretId    String?        @map("donated_secret_id") // 关联 Secret Manager 的 ID
   isActive           Boolean        @default(true) @map("is_active")
-  lastTestedAt       DateTime?      @map("last_tested_at")
   testStatus         String?        @map("test_status") @db.VarChar(20) // success | failed
   /// ★ 2026-05-06: 归一化错误码（与 SecretKey 对齐）
   /// 401 / 403 / 429 / 5xx / network / timeout / decryption_failed / null（成功）
@@ -8031,6 +8030,9 @@ model UserApiKey {
   /// 调用次数统计：捐赠模式 + 个人模式都累加（业务流量调用上游成功时 +1）
   /// ★ 2026-05-06: 之前仅捐赠模式累加；现 KeyChain.reportSuccess 持久化扩展至 personal
   usageCount         Int            @default(0) @map("usage_count")
+  /// ★ 2026-05-12: 真实业务调用时间，与 lastTestedAt (手动 Test) 区分.
+  /// 写入路径：persistDbHealthOutcome (personal 分支) success/failure 都更新.
+  lastUsedAt         DateTime?      @map("last_used_at")
   donationRewardedAt DateTime?      @map("donation_rewarded_at") // 首次捐赠奖励发放时间（防重复）
   createdAt          DateTime       @default(now()) @map("created_at")
   updatedAt          DateTime       @updatedAt @map("updated_at")
@@ -8158,7 +8160,6 @@ model SecretKey {
   /// ★ 2026-05-06: testStatus / lastTestedAt / lastErrorCode / lastErrorMessage 都
   /// 由"真使用反馈"统一写入：手动 Test 按钮调上游探测、业务流量 markSuccess /
   /// markFailure 都走同一路径。UI 看到的状态永远是"最近一次真实活动"的结果。
-  lastTestedAt DateTime? @map("last_tested_at")
   testStatus   String?   @map("test_status") @db.VarChar(20) // 'success' | 'failed'
 
   /// 最近一次失败的归一化错误码：401 / 403 / 429 / 5xx / network / timeout / decryption_failed
@@ -8170,6 +8171,11 @@ model SecretKey {
 
   /// 调用次数（业务侧 markSuccess/markFailure 累加）
   accessCount Int @default(0) @map("access_count")
+
+  /// ★ 2026-05-12: 真实业务调用时间（不是手动 Test）。
+  /// 写入路径：secretsService.getValueInternal 取出 key 时异步 markUsed,
+  /// 或 KeyExecutor 成功反馈 persistDbHealthOutcome(system 路径).
+  lastUsedAt DateTime? @map("last_used_at")
 
   /// 审计
   createdAt DateTime @default(now()) @map("created_at")
@@ -9215,6 +9221,10 @@ model KeyAssignment {
   // 用户级配额（美分）；null 表示无单独限额（受 CreditsService 总账控制）
   userQuotaCents     Int?                @map("user_quota_cents")
   userSpendCents     Int                 @default(0) @map("user_spend_cents")
+  /// ★ 2026-05-12: 调用次数 (业务流量成功时 +1). 配合 lastUsedAt 提供完整命中视图.
+  accessCount        Int                 @default(0) @map("access_count")
+  /// ★ 2026-05-12: 真实业务调用时间. 写入路径: persistDbHealthOutcome (assigned 分支).
+  lastUsedAt         DateTime?           @map("last_used_at")
   status             KeyAssignmentStatus @default(ACTIVE)
   // 有效期类型：ONE_TIME=单次到期；RECURRING=周期续期（cron 自动 reset spendCents）
   validityType       String              @default("ONE_TIME") @map("validity_type") @db.VarChar(20)
