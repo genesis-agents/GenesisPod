@@ -42,7 +42,7 @@ export class EventRelayFramework {
   private readonly exhaustedMissions = new Map<string, number>();
   /** 防重复发：90% 软告警只 emit 一次 */
   private readonly softWarnedMissions = new Map<string, number>();
-  /** budget 软告警阈值（已用 / 上限）—— 跨过即 emit budget:soft-warning */
+  /** budget 软告警阈值（已用 / 上限）—— 跨过即 emit budget:warning-soft */
   private static readonly SOFT_WARN_THRESHOLD = 0.9;
 
   constructor(
@@ -155,7 +155,7 @@ export class EventRelayFramework {
       if (ratio >= EventRelayFramework.SOFT_WARN_THRESHOLD) {
         this.softWarnedMissions.set(missionId, now);
         await this.emitEvent({
-          type: `${this.eventNamespace}.budget:soft-warning`,
+          type: `${this.eventNamespace}.budget:warning-soft`,
           missionId,
           userId,
           payload: {

@@ -614,7 +614,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         reasonHint,
         isHard ? 'error' : 'warn'
       );
-    } else if (t === 'agent-playground.budget:soft-warning') {
+    } else if (t === 'agent-playground.budget:warning-soft') {
       const ratio = (p.ratio as number) ?? 0;
       const tokensUsed = (p.poolTokensUsed as number) ?? 0;
       const tokensRemain = (p.poolTokensRemaining as number) ?? 0;
