@@ -37,16 +37,26 @@ describe('ARCHITECTURE_LAYERS', () => {
 });
 
 describe('AI Harness layer', () => {
+  // Wave 5 重构（2026-05-11）：8 卡精简为 4 张实体卡，对齐 AI Infra L1 范式。
+  // 4 卡：harnessExecution / harnessMemory / harnessGovernance / harnessInterop
   let layer: ArchitectureLayer;
 
   beforeEach(() => {
     layer = getLayer('aiHarness');
   });
 
-  it('has eight subsystem cards', () => {
+  it('has four entity cards (execution / memory / governance / interop)', () => {
     expect(layer.level).toBe(5);
-    expect(layer.cards).toHaveLength(8);
+    expect(layer.cards).toHaveLength(4);
     expect(layer.groups).toBeUndefined();
+
+    const ids = layer.cards?.map((c) => c.id);
+    expect(ids).toEqual([
+      'harnessExecution',
+      'harnessMemory',
+      'harnessGovernance',
+      'harnessInterop',
+    ]);
   });
 
   it('makes every harness subsystem card configurable', () => {
@@ -56,23 +66,12 @@ describe('AI Harness layer', () => {
     }
   });
 
-  it('exposes governance and eval management', () => {
-    const card = layer.cards?.find((item) => item.id === 'harnessGovernance');
-    expect(card?.clickable).toBe(true);
-    expect(card?.href).toBe('/admin/ai/eval');
-    expect(card?.stats?.[0]?.key).toBe('harnessEvalRuns');
-  });
-
-  it('routes harness cards directly to real admin pages', () => {
+  it('routes harness cards to representative admin pages (deep-link fallback)', () => {
     const expectedCards: Array<{ id: string; href: string }> = [
-      { id: 'harnessFacade', href: '/admin/ai/harness' },
-      { id: 'harnessKernel', href: '/admin/kernel/scheduler' },
-      { id: 'harnessExecution', href: '/admin/ai/traces' },
+      { id: 'harnessExecution', href: '/admin/kernel/scheduler' },
       { id: 'harnessMemory', href: '/admin/kernel/memory' },
-      { id: 'harnessProcess', href: '/admin/kernel/processes' },
-      { id: 'harnessProtocol', href: '/admin/kernel/ipc' },
       { id: 'harnessGovernance', href: '/admin/ai/eval' },
-      { id: 'harnessRuntime', href: '/admin/kernel/observability' },
+      { id: 'harnessInterop', href: '/admin/ai/harness' },
     ];
 
     for (const { id, href } of expectedCards) {
@@ -82,7 +81,7 @@ describe('AI Harness layer', () => {
     }
   });
 
-  it('uses harness-native stats instead of unrelated engine stats', () => {
+  it('uses harness-native stats keys', () => {
     const statsByCard = new Map(
       layer.cards?.map((card) => [
         card.id,
@@ -90,9 +89,16 @@ describe('AI Harness layer', () => {
       ])
     );
 
-    expect(statsByCard.get('harnessExecution')).toEqual(['agentTraces']);
-    expect(statsByCard.get('harnessProtocol')).toEqual(['kernelSubscriptions']);
-    expect(statsByCard.get('harnessFacade')).toEqual([]);
+    expect(statsByCard.get('harnessExecution')).toEqual([
+      'kernelRunning',
+      'agentTraces',
+    ]);
+    expect(statsByCard.get('harnessMemory')).toEqual(['kernelMemories']);
+    expect(statsByCard.get('harnessGovernance')).toEqual([
+      'harnessEvalRuns',
+      'guardrailRules',
+    ]);
+    expect(statsByCard.get('harnessInterop')).toEqual(['kernelSubscriptions']);
   });
 });
 

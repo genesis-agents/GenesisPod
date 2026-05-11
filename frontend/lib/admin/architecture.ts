@@ -42,11 +42,9 @@ import {
   Share2,
   Cpu,
   Database,
-  GitBranch,
   Network,
   Workflow,
   MemoryStick,
-  Shuffle,
   Lock,
   Globe,
   type LucideIcon,
@@ -265,7 +263,15 @@ const aiAppsLayer: ArchitectureLayer = {
 };
 
 // Layer 2.5: AI Harness (Agent Runtime Scaffold)
-// Uses level: 5 slot in LAYER_STYLES (freed up by deletion of Intent Gateway)
+//
+// Wave 5 重构（2026-05-11）：从 8 卡（facade/kernel/execution/memory/process/protocol/
+// governance/runtime）合并为 4 张实体卡，对齐 AI Infra L1 的「一卡一实体」范式。
+// 8 个原 page 暂保留作为 deep-link 兜底；下次迭代再做"合并页 + 子 Tab"内嵌。
+//
+// - harnessExecution（运行调度）：吸收原 kernel/execution/process/runtime
+// - harnessMemory（记忆状态）  ：保留原 memory + 后续合并 event-store/journal
+// - harnessGovernance（评估治理）：吸收原 governance/protocol 中的 tracing 视角
+// - harnessInterop（互联协议） ：吸收原 facade/protocol/handoffs
 const aiHarnessLayer: ArchitectureLayer = {
   id: 'aiHarness',
   titleKey: 'admin.architecture.layers.aiHarness',
@@ -273,30 +279,16 @@ const aiHarnessLayer: ArchitectureLayer = {
   level: 5,
   cards: [
     {
-      id: 'harnessFacade',
-      i18nKey: 'admin.architecture.cards.harnessFacade',
-      descriptionKey: 'admin.architecture.cards.harnessFacadeDesc',
-      href: '/admin/ai/harness',
-      icon: Network,
-      clickable: true,
-    },
-    {
-      id: 'harnessKernel',
-      i18nKey: 'admin.architecture.cards.harnessKernel',
-      descriptionKey: 'admin.architecture.cards.harnessKernelDesc',
-      href: '/admin/kernel/scheduler',
-      icon: Cpu,
-      clickable: true,
-      stats: [{ label: 'Running', key: 'kernelRunning' }],
-    },
-    {
       id: 'harnessExecution',
       i18nKey: 'admin.architecture.cards.harnessExecution',
       descriptionKey: 'admin.architecture.cards.harnessExecutionDesc',
-      href: '/admin/ai/traces',
+      href: '/admin/kernel/scheduler',
       icon: Workflow,
       clickable: true,
-      stats: [{ label: 'Traces', key: 'agentTraces' }],
+      stats: [
+        { label: 'Running', key: 'kernelRunning' },
+        { label: 'Traces', key: 'agentTraces' },
+      ],
     },
     {
       id: 'harnessMemory',
@@ -308,43 +300,25 @@ const aiHarnessLayer: ArchitectureLayer = {
       stats: [{ label: 'Memories', key: 'kernelMemories' }],
     },
     {
-      id: 'harnessProcess',
-      i18nKey: 'admin.architecture.cards.harnessProcess',
-      descriptionKey: 'admin.architecture.cards.harnessProcessDesc',
-      href: '/admin/kernel/processes',
-      icon: GitBranch,
-      clickable: true,
-      stats: [
-        { label: 'Processes', key: 'kernelProcesses' },
-        { label: 'Running', key: 'kernelRunning' },
-      ],
-    },
-    {
-      id: 'harnessProtocol',
-      i18nKey: 'admin.architecture.cards.harnessProtocol',
-      descriptionKey: 'admin.architecture.cards.harnessProtocolDesc',
-      href: '/admin/kernel/ipc',
-      icon: Radio,
-      clickable: true,
-      stats: [{ label: 'Subscriptions', key: 'kernelSubscriptions' }],
-    },
-    {
       id: 'harnessGovernance',
       i18nKey: 'admin.architecture.cards.harnessGovernance',
       descriptionKey: 'admin.architecture.cards.harnessGovernanceDesc',
       href: '/admin/ai/eval',
       icon: BarChart3,
       clickable: true,
-      stats: [{ label: 'Eval runs', key: 'harnessEvalRuns' }],
+      stats: [
+        { label: 'Eval runs', key: 'harnessEvalRuns' },
+        { label: 'Guardrails', key: 'guardrailRules' },
+      ],
     },
     {
-      id: 'harnessRuntime',
-      i18nKey: 'admin.architecture.cards.harnessRuntime',
-      descriptionKey: 'admin.architecture.cards.harnessRuntimeDesc',
-      href: '/admin/kernel/observability',
-      icon: Shuffle,
+      id: 'harnessInterop',
+      i18nKey: 'admin.architecture.cards.harnessInterop',
+      descriptionKey: 'admin.architecture.cards.harnessInteropDesc',
+      href: '/admin/ai/harness',
+      icon: Network,
       clickable: true,
-      stats: [{ label: 'LLM calls', key: 'kernelLLMCalls' }],
+      stats: [{ label: 'Subscriptions', key: 'kernelSubscriptions' }],
     },
   ],
 };
