@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Optional,
 } from "@nestjs/common";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import {
   SecretsService,
@@ -50,7 +51,17 @@ export class UserApiKeysService {
     private readonly providerProbe: ProviderProbeService,
     @Optional() private readonly cacheService?: CacheService,
     @Optional() private readonly keyHealthStore?: KeyHealthStore,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
+
+  /**
+   * 通知所有订阅方 BYOK 配置变更（EmbeddingService 会清 per-user embedding cache）。
+   * 2026-05-12: 修"用户配了 BYOK 但下次 embedding 还在用 60s 前的旧 cache"
+   */
+  private emitUserApiKeyChanged(userId: string): void {
+    if (!this.eventEmitter) return;
+    this.eventEmitter.emit("user-api-key.changed", { userId });
+  }
 
   private encrypt(text: string) {
     return this.encryption.encrypt(text);
@@ -289,6 +300,7 @@ export class UserApiKeysService {
 
     // Step 4: 使缓存失效
     await this.invalidateUserKeyCache(userId);
+    this.emitUserApiKeyChanged(userId);
 
     // PR-1 (2026-05-05) failover: rotate / 新增 / endpoint 改时清 LastGood + 旧 KeyHealth
     //   - rotate（同 label 改 apiKey）：旧 KeyHealth 状态对新 apiKey 不再适用，必须清
@@ -373,6 +385,7 @@ export class UserApiKeysService {
 
     // 使缓存失效
     await this.invalidateUserKeyCache(userId);
+    this.emitUserApiKeyChanged(userId);
 
     // PR-1 (2026-05-05) failover: 清理 KeyHealth 记录 + LastGood
     if (this.keyHealthStore) {
@@ -421,6 +434,7 @@ export class UserApiKeysService {
 
     // 使缓存失效
     await this.invalidateUserKeyCache(userId);
+    this.emitUserApiKeyChanged(userId);
 
     return { success: true };
   }
