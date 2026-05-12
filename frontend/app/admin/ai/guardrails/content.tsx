@@ -41,7 +41,15 @@ export default function GuardrailsPageContent({
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        setData(json.data ?? json);
+        const payload = json?.data ?? json;
+        // payload 必须含 input/output 数组才能渲染；Pipeline 未 ready 时后端可能返
+        // 回 {} 或 null（接口前还未初始化），不加守卫会让 .input.length 在渲染期炸。
+        setData({
+          input: Array.isArray(payload?.input) ? payload.input : [],
+          output: Array.isArray(payload?.output) ? payload.output : [],
+          totalRules:
+            typeof payload?.totalRules === 'number' ? payload.totalRules : 0,
+        });
       } catch (e) {
         logger.error('Failed to fetch guardrails', e);
         setError(e instanceof Error ? e.message : 'Unknown error');

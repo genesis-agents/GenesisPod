@@ -113,9 +113,15 @@ export default function DataQualityManagement() {
       }
 
       const result = await res.json();
-      // Handle wrapped API response { success: true, data: T }
-      const data = result?.data ?? result;
-      setStats(data.data?.statistics || []);
+      // Global ResponseTransformInterceptor 包: { success, data: T, metadata }
+      // dashboard/summary 当前返回 { totalResources, ... } 不是 statistics[]，未来若加
+      // statistics 字段会在此自动接上；Array.isArray 守住运行时崩溃。
+      const summaryPayload = result?.data ?? result;
+      setStats(
+        Array.isArray(summaryPayload?.statistics)
+          ? summaryPayload.statistics
+          : []
+      );
 
       // Fetch detailed metrics (in a real app, this would be paginated)
       const metricsRes = await fetch(
@@ -123,8 +129,17 @@ export default function DataQualityManagement() {
         { headers: getAuthHeader() }
       );
       if (metricsRes.ok) {
-        const metricsData = await metricsRes.json();
-        setMetrics(metricsData.data || []);
+        const metricsRaw = await metricsRes.json();
+        // backend 真值: { data: DataQualityMetric[], stats: {...} }
+        // 经 interceptor 包: { success, data: { data: [...], stats: {...} } }
+        // 注意 metricsRaw.data 是嵌套 wrapper，metrics 数组在 metricsRaw.data.data
+        const metricsPayload = metricsRaw?.data ?? metricsRaw;
+        const list = Array.isArray(metricsPayload?.data)
+          ? metricsPayload.data
+          : Array.isArray(metricsPayload)
+            ? metricsPayload
+            : [];
+        setMetrics(list);
       }
     } catch (err) {
       setError(

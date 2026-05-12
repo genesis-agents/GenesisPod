@@ -205,8 +205,13 @@ export function useAdminUsers(initialPage = 1, initialLimit = 20) {
             headers: { ...getAuthHeader() },
           }
         );
-        const result = await response.json();
-        return result.history || [];
+        const result = (await response.json()) as {
+          history?: LoginHistoryItem[];
+          data?: { history?: LoginHistoryItem[] };
+        };
+        // Global ResponseTransformInterceptor wraps payload in { success, data, metadata }
+        const payload = result?.data ?? result;
+        return payload?.history ?? [];
       } catch {
         return [];
       }
