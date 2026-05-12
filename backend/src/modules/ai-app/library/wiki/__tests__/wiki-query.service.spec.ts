@@ -369,4 +369,67 @@ describe("WikiQueryService", () => {
       warnSpy.mockRestore();
     });
   });
+
+  // ─── answer follows user question language (3952c84e7) ───
+  //
+  // The fix added a LANGUAGE block to the Branch A systemPrompt so the LLM
+  // answers in the language of the user's question (中文 question → 中文
+  // answer; English question → English answer). Without these lines the
+  // English system prompt would drag every answer to English regardless of
+  // the question. The wiki-query.service builds the systemPrompt as a string
+  // and passes it to chat.chat({ systemPrompt }) — we inspect the first
+  // (and only) chat call's args to assert the prompt content.
+  describe("answer follows user question language (3952c84e7)", () => {
+    function inspectSystemPrompt(): string {
+      // chat.chat is invoked once per Branch A query; the systemPrompt is
+      // passed on the (single) call args object.
+      expect((chat.chat as AnyMock).mock.calls.length).toBeGreaterThan(0);
+      const callArg = (chat.chat as AnyMock).mock.calls[0][0];
+      // Service signature is chat.chat({ systemPrompt, messages, ... })
+      return callArg.systemPrompt as string;
+    }
+
+    beforeEach(() => {
+      // Arrange — minimal one-page wiki so Branch A actually invokes the LLM.
+      const pages = [buildPage({ id: "p1", slug: "alpha", title: "Alpha" })];
+      prisma.wikiPage.findMany.mockResolvedValue(pages);
+      chat.chat.mockResolvedValue({
+        content: JSON.stringify({
+          answer: "fine",
+          citationSlugs: ["alpha"],
+        }),
+        model: "test-model",
+      });
+    });
+
+    it("systemPrompt instructs to answer in the SAME language as the user's question", async () => {
+      // Act
+      await service.query("u", "kb", { question: "alpha?" });
+      // Assert
+      const prompt = inspectSystemPrompt();
+      expect(prompt).toContain(
+        "LANGUAGE: write the `answer` in the SAME language as the user's question.",
+      );
+    });
+
+    it("systemPrompt covers both 中文 and English explicit cases", async () => {
+      await service.query("u", "kb", { question: "alpha?" });
+      const prompt = inspectSystemPrompt();
+      // Both directions of the rule must be present (中文 → 中文,
+      // English → English).
+      expect(prompt).toContain("中文");
+      expect(prompt).toContain("answer in 中文");
+      expect(prompt).toContain("answer in English");
+    });
+
+    it("systemPrompt preserves the verbatim-quote escape hatch for titles / proper nouns / code", async () => {
+      await service.query("u", "kb", { question: "alpha?" });
+      const prompt = inspectSystemPrompt();
+      // Page titles / proper nouns / code must be quoted verbatim regardless
+      // of question language — otherwise the LLM would translate them.
+      expect(prompt).toContain(
+        "Quote page titles / proper nouns / code verbatim from the wiki regardless.",
+      );
+    });
+  });
 });

@@ -16,6 +16,8 @@
  *  8. EDITOR access required — hasAccess=false → ForbiddenException
  */
 
+import * as fs from "fs";
+import * as path from "path";
 import {
   BadRequestException,
   ForbiddenException,
@@ -840,6 +842,61 @@ describe("WikiIngestService", () => {
       const persisted =
         prisma.wikiDiff.create.mock.calls[0][0].data.items.updates[0];
       expect(persisted.newOneLiner).toBeUndefined();
+    });
+  });
+
+  // ─── LANGUAGE RULE in wiki-ingest skill (3952c84e7) ────────────────────────
+  //
+  // The fix added a "LANGUAGE RULE (CRITICAL)" section to
+  // skills/wiki-ingest.skill.md so the LLM produces wiki pages in the source
+  // documents' language (Chinese source → 中文 page, English source → English
+  // page) instead of defaulting to English. The skill md is a static asset
+  // shipped with the module; assert its key phrases are present so a refactor
+  // can't silently drop them without spec failure.
+  describe("LANGUAGE RULE in wiki-ingest skill (3952c84e7)", () => {
+    // Arrange (shared) — read the skill md once.
+    const skillMd = fs.readFileSync(
+      path.join(__dirname, "../skills/wiki-ingest.skill.md"),
+      "utf-8",
+    );
+
+    it("skill md contains a LANGUAGE RULE section", () => {
+      // Act + Assert — both the literal section header and CRITICAL marker.
+      expect(skillMd).toContain("LANGUAGE RULE");
+      expect(skillMd).toContain("CRITICAL");
+    });
+
+    it("Chinese-source rule appears in skill md", () => {
+      // Arrange / Act: locate the Chinese-source bullet.
+      // Assert: covers both the source-language phrase and the output 中文.
+      expect(skillMd).toContain("Chinese source");
+      expect(skillMd).toContain("中文");
+    });
+
+    it("English-source rule appears in skill md", () => {
+      expect(skillMd).toContain("English source");
+      expect(skillMd).toContain("in English");
+    });
+
+    it("DOMINANT-language tie-breaker is spelled out for mixed-language pages", () => {
+      // Mixed-language sources must pick a single language by char-count —
+      // assert the DOMINANT keyword is preserved.
+      expect(skillMd).toContain("DOMINANT");
+    });
+
+    it("UPDATE branch locks page to its existing language (no mid-page switch)", () => {
+      // The crucial property: an UPDATE must NOT translate an existing page.
+      // We assert on the unambiguous phrase from the rule.
+      expect(skillMd).toContain("MATCH that page's existing language");
+      expect(skillMd).toContain("do NOT switch languages");
+    });
+
+    it("slug stays ASCII kebab-case regardless of page language", () => {
+      // Counter-rule: page narrative follows source language, BUT slugs stay
+      // ASCII so cross-page references and URLs never break.
+      expect(skillMd).toContain("kebab-case");
+      // The literal "ASCII" keyword must appear in the slug rule.
+      expect(skillMd.toLowerCase()).toContain("ascii");
     });
   });
 });

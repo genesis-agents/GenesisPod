@@ -492,4 +492,104 @@ describe("WikiLintService", () => {
       expect(result.budgetExceeded).toBe(true);
     });
   });
+
+  // ─── batchPatchFindings (6e0457e81) ────────────────────────────────────────
+  //
+  // The feat added bulk resolve / dismiss so the UI can act on either
+  // user-selected findings (checkbox set) or the entire current tab (all
+  // unresolved of a given type). Three branches plus EDITOR access guard:
+  //   - selector.ids → updateMany WHERE id IN ids
+  //   - selector.filterAll (no ids) → updateMany WHERE no id filter
+  //   - neither ids nor filterAll → safe no-op (returns { updated: 0 })
+  //   - selector.type narrows either branch
+  //   - EDITOR access required
+  describe("batchPatchFindings", () => {
+    beforeEach(() => {
+      prisma.wikiLintFinding.updateMany = jest
+        .fn()
+        .mockResolvedValue({ count: 0 });
+    });
+
+    it("ids branch — updates only the specified finding ids and narrows by knowledgeBaseId + resolvedAt: null", async () => {
+      // Arrange
+      prisma.wikiLintFinding.updateMany.mockResolvedValue({ count: 2 });
+      // Act
+      const result = await service.batchPatchFindings("u", "kb-1", "resolve", {
+        ids: ["f-1", "f-2"],
+      });
+      // Assert — where clause carries id IN selector.ids and kb/IDOR guard
+      const args = prisma.wikiLintFinding.updateMany.mock.calls[0][0];
+      expect(args.where).toEqual(
+        expect.objectContaining({
+          knowledgeBaseId: "kb-1",
+          resolvedAt: null,
+          id: { in: ["f-1", "f-2"] },
+        }),
+      );
+      // resolvedAt is stamped to a Date (both resolve + dismiss share semantics)
+      expect(args.data.resolvedAt).toBeInstanceOf(Date);
+      expect(result.updated).toBe(2);
+    });
+
+    it("filterAll branch — without ids, updateMany runs across the whole KB (no id filter) and may narrow by type", async () => {
+      // Arrange
+      prisma.wikiLintFinding.updateMany.mockResolvedValue({ count: 7 });
+      // Act
+      const result = await service.batchPatchFindings("u", "kb-1", "dismiss", {
+        filterAll: true,
+        type: WikiLintType.STALE,
+      });
+      // Assert
+      const args = prisma.wikiLintFinding.updateMany.mock.calls[0][0];
+      // No id filter — bulk applies to KB-wide unresolved STALE findings.
+      expect(args.where.id).toBeUndefined();
+      expect(args.where).toEqual(
+        expect.objectContaining({
+          knowledgeBaseId: "kb-1",
+          resolvedAt: null,
+          type: WikiLintType.STALE,
+        }),
+      );
+      expect(result.updated).toBe(7);
+    });
+
+    it("safety branch — neither ids nor filterAll returns updated=0 and does NOT call updateMany (avoids wiping the KB on stray empty payload)", async () => {
+      // Arrange — empty selector (defensive case caller might trip into).
+      // Act
+      const result = await service.batchPatchFindings(
+        "u",
+        "kb-1",
+        "resolve",
+        {},
+      );
+      // Assert — no DB write happens; "全部解决"必须显式 filterAll=true 才生效。
+      expect(prisma.wikiLintFinding.updateMany).not.toHaveBeenCalled();
+      expect(result.updated).toBe(0);
+    });
+
+    it("safety branch — empty ids array also short-circuits (length-0 ids is treated as 'no ids supplied')", async () => {
+      // Arrange
+      // Act — explicit empty array must be just as safe as omitting ids.
+      const result = await service.batchPatchFindings("u", "kb-1", "resolve", {
+        ids: [],
+      });
+      // Assert
+      expect(prisma.wikiLintFinding.updateMany).not.toHaveBeenCalled();
+      expect(result.updated).toBe(0);
+    });
+
+    it("requires EDITOR access — throws Forbidden when denied", async () => {
+      // Arrange
+      kbService.hasAccess.mockResolvedValue(false);
+      // Act + Assert
+      await expect(
+        service.batchPatchFindings("u", "kb-1", "resolve", {
+          ids: ["f-1"],
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(kbService.hasAccess).toHaveBeenCalledWith("kb-1", "u", "EDITOR");
+      // Access guard runs before the DB write.
+      expect(prisma.wikiLintFinding.updateMany).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -382,4 +382,145 @@ describe("WikiDiffService", () => {
       );
     });
   });
+
+  // ─── supersedeConflictingDiffs newer-wins (6e0457e81) ───
+  //
+  // The feat added an opt-in newer-wins escape hatch for the 409 collision
+  // path: when the caller (frontend confirm) sets supersedeConflictingDiffs=
+  // true, conflicting PENDING diffs are DISMISSED inside the apply
+  // transaction instead of blocking with a 409. Without the option, the
+  // existing 409 behavior is preserved (already covered above).
+  describe("supersedeConflictingDiffs newer-wins (6e0457e81)", () => {
+    function pendingDiffWithSharedSlug(diffId: string) {
+      const baselineHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify([]), "utf8")
+        .digest("hex");
+      return {
+        id: diffId,
+        knowledgeBaseId: "kb-1",
+        status: WikiDiffStatus.PENDING,
+        baselineHash,
+        items: {
+          creates: [
+            {
+              slug: "shared-slug",
+              title: "T",
+              category: "CONCEPT",
+              body: "x",
+              oneLiner: "y",
+              sources: [],
+            },
+          ],
+          updates: [],
+          deletes: [],
+        },
+      };
+    }
+
+    function conflictingPending(otherId: string) {
+      return {
+        id: otherId,
+        items: {
+          creates: [],
+          updates: [{ slug: "shared-slug", newBody: "z" }],
+          deletes: [],
+        },
+        itemsUri: null,
+      };
+    }
+
+    beforeEach(() => {
+      prisma.knowledgeBase.findUnique.mockResolvedValue({ wikiEnabled: true });
+      // Apply flow needs tx.wikiDiff.updateMany available — the supersede path
+      // calls it inside the transaction.
+      tx.wikiDiff.updateMany = jest.fn().mockResolvedValue({ count: 0 });
+      // Default-empty FOR UPDATE → empty pages → baselineHash matches the
+      // empty-state hash baked into the diff fixture.
+      tx.$queryRaw.mockResolvedValue([]);
+      tx.wikiPage.upsert.mockResolvedValue({
+        id: "page-1",
+        slug: "shared-slug",
+        body: "x",
+      });
+    });
+
+    it("default (no supersede option) + conflicting PENDING → still throws 409 (regression guard for unchanged behavior)", async () => {
+      // Arrange
+      prisma.wikiDiff.findUnique.mockResolvedValue(
+        pendingDiffWithSharedSlug("d1"),
+      );
+      prisma.wikiDiff.findMany.mockResolvedValue([conflictingPending("d2")]);
+      // Act + Assert — without options.supersedeConflictingDiffs=true the
+      // collision branch still throws.
+      await expect(service.applyDiff("user-1", "kb-1", "d1")).rejects.toThrow(
+        ConflictException,
+      );
+      // Apply transaction is NOT entered when collision throws.
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(tx.wikiDiff.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("supersedeConflictingDiffs=true + conflicting PENDING → DISMISSes the conflict inside the apply transaction (no 409)", async () => {
+      // Arrange
+      prisma.wikiDiff.findUnique.mockResolvedValue(
+        pendingDiffWithSharedSlug("d1"),
+      );
+      prisma.wikiDiff.findMany.mockResolvedValue([conflictingPending("d2")]);
+      // Act — newer-wins escape hatch flips conflict from blocker to override.
+      await service.applyDiff("user-1", "kb-1", "d1", undefined, {
+        supersedeConflictingDiffs: true,
+      });
+      // Assert — supersede ran inside the transaction:
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(tx.wikiDiff.updateMany).toHaveBeenCalledTimes(1);
+      const args = tx.wikiDiff.updateMany.mock.calls[0][0];
+      // Targets ONLY the conflicting PENDING diff id(s):
+      expect(args.where).toEqual(
+        expect.objectContaining({
+          id: { in: ["d2"] },
+          status: WikiDiffStatus.PENDING,
+        }),
+      );
+      // Marks them DISMISSED + stamps dismissedAt:
+      expect(args.data.status).toBe(WikiDiffStatus.DISMISSED);
+      expect(args.data.dismissedAt).toBeInstanceOf(Date);
+    });
+
+    it("supersedeConflictingDiffs=true + NO conflicting PENDING → does NOT call wikiDiff.updateMany inside tx (supersedeIds collection is empty)", async () => {
+      // Arrange — no other pending diffs at all.
+      prisma.wikiDiff.findUnique.mockResolvedValue(
+        pendingDiffWithSharedSlug("d1"),
+      );
+      prisma.wikiDiff.findMany.mockResolvedValue([]);
+      // Act
+      await service.applyDiff("user-1", "kb-1", "d1", undefined, {
+        supersedeConflictingDiffs: true,
+      });
+      // Assert — option set but nothing to supersede → no updateMany call.
+      expect(prisma.$transaction).toHaveBeenCalled();
+      expect(tx.wikiDiff.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("supersedeConflictingDiffs=true + MULTIPLE conflicting PENDING → all conflicting ids are DISMISSED in one updateMany", async () => {
+      // Arrange — two other pending diffs both touch shared-slug.
+      prisma.wikiDiff.findUnique.mockResolvedValue(
+        pendingDiffWithSharedSlug("d1"),
+      );
+      prisma.wikiDiff.findMany.mockResolvedValue([
+        conflictingPending("d2"),
+        conflictingPending("d3"),
+      ]);
+      // Act
+      await service.applyDiff("user-1", "kb-1", "d1", undefined, {
+        supersedeConflictingDiffs: true,
+      });
+      // Assert — single updateMany, both ids in the IN list.
+      expect(tx.wikiDiff.updateMany).toHaveBeenCalledTimes(1);
+      const args = tx.wikiDiff.updateMany.mock.calls[0][0];
+      expect(args.where.id.in).toEqual(expect.arrayContaining(["d2", "d3"]));
+      expect(args.where.id.in).toHaveLength(2);
+      expect(args.data.status).toBe(WikiDiffStatus.DISMISSED);
+    });
+  });
 });
