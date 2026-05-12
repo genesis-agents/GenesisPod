@@ -445,6 +445,13 @@
         "ingestMaxTokensLabel": "Ingest max tokens (1,000 - 500,000)",
         "cronLintDailyBudgetLabel": "Auto-lint daily call cap (0-5000)",
         "cronLintEnabled": "Enable daily auto-lint",
+        "enabledLocales": {
+          "title": "Enabled languages",
+          "description": "Single-locale KBs only produce pages in the chosen language; bilingual KBs run a cross-language translation pass linked by translationGroupId.",
+          "zh": "Chinese",
+          "en": "English",
+          "both": "Both"
+        },
         "cancel": "Cancel",
         "save": "Save",
         "loadFailed": "Failed to load settings",

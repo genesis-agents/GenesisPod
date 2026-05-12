@@ -135,6 +135,8 @@ export interface ToggleWikiEnabledResult {
   configCreated: boolean;
 }
 
+export type WikiLocale = 'zh' | 'en';
+
 export interface WikiKbConfig {
   knowledgeBaseId: string;
   inlinePageCount: number;
@@ -142,6 +144,13 @@ export interface WikiKbConfig {
   ingestMaxTokens: number;
   cronLintEnabled: boolean;
   cronLintDailyBudgetCalls: number;
+  /**
+   * W3 v2.0 rebuild — KB-level enabled languages. Admin picks zh / en / both
+   * in the settings modal; ingest routes single-locale KBs to source-only
+   * pages and dual-locale KBs through the cross-language translation pass.
+   * Default `['zh']` mirrors the backend migration backfill.
+   */
+  enabledLocales: WikiLocale[];
   updatedAt: string;
 }
 
@@ -153,6 +162,7 @@ export type WikiKbConfigPatch = Partial<
     | 'ingestMaxTokens'
     | 'cronLintEnabled'
     | 'cronLintDailyBudgetCalls'
+    | 'enabledLocales'
   >
 >;
 

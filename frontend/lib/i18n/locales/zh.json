@@ -445,6 +445,13 @@
         "ingestMaxTokensLabel": "Ingest 最大 token（1,000 - 500,000）",
         "cronLintDailyBudgetLabel": "自动 Lint 每日调用上限（0-5000）",
         "cronLintEnabled": "启用每日自动 Lint",
+        "enabledLocales": {
+          "title": "启用语种",
+          "description": "单语 KB 仅在选定语种生成页面；双语 KB 会跨语种生成翻译页（同 translationGroupId 关联）。",
+          "zh": "中文",
+          "en": "英文",
+          "both": "中英双语"
+        },
         "cancel": "取消",
         "save": "保存",
         "loadFailed": "加载设置失败",

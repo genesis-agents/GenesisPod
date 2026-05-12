@@ -308,6 +308,12 @@ export class WikiController {
         typeof body.cronLintDailyBudgetCalls === "number"
           ? body.cronLintDailyBudgetCalls
           : undefined,
+      // W3 v2.0 rebuild：admin 选 KB 启用语种集合（zh / en / 二者）
+      enabledLocales: Array.isArray(body.enabledLocales)
+        ? (body.enabledLocales as unknown[])
+            .filter((v): v is "zh" | "en" => v === "zh" || v === "en")
+            .slice(0, 2)
+        : undefined,
     };
     return this.pageService.updateConfig(req.user.id, kbId, patch);
   }

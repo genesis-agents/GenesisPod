@@ -451,8 +451,11 @@ export class WikiIngestService {
 
     // Compute affectedKeys (slug:locale) from validated items.
     // P3 BLOCKER C2 — collision detection 跨 locale 用 slug:locale 联合 key。
-    // SINGLE mode 默认 'zh',future MULTI mode 由 outline pass 决定 locale。
-    const DEFAULT_LOCALE = "zh";
+    // W3 v2.0 rebuild：DEFAULT_LOCALE 来自 KB config.enabledLocales[0]（admin 选择），
+    //   不再硬编码 'zh'。单语 KB → 该语种；双语 KB → 优先 zh，跨语种翻译走多 pass。
+    //   config 缺失或 enabledLocales 为空 → fallback 'zh' 保 backward compat。
+    const DEFAULT_LOCALE =
+      (config?.enabledLocales?.[0] as "zh" | "en" | undefined) ?? "zh";
     const affectedKeys = [
       ...new Set([
         ...items.creates.map(

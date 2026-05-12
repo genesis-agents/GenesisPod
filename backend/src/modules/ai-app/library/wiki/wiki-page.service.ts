@@ -352,6 +352,8 @@ export class WikiPageService {
         ingestMaxTokens: 80_000,
         cronLintEnabled: true,
         cronLintDailyBudgetCalls: 50,
+        // W3 v2.0 rebuild：兜底默认 ['zh']（与 migration backfill 一致）
+        enabledLocales: ["zh"],
         updatedAt: new Date(),
       }
     );
@@ -371,6 +373,8 @@ export class WikiPageService {
       ingestMaxTokens?: number;
       cronLintEnabled?: boolean;
       cronLintDailyBudgetCalls?: number;
+      /** W3 v2.0 rebuild：KB 启用语种集合（zh / en / 二者）。controller 已过滤白名单。*/
+      enabledLocales?: Array<"zh" | "en">;
     },
   ) {
     await this.assertViewerAccess(userId, knowledgeBaseId);
@@ -421,6 +425,13 @@ export class WikiPageService {
     if (cdb !== undefined) {
       update.cronLintDailyBudgetCalls = cdb;
       create.cronLintDailyBudgetCalls = cdb;
+    }
+    // W3 v2.0 rebuild：enabledLocales 写入。空数组拒绝（不允许"无语种"）。
+    if (patch.enabledLocales !== undefined && patch.enabledLocales.length > 0) {
+      // 去重 + 排序保 deterministic（'en' < 'zh' 按字典序）
+      const sorted = Array.from(new Set(patch.enabledLocales)).sort();
+      update.enabledLocales = { set: sorted };
+      create.enabledLocales = sorted;
     }
 
     return this.prisma.wikiKnowledgeBaseConfig.upsert({

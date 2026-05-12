@@ -7,10 +7,26 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
-import { wikiApi, type WikiKbConfig } from '@/lib/api/wiki';
+import { Loader2, X, Languages } from 'lucide-react';
+import { wikiApi, type WikiKbConfig, type WikiLocale } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
+
+type LocaleMode = 'zh' | 'en' | 'both';
+
+function localesToMode(locales: WikiLocale[] | undefined): LocaleMode {
+  if (!locales || locales.length === 0) return 'zh';
+  const hasZh = locales.includes('zh');
+  const hasEn = locales.includes('en');
+  if (hasZh && hasEn) return 'both';
+  if (hasEn) return 'en';
+  return 'zh';
+}
+
+function modeToLocales(mode: LocaleMode): WikiLocale[] {
+  if (mode === 'both') return ['en', 'zh']; // sorted to match backend dedup+sort
+  return [mode];
+}
 
 export default function WikiSettingsModal({
   kbId,
@@ -57,6 +73,7 @@ export default function WikiSettingsModal({
         ingestMaxTokens: config.ingestMaxTokens,
         cronLintEnabled: config.cronLintEnabled,
         cronLintDailyBudgetCalls: config.cronLintDailyBudgetCalls,
+        enabledLocales: config.enabledLocales,
       });
       setConfig(result);
       onClose();
@@ -206,6 +223,12 @@ export default function WikiSettingsModal({
                   />
                 </label>
               </div>
+              <LocalePickerCard
+                mode={localesToMode(config.enabledLocales)}
+                onChange={(m) =>
+                  setConfig({ ...config, enabledLocales: modeToLocales(m) })
+                }
+              />
             </>
           )}
           {error && (
@@ -257,6 +280,55 @@ function ConfigCard({
       </label>
       <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
       <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function LocalePickerCard({
+  mode,
+  onChange,
+}: {
+  mode: LocaleMode;
+  onChange: (m: LocaleMode) => void;
+}) {
+  const { t } = useTranslation();
+  const options: Array<{ value: LocaleMode; labelKey: string }> = [
+    { value: 'zh', labelKey: 'library.wiki.settings.enabledLocales.zh' },
+    { value: 'en', labelKey: 'library.wiki.settings.enabledLocales.en' },
+    { value: 'both', labelKey: 'library.wiki.settings.enabledLocales.both' },
+  ];
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-500">
+        Languages
+      </div>
+      <div className="mt-2 flex items-center gap-2 text-sm font-medium text-slate-900">
+        <Languages className="h-4 w-4 text-violet-500" />
+        {t('library.wiki.settings.enabledLocales.title')}
+      </div>
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        {t('library.wiki.settings.enabledLocales.description')}
+      </p>
+      <div className="mt-3 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+        {options.map((o) => {
+          const active = mode === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => onChange(o.value)}
+              className={
+                'rounded-lg px-3 py-1.5 text-xs font-medium transition ' +
+                (active
+                  ? 'bg-white text-violet-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900')
+              }
+            >
+              {t(o.labelKey)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

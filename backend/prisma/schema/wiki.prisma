@@ -314,6 +314,10 @@ model WikiKnowledgeBaseConfig {
   ingestSectionFailureToleranceRatio Float              @default(0.2)       @map("ingest_section_failure_tolerance_ratio")
   ingestOutlineMaxPages              Int                @default(30)        @map("ingest_outline_max_pages")
   autoIngestDailyChatCallBudget      Int                @default(50)        @map("auto_ingest_daily_chat_call_budget")
+  /// W3 v2.0 rebuild：admin 选 KB 启用的语种集合（zh / en / 二者）。
+  /// 单语 KB → ingest 只产源语种 page；双语 KB → 跨语种翻译 pass（按 translationGroupId 关联）。
+  /// 默认 ['zh']（保 backward compat）。前端 KB 设置面板暴露 segmented control。
+  enabledLocales            String[] @default(["zh"]) @map("enabled_locales")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
   knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
