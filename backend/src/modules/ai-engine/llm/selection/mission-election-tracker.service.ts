@@ -193,7 +193,7 @@ export class MissionElectionTracker {
   ): Promise<ReservedElectionResult<T>> {
     return this.prisma!.$transaction(async (tx) => {
       await tx.$queryRaw`
-        SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))
+        SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
       `;
       const entry = await this.ensureLoadedDistributedEntry(tx, missionId);
       const { result, electedModelId } = await run(
@@ -423,7 +423,7 @@ export class MissionElectionTracker {
     if (this.prisma) {
       await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw`
-          SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))
+          SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
         `;
         const entry = await this.ensureLoadedDistributedEntry(tx, missionId);
         const changed = await mutate(entry);
@@ -468,7 +468,7 @@ export class MissionElectionTracker {
     if (this.prisma) {
       await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw`
-          SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))
+          SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
         `;
         await tx.missionElectionState.deleteMany({ where: { missionId } });
         this.missions.delete(missionId);
