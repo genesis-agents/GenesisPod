@@ -176,6 +176,98 @@ describe("TaskProfileMapperService", () => {
     });
   });
 
+  // ==================== Non-Reasoning Cap Defense (BYOK protection) ====================
+  // 守护 outputLength='extended' (16K) 在 max output ≤ 8K 的 model 上被 cap 到 model max，
+  // 防 BYOK 路径 (ai-direct-key.service.ts:105) 因 max_tokens 超限被 provider 400。
+  // 双道防线：(1) modelConfig.maxTokens cap (line 137) + (2) getKnownModelLimit() 硬兜底 (line 146)
+  describe("Non-Reasoning Cap Defense (BYOK protection)", () => {
+    it("should cap extended output to modelConfig.maxTokens when model supports less than 16K", () => {
+      // Arrange — 模拟 BYOK 配置 claude-3.5-sonnet (max output 8192)，
+      // 用户 taskProfile 要 extended (16000)
+      const modelConfig = createMockModelConfig({
+        isReasoning: false,
+        modelId: "claude-3.5-sonnet",
+        maxTokens: 8192,
+      });
+
+      // Act
+      const result = service.mapToParameters(
+        { outputLength: "extended" },
+        modelConfig,
+      );
+
+      // Assert — 必须被 cap 到 8192，否则 provider 返回 400
+      expect(result.maxTokens).toBe(8192);
+    });
+
+    it("should cap long output to modelConfig.maxTokens when model is below 8K", () => {
+      const modelConfig = createMockModelConfig({
+        isReasoning: false,
+        modelId: "gpt-3.5-turbo",
+        maxTokens: 4096,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "long" },
+        modelConfig,
+      );
+
+      expect(result.maxTokens).toBe(4096);
+    });
+
+    it("should hard cap via getKnownModelLimit when modelConfig.maxTokens exceeds known API limit", () => {
+      // 防回退场景：DB 里 claude-3.5-sonnet 错填 maxTokens=32000 (API 实际只支持 8192)
+      // mapToParameters 必须用 MODEL_KNOWN_LIMITS 兜底，不能信 DB 错配
+      const modelConfig = createMockModelConfig({
+        isReasoning: false,
+        modelId: "claude-3.5-sonnet",
+        maxTokens: 32000,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "extended" },
+        modelConfig,
+      );
+
+      // 兜底到 MODEL_KNOWN_LIMITS 中 claude-3.5-sonnet 的硬限制 8192
+      expect(result.maxTokens).toBe(8192);
+    });
+
+    it("should allow extended (16K) on model that genuinely supports 16K output (gpt-4o)", () => {
+      // 反向验证：gpt-4o max output 16384，不该被多余 cap
+      const modelConfig = createMockModelConfig({
+        isReasoning: false,
+        modelId: "gpt-4o",
+        maxTokens: 16384,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "extended" },
+        modelConfig,
+      );
+
+      expect(result.maxTokens).toBe(16000);
+    });
+
+    it("should not cap when modelId is unknown and modelConfig.maxTokens is high enough", () => {
+      // 守护：完全未知 model (knownLimit=null) + modelConfig.maxTokens=32000
+      // 走 outputLength 直出，不被 cap (16000 < 32000)
+      const modelConfig = createMockModelConfig({
+        isReasoning: false,
+        modelId: "unknown-model-xyz",
+        maxTokens: 32000,
+      });
+
+      const result = service.mapToParameters(
+        { outputLength: "extended" },
+        modelConfig,
+      );
+
+      // outputLength=extended 原值，不被 cap
+      expect(result.maxTokens).toBe(16000);
+    });
+  });
+
   // ==================== JSON 输出格式测试 ====================
 
   describe("JSON Output Format", () => {
@@ -418,5 +510,3 @@ describe("TaskProfileMapperService", () => {
     });
   });
 });
-
-
