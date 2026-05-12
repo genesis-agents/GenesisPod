@@ -2576,6 +2576,10 @@ model AIModel {
   // 模型优先级（用于 fallback 排序，数字越大优先级越高）
   priority Int @default(50)
 
+  // 2026-05-12: 每分钟请求数上限（RPM），null = caller 用 provider 启发式默认
+  // 用于自适应限速（避免上游 429 风暴），例如 Gemini free tier ≈ 5 RPM
+  rpmLimit Int? @map("rpm_limit")
+
   // 状态
   isEnabled Boolean @default(true) @map("is_enabled")
   isDefault Boolean @default(false) @map("is_default") // 是否为该类型的默认模型
@@ -9341,6 +9345,10 @@ model UserModelConfig {
   isEnabled   Boolean @default(true) @map("is_enabled")
   isDefault   Boolean @default(false) @map("is_default")
   description String? @db.Text
+
+  // 2026-05-12: 每分钟请求数上限（RPM），null = caller 用 provider 启发式默认
+  // 用于自适应限速；BYOK 用户可在配置 UI 自定义（例如 gemini free → 5, paid → 1500）
+  rpmLimit Int? @map("rpm_limit")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

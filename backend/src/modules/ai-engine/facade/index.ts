@@ -249,6 +249,7 @@ export { RAG_PIPELINE_SERVICE_TOKEN } from "@/modules/ai-engine/rag/abstractions
 
 // LLM model fallback types
 export type { ModelFallbackOptions } from "../llm/selection/model-fallback.service";
+export { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 export type { AIModelConfig } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 
 // TeamMemberInfo 是 L2.5 ai-harness/runner 类型，2026-05-01 PR-X-M2 下沉为

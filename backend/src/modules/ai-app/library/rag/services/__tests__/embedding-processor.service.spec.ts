@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { EmbeddingProcessorService } from "../embedding-processor.service";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { RAGFacade } from "@/modules/ai-harness/facade";
+import { AiModelConfigService } from "@/modules/ai-engine/facade";
 
 describe("EmbeddingProcessorService", () => {
   let service: EmbeddingProcessorService;
@@ -36,11 +37,20 @@ describe("EmbeddingProcessorService", () => {
       vector: mockVectorService,
     };
 
+    // pickBYOKModelForUser 默认 openai 高 RPM（避免测试因节流变慢）
+    const mockAiModelConfig = {
+      pickBYOKModelForUser: jest.fn().mockResolvedValue({
+        provider: "openai",
+        rpmLimit: 3000, // 高 RPM → 几乎不限速
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EmbeddingProcessorService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: RAGFacade, useValue: mockAiFacade },
+        { provide: AiModelConfigService, useValue: mockAiModelConfig },
       ],
     }).compile();
 

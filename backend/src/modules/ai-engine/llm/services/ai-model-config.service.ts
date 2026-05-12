@@ -754,6 +754,8 @@ export class AiModelConfigService {
     defaultTimeoutMs: number;
     /** 仅 source='system' 时填，指向 Secret Manager 中的 key 名 */
     secretKey: string | null;
+    /** 每分钟请求数上限；null = caller 用 provider 启发式默认 */
+    rpmLimit: number | null;
   } | null> {
     const userId = userIdOverride ?? RequestContext.getUserId() ?? undefined;
 
@@ -786,6 +788,7 @@ export class AiModelConfigService {
           tokenParamName: userConfig.tokenParamName,
           defaultTimeoutMs: userConfig.defaultTimeoutMs,
           secretKey: null,
+          rpmLimit: userConfig.rpmLimit,
         };
       }
 
@@ -825,6 +828,7 @@ export class AiModelConfigService {
             tokenParamName: m.tokenParamName,
             defaultTimeoutMs: m.defaultTimeoutMs,
             secretKey: m.secretKey,
+            rpmLimit: m.rpmLimit,
           };
         }
       }
@@ -857,6 +861,7 @@ export class AiModelConfigService {
       tokenParamName: m.tokenParamName,
       defaultTimeoutMs: m.defaultTimeoutMs,
       secretKey: m.secretKey,
+      rpmLimit: m.rpmLimit,
     };
   }
 
