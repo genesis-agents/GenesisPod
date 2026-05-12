@@ -181,6 +181,168 @@ describe("ReActLoop (Phase 2)", () => {
     );
   });
 
+  // 2026-05-12 BYOK regression: ReAct loop 之前会先把 admin pricingRegistry 的
+  // cheap-tier 首选模型注入到 chat(model=...)，绕过 ChatService 的
+  // findUserDefaultByType → 用户选了 grok 也会被覆盖成 admin 默认 deepseek →
+  // resolveKey 找不到用户的 deepseek key → PROVIDER_API_ERROR。
+  // 修复（react-loop.ts:568 byokUserId 闸）后：
+  //   - 有 userId 的业务调用：跳过 tier pick，让 chat() 走 BYOK 路径
+  //   - 无 userId 的 cron / 系统任务：仍走 tier pick（admin downgrade 不受影响）
+  describe("BYOK tier-bypass guard (2026-05-12)", () => {
+    function mkPricingRegistry(tierModelId: string) {
+      return {
+        pickModelForTier: jest.fn(() => tierModelId),
+        estimateCost: jest.fn(() => null),
+      };
+    }
+    function mkBudget() {
+      return {
+        snapshot: jest.fn(() => ({ currentTier: "basic" as const })),
+        exhausted: jest.fn(() => false),
+        accountLLM: jest.fn(),
+        warnAt70: jest.fn(),
+        shouldDowngrade: jest.fn(() => false),
+        canDowngrade: jest.fn(() => false),
+        downgrade: jest.fn(),
+      };
+    }
+
+    it("skips admin tier pick when envelope has userId (BYOK path)", async () => {
+      const chat = mkChat([
+        JSON.stringify({
+          thinking: "done",
+          action: { kind: "finalize", output: "ok" },
+        }),
+      ]);
+      const reg = mkToolRegistry({});
+      const hooks = new HookRegistry();
+      const pricingRegistry = mkPricingRegistry("admin-tier-deepseek");
+      const budget = mkBudget();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoker = new ToolInvoker(reg as any);
+      const loop = new ReActLoop(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        chat as any,
+        invoker,
+        hooks,
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pricingRegistry as any,
+      );
+
+      // makeEnvelope() 默认 userId="u1" —— BYOK 路径
+      await drain(
+        loop.run(makeEnvelope(), criteria, {
+          agentId: "a1",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          budget: budget as any,
+        }),
+      );
+
+      // 关键：tier pick 完全不应被调用，因为 byokUserId 存在
+      expect(pricingRegistry.pickModelForTier).not.toHaveBeenCalled();
+      // chat() 收到 model=undefined → 走 modelType=CHAT 路径 → ChatService Path A
+      // 的 findUserDefaultByType 命中用户 BYOK 默认模型
+      expect(chat.chat).toHaveBeenCalledWith(
+        expect.objectContaining({ model: undefined }),
+      );
+    });
+
+    it("uses admin tier pick when envelope has no userId (cron / system task)", async () => {
+      const chat = mkChat([
+        JSON.stringify({
+          thinking: "done",
+          action: { kind: "finalize", output: "ok" },
+        }),
+      ]);
+      const reg = mkToolRegistry({});
+      const hooks = new HookRegistry();
+      const pricingRegistry = mkPricingRegistry("admin-tier-deepseek");
+      const budget = mkBudget();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoker = new ToolInvoker(reg as any);
+      const loop = new ReActLoop(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        chat as any,
+        invoker,
+        hooks,
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pricingRegistry as any,
+      );
+
+      // 自建无 userId 的 envelope（系统任务）
+      const noUserEnv = new ContextEnvelope({
+        system: "You are a helpful assistant.",
+        messages: [{ role: "user", content: "Solve 2+2.", timestamp: 0 }],
+        reminders: [],
+        tools: [],
+        memory: { sessionId: "s1" }, // ★ 无 userId
+        budget: {
+          tokensUsed: 0,
+          tokensRemaining: 10_000,
+          iterationsUsed: 0,
+          iterationsRemaining: 10,
+          wallTimeStartMs: Date.now(),
+        },
+      });
+
+      await drain(
+        loop.run(noUserEnv, criteria, {
+          agentId: "a1",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          budget: budget as any,
+        }),
+      );
+
+      // 无 userId → tier pick 应被调用，admin downgrade 行为保留
+      expect(pricingRegistry.pickModelForTier).toHaveBeenCalled();
+      expect(chat.chat).toHaveBeenCalledWith(
+        expect.objectContaining({ model: "admin-tier-deepseek" }),
+      );
+    });
+
+    it("preferredModelId always wins over both BYOK guard and tier pick", async () => {
+      const chat = mkChat([
+        JSON.stringify({
+          thinking: "done",
+          action: { kind: "finalize", output: "ok" },
+        }),
+      ]);
+      const reg = mkToolRegistry({});
+      const hooks = new HookRegistry();
+      const pricingRegistry = mkPricingRegistry("admin-tier-deepseek");
+      const budget = mkBudget();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const invoker = new ToolInvoker(reg as any);
+      const loop = new ReActLoop(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        chat as any,
+        invoker,
+        hooks,
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pricingRegistry as any,
+      );
+
+      // userId 存在 + caller 显式给 preferredModelId
+      await drain(
+        loop.run(makeEnvelope(), criteria, {
+          agentId: "a1",
+          preferredModelId: "election-grok",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          budget: budget as any,
+        }),
+      );
+
+      // tier pick 不应被调用（preferredModelId 短路在前）
+      expect(pricingRegistry.pickModelForTier).not.toHaveBeenCalled();
+      expect(chat.chat).toHaveBeenCalledWith(
+        expect.objectContaining({ model: "election-grok" }),
+      );
+    });
+  });
+
   it("returns tool error as recoverable; loop continues to next iteration", async () => {
     const chat = mkChat([
       JSON.stringify({

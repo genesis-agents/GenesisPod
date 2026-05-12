@@ -565,13 +565,32 @@ export class ReActLoop implements IAgentLoop {
           modelId?: string;
         };
         try {
+          // 2026-05-12 BYOK fix: 有 userId 上下文时跳过 admin pricing tier 选型——
+          // tier pick 是 admin BudgetAccountant 的 cost downgrade 机制，预设池 = 管
+          // 理员 ai_models（如 cheap tier 首位常被 seed 成 deepseek-chat）。BYOK
+          // 用户付的是自己 provider 的钱，admin tier 完全不相干。一旦把 tierModelId
+          // 透给 chat() 的 model 参数，ChatService Path A (ai-chat.service.ts:1631)
+          // 就跳过 findUserDefaultByType，直接按 admin model.provider 解 key →
+          // resolveKey(userId, "deepseek") → NoAvailableKeyError → ReAct iter=1
+          // PROVIDER_API_ERROR "No API Key available for provider deepseek"（哪怕
+          // 用户其实选的是 grok）。
+          //
+          // 修法：BYOK 路径下 tierModelId=null，让 chat() 收到 model=undefined +
+          // modelType=CHAT + userId → 走 Path A 的 findUserDefaultByType 命中用户
+          // UserModelConfig 的 isDefault。无 userId 的 cron / 系统任务仍走 pricing
+          // tier（admin downgrade 行为不变）。
+          //
+          // options.preferredModelId 显式压制本逻辑（caller 已做 election，应尊重）。
+          const byokUserId = currentEnvelope.memory.userId;
           let tierModelId =
             options?.preferredModelId ??
-            (budget && this.pricingRegistry
-              ? this.pricingRegistry.pickModelForTier(
-                  budget.snapshot().currentTier,
-                )
-              : null);
+            (byokUserId
+              ? null
+              : budget && this.pricingRegistry
+                ? this.pricingRegistry.pickModelForTier(
+                    budget.snapshot().currentTier,
+                  )
+                : null);
           // PR-J: 环境感知 model 可用性
           if (tierModelId && currentEnvelope.runtimeEnv) {
             const avail = await currentEnvelope.runtimeEnv
