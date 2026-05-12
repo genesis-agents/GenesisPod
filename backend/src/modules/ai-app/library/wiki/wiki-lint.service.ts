@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import {
+  AIModelType,
   Prisma,
   WikiLintFinding,
   WikiLintType,
@@ -243,6 +244,7 @@ export class WikiLintService {
                   messages: [{ role: "user", content: user }],
                   responseFormat: "json_object",
                   operationName: "library-wiki-lint-stale",
+                  modelType: AIModelType.CHAT,
                   userId,
                 })
                 .then((r) => ({
@@ -292,6 +294,7 @@ export class WikiLintService {
                 messages: [{ role: "user", content: user }],
                 responseFormat: "json_object",
                 operationName: "library-wiki-lint-contradiction",
+                modelType: AIModelType.CHAT,
                 userId,
               })
               .then((r) => ({
@@ -339,6 +342,7 @@ export class WikiLintService {
                 messages: [{ role: "user", content: user }],
                 responseFormat: "json_object",
                 operationName: "library-wiki-lint-data-gap",
+                modelType: AIModelType.CHAT,
                 userId,
               })
               .then((r) => ({
