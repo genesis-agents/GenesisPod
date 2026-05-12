@@ -131,6 +131,9 @@ export class WikiIngestService {
     documentIds: string[],
   ): Promise<WikiDiff> {
     if (!documentIds || documentIds.length === 0) {
+      this.logger.warn(
+        `[ingest pre] userId=${userId} kb=${knowledgeBaseId} reason=empty-documentIds`,
+      );
       throw new BadRequestException("documentIds must not be empty");
     }
 
@@ -154,9 +157,15 @@ export class WikiIngestService {
     ownerUserId: string,
   ): Promise<WikiDiff> {
     if (!documentIds || documentIds.length === 0) {
+      this.logger.warn(
+        `[ingest pre cron] kb=${knowledgeBaseId} owner=${ownerUserId} reason=empty-documentIds`,
+      );
       throw new BadRequestException("documentIds must not be empty");
     }
     if (!ownerUserId) {
+      this.logger.warn(
+        `[ingest pre cron] kb=${knowledgeBaseId} docs=${documentIds.length} reason=missing-ownerUserId`,
+      );
       throw new BadRequestException(
         "ownerUserId is required for cron ingest (BYOK-only mode)",
       );
@@ -183,6 +192,11 @@ export class WikiIngestService {
     chatUserId: string = recordUserId,
   ): Promise<WikiDiff> {
     const userId = recordUserId;
+    // Entry log — emit BEFORE any throwable so future grep can correlate
+    // start ↔ failure / success on a single ingest run.
+    this.logger.log(
+      `[ingest start] userId=${userId} chatUserId=${chatUserId} kb=${knowledgeBaseId} docs=${documentIds.length}`,
+    );
     // Load + validate documents (must belong to this KB).
     const documents = await this.prisma.knowledgeBaseDocument.findMany({
       where: { id: { in: documentIds }, knowledgeBaseId },
@@ -198,6 +212,12 @@ export class WikiIngestService {
       },
     });
     if (documents.length !== documentIds.length) {
+      const missing = documentIds.filter(
+        (id) => !documents.some((d) => d.id === id),
+      );
+      this.logger.warn(
+        `[ingest load-docs] userId=${userId} kb=${knowledgeBaseId} requested=${documentIds.length} found=${documents.length} missing=${missing.slice(0, 5).join(",")}${missing.length > 5 ? "..." : ""}`,
+      );
       throw new NotFoundException(
         `Some documents not found or do not belong to KB ${knowledgeBaseId}`,
       );
@@ -273,7 +293,7 @@ export class WikiIngestService {
     const skillDef = await this.skillLoader.getSkillById("wiki-ingest");
     if (!skillDef) {
       this.logger.error(
-        "[ingest] wiki-ingest skill not found in SkillLoader; ensure WikiModule.onModuleInit ran",
+        `[ingest skill] userId=${userId} kb=${knowledgeBaseId} reason=wiki-ingest-skill-not-loaded — check WikiModule.onModuleInit`,
       );
       throw new BadRequestException(
         "Wiki ingest skill is not available; please retry",
@@ -332,7 +352,7 @@ export class WikiIngestService {
       });
     } catch (error) {
       this.logger.error(
-        `[ingest] LLM call failed kb=${knowledgeBaseId} docs=${documentIds.length}: ${
+        `[ingest llm] userId=${userId} chatUserId=${chatUserId} kb=${knowledgeBaseId} docs=${documentIds.length} reason=llm-call-failed err=${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -457,7 +477,7 @@ export class WikiIngestService {
     // evidence). Items that legitimately cite zero sources are still allowed.
     if (totalSourcesSeen > 0 && droppedSources === totalSourcesSeen) {
       this.logger.warn(
-        `[ingest] kb=${knowledgeBaseId} rejecting diff: 100% of ${totalSourcesSeen} sources had unknown documentId`,
+        `[ingest sources] userId=${userId} kb=${knowledgeBaseId} reason=all-sources-hallucinated seen=${totalSourcesSeen} dropped=${droppedSources} reasons=${JSON.stringify(droppedByReason)}`,
       );
       throw new BadRequestException(
         "LLM ingest produced no valid source citations; please retry",
@@ -467,7 +487,7 @@ export class WikiIngestService {
     const validated = WikiDiffItemsSchema.safeParse(rawItems);
     if (!validated.success) {
       this.logger.warn(
-        `[ingest] LLM output failed schema validation kb=${knowledgeBaseId}: ${validated.error.message.slice(0, 200)}`,
+        `[ingest schema] userId=${userId} kb=${knowledgeBaseId} reason=zod-validation-failed err=${validated.error.message.slice(0, 300)}`,
       );
       throw new BadRequestException(
         "LLM ingest output failed schema validation; please retry",
@@ -630,6 +650,9 @@ export class WikiIngestService {
     });
 
     if (outline.creates.length === 0 && outline.updates.length === 0) {
+      this.logger.warn(
+        `[ingest/MULTI outline] userId=${userId} kb=${knowledgeBaseId} reason=outline-empty creates=0 updates=0 deletes=${outline.deletes.length}`,
+      );
       throw new BadRequestException(
         "Wiki ingest outline produced 0 pages; please retry",
       );
@@ -783,12 +806,18 @@ export class WikiIngestService {
     const totalItems = allOutlineItems.length;
     const failRate = totalItems === 0 ? 0 : failedSlugs.length / totalItems;
     if (failRate > failureToleranceRatio) {
+      this.logger.warn(
+        `[ingest/MULTI section-fill] userId=${userId} kb=${knowledgeBaseId} reason=failure-rate-exceeds-tolerance failRate=${failRate.toFixed(2)} tolerance=${failureToleranceRatio} failed=${failedSlugs.length}/${totalItems} slugs=${failedSlugs.slice(0, 5).join(",")}${failedSlugs.length > 5 ? "..." : ""}`,
+      );
       throw new BadRequestException(
         `Wiki ingest section-fill failure rate ${failRate.toFixed(2)} exceeds tolerance ${failureToleranceRatio} (${failedSlugs.length}/${totalItems} pages failed)`,
       );
     }
 
     if (sectionResults.length === 0) {
+      this.logger.warn(
+        `[ingest/MULTI section-fill] userId=${userId} kb=${knowledgeBaseId} reason=zero-successful-pages totalItems=${totalItems} failed=${failedSlugs.length}`,
+      );
       throw new BadRequestException(
         "Wiki ingest section-fill produced 0 successful pages; please retry",
       );
@@ -869,7 +898,7 @@ export class WikiIngestService {
     const validated = WikiDiffItemsSchema.safeParse(items);
     if (!validated.success) {
       this.logger.error(
-        `[ingest/MULTI] assembled items failed schema validation kb=${knowledgeBaseId}: ${validated.error.message.slice(0, 300)}`,
+        `[ingest/MULTI assemble] userId=${userId} kb=${knowledgeBaseId} reason=assembled-zod-failed creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length} err=${validated.error.message.slice(0, 300)}`,
       );
       throw new BadRequestException(
         "Wiki MULTI ingest assembled output failed schema validation; please retry",
@@ -961,6 +990,9 @@ export class WikiIngestService {
   }> {
     const skill = await this.skillLoader.getSkillById("wiki-ingest-outline");
     if (!skill) {
+      this.logger.error(
+        `[ingest/MULTI outline] kb=${args.knowledgeBaseId} reason=outline-skill-not-loaded — check WikiModule.onModuleInit`,
+      );
       throw new BadRequestException(
         "Wiki MULTI outline skill not loaded — check WikiModule.onModuleInit",
       );
@@ -998,7 +1030,7 @@ export class WikiIngestService {
       });
     } catch (error) {
       this.logger.error(
-        `[ingest/MULTI/outline] LLM call failed kb=${args.knowledgeBaseId}: ${
+        `[ingest/MULTI outline] chatUserId=${args.chatUserId} kb=${args.knowledgeBaseId} reason=outline-llm-failed err=${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -1084,6 +1116,9 @@ export class WikiIngestService {
   }> {
     const skill = await this.skillLoader.getSkillById("wiki-ingest-section");
     if (!skill) {
+      this.logger.error(
+        `[ingest/MULTI section-fill] kb=${args.knowledgeBaseId} slug=${args.item.slug} reason=section-skill-not-loaded — check WikiModule.onModuleInit`,
+      );
       throw new BadRequestException(
         "Wiki MULTI section skill not loaded — check WikiModule.onModuleInit",
       );
@@ -1127,9 +1162,14 @@ export class WikiIngestService {
         userId: args.chatUserId,
       });
     } catch (error) {
-      throw new Error(
-        `section-fill LLM call failed: ${error instanceof Error ? error.message : String(error)}`,
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `[ingest/MULTI section-fill] chatUserId=${args.chatUserId} kb=${args.knowledgeBaseId} slug=${args.item.slug} reason=section-llm-failed err=${errMsg.slice(0, 300)}`,
       );
+      // Throw plain Error (not BadRequestException): outer Promise.allSettled
+      // wraps this in `rejected` and the per-page failRate gate decides whether
+      // to abort the whole pass — one slow page must not 400 the whole batch.
+      throw new Error(`section-fill LLM call failed: ${errMsg}`);
     }
     const parsed = this.extractJson(raw.content) as Record<string, unknown>;
     const body = typeof parsed.body === "string" ? parsed.body : "";
@@ -1200,6 +1240,9 @@ export class WikiIngestService {
     }
     const skill = await this.skillLoader.getSkillById("wiki-ingest-crosslink");
     if (!skill) {
+      this.logger.error(
+        `[ingest/MULTI cross-link] kb=${args.knowledgeBaseId} pages=${args.pages.length} reason=crosslink-skill-not-loaded — check WikiModule.onModuleInit`,
+      );
       throw new BadRequestException(
         "Wiki MULTI cross-link skill not loaded — check WikiModule.onModuleInit",
       );
@@ -1228,7 +1271,7 @@ export class WikiIngestService {
     } catch (error) {
       // Cross-link failure is recoverable: skip linking, keep bodies as-is.
       this.logger.warn(
-        `[ingest/MULTI/crosslink] failed kb=${args.knowledgeBaseId}: ${error instanceof Error ? error.message : String(error)} — bodies committed without cross-link`,
+        `[ingest/MULTI cross-link] chatUserId=${args.chatUserId} kb=${args.knowledgeBaseId} pages=${args.pages.length} reason=crosslink-llm-failed-soft err=${error instanceof Error ? error.message : String(error)} — bodies committed without cross-link`,
       );
       return { pages: [] };
     }
