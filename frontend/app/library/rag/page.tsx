@@ -31,6 +31,7 @@ import type {
   CreateKnowledgeBaseDto,
 } from '@/hooks/domain/useKnowledgeBase';
 import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
+import { InternalReportsImportPanel } from '@/components/library/import-panels';
 import { toast } from '@/stores';
 
 /**
@@ -342,6 +343,12 @@ export default function RAGPage() {
               {knowledgeBase.sourceType === 'MANUAL' && (
                 <AddDocumentForm knowledgeBaseId={knowledgeBase.id} />
               )}
+
+              {/* 从内部报告（Playground / Topic Insight）导入 */}
+              <InternalReportsImportPanel
+                knowledgeBaseId={knowledgeBase.id}
+                onImportComplete={() => refreshDetail()}
+              />
             </div>
           ) : (
             <div className="flex h-full items-center justify-center">

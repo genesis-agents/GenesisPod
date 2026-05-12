@@ -24,7 +24,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { KnowledgeBaseSourceType } from "@prisma/client";
+import { KnowledgeBaseSourceType, Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "./knowledge-base.service";
 
@@ -66,6 +66,84 @@ export class PlaygroundReportImportService {
     private readonly prisma: PrismaService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
   ) {}
+
+  /**
+   * 列出当前用户所有"可导入"的 mission（completed + 有 reportFull）。
+   *
+   * 用于 KB 创建/详情页的「从 Playground 导入」面板浏览。返回 mission 概况 +
+   * 最新版本号 + 已生成版本数；用户多选后逐条 POST /import-playground-mission。
+   */
+  async listImportableMissions(
+    userId: string,
+    options?: { limit?: number; offset?: number; status?: string },
+  ): Promise<
+    Array<{
+      missionId: string;
+      topic: string;
+      status: string;
+      completedAt: Date | null;
+      startedAt: Date;
+      finalScore: number | null;
+      leaderSigned: boolean | null;
+      reportTitle: string | null;
+      versionCount: number;
+      latestVersion: number;
+    }>
+  > {
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+    const offset = Math.max(options?.offset ?? 0, 0);
+    const status = options?.status ?? "completed";
+
+    const missions = await this.prisma.agentPlaygroundMission.findMany({
+      where: {
+        userId,
+        status,
+        // 必须有 reportFull 或对应的 R2 off-load uri，否则不能装配 markdown
+        OR: [
+          { reportFull: { not: Prisma.JsonNull } },
+          { reportFullUri: { not: null } },
+        ],
+      },
+      select: {
+        id: true,
+        topic: true,
+        status: true,
+        startedAt: true,
+        completedAt: true,
+        finalScore: true,
+        leaderSigned: true,
+        reportTitle: true,
+        reportVersions: {
+          select: { version: true },
+          orderBy: { version: "desc" },
+          take: 1,
+        },
+        _count: { select: { reportVersions: true } },
+      },
+      orderBy: [{ completedAt: "desc" }, { startedAt: "desc" }],
+      take: limit,
+      skip: offset,
+    });
+
+    return missions.map((m) => {
+      const hasVersions = m._count.reportVersions > 0;
+      const latestVersion = hasVersions
+        ? (m.reportVersions[0]?.version ?? 1)
+        : 1;
+      return {
+        missionId: m.id,
+        topic: m.topic,
+        status: m.status,
+        completedAt: m.completedAt,
+        startedAt: m.startedAt,
+        finalScore: m.finalScore,
+        leaderSigned: m.leaderSigned,
+        reportTitle: m.reportTitle,
+        versionCount: hasVersions ? m._count.reportVersions : 1,
+        latestVersion,
+      };
+    });
+  }
 
   /**
    * 列出用户某个 mission 的所有版本（供前端版本选择器用）。

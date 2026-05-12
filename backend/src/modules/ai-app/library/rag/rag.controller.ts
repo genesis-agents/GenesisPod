@@ -680,6 +680,52 @@ export class RAGController {
   //   - PlaygroundReport: agent-playground mission 报告（含 rerun versions）
   //   - TopicReport: topic-insights 话题报告（含 incremental refresh versions）
   // 设计：library 直接读 source 表（PrismaService），不反向 import source module。
+  //
+  // UX 流程（用户在 KB 详情页操作）：
+  //   1. 选 KB 详情页 → 「添加文档」面板 → 「从 Playground 导入」
+  //   2. GET /rag/importable-playground-missions 列我的所有 mission
+  //   3. 多选 mission（默认导入最新版本）→ 可选展开版本列表
+  //      GET .../knowledge-bases/:id/importable-playground-missions/:missionId/versions
+  //   4. 提交 → 逐条 POST .../knowledge-bases/:id/import-playground-mission
+
+  @Get("importable-playground-missions")
+  @ApiOperation({
+    summary: "List user's Playground missions available for KB import",
+  })
+  async listImportableMissions(
+    @Req() req: RequestWithUser,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+    @Query("status") status?: string,
+  ) {
+    return {
+      missions: await this.playgroundReportImport.listImportableMissions(
+        req.user.id,
+        {
+          limit: limit ? Number(limit) : undefined,
+          offset: offset ? Number(offset) : undefined,
+          status,
+        },
+      ),
+    };
+  }
+
+  @Get("importable-topic-reports")
+  @ApiOperation({
+    summary: "List user's Topic Insight topics available for KB import",
+  })
+  async listImportableTopics(
+    @Req() req: RequestWithUser,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ) {
+    return {
+      topics: await this.topicReportImport.listImportableTopics(req.user.id, {
+        limit: limit ? Number(limit) : undefined,
+        offset: offset ? Number(offset) : undefined,
+      }),
+    };
+  }
 
   @Get("knowledge-bases/:id/importable-playground-missions/:missionId/versions")
   @ApiOperation({

@@ -41,6 +41,85 @@ export class TopicReportImportService {
   ) {}
 
   /**
+   * 列出当前用户所有"可导入"的 topics（含 reports 数）。
+   *
+   * 用于 KB 创建/详情页的「从 Topic Insight 导入」面板浏览。返回 topic 概况 +
+   * 最新报告版本号；用户多选后逐条 POST /import-topic-report。
+   */
+  async listImportableTopics(
+    userId: string,
+    options?: { limit?: number; offset?: number },
+  ): Promise<
+    Array<{
+      topicId: string;
+      name: string;
+      type: string;
+      status: string;
+      lastRefreshAt: Date | null;
+      totalReports: number;
+      latestReportVersion: number | null;
+      latestGeneratedAt: Date | null;
+    }>
+  > {
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+    const offset = Math.max(options?.offset ?? 0, 0);
+
+    const topics = await this.prisma.researchTopic.findMany({
+      where: {
+        userId,
+        // 必须至少有一份报告才能导入
+        totalReports: { gt: 0 },
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        status: true,
+        lastRefreshAt: true,
+        totalReports: true,
+      },
+      orderBy: { lastRefreshAt: "desc" },
+      take: limit,
+      skip: offset,
+    });
+
+    // For each topic, fetch latest report version + generatedAt
+    if (topics.length === 0) return [];
+    const topicIds = topics.map((t) => t.id);
+    const latestReports = await this.prisma.topicReport.findMany({
+      where: { topicId: { in: topicIds } },
+      select: { topicId: true, version: true, generatedAt: true },
+      orderBy: [{ topicId: "asc" }, { version: "desc" }],
+    });
+    const latestByTopic = new Map<
+      string,
+      { version: number; generatedAt: Date }
+    >();
+    for (const r of latestReports) {
+      if (!latestByTopic.has(r.topicId)) {
+        latestByTopic.set(r.topicId, {
+          version: r.version,
+          generatedAt: r.generatedAt,
+        });
+      }
+    }
+
+    return topics.map((t) => {
+      const latest = latestByTopic.get(t.id);
+      return {
+        topicId: t.id,
+        name: t.name,
+        type: t.type,
+        status: t.status,
+        lastRefreshAt: t.lastRefreshAt,
+        totalReports: t.totalReports,
+        latestReportVersion: latest?.version ?? null,
+        latestGeneratedAt: latest?.generatedAt ?? null,
+      };
+    });
+  }
+
+  /**
    * 列出某 topic 下所有报告 version。
    */
   async listVersions(
