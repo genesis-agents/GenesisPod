@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import {
   BadRequestException,
   ForbiddenException,
@@ -6,31 +5,11 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import pLimit from "p-limit";
-import {
-  AIModelType,
-  Prisma,
-  WikiDiff,
-  WikiDiffStatus,
-  WikiIngestPassMode,
-} from "@prisma/client";
+import { AIModelType, Prisma, WikiDiff, WikiDiffStatus } from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../rag/services/knowledge-base.service";
 import { WikiDiffService } from "./wiki-diff.service";
-import {
-  WikiDiffItemsSchema,
-  type WikiDiffItems,
-} from "./dto/wiki-diff-items.schema";
-import {
-  WikiOutlineSchema,
-  type WikiOutline,
-  type WikiOutlineCreateItem,
-  type WikiOutlineUpdateItem,
-} from "./dto/wiki-ingest-outline.schema";
-import {
-  WikiSectionFillSchema,
-  type WikiSectionFill,
-} from "./dto/wiki-ingest-section.schema";
+import { WikiDiffItemsSchema } from "./dto/wiki-diff-items.schema";
 import {
   AiChatService,
   SkillLoaderService,
@@ -67,96 +46,6 @@ export interface WikiIngestMetrics {
   avgBodyLength: number;
   /** fraction of CREATE pages whose body contains at least one `## ` H2 header. */
   h2CoverageRate: number;
-  /** Which pass mode produced the diff (SINGLE / MULTI). */
-  passMode: WikiIngestPassMode;
-  /**
-   * Multi-pass observability snapshot. `null` for SINGLE-mode runs to keep
-   * the field strictly additive (no breaking change to existing consumers).
-   */
-  multiPass: WikiMultiPassMetrics | null;
-}
-
-/**
- * Multi-pass orchestration observability (P2 commit 4/5 — 2026-05-12 §P2).
- *
- * Surfaced via `lastIngestMetrics.multiPass` so spec / E2E / future API can
- * gate on §P2 退场条件 (partial-progress count, outline truncation rate,
- * crosslink insertion volume) without re-parsing the persisted JSON.
- */
-export interface WikiMultiPassMetrics {
-  /** Outline pass: total `creates` items returned by the LLM (pre-truncate). */
-  outlineCreates: number;
-  /** Outline pass: total `updates` items returned by the LLM. */
-  outlineUpdates: number;
-  /** Outline pass: total `deletes` items returned by the LLM. */
-  outlineDeletes: number;
-  /** Outline pass: how many CREATE entries were dropped by the ingestOutlineMaxPages cap. */
-  outlineTruncated: number;
-  /** Section-fill pass: pages that produced valid output. */
-  sectionFillSuccessful: number;
-  /** Section-fill pass: pages that failed (LLM error, schema fail, slug mismatch, etc). */
-  sectionFillFailed: number;
-  /** Section-fill pass: slug list for failed pages — surfaced to spec for assertion. */
-  sectionFillFailedSlugs: string[];
-  /** Cross-link pass: total `insertions` injected into final bodies. */
-  crosslinkInsertions: number;
-  /** Final diff carried a `partial=true` metadata flag (some section-fill failed). */
-  partial: boolean;
-}
-
-/**
- * Per-ingest-session circuit breaker for multi-pass orchestration
- * (P2 commit 4, BLOCKER B6 of the 2026-05-12 consensus).
- *
- * Counts failures per pass type so a runaway provider does not waste the
- * entire BYOK budget retrying the same failing slug. Intentionally
- * INSTANCE-scoped (created per `ingestInternal` call) — never module-level
- * state, which would cross-pollute between concurrent ingests on the same
- * service singleton (claude-code-build 反向洞察 #8).
- *
- * Thresholds are intentionally hard-coded constants here (not config knobs):
- *  - outline: 3 consecutive failures → block (outline is a single call so 3
- *    means 3 sequential retries — overkill in practice, kept for symmetry).
- *  - section: 3 failures per slug → that slug is skipped for the rest of
- *    the session even if it gets retried by an upstream caller.
- *  - crosslink: 3 failures → block (crosslink fail-closed, kept for
- *    symmetry with the other two).
- */
-class WikiIngestCircuitBreaker {
-  private static readonly THRESHOLD = 3;
-  private outlineFailures = 0;
-  private crosslinkFailures = 0;
-  private readonly sectionFailuresBySlug = new Map<string, number>();
-
-  recordOutlineFailure(): void {
-    this.outlineFailures += 1;
-  }
-
-  recordSectionFailure(slug: string): void {
-    this.sectionFailuresBySlug.set(
-      slug,
-      (this.sectionFailuresBySlug.get(slug) ?? 0) + 1,
-    );
-  }
-
-  recordCrosslinkFailure(): void {
-    this.crosslinkFailures += 1;
-  }
-
-  isOutlineBlocked(): boolean {
-    return this.outlineFailures >= WikiIngestCircuitBreaker.THRESHOLD;
-  }
-
-  isSectionBlocked(slug: string): boolean {
-    return (
-      (this.sectionFailuresBySlug.get(slug) ?? 0) >=
-      WikiIngestCircuitBreaker.THRESHOLD
-    );
-  }
-
-  isCrosslinkBlocked(): boolean {
-    return this.crosslinkFailures >= WikiIngestCircuitBreaker.THRESHOLD;
-  }
 }
 
 /**
@@ -202,8 +91,7 @@ export interface WikiIngestCandidate {
  *     with structured JSON output, NO multi-turn agent loop
  *     (MECE rule 1: engine knows no agent/mission state).
  *  6. Parse LLM JSON response → zod validate → persist WikiDiff with
- *     status=PENDING and affectedKeys (`slug:locale` composites) computed
- *     from items — see BLOCKER C2 in the 2026-05-12 consensus archive
+ *     status=PENDING and affectedSlugs computed from items
  *  7. Return diffId for subsequent /diffs/:diffId fetch + apply
  */
 @Injectable()
@@ -287,6 +175,7 @@ export class WikiIngestService {
     documentIds: string[],
     chatUserId: string = recordUserId,
   ): Promise<WikiDiff> {
+    const userId = recordUserId;
     // Load + validate documents (must belong to this KB).
     const documents = await this.prisma.knowledgeBaseDocument.findMany({
       where: { id: { in: documentIds }, knowledgeBaseId },
@@ -310,12 +199,6 @@ export class WikiIngestService {
       where: { knowledgeBaseId },
     });
     const ingestMaxTokens = config?.ingestMaxTokens ?? 80_000;
-    const passMode: WikiIngestPassMode =
-      config?.ingestPassMode ?? WikiIngestPassMode.SINGLE;
-    const ingestOutlineMaxPages = config?.ingestOutlineMaxPages ?? 30;
-    const ingestSectionConcurrency = config?.ingestSectionConcurrency ?? 3;
-    const ingestSectionFailureToleranceRatio =
-      config?.ingestSectionFailureToleranceRatio ?? 0.2;
 
     // Approximate char budget per doc (~4 chars per token).
     const totalCharBudget = ingestMaxTokens * 4;
@@ -353,67 +236,6 @@ export class WikiIngestService {
       },
       orderBy: { slug: "asc" },
     });
-
-    if (passMode === WikiIngestPassMode.MULTI) {
-      return this.runMultiMode({
-        recordUserId,
-        chatUserId,
-        knowledgeBaseId,
-        documentIds,
-        wrappedDocs,
-        currentIndex,
-        allowedDocumentIds,
-        baselineHash,
-        ingestOutlineMaxPages,
-        ingestSectionConcurrency,
-        ingestSectionFailureToleranceRatio,
-      });
-    }
-
-    return this.runSingleMode({
-      recordUserId,
-      chatUserId,
-      knowledgeBaseId,
-      documentIds,
-      wrappedDocs,
-      currentIndex,
-      allowedDocumentIds,
-      baselineHash,
-    });
-  }
-
-  // ─── SINGLE mode (legacy one-shot ingest) ──────────────────────────────────
-
-  /**
-   * Legacy SINGLE-pass ingest preserved verbatim (backward compat). Drives
-   * the original `wiki-ingest` skill in one chat.chat() call and runs the
-   * exact same soft-drop + zod + persist pipeline shared with MULTI mode.
-   */
-  private async runSingleMode(params: {
-    recordUserId: string;
-    chatUserId: string;
-    knowledgeBaseId: string;
-    documentIds: string[];
-    wrappedDocs: string[];
-    currentIndex: Array<{
-      slug: string;
-      title: string;
-      category: string;
-      oneLiner: string;
-    }>;
-    allowedDocumentIds: Set<string>;
-    baselineHash: string;
-  }): Promise<WikiDiff> {
-    const {
-      recordUserId,
-      chatUserId,
-      knowledgeBaseId,
-      documentIds,
-      wrappedDocs,
-      currentIndex,
-      allowedDocumentIds,
-      baselineHash,
-    } = params;
 
     // Resolve the system prompt from the registered `wiki-ingest` skill
     // (skills/wiki-ingest.skill.md → PromptSkillBridge.registerDomain("library")
@@ -467,501 +289,6 @@ export class WikiIngestService {
 
     // Parse LLM JSON into items shape.
     const rawItems = this.extractJson(llmResponse.content);
-
-    return this.softDropAndPersist({
-      rawItems,
-      allowedDocumentIds,
-      knowledgeBaseId,
-      recordUserId,
-      baselineHash,
-      passMode: WikiIngestPassMode.SINGLE,
-      multiPassMetrics: null,
-    });
-  }
-
-  // ─── MULTI mode (outline → section-fill → cross-link, P2 commit 4/5) ──────
-
-  /**
-   * Multi-pass ingest pipeline (2026-05-12 consensus §P2).
-   *
-   * 1. `passOutline` — single LLM call returns the planned diff shape
-   *    (creates/updates/deletes + sectionSkeleton per page + groupLabel for
-   *    translation dedup). Service rewrites groupLabel → crypto.randomUUID()
-   *    so the LLM cannot hallucinate or repeat UUIDs (BLOCKER C7).
-   * 2. `passSectionFill` — N parallel LLM calls (one per page), throttled
-   *    via p-limit at `ingestSectionConcurrency`. Tolerates up to
-   *    `ingestSectionFailureToleranceRatio` failures, upserts each
-   *    successful page to WikiIngestDraft for partial-progress recovery
-   *    (BLOCKER B2). Each invocation gets its own per-pass wrappedDocs
-   *    clone to avoid cache prefix mutation (B 反洞察 #3).
-   * 3. `passCrossLink` (commit 5) — single LLM call returns insertion
-   *    positions; service injects `[[link]]` markers and re-hashes bodies.
-   *
-   * Commit 4 lands steps 1 + 2 + a TODO for step 3. Until commit 5 lands,
-   * MULTI mode throws at the end of section-fill rather than committing
-   * a half-baked diff. SINGLE mode remains the production default.
-   */
-  private async runMultiMode(params: {
-    recordUserId: string;
-    chatUserId: string;
-    knowledgeBaseId: string;
-    documentIds: string[];
-    wrappedDocs: string[];
-    currentIndex: Array<{
-      slug: string;
-      title: string;
-      category: string;
-      oneLiner: string;
-    }>;
-    allowedDocumentIds: Set<string>;
-    baselineHash: string;
-    ingestOutlineMaxPages: number;
-    ingestSectionConcurrency: number;
-    ingestSectionFailureToleranceRatio: number;
-  }): Promise<WikiDiff> {
-    const {
-      chatUserId,
-      knowledgeBaseId,
-      wrappedDocs,
-      currentIndex,
-      ingestOutlineMaxPages,
-      ingestSectionConcurrency,
-      ingestSectionFailureToleranceRatio,
-    } = params;
-
-    const breaker = new WikiIngestCircuitBreaker();
-    const draftSessionId = randomUUID();
-
-    // Pass 1: outline.
-    const outlineResult = await this.passOutline({
-      knowledgeBaseId,
-      chatUserId,
-      currentIndex,
-      wrappedDocs,
-      breaker,
-    });
-
-    // Truncate creates to ingestOutlineMaxPages — protects BYOK budget when
-    // the LLM over-produces pages (e.g. one page per paragraph).
-    let outlineTruncated = 0;
-    if (outlineResult.outline.creates.length > ingestOutlineMaxPages) {
-      outlineTruncated =
-        outlineResult.outline.creates.length - ingestOutlineMaxPages;
-      this.logger.warn(
-        `[ingest] kb=${knowledgeBaseId} outline produced ${outlineResult.outline.creates.length} > limit ${ingestOutlineMaxPages}, truncating ${outlineTruncated}`,
-      );
-      outlineResult.outline.creates = outlineResult.outline.creates.slice(
-        0,
-        ingestOutlineMaxPages,
-      );
-    }
-
-    const outlineCreates = outlineResult.outline.creates.length;
-    const outlineUpdates = outlineResult.outline.updates.length;
-    const outlineDeletes = outlineResult.outline.deletes.length;
-
-    // Pass 2: section-fill (parallel, fail-tolerant).
-    const sectionResult = await this.passSectionFill({
-      knowledgeBaseId,
-      chatUserId,
-      outline: outlineResult.outline,
-      wrappedDocs,
-      breaker,
-      draftSessionId,
-      concurrency: ingestSectionConcurrency,
-      failureToleranceRatio: ingestSectionFailureToleranceRatio,
-    });
-
-    // TODO(commit 5): pass 3 cross-link + assemble final WikiDiffItems +
-    // softDropAndPersist. Until then MULTI mode cannot land a complete diff;
-    // throw a clear error rather than persist a partial one. SINGLE mode
-    // (default) is unaffected.
-    const multiPassMetrics: WikiMultiPassMetrics = {
-      outlineCreates,
-      outlineUpdates,
-      outlineDeletes,
-      outlineTruncated,
-      sectionFillSuccessful: sectionResult.successful.length,
-      sectionFillFailed: sectionResult.failedSlugs.length,
-      sectionFillFailedSlugs: sectionResult.failedSlugs,
-      crosslinkInsertions: 0,
-      partial: sectionResult.failedSlugs.length > 0,
-    };
-    this.logger.warn(
-      `[ingest] kb=${knowledgeBaseId} MULTI mode step 3 (cross-link + assembly) not yet implemented — section-fill produced ${sectionResult.successful.length} pages, failed ${sectionResult.failedSlugs.length}`,
-    );
-    // Stash the metrics so spec / E2E can observe the partial run.
-    this.lastIngestMetrics = {
-      truncatedOneLiners: 0,
-      droppedSources: 0,
-      totalSourcesSeen: 0,
-      droppedByReason: {
-        notObject: 0,
-        unknownDoc: 0,
-        spanInvalid: 0,
-        quoteInvalid: 0,
-      },
-      pageCount: sectionResult.successful.length,
-      avgBodyLength: 0,
-      h2CoverageRate: 0,
-      passMode: WikiIngestPassMode.MULTI,
-      multiPass: multiPassMetrics,
-    };
-    throw new BadRequestException(
-      "Wiki ingest MULTI mode cross-link + assembly pending; please retry",
-    );
-  }
-
-  // ─── Multi-pass building blocks ────────────────────────────────────────────
-
-  /**
-   * Outline pass — single LLM call returns the planned shape of the diff.
-   *
-   * Force-regenerates `translationGroupId` server-side: the LLM emits a
-   * free-form `groupLabel` (e.g. "NVIDIA Blackwell GPU") and the service
-   * dedups labels then assigns a fresh `crypto.randomUUID()` per unique
-   * group. Any UUID the LLM happens to mint is IGNORED (BLOCKER C7 of the
-   * 2026-05-12 consensus — LLMs reliably hallucinate UUIDs and re-emit ones
-   * seen in earlier context).
-   */
-  private async passOutline(params: {
-    knowledgeBaseId: string;
-    chatUserId: string;
-    currentIndex: Array<{
-      slug: string;
-      title: string;
-      category: string;
-      oneLiner: string;
-    }>;
-    wrappedDocs: string[];
-    breaker: WikiIngestCircuitBreaker;
-  }): Promise<{
-    outline: WikiOutline;
-    groupIdsBySlug: Map<string, string>;
-  }> {
-    const { knowledgeBaseId, chatUserId, currentIndex, wrappedDocs, breaker } =
-      params;
-
-    if (breaker.isOutlineBlocked()) {
-      throw new BadRequestException(
-        "Wiki ingest outline pass circuit-breaker tripped; please retry later",
-      );
-    }
-
-    const skillDef = await this.skillLoader.getSkillById("wiki-ingest-outline");
-    if (!skillDef) {
-      this.logger.error(
-        "[ingest] wiki-ingest-outline skill not found in SkillLoader",
-      );
-      throw new BadRequestException(
-        "Wiki ingest outline skill is not available; please retry",
-      );
-    }
-    const systemPrompt = skillDef.content;
-    // Per-pass wrappedDocs slice — defensive clone so a later pass cannot
-    // mutate this prefix and break Anthropic prompt-cache hits (B 反洞察 #3).
-    const passDocs = wrappedDocs.slice();
-    const userPrompt = this.buildUserPrompt(currentIndex, passDocs);
-
-    let response: Awaited<ReturnType<typeof this.chat.chat>>;
-    try {
-      response = await this.chat.chat({
-        messages: [{ role: "user", content: userPrompt }],
-        systemPrompt,
-        modelType: AIModelType.CHAT,
-        taskProfile: {
-          creativity: "deterministic",
-          // outputLength stays 'long' (8K) per BLOCKER #1 — BYOK provider
-          // ceilings (gpt-4o / Claude Sonnet thinking-off / Grok-2 all 8192)
-          // make 'extended' unsafe across the user base.
-          outputLength: "long",
-        },
-        responseFormat: "json_object",
-        operationName: "library-wiki-ingest-outline",
-        userId: chatUserId,
-      });
-    } catch (error) {
-      breaker.recordOutlineFailure();
-      this.logger.error(
-        `[ingest:outline] LLM call failed kb=${knowledgeBaseId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      throw new BadRequestException(
-        "Wiki ingest outline LLM call failed; please retry",
-      );
-    }
-
-    const rawJson = this.extractJson(response.content);
-    const parsed = WikiOutlineSchema.safeParse(rawJson);
-    if (!parsed.success) {
-      breaker.recordOutlineFailure();
-      this.logger.warn(
-        `[ingest:outline] schema validation failed kb=${knowledgeBaseId}: ${parsed.error.message.slice(0, 200)}`,
-      );
-      throw new BadRequestException(
-        "Wiki ingest outline output failed schema validation; please retry",
-      );
-    }
-    const outline = parsed.data;
-
-    // Service-side groupLabel → crypto.randomUUID() rewrite (BLOCKER C7).
-    // Dedup labels case-insensitively + trimmed so cosmetic variants
-    // ("NVIDIA Blackwell" vs " nvidia blackwell ") still share one group.
-    const labelToGroupId = new Map<string, string>();
-    const groupIdsBySlug = new Map<string, string>();
-    for (const create of outline.creates) {
-      const labelKey = create.groupLabel.trim().toLowerCase();
-      let groupId = labelToGroupId.get(labelKey);
-      if (!groupId) {
-        groupId = randomUUID();
-        labelToGroupId.set(labelKey, groupId);
-      }
-      groupIdsBySlug.set(create.slug, groupId);
-    }
-    this.logger.log(
-      `[ingest:outline] kb=${knowledgeBaseId} creates=${outline.creates.length} updates=${outline.updates.length} deletes=${outline.deletes.length} groups=${labelToGroupId.size}`,
-    );
-
-    return { outline, groupIdsBySlug };
-  }
-
-  /**
-   * Section-fill pass — N parallel LLM calls, one per page from the outline.
-   *
-   * Uses p-limit to cap concurrency at `ingestSectionConcurrency` (BLOCKER
-   * B3: pure parallelism would torch the BYOK provider TPM/RPM budget on
-   * its first run). Each call is independent + stateless; a single failure
-   * just removes that slug from the diff without aborting the rest
-   * (BLOCKER B2 partial-progress).
-   *
-   * Each successful page is upserted to WikiIngestDraft so a mid-pass
-   * crash can recover already-completed work on the next attempt.
-   */
-  private async passSectionFill(params: {
-    knowledgeBaseId: string;
-    chatUserId: string;
-    outline: WikiOutline;
-    wrappedDocs: string[];
-    breaker: WikiIngestCircuitBreaker;
-    draftSessionId: string;
-    concurrency: number;
-    failureToleranceRatio: number;
-  }): Promise<{
-    successful: WikiSectionFill[];
-    failedSlugs: string[];
-  }> {
-    const {
-      knowledgeBaseId,
-      chatUserId,
-      outline,
-      wrappedDocs,
-      breaker,
-      draftSessionId,
-      concurrency,
-      failureToleranceRatio,
-    } = params;
-
-    const skillDef = await this.skillLoader.getSkillById("wiki-ingest-section");
-    if (!skillDef) {
-      this.logger.error(
-        "[ingest] wiki-ingest-section skill not found in SkillLoader",
-      );
-      throw new BadRequestException(
-        "Wiki ingest section skill is not available; please retry",
-      );
-    }
-    const systemPrompt = skillDef.content;
-
-    // Build the per-page work list. Each entry is independent; we run them
-    // through a p-limit gate so the LLM provider sees ≤ `concurrency` in
-    // flight at any instant (deliberate throttle, NOT a retry loop).
-    type SectionTask = {
-      slug: string;
-      kind: "create" | "update";
-      item: WikiOutlineCreateItem | WikiOutlineUpdateItem;
-    };
-    const tasks: SectionTask[] = [
-      ...outline.creates.map<SectionTask>((c) => ({
-        slug: c.slug,
-        kind: "create",
-        item: c,
-      })),
-      ...outline.updates.map<SectionTask>((u) => ({
-        slug: u.slug,
-        kind: "update",
-        item: u,
-      })),
-    ];
-    const total = tasks.length;
-
-    if (total === 0) {
-      return { successful: [], failedSlugs: [] };
-    }
-
-    const limit = pLimit(Math.max(1, concurrency));
-    const successful: WikiSectionFill[] = [];
-    const failedSlugs: string[] = [];
-
-    await Promise.all(
-      tasks.map((task) =>
-        limit(async () => {
-          // Skip slugs that have already tripped the per-slug breaker; protects
-          // BYOK budget against pathological inputs that fail deterministically.
-          if (breaker.isSectionBlocked(task.slug)) {
-            failedSlugs.push(task.slug);
-            return;
-          }
-
-          // Per-pass wrappedDocs clone — protect Anthropic prompt-cache prefix
-          // from mutation across parallel pages (B 反洞察 #3).
-          const passDocs = wrappedDocs.slice();
-          const userPrompt = this.buildSectionFillUserPrompt(task, passDocs);
-
-          let response: Awaited<ReturnType<typeof this.chat.chat>>;
-          try {
-            response = await this.chat.chat({
-              messages: [{ role: "user", content: userPrompt }],
-              systemPrompt,
-              modelType: AIModelType.CHAT,
-              taskProfile: {
-                creativity: "deterministic",
-                outputLength: "long",
-              },
-              responseFormat: "json_object",
-              operationName: "library-wiki-ingest-section",
-              userId: chatUserId,
-            });
-          } catch (error) {
-            breaker.recordSectionFailure(task.slug);
-            this.logger.warn(
-              `[ingest:section] kb=${knowledgeBaseId} slug=${task.slug} LLM call failed: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-            failedSlugs.push(task.slug);
-            return;
-          }
-
-          const rawJson = this.extractJson(response.content);
-          const parsed = WikiSectionFillSchema.safeParse(rawJson);
-          if (!parsed.success) {
-            breaker.recordSectionFailure(task.slug);
-            this.logger.warn(
-              `[ingest:section] kb=${knowledgeBaseId} slug=${task.slug} schema validation failed: ${parsed.error.message.slice(0, 200)}`,
-            );
-            failedSlugs.push(task.slug);
-            return;
-          }
-          const section = parsed.data;
-          if (section.slug !== task.slug) {
-            breaker.recordSectionFailure(task.slug);
-            this.logger.warn(
-              `[ingest:section] kb=${knowledgeBaseId} slug mismatch: outline=${task.slug} llm=${section.slug}`,
-            );
-            failedSlugs.push(task.slug);
-            return;
-          }
-          // Section-fill explicit failure protocol: skill md says "return
-          // empty body + empty sources to signal cannot-write". Treat as a
-          // failure so the outer threshold + partial-progress logic kicks in.
-          if (section.body.trim().length === 0) {
-            breaker.recordSectionFailure(task.slug);
-            this.logger.warn(
-              `[ingest:section] kb=${knowledgeBaseId} slug=${task.slug} empty-body signal — counting as failure`,
-            );
-            failedSlugs.push(task.slug);
-            return;
-          }
-
-          successful.push(section);
-
-          // Partial-progress checkpoint (BLOCKER B2). Upsert by
-          // (diffSessionId, slug, locale) so a retry replaces an earlier
-          // attempt instead of creating duplicates. `locale` defaults to
-          // 'zh' until P3 multi-locale ships.
-          try {
-            await this.prisma.wikiIngestDraft.upsert({
-              where: {
-                diffSessionId_pageSlug_locale: {
-                  diffSessionId: draftSessionId,
-                  pageSlug: task.slug,
-                  locale: "zh",
-                },
-              },
-              create: {
-                knowledgeBaseId,
-                diffSessionId: draftSessionId,
-                pageSlug: task.slug,
-                locale: "zh",
-                body: section as unknown as Prisma.InputJsonValue,
-              },
-              update: {
-                body: section as unknown as Prisma.InputJsonValue,
-              },
-            });
-          } catch (error) {
-            // Draft checkpoint is best-effort recovery. A persist failure
-            // here does NOT invalidate the section content — log and move on.
-            this.logger.warn(
-              `[ingest:section] kb=${knowledgeBaseId} slug=${task.slug} draft upsert failed (non-fatal): ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-          }
-        }),
-      ),
-    );
-
-    // Failure-tolerance gate (BLOCKER B2).
-    const failureRatio = failedSlugs.length / total;
-    if (failureRatio > failureToleranceRatio) {
-      this.logger.warn(
-        `[ingest:section] kb=${knowledgeBaseId} failure ratio ${failureRatio.toFixed(2)} exceeds tolerance ${failureToleranceRatio} (failed ${failedSlugs.length}/${total})`,
-      );
-      throw new BadRequestException(
-        `Wiki ingest section-fill failed too often (${failedSlugs.length}/${total} pages); please retry`,
-      );
-    }
-    if (failedSlugs.length > 0) {
-      this.logger.warn(
-        `[ingest:section] kb=${knowledgeBaseId} partial success: ${successful.length}/${total} pages; failed slugs: ${failedSlugs.join(", ")}`,
-      );
-    } else {
-      this.logger.log(
-        `[ingest:section] kb=${knowledgeBaseId} all ${total} pages filled successfully`,
-      );
-    }
-
-    return { successful, failedSlugs };
-  }
-
-  // ─── Shared persistence path (used by SINGLE + future MULTI commit 5) ─────
-
-  /**
-   * Pre-clean + zod validate + persist a WikiDiff. Extracted so SINGLE and
-   * MULTI modes share the same soft-drop / oneLiner-trim / affectedKeys /
-   * metrics logic. Mutates `rawItems` in place via the same logic that
-   * lived inline in the original ingestInternal.
-   */
-  private async softDropAndPersist(params: {
-    rawItems: unknown;
-    allowedDocumentIds: Set<string>;
-    knowledgeBaseId: string;
-    recordUserId: string;
-    baselineHash: string;
-    passMode: WikiIngestPassMode;
-    multiPassMetrics: WikiMultiPassMetrics | null;
-  }): Promise<WikiDiff> {
-    const {
-      rawItems,
-      allowedDocumentIds,
-      knowledgeBaseId,
-      recordUserId,
-      baselineHash,
-      passMode,
-      multiPassMetrics,
-    } = params;
 
     // Pre-clean: drop sources that fail any of the 4 source-schema invariants
     // (one bad cite must not 400 the whole diff — per feedback_llm_id_must_be_
@@ -1092,7 +419,7 @@ export class WikiIngestService {
         "LLM ingest output failed schema validation; please retry",
       );
     }
-    const items: WikiDiffItems = validated.data;
+    const items = validated.data;
     if (droppedSources > 0) {
       const breakdown = Object.entries(droppedByReason)
         .filter(([, n]) => n > 0)
@@ -1103,27 +430,21 @@ export class WikiIngestService {
       );
     }
 
-    // Compute affectedKeys from validated items.
-    //
-    // BLOCKER C2 (2026-05-12 multi-pass-and-locale consensus): each entry
-    // is `slug:locale` so the diff-apply collision check (see
-    // wiki-diff.service.ts) can let two diffs touching the same slug in
-    // different locales proceed concurrently — they target disjoint
-    // WikiPage rows under the locale-aware unique constraint
-    // ([knowledgeBaseId, slug, locale]).
-    //
-    // zod schema `.default('zh')` guarantees `c.locale` / `u.locale` are
-    // always populated (LLM output need not include `locale` — see
-    // dto/wiki-diff-items.schema.ts BLOCKER C6). The slug-only `deletes`
-    // array uses the DEFAULT_WIKI_LOCALE 'zh' — this matches the
-    // single-source-of-truth in wiki-diff.service.ts (parseAffectedKey
-    // /makeAffectedKey). When a multi-locale `{slug, locale}` deletes
-    // shape lands, update BOTH sites together.
+    // Compute affectedKeys (slug:locale) from validated items.
+    // P3 BLOCKER C2 — collision detection 跨 locale 用 slug:locale 联合 key。
+    // SINGLE mode 默认 'zh',future MULTI mode 由 outline pass 决定 locale。
+    const DEFAULT_LOCALE = "zh";
     const affectedKeys = [
       ...new Set([
-        ...items.creates.map((c) => `${c.slug}:${c.locale}`),
-        ...items.updates.map((u) => `${u.slug}:${u.locale}`),
-        ...items.deletes.map((s) => `${s}:zh`),
+        ...items.creates.map(
+          (c) =>
+            `${c.slug}:${(c as { locale?: string }).locale ?? DEFAULT_LOCALE}`,
+        ),
+        ...items.updates.map(
+          (u) =>
+            `${u.slug}:${(u as { locale?: string }).locale ?? DEFAULT_LOCALE}`,
+        ),
+        ...items.deletes.map((s) => `${s}:${DEFAULT_LOCALE}`),
       ]),
     ];
 
@@ -1135,12 +456,12 @@ export class WikiIngestService {
         items: items as unknown as Prisma.InputJsonValue,
         baselineHash,
         affectedKeys,
-        createdByUserId: recordUserId,
+        createdByUserId: userId,
       },
     });
 
     this.logger.log(
-      `[ingest] kb=${knowledgeBaseId} diff=${diff.id} mode=${passMode} creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length}`,
+      `[ingest] kb=${knowledgeBaseId} diff=${diff.id} creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length}`,
     );
 
     // P1 commit 3 — Reviewer D 建议 expose 可观测 metric so spec / future
@@ -1166,8 +487,6 @@ export class WikiIngestService {
       pageCount: pages.length,
       avgBodyLength,
       h2CoverageRate,
-      passMode,
-      multiPass: multiPassMetrics,
     };
 
     return diff;
@@ -1350,44 +669,6 @@ export class WikiIngestService {
       "## New documents to ingest",
       ...wrappedDocs,
     ].join("\n\n");
-  }
-
-  /**
-   * Build the per-page user prompt for the section-fill pass.
-   *
-   * The skill prompt expects the page identity (slug + title + category) plus
-   * the section skeleton from the outline pass, followed by the wrapped raw
-   * documents the LLM may cite. `priorBody` is intentionally omitted in P2
-   * commit 4 — UPDATE flows still get the slug + new skeleton; preserving
-   * prior body content is a P2 commit 5 / P3 follow-up.
-   */
-  private buildSectionFillUserPrompt(
-    task: {
-      slug: string;
-      kind: "create" | "update";
-      item: WikiOutlineCreateItem | WikiOutlineUpdateItem;
-    },
-    wrappedDocs: string[],
-  ): string {
-    const lines: string[] = [];
-    lines.push(`## Page identity`);
-    lines.push(`- slug: ${task.slug}`);
-    lines.push(`- kind: ${task.kind.toUpperCase()}`);
-    if (task.kind === "create") {
-      const item = task.item as WikiOutlineCreateItem;
-      lines.push(`- title: ${item.title}`);
-      lines.push(`- category: ${item.category}`);
-      lines.push(`- groupLabel: ${item.groupLabel}`);
-    }
-    lines.push("");
-    lines.push("## Section skeleton (emit these H2 headings in this order)");
-    for (const heading of task.item.sectionSkeleton) {
-      lines.push(`- ${heading}`);
-    }
-    lines.push("");
-    lines.push("## Raw documents available for citation");
-    lines.push(...wrappedDocs);
-    return lines.join("\n");
   }
 
   private extractJson(content: string): unknown {
