@@ -298,8 +298,17 @@ export {
 
 // Content fetching (URL → markdown/transcript) — used by ai-app/library/document/preparse
 // for W1 预解析管线（YouTube transcript / 网页正文 / SSRF guard 一体化）
-export { ContentFetchService } from "@/modules/ai-engine/content/fetch";
-export type { FetchedContent } from "@/modules/ai-engine/content/fetch";
+//
+// Re-export directly from concrete files (NOT the `./content/fetch` barrel)
+// — the barrel's first export is `ContentFetchModule`, and when ai-app code
+// goes `import { ContentFetchService } from ".../facade"` during a parent
+// module's decorator evaluation, the barrel forces ContentFetchModule's
+// own `@Module({ imports: [ContentProcessingModule, ...] })` decorator to
+// run. Under the prod CJS load order (AppModule → AdminModule → AiEngineModule)
+// `ContentProcessingModule` is still mid-evaluation, so `imports[0]` lands
+// as `undefined` and Nest bootstrap crashes (incident 2026-05-12).
+export { ContentFetchService } from "@/modules/ai-engine/content/fetch/content-fetch.service";
+export type { FetchedContent } from "@/modules/ai-engine/content/fetch/content-fetch.types";
 
 // RAG types & services
 export { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
