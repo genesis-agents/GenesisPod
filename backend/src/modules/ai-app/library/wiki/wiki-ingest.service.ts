@@ -333,6 +333,34 @@ export class WikiIngestService {
       };
       if (Array.isArray(obj.creates)) filterArr(obj.creates);
       if (Array.isArray(obj.updates)) filterArr(obj.updates);
+
+      // Soft-truncate oneLiner / newOneLiner to schema max (280) instead of
+      // letting one bloated summary 400 the entire diff. Same three-prong
+      // logic as sources: prompt says "≤ 280", service trims defensively,
+      // zod is the last-resort net (per
+      // feedback_llm_id_must_be_in_prompt_and_whitelist).
+      let truncatedOneLiners = 0;
+      const trimOneLiner = (
+        arr: unknown[],
+        field: "oneLiner" | "newOneLiner",
+      ) => {
+        for (const it of arr) {
+          if (!it || typeof it !== "object") continue;
+          const o = it as Record<string, unknown>;
+          const v = o[field];
+          if (typeof v === "string" && v.length > 280) {
+            o[field] = v.slice(0, 277).trimEnd() + "...";
+            truncatedOneLiners += 1;
+          }
+        }
+      };
+      if (Array.isArray(obj.creates)) trimOneLiner(obj.creates, "oneLiner");
+      if (Array.isArray(obj.updates)) trimOneLiner(obj.updates, "newOneLiner");
+      if (truncatedOneLiners > 0) {
+        this.logger.warn(
+          `[ingest] kb=${knowledgeBaseId} soft-truncated ${truncatedOneLiners} oneLiner(s) over 280 chars`,
+        );
+      }
     }
 
     // If the LLM tried to cite at all but every single citation was

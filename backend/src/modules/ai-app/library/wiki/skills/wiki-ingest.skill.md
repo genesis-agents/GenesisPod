@@ -36,7 +36,9 @@ Each page must have:
 - title: human-readable
 - category: ENTITY | CONCEPT | SUMMARY | SOURCE
 - body: full markdown
-- oneLiner: ≤ 280 chars summary
+- oneLiner: HARD LIMIT 280 characters. Keep it to one short sentence
+  (English ≈ 40 words, Chinese ≈ 80 字). Anything longer is REJECTED and the
+  entire diff fails. Write the body for detail; keep oneLiner punchy.
 - sources: cite the documents used. EVERY source object MUST include ALL FOUR
   fields: `documentId` (string from the supplied doc IDs), `spanStart` (number,
   integer ≥ 0 — start char offset in raw doc), `spanEnd` (number, integer ≥
