@@ -134,7 +134,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     {
       href: '/agent-playground',
       label: t('nav.playground'),
-      icon: 'lightbulb',
+      icon: 'flask',
       activeClass: 'bg-purple-50',
       prefix: true,
     },
@@ -664,21 +664,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* AI 商店 / 工具市场 — 暂时不要；管理后台直接接在创新 Labs 下 */}
-
-              {isAdmin && (
-                <Link
-                  href="/admin/overview"
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActivePrefix('/admin')
-                      ? 'bg-purple-50 text-gray-900'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {getIcon('settings')}
-                  <span>{t('nav.admin')}</span>
-                </Link>
-              )}
+              {/* AI 商店 / 工具市场 — 暂时不要 */}
             </div>
           </div>
 
@@ -705,6 +691,23 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
             <div className="mt-4 border-t border-gray-200 pt-4">
               <UserProfileButton isCollapsed={false} />
             </div>
+
+            {/* 系统 (admin entry, below username) */}
+            {isAdmin && (
+              <div className="mt-2">
+                <Link
+                  href="/admin/overview"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${
+                    isActivePrefix('/admin')
+                      ? 'bg-purple-50 text-gray-900'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  {getIcon('settings')}
+                  <span>{t('nav.system')}</span>
+                </Link>
+              </div>
+            )}
 
             {/* Language Switcher */}
             <div className="mt-3">

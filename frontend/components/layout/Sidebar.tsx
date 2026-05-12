@@ -681,6 +681,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             }`}
             title={t('nav.playground')}
           >
+            {/* 2026-05-12: 烧瓶图标（实验场语义），与 AI Ask 的 lightbulb 区分。 */}
             <svg
               className="h-5 w-5 flex-shrink-0"
               fill="none"
@@ -691,7 +692,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"
               />
             </svg>
             {showExpanded && <span>{t('nav.playground')}</span>}
@@ -777,39 +778,8 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </>
           )}
 
-          {/* 管理后台 — 直接接在创新 Labs 下，admin only */}
-          {isAdmin && (
-            <Link
-              href="/admin/overview"
-              className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
-                pathname?.startsWith('/admin')
-                  ? 'bg-purple-50 text-gray-900'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-              title={t('nav.admin')}
-            >
-              <svg
-                className="h-5 w-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-              {showExpanded && <span>{t('nav.admin')}</span>}
-            </Link>
-          )}
+          {/* 管理后台已挪到底部 (UserProfileButton 下方)，统一"账号/系统/语言"
+              收纳到底部分区，主导航只承载内容性入口。2026-05-12 用户反馈 Screenshot_57。 */}
         </div>
       </nav>
 
@@ -871,6 +841,41 @@ export default function Sidebar({ className = '' }: SidebarProps) {
         <div>
           <UserProfileButton isCollapsed={!showExpanded} />
         </div>
+
+        {/* 系统 (admin only) — 2026-05-12: 挪到 UserProfileButton 下方，
+            与"账号/语言"同列归到底部分区。布局与 notifications 一致。 */}
+        {isAdmin && (
+          <Link
+            href="/admin/overview"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/admin')
+                ? 'bg-purple-50 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.system')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            {showExpanded && <span>{t('nav.system')}</span>}
+          </Link>
+        )}
 
         {/* Language Switcher */}
         <LanguageSwitcher variant={showExpanded ? 'sidebar' : 'icon'} />
