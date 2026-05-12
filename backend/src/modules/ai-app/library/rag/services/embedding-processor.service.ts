@@ -19,6 +19,20 @@ import { AiModelConfigService } from "@/modules/ai-engine/facade";
 import { LruMap } from "@/common/utils/lru-map";
 
 const BATCH_SIZE = 50;
+/**
+ * 单 batch token 数硬上限（独立于 BATCH_SIZE 行数）。
+ *
+ * 2026-05-12 真因：早先 BATCH_SIZE=50 只按 chunk 行数切批，但大文档（如刚导入的
+ * Playground 报告 ~230K 字 / 7 万 token）chunker 切出来每段 ~1500 token，50 行一批
+ * 直接装 75K token —— 远超 Gemini embedding 单 request 容量、也超 admin TPM
+ * 限额（20K），第一批就 429。
+ *
+ * 修法：每批按 token 数累积切，达到 cap 就提前断批；不动 BATCH_SIZE 上限。
+ *   - 15K = Gemini free TPM(30K)的 50% headroom，留余地避免 TPM 滚动窗撞顶
+ *   - 也低于 Gemini text-embedding/embedding-001 单 request 容量
+ *   - 单个 chunk 自身 >15K（罕见）时仍单独发一批，让 google 报错而非卡死
+ */
+const BATCH_TOKEN_CAP = 15_000;
 const COOLDOWN_RETRY_BUFFER_MS = 500; // 醒来再多等 500ms 让熔断器闭合
 const COOLDOWN_MAX_WAIT_MS = 90_000; // 最长等 90s, 超过认为上游问题不重试
 
@@ -265,11 +279,46 @@ export class EmbeddingProcessorService {
     let lastBatchAt = 0; // 上一次 batch 完成的时间戳
     const tokenWindow: Array<{ ts: number; tokens: number }> = [];
 
-    for (let i = 0; i < totalNeeded; i += BATCH_SIZE) {
-      const batch = chunksWithoutEmbeddings.slice(i, i + BATCH_SIZE);
+    // 2026-05-12 真因修：按 token 数动态切批（不只 chunk 行数）。
+    //   大文档（如 230K 字 Playground 报告）chunker 切出 ~1500T/chunk，
+    //   纯 BATCH_SIZE=50 → 75K T/batch 必爆 google 30K TPM。
+    //   现在 row cap 仍 BATCH_SIZE，但 token 累积达到 BATCH_TOKEN_CAP 提前断批。
+    type BatchEntry = (typeof chunksWithoutEmbeddings)[number];
+    const tokenAwareBatches: Array<{ chunks: BatchEntry[]; tokens: number }> =
+      [];
+    {
+      let cur: BatchEntry[] = [];
+      let curTokens = 0;
+      for (const c of chunksWithoutEmbeddings) {
+        const t = estimateTokens(c.content);
+        // 装不下且当前批非空 → flush；保证最小 1 chunk/batch（避免单 chunk
+        // 自身 > cap 时永远塞不下）。
+        if (cur.length > 0 && curTokens + t > BATCH_TOKEN_CAP) {
+          tokenAwareBatches.push({ chunks: cur, tokens: curTokens });
+          cur = [];
+          curTokens = 0;
+        }
+        cur.push(c);
+        curTokens += t;
+        if (cur.length >= BATCH_SIZE) {
+          tokenAwareBatches.push({ chunks: cur, tokens: curTokens });
+          cur = [];
+          curTokens = 0;
+        }
+      }
+      if (cur.length > 0) {
+        tokenAwareBatches.push({ chunks: cur, tokens: curTokens });
+      }
+    }
+
+    this.logger.log(
+      `[embedding] sliced ${totalNeeded} chunks into ${tokenAwareBatches.length} token-aware batches (cap=${BATCH_TOKEN_CAP}T, row-cap=${BATCH_SIZE})`,
+    );
+
+    for (let bi = 0; bi < tokenAwareBatches.length; bi++) {
+      const { chunks: batch, tokens: batchTokens } = tokenAwareBatches[bi];
       const texts = batch.map((chunk) => chunk.content);
-      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-      const batchTokens = texts.reduce((sum, t) => sum + estimateTokens(t), 0);
+      const batchNum = bi + 1;
 
       // RPM 节流：本次 batch 距上次至少 minIntervalMs
       if (lastBatchAt > 0) {
