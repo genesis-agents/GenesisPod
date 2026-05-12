@@ -23,6 +23,8 @@ import OcrUploadPanel from '../import-panels/OcrUploadPanel';
 import ResourceSelectPanel from './ResourceSelectPanel';
 import GoogleDriveImportPanel from '../import-panels/GoogleDriveImportPanel';
 import NotionImportPanel from '../import-panels/NotionImportPanel';
+import InternalReportsImportPanel from '../import-panels/InternalReportsImportPanel';
+import { Brain, Lightbulb } from 'lucide-react';
 
 type PanelType =
   | 'main'
@@ -32,7 +34,9 @@ type PanelType =
   | 'url'
   | 'bookmark'
   | 'note'
-  | 'ocr';
+  | 'ocr'
+  | 'playground-reports'
+  | 'topic-reports';
 
 // Source configurations - easy to extend
 const EXTERNAL_SOURCES = [
@@ -78,6 +82,22 @@ const PLATFORM_SOURCES = [
     icon: StickyNote,
     color: 'text-yellow-600',
     bgColor: 'bg-yellow-100',
+  },
+  {
+    id: 'playground-reports' as PanelType,
+    label: 'Playground 报告',
+    description: '从 agent-playground 完成的 mission 报告导入',
+    icon: Brain,
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-100',
+  },
+  {
+    id: 'topic-reports' as PanelType,
+    label: 'Topic Insight 报告',
+    description: '从话题洞察生成的报告导入',
+    icon: Lightbulb,
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-100',
   },
 ];
 
@@ -141,6 +161,10 @@ export default function AddDocumentsDialog({
         return 'Notes';
       case 'ocr':
         return 'Image OCR';
+      case 'playground-reports':
+        return 'Playground 报告';
+      case 'topic-reports':
+        return 'Topic Insight 报告';
       default:
         return 'Add Content';
     }
@@ -261,6 +285,22 @@ export default function AddDocumentsDialog({
           <OcrUploadPanel
             knowledgeBaseId={knowledgeBaseId}
             onImportComplete={handleImportComplete}
+          />
+        );
+      case 'playground-reports':
+        return (
+          <InternalReportsImportPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+            mode="playground"
+          />
+        );
+      case 'topic-reports':
+        return (
+          <InternalReportsImportPanel
+            knowledgeBaseId={knowledgeBaseId}
+            onImportComplete={handleImportComplete}
+            mode="topic"
           />
         );
       default:

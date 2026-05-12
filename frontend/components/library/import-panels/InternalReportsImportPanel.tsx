@@ -59,6 +59,11 @@ interface InternalReportsImportPanelProps {
   knowledgeBaseId: string;
   onImportComplete?: (count: number) => void;
   disabled?: boolean;
+  /**
+   * 限定单一源时（如 AddDocumentsDialog 的主页面已用卡片分流到两个子面板），
+   * 传 'playground' 或 'topic'，组件不再渲染 tab 切换；不传 = 双 tab 模式。
+   */
+  mode?: 'playground' | 'topic';
 }
 
 type TabKey = 'playground' | 'topic';
@@ -67,8 +72,9 @@ export default function InternalReportsImportPanel({
   knowledgeBaseId,
   onImportComplete,
   disabled = false,
+  mode,
 }: InternalReportsImportPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>('playground');
+  const [activeTab, setActiveTab] = useState<TabKey>(mode ?? 'playground');
   const [missions, setMissions] = useState<PlaygroundMissionRow[]>([]);
   const [topics, setTopics] = useState<TopicRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -253,52 +259,64 @@ export default function InternalReportsImportPanel({
 
   // ─── Render ───────────────────────────────────────────────────────
 
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold text-gray-900">从内部报告导入</h3>
-        <button
-          type="button"
-          onClick={() =>
-            activeTab === 'playground'
-              ? void fetchMissions()
-              : void fetchTopics()
-          }
-          disabled={loading}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-          刷新
-        </button>
-      </div>
+  // standalone = 独立挂载（/library/rag 详情页）有外层卡片 + tab；
+  // !standalone = 作为 AddDocumentsDialog 的子面板，外层 modal 已提供框架 + 标题，
+  //               只渲染列表 + 操作栏
+  const standalone = mode === undefined;
 
-      {/* Tabs */}
-      <div className="mb-4 flex gap-1 border-b border-gray-200">
-        <TabButton
-          active={activeTab === 'playground'}
-          onClick={() => setActiveTab('playground')}
-          icon={<Brain className="h-3.5 w-3.5" />}
-        >
-          Playground 报告
-          {missions.length > 0 && (
-            <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
-              {missions.length}
-            </span>
-          )}
-        </TabButton>
-        <TabButton
-          active={activeTab === 'topic'}
-          onClick={() => setActiveTab('topic')}
-          icon={<Lightbulb className="h-3.5 w-3.5" />}
-        >
-          Topic Insight 报告
-          {topics.length > 0 && (
-            <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
-              {topics.length}
-            </span>
-          )}
-        </TabButton>
-      </div>
+  return (
+    <div
+      className={
+        standalone ? 'rounded-lg border border-gray-200 bg-white p-6' : ''
+      }
+    >
+      {standalone && (
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">从内部报告导入</h3>
+          <button
+            type="button"
+            onClick={() =>
+              activeTab === 'playground'
+                ? void fetchMissions()
+                : void fetchTopics()
+            }
+            disabled={loading}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
+        </div>
+      )}
+
+      {standalone && (
+        <div className="mb-4 flex gap-1 border-b border-gray-200">
+          <TabButton
+            active={activeTab === 'playground'}
+            onClick={() => setActiveTab('playground')}
+            icon={<Brain className="h-3.5 w-3.5" />}
+          >
+            Playground 报告
+            {missions.length > 0 && (
+              <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
+                {missions.length}
+              </span>
+            )}
+          </TabButton>
+          <TabButton
+            active={activeTab === 'topic'}
+            onClick={() => setActiveTab('topic')}
+            icon={<Lightbulb className="h-3.5 w-3.5" />}
+          >
+            Topic Insight 报告
+            {topics.length > 0 && (
+              <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
+                {topics.length}
+              </span>
+            )}
+          </TabButton>
+        </div>
+      )}
 
       {/* Status / error */}
       {error && (
