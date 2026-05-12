@@ -770,6 +770,8 @@ export class ModelFallbackService {
       provider: model.provider,
       modelId: model.modelId,
       apiEndpoint: model.apiEndpoint,
+      // 2026-05-12 BYOK 单源：admin 兼容路径透传 AIModel.apiKey 明文列；业务消费方应走
+      // KeyResolver.resolveKey(userId, provider)，不要直读此字段。PR-4 双源收尾后删除.
       apiKey: model.apiKey,
       maxTokens: model.maxTokens,
       temperature: model.temperature,

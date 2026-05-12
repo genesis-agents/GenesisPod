@@ -2517,7 +2517,11 @@ model AIModel {
 
   // API配置
   apiEndpoint String  @map("api_endpoint") @db.Text // API endpoint URL
-  apiKey      String? @map("api_key") @db.Text // 加密存储的API Key (兼容旧数据)
+  /// ★ 2026-05-12 BYOK 单源：业务路径必须走 UserApiKey + KeyResolver，不再读 apiKey 明文列.
+  /// 仅 admin 配置链路保留兼容旧数据（model-fallback / ai-model-config / ai-chat-model-config
+  /// 三处 buildConfig 透传），PR-4 双源收尾后删除整列. 详见 image-generation.service.ts:60-67
+  /// 注释链 + commit 519b84c9e.
+  apiKey      String? @map("api_key") @db.Text
   secretKey   String? @map("secret_key") @db.VarChar(100) // 引用 Secret Manager 中的密钥名称
 
   // 模型参数

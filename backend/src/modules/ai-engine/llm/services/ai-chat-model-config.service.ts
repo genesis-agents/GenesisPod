@@ -97,6 +97,7 @@ export class AiChatModelConfigService {
       provider: model.provider,
       modelId: model.modelId,
       apiEndpoint: model.apiEndpoint,
+      // 2026-05-12 BYOK 单源：admin 兼容路径透传明文 apiKey；业务消费方走 KeyResolver, PR-4 收尾后删除.
       apiKey: model.apiKey,
       secretKey: model.secretKey,
       maxTokens: model.maxTokens,
@@ -438,4 +439,3 @@ export class AiChatModelConfigService {
     return dynamicTimeout;
   }
 }
-

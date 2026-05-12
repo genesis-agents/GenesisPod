@@ -255,6 +255,7 @@ export class AiModelConfigService {
       provider: model.provider as string,
       modelId: model.modelId as string,
       apiEndpoint: model.apiEndpoint as string,
+      // 2026-05-12 BYOK 单源：admin 兼容路径透传明文 apiKey；业务消费方走 KeyResolver, PR-4 收尾后删除.
       apiKey: (model.apiKey as string | null) || null,
       secretKey: (model.secretKey as string | null) || undefined, // ★ 添加 secretKey 以支持 Secret Manager
       maxTokens: model.maxTokens as number,
