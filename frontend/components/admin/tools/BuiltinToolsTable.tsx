@@ -36,6 +36,7 @@ import {
 } from '@/lib/admin/tool-categories';
 import { useToolSecretSuggestions } from '@/lib/admin/tool-secrets';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
+import { SecretComboBox } from './_shared/SecretComboBox';
 
 interface ToolRow {
   id: string;
@@ -438,9 +439,10 @@ function BuiltinToolDrawer({
   const [secretKeyDraft, setSecretKeyDraft] = useState(tool?.secretKey ?? '');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  // 秘钥下拉建议：仅 INTEGRATION + OTHER 类别 + 名称相似度排序
+  // 秘钥下拉建议：双闸过滤（credential 模式 + toolId 命中）+ 截顶 30
   // 共享真源在 @/lib/admin/tool-secrets
-  const secretNames = useToolSecretSuggestions(tool?.toolId);
+  const { names: secretNames, loading: secretsLoading } =
+    useToolSecretSuggestions(tool?.toolId);
 
   useEffect(() => {
     setApiKeyDraft('');
@@ -594,25 +596,18 @@ function BuiltinToolDrawer({
                 方式 2：引用 Secret Manager（推荐）
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="search"
-                  name={`tool-secret-ref-${tool.toolId}`}
-                  autoComplete="off"
-                  list={`secret-names-builtin-${tool.toolId}`}
+                <SecretComboBox
                   value={secretKeyDraft}
-                  onChange={(e) => setSecretKeyDraft(e.target.value)}
+                  onChange={setSecretKeyDraft}
+                  suggestions={secretNames}
+                  loading={secretsLoading}
+                  inputName={`tool-secret-ref-${tool.toolId}`}
                   placeholder={
                     secretNames.length > 0
                       ? `从 ${secretNames.length} 个已配置秘钥选择 / 输入新名称`
                       : 'secret key name (如 perplexity_api_key)'
                   }
-                  className="font-mono flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                <datalist id={`secret-names-builtin-${tool.toolId}`}>
-                  {secretNames.map((n) => (
-                    <option key={n} value={n} />
-                  ))}
-                </datalist>
                 <button
                   type="button"
                   onClick={() => void saveApiKey('secretKey')}
@@ -622,12 +617,10 @@ function BuiltinToolDrawer({
                   保存引用
                 </button>
               </div>
-              {secretNames.length > 0 && (
-                <p className="text-[11px] text-gray-500">
-                  下拉显示 admin 已在 Secret Manager
-                  创建的秘钥；也可手输未列出的新名称
-                </p>
-              )}
+              <p className="text-[11px] text-gray-500">
+                点击 ▼ 展开 admin 已在 Secret Manager
+                创建的秘钥；也可手输列表外的新名称
+              </p>
             </div>
 
             {(tool.secretKey ||
