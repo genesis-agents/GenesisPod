@@ -32,11 +32,6 @@ import {
   type WikiSectionFill,
 } from "./dto/wiki-ingest-section.schema";
 import {
-  WikiCrosslinkSchema,
-  type WikiCrosslink,
-  type WikiCrosslinkInsertion,
-} from "./dto/wiki-ingest-crosslink.schema";
-import {
   AiChatService,
   SkillLoaderService,
   wrapExternalContent,
@@ -577,40 +572,10 @@ export class WikiIngestService {
       failureToleranceRatio: ingestSectionFailureToleranceRatio,
     });
 
-    // If section-fill produced zero successful pages but had updates +
-    // deletes from the outline, we can still ship a deletes-only diff.
-    // Otherwise (no successes AND no deletes/updates) there's nothing to
-    // commit — fail-closed.
-    const hasAnyContent =
-      sectionResult.successful.length > 0 ||
-      outlineResult.outline.deletes.length > 0;
-    if (!hasAnyContent) {
-      this.logger.warn(
-        `[ingest] kb=${knowledgeBaseId} MULTI mode produced no committable items (0 successful section-fills, 0 deletes)`,
-      );
-      throw new BadRequestException(
-        "Wiki ingest produced no committable pages; please retry",
-      );
-    }
-
-    // Pass 3: cross-link (fail-closed — a missing crosslink pass means we
-    // ship pages without `[[link]]` stitching, which is worse than retry).
-    const crosslink = await this.passCrossLink({
-      knowledgeBaseId,
-      chatUserId,
-      pages: sectionResult.successful,
-      currentIndex,
-      breaker,
-    });
-
-    // Merge: section bodies + crosslink insertions + outline updates/deletes
-    // → WikiDiffItems-shaped raw object that softDropAndPersist consumes.
-    const merged = this.mergeIntoWikiDiffItems({
-      outline: outlineResult.outline,
-      successful: sectionResult.successful,
-      crosslink,
-    });
-
+    // TODO(commit 5): pass 3 cross-link + assemble final WikiDiffItems +
+    // softDropAndPersist. Until then MULTI mode cannot land a complete diff;
+    // throw a clear error rather than persist a partial one. SINGLE mode
+    // (default) is unaffected.
     const multiPassMetrics: WikiMultiPassMetrics = {
       outlineCreates,
       outlineUpdates,
@@ -619,22 +584,32 @@ export class WikiIngestService {
       sectionFillSuccessful: sectionResult.successful.length,
       sectionFillFailed: sectionResult.failedSlugs.length,
       sectionFillFailedSlugs: sectionResult.failedSlugs,
-      crosslinkInsertions: merged.totalInsertions,
+      crosslinkInsertions: 0,
       partial: sectionResult.failedSlugs.length > 0,
     };
-    this.logger.log(
-      `[ingest] kb=${knowledgeBaseId} MULTI mode merged: creates=${merged.items.creates.length} updates=${merged.items.updates.length} deletes=${merged.items.deletes.length} insertions=${merged.totalInsertions} partial=${multiPassMetrics.partial}`,
+    this.logger.warn(
+      `[ingest] kb=${knowledgeBaseId} MULTI mode step 3 (cross-link + assembly) not yet implemented — section-fill produced ${sectionResult.successful.length} pages, failed ${sectionResult.failedSlugs.length}`,
     );
-
-    return this.softDropAndPersist({
-      rawItems: merged.items,
-      allowedDocumentIds: params.allowedDocumentIds,
-      knowledgeBaseId,
-      recordUserId: params.recordUserId,
-      baselineHash: params.baselineHash,
+    // Stash the metrics so spec / E2E can observe the partial run.
+    this.lastIngestMetrics = {
+      truncatedOneLiners: 0,
+      droppedSources: 0,
+      totalSourcesSeen: 0,
+      droppedByReason: {
+        notObject: 0,
+        unknownDoc: 0,
+        spanInvalid: 0,
+        quoteInvalid: 0,
+      },
+      pageCount: sectionResult.successful.length,
+      avgBodyLength: 0,
+      h2CoverageRate: 0,
       passMode: WikiIngestPassMode.MULTI,
-      multiPassMetrics,
-    });
+      multiPass: multiPassMetrics,
+    };
+    throw new BadRequestException(
+      "Wiki ingest MULTI mode cross-link + assembly pending; please retry",
+    );
   }
 
   // ─── Multi-pass building blocks ────────────────────────────────────────────
@@ -961,269 +936,7 @@ export class WikiIngestService {
     return { successful, failedSlugs };
   }
 
-  /**
-   * Cross-link pass — single LLM call returns insertion positions per page.
-   *
-   * Fail-closed: any LLM error / schema validation failure aborts the whole
-   * diff. The skill prompt allows empty `insertions: []` arrays so the LLM
-   * can return "no good cross-links to suggest" without erroring; a true
-   * call failure means we'd ship pages without stitching, which is worse
-   * than retry.
-   *
-   * Service-side validation on top of zod:
-   *  - linkSlug MUST exist in linkableSlugs (slugs the diff produces or
-   *    existing pages in the wiki index). Out-of-set links are dropped
-   *    rather than failing the whole diff.
-   *  - position MUST be within [0, body.length]. Out-of-range positions
-   *    are dropped.
-   *  - The skill asks the LLM to avoid code blocks / inline code / existing
-   *    `[[...]]` links / Sources sections. We do NOT re-validate those zones
-   *    here (would require a markdown parser); the prompt is the primary
-   *    guard.
-   */
-  private async passCrossLink(params: {
-    knowledgeBaseId: string;
-    chatUserId: string;
-    pages: WikiSectionFill[];
-    currentIndex: Array<{
-      slug: string;
-      title: string;
-      category: string;
-      oneLiner: string;
-    }>;
-    breaker: WikiIngestCircuitBreaker;
-  }): Promise<WikiCrosslink> {
-    const { knowledgeBaseId, chatUserId, pages, currentIndex, breaker } =
-      params;
-
-    if (breaker.isCrosslinkBlocked()) {
-      throw new BadRequestException(
-        "Wiki ingest crosslink pass circuit-breaker tripped; please retry later",
-      );
-    }
-
-    // If there are no fresh pages and no existing pages to link to, skip
-    // the LLM call entirely — empty insertions are a no-op.
-    if (pages.length === 0) {
-      return { pages: [] };
-    }
-
-    const skillDef = await this.skillLoader.getSkillById(
-      "wiki-ingest-crosslink",
-    );
-    if (!skillDef) {
-      this.logger.error(
-        "[ingest] wiki-ingest-crosslink skill not found in SkillLoader",
-      );
-      throw new BadRequestException(
-        "Wiki ingest crosslink skill is not available; please retry",
-      );
-    }
-    const systemPrompt = skillDef.content;
-
-    // Build the linkable slug set: every page just written this cycle, plus
-    // every slug already in the wiki index. The LLM may link to any of
-    // these; everything else is dropped post-parse.
-    const linkableSlugs = new Set<string>([
-      ...pages.map((p) => p.slug),
-      ...currentIndex.map((p) => p.slug),
-    ]);
-
-    const userPrompt = this.buildCrossLinkUserPrompt(pages, linkableSlugs);
-
-    let response: Awaited<ReturnType<typeof this.chat.chat>>;
-    try {
-      response = await this.chat.chat({
-        messages: [{ role: "user", content: userPrompt }],
-        systemPrompt,
-        modelType: AIModelType.CHAT,
-        taskProfile: {
-          creativity: "deterministic",
-          outputLength: "long",
-        },
-        responseFormat: "json_object",
-        operationName: "library-wiki-ingest-crosslink",
-        userId: chatUserId,
-      });
-    } catch (error) {
-      breaker.recordCrosslinkFailure();
-      this.logger.error(
-        `[ingest:crosslink] LLM call failed kb=${knowledgeBaseId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      throw new BadRequestException(
-        "Wiki ingest crosslink LLM call failed; please retry",
-      );
-    }
-
-    const rawJson = this.extractJson(response.content);
-    const parsed = WikiCrosslinkSchema.safeParse(rawJson);
-    if (!parsed.success) {
-      breaker.recordCrosslinkFailure();
-      this.logger.warn(
-        `[ingest:crosslink] schema validation failed kb=${knowledgeBaseId}: ${parsed.error.message.slice(0, 200)}`,
-      );
-      throw new BadRequestException(
-        "Wiki ingest crosslink output failed schema validation; please retry",
-      );
-    }
-
-    // Service-layer drop pass: any insertion whose linkSlug is not in the
-    // linkable set is dropped. We do NOT throw — a single bad slug should
-    // not invalidate the entire diff (same three-prong logic as sources).
-    let droppedInsertions = 0;
-    const pageBySlug = new Map(pages.map((p) => [p.slug, p]));
-    for (const pageInserts of parsed.data.pages) {
-      const target = pageBySlug.get(pageInserts.slug);
-      const bodyLen = target?.body.length ?? 0;
-      pageInserts.insertions = pageInserts.insertions.filter((ins) => {
-        if (!linkableSlugs.has(ins.linkSlug)) {
-          droppedInsertions += 1;
-          return false;
-        }
-        if (ins.position < 0 || ins.position > bodyLen) {
-          droppedInsertions += 1;
-          return false;
-        }
-        return true;
-      });
-    }
-    if (droppedInsertions > 0) {
-      this.logger.warn(
-        `[ingest:crosslink] kb=${knowledgeBaseId} dropped ${droppedInsertions} invalid insertion(s) (unknown slug or out-of-range position)`,
-      );
-    }
-
-    return parsed.data;
-  }
-
-  /**
-   * Merge outline + section-fill outputs + crosslink insertions into a raw
-   * WikiDiffItems shape ready for `softDropAndPersist`.
-   *
-   * Insertion algorithm (BLOCKER consensus §P2 commit 5):
-   *  - sort insertions by `position` descending so earlier inserts do not
-   *    shift later positions (classic splice-from-end pattern).
-   *  - build the link text as `[[slug]]` or `[[slug|surfaceText]]`.
-   *  - splice into body via `body.slice(0, pos) + linkText + body.slice(pos)`.
-   *
-   * UPDATEs from the outline are emitted as `updates[]` entries; section-fill
-   * may or may not have produced a body for them (in our current flow it
-   * always does, but we guard anyway). DELETEs pass through verbatim.
-   */
-  private mergeIntoWikiDiffItems(params: {
-    outline: WikiOutline;
-    successful: WikiSectionFill[];
-    crosslink: WikiCrosslink;
-  }): {
-    items: {
-      creates: Array<{
-        slug: string;
-        title: string;
-        category: string;
-        body: string;
-        oneLiner: string;
-        sources: WikiSectionFill["sources"];
-      }>;
-      updates: Array<{
-        slug: string;
-        newBody: string;
-        newOneLiner?: string;
-        sources?: WikiSectionFill["sources"];
-      }>;
-      deletes: string[];
-    };
-    totalInsertions: number;
-  } {
-    const { outline, successful, crosslink } = params;
-
-    // Index for quick lookup.
-    const sectionBySlug = new Map(successful.map((s) => [s.slug, s]));
-    const insertionsBySlug = new Map<string, WikiCrosslinkInsertion[]>(
-      crosslink.pages.map((p) => [p.slug, p.insertions]),
-    );
-
-    let totalInsertions = 0;
-
-    const applyInsertions = (
-      body: string,
-      insertions: WikiCrosslinkInsertion[],
-    ): string => {
-      if (insertions.length === 0) return body;
-      // Sort descending by position so each splice does not shift later
-      // positions. Clamp position to [0, body.length] defensively (already
-      // filtered in passCrossLink but be paranoid).
-      const sorted = [...insertions].sort((a, b) => b.position - a.position);
-      let out = body;
-      for (const ins of sorted) {
-        const pos = Math.max(0, Math.min(out.length, ins.position));
-        const linkText = ins.surfaceText
-          ? `[[${ins.linkSlug}|${ins.surfaceText}]]`
-          : `[[${ins.linkSlug}]]`;
-        out = out.slice(0, pos) + linkText + out.slice(pos);
-        totalInsertions += 1;
-      }
-      return out;
-    };
-
-    // CREATES: outline supplies title/category, section-fill supplies
-    // body/oneLiner/sources, crosslink supplies insertions.
-    const creates: Array<{
-      slug: string;
-      title: string;
-      category: string;
-      body: string;
-      oneLiner: string;
-      sources: WikiSectionFill["sources"];
-    }> = [];
-    for (const create of outline.creates) {
-      const section = sectionBySlug.get(create.slug);
-      if (!section) continue; // section-fill failed for this slug; skip
-      const insertions = insertionsBySlug.get(create.slug) ?? [];
-      const body = applyInsertions(section.body, insertions);
-      creates.push({
-        slug: create.slug,
-        title: create.title,
-        category: create.category,
-        body,
-        oneLiner: section.oneLiner,
-        sources: section.sources,
-      });
-    }
-
-    // UPDATES: outline supplies slug, section-fill supplies newBody/oneLiner/
-    // sources, crosslink supplies insertions.
-    const updates: Array<{
-      slug: string;
-      newBody: string;
-      newOneLiner?: string;
-      sources?: WikiSectionFill["sources"];
-    }> = [];
-    for (const update of outline.updates) {
-      const section = sectionBySlug.get(update.slug);
-      if (!section) continue; // section-fill failed; skip
-      const insertions = insertionsBySlug.get(update.slug) ?? [];
-      const newBody = applyInsertions(section.body, insertions);
-      updates.push({
-        slug: update.slug,
-        newBody,
-        newOneLiner: section.oneLiner,
-        sources: section.sources,
-      });
-    }
-
-    return {
-      items: {
-        creates,
-        updates,
-        deletes: outline.deletes.slice(),
-      },
-      totalInsertions,
-    };
-  }
-
-  // ─── Shared persistence path (used by SINGLE + MULTI) ─────────────────────
+  // ─── Shared persistence path (used by SINGLE + future MULTI commit 5) ─────
 
   /**
    * Pre-clean + zod validate + persist a WikiDiff. Extracted so SINGLE and
@@ -1674,28 +1387,6 @@ export class WikiIngestService {
     lines.push("");
     lines.push("## Raw documents available for citation");
     lines.push(...wrappedDocs);
-    return lines.join("\n");
-  }
-
-  /**
-   * Build the user prompt for the cross-link pass. Lists every page produced
-   * by section-fill (slug + body) plus the canonical `linkableSlugs` set so
-   * the LLM only proposes links to slugs that will actually resolve.
-   */
-  private buildCrossLinkUserPrompt(
-    pages: WikiSectionFill[],
-    linkableSlugs: Set<string>,
-  ): string {
-    const lines: string[] = [];
-    lines.push("## linkableSlugs (only link to these)");
-    lines.push(...Array.from(linkableSlugs).map((s) => `- ${s}`));
-    lines.push("");
-    lines.push("## pages (slug + body)");
-    for (const page of pages) {
-      lines.push(`### ${page.slug}`);
-      lines.push(page.body);
-      lines.push("");
-    }
     return lines.join("\n");
   }
 
