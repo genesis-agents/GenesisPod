@@ -949,7 +949,12 @@ describe("ReActLoop — Extended coverage", () => {
       messages: [{ role: "user", content: "query", timestamp: 0 }],
       reminders: [],
       tools: [],
-      memory: { sessionId: "s1", userId: "u1" },
+      // ★ 2026-05-12 BYOK fix (react-loop.ts:568 byokUserId 闸)：tier pick 现在
+      //   只在"无 userId 的 cron / 系统任务"路径生效；有 userId 的业务调用
+      //   一律跳过 tier pick 让 chat() 走 BYOK 路径。本 spec 验证的是 "tier
+      //   pick → runtimeEnv.getModelAvailability → fallbackTo 切换" 链路，
+      //   故 envelope 必须无 userId 才能进入该分支。
+      memory: { sessionId: "s1" },
       budget: {
         tokensUsed: 0,
         tokensRemaining: 100_000,
@@ -1047,4 +1052,3 @@ describe("ReActLoop — Extended coverage", () => {
     expect(terminated?.payload).toEqual({ reason: "completed" });
   });
 });
-
