@@ -284,9 +284,59 @@ model WikiKnowledgeBaseConfig {
   autoIngestEnabled         Boolean  @default(true) @map("auto_ingest_enabled")
   autoIngestDailyBudgetCalls Int     @default(20) @map("auto_ingest_daily_budget_calls")
   autoIngestDebounceSeconds Int      @default(300) @map("auto_ingest_debounce_seconds")
+  /// P2 multi-pass orchestration (2026-05-12 consensus §P2).
+  /// `ingestPassMode` schema default is SINGLE for backward compat; KB-create
+  /// service will overwrite to MULTI for fresh KBs in a later commit. The 4
+  /// section/outline/ratio/budget knobs back the outline → section-fill →
+  /// cross-link pipeline. `autoIngestDailyChatCallBudget` splits the daily
+  /// chat-completion budget from `autoIngestDailyBudgetCalls` (BLOCKER #4):
+  /// ingest may issue 1 outline + N section + 1 crosslink calls per cycle,
+  /// while chat-style consumption (ask / refine) is metered separately.
+  ingestPassMode                     WikiIngestPassMode @default(SINGLE)    @map("ingest_pass_mode")
+  ingestSectionConcurrency           Int                @default(3)         @map("ingest_section_concurrency")
+  ingestSectionFailureToleranceRatio Float              @default(0.2)       @map("ingest_section_failure_tolerance_ratio")
+  ingestOutlineMaxPages              Int                @default(30)        @map("ingest_outline_max_pages")
+  autoIngestDailyChatCallBudget      Int                @default(50)        @map("auto_ingest_daily_chat_call_budget")
   updatedAt                 DateTime @updatedAt @map("updated_at")
 
   knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
 
   @@map("wiki_knowledge_base_configs")
+}
+
+/// Pass mode for ingest pipeline (2026-05-12 consensus §P2).
+/// SINGLE = legacy one-shot prompt (wiki-ingest.skill.md).
+/// MULTI  = outline pass → section-fill pass (parallel, fail-tolerant) →
+///          cross-link pass. Toggleable per KB so SINGLE remains fallback.
+enum WikiIngestPassMode {
+  SINGLE
+  MULTI
+}
+
+/// Section-fill intermediate state for the MULTI ingest pipeline.
+///
+/// During section-fill pass we may run up to N=30 page generations in
+/// parallel; with a 20% failure tolerance we accept up to 6 failures and
+/// still commit the rest. This table is the partial-progress checkpoint —
+/// each successful page is upserted here BEFORE the final diff commit, so
+/// a mid-pass crash (or a later cross-link failure) can recover the work
+/// already done instead of re-running every page.
+///
+/// Lifecycle: rows are written by section-fill, consumed by cross-link +
+/// final diff assembly, and reaped by a 24h TTL cron. The `(diffSessionId,
+/// pageSlug, locale)` unique guards against double-fill in retry storms.
+model WikiIngestDraft {
+  id              String   @id @default(uuid())
+  knowledgeBaseId String   @map("knowledge_base_id")
+  diffSessionId   String   @map("diff_session_id")
+  pageSlug        String   @map("page_slug") @db.VarChar(200)
+  locale          String   @default("zh") @db.VarChar(8)
+  body            Json
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@unique([diffSessionId, pageSlug, locale])
+  @@index([knowledgeBaseId, createdAt])
+  @@map("wiki_ingest_drafts")
 }

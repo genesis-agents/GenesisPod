@@ -4182,6 +4182,7 @@ model KnowledgeBase {
   wikiFinds             WikiLintFinding[]
   wikiConfig            WikiKnowledgeBaseConfig?
   wikiDocumentCoverages WikiDocumentCoverage[]   @relation("WikiDocumentCoverageKnowledgeBase")
+  wikiIngestDrafts      WikiIngestDraft[]
 
   @@index([userId])
   @@index([status])

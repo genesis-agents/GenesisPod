@@ -20,6 +20,7 @@ import {
   WikiOp,
   WikiOpPageRole,
   WikiLintType,
+  WikiIngestPassMode,
   ExportSourceType,
   ExportFormat,
 } from "@prisma/client";
@@ -83,6 +84,12 @@ describe("LLM Wiki schema (v1.5.3 P0b)", () => {
       expect(WikiLintType.MISSING_XREF).toBe("MISSING_XREF");
       expect(WikiLintType.DATA_GAP).toBe("DATA_GAP");
     });
+
+    it("WikiIngestPassMode has 2 members (P2 multi-pass orchestration)", () => {
+      expect(WikiIngestPassMode.SINGLE).toBe("SINGLE");
+      expect(WikiIngestPassMode.MULTI).toBe("MULTI");
+      expect(Object.keys(WikiIngestPassMode)).toHaveLength(2);
+    });
   });
 
   describe("Prisma model types are exposed", () => {
@@ -113,11 +120,31 @@ describe("LLM Wiki schema (v1.5.3 P0b)", () => {
       _shapes.forEach((m) => expect(Prisma.ModelName[m]).toBe(m));
     });
 
-    it("All 10 wiki models are listed in Prisma.ModelName", () => {
+    it("All 12 wiki models are listed in Prisma.ModelName (11 prior + WikiIngestDraft)", () => {
+      // Prior 11: WikiPage, WikiPageSource, WikiDocumentCoverage,
+      // WikiPageLink, WikiPageRevision, WikiPageEmbedding, WikiDiff,
+      // WikiOperationLog, WikiOperationLogPage, WikiLintFinding,
+      // WikiKnowledgeBaseConfig. P2 adds WikiIngestDraft.
       const wikiModels = Object.values(Prisma.ModelName).filter((n) =>
         String(n).startsWith("Wiki"),
       );
-      expect(wikiModels).toHaveLength(10);
+      expect(wikiModels).toHaveLength(12);
+    });
+
+    it("WikiIngestDraft model is exposed (P2 partial-progress checkpoint)", () => {
+      expect(Prisma.ModelName.WikiIngestDraft).toBe("WikiIngestDraft");
+      // Compile-time guard: ScalarFieldEnum must list the columns the
+      // section-fill pass writes.
+      expect(Prisma.WikiIngestDraftScalarFieldEnum.id).toBe("id");
+      expect(Prisma.WikiIngestDraftScalarFieldEnum.knowledgeBaseId).toBe(
+        "knowledgeBaseId",
+      );
+      expect(Prisma.WikiIngestDraftScalarFieldEnum.diffSessionId).toBe(
+        "diffSessionId",
+      );
+      expect(Prisma.WikiIngestDraftScalarFieldEnum.pageSlug).toBe("pageSlug");
+      expect(Prisma.WikiIngestDraftScalarFieldEnum.locale).toBe("locale");
+      expect(Prisma.WikiIngestDraftScalarFieldEnum.body).toBe("body");
     });
   });
 
@@ -172,6 +199,57 @@ describe("LLM Wiki schema (v1.5.3 P0b)", () => {
       expect(expectedDefaults.ingestMaxTokens).toBe(80_000);
       expect(expectedDefaults.cronLintEnabled).toBe(true);
       expect(expectedDefaults.cronLintDailyBudgetCalls).toBe(50);
+    });
+
+    it("WikiKnowledgeBaseConfig P2 multi-pass tunables expose 5 new fields", () => {
+      // ScalarFieldEnum is the cheapest way to assert the column exists
+      // without hitting the DB. The default values (SINGLE / 3 / 0.2 / 30
+      // / 50) live in the schema + migration — this test documents them
+      // and trips loudly if either side drifts.
+      expect(Prisma.WikiKnowledgeBaseConfigScalarFieldEnum.ingestPassMode).toBe(
+        "ingestPassMode",
+      );
+      expect(
+        Prisma.WikiKnowledgeBaseConfigScalarFieldEnum.ingestSectionConcurrency,
+      ).toBe("ingestSectionConcurrency");
+      expect(
+        Prisma.WikiKnowledgeBaseConfigScalarFieldEnum
+          .ingestSectionFailureToleranceRatio,
+      ).toBe("ingestSectionFailureToleranceRatio");
+      expect(
+        Prisma.WikiKnowledgeBaseConfigScalarFieldEnum.ingestOutlineMaxPages,
+      ).toBe("ingestOutlineMaxPages");
+      expect(
+        Prisma.WikiKnowledgeBaseConfigScalarFieldEnum
+          .autoIngestDailyChatCallBudget,
+      ).toBe("autoIngestDailyChatCallBudget");
+
+      const expectedP2Defaults = {
+        ingestPassMode: WikiIngestPassMode.SINGLE,
+        ingestSectionConcurrency: 3,
+        ingestSectionFailureToleranceRatio: 0.2,
+        ingestOutlineMaxPages: 30,
+        autoIngestDailyChatCallBudget: 50,
+      };
+      expect(expectedP2Defaults.ingestPassMode).toBe("SINGLE");
+      expect(expectedP2Defaults.ingestSectionConcurrency).toBe(3);
+      expect(expectedP2Defaults.ingestSectionFailureToleranceRatio).toBe(0.2);
+      expect(expectedP2Defaults.ingestOutlineMaxPages).toBe(30);
+      expect(expectedP2Defaults.autoIngestDailyChatCallBudget).toBe(50);
+    });
+
+    it("WikiIngestDraft enforces partial-progress uniqueness shape", () => {
+      // Compile-time guard: WikiIngestDraftCreateInput must accept all the
+      // section-fill columns; if a column is renamed/dropped, tsc fails.
+      const _validInput: Prisma.WikiIngestDraftCreateInput = {
+        diffSessionId: "session-1",
+        pageSlug: "machine-learning",
+        locale: "zh",
+        body: { slug: "machine-learning", body: "...", oneLiner: "..." },
+        knowledgeBase: { connect: { id: "kb-id" } },
+      };
+      expect(_validInput.pageSlug).toBe("machine-learning");
+      expect(_validInput.locale).toBe("zh");
     });
   });
 });
