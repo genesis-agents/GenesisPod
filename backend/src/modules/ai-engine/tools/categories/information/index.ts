@@ -74,6 +74,7 @@ export {
   RAGSearchTool,
   DatabaseQueryTool,
   KnowledgeGraphTool,
+  WikiPageReadTool,
 } from "./knowledge";
 export type {
   RAGSearchInput,

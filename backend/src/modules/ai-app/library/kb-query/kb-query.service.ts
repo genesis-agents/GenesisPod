@@ -8,10 +8,12 @@ import {
   type ContextSource,
   type SearchResult,
 } from "../../../ai-engine/facade";
+import type { WikiPageRead } from "../../../ai-engine/rag/abstractions/kb-query-augmentor.interface";
 import {
   WikiSourceProvider,
   type WikiSourceHit,
 } from "../wiki/wiki-source-provider.service";
+import { WikiPageService } from "../wiki/wiki-page.service";
 
 /**
  * KbQueryService — unified KB query facade for all AI apps.
@@ -56,6 +58,7 @@ export class KbQueryService {
     private readonly prisma: PrismaService,
     private readonly wikiSourceProvider: WikiSourceProvider,
     private readonly ragPipeline: RAGPipelineService,
+    private readonly wikiPageService: WikiPageService,
   ) {}
 
   /**
@@ -150,6 +153,44 @@ export class KbQueryService {
     }
 
     return this.ragPipeline.query(request);
+  }
+
+  /**
+   * W4 v2.0 rebuild (2026-05-12): slug-based wiki page read used by the
+   * engine `wiki-page-read` tool to follow [[slug]] cross-links. Returns
+   * null on missing page / disabled wiki / unauthorized user so the tool
+   * can degrade gracefully (vs throwing a NotFoundException up into the
+   * ReAct loop). Implements `IKbQueryAugmentor.getWikiPage`.
+   */
+  async getWikiPage(
+    userId: string,
+    knowledgeBaseId: string,
+    slug: string,
+    _locale: "zh" | "en" = "zh",
+  ): Promise<WikiPageRead | null> {
+    try {
+      const { page, outboundLinks, backlinks } =
+        await this.wikiPageService.getPage(userId, knowledgeBaseId, slug);
+      return {
+        knowledgeBaseId: page.knowledgeBaseId,
+        slug: page.slug,
+        locale: page.locale,
+        title: page.title,
+        category: page.category,
+        body: page.body,
+        oneLiner: page.oneLiner,
+        outboundLinks,
+        backlinks,
+        updatedAt: page.updatedAt.toISOString(),
+      };
+    } catch (error) {
+      this.logger.debug(
+        `[kb-query.getWikiPage] kb=${knowledgeBaseId} slug=${slug} miss: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return null;
+    }
   }
 
   // ─── Internals ───

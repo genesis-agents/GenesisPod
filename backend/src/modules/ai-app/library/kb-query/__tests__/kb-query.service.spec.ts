@@ -46,6 +46,12 @@ function makeRagPipelineMock() {
   } as any;
 }
 
+function makeWikiPageServiceMock() {
+  return {
+    getPage: jest.fn(),
+  } as any;
+}
+
 function strongWikiHit(score: number, slug = "alpha") {
   return {
     pageId: `p-${slug}`,
@@ -65,13 +71,15 @@ describe("KbQueryService", () => {
   let prisma: any;
   let wiki: any;
   let rag: any;
+  let wikiPageService: any;
   let service: KbQueryService;
 
   beforeEach(() => {
     prisma = makePrismaMock();
     wiki = makeWikiProviderMock();
     rag = makeRagPipelineMock();
-    service = new KbQueryService(prisma, wiki, rag);
+    wikiPageService = makeWikiPageServiceMock();
+    service = new KbQueryService(prisma, wiki, rag, wikiPageService);
   });
 
   it("falls through to chunk RAG when no KB has wikiEnabled", async () => {
@@ -268,5 +276,75 @@ describe("KbQueryService", () => {
     expect(response.searchResults).toBeDefined();
     expect(response.processingTime.total).toBeGreaterThanOrEqual(0);
     expect(response.quality).toBe("full");
+  });
+
+  describe("getWikiPage (W4 ToolRegistry 接入 — IKbQueryAugmentor port)", () => {
+    it("returns WikiPageRead shape on happy path, default locale=zh", async () => {
+      wikiPageService.getPage.mockResolvedValue({
+        page: {
+          knowledgeBaseId: "kb-1",
+          slug: "react-hooks",
+          locale: "zh",
+          title: "React Hooks",
+          category: "ENTITY",
+          body: "正文 [[functional-components]]",
+          oneLiner: "React 函数组件状态",
+          updatedAt: new Date("2026-05-12T00:00:00Z"),
+        },
+        outboundLinks: ["functional-components"],
+        backlinks: ["react-overview"],
+      });
+
+      const result = await service.getWikiPage("user-1", "kb-1", "react-hooks");
+
+      expect(wikiPageService.getPage).toHaveBeenCalledWith(
+        "user-1",
+        "kb-1",
+        "react-hooks",
+      );
+      expect(result).toEqual({
+        knowledgeBaseId: "kb-1",
+        slug: "react-hooks",
+        locale: "zh",
+        title: "React Hooks",
+        category: "ENTITY",
+        body: "正文 [[functional-components]]",
+        oneLiner: "React 函数组件状态",
+        outboundLinks: ["functional-components"],
+        backlinks: ["react-overview"],
+        updatedAt: "2026-05-12T00:00:00.000Z",
+      });
+    });
+
+    it("returns null on WikiPageService error (page missing / ACL denied)", async () => {
+      wikiPageService.getPage.mockRejectedValue(
+        new Error("Wiki page not found"),
+      );
+
+      const result = await service.getWikiPage("user-1", "kb-1", "missing");
+
+      expect(result).toBeNull();
+    });
+
+    it("forwards locale param to WikiPageService (placeholder for future multi-locale)", async () => {
+      wikiPageService.getPage.mockResolvedValue({
+        page: {
+          knowledgeBaseId: "kb-1",
+          slug: "x",
+          locale: "en",
+          title: "X",
+          category: "ENTITY",
+          body: "body",
+          oneLiner: "summary",
+          updatedAt: new Date("2026-05-12T00:00:00Z"),
+        },
+        outboundLinks: [],
+        backlinks: [],
+      });
+
+      const result = await service.getWikiPage("user-1", "kb-1", "x", "en");
+
+      expect(result?.locale).toBe("en");
+    });
   });
 });

@@ -24,3 +24,9 @@ export type {
   GraphPath,
   KnowledgeGraphOutput,
 } from "./knowledge-graph.tool";
+
+export { WikiPageReadTool } from "./wiki-page-read.tool";
+export type {
+  WikiPageReadInput,
+  WikiPageReadOutput,
+} from "./wiki-page-read.tool";
