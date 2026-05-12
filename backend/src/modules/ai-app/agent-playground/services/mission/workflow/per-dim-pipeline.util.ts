@@ -118,6 +118,62 @@ export interface PerDimPipelineResult {
 
 const MIN_CHAPTER_SUBSTANTIVE_CHARS = 60;
 
+/**
+ * ★ 2026-05-12: 任何 chapter pipeline 失败路径都必须 emit chapter:done(failed-finalized)。
+ *   旧逻辑：runChapterPipeline 走 writer-failed / loop-exhausted / throw 时直接 return null
+ *   或 reject，没有终态事件 → 前端 derive.ts 状态机停在 'reviewing'，章节永远卡住；同时后端
+ *   writtenChapters 缺该项 → validateWrittenChapters 整盘抛错 0/100（实证 mission：7 章
+ *   6 通过整体显示 0/100"per-dim pipeline 异常终止"）。
+ *   reason 仅用于日志 telemetry，不进 schema（默认 strip 未知字段，避免 zod 报错）。
+ */
+async function emitChapterFailedDoneEvent(
+  deps: MissionDeps,
+  ctx: {
+    missionId: string;
+    userId: string;
+    dimensionIdx: number;
+    dimensionName: string;
+    chapterIndex: number;
+    failedAttempt: number;
+    reason: string;
+    wordCount: number;
+    targetWordCount: number;
+  },
+): Promise<void> {
+  const agentId = `chapter-writer#${ctx.dimensionIdx}.${ctx.chapterIndex}.${ctx.failedAttempt}`;
+  await deps
+    .emit({
+      type: "agent-playground.chapter:done",
+      missionId: ctx.missionId,
+      userId: ctx.userId,
+      agentId,
+      payload: {
+        dimension: ctx.dimensionName,
+        chapterIndex: ctx.chapterIndex,
+        finalAttempt: ctx.failedAttempt,
+        decision: "fallback-exhausted",
+        finalScore: 0,
+        wordCount: ctx.wordCount,
+        targetWordCount: ctx.targetWordCount,
+        finalized: true,
+        qualified: false,
+      },
+    })
+    .catch((err: unknown) => {
+      deps.log.warn(
+        `[${ctx.missionId}] emit chapter:done (failed-finalized: ${ctx.reason}) for "${ctx.dimensionName}" §${ctx.chapterIndex} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
+  await narrate(deps.emit, ctx.missionId, ctx.userId, {
+    stage: "s3-researchers",
+    role: "writer",
+    tag: "warning",
+    text: `${ctx.dimensionName} · §${ctx.chapterIndex} 章节落地失败（${ctx.reason}），按缺章处理`,
+    agentId,
+    dimension: ctx.dimensionName,
+  });
+}
+
 export async function runPerDimPipeline(
   args: PerDimPipelineArgs,
   deps: MissionDeps,
@@ -686,6 +742,23 @@ export async function runPerDimPipeline(
       let stuckCount = 0;
       let prevDraftBody: string | undefined;
 
+      const emitChapterFailedDone = (
+        failedAttempt: number,
+        reason: string,
+        wordCount: number,
+      ): Promise<void> =>
+        emitChapterFailedDoneEvent(deps, {
+          missionId,
+          userId,
+          dimensionIdx,
+          dimensionName,
+          chapterIndex: chapter.index,
+          failedAttempt,
+          reason,
+          wordCount,
+          targetWordCount: targetWordsPerChapter,
+        });
+
       while (attempt < MAX_REVISION_ATTEMPTS + 1) {
         attempt += 1;
         const writerAgentId = `chapter-writer#${dimensionIdx}.${chapter.index}.${attempt}`;
@@ -779,6 +852,9 @@ export async function runPerDimPipeline(
               );
             });
           // 单章 writer 失败 → 返回 null，由外层过滤（不阻塞其他章节）
+          // ★ 2026-05-12: 必须 emit chapter:done(failed-finalized) 关闭前端状态机，否则
+          //   章节卡 'reviewing' + writtenChapters 缺该项 → validate 抛错 0 分。
+          await emitChapterFailedDone(attempt, "writer-failed", 0);
           return null;
         }
         const rawDraft = writerRes.output as {
@@ -1167,6 +1243,12 @@ export async function runPerDimPipeline(
       }
 
       // while loop 耗尽但没有 return（理论上不会到这里，因为 attempt cap 必然触发）
+      // ★ 2026-05-12: 真到这里也必须 emit terminal 事件关闭前端状态机。
+      await emitChapterFailedDone(
+        attempt,
+        "loop-exhausted",
+        lastDraft?.wordCount ?? 0,
+      );
       return null;
     }
 
@@ -1179,7 +1261,31 @@ export async function runPerDimPipeline(
     const limit = pLimit(CHAPTER_CONCURRENCY);
     const settledResults = await Promise.allSettled(
       outline.chapters.map((chapter) =>
-        limit(() => runChapterPipeline(chapter, headingsSnapshot)),
+        limit(async () => {
+          // ★ 2026-05-12: runChapterPipeline 内部 LLM 调用 / 网络异常 throw 时，
+          //   allSettled 把 rejection 过滤后前端永远收不到终态事件 → 章节卡 'reviewing'。
+          //   这里兜底 emit chapter:done(failed-finalized) 保证状态机闭合。
+          try {
+            return await runChapterPipeline(chapter, headingsSnapshot);
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            deps.log.error(
+              `[${missionId}] chapter pipeline §${chapter.index} (${dimensionName}) threw: ${msg}`,
+            );
+            await emitChapterFailedDoneEvent(deps, {
+              missionId,
+              userId,
+              dimensionIdx,
+              dimensionName,
+              chapterIndex: chapter.index,
+              failedAttempt: 1,
+              reason: `exception: ${msg.slice(0, 120)}`,
+              wordCount: 0,
+              targetWordCount: targetWordsPerChapter,
+            });
+            return null;
+          }
+        }),
       ),
     );
 
@@ -1204,11 +1310,25 @@ export async function runPerDimPipeline(
         `[chapter-integrity] ${dimensionName}: 0/${outline.chapters.length} chapters produced`,
       );
     }
-    validateWrittenChapters({
+    // ★ 2026-05-12: 章节级容错——缺失 ≤30% 走降级路径继续整合 + 评分，>30% 才硬失败。
+    //   实证 mission：7 章 1 章卡 reviewing → 旧逻辑直接抛 0/100。新逻辑 1/7=14.3%
+    //   ≤30% 改为 warning narrative + 继续走 integrator + grade（grade 反映真实质量）。
+    const integrityCheck = validateWrittenChapters({
       dimensionName,
       expectedCount: outline.chapters.length,
       chapters: writtenChapters,
+      tolerance: { maxMissingRatio: 0.3 },
     });
+    if (integrityCheck.missingCount > 0) {
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s3-researchers",
+        role: "reviewer",
+        tag: "warning",
+        text: `${dimensionName} · 章节完整性降级：实到 ${writtenChapters.length}/${outline.chapters.length} 章（缺 ${integrityCheck.missingCount}，${(integrityCheck.missingRatio * 100).toFixed(1)}%），按部分完成继续整合与评分`,
+        agentId: `chapter-integrity#${dimensionIdx}`,
+        dimension: dimensionName,
+      });
+    }
     writtenChaptersResult = writtenChapters;
 
     // ── 3. Integrate ──
@@ -1478,6 +1598,13 @@ export async function runPerDimPipeline(
   };
 }
 
+/**
+ * ★ 2026-05-12: 引入 tolerance 参数。
+ *   旧版严格 chapters.length !== expectedCount 直接 throw → 7 章缺 1 章整盘 0/100。
+ *   新版按 maxMissingRatio 容错：缺失 ≤ 阈值 → 返回 missingCount/Ratio 供调用方降级；
+ *   缺失 > 阈值 → 仍然 throw（保留 hard-fail 语义，防止严重缺章被静默放过）。
+ *   error message 保留 "expected N chapters, got M" 前缀，兼容已有测试断言。
+ */
 function validateWrittenChapters(args: {
   dimensionName: string;
   expectedCount: number;
@@ -1487,11 +1614,23 @@ function validateWrittenChapters(args: {
     body: string;
     wordCount: number;
   }>;
-}): void {
-  const { dimensionName, expectedCount, chapters } = args;
-  if (chapters.length !== expectedCount) {
+  tolerance?: { maxMissingRatio: number };
+}): { missingCount: number; missingRatio: number } {
+  const { dimensionName, expectedCount, chapters, tolerance } = args;
+  const missingCount = Math.max(0, expectedCount - chapters.length);
+  const missingRatio =
+    expectedCount > 0 ? missingCount / expectedCount : missingCount > 0 ? 1 : 0;
+  const maxMissingRatio = tolerance?.maxMissingRatio ?? 0;
+
+  if (chapters.length > expectedCount) {
     throw new Error(
-      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length}`,
+      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length} (more than expected)`,
+    );
+  }
+
+  if (missingCount > 0 && missingRatio > maxMissingRatio) {
+    throw new Error(
+      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length} (missing ${missingCount}, ratio ${(missingRatio * 100).toFixed(1)}% > tolerance ${(maxMissingRatio * 100).toFixed(0)}%)`,
     );
   }
 
@@ -1508,6 +1647,8 @@ function validateWrittenChapters(args: {
       );
     }
   }
+
+  return { missingCount, missingRatio };
 }
 
 function extractSubstantiveChapterText(body: string): string {
