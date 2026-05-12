@@ -106,7 +106,7 @@ export default function ArchitectureLayer({
         <div className="px-4 pb-4">
           {/* Regular flat cards (L4 Open API, L5 Intent Gateway) */}
           {layer.cards && (
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {layer.cards.map((card) => (
                 <ArchitectureCard
                   key={card.id}
@@ -132,7 +132,7 @@ export default function ArchitectureLayer({
                     <div className="h-px flex-1 bg-gray-200/50" />
                   </div>
                   {/* Group cards - grid layout for consistent card widths */}
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     {group.cards.map((card) => (
                       <ArchitectureCard
                         key={card.id}

@@ -96,7 +96,10 @@ export default function ArchitectureCard({
       {resolvedStats && resolvedStats.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
           {resolvedStats.map((s) => (
-            <span key={s.label} className="flex items-baseline gap-1">
+            <span
+              key={s.label}
+              className="flex items-baseline gap-1 whitespace-nowrap"
+            >
               <span
                 className={cn(
                   'text-xs font-semibold tabular-nums',
