@@ -208,11 +208,15 @@ describe("WikiIngestService", () => {
 
   // ─── Gate 1: wrapExternalContent explicit maxLength ────────────────────────
   describe("wrapExternalContent budget (security R2 P2)", () => {
-    it("invokes wrapExternalContent with explicit maxLength derived from ingestMaxTokens × 4 / docCount / 2", async () => {
+    it("invokes wrapExternalContent with explicit maxLength derived from ingestMaxTokens × 4 / docCount", async () => {
       // Provide explicit ingestMaxTokens=10_000 and 2 docs.
       // Expected: totalCharBudget = 10_000 × 4 = 40_000
-      //           perDoc           = 40_000 / 2 = 20_000
-      //           maxLength        = floor(perDoc / 2) = 10_000
+      //           perDocMaxLength = floor(40_000 / 2) = 20_000
+      // 2026-05-12 MULTI pass rebuild: dropped the historical `/ 2` halving
+      // (originally a conservative reserve for the LLM's own response budget);
+      // SINGLE pass already overflows on 10K+ docs, MULTI fans out into a
+      // separate section-fill phase where each call has its own per-call
+      // token budget. So we hand each doc the full per-doc slice.
       prisma.wikiKnowledgeBaseConfig.findUnique.mockResolvedValue({
         ingestMaxTokens: 10_000,
       });
@@ -227,8 +231,8 @@ describe("WikiIngestService", () => {
       // Both calls MUST pass an explicit maxLength (NOT default 2000).
       const [, opts1] = wrapExternalContentMock.mock.calls[0];
       const [, opts2] = wrapExternalContentMock.mock.calls[1];
-      expect(opts1.maxLength).toBe(10_000);
-      expect(opts2.maxLength).toBe(10_000);
+      expect(opts1.maxLength).toBe(20_000);
+      expect(opts2.maxLength).toBe(20_000);
       // Source / title forwarded for downstream tag-rendering.
       expect(opts1.source).toBe("kb_document");
       expect(opts1.title).toBe("Doc One");
@@ -238,8 +242,7 @@ describe("WikiIngestService", () => {
     it("falls back to ingestMaxTokens=80_000 when no config row exists", async () => {
       // No config → default 80_000. With 1 doc:
       //   totalCharBudget = 80_000 × 4 = 320_000
-      //   perDoc          = 320_000 / 1 = 320_000
-      //   maxLength       = floor(320_000 / 2) = 160_000
+      //   perDoc          = floor(320_000 / 1) = 320_000
       prisma.wikiKnowledgeBaseConfig.findUnique.mockResolvedValue(null);
       prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
         { id: "doc-1", title: "Solo", rawContent: "raw-solo" },
@@ -249,7 +252,7 @@ describe("WikiIngestService", () => {
 
       expect(wrapExternalContentMock).toHaveBeenCalledTimes(1);
       const [, opts] = wrapExternalContentMock.mock.calls[0];
-      expect(opts.maxLength).toBe(160_000);
+      expect(opts.maxLength).toBe(320_000);
       // Sanity: must NOT be the global default of 2000.
       expect(opts.maxLength).not.toBe(2000);
     });

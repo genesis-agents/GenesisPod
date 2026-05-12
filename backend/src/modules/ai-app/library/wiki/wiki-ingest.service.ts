@@ -1,3 +1,4 @@
+import * as crypto from "crypto";
 import {
   BadRequestException,
   ForbiddenException,
@@ -5,7 +6,13 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { AIModelType, Prisma, WikiDiff, WikiDiffStatus } from "@prisma/client";
+import {
+  AIModelType,
+  Prisma,
+  WikiDiff,
+  WikiDiffStatus,
+  WikiKnowledgeBaseConfig,
+} from "@prisma/client";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../rag/services/knowledge-base.service";
 import { WikiDiffService } from "./wiki-diff.service";
@@ -202,11 +209,31 @@ export class WikiIngestService {
     });
     const ingestMaxTokens = config?.ingestMaxTokens ?? 80_000;
 
-    // Approximate char budget per doc (~4 chars per token).
+    // ★ MULTI pass dispatcher (2026-05-12 §P2): when admin set
+    //   WikiKnowledgeBaseConfig.ingestPassMode='MULTI', run the 3-stage
+    //   pipeline (outline → section-fill parallel → cross-link). Each
+    //   page gets its own LLM call with 8K maxTokens → page bodies grow
+    //   from ~800 chars (stub) to ~24K chars (Wikipedia mid-tier depth).
+    //   SINGLE remains the default (safe fallback) and 100% backward
+    //   compatible — old KBs see no behavior change.
+    if (config?.ingestPassMode === "MULTI") {
+      return this.runMultiPassPipeline(
+        userId,
+        knowledgeBaseId,
+        documents,
+        config,
+        chatUserId,
+      );
+    }
+
+    // Approximate char budget per doc (~4 chars per token). NOTE: gap #1
+    // fix (2026-05-12) removes the `/ 2` halving — earlier code sent only
+    // half the source material to the LLM, which directly capped wiki
+    // page depth. Now LLM sees the full doc up to the token budget.
     const totalCharBudget = ingestMaxTokens * 4;
     const perDocMaxLength = Math.max(
       500,
-      Math.floor(totalCharBudget / Math.max(documents.length, 1) / 2),
+      Math.floor(totalCharBudget / Math.max(documents.length, 1)),
     );
 
     // Wrap each doc's rawContent with explicit maxLength (security R2 P2).
@@ -273,7 +300,7 @@ export class WikiIngestService {
       sourceLocaleHints,
     );
 
-    let llmResponse: Awaited<ReturnType<typeof this.chat.chat>>;
+    let llmResponse!: Awaited<ReturnType<AiChatService["chat"]>>;
     try {
       // Use semantic TaskProfile per .claude/rules/ai-engine.md — never hardcode
       // model/temperature/maxTokens. deterministic+long fits structured JSON
@@ -523,6 +550,719 @@ export class WikiIngestService {
     };
 
     return diff;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // MULTI PASS PIPELINE (2026-05-12 §P2)
+  //
+  // Three sequential LLM calls instead of one god-call. Each call is
+  // independent and stateless; we orchestrate state through service-layer
+  // variables and the WikiIngestDraft checkpoint table.
+  //
+  //   Pass 1 (OUTLINE)      : 1 call, ~3K out tokens
+  //                            → page proposals (slug/title/category/skeleton)
+  //   Pass 2 (SECTION-FILL) : N calls, 8K out each, K-way concurrent
+  //                            → one full page body per call
+  //                            → fail-tolerant per ingestSectionFailureToleranceRatio
+  //                            → partial-progress checkpoint to WikiIngestDraft
+  //   Pass 3 (CROSS-LINK)   : 1 call, ~3K out tokens
+  //                            → [[slug]] insertions across all bodies
+  //
+  // After 3 passes, assemble final WikiDiffItems shape and reuse the same
+  // soft-drop + zod validation + persist path as SINGLE mode (see
+  // commitMultiPassItems below).
+  // ═══════════════════════════════════════════════════════════════════════
+
+  private async runMultiPassPipeline(
+    userId: string,
+    knowledgeBaseId: string,
+    documents: Array<{
+      id: string;
+      title: string;
+      rawContent: string | null;
+      rawContentUri: string | null;
+      metadata: Prisma.JsonValue;
+    }>,
+    config: WikiKnowledgeBaseConfig,
+    chatUserId: string,
+  ): Promise<WikiDiff> {
+    const ingestMaxTokens = config.ingestMaxTokens ?? 80_000;
+    const totalCharBudget = ingestMaxTokens * 4;
+    const perDocMaxLength = Math.max(
+      500,
+      Math.floor(totalCharBudget / Math.max(documents.length, 1)),
+    );
+    const wrappedDocs = documents.map(
+      (d) =>
+        `[documentId: ${d.id}]\n` +
+        wrapExternalContent(d.rawContent ?? "", {
+          source: "kb_document",
+          title: d.title,
+          maxLength: perDocMaxLength,
+        }),
+    );
+    const allowedDocumentIds = new Set(documents.map((d) => d.id));
+    const baselineHash =
+      await this.diffService.computeKbBaselineHash(knowledgeBaseId);
+    const currentIndex = await this.prisma.wikiPage.findMany({
+      where: { knowledgeBaseId },
+      select: { slug: true, title: true, category: true, oneLiner: true },
+      orderBy: { slug: "asc" },
+    });
+    const targetLocales = (config.enabledLocales ?? ["zh"]).filter(
+      (v): v is "zh" | "en" => v === "zh" || v === "en",
+    );
+    const aggregatedMediaUrls = this.collectPreparseMediaUrls(documents);
+
+    const diffSessionId = crypto.randomUUID();
+
+    this.logger.log(
+      `[ingest/MULTI] kb=${knowledgeBaseId} session=${diffSessionId} docs=${documents.length} target=${targetLocales.join(",")}`,
+    );
+
+    // ── Pass 1: OUTLINE ─────────────────────────────────────────────
+    const outline = await this.runOutlinePass({
+      wrappedDocs,
+      currentIndex,
+      targetLocales: targetLocales.length > 0 ? targetLocales : ["zh"],
+      chatUserId,
+      knowledgeBaseId,
+    });
+
+    if (outline.creates.length === 0 && outline.updates.length === 0) {
+      throw new BadRequestException(
+        "Wiki ingest outline produced 0 pages; please retry",
+      );
+    }
+
+    // Resolve groupLabel → translationGroupId (UUID v4) at service layer.
+    // LLM cannot mint UUIDs reliably (BLOCKER #9 of 2026-05-12 consensus).
+    const groupLabelToUuid = new Map<string, string>();
+    const resolveTranslationGroupId = (label?: string): string | undefined => {
+      if (!label) return undefined;
+      const cached = groupLabelToUuid.get(label);
+      if (cached) return cached;
+      const uuid = crypto.randomUUID();
+      groupLabelToUuid.set(label, uuid);
+      return uuid;
+    };
+
+    // ── Pass 2: SECTION-FILL (parallel, fail-tolerant, checkpointed) ──
+    const concurrency = Math.max(1, config.ingestSectionConcurrency ?? 3);
+    const failureToleranceRatio =
+      config.ingestSectionFailureToleranceRatio ?? 0.2;
+    const allOutlineItems: Array<{
+      kind: "create" | "update";
+      slug: string;
+      title?: string;
+      category?: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
+      sectionSkeleton: string[];
+      translationGroupId?: string;
+      priorBody?: string;
+    }> = [
+      ...outline.creates.map((c) => ({
+        kind: "create" as const,
+        slug: c.slug,
+        title: c.title,
+        category: c.category,
+        sectionSkeleton: c.sectionSkeleton,
+        translationGroupId: resolveTranslationGroupId(c.groupLabel),
+      })),
+      ...outline.updates.map((u) => ({
+        kind: "update" as const,
+        slug: u.slug,
+        sectionSkeleton: u.sectionSkeleton,
+      })),
+    ];
+
+    // Load priorBody for UPDATEs so section-fill can edit surgically.
+    if (outline.updates.length > 0) {
+      const priorBodies = await this.prisma.wikiPage.findMany({
+        where: {
+          knowledgeBaseId,
+          slug: { in: outline.updates.map((u) => u.slug) },
+        },
+        select: { slug: true, body: true },
+      });
+      const bodyBySlug = new Map(priorBodies.map((p) => [p.slug, p.body]));
+      for (const item of allOutlineItems) {
+        if (item.kind === "update") {
+          item.priorBody = bodyBySlug.get(item.slug);
+        }
+      }
+    }
+
+    const sectionResults: Array<{
+      kind: "create" | "update";
+      slug: string;
+      title?: string;
+      category?: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
+      body: string;
+      oneLiner: string;
+      sources: Array<{
+        documentId: string;
+        spanStart: number;
+        spanEnd: number;
+        quote: string;
+      }>;
+      translationGroupId?: string;
+    }> = [];
+    const failedSlugs: string[] = [];
+
+    for (let i = 0; i < allOutlineItems.length; i += concurrency) {
+      const batch = allOutlineItems.slice(i, i + concurrency);
+      const settled = await Promise.allSettled(
+        batch.map((item) =>
+          this.runSectionFillPass({
+            item,
+            documents,
+            allowedDocumentIds,
+            wrappedDocs,
+            mediaUrls: aggregatedMediaUrls,
+            chatUserId,
+            knowledgeBaseId,
+          }),
+        ),
+      );
+      for (let j = 0; j < settled.length; j++) {
+        const r = settled[j];
+        const item = batch[j];
+        if (r.status === "fulfilled" && r.value.body.length > 0) {
+          sectionResults.push({
+            kind: item.kind,
+            slug: item.slug,
+            title: item.title,
+            category: item.category,
+            body: r.value.body,
+            oneLiner: r.value.oneLiner,
+            sources: r.value.sources,
+            translationGroupId: item.translationGroupId,
+          });
+          // Partial-progress checkpoint — mid-pass crash can recover
+          // already-done pages (lifecycle: 24h TTL cron reaps).
+          await this.prisma.wikiIngestDraft
+            .upsert({
+              where: {
+                diffSessionId_pageSlug_locale: {
+                  diffSessionId,
+                  pageSlug: item.slug,
+                  locale: targetLocales[0] ?? "zh",
+                },
+              },
+              create: {
+                knowledgeBaseId,
+                diffSessionId,
+                pageSlug: item.slug,
+                locale: targetLocales[0] ?? "zh",
+                body: r.value as unknown as Prisma.InputJsonValue,
+              },
+              update: {
+                body: r.value as unknown as Prisma.InputJsonValue,
+              },
+            })
+            .catch((err) =>
+              this.logger.warn(
+                `[ingest/MULTI] checkpoint failed slug=${item.slug}: ${err instanceof Error ? err.message : String(err)}`,
+              ),
+            );
+        } else {
+          failedSlugs.push(item.slug);
+          this.logger.warn(
+            `[ingest/MULTI] section-fill failed slug=${item.slug}: ${
+              r.status === "rejected"
+                ? r.reason instanceof Error
+                  ? r.reason.message
+                  : String(r.reason)
+                : "empty body returned"
+            }`,
+          );
+        }
+      }
+    }
+
+    const totalItems = allOutlineItems.length;
+    const failRate = totalItems === 0 ? 0 : failedSlugs.length / totalItems;
+    if (failRate > failureToleranceRatio) {
+      throw new BadRequestException(
+        `Wiki ingest section-fill failure rate ${failRate.toFixed(2)} exceeds tolerance ${failureToleranceRatio} (${failedSlugs.length}/${totalItems} pages failed)`,
+      );
+    }
+
+    if (sectionResults.length === 0) {
+      throw new BadRequestException(
+        "Wiki ingest section-fill produced 0 successful pages; please retry",
+      );
+    }
+
+    // ── Pass 3: CROSS-LINK ──────────────────────────────────────────
+    const linkedBodies = await this.runCrossLinkPass({
+      pages: sectionResults.map((s) => ({ slug: s.slug, body: s.body })),
+      linkableSlugs: Array.from(
+        new Set([
+          ...sectionResults.map((s) => s.slug),
+          ...currentIndex.map((p) => p.slug),
+        ]),
+      ),
+      chatUserId,
+      knowledgeBaseId,
+    });
+
+    // Apply cross-link insertions in reverse position order so earlier
+    // insertions don't shift later positions.
+    const bodyBySlug = new Map(sectionResults.map((s) => [s.slug, s.body]));
+    for (const page of linkedBodies.pages) {
+      const original = bodyBySlug.get(page.slug);
+      if (!original) continue;
+      const sorted = [...page.insertions].sort(
+        (a, b) => b.position - a.position,
+      );
+      let body = original;
+      for (const ins of sorted) {
+        if (
+          typeof ins.position !== "number" ||
+          ins.position < 0 ||
+          ins.position > body.length
+        ) {
+          continue;
+        }
+        const linkText = ins.surfaceText
+          ? `[[${ins.linkSlug}|${ins.surfaceText}]]`
+          : `[[${ins.linkSlug}]]`;
+        body =
+          body.slice(0, ins.position) + linkText + body.slice(ins.position);
+      }
+      bodyBySlug.set(page.slug, body);
+    }
+
+    // ── Assemble final WikiDiffItems ────────────────────────────────
+    const DEFAULT_LOCALE: "zh" | "en" =
+      (targetLocales[0] as "zh" | "en" | undefined) ?? "zh";
+    const items = {
+      creates: sectionResults
+        .filter((s) => s.kind === "create")
+        .map((s) => ({
+          slug: s.slug,
+          locale: DEFAULT_LOCALE,
+          title: s.title ?? s.slug,
+          category: s.category ?? ("ENTITY" as const),
+          body: bodyBySlug.get(s.slug) ?? s.body,
+          oneLiner: s.oneLiner,
+          sources: s.sources,
+          ...(s.translationGroupId
+            ? { translationGroupId: s.translationGroupId }
+            : {}),
+        })),
+      updates: sectionResults
+        .filter((s) => s.kind === "update")
+        .map((s) => ({
+          slug: s.slug,
+          locale: DEFAULT_LOCALE,
+          newBody: bodyBySlug.get(s.slug) ?? s.body,
+          newOneLiner: s.oneLiner,
+          sources: s.sources,
+        })),
+      deletes: outline.deletes ?? [],
+    };
+
+    // Reuse the same commit path as SINGLE (zod validation + persist +
+    // metrics). Pre-clean already happened inside each section-fill call.
+    const validated = WikiDiffItemsSchema.safeParse(items);
+    if (!validated.success) {
+      this.logger.error(
+        `[ingest/MULTI] assembled items failed schema validation kb=${knowledgeBaseId}: ${validated.error.message.slice(0, 300)}`,
+      );
+      throw new BadRequestException(
+        "Wiki MULTI ingest assembled output failed schema validation; please retry",
+      );
+    }
+
+    const affectedKeys = [
+      ...new Set([
+        ...validated.data.creates.map((c) => `${c.slug}:${c.locale}`),
+        ...validated.data.updates.map((u) => `${u.slug}:${u.locale}`),
+        ...validated.data.deletes.map((s) => `${s}:${DEFAULT_LOCALE}`),
+      ]),
+    ];
+
+    const diff = await this.prisma.wikiDiff.create({
+      data: {
+        knowledgeBaseId,
+        status: WikiDiffStatus.PENDING,
+        items: validated.data as unknown as Prisma.InputJsonValue,
+        baselineHash,
+        affectedKeys,
+        createdByUserId: userId,
+      },
+    });
+
+    this.logger.log(
+      `[ingest/MULTI] kb=${knowledgeBaseId} diff=${diff.id} creates=${validated.data.creates.length} updates=${validated.data.updates.length} deletes=${validated.data.deletes.length} sectionFails=${failedSlugs.length}/${totalItems}`,
+    );
+    this.logCategoryDistribution(validated.data.creates, knowledgeBaseId);
+
+    const pagesAll = validated.data.creates;
+    const avgBodyLength =
+      pagesAll.length === 0
+        ? 0
+        : Math.round(
+            pagesAll.reduce((s, p) => s + (p.body?.length ?? 0), 0) /
+              pagesAll.length,
+          );
+    const h2CoverageRate =
+      pagesAll.length === 0
+        ? 0
+        : pagesAll.filter((p) => /^## /m.test(p.body ?? "")).length /
+          pagesAll.length;
+    this.lastIngestMetrics = {
+      truncatedOneLiners: 0,
+      droppedSources: 0,
+      totalSourcesSeen: 0,
+      droppedByReason: {},
+      pageCount: pagesAll.length,
+      avgBodyLength,
+      h2CoverageRate,
+    };
+
+    // Reap session-scoped drafts after diff persisted — they served their
+    // mid-pass-recovery purpose. Failure here is non-fatal (a 24h TTL
+    // cron eventually cleans up).
+    await this.prisma.wikiIngestDraft
+      .deleteMany({ where: { diffSessionId } })
+      .catch((err) =>
+        this.logger.warn(
+          `[ingest/MULTI] draft cleanup failed session=${diffSessionId}: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+
+    return diff;
+  }
+
+  private async runOutlinePass(args: {
+    wrappedDocs: string[];
+    currentIndex: Array<{
+      slug: string;
+      title: string;
+      category: string;
+      oneLiner: string;
+    }>;
+    targetLocales: Array<"zh" | "en">;
+    chatUserId: string;
+    knowledgeBaseId: string;
+  }): Promise<{
+    creates: Array<{
+      slug: string;
+      title: string;
+      category: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
+      sectionSkeleton: string[];
+      groupLabel?: string;
+    }>;
+    updates: Array<{ slug: string; sectionSkeleton: string[] }>;
+    deletes: string[];
+  }> {
+    const skill = await this.skillLoader.getSkillById("wiki-ingest-outline");
+    if (!skill) {
+      throw new BadRequestException(
+        "Wiki MULTI outline skill not loaded — check WikiModule.onModuleInit",
+      );
+    }
+    const indexBlock =
+      args.currentIndex.length === 0
+        ? "(empty wiki — every doc will produce CREATE items)"
+        : args.currentIndex
+            .map(
+              (p) =>
+                `- [[${p.slug}]] (${p.category}) "${p.title}" — ${p.oneLiner}`,
+            )
+            .join("\n");
+    const userPrompt = [
+      "## TARGET_LOCALES",
+      `Configured: ${args.targetLocales.join(", ")}`,
+      "",
+      "## Current wiki index",
+      indexBlock,
+      "",
+      "## New documents to ingest",
+      ...args.wrappedDocs,
+    ].join("\n\n");
+
+    let raw!: Awaited<ReturnType<AiChatService["chat"]>>;
+    try {
+      raw = await this.chat.chat({
+        messages: [{ role: "user", content: userPrompt }],
+        systemPrompt: skill.content,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "low", outputLength: "long" },
+        responseFormat: "json_object",
+        operationName: "library-wiki-ingest-outline",
+        userId: args.chatUserId,
+      });
+    } catch (error) {
+      this.logger.error(
+        `[ingest/MULTI/outline] LLM call failed kb=${args.knowledgeBaseId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new BadRequestException(
+        "Wiki MULTI outline pass LLM call failed; please retry",
+      );
+    }
+    const parsed = this.extractJson(raw.content) as Record<string, unknown>;
+    const creates = Array.isArray(parsed.creates)
+      ? (parsed.creates as Array<Record<string, unknown>>)
+      : [];
+    const updates = Array.isArray(parsed.updates)
+      ? (parsed.updates as Array<Record<string, unknown>>)
+      : [];
+    const deletes = Array.isArray(parsed.deletes)
+      ? (parsed.deletes as unknown[]).filter(
+          (s): s is string => typeof s === "string",
+        )
+      : [];
+    return {
+      creates: creates
+        .filter(
+          (c) =>
+            typeof c.slug === "string" &&
+            typeof c.title === "string" &&
+            typeof c.category === "string" &&
+            Array.isArray(c.sectionSkeleton),
+        )
+        .map((c) => ({
+          slug: c.slug as string,
+          title: c.title as string,
+          category: c.category as "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE",
+          sectionSkeleton: (c.sectionSkeleton as unknown[]).filter(
+            (s): s is string => typeof s === "string",
+          ),
+          groupLabel:
+            typeof c.groupLabel === "string" ? c.groupLabel : undefined,
+        })),
+      updates: updates
+        .filter(
+          (u) => typeof u.slug === "string" && Array.isArray(u.sectionSkeleton),
+        )
+        .map((u) => ({
+          slug: u.slug as string,
+          sectionSkeleton: (u.sectionSkeleton as unknown[]).filter(
+            (s): s is string => typeof s === "string",
+          ),
+        })),
+      deletes,
+    };
+  }
+
+  private async runSectionFillPass(args: {
+    item: {
+      kind: "create" | "update";
+      slug: string;
+      title?: string;
+      category?: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
+      sectionSkeleton: string[];
+      priorBody?: string;
+    };
+    documents: Array<{
+      id: string;
+      title: string;
+      rawContent: string | null;
+      rawContentUri: string | null;
+      metadata: Prisma.JsonValue;
+    }>;
+    allowedDocumentIds: Set<string>;
+    wrappedDocs: string[];
+    mediaUrls: string[];
+    chatUserId: string;
+    knowledgeBaseId: string;
+  }): Promise<{
+    body: string;
+    oneLiner: string;
+    sources: Array<{
+      documentId: string;
+      spanStart: number;
+      spanEnd: number;
+      quote: string;
+    }>;
+  }> {
+    const skill = await this.skillLoader.getSkillById("wiki-ingest-section");
+    if (!skill) {
+      throw new BadRequestException(
+        "Wiki MULTI section skill not loaded — check WikiModule.onModuleInit",
+      );
+    }
+    const parts = [
+      `## Page identity (do not rename / re-slug)`,
+      `- slug: ${args.item.slug}`,
+      `- title: ${args.item.title ?? "(see priorBody)"}`,
+      `- category: ${args.item.category ?? "(see priorBody)"}`,
+      "",
+      `## Section skeleton (emit exactly these H2 in order)`,
+      args.item.sectionSkeleton.map((s) => `- ${s}`).join("\n"),
+    ];
+    if (args.item.priorBody) {
+      parts.push(
+        "",
+        "## priorBody (UPDATE — edit surgically, preserve good prose)",
+        args.item.priorBody.slice(0, 50_000),
+      );
+    }
+    if (args.mediaUrls.length > 0) {
+      parts.push(
+        "",
+        "## MEDIA_URLS (pre-extracted images from source docs)",
+        "Use these URLs in page body via `![alt](url)` when describing visual content. Do NOT invent URLs.",
+        ...args.mediaUrls.map((u) => `- ${u}`),
+      );
+    }
+    parts.push("", "## Relevant source documents", ...args.wrappedDocs);
+    const userPrompt = parts.join("\n\n");
+
+    let raw!: Awaited<ReturnType<AiChatService["chat"]>>;
+    try {
+      raw = await this.chat.chat({
+        messages: [{ role: "user", content: userPrompt }],
+        systemPrompt: skill.content,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "low", outputLength: "long" },
+        responseFormat: "json_object",
+        operationName: "library-wiki-ingest-section",
+        userId: args.chatUserId,
+      });
+    } catch (error) {
+      throw new Error(
+        `section-fill LLM call failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    const parsed = this.extractJson(raw.content) as Record<string, unknown>;
+    const body = typeof parsed.body === "string" ? parsed.body : "";
+    const oneLinerRaw =
+      typeof parsed.oneLiner === "string" ? parsed.oneLiner : "";
+    const oneLiner =
+      oneLinerRaw.length > 280
+        ? oneLinerRaw.slice(0, 277).trimEnd() + "..."
+        : oneLinerRaw;
+    const rawSources = Array.isArray(parsed.sources)
+      ? (parsed.sources as Array<Record<string, unknown>>)
+      : [];
+    const sources = rawSources
+      .filter((s) => {
+        if (!s || typeof s !== "object") return false;
+        const o = s;
+        if (
+          typeof o.documentId !== "string" ||
+          !args.allowedDocumentIds.has(o.documentId)
+        )
+          return false;
+        if (
+          typeof o.spanStart !== "number" ||
+          !Number.isInteger(o.spanStart) ||
+          o.spanStart < 0
+        )
+          return false;
+        if (
+          typeof o.spanEnd !== "number" ||
+          !Number.isInteger(o.spanEnd) ||
+          o.spanEnd < o.spanStart
+        )
+          return false;
+        if (
+          typeof o.quote !== "string" ||
+          o.quote.length < 1 ||
+          o.quote.length > 2000
+        )
+          return false;
+        return true;
+      })
+      .map((o) => ({
+        documentId: o.documentId as string,
+        spanStart: o.spanStart as number,
+        spanEnd: o.spanEnd as number,
+        quote: o.quote as string,
+      }));
+    return { body, oneLiner, sources };
+  }
+
+  private async runCrossLinkPass(args: {
+    pages: Array<{ slug: string; body: string }>;
+    linkableSlugs: string[];
+    chatUserId: string;
+    knowledgeBaseId: string;
+  }): Promise<{
+    pages: Array<{
+      slug: string;
+      insertions: Array<{
+        position: number;
+        linkSlug: string;
+        surfaceText?: string;
+      }>;
+    }>;
+  }> {
+    if (args.pages.length === 0) {
+      return { pages: [] };
+    }
+    const skill = await this.skillLoader.getSkillById("wiki-ingest-crosslink");
+    if (!skill) {
+      throw new BadRequestException(
+        "Wiki MULTI cross-link skill not loaded — check WikiModule.onModuleInit",
+      );
+    }
+    const userPrompt = [
+      "## linkableSlugs (only link to slugs in this list)",
+      args.linkableSlugs.map((s) => `- ${s}`).join("\n"),
+      "",
+      "## pages (slug + body)",
+      ...args.pages.map(
+        (p) => `### slug: ${p.slug}\n\n\`\`\`markdown\n${p.body}\n\`\`\``,
+      ),
+    ].join("\n\n");
+
+    let raw!: Awaited<ReturnType<AiChatService["chat"]>>;
+    try {
+      raw = await this.chat.chat({
+        messages: [{ role: "user", content: userPrompt }],
+        systemPrompt: skill.content,
+        modelType: AIModelType.CHAT,
+        taskProfile: { creativity: "low", outputLength: "medium" },
+        responseFormat: "json_object",
+        operationName: "library-wiki-ingest-crosslink",
+        userId: args.chatUserId,
+      });
+    } catch (error) {
+      // Cross-link failure is recoverable: skip linking, keep bodies as-is.
+      this.logger.warn(
+        `[ingest/MULTI/crosslink] failed kb=${args.knowledgeBaseId}: ${error instanceof Error ? error.message : String(error)} — bodies committed without cross-link`,
+      );
+      return { pages: [] };
+    }
+    const parsed = this.extractJson(raw.content) as Record<string, unknown>;
+    const linkableSet = new Set(args.linkableSlugs);
+    const pages = Array.isArray(parsed.pages)
+      ? (parsed.pages as Array<Record<string, unknown>>)
+      : [];
+    return {
+      pages: pages
+        .filter(
+          (p) => typeof p.slug === "string" && Array.isArray(p.insertions),
+        )
+        .map((p) => ({
+          slug: p.slug as string,
+          insertions: (p.insertions as Array<Record<string, unknown>>)
+            .filter(
+              (ins) =>
+                typeof ins.position === "number" &&
+                Number.isInteger(ins.position) &&
+                ins.position >= 0 &&
+                typeof ins.linkSlug === "string" &&
+                linkableSet.has(ins.linkSlug),
+            )
+            .map((ins) => ({
+              position: ins.position as number,
+              linkSlug: ins.linkSlug as string,
+              surfaceText:
+                typeof ins.surfaceText === "string"
+                  ? ins.surfaceText
+                  : undefined,
+            })),
+        })),
+    };
   }
 
   /**
