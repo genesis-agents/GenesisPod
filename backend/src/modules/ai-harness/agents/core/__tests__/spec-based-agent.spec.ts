@@ -37,10 +37,12 @@ function makeIdentity(roleId = "test-agent") {
 }
 
 function makeSpec(overrides?: Partial<IAgentSpec>): IAgentSpec {
+  // 2026-05-12 BYOK fix：默认 userId 留空（admin/cron 路径）让 election 走通，
+  //   election 行为相关的测试不需要每个都 override 掉 userId。"BYOK 用户跳过
+  //   election" 的测试显式传 userId 验证 skip 分支即可。
   return {
     identity: makeIdentity(),
     sessionId: "session-1",
-    userId: "user-1",
     ...overrides,
   };
 }
@@ -268,6 +270,83 @@ describe("SpecBasedAgent.spawnSubagent", () => {
 
 // ─── electModelOrNull: no electionProvider ────────────────────────────────────
 
+describe("SpecBasedAgent electModelOrNull — BYOK userId skip (2026-05-12)", () => {
+  // 真因：election 候选池跨 modelType (CHAT∪REASONING)，打分让 deepseek-reasoner
+  //   压过用户 isDefault 的 grok；preferredModelId 透给 llm-executor → react-loop
+  //   击穿 byokUserId 闸 → chat({ model: deepseek-reasoner }) Path B → 用户 quota
+  //   exhausted 的 deepseek key 报 402。详细注释见 spec-based-agent.ts:295。
+  it("skips election when spec.userId is set", async () => {
+    const executor = makeLlmExecutor();
+    const electionService = {
+      elect: jest.fn().mockResolvedValue({
+        elected: { modelId: "should-not-be-used" },
+        reason: "test",
+      }),
+    };
+    const agent = new SpecBasedAgent(
+      "agent-id",
+      makeSpec({ userId: "user-1" }),
+      executor,
+      () => electionService as never,
+    );
+
+    await agent.executeSpec("input");
+
+    expect(electionService.elect).not.toHaveBeenCalled();
+    // 透给 llm-executor 的 model 应为 undefined，让 chat() 走 Path A
+    // findUserDefaultByType 命中用户 BYOK 默认
+    const call = executor.execute.mock.calls[0][0];
+    expect(call.model).toBeUndefined();
+  });
+
+  it("skips election when KernelContext.userId is set (mission path)", async () => {
+    const executor = makeLlmExecutor();
+    const electionService = {
+      elect: jest.fn().mockResolvedValue({
+        elected: { modelId: "should-not-be-used" },
+        reason: "test",
+      }),
+    };
+    const agent = new SpecBasedAgent(
+      "agent-id",
+      makeSpec(), // no spec.userId
+      executor,
+      () => electionService as never,
+    );
+
+    await KernelContext.run(
+      { missionId: "mission-byok", userId: "user-1" },
+      () => agent.executeSpec("input"),
+    );
+
+    expect(electionService.elect).not.toHaveBeenCalled();
+    const call = executor.execute.mock.calls[0][0];
+    expect(call.model).toBeUndefined();
+  });
+
+  it("still runs election when no userId anywhere (admin/cron path)", async () => {
+    const executor = makeLlmExecutor();
+    const electionService = {
+      elect: jest.fn().mockResolvedValue({
+        elected: { modelId: "admin-elected" },
+        reason: "test",
+      }),
+    };
+    const agent = new SpecBasedAgent(
+      "agent-id",
+      makeSpec(), // no spec.userId, no kctx.userId
+      executor,
+      () => electionService as never,
+    );
+
+    await agent.executeSpec("input");
+
+    expect(electionService.elect).toHaveBeenCalled();
+    const call = executor.execute.mock.calls[0][0];
+    expect(call.model).toBe("admin-elected");
+  });
+});
+
 describe("SpecBasedAgent electModelOrNull — no electionProvider", () => {
   it("returns undefined model when no electionProvider given", async () => {
     const executor = makeLlmExecutor();
@@ -431,8 +510,11 @@ describe("SpecBasedAgent electModelOrNull — generic election error returns und
       () => tracker,
     );
 
+    // 2026-05-12 BYOK fix：election 在有 userId 上下文时整体跳过。本测试验证的
+    //   是 election 基础设施错误 fail-closed 行为，仅适用于无 userId 的 admin /
+    //   cron mission。BYOK 用户路径下 election 不会跑，自然没这条失败链路。
     const result = await KernelContext.run(
-      { missionId: "mission-strict", userId: "user-1" },
+      { missionId: "mission-strict" },
       () => agent.executeSpec("input"),
     );
 
@@ -461,9 +543,11 @@ describe("SpecBasedAgent election reservation lifecycle", () => {
       () => tracker,
     );
 
-    await KernelContext.run(
-      { missionId: "mission-commit", userId: "user-1" },
-      () => agent.executeSpec("input"),
+    // 2026-05-12 BYOK fix：election + reservation 在有 userId 上下文时整体跳过。
+    //   本测试验证的是 reservation commit 行为，仅适用于无 userId 的 admin /
+    //   cron mission。
+    await KernelContext.run({ missionId: "mission-commit" }, () =>
+      agent.executeSpec("input"),
     );
 
     await expect(tracker.getElected("mission-commit")).resolves.toEqual([
@@ -491,9 +575,11 @@ describe("SpecBasedAgent election reservation lifecycle", () => {
       () => tracker,
     );
 
-    await KernelContext.run(
-      { missionId: "mission-release", userId: "user-1" },
-      () => agent.executeSpec("input"),
+    // 2026-05-12 BYOK fix：election + reservation 在有 userId 上下文时整体跳过。
+    //   本测试验证的是 reservation release-on-failure 行为，仅适用于无 userId
+    //   的 admin / cron mission。
+    await KernelContext.run({ missionId: "mission-release" }, () =>
+      agent.executeSpec("input"),
     );
 
     await expect(tracker.getElected("mission-release")).resolves.toEqual([]);

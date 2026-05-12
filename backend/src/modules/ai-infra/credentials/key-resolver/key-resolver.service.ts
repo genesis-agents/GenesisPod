@@ -160,6 +160,69 @@ export class KeyResolverService {
   }
 
   /**
+   * 用户当前**有可用 key** 的 provider 集合（quota-exhausted / DEAD / 长 cooldown
+   * 的 key 不算）。election Step 3 + 任何"按 provider 过滤候选模型"的逻辑都应
+   * 优先用本方法而不是 getAvailableProviders，避免 picking 一个 key 全坏的
+   * provider 再炸一次。
+   *
+   * 2026-05-12 BYOK fix：之前 election BYOK 过滤只看"DB 里有没有 key"，遇到
+   * quota-exhausted 的 key 仍当 "provider 可用"。election 评分把 deepseek-
+   * reasoner（cheap+reasoning）压过用户 isDefault 的 grok → chat 调 deepseek →
+   * AllKeysFailedError(QUOTA_EXCEEDED)。本方法叠 KeyHealthStore.filterUsable
+   * 一层，DEAD / 长 cooldown 的 key 整体剔除，provider 没剩 usable key 就不
+   * 进候选池。
+   *
+   * KeyHealthStore 未注入（spec / 单机）时退化为 getAvailableProviders 行为。
+   */
+  async getHealthyProviders(userId: string): Promise<string[]> {
+    if (!this.keyHealthStore) {
+      return this.getAvailableProviders(userId);
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) return [];
+
+    const [personalKeys, assignedKeys] = await Promise.all([
+      this.prisma.userApiKey.findMany({
+        where: { userId, isActive: true, mode: "PERSONAL" },
+        select: { provider: true, label: true },
+      }),
+      this.prisma.keyAssignment.findMany({
+        where: { userId, status: "ACTIVE" },
+        select: { id: true, provider: true },
+      }),
+    ]);
+
+    // 把 (provider, healthKeyId) 配对铺平
+    const pairs: Array<{ provider: string; healthKeyId: string }> = [
+      ...personalKeys.map((k) => ({
+        provider: k.provider.toLowerCase(),
+        healthKeyId: buildPersonalKeyId(userId, k.provider, k.label),
+      })),
+      ...assignedKeys.map((a) => ({
+        provider: a.provider.toLowerCase(),
+        healthKeyId: buildAssignedKeyId(a.id),
+      })),
+    ];
+
+    if (pairs.length === 0) return [];
+
+    const usableIds = new Set(
+      await this.keyHealthStore.filterUsable(pairs.map((p) => p.healthKeyId)),
+    );
+
+    const healthyProviders = new Set<string>();
+    for (const p of pairs) {
+      if (usableIds.has(p.healthKeyId)) {
+        healthyProviders.add(p.provider);
+      }
+    }
+    return Array.from(healthyProviders);
+  }
+
+  /**
    * 持久化 key 健康状态到 DB（usage_count++ / lastUsedAt / testStatus）。
    *
    * 2026-05-10：流式 chatStream / 任何不能用 KeyExecutor.execute 包裹的

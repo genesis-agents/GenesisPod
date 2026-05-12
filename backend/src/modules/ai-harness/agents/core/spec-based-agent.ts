@@ -196,9 +196,10 @@ export class SpecBasedAgent<
         stubFn: this.spec.stubFn ? () => this.spec.stubFn!(ctx) : undefined,
       });
       if (election.reservation) {
-        await this.electionTrackerProvider
-          ?.()
-          ?.commitReservation(election.missionId, election.reservation.token);
+        await this.electionTrackerProvider?.()?.commitReservation(
+          election.missionId,
+          election.reservation.token,
+        );
       }
       this._state = "completed";
       return {
@@ -212,9 +213,10 @@ export class SpecBasedAgent<
       };
     } catch (err) {
       if (election.reservation) {
-        await this.electionTrackerProvider
-          ?.()
-          ?.releaseReservation(election.missionId, election.reservation.token);
+        await this.electionTrackerProvider?.()?.releaseReservation(
+          election.missionId,
+          election.reservation.token,
+        );
       }
       this._state = "failed";
       const msg = err instanceof Error ? err.message : String(err);
@@ -294,6 +296,16 @@ export class SpecBasedAgent<
     // Lazy resolve — 此时 OnApplicationBootstrap 已跑过，factory.electionService 已 wire
     const electionService = this.electionProvider?.();
     if (!electionService) return {};
+
+    // 2026-05-12 BYOK fix（与 agent-factory.electPreferredModelSelection 对齐）：
+    //   有 userId 上下文时整体跳过 election，让下游 LlmExecutor → chat() 走
+    //   Path A findUserDefaultByType。详细原因见 agent-factory.ts:148 的注释。
+    //   核心：election 候选池跨 modelType（CHAT∪REASONING），打分让 deepseek-
+    //   reasoner 压过用户 isDefault 的 grok；preferredModelId 透给 react-loop 后
+    //   击穿 byokUserId 闸，最终 chat({ model: deepseek-reasoner }) 报 quota
+    //   exhausted。BYOK 用户的"哪个 modelType 用哪个模型"是用户的显式声明，
+    //   election 不该跨 type 抢权。
+    if (userId) return {};
 
     const role = this.resolveRoleHint(this._identity.role.id);
     const requestedModelType = AIModelType.CHAT;

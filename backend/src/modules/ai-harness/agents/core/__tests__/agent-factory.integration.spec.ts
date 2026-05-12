@@ -180,6 +180,41 @@ describe("AgentFactory.setElectionService", () => {
     expect(histories).toEqual([[], ["grok-4-1-fast-reasoning"]]);
     expect(roles).toEqual(["researcher", "researcher"]);
   });
+
+  // 2026-05-12 BYOK fix: 有 userId 上下文时 election 必须整体跳过，避免
+  //   候选池跨 modelType (CHAT∪REASONING) 把 deepseek-reasoner 评分压过用户
+  //   isDefault 的 grok。详细原因见 agent-factory.ts:148 注释。
+  it("skips election when args.userId is set (BYOK path)", async () => {
+    const factory = new AgentFactory();
+    const electMock = jest.fn();
+    factory.setElectionService({ elect: electMock } as never);
+
+    const result = await factory.electPreferredModelSelection({
+      roleId: "researcher#0",
+      userId: "user-1",
+    });
+
+    expect(electMock).not.toHaveBeenCalled();
+    expect(result).toEqual({});
+  });
+
+  it("still runs election when no userId (cron / system task)", async () => {
+    const factory = new AgentFactory();
+    const electMock = jest.fn().mockResolvedValue({
+      elected: { modelId: "admin-tier-default" },
+      scores: [],
+      reason: "test",
+    });
+    factory.setElectionService({ elect: electMock } as never);
+
+    const result = await factory.electPreferredModelSelection({
+      roleId: "researcher#0",
+      // no userId
+    });
+
+    expect(electMock).toHaveBeenCalled();
+    expect(result.modelId).toBe("admin-tier-default");
+  });
 });
 
 // ─── setSubagentSpawner ───────────────────────────────────────────────────────

@@ -94,13 +94,24 @@ export class ModelElectionService {
     }
 
     // ============ Step 3 · BYOK 过滤 ============
+    // 2026-05-12 BYOK fix：用 getHealthyProviders 而不是 getAvailableProviders
+    //   ——后者只看"DB 里有没有 key"，前者再叠 KeyHealthStore.filterUsable，
+    //   quota-exhausted / DEAD / 长 cooldown 的 key 整体剔除。
+    //   场景：用户有 1 个 deepseek key 但已 quota exhausted，election 池里
+    //   deepseek-reasoner 被打分压过 grok（cheap + reasoning role），chat 调
+    //   deepseek → AllKeysFailedError(QUOTA_EXCEEDED)。本过滤把整条 deepseek
+    //   provider 剔除，避免下游再炸一次。
+    //
+    //   KeyHealthStore 未注入（spec / 旧 wiring）时 getHealthyProviders 退化为
+    //   getAvailableProviders，行为对齐原有 BYOK 过滤。
     let byokFiltered = notBlacklisted;
     if (userId && this.keyResolver) {
       try {
-        const providers = await this.keyResolver.getAvailableProviders(userId);
+        const providers = await this.keyResolver.getHealthyProviders(userId);
         const providerSet = new Set(providers.map((p) => p.toLowerCase()));
-        // providers 空 == 用户没配任何 key；这种情况交给 chat() 的 BYOK 预检抛
-        // NoAvailableKeyError，election 这里不强制过滤（否则报错信息不对）。
+        // providers 空 == 用户没配任何 key（或所有 key 都 quota-exhausted）；
+        // 这种情况交给 chat() 的 BYOK 预检抛 NoAvailableKeyError，election
+        // 这里不强制过滤（否则报错信息不对）。
         if (providerSet.size > 0) {
           byokFiltered = notBlacklisted.filter((c) =>
             providerSet.has(c.provider.toLowerCase()),
@@ -110,7 +121,7 @@ export class ModelElectionService {
             // 让下游 AiChatService 抛 BYOK 错误（有清晰错误码），比 election
             // 自己抛"没候选"更利于排查。
             this.logger.warn(
-              `[elect] userId=${userId} has providers=[${[...providerSet]}] ` +
+              `[elect] userId=${userId} has healthy providers=[${[...providerSet]}] ` +
                 `but no candidate matches; falling back to unfiltered pool`,
             );
             byokFiltered = notBlacklisted;

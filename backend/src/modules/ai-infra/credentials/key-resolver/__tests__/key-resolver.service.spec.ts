@@ -8,7 +8,6 @@ import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   NoAvailableKeyError,
-  NoSystemKeyError,
   QuotaExceededError,
 } from "../key-resolver.errors";
 
@@ -184,6 +183,137 @@ describe("KeyResolverService", () => {
       ]);
       const ps = await service.getAvailableProviders("u");
       expect([...ps].sort()).toEqual(["anthropic", "openai"]);
+    });
+  });
+
+  // 2026-05-12 BYOK fix: getHealthyProviders 叠 KeyHealthStore.filterUsable，
+  //   provider 的所有 key 都 quota-exhausted/dead 时整条剔除。election Step 3
+  //   现在用这个方法过滤候选池，防止"用户配过但 key 全坏的 provider 又中选"。
+  describe("getHealthyProviders", () => {
+    it("falls back to getAvailableProviders when KeyHealthStore is not injected", async () => {
+      // 当前 service 构造时没传 keyHealthStore → 退化为 getAvailableProviders
+      (userApiKeys.getAvailableProviders as jest.Mock).mockResolvedValue([
+        "xai",
+      ]);
+      (assignments.getAvailableProviders as jest.Mock).mockResolvedValue([]);
+      const ps = await service.getHealthyProviders("u");
+      expect(ps).toEqual(["xai"]);
+    });
+
+    it("excludes a provider when all its keys are unhealthy (filterUsable empty)", async () => {
+      // 重新构造 service 注入 keyHealthStore + 扩展 prisma mock
+      const filterUsable = jest.fn().mockResolvedValue([
+        // grok 那把 key 健康（保留），deepseek 那把 key 被剔除
+        "personal:u:xai:default",
+      ]);
+      const healthStore = { filterUsable };
+      const extPrisma = {
+        ...prisma,
+        userApiKey: {
+          findMany: jest.fn().mockResolvedValue([
+            { provider: "xai", label: "default" },
+            { provider: "deepseek", label: "default" },
+          ]),
+        },
+        keyAssignment: {
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+      };
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          KeyResolverService,
+          { provide: PrismaService, useValue: extPrisma },
+          { provide: UserApiKeysService, useValue: userApiKeys },
+          { provide: KeyAssignmentsService, useValue: assignments },
+          { provide: SecretsService, useValue: secrets },
+          // KeyHealthStore 是 @Optional 注入；symbol 用 require 避免循环 import
+          {
+            provide:
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              require("../../health").KeyHealthStore,
+            useValue: healthStore,
+          },
+        ],
+      }).compile();
+      const svc = mod.get(KeyResolverService);
+
+      const ps = await svc.getHealthyProviders("u");
+      expect(ps).toEqual(["xai"]); // deepseek 整条剔除
+      // 验证传给 filterUsable 的 healthKeyIds 涵盖两把 personal key
+      expect(filterUsable).toHaveBeenCalledWith([
+        "personal:u:xai:default",
+        "personal:u:deepseek:default",
+      ]);
+    });
+
+    it("returns multiple providers when at least one key per provider is usable", async () => {
+      const filterUsable = jest
+        .fn()
+        .mockResolvedValue(["personal:u:xai:default", "assigned:asg-1"]);
+      const healthStore = { filterUsable };
+      const extPrisma = {
+        ...prisma,
+        userApiKey: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ provider: "xai", label: "default" }]),
+        },
+        keyAssignment: {
+          findMany: jest
+            .fn()
+            .mockResolvedValue([{ id: "asg-1", provider: "anthropic" }]),
+        },
+      };
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          KeyResolverService,
+          { provide: PrismaService, useValue: extPrisma },
+          { provide: UserApiKeysService, useValue: userApiKeys },
+          { provide: KeyAssignmentsService, useValue: assignments },
+          { provide: SecretsService, useValue: secrets },
+          {
+            provide:
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              require("../../health").KeyHealthStore,
+            useValue: healthStore,
+          },
+        ],
+      }).compile();
+      const svc = mod.get(KeyResolverService);
+
+      const ps = await svc.getHealthyProviders("u");
+      expect([...ps].sort()).toEqual(["anthropic", "xai"]);
+    });
+
+    it("returns empty when user has no keys at all", async () => {
+      const filterUsable = jest.fn().mockResolvedValue([]);
+      const healthStore = { filterUsable };
+      const extPrisma = {
+        ...prisma,
+        userApiKey: { findMany: jest.fn().mockResolvedValue([]) },
+        keyAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+      };
+      const mod: TestingModule = await Test.createTestingModule({
+        providers: [
+          KeyResolverService,
+          { provide: PrismaService, useValue: extPrisma },
+          { provide: UserApiKeysService, useValue: userApiKeys },
+          { provide: KeyAssignmentsService, useValue: assignments },
+          { provide: SecretsService, useValue: secrets },
+          {
+            provide:
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              require("../../health").KeyHealthStore,
+            useValue: healthStore,
+          },
+        ],
+      }).compile();
+      const svc = mod.get(KeyResolverService);
+
+      const ps = await svc.getHealthyProviders("u");
+      expect(ps).toEqual([]);
+      // filterUsable 不应被调用，因为 pairs 为空
+      expect(filterUsable).not.toHaveBeenCalled();
     });
   });
 

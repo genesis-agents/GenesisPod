@@ -136,6 +136,29 @@ export class AgentFactory {
   }> {
     if (!this.electionService) return {};
 
+    // 2026-05-12 BYOK fix: 有 userId 上下文时整体跳过 election。
+    //
+    // 真因：election 候选池 = `envSnapshot.models.CHAT ∪ REASONING`（见
+    //   buildElectionCandidates）。即使 ModelElectionService Step 3 已有 BYOK
+    //   provider 过滤，遇到用户配过但 quota-exhausted 的 deepseek key 仍会通过
+    //   （只看"有没有 key"不看 key 健康度）。election 评分里 isDefault 只
+    //   +5 分，tier+role+cost 三项 reasoning 模型常压倒 grok-4-1-fast-reasoning。
+    //
+    //   症状：用户明确把 grok 设为 CHAT default，但 agent run 跑出
+    //   deepseek-reasoner —— preferredModelId 透给 react-loop 后第一优先击穿了
+    //   byokUserId 闸 → chat({ model: "deepseek-reasoner" }) Path B 跳过
+    //   findUserDefaultByType → resolveKey(userId, "deepseek") → 那条
+    //   quota-exhausted 的 deepseek key 报 402 / 直接 NoAvailableKeyError。
+    //
+    //   修法：BYOK userId 上下文整体跳过 election，返回 modelId=undefined。
+    //   react-loop.ts:568 byokUserId 闸已经处理"无 preferredModelId 时让 chat()
+    //   走 findUserDefaultByType"，全链路对齐"用户选啥用啥"。
+    //
+    //   admin/cron 无 userId 路径仍走 election（admin downgrade 行为不变）。
+    if (args.userId) {
+      return {};
+    }
+
     const candidates = this.buildElectionCandidates(args.envSnapshot);
     const missionId = KernelContext.get()?.missionId;
     const role = this.resolveElectionRoleHint(args.roleId);
@@ -154,7 +177,10 @@ export class AgentFactory {
       };
     };
     const selection = this.electionTracker
-      ? await this.electionTracker.reserveSerializedElection(missionId, runElection)
+      ? await this.electionTracker.reserveSerializedElection(
+          missionId,
+          runElection,
+        )
       : { result: (await runElection([])).result };
 
     return {

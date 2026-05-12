@@ -75,6 +75,9 @@ describe("ModelElectionService", () => {
     };
     const keyResolverMock: Partial<jest.Mocked<KeyResolverService>> = {
       getAvailableProviders: jest.fn(),
+      // 2026-05-12 BYOK fix: election Step 3 现在调 getHealthyProviders（叠
+      //   KeyHealthStore.filterUsable，剔除 quota-exhausted/dead 的 provider）
+      getHealthyProviders: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -587,8 +590,8 @@ describe("ModelElectionService", () => {
   });
 
   describe("BYOK 过滤", () => {
-    it("userId 存在 + keyResolver 返回 providers → 按 provider 过滤", async () => {
-      keyResolver.getAvailableProviders.mockResolvedValue(["anthropic"]);
+    it("userId 存在 + keyResolver 返回 healthy providers → 按 provider 过滤", async () => {
+      keyResolver.getHealthyProviders.mockResolvedValue(["anthropic"]);
       modelConfigService.getModelConfig.mockImplementation((id: string) => {
         if (id === "gpt-4o")
           return Promise.resolve(makeConfig({ modelId: "gpt-4o" }));
@@ -615,7 +618,7 @@ describe("ModelElectionService", () => {
     });
 
     it("BYOK 过滤后池为空 → 降级回全量（让下游抛 BYOK 错误）", async () => {
-      keyResolver.getAvailableProviders.mockResolvedValue(["mistral"]);
+      keyResolver.getHealthyProviders.mockResolvedValue(["mistral"]);
       modelConfigService.getModelConfig.mockResolvedValue(
         makeConfig({ modelId: "gpt-4o" }),
       );
@@ -628,6 +631,54 @@ describe("ModelElectionService", () => {
       );
       // 回落到全量池，所以仍然能选出来
       expect(res.elected.modelId).toBe("gpt-4o");
+    });
+
+    // 2026-05-12 BYOK fix: quota-exhausted provider 整体剔除（核心场景）
+    it("quota-exhausted provider（getHealthyProviders 不返回）整条剔除 → 不选该 provider 模型", async () => {
+      // 用户配了 grok 和 deepseek 两把 key，但 deepseek 已 quota exhausted
+      //   → getHealthyProviders 只返回 ["xai"]（grok 那把还能用）
+      //   → election 不应再选 deepseek-reasoner，避免下游 chat 调 deepseek 又炸
+      keyResolver.getHealthyProviders.mockResolvedValue(["xai"]);
+      modelConfigService.getModelConfig.mockImplementation((id: string) => {
+        if (id === "grok-4-1-fast-reasoning")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "grok-4-1-fast-reasoning",
+              provider: "xai",
+              isReasoning: true,
+            }),
+          );
+        if (id === "deepseek-reasoner")
+          return Promise.resolve(
+            makeConfig({
+              modelId: "deepseek-reasoner",
+              provider: "deepseek",
+              isReasoning: true,
+            }),
+          );
+        return Promise.resolve(null);
+      });
+
+      const res = await service.elect(
+        baseRequest({
+          candidates: [
+            cand({
+              modelId: "grok-4-1-fast-reasoning",
+              provider: "xai",
+              costTier: "standard",
+            }),
+            // deepseek-reasoner 在候选池里且 isReasoning 让 role 评分更高 + 便宜，
+            // 没有 health 过滤会被打分压过 grok
+            cand({
+              modelId: "deepseek-reasoner",
+              provider: "deepseek",
+              costTier: "basic",
+            }),
+          ],
+          userId: "user-001",
+        }),
+      );
+      expect(res.elected.modelId).toBe("grok-4-1-fast-reasoning");
     });
   });
 
