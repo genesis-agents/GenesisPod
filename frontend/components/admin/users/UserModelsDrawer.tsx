@@ -257,8 +257,8 @@ export default function UserModelsDrawer({
       size="lg"
     >
       <div className="space-y-6">
-        {/* 顶部 4 卡 */}
-        <AdminStatsCards cards={stats} />
+        {/* 顶部 4 卡 (drawer ≤640px → 2x2 防数字 wrap) */}
+        <AdminStatsCards cards={stats} columns={2} />
 
         {/* 区块 1: 当前授权 */}
         <section>

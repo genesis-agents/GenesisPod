@@ -37,7 +37,6 @@ import {
   type CreateUserData,
   type LoginHistoryItem,
 } from '@/hooks/domain';
-import { useAdminKeyRequests } from '@/hooks/features/useByokAdmin';
 import { useTranslation } from '@/lib/i18n';
 import { LoadingState, ErrorState, useConfirm } from '@/components/ui';
 import ClientDate from '@/components/common/ClientDate';
@@ -53,6 +52,35 @@ export function UsersAddButton({ onClick }: { onClick: () => void }) {
     >
       <UserPlus className="h-5 w-5" />
       {t('admin.users.addUser')}
+    </button>
+  );
+}
+
+/**
+ * UsersPendingApprovalButton — top-action button (与 UsersAddButton 同一位置/同样式)
+ * 内嵌 PENDING 计数徽章。从 UsersSettings 内部位置迁移到 page-level actions
+ * 是用户视觉反馈：审批按钮应与添加用户在同一区域。
+ */
+export function UsersPendingApprovalButton({
+  onClick,
+  count,
+}: {
+  onClick: () => void;
+  count: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700"
+    >
+      <Inbox className="h-5 w-5" />
+      {t('admin.users.pendingApproval.button')}
+      {count > 0 && (
+        <span className="rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-bold text-white">
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -83,6 +111,8 @@ interface UsersSettingsProps {
   searchQuery: string;
   showAddModal: boolean;
   setShowAddModal: (show: boolean) => void;
+  showPendingApproval: boolean;
+  setShowPendingApproval: (show: boolean) => void;
 }
 
 // ─── AddUserModal (Drawer 化暂不做，保持 Modal) ────────────────────────────────
@@ -323,6 +353,8 @@ export default function UsersSettings({
   searchQuery,
   showAddModal,
   setShowAddModal,
+  showPendingApproval,
+  setShowPendingApproval,
 }: UsersSettingsProps) {
   const { t } = useTranslation();
   const {
@@ -353,15 +385,6 @@ export default function UsersSettings({
   const [creditsUser, setCreditsUser] = useState<User | null>(null);
   const [modelsUser, setModelsUser] = useState<User | null>(null);
   const [billingUser, setBillingUser] = useState<User | null>(null);
-
-  // 顶部聚合 [待审批 N] Drawer
-  const [showPendingApproval, setShowPendingApproval] = useState(false);
-
-  // 待审批模型请求数 (顶部徽章用)
-  const { requests: pendingRequests } = useAdminKeyRequests({
-    status: 'PENDING',
-  });
-  const pendingCount = pendingRequests.length;
 
   // Login history 表格列触发
   const [loginHistoryUser, setLoginHistoryUser] = useState<{
@@ -513,26 +536,6 @@ export default function UsersSettings({
         open={showPendingApproval}
         onClose={() => setShowPendingApproval(false)}
       />
-
-      {/* 顶部 [待审批] 徽章按钮 + Stats Cards */}
-      <div className="mb-4 flex items-center justify-end">
-        <button
-          onClick={() => setShowPendingApproval(true)}
-          className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-            pendingCount > 0
-              ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-              : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          <Inbox className="h-4 w-4" />
-          {t('admin.users.pendingApproval.button')}
-          {pendingCount > 0 && (
-            <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
-              {pendingCount}
-            </span>
-          )}
-        </button>
-      </div>
 
       <UserStatsCards />
 

@@ -83,6 +83,34 @@ export function LocalSkillsTable({
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  // 学 BuiltinToolsTable: layerFilter='all' 时按 layer 分组（一段一彩色头）
+  // 单 layer 过滤时回到平铺单表（专注当前 layer，无需再次重复 header）。
+  const groupedByLayer = useMemo(() => {
+    if (layerFilter !== 'all') return null;
+    const map = new Map<string, SkillConfig[]>();
+    for (const s of filtered) {
+      const key = s.layer || 'content';
+      const arr = map.get(key) ?? [];
+      arr.push(s);
+      map.set(key, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort((a, b) =>
+        (a.displayName || a.name).localeCompare(b.displayName || b.name)
+      );
+    }
+    const orderIndex = (layer: string) => {
+      const idx = SKILL_LAYERS.findIndex((l) => l.id === layer);
+      return idx === -1 ? SKILL_LAYERS.length : idx;
+    };
+    return Array.from(map.entries()).sort(([a], [b]) => {
+      const ai = orderIndex(a);
+      const bi = orderIndex(b);
+      if (ai !== bi) return ai - bi;
+      return a.localeCompare(b);
+    });
+  }, [filtered, layerFilter]);
+
   useEffect(() => {
     if (page > totalPages) setPage(1);
   }, [page, totalPages]);
@@ -172,103 +200,73 @@ export function LocalSkillsTable({
         </span>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <Th>名称</Th>
-              <Th>skillId</Th>
-              <Th>层 / 领域</Th>
-              <Th>版本</Th>
-              <Th className="text-right">使用次数</Th>
-              <Th>上次使用</Th>
-              <Th>启用</Th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {pageItems.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-12 text-center text-sm text-gray-500"
+      {groupedByLayer ? (
+        <div className="space-y-4">
+          {groupedByLayer.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-white py-12 text-center text-sm text-gray-500">
+              暂无内置技能
+            </div>
+          ) : (
+            groupedByLayer.map(([layerId, layerSkills]) => {
+              const layerDef =
+                SKILL_LAYERS.find((l) => l.id === layerId) ??
+                SKILL_LAYERS.find((l) => l.id === 'content')!;
+              const Icon = layerDef.icon;
+              const enabledCount = layerSkills.filter((x) => x.enabled).length;
+              return (
+                <div
+                  key={layerId}
+                  className="overflow-hidden rounded-lg border border-gray-200 bg-white"
                 >
-                  暂无内置技能
-                </td>
-              </tr>
-            ) : (
-              pageItems.map((s) => {
-                const layerDef = SKILL_LAYERS.find((l) => l.id === s.layer);
-                const layerLabel = layerDef ? t(layerDef.labelKey) : s.layer;
-                const uses = usageCounts[s.skillId] ?? s.usageCount ?? 0;
-                return (
-                  <tr
-                    key={s.skillId}
-                    onClick={() => setSelectedId(s.skillId)}
-                    className="cursor-pointer hover:bg-gray-50"
+                  <div
+                    className={`flex items-center justify-between px-4 py-2 ${layerDef.color}`}
                   >
-                    <td
-                      className="max-w-[260px] truncate whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900"
-                      title={s.displayName || s.name}
-                    >
-                      {s.displayName || s.name}
-                    </td>
-                    <td
-                      className="font-mono max-w-[200px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
-                      title={s.skillId}
-                    >
-                      {s.skillId}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
-                      <span className="inline-flex rounded-md bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
-                        {layerLabel}
-                      </span>
-                      <span className="ml-1.5 text-gray-500">/ {s.domain}</span>
-                    </td>
-                    <td className="font-mono whitespace-nowrap px-4 py-3 text-xs text-gray-600">
-                      {s.version ?? '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-gray-700">
-                      {uses}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
-                      {fmtTime(s.lastUsedAt)}
-                    </td>
-                    <td
-                      className="whitespace-nowrap px-4 py-3 text-xs"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => void toggleSkill(s.skillId, !s.enabled)}
-                        disabled={togglingId === s.skillId}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                          s.enabled ? 'bg-purple-600' : 'bg-gray-300'
-                        } ${togglingId === s.skillId ? 'opacity-50' : ''}`}
-                        aria-label={
-                          s.enabled ? '已启用，点击禁用' : '已禁用，点击启用'
-                        }
+                    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-800">
+                      <Icon className="h-3.5 w-3.5" />
+                      {t(layerDef.labelKey)}
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${layerDef.badge}`}
                       >
-                        <span
-                          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                            s.enabled ? 'translate-x-5' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        loading={false}
-        onChange={(p) => setPage(p)}
-      />
+                        {layerSkills.length} 个
+                      </span>
+                      <span className="text-gray-600">
+                        {enabledCount} 已启用
+                      </span>
+                    </div>
+                  </div>
+                  <SkillTableBody
+                    skills={layerSkills}
+                    usageCounts={usageCounts}
+                    togglingId={togglingId}
+                    toggleSkill={toggleSkill}
+                    onSelect={setSelectedId}
+                  />
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <SkillTableBody
+              skills={pageItems}
+              usageCounts={usageCounts}
+              togglingId={togglingId}
+              toggleSkill={toggleSkill}
+              onSelect={setSelectedId}
+            />
+          </div>
+          <PaginationBar
+            page={page}
+            totalPages={totalPages}
+            loading={false}
+            onChange={(p) => setPage(p)}
+          />
+        </>
+      )}
 
       {selectedId && (
         <LocalSkillDrawer
@@ -281,6 +279,117 @@ export function LocalSkillsTable({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * SkillTableBody — 抽出 thead+tbody，分组渲染和单表都复用，避免双源。
+ */
+function SkillTableBody({
+  skills,
+  usageCounts,
+  togglingId,
+  toggleSkill,
+  onSelect,
+}: {
+  skills: SkillConfig[];
+  usageCounts: Record<string, number>;
+  togglingId: string | null;
+  toggleSkill: (id: string, next: boolean) => Promise<void> | void;
+  onSelect: (id: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gray-50">
+        <tr>
+          <Th>名称</Th>
+          <Th>skillId</Th>
+          <Th>层 / 领域</Th>
+          <Th>版本</Th>
+          <Th className="text-right">使用次数</Th>
+          <Th>上次使用</Th>
+          <Th>启用</Th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100 bg-white">
+        {skills.length === 0 ? (
+          <tr>
+            <td
+              colSpan={7}
+              className="px-4 py-8 text-center text-sm text-gray-500"
+            >
+              该层暂无技能
+            </td>
+          </tr>
+        ) : (
+          skills.map((s) => {
+            const layerDef = SKILL_LAYERS.find((l) => l.id === s.layer);
+            const layerLabel = layerDef ? t(layerDef.labelKey) : s.layer;
+            const uses = usageCounts[s.skillId] ?? s.usageCount ?? 0;
+            return (
+              <tr
+                key={s.skillId}
+                onClick={() => onSelect(s.skillId)}
+                className="cursor-pointer hover:bg-gray-50"
+              >
+                <td
+                  className="max-w-[260px] truncate whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900"
+                  title={s.displayName || s.name}
+                >
+                  {s.displayName || s.name}
+                </td>
+                <td
+                  className="font-mono max-w-[200px] truncate whitespace-nowrap px-4 py-3 text-xs text-gray-600"
+                  title={s.skillId}
+                >
+                  {s.skillId}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                  <span
+                    className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${layerDef?.badge ?? 'bg-purple-50 text-purple-700'}`}
+                  >
+                    {layerLabel}
+                  </span>
+                  <span className="ml-1.5 text-gray-500">/ {s.domain}</span>
+                </td>
+                <td className="font-mono whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                  {s.version ?? '—'}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm tabular-nums text-gray-700">
+                  {uses}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                  {fmtTime(s.lastUsedAt)}
+                </td>
+                <td
+                  className="whitespace-nowrap px-4 py-3 text-xs"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => void toggleSkill(s.skillId, !s.enabled)}
+                    disabled={togglingId === s.skillId}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                      s.enabled ? 'bg-purple-600' : 'bg-gray-300'
+                    } ${togglingId === s.skillId ? 'opacity-50' : ''}`}
+                    aria-label={
+                      s.enabled ? '已启用，点击禁用' : '已禁用，点击启用'
+                    }
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                        s.enabled ? 'translate-x-5' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </td>
+              </tr>
+            );
+          })
+        )}
+      </tbody>
+    </table>
   );
 }
 

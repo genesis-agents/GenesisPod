@@ -23,6 +23,12 @@ interface AdminStatsCardsProps {
   cards: AdminStatCard[];
   loading?: boolean;
   className?: string;
+  /**
+   * Grid columns at lg breakpoint. Default 4 fits page top.
+   * Use 2 in narrow containers like AdminDrawer (≤640px) where 4-col + large
+   * numbers (e.g. 31,199,864) wrap mid-comma-group and look mangled.
+   */
+  columns?: 2 | 4;
 }
 
 const SEMANTIC_STYLES: Record<
@@ -65,6 +71,7 @@ export default function AdminStatsCards({
   cards,
   loading,
   className,
+  columns = 4,
 }: AdminStatsCardsProps) {
   if (cards.length > 4) {
     if (process.env.NODE_ENV !== 'production') {
@@ -80,9 +87,10 @@ export default function AdminStatsCards({
   }
 
   const visible = cards.slice(0, 4);
+  const gridCols = columns === 2 ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4';
 
   return (
-    <div className={cn('grid grid-cols-2 gap-4 lg:grid-cols-4', className)}>
+    <div className={cn('grid gap-4', gridCols, className)}>
       {loading
         ? Array.from({ length: Math.max(visible.length, 4) }).map((_, i) => (
             <div
@@ -113,9 +121,10 @@ export default function AdminStatsCards({
                     </p>
                     <p
                       className={cn(
-                        'mt-1 text-2xl font-bold',
+                        'mt-1 truncate text-2xl font-bold tabular-nums',
                         styles.valueText
                       )}
+                      title={String(card.value)}
                     >
                       {card.value}
                     </p>

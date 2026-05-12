@@ -7,8 +7,10 @@ import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import UsersSettings, {
   UsersAddButton,
+  UsersPendingApprovalButton,
   UsersSearchBar,
 } from '@/components/admin/UsersSettings';
+import { useAdminKeyRequests } from '@/hooks/features/useByokAdmin';
 import { toast } from '@/stores';
 
 const FROM_TOAST_KEYS: Record<string, string> = {
@@ -24,6 +26,13 @@ function UsersPageInner() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPendingApproval, setShowPendingApproval] = useState(false);
+
+  // 待审批徽章计数 (PENDING BYOK 请求) — 顶部 action 按钮用
+  const { requests: pendingRequests } = useAdminKeyRequests({
+    status: 'PENDING',
+  });
+  const pendingCount = pendingRequests.length;
 
   // Wave 4 精化 (2026-05-11): 旧 deep-link redirect 后显示一次性 toast 提示，
   // 让书签用户知道"页面去哪了"。读完即清掉 query 防止 refresh 重复弹。
@@ -49,7 +58,15 @@ function UsersPageInner() {
       description={t('admin.users.description')}
       icon={Users}
       domain="user"
-      actions={<UsersAddButton onClick={() => setShowAddModal(true)} />}
+      actions={
+        <div className="flex items-center gap-2">
+          <UsersPendingApprovalButton
+            count={pendingCount}
+            onClick={() => setShowPendingApproval(true)}
+          />
+          <UsersAddButton onClick={() => setShowAddModal(true)} />
+        </div>
+      }
       searchBar={
         <UsersSearchBar value={searchQuery} onChange={setSearchQuery} />
       }
@@ -58,6 +75,8 @@ function UsersPageInner() {
         searchQuery={searchQuery}
         showAddModal={showAddModal}
         setShowAddModal={setShowAddModal}
+        showPendingApproval={showPendingApproval}
+        setShowPendingApproval={setShowPendingApproval}
       />
     </AdminPageLayout>
   );

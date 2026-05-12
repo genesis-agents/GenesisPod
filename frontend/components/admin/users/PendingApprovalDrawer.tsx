@@ -164,7 +164,7 @@ export default function PendingApprovalDrawer({
       size="lg"
     >
       <div className="space-y-6">
-        <AdminStatsCards cards={stats} />
+        <AdminStatsCards cards={stats} columns={2} />
 
         {loading ? (
           <div className="space-y-2">

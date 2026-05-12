@@ -13,6 +13,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { AdminDrawer } from '@/components/admin/shared';
 
 // ============================
 // Types
@@ -235,6 +236,11 @@ export default function KernelMemoryPageContent({
     deleted: number;
   } | null>(null);
 
+  // 点击 Recent Processes 行 → 打开详情抽屉（用户反馈：行无反应，应该展开抽屉看详情）
+  const [drawerProcess, setDrawerProcess] = useState<ProcessSummary | null>(
+    null
+  );
+
   const apiUrl = config.apiUrl;
 
   const fetchMemory = useCallback(
@@ -324,6 +330,13 @@ export default function KernelMemoryPageContent({
     void fetchMemory(pid);
   };
 
+  const handleProcessRowClick = (p: ProcessSummary) => {
+    setDrawerProcess(p);
+    setProcessId(p.id);
+    setSearched(false);
+    void fetchMemory(p.id);
+  };
+
   const handleCleanExpired = useCallback(
     async (targetProcessId: string) => {
       setCleaningProcessId(targetProcessId);
@@ -381,7 +394,7 @@ export default function KernelMemoryPageContent({
                 {processes.map((p) => (
                   <tr
                     key={p.id}
-                    onClick={() => handleProcessSelect(p.id)}
+                    onClick={() => handleProcessRowClick(p)}
                     className={`cursor-pointer transition-colors ${
                       processId === p.id ? 'bg-violet-50' : 'hover:bg-gray-50'
                     }`}
@@ -571,6 +584,117 @@ export default function KernelMemoryPageContent({
           {layer !== 'ALL' ? ` (layer: ${layer})` : ''}
         </p>
       )}
+
+      {/* Process Detail Drawer (Recent Processes 行点击 → 详情抽屉) */}
+      <AdminDrawer
+        open={!!drawerProcess}
+        onClose={() => setDrawerProcess(null)}
+        title="Process Detail"
+        description={drawerProcess?.id ?? ''}
+        size="lg"
+      >
+        {drawerProcess && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                  State
+                </p>
+                <span
+                  className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATE_BADGE_CLASSES[drawerProcess.state]}`}
+                >
+                  {drawerProcess.state}
+                </span>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                  Agent
+                </p>
+                <p className="mt-1 text-sm font-medium text-gray-900">
+                  {drawerProcess.agentId || '-'}
+                </p>
+              </div>
+              <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                  Created
+                </p>
+                <p className="mt-1 text-sm text-gray-900">
+                  {new Date(drawerProcess.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <div className="col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                  Process ID
+                </p>
+                <p className="font-mono mt-1 break-all text-xs text-gray-700">
+                  {drawerProcess.id}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900">
+                  Memory Entries
+                </h4>
+                <span className="text-xs text-gray-400">
+                  {searched
+                    ? `${entries.length} / ${total} entries`
+                    : 'Loading…'}
+                </span>
+              </div>
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white p-8 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading memory entries...
+                </div>
+              ) : entries.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
+                  No memory entries for this process.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+                  <table className="w-full text-left text-xs">
+                    <thead className="border-b bg-gray-50 text-[10px] uppercase text-gray-500">
+                      <tr>
+                        <th className="px-3 py-2">Layer</th>
+                        <th className="px-3 py-2">Key</th>
+                        <th className="px-3 py-2">Value</th>
+                        <th className="px-3 py-2">Expires</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {entries.map((e, idx) => (
+                        <tr
+                          key={`${e.processId}-${e.layer}-${e.key}-${idx}`}
+                          className="hover:bg-gray-50"
+                        >
+                          <td className="px-3 py-2">
+                            <LayerBadge layer={e.layer} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="font-mono text-[11px] text-gray-700">
+                              {e.key}
+                            </span>
+                          </td>
+                          <td className="max-w-[220px] px-3 py-2">
+                            <span className="font-mono block truncate text-[11px] text-gray-500">
+                              {truncateValue(e.value, 80)}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-[10px] text-gray-400">
+                            {formatExpiresAt(e.expiresAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </AdminDrawer>
     </div>
   );
 
