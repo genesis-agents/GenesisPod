@@ -325,14 +325,29 @@ describe("UserApiKeysService (additional coverage)", () => {
   // ──────────────────────────────────────────────────────────────────────────
 
   describe("getPersonalKey with cache", () => {
-    it("returns cached result without DB query", async () => {
-      const cached = { apiKey: "cached-key", apiEndpoint: null };
+    it("returns cached result without DB query (含 label 字段)", async () => {
+      const cached = {
+        apiKey: "cached-key",
+        apiEndpoint: null,
+        label: "default",
+      };
       (mockCacheService.get as jest.Mock).mockResolvedValue(cached);
 
       const result = await service.getPersonalKey("user-1", "openai");
 
       expect(result).toEqual(cached);
       expect(mockPrisma.userApiKey!.findFirst).not.toHaveBeenCalled();
+    });
+
+    it("treats legacy cache without label as stale → DB fallback", async () => {
+      // 2026-05-12 fix: 修复前的 cache shape 没 label 字段，必须走 DB 重拉
+      // 让 KeyResolver 构造 healthKeyId 时拿到真实 label
+      const staleCached = { apiKey: "cached-key", apiEndpoint: null };
+      (mockCacheService.get as jest.Mock).mockResolvedValue(staleCached);
+
+      await service.getPersonalKey("user-1", "openai");
+
+      expect(mockPrisma.userApiKey!.findFirst).toHaveBeenCalled();
     });
 
     it("queries DB and caches result when cache misses", async () => {

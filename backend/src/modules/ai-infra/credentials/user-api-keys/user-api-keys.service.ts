@@ -519,10 +519,17 @@ export class UserApiKeysService {
         apiKey: string;
         apiEndpoint?: string | null;
         preferredModelId?: string | null;
-        label: string;
+        label?: string;
       }>(cacheKey);
-      if (cached) {
-        return cached;
+      // 2026-05-12 fix: 上一版 cache shape 不含 label；缺 label 视为 stale，
+      //   强制走 DB 拉，避免 KeyResolver 构造 healthKeyId 时退化为 "default"。
+      if (cached?.label) {
+        return cached as {
+          apiKey: string;
+          apiEndpoint?: string | null;
+          preferredModelId?: string | null;
+          label: string;
+        };
       }
     }
 
