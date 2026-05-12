@@ -70,10 +70,10 @@ export class ModelResolverService {
     //
     // 2026-05-12 BYOK fix：caller 未显式传 availableProviders 时，自动从
     //   RequestContext.userId 解析 healthy providers（叠 KeyHealthStore 剔除
-    //   quota-exhausted）。修法之前 topic-insights / ai-harness/evaluation 等
-    //   selectModel caller 都没传 availableProviders → 退化到 admin 全量 →
-    //   用户 BYOK 配了 grok 但 admin 默认 deepseek 时仍会被路由到 deepseek。
-    //   现在每个 caller 自动继承 BYOK 语义，不需要每处都改记得传。
+    //   quota-exhausted）。修法之前多处 AI App 业务 caller 都没传
+    //   availableProviders → 退化到 admin 全量 → 用户 BYOK 配了 grok 但 admin
+    //   默认是别的 provider 时仍会被路由错。现在每个 caller 自动继承 BYOK
+    //   语义，不需要每处都改记得传。
     //
     //   显式传 availableProviders 时仍尊重 caller 意图（含传空数组的边界）。
     let effectiveAvailableProviders = options.availableProviders;
