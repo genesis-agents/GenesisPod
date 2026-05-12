@@ -43,6 +43,7 @@ import {
   toolBelongsToTab,
   categoryFilterOptionsForTab,
 } from '@/lib/admin/tool-categories';
+import { useToolSecretSuggestions } from '@/lib/admin/tool-secrets';
 import { DrawerShell, Row, Section, Th } from '../_shared/admin-tables';
 
 interface ToolRow {
@@ -472,39 +473,14 @@ function APIServiceDrawer({
   const [secretKeyDraft, setSecretKeyDraft] = useState(tool?.secretKey ?? '');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [secretNames, setSecretNames] = useState<string[]>([]);
+  // 秘钥下拉建议：仅 INTEGRATION + OTHER 类别 + 名称相似度排序
+  // 共享真源在 @/lib/admin/tool-secrets
+  const secretNames = useToolSecretSuggestions(tool?.toolId);
 
   useEffect(() => {
     setApiKeyDraft('');
     setSecretKeyDraft(tool?.secretKey ?? '');
     setSaveMessage(null);
-  }, [tool]);
-
-  // 2026-05-12 拉 admin/secrets/names 喂 <datalist> 让秘钥引用变下拉，
-  // 不要让管理员瞎打 secret name；失败静默——admin 仍可手输。
-  useEffect(() => {
-    if (!tool) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(`${config.apiUrl}/admin/secrets/names`, {
-          headers: getAuthHeader(),
-        });
-        if (!res.ok) return;
-        const raw = await res.json();
-        const data = raw?.data ?? raw;
-        if (!cancelled && Array.isArray(data)) {
-          setSecretNames(
-            data.filter((n): n is string => typeof n === 'string')
-          );
-        }
-      } catch (e) {
-        logger.error('[APIServiceDrawer] load secret names failed', e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, [tool]);
 
   if (!tool) {
