@@ -214,16 +214,18 @@ export class KeyResolverService {
         return null;
       });
     if (personal?.apiKey) {
+      // 2026-05-12 fix: getPersonalKey 已返回真实 label；用它构造 healthKeyId
+      //   防止 persistDbHealthOutcome 按 "default" 反查 userApiKey 在用户用自
+      //   定义 label 时 throw Prisma P2025 (No record found for an update)。
+      const label = personal.label ?? "default";
       return {
         source: "PERSONAL",
         apiKey: personal.apiKey,
         apiEndpoint: personal.apiEndpoint ?? null,
         provider,
         userId,
-        // PR-1 兼容：resolveKey 单 key 路径不知道 label（旧 getPersonalKey 不返回），
-        // 用 "default" 兜底；新调用方应改走 resolveKeyChain。
-        label: "default",
-        healthKeyId: buildPersonalKeyId(userId, provider, "default"),
+        label,
+        healthKeyId: buildPersonalKeyId(userId, provider, label),
         preferredModelId: personal.preferredModelId ?? null,
       };
     }

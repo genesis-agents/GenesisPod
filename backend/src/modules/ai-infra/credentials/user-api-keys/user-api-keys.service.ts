@@ -503,6 +503,12 @@ export class UserApiKeysService {
     apiKey: string;
     apiEndpoint?: string | null;
     preferredModelId?: string | null;
+    /**
+     * 2026-05-12 fix: 返回实际 label，让 KeyResolver 构造 healthKeyId 时用真实
+     * label 而非硬编码 "default"。否则 persistDbHealthOutcome 按 "default"
+     * 反查 userApiKey 在用户用自定义 label 时找不到记录（Prisma P2025）。
+     */
+    label: string;
   } | null> {
     const normalizedProvider = provider.toLowerCase();
     const cacheKey = `${CachePrefix.USER_API_KEY}${userId}:${normalizedProvider}`;
@@ -513,6 +519,7 @@ export class UserApiKeysService {
         apiKey: string;
         apiEndpoint?: string | null;
         preferredModelId?: string | null;
+        label: string;
       }>(cacheKey);
       if (cached) {
         return cached;
@@ -549,6 +556,7 @@ export class UserApiKeysService {
       apiKey: decrypted,
       apiEndpoint: key.apiEndpoint,
       preferredModelId: key.preferredModelId,
+      label: key.label,
     };
 
     // 缓存结果
