@@ -188,9 +188,12 @@ describe("WikiIngestService baseline snapshot regression", () => {
         const [createArgs] = prisma.wikiDiff.create.mock.calls[0] as [
           { data: { items: unknown } },
         ];
-        // 深度相等 — soft-drop (sources 4 不变式) + soft-trim (oneLiner > 280)
+        // 深度比对 — soft-drop (sources 4 不变式) + soft-trim (oneLiner > 280)
         // 在 service 内已经把 mockedChatResponse 处理成 expectedDiffItems。
-        expect(createArgs.data.items).toEqual(entry.expectedDiffItems);
+        // toMatchObject 允许 actual 多字段 — P3 批 1 后 zod locale.default('zh')
+        // 自动给 creates/updates 加 locale,baseline (P0 mock snapshot) 不含
+        // 该字段,subset 比对仍正确。
+        expect(createArgs.data.items).toMatchObject(entry.expectedDiffItems);
       });
 
       it("service.lastIngestMetrics matches baseline.golden.metrics", async () => {
