@@ -487,6 +487,8 @@
         "runWithCount": "运行 Ingest（{{count}}）",
         "loadFailed": "加载文档列表失败",
         "ingestFailed": "Ingest 失败",
+        "timeoutFailed": "Ingest 处理超时（>3 分钟），可能选择的文档过多或内容较大；请减少本次选择数量后重试。",
+        "abortedFailed": "Ingest 已取消（连接被中断），请重试或刷新页面。",
         "noMatch": "当前搜索或筛选条件下没有匹配文档。",
         "never": "从未",
         "actions": {

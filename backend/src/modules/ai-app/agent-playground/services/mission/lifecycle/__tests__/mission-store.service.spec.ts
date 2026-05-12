@@ -531,4 +531,118 @@ describe("MissionStore", () => {
     // ★ 2026-05-05: recoverPodCrashedRunning 已下线（归并到 unified MissionLivenessGuard）
     //   原 6 个 spec 全部迁到 harness 层 mission-liveness-guard.service.spec.ts
   });
+
+  // ─────────────────────────────────────────────
+  // 2026-05-12: FK 风暴熔断 —— mission row 已删时主动 abort orchestrator
+  // ─────────────────────────────────────────────
+  describe("emergency abort on missing mission row", () => {
+    function makePrismaWithChildTables(
+      prismaBase: ReturnType<typeof makePrisma>,
+    ) {
+      type WithUpsert = {
+        upsert: jest.Mock;
+      };
+      const extras = {
+        agentPlaygroundResearchResult: { upsert: jest.fn() } as WithUpsert,
+        agentPlaygroundChapterDraft: { upsert: jest.fn() } as WithUpsert,
+      };
+      return Object.assign(prismaBase, extras);
+    }
+
+    function makeAbortRegistry() {
+      return { abort: jest.fn().mockReturnValue(true) };
+    }
+
+    function fkError() {
+      const err = new Error("Foreign key constraint violated");
+      (err as Error & { code?: string }).code = "P2003";
+      return err;
+    }
+
+    function recordNotFoundError() {
+      const err = new Error("No record was found for an update");
+      (err as Error & { code?: string }).code = "P2025";
+      return err;
+    }
+
+    it("refreshHeartbeat: P2025 triggers abort once even on repeated calls", async () => {
+      const abortRegistry = makeAbortRegistry();
+      const prismaFull = makePrismaWithChildTables(prisma);
+      store = new MissionStore(
+        prismaFull as never,
+        undefined,
+        abortRegistry as never,
+      );
+      prismaFull.agentPlaygroundMission.update
+        .mockRejectedValueOnce(recordNotFoundError())
+        .mockRejectedValueOnce(recordNotFoundError())
+        .mockRejectedValueOnce(recordNotFoundError());
+
+      await store.refreshHeartbeat("ghost", "pod-1");
+      await store.refreshHeartbeat("ghost", "pod-1");
+      await store.refreshHeartbeat("ghost", "pod-1");
+
+      expect(abortRegistry.abort).toHaveBeenCalledTimes(1);
+      expect(abortRegistry.abort).toHaveBeenCalledWith(
+        "ghost",
+        "mission_row_missing",
+      );
+    });
+
+    it("saveResearchResult: P2003 triggers abort and swallows error", async () => {
+      const abortRegistry = makeAbortRegistry();
+      const prismaFull = makePrismaWithChildTables(prisma);
+      store = new MissionStore(
+        prismaFull as never,
+        undefined,
+        abortRegistry as never,
+      );
+      prismaFull.agentPlaygroundResearchResult.upsert.mockRejectedValue(
+        fkError(),
+      );
+
+      await expect(
+        store.saveResearchResult({
+          missionId: "ghost",
+          dimension: "dim-A",
+          findings: [],
+          summary: "s",
+          state: "completed",
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(abortRegistry.abort).toHaveBeenCalledWith(
+        "ghost",
+        "mission_row_missing",
+      );
+    });
+
+    it("does not abort on non-FK / non-P2025 errors", async () => {
+      const abortRegistry = makeAbortRegistry();
+      const prismaFull = makePrismaWithChildTables(prisma);
+      store = new MissionStore(
+        prismaFull as never,
+        undefined,
+        abortRegistry as never,
+      );
+      prismaFull.agentPlaygroundMission.update.mockRejectedValueOnce(
+        new Error("transient DB outage"),
+      );
+
+      await store.refreshHeartbeat("m1", "pod-1");
+      expect(abortRegistry.abort).not.toHaveBeenCalled();
+    });
+
+    it("works without abortRegistry injected (backward-compat)", async () => {
+      const prismaFull = makePrismaWithChildTables(prisma);
+      store = new MissionStore(prismaFull as never);
+      prismaFull.agentPlaygroundMission.update.mockRejectedValueOnce(
+        recordNotFoundError(),
+      );
+      // should not throw — just logs
+      await expect(
+        store.refreshHeartbeat("ghost", "pod-1"),
+      ).resolves.toBeUndefined();
+    });
+  });
 });

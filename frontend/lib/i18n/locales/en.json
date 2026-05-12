@@ -487,6 +487,8 @@
         "runWithCount": "Run Ingest ({{count}})",
         "loadFailed": "Failed to load documents",
         "ingestFailed": "Ingest failed",
+        "timeoutFailed": "Ingest timed out (>3 minutes). Too many or too large documents may be selected; please reduce your selection and try again.",
+        "abortedFailed": "Ingest was cancelled (connection interrupted). Please retry or refresh the page.",
         "noMatch": "No documents match the current search or filter.",
         "never": "Never",
         "actions": {

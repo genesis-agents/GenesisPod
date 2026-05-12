@@ -200,12 +200,26 @@ class ApiClient {
       try {
         // 使用外部传入的 signal，或创建新的用于超时控制
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        // 传具体 reason，否则浏览器抛 "signal is aborted without reason"，
+        // UI 无法区分超时与组件卸载/用户取消。
+        const timeoutId = setTimeout(
+          () =>
+            controller.abort(
+              new DOMException(
+                `Request timeout after ${timeout}ms`,
+                'TimeoutError'
+              )
+            ),
+          timeout
+        );
 
-        // 如果外部 signal 被 abort，也 abort 内部 controller
+        // 如果外部 signal 被 abort，也 abort 内部 controller（同样带 reason）
         if (externalSignal) {
           externalSignal.addEventListener('abort', () => {
-            controller.abort();
+            controller.abort(
+              externalSignal.reason ??
+                new DOMException('Request aborted by caller', 'AbortError')
+            );
             clearTimeout(timeoutId);
           });
         }

@@ -147,11 +147,7 @@ export default function WikiIngestModal({
       onIngested(result.diff.id);
     } catch (err) {
       logger?.error?.('[wiki] ingest failed', err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : t('library.wiki.ingest.ingestFailed')
-      );
+      setError(humanizeIngestError(err, t));
     } finally {
       setSubmitting(false);
     }
@@ -483,6 +479,45 @@ function EmptyState({ icon, title }: { icon: ReactNode; title: string }) {
       <div className="mt-4 max-w-lg text-sm text-slate-500">{title}</div>
     </div>
   );
+}
+
+/**
+ * Wiki ingest 是单轮 LLM 调用，180s timeout 是合理上限；但 fetch AbortController
+ * 触发的 DOMException 原文是 "signal is aborted without reason"，用户看不懂
+ * → 显式判定 timeout / aborted 并给出可执行提示。
+ */
+function humanizeIngestError(
+  err: unknown,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): string {
+  if (err instanceof DOMException) {
+    if (err.name === 'TimeoutError') {
+      return t('library.wiki.ingest.timeoutFailed');
+    }
+    if (err.name === 'AbortError') {
+      return t('library.wiki.ingest.abortedFailed');
+    }
+  }
+  if (err instanceof Error) {
+    const msg = err.message || '';
+    // 兼容 apiClient 包装出来的错误（ApiError 对象走 instanceof Error 时 message 为空，
+    // 但 DOMException timeout 走 Error 路径时 message 是 "Request timeout after Xms"）
+    if (msg.toLowerCase().includes('timeout')) {
+      return t('library.wiki.ingest.timeoutFailed');
+    }
+    if (msg.includes('aborted')) {
+      return t('library.wiki.ingest.abortedFailed');
+    }
+    return msg;
+  }
+  // ApiError 是 plain object，不是 Error 子类
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return (
+      String((err as { message?: unknown }).message ?? '') ||
+      t('library.wiki.ingest.ingestFailed')
+    );
+  }
+  return t('library.wiki.ingest.ingestFailed');
 }
 
 function formatRelativeTime(

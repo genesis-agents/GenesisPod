@@ -24,6 +24,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../../../../common/prisma/prisma.service";
 import { EmbeddingService } from "@/modules/ai-engine/facade";
+import { MissionAbortRegistry } from "@/modules/ai-harness/facade";
 
 export interface MissionListItem {
   id: string;
@@ -69,12 +70,50 @@ export interface MissionDetail extends MissionListItem {
 export class MissionStore {
   private readonly log = new Logger(MissionStore.name);
 
+  /**
+   * 已 emergency-abort 过的 mission（per-instance Set）—— 防止 FK / "No record found"
+   * 风暴：同一个 mission 的连续 12 dim + 30s 心跳全都会触发，但只需 abort 一次。
+   * pod 重启时 Set 自然清空（in-memory，与 abortRegistry / sessions Map 一致）。
+   */
+  private readonly emergencyAborted = new Set<string>();
+
   constructor(
     private readonly prisma: PrismaService,
     /** C4 (2026-05-05): postmortem 真 embedding 闭环
      *  Optional 注入：DI 没接通时 fall back 到 tag 召回（无回归） */
     @Optional() private readonly embeddingService?: EmbeddingService,
+    /** 2026-05-12 FK 风暴熔断：mission row 已被删除时主动 abort 在跑 orchestrator，
+     *  否则 saveResearchResult / heartbeat / chapterDraft 会持续 N 分钟刷错日志。
+     *  Optional：原 spec / 历史 caller 不传也能跑。 */
+    @Optional() private readonly abortRegistry?: MissionAbortRegistry,
   ) {}
+
+  /**
+   * Prisma 错误代码识别：
+   *   - P2003 = Foreign key constraint failed（mission row 已删，子表 upsert 撞 FK）
+   *   - P2025 = Operation failed because depends on records that were not found
+   *             （mission row 已删，update.where 撞空）
+   * 命中即视为 "mission DB row 已蒸发"，触发熔断 abort 让 orchestrator 提前退出。
+   */
+  private isMissionRowMissing(err: unknown): boolean {
+    if (!err || typeof err !== "object") return false;
+    const code = (err as { code?: string }).code;
+    return code === "P2003" || code === "P2025";
+  }
+
+  /**
+   * mission row 已删时的熔断：触发 abort 信号让 orchestrator 退出。
+   * 同 mission 多次触发只 log + abort 一次（emergencyAborted Set 去重）。
+   */
+  private emergencyAbortOnMissingRow(missionId: string, reason: string): void {
+    if (this.emergencyAborted.has(missionId)) return;
+    this.emergencyAborted.add(missionId);
+    this.log.error(
+      `[emergency-abort] mission=${missionId} reason="${reason}" — DB row 已蒸发，` +
+        `主动 abort 在跑 orchestrator 防止 FK / heartbeat 错误风暴。`,
+    );
+    this.abortRegistry?.abort(missionId, "mission_row_missing");
+  }
 
   async create(input: {
     id: string;
@@ -152,6 +191,11 @@ export class MissionStore {
         data: { heartbeatAt: new Date(), podId },
       })
       .catch((err: unknown) => {
+        if (this.isMissionRowMissing(err)) {
+          // mission row 已删 → 心跳没意义，触发 emergency-abort 让上层 orchestrator 退出
+          this.emergencyAbortOnMissingRow(id, "heartbeat row missing");
+          return;
+        }
         // ★ 全覆盖审计修 (2026-05-06): heartbeat 失败改为 log.error 让 Railway 可见（不阻断主流程）
         this.log.error(
           `[heartbeat ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -246,6 +290,13 @@ export class MissionStore {
         data: { lastCompletedStage: stageNumber, heartbeatAt: new Date() },
       })
       .catch((err: unknown) => {
+        if (this.isMissionRowMissing(err)) {
+          this.emergencyAbortOnMissingRow(
+            id,
+            `markStageComplete s${stageNumber}`,
+          );
+          return;
+        }
         this.log.error(
           `[markStageComplete ${id} s${stageNumber}] failed: ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -1461,6 +1512,13 @@ export class MissionStore {
         },
       })
       .catch((err: unknown) => {
+        if (this.isMissionRowMissing(err)) {
+          this.emergencyAbortOnMissingRow(
+            args.missionId,
+            `saveResearchResult FK violation dim=${args.dimension}`,
+          );
+          return;
+        }
         this.log.warn(
           `[saveResearchResult] mission=${args.missionId} dim=${args.dimension} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -1553,6 +1611,13 @@ export class MissionStore {
         },
       })
       .catch((err: unknown) => {
+        if (this.isMissionRowMissing(err)) {
+          this.emergencyAbortOnMissingRow(
+            args.missionId,
+            `saveChapterDraft FK violation dim=${args.dimension} ch=${args.chapterIndex}`,
+          );
+          return;
+        }
         this.log.warn(
           `[saveChapterDraft] mission=${args.missionId} dim=${args.dimension} ch=${args.chapterIndex} failed: ${err instanceof Error ? err.message : String(err)}`,
         );
