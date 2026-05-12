@@ -73,7 +73,12 @@ describe("SearchService (supplemental)", () => {
   let service: SearchService;
   let httpService: { post: jest.Mock; get: jest.Mock };
   let prisma: { systemSetting: { findFirst: jest.Mock } };
-  let secretsService: { getValueInternal: jest.Mock };
+  let secretsService: {
+    getValueInternal: jest.Mock;
+    getValueInternalAllKeys: jest.Mock;
+    markSecretFailure: jest.Mock;
+    markSecretSuccess: jest.Mock;
+  };
   let configService: { get: jest.Mock };
 
   const setupConfig = (opts: {
@@ -107,6 +112,25 @@ describe("SearchService (supplemental)", () => {
       return Promise.resolve(null);
     });
 
+    // ★ 2026-05-12: SearchService 现在走 getValueInternalAllKeys 拿 keyId 数组
+    secretsService.getValueInternalAllKeys.mockImplementation(
+      (name: string) => {
+        if (name.includes("TAVILY") || name.includes("tavily")) {
+          if (!tavilySecret) return Promise.resolve([]);
+          return Promise.resolve([
+            { value: tavilySecret, keyId: "tavily-keyid-1", label: "default" },
+          ]);
+        }
+        if (name.includes("SERPER") || name.includes("serper")) {
+          if (!serperSecret) return Promise.resolve([]);
+          return Promise.resolve([
+            { value: serperSecret, keyId: "serper-keyid-1", label: "default" },
+          ]);
+        }
+        return Promise.resolve([]);
+      },
+    );
+
     prisma.systemSetting.findFirst.mockImplementation(
       async (args: { where: { key: string } }) => {
         if (args.where.key === "search.provider")
@@ -131,7 +155,12 @@ describe("SearchService (supplemental)", () => {
         },
         {
           provide: SecretsService,
-          useValue: { getValueInternal: jest.fn() },
+          useValue: {
+            getValueInternal: jest.fn(),
+            getValueInternalAllKeys: jest.fn().mockResolvedValue([]),
+            markSecretFailure: jest.fn().mockResolvedValue(undefined),
+            markSecretSuccess: jest.fn().mockResolvedValue(undefined),
+          },
         },
         { provide: ConfigService, useValue: { get: jest.fn() } },
       ],
