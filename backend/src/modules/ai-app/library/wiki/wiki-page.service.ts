@@ -389,6 +389,13 @@ export class WikiPageService {
       cronLintDailyBudgetCalls?: number;
       /** W3 v2.0 rebuild：KB 启用语种集合（zh / en / 二者）。controller 已过滤白名单。*/
       enabledLocales?: Array<"zh" | "en">;
+      /** W7 MULTI pass v2.0：'SINGLE' = 单次 LLM 产 N 页（每页 ~300 字硬上限）；
+       * 'MULTI' = outline + section-fill (K 路并发, 每页独立 8K tokens output)
+       * + cross-link 三段。大文档（>20K 字）一律建议 MULTI。 */
+      ingestPassMode?: "SINGLE" | "MULTI";
+      ingestSectionConcurrency?: number;
+      ingestSectionFailureToleranceRatio?: number;
+      ingestOutlineMaxPages?: number;
     },
   ) {
     await this.assertViewerAccess(userId, knowledgeBaseId);
@@ -446,6 +453,32 @@ export class WikiPageService {
       const sorted = Array.from(new Set(patch.enabledLocales)).sort();
       update.enabledLocales = { set: sorted };
       create.enabledLocales = sorted;
+    }
+    // W7 MULTI pass v2.0：暴露 pass mode + 节流参数到 UI
+    if (patch.ingestPassMode === "SINGLE" || patch.ingestPassMode === "MULTI") {
+      update.ingestPassMode = patch.ingestPassMode;
+      create.ingestPassMode = patch.ingestPassMode;
+    }
+    const isc = clamp(patch.ingestSectionConcurrency, 1, 10);
+    if (isc !== undefined) {
+      update.ingestSectionConcurrency = isc;
+      create.ingestSectionConcurrency = isc;
+    }
+    if (
+      patch.ingestSectionFailureToleranceRatio !== undefined &&
+      Number.isFinite(patch.ingestSectionFailureToleranceRatio)
+    ) {
+      const r = Math.max(
+        0,
+        Math.min(1, patch.ingestSectionFailureToleranceRatio),
+      );
+      update.ingestSectionFailureToleranceRatio = r;
+      create.ingestSectionFailureToleranceRatio = r;
+    }
+    const iomp = clamp(patch.ingestOutlineMaxPages, 1, 200);
+    if (iomp !== undefined) {
+      update.ingestOutlineMaxPages = iomp;
+      create.ingestOutlineMaxPages = iomp;
     }
 
     return this.prisma.wikiKnowledgeBaseConfig.upsert({

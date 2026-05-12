@@ -318,6 +318,23 @@ export class WikiController {
             .filter((v): v is "zh" | "en" => v === "zh" || v === "en")
             .slice(0, 2)
         : undefined,
+      // W7 MULTI pass v2.0：暴露 4 个 MULTI 节流参数到 UI
+      ingestPassMode:
+        body.ingestPassMode === "SINGLE" || body.ingestPassMode === "MULTI"
+          ? (body.ingestPassMode as "SINGLE" | "MULTI")
+          : undefined,
+      ingestSectionConcurrency:
+        typeof body.ingestSectionConcurrency === "number"
+          ? body.ingestSectionConcurrency
+          : undefined,
+      ingestSectionFailureToleranceRatio:
+        typeof body.ingestSectionFailureToleranceRatio === "number"
+          ? body.ingestSectionFailureToleranceRatio
+          : undefined,
+      ingestOutlineMaxPages:
+        typeof body.ingestOutlineMaxPages === "number"
+          ? body.ingestOutlineMaxPages
+          : undefined,
     };
     return this.pageService.updateConfig(req.user.id, kbId, patch);
   }

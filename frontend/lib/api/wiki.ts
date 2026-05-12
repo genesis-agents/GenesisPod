@@ -143,6 +143,8 @@ export interface ToggleWikiEnabledResult {
 
 export type WikiLocale = 'zh' | 'en';
 
+export type WikiIngestPassMode = 'SINGLE' | 'MULTI';
+
 export interface WikiKbConfig {
   knowledgeBaseId: string;
   inlinePageCount: number;
@@ -157,6 +159,22 @@ export interface WikiKbConfig {
    * Default `['zh']` mirrors the backend migration backfill.
    */
   enabledLocales: WikiLocale[];
+  /**
+   * W7 v2.0 — wiki ingest pass mode.
+   * SINGLE: one LLM call produces all pages (8K tokens shared, ~300 chars/page).
+   *         Cheap but body-starved on documents >20K chars.
+   * MULTI:  outline → fan-out section-fill (K-way concurrent, 8K tokens each)
+   *         → cross-link. Produces ~8K-12K chars/page. Slower but real depth.
+   * Default 'SINGLE' for backward compat; user toggles in the settings modal.
+   */
+  ingestPassMode: WikiIngestPassMode;
+  /** MULTI: parallel section-fill workers. Default 3, range 1-10. */
+  ingestSectionConcurrency: number;
+  /** MULTI: fraction of pages allowed to fail before whole pass aborts.
+   * Default 0.2 (=20%), range 0-1. */
+  ingestSectionFailureToleranceRatio: number;
+  /** MULTI: hard cap on pages outline phase can declare. Default 30, range 1-200. */
+  ingestOutlineMaxPages: number;
   updatedAt: string;
 }
 
@@ -169,6 +187,10 @@ export type WikiKbConfigPatch = Partial<
     | 'cronLintEnabled'
     | 'cronLintDailyBudgetCalls'
     | 'enabledLocales'
+    | 'ingestPassMode'
+    | 'ingestSectionConcurrency'
+    | 'ingestSectionFailureToleranceRatio'
+    | 'ingestOutlineMaxPages'
   >
 >;
 

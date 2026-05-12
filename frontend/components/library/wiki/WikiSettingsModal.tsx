@@ -74,6 +74,11 @@ export default function WikiSettingsModal({
         cronLintEnabled: config.cronLintEnabled,
         cronLintDailyBudgetCalls: config.cronLintDailyBudgetCalls,
         enabledLocales: config.enabledLocales,
+        ingestPassMode: config.ingestPassMode,
+        ingestSectionConcurrency: config.ingestSectionConcurrency,
+        ingestSectionFailureToleranceRatio:
+          config.ingestSectionFailureToleranceRatio,
+        ingestOutlineMaxPages: config.ingestOutlineMaxPages,
       });
       setConfig(result);
       onClose();
@@ -229,6 +234,75 @@ export default function WikiSettingsModal({
                   setConfig({ ...config, enabledLocales: modeToLocales(m) })
                 }
               />
+              {/* W7 v2.0 — wiki ingest pass mode + MULTI throttle */}
+              <PassModeCard
+                mode={config.ingestPassMode}
+                onChange={(m) => setConfig({ ...config, ingestPassMode: m })}
+              />
+              {config.ingestPassMode === 'MULTI' && (
+                <div className="grid gap-4 md:grid-cols-3">
+                  <ConfigCard
+                    eyebrow="MULTI · K-way"
+                    title="Section concurrency"
+                    description="Parallel section-fill workers. Higher = faster wiki build, more API burst pressure. Default 3."
+                  >
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={config.ingestSectionConcurrency}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          ingestSectionConcurrency: Number(e.target.value),
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+                    />
+                  </ConfigCard>
+                  <ConfigCard
+                    eyebrow="MULTI · failure tolerance"
+                    title="Failure tolerance ratio"
+                    description="Fraction of pages allowed to fail before the whole pass aborts (e.g. 0.2 = up to 20% can fail). Default 0.2."
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={config.ingestSectionFailureToleranceRatio}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          ingestSectionFailureToleranceRatio: Number(
+                            e.target.value
+                          ),
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+                    />
+                  </ConfigCard>
+                  <ConfigCard
+                    eyebrow="MULTI · outline cap"
+                    title="Max pages per outline"
+                    description="Hard cap on how many pages the outline phase may declare. Default 30."
+                  >
+                    <input
+                      type="number"
+                      min={1}
+                      max={200}
+                      value={config.ingestOutlineMaxPages}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          ingestOutlineMaxPages: Number(e.target.value),
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+                    />
+                  </ConfigCard>
+                </div>
+              )}
             </>
           )}
           {error && (
@@ -325,6 +399,52 @@ function LocalePickerCard({
               }
             >
               {t(o.labelKey)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PassModeCard({
+  mode,
+  onChange,
+}: {
+  mode: 'SINGLE' | 'MULTI';
+  onChange: (m: 'SINGLE' | 'MULTI') => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-500">
+        Ingest Pipeline
+      </div>
+      <div className="mt-2 text-sm font-medium text-slate-900">
+        Ingest pass mode
+      </div>
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        <strong>SINGLE</strong>: 1 LLM call writes all pages — cheap, but each
+        page is ~300 字 on big sources (8K-token total output shared).{' '}
+        <strong>MULTI</strong>: outline → fan-out section-fill (K-way parallel,
+        8K tokens each) → cross-link. ~8K-12K 字/page, real depth on long docs.
+        For source documents &gt; 20K characters, prefer <strong>MULTI</strong>.
+      </p>
+      <div className="mt-3 inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+        {(['SINGLE', 'MULTI'] as const).map((value) => {
+          const active = mode === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onChange(value)}
+              className={
+                'rounded-lg px-3 py-1.5 text-xs font-medium transition ' +
+                (active
+                  ? 'bg-white text-violet-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900')
+              }
+            >
+              {value === 'SINGLE' ? 'SINGLE · cheap' : 'MULTI · deep'}
             </button>
           );
         })}
