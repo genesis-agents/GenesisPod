@@ -18,6 +18,8 @@ import { AIModelType } from "@prisma/client";
 import { AiChatService } from "../../ai-engine/llm/services/ai-chat.service";
 import { AiModelConfigService } from "../../ai-engine/llm/services/ai-model-config.service";
 import { ModelFallbackService } from "../../ai-engine/llm/selection/model-fallback.service";
+import { KeyResolverService } from "../../ai-infra/credentials/key-resolver/key-resolver.service";
+import { RequestContext } from "../../../common/context/request-context";
 import type { ModelInfo, ModelSelectionOptions } from "./types/facade.types";
 import {
   OrchestrationFeature,
@@ -35,6 +37,10 @@ export class ModelResolverService {
     @Optional()
     @Inject(ORCHESTRATION_FEATURE)
     private readonly orchestration?: OrchestrationFeature,
+    // 2026-05-12 BYOK fix: selectModel 自动按当前 RequestContext.userId 的 healthy
+    //   providers 过滤候选池，避免调用方忘记传 availableProviders 时退化到 admin
+    //   全量。@Optional 让无 KeyResolver 的 spec / 单机环境也能跑。
+    @Optional() private readonly keyResolver?: KeyResolverService,
   ) {}
 
   /**
@@ -61,9 +67,34 @@ export class ModelResolverService {
     let candidates = models;
 
     // 0. BYOK v2：按用户可用 provider 过滤。管理员或后台任务传 undefined 跳过。
-    if (options.availableProviders !== undefined) {
+    //
+    // 2026-05-12 BYOK fix：caller 未显式传 availableProviders 时，自动从
+    //   RequestContext.userId 解析 healthy providers（叠 KeyHealthStore 剔除
+    //   quota-exhausted）。修法之前 topic-insights / ai-harness/evaluation 等
+    //   selectModel caller 都没传 availableProviders → 退化到 admin 全量 →
+    //   用户 BYOK 配了 grok 但 admin 默认 deepseek 时仍会被路由到 deepseek。
+    //   现在每个 caller 自动继承 BYOK 语义，不需要每处都改记得传。
+    //
+    //   显式传 availableProviders 时仍尊重 caller 意图（含传空数组的边界）。
+    let effectiveAvailableProviders = options.availableProviders;
+    if (effectiveAvailableProviders === undefined && this.keyResolver) {
+      const userId = RequestContext.getUserId();
+      if (userId) {
+        try {
+          const healthy = await this.keyResolver.getHealthyProviders(userId);
+          if (healthy.length > 0) {
+            effectiveAvailableProviders = healthy;
+          }
+        } catch (err) {
+          this.logger.warn(
+            `[selectModel] auto BYOK provider lookup failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    }
+    if (effectiveAvailableProviders !== undefined) {
       const allowed = new Set(
-        options.availableProviders.map((p) => p.toLowerCase()),
+        effectiveAvailableProviders.map((p) => p.toLowerCase()),
       );
       const filtered = candidates.filter((m) =>
         allowed.has(m.provider.toLowerCase()),

@@ -164,6 +164,180 @@ describe("ModelResolverService supplement — availableProviders", () => {
   });
 });
 
+// 2026-05-12 BYOK fix: auto-resolve availableProviders from RequestContext.userId
+//   when caller didn't pass explicit BYOK provider filter. Avoids silent admin
+//   model selection in topic-insights / ai-harness/evaluation / team-factory
+//   selectModel callers that all skip the filter.
+describe("ModelResolverService — auto BYOK from RequestContext", () => {
+  // 用 RequestContext.run 包装来注入 userId（与 prod 路径一致）
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {
+    RequestContext,
+  } = require("../../../../common/context/request-context");
+
+  it("auto-resolves healthy providers from RequestContext.userId when not explicitly set", async () => {
+    const getHealthyProviders = jest.fn().mockResolvedValue(["anthropic"]);
+    const keyResolver = { getHealthyProviders };
+
+    const mockAiChatService = {
+      isReasoningModel: jest.fn().mockReturnValue(false),
+    };
+    const mockModelConfigService = {
+      getAllEnabledModelsByType: jest.fn().mockResolvedValue([
+        { id: "gpt-4o", modelId: "gpt-4o", name: "GPT-4o", provider: "openai" },
+        {
+          id: "claude-sonnet",
+          modelId: "claude-sonnet",
+          name: "Claude",
+          provider: "anthropic",
+        },
+      ]),
+    };
+    const mockFallback = { isModelBlocked: jest.fn().mockReturnValue(false) };
+    const mockOrchestration = {
+      circuitBreaker: {
+        canExecute: jest.fn().mockReturnValue(true),
+        selectBest: jest.fn().mockReturnValue(null),
+      },
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ModelResolverService,
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: AiModelConfigService, useValue: mockModelConfigService },
+        { provide: ModelFallbackService, useValue: mockFallback },
+        { provide: ORCHESTRATION_FEATURE, useValue: mockOrchestration },
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        {
+          provide:
+            require("../../../ai-infra/credentials/key-resolver/key-resolver.service")
+              .KeyResolverService,
+          useValue: keyResolver,
+        },
+      ],
+    }).compile();
+    const service = module.get<ModelResolverService>(ModelResolverService);
+
+    // caller 不传 availableProviders；RequestContext 注入 userId
+    const result = await RequestContext.run({ userId: "user-1" }, () =>
+      service.selectModel({}),
+    );
+
+    expect(getHealthyProviders).toHaveBeenCalledWith("user-1");
+    expect(result).not.toBeNull();
+    expect(result!.provider).toBe("anthropic"); // openai 被剔除
+  });
+
+  it("does not invoke keyResolver when caller passes explicit availableProviders", async () => {
+    const getHealthyProviders = jest.fn();
+    const keyResolver = { getHealthyProviders };
+
+    const mockAiChatService = {
+      isReasoningModel: jest.fn().mockReturnValue(false),
+    };
+    const mockModelConfigService = {
+      getAllEnabledModelsByType: jest.fn().mockResolvedValue([
+        {
+          id: "gpt-4o",
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+        },
+      ]),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ModelResolverService,
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: AiModelConfigService, useValue: mockModelConfigService },
+        {
+          provide: ModelFallbackService,
+          useValue: { isModelBlocked: jest.fn().mockReturnValue(false) },
+        },
+        {
+          provide: ORCHESTRATION_FEATURE,
+          useValue: {
+            circuitBreaker: {
+              canExecute: jest.fn().mockReturnValue(true),
+              selectBest: jest.fn().mockReturnValue(null),
+            },
+          },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        {
+          provide:
+            require("../../../ai-infra/credentials/key-resolver/key-resolver.service")
+              .KeyResolverService,
+          useValue: keyResolver,
+        },
+      ],
+    }).compile();
+    const service = module.get<ModelResolverService>(ModelResolverService);
+
+    await RequestContext.run({ userId: "user-1" }, () =>
+      service.selectModel({ availableProviders: ["openai"] }),
+    );
+
+    // caller 显式给了，不再调 getHealthyProviders
+    expect(getHealthyProviders).not.toHaveBeenCalled();
+  });
+
+  it("falls through to admin pool when no userId in RequestContext", async () => {
+    const getHealthyProviders = jest.fn();
+    const keyResolver = { getHealthyProviders };
+
+    const mockAiChatService = {
+      isReasoningModel: jest.fn().mockReturnValue(false),
+    };
+    const mockModelConfigService = {
+      getAllEnabledModelsByType: jest.fn().mockResolvedValue([
+        {
+          id: "gpt-4o",
+          modelId: "gpt-4o",
+          name: "GPT-4o",
+          provider: "openai",
+        },
+      ]),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ModelResolverService,
+        { provide: AiChatService, useValue: mockAiChatService },
+        { provide: AiModelConfigService, useValue: mockModelConfigService },
+        {
+          provide: ModelFallbackService,
+          useValue: { isModelBlocked: jest.fn().mockReturnValue(false) },
+        },
+        {
+          provide: ORCHESTRATION_FEATURE,
+          useValue: {
+            circuitBreaker: {
+              canExecute: jest.fn().mockReturnValue(true),
+              selectBest: jest.fn().mockReturnValue(null),
+            },
+          },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        {
+          provide:
+            require("../../../ai-infra/credentials/key-resolver/key-resolver.service")
+              .KeyResolverService,
+          useValue: keyResolver,
+        },
+      ],
+    }).compile();
+    const service = module.get<ModelResolverService>(ModelResolverService);
+
+    // 无 RequestContext.userId（cron / 系统任务）
+    const result = await service.selectModel({});
+
+    expect(getHealthyProviders).not.toHaveBeenCalled();
+    expect(result).not.toBeNull();
+    expect(result!.provider).toBe("openai");
+  });
+});
+
 // ─── getModelById with no isReasoning / no apiKey ────────────────────────────
 
 describe("ModelResolverService supplement — getModelById edge cases", () => {
