@@ -111,10 +111,10 @@ describe("EmbeddingProcessorService", () => {
       expect(result.generatedCount).toBe(2);
       expect(result.totalNeeded).toBe(2);
       expect(result.failedBatches).toBe(0);
-      expect(mockEmbeddingService.generateEmbeddings).toHaveBeenCalledWith([
-        "First chunk content",
-        "Second chunk content",
-      ]);
+      expect(mockEmbeddingService.generateEmbeddings).toHaveBeenCalledWith(
+        ["First chunk content", "Second chunk content"],
+        { maxRetries: 1 },
+      );
       expect(mockVectorService.storeEmbedding).toHaveBeenCalledTimes(2);
     });
 

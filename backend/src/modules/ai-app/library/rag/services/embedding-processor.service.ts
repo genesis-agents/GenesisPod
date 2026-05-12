@@ -316,8 +316,14 @@ export class EmbeddingProcessorService {
         lastBatchAt = Date.now();
         tokenWindow.push({ ts: lastBatchAt, tokens: batchTokens });
         try {
+          // ★ 2026-05-12: maxRetries:1 关 EmbeddingService 内层 3-retry。
+          //   外层已有 TPM-aware throttle + 60s 等-滚-quota-window 重试，
+          //   内层 1s/2s 指数退避只会在 ~4s 内打 3 个 HTTP 把 Google 100 RPM
+          //   peak burst 直接打爆 + 污染 quota window。
           const embeddingResult =
-            await this.ragFacade!.embedding!.generateEmbeddings(texts);
+            await this.ragFacade!.embedding!.generateEmbeddings(texts, {
+              maxRetries: 1,
+            });
 
           for (let j = 0; j < batch.length; j++) {
             const chunk = batch[j];

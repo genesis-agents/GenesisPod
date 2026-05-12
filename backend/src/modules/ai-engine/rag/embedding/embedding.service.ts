@@ -71,6 +71,24 @@ export interface EmbeddingBatch {
   totalTokens: number;
 }
 
+/**
+ * generateEmbeddings 调用选项
+ *
+ * ★ 2026-05-12: 加 maxRetries 让带 TPM-aware 外层节流的 caller（如
+ *   embedding-processor.service.ts）可关闭内层 3-retry——
+ *   否则 1 个外层 batch 在 ~4s 内打 3 个 HTTP 给 Google，
+ *   peak burst 直接 429 + quota window 被污染。
+ *   外层已有更智能的 60s 等-滚-quota-window 重试。
+ */
+export interface EmbeddingCallOptions {
+  /**
+   * 内层 429 重试次数（含首次尝试）。
+   *   - undefined / 不传：用默认值 3（向后兼容）
+   *   - 1：禁用内层重试，全交给外层节流（推荐：外层有 TPM-aware throttle）
+   */
+  maxRetries?: number;
+}
+
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
@@ -443,8 +461,14 @@ export class EmbeddingService {
   /**
    * 批量生成嵌入
    * ★ 通过 apiFormat 路由到 AiApiCallerService 对应方法
+   *
+   * @param texts 待嵌入文本
+   * @param options 调用选项，详见 EmbeddingCallOptions
    */
-  async generateEmbeddings(texts: string[]): Promise<EmbeddingBatch> {
+  async generateEmbeddings(
+    texts: string[],
+    options?: EmbeddingCallOptions,
+  ): Promise<EmbeddingBatch> {
     if (texts.length === 0) {
       return { texts: [], embeddings: [], totalTokens: 0 };
     }
@@ -465,7 +489,7 @@ export class EmbeddingService {
         return await this.hookBus.fire(
           "engine.embedding.request",
           requestPayload,
-          () => this.generateEmbeddingsTerminal(texts, config),
+          () => this.generateEmbeddingsTerminal(texts, config, options),
         );
       } catch (err) {
         // HookAbortError 携带 cached payload 时，让 plugin 的 abortPayload 直接当结果
@@ -477,7 +501,7 @@ export class EmbeddingService {
         throw err;
       }
     }
-    return this.generateEmbeddingsTerminal(texts, config);
+    return this.generateEmbeddingsTerminal(texts, config, options);
   }
 
   /**
@@ -486,6 +510,7 @@ export class EmbeddingService {
   private async generateEmbeddingsTerminal(
     texts: string[],
     config: EmbeddingModelConfig,
+    options?: EmbeddingCallOptions,
   ): Promise<EmbeddingBatch> {
     const allEmbeddings: number[][] = [];
     let totalTokens = 0;
@@ -511,18 +536,25 @@ export class EmbeddingService {
       );
     }
 
+    // ★ 2026-05-12: 允许 caller 关闭内层 retry（推荐当 caller 自带 TPM-aware
+    //   节流时，如 embedding-processor.service.ts）。否则 1 个外层 batch 在 ~4s
+    //   内打 3 个 HTTP 给 Google → 必然 429 + quota window 污染。
+    const maxRetries = Math.max(
+      1,
+      Math.min(
+        options?.maxRetries ?? EmbeddingService.RETRY_MAX_ATTEMPTS,
+        EmbeddingService.RETRY_MAX_ATTEMPTS,
+      ),
+    );
+
     // Process in batches
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
 
-      // ★ 2026-05-04 加 retry + 指数退避
+      // ★ 2026-05-04 加 retry + 指数退避（caller 可通过 options.maxRetries 控制）
       let lastError: unknown;
       let succeeded = false;
-      for (
-        let attempt = 0;
-        attempt < EmbeddingService.RETRY_MAX_ATTEMPTS;
-        attempt++
-      ) {
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
           const result = await this.callEmbeddingAPI(config, batch);
           allEmbeddings.push(...result.embeddings);
@@ -541,11 +573,11 @@ export class EmbeddingService {
             this.recordRateLimitFailure();
             // 熔断打开后立即终止重试链
             if (this.isCircuitOpen()) break;
-            if (attempt < EmbeddingService.RETRY_MAX_ATTEMPTS - 1) {
+            if (attempt < maxRetries - 1) {
               const delayMs =
                 EmbeddingService.RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
               this.logger.warn(
-                `[embedding] 429 (attempt ${attempt + 1}/${EmbeddingService.RETRY_MAX_ATTEMPTS}), backing off ${delayMs}ms`,
+                `[embedding] 429 (attempt ${attempt + 1}/${maxRetries}), backing off ${delayMs}ms`,
               );
               await new Promise((r) => setTimeout(r, delayMs));
               continue;
