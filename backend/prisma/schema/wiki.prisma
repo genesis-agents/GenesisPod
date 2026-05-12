@@ -44,7 +44,7 @@ model WikiPage {
   opLogPages    WikiOperationLogPage[]
   lintFindings  WikiLintFinding[]
 
-  @@unique([knowledgeBaseId, slug])
+  @@unique([knowledgeBaseId, slug, locale])
   @@index([knowledgeBaseId, category])
   @@index([knowledgeBaseId, updatedAt])
   @@index([knowledgeBaseId, translationGroupId])

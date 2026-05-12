@@ -16,6 +16,14 @@ import { KnowledgeBaseService } from "../rag/services/knowledge-base.service";
 import { CreateWikiPageDto, UpdateWikiPageDto } from "./dto/wiki-page.dto";
 
 /**
+ * P3 (2026-05-12): default locale for legacy single-locale callers. The
+ * column gained a DB default of 'zh' in P3 commit 1; this constant
+ * mirrors that for explicit composite-key reads where Prisma cannot
+ * fall back to the column default.
+ */
+const DEFAULT_WIKI_LOCALE = "zh";
+
+/**
  * WikiPageService — page CRUD, link parsing, revision writing, and revert.
  *
  * v1.5.3 P1 scope:
@@ -65,8 +73,18 @@ export class WikiPageService {
   }> {
     await this.assertViewerAccess(userId, knowledgeBaseId);
 
+    // P3 (2026-05-12): unique key is now (kb, slug, locale). Existing
+    // single-locale callers default to 'zh'; multi-locale-aware lookups
+    // (e.g. findAllInTranslationGroup with cross-locale fallback) land
+    // in a follow-up commit.
     const page = await this.prisma.wikiPage.findUnique({
-      where: { knowledgeBaseId_slug: { knowledgeBaseId, slug } },
+      where: {
+        knowledgeBaseId_slug_locale: {
+          knowledgeBaseId,
+          slug,
+          locale: DEFAULT_WIKI_LOCALE,
+        },
+      },
     });
     if (!page) throw new NotFoundException("Wiki page not found");
 
@@ -152,7 +170,13 @@ export class WikiPageService {
 
     const action = dto.action ?? "edit";
     const current = await this.prisma.wikiPage.findUnique({
-      where: { knowledgeBaseId_slug: { knowledgeBaseId, slug } },
+      where: {
+        knowledgeBaseId_slug_locale: {
+          knowledgeBaseId,
+          slug,
+          locale: DEFAULT_WIKI_LOCALE,
+        },
+      },
     });
     if (!current) throw new NotFoundException("Wiki page not found");
 
@@ -171,7 +195,13 @@ export class WikiPageService {
     await this.assertEditorAccessAndWikiEnabled(userId, knowledgeBaseId);
 
     const page = await this.prisma.wikiPage.findUnique({
-      where: { knowledgeBaseId_slug: { knowledgeBaseId, slug } },
+      where: {
+        knowledgeBaseId_slug_locale: {
+          knowledgeBaseId,
+          slug,
+          locale: DEFAULT_WIKI_LOCALE,
+        },
+      },
       select: { id: true },
     });
     if (!page) throw new NotFoundException("Wiki page not found");

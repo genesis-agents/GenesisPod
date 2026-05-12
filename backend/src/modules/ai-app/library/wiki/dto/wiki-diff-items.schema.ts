@@ -40,8 +40,25 @@ export const WikiPageCategorySchema = z.enum([
   "SOURCE",
 ]);
 
+/**
+ * P3 (2026-05-12): every diff item carries a `locale` string. CRITICAL
+ * (BLOCKER C6 / consensus #8): the field has `.default('zh')` and is
+ * NEVER `.required()`. Legacy PENDING diffs persisted before P3
+ * (which omit `locale` entirely from items.creates[]/items.updates[])
+ * MUST still parse cleanly and route to the 'zh' locale automatically
+ * — otherwise an in-flight upgrade would brick those rows on
+ * applyDiff. zod fills the missing field at parse time inside
+ * applyDiff so the downstream code can read `item.locale`
+ * unconditionally.
+ *
+ * Range: 2–8 chars matches the wiki_pages.locale column VARCHAR(8) and
+ * is wide enough for "zh-CN" / "en-US" style BCP47 tags.
+ */
+const WikiLocaleSchema = z.string().min(2).max(8).default("zh");
+
 export const WikiDiffCreateItemSchema = z.object({
   slug: z.string().regex(SLUG_REGEX),
+  locale: WikiLocaleSchema,
   title: z.string().min(1).max(500),
   category: WikiPageCategorySchema,
   body: z.string().min(1).max(200_000),
@@ -51,6 +68,7 @@ export const WikiDiffCreateItemSchema = z.object({
 
 export const WikiDiffUpdateItemSchema = z.object({
   slug: z.string().regex(SLUG_REGEX),
+  locale: WikiLocaleSchema,
   newBody: z.string().min(1).max(200_000),
   newOneLiner: z.string().min(1).max(280).optional(),
   sources: z.array(WikiPageSourceItemSchema).max(50).optional(),

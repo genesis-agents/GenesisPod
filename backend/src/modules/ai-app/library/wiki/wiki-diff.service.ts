@@ -337,16 +337,22 @@ export class WikiDiffService {
           for (const create of items.creates) {
             const sanitizedBody = sanitizeMarkdownBody(create.body).body;
             const contentHash = this.pageService.hashBody(sanitizedBody);
+            // P3 (2026-05-12): unique key now includes locale. zod schema
+            // .default('zh') guarantees create.locale is always populated,
+            // even on legacy PENDING diffs persisted before the column
+            // existed (BLOCKER C6 / consensus #8).
             const page = await tx.wikiPage.upsert({
               where: {
-                knowledgeBaseId_slug: {
+                knowledgeBaseId_slug_locale: {
                   knowledgeBaseId,
                   slug: create.slug,
+                  locale: create.locale,
                 },
               },
               create: {
                 knowledgeBaseId,
                 slug: create.slug,
+                locale: create.locale,
                 title: create.title,
                 category: create.category,
                 body: sanitizedBody,

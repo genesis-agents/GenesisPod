@@ -381,6 +381,61 @@ describe("WikiDiffService", () => {
         "DELETE FROM wiki_document_coverages",
       );
     });
+
+    it("P3 BLOCKER C6: legacy PENDING items without locale field upsert at locale='zh' via zod default", async () => {
+      // A diff persisted before P3 has items.creates[].locale absent.
+      // applyDiff MUST NOT reject — zod schema .default('zh') fills the
+      // missing field at parse time, then the upsert uses the
+      // (kb, slug, locale='zh') composite key. This guards in-flight
+      // upgrades from bricking pre-existing PENDING rows.
+      const baselineHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify([]), "utf8")
+        .digest("hex");
+
+      prisma.wikiDiff.findUnique.mockResolvedValue({
+        id: "legacy-pending",
+        knowledgeBaseId: "kb-1",
+        status: WikiDiffStatus.PENDING,
+        baselineHash,
+        items: {
+          creates: [
+            {
+              slug: "legacy-page",
+              // NO `locale` field — pre-P3 PENDING shape
+              title: "Legacy",
+              category: "CONCEPT",
+              body: "Legacy body",
+              oneLiner: "Legacy oneLiner",
+              sources: [],
+            },
+          ],
+          updates: [],
+          deletes: [],
+        },
+      });
+      tx.wikiPage.upsert.mockResolvedValue({
+        id: "page-legacy",
+        slug: "legacy-page",
+        locale: "zh",
+        body: "Legacy body",
+      });
+
+      await service.applyDiff("user-1", "kb-1", "legacy-pending");
+
+      // Both the where clause and the create payload must specify 'zh'
+      // — confirming zod default flowed through to the Prisma call.
+      expect(tx.wikiPage.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            knowledgeBaseId_slug_locale: expect.objectContaining({
+              locale: "zh",
+            }),
+          }),
+          create: expect.objectContaining({ locale: "zh" }),
+        }),
+      );
+    });
   });
 
   // ─── supersedeConflictingDiffs newer-wins (6e0457e81) ───
