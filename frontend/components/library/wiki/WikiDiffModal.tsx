@@ -175,18 +175,62 @@ export default function WikiDiffModal({
             onClick={async () => {
               if (!diff) return;
               setApplying(true);
-              try {
+              const doApply = async (supersede = false) => {
                 await wikiApi.patchDiff(
                   kbId,
                   diff.id,
                   'apply',
-                  Array.from(selected)
+                  Array.from(selected),
+                  supersede ? { supersedeConflictingDiffs: true } : undefined
                 );
+              };
+              try {
+                await doApply(false);
                 onApplied?.();
                 onClose();
               } catch (err) {
                 logger?.error?.('[wiki] apply diff failed', err);
-                alert(t('library.wiki.diff.applyFailed'));
+                const raw =
+                  (
+                    err as {
+                      response?: { data?: { message?: string } };
+                      message?: string;
+                    }
+                  ).response?.data?.message ??
+                  (err as Error).message ??
+                  '';
+                const conflictMatch =
+                  /conflicts with PENDING diff ([\w-]+) on slug\(s\): (.+)/.exec(
+                    raw
+                  );
+                if (conflictMatch) {
+                  const [, otherId, slugs] = conflictMatch;
+                  const ok = confirm(
+                    `另一个待审 diff (${otherId.slice(0, 8)}…) 也在改这些条目：${slugs}\n\n点击"确定"将作废它并应用当前 diff（newer-wins）。`
+                  );
+                  if (ok) {
+                    try {
+                      await doApply(true);
+                      onApplied?.();
+                      onClose();
+                      return;
+                    } catch (e2) {
+                      logger?.error?.('[wiki] supersede apply failed', e2);
+                      alert(
+                        (
+                          e2 as {
+                            response?: { data?: { message?: string } };
+                            message?: string;
+                          }
+                        ).response?.data?.message ??
+                          (e2 as Error).message ??
+                          t('library.wiki.diff.applyFailed')
+                      );
+                    }
+                  }
+                } else {
+                  alert(raw || t('library.wiki.diff.applyFailed'));
+                }
               } finally {
                 setApplying(false);
               }

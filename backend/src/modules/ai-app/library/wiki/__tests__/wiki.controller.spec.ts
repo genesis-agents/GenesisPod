@@ -293,6 +293,7 @@ describe("WikiController", () => {
         KB_ID,
         DIFF_ID,
         ["item-1", "item-2"],
+        { supersedeConflictingDiffs: false },
       );
       expect(diffService.dismissDiff).not.toHaveBeenCalled();
     });
@@ -308,6 +309,7 @@ describe("WikiController", () => {
         KB_ID,
         DIFF_ID,
         undefined,
+        { supersedeConflictingDiffs: false },
       );
     });
 

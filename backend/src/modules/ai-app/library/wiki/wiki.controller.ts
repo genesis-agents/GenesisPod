@@ -27,10 +27,12 @@ import {
   UpdateWikiPageDto,
 } from "./dto/wiki-page.dto";
 import {
+  BatchPatchWikiLintFindingsDto,
   IngestWikiDto,
   PatchWikiDiffDto,
   PatchWikiLintFindingDto,
 } from "./dto/wiki-diff.dto";
+import { WikiLintType } from "@prisma/client";
 import {
   WikiQueryRequestDto,
   WikiLintFindingsQueryDto,
@@ -190,6 +192,7 @@ export class WikiController {
         kbId,
         diffId,
         dto.selectedItemIds,
+        { supersedeConflictingDiffs: dto.supersedeConflictingDiffs ?? false },
       );
     }
     return this.diffService.dismissDiff(req.user.id, kbId, diffId);
@@ -243,6 +246,20 @@ export class WikiController {
     @Body() dto: PatchWikiLintFindingDto,
   ) {
     return this.lintService.patchFinding(req.user.id, kbId, id, dto.action);
+  }
+
+  @Post(":kbId/lint-findings/batch")
+  @UseGuards(JwtAuthGuard)
+  async batchPatchLintFindings(
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Body() dto: BatchPatchWikiLintFindingsDto,
+  ) {
+    return this.lintService.batchPatchFindings(req.user.id, kbId, dto.action, {
+      ids: dto.ids,
+      filterAll: dto.filterAll,
+      type: dto.type as WikiLintType | undefined,
+    });
   }
 
   // ─── Config (KB-level wiki settings) ─────────────────────────────

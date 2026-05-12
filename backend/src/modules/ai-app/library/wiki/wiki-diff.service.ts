@@ -126,6 +126,7 @@ export class WikiDiffService {
     knowledgeBaseId: string,
     diffId: string,
     selectedItemSlugs?: string[],
+    options: { supersedeConflictingDiffs?: boolean } = {},
   ): Promise<WikiDiff> {
     await this.assertEditorAccessAndWikiEnabled(userId, knowledgeBaseId);
 
@@ -178,6 +179,10 @@ export class WikiDiffService {
       // (PENDING 永远不会被 off-load，但 hydrate guard 不区分 status)
       select: { id: true, items: true, itemsUri: true },
     });
+    // ★ 2026-05-12: 冲突 PENDING 收集到 supersedeIds——若 caller 显式要求
+    //   newer-wins (用户在 409 弹窗点"覆盖应用")，在 apply 事务里 DISMISS
+    //   它们；否则维持原 409 行为（让 caller 选择如何处理）。
+    const supersedeIds: string[] = [];
     for (const other of otherPending) {
       const otherParsed = WikiDiffItemsSchema.safeParse(other.items);
       if (!otherParsed.success) continue; // ignore malformed; can't conflict with us
@@ -188,9 +193,13 @@ export class WikiDiffService {
       ]);
       const intersection = [...myAffected].filter((s) => otherSlugs.has(s));
       if (intersection.length > 0) {
-        throw new ConflictException(
-          `Diff conflicts with PENDING diff ${other.id} on slug(s): ${intersection.join(", ")}`,
-        );
+        if (options.supersedeConflictingDiffs) {
+          supersedeIds.push(other.id);
+        } else {
+          throw new ConflictException(
+            `Diff conflicts with PENDING diff ${other.id} on slug(s): ${intersection.join(", ")}`,
+          );
+        }
       }
     }
 
@@ -201,6 +210,7 @@ export class WikiDiffService {
       diffRow,
       items,
       [...myAffected],
+      supersedeIds,
     );
   }
 
@@ -225,10 +235,27 @@ export class WikiDiffService {
     diff: WikiDiff,
     items: WikiDiffItems,
     affectedSlugs: string[],
+    supersedeConflictingDiffIds: string[] = [],
   ): Promise<WikiDiff> {
     const attempt = async (): Promise<WikiDiff> => {
       return this.prisma.$transaction(
         async (tx) => {
+          // ★ 2026-05-12: newer-wins 语义——把冲突 PENDING 在本事务里
+          //   DISMISS，让 collision check 之后的 baselineHash 重算仍基于
+          //   wiki_pages 真态（DISMISS 不动 pages，只动 diff status）
+          if (supersedeConflictingDiffIds.length > 0) {
+            await tx.wikiDiff.updateMany({
+              where: {
+                id: { in: supersedeConflictingDiffIds },
+                status: WikiDiffStatus.PENDING,
+              },
+              data: {
+                status: WikiDiffStatus.DISMISSED,
+                dismissedAt: new Date(),
+              },
+            });
+          }
+
           // Step D: SELECT ... FOR UPDATE on all pages with affected slugs.
           // Prisma client doesn't expose `FOR UPDATE` directly → use raw query
           // to acquire the lock; subsequent reads through `tx` see the locked
@@ -477,7 +504,11 @@ export class WikiDiffService {
             data: { status: WikiDiffStatus.APPLIED, appliedAt: new Date() },
           });
 
-          await this.refreshDocumentCoverage(tx, knowledgeBaseId, appliedDiff.id);
+          await this.refreshDocumentCoverage(
+            tx,
+            knowledgeBaseId,
+            appliedDiff.id,
+          );
 
           return appliedDiff;
         },

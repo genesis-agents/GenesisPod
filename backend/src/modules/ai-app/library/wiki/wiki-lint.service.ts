@@ -98,6 +98,43 @@ export class WikiLintService {
   }
 
   /**
+   * 批量 resolve / dismiss findings。
+   * - ids 给定 → 仅作用这些 id（自动用 kb 做 IDOR 过滤）
+   * - filterAll=true + type → 作用该 type 下所有未解决
+   * - 二者皆未给 → 作用 KB 下所有未解决（"全部解决"）
+   * 返回受影响的条数。
+   */
+  async batchPatchFindings(
+    userId: string,
+    knowledgeBaseId: string,
+    action: "resolve" | "dismiss",
+    selector: { ids?: string[]; filterAll?: boolean; type?: WikiLintType },
+  ): Promise<{ updated: number }> {
+    await this.assertEditorAccessAndWikiEnabled(userId, knowledgeBaseId);
+    const where: Prisma.WikiLintFindingWhereInput = {
+      knowledgeBaseId,
+      resolvedAt: null,
+    };
+    if (selector.ids && selector.ids.length > 0) {
+      where.id = { in: selector.ids };
+    } else if (!selector.filterAll) {
+      // 无 ids 且未声明 filterAll → 拒绝，避免 caller 误传空 ids 把整 KB 全清
+      return { updated: 0 };
+    }
+    if (selector.type) {
+      where.type = selector.type;
+    }
+    const result = await this.prisma.wikiLintFinding.updateMany({
+      where,
+      data: { resolvedAt: new Date() },
+    });
+    this.logger.log(
+      `[batchPatchFindings] kb=${knowledgeBaseId} action=${action} type=${selector.type ?? "*"} updated=${result.count}`,
+    );
+    return { updated: result.count };
+  }
+
+  /**
    * Run pure-SQL invariant lint (ORPHAN + MISSING_XREF only).
    *
    * Used after diff apply (best-effort, outside the apply transaction so a

@@ -315,11 +315,18 @@ export const wikiApi = {
     kbId: string,
     diffId: string,
     action: 'apply' | 'dismiss',
-    selectedItemIds?: string[]
+    selectedItemIds?: string[],
+    options?: { supersedeConflictingDiffs?: boolean }
   ) =>
     apiClient.patch<WikiDiff>(
       `${base}/${encodeURIComponent(kbId)}/diffs/${encodeURIComponent(diffId)}`,
-      { action, selectedItemIds }
+      {
+        action,
+        selectedItemIds,
+        ...(options?.supersedeConflictingDiffs
+          ? { supersedeConflictingDiffs: true }
+          : {}),
+      }
     ),
 
   // Query
@@ -380,6 +387,20 @@ export const wikiApi = {
     apiClient.patch<WikiLintFinding>(
       `${base}/${encodeURIComponent(kbId)}/lint-findings/${encodeURIComponent(findingId)}`,
       { action }
+    ),
+
+  batchPatchLintFindings: (
+    kbId: string,
+    body: {
+      action: 'resolve' | 'dismiss';
+      ids?: string[];
+      filterAll?: boolean;
+      type?: WikiLintTypeStr;
+    }
+  ) =>
+    apiClient.post<{ updated: number }>(
+      `${base}/${encodeURIComponent(kbId)}/lint-findings/batch`,
+      body
     ),
 
   // Operation log (Log drawer — ingest / lint / edit / revert history)
