@@ -20,6 +20,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { AIModelType } from "@prisma/client";
 import { AiServiceUnavailableError } from "@/modules/ai-engine/llm/abstractions/ai-service.exception";
 import { RequestContext } from "@/common/context/request-context";
+import { KernelContext } from "@/common/context/kernel-context";
 
 // Helper to create mock AIModelConfig
 function createMockModelConfig(
@@ -474,6 +475,104 @@ describe("AiChatService", () => {
       const result = service.getEnvVarNameForProvider("openai");
 
       expect(result).toBe("OPENAI_API_KEY");
+    });
+  });
+
+  // ==================== BYOK contract (2026-05-12) ====================
+  // chat() 入口必须把 KernelContext.userId 作为 effectiveUserId 第三兜底，
+  // 并在 mission 上下文下检测到 userId 解析为空时记录 contract violation error。
+  // 详细背景见 ai-chat.service.ts:1244 注释。
+
+  describe("BYOK contract — mission-context userId fallback (2026-05-12)", () => {
+    let errorSpy: jest.SpyInstance;
+    const CONTRACT_PHRASE = "BYOK contract violation";
+
+    // 工具：只关心"是否记过 contract violation"，下游模型未配置等正常 error 忽略
+    function hasContractViolation(): boolean {
+      return errorSpy.mock.calls.some(
+        (call) =>
+          typeof call[0] === "string" && call[0].includes(CONTRACT_PHRASE),
+      );
+    }
+
+    beforeEach(() => {
+      // 默认 stub 是 "test-user-id"——本节测试需要 RequestContext 空，
+      // 模拟"mission 路径未走 HTTP middleware"的状态
+      jest.spyOn(RequestContext, "getUserId").mockReturnValue(undefined);
+      errorSpy = jest
+        .spyOn(
+          (service as unknown as { logger: { error: jest.Mock } }).logger,
+          "error",
+        )
+        .mockImplementation();
+    });
+
+    afterEach(() => {
+      jest.spyOn(KernelContext, "get").mockRestore();
+    });
+
+    it("falls through to KernelContext.userId when no options.userId / no RequestContext", async () => {
+      jest.spyOn(KernelContext, "get").mockReturnValue({
+        missionId: "m1",
+        userId: "mission-user",
+      });
+
+      await service
+        .chat({
+          messages: [{ role: "user", content: "hi" }],
+          modelType: AIModelType.CHAT,
+        })
+        .catch(() => undefined);
+
+      // userId 从 KernelContext 解到 → 不触发 contract violation
+      expect(hasContractViolation()).toBe(false);
+    });
+
+    it("logs contract violation when mission context exists but no userId anywhere", async () => {
+      jest.spyOn(KernelContext, "get").mockReturnValue({ missionId: "m1" });
+
+      await service
+        .chat({
+          messages: [{ role: "user", content: "hi" }],
+          modelType: AIModelType.CHAT,
+          operationName: "test-op",
+        })
+        .catch(() => undefined);
+
+      const violationCall = errorSpy.mock.calls.find(
+        (call) =>
+          typeof call[0] === "string" && call[0].includes(CONTRACT_PHRASE),
+      );
+      expect(violationCall).toBeDefined();
+      expect(violationCall![0]).toContain("missionId=m1");
+      expect(violationCall![0]).toContain("operationName=test-op");
+    });
+
+    it("does NOT log violation when no missionId (cron / system task without mission scope)", async () => {
+      jest.spyOn(KernelContext, "get").mockReturnValue(undefined);
+
+      await service
+        .chat({
+          messages: [{ role: "user", content: "hi" }],
+          modelType: AIModelType.CHAT,
+        })
+        .catch(() => undefined);
+
+      expect(hasContractViolation()).toBe(false);
+    });
+
+    it("does NOT log violation when options.userId is provided (explicit BYOK)", async () => {
+      jest.spyOn(KernelContext, "get").mockReturnValue({ missionId: "m1" });
+
+      await service
+        .chat({
+          messages: [{ role: "user", content: "hi" }],
+          modelType: AIModelType.CHAT,
+          userId: "explicit-user",
+        })
+        .catch(() => undefined);
+
+      expect(hasContractViolation()).toBe(false);
     });
   });
 

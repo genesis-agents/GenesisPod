@@ -1242,9 +1242,36 @@ export class AiChatService {
     //   找不到 → 误报"未在数据库中配置"。在入口用 withUserContext 兜底设置。
     //   已有上下文（HTTP 请求链路）不覆盖。
     const ctxUserId = RequestContext.getUserId();
-    if (options.userId && !ctxUserId) {
-      return withUserContext(options.userId, () =>
-        this.chatRaceWrapped(options),
+
+    // 2026-05-12 BYOK contract：mission 路径走 KernelContext.run({ missionId,
+    //   userId })，但 KernelContext / RequestContext 是分离的 AsyncLocalStorage，
+    //   chat() 之前只看 RequestContext → mission 内任何忘传 options.userId 的
+    //   caller 都会退化到 admin pool。
+    //
+    //   修法：chat() 入口把 KernelContext.userId 作为 effectiveUserId 第三兜底；
+    //   missionId 存在但 effectiveUserId 解不到时 logger.error 形成"contract
+    //   violation"信号，方便监控+排查（不 throw，保持非破坏性）。
+    const kctx = KernelContext.get();
+    const kctxUserId = kctx?.userId;
+    const effectiveUserId =
+      options.userId ?? ctxUserId ?? kctxUserId ?? undefined;
+
+    if (kctx?.missionId && !effectiveUserId) {
+      this.logger.error(
+        `[chat] BYOK contract violation: KernelContext.missionId=${kctx.missionId} ` +
+          `但 effectiveUserId 解析为空（options.userId / RequestContext / KernelContext.userId 都 null）` +
+          `→ 后续模型解析会退化到 admin pool，BYOK 失效。` +
+          `caller 必须 explicit 传 options.userId 或在 KernelContext.run 里塞 userId。` +
+          `operationName=${options.operationName ?? "unknown"}`,
+      );
+    }
+
+    // userId 来自 KernelContext 但不在 RequestContext 里 → 也走 withUserContext
+    //   兜底，让下游 RequestContext-only 读取的路径（getModelConfig /
+    //   findUserModelConfigByModelId 等）都能看到 userId
+    if (effectiveUserId && !ctxUserId) {
+      return withUserContext(effectiveUserId, () =>
+        this.chatRaceWrapped({ ...options, userId: effectiveUserId }),
       );
     }
     return this.chatRaceWrapped(options);
