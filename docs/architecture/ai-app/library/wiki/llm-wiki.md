@@ -2,7 +2,9 @@
 
 > 在现有 `ai-app/library` 之上引入 Karpathy 在 2026-04-04 提出的 LLM Wiki 模式，让知识库从"每次 query 重 derive"升级为"持续编译的 markdown wiki"，与现有 `KnowledgeBase` / `KnowledgeBaseDocument` / RAG 共存且不双源。
 
-**最后更新**：2026-05-09
+> ⚡ **v2.0 重塑补丁 (2026-05-12 进行中)**：v1.5.3 落地后用户反馈 5 类质量差距（仅产 SOURCE 类 / 内容稀疏 / 无图 / 无多语 / 无法硬删 / 未接 agent 查询）。**v2.0 增量改造方案**详见 **[llm-wiki-v2-rebuild-plan.md](./llm-wiki-v2-rebuild-plan.md)** — 5 个 PR (W1-W5) 复用 Harness/Engine primitives，**不重写 v1.5.3 已落 schema/service/UI**，仅增量补：预解析管线 / 多 pass ingest / 多语言 / ToolRegistry 接入 / 硬删除。本文档（v1.5.3）继续作为基础架构真源，v2.0 改造点在补丁文档逐项 cross-reference 本文档章节。
+
+**最后更新**：2026-05-09（v1.5.3，v2.0 补丁见上方链接）
 **版本**：v1.5.3（R7.2 reviewer + architect 同时指出 5 处文档自相矛盾——追溯修订声明未真正落到正文，v1.5.3 完成穿透替换达成 4/4 共识）
 **状态**：✅ **APPROVED-FOR-IMPLEMENTATION**（R7.3 第四轮共识：reviewer/architect/security/tester 4/4 APPROVED，进入 P0a 实施）
 **总工程量**：13 天（v1.4→v1.5→v1.5.1 累计调整：P0a 1.5→2→2.5 天 + P3 4→5 天拆 P3a/P3b，合计 12→13 天）
