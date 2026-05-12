@@ -180,6 +180,10 @@ import {
 export class AgentPlaygroundModule
   implements OnModuleInit, OnApplicationBootstrap
 {
+  // 2026-05-12 修复：playgroundLogger 之前是 constructor 默认值参数（Logger 类型）
+  // 触发 NestJS DI 解析 Logger 失败 → Railway 部署炸。改为类字段无 DI 参与。
+  private readonly playgroundLogger = new Logger(AgentPlaygroundModule.name);
+
   constructor(
     private readonly eventBus: DomainEventBus,
     private readonly registry: DomainEventRegistry,
@@ -202,9 +206,6 @@ export class AgentPlaygroundModule
     //   调 promptSkillBridge.registerDomain，否则 SkillActivator tryGet
     //   全部 miss → "skipped: dimension-research / web-research"。
     private readonly promptSkillBridge: PromptSkillRegistrationService,
-    private readonly playgroundLogger: Logger = new Logger(
-      AgentPlaygroundModule.name,
-    ),
   ) {}
 
   async onModuleInit(): Promise<void> {
