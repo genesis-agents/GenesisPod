@@ -225,6 +225,30 @@ export async function listMissions(): Promise<MissionListItem[]> {
   return data.items ?? [];
 }
 
+/**
+ * Phase 5 checkpoint：列出"上次中断、可从 checkpoint 增量续跑"的 mission。
+ * 数据源：mission row 持久化的 leaderJournal.__checkpoint JSONB key。
+ * 后台重启后 in-memory orchestrator 死了，但 checkpoint 仍在；前端拿到 id 集合
+ * 后在 mission 列表上叠 "可继续" 徽章 + "继续" 按钮，让用户主动触发 incremental rerun。
+ */
+export interface ResumableMissionItem {
+  missionId: string;
+  savedAt: string;
+  completedKeys: string[];
+}
+
+export async function listResumableMissions(): Promise<ResumableMissionItem[]> {
+  const res = await fetch(`${API_BASE}/missions/resumable`, {
+    headers: { ...getAuthHeader() },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to list resumable missions: ${res.status}`);
+  }
+  const raw: unknown = await res.json();
+  const data = unwrapStandard<{ items?: ResumableMissionItem[] }>(raw);
+  return Array.isArray(data.items) ? data.items : [];
+}
+
 export async function getMissionDetail(id: string): Promise<MissionDetail> {
   const res = await fetch(`${API_BASE}/missions/${encodeURIComponent(id)}`, {
     headers: { ...getAuthHeader() },

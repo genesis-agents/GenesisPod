@@ -9,11 +9,12 @@
  *             Insight / Custom Agents 视觉一致。
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   listMissions,
+  listResumableMissions,
   rerunMission,
   cancelMission,
   deleteMission,
@@ -29,15 +30,40 @@ export default function PlaygroundIndexPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [galleryReloadKey, setGalleryReloadKey] = useState(0);
 
+  const fetchResumableIds = useCallback(async (): Promise<Set<string>> => {
+    const items = await listResumableMissions();
+    return new Set(items.map((i) => i.missionId));
+  }, []);
+
   const handleRerun = async (mission: MissionListItem) => {
-    if (!confirm(`重新运行「${mission.topic}」？将创建一个新的 Mission。`)) {
+    if (
+      !confirm(
+        `重新运行「${mission.topic}」？将从头创建一个新的 Mission（清 checkpoint）。`
+      )
+    ) {
       return;
     }
     try {
-      const result = await rerunMission(mission.id);
+      const result = await rerunMission(mission.id, 'fresh');
       router.push(`/agent-playground/team/${result.missionId}`);
     } catch (e) {
       alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const handleResume = async (mission: MissionListItem) => {
+    if (
+      !confirm(
+        `从 checkpoint 继续「${mission.topic}」？将跳过已完成 stage，复用上次进度。`
+      )
+    ) {
+      return;
+    }
+    try {
+      const result = await rerunMission(mission.id, 'incremental');
+      router.push(`/agent-playground/team/${result.missionId}`);
+    } catch (e) {
+      alert(`继续失败：${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -79,8 +105,10 @@ export default function PlaygroundIndexPage() {
         createButtonLabel="新建 Mission"
         onCreateMission={() => setCreateOpen(true)}
         fetchMissions={listMissions}
+        fetchResumableIds={fetchResumableIds}
         onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
         onRerun={handleRerun}
+        onResume={handleResume}
         onCancel={handleCancel}
         onEdit={handleEdit}
         onDelete={handleDelete}
