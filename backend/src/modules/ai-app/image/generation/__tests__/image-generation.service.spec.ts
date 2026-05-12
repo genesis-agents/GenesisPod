@@ -27,6 +27,8 @@ import { AIModelType } from "@prisma/client";
 import { ImageGenerationService } from "../image-generation.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { SecretsService } from "../../../../ai-infra/secrets/secrets.service";
+import { KeyResolverService } from "../../../../ai-infra/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "../../../../ai-infra/credentials/key-resolver/key-resolver.errors";
 import { HttpService } from "@nestjs/axios";
 import { GEMINI_IMAGE_MODELS } from "../../core/image.constants";
 
@@ -51,6 +53,10 @@ const mockAiFacade = {
 
 const mockSecretsService = {
   getValueInternal: jest.fn(),
+};
+
+const mockKeyResolver = {
+  resolveKey: jest.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -103,10 +109,69 @@ describe("ImageGenerationService", () => {
         { provide: HttpService, useValue: mockHttpService },
         { provide: ChatFacade, useValue: mockAiFacade },
         { provide: SecretsService, useValue: mockSecretsService },
+        { provide: KeyResolverService, useValue: mockKeyResolver },
       ],
     }).compile();
 
     service = module.get(ImageGenerationService);
+  });
+
+  // ==================== getApiKeyForModel (BYOK path - 新增) ====================
+
+  describe("getApiKeyForModel BYOK path", () => {
+    it("resolves via KeyResolver when userId is provided", async () => {
+      mockKeyResolver.resolveKey.mockResolvedValue({
+        source: "PERSONAL",
+        apiKey: "byok-personal-key",
+        apiEndpoint: null,
+        provider: "openai",
+        userId: "u-test",
+        label: "default",
+        healthKeyId: "personal:u-test:openai:default",
+      });
+
+      const result = await service.getApiKeyForModel(
+        { provider: "openai", apiKey: "ignored-direct", secretKey: null },
+        "u-test",
+      );
+
+      expect(mockKeyResolver.resolveKey).toHaveBeenCalledWith(
+        "u-test",
+        "openai",
+      );
+      expect(result).toBe("byok-personal-key");
+    });
+
+    it("falls back to SYSTEM Secret when KeyResolver throws NoAvailableKeyError", async () => {
+      mockKeyResolver.resolveKey.mockRejectedValue(
+        new NoAvailableKeyError("openai"),
+      );
+      mockSecretsService.getValueInternal.mockResolvedValue("system-secret");
+
+      const result = await service.getApiKeyForModel(
+        {
+          provider: "openai",
+          secretKey: "OPENAI_SYSTEM",
+          apiKey: "ignored",
+        },
+        "u-no-byok",
+      );
+
+      expect(result).toBe("system-secret");
+    });
+
+    it("ignores KeyResolver when no userId (background cron)", async () => {
+      mockSecretsService.getValueInternal.mockResolvedValue("system-key");
+
+      const result = await service.getApiKeyForModel({
+        provider: "openai",
+        secretKey: "OPENAI_SYSTEM",
+        apiKey: "fallback",
+      });
+
+      expect(mockKeyResolver.resolveKey).not.toHaveBeenCalled();
+      expect(result).toBe("system-key");
+    });
   });
 
   // ==================== getApiKeyForModel ====================

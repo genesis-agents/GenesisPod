@@ -684,6 +684,8 @@ export class AiImageService {
                       bgPrompt,
                       dimensions,
                       mergedNegativePrompt,
+                      undefined,
+                      userId,
                     );
                   imageModelUsed = imageModelConfig.displayName;
                   emitStep(
@@ -741,6 +743,7 @@ export class AiImageService {
               dimensions,
               mergedNegativePrompt,
               imageBase64,
+              userId,
             );
           emitStep("ai_image", "AI Image Generated", "completed");
         }

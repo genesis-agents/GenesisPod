@@ -624,6 +624,7 @@ describe("AiImageService", () => {
         expect.anything(),
         expect.anything(),
         "base64encodedimage",
+        undefined, // userId (not provided in this test)
       );
     });
   });

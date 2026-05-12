@@ -5,13 +5,15 @@
  * ★ 使用 SecretsService 进行密钥管理，不直接使用数据库中的 apiKey
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
 import { firstValueFrom } from "rxjs";
 import { AIModelType } from "@prisma/client";
 import { GEMINI_IMAGE_MODELS } from "../core/image.constants";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { SecretsService } from "../../../ai-infra/facade";
+import { KeyResolverService } from "../../../ai-infra/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "../../../ai-infra/credentials/key-resolver/key-resolver.errors";
 
 interface ImageModelConfig {
   id: string;
@@ -52,18 +54,43 @@ export class ImageGenerationService {
     private readonly httpService: HttpService,
     private readonly chatFacade: ChatFacade,
     private readonly secretsService: SecretsService,
+    @Optional() private readonly keyResolver?: KeyResolverService,
   ) {}
 
   /**
-   * 获取模型的 API Key
-   * ★ 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
+   * 获取模型的 API Key（BYOK 单源，向后兼容）
+   *
+   * 顺序：
+   * 1. 有 userId → KeyResolver.resolveKey(userId, provider) PERSONAL → ASSIGNED → throw
+   *    BYOK 命中 → 返回；NoAvailableKeyError → fallthrough 到 SYSTEM Secret 兜底
+   * 2. SecretsService 走 SYSTEM Secret（secretKey 已配置时）
+   * 3. AIModel.apiKey 明文列回读（TODO: PR-4 双源收尾时删除）
    */
-  async getApiKeyForModel(model: {
-    secretKey?: string | null;
-    apiKey?: string | null;
-    displayName?: string;
-  }): Promise<string | null> {
-    // 优先使用 secretKey 从 Secret Manager 获取
+  async getApiKeyForModel(
+    model: {
+      provider?: string;
+      secretKey?: string | null;
+      apiKey?: string | null;
+      displayName?: string;
+    },
+    userId?: string,
+  ): Promise<string | null> {
+    const provider = (model.provider || "").toLowerCase();
+    if (userId && provider && this.keyResolver) {
+      try {
+        const resolved = await this.keyResolver.resolveKey(userId, provider);
+        return resolved.apiKey;
+      } catch (error) {
+        if (error instanceof NoAvailableKeyError) {
+          this.logger.warn(
+            `[getApiKeyForModel] No BYOK for user=${userId} provider=${provider}, falling back to SYSTEM`,
+          );
+          // fallthrough to SYSTEM 兜底
+        } else {
+          throw error;
+        }
+      }
+    }
     if (model.secretKey) {
       const secretValue = await this.secretsService.getValueInternal(
         model.secretKey,
@@ -75,7 +102,6 @@ export class ImageGenerationService {
         `Secret '${model.secretKey}' not found for model ${model.displayName}, falling back to apiKey`,
       );
     }
-    // 回退到直接存储的 apiKey
     return model.apiKey?.trim() || null;
   }
 
@@ -239,16 +265,17 @@ export class ImageGenerationService {
     dimensions: { width: number; height: number },
     negativePrompt?: string,
     referenceImageBase64?: string,
+    userId?: string,
   ): Promise<string> {
     const provider = modelConfig.provider.toLowerCase();
     const modelId = modelConfig.modelId.toLowerCase();
 
     this.logger.log(
-      `Calling image generation API: provider=${provider}, model=${modelConfig.modelId}`,
+      `Calling image generation API: provider=${provider}, model=${modelConfig.modelId}, hasUserId=${!!userId}`,
     );
 
-    // ★ 从 Secret Manager 解析 API Key
-    const apiKey = await this.getApiKeyForModel(modelConfig);
+    // ★ BYOK 单源解析 API Key（有 userId → KeyResolver；无 → SYSTEM Secret）
+    const apiKey = await this.getApiKeyForModel(modelConfig, userId);
     if (!apiKey) {
       throw new Error(
         `No API key found for model ${modelConfig.displayName || modelConfig.modelId}`,
