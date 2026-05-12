@@ -14,6 +14,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { withTimeout } from "@/common/utils/timeout.utils";
+import { RequestContext } from "@/common/context/request-context";
 import { StateTransitionValidator } from "@/modules/ai-harness/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -281,14 +282,26 @@ export class MissionLifecycleService {
     // 前端会通过轮询 getMission 和 WebSocket 获取规划进度
     const PLANNING_TIMEOUT_MS = 10 * 60 * 1000; // 10 分钟超时
 
+    // ★ 2026-05-12 BYOK fix: 显式 snapshot HTTP 请求时的 RequestContext，
+    //   再用 RequestContext.run 包 executePlanningAsync。原因：fire-and-forget
+    //   `void withTimeout(...)` 的 async 链路依赖 AsyncLocalStorage 隐式传播，
+    //   实测某些场景（如 setTimeout 跨 tick）会丢失，下游 ModelResolverService
+    //   .selectModel 的 BYOK auto-resolve 拿不到 userId → 退化到 admin pool →
+    //   被选中的 admin 模型 provider(openai) 用户没 key → planResearch 报
+    //   "No API Key available for provider openai"。
+    //   显式包裹相当于"重新进入"AsyncLocalStorage 域，async 路径保证可见。
+    const requestCtx = RequestContext.get();
+
     // ★ 修复：添加超时控制，防止 AI 调用无限挂起
     void withTimeout(
-      this.executePlanningAsync(
-        mission.id,
-        topicId,
-        topic.name,
-        userPrompt,
-        completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
+      RequestContext.run(requestCtx ?? {}, () =>
+        this.executePlanningAsync(
+          mission.id,
+          topicId,
+          topic.name,
+          userPrompt,
+          completedTasks, // ★ 增量模式：传递已完成的任务（完整数据）
+        ),
       ),
       PLANNING_TIMEOUT_MS,
       "Planning timeout after 10 minutes",

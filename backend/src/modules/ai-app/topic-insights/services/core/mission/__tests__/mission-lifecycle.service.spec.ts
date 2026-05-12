@@ -258,6 +258,45 @@ describe("MissionLifecycleService", () => {
       expect(result.status).toBe(ResearchMissionStatus.PLANNING);
     });
 
+    // 2026-05-12 BYOK fix: createMission 通过 RequestContext.run 显式包
+    //   executePlanningAsync，保证 async 路径里 RequestContext.userId 一定可见。
+    //   背景见 mission-lifecycle.service.ts:285 注释（async 路径 ALS 隐式传播
+    //   遇 setTimeout 跨 tick 会丢，导致 selectModel 的 BYOK auto-resolve 拿不到
+    //   userId，退化到 admin pool → 用户没该 provider key 时炸 planResearch）。
+    it("snapshots RequestContext.userId for async planning (BYOK propagation)", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { RequestContext } = require("@/common/context/request-context");
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      prisma.researchMission.findFirst.mockResolvedValue(null);
+      prisma.researchMission.create.mockResolvedValue({
+        id: "mission-byok",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      });
+
+      let userIdInsideAsync: string | undefined;
+      jest
+        .spyOn(service, "executePlanningAsync")
+        .mockImplementation(async () => {
+          // 模拟跨 tick 异步——AsyncLocalStorage 在某些场景下会丢失
+          await new Promise((r) => setTimeout(r, 5));
+          userIdInsideAsync = RequestContext.getUserId();
+          return undefined;
+        });
+
+      await RequestContext.run({ userId: "user-byok" }, () =>
+        service.createMission({
+          topicId: "topic-1",
+          userPrompt: "Research AI",
+        }),
+      );
+
+      // 等 fire-and-forget 跑完
+      await new Promise((r) => setTimeout(r, 20));
+
+      expect(userIdInsideAsync).toBe("user-byok");
+    });
+
     it("should cancel existing executing mission before creating new one", async () => {
       prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
       // mode defaults to "fresh" so there is NO incremental findFirst call.
