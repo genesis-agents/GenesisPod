@@ -14,16 +14,24 @@
 //  - everything else (ingest / diff / page / revision / lint orch) → ai-app/library/wiki/
 
 /// 一页 wiki：markdown 是唯一权威
+/// P3 (2026-05-12 multi-locale base layer): locale + translationGroupId
+/// columns land here, but the unique constraint stays single-locale
+/// ([knowledgeBaseId, slug]) until P3 commit 3 swaps it to be locale-aware
+/// (([knowledgeBaseId, slug, locale])). This split keeps the rollout to
+/// three forward-only steps (add columns / build locale-aware index
+/// CONCURRENTLY / swap unique).
 model WikiPage {
-  id              String           @id @default(uuid())
-  knowledgeBaseId String           @map("knowledge_base_id")
-  slug            String           @db.VarChar(200)
-  title           String           @db.VarChar(500)
-  category        WikiPageCategory
-  body            String           @db.Text
-  oneLiner        String           @map("one_liner") @db.VarChar(280)
-  contentHash     String           @map("content_hash") @db.VarChar(64)
-  lastEditedBy    WikiPageEditedBy @map("last_edited_by")
+  id                  String           @id @default(uuid())
+  knowledgeBaseId     String           @map("knowledge_base_id")
+  slug                String           @db.VarChar(200)
+  locale              String           @default("zh") @db.VarChar(8)
+  translationGroupId  String?          @map("translation_group_id")
+  title               String           @db.VarChar(500)
+  category            WikiPageCategory
+  body                String           @db.Text
+  oneLiner            String           @map("one_liner") @db.VarChar(280)
+  contentHash         String           @map("content_hash") @db.VarChar(64)
+  lastEditedBy        WikiPageEditedBy @map("last_edited_by")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -39,6 +47,7 @@ model WikiPage {
   @@unique([knowledgeBaseId, slug])
   @@index([knowledgeBaseId, category])
   @@index([knowledgeBaseId, updatedAt])
+  @@index([knowledgeBaseId, translationGroupId])
   @@map("wiki_pages")
 }
 
@@ -97,13 +106,19 @@ model WikiDocumentCoverage {
 }
 
 /// `[[slug]]` 解析结果。toSlug 软引用，目标可能尚不存在 → lint 报 missing_xref。
+/// P3 (2026-05-12): toLocale 加入 PK 以支持多 locale 共存的 link 解析。
+/// 这里选择 NOT NULL DEFAULT 'zh' 而不是 nullable —— PostgreSQL 复合 PK 含
+/// NULL 列时 NULL ≠ NULL 会破坏唯一性（同 fromPage+toSlug+NULL 可重复行）。
+/// "任意 locale" 的 fallback 语义未来用应用层 sentinel（例如 '*'）实现，
+/// 而不是依赖 NULL 语义。Migration 给所有现存行 backfill 'zh' 后约束 NOT NULL。
 model WikiPageLink {
   fromPageId String @map("from_page_id")
   toSlug     String @map("to_slug") @db.VarChar(200)
+  toLocale   String @default("zh") @map("to_locale") @db.VarChar(8)
 
   fromPage WikiPage @relation("FromPage", fields: [fromPageId], references: [id], onDelete: Cascade)
 
-  @@id([fromPageId, toSlug])
+  @@id([fromPageId, toSlug, toLocale])
   @@index([toSlug])
   @@map("wiki_page_links")
 }

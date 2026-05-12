@@ -174,6 +174,46 @@ describe("LLM Wiki schema (v1.5.3 P0b)", () => {
       expect(_validInput.category).toBe(WikiPageCategory.CONCEPT);
     });
 
+    it("WikiPage exposes locale + translationGroupId scalar fields (P3 commit 1)", () => {
+      // Schema-level guard: a future regression that drops either field
+      // would fail to typecheck against ScalarFieldEnum.
+      expect(Prisma.WikiPageScalarFieldEnum.locale).toBe("locale");
+      expect(Prisma.WikiPageScalarFieldEnum.translationGroupId).toBe(
+        "translationGroupId",
+      );
+
+      // Compile-time guard: locale is optional on create (DB default 'zh');
+      // translationGroupId is nullable.
+      const _validInput: Prisma.WikiPageCreateInput = {
+        slug: "machine-learning",
+        title: "Machine Learning",
+        category: WikiPageCategory.CONCEPT,
+        body: "...",
+        oneLiner: "...",
+        contentHash: "abc123",
+        lastEditedBy: WikiPageEditedBy.LLM,
+        knowledgeBase: { connect: { id: "kb-id" } },
+        locale: "zh",
+        translationGroupId: null,
+      };
+      expect(_validInput.locale).toBe("zh");
+      expect(_validInput.translationGroupId).toBeNull();
+    });
+
+    it("WikiPageLink PK includes toLocale (P3 commit 1)", () => {
+      // ScalarFieldEnum check + a compile-time WhereUniqueInput satisfies
+      // the new ([fromPageId, toSlug, toLocale]) PK.
+      expect(Prisma.WikiPageLinkScalarFieldEnum.toLocale).toBe("toLocale");
+      const _whereUnique: Prisma.WikiPageLinkWhereUniqueInput = {
+        fromPageId_toSlug_toLocale: {
+          fromPageId: "p1",
+          toSlug: "other-page",
+          toLocale: "zh",
+        },
+      };
+      expect(_whereUnique.fromPageId_toSlug_toLocale?.toLocale).toBe("zh");
+    });
+
     it("WikiDiff.affectedSlugs is string array", () => {
       const _validInput: Prisma.WikiDiffCreateInput = {
         items: { creates: [], updates: [], deletes: [] },
