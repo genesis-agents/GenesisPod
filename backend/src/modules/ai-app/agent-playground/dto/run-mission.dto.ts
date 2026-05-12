@@ -20,6 +20,12 @@ export type { SearchTimeRange };
 export const RunMissionInputSchema = z
   .object({
     topic: z.string().min(2).max(200),
+    /**
+     * 选填长文本"研究描述"——给 Leader 更完整的用户意图上下文。
+     * topic 是简短标题（≤200），description 用于详述背景 / 约束 / 关注角度 / 排除项等，
+     * 进 leader plan/assess/foreword/signoff 4 个 phase 的 prompt（plan 阶段尤其影响维度拆分质量）。
+     */
+    description: z.string().max(2000).optional(),
     // ★ Phase P0-8 用户档位（mission-pipeline-user-profiles.md / D20）
     // 默认值：深度 + 图文 + 中等其他
     depth: z.enum(["quick", "standard", "deep"]).default("deep"),

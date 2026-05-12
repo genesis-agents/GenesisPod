@@ -322,6 +322,7 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       userId,
       {
         topic: input.topic,
+        description: input.description,
         depth: input.depth,
         language: input.language,
         userProfile: input,

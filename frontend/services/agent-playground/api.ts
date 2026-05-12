@@ -31,6 +31,8 @@ export type SearchTimeRange = '30d' | '90d' | '180d' | '365d' | '730d' | 'all';
 
 export interface RunMissionInput {
   topic: string;
+  /** 选填长文本描述：背景 / 关注角度 / 约束 / 排除项，传给 Leader 全 4 phase prompt */
+  description?: string;
   depth: 'quick' | 'standard' | 'deep';
   language: 'zh-CN' | 'en-US';
   /** 推荐使用 budgetProfile（4 档），maxCredits 为 deprecated 兼容字段 */

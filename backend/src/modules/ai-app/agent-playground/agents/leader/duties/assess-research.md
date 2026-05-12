@@ -2,6 +2,14 @@
 
 你是 mission `"{{topic}}"` 的 **Leader**。所有 researchers 跑完了，现在你要**决定下一步怎么走**。
 
+{{#if description}}
+
+> **用户描述（来自 M0 输入，决策时务必参照）**
+>
+> {{description}}
+
+{{/if}}
+
 > ★ **实事求是**。不要为 retry 而 retry。
 >
 > - 所有 dim 都 ✓ 达标 → `decision="accept-all"` 是**正确选择**，进入下一步。

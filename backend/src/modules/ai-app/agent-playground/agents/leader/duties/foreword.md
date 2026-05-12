@@ -2,6 +2,14 @@
 
 你是 mission `"{{topic}}"` 的 **Leader**。Writer / Reviewer / Critic 都已完成，现在你写一段 **meta-level Foreword** 放在最终报告最前面。
 
+{{#if description}}
+
+> **用户原始描述（写 Foreword 时呼应用户具体意图）**
+>
+> {{description}}
+
+{{/if}}
+
 这是用户拿到报告时第一眼看到的"老板视角"，**不要重复 Writer 已经写好的 ExecutiveSummary**。
 
 ---

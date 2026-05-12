@@ -150,6 +150,7 @@ export function PlaygroundMissionDialog({
   const router = useRouter();
 
   const [topic, setTopic] = useState('');
+  const [description, setDescription] = useState('');
   const [depth, setDepth] = useState<RunMissionInput['depth']>(() =>
     loadPref('depth', 'deep' as RunMissionInput['depth'])
   );
@@ -311,8 +312,11 @@ export function PlaygroundMissionDialog({
     setError(null);
     setSubmitting(true);
     try {
+      const trimmedDescription = description.trim();
       const { missionId } = await runTeam({
         topic: trimmed,
+        description:
+          trimmedDescription.length > 0 ? trimmedDescription : undefined,
         depth,
         language,
         budgetProfile,
@@ -332,6 +336,7 @@ export function PlaygroundMissionDialog({
         throw new Error('Server did not return a missionId');
       }
       setTopic('');
+      setDescription('');
       onClose();
       if (onCreated) onCreated(missionId);
       else router.push(`/agent-playground/team/${missionId}`);
@@ -398,6 +403,23 @@ export function PlaygroundMissionDialog({
                 ))}
               </div>
             )}
+          </Field>
+
+          <Field
+            label="研究描述"
+            hintInline="选填——给 Leader 更完整的背景 / 关注角度 / 约束，明显提升维度拆分质量"
+            hint={
+              description.length > 0 ? `${description.length}/2000` : undefined
+            }
+          >
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="例如：聚焦头部 5 家厂商（OpenAI / Anthropic / Google / Meta / xAI），不分析中国厂商；重点对比 agent / coding / multimodal 三条产品线的能力差异 + 商业化打法；时间窗口 2026 Q1-Q2。"
+              rows={5}
+              maxLength={2000}
+              className="w-full resize-y rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
           </Field>
 
           <Field label="研究深度">

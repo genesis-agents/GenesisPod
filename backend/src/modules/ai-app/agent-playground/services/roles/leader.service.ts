@@ -34,6 +34,8 @@ import { describeLeaderFailure } from "./leader-failure-diagnostic.utils";
 
 export interface LeaderTask {
   topic: string;
+  /** 选填长文本"研究描述"——补充用户意图细节，进 Leader 4 phase prompt 提升 plan 质量 */
+  description?: string;
   depth: "quick" | "standard" | "deep";
   language: "zh-CN" | "en-US";
   userProfile?: unknown;
@@ -160,6 +162,7 @@ export class SupervisedMission {
     const planInput = {
       phase: "plan" as const,
       topic: this.context.task.topic,
+      description: this.context.task.description,
       depth: this.context.task.depth,
       language: this.context.task.language,
       userProfile: this.context.task.userProfile,
@@ -263,6 +266,7 @@ export class SupervisedMission {
       input: {
         phase: "assess-research",
         topic: this.context.task.topic,
+        description: this.context.task.description,
         language: this.context.task.language,
         myPlan: {
           goals: this.context.plan.goals,
@@ -315,6 +319,7 @@ export class SupervisedMission {
       input: {
         phase: "foreword",
         topic: this.context.task.topic,
+        description: this.context.task.description,
         language: this.context.task.language,
         myPlan: {
           goals: this.context.plan.goals,
@@ -395,6 +400,7 @@ export class SupervisedMission {
       input: {
         phase: "signoff",
         topic: this.context.task.topic,
+        description: this.context.task.description,
         language: this.context.task.language,
         myPlan: {
           goals: this.context.plan.goals,
