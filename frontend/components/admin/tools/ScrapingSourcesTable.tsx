@@ -37,7 +37,11 @@ interface IndustryReportSource {
   topicTypes: string[];
 }
 
-const TOOL_ID = 'industry-report';
+// 2026-05-12: PR-S0a dedup 后 alias 'industry-report' 在 admin list 被隐藏，
+//   canonical registry id 是 'industry-report-search'。backend
+//   resolveEffectiveConfig 自动回填 alias 的 config.sources。
+const TOOL_ID = 'industry-report-search';
+const TOOL_ID_LEGACY_ALIAS = 'industry-report';
 const PAGE_SIZE = 50;
 
 const SOURCE_CATEGORIES = [
@@ -81,7 +85,10 @@ export function ScrapingSourcesTable() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const raw = await res.json();
       const data: ToolsResponse = raw?.data ?? raw;
-      const tool = (data.tools ?? []).find((t) => t.toolId === TOOL_ID);
+      const list = data.tools ?? [];
+      const tool =
+        list.find((t) => t.toolId === TOOL_ID) ??
+        list.find((t) => t.toolId === TOOL_ID_LEGACY_ALIAS);
       setToolConfig(tool?.config ?? null);
     } catch (e) {
       setError((e as Error).message);
@@ -177,10 +184,12 @@ export function ScrapingSourcesTable() {
         <div className="relative min-w-[240px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            type="search"
-            name="scraping-search-noautofill"
-            autoComplete="off"
+            type="text"
+            name={`scraping-search-${Math.random().toString(36).slice(2, 10)}`}
+            autoComplete="new-password"
             data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);

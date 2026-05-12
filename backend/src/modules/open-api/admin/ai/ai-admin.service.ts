@@ -935,9 +935,42 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
     const dbConfigs = await this.prisma.toolConfig.findMany();
     const configMap = new Map(dbConfigs.map((c) => [c.toolId, c]));
 
+    // ★ 2026-05-12: alias config 回填——历史 migration 直接 INSERT alias toolId
+    //   （如 'industry-report' 带 config.sources[]），后续 registry 注册名为
+    //   canonical（'industry-report-search'）。dedup 后 alias 行被隐藏，若
+    //   canonical 行 config 为空，前端读 canonical 会丢数据。此处 reverse-lookup
+    //   alias → canonical：canonical config 空时用 alias 的非空 config 填回。
+    const aliasesByRegistry = new Map<string, string[]>();
+    for (const [aliasId, registryId] of Object.entries(
+      TOOL_ID_ALIAS_TO_REGISTRY_ID,
+    )) {
+      if (aliasId === registryId) continue;
+      const arr = aliasesByRegistry.get(registryId) ?? [];
+      arr.push(aliasId);
+      aliasesByRegistry.set(registryId, arr);
+    }
+    const isEmptyConfig = (cfg: unknown): boolean => {
+      if (cfg === null || cfg === undefined) return true;
+      if (typeof cfg !== "object") return false;
+      return Object.keys(cfg as Record<string, unknown>).length === 0;
+    };
+    const resolveEffectiveConfig = (
+      registryToolId: string,
+      ownConfig: Prisma.JsonValue | null | undefined,
+    ): Prisma.JsonValue | null => {
+      if (!isEmptyConfig(ownConfig)) return ownConfig ?? null;
+      const aliases = aliasesByRegistry.get(registryToolId) ?? [];
+      for (const aliasId of aliases) {
+        const aliasCfg = configMap.get(aliasId)?.config;
+        if (!isEmptyConfig(aliasCfg)) return aliasCfg ?? null;
+      }
+      return ownConfig ?? null;
+    };
+
     // ★ 内置工具（在 Registry 中）
     const builtinTools = registeredTools.map((tool) => {
       const dbConfig = configMap.get(tool.id);
+      const effectiveConfig = resolveEffectiveConfig(tool.id, dbConfig?.config);
 
       return {
         id: dbConfig?.id || tool.id,
@@ -949,7 +982,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
         enabled: dbConfig?.enabled ?? true,
         implemented: true, // ★ 所有 Registry 中的工具都是已实现的
         tags: dbConfig?.tags || tool.tags || [],
-        config: dbConfig?.config || null,
+        config: effectiveConfig,
         secretKey: dbConfig?.secretKey || null,
         requiresAuth: dbConfig?.requiresAuth || false,
         allowedRoles: dbConfig?.allowedRoles || [],

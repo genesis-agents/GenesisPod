@@ -235,10 +235,12 @@ export function APIServicesTable() {
         <div className="relative min-w-[240px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            type="search"
-            name="apisvc-search-noautofill"
-            autoComplete="off"
+            type="text"
+            name={`apisvc-search-${Math.random().toString(36).slice(2, 10)}`}
+            autoComplete="new-password"
             data-form-type="other"
+            data-lpignore="true"
+            data-1p-ignore="true"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索 toolId / name..."
