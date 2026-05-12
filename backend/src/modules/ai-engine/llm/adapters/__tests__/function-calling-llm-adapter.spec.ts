@@ -1,16 +1,16 @@
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
 import { FunctionCallingLLMAdapter } from "../function-calling-llm.adapter";
 import { AiChatService } from "../../services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
+import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 
 describe("FunctionCallingLLMAdapter", () => {
   let adapter: FunctionCallingLLMAdapter;
   let mockAiChatService: any;
   let mockPrisma: any;
   let mockSecretsService: any;
-  let mockConfigService: any;
+  let mockKeyResolver: any;
 
   beforeEach(async () => {
     mockAiChatService = {
@@ -25,7 +25,7 @@ describe("FunctionCallingLLMAdapter", () => {
         findFirst: jest.fn().mockResolvedValue({
           modelId: "gpt-4o",
           provider: "openai",
-          apiKey: "test-api-key",
+          secretKey: "DEFAULT_TEST_SECRET",
           apiEndpoint: "https://api.openai.com/v1",
         }),
       },
@@ -34,12 +34,23 @@ describe("FunctionCallingLLMAdapter", () => {
       },
     };
 
+    // 默认让 SYSTEM secret 解析到有效值，让 no-userId 路径 (background cron)
+    // 不会因找不到 secret 而抛 NoAvailableKeyError
     mockSecretsService = {
-      getValueInternal: jest.fn().mockResolvedValue(null),
+      getValueInternal: jest.fn().mockResolvedValue("system-secret-value"),
     };
 
-    mockConfigService = {
-      get: jest.fn().mockReturnValue(null),
+    // ★ 强 BYOK 单源：KeyResolver 默认返回有效 PERSONAL key 让大多数测试不关心 BYOK
+    mockKeyResolver = {
+      resolveKey: jest.fn().mockResolvedValue({
+        source: "PERSONAL",
+        apiKey: "byok-personal-key",
+        apiEndpoint: null,
+        provider: "openai",
+        userId: "u-test",
+        label: "default",
+        healthKeyId: "personal:u-test:openai:default",
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -48,7 +59,7 @@ describe("FunctionCallingLLMAdapter", () => {
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecretsService, useValue: mockSecretsService },
-        { provide: ConfigService, useValue: mockConfigService },
+        { provide: KeyResolverService, useValue: mockKeyResolver },
       ],
     }).compile();
 
@@ -278,34 +289,39 @@ describe("FunctionCallingLLMAdapter", () => {
       expect(callArgs.tool_choice).toBe("auto");
     });
 
-    it("should handle AI member config", async () => {
+    it("should resolve apiKey via BYOK KeyResolver when userId provided", async () => {
       const mockMember = {
         aiModel: "gpt-4o",
         displayName: "Test Member",
       };
       mockPrisma.topicAIMember.findUnique.mockResolvedValue(mockMember);
-
-      const memberModel = {
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "gpt-4o",
         provider: "openai",
-        apiKey: "member-key",
         secretKey: null,
         apiEndpoint: null,
-      };
-      mockPrisma.aIModel.findFirst.mockResolvedValue(memberModel);
+      });
 
-      adapter.setConfig({ aiMemberId: "member-123" });
+      adapter.setConfig({ aiMemberId: "member-123", userId: "u-test" });
 
       await adapter.chat({
         messages: [{ role: "user", content: "Hello" }],
       });
 
-      expect(mockAiChatService.chat).toHaveBeenCalled();
+      expect(mockKeyResolver.resolveKey).toHaveBeenCalledWith(
+        "u-test",
+        "openai",
+      );
+      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      expect(callArgs.apiKey).toBe("byok-personal-key");
     });
 
     it("should throw when AI member not found", async () => {
       mockPrisma.topicAIMember.findUnique.mockResolvedValue(null);
-      adapter.setConfig({ aiMemberId: "nonexistent-member" });
+      adapter.setConfig({
+        aiMemberId: "nonexistent-member",
+        userId: "u-test",
+      });
 
       await expect(
         adapter.chat({
@@ -314,21 +330,19 @@ describe("FunctionCallingLLMAdapter", () => {
       ).rejects.toThrow("AI Member not found");
     });
 
-    it("should use secretKey for API key resolution", async () => {
+    it("should fall back to SYSTEM secret when no userId (background cron path)", async () => {
       mockSecretsService.getValueInternal.mockResolvedValue("secret-key-value");
 
       const mockMember = { aiModel: "gpt-4o", displayName: "Test" };
       mockPrisma.topicAIMember.findUnique.mockResolvedValue(mockMember);
-
-      const memberModel = {
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "gpt-4o",
         provider: "openai",
-        apiKey: "fallback-key",
         secretKey: "MY_SECRET",
         apiEndpoint: null,
-      };
-      mockPrisma.aIModel.findFirst.mockResolvedValue(memberModel);
+      });
 
+      // No userId in config → fall back to SYSTEM secret path
       adapter.setConfig({ aiMemberId: "member-123" });
 
       await adapter.chat({
@@ -338,6 +352,35 @@ describe("FunctionCallingLLMAdapter", () => {
       expect(mockSecretsService.getValueInternal).toHaveBeenCalledWith(
         "MY_SECRET",
       );
+      expect(mockKeyResolver.resolveKey).not.toHaveBeenCalled();
+    });
+
+    it("should throw NoAvailableKeyError when user has no BYOK", async () => {
+      const { NoAvailableKeyError } =
+        await import("@/modules/ai-infra/credentials/key-resolver/key-resolver.errors");
+      mockKeyResolver.resolveKey.mockRejectedValue(
+        new NoAvailableKeyError("openai"),
+      );
+
+      const mockMember = { aiModel: "gpt-4o", displayName: "Test" };
+      mockPrisma.topicAIMember.findUnique.mockResolvedValue(mockMember);
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
+        modelId: "gpt-4o",
+        provider: "openai",
+        secretKey: null,
+        apiEndpoint: null,
+      });
+
+      adapter.setConfig({
+        aiMemberId: "member-123",
+        userId: "u-no-byok",
+      });
+
+      await expect(
+        adapter.chat({
+          messages: [{ role: "user", content: "Hello" }],
+        }),
+      ).rejects.toThrow(NoAvailableKeyError);
     });
   });
 
@@ -433,4 +476,3 @@ describe("FunctionCallingLLMAdapter", () => {
     });
   });
 });
-

@@ -1730,15 +1730,18 @@ Respond naturally and helpfully to the discussion. When relevant, reference the 
         "FunctionCallingLLMAdapter or FunctionCallingExecutor is not available",
       );
     }
-    this.toolFacade.functionCallingAdapter.setConfig({
-      aiMemberId: aiMember.id,
-      workspaceId: topicId,
-    });
-
-    // 构建用户消息 (最后一条用户消息作为 prompt)
+    // ★ 先定位 lastUserMessage 用作 BYOK 解析的 userId 上下文
     const userMessages = contextMessages.filter((m) => m.senderId);
     const lastUserMessage = userMessages[userMessages.length - 1];
     const userPrompt = lastUserMessage?.content || "请继续";
+
+    this.toolFacade.functionCallingAdapter.setConfig({
+      aiMemberId: aiMember.id,
+      workspaceId: topicId,
+      // ★ BYOK 单源：把发起人 userId 透传给 adapter，apiKey 经 KeyResolver
+      //   按 PERSONAL → ASSIGNED 解析，不再走 AIModel.apiKey 明文 / 环境变量旁路
+      userId: lastUserMessage?.senderId ?? undefined,
+    });
 
     // T2 Fix: 构建 AICapabilityContext，使用 executeWithContext() 以支持工具启用/禁用
     const capabilityContext: AICapabilityContext = {

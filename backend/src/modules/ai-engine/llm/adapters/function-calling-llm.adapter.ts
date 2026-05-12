@@ -5,8 +5,7 @@
  * 用于与 FunctionCallingExecutor 配合使用
  */
 
-import { Injectable, Logger } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 // 直接 import 协议接口（避免依赖 fc-executor，让 fc-executor 可搬 harness）
 import type {
   ILLMAdapter as FunctionCallingILLMAdapter,
@@ -19,6 +18,8 @@ import { FunctionDefinition } from "../../tools/abstractions/tool.interface";
 import { AiChatService, ChatMessage } from "../services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/facade";
+import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
 
 /**
  * Function Calling LLM 适配器配置
@@ -53,6 +54,15 @@ export interface FunctionCallingLLMAdapterConfig {
    * API Endpoint 覆盖 (可选)
    */
   apiEndpoint?: string;
+
+  /**
+   * 调用上下文用户 ID（BYOK 解析所需）。
+   *
+   * 强 BYOK：apiKey 由 KeyResolver 按 userId+provider 解析（PERSONAL → ASSIGNED → throw）。
+   * 不传 userId 时仅退化为 SYSTEM Secret 路径，仅供 background cron / health check 使用，
+   * 业务调用方（如 AI Teams）必须传 senderId/ownerId。
+   */
+  userId?: string;
 }
 
 /**
@@ -72,8 +82,40 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     private readonly aiChatService: AiChatService,
     private readonly prisma: PrismaService,
     private readonly secretsService: SecretsService,
-    private readonly configService: ConfigService,
+    @Optional() private readonly keyResolver?: KeyResolverService,
   ) {}
+
+  /**
+   * 统一 apiKey 解析（BYOK 单源 + cron 兜底）
+   *
+   * 顺序：
+   * 1. 有 userId → KeyResolver.resolveKey(userId, provider)
+   *    PERSONAL → ASSIGNED → throw NoAvailableKeyError(provider)
+   * 2. 无 userId（background cron / health check）→ 经 SecretsService 解 SYSTEM Secret
+   *
+   * 已删除：model.apiKey 明文列回读 + getApiKeyFromEnv 环境变量旁路。
+   * 强 BYOK 边界由本函数收口。
+   */
+  private async resolveApiKeyForProvider(
+    provider: string,
+    secretKey: string | null,
+  ): Promise<{ apiKey: string; apiEndpoint?: string | null }> {
+    const userId = this.config?.userId;
+    if (userId && this.keyResolver) {
+      const resolved = await this.keyResolver.resolveKey(userId, provider);
+      return { apiKey: resolved.apiKey, apiEndpoint: resolved.apiEndpoint };
+    }
+    if (secretKey) {
+      const secretValue = await this.secretsService.getValueInternal(secretKey);
+      if (secretValue) {
+        return { apiKey: secretValue.trim() };
+      }
+      this.logger.warn(
+        `[resolveApiKeyForProvider] Secret '${secretKey}' not found and no userId for BYOK resolution`,
+      );
+    }
+    throw new NoAvailableKeyError(provider);
+  }
 
   /**
    * 设置适配器配置
@@ -291,44 +333,68 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       return this.getAIMemberConfig();
     }
 
-    // 如果有显式配置的 modelId，直接使用
+    // 显式配置的 modelId 路径：仅当 caller 显式给了 apiKey 时直用，否则走 BYOK
     if (this.config?.modelId) {
       const provider =
         this.config.provider || this.inferProvider(this.config.modelId);
-      const apiKey =
-        this.config.apiKey || this.getApiKeyFromEnv(provider) || "";
       const apiEndpoint =
         this.config.apiEndpoint || this.getDefaultEndpoint(provider);
-      return { provider, modelId: this.config.modelId, apiKey, apiEndpoint };
+      if (this.config.apiKey) {
+        return {
+          provider,
+          modelId: this.config.modelId,
+          apiKey: this.config.apiKey,
+          apiEndpoint,
+        };
+      }
+      // ★ BYOK 单源：通过 KeyResolver 解析（PERSONAL → ASSIGNED → throw）
+      const resolved = await this.resolveApiKeyForProvider(provider, null);
+      return {
+        provider,
+        modelId: this.config.modelId,
+        apiKey: resolved.apiKey,
+        apiEndpoint: resolved.apiEndpoint ?? apiEndpoint,
+      };
     }
 
-    // 从数据库获取默认模型，严禁硬编码
+    // 从数据库获取默认模型，apiKey 走 BYOK 单源（不再读 AIModel.apiKey 明文列）
     const defaultModel = await this.getDefaultModelFromDb();
     const provider =
       this.config?.provider || this.inferProvider(defaultModel.modelId);
-    const apiKey =
-      this.config?.apiKey ||
-      defaultModel.apiKey ||
-      this.getApiKeyFromEnv(provider) ||
-      "";
-    const apiEndpoint =
+    const fallbackEndpoint =
       this.config?.apiEndpoint ||
       defaultModel.apiEndpoint ||
       this.getDefaultEndpoint(provider);
-
-    return { provider, modelId: defaultModel.modelId, apiKey, apiEndpoint };
+    if (this.config?.apiKey) {
+      return {
+        provider,
+        modelId: defaultModel.modelId,
+        apiKey: this.config.apiKey,
+        apiEndpoint: fallbackEndpoint,
+      };
+    }
+    const resolved = await this.resolveApiKeyForProvider(
+      provider,
+      defaultModel.secretKey ?? null,
+    );
+    return {
+      provider,
+      modelId: defaultModel.modelId,
+      apiKey: resolved.apiKey,
+      apiEndpoint: resolved.apiEndpoint ?? fallbackEndpoint,
+    };
   }
 
   /**
-   * 从数据库获取默认模型
+   * 从数据库获取默认模型（仅返回 modelId/provider/apiEndpoint/secretKey；
+   * apiKey 不在此层读，由 resolveApiKeyForProvider 走 BYOK 单源解析）。
    */
   private async getDefaultModelFromDb(): Promise<{
     modelId: string;
     provider: string;
-    apiKey?: string;
     apiEndpoint?: string;
+    secretKey?: string | null;
   }> {
-    // 优先获取默认 CHAT 模型
     const defaultModel = await this.prisma.aIModel.findFirst({
       where: {
         modelType: "CHAT",
@@ -338,8 +404,8 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       select: {
         modelId: true,
         provider: true,
-        apiKey: true,
         apiEndpoint: true,
+        secretKey: true,
       },
     });
 
@@ -347,12 +413,11 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       return {
         modelId: defaultModel.modelId,
         provider: defaultModel.provider,
-        apiKey: defaultModel.apiKey ?? undefined,
         apiEndpoint: defaultModel.apiEndpoint ?? undefined,
+        secretKey: defaultModel.secretKey,
       };
     }
 
-    // 如果没有默认模型，获取任意启用的 CHAT 模型
     const anyModel = await this.prisma.aIModel.findFirst({
       where: {
         modelType: "CHAT",
@@ -361,8 +426,8 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       select: {
         modelId: true,
         provider: true,
-        apiKey: true,
         apiEndpoint: true,
+        secretKey: true,
       },
     });
 
@@ -370,19 +435,18 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       return {
         modelId: anyModel.modelId,
         provider: anyModel.provider,
-        apiKey: anyModel.apiKey ?? undefined,
         apiEndpoint: anyModel.apiEndpoint ?? undefined,
+        secretKey: anyModel.secretKey,
       };
     }
 
-    // 严禁硬编码！如果没有配置模型，抛出错误
     throw new Error(
       "No AI model configured in database. Please configure a CHAT model in Admin Console.",
     );
   }
 
   /**
-   * 获取 AI Member 配置 (从数据库)
+   * 获取 AI Member 配置（apiKey 走 BYOK 单源，不再读 AIModel.apiKey 明文列）
    */
   private async getAIMemberConfig(): Promise<{
     provider: string;
@@ -394,7 +458,6 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       throw new Error("FunctionCallingLLMAdapter: aiMemberId not configured");
     }
 
-    // 从数据库获取 AI Member 配置
     const aiMember = await this.prisma.topicAIMember.findUnique({
       where: { id: this.config.aiMemberId },
       select: {
@@ -407,8 +470,6 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       throw new Error(`AI Member not found: ${this.config.aiMemberId}`);
     }
 
-    // 查找 AI Model 配置
-    // ★ 添加 secretKey 字段以支持 Secret Manager
     let aiModelConfig = await this.prisma.aIModel.findFirst({
       where: {
         modelId: {
@@ -420,13 +481,11 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
       select: {
         modelId: true,
         provider: true,
-        apiKey: true,
         secretKey: true,
         apiEndpoint: true,
       },
     });
 
-    // 如果找不到，尝试按名称查找
     if (!aiModelConfig) {
       aiModelConfig = await this.prisma.aIModel.findFirst({
         where: {
@@ -439,54 +498,34 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
         select: {
           modelId: true,
           provider: true,
-          apiKey: true,
           secretKey: true,
           apiEndpoint: true,
         },
       });
     }
 
-    // 提取配置
     const provider =
       aiModelConfig?.provider || this.inferProvider(aiMember.aiModel);
     const modelId = aiModelConfig?.modelId || aiMember.aiModel;
-
-    // ★ 使用 SecretsService 解析 API Key
-    // 优先从 Secret Manager 获取（如果 secretKey 已配置），否则使用直接存储的 apiKey
-    let apiKey = "";
-    if (aiModelConfig?.secretKey) {
-      const secretValue = await this.secretsService.getValueInternal(
-        aiModelConfig.secretKey,
-      );
-      if (secretValue) {
-        apiKey = secretValue.trim();
-      } else {
-        this.logger.warn(
-          `[getAIMemberConfig] Secret '${aiModelConfig.secretKey}' not found, falling back to apiKey`,
-        );
-        apiKey = aiModelConfig?.apiKey?.trim() || "";
-      }
-    } else {
-      apiKey = aiModelConfig?.apiKey?.trim() || "";
-    }
-
-    // 如果数据库没有 API Key，尝试从环境变量获取
-    if (!apiKey) {
-      apiKey = this.getApiKeyFromEnv(provider) || "";
-    }
-
-    const apiEndpoint =
+    const fallbackEndpoint =
       aiModelConfig?.apiEndpoint || this.getDefaultEndpoint(provider);
 
+    // ★ BYOK 单源：apiKey 由 KeyResolver 按 userId+provider 解析；
+    //   无 userId 时退化为 SYSTEM Secret 路径（仅供 background cron 使用）。
+    const resolved = await this.resolveApiKeyForProvider(
+      provider,
+      aiModelConfig?.secretKey ?? null,
+    );
+
     this.logger.debug(
-      `[getAIMemberConfig] provider=${provider}, modelId=${modelId}, hasApiKey=${!!apiKey}`,
+      `[getAIMemberConfig] provider=${provider}, modelId=${modelId}, hasUserId=${!!this.config?.userId}`,
     );
 
     return {
       provider,
       modelId,
-      apiKey,
-      apiEndpoint,
+      apiKey: resolved.apiKey,
+      apiEndpoint: resolved.apiEndpoint ?? fallbackEndpoint,
     };
   }
 
@@ -527,28 +566,6 @@ export class FunctionCallingLLMAdapter implements FunctionCallingILLMAdapter {
     if (lower.includes("gpt") || /^o\d/.test(lower)) return "openai";
 
     return "openai"; // 默认
-  }
-
-  /**
-   * 从环境变量获取 API Key
-   */
-  private getApiKeyFromEnv(provider: string): string | null {
-    const lower = provider.toLowerCase();
-
-    if (lower.includes("xai") || lower.includes("grok")) {
-      return this.configService.get<string>("XAI_API_KEY") || null;
-    }
-    if (lower.includes("openai") || lower.includes("gpt")) {
-      return this.configService.get<string>("OPENAI_API_KEY") || null;
-    }
-    if (lower.includes("anthropic") || lower.includes("claude")) {
-      return this.configService.get<string>("ANTHROPIC_API_KEY") || null;
-    }
-    if (lower.includes("google") || lower.includes("gemini")) {
-      return this.configService.get<string>("GOOGLE_AI_API_KEY") || null;
-    }
-
-    return null;
   }
 
   /**

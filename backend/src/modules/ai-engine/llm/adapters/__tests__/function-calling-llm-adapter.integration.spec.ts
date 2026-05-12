@@ -1,34 +1,34 @@
 /**
- * FunctionCallingLLMAdapter - Extended coverage tests
+ * FunctionCallingLLMAdapter — extended coverage tests
  *
- * Covers paths not hit by the base spec:
- *  - Line 209: systemMessage extracted as systemPrompt
- *  - Lines 225-226: catch block in chat()
- *  - Line 369: anyModel fallback found in getDefaultModelConfig
- *  - Line 393: getAIMemberConfig throw when no aiMemberId
- *  - Line 430: second findFirst for aiMember by name
- *  - Lines 463-466: secretKey found but no secret value → warn + fallback apiKey
- *  - Line 474: getApiKeyFromEnv called when no DB apiKey
- *  - Line 511: getDefaultEndpoint returns "" for unknown provider
- *  - Lines 528-550: getApiKeyFromEnv branches (xai, anthropic, google, other)
- *  - Lines 622-629: parseOpenAIResponse raw choices format
- *  - Lines 675-679: parseAnthropicResponse tool_use block
- *  - Lines 743-759: parseGoogleResponse raw candidates format
+ * 2026-05-12 PR-1 重写：原 getApiKeyFromEnv / model.apiKey fallback 分支已删除，
+ * apiKey 现统一走 BYOK KeyResolver（PERSONAL → ASSIGNED → throw）+ no-userId SYSTEM
+ * Secret 兜底；本文件覆盖：
+ *  - systemMessage 提取为 systemPrompt
+ *  - chat() catch 块重抛
+ *  - getDefaultModelConfig 走 anyModel fallback
+ *  - getAIMemberConfig aiMember 未找到
+ *  - getAIMemberConfig 按 name 二次查找
+ *  - BYOK KeyResolver 解析路径（含 NoAvailableKeyError）
+ *  - SYSTEM Secret 兜底路径（无 userId 时）
+ *  - getDefaultEndpoint 未知 provider 返回 ""
+ *  - parseOpenAI / parseAnthropic (tool_use) / parseGoogle 响应格式
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
-import { ConfigService } from "@nestjs/config";
 import { FunctionCallingLLMAdapter } from "../function-calling-llm.adapter";
 import { AiChatService } from "../../services/ai-chat.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { SecretsService } from "@/modules/ai-infra/facade";
+import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
+import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
 
 describe("FunctionCallingLLMAdapter (extended coverage)", () => {
   let adapter: FunctionCallingLLMAdapter;
   let mockAiChatService: Record<string, jest.Mock>;
   let mockPrisma: Record<string, Record<string, jest.Mock>>;
   let mockSecretsService: Record<string, jest.Mock>;
-  let mockConfigService: Record<string, jest.Mock>;
+  let mockKeyResolver: Record<string, jest.Mock>;
 
   const defaultChatResponse = {
     content: "Test response",
@@ -53,11 +53,19 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
     };
 
     mockSecretsService = {
-      getValueInternal: jest.fn().mockResolvedValue(null),
+      getValueInternal: jest.fn().mockResolvedValue("system-secret-value"),
     };
 
-    mockConfigService = {
-      get: jest.fn().mockReturnValue(null),
+    mockKeyResolver = {
+      resolveKey: jest.fn().mockResolvedValue({
+        source: "PERSONAL",
+        apiKey: "byok-personal-key",
+        apiEndpoint: null,
+        provider: "openai",
+        userId: "u-test",
+        label: "default",
+        healthKeyId: "personal:u-test:openai:default",
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -66,7 +74,7 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
         { provide: AiChatService, useValue: mockAiChatService },
         { provide: PrismaService, useValue: mockPrisma },
         { provide: SecretsService, useValue: mockSecretsService },
-        { provide: ConfigService, useValue: mockConfigService },
+        { provide: KeyResolverService, useValue: mockKeyResolver },
       ],
     }).compile();
 
@@ -76,15 +84,15 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
   afterEach(() => jest.clearAllMocks());
 
   // =========================================================================
-  // Line 209: systemMessage extracted as systemPrompt
+  // systemMessage extracted as systemPrompt
   // =========================================================================
 
-  describe("system message extraction (line 209)", () => {
+  describe("system message extraction", () => {
     it("extracts systemMessage content as systemPrompt", async () => {
       mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "gpt-4o",
         provider: "openai",
-        apiKey: "test-key",
+        secretKey: "OPENAI_SECRET",
         apiEndpoint: "https://api.openai.com/v1",
       });
 
@@ -104,282 +112,237 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
   });
 
   // =========================================================================
-  // Lines 225-226: catch block in chat()
+  // catch block in chat() rethrow
   // =========================================================================
 
-  describe("catch block in chat (lines 225-226)", () => {
+  describe("catch block in chat", () => {
     it("rethrows error when AiChatService throws", async () => {
       mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "gpt-4o",
         provider: "openai",
-        apiKey: "test-key",
-        apiEndpoint: "",
+        secretKey: "OPENAI_SECRET",
+        apiEndpoint: null,
       });
+      mockAiChatService.chat.mockRejectedValue(new Error("upstream blew up"));
 
-      mockAiChatService.chat.mockRejectedValue(
-        new Error("Service unavailable"),
-      );
-
-      const messages = [{ role: "user" as const, content: "Hello" }];
-
-      await expect(adapter.chat({ messages })).rejects.toThrow(
-        "Service unavailable",
-      );
+      await expect(
+        adapter.chat({ messages: [{ role: "user", content: "Hi" }] }),
+      ).rejects.toThrow("upstream blew up");
     });
   });
 
   // =========================================================================
-  // Line 369: anyModel fallback found in getDefaultModelConfig
+  // anyModel fallback in getDefaultModelFromDb
   // =========================================================================
 
-  describe("anyModel fallback in getDefaultModelConfig (line 369)", () => {
+  describe("anyModel fallback in getDefaultModelFromDb", () => {
     it("uses anyModel when no isDefault model found", async () => {
-      // First findFirst (isDefault: true) → null; second findFirst → model
       mockPrisma.aIModel.findFirst
-        .mockResolvedValueOnce(null) // no default
+        .mockResolvedValueOnce(null) // first call (isDefault) → no result
         .mockResolvedValueOnce({
-          modelId: "any-model",
+          modelId: "fallback-model",
           provider: "openai",
-          apiKey: "any-key",
-          apiEndpoint: "https://api.openai.com/v1",
+          secretKey: "OPENAI_SECRET",
+          apiEndpoint: null,
         });
 
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      const result = await adapter.chat({ messages });
-      expect(result.content).toBe("Test response");
-    });
-  });
+      await adapter.chat({ messages: [{ role: "user", content: "Hi" }] });
 
-  // =========================================================================
-  // Line 393: getAIMemberConfig throw when no aiMemberId
-  // =========================================================================
-
-  describe("getAIMemberConfig throws when aiMemberId not configured (line 393)", () => {
-    it("throws error when aiMemberId config is missing", async () => {
-      adapter.setConfig({ aiMemberId: undefined });
-
-      const messages = [{ role: "user" as const, content: "Hello" }];
-
-      // Without aiMemberId, should fall back to getDefaultModelConfig
-      // which returns null then anyModel (tested above)
-      // setConfig with aiMemberId = undefined means getAIMemberConfig won't be called
-      // Actually, getAIMemberConfig is called when config.aiMemberId is set
-      // Let's test with aiMemberId set but provider path
-      adapter.setConfig({ aiMemberId: "member-123" });
-
-      mockPrisma.topicAIMember.findUnique.mockResolvedValue(null);
-
-      await expect(adapter.chat({ messages })).rejects.toThrow(
-        "AI Member not found",
+      expect(mockAiChatService.chat).toHaveBeenCalledWith(
+        expect.objectContaining({ model: "fallback-model" }),
       );
     });
+
+    it("throws when no model configured at all", async () => {
+      mockPrisma.aIModel.findFirst.mockResolvedValue(null);
+
+      await expect(
+        adapter.chat({ messages: [{ role: "user", content: "Hi" }] }),
+      ).rejects.toThrow("No AI model configured");
+    });
   });
 
   // =========================================================================
-  // Line 430: second findFirst for aiMember by name
+  // getAIMemberConfig
   // =========================================================================
 
-  describe("second findFirst for aiMember by name (line 430)", () => {
-    it("falls back to name-based lookup when modelId lookup fails", async () => {
-      adapter.setConfig({ aiMemberId: "member-456" });
+  describe("getAIMemberConfig", () => {
+    it("throws when AI member not found", async () => {
+      adapter.setConfig({ aiMemberId: "member-missing" });
+      mockPrisma.topicAIMember.findUnique.mockResolvedValue(null);
 
+      await expect(
+        adapter.chat({ messages: [{ role: "user", content: "Hi" }] }),
+      ).rejects.toThrow("AI Member not found");
+    });
+
+    it("falls back to name-based lookup when modelId lookup fails", async () => {
+      adapter.setConfig({ aiMemberId: "member-456", userId: "u-test" });
       mockPrisma.topicAIMember.findUnique.mockResolvedValue({
         aiModel: "my-custom-model",
         displayName: "Custom Agent",
       });
-
-      // First findFirst (by modelId) → null; second findFirst (by name) → model
       mockPrisma.aIModel.findFirst
-        .mockResolvedValueOnce(null) // by modelId → not found
+        .mockResolvedValueOnce(null) // modelId 查询无果
         .mockResolvedValueOnce({
           modelId: "my-custom-model",
-          provider: "openai",
-          apiKey: "custom-key",
+          provider: "anthropic",
           secretKey: null,
-          apiEndpoint: "https://api.openai.com/v1",
+          apiEndpoint: null,
         });
-
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      const result = await adapter.chat({ messages });
-      expect(result.content).toBe("Test response");
-    });
-  });
-
-  // =========================================================================
-  // Lines 463-466: secretKey found but no secret value → fallback to apiKey
-  // =========================================================================
-
-  describe("secretKey without secret value → fallback apiKey (lines 463-466)", () => {
-    it("falls back to model apiKey when secretKey not found in SecretsService", async () => {
-      adapter.setConfig({ aiMemberId: "member-789" });
-
-      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
-        aiModel: "gemini-pro",
-        displayName: "Gemini Agent",
+      mockKeyResolver.resolveKey.mockResolvedValue({
+        source: "PERSONAL",
+        apiKey: "claude-byok",
+        apiEndpoint: null,
+        provider: "anthropic",
+        userId: "u-test",
+        label: "default",
+        healthKeyId: "personal:u-test:anthropic:default",
       });
 
-      mockPrisma.aIModel.findFirst.mockResolvedValue({
-        modelId: "gemini-pro",
-        provider: "google",
-        apiKey: "fallback-api-key",
-        secretKey: "GEMINI_SECRET", // has secretKey
-        apiEndpoint: "https://generativelanguage.googleapis.com",
-      });
+      await adapter.chat({ messages: [{ role: "user", content: "Hi" }] });
 
-      // secretKey lookup returns null → should fall back to apiKey
-      mockSecretsService.getValueInternal.mockResolvedValue(null);
-
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      const result = await adapter.chat({ messages });
-      expect(result.content).toBe("Test response");
-
-      // Verify it tried to look up the secret
-      expect(mockSecretsService.getValueInternal).toHaveBeenCalledWith(
-        "GEMINI_SECRET",
+      expect(mockPrisma.aIModel.findFirst).toHaveBeenCalledTimes(2);
+      expect(mockKeyResolver.resolveKey).toHaveBeenCalledWith(
+        "u-test",
+        "anthropic",
       );
     });
   });
 
   // =========================================================================
-  // Line 474: getApiKeyFromEnv called when no DB apiKey
+  // BYOK 行为（KeyResolver 单源 + SYSTEM 兜底 + NoAvailableKeyError）
   // =========================================================================
 
-  describe("getApiKeyFromEnv called when no DB apiKey (line 474)", () => {
-    it("falls back to env var when DB has no apiKey", async () => {
+  describe("BYOK resolution path", () => {
+    it("uses KeyResolver when userId is provided", async () => {
+      adapter.setConfig({ aiMemberId: "m-1", userId: "alice" });
+      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
+        aiModel: "gpt-4o",
+        displayName: "Agent",
+      });
       mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "gpt-4o",
         provider: "openai",
-        apiKey: null, // no apiKey in DB
+        secretKey: "OPENAI_SECRET",
+        apiEndpoint: null,
+      });
+
+      await adapter.chat({ messages: [{ role: "user", content: "Hi" }] });
+
+      expect(mockKeyResolver.resolveKey).toHaveBeenCalledWith(
+        "alice",
+        "openai",
+      );
+      expect(mockSecretsService.getValueInternal).not.toHaveBeenCalled();
+      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      expect(callArgs.apiKey).toBe("byok-personal-key");
+    });
+
+    it("falls back to SYSTEM Secret when no userId (background cron)", async () => {
+      adapter.setConfig({ aiMemberId: "m-2" }); // no userId
+      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
+        aiModel: "gpt-4o",
+        displayName: "Agent",
+      });
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
+        modelId: "gpt-4o",
+        provider: "openai",
+        secretKey: "OPENAI_SECRET",
+        apiEndpoint: null,
+      });
+
+      await adapter.chat({ messages: [{ role: "user", content: "Hi" }] });
+
+      expect(mockKeyResolver.resolveKey).not.toHaveBeenCalled();
+      expect(mockSecretsService.getValueInternal).toHaveBeenCalledWith(
+        "OPENAI_SECRET",
+      );
+      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      expect(callArgs.apiKey).toBe("system-secret-value");
+    });
+
+    it("throws NoAvailableKeyError when user has no BYOK key", async () => {
+      adapter.setConfig({ aiMemberId: "m-3", userId: "bob-no-key" });
+      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
+        aiModel: "gpt-4o",
+        displayName: "Agent",
+      });
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
+        modelId: "gpt-4o",
+        provider: "openai",
         secretKey: null,
-        apiEndpoint: "https://api.openai.com/v1",
+        apiEndpoint: null,
+      });
+      mockKeyResolver.resolveKey.mockRejectedValue(
+        new NoAvailableKeyError("openai"),
+      );
+
+      await expect(
+        adapter.chat({ messages: [{ role: "user", content: "Hi" }] }),
+      ).rejects.toThrow(NoAvailableKeyError);
+    });
+
+    it("throws NoAvailableKeyError when no userId and no SYSTEM secret", async () => {
+      adapter.setConfig({ aiMemberId: "m-4" }); // no userId
+      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
+        aiModel: "gpt-4o",
+        displayName: "Agent",
+      });
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
+        modelId: "gpt-4o",
+        provider: "openai",
+        secretKey: null, // no SYSTEM secret either
+        apiEndpoint: null,
       });
 
-      // Set up env var
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "OPENAI_API_KEY") return "env-openai-key";
-        return null;
+      await expect(
+        adapter.chat({ messages: [{ role: "user", content: "Hi" }] }),
+      ).rejects.toThrow(NoAvailableKeyError);
+    });
+
+    it("uses explicit apiKey from config when provided (override path)", async () => {
+      adapter.setConfig({
+        modelId: "gpt-4o",
+        provider: "openai",
+        apiKey: "caller-supplied-key",
+        userId: "alice",
       });
 
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      const result = await adapter.chat({ messages });
-      expect(result.content).toBe("Test response");
+      await adapter.chat({ messages: [{ role: "user", content: "Hi" }] });
 
-      // Verify env var was used
-      expect(mockConfigService.get).toHaveBeenCalledWith("OPENAI_API_KEY");
+      // explicit apiKey bypasses both KeyResolver and SecretsService
+      expect(mockKeyResolver.resolveKey).not.toHaveBeenCalled();
+      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      expect(callArgs.apiKey).toBe("caller-supplied-key");
     });
   });
 
   // =========================================================================
-  // Line 511: getDefaultEndpoint returns "" for unknown provider
+  // getDefaultEndpoint returns "" for unknown provider
   // =========================================================================
 
-  describe("getDefaultEndpoint returns '' for unknown provider (line 511)", () => {
+  describe("getDefaultEndpoint unknown provider", () => {
     it("uses empty endpoint for unknown provider model", async () => {
-      mockPrisma.aIModel.findFirst.mockResolvedValue({
-        modelId: "custom-model",
+      adapter.setConfig({
+        modelId: "weird-model",
         provider: "unknown-provider",
-        apiKey: "custom-key",
-        secretKey: null,
-        apiEndpoint: null, // no endpoint → should use getDefaultEndpoint → ""
+        apiKey: "test-key",
       });
 
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      const result = await adapter.chat({ messages });
-      expect(result.content).toBe("Test response");
+      await adapter.chat({ messages: [{ role: "user", content: "Hi" }] });
+
+      const callArgs = mockAiChatService.chat.mock.calls[0][0];
+      expect(callArgs.apiEndpoint).toBe("");
     });
   });
 
   // =========================================================================
-  // Lines 528-550: getApiKeyFromEnv branches
+  // parseOpenAIResponse raw choices format
   // =========================================================================
 
-  describe("getApiKeyFromEnv provider branches (lines 528-550)", () => {
-    it("returns XAI_API_KEY for xai provider", async () => {
-      adapter.setConfig({ aiMemberId: "m-xai" });
-
-      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
-        aiModel: "grok-2",
-        displayName: "Grok Agent",
-      });
-
-      mockPrisma.aIModel.findFirst.mockResolvedValue({
-        modelId: "grok-2",
-        provider: "xai",
-        apiKey: null,
-        secretKey: null,
-        apiEndpoint: "https://api.x.ai/v1",
-      });
-
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "XAI_API_KEY") return "xai-test-key";
-        return null;
-      });
-
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      await adapter.chat({ messages });
-      expect(mockConfigService.get).toHaveBeenCalledWith("XAI_API_KEY");
-    });
-
-    it("returns ANTHROPIC_API_KEY for anthropic provider", async () => {
-      adapter.setConfig({ aiMemberId: "m-claude" });
-
-      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
-        aiModel: "claude-3-5-sonnet",
-        displayName: "Claude Agent",
-      });
-
-      mockPrisma.aIModel.findFirst.mockResolvedValue({
-        modelId: "claude-3-5-sonnet",
-        provider: "anthropic",
-        apiKey: null,
-        secretKey: null,
-        apiEndpoint: "https://api.anthropic.com/v1",
-      });
-
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "ANTHROPIC_API_KEY") return "anthropic-test-key";
-        return null;
-      });
-
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      await adapter.chat({ messages });
-      expect(mockConfigService.get).toHaveBeenCalledWith("ANTHROPIC_API_KEY");
-    });
-
-    it("returns GOOGLE_AI_API_KEY for google provider", async () => {
-      adapter.setConfig({ aiMemberId: "m-google" });
-
-      mockPrisma.topicAIMember.findUnique.mockResolvedValue({
-        aiModel: "gemini-pro",
-        displayName: "Gemini Agent",
-      });
-
-      mockPrisma.aIModel.findFirst.mockResolvedValue({
-        modelId: "gemini-pro",
-        provider: "google",
-        apiKey: null,
-        secretKey: null,
-        apiEndpoint: "https://generativelanguage.googleapis.com",
-      });
-
-      mockConfigService.get.mockImplementation((key: string) => {
-        if (key === "GOOGLE_AI_API_KEY") return "google-test-key";
-        return null;
-      });
-
-      const messages = [{ role: "user" as const, content: "Hello" }];
-      await adapter.chat({ messages });
-      expect(mockConfigService.get).toHaveBeenCalledWith("GOOGLE_AI_API_KEY");
-    });
-  });
-
-  // =========================================================================
-  // Lines 622-629: parseOpenAIResponse raw choices format
-  // =========================================================================
-
-  describe("parseOpenAIResponse raw choices format (lines 622-629)", () => {
+  describe("parseOpenAIResponse raw choices format", () => {
     it("parses raw OpenAI choices format (not simplified)", async () => {
-      // Return raw OpenAI API format (no .content at top level)
       mockAiChatService.chat.mockResolvedValue({
         choices: [
           {
@@ -397,7 +360,7 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
       mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "gpt-4o",
         provider: "openai",
-        apiKey: "test-key",
+        secretKey: "OPENAI_SECRET",
         apiEndpoint: "https://api.openai.com/v1",
       });
 
@@ -410,10 +373,10 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
   });
 
   // =========================================================================
-  // Lines 675-679: parseAnthropicResponse tool_use block
+  // parseAnthropicResponse tool_use block
   // =========================================================================
 
-  describe("parseAnthropicResponse with tool_use (lines 675-679)", () => {
+  describe("parseAnthropicResponse with tool_use", () => {
     it("parses tool_use blocks in Anthropic response", async () => {
       mockAiChatService.chat.mockResolvedValue({
         content: [
@@ -432,7 +395,7 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
       mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "claude-3-5-sonnet",
         provider: "anthropic",
-        apiKey: "claude-key",
+        secretKey: "ANTHROPIC_SECRET",
         apiEndpoint: "https://api.anthropic.com/v1",
       });
 
@@ -446,12 +409,11 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
   });
 
   // =========================================================================
-  // Lines 743-759: parseGoogleResponse raw candidates format
+  // parseGoogleResponse raw candidates format
   // =========================================================================
 
-  describe("parseGoogleResponse raw candidates format (lines 743-759)", () => {
+  describe("parseGoogleResponse raw candidates format", () => {
     it("parses raw Gemini candidates format (not simplified)", async () => {
-      // Return raw Gemini API format without top-level .content
       mockAiChatService.chat.mockResolvedValue({
         candidates: [
           {
@@ -471,7 +433,7 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
       mockPrisma.aIModel.findFirst.mockResolvedValue({
         modelId: "gemini-pro",
         provider: "google",
-        apiKey: "google-key",
+        secretKey: "GOOGLE_SECRET",
         apiEndpoint: "https://generativelanguage.googleapis.com",
       });
 
@@ -483,4 +445,3 @@ describe("FunctionCallingLLMAdapter (extended coverage)", () => {
     });
   });
 });
-
