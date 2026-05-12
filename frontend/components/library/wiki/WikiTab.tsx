@@ -231,6 +231,11 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   const [createPageOpen, setCreatePageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // Grid-view (no kbId selected) per-card edit / disable. We track which kb
+  // the user invoked the action on so the modal / confirm targets that row.
+  const [gridEditKbId, setGridEditKbId] = useState<string | null>(null);
+  const [gridDisableKbId, setGridDisableKbId] = useState<string | null>(null);
+  const [gridDisableBusy, setGridDisableBusy] = useState(false);
   // Bumped after diff apply / page create so the reader re-fetches its list
   // and active body without requiring a manual browser refresh.
   const [readerRefreshTick, setReaderRefreshTick] = useState(0);
@@ -304,6 +309,8 @@ export default function WikiTab({ userHash }: WikiTabProps) {
             router.replace(`/library?${params.toString()}`);
           }}
           onEnableMore={() => setEnableOpen(true)}
+          onEdit={(id) => setGridEditKbId(id)}
+          onDisable={(id) => setGridDisableKbId(id)}
         />
         {enableOpen && (
           <WikiEnableToggleModal
@@ -317,6 +324,39 @@ export default function WikiTab({ userHash }: WikiTabProps) {
               params.set('kb', newKbId);
               router.replace(`/library?${params.toString()}`);
               refresh();
+            }}
+          />
+        )}
+        {gridEditKbId && (
+          <WikiSettingsModal
+            kbId={gridEditKbId}
+            onClose={() => setGridEditKbId(null)}
+          />
+        )}
+        {gridDisableKbId && (
+          <WikiDisableConfirmDialog
+            kbName={
+              kbs.find((kb) => kb.id === gridDisableKbId)?.name ??
+              gridDisableKbId
+            }
+            busy={gridDisableBusy}
+            onCancel={() => {
+              if (!gridDisableBusy) setGridDisableKbId(null);
+            }}
+            onConfirm={() => {
+              if (gridDisableBusy) return;
+              setGridDisableBusy(true);
+              void (async () => {
+                try {
+                  await wikiApi.toggleWikiEnabled(gridDisableKbId, false);
+                  setGridDisableKbId(null);
+                  refresh();
+                } catch (err) {
+                  logger?.error?.('[wiki] disable failed', err);
+                } finally {
+                  setGridDisableBusy(false);
+                }
+              })();
             }}
           />
         )}
@@ -2210,3 +2250,53 @@ function getAuthHeaderSafe(): Record<string, string> {
 // re-export FileSearch import to avoid unused-import lint warning when
 // downstream sub-iterations begin using a query panel
 export const _wikiTabIcons = { FileSearch, Sparkles };
+
+// --- Wiki disable confirm dialog (grid card delete action) ---
+//
+// "Delete" on a grid card means "disable Wiki on this KB" (the underlying KB
+// itself lives in the Knowledge Base tab and is not removed). We call
+// toggleWikiEnabled(kbId, false) — backend already enforces ADMIN/OWNER and
+// preserves WikiPage rows so re-enabling restores the existing content.
+
+function WikiDisableConfirmDialog({
+  kbName,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  kbName: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900">
+          {t('library.wiki.grid.disable.title')}
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">
+          {t('library.wiki.grid.disable.message', { kbName })}
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {t('library.wiki.grid.disable.cancel')}
+          </button>
+          <button
+            disabled={busy}
+            onClick={onConfirm}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            {t('library.wiki.grid.disable.confirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

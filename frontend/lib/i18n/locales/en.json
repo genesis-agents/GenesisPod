@@ -377,7 +377,17 @@
         "enableMore": "Enable another KB",
         "createCardDescription": "Turn on wiki for an existing KB; entity / concept / summary pages auto-derive from source docs",
         "noDescription": "No description",
-        "lastIngestLabel": "Last ingest"
+        "lastIngestLabel": "Last ingest",
+        "actions": {
+          "edit": "Edit wiki settings",
+          "disable": "Disable wiki"
+        },
+        "disable": {
+          "title": "Disable wiki?",
+          "message": "Disable wiki on \"{{kbName}}\"? Existing wiki pages are preserved and will be reused if you re-enable later; the knowledge base itself is not deleted.",
+          "cancel": "Cancel",
+          "confirm": "Disable wiki"
+        }
       },
       "empty": {
         "welcome": "Welcome to Wiki",

@@ -377,7 +377,17 @@
         "enableMore": "启用其他知识库",
         "createCardDescription": "为已有知识库开启 Wiki，自动从源文档生成实体页 / 概念页 / 摘要",
         "noDescription": "暂无描述",
-        "lastIngestLabel": "上次 ingest"
+        "lastIngestLabel": "上次 ingest",
+        "actions": {
+          "edit": "编辑 Wiki 配置",
+          "disable": "禁用 Wiki"
+        },
+        "disable": {
+          "title": "禁用 Wiki？",
+          "message": "确定要在「{{kbName}}」上禁用 Wiki 吗？已生成的 Wiki 页面会保留，重新启用后可继续使用；该知识库本身不会被删除。",
+          "cancel": "取消",
+          "confirm": "禁用 Wiki"
+        }
       },
       "empty": {
         "welcome": "欢迎使用 Wiki",

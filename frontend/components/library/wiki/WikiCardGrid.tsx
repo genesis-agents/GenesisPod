@@ -26,12 +26,16 @@ interface WikiCardGridProps {
   kbs: WikiKbSummary[];
   onOpen: (kbId: string) => void;
   onEnableMore: () => void;
+  onEdit: (kbId: string) => void;
+  onDisable: (kbId: string) => void;
 }
 
 export default function WikiCardGrid({
   kbs,
   onOpen,
   onEnableMore,
+  onEdit,
+  onDisable,
 }: WikiCardGridProps) {
   const { t } = useTranslation();
 
@@ -95,6 +99,13 @@ export default function WikiCardGrid({
             timestampLabel={t('library.wiki.grid.lastIngestLabel')}
             timestamp={kb.lastIngestAt ?? null}
             onClick={() => onOpen(kb.id)}
+            isOwner
+            onEdit={() => onEdit(kb.id)}
+            onDelete={() => onDisable(kb.id)}
+            labels={{
+              edit: t('library.wiki.grid.actions.edit'),
+              delete: t('library.wiki.grid.actions.disable'),
+            }}
           />
         ))}
       </div>
