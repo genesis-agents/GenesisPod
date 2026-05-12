@@ -82,10 +82,9 @@ export class NotificationPresetsService {
     researchId: string;
     researchTitle: string;
     /**
-     * ★ 2026-05-12: topic-insights mission 完成时跳详情页用 topicId（前端真实路由
-     *   是 /ai-insights/topic/[topicId]，而非旧的 /research/[id] —— 旧路径在
-     *   Next.js 里没有对应 page，点了必 404，用户截图反馈 Screenshot 53）。
-     *   不传则回退到 /ai-insights/topic-research 列表页。
+     * ★ 2026-05-12: 由上层业务消费方传入，用作详情页跳转主键（前端真实路由
+     *   /ai-insights/topic/[topicId]）。旧 /research/[id] 在 Next.js 里无对应
+     *   page，点了必 404（用户反馈 2026-05-12）。不传则回退到列表页。
      */
     topicId?: string;
   }) {
