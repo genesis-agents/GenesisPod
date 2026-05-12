@@ -62,12 +62,14 @@ export class NotificationEventListener {
     try {
       switch (payload.kind) {
         case "research":
-          // notifyResearchCompleted 还没参数化，研究模块路由 /research/<id> 仍硬编码在 preset 内；
-          // 切到参数化签名是 follow-up（W5 — 与 join/invitation 等 topic 系列一起统一）。
+          // ★ 2026-05-12: parentId = topicId（mission-execution.service.ts 已传），
+          //   preset 用它构造 /ai-insights/topic/{topicId} 真实路由；不传则退回
+          //   /ai-insights/topic-research 列表页。
           await this.presets.notifyResearchCompleted({
             userId: payload.userId,
             researchId: payload.refId,
             researchTitle: payload.title || payload.refId,
+            topicId: payload.parentId,
           });
           return;
 

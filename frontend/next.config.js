@@ -142,7 +142,30 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: '/ai-research/topics/:topicId',
+        destination: '/ai-insights/topic/:topicId',
+        permanent: false,
+      },
+      {
         source: '/ai-research/topic-research',
+        destination: '/ai-insights/topic-research',
+        permanent: false,
+      },
+      // ★ 2026-05-12: bandaid 旧通知记录中 actionUrl 写的是 /teams/{topicId} /
+      //  /topics/{topicId} / /research/{id}（前端从没有这些 page），点了必 404。
+      //  后端 URL 构造已修，这层兜底保旧 DB 记录可点。
+      {
+        source: '/teams/:topicId',
+        destination: '/ai-insights/topic/:topicId',
+        permanent: false,
+      },
+      {
+        source: '/topics/:topicId',
+        destination: '/ai-insights/topic/:topicId',
+        permanent: false,
+      },
+      {
+        source: '/research/:id',
         destination: '/ai-insights/topic-research',
         permanent: false,
       },

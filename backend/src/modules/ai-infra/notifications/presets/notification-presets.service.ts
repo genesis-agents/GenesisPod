@@ -81,15 +81,24 @@ export class NotificationPresetsService {
     userId: string;
     researchId: string;
     researchTitle: string;
+    /**
+     * ★ 2026-05-12: topic-insights mission 完成时跳详情页用 topicId（前端真实路由
+     *   是 /ai-insights/topic/[topicId]，而非旧的 /research/[id] —— 旧路径在
+     *   Next.js 里没有对应 page，点了必 404，用户截图反馈 Screenshot 53）。
+     *   不传则回退到 /ai-insights/topic-research 列表页。
+     */
+    topicId?: string;
   }) {
-    const { userId, researchId, researchTitle } = params;
+    const { userId, researchId, researchTitle, topicId } = params;
 
     await this.notificationService.createNotification({
       userId,
       type: NotificationTypeDto.RESEARCH_COMPLETED,
       title: "研究任务完成",
       message: `研究「${researchTitle}」已完成`,
-      actionUrl: `/research/${researchId}`,
+      actionUrl: topicId
+        ? `/ai-insights/topic/${topicId}`
+        : `/ai-insights/topic-research`,
       actionLabel: "查看报告",
       relatedType: "research",
       relatedId: researchId,

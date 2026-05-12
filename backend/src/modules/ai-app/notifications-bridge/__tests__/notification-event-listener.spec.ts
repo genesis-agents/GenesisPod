@@ -40,6 +40,8 @@ describe("NotificationEventListener", () => {
       userId: "u1",
       researchId: "mission-1",
       researchTitle: "美国 AI 宏观洞察",
+      // 2026-05-12: 转发 topicId 给 preset 用作 /ai-insights/topic/{id} 真实路由
+      topicId: "topic-1",
     });
   });
 

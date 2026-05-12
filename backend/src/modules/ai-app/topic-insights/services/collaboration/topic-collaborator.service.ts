@@ -516,7 +516,9 @@ export class TopicCollaboratorService {
         type: NotificationTypeDto.JOIN_REQUEST,
         title: "新的加入申请",
         message: `${applicantName} 申请加入专题「${topic.name}」`,
-        actionUrl: `/ai-research/topics/${topicId}?tab=team`,
+        // 2026-05-12: 真实前端路由 /ai-insights/topic/[topicId]，旧 /ai-research/topics/{id}
+        //  在 Next.js 不存在导致 notification 点击 404（用户截图 Screenshot 53）。
+        actionUrl: `/ai-insights/topic/${topicId}?tab=team`,
         actionLabel: "查看申请",
         relatedType: "topic",
         relatedId: topicId,
@@ -600,7 +602,8 @@ export class TopicCollaboratorService {
           type: NotificationTypeDto.JOIN_APPROVED,
           title: "加入申请已通过",
           message: `您申请加入专题「${topicName}」已被通过，现在可以参与协作`,
-          actionUrl: `/ai-research/topics/${topicId}`,
+          // 2026-05-12: 同上，旧 /ai-research/topics/{id} 在 Next.js 不存在
+          actionUrl: `/ai-insights/topic/${topicId}`,
           actionLabel: "查看专题",
           relatedType: "topic",
           relatedId: topicId,
