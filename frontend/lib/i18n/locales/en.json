@@ -458,7 +458,13 @@
         "dismissAll": "Dismiss all",
         "applyFailed": "Apply failed; check connectivity or return to main view and retry",
         "apply": "Apply",
-        "applyWithCount": "Apply ({{count}})"
+        "applyWithCount": "Apply ({{count}})",
+        "conflict": {
+          "title": "Conflicting proposal",
+          "message": "Another pending proposal ({{otherId}}…) is modifying the same entries:\n\n{{keys}}\n\nClick \"Override\" to dismiss it and apply this proposal (newer-wins).",
+          "cancel": "Cancel",
+          "confirm": "Override apply"
+        }
       },
       "lint": {
         "emptyForCategory": "No unresolved findings in this category",

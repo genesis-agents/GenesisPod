@@ -458,7 +458,13 @@
         "dismissAll": "全部撤销",
         "applyFailed": "应用失败，请检查网络或返回主视图重试",
         "apply": "应用",
-        "applyWithCount": "应用 ({{count}})"
+        "applyWithCount": "应用 ({{count}})",
+        "conflict": {
+          "title": "提议冲突",
+          "message": "另一个待审提议（{{otherId}}…）正在修改相同的条目：\n\n{{keys}}\n\n点击「覆盖应用」将作废它并应用当前提议（newer-wins）。",
+          "cancel": "取消",
+          "confirm": "覆盖应用"
+        }
       },
       "lint": {
         "emptyForCategory": "该类别下暂无未解决的发现",

@@ -22,6 +22,12 @@ export default function WikiDiffModal({
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
+  // 2026-05-12 Screenshot_63 fix：用项目内 dialog/banner 替代 alert/confirm
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [conflictPrompt, setConflictPrompt] = useState<{
+    otherId: string;
+    affectedKeys: string;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,6 +94,19 @@ export default function WikiDiffModal({
         {conflicted && (
           <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-800">
             {t('library.wiki.diff.baselineMismatch')}
+          </div>
+        )}
+        {/* 2026-05-12 Screenshot_63: alert() → inline banner */}
+        {applyError && (
+          <div className="flex items-start justify-between gap-3 border-b border-rose-200 bg-rose-50 px-6 py-3 text-sm text-rose-800">
+            <span className="break-words">{applyError}</span>
+            <button
+              onClick={() => setApplyError(null)}
+              className="shrink-0 text-rose-500 hover:text-rose-700"
+              aria-label="dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
         <main className="flex-1 overflow-y-auto bg-slate-50/70 px-6 py-4">
@@ -177,6 +196,7 @@ export default function WikiDiffModal({
             onClick={async () => {
               if (!diff) return;
               setApplying(true);
+              setApplyError(null);
               const doApply = async (supersede = false) => {
                 await wikiApi.patchDiff(
                   kbId,
@@ -201,37 +221,19 @@ export default function WikiDiffModal({
                   ).response?.data?.message ??
                   (err as Error).message ??
                   '';
+                // 2026-05-12 (P3 BLOCKER C2)：backend 引入 locale 维度后 message
+                // 实际格式是 "on (slug:locale): k1, k2"。原 regex 匹配旧
+                // "on slug(s):"，永远 null 走 alert(raw) 弹英文报错。
+                // 新 regex 兼容两种格式，并把 alert/confirm 改为项目内 UI。
                 const conflictMatch =
-                  /conflicts with PENDING diff ([\w-]+) on slug\(s\): (.+)/.exec(
+                  /conflicts with PENDING diff ([\w-]+) on (?:\(slug:locale\)|slug\(s\)): (.+)/.exec(
                     raw
                   );
                 if (conflictMatch) {
-                  const [, otherId, slugs] = conflictMatch;
-                  const ok = confirm(
-                    `另一个待审 diff (${otherId.slice(0, 8)}…) 也在改这些条目：${slugs}\n\n点击"确定"将作废它并应用当前 diff（newer-wins）。`
-                  );
-                  if (ok) {
-                    try {
-                      await doApply(true);
-                      onApplied?.();
-                      onClose();
-                      return;
-                    } catch (e2) {
-                      logger?.error?.('[wiki] supersede apply failed', e2);
-                      alert(
-                        (
-                          e2 as {
-                            response?: { data?: { message?: string } };
-                            message?: string;
-                          }
-                        ).response?.data?.message ??
-                          (e2 as Error).message ??
-                          t('library.wiki.diff.applyFailed')
-                      );
-                    }
-                  }
+                  const [, otherId, affectedKeys] = conflictMatch;
+                  setConflictPrompt({ otherId, affectedKeys });
                 } else {
-                  alert(raw || t('library.wiki.diff.applyFailed'));
+                  setApplyError(raw || t('library.wiki.diff.applyFailed'));
                 }
               } finally {
                 setApplying(false);
@@ -245,6 +247,93 @@ export default function WikiDiffModal({
               : t('library.wiki.diff.apply')}
           </button>
         </footer>
+      </div>
+      {/* 2026-05-12 Screenshot_63: confirm() → 项目内 dialog */}
+      {conflictPrompt && diff && (
+        <WikiDiffConflictDialog
+          otherId={conflictPrompt.otherId}
+          affectedKeys={conflictPrompt.affectedKeys}
+          busy={applying}
+          onCancel={() => setConflictPrompt(null)}
+          onConfirm={async () => {
+            setApplying(true);
+            try {
+              await wikiApi.patchDiff(
+                kbId,
+                diff.id,
+                'apply',
+                Array.from(selected),
+                { supersedeConflictingDiffs: true }
+              );
+              setConflictPrompt(null);
+              onApplied?.();
+              onClose();
+            } catch (e2) {
+              logger?.error?.('[wiki] supersede apply failed', e2);
+              const msg =
+                (
+                  e2 as {
+                    response?: { data?: { message?: string } };
+                    message?: string;
+                  }
+                ).response?.data?.message ??
+                (e2 as Error).message ??
+                t('library.wiki.diff.applyFailed');
+              setConflictPrompt(null);
+              setApplyError(msg);
+            } finally {
+              setApplying(false);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function WikiDiffConflictDialog({
+  otherId,
+  affectedKeys,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  otherId: string;
+  affectedKeys: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-gray-900">
+          {t('library.wiki.diff.conflict.title')}
+        </h3>
+        <p className="mt-2 whitespace-pre-line text-sm text-gray-600">
+          {t('library.wiki.diff.conflict.message', {
+            otherId: otherId.slice(0, 8),
+            keys: affectedKeys,
+          })}
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {t('library.wiki.diff.conflict.cancel')}
+          </button>
+          <button
+            disabled={busy}
+            onClick={onConfirm}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            {t('library.wiki.diff.conflict.confirm')}
+          </button>
+        </div>
       </div>
     </div>
   );
