@@ -139,8 +139,13 @@ export class WikiController {
     @Param("kbId") kbId: string,
     @Body() dto: IngestWikiDto,
   ): Promise<{
-    diff: { id: string; status: string; affectedSlugs: string[] };
+    diff: { id: string; status: string; affectedKeys: string[] };
   }> {
+    // P3 BLOCKER C2 (2026-05-12 multi-pass-and-locale consensus): the
+    // diff column renamed from `affectedSlugs` to `affectedKeys` so each
+    // entry can carry a `slug:locale` composite. The REST response shape
+    // mirrors the column name 1:1 — frontend `WikiDiffSummary.affectedKeys`
+    // consumes the same string-array payload.
     const diff = await this.ingestService.ingest(
       req.user.id,
       kbId,
@@ -150,7 +155,7 @@ export class WikiController {
       diff: {
         id: diff.id,
         status: diff.status,
-        affectedSlugs: diff.affectedSlugs,
+        affectedKeys: diff.affectedKeys,
       },
     };
   }

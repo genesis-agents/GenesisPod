@@ -172,7 +172,9 @@ enum WikiPageEmbedResolution {
 
 /// ingest 提议的 diff（用户审阅后 apply 或 dismiss）。
 /// items: { creates, updates, deletes } — apply 入事务前 zod parse。
-/// affectedSlugs: diff 涉及 slug 集合（service 层用于"slug 集合冲突"并发判定）。
+/// affectedKeys: diff 涉及 (slug, locale) 联合集合，format `slug:locale`
+/// （service 层用于"集合冲突"并发判定；P3 BLOCKER C2 修订——旧 affectedSlugs
+/// 在 (slug, locale) 多 locale 下假阴性放行、FOR UPDATE 反锁污染）。
 /// 配套 GIN partial index `WHERE status = 'PENDING'` 在手写 SQL migration 中追加。
 /// items off-load (2026-05-09): 终态行（APPLIED/DISMISSED）30 天后搬到
 /// `wiki-diffs/{id}/items.json`，DB items 列写 JSON null（'null'::jsonb）。
@@ -185,7 +187,7 @@ model WikiDiff {
   itemsUri        String?        @map("items_uri")
   itemsSize       Int?           @map("items_size")
   baselineHash    String         @map("baseline_hash") @db.VarChar(64)
-  affectedSlugs   String[]       @map("affected_slugs")
+  affectedKeys    String[]       @map("affected_keys")
   createdByUserId String         @map("created_by_user_id")
   createdAt       DateTime       @default(now()) @map("created_at")
   appliedAt       DateTime?      @map("applied_at")

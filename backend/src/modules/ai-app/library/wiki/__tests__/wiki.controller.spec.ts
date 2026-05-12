@@ -229,12 +229,15 @@ describe("WikiController", () => {
   });
 
   describe("POST /:kbId/ingest — ingest", () => {
-    it("returns { diff: { id, status, affectedSlugs } } and forwards documentIds", async () => {
+    it("returns { diff: { id, status, affectedKeys } } and forwards documentIds", async () => {
+      // P3 BLOCKER C2 (2026-05-12 consensus): the response surfaces
+      // `affectedKeys` (slug:locale composites), renamed from
+      // `affectedSlugs` so cross-locale diffs don't false-collide.
       const dto: IngestWikiDto = { documentIds: ["doc-1", "doc-2"] };
       ingestService.ingest.mockResolvedValue({
         id: DIFF_ID,
         status: "PENDING",
-        affectedSlugs: ["a", "b"],
+        affectedKeys: ["a:zh", "b:en"],
         // service returns full WikiDiff, controller picks 3 fields
         knowledgeBaseId: KB_ID,
         items: [],
@@ -251,7 +254,7 @@ describe("WikiController", () => {
         diff: {
           id: DIFF_ID,
           status: "PENDING",
-          affectedSlugs: ["a", "b"],
+          affectedKeys: ["a:zh", "b:en"],
         },
       });
     });

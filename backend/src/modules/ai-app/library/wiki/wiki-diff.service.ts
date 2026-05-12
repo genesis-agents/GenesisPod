@@ -31,12 +31,20 @@ import { sanitizeMarkdownBody } from "../../../ai-engine/facade";
  * security guarantees:
  *
  *  - WikiDiffItemsSchema zod parse BEFORE entering transaction (security R3 P2)
- *  - affectedSlugs recomputed from items (NOT read from DB column) at apply
- *    time, including deletes (security R2 P1 + R3 P1)
- *  - other PENDING diffs' affectedSlugs also recomputed live for collision
+ *  - affectedKeys recomputed from items (NOT read from DB column) at apply
+ *    time, including deletes (security R2 P1 + R3 P1). Each entry is
+ *    `${slug}:${locale}` so cross-locale concurrent applies do not falsely
+ *    collide / falsely lock the wrong rows (BLOCKER C2 from the 2026-05-12
+ *    multi-pass-and-locale consensus). The slug-only `deletes` array is
+ *    mapped to `${slug}:zh` per the DEFAULT_WIKI_LOCALE invariant — when a
+ *    multi-locale-aware deletes shape lands, this is the single place to
+ *    update.
+ *  - other PENDING diffs' affectedKeys also recomputed live for collision
  *    detection — never trust DB-stored values (security R3 P2)
- *  - Serializable isolation level + `SELECT ... FOR UPDATE` row-locks all
- *    pages whose slugs are affected (security R2 P2 + R3 P1)
+ *  - Serializable isolation level + `SELECT ... FOR UPDATE` row-locks every
+ *    page whose `(slug, locale)` pair is affected (security R2 P2 + R3 P1).
+ *    Row-value `(slug, locale) IN (VALUES ...)` keeps the lock scope at the
+ *    exact (slug, locale) granularity instead of pure slug.
  *  - baselineHash recomputed AFTER row-lock; mismatch → CONFLICTED + 409
  *  - Prisma P2034 (serialization_failure) → retry once; second failure → 409
  *  - cross-KB diff IDOR → 404 (NOT 403) per v1.5.3 §6 unified IDOR semantics
@@ -45,6 +53,25 @@ import { sanitizeMarkdownBody } from "../../../ai-engine/facade";
  *  - upsert page → delete+insert WikiPageLink → upsert WikiPageEmbedding
  *    deferred to P2 (when EmbeddingService writes are wired)
  */
+const DEFAULT_WIKI_LOCALE = "zh";
+
+/** Build a stable `slug:locale` collision/lock key. */
+function makeAffectedKey(slug: string, locale: string): string {
+  return `${slug}:${locale}`;
+}
+
+/** Parse a `slug:locale` key back into its two components. */
+function parseAffectedKey(key: string): { slug: string; locale: string } {
+  const idx = key.indexOf(":");
+  if (idx < 0) {
+    // Defensive — should never happen because every value goes through
+    // makeAffectedKey, but if a malformed row sneaks in we treat it as
+    // the DEFAULT locale rather than throwing.
+    return { slug: key, locale: DEFAULT_WIKI_LOCALE };
+  }
+  return { slug: key.slice(0, idx), locale: key.slice(idx + 1) };
+}
+
 @Injectable()
 export class WikiDiffService {
   private readonly logger = new Logger(WikiDiffService.name);
@@ -107,9 +134,10 @@ export class WikiDiffService {
    *
    * Steps (numbered to match v1.5.3 §5.1):
    *   A) zod parse diff.items
-   *   B) recompute affectedSlugs from items (creates ∪ updates ∪ deletes)
-   *   C) collision check vs other PENDING diffs (live recompute their slugs)
-   *   D) SELECT ... FOR UPDATE on all pages with affected slugs
+   *   B) recompute affectedKeys (`slug:locale`) from items
+   *      (creates ∪ updates ∪ deletes)
+   *   C) collision check vs other PENDING diffs (live recompute their keys)
+   *   D) SELECT ... FOR UPDATE on all pages with affected (slug, locale) pairs
    *   E) recompute baselineHash; mismatch → CONFLICTED + 409
    *   F) snapshot WikiPageRevision for every updated/deleted page
    *   G) upsert pages × creates+updates
@@ -153,11 +181,17 @@ export class WikiDiffService {
     }
     const items = this.filterSelectedItems(parsed.data, selectedItemSlugs);
 
-    // Step B: recompute affectedSlugs from items (NEVER read DB column)
+    // Step B: recompute affectedKeys from items (NEVER read DB column).
+    // BLOCKER C2 (2026-05-12 consensus §C2): keys are `slug:locale` so two
+    // diffs touching the SAME slug but DIFFERENT locales do NOT collide
+    // (they target disjoint WikiPage rows under the locale-aware unique
+    // constraint). The slug-only `deletes` array uses the DEFAULT locale —
+    // when a multi-locale `{slug, locale}` deletes shape lands this is the
+    // single source of truth to update.
     const myAffected = new Set<string>([
-      ...items.creates.map((c) => c.slug),
-      ...items.updates.map((u) => u.slug),
-      ...items.deletes,
+      ...items.creates.map((c) => makeAffectedKey(c.slug, c.locale)),
+      ...items.updates.map((u) => makeAffectedKey(u.slug, u.locale)),
+      ...items.deletes.map((s) => makeAffectedKey(s, DEFAULT_WIKI_LOCALE)),
     ]);
     if (myAffected.size === 0) {
       // No-op apply; just mark APPLIED so users see closure.
@@ -168,7 +202,8 @@ export class WikiDiffService {
     }
 
     // Step C: collision detection vs OTHER PENDING diffs in same KB.
-    // Live-recompute each other diff's affectedSlugs from items (security R3 P2).
+    // Live-recompute each other diff's affectedKeys from items (security R3
+    // P2 — never trust the DB column we ourselves wrote).
     const otherPending = await this.prisma.wikiDiff.findMany({
       where: {
         knowledgeBaseId,
@@ -186,18 +221,24 @@ export class WikiDiffService {
     for (const other of otherPending) {
       const otherParsed = WikiDiffItemsSchema.safeParse(other.items);
       if (!otherParsed.success) continue; // ignore malformed; can't conflict with us
-      const otherSlugs = new Set<string>([
-        ...otherParsed.data.creates.map((c) => c.slug),
-        ...otherParsed.data.updates.map((u) => u.slug),
-        ...otherParsed.data.deletes,
+      const otherKeys = new Set<string>([
+        ...otherParsed.data.creates.map((c) =>
+          makeAffectedKey(c.slug, c.locale),
+        ),
+        ...otherParsed.data.updates.map((u) =>
+          makeAffectedKey(u.slug, u.locale),
+        ),
+        ...otherParsed.data.deletes.map((s) =>
+          makeAffectedKey(s, DEFAULT_WIKI_LOCALE),
+        ),
       ]);
-      const intersection = [...myAffected].filter((s) => otherSlugs.has(s));
+      const intersection = [...myAffected].filter((k) => otherKeys.has(k));
       if (intersection.length > 0) {
         if (options.supersedeConflictingDiffs) {
           supersedeIds.push(other.id);
         } else {
           throw new ConflictException(
-            `Diff conflicts with PENDING diff ${other.id} on slug(s): ${intersection.join(", ")}`,
+            `Diff conflicts with PENDING diff ${other.id} on (slug:locale): ${intersection.join(", ")}`,
           );
         }
       }
@@ -234,7 +275,7 @@ export class WikiDiffService {
     knowledgeBaseId: string,
     diff: WikiDiff,
     items: WikiDiffItems,
-    affectedSlugs: string[],
+    affectedKeys: string[],
     supersedeConflictingDiffIds: string[] = [],
   ): Promise<WikiDiff> {
     const attempt = async (): Promise<WikiDiff> => {
@@ -256,15 +297,24 @@ export class WikiDiffService {
             });
           }
 
-          // Step D: SELECT ... FOR UPDATE on all pages with affected slugs.
-          // Prisma client doesn't expose `FOR UPDATE` directly → use raw query
-          // to acquire the lock; subsequent reads through `tx` see the locked
-          // rows.
-          if (affectedSlugs.length > 0) {
+          // Step D: SELECT ... FOR UPDATE on every affected (slug, locale)
+          // pair. Prisma client doesn't expose `FOR UPDATE` directly → use a
+          // raw query to acquire the lock; subsequent reads through `tx` see
+          // the locked rows.
+          //
+          // BLOCKER C2: row-value `(slug, locale) IN (VALUES ...)` keeps the
+          // lock at the (slug, locale) row granularity — locking by slug
+          // alone would over-block other locales of the same slug under the
+          // locale-aware unique constraint (false-positive lock).
+          if (affectedKeys.length > 0) {
+            const pairs = affectedKeys.map(parseAffectedKey);
             await tx.$queryRaw`
               SELECT id FROM "wiki_pages"
               WHERE "knowledge_base_id" = ${knowledgeBaseId}
-                AND "slug" = ANY(${affectedSlugs}::text[])
+                AND ("slug", "locale") IN (${Prisma.join(
+                  pairs.map((p) => Prisma.sql`(${p.slug}, ${p.locale})`),
+                  ", ",
+                )})
               FOR UPDATE
             `;
           }

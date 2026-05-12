@@ -407,12 +407,28 @@ export class WikiLintService {
   private async computeMissingXrefs(
     knowledgeBaseId: string,
   ): Promise<Array<Prisma.WikiLintFindingCreateManyInput>> {
-    // MISSING_XREF: WikiPageLink.toSlug not present in WikiPage (in the
-    // same KB). pageId is the FROM page so the user can navigate to fix.
+    // MISSING_XREF: WikiPageLink.(toSlug, toLocale) has no matching
+    // WikiPage(slug, locale) in the same KB. pageId is the FROM page so the
+    // user can navigate to fix.
+    //
+    // BLOCKER A1 (2026-05-12 multi-pass-and-locale consensus): under the
+    // locale-aware unique key ([knowledgeBaseId, slug, locale]) "missing"
+    // is defined PER LOCALE — `[[auth]]` from a zh page that resolves only
+    // to a wiki_pages row with locale='en' is genuinely a missing xref in
+    // the zh world. The join now matches BOTH `to_slug` AND `to_locale`
+    // (the column was promoted to NOT NULL DEFAULT 'zh' in P3 commit 1
+    // 20260514_wiki_locale_add_columns, so this predicate never produces
+    // NULL semantics).
+    //
+    // Semantic note (kept here so it does not drift): MISSING_XREF in the
+    // multi-locale world means "the target (slug, locale) pair does not
+    // exist". A future enhancement could fall back to "any locale" (group
+    // fallback) when the toLocale-specific row is missing — that lives in
+    // the wiki-page reader, not the lint pipeline.
     const rows = await this.prisma.$queryRaw<
-      Array<{ from_page_id: string; to_slug: string }>
+      Array<{ from_page_id: string; to_slug: string; to_locale: string }>
     >`
-      SELECT l.from_page_id, l.to_slug
+      SELECT l.from_page_id, l.to_slug, l.to_locale
       FROM "wiki_page_links" l
       JOIN "wiki_pages" fp ON fp.id = l.from_page_id
       WHERE fp.knowledge_base_id = ${knowledgeBaseId}
@@ -420,13 +436,17 @@ export class WikiLintService {
           SELECT 1 FROM "wiki_pages" tp
           WHERE tp.knowledge_base_id = ${knowledgeBaseId}
             AND tp.slug = l.to_slug
+            AND tp.locale = l.to_locale
         )
     `;
     return rows.map((r) => ({
       knowledgeBaseId,
       type: WikiLintType.MISSING_XREF,
       pageId: r.from_page_id,
-      detail: { toSlug: r.to_slug } as Prisma.InputJsonValue,
+      detail: {
+        toSlug: r.to_slug,
+        toLocale: r.to_locale,
+      } as Prisma.InputJsonValue,
     }));
   }
 

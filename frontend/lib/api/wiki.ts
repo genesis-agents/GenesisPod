@@ -61,7 +61,14 @@ export interface WikiPageSearchHit {
 export interface WikiDiffSummary {
   id: string;
   status: WikiDiffStatus;
-  affectedSlugs: string[];
+  /**
+   * Composite `slug:locale` keys (e.g. `auth:zh`, `auth:en`). Renamed from
+   * `affectedSlugs` in the 2026-05-12 multi-pass-and-locale BLOCKER C2 fix
+   * so two diffs touching the same slug across different locales do not
+   * false-positive collide. UI rendering that wants slug-only display can
+   * `s.split(':')[0]`.
+   */
+  affectedKeys: string[];
 }
 
 export interface WikiDiff extends WikiDiffSummary {

@@ -214,15 +214,17 @@ describe("LLM Wiki schema (v1.5.3 P0b)", () => {
       expect(_whereUnique.fromPageId_toSlug_toLocale?.toLocale).toBe("zh");
     });
 
-    it("WikiDiff.affectedSlugs is string array", () => {
+    it("WikiDiff.affectedKeys is string array (slug:locale composites)", () => {
+      // P3 BLOCKER C2 (2026-05-12 consensus): column renamed from
+      // affected_slugs → affected_keys with each entry shaped `slug:locale`.
       const _validInput: Prisma.WikiDiffCreateInput = {
         items: { creates: [], updates: [], deletes: [] },
         baselineHash: "h1",
-        affectedSlugs: ["slug-a", "slug-b"],
+        affectedKeys: ["slug-a:zh", "slug-b:en"],
         createdByUserId: "user-1",
         knowledgeBase: { connect: { id: "kb-id" } },
       };
-      expect(Array.isArray(_validInput.affectedSlugs)).toBe(true);
+      expect(Array.isArray(_validInput.affectedKeys)).toBe(true);
     });
 
     it("WikiKnowledgeBaseConfig defaults align with v1.5.3 spec (200/500k/80k/50)", () => {

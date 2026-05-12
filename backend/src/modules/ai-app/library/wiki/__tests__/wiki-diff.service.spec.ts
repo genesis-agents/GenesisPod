@@ -214,6 +214,7 @@ describe("WikiDiffService", () => {
           creates: [
             {
               slug: "INVALID UPPERCASE",
+              locale: "zh",
               title: "x",
               category: "ENTITY",
               body: "x",
@@ -240,6 +241,7 @@ describe("WikiDiffService", () => {
           creates: [
             {
               slug: "page-a",
+              locale: "zh",
               title: "A",
               category: "ENTITY",
               body: "x",
@@ -269,6 +271,7 @@ describe("WikiDiffService", () => {
           creates: [
             {
               slug: "shared-slug",
+              locale: "zh",
               title: "T",
               category: "CONCEPT",
               body: "x",
@@ -283,13 +286,14 @@ describe("WikiDiffService", () => {
       prisma.wikiDiff.findMany.mockResolvedValue([
         {
           id: "d2",
-          // affectedSlugs DB column is intentionally empty → must be ignored
+          // affectedKeys DB column is intentionally empty → must be ignored
           // and recomputed from items
           items: {
             creates: [],
             updates: [
               {
                 slug: "shared-slug",
+                locale: "zh",
                 newBody: "z",
               },
             ],
@@ -299,6 +303,203 @@ describe("WikiDiffService", () => {
       ]);
       await expect(service.applyDiff("user-1", "kb-1", "d1")).rejects.toThrow(
         ConflictException,
+      );
+    });
+
+    // ─── P3 BLOCKER C2 (2026-05-12 multi-pass-and-locale consensus) ───
+    //
+    // Three regression locks for the affectedSlugs → affectedKeys
+    // (slug:locale) rename. Without these, a future refactor could
+    // re-introduce the pure-slug collision set or the slug-only FOR UPDATE
+    // and reopen the cross-locale false-collide / false-lock bug.
+
+    it("BLOCKER C2: zh and en diff on SAME slug do NOT collide (affectedKeys disjoint)", async () => {
+      // Two PENDING diffs both touching `auth` but at different locales —
+      // their (slug, locale) keys are disjoint sets so the collision check
+      // must NOT throw, and the apply transaction must enter.
+      const baselineHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify([]), "utf8")
+        .digest("hex");
+      prisma.wikiDiff.findUnique.mockResolvedValue({
+        id: "d-zh",
+        knowledgeBaseId: "kb-1",
+        status: WikiDiffStatus.PENDING,
+        baselineHash,
+        items: {
+          creates: [
+            {
+              slug: "auth",
+              locale: "zh",
+              title: "Auth (zh)",
+              category: "CONCEPT",
+              body: "中文内容",
+              oneLiner: "认证",
+              sources: [],
+            },
+          ],
+          updates: [],
+          deletes: [],
+        },
+      });
+      prisma.wikiDiff.findMany.mockResolvedValue([
+        {
+          id: "d-en",
+          items: {
+            creates: [
+              {
+                slug: "auth",
+                locale: "en",
+                title: "Auth (en)",
+                category: "CONCEPT",
+                body: "English body",
+                oneLiner: "Authentication",
+                sources: [],
+              },
+            ],
+            updates: [],
+            deletes: [],
+          },
+        },
+      ]);
+      tx.wikiPage.upsert.mockResolvedValue({
+        id: "page-auth-zh",
+        slug: "auth",
+        locale: "zh",
+      });
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await service.applyDiff("user-1", "kb-1", "d-zh");
+
+      // Apply transaction MUST enter — no collision.
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it("BLOCKER C2: FOR UPDATE row-value targets (slug, locale) pairs, not slug alone", async () => {
+      // Capture the FOR UPDATE query and assert the row-value clause names
+      // both `slug` AND `locale` — the older code locked by slug alone and
+      // would over-block other locales of the same slug under the
+      // locale-aware unique constraint.
+      const baselineHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify([]), "utf8")
+        .digest("hex");
+      prisma.wikiDiff.findUnique.mockResolvedValue({
+        id: "d1",
+        knowledgeBaseId: "kb-1",
+        status: WikiDiffStatus.PENDING,
+        baselineHash,
+        items: {
+          creates: [
+            {
+              slug: "auth",
+              locale: "en",
+              title: "Auth",
+              category: "CONCEPT",
+              body: "x",
+              oneLiner: "y",
+              sources: [],
+            },
+          ],
+          updates: [],
+          deletes: ["legacy-page"],
+        },
+      });
+      prisma.wikiDiff.findMany.mockResolvedValue([]);
+      tx.wikiPage.upsert.mockResolvedValue({
+        id: "page-auth-en",
+        slug: "auth",
+        locale: "en",
+      });
+      tx.wikiPage.findMany.mockResolvedValue([]);
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await service.applyDiff("user-1", "kb-1", "d1");
+
+      // First $queryRaw call inside tx is the FOR UPDATE acquisition.
+      expect(tx.$queryRaw).toHaveBeenCalled();
+      const queryText = tx.$queryRaw.mock.calls[0][0].join("");
+      expect(queryText).toContain("FOR UPDATE");
+      // The query must use a `(slug, locale)` row-value, not a slug-only
+      // ANY array predicate.
+      expect(queryText).toContain(`"slug"`);
+      expect(queryText).toContain(`"locale"`);
+      expect(queryText).not.toContain(`AND "slug" = ANY(`);
+    });
+
+    it("BLOCKER C2: legacy PENDING diff with no locale fields persists as `slug:zh` keys (zod default fallback)", async () => {
+      // Simulates a pre-P3 PENDING diff whose items.creates/items.updates
+      // lack `locale`. zod schema `.default('zh')` fills the field at
+      // parse time so the diff still applies, and the FOR UPDATE locks
+      // resolve to (slug, 'zh') pairs — matching the migration backfill
+      // that maps every legacy `affected_slugs` entry to `<slug>:zh`.
+      const baselineHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify([]), "utf8")
+        .digest("hex");
+      prisma.wikiDiff.findUnique.mockResolvedValue({
+        id: "legacy",
+        knowledgeBaseId: "kb-1",
+        status: WikiDiffStatus.PENDING,
+        baselineHash,
+        items: {
+          creates: [
+            {
+              slug: "legacy-create",
+              // NO `locale` field — pre-P3 shape
+              title: "Legacy",
+              category: "CONCEPT",
+              body: "Legacy body",
+              oneLiner: "Legacy oneLiner",
+              sources: [],
+            },
+          ],
+          updates: [],
+          deletes: ["legacy-delete"],
+        },
+      });
+      prisma.wikiDiff.findMany.mockResolvedValue([]);
+      tx.wikiPage.upsert.mockResolvedValue({
+        id: "page-legacy-create",
+        slug: "legacy-create",
+        locale: "zh",
+      });
+      tx.wikiPage.findMany.mockResolvedValue([]);
+      tx.$queryRaw.mockResolvedValue([]);
+
+      await service.applyDiff("user-1", "kb-1", "legacy");
+
+      // FOR UPDATE query should contain ('legacy-create', 'zh') and
+      // ('legacy-delete', 'zh') row values (deletes default to zh per
+      // DEFAULT_WIKI_LOCALE in wiki-diff.service.ts makeAffectedKey).
+      // Prisma.join wraps the (slug, locale) row-values in a nested
+      // Prisma.sql object — flatten the values array so we can search
+      // for the literals regardless of the join-output structure.
+      const queryArgs = tx.$queryRaw.mock.calls[0];
+      const allValues: unknown[] = [];
+      const walk = (v: unknown): void => {
+        if (Array.isArray(v)) {
+          v.forEach(walk);
+          return;
+        }
+        if (
+          v &&
+          typeof v === "object" &&
+          "values" in (v as Record<string, unknown>)
+        ) {
+          walk((v as { values: unknown }).values);
+          return;
+        }
+        allValues.push(v);
+      };
+      walk(queryArgs);
+      expect(allValues).toEqual(expect.arrayContaining(["legacy-create"]));
+      expect(allValues).toEqual(expect.arrayContaining(["legacy-delete"]));
+      // Both the create-side and delete-side keys default to 'zh' through
+      // the zod default ('creates') and the DEFAULT_WIKI_LOCALE fallback
+      // for slug-only deletes.
+      expect(allValues.filter((v) => v === "zh").length).toBeGreaterThanOrEqual(
+        2,
       );
     });
 
@@ -330,6 +531,7 @@ describe("WikiDiffService", () => {
           creates: [
             {
               slug: "page-a",
+              locale: "zh",
               title: "A",
               category: "ENTITY",
               body: "Body text",
@@ -351,6 +553,7 @@ describe("WikiDiffService", () => {
       tx.wikiPage.upsert.mockResolvedValue({
         id: "page-1",
         slug: "page-a",
+        locale: "zh",
         body: "Body text",
       });
       tx.$queryRaw
@@ -460,6 +663,7 @@ describe("WikiDiffService", () => {
           creates: [
             {
               slug: "shared-slug",
+              locale: "zh",
               title: "T",
               category: "CONCEPT",
               body: "x",
@@ -478,7 +682,7 @@ describe("WikiDiffService", () => {
         id: otherId,
         items: {
           creates: [],
-          updates: [{ slug: "shared-slug", newBody: "z" }],
+          updates: [{ slug: "shared-slug", locale: "zh", newBody: "z" }],
           deletes: [],
         },
         itemsUri: null,

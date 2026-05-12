@@ -70,7 +70,9 @@ export default function WikiDiffModal({
             {diff && (
               <p className="text-xs text-slate-500">
                 {t('library.wiki.diff.totalItems', {
-                  count: diff.affectedSlugs.length,
+                  // P3 BLOCKER C2 (2026-05-12): renamed affectedSlugs →
+                  // affectedKeys; entries are `slug:locale` composites.
+                  count: diff.affectedKeys.length,
                   status: diff.status,
                 })}
               </p>

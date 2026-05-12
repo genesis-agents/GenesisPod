@@ -207,7 +207,8 @@ export interface WikiIngestCandidate {
  *     with structured JSON output, NO multi-turn agent loop
  *     (MECE rule 1: engine knows no agent/mission state).
  *  6. Parse LLM JSON response → zod validate → persist WikiDiff with
- *     status=PENDING and affectedSlugs computed from items
+ *     status=PENDING and affectedKeys (`slug:locale` composites) computed
+ *     from items — see BLOCKER C2 in the 2026-05-12 consensus archive
  *  7. Return diffId for subsequent /diffs/:diffId fetch + apply
  */
 @Injectable()
@@ -1226,7 +1227,7 @@ export class WikiIngestService {
 
   /**
    * Pre-clean + zod validate + persist a WikiDiff. Extracted so SINGLE and
-   * MULTI modes share the same soft-drop / oneLiner-trim / affectedSlugs /
+   * MULTI modes share the same soft-drop / oneLiner-trim / affectedKeys /
    * metrics logic. Mutates `rawItems` in place via the same logic that
    * lived inline in the original ingestInternal.
    */
@@ -1389,12 +1390,27 @@ export class WikiIngestService {
       );
     }
 
-    // Compute affectedSlugs from validated items.
-    const affectedSlugs = [
+    // Compute affectedKeys from validated items.
+    //
+    // BLOCKER C2 (2026-05-12 multi-pass-and-locale consensus): each entry
+    // is `slug:locale` so the diff-apply collision check (see
+    // wiki-diff.service.ts) can let two diffs touching the same slug in
+    // different locales proceed concurrently — they target disjoint
+    // WikiPage rows under the locale-aware unique constraint
+    // ([knowledgeBaseId, slug, locale]).
+    //
+    // zod schema `.default('zh')` guarantees `c.locale` / `u.locale` are
+    // always populated (LLM output need not include `locale` — see
+    // dto/wiki-diff-items.schema.ts BLOCKER C6). The slug-only `deletes`
+    // array uses the DEFAULT_WIKI_LOCALE 'zh' — this matches the
+    // single-source-of-truth in wiki-diff.service.ts (parseAffectedKey
+    // /makeAffectedKey). When a multi-locale `{slug, locale}` deletes
+    // shape lands, update BOTH sites together.
+    const affectedKeys = [
       ...new Set([
-        ...items.creates.map((c) => c.slug),
-        ...items.updates.map((u) => u.slug),
-        ...items.deletes,
+        ...items.creates.map((c) => `${c.slug}:${c.locale}`),
+        ...items.updates.map((u) => `${u.slug}:${u.locale}`),
+        ...items.deletes.map((s) => `${s}:zh`),
       ]),
     ];
 
@@ -1405,7 +1421,7 @@ export class WikiIngestService {
         status: WikiDiffStatus.PENDING,
         items: items as unknown as Prisma.InputJsonValue,
         baselineHash,
-        affectedSlugs,
+        affectedKeys,
         createdByUserId: recordUserId,
       },
     });

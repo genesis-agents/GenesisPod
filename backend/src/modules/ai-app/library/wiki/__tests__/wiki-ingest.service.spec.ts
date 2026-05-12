@@ -9,8 +9,9 @@
  *  2. LLM output failing WikiDiffItemsSchema → BadRequestException (retry msg)
  *  3. baselineHash deterministic across two ingests on same KB state
  *  4. Documents not belonging to kbId → NotFoundException
- *  5. PENDING WikiDiff persisted with affectedSlugs computed from validated
- *     items (NOT echoed from LLM output)
+ *  5. PENDING WikiDiff persisted with affectedKeys (slug:locale composites)
+ *     computed from validated items (NOT echoed from LLM output) — P3
+ *     BLOCKER C2 (2026-05-12 multi-pass-and-locale consensus)
  *  6. Empty documentIds → BadRequestException
  *  7. wikiEnabled=false → ForbiddenException
  *  8. EDITOR access required — hasAccess=false → ForbiddenException
@@ -508,9 +509,9 @@ describe("WikiIngestService", () => {
     });
   });
 
-  // ─── Gate 5: PENDING diff with affectedSlugs from validated items ──────────
+  // ─── Gate 5: PENDING diff with affectedKeys from validated items ──────────
   describe("PENDING WikiDiff persistence", () => {
-    it("persists PENDING diff with affectedSlugs deduped from creates+updates+deletes", async () => {
+    it("persists PENDING diff with affectedKeys (slug:locale) deduped from creates+updates+deletes", async () => {
       prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
         { id: "doc-1", title: "T", rawContent: "raw" },
       ]);
@@ -551,11 +552,13 @@ describe("WikiIngestService", () => {
       expect(createArgs.data.knowledgeBaseId).toBe("kb-1");
       expect(createArgs.data.createdByUserId).toBe("u-1");
       expect(createArgs.data.baselineHash).toBe("baseline-h-1");
-      // Deduped union: alpha + beta + gamma (3 unique slugs)
-      expect(new Set(createArgs.data.affectedSlugs)).toEqual(
-        new Set(["alpha-page", "beta-page", "gamma-page"]),
+      // Deduped union: alpha + beta + gamma (3 unique slugs). zod schema
+      // `.default('zh')` fills locale on creates/updates; deletes are
+      // string[] without locale and map to ':zh' per DEFAULT_WIKI_LOCALE.
+      expect(new Set(createArgs.data.affectedKeys)).toEqual(
+        new Set(["alpha-page:zh", "beta-page:zh", "gamma-page:zh"]),
       );
-      expect(createArgs.data.affectedSlugs).toHaveLength(3);
+      expect(createArgs.data.affectedKeys).toHaveLength(3);
       // Returned object carries the diff id.
       expect((result as any).id).toBe("diff-new");
     });
@@ -593,7 +596,7 @@ describe("WikiIngestService", () => {
       await service.ingest("u-1", "kb-1", ["doc-1"]);
 
       const [createArgs] = prisma.wikiDiff.create.mock.calls[0];
-      expect(createArgs.data.affectedSlugs).toEqual(["fenced-slug"]);
+      expect(createArgs.data.affectedKeys).toEqual(["fenced-slug:zh"]);
     });
   });
 
