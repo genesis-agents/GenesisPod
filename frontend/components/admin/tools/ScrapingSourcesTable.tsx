@@ -244,7 +244,16 @@ export function ScrapingSourcesTable() {
       )}
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full divide-y divide-gray-200">
+        {/* 2026-05-12: 与 BuiltinToolsTable / APIServicesTable colgroup 配方一致 */}
+        <table className="min-w-full table-fixed divide-y divide-gray-200">
+          <colgroup>
+            <col style={{ width: '24%' }} />
+            <col style={{ width: '24%' }} />
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '8%' }} />
+          </colgroup>
           <thead className="bg-gray-50">
             <tr>
               <Th>名称</Th>

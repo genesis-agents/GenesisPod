@@ -63,6 +63,11 @@ interface ToolRow {
   allowedRoles: string[];
   inputSchema: unknown;
   outputSchema: unknown;
+  // ★ 2026-05-12: 与 BuiltinToolsTable 同款 SecretKey 聚合字段
+  accessCount?: number | null;
+  lastUsedAt?: string | null;
+  testStatus?: string | null;
+  lastErrorCode?: string | null;
 }
 
 interface ToolsResponse {
@@ -325,13 +330,25 @@ export function APIServicesTable() {
                     </span>
                   </div>
                 </div>
-                <table className="min-w-full divide-y divide-gray-200">
+                {/* 2026-05-12 layout width unification: 与 BuiltinToolsTable / ScrapingSourcesTable
+                    使用同款 colgroup width 让 admin 三个 tab 之间切换不"东倒西歪" */}
+                <table className="min-w-full table-fixed divide-y divide-gray-200">
+                  <colgroup>
+                    <col style={{ width: '24%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '10%' }} />
+                  </colgroup>
                   <thead className="bg-white">
                     <tr>
                       <Th>名称</Th>
                       <Th>toolId</Th>
                       <Th>原始分类</Th>
                       <Th>密钥</Th>
+                      <Th>状态</Th>
                       <Th>启用</Th>
                       <Th className="text-right">测试</Th>
                     </tr>
@@ -376,6 +393,15 @@ export function APIServicesTable() {
                                 未配置
                               </span>
                             )}
+                          </td>
+                          {/* 2026-05-12: 状态 + 命中 (与 BuiltinToolsTable 一致) */}
+                          <td className="whitespace-nowrap px-4 py-2.5 text-xs">
+                            <ApiStatusBadge
+                              testStatus={t.testStatus ?? null}
+                              lastErrorCode={t.lastErrorCode ?? null}
+                              accessCount={t.accessCount ?? null}
+                              lastUsedAt={t.lastUsedAt ?? null}
+                            />
                           </td>
                           <td
                             className="whitespace-nowrap px-4 py-2.5"
@@ -689,6 +715,80 @@ function APIServiceDrawer({
       </div>
     </DrawerShell>
   );
+}
+
+/**
+ * 2026-05-12: API service 状态 badge — 同 BuiltinToolsTable.KeyStatusBadge 同款命名
+ *  但额外拼接 "命中 X · Yd 前" 让 admin 一目了然 secret 是否在跑业务流量
+ */
+function ApiStatusBadge({
+  testStatus,
+  lastErrorCode,
+  accessCount,
+  lastUsedAt,
+}: {
+  testStatus: string | null;
+  lastErrorCode: string | null;
+  accessCount: number | null;
+  lastUsedAt: string | null;
+}) {
+  if (!testStatus && accessCount == null && !lastUsedAt) {
+    return <span className="text-gray-400">—</span>;
+  }
+  let badge: React.ReactNode = null;
+  if (testStatus === 'success') {
+    badge = (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+        正常
+      </span>
+    );
+  } else if (testStatus === 'failed') {
+    const label =
+      lastErrorCode === 'RATE_LIMIT_KEY'
+        ? '限流'
+        : lastErrorCode === 'QUOTA_EXHAUSTED'
+          ? '配额耗尽'
+          : lastErrorCode === 'AUTH_FAILED'
+            ? '未授权'
+            : lastErrorCode === 'PROVIDER_5XX'
+              ? '上游故障'
+              : '失败';
+    badge = (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700"
+        title={lastErrorCode ?? undefined}
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-0.5">
+      {badge}
+      {(accessCount != null || lastUsedAt) && (
+        <span
+          className="text-[10px] text-gray-500"
+          title={lastUsedAt ?? undefined}
+        >
+          {accessCount ?? 0}
+          {lastUsedAt && ` · ${apiFormatRelative(lastUsedAt)}`}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function apiFormatRelative(iso: string): string {
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 1) return '刚刚';
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}d`;
+  return date.toLocaleDateString();
 }
 
 function maskSecrets(cfg: Record<string, unknown>): Record<string, unknown> {

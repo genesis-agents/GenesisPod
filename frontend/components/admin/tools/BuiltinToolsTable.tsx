@@ -54,6 +54,12 @@ interface ToolRow {
   allowedRoles: string[];
   inputSchema: unknown;
   outputSchema: unknown;
+  // ★ 2026-05-12: 与 /admin/access/secrets 对齐的 4 个健康字段
+  //   通过 ToolConfig.secretKey → Secret → SecretKey 聚合后下发
+  accessCount?: number | null;
+  lastUsedAt?: string | null;
+  testStatus?: string | null;
+  lastErrorCode?: string | null;
 }
 
 interface ToolsResponse {
@@ -297,12 +303,26 @@ export function BuiltinToolsTable() {
                     </span>
                   </div>
                 </div>
-                <table className="min-w-full divide-y divide-gray-200">
+                {/* 2026-05-12 layout width unification (Screenshot_61): 全分组同一 table-fixed
+                    + 显式 colgroup width 保证不同 category section 的列对齐，
+                    不再因 toolId / displayName 文本长度变化导致"东倒西歪" */}
+                <table className="min-w-full table-fixed divide-y divide-gray-200">
+                  <colgroup>
+                    <col style={{ width: '24%' }} />
+                    <col style={{ width: '18%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '14%' }} />
+                    <col style={{ width: '8%' }} />
+                    <col style={{ width: '10%' }} />
+                  </colgroup>
                   <thead className="bg-white">
                     <tr>
                       <Th>名称</Th>
                       <Th>toolId</Th>
                       <Th>密钥</Th>
+                      <Th>状态</Th>
+                      <Th>命中 / 上次使用</Th>
                       <Th>启用</Th>
                       <Th className="text-right">测试</Th>
                     </tr>
@@ -339,6 +359,31 @@ export function BuiltinToolsTable() {
                               <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
                                 <KeyRound className="h-3 w-3" />
                                 未配置
+                              </span>
+                            )}
+                          </td>
+                          {/* 状态 badge：testStatus + lastErrorCode (2026-05-12) */}
+                          <td className="whitespace-nowrap px-4 py-2.5 text-xs">
+                            <KeyStatusBadge
+                              testStatus={t.testStatus ?? null}
+                              lastErrorCode={t.lastErrorCode ?? null}
+                            />
+                          </td>
+                          {/* 命中数 / 上次使用 时间 (2026-05-12) */}
+                          <td
+                            className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-600"
+                            title={t.lastUsedAt ?? undefined}
+                          >
+                            {t.accessCount == null && t.lastUsedAt == null ? (
+                              <span className="text-gray-400">—</span>
+                            ) : (
+                              <span>
+                                {t.accessCount ?? 0}
+                                {t.lastUsedAt && (
+                                  <span className="ml-1 text-gray-400">
+                                    · {formatRelative(t.lastUsedAt)}
+                                  </span>
+                                )}
                               </span>
                             )}
                           </td>
@@ -690,6 +735,68 @@ function BuiltinToolDrawer({
       </div>
     </DrawerShell>
   );
+}
+
+/**
+ * 2026-05-12: SecretKey testStatus → badge color/label 映射，
+ * 与 /admin/access/secrets 的 SecretKeyHealthBadge 同款命名（"正常 / 限流 /
+ * 未授权 / 配额耗尽 / 失败"）让用户跨页面认知一致。
+ */
+function KeyStatusBadge({
+  testStatus,
+  lastErrorCode,
+}: {
+  testStatus: string | null;
+  lastErrorCode: string | null;
+}) {
+  if (!testStatus) {
+    return <span className="text-gray-400">—</span>;
+  }
+  if (testStatus === 'success') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+        正常
+      </span>
+    );
+  }
+  if (testStatus === 'failed') {
+    const label =
+      lastErrorCode === 'RATE_LIMIT_KEY'
+        ? '限流'
+        : lastErrorCode === 'QUOTA_EXHAUSTED'
+          ? '配额耗尽'
+          : lastErrorCode === 'AUTH_FAILED'
+            ? '未授权'
+            : lastErrorCode === 'PROVIDER_5XX'
+              ? '上游故障'
+              : '失败';
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700"
+        title={lastErrorCode ?? undefined}
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+      {testStatus}
+    </span>
+  );
+}
+
+function formatRelative(iso: string): string {
+  const date = new Date(iso);
+  const diffMs = Date.now() - date.getTime();
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 1) return '刚刚';
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day}d`;
+  return date.toLocaleDateString();
 }
 
 function maskSecrets(cfg: Record<string, unknown>): Record<string, unknown> {
