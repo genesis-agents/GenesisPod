@@ -21,7 +21,7 @@ import { CreateWikiPageDto, UpdateWikiPageDto } from "./dto/wiki-page.dto";
  * mirrors that for explicit composite-key reads where Prisma cannot
  * fall back to the column default.
  */
-const DEFAULT_WIKI_LOCALE = "zh";
+const DEFAULT_WIKI_LOCALE: "zh" | "en" = "zh";
 
 /**
  * WikiPageService — page CRUD, link parsing, revision writing, and revert.
@@ -44,28 +44,46 @@ export class WikiPageService {
     private readonly kbService: KnowledgeBaseService,
   ) {}
 
-  /** List pages by KB scope, optionally filtered by category. */
+  /** List pages by KB scope, optionally filtered by category + locale. */
   async listPages(
     userId: string,
     knowledgeBaseId: string,
-    options: { category?: WikiPage["category"]; limit?: number } = {},
+    options: {
+      category?: WikiPage["category"];
+      limit?: number;
+      /**
+       * W3-P0 v2.0 rebuild gap #2 (2026-05-12): per-locale page listing for
+       * double-locale KBs. Undefined → list all locales (legacy single-locale
+       * KBs see no behavior change). `__index__` system page is always
+       * locale='zh' today so filtering by 'en' will exclude it.
+       */
+      locale?: "zh" | "en";
+    } = {},
   ): Promise<WikiPage[]> {
     await this.assertViewerAccess(userId, knowledgeBaseId);
     return this.prisma.wikiPage.findMany({
       where: {
         knowledgeBaseId,
         ...(options.category ? { category: options.category } : {}),
+        ...(options.locale ? { locale: options.locale } : {}),
       },
       orderBy: [{ category: "asc" }, { updatedAt: "desc" }],
       take: options.limit ?? 100,
     });
   }
 
-  /** Get single page including outbound links + backlinks. */
+  /**
+   * Get single page including outbound links + backlinks.
+   *
+   * W3-P0 gap #2 (2026-05-12): accepts optional `locale` so frontend can
+   * switch between zh / en for bilingual KBs. When omitted, falls back to
+   * 'zh' for backward-compat with legacy single-locale callers.
+   */
   async getPage(
     userId: string,
     knowledgeBaseId: string,
     slug: string,
+    locale: "zh" | "en" = DEFAULT_WIKI_LOCALE,
   ): Promise<{
     page: WikiPage;
     outboundLinks: string[];
@@ -73,16 +91,12 @@ export class WikiPageService {
   }> {
     await this.assertViewerAccess(userId, knowledgeBaseId);
 
-    // P3 (2026-05-12): unique key is now (kb, slug, locale). Existing
-    // single-locale callers default to 'zh'; multi-locale-aware lookups
-    // (e.g. findAllInTranslationGroup with cross-locale fallback) land
-    // in a follow-up commit.
     const page = await this.prisma.wikiPage.findUnique({
       where: {
         knowledgeBaseId_slug_locale: {
           knowledgeBaseId,
           slug,
-          locale: DEFAULT_WIKI_LOCALE,
+          locale,
         },
       },
     });
@@ -456,108 +470,169 @@ export class WikiPageService {
    * Fire-and-forget from caller perspective: we swallow errors here and
    * return a status so apply success isn't blocked by index regen.
    */
-  async regenerateIndexPage(
-    knowledgeBaseId: string,
-  ): Promise<{ regenerated: boolean; pageCount: number }> {
-    const allPages = await this.prisma.wikiPage.findMany({
-      where: {
-        knowledgeBaseId,
-        slug: { not: "__index__" },
-        locale: DEFAULT_WIKI_LOCALE,
-      },
-      orderBy: [{ category: "asc" }, { title: "asc" }],
-      select: {
-        slug: true,
-        title: true,
-        category: true,
-        oneLiner: true,
-      },
+  async regenerateIndexPage(knowledgeBaseId: string): Promise<{
+    regenerated: boolean;
+    pageCount: number;
+    locales: Array<"zh" | "en">;
+  }> {
+    // W5 + gap #5 (2026-05-12): regenerate one __index__ page per
+    // KB-enabled locale. Each index lists only same-locale pages so a
+    // bilingual KB gets two coherent indexes (zh sees zh pages, en sees
+    // en pages). When the config row is missing, fall back to ['zh'].
+    const config = await this.prisma.wikiKnowledgeBaseConfig.findUnique({
+      where: { knowledgeBaseId },
+      select: { enabledLocales: true },
     });
+    const enabledLocales = (config?.enabledLocales ?? ["zh"]).filter(
+      (v): v is "zh" | "en" => v === "zh" || v === "en",
+    );
+    const targetLocales: Array<"zh" | "en"> =
+      enabledLocales.length > 0 ? enabledLocales : ["zh"];
 
-    if (allPages.length === 0) {
-      // Empty KB — drop any stale index page so the wiki shows "no pages".
-      await this.prisma.wikiPage.deleteMany({
+    let totalPages = 0;
+    let anyRegen = false;
+    for (const locale of targetLocales) {
+      const pages = await this.prisma.wikiPage.findMany({
         where: {
           knowledgeBaseId,
-          slug: "__index__",
-          locale: DEFAULT_WIKI_LOCALE,
+          slug: { not: "__index__" },
+          locale,
+        },
+        orderBy: [{ category: "asc" }, { title: "asc" }],
+        select: {
+          slug: true,
+          title: true,
+          category: true,
+          oneLiner: true,
         },
       });
-      return { regenerated: false, pageCount: 0 };
-    }
 
-    const byCategory = new Map<string, typeof allPages>();
-    for (const p of allPages) {
-      const bucket = byCategory.get(p.category) ?? [];
-      bucket.push(p);
-      byCategory.set(p.category, bucket);
-    }
-
-    const sections: string[] = [];
-    const order: Array<"ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE"> = [
-      "ENTITY",
-      "CONCEPT",
-      "SUMMARY",
-      "SOURCE",
-    ];
-    const labels: Record<string, string> = {
-      ENTITY: "实体页",
-      CONCEPT: "概念页",
-      SUMMARY: "总结页",
-      SOURCE: "源文档页",
-    };
-    for (const cat of order) {
-      const pages = byCategory.get(cat) ?? [];
-      if (pages.length === 0) continue;
-      sections.push(`## ${labels[cat]} (${pages.length})`);
-      for (const p of pages) {
-        const summary = p.oneLiner ? ` — ${p.oneLiner}` : "";
-        sections.push(`- [[${p.slug}]] ${p.title}${summary}`);
+      if (pages.length === 0) {
+        // Drop any stale per-locale index so re-enabling later starts clean.
+        await this.prisma.wikiPage.deleteMany({
+          where: {
+            knowledgeBaseId,
+            slug: "__index__",
+            locale,
+          },
+        });
+        continue;
       }
-      sections.push("");
-    }
 
-    const body =
-      `本页由 Wiki 系统自动维护，每次 ingest apply 后重写。\n\n` +
-      `共 ${allPages.length} 页 · 按类别分组。点击 [[slug]] 进入对应页。\n\n` +
-      sections.join("\n");
+      anyRegen = true;
+      totalPages += pages.length;
 
-    const contentHash = crypto
-      .createHash("sha256")
-      .update(body, "utf8")
-      .digest("hex");
+      const byCategory = new Map<string, typeof pages>();
+      for (const p of pages) {
+        const bucket = byCategory.get(p.category) ?? [];
+        bucket.push(p);
+        byCategory.set(p.category, bucket);
+      }
 
-    await this.prisma.wikiPage.upsert({
-      where: {
-        knowledgeBaseId_slug_locale: {
+      const order: Array<"ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE"> = [
+        "ENTITY",
+        "CONCEPT",
+        "SUMMARY",
+        "SOURCE",
+      ];
+      // gap #5: per-locale category labels + headline + oneLiner. Both
+      // copies sit in DB so a future product decision to translate
+      // user-authored pages also benefits.
+      const localeStrings: Record<
+        "zh" | "en",
+        {
+          title: string;
+          headline: string;
+          oneLiner: (n: number) => string;
+          labels: Record<string, string>;
+        }
+      > = {
+        zh: {
+          title: "Wiki 索引",
+          headline:
+            "本页由 Wiki 系统自动维护，每次 ingest apply 后重写。\n\n共 {n} 页 · 按类别分组。点击 [[slug]] 进入对应页。",
+          oneLiner: (n) => `${n} 页 · 按类别分组的全 KB 索引`,
+          labels: {
+            ENTITY: "实体页",
+            CONCEPT: "概念页",
+            SUMMARY: "总结页",
+            SOURCE: "源文档页",
+          },
+        },
+        en: {
+          title: "Wiki Index",
+          headline:
+            "This page is maintained automatically by the Wiki system; it is rewritten on every ingest apply.\n\n{n} pages total, grouped by category. Click [[slug]] to open a page.",
+          oneLiner: (n) => `${n} pages, grouped by category — full KB index`,
+          labels: {
+            ENTITY: "Entities",
+            CONCEPT: "Concepts",
+            SUMMARY: "Summaries",
+            SOURCE: "Sources",
+          },
+        },
+      };
+      const s = localeStrings[locale];
+
+      const sections: string[] = [];
+      for (const cat of order) {
+        const grouped = byCategory.get(cat) ?? [];
+        if (grouped.length === 0) continue;
+        sections.push(`## ${s.labels[cat]} (${grouped.length})`);
+        for (const p of grouped) {
+          const summary = p.oneLiner ? ` — ${p.oneLiner}` : "";
+          sections.push(`- [[${p.slug}]] ${p.title}${summary}`);
+        }
+        sections.push("");
+      }
+
+      const body =
+        `${s.headline.replace("{n}", String(pages.length))}\n\n` +
+        sections.join("\n");
+
+      const contentHash = crypto
+        .createHash("sha256")
+        .update(body, "utf8")
+        .digest("hex");
+
+      await this.prisma.wikiPage.upsert({
+        where: {
+          knowledgeBaseId_slug_locale: {
+            knowledgeBaseId,
+            slug: "__index__",
+            locale,
+          },
+        },
+        create: {
           knowledgeBaseId,
           slug: "__index__",
-          locale: DEFAULT_WIKI_LOCALE,
+          locale,
+          title: s.title,
+          category: "SUMMARY",
+          body,
+          oneLiner: s.oneLiner(pages.length),
+          contentHash,
+          lastEditedBy: WikiPageEditedBy.LLM,
         },
-      },
-      create: {
-        knowledgeBaseId,
-        slug: "__index__",
-        locale: DEFAULT_WIKI_LOCALE,
-        title: "Wiki 索引",
-        category: "SUMMARY",
-        body,
-        oneLiner: `${allPages.length} 页 · 按类别分组的全 KB 索引`,
-        contentHash,
-        lastEditedBy: WikiPageEditedBy.LLM,
-      },
-      update: {
-        body,
-        oneLiner: `${allPages.length} 页 · 按类别分组的全 KB 索引`,
-        contentHash,
-        lastEditedBy: WikiPageEditedBy.LLM,
-      },
-    });
+        update: {
+          title: s.title,
+          body,
+          oneLiner: s.oneLiner(pages.length),
+          contentHash,
+          lastEditedBy: WikiPageEditedBy.LLM,
+        },
+      });
 
-    this.logger.log(
-      `[regenerateIndexPage] kb=${knowledgeBaseId} pages=${allPages.length}`,
-    );
-    return { regenerated: true, pageCount: allPages.length };
+      this.logger.log(
+        `[regenerateIndexPage] kb=${knowledgeBaseId} locale=${locale} pages=${pages.length}`,
+      );
+    }
+
+    return {
+      regenerated: anyRegen,
+      pageCount: totalPages,
+      locales: targetLocales,
+    };
   }
 
   private async assertViewerAccess(

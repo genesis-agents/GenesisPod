@@ -109,7 +109,7 @@ describe("WikiController", () => {
   // ── A. Routing + DTO bind correctness ────────────────────────────────────
 
   describe("GET /:kbId/pages — listPages", () => {
-    it("calls pageService.listPages with userId, kbId, and parsed { category, limit }", async () => {
+    it("calls pageService.listPages with userId, kbId, and parsed { category, limit, locale }", async () => {
       pageService.listPages.mockResolvedValue([{ slug: SLUG }] as never);
       const query: ListWikiPagesQueryDto = {
         category: "CONCEPT" as never,
@@ -118,22 +118,49 @@ describe("WikiController", () => {
 
       const result = await controller.listPages(makeReq(), KB_ID, query);
 
+      // gap #2 (2026-05-12): controller now forwards `locale` (undefined
+      // when omitted — service-side reads "all locales").
       expect(pageService.listPages).toHaveBeenCalledWith(USER_ID, KB_ID, {
         category: "CONCEPT",
         limit: 25,
+        locale: undefined,
       });
       expect(result).toEqual({ items: [{ slug: SLUG }] });
+    });
+
+    it("forwards explicit locale='en' for bilingual KB", async () => {
+      pageService.listPages.mockResolvedValue([] as never);
+      const query: ListWikiPagesQueryDto = {
+        limit: 50,
+        locale: "en",
+      };
+
+      await controller.listPages(makeReq(), KB_ID, query);
+
+      expect(pageService.listPages).toHaveBeenCalledWith(
+        USER_ID,
+        KB_ID,
+        expect.objectContaining({ locale: "en", limit: 50 }),
+      );
     });
   });
 
   describe("GET /:kbId/pages/:slug — getPage", () => {
-    it("calls pageService.getPage(userId, kbId, slug)", async () => {
+    it("calls pageService.getPage(userId, kbId, slug, locale)", async () => {
       const page = { slug: SLUG, body: "x" };
       pageService.getPage.mockResolvedValue(page as never);
 
-      const result = await controller.getPage(makeReq(), KB_ID, SLUG);
+      const result = await controller.getPage(makeReq(), KB_ID, SLUG, {});
 
-      expect(pageService.getPage).toHaveBeenCalledWith(USER_ID, KB_ID, SLUG);
+      // gap #2 (2026-05-12): controller now forwards `query.locale` (may
+      // be undefined for legacy single-locale clients; service defaults
+      // to 'zh' downstream).
+      expect(pageService.getPage).toHaveBeenCalledWith(
+        USER_ID,
+        KB_ID,
+        SLUG,
+        undefined,
+      );
       expect(result).toEqual(page);
     });
 
@@ -141,8 +168,22 @@ describe("WikiController", () => {
       pageService.getPage.mockRejectedValue(
         new NotFoundException("Page not found"),
       );
-      await expect(controller.getPage(makeReq(), KB_ID, SLUG)).rejects.toThrow(
-        NotFoundException,
+      await expect(
+        controller.getPage(makeReq(), KB_ID, SLUG, {}),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("forwards explicit locale='en' query param to service", async () => {
+      const page = { slug: SLUG, body: "x" };
+      pageService.getPage.mockResolvedValue(page as never);
+
+      await controller.getPage(makeReq(), KB_ID, SLUG, { locale: "en" });
+
+      expect(pageService.getPage).toHaveBeenCalledWith(
+        USER_ID,
+        KB_ID,
+        SLUG,
+        "en",
       );
     });
   });

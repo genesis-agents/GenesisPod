@@ -25,6 +25,7 @@ import {
   CreateWikiPageDto,
   ListWikiPagesQueryDto,
   UpdateWikiPageDto,
+  WikiPageGetQueryDto,
 } from "./dto/wiki-page.dto";
 import {
   BatchPatchWikiLintFindingsDto,
@@ -76,6 +77,8 @@ export class WikiController {
     const pages = await this.pageService.listPages(userId, kbId, {
       category: query.category,
       limit: query.limit,
+      // W3-P0 gap #2: forward locale so bilingual KBs can list zh-only / en-only
+      locale: query.locale,
     });
     return { items: pages };
   }
@@ -86,8 +89,9 @@ export class WikiController {
     @Request() req: RequestWithUser,
     @Param("kbId") kbId: string,
     @Param("slug") slug: string,
+    @Query() query: WikiPageGetQueryDto,
   ) {
-    return this.pageService.getPage(req.user.id, kbId, slug);
+    return this.pageService.getPage(req.user.id, kbId, slug, query.locale);
   }
 
   @Post(":kbId/pages")

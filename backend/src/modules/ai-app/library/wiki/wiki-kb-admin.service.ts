@@ -15,6 +15,12 @@ export interface WikiKbSummary {
   type: "PERSONAL" | "TEAM";
   pageCount: number;
   lastIngestAt: Date | null;
+  /**
+   * W3-P0 v2.0 rebuild gap #2 (2026-05-12): per-KB enabled locale set so
+   * frontend can show the locale switcher only on bilingual KBs.
+   * Defaults to ['zh'] when the config row is missing (legacy KB).
+   */
+  enabledLocales: Array<"zh" | "en">;
 }
 
 export interface WikiPageSearchHit {
@@ -82,8 +88,11 @@ export class WikiKbAdminService {
 
     if (wikiEnabledIds.length === 0) return [];
 
-    // Fetch page counts + last ingest time in parallel via raw aggregate
-    const [pageCounts, ingestRows] = await Promise.all([
+    // Fetch page counts + last ingest time + per-KB enabledLocales config
+    // in parallel. enabledLocales is loaded here so the frontend doesn't
+    // need a second round-trip just to decide whether to show the locale
+    // switcher on the KB selector.
+    const [pageCounts, ingestRows, configs] = await Promise.all([
       this.prisma.wikiPage.groupBy({
         by: ["knowledgeBaseId"],
         where: { knowledgeBaseId: { in: wikiEnabledIds } },
@@ -97,6 +106,10 @@ export class WikiKbAdminService {
         select: { knowledgeBaseId: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       }),
+      this.prisma.wikiKnowledgeBaseConfig.findMany({
+        where: { knowledgeBaseId: { in: wikiEnabledIds } },
+        select: { knowledgeBaseId: true, enabledLocales: true },
+      }),
     ]);
 
     const countByKb = new Map(
@@ -108,6 +121,16 @@ export class WikiKbAdminService {
         lastIngestByKb.set(row.knowledgeBaseId, row.createdAt);
       }
     }
+    const localesByKb = new Map<string, Array<"zh" | "en">>();
+    for (const cfg of configs) {
+      const filtered = cfg.enabledLocales.filter(
+        (v): v is "zh" | "en" => v === "zh" || v === "en",
+      );
+      localesByKb.set(
+        cfg.knowledgeBaseId,
+        filtered.length > 0 ? filtered : ["zh"],
+      );
+    }
 
     return userKbs
       .filter((kb) => wikiEnabledIds.includes(kb.id))
@@ -118,6 +141,9 @@ export class WikiKbAdminService {
         type: kb.type as "PERSONAL" | "TEAM",
         pageCount: countByKb.get(kb.id) ?? 0,
         lastIngestAt: lastIngestByKb.get(kb.id) ?? null,
+        // Default to ['zh'] when config row missing (matches schema default
+        // + migration backfill). Tests rely on this fallback.
+        enabledLocales: localesByKb.get(kb.id) ?? ["zh"],
       }))
       .sort((a, b) => {
         const at = a.lastIngestAt?.getTime() ?? 0;

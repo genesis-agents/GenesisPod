@@ -1,5 +1,6 @@
 import {
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -86,6 +87,25 @@ export class ListWikiPagesQueryDto {
   @IsInt()
   @Min(1)
   limit?: number = 100;
+
+  /**
+   * W3-P0 v2.0 rebuild gap #2 (2026-05-12): explicit page-list locale for
+   * bilingual KBs. Undefined = list all locales (single-locale KBs see no
+   * change). Whitelist `zh` / `en` mirrors WikiKnowledgeBaseConfig.
+   */
+  @IsOptional()
+  @IsIn(["zh", "en"])
+  locale?: "zh" | "en";
+}
+
+export class WikiPageGetQueryDto {
+  /**
+   * W3-P0 gap #2: optional locale for slug-based page fetch. Defaults to
+   * 'zh' service-side for backward compat with legacy single-locale clients.
+   */
+  @IsOptional()
+  @IsIn(["zh", "en"])
+  locale?: "zh" | "en";
 }
 
 export class WikiPageSlugParamDto {

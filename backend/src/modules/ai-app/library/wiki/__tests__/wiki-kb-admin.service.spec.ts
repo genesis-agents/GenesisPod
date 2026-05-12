@@ -50,7 +50,14 @@ function makePrisma() {
       create: jest.fn().mockResolvedValue({}),
     },
     knowledgeBase: { findUnique: jest.fn() },
-    wikiKnowledgeBaseConfig: { findUnique: jest.fn() },
+    // gap #2 (2026-05-12): listWikiEnabledKbs now also queries
+    // wikiKnowledgeBaseConfig.findMany to fetch per-KB enabledLocales for
+    // the frontend locale switcher. Default empty array → KBs default to
+    // ['zh'] via service fallback.
+    wikiKnowledgeBaseConfig: {
+      findUnique: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     $transaction: jest.fn().mockImplementation(async (fn: any) => fn(tx)),
   };
   return { prisma, tx };

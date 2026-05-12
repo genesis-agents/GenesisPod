@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FileSearch, FolderTree, Loader2 } from 'lucide-react';
+import { FileSearch, FolderTree, Languages, Loader2 } from 'lucide-react';
 import rehypeSanitize from 'rehype-sanitize';
 import { MarkdownViewer } from '@/components/common/markdown-viewer';
 import {
   wikiApi,
+  type WikiLocale,
   type WikiPage,
   type WikiPageCategory,
   type WikiPageWithLinks,
@@ -36,6 +37,13 @@ interface WikiReaderPaneProps {
   onSelectSlug: (slug: string) => void;
   onIngest?: () => void;
   onCreatePage?: () => void;
+  /**
+   * W3-P0 v2.0 rebuild gap #2 (2026-05-12): per-KB enabled locales from
+   * the KB selector. When `length > 1` (bilingual KB) the reader renders
+   * a small zh/en switcher above the sidebar and forwards the choice to
+   * listPages / getPage. Default `['zh']` keeps legacy KBs unchanged.
+   */
+  enabledLocales?: WikiLocale[];
 }
 
 export default function WikiReaderPane({
@@ -45,12 +53,24 @@ export default function WikiReaderPane({
   onSelectSlug,
   onIngest,
   onCreatePage,
+  enabledLocales = ['zh'],
 }: WikiReaderPaneProps) {
   const { t } = useTranslation();
   const [pages, setPages] = useState<WikiPage[]>([]);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<WikiPageWithLinks | null>(null);
   const [activeLoading, setActiveLoading] = useState(false);
+  // Active locale state — initialised to enabledLocales[0]. Switching here
+  // re-fetches listPages + getPage with the new locale param.
+  const [locale, setLocale] = useState<WikiLocale>(enabledLocales[0] ?? 'zh');
+  const showLocaleSwitcher = enabledLocales.length > 1;
+  // If the KB enabledLocales prop changes (different KB selected), realign
+  // the active locale so we don't keep a stale `en` for a `zh`-only KB.
+  useEffect(() => {
+    if (!enabledLocales.includes(locale)) {
+      setLocale(enabledLocales[0] ?? 'zh');
+    }
+  }, [enabledLocales, locale]);
   const autoPickedKbRef = useRef<string | null>(null);
   const onSelectSlugRef = useRef(onSelectSlug);
   onSelectSlugRef.current = onSelectSlug;
@@ -58,8 +78,10 @@ export default function WikiReaderPane({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    // Pass locale only for bilingual KBs; for single-locale we keep the
+    // legacy "list all locales" path which returns the single locale anyway.
     wikiApi
-      .listPages(kbId)
+      .listPages(kbId, undefined, 200, showLocaleSwitcher ? locale : undefined)
       .then((res) => {
         if (!cancelled) setPages(res.items);
       })
@@ -73,7 +95,7 @@ export default function WikiReaderPane({
     return () => {
       cancelled = true;
     };
-  }, [kbId, refreshKey]);
+  }, [kbId, refreshKey, locale, showLocaleSwitcher]);
 
   useEffect(() => {
     if (autoPickedKbRef.current !== kbId) {
@@ -97,7 +119,7 @@ export default function WikiReaderPane({
     let cancelled = false;
     setActiveLoading(true);
     wikiApi
-      .getPage(kbId, activeSlug)
+      .getPage(kbId, activeSlug, showLocaleSwitcher ? locale : undefined)
       .then((res) => {
         if (!cancelled) setActive(res);
       })
@@ -111,7 +133,7 @@ export default function WikiReaderPane({
     return () => {
       cancelled = true;
     };
-  }, [kbId, activeSlug, refreshKey]);
+  }, [kbId, activeSlug, refreshKey, locale, showLocaleSwitcher]);
 
   if (loading) {
     return (
@@ -144,6 +166,26 @@ export default function WikiReaderPane({
               <FolderTree className="h-4 w-4 text-gray-500" />
               Browse pages
             </div>
+            {showLocaleSwitcher && (
+              <div className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                <Languages className="ml-2 h-3.5 w-3.5 text-slate-400" />
+                {enabledLocales.map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setLocale(l)}
+                    className={
+                      'rounded px-2 py-0.5 text-[11px] font-medium uppercase transition ' +
+                      (locale === l
+                        ? 'bg-white text-violet-700 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700')
+                    }
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             {CATEGORY_ORDER.map((category) =>

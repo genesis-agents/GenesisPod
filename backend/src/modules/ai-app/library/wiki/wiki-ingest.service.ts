@@ -259,10 +259,18 @@ export class WikiIngestService {
     //   metadata.preparse 仅 URL/YT 类源文档有；手贴文本 metadata.preparse=undefined，
     //   此处合并去重即可，空数组时 buildUserPrompt 不渲染 MEDIA_URLS 块。
     const aggregatedMediaUrls = this.collectPreparseMediaUrls(documents);
+    // gap #1 + #4 (2026-05-12): pass enabledLocales as TARGET_LOCALES (single
+    // or bilingual) + per-doc sourceLocale hints from W1 preparse.
+    const targetLocales = (config?.enabledLocales ?? ["zh"]).filter(
+      (v): v is "zh" | "en" => v === "zh" || v === "en",
+    );
+    const sourceLocaleHints = this.collectSourceLocaleHints(documents);
     const userPrompt = this.buildUserPrompt(
       currentIndex,
       wrappedDocs,
       aggregatedMediaUrls,
+      targetLocales.length > 0 ? targetLocales : ["zh"],
+      sourceLocaleHints,
     );
 
     let llmResponse: Awaited<ReturnType<typeof this.chat.chat>>;
@@ -683,6 +691,15 @@ export class WikiIngestService {
      * 来自 KbDocument.metadata.preparse.mediaUrls，可能为空数组。
      */
     mediaUrls: string[] = [],
+    /**
+     * gap #1 + #4 v2.0 rebuild (2026-05-12):
+     *  - `targetLocales` = KB.enabledLocales 全集。LLM 必须为每个 target locale
+     *    各产一份 page（CREATE 项含 locale + translationGroupId 关联）。
+     *  - `sourceLocaleHints` = W1 PreparseService detectLocale 结果，per doc
+     *    指引"本文档源语种为 X"，LLM 翻译时保信达雅。
+     */
+    targetLocales: Array<"zh" | "en"> = ["zh"],
+    sourceLocaleHints: Array<{ docOrdinal: number; locale: "zh" | "en" }> = [],
   ): string {
     const indexBlock =
       index.length === 0
@@ -704,17 +721,84 @@ export class WikiIngestService {
             ...mediaUrls.map((u) => `- ${u}`),
           ].join("\n");
 
+    // gap #1: locale routing block — when KB enables zh+en, the LLM must
+    // emit each page TWICE (once per locale) with the SAME translationGroupId
+    // so frontend can pair them. When KB enables a single locale, this just
+    // hard-asserts the output language so the LLM doesn't drift.
+    const localeBlock = (() => {
+      if (targetLocales.length === 1) {
+        return [
+          "## TARGET_LOCALES (W3 v2.0)",
+          `This KB is configured for a single locale: \`${targetLocales[0]}\`.`,
+          `EVERY page in your output MUST have \`locale: "${targetLocales[0]}"\` and`,
+          `the entire body / title / oneLiner MUST be written in ${
+            targetLocales[0] === "zh" ? "Chinese" : "English"
+          }.`,
+        ].join("\n");
+      }
+      return [
+        "## TARGET_LOCALES (W3 v2.0 — bilingual KB)",
+        `This KB is configured for multiple locales: \`${targetLocales.join("`, `")}\`.`,
+        "For EACH page concept, emit TWO CREATE items (one per locale) with:",
+        "  - the SAME `slug` (slug is locale-agnostic)",
+        "  - the SAME `translationGroupId` (any stable UUID v4; use one fresh UUID per concept)",
+        "  - locale-specific `locale`, `title`, `body`, `oneLiner`",
+        "  - identical structural skeleton (same H2 sections, same [[slug]] refs, same image embeds)",
+        "Translation quality bar: not literal word-for-word — preserve meaning, idiom,",
+        "and technical terminology while writing in native style for each locale.",
+      ].join("\n");
+    })();
+
+    // gap #4: per-doc source locale hints — let the LLM know that doc[3] is
+    // English so it doesn't mistakenly think it should be paraphrased into
+    // Chinese as the "primary" page. The hint is advisory; the binding
+    // constraint remains TARGET_LOCALES above.
+    const sourceLocaleBlock =
+      sourceLocaleHints.length === 0
+        ? null
+        : [
+            "## SOURCE_LOCALES (W1 detected, per doc)",
+            "Per-document detected source language (helps preserve idiom / terminology):",
+            ...sourceLocaleHints.map(
+              (h) => `- doc[${h.docOrdinal}]: ${h.locale}`,
+            ),
+          ].join("\n");
+
     const parts = [
       "## Current wiki index",
       indexBlock,
       "",
       "## New documents to ingest",
       ...wrappedDocs,
+      "",
+      localeBlock,
     ];
-    if (mediaBlock) {
-      parts.push("", mediaBlock);
-    }
+    if (sourceLocaleBlock) parts.push("", sourceLocaleBlock);
+    if (mediaBlock) parts.push("", mediaBlock);
     return parts.join("\n\n");
+  }
+
+  /**
+   * gap #4 v2.0 rebuild (2026-05-12): collect per-doc source locale from
+   * KbDocument.metadata.preparse.sourceLocale (W1 PreparseService writes it).
+   * docOrdinal mirrors wrappedDocs index order; absent → omitted (LLM falls
+   * back to its own heuristic which is fine for fully-untagged docs).
+   */
+  private collectSourceLocaleHints(
+    documents: Array<{ metadata: Prisma.JsonValue }>,
+  ): Array<{ docOrdinal: number; locale: "zh" | "en" }> {
+    const hints: Array<{ docOrdinal: number; locale: "zh" | "en" }> = [];
+    documents.forEach((doc, i) => {
+      const meta = doc.metadata;
+      if (!meta || typeof meta !== "object" || Array.isArray(meta)) return;
+      const preparse = (meta as Record<string, unknown>).preparse;
+      if (!preparse || typeof preparse !== "object") return;
+      const sl = (preparse as Record<string, unknown>).sourceLocale;
+      if (sl === "zh" || sl === "en") {
+        hints.push({ docOrdinal: i, locale: sl });
+      }
+    });
+    return hints;
   }
 
   /**

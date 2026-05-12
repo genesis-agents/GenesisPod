@@ -30,3 +30,10 @@ export type {
   WikiPageReadInput,
   WikiPageReadOutput,
 } from "./wiki-page-read.tool";
+
+export { WikiSearchTool } from "./wiki-search.tool";
+export type {
+  WikiSearchInput,
+  WikiSearchHit,
+  WikiSearchOutput,
+} from "./wiki-search.tool";

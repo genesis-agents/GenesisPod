@@ -391,6 +391,9 @@ export class WikiDiffService {
             // .default('zh') guarantees create.locale is always populated,
             // even on legacy PENDING diffs persisted before the column
             // existed (BLOCKER C6 / consensus #8).
+            // gap #1 (2026-05-12): bilingual KBs pass translationGroupId
+            // through to wiki_pages so the two locale pages can be paired
+            // by `findFirst({ translationGroupId, locale: 'en' })`.
             const page = await tx.wikiPage.upsert({
               where: {
                 knowledgeBaseId_slug_locale: {
@@ -409,6 +412,9 @@ export class WikiDiffService {
                 oneLiner: create.oneLiner,
                 contentHash,
                 lastEditedBy: WikiPageEditedBy.LLM,
+                ...(create.translationGroupId
+                  ? { translationGroupId: create.translationGroupId }
+                  : {}),
               },
               update: {
                 title: create.title,
@@ -417,6 +423,12 @@ export class WikiDiffService {
                 oneLiner: create.oneLiner,
                 contentHash,
                 lastEditedBy: WikiPageEditedBy.LLM,
+                // Only overwrite translationGroupId when caller explicitly
+                // provides one — preserves prior groupId on re-ingest where
+                // LLM forgets to repeat it.
+                ...(create.translationGroupId
+                  ? { translationGroupId: create.translationGroupId }
+                  : {}),
               },
             });
             await this.pageService.replaceOutboundLinks(

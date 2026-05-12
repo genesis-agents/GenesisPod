@@ -134,6 +134,24 @@ Each page must have:
   spanStart — end char offset), `quote` (1-2000 char verbatim excerpt). A
   source missing any field is invalid and will be dropped.
 
+LOCALE & TRANSLATION (W3 v2.0 — bilingual KB)
+
+The user prompt has a TARGET_LOCALES block. Match it exactly:
+
+- Single-locale KB (e.g. `targetLocales: ['zh']`): every CREATE item MUST set
+  `locale: 'zh'` and the entire body/title/oneLiner written in Chinese. Do
+  NOT emit a `translationGroupId` — leave it omitted for single-locale.
+- Bilingual KB (e.g. `targetLocales: ['en','zh']`): for EACH page concept,
+  emit TWO CREATE items (one per locale) with:
+  - same `slug` (slug is locale-agnostic),
+  - SAME freshly-generated v4 UUID in `translationGroupId` (any well-formed
+    UUID; the system uses it to pair the two pages),
+  - locale-specific `locale`, `title`, `body`, `oneLiner`,
+  - identical structural skeleton (same H2 sections, same [[slug]] refs,
+    same image embeds — only the language changes).
+    Quality bar: write idiomatic native text, NOT word-for-word translation.
+    Preserve technical terminology (acronyms, model names, code identifiers).
+
 Respond ONLY with a single JSON object. Every source MUST be a full 4-field
 object exactly like the template — never abbreviate:
 
@@ -145,6 +163,8 @@ object exactly like the template — never abbreviate:
 "category": "ENTITY",
 "body": "...",
 "oneLiner": "...",
+"locale": "zh",
+"translationGroupId": "OPTIONAL_UUID_V4_FOR_BILINGUAL_KB_ONLY",
 "sources": [
 { "documentId": "...", "spanStart": 0, "spanEnd": 100, "quote": "..." }
 ]
@@ -153,6 +173,7 @@ object exactly like the template — never abbreviate:
 "updates": [
 {
 "slug": "...",
+"locale": "zh",
 "newBody": "...",
 "newOneLiner": "...",
 "sources": [

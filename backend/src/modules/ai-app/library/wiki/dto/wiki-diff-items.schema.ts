@@ -56,6 +56,20 @@ export const WikiPageCategorySchema = z.enum([
  */
 const WikiLocaleSchema = z.string().min(2).max(8).default("zh");
 
+/**
+ * W3 v2.0 rebuild gap #1 (2026-05-12): optional translation pairing key for
+ * bilingual KBs. When KB.enabledLocales has both zh + en, the LLM emits two
+ * CREATE items per page concept (one per locale) sharing the same UUID v4
+ * here so frontend can pair them. Single-locale KB → field absent → no
+ * pairing (each page stands alone).
+ *
+ * Stored as a plain string (not z.string().uuid()) to mirror our LLM-
+ * tolerance design (cf. SLUG_REGEX rationale): one bad UUID from a
+ * hallucinating model must not 400 the whole diff. The Prisma column is
+ * also `String?`, so length 16-64 keeps the cost-vs-flexibility balance.
+ */
+const TranslationGroupIdSchema = z.string().min(8).max(64).optional();
+
 export const WikiDiffCreateItemSchema = z.object({
   slug: z.string().regex(SLUG_REGEX),
   locale: WikiLocaleSchema,
@@ -64,6 +78,7 @@ export const WikiDiffCreateItemSchema = z.object({
   body: z.string().min(1).max(200_000),
   oneLiner: z.string().min(1).max(280),
   sources: z.array(WikiPageSourceItemSchema).max(50),
+  translationGroupId: TranslationGroupIdSchema,
 });
 
 export const WikiDiffUpdateItemSchema = z.object({

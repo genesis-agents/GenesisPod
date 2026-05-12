@@ -29,6 +29,12 @@ export interface WikiKbSummary {
   type: 'PERSONAL' | 'TEAM';
   pageCount: number;
   lastIngestAt: string | null;
+  /**
+   * W3-P0 v2.0 rebuild gap #2 (2026-05-12): per-KB enabled locales. Default
+   * `['zh']` for backward compat; WikiTab shows the locale switcher only when
+   * `enabledLocales.length > 1`.
+   */
+  enabledLocales?: WikiLocale[];
 }
 
 export interface WikiPage {
@@ -280,18 +286,33 @@ export const wikiApi = {
   },
 
   // Pages
-  listPages: (kbId: string, category?: WikiPageCategory, limit = 200) => {
+  // W3-P0 gap #2 (2026-05-12): optional `locale` lets bilingual KBs scope
+  // listing / fetching to zh / en. Single-locale callers omit → backend
+  // defaults to 'zh' for getPage, "all locales" for listPages.
+  listPages: (
+    kbId: string,
+    category?: WikiPageCategory,
+    limit = 200,
+    locale?: WikiLocale
+  ) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (category) params.set('category', category);
+    if (locale) params.set('locale', locale);
     return apiClient.get<{ items: WikiPage[] }>(
       `${base}/${encodeURIComponent(kbId)}/pages?${params.toString()}`
     );
   },
 
-  getPage: (kbId: string, slug: string) =>
-    apiClient.get<WikiPageWithLinks>(
-      `${base}/${encodeURIComponent(kbId)}/pages/${encodeURIComponent(slug)}`
-    ),
+  getPage: (kbId: string, slug: string, locale?: WikiLocale) => {
+    const params = new URLSearchParams();
+    if (locale) params.set('locale', locale);
+    const qs = params.toString();
+    return apiClient.get<WikiPageWithLinks>(
+      `${base}/${encodeURIComponent(kbId)}/pages/${encodeURIComponent(slug)}${
+        qs ? `?${qs}` : ''
+      }`
+    );
+  },
 
   createPage: (
     kbId: string,

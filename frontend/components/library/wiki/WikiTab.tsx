@@ -427,6 +427,9 @@ export default function WikiTab({ userHash }: WikiTabProps) {
           kbId={kbId}
           activeSlug={urlState.pageSlug}
           refreshKey={readerRefreshTick}
+          // W3-P0 gap #2: thread KB.enabledLocales so the pane can render
+          // the zh/en switcher on bilingual KBs and scope page fetches.
+          enabledLocales={kbs.find((kb) => kb.id === kbId)?.enabledLocales}
           onSelectSlug={(slug) => {
             const params = new URLSearchParams(searchParams?.toString() ?? '');
             params.set('page', slug);

@@ -34,6 +34,12 @@ function makePrisma() {
     wikiPageLink: { findMany: jest.fn().mockResolvedValue([]) },
     wikiPageRevision: { findUnique: jest.fn() },
     knowledgeBase: { findUnique: jest.fn() },
+    // gap #5 (2026-05-12): regenerateIndexPage reads enabledLocales from
+    // WikiKnowledgeBaseConfig to decide per-locale index generation. Default
+    // null → falls back to ['zh'], matching backend migration default.
+    wikiKnowledgeBaseConfig: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
     $transaction: jest.fn().mockImplementation(async (fn: any) => fn(tx)),
   };
   return { prisma, tx };
@@ -294,7 +300,11 @@ describe("WikiPageService", () => {
 
       const result = await service.regenerateIndexPage("kb-empty");
 
-      expect(result).toEqual({ regenerated: false, pageCount: 0 });
+      expect(result).toEqual({
+        regenerated: false,
+        pageCount: 0,
+        locales: ["zh"],
+      });
       expect(prisma.wikiPage.deleteMany).toHaveBeenCalledWith({
         where: {
           knowledgeBaseId: "kb-empty",
@@ -302,6 +312,63 @@ describe("WikiPageService", () => {
           locale: "zh",
         },
       });
+    });
+
+    // gap #5 (2026-05-12): bilingual KB writes two indexes with locale-
+    // specific labels (实体页 vs Entities). Bullets reuse the same
+    // [[slug]] format so cross-locale traversal works.
+    it("writes two indexes with locale-specific labels for bilingual KB", async () => {
+      prisma.wikiKnowledgeBaseConfig.findUnique.mockResolvedValue({
+        enabledLocales: ["zh", "en"],
+      });
+      prisma.wikiPage.findMany.mockImplementation((args: any) =>
+        Promise.resolve(
+          args.where.locale === "zh"
+            ? [
+                {
+                  slug: "foo",
+                  title: "中文 foo",
+                  category: "ENTITY",
+                  oneLiner: "z",
+                },
+              ]
+            : [
+                {
+                  slug: "foo",
+                  title: "English foo",
+                  category: "ENTITY",
+                  oneLiner: "e",
+                },
+              ],
+        ),
+      );
+      prisma.wikiPage.upsert = jest.fn().mockResolvedValue({});
+
+      const result = await service.regenerateIndexPage("kb-bi");
+
+      expect(result.locales).toEqual(["zh", "en"]);
+      expect(prisma.wikiPage.upsert).toHaveBeenCalledTimes(2);
+      const callShapes = prisma.wikiPage.upsert.mock.calls.map((c: any) => ({
+        locale: c[0]?.where?.knowledgeBaseId_slug_locale?.locale,
+        title: c[0]?.create?.title,
+        body: c[0]?.create?.body,
+      }));
+      // Render call shapes via toEqual so a mismatch surfaces the actual
+      // shape Jest captured (vs find→undefined→cryptic TypeError).
+      expect(callShapes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            locale: "zh",
+            title: "Wiki 索引",
+            body: expect.stringContaining("实体页 (1)"),
+          }),
+          expect.objectContaining({
+            locale: "en",
+            title: "Wiki Index",
+            body: expect.stringContaining("Entities (1)"),
+          }),
+        ]),
+      );
     });
 
     it("upserts __index__ with body grouping all pages by category", async () => {
