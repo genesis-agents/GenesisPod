@@ -201,10 +201,15 @@ export class EmbeddingProcessorService {
 
       const batch = chunksWithoutEmbeddings.slice(i, i + BATCH_SIZE);
       const texts = batch.map((chunk) => chunk.content);
+      const batchNum = Math.floor(i / BATCH_SIZE) + 1;
 
-      // 单 batch 最多两次：首次 → circuit-open 等 cooldown → 二次
-      let retriedAfterCooldown = false;
+      // 单 batch 最多两次：首次失败 → circuit-open 或 429 → 等 cooldown → 二次
+      let retried = false;
       while (true) {
+        // ★ 2026-05-12: lastBatchAt 必须在调用前记录，否则失败 batch 不算 RPM
+        //   消耗，下一个 batch 立即开火 → 5 RPM 上限直接打爆触发 circuit-open。
+        //   placement 见 catch 路径——失败也算消耗了 quota。
+        lastBatchAt = Date.now();
         try {
           const embeddingResult =
             await this.ragFacade!.embedding!.generateEmbeddings(texts);
@@ -222,7 +227,6 @@ export class EmbeddingProcessorService {
             }
           }
 
-          lastBatchAt = Date.now(); // 记录本次 batch 完成时间，下个 batch 据此节流
           await this.writeProgress(knowledgeBaseId, {
             stage: "embedding",
             processed: generatedCount,
@@ -232,48 +236,65 @@ export class EmbeddingProcessorService {
             lastError,
           });
           this.logger.debug(
-            `Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} processed, total ${generatedCount}/${totalNeeded}`,
+            `Batch ${batchNum}: ${batch.length} processed, total ${generatedCount}/${totalNeeded}`,
           );
           break;
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           const cooldownIso = this.extractCircuitOpenCooldown(msg);
+          const is429 = /429|rate.?limit|too many requests/i.test(msg);
 
-          if (cooldownIso && !retriedAfterCooldown) {
-            retriedAfterCooldown = true;
-            const waitMs = Math.max(
-              0,
-              new Date(cooldownIso).getTime() - Date.now(),
-            );
-            const cappedWait = Math.min(
-              waitMs + COOLDOWN_RETRY_BUFFER_MS,
-              COOLDOWN_MAX_WAIT_MS,
-            );
+          // ★ 2026-05-12: 不只 circuit-open 重试，普通 429 也重试一次。
+          //   gemini free tier 5 RPM 在 EmbeddingService 内 3 次重试就能把
+          //   quota 打爆，但 circuit-open 阈值是 5 次 → 前 2 个 batch（共 5-6
+          //   次 429）会被吞掉无重试。429 重试用 max(minInterval, 60s) 等
+          //   quota window 滚一圈。
+          if (!retried && (cooldownIso || is429)) {
+            retried = true;
+            let waitMs: number;
+            let cooldownUntil: string;
+            if (cooldownIso) {
+              const cd = Math.max(
+                0,
+                new Date(cooldownIso).getTime() - Date.now(),
+              );
+              waitMs = Math.min(
+                cd + COOLDOWN_RETRY_BUFFER_MS,
+                COOLDOWN_MAX_WAIT_MS,
+              );
+              cooldownUntil = cooldownIso;
+            } else {
+              // 普通 429: 等 60s 让 upstream rate-limit window 完整滚一圈
+              waitMs = Math.min(60_000, COOLDOWN_MAX_WAIT_MS);
+              cooldownUntil = new Date(Date.now() + waitMs).toISOString();
+            }
             this.logger.warn(
-              `[embedding] batch ${Math.floor(i / BATCH_SIZE) + 1} circuit-open, waiting ${cappedWait}ms until ${cooldownIso}`,
+              `[embedding] batch ${batchNum} ${cooldownIso ? "circuit-open" : "429"}, waiting ${waitMs}ms`,
             );
             await this.writeProgress(knowledgeBaseId, {
               stage: "cooling",
               processed: generatedCount,
               total: totalNeeded,
               startedAt,
-              cooldownUntil: cooldownIso,
+              cooldownUntil,
+              rpmLimit,
               lastError: msg,
             });
-            await this.sleep(cappedWait);
+            await this.sleep(waitMs);
             continue;
           }
 
           failedBatches++;
           lastError = msg;
           this.logger.error(
-            `Failed to generate embeddings for batch ${Math.floor(i / BATCH_SIZE) + 1}: ${msg}`,
+            `Failed to generate embeddings for batch ${batchNum}: ${msg}`,
           );
           await this.writeProgress(knowledgeBaseId, {
             stage: "embedding",
             processed: generatedCount,
             total: totalNeeded,
             startedAt,
+            rpmLimit,
             lastError,
           });
           break;
