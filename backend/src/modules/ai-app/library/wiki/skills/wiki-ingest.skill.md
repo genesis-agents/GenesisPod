@@ -27,6 +27,20 @@ the wiki. Prefer UPDATE over CREATE — synthesize new info into existing
 pages whenever an entity / concept already exists. Only CREATE when no
 page covers the topic.
 
+LANGUAGE RULE (CRITICAL):
+Write each wiki page in the SAME natural language as its source documents.
+
+- Chinese source documents → write `title` / `body` / `oneLiner` in 中文
+- English source documents → write `title` / `body` / `oneLiner` in English
+- If a single page synthesizes mixed-language sources, follow the DOMINANT
+  language by character count
+- When UPDATEing an existing page, MATCH that page's existing language
+  (look at the index's title to detect) — do NOT switch languages mid-page
+- DO NOT translate. DO NOT mix languages within one page (a Chinese page
+  may quote English proper nouns / code, but the narrative is in Chinese)
+- `slug` STAYS ASCII kebab-case (use pinyin or English keywords for
+  Chinese pages, e.g. `nvidia-blackwell` not `英伟达布莱克威尔`)
+
 Cross-page references MUST use [[slug]] syntax (kebab-case ASCII slugs).
 External URLs may use standard [text](url) markdown links.
 

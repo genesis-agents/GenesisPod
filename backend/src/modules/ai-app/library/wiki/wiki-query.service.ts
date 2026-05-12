@@ -155,6 +155,10 @@ export class WikiQueryService {
       "When you cite a page, refer to it by its [[slug]]. Do NOT invent slugs",
       "that don't appear in the wiki index.",
       "",
+      "LANGUAGE: write the `answer` in the SAME language as the user's question.",
+      "If the question is in 中文, answer in 中文. If in English, answer in English.",
+      "Quote page titles / proper nouns / code verbatim from the wiki regardless.",
+      "",
       "Respond ONLY with valid JSON:",
       '{ "answer": "<your answer with [[slug]] citations inline>", "citationSlugs": ["slug-1", "slug-2"] }',
     ].join("\n");
