@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Logger,
   NotImplementedException,
   Param,
   Patch,
@@ -56,6 +57,8 @@ import {
 @ApiTags("LibraryWiki")
 @Controller("library/wiki")
 export class WikiController {
+  private readonly logger = new Logger(WikiController.name);
+
   constructor(
     private readonly pageService: WikiPageService,
     private readonly diffService: WikiDiffService,
@@ -144,23 +147,34 @@ export class WikiController {
     @Body() dto: IngestWikiDto,
   ): Promise<{
     diff: { id: string; status: string; affectedKeys: string[] };
+    async: boolean;
   }> {
-    // P3 BLOCKER C2 (2026-05-12 multi-pass-and-locale consensus): the
-    // diff column renamed from `affectedSlugs` to `affectedKeys` so each
-    // entry can carry a `slug:locale` composite. The REST response shape
-    // mirrors the column name 1:1 — frontend `WikiDiffSummary.affectedKeys`
-    // consumes the same string-array payload.
-    const diff = await this.ingestService.ingest(
-      req.user.id,
-      kbId,
-      dto.documentIds,
-    );
+    // 2026-05-19 fire-and-forget：MULTI pass 一份大文档要 5-12 分钟，
+    // 同步 await 会让前端 / Cloudflare edge / Railway timeout 切断 socket。
+    // cron auto-ingest 路径已经是 fire-and-forget 写 PENDING WikiDiff，
+    // user-triggered 也走同模式：立即返回 stub，后台跑完写真 WikiDiff。
+    // 失败由 [ingest <stage>] logger.warn 记录（commit f51c60d8a 已 instrument）。
+    //
+    // 前端拿到 async:true + stub diff.id="processing" 后立即关 modal +
+    // 提示"后台运行中"，几分钟后回 wiki 主页面看新 PENDING diff。
+    const userId = req.user.id;
+    void this.ingestService
+      .ingest(userId, kbId, dto.documentIds)
+      .catch((err) =>
+        this.logger.error(
+          `[wiki ingest async] user=${userId} kb=${kbId} reason=background-failed err=${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+      );
+
     return {
       diff: {
-        id: diff.id,
-        status: diff.status,
-        affectedKeys: diff.affectedKeys,
+        id: "processing",
+        status: "PENDING",
+        affectedKeys: [],
       },
+      async: true,
     };
   }
 

@@ -53,7 +53,7 @@ export default function WikiIngestModal({
 }: {
   kbId: string;
   onClose: () => void;
-  onIngested: (diffId: string) => void;
+  onIngested: (diffId: string, isAsync?: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [docs, setDocs] = useState<WikiIngestCandidate[]>([]);
@@ -144,7 +144,12 @@ export default function WikiIngestModal({
     setError(null);
     try {
       const result = await wikiApi.ingest(kbId, Array.from(selected));
-      onIngested(result.diff.id);
+      // 2026-05-19 fire-and-forget：后端立即返回 async=true + diff.id='processing'。
+      // 不要跳转去不存在的 diff 详情；让 onIngested(undefined) 让 WikiTab 自行决定
+      // 是关 modal + 等用户回 wiki 主页面看新 PENDING diff。
+      // 老 SINGLE 同步路径（如果以后改回）：result.async 为 undefined / false，
+      // diff.id 是真 UUID，照常跳转。
+      onIngested(result.diff.id, !!result.async);
     } catch (err) {
       logger?.error?.('[wiki] ingest failed', err);
       setError(humanizeIngestError(err, t));

@@ -60,6 +60,7 @@ import {
   type WikiQueryResponse,
 } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
+import { toast } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
 import rehypeSanitize from 'rehype-sanitize';
 import { MarkdownViewer } from '@/components/common/markdown-viewer';
@@ -496,8 +497,17 @@ export default function WikiTab({ userHash }: WikiTabProps) {
         <IngestPickerModal
           kbId={kbId}
           onClose={() => setIngestOpen(false)}
-          onIngested={(diffId) => {
+          onIngested={(diffId, isAsync) => {
             setIngestOpen(false);
+            // 2026-05-19 fire-and-forget：后端立即返回时 diffId='processing'，
+            // 不存在真 diff 详情可跳。toast 提示后台运行，让用户回主 wiki tab
+            // 等几分钟后看新 PENDING diff 出现（diff 列表自动刷新或手动 reload）。
+            if (isAsync) {
+              toast.info(
+                'Wiki Ingest 已在后台运行，几分钟后请刷新页面查看新的 PENDING diff'
+              );
+              return;
+            }
             const params = new URLSearchParams(searchParams?.toString() ?? '');
             params.set('diff', diffId);
             router.replace(`/library?${params.toString()}`);
@@ -2096,7 +2106,7 @@ function IngestPickerModal({
 }: {
   kbId: string;
   onClose: () => void;
-  onIngested: (diffId: string) => void;
+  onIngested: (diffId: string, isAsync?: boolean) => void;
 }) {
   return (
     <WikiIngestWorkspaceModal

@@ -374,13 +374,16 @@ export const wikiApi = {
     ),
 
   // Ingest / Diff
-  // Wiki ingest triggers a single-turn LLM call against full doc context;
-  // typical latency is 10-60s, so override the default 30s apiClient timeout.
+  // 2026-05-19 fire-and-forget：MULTI pass 一份大文档要 5-12 分钟，
+  // 同步 await 会被 Cloudflare / Railway edge timeout 切断。后端 controller
+  // 现在立即返回 { async: true, diff: { id: 'processing', status: 'PENDING',
+  // affectedKeys: [] } }，真正的 WikiDiff 在后台跑完写入；前端依据 async 字段
+  // 关 modal + toast 提示，不再跳转到不存在的 diff id。
   ingest: (kbId: string, documentIds: string[]) =>
-    apiClient.post<{ diff: WikiDiffSummary }>(
+    apiClient.post<{ diff: WikiDiffSummary; async: boolean }>(
       `${base}/${encodeURIComponent(kbId)}/ingest`,
       { documentIds },
-      { timeout: 180_000 }
+      { timeout: 60_000 } // 后端立即返回，长 timeout 不需要了
     ),
 
   listIngestCandidates: (kbId: string) =>

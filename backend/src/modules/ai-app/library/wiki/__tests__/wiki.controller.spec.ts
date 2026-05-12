@@ -269,23 +269,26 @@ describe("WikiController", () => {
     });
   });
 
-  describe("POST /:kbId/ingest — ingest", () => {
-    it("returns { diff: { id, status, affectedKeys } } and forwards documentIds", async () => {
-      // P3 BLOCKER C2 (2026-05-12 consensus): the response surfaces
-      // `affectedKeys` (slug:locale composites), renamed from
-      // `affectedSlugs` so cross-locale diffs don't false-collide.
+  describe("POST /:kbId/ingest — ingest (fire-and-forget)", () => {
+    it("returns async stub immediately + fires ingestService.ingest in background", async () => {
+      // 2026-05-19 fire-and-forget：controller no longer awaits the MULTI
+      // pipeline (5-12 min on big sources blew Cloudflare / Railway edge
+      // timeouts). Response is a stub { diff: {id:'processing', ...}, async:true }
+      // sent immediately; the real WikiDiff PENDING row is written by the
+      // background promise. failure surfaces in [wiki ingest async] log.
       const dto: IngestWikiDto = { documentIds: ["doc-1", "doc-2"] };
       ingestService.ingest.mockResolvedValue({
         id: DIFF_ID,
         status: "PENDING",
         affectedKeys: ["a:zh", "b:en"],
-        // service returns full WikiDiff, controller picks 3 fields
         knowledgeBaseId: KB_ID,
         items: [],
       } as never);
 
       const result = await controller.ingest(makeReq(), KB_ID, dto);
 
+      // ingestService.ingest is invoked but not awaited synchronously; assert
+      // it was called with the right args (background promise fires regardless).
       expect(ingestService.ingest).toHaveBeenCalledWith(
         USER_ID,
         KB_ID,
@@ -293,10 +296,11 @@ describe("WikiController", () => {
       );
       expect(result).toEqual({
         diff: {
-          id: DIFF_ID,
+          id: "processing",
           status: "PENDING",
-          affectedKeys: ["a:zh", "b:en"],
+          affectedKeys: [],
         },
+        async: true,
       });
     });
   });
