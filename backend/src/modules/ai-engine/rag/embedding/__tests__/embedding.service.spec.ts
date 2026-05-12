@@ -6,6 +6,7 @@ import { SecretsService } from "@/modules/ai-infra/secrets/secrets.service";
 import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
+import { KeyErrorClassifier } from "@/modules/ai-infra/credentials/health/key-error-classifier";
 
 // ─── Mocks ────────────────────────────────────────────────
 
@@ -110,6 +111,19 @@ describe("EmbeddingService", () => {
           useValue: { resolveKey: jest.fn() },
         },
         { provide: AiModelConfigService, useValue: mockAiModelConfig },
+        {
+          provide: KeyErrorClassifier,
+          useValue: {
+            classify: jest.fn().mockReturnValue({
+              action: "RETHROW",
+              reason: "UNKNOWN",
+              cooldownMs: 0,
+              markDead: false,
+              shouldStopChain: false,
+              originalMessage: "",
+            }),
+          },
+        },
       ],
     }).compile();
 
@@ -258,6 +272,19 @@ describe("EmbeddingService", () => {
             { provide: ConfigService, useValue: mockConfigService },
             { provide: KeyResolverService, useValue: mockKeyResolver },
             { provide: AiModelConfigService, useValue: mockAiModelConfig },
+            {
+              provide: KeyErrorClassifier,
+              useValue: {
+                classify: jest.fn().mockReturnValue({
+                  action: "RETHROW",
+                  reason: "UNKNOWN",
+                  cooldownMs: 0,
+                  markDead: false,
+                  shouldStopChain: false,
+                  originalMessage: "",
+                }),
+              },
+            },
           ],
         }).compile();
         service = m.get<EmbeddingService>(EmbeddingService);

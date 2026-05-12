@@ -17,6 +17,7 @@ import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 import { UserApiKeysModule } from "../../ai-infra/credentials/user-api-keys/user-api-keys.module";
 import { KeyExecutorModule } from "../../ai-infra/credentials/executor/key-executor.module";
 import { KeyResolverModule } from "../../ai-infra/credentials/key-resolver/key-resolver.module";
+import { KeyHealthModule } from "../../ai-infra/credentials/health/key-health.module";
 import { AiEngineLLMModule } from "../llm/llm.module";
 // W2-B: vector backends @Global module（pgvector / jsonb，未来 qdrant / pinecone）
 import { VectorBackendsModule } from "@/plugins/storage/vector-backends.module";
@@ -38,6 +39,7 @@ import { SearchService } from "./search/search.service";
     UserApiKeysModule,
     KeyExecutorModule, // PR-5 (2026-05-05): cohere rerank failover
     KeyResolverModule, // 2026-05-12: 严格 BYOK——EmbeddingService 需要解析 user BYOK key
+    KeyHealthModule, // 2026-05-12: EmbeddingService 用 KeyErrorClassifier 把失败 → ClassifiedError 回写 user_api_keys.test_status
     AiEngineLLMModule,
     VectorBackendsModule, // W2-B: VECTOR_BACKENDS_TOKEN provider
   ],

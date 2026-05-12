@@ -20,6 +20,7 @@ import { SecretsService } from "@/modules/ai-infra/facade";
 import { AiApiCallerService } from "@/modules/ai-engine/llm/services/ai-api-caller.service";
 import { KeyResolverService } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.service";
 import { NoAvailableKeyError } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.errors";
+import { KeyErrorClassifier } from "@/modules/ai-infra/credentials/health/key-error-classifier";
 import { AiModelConfigService } from "@/modules/ai-engine/llm/services/ai-model-config.service";
 import { RequestContext } from "@/common/context/request-context";
 import { OnEvent } from "@nestjs/event-emitter";
@@ -42,6 +43,14 @@ export interface EmbeddingModelConfig {
   provider: string;
   apiFormat: string;
   maxInputTokens?: number;
+  /**
+   * ★ 2026-05-12: BYOK 路径必带——成功/失败后回写 user_api_keys.usage_count /
+   *   last_used_at / test_status 用。LLM chat 走 KeyExecutor 自动写，embedding
+   *   过去只取 apiKey 丢弃 healthKeyId，导致 BYOK Cohere 在向量化/Rerank 跑了一
+   *   堆但 UI 永远 0 hits / "未使用"（用户截图反馈 2026-05-12）。
+   *   system 路径无 healthKeyId（cron / 后台任务无 user 上下文）。
+   */
+  healthKeyId?: string;
 }
 
 /**
@@ -116,6 +125,9 @@ export class EmbeddingService {
     /** 2026-05-12: 项目唯一 BYOK 选模型入口——所有 AI 入口都走它，不在 service
      *  内重复 BYOK 选择逻辑（embedding/chat/image 等共享同一函数）。 */
     private readonly aiModelConfig: AiModelConfigService,
+    /** 2026-05-12: failure 时 classify 出 ClassifiedError 写回
+     *  user_api_keys.test_status / last_error_code，与 KeyExecutor / KeyChain 共用同一分类器。 */
+    private readonly keyErrorClassifier: KeyErrorClassifier,
     /** v5.1 R0.5-E B-#6 (2026-05-05): EMBEDDING_REQUEST hook seam，可选注入。
      *  plugin 可拦截 / 替换 embedding（缓存 / fallback provider）。 */
     @Optional()
@@ -198,6 +210,35 @@ export class EmbeddingService {
   /**
    * 根据 provider 推断 API 格式（与 AiModelConfigService.inferApiFormat 一致）
    */
+  /**
+   * ★ 2026-05-12: 写 user_api_keys.usage_count / lastUsedAt / testStatus 的桥。
+   *
+   * fire-and-forget——DB 写失败不该阻断 embedding 主路径，persistOutcome 自身
+   *   有 try/catch 不会重抛。system 路径（无 healthKeyId）跳过。
+   *
+   * 为啥这里要写：LLM chat 走 KeyExecutor.execute 自动写；embedding 直接调
+   *   callEmbeddingAPI 绕开 KeyExecutor，过去成功/失败全部无声，BYOK drawer
+   *   永远看到 "0 hits / 未使用"。用户截图反馈 2026-05-12 暴露。
+   */
+  private trackKeyOutcome(
+    config: EmbeddingModelConfig,
+    outcome:
+      | { ok: true }
+      | {
+          ok: false;
+          classified: import("@/modules/ai-infra/credentials/health/key-error-classifier").ClassifiedError;
+        },
+  ): void {
+    if (!config.healthKeyId) return; // system / cron 路径无 user-key
+    void this.keyResolver
+      .persistOutcome(config.healthKeyId, outcome)
+      .catch((e) =>
+        this.logger.warn(
+          `[embedding] persistOutcome failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`,
+        ),
+      );
+  }
+
   private resolveApiFormat(
     dbApiFormat: string | null | undefined,
     provider: string,
@@ -290,6 +331,7 @@ export class EmbeddingService {
     let apiKey: string;
     let apiEndpoint: string | undefined = model.apiEndpoint ?? undefined;
     let keySource: string = model.source;
+    let healthKeyId: string | undefined;
     if (userId) {
       try {
         const resolved = await this.keyResolver.resolveKey(
@@ -299,6 +341,7 @@ export class EmbeddingService {
         apiKey = resolved.apiKey.trim();
         apiEndpoint = resolved.apiEndpoint ?? apiEndpoint;
         keySource = resolved.source;
+        healthKeyId = resolved.healthKeyId;
       } catch (err) {
         if (err instanceof NoAvailableKeyError) {
           throw new ServiceUnavailableException(
@@ -350,6 +393,7 @@ export class EmbeddingService {
       provider: model.provider,
       apiFormat,
       maxInputTokens: model.maxInputTokens || undefined,
+      healthKeyId,
     };
     this.cachedConfigByUser.set(cacheKey, { config, time: Date.now() });
     this.logger.log(
@@ -486,6 +530,9 @@ export class EmbeddingService {
           this.logger.debug(
             `Generated embeddings for batch ${Math.floor(i / batchSize) + 1} using ${config.modelId} (${config.apiFormat} format)${attempt > 0 ? ` (attempt ${attempt + 1})` : ""}`,
           );
+          // ★ 2026-05-12: 命中后写 user_api_keys.usage_count / last_used_at /
+          //   test_status='success'，让 BYOK drawer 看到真实统计。
+          this.trackKeyOutcome(config, { ok: true });
           succeeded = true;
           break;
         } catch (error) {
@@ -536,6 +583,12 @@ export class EmbeddingService {
         }
       }
       if (!succeeded) {
+        // ★ 2026-05-12: 写 user_api_keys.test_status='failed' + last_error_code/message
+        //   让 BYOK drawer 看到具体失效原因（401 → "未授权" / 429 → "限流" 等）。
+        this.trackKeyOutcome(config, {
+          ok: false,
+          classified: this.keyErrorClassifier.classify(lastError),
+        });
         // ★ 2026-05-05 P0 修复：401 已经在 catch 内打过 ERROR + 触发 circuit-break，
         //   这里只 debug，避免双重刷屏；其他错误正常 ERROR
         if (this.isAuthError(lastError)) {
