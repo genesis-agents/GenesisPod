@@ -992,4 +992,47 @@ describe("WikiIngestService", () => {
       expect(skillMd.toLowerCase()).toContain("ascii");
     });
   });
+
+  /**
+   * W2 v2.0 rebuild — Category fan-out + image embedding regression.
+   *
+   * Screenshot_64 痛点：v1.5.3 LLM creativity=deterministic 几乎只产 SOURCE 类
+   * page；用户反馈"为什么 WIKI 提取只有 SOURCE"。v2.0 修法：
+   *   1. skill md 新增 CATEGORY FAN-OUT RULE
+   *   2. skill md 新增 IMAGE EMBEDDING RULE + CROSS-LINK RULE
+   *   3. service taskProfile 由 deterministic 改 low
+   */
+  describe("W2 v2.0 rebuild — fan-out / image / cross-link prompt", () => {
+    let skillMd: string;
+    beforeAll(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fs = require("fs") as typeof import("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const path = require("path") as typeof import("path");
+      const p = path.join(__dirname, "..", "skills", "wiki-ingest.skill.md");
+      skillMd = fs.readFileSync(p, "utf8");
+    });
+
+    it("CATEGORY FAN-OUT RULE present with ≥2 ENTITY + ≥1 CONCEPT + ≥1 SUMMARY", () => {
+      expect(skillMd).toContain("CATEGORY FAN-OUT RULE");
+      expect(skillMd).toContain("≥ 2 ENTITY pages");
+      expect(skillMd).toContain("≥ 1 CONCEPT page");
+      expect(skillMd).toContain("≥ 1 SUMMARY page");
+    });
+
+    it("SOURCE-only output explicitly rejected by the rule", () => {
+      expect(skillMd).toContain("ONLY SOURCE-category pages is REJECTED");
+    });
+
+    it("IMAGE EMBEDDING RULE present and references MEDIA_URLS block", () => {
+      expect(skillMd).toContain("IMAGE EMBEDDING RULE");
+      expect(skillMd).toContain("MEDIA_URLS");
+      expect(skillMd).toContain("ONLY use URLs from the MEDIA_URLS block");
+    });
+
+    it("CROSS-LINK RULE requires ≥2 [[slug]] refs per ENTITY/CONCEPT page", () => {
+      expect(skillMd).toContain("CROSS-LINK RULE");
+      expect(skillMd).toContain("at least 2 `[[other-slug]]`");
+    });
+  });
 });

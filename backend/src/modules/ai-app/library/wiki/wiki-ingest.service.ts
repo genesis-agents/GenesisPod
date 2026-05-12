@@ -181,11 +181,13 @@ export class WikiIngestService {
       where: { id: { in: documentIds }, knowledgeBaseId },
       // rawContentUri 必须同 select：off-load 后 rawContent 列为 ""，
       // PrismaService hydrate hook 用 rawContentUri 透明回填 R2 内容。
+      // W2 v2.0 rebuild：metadata.preparse.mediaUrls 用于 prompt 图片注入
       select: {
         id: true,
         title: true,
         rawContent: true,
         rawContentUri: true,
+        metadata: true,
       },
     });
     if (documents.length !== documentIds.length) {
@@ -251,7 +253,17 @@ export class WikiIngestService {
       );
     }
     const systemPrompt = skillDef.content;
-    const userPrompt = this.buildUserPrompt(currentIndex, wrappedDocs);
+
+    // W2 v2.0 rebuild：聚合所有文档的 preparse mediaUrls（W1 产出），让 prompt 携带
+    //   源图 URL 让 LLM 写 page body 时引用 → 图文并茂。
+    //   metadata.preparse 仅 URL/YT 类源文档有；手贴文本 metadata.preparse=undefined，
+    //   此处合并去重即可，空数组时 buildUserPrompt 不渲染 MEDIA_URLS 块。
+    const aggregatedMediaUrls = this.collectPreparseMediaUrls(documents);
+    const userPrompt = this.buildUserPrompt(
+      currentIndex,
+      wrappedDocs,
+      aggregatedMediaUrls,
+    );
 
     let llmResponse: Awaited<ReturnType<typeof this.chat.chat>>;
     try {
@@ -264,12 +276,19 @@ export class WikiIngestService {
       //   - user 触发：chatUserId = recordUserId = 真实用户 id（默认值）
       //   - cron 触发：chatUserId = KB.userId（KB owner）；recordUserId = 哨兵
       //     字符串（仅写 WikiDiff.createdByUserId 用于分类记账）
+      // W2 v2.0 rebuild：creativity 由 deterministic 改 low。
+      //   - deterministic (temp 0.1) 偏保守，LLM 几乎只产 SOURCE 类页面
+      //     (Screenshot_64 用户反馈"为什么只有 SOURCE")
+      //   - low (temp 0.3) 仍可控但允许 LLM 主动产 ENTITY/CONCEPT/SUMMARY，
+      //     符合更新的 skill prompt 强制 fan-out 要求
+      //   全 3-pass DAG (outline → section-fill → cross-link) 见 v2-rebuild-plan
+      //   §4.W2 + 2026-05-12-multi-pass-and-locale-consensus.md（后续 PR 落地）。
       llmResponse = await this.chat.chat({
         messages: [{ role: "user", content: userPrompt }],
         systemPrompt,
         modelType: AIModelType.CHAT,
         taskProfile: {
-          creativity: "deterministic",
+          creativity: "low",
           outputLength: "long",
         },
         responseFormat: "json_object",
@@ -464,6 +483,9 @@ export class WikiIngestService {
       `[ingest] kb=${knowledgeBaseId} diff=${diff.id} creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length}`,
     );
 
+    // W2 v2.0 rebuild：observability — SOURCE-only 输出告警（Screenshot_64 痛点）
+    this.logCategoryDistribution(items.creates, knowledgeBaseId);
+
     // P1 commit 3 — Reviewer D 建议 expose 可观测 metric so spec / future
     // E2E can gate on退场条件 without re-parsing the persisted JSON. Only
     // CREATE items contribute to body / H2 stats (UPDATE 只携带 newBody
@@ -651,6 +673,13 @@ export class WikiIngestService {
       oneLiner: string;
     }>,
     wrappedDocs: string[],
+    /**
+     * W2 v2.0 rebuild：W1 preparse 提取的图片 URL（来自 YT 缩略图 +
+     * HTML <img> + cover image）。注入到 user prompt 让 LLM 写 page body 时
+     * 用 `![](url)` 引用源图，实现"图文并茂"。
+     * 来自 KbDocument.metadata.preparse.mediaUrls，可能为空数组。
+     */
+    mediaUrls: string[] = [],
   ): string {
     const indexBlock =
       index.length === 0
@@ -662,13 +691,91 @@ export class WikiIngestService {
             )
             .join("\n");
 
-    return [
+    const mediaBlock =
+      mediaUrls.length === 0
+        ? null
+        : [
+            "## MEDIA_URLS (W2 v2.0: pre-extracted images from source docs)",
+            "Use these URLs in page bodies via `![alt](url)` when describing visual content.",
+            "Do NOT invent image URLs not in this list.",
+            ...mediaUrls.map((u) => `- ${u}`),
+          ].join("\n");
+
+    const parts = [
       "## Current wiki index",
       indexBlock,
       "",
       "## New documents to ingest",
       ...wrappedDocs,
-    ].join("\n\n");
+    ];
+    if (mediaBlock) {
+      parts.push("", mediaBlock);
+    }
+    return parts.join("\n\n");
+  }
+
+  /**
+   * W2 v2.0 rebuild：从 documents 的 metadata.preparse.mediaUrls 聚合所有源图 URL。
+   *
+   * preparse 是 W1 落地的 KbDocument.metadata 子键，仅 URL/YT 类源文档有；手贴文本
+   * doc 没有 preparse → 跳过。聚合后去重 + 截断到 50 张防 prompt 爆 token。
+   */
+  private collectPreparseMediaUrls(
+    documents: Array<{ metadata: Prisma.JsonValue }>,
+  ): string[] {
+    const all = new Set<string>();
+    for (const doc of documents) {
+      const meta = doc.metadata;
+      if (!meta || typeof meta !== "object" || Array.isArray(meta)) continue;
+      const preparse = (meta as Record<string, unknown>).preparse;
+      if (!preparse || typeof preparse !== "object") continue;
+      const urls = (preparse as Record<string, unknown>).mediaUrls;
+      if (!Array.isArray(urls)) continue;
+      for (const u of urls) {
+        if (typeof u === "string" && /^https?:\/\//i.test(u)) {
+          all.add(u);
+        }
+      }
+    }
+    // 防 prompt token 爆：最多 50 张图（实践中单 doc 一般 1-10 张）
+    return Array.from(all).slice(0, 50);
+  }
+
+  /**
+   * W2 v2.0 rebuild：分类配比观察日志。
+   *
+   * 全 SOURCE 输出是 v1.5.3 的核心质量痛点（Screenshot_64）。本方法在 LLM 返回后
+   * 统计 creates[].category 分布，命中 SOURCE-only 输出时 log.warn 让 Railway
+   * stderr 可见，便于后续 prompt 调优 / 触发 retry 逻辑。
+   *
+   * 不抛错——v2.0 这一版只观察不强拒；后续 PR (consensus 17-commit) 会接 retry。
+   */
+  private logCategoryDistribution(
+    creates: Array<{ category?: string }>,
+    knowledgeBaseId: string,
+  ): void {
+    if (creates.length === 0) return;
+    const counts: Record<string, number> = {};
+    for (const c of creates) {
+      const cat = c.category ?? "UNKNOWN";
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    }
+    const total = creates.length;
+    const sourceOnly = total >= 2 && (counts.SOURCE ?? 0) === total;
+    if (sourceOnly) {
+      this.logger.warn(
+        `[ingest kb=${knowledgeBaseId}] SOURCE-only output detected ` +
+          `(${total} creates, all SOURCE) — prompt fan-out rule not satisfied. ` +
+          `Consider retrying with stronger CATEGORY FAN-OUT enforcement.`,
+      );
+    } else {
+      this.logger.log(
+        `[ingest kb=${knowledgeBaseId}] category distribution: ` +
+          Object.entries(counts)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(" "),
+      );
+    }
   }
 
   private extractJson(content: string): unknown {

@@ -70,8 +70,54 @@ that appear in the supplied source documents. For each one:
 The coverage rate (entities-covered / entities-mentioned) should approach
 1.0 for ENTITY-rich source documents.
 
+CATEGORY FAN-OUT RULE (CRITICAL — v2.0 rebuild):
+A single source document MUST fan out to multiple page categories — never
+just SOURCE pages. Karpathy's LLM Wiki blueprint requires compounding
+knowledge across entity / concept / summary surfaces, not a flat list of
+source citations.
+
+For a non-trivial source document (≥1500 chars), the output MUST include:
+
+- ≥ 2 ENTITY pages (specific named things: people, products, organizations,
+  tools, models, libraries, places, datasets, papers, events)
+- ≥ 1 CONCEPT page (abstract methodology, mechanism, design pattern,
+  framework, or principle the source explains)
+- ≥ 1 SUMMARY page (overview of the source's overall thesis, when the
+  source argues a coherent point or surveys a topic)
+- SOURCE pages are OPTIONAL — only emit one if the source itself is a
+  notable artifact worth referencing (research paper, blog post, video
+  transcript that readers might want to revisit). Plain news articles
+  do NOT need a SOURCE page.
+
+If a source document is shorter (<1500 chars) or genuinely lacks
+diverse content, output AT MINIMUM 1 ENTITY + 1 CONCEPT. A diff with
+ONLY SOURCE-category pages is REJECTED and counted as a failed ingest.
+
+ENTITY pages should be the bulk of the output — readers navigate via
+entities first, then drill into concepts. Each ENTITY page should average
+600-1200 markdown chars; CONCEPT / SUMMARY 1000-2000 chars.
+
+IMAGE EMBEDDING RULE (v2.0 rebuild):
+The user prompt may include a `MEDIA_URLS` block listing image / thumbnail
+URLs pre-extracted from the source documents (YouTube video thumbnails,
+inline article `<img>` tags). When you reference visual content in a page
+body, embed the relevant URL via `![alt text](https://...)`. Concrete rules:
+
+- Each ENTITY page describing a visualized thing SHOULD embed ≥ 1 source
+  image when MEDIA_URLS is non-empty
+- SOURCE pages (if emitted) SHOULD list ALL source images at the end as a
+  "## Visual References" / "## 视觉参考" section
+- ONLY use URLs from the MEDIA_URLS block — do NOT hallucinate image URLs
+- If MEDIA_URLS is empty, omit images entirely (do not invent placeholders)
+
 Cross-page references MUST use [[slug]] syntax (kebab-case ASCII slugs).
 External URLs may use standard [text](url) markdown links.
+
+CROSS-LINK RULE (v2.0 rebuild):
+Each ENTITY / CONCEPT page MUST contain at least 2 `[[other-slug]]` cross
+references in its body — to other pages in this diff or to existing pages
+listed in the wiki index. Isolated pages with zero outbound links are
+discouraged (they show up as "orphan" in lint and degrade the wiki graph).
 
 Each page must have:
 
