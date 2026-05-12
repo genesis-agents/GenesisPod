@@ -65,8 +65,9 @@ export class ByokMaintenanceScheduler {
    * → admin UI 警告 + 前端用户引导重新申请其他模型
    *
    * cascade 不撤销 assignment（admin 可能重启 model），仅打标。
-   * 反向 STALE→ACTIVE 不做（admin disable 是有意操作）；恢复路径在 admin
-   * 重启 model 时显式触发。
+   * 反向 STALE→ACTIVE 不在 cron 里做：恢复路径已在 admin updateAIModel 路径
+   * (isEnabled false→true) 通过 keyAssignmentsService.reactivateStale 显式触发
+   * （PR-6 2026-05-12 落地）。这里只单向标 STALE。
    */
   @Cron(CronExpression.EVERY_HOUR, {
     name: "byok.mark-stale-assignments",

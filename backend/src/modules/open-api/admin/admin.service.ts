@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../../common/prisma/prisma.service";
 import { SecretsService } from "../../ai-infra/secrets/secrets.service";
+import { KeyAssignmentsService } from "../../ai-infra/credentials/key-assignments/key-assignments.service";
 import { AIModelType } from "@prisma/client";
 import {
   mapWithConcurrency,
@@ -70,6 +71,8 @@ export class AdminService {
     private statisticsService: StatisticsService,
     // S5 audit fix（2026-05-04）：管理员敏感操作必须落审计
     private auditService: AuditService,
+    // PR-6（2026-05-12）：updateAIModel 重启模型时反向恢复 STALE assignments
+    private keyAssignmentsService: KeyAssignmentsService,
   ) {}
 
   /**
@@ -778,6 +781,25 @@ export class AdminService {
     this.logger.log(
       `AI Model updated: ${updated.name}, hasApiKey=${!!updated.apiKey}, apiKeyLength=${updated.apiKey?.length || 0}`,
     );
+
+    // PR-6（2026-05-12）：isEnabled false→true 切换时反向恢复 STALE assignments
+    // 触发场景：admin 之前 disable 模型让 cron 把关联 KeyAssignment 打成 STALE，
+    // 现在重新 enable 模型 → 用户原有权益自动复活，不需要 admin 手动逐条改。
+    // 只看从 false → true 的切换，避免无关 update 误触发。
+    if (model.isEnabled === false && updated.isEnabled === true) {
+      try {
+        const restored = await this.keyAssignmentsService.reactivateStale(id);
+        if (restored.count > 0) {
+          this.logger.log(
+            `[updateAIModel] Reactivated ${restored.count} STALE assignments after re-enabling model ${id}`,
+          );
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[updateAIModel] reactivateStale failed (non-fatal): ${(err as Error).message}`,
+        );
+      }
+    }
 
     return {
       ...updated,

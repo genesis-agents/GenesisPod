@@ -171,6 +171,38 @@ export class KeyAssignmentsService {
   }
 
   /**
+   * 2026-05-12 PR-6：STALE → ACTIVE 反向恢复。
+   *
+   * 触发场景：admin 在 /admin/ai/models 重新启用某模型（isEnabled false→true），
+   * 联动让该模型下所有 STALE 的 KeyAssignment 恢复为 ACTIVE，用户原有权益自动复活。
+   *
+   * 设计原则：
+   * - 仅恢复 STALE，**不动** REVOKED / EXPIRED（admin 显式撤销 / 已过期不复活）
+   * - 仅恢复当前 enabled 的 modelDbId 关联，避免反复 toggle 误恢复
+   * - 幂等：无 STALE 行时 count=0，不报错
+   *
+   * 该方法补 byok-maintenance.scheduler.markStaleAssignments 注释承诺
+   * "恢复路径在 admin 重启 model 时显式触发"——之前未实现。
+   */
+  async reactivateStale(modelDbId: string): Promise<{ count: number }> {
+    const result = await this.prisma.keyAssignment.updateMany({
+      where: {
+        modelDbId,
+        status: KeyAssignmentStatus.STALE,
+      },
+      data: {
+        status: KeyAssignmentStatus.ACTIVE,
+      },
+    });
+    if (result.count > 0) {
+      this.logger.log(
+        `[reactivateStale] Restored ${result.count} STALE assignments → ACTIVE for model ${modelDbId}`,
+      );
+    }
+    return result;
+  }
+
+  /**
    * 解析用户对某 provider+modelId 的活跃授权；返回已解密的 Key（供 LLM 直调）。
    * 仅由 KeyResolverService 调用，不暴露给外部。
    *

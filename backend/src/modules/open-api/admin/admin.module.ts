@@ -32,6 +32,7 @@ import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
+import { KeyAssignmentsModule } from "../../ai-infra/credentials/key-assignments/key-assignments.module";
 import { QuotaModule } from "./quota/quota.module";
 import { MCPServerModule } from "../../open-api/mcp-server/mcp-server.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
@@ -55,6 +56,7 @@ import {
     PrismaModule,
     AiEngineModule,
     SecretsModule,
+    KeyAssignmentsModule, // PR-6: 让 AdminService 能在 updateAIModel 时反向恢复 STALE
     QuotaModule,
     MCPServerModule,
     StorageModule,
