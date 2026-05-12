@@ -89,6 +89,12 @@ function makePageService() {
   return {
     hashBody: (b: string) => `hash-${b.length}`,
     replaceOutboundLinks: jest.fn().mockResolvedValue(undefined),
+    // W5 v2.0 rebuild (2026-05-12): applyDiff fires regenerateIndexPage
+    // post-commit. Spec mocks it as a no-op so the existing apply tests
+    // don't have to care about the index page.
+    regenerateIndexPage: jest
+      .fn()
+      .mockResolvedValue({ regenerated: true, pageCount: 0 }),
   } as any;
 }
 

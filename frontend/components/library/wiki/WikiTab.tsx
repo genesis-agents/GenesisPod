@@ -343,12 +343,18 @@ export default function WikiTab({ userHash }: WikiTabProps) {
             onCancel={() => {
               if (!gridDisableBusy) setGridDisableKbId(null);
             }}
-            onConfirm={() => {
+            onConfirm={(alsoDestroyData) => {
               if (gridDisableBusy) return;
               setGridDisableBusy(true);
               void (async () => {
                 try {
-                  await wikiApi.toggleWikiEnabled(gridDisableKbId, false);
+                  if (alsoDestroyData) {
+                    // W5: destructive hard delete also flips wikiEnabled=false
+                    // in the same tx, so we don't need to call toggle separately.
+                    await wikiApi.destroyWikiData(gridDisableKbId);
+                  } else {
+                    await wikiApi.toggleWikiEnabled(gridDisableKbId, false);
+                  }
                   setGridDisableKbId(null);
                   refresh();
                 } catch (err) {
@@ -2269,9 +2275,13 @@ function WikiDisableConfirmDialog({
   kbName: string;
   busy: boolean;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (alsoDestroyData: boolean) => void;
 }) {
   const { t } = useTranslation();
+  // W5 v2.0 rebuild: opt-in destructive wipe. Off by default so the dialog
+  // keeps its original "soft disable / data preserved" semantics; checking
+  // the box calls DELETE /destroy which clears all wiki tables for this KB.
+  const [alsoDestroy, setAlsoDestroy] = useState(false);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
@@ -2281,6 +2291,23 @@ function WikiDisableConfirmDialog({
         <p className="mt-2 text-sm text-gray-600">
           {t('library.wiki.grid.disable.message', { kbName })}
         </p>
+        <label className="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm">
+          <input
+            type="checkbox"
+            checked={alsoDestroy}
+            disabled={busy}
+            onChange={(e) => setAlsoDestroy(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-red-600 disabled:opacity-50"
+          />
+          <div>
+            <div className="font-medium text-red-700">
+              {t('library.wiki.grid.disable.alsoDestroy.title')}
+            </div>
+            <div className="mt-0.5 text-xs text-red-600/80">
+              {t('library.wiki.grid.disable.alsoDestroy.description')}
+            </div>
+          </div>
+        </label>
         <div className="mt-6 flex justify-end gap-3">
           <button
             disabled={busy}
@@ -2291,11 +2318,13 @@ function WikiDisableConfirmDialog({
           </button>
           <button
             disabled={busy}
-            onClick={onConfirm}
+            onClick={() => onConfirm(alsoDestroy)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {t('library.wiki.grid.disable.confirm')}
+            {alsoDestroy
+              ? t('library.wiki.grid.disable.confirmDestroy')
+              : t('library.wiki.grid.disable.confirm')}
           </button>
         </div>
       </div>

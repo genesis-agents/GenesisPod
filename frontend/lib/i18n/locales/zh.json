@@ -384,9 +384,14 @@
         },
         "disable": {
           "title": "禁用 Wiki？",
-          "message": "确定要在「{{kbName}}」上禁用 Wiki 吗？已生成的 Wiki 页面会保留，重新启用后可继续使用；该知识库本身不会被删除。",
+          "message": "确定要在「{{kbName}}」上禁用 Wiki 吗？默认只关闭开关，已生成的 Wiki 页面会保留，重新启用后可继续使用；该知识库本身不会被删除。",
           "cancel": "取消",
-          "confirm": "禁用 Wiki"
+          "confirm": "禁用 Wiki",
+          "confirmDestroy": "禁用并删除所有数据",
+          "alsoDestroy": {
+            "title": "同时彻底删除所有 Wiki 数据",
+            "description": "勾选后会清空所有 Wiki 页面 / 提议 / lint / 操作日志，无法恢复。仅 KB 本身和原始文档保留。适合质量低想重新 ingest 的场景。"
+          }
         }
       },
       "empty": {

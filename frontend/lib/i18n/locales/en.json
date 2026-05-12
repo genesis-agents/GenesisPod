@@ -384,9 +384,14 @@
         },
         "disable": {
           "title": "Disable wiki?",
-          "message": "Disable wiki on \"{{kbName}}\"? Existing wiki pages are preserved and will be reused if you re-enable later; the knowledge base itself is not deleted.",
+          "message": "Disable wiki on \"{{kbName}}\"? By default we only flip the toggle off; existing wiki pages are preserved and will be reused if you re-enable later. The knowledge base itself is not deleted.",
           "cancel": "Cancel",
-          "confirm": "Disable wiki"
+          "confirm": "Disable wiki",
+          "confirmDestroy": "Disable and destroy all data",
+          "alsoDestroy": {
+            "title": "Also permanently destroy all wiki data",
+            "description": "Wipes every wiki page / proposal / lint finding / operation log for this KB. Irreversible. Only the KB itself and raw documents are preserved. Use this when the wiki quality is poor and you want a clean re-ingest."
+          }
         }
       },
       "empty": {

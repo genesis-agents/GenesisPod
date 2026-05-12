@@ -441,6 +441,125 @@ export class WikiPageService {
     });
   }
 
+  /**
+   * W5 v2.0 rebuild (2026-05-12): regenerate the `__index__` system page —
+   * a Karpathy "compounding tracker" that lists every page in the KB
+   * grouped by category. Called by `WikiDiffService.applyDiff` after a
+   * successful apply so the index stays current after each ingest.
+   *
+   * The index page itself is a regular WikiPage (slug=`__index__`,
+   * category=SUMMARY, locale=zh) so it's queryable / readable through
+   * the same API surface as user-authored pages. Not part of the diff
+   * pipeline (intentional — we don't want it to show up in pending
+   * proposals or burn lint budget).
+   *
+   * Fire-and-forget from caller perspective: we swallow errors here and
+   * return a status so apply success isn't blocked by index regen.
+   */
+  async regenerateIndexPage(
+    knowledgeBaseId: string,
+  ): Promise<{ regenerated: boolean; pageCount: number }> {
+    const allPages = await this.prisma.wikiPage.findMany({
+      where: {
+        knowledgeBaseId,
+        slug: { not: "__index__" },
+        locale: DEFAULT_WIKI_LOCALE,
+      },
+      orderBy: [{ category: "asc" }, { title: "asc" }],
+      select: {
+        slug: true,
+        title: true,
+        category: true,
+        oneLiner: true,
+      },
+    });
+
+    if (allPages.length === 0) {
+      // Empty KB — drop any stale index page so the wiki shows "no pages".
+      await this.prisma.wikiPage.deleteMany({
+        where: {
+          knowledgeBaseId,
+          slug: "__index__",
+          locale: DEFAULT_WIKI_LOCALE,
+        },
+      });
+      return { regenerated: false, pageCount: 0 };
+    }
+
+    const byCategory = new Map<string, typeof allPages>();
+    for (const p of allPages) {
+      const bucket = byCategory.get(p.category) ?? [];
+      bucket.push(p);
+      byCategory.set(p.category, bucket);
+    }
+
+    const sections: string[] = [];
+    const order: Array<"ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE"> = [
+      "ENTITY",
+      "CONCEPT",
+      "SUMMARY",
+      "SOURCE",
+    ];
+    const labels: Record<string, string> = {
+      ENTITY: "实体页",
+      CONCEPT: "概念页",
+      SUMMARY: "总结页",
+      SOURCE: "源文档页",
+    };
+    for (const cat of order) {
+      const pages = byCategory.get(cat) ?? [];
+      if (pages.length === 0) continue;
+      sections.push(`## ${labels[cat]} (${pages.length})`);
+      for (const p of pages) {
+        const summary = p.oneLiner ? ` — ${p.oneLiner}` : "";
+        sections.push(`- [[${p.slug}]] ${p.title}${summary}`);
+      }
+      sections.push("");
+    }
+
+    const body =
+      `本页由 Wiki 系统自动维护，每次 ingest apply 后重写。\n\n` +
+      `共 ${allPages.length} 页 · 按类别分组。点击 [[slug]] 进入对应页。\n\n` +
+      sections.join("\n");
+
+    const contentHash = crypto
+      .createHash("sha256")
+      .update(body, "utf8")
+      .digest("hex");
+
+    await this.prisma.wikiPage.upsert({
+      where: {
+        knowledgeBaseId_slug_locale: {
+          knowledgeBaseId,
+          slug: "__index__",
+          locale: DEFAULT_WIKI_LOCALE,
+        },
+      },
+      create: {
+        knowledgeBaseId,
+        slug: "__index__",
+        locale: DEFAULT_WIKI_LOCALE,
+        title: "Wiki 索引",
+        category: "SUMMARY",
+        body,
+        oneLiner: `${allPages.length} 页 · 按类别分组的全 KB 索引`,
+        contentHash,
+        lastEditedBy: WikiPageEditedBy.LLM,
+      },
+      update: {
+        body,
+        oneLiner: `${allPages.length} 页 · 按类别分组的全 KB 索引`,
+        contentHash,
+        lastEditedBy: WikiPageEditedBy.LLM,
+      },
+    });
+
+    this.logger.log(
+      `[regenerateIndexPage] kb=${knowledgeBaseId} pages=${allPages.length}`,
+    );
+    return { regenerated: true, pageCount: allPages.length };
+  }
+
   private async assertViewerAccess(
     userId: string,
     knowledgeBaseId: string,

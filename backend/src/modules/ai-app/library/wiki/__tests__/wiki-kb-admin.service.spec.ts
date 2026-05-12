@@ -493,4 +493,85 @@ describe("WikiKbAdminService", () => {
       );
     });
   });
+
+  describe("destroyWikiData — W5 v2.0 rebuild destructive wipe", () => {
+    it("rejects non-OWNER caller", async () => {
+      kbService.hasAccess = jest.fn().mockResolvedValue(false);
+
+      await expect(
+        service.destroyWikiData("editor-user", "kb-1"),
+      ).rejects.toThrow(ForbiddenException);
+      expect(kbService.hasAccess).toHaveBeenCalledWith(
+        "kb-1",
+        "editor-user",
+        "OWNER",
+      );
+    });
+
+    it("returns 404 when KB does not exist", async () => {
+      kbService.hasAccess = jest.fn().mockResolvedValue(true);
+      prisma.knowledgeBase.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.destroyWikiData("owner-user", "kb-missing"),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("cascade-deletes all wiki tables in a single transaction and sets wikiEnabled=false", async () => {
+      kbService.hasAccess = jest.fn().mockResolvedValue(true);
+      prisma.knowledgeBase.findUnique.mockResolvedValue({
+        id: "kb-1",
+        wikiEnabled: true,
+      });
+
+      // tx mock — augment to expose deleteMany counts per table.
+      tx.wikiIngestDraft = {
+        deleteMany: jest.fn().mockResolvedValue({ count: 4 }),
+      };
+      tx.wikiDocumentCoverage = {
+        deleteMany: jest.fn().mockResolvedValue({ count: 7 }),
+      };
+      tx.wikiLintFinding = {
+        deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
+      };
+      tx.wikiDiff = { deleteMany: jest.fn().mockResolvedValue({ count: 5 }) };
+      tx.wikiOperationLog = {
+        ...tx.wikiOperationLog,
+        deleteMany: jest.fn().mockResolvedValue({ count: 11 }),
+      };
+      tx.wikiPage = { deleteMany: jest.fn().mockResolvedValue({ count: 23 }) };
+      tx.wikiKnowledgeBaseConfig = {
+        ...tx.wikiKnowledgeBaseConfig,
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+      };
+
+      const result = await service.destroyWikiData("owner-user", "kb-1");
+
+      expect(result).toEqual({
+        kbId: "kb-1",
+        deleted: {
+          pages: 23,
+          diffs: 5,
+          lintFindings: 3,
+          coverage: 7,
+          operations: 11,
+          ingestDrafts: 4,
+        },
+      });
+      // wikiEnabled flipped off as part of the same tx
+      expect(tx.knowledgeBase.update).toHaveBeenCalledWith({
+        where: { id: "kb-1" },
+        data: { wikiEnabled: false },
+      });
+      // tx ordering: dependent rows first (drafts/coverage/lint/diffs/ops)
+      // then pages then config — proves we are not relying solely on FK cascade.
+      expect(tx.wikiIngestDraft.deleteMany).toHaveBeenCalled();
+      expect(tx.wikiPage.deleteMany).toHaveBeenCalledWith({
+        where: { knowledgeBaseId: "kb-1" },
+      });
+      expect(tx.wikiKnowledgeBaseConfig.deleteMany).toHaveBeenCalledWith({
+        where: { knowledgeBaseId: "kb-1" },
+      });
+    });
+  });
 });

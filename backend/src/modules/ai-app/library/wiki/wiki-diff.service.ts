@@ -574,15 +574,16 @@ export class WikiDiffService {
 
     // P2034 retry: serialization_failure under Serializable isolation is
     // common under concurrent applies; one retry then surface as 409.
+    let result: WikiDiff;
     try {
-      return await attempt();
+      result = await attempt();
     } catch (e) {
       if (this.isSerializationFailure(e)) {
         this.logger.warn(
           `[applyDiff] P2034 serialization_failure on diff=${diff.id}; retrying once`,
         );
         try {
-          return await attempt();
+          result = await attempt();
         } catch (e2) {
           if (this.isSerializationFailure(e2)) {
             await this.prisma.wikiDiff.update({
@@ -595,9 +596,25 @@ export class WikiDiffService {
           }
           throw e2;
         }
+      } else {
+        throw e;
       }
-      throw e;
     }
+
+    // W5 v2.0 rebuild (2026-05-12): regenerate the `__index__` system page
+    // post-commit (fire-and-forget so an index failure does not roll back
+    // the just-applied diff). Karpathy "compounding tracker" — index always
+    // reflects current KB state right after an ingest lands.
+    void this.pageService
+      .regenerateIndexPage(knowledgeBaseId)
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `[applyDiff] index page regen failed kb=${knowledgeBaseId}: ${message}`,
+        );
+      });
+
+    return result;
   }
 
   private async replaceSourcesForPage(

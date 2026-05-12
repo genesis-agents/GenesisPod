@@ -216,6 +216,110 @@ export class WikiKbAdminService {
   }
 
   /**
+   * W5 v2.0 rebuild (2026-05-12): destructive hard-delete of a KB's wiki
+   * data. Wipes pages / diffs / lint / coverage / operation log / ingest
+   * drafts / config — but PRESERVES the underlying KnowledgeBase and its
+   * documents (chunks, embeddings, raw docs are RAG-side, untouched).
+   *
+   * Use case: user wants to fully reset Wiki for a KB and re-ingest from
+   * scratch (existing pages were generated under bad prompt / shrunk LLM
+   * / wrong locale). Today the only path was per-page DELETE — at 50+
+   * pages that's painful and leaves diffs / lint state inconsistent.
+   *
+   * Sets wikiEnabled=false at the same time so re-enable is an explicit
+   * fresh start (re-creates default config row + emits operation log).
+   *
+   * Requires OWNER or ADMIN role on the KB (destructive — VIEWER not
+   * allowed even though enable is VIEWER+; this is the only wiki op
+   * gated tighter than enable per CLAUDE.md "destructive_op_must_have_
+   * rollback" feedback).
+   *
+   * Rollback: this op is intentionally not soft-deletable — we hold the
+   * cascade-deletes inside a single $transaction so a mid-op crash
+   * leaves the KB untouched. The WikiOperationLog entry is created
+   * AFTER the cascade succeeds so successful destroy + subsequent crash
+   * still leaves an audit trail.
+   */
+  async destroyWikiData(
+    userId: string,
+    knowledgeBaseId: string,
+  ): Promise<{
+    kbId: string;
+    deleted: {
+      pages: number;
+      diffs: number;
+      lintFindings: number;
+      coverage: number;
+      operations: number;
+      ingestDrafts: number;
+    };
+  }> {
+    const ok = await this.kbService.hasAccess(knowledgeBaseId, userId, "OWNER");
+    if (!ok) {
+      throw new ForbiddenException(
+        "Destroying wiki data requires KB OWNER or platform ADMIN role",
+      );
+    }
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: knowledgeBaseId },
+      select: { id: true, wikiEnabled: true },
+    });
+    if (!kb) throw new NotFoundException("Knowledge base not found");
+
+    const counts = await this.prisma.$transaction(async (tx) => {
+      // Cascade order: dependent rows first (defense-in-depth even though
+      // schema has onDelete: Cascade — explicit deletes give count returns
+      // so the UI can show "X pages / Y diffs / Z lint findings cleared").
+      const ingestDrafts = await tx.wikiIngestDraft.deleteMany({
+        where: { knowledgeBaseId },
+      });
+      const coverage = await tx.wikiDocumentCoverage.deleteMany({
+        where: { knowledgeBaseId },
+      });
+      const lintFindings = await tx.wikiLintFinding.deleteMany({
+        where: { knowledgeBaseId },
+      });
+      const diffs = await tx.wikiDiff.deleteMany({
+        where: { knowledgeBaseId },
+      });
+      const operations = await tx.wikiOperationLog.deleteMany({
+        where: { knowledgeBaseId },
+      });
+      // WikiPage cascade reaches WikiPageSource / WikiPageLink (from side) /
+      // WikiPageRevision / WikiPageEmbedding via onDelete: Cascade. Backlinks
+      // (other pages' WikiPageLink.toSlug pointing here) are slug strings —
+      // they remain but their target slug is gone; deliberate, since after
+      // destroy the next ingest may produce new pages reusing the same slug.
+      const pages = await tx.wikiPage.deleteMany({
+        where: { knowledgeBaseId },
+      });
+      await tx.wikiKnowledgeBaseConfig.deleteMany({
+        where: { knowledgeBaseId },
+      });
+      await tx.knowledgeBase.update({
+        where: { id: knowledgeBaseId },
+        data: { wikiEnabled: false },
+      });
+      return {
+        pages: pages.count,
+        diffs: diffs.count,
+        lintFindings: lintFindings.count,
+        coverage: coverage.count,
+        operations: operations.count,
+        ingestDrafts: ingestDrafts.count,
+      };
+    });
+
+    this.logger.warn(
+      `[destroyWikiData] kb=${knowledgeBaseId} actor=${userId} deleted pages=${counts.pages} ` +
+        `diffs=${counts.diffs} lint=${counts.lintFindings} cov=${counts.coverage} ` +
+        `ops=${counts.operations} drafts=${counts.ingestDrafts}`,
+    );
+
+    return { kbId: knowledgeBaseId, deleted: counts };
+  }
+
+  /**
    * Wiki-internal search restricted to a single KB.
    *
    * Defense layers (per §11 v1.5.x):

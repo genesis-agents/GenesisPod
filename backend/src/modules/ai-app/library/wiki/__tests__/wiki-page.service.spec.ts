@@ -286,4 +286,94 @@ describe("WikiPageService", () => {
       );
     });
   });
+
+  describe("regenerateIndexPage — W5 v2.0 rebuild Karpathy compounding tracker", () => {
+    it("drops any stale __index__ when KB has no other pages", async () => {
+      prisma.wikiPage.findMany.mockResolvedValue([]);
+      prisma.wikiPage.deleteMany = jest.fn().mockResolvedValue({ count: 1 });
+
+      const result = await service.regenerateIndexPage("kb-empty");
+
+      expect(result).toEqual({ regenerated: false, pageCount: 0 });
+      expect(prisma.wikiPage.deleteMany).toHaveBeenCalledWith({
+        where: {
+          knowledgeBaseId: "kb-empty",
+          slug: "__index__",
+          locale: "zh",
+        },
+      });
+    });
+
+    it("upserts __index__ with body grouping all pages by category", async () => {
+      prisma.wikiPage.findMany.mockResolvedValue([
+        {
+          slug: "react-hooks",
+          title: "React Hooks",
+          category: "ENTITY",
+          oneLiner: "状态钩子",
+        },
+        {
+          slug: "react-overview",
+          title: "React 概览",
+          category: "ENTITY",
+          oneLiner: "Library overview",
+        },
+        {
+          slug: "rendering-pipeline",
+          title: "渲染管线",
+          category: "CONCEPT",
+          oneLiner: "React 内部渲染过程",
+        },
+        {
+          slug: "perf-summary",
+          title: "性能总结",
+          category: "SUMMARY",
+          oneLiner: "",
+        },
+      ]);
+      prisma.wikiPage.upsert = jest.fn().mockResolvedValue({});
+
+      const result = await service.regenerateIndexPage("kb-1");
+
+      expect(result.regenerated).toBe(true);
+      expect(result.pageCount).toBe(4);
+      expect(prisma.wikiPage.upsert).toHaveBeenCalledTimes(1);
+      const upsertCall = prisma.wikiPage.upsert.mock.calls[0][0];
+      expect(upsertCall.where).toEqual({
+        knowledgeBaseId_slug_locale: {
+          knowledgeBaseId: "kb-1",
+          slug: "__index__",
+          locale: "zh",
+        },
+      });
+      // body must include all 4 slugs as [[slug]] links + category headers
+      const body = upsertCall.create.body as string;
+      expect(body).toContain("[[react-hooks]]");
+      expect(body).toContain("[[react-overview]]");
+      expect(body).toContain("[[rendering-pipeline]]");
+      expect(body).toContain("[[perf-summary]]");
+      expect(body).toContain("实体页 (2)");
+      expect(body).toContain("概念页 (1)");
+      expect(body).toContain("总结页 (1)");
+      // category=SUMMARY page even with empty oneLiner still listed
+      expect(body).toMatch(/\[\[perf-summary\]\] 性能总结/);
+    });
+
+    it("excludes the __index__ page itself from the listing source query", async () => {
+      prisma.wikiPage.findMany.mockResolvedValue([
+        { slug: "foo", title: "Foo", category: "ENTITY", oneLiner: "x" },
+      ]);
+      prisma.wikiPage.upsert = jest.fn().mockResolvedValue({});
+
+      await service.regenerateIndexPage("kb-1");
+
+      expect(prisma.wikiPage.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            slug: { not: "__index__" },
+          }),
+        }),
+      );
+    });
+  });
 });

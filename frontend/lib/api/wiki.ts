@@ -250,6 +250,28 @@ export const wikiApi = {
       { enabled }
     ),
 
+  /**
+   * W5 v2.0 rebuild — destructive wipe of all wiki data for a KB. Sets
+   * wikiEnabled=false on the KB row but does NOT delete the KB itself or
+   * its raw documents (chunks / embeddings stay; only wiki tables are
+   * cleared). OWNER role required.
+   *
+   * Returns counts of each table cleared so the dialog can render
+   * "deleted X pages / Y diffs / Z lint findings".
+   */
+  destroyWikiData: (kbId: string) =>
+    apiClient.delete<{
+      kbId: string;
+      deleted: {
+        pages: number;
+        diffs: number;
+        lintFindings: number;
+        coverage: number;
+        operations: number;
+        ingestDrafts: number;
+      };
+    }>(`/library/wiki/${encodeURIComponent(kbId)}/destroy`),
+
   search: (kbId: string, q: string, limit = 20) => {
     const params = new URLSearchParams({ q, limit: String(limit) });
     return apiClient.get<{ items: WikiPageSearchHit[] }>(

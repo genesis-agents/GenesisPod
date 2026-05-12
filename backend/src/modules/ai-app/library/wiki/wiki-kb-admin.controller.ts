@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -80,5 +81,23 @@ export class WikiKbAdminController {
     const limit = Number.isFinite(parsed) ? parsed : 50;
     const items = await this.admin.listOperations(req.user.id, kbId, limit);
     return { items };
+  }
+
+  /**
+   * W5 v2.0 rebuild (2026-05-12): destructive hard-delete of all wiki
+   * data for the KB. Sets wikiEnabled=false on the underlying KB row;
+   * does NOT delete the KB or its raw documents. OWNER role required
+   * (service layer enforces).
+   *
+   * Returns the counts of each table cleared so the UI can show the
+   * user exactly what got wiped before the confirmation dialog closes.
+   */
+  @Delete("wiki/:kbId/destroy")
+  @UseGuards(JwtAuthGuard)
+  async destroyWikiData(
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+  ) {
+    return this.admin.destroyWikiData(req.user.id, kbId);
   }
 }
