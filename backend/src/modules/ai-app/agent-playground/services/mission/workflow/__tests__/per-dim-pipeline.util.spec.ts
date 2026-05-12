@@ -225,12 +225,28 @@ function makeDeps(overrides: Partial<MissionDeps> = {}): MissionDeps {
     }),
   };
 
+  // ★ 2026-05-12: 补 log mock。call-site exception catch 会 deps.log.error 记录
+  //   chapter pipeline 异常；老测试因 log 调用都在 .catch 里（emit 不失败时不触发）
+  //   能侥幸通过，新代码在 catch 路径无条件调用，没有 log mock 会 ReferenceError。
+  const log = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    fatal: jest.fn(),
+    setContext: jest.fn(),
+    setLogLevels: jest.fn(),
+    localInstance: undefined,
+  };
+
   return {
     emit,
     lifecycle,
     invoker,
     writer,
     reviewer,
+    log,
     ...overrides,
   } as unknown as MissionDeps;
 }
@@ -1096,6 +1112,277 @@ describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=
       expect(ch.qualified).toBe(true);
       expect(ch.decision).toBe("passed");
     }
+  });
+
+  // ── C5: writer 失败必须 emit chapter:done(failed-finalized) 关闭前端状态机 ─────
+  //   2026-05-12 真因：实证 mission 7 章其中 1 章 writer 失败 → return null 但没
+  //   emit chapter:done → 前端 derive.ts 状态机停 'reviewing'，章节永远卡死；同时
+  //   后端 writtenChapters 缺该项 → validateWrittenChapters 整盘 0/100。
+  //   修法：return null 前必须 emit chapter:done(decision=fallback-exhausted,
+  //   qualified=false, finalized=true) 让前端 status → 'failed-finalized'。
+  it("C5: writer-failed path emits chapter:done(failed-finalized, qualified=false) to close frontend state machine", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(3),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = makeAgentDispatchInvoker({
+      writerOverrides: {
+        2: {
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        },
+      },
+    });
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    // 3 章缺 1 = 33.3% > 30% 阈值 → 仍 throw（保留 hard-fail 语义）
+    await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+      /expected 3 chapters, got 2/,
+    );
+    // 关键断言：失败章 emit 了 chapter:done 终态事件
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const doneCalls = emitCalls.filter(
+      (c) => c[0].type === "agent-playground.chapter:done",
+    );
+    // 2 成功 + 1 失败 = 3 终态事件（每章都必须有，前端状态机才能闭合）
+    expect(doneCalls.length).toBe(3);
+    const failedDone = doneCalls.find(
+      (c) =>
+        (c[0].payload as { chapterIndex: number }).chapterIndex === 2 &&
+        (c[0].payload as { qualified: boolean }).qualified === false,
+    );
+    expect(failedDone).toBeDefined();
+    expect((failedDone![0].payload as { decision: string }).decision).toBe(
+      "fallback-exhausted",
+    );
+    expect((failedDone![0].payload as { finalized: boolean }).finalized).toBe(
+      true,
+    );
+  });
+
+  // ── C6: 30% 容错——7 章缺 1 (14.3%) 应继续整合 + 评分而非整盘 0 分 ─────────────
+  //   2026-05-12 真因：实证 mission 7 章 6 通过 1 卡 reviewing → 旧 validate 严格
+  //   chapters.length !== expected 直接抛 → 整 dim 0/100 异常终止。
+  //   修法：tolerance.maxMissingRatio=0.3，14.3% ≤ 30% → 降级继续，warn narrative
+  //   提示前端，让 integrator + grade 跑出反映真实质量的分数。
+  it("C6: 7-chapter dim with 1 writer fail (14.3% missing) → tolerated, grade runs, no throw", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(7),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const invoker = makeAgentDispatchInvoker({
+      writerOverrides: {
+        5: {
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        },
+      },
+    });
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    // 1/7 = 14.3% ≤ 30% → 不 throw，正常完成
+    const result = await runPerDimPipeline(baseArgs, deps);
+    // 6 章产出（缺 §5），按 index 排序
+    expect(result.chapters?.length).toBe(6);
+    expect(result.chapters?.map((c) => c.index)).toEqual([1, 2, 3, 4, 6, 7]);
+    // grade 仍然产出（反映真实质量，不再 0/100）
+    expect(result.grade).toBeDefined();
+    expect(result.grade!.overall).toBeGreaterThan(0);
+    // 前端能看到 7 个 chapter:done 终态事件（含 §5 的 fallback-exhausted）
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const doneCalls = emitCalls.filter(
+      (c) => c[0].type === "agent-playground.chapter:done",
+    );
+    expect(doneCalls.length).toBe(7);
+    const failedDone = doneCalls.find(
+      (c) =>
+        (c[0].payload as { chapterIndex: number }).chapterIndex === 5 &&
+        (c[0].payload as { qualified: boolean }).qualified === false,
+    );
+    expect(failedDone).toBeDefined();
+  });
+
+  // ── C7: invoker throws (network/异常) 也必须 emit chapter:done 关闭状态机 ──────
+  //   2026-05-12: allSettled 把 rejection 静默过滤 → 前端永远收不到终态事件。
+  //   修法：call-site try-catch 包 runChapterPipeline，throw 时也 emit failed-finalized。
+  it("C7: pipeline exception (invoker throws) emits chapter:done(failed-finalized) via call-site catch", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(4),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const {
+      ChapterWriterAgent,
+      ChapterReviewerAgent,
+      DimensionIntegratorAgent,
+    } = getAgentClasses();
+    // 自己写完整 dispatch invoker，让 §3 的 writer 抛异常（真 throw，非 state=failed）
+    const invoker = {
+      invoke: jest
+        .fn()
+        .mockImplementation(
+          (
+            AgentClass: { new (): unknown },
+            input: { chapter?: { index?: number } },
+          ) => {
+            if (AgentClass === ChapterWriterAgent) {
+              const idx = input?.chapter?.index ?? 0;
+              if (idx === 3) {
+                throw new Error("NETWORK_TIMEOUT");
+              }
+              return Promise.resolve({
+                state: "completed",
+                output: makeWriterOutput(1200),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 100,
+              });
+            }
+            if (AgentClass === ChapterReviewerAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeReviewerOutput("pass", 85),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 50,
+              });
+            }
+            if (AgentClass === DimensionIntegratorAgent) {
+              return Promise.resolve({
+                state: "completed",
+                output: makeIntegratorOutput(),
+                events: [],
+                iterations: 1,
+                wallTimeMs: 200,
+              });
+            }
+            return Promise.resolve({
+              state: "failed",
+              output: undefined,
+              events: [],
+              iterations: 1,
+              wallTimeMs: 100,
+            });
+          },
+        ),
+      tickCost: jest.fn().mockResolvedValue(undefined),
+    };
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    // 1/4 = 25% ≤ 30% → 容错继续
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters?.length).toBe(3);
+    // §3 的 chapter:done 失败事件应被 call-site catch 兜底 emit
+    const emitCalls = (deps.emit as jest.Mock).mock.calls;
+    const doneCalls = emitCalls.filter(
+      (c) => c[0].type === "agent-playground.chapter:done",
+    );
+    expect(doneCalls.length).toBe(4); // 3 成功 + 1 兜底
+    const exceptionDone = doneCalls.find(
+      (c) => (c[0].payload as { chapterIndex: number }).chapterIndex === 3,
+    );
+    expect(exceptionDone).toBeDefined();
+    expect(
+      (exceptionDone![0].payload as { qualified: boolean }).qualified,
+    ).toBe(false);
+    expect(
+      (exceptionDone![0].payload as { finalized: boolean }).finalized,
+    ).toBe(true);
+  });
+
+  // ── C8: 严重缺章 >30% 仍 hard-fail（防止严重故障被静默放过） ────────────────────
+  it("C8: missing chapters > 30% tolerance still hard-fails (preserves hard-fail safety net)", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(4),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    // 2/4 = 50% > 30% → 必须 throw
+    const invoker = makeAgentDispatchInvoker({
+      writerOverrides: {
+        2: {
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        },
+        3: {
+          state: "failed",
+          output: undefined,
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        },
+      },
+    });
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+    });
+    await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
+      /expected 4 chapters, got 2.*ratio 50\.0%.*tolerance 30%/,
+    );
   });
 });
 
