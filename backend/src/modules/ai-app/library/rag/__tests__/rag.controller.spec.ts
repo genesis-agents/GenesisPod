@@ -6,6 +6,8 @@ import { GoogleDriveRAGService } from "../services/google-drive-rag.service";
 import { RAGFacade } from "@/modules/ai-harness/facade";
 import { UrlFetchService } from "../services/url-fetch.service";
 import { PlatformImportService } from "../services/platform-import.service";
+import { PlaygroundReportImportService } from "../services/playground-report-import.service";
+import { TopicReportImportService } from "../services/topic-report-import.service";
 
 describe("RAGController", () => {
   let controller: RAGController;
@@ -110,6 +112,30 @@ describe("RAGController", () => {
       importNotes: jest.fn().mockResolvedValue({ success: 1, failed: [] }),
     };
 
+    const mockPlaygroundReportImport = {
+      listVersions: jest.fn().mockResolvedValue([]),
+      importMissionReport: jest.fn().mockResolvedValue({
+        documentId: "doc-1",
+        title: "Mock Mission (Playground)",
+        knowledgeBaseId: "kb-1",
+        sourceId: "m1",
+        version: null,
+        charCount: 100,
+      }),
+    };
+
+    const mockTopicReportImport = {
+      listVersions: jest.fn().mockResolvedValue([]),
+      importTopicReport: jest.fn().mockResolvedValue({
+        documentId: "doc-1",
+        title: "Mock Topic (Topic Insight · v1)",
+        knowledgeBaseId: "kb-1",
+        sourceId: "t1#v1",
+        version: 1,
+        charCount: 100,
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [RAGController],
       providers: [
@@ -119,6 +145,14 @@ describe("RAGController", () => {
         { provide: RAGFacade, useValue: mockAiFacade },
         { provide: UrlFetchService, useValue: mockUrlFetchService },
         { provide: PlatformImportService, useValue: mockPlatformImportService },
+        {
+          provide: PlaygroundReportImportService,
+          useValue: mockPlaygroundReportImport,
+        },
+        {
+          provide: TopicReportImportService,
+          useValue: mockTopicReportImport,
+        },
       ],
     }).compile();
 

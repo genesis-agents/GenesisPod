@@ -42,6 +42,8 @@ import {
 } from "./dto";
 import { UrlFetchService } from "./services/url-fetch.service";
 import { PlatformImportService } from "./services/platform-import.service";
+import { PlaygroundReportImportService } from "./services/playground-report-import.service";
+import { TopicReportImportService } from "./services/topic-report-import.service";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 
 @ApiTags("RAG")
@@ -58,6 +60,8 @@ export class RAGController {
     private readonly ragFacade: RAGFacade,
     private readonly urlFetchService: UrlFetchService,
     private readonly platformImportService: PlatformImportService,
+    private readonly playgroundReportImport: PlaygroundReportImportService,
+    private readonly topicReportImport: TopicReportImportService,
   ) {}
 
   // ==================== Embedding Configuration ====================
@@ -669,5 +673,79 @@ export class RAGController {
     );
 
     return { results: enhancedResults };
+  }
+
+  // ==================== Internal Report Import =====================
+  // 2026-05-19: KB 作为 import sink，拉取 ai-app 模块产生的报告
+  //   - PlaygroundReport: agent-playground mission 报告（含 rerun versions）
+  //   - TopicReport: topic-insights 话题报告（含 incremental refresh versions）
+  // 设计：library 直接读 source 表（PrismaService），不反向 import source module。
+
+  @Get("knowledge-bases/:id/importable-playground-missions/:missionId/versions")
+  @ApiOperation({
+    summary: "List importable versions of a Playground mission",
+  })
+  async listPlaygroundVersions(
+    @Req() req: RequestWithUser,
+    @Param("id") kbId: string,
+    @Param("missionId") missionId: string,
+  ) {
+    // KB ownership check (defense in depth — list endpoint not write, 但仍要 owner)
+    await this.knowledgeBaseService.findById(kbId, req.user.id);
+    return {
+      versions: await this.playgroundReportImport.listVersions(
+        missionId,
+        req.user.id,
+      ),
+    };
+  }
+
+  @Post("knowledge-bases/:id/import-playground-mission")
+  @ApiOperation({
+    summary: "Import a Playground mission report into knowledge base",
+  })
+  @ApiResponse({ status: 201, description: "Imported as KB document" })
+  async importPlaygroundMission(
+    @Req() req: RequestWithUser,
+    @Param("id") kbId: string,
+    @Body() body: { missionId: string; version?: number },
+  ) {
+    return this.playgroundReportImport.importMissionReport(
+      body.missionId,
+      req.user.id,
+      kbId,
+      body.version,
+    );
+  }
+
+  @Get("knowledge-bases/:id/importable-topic-reports/:topicId/versions")
+  @ApiOperation({ summary: "List importable versions of a Topic Insight" })
+  async listTopicReportVersions(
+    @Req() req: RequestWithUser,
+    @Param("id") kbId: string,
+    @Param("topicId") topicId: string,
+  ) {
+    await this.knowledgeBaseService.findById(kbId, req.user.id);
+    return {
+      versions: await this.topicReportImport.listVersions(topicId, req.user.id),
+    };
+  }
+
+  @Post("knowledge-bases/:id/import-topic-report")
+  @ApiOperation({
+    summary: "Import a Topic Insight report into knowledge base",
+  })
+  @ApiResponse({ status: 201, description: "Imported as KB document" })
+  async importTopicReport(
+    @Req() req: RequestWithUser,
+    @Param("id") kbId: string,
+    @Body() body: { topicId: string; version?: number },
+  ) {
+    return this.topicReportImport.importTopicReport(
+      body.topicId,
+      req.user.id,
+      kbId,
+      body.version,
+    );
   }
 }

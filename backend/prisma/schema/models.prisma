@@ -4099,6 +4099,8 @@ enum KnowledgeBaseSourceType {
   IMAGE // 图片OCR
   WECHAT_ARTICLE // 微信公众号文章
   WECHAT_VIDEO // 微信视频号视频
+  PLAYGROUND_REPORT // agent-playground mission 报告导出
+  TOPIC_REPORT // topic-insights 话题报告导出
 }
 
 // 知识库类型

@@ -20,6 +20,9 @@ import { GoogleDriveRAGService } from "./services/google-drive-rag.service";
 import { UrlFetchService } from "./services/url-fetch.service";
 import { PlatformImportService } from "./services/platform-import.service";
 import { FeishuImportService } from "./services/feishu-import.service";
+// 2026-05-19: 内部报告导入（Playground mission + Topic Insight 报告）
+import { PlaygroundReportImportService } from "./services/playground-report-import.service";
+import { TopicReportImportService } from "./services/topic-report-import.service";
 
 // Controller
 import { RAGController } from "./rag.controller";
@@ -40,6 +43,8 @@ import { RAGController } from "./rag.controller";
     UrlFetchService,
     PlatformImportService,
     FeishuImportService,
+    PlaygroundReportImportService,
+    TopicReportImportService,
   ],
   exports: [
     // 重新导出 AiEngineModule (向后兼容，使导入 RAGModule 的模块可以访问 AI Engine 服务)
@@ -52,6 +57,8 @@ import { RAGController } from "./rag.controller";
     UrlFetchService,
     PlatformImportService,
     FeishuImportService,
+    PlaygroundReportImportService,
+    TopicReportImportService,
   ],
 })
 export class RAGModule {}
