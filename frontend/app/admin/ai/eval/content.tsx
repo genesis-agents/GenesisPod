@@ -36,7 +36,9 @@ interface TraceSummary {
   status: TraceStatus;
   duration?: number;
   startTime: string;
-  spans: { id: string }[];
+  // Backend 返回 spanCount: number（trace-collector listTraces 仅返回汇总，不返回
+  // spans 数组）。原 spans: { id }[] 是 lying type，trace.spans.length 必炸。
+  spanCount?: number;
 }
 
 interface DimensionScore {
@@ -325,7 +327,7 @@ function TraceRow({
               <Clock className="h-3 w-3" />
               {formatDuration(trace.duration)}
             </span>
-            <span>{trace.spans.length} spans</span>
+            <span>{trace.spanCount ?? 0} spans</span>
             <span>{formatTime(trace.startTime)}</span>
           </div>
         </div>
