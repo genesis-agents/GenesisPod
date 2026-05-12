@@ -707,4 +707,139 @@ describe("WikiIngestService", () => {
       expect(result[0].ingestState).toBe("READY_NEW");
     });
   });
+
+  // ─── oneLiner soft-truncate (74383da33) ───────────────────────────────────
+  // 守护 wiki-ingest.service.ts:342-363 trimOneLiner 软兜底。
+  // LLM 偶发产 oneLiner > 280 chars 时,service 必须 trim 而不是让 zod
+  // schema(WikiDiffCreateItemSchema.oneLiner max(280))拒绝整个 diff。
+  // 与已有 sources 软剔除对称(同一段 pre-clean 块)。
+  describe("oneLiner soft-truncate (74383da33)", () => {
+    function llmOutputWithOneLiner(
+      oneLiner: string,
+      updates: Array<Record<string, unknown>> = [],
+    ): string {
+      return JSON.stringify({
+        creates: [
+          {
+            slug: "alpha-page",
+            title: "Alpha",
+            category: "ENTITY",
+            body: "Alpha body",
+            oneLiner,
+            sources: [],
+          },
+        ],
+        updates,
+        deletes: [],
+      });
+    }
+
+    beforeEach(() => {
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        { id: "doc-1", title: "T", rawContent: "raw" },
+      ]);
+    });
+
+    function reinstantiate(content: string) {
+      chat = makeChat(content);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+    }
+
+    it("keeps oneLiner of exactly 280 chars (boundary, no trim)", async () => {
+      const exact = "A".repeat(280);
+      reinstantiate(llmOutputWithOneLiner(exact));
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+
+      const persisted =
+        prisma.wikiDiff.create.mock.calls[0][0].data.items.creates[0].oneLiner;
+      expect(persisted).toBe(exact);
+      expect(persisted.length).toBe(280);
+      expect(persisted.endsWith("...")).toBe(false);
+    });
+
+    it("truncates oneLiner of 281 chars to <= 280 with ellipsis suffix", async () => {
+      const overflow = "B".repeat(281);
+      reinstantiate(llmOutputWithOneLiner(overflow));
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+
+      const persisted =
+        prisma.wikiDiff.create.mock.calls[0][0].data.items.creates[0].oneLiner;
+      // slice(0, 277).trimEnd() + "..." → total length <= 280
+      expect(persisted.length).toBeLessThanOrEqual(280);
+      expect(persisted.endsWith("...")).toBe(true);
+      // First 277 chars preserved (no whitespace at boundary so trimEnd is noop)
+      expect(persisted.startsWith("B".repeat(277))).toBe(true);
+    });
+
+    it("truncates oneLiner of 500 chars to <= 280 with ellipsis", async () => {
+      const long = "C".repeat(500);
+      reinstantiate(llmOutputWithOneLiner(long));
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+
+      const persisted =
+        prisma.wikiDiff.create.mock.calls[0][0].data.items.creates[0].oneLiner;
+      expect(persisted.length).toBeLessThanOrEqual(280);
+      expect(persisted.endsWith("...")).toBe(true);
+    });
+
+    it("trims trailing whitespace before appending ellipsis (avoid trailing space before dots)", async () => {
+      // 270 chars + 7 spaces + 20 chars = 297 total
+      // slice(0, 277) = "D"x270 + "       " (7 spaces) → trimEnd → "D"x270
+      // + "..." → final length 273
+      const trailing = "D".repeat(270) + "       " + "E".repeat(20);
+      reinstantiate(llmOutputWithOneLiner(trailing));
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+
+      const persisted =
+        prisma.wikiDiff.create.mock.calls[0][0].data.items.creates[0].oneLiner;
+      expect(persisted).toBe("D".repeat(270) + "...");
+      expect(persisted.endsWith("...")).toBe(true);
+      // No whitespace right before the ellipsis
+      expect(/\s\.\.\.$/.test(persisted)).toBe(false);
+    });
+
+    it("trims newOneLiner in updates the same way (symmetry with creates)", async () => {
+      const overflow = "F".repeat(400);
+      reinstantiate(
+        llmOutputWithOneLiner("short ok", [
+          { slug: "beta-page", newBody: "B body", newOneLiner: overflow },
+        ]),
+      );
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+
+      const persistedUpdate =
+        prisma.wikiDiff.create.mock.calls[0][0].data.items.updates[0]
+          .newOneLiner;
+      expect(persistedUpdate.length).toBeLessThanOrEqual(280);
+      expect(persistedUpdate.endsWith("...")).toBe(true);
+    });
+
+    it("leaves updates with no newOneLiner field untouched (no error)", async () => {
+      // newOneLiner is optional in WikiDiffUpdateItemSchema — service must not
+      // crash trying to trim a missing string.
+      reinstantiate(
+        llmOutputWithOneLiner("short ok", [
+          { slug: "gamma-page", newBody: "G body" },
+        ]),
+      );
+
+      await expect(
+        service.ingest("u-1", "kb-1", ["doc-1"]),
+      ).resolves.toBeDefined();
+      const persisted =
+        prisma.wikiDiff.create.mock.calls[0][0].data.items.updates[0];
+      expect(persisted.newOneLiner).toBeUndefined();
+    });
+  });
 });

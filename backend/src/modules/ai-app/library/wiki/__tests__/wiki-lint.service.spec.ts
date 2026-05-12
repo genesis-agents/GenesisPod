@@ -382,6 +382,95 @@ describe("WikiLintService", () => {
       expect(options.existingEntityIds).toEqual(["ent-a", "ent-b"]);
     });
 
+    // ─── 4b0a50d9: lint LLM 三调用补 modelType=AIModelType.CHAT 透传 ───
+    // 守护 wiki-lint.service.ts:247 / :297 / :345 三处 chat 调用都显式
+    // 传 modelType=CHAT。漏传会落到 ai-chat.service:1689 读 DEFAULT_AI_MODEL
+    // env,未配则 throw "未指定 modelType/modelId" → 三个 lint 类别全部沉默
+    // 失败为 0 findings。
+
+    it("STALE chatFn passes modelType=CHAT and operationName=library-wiki-lint-stale (4b0a50d9)", async () => {
+      const { AIModelType } = await import("@prisma/client");
+      prisma.wikiPage.findMany.mockResolvedValue([makePage()]);
+      staleDetector.detect.mockImplementation(
+        async (
+          _entries: unknown,
+          chatFn: (s: string, u: string) => unknown,
+        ) => {
+          await chatFn("sys-prompt", "user-prompt");
+          return [];
+        },
+      );
+
+      await service.runFullLint("u", "kb-1");
+
+      expect(chat.chat).toHaveBeenCalledTimes(1);
+      const args = chat.chat.mock.calls[0][0];
+      expect(args.modelType).toBe(AIModelType.CHAT);
+      expect(args.operationName).toBe("library-wiki-lint-stale");
+      expect(args.userId).toBe("u");
+      expect(args.responseFormat).toBe("json_object");
+    });
+
+    it("CONTRADICTION chatFn passes modelType=CHAT and operationName=library-wiki-lint-contradiction (4b0a50d9)", async () => {
+      const { AIModelType } = await import("@prisma/client");
+      // Need >= 2 pages so CONTRADICTION pass runs.
+      prisma.wikiPage.findMany.mockResolvedValue([
+        makePage({ id: "p1", slug: "s1" }),
+        makePage({ id: "p2", slug: "s2" }),
+      ]);
+      synthesis.detectContradictions.mockImplementation(
+        async (_docs: unknown, chatFn: (s: string, u: string) => unknown) => {
+          await chatFn("sys", "user");
+          return [];
+        },
+      );
+
+      await service.runFullLint("u", "kb-1");
+
+      // chat.chat invoked at least once with CONTRADICTION op (STALE pass
+      // skipped because staleDetector.detect default mock returns [] without
+      // calling chatFn).
+      const contradictionCalls = chat.chat.mock.calls.filter(
+        (c: unknown[]) =>
+          (c[0] as { operationName: string }).operationName ===
+          "library-wiki-lint-contradiction",
+      );
+      expect(contradictionCalls).toHaveLength(1);
+      const args = contradictionCalls[0][0];
+      expect(args.modelType).toBe(AIModelType.CHAT);
+      expect(args.userId).toBe("u");
+      expect(args.responseFormat).toBe("json_object");
+    });
+
+    it("DATA_GAP chatFn passes modelType=CHAT and operationName=library-wiki-lint-data-gap (4b0a50d9)", async () => {
+      const { AIModelType } = await import("@prisma/client");
+      // Need >= 3 pages so DATA_GAP pass runs.
+      prisma.wikiPage.findMany.mockResolvedValue([
+        makePage({ id: "p1", slug: "s1" }),
+        makePage({ id: "p2", slug: "s2" }),
+        makePage({ id: "p3", slug: "s3" }),
+      ]);
+      synthesis.detectDataGaps.mockImplementation(
+        async (_docs: unknown, chatFn: (s: string, u: string) => unknown) => {
+          await chatFn("sys", "user");
+          return [];
+        },
+      );
+
+      await service.runFullLint("u", "kb-1");
+
+      const dataGapCalls = chat.chat.mock.calls.filter(
+        (c: unknown[]) =>
+          (c[0] as { operationName: string }).operationName ===
+          "library-wiki-lint-data-gap",
+      );
+      expect(dataGapCalls).toHaveLength(1);
+      const args = dataGapCalls[0][0];
+      expect(args.modelType).toBe(AIModelType.CHAT);
+      expect(args.userId).toBe("u");
+      expect(args.responseFormat).toBe("json_object");
+    });
+
     it("budget enforcement — llmBudget=2 only runs first 2 LLM-driven types and returns budgetExceeded=true", async () => {
       prisma.wikiKnowledgeBaseConfig.findUnique.mockResolvedValue({
         cronLintDailyBudgetCalls: 2,
