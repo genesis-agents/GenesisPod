@@ -597,6 +597,96 @@ describe("WikiIngestService", () => {
     });
   });
 
+  // ─── WikiIngestMetrics expose (P1 commit 3) ─────────────────────────────
+  //
+  // Reviewer D 建议 expose 可观测 metric channel 给 spec / 后续 E2E 直接
+  // 断言退场条件 (pageCount / avgBodyLength / h2CoverageRate),不必每次
+  // 再从 LLM response 复算。lastIngestMetrics 字段在 ingestInternal() 末尾
+  // (diff 落盘成功后、return 前) 赋值;失败路径不写。
+  describe("WikiIngestMetrics expose (P1 commit 3)", () => {
+    it("sets lastIngestMetrics after successful ingest with pageCount and avgBodyLength", async () => {
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        { id: "doc-1", title: "T", rawContent: "raw" },
+      ]);
+      // VALID_LLM_OUTPUT 有 1 个 create (slug=alpha-page, body="Alpha body content")
+      // → pageCount=1, avgBodyLength = body.length = 19 (> 0)
+      // → body 无 "## " H2 → h2CoverageRate=0
+      expect(service.lastIngestMetrics).toBeNull();
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+
+      expect(service.lastIngestMetrics).not.toBeNull();
+      const m = service.lastIngestMetrics!;
+      expect(m.pageCount).toBe(1);
+      expect(m.avgBodyLength).toBeGreaterThan(0);
+      // VALID_LLM_OUTPUT 的 body 是 "Alpha body content" (19 chars)
+      expect(m.avgBodyLength).toBe("Alpha body content".length);
+      // 没截过 oneLiner / 没 drop source / 没看到 source
+      expect(m.truncatedOneLiners).toBe(0);
+      expect(m.droppedSources).toBe(0);
+      expect(m.totalSourcesSeen).toBe(0);
+    });
+
+    it("computes h2CoverageRate from body content", async () => {
+      // case A: body 含 "## 章节\n内容" → h2CoverageRate === 1.0
+      prisma.knowledgeBaseDocument.findMany.mockResolvedValue([
+        { id: "doc-1", title: "T", rawContent: "raw" },
+      ]);
+      const withH2 = JSON.stringify({
+        creates: [
+          {
+            slug: "with-h2",
+            title: "W",
+            category: "ENTITY",
+            body: "## 章节\n内容",
+            oneLiner: "o",
+            sources: [],
+          },
+        ],
+        updates: [],
+        deletes: [],
+      });
+      chat = makeChat(withH2);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+      expect(service.lastIngestMetrics!.h2CoverageRate).toBe(1);
+
+      // case B: body 无 "## " → h2CoverageRate === 0
+      const withoutH2 = JSON.stringify({
+        creates: [
+          {
+            slug: "no-h2",
+            title: "N",
+            category: "ENTITY",
+            body: "just prose no headings here",
+            oneLiner: "o",
+            sources: [],
+          },
+        ],
+        updates: [],
+        deletes: [],
+      });
+      chat = makeChat(withoutH2);
+      service = new WikiIngestService(
+        prisma,
+        kbService,
+        diffService,
+        chat,
+        skillLoader,
+      );
+
+      await service.ingest("u-1", "kb-1", ["doc-1"]);
+      expect(service.lastIngestMetrics!.h2CoverageRate).toBe(0);
+    });
+  });
+
   // ─── BLOCKED gate: now content-based, NOT chunking-based ─────────────────
   //
   // Wiki ingest only consumes rawContent — it never reads chunks or

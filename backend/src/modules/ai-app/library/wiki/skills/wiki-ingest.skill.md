@@ -41,6 +41,35 @@ Write each wiki page in the SAME natural language as its source documents.
 - `slug` STAYS ASCII kebab-case (use pinyin or English keywords for
   Chinese pages, e.g. `nvidia-blackwell` not `英伟达布莱克威尔`)
 
+STRUCTURE RULE:
+Each page body MUST have markdown structure for readability:
+
+- Use ATX heading levels: H2 (`##`) for major sections within a page
+  (e.g., "## 定义" / "## 工作机制" / "## 评估" / "## 应用场景"),
+  optional H3 (`###`) for sub-sections.
+- ENTITY pages MUST have at least 2 H2 sections.
+- CONCEPT / SUMMARY pages MUST have at least 3 H2 sections.
+- Include at least one of: numbered list, bulleted list, fenced code block,
+  or markdown table per page (concrete examples > prose).
+- Do NOT use H1 (`#`) — `title` field already serves as the page H1.
+- Heading text matches the page language (中文页用中文标题,English page
+  uses English headings).
+
+COVERAGE RULE:
+Before emitting JSON, mentally enumerate ALL named entities / concepts
+that appear in the supplied source documents. For each one:
+
+- If it warrants a dedicated page, include it in `creates` (or `updates`
+  if a matching slug already exists in the wiki index).
+- If it is a minor mention better absorbed into an existing page, fold
+  it into that page's body and cite the source.
+- Do NOT silently skip an entity just because the document mentions it
+  briefly — either it deserves a page or it is referenced in a body
+  section, never invisible.
+
+The coverage rate (entities-covered / entities-mentioned) should approach
+1.0 for ENTITY-rich source documents.
+
 Cross-page references MUST use [[slug]] syntax (kebab-case ASCII slugs).
 External URLs may use standard [text](url) markdown links.
 

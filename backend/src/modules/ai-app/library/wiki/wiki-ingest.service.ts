@@ -23,6 +23,32 @@ export type WikiIngestCandidateState =
   | "BLOCKED";
 
 /**
+ * Observable metrics from the most recent ingest call (P1 commit 3 —
+ * Reviewer D 建议 expose metric channel so spec/E2E can drive退场断言
+ * without re-deriving从 LLM 原始 response).
+ *
+ * Set at the end of `ingestInternal()` (after WikiDiff persisted, before
+ * return). Read-only consumer surface; mutation only from inside the
+ * service. `null` when no successful ingest has run on this instance yet.
+ */
+export interface WikiIngestMetrics {
+  /** sources soft-truncated to schema cap (oneLiner > 280 chars trimmed). */
+  truncatedOneLiners: number;
+  /** sources dropped by the 4-invariant soft-drop filter (not zod). */
+  droppedSources: number;
+  /** total sources observed across all items before soft-drop. */
+  totalSourcesSeen: number;
+  /** drop reasons breakdown (notObject / unknownDoc / spanInvalid / quoteInvalid). */
+  droppedByReason: Record<string, number>;
+  /** count of CREATE items in the validated diff. */
+  pageCount: number;
+  /** average body length (chars) across CREATE items; 0 when pageCount === 0. */
+  avgBodyLength: number;
+  /** fraction of CREATE pages whose body contains at least one `## ` H2 header. */
+  h2CoverageRate: number;
+}
+
+/**
  * Sentinel value stored in `WikiDiff.createdByUserId` for diffs produced by
  * the auto-ingest scheduler (PR-1). Daily-budget queries filter by this so
  * user-triggered diffs are not counted against the cron quota and vice
@@ -71,6 +97,14 @@ export interface WikiIngestCandidate {
 @Injectable()
 export class WikiIngestService {
   private readonly logger = new Logger(WikiIngestService.name);
+
+  /**
+   * Snapshot of the most recent `ingestInternal()` run (P1 commit 3).
+   * Reset to a fully-populated object whenever a diff is successfully
+   * persisted. `null` until the first success. Used by spec / E2E /
+   * future API exposure to gate on退场条件 without re-parsing LLM output.
+   */
+  public lastIngestMetrics: WikiIngestMetrics | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -269,6 +303,7 @@ export class WikiIngestService {
       quoteInvalid: 0,
     };
     let totalSourcesSeen = 0;
+    let truncatedOneLiners = 0;
     if (rawItems && typeof rawItems === "object" && !Array.isArray(rawItems)) {
       const obj = rawItems as Record<string, unknown>;
       const filterArr = (arr: unknown[]) => {
@@ -339,7 +374,6 @@ export class WikiIngestService {
       // logic as sources: prompt says "≤ 280", service trims defensively,
       // zod is the last-resort net (per
       // feedback_llm_id_must_be_in_prompt_and_whitelist).
-      let truncatedOneLiners = 0;
       const trimOneLiner = (
         arr: unknown[],
         field: "oneLiner" | "newOneLiner",
@@ -420,6 +454,31 @@ export class WikiIngestService {
     this.logger.log(
       `[ingest] kb=${knowledgeBaseId} diff=${diff.id} creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length}`,
     );
+
+    // P1 commit 3 — Reviewer D 建议 expose 可观测 metric so spec / future
+    // E2E can gate on退场条件 without re-parsing the persisted JSON. Only
+    // CREATE items contribute to body / H2 stats (UPDATE 只携带 newBody
+    // delta, P1 baseline 不在 update path 衡量).
+    const pages = [...items.creates];
+    const avgBodyLength =
+      pages.length === 0
+        ? 0
+        : Math.round(
+            pages.reduce((s, p) => s + (p.body?.length ?? 0), 0) / pages.length,
+          );
+    const h2CoverageRate =
+      pages.length === 0
+        ? 0
+        : pages.filter((p) => /^## /m.test(p.body ?? "")).length / pages.length;
+    this.lastIngestMetrics = {
+      truncatedOneLiners,
+      droppedSources,
+      totalSourcesSeen,
+      droppedByReason,
+      pageCount: pages.length,
+      avgBodyLength,
+      h2CoverageRate,
+    };
 
     return diff;
   }
