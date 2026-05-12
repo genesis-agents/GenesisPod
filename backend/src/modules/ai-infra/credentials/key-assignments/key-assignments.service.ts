@@ -659,7 +659,7 @@ export class KeyAssignmentsService {
         );
       }
     }
-    if (model.apiKey?.trim()) return model.apiKey.trim();
+    // 2026-05-12 PR-4: 删除 AIModel.apiKey 明文列 fallback
     return null;
   }
 }

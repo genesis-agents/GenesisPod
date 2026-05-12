@@ -102,7 +102,8 @@ export class ImageGenerationService {
         `Secret '${model.secretKey}' not found for model ${model.displayName}, falling back to apiKey`,
       );
     }
-    return model.apiKey?.trim() || null;
+    // 2026-05-12 PR-4: 删除 AIModel.apiKey 明文列 fallback
+    return null;
   }
 
   /**

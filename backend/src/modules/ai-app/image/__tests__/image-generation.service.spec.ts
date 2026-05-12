@@ -63,7 +63,8 @@ describe("ImageGenerationService", () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    mockSecretsService.getValueInternal.mockResolvedValue(null);
+    // 2026-05-12 PR-4: apiKey 明文列回读已删，默认 SYSTEM secret 解析有效
+    mockSecretsService.getValueInternal.mockResolvedValue("default-test-key");
 
     const { SecretsService } =
       await import("../../../ai-infra/secrets/secrets.service");
@@ -87,10 +88,11 @@ describe("ImageGenerationService", () => {
   // ============ getApiKeyForModel ============
 
   describe("getApiKeyForModel", () => {
-    it("should return apiKey when no secretKey configured", async () => {
+    // 2026-05-12 PR-4: AIModel.apiKey 明文列回读已删 — apiKey 直读路径全删
+    it("should return null when no secretKey configured (apiKey 直读已删)", async () => {
       const model = { apiKey: "direct-api-key", displayName: "Test Model" };
       const result = await service.getApiKeyForModel(model);
-      expect(result).toBe("direct-api-key");
+      expect(result).toBeNull();
     });
 
     it("should fetch from secrets when secretKey configured", async () => {
@@ -103,7 +105,7 @@ describe("ImageGenerationService", () => {
       );
     });
 
-    it("should fall back to apiKey when secret not found", async () => {
+    it("should return null when secret not found (no apiKey fallback)", async () => {
       mockSecretsService.getValueInternal.mockResolvedValue(null);
       const model = {
         secretKey: "missing-secret",
@@ -111,7 +113,7 @@ describe("ImageGenerationService", () => {
         displayName: "Test",
       };
       const result = await service.getApiKeyForModel(model);
-      expect(result).toBe("fallback-key");
+      expect(result).toBeNull();
     });
 
     it("should return null when no apiKey and secret not found", async () => {
@@ -126,12 +128,6 @@ describe("ImageGenerationService", () => {
       const model = { secretKey: "secret-key" };
       const result = await service.getApiKeyForModel(model);
       expect(result).toBe("trimmed-key");
-    });
-
-    it("should trim whitespace from apiKey", async () => {
-      const model = { apiKey: "  api-key-with-spaces  " };
-      const result = await service.getApiKeyForModel(model);
-      expect(result).toBe("api-key-with-spaces");
     });
   });
 
@@ -273,6 +269,7 @@ describe("ImageGenerationService", () => {
     const dimensions = { width: 1024, height: 1024 };
 
     it("should throw when no API key available", async () => {
+      // 无 secretKey + 无 BYOK userId → 不调用 secretsService 直接 throw
       const modelConfig = {
         provider: "openai",
         modelId: "dall-e-3",
@@ -292,7 +289,7 @@ describe("ImageGenerationService", () => {
         modelId: "dall-e-3",
         displayName: "DALL-E 3",
         apiKey: "test-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
         apiEndpoint: null,
       };
 
@@ -324,7 +321,7 @@ describe("ImageGenerationService", () => {
         modelId: "stable-diffusion-xl",
         displayName: "Stable Diffusion XL",
         apiKey: "stability-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
         apiEndpoint: null,
       };
 
@@ -351,7 +348,7 @@ describe("ImageGenerationService", () => {
         modelId: "black-forest-labs/FLUX.1-schnell-Free",
         displayName: "FLUX",
         apiKey: "together-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
       };
 
       mockHttpService.post.mockReturnValue(
@@ -382,7 +379,7 @@ describe("ImageGenerationService", () => {
         modelId: "gemini-2.0-flash-exp",
         displayName: "Gemini Flash",
         apiKey: "google-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
       };
 
       mockHttpService.post.mockReturnValue(
@@ -421,7 +418,7 @@ describe("ImageGenerationService", () => {
         modelId: "gemini-2.0-flash-exp",
         displayName: "Gemini Flash",
         apiKey: "google-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
       };
 
       mockHttpService.post.mockReturnValue(
@@ -455,7 +452,7 @@ describe("ImageGenerationService", () => {
         modelId: "gemini-2.0-flash-exp",
         displayName: "Gemini Flash",
         apiKey: "google-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
       };
 
       const referenceBase64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgAB";
@@ -495,7 +492,7 @@ describe("ImageGenerationService", () => {
         modelId: "dall-e-3",
         displayName: "DALL-E 3",
         apiKey: "openai-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
         apiEndpoint: null,
       };
 
@@ -516,7 +513,7 @@ describe("ImageGenerationService", () => {
         modelId: "custom-model",
         displayName: "Custom Model",
         apiKey: "custom-key",
-        secretKey: null,
+        secretKey: "TEST_SECRET",
         apiEndpoint: "https://custom-api.example.com/v1",
       };
 

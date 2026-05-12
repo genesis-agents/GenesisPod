@@ -41,9 +41,10 @@ describe("KeyAssignmentsService (v5: drop_distributable_keys)", () => {
     notifiedExpiringAt: null,
     model: {
       id: "m-1",
-      apiKey: "sk-from-aimodel",
+      // 2026-05-12 PR-4: AIModel.apiKey 明文列回读已删，BYOK 必须走 secretKey
+      apiKey: null,
       apiEndpoint: null,
-      secretKey: null,
+      secretKey: "OPENAI_BYOK_SECRET",
       isEnabled: true,
       priority: 50,
       displayName: "GPT-4o",
@@ -90,10 +91,13 @@ describe("KeyAssignmentsService (v5: drop_distributable_keys)", () => {
       expect(await service.resolveActive("u", "openai")).toBeNull();
     });
 
-    it("returns first usable assignment with apiKey from AIModel", async () => {
+    it("returns first usable assignment via SecretsService (BYOK 单源)", async () => {
       prisma.keyAssignment.findMany.mockResolvedValueOnce([makeAssignment()]);
+      (secrets.getValueInternal as jest.Mock).mockResolvedValueOnce(
+        "sk-from-byok-secret",
+      );
       const r = await service.resolveActive("u-1", "openai");
-      expect(r?.apiKey).toBe("sk-from-aimodel");
+      expect(r?.apiKey).toBe("sk-from-byok-secret");
       expect(r?.modelDbId).toBe("m-1");
     });
 
@@ -124,6 +128,9 @@ describe("KeyAssignmentsService (v5: drop_distributable_keys)", () => {
       });
       const fresh = makeAssignment({ id: "fresh" });
       prisma.keyAssignment.findMany.mockResolvedValueOnce([expired, fresh]);
+      (secrets.getValueInternal as jest.Mock).mockResolvedValue(
+        "sk-from-byok-secret",
+      );
       const r = await service.resolveActive("u-1", "openai");
       expect(r?.assignmentId).toBe("fresh");
       expect(prisma.keyAssignment.update).toHaveBeenCalledWith(
