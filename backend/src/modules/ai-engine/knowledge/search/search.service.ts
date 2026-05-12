@@ -144,6 +144,23 @@ interface SearchConfig {
   enabled: boolean;
   tavilyKeys: string[];
   serperKeys: string[];
+  /** ★ 2026-05-12: 与 tavilyKeys / serperKeys 平行的 keyId 数组（同长度同顺序），
+   *   让 markKeyFailed / clearKeyFailure 能同时把状态同步到 DB SecretKey.testStatus
+   *   让 admin UI（/admin/access/secrets）看到真实状态。
+   *   keyId 为 null 时（legacy comma-separated 单行）跳过 DB 同步。 */
+  tavilyKeyIds: Array<string | null>;
+  serperKeyIds: Array<string | null>;
+}
+
+/** ★ 2026-05-12: SearchService 失败 → SecretKey.lastErrorCode 归一化映射，
+ *   与 /admin/access/secrets badge ("未授权" / "限流" / "配额耗尽") 对齐。*/
+function searchErrorToSecretCode(http: number): string {
+  if (http === 401 || http === 403) return "AUTH_FAILED";
+  if (http === 402) return "QUOTA_EXHAUSTED";
+  if (http === 429) return "RATE_LIMIT_KEY";
+  if (http >= 500) return "PROVIDER_5XX";
+  if (http >= 400) return "BAD_REQUEST";
+  return "UNKNOWN";
 }
 
 @Injectable()
@@ -324,6 +341,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   /**
    * 标记 Key 失败
    * ★ 使用哈希存储，不暴露 Key 内容
+   * ★ 2026-05-12: 同步到 SecretKey.testStatus='failed' 让 admin UI 看到真实状态。
+   *   keyId 通过 lookupKeyId(provider, key) 从 SearchConfig 拿（已配并行 keyId 数组）。
+   *   env-fallback / legacy comma 模式 keyId=null 时跳过 DB 写。
    */
   private markKeyFailed(
     provider: SearchProvider,
@@ -338,10 +358,14 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     this.logger.warn(
       `[Search] Marked ${provider} key ${this.getMaskedKey(key)} as failed (HTTP ${errorCode})`,
     );
+    // ★ 2026-05-12: bridge in-memory failure → DB SecretKey.testStatus
+    //   admin /admin/access/secrets 显示的"正常 / 失败 / 限流"颜色 badge 才会变红
+    void this.syncSecretFailureToDb(provider, key, errorCode);
   }
 
   /**
    * 清除 Key 的失败状态（成功时调用）
+   * ★ 2026-05-12: 同步到 SecretKey.testStatus='success' + 清错误码消息。
    */
   private clearKeyFailure(provider: SearchProvider, key: string): void {
     const healthKey = this.getKeyHash(provider, key);
@@ -351,6 +375,82 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         `[Search] Cleared failure status for ${provider} key ${this.getMaskedKey(key)}`,
       );
     }
+    void this.syncSecretSuccessToDb(provider, key);
+  }
+
+  /**
+   * 把 in-memory key 失败状态同步到 SecretKey.testStatus（DB），让 admin UI 看到。
+   * 通过遍历当前 config 的 tavilyKeys/serperKeys 找到匹配 raw key 的 keyId。
+   * keyId=null（env / legacy comma）时静默跳过。
+   */
+  private async syncSecretFailureToDb(
+    provider: SearchProvider,
+    key: string,
+    httpCode: number,
+  ): Promise<void> {
+    try {
+      const config = await this.getSearchConfig();
+      const { keyId, secretName } = this.lookupKeyIdAndSecretName(
+        provider,
+        key,
+        config,
+      );
+      if (!keyId || !secretName) return; // env-fallback / legacy comma 模式无 keyId
+      await this.secretsService.markSecretFailure(
+        secretName,
+        `Search HTTP ${httpCode}`,
+        keyId,
+        searchErrorToSecretCode(httpCode),
+      );
+    } catch (err) {
+      this.logger.debug(
+        `[Search] syncSecretFailureToDb skipped: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  private async syncSecretSuccessToDb(
+    provider: SearchProvider,
+    key: string,
+  ): Promise<void> {
+    try {
+      const config = await this.getSearchConfig();
+      const { keyId, secretName } = this.lookupKeyIdAndSecretName(
+        provider,
+        key,
+        config,
+      );
+      if (!keyId || !secretName) return;
+      await this.secretsService.markSecretSuccess(secretName, keyId);
+    } catch (err) {
+      this.logger.debug(
+        `[Search] syncSecretSuccessToDb skipped: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  private lookupKeyIdAndSecretName(
+    provider: SearchProvider,
+    key: string,
+    config: SearchConfig,
+  ): { keyId: string | null; secretName: string | null } {
+    if (provider === "tavily") {
+      const idx = config.tavilyKeys.indexOf(key);
+      if (idx === -1) return { keyId: null, secretName: null };
+      return {
+        keyId: config.tavilyKeyIds[idx] ?? null,
+        secretName: SECRET_NAMES.TAVILY_SEARCH,
+      };
+    }
+    if (provider === "serper") {
+      const idx = config.serperKeys.indexOf(key);
+      if (idx === -1) return { keyId: null, secretName: null };
+      return {
+        keyId: config.serperKeyIds[idx] ?? null,
+        secretName: SECRET_NAMES.SERPER,
+      };
+    }
+    return { keyId: null, secretName: null };
   }
 
   /**
@@ -725,38 +825,53 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       // 不允许在此硬编码 Secret 名称
       const tavilyKeys: string[] = [];
       const serperKeys: string[] = [];
+      // ★ 2026-05-12: 并行收集 keyId 让失败/成功反馈能同步到 SecretKey.testStatus
+      const tavilyKeyIds: Array<string | null> = [];
+      const serperKeyIds: Array<string | null> = [];
 
       // 从 Secret Manager 获取 Tavily Key（使用统一映射）
-      const tavilySecret = await this.secretsService.getValueInternal(
+      //   ★ 优先走 getValueInternalAllKeys：返回每个 SecretKey 行的 value + keyId
+      //     parallel array，让我们后续能 markSecretFailure(name, msg, keyId)
+      //     DB 同步。仅当 SecretKey 表为空且 legacy 单行兜底时 keyId=null。
+      const tavilyRows = await this.secretsService.getValueInternalAllKeys(
         SECRET_NAMES.TAVILY_SEARCH,
       );
-      if (tavilySecret) {
-        // 支持逗号分隔的多个 Key
-        const keys = tavilySecret
+      for (const row of tavilyRows) {
+        // 对于 legacy 单行 comma-separated 情况，仍要 split；新模式 1 row = 1 key
+        const splits = row.value
           .split(",")
           .map((k) => k.trim())
           .filter(Boolean);
-        tavilyKeys.push(...keys);
+        for (const k of splits) {
+          tavilyKeys.push(k);
+          // legacy comma 多 key 在同一 SecretKey 行下，全部共享同一 keyId
+          tavilyKeyIds.push(row.keyId);
+        }
       }
 
       // 从 Secret Manager 获取 Serper Key（使用统一映射）
-      const serperSecret = await this.secretsService.getValueInternal(
+      const serperRows = await this.secretsService.getValueInternalAllKeys(
         SECRET_NAMES.SERPER,
       );
-      if (serperSecret) {
-        const keys = serperSecret
+      for (const row of serperRows) {
+        const splits = row.value
           .split(",")
           .map((k) => k.trim())
           .filter(Boolean);
-        serperKeys.push(...keys);
+        for (const k of splits) {
+          serperKeys.push(k);
+          serperKeyIds.push(row.keyId);
+        }
       }
 
-      // 如果 Secret Manager 没有配置，回退到环境变量
+      // 如果 Secret Manager 没有配置，回退到环境变量（env 没有 keyId 可标）
       if (tavilyKeys.length === 0) {
         tavilyKeys.push(...tavilyEnvKeys);
+        tavilyKeyIds.push(...tavilyEnvKeys.map(() => null));
       }
       if (serperKeys.length === 0) {
         serperKeys.push(...serperEnvKeys);
+        serperKeyIds.push(...serperEnvKeys.map(() => null));
       }
 
       // 获取 provider 配置（仍从 SystemSetting 获取，因为这不是密钥）
@@ -791,6 +906,8 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           enabled: false,
           tavilyKeys: [],
           serperKeys: [],
+          tavilyKeyIds: [],
+          serperKeyIds: [],
         };
       }
 
@@ -818,6 +935,8 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         enabled: true,
         tavilyKeys,
         serperKeys,
+        tavilyKeyIds,
+        serperKeyIds,
       };
     } catch (error) {
       this.logger.warn(
@@ -825,7 +944,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // Fallback to environment variables when Secret Manager access fails
+    // Fallback to environment variables when Secret Manager access fails（env 无 keyId）
     return {
       provider:
         tavilyEnvKeys.length > 0
@@ -836,6 +955,8 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       enabled: true,
       tavilyKeys: tavilyEnvKeys,
       serperKeys: serperEnvKeys,
+      tavilyKeyIds: tavilyEnvKeys.map(() => null),
+      serperKeyIds: serperEnvKeys.map(() => null),
     };
   }
 

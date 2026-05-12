@@ -18,7 +18,12 @@ describe("SearchService", () => {
   let service: SearchService;
   let httpService: { post: jest.Mock; get: jest.Mock };
   let prisma: { systemSetting: { findFirst: jest.Mock } };
-  let secretsService: { getValueInternal: jest.Mock };
+  let secretsService: {
+    getValueInternal: jest.Mock;
+    getValueInternalAllKeys: jest.Mock;
+    markSecretFailure: jest.Mock;
+    markSecretSuccess: jest.Mock;
+  };
   let configService: { get: jest.Mock };
 
   // Helper: build a mock Axios-style Observable response
@@ -73,6 +78,26 @@ describe("SearchService", () => {
       return Promise.resolve(null);
     });
 
+    // ★ 2026-05-12: SearchService 现在走 getValueInternalAllKeys 拿 keyId 数组
+    //   仍然兼容 secretSecret 设置，但返回 keyId=null 模拟 legacy fallback 模式
+    secretsService.getValueInternalAllKeys.mockImplementation(
+      (name: string) => {
+        if (name.includes("TAVILY") || name.includes("tavily")) {
+          if (!tavilySecret) return Promise.resolve([]);
+          return Promise.resolve([
+            { value: tavilySecret, keyId: "tavily-keyid-1", label: "default" },
+          ]);
+        }
+        if (name.includes("SERPER") || name.includes("serper")) {
+          if (!serperSecret) return Promise.resolve([]);
+          return Promise.resolve([
+            { value: serperSecret, keyId: "serper-keyid-1", label: "default" },
+          ]);
+        }
+        return Promise.resolve([]);
+      },
+    );
+
     prisma.systemSetting.findFirst.mockImplementation(
       async (args: { where: { key: string } }) => {
         if (args.where.key === "search.provider")
@@ -105,7 +130,12 @@ describe("SearchService", () => {
         },
         {
           provide: SecretsService,
-          useValue: { getValueInternal: jest.fn() },
+          useValue: {
+            getValueInternal: jest.fn(),
+            getValueInternalAllKeys: jest.fn().mockResolvedValue([]),
+            markSecretFailure: jest.fn().mockResolvedValue(undefined),
+            markSecretSuccess: jest.fn().mockResolvedValue(undefined),
+          },
         },
         {
           provide: ConfigService,
@@ -1016,6 +1046,122 @@ describe("SearchService", () => {
       // Advance 1 hour to trigger cleanup
       expect(() => jest.advanceTimersByTime(60 * 60 * 1000)).not.toThrow();
       service.onModuleDestroy();
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // 2026-05-12: Secret 健康反馈到 DB（admin UI 真实状态可见性）
+  // ─────────────────────────────────────────────
+  describe("DB sync on key failure / success", () => {
+    function makeErrorObservable(status: number, msg: string) {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-require-imports
+      const { Observable } = require("rxjs");
+      return new Observable((subscriber: { error: (e: Error) => void }) => {
+        subscriber.error(
+          Object.assign(new Error(msg), {
+            response: { status, data: {} },
+          }),
+        );
+      });
+    }
+
+    it("markSecretFailure called with mapped error code on 401", async () => {
+      setupDefaultConfig({ tavilySecret: "tvly-key-A" });
+      httpService.post.mockReturnValue(
+        makeErrorObservable(401, "Unauthorized"),
+      );
+      mockDuckSearch.mockResolvedValue({
+        noResults: false,
+        results: [
+          {
+            title: "DDG",
+            url: "https://ddg.com",
+            description: "c",
+            hostname: "ddg.com",
+          },
+        ],
+      });
+
+      await service.search("hi");
+      // 等 fire-and-forget syncSecretFailureToDb 完成
+      await new Promise((r) => setImmediate(r));
+
+      expect(secretsService.markSecretFailure).toHaveBeenCalledWith(
+        expect.stringMatching(/tavily/i),
+        expect.stringContaining("HTTP"),
+        "tavily-keyid-1",
+        "AUTH_FAILED",
+      );
+    });
+
+    it("markSecretFailure mapped to RATE_LIMIT_KEY on 429", async () => {
+      setupDefaultConfig({ tavilySecret: "tvly-key-A" });
+      httpService.post.mockReturnValue(
+        makeErrorObservable(429, "Too Many Requests"),
+      );
+      mockDuckSearch.mockResolvedValue({
+        noResults: false,
+        results: [
+          {
+            title: "DDG",
+            url: "https://ddg.com",
+            description: "c",
+            hostname: "ddg.com",
+          },
+        ],
+      });
+
+      await service.search("hi");
+      await new Promise((r) => setImmediate(r));
+
+      expect(secretsService.markSecretFailure).toHaveBeenCalledWith(
+        expect.stringMatching(/tavily/i),
+        expect.stringContaining("HTTP"),
+        "tavily-keyid-1",
+        "RATE_LIMIT_KEY",
+      );
+    });
+
+    it("markSecretSuccess called when key recovers from failure (clearKeyFailure)", async () => {
+      setupDefaultConfig({ tavilySecret: "tvly-key-A" });
+
+      // First call: 200 success → triggers clearKeyFailure → markSecretSuccess
+      httpService.post.mockReturnValueOnce(
+        mockAxiosResponse({
+          results: [
+            { title: "t", url: "https://x.test", content: "c", score: 1 },
+          ],
+        }),
+      );
+
+      await service.search("hi");
+      await new Promise((r) => setImmediate(r));
+
+      expect(secretsService.markSecretSuccess).toHaveBeenCalledWith(
+        expect.stringMatching(/tavily/i),
+        "tavily-keyid-1",
+      );
+    });
+
+    it("env-var fallback path skips DB sync (keyId=null)", async () => {
+      setupDefaultConfig({
+        tavilySecret: null, // 强制走 env 路径
+        tavilyEnvKey: "tvly-env-key",
+      });
+
+      httpService.post.mockReturnValueOnce(
+        mockAxiosResponse({
+          results: [
+            { title: "t", url: "https://x.test", content: "c", score: 1 },
+          ],
+        }),
+      );
+
+      await service.search("hi");
+      await new Promise((r) => setImmediate(r));
+
+      expect(secretsService.markSecretSuccess).not.toHaveBeenCalled();
+      expect(secretsService.markSecretFailure).not.toHaveBeenCalled();
     });
   });
 });

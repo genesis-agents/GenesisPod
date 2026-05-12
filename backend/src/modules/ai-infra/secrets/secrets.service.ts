@@ -1282,6 +1282,60 @@ export class SecretsService {
    * 避免再次走 fallback chain（熔断窗口可能已变化导致错标 next key 而非命中 key）。
    * keyId 不传时回退到 lookup（兼容 legacy caller）。
    */
+  /**
+   * 业务侧 multi-key resolver — 返回某 secret 下所有活跃 KEY 的明文 + keyId 数组。
+   *
+   * 适用场景：caller 需要自己做 round-robin / 并发分散（如 SearchService 的多 KEY
+   * 滚动重试），但同时要把 mark*Failure / mark*Success 反馈到 DB 让 admin UI 看到
+   * 真实状态。
+   *
+   * 模式自适应：
+   *   1. SecretKey 表有行（新模式）→ 返回每个 active 行的解密 value + 真 keyId
+   *   2. 表为空但 Secret.encryptedValue 有值（legacy comma-separated）→ 兜底返回
+   *      单条记录 keyId=null（caller 无法 mark*，但仍能拿到 value 跑业务）
+   *
+   * 与 getSecretKey / getValueInternalWithKeyId 的区别：那俩按 priority + 熔断挑
+   * **一个**最佳 KEY；本方法返回**全部** active KEY 让 caller 自己挑（round-robin
+   * 分散并发 / 自定义健康策略）。
+   */
+  async getValueInternalAllKeys(
+    name: string,
+  ): Promise<Array<{ value: string; keyId: string | null; label: string }>> {
+    const normalizedName = normalizeSecretName(name);
+    const secret = await this.prisma.secret.findUnique({
+      where: { name: normalizedName },
+    });
+    if (!secret || !secret.isActive || secret.deletedAt) return [];
+    if (secret.expiresAt && secret.expiresAt < new Date()) return [];
+
+    // 新模式：SecretKey 表 active 行（不过滤熔断 — caller 自己决定）
+    const rows = await this.prisma.secretKey.findMany({
+      where: { secretId: secret.id, isActive: true },
+      orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
+    });
+
+    if (rows.length > 0) {
+      const out: Array<{
+        value: string;
+        keyId: string | null;
+        label: string;
+      }> = [];
+      for (const row of rows) {
+        const decrypted = this.encryption.decrypt(row.encryptedValue, row.iv);
+        if (decrypted) {
+          out.push({ value: decrypted, keyId: row.id, label: row.label });
+        }
+      }
+      return out;
+    }
+
+    // legacy dual-track：读 Secret.encryptedValue（可能 comma-separated 多 KEY，
+    // 但都属于同一行，没有独立 keyId 可标失败状态）
+    const legacy = this.encryption.decrypt(secret.encryptedValue, secret.iv);
+    if (!legacy) return [];
+    return [{ value: legacy, keyId: null, label: "(legacy)" }];
+  }
+
   async markSecretSuccess(name: string, keyId?: string): Promise<void> {
     if (!this.secretKeys) return;
     if (keyId) {
