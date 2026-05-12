@@ -53,7 +53,12 @@ export class PreparseService {
       select: {
         id: true,
         sourceUrl: true,
+        // rawContentUri 必须与 rawContent 同 select：documents 写入后由
+        // StorageOffloadService 搬到 R2 时 DB 列置空，PrismaService 的
+        // hydrate hook 用 rawContentUri 透明回填。漏选 URI 会让 off-loaded
+        // 文档读到 rawContent='' → preparse 抓不到内容静默失败。
         rawContent: true,
+        rawContentUri: true,
         title: true,
         metadata: true,
       },

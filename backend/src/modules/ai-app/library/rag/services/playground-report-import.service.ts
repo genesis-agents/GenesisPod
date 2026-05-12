@@ -238,6 +238,11 @@ export class PlaygroundReportImportService {
     }
 
     // 2. Load mission + (optional) version
+    //
+    // off-load URI 字段必须与 JSON 字段成对 select，让 PrismaService.hydrate
+    // hook 能透明回填 R2 内容；漏 *Uri 字段会让 off-loaded mission 读到 null
+    // 装配出残缺 markdown（特别是大 mission 完成后 reportFull / reconciliation
+    // 多半已 off-load）。
     const mission = await this.prisma.agentPlaygroundMission.findUnique({
       where: { id: missionId },
       select: {
@@ -248,6 +253,7 @@ export class PlaygroundReportImportService {
         reportFull: true,
         reportFullUri: true,
         reconciliationReport: true,
+        reconciliationReportUri: true,
         completedAt: true,
         startedAt: true,
         finalScore: true,
@@ -267,6 +273,7 @@ export class PlaygroundReportImportService {
         where: { missionId_version: { missionId, version } },
         select: {
           version: true,
+          // off-load 字段成对 select（见上方 mission select 注释）
           reportFull: true,
           reportFullUri: true,
           generatedAt: true,
