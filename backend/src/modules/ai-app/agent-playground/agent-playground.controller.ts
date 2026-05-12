@@ -629,6 +629,12 @@ export class AgentPlaygroundController {
   /**
    * DELETE /api/v1/agent-playground/missions/:id
    * 删除当前用户的某个 mission（仅删除 DB 记录，不影响已结束的 in-memory 状态）。
+   *
+   * 2026-05-12 FK 事故修复：running 状态 mission 直接删会让 background workers
+   *   （saveResearchResult / refreshHeartbeat）的 upsert/update 撞 FK 违约
+   *   （agent_playground_research_results_mission_id_fkey）以及"No record was
+   *   found for an update"（heartbeat）。要么先 cancel（abortRegistry.abort
+   *   → 后台真正停 → markCancelled），要么进入终态后再 delete。
    */
   @Delete("missions/:id")
   async deleteMission(
@@ -640,6 +646,11 @@ export class AgentPlaygroundController {
     const persisted = await this.store.getById(missionId, userId);
     if (!persisted)
       throw new ForbiddenException(`mission ${missionId} not found`);
+    if (persisted.status === "running") {
+      throw new BadRequestException(
+        `mission ${missionId} 状态为 running，请先 cancel 再 delete（直接删会让 background workers 撞 FK 违约）`,
+      );
+    }
     await this.store.deleteByUser(missionId, userId);
     this.electionTracker.clear(missionId);
     this.ownership.release(missionId);

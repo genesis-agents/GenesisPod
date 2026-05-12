@@ -756,15 +756,36 @@ describe("AgentPlaygroundController", () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it("deletes mission and returns ok", async () => {
+    it("deletes mission and returns ok when in terminal state", async () => {
       const { controller, store, ownership, electionTracker } =
         buildController();
-      store.getById.mockResolvedValue({ id: "m-1", topic: "test" });
+      // 终态（如 completed）允许直接删
+      store.getById.mockResolvedValue({
+        id: "m-1",
+        topic: "test",
+        status: "completed",
+      });
       const result = await controller.deleteMission("m-1", makeReq("user-1"));
       expect(result).toEqual({ ok: true });
       expect(store.deleteByUser).toHaveBeenCalledWith("m-1", "user-1");
       expect(electionTracker.clear).toHaveBeenCalledWith("m-1");
       expect(ownership.release).toHaveBeenCalledWith("m-1");
+    });
+
+    // 2026-05-12 FK 事故修复：running mission 直接 DELETE 会让 background workers
+    //   （saveResearchResult / refreshHeartbeat）撞 FK 违约 +"No record found
+    //   for an update"，trace 漫天 error。block 在 controller，要求先 cancel。
+    it("rejects DELETE when mission is still running (FK constraint protection)", async () => {
+      const { controller, store } = buildController();
+      store.getById.mockResolvedValue({
+        id: "m-1",
+        topic: "test",
+        status: "running",
+      });
+      await expect(
+        controller.deleteMission("m-1", makeReq("user-1")),
+      ).rejects.toThrow(/running/);
+      expect(store.deleteByUser).not.toHaveBeenCalled();
     });
   });
 
