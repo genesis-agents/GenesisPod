@@ -1584,6 +1584,17 @@ export class AiChatService {
     }
 
     // ★ Path A: 系统配置调用
+    //
+    // 与 pickBYOKModelForUser 的关系（2026-05-12 PR-3 文档化）：
+    // 本路径在选模型阶段实质等价 pickBYOKModelForUser，但保留更细粒度语义：
+    //   1) findUserDefaultByType（UserModelConfig PERSONAL BYOK）—— pick 的步骤 1
+    //   2) getDefaultModelByType + availableProviders 过滤 —— pick 的步骤 2
+    //      （pick 是直接查 KeyAssignment + provider 过滤；这里是 admin 默认模型
+    //        命中用户 provider 失败时再换，保留 retry-blacklist 等 chat 特化语义）
+    //   3) 都没命中 throw NoAvailableKeyError —— 与 pick 一致
+    // 所以"chat 主路径不走 pickBYOKModelForUser"是命名差异不是合规缺口；
+    // refactor 风险（god class）大于收益。后续如需统一，应让 pickBYOKModelForUser
+    // 支持 retry blacklist 后再切换。
     let model: string;
     let modelConfig: AIModelConfig | null = null;
 
