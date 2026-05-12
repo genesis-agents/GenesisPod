@@ -123,6 +123,15 @@ const isRateLimitError = (errorCode: number): boolean => errorCode === 429;
  */
 const isQuotaExhaustedError = (errorCode: number): boolean => errorCode === 402;
 
+/**
+ * 2026-05-12: 客户端请求错误（query 本身的问题，不是 key 失效）。
+ * - 400 Bad Request：参数错（query 太长 / 含非法字符 / 编码失败）
+ * - 422 Unprocessable Entity：语义错
+ * 这类错误不能把 key 标失败，否则 1 个坏 query 永久污染所有 key。
+ */
+const isClientRequestError = (errorCode: number): boolean =>
+  errorCode === 400 || errorCode === 422;
+
 /** 健康记录过期时间（毫秒）- 24 小时后清理 */
 const KEY_HEALTH_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -641,6 +650,27 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           response?: { status?: number; data?: { message?: string } };
         };
         const statusCode = err.response?.status;
+        const respMsg = err.response?.data?.message ?? "";
+
+        // ★ 2026-05-12: 400/422 是 query 本身坏（非法字符 / 太长 / 编码错），
+        //   重试别的 key 也会再炸。立即抛让上层换 query/provider，并且不要
+        //   markKeyFailed 误杀好 key。
+        //   例外：serper free tier 配额耗尽返回 400 + body "Quota exceeded"
+        //   ——这类需要按 402 标失败做长冷却。
+        const looksLikeQuotaInBody = /quota.*exceed|exceeded.*quota/i.test(
+          respMsg,
+        );
+        if (
+          statusCode !== undefined &&
+          isClientRequestError(statusCode) &&
+          !looksLikeQuotaInBody
+        ) {
+          this.logger.warn(
+            `[Search] ${provider} HTTP ${statusCode} on query (key OK, request bad); ` +
+              `aborting key-failover for this query`,
+          );
+          throw error;
+        }
 
         this.logger.warn(
           `[Search] ${provider} key ${this.getMaskedKey(apiKey)} failed` +
@@ -649,7 +679,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         );
 
         if (statusCode !== undefined) {
-          this.markKeyFailed(provider, apiKey, statusCode);
+          // serper 400 + "Quota exceeded" body → 当 402 处理走 24h 冷却
+          const effectiveCode = looksLikeQuotaInBody ? 402 : statusCode;
+          this.markKeyFailed(provider, apiKey, effectiveCode);
         }
       }
     }

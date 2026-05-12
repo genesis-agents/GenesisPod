@@ -80,6 +80,16 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
     this.balanceCache = null;
   }
 
+  /**
+   * 失效 snapshot 缓存——QUOTA_EXCEEDED 后 ReActLoop 会调，让下一次
+   * suggestFallback 重读 DB 拿最新 model health（之前会拿到 30s 旧快照，
+   * 死掉的 BYOK 仍标 healthy 导致 findSiblingModel 不切）。
+   */
+  invalidate(): void {
+    this.balanceCache = null;
+    this.runtimeEnv.invalidate(this.userId);
+  }
+
   async getByokStatus(): Promise<ByokStatus> {
     // RuntimeEnvironmentService.snapshot 已自带 30s cache
     const snap = await this.runtimeEnv.snapshot({ userId: this.userId });
@@ -272,6 +282,19 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
           fallbackModelId: fb,
         };
       }
+    }
+    // ★ 2026-05-12: BYOK 单源原则——配额耗尽不自动跨 provider fallback。
+    //   用户须显式申请 admin 批 KeyAssignment（也属 BYOK），或在 BYOK 管理
+    //   续费当前 provider。这里返 notify_user 把诊断 + 行动指引一次说清。
+    if (input.reason === "byok_quota_exceeded") {
+      return {
+        action: "notify_user",
+        reason: "byok-quota-exceeded",
+        userMessage:
+          `您当前 BYOK 模型「${input.failedModelId ?? "?"}」的 provider 配额已耗尽。` +
+          `请前往 个人中心 → BYOK 管理 续费或更换 key；` +
+          `也可向 管理员 申请临时分配其他模型的访问权限（admin 批准后同样按 BYOK 计入）。`,
+      };
     }
     if (input.reason === "context_too_long" || input.reason === "no_quota") {
       return { action: "abort", reason: input.reason };

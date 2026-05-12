@@ -13,7 +13,12 @@
  *   不需要任何独立 env var。AI App 层不再做模型 promotion 或硬编码。
  */
 
-import { Module, OnModuleInit } from "@nestjs/common";
+import {
+  Logger,
+  Module,
+  OnApplicationBootstrap,
+  OnModuleInit,
+} from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
@@ -30,7 +35,10 @@ import {
   MissionPipelineOrchestrator,
   MissionPipelineRegistry,
 } from "@/modules/ai-harness/facade";
-import { SkillLoaderService } from "@/modules/ai-engine/facade";
+import {
+  SkillLoaderService,
+  PromptSkillRegistrationService,
+} from "@/modules/ai-engine/facade";
 import { MissionEventBuffer } from "./services/mission/lifecycle/mission-event-buffer.service";
 import { MissionStore } from "./services/mission/lifecycle/mission-store.service";
 import { PrismaMissionCheckpointStore } from "./services/mission/lifecycle/prisma-mission-checkpoint.store";
@@ -169,7 +177,9 @@ import {
     MISSION_LIST_READER,
   ],
 })
-export class AgentPlaygroundModule implements OnModuleInit {
+export class AgentPlaygroundModule
+  implements OnModuleInit, OnApplicationBootstrap
+{
   constructor(
     private readonly eventBus: DomainEventBus,
     private readonly registry: DomainEventRegistry,
@@ -186,6 +196,15 @@ export class AgentPlaygroundModule implements OnModuleInit {
     //   下推到 ai-app/agent-playground/skills/，需要在这里 register 到 SkillRegistry
     //   否则 SkillActivator 在 leader/researcher role 启动时报 "skipped: <skill-id>"
     private readonly skillLoader: SkillLoaderService,
+    // ★ 2026-05-12 真因修复：addSkillDirectory 只把目录加入 config，
+    //   loadAllLocalSkills 在 onApplicationBootstrap 才跑，并不会 bridge
+    //   localSkills → SkillRegistry。必须在 onApplicationBootstrap 显式
+    //   调 promptSkillBridge.registerDomain，否则 SkillActivator tryGet
+    //   全部 miss → "skipped: dimension-research / web-research"。
+    private readonly promptSkillBridge: PromptSkillRegistrationService,
+    private readonly playgroundLogger: Logger = new Logger(
+      AgentPlaygroundModule.name,
+    ),
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -350,5 +369,36 @@ export class AgentPlaygroundModule implements OnModuleInit {
         bootDelayMs: 60_000,
       },
     );
+  }
+
+  /**
+   * ★ 2026-05-12 真因修复 (skill miss "dimension-research / web-research")
+   *
+   * 顺序：
+   *   1. onModuleInit: addSkillDirectory（仅 push 配置进 skillDirectories）
+   *   2. SkillLoader.onApplicationBootstrap: 扫所有 skillDirectories，
+   *      把 SKILL.md 解析为 SkillMdDefinition 塞 localSkills Map
+   *   3. 本 onApplicationBootstrap: promptSkillBridge.registerDomain
+   *      把 localSkills["agent-playground"] 桥接到 engine SkillRegistry
+   *      → SkillActivator.resolveFromProviders 才能查到
+   *
+   * NestJS 文档保证 OnApplicationBootstrap 在所有 OnModuleInit 之后执行；
+   * 此模块依赖另一模块（SkillLoader）的 ApplicationBootstrap，二者都用
+   * onApplicationBootstrap 时按 module 注册顺序触发——加载器先于本模块
+   * 因为 SkillLoaderService 在 SkillsModule 里、被本模块 import。
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const result =
+        await this.promptSkillBridge.registerDomain("agent-playground");
+      this.playgroundLogger.log(
+        `Registered agent-playground skill domain: ${result.registered.length} skills bridged ` +
+          `(skipped=${result.skipped.length}, errors=${result.errors.length})`,
+      );
+    } catch (err) {
+      this.playgroundLogger.warn(
+        `Failed to register agent-playground skill domain: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 }

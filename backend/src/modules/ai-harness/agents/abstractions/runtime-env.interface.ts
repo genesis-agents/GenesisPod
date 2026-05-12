@@ -121,6 +121,8 @@ export interface IRuntimeEnvironment {
       | "outage"
       | "no_quota"
       | "context_too_long"
+      // —— BYOK 专用 ——
+      | "byok_quota_exceeded"
       // —— LLM 协议级（新增）——
       | "safety_refusal"
       | "truncated"
@@ -133,4 +135,12 @@ export interface IRuntimeEnvironment {
       | "verifier_low_score"
       | "schema_mismatch";
   }): Promise<IFallbackHint>;
+
+  /**
+   * 失效内部快照缓存（如刚检测到 BYOK quota 耗尽，强制下次 suggestFallback
+   * 重新查 DB 拿最新模型 health 状态）。
+   *
+   * 可选：业务方未必有缓存层（无 op 即可）。
+   */
+  invalidate?(): void;
 }

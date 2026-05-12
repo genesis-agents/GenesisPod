@@ -191,28 +191,34 @@ export class MissionElectionTracker {
       previouslyElected: ReadonlyArray<string>,
     ) => Promise<SerializedElectionResult<T>>,
   ): Promise<ReservedElectionResult<T>> {
-    return this.prisma!.$transaction(async (tx) => {
-      await tx.$queryRaw`
-        SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
-      `;
-      const entry = await this.ensureLoadedDistributedEntry(tx, missionId);
-      const { result, electedModelId } = await run(
-        this.toVisibleHistory(entry),
-      );
-      if (!electedModelId) {
-        return { result };
-      }
-      const reservation: MissionElectionReservation = {
-        token: randomUUID(),
-        modelId: electedModelId,
-        createdAt: Date.now(),
-      };
-      entry.lastAccessedAt = Date.now();
-      entry.reservations.push(reservation);
-      this.pruneExpiredReservations(entry);
-      await this.persistMissionDistributed(tx, missionId, entry);
-      return { result, reservation };
-    });
+    // ★ 2026-05-12: run() 内常含 LLM 打分调用（10-30s），prisma 默认 tx
+    //   timeout=5s 必爆 "Transaction not found"。timeout=120s 涵盖最坏延迟。
+    //   maxWait=10s 防 connection pool 满时排队太久。
+    return this.prisma!.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
+        `;
+        const entry = await this.ensureLoadedDistributedEntry(tx, missionId);
+        const { result, electedModelId } = await run(
+          this.toVisibleHistory(entry),
+        );
+        if (!electedModelId) {
+          return { result };
+        }
+        const reservation: MissionElectionReservation = {
+          token: randomUUID(),
+          modelId: electedModelId,
+          createdAt: Date.now(),
+        };
+        entry.lastAccessedAt = Date.now();
+        entry.reservations.push(reservation);
+        this.pruneExpiredReservations(entry);
+        await this.persistMissionDistributed(tx, missionId, entry);
+        return { result, reservation };
+      },
+      { maxWait: 10_000, timeout: 120_000 },
+    );
   }
 
   /**
@@ -421,15 +427,19 @@ export class MissionElectionTracker {
     mutate: (entry: MissionEntry) => Promise<boolean | void>,
   ): Promise<void> {
     if (this.prisma) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`
-          SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
-        `;
-        const entry = await this.ensureLoadedDistributedEntry(tx, missionId);
-        const changed = await mutate(entry);
-        if (changed === false) return;
-        await this.persistMissionDistributed(tx, missionId, entry);
-      });
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`
+            SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
+          `;
+          const entry = await this.ensureLoadedDistributedEntry(tx, missionId);
+          const changed = await mutate(entry);
+          if (changed === false) return;
+          await this.persistMissionDistributed(tx, missionId, entry);
+        },
+        // mutate() 可能含 LLM 评分调用，prisma 默认 5s timeout 必爆
+        { maxWait: 10_000, timeout: 120_000 },
+      );
       return;
     }
 
@@ -466,15 +476,19 @@ export class MissionElectionTracker {
 
   private async clearAsync(missionId: string): Promise<void> {
     if (this.prisma) {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`
-          SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
-        `;
-        await tx.missionElectionState.deleteMany({ where: { missionId } });
-        this.missions.delete(missionId);
-        this.missionQueues.delete(missionId);
-        await this.cache?.del(CACHE_PREFIX + missionId);
-      });
+      await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`
+            SELECT pg_advisory_xact_lock(hashtext(${this.buildLockKey(missionId)}))::text AS lock
+          `;
+          await tx.missionElectionState.deleteMany({ where: { missionId } });
+          this.missions.delete(missionId);
+          this.missionQueues.delete(missionId);
+          await this.cache?.del(CACHE_PREFIX + missionId);
+        },
+        // clear 通常很快，但 cache.del 是远程调用，给点缓冲
+        { maxWait: 5_000, timeout: 30_000 },
+      );
       return;
     }
 

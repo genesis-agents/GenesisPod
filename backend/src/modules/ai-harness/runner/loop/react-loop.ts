@@ -783,19 +783,22 @@ export class ReActLoop implements IAgentLoop {
             | "rate_limit"
             | "model_not_found"
             | "context_too_long"
-            | "outage" = "outage";
+            | "outage"
+            | "byok_quota_exceeded" = "outage";
           // ★ 2026-05-01 (mission b791054e 真因)：quota/billing 错误必须独立编码 —
           //   OpenAI insufficient_quota 文案是"You exceeded your current quota,
           //   please check your plan and billing details" — 不含 "rate limit" / "429"，
           //   原本兜底成 PROVIDER_API_ERROR + "Agent 内部错误"，掩盖了"账户余额耗尽"
           //   这一关键真因。优先级最高（先于 rate_limit 判断）。
           if (
-            /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance)/i.test(
+            /(insufficient[_\s-]?quota|exceeded[_\s\w]*quota|quota[_\s\w]*exceed|billing[_\s\w]*details|insufficient[_\s\w]*credit|insufficient[_\s\w]*balance|payment\s+required)/i.test(
               message,
             )
           ) {
             failureCode = "PROVIDER_QUOTA_EXCEEDED";
-            fallbackReason = "outage"; // 配额耗尽不能 fallback 到同 provider 其他模型
+            // ★ BYOK 单源原则：不自动跨 provider 切换，让用户去续费或申请 admin
+            //   批 KeyAssignment（也属 BYOK）。
+            fallbackReason = "byok_quota_exceeded";
           } else if (/rate.?limit|429|too many requests/i.test(message)) {
             failureCode = "PROVIDER_RATE_LIMIT";
             fallbackReason = "rate_limit";
@@ -814,6 +817,21 @@ export class ReActLoop implements IAgentLoop {
           ) {
             failureCode = "PROVIDER_TRUNCATED";
             fallbackReason = "context_too_long";
+          }
+
+          // ★ 2026-05-12: QUOTA_EXCEEDED 必须先失效 snapshot 缓存，否则
+          //   suggestFallback 拿到的还是"deepseek 健康"的旧快照，根本不知道
+          //   它已经欠费 → findSiblingModel 不会切。
+          if (
+            !aborted &&
+            failureCode === "PROVIDER_QUOTA_EXCEEDED" &&
+            currentEnvelope.runtimeEnv?.invalidate
+          ) {
+            try {
+              currentEnvelope.runtimeEnv.invalidate();
+            } catch {
+              // ignore
+            }
           }
 
           const recoveryHint =
@@ -854,6 +872,8 @@ export class ReActLoop implements IAgentLoop {
                   reason: recoveryHint.reason,
                   fallbackModelId: recoveryHint.fallbackModelId,
                   retryAfterMs: recoveryHint.retryAfterMs,
+                  // notify_user 的提示文案要透传给上层 UI（BYOK quota 之类）
+                  userMessage: recoveryHint.userMessage,
                 }
               : undefined,
           });
@@ -1179,6 +1199,8 @@ export class ReActLoop implements IAgentLoop {
                   reason: recoveryHint.reason,
                   fallbackModelId: recoveryHint.fallbackModelId,
                   retryAfterMs: recoveryHint.retryAfterMs,
+                  // notify_user 的提示文案要透传给上层 UI（BYOK quota 之类）
+                  userMessage: recoveryHint.userMessage,
                 }
               : undefined,
           });

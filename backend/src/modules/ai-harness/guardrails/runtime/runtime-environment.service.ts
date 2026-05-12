@@ -101,7 +101,7 @@ export class RuntimeEnvironmentService {
     }
 
     const [models, tools, userKeys] = await Promise.all([
-      this.discoverModels(),
+      this.discoverModels(params.userId),
       this.discoverTools(),
       this.discoverUserKeys(params.userId),
     ]);
@@ -166,7 +166,9 @@ export class RuntimeEnvironmentService {
 
   // ================== Discovery ==================
 
-  private async discoverModels(): Promise<EnvironmentSnapshot["models"]> {
+  private async discoverModels(
+    userId: string,
+  ): Promise<EnvironmentSnapshot["models"]> {
     const empty = {
       CHAT: [] as RuntimeModelCapability[],
       REASONING: [] as RuntimeModelCapability[],
@@ -176,24 +178,77 @@ export class RuntimeEnvironmentService {
     if (!this.prisma) return empty;
 
     try {
-      const rows = await this.prisma.aIModel.findMany({
+      // ★ 2026-05-12 真因修复（BYOK quota fallback 不工作）：
+      //   原来只读 admin AIModel 表，用户 BYOK 的 UserModelConfig 完全没进
+      //   model pool → findSiblingModel 返回 undefined → QUOTA_EXCEEDED 时
+      //   ReActLoop 没法 fallback。
+      //   修法：同时读 UserModelConfig 并以 userId+modelId 维度合并，admin
+      //   AIModel 兜底。BYOK 优先于 admin（避免被禁用的 admin 行盖掉用户私
+      //   有模型）。
+      //   注意：不用 Promise.all（caller 在测试 mock 里可能漏 mock
+      //   userModelConfig，导致 unhandled rejection 把 worker 弄崩）；
+      //   两次 await + try 各包让其中一个失败不影响另一个。
+      const adminRows = await this.prisma.aIModel.findMany({
         where: { isEnabled: true },
         select: {
           modelId: true,
           provider: true,
           modelType: true,
           maxTokens: true,
-          // AIModel.isReasoning 是操作员在管理后台勾选的事实声明，之前被
-          // discoverModels 遗漏，导致 reconciler 把 gpt-5 / o1 / deepseek-r1
-          // 等已明确标 isReasoning=true 的模型错误地只归到 CHAT 桶。
           isReasoning: true,
-          // supportsVision 是 VISION 桶的唯一权威来源：DB AIModelType enum
-          // 不含 VISION，只有通过 supportsVision=true 才能识别多模态模型。
           supportsVision: true,
-          // costTier 从 DB 读，不再用模型名 startsWith 启发式
           costTier: true,
         },
       });
+      let userRows: Array<{
+        modelId: string;
+        provider: string;
+        modelType: string;
+        maxTokens: number;
+        isReasoning: boolean | null;
+        supportsVision: boolean | null;
+      }> = [];
+      try {
+        userRows = await this.prisma.userModelConfig.findMany({
+          where: { userId, isEnabled: true },
+          select: {
+            modelId: true,
+            provider: true,
+            modelType: true,
+            maxTokens: true,
+            isReasoning: true,
+            supportsVision: true,
+          },
+        });
+      } catch (err) {
+        this.logger.warn(
+          `discoverModels: userModelConfig read failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      // 合并：BYOK 优先（先 push 进 rows），admin 兜底。同 modelId+provider
+      // 重复时 BYOK 留下。
+      const seenKey = new Set<string>();
+      const rows: Array<{
+        modelId: string;
+        provider: string;
+        modelType: string;
+        maxTokens: number;
+        isReasoning: boolean | null;
+        supportsVision: boolean | null;
+        costTier: string | null;
+      }> = [];
+      for (const r of userRows) {
+        const key = `${r.provider}::${r.modelId}`;
+        if (seenKey.has(key)) continue;
+        seenKey.add(key);
+        rows.push({ ...r, costTier: null }); // UserModelConfig 暂无 costTier 字段
+      }
+      for (const r of adminRows) {
+        const key = `${r.provider}::${r.modelId}`;
+        if (seenKey.has(key)) continue;
+        seenKey.add(key);
+        rows.push(r);
+      }
 
       // 最近 1 小时错误率（ai_engine_metrics 表可能不存在，包 try）
       const since = new Date(Date.now() - 60 * 60 * 1000);

@@ -159,7 +159,9 @@ describe("SearchService (supplemental)", () => {
         provider: "serper",
       });
 
-      // Trigger a 400 error on serper
+      // Trigger a 400 error on serper with "Quota exceeded" body
+      // 2026-05-12：search service 把 400+quota-in-body 规范化为 402（标准
+      // payment-required 语义），让 24h 长冷却路径生效。
       httpService.post.mockReturnValueOnce(
         makeAxiosError(400, "Quota exceeded"),
       );
@@ -169,7 +171,7 @@ describe("SearchService (supplemental)", () => {
 
       const statuses = await service.getKeyHealthStatus("serper");
       expect(statuses[0].isHealthy).toBe(false);
-      expect(statuses[0].lastError).toBe("HTTP 400");
+      expect(statuses[0].lastError).toBe("HTTP 402");
       // Cooldown until should be far in future (24h)
       expect(statuses[0].cooldownUntil).toBeDefined();
     });
