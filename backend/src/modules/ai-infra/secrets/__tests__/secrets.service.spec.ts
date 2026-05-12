@@ -69,6 +69,13 @@ describe("SecretsService", () => {
       aIModel: {
         findMany: jest.fn().mockResolvedValue([]),
       } as unknown as PrismaService["aIModel"],
+      // 2026-05-12 PR-5: getReferences 扩到 ToolConfig + MCPServerConfig
+      toolConfig: {
+        findMany: jest.fn().mockResolvedValue([]),
+      } as unknown as PrismaService["toolConfig"],
+      mCPServerConfig: {
+        findMany: jest.fn().mockResolvedValue([]),
+      } as unknown as PrismaService["mCPServerConfig"],
       systemSetting: {
         findUnique: jest.fn().mockResolvedValue(null),
       } as unknown as PrismaService["systemSetting"],

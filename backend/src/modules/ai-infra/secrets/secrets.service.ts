@@ -560,8 +560,16 @@ export class SecretsService {
 
   async getReferences(name: string): Promise<SecretReference[]> {
     const references: SecretReference[] = [];
+
+    // 2026-05-12 PR-5: 引用扫描扩充到全部消费方
+    //   - AIModel.secretKey (新方式) + apiKey contains (legacy fuzzy)
+    //   - ToolConfig.secretKey
+    //   - MCPServerConfig.secretKey
+    // 删除前 block：避免删 Secret 后 admin 看不到 broken 引用导致工具静默 fail。
     const aiModels = await this.prisma.aIModel.findMany({
-      where: { OR: [{ apiKey: { contains: name } }] },
+      where: {
+        OR: [{ secretKey: name }, { apiKey: { contains: name } }],
+      },
       select: { id: true, displayName: true },
     });
     for (const model of aiModels) {
@@ -571,6 +579,31 @@ export class SecretsService {
         name: model.displayName,
       });
     }
+
+    const toolConfigs = await this.prisma.toolConfig.findMany({
+      where: { secretKey: name },
+      select: { id: true, toolId: true, displayName: true },
+    });
+    for (const tool of toolConfigs) {
+      references.push({
+        type: "external_api",
+        id: tool.id,
+        name: tool.displayName || tool.toolId,
+      });
+    }
+
+    const mcpServers = await this.prisma.mCPServerConfig.findMany({
+      where: { secretKey: name },
+      select: { id: true, name: true },
+    });
+    for (const mcp of mcpServers) {
+      references.push({
+        type: "external_api",
+        id: mcp.id,
+        name: mcp.name,
+      });
+    }
+
     return references;
   }
 
