@@ -437,11 +437,38 @@ function BuiltinToolDrawer({
   const [secretKeyDraft, setSecretKeyDraft] = useState(tool?.secretKey ?? '');
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [secretNames, setSecretNames] = useState<string[]>([]);
 
   useEffect(() => {
     setApiKeyDraft('');
     setSecretKeyDraft(tool?.secretKey ?? '');
     setSaveMessage(null);
+  }, [tool]);
+
+  // 2026-05-12 拉 admin/secrets/names 喂 <datalist>；失败静默——admin 仍可手输。
+  useEffect(() => {
+    if (!tool) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${config.apiUrl}/admin/secrets/names`, {
+          headers: getAuthHeader(),
+        });
+        if (!res.ok) return;
+        const raw = await res.json();
+        const data = raw?.data ?? raw;
+        if (!cancelled && Array.isArray(data)) {
+          setSecretNames(
+            data.filter((n): n is string => typeof n === 'string')
+          );
+        }
+      } catch (e) {
+        logger.error('[BuiltinToolDrawer] load secret names failed', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [tool]);
 
   if (!tool) {
@@ -556,6 +583,11 @@ function BuiltinToolDrawer({
                   type="password"
                   value={apiKeyDraft}
                   onChange={(e) => setApiKeyDraft(e.target.value)}
+                  name={`tool-api-key-${tool.toolId}`}
+                  autoComplete="new-password"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   placeholder={
                     tool.config &&
                     typeof tool.config === 'object' &&
@@ -586,12 +618,24 @@ function BuiltinToolDrawer({
               </label>
               <div className="flex items-center gap-2">
                 <input
-                  type="text"
+                  type="search"
+                  name={`tool-secret-ref-${tool.toolId}`}
+                  autoComplete="off"
+                  list={`secret-names-builtin-${tool.toolId}`}
                   value={secretKeyDraft}
                   onChange={(e) => setSecretKeyDraft(e.target.value)}
-                  placeholder="secret key name (如 perplexity_api_key)"
+                  placeholder={
+                    secretNames.length > 0
+                      ? `从 ${secretNames.length} 个已配置秘钥选择 / 输入新名称`
+                      : 'secret key name (如 perplexity_api_key)'
+                  }
                   className="font-mono flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
+                <datalist id={`secret-names-builtin-${tool.toolId}`}>
+                  {secretNames.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
                 <button
                   type="button"
                   onClick={() => void saveApiKey('secretKey')}
@@ -601,6 +645,12 @@ function BuiltinToolDrawer({
                   保存引用
                 </button>
               </div>
+              {secretNames.length > 0 && (
+                <p className="text-[11px] text-gray-500">
+                  下拉显示 admin 已在 Secret Manager
+                  创建的秘钥；也可手输未列出的新名称
+                </p>
+              )}
             </div>
 
             {(tool.secretKey ||
