@@ -475,6 +475,8 @@ describe("EmbeddingService", () => {
         "sk-test-key",
         "text-embedding-3-small",
         ["test text"],
+        undefined, // timeout (default)
+        { dimensions: 1536 }, // Matryoshka 维度透传
       );
     });
 
@@ -512,6 +514,89 @@ describe("EmbeddingService", () => {
       await service.generateEmbedding("test");
 
       expect(mockAiApiCallerService.callCohereEmbeddingAPI).toHaveBeenCalled();
+    });
+
+    // ★ 2026-05-12 二弹: taskType / dimensions routing
+    it("routes taskType:'query' to Cohere as input_type='search_query'", async () => {
+      service.clearConfigCache();
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
+        ...mockOpenAIModel,
+        provider: "cohere",
+        apiFormat: "cohere",
+        secretKey: "COHERE_API_KEY",
+      });
+      mockSecretsService.getValueInternal.mockResolvedValue("cohere-key");
+      mockAiApiCallerService.callCohereEmbeddingAPI.mockResolvedValue(
+        MOCK_EMBEDDING_RESULT,
+      );
+
+      await service.generateEmbedding("test", { taskType: "query" });
+
+      expect(
+        mockAiApiCallerService.callCohereEmbeddingAPI,
+      ).toHaveBeenCalledWith(
+        expect.any(String),
+        "cohere-key",
+        "text-embedding-3-small",
+        ["test"],
+        "search_query",
+      );
+    });
+
+    it("routes taskType:'query' + dimensions to Google as task_type+outputDim", async () => {
+      service.clearConfigCache();
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
+        ...mockOpenAIModel,
+        provider: "google",
+        apiFormat: "google",
+        secretKey: "GOOGLE_API_KEY",
+      });
+      mockSecretsService.getValueInternal.mockResolvedValue("google-key");
+      mockAiApiCallerService.callGoogleEmbeddingAPI.mockResolvedValue(
+        MOCK_EMBEDDING_RESULT,
+      );
+
+      await service.generateEmbedding("test", {
+        taskType: "query",
+        dimensions: 768,
+      });
+
+      expect(
+        mockAiApiCallerService.callGoogleEmbeddingAPI,
+      ).toHaveBeenCalledWith(
+        expect.any(String),
+        "google-key",
+        "text-embedding-3-small",
+        ["test"],
+        undefined,
+        { taskType: "query", dimensions: 768 },
+      );
+    });
+
+    it("default taskType is document (Cohere → search_document)", async () => {
+      service.clearConfigCache();
+      mockPrisma.aIModel.findFirst.mockResolvedValue({
+        ...mockOpenAIModel,
+        provider: "cohere",
+        apiFormat: "cohere",
+        secretKey: "COHERE_API_KEY",
+      });
+      mockSecretsService.getValueInternal.mockResolvedValue("cohere-key");
+      mockAiApiCallerService.callCohereEmbeddingAPI.mockResolvedValue(
+        MOCK_EMBEDDING_RESULT,
+      );
+
+      await service.generateEmbedding("test");
+
+      expect(
+        mockAiApiCallerService.callCohereEmbeddingAPI,
+      ).toHaveBeenCalledWith(
+        expect.any(String),
+        "cohere-key",
+        "text-embedding-3-small",
+        ["test"],
+        "search_document",
+      );
     });
   });
 

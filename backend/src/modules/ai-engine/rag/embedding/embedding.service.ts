@@ -33,6 +33,30 @@ const MAX_BATCH_SIZE = 100;
 const COHERE_MAX_BATCH_SIZE = 96;
 
 /**
+ * EmbeddingTaskType → Cohere input_type 映射
+ *   - document → search_document（向量库存储）
+ *   - query → search_query（检索查询）
+ *   - similarity → classification（语义相似度走 classification embedding 空间）
+ *   - classification → classification
+ *   - clustering → clustering
+ * 见 https://docs.cohere.com/docs/embed-api
+ */
+function cohereInputType(taskType: string): string {
+  switch (taskType) {
+    case "query":
+      return "search_query";
+    case "similarity":
+    case "classification":
+      return "classification";
+    case "clustering":
+      return "clustering";
+    case "document":
+    default:
+      return "search_document";
+  }
+}
+
+/**
  * Embedding 模型配置
  */
 export interface EmbeddingModelConfig {
@@ -72,6 +96,24 @@ export interface EmbeddingBatch {
 }
 
 /**
+ * Embedding 任务类型 —— 影响 provider 端编码空间。
+ *
+ * Cohere v3 / Google gemini-embedding-001 / Voyage v3 都按 task 区分编码：
+ *   - document: 向量库存储用（文档侧）
+ *   - query: 检索查询用
+ *   - similarity / classification / clustering: 其他场景
+ *
+ * OpenAI text-embedding-3-* 不区分（同一模型）—— 字段会被忽略，无副作用。
+ * 不传 → 默认 "document"（最常见：向量化 KB chunk）。
+ */
+export type EmbeddingTaskType =
+  | "document"
+  | "query"
+  | "similarity"
+  | "classification"
+  | "clustering";
+
+/**
  * generateEmbeddings 调用选项
  *
  * ★ 2026-05-12: 加 maxRetries 让带 TPM-aware 外层节流的 caller（如
@@ -79,6 +121,10 @@ export interface EmbeddingBatch {
  *   否则 1 个外层 batch 在 ~4s 内打 3 个 HTTP 给 Google，
  *   peak burst 直接 429 + quota window 被污染。
  *   外层已有更智能的 60s 等-滚-quota-window 重试。
+ *
+ * ★ 2026-05-12 (二弹): 加 taskType + dimensions
+ *   - taskType: 区分 document / query，Cohere/Google/Voyage 端编码空间不同
+ *   - dimensions: Matryoshka 截断，OpenAI 3-* + Gemini 支持
  */
 export interface EmbeddingCallOptions {
   /**
@@ -87,6 +133,17 @@ export interface EmbeddingCallOptions {
    *   - 1：禁用内层重试，全交给外层节流（推荐：外层有 TPM-aware throttle）
    */
   maxRetries?: number;
+  /**
+   * 任务类型 —— 决定 Cohere input_type / Google task_type / Voyage input_type。
+   * 不传 → "document"。OpenAI text-embedding-* 会忽略此字段。
+   */
+  taskType?: EmbeddingTaskType;
+  /**
+   * 输出维度 —— OpenAI text-embedding-3-* 支持 (256/512/1024/1536/3072),
+   * Google gemini-embedding-001 支持 (768/1536/3072)。
+   * 不传 → 用 EmbeddingModelConfig.dimensions（admin 配置）。
+   */
+  dimensions?: number;
 }
 
 @Injectable()
@@ -448,9 +505,14 @@ export class EmbeddingService {
 
   /**
    * 生成单个文本的嵌入
+   *
+   * ★ 2026-05-12: 加 options 让查询侧 caller 传 taskType:"query"
    */
-  async generateEmbedding(text: string): Promise<EmbeddingResult> {
-    const result = await this.generateEmbeddings([text]);
+  async generateEmbedding(
+    text: string,
+    options?: EmbeddingCallOptions,
+  ): Promise<EmbeddingResult> {
+    const result = await this.generateEmbeddings([text], options);
     return {
       text,
       embedding: result.embeddings[0],
@@ -556,7 +618,7 @@ export class EmbeddingService {
       let succeeded = false;
       for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
-          const result = await this.callEmbeddingAPI(config, batch);
+          const result = await this.callEmbeddingAPI(config, batch, options);
           allEmbeddings.push(...result.embeddings);
           totalTokens += result.totalTokens;
           this.logger.debug(
@@ -645,11 +707,21 @@ export class EmbeddingService {
 
   /**
    * 根据 apiFormat 路由到对应的 embedding API
+   *
+   * ★ 2026-05-12 (二弹): 传 taskType + dimensions 给 provider 端：
+   *   - Cohere → input_type ("search_document" / "search_query" / 等)
+   *   - Google → task_type ("RETRIEVAL_DOCUMENT" / "RETRIEVAL_QUERY" / 等)
+   *   - OpenAI → 只传 dimensions（OpenAI 不支持 task_type，会忽略）
+   *   - Voyage 走 openai-compat 默认分支，input_type 暂不传——
+   *     如需 Voyage 完整支持，新增 apiFormat="voyage" 分支
    */
   private async callEmbeddingAPI(
     config: EmbeddingModelConfig,
     inputs: string[],
+    options?: EmbeddingCallOptions,
   ) {
+    const taskType = options?.taskType ?? "document";
+    const dimensions = options?.dimensions ?? config.dimensions;
     switch (config.apiFormat) {
       case "google":
         return this.aiApiCallerService.callGoogleEmbeddingAPI(
@@ -657,6 +729,8 @@ export class EmbeddingService {
           config.apiKey,
           config.modelId,
           inputs,
+          undefined,
+          { taskType, dimensions },
         );
       case "cohere":
         return this.aiApiCallerService.callCohereEmbeddingAPI(
@@ -664,6 +738,7 @@ export class EmbeddingService {
           config.apiKey,
           config.modelId,
           inputs,
+          cohereInputType(taskType),
         );
       default:
         // openai, xai, deepseek 等都走 OpenAI 兼容格式
@@ -672,6 +747,8 @@ export class EmbeddingService {
           config.apiKey,
           config.modelId,
           inputs,
+          undefined,
+          { dimensions },
         );
     }
   }

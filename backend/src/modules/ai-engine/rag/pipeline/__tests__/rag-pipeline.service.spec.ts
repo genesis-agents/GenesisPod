@@ -344,6 +344,7 @@ describe("RAGPipelineService", () => {
       const results = await service.simpleQuery("test query", ["kb-1"]);
       expect(mockEmbeddingService.generateEmbedding).toHaveBeenCalledWith(
         "test query",
+        { taskType: "query" },
       );
       expect(results).toBeDefined();
     });

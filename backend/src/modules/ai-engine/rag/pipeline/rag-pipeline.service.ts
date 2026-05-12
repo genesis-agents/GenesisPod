@@ -80,8 +80,12 @@ export class RAGPipelineService {
     // Stage 2: Hybrid Search
     const searchStart = Date.now();
     const queryForSearch = hydeQuery || request.query;
-    const queryEmbedding =
-      await this.embeddingService.generateEmbedding(queryForSearch);
+    // ★ 2026-05-12: taskType:"query" 让 Cohere/Google/Voyage 用 query 编码空间
+    //   （与存储侧 "document" 区分）。不区分会让召回率掉 5-15%。
+    const queryEmbedding = await this.embeddingService.generateEmbedding(
+      queryForSearch,
+      { taskType: "query" },
+    );
 
     // ★ 全覆盖审计修 (2026-05-06): hybridSearch 现在返回 quality 信号
     const {
@@ -191,9 +195,7 @@ Focus on being specific and informative.`;
    *
    * ★ 全覆盖审计修 (2026-05-06): 返回 quality 信号，vector search 失败时 quality='degraded'
    */
-  private async hybridSearch(
-    params: HybridSearchParams,
-  ): Promise<{
+  private async hybridSearch(params: HybridSearchParams): Promise<{
     results: SearchResult[];
     quality: RAGQuality;
     degradedReason?: string;
@@ -648,7 +650,9 @@ Focus on being specific and informative.`;
     knowledgeBaseIds: string[],
     topK: number = 5,
   ): Promise<SearchResult[]> {
-    const embedding = await this.embeddingService.generateEmbedding(query);
+    const embedding = await this.embeddingService.generateEmbedding(query, {
+      taskType: "query",
+    });
     return this.vectorSearch(embedding.embedding, knowledgeBaseIds, topK);
   }
 }

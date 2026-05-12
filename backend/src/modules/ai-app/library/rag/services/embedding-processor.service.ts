@@ -56,12 +56,23 @@ const PROVIDER_TPM_HEURISTIC: Record<string, number> = {
 const FALLBACK_TPM = 100_000;
 
 /**
- * Token 估算：~3 chars/token (中英混合保守值)。
- * 中文比英文 token-dense，3 取折中——cl100k 实测中文 ~1.7 char/token，
- * 英文 ~4 char/token。
+ * Token 估算：CJK-aware（2026-05-12 二弹修正）。
+ *
+ * 历史问题：单一 /3 估算对纯中文 KB 偏低 ~50%（cl100k 中文 ~1.7 char/token），
+ * Gemini 30K TPM 实际 ~15K tokens 就到顶，但节流以为还没用满 → 仍 429。
+ *
+ * 改：分别统计 CJK 与 non-CJK 字符，按各自的 char/token 系数算。
+ *   - CJK Unified Ideographs (U+3400-9FFF) + 兼容汉字 + 假名：~1.5 char/token
+ *   - 拉丁字母 / 数字 / 标点：~4 char/token
+ * 取保守值（CJK 1.5, latin 3.5）防 underestimate。
  */
+const CJK_REGEX = /[㐀-鿿豈-﫿぀-ヿ가-힯]/g;
 function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 3);
+  if (!text) return 0;
+  const cjkMatches = text.match(CJK_REGEX);
+  const cjkLen = cjkMatches ? cjkMatches.length : 0;
+  const otherLen = text.length - cjkLen;
+  return Math.ceil(cjkLen / 1.5 + otherLen / 3.5);
 }
 
 /**
@@ -355,6 +366,12 @@ export class EmbeddingProcessorService {
           const msg = error instanceof Error ? error.message : String(error);
           const cooldownIso = this.extractCircuitOpenCooldown(msg);
           const is429 = /429|rate.?limit|too many requests/i.test(msg);
+          // ★ 2026-05-12 二弹: provider 返回 Retry-After header → ai-api-caller
+          //   会写到 message 里 "[retry-after=Ns]"。用这个精确值代替粗估 60s。
+          const retryAfterMatch = msg.match(/\[retry-after=(\d+)s\]/);
+          const retryAfterSec = retryAfterMatch
+            ? Number.parseInt(retryAfterMatch[1], 10)
+            : null;
 
           // ★ 2026-05-12: 不只 circuit-open 重试，普通 429 也重试一次。
           //   gemini free tier 5 RPM 在 EmbeddingService 内 3 次重试就能把
@@ -375,8 +392,15 @@ export class EmbeddingProcessorService {
                 COOLDOWN_MAX_WAIT_MS,
               );
               cooldownUntil = cooldownIso;
+            } else if (retryAfterSec && retryAfterSec > 0) {
+              // provider 给出精确 retry-after，按它等（+500ms buffer）
+              waitMs = Math.min(
+                retryAfterSec * 1000 + COOLDOWN_RETRY_BUFFER_MS,
+                COOLDOWN_MAX_WAIT_MS,
+              );
+              cooldownUntil = new Date(Date.now() + waitMs).toISOString();
             } else {
-              // 普通 429: 等 60s 让 upstream rate-limit window 完整滚一圈
+              // 普通 429 无 retry-after: 等 60s 让 upstream rate-limit window 滚一圈
               waitMs = Math.min(60_000, COOLDOWN_MAX_WAIT_MS);
               cooldownUntil = new Date(Date.now() + waitMs).toISOString();
             }

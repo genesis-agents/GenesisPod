@@ -528,8 +528,11 @@ ${summaryText}
     }
 
     try {
-      const queryEmbedding =
-        await this.embeddingService.generateEmbedding(query);
+      // ★ 2026-05-12: taskType:"query" 与存储侧"document"对齐编码空间
+      const queryEmbedding = await this.embeddingService.generateEmbedding(
+        query,
+        { taskType: "query" },
+      );
 
       // 计算相似度并排序
       const scored = summaries

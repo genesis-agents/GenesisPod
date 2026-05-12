@@ -1023,6 +1023,11 @@ export class AiApiCallerService {
   /**
    * 调用 OpenAI 兼容格式的 Embedding API（OpenAI, xAI, DeepSeek 等）
    * POST {endpoint}/embeddings, Bearer auth
+   *
+   * ★ 2026-05-12: 加 options.dimensions —— OpenAI text-embedding-3-* 的
+   *   Matryoshka 维度截断。其他兼容 provider 不支持的字段会被忽略。
+   * ★ 2026-05-12: 429 时读 Retry-After header，包装到 error message 让外层
+   *   节流用更精确的 cooldown（fallback 60s 是粗估）。
    */
   async callOpenAICompatibleEmbeddingAPI(
     apiEndpoint: string,
@@ -1030,6 +1035,7 @@ export class AiApiCallerService {
     modelId: string,
     inputs: string[],
     timeout: number = 60000,
+    options?: { dimensions?: number },
   ): Promise<EmbeddingApiResult> {
     // 2026-05-10 §2/§4：单源归一化。
     const embeddingsUrl =
@@ -1040,19 +1046,25 @@ export class AiApiCallerService {
       `[callOpenAICompatibleEmbeddingAPI] model=${modelId}, inputs=${inputs.length}, endpoint=${embeddingsUrl.substring(0, 60)}...`,
     );
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        embeddingsUrl,
-        { model: modelId, input: inputs },
-        {
+    const body: Record<string, unknown> = { model: modelId, input: inputs };
+    if (options?.dimensions && options.dimensions > 0) {
+      body.dimensions = options.dimensions;
+    }
+
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.post(embeddingsUrl, body, {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             "Content-Type": "application/json",
           },
           timeout,
-        },
-      ),
-    );
+        }),
+      );
+    } catch (error) {
+      throw wrapEmbeddingError(error);
+    }
 
     const data = response.data;
     const embeddings = (data.data || []).map(
@@ -1068,6 +1080,13 @@ export class AiApiCallerService {
   /**
    * 调用 Google 原生 Embedding API
    * POST {baseUrl}/models/{model}:batchEmbedContents, x-goog-api-key header
+   *
+   * ★ 2026-05-12: 加 options.taskType —— Gemini gemini-embedding-001 必须按
+   *   task 区分编码，document 与 query 用不同向量空间。不传 → 默认
+   *   RETRIEVAL_DOCUMENT（最常见：向量化 KB chunk）。
+   *   不区分会让检索召回率掉 5-15%。
+   * ★ 2026-05-12: 加 options.dimensions —— gemini-embedding-001 Matryoshka 支持
+   *   768/1536/3072 输出。
    */
   async callGoogleEmbeddingAPI(
     apiEndpoint: string,
@@ -1075,32 +1094,46 @@ export class AiApiCallerService {
     modelId: string,
     inputs: string[],
     timeout: number = 60000,
+    options?: { taskType?: string; dimensions?: number },
   ): Promise<EmbeddingApiResult> {
     // 2026-05-10 §2/§4：单源归一化。
     const apiUrl = ensureGeminiBatchEmbedContentsPath(apiEndpoint, modelId);
 
+    const taskType = googleTaskType(options?.taskType);
+    const outputDimensionality =
+      options?.dimensions && options.dimensions > 0
+        ? options.dimensions
+        : undefined;
+
     this.logger.debug(
-      `[callGoogleEmbeddingAPI] model=${modelId}, inputs=${inputs.length} (google format)`,
+      `[callGoogleEmbeddingAPI] model=${modelId}, inputs=${inputs.length}, task=${taskType} (google format)`,
     );
 
     const requests = inputs.map((text) => ({
       model: `models/${modelId}`,
       content: { parts: [{ text }] },
+      taskType,
+      ...(outputDimensionality ? { outputDimensionality } : {}),
     }));
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        apiUrl,
-        { requests },
-        {
-          headers: {
-            "x-goog-api-key": apiKey,
-            "Content-Type": "application/json",
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.post(
+          apiUrl,
+          { requests },
+          {
+            headers: {
+              "x-goog-api-key": apiKey,
+              "Content-Type": "application/json",
+            },
+            timeout,
           },
-          timeout,
-        },
-      ),
-    );
+        ),
+      );
+    } catch (error) {
+      throw wrapEmbeddingError(error);
+    }
 
     const data = response.data;
     const embeddings = (data.embeddings || []).map(
@@ -1116,6 +1149,9 @@ export class AiApiCallerService {
   /**
    * 调用 Cohere Embedding API
    * POST {endpoint}/embed, Bearer auth, input_type: "search_document"
+   *
+   * ★ 2026-05-12: 默认 search_document，caller 应按场景传 search_query
+   *   （查询侧），不区分会让检索召回率掉 5-15%。
    */
   async callCohereEmbeddingAPI(
     apiEndpoint: string,
@@ -1130,26 +1166,31 @@ export class AiApiCallerService {
       ensureCohereEmbedPath(apiEndpoint) || "https://api.cohere.com/v1/embed";
 
     this.logger.debug(
-      `[callCohereEmbeddingAPI] model=${modelId}, inputs=${inputs.length} (cohere format)`,
+      `[callCohereEmbeddingAPI] model=${modelId}, inputs=${inputs.length}, input_type=${inputType} (cohere format)`,
     );
 
-    const response = await firstValueFrom(
-      this.httpService.post(
-        embedUrl,
-        {
-          model: modelId,
-          texts: inputs,
-          input_type: inputType,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.post(
+          embedUrl,
+          {
+            model: modelId,
+            texts: inputs,
+            input_type: inputType,
           },
-          timeout,
-        },
-      ),
-    );
+          {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            timeout,
+          },
+        ),
+      );
+    } catch (error) {
+      throw wrapEmbeddingError(error);
+    }
 
     const data = response.data;
     const embeddings: number[][] = data.embeddings || [];
@@ -1159,4 +1200,66 @@ export class AiApiCallerService {
       model: modelId,
     };
   }
+}
+
+/**
+ * EmbeddingTaskType → Google task_type 映射
+ * https://ai.google.dev/api/embeddings#TaskType
+ */
+function googleTaskType(taskType?: string): string {
+  switch (taskType) {
+    case "query":
+      return "RETRIEVAL_QUERY";
+    case "similarity":
+      return "SEMANTIC_SIMILARITY";
+    case "classification":
+      return "CLASSIFICATION";
+    case "clustering":
+      return "CLUSTERING";
+    case "document":
+    default:
+      return "RETRIEVAL_DOCUMENT";
+  }
+}
+
+/**
+ * Embedding 调用失败时包装错误：
+ *   - 把 429 响应里的 Retry-After header 提到 message 里（[retry-after=Ns]）
+ *     让外层节流读到精确秒数，否则只能粗估 60s。
+ *   - 保留原始 message + status，便于上游分类。
+ */
+function wrapEmbeddingError(error: unknown): Error {
+  if (!error || typeof error !== "object") {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+  const err = error as {
+    response?: {
+      status?: number;
+      headers?: Record<string, string | string[] | undefined>;
+      data?: unknown;
+    };
+    message?: string;
+  };
+  const status = err.response?.status;
+  const headers = err.response?.headers ?? {};
+  // 大小写都查，axios/got 不一致
+  const retryAfterRaw =
+    headers["retry-after"] ?? headers["Retry-After"] ?? undefined;
+  const retryAfter = Array.isArray(retryAfterRaw)
+    ? retryAfterRaw[0]
+    : retryAfterRaw;
+
+  let suffix = "";
+  if (status === 429 && retryAfter) {
+    // Retry-After 可以是秒数（"17"）或 HTTP date；秒数最常见
+    const secs = Number.parseInt(String(retryAfter), 10);
+    if (Number.isFinite(secs) && secs > 0 && secs < 3600) {
+      suffix = ` [retry-after=${secs}s]`;
+    }
+  }
+  const baseMsg = err.message ?? String(err);
+  const wrapped = new Error(`${baseMsg}${suffix}`);
+  // 保留 axios shape 让上游 isRateLimitError 仍能识别 429
+  (wrapped as unknown as { response: unknown }).response = err.response;
+  return wrapped;
 }
