@@ -281,6 +281,7 @@ import {
 } from "../../../ai-engine/facade";
 import { MCPManager } from "../../../ai-harness/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
+import { enrichToolsWithSecretHealth } from "./tool-secret-health.helper";
 
 /**
  * AI 能力管理服务
@@ -1047,89 +1048,8 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
 
     // ★ 2026-05-12: 富化每个 tool 的密钥健康字段（hits / lastUsed / status / lastError）
     //   让 admin /admin/ai/tools 看到工具是否真在跑 + 上次失败原因，无需翻 Railway log。
-    //   实现：JOIN ToolConfig.secretKey → Secret.name → SecretKey 聚合 active 行最新状态。
-    //   工具未配 secretKey（如纯本地工具）→ 字段全 null（前端显示 '—'）。
-    const secretNames = Array.from(
-      new Set(tools.map((t) => t.secretKey).filter(Boolean) as string[]),
-    );
-    type SecretHealth = {
-      accessCount: number;
-      lastUsedAt: Date | null;
-      testStatus: string | null;
-      lastErrorCode: string | null;
-      lastErrorMessage: string | null;
-    };
-    const secretHealthByName = new Map<string, SecretHealth>();
-    if (secretNames.length > 0) {
-      const secrets = await this.prisma.secret.findMany({
-        where: { name: { in: secretNames }, deletedAt: null, isActive: true },
-        select: { id: true, name: true },
-      });
-      const secretIdToName = new Map(secrets.map((s) => [s.id, s.name]));
-      const keys = await this.prisma.secretKey.findMany({
-        where: { secretId: { in: secrets.map((s) => s.id) }, isActive: true },
-        select: {
-          secretId: true,
-          accessCount: true,
-          lastUsedAt: true,
-          testStatus: true,
-          lastErrorCode: true,
-          lastErrorMessage: true,
-        },
-      });
-      // 一个 secret 下多 KEY 时聚合：accessCount 求和；lastUsedAt 取 max；
-      // testStatus 优先级 success > unknown > failed（任一 success 整体 healthy）。
-      const STATUS_RANK: Record<string, number> = {
-        success: 3,
-        unknown: 2,
-        failed: 1,
-      };
-      const aggMap = new Map<string, SecretHealth>();
-      for (const k of keys) {
-        const name = secretIdToName.get(k.secretId);
-        if (!name) continue;
-        const cur = aggMap.get(name) ?? {
-          accessCount: 0,
-          lastUsedAt: null,
-          testStatus: null,
-          lastErrorCode: null,
-          lastErrorMessage: null,
-        };
-        cur.accessCount += k.accessCount ?? 0;
-        if (
-          k.lastUsedAt &&
-          (!cur.lastUsedAt || k.lastUsedAt > cur.lastUsedAt)
-        ) {
-          cur.lastUsedAt = k.lastUsedAt;
-        }
-        const curRank = cur.testStatus ? (STATUS_RANK[cur.testStatus] ?? 0) : 0;
-        const newRank = k.testStatus ? (STATUS_RANK[k.testStatus] ?? 0) : 0;
-        if (newRank > curRank) {
-          cur.testStatus = k.testStatus;
-          // 最高优先 status 同步带它的错误信息（健康状态对应的错误）
-          cur.lastErrorCode = k.lastErrorCode;
-          cur.lastErrorMessage = k.lastErrorMessage;
-        }
-        aggMap.set(name, cur);
-      }
-      for (const [name, h] of aggMap.entries()) {
-        secretHealthByName.set(name, h);
-      }
-    }
-    const enrichedTools = tools.map((t) => {
-      const health =
-        t.secretKey != null
-          ? (secretHealthByName.get(t.secretKey) ?? null)
-          : null;
-      return {
-        ...t,
-        // 4 个新字段：与 SecretKey 表 admin 列一致命名
-        accessCount: health?.accessCount ?? null,
-        lastUsedAt: health?.lastUsedAt?.toISOString() ?? null,
-        testStatus: health?.testStatus ?? null,
-        lastErrorCode: health?.lastErrorCode ?? null,
-      };
-    });
+    //   实现拆到 tool-secret-health.helper.ts（god-class size guard）。
+    const enrichedTools = await enrichToolsWithSecretHealth(this.prisma, tools);
 
     // 统计信息
     const stats = {
