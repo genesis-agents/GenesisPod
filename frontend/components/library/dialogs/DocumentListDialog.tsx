@@ -29,6 +29,15 @@ interface Document {
   isVectorized?: boolean;
   createdAt?: string;
   mimeType?: string;
+  // W1 v2.0 rebuild: preparse 状态（URL/YT 文档的源语料富化进度）
+  metadata?: {
+    preparse?: {
+      status: 'pending' | 'parsing' | 'ready' | 'failed';
+      mediaUrls?: string[];
+      sourceLocale?: 'zh' | 'en';
+      errorCode?: string;
+    };
+  };
 }
 
 interface DocumentListDialogProps {
@@ -222,6 +231,9 @@ export default function DocumentListDialog({
                             {getSourceLabel(doc.sourceType)}
                           </span>
 
+                          {/* W1 v2.0: 预解析状态徽章 */}
+                          <PreparseBadge preparse={doc.metadata?.preparse} />
+
                           {/* Chunks */}
                           {doc.chunkCount > 0 && (
                             <span className="flex items-center gap-1">
@@ -286,5 +298,60 @@ export default function DocumentListDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * W1 v2.0 rebuild：preparse 状态徽章。
+ * 仅 URL / YouTube 类源文档有 preparse 字段；手工粘贴文本 metadata.preparse=undefined → 不显示徽章。
+ */
+function PreparseBadge({
+  preparse,
+}: {
+  preparse?: {
+    status: 'pending' | 'parsing' | 'ready' | 'failed';
+    mediaUrls?: string[];
+    sourceLocale?: 'zh' | 'en';
+    errorCode?: string;
+  };
+}) {
+  if (!preparse) return null;
+  const { status, mediaUrls = [], sourceLocale } = preparse;
+  if (status === 'parsing') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500" />
+        解析中
+      </span>
+    );
+  }
+  if (status === 'ready') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
+        title={`已抽取 ${mediaUrls.length} 张图${sourceLocale ? ` · 源语种 ${sourceLocale}` : ''}`}
+      >
+        已就绪 · {mediaUrls.length}图
+        {sourceLocale && (
+          <span className="text-emerald-500">[{sourceLocale}]</span>
+        )}
+      </span>
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700"
+        title={preparse.errorCode}
+      >
+        解析失败
+      </span>
+    );
+  }
+  // pending
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+      待解析
+    </span>
   );
 }

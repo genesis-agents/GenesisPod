@@ -3,12 +3,18 @@
  * Manages knowledge bases and their documents
  */
 
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from "@nestjs/common";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { KnowledgeBaseStatus, KnowledgeBaseSourceType } from "@prisma/client";
 import { DocumentProcessorService } from "./document-processor.service";
 import { EmbeddingProcessorService } from "./embedding-processor.service";
 import { KnowledgeBaseStats } from "@/modules/ai-harness/facade";
+import { PreparseService } from "../../document/preparse";
 
 export interface CreateKnowledgeBaseInput {
   name: string;
@@ -41,6 +47,10 @@ export class KnowledgeBaseService {
     private readonly prisma: PrismaService,
     private readonly documentProcessor: DocumentProcessorService,
     private readonly embeddingProcessor: EmbeddingProcessorService,
+    // W1 v2.0 rebuild：addDocument 后 fire-and-forget 预解析 URL/YT → 富语料 +
+    //   图片 URL + 章节结构 + 源语种，落 metadata.preparse 给 W2 wiki ingest 消费。
+    //   @Optional 注入保 spec 兼容（旧 spec 未 mock 时不挂）。
+    @Optional() private readonly preparseService?: PreparseService,
   ) {}
 
   /**
@@ -426,6 +436,13 @@ export class KnowledgeBaseService {
       },
     });
 
+    // W1 v2.0 rebuild：fire-and-forget 触发预解析（URL/YT 抓富语料 + 图片 +
+    //   章节 + 源语种）。preparse 异常完全 swallow + log，不阻断 doc 写入返回。
+    //   不传 await：用户体验是"加 doc 立即返回，预解析后台跑"。
+    if (this.preparseService) {
+      void this.preparseService.preparseDocument(doc.id);
+    }
+
     return doc;
   }
 
@@ -651,6 +668,8 @@ export class KnowledgeBaseService {
         lastError: true,
         createdAt: true,
         updatedAt: true,
+        // W1 v2.0 rebuild：暴露 metadata.preparse 让前端 DocumentListDialog 渲染解析徽章
+        metadata: true,
       },
     });
 

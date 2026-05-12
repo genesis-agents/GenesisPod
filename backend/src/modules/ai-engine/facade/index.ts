@@ -296,6 +296,11 @@ export {
   IMAGE_MATCHING_RULES,
 } from "../content/image/matching/image-matching.types";
 
+// Content fetching (URL → markdown/transcript) — used by ai-app/library/document/preparse
+// for W1 预解析管线（YouTube transcript / 网页正文 / SSRF guard 一体化）
+export { ContentFetchService } from "@/modules/ai-engine/content/fetch";
+export type { FetchedContent } from "@/modules/ai-engine/content/fetch";
+
 // RAG types & services
 export { EmbeddingService } from "@/modules/ai-engine/rag/embedding";
 export type {

@@ -9,6 +9,8 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { AiEngineModule } from "../../../ai-engine/ai-engine.module";
+// W1 v2.0 rebuild：文档加入 KB 时 fire-and-forget 预解析（YT/Web URL）
+import { PreparseModule } from "../document/preparse";
 
 // Business Services (保留在本模块)
 import { DocumentProcessorService } from "./services/document-processor.service";
@@ -26,6 +28,7 @@ import { RAGController } from "./rag.controller";
   imports: [
     PrismaModule,
     AiEngineModule, // 导入 AI Engine 获取 RAG 核心能力（含 RAGPipelineService）
+    PreparseModule, // W1 v2.0 rebuild：URL/YouTube 预解析（fire-and-forget）
   ],
   controllers: [RAGController],
   providers: [
