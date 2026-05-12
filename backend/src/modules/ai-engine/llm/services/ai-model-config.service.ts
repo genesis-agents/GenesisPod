@@ -756,6 +756,8 @@ export class AiModelConfigService {
     secretKey: string | null;
     /** 每分钟请求数上限；null = caller 用 provider 启发式默认 */
     rpmLimit: number | null;
+    /** 每分钟 token 上限；null = caller 用 provider 启发式默认 */
+    tpmLimit: number | null;
   } | null> {
     const userId = userIdOverride ?? RequestContext.getUserId() ?? undefined;
 
@@ -789,6 +791,7 @@ export class AiModelConfigService {
           defaultTimeoutMs: userConfig.defaultTimeoutMs,
           secretKey: null,
           rpmLimit: userConfig.rpmLimit,
+          tpmLimit: userConfig.tpmLimit,
         };
       }
 
@@ -829,6 +832,7 @@ export class AiModelConfigService {
             defaultTimeoutMs: m.defaultTimeoutMs,
             secretKey: m.secretKey,
             rpmLimit: m.rpmLimit,
+            tpmLimit: m.tpmLimit,
           };
         }
       }
@@ -862,6 +866,7 @@ export class AiModelConfigService {
       defaultTimeoutMs: m.defaultTimeoutMs,
       secretKey: m.secretKey,
       rpmLimit: m.rpmLimit,
+      tpmLimit: m.tpmLimit,
     };
   }
 

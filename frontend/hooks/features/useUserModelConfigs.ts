@@ -42,6 +42,8 @@ export interface UserModelConfig {
   isEnabled: boolean;
   isDefault: boolean;
   description: string | null;
+  rpmLimit: number | null;
+  tpmLimit: number | null;
   createdAt: string;
   updatedAt: string;
 }

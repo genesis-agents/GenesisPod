@@ -91,6 +91,12 @@ export function UserModelConfigModal({
   const [isEnabled, setIsEnabled] = useState(initial?.isEnabled ?? true);
   const [isDefault, setIsDefault] = useState(initial?.isDefault ?? false);
   const [description, setDescription] = useState(initial?.description ?? '');
+  const [rpmLimit, setRpmLimit] = useState(
+    initial?.rpmLimit != null ? String(initial.rpmLimit) : ''
+  );
+  const [tpmLimit, setTpmLimit] = useState(
+    initial?.tpmLimit != null ? String(initial.tpmLimit) : ''
+  );
   const [showAdvanced, setShowAdvanced] = useState(false);
   // 用户是否手动动过能力字段；一旦动过就停止自动推断，尊重用户选择
   const [reasoningTouched, setReasoningTouched] = useState(false);
@@ -147,6 +153,8 @@ export function UserModelConfigModal({
     priceOutputPerMillion: null,
     embeddingDimensions: null,
     maxInputTokens: null,
+    rpmLimit: rpmLimit.trim() ? Number(rpmLimit) || null : null,
+    tpmLimit: tpmLimit.trim() ? Number(tpmLimit) || null : null,
   });
 
   const handleSave = async () => {
@@ -385,6 +393,40 @@ export function UserModelConfigModal({
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               </Field>
+            </div>
+
+            {/* 限速参数：避免上游 429 风暴。留空 = 用 provider 启发式默认 */}
+            <div className="rounded-md border border-amber-100 bg-amber-50/40 p-3">
+              <div className="mb-2 text-xs font-medium text-amber-900">
+                限速参数（避免 429）—— 留空走 provider 启发式默认
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="RPM (Requests / minute)">
+                  <input
+                    type="number"
+                    min={1}
+                    value={rpmLimit}
+                    onChange={(e) => setRpmLimit(e.target.value)}
+                    placeholder="例如 100（Gemini free embedding）"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </Field>
+                <Field label="TPM (Tokens / minute)">
+                  <input
+                    type="number"
+                    min={1}
+                    value={tpmLimit}
+                    onChange={(e) => setTpmLimit(e.target.value)}
+                    placeholder="例如 30000（Gemini free embedding）"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </Field>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-gray-600">
+                Gemini free tier embedding：100 RPM / 30K TPM。OpenAI tier-1
+                paid embedding：~1500 RPM / 1M TPM。可在 Google AI Studio /
+                OpenAI dashboard 的 Rate Limit 页面查实际配额。
+              </p>
             </div>
 
             <Field label="描述（可选）">

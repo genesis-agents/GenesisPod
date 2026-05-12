@@ -36,6 +36,8 @@ export interface CreateUserModelConfigInput {
   description?: string | null;
   priceInputPerMillion?: number | null;
   priceOutputPerMillion?: number | null;
+  rpmLimit?: number | null;
+  tpmLimit?: number | null;
 }
 
 export type UpdateUserModelConfigInput = Partial<CreateUserModelConfigInput>;
@@ -95,6 +97,8 @@ export class UserModelConfigsService {
       description: input.description?.trim() || null,
       priceInputPerMillion: input.priceInputPerMillion ?? null,
       priceOutputPerMillion: input.priceOutputPerMillion ?? null,
+      rpmLimit: input.rpmLimit ?? null,
+      tpmLimit: input.tpmLimit ?? null,
       user: { connect: { id: "" } }, // Caller replaces this
     };
   }
@@ -192,6 +196,8 @@ export class UserModelConfigsService {
       data.priceInputPerMillion = patch.priceInputPerMillion;
     if (patch.priceOutputPerMillion !== undefined)
       data.priceOutputPerMillion = patch.priceOutputPerMillion;
+    if (patch.rpmLimit !== undefined) data.rpmLimit = patch.rpmLimit;
+    if (patch.tpmLimit !== undefined) data.tpmLimit = patch.tpmLimit;
 
     try {
       // 事务化：当 isDefault=true 或 modelType 变更时，先在事务里清同类下的

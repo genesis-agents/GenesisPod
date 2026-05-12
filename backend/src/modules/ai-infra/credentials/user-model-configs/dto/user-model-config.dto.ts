@@ -156,6 +156,20 @@ export class CreateUserModelConfigDto {
   @IsBoolean()
   isDefault?: boolean;
 
+  @ApiPropertyOptional({ description: "每分钟请求数上限 (RPM)" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  rpmLimit?: number;
+
+  @ApiPropertyOptional({ description: "每分钟 token 上限 (TPM)" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  tpmLimit?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -293,6 +307,20 @@ export class UpdateUserModelConfigDto {
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
+
+  @ApiPropertyOptional({ description: "每分钟请求数上限 (RPM)" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  rpmLimit?: number;
+
+  @ApiPropertyOptional({ description: "每分钟 token 上限 (TPM)" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  tpmLimit?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
