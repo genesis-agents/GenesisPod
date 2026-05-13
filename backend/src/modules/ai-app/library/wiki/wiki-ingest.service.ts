@@ -16,7 +16,11 @@ import {
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../rag/services/knowledge-base.service";
 import { WikiDiffService } from "./wiki-diff.service";
-import { WikiDiffItemsSchema } from "./dto/wiki-diff-items.schema";
+import {
+  WikiDiffItemsSchema,
+  WikiDiffCreateItemSchema,
+  WikiDiffUpdateItemSchema,
+} from "./dto/wiki-diff-items.schema";
 import {
   AiChatService,
   SkillLoaderService,
@@ -887,6 +891,52 @@ export class WikiIngestService {
         const r = settled[j];
         const item = batch[j];
         if (r.status === "fulfilled" && r.value.body.length > 0) {
+          // ★ 2026-05-13: 早断 zod 验证 —— 在 section-fill 完成时立即按
+          //   WikiDiffCreateItem / WikiDiffUpdateItem schema 验，让 LLM
+          //   非法输出（slug 大写 / category 自创 / span 越界）当场进
+          //   failedSlugs，不要堆到 assemble 阶段才发现"6m+ 工作里这页是坏的"。
+          //   Cross-link 阶段也省去给坏页跑无用流量。
+          const earlyDraft =
+            item.kind === "create"
+              ? {
+                  slug: item.slug,
+                  locale: (targetLocales[0] ?? "zh") as string,
+                  title: item.title ?? item.slug,
+                  category: (item.category ?? "ENTITY") as
+                    | "ENTITY"
+                    | "CONCEPT"
+                    | "SUMMARY"
+                    | "SOURCE",
+                  body: r.value.body,
+                  oneLiner: r.value.oneLiner,
+                  sources: r.value.sources,
+                  ...(item.translationGroupId
+                    ? { translationGroupId: item.translationGroupId }
+                    : {}),
+                }
+              : {
+                  slug: item.slug,
+                  locale: (targetLocales[0] ?? "zh") as string,
+                  newBody: r.value.body,
+                  newOneLiner: r.value.oneLiner,
+                  sources: r.value.sources,
+                };
+          const earlyCheck =
+            item.kind === "create"
+              ? WikiDiffCreateItemSchema.safeParse(earlyDraft)
+              : WikiDiffUpdateItemSchema.safeParse(earlyDraft);
+          if (!earlyCheck.success) {
+            failedSlugs.push(item.slug);
+            this.logger.warn(
+              `[ingest/MULTI early-zod] dropping invalid ${item.kind} slug=${item.slug} errors=${JSON.stringify(
+                earlyCheck.error.issues.map((iss) => ({
+                  path: iss.path.join("."),
+                  msg: iss.message,
+                })),
+              ).slice(0, 500)}`,
+            );
+            continue;
+          }
           sectionResults.push({
             kind: item.kind,
             slug: item.slug,
@@ -1042,13 +1092,66 @@ export class WikiIngestService {
 
     // Reuse the same commit path as SINGLE (zod validation + persist +
     // metrics). Pre-clean already happened inside each section-fill call.
-    const validated = WikiDiffItemsSchema.safeParse(items);
+    let validated = WikiDiffItemsSchema.safeParse(items);
     if (!validated.success) {
-      this.logger.error(
-        `[ingest/MULTI assemble] userId=${userId} kb=${knowledgeBaseId} reason=assembled-zod-failed creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length} err=${validated.error.message.slice(0, 300)}`,
-      );
-      throw new BadRequestException(
-        "Wiki MULTI ingest assembled output failed schema validation; please retry",
+      // ★ 2026-05-13 P0 (Screenshot_79): assemble 阶段单项 zod 失败导致
+      //   6m+ 的 section-fill 工作全部丢弃 —— 同 #14 partial-success 反模式。
+      //   修复：逐项 safeParse，剔除单项失败的（log 完整 path+message），
+      //   只要还剩 ≥1 个 valid item 就继续 commit。否则才整体 fail。
+      const failedSlugs: string[] = [];
+      const validCreates: unknown[] = [];
+      for (const c of items.creates) {
+        const r = WikiDiffCreateItemSchema.safeParse(c);
+        if (r.success) {
+          validCreates.push(c);
+        } else {
+          failedSlugs.push(c.slug ?? "(no-slug)");
+          this.logger.warn(
+            `[ingest/MULTI assemble] dropping invalid create slug=${c.slug} errors=${JSON.stringify(
+              r.error.issues.map((i) => ({
+                path: i.path.join("."),
+                msg: i.message,
+              })),
+            ).slice(0, 500)}`,
+          );
+        }
+      }
+      const validUpdates: unknown[] = [];
+      for (const u of items.updates) {
+        const r = WikiDiffUpdateItemSchema.safeParse(u);
+        if (r.success) {
+          validUpdates.push(u);
+        } else {
+          failedSlugs.push(u.slug ?? "(no-slug)");
+          this.logger.warn(
+            `[ingest/MULTI assemble] dropping invalid update slug=${u.slug} errors=${JSON.stringify(
+              r.error.issues.map((i) => ({
+                path: i.path.join("."),
+                msg: i.message,
+              })),
+            ).slice(0, 500)}`,
+          );
+        }
+      }
+      const recovered = {
+        creates: validCreates,
+        updates: validUpdates,
+        deletes: items.deletes,
+      };
+      validated = WikiDiffItemsSchema.safeParse(recovered);
+      if (
+        !validated.success ||
+        (validCreates.length === 0 && validUpdates.length === 0)
+      ) {
+        this.logger.error(
+          `[ingest/MULTI assemble] userId=${userId} kb=${knowledgeBaseId} reason=assembled-zod-failed-all creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length} failedSlugs=${failedSlugs.slice(0, 10).join(",")}`,
+        );
+        throw new BadRequestException(
+          `Wiki MULTI ingest assembled output failed schema validation (${failedSlugs.length} pages had invalid fields); please retry. Failed slugs: ${failedSlugs.slice(0, 5).join(", ")}${failedSlugs.length > 5 ? "…" : ""}`,
+        );
+      }
+      this.logger.warn(
+        `[ingest/MULTI assemble] partial recovery: dropped ${failedSlugs.length} invalid items, committing ${validCreates.length} creates + ${validUpdates.length} updates`,
       );
     }
 
