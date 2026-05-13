@@ -49,6 +49,7 @@ import {
 import {
   wikiApi,
   type WikiDiff,
+  type WikiIngestProgress,
   type WikiKbSummary,
   type WikiLintFinding,
   type WikiLintTypeStr,
@@ -231,83 +232,76 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   const [createPageOpen, setCreatePageOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  // 2026-05-19 fire-and-forget 进度感知：后端 ingest 立即返回，前端用
-  // sessionStorage 持久化 startedAt 抗刷新；在 wiki 顶部展示常驻 banner，
-  // 用户能看到「还在跑」+ 多久之前启动。10 分钟兜底自动消失（典型 MULTI 完成
-  // 时间）。用户可手动 dismiss。pod 重启时 banner 仍展示但 diff 不会出现，
-  // 用户 dismiss 重试即可。
-  const ingestPendingKey = urlState.kbId
-    ? `wiki-ingest-pending:${urlState.kbId}`
-    : null;
-  const [ingestStartedAt, setIngestStartedAt] = useState<number | null>(null);
-  const [, setTick] = useState(0); // 每秒重渲让 banner 时间走动
+  // 2026-05-19 fire-and-forget 进度感知（基于后端真实 in-memory 进度）：
+  //   - 每 3s 轮询 GET /library/wiki/:kbId/ingest-progress
+  //   - 真实 stage / pagesDone / pagesTotal 替代之前的瞎猜 setTimeout
+  //   - 完成时 banner 显示完成 + diffId 链接
+  //   - 失败时显示具体 errorMessage
+  //   - 后端 5min cleanup 后 progress=null → banner 消失停止轮询
+  const [ingestProgress, setIngestProgress] =
+    useState<WikiIngestProgress | null>(null);
+  const [ingestActive, setIngestActive] = useState(false);
 
-  // Hydrate from sessionStorage on mount + when kbId changes
   useEffect(() => {
-    if (!ingestPendingKey) return;
-    if (typeof window === 'undefined') return;
-    const stored = window.sessionStorage.getItem(ingestPendingKey);
-    if (!stored) {
-      setIngestStartedAt(null);
-      return;
-    }
-    const ts = Number(stored);
-    if (!Number.isFinite(ts)) {
-      setIngestStartedAt(null);
-      return;
-    }
-    // 10 min 兜底过期
-    if (Date.now() - ts > 10 * 60_000) {
-      window.sessionStorage.removeItem(ingestPendingKey);
-      setIngestStartedAt(null);
-      return;
-    }
-    setIngestStartedAt(ts);
-  }, [ingestPendingKey]);
-
-  // Tick every second while banner is up so the displayed "Xs ago" walks
-  useEffect(() => {
-    if (ingestStartedAt == null) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [ingestStartedAt]);
-
-  // Auto-expire after 10 min (typical MULTI completion is 5-12 min;
-  // 10min is a UX guess — user can dismiss earlier or wait longer manually)
-  useEffect(() => {
-    if (ingestStartedAt == null) return;
-    const remaining = 10 * 60_000 - (Date.now() - ingestStartedAt);
-    if (remaining <= 0) {
-      setIngestStartedAt(null);
-      if (ingestPendingKey && typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(ingestPendingKey);
+    if (!ingestActive || !urlState.kbId) return;
+    let cancelled = false;
+    const kbIdForPoll = urlState.kbId;
+    const poll = async () => {
+      try {
+        const r = await wikiApi.getIngestProgress(kbIdForPoll);
+        if (cancelled) return;
+        setIngestProgress(r.progress);
+        if (r.progress === null) {
+          setIngestActive(false);
+        }
+      } catch (err) {
+        logger?.warn?.('[wiki] poll ingest-progress failed', err);
       }
-      return;
-    }
-    const id = setTimeout(() => {
-      setIngestStartedAt(null);
-      if (ingestPendingKey && typeof window !== 'undefined') {
-        window.sessionStorage.removeItem(ingestPendingKey);
+    };
+    void poll();
+    const id = setInterval(() => void poll(), 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [ingestActive, urlState.kbId]);
+
+  // 进入页面时检测是否已有 in-flight ingest（用户刷新或换 tab 回来），自动启动轮询
+  useEffect(() => {
+    if (!urlState.kbId) return;
+    let cancelled = false;
+    const kbIdForCheck = urlState.kbId;
+    void (async () => {
+      try {
+        const r = await wikiApi.getIngestProgress(kbIdForCheck);
+        if (cancelled) return;
+        if (r.progress) {
+          setIngestProgress(r.progress);
+          setIngestActive(true);
+        }
+      } catch {
+        // ignore — first-load probe failure is non-fatal
       }
-    }, remaining);
-    return () => clearTimeout(id);
-  }, [ingestStartedAt, ingestPendingKey]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlState.kbId]);
 
   const startIngestPending = useCallback(() => {
-    if (!ingestPendingKey) return;
-    const ts = Date.now();
-    setIngestStartedAt(ts);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.setItem(ingestPendingKey, String(ts));
-    }
-  }, [ingestPendingKey]);
+    setIngestActive(true);
+    setIngestProgress({
+      status: 'running',
+      stage: 'starting',
+      startedAt: new Date().toISOString(),
+      passMode: 'SINGLE', // 占位；首次 poll 后被真实 passMode 替换
+    });
+  }, []);
 
   const dismissIngestPending = useCallback(() => {
-    setIngestStartedAt(null);
-    if (ingestPendingKey && typeof window !== 'undefined') {
-      window.sessionStorage.removeItem(ingestPendingKey);
-    }
-  }, [ingestPendingKey]);
+    setIngestActive(false);
+    setIngestProgress(null);
+  }, []);
   // Grid-view (no kbId selected) per-card edit / disable. We track which kb
   // the user invoked the action on so the modal / confirm targets that row.
   const [gridEditKbId, setGridEditKbId] = useState<string | null>(null);
@@ -499,11 +493,16 @@ export default function WikiTab({ userHash }: WikiTabProps) {
         onSettings={() => setSettingsOpen(true)}
       />
 
-      {ingestStartedAt != null && (
+      {ingestProgress != null && (
         <IngestPendingBanner
-          startedAt={ingestStartedAt}
+          progress={ingestProgress}
           onDismiss={dismissIngestPending}
-          onReload={() => router.refresh()}
+          onOpenDiff={(diffId) => {
+            const params = new URLSearchParams(searchParams?.toString() ?? '');
+            params.set('diff', diffId);
+            router.replace(`/library?${params.toString()}`);
+            dismissIngestPending();
+          }}
         />
       )}
 
@@ -2179,60 +2178,158 @@ function formatRelativeTime(
   return date.toLocaleDateString();
 }
 
-// --- Ingest pending banner (fire-and-forget progress) ---
+// --- Ingest pending banner (fire-and-forget, real backend progress) ---
 
 function IngestPendingBanner({
-  startedAt,
+  progress,
   onDismiss,
-  onReload,
+  onOpenDiff,
 }: {
-  startedAt: number;
+  progress: WikiIngestProgress;
   onDismiss: () => void;
-  onReload: () => void;
+  onOpenDiff: (diffId: string) => void;
 }) {
-  const elapsedMs = Date.now() - startedAt;
-  const elapsedSec = Math.max(0, Math.floor(elapsedMs / 1000));
+  const isCompleted = progress.status === 'completed';
+  const isFailed = progress.status === 'failed';
+  const isRunning = progress.status === 'running';
+
+  const elapsedMs = (() => {
+    const start = new Date(progress.startedAt).getTime();
+    const end = progress.finishedAt
+      ? new Date(progress.finishedAt).getTime()
+      : Date.now();
+    return Math.max(0, end - start);
+  })();
+  const elapsedSec = Math.floor(elapsedMs / 1000);
   const mm = Math.floor(elapsedSec / 60);
   const ss = elapsedSec % 60;
   const elapsed = mm > 0 ? `${mm}m ${ss}s` : `${ss}s`;
-  // 估算：MULTI 5-12 min；用 elapsed/8min 当百分比，10min 满
-  const fraction = Math.min(1, elapsedMs / (10 * 60_000));
-  const pct = Math.round(fraction * 100);
+
+  const stageOrder = [
+    'starting',
+    'load-docs',
+    'outline',
+    'section-fill',
+    'cross-link',
+    'persist',
+    'completed',
+  ];
+  const stageIdx = Math.max(0, stageOrder.indexOf(progress.stage));
+  let pct = Math.round((stageIdx / (stageOrder.length - 1)) * 100);
+  if (
+    progress.stage === 'section-fill' &&
+    progress.pagesTotal &&
+    progress.pagesTotal > 0
+  ) {
+    // section-fill 占总进度 [40%, 80%]，pagesDone/Total 线性插值
+    const sf = Math.min(1, (progress.pagesDone ?? 0) / progress.pagesTotal);
+    pct = Math.round(40 + sf * 40);
+  }
+  if (isCompleted) pct = 100;
+  if (isFailed) pct = 100;
+
+  const stageLabelMap: Record<string, string> = {
+    starting: '准备中…',
+    'load-docs': '加载文档…',
+    outline: 'Outline 大纲规划中…',
+    'section-fill':
+      progress.pagesTotal && progress.pagesDone != null
+        ? `Section-fill 撰写中 · ${progress.pagesDone}/${progress.pagesTotal} 页`
+        : 'Section-fill 撰写中…',
+    'cross-link': 'Cross-link 建立页面引用…',
+    persist: '持久化 diff…',
+    completed: '✓ 完成',
+    failed: '✗ 失败',
+  };
+  const label = stageLabelMap[progress.stage] ?? progress.stage;
+
+  const palette = isCompleted
+    ? {
+        border: 'border-emerald-200',
+        bg: 'bg-emerald-50',
+        text: 'text-emerald-900',
+        sub: 'text-emerald-700',
+        bar: 'bg-emerald-600',
+        spinner: 'text-emerald-600',
+        barBg: 'bg-emerald-200',
+        btnBorder: 'border-emerald-300',
+        btnText: 'text-emerald-700',
+        btnHoverBg: 'hover:bg-emerald-50',
+      }
+    : isFailed
+      ? {
+          border: 'border-red-200',
+          bg: 'bg-red-50',
+          text: 'text-red-900',
+          sub: 'text-red-700',
+          bar: 'bg-red-600',
+          spinner: 'text-red-600',
+          barBg: 'bg-red-200',
+          btnBorder: 'border-red-300',
+          btnText: 'text-red-700',
+          btnHoverBg: 'hover:bg-red-50',
+        }
+      : {
+          border: 'border-violet-200',
+          bg: 'bg-violet-50',
+          text: 'text-violet-900',
+          sub: 'text-violet-700',
+          bar: 'bg-violet-600',
+          spinner: 'text-violet-600',
+          barBg: 'bg-violet-200',
+          btnBorder: 'border-violet-300',
+          btnText: 'text-violet-700',
+          btnHoverBg: 'hover:bg-violet-50',
+        };
 
   return (
-    <div className="border-b border-violet-200 bg-violet-50 px-8 py-3">
+    <div className={`border-b ${palette.border} ${palette.bg} px-8 py-3`}>
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-violet-600" />
+          {isRunning ? (
+            <Loader2
+              className={`h-4 w-4 shrink-0 animate-spin ${palette.spinner}`}
+            />
+          ) : (
+            <div className={`h-4 w-4 shrink-0 rounded-full ${palette.bar}`} />
+          )}
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium text-violet-900">
-              Wiki Ingest 后台运行中 · 已用 {elapsed}
+            <div className={`text-sm font-medium ${palette.text}`}>
+              Wiki Ingest · {progress.passMode} · {label} · 用时 {elapsed}
             </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-violet-200">
+            <div
+              className={`mt-1 h-1.5 w-full overflow-hidden rounded-full ${palette.barBg}`}
+            >
               <div
-                className="h-full bg-violet-600 transition-[width] duration-1000"
+                className={`h-full ${palette.bar} transition-[width] duration-500`}
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <div className="mt-1 text-xs text-violet-700">
-              MULTI pass 大文档典型 5-12 分钟。完成后刷新页面即可看到新的
-              PENDING diff；可关闭浏览器，任务在后台继续。
+            <div className={`mt-1 text-xs ${palette.sub}`}>
+              {isCompleted && '新的 PENDING diff 已生成，可点右侧按钮查看。'}
+              {isFailed &&
+                (progress.errorMessage ||
+                  '后台运行失败，请检查 Railway log 详情。')}
+              {isRunning &&
+                'MULTI pass 大文档典型 5-12 分钟。可关闭浏览器，任务在后台继续；下次回到本页面会自动恢复进度。'}
             </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={onReload}
-            className="rounded-md border border-violet-300 bg-white px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50"
-          >
-            刷新查看
-          </button>
+          {isCompleted && progress.diffId && (
+            <button
+              type="button"
+              onClick={() => onOpenDiff(progress.diffId!)}
+              className={`rounded-md border ${palette.btnBorder} bg-white px-3 py-1.5 text-xs font-medium ${palette.btnText} ${palette.btnHoverBg}`}
+            >
+              查看 Diff
+            </button>
+          )}
           <button
             type="button"
             onClick={onDismiss}
-            title="隐藏提示（不影响后台运行）"
-            className="rounded-md p-1.5 text-violet-600 hover:bg-violet-100"
+            title={isRunning ? '隐藏提示（不影响后台运行）' : '关闭提示'}
+            className={`rounded-md p-1.5 ${palette.btnText} hover:bg-white/50`}
           >
             <X className="h-4 w-4" />
           </button>

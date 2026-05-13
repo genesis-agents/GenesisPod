@@ -145,6 +145,34 @@ export type WikiLocale = 'zh' | 'en';
 
 export type WikiIngestPassMode = 'SINGLE' | 'MULTI';
 
+export type WikiIngestStage =
+  | 'starting'
+  | 'load-docs'
+  | 'outline'
+  | 'section-fill'
+  | 'cross-link'
+  | 'persist'
+  | 'completed'
+  | 'failed';
+
+/**
+ * 2026-05-19 fire-and-forget UX：后端 wiki-ingest service 写到 in-memory map，
+ * GET /library/wiki/:kbId/ingest-progress 返回。前端 banner 每 3-5s 轮询。
+ */
+export interface WikiIngestProgress {
+  status: 'running' | 'completed' | 'failed';
+  stage: WikiIngestStage;
+  startedAt: string;
+  finishedAt?: string;
+  passMode: WikiIngestPassMode;
+  pagesDone?: number;
+  pagesTotal?: number;
+  /** 完成时填，前端用于跳转到 PENDING diff 详情 */
+  diffId?: string;
+  /** status=failed 时填，banner 展示 */
+  errorMessage?: string;
+}
+
 export interface WikiKbConfig {
   knowledgeBaseId: string;
   inlinePageCount: number;
@@ -384,6 +412,13 @@ export const wikiApi = {
       `${base}/${encodeURIComponent(kbId)}/ingest`,
       { documentIds },
       { timeout: 60_000 } // 后端立即返回，长 timeout 不需要了
+    ),
+
+  // 2026-05-19 fire-and-forget 进度查询；前端 banner 每 3-5s 轮询。
+  // progress=null 表示没在跑（或 5min cleanup 已清）。
+  getIngestProgress: (kbId: string) =>
+    apiClient.get<{ progress: WikiIngestProgress | null }>(
+      `${base}/${encodeURIComponent(kbId)}/ingest-progress`
     ),
 
   listIngestCandidates: (kbId: string) =>

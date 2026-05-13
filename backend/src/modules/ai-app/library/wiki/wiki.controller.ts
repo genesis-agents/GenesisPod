@@ -160,13 +160,13 @@ export class WikiController {
     const userId = req.user.id;
     void this.ingestService
       .ingest(userId, kbId, dto.documentIds)
-      .catch((err) =>
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
         this.logger.error(
-          `[wiki ingest async] user=${userId} kb=${kbId} reason=background-failed err=${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        ),
-      );
+          `[wiki ingest async] user=${userId} kb=${kbId} reason=background-failed err=${msg}`,
+        );
+        this.ingestService.markIngestFailed(kbId, msg);
+      });
 
     return {
       diff: {
@@ -176,6 +176,22 @@ export class WikiController {
       },
       async: true,
     };
+  }
+
+  /**
+   * 2026-05-19 fire-and-forget progress endpoint —— 前端 banner 每 3-5s 轮询
+   * 拿真实 stage / pagesDone / pagesTotal / diffId / errorMessage。
+   * 返回 null 表示没有正在跑的 ingest（或 5 min cleanup 已清，UI 隐藏 banner）。
+   *
+   * 注意：进度是 in-memory 的，pod 重启会丢；前端发现长时间 null 应自行兜底。
+   */
+  @Get(":kbId/ingest-progress")
+  @UseGuards(JwtAuthGuard)
+  async getIngestProgress(
+    @Request() _req: RequestWithUser,
+    @Param("kbId") kbId: string,
+  ) {
+    return { progress: this.ingestService.getIngestProgress(kbId) };
   }
 
   @Get(":kbId/ingest-candidates")

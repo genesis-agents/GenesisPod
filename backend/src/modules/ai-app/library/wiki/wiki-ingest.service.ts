@@ -101,6 +101,43 @@ export interface WikiIngestCandidate {
  *     status=PENDING and affectedSlugs computed from items
  *  7. Return diffId for subsequent /diffs/:diffId fetch + apply
  */
+/**
+ * 2026-05-19 fire-and-forget 进度感知：service 在 SINGLE / MULTI 各 stage 写
+ * in-memory 进度，前端轮询 GET /library/wiki/:kbId/ingest-progress 拿真实状态。
+ *
+ * pod 重启会丢（accepted —— pod 重启 ingest pipeline 本身也丢；前端 controller
+ * 会查不到 → banner 自动消失，用户 retry 即可）。
+ *
+ * 不写 DB 持久化的理由：避免 KB.progressJson 字段被 embedding（已使用）和
+ * wiki ingest 双重写入冲突；新加 schema 字段又要 migration。in-memory 这一波
+ * 足够支撑 UX。后续可上 Redis bridge 或独立 schema 列。
+ */
+export type WikiIngestStage =
+  | "starting"
+  | "load-docs"
+  | "outline"
+  | "section-fill"
+  | "cross-link"
+  | "persist"
+  | "completed"
+  | "failed";
+
+export interface WikiIngestProgress {
+  status: "running" | "completed" | "failed";
+  stage: WikiIngestStage;
+  startedAt: string; // ISO
+  finishedAt?: string; // ISO；status=completed/failed 时填
+  /** SINGLE / MULTI 取 config.ingestPassMode；前端展示用。 */
+  passMode: "SINGLE" | "MULTI";
+  /** section-fill 阶段：当前页完成数 / 总页数 */
+  pagesDone?: number;
+  pagesTotal?: number;
+  /** persist 后写入；前端用 diffId 跳到 PENDING diff 详情 */
+  diffId?: string;
+  /** status=failed 时填，user-facing 简短原因 */
+  errorMessage?: string;
+}
+
 @Injectable()
 export class WikiIngestService {
   private readonly logger = new Logger(WikiIngestService.name);
@@ -113,6 +150,14 @@ export class WikiIngestService {
    */
   public lastIngestMetrics: WikiIngestMetrics | null = null;
 
+  /**
+   * 2026-05-19 in-memory progress map for fire-and-forget UX (see type
+   * comment above). Keys are knowledgeBaseId; entries automatically cleared
+   * 5 min after completion / failure so stale rows don't accumulate.
+   */
+  private readonly progress = new Map<string, WikiIngestProgress>();
+  private readonly progressCleanupTimers = new Map<string, NodeJS.Timeout>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly kbService: KnowledgeBaseService,
@@ -120,6 +165,57 @@ export class WikiIngestService {
     private readonly chat: AiChatService,
     private readonly skillLoader: SkillLoaderService,
   ) {}
+
+  /**
+   * Read current progress for a KB; returns null if no run in flight or
+   * the entry already cleaned up (5 min after completion/failure).
+   */
+  getIngestProgress(knowledgeBaseId: string): WikiIngestProgress | null {
+    return this.progress.get(knowledgeBaseId) ?? null;
+  }
+
+  /**
+   * Public marker for fire-and-forget catch path (controller wraps the
+   * async pipeline in a .catch; service内 throw 后 progress 仍停在最后
+   * stage='running'，需要 controller 兜底写 failed 状态). user-facing
+   * errorMessage is truncated to 200 chars to keep banner UI tidy.
+   */
+  markIngestFailed(knowledgeBaseId: string, errorMessage: string): void {
+    this.setProgress(knowledgeBaseId, {
+      status: "failed",
+      stage: "failed",
+      finishedAt: new Date().toISOString(),
+      errorMessage: errorMessage.slice(0, 200),
+    });
+  }
+
+  private setProgress(
+    knowledgeBaseId: string,
+    patch: Partial<WikiIngestProgress>,
+  ): void {
+    const prev = this.progress.get(knowledgeBaseId);
+    const next: WikiIngestProgress = {
+      // 防 partial-only patches without base 字段
+      status: "running",
+      stage: "starting",
+      startedAt: new Date().toISOString(),
+      passMode: "SINGLE",
+      ...prev,
+      ...patch,
+    };
+    this.progress.set(knowledgeBaseId, next);
+    // 清理已有 cleanup timer，重新跑时不要被旧 timer 提前清掉
+    const oldTimer = this.progressCleanupTimers.get(knowledgeBaseId);
+    if (oldTimer) clearTimeout(oldTimer);
+    // 状态终结时安排 5 min 后清理
+    if (next.status === "completed" || next.status === "failed") {
+      const timer = setTimeout(() => {
+        this.progress.delete(knowledgeBaseId);
+        this.progressCleanupTimers.delete(knowledgeBaseId);
+      }, 5 * 60_000);
+      this.progressCleanupTimers.set(knowledgeBaseId, timer);
+    }
+  }
 
   /**
    * Trigger ingest. Returns the persisted PENDING WikiDiff for user review.
@@ -197,6 +293,14 @@ export class WikiIngestService {
     this.logger.log(
       `[ingest start] userId=${userId} chatUserId=${chatUserId} kb=${knowledgeBaseId} docs=${documentIds.length}`,
     );
+    // 2026-05-19 fire-and-forget UX：在 SINGLE / MULTI pass mode 之前先初始化
+    // progress 为 'starting'。后续 dispatcher 会 patch passMode + stage。
+    this.setProgress(knowledgeBaseId, {
+      status: "running",
+      stage: "starting",
+      startedAt: new Date().toISOString(),
+      passMode: "SINGLE", // 默认值；下方读 config 后 patch
+    });
     // Load + validate documents (must belong to this KB).
     const documents = await this.prisma.knowledgeBaseDocument.findMany({
       where: { id: { in: documentIds }, knowledgeBaseId },
@@ -237,6 +341,10 @@ export class WikiIngestService {
     //   SINGLE remains the default (safe fallback) and 100% backward
     //   compatible — old KBs see no behavior change.
     if (config?.ingestPassMode === "MULTI") {
+      this.setProgress(knowledgeBaseId, {
+        passMode: "MULTI",
+        stage: "outline",
+      });
       return this.runMultiPassPipeline(
         userId,
         knowledgeBaseId,
@@ -245,6 +353,7 @@ export class WikiIngestService {
         chatUserId,
       );
     }
+    this.setProgress(knowledgeBaseId, { passMode: "SINGLE" });
 
     // Approximate char budget per doc (~4 chars per token). NOTE: gap #1
     // fix (2026-05-12) removes the `/ 2` halving — earlier code sent only
@@ -531,6 +640,7 @@ export class WikiIngestService {
     ];
 
     // Persist PENDING diff.
+    this.setProgress(knowledgeBaseId, { stage: "persist" });
     const diff = await this.prisma.wikiDiff.create({
       data: {
         knowledgeBaseId,
@@ -542,6 +652,12 @@ export class WikiIngestService {
       },
     });
 
+    this.setProgress(knowledgeBaseId, {
+      status: "completed",
+      stage: "completed",
+      finishedAt: new Date().toISOString(),
+      diffId: diff.id,
+    });
     this.logger.log(
       `[ingest] kb=${knowledgeBaseId} diff=${diff.id} creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length}`,
     );
@@ -679,6 +795,11 @@ export class WikiIngestService {
     const concurrency = Math.max(1, config.ingestSectionConcurrency ?? 3);
     const failureToleranceRatio =
       config.ingestSectionFailureToleranceRatio ?? 0.2;
+    this.setProgress(knowledgeBaseId, {
+      stage: "section-fill",
+      pagesDone: 0,
+      pagesTotal: outline.creates.length + outline.updates.length,
+    });
     const allOutlineItems: Array<{
       kind: "create" | "update";
       slug: string;
@@ -806,6 +927,12 @@ export class WikiIngestService {
           );
         }
       }
+      // 每批结束更新真实进度（pagesDone = success + failed = i+batch 大小）
+      this.setProgress(knowledgeBaseId, {
+        stage: "section-fill",
+        pagesDone: sectionResults.length + failedSlugs.length,
+        pagesTotal: allOutlineItems.length,
+      });
     }
 
     const totalItems = allOutlineItems.length;
@@ -829,6 +956,7 @@ export class WikiIngestService {
     }
 
     // ── Pass 3: CROSS-LINK ──────────────────────────────────────────
+    this.setProgress(knowledgeBaseId, { stage: "cross-link" });
     const linkedBodies = await this.runCrossLinkPass({
       pages: sectionResults.map((s) => ({ slug: s.slug, body: s.body })),
       linkableSlugs: Array.from(
@@ -918,6 +1046,7 @@ export class WikiIngestService {
       ]),
     ];
 
+    this.setProgress(knowledgeBaseId, { stage: "persist" });
     const diff = await this.prisma.wikiDiff.create({
       data: {
         knowledgeBaseId,
@@ -929,6 +1058,12 @@ export class WikiIngestService {
       },
     });
 
+    this.setProgress(knowledgeBaseId, {
+      status: "completed",
+      stage: "completed",
+      finishedAt: new Date().toISOString(),
+      diffId: diff.id,
+    });
     this.logger.log(
       `[ingest/MULTI] kb=${knowledgeBaseId} diff=${diff.id} creates=${validated.data.creates.length} updates=${validated.data.updates.length} deletes=${validated.data.deletes.length} sectionFails=${failedSlugs.length}/${totalItems}`,
     );
