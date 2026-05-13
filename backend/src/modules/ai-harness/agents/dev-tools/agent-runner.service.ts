@@ -35,6 +35,7 @@ import {
 } from "./agent-spec.base";
 import { describeOutputSchemaForLlm } from "./zod-schema-prompt";
 import { isSearchTimeRange } from "@/common/search/search-time-range";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 
 /**
  * 2026-05-13: 把 agent input 上的 mission-scoped 字段（searchTimeRange / language /
@@ -396,20 +397,20 @@ export class AgentRunner {
     if (meta.outputSchema) {
       // ReActLoop.finalize 经常把 LLM 输出原样塞回 output 字段；当 LLM 把
       // 对象 stringify 后传出（{"output": "{\"key\":..."}"}），此处 safeParse
-      // 会因为类型是 string 而失败。先尝试 JSON.parse 一次，再做 schema 校验。
+      // 会因为类型是 string 而失败。
+      //
+      // ★ 2026-05-13: 旧逻辑仅在 trimmed.startsWith("{")/("[") 时尝试 parse，
+      // 本地推理模型（Nemotron-3-Nano / DeepSeek-R1 等）频繁吐 "Here is
+      // the JSON: {…}\n\nLet me know…" 这种带前后散文的输出，旧判断 miss。
+      // 改走 extractJsonFromAIResponse 的 7 策略抽取器（含 <think> 剥离、
+      // 任意位置 brace counting、truncated JSON repair）。
       let candidate = finalOutput;
       if (typeof candidate === "string") {
-        const trimmed = candidate.trim();
-        if (
-          (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-          (trimmed.startsWith("[") && trimmed.endsWith("]"))
-        ) {
-          try {
-            candidate = JSON.parse(trimmed);
-          } catch {
-            // keep original — schema parse will fail and mark state=failed
-          }
+        const extracted = extractJsonFromAIResponse(candidate);
+        if (extracted.success) {
+          candidate = extracted.data;
         }
+        // failed extraction → 保留 string，schema 自己 reject (state=failed)
       }
       const parsed = meta.outputSchema.safeParse(candidate);
       if (!parsed.success) {

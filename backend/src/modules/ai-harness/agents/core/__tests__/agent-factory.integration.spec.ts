@@ -416,6 +416,67 @@ describe("AgentFactory.create — outputSchema validator closure (exercised via 
     const r = capturedValidator!("{not valid json}");
     expect(r.ok).toBe(false);
   });
+
+  // ★ 2026-05-13: regression for reasoning-model RUNNER_OUTPUT_SCHEMA_MISMATCH
+  //   Nemotron-3-Nano / DeepSeek-R1 etc. routinely wrap their finalize JSON
+  //   in surrounding prose ("Here is the JSON: {…}\n\nLet me know…") or in
+  //   <think>…</think> blocks. The prior `startsWith('{')` recovery shim
+  //   failed those cases → MAX_FINALIZE_REJECTS → RUNNER_OUTPUT_SCHEMA_MISMATCH.
+  it("outputSchemaValidator robustly extracts JSON from prose-wrapped strings", async () => {
+    const schema = z.object({ dimension: z.string(), score: z.number() });
+    let capturedValidator:
+      | ((output: unknown) => { ok: boolean; issues?: string })
+      | undefined;
+
+    const loop = makeCapturingLoop((opts) => {
+      capturedValidator = opts.outputSchemaValidator;
+    });
+
+    const registry = {
+      has: jest.fn().mockReturnValue(true),
+      get: jest.fn().mockReturnValue(loop),
+    } as unknown as LoopRegistry;
+
+    const factory = new AgentFactory(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      registry,
+    );
+    const spec = makeSpec({ outputSchema: schema as never, loop: "react" });
+    const agent = factory.create(spec);
+
+    for await (const _ of agent.execute({ goal: "test" })) {
+      void _;
+    }
+
+    expect(capturedValidator).toBeDefined();
+    // Leading prose
+    expect(
+      capturedValidator!('Here is the JSON: {"dimension":"d","score":7}'),
+    ).toEqual({ ok: true });
+    // Trailing prose
+    expect(
+      capturedValidator!(
+        '{"dimension":"d","score":7}\n\nLet me know if you need adjustments.',
+      ),
+    ).toEqual({ ok: true });
+    // Fenced code block
+    expect(
+      capturedValidator!('```json\n{"dimension":"d","score":7}\n```'),
+    ).toEqual({ ok: true });
+    // <think> reasoning leak before the answer (Nemotron / DeepSeek-R1)
+    expect(
+      capturedValidator!(
+        '<think>The user asked me to score this dimension...</think>\n{"dimension":"d","score":7}',
+      ),
+    ).toEqual({ ok: true });
+    // Plain prose with no extractable JSON → still rejects
+    const r = capturedValidator!("I think this dimension scored about a 7.");
+    expect(r.ok).toBe(false);
+  });
 });
 
 // ─── create: validateBusinessRulesWrapper closure ────────────────────────────
