@@ -258,21 +258,26 @@ export class FederalRegisterTool extends BaseTool<
         params["conditions[term]"] = query;
       }
 
-      // 文档类型 - 每个类型需要单独的参数
+      // 2026-05-13 #46 修：FR API 文档明确说明
+      //   - 单值用 conditions[FIELD]=V（不要 brackets）
+      //   - 多值用 conditions[FIELD][]=V1&conditions[FIELD][]=V2
+      // 之前用 conditions[FIELD][0]=V / [1]=V 形式实测 prod 返回 HTTP 400。
+      // axios 默认 params serializer 不支持同名 key 重复，故多值用逗号 fallback
+      // （FR API 实测兼容 "RULE,PRESDOC" 形式）。
       if (documentType) {
         const types = Array.isArray(documentType)
           ? documentType
           : [documentType];
-        // Federal Register API 要求数组参数使用多个同名参数
-        // 例如: conditions[type][]=RULE&conditions[type][]=PRESDOC
-        types.forEach((type, index) => {
-          params[`conditions[type][${index}]`] = type;
-        });
+        if (types.length === 1) {
+          params["conditions[type]"] = types[0];
+        } else if (types.length > 1) {
+          params["conditions[type][]"] = types.join(",");
+        }
       }
 
-      // 机构 - 同样需要数组格式
       if (agency) {
-        params["conditions[agencies][0]"] = agency;
+        // 单值不带 brackets
+        params["conditions[agencies]"] = agency;
       }
 
       if (startDate) {
@@ -317,15 +322,38 @@ export class FederalRegisterTool extends BaseTool<
         totalCount: response.count,
       };
     } catch (error) {
+      // 2026-05-13 #46: 把 axios 的 response.status + response.data body 写进 log，
+      // 之前只 ${error} 看不到真实 400 详情，无法定位 conditions[...] 参数哪里不合规。
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
-      this.logger.error(`[doExecute] Federal Register API error: ${error}`);
+      const ax = error as {
+        response?: { status?: number; data?: unknown };
+        config?: { url?: string; params?: Record<string, unknown> };
+      };
+      const status = ax?.response?.status;
+      const body = ax?.response?.data;
+      // 2026-05-13 注意 JSON.stringify(undefined) 返回 undefined（非字符串），
+      // 再 .slice() 会抛错；body 为 nullish 时直接给空串。
+      const bodyStr =
+        body === undefined || body === null
+          ? ""
+          : typeof body === "string"
+            ? body.slice(0, 500)
+            : (JSON.stringify(body) ?? "").slice(0, 500);
+      const paramsStr = ax?.config?.params
+        ? (JSON.stringify(ax.config.params) ?? "").slice(0, 300)
+        : "";
+      this.logger.error(
+        `[doExecute] Federal Register API ${status ?? "error"}: ${errorMessage}` +
+          (status && bodyStr ? ` | body=${bodyStr}` : "") +
+          (paramsStr ? ` | params=${paramsStr}` : ""),
+      );
 
       return {
         success: false,
         documents: [],
         totalCount: 0,
-        error: `Federal Register 搜索失败: ${errorMessage}`,
+        error: `Federal Register 搜索失败 (${status ?? "network"}): ${errorMessage}`,
       };
     }
   }

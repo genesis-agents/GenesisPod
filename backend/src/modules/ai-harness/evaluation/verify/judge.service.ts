@@ -119,6 +119,24 @@ export class JudgeService {
             userId: KernelContext.get()?.userId,
             signal,
           });
+          // 2026-05-13 #53: AiChatService 在 guardrail block 时返回
+          // content="Request blocked by content safety guardrail: ..." + isError=true，
+          // 不抛异常。JudgeService 此前忽略 isError，直接 parseVerdict → null →
+          // 误以为"模型输出非 JSON"。改为先识别 guardrail/error 短路，静默 abstain。
+          if (
+            (res as { isError?: boolean }).isError ||
+            /^Request blocked by content safety guardrail/i.test(
+              res.content ?? "",
+            ) ||
+            /^Response filtered by content safety guardrail/i.test(
+              res.content ?? "",
+            )
+          ) {
+            this.logger.debug(
+              `[judge:${id}] AiChatService returned guardrail/error placeholder — abstain.`,
+            );
+            return null;
+          }
           const parsed = this.parseVerdict(res.content);
           if (!parsed) {
             this.logger.warn(

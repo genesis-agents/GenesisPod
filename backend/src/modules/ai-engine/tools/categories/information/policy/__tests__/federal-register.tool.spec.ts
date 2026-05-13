@@ -203,7 +203,8 @@ describe("FederalRegisterTool", () => {
 
       const calledParams = mockPolicyDataService.httpGet.mock
         .calls[0][1] as Record<string, string>;
-      expect(calledParams?.["conditions[type][0]"]).toBe("PRESDOC");
+      // 2026-05-13 #46: 单值用 conditions[type]，不带 brackets
+      expect(calledParams?.["conditions[type]"]).toBe("PRESDOC");
     });
 
     it("should pass agency filter correctly", async () => {
@@ -213,7 +214,8 @@ describe("FederalRegisterTool", () => {
 
       const calledParams = mockPolicyDataService.httpGet.mock
         .calls[0][1] as Record<string, string>;
-      expect(calledParams?.["conditions[agencies][0]"]).toBe("DOE");
+      // 2026-05-13 #46: 单值用 conditions[agencies]，不带 brackets
+      expect(calledParams?.["conditions[agencies]"]).toBe("DOE");
     });
 
     it("should pass date range parameters correctly", async () => {
@@ -274,8 +276,8 @@ describe("FederalRegisterTool", () => {
 
       const calledParams = mockPolicyDataService.httpGet.mock
         .calls[0][1] as Record<string, string>;
-      expect(calledParams?.["conditions[type][0]"]).toBe("RULE");
-      expect(calledParams?.["conditions[type][1]"]).toBe("NOTICE");
+      // 2026-05-13 #46: 多值用 conditions[type][]，逗号 join
+      expect(calledParams?.["conditions[type][]"]).toBe("RULE,NOTICE");
     });
   });
 
