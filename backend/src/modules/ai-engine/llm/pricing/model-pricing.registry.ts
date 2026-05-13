@@ -167,8 +167,10 @@ export class ModelPricingRegistry implements OnApplicationBootstrap {
       if (!this.warnedUnknown.has(modelId)) {
         this.logger.warn(
           `[estimateCost] modelId="${modelId}" not in pricing registry. ` +
-            `Cost cannot be calculated. Add this model to AIModel table with ` +
-            `costTier + priceInputPerMillion + priceOutputPerMillion to enable budget tracking.`,
+            `Cost cannot be calculated. Admin: open /admin/ai/models, add row with ` +
+            `modelId="${modelId}", costTier (basic|standard|strong), priceInputPerMillion, ` +
+            `priceOutputPerMillion to enable budget tracking. Budget enforcement will treat ` +
+            `this call as $0 until configured.`,
         );
         this.warnedUnknown.add(modelId);
       }

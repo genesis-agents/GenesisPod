@@ -1257,6 +1257,28 @@ function wrapEmbeddingError(error: unknown): Error {
       suffix = ` [retry-after=${secs}s]`;
     }
   }
+
+  // ★ 2026-05-13: 提取 OpenAI / Cohere / Google 400/422 错误 body 里的真实
+  //   message（"model does not exist" / "Input must be non-empty" / 维度错），
+  //   原版只透传 axios "Request failed with status code 400" 没有 actionable 信息
+  //   → 运维看到一片 400 不知道改哪。
+  let bodyMsg = "";
+  const data = err.response?.data as Record<string, unknown> | undefined;
+  if (data && typeof data === "object") {
+    const errField = data.error;
+    if (typeof errField === "string") {
+      bodyMsg = errField;
+    } else if (errField && typeof errField === "object") {
+      const m = (errField as { message?: unknown }).message;
+      if (typeof m === "string") bodyMsg = m;
+    } else if (typeof data.message === "string") {
+      bodyMsg = data.message;
+    }
+  }
+  if (bodyMsg) {
+    suffix += ` [body=${bodyMsg.slice(0, 200)}]`;
+  }
+
   const baseMsg = err.message ?? String(err);
   const wrapped = new Error(`${baseMsg}${suffix}`);
   // 保留 axios shape 让上游 isRateLimitError 仍能识别 429

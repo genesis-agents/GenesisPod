@@ -1009,15 +1009,27 @@ export class AiConnectionTestService {
         errorMessage = `API Error (${status}): ${bodyText}`;
         // ★ 405 + 空 body 是 admin 配错 endpoint 的常见模式（base URL 拼 /rerank
         //   后命中 provider 上的 GET-only 路径或非 rerank 路径）。给出诊断引导。
+        // 2026-05-13 P2-#18: 检测 chat 路径残留（admin 用 chat URL 套到 rerank
+        //   字段，如 https://api.cohere.com/v1/chat 拼成 .../chat/rerank）。
+        const looksLikeChatPath =
+          !!attemptedUrl &&
+          (/\/chat(\/|$)/i.test(attemptedUrl) ||
+            /\/messages(\/|$)/i.test(attemptedUrl));
         if (status === 405) {
           hint =
             ` — POST ${attemptedUrl ?? "(unknown URL)"} 不被接受。` +
             `Endpoint 拼接后可能不是 ${provider} 的 rerank API 路径。` +
+            (looksLikeChatPath
+              ? ` 检测到您填的是 chat completions 路径（含 /chat 或 /messages），rerank 走独立路径。`
+              : "") +
             `请检查 admin Add Model 的 API Endpoint，确认填写的是 base URL（如 https://api.cohere.com/v1）` +
             `或完整 rerank URL（如 https://api.cohere.com/v1/rerank）。`;
         } else if (status === 404) {
           hint =
             ` — POST ${attemptedUrl ?? "(unknown URL)"} 路径不存在。` +
+            (looksLikeChatPath
+              ? ` 检测到 chat 路径残留（/chat 或 /messages），请改成 rerank base URL（如 https://api.cohere.com/v1）。`
+              : "") +
             `请确认 endpoint 是 ${provider} 的正确 rerank API base / 完整 URL。`;
         }
       } else if (err.code === "ECONNABORTED") {
@@ -1162,6 +1174,7 @@ export class AiConnectionTestService {
     } catch (error: unknown) {
       const latency = Date.now() - startTime;
       let errorMessage = "Unknown error";
+      let hint = "";
 
       const err = error as Record<string, unknown>;
       if (err.response) {
@@ -1169,22 +1182,38 @@ export class AiConnectionTestService {
         const status = response.status;
         const data = response.data as Record<string, unknown> | undefined;
         const errObj = data?.error as Record<string, unknown> | undefined;
-        errorMessage = `API Error (${status}): ${
+        const apiMsg =
           (errObj?.message as string) ||
           (data?.message as string) ||
-          JSON.stringify(data)
-        }`;
+          JSON.stringify(data);
+        errorMessage = `API Error (${status}): ${apiMsg}`;
+
+        // 2026-05-13 P3-#8: DALL-E 测试 400 "model does not exist" 高频报错。
+        //   OpenAI 已废弃 dall-e-2（2024-11+），新 key 多无 dall-e-3 权限。
+        //   admin 看到 "model does not exist" 通常不知该如何处置 —— 给出具体建议。
+        if (
+          status === 400 &&
+          /model.*(does not exist|not found|unknown)/i.test(apiMsg)
+        ) {
+          if (modelId?.startsWith("dall-e-2")) {
+            hint = ` — DALL-E 2 在 2024-11 后对新 API key 不可用，请改用 gpt-image-1 或 dall-e-3。`;
+          } else if (modelId?.startsWith("dall-e-3")) {
+            hint = ` — DALL-E 3 需账户达到 Tier 1+ 才可用，或确认 BYOK key 有 image generation 权限。`;
+          } else {
+            hint = ` — 检查 modelId 拼写（OpenAI 支持: gpt-image-1 / dall-e-3 / dall-e-2[legacy]）。`;
+          }
+        }
       } else if (err.code === "ECONNABORTED") {
         errorMessage = "Connection timeout";
       } else if (err.message) {
         errorMessage = err.message as string;
       }
 
-      this.logger.error(`Image model test failed: ${errorMessage}`);
+      this.logger.error(`Image model test failed: ${errorMessage}${hint}`);
 
       return {
         success: false,
-        message: `Connection failed: ${errorMessage}`,
+        message: `Connection failed: ${errorMessage}${hint}`,
         latency,
       };
     }
