@@ -164,6 +164,22 @@ export class MissionLifecycleService {
     });
 
     if (existingMission) {
+      // ★ 2026-05-13 P0-#3 dedup window: 短时间内的重复 POST（frontend React
+      //   StrictMode 双调用 / 用户双击 / 多组件并发 useEffect）会让上一次刚
+      //   启动的 mission 被立刻 cancel-and-recreate, 白烧 LLM token 还让用户
+      //   看到 mission id 在变。10s 内的重复请求视作幂等，直接返回 existing。
+      //   超过窗口（用户明确想重启）才走 cancel-and-recreate。
+      const DEDUP_WINDOW_MS = 10_000;
+      const ageMs = Date.now() - existingMission.createdAt.getTime();
+      if (ageMs < DEDUP_WINDOW_MS) {
+        this.logger.log(
+          `[createMission] dedup hit: existing mission ${existingMission.id} ` +
+            `created ${ageMs}ms ago (< ${DEDUP_WINDOW_MS}ms window), status=${existingMission.status} ` +
+            `— returning existing instead of cancel-and-recreate (likely frontend double-invoke)`,
+        );
+        return existingMission;
+      }
+
       // ★ 根据模式决定如何处理旧 Mission
       if (isIncremental) {
         // 增量模式：收集已完成的任务（完整数据）

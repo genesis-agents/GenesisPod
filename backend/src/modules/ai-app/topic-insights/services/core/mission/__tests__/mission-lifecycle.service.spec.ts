@@ -304,6 +304,8 @@ describe("MissionLifecycleService", () => {
       prisma.researchMission.findFirst.mockResolvedValue({
         id: "old-mission",
         status: ResearchMissionStatus.EXECUTING,
+        // 老 mission（>10s 前），绕开 P0-#3 dedup window 走 cancel-and-recreate
+        createdAt: new Date(Date.now() - 60_000),
         tasks: [],
       });
       prisma.researchMission.create.mockResolvedValue({
@@ -325,6 +327,61 @@ describe("MissionLifecycleService", () => {
           }),
         }),
       );
+    });
+
+    // 回归 P0-#3 (2026-05-13): frontend React StrictMode 双调用 / 用户双击 /
+    // 多组件并发 useEffect 会让 ~1-3s 内连续 2 次 POST /leader/plan，
+    // 上一次刚启动的 mission 立刻被 cancel-and-recreate，白烧 LLM token。
+    // 10s 内的重复 POST 应该返回 existing mission（幂等），不 cancel。
+    it("dedup window: returns existing mission when re-posted within 10s (no cancel)", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      const recentMission = {
+        id: "recent-mission",
+        status: ResearchMissionStatus.PLANNING,
+        // 3 秒前创建（命中 dedup window）
+        createdAt: new Date(Date.now() - 3_000),
+        tasks: [],
+      };
+      prisma.researchMission.findFirst.mockResolvedValue(recentMission);
+
+      const result = await service.createMission({ topicId: "topic-1" });
+
+      expect(result.id).toBe("recent-mission");
+      // 不应该 cancel 也不应该 create
+      expect(prisma.researchMission.update).not.toHaveBeenCalled();
+      expect(prisma.researchMission.create).not.toHaveBeenCalled();
+    });
+
+    it("dedup window: cancel-and-recreate when existing mission older than 10s", async () => {
+      prisma.researchTopic.findUnique.mockResolvedValue(mockTopic);
+      prisma.researchMission.findFirst.mockResolvedValue({
+        id: "stale-mission",
+        status: ResearchMissionStatus.PLANNING,
+        // 30 秒前创建（超出 dedup window，用户明确想重启）
+        createdAt: new Date(Date.now() - 30_000),
+        tasks: [],
+      });
+      prisma.researchMission.create.mockResolvedValue({
+        id: "fresh-mission",
+        status: ResearchMissionStatus.PLANNING,
+        topicId: "topic-1",
+      });
+      prisma.researchMission.update.mockResolvedValue({});
+      prisma.researchTask.updateMany.mockResolvedValue({ count: 0 });
+      prisma.researchTodo.updateMany.mockResolvedValue({ count: 0 });
+
+      await service.createMission({ topicId: "topic-1" });
+
+      // 应该 cancel 旧的 + create 新的
+      expect(prisma.researchMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "stale-mission" },
+          data: expect.objectContaining({
+            status: ResearchMissionStatus.CANCELLED,
+          }),
+        }),
+      );
+      expect(prisma.researchMission.create).toHaveBeenCalled();
     });
   });
 
@@ -802,6 +859,8 @@ describe("MissionLifecycleService", () => {
       const activeMission = {
         id: "active-mission",
         status: ResearchMissionStatus.EXECUTING,
+        // 老 mission（>10s 前创建），绕开 P0-#3 dedup window 走 cancel-and-recreate 路径
+        createdAt: new Date(Date.now() - 60_000),
         tasks: [
           {
             // duplicate from prev - should be deduplicated
