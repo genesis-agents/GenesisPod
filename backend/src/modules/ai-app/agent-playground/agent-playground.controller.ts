@@ -659,24 +659,94 @@ export class AgentPlaygroundController {
 
   /**
    * PATCH /api/v1/agent-playground/missions/:id
-   * 修改 mission topic（rename）。
+   *
+   * 修改 mission 配置：topic（任意状态可改）+ 预算字段（仅非运行状态可改）。
+   *
+   * 预算字段（2026-05-13）：
+   *   - maxCredits：1 credit ≈ 1k tokens（10 - 100000）
+   *   - budgetMultiplierOverride：每个 sub-agent token/iter 缩放（0.3 - 10）
+   *   - wallTimeMs：mission 总时长上限毫秒（60000 - 10800000，即 1min-180min）
+   * status 必须为 terminal（completed/cancelled/failed/quality-failed/rejected）；
+   * 下一次「重跑」会读到新值生效。
    */
   @Patch("missions/:id")
   async updateMission(
     @Param("id") missionId: string,
-    @Body() body: { topic?: string },
+    @Body()
+    body: {
+      topic?: string;
+      maxCredits?: number;
+      budgetMultiplierOverride?: number;
+      wallTimeMs?: number;
+    },
     @Request() req: RequestWithUser,
   ): Promise<{ ok: true }> {
     const userId = req.user?.id;
     if (!userId) throw new ForbiddenException("Authentication required");
-    const topic = (body?.topic ?? "").trim();
-    if (!topic) throw new BadRequestException("topic is required");
-    if (topic.length > 500)
-      throw new BadRequestException("topic exceeds 500 chars");
+
+    // 入参先校验，再查 mission（保留 BadRequest 在 NotFound 前的语义）
+    if (typeof body.topic === "string") {
+      const topic = body.topic.trim();
+      if (!topic) throw new BadRequestException("topic is required");
+      if (topic.length > 500)
+        throw new BadRequestException("topic exceeds 500 chars");
+    }
+
     const persisted = await this.store.getById(missionId, userId);
     if (!persisted)
       throw new ForbiddenException(`mission ${missionId} not found`);
-    await this.store.updateTopicByUser(missionId, userId, topic);
+
+    // topic 任意状态可改
+    if (typeof body.topic === "string") {
+      await this.store.updateTopicByUser(missionId, userId, body.topic.trim());
+    }
+
+    // 预算字段仅非运行状态可改（store 层会再守一遍）
+    const hasBudget =
+      typeof body.maxCredits === "number" ||
+      typeof body.budgetMultiplierOverride === "number" ||
+      typeof body.wallTimeMs === "number";
+    if (hasBudget) {
+      if (
+        typeof body.maxCredits === "number" &&
+        (body.maxCredits < 10 || body.maxCredits > 100_000)
+      ) {
+        throw new BadRequestException("maxCredits must be 10..100000");
+      }
+      if (
+        typeof body.budgetMultiplierOverride === "number" &&
+        (body.budgetMultiplierOverride < 0.3 ||
+          body.budgetMultiplierOverride > 10)
+      ) {
+        throw new BadRequestException(
+          "budgetMultiplierOverride must be 0.3..10",
+        );
+      }
+      if (
+        typeof body.wallTimeMs === "number" &&
+        (body.wallTimeMs < 60_000 || body.wallTimeMs > 180 * 60_000)
+      ) {
+        throw new BadRequestException(
+          "wallTimeMs must be 60000..10800000 (1-180min)",
+        );
+      }
+      const res = await this.store.updateBudgetByUser(missionId, userId, {
+        maxCredits: body.maxCredits,
+        wallTimeMs: body.wallTimeMs,
+        budgetMultiplierOverride: body.budgetMultiplierOverride,
+      });
+      if (!res.ok) {
+        if (res.reason === "non_terminal_status") {
+          throw new BadRequestException(
+            "Cannot edit budget while mission is running. Cancel first.",
+          );
+        }
+        if (res.reason === "not_found") {
+          throw new ForbiddenException(`mission ${missionId} not found`);
+        }
+        throw new BadRequestException(res.reason ?? "budget update failed");
+      }
+    }
     return { ok: true };
   }
 

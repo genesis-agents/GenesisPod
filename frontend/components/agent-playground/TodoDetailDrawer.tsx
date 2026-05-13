@@ -1461,7 +1461,10 @@ function TimelineEntryView({
     <li className="relative pb-3 last:pb-0">
       <span
         className={cn(
-          'absolute -left-[28px] top-1 inline-flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-white',
+          // 2026-05-13: -left-[25px] 让 dot 中心与 line 中心对齐：
+          //   ol pl-9 (36px) → li 左缘 = 36；line 中心 = 20 + 1 = 21px；
+          //   dot w-5 (20px)，-left-[25px] 让 dot 左缘 = 36-25 = 11px，中心 = 11+10 = 21px ✓
+          'absolute -left-[25px] top-1 inline-flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-white',
           tk.bg
         )}
       >

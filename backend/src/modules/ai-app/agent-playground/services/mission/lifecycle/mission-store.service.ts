@@ -515,6 +515,65 @@ export class MissionStore {
       });
   }
 
+  /**
+   * 2026-05-13: 用户在非运行状态修改 mission 预算配置（下次重跑生效）。
+   *
+   * 仅当 status 是 terminal（completed/cancelled/failed/quality-failed/rejected）
+   * 时允许修改；running/queued/pending 时返回 conflict（前端按钮也会隐藏，这是
+   * 服务端再次守门）。
+   *
+   * 修改字段：
+   *   - max_credits（row 字段）
+   *   - wallTimeMs（row 字段，存毫秒）
+   *   - userProfile.budgetMultiplierOverride（JSON 字段，rerun 时读取）
+   *
+   * Returns true if updated, false if mission not found or guard rejected。
+   */
+  async updateBudgetByUser(
+    id: string,
+    userId: string,
+    patch: {
+      maxCredits?: number;
+      wallTimeMs?: number;
+      budgetMultiplierOverride?: number;
+    },
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const row = await this.prisma.agentPlaygroundMission.findFirst({
+      where: { id, userId },
+      select: { id: true, status: true, userProfile: true },
+    });
+    if (!row) return { ok: false, reason: "not_found" };
+    const NON_TERMINAL = new Set(["running", "queued", "pending"]);
+    if (NON_TERMINAL.has(row.status)) {
+      return { ok: false, reason: "non_terminal_status" };
+    }
+    const data: Record<string, unknown> = {};
+    if (typeof patch.maxCredits === "number")
+      data.maxCredits = patch.maxCredits;
+    if (typeof patch.wallTimeMs === "number")
+      data.wallTimeMs = patch.wallTimeMs;
+    if (typeof patch.budgetMultiplierOverride === "number") {
+      // budgetMultiplierOverride 没 row 字段，写到 userProfile JSON
+      const existing =
+        (row.userProfile as Record<string, unknown> | null) ?? {};
+      data.userProfile = {
+        ...existing,
+        budgetMultiplierOverride: patch.budgetMultiplierOverride,
+      } as Prisma.InputJsonValue;
+    }
+    if (Object.keys(data).length === 0) {
+      return { ok: false, reason: "empty_patch" };
+    }
+    await this.prisma.agentPlaygroundMission
+      .updateMany({ where: { id, userId }, data })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[updateBudgetByUser ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    return { ok: true };
+  }
+
   async markCancelled(id: string): Promise<void> {
     // ★ P0-1: 仅在 status='running' 时改为 cancelled —— 防止 race 时把已 completed/failed 的 mission 错误覆盖
     await this.prisma.agentPlaygroundMission

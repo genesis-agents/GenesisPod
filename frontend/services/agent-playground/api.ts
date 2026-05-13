@@ -149,6 +149,9 @@ export interface MissionListItem {
 }
 
 export interface MissionDetail extends MissionListItem {
+  // 2026-05-13: backend GET 返回的预算 row 字段（mission-store.service.ts:1447），
+  // 前端 Mission 设置弹窗读真值（不再退回 userProfile JSON fallback）。
+  maxCredits: number | null;
   themeSummary: string | null;
   dimensions: { id: string; name: string; rationale: string }[] | null;
   reportFull: {
@@ -432,7 +435,13 @@ export async function deleteMission(missionId: string): Promise<{ ok: true }> {
 
 export async function updateMission(
   missionId: string,
-  data: { topic: string }
+  // 2026-05-13: 扩展支持预算字段（非运行状态可改，下次重跑生效）
+  data: {
+    topic?: string;
+    maxCredits?: number;
+    budgetMultiplierOverride?: number;
+    wallTimeMs?: number;
+  }
 ): Promise<{ ok: true }> {
   const res = await fetch(
     `${API_BASE}/missions/${encodeURIComponent(missionId)}`,

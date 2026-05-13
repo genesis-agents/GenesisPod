@@ -238,6 +238,11 @@ export interface MissionState {
   themeSummary?: string;
   dimensions?: { id: string; name: string; rationale: string }[];
   finalScore?: number;
+  // 2026-05-13: row-field 真值，前端 Mission 设置弹窗读这里，不再退回
+  // userProfile JSON（runtime-shell 已不再双写 budget 字段到 userProfile）。
+  maxCredits?: number;
+  wallTimeMs?: number;
+  status?: string;
 }
 
 export interface ChapterState {

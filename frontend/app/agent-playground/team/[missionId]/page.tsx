@@ -256,6 +256,10 @@ export default function MissionDetailPage() {
           themeSummary: persisted.themeSummary ?? undefined,
           dimensions: persisted.dimensions ?? undefined,
           finalScore: persisted.finalScore ?? undefined,
+          // 2026-05-13: 把 row-field budget 透传到 view，让 Mission 设置弹窗读真值
+          maxCredits: persisted.maxCredits ?? undefined,
+          wallTimeMs: persisted.wallTimeMs ?? undefined,
+          status: persisted.status,
         },
         stages: stages.length > 0 ? stages : liveView.stages,
         agents: synthAgents.length > 0 ? synthAgents : liveView.agents,
@@ -1128,6 +1132,7 @@ export default function MissionDetailPage() {
 
       {/* Settings modal */}
       <MissionSettingsModal
+        missionId={missionId}
         mission={view.mission}
         wallTimeMs={wallTimeMs}
         cost={view.cost}
@@ -1143,6 +1148,7 @@ export default function MissionDetailPage() {
 }
 
 function MissionSettingsModal({
+  missionId,
   mission,
   wallTimeMs,
   cost,
@@ -1150,6 +1156,7 @@ function MissionSettingsModal({
   open,
   onClose,
 }: {
+  missionId: string;
   mission: ReturnType<typeof deriveView>['mission'];
   wallTimeMs: number;
   cost: ReturnType<typeof deriveView>['cost'];
@@ -1202,14 +1209,19 @@ function MissionSettingsModal({
     setSearchTimeRange((userProfile?.searchTimeRange as STR) ?? '365d');
     const kbIds = userProfile?.knowledgeBaseIds as string[] | undefined;
     setKnowledgeBaseIds(Array.isArray(kbIds) ? kbIds : []);
-    setMaxCredits(
-      ((userProfile as { maxCredits?: number })?.maxCredits as number) ?? 2000
-    );
+    // 2026-05-13: maxCredits / wallTimeMs 优先读 mission row 真值（runtime-shell 已
+    // 只把这些字段写到 row 而非 userProfile JSON）；userProfile 仅作 legacy fallback。
+    // budgetMultiplierOverride 仍只在 userProfile JSON（无 row 字段）。
+    const rowMax = (mission as { maxCredits?: number }).maxCredits;
+    const profMax = (userProfile as { maxCredits?: number })?.maxCredits;
+    setMaxCredits(rowMax ?? profMax ?? 2000);
     setBudgetMultiplierOverride(
       ((userProfile as { budgetMultiplierOverride?: number })
         ?.budgetMultiplierOverride as number) ?? 1.0
     );
-    const inheritedWall = (userProfile as { wallTimeMs?: number })?.wallTimeMs;
+    const rowWall = (mission as { wallTimeMs?: number }).wallTimeMs;
+    const profWall = (userProfile as { wallTimeMs?: number })?.wallTimeMs;
+    const inheritedWall = rowWall ?? profWall;
     setWallTimeMinutes(
       inheritedWall && inheritedWall > 0
         ? Math.round(inheritedWall / 60_000)
@@ -1262,6 +1274,40 @@ function MissionSettingsModal({
           knowledgeBaseIds.length > 0 ? knowledgeBaseIds : undefined,
       });
       router.push(`/agent-playground/team/${newId}`);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : String(e));
+      setSaving(false);
+    }
+  };
+
+  // 2026-05-13: 非运行状态下保存修改（写回原 mission，下次重跑生效）。
+  const isTerminal = !['running', 'queued', 'pending'].includes(
+    (mission as { status?: string }).status ?? ''
+  );
+  const handleSaveInPlace = async () => {
+    if (maxCredits < 10 || maxCredits > 100_000) {
+      setSaveError('maxCredits 必须在 10 - 100000 之间');
+      return;
+    }
+    if (budgetMultiplierOverride < 0.3 || budgetMultiplierOverride > 10) {
+      setSaveError('agent 倍率必须在 0.3 - 10 之间');
+      return;
+    }
+    if (wallTimeMinutes < 1 || wallTimeMinutes > 180) {
+      setSaveError('时长上限必须在 1 - 180 分钟之间');
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const { updateMission } = await import('@/services/agent-playground/api');
+      await updateMission(missionId, {
+        maxCredits,
+        budgetMultiplierOverride,
+        wallTimeMs: wallTimeMinutes * 60_000,
+      });
+      setSaving(false);
+      onClose();
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e));
       setSaving(false);
@@ -1505,6 +1551,18 @@ function MissionSettingsModal({
           >
             关闭
           </button>
+          {/* 2026-05-13: 非运行状态显示「保存修改」，写回原 mission，下次重跑生效 */}
+          {isTerminal && (
+            <button
+              type="button"
+              onClick={() => void handleSaveInPlace()}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              title="把预算配置写回当前 mission，下次「重跑」会用新值"
+            >
+              {saving ? '保存中…' : '保存修改'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void handleSaveAsNew()}
