@@ -3,8 +3,15 @@
  * OpenAlex 学术搜索工具 - 搜索跨领域学术论文，含引用计数、开放获取状态等元数据
  *
  * API 文档: https://docs.openalex.org/
- * 无需 API Key（免费公开）
- * 限速: 10 req/s (无 mailto)，无限制 (有 mailto，polite pool)
+ * 认证：不使用 API Key，通过 mailto 参数进入 polite pool（admin 配 SecretKey "openalex-search"）
+ * 限速：
+ *   - 无 mailto: 10 req/s
+ *   - 有 mailto: polite pool，仍有 10 req/s 突发上限 + $1/day budget (freemium 2026-05)
+ *
+ * 三层限速防护：
+ *   L1 (本 tool, static cooldown):  429 → 2/4/8s 指数退避，3 次后 30s 全局停摆
+ *   L2 (GlobalSourceThrottleService): cooldown + token bucket (8 req/s) + concurrency (2)
+ *   L3 (PolicyDataService):           markKeyFailed 用于多 key 轮换（本场景单 mailto 仅记录）
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -138,9 +145,11 @@ export class OpenAlexSearchTool extends BaseTool<
 > {
   private readonly logger = new Logger(OpenAlexSearchTool.name);
 
-  // ★ 并发控制由 GlobalSourceThrottleService 统一管理（openalex-search: 5 并发）
-  // 本 tool 仅保留 429 冷却逻辑
-  /** 全局 429 冷却截止时间戳 */
+  // ★ 限速分工：
+  //   并发 + req/s + cooldown 协调由 L3 业务层的 GlobalSourceThrottleService 负责。
+  //   本 tool 仅保留 process-wide static cooldown，覆盖不经过 throttle 的直调路径
+  //   （L3 应用直接 ToolRegistry.execute 不会过 adapter throttle）。
+  /** 全局 429 冷却截止时间戳（毫秒）；同进程内所有调用方共享 */
   private static cooldownUntil = 0;
 
   readonly id = "openalex-search";
