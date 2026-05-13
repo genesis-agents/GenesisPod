@@ -11,6 +11,7 @@ import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { CommonModule } from "./common/common.module";
 import { PrismaModule } from "./common/prisma/prisma.module";
+import { SeedModule } from "./common/seed/seed.module";
 // ★ PR-A6 (2026-05-07): per-workspace 灰度 @Global service（无业务依赖，仅 Prisma）
 import { FeatureFlagModule } from "./common/feature-flag/feature-flag.module";
 import { RawDataModule } from "./common/rawdata/rawdata.module";
@@ -164,6 +165,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
 
     // æ•°æ®åº“æ¨¡å—
     PrismaModule,
+    SeedModule, // boot-time idempotent system-data sync (simulation providers / youtube sources)
     RawDataModule,
     GraphModule,
 

@@ -424,7 +424,27 @@ docker stats genesis-backend genesis-frontend genesis-ai-service
 
 ---
 
-## 9. 联系开发方
+## 9. 内置数据从哪里来
+
+刚装完，登录 admin 后台你能看到的内置数据：
+
+| 来源                                      | 内容                                                                                                                                                 | 数量                                    |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **Prisma schema migrations**              | AI 模型默认 4 个（grok / gpt-4 / claude / gemini）、AI providers 18 个（OpenAI/Anthropic/Doubao/Kimi/...）、数据源 5+ 个（arxiv / hackernews / ...） | 自动随首次 `prisma migrate deploy` 落库 |
+| **后端启动时 `SeedSyncService` 幂等同步** | Simulation 外部数据源（market/finance/news/regulation）、YouTube 默认订阅源（Y Combinator / Bloomberg Tech / Lenny's Podcast 等）                    | backend 容器每次启动跑，已有数据不覆盖  |
+| **代码注册（不走 DB）**                   | 所有 Tool（Tavily/Serper/arxiv 搜索/...）、所有 Skill（48 个 SKILL.md）                                                                              | 自动可用，无需配置                      |
+
+**唯一你必须做的**：登录 admin → 系统 → AI → 模型，给至少一个模型录 BYOK API key（OpenAI / Claude / Gemini 选一个），否则所有 LLM 调用 401。
+
+**完全为空、admin 自己创建的**：AI 团队模板、写作风格模板、Prompt 模板、报告模板 —— 这些是给客户灵活定制用，不预置默认值。
+
+**升级时**：如果新版本要加内置数据（如 v40.3.x 新增一批 YouTube 源），开发方会把它放在 `SeedSyncService` 数据文件里，你 `bash genesis.sh upgrade vX.Y.Z` 时自动跑同步，已有的数据不会丢、新数据会补进来。
+
+如要禁用自动同步（极少用，比如手动调试）：`.env.production` 加 `SEED_SYNC_ENABLED=false` 后重启 backend。
+
+---
+
+## 10. 联系开发方
 
 遇到上面没覆盖的问题：
 

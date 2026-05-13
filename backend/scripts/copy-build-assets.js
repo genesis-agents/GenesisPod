@@ -27,6 +27,7 @@ const PATTERNS = [
   /\/strategies\/[^/]+\.md$/, // strategy md
   /\/presets\/[^/]+\.json$/, // preset json
   /\/soul\.md$/, // agent soul
+  /\/common\/seed\/data\/[^/]+\.json$/, // SeedSyncService data files
 ];
 
 let copied = 0;
@@ -42,7 +43,9 @@ function walk(dir, cb) {
 }
 
 if (!fs.existsSync(DIST)) {
-  console.error(`[copy-build-assets] dist not found at ${DIST}; nest build might have failed.`);
+  console.error(
+    `[copy-build-assets] dist not found at ${DIST}; nest build might have failed.`,
+  );
   process.exit(1);
 }
 

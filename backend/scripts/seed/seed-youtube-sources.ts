@@ -1,17 +1,15 @@
 /**
- * YouTube频道数据源种子脚本
+ * YouTube 频道数据源种子脚本（已弃用，留作手动 fallback）
  *
- * 使用方式：
- *   cd backend && npx ts-node scripts/seed-youtube-sources.ts
+ * ⚠️ DEPRECATED 2026-05-13: 主线已迁到 backend/src/common/seed/SeedSyncService，
+ *    数据源单源为 backend/src/common/seed/data/youtube-sources.json。
+ *    Backend 容器启动会自动幂等同步，无需手动跑此脚本。
  *
- * YouTube频道RSS Feed格式：
+ * 保留此脚本仅用于：
+ * - 调试 / 手动重置场景：`npx tsx scripts/seed/seed-youtube-sources.ts`
+ *
+ * YouTube 频道 RSS Feed 格式：
  *   https://www.youtube.com/feeds/videos.xml?channel_id=CHANNEL_ID
- *
- * 如何获取Channel ID：
- *   1. 打开YouTube频道页面
- *   2. 右键 -> 查看页面源代码
- *   3. 搜索 "channel_id" 或 "externalId"
- *   4. Channel ID 格式: UC + 22个字符 (共24个字符)
  */
 
 import { PrismaClient } from "@prisma/client";

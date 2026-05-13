@@ -1,18 +1,15 @@
 /**
- * AI Simulation 外部数据源预置脚本
+ * AI Simulation 外部数据源预置脚本（已弃用，留作手动 fallback）
  *
- * 预置战略推演所需的外部API配置：
- * - market: GPU/算力定价、供需数据 (Alpha Vantage)
- * - finance: 财务、融资、SEC公告 (SEC EDGAR)
- * - news: 新闻与舆情 (NewsAPI / GNews)
- * - regulation: 监管政策 (Federal Register API)
+ * ⚠️ DEPRECATED 2026-05-13: 主线已迁到 backend/src/common/seed/SeedSyncService，
+ *    数据源单源为 backend/src/common/seed/data/simulation-providers.json。
+ *    Backend 容器启动会自动幂等同步，无需手动跑此脚本。
  *
- * 使用方式：
- *   cd backend && npx ts-node scripts/seed-simulation-providers.ts
+ * 保留此脚本仅用于：
+ * - 调试 / 手动重置场景：`npx tsx scripts/seed/seed-simulation-providers.ts`
+ * - JSON 文件损坏时的紧急回退
  *
- * 注意：
- * - API Keys 需要用户自行配置，此脚本只预置结构和免费端点
- * - 部分API有免费额度（如 NewsAPI 100次/天, Alpha Vantage 25次/天）
+ * 新增/修改 provider 请改 .json 文件，不要在这里加。
  */
 
 import { PrismaClient } from "@prisma/client";
