@@ -308,7 +308,12 @@ describe("OpenAlexSearchTool", () => {
     it("should not include filter param when year is not provided", async () => {
       mockPolicyDataService.httpGet.mockResolvedValue(makeMockApiResponse());
 
-      await tool.execute({ query: "quantum computing" }, makeContext());
+      // 2026-05-13: timeRange="all" 保留无 filter 契约。
+      // resolveEffectiveTimeRange 兜底 365d 时会注入 publication_year 过滤。
+      await tool.execute(
+        { query: "quantum computing", timeRange: "all" },
+        makeContext(),
+      );
 
       const callParams = mockPolicyDataService.httpGet.mock
         .calls[0][1] as Record<string, unknown>;

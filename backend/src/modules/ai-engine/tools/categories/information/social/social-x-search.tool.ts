@@ -19,6 +19,7 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import {
+  resolveEffectiveTimeRange,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
 } from "@/common/search/search-time-range";
@@ -131,7 +132,11 @@ export class SocialXSearchTool extends BaseTool<
     input: SocialXSearchInput,
     context: ToolContext,
   ): Promise<SocialXSearchOutput> {
-    const { query, maxResults = 10, timeRange = "all" } = input;
+    const { query, maxResults = 10 } = input;
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     try {
       const webSearchTool = this.toolRegistry.tryGet("web-search");

@@ -34,6 +34,30 @@ import {
   type DefineAgentOptions,
 } from "./agent-spec.base";
 import { describeOutputSchemaForLlm } from "./zod-schema-prompt";
+import { isSearchTimeRange } from "@/common/search/search-time-range";
+
+/**
+ * 2026-05-13: 把 agent input 上的 mission-scoped 字段（searchTimeRange / language /
+ * missionId / dimensionId）抽到 envelope.metadata。tool-invoker 会透传给 ToolContext
+ * → search 类 tool 的 `resolveEffectiveTimeRange()` 把它作为 LLM 漏传时的兜底。
+ *
+ * 留意：仅抽取已知白名单字段，避免把整个 input 写进 envelope（input 可能包含 KB
+ * dump、巨型上下文等，envelope.metadata 是只读快照传给所有 tool）。
+ */
+function buildEnvelopeMetadataFromInput(
+  parsedInput: unknown,
+): Record<string, unknown> | undefined {
+  if (!parsedInput || typeof parsedInput !== "object") return undefined;
+  const src = parsedInput as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  if (isSearchTimeRange(src.searchTimeRange)) {
+    out.searchTimeRange = src.searchTimeRange;
+  }
+  if (typeof src.language === "string") out.language = src.language;
+  if (typeof src.missionId === "string") out.missionId = src.missionId;
+  if (typeof src.dimensionId === "string") out.dimensionId = src.dimensionId;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 /**
  * ★ 迭代出口标准枚举（mission-pipeline-exit-policy.md / baseline §1.4）
@@ -315,7 +339,10 @@ export class AgentRunner {
       recall.recalledIds,
       recall.effectivePreferIds,
     );
-    const preferredModelSelection = await this.resolvePreferredModel(meta, opts);
+    const preferredModelSelection = await this.resolvePreferredModel(
+      meta,
+      opts,
+    );
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
@@ -536,7 +563,10 @@ export class AgentRunner {
       recall.recalledIds,
       recall.effectivePreferIds,
     );
-    const preferredModelSelection = await this.resolvePreferredModel(meta, opts);
+    const preferredModelSelection = await this.resolvePreferredModel(
+      meta,
+      opts,
+    );
 
     const { agent, instance, parsedInput } = this.materialize(
       Spec,
@@ -1399,6 +1429,11 @@ export class AgentRunner {
           }) as Promise<unknown>
       : undefined;
 
+    // 2026-05-13: 把 parsedInput 中的 mission-scoped 字段（searchTimeRange / language / missionId）
+    // 抽到 spec.metadata，agent-factory 注入 envelope.metadata → tool-invoker 透传到
+    // ToolContext.metadata。search 类 tool 的 resolveEffectiveTimeRange() 就有 mission 兜底。
+    const envelopeMetadata = buildEnvelopeMetadataFromInput(parsedInput);
+
     const agentSpec: IAgentSpec = {
       identity,
       loop: loopOverride ?? meta.loop,
@@ -1422,6 +1457,7 @@ export class AgentRunner {
       userId,
       workspaceId,
       runtimeEnv,
+      metadata: envelopeMetadata,
     };
 
     const agent = this.factory.create(

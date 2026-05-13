@@ -17,6 +17,7 @@ import {
 import { PolicyDataService } from "../policy/policy-data.service";
 import {
   formatDateYmdSlash,
+  resolveEffectiveTimeRange,
   resolveSearchTimeRangeSince,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
@@ -208,7 +209,7 @@ export class PubMedSearchTool extends BaseTool<
 
   protected async doExecute(
     input: PubMedSearchInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<PubMedSearchOutput> {
     const {
       query,
@@ -216,8 +217,12 @@ export class PubMedSearchTool extends BaseTool<
       sortBy = "relevance",
       minDate,
       maxDate,
-      timeRange = "all",
     } = input;
+    // 2026-05-13: LLM 漏传 timeRange 时退回 mission 默认 / 365d，而非 "all"
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     this.logger.log(
       `[doExecute] Searching PubMed: query="${query}", maxResults=${maxResults}, sortBy=${sortBy}`,

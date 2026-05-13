@@ -22,6 +22,7 @@ import {
 } from "../../../abstractions/tool.interface";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
+  resolveEffectiveTimeRange,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
 } from "@/common/search/search-time-range";
@@ -165,7 +166,11 @@ export class IndustryReportSearchTool extends BaseTool<
     input: IndustryReportSearchInput,
     context: ToolContext,
   ): Promise<IndustryReportSearchOutput> {
-    const { query, maxResults = 10, topicType, timeRange = "all" } = input;
+    const { query, maxResults = 10, topicType } = input;
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     try {
       const sources = await this.getEnabledSources(topicType);

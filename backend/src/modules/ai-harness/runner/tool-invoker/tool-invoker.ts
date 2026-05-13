@@ -66,6 +66,29 @@ function truncateResult(
   };
 }
 
+/**
+ * 2026-05-13: envelope.metadata（Record<string, unknown>）→ JsonObject 收窄，
+ * 只保留 string / number / boolean / null 标量。tool-invoker 透传给 ToolContext.metadata
+ * 的字段都是 mission scope 简单标量（searchTimeRange / language / missionId），不需要嵌套。
+ */
+function pickJsonScalarMetadata(
+  src: Readonly<Record<string, unknown>> | undefined,
+): Record<string, string | number | boolean | null> | undefined {
+  if (!src) return undefined;
+  const out: Record<string, string | number | boolean | null> = {};
+  for (const [k, v] of Object.entries(src)) {
+    if (
+      typeof v === "string" ||
+      typeof v === "number" ||
+      typeof v === "boolean" ||
+      v === null
+    ) {
+      out[k] = v;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export class ToolNotFoundError extends Error {
   constructor(toolId: string) {
     super(`Tool not found in registry: ${toolId}`);
@@ -191,6 +214,10 @@ export class ToolInvoker {
     }
 
     const tool = this.toolRegistry.get(action.toolId);
+    // 2026-05-13: 把 envelope.metadata（含 mission searchTimeRange / language 等）
+    // 透传给 tool，让 search 类 tool 在 LLM 漏传 timeRange 时能用 mission 默认兜底。
+    // envelope.metadata 是 Record<string, unknown>；ToolContext.metadata 要求
+    // JsonObject，这里只挑 JSON-safe 字段（string/number/boolean/null）。
     const toolContext: ToolContext = {
       // PR-I 修复 #6: 优先使用 LLM 给的 callId 做 trace 关联，缺省时随机
       executionId: action.callId ?? randomUUID(),
@@ -201,6 +228,7 @@ export class ToolInvoker {
       callerType: "agent",
       signal: options.signal,
       timeout: options.timeoutMs,
+      metadata: pickJsonScalarMetadata(envelope.metadata),
       createdAt: new Date(),
     };
 

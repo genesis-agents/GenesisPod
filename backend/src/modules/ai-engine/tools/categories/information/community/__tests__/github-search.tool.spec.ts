@@ -191,8 +191,9 @@ describe("GithubSearchTool", () => {
     it("should append language filter to query when language is provided", async () => {
       mockPolicyDataService.httpGet.mockResolvedValue(makeGithubApiResponse(0));
 
+      // 2026-05-13: timeRange="all" 保留无 pushed:>= 日期约束的 q 契约。
       await tool.execute(
-        { query: "web framework", language: "TypeScript" },
+        { query: "web framework", language: "TypeScript", timeRange: "all" },
         makeContext(),
       );
 

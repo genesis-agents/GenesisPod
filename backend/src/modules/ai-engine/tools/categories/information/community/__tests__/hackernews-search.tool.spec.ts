@@ -224,8 +224,10 @@ describe("HackerNewsSearchTool", () => {
         of({ data: makeHnApiResponse(0, 0) }),
       );
 
+      // 2026-05-13: timeRange="all" 让 numericFilters 保持 raw 用户值，不被 mission 兜底 365d
+      // 追加 created_at_i>... 时间过滤。
       await tool.execute(
-        { query: "rust", numericFilters: "points>100" },
+        { query: "rust", numericFilters: "points>100", timeRange: "all" },
         makeContext(),
       );
 

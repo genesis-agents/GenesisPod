@@ -147,7 +147,12 @@ describe("ArxivSearchTool (via OpenAlex)", () => {
 
     it("calls OpenAlex API with correct base URL + filter", async () => {
       mockPolicyDataService.httpGet.mockResolvedValue(makeOpenAlexResponse(0));
-      await tool.execute({ query: "transformer" }, makeContext());
+      // 2026-05-13: timeRange="all" 保留无 from_publication_date 的 filter 契约。
+      // resolveEffectiveTimeRange 兜底 365d 时会注入日期过滤，与本用例无关。
+      await tool.execute(
+        { query: "transformer", timeRange: "all" },
+        makeContext(),
+      );
       expect(mockPolicyDataService.httpGet).toHaveBeenCalledWith(
         "https://api.openalex.org/works",
         expect.objectContaining({

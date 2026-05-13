@@ -84,3 +84,32 @@ export function getSearchTimeRangeLabel(range: SearchTimeRange): string {
       return "all time";
   }
 }
+
+/**
+ * 2026-05-13: Search tool 时效兜底解析。
+ *
+ * 解决问题：
+ *   - 之前 10 个 search tool 全部 default `timeRange = "all"`，LLM 偶发漏传
+ *     → mission DTO 选的 30d / 90d 完全失效，5 年前文章也命中。
+ *   - 修复后 mission-aware caller（researcher / leader）可把 mission 选的
+ *     searchTimeRange 注入 ToolContext.metadata.searchTimeRange，tool 实现
+ *     时统一调用本函数解析。
+ *
+ * 优先级（由高到低）：
+ *   1. LLM 显式传入 `inputTimeRange`（包括显式 "all"，尊重 LLM 决策）
+ *   2. mission context `metadata.searchTimeRange`（caller 注入的 mission 默认）
+ *   3. `DEFAULT_SEARCH_TIME_RANGE`（兜底 = 365d，不再无限制）
+ */
+export function resolveEffectiveTimeRange(
+  inputTimeRange: SearchTimeRange | string | undefined,
+  contextMetadata?: Record<string, unknown> | null,
+): SearchTimeRange {
+  if (inputTimeRange !== undefined && isSearchTimeRange(inputTimeRange)) {
+    return inputTimeRange;
+  }
+  const fromContext = contextMetadata?.searchTimeRange;
+  if (isSearchTimeRange(fromContext)) {
+    return fromContext;
+  }
+  return DEFAULT_SEARCH_TIME_RANGE;
+}

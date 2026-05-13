@@ -17,6 +17,7 @@ import {
 } from "../../../../knowledge/search/search.service";
 import {
   resolveSearchTimeRangeSince,
+  resolveEffectiveTimeRange,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
 } from "@/common/search/search-time-range";
@@ -267,9 +268,15 @@ export class WebSearchTool extends BaseTool<WebSearchInput, WebSearchOutput> {
 
   protected async doExecute(
     input: WebSearchInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<WebSearchOutput> {
-    const { query, numResults = 5, timeRange = "all" } = input;
+    const { query, numResults = 5 } = input;
+    // 2026-05-13: LLM 漏传 timeRange 时不再退回 "all"，而是看 mission context
+    // 注入的 searchTimeRange，否则用 DEFAULT_SEARCH_TIME_RANGE (365d) 兜底。
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     // 限制最大结果数
     const maxResults = Math.min(numResults, 10);

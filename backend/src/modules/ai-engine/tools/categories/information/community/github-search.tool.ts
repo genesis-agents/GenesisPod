@@ -17,6 +17,7 @@ import {
 import { PolicyDataService } from "../policy/policy-data.service";
 import {
   formatDateYmd,
+  resolveEffectiveTimeRange,
   resolveSearchTimeRangeSince,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
@@ -218,15 +219,13 @@ export class GithubSearchTool extends BaseTool<
 
   protected async doExecute(
     input: GithubSearchInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<GithubSearchOutput> {
-    const {
-      query,
-      maxResults = 10,
-      language,
-      sort = "stars",
-      timeRange = "all",
-    } = input;
+    const { query, maxResults = 10, language, sort = "stars" } = input;
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     this.logger.log(
       `[doExecute] Searching GitHub: query="${query}", language=${language}, sort=${sort}`,

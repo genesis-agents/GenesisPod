@@ -19,6 +19,7 @@ import { firstValueFrom } from "rxjs";
 import { APP_CONFIG } from "@/common/config/app.config";
 import {
   getUnixTimestampSeconds,
+  resolveEffectiveTimeRange,
   resolveSearchTimeRangeSince,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
@@ -205,15 +206,13 @@ export class HackerNewsSearchTool extends BaseTool<
 
   protected async doExecute(
     input: HackerNewsSearchInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<HackerNewsSearchOutput> {
-    const {
-      query,
-      maxResults = 20,
-      tags,
-      numericFilters,
-      timeRange = "all",
-    } = input;
+    const { query, maxResults = 20, tags, numericFilters } = input;
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     this.logger.log(
       `[doExecute] Searching HackerNews: query="${query}", tags=${tags}`,

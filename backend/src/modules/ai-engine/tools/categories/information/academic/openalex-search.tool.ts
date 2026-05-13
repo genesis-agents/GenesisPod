@@ -17,6 +17,7 @@ import {
 import { PolicyDataService } from "../policy/policy-data.service";
 import {
   formatDateYmd,
+  resolveEffectiveTimeRange,
   resolveSearchTimeRangeSince,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
@@ -219,15 +220,14 @@ export class OpenAlexSearchTool extends BaseTool<
 
   protected async doExecute(
     input: OpenAlexSearchInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<OpenAlexSearchOutput> {
-    const {
-      query,
-      maxResults = 10,
-      year,
-      sortByCitations = false,
-      timeRange = "all",
-    } = input;
+    const { query, maxResults = 10, year, sortByCitations = false } = input;
+    // 2026-05-13: LLM 漏传 timeRange 时退回 mission 默认 / 365d，而非 "all"
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     this.logger.log(
       `[doExecute] Searching OpenAlex: query="${query}", maxResults=${maxResults}, year=${year ?? "any"}`,

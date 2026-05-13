@@ -15,6 +15,7 @@ import {
 } from "../../../abstractions/tool.interface";
 import { PolicyDataService } from "../policy/policy-data.service";
 import {
+  resolveEffectiveTimeRange,
   resolveSearchTimeRangeYearWindow,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
@@ -220,15 +221,18 @@ export class SemanticScholarSearchTool extends BaseTool<
 
   protected async doExecute(
     input: SemanticScholarSearchInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<SemanticScholarSearchOutput> {
     const {
       query,
       maxResults = 10,
       fields = "title,authors,abstract,year,citationCount,url,externalIds",
       year,
-      timeRange = "all",
     } = input;
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     this.logger.log(
       `[doExecute] Searching Semantic Scholar: query="${query}", maxResults=${maxResults}, year=${year ?? "any"}`,

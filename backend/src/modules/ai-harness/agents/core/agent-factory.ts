@@ -270,6 +270,9 @@ export class AgentFactory {
       memory,
       budget,
       runtimeEnv: spec.runtimeEnv, // PR-J
+      // 2026-05-13: mission-scoped metadata（searchTimeRange / language / missionId 等）
+      // 透传给 ContextEnvelope → tool-invoker 注入 ToolContext.metadata。
+      metadata: spec.metadata,
     });
 
     // ★ 包装 spec.outputSchema + validateBusinessRules 成 ReActLoop 期望的

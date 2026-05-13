@@ -273,7 +273,12 @@ describe("SemanticScholarSearchTool", () => {
       mockPolicyDataService.getApiKey.mockResolvedValue(null);
       mockPolicyDataService.httpGet.mockResolvedValue(makeMockApiResponse());
 
-      await tool.execute({ query: "attention mechanism" }, makeContext());
+      // 2026-05-13: timeRange="all" 保留无 year 参数契约。
+      // resolveEffectiveTimeRange 兜底 365d 时会注入 effectiveYear。
+      await tool.execute(
+        { query: "attention mechanism", timeRange: "all" },
+        makeContext(),
+      );
 
       const callParams = mockPolicyDataService.httpGet.mock
         .calls[0][1] as Record<string, unknown>;

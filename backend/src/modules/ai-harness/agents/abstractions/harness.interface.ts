@@ -90,6 +90,17 @@ export interface IAgentSpec<TInput = unknown, TOutput = unknown> {
     readonly input: TInput;
     readonly identity: IAgentIdentity;
   }) => string;
+
+  /**
+   * 2026-05-13: 透传到 envelope.metadata 的 mission-scoped 上下文。
+   *
+   * 用途：tool-invoker 把 envelope.metadata 透传给 ToolContext.metadata，
+   * search 类 tool 的 `resolveEffectiveTimeRange()` 会读 metadata.searchTimeRange
+   * 作为 LLM 漏传 timeRange 时的兜底，避免 5 年前老文章命中。
+   *
+   * 典型字段：searchTimeRange, language, missionId, dimensionId 等。
+   */
+  readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
 /** Context 操作接口（只读 envelope 上的变换器） */

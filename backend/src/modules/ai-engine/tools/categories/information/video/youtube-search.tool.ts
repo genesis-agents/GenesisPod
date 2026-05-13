@@ -18,6 +18,7 @@ import {
   ToolCategory,
 } from "../../../abstractions/tool.interface";
 import {
+  resolveEffectiveTimeRange,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
 } from "@/common/search/search-time-range";
@@ -147,7 +148,11 @@ export class YouTubeSearchTool extends BaseTool<
     input: YouTubeSearchInput,
     context: ToolContext,
   ): Promise<YouTubeSearchOutput> {
-    const { query, maxResults = 10, platforms, timeRange = "all" } = input;
+    const { query, maxResults = 10, platforms } = input;
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     try {
       const selected =

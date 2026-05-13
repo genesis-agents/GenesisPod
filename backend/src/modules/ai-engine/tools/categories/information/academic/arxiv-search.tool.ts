@@ -29,6 +29,7 @@ import {
 import { PolicyDataService } from "../policy/policy-data.service";
 import {
   formatDateYmd,
+  resolveEffectiveTimeRange,
   resolveSearchTimeRangeSince,
   SEARCH_TIME_RANGE_VALUES,
   type SearchTimeRange,
@@ -206,15 +207,14 @@ export class ArxivSearchTool extends BaseTool<
 
   protected async doExecute(
     input: ArxivSearchInput,
-    _context: ToolContext,
+    context: ToolContext,
   ): Promise<ArxivSearchOutput> {
-    const {
-      query,
-      maxResults = 10,
-      category,
-      sortBy = "relevance",
-      timeRange = "all",
-    } = input;
+    const { query, maxResults = 10, category, sortBy = "relevance" } = input;
+    // 2026-05-13: LLM 漏传 timeRange 时退回 mission 默认 / 365d，而非 "all"
+    const timeRange = resolveEffectiveTimeRange(
+      input.timeRange,
+      context.metadata,
+    );
 
     this.logger.log(
       `[doExecute] Searching ArXiv (via OpenAlex): query="${query}", maxResults=${maxResults}, category=${category}`,
