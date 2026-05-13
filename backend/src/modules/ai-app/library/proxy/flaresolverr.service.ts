@@ -59,6 +59,11 @@ export class FlareSolverrService implements OnModuleInit {
 
   // 是否可用
   private isAvailable = false;
+  // 2026-05-13 P3-#23: 上次健康检查失败时间戳，防止 fetchPage 每次都重新探测
+  //   导致 ECONNREFUSED 日志风暴（Railway log 实证：service 永久 down 时每
+  //   秒级刷屏）。失败后 60s 内不重试探测，直接快速 fail。
+  private lastHealthCheckFailedAt = 0;
+  private static readonly HEALTH_RECHECK_COOLDOWN_MS = 60_000;
 
   async onModuleInit() {
     // 仅在显式配置 FLARESOLVERR_URL 时才检查健康状态
@@ -92,6 +97,8 @@ export class FlareSolverrService implements OnModuleInit {
       this.isAvailable = response.data?.status === "ok";
 
       if (this.isAvailable) {
+        // 健康恢复 → 重置失败时间戳，让后续 fetch 不再走 cooldown 分支
+        this.lastHealthCheckFailedAt = 0;
         this.logger.log(
           `FlareSolverr is available at ${this.FLARESOLVERR_URL}`,
         );
@@ -104,6 +111,7 @@ export class FlareSolverrService implements OnModuleInit {
       return this.isAvailable;
     } catch (error) {
       this.isAvailable = false;
+      this.lastHealthCheckFailedAt = Date.now();
       this.logger.warn(
         `FlareSolverr is not available at ${this.FLARESOLVERR_URL}. Cloudflare bypass will not work.`,
       );
@@ -136,7 +144,19 @@ export class FlareSolverrService implements OnModuleInit {
     const { maxTimeout = 60000, cookies, session } = options;
 
     if (!this.isAvailable) {
-      // 重新检查一次
+      // 2026-05-13 P3-#23: 60s cooldown 内直接快速 fail，不要每次 fetch 都
+      //   发请求触发 ECONNREFUSED 刷屏。
+      const since = Date.now() - this.lastHealthCheckFailedAt;
+      if (
+        this.lastHealthCheckFailedAt > 0 &&
+        since < FlareSolverrService.HEALTH_RECHECK_COOLDOWN_MS
+      ) {
+        return {
+          success: false,
+          error: `FlareSolverr unavailable (skipping recheck for ${Math.ceil((FlareSolverrService.HEALTH_RECHECK_COOLDOWN_MS - since) / 1000)}s)`,
+        };
+      }
+      // 冷却已过，重新检查一次
       await this.checkHealth();
       if (!this.isAvailable) {
         return {

@@ -264,6 +264,19 @@ export class SemanticScholarSearchTool extends BaseTool<
       let responseData: SemanticScholarApiResponse | undefined;
       let lastError: Error | undefined;
 
+      // ★ 2026-05-13: fast-fail——如果当前进程已知 SS 处于长冷却（>15s），
+      //   立刻 throw "in 429 cooldown"，让 orchestrator 在毫秒级路由到
+      //   arxiv / openalex，不要让 caller 阻塞等 60s 冷却结束。
+      //   acquireSlot 自己会 sleep 到冷却结束，但那对上层来说是"看似在跑
+      //   实际啥也没做"的卡 60s——失败更糟，因为重试链整体 ~3 分钟才返回。
+      const cooldownRemainingMs =
+        SemanticScholarSearchTool.cooldownUntil - Date.now();
+      if (cooldownRemainingMs > 15_000) {
+        const errMsg = `Semantic Scholar in 429 cooldown for ${Math.ceil(cooldownRemainingMs / 1000)}s; skip (router fallback to arxiv/openalex)`;
+        this.logger.warn(`[doExecute] ${errMsg}`);
+        throw new Error(errMsg);
+      }
+
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         await this.acquireSlot(!!apiKey);
         try {
