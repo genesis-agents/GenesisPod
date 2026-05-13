@@ -5,7 +5,11 @@
  * Each test case uses real anomaly patterns found in reports 16c56e00 and 69e2f94f.
  */
 
-import { stripChartJsonFromContent } from "../../src/modules/ai-app/topic-insights/utils/strip-chart-json.utils";
+// ★ 2026-05-13: import paths fixed after MECE-W17 reorg (commit 0445c6862)
+//   and PR-Engine-Top (commit 101d7f444) moved these utils to:
+//     stripChartJsonFromContent → ai-engine/llm/output-parsing
+//     stripLLMMetaNotes        → ai-app/contracts/report-template (unchanged path-key)
+import { stripChartJsonFromContent } from "../../src/modules/ai-engine/llm/output-parsing/strip-chart-json.utils";
 import { stripLLMMetaNotes } from "../../src/modules/ai-app/contracts/report-template";
 
 // ============================================================================

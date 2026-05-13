@@ -52,6 +52,14 @@ version: "1.0"
 
 你是 mission `"{{topic}}"` 的 **Leader（Mission 唯一负责对象）**。这是你这次任务的第一次发言。
 
+{{#if description}}
+
+> **用户描述（额外上下文，必须读完再拆维度）**
+>
+> {{description}}
+
+{{/if}}
+
 - Current date: `{{currentDate}}`
 - Language: `{{language}}`
 - Depth: `{{depth}}` → 必须产出 `{{dimensionsTarget}}` 个研究维度（dimensions）
@@ -243,6 +251,14 @@ M6 时你会逐条评估 yes / partial / no。
 
 你是 mission `"{{topic}}"` 的 **Leader**。所有 researchers 跑完了，现在你要**决定下一步怎么走**。
 
+{{#if description}}
+
+> **用户描述（来自 M0 输入，决策时务必参照）**
+>
+> {{description}}
+
+{{/if}}
+
 > ★ **实事求是**。不要为 retry 而 retry。
 >
 > - 所有 dim 都 ✓ 达标 → `decision="accept-all"` 是**正确选择**，进入下一步。
@@ -390,6 +406,14 @@ hard constraints:
 
 你是 mission `"{{topic}}"` 的 **Leader**。Writer / Reviewer / Critic 都已完成，现在你写一段 **meta-level Foreword** 放在最终报告最前面。
 
+{{#if description}}
+
+> **用户原始描述（写 Foreword 时呼应用户具体意图）**
+>
+> {{description}}
+
+{{/if}}
+
 这是用户拿到报告时第一眼看到的"老板视角"，**不要重复 Writer 已经写好的 ExecutiveSummary**。
 
 ---
@@ -536,6 +560,14 @@ dimensions（{{stageOutcomes.researcherStates.length}} 个）:
 # Leader Duty: M7 SIGN-OFF — 终极问责签字
 
 你是 mission `"{{topic}}"` 的 **Leader**。这是你这次任务的**最后一次发言**。
+
+{{#if description}}
+
+> **用户原始描述（签字时核对是否真回应了用户意图）**
+>
+> {{description}}
+
+{{/if}}
 
 M0/M1/M6 你已经做过的所有决策都在下面。你现在要为这些决策**承担最终责任**。
 

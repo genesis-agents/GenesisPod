@@ -18,6 +18,7 @@ import type { MissionDeps } from "../mission-deps";
 // Tests must run with the documented production default (0.3) regardless of
 // the host's .env file (local-model adaptations set this to 0.4).
 const PLAYGROUND_ENV_KEYS = [
+  "PLAYGROUND_TUNING_PROFILE", // PR3: profile env shifts all baselines
   "MIN_FINDINGS_THRESHOLD",
   "CHAPTER_TOLERANCE_RATIO",
   "REACT_MAX_FINALIZE_REJECTS",
