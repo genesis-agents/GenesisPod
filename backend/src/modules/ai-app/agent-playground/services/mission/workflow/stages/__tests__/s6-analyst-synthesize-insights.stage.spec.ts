@@ -169,6 +169,62 @@ describe("runAnalystStage (S6)", () => {
     expect(ctx.analystOutput).toBe(result);
   });
 
+  // 回归 P1-FAIL-LOUD-PROVIDER (2026-05-13): provider 级失败必须 fail-loud,
+  // 不能兜底假成功。下游 writer 调同一 provider 必然同样失败，兜底只是延后
+  // 失败可见性。这里 mock 一个 PROVIDER_API_ERROR error event 模拟 prod 现象
+  // （BYOK KeyExecutor 熔断后 "No API Key available for provider openai"）。
+  it("provider-level failure (PROVIDER_API_ERROR) throws instead of empty fallback", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.analyst.analyze as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      events: [
+        {
+          type: "error",
+          payload: {
+            failureCode: "PROVIDER_API_ERROR",
+            message: 'No API Key available for provider "openai"',
+          },
+        },
+      ],
+      wallTimeMs: 100,
+      iterations: 1,
+    });
+    await expect(runAnalystStage(ctx, deps)).rejects.toThrow(
+      /provider-level failure: PROVIDER_API_ERROR/,
+    );
+    // emit narrate 应带 warning + 文案含失败码
+    const narrateCalls = (deps.emit as jest.Mock).mock.calls;
+    const errorNarrate = narrateCalls.find((c) =>
+      JSON.stringify(c).includes("PROVIDER_API_ERROR"),
+    );
+    expect(errorNarrate).toBeDefined();
+  });
+
+  it("schema-mismatch failure still falls back (preserves P0-LIVE-NULL-OUTPUT behavior)", async () => {
+    const ctx = makeCtx();
+    const deps = makeDeps();
+    (deps.analyst.analyze as jest.Mock).mockResolvedValue({
+      state: "failed",
+      output: null,
+      events: [
+        {
+          type: "error",
+          payload: {
+            failureCode: "RUNNER_OUTPUT_SCHEMA_MISMATCH",
+            message: "reasoning CoT exhausted max_completion_tokens",
+          },
+        },
+      ],
+      wallTimeMs: 100,
+      iterations: 2,
+    });
+    const result = await runAnalystStage(ctx, deps);
+    expect(result.insights).toEqual([]);
+    expect(result.themeSummary).toMatch(/未产出有效综合分析/);
+  });
+
   it("lifecycle called started/completed on success", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();

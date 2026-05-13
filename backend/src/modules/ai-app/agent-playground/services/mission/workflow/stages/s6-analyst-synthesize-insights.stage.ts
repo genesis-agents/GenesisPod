@@ -22,8 +22,24 @@ import type {
 } from "../mission-context";
 import type { MissionDeps } from "../mission-deps";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
-import { extractFailureMessage } from "@/modules/ai-harness/facade";
+import {
+  extractAgentFailureDiagnostic,
+  extractFailureMessage,
+} from "@/modules/ai-harness/facade";
 import { narrate } from "../narrative.util";
+
+/**
+ * Provider 层失败码：发送给同一 provider 的下游调用必然也会失败，
+ * 此时 analyst 兜底空 output 没意义，反而是 lying success（[[feedback_no_lying_assertion]]）。
+ * 应该 fail-loud，让 mission 进入 failed 状态、用户能立即看到真实根因（如 API key 失效）。
+ */
+const PROVIDER_LEVEL_FAILURE_CODES = new Set<string>([
+  "PROVIDER_API_ERROR",
+  "PROVIDER_RATE_LIMIT",
+  "PROVIDER_QUOTA_EXCEEDED",
+  "PROVIDER_SAFETY_REFUSAL",
+  "PROVIDER_BYOK_MODEL_NOT_FOUND",
+]);
 
 export interface AnalystOutputShape {
   insights: {
@@ -216,20 +232,40 @@ export async function runAnalystStage(
     },
   );
   if (!finalUsable) {
-    // ★ P0-LIVE-NULL-OUTPUT (2026-04-30): mission 8e77271d 实证 — gpt-5.4 reasoning
-    //   model 在 analyst prompt 下两次都返 visible content = null（CoT 吃光
-    //   max_completion_tokens），RUNNER_OUTPUT_SCHEMA_MISMATCH。之前直接 throw
-    //   让 mission 全死，浪费已采集的 6 维 researcher results + reconciler facts。
-    //   改成发空 analystOutput 让下游 writer / reviewer 至少能把已有 facts 渲成
-    //   报告（可能是低质量的，但好过完全失败）。
+    // ★ P0-LIVE-NULL-OUTPUT (2026-04-30): gpt-5.4 reasoning model 在 analyst
+    //   prompt 下两次都返 visible content = null（CoT 吃光 max_completion_tokens）,
+    //   RUNNER_OUTPUT_SCHEMA_MISMATCH。之前直接 throw 让 mission 全死, 浪费已采集的
+    //   6 维 researcher results + reconciler facts。改成发空 analystOutput 让下游
+    //   writer / reviewer 至少能把已有 facts 渲成报告。
+    // ★ 2026-05-13 (P1-FAIL-LOUD-PROVIDER): 区分失败原因。Provider 层失败
+    //   （API key 不可用 / 限流 / 配额耗尽）下游 writer 用同 provider 必然也炸,
+    //   兜底只是 lying success 拖延失败可见性。这类失败必须 fail-loud。
+    //   只对 LLM 内部输出问题（schema mismatch / CoT exhaustion / empty）兜底。
+    const diagnostic = extractAgentFailureDiagnostic(analystRes.events);
+    const failureCode = diagnostic?.failureCode;
+    if (failureCode && PROVIDER_LEVEL_FAILURE_CODES.has(failureCode)) {
+      deps.log.error(
+        `[${missionId}] analyst provider-level failure (${failureCode}); refusing to fall back since downstream writer will hit the same provider — failing mission early so users see the real cause`,
+      );
+      await narrate(deps.emit, missionId, userId, {
+        stage: "s6-analyst",
+        role: "analyst",
+        tag: "warning",
+        text: `Analyst 调用失败 (${failureCode})。下游 Writer 调用同一 provider 必然同样失败，提前终止 mission 让你立即看到真实原因（${diagnostic?.message ?? analystFailMsg ?? "未知"}）。`,
+        agentId: "analyst",
+      });
+      throw new Error(
+        `Analyst stage aborted due to provider-level failure: ${failureCode} — ${diagnostic?.message ?? analystFailMsg ?? analystRes.state}`,
+      );
+    }
     deps.log.warn(
-      `[${missionId}] analyst 两次 schema 校验失败，发空 analystOutput 兜底让 mission 跑完（${analystFailMsg ?? analystRes.state}）`,
+      `[${missionId}] analyst 两次失败 (code=${failureCode ?? "UNKNOWN"})，发空 analystOutput 兜底让 mission 跑完（${analystFailMsg ?? analystRes.state}）`,
     );
     await narrate(deps.emit, missionId, userId, {
       stage: "s6-analyst",
       role: "analyst",
       tag: "warning",
-      text: `Analyst 综合阶段连续 2 次未产出（LLM 返 null）。发空 insights 兜底，下游 Writer 直接基于 ${researcherResults.length} 维度 raw findings 写报告（质量会打折）。`,
+      text: `Analyst 综合阶段连续 2 次未产出（code=${failureCode ?? "UNKNOWN"}）。发空 insights 兜底，下游 Writer 直接基于 ${researcherResults.length} 维度 raw findings 写报告（质量会打折）。`,
       agentId: "analyst",
     });
     const fallback: AnalystOutputShape = {

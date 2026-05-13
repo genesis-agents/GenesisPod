@@ -394,10 +394,13 @@ export type AgentObservationPayload = z.infer<typeof AgentObservationSchema>;
 
 // ─────────── agent:reflection ───────────
 // prod: { role, score, agentId, revision, verdicts: [{score, judgeId, critique}] }
+// score 为 null = 所有 verifier abstain（unhealthy），表示"显式无分可评"——
+// 不能用 undefined 因为下游 failure-extraction 用 typeof === "number" 守卫，
+// null 携带的 abstain 语义比"字段缺失"更明确（来源：reflexion-loop.ts force-pass 分支）。
 export const AgentReflectionSchema = z
   .object({
     role: z.string().optional(),
-    score: z.number().optional(),
+    score: z.number().nullish(),
     agentId: z.string().optional(),
     revision: z.number().optional(),
     verdicts: z.array(z.record(z.unknown())).optional(),
