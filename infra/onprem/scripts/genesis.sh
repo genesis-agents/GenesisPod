@@ -7,7 +7,8 @@
 # 命令：
 #   preflight                    安装前体检：docker / 磁盘 / 内存 / ghcr 连通性
 #   install                      首次部署（自动跑 preflight）
-#   upgrade <bundle.tar.gz>      升级到新版本（保留数据）
+#   check-update                 检查 ghcr 上是否有新版本
+#   upgrade <vX.Y.Z|tar.gz>      升级（推荐：直接传版本号，自动从 ghcr 拉）
 #   backup [output-dir]          备份 PostgreSQL + volumes 为单个 tar.gz
 #   restore <backup.tar.gz>      从备份恢复（破坏性，二次确认）
 #   status                       打印全栈健康度
@@ -18,8 +19,9 @@
 # 示例：
 #   bash genesis.sh install
 #   bash genesis.sh status
-#   bash genesis.sh backup /backups
-#   bash genesis.sh upgrade /tmp/genesis-config-v1.1.0.tar.gz
+#   bash genesis.sh check-update
+#   bash genesis.sh upgrade v40.3.0           # 一键升级（首选）
+#   bash genesis.sh upgrade /tmp/bundle.tar.gz   # 离线升级
 #
 # 环境变量（可选）：
 #   SKIP_PROMPTS=1   install 非交互模式（admin 用随机密码自动填）
@@ -81,15 +83,18 @@ cmd_preflight() {
   check "可访问 ghcr.io"       "curl -sfI -m 10 https://ghcr.io"
   check "已 docker login ghcr.io"  "grep -q ghcr.io \"$HOME/.docker/config.json\""
 
-  # 磁盘 / 内存
-  local disk_avail mem_avail
-  disk_avail="$(df -BG / 2>/dev/null | awk 'NR==2{gsub("G","",$4);print $4}' || echo 0)"
+  # 磁盘（/var/lib/docker 路径优先，回退到 /）
+  local docker_root disk_avail mem_avail cpu_count
+  docker_root="$(docker info -f '{{.DockerRootDir}}' 2>/dev/null || echo /var/lib/docker)"
+  [ -d "$docker_root" ] || docker_root="/"
+  disk_avail="$(df -BG "$docker_root" 2>/dev/null | awk 'NR==2{gsub("G","",$4);print $4}' || echo 0)"
   mem_avail="$(free -g 2>/dev/null | awk '/^Mem/{print $2}' || echo 0)"
+  cpu_count="$(nproc 2>/dev/null || echo 0)"
 
   if [ "$disk_avail" -ge 30 ] 2>/dev/null; then
-    echo "  ${C_GREEN}✓${C_RESET} 磁盘 ≥ 30GB（实际 ${disk_avail}GB）"
+    echo "  ${C_GREEN}✓${C_RESET} 磁盘 ≥ 30GB（${docker_root}: 可用 ${disk_avail}GB）"
   else
-    echo "  ${C_YELLOW}!${C_RESET} 磁盘 < 30GB（实际 ${disk_avail}GB），建议腾空间"
+    echo "  ${C_YELLOW}!${C_RESET} 磁盘 < 30GB（${docker_root}: 仅 ${disk_avail}GB），可能装不下镜像 + 数据"
   fi
 
   if [ "$mem_avail" -ge 4 ] 2>/dev/null; then
@@ -98,18 +103,50 @@ cmd_preflight() {
     echo "  ${C_YELLOW}!${C_RESET} 内存 < 4GB（实际 ${mem_avail}GB），可能跑不稳"
   fi
 
-  # 端口 3000 占用
-  if command -v ss >/dev/null && ss -tln 2>/dev/null | grep -q ':3000 '; then
+  if [ "$cpu_count" -ge 2 ] 2>/dev/null; then
+    echo "  ${C_GREEN}✓${C_RESET} CPU ≥ 2 核（实际 ${cpu_count} 核）"
+  else
+    echo "  ${C_YELLOW}!${C_RESET} CPU < 2 核（实际 ${cpu_count} 核），LLM 调用并发会很慢"
+  fi
+
+  # 端口 3000 占用（ss / netstat / /proc 多套兜底）
+  local PORT_USED=0
+  if command -v ss >/dev/null; then
+    ss -tln 2>/dev/null | grep -q ':3000 ' && PORT_USED=1
+  elif command -v netstat >/dev/null; then
+    netstat -tln 2>/dev/null | grep -q ':3000 ' && PORT_USED=1
+  elif [ -r /proc/net/tcp ]; then
+    awk 'NR>1 && $2 ~ /:0BB8$/ {exit 0} END{exit 1}' /proc/net/tcp && PORT_USED=1
+  fi
+  if [ "$PORT_USED" = "1" ]; then
     echo "  ${C_YELLOW}!${C_RESET} 端口 3000 已被占用（请改 FRONTEND_PORT 或停掉占用进程）"
   else
     echo "  ${C_GREEN}✓${C_RESET} 端口 3000 可用"
+  fi
+
+  # Docker storage driver（overlay2 推荐；其他会有性能问题）
+  local driver
+  driver="$(docker info -f '{{.Driver}}' 2>/dev/null || echo unknown)"
+  if [ "$driver" = "overlay2" ]; then
+    echo "  ${C_GREEN}✓${C_RESET} Docker storage driver: overlay2"
+  else
+    echo "  ${C_YELLOW}!${C_RESET} Docker storage driver: ${driver}（推荐 overlay2，性能更好）"
+  fi
+
+  # 时钟同步（JWT 签名 + 数据库主从依赖时钟）
+  if command -v timedatectl >/dev/null; then
+    if timedatectl status 2>/dev/null | grep -qE 'NTP service: active|System clock synchronized: yes'; then
+      echo "  ${C_GREEN}✓${C_RESET} 系统时钟已同步"
+    else
+      echo "  ${C_YELLOW}!${C_RESET} 系统时钟未同步，可能导致 JWT 签名失败 / 数据库时间戳偏差"
+    fi
   fi
 
   echo
   if [ "$fail" -eq 1 ]; then
     die "体检未通过；请先解决上面 ✗ 项"
   fi
-  log "体检通过 ✓"
+  log "体检通过 ✓（黄色 ! 项不阻塞但建议优化）"
 }
 
 cmd_install() {
@@ -259,12 +296,12 @@ EOF
 }
 
 cmd_upgrade() {
-  local BUNDLE="${1:-}"
-  [ -n "$BUNDLE" ] || die "用法：bash genesis.sh upgrade /path/to/genesis-config-vNEW.tar.gz"
-  [ -f "$BUNDLE" ] || die "找不到 bundle 文件：$BUNDLE"
+  local ARG="${1:-}"
+  [ -n "$ARG" ] || die "用法：bash genesis.sh upgrade <vX.Y.Z | /path/to/bundle.tar.gz>"
 
   [ -f .env.production ] || die "当前目录无 .env.production；请在原 install 目录里运行"
   [ -f VERSION ] || die "当前目录无 VERSION 文件；目录布局有问题"
+  [ -f IMAGES ] || die "当前目录无 IMAGES 文件"
 
   detect_dc
 
@@ -274,11 +311,36 @@ cmd_upgrade() {
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
 
-  log "解包新 bundle 到临时目录..."
-  tar -xzf "$BUNDLE" -C "$TMP"
+  if [[ "$ARG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    # 模式 A：版本号 —— 从 ghcr 拉 installer 镜像取新配置
+    local TARGET_VERSION="$ARG"
+    [[ "$TARGET_VERSION" =~ ^v ]] || TARGET_VERSION="v$TARGET_VERSION"
 
-  NEW_DIR="$(find "$TMP" -mindepth 1 -maxdepth 1 -type d | head -1)"
-  [ -d "$NEW_DIR" ] || die "bundle 结构异常，找不到顶层目录"
+    local INSTALLER_BASE INSTALLER_IMG
+    INSTALLER_BASE="$(head -1 IMAGES | sed 's|/[^/]*:[^/]*$||')/genesis-installer"
+    INSTALLER_IMG="${INSTALLER_BASE}:${TARGET_VERSION}"
+
+    grep -q "ghcr.io" "${HOME}/.docker/config.json" 2>/dev/null \
+      || die "未检测到 ghcr.io 登录凭据；请先 docker login ghcr.io"
+
+    log "从 ghcr 拉取 installer ${INSTALLER_IMG}..."
+    docker pull "$INSTALLER_IMG" >/dev/null 2>&1 \
+      || die "拉取失败：$INSTALLER_IMG（版本号是否存在？检查 ghcr 权限）"
+
+    log "解包新配置到临时目录..."
+    docker run --rm -v "${TMP}:/out" "$INSTALLER_IMG" >/dev/null
+    NEW_DIR="${TMP}/genesis-config-${TARGET_VERSION}"
+    [ -d "$NEW_DIR" ] || die "installer 输出目录异常：${NEW_DIR}"
+  elif [ -f "$ARG" ]; then
+    # 模式 B：tar.gz 路径（离线 / 向后兼容）
+    log "解包 ${ARG} 到临时目录..."
+    tar -xzf "$ARG" -C "$TMP"
+    NEW_DIR="$(find "$TMP" -mindepth 1 -maxdepth 1 -type d | head -1)"
+    [ -d "$NEW_DIR" ] || die "bundle 结构异常，找不到顶层目录"
+  else
+    die "参数既不是 vX.Y.Z 版本号也不是 .tar.gz 文件：$ARG"
+  fi
+
   [ -f "${NEW_DIR}/VERSION" ] || die "新 bundle 里没有 VERSION 文件"
   [ -f "${NEW_DIR}/IMAGES" ] || die "新 bundle 里没有 IMAGES 元数据文件"
 
@@ -484,6 +546,39 @@ cmd_restore() {
   log "还原完成；用 bash genesis.sh status 看健康度"
 }
 
+cmd_check_update() {
+  [ -f IMAGES ] || die "当前目录无 IMAGES 文件；请在已安装的 install 目录里运行"
+  [ -f VERSION ] || die "当前目录无 VERSION 文件"
+
+  grep -q "ghcr.io" "${HOME}/.docker/config.json" 2>/dev/null \
+    || die "未检测到 ghcr.io 登录凭据；请先 docker login ghcr.io"
+
+  local CURRENT_VERSION INSTALLER_BASE INSTALLER_LATEST LATEST_VERSION
+  CURRENT_VERSION="$(cat VERSION)"
+  INSTALLER_BASE="$(head -1 IMAGES | sed 's|/[^/]*:[^/]*$||')/genesis-installer"
+  INSTALLER_LATEST="${INSTALLER_BASE}:latest"
+
+  log "拉取 ${INSTALLER_LATEST} 检查最新版本..."
+  docker pull "$INSTALLER_LATEST" >/dev/null 2>&1 \
+    || die "拉取失败；检查网络 / ghcr 权限 / installer:latest 是否已发布"
+
+  # 注：路径前置双斜杠避免 git bash 在 Windows 上路径翻译；Linux 兼容
+  LATEST_VERSION="$(docker run --rm --entrypoint cat "$INSTALLER_LATEST" //bundle/VERSION 2>/dev/null || echo unknown)"
+
+  echo
+  echo "  当前版本: ${C_DIM}${CURRENT_VERSION}${C_RESET}"
+  echo "  最新版本: ${C_BOLD}${LATEST_VERSION}${C_RESET}"
+  echo
+
+  if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+    log "已是最新版本"
+  elif [ "$LATEST_VERSION" = "unknown" ]; then
+    warn "无法识别 installer:latest 里的 VERSION 文件"
+  else
+    log "有新版本可用，运行：${C_BOLD}bash genesis.sh upgrade ${LATEST_VERSION}${C_RESET}"
+  fi
+}
+
 cmd_status() {
   detect_dc
   echo
@@ -555,14 +650,15 @@ CMD="${1:-help}"
 shift || true
 
 case "$CMD" in
-  preflight) cmd_preflight "$@" ;;
-  install)   cmd_install "$@" ;;
-  upgrade)   cmd_upgrade "$@" ;;
-  backup)    cmd_backup "$@" ;;
-  restore)   cmd_restore "$@" ;;
-  status)    cmd_status "$@" ;;
-  logs)      cmd_logs "$@" ;;
-  uninstall) cmd_uninstall "$@" ;;
+  preflight)    cmd_preflight "$@" ;;
+  install)      cmd_install "$@" ;;
+  upgrade)      cmd_upgrade "$@" ;;
+  check-update) cmd_check_update "$@" ;;
+  backup)       cmd_backup "$@" ;;
+  restore)      cmd_restore "$@" ;;
+  status)       cmd_status "$@" ;;
+  logs)         cmd_logs "$@" ;;
+  uninstall)    cmd_uninstall "$@" ;;
   help|-h|--help) cmd_help ;;
   *) warn "未知命令：$CMD"; cmd_help; exit 1 ;;
 esac

@@ -163,6 +163,7 @@ log "打包客户配置 bundle..."
 cp "${ONPREM_DIR}/docker-compose.yml"            "${STAGING}/"
 cp "${ONPREM_DIR}/.env.production.example"       "${STAGING}/"
 cp "${ONPREM_DIR}/README.md"                     "${STAGING}/"
+cp "${ONPREM_DIR}/CUSTOMER-GUIDE.md"             "${STAGING}/"
 cp "${ONPREM_DIR}/scripts/genesis.sh"            "${STAGING}/"
 cp "${ONPREM_DIR}/scripts/install.sh"            "${STAGING}/"
 cp "${ONPREM_DIR}/scripts/upgrade.sh"            "${STAGING}/"
@@ -201,6 +202,10 @@ rm -rf "$INSTALLER_CTX"
 if [ "$PUSH" -eq 1 ]; then
   log "Pushing $GHCR_INSTALLER..."
   docker push "$GHCR_INSTALLER"
+  # 同时打 :latest tag，让 genesis.sh check-update 能拿到
+  log "Tag + push installer:latest..."
+  docker tag "$GHCR_INSTALLER" "ghcr.io/${GHCR_OWNER}/genesis-installer:latest"
+  docker push "ghcr.io/${GHCR_OWNER}/genesis-installer:latest"
 else
   warn "--no-push 模式：跳过 installer push"
 fi
