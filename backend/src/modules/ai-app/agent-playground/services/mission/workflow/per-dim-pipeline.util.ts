@@ -35,6 +35,8 @@ import {
   CHAPTER_MAX_REVISION_ATTEMPTS,
 } from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
+// ★ 2026-05-13 (PR2): typed runtime config — chapter tolerance ratio etc.
+import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
 // ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 已下沉 engine/content
 import { jaccardSimilarity } from "@/modules/ai-harness/facade";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
@@ -1319,7 +1321,12 @@ export async function runPerDimPipeline(
       dimensionName,
       expectedCount: outline.chapters.length,
       chapters: producedChapters,
-      tolerance: { maxMissingRatio: 0.3 },
+      // ★ 2026-05-13 (PR2): tolerance from typed runtime config.
+      //   Default 0.3 (30%) preserved; local can raise via
+      //   CHAPTER_TOLERANCE_RATIO env var.
+      tolerance: {
+        maxMissingRatio: loadPlaygroundRuntimeConfig().chapterToleranceRatio,
+      },
     });
     const writtenChapters: WrittenChapter[] = integrityCheck.validChapters;
     if (writtenChapters.length === 0) {

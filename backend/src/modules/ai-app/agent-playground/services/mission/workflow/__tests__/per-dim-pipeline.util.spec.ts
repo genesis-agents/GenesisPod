@@ -11,6 +11,41 @@ import { runPerDimPipeline } from "../per-dim-pipeline.util";
 import type { PerDimPipelineArgs } from "../per-dim-pipeline.util";
 import type { MissionDeps } from "../mission-deps";
 
+// ─── env isolation ────────────────────────────────────────────────────────────
+//
+// PR2 (2026-05-13) wires per-dim-pipeline tolerance through
+// PlaygroundRuntimeConfig which reads `CHAPTER_TOLERANCE_RATIO` from env.
+// Tests must run with the documented production default (0.3) regardless of
+// the host's .env file (local-model adaptations set this to 0.4).
+const PLAYGROUND_ENV_KEYS = [
+  "MIN_FINDINGS_THRESHOLD",
+  "CHAPTER_TOLERANCE_RATIO",
+  "REACT_MAX_FINALIZE_REJECTS",
+  "RESEARCHER_MAX_ITERATIONS",
+  "RESEARCHER_MAX_ITERATIONS_HARD_CAP",
+  "RESEARCHER_MAX_WALL_TIME_MS",
+  "CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS",
+  "CHAPTER_MAX_REVISION_ATTEMPTS",
+  "MISSION_WRITER_MAX_ATTEMPTS",
+  "PLAYGROUND_STALE_THRESHOLD_MIN",
+  "PLAYGROUND_SOFT_WARN_THRESHOLD_MIN",
+  "PLAYGROUND_WALL_TIME_CAP_MS",
+  "PLAYGROUND_DISABLE_BUDGET_ABORT",
+] as const;
+const savedEnv: Record<string, string | undefined> = {};
+beforeAll(() => {
+  for (const k of PLAYGROUND_ENV_KEYS) {
+    savedEnv[k] = process.env[k];
+    delete process.env[k];
+  }
+});
+afterAll(() => {
+  for (const [k, v] of Object.entries(savedEnv)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+});
+
 // ─── external module mocks ────────────────────────────────────────────────────
 
 // p-limit is an ESM-only module; ts-jest (isolatedModules) transpiles
