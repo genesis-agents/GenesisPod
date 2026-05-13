@@ -784,6 +784,53 @@ describe("AiConnectionTestService (extended coverage)", () => {
       expect(result.message).toContain("API Error (403)");
       expect(result.message).toContain("Not authorized");
     });
+
+    // 回归 P3-#9 (2026-05-13): 405 + 空 body 是 admin 配错 endpoint 的典型模式。
+    // 错误信息必须带 attempted URL + 引导文案，admin 才能立即诊断（之前
+    // 是 `API Error (405): ""` 完全没诊断信息）。
+    it("rerank: 405 includes attempted URL + endpoint diagnosis hint", async () => {
+      const { service, mockHttp } = await buildModule({});
+
+      const err = Object.assign(new Error("Method Not Allowed"), {
+        response: { status: 405, data: {} },
+      });
+      mockHttp.post.mockReturnValue(throwError(() => err));
+
+      const result = await service.testModelConnectionWithKey(
+        "cohere",
+        "rerank-v3.5",
+        "key",
+        "",
+        "RERANK",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("API Error (405)");
+      // 应该带 attempted URL（默认 cohere endpoint 被命中）
+      expect(result.message).toContain("https://api.cohere.com/v1/rerank");
+      // 应该带诊断引导
+      expect(result.message).toMatch(/Endpoint 拼接后|检查 admin Add Model/);
+    });
+
+    it("rerank: 405 empty data shows (empty body) instead of {}", async () => {
+      const { service, mockHttp } = await buildModule({});
+
+      const err = Object.assign(new Error("Method Not Allowed"), {
+        response: { status: 405, data: undefined },
+      });
+      mockHttp.post.mockReturnValue(throwError(() => err));
+
+      const result = await service.testModelConnectionWithKey(
+        "cohere",
+        "rerank-v3.5",
+        "key",
+        "",
+        "RERANK",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("(empty body)");
+    });
   });
 
   // =========================================================================

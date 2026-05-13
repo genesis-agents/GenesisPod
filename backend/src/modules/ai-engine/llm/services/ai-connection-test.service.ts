@@ -795,6 +795,10 @@ export class AiConnectionTestService {
     apiEndpoint: string,
     startTime: number,
   ): Promise<{ success: boolean; message: string; latency?: number }> {
+    // 2026-05-13 P3-#9: admin 配错 endpoint 时 prod 报 `API Error (405): ""`
+    // 空 body + 没 URL = admin 完全没法诊断。错误处理记录实际请求的 URL，让
+    // admin 能立即看出 endpoint 拼接结果是否符合 provider /rerank API 规范。
+    let attemptedUrl: string | undefined;
     try {
       const testQuery = "What is the capital of France?";
       const testDocuments = [
@@ -828,6 +832,7 @@ export class AiConnectionTestService {
             apiEndpoint,
             "https://api.cohere.com/v1/rerank",
           );
+          attemptedUrl = cohereUrl;
           response = await firstValueFrom(
             this.httpService.post(
               cohereUrl,
@@ -866,6 +871,7 @@ export class AiConnectionTestService {
             apiEndpoint,
             "https://api.voyageai.com/v1/rerank",
           );
+          attemptedUrl = voyageUrl;
           response = await firstValueFrom(
             this.httpService.post(
               voyageUrl,
@@ -902,6 +908,7 @@ export class AiConnectionTestService {
             apiEndpoint,
             "https://api.jina.ai/v1/rerank",
           );
+          attemptedUrl = jinaUrl;
           response = await firstValueFrom(
             this.httpService.post(
               jinaUrl,
@@ -946,6 +953,7 @@ export class AiConnectionTestService {
             };
           }
           const fallbackUrl = ensureRerankPath(apiEndpoint, "");
+          attemptedUrl = fallbackUrl;
           response = await firstValueFrom(
             this.httpService.post(
               fallbackUrl,
@@ -987,24 +995,45 @@ export class AiConnectionTestService {
     } catch (error: unknown) {
       const latency = Date.now() - startTime;
       let errorMessage = "Unknown error";
+      let hint = "";
 
       const err = error as Record<string, unknown>;
       if (err.response) {
         const response = err.response as Record<string, unknown>;
         const status = response.status;
         const data = response.data as Record<string, unknown> | undefined;
-        errorMessage = `API Error (${status}): ${(data?.error as Record<string, unknown>)?.message || data?.message || JSON.stringify(data)}`;
+        const bodyText =
+          (data?.error as Record<string, unknown>)?.message ||
+          data?.message ||
+          (data ? JSON.stringify(data) : "(empty body)");
+        errorMessage = `API Error (${status}): ${bodyText}`;
+        // ★ 405 + 空 body 是 admin 配错 endpoint 的常见模式（base URL 拼 /rerank
+        //   后命中 provider 上的 GET-only 路径或非 rerank 路径）。给出诊断引导。
+        if (status === 405) {
+          hint =
+            ` — POST ${attemptedUrl ?? "(unknown URL)"} 不被接受。` +
+            `Endpoint 拼接后可能不是 ${provider} 的 rerank API 路径。` +
+            `请检查 admin Add Model 的 API Endpoint，确认填写的是 base URL（如 https://api.cohere.com/v1）` +
+            `或完整 rerank URL（如 https://api.cohere.com/v1/rerank）。`;
+        } else if (status === 404) {
+          hint =
+            ` — POST ${attemptedUrl ?? "(unknown URL)"} 路径不存在。` +
+            `请确认 endpoint 是 ${provider} 的正确 rerank API base / 完整 URL。`;
+        }
       } else if (err.code === "ECONNABORTED") {
         errorMessage = "Connection timeout";
       } else if (err.message) {
         errorMessage = err.message as string;
       }
 
-      this.logger.error(`Rerank model test failed: ${errorMessage}`);
+      this.logger.error(
+        `Rerank model test failed: ${errorMessage}${hint}` +
+          (attemptedUrl ? ` [attempted POST ${attemptedUrl}]` : ""),
+      );
 
       return {
         success: false,
-        message: `Connection failed: ${errorMessage}`,
+        message: `Connection failed: ${errorMessage}${hint}`,
         latency,
       };
     }
