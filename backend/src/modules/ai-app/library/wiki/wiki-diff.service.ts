@@ -337,6 +337,9 @@ export class WikiDiffService {
           }
 
           // Load pages affected by updates/deletes for revision snapshots.
+          // 2026-05-13 (Screenshot_80 duplicate-entry fix): pagesBySlug 现按
+          //   (slug, locale) 复合键索引 —— 单 KB 同 slug 多 locale 共存时
+          //   旧版仅按 slug 索引会"后写覆盖前写"，updates 走错 locale 分支。
           const affectedExistingPages = await tx.wikiPage.findMany({
             where: {
               knowledgeBaseId,
@@ -345,6 +348,15 @@ export class WikiDiffService {
               },
             },
           });
+          const makePageKey = (slug: string, locale: string): string =>
+            `${slug}:${locale}`;
+          const pagesByKey = new Map(
+            affectedExistingPages.map((p) => [
+              makePageKey(p.slug, p.locale),
+              p,
+            ]),
+          );
+          // 保留 slug-only fallback Map 供 deletes（zod 没强约束 deletes 带 locale）
           const pagesBySlug = new Map(
             affectedExistingPages.map((p) => [p.slug, p]),
           );
@@ -353,7 +365,10 @@ export class WikiDiffService {
           // in Step K).
           const revisionIdsBySlug = new Map<string, string>();
           for (const update of items.updates) {
-            const current = pagesBySlug.get(update.slug);
+            // 用 (slug, locale) 复合键查，避免单 KB 多 locale 同 slug 错位
+            const current = pagesByKey.get(
+              makePageKey(update.slug, update.locale),
+            );
             if (!current) continue; // update of non-existent slug — handled by upsert as create
             const rev = await tx.wikiPageRevision.create({
               data: {
@@ -384,7 +399,33 @@ export class WikiDiffService {
             role: WikiOpPageRole;
           }> = [];
 
-          for (const create of items.creates) {
+          // 2026-05-13 (Screenshot_80): LLM 偶发对同一 (slug, locale) emit 多次
+          //   creates，或同 (slug, locale) 同时在 creates + updates 列表，apply
+          //   时上一 upsert 已写入 → 后一 create/update 命中 unique violation。
+          //   修复：apply 前去重 —— creates 按 (slug, locale) 保留最后一项；
+          //   updates 与 creates (slug, locale) 重合的丢弃（create 语义覆盖
+          //   update，LLM 视角下两者本质都是写入）。
+          const createsByKey = new Map<
+            string,
+            (typeof items.creates)[number]
+          >();
+          for (const c of items.creates) {
+            createsByKey.set(makePageKey(c.slug, c.locale), c);
+          }
+          const dedupedCreates = Array.from(createsByKey.values());
+          const dedupedUpdates = items.updates.filter(
+            (u) => !createsByKey.has(makePageKey(u.slug, u.locale)),
+          );
+          if (
+            dedupedCreates.length !== items.creates.length ||
+            dedupedUpdates.length !== items.updates.length
+          ) {
+            this.logger.warn(
+              `[applyDiff] dedup: creates ${items.creates.length}→${dedupedCreates.length}, updates ${items.updates.length}→${dedupedUpdates.length} (kb=${knowledgeBaseId})`,
+            );
+          }
+
+          for (const create of dedupedCreates) {
             const sanitizedBody = sanitizeMarkdownBody(create.body).body;
             const contentHash = this.pageService.hashBody(sanitizedBody);
             // P3 (2026-05-12): unique key now includes locale. zod schema
@@ -444,23 +485,43 @@ export class WikiDiffService {
             });
           }
 
-          for (const update of items.updates) {
+          for (const update of dedupedUpdates) {
             const sanitizedBody = sanitizeMarkdownBody(update.newBody).body;
             const contentHash = this.pageService.hashBody(sanitizedBody);
-            const existing = pagesBySlug.get(update.slug);
+            const existing = pagesByKey.get(
+              makePageKey(update.slug, update.locale),
+            );
             if (!existing) {
-              // No prior page; treat as implicit create using body+oneLiner.
-              // Title/category default fallbacks: keep slug as title, CONCEPT.
-              const created = await tx.wikiPage.create({
-                data: {
+              // 2026-05-13: 之前 tx.wikiPage.create() 不传 locale → 用 schema
+              //   default("zh") → 与 dedupedCreates 同 locale 的"已 upsert 行"
+              //   碰撞 (unique violation)。改用 upsert + 显式 locale，幂等。
+              //   Title/category default fallbacks: keep slug as title, CONCEPT.
+              const created = await tx.wikiPage.upsert({
+                where: {
+                  knowledgeBaseId_slug_locale: {
+                    knowledgeBaseId,
+                    slug: update.slug,
+                    locale: update.locale,
+                  },
+                },
+                create: {
                   knowledgeBaseId,
                   slug: update.slug,
+                  locale: update.locale,
                   title: update.slug,
                   category: "CONCEPT",
                   body: sanitizedBody,
                   oneLiner: update.newOneLiner ?? update.slug,
                   contentHash,
                   lastEditedBy: WikiPageEditedBy.LLM,
+                },
+                update: {
+                  body: sanitizedBody,
+                  contentHash,
+                  lastEditedBy: WikiPageEditedBy.LLM,
+                  ...(update.newOneLiner !== undefined
+                    ? { oneLiner: update.newOneLiner }
+                    : {}),
                 },
               });
               await this.pageService.replaceOutboundLinks(
@@ -527,8 +588,8 @@ export class WikiDiffService {
               title: `Apply diff ${diff.id.slice(0, 8)}`,
               meta: {
                 diffId: diff.id,
-                createdItems: items.creates.length,
-                updatedItems: items.updates.length,
+                createdItems: dedupedCreates.length,
+                updatedItems: dedupedUpdates.length,
                 deletedItems: items.deletes.length,
               } as Prisma.InputJsonValue,
               actorUserId: userId,
