@@ -28,6 +28,8 @@ import {
   resolveSearchTimeRangeSince,
   SEARCH_TIME_RANGE_VALUES,
 } from "@/common/search/search-time-range";
+// ★ 2026-05-13: route min-findings business-rule floor through typed runtime config
+import { loadPlaygroundRuntimeConfig } from "../../playground-runtime.config";
 
 const Input = z.object({
   topic: z.string(),
@@ -372,9 +374,15 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
   validateBusinessRules(output: z.infer<typeof Output>): void {
     const issues: string[] = [];
     const findings = output?.findings ?? [];
-    if (!Array.isArray(findings) || findings.length < 4) {
+    // ★ 2026-05-13 (root-fix): threshold from typed runtime config. Local
+    // reasoning models plateau at 3 findings; hardcoded 4 forced spurious
+    // self-heal retries that the model couldn't satisfy. The profile
+    // (`local-reasoning` / `local-quantized` → 3) and per-knob env var
+    // (`MIN_FINDINGS_THRESHOLD`) both flow through here.
+    const minFindings = loadPlaygroundRuntimeConfig().minFindingsThreshold;
+    if (!Array.isArray(findings) || findings.length < minFindings) {
       issues.push(
-        `findings.length=${findings.length} (要求 ≥4，请用已搜到的工具结果补到至少 4 条)`,
+        `findings.length=${findings.length} (要求 ≥${minFindings}，请用已搜到的工具结果补到至少 ${minFindings} 条)`,
       );
     }
     findings.forEach((f, i) => {

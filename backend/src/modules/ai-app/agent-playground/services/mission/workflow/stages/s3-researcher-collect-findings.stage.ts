@@ -40,6 +40,8 @@ import {
 } from "@/modules/ai-harness/facade";
 import { runPerDimPipeline } from "../per-dim-pipeline.util";
 import { narrate } from "../narrative.util";
+// ★ 2026-05-13: route min-findings retry threshold through typed runtime config
+import { loadPlaygroundRuntimeConfig } from "../../../../playground-runtime.config";
 
 interface ResearcherDimResult {
   dimension: string;
@@ -457,7 +459,13 @@ async function runOneDim(
     // (≥4 条，validateBusinessRules 阈值)，5 条以下也触发一次 retry。
     // 仅在首次 attempt (r.state === "completed") 后且第一次自愈还未用过时执行，
     // 避免与 L1 self-heal 冲突（L1 已用过 attempt=1 时跳过本检查）。
-    const MIN_FINDINGS_THRESHOLD = 5;
+    //
+    // ★ 2026-05-13 (root-fix): 从 typed runtime config 读阈值。本地推理模型
+    // (Nemotron / DeepSeek-R1) plateaus at 3-4 findings per dim，硬编码 5 会
+    // 触发无效的 self-heal retry。PLAYGROUND_TUNING_PROFILE=local-reasoning /
+    // local-quantized 把阈值降到 3，per-knob env MIN_FINDINGS_THRESHOLD 进一步覆盖。
+    const MIN_FINDINGS_THRESHOLD =
+      loadPlaygroundRuntimeConfig().minFindingsThreshold;
     if (
       r.state === "completed" &&
       r.output &&

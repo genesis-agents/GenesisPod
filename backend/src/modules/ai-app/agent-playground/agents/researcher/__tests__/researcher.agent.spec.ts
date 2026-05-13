@@ -7,6 +7,27 @@
 import { ResearcherAgent } from "../researcher.agent";
 import { readDefineAgentMeta } from "../../../../../ai-harness/agents/dev-tools/agent-spec.base";
 
+// ★ 2026-05-13: business-rule findings floor now comes from
+// PlaygroundRuntimeConfig (PR2/PR3); isolate test env from host .env so
+// asserted thresholds (default 4) hold regardless of local-model tuning.
+const PLAYGROUND_ENV_KEYS = [
+  "PLAYGROUND_TUNING_PROFILE",
+  "MIN_FINDINGS_THRESHOLD",
+] as const;
+const savedEnv: Record<string, string | undefined> = {};
+beforeAll(() => {
+  for (const k of PLAYGROUND_ENV_KEYS) {
+    savedEnv[k] = process.env[k];
+    delete process.env[k];
+  }
+});
+afterAll(() => {
+  for (const [k, v] of Object.entries(savedEnv)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+});
+
 function getMeta() {
   const meta = readDefineAgentMeta(ResearcherAgent);
   if (!meta) throw new Error("@DefineAgent metadata missing");

@@ -2,6 +2,29 @@ import { runResearcherDispatchStage } from "../s3-researcher-collect-findings.st
 import type { MissionContext } from "../../mission-context";
 import type { MissionDeps } from "../../mission-deps";
 
+// ★ 2026-05-13: stage's min-findings retry threshold now comes from
+// PlaygroundRuntimeConfig; isolate test env so the documented production
+// default (5) holds regardless of host .env profile overrides.
+const PLAYGROUND_ENV_KEYS = [
+  "PLAYGROUND_TUNING_PROFILE",
+  "MIN_FINDINGS_THRESHOLD",
+] as const;
+const savedEnv: Record<string, string | undefined> = {};
+beforeAll(() => {
+  for (const k of PLAYGROUND_ENV_KEYS) {
+    savedEnv[k] = process.env[k];
+    delete process.env[k];
+  }
+  // Force documented production threshold for assertions hardcoded to "5".
+  process.env.MIN_FINDINGS_THRESHOLD = "5";
+});
+afterAll(() => {
+  for (const [k, v] of Object.entries(savedEnv)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+});
+
 const DIM_A = { id: "d1", name: "Market", rationale: "market size" };
 const DIM_B = { id: "d2", name: "Tech", rationale: "technology" };
 
