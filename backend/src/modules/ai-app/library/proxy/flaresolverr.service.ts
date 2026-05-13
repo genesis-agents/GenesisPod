@@ -112,8 +112,11 @@ export class FlareSolverrService implements OnModuleInit {
     } catch (error) {
       this.isAvailable = false;
       this.lastHealthCheckFailedAt = Date.now();
-      this.logger.warn(
-        `FlareSolverr is not available at ${this.FLARESOLVERR_URL}. Cloudflare bypass will not work.`,
+      // 2026-05-13: FlareSolverr 服务已下线（Railway 已删 service）；env var
+      // 残留时不再 WARN 刷屏 — log 一次 debug 即可，service 自动 fallback skip。
+      // 完整移除追踪 task #58。
+      this.logger.debug(
+        `FlareSolverr not reachable at ${this.FLARESOLVERR_URL} — Cloudflare bypass disabled (service is optional).`,
       );
       return false;
     }
