@@ -11,6 +11,42 @@ import { runPerDimPipeline } from "../per-dim-pipeline.util";
 import type { PerDimPipelineArgs } from "../per-dim-pipeline.util";
 import type { MissionDeps } from "../mission-deps";
 
+// ─── env isolation ────────────────────────────────────────────────────────────
+//
+// PR2 (2026-05-13) wires per-dim-pipeline tolerance through
+// PlaygroundRuntimeConfig which reads `CHAPTER_TOLERANCE_RATIO` from env.
+// Tests must run with the documented production default (0.3) regardless of
+// the host's .env file (local-model adaptations set this to 0.4).
+const PLAYGROUND_ENV_KEYS = [
+  "PLAYGROUND_TUNING_PROFILE", // PR3: profile env shifts all baselines
+  "MIN_FINDINGS_THRESHOLD",
+  "CHAPTER_TOLERANCE_RATIO",
+  "REACT_MAX_FINALIZE_REJECTS",
+  "RESEARCHER_MAX_ITERATIONS",
+  "RESEARCHER_MAX_ITERATIONS_HARD_CAP",
+  "RESEARCHER_MAX_WALL_TIME_MS",
+  "CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS",
+  "CHAPTER_MAX_REVISION_ATTEMPTS",
+  "MISSION_WRITER_MAX_ATTEMPTS",
+  "PLAYGROUND_STALE_THRESHOLD_MIN",
+  "PLAYGROUND_SOFT_WARN_THRESHOLD_MIN",
+  "PLAYGROUND_WALL_TIME_CAP_MS",
+  "PLAYGROUND_DISABLE_BUDGET_ABORT",
+] as const;
+const savedEnv: Record<string, string | undefined> = {};
+beforeAll(() => {
+  for (const k of PLAYGROUND_ENV_KEYS) {
+    savedEnv[k] = process.env[k];
+    delete process.env[k];
+  }
+});
+afterAll(() => {
+  for (const [k, v] of Object.entries(savedEnv)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+});
+
 // ─── external module mocks ────────────────────────────────────────────────────
 
 // p-limit is an ESM-only module; ts-jest (isolatedModules) transpiles
@@ -1383,6 +1419,60 @@ describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=
     await expect(runPerDimPipeline(baseArgs, deps)).rejects.toThrow(
       /expected 4 chapters, got 2.*ratio 50\.0%.*tolerance 30%/,
     );
+  });
+
+  // ── C9: outline-only / too-short chapter is FILTERED (not throws) when
+  //   within tolerance, and the filtered set is the one that flows downstream
+  //   into integrator / stitch / grade — reviewer-flagged plumbing fix
+  //   (2026-05-13 v2 validateWrittenChapters: filter-and-forward).
+  it("C9: outline-only chapter within tolerance is filtered, pipeline continues", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(5),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    // chapter 3 returns an outline-only body (bullets / sub-heading only).
+    // 1/5 = 20% ≤ 30% tolerance, so the pipeline should KEEP going with 4
+    // valid chapters and `result.chapters` should NOT include §3.
+    const invoker = makeAgentDispatchInvoker({
+      writerOverrides: {
+        3: {
+          state: "completed",
+          output: {
+            body: "## 小标题\n\n- 要点一\n- 要点二\n- 要点三",
+            wordCount: 30,
+            citationsUsed: [],
+          },
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        },
+      },
+    });
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters?.length).toBe(4);
+    expect(result.chapters?.map((c) => c.index)).toEqual([1, 2, 4, 5]);
+    // grade still runs (filtered set fed in, not the polluted one)
+    expect(result.grade).toBeDefined();
+    expect(result.grade!.overall).toBeGreaterThan(0);
   });
 });
 

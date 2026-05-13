@@ -40,12 +40,17 @@ export interface JsonExtractionResult<T> {
  * @returns Extraction result with parsed data or error
  */
 export function extractJsonFromAIResponse<T = unknown>(
-  content: string,
+  rawContent: string,
   options: JsonExtractionOptions = {},
 ): JsonExtractionResult<T> {
   const { requiredKey, errorPreviewLength = 500 } = options;
 
-  // ★ Preprocessing: deduplicate consecutive identical lines
+  // ★ Preprocessing 1: strip reasoning-model chain-of-thought blocks
+  // Reasoning models (Nemotron, DeepSeek-R1, QwQ, etc.) prefix structured output
+  // with <think>…</think> or <thinking>…</thinking> blocks that break JSON.parse.
+  const content = stripReasoningBlocks(rawContent);
+
+  // ★ Preprocessing 2: deduplicate consecutive identical lines
   // Reasoning models sometimes output each JSON line twice
   const deduplicated = deduplicateConsecutiveLines(content);
 
@@ -219,6 +224,40 @@ export function extractJsonFromAIResponse<T = unknown>(
  */
 function hasKey(obj: unknown, key: string): boolean {
   return typeof obj === "object" && obj !== null && key in obj;
+}
+
+/**
+ * Strip reasoning-model chain-of-thought blocks from text.
+ *
+ * Reasoning models (NVIDIA Nemotron, DeepSeek-R1, QwQ, OpenAI o-series with
+ * raw reasoning leak, etc.) often prefix structured output with internal
+ * reasoning wrapped in `<think>…</think>` or `<thinking>…</thinking>` tags.
+ * These break direct `JSON.parse` and downstream Zod validation when the
+ * model is asked to return structured JSON.
+ *
+ * This helper is the single source of truth — callers should NOT re-implement
+ * `replace(/<think>…/gi, "")` inline. It also strips unclosed `<think>` blocks
+ * that occur when output is truncated mid-reasoning.
+ */
+export function stripReasoningBlocks(content: string): string {
+  if (!content) return content;
+  let out = content;
+  // Closed blocks: <think>…</think>, <thinking>…</thinking>, <reasoning>…</reasoning>
+  out = out.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  out = out.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "");
+  out = out.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "");
+  // Unclosed leading blocks: model started reasoning but output was truncated
+  // before the closing tag, OR reasoning leaked into the answer with no close.
+  out = out.replace(/^[\s\S]*?<\/think>/i, (m) =>
+    /<think>/i.test(m) ? "" : m,
+  );
+  out = out.replace(/^[\s\S]*?<\/thinking>/i, (m) =>
+    /<thinking>/i.test(m) ? "" : m,
+  );
+  out = out.replace(/^[\s\S]*?<\/reasoning>/i, (m) =>
+    /<reasoning>/i.test(m) ? "" : m,
+  );
+  return out.trim();
 }
 
 /**

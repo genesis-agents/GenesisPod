@@ -87,10 +87,20 @@ import {
   MISSION_RUNNER,
   MISSION_LIST_READER,
 } from "@/modules/ai-app/contracts/mission-platform.contract";
+// ★ 2026-05-13 (PR2): typed runtime tunables, single source of truth.
+//   `loadPlaygroundRuntimeConfig()` is used here because module factories
+//   resolve at registration time (before ConfigService is available).
+//   Services / hooks elsewhere can inject `playgroundRuntimeConfig.KEY` once
+//   the ConfigModule.forFeature call below has loaded it.
+import {
+  playgroundRuntimeConfig,
+  loadPlaygroundRuntimeConfig,
+} from "./playground-runtime.config";
 
 @Module({
   imports: [
     CreditsModule,
+    ConfigModule.forFeature(playgroundRuntimeConfig),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -354,21 +364,27 @@ export class AgentPlaygroundModule
             .catch(() => undefined);
         },
       },
-      {
-        // playground 实测档位最长 deep + thorough+ + unlimited ≈ 3h，给 4h 兜底
-        wallTimeCapMs: 4 * 60 * 60 * 1000,
-        // ★ 2026-05-06 (P0-B regression 真因): 5/5 unified MissionLivenessGuard 落地后
-        //   staleThresholdMs=5min 把 4940b78d (5/3 跑通的 52min mission) 这类正常 deep
-        //   mission 误杀。chapter writing × 56 + critic L4 等单次 LLM 调用本身就常 ~3-5min，
-        //   双 stale 5min 阈值让 mission 在长 stage 间隔被误判 stale。
-        //   调整：stale 阈值 5min → 15min；soft warn 10min → 20min。
-        //   wall-time cap 仍 4h 兜底，真死锁不会无限等。
-        staleThresholdMs: 15 * 60 * 1000,
-        softWarnThresholdMs: 20 * 60 * 1000,
-        startupGraceMs: 5 * 60 * 1000,
-        scanIntervalMs: 60_000,
-        bootDelayMs: 60_000,
-      },
+      (() => {
+        // ★ 2026-05-13 (PR2): pull tunables from typed runtime config.
+        //   Defaults are tuned for production frontier models (4h wall-time
+        //   cap, 15min stale / 20min soft-warn). Local / reasoning models
+        //   override upward via env vars (PLAYGROUND_WALL_TIME_CAP_MS,
+        //   PLAYGROUND_STALE_THRESHOLD_MIN, PLAYGROUND_SOFT_WARN_THRESHOLD_MIN).
+        //   wallTimeCapMs === 0 means "unlimited" — preserve that as Infinity
+        //   for the guard, never 0 (which would be instant-kill).
+        const rt = loadPlaygroundRuntimeConfig();
+        return {
+          wallTimeCapMs:
+            rt.wallTimeCapMs > 0
+              ? rt.wallTimeCapMs
+              : Number.POSITIVE_INFINITY,
+          staleThresholdMs: rt.staleThresholdMin * 60 * 1000,
+          softWarnThresholdMs: rt.softWarnThresholdMin * 60 * 1000,
+          startupGraceMs: 5 * 60 * 1000,
+          scanIntervalMs: 60_000,
+          bootDelayMs: 60_000,
+        };
+      })(),
     );
   }
 

@@ -11,6 +11,11 @@ import {
   DefineAgent,
   CHAPTER_REVIEWER_INTERNAL_MAX_ITERATIONS,
 } from "@/modules/ai-harness/facade";
+import {
+  coercedScore,
+  coercedInt,
+  coercedEnum,
+} from "@/common/utils/schema-coercion.utils";
 
 const Input = z.object({
   topic: z.string(),
@@ -46,12 +51,25 @@ const ReviewIssue = z.object({
 });
 
 const Output = z.object({
-  index: z.number().int(),
-  decision: z.enum(["pass", "revise"]),
-  score: z.number().int().min(0).max(100),
+  /**
+   * Coerced for local/quantized models that emit `"3"` or `3.0` instead of
+   * an int. Floors floats; rejects non-numeric.
+   */
+  index: coercedInt(0, 10_000),
+  /**
+   * FAIL-CLOSED: unknown / missing values fall back to "revise" (conservative
+   * branch). Never widen this default to "pass" — a hallucinated decision
+   * must never silently approve a chapter past the quality gate.
+   */
+  decision: coercedEnum(["pass", "revise"] as const, "revise"),
+  /**
+   * Coerced + clamped to [0,100]. Runaway 150 → 100 rather than aborting
+   * the whole mission; string "85" → 85.
+   */
+  score: coercedScore(0, 100),
   /** 结构化 issues（最多 6 条；pass 时可空数组） */
   issues: z.array(ReviewIssue).max(6).default([]),
-  /** 1-2 句话总评摘要（≤ 150 字符）—— 替代旧 critique 中的"概括陈述"部分 */
+  /** 1-2 句话总评摘要（≤ 300 字符）—— 替代旧 critique 中的"概括陈述"部分 */
   summary: z.string().max(300),
   /**
    * @deprecated 兼容旧客户端 —— 平铺 issues 拼成的可读文本。

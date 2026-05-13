@@ -24,6 +24,7 @@ import { ChatFacade } from "@/modules/ai-harness/facade";
 import { sanitize } from "../../../utils/prompt-sanitizer";
 import { stripLLMMetaNotes } from "../../../../contracts/report-template/pipeline/report-formatting.utils";
 import { extractJsonFromResponse } from "../../../utils/extract-json.utils";
+import { stripReasoningBlocks } from "@/common/utils/json-extraction.utils";
 import { formatAnchorContentForPrompt } from "../../../utils/event-source-parser.utils";
 import {
   LEADER_PLAN_PROMPT,
@@ -745,14 +746,8 @@ export class LeaderPlanningService {
         });
         const latencyMs = Date.now() - startTime;
 
-        // ★ 预处理：剥离推理模型的思考标签（如 <think>...</think>）
-        let rawContent = response.content;
-        rawContent = rawContent
-          .replace(/<think>[\s\S]*?<\/think>/gi, "")
-          .trim();
-        rawContent = rawContent
-          .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
-          .trim();
+        // ★ 预处理：剥离推理模型的思考标签（<think>/<thinking>/<reasoning>）
+        const rawContent = stripReasoningBlocks(response.content);
 
         // ★ 关键修复：检查 API 是否返回了错误
         if (response.isError) {
@@ -1077,14 +1072,8 @@ ${figuresText ? `**可用图表**:\n${figuresText}` : ""}
         });
         const latencyMs = Date.now() - startTime;
 
-        // ★ 预处理：剥离推理模型的思考标签（如 <think>...</think>）
-        let rawContent = response.content;
-        rawContent = rawContent
-          .replace(/<think>[\s\S]*?<\/think>/gi, "")
-          .trim();
-        rawContent = rawContent
-          .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
-          .trim();
+        // ★ 预处理：剥离推理模型的思考标签（<think>/<thinking>/<reasoning>）
+        const rawContent = stripReasoningBlocks(response.content);
 
         if (response.isError) {
           const errorContent = rawContent.slice(0, 200);

@@ -13,6 +13,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ChatFacade } from "@/modules/ai-harness/facade";
 import { AIModelType } from "@prisma/client";
+import { stripReasoningBlocks } from "@/common/utils/json-extraction.utils";
 
 /** 评审维度定义 */
 export interface EvaluationDimension {
@@ -454,8 +455,7 @@ ${dimensionsList}
     } else if (cleaned.startsWith("```")) {
       cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```$/, "");
     }
-    cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-    cleaned = cleaned.replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "").trim();
+    cleaned = stripReasoningBlocks(cleaned);
 
     const parsed = JSON.parse(cleaned) as {
       dimensions?: Array<{ id: string; score: number; comment: string }>;

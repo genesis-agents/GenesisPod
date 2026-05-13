@@ -35,6 +35,8 @@ import {
   CHAPTER_MAX_REVISION_ATTEMPTS,
 } from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
+// ★ 2026-05-13 (PR2): typed runtime config — chapter tolerance ratio etc.
+import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
 // ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 已下沉 engine/content
 import { jaccardSimilarity } from "@/modules/ai-harness/facade";
 // ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
@@ -1290,7 +1292,7 @@ export async function runPerDimPipeline(
     );
 
     // 收集成功章节，按 index 排序保证顺序（章节完成时间不等于章节序号顺序）
-    const writtenChapters: WrittenChapter[] = settledResults
+    const producedChapters: WrittenChapter[] = settledResults
       .filter(
         (r): r is PromiseFulfilledResult<WrittenChapter> =>
           r.status === "fulfilled" && r.value !== null,
@@ -1298,7 +1300,7 @@ export async function runPerDimPipeline(
       .map((r) => r.value)
       .sort((a, b) => a.index - b.index);
 
-    if (writtenChapters.length === 0) {
+    if (producedChapters.length === 0) {
       await emitGraded({
         ok: false,
         failed: true,
@@ -1310,21 +1312,45 @@ export async function runPerDimPipeline(
         `[chapter-integrity] ${dimensionName}: 0/${outline.chapters.length} chapters produced`,
       );
     }
-    // ★ 2026-05-12: 章节级容错——缺失 ≤30% 走降级路径继续整合 + 评分，>30% 才硬失败。
-    //   实证 mission：7 章 1 章卡 reviewing → 旧逻辑直接抛 0/100。新逻辑 1/7=14.3%
-    //   ≤30% 改为 warning narrative + 继续走 integrator + grade（grade 反映真实质量）。
+    // ★ 2026-05-12 v1: 章节级容错——缺失 ≤30% 走降级路径继续整合 + 评分，>30% 才硬失败。
+    //   实证 mission：7 章 1 章卡 reviewing → 旧逻辑直接抛 0/100。
+    // ★ 2026-05-13 v2: validateWrittenChapters 现在返回 validChapters（过滤掉
+    //   长度不足/outline-only 的章节），下游 integrator/stitch/grade/billing
+    //   统一使用 validChapters，避免坏章节污染 stitched markdown 与 grade 抽样。
     const integrityCheck = validateWrittenChapters({
       dimensionName,
       expectedCount: outline.chapters.length,
-      chapters: writtenChapters,
-      tolerance: { maxMissingRatio: 0.3 },
+      chapters: producedChapters,
+      // ★ 2026-05-13 (PR2): tolerance from typed runtime config.
+      //   Default 0.3 (30%) preserved; local can raise via
+      //   CHAPTER_TOLERANCE_RATIO env var.
+      tolerance: {
+        maxMissingRatio: loadPlaygroundRuntimeConfig().chapterToleranceRatio,
+      },
     });
+    const writtenChapters: WrittenChapter[] = integrityCheck.validChapters;
+    if (writtenChapters.length === 0) {
+      // 所有产出章节都被 filter 丢弃 — 等同于 0-章节路径，硬失败
+      await emitGraded({
+        ok: false,
+        failed: true,
+        skipped: true,
+        phase: "no-chapters",
+        summary: `${dimensionName} · ${producedChapters.length} 章产出但全部 body 不达标 — 全部丢弃`,
+      });
+      throw new Error(
+        `[chapter-integrity] ${dimensionName}: 0/${outline.chapters.length} valid chapters (all ${producedChapters.length} produced were dropped as too-short or outline-only)`,
+      );
+    }
     if (integrityCheck.missingCount > 0) {
+      const droppedSummary = integrityCheck.droppedChapters
+        .map((d) => `§${d.chapter.index} ${d.reason}`)
+        .join("; ");
       await narrate(deps.emit, missionId, userId, {
         stage: "s3-researchers",
         role: "reviewer",
         tag: "warning",
-        text: `${dimensionName} · 章节完整性降级：实到 ${writtenChapters.length}/${outline.chapters.length} 章（缺 ${integrityCheck.missingCount}，${(integrityCheck.missingRatio * 100).toFixed(1)}%），按部分完成继续整合与评分`,
+        text: `${dimensionName} · 章节完整性降级：有效 ${writtenChapters.length}/${outline.chapters.length} 章（缺 ${integrityCheck.missingCount}，${(integrityCheck.missingRatio * 100).toFixed(1)}%${droppedSummary ? "；dropped: " + droppedSummary : ""}），按部分完成继续整合与评分`,
         agentId: `chapter-integrity#${dimensionIdx}`,
         dimension: dimensionName,
       });
@@ -1599,27 +1625,39 @@ export async function runPerDimPipeline(
 }
 
 /**
- * ★ 2026-05-12: 引入 tolerance 参数。
- *   旧版严格 chapters.length !== expectedCount 直接 throw → 7 章缺 1 章整盘 0/100。
- *   新版按 maxMissingRatio 容错：缺失 ≤ 阈值 → 返回 missingCount/Ratio 供调用方降级；
- *   缺失 > 阈值 → 仍然 throw（保留 hard-fail 语义，防止严重缺章被静默放过）。
- *   error message 保留 "expected N chapters, got M" 前缀，兼容已有测试断言。
+ * ★ 2026-05-12 v1: 引入 tolerance 参数（缺章按比例容错而非全盘 throw）。
+ * ★ 2026-05-13 v2: 进一步引入 filter-and-forward 语义：
+ *   - 长度不足 / outline-only 的章节不再直接 throw，而是从 chapters 集合中
+ *     "降级丢弃"（dropped），调用方应使用返回的 validChapters 替换原 list。
+ *   - 这避免了"validate 抛错 → 章节没法 stitch / grade"的死锁，也避免了
+ *     "stitch 还在用包含坏章节的原 list，但 missingCount 只反映完全缺失的"
+ *     之间的口径不一致（reviewer 实证：bad chapter body 会污染 stitched
+ *     markdown 与 grade 抽样）。
+ *   - error message 在缺失超出 tolerance 时仍保留 "expected N chapters,
+ *     got M" 前缀，兼容已有测试断言。
+ *
+ * 返回 contract：
+ *   - missingCount  = expectedCount - validChapters.length（包含 dropped）
+ *   - missingRatio  = missingCount / expectedCount
+ *   - validChapters = 通过 substantive / non-outline gating 的章节（已排序）
+ *   - droppedChapters = 被丢弃的章节（带 reason，便于事件流可视化）
  */
-function validateWrittenChapters(args: {
+export interface ChapterIntegrityResult<C> {
+  missingCount: number;
+  missingRatio: number;
+  validChapters: C[];
+  droppedChapters: Array<{ chapter: C; reason: string }>;
+}
+
+function validateWrittenChapters<
+  C extends { index: number; heading: string; body: string; wordCount: number },
+>(args: {
   dimensionName: string;
   expectedCount: number;
-  chapters: Array<{
-    index: number;
-    heading: string;
-    body: string;
-    wordCount: number;
-  }>;
+  chapters: C[];
   tolerance?: { maxMissingRatio: number };
-}): { missingCount: number; missingRatio: number } {
+}): ChapterIntegrityResult<C> {
   const { dimensionName, expectedCount, chapters, tolerance } = args;
-  const missingCount = Math.max(0, expectedCount - chapters.length);
-  const missingRatio =
-    expectedCount > 0 ? missingCount / expectedCount : missingCount > 0 ? 1 : 0;
   const maxMissingRatio = tolerance?.maxMissingRatio ?? 0;
 
   if (chapters.length > expectedCount) {
@@ -1628,27 +1666,42 @@ function validateWrittenChapters(args: {
     );
   }
 
-  if (missingCount > 0 && missingRatio > maxMissingRatio) {
-    throw new Error(
-      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length} (missing ${missingCount}, ratio ${(missingRatio * 100).toFixed(1)}% > tolerance ${(maxMissingRatio * 100).toFixed(0)}%)`,
-    );
-  }
+  const validChapters: C[] = [];
+  const droppedChapters: Array<{ chapter: C; reason: string }> = [];
 
   for (const chapter of chapters) {
     const substantive = extractSubstantiveChapterText(chapter.body);
     if (substantive.length < MIN_CHAPTER_SUBSTANTIVE_CHARS) {
-      throw new Error(
-        `[chapter-integrity] ${dimensionName} §${chapter.index} "${chapter.heading}" body too short after normalization (${substantive.length} chars)`,
-      );
+      droppedChapters.push({
+        chapter,
+        reason: `body too short after normalization (${substantive.length} chars)`,
+      });
+      continue;
     }
     if (isOutlineOnlyChapter(substantive)) {
-      throw new Error(
-        `[chapter-integrity] ${dimensionName} §${chapter.index} "${chapter.heading}" is outline-only without substantive prose`,
-      );
+      droppedChapters.push({
+        chapter,
+        reason: `outline-only without substantive prose`,
+      });
+      continue;
     }
+    validChapters.push(chapter);
   }
 
-  return { missingCount, missingRatio };
+  const missingCount = Math.max(0, expectedCount - validChapters.length);
+  const missingRatio =
+    expectedCount > 0 ? missingCount / expectedCount : missingCount > 0 ? 1 : 0;
+
+  if (missingCount > 0 && missingRatio > maxMissingRatio) {
+    const droppedDetail = droppedChapters
+      .map((d) => `§${d.chapter.index} "${d.chapter.heading}" (${d.reason})`)
+      .join("; ");
+    throw new Error(
+      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length} (missing ${missingCount}, ratio ${(missingRatio * 100).toFixed(1)}% > tolerance ${(maxMissingRatio * 100).toFixed(0)}%)${droppedDetail ? "; dropped: " + droppedDetail : ""}`,
+    );
+  }
+
+  return { missingCount, missingRatio, validChapters, droppedChapters };
 }
 
 function extractSubstantiveChapterText(body: string): string {

@@ -148,21 +148,34 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
     expect(src).toContain("staleThresholdMs");
   });
 
-  it("staleThresholdMs value is >= 15 * 60 * 1000 (900000)", () => {
+  it("staleThresholdMs default (and any literal) is >= 15 min", () => {
+    // ★ 2026-05-13 (PR2): values are now sourced from
+    //   `loadPlaygroundRuntimeConfig()` rather than literal `N * 60 * 1000`.
+    //   We verify the typed config default *and* still flag any stray
+    //   hardcoded literal that drops below 15.
     const src = read(moduleFile);
-    // Extract all numeric staleThresholdMs assignments
-    const matches = src.matchAll(
+    const literalMatches = src.matchAll(
       /staleThresholdMs\s*:\s*(\d+)\s*\*\s*60\s*\*\s*1000/g,
     );
-    const values: number[] = [];
-    for (const m of matches) {
-      values.push(parseInt(m[1], 10));
+    for (const m of literalMatches) {
+      expect(parseInt(m[1], 10)).toBeGreaterThanOrEqual(15);
     }
-    // Must have at least one value, all must be >= 15
-    expect(values.length).toBeGreaterThan(0);
-    for (const v of values) {
-      expect(v).toBeGreaterThanOrEqual(15);
-    }
+    // Either: the module uses the runtime config (preferred) …
+    const usesRuntimeConfig =
+      src.includes("loadPlaygroundRuntimeConfig") ||
+      src.includes("playgroundRuntimeConfig");
+    // … or it must declare at least one literal >= 15.
+    const literalValues = Array.from(
+      src.matchAll(/staleThresholdMs\s*:\s*(\d+)\s*\*\s*60\s*\*\s*1000/g),
+    ).map((m) => parseInt(m[1], 10));
+    expect(usesRuntimeConfig || literalValues.length > 0).toBe(true);
+    // ★ Typed config default must itself be >= 15
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const {
+      loadPlaygroundRuntimeConfig,
+    } = require("../../modules/ai-app/agent-playground/playground-runtime.config");
+    const cfg = loadPlaygroundRuntimeConfig({}) as { staleThresholdMin: number };
+    expect(cfg.staleThresholdMin).toBeGreaterThanOrEqual(15);
   });
 
   it("MissionLivenessGuard DEFAULTS.staleThresholdMs is defined", () => {
@@ -174,19 +187,16 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
     expect(src).toContain("DEFAULTS");
   });
 
-  it("playground registers softWarnThresholdMs > staleThresholdMs", () => {
-    const src = read(moduleFile);
-    const staleMatch = src.match(
-      /staleThresholdMs\s*:\s*(\d+)\s*\*\s*60\s*\*\s*1000/,
-    );
-    const softMatch = src.match(
-      /softWarnThresholdMs\s*:\s*(\d+)\s*\*\s*60\s*\*\s*1000/,
-    );
-    if (staleMatch && softMatch) {
-      const staleMin = parseInt(staleMatch[1], 10);
-      const softMin = parseInt(softMatch[1], 10);
-      expect(softMin).toBeGreaterThan(staleMin);
-    }
+  it("playground registers softWarnThresholdMin > staleThresholdMin in typed config", () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const {
+      loadPlaygroundRuntimeConfig,
+    } = require("../../modules/ai-app/agent-playground/playground-runtime.config");
+    const cfg = loadPlaygroundRuntimeConfig({}) as {
+      staleThresholdMin: number;
+      softWarnThresholdMin: number;
+    };
+    expect(cfg.softWarnThresholdMin).toBeGreaterThan(cfg.staleThresholdMin);
   });
 });
 
