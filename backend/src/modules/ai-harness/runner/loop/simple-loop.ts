@@ -135,6 +135,36 @@ export class SimpleLoop implements IAgentLoop {
       return;
     }
 
+    // 2026-05-13 #65: AiChatService 在 provider 安全拒绝 / guardrail / 内部错误时
+    // 不抛异常，而是返回 {isError: true, content: "Request blocked by content
+    // safety guardrail: ..." 或 provider error message}。旧逻辑直接进 parseJson
+    // → 必失败 → yield error+terminated{reason:"error"} → state=failed → 用户
+    // 看到"grade 阶段失败 state=failed 无 5 轴评分"，但真因其实是 LLM 内容审核。
+    // 同 JudgeService #53 处理：识别 isError + guardrail placeholder 短路为 error
+    // 但 reason 改更精确（让上层 narrative 能区分）。
+    const isErrLike =
+      (response as { isError?: boolean }).isError === true ||
+      /^Request blocked by content safety guardrail/i.test(
+        response.content ?? "",
+      ) ||
+      /^Response filtered by content safety guardrail/i.test(
+        response.content ?? "",
+      );
+    if (isErrLike) {
+      const msg = (response.content ?? "").slice(0, 300) || "provider isError";
+      this.logger.warn(
+        `[simple-loop] chat returned isError/guardrail (no exception): ${msg}`,
+      );
+      yield this.makeEvent(agentId, "error", {
+        message: msg,
+        failureCode: /guardrail/i.test(msg)
+          ? "PROVIDER_SAFETY_REFUSAL"
+          : "PROVIDER_API_ERROR",
+      });
+      yield this.makeEvent(agentId, "terminated", { reason: "error" });
+      return;
+    }
+
     const promptTokens = response.usage?.inputTokens ?? 0;
     const completionTokens = response.usage?.outputTokens ?? 0;
     const cacheReadTokens = response.usage?.cacheReadTokens ?? 0;
@@ -258,7 +288,7 @@ export class SimpleLoop implements IAgentLoop {
    * 的 <think>...</think> 前缀会直接抛 RUNNER_OUTPUT_SCHEMA_MISMATCH。
    */
   private extractJson(content: string): unknown {
-    if (!content || !content.trim()) {
+    if (!content?.trim()) {
       throw new Error("empty content");
     }
     const result = extractJsonFromAIResponse<unknown>(content);

@@ -13,6 +13,10 @@
 
 import { z } from "zod";
 import { AgentSpec, DefineAgent } from "@/modules/ai-harness/facade";
+import {
+  coercedScore,
+  coercedEnum,
+} from "@/common/utils/schema-coercion.utils";
 
 const Input = z.object({
   topic: z.string(),
@@ -30,25 +34,36 @@ const Input = z.object({
   ),
 });
 
+// 2026-05-13 #65: LLM 偶发返回 score="80" / 80.5 / 缺 comment / 越界 → 旧 schema
+// 直接拒绝 → simple-loop yield error+terminated{reason:"error"} → state=failed →
+// 用户看到"grade 阶段失败 state=failed 无 5 轴评分"。改用 coercedScore + optional
+// comment + axis fallback default，吸收输出漂移而不让整张评分丢。
 const AxisScore = z.object({
-  score: z.number().int().min(0).max(100),
-  comment: z.string(),
+  score: coercedScore(0, 100),
+  comment: z.string().default(""),
 });
+// 缺整个 axis 时也兜底（避免一个轴缺失就整 grade 丢）
+const AxisOrFallback = AxisScore.default({ score: 60, comment: "" });
 
 const Output = z.object({
   dimension: z.string(),
-  overall: z.number().int().min(0).max(100),
-  grade: z.enum(["excellent", "good", "fair", "poor"]),
+  overall: coercedScore(0, 100),
+  // grade enum 用 fail-closed 兜底 "fair"（中庸），LLM 给出"average"/"satisfactory"
+  // 等非标 token 不再拒收。
+  grade: coercedEnum(
+    ["excellent", "good", "fair", "poor"] as const,
+    "fair" as const,
+  ),
   axes: z.object({
-    breadth: AxisScore,
-    depth: AxisScore,
-    evidence: AxisScore,
-    coherence: AxisScore,
-    freshness: AxisScore,
+    breadth: AxisOrFallback,
+    depth: AxisOrFallback,
+    evidence: AxisOrFallback,
+    coherence: AxisOrFallback,
+    freshness: AxisOrFallback,
     // ★ B-axis (2026-05-06): sources_sufficiency — unique sources per dim/chapter
-    sources_sufficiency: AxisScore,
+    sources_sufficiency: AxisOrFallback,
   }),
-  summary: z.string(),
+  summary: z.string().default(""),
 });
 
 @DefineAgent({

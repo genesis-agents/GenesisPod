@@ -1187,6 +1187,43 @@ export class ReportArtifactAssembler {
     return best?.dim;
   }
 
+  /**
+   * ★ 2026-05-13 #59 修图片稀少：URL 正规化用于 citation 匹配
+   *
+   * researcher 的 figure sourceUrl 常带 utm/gclid 等 tracking query，citation 表
+   * 是 buildCitations 在不同上下文存的版本，两者字符串不等价 → buildFigures 精确
+   * 匹配挂掉 → dropped.noEv++ → 图片被丢。
+   *
+   * 正规化策略（保守、可回放）：
+   *   - 去 fragment（#section）
+   *   - 去 utm_*, gclid, fbclid, mc_*, ref / referrer, share, _ga, _gl, igshid 等 tracker params
+   *   - 末尾 `/` 归一
+   *   - URL 解析失败 → 退化到原串（不 throw）
+   */
+  private normalizeUrlForMatch(url: string): string {
+    if (!url) return "";
+    try {
+      const u = new URL(url);
+      u.hash = "";
+      const TRACKER_RE =
+        /^(utm_|gclid|fbclid|mc_|ref$|referrer$|share$|_ga$|_gl$|igshid$|yclid$|msclkid$|dclid$)/i;
+      const keep: [string, string][] = [];
+      u.searchParams.forEach((v, k) => {
+        if (!TRACKER_RE.test(k)) keep.push([k, v]);
+      });
+      // 重写 search（保持非 tracker param 顺序）
+      const newSearch = new URLSearchParams(keep).toString();
+      u.search = newSearch ? `?${newSearch}` : "";
+      // 末尾 / 归一（pathname 非根时）
+      if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
+        u.pathname = u.pathname.slice(0, -1);
+      }
+      return u.toString();
+    } catch {
+      return url;
+    }
+  }
+
   private inferSectionType(title: string): ArtifactSection["type"] {
     const t = title.toLowerCase();
     if (t.includes("摘要") || t.includes("summary")) return "executive_summary";
@@ -1517,14 +1554,23 @@ export class ReportArtifactAssembler {
     for (const c of citations) urlToIndex.set(c.url, c.index);
 
     const figures: ArtifactFigure[] = [];
-    // ★ 2026-05-02 (用户实证 #8 图片严重缺失): 之前 5-gate 静默 continue，
-    //   生产 figureCandidates 抽到 8 张图全被丢弃。加 fuzzy matching + telemetry：
-    //   - sourceUrl 不在 citations → 尝试 host fuzzy 匹配 + 加为新 citation
-    //   - imageUrl 缺 → log warn（不再静默丢弃）
-    //   - sec 找不到 → fallback 第一个 dimension section 而非 continue
-    const dropped = { noEv: 0, noImageUrl: 0, noSec: 0 };
+    // ★ 2026-05-13 #59 修图片稀少（升级 2026-05-02 五项校验）：
+    //   - 加 normalized URL 匹配（去 utm/gclid/末尾 slash 等），治 figure sourceUrl
+    //     与 citation URL 字符串不等价但语义相同的情况；
+    //   - host 匹配作为兜底（旧逻辑保留）；
+    //   - 全部失败时不再 continue 丢弃，而是 push 一个 synthetic citation
+    //     （sourceType=other, credibility=0.5），让 figure 入仓但不污染高可信引用池。
+    const dropped = {
+      noEvFallbackSynth: 0,
+      noEvHost: 0,
+      noEvNorm: 0,
+      noImageUrl: 0,
+      noSec: 0,
+    };
     // host → citation index 表（fuzzy 匹配兜底）
     const hostToIndex = new Map<string, number>();
+    // normalizedUrl → citation index 表（去 utm / trailing slash）
+    const normalizedUrlToIndex = new Map<string, number>();
     for (const c of citations) {
       try {
         const host = new URL(c.url).hostname.replace(/^www\./, "");
@@ -1532,25 +1578,68 @@ export class ReportArtifactAssembler {
       } catch {
         /* ignore parse error */
       }
+      const norm = this.normalizeUrlForMatch(c.url);
+      if (norm && !normalizedUrlToIndex.has(norm)) {
+        normalizedUrlToIndex.set(norm, c.index);
+      }
     }
     for (let i = 0; i < deduped.length; i++) {
       const f = deduped[i];
       let evIdx = urlToIndex.get(f.sourceUrl);
-      // ★ fuzzy 匹配兜底：sourceUrl 找不到精确 citation → host 匹配
+      // ★ 1. normalized URL 匹配（去 utm/gclid/末尾 slash）
+      if (!evIdx && f.sourceUrl) {
+        const norm = this.normalizeUrlForMatch(f.sourceUrl);
+        if (norm) {
+          evIdx = normalizedUrlToIndex.get(norm);
+          if (evIdx) dropped.noEvNorm++;
+        }
+      }
+      // ★ 2. host 匹配兜底
       if (!evIdx && f.sourceUrl) {
         try {
           const host = new URL(f.sourceUrl).hostname.replace(/^www\./, "");
           evIdx = hostToIndex.get(host);
+          if (evIdx) dropped.noEvHost++;
         } catch {
           /* ignore */
         }
       }
-      if (!evIdx) {
-        dropped.noEv++;
-        continue;
-      }
       if (!f.imageUrl) {
         dropped.noImageUrl++;
+        continue;
+      }
+      // ★ 3. 全部失败：push synthetic citation 而非丢图
+      //   （ArtifactFigure.evidenceCitationIndex 是必填字段，没有 citation 就没法落地）
+      //   sourceType=other + credibility=0.5 让 quality scorer 区分这类"补丁来源"。
+      if (!evIdx && f.sourceUrl) {
+        try {
+          const u = new URL(f.sourceUrl);
+          const domain = u.hostname.replace(/^www\./, "");
+          const synthIdx = citations.length + 1;
+          citations.push({
+            index: synthIdx,
+            uuid: `synth-${synthIdx}-${Date.now()}`,
+            title: f.caption.slice(0, 100) || domain,
+            url: f.sourceUrl,
+            domain,
+            accessedAt: new Date().toISOString(),
+            sourceType: "other",
+            credibilityScore: 0.5,
+            occurrences: [],
+          });
+          // 更新 lookup 表，让同 URL 后续 figure 复用
+          urlToIndex.set(f.sourceUrl, synthIdx);
+          const norm = this.normalizeUrlForMatch(f.sourceUrl);
+          if (norm) normalizedUrlToIndex.set(norm, synthIdx);
+          if (!hostToIndex.has(domain)) hostToIndex.set(domain, synthIdx);
+          evIdx = synthIdx;
+          dropped.noEvFallbackSynth++;
+        } catch {
+          /* URL parse 失败 → 真正没法救，跳过 */
+        }
+      }
+      if (!evIdx) {
+        // sourceUrl 缺失或解析失败：真的丢
         continue;
       }
       // 找 section（按 dim → section.sourceDimensionId）+ fallback 第一个 dim section
@@ -1588,9 +1677,12 @@ export class ReportArtifactAssembler {
         referencedBy,
       });
     }
-    if (dropped.noEv + dropped.noImageUrl + dropped.noSec > 0) {
+    if (
+      dropped.noEvNorm + dropped.noEvHost + dropped.noEvFallbackSynth > 0 ||
+      dropped.noImageUrl + dropped.noSec > 0
+    ) {
       this.logger?.warn?.(
-        `[buildFigures] dropped ${dropped.noEv} (no citation match) / ${dropped.noImageUrl} (no imageUrl) / ${dropped.noSec} (no section), kept ${figures.length}/${deduped.length}`,
+        `[buildFigures] kept ${figures.length}/${deduped.length} | norm-rescued ${dropped.noEvNorm} | host-rescued ${dropped.noEvHost} | synth-rescued ${dropped.noEvFallbackSynth} | dropped noImageUrl=${dropped.noImageUrl} noSec=${dropped.noSec}`,
       );
     }
     return figures;

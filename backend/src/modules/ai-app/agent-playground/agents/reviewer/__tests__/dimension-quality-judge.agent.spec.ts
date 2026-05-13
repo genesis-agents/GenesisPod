@@ -135,22 +135,25 @@ describe("DimensionQualityJudgeAgent", () => {
       }
     });
 
-    it("rejects invalid grade", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, grade: "average" }).success,
-      ).toBe(false);
+    // ★ 2026-05-13 #65: schema 改 coercedEnum/coercedScore + axis fallback default
+    //   后，下列原本"严格拒绝"的输入现在都会被吸收（clamp / fall-back），让 LLM
+    //   输出漂移不再导致整张 grade 丢。spec 更新对应预期。
+    it("coerces invalid grade to fail-closed default 'fair'", () => {
+      const r = outputSchema.safeParse({ ...baseOutput, grade: "average" });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.grade).toBe("fair");
     });
 
-    it("rejects overall score below 0", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, overall: -1 }).success,
-      ).toBe(false);
+    it("clamps overall score below 0 to 0", () => {
+      const r = outputSchema.safeParse({ ...baseOutput, overall: -1 });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.overall).toBe(0);
     });
 
-    it("rejects overall score above 100", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, overall: 101 }).success,
-      ).toBe(false);
+    it("clamps overall score above 100 to 100", () => {
+      const r = outputSchema.safeParse({ ...baseOutput, overall: 101 });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.overall).toBe(100);
     });
 
     it("accepts overall score at boundary 0", () => {
@@ -165,46 +168,46 @@ describe("DimensionQualityJudgeAgent", () => {
       ).toBe(true);
     });
 
-    it("rejects non-integer overall", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, overall: 78.5 }).success,
-      ).toBe(false);
+    it("accepts non-integer overall (coerced, not rejected)", () => {
+      const r = outputSchema.safeParse({ ...baseOutput, overall: 78.5 });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.overall).toBe(78.5);
     });
 
-    it("rejects axis score below 0", () => {
-      expect(
-        outputSchema.safeParse({
-          ...baseOutput,
-          axes: {
-            ...baseOutput.axes,
-            breadth: { score: -1, comment: "bad" },
-          },
-        }).success,
-      ).toBe(false);
+    it("clamps axis score below 0 to 0", () => {
+      const r = outputSchema.safeParse({
+        ...baseOutput,
+        axes: {
+          ...baseOutput.axes,
+          breadth: { score: -1, comment: "bad" },
+        },
+      });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.axes.breadth.score).toBe(0);
     });
 
-    it("rejects axis score above 100", () => {
-      expect(
-        outputSchema.safeParse({
-          ...baseOutput,
-          axes: {
-            ...baseOutput.axes,
-            depth: { score: 101, comment: "too high" },
-          },
-        }).success,
-      ).toBe(false);
+    it("clamps axis score above 100 to 100", () => {
+      const r = outputSchema.safeParse({
+        ...baseOutput,
+        axes: {
+          ...baseOutput.axes,
+          depth: { score: 101, comment: "too high" },
+        },
+      });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.axes.depth.score).toBe(100);
     });
 
-    it("rejects non-integer axis score", () => {
-      expect(
-        outputSchema.safeParse({
-          ...baseOutput,
-          axes: {
-            ...baseOutput.axes,
-            evidence: { score: 75.5, comment: "decimal" },
-          },
-        }).success,
-      ).toBe(false);
+    it("accepts non-integer axis score (coerced, not rejected)", () => {
+      const r = outputSchema.safeParse({
+        ...baseOutput,
+        axes: {
+          ...baseOutput.axes,
+          evidence: { score: 75.5, comment: "decimal" },
+        },
+      });
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.axes.evidence.score).toBe(75.5);
     });
 
     it("rejects missing axes", () => {
@@ -212,19 +215,24 @@ describe("DimensionQualityJudgeAgent", () => {
       expect(outputSchema.safeParse(rest).success).toBe(false);
     });
 
-    it("rejects axes missing breadth", () => {
+    it("fills missing breadth axis with default fallback", () => {
       const { breadth: _, ...axesRest } = baseOutput.axes as Record<
         string,
         unknown
       >;
-      expect(
-        outputSchema.safeParse({ ...baseOutput, axes: axesRest }).success,
-      ).toBe(false);
+      const r = outputSchema.safeParse({ ...baseOutput, axes: axesRest });
+      expect(r.success).toBe(true);
+      if (r.success) {
+        expect(r.data.axes.breadth.score).toBe(60);
+        expect(r.data.axes.breadth.comment).toBe("");
+      }
     });
 
-    it("rejects missing summary", () => {
+    it("fills missing summary with empty string default", () => {
       const { summary: _, ...rest } = baseOutput as Record<string, unknown>;
-      expect(outputSchema.safeParse(rest).success).toBe(false);
+      const r = outputSchema.safeParse(rest);
+      expect(r.success).toBe(true);
+      if (r.success) expect(r.data.summary).toBe("");
     });
 
     it("accepts output with excellent grade (score ≥ 85)", () => {
@@ -348,8 +356,9 @@ describe("DimensionQualityJudgeAgent", () => {
   // ── B-axis regression spec (2026-05-06) ─────────────────────────────────
 
   describe("sources_sufficiency axis (B-alignment)", () => {
-    it("[B-regression] outputSchema requires sources_sufficiency axis", () => {
-      // Output without sources_sufficiency should fail
+    // 2026-05-13 #65: schema 改 axis-fallback default 后，缺 sources_sufficiency
+    // 不再 hard-fail，而是填默认值（避免 LLM 偶发漏一个轴就整张评分丢）。
+    it("[B-regression] fills missing sources_sufficiency axis with default", () => {
       const outputMissingSuffix = {
         ...baseOutput,
         axes: {
@@ -361,7 +370,12 @@ describe("DimensionQualityJudgeAgent", () => {
           // sources_sufficiency intentionally omitted
         },
       };
-      expect(outputSchema.safeParse(outputMissingSuffix).success).toBe(false);
+      const r = outputSchema.safeParse(outputMissingSuffix);
+      expect(r.success).toBe(true);
+      if (r.success) {
+        expect(r.data.axes.sources_sufficiency.score).toBe(60);
+        expect(r.data.axes.sources_sufficiency.comment).toBe("");
+      }
     });
 
     it("[B-regression] outputSchema accepts valid 6-axis output with sources_sufficiency", () => {
