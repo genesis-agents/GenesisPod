@@ -848,5 +848,67 @@ export async function runWriterStage(
         },
       })
       .catch(() => {});
+
+    // ★ 2026-05-13 #63: Leader signoff 预警 — S8 已经能算出最终签字阻断条件
+    //   （sourceCount / coverage / lengthAccuracy），提前 emit 让前端 timeline
+    //   渲染红段 + tooltip，避免到 S10 才"突然"拒签让用户措手不及。
+    //   阻断条件对齐 leader/duties/signoff.md:123-126。
+    const reasons: {
+      code: string;
+      message: string;
+      current?: number;
+      threshold?: number;
+    }[] = [];
+    const sourceCount = reportArtifact.citations.length;
+    const minSources = plan.goals?.qualityBar?.minSources ?? 0;
+    const minCoverage = plan.goals?.qualityBar?.minCoverage ?? 0;
+    const coverage = reportArtifact.quality.dimensions.coverage;
+    const lengthAccuracy = reportArtifact.quality.dimensions.lengthAccuracy;
+
+    if (minSources > 0 && sourceCount < minSources * 0.6) {
+      reasons.push({
+        code: "INSUFFICIENT_SOURCES",
+        message: `来源数 ${sourceCount} < 最低要求 ${minSources} × 60%（${Math.ceil(minSources * 0.6)} 条）`,
+        current: sourceCount,
+        threshold: Math.ceil(minSources * 0.6),
+      });
+    }
+    if (minCoverage > 0 && coverage < minCoverage * 0.7) {
+      reasons.push({
+        code: "LOW_COVERAGE",
+        message: `覆盖度 ${Math.round(coverage)} < 最低要求 ${minCoverage} × 70%（${Math.ceil(minCoverage * 0.7)}）`,
+        current: Math.round(coverage),
+        threshold: Math.ceil(minCoverage * 0.7),
+      });
+    }
+    if (typeof lengthAccuracy === "number" && lengthAccuracy < 60) {
+      reasons.push({
+        code: "LENGTH_UNDERDELIVERED",
+        message: `字数兑现率 ${Math.round(lengthAccuracy)}/100 严重缩水（< 60），Leader 会按 signoff.md 规则限制 verdict ≤ acceptable`,
+        current: Math.round(lengthAccuracy),
+        threshold: 60,
+      });
+    }
+    if (reasons.length > 0) {
+      // 任一 reason 已是 hard-block 级别（signoff.md 已写明）→ severity="block"
+      // 若未来加 warn-only 条件可在此区分
+      await deps
+        .emit({
+          type: "agent-playground.mission:preflight-warning",
+          missionId,
+          userId,
+          payload: {
+            severity: "block",
+            stageId: "s8-writer-draft",
+            affectsStageId: "writer",
+            reasons,
+          },
+        })
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[${missionId}] emit mission:preflight-warning failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+    }
   }
 }

@@ -378,6 +378,223 @@ describe("runWriterStage (S8)", () => {
     expect(ctx.report).toBeDefined();
   });
 
+  // ★ 2026-05-13 #63: Leader signoff timeline 预警
+  describe("preflight-warning (Leader signoff 预警)", () => {
+    const goalsTight = {
+      qualityBar: {
+        minSources: 10,
+        minCoverage: 80,
+        hardConstraints: [],
+      },
+      successCriteria: ["c"],
+      deliverables: ["d"],
+    } as never;
+
+    it("no preflight emit when goals empty (current default mock)", async () => {
+      const ctx = makeCtx();
+      const deps = makeDeps();
+      await runWriterStage(ctx, deps, analyst, undefined);
+      const calls = (deps.emit as jest.Mock).mock.calls.filter(
+        (c) => c[0].type === "agent-playground.mission:preflight-warning",
+      );
+      expect(calls).toHaveLength(0);
+    });
+
+    it("emits preflight-warning when coverage < minCoverage × 0.7", async () => {
+      const ctx = makeCtx({
+        plan: {
+          themeSummary: "AI",
+          dimensions: [{ id: "d1", name: "Market", rationale: "r" }],
+          goals: goalsTight,
+          initialRisks: [],
+        } as MissionContext["plan"],
+      });
+      const deps = makeDeps();
+      // Mock assembler 返回 coverage=40 (< 80×0.7=56)，lengthAccuracy=80 (>=60)
+      (deps.reportAssembler.assemble as jest.Mock).mockImplementationOnce(
+        () => ({
+          content: { fullMarkdown: "x", fullReportSize: 1 },
+          sections: [],
+          citations: [
+            {
+              index: 1,
+              uuid: "c1",
+              title: "a",
+              url: "x",
+              domain: "a",
+              accessedAt: "t",
+              sourceType: "industry",
+              credibilityScore: 65,
+              occurrences: [],
+            },
+            {
+              index: 2,
+              uuid: "c2",
+              title: "b",
+              url: "y",
+              domain: "b",
+              accessedAt: "t",
+              sourceType: "industry",
+              credibilityScore: 65,
+              occurrences: [],
+            },
+          ],
+          figures: [],
+          quickView: {
+            executiveSummary: { markdown: "", wordCount: 0 },
+            topHighlights: [],
+            topTrends: [],
+            keyRisks: [],
+            topRecommendations: [],
+            keyCitations: [],
+            keyFigures: [],
+            estimatedReadingTime: 1,
+            whatYouWillLearn: [],
+          },
+          factTable: [],
+          metadata: {
+            topic: "AI",
+            generatedAt: "",
+            generationTimeMs: 0,
+            version: 1,
+            isIncremental: false,
+            dimensionCount: 1,
+            sourceCount: 2,
+            factCount: 0,
+            figureCount: 0,
+            wordCount: 50,
+            readingTimeMinutes: 1,
+            styleProfile: "",
+            lengthProfile: "standard",
+            audienceProfile: "",
+            language: "zh-CN",
+            totalTokens: { prompt: 0, completion: 0, total: 0 },
+            costCents: 0,
+            modelTrail: [],
+          },
+          quality: {
+            overall: 60,
+            dimensions: {
+              traceability: 60,
+              factualConsistency: 60,
+              novelty: 60,
+              coverage: 40,
+              redundancy: 60,
+              formatCorrectness: 60,
+              citationDensity: 60,
+              styleConformance: 60,
+              lengthAccuracy: 80,
+              chapterBalance: 60,
+            },
+            hardGateViolations: [],
+            warnings: [],
+            qualityTrace: [],
+            finalVerdict: "fair",
+          },
+        }),
+      );
+      await runWriterStage(ctx, deps, analyst, undefined);
+      const preflight = (deps.emit as jest.Mock).mock.calls.find(
+        (c) => c[0].type === "agent-playground.mission:preflight-warning",
+      );
+      expect(preflight).toBeDefined();
+      expect(preflight[0].payload.severity).toBe("block");
+      expect(preflight[0].payload.affectsStageId).toBe("writer");
+      const codes = preflight[0].payload.reasons.map(
+        (r: { code: string }) => r.code,
+      );
+      // sourceCount=2 < 10×0.6=6 + coverage=40 < 80×0.7=56
+      expect(codes).toEqual(
+        expect.arrayContaining(["INSUFFICIENT_SOURCES", "LOW_COVERAGE"]),
+      );
+    });
+
+    it("emits preflight when lengthAccuracy < 60", async () => {
+      const ctx = makeCtx({
+        plan: {
+          themeSummary: "AI",
+          dimensions: [{ id: "d1", name: "Market", rationale: "r" }],
+          goals: {
+            qualityBar: { minSources: 0, minCoverage: 0, hardConstraints: [] },
+            successCriteria: ["c"],
+            deliverables: ["d"],
+          } as never,
+          initialRisks: [],
+        } as MissionContext["plan"],
+      });
+      const deps = makeDeps();
+      // override lengthAccuracy=45 (< 60)
+      (deps.reportAssembler.assemble as jest.Mock).mockImplementationOnce(
+        () => ({
+          content: { fullMarkdown: "x", fullReportSize: 1 },
+          sections: [],
+          citations: [],
+          figures: [],
+          quickView: {
+            executiveSummary: { markdown: "", wordCount: 0 },
+            topHighlights: [],
+            topTrends: [],
+            keyRisks: [],
+            topRecommendations: [],
+            keyCitations: [],
+            keyFigures: [],
+            estimatedReadingTime: 1,
+            whatYouWillLearn: [],
+          },
+          factTable: [],
+          metadata: {
+            topic: "AI",
+            generatedAt: "",
+            generationTimeMs: 0,
+            version: 1,
+            isIncremental: false,
+            dimensionCount: 1,
+            sourceCount: 0,
+            factCount: 0,
+            figureCount: 0,
+            wordCount: 50,
+            readingTimeMinutes: 1,
+            styleProfile: "",
+            lengthProfile: "standard",
+            audienceProfile: "",
+            language: "zh-CN",
+            totalTokens: { prompt: 0, completion: 0, total: 0 },
+            costCents: 0,
+            modelTrail: [],
+          },
+          quality: {
+            overall: 60,
+            dimensions: {
+              traceability: 60,
+              factualConsistency: 60,
+              novelty: 60,
+              coverage: 90,
+              redundancy: 60,
+              formatCorrectness: 60,
+              citationDensity: 60,
+              styleConformance: 60,
+              lengthAccuracy: 45,
+              chapterBalance: 60,
+            },
+            hardGateViolations: [],
+            warnings: [],
+            qualityTrace: [],
+            finalVerdict: "fair",
+          },
+        }),
+      );
+      await runWriterStage(ctx, deps, analyst, undefined);
+      const preflight = (deps.emit as jest.Mock).mock.calls.find(
+        (c) => c[0].type === "agent-playground.mission:preflight-warning",
+      );
+      expect(preflight).toBeDefined();
+      const codes = preflight[0].payload.reasons.map(
+        (r: { code: string }) => r.code,
+      );
+      expect(codes).toContain("LENGTH_UNDERDELIVERED");
+    });
+  });
+
   it("does not apply a second mission-total credit charge", async () => {
     const ctx = makeCtx();
     const deps = makeDeps();

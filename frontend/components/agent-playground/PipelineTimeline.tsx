@@ -11,6 +11,7 @@ import {
   Clock,
   XCircle,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react';
 import type { StageState, StageId } from '@/lib/agent-playground/derive';
 
@@ -60,17 +61,32 @@ export function PipelineTimeline({ stages }: { stages: StageState[] }) {
               : s.startedAt
                 ? '…'
                 : null;
+          // 2026-05-13 #63: Leader signoff 预警 — block 红/warn 橙边框 + tooltip
+          const risk = s.preflightRisk;
+          const hasBlock = risk?.severity === 'block';
+          const hasWarn = risk?.severity === 'warn';
+          const riskBorder = hasBlock
+            ? 'border-red-300 bg-red-50/60 ring-1 ring-red-200'
+            : hasWarn
+              ? 'border-amber-300 bg-amber-50/60 ring-1 ring-amber-200'
+              : '';
+          const tooltip = risk
+            ? risk.reasons.map((r) => `· ${r.message}`).join('\n')
+            : '';
           return (
             <div key={s.id} className="flex flex-1 items-stretch gap-2">
               <div
-                className={`flex flex-1 flex-col rounded-xl border p-3 transition-all ${
-                  s.status === 'running'
-                    ? 'border-violet-200 bg-violet-50/50 shadow-sm'
-                    : s.status === 'done'
-                      ? 'border-emerald-100 bg-emerald-50/30'
-                      : s.status === 'failed'
-                        ? 'border-red-200 bg-red-50/40'
-                        : 'border-gray-100 bg-gray-50/40'
+                title={tooltip || undefined}
+                className={`relative flex flex-1 flex-col rounded-xl border p-3 transition-all ${
+                  riskBorder
+                    ? riskBorder
+                    : s.status === 'running'
+                      ? 'border-violet-200 bg-violet-50/50 shadow-sm'
+                      : s.status === 'done'
+                        ? 'border-emerald-100 bg-emerald-50/30'
+                        : s.status === 'failed'
+                          ? 'border-red-200 bg-red-50/40'
+                          : 'border-gray-100 bg-gray-50/40'
                 }`}
               >
                 <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -90,9 +106,30 @@ export function PipelineTimeline({ stages }: { stages: StageState[] }) {
                       {meta.label}
                     </p>
                   </div>
-                  <StatusBadge status={s.status} />
+                  <div className="flex items-center gap-1">
+                    {risk && (
+                      <AlertTriangle
+                        className={`h-3.5 w-3.5 ${
+                          hasBlock ? 'text-red-500' : 'text-amber-500'
+                        }`}
+                        aria-label={
+                          hasBlock ? 'Leader 预计会拒签' : 'Leader 签字风险'
+                        }
+                      />
+                    )}
+                    <StatusBadge status={s.status} />
+                  </div>
                 </div>
-                {s.detail ? (
+                {risk ? (
+                  <p
+                    className={`mt-1 line-clamp-2 text-[11px] font-medium ${
+                      hasBlock ? 'text-red-700' : 'text-amber-700'
+                    }`}
+                  >
+                    {hasBlock ? '⚠ 预计会被拒签：' : '⚠ 签字风险：'}
+                    {risk.reasons[0]?.message ?? '检测到阻断条件'}
+                  </p>
+                ) : s.detail ? (
                   <p className="mt-1 line-clamp-2 text-[11px] text-gray-600">
                     {s.detail}
                   </p>

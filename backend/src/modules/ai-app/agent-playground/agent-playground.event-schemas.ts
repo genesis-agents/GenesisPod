@@ -571,6 +571,33 @@ export const ReportAssembledSchema = z
   .passthrough();
 export type ReportAssembledPayload = z.infer<typeof ReportAssembledSchema>;
 
+// ─────────── mission:preflight-warning ───────────
+// 2026-05-13 #63: S8 reportArtifact 装配后计算 leader signoff 阻断风险，
+// 提前在 timeline 红段+tooltip 暴露，避免到 S10 才"突然"拒签。
+// Severity: warn = 风险高但可能 leader 仍签；block = 必拒签。
+export const MissionPreflightWarningSchema = z
+  .object({
+    severity: z.enum(["warn", "block"]),
+    stageId: z.string().optional(),
+    /** 影响哪一个高层 StageId 的 timeline 卡片显示红段 */
+    affectsStageId: z
+      .enum(["leader", "researchers", "analyst", "writer", "reviewer"])
+      .optional(),
+    /** 触发条件 + 当前值 + 阈值 */
+    reasons: z.array(
+      z.object({
+        code: z.string(),
+        message: z.string(),
+        current: z.number().optional(),
+        threshold: z.number().optional(),
+      }),
+    ),
+  })
+  .passthrough();
+export type MissionPreflightWarningPayload = z.infer<
+  typeof MissionPreflightWarningSchema
+>;
+
 // ─────────── memory:indexed ───────────
 // prod: { tags, chunks, namespace }
 export const MemoryIndexedSchema = z

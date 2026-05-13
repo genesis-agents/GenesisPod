@@ -130,6 +130,21 @@ export function aggregateStageStatus(
 
 export type StageStatus = 'pending' | 'running' | 'done' | 'failed';
 
+/**
+ * Leader signoff 预警（2026-05-13 #63）：S8 reportArtifact 装配后由 backend
+ * 计算并 emit `agent-playground.mission:preflight-warning`，timeline 上对应
+ * stage 渲染红段 + tooltip 列阻断原因，避免到 S10 才被 leader "突然"拒签。
+ */
+export interface PreflightRisk {
+  severity: 'warn' | 'block';
+  reasons: {
+    code: string;
+    message: string;
+    current?: number;
+    threshold?: number;
+  }[];
+}
+
 export interface StageState {
   id: StageId;
   status: StageStatus;
@@ -137,6 +152,8 @@ export interface StageState {
   endedAt?: number;
   detail?: string;
   attempts?: number;
+  /** Leader signoff 预警（block/warn 显示红/橙边框） */
+  preflightRisk?: PreflightRisk;
 }
 
 export type AgentRole =
@@ -767,6 +784,19 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         attempt: (p?.attempt as number) ?? 1,
         report: p?.report as ReportDraft['report'],
       });
+    } else if (t === 'agent-playground.mission:preflight-warning') {
+      // 2026-05-13 #63: Leader signoff 预警 — S8 后 backend 计算的阻断/告警
+      //   原因，挂到 affectsStageId 对应的 stage 卡片，渲染红/橙边框 + tooltip
+      const severity = (p?.severity as 'warn' | 'block' | undefined) ?? 'warn';
+      const reasons =
+        (p?.reasons as PreflightRisk['reasons'] | undefined) ?? [];
+      const affectsId = (p?.affectsStageId as StageId | undefined) ?? 'writer';
+      if (reasons.length > 0) {
+        const target = stages.get(affectsId);
+        if (target) {
+          target.preflightRisk = { severity, reasons };
+        }
+      }
     } else if (t === 'agent-playground.dimension:outline:planned') {
       const dim = p?.dimension as string | undefined;
       const chapters =
