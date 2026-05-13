@@ -461,7 +461,12 @@ export class ModelFallbackService {
             success: true,
             data: result,
             modelUsed: currentModelId,
-            fallbackUsed: currentModelId !== preferredModelId,
+            // 2026-05-13 #51: 旧逻辑 `currentModelId !== preferredModelId` 在
+            // preferredModelId 为空字符串（TaskProfile 自动解析路径）时永远 true
+            // → AIFacade 误打 "Model fallback used" warn。真正 fallback 需要
+            // preferredModelId 非空且实际 elected 模型不同才算。
+            fallbackUsed:
+              !!preferredModelId && currentModelId !== preferredModelId,
             attempts: totalAttempts,
             attemptedModels: [...new Set(attemptedModels)],
           };

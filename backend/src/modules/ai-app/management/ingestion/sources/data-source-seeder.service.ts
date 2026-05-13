@@ -232,7 +232,7 @@ export class DataSourceSeederService implements OnModuleInit {
       keywords: ["tech", "analysis", "mobile", "ai", "future"],
     },
     {
-      name: "a]16z Blog",
+      name: "a16z Blog",
       baseUrl: "https://a16z.com/feed/",
       description: "Andreessen Horowitz风投博客",
       keywords: ["a16z", "venture capital", "startup", "tech"],

@@ -99,7 +99,10 @@ export class PrismaMissionCheckpointStore<
     const row = await this.prisma.agentPlaygroundMission
       .findUnique({
         where: { id: missionId },
-        select: { leaderJournal: true },
+        // 2026-05-13 #40: leaderJournalUri 必须配套 select，否则 PrismaService
+        // hydrate hook 会 warn "select contains JSON 'leaderJournal' but not
+        // 'leaderJournalUri'. Off-loaded content will be empty."
+        select: { leaderJournal: true, leaderJournalUri: true },
       })
       .catch(() => null);
     if (!row) return null;
@@ -131,7 +134,10 @@ export class PrismaMissionCheckpointStore<
     const row = await this.prisma.agentPlaygroundMission
       .findUnique({
         where: { id: missionId },
-        select: { leaderJournal: true },
+        // 2026-05-13 #40: leaderJournalUri 必须配套 select，否则 PrismaService
+        // hydrate hook 会 warn "select contains JSON 'leaderJournal' but not
+        // 'leaderJournalUri'. Off-loaded content will be empty."
+        select: { leaderJournal: true, leaderJournalUri: true },
       })
       .catch(() => null);
     if (!row) return;
@@ -165,7 +171,12 @@ export class PrismaMissionCheckpointStore<
           userId,
           status: "running",
         },
-        select: { id: true, leaderJournal: true, startedAt: true },
+        select: {
+          id: true,
+          leaderJournal: true,
+          leaderJournalUri: true, // #40: 配套 hydrate hook
+          startedAt: true,
+        },
         take: 50,
         orderBy: { startedAt: "desc" },
       })

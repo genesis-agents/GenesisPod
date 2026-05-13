@@ -440,7 +440,8 @@ export class MissionStore {
         async (tx) => {
           const row = await tx.agentPlaygroundMission.findUnique({
             where: { id },
-            select: { leaderJournal: true },
+            // #40: leaderJournalUri 配套 select，让 hydrate hook 拿到 R2 内容
+            select: { leaderJournal: true, leaderJournalUri: true },
           });
           const current =
             (row?.leaderJournal as Record<string, unknown> | null) ?? {};
