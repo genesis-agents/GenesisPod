@@ -137,6 +137,36 @@ describe("ReActLoop (Phase 2)", () => {
     expect(output?.payload).toEqual({ output: "4" });
   });
 
+  // ★ 2026-05-13: reasoning models (Nemotron / DeepSeek-R1 / QwQ) wrap their
+  //   chain-of-thought in <think>…</think> tags, often inside the parsed
+  //   `thinking` field itself. Strip these at the parse boundary so the
+  //   trace UI and assistant context replay don't surface raw reasoning leak.
+  it("strips <think>…</think> blocks from the thinking field before emitting trace", async () => {
+    const chat = mkChat([
+      JSON.stringify({
+        thinking:
+          "<think>Let me reason about this problem step by step. The user wants…</think>\nThe answer is 4",
+        action: { kind: "finalize", output: "4" },
+      }),
+    ]);
+    const reg = mkToolRegistry({});
+    const hooks = new HookRegistry();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoker = new ToolInvoker(reg as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const loop = new ReActLoop(chat as any, invoker, hooks);
+
+    const events = await drain(
+      loop.run(makeEnvelope(), criteria, { agentId: "a1" }),
+    );
+    const thinking = events.find((e) => e.type === "thinking");
+    expect(thinking).toBeDefined();
+    const text = (thinking!.payload as { text: string }).text;
+    expect(text).not.toContain("<think>");
+    expect(text).not.toContain("step by step");
+    expect(text).toContain("The answer is 4");
+  });
+
   it("falls back to finalize when LLM output is not JSON", async () => {
     const chat = mkChat(["definitely not json"]);
     const reg = mkToolRegistry({});

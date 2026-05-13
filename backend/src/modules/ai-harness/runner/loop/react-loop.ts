@@ -37,7 +37,10 @@ import type {
   IToolCallAction,
 } from "../../agents/abstractions";
 import { ContextEnvelope } from "../../agents/core/context-envelope";
-import { extractJsonFromAIResponse } from "../../../../common/utils/json-extraction.utils";
+import {
+  extractJsonFromAIResponse,
+  stripReasoningBlocks,
+} from "../../../../common/utils/json-extraction.utils";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
@@ -1561,7 +1564,14 @@ export class ReActLoop implements IAgentLoop {
 
     try {
       const obj = extracted.data;
-      const thinking = typeof obj.thinking === "string" ? obj.thinking : "";
+      // ★ 2026-05-13: reasoning models (Nemotron / DeepSeek-R1 / QwQ) often
+      //   emit their chain-of-thought *inside* the `thinking` field wrapped
+      //   in <think>…</think> or <reasoning>…</reasoning> tags. Strip these
+      //   once at the parse boundary so every downstream consumer (trace
+      //   event, assistant context replay, empty-finalize circuit breaker)
+      //   sees a clean text summary instead of raw reasoning leakage.
+      const thinking =
+        typeof obj.thinking === "string" ? stripReasoningBlocks(obj.thinking) : "";
 
       // ★ LLM 协议容错：检测 action 内容裸放顶层（缺 {thinking, action} 包装）。
       // 生产 trace 显示 reasoning model 经常吐：

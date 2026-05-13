@@ -36,6 +36,7 @@ import { SpecBasedAgent } from "./spec-based-agent";
 import { ReActLoop } from "../../runner/loop/react-loop";
 import { LoopRegistry } from "../../runner/loop/loop-registry";
 import { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { SkillActivator } from "../skill-runtime/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
@@ -281,20 +282,22 @@ export class AgentFactory {
     const outputSchemaValidator = spec.outputSchema
       ? (output: unknown) => {
           // ReActLoop.finalize 经常把 LLM 输出原样塞进 output；如果是 string
-          // 形式的 JSON，先尝试 parse 再校验
+          // 形式的 JSON 或 prose-wrapped JSON，先尝试 robust extract 再校验。
+          //
+          // ★ 2026-05-13: 之前只在 trimmed 严格 startsWith("{")/("[") 时尝试
+          // JSON.parse，本地推理模型（Nemotron-3-Nano / DeepSeek-R1 等）
+          // 频繁吐 "Here is the JSON: {…}\n\nLet me know…" 这种带前后散文
+          // 的输出，会绕过判断 → Zod 直接 reject → finalize-reject 循环
+          // 攒到 MAX_FINALIZE_REJECTS → RUNNER_OUTPUT_SCHEMA_MISMATCH。
+          // 改走 extractJsonFromAIResponse 的 7 策略抽取器（含 <think> 剥离、
+          // 任意位置 brace counting、truncated JSON repair）。
           let candidate: unknown = output;
           if (typeof candidate === "string") {
-            const trimmed = candidate.trim();
-            if (
-              (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-              (trimmed.startsWith("[") && trimmed.endsWith("]"))
-            ) {
-              try {
-                candidate = JSON.parse(trimmed);
-              } catch {
-                /* keep string; schema parse will fail */
-              }
+            const extracted = extractJsonFromAIResponse(candidate);
+            if (extracted.success) {
+              candidate = extracted.data;
             }
+            // extracted.success === false → 留作 string，schema 自己 reject
           }
           const result = spec.outputSchema!.safeParse(candidate);
           if (result.success) return { ok: true as const };
