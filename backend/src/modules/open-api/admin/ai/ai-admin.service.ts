@@ -282,6 +282,7 @@ import {
 import { MCPManager } from "../../../ai-harness/facade";
 import { SecretsService } from "../../../ai-infra/secrets/secrets.service";
 import { enrichToolsWithSecretHealth } from "./tool-secret-health.helper";
+import { analyzeToolResult } from "./tool-test-result.helper";
 
 /**
  * AI 能力管理服务
@@ -1950,38 +1951,10 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
         const result = await tool.execute(executeInput, toolContext);
         const duration = Date.now() - startTime;
 
-        // 2026-05-13 P0-#29: 工具内部可能返 {success:false, error:...} 而非
-        //   throw（典型：Serper 配额耗尽返 4xx，SearchService 包装成 result
-        //   {success:false, error:"Not enough credits"}）。原版 testTool 只
-        //   看是否 throw，把这类"软失败"误报"测试通过" → admin UI 谎报正常。
-        //   必须深挖结果对象：success / error / results.length / papers.length 等。
-        const resultObj = (result ?? {}) as Record<string, unknown>;
-        const explicitFail = resultObj.success === false;
-        const errorFromResult =
-          typeof resultObj.error === "string"
-            ? resultObj.error
-            : typeof resultObj.errorMessage === "string"
-              ? resultObj.errorMessage
-              : undefined;
-        // 探测各种 "返回 0 条" 形态
-        const itemArrays = [
-          "results",
-          "papers",
-          "items",
-          "data",
-          "documents",
-          "matches",
-        ];
-        let emptyResultsHint: string | null = null;
-        for (const k of itemArrays) {
-          const v = resultObj[k];
-          if (Array.isArray(v)) {
-            if (v.length === 0) {
-              emptyResultsHint = `${k}=[]`;
-              break;
-            }
-          }
-        }
+        // 2026-05-13 P0-#29: 软失败深挖（Serper credits 耗尽返 {success:false}
+        // 不 throw）见 tool-test-result.helper.ts。
+        const { explicitFail, errorFromResult, emptyResultsHint, resultCount } =
+          analyzeToolResult(result);
 
         if (explicitFail || errorFromResult) {
           await this.recordUsage("tool", toolId, false, duration);
@@ -1996,7 +1969,6 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
             duration,
           };
         }
-        // 软失败：成功但 0 结果（test query 是 "test"/"AI"/常见词，理论应 >=1）
         if (emptyResultsHint) {
           await this.recordUsage("tool", toolId, true, duration);
           return {
@@ -2008,16 +1980,7 @@ export class AIAdminService implements OnModuleInit, OnModuleDestroy {
           };
         }
 
-        // 记录使用统计
         await this.recordUsage("tool", toolId, true, duration);
-
-        const resultCount = (() => {
-          for (const k of itemArrays) {
-            const v = resultObj[k];
-            if (Array.isArray(v)) return v.length;
-          }
-          return Array.isArray(result) ? result.length : 1;
-        })();
 
         const resultField: Record<string, unknown> | number | string | boolean =
           typeof result === "object"
