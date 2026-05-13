@@ -169,6 +169,7 @@ log "打包客户配置 bundle..."
 cp "${ONPREM_DIR}/docker-compose.yml"            "${STAGING}/"
 cp "${ONPREM_DIR}/.env.production.example"       "${STAGING}/"
 cp "${ONPREM_DIR}/README.md"                     "${STAGING}/"
+cp "${ONPREM_DIR}/scripts/genesis.sh"            "${STAGING}/"
 cp "${ONPREM_DIR}/scripts/install.sh"            "${STAGING}/"
 cp "${ONPREM_DIR}/scripts/upgrade.sh"            "${STAGING}/"
 
@@ -190,7 +191,7 @@ ${GHCR_FRONTEND}
 ${GHCR_AI_SERVICE}
 EOF
 
-chmod +x "${STAGING}/install.sh" "${STAGING}/upgrade.sh"
+chmod +x "${STAGING}/genesis.sh" "${STAGING}/install.sh" "${STAGING}/upgrade.sh"
 
 # ── 打 tar.gz（10KB 量级） ───────────────────────────────
 log "压缩 config bundle..."
@@ -228,10 +229,11 @@ ${C_BOLD}${C_GREEN}✓ 发布完成${C_RESET}
 
 ${C_DIM}给客户的部署指引：${C_RESET}
   1. 把 ${BUNDLE_NAME}.tar.gz 发给客户
-  2. 给客户一个 GitHub PAT（fine-grained，只授 read:packages 给本仓库 packages）
+  2. 给客户一个 GitHub PAT（只授 read:packages 权限）
   3. 客户在服务器跑：
-     ${C_BOLD}echo \$GH_PAT | docker login ghcr.io -u <github-username> --password-stdin${C_RESET}
-     ${C_BOLD}tar -xzf ${BUNDLE_NAME}.tar.gz && cd ${BUNDLE_NAME} && bash install.sh${C_RESET}
+     ${C_BOLD}docker login ghcr.io -u <github-username>${C_RESET}
+     ${C_BOLD}tar -xzf ${BUNDLE_NAME}.tar.gz && cd ${BUNDLE_NAME}${C_RESET}
+     ${C_BOLD}bash genesis.sh install${C_RESET}
 
 ${C_DIM}首次发布前请检查：${C_RESET}
   - GitHub 个人 Packages 页面把三个镜像设为 Private（默认私有，但确认一下）
