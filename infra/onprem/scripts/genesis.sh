@@ -288,7 +288,11 @@ ${C_BOLD}${C_GREEN}✓ Genesis.ai 部署完成${C_RESET}
     查看状态  : ${C_BOLD}bash genesis.sh status${C_RESET}
     查看日志  : ${C_BOLD}bash genesis.sh logs${C_RESET}
     备份     : ${C_BOLD}bash genesis.sh backup${C_RESET}
-    升级     : ${C_BOLD}bash genesis.sh upgrade <new-bundle.tar.gz>${C_RESET}
+    检查新版  : ${C_BOLD}bash genesis.sh check-update${C_RESET}
+    升级     : ${C_BOLD}bash genesis.sh upgrade vX.Y.Z${C_RESET}
+
+  完整文档 : ${C_CYAN}https://github.com/genesis-release/docs${C_RESET}
+             ${C_DIM}（也可看本地 ./CUSTOMER-GUIDE.md，离线一致）${C_RESET}
 
 ${C_DIM}配置文件位置：${SCRIPT_DIR}/.env.production
 （含敏感密钥，权限 600；备份时务必加密）${C_RESET}
@@ -642,7 +646,10 @@ cmd_uninstall() {
 }
 
 cmd_help() {
-  grep '^#' "$0" | sed 's/^# \?//' | head -25
+  grep '^#' "$0" | sed 's/^# \?//' | head -28
+  echo
+  echo "完整运维手册：${C_BOLD}https://github.com/genesis-release/docs${C_RESET}"
+  echo "本地副本    ：${C_BOLD}./CUSTOMER-GUIDE.md${C_RESET}"
 }
 
 # ── 主分发 ────────────────────────────────────────────────
