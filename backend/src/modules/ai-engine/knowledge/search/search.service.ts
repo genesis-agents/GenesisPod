@@ -757,9 +757,13 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         //   markKeyFailed 误杀好 key。
         //   例外：serper free tier 配额耗尽返回 400 + body "Quota exceeded"
         //   ——这类需要按 402 标失败做长冷却。
-        const looksLikeQuotaInBody = /quota.*exceed|exceeded.*quota/i.test(
-          respMsg,
-        );
+        // ★ 2026-05-13: 扩展正则到所有"配额 / 充值 / 余额"语义；用户实证
+        //   Serper paid plan 用尽时返回 400/403 + body "Not enough credits"，
+        //   原 /quota.*exceed/ 不匹配 → key 不被标失败 → admin UI 谎报"正常"。
+        const looksLikeQuotaInBody =
+          /quota.*exceed|exceeded.*quota|not enough credits?|insufficient credits?|out of credits?|payment required|insufficient[_ ]?funds|insufficient[_ ]?balance|account.*suspend|free plan limit/i.test(
+            respMsg,
+          );
         if (
           statusCode !== undefined &&
           isClientRequestError(statusCode) &&
