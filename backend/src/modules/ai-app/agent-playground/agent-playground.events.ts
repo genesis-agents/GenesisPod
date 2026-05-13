@@ -30,6 +30,7 @@ import {
   MissionPersistFailedSchema,
   MissionBudgetWarningSoftSchema,
   MissionBudgetWarningHardSchema,
+  MissionPreflightWarningSchema,
   // stage lifecycle
   StageStartedSchema,
   StageCompletedSchema,
@@ -125,6 +126,7 @@ export const AGENT_PLAYGROUND_EVENTS: readonly DomainEventTypeSpec[] = [
   S("mission:failed", MissionFailedSchema),
   S("mission:rejected", MissionRejectedSchema),
   S("mission:warning", MissionWarningSchema),
+  S("mission:preflight-warning", MissionPreflightWarningSchema), // #63 leader signoff 预警
   S("mission:degraded", MissionDegradedSchema),
   S("mission:cancelled", MissionCancelledSchema), // controller.ts manual cancel
   S("mission:manual-rerun-from-todo", MissionManualRerunFromTodoSchema), // controller.ts 手动 rerun
