@@ -30,6 +30,11 @@ import {
   parsePositiveIntEnv,
   parseBooleanEnv,
 } from "@/common/utils/schema-coercion.utils";
+import {
+  getProfileOverrides,
+  parsePlaygroundTuningProfile,
+  type PlaygroundTuningProfile,
+} from "./playground-tuning-profile";
 
 /**
  * Per-knob default. **Single source of truth** — both DI and non-DI
@@ -135,6 +140,16 @@ function parseRatioEnv(raw: string | undefined, defaultValue: number): number {
 /**
  * Read env, parse + validate, return a fully populated typed config.
  *
+ * Precedence:
+ *   1. DEFAULTS (frontier-model production baseline) provide the starting point.
+ *   2. The named tuning profile (`PLAYGROUND_TUNING_PROFILE`) overlays its
+ *      profile-specific defaults — see playground-tuning-profile.ts.
+ *   3. Individual env vars (MIN_FINDINGS_THRESHOLD etc.) override on top
+ *      of the profile, allowing per-knob deviation from the profile baseline.
+ *
+ * The returned object includes `_profile` metadata so consumers can log
+ * which posture the mission is running under.
+ *
  * Throws via Zod if the parsed object would violate the schema — defensive
  * guard against a bug in the parser helpers above. In normal use, the
  * parser helpers always produce a value satisfying the schema.
@@ -142,56 +157,65 @@ function parseRatioEnv(raw: string | undefined, defaultValue: number): number {
 export function loadPlaygroundRuntimeConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): PlaygroundRuntimeConfig {
+  const profile: PlaygroundTuningProfile = parsePlaygroundTuningProfile(
+    env.PLAYGROUND_TUNING_PROFILE,
+  );
+  const profileOverrides = getProfileOverrides(profile);
+  const baseline = { ...DEFAULTS, ...profileOverrides };
+
   const raw = {
     minFindingsThreshold: parseNonNegativeIntEnv(
       env.MIN_FINDINGS_THRESHOLD,
-      DEFAULTS.minFindingsThreshold,
+      baseline.minFindingsThreshold,
     ),
     chapterToleranceRatio: parseRatioEnv(
       env.CHAPTER_TOLERANCE_RATIO,
-      DEFAULTS.chapterToleranceRatio,
+      baseline.chapterToleranceRatio,
     ),
     researcherMaxIterations: parsePositiveIntEnv(
       env.RESEARCHER_MAX_ITERATIONS,
-      DEFAULTS.researcherMaxIterations,
+      baseline.researcherMaxIterations,
     ),
     researcherMaxIterationsHardCap: parsePositiveIntEnv(
       env.RESEARCHER_MAX_ITERATIONS_HARD_CAP,
-      DEFAULTS.researcherMaxIterationsHardCap,
+      baseline.researcherMaxIterationsHardCap,
     ),
     researcherMaxWallTimeMs: parsePositiveIntEnv(
       env.RESEARCHER_MAX_WALL_TIME_MS,
-      DEFAULTS.researcherMaxWallTimeMs,
+      baseline.researcherMaxWallTimeMs,
     ),
     chapterWriterInternalMaxIterations: parsePositiveIntEnv(
       env.CHAPTER_WRITER_INTERNAL_MAX_ITERATIONS,
-      DEFAULTS.chapterWriterInternalMaxIterations,
+      baseline.chapterWriterInternalMaxIterations,
     ),
     chapterMaxRevisionAttempts: parseNonNegativeIntEnv(
       env.CHAPTER_MAX_REVISION_ATTEMPTS,
-      DEFAULTS.chapterMaxRevisionAttempts,
+      baseline.chapterMaxRevisionAttempts,
     ),
     missionWriterMaxAttempts: parsePositiveIntEnv(
       env.MISSION_WRITER_MAX_ATTEMPTS,
-      DEFAULTS.missionWriterMaxAttempts,
+      baseline.missionWriterMaxAttempts,
     ),
     reactMaxFinalizeRejects: parseNonNegativeIntEnv(
       env.REACT_MAX_FINALIZE_REJECTS,
-      DEFAULTS.reactMaxFinalizeRejects,
+      baseline.reactMaxFinalizeRejects,
     ),
     staleThresholdMin: parsePositiveIntEnv(
       env.PLAYGROUND_STALE_THRESHOLD_MIN,
-      DEFAULTS.staleThresholdMin,
+      baseline.staleThresholdMin,
     ),
     softWarnThresholdMin: parsePositiveIntEnv(
       env.PLAYGROUND_SOFT_WARN_THRESHOLD_MIN,
-      DEFAULTS.softWarnThresholdMin,
+      baseline.softWarnThresholdMin,
     ),
     wallTimeCapMs: parseNonNegativeIntEnv(
       env.PLAYGROUND_WALL_TIME_CAP_MS,
-      DEFAULTS.wallTimeCapMs,
+      baseline.wallTimeCapMs,
     ),
-    disableBudgetAbort: parseBooleanEnv(env.PLAYGROUND_DISABLE_BUDGET_ABORT),
+    disableBudgetAbort:
+      env.PLAYGROUND_DISABLE_BUDGET_ABORT === undefined
+        ? baseline.disableBudgetAbort
+        : parseBooleanEnv(env.PLAYGROUND_DISABLE_BUDGET_ABORT),
   };
 
   // Cross-field invariants
@@ -203,6 +227,18 @@ export function loadPlaygroundRuntimeConfig(
   }
 
   return PlaygroundRuntimeConfigSchema.parse(raw);
+}
+
+/**
+ * Sibling helper that also surfaces which profile was selected. Useful for
+ * boot-time logging and ops dashboards. Kept separate so consumers reading
+ * a single tunable don't pay the cost of profile resolution metadata.
+ */
+export function loadPlaygroundRuntimeConfigWithProfile(
+  env: NodeJS.ProcessEnv = process.env,
+): { config: PlaygroundRuntimeConfig; profile: PlaygroundTuningProfile } {
+  const profile = parsePlaygroundTuningProfile(env.PLAYGROUND_TUNING_PROFILE);
+  return { config: loadPlaygroundRuntimeConfig(env), profile };
 }
 
 /**
