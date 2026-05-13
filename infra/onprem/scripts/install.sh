@@ -35,7 +35,7 @@ echo "${C_BOLD}Genesis.ai On-Prem Installer${C_RESET}  (version: ${C_CYAN}${VERS
 echo
 
 # 必备文件
-for f in images.tar docker-compose.yml .env.production.example; do
+for f in IMAGES docker-compose.yml .env.production.example; do
   [ -f "$f" ] || die "缺少 $f；请确认在正确的 bundle 解压目录里运行此脚本"
 done
 
@@ -61,9 +61,21 @@ if [ "$(id -u)" -eq 0 ]; then
   warn "你正在用 root 用户运行；建议把当前用户加入 docker 组后切换非 root"
 fi
 
-# ── docker load ───────────────────────────────────────────
-log "加载 docker 镜像 (~3.4GB，~30-60s)..."
-docker load -i images.tar
+# ── docker pull from ghcr.io ─────────────────────────────
+# 检查是否已登录 ghcr.io（pull 私有镜像必需）
+if ! grep -q "ghcr.io" "${HOME}/.docker/config.json" 2>/dev/null; then
+  warn "未检测到 ghcr.io 登录凭据"
+  warn "请先跑：${C_BOLD}echo \$GH_PAT | docker login ghcr.io -u <github-username> --password-stdin${C_RESET}"
+  warn "  GH_PAT = 我们发给你的 GitHub Personal Access Token（read:packages 权限）"
+  die "登录后重新跑 install.sh"
+fi
+
+log "从 ghcr.io 拉取镜像（首次 ~3.4GB / 几分钟，看带宽）..."
+while IFS= read -r img; do
+  [ -z "$img" ] && continue
+  log "  pulling $img"
+  docker pull "$img" || die "拉取失败：$img（确认 PAT 权限 + 镜像 visibility）"
+done < IMAGES
 
 # ── .env.production 准备 ──────────────────────────────────
 if [ -f .env.production ]; then

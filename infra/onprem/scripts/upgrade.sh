@@ -8,8 +8,8 @@
 #   1. 解新 bundle 到临时目录
 #   2. 版本对比（同版本警告 / 降级警告 / 正常升级）
 #   3. 备份 .env.production → .env.production.bak.<ts>
-#   4. docker load 新镜像
-#   5. 替换 docker-compose.yml + install.sh + upgrade.sh（保留 .env.production / VERSION 更新）
+#   4. docker pull 新镜像（从 ghcr.io，依赖 IMAGES 元数据文件）
+#   5. 替换 docker-compose.yml + install.sh + upgrade.sh + IMAGES（保留 .env.production / VERSION 更新）
 #   6. 更新 .env.production 里的镜像 tag
 #   7. docker compose up -d --force-recreate（保留 volume）
 #   8. 等 healthy
@@ -110,28 +110,44 @@ cp .env.production "$BACKUP"
 chmod 600 "$BACKUP"
 log "已备份 .env.production → ${BACKUP}"
 
-# ── docker load 新镜像 ────────────────────────────────────
-log "加载新镜像 (~3.4GB)..."
-docker load -i "${NEW_DIR}/images.tar"
+# ── 从 ghcr.io 拉新镜像 ──────────────────────────────────
+# 检查 ghcr.io 登录
+if ! grep -q "ghcr.io" "${HOME}/.docker/config.json" 2>/dev/null; then
+  die "未检测到 ghcr.io 登录凭据；请先 docker login ghcr.io（用最新 PAT）"
+fi
 
-# ── 替换 compose / install / upgrade / README / VERSION ──
+[ -f "${NEW_DIR}/IMAGES" ] || die "新 bundle 里没有 IMAGES 元数据文件"
+
+log "从 ghcr.io 拉取新镜像 (~几分钟，看带宽)..."
+while IFS= read -r img; do
+  [ -z "$img" ] && continue
+  log "  pulling $img"
+  docker pull "$img" || die "拉取失败：$img"
+done < "${NEW_DIR}/IMAGES"
+
+# ── 替换 compose / install / upgrade / README / VERSION / IMAGES ──
 log "更新部署配置（保留 .env.production）..."
 cp "${NEW_DIR}/docker-compose.yml" ./docker-compose.yml
 cp "${NEW_DIR}/install.sh"         ./install.sh
 cp "${NEW_DIR}/upgrade.sh"         ./upgrade.sh
 cp "${NEW_DIR}/README.md"          ./README.md 2>/dev/null || true
 cp "${NEW_DIR}/VERSION"            ./VERSION
+cp "${NEW_DIR}/IMAGES"             ./IMAGES
 chmod +x install.sh upgrade.sh
 
 # .env.production.example 也更新（参考用，但不覆盖客户已填的 .env.production）
 cp "${NEW_DIR}/.env.production.example" ./.env.production.example
 
-# ── 更新 .env.production 里的镜像 tag ────────────────────
+# ── 更新 .env.production 里的镜像 tag（从 IMAGES 文件读 ghcr 完整路径）
 log "更新镜像 tag 引用..."
+NEW_BACKEND_IMG="$(sed -n '1p' "${NEW_DIR}/IMAGES")"
+NEW_FRONTEND_IMG="$(sed -n '2p' "${NEW_DIR}/IMAGES")"
+NEW_AI_SERVICE_IMG="$(sed -n '3p' "${NEW_DIR}/IMAGES")"
+
 sed -i.upgradebak \
-  -e "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=genesis/backend:${NEW_VERSION}|" \
-  -e "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=genesis/frontend:${NEW_VERSION}|" \
-  -e "s|^AI_SERVICE_IMAGE=.*|AI_SERVICE_IMAGE=genesis/ai-service:${NEW_VERSION}|" \
+  -e "s|^BACKEND_IMAGE=.*|BACKEND_IMAGE=${NEW_BACKEND_IMG}|" \
+  -e "s|^FRONTEND_IMAGE=.*|FRONTEND_IMAGE=${NEW_FRONTEND_IMG}|" \
+  -e "s|^AI_SERVICE_IMAGE=.*|AI_SERVICE_IMAGE=${NEW_AI_SERVICE_IMG}|" \
   .env.production
 rm -f .env.production.upgradebak
 
@@ -172,10 +188,8 @@ ${C_BOLD}${C_GREEN}✓ 升级完成${C_RESET}
   ${C_DIM}（确认新版本稳定后可手动删除备份）${C_RESET}
 
 ${C_DIM}回滚方法（万一）：
-  编辑 .env.production，把 BACKEND_IMAGE / FRONTEND_IMAGE / AI_SERVICE_IMAGE 改回:
-    genesis/backend:${OLD_VERSION}
-    genesis/frontend:${OLD_VERSION}
-    genesis/ai-service:${OLD_VERSION}
-  然后 ${DC[*]} up -d --force-recreate
+  从 .env.production.bak.${TS} 恢复 .env.production，然后:
+    ${DC[*]} --env-file .env.production up -d --force-recreate
+  （docker pull 旧版本镜像走 ghcr，前提是旧 tag 没在 ghcr 被删）
   注意：DB schema 已迁移到新版本，回滚可能因 schema 不兼容失败。${C_RESET}
 EOF
