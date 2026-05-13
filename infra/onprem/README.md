@@ -41,9 +41,9 @@
 镜像发布到 **GitHub Container Registry (ghcr.io)** 私有仓库，路径：
 
 ```
-ghcr.io/junjie-duan/genesis-backend:<version>
-ghcr.io/junjie-duan/genesis-frontend:<version>
-ghcr.io/junjie-duan/genesis-ai-service:<version>
+ghcr.io/genesis-release/genesis-backend:<version>
+ghcr.io/genesis-release/genesis-frontend:<version>
+ghcr.io/genesis-release/genesis-ai-service:<version>
 ```
 
 客户拿到的不是 3.4GB tar，而是一个 ~10KB 的 config bundle + GitHub PAT。
@@ -55,7 +55,8 @@ ghcr.io/junjie-duan/genesis-ai-service:<version>
 ```bash
 # 生成 PAT：GitHub → Settings → Developer settings → Tokens (classic)
 #   勾 write:packages + read:packages + delete:packages
-echo $GHCR_TOKEN | docker login ghcr.io -u junjie-duan --password-stdin
+echo $GHCR_TOKEN | docker login ghcr.io -u <你的 github 用户名> --password-stdin
+# 注：登录用的是你（org owner / member）的个人账号；镜像 owner 是 genesis-release org
 ```
 
 ### 每次发布
@@ -73,7 +74,7 @@ bash infra/onprem/scripts/build-bundle.sh v1.0.0 --no-push     # 仅 build/tag�
 
 产物：
 
-- 3 个镜像 push 到 ghcr.io/junjie-duan/genesis-\*:vX.Y.Z
+- 3 个镜像 push 到 ghcr.io/genesis-release/genesis-\*:vX.Y.Z
 - `dist/onprem/genesis-config-<VERSION>.tar.gz`（~10KB，含 compose/env/install/upgrade/README/VERSION/IMAGES）
 
 **交付给客户**：config bundle + GitHub PAT（fine-grained，只授 `read:packages` 给本仓库 packages）+ 软件许可协议（SLA/NDA）。

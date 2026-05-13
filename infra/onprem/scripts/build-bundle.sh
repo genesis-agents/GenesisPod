@@ -83,18 +83,11 @@ if [ -z "$VERSION" ]; then
   fi
 fi
 
-# ── GHCR_OWNER 自动检测 ───────────────────────────────────
-# 优先级：--owner CLI > GHCR_OWNER env > git remote origin url 解析
-GHCR_OWNER="${GHCR_OWNER_ARG:-${GHCR_OWNER:-}}"
-if [ -z "$GHCR_OWNER" ]; then
-  REMOTE_URL="$(git -C "$PROJECT_ROOT" config --get remote.origin.url 2>/dev/null || true)"
-  if [[ "$REMOTE_URL" =~ github\.com[:/]+([^/]+)/ ]]; then
-    GHCR_OWNER="$(echo "${BASH_REMATCH[1]}" | tr '[:upper:]' '[:lower:]')"
-    log "GHCR_OWNER 自动解析为: ${C_BOLD}${GHCR_OWNER}${C_RESET}（来自 git remote，已转小写）"
-  else
-    die "无法自动检测 GHCR_OWNER；请用 --owner 或 export GHCR_OWNER=<github-username>"
-  fi
-fi
+# ── GHCR_OWNER 默认 ───────────────────────────────────────
+# 优先级：--owner CLI > GHCR_OWNER env > 默认 genesis-release（GitHub org）
+# 镜像发布到 org 命名空间是为了不暴露任何开发者的个人 GitHub 用户名（客户 docker pull URL 里能看到 owner）
+GHCR_OWNER="${GHCR_OWNER_ARG:-${GHCR_OWNER:-genesis-release}}"
+log "GHCR_OWNER: ${C_BOLD}${GHCR_OWNER}${C_RESET}"
 
 # ── 环境检查 ──────────────────────────────────────────────
 command -v docker >/dev/null || die "需要 docker"

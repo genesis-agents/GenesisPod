@@ -54,7 +54,7 @@ services:
   # ── 业务服务（预编译镜像，不暴露源码）────────────────────
 
   backend:
-    image: ${BACKEND_IMAGE:-ghcr.io/junjie-duan/genesis-backend:latest}
+    image: ${BACKEND_IMAGE:-ghcr.io/genesis-release/genesis-backend:latest}
     container_name: genesis-backend
     depends_on:
       postgres:
@@ -101,7 +101,7 @@ services:
     restart: unless-stopped
 
   ai-service:
-    image: ${AI_SERVICE_IMAGE:-ghcr.io/junjie-duan/genesis-ai-service:latest}
+    image: ${AI_SERVICE_IMAGE:-ghcr.io/genesis-release/genesis-ai-service:latest}
     container_name: genesis-ai-service
     environment:
       PORT: 8000
@@ -109,7 +109,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-ghcr.io/junjie-duan/genesis-frontend:latest}
+    image: ${FRONTEND_IMAGE:-ghcr.io/genesis-release/genesis-frontend:latest}
     container_name: genesis-frontend
     depends_on:
       backend:
