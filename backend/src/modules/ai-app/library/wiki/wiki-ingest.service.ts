@@ -1098,14 +1098,18 @@ export class WikiIngestService {
       //   6m+ 的 section-fill 工作全部丢弃 —— 同 #14 partial-success 反模式。
       //   修复：逐项 safeParse，剔除单项失败的（log 完整 path+message），
       //   只要还剩 ≥1 个 valid item 就继续 commit。否则才整体 fail。
-      const failedSlugs: string[] = [];
+      //
+      //   ★ 2026-05-13 (review): assemble 阶段失败的 slug 必须并入外层
+      //   failedSlugs，否则前端 progress.failedSlugs 不完整（只包含
+      //   section-fill 阶段失败的，不包含 assemble 阶段被剔的）。
+      const assembleFailedSlugs: string[] = [];
       const validCreates: unknown[] = [];
       for (const c of items.creates) {
         const r = WikiDiffCreateItemSchema.safeParse(c);
         if (r.success) {
           validCreates.push(c);
         } else {
-          failedSlugs.push(c.slug ?? "(no-slug)");
+          assembleFailedSlugs.push(c.slug ?? "(no-slug)");
           this.logger.warn(
             `[ingest/MULTI assemble] dropping invalid create slug=${c.slug} errors=${JSON.stringify(
               r.error.issues.map((i) => ({
@@ -1122,7 +1126,7 @@ export class WikiIngestService {
         if (r.success) {
           validUpdates.push(u);
         } else {
-          failedSlugs.push(u.slug ?? "(no-slug)");
+          assembleFailedSlugs.push(u.slug ?? "(no-slug)");
           this.logger.warn(
             `[ingest/MULTI assemble] dropping invalid update slug=${u.slug} errors=${JSON.stringify(
               r.error.issues.map((i) => ({
@@ -1133,6 +1137,10 @@ export class WikiIngestService {
           );
         }
       }
+      // 把 assemble 阶段失败的 slug 合并到外层 failedSlugs，
+      // 让最终 progress.failedSlugs 既包含 section-fill 阶段失败的，
+      // 又包含 assemble 阶段被剔的，前端 banner 显示完整失败清单。
+      failedSlugs.push(...assembleFailedSlugs);
       const recovered = {
         creates: validCreates,
         updates: validUpdates,
@@ -1144,14 +1152,14 @@ export class WikiIngestService {
         (validCreates.length === 0 && validUpdates.length === 0)
       ) {
         this.logger.error(
-          `[ingest/MULTI assemble] userId=${userId} kb=${knowledgeBaseId} reason=assembled-zod-failed-all creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length} failedSlugs=${failedSlugs.slice(0, 10).join(",")}`,
+          `[ingest/MULTI assemble] userId=${userId} kb=${knowledgeBaseId} reason=assembled-zod-failed-all creates=${items.creates.length} updates=${items.updates.length} deletes=${items.deletes.length} failedSlugs=${assembleFailedSlugs.slice(0, 10).join(",")}`,
         );
         throw new BadRequestException(
-          `Wiki MULTI ingest assembled output failed schema validation (${failedSlugs.length} pages had invalid fields); please retry. Failed slugs: ${failedSlugs.slice(0, 5).join(", ")}${failedSlugs.length > 5 ? "…" : ""}`,
+          `Wiki MULTI ingest assembled output failed schema validation (${assembleFailedSlugs.length} pages had invalid fields); please retry. Failed slugs: ${assembleFailedSlugs.slice(0, 5).join(", ")}${assembleFailedSlugs.length > 5 ? "…" : ""}`,
         );
       }
       this.logger.warn(
-        `[ingest/MULTI assemble] partial recovery: dropped ${failedSlugs.length} invalid items, committing ${validCreates.length} creates + ${validUpdates.length} updates`,
+        `[ingest/MULTI assemble] partial recovery: dropped ${assembleFailedSlugs.length} invalid items, committing ${validCreates.length} creates + ${validUpdates.length} updates`,
       );
     }
 

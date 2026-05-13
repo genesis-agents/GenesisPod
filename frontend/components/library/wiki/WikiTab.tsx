@@ -245,15 +245,37 @@ export default function WikiTab({ userHash }: WikiTabProps) {
   useEffect(() => {
     if (!ingestActive || !urlState.kbId) return;
     let cancelled = false;
+    let sawRealProgress = false;
+    let nullPollsBeforeFirstHit = 0;
     const kbIdForPoll = urlState.kbId;
     const poll = async () => {
       try {
         const r = await wikiApi.getIngestProgress(kbIdForPoll);
         if (cancelled) return;
-        setIngestProgress(r.progress);
-        if (r.progress === null) {
+        // 2026-05-13 race fix：fire-and-forget ingest POST 返回后，后端
+        // 异步 worker 注册 in-memory progress 有 ~1-3s 延迟。期间 GET
+        // /ingest-progress 会返回 null，把 startIngestPending 设的占位
+        // 横条直接抹掉、setIngestActive(false) 停止轮询 → 用户必须刷新页面
+        // 才能重新挂上 banner（Screenshot_77 反馈）。
+        // 修复：首次轮询若返回 null，宽限 5 次（~15s）；只有看过真实进度后
+        // 才允许 null 触发 "ingest done, 退出轮询"。
+        if (r.progress) {
+          sawRealProgress = true;
+          setIngestProgress(r.progress);
+          return;
+        }
+        if (sawRealProgress) {
+          setIngestProgress(null);
+          setIngestActive(false);
+          return;
+        }
+        nullPollsBeforeFirstHit += 1;
+        if (nullPollsBeforeFirstHit > 5) {
+          // backend 始终没注册 progress（异步 worker 早早抛错或被吞）
+          setIngestProgress(null);
           setIngestActive(false);
         }
+        // 否则保留占位 banner，下一轮再试
       } catch (err) {
         logger?.warn?.('[wiki] poll ingest-progress failed', err);
       }
