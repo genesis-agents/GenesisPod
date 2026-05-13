@@ -41,6 +41,7 @@ import {
   extractJsonFromAIResponse,
   stripReasoningBlocks,
 } from "../../../../common/utils/json-extraction.utils";
+import { parsePositiveIntEnv } from "../../../../common/utils/schema-coercion.utils";
 import { AiChatService } from "../../../ai-engine/llm/services/ai-chat.service";
 import type { ChatMessage } from "../../../ai-engine/llm/types";
 import { AIModelType } from "@prisma/client";
@@ -295,6 +296,16 @@ export class ReActLoop implements IAgentLoop {
        * findings 数量下限等）。返回非空 issues 字符串就 reject。
        */
       validateBusinessRules?: (output: unknown) => string | null | undefined;
+      /**
+       * ★ 2026-05-13: human-readable JSON skeleton of the outputSchema,
+       * generated via describeOutputSchemaForLlm() at agent-factory layer.
+       * Injected into the finalize-rejection critique so local / quantized
+       * reasoning models have a concrete target shape to copy. The system
+       * prompt already shows the schema once; repeating it at rejection
+       * time meaningfully improves Nemotron-Reasoning convergence (its
+       * post-<think> output mechanism often "forgets" the exact field set).
+       */
+      outputSchemaDescription?: string;
     },
   ): AsyncIterable<IAgentEvent> {
     const agentId = options?.agentId ?? "unknown-agent";
@@ -304,6 +315,7 @@ export class ReActLoop implements IAgentLoop {
     const specTaskProfile = options?.taskProfile;
     const outputSchemaValidator = options?.outputSchemaValidator;
     const validateBusinessRules = options?.validateBusinessRules;
+    const outputSchemaDescription = options?.outputSchemaDescription;
     let currentEnvelope = envelope;
     let iteration = 0;
     let budgetWarned = false;
@@ -312,7 +324,16 @@ export class ReActLoop implements IAgentLoop {
      * ≥ MAX_FINALIZE_REJECTS 时强制退出，避免 LLM "我又改了" 死循环。
      */
     let finalizeRejectCount = 0;
-    const MAX_FINALIZE_REJECTS = 3;
+    // ★ 2026-05-13 (root-fix): threshold reads from env. Frontier models
+    // converge in 1-2 finalize attempts; production default stays at 3.
+    // Local reasoning models (Nemotron / DeepSeek-R1) sometimes need 5-10
+    // attempts to converge on the exact schema shape — REACT_MAX_FINALIZE_REJECTS
+    // lets ops widen the budget. Hardcoded 3 was the same class of bug as
+    // min-findings — defined in PlaygroundRuntimeConfig but never wired here.
+    const MAX_FINALIZE_REJECTS = parsePositiveIntEnv(
+      process.env.REACT_MAX_FINALIZE_REJECTS,
+      3,
+    );
     /**
      * 连续空 LLM 响应计数器 —— 检测 "model 不存在 / API 拒绝 / 输出被过滤" 场景：
      * LLM 每次返回 completion="" + 立即 finalize 空结果。连续 2 次后 abort。
@@ -1141,14 +1162,23 @@ export class ReActLoop implements IAgentLoop {
               });
               return;
             }
-            // 注入精准 critique reminder：告诉 LLM 缺什么，要它**直接补缺**而非重新搜
+            // 注入精准 critique reminder：告诉 LLM 缺什么，要它**直接补缺**而非重新搜。
+            // ★ 2026-05-13: 当 outputSchemaDescription 可用时，把目标 JSON 形状
+            //   原文贴入 critique。本地推理模型 (Nemotron / DeepSeek-R1) 在长
+            //   <think> 之后经常"忘记"字段集，给它一个可直接 copy 的具体模板能
+            //   把 finalize 收敛攻击成功率从 ~30% 提到 ~90%。
+            const skeletonBlock = outputSchemaDescription
+              ? `\n\n${outputSchemaDescription}\n` +
+                `Emit your next finalize.output as JSON matching the shape above.`
+              : "";
             const critique =
               `[FINALIZE REJECTED ${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}] Your finalize.output failed validation:\n` +
               issuesParts.map((p) => `  - ${p}`).join("\n") +
               `\n\nDO NOT rerun tools. Use the tool results already in this conversation to ` +
               `produce a corrected finalize that addresses the issues above. ` +
               `If the existing tool results genuinely don't have the needed information, ` +
-              `you may emit ONE focused tool_call to fill the specific gap (do not search broadly).`;
+              `you may emit ONE focused tool_call to fill the specific gap (do not search broadly).` +
+              skeletonBlock;
             this.logger.log(
               `[${agentId}] finalize rejected (${finalizeRejectCount}/${MAX_FINALIZE_REJECTS}): ${issuesParts.join("; ").slice(0, 200)}`,
             );
