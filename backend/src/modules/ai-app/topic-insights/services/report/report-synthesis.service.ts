@@ -1881,10 +1881,23 @@ ${warningConflicts.length > 0 ? `### 次要差异（建议处理）\n${warningCo
         if (typeof fieldValue === "string" && fieldValue.length > 0) {
           const vr = verifyCitations(fieldValue, synthEvidenceForVerify);
           if (vr.stats.corrected > 0 || vr.stats.removed > 0) {
-            this.logger.warn(
+            // 2026-05-13 P2-#22: 当 removed 比例 > 30% 升级为 ERROR
+            //   —— 这是 LLM 大规模幻觉引用的强信号，writer prompt 需调强。
+            const hallucinationRate =
+              vr.stats.total > 0 ? vr.stats.removed / vr.stats.total : 0;
+            const isHighHallucination = hallucinationRate > 0.3;
+            const msg =
               `[generateStructuredReport] Citation verification for "${field}": ` +
-                `${vr.stats.corrected} corrected, ${vr.stats.removed} removed`,
-            );
+              `${vr.stats.corrected} corrected, ${vr.stats.removed} removed ` +
+              `(${(hallucinationRate * 100).toFixed(0)}% hallucination rate, total=${vr.stats.total})` +
+              (isHighHallucination
+                ? " — HIGH HALLUCINATION: writer prompt may need strengthening"
+                : "");
+            if (isHighHallucination) {
+              this.logger.error(msg);
+            } else {
+              this.logger.warn(msg);
+            }
             // ComprehensiveReport fields are readonly after construction — we cast to apply
             (structuredReport as unknown as Record<string, unknown>)[field] =
               vr.content;

@@ -16,9 +16,7 @@
  */
 
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  ToolRegistry,
-} from "@/modules/ai-harness/facade";
+import { ToolRegistry } from "@/modules/ai-harness/facade";
 import { ChatFacade, ToolFacade } from "@/modules/ai-harness/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -761,15 +759,27 @@ export class LeaderToolService {
     );
 
     // ★ 检查 web-search 工具是否可用
+    // 2026-05-13 P2-#20: 之前 capability 返空就 return []，但 P0 fix 已让
+    //   tool.facade capabilityResolver missing 时 fallback []，那条 warn 实际
+    //   非"web-search 被禁"而是"capability resolver 没接 DI"。改成：
+    //   capability 返空时 → 直接信任 ToolRegistry（代码层 source of truth），
+    //   不阻断 leader 搜索。否则用户每次 mission 都看到一片 web-search 假警告。
     if (capabilityContext) {
-      const availableTools =
-        await this.toolFacade.capabilityResolveTools(capabilityContext);
-
-      if (!availableTools.includes("web-search")) {
+      const availableTools = await this.toolFacade
+        .capabilityResolveTools(capabilityContext)
+        .catch(() => [] as string[]);
+      if (availableTools.length > 0 && !availableTools.includes("web-search")) {
+        // 仅当 capability resolver 真的明确返非空列表 + 不含 web-search 时
+        // 才视为被 admin 禁用。空列表 = resolver 未接 / 资源未就绪，走 fallback。
         this.logger.warn(
-          "[searchLatestData] web-search tool not available in capability context",
+          "[searchLatestData] web-search tool disabled by capability resolver (admin)",
         );
         return [];
+      }
+      if (availableTools.length === 0) {
+        this.logger.debug(
+          "[searchLatestData] capability resolver returned empty; falling back to ToolRegistry",
+        );
       }
     }
 
@@ -879,24 +889,27 @@ export class LeaderToolService {
     );
 
     // ★ 检查工具可用性（如果提供了 capability context）
+    // 2026-05-13 P2-#20: 同 searchLatestData，capability 返空时不阻断；
+    //   交给 searchLatestData 内部的 ToolRegistry fallback。
     if (capabilityContext) {
-      const availableTools =
-        await this.toolFacade.capabilityResolveTools(capabilityContext);
+      const availableTools = await this.toolFacade
+        .capabilityResolveTools(capabilityContext)
+        .catch(() => [] as string[]);
       this.logger.log(
-        `[generateEnhancedPlanningContext] Available tools for Leader: ${availableTools.join(", ")}`,
+        `[generateEnhancedPlanningContext] Available tools for Leader: ${availableTools.join(", ") || "(empty — falling back to ToolRegistry)"}`,
       );
 
-      // 如果 web-search 不可用，直接返回空上下文
-      if (!availableTools.includes("web-search")) {
+      // 仅当 capability resolver 明确返非空列表 + 不含 web-search 时才阻断
+      if (availableTools.length > 0 && !availableTools.includes("web-search")) {
         this.logger.warn(
-          "[generateEnhancedPlanningContext] web-search tool not available, skipping data gathering",
+          "[generateEnhancedPlanningContext] web-search tool disabled by capability resolver",
         );
         return {
           currentDate,
           freshnessRequirement,
           latestSearchResults: [],
           contextSummary:
-            "（工具不可用，无法获取最新数据，请基于已有证据进行分析）",
+            "（工具不可用：admin 已禁用 web-search，无法获取最新数据，请基于已有证据进行分析）",
         };
       }
     }

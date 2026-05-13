@@ -110,7 +110,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
         exception instanceof Error ? exception.stack : undefined,
       );
     } else if (status >= 400) {
-      this.logger.warn(`Client Error: ${JSON.stringify(errorLog)}`);
+      // ★ 2026-05-13: 404 on idempotent GET 通常是前端"探测/轮询尚未存在
+      //   的资源"（如 /topics/:id/reports/latest 新建专题时还没报告），
+      //   把整片产品页造成大量 "Client Error" warn 噪音。降到 debug，
+      //   真正的 4xx 异常（POST/PUT 业务错 / 401 / 403）仍 warn。
+      const isExpectedNotFound =
+        status === 404 && request.method.toUpperCase() === "GET";
+      if (isExpectedNotFound) {
+        this.logger.debug(`Resource Not Found: ${JSON.stringify(errorLog)}`);
+      } else {
+        this.logger.warn(`Client Error: ${JSON.stringify(errorLog)}`);
+      }
     } else {
       this.logger.log(`Request completed: ${JSON.stringify(errorLog)}`);
     }

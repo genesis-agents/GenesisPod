@@ -59,6 +59,44 @@ function cosine(a: number[], b: number[]): number {
     : dot / (Math.sqrt(magA) * Math.sqrt(magB));
 }
 
+/**
+ * 英文 stop words —— embedding 失败时 lexical fallback 用，过滤 caption 实词。
+ * 提到模块级常量避免每次 fallback 重新分配。
+ */
+const FIGURE_LEXICAL_STOP_WORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "or",
+  "but",
+  "of",
+  "to",
+  "in",
+  "on",
+  "at",
+  "for",
+  "by",
+  "with",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "this",
+  "that",
+  "these",
+  "those",
+  "it",
+  "its",
+  "as",
+  "from",
+  "into",
+  "than",
+  "then",
+]);
+
 @Injectable()
 export class FigureRelevanceService {
   private readonly logger = new Logger(FigureRelevanceService.name);
@@ -184,11 +222,25 @@ export class FigureRelevanceService {
 
     const captionEmb = captionResult?.embedding;
     if (!topicEmb?.length || !captionEmb?.length) {
-      // Embedding API 不可用或返回空向量 → fail-open（caption 已 >= 10 chars，保留）
+      // 2026-05-13 P3-#25: 原版 fail-open 全接受 → 嵌入端点 400 风暴时图相关
+      //   性把关失效，垃圾图蜂拥进 report。改成"廉价 lexical fallback"：
+      //   caption 至少含 2 个去 stop-word 后的实词 → 接受；否则拒绝。
+      //   getTopicEmbedding 闭包不暴露 topicTitle 字符串，无法做 topic-caption
+      //   重叠匹配，所以只看 caption 自身有无信息量（>= 10 char 已通过上面 ②
+      //   闸，但 "I love this" 这种 stop-word 主导仍会让 fig 进 report）。
+      //
+      // 字符类：[Unicode 字母（含中日韩）+ 数字 + 空白] 以外的字符
+      //   （标点 / 符号 / emoji）一律替换成空格当分词符。
+      const captionWords = caption
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 2 && !FIGURE_LEXICAL_STOP_WORDS.has(w));
+      const accept = captionWords.length >= 2;
       this.logger.warn(
-        `[evaluateSingleByEmbedding] Embedding unavailable, fail-open for: ${fig.imageUrl.substring(0, 80)}`,
+        `[evaluateSingleByEmbedding] Embedding unavailable, lexical fallback (accept=${accept}, meaningfulWords=${captionWords.length}): ${fig.imageUrl.substring(0, 80)}`,
       );
-      return true;
+      return accept;
     }
 
     const similarity = cosine(topicEmb, captionEmb);

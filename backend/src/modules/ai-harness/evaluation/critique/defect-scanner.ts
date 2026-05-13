@@ -182,6 +182,15 @@ function countLeakedMetaNotes(content: string): number {
     // 营销话术
     /(?:势必|必将|注定|必然)(?:引发|带来|改写|颠覆|重塑)/g,
     /(?:不可忽视|不容忽视)的(?:机遇|趋势|方向)/g,
+    // 2026-05-13 P3-#24: 补充 LLM 元注释/对话残留高频模式
+    /\b(?:as an? (?:ai|language model|assistant))\b[^.]*/gi,
+    /\b(?:i (?:cannot|can't|am unable to|am sorry|apologize))\b/gi,
+    /^(?:here['’]s|here is) (?:the|your|a) [^\n]{0,80}$/gim,
+    /^以下是(?:您|你)?要求的[^\n]{0,80}/gm,
+    /^根据(?:您|你)?的(?:要求|需求|指示)[^\n]{0,80}/gm,
+    /^希望(?:这|该|此)(?:篇|份|个)?(?:报告|文章|内容|分析)[^\n]{0,80}/gm,
+    /^如(?:果|有)(?:您|你)?(?:需要|想)[^\n]{0,80}进一步[^\n]{0,40}/gm,
+    /如有(?:其他|更多)(?:问题|需求|要求)[^\n]{0,30}/g,
   ];
   let count = 0;
   for (const pattern of patterns) {
