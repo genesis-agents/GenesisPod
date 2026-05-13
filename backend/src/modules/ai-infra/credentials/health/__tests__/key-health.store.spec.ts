@@ -106,10 +106,13 @@ describe("KeyHealthStore", () => {
       expect(out).toEqual(["personal:u1:openai:b"]);
     });
 
-    it("filters out COOLDOWN keys (until expired)", async () => {
+    it("filters out COOLDOWN keys when other healthy keys exist", async () => {
       await store.markFailure("personal:u1:openai:a", rateLimitClassified);
-      const out = await store.filterUsable(["personal:u1:openai:a"]);
-      expect(out).toEqual([]);
+      const out = await store.filterUsable([
+        "personal:u1:openai:a",
+        "personal:u1:openai:b",
+      ]);
+      expect(out).toEqual(["personal:u1:openai:b"]);
     });
 
     it("returns COOLDOWN key after cooldown expires", async () => {
@@ -123,6 +126,65 @@ describe("KeyHealthStore", () => {
       // record state still says COOLDOWN until > now+60s; check post-expiry
       expect(out).toEqual(["personal:u1:openai:a"]);
       jest.useRealTimers();
+    });
+
+    // ★ 2026-05-13 P0-#2 degraded fallback：单 key 用户偶发 timeout/rate-limit
+    // 不能让 cooldown 窗口把整 user 锁死。全 cooldown 时返回 cooldownUntil 最早
+    // 结束的那个，让 caller retry（接 P0-#1 timeout 修复后大概率 retry 成功）。
+    it("degraded fallback: single key + cooldown returns the key (avoid lockout)", async () => {
+      await store.markFailure("personal:u1:openai:a", rateLimitClassified);
+      const out = await store.filterUsable(["personal:u1:openai:a"]);
+      expect(out).toEqual(["personal:u1:openai:a"]);
+    });
+
+    it("degraded fallback: all keys cooldown → returns earliest-expiry", async () => {
+      jest.useFakeTimers();
+      const now = Date.now();
+      jest.setSystemTime(now);
+      await store.markFailure(
+        "personal:u1:openai:a",
+        rateLimitClassified, // 60s cooldown
+      );
+      jest.setSystemTime(now + 30_000); // a 的 cooldown 还剩 30s
+      const timeoutClassified: ClassifiedError = {
+        action: "NEXT_KEY",
+        reason: "TIMEOUT",
+        cooldownMs: 30_000,
+        markDead: false,
+        shouldStopChain: false,
+        originalMessage: "timeout",
+      };
+      await store.markFailure("personal:u1:openai:b", timeoutClassified);
+      // a expires at now+60s, b expires at now+60s（30s+30s），实际两者相等
+      // 但 a 的 record 是先写的, cooldownUntil 早 30s — a 应该被选中
+      const out = await store.filterUsable([
+        "personal:u1:openai:a",
+        "personal:u1:openai:b",
+      ]);
+      expect(out).toHaveLength(1);
+      expect(out[0]).toBe("personal:u1:openai:a");
+      jest.useRealTimers();
+    });
+
+    it("degraded fallback: DEAD key excluded (auth failed = truly unusable)", async () => {
+      await store.markFailure("personal:u1:openai:a", authFailedClassified);
+      const out = await store.filterUsable(["personal:u1:openai:a"]);
+      expect(out).toEqual([]);
+    });
+
+    it("degraded fallback: permanent cooldown (QUOTA_EXCEEDED) excluded", async () => {
+      const quotaClassified: ClassifiedError = {
+        action: "NEXT_KEY",
+        reason: "QUOTA_EXCEEDED",
+        cooldownMs: Number.POSITIVE_INFINITY,
+        markDead: false,
+        shouldStopChain: false,
+        originalMessage: "insufficient quota",
+        httpStatus: 402,
+      };
+      await store.markFailure("personal:u1:openai:a", quotaClassified);
+      const out = await store.filterUsable(["personal:u1:openai:a"]);
+      expect(out).toEqual([]);
     });
   });
 

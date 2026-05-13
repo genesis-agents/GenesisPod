@@ -98,6 +98,32 @@ export function buildSystemKeyId(secretName: string): string {
   return `system:${secretName}`;
 }
 
+/**
+ * 从 cooldown 中的 key 里挑出最早恢复的那个，作为 filterUsable 的 degraded
+ * fallback。
+ *
+ * 排除：DEAD（永久不可用）+ cooldownUntil = MAX_SAFE_INTEGER（QUOTA_EXCEEDED
+ * 等永久 cooldown，retry 也是浪费）。
+ */
+function pickEarliestFiniteCooldown(
+  keyIds: string[],
+  records: (KeyHealthRecord | null | undefined)[],
+): string | null {
+  let bestId: string | null = null;
+  let bestExpiry = Number.MAX_SAFE_INTEGER;
+  for (let i = 0; i < keyIds.length; i++) {
+    const rec = records[i];
+    if (!rec) continue;
+    if (rec.state !== "COOLDOWN") continue;
+    if (rec.cooldownUntil >= Number.MAX_SAFE_INTEGER) continue;
+    if (rec.cooldownUntil < bestExpiry) {
+      bestExpiry = rec.cooldownUntil;
+      bestId = keyIds[i];
+    }
+  }
+  return bestId;
+}
+
 @Injectable()
 export class KeyHealthStore {
   private readonly logger = new Logger(KeyHealthStore.name);
@@ -109,6 +135,14 @@ export class KeyHealthStore {
   /**
    * 批量过滤出当前可用的 keyId（HEALTHY 或 COOLDOWN-已过期）。
    * 顺序保留输入顺序，方便上层做 LastGood 提升。
+   *
+   * ★ 2026-05-13 (P0-#2 fix): 当全部 key 都在 finite cooldown 时，退一步返回
+   * cooldownUntil 最早结束的那个作为 degraded fallback。否则单 key BYOK 用户
+   * 任何一次偶发 TIMEOUT（30s cooldown）/ RATE_LIMIT（60s） 都会让整个 cooldown
+   * 窗口里所有调用直接 throw NoAvailableKeyError，多个 mission 并发时雪崩。
+   *
+   * 排除：DEAD（auth 失败永远不行）和 cooldownUntil = MAX_SAFE_INTEGER（QUOTA_EXCEEDED
+   * 等永久 cooldown，账单恢复才能用，retry 也是浪费）。
    */
   async filterUsable(keyIds: string[]): Promise<string[]> {
     if (!this.cache || keyIds.length === 0) return [...keyIds];
@@ -128,6 +162,15 @@ export class KeyHealthStore {
       if (rec.state === "DEAD") continue;
       if (rec.state === "COOLDOWN" && rec.cooldownUntil > now) continue;
       usable.push(keyIds[i]);
+    }
+    if (usable.length === 0) {
+      const fallbackId = pickEarliestFiniteCooldown(keyIds, records);
+      if (fallbackId) {
+        this.logger.warn(
+          `[filterUsable] all ${keyIds.length} key(s) in cooldown; returning earliest-expiry key as degraded fallback (avoid single-key user lockout)`,
+        );
+        return [fallbackId];
+      }
     }
     return usable;
   }
