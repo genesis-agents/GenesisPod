@@ -37,6 +37,7 @@ import { ReActLoop } from "../../runner/loop/react-loop";
 import { LoopRegistry } from "../../runner/loop/loop-registry";
 import { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
+import { describeOutputSchemaForLlm } from "../dev-tools/zod-schema-prompt";
 import { SkillActivator } from "../skill-runtime/skill-activator";
 import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
@@ -385,6 +386,12 @@ export class AgentFactory {
       // ★ 内容驱动退出闸 validator
       outputSchemaValidator,
       validateBusinessRules: validateBusinessRulesWrapper,
+      // ★ 2026-05-13: pre-render JSON skeleton for the rejection critique.
+      //   Computed once at agent construction (cheap, cached for all runs).
+      //   Loop injects it into the critique when finalize fails schema validation,
+      //   giving local / reasoning models a concrete shape to copy.
+      outputSchemaDescription:
+        describeOutputSchemaForLlm(spec.outputSchema) ?? undefined,
     });
   }
 
@@ -425,6 +432,10 @@ export class AgentFactory {
       checkpointEveryNActions: this.checkpointService ? 3 : 0,
       eventStore: this.eventStore,
       agentRegistry: this.agentRegistry,
+      // ★ 2026-05-13: subagent path also gets the schema skeleton for
+      //   finalize-rejection critique.
+      outputSchemaDescription:
+        describeOutputSchemaForLlm(spec.outputSchema) ?? undefined,
     });
   }
 

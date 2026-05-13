@@ -16,6 +16,20 @@
 
 import { ReActLoop } from "../react-loop";
 import { HookRegistry } from "../../../agents/core/hook-registry";
+
+// ★ 2026-05-13: MAX_FINALIZE_REJECTS reads REACT_MAX_FINALIZE_REJECTS from env
+// (defaults to 3). Test asserts on the default — clear any host override.
+const savedMaxFinalizeRejects = process.env.REACT_MAX_FINALIZE_REJECTS;
+beforeAll(() => {
+  delete process.env.REACT_MAX_FINALIZE_REJECTS;
+});
+afterAll(() => {
+  if (savedMaxFinalizeRejects === undefined) {
+    delete process.env.REACT_MAX_FINALIZE_REJECTS;
+  } else {
+    process.env.REACT_MAX_FINALIZE_REJECTS = savedMaxFinalizeRejects;
+  }
+});
 import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import { ToolInvoker } from "../../tool-invoker/tool-invoker";
 import type {
