@@ -237,10 +237,14 @@ export function sanitizePromptInput(
   }
 
   // 4. 长度限制
+  // ★ 2026-05-13 P4-#10: truncate 是 caller 显式指定 maxLength 的预期行为
+  //   （wrapExternalContent / writer evidence 短摘要等场景每条都会截）。从 warn
+  //   降级到 debug，避免污染监控；warn 仅留给真正的异常（dangerous pattern
+  //   detection，line 252）。
   if (maxLength && sanitized.length > maxLength) {
     sanitized = sanitized.substring(0, maxLength);
     if (logFiltered) {
-      logger.warn(
+      logger.debug(
         `Input truncated from ${originalLength} to ${maxLength} characters`,
       );
     }
