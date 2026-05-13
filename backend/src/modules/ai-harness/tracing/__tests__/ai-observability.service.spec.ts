@@ -151,6 +151,83 @@ describe("AiObservabilityService (no Prisma)", () => {
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("高延迟"));
     });
 
+    // ★ 2026-05-13 P2-#6: reasoning 双阈值 + 单源 inferIsReasoning 回归
+    describe("reasoning model dual-threshold detection", () => {
+      it("should classify grok-4-1-fast-reasoning as reasoning (not chat)", () => {
+        // Regression: 之前本地 regex /^(o1|o3|o4|gpt-5)/ 漏识别 grok-*-reasoning
+        const warnSpy = jest.spyOn(Logger.prototype, "warn");
+        service.recordLLMCall(
+          makeCallInput({
+            model: "grok-4-1-fast-reasoning",
+            latencyMs: 50000, // 50s — 超 10s chat 阈值但未达 60s reasoning 阈值
+          }),
+        );
+        const highLatency = warnSpy.mock.calls.filter((args) =>
+          String(args[0]).includes("高延迟"),
+        );
+        expect(highLatency).toHaveLength(0);
+      });
+
+      it("should warn for reasoning model only when latency > 60s", () => {
+        const warnSpy = jest.spyOn(Logger.prototype, "warn");
+        service.recordLLMCall(
+          makeCallInput({
+            model: "grok-4-1-fast-reasoning",
+            latencyMs: 70000, // 70s — 超 60s reasoning 阈值
+          }),
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("reasoning"),
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("threshold=60000ms"),
+        );
+      });
+
+      it("should classify claude-thinking-* as reasoning via keyword", () => {
+        const warnSpy = jest.spyOn(Logger.prototype, "warn");
+        service.recordLLMCall(
+          makeCallInput({
+            model: "claude-thinking-pro",
+            latencyMs: 30000, // 30s — 超 10s chat 阈值但未达 60s reasoning 阈值
+          }),
+        );
+        const highLatency = warnSpy.mock.calls.filter((args) =>
+          String(args[0]).includes("高延迟"),
+        );
+        expect(highLatency).toHaveLength(0);
+      });
+
+      it("should classify call as reasoning when modelType contains 'reasoning'", () => {
+        const warnSpy = jest.spyOn(Logger.prototype, "warn");
+        service.recordLLMCall(
+          makeCallInput({
+            model: "custom-llm",
+            modelType: "reasoning",
+            latencyMs: 50000,
+          }),
+        );
+        const highLatency = warnSpy.mock.calls.filter((args) =>
+          String(args[0]).includes("高延迟"),
+        );
+        expect(highLatency).toHaveLength(0);
+      });
+
+      it("should warn for non-reasoning chat model at 10s threshold (unchanged)", () => {
+        const warnSpy = jest.spyOn(Logger.prototype, "warn");
+        service.recordLLMCall(
+          makeCallInput({
+            model: "gpt-4o",
+            latencyMs: 12000,
+          }),
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining("threshold=10000ms"),
+        );
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("chat"));
+      });
+    });
+
     it("should not push to pendingFlush when Prisma is not injected", () => {
       service.recordLLMCall(makeCallInput());
       expect(service.getPendingFlushCount()).toBe(0);

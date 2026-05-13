@@ -8,6 +8,7 @@ import {
 import { randomUUID } from "crypto";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { Decimal } from "@prisma/client/runtime/library";
+import { inferIsReasoning } from "@/modules/ai-engine/llm/types/model.utils";
 
 /**
  * LLM 调用事件
@@ -247,12 +248,16 @@ export class AiObservabilityService implements OnModuleInit, OnModuleDestroy {
     }
 
     // ★ R-LIVE-5/7 (2026-04-30): 区分 chat vs reasoning 双阈值，避免 reasoning
-    //   thinking 时间合理但报告 chat=5s 阈值的噪声告警。reasoning model（gpt-5.4
-    //   等）thinking 1 min 内属正常；超过 30s 才告警；普通 chat 超过 10s 告警。
+    //   thinking 时间合理但报告 chat=5s 阈值的噪声告警。
+    // ★ 2026-05-13 P2-#6: ① 用单源 inferIsReasoning（之前本地 regex 漏识别
+    //   grok-4-1-fast-reasoning / claude-thinking 等 modelId 含 reasoning/thinking
+    //   关键词的模型，被错当 chat 用 10s 阈值告警单次 105772ms 实属 reasoning 正常）
+    //   ② reasoning 阈值 30s → 60s（实测 30-50s 是正常 CoT thinking 分布，30s 阈值
+    //   告警频率太高；60s 才算"长 thinking"真异常需关注）。
     const isReasoning =
-      /^(o1|o3|o4|gpt-5)/i.test(fullEvent.model) ||
+      inferIsReasoning(fullEvent.model) ||
       /reasoning/i.test(fullEvent.modelType ?? "");
-    const latencyThreshold = isReasoning ? 30000 : 10000;
+    const latencyThreshold = isReasoning ? 60000 : 10000;
     if (fullEvent.latencyMs > latencyThreshold) {
       this.logger.warn(
         `高延迟 LLM 调用: ${fullEvent.latencyMs}ms - ${fullEvent.model} ` +
