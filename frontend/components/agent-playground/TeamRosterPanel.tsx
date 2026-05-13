@@ -124,6 +124,12 @@ interface Props {
   onUpdate?: () => void;
   /** 取消运行中的 mission（暂未实现 → undefined） */
   onCancel?: () => void;
+  /**
+   * 2026-05-13 #67: 当前 mission 是否有 checkpoint 可续跑（后台重启 / 早爆 /
+   * 用户取消保留断点 → 都会进入 resumable）。true 时「更新」按钮 label 变
+   * "继续上次" + tooltip 提示 + 上方加 hint banner。
+   */
+  isResumable?: boolean;
 }
 
 export function TeamRosterPanel({
@@ -138,6 +144,7 @@ export function TeamRosterPanel({
   onRerun,
   onUpdate,
   onCancel,
+  isResumable = false,
 }: Props) {
   const stageMap = useMemo(
     () => new Map(stages.map((s) => [s.id, s])),
@@ -623,6 +630,20 @@ export function TeamRosterPanel({
           </div>
         )}
 
+        {/* 2026-05-13 #67: 可续跑提示 —— 替代 homepage banner，让"继续上次"入口
+            出现在用户真正按按钮的地方 */}
+        {isResumable && missionStatus !== 'running' && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-900">
+            <span className="mt-0.5 text-violet-600">↻</span>
+            <span>
+              <span className="font-medium">上次运行中断</span>
+              ，点「
+              <span className="font-medium">继续上次</span>
+              」从 checkpoint 续跑（跳过已完成 stage）；点「开始」会重新从头跑。
+            </span>
+          </div>
+        )}
+
         {/* 操作按钮：开始 / 更新 / 取消 —— 完全照搬 TI TopicTeamPanel 尺寸 + 样式 */}
         {(onRerun || onUpdate || onCancel) && (
           <div className="mt-3 grid grid-cols-3 gap-2">
@@ -636,7 +657,11 @@ export function TeamRosterPanel({
                     ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
                     : 'bg-blue-600 text-white shadow-sm hover:bg-blue-700'
                 }`}
-                title="用相同配置启动一个新 mission"
+                title={
+                  isResumable
+                    ? '重新从头开始（清 checkpoint）'
+                    : '用相同配置启动一个新 mission'
+                }
               >
                 <span>▶</span>
                 开始
@@ -650,12 +675,18 @@ export function TeamRosterPanel({
                 className={`flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                   missionStatus === 'running'
                     ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400'
-                    : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
+                    : isResumable
+                      ? 'bg-violet-600 text-white shadow-sm ring-2 ring-violet-200 hover:bg-violet-700'
+                      : 'bg-green-600 text-white shadow-sm hover:bg-green-700'
                 }`}
-                title="编辑 topic / depth / language 后重新启动"
+                title={
+                  isResumable
+                    ? '从上次 checkpoint 继续（跳过已完成 stage）'
+                    : '增量更新：保留已完成任务，只跑未完成维度'
+                }
               >
-                <span>🔄</span>
-                更新
+                <span>{isResumable ? '↻' : '🔄'}</span>
+                {isResumable ? '继续上次' : '更新'}
               </button>
             )}
             {onCancel && (

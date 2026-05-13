@@ -9,12 +9,11 @@
  *             Insight / Custom Agents 视觉一致。
  */
 
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
 import {
   listMissions,
-  listResumableMissions,
   rerunMission,
   cancelMission,
   deleteMission,
@@ -30,10 +29,9 @@ export default function PlaygroundIndexPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [galleryReloadKey, setGalleryReloadKey] = useState(0);
 
-  const fetchResumableIds = useCallback(async (): Promise<Set<string>> => {
-    const items = await listResumableMissions();
-    return new Set(items.map((i) => i.missionId));
-  }, []);
+  // 2026-05-13 #67: 删除主页"可继续"徽章 / banner / 继续按钮 ——
+  // 用户反馈：homepage 提示"继续"无意义。续跑入口移到 mission 详情页的「更新」按钮
+  // （interrupted 时按钮变"继续上次"+ hint），主页只保留 重跑/取消/编辑/删除。
 
   const handleRerun = async (mission: MissionListItem) => {
     if (
@@ -48,22 +46,6 @@ export default function PlaygroundIndexPage() {
       router.push(`/agent-playground/team/${result.missionId}`);
     } catch (e) {
       alert(`Rerun 失败：${e instanceof Error ? e.message : String(e)}`);
-    }
-  };
-
-  const handleResume = async (mission: MissionListItem) => {
-    if (
-      !confirm(
-        `从 checkpoint 继续「${mission.topic}」？将跳过已完成 stage，复用上次进度。`
-      )
-    ) {
-      return;
-    }
-    try {
-      const result = await rerunMission(mission.id, 'incremental');
-      router.push(`/agent-playground/team/${result.missionId}`);
-    } catch (e) {
-      alert(`继续失败：${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -105,10 +87,8 @@ export default function PlaygroundIndexPage() {
         createButtonLabel="新建 Mission"
         onCreateMission={() => setCreateOpen(true)}
         fetchMissions={listMissions}
-        fetchResumableIds={fetchResumableIds}
         onMissionClick={(m) => router.push(`/agent-playground/team/${m.id}`)}
         onRerun={handleRerun}
-        onResume={handleResume}
         onCancel={handleCancel}
         onEdit={handleEdit}
         onDelete={handleDelete}

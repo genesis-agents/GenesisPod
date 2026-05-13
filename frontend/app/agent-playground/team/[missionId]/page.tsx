@@ -55,6 +55,7 @@ import {
   getMissionDetail,
   getReportVersion,
   listReportVersions,
+  listResumableMissions,
   rerunMission,
   type MissionDetail,
   type ReportVersionListItem,
@@ -103,6 +104,10 @@ export default function MissionDetailPage() {
   }, []);
 
   const [persisted, setPersisted] = useState<MissionDetail | null>(null);
+  // 2026-05-13 #67: 当前 mission 是否处于"上次中断可续跑"状态。
+  // 真因来源：backend checkpoint snapshot 存在 → listResumableMissions 返回；
+  // UI 让详情页"更新"按钮变"继续上次"+ hint banner，避免在 homepage 弹无意义提示。
+  const [isResumable, setIsResumable] = useState(false);
   useEffect(() => {
     if (invalidId) return;
     let cancelled = false;
@@ -133,6 +138,25 @@ export default function MissionDetailPage() {
       if (pollTimer) clearTimeout(pollTimer);
     };
   }, [missionId, invalidId]);
+
+  // 2026-05-13 #67: 单独抓 resumable 集合，判定当前 mission 是否可续跑。
+  // 用 listResumableMissions（复用现有 endpoint，避免新加 backend route）。
+  useEffect(() => {
+    if (invalidId) return;
+    let cancelled = false;
+    listResumableMissions()
+      .then((items) => {
+        if (cancelled) return;
+        setIsResumable(items.some((it) => it.missionId === missionId));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setIsResumable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [missionId, invalidId, persisted]);
 
   // ★ 2026-04-30: mission:completed / mission:failed / mission:cancelled 事件触发 re-fetch
   //   彻底解决"persisted 只 mount fetch 一次永不更新"导致 reportFull = null 走 fallback 的 bug。
@@ -821,6 +845,7 @@ export default function MissionDetailPage() {
               onCollapse={() => setLeftCollapsed(true)}
               onLeaderClick={() => setLeaderChatOpen(true)}
               onResearchTeamClick={() => setResearchTeamOpen(true)}
+              isResumable={isResumable}
               onRerun={() => {
                 // "开始"按钮 = fresh：清 checkpoint，全新从头跑
                 void (async () => {

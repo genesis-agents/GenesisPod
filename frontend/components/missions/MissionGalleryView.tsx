@@ -20,7 +20,6 @@ import {
   CheckCircle2,
   Coins,
   Loader2,
-  Play,
   RefreshCw,
   Sparkles,
   StopCircle,
@@ -112,20 +111,15 @@ const PlusIcon = ({ className }: { className?: string }) => (
 // ─── MissionCard（抽自 PlaygroundIndexPage）────────────────────────────────
 function MissionCard({
   mission,
-  resumable,
   onClick,
   onRerun,
-  onResume,
   onCancel,
   onEdit,
   onDelete,
 }: {
   mission: MissionListItem;
-  /** true 时叠加"可继续"徽章 + 优先级最高的 Play 按钮 */
-  resumable: boolean;
   onClick: () => void;
   onRerun: (mission: MissionListItem) => void;
-  onResume: (mission: MissionListItem) => void;
   onCancel: (mission: MissionListItem) => void;
   onEdit: (mission: MissionListItem) => void;
   onDelete: (mission: MissionListItem) => void;
@@ -160,14 +154,7 @@ function MissionCard({
       ),
     },
   ];
-  if (resumable) {
-    badges.push({
-      key: 'resumable',
-      label: '可继续',
-      className: 'bg-violet-50 text-violet-700',
-      icon: <Play className="h-3 w-3" />,
-    });
-  }
+  // 2026-05-13 #67: 删除"可继续"徽章 —— 续跑入口迁到详情页的更新按钮
 
   const description = mission.reportSummary
     ? mission.reportSummary
@@ -224,15 +211,7 @@ function MissionCard({
       onClick: () => onRerun(mission),
     },
   ];
-  if (resumable) {
-    extraActions.unshift({
-      key: 'resume',
-      title: '继续上次中断（跳过已完成 stage）',
-      tone: 'info',
-      icon: <Play className="h-4 w-4" />,
-      onClick: () => onResume(mission),
-    });
-  }
+  // 2026-05-13 #67: 删除卡片"继续"action —— 续跑请进入详情页按"更新"按钮
   if (mission.status === 'running') {
     extraActions.unshift({
       key: 'cancel',
@@ -283,13 +262,6 @@ export interface MissionGalleryViewProps {
   onCancel: (mission: MissionListItem) => Promise<void> | void;
   onEdit: (mission: MissionListItem) => Promise<void> | void;
   onDelete: (mission: MissionListItem) => Promise<void> | void;
-  /**
-   * 可选：fetch "可从 checkpoint 继续" 的 mission id 集合（Phase 5）。
-   * 不传则不显示"可继续"徽章 + 按钮。传了的话点 onResume 走 incremental rerun。
-   */
-  fetchResumableIds?: () => Promise<Set<string>>;
-  /** 点"继续"按钮 callback；不传时复用 onRerun */
-  onResume?: (mission: MissionListItem) => Promise<void> | void;
   /** Empty state 文案 */
   emptyState?: {
     title: string;
@@ -314,16 +286,11 @@ export function MissionGalleryView({
   onCancel,
   onEdit,
   onDelete,
-  fetchResumableIds,
-  onResume,
   emptyState,
   searchPlaceholder = '按 topic 或报告内容搜索…',
   reloadKey = 0,
 }: MissionGalleryViewProps) {
   const [missions, setMissions] = useState<MissionListItem[]>([]);
-  const [resumableIds, setResumableIds] = useState<Set<string>>(
-    () => new Set()
-  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -351,21 +318,7 @@ export function MissionGalleryView({
     };
   }, [fetchMissions, reloadKey, internalReload]);
 
-  // Resumable id 集合（best-effort，失败不阻塞主列表）
-  useEffect(() => {
-    if (!fetchResumableIds) return;
-    let cancelled = false;
-    fetchResumableIds()
-      .then((ids) => {
-        if (!cancelled) setResumableIds(ids);
-      })
-      .catch(() => {
-        if (!cancelled) setResumableIds(new Set());
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchResumableIds, reloadKey, internalReload]);
+  // 2026-05-13 #67: 删除 resumable 列表抓取 —— 续跑入口迁到详情页
 
   const filtered = useMemo(() => {
     if (!searchQuery.trim()) return missions;
@@ -388,7 +341,6 @@ export function MissionGalleryView({
     };
 
   const handleRerun = wrapAction(onRerun);
-  const handleResume = wrapAction(onResume ?? onRerun);
   const handleCancel = wrapAction(onCancel);
   const handleEdit = wrapAction(onEdit);
   const handleDelete = wrapAction(onDelete);
@@ -477,20 +429,7 @@ export function MissionGalleryView({
           </div>
         ) : (
           <>
-            {resumableIds.size > 0 && !searchQuery && (
-              <div className="mb-4 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
-                <Play className="mt-0.5 h-4 w-4 flex-shrink-0 text-violet-600" />
-                <div>
-                  <span className="font-medium">
-                    {resumableIds.size} 个 Mission 上次中断后可从 checkpoint
-                    继续
-                  </span>
-                  <span className="ml-1 text-violet-700/80">
-                    —— 在卡片上点击「继续」按钮跳过已完成 stage 续跑
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* 2026-05-13 #67: 删除"可继续 banner" —— 续跑入口迁到详情页 */}
             <div className="mb-4 flex items-baseline justify-between">
               <h2 className="text-base font-semibold text-gray-900">
                 {searchQuery ? '搜索结果' : '我的 Mission'}
@@ -504,10 +443,8 @@ export function MissionGalleryView({
                 <MissionCard
                   key={m.id}
                   mission={m}
-                  resumable={resumableIds.has(m.id)}
                   onClick={() => onMissionClick(m)}
                   onRerun={(mm) => void handleRerun(mm)}
-                  onResume={(mm) => void handleResume(mm)}
                   onCancel={(mm) => void handleCancel(mm)}
                   onEdit={(mm) => void handleEdit(mm)}
                   onDelete={(mm) => void handleDelete(mm)}
