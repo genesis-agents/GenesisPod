@@ -51,16 +51,36 @@ export class HandoffCompactorService {
   compressIfNeeded<T>(payload: T, label: string): T {
     const tokens = this.estimateTokens(payload);
     if (tokens <= HANDOFF_TOKEN_LIMIT) return payload;
-    this.log.warn(
-      `[MissionState] ${label} handoff size ${tokens} > ${HANDOFF_TOKEN_LIMIT} tokens — compressing`,
-    );
-    return this.compress(payload) as T;
+    const compressed = this.compress(payload);
+    const afterTokens = this.estimateTokens(compressed);
+    // ★ 2026-05-13 P2-#7: compress 后仍超限才是真异常 → warn；正常压缩到位的
+    //   常态走 debug 不污染监控。原版每次都打 warn，noise 高。
+    if (afterTokens > HANDOFF_TOKEN_LIMIT) {
+      this.log.warn(
+        `[MissionState] ${label} handoff still over limit after compress: ${tokens}→${afterTokens} > ${HANDOFF_TOKEN_LIMIT}`,
+      );
+    } else {
+      this.log.debug(
+        `[MissionState] ${label} handoff compressed ${tokens}→${afterTokens} tokens (limit ${HANDOFF_TOKEN_LIMIT})`,
+      );
+    }
+    return compressed as T;
   }
 
+  /**
+   * 递归压缩：
+   *  - 顶层数组 → slice(12) + 递归 compressItem
+   *  - 对象 → 每个 value 递归 compressItem
+   *  - 长字符串 → 截 1500
+   *
+   * ★ 2026-05-13 P2-#7 修复：compressItem 现在递归进 nested array/object。
+   *   原版只 trim 顶层 object 的 string 字段，nested `findings: [...]` 数组
+   *   直接 pass-through，所以 116K tokens 的 researcherResults 压缩后基本没变。
+   */
   private compress(obj: unknown): unknown {
     if (Array.isArray(obj)) {
-      // researcherResults 类
-      return obj.map((item) => this.compressItem(item)).slice(0, 12);
+      // 顶层数组（researcherResults / 类似列表）
+      return obj.slice(0, 12).map((item) => this.compressItem(item));
     }
     if (obj && typeof obj === "object") {
       const r: Record<string, unknown> = {};
@@ -77,7 +97,7 @@ export class HandoffCompactorService {
 
   private compressItem(item: unknown): unknown {
     if (Array.isArray(item)) {
-      // findings / 列表 → 截前 6 个 + 每条压
+      // 嵌套数组（findings / sources / 列表）→ 截前 6 个 + 每条递归压
       return item.slice(0, 6).map((x) => this.compressItem(x));
     }
     if (item && typeof item === "object") {
@@ -85,6 +105,9 @@ export class HandoffCompactorService {
       for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
         if (typeof v === "string" && v.length > 500) {
           r[k] = v.slice(0, 500) + "…";
+        } else if (Array.isArray(v) || (v && typeof v === "object")) {
+          // ★ 递归进 nested array / object（之前 bug：直接 pass-through）
+          r[k] = this.compressItem(v);
         } else {
           r[k] = v;
         }
