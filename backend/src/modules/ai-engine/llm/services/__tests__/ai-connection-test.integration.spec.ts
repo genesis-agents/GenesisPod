@@ -838,67 +838,96 @@ describe("AiConnectionTestService (extended coverage)", () => {
   // =========================================================================
 
   describe("testTTSModel", () => {
-    it("returns success for TTS modelType", async () => {
-      const { service } = await buildModule({});
+    // ★ 2026-05-13: TTS test 不再"fake success"，必须真发请求验证
+    //   feedback_test_connection_must_verify_runtime；下面 4 个用例同步重写。
+
+    it("real HTTP POST to /v1/audio/speech for OpenAI TTS modelType", async () => {
+      const { service, mockHttp } = await buildModule({});
+      mockHttp.post.mockReturnValueOnce(
+        of({
+          status: 200,
+          data: Buffer.from("audio-bytes"),
+        }) as never,
+      );
 
       const result = await service.testModelConnectionWithKey(
         "openai",
         "tts-1",
         "key",
-        "",
+        "https://api.openai.com/v1",
         "TTS",
       );
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain("TTS/Audio model configured");
+      expect(result.message).toContain("TTS connection OK");
+      expect(mockHttp.post).toHaveBeenCalledWith(
+        "https://api.openai.com/v1/audio/speech",
+        expect.objectContaining({ model: "tts-1" }),
+        expect.any(Object),
+      );
     });
 
-    it("returns success for AUDIO modelType", async () => {
-      const { service } = await buildModule({});
+    it("real HTTP POST for AUDIO modelType", async () => {
+      const { service, mockHttp } = await buildModule({});
+      mockHttp.post.mockReturnValueOnce(
+        of({
+          status: 200,
+          data: Buffer.from("audio-bytes"),
+        }) as never,
+      );
 
       const result = await service.testModelConnectionWithKey(
         "openai",
         "whisper-1",
         "key",
-        "",
+        "https://api.openai.com/v1",
         "AUDIO",
       );
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain("TTS/Audio model configured");
+      expect(result.message).toContain("TTS connection OK");
     });
 
-    it("returns google-specific TTS message for google provider", async () => {
-      const { service } = await buildModule({});
+    it("probes Gemini /v1beta/models for google provider", async () => {
+      const { service, mockHttp } = await buildModule({});
+      mockHttp.get.mockReturnValueOnce(
+        of({ status: 200, data: { models: [] } }) as never,
+      );
 
       const result = await service.testModelConnectionWithKey(
         "google",
         "some-tts-model",
         "key",
-        "",
+        "https://generativelanguage.googleapis.com",
         "TTS",
       );
 
       expect(result.success).toBe(true);
-      expect(result.message).not.toContain("TTS/Audio model configured");
-      expect(result.message).toContain("API key is set");
+      expect(result.message).toContain("Gemini TTS endpoint reachable");
+      expect(mockHttp.get).toHaveBeenCalled();
     });
 
-    it("returns success for model with tts in modelId (no modelType)", async () => {
+    it("makes real HTTP call for model with tts in modelId (no modelType)", async () => {
       const { service, mockHttp } = await buildModule({});
+      mockHttp.post.mockReturnValueOnce(
+        of({
+          status: 200,
+          data: Buffer.from("audio-bytes"),
+        }) as never,
+      );
 
       // modelId contains "tts" → routes to testTTSModel
       const result = await service.testModelConnectionWithKey(
         "openai",
         "tts-1-hd",
         "key",
-        "",
+        "https://api.openai.com/v1",
         // no modelType
       );
 
       expect(result.success).toBe(true);
-      // Should not call httpService.post (TTS model path doesn't make HTTP calls)
-      expect(mockHttp.post).not.toHaveBeenCalled();
+      // TTS path now DOES call httpService.post (real test request)
+      expect(mockHttp.post).toHaveBeenCalled();
     });
   });
 });
