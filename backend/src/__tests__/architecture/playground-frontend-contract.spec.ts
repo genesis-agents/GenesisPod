@@ -89,6 +89,7 @@ const EVENT_BASELINE: ReadonlyArray<string> = [
   "agent-playground.mission:manual-rerun-from-todo",
   "agent-playground.mission:persist-failed",
   "agent-playground.mission:postlude:completed",
+  "agent-playground.mission:preflight-warning",
   "agent-playground.mission:postlude:failed",
   "agent-playground.mission:postlude:started",
   "agent-playground.mission:rejected",
