@@ -227,16 +227,22 @@ cmd_install() {
       ensure_kv PUBLIC_BASE_URL        "$PUBLIC_URL"
       ensure_kv FRONTEND_URL           "$PUBLIC_URL"
     else
+      # SKIP_PROMPTS=1 模式：客户必须传 ADMIN_EMAIL env var；
+      # 否则用占位符 admin@genesis.local（绝对不用任何开发者私人邮箱）
       AUTO_ADMIN_PW="$(gen_pw)"
-      ensure_kv ADMIN_INITIAL_EMAIL    "hello.junjie.duan@gmail.com"
+      ADMIN_EMAIL_FINAL="${ADMIN_EMAIL:-admin@genesis.local}"
+      ensure_kv ADMIN_INITIAL_EMAIL    "$ADMIN_EMAIL_FINAL"
       ensure_kv ADMIN_INITIAL_PASSWORD "$AUTO_ADMIN_PW"
-      ensure_kv ADMIN_EMAILS           "hello.junjie.duan@gmail.com"
+      ensure_kv ADMIN_EMAILS           "$ADMIN_EMAIL_FINAL"
       ensure_kv PUBLIC_BASE_URL        ""
       ensure_kv FRONTEND_URL           ""
       warn "SKIP_PROMPTS=1 模式：admin 已用随机密码自动填充"
-      warn "  email    : hello.junjie.duan@gmail.com"
+      warn "  email    : ${ADMIN_EMAIL_FINAL}"
       warn "  password : ${AUTO_ADMIN_PW}"
       warn "  请记录上述凭据，登录后立即修改"
+      if [ "$ADMIN_EMAIL_FINAL" = "admin@genesis.local" ]; then
+        warn "  ⚠ 未指定 ADMIN_EMAIL 环境变量，使用占位邮箱；登录后请改成你的真实邮箱"
+      fi
     fi
 
     chmod 600 .env.production

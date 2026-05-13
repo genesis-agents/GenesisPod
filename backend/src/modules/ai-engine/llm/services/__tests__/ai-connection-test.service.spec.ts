@@ -930,24 +930,17 @@ describe("AiConnectionTestService", () => {
   });
 
   describe("testTTSModel (TTS/AUDIO modelType)", () => {
-    it("should return success for Google TTS model without actual API call", async () => {
-      const result = await service.testModelConnectionWithKey(
-        "google",
-        "tts-1",
-        "test-api-key",
-        "https://texttospeech.googleapis.com/v1",
-        "TTS",
+    // ★ 2026-05-13: 旧 spec 期望 "API key is set" + 不发请求；现已修为真发 HTTP
+    //   测试请求（feedback_test_connection_must_verify_runtime）。新 spec 验证
+    //   实际行为：OpenAI 走 /v1/audio/speech，Google 走 /v1beta/models 探测。
+    it("should make real /v1/audio/speech request for OpenAI TTS", async () => {
+      mockHttpService.post.mockReturnValueOnce(
+        of({
+          status: 200,
+          data: Buffer.from("fake-audio-bytes"),
+        }) as never,
       );
 
-      expect(result.success).toBe(true);
-      expect(result.message).toContain("TTS model configured");
-      expect(result.message).toContain("API key is set");
-      expect(result.latency).toBeGreaterThanOrEqual(0);
-
-      expect(mockHttpService.post).not.toHaveBeenCalled();
-    });
-
-    it("should return success for AUDIO model type", async () => {
       const result = await service.testModelConnectionWithKey(
         "openai",
         "tts-1-hd",
@@ -957,21 +950,55 @@ describe("AiConnectionTestService", () => {
       );
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain("TTS/Audio model configured");
-      expect(result.message).toContain("API key is set");
+      expect(result.message).toContain("TTS connection OK");
       expect(result.latency).toBeGreaterThanOrEqual(0);
+      expect(mockHttpService.post).toHaveBeenCalledWith(
+        "https://api.openai.com/v1/audio/speech",
+        expect.objectContaining({
+          model: "tts-1-hd",
+          input: "test",
+          voice: "alloy",
+        }),
+        expect.any(Object),
+      );
     });
 
-    it("should detect TTS from model name", async () => {
+    it("should probe Gemini endpoint for Google TTS", async () => {
+      mockHttpService.get.mockReturnValueOnce(
+        of({ status: 200, data: { models: [] } }) as never,
+      );
+
       const result = await service.testModelConnectionWithKey(
-        "openai",
-        "tts-1-hd",
+        "google",
+        "tts-1",
         "test-api-key",
-        "https://api.openai.com/v1",
+        "https://generativelanguage.googleapis.com",
+        "TTS",
       );
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain("TTS/Audio model configured");
+      expect(result.message).toContain("Gemini TTS endpoint reachable");
+      expect(mockHttpService.get).toHaveBeenCalled();
+    });
+
+    it("should return failure for OpenAI TTS HTTP error", async () => {
+      mockHttpService.post.mockReturnValueOnce(
+        of({
+          status: 401,
+          data: Buffer.from('{"error":"invalid key"}'),
+        }) as never,
+      );
+
+      const result = await service.testModelConnectionWithKey(
+        "openai",
+        "tts-1",
+        "bad-key",
+        "https://api.openai.com/v1",
+        "TTS",
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("HTTP 401");
     });
   });
 });

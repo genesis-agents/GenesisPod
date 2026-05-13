@@ -193,12 +193,14 @@ export class ReportEvaluationService {
       chapterResults.push(...batchResults);
     }
 
-    // 3. 聚合整体评分
+    // 3. 聚合整体评分（仅算评分成功的章节 chapterScore>0；
+    //    与 buildModelComparison 对称，避免 LLM 失败章节稀释整体分到 F）
+    const scoredChapters = chapterResults.filter((c) => c.chapterScore > 0);
     const overallScore =
-      chapterResults.length > 0
+      scoredChapters.length > 0
         ? Math.round(
-            chapterResults.reduce((sum, c) => sum + c.chapterScore, 0) /
-              chapterResults.length,
+            scoredChapters.reduce((sum, c) => sum + c.chapterScore, 0) /
+              scoredChapters.length,
           )
         : 0;
 

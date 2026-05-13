@@ -335,10 +335,18 @@ export class FigureRelevanceService {
         maxRetries: 1,
       });
 
+      // ★ 2026-05-13: LLM 幻觉可能返回越界 index（如 candidates 仅 3 项但
+      //   返回 [0,1,99]）；photoCandidates[99] 是 undefined，访问 .fig 会 crash。
+      //   过滤必须叠加 0 <= n < length 边界检查（feedback_no_lying_assertion）。
+      const candidatesLen = photoCandidates.length;
       const indices = new Set<number>(
         Array.isArray(result.data?.acceptedIndices)
           ? result.data.acceptedIndices.filter(
-              (n: unknown) => typeof n === "number",
+              (n: unknown): n is number =>
+                typeof n === "number" &&
+                Number.isInteger(n) &&
+                n >= 0 &&
+                n < candidatesLen,
             )
           : [],
       );

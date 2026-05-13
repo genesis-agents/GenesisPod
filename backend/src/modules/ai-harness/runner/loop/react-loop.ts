@@ -653,9 +653,11 @@ export class ReActLoop implements IAgentLoop {
               output: this.extractLastAssistantMessage(currentEnvelope) ?? "",
             });
             stopReason = "budget";
-            yield this.makeEvent(agentId, "terminated", {
-              reason: "wall-time-exceeded",
-            });
+            // ★ 2026-05-13: terminated.reason 与 stopReason 对齐为 "budget"
+            //   (与 L480/L543 其他 budget 退出路径一致)；具体 wall-time 细节
+            //   已在上面 budget-exceeded 事件 diagnostic.phase="pre-reason"
+            //   + wallTimeLimitMs 字段携带。
+            yield this.makeEvent(agentId, "terminated", { reason: "budget" });
             return;
           }
           // PR-Q: 自动 prompt-cache 规划 —— 重复 prefix 享受 1/10 价
@@ -1601,7 +1603,9 @@ export class ReActLoop implements IAgentLoop {
       //   event, assistant context replay, empty-finalize circuit breaker)
       //   sees a clean text summary instead of raw reasoning leakage.
       const thinking =
-        typeof obj.thinking === "string" ? stripReasoningBlocks(obj.thinking) : "";
+        typeof obj.thinking === "string"
+          ? stripReasoningBlocks(obj.thinking)
+          : "";
 
       // ★ LLM 协议容错：检测 action 内容裸放顶层（缺 {thinking, action} 包装）。
       // 生产 trace 显示 reasoning model 经常吐：

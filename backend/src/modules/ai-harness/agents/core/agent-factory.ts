@@ -321,19 +321,16 @@ export class AgentFactory {
             let typed: unknown = output;
             if (spec.outputSchema) {
               let candidate: unknown = output;
+              // ★ 2026-05-13: 与 outputSchemaValidator 对齐，走 extractJsonFromAIResponse
+              //   7 策略抽取器，避免推理模型输出 "Here is the JSON: {…}" 时
+              //   business rules 被静默跳过（早期版本只识别严格 startsWith("{")，
+              //   reasoning model prose-wrapped 输出会绕过此分支）。
               if (typeof candidate === "string") {
-                const trimmed = candidate.trim();
-                if (
-                  (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-                  (trimmed.startsWith("[") && trimmed.endsWith("]"))
-                ) {
-                  try {
-                    candidate = JSON.parse(trimmed);
-                  } catch {
-                    /* schema 校验闸会先拦下，这里直接返回 null */
-                    return null;
-                  }
+                const extracted = extractJsonFromAIResponse(candidate);
+                if (extracted.success) {
+                  candidate = extracted.data;
                 }
+                // extracted.success === false → 留作 string，schema 闸会拒
               }
               const parsed = spec.outputSchema.safeParse(candidate);
               if (!parsed.success) {

@@ -1053,40 +1053,116 @@ export class AiConnectionTestService {
 
   /**
    * Test connection to a TTS/Audio model
+   *
+   * ★ 2026-05-13 修：之前完全不发请求，"API key is set" 直接返回 success →
+   *   违反 feedback_test_connection_must_verify_runtime（只检 auth = 谎报"正常"）。
+   *   现在按 provider 真发一次最小 TTS 请求：
+   *   - OpenAI / OpenAI-compatible: POST /v1/audio/speech 最短 input
+   *   - Google / Gemini: 暂未实现真验证（Gemini TTS 走 Live API，与 REST 不同）
+   *     → 走 endpoint-reachable 检查（HEAD/GET base URL 验证网络 + 401 验证 key）
    */
   private async testTTSModel(
     provider: string,
-    _modelId: string,
-    _apiKey: string,
-    _apiEndpoint: string,
+    modelId: string,
+    apiKey: string,
+    apiEndpoint: string,
     startTime: number,
   ): Promise<{ success: boolean; message: string; latency?: number }> {
-    try {
-      const latency = Date.now() - startTime;
+    const providerLower = provider.toLowerCase();
 
+    try {
+      // OpenAI 及兼容 provider: 真发一次最小 /v1/audio/speech 请求
       if (
-        provider.toLowerCase() === "google" ||
-        provider.toLowerCase() === "gemini"
+        providerLower === "openai" ||
+        providerLower === "azure" ||
+        providerLower === "openai-compatible"
       ) {
+        // 从 apiEndpoint 推断 speech endpoint：剥掉 /v1/xxx 或 /v1 尾巴再补 /v1/audio/speech
+        const base = apiEndpoint
+          .replace(
+            /\/v1(\/(chat\/completions|completions|embeddings|audio\/speech))?\/?$/i,
+            "",
+          )
+          .replace(/\/$/, "");
+        const speechUrl = `${base}/v1/audio/speech`;
+
+        const response = await firstValueFrom(
+          this.httpService.post(
+            speechUrl,
+            {
+              model: modelId || "tts-1",
+              input: "test",
+              voice: "alloy",
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+              },
+              responseType: "arraybuffer",
+              timeout: 15000,
+              validateStatus: () => true,
+            },
+          ),
+        );
+
+        const latency = Date.now() - startTime;
+        if (response.status >= 200 && response.status < 300) {
+          const bytes = response.data?.byteLength ?? 0;
+          return {
+            success: true,
+            message: `TTS connection OK (received ${bytes} bytes audio)`,
+            latency,
+          };
+        }
+        const errBody = Buffer.isBuffer(response.data)
+          ? response.data.toString("utf-8").slice(0, 200)
+          : String(response.data).slice(0, 200);
         return {
-          success: true,
-          message: `TTS model configured. Note: TTS models output audio, not text. API key is set.`,
+          success: false,
+          message: `TTS test failed: HTTP ${response.status} — ${errBody}`,
           latency,
         };
       }
 
+      // Google / Gemini: 暂未实现真 TTS 验证（API 形态不同）
+      // 走 endpoint-reachable 降级检查：GET base URL，401 = key 有效，4xx 其他 = 端点错
+      if (providerLower === "google" || providerLower === "gemini") {
+        const base = apiEndpoint.replace(/\/$/, "");
+        const probeUrl = `${base}/v1beta/models?key=${apiKey}`;
+        const response = await firstValueFrom(
+          this.httpService.get(probeUrl, {
+            timeout: 10000,
+            validateStatus: () => true,
+          }),
+        );
+        const latency = Date.now() - startTime;
+        if (response.status === 200) {
+          return {
+            success: true,
+            message: `Gemini TTS endpoint reachable + key valid (real TTS verify not implemented)`,
+            latency,
+          };
+        }
+        return {
+          success: false,
+          message: `Gemini endpoint check failed: HTTP ${response.status}`,
+          latency,
+        };
+      }
+
+      // 其他 provider 暂不支持，返回 degraded 状态而非 false-positive success
+      const latency = Date.now() - startTime;
       return {
-        success: true,
-        message: `TTS/Audio model configured. This model outputs audio instead of text. API key is set.`,
+        success: false,
+        message: `TTS test not implemented for provider "${provider}"; please verify manually`,
         latency,
       };
     } catch (error: unknown) {
       const latency = Date.now() - startTime;
       const err = error as Record<string, unknown>;
       const errorMessage = (err.message as string) || "Unknown error";
-
       this.logger.error(`TTS model test failed: ${errorMessage}`);
-
       return {
         success: false,
         message: `Connection failed: ${errorMessage}`,
