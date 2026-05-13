@@ -388,9 +388,16 @@ export class ResearcherAgent extends AgentSpec<typeof Input, typeof Output> {
       }
       if (!f?.source || f.source.trim().length < 4) {
         issues.push(`findings[${i}].source 缺失`);
-      } else if (!/^https?:|^doi:|^arxiv:|\./i.test(f.source.trim())) {
+      } else if (
+        // 2026-05-13: 把 rag-search KB 结果的 wiki-page:/kb-doc: scheme 也算合法 source。
+        // 原 regex 只认 http/doi/arxiv → KB 命中的 finding 一律被 reject → ReAct loop
+        // 反复重试 → budget 提前耗尽 → 下游 grade 阶段被 abort（mission f1d9fee0 真因）。
+        !/^https?:|^doi:|^arxiv:|^wiki-page:|^kb-doc:|^kb:|\./i.test(
+          f.source.trim(),
+        )
+      ) {
         issues.push(
-          `findings[${i}].source="${f.source.slice(0, 30)}" 不像 URL/DOI（必须是 http(s):// 或 doi: 前缀）`,
+          `findings[${i}].source="${f.source.slice(0, 30)}" 不像 URL/DOI/KB ref（必须是 http(s):// / doi: / arxiv: / wiki-page: / kb-doc: 前缀，或含 .）`,
         );
       }
     });

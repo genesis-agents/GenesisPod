@@ -863,8 +863,12 @@ export class ReActLoop implements IAgentLoop {
                   .catch(() => null)
               : null;
 
+          // 2026-05-13: log 必须反映真实失败码，aborted 时分类是 "UNKNOWN"，不要
+          // 误写 "PROVIDER_API_ERROR"。曾让运维以为是 provider 故障，实际是 mission
+          // 早就被 abortRegistry.abort 了（如 budget_exhausted 级联）。
+          const loggedCode = aborted ? "CANCELLED" : failureCode;
           this.logger.error(
-            `[${agentId}] iter=${iteration} ${failureCode} — ${message}`,
+            `[${agentId}] iter=${iteration} ${loggedCode} — ${message}`,
           );
 
           yield this.makeEvent(agentId, "error", {

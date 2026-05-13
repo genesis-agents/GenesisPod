@@ -112,6 +112,15 @@ export class SimpleLoop implements IAgentLoop {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      // 2026-05-13: chat() 抛 abort 时必须当作 "cancelled" 而不是 "error"，否则
+      // 上层 drainEvents 把 state 推成 "failed" → per-dim-pipeline 误报
+      // "grade 阶段失败 state=failed"。真因是 mission-wide abort（如 budget_exhausted），
+      // 不是 simple-loop 自己出错。
+      const aborted = signal?.aborted || /abort/i.test(message);
+      if (aborted) {
+        yield this.makeEvent(agentId, "terminated", { reason: "cancelled" });
+        return;
+      }
       yield this.makeEvent(agentId, "error", {
         message,
         failureCode: this.classifyFailureCode(message),
