@@ -111,6 +111,7 @@ fi
 GHCR_BACKEND="ghcr.io/${GHCR_OWNER}/genesis-backend:${VERSION}"
 GHCR_FRONTEND="ghcr.io/${GHCR_OWNER}/genesis-frontend:${VERSION}"
 GHCR_AI_SERVICE="ghcr.io/${GHCR_OWNER}/genesis-ai-service:${VERSION}"
+GHCR_INSTALLER="ghcr.io/${GHCR_OWNER}/genesis-installer:${VERSION}"
 
 # ── Build 镜像 ────────────────────────────────────────────
 if [ "$SKIP_BUILD" -eq 0 ]; then
@@ -186,8 +187,26 @@ EOF
 
 chmod +x "${STAGING}/genesis.sh" "${STAGING}/install.sh" "${STAGING}/upgrade.sh"
 
-# ── 打 tar.gz（10KB 量级） ───────────────────────────────
-log "压缩 config bundle..."
+# ── Build + push installer 镜像（客户用 docker run 拿配置）───
+log "Building installer 镜像（把 staging 烤进 ~6MB alpine）..."
+INSTALLER_CTX="${OUTPUT_DIR}/.installer-build-${VERSION}"
+rm -rf "$INSTALLER_CTX"
+mkdir -p "$INSTALLER_CTX"
+cp "${ONPREM_DIR}/installer/Dockerfile"   "${INSTALLER_CTX}/"
+cp "${ONPREM_DIR}/installer/entrypoint.sh" "${INSTALLER_CTX}/"
+cp -r "$STAGING" "${INSTALLER_CTX}/bundle"
+docker build -t "$GHCR_INSTALLER" "$INSTALLER_CTX"
+rm -rf "$INSTALLER_CTX"
+
+if [ "$PUSH" -eq 1 ]; then
+  log "Pushing $GHCR_INSTALLER..."
+  docker push "$GHCR_INSTALLER"
+else
+  warn "--no-push 模式：跳过 installer push"
+fi
+
+# ── 打 tar.gz（保留，作为离线 / 备用交付通道）─────────────
+log "压缩 config bundle (备用 tar 通道)..."
 TARBALL="${OUTPUT_DIR}/${BUNDLE_NAME}.tar.gz"
 tar -C "$OUTPUT_DIR" -czf "$TARBALL" "$BUNDLE_NAME"
 
@@ -210,25 +229,27 @@ cat <<EOF
 
 ${C_BOLD}${C_GREEN}✓ 发布完成${C_RESET}
 
-  Version       : ${C_BOLD}${VERSION}${C_RESET}
-  Config bundle : ${TARBALL}
-  Size          : ${SIZE}
-  SHA-256       : ${SHA}
+  Version          : ${C_BOLD}${VERSION}${C_RESET}
+  Config bundle    : ${TARBALL}
+  Size             : ${SIZE}
+  SHA-256          : ${SHA}
 
   Images on ghcr.io:
     ${GHCR_BACKEND}
     ${GHCR_FRONTEND}
     ${GHCR_AI_SERVICE}
+    ${GHCR_INSTALLER}  ${C_DIM}← 客户用这个拿配置${C_RESET}
 
-${C_DIM}给客户的部署指引：${C_RESET}
-  1. 把 ${BUNDLE_NAME}.tar.gz 发给客户
-  2. 给客户一个 GitHub PAT（只授 read:packages 权限）
-  3. 客户在服务器跑：
-     ${C_BOLD}docker login ghcr.io -u <github-username>${C_RESET}
-     ${C_BOLD}tar -xzf ${BUNDLE_NAME}.tar.gz && cd ${BUNDLE_NAME}${C_RESET}
-     ${C_BOLD}bash genesis.sh install${C_RESET}
+${C_DIM}给客户的部署指引（首选：docker run，零文件传输）：${C_RESET}
+  1. 在 org 加客户为 packages collaborator (Read)
+     https://github.com/orgs/${GHCR_OWNER}/packages
+  2. 客户在服务器跑：
+     ${C_BOLD}docker login ghcr.io -u <客户自己的 github 用户名>${C_RESET}
+     ${C_BOLD}docker run --rm -v "\$(pwd):/out" ${GHCR_INSTALLER}${C_RESET}
+     ${C_BOLD}cd genesis-config-${VERSION} && bash genesis.sh install${C_RESET}
 
-${C_DIM}首次发布前请检查：${C_RESET}
-  - GitHub 个人 Packages 页面把三个镜像设为 Private（默认私有，但确认一下）
-  - https://github.com/${GHCR_OWNER}?tab=packages
+${C_DIM}备用：离线 / 不能连 ghcr 的客户走 tar 通道${C_RESET}
+  scp ${BUNDLE_NAME}.tar.gz customer:/tmp/
+  客户：tar -xzf /tmp/${BUNDLE_NAME}.tar.gz && cd ${BUNDLE_NAME} && bash genesis.sh install
+  （客户仍需 docker login ghcr.io 才能 pull 业务镜像）
 EOF
