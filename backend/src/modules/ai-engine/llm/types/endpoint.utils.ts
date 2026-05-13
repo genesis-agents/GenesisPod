@@ -83,8 +83,26 @@ export function ensureOpenAIEmbeddingsPath(
 ): string | null {
   const trimmed = url?.trim();
   if (!trimmed) return null;
-  const normalized = stripTrailingSlash(trimmed);
+  let normalized = stripTrailingSlash(trimmed);
   if (normalized.endsWith("/embeddings")) return normalized;
+  // 2026-05-13 防呆: admin 偶发把 chat completions / responses / messages
+  //   完整 URL 当 embedding 的 apiEndpoint 配。原版直接追加 /embeddings 会拼出
+  //   /chat/completions/embeddings 这种 404 路径 → OpenAI 返 400
+  //   "Unknown parameter: 'model'"（实证 prod 3 user 同一错配）。
+  //   识别这几个常见错路径后缀，剥掉再追加正确 path。
+  const WRONG_PATH_SUFFIXES = [
+    "/chat/completions",
+    "/completions",
+    "/responses",
+    "/messages",
+    "/chat",
+  ];
+  for (const suffix of WRONG_PATH_SUFFIXES) {
+    if (normalized.endsWith(suffix)) {
+      normalized = normalized.slice(0, -suffix.length);
+      break;
+    }
+  }
   return `${normalized}/embeddings`;
 }
 
