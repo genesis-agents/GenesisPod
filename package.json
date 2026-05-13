@@ -64,6 +64,8 @@
     "release:push": "git push --follow-tags origin main",
     "release:gh-sync": "tsx scripts/devops/sync-github-releases.ts",
     "release:gh-sync:dry": "tsx scripts/devops/sync-github-releases.ts --dry-run",
+    "onprem:bundle": "bash infra/onprem/scripts/build-bundle.sh",
+    "onprem:release": "npm run release && bash infra/onprem/scripts/build-bundle.sh",
     "ui-patrol": "tsx scripts/ui-iteration/index.ts",
     "ui-patrol:critical": "tsx scripts/ui-iteration/index.ts --tier critical",
     "ui-patrol:changed": "tsx scripts/ui-iteration/index.ts --changed",
