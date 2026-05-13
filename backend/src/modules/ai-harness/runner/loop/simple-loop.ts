@@ -39,6 +39,7 @@ import {
 import { AIModelType } from "@prisma/client";
 import type { TaskProfile } from "../../../ai-engine/llm/types/task-profile.types";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
+import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 
 export interface SimpleLoopRunOptions extends ILoopRunOptions {
   /** Spec 声明的 TaskProfile（透传给 chat()） */
@@ -249,29 +250,31 @@ export class SimpleLoop implements IAgentLoop {
   }
 
   /**
-   * 容错抽 JSON：先尝试整体 parse，失败则找首个 { ... } / [ ... ] 块。
-   * 兼容 LLM 在 JSON 前后加 ```json fence 或注释的情况。
+   * 容错抽 JSON：路由到 common/utils/json-extraction.utils 的 7 策略抽取器，
+   * 自动处理 <think>/<thinking>/<reasoning> 推理标签、```json fence、
+   * 重复行去重、brace-counting、truncated JSON 修复等场景。
+   *
+   * 历史：曾经手卷 4 步 fence+regex，对推理模型（Nemotron / DeepSeek-R1 / QwQ）
+   * 的 <think>...</think> 前缀会直接抛 RUNNER_OUTPUT_SCHEMA_MISMATCH。
    */
   private extractJson(content: string): unknown {
-    const trimmed = content.trim();
-    if (!trimmed) {
+    if (!content || !content.trim()) {
       throw new Error("empty content");
     }
-    try {
-      return JSON.parse(trimmed);
-    } catch {
-      // fence 剥离
-      const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (fenceMatch) {
-        return JSON.parse(fenceMatch[1].trim());
+    const result = extractJsonFromAIResponse<unknown>(content);
+    if (!result.success) {
+      // 兜底：尝试找最外层 [...] 数组（utils 优先匹配 {} 对象）
+      const arrMatch = content.match(/\[[\s\S]*\]/);
+      if (arrMatch) {
+        try {
+          return JSON.parse(arrMatch[0]);
+        } catch {
+          // fall through
+        }
       }
-      // 找最外层 {...} 或 [...]
-      const objMatch = trimmed.match(/\{[\s\S]*\}/);
-      if (objMatch) return JSON.parse(objMatch[0]);
-      const arrMatch = trimmed.match(/\[[\s\S]*\]/);
-      if (arrMatch) return JSON.parse(arrMatch[0]);
-      throw new Error("no parseable JSON block found");
+      throw new Error(result.error ?? "no parseable JSON block found");
     }
+    return result.data;
   }
 
   private classifyFailureCode(message: string): string {

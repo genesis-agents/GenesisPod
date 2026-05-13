@@ -5,10 +5,75 @@
  * markdown formatting, code blocks, or partial content.
  */
 
-import { extractJsonFromAIResponse } from "../json-extraction.utils";
+import {
+  extractJsonFromAIResponse,
+  stripReasoningBlocks,
+} from "../json-extraction.utils";
 
 describe("JSON Extraction Utilities", () => {
+  describe("stripReasoningBlocks", () => {
+    it("strips closed <think> blocks", () => {
+      expect(stripReasoningBlocks("<think>internal</think>{a:1}")).toBe(
+        "{a:1}",
+      );
+    });
+
+    it("strips closed <thinking> blocks (Anthropic-style)", () => {
+      expect(
+        stripReasoningBlocks("<thinking>reason</thinking>{\"x\":1}"),
+      ).toBe('{"x":1}');
+    });
+
+    it("strips closed <reasoning> blocks", () => {
+      expect(
+        stripReasoningBlocks("<reasoning>note</reasoning>{\"x\":1}"),
+      ).toBe('{"x":1}');
+    });
+
+    it("is case-insensitive on tags", () => {
+      expect(stripReasoningBlocks("<Think>x</Think>JSON")).toBe("JSON");
+      expect(stripReasoningBlocks("<THINKING>x</THINKING>JSON")).toBe("JSON");
+    });
+
+    it("strips multi-line and multiple blocks", () => {
+      const input =
+        "<think>line1\nline2</think>before<thinking>more</thinking>after";
+      expect(stripReasoningBlocks(input)).toBe("beforeafter");
+    });
+
+    it("strips unclosed leading <think> blocks (truncated)", () => {
+      const input = "<think>some reasoning... </think>{\"final\":1}";
+      expect(stripReasoningBlocks(input)).toBe('{"final":1}');
+    });
+
+    it("preserves content when no reasoning blocks present", () => {
+      expect(stripReasoningBlocks('{"x":1}')).toBe('{"x":1}');
+    });
+
+    it("returns empty for empty input", () => {
+      expect(stripReasoningBlocks("")).toBe("");
+    });
+  });
+
   describe("extractJsonFromAIResponse", () => {
+    describe("Reasoning-block preprocessing", () => {
+      it("parses JSON wrapped in <think> prefix (Nemotron / DeepSeek-R1 style)", () => {
+        const content =
+          '<think>The user wants me to score this... I will give 85.</think>\n{"score":85,"decision":"pass"}';
+        const result = extractJsonFromAIResponse(content);
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({ score: 85, decision: "pass" });
+      });
+
+      it("parses JSON inside ```json after a <think> block", () => {
+        const content =
+          '<think>let me think...</think>\n```json\n{"a":1}\n```';
+        const result = extractJsonFromAIResponse(content);
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({ a: 1 });
+      });
+    });
+
     describe("Method 1: Direct JSON parse", () => {
       it("should parse valid JSON directly", () => {
         // Arrange

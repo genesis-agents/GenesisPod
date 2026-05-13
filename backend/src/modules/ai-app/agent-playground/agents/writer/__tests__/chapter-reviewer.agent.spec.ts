@@ -152,22 +152,56 @@ describe("ChapterReviewerAgent", () => {
       ).toBe(true);
     });
 
-    it("rejects decision not in enum", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, decision: "hold" }).success,
-      ).toBe(false);
-    });
-
-    it("rejects score below 0", () => {
-      expect(outputSchema.safeParse({ ...baseOutput, score: -1 }).success).toBe(
-        false,
+    it("FAIL-CLOSED: unknown decision falls back to 'revise', not 'pass'", () => {
+      // Critical safety contract: a hallucinated/novel decision token must
+      // never widen to the permissive branch. Reviewer-flagged regression
+      // in the prior local-model patch (`.catch("pass")`) had the polarity
+      // reversed and silently auto-approved chapters that should be revised.
+      const result = outputSchema.safeParse({
+        ...baseOutput,
+        decision: "hold",
+      });
+      expect(result.success).toBe(true);
+      expect((result as { data: { decision: string } }).data.decision).toBe(
+        "revise",
       );
     });
 
-    it("rejects score above 100", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, score: 101 }).success,
-      ).toBe(false);
+    it("FAIL-CLOSED: missing decision falls back to 'revise'", () => {
+      const { decision: _unused, ...withoutDecision } = baseOutput;
+      void _unused;
+      const result = outputSchema.safeParse(withoutDecision);
+      expect(result.success).toBe(true);
+      expect((result as { data: { decision: string } }).data.decision).toBe(
+        "revise",
+      );
+    });
+
+    it("normalizes decision case (PASS / Revise)", () => {
+      const r1 = outputSchema.safeParse({ ...baseOutput, decision: "PASS" });
+      expect(r1.success).toBe(true);
+      expect((r1 as { data: { decision: string } }).data.decision).toBe("pass");
+
+      const r2 = outputSchema.safeParse({
+        ...baseOutput,
+        decision: "Revise",
+      });
+      expect(r2.success).toBe(true);
+      expect((r2 as { data: { decision: string } }).data.decision).toBe(
+        "revise",
+      );
+    });
+
+    it("clamps score below 0 to 0 (no abort)", () => {
+      const result = outputSchema.safeParse({ ...baseOutput, score: -1 });
+      expect(result.success).toBe(true);
+      expect((result as { data: { score: number } }).data.score).toBe(0);
+    });
+
+    it("clamps score above 100 to 100 (no abort)", () => {
+      const result = outputSchema.safeParse({ ...baseOutput, score: 101 });
+      expect(result.success).toBe(true);
+      expect((result as { data: { score: number } }).data.score).toBe(100);
     });
 
     it("accepts score at boundary 0", () => {
@@ -182,10 +216,16 @@ describe("ChapterReviewerAgent", () => {
       ).toBe(true);
     });
 
-    it("rejects non-integer score", () => {
-      expect(
-        outputSchema.safeParse({ ...baseOutput, score: 75.5 }).success,
-      ).toBe(false);
+    it("accepts non-integer score (local-model 75.5 / 7.0 drift)", () => {
+      const result = outputSchema.safeParse({ ...baseOutput, score: 75.5 });
+      expect(result.success).toBe(true);
+      expect((result as { data: { score: number } }).data.score).toBe(75.5);
+    });
+
+    it("coerces numeric-string score", () => {
+      const result = outputSchema.safeParse({ ...baseOutput, score: "85" });
+      expect(result.success).toBe(true);
+      expect((result as { data: { score: number } }).data.score).toBe(85);
     });
 
     it("rejects issues array with more than 6 items", () => {

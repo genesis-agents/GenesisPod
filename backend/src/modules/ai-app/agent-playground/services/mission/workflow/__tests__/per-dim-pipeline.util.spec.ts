@@ -1384,6 +1384,60 @@ describe("runPerDimPipeline — parallel chapter execution (CHAPTER_CONCURRENCY=
       /expected 4 chapters, got 2.*ratio 50\.0%.*tolerance 30%/,
     );
   });
+
+  // ── C9: outline-only / too-short chapter is FILTERED (not throws) when
+  //   within tolerance, and the filtered set is the one that flows downstream
+  //   into integrator / stitch / grade — reviewer-flagged plumbing fix
+  //   (2026-05-13 v2 validateWrittenChapters: filter-and-forward).
+  it("C9: outline-only chapter within tolerance is filtered, pipeline continues", async () => {
+    const writer = {
+      planDimensionOutline: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeOutlineOutput(5),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    // chapter 3 returns an outline-only body (bullets / sub-heading only).
+    // 1/5 = 20% ≤ 30% tolerance, so the pipeline should KEEP going with 4
+    // valid chapters and `result.chapters` should NOT include §3.
+    const invoker = makeAgentDispatchInvoker({
+      writerOverrides: {
+        3: {
+          state: "completed",
+          output: {
+            body: "## 小标题\n\n- 要点一\n- 要点二\n- 要点三",
+            wordCount: 30,
+            citationsUsed: [],
+          },
+          events: [],
+          iterations: 1,
+          wallTimeMs: 100,
+        },
+      },
+    });
+    const reviewer = {
+      judgeDimension: jest.fn().mockResolvedValue({
+        state: "completed",
+        output: makeGradeOutput(),
+        events: [],
+        iterations: 1,
+        wallTimeMs: 100,
+      }),
+    };
+    const deps = makeDeps({
+      writer: writer as never,
+      invoker: invoker as never,
+      reviewer: reviewer as never,
+    });
+    const result = await runPerDimPipeline(baseArgs, deps);
+    expect(result.chapters?.length).toBe(4);
+    expect(result.chapters?.map((c) => c.index)).toEqual([1, 2, 4, 5]);
+    // grade still runs (filtered set fed in, not the polluted one)
+    expect(result.grade).toBeDefined();
+    expect(result.grade!.overall).toBeGreaterThan(0);
+  });
 });
 
 // ─── L1-1 + L1-2 防"全部重写"循环测试 ──────────────────────────────────────────
