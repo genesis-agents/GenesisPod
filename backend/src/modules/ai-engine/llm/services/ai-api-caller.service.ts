@@ -944,15 +944,53 @@ export class AiApiCallerService {
       `[callXAIAPI] model=${modelId}, tokenParam=${effectiveTokenParam}=${maxTokens}, reasoning=${isReasoningModel}, temp=${temperature}, responseFormat=${responseFormat}, msgs=${messages.length}, ~${Math.ceil(xaiEstimatedChars / CHARS_TO_TOKENS_RATIO)} input tokens`,
     );
 
-    const response = await firstValueFrom(
-      this.httpService.post(effectiveEndpoint, requestBody, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout,
-      }),
-    );
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.post(effectiveEndpoint, requestBody, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          timeout,
+        }),
+      );
+    } catch (err) {
+      // 2026-05-13 (#31 diag): xAI 4xx 反复 INVALID_MODEL 但原 axios error message
+      //   只剩 "Request failed with status code N"，body 内容被丢。展开 response.data
+      //   + 关键 request shape 让 admin 看到真正触发因子（model / response_format /
+      //   max_tokens / messages 大小 / endpoint）。
+      const axiosErr = err as {
+        response?: {
+          status?: number;
+          statusText?: string;
+          data?: unknown;
+        };
+        message?: string;
+      };
+      const status = axiosErr.response?.status;
+      if (status !== undefined && status >= 400) {
+        const bodyPreview = (() => {
+          try {
+            return JSON.stringify(axiosErr.response?.data).slice(0, 800);
+          } catch {
+            return String(axiosErr.response?.data ?? "").slice(0, 800);
+          }
+        })();
+        this.logger.warn(
+          `[callXAIAPI] ${status} ${axiosErr.response?.statusText ?? ""} ` +
+            `endpoint=${effectiveEndpoint} model=${modelId} ` +
+            `hasResponseFormat=${"response_format" in requestBody} ` +
+            `responseFormatType=${
+              (requestBody.response_format as { type?: string } | undefined)
+                ?.type ?? "(none)"
+            } ` +
+            `${effectiveTokenParam}=${maxTokens} reasoning=${isReasoningModel} ` +
+            `msgs=${messages.length} body=${bodyPreview}`,
+        );
+      }
+      throw err;
+    }
 
     const data = response.data;
     const messageObj = data.choices?.[0]?.message;

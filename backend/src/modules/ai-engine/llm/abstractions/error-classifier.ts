@@ -179,9 +179,24 @@ export class AIErrorClassifier {
   ): AIError {
     const status = error.response?.status;
     const data = error.response?.data as Record<string, unknown> | undefined;
+    // 2026-05-13: provider 错误 body 形态差异大，逐种尝试提取真实 message
+    //   - OpenAI: {error: {message, type, code}}
+    //   - xAI/Grok: {code, error: "INVALID_MODEL", message?, detail?} 或 {error: "..."}
+    //   - Anthropic: {error: {type, message}}
+    //   - Cohere/Voyage: {message}
+    //   - 兜底 axios "Request failed with status code N"（无信息量）
+    const errFromObj =
+      typeof data?.error === "object" && data?.error !== null
+        ? ((data.error as Record<string, unknown>).message as
+            | string
+            | undefined)
+        : undefined;
+    const errFromStr = typeof data?.error === "string" ? data.error : undefined;
     const errorMessage =
-      (data?.error as Record<string, unknown>)?.message ||
-      data?.message ||
+      errFromObj ||
+      errFromStr ||
+      (typeof data?.message === "string" ? data.message : undefined) ||
+      (typeof data?.detail === "string" ? data.detail : undefined) ||
       error.message;
 
     // 根据状态码分类
