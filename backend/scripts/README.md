@@ -75,24 +75,15 @@ npm run maintenance:validate
 
 初始化和填充数据库数据。
 
-| 脚本                           | 命令                      | 描述                |
-| ------------------------------ | ------------------------- | ------------------- |
-| `seed-report-templates.ts`     | `npm run seed:templates`  | 导入报告模板        |
-| `seed-simulation-providers.ts` | `npm run seed:simulation` | 导入模拟提供商      |
-| `seed-youtube-sources.ts`      | `npm run seed:youtube`    | 导入 YouTube 数据源 |
+**新数据 seed 走 `backend/src/common/seed/` 的 SeedSyncService**（backend 启动自动幂等同步）。
+这里不再放业务 seed 脚本；架构 spec 测试 `__tests__/architecture/seed-governance.spec.ts` 会拦截违规。
 
-**常用命令:**
+只剩两个保留入口：
 
-```bash
-# 导入报告模板
-npm run seed:templates
-
-# 导入模拟提供商
-npm run seed:simulation
-
-# 导入 YouTube 数据源
-npm run seed:youtube
-```
+| 脚本                   | 命令                                   | 描述                                     |
+| ---------------------- | -------------------------------------- | ---------------------------------------- |
+| `prisma/seed.ts`       | `npm run prisma:seed` / `npm run seed` | Prisma 官方 seed 入口（demo 用户、兜底） |
+| `db/seed-ui-patrol.ts` | —                                      | UI patrol 测试夹具（E2E 用，非生产数据） |
 
 ### 缩略图 (thumbnails/)
 
