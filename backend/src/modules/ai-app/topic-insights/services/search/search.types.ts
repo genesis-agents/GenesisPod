@@ -118,6 +118,10 @@ export interface ThrottleStats {
   concurrency: number;
   activeCount: number;
   pendingCount: number;
+  /** 速率上限（req/s）；undefined 表示该 source 不限速 */
+  reqPerSec?: number;
+  /** 当前剩余 cooldown 毫秒数；0 = 不在 cooldown */
+  cooldownRemainingMs: number;
 }
 
 // ============================================================================

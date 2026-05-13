@@ -157,7 +157,7 @@ describe("GlobalSourceThrottleService", () => {
       // then abort the second task's signal while it is queued.
       const controller = new AbortController();
 
-      let releaseSlow!: () => void;
+      let releaseSlow: (() => void) | undefined;
       const slowTask = () =>
         new Promise<string>((resolve) => {
           releaseSlow = () => resolve("slow");
@@ -165,6 +165,12 @@ describe("GlobalSourceThrottleService", () => {
 
       // Start slow task to occupy the single slot
       const slowPromise = service.execute("arxiv-search", slowTask);
+
+      // 让 microtask 队列跑完，确保 slowTask 真正被 limiter callback 调用（设上 releaseSlow）。
+      // 加了 rate limiter 后 limiter callback 进入 fn 之前多一次 await（acquire token），
+      // 必须显式 yield 让 slowTask 被实际触发。
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(releaseSlow).toBeDefined();
 
       // Abort the controller, then enqueue the second task
       controller.abort();
@@ -176,7 +182,7 @@ describe("GlobalSourceThrottleService", () => {
       );
 
       // Release slow task so second can proceed (or fail)
-      releaseSlow();
+      releaseSlow!();
 
       await slowPromise;
       // The second task's signal was already aborted before execute() was called,
@@ -368,6 +374,159 @@ describe("GlobalSourceThrottleService", () => {
 
       // After both tasks complete, pending should be 0
       expect(service.getQueueSize("arxiv-search")).toBe(0);
+    });
+  });
+
+  // ─────────────────────────── cooldown ────────────────────────────────────
+
+  describe("cooldown", () => {
+    it("setCooldown then getCooldownRemaining > 0", () => {
+      service.setCooldown("openalex-search", 5_000);
+      const remaining = service.getCooldownRemaining("openalex-search");
+      expect(remaining).toBeGreaterThan(0);
+      expect(remaining).toBeLessThanOrEqual(5_000);
+    });
+
+    it("getCooldownRemaining returns 0 when not in cooldown", () => {
+      expect(service.getCooldownRemaining("openalex-search")).toBe(0);
+    });
+
+    it("getCooldownRemaining returns 0 for unknown source", () => {
+      expect(service.getCooldownRemaining("unknown-xyz")).toBe(0);
+    });
+
+    it("execute fast-fails when source is in cooldown", async () => {
+      service.setCooldown("openalex-search", 10_000);
+
+      const fn = jest.fn().mockResolvedValue("should-not-run");
+
+      await expect(service.execute("openalex-search", fn)).rejects.toThrow(
+        /cooldown/i,
+      );
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    it("execute succeeds after cooldown expires", async () => {
+      service.setCooldown("openalex-search", 50); // 50ms
+
+      // Wait past cooldown
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      const fn = jest.fn().mockResolvedValue("ok");
+      await expect(service.execute("openalex-search", fn)).resolves.toBe("ok");
+    });
+
+    it("auto-sets cooldown when fn throws a 429 error", async () => {
+      const fn = jest.fn().mockRejectedValue(new Error("HTTP 429 rate limit"));
+
+      await expect(service.execute("openalex-search", fn)).rejects.toThrow(
+        /429/,
+      );
+
+      // Cooldown should be set now
+      expect(service.getCooldownRemaining("openalex-search")).toBeGreaterThan(
+        0,
+      );
+    });
+
+    it("auto-sets cooldown when fn throws 'rate limit' error message", async () => {
+      const fn = jest
+        .fn()
+        .mockRejectedValue(new Error("Too Many Requests: rate limit exceeded"));
+
+      await expect(service.execute("openalex-search", fn)).rejects.toThrow();
+      expect(service.getCooldownRemaining("openalex-search")).toBeGreaterThan(
+        0,
+      );
+    });
+
+    it("does NOT set cooldown for non-rate-limit errors", async () => {
+      const fn = jest
+        .fn()
+        .mockRejectedValue(new Error("HTTP 500 server error"));
+
+      await expect(service.execute("openalex-search", fn)).rejects.toThrow(
+        /500/,
+      );
+      expect(service.getCooldownRemaining("openalex-search")).toBe(0);
+    });
+
+    it("subsequent setCooldown only extends if longer", () => {
+      service.setCooldown("openalex-search", 10_000);
+      const first = service.getCooldownRemaining("openalex-search");
+
+      // Shorter cooldown should NOT override
+      service.setCooldown("openalex-search", 100);
+      const second = service.getCooldownRemaining("openalex-search");
+
+      expect(second).toBeGreaterThanOrEqual(first - 100); // allow timing slack
+    });
+
+    it("stats include cooldownRemainingMs", () => {
+      service.setCooldown("web-search", 5_000);
+      const stats = service.getStats();
+      const ws = stats.find((s) => s.sourceId === "web-search");
+      expect(ws?.cooldownRemainingMs).toBeGreaterThan(0);
+    });
+  });
+
+  // ─────────────────────────── rate limiter (req/s) ─────────────────────────
+
+  describe("rate limiter (token bucket)", () => {
+    it("openalex-search has reqPerSec=8 in stats", () => {
+      const stats = service.getStats();
+      const oa = stats.find((s) => s.sourceId === "openalex-search");
+      expect(oa?.reqPerSec).toBe(8);
+    });
+
+    it("openalex-search has concurrency=2 (down from 5)", () => {
+      const stats = service.getStats();
+      const oa = stats.find((s) => s.sourceId === "openalex-search");
+      expect(oa?.concurrency).toBe(2);
+    });
+
+    it("sources without reqPerSec config have undefined reqPerSec", () => {
+      const stats = service.getStats();
+      const ws = stats.find((s) => s.sourceId === "web-search");
+      expect(ws?.reqPerSec).toBeUndefined();
+    });
+
+    it("throttles burst beyond reqPerSec (token bucket)", async () => {
+      // Register a fast bucket: 2 req/s, concurrency 10 (so concurrency doesn't bottleneck)
+      service.registerSource("rate-test", { concurrency: 10, reqPerSec: 2 });
+
+      const timestamps: number[] = [];
+      const fn = jest.fn().mockImplementation(async () => {
+        timestamps.push(Date.now());
+        return "ok";
+      });
+
+      const start = Date.now();
+      await Promise.all([
+        service.execute("rate-test", fn),
+        service.execute("rate-test", fn),
+        service.execute("rate-test", fn),
+        service.execute("rate-test", fn),
+      ]);
+      const elapsed = Date.now() - start;
+
+      // 4 tasks at 2 req/s with burst capacity 2 = first 2 immediate, next 2 wait ~500ms each
+      // Total should be ≥ ~900ms (allow timing slack)
+      expect(elapsed).toBeGreaterThanOrEqual(800);
+    }, 5000);
+
+    it("registerSource accepts both number and config object", () => {
+      service.registerSource("rate-num", 5);
+      service.registerSource("rate-obj", { concurrency: 5, reqPerSec: 3 });
+
+      const stats = service.getStats();
+      const a = stats.find((s) => s.sourceId === "rate-num");
+      const b = stats.find((s) => s.sourceId === "rate-obj");
+
+      expect(a?.concurrency).toBe(5);
+      expect(a?.reqPerSec).toBeUndefined();
+      expect(b?.concurrency).toBe(5);
+      expect(b?.reqPerSec).toBe(3);
     });
   });
 });
