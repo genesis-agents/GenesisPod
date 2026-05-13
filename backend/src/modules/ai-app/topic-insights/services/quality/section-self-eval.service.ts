@@ -105,9 +105,16 @@ Reply strictly in this JSON format, no other text:
       });
 
       const scores = this.parseScores(response.content);
-      const weakAreas = SELF_EVAL_DIMENSIONS.filter(
-        (d) => (scores[d] ?? 10) < 7,
+      // ★ 2026-05-13 #60 自适应（与 ai-harness 镜像版本保持同步）：
+      //   weakArea = score < 7 AND score < sectionMax - 1
+      //   避免"总是 2 个 redo" 强迫症（6/6/7/7 不再各打回 2 个）。
+      const sectionMax = Math.max(
+        ...SELF_EVAL_DIMENSIONS.map((d) => scores[d] ?? 10),
       );
+      const weakAreas = SELF_EVAL_DIMENSIONS.filter((d) => {
+        const s = scores[d] ?? 10;
+        return s < 7 && s < sectionMax - 1;
+      });
 
       return {
         scores,

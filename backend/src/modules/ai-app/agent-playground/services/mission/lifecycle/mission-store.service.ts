@@ -522,10 +522,11 @@ export class MissionStore {
    * 时允许修改；running/queued/pending 时返回 conflict（前端按钮也会隐藏，这是
    * 服务端再次守门）。
    *
-   * 修改字段：
-   *   - max_credits（row 字段）
-   *   - wallTimeMs（row 字段，存毫秒）
-   *   - userProfile.budgetMultiplierOverride（JSON 字段，rerun 时读取）
+   * 字段存储语义（2026-05-13 #66 修正）：
+   *   - maxCredits → row.max_credits（rerun 时 runtime-shell 读这里作 cap）
+   *   - wallTimeMs cap → userProfile.wallTimeMs JSON（row.wallTimeMs 是
+   *     markCompleted 写入的已用执行时长，不可改写为 cap！）
+   *   - budgetMultiplierOverride → userProfile.budgetMultiplierOverride JSON
    *
    * Returns true if updated, false if mission not found or guard rejected。
    */
@@ -550,28 +551,45 @@ export class MissionStore {
     const data: Record<string, unknown> = {};
     if (typeof patch.maxCredits === "number")
       data.maxCredits = patch.maxCredits;
-    if (typeof patch.wallTimeMs === "number")
-      data.wallTimeMs = patch.wallTimeMs;
-    if (typeof patch.budgetMultiplierOverride === "number") {
-      // budgetMultiplierOverride 没 row 字段，写到 userProfile JSON
+    // wallTimeMs / budgetMultiplierOverride 都进 userProfile JSON（合并写一次）
+    const wantsUserProfile =
+      typeof patch.wallTimeMs === "number" ||
+      typeof patch.budgetMultiplierOverride === "number";
+    if (wantsUserProfile) {
       const existing =
         (row.userProfile as Record<string, unknown> | null) ?? {};
-      data.userProfile = {
-        ...existing,
-        budgetMultiplierOverride: patch.budgetMultiplierOverride,
-      } as Prisma.InputJsonValue;
+      const merged: Record<string, unknown> = { ...existing };
+      if (typeof patch.wallTimeMs === "number") {
+        merged.wallTimeMs = patch.wallTimeMs;
+      }
+      if (typeof patch.budgetMultiplierOverride === "number") {
+        merged.budgetMultiplierOverride = patch.budgetMultiplierOverride;
+      }
+      data.userProfile = merged as Prisma.InputJsonValue;
     }
     if (Object.keys(data).length === 0) {
       return { ok: false, reason: "empty_patch" };
     }
-    await this.prisma.agentPlaygroundMission
-      .updateMany({ where: { id, userId }, data })
-      .catch((err: unknown) => {
-        this.log.warn(
-          `[updateBudgetByUser ${id}] failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
+    // ★ 2026-05-13 #66: 不再 swallow updateMany 错误 —— 前端只有看到真错才能给
+    //   用户准确反馈"保存失败"，而不是误以为 ok 但啥都没变。
+    try {
+      const res = await this.prisma.agentPlaygroundMission.updateMany({
+        where: { id, userId },
+        data,
       });
-    return { ok: true };
+      if (res.count === 0) {
+        return { ok: false, reason: "no_row_updated" };
+      }
+      return { ok: true };
+    } catch (err) {
+      this.log.warn(
+        `[updateBudgetByUser ${id}] update failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return {
+        ok: false,
+        reason: `db_error: ${err instanceof Error ? err.message.slice(0, 200) : "unknown"}`,
+      };
+    }
   }
 
   async markCancelled(id: string): Promise<void> {

@@ -256,9 +256,10 @@ export default function MissionDetailPage() {
           themeSummary: persisted.themeSummary ?? undefined,
           dimensions: persisted.dimensions ?? undefined,
           finalScore: persisted.finalScore ?? undefined,
-          // 2026-05-13: 把 row-field budget 透传到 view，让 Mission 设置弹窗读真值
+          // 2026-05-13 #66: row.maxCredits 是用户设的 cap，可透传；row.wallTimeMs 是
+          // 已经过的执行时长（markCompleted 写入），不是 cap —— 弹窗 cap 读
+          // userProfile.wallTimeMs（runtime-shell 写入 JSON）。
           maxCredits: persisted.maxCredits ?? undefined,
-          wallTimeMs: persisted.wallTimeMs ?? undefined,
           status: persisted.status,
         },
         stages: stages.length > 0 ? stages : liveView.stages,
@@ -278,11 +279,21 @@ export default function MissionDetailPage() {
     }
     // ★ 兜底：即使有 live events，也用持久化 status 覆盖终态（用户取消后仍能识别）
     if (persisted) {
+      // ★ 2026-05-13 #66: budget row 字段（maxCredits / status）必须穿透所有
+      // merge 分支，否则 Mission 设置弹窗读 view.mission.maxCredits === undefined
+      // → 退回 2000 硬编码，用户看不到真实预算配置。
+      // wallTimeMs row 字段是已经过的执行时长（markCompleted 时写入），不是用户
+      // 设的 cap；cap 在 userProfile.wallTimeMs JSON 里，弹窗自己读 userProfile。
+      const persistedBudget = {
+        maxCredits: persisted.maxCredits ?? undefined,
+        status: persisted.status,
+      };
       const mergedView =
         (persisted.tokensUsed ?? 0) > liveView.cost.tokensUsed ||
         (persisted.costUsd ?? 0) > liveView.cost.costUsd
           ? {
               ...liveView,
+              mission: { ...liveView.mission, ...persistedBudget },
               cost: {
                 tokensUsed: Math.max(
                   liveView.cost.tokensUsed,
@@ -295,7 +306,10 @@ export default function MissionDetailPage() {
                 byStage: liveView.cost.byStage,
               },
             }
-          : liveView;
+          : {
+              ...liveView,
+              mission: { ...liveView.mission, ...persistedBudget },
+            };
       const terminalTs = persisted.completedAt
         ? new Date(persisted.completedAt).getTime()
         : Date.now();
@@ -1142,6 +1156,15 @@ export default function MissionDetailPage() {
         }
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        onSaved={async () => {
+          // 2026-05-13 #66: 保存后 refetch persisted 让弹窗下次打开读到新值
+          try {
+            const d = await getMissionDetail(missionId);
+            setPersisted(d);
+          } catch {
+            /* ignore */
+          }
+        }}
       />
     </div>
   );
@@ -1155,6 +1178,7 @@ function MissionSettingsModal({
   userProfile,
   open,
   onClose,
+  onSaved,
 }: {
   missionId: string;
   mission: ReturnType<typeof deriveView>['mission'];
@@ -1163,6 +1187,7 @@ function MissionSettingsModal({
   userProfile: Record<string, unknown> | null;
   open: boolean;
   onClose: () => void;
+  onSaved?: () => Promise<void> | void;
 }) {
   // ★ 2026-04-30 (#52): 可编辑表单 —— 改完点"另存为新 mission"用新配置创建新 mission，
   //   原 mission 保留作对比。topic / language / depth / lengthProfile / styleProfile /
@@ -1209,9 +1234,11 @@ function MissionSettingsModal({
     setSearchTimeRange((userProfile?.searchTimeRange as STR) ?? '365d');
     const kbIds = userProfile?.knowledgeBaseIds as string[] | undefined;
     setKnowledgeBaseIds(Array.isArray(kbIds) ? kbIds : []);
-    // 2026-05-13: maxCredits / wallTimeMs 优先读 mission row 真值（runtime-shell 已
-    // 只把这些字段写到 row 而非 userProfile JSON）；userProfile 仅作 legacy fallback。
-    // budgetMultiplierOverride 仍只在 userProfile JSON（无 row 字段）。
+    // 2026-05-13 #66 (修 c046213bd 半成品):
+    //   - maxCredits 读 row 字段（runtime-shell 写入 row.maxCredits 是 cap）
+    //   - wallTimeMs 读 userProfile JSON（runtime-shell 写到 userProfile.wallTimeMs，
+    //     row.wallTimeMs 是 markCompleted 时记的执行时长，不是 cap，不能用！）
+    //   - budgetMultiplierOverride 仍只在 userProfile JSON（无 row 字段）。
     const rowMax = (mission as { maxCredits?: number }).maxCredits;
     const profMax = (userProfile as { maxCredits?: number })?.maxCredits;
     setMaxCredits(rowMax ?? profMax ?? 2000);
@@ -1219,13 +1246,9 @@ function MissionSettingsModal({
       ((userProfile as { budgetMultiplierOverride?: number })
         ?.budgetMultiplierOverride as number) ?? 1.0
     );
-    const rowWall = (mission as { wallTimeMs?: number }).wallTimeMs;
     const profWall = (userProfile as { wallTimeMs?: number })?.wallTimeMs;
-    const inheritedWall = rowWall ?? profWall;
     setWallTimeMinutes(
-      inheritedWall && inheritedWall > 0
-        ? Math.round(inheritedWall / 60_000)
-        : 60
+      profWall && profWall > 0 ? Math.round(profWall / 60_000) : 60
     );
     setSaveError(null);
   }, [open, mission.topic, mission.depth, mission.language, userProfile]);
@@ -1306,6 +1329,8 @@ function MissionSettingsModal({
         budgetMultiplierOverride,
         wallTimeMs: wallTimeMinutes * 60_000,
       });
+      // 2026-05-13 #66: trigger parent refetch so next open sees new values
+      if (onSaved) await onSaved();
       setSaving(false);
       onClose();
     } catch (e) {

@@ -108,9 +108,27 @@ Reply strictly in this JSON format, no other text:
       });
 
       const scores = this.parseScores(response.content);
-      const weakAreas = SELF_EVAL_DIMENSIONS.filter(
-        (d) => (scores[d] ?? 10) < 7,
+      // ★ 2026-05-13 #60 自适应 weakAreas（用户反馈"总是 2 个 redo"，不根据实际情况）：
+      //   旧逻辑 `score < 7` 是绝对阈值，导致 6/6/7/7 这种"总体过得去但 LLM 给分
+      //   保守"的章节也总有 2 个 dim 被打回 redo。改为：
+      //
+      //     weakArea = (score < 7) AND (score < sectionMax - 1)
+      //
+      //   核心：dim 必须既绝对偏弱、又相对落后于本章节最强项才算 weak。
+      //   这避免了"全 6/7" 时还要找 2 个出来 redo 的强迫症行为。
+      //
+      //   实例：
+      //   - 6,6,7,7 (max=7) → 6<7 ✓ 但 6<6 NO → 0 个 redo（用户期望，避免"总是 2"）
+      //   - 5,7,7,7 (max=7) → 5<6 ✓ → 1 个 redo（真有 1 项明显弱才修 1）
+      //   - 5,4,8,6 (max=8) → ad=5<7, ec=4<7, wq=6<7 全 <7=7 → 3 个 redo（强对比时全标）
+      //   - 8,8,9,9 (max=9) → 任何都 ≥7 → 0 个 redo
+      const sectionMax = Math.max(
+        ...SELF_EVAL_DIMENSIONS.map((d) => scores[d] ?? 10),
       );
+      const weakAreas = SELF_EVAL_DIMENSIONS.filter((d) => {
+        const s = scores[d] ?? 10;
+        return s < 7 && s < sectionMax - 1;
+      });
 
       return {
         scores,
