@@ -171,6 +171,11 @@ export interface WikiIngestProgress {
   diffId?: string;
   /** status=failed 时填，banner 展示 */
   errorMessage?: string;
+  /**
+   * Partial-success：completed 时若 section-fill 有页失败，列出 slug。
+   * banner 展示 "X 页失败"+ slug 缩略，用户可对失败 slug 单独重试。
+   */
+  failedSlugs?: string[];
 }
 
 export interface WikiKbConfig {

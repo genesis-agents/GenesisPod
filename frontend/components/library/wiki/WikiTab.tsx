@@ -2192,6 +2192,12 @@ function IngestPendingBanner({
   const isCompleted = progress.status === 'completed';
   const isFailed = progress.status === 'failed';
   const isRunning = progress.status === 'running';
+  // ★ 2026-05-13 P-#14: partial-success — completed 但 section-fill 有页失败。
+  //   走 amber 调色板（warn 非 error），banner 显示 "X 页失败" + slug 缩略。
+  const hasPartialFailure =
+    isCompleted &&
+    Array.isArray(progress.failedSlugs) &&
+    progress.failedSlugs.length > 0;
 
   const elapsedMs = (() => {
     const start = new Date(progress.startedAt).getTime();
@@ -2243,44 +2249,57 @@ function IngestPendingBanner({
   };
   const label = stageLabelMap[progress.stage] ?? progress.stage;
 
-  const palette = isCompleted
+  const palette = hasPartialFailure
     ? {
-        border: 'border-emerald-200',
-        bg: 'bg-emerald-50',
-        text: 'text-emerald-900',
-        sub: 'text-emerald-700',
-        bar: 'bg-emerald-600',
-        spinner: 'text-emerald-600',
-        barBg: 'bg-emerald-200',
-        btnBorder: 'border-emerald-300',
-        btnText: 'text-emerald-700',
-        btnHoverBg: 'hover:bg-emerald-50',
+        border: 'border-amber-200',
+        bg: 'bg-amber-50',
+        text: 'text-amber-900',
+        sub: 'text-amber-700',
+        bar: 'bg-amber-600',
+        spinner: 'text-amber-600',
+        barBg: 'bg-amber-200',
+        btnBorder: 'border-amber-300',
+        btnText: 'text-amber-700',
+        btnHoverBg: 'hover:bg-amber-50',
       }
-    : isFailed
+    : isCompleted
       ? {
-          border: 'border-red-200',
-          bg: 'bg-red-50',
-          text: 'text-red-900',
-          sub: 'text-red-700',
-          bar: 'bg-red-600',
-          spinner: 'text-red-600',
-          barBg: 'bg-red-200',
-          btnBorder: 'border-red-300',
-          btnText: 'text-red-700',
-          btnHoverBg: 'hover:bg-red-50',
+          border: 'border-emerald-200',
+          bg: 'bg-emerald-50',
+          text: 'text-emerald-900',
+          sub: 'text-emerald-700',
+          bar: 'bg-emerald-600',
+          spinner: 'text-emerald-600',
+          barBg: 'bg-emerald-200',
+          btnBorder: 'border-emerald-300',
+          btnText: 'text-emerald-700',
+          btnHoverBg: 'hover:bg-emerald-50',
         }
-      : {
-          border: 'border-violet-200',
-          bg: 'bg-violet-50',
-          text: 'text-violet-900',
-          sub: 'text-violet-700',
-          bar: 'bg-violet-600',
-          spinner: 'text-violet-600',
-          barBg: 'bg-violet-200',
-          btnBorder: 'border-violet-300',
-          btnText: 'text-violet-700',
-          btnHoverBg: 'hover:bg-violet-50',
-        };
+      : isFailed
+        ? {
+            border: 'border-red-200',
+            bg: 'bg-red-50',
+            text: 'text-red-900',
+            sub: 'text-red-700',
+            bar: 'bg-red-600',
+            spinner: 'text-red-600',
+            barBg: 'bg-red-200',
+            btnBorder: 'border-red-300',
+            btnText: 'text-red-700',
+            btnHoverBg: 'hover:bg-red-50',
+          }
+        : {
+            border: 'border-violet-200',
+            bg: 'bg-violet-50',
+            text: 'text-violet-900',
+            sub: 'text-violet-700',
+            bar: 'bg-violet-600',
+            spinner: 'text-violet-600',
+            barBg: 'bg-violet-200',
+            btnBorder: 'border-violet-300',
+            btnText: 'text-violet-700',
+            btnHoverBg: 'hover:bg-violet-50',
+          };
 
   return (
     <div className={`border-b ${palette.border} ${palette.bg} px-8 py-3`}>
@@ -2306,7 +2325,20 @@ function IngestPendingBanner({
               />
             </div>
             <div className={`mt-1 text-xs ${palette.sub}`}>
-              {isCompleted && '新的 PENDING diff 已生成，可点右侧按钮查看。'}
+              {isCompleted &&
+                !hasPartialFailure &&
+                '新的 PENDING diff 已生成，可点右侧按钮查看。'}
+              {hasPartialFailure && (
+                <>
+                  diff 已生成（部分页失败 {progress.failedSlugs!.length}/
+                  {progress.pagesTotal ?? progress.failedSlugs!.length} 页）：
+                  {progress.failedSlugs!.slice(0, 5).join('、')}
+                  {progress.failedSlugs!.length > 5
+                    ? `…等 ${progress.failedSlugs!.length} 个`
+                    : ''}
+                  。可对失败 slug 单独重试。
+                </>
+              )}
               {isFailed &&
                 (progress.errorMessage ||
                   '后台运行失败，请检查 Railway log 详情。')}

@@ -136,6 +136,12 @@ export interface WikiIngestProgress {
   diffId?: string;
   /** status=failed 时填，user-facing 简短原因 */
   errorMessage?: string;
+  /**
+   * section-fill 阶段失败的页 slug 列表（partial-success 场景）。
+   * status=completed 且 failedSlugs.length>0 表示"部分成功"，前端可展示
+   * "X 页成功 / Y 页失败 — slugs..."；用户对失败 slug 单独重试。
+   */
+  failedSlugs?: string[];
 }
 
 @Injectable()
@@ -793,8 +799,12 @@ export class WikiIngestService {
 
     // ── Pass 2: SECTION-FILL (parallel, fail-tolerant, checkpointed) ──
     const concurrency = Math.max(1, config.ingestSectionConcurrency ?? 3);
+    // ★ 2026-05-13 P-#14: tolerance 默认 0.2 → 0.5。section-fill 是 per-page
+    //   LLM 调用，rate-limit / content-too-large / 429 单页失败 20-30% 是常
+    //   见噪声；20% 阈值会把 10 个成功页连同 3 个失败页一起 throw 掉，让用户
+    //   重跑整批（再付一遍 LLM 成本）。0.5 仍能拦"模型整体崩了"的真异常。
     const failureToleranceRatio =
-      config.ingestSectionFailureToleranceRatio ?? 0.2;
+      config.ingestSectionFailureToleranceRatio ?? 0.5;
     this.setProgress(knowledgeBaseId, {
       stage: "section-fill",
       pagesDone: 0,
@@ -937,21 +947,25 @@ export class WikiIngestService {
 
     const totalItems = allOutlineItems.length;
     const failRate = totalItems === 0 ? 0 : failedSlugs.length / totalItems;
-    if (failRate > failureToleranceRatio) {
-      this.logger.warn(
-        `[ingest/MULTI section-fill] userId=${userId} kb=${knowledgeBaseId} reason=failure-rate-exceeds-tolerance failRate=${failRate.toFixed(2)} tolerance=${failureToleranceRatio} failed=${failedSlugs.length}/${totalItems} slugs=${failedSlugs.slice(0, 5).join(",")}${failedSlugs.length > 5 ? "..." : ""}`,
-      );
-      throw new BadRequestException(
-        `Wiki ingest section-fill failure rate ${failRate.toFixed(2)} exceeds tolerance ${failureToleranceRatio} (${failedSlugs.length}/${totalItems} pages failed)`,
-      );
-    }
 
+    // ★ 2026-05-13 P-#14: 0 成功才 throw（无内容可提交）。否则 partial-success：
+    //   提交成功页 + 把 failedSlugs 暴露到 progress，前端展示"X/Y 页失败"+单
+    //   slug 重试入口。原 all-or-nothing 会把 10 个成功页连同 3 个失败页一起
+    //   throw，用户重跑整批再付一遍 LLM 成本。
     if (sectionResults.length === 0) {
       this.logger.warn(
         `[ingest/MULTI section-fill] userId=${userId} kb=${knowledgeBaseId} reason=zero-successful-pages totalItems=${totalItems} failed=${failedSlugs.length}`,
       );
       throw new BadRequestException(
         "Wiki ingest section-fill produced 0 successful pages; please retry",
+      );
+    }
+
+    if (failRate > failureToleranceRatio) {
+      // 超 tolerance 但有部分成功 → warn 不 throw，让 caller 走完 cross-link
+      // + persist 路径提交已成功的页。
+      this.logger.warn(
+        `[ingest/MULTI section-fill] userId=${userId} kb=${knowledgeBaseId} reason=high-failure-rate-partial-commit failRate=${failRate.toFixed(2)} tolerance=${failureToleranceRatio} failed=${failedSlugs.length}/${totalItems} success=${sectionResults.length} slugs=${failedSlugs.slice(0, 5).join(",")}${failedSlugs.length > 5 ? "..." : ""}`,
       );
     }
 
@@ -1063,6 +1077,7 @@ export class WikiIngestService {
       stage: "completed",
       finishedAt: new Date().toISOString(),
       diffId: diff.id,
+      ...(failedSlugs.length > 0 ? { failedSlugs } : {}),
     });
     this.logger.log(
       `[ingest/MULTI] kb=${knowledgeBaseId} diff=${diff.id} creates=${validated.data.creates.length} updates=${validated.data.updates.length} deletes=${validated.data.deletes.length} sectionFails=${failedSlugs.length}/${totalItems}`,
