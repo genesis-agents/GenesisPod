@@ -78,20 +78,6 @@ export class AiChatFailoverCallerService {
     await this.keyExecutor.trackFailure(healthKeyId, provider, error);
   }
 
-  /**
-   * 计算模型超时（与 AiChatService.getTimeoutForModel 同算法）
-   * 独立保留 ~10 行避免循环 DI；逻辑改动需双向同步。
-   */
-  private getTimeoutForModel(modelId: string, maxTokens: number): number {
-    const isReasoning = this.modelConfigService.isReasoningModel(modelId);
-    const baseTimeout = isReasoning ? 300_000 : 120_000;
-    const maxTimeout = isReasoning ? 900_000 : 600_000;
-    return Math.max(
-      baseTimeout,
-      Math.min(maxTimeout, baseTimeout + Math.ceil(maxTokens / 1000) * 15_000),
-    );
-  }
-
   async callAPIWithFailover(
     userId: string,
     config: AIModelConfig,
@@ -129,8 +115,15 @@ export class AiChatFailoverCallerService {
       maxTokens = configLimit;
     }
 
-    const timeout =
-      config.defaultTimeoutMs || this.getTimeoutForModel(modelId, maxTokens);
+    // ★ 修复：用 Math.max 而非 || 短路，避免 UserModelConfig.defaultTimeoutMs
+    // 默认值 120000（schema @default）让 reasoning model 永远走不到 540s+ 的 timeout 算法。
+    // configured 仍允许 admin/用户显式调大（如 900000），但不会被低于推荐值的旧默认值卡死。
+    const computedTimeout = this.modelConfigService.getTimeoutForModel(
+      modelId,
+      maxTokens,
+    );
+    const configuredTimeout = config.defaultTimeoutMs ?? 0;
+    const timeout = Math.max(computedTimeout, configuredTimeout);
     const useStrictMode = optionStrictMode ?? false;
     const effectiveTemperature = supportsTemp ? temperature : undefined;
 

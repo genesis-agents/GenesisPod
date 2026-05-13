@@ -432,15 +432,9 @@ export class AiDirectKeyService {
       (body.max_completion_tokens as number | undefined) ||
       (body.max_tokens as number | undefined) ||
       2048;
-    const isReasoning = this.modelConfigService.isReasoningModel(modelName);
-    const baseTimeout = isReasoning ? 300000 : 120000;
-    const maxTimeout = isReasoning ? 900000 : 600000;
-    const dynamicTimeout = Math.max(
-      baseTimeout,
-      Math.min(maxTimeout, baseTimeout + Math.ceil(maxTokens / 1000) * 15000),
-    );
-    this.logger.debug(
-      `[${modelName}] Dynamic timeout: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoning})`,
+    const dynamicTimeout = this.modelConfigService.getTimeoutForModel(
+      modelName,
+      maxTokens,
     );
 
     const estimateTokens = (text: string): number => {

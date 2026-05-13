@@ -43,6 +43,7 @@ describe("AiDirectKeyService", () => {
 
     mockModelConfigService = {
       isReasoningModel: jest.fn().mockReturnValue(false),
+      getTimeoutForModel: jest.fn().mockReturnValue(120000),
       // ai-direct-key 现在调 getModelConfig 拿真实 modelConfig 给 TaskProfileMapper（修真根因：原传 null 导致 isReasoning 路径丢失）
       getModelConfig: jest.fn().mockResolvedValue(null),
     };
@@ -1182,5 +1183,3 @@ describe("AiDirectKeyService", () => {
     });
   });
 });
-
-

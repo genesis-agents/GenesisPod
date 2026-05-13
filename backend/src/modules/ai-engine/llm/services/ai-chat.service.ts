@@ -764,26 +764,6 @@ export class AiChatService {
   }
 
   /**
-   * 计算模型的超时时间
-   */
-  private getTimeoutForModel(modelId: string, maxTokens: number): number {
-    const isReasoning = this.isReasoningModel(modelId);
-    const baseTimeout = isReasoning ? 300000 : 120000;
-    const maxTimeout = isReasoning ? 900000 : 600000;
-
-    const dynamicTimeout = Math.max(
-      baseTimeout,
-      Math.min(maxTimeout, baseTimeout + Math.ceil(maxTokens / 1000) * 15000),
-    );
-
-    this.logger.debug(
-      `[getTimeoutForModel] ${modelId}: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoning})`,
-    );
-
-    return dynamicTimeout;
-  }
-
-  /**
    * 使用数据库配置调用 AI API
    * BYOK failover 路径：见 ai-chat-failover-caller.service.ts（2026-05-05 抽出）
    */
@@ -849,8 +829,15 @@ export class AiChatService {
       maxTokens = configLimit;
     }
 
-    const timeout =
-      config.defaultTimeoutMs || this.getTimeoutForModel(modelId, maxTokens);
+    // ★ 修复：用 Math.max 而非 || 短路，避免 UserModelConfig.defaultTimeoutMs
+    // 默认值 120000（schema @default）让 reasoning model 永远走不到 540s+ 的 timeout 算法。
+    // configured 仍允许 admin/用户显式调大，但不会被低于推荐值的旧默认值卡死。
+    const computedTimeout = this.modelConfigService.getTimeoutForModel(
+      modelId,
+      maxTokens,
+    );
+    const configuredTimeout = config.defaultTimeoutMs ?? 0;
+    const timeout = Math.max(computedTimeout, configuredTimeout);
 
     const useStrictMode = optionStrictMode ?? false;
 

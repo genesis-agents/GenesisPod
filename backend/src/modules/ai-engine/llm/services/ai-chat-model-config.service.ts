@@ -415,27 +415,4 @@ export class AiChatModelConfigService {
 
     return true;
   }
-
-  /**
-   * 根据模型和 Token 数计算超时时间
-   */
-  getTimeoutForModel(modelId: string, maxTokens: number): number {
-    const isReasoning = this.isReasoningModel(modelId);
-
-    // ★ 推理模型需要更长的超时时间（5分钟起步）
-    const baseTimeout = isReasoning ? 300000 : 120000; // 5分钟 vs 2分钟
-    const maxTimeout = isReasoning ? 600000 : 300000; // 10分钟 vs 5分钟
-
-    // 根据 maxTokens 动态调整（每 1000 tokens 增加 15 秒）
-    const dynamicTimeout = Math.min(
-      maxTimeout,
-      baseTimeout + Math.ceil(maxTokens / 1000) * 15000,
-    );
-
-    this.logger.debug(
-      `[getTimeoutForModel] ${modelId}: ${dynamicTimeout}ms (maxTokens=${maxTokens}, reasoning=${isReasoning})`,
-    );
-
-    return dynamicTimeout;
-  }
 }

@@ -85,6 +85,7 @@ describe("AiChatService (extended coverage)", () => {
       getAllEnabledModelsByType: jest.fn().mockResolvedValue([]),
       getApiKeyForModel: jest.fn().mockResolvedValue("test-key"),
       isReasoningModel: jest.fn().mockReturnValue(false),
+      getTimeoutForModel: jest.fn().mockReturnValue(120000),
       findUserDefaultByType: jest.fn().mockResolvedValue(null),
       resolveApiKey: jest.fn().mockResolvedValue({
         apiKey: "test-key",
@@ -414,5 +415,3 @@ describe("AiChatService (extended coverage)", () => {
     });
   });
 });
-
-

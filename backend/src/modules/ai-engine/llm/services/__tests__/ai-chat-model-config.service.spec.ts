@@ -295,37 +295,8 @@ describe("AiChatModelConfigService", () => {
     });
   });
 
-  // ==================== getTimeoutForModel ====================
-
-  describe("getTimeoutForModel", () => {
-    it("should return longer timeout for reasoning models", () => {
-      const reasoningTimeout = service.getTimeoutForModel("o1-mini", 4000);
-      const normalTimeout = service.getTimeoutForModel("gpt-4o", 4000);
-      expect(reasoningTimeout).toBeGreaterThan(normalTimeout);
-    });
-
-    it("should scale with maxTokens", () => {
-      const smallTokenTimeout = service.getTimeoutForModel("gpt-4o", 1000);
-      const largeTokenTimeout = service.getTimeoutForModel("gpt-4o", 10000);
-      expect(largeTokenTimeout).toBeGreaterThan(smallTokenTimeout);
-    });
-
-    it("should cap at maxTimeout for reasoning models", () => {
-      // Very large token count should be capped
-      const timeout = service.getTimeoutForModel("o1-mini", 100000);
-      expect(timeout).toBeLessThanOrEqual(600000);
-    });
-
-    it("should cap at maxTimeout for normal models", () => {
-      const timeout = service.getTimeoutForModel("gpt-4o", 100000);
-      expect(timeout).toBeLessThanOrEqual(300000);
-    });
-
-    it("should use at least base timeout", () => {
-      const timeout = service.getTimeoutForModel("gpt-4o", 0);
-      expect(timeout).toBeGreaterThanOrEqual(120000);
-    });
-  });
+  // getTimeoutForModel 已迁移到单源 AiModelConfigService.getTimeoutForModel
+  // （见 ai-model-config.service.spec.ts:630）；本 service 不再保留重复实现。
 
   // ==================== refreshModelConfigCache ====================
 

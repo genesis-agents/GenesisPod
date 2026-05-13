@@ -88,6 +88,7 @@ describe("AiChatService", () => {
       getAllEnabledModelsByType: jest.fn().mockResolvedValue([]),
       getApiKeyForModel: jest.fn().mockResolvedValue("test-key"),
       isReasoningModel: jest.fn().mockReturnValue(false),
+      getTimeoutForModel: jest.fn().mockReturnValue(120000),
       findUserDefaultByType: jest.fn().mockResolvedValue(null),
       resolveApiKey: jest.fn().mockResolvedValue({
         apiKey: "test-key",
@@ -1838,6 +1839,51 @@ describe("AiChatService", () => {
 
       // Should still call the API (timeout was computed internally)
       expect(mockApiCallerService.callOpenAICompatibleAPI).toHaveBeenCalled();
+    });
+
+    // 回归：UserModelConfig.defaultTimeoutMs 默认 120000（schema @default）
+    // 不能短路掉 reasoning model 540s+ 的推荐 timeout。
+    // 旧实现 `config.defaultTimeoutMs || getTimeoutForModel(...)` 会让 120000
+    // 强吃 reasoning timeout，导致 BYOK gpt-5 类 reasoning 模型在 axios 120s
+    // 后被 ECONNABORTED → "Request timeout"。修复用 Math.max 保留显式增大能力。
+    it("Math.max picks computed timeout when config.defaultTimeoutMs is below computed", async () => {
+      const config = createMockModelConfig({
+        defaultTimeoutMs: 120000, // schema default
+        apiFormat: "openai",
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(config);
+      mockModelConfigService.getTimeoutForModel.mockReturnValue(540000); // reasoning + 16K tokens
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-5.4",
+      });
+
+      // 7th positional arg of callOpenAICompatibleAPI is `timeout`.
+      // Must be the larger value (540000), not the short-circuited 120000.
+      const lastCall = (
+        mockApiCallerService.callOpenAICompatibleAPI as jest.Mock
+      ).mock.calls.at(-1);
+      expect(lastCall?.[6]).toBe(540000);
+    });
+
+    it("Math.max keeps configured timeout when it exceeds computed (admin override)", async () => {
+      const config = createMockModelConfig({
+        defaultTimeoutMs: 900000, // admin explicit override
+        apiFormat: "openai",
+      });
+      mockModelConfigService.getModelConfig.mockResolvedValue(config);
+      mockModelConfigService.getTimeoutForModel.mockReturnValue(540000);
+
+      await service.chat({
+        messages: [{ role: "user", content: "Hello" }],
+        model: "gpt-5.4",
+      });
+
+      const lastCall = (
+        mockApiCallerService.callOpenAICompatibleAPI as jest.Mock
+      ).mock.calls.at(-1);
+      expect(lastCall?.[6]).toBe(900000);
     });
   });
 
