@@ -14,6 +14,7 @@ import {
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 import { katexAwareSchema } from '@/lib/markdown/katexAwareSchema';
+import { preprocessWikiBody } from '@/lib/wiki/wikilink-preprocess';
 
 const WIKI_SANITIZE_SCHEMA = {
   ...katexAwareSchema,
@@ -263,14 +264,10 @@ function WikiMarkdownView({
     return m;
   }, [outboundLinks]);
 
+  // 2026-05-14 prod 观察: LLM 经常错用 `slug` inline code 而非 [[slug]],
+  // preprocess 在 helper 里同时处理两种形态 + 守门避免破坏真代码块。
   const preprocessed = useMemo(
-    () =>
-      page.body.replace(
-        /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g,
-        // body 里 [[slug]] 渲染成 [title](wikilink:slug) —— anchor 文本是真 title
-        // 而不是拼音 slug。outboundLinks 没收录该 slug 时 fallback 到 slug 自身。
-        (_match, slug) => `[${titleBySlug.get(slug) ?? slug}](wikilink:${slug})`
-      ),
+    () => preprocessWikiBody(page.body, titleBySlug),
     [page.body, titleBySlug]
   );
 

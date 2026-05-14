@@ -65,6 +65,7 @@ import { useTranslation } from '@/lib/i18n';
 import rehypeSanitize from 'rehype-sanitize';
 import { MarkdownViewer } from '@/components/common/markdown-viewer';
 import { katexAwareSchema } from '@/lib/markdown/katexAwareSchema';
+import { preprocessWikiBody } from '@/lib/wiki/wikilink-preprocess';
 import WikiGraphModal from './WikiGraphModal';
 import WikiSettingsModal from './WikiSettingsModal';
 import WikiCardGrid from './WikiCardGrid';
@@ -1012,15 +1013,10 @@ function WikiMarkdownView({
     return m;
   }, [outboundLinks]);
 
-  // Convert [[slug]] markers to standard markdown links with a sentinel
-  // wikilink: scheme so the ReactMarkdown anchor renderer can intercept and
-  // route them through onSelectSlug. Anchor text 用真 title 而非拼音 slug。
+  // 2026-05-14: 复用 preprocessWikiBody helper（同时处理 [[slug]] 和兜底
+  // inline code `slug` 形态，避免 LLM ingest 错用语法导致前端看到拼音）。
   const preprocessed = useMemo(
-    () =>
-      page.body.replace(
-        /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g,
-        (_m, slug) => `[${titleBySlug.get(slug) ?? slug}](wikilink:${slug})`
-      ),
+    () => preprocessWikiBody(page.body, titleBySlug),
     [page.body, titleBySlug]
   );
 

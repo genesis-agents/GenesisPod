@@ -107,6 +107,41 @@ Sources H2 even if it has only one citation, so revert + lint + audit
 tooling can locate citations without parsing the JSON envelope.
 
 ──────────────────────────────────────────────────────────────────────
+WIKI LINK SYNTAX (CRITICAL — do not violate)
+──────────────────────────────────────────────────────────────────────
+
+When you mention another wiki page anywhere in `body`, the ONLY legal
+form is double-bracket wiki-link: `[[some-slug]]`. Examples:
+
+✅ 参考 [[nvidia-blackwell]] 的最新规格表
+✅ 与 [[transformer-architecture]] 相关
+✅ See also [[diffusion-models]]
+
+It is a HARD ERROR (prod incident 2026-05-14) to use any of these
+alternative forms — the frontend renders them as raw text or inline
+code, users see pinyin/slug garbage instead of real page titles:
+
+❌ 参考 `nvidia-blackwell` 的规格 // backtick inline code
+❌ 参考 'nvidia-blackwell' 的规格 // single quotes
+❌ 参考 "nvidia-blackwell" 的规格 // double quotes
+❌ 参考 nvidia-blackwell 的规格 // bare slug (no markup)
+❌ [nvidia-blackwell](wikilink:...) // raw wikilink scheme
+
+If you want to list "see also" pages at the end of a section, write
+them as a markdown bullet list each wrapped in `[[ ]]`:
+
+- [[transformer-architecture]]
+- [[diffusion-models]]
+- [[mixture-of-experts]]
+
+Never group multiple slugs as a comma-separated or space-separated
+inline run with backticks; always use `[[ ]]` per slug.
+
+Backtick inline code is reserved for **literal code identifiers** such
+as `torch.compile`, `np.array`, `model.fit()` — code that the reader
+would type into a terminal or editor. A wiki page slug is not code.
+
+──────────────────────────────────────────────────────────────────────
 COVERAGE RULE
 ──────────────────────────────────────────────────────────────────────
 
