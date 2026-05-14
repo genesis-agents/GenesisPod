@@ -269,20 +269,49 @@ describe("WikiPageService", () => {
       expect(kbService.hasAccess).toHaveBeenCalledWith("kb", "u", "VIEWER");
     });
 
-    it("getPage returns outbound + backlinks", async () => {
+    it("getPage returns outbound + backlinks with hydrated title (multi-locale rebuild 2026-05-14)", async () => {
       prisma.wikiPage.findUnique.mockResolvedValue({
         id: "p1",
         slug: "page-a",
+        locale: "zh",
         knowledgeBaseId: "kb",
       });
-      // Mock outbound + backlinks
+      // findMany 调用顺序: outbound links -> backlinks -> outbound page targets
       prisma.wikiPageLink.findMany
-        .mockResolvedValueOnce([{ toSlug: "out-1" }])
-        .mockResolvedValueOnce([{ fromPage: { slug: "back-1" } }]);
+        .mockResolvedValueOnce([{ toSlug: "out-1", toLocale: "zh" }])
+        .mockResolvedValueOnce([
+          { fromPage: { slug: "back-1", title: "返回页 A", locale: "zh" } },
+        ]);
+      prisma.wikiPage.findMany.mockResolvedValueOnce([
+        { slug: "out-1", title: "外链页 1", locale: "zh" },
+      ]);
 
       const result = await service.getPage("u", "kb", "page-a");
-      expect(result.outboundLinks).toEqual(["out-1"]);
-      expect(result.backlinks).toEqual(["back-1"]);
+      expect(result.outboundLinks).toEqual([
+        { slug: "out-1", title: "外链页 1", locale: "zh", exists: true },
+      ]);
+      expect(result.backlinks).toEqual([
+        { slug: "back-1", title: "返回页 A", locale: "zh", exists: true },
+      ]);
+    });
+
+    it("getPage outbound with missing target page falls back title=slug, exists=false", async () => {
+      prisma.wikiPage.findUnique.mockResolvedValue({
+        id: "p1",
+        slug: "page-a",
+        locale: "zh",
+        knowledgeBaseId: "kb",
+      });
+      prisma.wikiPageLink.findMany
+        .mockResolvedValueOnce([{ toSlug: "ghost", toLocale: "zh" }])
+        .mockResolvedValueOnce([]);
+      // 没找到目标 page (lint MISSING_XREF dangling 引用)
+      prisma.wikiPage.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getPage("u", "kb", "page-a");
+      expect(result.outboundLinks).toEqual([
+        { slug: "ghost", title: "ghost", locale: "zh", exists: false },
+      ]);
     });
 
     it("getPage returns 404 when page missing", async () => {

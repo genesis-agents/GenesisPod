@@ -409,7 +409,9 @@
       "reader": {
         "selectFromLeft": "Select a page on the left to view",
         "lastEditedBy": "Last edited by {{by}} · {{time}}",
-        "backlinks": "Backlinks ({{count}})"
+        "backlinks": "Backlinks ({{count}})",
+        "referenced": "Referenced pages ({{count}})",
+        "linkMissing": "Not yet created: {{slug}}"
       },
       "query": {
         "title": "Ask Wiki",

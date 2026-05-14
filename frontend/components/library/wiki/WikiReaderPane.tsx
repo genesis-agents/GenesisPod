@@ -250,15 +250,28 @@ function WikiMarkdownView({
 }) {
   const { t } = useTranslation();
   const { page, outboundLinks, backlinks } = pageWithLinks;
-  const knownSlugs = useMemo(() => new Set(outboundLinks), [outboundLinks]);
+  // 2026-05-14 multi-locale title rebuild: outbound 现在是 {slug, title, exists, locale}
+  // 不再是裸 slug。knownSlugs 仍用 Set<slug> 给 markdown wikilink 渲染时判断存在性。
+  const knownSlugs = useMemo(
+    () => new Set(outboundLinks.filter((l) => l.exists).map((l) => l.slug)),
+    [outboundLinks]
+  );
+  // markdown body 内嵌 [[slug]] 渲染时也要查 title，避免 anchor 文本是拼音。
+  const titleBySlug = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of outboundLinks) m.set(l.slug, l.title);
+    return m;
+  }, [outboundLinks]);
 
   const preprocessed = useMemo(
     () =>
       page.body.replace(
         /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g,
-        (_match, slug) => `[${slug}](wikilink:${slug})`
+        // body 里 [[slug]] 渲染成 [title](wikilink:slug) —— anchor 文本是真 title
+        // 而不是拼音 slug。outboundLinks 没收录该 slug 时 fallback 到 slug 自身。
+        (_match, slug) => `[${titleBySlug.get(slug) ?? slug}](wikilink:${slug})`
       ),
-    [page.body]
+    [page.body, titleBySlug]
   );
 
   return (
@@ -290,17 +303,30 @@ function WikiMarkdownView({
         {outboundLinks.length > 0 && (
           <div className="px-6 py-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-600">
-              Referenced pages
+              {t('library.wiki.reader.referenced', {
+                count: outboundLinks.length,
+              })}
             </div>
             <div className="flex flex-wrap gap-2">
-              {outboundLinks.slice(0, 10).map((slug) => (
+              {outboundLinks.slice(0, 10).map((link) => (
                 <button
-                  key={slug}
+                  key={`${link.slug}::${link.locale}`}
                   type="button"
-                  onClick={() => onSelectSlug(slug)}
-                  className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
+                  onClick={() => onSelectSlug(link.slug)}
+                  title={
+                    link.exists
+                      ? link.slug
+                      : t('library.wiki.reader.linkMissing', {
+                          slug: link.slug,
+                        })
+                  }
+                  className={
+                    link.exists
+                      ? 'rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                      : 'rounded-full border border-dashed border-red-300 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50'
+                  }
                 >
-                  [[{slug}]]
+                  {link.title}
                 </button>
               ))}
               {outboundLinks.length > 10 && (
@@ -370,13 +396,14 @@ function WikiMarkdownView({
             {t('library.wiki.reader.backlinks', { count: backlinks.length })}
           </div>
           <div className="flex flex-wrap gap-2">
-            {backlinks.map((slug) => (
+            {backlinks.map((link) => (
               <button
-                key={slug}
-                onClick={() => onSelectSlug(slug)}
+                key={`${link.slug}::${link.locale}`}
+                onClick={() => onSelectSlug(link.slug)}
+                title={link.slug}
                 className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:text-emerald-700"
               >
-                {slug}
+                {link.title}
               </button>
             ))}
           </div>

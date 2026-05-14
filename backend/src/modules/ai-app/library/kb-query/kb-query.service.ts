@@ -171,6 +171,9 @@ export class KbQueryService {
     try {
       const { page, outboundLinks, backlinks } =
         await this.wikiPageService.getPage(userId, knowledgeBaseId, slug);
+      // 2026-05-14: wikiPageService 现在返 {slug,title,locale,exists}[];
+      // WikiPageRead (LLM tool contract) 仍只需要 slug[] —— LLM 拿到 slug 后
+      // 可调 wiki-page-read 自行解析 title。dewrap 一层保持 LLM 接口稳定。
       return {
         knowledgeBaseId: page.knowledgeBaseId,
         slug: page.slug,
@@ -179,8 +182,8 @@ export class KbQueryService {
         category: page.category,
         body: page.body,
         oneLiner: page.oneLiner,
-        outboundLinks,
-        backlinks,
+        outboundLinks: outboundLinks.map((l) => l.slug),
+        backlinks: backlinks.map((l) => l.slug),
         updatedAt: page.updatedAt.toISOString(),
       };
     } catch (error) {

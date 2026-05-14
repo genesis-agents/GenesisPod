@@ -51,10 +51,22 @@ export interface WikiPage {
   updatedAt: string;
 }
 
+/**
+ * 2026-05-14 multi-locale title rebuild: links carry display title + locale.
+ * - `title`: 显示用名字；目标 page 不存在（lint MISSING_XREF）时 fallback 到 slug
+ * - `exists`: 区分已建立 vs 待补全的占位
+ */
+export interface WikiPageLinkInfo {
+  slug: string;
+  title: string;
+  locale: 'zh' | 'en' | string;
+  exists: boolean;
+}
+
 export interface WikiPageWithLinks {
   page: WikiPage;
-  outboundLinks: string[];
-  backlinks: string[];
+  outboundLinks: WikiPageLinkInfo[];
+  backlinks: WikiPageLinkInfo[];
 }
 
 export interface WikiPageSearchHit {

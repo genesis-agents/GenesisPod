@@ -291,8 +291,23 @@ describe("KbQueryService", () => {
           oneLiner: "React 函数组件状态",
           updatedAt: new Date("2026-05-12T00:00:00Z"),
         },
-        outboundLinks: ["functional-components"],
-        backlinks: ["react-overview"],
+        // 2026-05-14: wikiPageService 现在返 WikiPageLinkInfo[]; KbQueryService dewrap 回 slug[] 给 LLM
+        outboundLinks: [
+          {
+            slug: "functional-components",
+            title: "函数组件",
+            locale: "zh",
+            exists: true,
+          },
+        ],
+        backlinks: [
+          {
+            slug: "react-overview",
+            title: "React 概述",
+            locale: "zh",
+            exists: true,
+          },
+        ],
       });
 
       const result = await service.getWikiPage("user-1", "kb-1", "react-hooks");

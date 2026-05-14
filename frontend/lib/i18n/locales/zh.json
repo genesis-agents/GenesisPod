@@ -409,7 +409,9 @@
       "reader": {
         "selectFromLeft": "从左侧选择一页查看",
         "lastEditedBy": "最后编辑：{{by}} · {{time}}",
-        "backlinks": "反向链接 ({{count}})"
+        "backlinks": "反向链接 ({{count}})",
+        "referenced": "引用页面 ({{count}})",
+        "linkMissing": "尚未创建：{{slug}}"
       },
       "query": {
         "title": "询问 Wiki",

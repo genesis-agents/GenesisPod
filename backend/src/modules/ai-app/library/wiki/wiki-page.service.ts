@@ -24,6 +24,20 @@ import { CreateWikiPageDto, UpdateWikiPageDto } from "./dto/wiki-page.dto";
 const DEFAULT_WIKI_LOCALE: "zh" | "en" = "zh";
 
 /**
+ * Link info attached to a page response (2026-05-14 multi-locale title rebuild).
+ *
+ * `title` 是 display 用，按目标 page 的 locale 取真 title；目标缺失（lint
+ * 报 MISSING_XREF）时 fallback 到 slug 以保留可点击的链接形态。`exists` 让
+ * 前端能区分"已建立的关系"和"待补全的占位引用"。
+ */
+export interface WikiPageLinkInfo {
+  slug: string;
+  title: string;
+  locale: string;
+  exists: boolean;
+}
+
+/**
  * WikiPageService — page CRUD, link parsing, revision writing, and revert.
  *
  * v1.5.3 P1 scope:
@@ -78,6 +92,12 @@ export class WikiPageService {
    * W3-P0 gap #2 (2026-05-12): accepts optional `locale` so frontend can
    * switch between zh / en for bilingual KBs. When omitted, falls back to
    * 'zh' for backward-compat with legacy single-locale callers.
+   *
+   * 2026-05-14: outbound/back links 改返 {slug, title, locale, exists}。
+   * 旧版只回 slug → 前端 [[slug]] render 直接显示拼音 → 用户截图 7 反馈
+   * "REFERENCED PAGES 全拼音"。现在 JOIN wiki_pages 拿真 title。
+   * - outbound 目标 page 不存在 (lint 报 MISSING_XREF) → exists=false, title=slug
+   * - backlink 来源 page 总存在 (FK 保证) → exists 永 true
    */
   async getPage(
     userId: string,
@@ -86,8 +106,8 @@ export class WikiPageService {
     locale: "zh" | "en" = DEFAULT_WIKI_LOCALE,
   ): Promise<{
     page: WikiPage;
-    outboundLinks: string[];
-    backlinks: string[];
+    outboundLinks: WikiPageLinkInfo[];
+    backlinks: WikiPageLinkInfo[];
   }> {
     await this.assertViewerAccess(userId, knowledgeBaseId);
 
@@ -102,25 +122,66 @@ export class WikiPageService {
     });
     if (!page) throw new NotFoundException("Wiki page not found");
 
-    const [outbound, inbound] = await Promise.all([
+    const [outboundRows, inboundRows] = await Promise.all([
       this.prisma.wikiPageLink.findMany({
         where: { fromPageId: page.id },
-        select: { toSlug: true },
+        select: { toSlug: true, toLocale: true },
       }),
       this.prisma.wikiPageLink.findMany({
         where: {
           toSlug: page.slug,
+          toLocale: page.locale,
           fromPage: { knowledgeBaseId },
         },
-        select: { fromPage: { select: { slug: true } } },
+        select: {
+          fromPage: { select: { slug: true, title: true, locale: true } },
+        },
       }),
     ]);
 
-    return {
-      page,
-      outboundLinks: outbound.map((l) => l.toSlug),
-      backlinks: inbound.map((l) => l.fromPage.slug),
-    };
+    // Hydrate outbound: JOIN wiki_pages on (kbId, toSlug, toLocale) 拿 title
+    const outboundKeys = outboundRows.map((l) => ({
+      slug: l.toSlug,
+      locale: l.toLocale,
+    }));
+    const outboundTargets = outboundKeys.length
+      ? await this.prisma.wikiPage.findMany({
+          where: {
+            knowledgeBaseId,
+            OR: outboundKeys.map((k) => ({
+              slug: k.slug,
+              locale: k.locale,
+            })),
+          },
+          select: { slug: true, title: true, locale: true },
+        })
+      : [];
+    const targetByKey = new Map<string, { title: string; locale: string }>();
+    for (const t of outboundTargets) {
+      targetByKey.set(`${t.slug}::${t.locale}`, {
+        title: t.title,
+        locale: t.locale,
+      });
+    }
+
+    const outboundLinks: WikiPageLinkInfo[] = outboundRows.map((l) => {
+      const hit = targetByKey.get(`${l.toSlug}::${l.toLocale}`);
+      return {
+        slug: l.toSlug,
+        title: hit?.title ?? l.toSlug, // missing target → fallback to slug
+        locale: l.toLocale,
+        exists: !!hit,
+      };
+    });
+
+    const backlinks: WikiPageLinkInfo[] = inboundRows.map((row) => ({
+      slug: row.fromPage.slug,
+      title: row.fromPage.title,
+      locale: row.fromPage.locale,
+      exists: true, // FK guarantee
+    }));
+
+    return { page, outboundLinks, backlinks };
   }
 
   /** Create a new page (manual user creation; ingest path goes through diff apply). */

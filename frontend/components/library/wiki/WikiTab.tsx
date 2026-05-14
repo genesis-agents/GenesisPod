@@ -1001,18 +1001,27 @@ function WikiMarkdownView({
 }) {
   const { t } = useTranslation();
   const { page, outboundLinks, backlinks } = pageWithLinks;
-  const knownSlugs = useMemo(() => new Set(outboundLinks), [outboundLinks]);
+  // 2026-05-14 multi-locale title rebuild: outbound 现在是 {slug, title, exists, locale}
+  const knownSlugs = useMemo(
+    () => new Set(outboundLinks.filter((l) => l.exists).map((l) => l.slug)),
+    [outboundLinks]
+  );
+  const titleBySlug = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of outboundLinks) m.set(l.slug, l.title);
+    return m;
+  }, [outboundLinks]);
 
   // Convert [[slug]] markers to standard markdown links with a sentinel
   // wikilink: scheme so the ReactMarkdown anchor renderer can intercept and
-  // route them through onSelectSlug.
+  // route them through onSelectSlug. Anchor text 用真 title 而非拼音 slug。
   const preprocessed = useMemo(
     () =>
       page.body.replace(
         /\[\[([a-z0-9][a-z0-9-]*[a-z0-9])\]\]/g,
-        (_m, slug) => `[${slug}](wikilink:${slug})`
+        (_m, slug) => `[${titleBySlug.get(slug) ?? slug}](wikilink:${slug})`
       ),
-    [page.body]
+    [page.body, titleBySlug]
   );
 
   return (
@@ -1086,13 +1095,14 @@ function WikiMarkdownView({
             {t('library.wiki.reader.backlinks', { count: backlinks.length })}
           </div>
           <div className="flex flex-wrap gap-2">
-            {backlinks.map((slug) => (
+            {backlinks.map((link) => (
               <button
-                key={slug}
-                onClick={() => onSelectSlug(slug)}
+                key={`${link.slug}::${link.locale}`}
+                onClick={() => onSelectSlug(link.slug)}
+                title={link.slug}
                 className="rounded bg-gray-100 px-2 py-0.5 text-xs text-violet-700 hover:bg-violet-50"
               >
-                ? {slug}
+                {link.title}
               </button>
             ))}
           </div>
