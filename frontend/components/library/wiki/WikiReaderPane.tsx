@@ -155,6 +155,13 @@ export default function WikiReaderPane({
     SOURCE: [],
   };
   for (const page of pages) grouped[page.category].push(page);
+  // 2026-05-14: sidebar 显示时, 同一 KB 内 title 重复 (ingest LLM 没保证 title 唯一) →
+  // 在 title 后追加 (slug) 后缀做视觉区分,避免用户看到两条一模一样的行。
+  const duplicateTitles = new Set<string>();
+  const titleCount = new Map<string, number>();
+  for (const p of pages)
+    titleCount.set(p.title, (titleCount.get(p.title) ?? 0) + 1);
+  for (const [t, c] of titleCount) if (c > 1) duplicateTitles.add(t);
 
   const effectiveActiveSlug = activeSlug ?? pickFirstSlug(pages);
 
@@ -210,6 +217,11 @@ export default function WikiReaderPane({
                         >
                           <div className="truncate text-sm font-medium">
                             {page.title}
+                            {duplicateTitles.has(page.title) && (
+                              <span className="ml-1 text-[10px] font-normal text-gray-400">
+                                ({page.slug})
+                              </span>
+                            )}
                           </div>
                         </button>
                       </li>
