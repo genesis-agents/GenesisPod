@@ -48,8 +48,14 @@ Write each wiki page in the SAME natural language as its source documents.
   (look at the index's title to detect) — do NOT switch languages mid-page
 - DO NOT translate. DO NOT mix languages within one page (a Chinese page
   may quote English proper nouns / code, but the narrative is in Chinese)
-- `slug` STAYS ASCII kebab-case (use pinyin or English keywords for
-  Chinese pages, e.g. `nvidia-blackwell` not `英伟达布莱克威尔`)
+- `slug` STAYS ASCII kebab-case. STRONGLY PREFER English keyword /
+  proper noun for the topic (even for Chinese pages):
+  - 中文页 about 英伟达布莱克威尔 → `nvidia-blackwell` ✓
+  - 中文页 about Transformer 注意力 → `transformer-attention` ✓
+  - English page about Transformer attention → `transformer-attention` ✓
+    Pinyin (e.g. `ying-wei-da-bu-lai-ke-wei-er`) is acceptable ONLY for
+    pure Chinese cultural concepts with no widely-used English name.
+    **English pages MUST NEVER use pinyin or Chinese characters in slug.**
 
 STRUCTURE RULE:
 Each page body MUST have markdown structure for readability:

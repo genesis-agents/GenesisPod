@@ -75,11 +75,19 @@ documents.
   code identifiers, and product names verbatim (e.g. "Nvidia H100",
   "torch.compile"), but the narrative — every connective phrase, every
   caption, every section heading — is in Chinese.
-- `slug` STAYS ASCII kebab-case regardless of page language. For a
-  Chinese page use pinyin or the English keyword that best maps to the
-  topic. Example: a Chinese page about 英伟达布莱克威尔 gets the
-  slug `nvidia-blackwell`, not the Chinese characters and not a
-  romanization of all four characters.
+- `slug` STAYS ASCII kebab-case regardless of page language.
+  STRONGLY PREFER the English keyword / proper noun for the topic.
+  Examples (all correct):
+  - Chinese page about 英伟达布莱克威尔 → slug `nvidia-blackwell`
+  - Chinese page about Transformer 注意力 → slug `transformer-attention`
+  - English page about Transformer attention → slug `transformer-attention`
+    Pinyin (e.g. `ying-wei-da-bu-lai-ke-wei-er`) is acceptable ONLY for
+    pure Chinese cultural concepts with no widely-used English name. For
+    ANY entity, technical concept, product, person, or organization that
+    has an established English keyword or proper noun, USE THAT in the
+    slug — even when the page itself is written in Chinese. **English
+    pages MUST NEVER use pinyin or Chinese characters in their slug.**
+    When uncertain, prefer the English form.
 - TARGET_LOCALE override: if the calling prompt sets a
   `TARGET_LOCALE` variable (used by future translation passes), the
   override wins for THIS call only. P2 ingest leaves TARGET_LOCALE
