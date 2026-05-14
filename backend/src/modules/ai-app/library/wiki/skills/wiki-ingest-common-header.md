@@ -101,10 +101,21 @@ raw documents, exactly one page in the wiki must own it. Two pages
 covering the same entity is a duplication finding; zero pages covering
 an entity mentioned in N+ source documents is a coverage gap. The
 outline pass returns a `coverageMap` (entityName → assignedSlug) that
-the lint pipeline cross-checks against the diff. Pages should prefer
-UPDATE over CREATE when an existing page already owns an entity —
-synthesize new information into the existing page rather than spawning
-a near-duplicate.
+the lint pipeline cross-checks against the diff.
+
+UPDATE vs CREATE decision rule (2026-05-14 fix for "wiki 内容稀疏" 投诉):
+
+- UPDATE when an existing page owns **the SAME entity** and the source
+  document only adds new facts / properties about it (e.g. an existing
+  `nvidia-blackwell` page + a new spec sheet about NVIDIA Blackwell).
+- CREATE when the source describes a **distinct entity** not yet owned —
+  even if a related concept has a page (e.g. existing `nvidia-blackwell`
+  - source on `nvidia-rubin` → CREATE `nvidia-rubin`, do NOT cram into
+    Blackwell as a "successor" subsection).
+- When uncertain, BIAS TOWARD CREATE: a wrongly-spawned duplicate page
+  is cheap to merge later via a follow-up lint pass; a missing page
+  hides an entity from the wiki forever and the user has no signal it
+  ever existed. Coverage gaps are worse than duplicates.
 
 ──────────────────────────────────────────────────────────────────────
 OUTPUT FORMAT CONTRACT

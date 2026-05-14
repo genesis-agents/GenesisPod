@@ -124,10 +124,10 @@ describe("WikiPageService", () => {
       expect(tx.wikiPageLink.deleteMany).toHaveBeenCalledWith({
         where: { fromPageId: "p1" },
       });
-      // [[other-page]] → 1 outbound link
+      // [[other-page]] → 1 outbound link (2026-05-14: toLocale = source page locale)
       expect(tx.wikiPageLink.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: [{ fromPageId: "p1", toSlug: "other-page" }],
+          data: [{ fromPageId: "p1", toSlug: "other-page", toLocale: "zh" }],
         }),
       );
     });

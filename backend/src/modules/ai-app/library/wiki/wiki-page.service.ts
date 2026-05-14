@@ -218,7 +218,12 @@ export class WikiPageService {
         },
       });
 
-      await this.replaceOutboundLinks(tx, created.id, sanitizedBody);
+      await this.replaceOutboundLinks(
+        tx,
+        created.id,
+        sanitizedBody,
+        created.locale,
+      );
 
       return created;
     });
@@ -290,17 +295,29 @@ export class WikiPageService {
   /**
    * Recompute outbound links for a page after a body change.
    * Caller passes a transaction client to keep delete+insert atomic.
+   *
+   * 2026-05-14: toLocale 默认 source page 的 locale,而非历史硬编码 'zh'。
+   * 旧实现导致 en page 的 [[slug]] 链接全部被记成 toLocale='zh' →
+   * 前端切换到 en 模式点击链接时跳转去 zh page → 双语 UI 失效。
+   *
+   * 假设：page 内 [[slug]] 引用同语言的 page (合理默认,跨语言引用是少数情况
+   * 由 translationGroupId 处理)。
    */
   async replaceOutboundLinks(
     tx: Prisma.TransactionClient,
     pageId: string,
     body: string,
+    sourceLocale: string = "zh",
   ): Promise<void> {
     await tx.wikiPageLink.deleteMany({ where: { fromPageId: pageId } });
     const slugs = parseMarkdownWikiLinks(body);
     if (slugs.length === 0) return;
     await tx.wikiPageLink.createMany({
-      data: slugs.map((toSlug) => ({ fromPageId: pageId, toSlug })),
+      data: slugs.map((toSlug) => ({
+        fromPageId: pageId,
+        toSlug,
+        toLocale: sourceLocale,
+      })),
       skipDuplicates: true,
     });
   }
@@ -350,7 +367,12 @@ export class WikiPageService {
       });
 
       if (bodyChanged) {
-        await this.replaceOutboundLinks(tx, updated.id, sanitizedBody);
+        await this.replaceOutboundLinks(
+          tx,
+          updated.id,
+          sanitizedBody,
+          updated.locale,
+        );
       }
 
       return updated;
@@ -397,7 +419,12 @@ export class WikiPageService {
         },
       });
 
-      await this.replaceOutboundLinks(tx, updated.id, sanitizedBody);
+      await this.replaceOutboundLinks(
+        tx,
+        updated.id,
+        sanitizedBody,
+        updated.locale,
+      );
 
       return updated;
     });

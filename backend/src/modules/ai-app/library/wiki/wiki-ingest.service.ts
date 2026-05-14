@@ -778,6 +778,7 @@ export class WikiIngestService {
       targetLocales: targetLocales.length > 0 ? targetLocales : ["zh"],
       chatUserId,
       knowledgeBaseId,
+      ingestOutlineMaxPages: config.ingestOutlineMaxPages ?? undefined,
     });
 
     if (outline.creates.length === 0 && outline.updates.length === 0) {
@@ -1243,6 +1244,8 @@ export class WikiIngestService {
     targetLocales: Array<"zh" | "en">;
     chatUserId: string;
     knowledgeBaseId: string;
+    /** 2026-05-14: KB 配置的 outline maxPages floor (动态实际值由 service 算) */
+    ingestOutlineMaxPages?: number;
   }): Promise<{
     creates: Array<{
       slug: string;
@@ -1272,9 +1275,21 @@ export class WikiIngestService {
                 `- [[${p.slug}]] (${p.category}) "${p.title}" — ${p.oneLiner}`,
             )
             .join("\n");
+    // 2026-05-14 P2 fix: 动态 maxPages 让信息密集文档不被强行压成 30 页.
+    // 算法: max(配置值 ?? 60, ceil(charCount / 2000)) 上限 200.
+    // 2000 chars/page 是中文 wiki 单页平均含量的保守经验值.
+    const totalChars = args.wrappedDocs.reduce((s, d) => s + d.length, 0);
+    const configuredMin = args.ingestOutlineMaxPages ?? 60;
+    const dynamicMax = Math.min(
+      200,
+      Math.max(configuredMin, Math.ceil(totalChars / 2000)),
+    );
     const userPrompt = [
       "## TARGET_LOCALES",
       `Configured: ${args.targetLocales.join(", ")}`,
+      "",
+      "## MAX_PAGES",
+      `${dynamicMax}`,
       "",
       "## Current wiki index",
       indexBlock,
@@ -1423,7 +1438,9 @@ export class WikiIngestService {
         messages: [{ role: "user", content: userPrompt }],
         systemPrompt: skill.content,
         modelType: AIModelType.CHAT,
-        taskProfile: { creativity: "low", outputLength: "long" },
+        // 2026-05-14 P2 fix: long (8K) 让 LLM 实际 output ~3-4K → 每页 body
+        // 被压短 → "wiki 内容稀疏" 投诉. extended (16K) 让单页能写到 6-10K 字.
+        taskProfile: { creativity: "low", outputLength: "extended" },
         responseFormat: "json_object",
         operationName: "library-wiki-ingest-section",
         skipGuardrails: true, // 2026-05-12: 输入来自可信 KB 文档，见 SINGLE 入口注释

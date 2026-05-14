@@ -476,6 +476,7 @@ export class WikiDiffService {
               tx,
               page.id,
               sanitizedBody,
+              page.locale,
             );
             await this.replaceSourcesForPage(tx, page.id, create);
             upsertedPages.push({
@@ -528,6 +529,7 @@ export class WikiDiffService {
                 tx,
                 created.id,
                 sanitizedBody,
+                created.locale,
               );
               if (update.sources) {
                 await this.replaceSourcesForPage(tx, created.id, {
@@ -556,6 +558,7 @@ export class WikiDiffService {
               tx,
               updated.id,
               sanitizedBody,
+              updated.locale,
             );
             if (update.sources) {
               await this.replaceSourcesForPage(tx, updated.id, {
