@@ -112,6 +112,10 @@ import { DomainConceptRegistry } from "./agents/domain/concept-registry";
 import { DomainAdapterRegistry } from "./agents/domain/domain-adapter";
 import { PromptRegistry } from "./runner/prompt/prompt-registry";
 import { ToolSelectorRegistry } from "./runner/tool-routing/tool-selector-registry";
+// 2026-05-14: AICapabilityResolver 缺少 module 注册导致 ToolFeature.capabilityResolver
+// 永远是 undefined → ToolFacade.capabilityResolveTools 永远 warn "DI not wired" + 返回 []。
+// 见 feedback_optional_di_must_wire_module：@Optional() 注入必须配套 module providers。
+import { AICapabilityResolver } from "./runner/capabilities/ai-capability-resolver.service";
 
 import { AiEngineLLMModule } from "../ai-engine/llm/llm.module";
 import { AiEngineToolsModule } from "../ai-engine/tools/tools.module";
@@ -328,6 +332,11 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     PromptRegistry,
     ToolSelectorRegistry,
 
+    // 2026-05-14: AICapabilityResolver — Agent 运行时拿可用 tools/skills/MCP 的总入口
+    // 之前没在任何 module 注册，DI 永远拿到 undefined → ToolFacade.capabilityResolveTools
+    // 永远走 fallback 空 list。修复见 commit 2f418ac01 后续。
+    AICapabilityResolver,
+
     // â˜… PR-X13: AIFacade + Domain Facades (migrated from ai-engine/facade)
     // These are @Global — all ai-app modules can inject them without explicit imports.
     ...FACADE_FEATURE_PROVIDERS,
@@ -425,6 +434,9 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     DomainAdapterRegistry,
     PromptRegistry,
     ToolSelectorRegistry,
+
+    // 2026-05-14: AICapabilityResolver — 跨模块可用
+    AICapabilityResolver,
 
     // â˜… PR-X13: AIFacade + Domain Facades
     ModelResolverService,
