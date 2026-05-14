@@ -460,9 +460,13 @@ export const wikiApi = {
       `${base}/${encodeURIComponent(kbId)}/ingest-candidates`
     ),
 
+  // 2026-05-14 P4-A: PENDING diff 体积可达 30+ pages × 8K-16K body chars，
+  // 默认 30s timeout 在大 diff 上极易超（Screenshot_12 "Request timeout after
+  // 30000ms"）。提到 5 min 让 apply transaction + lint trigger 跑完再 ack。
   getDiff: (kbId: string, diffId: string) =>
     apiClient.get<WikiDiff>(
-      `${base}/${encodeURIComponent(kbId)}/diffs/${encodeURIComponent(diffId)}`
+      `${base}/${encodeURIComponent(kbId)}/diffs/${encodeURIComponent(diffId)}`,
+      { timeout: 300_000 }
     ),
 
   patchDiff: (
@@ -480,7 +484,8 @@ export const wikiApi = {
         ...(options?.supersedeConflictingDiffs
           ? { supersedeConflictingDiffs: true }
           : {}),
-      }
+      },
+      { timeout: 300_000 }
     ),
 
   // Query
