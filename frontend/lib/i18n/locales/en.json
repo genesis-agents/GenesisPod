@@ -514,6 +514,8 @@
         "actions": {
           "selectRecommended": "Select recommended",
           "selectVisibleReady": "Select visible ready",
+          "reingestAll": "Re-ingest all",
+          "reingestAllTooltip": "Select every available document and regenerate the entire wiki (5-12 min)",
           "clearSelection": "Clear selection"
         },
         "filters": {

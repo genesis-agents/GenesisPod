@@ -63,6 +63,8 @@ export default function WikiIngestModal({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterKey>('recommended');
+  // 用户主动切过 filter 后不再自动覆盖（避免 user click 后又被 effect 拉回）
+  const [userPickedFilter, setUserPickedFilter] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +91,11 @@ export default function WikiIngestModal({
     };
   }, [kbId, t]);
 
+  // 2026-05-14 智能 filter fallback:
+  // 全部 doc 已 READY_COVERED 时 recommended filter 为 0,UI 一片空白 → 用户找不到按钮。
+  // 默认值改成"看得见的 filter":有推荐用推荐,否则切 ready (含 covered),都没切 all.
+  // 用户手动切过后就不再覆盖 (userPickedFilter 守门)。
+
   const counts = useMemo(
     () => ({
       recommended: docs.filter((d) => d.recommended).length,
@@ -99,6 +106,18 @@ export default function WikiIngestModal({
     }),
     [docs]
   );
+
+  // 2026-05-14 智能 filter 初值: 文档已全部覆盖 (counts.recommended=0) 时
+  // 默认 'recommended' tab 是空的 → 用户看到 "未匹配" 找不到 doc。
+  // 自动切到最近的非空 tab 让用户看到 doc。用户主动点过 tab 后此 effect 不再覆盖。
+  useEffect(() => {
+    if (loading || userPickedFilter || docs.length === 0) return;
+    if (filter === 'recommended' && counts.recommended === 0) {
+      if (counts.ready > 0) setFilter('ready');
+      else if (counts.covered > 0) setFilter('covered');
+      else setFilter('all');
+    }
+  }, [loading, userPickedFilter, docs.length, counts, filter]);
 
   const visibleDocs = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -242,7 +261,10 @@ export default function WikiIngestModal({
               ).map(([key, count]) => (
                 <button
                   key={key}
-                  onClick={() => setFilter(key)}
+                  onClick={() => {
+                    setFilter(key);
+                    setUserPickedFilter(true);
+                  }}
                   className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                     filter === key
                       ? 'bg-slate-900 text-white'
@@ -260,7 +282,7 @@ export default function WikiIngestModal({
               onClick={() =>
                 selectMany(docs.filter((d) => d.recommended).map((d) => d.id))
               }
-              className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 font-medium text-violet-700 transition hover:bg-violet-100"
+              className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 font-medium text-violet-700 transition hover:bg-slate-100"
             >
               {t('library.wiki.ingest.actions.selectRecommended')}
             </button>
@@ -269,6 +291,21 @@ export default function WikiIngestModal({
               className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-700 transition hover:bg-slate-50"
             >
               {t('library.wiki.ingest.actions.selectVisibleReady')}
+            </button>
+            {/* 2026-05-14: 当所有 doc 已覆盖时,推荐 / 可处理 都 0,用户找不到选项。
+                此按钮无视 state 直接选所有非 BLOCKED doc,触发 LLM 重新生成整个 wiki。 */}
+            <button
+              onClick={() =>
+                selectMany(
+                  docs
+                    .filter((d) => d.ingestState !== 'BLOCKED')
+                    .map((d) => d.id)
+                )
+              }
+              className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-medium text-emerald-700 transition hover:bg-emerald-100"
+              title={t('library.wiki.ingest.actions.reingestAllTooltip')}
+            >
+              {t('library.wiki.ingest.actions.reingestAll')}
             </button>
             <button
               onClick={() => setSelected(new Set())}

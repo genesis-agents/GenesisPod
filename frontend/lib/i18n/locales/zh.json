@@ -514,6 +514,8 @@
         "actions": {
           "selectRecommended": "选择推荐项",
           "selectVisibleReady": "选择当前可见就绪项",
+          "reingestAll": "重新 Ingest 全部",
+          "reingestAllTooltip": "选中所有可用文档，对整个 KB 重新生成 wiki（耗时 5-12 分钟）",
           "clearSelection": "清空选择"
         },
         "filters": {
