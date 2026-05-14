@@ -237,8 +237,11 @@ export class ArxivSearchTool extends BaseTool<
 
     try {
       // ── 构建 OpenAlex 请求 ────────────────────────────────────────────────
-      // OpenAlex 的 mailto 走 polite pool（避免限速）。复用 openalex-api-key 配置。
-      const mailto = await this.policyDataService.getApiKey("openalex-search");
+      // ★ 2026-05-14 关键修复：与 openalex-search.tool 对齐，detect API key vs email
+      // 复用 admin 在 SecretKey "openalex-search" 的配置。值含 @ → mailto；否则 → api_key。
+      // 之前不分通道一律 mailto，admin 配的 API key 被 OpenAlex 忽略 → user budget 不计。
+      const credential =
+        await this.policyDataService.getApiKey("openalex-search");
 
       const since = resolveSearchTimeRangeSince(timeRange);
       const filters = [
@@ -259,8 +262,12 @@ export class ArxivSearchTool extends BaseTool<
       } else if (sortBy === "lastUpdatedDate") {
         params["sort"] = "updated_date:desc";
       }
-      if (mailto) {
-        params["mailto"] = mailto;
+      if (credential) {
+        if (credential.includes("@")) {
+          params["mailto"] = credential;
+        } else {
+          params["api_key"] = credential;
+        }
       }
 
       const data = await this.policyDataService.httpGet<OpenAlexResponse>(

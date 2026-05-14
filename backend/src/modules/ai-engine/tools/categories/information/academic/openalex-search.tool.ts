@@ -2,16 +2,32 @@
  * OpenAlex Search Tool
  * OpenAlex 学术搜索工具 - 搜索跨领域学术论文，含引用计数、开放获取状态等元数据
  *
- * API 文档: https://docs.openalex.org/
- * 认证：不使用 API Key，通过 mailto 参数进入 polite pool（admin 配 SecretKey "openalex-search"）
+ * API 文档: https://developers.openalex.org/
+ *
+ * ★ 认证双通道（2026-05-14 关键 bug 修复）：
+ *   admin 在 SecretKey "openalex-search" 配的值可以是两种之一，代码自动分通道：
+ *
+ *   1) email (含 @)   → params.mailto=...
+ *      旧 polite pool，仅享受请求优先级，
+ *      **不计入 OpenAlex 用户 dashboard 的 $1/day budget**
+ *
+ *   2) API key (无 @) → params.api_key=...
+ *      新认证模式，享受 $1/day free budget + 在 user account dashboard 可观测
+ *      获取方式：openalex.org 注册后 dashboard 拿
+ *
+ *   之前代码无论 admin 配什么都塞进 mailto → admin 配了 API key 也被当 email 用 →
+ *   用户 OpenAlex 后台 budget 永远 100% remaining（看着没被调用），polite pool
+ *   仍能跑但失去 budget tracking + freemium 优惠。
+ *
  * 限速：
- *   - 无 mailto: 10 req/s
- *   - 有 mailto: polite pool，仍有 10 req/s 突发上限 + $1/day budget (freemium 2026-05)
+ *   - 无认证   : 10 req/s
+ *   - mailto   : polite pool，10 req/s 突发上限
+ *   - api_key  : $1/day budget + polite pool 速率
  *
  * 三层限速防护：
  *   L1 (本 tool, static cooldown):  429 → 2/4/8s 指数退避，3 次后 30s 全局停摆
  *   L2 (GlobalSourceThrottleService): cooldown + token bucket (8 req/s) + concurrency (2)
- *   L3 (PolicyDataService):           markKeyFailed 用于多 key 轮换（本场景单 mailto 仅记录）
+ *   L3 (PolicyDataService):           markKeyFailed 用于多 key 轮换
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -242,9 +258,11 @@ export class OpenAlexSearchTool extends BaseTool<
       `[doExecute] Searching OpenAlex: query="${query}", maxResults=${maxResults}, year=${year ?? "any"}`,
     );
 
-    // 获取管理员配置的 mailto（用于 polite pool 无限速，hoisted for catch block access）
-    // OpenAlex 不使用传统 API Key，而是通过 mailto 参数进入 polite pool
-    const configuredMailto =
+    // ★ 2026-05-14 关键修复：OpenAlex 改了认证模式，admin 在 SecretKey 配的可能是：
+    //   - email (含 @) → params.mailto=...（旧 polite pool，不计 $1/day budget）
+    //   - API key (无 @) → params.api_key=...（新模式，计 $1/day budget + 用户后台可观测）
+    // 之前所有值都被塞 mailto，admin 配 API key 也被当 email 用，OpenAlex 后台永远 0 消耗。
+    const configuredCredential =
       await this.policyDataService.getApiKey("openalex-search");
 
     try {
@@ -257,12 +275,19 @@ export class OpenAlexSearchTool extends BaseTool<
           "id,title,authorships,abstract_inverted_index,publication_year,cited_by_count,doi,primary_location,open_access,type",
       };
 
-      // 有 mailto 才进入 polite pool（无限速）；没有则受 10 req/s 限制
-      if (configuredMailto) {
-        params["mailto"] = configuredMailto;
-        this.logger.debug(
-          "[doExecute] Using configured mailto for polite pool",
-        );
+      // ★ Format detect 自动分通道
+      if (configuredCredential) {
+        if (configuredCredential.includes("@")) {
+          params["mailto"] = configuredCredential;
+          this.logger.debug(
+            "[doExecute] Using configured mailto for polite pool (no $1/day budget tracking)",
+          );
+        } else {
+          params["api_key"] = configuredCredential;
+          this.logger.debug(
+            "[doExecute] Using configured api_key (counts toward $1/day OpenAlex budget)",
+          );
+        }
       }
 
       // 年份过滤
@@ -355,8 +380,11 @@ export class OpenAlexSearchTool extends BaseTool<
       );
 
       // Mark key as healthy on success
-      if (configuredMailto) {
-        this.policyDataService.clearKeyFailure("openalex", configuredMailto);
+      if (configuredCredential) {
+        this.policyDataService.clearKeyFailure(
+          "openalex-search",
+          configuredCredential,
+        );
       }
 
       return {
@@ -371,12 +399,12 @@ export class OpenAlexSearchTool extends BaseTool<
       this.logger.error(`[doExecute] OpenAlex API error: ${error}`);
 
       // Track key failure for multi-key rotation
-      if (configuredMailto) {
+      if (configuredCredential) {
         const statusMatch = errorMessage.match(/\b(4\d{2}|5\d{2})\b/);
         const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 500;
         this.policyDataService.markKeyFailed(
-          "openalex",
-          configuredMailto,
+          "openalex-search",
+          configuredCredential,
           statusCode,
         );
       }

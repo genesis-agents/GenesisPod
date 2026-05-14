@@ -429,7 +429,7 @@ describe("OpenAlexSearchTool (extended coverage)", () => {
     await tool.execute({ query: "test" }, makeContext());
 
     expect(mockPolicy.clearKeyFailure).toHaveBeenCalledWith(
-      "openalex",
+      "openalex-search",
       "user@example.com",
     );
   });
@@ -443,7 +443,7 @@ describe("OpenAlexSearchTool (extended coverage)", () => {
     await tool.execute({ query: "test" }, makeContext());
 
     expect(mockPolicy.markKeyFailed).toHaveBeenCalledWith(
-      "openalex",
+      "openalex-search",
       "admin@example.com",
       expect.any(Number),
     );

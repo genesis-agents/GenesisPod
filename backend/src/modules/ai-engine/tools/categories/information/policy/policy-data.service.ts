@@ -46,11 +46,20 @@ export interface KeyHealthStatus {
 /** Key 冷却时间（毫秒）- 临时性错误（400/401/403/5xx）后多久重试 */
 const KEY_COOLDOWN_MS = 5 * 60 * 1000; // 5 分钟
 
-/** Key 长冷却时间（毫秒）- 配额耗尽（429 Too Many Requests）后长时间冷却 */
-const KEY_QUOTA_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 小时
+/**
+ * Key 限速冷却时间（毫秒）- 429 后多久重试
+ *
+ * 2026-05-14 修：原值 24h（错把所有 429 当作 daily quota exhausted），
+ * 让 Semantic Scholar 这种 1 req/s rate-limit 的偶发 429 锁死单 key 用户 24h。
+ * prod log 看到 `cooldown (86048s remaining)` 即此处。
+ *
+ * 现在：默认按 rate-limit burst 处理（10 分钟自然恢复）。
+ * 真正的 daily quota 通过 Retry-After header 单独判定（暂未实现，保守 10min 够）。
+ */
+const KEY_RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000; // 10 分钟
 
-/** 判断错误码是否为配额耗尽类（需要长冷却）— 只有 429 是真正的速率/配额限制 */
-const isQuotaExhaustedError = (errorCode: number): boolean => errorCode === 429;
+/** 判断错误码是否为速率/配额限制（需要单独冷却） */
+const isRateLimitError = (errorCode: number): boolean => errorCode === 429;
 
 @Injectable()
 export class PolicyDataService {
@@ -122,33 +131,28 @@ export class PolicyDataService {
   }
 
   /**
+   * 选 cooldown 时长：429 走限速 cooldown，其他错误走普通 cooldown
+   */
+  private cooldownForError(errorCode: number): number {
+    return isRateLimitError(errorCode)
+      ? KEY_RATE_LIMIT_COOLDOWN_MS
+      : KEY_COOLDOWN_MS;
+  }
+
+  /**
    * 获取健康的 API Key（Round-Robin + 冷却检查）
    *
    * ★ 使用 Round-Robin 分散并发请求到不同的 Key
    * ★ 使用哈希存储健康状态，避免 Key 泄露
+   *
+   * 2026-05-14 重写：删除"quota exhausted vs rate-limit"分支与 24h 锁死。
+   *   - 所有 429 统一按 rate-limit 处理（10min）
+   *   - 单 key 全 cooldown 时 fallback 到最老 key（degraded mode），不再 null
+   *     避免 [[feedback_single_key_user_cooldown_lockout]] 单 key 用户锁死
    */
   private getHealthyKey(toolId: string, keys: string[]): string | null {
     const validKeys = keys.filter((k) => k && k.trim() !== "");
     if (validKeys.length === 0) return null;
-
-    // 单个 key 直接返回（无需轮转逻辑）
-    if (validKeys.length === 1) {
-      const key = validKeys[0];
-      const healthKey = this.getKeyHash(toolId, key);
-      const health = this.keyHealthMap.get(healthKey);
-      const cooldown =
-        health && isQuotaExhaustedError(health.errorCode)
-          ? KEY_QUOTA_COOLDOWN_MS
-          : KEY_COOLDOWN_MS;
-      if (!health || Date.now() - health.failedAt >= cooldown) {
-        return key;
-      }
-      // 单 key 冷却中，跳过此数据源（避免无效重试）
-      this.logger.warn(
-        `[getHealthyKey] Single ${toolId} key in cooldown (${Math.ceil((cooldown - (Date.now() - health.failedAt)) / 1000)}s remaining), skipping`,
-      );
-      return null;
-    }
 
     const now = Date.now();
 
@@ -156,55 +160,45 @@ export class PolicyDataService {
     const startIndex = this.keyIndexMap.get(toolId) || 0;
     this.keyIndexMap.set(toolId, (startIndex + 1) % validKeys.length);
 
-    // 从当前索引开始尝试所有 key
+    // 第一轮：找一个完全健康的 key
     for (let i = 0; i < validKeys.length; i++) {
       const index = (startIndex + i) % validKeys.length;
       const key = validKeys[index];
       const healthKey = this.getKeyHash(toolId, key);
       const health = this.keyHealthMap.get(healthKey);
-
-      const cooldown =
-        health && isQuotaExhaustedError(health.errorCode)
-          ? KEY_QUOTA_COOLDOWN_MS
-          : KEY_COOLDOWN_MS;
-      if (!health || now - health.failedAt >= cooldown) {
+      if (!health) return key;
+      if (now - health.failedAt >= this.cooldownForError(health.errorCode)) {
         return key;
       }
     }
 
-    // 所有 key 都在冷却期
-    // 区分配额耗尽 vs 临时错误
-    let allQuotaExhausted = true;
-    let fallbackKey: string | null = null;
-    let oldestFailedAt = Infinity;
-
+    // 所有 key 都在 cooldown — 找剩余 cooldown 最短的 key 作 degraded fallback
+    // 不返回 null：上游试一次 + 自然失败比"立即拒绝服务"更友好（外部可能已恢复）
+    let bestKey: string | null = null;
+    let bestRemainingMs = Infinity;
     for (const key of validKeys) {
       const healthKey = this.getKeyHash(toolId, key);
       const health = this.keyHealthMap.get(healthKey);
-      if (health) {
-        if (!isQuotaExhaustedError(health.errorCode)) {
-          allQuotaExhausted = false;
-        }
-        if (health.failedAt < oldestFailedAt) {
-          oldestFailedAt = health.failedAt;
-          fallbackKey = key;
-        }
+      if (!health) {
+        bestKey = key;
+        bestRemainingMs = 0;
+        break;
+      }
+      const remainingMs =
+        this.cooldownForError(health.errorCode) - (now - health.failedAt);
+      if (remainingMs < bestRemainingMs) {
+        bestKey = key;
+        bestRemainingMs = remainingMs;
       }
     }
 
-    if (allQuotaExhausted) {
+    if (bestKey) {
+      const tag = validKeys.length === 1 ? "Single" : "All";
       this.logger.warn(
-        `[getHealthyKey] All ${toolId} keys quota exhausted, skipping`,
-      );
-      return null;
-    }
-
-    if (fallbackKey) {
-      this.logger.warn(
-        `[getHealthyKey] All ${toolId} keys in cooldown, using oldest failed key`,
+        `[getHealthyKey] ${tag} ${toolId} key${validKeys.length > 1 ? "s" : ""} in cooldown (${Math.ceil(bestRemainingMs / 1000)}s remaining); using degraded fallback`,
       );
     }
-    return fallbackKey;
+    return bestKey;
   }
 
   /**
@@ -250,10 +244,9 @@ export class PolicyDataService {
       const healthKey = this.getKeyHash(toolId, key);
       const health = this.keyHealthMap.get(healthKey);
 
-      const cooldown =
-        health && isQuotaExhaustedError(health.errorCode)
-          ? KEY_QUOTA_COOLDOWN_MS
-          : KEY_COOLDOWN_MS;
+      const cooldown = health
+        ? this.cooldownForError(health.errorCode)
+        : KEY_COOLDOWN_MS;
       const isHealthy = !health || now - health.failedAt >= cooldown;
 
       let cooldownUntil: string | undefined;

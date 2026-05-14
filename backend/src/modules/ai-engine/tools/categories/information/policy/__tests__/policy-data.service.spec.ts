@@ -191,7 +191,10 @@ describe("PolicyDataService", () => {
       expect(result).toBe("key-b");
     });
 
-    it("returns null when all keys are quota-exhausted (400/401)", async () => {
+    it("returns oldest-failed key when all keys are rate-limited (429) — degraded fallback", async () => {
+      // 2026-05-14 行为修改: 之前全 429 直接 return null 锁死用户;
+      // 现在返回 cooldown 最短的 key 作 degraded fallback (上游试一次, 失败再 throw)
+      // 见 feedback_single_key_user_cooldown_lockout
       mockPrisma.toolConfig.findUnique.mockResolvedValue({
         toolId: "serper",
         secretKey: "SERPER_KEYS",
@@ -199,12 +202,13 @@ describe("PolicyDataService", () => {
       });
       mockSecrets.getValue.mockResolvedValue("key-a,key-b");
 
-      // Mark both keys as quota exhausted (429 = rate limit)
+      // Mark both keys with 429 (rate limit)
       service.markKeyFailed("serper", "key-a", 429);
       service.markKeyFailed("serper", "key-b", 429);
 
       const result = await service.getApiKey("serper");
-      expect(result).toBeNull();
+      expect(result).not.toBeNull();
+      expect(["key-a", "key-b"]).toContain(result);
     });
 
     it("returns oldest-failed key when all have temp errors (5xx)", async () => {
