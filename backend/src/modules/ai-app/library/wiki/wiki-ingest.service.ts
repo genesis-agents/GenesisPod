@@ -818,6 +818,7 @@ export class WikiIngestService {
     const allOutlineItems: Array<{
       kind: "create" | "update";
       slug: string;
+      locale: "zh" | "en";
       title?: string;
       category?: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
       sectionSkeleton: string[];
@@ -827,6 +828,7 @@ export class WikiIngestService {
       ...outline.creates.map((c) => ({
         kind: "create" as const,
         slug: c.slug,
+        locale: c.locale,
         title: c.title,
         category: c.category,
         sectionSkeleton: c.sectionSkeleton,
@@ -835,23 +837,28 @@ export class WikiIngestService {
       ...outline.updates.map((u) => ({
         kind: "update" as const,
         slug: u.slug,
+        locale: u.locale,
         sectionSkeleton: u.sectionSkeleton,
       })),
     ];
 
     // Load priorBody for UPDATEs so section-fill can edit surgically.
+    // 2026-05-14 P0-A: index by `slug:locale` to handle bilingual KBs where
+    // the same slug owns two pages (zh + en).
     if (outline.updates.length > 0) {
       const priorBodies = await this.prisma.wikiPage.findMany({
         where: {
           knowledgeBaseId,
           slug: { in: outline.updates.map((u) => u.slug) },
         },
-        select: { slug: true, body: true },
+        select: { slug: true, locale: true, body: true },
       });
-      const bodyBySlug = new Map(priorBodies.map((p) => [p.slug, p.body]));
+      const bodyByKey = new Map(
+        priorBodies.map((p) => [`${p.slug}:${p.locale}`, p.body]),
+      );
       for (const item of allOutlineItems) {
         if (item.kind === "update") {
-          item.priorBody = bodyBySlug.get(item.slug);
+          item.priorBody = bodyByKey.get(`${item.slug}:${item.locale}`);
         }
       }
     }
@@ -859,6 +866,7 @@ export class WikiIngestService {
     const sectionResults: Array<{
       kind: "create" | "update";
       slug: string;
+      locale: "zh" | "en";
       title?: string;
       category?: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
       body: string;
@@ -901,7 +909,7 @@ export class WikiIngestService {
             item.kind === "create"
               ? {
                   slug: item.slug,
-                  locale: (targetLocales[0] ?? "zh") as string,
+                  locale: item.locale,
                   title: item.title ?? item.slug,
                   category: (item.category ?? "ENTITY") as
                     | "ENTITY"
@@ -917,7 +925,7 @@ export class WikiIngestService {
                 }
               : {
                   slug: item.slug,
-                  locale: (targetLocales[0] ?? "zh") as string,
+                  locale: item.locale,
                   newBody: r.value.body,
                   newOneLiner: r.value.oneLiner,
                   sources: r.value.sources,
@@ -941,6 +949,7 @@ export class WikiIngestService {
           sectionResults.push({
             kind: item.kind,
             slug: item.slug,
+            locale: item.locale,
             title: item.title,
             category: item.category,
             body: r.value.body,
@@ -950,20 +959,22 @@ export class WikiIngestService {
           });
           // Partial-progress checkpoint — mid-pass crash can recover
           // already-done pages (lifecycle: 24h TTL cron reaps).
+          // 2026-05-14 P0-A: use per-item locale (was targetLocales[0]),
+          // so bilingual KB checkpoints two rows for the same slug.
           await this.prisma.wikiIngestDraft
             .upsert({
               where: {
                 diffSessionId_pageSlug_locale: {
                   diffSessionId,
                   pageSlug: item.slug,
-                  locale: targetLocales[0] ?? "zh",
+                  locale: item.locale,
                 },
               },
               create: {
                 knowledgeBaseId,
                 diffSessionId,
                 pageSlug: item.slug,
-                locale: targetLocales[0] ?? "zh",
+                locale: item.locale,
                 body: r.value as unknown as Prisma.InputJsonValue,
               },
               update: {
@@ -1021,58 +1032,73 @@ export class WikiIngestService {
     }
 
     // ── Pass 3: CROSS-LINK ──────────────────────────────────────────
+    // 2026-05-14 P0-A: run cross-link per locale. Bilingual bodies of the
+    // same slug have different char offsets; applying one insertions list to
+    // both would shift positions and break bodies. linkableSlugs is shared
+    // (slug is locale-agnostic in [[slug]] syntax — the reader picks the
+    // correct locale at render time).
     this.setProgress(knowledgeBaseId, { stage: "cross-link" });
-    const linkedBodies = await this.runCrossLinkPass({
-      pages: sectionResults.map((s) => ({ slug: s.slug, body: s.body })),
-      linkableSlugs: Array.from(
-        new Set([
-          ...sectionResults.map((s) => s.slug),
-          ...currentIndex.map((p) => p.slug),
-        ]),
-      ),
-      chatUserId,
-      knowledgeBaseId,
-    });
-
-    // Apply cross-link insertions in reverse position order so earlier
-    // insertions don't shift later positions.
-    const bodyBySlug = new Map(sectionResults.map((s) => [s.slug, s.body]));
-    for (const page of linkedBodies.pages) {
-      const original = bodyBySlug.get(page.slug);
-      if (!original) continue;
-      const sorted = [...page.insertions].sort(
-        (a, b) => b.position - a.position,
-      );
-      let body = original;
-      for (const ins of sorted) {
-        if (
-          typeof ins.position !== "number" ||
-          ins.position < 0 ||
-          ins.position > body.length
-        ) {
-          continue;
+    const linkableSlugs = Array.from(
+      new Set([
+        ...sectionResults.map((s) => s.slug),
+        ...currentIndex.map((p) => p.slug),
+      ]),
+    );
+    const sectionByLocale = new Map<"zh" | "en", typeof sectionResults>();
+    for (const s of sectionResults) {
+      const list = sectionByLocale.get(s.locale) ?? [];
+      list.push(s);
+      sectionByLocale.set(s.locale, list);
+    }
+    const bodyByKey = new Map(
+      sectionResults.map((s) => [`${s.slug}:${s.locale}`, s.body]),
+    );
+    for (const [locale, results] of sectionByLocale) {
+      const linkedBodies = await this.runCrossLinkPass({
+        pages: results.map((s) => ({ slug: s.slug, body: s.body })),
+        linkableSlugs,
+        chatUserId,
+        knowledgeBaseId,
+      });
+      for (const page of linkedBodies.pages) {
+        const key = `${page.slug}:${locale}`;
+        const original = bodyByKey.get(key);
+        if (!original) continue;
+        const sorted = [...page.insertions].sort(
+          (a, b) => b.position - a.position,
+        );
+        let body = original;
+        for (const ins of sorted) {
+          if (
+            typeof ins.position !== "number" ||
+            ins.position < 0 ||
+            ins.position > body.length
+          ) {
+            continue;
+          }
+          const linkText = ins.surfaceText
+            ? `[[${ins.linkSlug}|${ins.surfaceText}]]`
+            : `[[${ins.linkSlug}]]`;
+          body =
+            body.slice(0, ins.position) + linkText + body.slice(ins.position);
         }
-        const linkText = ins.surfaceText
-          ? `[[${ins.linkSlug}|${ins.surfaceText}]]`
-          : `[[${ins.linkSlug}]]`;
-        body =
-          body.slice(0, ins.position) + linkText + body.slice(ins.position);
+        bodyByKey.set(key, body);
       }
-      bodyBySlug.set(page.slug, body);
     }
 
     // ── Assemble final WikiDiffItems ────────────────────────────────
-    const DEFAULT_LOCALE: "zh" | "en" =
-      (targetLocales[0] as "zh" | "en" | undefined) ?? "zh";
+    // 2026-05-14 P0-A: each item carries its OWN locale (outline emits one
+    // create per locale for bilingual KBs). Was hardcoded to targetLocales[0]
+    // → bilingual KB ended up with all pages mis-tagged as zh.
     const items = {
       creates: sectionResults
         .filter((s) => s.kind === "create")
         .map((s) => ({
           slug: s.slug,
-          locale: DEFAULT_LOCALE,
+          locale: s.locale,
           title: s.title ?? s.slug,
           category: s.category ?? ("ENTITY" as const),
-          body: bodyBySlug.get(s.slug) ?? s.body,
+          body: bodyByKey.get(`${s.slug}:${s.locale}`) ?? s.body,
           oneLiner: s.oneLiner,
           sources: s.sources,
           ...(s.translationGroupId
@@ -1083,8 +1109,8 @@ export class WikiIngestService {
         .filter((s) => s.kind === "update")
         .map((s) => ({
           slug: s.slug,
-          locale: DEFAULT_LOCALE,
-          newBody: bodyBySlug.get(s.slug) ?? s.body,
+          locale: s.locale,
+          newBody: bodyByKey.get(`${s.slug}:${s.locale}`) ?? s.body,
           newOneLiner: s.oneLiner,
           sources: s.sources,
         })),
@@ -1164,11 +1190,17 @@ export class WikiIngestService {
       );
     }
 
+    // 2026-05-14 P0-A: deletes are slug-only at the outline contract; expand
+    // to slug:locale across all configured locales so bilingual KBs revoke
+    // both translation pairs atomically.
+    const deleteKeys = validated.data.deletes.flatMap((s) =>
+      targetLocales.map((l) => `${s}:${l}`),
+    );
     const affectedKeys = [
       ...new Set([
         ...validated.data.creates.map((c) => `${c.slug}:${c.locale}`),
         ...validated.data.updates.map((u) => `${u.slug}:${u.locale}`),
-        ...validated.data.deletes.map((s) => `${s}:${DEFAULT_LOCALE}`),
+        ...deleteKeys,
       ]),
     ];
 
@@ -1251,10 +1283,15 @@ export class WikiIngestService {
       slug: string;
       title: string;
       category: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
+      locale: "zh" | "en";
       sectionSkeleton: string[];
       groupLabel?: string;
     }>;
-    updates: Array<{ slug: string; sectionSkeleton: string[] }>;
+    updates: Array<{
+      slug: string;
+      locale: "zh" | "en";
+      sectionSkeleton: string[];
+    }>;
     deletes: string[];
   }> {
     const skill = await this.skillLoader.getSkillById("wiki-ingest-outline");
@@ -1284,9 +1321,33 @@ export class WikiIngestService {
       200,
       Math.max(configuredMin, Math.ceil(totalChars / 2000)),
     );
+    // 2026-05-14 P0-A: bilingual MULTI pass — instruct LLM to emit per-page
+    // locale + dual emission for bilingual KBs. Single-locale KB just gets a
+    // hard-assertion to prevent locale drift.
+    const localeBlock =
+      args.targetLocales.length === 1
+        ? [
+            "## TARGET_LOCALES (single-locale KB)",
+            `Configured: \`${args.targetLocales[0]}\`.`,
+            `EVERY \`creates\` and \`updates\` item MUST set \`locale: "${args.targetLocales[0]}"\`.`,
+            `Title / body / oneLiner (written later by section-fill) MUST be in ${
+              args.targetLocales[0] === "zh" ? "Chinese" : "English"
+            }.`,
+          ].join("\n")
+        : [
+            "## TARGET_LOCALES (W3 v2.0 — bilingual KB)",
+            `Configured: \`${args.targetLocales.join("`, `")}\`.`,
+            "For EACH page concept, emit TWO `creates` items (one per locale) with:",
+            "  - the SAME `slug` (slug is locale-agnostic)",
+            "  - the SAME `groupLabel` (the service pairs locale variants via this label)",
+            "  - locale-specific `locale`, `title`, `sectionSkeleton`",
+            "  - identical section ordering (same H2 structure, heading text translated)",
+            "Note: do NOT emit a `translationGroupId` field — the service mints the UUID",
+            "from the shared `groupLabel`. Translation quality is enforced by section-fill,",
+            "not by the outline pass.",
+          ].join("\n");
     const userPrompt = [
-      "## TARGET_LOCALES",
-      `Configured: ${args.targetLocales.join(", ")}`,
+      localeBlock,
       "",
       "## MAX_PAGES",
       `${dynamicMax}`,
@@ -1332,6 +1393,12 @@ export class WikiIngestService {
           (s): s is string => typeof s === "string",
         )
       : [];
+    // 2026-05-14 P0-A: per-item locale extraction. Default to targetLocales[0]
+    // when LLM omits the field (single-locale KB does not strictly need it,
+    // but the contract is stricter going forward).
+    const defaultLocale = args.targetLocales[0] ?? "zh";
+    const normalizeLocale = (raw: unknown): "zh" | "en" =>
+      raw === "zh" || raw === "en" ? raw : defaultLocale;
     return {
       creates: creates
         .filter(
@@ -1345,6 +1412,7 @@ export class WikiIngestService {
           slug: c.slug as string,
           title: c.title as string,
           category: c.category as "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE",
+          locale: normalizeLocale(c.locale),
           sectionSkeleton: (c.sectionSkeleton as unknown[]).filter(
             (s): s is string => typeof s === "string",
           ),
@@ -1357,6 +1425,7 @@ export class WikiIngestService {
         )
         .map((u) => ({
           slug: u.slug as string,
+          locale: normalizeLocale(u.locale),
           sectionSkeleton: (u.sectionSkeleton as unknown[]).filter(
             (s): s is string => typeof s === "string",
           ),
@@ -1369,6 +1438,7 @@ export class WikiIngestService {
     item: {
       kind: "create" | "update";
       slug: string;
+      locale: "zh" | "en";
       title?: string;
       category?: "ENTITY" | "CONCEPT" | "SUMMARY" | "SOURCE";
       sectionSkeleton: string[];
@@ -1405,9 +1475,17 @@ export class WikiIngestService {
         "Wiki MULTI section skill not loaded — check WikiModule.onModuleInit",
       );
     }
+    // 2026-05-14 P0-A: hard-assert TARGET_LOCALE per page so section-fill
+    // never silently drifts. The skill prompt already declares this slot.
+    const localeName = args.item.locale === "zh" ? "Chinese" : "English";
     const parts = [
+      `## TARGET_LOCALE`,
+      `${args.item.locale} (${localeName})`,
+      `Write title / body / oneLiner ENTIRELY in ${localeName}. Heading text in ${localeName}. Do NOT switch languages mid-page.`,
+      "",
       `## Page identity (do not rename / re-slug)`,
       `- slug: ${args.item.slug}`,
+      `- locale: ${args.item.locale}`,
       `- title: ${args.item.title ?? "(see priorBody)"}`,
       `- category: ${args.item.category ?? "(see priorBody)"}`,
       "",

@@ -205,18 +205,39 @@ expand into full page bodies.
 For each page change you propose:
 
 - `creates`: a NEW page that does not exist in the index yet. You
-  MUST supply `slug`, `title`, `category`, the predicted
+  MUST supply `slug`, `title`, `category`, `locale`, the predicted
   `sectionSkeleton` (an ordered array of H2 section titles, 1–10
   items), and a `groupLabel` (see below).
 - `updates`: an EXISTING page whose current `sectionSkeleton` needs
   to grow / shrink / be reordered because new source documents
-  changed the picture. You MUST supply the existing `slug` and the
-  REVISED `sectionSkeleton`. Do NOT include a body — section-fill
-  re-renders the body from scratch using the new skeleton plus the
-  prior body context.
+  changed the picture. You MUST supply the existing `slug`, the
+  existing `locale`, and the REVISED `sectionSkeleton`. Do NOT
+  include a body — section-fill re-renders the body from scratch
+  using the new skeleton plus the prior body context.
 - `deletes`: existing slugs to remove. Use VERY sparingly — only
   when a page is clearly superseded (e.g. merged into another, or
   the underlying entity was discovered to be apocryphal).
+
+LOCALE EMISSION RULES (W3 v2.0 — bilingual KB):
+
+The user prompt has a `TARGET_LOCALES` block. Match it exactly:
+
+- Single-locale KB (e.g. `TARGET_LOCALES: zh`): every `creates` item
+  MUST set `locale: "zh"` (or whatever the single locale is). Title /
+  body / oneLiner will be written in that language by section-fill.
+- Bilingual KB (e.g. `TARGET_LOCALES: zh, en`): for EACH concept,
+  emit TWO `creates` items (one per locale) with:
+  - SAME `slug` (slug is locale-agnostic — see slug rule above)
+  - SAME `groupLabel` (the service pairs them via this label)
+  - locale-specific `locale`, `title`, `sectionSkeleton` (same H2
+    ordering but heading text in the page language)
+    Example bilingual emission for one concept "NVIDIA Blackwell":
+    {"slug":"nvidia-blackwell","locale":"en","title":"NVIDIA Blackwell",
+    "category":"ENTITY","sectionSkeleton":["Overview","Capabilities","Sources"],
+    "groupLabel":"NVIDIA Blackwell GPU"}
+    {"slug":"nvidia-blackwell","locale":"zh","title":"英伟达 Blackwell",
+    "category":"ENTITY","sectionSkeleton":["概述","主要能力","来源"],
+    "groupLabel":"NVIDIA Blackwell GPU"}
 
 `groupLabel` purpose: when the same conceptual entity exists in
 multiple locales (e.g. an English `nvidia-blackwell` page and a
@@ -257,6 +278,7 @@ Respond ONLY with a single JSON object matching exactly this shape:
       "slug": "...",
       "title": "...",
       "category": "ENTITY",
+      "locale": "zh",
       "sectionSkeleton": ["概述", "主要主张", "相关概念", "来源"],
       "groupLabel": "NVIDIA Blackwell GPU"
     }
@@ -264,6 +286,7 @@ Respond ONLY with a single JSON object matching exactly this shape:
   "updates": [
     {
       "slug": "existing-page-slug",
+      "locale": "zh",
       "sectionSkeleton": ["Overview", "Capabilities", "Limitations", "Sources"]
     }
   ],
