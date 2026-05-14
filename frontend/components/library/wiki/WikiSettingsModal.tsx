@@ -234,6 +234,13 @@ export default function WikiSettingsModal({
                   setConfig({ ...config, enabledLocales: modeToLocales(m) })
                 }
               />
+              <TranslateKbCard
+                kbId={kbId}
+                currentLocales={config.enabledLocales}
+                onTranslated={(updatedLocales) =>
+                  setConfig({ ...config, enabledLocales: updatedLocales })
+                }
+              />
               {/* W7 v2.0 — wiki ingest pass mode + MULTI throttle */}
               <PassModeCard
                 mode={config.ingestPassMode}
@@ -466,6 +473,131 @@ function Field({
         {label}
       </label>
       {children}
+    </div>
+  );
+}
+
+/**
+ * 2026-05-14 P0-B: in-place translation of existing wiki pages into the
+ * missing locale. Only renders the action when the KB owns exactly one
+ * locale (otherwise translation is moot — both locales exist). On success,
+ * refreshes the parent's enabledLocales since the backend bumps it.
+ */
+function TranslateKbCard({
+  kbId,
+  currentLocales,
+  onTranslated,
+}: {
+  kbId: string;
+  currentLocales: WikiLocale[];
+  onTranslated: (locales: WikiLocale[]) => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    translated: number;
+    skipped: number;
+    failed: number;
+  } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const target: WikiLocale | null =
+    currentLocales.length === 1
+      ? currentLocales[0] === 'zh'
+        ? 'en'
+        : 'zh'
+      : null;
+
+  if (!target) {
+    // Bilingual KB → nothing to translate from one side to the other.
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+        <div className="flex items-center gap-2">
+          <Languages className="h-4 w-4 text-slate-500" />
+          <span className="font-medium text-slate-700">
+            {t('library.wiki.settings.translate.alreadyBilingual')}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  const targetLabel =
+    target === 'en'
+      ? t('library.wiki.settings.enabledLocales.en')
+      : t('library.wiki.settings.enabledLocales.zh');
+
+  const onClick = async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    setResult(null);
+    try {
+      const r = await wikiApi.translateKb(kbId, target);
+      setResult({
+        translated: r.translated,
+        skipped: r.skipped,
+        failed: r.failedSlugs.length,
+      });
+      // Backend bumps enabledLocales to ['zh', 'en'] on success.
+      onTranslated(['en', 'zh']);
+    } catch (e) {
+      logger?.error?.('[wiki] translateKb failed', e);
+      setErr(
+        e instanceof Error
+          ? e.message
+          : t('library.wiki.settings.translate.failed')
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <Languages className="mt-0.5 h-4 w-4 text-violet-600" />
+        <div className="flex-1">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-500">
+            {t('library.wiki.settings.translate.eyebrow')}
+          </div>
+          <div className="mt-1 text-sm font-medium text-slate-900">
+            {t('library.wiki.settings.translate.title', {
+              target: targetLabel,
+            })}
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-600">
+            {t('library.wiki.settings.translate.description')}
+          </p>
+          {result && (
+            <div className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
+              {t('library.wiki.settings.translate.result', {
+                translated: result.translated,
+                skipped: result.skipped,
+                failed: result.failed,
+              })}
+            </div>
+          )}
+          {err && (
+            <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+              {err}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void onClick()}
+            disabled={busy}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-xs font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+          >
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {busy
+              ? t('library.wiki.settings.translate.running')
+              : t('library.wiki.settings.translate.action', {
+                  target: targetLabel,
+                })}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -459,6 +459,16 @@
           "en": "英文",
           "both": "中英双语"
         },
+        "translate": {
+          "eyebrow": "一键翻译",
+          "title": "把现有页面翻译到 {{target}}",
+          "description": "对每个还没有目标语种版本的页面，调用 LLM 生成翻译版（保留 [[wiki-link]]、技术术语、Markdown 结构）。完成后会自动把 KB 切到双语模式。",
+          "action": "翻译到 {{target}}",
+          "running": "翻译中…",
+          "failed": "翻译失败",
+          "alreadyBilingual": "当前 KB 已经是双语，无需翻译。",
+          "result": "翻译完成：生成 {{translated}} 页 · 跳过 {{skipped}} 页 · 失败 {{failed}} 页"
+        },
         "cancel": "取消",
         "save": "保存",
         "loadFailed": "加载设置失败",

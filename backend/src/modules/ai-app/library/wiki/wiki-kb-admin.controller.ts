@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   Param,
   Patch,
+  Post,
   Query,
   Request,
   UseGuards,
@@ -99,5 +101,24 @@ export class WikiKbAdminController {
     @Param("kbId") kbId: string,
   ) {
     return this.admin.destroyWikiData(req.user.id, kbId);
+  }
+
+  /**
+   * 2026-05-14 P0-B: translate a single-locale KB's pages into the missing
+   * locale. Body: `{ targetLocale: 'en' | 'zh' }`. OWNER-only at the
+   * service layer.
+   */
+  @Post("wiki/:kbId/translate")
+  @UseGuards(JwtAuthGuard)
+  async translateKb(
+    @Request() req: RequestWithUser,
+    @Param("kbId") kbId: string,
+    @Body() body: { targetLocale?: string },
+  ) {
+    const target = body?.targetLocale;
+    if (target !== "zh" && target !== "en") {
+      throw new BadRequestException("targetLocale must be 'zh' or 'en'");
+    }
+    return this.admin.translateKbToLocale(req.user.id, kbId, target);
   }
 }

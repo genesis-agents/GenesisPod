@@ -459,6 +459,16 @@
           "en": "English",
           "both": "Both"
         },
+        "translate": {
+          "eyebrow": "One-click translate",
+          "title": "Translate existing pages to {{target}}",
+          "description": "For each page that lacks the target locale, an LLM produces a translation preserving [[wiki-link]] references, technical terminology, and markdown structure. The KB is switched to bilingual mode on success.",
+          "action": "Translate to {{target}}",
+          "running": "Translating…",
+          "failed": "Translation failed",
+          "alreadyBilingual": "This KB is already bilingual — nothing to translate.",
+          "result": "Done: translated {{translated}} pages · skipped {{skipped}} · failed {{failed}}"
+        },
         "cancel": "Cancel",
         "save": "Save",
         "loadFailed": "Failed to load settings",

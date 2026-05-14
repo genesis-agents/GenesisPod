@@ -1,12 +1,15 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { AIModelType, Prisma } from "@prisma/client";
+import * as crypto from "crypto";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { KnowledgeBaseService } from "../rag/services/knowledge-base.service";
+import { AiChatService } from "../../../ai-engine/facade";
 
 export interface WikiKbSummary {
   id: string;
@@ -73,6 +76,7 @@ export class WikiKbAdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly kbService: KnowledgeBaseService,
+    private readonly chat: AiChatService,
   ) {}
 
   /**
@@ -493,5 +497,303 @@ export class WikiKbAdminService {
         .map((p) => p.page?.slug)
         .filter((s): s is string => Boolean(s)),
     }));
+  }
+
+  /**
+   * 2026-05-14 P0-B: translate every page lacking the target locale to that
+   * locale. Used when a KB was originally zh-only and the user wants en
+   * coverage WITHOUT re-running the expensive source-document ingest.
+   *
+   * Semantics:
+   *  - Only pages with `locale != targetLocale` AND no sibling page at
+   *    `(kbId, slug, targetLocale)` are translated.
+   *  - For each translated page, mint a translationGroupId (or reuse the
+   *    source page's existing one). Both source + target locale rows end up
+   *    pointing to the same group → frontend locale switcher can pair them.
+   *  - Updates the KB's enabledLocales to include targetLocale so future
+   *    ingests treat the KB as bilingual.
+   *  - Audit log entry of op="EDIT" with meta={kind:"translate-kb",...}.
+   *
+   * Concurrency: sequential pages, but parallel within a batch of 3 so we
+   * don't spike LLM rate limits. Partial-success — failures are logged and
+   * counted but don't abort the whole job.
+   *
+   * Owner-only (translates produce DB writes + LLM costs).
+   */
+  async translateKbToLocale(
+    userId: string,
+    knowledgeBaseId: string,
+    targetLocale: "zh" | "en",
+  ): Promise<{
+    kbId: string;
+    targetLocale: "zh" | "en";
+    translated: number;
+    skipped: number;
+    failedSlugs: string[];
+  }> {
+    const ok = await this.kbService.hasAccess(knowledgeBaseId, userId, "OWNER");
+    if (!ok) {
+      throw new ForbiddenException(
+        "Translating KB wiki requires KB OWNER or platform ADMIN role",
+      );
+    }
+    const kb = await this.prisma.knowledgeBase.findUnique({
+      where: { id: knowledgeBaseId },
+      select: { id: true, wikiEnabled: true },
+    });
+    if (!kb) throw new NotFoundException("Knowledge base not found");
+    if (!kb.wikiEnabled) {
+      throw new BadRequestException("KB does not have wiki enabled");
+    }
+
+    const allPages = await this.prisma.wikiPage.findMany({
+      where: { knowledgeBaseId },
+      select: {
+        id: true,
+        slug: true,
+        locale: true,
+        title: true,
+        body: true,
+        oneLiner: true,
+        category: true,
+        contentHash: true,
+        translationGroupId: true,
+      },
+    });
+    if (allPages.length === 0) {
+      return {
+        kbId: knowledgeBaseId,
+        targetLocale,
+        translated: 0,
+        skipped: 0,
+        failedSlugs: [],
+      };
+    }
+
+    const slugsWithTarget = new Set(
+      allPages.filter((p) => p.locale === targetLocale).map((p) => p.slug),
+    );
+    const candidates = allPages.filter(
+      (p) => p.locale !== targetLocale && !slugsWithTarget.has(p.slug),
+    );
+    if (candidates.length === 0) {
+      return {
+        kbId: knowledgeBaseId,
+        targetLocale,
+        translated: 0,
+        skipped: allPages.length,
+        failedSlugs: [],
+      };
+    }
+
+    const failedSlugs: string[] = [];
+    let translatedCount = 0;
+    const concurrency = 3;
+    for (let i = 0; i < candidates.length; i += concurrency) {
+      const batch = candidates.slice(i, i + concurrency);
+      const settled = await Promise.allSettled(
+        batch.map((p) =>
+          this.translateOnePage(p, targetLocale, userId, knowledgeBaseId),
+        ),
+      );
+      for (let j = 0; j < settled.length; j++) {
+        const r = settled[j];
+        const src = batch[j];
+        if (r.status === "fulfilled") {
+          translatedCount += 1;
+        } else {
+          failedSlugs.push(src.slug);
+          this.logger.warn(
+            `[translateKb] slug=${src.slug} failed: ${
+              r.reason instanceof Error ? r.reason.message : String(r.reason)
+            }`,
+          );
+        }
+      }
+    }
+
+    // Bump enabledLocales so subsequent ingests run in bilingual mode.
+    await this.prisma.wikiKnowledgeBaseConfig
+      .upsert({
+        where: { knowledgeBaseId },
+        create: {
+          knowledgeBaseId,
+          enabledLocales: ["zh", "en"],
+        },
+        update: {
+          enabledLocales: { set: Array.from(new Set(["zh", "en"])) },
+        },
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `[translateKb] enabledLocales update failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+      );
+
+    await this.prisma.wikiOperationLog
+      .create({
+        data: {
+          knowledgeBaseId,
+          op: "EDIT",
+          title: `Translate KB → ${targetLocale}`,
+          actorUserId: userId,
+          meta: {
+            kind: "translate-kb",
+            targetLocale,
+            translated: translatedCount,
+            skipped: allPages.length - candidates.length,
+            failedSlugs,
+          } as Prisma.InputJsonValue,
+        },
+      })
+      .catch((err) =>
+        this.logger.warn(
+          `[translateKb] operation log write failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+      );
+
+    this.logger.log(
+      `[translateKb] kb=${knowledgeBaseId} actor=${userId} target=${targetLocale} translated=${translatedCount} failed=${failedSlugs.length}`,
+    );
+
+    return {
+      kbId: knowledgeBaseId,
+      targetLocale,
+      translated: translatedCount,
+      skipped: allPages.length - candidates.length,
+      failedSlugs,
+    };
+  }
+
+  /**
+   * Translate a single page via LLM and write the target-locale row. Reuses
+   * the source page's translationGroupId or mints a new one (and backfills
+   * the source row so future renders pair them). Caller wraps per-page
+   * failure into a Promise rejection — we throw on LLM / DB errors.
+   */
+  private async translateOnePage(
+    source: {
+      id: string;
+      slug: string;
+      locale: string;
+      title: string;
+      body: string;
+      oneLiner: string;
+      category: string;
+      contentHash: string;
+      translationGroupId: string | null;
+    },
+    targetLocale: "zh" | "en",
+    userId: string,
+    knowledgeBaseId: string,
+  ): Promise<void> {
+    const sourceLang = source.locale === "zh" ? "Chinese" : "English";
+    const targetLang = targetLocale === "zh" ? "Chinese" : "English";
+
+    const systemPrompt = [
+      "You are a professional technical translator. You translate wiki pages",
+      "between Chinese and English while preserving structure, technical",
+      "terminology, and idiomatic native style.",
+      "",
+      "Rules:",
+      "- Translate `title`, `body` (markdown), and `oneLiner`.",
+      `- Source language: ${sourceLang}. Target language: ${targetLang}.`,
+      "- Preserve ALL `[[slug]]` wiki-link references unchanged (the slug is",
+      "  locale-agnostic; only surface text changes via the `|...` form).",
+      "- Preserve ALL markdown structure: `## H2` headings, `### H3`, fenced",
+      "  code blocks, `![alt](url)` image links, bulleted / numbered lists,",
+      "  tables. H2 / H3 heading TEXT must be translated to the target",
+      "  language (e.g. `## 概述` → `## Overview`).",
+      "- Preserve technical terminology, model names, code identifiers,",
+      "  product names verbatim (e.g. `Nvidia H100`, `torch.compile`).",
+      "- Write in idiomatic native style, NOT word-for-word translation.",
+      "- `oneLiner` HARD LIMIT 280 characters in target language.",
+      "",
+      "Respond ONLY with a single JSON object — no prose, no markdown fence:",
+      '{ "title": "...", "body": "...", "oneLiner": "..." }',
+    ].join("\n");
+
+    const userPrompt = [
+      `## Source page (${sourceLang})`,
+      `slug: ${source.slug}`,
+      `category: ${source.category}`,
+      "",
+      `### title`,
+      source.title,
+      "",
+      `### oneLiner`,
+      source.oneLiner,
+      "",
+      `### body (markdown)`,
+      source.body,
+    ].join("\n");
+
+    const raw = await this.chat.chat({
+      messages: [{ role: "user", content: userPrompt }],
+      systemPrompt,
+      modelType: AIModelType.CHAT,
+      taskProfile: { creativity: "low", outputLength: "extended" },
+      responseFormat: "json_object",
+      operationName: "library-wiki-translate-kb",
+      skipGuardrails: true,
+      userId,
+    });
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(raw.content) as Record<string, unknown>;
+    } catch {
+      throw new Error("translate-kb LLM returned non-JSON");
+    }
+    const title = typeof parsed.title === "string" ? parsed.title : "";
+    const body = typeof parsed.body === "string" ? parsed.body : "";
+    const oneLinerRaw =
+      typeof parsed.oneLiner === "string" ? parsed.oneLiner : "";
+    if (!title || !body || !oneLinerRaw) {
+      throw new Error("translate-kb LLM omitted a required field");
+    }
+    const oneLiner =
+      oneLinerRaw.length > 280
+        ? oneLinerRaw.slice(0, 277).trimEnd() + "..."
+        : oneLinerRaw;
+
+    const groupId = source.translationGroupId ?? crypto.randomUUID();
+    const newContentHash = crypto
+      .createHash("sha256")
+      .update(body)
+      .digest("hex");
+
+    await this.prisma.$transaction(async (tx) => {
+      // Backfill the source row with the groupId if it had none, so both
+      // locales point to the same translationGroupId after this op.
+      if (!source.translationGroupId) {
+        await tx.wikiPage.update({
+          where: { id: source.id },
+          data: { translationGroupId: groupId },
+        });
+      }
+      await tx.wikiPage.create({
+        data: {
+          knowledgeBaseId,
+          slug: source.slug,
+          locale: targetLocale,
+          title,
+          body,
+          oneLiner,
+          category: source.category as
+            | "ENTITY"
+            | "CONCEPT"
+            | "SUMMARY"
+            | "SOURCE",
+          contentHash: newContentHash,
+          translationGroupId: groupId,
+          lastEditedBy: "LLM",
+        },
+      });
+    });
   }
 }

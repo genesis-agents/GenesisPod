@@ -345,6 +345,23 @@ export const wikiApi = {
       };
     }>(`/library/wiki/${encodeURIComponent(kbId)}/destroy`),
 
+  /**
+   * 2026-05-14 P0-B: translate this KB's pages into the missing locale.
+   * Only pages with `locale != targetLocale` that have no sibling at
+   * (slug, targetLocale) are translated. Updates the KB's enabledLocales
+   * so subsequent ingests run in bilingual mode. OWNER role required.
+   */
+  translateKb: (kbId: string, targetLocale: 'zh' | 'en') =>
+    apiClient.post<{
+      kbId: string;
+      targetLocale: 'zh' | 'en';
+      translated: number;
+      skipped: number;
+      failedSlugs: string[];
+    }>(`/library/wiki/${encodeURIComponent(kbId)}/translate`, {
+      targetLocale,
+    }),
+
   search: (kbId: string, q: string, limit = 20) => {
     const params = new URLSearchParams({ q, limit: String(limit) });
     return apiClient.get<{ items: WikiPageSearchHit[] }>(

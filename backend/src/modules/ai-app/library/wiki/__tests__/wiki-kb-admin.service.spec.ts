@@ -74,6 +74,7 @@ describe("WikiKbAdminService", () => {
   let prisma: any;
   let tx: any;
   let kbService: any;
+  let chat: any;
   let service: WikiKbAdminService;
 
   beforeEach(() => {
@@ -81,7 +82,8 @@ describe("WikiKbAdminService", () => {
     prisma = m.prisma;
     tx = m.tx;
     kbService = makeKbService();
-    service = new WikiKbAdminService(prisma, kbService);
+    chat = { chat: jest.fn() };
+    service = new WikiKbAdminService(prisma, kbService, chat);
   });
 
   describe("listWikiEnabledKbs — server-side filtering", () => {
