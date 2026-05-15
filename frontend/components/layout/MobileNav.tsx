@@ -126,8 +126,16 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // Admin-only creative tools — AI 社媒 暂时隐藏
-  const adminCreativeItems: typeof creativeItems = [];
+  // Admin-only creative tools — AI 社媒 仅管理员可见
+  const adminCreativeItems: typeof creativeItems = [
+    {
+      href: '/ai-social',
+      label: t('nav.aiSocial'),
+      icon: 'share',
+      activeClass: 'bg-rose-50',
+      prefix: true,
+    },
+  ];
 
   // 创新 Labs section
   const collabLabItems = [
