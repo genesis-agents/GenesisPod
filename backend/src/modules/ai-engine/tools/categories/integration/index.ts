@@ -9,6 +9,22 @@ export { GitHubIntegrationTool } from "./github-integration.tool";
 export { EmailSenderTool } from "./email-sender.tool";
 export { CalendarIntegrationTool } from "./calendar-integration.tool";
 export { WebhookTriggerTool } from "./webhook-trigger.tool";
+export { WechatMpPublishTool } from "./wechat-mp-publish.tool";
+export { XhsPublishTool } from "./xhs-publish.tool";
+export { SocialPublishStatusTool } from "./social-publish-status.tool";
+
+// Social publish port abstractions（ai-app/social 一侧实现该端口）
+export {
+  SOCIAL_PUBLISH_PORT,
+  type SocialPublishPort,
+  type SocialPublishContext,
+  type SocialPlatform,
+  type PublishJobStatus,
+  type PublishJobReceipt,
+  type PublishStatusSnapshot,
+  type WechatMpPublishInput,
+  type XhsPublishInput,
+} from "./abstractions";
 
 // 导出类型
 export type {
@@ -65,3 +81,10 @@ export type {
   WebhookTriggerOutput,
   HttpMethod,
 } from "./webhook-trigger.tool";
+
+export type { WechatMpPublishToolOutput } from "./wechat-mp-publish.tool";
+export type { XhsPublishToolOutput } from "./xhs-publish.tool";
+export type {
+  SocialPublishStatusInput,
+  SocialPublishStatusOutput,
+} from "./social-publish-status.tool";

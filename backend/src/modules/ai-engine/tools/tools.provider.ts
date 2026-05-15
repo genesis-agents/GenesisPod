@@ -96,6 +96,9 @@ import {
   EmailSenderTool,
   CalendarIntegrationTool,
   WebhookTriggerTool,
+  WechatMpPublishTool,
+  XhsPublishTool,
+  SocialPublishStatusTool,
 } from "./categories/integration";
 
 // ============================================================================
@@ -199,6 +202,9 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   EmailSenderTool,
   CalendarIntegrationTool,
   WebhookTriggerTool,
+  WechatMpPublishTool,
+  XhsPublishTool,
+  SocialPublishStatusTool,
 
   // Memory Tools (Short/LongTerm 由 RuntimeMemoryModule 单独注册，见 ai-harness/memory/tools/)
   EntityMemoryTool,
@@ -305,6 +311,9 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "email-sender": EmailSenderTool,
   "calendar-integration": CalendarIntegrationTool,
   "webhook-trigger": WebhookTriggerTool,
+  "wechat-mp-publish": WechatMpPublishTool,
+  "xhs-publish": XhsPublishTool,
+  "social-publish-status": SocialPublishStatusTool,
 
   // Memory (Short/LongTerm 由 ai-harness/memory/tools/ 注册到 ToolRegistry)
   "entity-memory": EntityMemoryTool,

@@ -244,6 +244,9 @@ export const BUILTIN_TOOLS = {
   EMAIL_SENDER: "email-sender",
   CALENDAR_INTEGRATION: "calendar-integration",
   WEBHOOK_TRIGGER: "webhook-trigger",
+  WECHAT_MP_PUBLISH: "wechat-mp-publish",
+  XHS_PUBLISH: "xhs-publish",
+  SOCIAL_PUBLISH_STATUS: "social-publish-status",
 
   // 记忆管理
   SHORT_TERM_MEMORY: "short-term-memory",
