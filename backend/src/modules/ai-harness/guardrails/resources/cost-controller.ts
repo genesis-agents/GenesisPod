@@ -6,6 +6,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { LruMap } from "@/common/utils/lru-map";
 import { CacheService } from "@/common/cache/cache.service";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 
 /**
  * 成本记录
@@ -146,57 +147,19 @@ export class CostController {
   private readonly logger = new Logger(CostController.name);
   private readonly records: CostRecord[] = [];
   private readonly budgets = new LruMap<string, CostBudget>(1000);
-  private readonly pricing = new LruMap<string, ModelPricing>(200);
-
   /**
-   * 默认定价（USD per million tokens）
-   *
-   * NOTE: Model name strings here are intentional — this is a pricing reference table
-   * for cost estimation, not LLM call configuration. New models should be added when
-   * their public pricing is available. This is a legitimate exception to the no-hardcoded-
-   * model-names rule (which applies to LLM call sites, not pricing metadata).
+   * Test override / runtime override 用的内存价格表。生产路径由
+   * ModelPricingRegistry（DB AIModel 表）单源接管；setModelPricing 只在
+   * unit test 或临时 admin override 用。
    */
-  private static readonly DEFAULT_PRICING: ModelPricing[] = [
-    { model: "gpt-4o", inputPricePerMillion: 2.5, outputPricePerMillion: 10 },
-    {
-      model: "gpt-4o-mini",
-      inputPricePerMillion: 0.15,
-      outputPricePerMillion: 0.6,
-    },
-    {
-      model: "gpt-4-turbo",
-      inputPricePerMillion: 10,
-      outputPricePerMillion: 30,
-    },
-    {
-      model: "claude-3-5-sonnet",
-      inputPricePerMillion: 3,
-      outputPricePerMillion: 15,
-    },
-    {
-      model: "claude-3-opus",
-      inputPricePerMillion: 15,
-      outputPricePerMillion: 75,
-    },
-    {
-      model: "claude-3-haiku",
-      inputPricePerMillion: 0.25,
-      outputPricePerMillion: 1.25,
-    },
-  ];
+  private readonly priceOverrides = new LruMap<string, ModelPricing>(200);
+  /** 已警告过未注册 modelId，避免日志洪水（与 ModelPricingRegistry 同语义）。 */
+  private readonly warnedUnknown = new Set<string>();
 
-  constructor(@Optional() private readonly cacheService?: CacheService) {
-    this.initializeDefaultPricing();
-  }
-
-  /**
-   * 初始化默认定价
-   */
-  private initializeDefaultPricing(): void {
-    for (const pricing of CostController.DEFAULT_PRICING) {
-      this.pricing.set(pricing.model, pricing);
-    }
-  }
+  constructor(
+    @Optional() private readonly cacheService?: CacheService,
+    @Optional() private readonly pricingRegistry?: ModelPricingRegistry,
+  ) {}
 
   /**
    * 计算预算的 Redis TTL（秒），基于周期剩余时间
@@ -207,30 +170,54 @@ export class CostController {
   }
 
   /**
-   * 设置模型定价
+   * 设置模型定价（test override / 临时 admin override）。
+   * 生产路径不应走这里——价格在 DB AIModel 表，由 ModelPricingRegistry 单源装载。
    */
   setModelPricing(pricing: ModelPricing): void {
-    this.pricing.set(pricing.model, pricing);
+    this.priceOverrides.set(pricing.model, pricing);
   }
 
   /**
-   * 计算成本
+   * 计算成本。优先级：
+   *   1. 内存 override（setModelPricing；test 或 admin runtime override）
+   *   2. ModelPricingRegistry（DB AIModel 表，生产单源）
+   *   3. 未知 modelId → 0 + warn（不再凭 0.001/1k 假估算，避免静默谎报）
+   *
+   * 之前的 6 模型硬编码价格表已删除（违反 feedback_no_hardcoded_pricing）。
+   * 模型每月新增、价格随 provider 调整，硬编码必然过时；DB 是唯一真源。
    */
   calculateCost(
     model: string,
     inputTokens: number,
     outputTokens: number,
   ): number {
-    const pricing = this.pricing.get(model);
-    if (!pricing) {
-      // 使用默认估算
-      return ((inputTokens + outputTokens) * 0.001) / 1000;
+    const override = this.priceOverrides.get(model);
+    if (override) {
+      const inputCost =
+        (inputTokens / 1_000_000) * override.inputPricePerMillion;
+      const outputCost =
+        (outputTokens / 1_000_000) * override.outputPricePerMillion;
+      return inputCost + outputCost;
     }
 
-    const inputCost = (inputTokens / 1000000) * pricing.inputPricePerMillion;
-    const outputCost = (outputTokens / 1000000) * pricing.outputPricePerMillion;
+    if (this.pricingRegistry) {
+      const cost = this.pricingRegistry.estimateCost(
+        model,
+        inputTokens,
+        outputTokens,
+      );
+      if (cost != null) return cost;
+    }
 
-    return inputCost + outputCost;
+    if (!this.warnedUnknown.has(model)) {
+      this.logger.warn(
+        `[calculateCost] modelId="${model}" 未在 ModelPricingRegistry 注册且无 override。` +
+          `成本计为 0；admin 请在 /admin/ai/models 配 priceInputPerMillion/` +
+          `priceOutputPerMillion + costTier 启用预算追踪。`,
+      );
+      this.warnedUnknown.add(model);
+    }
+    return 0;
   }
 
   /**

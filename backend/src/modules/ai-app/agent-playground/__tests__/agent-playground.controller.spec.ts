@@ -137,20 +137,69 @@ function buildController() {
     clear: jest.fn(),
   };
 
-  const controller = new AgentPlaygroundController(
-    buffer as never,
+  // ★ 2026-05-15 PR-C god-class 拆分：原 856 行 controller 拆 3 个聚焦 controller。
+  //   spec 保持单 `controller` facade 入口（67 处测试用例不改），底下分发到
+  //   AgentPlaygroundController (lifecycle) / MissionReadController / MissionRerunController。
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    MissionReadController,
+  } = require("../controllers/mission-read.controller");
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const {
+    MissionRerunController,
+  } = require("../controllers/mission-rerun.controller");
+
+  const mainCtrl = new AgentPlaygroundController(
     ownership as never,
     store as never,
-    leaderChat as never,
+    buffer as never,
     abortRegistry as never,
     prisma as never,
-    checkpoint as never,
-    localRerun as never,
-    exportService as never,
-    rerunOrchestrator as never,
     electionTracker as never,
     pipelineDispatcher as never,
   );
+  const readCtrl = new MissionReadController(
+    ownership as never,
+    store as never,
+    checkpoint as never,
+    exportService as never,
+    buffer as never,
+    leaderChat as never,
+  );
+  const rerunCtrl = new MissionRerunController(
+    ownership as never,
+    store as never,
+    buffer as never,
+    leaderChat as never,
+    localRerun as never,
+    rerunOrchestrator as never,
+  );
+
+  // Facade：method binding 到对应 controller，让旧 spec 不动
+  const controller: any = {
+    // read
+    listMissions: readCtrl.listMissions.bind(readCtrl),
+    listResumable: readCtrl.listResumable.bind(readCtrl),
+    getMission: readCtrl.getMission.bind(readCtrl),
+    exportMission: readCtrl.exportMission.bind(readCtrl),
+    listMissionReportVersions:
+      readCtrl.listMissionReportVersions.bind(readCtrl),
+    getMissionReportVersion: readCtrl.getMissionReportVersion.bind(readCtrl),
+    replay: readCtrl.replay.bind(readCtrl),
+    listLeaderChat: readCtrl.listLeaderChat.bind(readCtrl),
+    reportClientError: readCtrl.reportClientError.bind(readCtrl),
+    // rerun
+    rerunMission: rerunCtrl.rerunMission.bind(rerunCtrl),
+    rerunTodo: rerunCtrl.rerunTodo.bind(rerunCtrl),
+    localRerunTodo: rerunCtrl.localRerunTodo.bind(rerunCtrl),
+    sendLeaderChat: rerunCtrl.sendLeaderChat.bind(rerunCtrl),
+    // lifecycle
+    runTeam: mainCtrl.runTeam.bind(mainCtrl),
+    cancelMission: mainCtrl.cancelMission.bind(mainCtrl),
+    deleteMission: mainCtrl.deleteMission.bind(mainCtrl),
+    updateMission: mainCtrl.updateMission.bind(mainCtrl),
+    devTriggerMission: mainCtrl.devTriggerMission.bind(mainCtrl),
+  };
 
   return {
     controller,

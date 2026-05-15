@@ -144,7 +144,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
         payload: event.payload,
         timestamp: event.timestamp ?? Date.now(),
       })
-      .catch(() => undefined);
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[dispatcher] emitEvent ${event.type} for ${event.missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   }
 
   // ── Stage 1 / S1-1 (2026-05-09): STAGE_NUMBER / CHECKPOINT_AT / PRIMARY_HOOK_BY_PRIMITIVE
@@ -185,7 +189,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
       if (missionId && stageNumber != null) {
         await this.store
           .markStageComplete(missionId, stageNumber)
-          .catch(() => undefined);
+          .catch((err: unknown) => {
+            this.log.warn(
+              `[progress-tracking ${missionId}] markStageComplete(${stageNumber}) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
       }
       if (missionId && checkpointTag) {
         const entry = this.sessions.get(missionId);
@@ -205,7 +213,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
               completedKeys,
               "running",
             )
-            .catch(() => undefined);
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[progress-tracking ${missionId}] checkpoint.save(${checkpointTag}) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
         }
       }
       return result;
@@ -490,7 +502,13 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           );
         } else {
           // ★ R2-A.13.1 成功路径：清 checkpoint（mission 已完整落库）
-          await this.missionCheckpoint.clear(missionId).catch(() => undefined);
+          await this.missionCheckpoint
+            .clear(missionId)
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[dispatcher ${missionId}] checkpoint.clear (success path) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
         }
         // ★ A-7: S12 self-evolution fire-and-forget（成功 / 失败路径都跑）
         //   不阻塞 dispatcher 返回；emit mission:postlude:* 让前端单独推 s12 todo 状态
@@ -656,7 +674,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           costUsd: snap.poolCostUsd,
           wallTimeMs: Date.now() - t0,
         })
-        .catch(() => undefined);
+        .catch((dbErr: unknown) => {
+          this.log.warn(
+            `[A-8 ${missionId}] markFailed after execution-aborted failed: ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
+          );
+        });
       return true;
     } catch (innerErr) {
       this.log.warn(
@@ -751,7 +773,11 @@ export class PlaygroundPipelineDispatcher implements OnModuleInit {
           },
         },
       })
-      .catch(() => undefined);
+      .catch((emitErr: unknown) => {
+        this.log.warn(
+          `[handleMissionFailure ${missionId}] emit mission:failed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+        );
+      });
 
     // 写 partial 产物到 DB —— 与 legacy team.mission.ts:317-339 一致
     const entry = this.sessions.get(missionId);

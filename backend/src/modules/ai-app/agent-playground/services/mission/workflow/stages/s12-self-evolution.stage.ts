@@ -209,7 +209,11 @@ export async function runSelfEvolutionStage(
             recommendations,
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[s12 ${missionId}] failureLearner.recordFailure (LEADER_REFUSED_SIGN) failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     // ★ P1-R5-G (2026-04-30): postmortem 写入前再 check abort

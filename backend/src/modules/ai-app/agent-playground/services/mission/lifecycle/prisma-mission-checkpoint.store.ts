@@ -104,7 +104,12 @@ export class PrismaMissionCheckpointStore<
         // 'leaderJournalUri'. Off-loaded content will be empty."
         select: { leaderJournal: true, leaderJournalUri: true },
       })
-      .catch(() => null);
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[checkpoint.load ${missionId}] findUnique failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      });
     if (!row) return null;
     const journal = (row.leaderJournal as Record<string, unknown> | null) ?? {};
     const persisted = journal[CHECKPOINT_KEY] as
@@ -139,7 +144,12 @@ export class PrismaMissionCheckpointStore<
         // 'leaderJournalUri'. Off-loaded content will be empty."
         select: { leaderJournal: true, leaderJournalUri: true },
       })
-      .catch(() => null);
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[checkpoint.clear ${missionId}] findUnique failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      });
     if (!row) return;
     const journal = (row.leaderJournal as Record<string, unknown> | null) ?? {};
     if (!(CHECKPOINT_KEY in journal)) return;

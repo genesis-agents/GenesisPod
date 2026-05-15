@@ -599,7 +599,11 @@ async function dispatchAssessActions(args: {
           summary: r.summary,
           state: r.findings.length === 0 ? "failed" : "completed",
         })
-        .catch(() => undefined);
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[s4 ${missionId}] saveResearchResult for dim=${r.dimension} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     // ★ retry 阶段后做一次 mission-level 显式 emit, 让前端 / Leader signoff 看到

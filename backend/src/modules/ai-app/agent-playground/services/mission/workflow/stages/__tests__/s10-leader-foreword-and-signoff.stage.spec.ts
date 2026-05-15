@@ -73,8 +73,10 @@ function makeCtx(overrides: Partial<MissionContext> = {}): MissionContext {
     billing: {} as MissionContext["billing"],
     pool: {} as MissionContext["pool"],
     leader: {
-      writeForeword: jest.fn().mockResolvedValue(FOREWORD_OUTPUT),
-      signOff: jest.fn().mockResolvedValue(SIGNOFF_OUTPUT),
+      // ★ 必须深拷贝 fixture — s10 stage 会原地 mutate signOff 返回值（leaderSignOff.signed=false 等），
+      //   传引用会污染下一个测试的 SIGNOFF_OUTPUT
+      writeForeword: jest.fn().mockResolvedValue({ ...FOREWORD_OUTPUT }),
+      signOff: jest.fn().mockResolvedValue({ ...SIGNOFF_OUTPUT }),
     } as unknown as MissionContext["leader"],
     plan: {
       themeSummary: "AI",
@@ -401,13 +403,12 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
     expect(forewordCall.qualitySnapshot.criticVerdict).toBe("concerns");
   });
 
-  describe("字数 hard floor post-validation (MIN_CONTENT_WORDS_RATIO=0.3)", () => {
-    it("signed=true + actualWords >= target×30% → signed stays true", async () => {
-      // standard profile = 8000 target; 2400 words = exactly 30% threshold
+  describe("字数 hard floor post-validation (tier-aware signoffPolicyFor)", () => {
+    it("standard (8K target × 0.4 ratio) + 3200 words → signed stays true", async () => {
       const ctx = makeCtx();
       ctx.reportArtifact!.metadata = {
         ...ctx.reportArtifact!.metadata,
-        wordCount: 2400,
+        wordCount: 3200,
         lengthProfile: "standard",
       } as (typeof ctx.reportArtifact)["metadata"];
       const deps = makeDeps();
@@ -415,8 +416,8 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
       expect(ctx.leaderSignOff?.signed).toBe(true);
     });
 
-    it("signed=true + actualWords < target×30% → override to signed=false, reason=Insufficient-Content-Hard-Block", async () => {
-      // standard profile = 8000 target; 100 words = far below 30% floor (2400)
+    it("standard + actualWords < tier minWords → override to signed=false, reason=Insufficient-Content-Hard-Block", async () => {
+      // standard tier minWords = max(8000 * 0.4, 500) = 3200; 100 words far below
       const ctx = makeCtx();
       ctx.reportArtifact!.metadata = {
         ...ctx.reportArtifact!.metadata,
@@ -430,6 +431,41 @@ describe("runLeaderForewordAndSignoffStage (S10)", () => {
       expect(ctx.leaderSignOff?.accountabilityNote).toContain(
         "Insufficient-Content-Hard-Block",
       );
+    });
+
+    it("mega tier (200K target × 0.10 ratio) is more lenient: 25K words signs", async () => {
+      // mega minWords = max(200000 * 0.10, 2000) = 20000; 25000 passes
+      const ctx = makeCtx();
+      ctx.reportArtifact!.metadata = {
+        ...ctx.reportArtifact!.metadata,
+        wordCount: 25000,
+        lengthProfile: "mega",
+      } as (typeof ctx.reportArtifact)["metadata"];
+      ctx.input = {
+        ...ctx.input,
+        lengthProfile: "mega",
+      } as typeof ctx.input;
+      const deps = makeDeps();
+      await runLeaderForewordAndSignoffStage(ctx, deps);
+      expect(ctx.leaderSignOff?.signed).toBe(true);
+    });
+
+    it("mega tier still rejects far-below-tier-minWords: 1000 words → unsign", async () => {
+      // mega minWords = max(200000 * 0.10, 2000) = 20000; 1000 way below
+      const ctx = makeCtx();
+      ctx.reportArtifact!.metadata = {
+        ...ctx.reportArtifact!.metadata,
+        wordCount: 1000,
+        lengthProfile: "mega",
+      } as (typeof ctx.reportArtifact)["metadata"];
+      ctx.input = {
+        ...ctx.input,
+        lengthProfile: "mega",
+      } as typeof ctx.input;
+      const deps = makeDeps();
+      await runLeaderForewordAndSignoffStage(ctx, deps);
+      expect(ctx.leaderSignOff?.signed).toBe(false);
+      expect(ctx.leaderSignOff?.refusalReason).toBe("insufficient_content");
     });
 
     it("signed=false → hard floor not applied (no double override)", async () => {

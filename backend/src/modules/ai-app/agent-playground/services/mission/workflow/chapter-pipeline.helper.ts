@@ -555,7 +555,11 @@ export async function runChapterPipeline(
             attempts: attempt,
             wordCount: draft.wordCount,
           })
-          .catch(() => undefined);
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[chapter-pipeline] saveChapterDraft failed (non-fatal) dim=${dimensionName} ch=${chapter.index}: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
       }
 
       if (chapterDecision !== "passed") {
@@ -702,6 +706,7 @@ export async function emitCacheHitChapters(
     wordCount: number;
     finalScore: number;
   }>,
+  log?: Pick<MissionDeps["log"], "warn">,
 ): Promise<void> {
   const SYNTH_EMIT_INTERVAL_MS = 80;
   const sleep = (ms: number): Promise<void> =>
@@ -721,7 +726,11 @@ export async function emitCacheHitChapters(
       })),
       fromCache: true,
     },
-  }).catch(() => undefined);
+  }).catch((err: unknown) => {
+    log?.warn(
+      `[cache-hit] emit outline:planned failed for ${dimensionName}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  });
   await sleep(SYNTH_EMIT_INTERVAL_MS);
 
   for (const c of chapters) {
@@ -735,7 +744,11 @@ export async function emitCacheHitChapters(
         attempt: 1,
         fromCache: true,
       },
-    }).catch(() => undefined);
+    }).catch((err: unknown) => {
+      log?.warn(
+        `[cache-hit] emit chapter:writing:started failed for ${dimensionName} ch=${c.index}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
     await sleep(SYNTH_EMIT_INTERVAL_MS);
     await emit({
       type: "agent-playground.chapter:writing:completed",
@@ -747,7 +760,11 @@ export async function emitCacheHitChapters(
         wordCount: c.wordCount,
         fromCache: true,
       },
-    }).catch(() => undefined);
+    }).catch((err: unknown) => {
+      log?.warn(
+        `[cache-hit] emit chapter:writing:completed failed for ${dimensionName} ch=${c.index}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
     await sleep(SYNTH_EMIT_INTERVAL_MS);
     await emit({
       type: "agent-playground.chapter:review:completed",
@@ -760,7 +777,11 @@ export async function emitCacheHitChapters(
         score: c.finalScore,
         fromCache: true,
       },
-    }).catch(() => undefined);
+    }).catch((err: unknown) => {
+      log?.warn(
+        `[cache-hit] emit chapter:review:completed failed for ${dimensionName} ch=${c.index}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
     await sleep(SYNTH_EMIT_INTERVAL_MS);
     await emit({
       type: "agent-playground.chapter:done",
@@ -777,7 +798,11 @@ export async function emitCacheHitChapters(
         qualified: true,
         fromCache: true,
       },
-    }).catch(() => undefined);
+    }).catch((err: unknown) => {
+      log?.warn(
+        `[cache-hit] emit chapter:done failed for ${dimensionName} ch=${c.index}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
     await sleep(SYNTH_EMIT_INTERVAL_MS);
   }
 

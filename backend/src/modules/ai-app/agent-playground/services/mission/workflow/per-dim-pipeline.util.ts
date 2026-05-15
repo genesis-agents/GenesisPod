@@ -270,6 +270,7 @@ export async function runPerDimPipeline(
         dimensionName,
         dimensionIdx,
         synthesizedChapters,
+        deps.log,
       );
       const fullMarkdownFromCache = synthesizedChapters
         .map((c) => `### ${c.heading}\n\n${c.body}`)
@@ -289,7 +290,11 @@ export async function runPerDimPipeline(
             fromCache: true,
           },
         })
-        .catch(() => undefined);
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[per-dim] emit dimension:integrating:completed (cache hit) failed for ${dimensionName}: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       await emitGraded({
         ok: true,
         g: {

@@ -36,12 +36,45 @@ import { narrate } from "../narrative.util";
 import { lengthTargetFor } from "@/modules/ai-harness/facade";
 
 /**
- * ★ 假完成防御：leader signoff 字数 hard floor。
- * 即便 leader prompt 判定通过，也要看实际报告字数。
- * 低于目标字数的 30% 强制 unsign，避免 mission 字数为 0 却标"已完成"。
- * 数据路径：reportArtifact.metadata.wordCount（words） vs lengthTargetFor(input.lengthProfile)（words）
+ * ★ 假完成防御：leader signoff 字数 hard floor，按 lengthProfile 6 档分级。
+ *
+ * 旧版：MIN_CONTENT_WORDS_RATIO = 0.3 + HARD_FLOOR_WORDS = 500 单档常量。
+ * 问题：
+ *   - mega (200K target) × 30% = 60K 阈值过严，"近 5 mission 全 fail"主因之一
+ *   - brief (3K target) × 30% = 900 + floor 500 → 实际只看 floor，不分档
+ *
+ * 新策略（评审反馈"按 quick/deep/mega 分档"+ project_agent_playground_quality_gap）：
+ *   越短的档比例越严（字数本身少，比例不收紧分不出"假完成"）
+ *   越长的档比例越宽（承诺过高难全兑现，60K 阈值会让 mega 永远不签字）
+ *   floor 阶梯化（mega 至少 2K 字，避免 200K 承诺只给 500 字仍签字）
+ *
+ * 计算：minWords = max(target × ratio, floor)
  */
-const MIN_CONTENT_WORDS_RATIO = 0.3;
+type LengthProfile =
+  | "brief"
+  | "standard"
+  | "deep"
+  | "extended"
+  | "epic"
+  | "mega";
+
+const SIGNOFF_POLICY: Record<LengthProfile, { ratio: number; floor: number }> =
+  {
+    brief: { ratio: 0.5, floor: 500 }, //  3K target → minWords 1500
+    standard: { ratio: 0.4, floor: 500 }, //  8K target → minWords 3200
+    deep: { ratio: 0.35, floor: 800 }, // 15K target → minWords 5250
+    extended: { ratio: 0.25, floor: 1000 }, // 25K target → minWords 6250
+    epic: { ratio: 0.15, floor: 1500 }, // 80K target → minWords 12000
+    mega: { ratio: 0.1, floor: 2000 }, // 200K target → minWords 20000
+  };
+
+export function signoffPolicyFor(lengthProfile: string | undefined): {
+  ratio: number;
+  floor: number;
+} {
+  const key = (lengthProfile as LengthProfile | undefined) ?? "standard";
+  return SIGNOFF_POLICY[key] ?? SIGNOFF_POLICY.standard;
+}
 
 function forcedUnsigned(refusalReason: string, accountabilityNote: string) {
   return {
@@ -322,25 +355,22 @@ export async function runLeaderForewordAndSignoffStage(
         );
       }
 
-      // ★ 假完成防御 post-validation：leader signoff 字数 hard floor
+      // ★ 假完成防御 post-validation：leader signoff 字数 hard floor，按 tier 分档
       //   即便 leader prompt 判定通过，也要看实际报告字数。
-      //   低于目标字数的 MIN_CONTENT_WORDS_RATIO 强制 unsign。
+      //   低于 max(target × ratio_for_tier, floor_for_tier) 强制 unsign。
       //   数据路径：reportArtifact.metadata.wordCount（实际字数，单位 words）
       //             lengthTargetFor(input.lengthProfile) （目标字数，单位 words）
       if (leaderSignOff.signed === true) {
         const actualWords = reportArtifact.metadata.wordCount ?? 0;
         const targetWords = lengthTargetFor(input.lengthProfile);
-        // ★ P0-4 (audit 2026-05-06): 即使 lengthProfile 配置错误（targetWords=0）
-        //   也要硬 floor 防"任何字数都通过"。500 字是行业最低可读报告下限。
-        const HARD_FLOOR_WORDS = 500;
-        const minWords = Math.max(
-          targetWords * MIN_CONTENT_WORDS_RATIO,
-          HARD_FLOOR_WORDS,
-        );
+        const policy = signoffPolicyFor(input.lengthProfile);
+        const minWords = Math.max(targetWords * policy.ratio, policy.floor);
 
         if (actualWords < minWords) {
           deps.log.warn(
-            `[${ctx.missionId}] leader signoff overridden: actualWords=${actualWords} < minWords=${Math.ceil(minWords)} (target=${targetWords}, floor=${HARD_FLOOR_WORDS}) → unsign`,
+            `[${ctx.missionId}] leader signoff overridden: actualWords=${actualWords} < ` +
+              `minWords=${Math.ceil(minWords)} (target=${targetWords}, profile=${input.lengthProfile}, ` +
+              `ratio=${policy.ratio}, floor=${policy.floor}) → unsign`,
           );
           leaderSignOff.signed = false;
           leaderSignOff.leaderVerdict = "failed";
@@ -349,7 +379,8 @@ export async function runLeaderForewordAndSignoffStage(
           leaderSignOff.accountabilityNote =
             `${leaderSignOff.accountabilityNote ?? ""}\n\n` +
             `[Insufficient-Content-Hard-Block] 报告实际字数 ${actualWords} 低于最低门槛 ` +
-            `${Math.ceil(minWords)}（target=${targetWords} × ${MIN_CONTENT_WORDS_RATIO * 100}%, hard floor=${HARD_FLOOR_WORDS}）。` +
+            `${Math.ceil(minWords)}（target=${targetWords} × ${policy.ratio * 100}%, ` +
+            `tier-floor=${policy.floor}, profile=${input.lengthProfile}）。` +
             `强制拒签避免假完成（mission 字数过短却标已完成）；` +
             `用户可在前端选 重跑 / 修改 lengthProfile 后重启。`.trim();
         }

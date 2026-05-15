@@ -554,7 +554,11 @@ export async function runWriterStage(
             note: "reportAssembler failed; reconciliation warnings emitted directly",
           },
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          deps.log.warn(
+            `[s8 ${missionId}] emit reconciliation:warnings-orphaned failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
   }
 
@@ -847,7 +851,11 @@ export async function runWriterStage(
           qualityOverall: reportArtifact.quality.overall,
         },
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[s8 ${missionId}] emit report:assembled failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     // ★ 2026-05-13 #63: Leader signoff 预警 — S8 已经能算出最终签字阻断条件
     //   （sourceCount / coverage / lengthAccuracy），提前 emit 让前端 timeline

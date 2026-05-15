@@ -545,7 +545,7 @@ describe("runResearcherDispatchStage (S3)", () => {
     );
   });
 
-  it("figure pipeline: extractFiguresFromUrl rejects → .catch(() => []) silently", async () => {
+  it("figure pipeline: extractFiguresFromUrl rejects → debug-log + return [] (non-fatal)", async () => {
     const ctx = makeCtx({
       plan: { ...makeCtx().plan!, dimensions: [DIM_A] },
       input: {

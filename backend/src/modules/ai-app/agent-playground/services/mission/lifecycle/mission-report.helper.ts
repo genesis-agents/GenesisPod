@@ -212,7 +212,12 @@ export class MissionReportHelper {
       .findMany({
         where: { missionId, retryLabel: "" },
       })
-      .catch(() => []);
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[mission-report] loadResearchResults for ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return [];
+      });
     return rows
       .filter((r) => r.state === "completed" || r.state === "degraded")
       .map((r) => ({
@@ -312,7 +317,12 @@ export class MissionReportHelper {
         },
         orderBy: [{ dimension: "asc" }, { chapterIndex: "asc" }],
       })
-      .catch(() => []);
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[mission-report] loadQualifiedChapterDrafts for ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return [];
+      });
     return rows.map((r) => ({
       dimension: r.dimension,
       chapterIndex: r.chapterIndex,

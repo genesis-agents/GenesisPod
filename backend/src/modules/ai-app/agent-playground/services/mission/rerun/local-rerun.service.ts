@@ -264,7 +264,11 @@ export class LocalRerunService {
         todoTitle: input.todoTitle,
         startedAtMs: t0,
       },
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      this.log.warn(
+        `[local-rerun ${missionId}] emit rerun-started failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
     try {
       // ── 7. 必要时 reopen（cascade 终点是 S11 + status=failed）──
@@ -343,7 +347,11 @@ export class LocalRerunService {
           cascade,
           durationMs,
         },
-      }).catch(() => {});
+      }).catch((err: unknown) => {
+        this.log.warn(
+          `[local-rerun ${missionId}] emit rerun-completed failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
       this.log.log(
         `[local-rerun ${missionId}] todo=${todoId} scope=${scope} stepId=${stepId ?? "n/a"} done in ${durationMs}ms`,
@@ -365,7 +373,11 @@ export class LocalRerunService {
           errorMessage: message,
           durationMs: Date.now() - t0,
         },
-      }).catch(() => {});
+      }).catch((emitErr: unknown) => {
+        this.log.warn(
+          `[local-rerun ${missionId}] emit rerun-failed failed: ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+        );
+      });
       throw err;
     } finally {
       await this.lockRegistry.release(missionId, todoId);

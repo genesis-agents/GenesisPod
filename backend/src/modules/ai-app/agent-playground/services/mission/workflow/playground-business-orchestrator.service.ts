@@ -463,7 +463,11 @@ export class PlaygroundBusinessOrchestrator {
                     "s3-researcher-collect",
                     `trajectory 持久化失败 (${r.dimension}):${message.slice(0, 200)}`,
                   )
-                  .catch(() => undefined);
+                  .catch((err: unknown) => {
+                    this.log.warn(
+                      `[s3-hooks ${entry.session.missionId}] markStageDegraded (trajectory) failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  });
               });
           }
         }
@@ -487,7 +491,11 @@ export class PlaygroundBusinessOrchestrator {
               "s3-researcher-collect",
               `S3 半数以上 dim 采集失败:${failedCount}/${totalCount}(mission 继续走退化路径)`,
             )
-            .catch(() => undefined);
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[s3-hooks ${entry.session.missionId}] markStageDegraded (half-fail) failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
         }
         return stageCtx.researcherResults;
       },
@@ -833,7 +841,11 @@ export class PlaygroundBusinessOrchestrator {
           },
           this.stageBindings.buildDeps(),
         );
-        await this.missionCheckpoint.clear(missionId).catch(() => undefined);
+        await this.missionCheckpoint.clear(missionId).catch((err: unknown) => {
+          this.log.warn(
+            `[s11-hooks ${missionId}] checkpoint.clear failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
         const reportPayload =
           entry.crossState.lastReportArtifact ?? entry.crossState.lastReport;
         if (reportPayload) {

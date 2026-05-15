@@ -1,15 +1,19 @@
 /**
- * Duty Loader —— Agent 灵魂 (soul.md) + 职责说明书 (duties/*.md) 加载器
+ * Duty Loader —— Agent 灵魂 (soul) + 职责说明书 (duty) 渲染器
+ *
+ * 2026-05-15 PR-D 收敛：数据源单源迁移到 SKILL.md（buildPromptFromDuty 内部
+ * 委托给 loadSkill）。旧路径（soul.md + duties/*.md 散落文件）作为 fallback，
+ * 在 SKILL.md 缺 duty 段时使用，给 PR-E 物理删除留过渡缓冲。
  *
  * 设计原则：
  *   • Agent class 持有 schema + loop 等工程契约
- *   • soul.md 持有"该 agent 是谁 / 价值观 / 风格 / 红线"，每个 phase 都注入
- *   • duty markdown 持有"该 agent 在某个 phase / mode 下做什么"
- *   • buildPromptFromDuty 自动 prefix soul.md + 拼 duty 一起渲染
+ *   • SKILL.md 持有"该 agent 是谁（soul）+ 在某个 phase/mode 下做什么（duty）"
+ *   • buildPromptFromDuty(agentDir, dutyName, vars) 自动从 SKILL.md 拼 soul+duty
  *
  * 文件位置规约：
- *   agents/<agent-dir>/soul.md                    （可选）
- *   agents/<agent-dir>/duties/<duty-name>.md      （必须）
+ *   agents/<agent-dir>/SKILL.md  ← PRIMARY（PR-D 后真源）
+ *   agents/<agent-dir>/soul.md            ← LEGACY，PR-E 删除
+ *   agents/<agent-dir>/duties/<name>.md   ← LEGACY，PR-E 删除
  *
  * 模板语法：
  *   {{var}}                    简单变量替换
@@ -23,6 +27,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { loadSkill } from "./skill-md-loader";
 
 const dutyCache = new Map<string, string>();
 const soulCache = new Map<string, string | null>();
@@ -206,21 +211,46 @@ function expandEach(input: string, vars: Record<string, unknown>): string {
 /**
  * 加载 agent 的 soul + duty，拼接后渲染成最终 systemPrompt。
  *
+ * 数据源单源（2026-05-15 PR-D）：
+ *   1. PRIMARY: agents/<agentDir>/SKILL.md（soul / duty 段在 HTML 注释边界内）
+ *   2. FALLBACK: legacy agents/<agentDir>/soul.md + duties/<dutyName>.md
+ *      仅在 SKILL.md 不存在或 SKILL.md frontmatter 未声明该 dutyName 时使用，
+ *      留作 PR-E 物理删除前的过渡缓冲。命中 fallback 会发 warn 日志。
+ *
  * 顺序：
- *   [soul.md content]
+ *   [soul content]
  *   ---
- *   [duties/<dutyName>.md content]
+ *   [duty content]
  *
  * soul 部分给 LLM 角色身份（"你是 Leader / Researcher / ..."），
  * duty 部分给当前 phase 任务（"现在做 plan / assess-research / ..."）。
- *
- * 如果 agent 没有 soul.md（旧 agent 还没迁移），只返回 duty。
  */
 export function buildPromptFromDuty(
   agentDir: string,
   dutyName: string,
   vars: Record<string, unknown>,
 ): string {
+  // PRIMARY: SKILL.md 单源
+  try {
+    const skill = loadSkill(agentDir);
+    const dutyBody = skill.duties[dutyName];
+    if (dutyBody != null) {
+      const combined = skill.soul
+        ? `${skill.soul.trim()}\n\n---\n\n${dutyBody}`
+        : dutyBody;
+      return renderDuty(combined, vars);
+    }
+    // SKILL.md 存在但 frontmatter 未声明该 dutyName → 走 fallback
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[duty-loader] SKILL.md present for "${agentDir}" but duty "${dutyName}" not declared in frontmatter; ` +
+        `falling back to legacy duties/${dutyName}.md. Add duty to SKILL.md frontmatter + body anchors to silence.`,
+    );
+  } catch {
+    // SKILL.md 不存在或解析失败 → 走 fallback（保 PR-D 期间所有 agent 平稳）
+  }
+
+  // FALLBACK: legacy soul.md + duties/<dutyName>.md（PR-E 删）
   const soul = loadSoul(agentDir);
   const duty = loadDuty(agentDir, dutyName);
   const combined = soul ? `${soul.trim()}\n\n---\n\n${duty}` : duty;

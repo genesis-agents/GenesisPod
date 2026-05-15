@@ -2,11 +2,22 @@
  * duty-loader.spec.ts — loadDuty / loadSoul / renderDuty / buildPromptFromDuty
  *
  * 策略：mock fs module so we don't need actual .md files on disk.
+ *
+ * 2026-05-15 PR-D：buildPromptFromDuty PRIMARY 路径走 loadSkill (SKILL.md)；
+ * 旧 spec 用 mockFs.readFileSync 链路测的是 fallback (soul.md + duty.md)。
+ * 这里 mock skill-md-loader 让 loadSkill 永远 throw，强制 buildPromptFromDuty
+ * 进 fallback 路径，旧 mock 期望仍生效。
  */
 
 import * as fs from "fs";
 
 jest.mock("fs");
+jest.mock("../skill-md-loader", () => ({
+  loadSkill: jest.fn(() => {
+    throw new Error("test: SKILL.md path disabled for fallback test");
+  }),
+  clearSkillCache: jest.fn(),
+}));
 
 const mockFs = fs as jest.Mocked<typeof fs>;
 

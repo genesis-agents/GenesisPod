@@ -330,7 +330,12 @@ async function runOneDim(
         agentSpecId: "playground.researcher",
         systemPrompt: promptKey,
       })
-      .catch(() => []);
+      .catch((err: unknown) => {
+        deps.log.warn(
+          `[researcher#${idx}] failureLearner.lookup failed for dim "${dim.name}" (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return [];
+      });
     const preDisabled: { failed: string; fallback: string }[] = [];
     for (const rec of knownFailures) {
       if (rec.count >= 2 && rec.lastFallbackModel) {
@@ -531,7 +536,11 @@ async function runOneDim(
                   },
                   fallbackModelId: pd.fallback,
                 })
-                .catch(() => {});
+                .catch((err: unknown) => {
+                  deps.log.warn(
+                    `[researcher#${idx}] failureLearner.recordSuccessfulFallback failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                });
             }
           }
         }
@@ -662,7 +671,11 @@ async function runOneDim(
             userId,
             diagnostic: innerFailure.diagnostic,
           })
-          .catch(() => {});
+          .catch((err: unknown) => {
+            deps.log.warn(
+              `[researcher#${idx}] failureLearner.recordFailure for dim "${dim.name}" failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
       }
       return {
         dimension: dim.name,
@@ -711,14 +724,24 @@ async function runOneDim(
               sourceUrls.map((url) =>
                 deps.figureExtractor
                   .extractFiguresFromUrl(url, 15_000)
-                  .catch(() => []),
+                  .catch((err: unknown) => {
+                    deps.log.debug(
+                      `[researcher#${idx}] figureExtractor failed for url=${url}: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                    return [];
+                  }),
               ),
             )
           ).flat();
           if (allFigures.length > 0) {
             const relevant = await deps.figureRelevance
               .filterRelevantFigures(allFigures, dim.name)
-              .catch(() => allFigures);
+              .catch((err: unknown) => {
+                deps.log.warn(
+                  `[researcher#${idx}] filterRelevantFigures failed for dim "${dim.name}" (fallback to allFigures): ${err instanceof Error ? err.message : String(err)}`,
+                );
+                return allFigures;
+              });
             // 取前 3 张高相关度图填到 figureCandidates
             researcherOut.figureCandidates = relevant
               .slice(0, 3)
@@ -826,7 +849,11 @@ async function runOneDim(
         dimension: dim.name,
         error: message,
       })
-      .catch(() => {});
+      .catch((emitErr: unknown) => {
+        deps.log.warn(
+          `[researcher#${idx}] lifecycle emit (failed) for dim "${dim.name}" failed (non-fatal): ${emitErr instanceof Error ? emitErr.message : String(emitErr)}`,
+        );
+      });
     let innerFailureCode = "UNKNOWN";
     if (errName === "ByokRequiredError") {
       innerFailureCode = "PROVIDER_BYOK_MODEL_NOT_FOUND";

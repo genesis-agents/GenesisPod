@@ -181,7 +181,9 @@ describe("runReconcilerStage (S5)", () => {
     (deps.reconciler.reconcile as jest.Mock).mockRejectedValue(
       new Error("err"),
     );
-    await runReconcilerStage(ctx, deps).catch(() => {});
+    await runReconcilerStage(ctx, deps).catch((_err: unknown) => {
+      // 测试场景：故意让 reconcile 抛出，验证 ctx.reconciliationReport 初始化为 null
+    });
     expect(ctx.reconciliationReport).toBeNull();
   });
 

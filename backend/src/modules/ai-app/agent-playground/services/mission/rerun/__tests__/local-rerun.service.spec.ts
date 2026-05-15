@@ -337,7 +337,9 @@ describe("LocalRerunService.run (PR-R6)", () => {
     const svc = makeService(m);
     await svc
       .run({ ...baseInput, stepId: "s8-writer" }, noopEmit)
-      .catch(() => {});
+      .catch((_err: unknown) => {
+        // 测试场景：此处故意让 run 抛出，仅验证 recordRerunAttempt 被调用
+      });
     expect(m.prisma.agentPlaygroundRerunAttempt.create).toHaveBeenCalled();
   });
 

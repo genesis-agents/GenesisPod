@@ -244,7 +244,9 @@ describe("runAnalystStage (S6)", () => {
       wallTimeMs: 0,
       iterations: 1,
     });
-    await runAnalystStage(ctx, deps).catch(() => {});
+    await runAnalystStage(ctx, deps).catch((_err: unknown) => {
+      // 测试场景：故意让 agent 以 state=failed 返回，验证 lifecycle failed 被调用
+    });
     const failedCall = (deps.lifecycle as jest.Mock).mock.calls.find(
       (c) => c[4] === "failed",
     );

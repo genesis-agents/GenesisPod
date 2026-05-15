@@ -22,6 +22,9 @@ import {
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { AgentPlaygroundController } from "./agent-playground.controller";
+// ★ 2026-05-15 PR-C god-class 拆分：原 856 行 controller 拆 3 个聚焦 controller
+import { MissionReadController } from "./controllers/mission-read.controller";
+import { MissionRerunController } from "./controllers/mission-rerun.controller";
 import { AgentPlaygroundGateway } from "./agent-playground.gateway";
 import { MissionRuntimeShellService } from "./services/mission/workflow/mission-runtime-shell.service";
 import { MissionStageBindingsService } from "./services/mission/workflow/mission-stage-bindings.service";
@@ -110,7 +113,11 @@ import {
       inject: [ConfigService],
     }),
   ],
-  controllers: [AgentPlaygroundController],
+  controllers: [
+    AgentPlaygroundController,
+    MissionReadController,
+    MissionRerunController,
+  ],
   providers: [
     AgentPlaygroundGateway,
     MissionRuntimeShellService,
@@ -258,15 +265,17 @@ export class AgentPlaygroundModule
               },
               take: 200,
             })
-            .catch(
-              () =>
-                [] as Array<{
-                  id: string;
-                  userId: string;
-                  startedAt: Date;
-                  heartbeatAt: Date | null;
-                }>,
-            );
+            .catch((err: unknown) => {
+              this.playgroundLogger.warn(
+                `[liveness] findMany running missions failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              return [] as Array<{
+                id: string;
+                userId: string;
+                startedAt: Date;
+                heartbeatAt: Date | null;
+              }>;
+            });
           if (rows.length === 0) return [];
           // ★ 2026-05-07 rerun-overhaul：wall-time 用 effective start = max(startedAt,
           //   lastReopenedAt)。reopen 后的 mission 不应被原 startedAt 误判超时。
@@ -313,9 +322,12 @@ export class AgentPlaygroundModule
               },
               _max: { ts: true },
             })
-            .catch(
-              () => [] as { missionId: string; _max: { ts: bigint | null } }[],
-            );
+            .catch((err: unknown) => {
+              this.playgroundLogger.warn(
+                `[liveness] getMostRecentEventTs groupBy failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+              return [] as { missionId: string; _max: { ts: bigint | null } }[];
+            });
           const out = new Map<string, number>();
           for (const g of grouped) {
             const ts = g._max.ts;
@@ -345,7 +357,11 @@ export class AgentPlaygroundModule
               },
               timestamp: Date.now(),
             })
-            .catch(() => undefined);
+            .catch((err: unknown) => {
+              this.playgroundLogger.warn(
+                `[liveness] emit mission:failed failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
         },
         emitWarning: async (missionId, userId, payload) => {
           await this.eventBus
@@ -361,7 +377,11 @@ export class AgentPlaygroundModule
               },
               timestamp: Date.now(),
             })
-            .catch(() => undefined);
+            .catch((err: unknown) => {
+              this.playgroundLogger.warn(
+                `[liveness] emit mission:warning failed: ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
         },
       },
       (() => {
@@ -375,9 +395,7 @@ export class AgentPlaygroundModule
         const rt = loadPlaygroundRuntimeConfig();
         return {
           wallTimeCapMs:
-            rt.wallTimeCapMs > 0
-              ? rt.wallTimeCapMs
-              : Number.POSITIVE_INFINITY,
+            rt.wallTimeCapMs > 0 ? rt.wallTimeCapMs : Number.POSITIVE_INFINITY,
           staleThresholdMs: rt.staleThresholdMin * 60 * 1000,
           softWarnThresholdMs: rt.softWarnThresholdMin * 60 * 1000,
           startupGraceMs: 5 * 60 * 1000,

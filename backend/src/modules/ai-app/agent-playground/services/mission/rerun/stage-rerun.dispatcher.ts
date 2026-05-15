@@ -311,7 +311,11 @@ export class StageRerunDispatcher {
             cascadeChain,
             completedSoFar: [...completed],
           },
-        }).catch(() => {});
+        }).catch((err: unknown) => {
+          this.log.warn(
+            `[cascade ${ctx.missionId}] emit rerun:stage-started failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
 
         const handler = this.handlers.get(stepId);
         if (!handler) {
@@ -345,7 +349,11 @@ export class StageRerunDispatcher {
               },
               ctx.userId,
             )
-            .catch(() => {});
+            .catch((err: unknown) => {
+              this.log.warn(
+                `[cascade ${ctx.missionId}] markIntermediateState for ${stepId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            });
         } catch (err) {
           const errorMessage = err instanceof Error ? err.message : String(err);
           this.log.warn(
@@ -414,7 +422,11 @@ export class StageRerunDispatcher {
         partialModeNote:
           "best-effort partial: 已成 stage 的 patch 保留，未跑下游不动",
       },
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      this.log.warn(
+        `[cascade ${args.ctx.missionId}] emit rerun:cascade-aborted failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   }
 
   // ────────────────────────── handlers ──────────────────────────
@@ -553,7 +565,11 @@ export class StageRerunDispatcher {
         text: `局部重跑 10 维客观评审：${reportArtifact.sections.length} 个章节`,
         agentId: "critic",
       },
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      stubs.log.warn(
+        `[s9b-rerun ${ctx.missionId}] emit agent:narrative (judging) failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
     const language = ctx.input.language?.startsWith("en") ? "en" : "zh";
     const topicType =
@@ -626,7 +642,11 @@ export class StageRerunDispatcher {
         text: `局部重跑完成：${result.overallScore}/100 (${result.grade})`,
         agentId: "critic",
       },
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      stubs.log.warn(
+        `[s9b-rerun ${ctx.missionId}] emit agent:narrative (success) failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
     stubs.log.log(
       `[s9b-rerun ${ctx.missionId}] new score=${result.overallScore} grade=${result.grade}`,
@@ -662,7 +682,11 @@ export class StageRerunDispatcher {
         text: "S11 持久化重跑：将已有产物写入 mission 行（rerun 模式 bypass content guard）",
         agentId: "system",
       },
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      stubs.log.warn(
+        `[s11-rerun ${ctx.missionId}] emit agent:narrative (persisting) failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
     // 1. 拿 reportArtifact：优先 ctx，否则从 chapter_drafts 重建
     let reportArtifact: ReportArtifact | undefined = ctx.reportArtifact;
@@ -783,7 +807,11 @@ export class StageRerunDispatcher {
         rerunRecovered: recovered,
         rerunSource: recovered ? "chapter_drafts" : "ctx_artifact",
       },
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      stubs.log.warn(
+        `[s11-rerun ${ctx.missionId}] emit mission:completed failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
 
     stubs.log.log(
       `[s11-rerun ${ctx.missionId}] markCompleted ok (recovered=${recovered}, sections=${reportArtifact.sections?.length ?? 0})`,

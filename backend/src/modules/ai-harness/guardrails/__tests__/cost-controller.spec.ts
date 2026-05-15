@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { CostController, BudgetPeriod } from "../resources/cost-controller";
 import { CacheService } from "@/common/cache/cache.service";
+import { ModelPricingRegistry } from "@/modules/ai-engine/llm/pricing/model-pricing.registry";
 
 jest.spyOn(Logger.prototype, "log").mockImplementation();
 jest.spyOn(Logger.prototype, "debug").mockImplementation();
@@ -14,6 +15,33 @@ const mockCacheService = {
   del: jest.fn().mockResolvedValue(undefined),
 };
 
+// 替代之前的 6 模型硬编码价格表 — production 路径走 ModelPricingRegistry
+// (DB AIModel 表)，spec 里 mock 该 registry 验证 calculateCost 真去查它。
+const PRICING_FIXTURE: Record<
+  string,
+  { inputPricePerM: number; outputPricePerM: number }
+> = {
+  "gpt-4o": { inputPricePerM: 2.5, outputPricePerM: 10 },
+  "gpt-4o-mini": { inputPricePerM: 0.15, outputPricePerM: 0.6 },
+  "gpt-4-turbo": { inputPricePerM: 10, outputPricePerM: 30 },
+  "claude-3-5-sonnet": { inputPricePerM: 3, outputPricePerM: 15 },
+  "claude-3-opus": { inputPricePerM: 15, outputPricePerM: 75 },
+  "claude-3-haiku": { inputPricePerM: 0.25, outputPricePerM: 1.25 },
+};
+
+const mockPricingRegistry = {
+  estimateCost: jest.fn(
+    (modelId: string, inputTokens: number, outputTokens: number) => {
+      const p = PRICING_FIXTURE[modelId];
+      if (!p) return null;
+      return (
+        (inputTokens / 1_000_000) * p.inputPricePerM +
+        (outputTokens / 1_000_000) * p.outputPricePerM
+      );
+    },
+  ),
+};
+
 describe("CostController", () => {
   let controller: CostController;
 
@@ -23,6 +51,7 @@ describe("CostController", () => {
       providers: [
         CostController,
         { provide: CacheService, useValue: mockCacheService },
+        { provide: ModelPricingRegistry, useValue: mockPricingRegistry },
       ],
     }).compile();
     controller = module.get<CostController>(CostController);
@@ -33,13 +62,18 @@ describe("CostController", () => {
   // ==================== calculateCost ====================
 
   describe("calculateCost", () => {
-    it("should calculate cost for known model gpt-4o", () => {
-      // gpt-4o: input=2.5/M, output=10/M
+    it("should delegate to ModelPricingRegistry for known model gpt-4o", () => {
+      // gpt-4o: input=2.5/M, output=10/M (via mock registry — DB AIModel in prod)
       const cost = controller.calculateCost("gpt-4o", 1_000_000, 1_000_000);
       expect(cost).toBeCloseTo(12.5, 4);
+      expect(mockPricingRegistry.estimateCost).toHaveBeenCalledWith(
+        "gpt-4o",
+        1_000_000,
+        1_000_000,
+      );
     });
 
-    it("should calculate cost for gpt-4o-mini", () => {
+    it("should calculate cost for gpt-4o-mini via registry", () => {
       const cost = controller.calculateCost(
         "gpt-4o-mini",
         1_000_000,
@@ -48,17 +82,17 @@ describe("CostController", () => {
       expect(cost).toBeCloseTo(0.75, 4);
     });
 
-    it("should calculate cost for claude-3-5-sonnet", () => {
+    it("should calculate cost for claude-3-5-sonnet via registry", () => {
       const cost = controller.calculateCost("claude-3-5-sonnet", 1_000_000, 0);
       expect(cost).toBeCloseTo(3, 4);
     });
 
-    it("should calculate cost for claude-3-opus", () => {
+    it("should calculate cost for claude-3-opus via registry", () => {
       const cost = controller.calculateCost("claude-3-opus", 0, 1_000_000);
       expect(cost).toBeCloseTo(75, 4);
     });
 
-    it("should calculate cost for claude-3-haiku", () => {
+    it("should calculate cost for claude-3-haiku via registry", () => {
       const cost = controller.calculateCost(
         "claude-3-haiku",
         1_000_000,
@@ -67,7 +101,7 @@ describe("CostController", () => {
       expect(cost).toBeCloseTo(1.5, 4);
     });
 
-    it("should calculate cost for gpt-4-turbo", () => {
+    it("should calculate cost for gpt-4-turbo via registry", () => {
       const cost = controller.calculateCost(
         "gpt-4-turbo",
         1_000_000,
@@ -76,13 +110,11 @@ describe("CostController", () => {
       expect(cost).toBeCloseTo(40, 4);
     });
 
-    it("should use default estimation for unknown model", () => {
+    it("should return 0 + warn for unknown model (no silent 0.001/k estimation)", () => {
+      // Old behavior: silent (in+out)*0.001/1000 假估算 → 让预算永远扣不到钱。
+      // New behavior: 0 + warn 一次，admin 应在 /admin/ai/models 配 priceXXX
       const cost = controller.calculateCost("unknown-model", 1000, 1000);
-      // Default: (1000+1000) * 0.001 / 1000
-      // Actual source: (inputTokens + outputTokens) * 0.001 / 1000 = 2000 * 0.001 / 1000 = 0.000002
-      // But the formula is: (1000 + 1000) * 0.001 / 1000 = 2 * 0.001 = 0.002
-      expect(cost).toBeGreaterThan(0);
-      expect(cost).toBeLessThan(0.01);
+      expect(cost).toBe(0);
     });
 
     it("should return 0 cost for 0 tokens with known model", () => {

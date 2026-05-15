@@ -236,9 +236,11 @@ describe("Protection Net — ErrorBoundary + error-report endpoint", () => {
   });
 
   describe("4b. backend error-report controller structure", () => {
+    // PR-D god class split (2026-05-15): error-report 路由从 agent-playground.controller.ts
+    // 拆到 controllers/mission-read.controller.ts，spec readSrc 跟着迁。
     const controllerFile = path.resolve(
       __dirname,
-      "../../modules/ai-app/agent-playground/agent-playground.controller.ts",
+      "../../modules/ai-app/agent-playground/controllers/mission-read.controller.ts",
     );
 
     it("controller file exists", () => {

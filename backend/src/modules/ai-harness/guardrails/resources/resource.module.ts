@@ -21,6 +21,8 @@ import { PrismaModule } from "@/common/prisma/prisma.module";
 import { AiEngineToolsModule } from "@/modules/ai-engine/tools/tools.module";
 import { AiEngineSkillsModule } from "@/modules/ai-engine/skills/skills.module";
 import { AiEnginePlanningModule } from "@/modules/ai-engine/planning/planning.module";
+// CostController 走 ModelPricingRegistry 单源（DB AIModel 表），删 6 模型硬编码价格表。
+import { AiEngineLLMModule } from "@/modules/ai-engine/llm/llm.module";
 import { KeyResolverModule } from "@/modules/ai-infra/credentials/key-resolver/key-resolver.module";
 import { SecretsModule } from "@/modules/ai-infra/secrets/secrets.module";
 import { ResourceManagerService } from "./resource-manager.service";
@@ -53,6 +55,7 @@ const RUNTIME_RESOURCE_PROVIDERS = [
     forwardRef(() => AiEngineToolsModule),
     forwardRef(() => AiEngineSkillsModule),
     forwardRef(() => AiEnginePlanningModule),
+    forwardRef(() => AiEngineLLMModule),
     // discoverUserKeys 真接 KeyResolver + Secrets（替换原来写死的 hasByok=false）
     KeyResolverModule,
     SecretsModule,

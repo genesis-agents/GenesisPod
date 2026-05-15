@@ -109,7 +109,12 @@ export class MissionPostmortemHelper {
         select: { id: true, completedAt: true },
         orderBy: { completedAt: "desc" },
       })
-      .catch(() => null);
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[listRecentPostmortems userId=${userId}] findFirst recent mission failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        return null;
+      });
 
     const fetchPostmortems = async () =>
       this.prisma.harnessVectorMemory
@@ -121,7 +126,12 @@ export class MissionPostmortemHelper {
           orderBy: { createdAt: "desc" },
           take: Math.min(Math.max(limit, 1), 10),
         })
-        .catch(() => []);
+        .catch((err: unknown) => {
+          this.log.warn(
+            `[listRecentPostmortems userId=${userId}] findMany postmortems failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          return [];
+        });
 
     let rows = await fetchPostmortems();
 
