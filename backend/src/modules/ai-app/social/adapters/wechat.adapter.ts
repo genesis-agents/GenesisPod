@@ -1260,6 +1260,34 @@ export class WechatAdapter {
   private async saveDraft(page: Page): Promise<string> {
     this.logger.log("Looking for save button...");
 
+    // 2026-05-15: 用户在 prod 真复现 saveDraft 30s timeout 后，发现现有 matcher
+    //   (operate_appmsg?sub=create|update|submit / /draft/add / /draft/update)
+    //   没匹配到微信现在真用的 endpoint（可能 type=77 小绿书或 API 改版）。
+    //   增加 network 全量日志：click 前挂 page.on('response')，把 mp.weixin
+    //   域的 200 响应 URL 全部收集起来；失败时打 log 看真路径，下次精准补 matcher。
+    const capturedUrls: string[] = [];
+    const captureHandler = (response: {
+      url: () => string;
+      status: () => number;
+    }) => {
+      const url = response.url();
+      if (response.status() !== 200) return;
+      // 只关心 mp.weixin.qq.com 业务接口，过滤静态资源 / 第三方
+      if (!/mp\.weixin\.qq\.com/.test(url)) return;
+      if (
+        /\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|ico)(\?|$)/i.test(url) ||
+        url.includes("/htmledition/") ||
+        url.includes("/res.wx.qq.com/")
+      ) {
+        return;
+      }
+      capturedUrls.push(url);
+    };
+    page.on(
+      "response",
+      captureHandler as unknown as Parameters<typeof page.on>[1],
+    );
+
     let saveClicked = false;
 
     // 方法1: 查找按钮并匹配文本（Puppeteer 版本）
@@ -1338,11 +1366,20 @@ export class WechatAdapter {
             return false;
           }
 
-          // 精确匹配保存草稿的 API：
-          // - operate_appmsg?t=ajax-response&sub=create (新建草稿)
-          // - operate_appmsg?t=ajax-response&sub=update (更新草稿)
-          // - /cgi-bin/draft/add (新版接口)
-          // - /cgi-bin/draft/update (新版接口)
+          // 精确匹配保存草稿的 API（按观察到的 prod 真实 endpoint 持续补全）：
+          // 老版：
+          //   - operate_appmsg?t=ajax-response&sub=create (新建草稿)
+          //   - operate_appmsg?t=ajax-response&sub=update (更新草稿)
+          //   - /cgi-bin/draft/add (新版接口)
+          //   - /cgi-bin/draft/update (新版接口)
+          // 2026-05-15 拓宽（type=77 小绿书 / 微信 API 改版后候选）：
+          //   - operate_mass_msg / operate_masssend
+          //   - freepublish/submit / freepublish/draft
+          //   - save_appmsg / submit_appmsg
+          //   - note_save / save_note (小绿书 type=77 可能走 note 路径)
+          //   - draft/save / draft/submit (新版 draft API)
+          //   实际真路径以 prod log 里 `[saveDraft] Captured URLs (no matcher hit)`
+          //   打出来的列表为准，未命中的 endpoint 出现后即时加 case。
           if (url.includes("operate_appmsg")) {
             return (
               url.includes("sub=create") ||
@@ -1350,8 +1387,34 @@ export class WechatAdapter {
               url.includes("sub=submit")
             );
           }
+          if (
+            url.includes("operate_mass_msg") ||
+            url.includes("operate_masssend")
+          ) {
+            return true;
+          }
+          if (url.includes("freepublish")) {
+            return (
+              url.includes("submit") ||
+              url.includes("draft") ||
+              url.includes("save")
+            );
+          }
+          if (
+            url.includes("save_appmsg") ||
+            url.includes("submit_appmsg") ||
+            url.includes("save_note") ||
+            url.includes("note_save")
+          ) {
+            return true;
+          }
 
-          return url.includes("/draft/add") || url.includes("/draft/update");
+          return (
+            url.includes("/draft/add") ||
+            url.includes("/draft/update") ||
+            url.includes("/draft/save") ||
+            url.includes("/draft/submit")
+          );
         },
         { timeout: 30000 },
       );
@@ -1390,6 +1453,21 @@ export class WechatAdapter {
       this.logger.warn(
         `Save response wait failed: ${(waitError as Error).message}`,
       );
+      // 2026-05-15: 把 click 后捕获的 mp.weixin 域 200 URL 全部打 log，
+      // 用来反向定位真正的 saveDraft endpoint，下次精准补 matcher。
+      if (capturedUrls.length > 0) {
+        this.logger.warn(
+          `[saveDraft] Captured URLs (no matcher hit, n=${capturedUrls.length}):`,
+        );
+        capturedUrls.forEach((u, i) => {
+          this.logger.warn(`  [${i}] ${u}`);
+        });
+      } else {
+        this.logger.warn(
+          "[saveDraft] No mp.weixin.qq.com responses captured during wait — " +
+            "button click may have triggered no network request (front-end-only save?)",
+        );
+      }
     }
 
     // 如果没有通过 API 响应验证，尝试其他方式验证
@@ -1439,9 +1517,15 @@ export class WechatAdapter {
       }
     }
 
+    // 卸载 network 监听（不论成功/失败都要清理，避免后续 page 操作累积 handler）
+    page.off(
+      "response",
+      captureHandler as unknown as Parameters<typeof page.off>[1],
+    );
+
     // 最终验证
     if (!saveSucceeded) {
-      // 截图用于调试
+      // 截图用于调试（capturedUrls 已在 waitError 分支打过 log，这里不重复）
       await this.captureDebugInfo(page, "save_failed");
       throw new Error(
         "草稿保存失败：未能确认保存操作成功完成。请检查微信公众号后台是否正常。",
