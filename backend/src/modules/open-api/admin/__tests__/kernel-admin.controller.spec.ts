@@ -661,10 +661,11 @@ describe("KernelAdminController", () => {
   });
 
   describe("getCostReport", () => {
-    // 2026-05-15 Round 1 P1 fix: getCostReport / getCostTrend 在 PR-E.P1-2
-    // cost-attribution Redis 化后变 async；spec 必须 await + mock 返 Promise。
+    // 2026-05-15 Round 2 修正：getCostReport / getHourlyTrend 实际同步（仅 controller
+    // 方法是 async 以兼容 HTTP handler），mock 用 mockReturnValue 即可，过去误用
+    // mockResolvedValue 在 controller 去 await 后会传 Promise 对象给 .toISOString。
     it("calls getCostReport with parsed hours", async () => {
-      mockKernelApi.getCostReport!.mockResolvedValue(makeCostReport());
+      mockKernelApi.getCostReport!.mockReturnValue(makeCostReport());
 
       const result = await controller.getCostReport("12");
 
@@ -675,7 +676,7 @@ describe("KernelAdminController", () => {
     });
 
     it("defaults to 24 hours when not provided", async () => {
-      mockKernelApi.getCostReport!.mockResolvedValue(makeCostReport());
+      mockKernelApi.getCostReport!.mockReturnValue(makeCostReport());
 
       await controller.getCostReport(undefined);
 
@@ -685,7 +686,7 @@ describe("KernelAdminController", () => {
     });
 
     it("formats period with ISO timestamps", async () => {
-      mockKernelApi.getCostReport!.mockResolvedValue(makeCostReport());
+      mockKernelApi.getCostReport!.mockReturnValue(makeCostReport());
 
       const result = await controller.getCostReport("24");
 
@@ -699,7 +700,7 @@ describe("KernelAdminController", () => {
       const trend = [
         { hour: "2024-01-01T00:00:00.000Z", cost: 0.5, calls: 10 },
       ];
-      mockKernelApi.getHourlyTrend!.mockResolvedValue(trend);
+      mockKernelApi.getHourlyTrend!.mockReturnValue(trend);
 
       const result = await controller.getCostTrend("6");
 
@@ -709,7 +710,7 @@ describe("KernelAdminController", () => {
     });
 
     it("defaults to 24 hours when not provided", async () => {
-      mockKernelApi.getHourlyTrend!.mockResolvedValue([]);
+      mockKernelApi.getHourlyTrend!.mockReturnValue([]);
 
       await controller.getCostTrend(undefined);
 
