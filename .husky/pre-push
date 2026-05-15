@@ -120,6 +120,15 @@ FRONTEND_EXIT=0
 
 echo "  diff base: $BASE_SHA"
 
+# 2026-05-15: `git push` 把 GIT_INDEX_FILE 等内部 env 注入到 hook 子进程。jest
+# --changedSince / vitest --changed 内部调 `git diff` 时拿到 push 临时 index
+# 而非工作树 index，参数解析失败 → 吐 `git diff` usage 文本退 1。husky.sh 用
+# `sh -e $0` 跑 hook，jest 一退就 abort，连"测试失败"错误信息都来不及打。
+# 表象：hook 卡在 "backend: running jest --changedSince=..." 后立刻 exit 1。
+# 上面 git diff --name-only "$BASE_SHA" HEAD -- 'backend/**' 在 hook 自身 shell
+# 里没问题，所以只需在调用子进程测试之前 unset。
+unset GIT_INDEX_FILE GIT_DIR GIT_WORK_TREE GIT_PREFIX GIT_REFLOG_ACTION
+
 if [ -n "$BACKEND_CHANGED" ]; then
     echo "  backend: running jest --changedSince=$BASE_SHA"
     cd backend
