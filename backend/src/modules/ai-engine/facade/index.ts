@@ -151,6 +151,21 @@ export type {
 export { ToolRegistry } from "../tools/registry/tool.registry";
 export { SkillRegistry } from "../skills/registry/skill.registry";
 
+// ★ Social publish port — ai-app/social 实现端口的反转入口
+//   ai-engine 不依赖任何 social 实现；token + 接口在此暴露，
+//   ai-app/social/engine-bridge 提供绑定。详见 abstractions/social-publish.port.ts
+export {
+  SOCIAL_PUBLISH_PORT,
+  type SocialPublishPort,
+  type SocialPublishContext,
+  type SocialPlatform,
+  type PublishJobStatus,
+  type PublishJobReceipt,
+  type PublishStatusSnapshot,
+  type WechatMpPublishInput,
+  type XhsPublishInput,
+} from "../tools/categories/integration/abstractions";
+
 // ★ High-frequency types used across AI App modules
 export type {
   TaskProfile,

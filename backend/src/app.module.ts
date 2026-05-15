@@ -65,6 +65,7 @@ import { AgentPlaygroundModule } from "./modules/ai-app/agent-playground/agent-p
 import { NotificationsBridgeModule } from "./modules/ai-app/notifications-bridge/notifications-bridge.module";
 import { CustomAgentsModule } from "./modules/ai-app/custom-agents/custom-agents.module";
 import { AiSocialModule } from "./modules/ai-app/social/ai-social.module";
+import { SocialEngineBridgeModule } from "./modules/ai-app/social/engine-bridge/social-engine-bridge.module";
 // Explore modules (content discovery)
 import { ExploreModule } from "./modules/ai-app/explore/explore.module";
 import { ResourcesModule } from "./modules/ai-app/explore/resources/resources.module";
@@ -221,7 +222,8 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     AgentPlaygroundModule,
     NotificationsBridgeModule, // 桥接 DomainEvent → 持久化通知（playground mission completion 等）
     CustomAgentsModule, // E R4 Phase 2 PR-E1 (2026-05-05): 用户自定义 agent CRUD
-    AiSocialModule, // AI ç¤¾äº¤åª’ä½“å‘å¸ƒæ¨¡å—
+    AiSocialModule,
+    SocialEngineBridgeModule, // @Global 绑定 SOCIAL_PUBLISH_PORT → SocialPublishAdapter，给 engine 三个发布 tool 委托
     // Content engine modules (Phase 3: moved from ai-engine)
     LongContentModule,
     ContentAnalysisModule,
