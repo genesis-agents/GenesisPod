@@ -339,7 +339,9 @@ async function runOneDim(
     const preDisabled: { failed: string; fallback: string }[] = [];
     for (const rec of knownFailures) {
       if (rec.count >= 2 && rec.lastFallbackModel) {
-        billing.markModelDisabled(rec.modelId, rec.lastFallbackModel);
+        // billing.markModelDisabled 是 async (Promise<void>)，fire-and-forget
+        // pre-disable 不阻塞 researcher 主流程；失败由 BillingAdapter 内部 log
+        void billing.markModelDisabled(rec.modelId, rec.lastFallbackModel);
         preDisabled.push({
           failed: rec.modelId,
           fallback: rec.lastFallbackModel,
