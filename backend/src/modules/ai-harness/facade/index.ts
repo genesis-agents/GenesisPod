@@ -871,7 +871,10 @@ export type {
   MissionExecuteResult,
 } from "../lifecycle/manager/mission-executor.interface";
 export { HarnessApiService, KernelApiService } from "./api/harness-api.service";
-export { HarnessApiModule } from "./api/harness-api.module";
+// 2026-05-15: 不再 re-export HarnessApiModule —— barrel re-export Module 触发
+// decorator 链式加载，CJS 顺序下 HttpModule undefined 崩 image-generation /
+// admin spec（feedback_facade_barrel_module_cycle 警告的反模式）。唯一消费方
+// app.module.ts 已直接 import "./facade/api/harness-api.module"，本行是死代码。
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // Common context (KernelContext lives in common/, surfaced here for ai-app DX)
