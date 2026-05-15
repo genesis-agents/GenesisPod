@@ -1,9 +1,9 @@
 /**
  * Verifier stage agent — barrel export
  *
- * 客观事实核验员，4 种 mode（citation-audit / number-check / claim-grounding /
- * source-tier）。当前 orchestrator 暂未接入，留作后续 PR 在
- * mission [3.5] reconciliation 之后 + writer 之后两个节点调用。
+ * 客观事实核验员，当前唯一 mode: citation-audit（核 [N] 引用是否对应真实 source）。
+ * 历史预留 mode（number-check / claim-grounding / source-tier）已删
+ * （2026-05-15 PR-E），从未接入 orchestrator 也无 SKILL.md duty body。
  */
 
 export {

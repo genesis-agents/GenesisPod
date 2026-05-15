@@ -1,11 +1,9 @@
 /**
  * VerifierAgent — unit tests
  *
- * 覆盖：
- *   - inputSchema: 4 modes (discriminatedUnion)
- *   - outputSchema: 4 modes
- *   - buildSystemPrompt: calls buildPromptFromDuty for each mode,
- *     injects currentDate
+ * 当前唯一 mode: citation-audit。
+ * 历史预留 mode（number-check / claim-grounding / source-tier）已删
+ * （2026-05-15 PR-E）：从未接入 orchestrator + 没有 SKILL.md duty body。
  */
 
 import { z } from "zod";
@@ -16,8 +14,6 @@ import * as dutyLoader from "../../../utils/duty-loader";
 const meta = readDefineAgentMeta(VerifierAgent)!;
 const inputSchema = meta.inputSchema as z.ZodType;
 const outputSchema = meta.outputSchema as z.ZodType;
-
-// ─── citation-audit input ────────────────────────────────────────
 
 const citationAuditInput = {
   mode: "citation-audit" as const,
@@ -32,43 +28,6 @@ const citationAuditInput = {
   ],
 };
 
-// ─── number-check input ──────────────────────────────────────────
-
-const numberCheckInput = {
-  mode: "number-check" as const,
-  topic: "AI in Finance",
-  language: "zh-CN" as const,
-  claims: [
-    {
-      text: "Revenue grew 40% in 2024",
-      sourceUrl: "https://example.com/annual-report",
-    },
-  ],
-};
-
-// ─── claim-grounding input ───────────────────────────────────────
-
-const claimGroundingInput = {
-  mode: "claim-grounding" as const,
-  topic: "AI in Finance",
-  language: "zh-CN" as const,
-  claims: ["AI adoption doubled in 2024", "Cost reduction by 25%"],
-};
-
-// ─── source-tier input ───────────────────────────────────────────
-
-const sourceTierInput = {
-  mode: "source-tier" as const,
-  topic: "AI in Finance",
-  language: "zh-CN" as const,
-  sources: [
-    "https://mckinsey.com/reports/ai",
-    "https://blog.medium.com/ai-stuff",
-  ],
-};
-
-// ─── shared verdict ──────────────────────────────────────────────
-
 const verdict = {
   status: "verified" as const,
   evidence: "Source clearly states the claim with matching data.",
@@ -80,10 +39,6 @@ describe("VerifierAgent", () => {
   beforeAll(() => {
     agent = new VerifierAgent();
   });
-
-  // ─────────────────────────────────────────────
-  // inputSchema — citation-audit
-  // ─────────────────────────────────────────────
 
   describe("inputSchema — citation-audit", () => {
     it("accepts valid citation-audit input", () => {
@@ -135,95 +90,14 @@ describe("VerifierAgent", () => {
       >;
       expect(inputSchema.safeParse(rest).success).toBe(false);
     });
-  });
 
-  // ─────────────────────────────────────────────
-  // inputSchema — number-check
-  // ─────────────────────────────────────────────
-
-  describe("inputSchema — number-check", () => {
-    it("accepts valid number-check input", () => {
-      expect(inputSchema.safeParse(numberCheckInput).success).toBe(true);
-    });
-
-    it("accepts empty claims array", () => {
+    it("rejects non-literal mode", () => {
       expect(
-        inputSchema.safeParse({ ...numberCheckInput, claims: [] }).success,
-      ).toBe(true);
-    });
-
-    it("rejects claim missing text", () => {
-      expect(
-        inputSchema.safeParse({
-          ...numberCheckInput,
-          claims: [{ sourceUrl: "https://example.com" }],
-        }).success,
-      ).toBe(false);
-    });
-
-    it("rejects claim missing sourceUrl", () => {
-      expect(
-        inputSchema.safeParse({
-          ...numberCheckInput,
-          claims: [{ text: "some claim" }],
-        }).success,
+        inputSchema.safeParse({ ...citationAuditInput, mode: "number-check" })
+          .success,
       ).toBe(false);
     });
   });
-
-  // ─────────────────────────────────────────────
-  // inputSchema — claim-grounding
-  // ─────────────────────────────────────────────
-
-  describe("inputSchema — claim-grounding", () => {
-    it("accepts valid claim-grounding input", () => {
-      expect(inputSchema.safeParse(claimGroundingInput).success).toBe(true);
-    });
-
-    it("accepts empty claims array", () => {
-      expect(
-        inputSchema.safeParse({ ...claimGroundingInput, claims: [] }).success,
-      ).toBe(true);
-    });
-
-    it("accepts single string claim", () => {
-      expect(
-        inputSchema.safeParse({
-          ...claimGroundingInput,
-          claims: ["Single claim here"],
-        }).success,
-      ).toBe(true);
-    });
-  });
-
-  // ─────────────────────────────────────────────
-  // inputSchema — source-tier
-  // ─────────────────────────────────────────────
-
-  describe("inputSchema — source-tier", () => {
-    it("accepts valid source-tier input", () => {
-      expect(inputSchema.safeParse(sourceTierInput).success).toBe(true);
-    });
-
-    it("accepts empty sources array", () => {
-      expect(
-        inputSchema.safeParse({ ...sourceTierInput, sources: [] }).success,
-      ).toBe(true);
-    });
-
-    it("accepts single source", () => {
-      expect(
-        inputSchema.safeParse({
-          ...sourceTierInput,
-          sources: ["https://example.com"],
-        }).success,
-      ).toBe(true);
-    });
-  });
-
-  // ─────────────────────────────────────────────
-  // outputSchema — citation-audit
-  // ─────────────────────────────────────────────
 
   describe("outputSchema — citation-audit", () => {
     it("accepts valid citation-audit output", () => {
@@ -289,126 +163,6 @@ describe("VerifierAgent", () => {
     });
   });
 
-  // ─────────────────────────────────────────────
-  // outputSchema — number-check
-  // ─────────────────────────────────────────────
-
-  describe("outputSchema — number-check", () => {
-    it("accepts valid number-check output", () => {
-      expect(
-        outputSchema.safeParse({
-          mode: "number-check",
-          summary: { total: 2, matched: 1, mismatched: 1 },
-          verdicts: [verdict],
-        }).success,
-      ).toBe(true);
-    });
-
-    it("rejects number-check missing summary.matched", () => {
-      expect(
-        outputSchema.safeParse({
-          mode: "number-check",
-          summary: { total: 1, mismatched: 0 },
-          verdicts: [],
-        }).success,
-      ).toBe(false);
-    });
-  });
-
-  // ─────────────────────────────────────────────
-  // outputSchema — claim-grounding
-  // ─────────────────────────────────────────────
-
-  describe("outputSchema — claim-grounding", () => {
-    it("accepts valid claim-grounding output", () => {
-      expect(
-        outputSchema.safeParse({
-          mode: "claim-grounding",
-          summary: { total: 2, grounded: 1, ungrounded: 1 },
-          verdicts: [verdict],
-        }).success,
-      ).toBe(true);
-    });
-
-    it("accepts empty verdicts array", () => {
-      expect(
-        outputSchema.safeParse({
-          mode: "claim-grounding",
-          summary: { total: 0, grounded: 0, ungrounded: 0 },
-          verdicts: [],
-        }).success,
-      ).toBe(true);
-    });
-  });
-
-  // ─────────────────────────────────────────────
-  // outputSchema — source-tier
-  // ─────────────────────────────────────────────
-
-  describe("outputSchema — source-tier", () => {
-    it("accepts valid source-tier output", () => {
-      expect(
-        outputSchema.safeParse({
-          mode: "source-tier",
-          tiers: [
-            {
-              url: "https://mckinsey.com/report",
-              tier: "primary",
-              rationale: "Original research publisher",
-            },
-          ],
-        }).success,
-      ).toBe(true);
-    });
-
-    it("accepts all tier values", () => {
-      for (const tier of [
-        "primary",
-        "secondary",
-        "tertiary",
-        "unknown",
-      ] as const) {
-        expect(
-          outputSchema.safeParse({
-            mode: "source-tier",
-            tiers: [
-              {
-                url: "https://example.com",
-                tier,
-                rationale: "Some rationale",
-              },
-            ],
-          }).success,
-        ).toBe(true);
-      }
-    });
-
-    it("rejects invalid tier value", () => {
-      expect(
-        outputSchema.safeParse({
-          mode: "source-tier",
-          tiers: [
-            {
-              url: "https://example.com",
-              tier: "quaternary",
-              rationale: "Some rationale",
-            },
-          ],
-        }).success,
-      ).toBe(false);
-    });
-
-    it("accepts empty tiers array", () => {
-      expect(
-        outputSchema.safeParse({ mode: "source-tier", tiers: [] }).success,
-      ).toBe(true);
-    });
-  });
-
-  // ─────────────────────────────────────────────
-  // buildSystemPrompt
-  // ─────────────────────────────────────────────
-
   describe("buildSystemPrompt", () => {
     const identity = {
       role: { id: "verifier", name: "Verifier" },
@@ -422,45 +176,6 @@ describe("VerifierAgent", () => {
       expect(spy).toHaveBeenCalledWith(
         "verifier",
         "citation-audit",
-        expect.objectContaining({ currentDate: expect.any(String) }),
-      );
-      spy.mockRestore();
-    });
-
-    it("number-check mode calls buildPromptFromDuty with correct args", () => {
-      const spy = jest
-        .spyOn(dutyLoader, "buildPromptFromDuty")
-        .mockReturnValue("mocked number-check prompt");
-      agent.buildSystemPrompt({ input: numberCheckInput, identity });
-      expect(spy).toHaveBeenCalledWith(
-        "verifier",
-        "number-check",
-        expect.objectContaining({ currentDate: expect.any(String) }),
-      );
-      spy.mockRestore();
-    });
-
-    it("claim-grounding mode calls buildPromptFromDuty with correct args", () => {
-      const spy = jest
-        .spyOn(dutyLoader, "buildPromptFromDuty")
-        .mockReturnValue("mocked claim-grounding prompt");
-      agent.buildSystemPrompt({ input: claimGroundingInput, identity });
-      expect(spy).toHaveBeenCalledWith(
-        "verifier",
-        "claim-grounding",
-        expect.objectContaining({ currentDate: expect.any(String) }),
-      );
-      spy.mockRestore();
-    });
-
-    it("source-tier mode calls buildPromptFromDuty with correct args", () => {
-      const spy = jest
-        .spyOn(dutyLoader, "buildPromptFromDuty")
-        .mockReturnValue("mocked source-tier prompt");
-      agent.buildSystemPrompt({ input: sourceTierInput, identity });
-      expect(spy).toHaveBeenCalledWith(
-        "verifier",
-        "source-tier",
         expect.objectContaining({ currentDate: expect.any(String) }),
       );
       spy.mockRestore();
@@ -488,10 +203,6 @@ describe("VerifierAgent", () => {
       expect(prompt.length).toBeGreaterThan(0);
     });
   });
-
-  // ─────────────────────────────────────────────
-  // taskProfile — nothink Layer B
-  // ─────────────────────────────────────────────
 
   describe("taskProfile", () => {
     it("declares reasoningDepth minimal for fast mechanical check", () => {

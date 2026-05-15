@@ -1,5 +1,9 @@
 /**
  * verifier.service.spec.ts
+ *
+ * 当前唯一方法: auditCitation。
+ * 历史预留方法（checkNumber/groundClaim/tierSource）已删
+ * （2026-05-15 PR-E）：从未接入 orchestrator + agent 无对应 mode。
  */
 
 import { VerifierService } from "../verifier.service";
@@ -50,67 +54,18 @@ describe("VerifierService", () => {
       await svc.auditCitation(input, baseCtx);
       expect((input as Record<string, unknown>).mode).toBeUndefined();
     });
-  });
-
-  describe("checkNumber", () => {
-    it("adds mode=number-check to input", async () => {
-      const invoker = makeInvoker();
-      const svc = new VerifierService(invoker as never);
-      await svc.checkNumber({ claims: [] }, baseCtx);
-      const passedInput = invoker.invoke.mock.calls[0][1] as Record<
-        string,
-        unknown
-      >;
-      expect(passedInput.mode).toBe("number-check");
-    });
 
     it("maps failed state", async () => {
       const invoker = makeInvoker("failed");
       const svc = new VerifierService(invoker as never);
-      const result = await svc.checkNumber({}, baseCtx);
+      const result = await svc.auditCitation({}, baseCtx);
       expect(result.state).toBe("failed");
-    });
-  });
-
-  describe("groundClaim", () => {
-    it("adds mode=claim-grounding to input", async () => {
-      const invoker = makeInvoker();
-      const svc = new VerifierService(invoker as never);
-      await svc.groundClaim({ claims: [] }, baseCtx);
-      const passedInput = invoker.invoke.mock.calls[0][1] as Record<
-        string,
-        unknown
-      >;
-      expect(passedInput.mode).toBe("claim-grounding");
-    });
-
-    it("returns output from invoker", async () => {
-      const invoker = makeInvoker();
-      const svc = new VerifierService(invoker as never);
-      const result = await svc.groundClaim<
-        { claims: string[] },
-        { verified: boolean }
-      >({ claims: [] }, baseCtx);
-      expect(result.output?.verified).toBe(true);
-    });
-  });
-
-  describe("tierSource", () => {
-    it("adds mode=source-tier to input", async () => {
-      const invoker = makeInvoker();
-      const svc = new VerifierService(invoker as never);
-      await svc.tierSource({ sources: [] }, baseCtx);
-      const passedInput = invoker.invoke.mock.calls[0][1] as Record<
-        string,
-        unknown
-      >;
-      expect(passedInput.mode).toBe("source-tier");
     });
 
     it("maps cancelled state", async () => {
       const invoker = makeInvoker("cancelled");
       const svc = new VerifierService(invoker as never);
-      const result = await svc.tierSource({}, baseCtx);
+      const result = await svc.auditCitation({}, baseCtx);
       expect(result.state).toBe("cancelled");
     });
   });
@@ -140,7 +95,7 @@ describe("VerifierService", () => {
       wallTimeMs: 2000,
     });
     const svc = new VerifierService(invoker as never);
-    const result = await svc.checkNumber({}, baseCtx);
+    const result = await svc.auditCitation({}, baseCtx);
     expect(result.iterations).toBe(4);
     expect(result.wallTimeMs).toBe(2000);
   });
@@ -157,7 +112,7 @@ describe("VerifierService", () => {
   it("passes ctx to invoker", async () => {
     const invoker = makeInvoker();
     const svc = new VerifierService(invoker as never);
-    await svc.tierSource({}, baseCtx);
+    await svc.auditCitation({}, baseCtx);
     expect(invoker.invoke.mock.calls[0][2]).toBe(baseCtx);
   });
 
@@ -171,7 +126,7 @@ describe("VerifierService", () => {
       wallTimeMs: 100,
     });
     const svc = new VerifierService(invoker as never);
-    const result = await svc.groundClaim({}, baseCtx);
+    const result = await svc.auditCitation({}, baseCtx);
     expect(result.state).toBe("failed");
   });
 

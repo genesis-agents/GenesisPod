@@ -1,9 +1,9 @@
 /**
  * Steward stage agent — barrel export
  *
- * 资源 / 合规 / 边界守门员，4 种 scope（budget-guard / compliance-check /
- * data-boundary / source-diversity）。当前 orchestrator 暂未接入，留作后续 PR
- * 在各 stage 之间进行 alert 拦截。
+ * 资源守门员，当前唯一 scope: budget-guard（预算 token / cost 阈值警告）。
+ * 历史预留 scope（compliance-check / data-boundary / source-diversity）已删
+ * （2026-05-15 PR-E），从未接入 orchestrator 也无 SKILL.md duty body。
  */
 
 export {

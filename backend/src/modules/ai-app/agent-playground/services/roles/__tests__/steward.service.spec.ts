@@ -1,5 +1,9 @@
 /**
  * steward.service.spec.ts
+ *
+ * 当前唯一方法: guardBudget。
+ * 历史预留方法（checkCompliance/checkBoundary/checkSourceDiversity）已删
+ * （2026-05-15 PR-E）：从未接入 orchestrator + agent 无对应 scope。
  */
 
 import { StewardService } from "../steward.service";
@@ -60,69 +64,20 @@ describe("StewardService", () => {
       await svc.guardBudget(input, baseCtx);
       expect((input as Record<string, unknown>).scope).toBeUndefined();
     });
-  });
-
-  describe("checkCompliance", () => {
-    it("adds scope=compliance-check", async () => {
-      const invoker = makeInvoker();
-      const svc = new StewardService(invoker as never);
-      await svc.checkCompliance({ topic: "sensitive" }, baseCtx);
-      const passedInput = invoker.invoke.mock.calls[0][1] as Record<
-        string,
-        unknown
-      >;
-      expect(passedInput.scope).toBe("compliance-check");
-    });
 
     it("maps failed state", async () => {
       const invoker = makeInvoker("failed");
       const svc = new StewardService(invoker as never);
-      const result = await svc.checkCompliance({}, baseCtx);
+      const result = await svc.guardBudget({}, baseCtx);
       expect(result.state).toBe("failed");
       expect(result.output).toBeUndefined();
-    });
-  });
-
-  describe("checkBoundary", () => {
-    it("adds scope=data-boundary", async () => {
-      const invoker = makeInvoker();
-      const svc = new StewardService(invoker as never);
-      await svc.checkBoundary({ data: [] }, baseCtx);
-      const passedInput = invoker.invoke.mock.calls[0][1] as Record<
-        string,
-        unknown
-      >;
-      expect(passedInput.scope).toBe("data-boundary");
     });
 
     it("maps cancelled state", async () => {
       const invoker = makeInvoker("cancelled");
       const svc = new StewardService(invoker as never);
-      const result = await svc.checkBoundary({}, baseCtx);
+      const result = await svc.guardBudget({}, baseCtx);
       expect(result.state).toBe("cancelled");
-    });
-  });
-
-  describe("checkSourceDiversity", () => {
-    it("adds scope=source-diversity", async () => {
-      const invoker = makeInvoker();
-      const svc = new StewardService(invoker as never);
-      await svc.checkSourceDiversity({ sources: [] }, baseCtx);
-      const passedInput = invoker.invoke.mock.calls[0][1] as Record<
-        string,
-        unknown
-      >;
-      expect(passedInput.scope).toBe("source-diversity");
-    });
-
-    it("returns output from invoker", async () => {
-      const invoker = makeInvoker();
-      const svc = new StewardService(invoker as never);
-      const result = await svc.checkSourceDiversity<
-        { sources: string[] },
-        { approved: boolean }
-      >({ sources: [] }, baseCtx);
-      expect(result.output?.approved).toBe(true);
     });
   });
 
@@ -151,7 +106,7 @@ describe("StewardService", () => {
       wallTimeMs: 800,
     });
     const svc = new StewardService(invoker as never);
-    const result = await svc.checkCompliance({}, baseCtx);
+    const result = await svc.guardBudget({}, baseCtx);
     expect(result.iterations).toBe(2);
     expect(result.wallTimeMs).toBe(800);
   });
@@ -168,7 +123,7 @@ describe("StewardService", () => {
   it("passes ctx to invoker", async () => {
     const invoker = makeInvoker();
     const svc = new StewardService(invoker as never);
-    await svc.checkBoundary({}, baseCtx);
+    await svc.guardBudget({}, baseCtx);
     expect(invoker.invoke.mock.calls[0][2]).toBe(baseCtx);
   });
 

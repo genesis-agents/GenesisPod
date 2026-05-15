@@ -1,18 +1,16 @@
 /**
- * VerifierAgent —— 客观事实核验员（multi-mode 单一 class）
+ * VerifierAgent —— 客观事实核验员
  *
  * 与 Reviewer 的根本区别:
  *   - Reviewer 评主观质量（流畅 / 结构 / 洞察）
- *   - Verifier 核客观事实（数字 / 时间 / 引用 / 一手二手）
+ *   - Verifier 核客观事实（引用是否对应真实 source）
  *
- * 4 种工作 mode（discriminatedUnion）:
- *   - citation-audit  : 核 [N] 引用是否对应真实 source
- *   - number-check    : 报告内数字与 source 是否一致
- *   - claim-grounding : 每个声明是否有 source 支持（grounded / ungrounded）
- *   - source-tier     : 来源分级（一手 / 二手 / 三手）
+ * 当前唯一 mode: citation-audit（核 [N] 引用是否对应真实 source）。
  *
- * 当前最小实现：仅 citation-audit 一个 duty，其他 mode 留 schema 占位，
- * 待后续 PR 接入 orchestrator 时再实现 prompt + duty。
+ * 历史预留 mode（number-check / claim-grounding / source-tier）已删
+ * （2026-05-15 PR-E）：从未接入 orchestrator，且 SKILL.md 也无 prompt body，
+ * 留 schema 占位 = 死代码。后续真要补这些 mode 再加 SKILL.md duty + 改回
+ * discriminatedUnion。
  */
 
 import { z } from "zod";
@@ -25,37 +23,12 @@ const Citation = z.object({
   inlineQuote: z.string().optional(),
 });
 
-const Input = z.discriminatedUnion("mode", [
-  z.object({
-    mode: z.literal("citation-audit"),
-    topic: z.string(),
-    language: z.enum(["zh-CN", "en-US"]),
-    citations: z.array(Citation).min(1),
-  }),
-  z.object({
-    mode: z.literal("number-check"),
-    topic: z.string(),
-    language: z.enum(["zh-CN", "en-US"]),
-    claims: z.array(
-      z.object({
-        text: z.string(),
-        sourceUrl: z.string(),
-      }),
-    ),
-  }),
-  z.object({
-    mode: z.literal("claim-grounding"),
-    topic: z.string(),
-    language: z.enum(["zh-CN", "en-US"]),
-    claims: z.array(z.string()),
-  }),
-  z.object({
-    mode: z.literal("source-tier"),
-    topic: z.string(),
-    language: z.enum(["zh-CN", "en-US"]),
-    sources: z.array(z.string()),
-  }),
-]);
+const Input = z.object({
+  mode: z.literal("citation-audit"),
+  topic: z.string(),
+  language: z.enum(["zh-CN", "en-US"]),
+  citations: z.array(Citation).min(1),
+});
 
 const Verdict = z.object({
   index: z.number().int().optional(),
@@ -69,46 +42,16 @@ const Verdict = z.object({
   evidence: z.string(),
 });
 
-const Output = z.discriminatedUnion("mode", [
-  z.object({
-    mode: z.literal("citation-audit"),
-    summary: z.object({
-      total: z.number().int(),
-      verified: z.number().int(),
-      unverified: z.number().int(),
-      contradicted: z.number().int(),
-    }),
-    verdicts: z.array(Verdict),
+const Output = z.object({
+  mode: z.literal("citation-audit"),
+  summary: z.object({
+    total: z.number().int(),
+    verified: z.number().int(),
+    unverified: z.number().int(),
+    contradicted: z.number().int(),
   }),
-  z.object({
-    mode: z.literal("number-check"),
-    summary: z.object({
-      total: z.number().int(),
-      matched: z.number().int(),
-      mismatched: z.number().int(),
-    }),
-    verdicts: z.array(Verdict),
-  }),
-  z.object({
-    mode: z.literal("claim-grounding"),
-    summary: z.object({
-      total: z.number().int(),
-      grounded: z.number().int(),
-      ungrounded: z.number().int(),
-    }),
-    verdicts: z.array(Verdict),
-  }),
-  z.object({
-    mode: z.literal("source-tier"),
-    tiers: z.array(
-      z.object({
-        url: z.string(),
-        tier: z.enum(["primary", "secondary", "tertiary", "unknown"]),
-        rationale: z.string(),
-      }),
-    ),
-  }),
-]);
+  verdicts: z.array(Verdict),
+});
 
 export type VerifierInput = z.infer<typeof Input>;
 export type VerifierOutput = z.infer<typeof Output>;
@@ -118,8 +61,7 @@ export type VerifierOutput = z.infer<typeof Output>;
   version: "1.0.0",
   identity: {
     role: "verifier",
-    description:
-      "客观事实核验员。一个 class，4 种 mode 覆盖引用 / 数字 / claim / 来源分级。",
+    description: "客观事实核验员。citation-audit mode：核 [N] 引用真伪。",
   },
   loop: "simple",
   // PR-X-skill-bridge: 引用工具核验协议
@@ -127,8 +69,6 @@ export type VerifierOutput = z.infer<typeof Output>;
   // 2026-05-09 工具矩阵审计：loop="simple" 决定 verifier 一次性产出，无 ReAct
   // 循环可调 tool；之前 ["information"] 仍把 25 工具 catalog 注入 prompt 烧
   // token，对单次 LLM 评分零价值。清空。
-  // 未来若 verifier 需要主动检索佐证，先改 loop="react"+在 prompt 里说明何时
-  // 调用，再恢复 toolCategories。
   toolCategories: [],
   taskProfile: {
     creativity: "deterministic",
@@ -142,13 +82,7 @@ export type VerifierOutput = z.infer<typeof Output>;
 })
 export class VerifierAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    const dutyMap: Record<typeof input.mode, string> = {
-      "citation-audit": "citation-audit",
-      "number-check": "number-check",
-      "claim-grounding": "claim-grounding",
-      "source-tier": "source-tier",
-    };
-    return buildPromptFromDuty("verifier", dutyMap[input.mode], {
+    return buildPromptFromDuty("verifier", "citation-audit", {
       ...(input as Record<string, unknown>),
       currentDate: new Date().toISOString().slice(0, 10),
     });
