@@ -120,7 +120,7 @@ export function AccountSelector() {
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/ai/social?tab=connections"
+              href="/ai-social?tab=connections"
               className={`flex items-center gap-2 rounded-xl bg-gradient-to-r ${gradient.icon} px-5 py-2.5 text-sm font-medium text-white transition-all hover:opacity-90`}
             >
               <Plus className="h-4 w-4" />

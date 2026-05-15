@@ -16,6 +16,7 @@ import KernelResourcesPageContent from '../../kernel/resources/content';
 import EvalDashboardPageContent from '../eval/content';
 import GuardrailsPageContent from '../guardrails/content';
 import TracesPageContent from '../traces/content';
+import DreamingDashboardContent from '../dreaming/content';
 
 /**
  * AI Harness Hub
@@ -31,7 +32,12 @@ import TracesPageContent from '../traces/content';
  *  - interop:    facade + protocol 子卡导航（无独立 page 可内嵌, 永远导航形态）
  */
 
-type HarnessEntity = 'execution' | 'memory' | 'governance' | 'interop';
+type HarnessEntity =
+  | 'execution'
+  | 'memory'
+  | 'governance'
+  | 'dreaming'
+  | 'interop';
 
 interface HarnessAction {
   label: string;
@@ -104,6 +110,10 @@ const ENTITY_I18N: Record<
     titleKey: 'admin.architecture.cards.harnessGovernance',
     descriptionKey: 'admin.architecture.cards.harnessGovernanceDesc',
   },
+  dreaming: {
+    titleKey: 'admin.architecture.cards.harnessDreaming',
+    descriptionKey: 'admin.architecture.cards.harnessDreamingDesc',
+  },
   interop: {
     titleKey: 'admin.architecture.cards.harnessInterop',
     descriptionKey: 'admin.architecture.cards.harnessInteropDesc',
@@ -135,6 +145,7 @@ function HarnessAdminPageInner() {
   const tab: HarnessEntity =
     rawTab === 'memory' ||
     rawTab === 'governance' ||
+    rawTab === 'dreaming' ||
     rawTab === 'interop' ||
     rawTab === 'execution'
       ? rawTab
@@ -184,6 +195,8 @@ function HarnessAdminPageInner() {
           </SubsystemSection>
         </div>
       )}
+
+      {tab === 'dreaming' && <DreamingDashboardContent embedded />}
 
       {tab === 'interop' && (
         <>

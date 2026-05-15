@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import { LogIn, Share2, Link2, FileText, Bot, ShieldAlert } from 'lucide-react';
@@ -18,11 +19,17 @@ type TabType = 'connections' | 'contents';
  * AI Social 页面
  * 将内容发布到社交媒体平台（微信公众号、小红书等）
  * 仅管理员可见
+ *
+ * URL ?tab=connections / ?tab=contents 支持深链（AccountSelector "Connect Account"
+ * 按钮 / 外部分享都靠这个）。不带参或非法值默认 'contents'。
  */
 export default function AISocialPage() {
   const { user, isLoading, isAdmin, loginWithGoogle } = useAuth();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<TabType>('contents');
+  const searchParams = useSearchParams();
+  const initialTab: TabType =
+    searchParams?.get('tab') === 'connections' ? 'connections' : 'contents';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   // Loading state
   if (isLoading) {

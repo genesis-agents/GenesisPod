@@ -4609,6 +4609,8 @@
         "harnessMemoryDesc": "Working/Vector/Checkpoint、Event Store、自动索引",
         "harnessGovernance": "评估治理",
         "harnessGovernanceDesc": "Trace、Eval Judge、Guardrails、Observability",
+        "harnessDreaming": "主动反思",
+        "harnessDreamingDesc": "跨 mission 反思失败规律，归纳规则注入下轮 mission（元学习）",
         "harnessInterop": "互联协议",
         "harnessInteropDesc": "Facade 门面、A2A/IPC/Events/Realtime、Handoffs",
         "harnessFacade": "Facade",

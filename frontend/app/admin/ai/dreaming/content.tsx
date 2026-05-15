@@ -78,7 +78,9 @@ interface DreamingConfig {
   enabled: boolean;
 }
 
-export default function DreamingDashboardContent() {
+export default function DreamingDashboardContent({
+  embedded,
+}: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<TabKey>('history');
 
   const overviewQ = useApiGet<DreamingOverview>('/admin/dreaming/overview');
@@ -110,12 +112,8 @@ export default function DreamingDashboardContent() {
     await Promise.all([overviewQ.refresh(), runsQ.refresh(), rulesQ.refresh()]);
   };
 
-  return (
-    <AdminPageLayout
-      title="Dreaming · 持续反思"
-      description="跨 mission 周期反思失败规律，归纳通用规则注入下轮 mission。Anthropic Managed Agent 同款元学习机制。"
-      icon={Brain}
-    >
+  const body = (
+    <>
       {/* Overview stat 卡 */}
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard
@@ -192,6 +190,19 @@ export default function DreamingDashboardContent() {
       {activeTab === 'config' && (
         <ConfigTab config={configQ.data} onSaved={() => configQ.refresh()} />
       )}
+    </>
+  );
+
+  // ★ embedded 模式：跳过外层 AdminPageLayout（供 /admin/ai/harness?tab=dreaming 内嵌）
+  if (embedded) return body;
+
+  return (
+    <AdminPageLayout
+      title="Dreaming · 持续反思"
+      description="跨 mission 周期反思失败规律，归纳通用规则注入下轮 mission。Anthropic Managed Agent 同款元学习机制。"
+      icon={Brain}
+    >
+      {body}
     </AdminPageLayout>
   );
 }

@@ -4609,6 +4609,8 @@
         "harnessMemoryDesc": "Working/Vector/Checkpoint, Event Store, auto-indexer",
         "harnessGovernance": "Eval & Governance",
         "harnessGovernanceDesc": "Trace, Eval Judge, Guardrails, Observability",
+        "harnessDreaming": "Dreaming",
+        "harnessDreamingDesc": "Cross-mission reflection on failure patterns; distills rules into the next mission (meta-learning)",
         "harnessInterop": "Interop & Protocols",
         "harnessInteropDesc": "Facade, A2A/IPC/Events/Realtime, Handoffs",
         "harnessFacade": "Facade",
