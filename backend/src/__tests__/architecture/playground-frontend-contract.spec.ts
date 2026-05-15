@@ -24,10 +24,26 @@ import * as fs from "fs";
 import * as path from "path";
 import { AGENT_PLAYGROUND_EVENTS } from "../../modules/ai-app/agent-playground/agent-playground.events";
 
-const CONTROLLER_FILE = path.resolve(
-  __dirname,
-  "../../modules/ai-app/agent-playground/agent-playground.controller.ts",
-);
+// PR-D god class split (2026-05-15): agent-playground 路由从单一 controller 拆到
+// agent-playground.controller.ts + controllers/{base-mission,mission-read,mission-rerun}.controller.ts
+const CONTROLLER_FILES: string[] = [
+  path.resolve(
+    __dirname,
+    "../../modules/ai-app/agent-playground/agent-playground.controller.ts",
+  ),
+  path.resolve(
+    __dirname,
+    "../../modules/ai-app/agent-playground/controllers/base-mission.controller.ts",
+  ),
+  path.resolve(
+    __dirname,
+    "../../modules/ai-app/agent-playground/controllers/mission-read.controller.ts",
+  ),
+  path.resolve(
+    __dirname,
+    "../../modules/ai-app/agent-playground/controllers/mission-rerun.controller.ts",
+  ),
+];
 
 // ── Baseline 1: 事件 type（v5.1 R1-D 锁定基线）──────────────────────────────
 //
@@ -170,19 +186,18 @@ function loadEventTypes(): string[] {
  * 元装饰器（它们不映射到独立路由）。
  */
 function loadEndpointsFromSource(): EndpointSpec[] {
-  const src = fs.readFileSync(CONTROLLER_FILE, "utf-8");
-  const re = /@(Get|Post|Patch|Delete|Put)\(\s*"([^"]*)"\s*\)/g;
   const out: EndpointSpec[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(src)) !== null) {
-    const method = m[1].toUpperCase();
-    const route = m[2];
-    out.push([method, route]);
-  }
-  // 兼容 @Get() 无参（极少见，但别漏）
-  const reEmpty = /@(Get|Post|Patch|Delete|Put)\(\s*\)/g;
-  while ((m = reEmpty.exec(src)) !== null) {
-    out.push([m[1].toUpperCase(), ""]);
+  for (const file of CONTROLLER_FILES) {
+    const src = fs.readFileSync(file, "utf-8");
+    const re = /@(Get|Post|Patch|Delete|Put)\(\s*"([^"]*)"\s*\)/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src)) !== null) {
+      out.push([m[1].toUpperCase(), m[2]]);
+    }
+    const reEmpty = /@(Get|Post|Patch|Delete|Put)\(\s*\)/g;
+    while ((m = reEmpty.exec(src)) !== null) {
+      out.push([m[1].toUpperCase(), ""]);
+    }
   }
   // sort by [method, path]
   out.sort((a, b) => (a[0] + " " + a[1]).localeCompare(b[0] + " " + b[1]));

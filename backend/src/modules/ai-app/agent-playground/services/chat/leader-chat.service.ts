@@ -19,13 +19,19 @@
  *   因此直接调 AiChatService.chat() 是合理的，无需 AgentExecutorService。
  */
 
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  Optional,
+} from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
   AiChatService,
   BuiltinSkillCatalog,
   DomainEventBus,
+  ReflectionMissionScheduler,
   type DomainEvent,
 } from "@/modules/ai-harness/facade";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
@@ -86,6 +92,10 @@ export class LeaderChatService {
     private readonly store: MissionStore,
     private readonly eventBus: DomainEventBus,
     private readonly skillCatalog: BuiltinSkillCatalog,
+    // 2026-05-15 PR-I.4: Dreaming rule injection — 闭环让 LLM 看到过去失败模式提醒。
+    // @Optional() 让 spec 不传也能跑（无 rule 时 snippet=空 → 与原 behavior 等价）。
+    @Optional()
+    private readonly dreaming?: ReflectionMissionScheduler,
   ) {}
 
   async list(missionId: string): Promise<LeaderChatMessage[]> {
@@ -156,7 +166,25 @@ export class LeaderChatService {
     const skill = this.skillCatalog.get("leader-chat");
     const decisionInstructions =
       skill?.instructions ?? LEADER_CHAT_SKILL_FALLBACK;
-    const systemPrompt = buildLeaderChatPrompt(mission, decisionInstructions);
+
+    // PR-I.4: Dreaming rule injection — 拿过去归纳的 top-K 通用失败模式提醒
+    let dreamingSnippet = "";
+    if (this.dreaming) {
+      try {
+        const ruleSet = await this.dreaming.getRulesForMission([]);
+        dreamingSnippet = ruleSet.promptSnippet;
+      } catch (err) {
+        this.log.warn(
+          `[send ${missionId}] dreaming rule fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    const systemPrompt = buildLeaderChatPrompt(
+      mission,
+      decisionInstructions,
+      dreamingSnippet,
+    );
 
     const messages = previous.map((m) => ({
       role: m.role,

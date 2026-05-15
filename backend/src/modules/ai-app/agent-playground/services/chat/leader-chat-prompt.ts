@@ -56,6 +56,7 @@ function escapeUserPromptContent(raw: unknown): string {
 export function buildLeaderChatPrompt(
   mission: MissionDetail,
   decisionInstructions: string,
+  dreamingSnippet = "",
 ): string {
   if (!mission) {
     return [
@@ -134,6 +135,8 @@ export function buildLeaderChatPrompt(
     `<report_snapshot>`,
     reportSnippet,
     `</report_snapshot>`,
+    "",
+    dreamingSnippet,
     "",
     decisionInstructions,
   ]

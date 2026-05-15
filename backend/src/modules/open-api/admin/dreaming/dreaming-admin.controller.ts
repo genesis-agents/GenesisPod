@@ -89,15 +89,7 @@ export class DreamingAdminController {
   })
   @ApiResponse({ status: 200 })
   async getOverview(): Promise<DreamingOverview> {
-    // PR-I.4 实现：聚合 DreamingRule + DreamingRun 统计
-    return {
-      totalRules: 0,
-      activeRules: 0,
-      recentRunsCount: 0,
-      totalTokensSpent: 0,
-      averageSuccessRate: 0,
-      lastRunAt: null,
-    };
+    return this.scheduler.getOverview();
   }
 
   // ─── History（持续反思成果时间线）─────────────────────────────────────────
@@ -109,20 +101,55 @@ export class DreamingAdminController {
   @ApiQuery({ name: "limit", required: false })
   @ApiQuery({ name: "since", required: false, description: "ISO timestamp" })
   async listRuns(
-    @Query("limit") _limit?: string,
-    @Query("since") _since?: string,
+    @Query("limit") limit?: string,
+    @Query("since") since?: string,
   ): Promise<DreamingRunListItem[]> {
-    // PR-I.2 实现：查 DreamingRun 表 ORDER BY triggeredAt DESC
-    return [];
+    const parsedLimit = limit ? parseInt(limit, 10) : 20;
+    const parsedSince = since ? new Date(since) : undefined;
+    const safeSince =
+      parsedSince && !isNaN(parsedSince.getTime()) ? parsedSince : undefined;
+    const runs = await this.scheduler.listRuns(parsedLimit, safeSince);
+    return runs.map((r) => ({
+      id: r.id,
+      triggeredAt: r.triggeredAt.toISOString(),
+      triggerKind: r.triggerKind as DreamingRunListItem["triggerKind"],
+      sampleSize: r.sampledMissionIds.length,
+      newRulesCount: r.newRulesCount,
+      rejectedCandidates: r.rejectedCandidates,
+      tokensUsed: r.tokensUsed,
+      durationMs: r.durationMs,
+      status: r.status as DreamingRunListItem["status"],
+    }));
   }
 
   @Get("runs/:runId")
   @ApiOperation({ summary: "Single run detail" })
-  async getRunDetail(
-    @Param("runId") _runId: string,
-  ): Promise<DreamingRunResult | null> {
-    // PR-I.2 实现：含 sample 详情 + 产出的 rule ids
-    return null;
+  async getRunDetail(@Param("runId") runId: string) {
+    const run = await this.scheduler.getRunById(runId);
+    if (!run) {
+      throw new HttpException("Run not found", HttpStatus.NOT_FOUND);
+    }
+    return {
+      id: run.id,
+      trigger: {
+        kind: run.triggerKind,
+        detail: run.triggerDetail,
+        triggeredAt: run.triggeredAt,
+      },
+      sample: {
+        windowStart: run.windowStart,
+        windowEnd: run.windowEnd,
+        missionIds: run.sampledMissionIds,
+        strategy: run.sampleStrategy,
+      },
+      newRulesCount: run.newRulesCount,
+      rejectedCandidates: run.rejectedCandidates,
+      tokensUsed: run.tokensUsed,
+      durationMs: run.durationMs,
+      status: run.status,
+      errorMessage: run.errorMessage,
+      producedRules: run.producedRules,
+    };
   }
 
   // ─── Rules（持续反思产出的规则详情）────────────────────────────────────────
@@ -131,10 +158,32 @@ export class DreamingAdminController {
   @ApiOperation({ summary: "List all rules sorted by effective confidence" })
   @ApiQuery({ name: "includeDisabled", required: false })
   async listRules(
-    @Query("includeDisabled") _includeDisabled?: string,
+    @Query("includeDisabled") includeDisabled?: string,
   ): Promise<DreamingRuleDetail[]> {
-    // PR-I.3 实现：query + 衰减计算
-    return [];
+    const rules = await this.scheduler.listRules(includeDisabled === "true");
+    return rules.map((r) => {
+      const successRate =
+        r.applicationCount > 0 ? r.successCount / r.applicationCount : 0;
+      return {
+        id: r.id,
+        pattern: r.pattern,
+        mitigation: r.mitigation,
+        failureCodes: r.failureCodes,
+        derivedFromMissionIds: r.derivedFromMissionIds,
+        confidence: r.confidence,
+        createdAt: r.createdAt,
+        applicationCount: r.applicationCount,
+        successCount: r.successCount,
+        disabled: r.disabled,
+        effectiveConfidence: r.confidence * successRate,
+        successRate,
+        derivedMissions: r.derivedFromMissionIds.map((id) => ({
+          id,
+          topic: "",
+          failureCode: "",
+        })),
+      };
+    });
   }
 
   @Get("rules/:ruleId")
@@ -142,10 +191,33 @@ export class DreamingAdminController {
     summary: "Single rule detail (含来源 mission / 效用历史 / 衰减曲线)",
   })
   async getRuleDetail(
-    @Param("ruleId") _ruleId: string,
-  ): Promise<DreamingRuleDetail | null> {
-    // PR-I.3 实现
-    return null;
+    @Param("ruleId") ruleId: string,
+  ): Promise<DreamingRuleDetail> {
+    const r = await this.scheduler.getRuleById(ruleId);
+    if (!r) {
+      throw new HttpException("Rule not found", HttpStatus.NOT_FOUND);
+    }
+    const successRate =
+      r.applicationCount > 0 ? r.successCount / r.applicationCount : 0;
+    return {
+      id: r.id,
+      pattern: r.pattern,
+      mitigation: r.mitigation,
+      failureCodes: r.failureCodes,
+      derivedFromMissionIds: r.derivedFromMissionIds,
+      confidence: r.confidence,
+      createdAt: r.createdAt,
+      applicationCount: r.applicationCount,
+      successCount: r.successCount,
+      disabled: r.disabled,
+      effectiveConfidence: r.confidence * successRate,
+      successRate,
+      derivedMissions: r.derivedFromMissionIds.map((id) => ({
+        id,
+        topic: "",
+        failureCode: "",
+      })),
+    };
   }
 
   @Patch("rules/:ruleId/disable")
@@ -157,25 +229,18 @@ export class DreamingAdminController {
 
   @Patch("rules/:ruleId/enable")
   @ApiOperation({ summary: "重新启用 rule" })
-  async enableRule(@Param("ruleId") _ruleId: string): Promise<{ ok: true }> {
-    // 2026-05-15 Round 1 安全评审 Low 修复：stub 抛 501 避免假成功误导 admin
-    throw new HttpException(
-      "enableRule is not implemented yet (PR-I.4 scope)",
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+  async enableRule(@Param("ruleId") ruleId: string): Promise<{ ok: true }> {
+    await this.scheduler.enableRule(ruleId);
+    return { ok: true };
   }
 
   @Delete("rules/:ruleId")
   @ApiOperation({
     summary: "硬删除 rule（仅 admin 手动确认；通常用 disable 即可）",
   })
-  async deleteRule(@Param("ruleId") _ruleId: string): Promise<{ ok: true }> {
-    // 2026-05-15 Round 1 安全评审 Low 修复：破坏性操作 stub 必须抛 501，
-    // 否则 admin 误以为已删，rule 仍存活继续被 Dreaming 引擎消费
-    throw new HttpException(
-      "deleteRule is not implemented yet (PR-I.4 scope)",
-      HttpStatus.NOT_IMPLEMENTED,
-    );
+  async deleteRule(@Param("ruleId") ruleId: string): Promise<{ ok: true }> {
+    await this.scheduler.deleteRule(ruleId);
+    return { ok: true };
   }
 
   // ─── Config ───────────────────────────────────────────────────────────────
@@ -193,10 +258,10 @@ export class DreamingAdminController {
   // 2026-05-15 Round 2 安全评审 Medium 修复：DTO + ValidationPipe(whitelist) 强制
   // 校验 + 剔除多余字段，防止 admin token 泄漏后任意值灌进 scheduler config。
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  updateConfig(
+  async updateConfig(
     @Body() updates: UpdateDreamingConfigDto,
-  ): DreamingSchedulerConfig {
-    this.scheduler.setConfig(updates);
+  ): Promise<DreamingSchedulerConfig> {
+    await this.scheduler.setConfig(updates);
     return this.scheduler.getConfig();
   }
 

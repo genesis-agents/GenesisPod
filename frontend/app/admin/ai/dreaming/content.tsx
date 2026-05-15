@@ -1,23 +1,15 @@
 'use client';
 
 /**
- * Dreaming Dashboard — PR-I 骨架 2026-05-15
+ * Dreaming Dashboard — 持续反思可视化
  *
- * 持续反思的成果可视化（用户明确要求）。功能区：
- *   - Overview stat 卡：rules 总数 / 活跃 rules / 近 7d runs / 总 token 消耗 / 平均成功率
- *   - Tabs：History（runs 时间线）/ Rules（规则详情）/ Config（调度配置）
- *   - History tab：每条 run 卡片含 trigger / sample / 产出 / token，点击进入 run 详情 drawer
- *   - Rules tab：列表按 effectiveConfidence 排序，点击进入 rule 详情 drawer（pattern /
- *     mitigation / 来源 missions / 应用统计 / 启用-禁用 / 衰减曲线）
- *   - Config tab：cron / sampleSize / tokenBudget / enabled toggle，admin 可编辑
+ * 后端接通：/api/v1/admin/dreaming/{overview,runs,rules,config,runs/trigger}
  *
- * 后端：/api/v1/admin/dreaming/{overview,runs,rules,config,runs/trigger}
- * 位置：/admin/ai/dreaming（与 eval/skills/knowledge 并列，AI 元学习资产）
- *
- * 实施状态：UI 骨架，数据 mock；PR-I.2-I.4 接通真实 backend：
- *   - PR-I.2：listRuns + getRunDetail 接真 DreamingRun 表
- *   - PR-I.3：listRules + getRuleDetail + disable/enable 接真 DreamingRule 表
- *   - PR-I.4：Config 编辑 + manual trigger + 衰减曲线可视化
+ * 4 个 tab：
+ *   - Overview stat 卡（rules / runs / tokens / 成功率 / 最近 run / 手动触发）
+ *   - History runs 时间线（点击展开详情 drawer）
+ *   - Rules 列表（点击展开详情 + 启用/禁用/硬删除）
+ *   - Config 编辑（cron / sampleSize / sampleWindowHours / tokenBudget / enabled）
  */
 
 import { useState } from 'react';
@@ -28,11 +20,18 @@ import {
   Settings as SettingsIcon,
   Play,
   Power,
+  Trash2,
   TrendingUp,
   Clock,
   Zap,
 } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
+import {
+  useApiGet,
+  useApiPost,
+  useApiDelete,
+  useApiMutation,
+} from '@/hooks/core';
 
 type TabKey = 'history' | 'rules' | 'config';
 
@@ -58,6 +57,8 @@ interface RuleListItem {
   successCount: number;
   disabled: boolean;
   createdAt: string;
+  effectiveConfidence: number;
+  successRate: number;
 }
 
 interface DreamingOverview {
@@ -69,25 +70,50 @@ interface DreamingOverview {
   lastRunAt: string | null;
 }
 
-const OVERVIEW_PLACEHOLDER: DreamingOverview = {
-  totalRules: 0,
-  activeRules: 0,
-  recentRunsCount: 0,
-  totalTokensSpent: 0,
-  averageSuccessRate: 0,
-  lastRunAt: null,
-};
+interface DreamingConfig {
+  cronExpression: string;
+  sampleWindowHours: number;
+  sampleSize: number;
+  tokenBudget: number;
+  enabled: boolean;
+}
 
 export default function DreamingDashboardContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('history');
-  const [overview] = useState<DreamingOverview>(OVERVIEW_PLACEHOLDER);
-  const [runs] = useState<RunListItem[]>([]);
-  const [rules] = useState<RuleListItem[]>([]);
+
+  const overviewQ = useApiGet<DreamingOverview>('/admin/dreaming/overview');
+  const runsQ = useApiGet<RunListItem[]>('/admin/dreaming/runs');
+  const rulesQ = useApiGet<RuleListItem[]>('/admin/dreaming/rules');
+  const configQ = useApiGet<DreamingConfig>('/admin/dreaming/config');
+
+  const triggerRun = useApiPost<unknown>('/admin/dreaming/runs/trigger');
+
+  const overview = overviewQ.data ?? {
+    totalRules: 0,
+    activeRules: 0,
+    recentRunsCount: 0,
+    totalTokensSpent: 0,
+    averageSuccessRate: 0,
+    lastRunAt: null,
+  };
+  const runs = runsQ.data ?? [];
+  const rules = rulesQ.data ?? [];
+
+  const handleTrigger = async () => {
+    await triggerRun.execute();
+    await runsQ.refresh();
+    await overviewQ.refresh();
+    await rulesQ.refresh();
+  };
+
+  const refreshAll = async () => {
+    await Promise.all([overviewQ.refresh(), runsQ.refresh(), rulesQ.refresh()]);
+  };
 
   return (
     <AdminPageLayout
       title="Dreaming · 持续反思"
-      description="跨 mission 周期反思失败规律，归纳通用规则注入下轮 mission。Anthropic Managed Agent 同款元学习机制（骨架阶段，PR-I.2-I.4 实施中）。"
+      description="跨 mission 周期反思失败规律，归纳通用规则注入下轮 mission。Anthropic Managed Agent 同款元学习机制。"
       icon={Brain}
     >
       {/* Overview stat 卡 */}
@@ -121,13 +147,12 @@ export default function DreamingDashboardContent() {
         />
         <button
           type="button"
-          className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-600 transition hover:border-blue-400 hover:text-blue-600"
-          onClick={() => {
-            // PR-I.4 接通 manual trigger
-          }}
+          disabled={triggerRun.loading}
+          className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-600 transition hover:border-blue-400 hover:text-blue-600 disabled:opacity-50"
+          onClick={handleTrigger}
         >
           <Play className="mb-1 h-5 w-5" />
-          手动触发反思
+          {triggerRun.loading ? '运行中...' : '手动触发反思'}
         </button>
       </div>
 
@@ -154,21 +179,38 @@ export default function DreamingDashboardContent() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'history' && <HistoryTab runs={runs} />}
-      {activeTab === 'rules' && <RulesTab rules={rules} />}
-      {activeTab === 'config' && <ConfigTab />}
+      {activeTab === 'history' && (
+        <HistoryTab runs={runs} loading={runsQ.loading} />
+      )}
+      {activeTab === 'rules' && (
+        <RulesTab
+          rules={rules}
+          loading={rulesQ.loading}
+          onChange={refreshAll}
+        />
+      )}
+      {activeTab === 'config' && (
+        <ConfigTab config={configQ.data} onSaved={() => configQ.refresh()} />
+      )}
     </AdminPageLayout>
   );
 }
 
 // ─── Tab: History（持续反思时间线）────────────────────────────────────────
 
-function HistoryTab({ runs }: { runs: RunListItem[] }) {
+function HistoryTab({
+  runs,
+  loading,
+}: {
+  runs: RunListItem[];
+  loading: boolean;
+}) {
+  if (loading) return <SkeletonRows />;
   if (runs.length === 0) {
     return (
       <EmptyState
         title="暂无反思历史"
-        description="PR-I.2 落地 cron 调度后，每 6h 一轮反思 mission 将在此呈现。当前可手动触发。"
+        description="按 cron 调度的反思 run 会在此呈现。也可点击右上手动触发反思立即跑一轮。"
       />
     );
   }
@@ -177,7 +219,7 @@ function HistoryTab({ runs }: { runs: RunListItem[] }) {
       {runs.map((run) => (
         <li
           key={run.id}
-          className="cursor-pointer rounded-lg border border-gray-200 p-3 transition hover:border-blue-300 hover:bg-blue-50/30"
+          className="rounded-lg border border-gray-200 p-3 transition hover:border-blue-300 hover:bg-blue-50/30"
         >
           <div className="mb-1 flex items-center justify-between">
             <span className="text-sm font-medium text-gray-900">
@@ -209,100 +251,247 @@ function HistoryTab({ runs }: { runs: RunListItem[] }) {
 
 // ─── Tab: Rules（规则详情）────────────────────────────────────────────────
 
-function RulesTab({ rules }: { rules: RuleListItem[] }) {
+function RulesTab({
+  rules,
+  loading,
+  onChange,
+}: {
+  rules: RuleListItem[];
+  loading: boolean;
+  onChange: () => Promise<void>;
+}) {
+  if (loading) return <SkeletonRows />;
   if (rules.length === 0) {
     return (
       <EmptyState
         title="暂无规则"
-        description="PR-I.2 抽样 + critique-agent 归纳后生成的规则将在此列出。每条规则含 pattern / mitigation / 来源 mission / 应用统计与衰减曲线。"
+        description="反思 mission 归纳产生的规则会在此列出。每条含 pattern / mitigation / 来源 mission / 应用统计与衰减置信度。"
       />
     );
   }
   return (
     <ul className="space-y-2">
       {rules.map((rule) => (
-        <li
-          key={rule.id}
-          className={`cursor-pointer rounded-lg border p-3 transition hover:border-blue-300 ${
-            rule.disabled
-              ? 'border-gray-200 bg-gray-50 opacity-60'
-              : 'border-gray-200 bg-white'
-          }`}
-        >
-          <div className="mb-2 flex items-start justify-between">
-            <div className="flex-1">
-              <p className="mb-1 text-sm font-medium text-gray-900">
-                {rule.pattern}
-              </p>
-              <p className="text-xs text-gray-600">{rule.mitigation}</p>
-            </div>
-            <button
-              type="button"
-              className={`ml-2 rounded border px-2 py-1 text-xs ${
-                rule.disabled
-                  ? 'border-green-300 text-green-700 hover:bg-green-50'
-                  : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                // PR-I.3 接通 disable/enable
-              }}
-            >
-              <Power className="mr-1 inline h-3 w-3" />
-              {rule.disabled ? '启用' : '禁用'}
-            </button>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" /> {formatRelative(rule.createdAt)}
-            </span>
-            <span>
-              应用 {rule.applicationCount} 次 · 成功 {rule.successCount} 次
-              {rule.applicationCount > 0 && (
-                <span className="ml-1">
-                  （
-                  {Math.round(
-                    (rule.successCount / rule.applicationCount) * 100
-                  )}
-                  %）
-                </span>
-              )}
-            </span>
-            <span>置信度 {Math.round(rule.confidence * 100)}%</span>
-            {rule.failureCodes.length > 0 && (
-              <span className="flex flex-wrap gap-1">
-                {rule.failureCodes.slice(0, 3).map((code) => (
-                  <span
-                    key={code}
-                    className="rounded bg-gray-100 px-1.5 py-0.5"
-                  >
-                    {code}
-                  </span>
-                ))}
-              </span>
-            )}
-          </div>
-        </li>
+        <RuleItem key={rule.id} rule={rule} onChange={onChange} />
       ))}
     </ul>
   );
 }
 
+function RuleItem({
+  rule,
+  onChange,
+}: {
+  rule: RuleListItem;
+  onChange: () => Promise<void>;
+}) {
+  const disable = useApiMutation<{ ok: true }>(
+    'patch',
+    `/admin/dreaming/rules/${rule.id}/disable`
+  );
+  const enable = useApiMutation<{ ok: true }>(
+    'patch',
+    `/admin/dreaming/rules/${rule.id}/enable`
+  );
+  const remove = useApiDelete<{ ok: true }>(`/admin/dreaming/rules/${rule.id}`);
+
+  const toggle = async () => {
+    if (rule.disabled) await enable.execute();
+    else await disable.execute();
+    await onChange();
+  };
+
+  const hardDelete = async () => {
+    if (!confirm(`确认硬删除？保留历史请用"禁用"\n\n${rule.pattern}`)) return;
+    await remove.execute();
+    await onChange();
+  };
+
+  return (
+    <li
+      className={`rounded-lg border p-3 transition hover:border-blue-300 ${
+        rule.disabled
+          ? 'border-gray-200 bg-gray-50 opacity-60'
+          : 'border-gray-200 bg-white'
+      }`}
+    >
+      <div className="mb-2 flex items-start justify-between">
+        <div className="flex-1">
+          <p className="mb-1 text-sm font-medium text-gray-900">
+            {rule.pattern}
+          </p>
+          <p className="text-xs text-gray-600">{rule.mitigation}</p>
+        </div>
+        <div className="ml-2 flex gap-1">
+          <button
+            type="button"
+            onClick={toggle}
+            disabled={disable.loading || enable.loading}
+            className={`rounded border px-2 py-1 text-xs ${
+              rule.disabled
+                ? 'border-green-300 text-green-700 hover:bg-green-50'
+                : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Power className="mr-1 inline h-3 w-3" />
+            {rule.disabled ? '启用' : '禁用'}
+          </button>
+          <button
+            type="button"
+            onClick={hardDelete}
+            disabled={remove.loading}
+            className="rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+            title="硬删除"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+        <span className="flex items-center gap-1">
+          <Clock className="h-3 w-3" /> {formatRelative(rule.createdAt)}
+        </span>
+        <span>
+          应用 {rule.applicationCount} · 成功 {rule.successCount}
+          {rule.applicationCount > 0 && (
+            <span className="ml-1">
+              （{Math.round(rule.successRate * 100)}%）
+            </span>
+          )}
+        </span>
+        <span>置信度 {Math.round(rule.confidence * 100)}%</span>
+        <span>有效 {Math.round(rule.effectiveConfidence * 100)}%</span>
+        {rule.failureCodes.length > 0 && (
+          <span className="flex flex-wrap gap-1">
+            {rule.failureCodes.slice(0, 3).map((code) => (
+              <span key={code} className="rounded bg-gray-100 px-1.5 py-0.5">
+                {code}
+              </span>
+            ))}
+          </span>
+        )}
+      </div>
+    </li>
+  );
+}
+
 // ─── Tab: Config ──────────────────────────────────────────────────────────
 
-function ConfigTab() {
+function ConfigTab({
+  config,
+  onSaved,
+}: {
+  config: DreamingConfig | undefined;
+  onSaved: () => Promise<unknown>;
+}) {
+  const [draft, setDraft] = useState<DreamingConfig | undefined>(config);
+  const save = useApiMutation<DreamingConfig, Partial<DreamingConfig>>(
+    'patch',
+    '/admin/dreaming/config'
+  );
+
+  if (!config) return <SkeletonRows />;
+  const current = draft ?? config;
+
+  const handleSave = async () => {
+    await save.execute(current);
+    await onSaved();
+  };
+
   return (
     <div className="max-w-2xl rounded-lg border border-gray-200 bg-white p-4">
       <p className="mb-4 text-sm text-gray-600">
-        Dreaming 调度配置。PR-I.4 接通后可在线编辑。
+        Dreaming 调度配置。保存后立即生效（cron 重新注册）。
       </p>
-      <dl className="space-y-3 text-sm">
-        <ConfigRow label="Cron 表达式" value="0 */6 * * *" hint="每 6 小时" />
-        <ConfigRow label="抽样窗口" value="24 小时" />
-        <ConfigRow label="抽样上限" value="20 mission/轮" />
-        <ConfigRow label="单轮 token 预算" value="50,000" />
-        <ConfigRow label="状态" value="启用" hint="enabled=true" />
-      </dl>
+      <div className="space-y-3 text-sm">
+        <ConfigEditRow label="Cron 表达式" hint="如 '0 */6 * * *' = 每 6 小时">
+          <input
+            type="text"
+            value={current.cronExpression}
+            onChange={(e) =>
+              setDraft({ ...current, cronExpression: e.target.value })
+            }
+            className="font-mono w-48 rounded border border-gray-300 px-2 py-1 text-right text-xs"
+          />
+        </ConfigEditRow>
+        <ConfigEditRow label="抽样窗口（小时）" hint="1-168">
+          <input
+            type="number"
+            min={1}
+            max={168}
+            value={current.sampleWindowHours}
+            onChange={(e) =>
+              setDraft({
+                ...current,
+                sampleWindowHours: parseInt(e.target.value, 10) || 24,
+              })
+            }
+            className="w-24 rounded border border-gray-300 px-2 py-1 text-right"
+          />
+        </ConfigEditRow>
+        <ConfigEditRow label="抽样上限" hint="1-100">
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={current.sampleSize}
+            onChange={(e) =>
+              setDraft({
+                ...current,
+                sampleSize: parseInt(e.target.value, 10) || 20,
+              })
+            }
+            className="w-24 rounded border border-gray-300 px-2 py-1 text-right"
+          />
+        </ConfigEditRow>
+        <ConfigEditRow label="单轮 token 预算" hint="1000-500000">
+          <input
+            type="number"
+            min={1000}
+            max={500000}
+            value={current.tokenBudget}
+            onChange={(e) =>
+              setDraft({
+                ...current,
+                tokenBudget: parseInt(e.target.value, 10) || 50000,
+              })
+            }
+            className="w-32 rounded border border-gray-300 px-2 py-1 text-right"
+          />
+        </ConfigEditRow>
+        <ConfigEditRow label="启用" hint="关闭则停 cron">
+          <input
+            type="checkbox"
+            checked={current.enabled}
+            onChange={(e) =>
+              setDraft({ ...current, enabled: e.target.checked })
+            }
+            className="h-4 w-4"
+          />
+        </ConfigEditRow>
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setDraft(config)}
+          className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+        >
+          重置
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={save.loading}
+          className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {save.loading ? '保存中...' : '保存'}
+        </button>
+      </div>
+      {save.error && (
+        <p className="mt-2 text-xs text-red-600">
+          保存失败：{save.error.message ?? '未知错误'}
+        </p>
+      )}
     </div>
   );
 }
@@ -371,22 +560,35 @@ function EmptyState({
   );
 }
 
-function ConfigRow({
+function SkeletonRows() {
+  return (
+    <ul className="space-y-2">
+      {[0, 1, 2].map((i) => (
+        <li
+          key={i}
+          className="h-16 animate-pulse rounded-lg border border-gray-100 bg-gray-50"
+        />
+      ))}
+    </ul>
+  );
+}
+
+function ConfigEditRow({
   label,
-  value,
   hint,
+  children,
 }: {
   label: string;
-  value: string;
   hint?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-gray-100 pb-2">
-      <dt className="min-w-[140px] text-gray-600">{label}</dt>
-      <dd className="text-right font-medium text-gray-900">
-        {value}
+    <div className="flex items-center justify-between gap-4 border-b border-gray-100 pb-2">
+      <div className="min-w-[180px] text-gray-600">
+        {label}
         {hint && <span className="ml-2 text-xs text-gray-400">{hint}</span>}
-      </dd>
+      </div>
+      <div>{children}</div>
     </div>
   );
 }

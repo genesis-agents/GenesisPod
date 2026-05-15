@@ -9882,6 +9882,80 @@ model HarnessFailurePattern {
   @@map("harness_failure_patterns")
 }
 
+/// PR-I.2 (2026-05-15): Dreaming 主动反思 — 周期/触发型反思 mission run
+///
+/// 与单 mission Postmortem（已通过 HarnessFailurePattern 沉淀短期 lesson）的区别：
+///   - 单 mission learning  : 一个 mission 内的 root-cause + immediate fix
+///   - Dreaming reflection  : 跨多 mission 抽样 → LLM 归纳通用 pattern → DreamingRule
+///
+/// 每条 DreamingRule 通过 derivedFromRunId 反查产生它的反思 run（可追溯）。
+model DreamingRun {
+  id              String         @id @default(uuid())
+  /// "cron" / "failure_threshold" / "manual"
+  triggerKind     String         @map("trigger_kind") @db.VarChar(32)
+  /// cron 表达式或 触发原因
+  triggerDetail   String?        @map("trigger_detail") @db.VarChar(255)
+  triggeredAt     DateTime       @default(now()) @map("triggered_at")
+  /// 抽样窗口
+  windowStart     DateTime       @map("window_start")
+  windowEnd       DateTime       @map("window_end")
+  /// 抽样的 mission id 集合（不加 FK，mission 可能被清理）
+  sampledMissionIds String[]     @map("sampled_mission_ids")
+  /// "random" / "stratified" / "latest"
+  sampleStrategy  String         @map("sample_strategy") @db.VarChar(32)
+  /// 本次新增/强化的 rule 数（与 producedRules 反查一致）
+  newRulesCount   Int            @default(0) @map("new_rules_count")
+  /// 因低置信度 / 重复被 reject 的候选数
+  rejectedCandidates Int         @default(0) @map("rejected_candidates")
+  /// LLM 调用 token 消耗
+  tokensUsed      Int            @default(0) @map("tokens_used")
+  durationMs      Int            @default(0) @map("duration_ms")
+  /// "success" / "failed"
+  status          String         @db.VarChar(20)
+  errorMessage    String?        @map("error_message") @db.Text
+  createdAt       DateTime       @default(now()) @map("created_at")
+
+  producedRules   DreamingRule[]
+
+  @@index([triggeredAt(sort: Desc)])
+  @@index([status])
+  @@map("dreaming_runs")
+}
+
+/// PR-I.2 (2026-05-15): Dreaming 主动反思产出的通用规则
+///
+/// LLM 抽样多个失败 mission → 归纳的 "X 类失败 → 建议 mitigation" 规则。
+/// 注入下轮 mission leader plan（PR-I.4 实现），mission 完成后回填 successCount。
+model DreamingRule {
+  id              String       @id @default(uuid())
+  /// LLM 提炼的失败 pattern
+  pattern         String       @db.Text
+  /// 建议的 mitigation（注入 leader plan 时使用）
+  mitigation      String       @db.Text
+  /// 涉及的失败 code 集合（HarnessFailureCode 枚举字符串）；用于按类匹配下轮 mission
+  failureCodes    String[]     @map("failure_codes")
+  /// 归纳依据的 mission id 集合（可追溯样本）
+  derivedFromMissionIds String[] @map("derived_from_mission_ids")
+  /// 产生本规则的反思 run id
+  derivedFromRunId String      @map("derived_from_run_id")
+  derivedFromRun  DreamingRun  @relation(fields: [derivedFromRunId], references: [id], onDelete: Cascade)
+  /// LLM 对这条规则的置信度 0-1
+  confidence      Float
+  /// 后续应用计数（注入到 mission leader plan 的次数）
+  applicationCount Int         @default(0) @map("application_count")
+  /// 应用后 mission 成功完成的次数
+  successCount    Int          @default(0) @map("success_count")
+  /// admin 是否禁用（保留历史不删）
+  disabled        Boolean      @default(false)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  @@index([disabled, confidence(sort: Desc)])
+  @@index([failureCodes], type: Gin)
+  @@index([derivedFromRunId])
+  @@map("dreaming_rules")
+}
+
 /// E R4 Phase 2 (2026-05-05): 用户自定义 Agent 定义（骨架阶段）
 ///
 /// 用户在 5 步向导里配置自定义 agent（topic schema / skills 组合 / pipeline /
