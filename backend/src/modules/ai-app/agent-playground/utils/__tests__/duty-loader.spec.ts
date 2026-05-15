@@ -1,34 +1,24 @@
 /**
- * duty-loader.spec.ts — loadDuty / loadSoul / renderDuty / buildPromptFromDuty
+ * duty-loader.spec.ts — renderDuty / buildPromptFromDuty
  *
- * 策略：mock fs module so we don't need actual .md files on disk.
- *
- * 2026-05-15 PR-D：buildPromptFromDuty PRIMARY 路径走 loadSkill (SKILL.md)；
- * 旧 spec 用 mockFs.readFileSync 链路测的是 fallback (soul.md + duty.md)。
- * 这里 mock skill-md-loader 让 loadSkill 永远 throw，强制 buildPromptFromDuty
- * 进 fallback 路径，旧 mock 期望仍生效。
+ * 2026-05-15 PR-E：数据源已单源化为 SKILL.md。loadDuty/loadSoul/legacy fallback
+ * 路径全部删除。buildPromptFromDuty 直接委托 loadSkill；本 spec mock loadSkill
+ * 返回 ParsedSkill 验证拼接 + 模板渲染逻辑。renderDuty 纯字符串处理与 fs 无关。
  */
 
-import * as fs from "fs";
-
-jest.mock("fs");
 jest.mock("../skill-md-loader", () => ({
-  loadSkill: jest.fn(() => {
-    throw new Error("test: SKILL.md path disabled for fallback test");
-  }),
+  loadSkill: jest.fn(),
   clearSkillCache: jest.fn(),
 }));
 
-const mockFs = fs as jest.Mocked<typeof fs>;
-
-// We need to re-require after mocking; use jest.isolateModules for cache isolation
 import {
-  loadDuty,
-  loadSoul,
   renderDuty,
   buildPromptFromDuty,
   clearDutyCache,
 } from "../duty-loader";
+import { loadSkill } from "../skill-md-loader";
+
+const mockLoadSkill = loadSkill as jest.MockedFunction<typeof loadSkill>;
 
 describe("renderDuty", () => {
   beforeEach(() => {
@@ -37,203 +27,106 @@ describe("renderDuty", () => {
   });
 
   it("replaces simple {{var}} tokens", () => {
-    const result = renderDuty("Hello {{name}}!", { name: "World" });
-    expect(result).toBe("Hello World!");
+    expect(renderDuty("Hello {{name}}!", { name: "World" })).toBe(
+      "Hello World!",
+    );
   });
 
   it("replaces numeric variable", () => {
-    const result = renderDuty("Count: {{count}}", { count: 42 });
-    expect(result).toBe("Count: 42");
+    expect(renderDuty("Count: {{count}}", { count: 42 })).toBe("Count: 42");
   });
 
   it("replaces boolean variable", () => {
-    const result = renderDuty("Flag: {{flag}}", { flag: true });
-    expect(result).toBe("Flag: true");
+    expect(renderDuty("Flag: {{flag}}", { flag: true })).toBe("Flag: true");
   });
 
   it("leaves {{this}} and {{@index}} untouched outside each", () => {
-    const result = renderDuty("{{this}} {{@index}}", { this: "X" });
-    // these are reserved for each context, expandVars skips them
-    expect(result).toBe("{{this}} {{@index}}");
+    expect(renderDuty("{{this}} {{@index}}", { this: "X" })).toBe(
+      "{{this}} {{@index}}",
+    );
   });
 
   it("replaces missing var with empty string", () => {
-    const result = renderDuty("Hi {{missing}}", {});
-    expect(result).toBe("Hi ");
+    expect(renderDuty("Hi {{missing}}", {})).toBe("Hi ");
   });
 
   it("handles nested dot access {{a.b.c}}", () => {
-    const result = renderDuty("{{a.b.c}}", { a: { b: { c: "deep" } } });
-    expect(result).toBe("deep");
+    expect(renderDuty("{{a.b.c}}", { a: { b: { c: "deep" } } })).toBe("deep");
   });
 
   it("handles nested dot access missing → empty string", () => {
-    const result = renderDuty("{{a.b.c}}", { a: {} });
-    expect(result).toBe("");
+    expect(renderDuty("{{a.b.c}}", { a: {} })).toBe("");
   });
 
   it("{{#if truthy}} renders body", () => {
-    const result = renderDuty("{{#if show}}YES{{/if}}", { show: true });
-    expect(result).toBe("YES");
+    expect(renderDuty("{{#if show}}YES{{/if}}", { show: true })).toBe("YES");
   });
 
   it("{{#if falsy}} removes body", () => {
-    const result = renderDuty("{{#if show}}YES{{/if}}", { show: false });
-    expect(result).toBe("");
+    expect(renderDuty("{{#if show}}YES{{/if}}", { show: false })).toBe("");
   });
 
   it("{{#if empty string}} removes body", () => {
-    const result = renderDuty("{{#if s}}TEXT{{/if}}", { s: "" });
-    expect(result).toBe("");
+    expect(renderDuty("{{#if s}}TEXT{{/if}}", { s: "" })).toBe("");
   });
 
   it("{{#if non-empty string}} renders body", () => {
-    const result = renderDuty("{{#if s}}TEXT{{/if}}", { s: "hello" });
-    expect(result).toBe("TEXT");
+    expect(renderDuty("{{#if s}}TEXT{{/if}}", { s: "hello" })).toBe("TEXT");
   });
 
   it("{{#if 0}} removes body", () => {
-    const result = renderDuty("{{#if n}}BODY{{/if}}", { n: 0 });
-    expect(result).toBe("");
+    expect(renderDuty("{{#if n}}BODY{{/if}}", { n: 0 })).toBe("");
   });
 
   it("{{#if empty array}} removes body", () => {
-    const result = renderDuty("{{#if arr}}ITEMS{{/if}}", { arr: [] });
-    expect(result).toBe("");
+    expect(renderDuty("{{#if arr}}ITEMS{{/if}}", { arr: [] })).toBe("");
   });
 
   it("{{#if non-empty array}} renders body", () => {
-    const result = renderDuty("{{#if arr}}ITEMS{{/if}}", { arr: [1] });
-    expect(result).toBe("ITEMS");
-  });
-
-  it("{{#each}} renders each item — object fields accessible directly", () => {
-    // primitive arrays: {{this}} is skipped by expandVars (reserved keyword)
-    // but object arrays can use field names directly
-    const result = renderDuty("{{#each items}}{{val}},{{/each}}", {
-      items: [{ val: "a" }, { val: "b" }, { val: "c" }],
-    });
-    expect(result).toBe("a,b,c,");
+    expect(renderDuty("{{#if arr}}ITEMS{{/if}}", { arr: [1] })).toBe("ITEMS");
   });
 
   it("{{#each}} renders object array fields directly", () => {
-    const result = renderDuty("{{#each items}}{{name}};{{/each}}", {
-      items: [{ name: "Alice" }, { name: "Bob" }],
-    });
-    expect(result).toBe("Alice;Bob;");
+    expect(
+      renderDuty("{{#each items}}{{val}},{{/each}}", {
+        items: [{ val: "a" }, { val: "b" }, { val: "c" }],
+      }),
+    ).toBe("a,b,c,");
   });
 
-  it("{{#each}} renders @index (note: @index token not captured by \\w regex so stays as-is)", () => {
-    // The regex [\w.]+ does not match @, so {{@index}} is not replaced
-    const result = renderDuty("{{#each items}}{{name}} {{/each}}", {
-      items: [{ name: "X" }, { name: "Y" }],
-    });
-    expect(result).toBe("X Y ");
+  it("{{#each}} object fields by name", () => {
+    expect(
+      renderDuty("{{#each items}}{{name}};{{/each}}", {
+        items: [{ name: "Alice" }, { name: "Bob" }],
+      }),
+    ).toBe("Alice;Bob;");
   });
 
   it("{{#each}} empty array → empty string", () => {
-    const result = renderDuty("{{#each items}}{{this}}{{/each}}", {
-      items: [],
-    });
-    expect(result).toBe("");
+    expect(renderDuty("{{#each items}}{{this}}{{/each}}", { items: [] })).toBe(
+      "",
+    );
   });
 
   it("{{#each}} undefined array → empty string", () => {
-    const result = renderDuty("{{#each items}}{{this}}{{/each}}", {});
-    expect(result).toBe("");
+    expect(renderDuty("{{#each items}}{{this}}{{/each}}", {})).toBe("");
   });
 
   it("JSON.stringify used for object var", () => {
-    const result = renderDuty("{{obj}}", { obj: { x: 1 } });
-    expect(result).toBe(JSON.stringify({ x: 1 }));
+    expect(renderDuty("{{obj}}", { obj: { x: 1 } })).toBe(
+      JSON.stringify({ x: 1 }),
+    );
   });
 
   it("nested if inside each", () => {
-    const result = renderDuty(
-      "{{#each items}}{{#if active}}{{name}}{{/if}}{{/each}}",
-      {
+    expect(
+      renderDuty("{{#each items}}{{#if active}}{{name}}{{/if}}{{/each}}", {
         items: [
           { name: "A", active: true },
           { name: "B", active: false },
         ],
-      },
-    );
-    expect(result).toBe("A");
-  });
-});
-
-describe("loadDuty", () => {
-  beforeEach(() => {
-    clearDutyCache();
-    jest.clearAllMocks();
-  });
-
-  it("throws when duty file does not exist", () => {
-    mockFs.existsSync.mockReturnValue(false);
-    expect(() => loadDuty("leader", "nonexistent")).toThrow(
-      /Duty file not found/,
-    );
-  });
-
-  it("reads and returns duty file content", () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue("# Duty Content");
-    const content = loadDuty("leader", "plan");
-    expect(content).toBe("# Duty Content");
-    expect(mockFs.readFileSync).toHaveBeenCalledTimes(1);
-  });
-
-  it("caches result — fs.readFileSync called only once", () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue("cached content");
-    loadDuty("researcher", "collect");
-    loadDuty("researcher", "collect");
-    expect(mockFs.readFileSync).toHaveBeenCalledTimes(1);
-  });
-
-  it("resolves path including agentDir and dutyName", () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue("content");
-    loadDuty("analyst", "synthesize");
-    const callArg = (mockFs.existsSync as jest.Mock).mock.calls[0][0] as string;
-    expect(callArg).toContain("analyst");
-    expect(callArg).toContain("synthesize.md");
-  });
-});
-
-describe("loadSoul", () => {
-  beforeEach(() => {
-    clearDutyCache();
-    jest.clearAllMocks();
-  });
-
-  it("returns null when soul.md does not exist", () => {
-    mockFs.existsSync.mockReturnValue(false);
-    expect(loadSoul("leader")).toBeNull();
-  });
-
-  it("reads soul file when it exists", () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue("# Soul");
-    const soul = loadSoul("writer");
-    expect(soul).toBe("# Soul");
-  });
-
-  it("caches soul — readFileSync called only once", () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue("# Soul");
-    loadSoul("writer");
-    loadSoul("writer");
-    expect(mockFs.readFileSync).toHaveBeenCalledTimes(1);
-  });
-
-  it("caches null result for missing soul", () => {
-    mockFs.existsSync.mockReturnValue(false);
-    const r1 = loadSoul("noagent");
-    const r2 = loadSoul("noagent");
-    expect(r1).toBeNull();
-    expect(r2).toBeNull();
-    expect(mockFs.existsSync).toHaveBeenCalledTimes(1);
+      }),
+    ).toBe("A");
   });
 });
 
@@ -244,32 +137,52 @@ describe("buildPromptFromDuty", () => {
   });
 
   it("combines soul + duty with --- separator when soul exists", () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync
-      .mockReturnValueOnce("Soul content")
-      .mockReturnValueOnce("Duty content with {{topic}}");
+    mockLoadSkill.mockReturnValue({
+      frontmatter: {
+        id: "agent-playground.leader",
+        name: "Leader",
+        allowedTools: [],
+        allowedModels: [],
+        duties: ["plan"],
+      },
+      soul: "Soul content",
+      duties: { plan: "Duty content with {{topic}}" },
+    });
     const result = buildPromptFromDuty("leader", "plan", { topic: "AI" });
     expect(result).toContain("Soul content");
     expect(result).toContain("---");
     expect(result).toContain("Duty content with AI");
   });
 
-  it("returns only duty when no soul.md", () => {
-    // first call for soul → file not exist; second for duty → exists
-    mockFs.existsSync
-      .mockReturnValueOnce(false) // soul
-      .mockReturnValueOnce(true); // duty
-    mockFs.readFileSync.mockReturnValueOnce("Duty only {{x}}");
-    const result = buildPromptFromDuty("analyst", "insights", { x: "test" });
+  it("returns only duty when soul is null", () => {
+    mockLoadSkill.mockReturnValue({
+      frontmatter: {
+        id: "agent-playground.x",
+        name: "X",
+        allowedTools: [],
+        allowedModels: [],
+        duties: ["only"],
+      },
+      soul: null,
+      duties: { only: "Duty only {{x}}" },
+    });
+    const result = buildPromptFromDuty("x", "only", { x: "test" });
     expect(result).toBe("Duty only test");
     expect(result).not.toContain("---");
   });
 
   it("applies variable rendering to combined prompt", () => {
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync
-      .mockReturnValueOnce("Hello {{name}}")
-      .mockReturnValueOnce("Task: {{task}}");
+    mockLoadSkill.mockReturnValue({
+      frontmatter: {
+        id: "agent-playground.researcher",
+        name: "Researcher",
+        allowedTools: [],
+        allowedModels: [],
+        duties: ["collect"],
+      },
+      soul: "Hello {{name}}",
+      duties: { collect: "Task: {{task}}" },
+    });
     const result = buildPromptFromDuty("researcher", "collect", {
       name: "Bob",
       task: "research",
@@ -277,21 +190,38 @@ describe("buildPromptFromDuty", () => {
     expect(result).toContain("Hello Bob");
     expect(result).toContain("Task: research");
   });
+
+  it("throws when SKILL.md does not declare requested duty", () => {
+    mockLoadSkill.mockReturnValue({
+      frontmatter: {
+        id: "agent-playground.leader",
+        name: "Leader",
+        allowedTools: [],
+        allowedModels: [],
+        duties: ["plan"],
+      },
+      soul: "soul",
+      duties: { plan: "plan body" },
+    });
+    expect(() => buildPromptFromDuty("leader", "nonexistent", {})).toThrowError(
+      /does not declare duty "nonexistent"/,
+    );
+  });
+
+  it("propagates SKILL.md not found error from loadSkill", () => {
+    mockLoadSkill.mockImplementation(() => {
+      throw new Error("SKILL.md not found");
+    });
+    expect(() => buildPromptFromDuty("missing", "plan", {})).toThrowError(
+      /SKILL.md not found/,
+    );
+  });
 });
 
 describe("clearDutyCache", () => {
-  it("clears cache so next load re-reads from fs", () => {
+  it("delegates to clearSkillCache", () => {
+    const { clearSkillCache } = jest.requireMock("../skill-md-loader");
     clearDutyCache();
-    jest.clearAllMocks();
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue("v1");
-    loadDuty("x", "y");
-    clearDutyCache();
-    jest.clearAllMocks();
-    mockFs.existsSync.mockReturnValue(true);
-    mockFs.readFileSync.mockReturnValue("v2");
-    const result = loadDuty("x", "y");
-    expect(result).toBe("v2");
-    expect(mockFs.readFileSync).toHaveBeenCalledTimes(1);
+    expect(clearSkillCache).toHaveBeenCalled();
   });
 });

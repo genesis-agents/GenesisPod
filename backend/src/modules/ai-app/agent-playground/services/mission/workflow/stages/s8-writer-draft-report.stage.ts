@@ -860,7 +860,8 @@ export async function runWriterStage(
     // ★ 2026-05-13 #63: Leader signoff 预警 — S8 已经能算出最终签字阻断条件
     //   （sourceCount / coverage / lengthAccuracy），提前 emit 让前端 timeline
     //   渲染红段 + tooltip，避免到 S10 才"突然"拒签让用户措手不及。
-    //   阻断条件对齐 leader/duties/signoff.md:123-126。
+    //   阻断条件对齐 leader/SKILL.md `<!-- duty:signoff:start -->` 段（sourceCount /
+    //   coverage / lengthAccuracy 三阈值检查）。
     const reasons: {
       code: string;
       message: string;

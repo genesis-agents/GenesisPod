@@ -2,8 +2,9 @@
  * Writer stage agents — barrel export
  *
  * 现状：每个 mode 一个独立 @DefineAgent class（保持 orchestrator 现有 wiring）。
- * 长期方向：合并到单一 WriterAgent (multi-mode discriminatedUnion) + duties/*.md +
- *           soul.md。soul.md 与 duties 已就位，class 合并留给后续 PR。
+ * 长期方向：合并到单一 WriterAgent (multi-mode discriminatedUnion)，prompt body
+ * 已在 SKILL.md duty anchors 就位（chapter / dimension-outline / mission-outline /
+ * single-shot），class 合并留给后续 PR。
  *
  * 两条互斥执行路径（由 depth + auditLayers 决定走哪条）:
  *

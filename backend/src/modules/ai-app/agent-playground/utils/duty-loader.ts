@@ -1,9 +1,8 @@
 /**
- * Duty Loader —— Agent 灵魂 (soul) + 职责说明书 (duty) 渲染器
+ * Duty Loader —— Agent 灵魂 (soul) + 职责说明书 (duty) 模板渲染器
  *
- * 2026-05-15 PR-D 收敛：数据源单源迁移到 SKILL.md（buildPromptFromDuty 内部
- * 委托给 loadSkill）。旧路径（soul.md + duties/*.md 散落文件）作为 fallback，
- * 在 SKILL.md 缺 duty 段时使用，给 PR-E 物理删除留过渡缓冲。
+ * 2026-05-15 PR-E 单源化：数据源**仅** SKILL.md（buildPromptFromDuty 内部
+ * 委托 loadSkill）。legacy 路径（soul.md + duties/*.md 散落文件）已物理删除。
  *
  * 设计原则：
  *   • Agent class 持有 schema + loop 等工程契约
@@ -11,76 +10,21 @@
  *   • buildPromptFromDuty(agentDir, dutyName, vars) 自动从 SKILL.md 拼 soul+duty
  *
  * 文件位置规约：
- *   agents/<agent-dir>/SKILL.md  ← PRIMARY（PR-D 后真源）
- *   agents/<agent-dir>/soul.md            ← LEGACY，PR-E 删除
- *   agents/<agent-dir>/duties/<name>.md   ← LEGACY，PR-E 删除
+ *   agents/<agent-dir>/SKILL.md  ← 唯一真源
  *
- * 模板语法：
+ * 模板语法（最小子集，不依赖 handlebars / mustache）：
  *   {{var}}                    简单变量替换
  *   {{a.b.c}}                  嵌套字段（点访问）
  *   {{#if condition}}...{{/if}} 条件块（值非空 / 非 false / 非 0 / 非空数组）
  *   {{#each array}}...{{/each}} 循环（{{this}} 当前项，{{@index}} 索引；
  *                                若 array 是对象数组用 {{field}} 直接引）
- *
- * 不依赖 handlebars / mustache —— 这是最小子集，避免引入第三方包。
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import { loadSkill } from "./skill-md-loader";
+import { loadSkill, clearSkillCache } from "./skill-md-loader";
 
-const dutyCache = new Map<string, string>();
-const soulCache = new Map<string, string | null>();
-
-/**
- * 加载 agent 子目录下的 duty markdown。
- *
- * 例：loadDuty("leader", "plan") → agents/leader/duties/plan.md
- *
- * 缓存到内存，运行时无 I/O 开销。
- */
-export function loadDuty(agentDir: string, dutyName: string): string {
-  const key = `${agentDir}:${dutyName}`;
-  const cached = dutyCache.get(key);
-  if (cached !== undefined) return cached;
-  const filePath = path.resolve(
-    __dirname,
-    "..",
-    "agents",
-    agentDir,
-    "duties",
-    `${dutyName}.md`,
-  );
-  if (!fs.existsSync(filePath)) {
-    throw new Error(
-      `Duty file not found: ${filePath} (agent=${agentDir}, duty=${dutyName})`,
-    );
-  }
-  const content = fs.readFileSync(filePath, "utf8");
-  dutyCache.set(key, content);
-  return content;
-}
-
-/**
- * 加载某 agent 的 soul.md（可选 —— 不存在返回 null）。
- * Soul 描述 agent 的身份 / 价值观 / 风格 / 红线，每个 phase 都自动 prefix。
- */
-export function loadSoul(agentDir: string): string | null {
-  if (soulCache.has(agentDir)) return soulCache.get(agentDir)!;
-  const filePath = path.resolve(__dirname, "..", "agents", agentDir, "soul.md");
-  if (!fs.existsSync(filePath)) {
-    soulCache.set(agentDir, null);
-    return null;
-  }
-  const content = fs.readFileSync(filePath, "utf8");
-  soulCache.set(agentDir, content);
-  return content;
-}
-
-/** 测试用：清缓存 */
+/** 测试用：清 SKILL.md 缓存 */
 export function clearDutyCache(): void {
-  dutyCache.clear();
-  soulCache.clear();
+  clearSkillCache();
 }
 
 // ───────────────────────────────────────────────────────────────────
@@ -142,11 +86,9 @@ function isTruthy(v: unknown): boolean {
 }
 
 function expandIf(input: string, vars: Record<string, unknown>): string {
-  // 非贪婪匹配，支持嵌套需要多次 pass
   const re = /\{\{#if\s+([\w.]+)\s*\}\}([\s\S]*?)\{\{\/if\}\}/g;
   let prev = "";
   let cur = input;
-  // 多次 pass 处理嵌套（最多 8 层防死循环）
   let i = 0;
   for (; i < 8 && prev !== cur; i++) {
     prev = cur;
@@ -155,7 +97,6 @@ function expandIf(input: string, vars: Record<string, unknown>): string {
       return isTruthy(v) ? body : "";
     });
   }
-  // ★ P2-NEW-3 (round 2): 达到 8 层上限但仍未稳定 → 模板可能有问题，留 telemetry
   if (i >= 8 && prev !== cur) {
     // eslint-disable-next-line no-console
     console.warn(
@@ -178,14 +119,12 @@ function expandEach(input: string, vars: Record<string, unknown>): string {
       if (!Array.isArray(arr) || arr.length === 0) return "";
       return arr
         .map((item, idx) => {
-          // 对每一项构建本轮 vars：item 字段 + this + @index
           const itemVars: Record<string, unknown> =
             item != null && typeof item === "object"
               ? { ...vars, ...(item as Record<string, unknown>) }
               : { ...vars };
           itemVars["this"] = item;
           itemVars["@index"] = idx;
-          // body 内可能还有嵌套 each / if / var，递归
           let rendered = expandEach(body, itemVars);
           rendered = expandIf(rendered, itemVars);
           rendered = expandVars(rendered, itemVars);
@@ -194,7 +133,6 @@ function expandEach(input: string, vars: Record<string, unknown>): string {
         .join("");
     });
   }
-  // ★ P2-NEW-3 (round 2): 同 expandIf — 达到 8 层上限留 telemetry
   if (_i >= 8 && prev !== cur) {
     // eslint-disable-next-line no-console
     console.warn(
@@ -211,48 +149,38 @@ function expandEach(input: string, vars: Record<string, unknown>): string {
 /**
  * 加载 agent 的 soul + duty，拼接后渲染成最终 systemPrompt。
  *
- * 数据源单源（2026-05-15 PR-D）：
- *   1. PRIMARY: agents/<agentDir>/SKILL.md（soul / duty 段在 HTML 注释边界内）
- *   2. FALLBACK: legacy agents/<agentDir>/soul.md + duties/<dutyName>.md
- *      仅在 SKILL.md 不存在或 SKILL.md frontmatter 未声明该 dutyName 时使用，
- *      留作 PR-E 物理删除前的过渡缓冲。命中 fallback 会发 warn 日志。
+ * 数据源单源（2026-05-15 PR-E 后）：agents/<agentDir>/SKILL.md
+ *   - soul 段在 <!-- soul:start --> / <!-- soul:end --> 之间
+ *   - 每个 duty 段在 <!-- duty:<name>:start --> / <!-- duty:<name>:end --> 之间
  *
- * 顺序：
+ * 拼接顺序：
  *   [soul content]
  *   ---
  *   [duty content]
  *
  * soul 部分给 LLM 角色身份（"你是 Leader / Researcher / ..."），
  * duty 部分给当前 phase 任务（"现在做 plan / assess-research / ..."）。
+ *
+ * 抛错：
+ *   - SKILL.md 不存在
+ *   - SKILL.md frontmatter duties 未声明该 dutyName
+ *   - body 缺对应 <!-- duty:<name>:start --> anchor
  */
 export function buildPromptFromDuty(
   agentDir: string,
   dutyName: string,
   vars: Record<string, unknown>,
 ): string {
-  // PRIMARY: SKILL.md 单源
-  try {
-    const skill = loadSkill(agentDir);
-    const dutyBody = skill.duties[dutyName];
-    if (dutyBody != null) {
-      const combined = skill.soul
-        ? `${skill.soul.trim()}\n\n---\n\n${dutyBody}`
-        : dutyBody;
-      return renderDuty(combined, vars);
-    }
-    // SKILL.md 存在但 frontmatter 未声明该 dutyName → 走 fallback
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[duty-loader] SKILL.md present for "${agentDir}" but duty "${dutyName}" not declared in frontmatter; ` +
-        `falling back to legacy duties/${dutyName}.md. Add duty to SKILL.md frontmatter + body anchors to silence.`,
+  const skill = loadSkill(agentDir);
+  const dutyBody = skill.duties[dutyName];
+  if (dutyBody == null) {
+    throw new Error(
+      `[duty-loader] SKILL.md for "${agentDir}" does not declare duty "${dutyName}". ` +
+        `Add duty to frontmatter duties[] + body <!-- duty:${dutyName}:start --> anchor.`,
     );
-  } catch {
-    // SKILL.md 不存在或解析失败 → 走 fallback（保 PR-D 期间所有 agent 平稳）
   }
-
-  // FALLBACK: legacy soul.md + duties/<dutyName>.md（PR-E 删）
-  const soul = loadSoul(agentDir);
-  const duty = loadDuty(agentDir, dutyName);
-  const combined = soul ? `${soul.trim()}\n\n---\n\n${duty}` : duty;
+  const combined = skill.soul
+    ? `${skill.soul.trim()}\n\n---\n\n${dutyBody}`
+    : dutyBody;
   return renderDuty(combined, vars);
 }

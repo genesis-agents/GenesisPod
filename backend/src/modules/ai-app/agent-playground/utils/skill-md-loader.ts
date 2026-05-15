@@ -7,9 +7,8 @@
  *       <!-- soul:start --> ... <!-- soul:end -->
  *       <!-- duty:<name>:start --> ... <!-- duty:<name>:end -->
  *
- * 与 duty-loader.ts 共存（R2-A 双轨）；R2-A0 仅新增 SKILL.md，不动 duty-loader。
- * 提取 soul / duty 内容时保证与现有 soul.md / duties/*.md byte-equal —— 由
- * skill-md.byte-equal.spec 守门。
+ * 2026-05-15 PR-E 单源化后是 agent-playground 唯一 prompt 数据源。
+ * duty-loader.ts 委托本模块 loadSkill。legacy soul.md / duties/*.md 已物理删除。
  */
 import * as fs from "fs";
 import * as path from "path";

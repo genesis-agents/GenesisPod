@@ -8,8 +8,8 @@
  *     · Role  = 简洁名词（Researcher / Reconciler / Analyst / Writer / Reviewer / Critic / ...）
  *   - 文件名格式: `<scope>-<role>.agent.ts` 或单一名词（当目录已隐含 scope 时）
  *
- * 6 类 agent role × 不同粒度，全部走 @DefineAgent + duty markdown 模式（部分仍内联 prompt，
- * 后续逐步迁移到 duties/*.md）。
+ * 6 类 agent role × 不同粒度，全部走 @DefineAgent + SKILL.md (frontmatter +
+ * soul/duty body anchors) 模式（部分仍内联 prompt，后续逐步迁移到 SKILL.md）。
  */
 
 // Leader：mission 唯一最终负责对象（multi-phase 单 class）

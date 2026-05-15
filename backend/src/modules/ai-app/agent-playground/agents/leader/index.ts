@@ -7,7 +7,8 @@
  *   - phase=foreword        (M6)  写 meta-level 综合摘要
  *   - phase=signoff         (M7)  签字 + 自评分 + accountabilityNote
  *
- * 每个 phase 的具体职责说明书见 duties/<phase>.md（duty-loader 加载）。
+ * 每个 phase 的具体职责说明书见 SKILL.md `<!-- duty:<phase>:start -->` 段
+ * （duty-loader 委托 skill-md-loader 加载）。
  *
  * 工程层封装见 services/leader.service.ts (SupervisedMission)，
  * 它持有 missionContext 跨 milestone 复用，让 LeaderAgent 在 M7 看到自己历史决策。

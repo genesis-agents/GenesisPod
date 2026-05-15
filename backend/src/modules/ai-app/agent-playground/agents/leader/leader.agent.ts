@@ -12,7 +12,8 @@
  *   M6 foreword        — 写 meta-level 综合摘要（vs Writer 的 ExecutiveSummary）
  *   M7 signoff         — 签字 + 自评分 + accountabilityNote
  *
- * Prompt 不嵌在 .ts 里 —— 拆到 duties/<phase>.md，由 duty-loader 加载并模板渲染。
+ * Prompt 不嵌在 .ts 里 —— 走 SKILL.md `<!-- duty:<phase>:start -->` body anchor，
+ * 由 duty-loader（委托 skill-md-loader）加载并模板渲染。
  *
  * 生命周期:
  *   AgentRunner.run(LeaderAgent, { phase: ..., ... })
