@@ -91,6 +91,12 @@ export class ProcessSupervisorService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 多类别状态存储: category -> (id -> StateEntry)
+   *
+   * 2026-05-15 PR-E.P2 评估：保留 in-process（不迁 Redis）。理由：
+   *   - ProcessSupervisor 监督的是**该 pod 内**正在跑的进程（NodeJS 子进程 / 推理任务）
+   *     —— "进程" 本身就 pod-local，stateStore 跨 pod 共享无业务意义
+   *   - 30min TTL + 5min 自动 cleanup 已经控制内存，pod 重启即丢符合语义
+   *   - 嵌套 Map 跨 pod 序列化复杂度高，收益与代价不匹配（YAGNI）
    */
   private readonly stateStore = new Map<string, Map<string, StateEntry>>();
 

@@ -42,7 +42,7 @@ import { AdminGuard } from "../../../../common/guards/admin.guard";
 import { LoopRegistry } from "../../../ai-harness/runner/loop/loop-registry";
 import { BuiltinSkillCatalog } from "../../../ai-harness/facade";
 import { SpecAgentRegistry } from "../../../ai-harness/agents/core/spec-agent-registry";
-import { CheckpointService } from "../../../ai-harness/memory/checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../../../ai-harness/facade";
 import { AgentEventStore } from "../../../ai-harness/memory/checkpoint/agent-event-store";
 import { SkillLearningCoordinator } from "../../../ai-harness/agents/learning/skill-learning-coordinator";
 
@@ -57,7 +57,7 @@ export class HarnessInspectorController {
     private readonly loops: LoopRegistry,
     private readonly skills: BuiltinSkillCatalog,
     private readonly specs: SpecAgentRegistry,
-    @Optional() private readonly checkpoints?: CheckpointService,
+    @Optional() private readonly checkpoints?: AgentStepCheckpointService,
     @Optional() private readonly events?: AgentEventStore,
     @Optional() private readonly learning?: SkillLearningCoordinator,
   ) {}

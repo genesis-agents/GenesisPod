@@ -33,12 +33,16 @@ export interface AgentEventRecord {
 @Injectable()
 export class AgentEventStore {
   private readonly log = new Logger(AgentEventStore.name);
-  /** in-process seq cache 减少 SELECT MAX 往返；进程重启从 DB 重读 */
-  private readonly seqByAgent = new Map<string, number>();
   /**
-   * 必修 #1: per-agentId 异步互斥锁，防止 append/appendBatch 并发抢 seq → DB unique 冲突。
-   * Node.js 单线程但 microtask 间 await 切换会让两个 nextSeq() 拿到同号。
+   * 2026-05-15 PR-E.P2 评估：seqByAgent / seqLock 保留 in-process（不迁 Redis）。理由：
+   *   - seqByAgent 是 SELECT MAX(seq) 的进程内 cache，miss 时 fall back 到 DB，正确性
+   *     不依赖 cache；多 pod 时各 pod 各自维护 cache 无问题
+   *   - seqLock 是 NodeJS microtask 内的 sequential lock（同 pod 内 append 并发抢 seq），
+   *     多 pod 间跨 pod 并发由 DB `unique(agentId, seq)` 约束兜底——seq 冲突时 INSERT
+   *     抛 unique violation，调用方 catch + 重试 nextSeq
+   *   - 改为 Redis 分布式锁会让每次 append 增加 RTT，性能反优化
    */
+  private readonly seqByAgent = new Map<string, number>();
   private readonly seqLock = new Map<string, Promise<unknown>>();
 
   constructor(private readonly prisma: PrismaService) {}

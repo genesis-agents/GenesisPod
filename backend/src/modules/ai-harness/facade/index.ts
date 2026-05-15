@@ -525,6 +525,19 @@ export {
   type SchedulerStats as AutoDreamSchedulerStats,
 } from "../memory/consolidation/memory-consolidation-scheduler.service";
 
+// ★ 2026-05-15 PR-I: Dreaming（主动反思）— ReflectionMissionScheduler + RuleBase
+export {
+  ReflectionMissionScheduler,
+  DEFAULT_DREAMING_CONFIG,
+  type DreamingRule,
+  type DreamingRunResult,
+  type DreamingSample,
+  type DreamingSchedulerConfig,
+  type DreamingTrigger,
+  type DreamingTriggerKind,
+  type InjectedRuleSet,
+} from "../evaluation/dreaming";
+
 // ★ 沉淀 Phase 4 (2026-04-29): Checkpoint / Health / DAG 三件套
 export {
   MissionCheckpointService,
@@ -729,7 +742,13 @@ export { calculateOverallProgress } from "../protocols/realtime/abstractions/pro
 // Memory: indexing + checkpoint + working
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export { MemoryAutoIndexer } from "../memory/indexing/memory-auto-indexer";
-export { AgentEventStore, CheckpointService } from "../memory/checkpoint";
+// ★ 2026-05-15 PR-C: AgentStepCheckpointService（react-loop / agent runtime 粒度，by agentId）
+//   与上方 MissionCheckpointService（mission / business stage 粒度，by missionId）不同 scope，
+//   名字差异化避免混淆。
+export {
+  AgentEventStore,
+  AgentStepCheckpointService,
+} from "../memory/checkpoint";
 export type { ICheckpoint, AgentEventRecord } from "../memory/checkpoint";
 
 // â”€â”€ Working memory â”€â”€

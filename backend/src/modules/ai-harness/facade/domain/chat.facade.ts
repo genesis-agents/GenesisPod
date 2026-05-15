@@ -73,7 +73,16 @@ const SENSITIVE_PATTERNS = [
   /bearer\s+\S+/gi,
 ];
 
-/** Short-lived cache to avoid repeated DB lookups for zero-balance users */
+/**
+ * Short-lived (30s) negative cache to avoid repeated DB lookups for zero-balance users.
+ *
+ * 2026-05-15 PR-E.P2: 保留 in-process（不迁 Redis）。理由：
+ *   - 30s TTL 的 negative cache，多 pod 各自 cache 不影响正确性，最差性能轻微下降
+ *   - 跨 pod 共享需 Redis SET EX 每次 RTT 1-2ms，比直接 DB lookup（10-50ms）省，
+ *     但还不如 in-process Map（<0.1ms）；引入 Redis 反而是性能反优化
+ *   - 充值后 user 转过来时最长 30s 仍可能命中 cache 显示余额不足——可接受
+ *   - YAGNI：不为不存在的"跨 pod 缓存一致性"问题增复杂度
+ */
 const ZERO_BALANCE_CACHE_TTL = 30_000; // 30 seconds
 const zeroBalanceCache = new Map<string, number>(); // userId → expiry timestamp
 
@@ -184,7 +193,10 @@ export class ChatFacade {
     }
 
     // Step 3: Enforce constraints
-    const constraintError = this.enforceRateLimitAndBudget(request, modelId);
+    const constraintError = await this.enforceRateLimitAndBudget(
+      request,
+      modelId,
+    );
     if (constraintError !== null) {
       return constraintError;
     }
@@ -333,13 +345,14 @@ export class ChatFacade {
     return "";
   }
 
-  private enforceRateLimitAndBudget(
+  private async enforceRateLimitAndBudget(
     request: ChatRequest,
     modelId: string,
-  ): ChatResponse | null {
+  ): Promise<ChatResponse | null> {
     if (this.constraint?.rateLimiter) {
       const rateLimitKey = request.billing?.userId || "global";
-      const rateLimitResult = this.constraint.rateLimiter.check(rateLimitKey);
+      const rateLimitResult =
+        await this.constraint.rateLimiter.check(rateLimitKey);
       if (!rateLimitResult.allowed) {
         this.logger.warn(
           `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rateLimitResult.retryAfter}ms`,
@@ -351,7 +364,7 @@ export class ChatFacade {
           isError: true,
         };
       }
-      this.constraint.rateLimiter.consume(rateLimitKey);
+      await this.constraint.rateLimiter.consume(rateLimitKey);
     }
 
     if (this.constraint?.costController) {

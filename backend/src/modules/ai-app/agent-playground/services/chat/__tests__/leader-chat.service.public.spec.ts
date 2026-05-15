@@ -76,14 +76,20 @@ function buildService() {
     emit: jest.fn().mockResolvedValue(undefined),
   };
 
+  // PR-F: SKILL.md skill catalog mock — let send() use the SKILL.md body or fallback
+  const skillCatalog = {
+    get: jest.fn().mockReturnValue(undefined), // falls back to LEADER_CHAT_SKILL_FALLBACK
+  };
+
   const service = new LeaderChatService(
     prisma as never,
     chat as never,
     store as never,
     eventBus as never,
+    skillCatalog as never,
   );
 
-  return { service, prisma, chat, store, eventBus };
+  return { service, prisma, chat, store, eventBus, skillCatalog };
 }
 
 describe("LeaderChatService.list", () => {

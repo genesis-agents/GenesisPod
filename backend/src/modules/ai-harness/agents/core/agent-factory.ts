@@ -39,7 +39,7 @@ import { MemoryContextBindingService } from "../../memory/indexing/memory-contex
 import { extractJsonFromAIResponse } from "@/common/utils/json-extraction.utils";
 import { describeOutputSchemaForLlm } from "../dev-tools/zod-schema-prompt";
 import { SkillActivator } from "../skill-runtime/skill-activator";
-import { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { LlmExecutor } from "../../runner/executor/llm-executor";
 import { AgentRegistry } from "../../handoffs/agent-registry";
@@ -68,7 +68,7 @@ export class AgentFactory {
     @Optional()
     private readonly memoryContextBindingService?: MemoryContextBindingService,
     @Optional() private readonly skillActivator?: SkillActivator,
-    @Optional() private readonly checkpointService?: CheckpointService,
+    @Optional() private readonly checkpointService?: AgentStepCheckpointService,
     @Optional() private readonly llmExecutor?: LlmExecutor,
     /**
      * v2: LoopRegistry — 按 spec.loop 选择 loop 实现。

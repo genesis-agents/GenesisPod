@@ -1,3 +1,10 @@
+/**
+ * RateLimiter spec — Redis-backed sliding window (Stateless Phase 2 P0-2)
+ *
+ * FakeCacheService: in-memory Map emulating CacheService get/set/del.
+ * All public methods are now async; specs use await throughout.
+ */
+
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { RateLimiter, TokenBucket } from "../resources/rate-limiter";
@@ -8,54 +15,80 @@ jest.spyOn(Logger.prototype, "debug").mockImplementation();
 jest.spyOn(Logger.prototype, "warn").mockImplementation();
 jest.spyOn(Logger.prototype, "error").mockImplementation();
 
-const mockCacheService = {
-  get: jest.fn().mockResolvedValue(null),
-  set: jest.fn().mockResolvedValue(undefined),
-  del: jest.fn().mockResolvedValue(undefined),
-};
+// ── FakeCacheService ──────────────────────────────────────────────────────
+
+class FakeCacheService {
+  private readonly store = new Map<string, unknown>();
+
+  async get<T>(key: string): Promise<T | undefined> {
+    const val = this.store.get(key);
+    // Deep-clone to prevent tests mutating stored state directly
+    return val !== undefined
+      ? (JSON.parse(JSON.stringify(val)) as T)
+      : undefined;
+  }
+
+  async set<T>(key: string, value: T, _ttl?: number): Promise<void> {
+    this.store.set(key, JSON.parse(JSON.stringify(value)));
+  }
+
+  async del(key: string): Promise<void> {
+    this.store.delete(key);
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+async function buildLimiter(
+  fakeCache?: FakeCacheService,
+): Promise<{ limiter: RateLimiter; cache: FakeCacheService }> {
+  const cache = fakeCache ?? new FakeCacheService();
+  const module: TestingModule = await Test.createTestingModule({
+    providers: [RateLimiter, { provide: CacheService, useValue: cache }],
+  }).compile();
+  return { limiter: module.get<RateLimiter>(RateLimiter), cache };
+}
+
+// ── Tests ─────────────────────────────────────────────────────────────────
 
 describe("RateLimiter", () => {
   let limiter: RateLimiter;
+  let cache: FakeCacheService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
     jest.useFakeTimers();
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        RateLimiter,
-        { provide: CacheService, useValue: mockCacheService },
-      ],
-    }).compile();
-    limiter = module.get<RateLimiter>(RateLimiter);
+    ({ limiter, cache } = await buildLimiter());
   });
 
   afterEach(() => {
     jest.useRealTimers();
-    jest.clearAllMocks();
+    cache.clear();
   });
 
   // ==================== registerLimit ====================
 
   describe("registerLimit", () => {
-    it("should register a named limit configuration", () => {
+    it("should register a named limit configuration", async () => {
       limiter.registerLimit("api", { windowMs: 60000, maxRequests: 100 });
-      // Verify by checking behavior: should use 100 limit
-      const result = limiter.check("user-1", "api");
+      const result = await limiter.check("user-1", "api");
       expect(result.limit).toBe(100);
     });
 
-    it("should merge with default config", () => {
+    it("should merge with default config", async () => {
       limiter.registerLimit("partial", { maxRequests: 5 });
-      const result = limiter.check("user-1", "partial");
+      const result = await limiter.check("user-1", "partial");
       expect(result.limit).toBe(5);
       expect(result.allowed).toBe(true);
     });
 
-    it("should override existing named limit", () => {
+    it("should override existing named limit", async () => {
       limiter.registerLimit("myLimit", { maxRequests: 10 });
       limiter.registerLimit("myLimit", { maxRequests: 20 });
-      const result = limiter.check("user-x", "myLimit");
+      const result = await limiter.check("user-x", "myLimit");
       expect(result.limit).toBe(20);
     });
   });
@@ -63,80 +96,63 @@ describe("RateLimiter", () => {
   // ==================== check ====================
 
   describe("check", () => {
-    it("should allow request when limit not reached", () => {
+    it("should allow request when limit not reached", async () => {
       limiter.registerLimit("test", { windowMs: 60000, maxRequests: 10 });
-      const result = limiter.check("user-1", "test");
+      const result = await limiter.check("user-1", "test");
       expect(result.allowed).toBe(true);
       expect(result.used).toBe(0);
       expect(result.remaining).toBe(10);
       expect(result.limit).toBe(10);
     });
 
-    it("should use default config when limitName is undefined", () => {
-      const result = limiter.check("user-default");
+    it("should use default config when limitName is undefined", async () => {
+      const result = await limiter.check("user-default");
       expect(result.limit).toBe(60);
       expect(result.allowed).toBe(true);
     });
 
-    it("should use default config when limitName does not exist", () => {
-      const result = limiter.check("user-x", "nonexistent-limit");
+    it("should use default config when limitName does not exist", async () => {
+      const result = await limiter.check("user-x", "nonexistent-limit");
       expect(result.limit).toBe(60);
     });
 
-    it("should return resetAt as future timestamp", () => {
+    it("should return resetAt as future timestamp", async () => {
       const now = Date.now();
-      const result = limiter.check("user-2");
+      const result = await limiter.check("user-2");
       expect(result.resetAt).toBeGreaterThan(now);
     });
 
-    it("should return retryAfter as undefined when allowed", () => {
-      const result = limiter.check("user-3");
+    it("should return retryAfter as undefined when allowed", async () => {
+      const result = await limiter.check("user-3");
       expect(result.retryAfter).toBeUndefined();
     });
 
-    it("should deny request when limit is reached after consuming", () => {
+    it("should deny request when limit is reached after consuming", async () => {
       limiter.registerLimit("tight", {
         windowMs: 60000,
         maxRequests: 2,
         sliding: false,
       });
-      limiter.consume("user-tight", "tight");
-      limiter.consume("user-tight", "tight");
-      const result = limiter.check("user-tight", "tight");
+      await limiter.consume("user-tight", "tight");
+      await limiter.consume("user-tight", "tight");
+      const result = await limiter.check("user-tight", "tight");
       expect(result.allowed).toBe(false);
       expect(result.retryAfter).toBeGreaterThan(0);
       expect(result.remaining).toBe(0);
     });
 
-    it("should reset expired fixed-window entry", () => {
-      limiter.registerLimit("expire", {
-        windowMs: 1000,
-        maxRequests: 2,
-        sliding: false,
-      });
-      limiter.consume("user-exp", "expire");
-      limiter.consume("user-exp", "expire");
-
-      // Advance past window
-      jest.advanceTimersByTime(2000);
-
-      const result = limiter.check("user-exp", "expire");
-      expect(result.allowed).toBe(true);
-      expect(result.used).toBe(0);
-    });
-
-    it("should use sliding window to filter old requests", () => {
+    it("should use sliding window to filter old requests", async () => {
       limiter.registerLimit("sliding", {
         windowMs: 5000,
         maxRequests: 3,
         sliding: true,
       });
-      limiter.consume("user-slide", "sliding");
-      limiter.consume("user-slide", "sliding");
+      await limiter.consume("user-slide", "sliding");
+      await limiter.consume("user-slide", "sliding");
       // Advance past window
       jest.advanceTimersByTime(6000);
       // Old requests filtered — should be 0 used
-      const result = limiter.check("user-slide", "sliding");
+      const result = await limiter.check("user-slide", "sliding");
       expect(result.used).toBe(0);
       expect(result.allowed).toBe(true);
     });
@@ -145,74 +161,66 @@ describe("RateLimiter", () => {
   // ==================== consume ====================
 
   describe("consume", () => {
-    it("should increment used count on consume", () => {
+    it("should increment used count on consume", async () => {
       limiter.registerLimit("c1", { windowMs: 60000, maxRequests: 10 });
-      limiter.consume("user-c1", "c1");
-      const status = limiter.getStatus("user-c1", "c1");
+      await limiter.consume("user-c1", "c1");
+      const status = await limiter.getStatus("user-c1", "c1");
       expect(status?.used).toBe(1);
     });
 
-    it("should decrement remaining after consume", () => {
+    it("should decrement remaining after consume", async () => {
       limiter.registerLimit("c2", { windowMs: 60000, maxRequests: 5 });
-      const result = limiter.consume("user-c2", "c2");
+      const result = await limiter.consume("user-c2", "c2");
       expect(result.remaining).toBe(4);
     });
 
-    it("should not consume when already at limit", () => {
+    it("should not consume when already at limit", async () => {
       limiter.registerLimit("c3", {
         windowMs: 60000,
         maxRequests: 1,
         sliding: false,
       });
-      limiter.consume("user-c3", "c3");
-      const result = limiter.consume("user-c3", "c3");
+      await limiter.consume("user-c3", "c3");
+      const result = await limiter.consume("user-c3", "c3");
       expect(result.allowed).toBe(false);
       expect(result.used).toBe(1); // Not incremented further
     });
 
-    it("should consume multiple units at once", () => {
+    it("should consume multiple units at once", async () => {
       limiter.registerLimit("c4", { windowMs: 60000, maxRequests: 10 });
-      const result = limiter.consume("user-c4", "c4", 5);
+      const result = await limiter.consume("user-c4", "c4", 5);
       expect(result.used).toBe(5);
       expect(result.remaining).toBe(5);
     });
 
-    it("should record request timestamps for sliding window", () => {
+    it("should record request timestamps for sliding window", async () => {
       limiter.registerLimit("c5", {
         windowMs: 10000,
         maxRequests: 10,
         sliding: true,
       });
-      limiter.consume("user-c5", "c5", 3);
-      const status = limiter.getStatus("user-c5", "c5");
+      await limiter.consume("user-c5", "c5", 3);
+      const status = await limiter.getStatus("user-c5", "c5");
       expect(status?.used).toBe(3);
     });
 
-    it("should sync to Redis when cacheService present", async () => {
-      jest.useRealTimers();
-      const module2 = await Test.createTestingModule({
-        providers: [
-          RateLimiter,
-          { provide: CacheService, useValue: mockCacheService },
-        ],
-      }).compile();
-      const limiter2 = module2.get<RateLimiter>(RateLimiter);
-      limiter2.registerLimit("redis-c", { windowMs: 60000, maxRequests: 10 });
-      limiter2.consume("user-redis", "redis-c");
-      await new Promise<void>((r) => setTimeout(r, 10));
-      expect(mockCacheService.set).toHaveBeenCalled();
-      jest.useFakeTimers();
+    it("should write timestamps to Redis on consume", async () => {
+      limiter.registerLimit("redis-c", { windowMs: 60000, maxRequests: 10 });
+      await limiter.consume("user-redis", "redis-c");
+      // Verify Redis key exists by checking status
+      const status = await limiter.getStatus("user-redis", "redis-c");
+      expect(status).not.toBeNull();
+      expect(status?.used).toBe(1);
     });
 
-    it("should use default config for consume with no limitName", () => {
-      const result = limiter.consume("user-default-consume");
+    it("should use default config for consume with no limitName", async () => {
+      const result = await limiter.consume("user-default-consume");
       expect(result.allowed).toBe(true);
       expect(result.used).toBe(1);
     });
 
-    it("should fall back to DEFAULT_CONFIG when limitName is not registered (consume)", () => {
-      // limitName is provided but NOT registered → falls back to DEFAULT_CONFIG (60 maxRequests)
-      const result = limiter.consume(
+    it("should fall back to DEFAULT_CONFIG when limitName is not registered", async () => {
+      const result = await limiter.consume(
         "user-fallback-consume",
         "unregistered-limit",
       );
@@ -224,195 +232,115 @@ describe("RateLimiter", () => {
   // ==================== reset ====================
 
   describe("reset", () => {
-    it("should remove rate limit entry", () => {
+    it("should remove rate limit entry", async () => {
       limiter.registerLimit("r1", { windowMs: 60000, maxRequests: 5 });
-      limiter.consume("user-r1", "r1");
-      limiter.reset("user-r1", "r1");
-      const status = limiter.getStatus("user-r1", "r1");
+      await limiter.consume("user-r1", "r1");
+      await limiter.reset("user-r1", "r1");
+      const status = await limiter.getStatus("user-r1", "r1");
       expect(status).toBeNull();
     });
 
-    it("should delete from Redis when cacheService present", async () => {
-      jest.useRealTimers();
-      const module2 = await Test.createTestingModule({
-        providers: [
-          RateLimiter,
-          { provide: CacheService, useValue: mockCacheService },
-        ],
-      }).compile();
-      const limiter2 = module2.get<RateLimiter>(RateLimiter);
-      limiter2.registerLimit("r2", { windowMs: 60000, maxRequests: 5 });
-      limiter2.consume("user-r2", "r2");
-      limiter2.reset("user-r2", "r2");
-      await new Promise<void>((r) => setTimeout(r, 10));
-      expect(mockCacheService.del).toHaveBeenCalled();
-      jest.useFakeTimers();
+    it("should delete from Redis on reset", async () => {
+      limiter.registerLimit("r2", { windowMs: 60000, maxRequests: 5 });
+      await limiter.consume("user-r2", "r2");
+      await limiter.reset("user-r2", "r2");
+      // After reset, key is gone from cache — getStatus returns null
+      const status = await limiter.getStatus("user-r2", "r2");
+      expect(status).toBeNull();
     });
 
-    it("should use default config when no limitName provided", () => {
-      limiter.consume("user-reset-default");
-      limiter.reset("user-reset-default");
-      expect(limiter.getStatus("user-reset-default")).toBeNull();
+    it("should use default config when no limitName provided", async () => {
+      await limiter.consume("user-reset-default");
+      await limiter.reset("user-reset-default");
+      expect(await limiter.getStatus("user-reset-default")).toBeNull();
     });
 
-    it("should fall back to DEFAULT_CONFIG when limitName is not registered (reset)", () => {
-      // consume with unregistered limitName (DEFAULT_CONFIG key prefix) then reset with same
-      limiter.consume("user-reset-fallback", "not-a-registered-limit");
-      expect(() =>
-        limiter.reset("user-reset-fallback", "not-a-registered-limit"),
-      ).not.toThrow();
-      // After reset, status should be null
-      expect(
-        limiter.getStatus("user-reset-fallback", "not-a-registered-limit"),
-      ).toBeNull();
+    it("should not throw when resetting a non-existent key", async () => {
+      await expect(
+        limiter.reset("user-nonexistent", "not-a-registered-limit"),
+      ).resolves.not.toThrow();
     });
   });
 
   // ==================== getStatus ====================
 
   describe("getStatus", () => {
-    it("should return null for unknown key", () => {
-      expect(limiter.getStatus("unknown-key")).toBeNull();
+    it("should return null for unknown key", async () => {
+      expect(await limiter.getStatus("unknown-key")).toBeNull();
     });
 
-    it("should return current status for known key", () => {
+    it("should return current status for known key", async () => {
       limiter.registerLimit("gs1", { windowMs: 60000, maxRequests: 10 });
-      limiter.consume("user-gs1", "gs1");
-      const status = limiter.getStatus("user-gs1", "gs1");
+      await limiter.consume("user-gs1", "gs1");
+      const status = await limiter.getStatus("user-gs1", "gs1");
       expect(status).not.toBeNull();
       expect(status?.used).toBe(1);
     });
 
-    it("should return updated status after multiple consumes", () => {
+    it("should return updated status after multiple consumes", async () => {
       limiter.registerLimit("gs2", { windowMs: 60000, maxRequests: 10 });
-      limiter.consume("user-gs2", "gs2");
-      limiter.consume("user-gs2", "gs2");
-      const status = limiter.getStatus("user-gs2", "gs2");
+      await limiter.consume("user-gs2", "gs2");
+      await limiter.consume("user-gs2", "gs2");
+      const status = await limiter.getStatus("user-gs2", "gs2");
       expect(status?.used).toBe(2);
     });
 
-    it("should fall back to DEFAULT_CONFIG when limitName is not registered (getStatus)", () => {
-      // Consume with unregistered limitName to create entry under DEFAULT_CONFIG key
-      limiter.consume("user-gs-fallback", "unregistered-gs-limit");
-      // getStatus with same unregistered limitName should fall back to DEFAULT_CONFIG
-      const status = limiter.getStatus(
+    it("should fall back to DEFAULT_CONFIG when limitName is not registered", async () => {
+      await limiter.consume("user-gs-fallback", "unregistered-gs-limit");
+      const status = await limiter.getStatus(
         "user-gs-fallback",
         "unregistered-gs-limit",
       );
       expect(status).not.toBeNull();
-      expect(status?.limit).toBe(60); // DEFAULT_CONFIG maxRequests
+      expect(status?.limit).toBe(60);
+    });
+
+    it("should return null for expired-only timestamps", async () => {
+      limiter.registerLimit("gs-expire", {
+        windowMs: 1000,
+        maxRequests: 5,
+        sliding: true,
+      });
+      await limiter.consume("user-gs-expire", "gs-expire");
+      jest.advanceTimersByTime(2000);
+      const status = await limiter.getStatus("user-gs-expire", "gs-expire");
+      expect(status).toBeNull();
     });
   });
 
-  // ==================== Without CacheService ====================
+  // ==================== Sliding window cross-pod semantics ====================
 
-  // ==================== cleanup (private method via timer) ====================
-
-  describe("cleanup via timer", () => {
-    it("should clean expired entries when cleanup interval fires", async () => {
+  describe("sliding window via Redis (multi-pod consistency)", () => {
+    it("should share state between two limiter instances using same cache", async () => {
       jest.useRealTimers();
-      // Create service with real timers to exercise setInterval cleanup path
-      const cleanupMock = {
-        get: jest.fn().mockResolvedValue(null),
-        set: jest.fn().mockResolvedValue(undefined),
-        del: jest.fn().mockResolvedValue(undefined),
-      };
-      const module2: TestingModule = await Test.createTestingModule({
-        providers: [
-          RateLimiter,
-          { provide: CacheService, useValue: cleanupMock },
-        ],
-      }).compile();
-      const limiter2 = module2.get<RateLimiter>(RateLimiter);
+      const sharedCache = new FakeCacheService();
+      const { limiter: pod1 } = await buildLimiter(sharedCache);
+      const { limiter: pod2 } = await buildLimiter(sharedCache);
 
-      // Register a short window limit
-      limiter2.registerLimit("short", {
-        windowMs: 10,
-        maxRequests: 5,
-        sliding: false,
-      });
-      limiter2.consume("user-cleanup", "short");
+      pod1.registerLimit("shared", { windowMs: 60000, maxRequests: 2 });
+      pod2.registerLimit("shared", { windowMs: 60000, maxRequests: 2 });
 
-      // Wait for the entry window to expire
-      await new Promise((r) => setTimeout(r, 20));
+      await pod1.consume("user-shared", "shared");
+      await pod2.consume("user-shared", "shared");
 
-      // Now trigger a check which resets expired entry
-      const result = limiter2.check("user-cleanup", "short");
-      expect(result.used).toBe(0); // Entry was reset (expired)
+      // Both pods consumed → at limit
+      const result = await pod1.check("user-shared", "shared");
+      expect(result.allowed).toBe(false);
     });
 
-    it("should log debug when entries are cleaned by interval", async () => {
-      jest.useFakeTimers();
-      const localMock = {
-        get: jest.fn().mockResolvedValue(null),
-        set: jest.fn().mockResolvedValue(undefined),
-        del: jest.fn().mockResolvedValue(undefined),
-      };
-      const freshModule: TestingModule = await Test.createTestingModule({
-        providers: [
-          RateLimiter,
-          { provide: CacheService, useValue: localMock },
-        ],
-      }).compile();
-      const limiter3 = freshModule.get<RateLimiter>(RateLimiter);
-
-      limiter3.registerLimit("short-win", {
-        windowMs: 100,
-        maxRequests: 5,
-        sliding: false,
-      });
-      limiter3.consume("user-log-cleanup", "short-win");
-
-      // Advance past window so entry expires, then past 60s cleanup interval
-      jest.advanceTimersByTime(65000);
-
-      // The cleanup interval has fired — if entries were expired, logger.debug called
-      // The test just verifies no exception
+    it("should allow remaining quota visible across pods", async () => {
       jest.useRealTimers();
-    });
+      const sharedCache = new FakeCacheService();
+      const { limiter: pod1 } = await buildLimiter(sharedCache);
+      const { limiter: pod2 } = await buildLimiter(sharedCache);
 
-    it("should not log debug when no entries are cleaned (nothing expired)", () => {
-      jest.useFakeTimers();
-      // Register with large window so entry never expires during cleanup
-      limiter.registerLimit("long-win", {
-        windowMs: 3600000,
-        maxRequests: 5,
-        sliding: false,
-      });
-      limiter.consume("user-no-cleanup", "long-win");
+      pod1.registerLimit("cross", { windowMs: 60000, maxRequests: 5 });
+      pod2.registerLimit("cross", { windowMs: 60000, maxRequests: 5 });
 
-      // Advance past cleanup interval (60s) but NOT past window (1hr)
-      jest.advanceTimersByTime(65000);
-
-      // No entries should have been cleaned, so no debug log
-      const status = limiter.getStatus("user-no-cleanup", "long-win");
-      expect(status).not.toBeNull();
-      jest.useRealTimers();
-    });
-  });
-
-  describe("without CacheService (Optional)", () => {
-    let limiterNoCache: RateLimiter;
-
-    beforeEach(async () => {
-      const module: TestingModule = await Test.createTestingModule({
-        providers: [RateLimiter, { provide: CacheService, useValue: null }],
-      })
-        .overrideProvider(CacheService)
-        .useValue(undefined)
-        .compile();
-      limiterNoCache = module.get<RateLimiter>(RateLimiter);
-    });
-
-    it("should check and consume without error", () => {
-      limiterNoCache.registerLimit("nc", { maxRequests: 5 });
-      const result = limiterNoCache.consume("user-nc", "nc");
-      expect(result.allowed).toBe(true);
-    });
-
-    it("should reset without error", () => {
-      limiterNoCache.consume("user-nc-reset");
-      expect(() => limiterNoCache.reset("user-nc-reset")).not.toThrow();
+      await pod1.consume("user-cross", "cross");
+      const statusFromPod2 = await pod2.getStatus("user-cross", "cross");
+      expect(statusFromPod2?.used).toBe(1);
+      expect(statusFromPod2?.remaining).toBe(4);
     });
   });
 });
@@ -474,7 +402,7 @@ describe("TokenBucket", () => {
 
   describe("acquire (async)", () => {
     it("should immediately return true when tokens are available", async () => {
-      jest.useRealTimers(); // Need real timers for async acquire
+      jest.useRealTimers();
       const bucket = new TokenBucket(10, 1);
       const result = await bucket.acquire(5);
       expect(result).toBe(true);

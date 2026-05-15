@@ -441,7 +441,10 @@ export class AIFacade {
     );
 
     // Step 3: Enforce rate limit and budget constraints
-    const constraintError = this.enforceRateLimitAndBudget(request, modelId);
+    const constraintError = await this.enforceRateLimitAndBudget(
+      request,
+      modelId,
+    );
     if (constraintError !== null) {
       return constraintError;
     }
@@ -520,13 +523,14 @@ export class AIFacade {
    * Step 3 — Rate limit and budget enforcement.
    * Returns an error ChatResponse when a constraint is violated, or null to continue.
    */
-  private enforceRateLimitAndBudget(
+  private async enforceRateLimitAndBudget(
     request: ChatRequest,
     modelId: string,
-  ): ChatResponse | null {
+  ): Promise<ChatResponse | null> {
     if (this.constraint?.rateLimiter) {
       const rateLimitKey = request.billing?.userId || "global";
-      const rateLimitResult = this.constraint.rateLimiter.check(rateLimitKey);
+      const rateLimitResult =
+        await this.constraint.rateLimiter.check(rateLimitKey);
       if (!rateLimitResult.allowed) {
         this.logger.warn(
           `[chat] Rate limited for key=${rateLimitKey}, retryAfter=${rateLimitResult.retryAfter}ms`,
@@ -538,7 +542,7 @@ export class AIFacade {
           isError: true,
         };
       }
-      this.constraint.rateLimiter.consume(rateLimitKey);
+      await this.constraint.rateLimiter.consume(rateLimitKey);
     }
 
     if (this.constraint?.costController) {

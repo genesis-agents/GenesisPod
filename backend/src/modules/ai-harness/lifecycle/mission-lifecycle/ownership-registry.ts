@@ -4,8 +4,22 @@
  * controller 启动 mission 时 assign(missionId, userId)；
  * gateway/replay/cost 查 ownership 防止越权访问他人 mission。
  *
- * 简化：内存 LRU（生产可换 Redis）。容量 5000 mission，按 createdAt FIFO 淘汰。
- * 已结束 mission 通过 release() 主动清理。
+ * 简化：内存 LRU。容量 5000 mission，按 createdAt FIFO 淘汰。已结束 mission 通过
+ * release() 主动清理。
+ *
+ * 2026-05-15 PR-E.P2 caller audit 结论：**所有 caller 已实现 DB fallback，多 pod 安全**
+ *
+ * 验证（业务侧 caller 已实现的 DB fallback 模式，详见各业务模块 audit 文档）：
+ *   - WebSocket gateway：registry miss → await store.getById fallback + 区分
+ *     SERVICE_UNAVAILABLE / MISSION_NOT_FOUND 错误码
+ *   - REST controller GET：store.getById 优先，ownership 仅做 starting 占位
+ *     （store 未命中时不返回 mission）—— 不会 fail-open
+ *   - assertOwnership helper：registry miss → await store fallback；DB 命中后
+ *     re-assign 内存（下次 hot path）
+ *
+ * 因此本 Registry 的 in-memory LRU 是**性能 cache**（避免每次 DB 查），跨 pod 一致性
+ * 由各业务模块的 mission 表（userId 字段）作为单一权威源 + caller 层 fallback 保证。
+ * 无需迁 Redis（YAGNI），无 fail-open 风险。
  */
 
 import { Injectable, Logger } from "@nestjs/common";

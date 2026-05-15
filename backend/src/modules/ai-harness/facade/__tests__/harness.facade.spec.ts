@@ -247,7 +247,7 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
       );
       await expect(facade.resume({ checkpointId: "cp1" })).rejects.toThrow(
-        "CheckpointService not wired",
+        "AgentStepCheckpointService not wired",
       );
     });
 
@@ -317,7 +317,7 @@ describe("HarnessFacade", () => {
         makeLoopRegistry(),
       );
       await expect(facade.fork("cp1")).rejects.toThrow(
-        "CheckpointService not wired",
+        "AgentStepCheckpointService not wired",
       );
     });
 

@@ -13,41 +13,33 @@
  *              invoker (invoke for ChapterWriter/ChapterReviewer/DimensionIntegrator,
  *                       tickCost), emit, lifecycle
  *
- * Failure modes：
- *   outline failed         → return researcherOut（跳过 chapter pipeline）
- *   chapter writer failed  → 该 dim 失败（不再接受“部分章节成功”）
- *   reviewer failed        → 当成 revise / fallback 处理，但最终正文仍需通过完整性校验
- *   integrator failed      → 用代码 stitched fullMarkdown 兜底，但仍强校验章节完整性
- *   grade failed           → 不返回 grade，其它字段照常返回
+ * PR-D-1 (god-class split): chapter loop helpers extracted to:
+ *   chapter-pipeline.helper.ts       — single-chapter write+review loop + shared events
+ *   chapter-batch-executor.helper.ts — concurrent chapter execution
+ *   chapter-integrity.validator.ts   — validateWrittenChapters + text utilities
  */
 
-import pLimit from "p-limit";
-import { ChapterWriterAgent } from "../../../agents/writer/chapter-writer.agent";
-import { ChapterReviewerAgent } from "../../../agents/writer/chapter-reviewer.agent";
 import { DimensionIntegratorAgent } from "../../../agents/writer/dimension-integrator.agent";
 import type { MissionDeps } from "./mission-deps";
 import type { BillingRuntimeEnvAdapter } from "@/modules/ai-harness/facade";
 import type { MissionBudgetPool } from "@/modules/ai-harness/facade";
 import { extractTokenSpend } from "@/modules/ai-harness/facade";
 import { extractFailureMessage } from "@/modules/ai-harness/facade";
-import {
-  REVIEW_PASS_THRESHOLD,
-  CHAPTER_MAX_REVISION_ATTEMPTS,
-} from "@/modules/ai-harness/facade";
 import { narrate } from "./narrative.util";
-// ★ 2026-05-13 (PR2): typed runtime config — chapter tolerance ratio etc.
 import { loadPlaygroundRuntimeConfig } from "../../../playground-runtime.config";
-// ★ 2026-05-04 (PR-6 standardize playground): jaccardSimilarity 已下沉 engine/content
-import { jaccardSimilarity } from "@/modules/ai-harness/facade";
-// ★ 沉淀（2026-04-29）: chapter 局部 [1][2] → dim 全局编号重映射，避免拼接后冲突
-import { restoreGlobalIndices } from "@/modules/ai-harness/facade";
-// ★ 沉淀 v2: 内容缺陷扫描（纯函数 utility，0 LLM）—— chapter draft 格式缺陷指标
-import { scanContentDefects } from "@/modules/ai-harness/facade";
-// ★ 沉淀 v4: LLM 输出白名单清理（"铁墙函数"，13 个正交修复）
-import { sanitizeSectionOutput } from "@/modules/ai-harness/facade";
-// ★ G 三道清理管线 (2026-05-06): chart JSON / Figure refs / bare JSON 剥除
-//   2026-05-08 PR-A1: 从 ai-app/topic-insights/utils 上提到 ai-engine/content/markdown
 import { stripChartJsonFromContent } from "@/modules/ai-engine/facade";
+
+import {
+  runChapterPipeline,
+  emitChapterFailedDoneEvent,
+  emitCacheHitChapters,
+} from "./chapter-pipeline.helper";
+import type { WrittenChapter } from "./chapter-pipeline.helper";
+import { executeChapterBatch } from "./chapter-batch-executor.helper";
+import { validateWrittenChapters } from "./chapter-integrity.validator";
+export type { ChapterIntegrityResult } from "./chapter-integrity.validator";
+
+// ─── Public types ─────────────────────────────────────────────────────────────
 
 export interface PerDimPipelineArgs {
   missionId: string;
@@ -67,10 +59,8 @@ export interface PerDimPipelineArgs {
     findings: { claim: string; evidence: string; source: string }[];
     summary: string;
     /**
-     * ★ 2026-05-07 图文匹配（学 TI Stage 4-5 figure registry）：
-     * researcher 抽到的候选图列表（s3 stage 通过 figureExtractor + figureRelevance
-     * embedding 过滤后的高相关度图）。chapter-writer 收到后可在合适段落后内联
-     * 引用 `![caption](#FIG-N)` 占位符；reportAssembler 兜底也会在每章末尾追加。
+     * ★ 2026-05-07 图文匹配：researcher 抽到的候选图列表。chapter-writer 收到后可
+     * 在合适段落后内联引用 `![caption](#FIG-N)` 占位符。
      */
     figureCandidates?: {
       sourceUrl: string;
@@ -83,10 +73,8 @@ export interface PerDimPipelineArgs {
   billing: BillingRuntimeEnvAdapter;
   budgetMultiplier: number;
   /**
-   * ★ 2026-04-30 REDESIGN (task #61): retry 双路径 pipeline 索引
-   * undefined → 原始 pipeline，dim name 索引（首次 S3 / reuse-recompute 就地更新）
-   * "leader-assess-retry" / "leader-assess-replace" → fresh-collect retry，dim:retryLabel 索引
-   * 前端 derive.ts 用此值组装 pipelineKey 索引 dimensionPipelines map
+   * ★ 2026-04-30 REDESIGN: retry 双路径 pipeline 索引。
+   * undefined → 原始 pipeline；"leader-assess-retry" / "leader-assess-replace" → fresh-collect retry。
    */
   retryLabel?: string;
 }
@@ -100,9 +88,7 @@ export interface PerDimPipelineResult {
     heading: string;
     body: string;
     wordCount: number;
-    /** true = chapter went through the pipeline and was persisted */
     finalized?: boolean;
-    /** true = reviewer gave pass (or score >= PASS_THRESHOLD); false = fallback landing */
     qualified?: boolean;
     decision?: "passed" | "fallback-length" | "fallback-exhausted";
     finalScore?: number;
@@ -118,63 +104,7 @@ export interface PerDimPipelineResult {
   };
 }
 
-const MIN_CHAPTER_SUBSTANTIVE_CHARS = 60;
-
-/**
- * ★ 2026-05-12: 任何 chapter pipeline 失败路径都必须 emit chapter:done(failed-finalized)。
- *   旧逻辑：runChapterPipeline 走 writer-failed / loop-exhausted / throw 时直接 return null
- *   或 reject，没有终态事件 → 前端 derive.ts 状态机停在 'reviewing'，章节永远卡住；同时后端
- *   writtenChapters 缺该项 → validateWrittenChapters 整盘抛错 0/100（实证 mission：7 章
- *   6 通过整体显示 0/100"per-dim pipeline 异常终止"）。
- *   reason 仅用于日志 telemetry，不进 schema（默认 strip 未知字段，避免 zod 报错）。
- */
-async function emitChapterFailedDoneEvent(
-  deps: MissionDeps,
-  ctx: {
-    missionId: string;
-    userId: string;
-    dimensionIdx: number;
-    dimensionName: string;
-    chapterIndex: number;
-    failedAttempt: number;
-    reason: string;
-    wordCount: number;
-    targetWordCount: number;
-  },
-): Promise<void> {
-  const agentId = `chapter-writer#${ctx.dimensionIdx}.${ctx.chapterIndex}.${ctx.failedAttempt}`;
-  await deps
-    .emit({
-      type: "agent-playground.chapter:done",
-      missionId: ctx.missionId,
-      userId: ctx.userId,
-      agentId,
-      payload: {
-        dimension: ctx.dimensionName,
-        chapterIndex: ctx.chapterIndex,
-        finalAttempt: ctx.failedAttempt,
-        decision: "fallback-exhausted",
-        finalScore: 0,
-        wordCount: ctx.wordCount,
-        targetWordCount: ctx.targetWordCount,
-        finalized: true,
-        qualified: false,
-      },
-    })
-    .catch((err: unknown) => {
-      deps.log.warn(
-        `[${ctx.missionId}] emit chapter:done (failed-finalized: ${ctx.reason}) for "${ctx.dimensionName}" §${ctx.chapterIndex} failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    });
-  await narrate(deps.emit, ctx.missionId, ctx.userId, {
-    stage: "s3-researchers",
-    role: "writer",
-    tag: "warning",
-    text: `${ctx.dimensionName} · §${ctx.chapterIndex} 章节落地失败（${ctx.reason}），按缺章处理`,
-    agentId,
-    dimension: ctx.dimensionName,
-  });
-}
+// ─── Main pipeline entry point ────────────────────────────────────────────────
 
 export async function runPerDimPipeline(
   args: PerDimPipelineArgs,
@@ -196,39 +126,20 @@ export async function runPerDimPipeline(
 
   const lp = args.lengthProfile;
   const dimCount = Math.max(1, args.dimensionCount ?? 5);
-  // ★ 2026-05-07 洞察类型 v1：per-dim/章 字数驱动以 depth 为准，三档互不重叠：
-  //   quick    : 3-5 维   × 2-3 章/维   × 800-1500 字  ≈ 5K-22K   总
-  //   standard : 5-8 维   × 3-5 章/维   × 1200-2000 字 ≈ 18K-80K  总
-  //   deep     : 10-12 维 × 6-8 章/维   × 1500-2500 字 ≈ 90K-240K 总
-  //
-  // lengthProfile 同时仍作为 user-facing 档位字段保留（前端 RunMissionDialog
-  // 6 档），驱动以下三处下游（与 depth 共存而非替代）：
-  //   - mission-outline-planner.agent.ts: lengthTarget(lp) 推 mission 级 outline 总字数
-  //   - chapter-writer.agent.ts:           PROFILE_WORD_RANGES[lp] 注入 prompt 字数 hint
-  //   - s10-leader-foreword-and-signoff.stage.ts: lengthTargetFor(lp) 字数 reconciliation
-  // 故 lp 在 per-dim/章 路径仅作为 chapter-writer hint 透传（下游 prompt 用），
-  // 本函数核心字数计算只读 depth。
+  // depth-based word target:  quick=10K / standard=40K / deep=150K  total
   const missionTarget =
     depth === "quick" ? 10000 : depth === "deep" ? 150000 : 40000;
   const dimTargetWords = Math.round(missionTarget / dimCount);
-
-  // ★ idealChapters 改为 depth-based（中位）：quick=2 / standard=4 / deep=7
-  //   per-dim 章数 = dimTargetWords / idealPerChapter，保持 ≥3 ≤ 25 章
   const idealChapters = depth === "quick" ? 2 : depth === "deep" ? 7 : 4;
   const naivePerChapter = Math.round(dimTargetWords / idealChapters);
-  // 单章字数物理上限保留 8000（chapter-writer maxTokens=22K 对应约 10K 中文字 buffer）
   const targetWordsPerChapter = Math.max(400, Math.min(naivePerChapter, 8000));
-  // 章节数 = dim 字数 / 每章字数（保持 ≥3 ≤ 25 章）
   const targetChapterCount = Math.max(
     3,
     Math.min(25, Math.round(dimTargetWords / targetWordsPerChapter)),
   );
-  // lp 仅在 line ~692 透传给 chapter-writer prompt 用（PROFILE_WORD_RANGES）
   const dimAgentTag = `researcher#${dimensionIdx}`;
 
-  // ★ 2026-05-01 INVARIANT: 每个 dim 必发一次 dimension:graded 终态事件，杜绝
-  //   静默黑洞（mission da6e2af7 实证 5/8 dim 卡"等待评分"的真因）。
-  //   helper 提到函数顶部 + 外层 try/catch/finally → 100% 路径闭合（含早返回）。
+  // ★ 2026-05-01 INVARIANT: every dim must emit exactly one dimension:graded terminal event.
   const gradeAgentId = `quality-judge#${dimensionIdx}`;
   let terminalEmitted = false;
   const emitGraded = async (
@@ -253,10 +164,6 @@ export async function runPerDimPipeline(
   ): Promise<void> => {
     if (terminalEmitted) return;
     terminalEmitted = true;
-    // ★ 2026-05-01 深度仿真发现：emit 失败时 terminalEmitted 已被设 true，无法
-    //   重发；应吞 emit 异常 + log，避免事件总线短暂故障让 finally 兜底也失效。
-    //   保留 terminalEmitted=true（已"尝试过"），下次 mission 重启或重 derive
-    //   会拉取持久化事件，本次失败留 telemetry 即可。
     try {
       if (payload.ok) {
         const g = payload.g;
@@ -304,7 +211,6 @@ export async function runPerDimPipeline(
       }
     } catch (emitErr) {
       const msg = emitErr instanceof Error ? emitErr.message : String(emitErr);
-      // 不向外抛——避免 finally 兜底也失效。事件丢失留 telemetry。
       // eslint-disable-next-line no-console
       console.warn(
         `[per-dim-pipeline ${dimensionName}] emitGraded failed (event lost): ${msg}`,
@@ -316,7 +222,7 @@ export async function runPerDimPipeline(
   let keyFindings: string[] | undefined;
   let fullMarkdown: string | undefined;
   let grade: PerDimPipelineResult["grade"];
-  let writtenChaptersResult: NonNullable<PerDimPipelineResult["chapters"]> = [];
+  let writtenChaptersResult: WrittenChapter[] = [];
 
   try {
     if (researcherOut.findings.length === 0) {
@@ -330,12 +236,7 @@ export async function runPerDimPipeline(
       return researcherOut;
     }
 
-    // ★ P0-D 完整版 (2026-05-06): rerun cache hit — 检查 chapter_drafts 表是否
-    //   已有该 dim 的合格 chapter（dispatcher.hydrateInheritedChapterDrafts 在
-    //   rerun incremental 模式启动时已复制源 mission 的 chapter 到新 mission）。
-    //   命中 → 跳过 outline + chapter writing + reviewer 全部 LLM 调用，直接 emit
-    //   合成 dimension:outline:planned + chapter:done 事件让前端 todo-ledger 推进，
-    //   返回 cached chapters 让 integrator 直接组装。节省 ~10-15min/mission。
+    // ── Cache hit (P0-D 2026-05-06) ──
     // 防御 deps.store 缺失（spec mock 简化场景）：缺失即跳过 cache 检查
     const cachedDrafts = deps.store?.loadQualifiedChapterDrafts
       ? await deps.store
@@ -349,11 +250,11 @@ export async function runPerDimPipeline(
       : [];
     const dimCached = cachedDrafts.filter((d) => d.dimension === dimensionName);
     if (dimCached.length >= 1) {
-      // 按 chapterIndex 排序后逐一 emit 合成事件
       dimCached.sort((a, b) => a.chapterIndex - b.chapterIndex);
       const synthesizedChapters = dimCached.map((d) => ({
         index: d.chapterIndex,
         heading: d.heading,
+        thesis: d.thesis,
         body: d.content,
         wordCount: d.wordCount ?? 0,
         finalized: true,
@@ -361,121 +262,15 @@ export async function runPerDimPipeline(
         decision: "passed" as const,
         finalScore: d.score ?? 80,
       }));
-
-      // ★ 业务链修5 (2026-05-06): cache hit 时同步连续 emit 让前端"瞬移"，
-      //   用户感受不到任务并行节奏。加 sleep 让每章节 emit 之间有 ~80ms 间隔，
-      //   让 7 dim 并行 cache hit 在 ~1-2s 内有节奏完成（dim 之间仍是真并行
-      //   因为 runPerDimPipeline 在 invoker.runDagConcurrency 里跑）。
-      const SYNTH_EMIT_INTERVAL_MS = 80;
-      const sleep = (ms: number): Promise<void> =>
-        new Promise((resolve) => setTimeout(resolve, ms));
-
-      // emit dimension:outline:planned 让前端 derive 知道章节列表
-      await deps
-        .emit({
-          type: "agent-playground.dimension:outline:planned",
-          missionId,
-          userId,
-          payload: {
-            dimension: dimensionName,
-            chapters: dimCached.map((d) => ({
-              index: d.chapterIndex,
-              heading: d.heading,
-              thesis: d.thesis,
-            })),
-            fromCache: true,
-          },
-        })
-        .catch(() => undefined);
-      await sleep(SYNTH_EMIT_INTERVAL_MS);
-
-      // 逐章 emit 合成 chapter:writing:started → chapter:writing:completed →
-      //   chapter:review:completed → chapter:done（让前端 derive.ts 走完
-      //   完整章节状态机：writing → reviewing → passed → done）
-      for (const c of synthesizedChapters) {
-        // writing:started
-        await deps
-          .emit({
-            type: "agent-playground.chapter:writing:started",
-            missionId,
-            userId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: c.index,
-              attempt: 1,
-              fromCache: true,
-            },
-          })
-          .catch(() => undefined);
-        await sleep(SYNTH_EMIT_INTERVAL_MS);
-        // writing:completed
-        await deps
-          .emit({
-            type: "agent-playground.chapter:writing:completed",
-            missionId,
-            userId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: c.index,
-              wordCount: c.wordCount,
-              fromCache: true,
-            },
-          })
-          .catch(() => undefined);
-        await sleep(SYNTH_EMIT_INTERVAL_MS);
-        // review:completed (pass)
-        await deps
-          .emit({
-            type: "agent-playground.chapter:review:completed",
-            missionId,
-            userId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: c.index,
-              decision: "pass",
-              score: c.finalScore,
-              fromCache: true,
-            },
-          })
-          .catch(() => undefined);
-        await sleep(SYNTH_EMIT_INTERVAL_MS);
-        // chapter:done
-        await deps
-          .emit({
-            type: "agent-playground.chapter:done",
-            missionId,
-            userId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: c.index,
-              finalAttempt: 1,
-              decision: "passed",
-              finalScore: c.finalScore,
-              wordCount: c.wordCount,
-              finalized: true,
-              qualified: true,
-              fromCache: true,
-            },
-          })
-          .catch(() => undefined);
-        await sleep(SYNTH_EMIT_INTERVAL_MS);
-      }
-
-      // narrative 提示用户
-      await narrate(deps.emit, missionId, userId, {
-        stage: "s3-researchers",
-        role: "writer",
-        tag: "success",
-        text: `${dimensionName} · 复用上次 mission 的 ${synthesizedChapters.length} 个章节（cache hit），跳过 outline + writing + reviewer`,
-        agentId: `chapter-cache#${dimensionIdx}`,
-        dimension: dimensionName,
-      });
-
-      // 直接拼接 cached chapter bodies 作为 fullMarkdown（跳过 integrator LLM）
-      // ★ 2026-05-07 编号修复：章节用 H3 (### )，不用 H2。
-      //   原因：reportAssembler 的 formatDimensionContent → sanitizeHeadingLevels
-      //   会把所有 H2 strip 掉（#{1,2} 被 strip），导致章节标题彻底消失。
-      //   H3 会被 numberSubHeadings 自动编号为 "### N.M. 标题"。
+      // Emit synthetic state-machine events for each cached chapter
+      await emitCacheHitChapters(
+        deps.emit,
+        missionId,
+        userId,
+        dimensionName,
+        dimensionIdx,
+        synthesizedChapters,
+      );
       const fullMarkdownFromCache = synthesizedChapters
         .map((c) => `### ${c.heading}\n\n${c.body}`)
         .join("\n\n");
@@ -483,7 +278,6 @@ export async function runPerDimPipeline(
         (s, c) => s + c.wordCount,
         0,
       );
-      // emit dimension:integrating:completed 让前端 derive 知道 integrator 完成
       await deps
         .emit({
           type: "agent-playground.dimension:integrating:completed",
@@ -496,7 +290,6 @@ export async function runPerDimPipeline(
           },
         })
         .catch(() => undefined);
-      // emit dimension:graded 假分（80）让前端 dim todo 状态切到 done
       await emitGraded({
         ok: true,
         g: {
@@ -620,33 +413,15 @@ export async function runPerDimPipeline(
           `[${missionId}] emit dimension:outline:planned for "${dimensionName}" failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       });
-
-    // ★ 2026-05-01 治 chapter status 卡 pending 真因：
-    //   prod 实测（mission 8a55cc93）outline:planned 与并发 chapter writer 的
-    //   chapter:writing:started 事件 timestamp 同毫秒 race，DB INSERT 顺序不保证。
-    //   前端按 created_at 排序拿到 writing:started 在 outline:planned 之前 →
-    //   ensurePipeline 建空 chapters → find by idx 失败 → status 永不更新。
-    //   sleep 2ms 让 outline:planned 时间戳严格小于后续 chapter writer 启动时间，
-    //   保证前端 derive.ts replay 时 outline 先 init chapters[]，再被 writing:started 命中。
+    // ★ sleep 2ms: prevent outline:planned / chapter:writing:started timestamp collision
     await new Promise<void>((resolve) => setTimeout(resolve, 2));
 
-    // ── 2. 章节 write + review loop（并发 2 章同时写）──
-    //
-    // ★ 加速杠杆 2 (2026-05-01): 把逐章串行改为 pLimit(2) 并发执行。
-    //   并发策略：
-    //   - CHAPTER_CONCURRENCY=2：2 章同时写，平衡速度与 LLM rate-limit。
-    //   - previousHeadings 在并发前 snapshot，所有并发 chapter 共用同一份前序
-    //     快照（每批任务启动前取当时已完成章节的 headings），避免 race condition。
-    //   - 单章失败隔离：try-catch 包裹整个 chapter pipeline，失败章节跳过不阻塞其他。
-    //   - 输出顺序：Promise.allSettled 全完成后按 chapter.index 排序再 push。
-    //   - integrator 阶段仍然串行（需要所有 chapter 的最终内容）。
+    // ── 2. 章节 write + review loop (并发 2 章) ──
     const CHAPTER_CONCURRENCY = 2;
 
-    // ★ RTK 风格优化：dim 层 finding 去重，避免同一 finding 在多 chapter prompt 中重复全文嵌入
-    //   策略：按 chapter.index 升序预先遍历，决定每个 finding 的"首发章节"。
-    //   首次出现 → 全文给 writer（含 evidence/content）；后续出现 → 仅给 brief（title/url/claim 保留）。
-    //   预计算在 pLimit 启动前完成，避免并发下的 race condition（每章查表而非写表）。
-    const firstUseByChapter = new Map<number, Set<number>>(); // chapterIdx → 首发 finding globalIdx Set
+    // ★ RTK dedup: pre-compute first-use finding set per chapter to avoid
+    //   re-embedding the same finding evidence in multiple chapter prompts.
+    const firstUseByChapter = new Map<number, Set<number>>();
     {
       const allSeen = new Set<number>();
       for (const chapter of [...outline.chapters].sort(
@@ -663,635 +438,62 @@ export async function runPerDimPipeline(
       }
     }
 
-    // ★ Round 3 真问题修复 (2026-04-29):
-    //   原 MAX=2 (最多 1+2=3 attempts)。配合 outputLength=long 截断，2 次 revise 不够把字数补回。
-    //   chapter-writer 已升到 outputLength=extended (16K maxTokens)，再加 1 次 revise 机会
-    //   让"prompt 强化扩写 + 模型有空间输出"组合发挥效果。
-    //   预期：用户实测 25K 实际 5K (20%) → 期望提升到 ≥ 60%。
-    // ★ 2026-05-01 (PR-G iter8): 走 ai-harness 集中阈值常量，避免 3 处硬编码漂移。
-    //   mission 165c967f 70+min 死锁真因是 per-dim PASS=75 + reviewer 实测 66-68 →
-    //   永远 revise → 4 hours/mission。详见 quality-thresholds.constants.ts 注释。
-    const MAX_REVISION_ATTEMPTS = CHAPTER_MAX_REVISION_ATTEMPTS;
-    const PASS_THRESHOLD = REVIEW_PASS_THRESHOLD;
-    // ★ L1-1: stuck-revision 防循环
-    //   revision 完后 Jaccard(prev, new) > 0.9 视为无进展，连续 2 次即强制 finalize
-    const STUCK_SIMILARITY_THRESHOLD = 0.9;
-    const MAX_STUCK_COUNT = 2;
-
-    type WrittenChapter = {
-      index: number;
-      heading: string;
-      body: string;
-      wordCount: number;
-      finalized: boolean;
-      qualified: boolean;
-      decision: "passed" | "fallback-length" | "fallback-exhausted";
-      finalScore: number;
-      /**
-       * ★ 2026-05-07 P1 图文匹配闭环（学 TI section.figureReferences）：
-       * LLM 决定本章引用哪些图（按 figureId）+ 段落锚点。
-       * reportAssembler 据此关联到具体 sectionId 落地为 ArtifactFigure。
-       * 留空 / undefined 表示本章未引用图（兜底走 researcher.figureCandidates 末尾追加）。
-       */
-      figureReferences?: {
-        figureId: string;
-        anchorParagraph?: number;
-        caption?: string;
-      }[];
-    };
-
-    /**
-     * runChapterPipeline — 单章 write+review 闭环（可并发）。
-     *
-     * previousHeadingsSnapshot：并发批次启动前的前序章节标题快照（只读）。
-     * 单章失败时返回 null（caller 用 Promise.allSettled 过滤掉 null）。
-     */
-    async function runChapterPipeline(
-      chapter: (typeof outline.chapters)[0],
-      previousHeadingsSnapshot: readonly string[],
-    ): Promise<WrittenChapter | null> {
-      // ★ RTK 去重：首发 finding 给全文，非首发只给 brief（裁掉 evidence，保留 claim/source/url）
-      const chapterFirstUse =
-        firstUseByChapter.get(chapter.index) ?? new Set<number>();
-      const chapterSources = chapter.sourceIndices
-        .map((globalIdx) => {
-          const finding = researcherOut.findings[globalIdx];
-          if (finding == null) return null;
-          if (!chapterFirstUse.has(globalIdx)) {
-            // 非首发：裁掉长字段，仅留 claim/source 供 writer 引用；加 _deduplicated 标记
-            return {
-              claim: finding.claim,
-              source: finding.source,
-              evidence: "", // 空字符串而非 undefined，保持 type 兼容
-              _deduplicated: true,
-              _briefHint: `[已在前章节使用，引用编号 [${globalIdx + 1}]]`,
-            };
-          }
-          return finding;
-        })
-        .filter((s): s is NonNullable<typeof s> => s != null);
-
-      let attempt = 0;
-      let lastDraft:
-        | { body: string; wordCount: number; citationsUsed: string[] }
-        | undefined;
-      let lastCritique: string | undefined;
-      // ★ P1-R4-A (round 4): reviewer 连续失败计数，避免 reviewer 持续故障让 writer
-      // 反复重试导致 token 倍增（round 3 改 fallback 为 revise 引入的副作用）
-      let consecutiveReviewerFailures = 0;
-      const MAX_REVIEWER_FAILURES = 2;
-      // ★ L1-1: stuck-revision 防循环 — 追踪无进展 revision 次数
-      let stuckCount = 0;
-      let prevDraftBody: string | undefined;
-
-      const emitChapterFailedDone = (
-        failedAttempt: number,
-        reason: string,
-        wordCount: number,
-      ): Promise<void> =>
+    const headingsSnapshot: readonly string[] = [];
+    const settledResults = await executeChapterBatch(
+      outline.chapters,
+      CHAPTER_CONCURRENCY,
+      headingsSnapshot,
+      (chapter, snapshot) =>
+        runChapterPipeline(
+          chapter,
+          snapshot,
+          {
+            missionId,
+            userId,
+            dimensionIdx,
+            dimensionName,
+            topic,
+            language,
+            targetWordsPerChapter,
+            lengthProfile: lp,
+            billing,
+            budgetMultiplier,
+            pool,
+            firstUseByChapter,
+            findings: researcherOut.findings,
+            figureCandidates: researcherOut.figureCandidates,
+            emitChapterFailedDone: (failedAttempt, reason, wordCount) =>
+              emitChapterFailedDoneEvent(deps, {
+                missionId,
+                userId,
+                dimensionIdx,
+                dimensionName,
+                chapterIndex: chapter.index,
+                failedAttempt,
+                reason,
+                wordCount,
+                targetWordCount: targetWordsPerChapter,
+              }),
+            store: deps.store,
+          },
+          deps,
+        ),
+      (chapter, _err) =>
         emitChapterFailedDoneEvent(deps, {
           missionId,
           userId,
           dimensionIdx,
           dimensionName,
           chapterIndex: chapter.index,
-          failedAttempt,
-          reason,
-          wordCount,
+          failedAttempt: 1,
+          reason: `exception: ${(_err instanceof Error ? _err.message : String(_err)).slice(0, 120)}`,
+          wordCount: 0,
           targetWordCount: targetWordsPerChapter,
-        });
-
-      while (attempt < MAX_REVISION_ATTEMPTS + 1) {
-        attempt += 1;
-        const writerAgentId = `chapter-writer#${dimensionIdx}.${chapter.index}.${attempt}`;
-        await deps
-          .emit({
-            type: "agent-playground.chapter:writing:started",
-            missionId,
-            userId,
-            agentId: writerAgentId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: chapter.index,
-              heading: chapter.heading,
-              attempt,
-            },
-          })
-          .catch((err: unknown) => {
-            deps.log.warn(
-              `[${missionId}] emit chapter:writing:started for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-        const writerRes = await deps.invoker.invoke(
-          ChapterWriterAgent,
-          {
-            topic,
-            dimension: dimensionName,
-            language,
-            chapter: {
-              index: chapter.index,
-              heading: chapter.heading,
-              thesis: chapter.thesis,
-              keyPoints: chapter.keyPoints,
-            },
-            sources: chapterSources,
-            targetWords: targetWordsPerChapter,
-            lengthProfile: lp,
-            previousChapterHeadings: previousHeadingsSnapshot,
-            previousCritique: lastCritique,
-            previousDraft: lastDraft?.body,
-            // ★ 2026-05-07 图文匹配：把 dim 的 figureCandidates 传给 chapter-writer。
-            //   编号 FIG-1..N 与 reportAssembler.buildFigures 落地后的
-            //   fig-${sec.id}-${i} 通过 reportAssembler 内的 #FIG-N → #fig-id 映射
-            //   闭环（chapter-writer LLM 输出占位符是可选 inline，不强制）。
-            availableFigures: (researcherOut.figureCandidates ?? []).map(
-              (f, i) => ({
-                figureId: `FIG-${i + 1}`,
-                caption: f.caption,
-                sourceUrl: f.sourceUrl,
-                relevanceHint: f.relevanceHint,
-              }),
-            ),
-          },
-          {
-            missionId,
-            userId,
-            agentId: writerAgentId,
-            role: "chapter-writer",
-            envAdapter: billing,
-            budgetMultiplier,
-          },
-        );
-        await deps.invoker.tickCost(
-          missionId,
-          userId,
-          "researchers",
-          pool,
-          extractTokenSpend(writerRes.events),
-        );
-        // ★ degraded 也算"有产出"——chapter body 完整、只是 verifier 评分偏低，
-        // 仍然能进 reviewer 路径继续被打磨（章节质量靠 reviewer 闭环兜底）
-        const writerUsable =
-          (writerRes.state === "completed" || writerRes.state === "degraded") &&
-          !!writerRes.output;
-        if (!writerUsable) {
-          await deps
-            .emit({
-              type: "agent-playground.chapter:writing:completed",
-              missionId,
-              userId,
-              agentId: writerAgentId,
-              payload: {
-                dimension: dimensionName,
-                chapterIndex: chapter.index,
-                attempt,
-                state: "failed",
-              },
-            })
-            .catch((err: unknown) => {
-              deps.log.warn(
-                `[${missionId}] emit chapter:writing:completed (failed) for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            });
-          // 单章 writer 失败 → 返回 null，由外层过滤（不阻塞其他章节）
-          // ★ 2026-05-12: 必须 emit chapter:done(failed-finalized) 关闭前端状态机，否则
-          //   章节卡 'reviewing' + writtenChapters 缺该项 → validate 抛错 0 分。
-          await emitChapterFailedDone(attempt, "writer-failed", 0);
-          return null;
-        }
-        const rawDraft = writerRes.output as {
-          body: string;
-          wordCount: number;
-          citationsUsed: string[];
-          // ★ 2026-05-07 P1：LLM 输出的结构化 figureReferences（可空）
-          figureReferences?: {
-            figureId: string;
-            anchorParagraph?: number;
-            caption?: string;
-          }[];
-        };
-        // ★ 沉淀 v4 接入: sanitizeSectionOutput 白名单清理 LLM 输出
-        //   去掉非内容行（编辑备注 / 字数统计 / 元注释 / 营销空话等）
-        const cleanedBody = sanitizeSectionOutput(rawDraft.body);
-        const draft = { ...rawDraft, body: cleanedBody };
-        // ★ L1-1: stuck-revision 检测 — revision 后 Jaccard 相似度 > 0.9 视为无进展
-        if (attempt > 1 && prevDraftBody !== undefined) {
-          const sim = jaccardSimilarity(prevDraftBody, draft.body);
-          if (sim > STUCK_SIMILARITY_THRESHOLD) {
-            stuckCount += 1;
-          } else {
-            stuckCount = 0;
-          }
-        }
-        prevDraftBody = draft.body;
-        lastDraft = draft;
-        // ★ 沉淀 v2 接入: defect-scanner 在 chapter 完成时扫描格式缺陷，emit 给前端可见
-        const defects = scanContentDefects(draft.body);
-        const totalDefects =
-          defects.bareLatexCount +
-          defects.brokenDollarNesting +
-          defects.unwrappedEnvironments +
-          defects.pseudoCodeLines +
-          defects.leakedMetaNotes +
-          defects.leakedFigureNotes +
-          defects.longListItems +
-          defects.trappedConclusions;
-        await deps
-          .emit({
-            type: "agent-playground.chapter:writing:completed",
-            missionId,
-            userId,
-            agentId: writerAgentId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: chapter.index,
-              heading: chapter.heading,
-              wordCount: draft.wordCount,
-              targetWords: targetWordsPerChapter,
-              attempt,
-              state: "completed",
-              // 沉淀 v2: 缺陷指标（0 = 干净，> 0 = 有格式问题）
-              defectScan:
-                totalDefects > 0
-                  ? { total: totalDefects, ...defects }
-                  : undefined,
-            },
-          })
-          .catch((err: unknown) => {
-            deps.log.warn(
-              `[${missionId}] emit chapter:writing:completed for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-        // ★ BUG-D: 章节级 narrative，让前端时间线不再静默
-        await narrate(deps.emit, missionId, userId, {
-          stage: "s3-researchers",
-          role: "writer",
-          tag: "info",
-          text: `${dimensionName} · §${chapter.index} ${chapter.heading.slice(0, 30)} 撰写完成（${draft.wordCount} 字${attempt > 1 ? `，第 ${attempt} 轮` : ""}）`,
-          agentId: writerAgentId,
-          dimension: dimensionName,
-        });
-
-        // ── review ──
-        const reviewerAgentId = `chapter-reviewer#${dimensionIdx}.${chapter.index}.${attempt}`;
-        await deps
-          .emit({
-            type: "agent-playground.chapter:review:started",
-            missionId,
-            userId,
-            agentId: reviewerAgentId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: chapter.index,
-              attempt,
-            },
-          })
-          .catch((err: unknown) => {
-            deps.log.warn(
-              `[${missionId}] emit chapter:review:started for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-        const reviewerRes = await deps.invoker.invoke(
-          ChapterReviewerAgent,
-          {
-            topic,
-            dimension: dimensionName,
-            language,
-            chapter: {
-              index: chapter.index,
-              heading: chapter.heading,
-              thesis: chapter.thesis,
-              body: draft.body,
-              wordCount: draft.wordCount,
-              targetWords: targetWordsPerChapter,
-            },
-          },
-          {
-            missionId,
-            userId,
-            agentId: reviewerAgentId,
-            role: "chapter-reviewer",
-            envAdapter: billing,
-            budgetMultiplier,
-          },
-        );
-        await deps.invoker.tickCost(
-          missionId,
-          userId,
-          "researchers",
-          pool,
-          extractTokenSpend(reviewerRes.events),
-        );
-        type ReviewIssue = {
-          severity: "must-fix" | "should-fix" | "nice-to-have";
-          dimension:
-            | "evidence"
-            | "logic"
-            | "structure"
-            | "citation"
-            | "length"
-            | "style";
-          pointer: string;
-          issue: string;
-          suggestion: string;
-        };
-        const verdict =
-          reviewerRes.state === "completed" && reviewerRes.output
-            ? (reviewerRes.output as {
-                decision: "pass" | "revise";
-                score: number;
-                summary?: string;
-                issues?: ReviewIssue[];
-                critique?: string;
-              })
-            : {
-                // ★ P0-R3-1 (round 3): reviewer 失败时不能伪装 pass —— score 40 (<PASS_THRESHOLD=75)
-                // + decision="revise" 让章节进入 retry 路径，避免章节质量信号被静默篡改
-                decision: "revise" as const,
-                score: 40,
-                summary: "(reviewer failed)",
-                issues: [],
-                critique: "(reviewer failed)",
-              };
-        // ★ degraded 也算成功：reviewer 是 simple-loop 但保险接受
-        const isReviewerFallback =
-          (reviewerRes.state !== "completed" &&
-            reviewerRes.state !== "degraded") ||
-          !reviewerRes.output;
-        // ★ P1-R4-A (round 4): cap reviewer 连续失败次数，超过则放弃重试避免 token 爆炸
-        if (isReviewerFallback) {
-          consecutiveReviewerFailures += 1;
-        } else {
-          consecutiveReviewerFailures = 0;
-        }
-        const reviewerExhausted =
-          consecutiveReviewerFailures >= MAX_REVIEWER_FAILURES;
-        // 兼容旧 critique 文本：若 LLM 没出 issues，把 critique 字符串当 1 条 issue
-        const issues: ReviewIssue[] =
-          verdict.issues && verdict.issues.length > 0
-            ? verdict.issues
-            : verdict.critique
-              ? [
-                  {
-                    severity:
-                      verdict.decision === "revise"
-                        ? "must-fix"
-                        : "nice-to-have",
-                    dimension: "structure",
-                    pointer: "整章",
-                    issue: verdict.critique.slice(0, 200),
-                    suggestion: "见 issue 描述",
-                  },
-                ]
-              : [];
-        await deps
-          .emit({
-            type: "agent-playground.chapter:review:completed",
-            missionId,
-            userId,
-            agentId: reviewerAgentId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: chapter.index,
-              attempt,
-              decision: verdict.decision,
-              score: verdict.score,
-              summary: verdict.summary,
-              issues,
-              // 兼容字段：critique 仍 emit 让旧前端能展示
-              critique: verdict.critique ?? verdict.summary,
-            },
-          })
-          .catch((err: unknown) => {
-            deps.log.warn(
-              `[${missionId}] emit chapter:review:completed for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-        // ★ BUG-D: 章节复审 narrative
-        // ★ P0-R3-1 (round 3): reviewer fallback 标 warning 让前端能感知"reviewer 故障 ≠ 通过"
-        await narrate(deps.emit, missionId, userId, {
-          stage: "s3-researchers",
-          role: "reviewer",
-          tag: isReviewerFallback
-            ? "warning"
-            : verdict.decision === "pass"
-              ? "success"
-              : verdict.score < 60
-                ? "warning"
-                : "info",
-          text: isReviewerFallback
-            ? `${dimensionName} · §${chapter.index} 复审失败，按 revise 处理`
-            : `${dimensionName} · §${chapter.index} 复审 ${verdict.decision === "pass" ? "通过" : "需重写"}（${verdict.score}/100${attempt > 1 ? `，第 ${attempt} 轮` : ""}）`,
-          agentId: reviewerAgentId,
-          dimension: dimensionName,
-        });
-
-        // ★ 字数硬门槛（2026-05-01 调整）：从 < 70% 放宽到 < 40%（极端不足才强制重写）。
-        //   理念：质量优先，字数仅参考。一段 800 字精炼论述胜过 2000 字注水。
-        //   仅当 LLM 严重偷懒（< 40% target）才显式 retry 逼出基本长度；
-        //   字数微差 / 略超不再触发 revise，与 reviewer prompt 评分维度对齐。
-        const isLengthFail =
-          draft.wordCount < Math.round(targetWordsPerChapter * 0.4) &&
-          attempt < MAX_REVISION_ATTEMPTS;
-        // ★ L1-2: reviewer 阈值衰减 — 每次 attempt 降 10 分，最低 40
-        //   attempt=1→60, attempt=2→50, attempt=3→40（后续全部 40）
-        const dynamicThreshold = Math.max(
-          40,
-          PASS_THRESHOLD - (attempt - 1) * 10,
-        );
-        // ★ L1-1: 连续无进展 stuck 兜底 — stuckCount >= MAX_STUCK_COUNT 立即 finalize
-        const isStuckRevision = stuckCount >= MAX_STUCK_COUNT;
-
-        if (
-          !isLengthFail &&
-          (verdict.decision === "pass" ||
-            verdict.score >= dynamicThreshold ||
-            attempt >= MAX_REVISION_ATTEMPTS + 1 ||
-            // ★ P1-R4-A (round 4): reviewer 连续故障超 MAX_REVIEWER_FAILURES，
-            // 不再重试，按当前 draft 落地避免 token 倍增
-            reviewerExhausted ||
-            // ★ L1-1: 连续 2 次内容无变化，强制落地
-            isStuckRevision)
-        ) {
-          // ★ 沉淀接入: chapter 局部 [1][2] → dim 全局编号重映射
-          //   chapter.sourceIndices 是 outline 阶段每章可引用的 dim findings 索引（0-based）。
-          //   chapter body 用 [1][2][N] 指 chapterSources[0][1][N-1] = findings[sourceIndices[N-1]]。
-          //   这里直接还原成 dim 全局 [N+1]（1-based），让多章拼接后编号不冲突。
-          const localToGlobal = new Map<number, number>();
-          chapter.sourceIndices.forEach((globalIdx, localIdx) => {
-            localToGlobal.set(localIdx + 1, globalIdx + 1);
-          });
-          const remappedBody = stripChartJsonFromContent(
-            restoreGlobalIndices(draft.body, localToGlobal),
-          );
-
-          // ★ 治 mission "假完成" 根因（2026-05-01）：兜底落地必须显式 emit chapter:done，
-          //   让前端 derive.ts 能把 chapter.status 切到 'done' / 'failed-finalized'。
-          //   之前缺这条事件导致前端永远卡 'revising'。
-          //   pass 路径和兜底路径都走这段，确保每个 chapter 都有终态事件。
-          const chapterDecision:
-            | "passed"
-            | "fallback-length"
-            | "fallback-exhausted" =
-            verdict.decision === "pass" || verdict.score >= PASS_THRESHOLD
-              ? "passed"
-              : reviewerExhausted
-                ? "fallback-exhausted"
-                : "fallback-length";
-
-          await deps
-            .emit({
-              type: "agent-playground.chapter:done",
-              missionId,
-              userId,
-              agentId: reviewerAgentId,
-              payload: {
-                dimension: dimensionName,
-                chapterIndex: chapter.index,
-                finalAttempt: attempt,
-                decision: chapterDecision,
-                finalScore: verdict.score,
-                wordCount: draft.wordCount,
-                targetWordCount: targetWordsPerChapter,
-                finalized: true,
-                qualified: chapterDecision === "passed",
-              },
-            })
-            .catch((err: unknown) => {
-              deps.log.warn(
-                `[${missionId}] emit chapter:done for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
-              );
-            });
-
-          // ★ P0-D 完整版 (2026-05-06): 持久化 chapter draft 让下次 rerun cache hit
-          // 防御 deps.store 缺失（spec mock 简化场景）：缺失即跳过持久化
-          if (deps.store?.saveChapterDraft) {
-            await deps.store
-              .saveChapterDraft({
-                missionId,
-                dimension: dimensionName,
-                chapterIndex: chapter.index,
-                heading: chapter.heading,
-                thesis: chapter.thesis,
-                content: remappedBody,
-                status:
-                  chapterDecision === "passed" ? "passed" : "failed-finalized",
-                score: verdict.score,
-                critique: verdict.critique,
-                attempts: attempt,
-                wordCount: draft.wordCount,
-              })
-              .catch(() => undefined);
-          }
-
-          // 仅当兜底（非 passed）emit warning narrative，让用户看到"质量未达标但被兜底"
-          if (chapterDecision !== "passed") {
-            await narrate(deps.emit, missionId, userId, {
-              stage: "s3-researchers",
-              role: "reviewer",
-              tag: "warning",
-              text: `${dimensionName} · §${chapter.index} 因评审 ${
-                chapterDecision === "fallback-exhausted"
-                  ? "故障耗尽"
-                  : "未通过且重试上限"
-              }，按当前 draft 兜底落地（${draft.wordCount}/${targetWordsPerChapter} 字）`,
-              agentId: reviewerAgentId,
-              dimension: dimensionName,
-            });
-          }
-
-          return {
-            index: chapter.index,
-            heading: chapter.heading,
-            body: remappedBody,
-            wordCount: draft.wordCount,
-            finalized: true,
-            qualified: chapterDecision === "passed",
-            decision: chapterDecision,
-            finalScore: verdict.score,
-            // ★ 2026-05-07 P1：把 LLM 输出的 figureReferences 透传给上游
-            //   reportAssembler；reviewer pass 路径同样保留（reviewer 不修图引用）
-            figureReferences: draft.figureReferences,
-          };
-        }
-
-        // 字数 fail 时 critique 必须显式说出来，让下一轮 writer 知道扩写
-        const lengthCritiquePrefix = isLengthFail
-          ? `[字数极度不足] 上轮仅 ${draft.wordCount} 字（目标 ${targetWordsPerChapter} 字，< 40%）。补充分析段落、案例数据、深化推理 —— 重点是质量内容（独立观点 / 具体证据 / 充分引用），不是单纯凑字数。目标 ${Math.round(targetWordsPerChapter * 0.6)} 字以上即可。\n\n`
-          : "";
-        // ★ P1-R4-C (round 4): critique 长度上限 2000 字，防多 attempt 累积爆 prompt
-        const MAX_CRITIQUE_CHARS = 2000;
-        lastCritique = (
-          lengthCritiquePrefix + (verdict.critique ?? verdict.summary ?? "")
-        ).slice(0, MAX_CRITIQUE_CHARS);
-        await deps
-          .emit({
-            type: "agent-playground.chapter:revision",
-            missionId,
-            userId,
-            agentId: reviewerAgentId,
-            payload: {
-              dimension: dimensionName,
-              chapterIndex: chapter.index,
-              nextAttempt: attempt + 1,
-              critique: verdict.critique,
-            },
-          })
-          .catch((err: unknown) => {
-            deps.log.warn(
-              `[${missionId}] emit chapter:revision for "${dimensionName}" §${chapter.index} failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-      }
-
-      // while loop 耗尽但没有 return（理论上不会到这里，因为 attempt cap 必然触发）
-      // ★ 2026-05-12: 真到这里也必须 emit terminal 事件关闭前端状态机。
-      await emitChapterFailedDone(
-        attempt,
-        "loop-exhausted",
-        lastDraft?.wordCount ?? 0,
-      );
-      return null;
-    }
-
-    // ── 并发执行所有章节 ──
-    // previousHeadings snapshot：在整批并发启动前取已完成章节的标题列表。
-    // 由于所有章节一起跑（pLimit 控制并发数），每批 chapter 共用同一份空快照作为
-    // 前序上下文（首批并发无前序；实际场景下同维度章节互为独立，前序主要用于
-    // 提示 writer 避免重复话题）。
-    const headingsSnapshot: readonly string[] = [];
-    const limit = pLimit(CHAPTER_CONCURRENCY);
-    const settledResults = await Promise.allSettled(
-      outline.chapters.map((chapter) =>
-        limit(async () => {
-          // ★ 2026-05-12: runChapterPipeline 内部 LLM 调用 / 网络异常 throw 时，
-          //   allSettled 把 rejection 过滤后前端永远收不到终态事件 → 章节卡 'reviewing'。
-          //   这里兜底 emit chapter:done(failed-finalized) 保证状态机闭合。
-          try {
-            return await runChapterPipeline(chapter, headingsSnapshot);
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            deps.log.error(
-              `[${missionId}] chapter pipeline §${chapter.index} (${dimensionName}) threw: ${msg}`,
-            );
-            await emitChapterFailedDoneEvent(deps, {
-              missionId,
-              userId,
-              dimensionIdx,
-              dimensionName,
-              chapterIndex: chapter.index,
-              failedAttempt: 1,
-              reason: `exception: ${msg.slice(0, 120)}`,
-              wordCount: 0,
-              targetWordCount: targetWordsPerChapter,
-            });
-            return null;
-          }
         }),
-      ),
+      deps,
+      { missionId, dimensionName },
     );
 
-    // 收集成功章节，按 index 排序保证顺序（章节完成时间不等于章节序号顺序）
     const producedChapters: WrittenChapter[] = settledResults
       .filter(
         (r): r is PromiseFulfilledResult<WrittenChapter> =>
@@ -1312,25 +514,18 @@ export async function runPerDimPipeline(
         `[chapter-integrity] ${dimensionName}: 0/${outline.chapters.length} chapters produced`,
       );
     }
-    // ★ 2026-05-12 v1: 章节级容错——缺失 ≤30% 走降级路径继续整合 + 评分，>30% 才硬失败。
-    //   实证 mission：7 章 1 章卡 reviewing → 旧逻辑直接抛 0/100。
-    // ★ 2026-05-13 v2: validateWrittenChapters 现在返回 validChapters（过滤掉
-    //   长度不足/outline-only 的章节），下游 integrator/stitch/grade/billing
-    //   统一使用 validChapters，避免坏章节污染 stitched markdown 与 grade 抽样。
+
+    // ★ 2026-05-12 v1/v2: tolerance-based integrity check + filter bad chapters
     const integrityCheck = validateWrittenChapters({
       dimensionName,
       expectedCount: outline.chapters.length,
       chapters: producedChapters,
-      // ★ 2026-05-13 (PR2): tolerance from typed runtime config.
-      //   Default 0.3 (30%) preserved; local can raise via
-      //   CHAPTER_TOLERANCE_RATIO env var.
       tolerance: {
         maxMissingRatio: loadPlaygroundRuntimeConfig().chapterToleranceRatio,
       },
     });
     const writtenChapters: WrittenChapter[] = integrityCheck.validChapters;
     if (writtenChapters.length === 0) {
-      // 所有产出章节都被 filter 丢弃 — 等同于 0-章节路径，硬失败
       await emitGraded({
         ok: false,
         failed: true,
@@ -1400,62 +595,33 @@ export async function runPerDimPipeline(
       extractTokenSpend(integrateRes.events),
     );
 
-    // ★ 2026-05-01 真因修复（mission da6e2af7 实证 5/8 dim 卡"等待评分"）：
-    //   integrator Reflexion 用尽 2 轮 revision verifier < 60 门槛 → state='degraded'
-    //   但 output 已 "强制接受次优产物"。原代码 if (state==='completed') 只认 completed
-    //   → fullMarkdown undefined → 下游 grade 分支不跑 → 永远不 emit dimension:graded
-    //   → 前端 dim todo 卡"等待评分"。
-    //   修法：state==='completed' 或 state==='degraded' + output 存在 → 都走通过路径，
-    //   但 emit 时区分 completed vs degraded 让前端能展示真实质量信号。
-    //   abstract / keyFindings / fullMarkdown 已在函数顶部声明，本块写入。
-    const hasUsableOutput =
-      (integrateRes.state === "completed" ||
-        integrateRes.state === "degraded") &&
-      integrateRes.output;
-    // ★ 2026-05-02 真治根（用户实证 Screenshot 54/55 章节内容空但有字数）：
-    //   原 integrator LLM 生成 fullMarkdown 受 16000 token 限制，多章节 dim
-    //   （epic/mega 长度档位 25 章 × 4000 字 = 100K 字符）会被截断 → 部分章节
-    //   只剩"## 标题"无正文。chapter writer 已经写了 4978 字，但 integrator
-    //   重新生成时把 body 丢了。
-    //   彻底修法：fullMarkdown 由代码确定性拼接 chapter.body，**完全不依赖 LLM**
-    //   生成长文本。LLM 只产 abstract + keyFindings（短文本不会被截）。
-    // ★ G-2 三道清理管线 dim 整合前 sanitize（per-dim-pipeline.util.ts:G-2）
-    //   chapter writer 输出后 G-1 已经跑过一次，但 cache-hit 路径 / 兜底路径的
-    //   body 可能未经 G-1 清理（直接从 DB 读出），所以 stitchedFullMarkdown 前再跑一遍。
-    const stitchedFullMarkdown = (() => {
-      // ★ 2026-05-07 编号修复（用户实证报告无章节标题）：
-      //   之前 chapter 用 ## (H2) + ${ch.index}. 序号前缀。但
-      //   reportAssembler 的 formatDimensionContent → sanitizeHeadingLevels
-      //   会把所有 H1/H2 strip 掉，导致章节标题彻底消失。
-      //   修法：章节改用 ### (H3)，让 numberSubHeadings 自动加 "### N.M. 标题"
-      //   层级编号（N=维度序，M=章节序）。dim 名也不用单独 H1，
-      //   reportAssembler.buildFullMarkdown 已经在外层套 "## ${dim.name}"。
-      // ★ 2026-05-08 PR-9-B (R4 reviewer 阻塞 - 77 空 H3 软约束兜底):
-      //   chapter-writer prompt 已要求 body 第一行不能 H3 子小节（chapter-writer.agent.ts:204-213），
-      //   但 reflexion maxIterations=1 实际不 self-critique。在 stitch 拼装层
-      //   做程序性兜底：检测 body 第一行是 ### 时，前置一行引言占位（避免章节
-      //   heading + 子小节 heading 紧挨着无引言），保证视觉层级清晰。
-      const ensureChapterIntro = (body: string): string => {
-        const trimmed = body.trimStart();
-        // body 首行是 H3 子小节（不带正文段）→ 前置占位引言（让 reviewer 后续可补）
-        if (/^###\s+/.test(trimmed)) {
-          return `> **本章导读**：以下子小节展开论述本章主题。\n\n${trimmed}`;
-        }
-        return body;
-      };
-      const parts: string[] = [];
-      for (const ch of writtenChapters) {
-        parts.push(`### ${ch.heading}`);
-        parts.push("");
-        parts.push(ensureChapterIntro(stripChartJsonFromContent(ch.body)));
-        parts.push("");
+    // ★ 2026-05-02: fullMarkdown is deterministically stitched from chapter bodies;
+    //   LLM only produces abstract + keyFindings (short, won't be truncated).
+    const ensureChapterIntro = (body: string): string => {
+      const trimmed = body.trimStart();
+      // body starting with H3 sub-section gets a placeholder intro (2026-05-08 PR-9-B)
+      if (/^###\s+/.test(trimmed)) {
+        return `> **本章导读**：以下子小节展开论述本章主题。\n\n${trimmed}`;
       }
-      return parts.join("\n");
-    })();
+      return body;
+    };
+    const stitchedFullMarkdown = writtenChapters
+      .flatMap((ch) => [
+        `### ${ch.heading}`,
+        "",
+        ensureChapterIntro(stripChartJsonFromContent(ch.body)),
+        "",
+      ])
+      .join("\n");
     const stitchedTotalWordCount = writtenChapters.reduce(
       (s, c) => s + (c.wordCount ?? 0),
       0,
     );
+
+    const hasUsableOutput =
+      (integrateRes.state === "completed" ||
+        integrateRes.state === "degraded") &&
+      integrateRes.output;
     if (hasUsableOutput) {
       const integrated = integrateRes.output as {
         abstract: string;
@@ -1465,8 +631,7 @@ export async function runPerDimPipeline(
       };
       abstract = integrated.abstract;
       keyFindings = integrated.keyFindings;
-      // ★ 强制使用代码拼接的 fullMarkdown（LLM 输出可能被截）
-      fullMarkdown = stitchedFullMarkdown;
+      fullMarkdown = stitchedFullMarkdown; // always use code-stitched version
       await deps
         .emit({
           type: "agent-playground.dimension:integrating:completed",
@@ -1477,7 +642,6 @@ export async function runPerDimPipeline(
             dimension: dimensionName,
             totalWordCount: stitchedTotalWordCount,
             chapterCount: writtenChapters.length,
-            // ★ degraded 路径标记，前端可视化时区分
             degraded: integrateRes.state === "degraded",
           },
         })
@@ -1487,9 +651,7 @@ export async function runPerDimPipeline(
           );
         });
     } else {
-      // ★ 2026-05-02 改进：integrator 失败时仍走"算法兜底" — 用代码拼接产出
-      //   fullMarkdown + 简化 abstract（用 chapter[0] 提取），不再丢章节内容。
-      //   用户红线："绝对不允许空章节"。
+      // ★ 2026-05-02: integrator failure → code-stitch fallback, never lose chapter content
       fullMarkdown = stitchedFullMarkdown;
       abstract =
         writtenChapters[0]?.body
@@ -1508,8 +670,8 @@ export async function runPerDimPipeline(
             dimension: dimensionName,
             totalWordCount: stitchedTotalWordCount,
             chapterCount: writtenChapters.length,
-            degraded: true, // integrator LLM 失败但代码拼接兜底
-            fallback: "code-stitched-abstract", // 标记 abstract/keyFindings 是代码兜底
+            degraded: true,
+            fallback: "code-stitched-abstract",
           },
         })
         .catch((err: unknown) => {
@@ -1552,19 +714,13 @@ export async function runPerDimPipeline(
         const g = gradeRes.output as NonNullable<PerDimPipelineResult["grade"]>;
         grade = g;
         await emitGraded({ ok: true, g });
-        // ★ B-sources_sufficiency threshold (2026-05-06): 对齐 quality-judge 第 6 axis。
-        //   若 sources_sufficiency.score < 60（即维度 unique source URL < 3），
-        //   发 warning narrative 提示下游 leader/signoff 该 dim 来源不足。
+        // ★ sources_sufficiency warning (2026-05-06)
         const sourcesSufficiency = (
           g.axes as Record<string, { score: number; comment: string }>
         )["sources_sufficiency"];
-        const MIN_SOURCES_SUFFICIENCY_SCORE = 60;
-        if (
-          sourcesSufficiency &&
-          sourcesSufficiency.score < MIN_SOURCES_SUFFICIENCY_SCORE
-        ) {
+        if (sourcesSufficiency && sourcesSufficiency.score < 60) {
           deps.log.warn(
-            `[per-dim grade] dim "${dimensionName}" sources_sufficiency=${sourcesSufficiency.score} < ${MIN_SOURCES_SUFFICIENCY_SCORE}: ${sourcesSufficiency.comment}`,
+            `[per-dim grade] dim "${dimensionName}" sources_sufficiency=${sourcesSufficiency.score} < 60: ${sourcesSufficiency.comment}`,
           );
           await narrate(deps.emit, missionId, userId, {
             stage: "s3-researchers",
@@ -1593,7 +749,6 @@ export async function runPerDimPipeline(
       });
     }
   } catch (err) {
-    // ★ pipeline 任意点抛异常 → 终态兜底 emit + 重抛让上层 runOneDim 接管
     const msg = err instanceof Error ? err.message : String(err);
     await emitGraded({
       ok: false,
@@ -1603,7 +758,7 @@ export async function runPerDimPipeline(
     });
     throw err;
   } finally {
-    // ★ INVARIANT 兜底：所有路径（含静默 return / 取消 / 系统中断）都必须落终态
+    // ★ INVARIANT fallback: guarantee at least one terminal graded event
     if (!terminalEmitted) {
       await emitGraded({
         ok: false,
@@ -1622,119 +777,4 @@ export async function runPerDimPipeline(
     fullMarkdown,
     grade,
   };
-}
-
-/**
- * ★ 2026-05-12 v1: 引入 tolerance 参数（缺章按比例容错而非全盘 throw）。
- * ★ 2026-05-13 v2: 进一步引入 filter-and-forward 语义：
- *   - 长度不足 / outline-only 的章节不再直接 throw，而是从 chapters 集合中
- *     "降级丢弃"（dropped），调用方应使用返回的 validChapters 替换原 list。
- *   - 这避免了"validate 抛错 → 章节没法 stitch / grade"的死锁，也避免了
- *     "stitch 还在用包含坏章节的原 list，但 missingCount 只反映完全缺失的"
- *     之间的口径不一致（reviewer 实证：bad chapter body 会污染 stitched
- *     markdown 与 grade 抽样）。
- *   - error message 在缺失超出 tolerance 时仍保留 "expected N chapters,
- *     got M" 前缀，兼容已有测试断言。
- *
- * 返回 contract：
- *   - missingCount  = expectedCount - validChapters.length（包含 dropped）
- *   - missingRatio  = missingCount / expectedCount
- *   - validChapters = 通过 substantive / non-outline gating 的章节（已排序）
- *   - droppedChapters = 被丢弃的章节（带 reason，便于事件流可视化）
- */
-export interface ChapterIntegrityResult<C> {
-  missingCount: number;
-  missingRatio: number;
-  validChapters: C[];
-  droppedChapters: Array<{ chapter: C; reason: string }>;
-}
-
-function validateWrittenChapters<
-  C extends { index: number; heading: string; body: string; wordCount: number },
->(args: {
-  dimensionName: string;
-  expectedCount: number;
-  chapters: C[];
-  tolerance?: { maxMissingRatio: number };
-}): ChapterIntegrityResult<C> {
-  const { dimensionName, expectedCount, chapters, tolerance } = args;
-  const maxMissingRatio = tolerance?.maxMissingRatio ?? 0;
-
-  if (chapters.length > expectedCount) {
-    throw new Error(
-      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length} (more than expected)`,
-    );
-  }
-
-  const validChapters: C[] = [];
-  const droppedChapters: Array<{ chapter: C; reason: string }> = [];
-
-  for (const chapter of chapters) {
-    const substantive = extractSubstantiveChapterText(chapter.body);
-    if (substantive.length < MIN_CHAPTER_SUBSTANTIVE_CHARS) {
-      droppedChapters.push({
-        chapter,
-        reason: `body too short after normalization (${substantive.length} chars)`,
-      });
-      continue;
-    }
-    if (isOutlineOnlyChapter(substantive)) {
-      droppedChapters.push({
-        chapter,
-        reason: `outline-only without substantive prose`,
-      });
-      continue;
-    }
-    validChapters.push(chapter);
-  }
-
-  const missingCount = Math.max(0, expectedCount - validChapters.length);
-  const missingRatio =
-    expectedCount > 0 ? missingCount / expectedCount : missingCount > 0 ? 1 : 0;
-
-  if (missingCount > 0 && missingRatio > maxMissingRatio) {
-    const droppedDetail = droppedChapters
-      .map((d) => `§${d.chapter.index} "${d.chapter.heading}" (${d.reason})`)
-      .join("; ");
-    throw new Error(
-      `[chapter-integrity] ${dimensionName}: expected ${expectedCount} chapters, got ${chapters.length} (missing ${missingCount}, ratio ${(missingRatio * 100).toFixed(1)}% > tolerance ${(maxMissingRatio * 100).toFixed(0)}%)${droppedDetail ? "; dropped: " + droppedDetail : ""}`,
-    );
-  }
-
-  return { missingCount, missingRatio, validChapters, droppedChapters };
-}
-
-function extractSubstantiveChapterText(body: string): string {
-  return body
-    .replace(/\r\n/g, "\n")
-    .replace(/^#{1,6}\s+[^\n]+\n*/gmu, "")
-    .replace(/^>\s*/gmu, "")
-    .replace(/^\s*[-*•·—–]\s+/gmu, "")
-    .replace(/^\s*\d+[.)、]\s+/gmu, "")
-    .replace(/^\s*[（(]?\d+[)）.、]?\s+/gmu, "")
-    .replace(/^\s*[一二三四五六七八九十]+[、.)]\s+/gmu, "")
-    .replace(/\[(\d+)\]/g, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/\n{2,}/g, "\n")
-    .trim();
-}
-
-function isOutlineOnlyChapter(text: string): boolean {
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length === 0) return true;
-
-  const proseLines = lines.filter(
-    (line) =>
-      !/^#{1,6}\s+/.test(line) &&
-      !/^[-*•·—–]/.test(line) &&
-      !/^\d+[.)、]\s*/.test(line) &&
-      !/^[（(]?\d+[)）.、]?\s*/.test(line) &&
-      !/^[一二三四五六七八九十]+[、.)]\s*/u.test(line),
-  );
-
-  return proseLines.length === 0;
 }

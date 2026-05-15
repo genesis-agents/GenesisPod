@@ -26,7 +26,7 @@ import type { SkillActivator } from "../../skill-runtime/skill-activator";
 import type { MemoryContextBindingService } from "../../../memory/indexing/memory-context-binding.service";
 import type { AgentRegistry } from "../../../handoffs/agent-registry";
 import type { AgentEventStore } from "../../../memory/checkpoint/agent-event-store";
-import type { CheckpointService } from "../../../memory/checkpoint/checkpoint.service";
+import type { AgentStepCheckpointService } from "../../../memory/checkpoint/checkpoint.service";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -390,14 +390,14 @@ describe("HarnessedAgent.execute — eventStore", () => {
 // ─── checkpointService integration ───────────────────────────────────────────
 
 describe("HarnessedAgent.execute — checkpointService", () => {
-  function makeCheckpointService(): jest.Mocked<CheckpointService> {
+  function makeAgentStepCheckpointService(): jest.Mocked<AgentStepCheckpointService> {
     return {
       snapshot: jest.fn().mockResolvedValue({ id: "cp-1" }),
-    } as unknown as jest.Mocked<CheckpointService>;
+    } as unknown as jest.Mocked<AgentStepCheckpointService>;
   }
 
   it("calls snapshot on terminated event", async () => {
-    const checkpointService = makeCheckpointService();
+    const checkpointService = makeAgentStepCheckpointService();
     const loop = makeLoop([
       {
         type: "terminated",
@@ -418,7 +418,7 @@ describe("HarnessedAgent.execute — checkpointService", () => {
   });
 
   it("calls snapshot on action_executed when checkpointEveryNActions=1", async () => {
-    const checkpointService = makeCheckpointService();
+    const checkpointService = makeAgentStepCheckpointService();
     const loop = makeLoop([
       {
         type: "action_executed" as const,
@@ -451,7 +451,7 @@ describe("HarnessedAgent.execute — checkpointService", () => {
   });
 
   it("does not call snapshot on action_executed when checkpointEveryNActions=0 (default)", async () => {
-    const checkpointService = makeCheckpointService();
+    const checkpointService = makeAgentStepCheckpointService();
     const loop = makeLoop([
       {
         type: "action_executed" as const,

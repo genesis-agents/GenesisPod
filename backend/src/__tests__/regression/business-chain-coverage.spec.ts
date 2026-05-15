@@ -147,7 +147,7 @@ describe("Branch: happy-path — RunMissionInputSchema full parse", () => {
 describe("Branch: failed path — MissionStore.markFailed signature", () => {
   it("markFailed method exists in MissionStore", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     expect(src).toContain("async markFailed(");
   });
@@ -155,7 +155,7 @@ describe("Branch: failed path — MissionStore.markFailed signature", () => {
   it("markFailed sets status to 'failed' when leaderSigned is not false", () => {
     // Static check: the status logic in the method
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // isLeadRefusal condition determines 'quality-failed' vs 'failed'
     expect(src).toContain("quality-failed");
@@ -165,7 +165,7 @@ describe("Branch: failed path — MissionStore.markFailed signature", () => {
 
   it("markFailed with leaderSigned=false sets 'quality-failed' status", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // isLeadRefusal check must reference leaderSigned === false
     expect(src).toContain("leaderSigned === false");
@@ -175,7 +175,7 @@ describe("Branch: failed path — MissionStore.markFailed signature", () => {
 
   it("errorMessage is sliced to 2000 chars in markFailed (no OOM)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     expect(src).toContain("errorMessage?.slice(0, 2000)");
   });
@@ -188,7 +188,7 @@ describe("Branch: failed path — MissionStore.markFailed signature", () => {
 describe("Branch: cancelled path — markCancelled guard", () => {
   it("markCancelled only transitions from status='running' (race guard)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // Must have updateMany with status='running' guard on cancel
     const cancelIdx = src.indexOf("async markCancelled(");
@@ -200,7 +200,7 @@ describe("Branch: cancelled path — markCancelled guard", () => {
 
   it("markCancelled clears checkpoint (listResumable guard)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     const cancelIdx = src.indexOf("async markCancelled(");
     const cancelFn = src.slice(cancelIdx, cancelIdx + 700);
@@ -209,7 +209,7 @@ describe("Branch: cancelled path — markCancelled guard", () => {
 
   it("cancelled errorMessage is user-visible text", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // The hardcoded cancel reason string
     expect(src).toContain("Mission cancelled by user");
@@ -223,7 +223,7 @@ describe("Branch: cancelled path — markCancelled guard", () => {
 describe("Branch: quality-failed path — leader sign-off refusal", () => {
   it("markFailed persists report artifacts even when leaderSigned=false (2026-04-30 fix)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // The 2026-04-30 fix decoupled artifact persistence from isLeadRefusal
     // by checking !== undefined instead of != null for each field
@@ -233,7 +233,7 @@ describe("Branch: quality-failed path — leader sign-off refusal", () => {
 
   it("leaderSigned=false writes to DB (fix for leaderSigned falsy-skip bug)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-lifecycle.helper.ts",
     );
     // The fix changed != null to !== undefined for leaderSigned
     expect(src).toContain("data.leaderSigned !== undefined");
@@ -494,16 +494,16 @@ describe("RESEARCHER_MAX_ITERATIONS_HARD_CAP — P1 runaway fix", () => {
 // ---------------------------------------------------------------------------
 
 describe("recordMissionPostmortem — S12 closure interface", () => {
-  it("method exists in MissionStore", () => {
+  it("method exists in MissionPostmortemHelper", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-postmortem.helper.ts",
     );
     expect(src).toContain("async recordMissionPostmortem(");
   });
 
   it("method signature includes missionId, userId, topic, summary", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-postmortem.helper.ts",
     );
     const fnIdx = src.indexOf("async recordMissionPostmortem(");
     const sig = src.slice(fnIdx, fnIdx + 500);
@@ -515,7 +515,7 @@ describe("recordMissionPostmortem — S12 closure interface", () => {
 
   it("writes to harnessVectorMemory with tag mission-postmortem (C4 embedding closure)", () => {
     const src = readSrc(
-      "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts",
+      "ai-app/agent-playground/services/mission/lifecycle/mission-postmortem.helper.ts",
     );
     expect(src).toContain("harnessVectorMemory");
     expect(src).toContain("mission-postmortem");

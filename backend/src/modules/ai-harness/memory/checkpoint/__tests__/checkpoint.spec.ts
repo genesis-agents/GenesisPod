@@ -1,8 +1,8 @@
 /**
- * CheckpointService + InMemoryStore 单元测试
+ * AgentStepCheckpointService + InMemoryStore 单元测试
  */
 
-import { CheckpointService } from "../checkpoint.service";
+import { AgentStepCheckpointService } from "../checkpoint.service";
 import { InMemoryCheckpointStore } from "../in-memory-checkpoint-store";
 import { ContextEnvelope } from "../../../agents/core/context-envelope";
 import { AgentIdentity } from "../../../agents/core/agent-identity";
@@ -88,9 +88,9 @@ describe("InMemoryCheckpointStore", () => {
   });
 });
 
-describe("CheckpointService", () => {
+describe("AgentStepCheckpointService", () => {
   it("snapshot stores and returns new checkpoint with id + timestamp", async () => {
-    const svc = new CheckpointService();
+    const svc = new AgentStepCheckpointService();
     const cp = await svc.snapshot({
       agentId: "a1",
       agentState: "running",
@@ -108,7 +108,7 @@ describe("CheckpointService", () => {
   });
 
   it("latestForAgent returns most recent", async () => {
-    const svc = new CheckpointService();
+    const svc = new AgentStepCheckpointService();
     const first = await svc.snapshot({
       agentId: "a1",
       agentState: "running",
@@ -132,7 +132,7 @@ describe("CheckpointService", () => {
   });
 
   it("load by id", async () => {
-    const svc = new CheckpointService();
+    const svc = new AgentStepCheckpointService();
     const cp = await svc.snapshot({
       agentId: "a1",
       agentState: "running",
@@ -146,7 +146,7 @@ describe("CheckpointService", () => {
   });
 
   it("returns null when no checkpoint exists", async () => {
-    const svc = new CheckpointService();
+    const svc = new AgentStepCheckpointService();
     expect(await svc.latestForAgent("no-such-agent")).toBeNull();
     expect(await svc.load("no-such-id")).toBeNull();
   });

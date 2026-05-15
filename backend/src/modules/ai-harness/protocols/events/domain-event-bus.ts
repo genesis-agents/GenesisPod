@@ -11,37 +11,39 @@
  * 与 IAgentEvent 的桥接：
  *   - 业务方在 hook 里把 IAgentEvent 翻译成 DomainEvent
  *   - 例：PostToolUse hook → emit('{app}.evidence:found', {...})
+ *
+ * 存储架构（PR-E Phase 2 P0-4）：
+ *   - throttle  → Redis  key=harness:event-bus:throttle:{type}|{agentId}
+ *                         value=JSON{windowStart,count}  TTL=spec.throttle.windowMs
+ *   - idempotency → Redis key=harness:event-bus:idempotency:{dedupKey}
+ *                         value='1'  TTL=60s
+ *   CacheService 是 @Global，HarnessModule 无需额外 import。
+ *   无 REDIS_URL 时 CacheService 自动降级为进程内 in-memory cache（行为与原 Map 等价）。
  */
 
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { DomainEventRegistry } from "./domain-event-registry";
 import { IBroadcastAdapter, LoggerBroadcastAdapter } from "./broadcast-adapter";
 import type { DomainEvent } from "./domain-event.types";
+import { CacheService } from "@/common/cache/cache.service";
 
 interface ThrottleState {
   windowStart: number;
   count: number;
 }
 
+const THROTTLE_KEY_PREFIX = "harness:event-bus:throttle:";
+const IDEMPOTENCY_KEY_PREFIX = "harness:event-bus:idempotency:";
+const IDEMPOTENCY_TTL_SEC = 60;
+
 @Injectable()
 export class DomainEventBus {
   private readonly log = new Logger(DomainEventBus.name);
   private readonly adapters: IBroadcastAdapter[] = [];
-  /** key = type|sourceKey, value = throttle state */
-  private readonly throttle = new Map<string, ThrottleState>();
-  /** 幂等去重 LRU（key = idempotencyKey, value = expiresAt） */
-  private readonly idempotency = new Map<string, number>();
-  private readonly idempotencyTtlMs = 60_000;
-  private readonly idempotencyCap = 10_000;
-  /**
-   * 建议修 #3: throttle 计数器；每 N 次 emit 扫一次 throttle Map 删过期条目。
-   * 防止长跑服务里大量不同 (type, agentId) 组合无限累积。
-   */
-  private throttleEmitCounter = 0;
-  private readonly throttleGcEvery = 500;
 
   constructor(
     private readonly registry: DomainEventRegistry,
+    private readonly cache: CacheService,
     @Optional() defaultAdapter?: LoggerBroadcastAdapter,
   ) {
     if (defaultAdapter) this.adapters.push(defaultAdapter);
@@ -92,34 +94,50 @@ export class DomainEventBus {
       }
     }
 
-    // 2. Idempotency dedupe
+    // 2. Idempotency dedupe (Redis-backed, multi-pod consistent)
     if (event.idempotencyKey) {
-      const now = Date.now();
-      this.gcIdempotency(now);
-      const expires = this.idempotency.get(event.idempotencyKey);
-      if (expires && expires > now) {
+      const iKey = `${IDEMPOTENCY_KEY_PREFIX}${event.idempotencyKey}`;
+      const existing = await this.cache.get<string>(iKey);
+      if (existing !== undefined) {
         return false;
       }
-      this.idempotency.set(event.idempotencyKey, now + this.idempotencyTtlMs);
+      await this.cache.set(iKey, "1", IDEMPOTENCY_TTL_SEC);
     }
 
-    // 3. Throttle per (type, agentId|*) — 建议修 #3+#5: agentId 缺失时用 type 做全局 throttle
+    // 3. Throttle per (type, agentId|*) — Redis-backed, multi-pod consistent
     if (spec.throttle) {
-      this.throttleEmitCounter += 1;
-      if (this.throttleEmitCounter >= this.throttleGcEvery) {
-        this.gcThrottle();
-        this.throttleEmitCounter = 0;
-      }
       const sourceKey = event.agentId ?? "__global__";
-      const key = `${event.type}|${sourceKey}`;
-      const state = this.throttle.get(key);
+      const tKey = `${THROTTLE_KEY_PREFIX}${event.type}|${sourceKey}`;
+      const windowSec = Math.ceil(spec.throttle.windowMs / 1000);
       const now = Date.now();
+
+      const raw = await this.cache.get<string>(tKey);
+      let state: ThrottleState | undefined;
+      if (raw !== undefined) {
+        try {
+          state = JSON.parse(raw) as ThrottleState;
+        } catch {
+          state = undefined;
+        }
+      }
+
       if (!state || now - state.windowStart > spec.throttle.windowMs) {
-        this.throttle.set(key, { windowStart: now, count: 1 });
+        await this.cache.set(
+          tKey,
+          JSON.stringify({ windowStart: now, count: 1 }),
+          windowSec,
+        );
       } else if (state.count >= spec.throttle.maxEvents) {
         return false; // throttled
       } else {
-        state.count += 1;
+        await this.cache.set(
+          tKey,
+          JSON.stringify({
+            windowStart: state.windowStart,
+            count: state.count + 1,
+          }),
+          windowSec,
+        );
       }
     }
 
@@ -136,28 +154,5 @@ export class DomainEventBus {
         ),
     );
     return true;
-  }
-
-  private gcIdempotency(now: number): void {
-    if (this.idempotency.size < this.idempotencyCap) return;
-    for (const [k, exp] of this.idempotency.entries()) {
-      if (exp <= now) this.idempotency.delete(k);
-    }
-  }
-
-  /** 建议修 #3: 删 windowStart 超过 2×最大 windowMs 的过期条目 */
-  private gcThrottle(): void {
-    const now = Date.now();
-    // 用所有 spec 中最大 windowMs 的 2 倍当 stale 阈值（保守，不会误删）
-    let maxWindow = 60_000;
-    for (const spec of this.registry.list()) {
-      if (spec.throttle && spec.throttle.windowMs > maxWindow) {
-        maxWindow = spec.throttle.windowMs;
-      }
-    }
-    const stale = now - 2 * maxWindow;
-    for (const [k, state] of this.throttle.entries()) {
-      if (state.windowStart < stale) this.throttle.delete(k);
-    }
   }
 }

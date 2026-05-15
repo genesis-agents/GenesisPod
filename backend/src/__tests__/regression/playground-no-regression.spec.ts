@@ -174,7 +174,9 @@ describe("P0-B — MissionLivenessGuard staleThresholdMs >= 15 min in playground
     const {
       loadPlaygroundRuntimeConfig,
     } = require("../../modules/ai-app/agent-playground/playground-runtime.config");
-    const cfg = loadPlaygroundRuntimeConfig({}) as { staleThresholdMin: number };
+    const cfg = loadPlaygroundRuntimeConfig({}) as {
+      staleThresholdMin: number;
+    };
     expect(cfg.staleThresholdMin).toBeGreaterThanOrEqual(15);
   });
 
@@ -262,8 +264,9 @@ describe("P0-C/G/K — maxCredits required, no fallback hardcoding", () => {
 // ---------------------------------------------------------------------------
 
 describe("P0-D — trajectory persistence methods exist in MissionStore", () => {
+  // 2026-05-15 PR-D god-class 拆分后，trajectory 实现迁到 mission-report.helper.ts
   const storeFile =
-    "ai-app/agent-playground/services/mission/lifecycle/mission-store.service.ts";
+    "ai-app/agent-playground/services/mission/lifecycle/mission-report.helper.ts";
 
   it("saveResearchResult method exists", () => {
     const src = read(storeFile);

@@ -12,14 +12,22 @@
  *   • leader-decision-parser.util.ts   ← parseLeaderDecisionResponse + safeParseStoredDecision
  *   • leader-chat.service.ts (本文件)  ← list / send / 持久化 / 业务事件 emit / Mission 装配
  *
- * 后续 PR-8 把 buildLeaderChatPrompt 整体迁到 SkillRegistry（playground.leader-chat skill）。
+ * ★ 2026-05-15 PR-F: 静态决策协议（decision schema / 规则 / CREATE_TODO 约束 / 风格）
+ *   整体迁到 `skills/leader-chat/SKILL.md`，由 BuiltinSkillCatalog 加载，buildLeaderChatPrompt
+ *   只负责拼运行时 mission context + 注入 SKILL.md instructions。"绕过 SkillRegistry"
+ *   闭环。LeaderChat 业务模式是 single-turn chat completion（不是 ReAct loop），
+ *   因此直接调 AiChatService.chat() 是合理的，无需 AgentExecutorService。
  */
 
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { AiChatService } from "@/modules/ai-harness/facade";
-import { DomainEventBus, type DomainEvent } from "@/modules/ai-harness/facade";
+import {
+  AiChatService,
+  BuiltinSkillCatalog,
+  DomainEventBus,
+  type DomainEvent,
+} from "@/modules/ai-harness/facade";
 import { MissionStore } from "../mission/lifecycle/mission-store.service";
 import { buildLeaderChatPrompt } from "./leader-chat-prompt";
 import {
@@ -28,6 +36,26 @@ import {
   type LeaderDecision,
   type LeaderDecisionType,
 } from "./leader-decision-parser.util";
+
+/**
+ * spec-only fallback: BuiltinSkillCatalog 在 prod bootstrap 总能加载 leader-chat SKILL.md
+ * 经 SkillLoader@onApplicationBootstrap 注册，runtime 不会命中 fallback。
+ *
+ * 2026-05-15 Round 1 代码质量评审备注：本常量与 skills/leader-chat/SKILL.md 的 JSON
+ * schema 段是**结构性副本**，不是双源——只在 spec / SkillLoader 还没跑的窗口期保底。
+ * **维护规则**：要改决策协议（schema / rules / style）必须改 SKILL.md，不能改本常量；
+ * 本常量保持最小化以让 spec 不依赖 SkillLoader bootstrap。
+ */
+const LEADER_CHAT_SKILL_FALLBACK = [
+  "## CRITICAL: Return a strict JSON decision wrapped in ```json fence:",
+  "```json",
+  '{ "decisionType": "DIRECT_ANSWER" | "CREATE_TODO" | "CLARIFY" | "ACKNOWLEDGE",',
+  '  "response": "<markdown shown in chat bubble>",',
+  '  "todo": [ { "name": "<dim>", "rationale": "<why>" } ],',
+  '  "clarifyOptions": ["<opt1>", "<opt2>"] }',
+  "```",
+  "Decision rules: new research angle → CREATE_TODO; status question → DIRECT_ANSWER; ambiguous → CLARIFY; thanks → ACKNOWLEDGE.",
+].join("\n");
 
 export type { LeaderDecision, LeaderDecisionType };
 
@@ -57,6 +85,7 @@ export class LeaderChatService {
     private readonly chat: AiChatService,
     private readonly store: MissionStore,
     private readonly eventBus: DomainEventBus,
+    private readonly skillCatalog: BuiltinSkillCatalog,
   ) {}
 
   async list(missionId: string): Promise<LeaderChatMessage[]> {
@@ -123,7 +152,11 @@ export class LeaderChatService {
     const mission = await this.store.getById(missionId, userId);
     const previous = await this.list(missionId);
 
-    const systemPrompt = buildLeaderChatPrompt(mission);
+    // PR-F: 从 SKILL.md 取静态决策协议（schema + 规则 + 风格）
+    const skill = this.skillCatalog.get("leader-chat");
+    const decisionInstructions =
+      skill?.instructions ?? LEADER_CHAT_SKILL_FALLBACK;
+    const systemPrompt = buildLeaderChatPrompt(mission, decisionInstructions);
 
     const messages = previous.map((m) => ({
       role: m.role,

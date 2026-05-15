@@ -70,7 +70,7 @@ import { CacheControlPlanner } from "./runner/context/cache-control-planner";
 import { AgentRegistry } from "./handoffs/agent-registry";
 import { HandoffService } from "./handoffs/handoff.service";
 import {
-  CheckpointService,
+  AgentStepCheckpointService,
   InMemoryCheckpointStore,
   PrismaCheckpointStore,
   AgentEventStore,
@@ -99,6 +99,7 @@ import {
   ReportEvaluationService,
   QualityTraceComputeService,
 } from "./evaluation/critique";
+import { ReflectionMissionScheduler } from "./evaluation/dreaming";
 import { MCPRelay } from "../ai-engine/tools/adapters/mcp/mcp-relay.service";
 import { MCPManager } from "../ai-engine/tools/adapters/mcp/manager/mcp-manager";
 import { MCPClientRegistryService } from "../ai-engine/tools/adapters/mcp/registry/mcp-client-registry.service";
@@ -265,15 +266,20 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     InMemoryCheckpointStore,
     PrismaCheckpointStore,
     {
-      // env HARNESS_CHECKPOINT_PERSIST=1 → Prisma；否则 in-memory（保持测试/本地不污染 DB）
-      provide: CheckpointService,
+      // 2026-05-15 PR-G: 切换为"默认 Prisma 持久化"模式（生产正确性优先）。
+      //   - NODE_ENV === 'test' 且未显式 HARNESS_CHECKPOINT_PERSIST=1 → in-memory（spec 默认不污染 DB）
+      //   - 其他场景（dev / staging / prod）→ Prisma（multi-pod 安全 + 真 session resume）
+      //   - 显式 HARNESS_CHECKPOINT_PERSIST=0 → 任何环境强制回 in-memory（应急回滚）
+      provide: AgentStepCheckpointService,
       useFactory: (
         memStore: InMemoryCheckpointStore,
         prismaStore: PrismaCheckpointStore,
       ) => {
-        const usePrisma = process.env.HARNESS_CHECKPOINT_PERSIST === "1";
-        const store: ICheckpointStore = usePrisma ? prismaStore : memStore;
-        return new CheckpointService(store);
+        const envFlag = process.env.HARNESS_CHECKPOINT_PERSIST;
+        const isTest = process.env.NODE_ENV === "test";
+        const useInMemory = envFlag === "0" || (isTest && envFlag !== "1");
+        const store: ICheckpointStore = useInMemory ? memStore : prismaStore;
+        return new AgentStepCheckpointService(store);
       },
       inject: [InMemoryCheckpointStore, PrismaCheckpointStore],
     },
@@ -307,6 +313,9 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     SectionRemediationService,
     ReportEvaluationService,
     QualityTraceComputeService,
+
+    // ★ 2026-05-15 PR-I: Dreaming（主动反思）骨架 — 周期归纳跨 mission 规则
+    ReflectionMissionScheduler,
 
     // ★ PR-G: SpanExporter — AgentTracer 多目标分发（Logger + Langfuse）
     SpanExporter,
@@ -368,7 +377,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     PostmortemClassifierService,
     BuiltinSkillCatalog,
     ContextManager,
-    CheckpointService,
+    AgentStepCheckpointService,
     AgentEventStore,
     SkillLearner,
     SkillLearningCoordinator,
@@ -408,6 +417,7 @@ import { MissionRuntimeShellFramework } from "./teams/business-team/lifecycle/mi
     SectionRemediationService, // ★ 沉淀 v3: 弱维度合并补救
     ReportEvaluationService, // ★ 沉淀 v3: 10 维结构化报告评审
     QualityTraceComputeService, // ★ 沉淀 v3: 全链路质量 trace 纯计算
+    ReflectionMissionScheduler, // ★ 2026-05-15 PR-I: Dreaming 骨架
     SpanExporter,
     MCPRelay,
     MCPManager,

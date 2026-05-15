@@ -229,7 +229,7 @@ export class LocalRerunService {
     }
 
     // ── 5. 并发锁 ──
-    if (!this.lockRegistry.acquire(missionId, todoId)) {
+    if (!(await this.lockRegistry.acquire(missionId, todoId))) {
       throw new BadRequestException(
         "该任务正在重跑，请等待当前一轮完成后再操作",
       );
@@ -368,7 +368,7 @@ export class LocalRerunService {
       }).catch(() => {});
       throw err;
     } finally {
-      this.lockRegistry.release(missionId, todoId);
+      await this.lockRegistry.release(missionId, todoId);
     }
   }
 

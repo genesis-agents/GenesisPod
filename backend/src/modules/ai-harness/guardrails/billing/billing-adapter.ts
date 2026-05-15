@@ -6,8 +6,13 @@
  *
  * 真实路径：
  *   - CreditsService.getBalance（真扣 / 真查）
- *   - RuntimeEnvironmentService.snapshot æ‹¿ BYOK å€™é€‰ model æ±
+ *   - RuntimeEnvironmentService.snapshot 拿 BYOK 候选 model 池
  *   - suggestFallback 按余额状态返回真实降级建议
+ *
+ * disabledModels 存储层（PR-E P0-3）：
+ *   - 传入 CacheService 时：Redis HASH，key = harness:billing:disabled-models:{instanceKey}
+ *     TTL 4h（对齐 mission wall-time），支持 multi-pod 一致。
+ *   - 未传入时（旧调用方向后兼容）：进程内 Record<string, string>，行为与原 Map 等价。
  */
 
 import type {
@@ -21,13 +26,21 @@ import type {
 import type { CreditsService } from "../../../ai-infra/credits/credits.service";
 import type { RuntimeEnvironmentService } from "../../../ai-harness/guardrails/runtime/runtime-environment.service";
 import type { EnvironmentSnapshot } from "../../../ai-harness/guardrails/runtime/runtime-environment.types";
+import type { CacheService } from "../../../../common/cache/cache.service";
 
 const LOW_BALANCE_THRESHOLD = 500;
 const CRITICAL_BALANCE_THRESHOLD = 100;
 /** balance 缓存 TTL —— 30s 内 getCreditState/getQuotaSnapshot/suggestFallback 共享一次 DB 查询 */
 const BALANCE_CACHE_TTL_MS = 30_000;
+/** disabledModels Redis TTL：对齐 mission wall-time 上限 4h */
+const DISABLED_MODELS_TTL_SEC = 4 * 3600;
 
 type BalanceAcct = Awaited<ReturnType<CreditsService["getBalance"]>>;
+
+/** Redis key for per-instance disabledModels hash */
+function disabledModelsKey(instanceKey: string): string {
+  return `harness:billing:disabled-models:${instanceKey}`;
+}
 
 export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   /** mission 内 balance 缓存：8+ 次 runner.run 只查 1 次 DB */
@@ -38,27 +51,74 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
    * 喂入"已知会撞墙的 (modelId → 备选 modelId)"映射。
    * getModelAvailability 命中 disabled set 时返回 available=false + fallbackTo，
    * 现有 react-loop 的 tier-model fallback 链路自动接住。
+   *
+   * 存储层：CacheService 存在时走 Redis；否则回退到 localDisabledModels（进程内）。
    */
-  private readonly disabledModels = new Map<string, string>();
+
+  /** 进程内回退存储（无 CacheService 时使用，向后兼容旧调用方） */
+  private readonly localDisabledModels: Record<string, string> = {};
+
+  /** 唯一标识本 adapter 实例的 key，用于 Redis namespace 隔离 */
+  private readonly instanceKey: string;
 
   constructor(
     public readonly userId: string,
     public readonly workspaceId: string | undefined,
     private readonly credits: CreditsService,
     private readonly runtimeEnv: RuntimeEnvironmentService,
-  ) {}
+    private readonly cache?: CacheService,
+  ) {
+    // 用 userId + 随机后缀生成实例唯一 key，保证同用户并发 mission 不串 namespace
+    this.instanceKey = `${userId}:${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  // ── disabledModels 存储层 helpers ─────────────────────────────────────────
+
+  /** 读取 disabledModels（Redis 优先，无 CacheService 回退进程内） */
+  private async readDisabledMap(): Promise<Record<string, string>> {
+    if (this.cache) {
+      const stored = await this.cache.get<Record<string, string>>(
+        disabledModelsKey(this.instanceKey),
+      );
+      return stored ?? {};
+    }
+    return { ...this.localDisabledModels };
+  }
+
+  /** 写入 disabledModels（Redis 优先，无 CacheService 写进程内） */
+  private async writeDisabledMap(map: Record<string, string>): Promise<void> {
+    if (this.cache) {
+      await this.cache.set(
+        disabledModelsKey(this.instanceKey),
+        map,
+        DISABLED_MODELS_TTL_SEC,
+      );
+    } else {
+      for (const [k, v] of Object.entries(map)) {
+        this.localDisabledModels[k] = v;
+      }
+    }
+  }
+
+  // ── Public API ────────────────────────────────────────────────────────────
 
   /**
    * 标记某 modelId 在本 mission 内禁用（pattern 已知会失败），并提供 fallback。
    * 由 orchestrator 调用：lookup 失败模式 → 命中且有 lastFallbackModel → 标记。
    */
-  markModelDisabled(failedModelId: string, fallbackModelId: string): void {
-    this.disabledModels.set(failedModelId, fallbackModelId);
+  async markModelDisabled(
+    failedModelId: string,
+    fallbackModelId: string,
+  ): Promise<void> {
+    const current = await this.readDisabledMap();
+    current[failedModelId] = fallbackModelId;
+    await this.writeDisabledMap(current);
   }
 
   /** 当 mission 内某次调用走了 fallback 并跑通后，外部调用方 query 用 */
-  getDisabledModels(): ReadonlyMap<string, string> {
-    return this.disabledModels;
+  async getDisabledModels(): Promise<ReadonlyMap<string, string>> {
+    const map = await this.readDisabledMap();
+    return new Map(Object.entries(map));
   }
 
   /** 带 TTL 的 balance 查询 — DB 调用聚合到一次 */
@@ -136,7 +196,8 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
   async getModelAvailability(modelId: string): Promise<IModelAvailability> {
     // ★ 优先级 #1：本 mission 内已标记禁用（来自 FailureLearnerService 的
     // 历史失败模式）—— 直接返回 fallback 候选，绕开浪费 token 重蹈覆辙。
-    const disabledFallback = this.disabledModels.get(modelId);
+    const disabledMap = await this.readDisabledMap();
+    const disabledFallback = disabledMap[modelId];
     if (disabledFallback) {
       return {
         modelId,
@@ -340,7 +401,7 @@ export class BillingRuntimeEnvAdapter implements IRuntimeEnvironment {
         retryAfterMs: 0,
       };
     }
-    // model_not_foundï¼šèµ°å€™é€‰æ±
+    // model_not_found：走候选池（findSiblingModel 在同 provider 内挑近似替代）
     if (input.reason === "model_not_found" && input.failedModelId) {
       const fb = await this.findSiblingModel(input.failedModelId);
       if (fb) {

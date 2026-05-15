@@ -6,6 +6,7 @@ import {
   OnModuleDestroy,
 } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { CacheService } from "@/common/cache/cache.service";
 import { Decimal } from "@prisma/client/runtime/library";
 
 /**
@@ -99,6 +100,76 @@ export interface BudgetAlert {
   triggeredAt?: Date;
 }
 
+// ── JSON-serializable Redis shapes ───────────────────────────────────────────
+
+interface DimensionEntry {
+  cost: number;
+  tokens: number;
+  calls: number;
+  provider?: string;
+}
+
+interface HourlyBucketRedis {
+  cost: number;
+  tokens: number;
+  calls: number;
+  byUser: Record<string, DimensionEntry>;
+  byModule: Record<string, DimensionEntry>;
+  byModel: Record<string, DimensionEntry>;
+}
+
+interface UserAggregationRedis {
+  totalCost: number;
+  totalTokens: number;
+  callCount: number;
+  lastAccess: number;
+  byModule: Record<string, DimensionEntry>;
+  byModel: Record<string, DimensionEntry>;
+}
+
+interface BudgetConfigRedis {
+  threshold: number;
+  period: "daily" | "monthly";
+  lastTriggered?: string; // ISO string
+}
+
+// ── Redis key helpers ─────────────────────────────────────────────────────────
+
+/** 7 days TTL for hourly buckets */
+const HOURLY_TTL_SEC = 7 * 24 * 3600;
+/** 1 year TTL for user aggregations and budget configs */
+const LONG_TTL_SEC = 365 * 24 * 3600;
+
+function redisHourlyKey(hourBucketKey: string): string {
+  return `harness:cost-attribution:hourly:${hourBucketKey}`;
+}
+
+function redisUserKey(userId: string): string {
+  return `harness:cost-attribution:user:${userId}`;
+}
+
+function redisBudgetKey(userId: string): string {
+  return `harness:cost-attribution:budget:${userId}`;
+}
+
+function redisBudgetUserListKey(): string {
+  return "harness:cost-attribution:budget-users";
+}
+
+// ── Map ↔ Record conversion ────────────────────────────────────────────────────
+
+function mapToRecord<V>(m: Map<string, V>): Record<string, V> {
+  const rec: Record<string, V> = {};
+  for (const [k, v] of m.entries()) {
+    rec[k] = v;
+  }
+  return rec;
+}
+
+function recordToMap<V>(rec: Record<string, V>): Map<string, V> {
+  return new Map(Object.entries(rec));
+}
+
 /**
  * 小时桶聚合数据
  */
@@ -138,7 +209,19 @@ interface BudgetConfig {
 /**
  * 成本归因服务
  *
- * 追踪和分析 AI 调用成本，支持多维度聚合和预算告警
+ * 追踪和分析 AI 调用成本，支持多维度聚合和预算告警。
+ *
+ * 存储层（PR-E Phase 2 P1-2）：写穿透（write-through）到 Redis via CacheService。
+ * 读取始终从进程内 Map 完成，公共 API 签名保持同步不变。
+ * pod 重启时 onModuleInit 从 Redis 热加载近期数据，保证不丢 hourly bucket。
+ *
+ *   harness:cost-attribution:hourly:{YYYY-MM-DDTHH}  → HourlyBucketRedis  (TTL 7d)
+ *   harness:cost-attribution:user:{userId}            → UserAggregationRedis (TTL 1y)
+ *   harness:cost-attribution:budget:{userId}          → BudgetConfigRedis   (TTL 1y)
+ *   harness:cost-attribution:budget-users             → string[]             (TTL 1y)
+ *
+ * 降级：CacheService @Optional，不可用时行为与迁移前完全一致（进程内 Map only）。
+ * DB 持久化：pendingCostEvents → DB cron（PR-G Phase 3 范围）。
  */
 @Injectable()
 export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
@@ -163,9 +246,12 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
   private readonly FLUSH_INTERVAL_MS = 5 * 60 * 1000;
   private readonly FLUSH_BATCH_SIZE = 500;
 
-  constructor(@Optional() private readonly prisma?: PrismaService) {}
+  constructor(
+    @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly cache?: CacheService,
+  ) {}
 
-  onModuleInit() {
+  async onModuleInit(): Promise<void> {
     if (this.prisma) {
       this.flushInterval = setInterval(
         () => this.flushCostsToDB(),
@@ -175,9 +261,14 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
         `Cost DB persistence enabled, flush interval: ${this.FLUSH_INTERVAL_MS / 1000}s`,
       );
     }
+
+    // Hot-load recent state from Redis on pod restart (best-effort)
+    if (this.cache) {
+      await this.loadRecentStateFromRedis();
+    }
   }
 
-  onModuleDestroy() {
+  onModuleDestroy(): void {
     if (this.flushInterval) {
       clearInterval(this.flushInterval);
       this.flushInterval = null;
@@ -188,6 +279,162 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
       );
     }
   }
+
+  // ── Redis write-through (fire-and-forget) ─────────────────────────────────
+
+  private persistHourlyBucket(hourKey: string, bucket: HourlyBucketData): void {
+    if (!this.cache) return;
+    const payload: HourlyBucketRedis = {
+      cost: bucket.cost,
+      tokens: bucket.tokens,
+      calls: bucket.calls,
+      byUser: mapToRecord(bucket.byUser) as Record<string, DimensionEntry>,
+      byModule: mapToRecord(bucket.byModule) as Record<string, DimensionEntry>,
+      byModel: mapToRecord(bucket.byModel) as Record<string, DimensionEntry>,
+    };
+    void this.cache
+      .set(redisHourlyKey(hourKey), payload, HOURLY_TTL_SEC)
+      .catch((err: Error) =>
+        this.logger.warn(
+          `Redis hourly bucket write failed [${hourKey}]: ${err.message}`,
+        ),
+      );
+  }
+
+  private persistUserAgg(userId: string, agg: UserAggregation): void {
+    if (!this.cache) return;
+    const payload: UserAggregationRedis = {
+      totalCost: agg.totalCost,
+      totalTokens: agg.totalTokens,
+      callCount: agg.callCount,
+      lastAccess: agg.lastAccess,
+      byModule: mapToRecord(agg.byModule) as Record<string, DimensionEntry>,
+      byModel: mapToRecord(agg.byModel) as Record<string, DimensionEntry>,
+    };
+    void this.cache
+      .set(redisUserKey(userId), payload, LONG_TTL_SEC)
+      .catch((err: Error) =>
+        this.logger.warn(
+          `Redis user agg write failed [${userId}]: ${err.message}`,
+        ),
+      );
+  }
+
+  private persistBudgetConfig(userId: string, config: BudgetConfig): void {
+    if (!this.cache) return;
+    const payload: BudgetConfigRedis = {
+      threshold: config.threshold,
+      period: config.period,
+      lastTriggered: config.lastTriggered?.toISOString(),
+    };
+    void this.cache
+      .set(redisBudgetKey(userId), payload, LONG_TTL_SEC)
+      .then(async () => {
+        // Maintain budget-users list for enumeration
+        const existing =
+          (await this.cache!.get<string[]>(redisBudgetUserListKey())) ?? [];
+        if (!existing.includes(userId)) {
+          existing.push(userId);
+          await this.cache!.set(
+            redisBudgetUserListKey(),
+            existing,
+            LONG_TTL_SEC,
+          );
+        }
+      })
+      .catch((err: Error) =>
+        this.logger.warn(
+          `Redis budget config write failed [${userId}]: ${err.message}`,
+        ),
+      );
+  }
+
+  // ── Redis warm-up on pod restart ──────────────────────────────────────────
+
+  private async loadRecentStateFromRedis(): Promise<void> {
+    try {
+      await this.loadRecentBucketsFromRedis();
+      await this.loadBudgetConfigsFromRedis();
+      this.logger.log("Cost attribution state restored from Redis");
+    } catch (err) {
+      this.logger.warn(`Redis warm-up failed (non-fatal): ${err}`);
+    }
+  }
+
+  private async loadRecentBucketsFromRedis(): Promise<void> {
+    const now = new Date();
+    const maxHours = 7 * 24;
+    const keys: string[] = [];
+    const cursor = new Date(now.getTime() - maxHours * 60 * 60 * 1000);
+    cursor.setUTCMinutes(0, 0, 0);
+    while (cursor <= now) {
+      keys.push(this.getHourKey(cursor));
+      cursor.setUTCHours(cursor.getUTCHours() + 1);
+    }
+
+    let loaded = 0;
+    await Promise.all(
+      keys.map(async (hk) => {
+        const raw = await this.cache!.get<HourlyBucketRedis>(
+          redisHourlyKey(hk),
+        );
+        if (raw && !this.hourlyBuckets.has(hk)) {
+          this.hourlyBuckets.set(hk, {
+            cost: raw.cost,
+            tokens: raw.tokens,
+            calls: raw.calls,
+            byUser: recordToMap(raw.byUser) as Map<
+              string,
+              { cost: number; tokens: number; calls: number }
+            >,
+            byModule: recordToMap(raw.byModule) as Map<
+              string,
+              { cost: number; tokens: number; calls: number }
+            >,
+            byModel: recordToMap(raw.byModel) as Map<
+              string,
+              { cost: number; tokens: number; calls: number; provider: string }
+            >,
+          });
+          loaded++;
+        }
+      }),
+    );
+
+    if (loaded > 0) {
+      this.logger.log(`Restored ${loaded} hourly cost buckets from Redis`);
+    }
+  }
+
+  private async loadBudgetConfigsFromRedis(): Promise<void> {
+    const userIds =
+      (await this.cache!.get<string[]>(redisBudgetUserListKey())) ?? [];
+
+    let loaded = 0;
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const raw = await this.cache!.get<BudgetConfigRedis>(
+          redisBudgetKey(userId),
+        );
+        if (raw && !this.budgetConfigs.has(userId)) {
+          this.budgetConfigs.set(userId, {
+            threshold: raw.threshold,
+            period: raw.period,
+            lastTriggered: raw.lastTriggered
+              ? new Date(raw.lastTriggered)
+              : undefined,
+          });
+          loaded++;
+        }
+      }),
+    );
+
+    if (loaded > 0) {
+      this.logger.log(`Restored ${loaded} budget configs from Redis`);
+    }
+  }
+
+  // ── Public API (sync — signatures unchanged from pre-migration) ────────────
 
   /**
    * 记录成本事件
@@ -233,6 +480,9 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
       event.inputTokens + event.outputTokens,
       event.provider,
     );
+
+    // Write-through to Redis (fire-and-forget)
+    this.persistHourlyBucket(hourKey, bucket);
 
     // 更新用户聚合数据
     this.updateUserAggregation(event);
@@ -436,10 +686,10 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     threshold: number,
     period: "daily" | "monthly",
   ): void {
-    this.budgetConfigs.set(userId, {
-      threshold,
-      period,
-    });
+    const config: BudgetConfig = { threshold, period };
+    this.budgetConfigs.set(userId, config);
+    // Write-through to Redis (fire-and-forget)
+    this.persistBudgetConfig(userId, config);
     this.logger.log(
       `设置预算告警: userId=${userId}, threshold=${threshold} USD, period=${period}`,
     );
@@ -476,6 +726,8 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
 
       if (shouldTrigger) {
         config.lastTriggered = now;
+        // Write-through to Redis (fire-and-forget)
+        this.persistBudgetConfig(userId, config);
         this.logger.warn(
           `预算告警触发: userId=${userId}, threshold=${config.threshold}, currentSpend=${currentSpend}`,
         );
@@ -566,6 +818,8 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     this.pendingCostEvents.length = 0;
     this.logger.log("成本归因数据已重置");
   }
+
+  // ── Private helpers (unchanged from pre-migration) ─────────────────────────
 
   /**
    * 获取小时桶的键
@@ -665,6 +919,9 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
       event.estimatedCost,
       totalTokens,
     );
+
+    // Write-through to Redis (fire-and-forget)
+    this.persistUserAgg(event.userId, userAgg);
   }
 
   /**
@@ -674,7 +931,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     const now = new Date();
     const retentionMs = this.BUCKET_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
-    for (const [hourKey, _] of this.hourlyBuckets.entries()) {
+    for (const [hourKey] of this.hourlyBuckets.entries()) {
       const bucketTime = this.parseHourKey(hourKey);
       if (now.getTime() - bucketTime.getTime() > retentionMs) {
         this.hourlyBuckets.delete(hourKey);
@@ -695,7 +952,7 @@ export class CostAttributionService implements OnModuleInit, OnModuleDestroy {
     entries.sort((a, b) => a[1].lastAccess - b[1].lastAccess);
 
     const toRemove = entries.slice(0, entries.length - this.MAX_USERS);
-    for (const [userId, _] of toRemove) {
+    for (const [userId] of toRemove) {
       this.userAggregations.delete(userId);
     }
 

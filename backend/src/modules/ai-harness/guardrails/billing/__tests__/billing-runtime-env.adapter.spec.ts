@@ -1,4 +1,5 @@
 import { BillingRuntimeEnvAdapter } from "../billing-adapter";
+import type { CacheService } from "../../../../../common/cache/cache.service";
 
 function makeCredits(balance = 1000, todaySpent = 100) {
   return {
@@ -24,6 +25,25 @@ function makeRuntimeEnv(
     models: opts.models ?? {},
   };
   return { snapshot: jest.fn().mockResolvedValue(snap) };
+}
+
+/**
+ * In-memory CacheService mock that behaves like real get/set/del.
+ * Used to verify the Redis-backed disabledModels path.
+ */
+function makeCacheService(): jest.Mocked<
+  Pick<CacheService, "get" | "set" | "del">
+> {
+  const store = new Map<string, unknown>();
+  return {
+    get: jest.fn().mockImplementation(async (key: string) => store.get(key)),
+    set: jest.fn().mockImplementation(async (key: string, value: unknown) => {
+      store.set(key, value);
+    }),
+    del: jest.fn().mockImplementation(async (key: string) => {
+      store.delete(key);
+    }),
+  } as jest.Mocked<Pick<CacheService, "get" | "set" | "del">>;
 }
 
 describe("BillingRuntimeEnvAdapter", () => {
@@ -166,14 +186,31 @@ describe("BillingRuntimeEnvAdapter", () => {
       expect(avail.unavailableReason).toBe("not_subscribed");
     });
 
-    it("returns disabled model from disabledModels map", async () => {
+    it("returns disabled model from local disabledModels (no cache)", async () => {
       const adapter = new BillingRuntimeEnvAdapter(
         "u1",
         undefined,
         makeCredits() as never,
         makeRuntimeEnv() as never,
       );
-      adapter.markModelDisabled("gpt-4o", "claude-3");
+      await adapter.markModelDisabled("gpt-4o", "claude-3");
+      const avail = await adapter.getModelAvailability("gpt-4o");
+      expect(avail.available).toBe(false);
+      expect(avail.fallbackTo).toEqual(["claude-3"]);
+    });
+
+    it("returns disabled model from Redis disabledModels (with cache)", async () => {
+      const cache = makeCacheService();
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+        cache as never,
+      );
+      await adapter.markModelDisabled("gpt-4o", "claude-3");
+      // Verify data was written to Redis (set was called with the map)
+      expect(cache.set).toHaveBeenCalled();
       const avail = await adapter.getModelAvailability("gpt-4o");
       expect(avail.available).toBe(false);
       expect(avail.fallbackTo).toEqual(["claude-3"]);
@@ -197,17 +234,122 @@ describe("BillingRuntimeEnvAdapter", () => {
     });
   });
 
-  describe("markModelDisabled / getDisabledModels", () => {
-    it("tracks disabled models", () => {
+  describe("markModelDisabled / getDisabledModels — local (no CacheService)", () => {
+    it("tracks disabled models in local store", async () => {
       const adapter = new BillingRuntimeEnvAdapter(
         "u1",
         undefined,
         makeCredits() as never,
         makeRuntimeEnv() as never,
       );
-      adapter.markModelDisabled("m1", "m2");
-      const map = adapter.getDisabledModels();
+      await adapter.markModelDisabled("m1", "m2");
+      const map = await adapter.getDisabledModels();
       expect(map.get("m1")).toBe("m2");
+    });
+
+    it("overwrites existing entry with new fallback", async () => {
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+      );
+      await adapter.markModelDisabled("m1", "m2");
+      await adapter.markModelDisabled("m1", "m3");
+      const map = await adapter.getDisabledModels();
+      expect(map.get("m1")).toBe("m3");
+    });
+
+    it("tracks multiple disabled models independently", async () => {
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+      );
+      await adapter.markModelDisabled("modelA", "fallbackA");
+      await adapter.markModelDisabled("modelB", "fallbackB");
+      const map = await adapter.getDisabledModels();
+      expect(map.get("modelA")).toBe("fallbackA");
+      expect(map.get("modelB")).toBe("fallbackB");
+      expect(map.size).toBe(2);
+    });
+  });
+
+  describe("markModelDisabled / getDisabledModels — Redis (with CacheService)", () => {
+    it("persists disabled models to Redis", async () => {
+      const cache = makeCacheService();
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+        cache as never,
+      );
+      await adapter.markModelDisabled("gpt-4o", "claude-3");
+      // set must have been called (Redis write)
+      expect(cache.set).toHaveBeenCalledTimes(1);
+      const [key, value] = (cache.set as jest.Mock).mock.calls[0] as [
+        string,
+        Record<string, string>,
+        number,
+      ];
+      expect(key).toMatch(/^harness:billing:disabled-models:/);
+      expect(value["gpt-4o"]).toBe("claude-3");
+    });
+
+    it("reads back from Redis across calls", async () => {
+      const cache = makeCacheService();
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+        cache as never,
+      );
+      await adapter.markModelDisabled("gpt-4o", "claude-3");
+      const map = await adapter.getDisabledModels();
+      // value comes from Redis store, not written by same mock call
+      expect(map.get("gpt-4o")).toBe("claude-3");
+    });
+
+    it("two adapter instances use isolated Redis keys", async () => {
+      const cache = makeCacheService();
+      const adapterA = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+        cache as never,
+      );
+      const adapterB = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+        cache as never,
+      );
+      await adapterA.markModelDisabled("gpt-4o", "fallback-a");
+      await adapterB.markModelDisabled("gpt-4o", "fallback-b");
+
+      const mapA = await adapterA.getDisabledModels();
+      const mapB = await adapterB.getDisabledModels();
+      expect(mapA.get("gpt-4o")).toBe("fallback-a");
+      expect(mapB.get("gpt-4o")).toBe("fallback-b");
+    });
+
+    it("applies TTL of 4h when writing to Redis", async () => {
+      const cache = makeCacheService();
+      const adapter = new BillingRuntimeEnvAdapter(
+        "u1",
+        undefined,
+        makeCredits() as never,
+        makeRuntimeEnv() as never,
+        cache as never,
+      );
+      await adapter.markModelDisabled("m1", "m2");
+      const ttlArg = (cache.set as jest.Mock).mock.calls[0][2] as number;
+      expect(ttlArg).toBe(4 * 3600);
     });
   });
 

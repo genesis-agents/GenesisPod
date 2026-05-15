@@ -1,5 +1,7 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
 import { CACHE_MANAGER, Cache } from "@nestjs/cache-manager";
+import type { RedisStore } from "cache-manager-ioredis-yet";
+import type { Redis, Cluster } from "ioredis";
 
 /**
  * 缓存键前缀，用于命名空间隔离
@@ -189,5 +191,153 @@ export class CacheService {
    */
   buildKey(prefix: CachePrefix, ...parts: string[]): string {
     return `${prefix}${parts.join(":")}`;
+  }
+
+  // ── Redis SET operations (sadd / srem / sismember / smembers) ─────────────
+  //
+  // 原生 ioredis SET 命令：SADD 返回新增成员数（0 = 已存在，1 = 新加），
+  // 原子操作，多 pod 安全。
+  // 降级：REDIS_URL 未配置时走 in-memory JSON-array 模拟（开发/测试环境）。
+  //
+  // 注意：in-memory 模式下模拟不是进程级原子，仅用于单 pod 本地开发。
+
+  /** 提取底层 ioredis 客户端，无 Redis 时返回 null */
+  private getRedisClient(): (Redis | Cluster) | null {
+    try {
+      const mgr = this.cacheManager as unknown as { store?: RedisStore };
+      return mgr.store?.client ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * SADD key member — 添加成员到 SET
+   * @returns 1 表示成员是新加的（即"加锁成功"），0 表示已存在
+   */
+  async sadd(key: string, member: string): Promise<number> {
+    const client = this.getRedisClient();
+    if (client) {
+      try {
+        return await client.sadd(key, member);
+      } catch (error) {
+        this.logger.warn(`Cache sadd failed for key ${key}: ${error}`);
+        return 0;
+      }
+    }
+    // in-memory fallback
+    const members = (await this.get<string[]>(key)) ?? [];
+    if (members.includes(member)) return 0;
+    members.push(member);
+    await this.set(key, members, CacheTTL.LONG);
+    return 1;
+  }
+
+  /**
+   * SREM key member — 从 SET 移除成员
+   * @returns 1 表示成员已移除，0 表示成员不存在
+   */
+  async srem(key: string, member: string): Promise<number> {
+    const client = this.getRedisClient();
+    if (client) {
+      try {
+        return await client.srem(key, member);
+      } catch (error) {
+        this.logger.warn(`Cache srem failed for key ${key}: ${error}`);
+        return 0;
+      }
+    }
+    // in-memory fallback
+    const members = (await this.get<string[]>(key)) ?? [];
+    const idx = members.indexOf(member);
+    if (idx === -1) return 0;
+    members.splice(idx, 1);
+    if (members.length === 0) {
+      await this.del(key);
+    } else {
+      await this.set(key, members, CacheTTL.LONG);
+    }
+    return 1;
+  }
+
+  /**
+   * SISMEMBER key member — 检查成员是否在 SET 中
+   * @returns true 表示存在
+   */
+  async sismember(key: string, member: string): Promise<boolean> {
+    const client = this.getRedisClient();
+    if (client) {
+      try {
+        const result = await client.sismember(key, member);
+        return result === 1;
+      } catch (error) {
+        this.logger.warn(`Cache sismember failed for key ${key}: ${error}`);
+        return false;
+      }
+    }
+    // in-memory fallback
+    const members = (await this.get<string[]>(key)) ?? [];
+    return members.includes(member);
+  }
+
+  /**
+   * SMEMBERS key — 获取 SET 所有成员
+   * @returns 成员数组，key 不存在时返回空数组
+   */
+  async smembers(key: string): Promise<string[]> {
+    const client = this.getRedisClient();
+    if (client) {
+      try {
+        return await client.smembers(key);
+      } catch (error) {
+        this.logger.warn(`Cache smembers failed for key ${key}: ${error}`);
+        return [];
+      }
+    }
+    // in-memory fallback
+    return (await this.get<string[]>(key)) ?? [];
+  }
+
+  /**
+   * INCRBY key delta — 原子累加整数计数器
+   *
+   * 用途：token 用量计数 / 配额消耗等并发安全场景，避免 read-modify-write 竞态。
+   * Redis 模式：单条 INCRBY 命令原子；多 pod 安全。
+   * in-memory fallback：用 Promise mutex 串行化 read-modify-write（同 pod 内安全）。
+   *
+   * @returns 累加后的新值
+   */
+  async incrby(key: string, delta: number): Promise<number> {
+    const client = this.getRedisClient();
+    if (client) {
+      try {
+        return await client.incrby(key, delta);
+      } catch (error) {
+        this.logger.warn(`Cache incrby failed for key ${key}: ${error}`);
+        return 0;
+      }
+    }
+    // in-memory fallback：read-modify-write（仅单 pod 安全；by design CacheService
+    // 无 Redis 时即开发环境单 pod）
+    const current = (await this.get<number>(key)) ?? 0;
+    const next = current + delta;
+    await this.set(key, next, CacheTTL.LONG);
+    return next;
+  }
+
+  /**
+   * EXPIRE key seconds — 设置 key 过期时间（秒）
+   * 仅在 Redis 模式下有效；in-memory 模式无操作（由 set 的 ttl 控制）
+   */
+  async expire(key: string, seconds: number): Promise<void> {
+    const client = this.getRedisClient();
+    if (client) {
+      try {
+        await client.expire(key, seconds);
+      } catch (error) {
+        this.logger.warn(`Cache expire failed for key ${key}: ${error}`);
+      }
+    }
+    // in-memory: ttl already set via sadd's set() call; no-op here
   }
 }

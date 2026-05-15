@@ -361,7 +361,7 @@ export class KernelAdminController {
     description: "Period in hours (default 24)",
   })
   @ApiResponse({ status: 200, description: "Cost report" })
-  getCostReport(@Query("hours") hours?: string) {
+  async getCostReport(@Query("hours") hours?: string) {
     const periodHours = parseInt(hours ?? "24", 10) || 24;
     const raw = this.kernelApi.getCostReport({ periodHours });
 
@@ -388,7 +388,7 @@ export class KernelAdminController {
     description: "Hours of history (default 24)",
   })
   @ApiResponse({ status: 200, description: "Hourly cost trend" })
-  getCostTrend(@Query("hours") hours?: string) {
+  async getCostTrend(@Query("hours") hours?: string) {
     const h = parseInt(hours ?? "24", 10) || 24;
     const trend = this.kernelApi.getHourlyTrend(h);
     return { trend, total: trend.length };

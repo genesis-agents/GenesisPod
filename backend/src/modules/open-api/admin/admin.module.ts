@@ -27,6 +27,7 @@ import { AdminModelRecommendationsController } from "./recommendations/model-rec
 import { ObservabilityAdminController } from "./observability/observability-admin.controller";
 import { HarnessInspectorController } from "./harness/harness-inspector.controller";
 import { EvalAdminController } from "./eval/eval-admin.controller";
+import { DreamingAdminController } from "./dreaming/dreaming-admin.controller";
 import { MCPExternalAdminController } from "../mcp-admin/mcp-external-admin.controller";
 import { AgentConfigService } from "../../ai-harness/facade";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
@@ -80,6 +81,7 @@ import {
     AdminModelRecommendationsController, // /admin/ai-models/auto-configure + /admin/model-recommendations
     ObservabilityAdminController, // /admin/traces/* routes (PR-X17: migrated from ai-harness/tracing)
     EvalAdminController, // /admin/evals/* routes for eval runs and experiments
+    DreamingAdminController, // /admin/dreaming/* 2026-05-15 PR-I Dreaming（主动反思）骨架
     AiProvidersAdminController, // /admin/ai-providers/* PR-1 数据驱动 provider catalog
     ApiFormatsAdminController, // /admin/api-formats/* 2026-05-11 P3 ApiFormat CRUD
     ModelTypesAdminController, // /admin/model-types/* 2026-05-11 P3 ModelType CRUD

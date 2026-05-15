@@ -1,10 +1,28 @@
 /**
- * AI Engine - Rate Limiter
+ * AI Harness - Rate Limiter
  * 速率限制器实现
+ *
+ * 存储层：Redis（通过 CacheService），multi-pod 一致。
+ * Key 格式：
+ *   harness:rate-limit:entries:{fullKey}  → number[] (请求时间戳数组，滑动窗口)
+ *
+ * configs Map 保持 in-process（每个 pod 启动时通过 registerLimit 填充，
+ * 内容相同，只读，不需要跨 pod 同步）。
+ *
+ * entries 从 in-memory Map 迁移到 Redis：
+ *   - check / consume / reset / getStatus 全部 async
+ *   - 滑动窗口：存储请求时间戳数组；check 过滤过期后计数
+ *   - TTL = windowMs * 2 / 1000（秒）——Redis 自动 cleanup，删除 setInterval
  */
 
-import { Injectable, Logger, Optional } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { CacheService } from "@/common/cache/cache.service";
+
+// ── Redis key helpers ──────────────────────────────────────────────────────
+
+function entriesKey(fullKey: string): string {
+  return `harness:rate-limit:entries:${fullKey}`;
+}
 
 /**
  * 速率限制结果
@@ -67,21 +85,14 @@ export interface RateLimitConfig {
 }
 
 /**
- * 速率限制条目
- */
-interface RateLimitEntry {
-  count: number;
-  resetAt: number;
-  requests: number[]; // 滑动窗口用
-}
-
-/**
  * 速率限制器
+ *
+ * 公共方法全部 async，状态存储在 Redis（通过 CacheService），支持 multi-pod 一致计数。
+ * configs Map 保持 in-process（启动时 registerLimit 填充，只读，不需跨 pod 同步）。
  */
 @Injectable()
 export class RateLimiter {
-  private readonly logger = new Logger(RateLimiter.name);
-  private readonly entries = new Map<string, RateLimitEntry>();
+  // in-process only：启动时填充，只读，无需 Redis
   private readonly configs = new Map<string, RateLimitConfig>();
 
   /**
@@ -94,177 +105,184 @@ export class RateLimiter {
     keyPrefix: "ratelimit",
   };
 
-  constructor(@Optional() private readonly cacheService?: CacheService) {
-    // 定期清理过期条目
-    setInterval(() => this.cleanup(), 60000).unref();
-  }
+  constructor(private readonly cacheService: CacheService) {}
+
+  // ── Private helpers ──────────────────────────────────────────────────────
 
   /**
-   * 同步条目到 Redis（CacheService 内部已容错，失败不影响主流程）
+   * 从 Redis 读取时间戳列表，过滤窗口外条目，返回活跃列表
    */
-  private syncEntryToRedis(
-    config: RateLimitConfig,
-    key: string,
-    entry: RateLimitEntry,
-  ): void {
-    if (!this.cacheService) return;
-    const rKey = `ai:ratelimit:${config.keyPrefix}:${key}`;
-    const ttl = Math.ceil((config.windowMs * 2) / 1000);
-    void this.cacheService.set(
-      rKey,
-      { count: entry.count, resetAt: entry.resetAt, requests: entry.requests },
-      ttl,
-    );
+  private async readActiveTimestamps(
+    redisKey: string,
+    windowStart: number,
+  ): Promise<number[]> {
+    const raw = await this.cacheService.get<number[]>(redisKey);
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((t) => t > windowStart);
   }
 
   /**
-   * 注册限制配置
+   * 将时间戳列表写回 Redis，TTL = windowMs * 2（秒）
+   */
+  private async writeTimestamps(
+    redisKey: string,
+    timestamps: number[],
+    windowMs: number,
+  ): Promise<void> {
+    const ttlSec = Math.ceil((windowMs * 2) / 1000);
+    await this.cacheService.set(redisKey, timestamps, ttlSec);
+  }
+
+  private resolveConfig(limitName?: string): RateLimitConfig {
+    return limitName
+      ? (this.configs.get(limitName) ?? RateLimiter.DEFAULT_CONFIG)
+      : RateLimiter.DEFAULT_CONFIG;
+  }
+
+  // ── Public API ───────────────────────────────────────────────────────────
+
+  /**
+   * 注册限制配置（in-process，启动时调用）
    */
   registerLimit(name: string, config: Partial<RateLimitConfig>): void {
     this.configs.set(name, { ...RateLimiter.DEFAULT_CONFIG, ...config });
   }
 
   /**
-   * 检查速率限制
+   * 检查速率限制（不消费配额）
    */
-  check(key: string, limitName?: string): RateLimitResult {
-    const config = limitName
-      ? this.configs.get(limitName) || RateLimiter.DEFAULT_CONFIG
-      : RateLimiter.DEFAULT_CONFIG;
-
+  async check(key: string, limitName?: string): Promise<RateLimitResult> {
+    const config = this.resolveConfig(limitName);
     const fullKey = `${config.keyPrefix}:${key}`;
     const now = Date.now();
+    const windowStart = now - config.windowMs;
 
-    let entry = this.entries.get(fullKey);
+    const timestamps = await this.readActiveTimestamps(
+      entriesKey(fullKey),
+      windowStart,
+    );
+    const used = timestamps.length;
+    const remaining = Math.max(0, config.maxRequests - used);
+    const allowed = used < config.maxRequests;
 
-    // 创建新条目或重置过期条目
-    if (!entry || entry.resetAt <= now) {
-      entry = {
-        count: 0,
-        resetAt: now + config.windowMs,
-        requests: [],
-      };
-      this.entries.set(fullKey, entry);
-    }
-
-    // 滑动窗口处理
-    if (config.sliding && entry.requests) {
-      // 移除窗口外的请求
-      const windowStart = now - config.windowMs;
-      entry.requests = entry.requests.filter((t) => t > windowStart);
-      entry.count = entry.requests.length;
-    }
-
-    const remaining = Math.max(0, config.maxRequests - entry.count);
-    const allowed = entry.count < config.maxRequests;
+    // resetAt: 如有活跃请求则为最早请求 + window，否则 now + window
+    const earliest = timestamps.length > 0 ? Math.min(...timestamps) : now;
+    const resetAt = earliest + config.windowMs;
 
     return {
       allowed,
       remaining,
-      resetAt: entry.resetAt,
-      retryAfter: allowed ? undefined : entry.resetAt - now,
-      used: entry.count,
+      resetAt,
+      retryAfter: allowed ? undefined : resetAt - now,
+      used,
       limit: config.maxRequests,
     };
   }
 
   /**
-   * 消费配额
+   * 消费配额（check + 写入时间戳）
    */
-  consume(key: string, limitName?: string, count = 1): RateLimitResult {
-    const result = this.check(key, limitName);
-
-    if (!result.allowed) {
-      return result;
-    }
-
-    const config = limitName
-      ? this.configs.get(limitName) || RateLimiter.DEFAULT_CONFIG
-      : RateLimiter.DEFAULT_CONFIG;
-
+  async consume(
+    key: string,
+    limitName?: string,
+    count = 1,
+  ): Promise<RateLimitResult> {
+    const config = this.resolveConfig(limitName);
     const fullKey = `${config.keyPrefix}:${key}`;
-    const entry = this.entries.get(fullKey)!;
     const now = Date.now();
+    const windowStart = now - config.windowMs;
+    const rKey = entriesKey(fullKey);
 
-    // 更新计数
-    entry.count += count;
+    const timestamps = await this.readActiveTimestamps(rKey, windowStart);
+    const used = timestamps.length;
 
-    // 滑动窗口记录请求时间
-    if (config.sliding) {
-      for (let i = 0; i < count; i++) {
-        entry.requests.push(now);
-      }
+    if (used >= config.maxRequests) {
+      const earliest = timestamps.length > 0 ? Math.min(...timestamps) : now;
+      const resetAt = earliest + config.windowMs;
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt,
+        retryAfter: resetAt - now,
+        used,
+        limit: config.maxRequests,
+      };
     }
 
-    // Sync to Redis (fire-and-forget, CacheService handles errors internally)
-    this.syncEntryToRedis(config, key, entry);
+    // 追加本次请求的时间戳（count 个）
+    const newTimestamps = [...timestamps];
+    for (let i = 0; i < count; i++) {
+      newTimestamps.push(now);
+    }
+
+    await this.writeTimestamps(rKey, newTimestamps, config.windowMs);
+
+    const newUsed = newTimestamps.length;
+    const earliest =
+      newTimestamps.length > 0 ? Math.min(...newTimestamps) : now;
+    const resetAt = earliest + config.windowMs;
 
     return {
       allowed: true,
-      remaining: Math.max(0, config.maxRequests - entry.count),
-      resetAt: entry.resetAt,
-      used: entry.count,
+      remaining: Math.max(0, config.maxRequests - newUsed),
+      resetAt,
+      used: newUsed,
       limit: config.maxRequests,
     };
   }
 
   /**
-   * 重置限制
+   * 重置限制（删除 Redis key）
    */
-  reset(key: string, limitName?: string): void {
-    const config = limitName
-      ? this.configs.get(limitName) || RateLimiter.DEFAULT_CONFIG
-      : RateLimiter.DEFAULT_CONFIG;
-
+  async reset(key: string, limitName?: string): Promise<void> {
+    const config = this.resolveConfig(limitName);
     const fullKey = `${config.keyPrefix}:${key}`;
-    this.entries.delete(fullKey);
-
-    // Delete from Redis
-    if (this.cacheService) {
-      void this.cacheService.del(`ai:ratelimit:${config.keyPrefix}:${key}`);
-    }
+    await this.cacheService.del(entriesKey(fullKey));
   }
 
   /**
-   * 获取当前状态
+   * 获取当前状态（无副作用的只读 check）
    */
-  getStatus(key: string, limitName?: string): RateLimitResult | null {
-    const config = limitName
-      ? this.configs.get(limitName) || RateLimiter.DEFAULT_CONFIG
-      : RateLimiter.DEFAULT_CONFIG;
-
+  async getStatus(
+    key: string,
+    limitName?: string,
+  ): Promise<RateLimitResult | null> {
+    const config = this.resolveConfig(limitName);
     const fullKey = `${config.keyPrefix}:${key}`;
-    const entry = this.entries.get(fullKey);
+    const now = Date.now();
+    const windowStart = now - config.windowMs;
 
-    if (!entry) {
+    const raw = await this.cacheService.get<number[]>(entriesKey(fullKey));
+    // key 不存在时返回 null（与原行为一致）
+    if (!Array.isArray(raw) || raw.length === 0) {
       return null;
     }
 
-    return this.check(key, limitName);
-  }
-
-  /**
-   * 清理过期条目
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    let cleaned = 0;
-
-    for (const [key, entry] of this.entries) {
-      if (entry.resetAt <= now) {
-        this.entries.delete(key);
-        cleaned++;
-      }
+    const timestamps = raw.filter((t) => t > windowStart);
+    if (timestamps.length === 0) {
+      // 所有条目已过期
+      return null;
     }
 
-    if (cleaned > 0) {
-      this.logger.debug(`Cleaned up ${cleaned} expired rate limit entries`);
-    }
+    const used = timestamps.length;
+    const remaining = Math.max(0, config.maxRequests - used);
+    const allowed = used < config.maxRequests;
+    const earliest = Math.min(...timestamps);
+    const resetAt = earliest + config.windowMs;
+
+    return {
+      allowed,
+      remaining,
+      resetAt,
+      retryAfter: allowed ? undefined : resetAt - now,
+      used,
+      limit: config.maxRequests,
+    };
   }
 }
 
 /**
- * Token 桶限流器
+ * Token 桶限流器（本地 in-process，无需 Redis）
  */
 export class TokenBucket {
   private tokens: number;

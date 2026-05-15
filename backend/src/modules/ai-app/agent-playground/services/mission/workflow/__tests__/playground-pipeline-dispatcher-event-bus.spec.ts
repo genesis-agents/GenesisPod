@@ -23,6 +23,24 @@ import {
   type IBroadcastAdapter,
   type DomainEvent,
 } from "@/modules/ai-harness/facade";
+import { CacheService } from "@/common/cache/cache.service";
+
+/**
+ * 2026-05-15 Round 1 P1 fix: DomainEventBus 新增 CacheService 依赖（跨 pod 事件
+ * 去重 + throttle）。spec 注入 fake cache，行为等价单 pod 内存模式。
+ */
+class FakeCacheService {
+  private readonly store = new Map<string, unknown>();
+  async get<T>(key: string): Promise<T | undefined> {
+    return this.store.has(key) ? (this.store.get(key) as T) : undefined;
+  }
+  async set<T>(key: string, value: T): Promise<void> {
+    this.store.set(key, value);
+  }
+  async del(key: string): Promise<void> {
+    this.store.delete(key);
+  }
+}
 
 describe("playground dispatcher → eventBus path (anti-bypass regression)", () => {
   let eventBus: DomainEventBus;
@@ -31,7 +49,11 @@ describe("playground dispatcher → eventBus path (anti-bypass regression)", () 
 
   beforeEach(async () => {
     const moduleRef = await Test.createTestingModule({
-      providers: [DomainEventBus, DomainEventRegistry],
+      providers: [
+        DomainEventBus,
+        DomainEventRegistry,
+        { provide: CacheService, useValue: new FakeCacheService() },
+      ],
     }).compile();
     eventBus = moduleRef.get(DomainEventBus);
     registry = moduleRef.get(DomainEventRegistry);

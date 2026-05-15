@@ -40,8 +40,39 @@ jest.mock("../../realtime/abstractions/progress-tracker.interface", () => {
 
 import { ProgressTrackerService } from "../progress-tracker.service";
 import { EventBusService } from "../event-bus.service";
+import { CacheService } from "@/common/cache/cache.service";
 import type { CreateTrackedTaskRequest } from "../../realtime/abstractions/progress-tracker.interface";
 import type { RoomConfig } from "../../realtime/abstractions/event-emitter.interface";
+
+// ── In-memory CacheService mock ───────────────────────────────────────────
+
+/**
+ * Simple in-memory mock that mirrors CacheService get/set/del semantics.
+ * Values are deep-cloned on write/read to prevent accidental mutation.
+ */
+class FakeCacheService {
+  private readonly store = new Map<string, unknown>();
+
+  async get<T>(key: string): Promise<T | undefined> {
+    const v = this.store.get(key);
+    return v !== undefined ? (JSON.parse(JSON.stringify(v)) as T) : undefined;
+  }
+
+  async set<T>(key: string, value: T): Promise<void> {
+    this.store.set(key, JSON.parse(JSON.stringify(value)));
+  }
+
+  async del(key: string): Promise<void> {
+    this.store.delete(key);
+  }
+
+  /** Test helper: clear all entries between tests */
+  clear(): void {
+    this.store.clear();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const makeRoomConfig = (): RoomConfig => ({
   roomId: "room-1",
@@ -64,23 +95,29 @@ const makeRequest = (id = "task-1"): CreateTrackedTaskRequest => ({
 describe("ProgressTrackerService", () => {
   let service: ProgressTrackerService;
   let mockEventBus: jest.Mocked<Pick<EventBusService, "emitProgress">>;
+  let fakeCache: FakeCacheService;
 
   beforeEach(async () => {
     mockEventBus = {
       emitProgress: jest.fn(),
     };
+    fakeCache = new FakeCacheService();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ProgressTrackerService,
         { provide: EventBusService, useValue: mockEventBus },
+        { provide: CacheService, useValue: fakeCache },
       ],
     }).compile();
 
     service = module.get<ProgressTrackerService>(ProgressTrackerService);
   });
 
-  afterEach(() => jest.clearAllMocks());
+  afterEach(() => {
+    fakeCache.clear();
+    jest.clearAllMocks();
+  });
 
   // ---------------------------------------------------------------------------
   // create()
@@ -133,6 +170,17 @@ describe("ProgressTrackerService", () => {
       service.create(makeRequest("task-stored"));
       expect(service.getTask("task-stored")).not.toBeNull();
     });
+
+    it("should write the task to Redis on creation", async () => {
+      service.create(makeRequest("redis-write"));
+      // Allow microtask queue to flush so fire-and-forget cache.set resolves
+      await Promise.resolve();
+      const cached = await fakeCache.get<{ id: string }>(
+        "harness:progress-tracker:task:redis-write",
+      );
+      expect(cached).toBeDefined();
+      expect(cached?.id).toBe("redis-write");
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -152,6 +200,16 @@ describe("ProgressTrackerService", () => {
     it("should do nothing (no throw) when task does not exist", () => {
       expect(() => service.start("nonexistent")).not.toThrow();
       expect(mockEventBus.emitProgress).not.toHaveBeenCalled();
+    });
+
+    it("should persist the updated task to Redis after start", async () => {
+      service.create(makeRequest("t-start-redis"));
+      service.start("t-start-redis");
+      await Promise.resolve();
+      const cached = await fakeCache.get<{ status: string }>(
+        "harness:progress-tracker:task:t-start-redis",
+      );
+      expect(cached?.status).toBe("running");
     });
   });
 
@@ -409,6 +467,17 @@ describe("ProgressTrackerService", () => {
     it("should do nothing when task does not exist", () => {
       expect(() => service.complete("ghost")).not.toThrow();
       expect(mockEventBus.emitProgress).not.toHaveBeenCalled();
+    });
+
+    it("should persist completed status to Redis", async () => {
+      service.create(makeRequest("t-complete-redis"));
+      service.complete("t-complete-redis");
+      await Promise.resolve();
+      const cached = await fakeCache.get<{ status: string; progress: number }>(
+        "harness:progress-tracker:task:t-complete-redis",
+      );
+      expect(cached?.status).toBe("completed");
+      expect(cached?.progress).toBe(100);
     });
   });
 
@@ -672,6 +741,24 @@ describe("ProgressTrackerService", () => {
       // The callbacks maps should be cleared
       expect(service.getTask("cleanup-cbs")).toBeNull();
     });
+
+    it("should evict cleaned tasks from Redis", async () => {
+      service.create(makeRequest("evict-task"));
+      service.complete("evict-task");
+      service.getTask("evict-task")!.completedAt = new Date(
+        Date.now() - 2 * 60 * 60 * 1000,
+      );
+      // Ensure it was written first
+      await Promise.resolve();
+
+      service.cleanup();
+      await Promise.resolve();
+
+      const cached = await fakeCache.get(
+        "harness:progress-tracker:task:evict-task",
+      );
+      expect(cached).toBeUndefined();
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -816,6 +903,32 @@ describe("ProgressTrackerService", () => {
 
       const task = service.getTask("t-zero-weight")!;
       expect(task.progress).toBe(0);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Redis write-through — cross-cutting concern
+  // ---------------------------------------------------------------------------
+  describe("Redis write-through", () => {
+    it("should reflect latest task state in Redis after mutations", async () => {
+      service.create(makeRequest("redis-state"));
+      service.start("redis-state");
+      service.startPhase("redis-state", "phase-a");
+      await Promise.resolve();
+
+      const cached = await fakeCache.get<{
+        status: string;
+        currentPhaseId: string;
+      }>("harness:progress-tracker:task:redis-state");
+      expect(cached?.status).toBe("running");
+      expect(cached?.currentPhaseId).toBe("phase-a");
+    });
+
+    it("should not throw when Redis write fails", () => {
+      jest
+        .spyOn(fakeCache, "set")
+        .mockRejectedValueOnce(new Error("Redis down"));
+      expect(() => service.create(makeRequest("redis-fail"))).not.toThrow();
     });
   });
 });

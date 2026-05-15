@@ -23,7 +23,7 @@ import { ContextManager } from "../runner/context/context-manager";
 import { ContextCompactor } from "../runner/context/context-compactor";
 import { PriorityPruner } from "../runner/context/priority-pruner";
 import { MemoryContextBindingService } from "../memory/indexing/memory-context-binding.service";
-import { CheckpointService } from "../memory/checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../memory/checkpoint/checkpoint.service";
 import { InMemoryCheckpointStore } from "../memory/checkpoint/in-memory-checkpoint-store";
 import { SkillLearner } from "../agents/learning/skill-learner";
 import { ToolRegistry } from "../../ai-engine/tools/registry/tool.registry";
@@ -67,9 +67,9 @@ describe("HarnessModule (NestJS DI integration)", () => {
         SubagentSpawner,
         InMemoryCheckpointStore,
         {
-          provide: CheckpointService,
+          provide: AgentStepCheckpointService,
           useFactory: (store: InMemoryCheckpointStore) =>
-            new CheckpointService(store),
+            new AgentStepCheckpointService(store),
           inject: [InMemoryCheckpointStore],
         },
         SkillLearner,
@@ -122,9 +122,9 @@ describe("HarnessModule (NestJS DI integration)", () => {
     expect(facade.hooks).toBe(hooks);
   });
 
-  it("CheckpointService is injected with InMemoryCheckpointStore", async () => {
+  it("AgentStepCheckpointService is injected with InMemoryCheckpointStore", async () => {
     const moduleRef = await build();
-    const svc = moduleRef.get(CheckpointService);
+    const svc = moduleRef.get(AgentStepCheckpointService);
     // Roundtrip a snapshot to prove store is real
     const cp = await svc.snapshot({
       agentId: "test-agent",

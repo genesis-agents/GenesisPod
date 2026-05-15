@@ -26,7 +26,7 @@ import { ContextEnvelope } from "./context-envelope";
 import type { MemoryContextBindingService } from "../../memory/indexing/memory-context-binding.service";
 import type { SkillActivator } from "../skill-runtime/skill-activator";
 import type { ISubagentSpawner } from "../abstractions";
-import type { CheckpointService } from "../../memory/checkpoint/checkpoint.service";
+import type { AgentStepCheckpointService } from "../../memory/checkpoint/checkpoint.service";
 import type { AgentEventStore } from "../../memory/checkpoint/agent-event-store";
 import { BudgetAccountant } from "../../guardrails/budget/budget-accountant";
 import type { AgentRegistry } from "../../handoffs/agent-registry";
@@ -39,7 +39,7 @@ export interface HarnessedAgentInit {
   memoryBridge?: MemoryContextBindingService;
   skillActivator?: SkillActivator;
   subagentSpawner?: ISubagentSpawner;
-  checkpointService?: CheckpointService;
+  checkpointService?: AgentStepCheckpointService;
   /** 每 N 个 action_executed 事件自动 snapshot（默认 0 = 关闭） */
   checkpointEveryNActions?: number;
   /**
@@ -110,7 +110,7 @@ export class HarnessedAgent implements IAgent {
   private readonly memoryBridge?: MemoryContextBindingService;
   private readonly skillActivator?: SkillActivator;
   private readonly subagentSpawner?: ISubagentSpawner;
-  private readonly checkpointService?: CheckpointService;
+  private readonly checkpointService?: AgentStepCheckpointService;
   private readonly checkpointEveryNActions: number;
   private readonly budget?: BudgetAccountant;
   private readonly eventStore?: AgentEventStore;

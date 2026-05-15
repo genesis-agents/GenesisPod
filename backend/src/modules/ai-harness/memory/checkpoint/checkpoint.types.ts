@@ -48,7 +48,7 @@ export interface ICheckpointStore {
   clear(): Promise<void>;
 }
 
-/** CheckpointService 对外接口 */
+/** AgentStepCheckpointService 对外接口 */
 export interface ICheckpointService {
   snapshot(params: {
     agentId: AgentId;

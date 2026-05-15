@@ -136,7 +136,7 @@ describe("Sediment Zone Surface Contract (Rev 5 / S0-5)", () => {
       // 仅 import-time check:Z2 路径必须 export CheckpointStore 类型。
       const mod =
         await import("@/modules/ai-harness/memory/mission-checkpoint");
-      // export 包含 MissionCheckpointService(运行时)与 CheckpointStore 类型 -
+      // export 包含 MissionCheckpointService（运行时）与 CheckpointStore 类型 -
       // 后者是纯 type 不在 runtime keys,运行时可见的是 service / store impl。
       expect(typeof mod).toBe("object");
     });

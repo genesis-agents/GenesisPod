@@ -1,7 +1,7 @@
 /**
  * HarnessFacade — Harness 层对外的唯一入口
  *
- * 组合 AgentFactory + HookRegistry + CheckpointService。
+ * 组合 AgentFactory + HookRegistry + AgentStepCheckpointService。
  * App 层只与本 facade 打交道，禁止穿透到 harness/core 内部。
  */
 
@@ -19,7 +19,7 @@ import type {
 import { AgentFactory } from "../agents/core/agent-factory";
 import { HookRegistry } from "../agents/core/hook-registry";
 import { LoopRegistry } from "../runner/loop/loop-registry";
-import { CheckpointService } from "../memory/checkpoint/checkpoint.service";
+import { AgentStepCheckpointService } from "../memory/checkpoint/checkpoint.service";
 import type { ICheckpoint } from "../memory/checkpoint/checkpoint.types";
 import {
   AgentEventStore,
@@ -39,7 +39,7 @@ export class HarnessFacade implements IHarness {
      * v2: LoopRegistry — registerLoop() 由 facade 真正派发（不再 no-op）。
      */
     private readonly loopRegistry: LoopRegistry,
-    @Optional() private readonly checkpointService?: CheckpointService,
+    @Optional() private readonly checkpointService?: AgentStepCheckpointService,
     @Optional() private readonly eventStore?: AgentEventStore,
   ) {}
 
@@ -100,7 +100,7 @@ export class HarnessFacade implements IHarness {
   ): Promise<{ agent: IAgent; checkpoint: ICheckpoint } | null> {
     if (!this.checkpointService) {
       throw new Error(
-        "HarnessFacade.resume: CheckpointService not wired — enable Phase 6 providers in HarnessModule",
+        "HarnessFacade.resume: AgentStepCheckpointService not wired — enable Phase 6 providers in HarnessModule",
       );
     }
 
@@ -143,7 +143,9 @@ export class HarnessFacade implements IHarness {
     checkpoint: ICheckpoint;
   } | null> {
     if (!this.checkpointService) {
-      throw new Error("HarnessFacade.fork: CheckpointService not wired");
+      throw new Error(
+        "HarnessFacade.fork: AgentStepCheckpointService not wired",
+      );
     }
     const checkpoint = await this.checkpointService.load(checkpointId);
     if (!checkpoint) return null;

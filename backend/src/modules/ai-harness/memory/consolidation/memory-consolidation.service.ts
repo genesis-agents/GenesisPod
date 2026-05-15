@@ -58,6 +58,15 @@ const DEFAULT_CONFIG: AutoDreamConfig = {
 @Injectable()
 export class AutoDreamService {
   private readonly logger = new Logger(AutoDreamService.name);
+
+  /**
+   * 2026-05-15 PR-E.P2 评估：3 个 Map 保留 in-process（不迁 Redis）。理由：
+   *   - Dream task 是周期性记忆压缩（6h / 24h cron），多 pod 各自跑会重复同一 scope
+   *     的 dream，浪费一些 LLM token 但不影响正确性（结果幂等）
+   *   - activeRuns 跨 pod 共享需要分布式锁；当前单 pod 部署不需要
+   *   - 多 pod 上线时需要补：lastRunTimes/sessionCounts → Redis HASH，activeRuns →
+   *     Redis SET NX 互斥锁，避免重复 dream
+   */
   private readonly lastRunTimes = new Map<string, Date>();
   private readonly sessionCounts = new Map<string, number>();
   private readonly activeRuns = new Map<string, DreamStatus>();

@@ -661,10 +661,12 @@ describe("KernelAdminController", () => {
   });
 
   describe("getCostReport", () => {
-    it("calls getCostReport with parsed hours", () => {
-      mockKernelApi.getCostReport!.mockReturnValue(makeCostReport());
+    // 2026-05-15 Round 1 P1 fix: getCostReport / getCostTrend 在 PR-E.P1-2
+    // cost-attribution Redis 化后变 async；spec 必须 await + mock 返 Promise。
+    it("calls getCostReport with parsed hours", async () => {
+      mockKernelApi.getCostReport!.mockResolvedValue(makeCostReport());
 
-      const result = controller.getCostReport("12");
+      const result = await controller.getCostReport("12");
 
       expect(mockKernelApi.getCostReport).toHaveBeenCalledWith({
         periodHours: 12,
@@ -672,20 +674,20 @@ describe("KernelAdminController", () => {
       expect(result.totalCost).toBe(2.0);
     });
 
-    it("defaults to 24 hours when not provided", () => {
-      mockKernelApi.getCostReport!.mockReturnValue(makeCostReport());
+    it("defaults to 24 hours when not provided", async () => {
+      mockKernelApi.getCostReport!.mockResolvedValue(makeCostReport());
 
-      controller.getCostReport(undefined);
+      await controller.getCostReport(undefined);
 
       expect(mockKernelApi.getCostReport).toHaveBeenCalledWith({
         periodHours: 24,
       });
     });
 
-    it("formats period with ISO timestamps", () => {
-      mockKernelApi.getCostReport!.mockReturnValue(makeCostReport());
+    it("formats period with ISO timestamps", async () => {
+      mockKernelApi.getCostReport!.mockResolvedValue(makeCostReport());
 
-      const result = controller.getCostReport("24");
+      const result = await controller.getCostReport("24");
 
       expect(typeof result.period.startTime).toBe("string");
       expect(typeof result.period.endTime).toBe("string");
@@ -693,23 +695,23 @@ describe("KernelAdminController", () => {
   });
 
   describe("getCostTrend", () => {
-    it("returns trend array from kernelApi", () => {
+    it("returns trend array from kernelApi", async () => {
       const trend = [
         { hour: "2024-01-01T00:00:00.000Z", cost: 0.5, calls: 10 },
       ];
-      mockKernelApi.getHourlyTrend!.mockReturnValue(trend);
+      mockKernelApi.getHourlyTrend!.mockResolvedValue(trend);
 
-      const result = controller.getCostTrend("6");
+      const result = await controller.getCostTrend("6");
 
       expect(result.trend).toEqual(trend);
       expect(result.total).toBe(1);
       expect(mockKernelApi.getHourlyTrend).toHaveBeenCalledWith(6);
     });
 
-    it("defaults to 24 hours when not provided", () => {
-      mockKernelApi.getHourlyTrend!.mockReturnValue([]);
+    it("defaults to 24 hours when not provided", async () => {
+      mockKernelApi.getHourlyTrend!.mockResolvedValue([]);
 
-      controller.getCostTrend(undefined);
+      await controller.getCostTrend(undefined);
 
       expect(mockKernelApi.getHourlyTrend).toHaveBeenCalledWith(24);
     });

@@ -131,14 +131,32 @@ export interface ScanResult {
 @Injectable()
 export class MissionLivenessGuard implements OnModuleDestroy {
   private readonly log = new Logger(MissionLivenessGuard.name);
+  /**
+   * ★ IN-PROCESS（故意不迁 Redis）：
+   *   每个 NestJS pod 在 onModuleInit 时由 ai-app 调 registerAdapter() 注入自己的
+   *   adapter（含 fetchRunningMissions / markFailed 等 function 引用），这些 callback
+   *   绑定了 PrismaService / EventBus 等 DI 实例，**不可序列化**，无法跨进程传输。
+   *   pod 重启后 onModuleInit 自动重新注册，不需要持久化。
+   */
   private readonly adapters = new Map<string, RegisteredAdapter>();
   private bootTimer: NodeJS.Timeout | null = null;
   private scanTimer: NodeJS.Timeout | null = null;
   private started = false;
   /**
-   * ★ 2026-05-05 dedup：每 mission 最近一次 emitWarning 时间，避免每 60s scan 都
-   * 重复推同一条 warning。10min cooldown（与 softWarn 阈值同量级），到点才重发。
-   * key = `${namespace}:${missionId}` 防多 namespace 串扰。
+   * ★ IN-PROCESS（故意不迁 Redis）：
+   *   每 mission 最近一次 emitWarning 时间，仅用于 soft-warn 告警去重（避免每 60s scan
+   *   都重复推同一条 warning toast）。
+   *
+   *   跨 pod 行为：多 pod 场景下各 pod 有独立 lastWarnedAt，理论上同一 mission 可能
+   *   从不同 pod 各收到一次 warning，但这只是轻微 UX 重复（不影响正确性）。
+   *   kill 决策（markFailed）基于 DB 状态，与此 map 无关，无跨 pod 一致性要求。
+   *
+   *   不迁 Redis 的原因：
+   *   1. 迁 Redis 需注入 CacheService → 破坏当前零依赖构造器（spec 用 new Guard() 直接实例化）
+   *   2. 收益 = 减少每 pod 一次的重复 warning，代价不值
+   *   3. 当前 Railway 单 pod 部署，跨 pod 场景未出现
+   *
+   *   key = `${namespace}:${missionId}` 防多 namespace 串扰。
    */
   private readonly lastWarnedAt = new Map<string, number>();
   /**

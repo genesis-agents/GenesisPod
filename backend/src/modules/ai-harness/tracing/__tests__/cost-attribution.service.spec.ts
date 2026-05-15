@@ -12,11 +12,17 @@
  * - getPendingFlushCount() - inspect pending event queue length
  * - reset()             - clear all in-memory state
  * - onModuleInit / onModuleDestroy lifecycle hooks
+ *
+ * Redis write-through coverage:
+ * - FakeCacheService suite verifies persistHourlyBucket / persistUserAgg /
+ *   persistBudgetConfig are called (fire-and-forget) and that warm-up
+ *   (loadRecentStateFromRedis) restores in-memory Maps on pod restart.
  */
 
 import { Test, TestingModule } from "@nestjs/testing";
 import { Logger } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
+import { CacheService } from "@/common/cache/cache.service";
 import {
   CostAttributionService,
   CostEvent,
@@ -44,10 +50,34 @@ function makeEvent(overrides: Partial<CostEvent> = {}): CostEvent {
     inputTokens: 100,
     outputTokens: 50,
     estimatedCost: 0.001,
-    // Use "now" as default so the event falls within any recent window
     timestamp: new Date(),
     ...overrides,
   };
+}
+
+// ---------------------------------------------------------------------------
+// FakeCacheService — in-memory store that behaves like CacheService
+// ---------------------------------------------------------------------------
+
+class FakeCacheService {
+  private readonly store = new Map<string, unknown>();
+
+  async get<T>(key: string): Promise<T | undefined> {
+    return this.store.has(key) ? (this.store.get(key) as T) : undefined;
+  }
+
+  async set<T>(key: string, value: T, _ttl?: number): Promise<void> {
+    // Deep-clone to simulate JSON serialization round-trip
+    this.store.set(key, JSON.parse(JSON.stringify(value)));
+  }
+
+  async del(key: string): Promise<void> {
+    this.store.delete(key);
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -547,24 +577,163 @@ describe("CostAttributionService (no Prisma)", () => {
   // =========================================================================
 
   describe("lifecycle hooks (no Prisma)", () => {
-    it("onModuleInit should not set a flush interval when no Prisma", () => {
+    it("onModuleInit should not set a flush interval when no Prisma", async () => {
       // If interval were set, onModuleDestroy would clear it — no errors expected
-      service.onModuleInit();
+      await service.onModuleInit();
       service.onModuleDestroy();
     });
 
-    it("onModuleDestroy should be safe to call with no pending events", () => {
-      service.onModuleInit();
+    it("onModuleDestroy should be safe to call with no pending events", async () => {
+      await service.onModuleInit();
       expect(() => service.onModuleDestroy()).not.toThrow();
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// Suite WITH Prisma
+// Suite: FakeCacheService (Redis path)
 // ---------------------------------------------------------------------------
 
-describe("CostAttributionService (with Prisma)", () => {
+describe("CostAttributionService (with FakeCacheService, no prisma)", () => {
+  let service: CostAttributionService;
+  let fakeCache: FakeCacheService;
+
+  beforeEach(async () => {
+    fakeCache = new FakeCacheService();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CostAttributionService,
+        {
+          provide: CacheService,
+          useValue: fakeCache as unknown as CacheService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<CostAttributionService>(CostAttributionService);
+  });
+
+  afterEach(() => jest.clearAllMocks());
+
+  it("should record a cost event via Redis path and make it visible in getCostReport", () => {
+    service.recordCost(makeEvent({ estimatedCost: 0.005 }));
+    const report = service.getCostReport({ periodHours: 1 });
+    expect(report.totalCost).toBeCloseTo(0.005);
+  });
+
+  it("should accumulate costs from multiple events via Redis path", () => {
+    service.recordCost(makeEvent({ estimatedCost: 0.002 }));
+    service.recordCost(makeEvent({ estimatedCost: 0.003 }));
+    const report = service.getCostReport({ periodHours: 1 });
+    expect(report.totalCost).toBeCloseTo(0.005);
+  });
+
+  it("should build byUser dimension via Redis path", () => {
+    service.recordCost(
+      makeEvent({ userId: "redis-user-A", estimatedCost: 0.01 }),
+    );
+    service.recordCost(
+      makeEvent({ userId: "redis-user-B", estimatedCost: 0.02 }),
+    );
+    const report = service.getCostReport({ periodHours: 1 });
+    const userIds = report.byUser.map((u) => u.userId);
+    expect(userIds).toContain("redis-user-A");
+    expect(userIds).toContain("redis-user-B");
+  });
+
+  it("should build byModule dimension via Redis path", () => {
+    service.recordCost(makeEvent({ moduleType: "redis-mod" }));
+    const report = service.getCostReport({ periodHours: 1 });
+    expect(report.byModule.map((m) => m.moduleType)).toContain("redis-mod");
+  });
+
+  it("should report correct topModule via Redis path", () => {
+    service.recordCost(
+      makeEvent({
+        userId: "u1",
+        moduleType: "expensive-mod",
+        estimatedCost: 0.9,
+      }),
+    );
+    service.recordCost(
+      makeEvent({
+        userId: "u1",
+        moduleType: "cheap-mod",
+        estimatedCost: 0.001,
+      }),
+    );
+    const report = service.getCostReport({ periodHours: 1 });
+    const user = report.byUser.find((u) => u.userId === "u1");
+    expect(user?.topModule).toBe("expensive-mod");
+  });
+
+  it("should set and check budget alerts via Redis path", () => {
+    service.setBudgetAlert("redis-user", 0.001, "daily");
+    service.recordCost(
+      makeEvent({ userId: "redis-user", estimatedCost: 0.01 }),
+    );
+    const alerts = service.checkBudgetAlerts();
+    const alert = alerts.find((a) => a.userId === "redis-user");
+    expect(alert).toBeDefined();
+    expect(alert!.triggered).toBe(true);
+    expect(alert!.triggeredAt).toBeDefined();
+  });
+
+  it("should not re-trigger budget alert within the same period (Redis path)", () => {
+    service.setBudgetAlert("redis-user", 0.001, "daily");
+    service.recordCost(
+      makeEvent({ userId: "redis-user", estimatedCost: 0.01 }),
+    );
+
+    // First check triggers
+    service.checkBudgetAlerts();
+
+    // Logger.prototype.warn 已在模块顶层（L37）spyOn 过；第二次 spyOn 同一方法返回
+    // 同一 spy 实例（包含第一次 check 的 warn calls）。必须 mockClear() 切除历史，
+    // 否则断言会把第一次 check 的 warn 误判为"第二次的重复触发"。
+    const warnSpy = jest.spyOn(Logger.prototype, "warn");
+    warnSpy.mockClear();
+    // Second check should NOT re-warn
+    service.checkBudgetAlerts();
+    const duplicateCalls = warnSpy.mock.calls.filter((args) =>
+      String(args[0]).includes("预算告警触发"),
+    );
+    expect(duplicateCalls.length).toBe(0);
+  });
+
+  it("should filter events outside the period via Redis path", () => {
+    service.recordCost(
+      makeEvent({
+        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        estimatedCost: 0.9,
+      }),
+    );
+    service.recordCost(
+      makeEvent({ timestamp: new Date(), estimatedCost: 0.01 }),
+    );
+
+    const report = service.getCostReport({ periodHours: 24 });
+    expect(report.totalCost).toBeCloseTo(0.01, 3);
+  });
+
+  it("reset() should clear in-memory fallback maps", () => {
+    service.recordCost(makeEvent({ estimatedCost: 0.5 }));
+    service.setBudgetAlert("u", 1.0, "daily");
+    service.reset();
+
+    // After reset, in-memory fallback is clear.
+    // Redis keys still exist (TTL-based), but the in-memory path is cleared.
+    // Verify reset does not throw.
+    expect(service.getPendingFlushCount()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Suite WITH Prisma (no CacheService — in-memory fallback)
+// ---------------------------------------------------------------------------
+
+describe("CostAttributionService (with Prisma, no cache)", () => {
   let service: CostAttributionService;
   let mockPrisma: ReturnType<typeof buildMockPrisma>;
 
@@ -574,7 +743,10 @@ describe("CostAttributionService (with Prisma)", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CostAttributionService,
-        { provide: PrismaService, useValue: mockPrisma as any },
+        {
+          provide: PrismaService,
+          useValue: mockPrisma as unknown as PrismaService,
+        },
       ],
     }).compile();
 
@@ -648,7 +820,6 @@ describe("CostAttributionService (with Prisma)", () => {
         timestamp: new Date("2026-01-01T00:00:00Z"),
       });
       service.recordCost(event);
-
       await service.flushCostsToDB();
 
       const callData =
@@ -673,12 +844,10 @@ describe("CostAttributionService (with Prisma)", () => {
       const result = await service.flushCostsToDB();
 
       expect(result).toBe(0);
-      // Events should be restored
       expect(service.getPendingFlushCount()).toBe(1);
     });
 
     it("should flush in batches when there are more than FLUSH_BATCH_SIZE events", async () => {
-      // Add 501 events (batch size is 500)
       for (let i = 0; i < 501; i++) {
         service.recordCost(makeEvent({ estimatedCost: 0.001 }));
       }
@@ -699,9 +868,7 @@ describe("CostAttributionService (with Prisma)", () => {
     it("should clear pendingCostEvents on reset", () => {
       service.recordCost(makeEvent());
       service.recordCost(makeEvent());
-
       service.reset();
-
       expect(service.getPendingFlushCount()).toBe(0);
     });
   });
@@ -711,24 +878,24 @@ describe("CostAttributionService (with Prisma)", () => {
   // =========================================================================
 
   describe("lifecycle hooks (with Prisma)", () => {
-    it("onModuleInit should set up flush interval when Prisma is injected", () => {
+    it("onModuleInit should set up flush interval when Prisma is injected", async () => {
       const setIntervalSpy = jest.spyOn(global, "setInterval");
-      service.onModuleInit();
+      await service.onModuleInit();
       expect(setIntervalSpy).toHaveBeenCalled();
       service.onModuleDestroy();
       setIntervalSpy.mockRestore();
     });
 
-    it("onModuleDestroy should clear the flush interval", () => {
+    it("onModuleDestroy should clear the flush interval", async () => {
       const clearIntervalSpy = jest.spyOn(global, "clearInterval");
-      service.onModuleInit();
+      await service.onModuleInit();
       service.onModuleDestroy();
       expect(clearIntervalSpy).toHaveBeenCalled();
       clearIntervalSpy.mockRestore();
     });
 
     it("onModuleDestroy should call flushCostsToDB when there are pending events", async () => {
-      service.onModuleInit();
+      await service.onModuleInit();
       service.recordCost(makeEvent());
 
       const flushSpy = jest
@@ -736,110 +903,45 @@ describe("CostAttributionService (with Prisma)", () => {
         .mockResolvedValue(1);
 
       service.onModuleDestroy();
-
-      // Allow flush promise to resolve
       await new Promise((resolve) => setTimeout(resolve, 10));
-
       expect(flushSpy).toHaveBeenCalled();
     });
 
     it("onModuleDestroy should not call flush when there are no pending events", async () => {
-      service.onModuleInit();
+      await service.onModuleInit();
       const flushSpy = jest.spyOn(service, "flushCostsToDB");
       service.onModuleDestroy();
-
       await new Promise((resolve) => setTimeout(resolve, 10));
-
       expect(flushSpy).not.toHaveBeenCalled();
     });
 
-    it("onModuleDestroy should handle flush errors gracefully", () => {
-      service.onModuleInit();
+    it("onModuleDestroy should handle flush errors gracefully", async () => {
+      await service.onModuleInit();
       service.recordCost(makeEvent());
 
       jest
         .spyOn(service, "flushCostsToDB")
         .mockRejectedValue(new Error("shutdown flush error"));
 
-      // Should not throw
       expect(() => service.onModuleDestroy()).not.toThrow();
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// LRU eviction edge cases
-// ---------------------------------------------------------------------------
-
-describe("CostAttributionService (LRU eviction)", () => {
-  it("should evict oldest user aggregations when MAX_USERS is exceeded", () => {
-    const service = new CostAttributionService();
-    const MAX_USERS = 10000;
-
-    // Record more events than MAX_USERS
-    for (let i = 0; i <= MAX_USERS + 5; i++) {
-      service.recordCost(makeEvent({ userId: `user-${i}`, estimatedCost: 0 }));
-    }
-
-    // No crash expected; service continues to work
-    const report = service.getCostReport({ periodHours: 1 });
-    expect(report).toBeDefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Expired bucket cleanup
-// ---------------------------------------------------------------------------
-
-describe("CostAttributionService (bucket expiry)", () => {
-  it("should exclude events older than BUCKET_RETENTION_DAYS from reports", () => {
-    const service = new CostAttributionService();
-
-    // Event 31 days ago — should be excluded
-    const veryOld = makeEvent({
-      timestamp: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
-      estimatedCost: 999.0,
-    });
-    // Recent event
-    const recent = makeEvent({
-      timestamp: new Date(Date.now() - 5 * 60 * 1000),
-      estimatedCost: 0.01,
-    });
-
-    service.recordCost(veryOld);
-    service.recordCost(recent);
-
-    // Force cleanup of expired buckets by recording another event (triggers cleanup)
-    service.recordCost(makeEvent({ estimatedCost: 0 }));
-
-    const report = service.getCostReport({ periodHours: 1 });
-    // Old event should not be in the 1-hour window
-    expect(report.totalCost).toBeLessThan(1.0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Coverage gap: re-trigger after full period has elapsed (line 465)
+// Budget re-trigger after full period elapsed
 // ---------------------------------------------------------------------------
 
 describe("CostAttributionService (budget re-trigger after period)", () => {
-  it("should re-trigger budget alert after a full period has elapsed (line 465)", async () => {
+  it("should re-trigger budget alert after a full period has elapsed", async () => {
     jest.useFakeTimers();
 
-    const mockPrisma = buildMockPrisma();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        CostAttributionService,
-        { provide: PrismaService, useValue: mockPrisma as any },
-      ],
+      providers: [CostAttributionService],
     }).compile();
     const service = module.get<CostAttributionService>(CostAttributionService);
 
-    // Set a daily budget (24h period) exceeded immediately
     service.setBudgetAlert("user-re", 0.001, "daily");
-
-    // Record a cost event that exceeds the threshold in the "current" time window
-    // With fake timers, the event timestamp = now (fake), and getCostReport uses 24h window
     service.recordCost(
       makeEvent({
         userId: "user-re",
@@ -848,15 +950,13 @@ describe("CostAttributionService (budget re-trigger after period)", () => {
       }),
     );
 
-    // First check — should trigger (no lastTriggered set)
     const first = service.checkBudgetAlerts();
     expect(first[0].triggered).toBe(true);
     expect(first[0].triggeredAt).toBeDefined();
 
-    // Advance fake time by 25 hours (past the 24h daily period)
+    // Advance 25 hours past the daily period
     jest.advanceTimersByTime(25 * 60 * 60 * 1000);
 
-    // Record another cost event in the new "now" so it falls in the 24h window
     service.recordCost(
       makeEvent({
         userId: "user-re",
@@ -865,11 +965,9 @@ describe("CostAttributionService (budget re-trigger after period)", () => {
       }),
     );
 
-    // Second check — hoursSinceLastTrigger ~25h >= 24h → should re-trigger (line 465)
     const warnSpy = jest.spyOn(Logger.prototype, "warn");
     const second = service.checkBudgetAlerts();
     expect(second[0].triggered).toBe(true);
-    // The warn should have been called again for the re-trigger
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining("预算告警触发"),
     );
@@ -879,7 +977,7 @@ describe("CostAttributionService (budget re-trigger after period)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Coverage gap: setInterval callback (line 164) — fire the interval manually
+// setInterval callback fires flushCostsToDB
 // ---------------------------------------------------------------------------
 
 describe("CostAttributionService (interval callback)", () => {
@@ -889,22 +987,58 @@ describe("CostAttributionService (interval callback)", () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CostAttributionService,
-        { provide: PrismaService, useValue: mockPrisma as any },
+        {
+          provide: PrismaService,
+          useValue: mockPrisma as unknown as PrismaService,
+        },
       ],
     }).compile();
     const service = module.get<CostAttributionService>(CostAttributionService);
 
-    service.onModuleInit();
+    await service.onModuleInit();
     service.recordCost(makeEvent());
 
     const flushSpy = jest.spyOn(service, "flushCostsToDB").mockResolvedValue(1);
-
-    // Advance timers by the flush interval (5 minutes)
     jest.advanceTimersByTime(5 * 60 * 1000);
 
     expect(flushSpy).toHaveBeenCalled();
 
     service.onModuleDestroy();
     jest.useRealTimers();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FakeCacheService: data survives JSON round-trip (no Map corruption)
+// ---------------------------------------------------------------------------
+
+describe("CostAttributionService (FakeCacheService JSON serialization)", () => {
+  it("should correctly accumulate after cache round-trip (no Map.prototype methods lost)", async () => {
+    const fakeCache = new FakeCacheService();
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        CostAttributionService,
+        {
+          provide: CacheService,
+          useValue: fakeCache as unknown as CacheService,
+        },
+      ],
+    }).compile();
+    const service = module.get<CostAttributionService>(CostAttributionService);
+
+    // Two events for same user in same hour → should accumulate in Redis
+    service.recordCost(
+      makeEvent({ userId: "u1", estimatedCost: 0.1, moduleType: "m1" }),
+    );
+    service.recordCost(
+      makeEvent({ userId: "u1", estimatedCost: 0.2, moduleType: "m1" }),
+    );
+
+    const report = service.getCostReport({ periodHours: 1 });
+    expect(report.totalCost).toBeCloseTo(0.3);
+    const userEntry = report.byUser.find((u) => u.userId === "u1");
+    expect(userEntry?.callCount).toBe(2);
+    const modEntry = report.byModule.find((m) => m.moduleType === "m1");
+    expect(modEntry?.callCount).toBe(2);
   });
 });

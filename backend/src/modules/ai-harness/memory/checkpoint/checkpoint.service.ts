@@ -1,12 +1,19 @@
 /**
- * CheckpointService — Agent 执行快照与恢复
+ * AgentStepCheckpointService — Agent 单步执行的快照与恢复（react-loop / agent runtime 粒度）
+ *
+ * 2026-05-15 改名: 原叫 `CheckpointService`，与 `memory/mission-checkpoint/MissionCheckpointService`
+ * 同语义不同 scope 容易混淆。已彻底改名，无 alias 期。
+ *
+ * 与 MissionCheckpointService 的区别（MECE）：
+ *   - 本类: agent step / react loop iteration 粒度，by agentId，用于 agent 中断恢复
+ *   - MissionCheckpointService: mission / business stage 粒度，by missionId，用于业务级 resume
  *
  * 职责：
  *   - snapshot()：把当前 agent 状态打包成一条 checkpoint
  *   - load()：按 id 读回 checkpoint
  *   - latestForAgent()：取 agent 最新快照（resume 默认选这个）
  *
- * 重建 agent 的逻辑在 HarnessFacade.resume() 里（下一步实现）。
+ * 重建 agent 的逻辑在 HarnessFacade.resume() 里。
  */
 
 import { Injectable, Logger } from "@nestjs/common";
@@ -26,8 +33,8 @@ import type {
 import { InMemoryCheckpointStore } from "./in-memory-checkpoint-store";
 
 @Injectable()
-export class CheckpointService implements ICheckpointService {
-  private readonly logger = new Logger(CheckpointService.name);
+export class AgentStepCheckpointService implements ICheckpointService {
+  private readonly logger = new Logger(AgentStepCheckpointService.name);
 
   constructor(
     private readonly store: ICheckpointStore = new InMemoryCheckpointStore(),

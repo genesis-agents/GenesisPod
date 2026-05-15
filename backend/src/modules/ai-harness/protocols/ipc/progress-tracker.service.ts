@@ -1,9 +1,20 @@
 /**
  * Progress Tracker Service
  * 进度追踪服务
+ *
+ * 存储层：双轨写穿（write-through）：
+ *   - 本地 Map（in-process）：保证同步 API 契约，供 getTask / getProgress / getActiveTasks 同步读取
+ *   - Redis（通过 CacheService）：tasks 写穿到 Redis，跨 pod 可见，TTL 2h 与任务生命周期对齐
+ *
+ * Key 格式：
+ *   harness:progress-tracker:task:{taskId}  → TrackedTask (JSON object)
+ *
+ * callbacks / completeCallbacks / failCallbacks 保留 in-process（function reference 不能
+ * 序列化到 Redis）。跨 pod 协调通过 task 状态变更写 Redis + EventBus 广播实现。
  */
 
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { CacheService } from "@/common/cache/cache.service";
 import type {
   IProgressTracker,
   TrackedTask,
@@ -14,28 +25,100 @@ import type { ProgressEvent } from "../realtime/abstractions/event-emitter.inter
 import { calculateOverallProgress } from "../realtime/abstractions/progress-tracker.interface";
 import { EventBusService } from "./event-bus.service";
 
+/** tasks Redis key TTL（秒）= 2h */
+const TASK_TTL_SEC = 2 * 3600;
+
+// ── Redis key helper ────────────────────────────────────────────────────────
+
+function taskKey(taskId: string): string {
+  return `harness:progress-tracker:task:${taskId}`;
+}
+
 /**
  * 进度追踪服务
+ *
+ * 所有 mutation 方法同步更新本地 Map，同时 fire-and-forget 写穿 Redis（跨 pod 可见）。
+ * 读取方法（getTask / getProgress / getActiveTasks）从本地 Map 同步读取，保持与调用方
+ * 的同步 API 契约不变。
  */
 @Injectable()
 export class ProgressTrackerService implements IProgressTracker {
   private readonly logger = new Logger(ProgressTrackerService.name);
+
+  /**
+   * 本地 Map：保证同步 API 契约（getTask / getProgress / getActiveTasks）。
+   * 同时也是写穿到 Redis 之前的暂存——每次 mutation 都会触发 Redis 写入。
+   */
   private readonly tasks = new Map<string, TrackedTask>();
+
+  /**
+   * 进度订阅回调（in-process）。
+   * function reference 不能序列化，必须保留 in-process。
+   * 跨 pod 协调：调用方在本 pod 内注册，task 状态变更通过 EventBus 广播，
+   * 其他 pod 上若有相同 taskId 的 listener 会在各自 pod 内被触发。
+   */
   private readonly callbacks = new Map<
     string,
     Map<string, (progress: ProgressEvent) => void>
   >();
+
+  /**
+   * 任务完成回调（in-process）。
+   * 同上——function reference 不能序列化到 Redis。
+   */
   private readonly completeCallbacks = new Map<
     string,
     (task: TrackedTask) => void
   >();
+
+  /**
+   * 任务失败回调（in-process）。
+   * 同上——function reference 不能序列化到 Redis。
+   */
   private readonly failCallbacks = new Map<
     string,
     (task: TrackedTask, error: string) => void
   >();
+
   private callbackCounter = 0;
 
-  constructor(private readonly eventEmitter: EventBusService) {}
+  constructor(
+    private readonly eventEmitter: EventBusService,
+    // @Optional 允许 spec 不提供 CacheService（CacheModule @Global 在 prod / dev 总能注入；
+    // 旧 spec 用 Test.createTestingModule + 只 mock EventBus 时不会破——cache 缺失时
+    // persistTask / evictTask 内 ?. 安全短路，本地 Map 仍工作（write-through 降级为
+    // local-only，spec 行为与原 Map-only 兼容）。
+    @Optional() private readonly cache?: CacheService,
+  ) {}
+
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * 将 task 写穿到 Redis（fire-and-forget）。
+   * 失败只 warn，不影响主流程。
+   */
+  private persistTask(task: TrackedTask): void {
+    if (!this.cache) return;
+    void this.cache.set(taskKey(task.id), task, TASK_TTL_SEC).catch((err) => {
+      this.logger.warn(
+        `[ProgressTracker] Failed to persist task ${task.id} to Redis: ${err}`,
+      );
+    });
+  }
+
+  /**
+   * 从 Redis 删除 task（fire-and-forget）。
+   */
+  private evictTask(taskId: string): void {
+    if (!this.cache) return;
+    void this.cache.del(taskKey(taskId)).catch((err) => {
+      this.logger.warn(
+        `[ProgressTracker] Failed to evict task ${taskId} from Redis: ${err}`,
+      );
+    });
+  }
+
+  // ── IProgressTracker implementation ────────────────────────────────────────
 
   /**
    * 创建任务追踪
@@ -71,6 +154,9 @@ export class ProgressTrackerService implements IProgressTracker {
     this.tasks.set(request.id, task);
     this.callbacks.set(request.id, new Map());
 
+    // 写穿到 Redis（跨 pod 可见）
+    this.persistTask(task);
+
     this.logger.debug(`Created task tracker: ${request.id} (${request.name})`);
 
     return task;
@@ -89,6 +175,7 @@ export class ProgressTrackerService implements IProgressTracker {
     task.status = "running";
     task.startedAt = new Date();
 
+    this.persistTask(task);
     this.emitProgress(task, "任务开始");
   }
 
@@ -109,6 +196,7 @@ export class ProgressTrackerService implements IProgressTracker {
     phase.startedAt = new Date();
     task.currentPhaseId = phaseId;
 
+    this.persistTask(task);
     this.emitProgress(task, message ?? `开始: ${phase.name}`);
   }
 
@@ -131,6 +219,7 @@ export class ProgressTrackerService implements IProgressTracker {
       task.progress = this.calculateProgress(task, phaseId, progress);
     }
 
+    this.persistTask(task);
     this.emitProgress(task, message);
   }
 
@@ -149,6 +238,7 @@ export class ProgressTrackerService implements IProgressTracker {
 
     task.progress = calculateOverallProgress(task.phases);
 
+    this.persistTask(task);
     this.emitProgress(task, message ?? `完成: ${phase.name}`);
   }
 
@@ -166,6 +256,7 @@ export class ProgressTrackerService implements IProgressTracker {
 
     task.progress = calculateOverallProgress(task.phases);
 
+    this.persistTask(task);
     this.emitProgress(task, reason ?? `跳过: ${phase.name}`);
   }
 
@@ -182,6 +273,7 @@ export class ProgressTrackerService implements IProgressTracker {
     phase.status = "failed";
     phase.error = error;
 
+    this.persistTask(task);
     this.emitProgress(task, `失败: ${phase.name} - ${error}`);
   }
 
@@ -196,6 +288,7 @@ export class ProgressTrackerService implements IProgressTracker {
     task.progress = 100;
     task.completedAt = new Date();
 
+    this.persistTask(task);
     this.emitProgress(task, message ?? "任务完成");
 
     // 触发完成回调
@@ -219,6 +312,7 @@ export class ProgressTrackerService implements IProgressTracker {
     task.error = error;
     task.completedAt = new Date();
 
+    this.persistTask(task);
     this.emitProgress(task, `任务失败: ${error}`);
 
     // 触发失败回调
@@ -241,6 +335,7 @@ export class ProgressTrackerService implements IProgressTracker {
     task.status = "cancelled";
     task.completedAt = new Date();
 
+    this.persistTask(task);
     this.emitProgress(task, reason ?? "任务已取消");
 
     this.logger.debug(`Task cancelled: ${taskId}`);
@@ -260,7 +355,7 @@ export class ProgressTrackerService implements IProgressTracker {
    * 获取任务详情
    */
   getTask(taskId: string): TrackedTask | null {
-    return this.tasks.get(taskId) || null;
+    return this.tasks.get(taskId) ?? null;
   }
 
   /**
@@ -308,6 +403,8 @@ export class ProgressTrackerService implements IProgressTracker {
         this.callbacks.delete(id);
         this.completeCallbacks.delete(id);
         this.failCallbacks.delete(id);
+        // 同步从 Redis 删除（fire-and-forget）
+        this.evictTask(id);
         cleaned++;
       }
     }
