@@ -3,11 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { config } from '@/lib/utils/config';
-import {
-  getAuthHeader,
-  isAuthenticated,
-  loginWithGoogle,
-} from '@/lib/utils/auth';
+import { getAuthHeader, isAuthenticated } from '@/lib/utils/auth';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { useTranslation } from '@/lib/i18n';
@@ -104,7 +100,7 @@ export default function FeedbackHistoryPage() {
 
   const fetchFeedbacks = useCallback(async () => {
     if (!isAuthenticated()) {
-      loginWithGoogle();
+      router.push('/login');
       return;
     }
 

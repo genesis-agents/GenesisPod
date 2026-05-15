@@ -925,7 +925,7 @@ export default function AskPage() {
   const searchParams = useSearchParams();
   const processedParamsRef = useRef(false);
   const processedSessionRef = useRef(false);
-  const { user, accessToken: token, loginWithGoogle } = useAuth();
+  const { user, accessToken: token } = useAuth();
   const { t } = useI18n();
   const { userMessageStyle, aiMessageStyle } = useThemeStore();
   const { models, loading: modelsLoading } = useAIModels();
@@ -1849,7 +1849,7 @@ export default function AskPage() {
                       </span>
                     </div>
                     <button
-                      onClick={loginWithGoogle}
+                      onClick={() => router.push('/login')}
                       className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 px-8 py-3 text-lg font-medium text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl"
                     >
                       <svg

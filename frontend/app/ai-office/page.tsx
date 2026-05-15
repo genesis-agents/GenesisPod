@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
@@ -23,7 +24,8 @@ function WorkspaceLoading() {
  * 支持生成 Word、Excel、PPT 等多种格式文档
  */
 export default function AIOfficePage() {
-  const { user, isLoading, loginWithGoogle } = useAuth();
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
   const { t } = useTranslation();
   const [showSkillsModal, setShowSkillsModal] = useState(false);
 
@@ -69,7 +71,7 @@ export default function AIOfficePage() {
               {t('aiOffice.signIn.description')}
             </p>
             <button
-              onClick={loginWithGoogle}
+              onClick={() => router.push('/login')}
               className="inline-flex items-center gap-3 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
             >
               <LogIn className="h-5 w-5" />

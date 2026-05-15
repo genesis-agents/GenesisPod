@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
 import { LogIn, Share2, Link2, FileText, Bot, ShieldAlert } from 'lucide-react';
@@ -24,8 +24,9 @@ type TabType = 'connections' | 'contents';
  * 按钮 / 外部分享都靠这个）。不带参或非法值默认 'contents'。
  */
 export default function AISocialPage() {
-  const { user, isLoading, isAdmin, loginWithGoogle } = useAuth();
+  const { user, isLoading, isAdmin } = useAuth();
   const { t } = useTranslation();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialTab: TabType =
     searchParams?.get('tab') === 'connections' ? 'connections' : 'contents';
@@ -61,7 +62,7 @@ export default function AISocialPage() {
               {t('aiSocial.signIn.description')}
             </p>
             <button
-              onClick={loginWithGoogle}
+              onClick={() => router.push('/login')}
               className="inline-flex items-center gap-3 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 px-8 py-4 text-lg font-semibold text-white shadow-lg shadow-rose-500/25 transition-all hover:shadow-xl hover:shadow-rose-500/30"
             >
               <LogIn className="h-5 w-5" />
