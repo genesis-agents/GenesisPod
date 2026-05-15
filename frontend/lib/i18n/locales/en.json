@@ -3431,6 +3431,7 @@
       "guardrails": "Guardrails",
       "approvals": "Approvals",
       "eval": "Evaluation",
+      "dreaming": "Dreaming",
       "researchTemplates": "Research Templates"
     },
     "mcpServer": {

@@ -26,6 +26,7 @@ import {
   Inbox,
   FileText,
   Workflow,
+  Brain,
   type LucideIcon,
 } from 'lucide-react';
 import { type AdminDomain } from './styles';
@@ -134,6 +135,12 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         labelKey: 'admin.nav.eval',
         href: '/admin/ai/eval',
         icon: BarChart3,
+      },
+      {
+        key: 'dreaming',
+        labelKey: 'admin.nav.dreaming',
+        href: '/admin/ai/dreaming',
+        icon: Brain,
       },
       {
         key: 'traces',
