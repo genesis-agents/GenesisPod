@@ -1196,6 +1196,11 @@ export class ProxyController {
         );
         res.setHeader("Content-Type", contentType);
         res.setHeader("Cache-Control", "public, max-age=86400"); // 缓存 1 天
+        // CORS：允许前端跨域 fetch() 读取响应体（HtmlCaptureService 把图片
+        // inline 成 data: URL 走 PDF 导出的关键链路；不加这两个头浏览器 fetch
+        // 会被 CORS 拦截 → 导出 PDF 出现破图）
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
         res.send(Buffer.from(response.data));
         return;
       } catch (fetchError) {
@@ -1237,6 +1242,8 @@ export class ProxyController {
                 );
                 res.setHeader("Content-Type", contentType);
                 res.setHeader("Cache-Control", "public, max-age=86400");
+                res.setHeader("Access-Control-Allow-Origin", "*");
+                res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
                 res.send(Buffer.from(retryResponse.data));
                 return;
               }

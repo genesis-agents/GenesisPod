@@ -378,6 +378,14 @@ describe("ProxyController - PDF Proxy", () => {
         "Cache-Control",
         "public, max-age=86400",
       );
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Access-Control-Allow-Origin",
+        "*",
+      );
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Cross-Origin-Resource-Policy",
+        "cross-origin",
+      );
       expect(res.send).toHaveBeenCalled();
     });
 

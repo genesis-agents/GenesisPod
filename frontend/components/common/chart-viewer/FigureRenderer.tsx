@@ -209,6 +209,9 @@ function ReferenceFigureRenderer({
             onError={handleImageError}
             onLoad={handleImageLoad}
             unoptimized // 外部图片不进行优化
+            // 让 HtmlCaptureService canvas fallback 能读 pixel；
+            // 配合后端 /proxy/image 设的 Access-Control-Allow-Origin: *
+            crossOrigin="anonymous"
           />
           {allowZoom && !imageLoading && (
             <div className="absolute bottom-2 right-2 rounded-full bg-black/50 p-1.5 text-white opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-100">
