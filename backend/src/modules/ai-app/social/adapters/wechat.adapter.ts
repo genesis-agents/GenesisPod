@@ -1037,9 +1037,23 @@ export class WechatAdapter {
     }
 
     // 填写正文 - 尝试多个可能的选择器（微信后台界面经常更新）
+    //
+    // 2026-05-16 PR #100: WeChat 新版 appmsg_edit_v2 编辑器有 2 个 ProseMirror
+    //   DIV (DOM[6] digest, DOM[14] body 带 .ProseMirror-focused)。'#js_editor'
+    //   实际匹配的是旧版 UEditor 的 edui_editor_wrp wrap，不是 ProseMirror body
+    //   编辑器，结果 click 跑到了 wrap 上、paste 又被 inner page.evaluate 错塞到
+    //   DOM[6] = digest 编辑器。把 .ProseMirror-focused 提到第一位，让 body
+    //   editor 真被选中。
     if (content.content) {
       const editorSelectors = [
-        // 新版微信公众号编辑器选择器
+        // body editor 显式：focused class 几乎一定是 body（用户刚 click title 后
+        // 焦点会移到 body content area）
+        ".ProseMirror.ProseMirror-focused",
+        ".rich_media_content .ProseMirror",
+        ".appmsg_edit_area .ProseMirror",
+        ".js_content_area .ProseMirror",
+        "[role='textbox'].ProseMirror",
+        // 旧版微信公众号编辑器
         "#js_editor",
         ".js_editor",
         ".editor-content",
@@ -1111,6 +1125,15 @@ export class WechatAdapter {
         // 1. 先尝试 clipboard paste（ProseMirror 原生支持，不会截断）
         // 2. 回退到 innerHTML 直接设置（比 execCommand 更可靠）
         // 3. 最后尝试 execCommand（在 ProseMirror 上容易截断内容）
+        //
+        // 2026-05-16 PR #100: WeChat 新版 appmsg_edit_v2 编辑器 DOM 里同时存在
+        //   多个 .ProseMirror（DOM[6] 疑似 digest 编辑器、DOM[14] 是 body
+        //   editor 带 .ProseMirror-focused 类）。原代码 querySelector('.ProseMirror')
+        //   返回第一个 = WRONG editor，导致 body HTML 灌进 digest，body 编辑器
+        //   一直空。WeChat 自报 mplog "this is input title value" 显示其 internal
+        //   state title 字段 = body HTML（postDataReturnFun 校验失败 terminal 3）。
+        //   修复：优先 .ProseMirror-focused；否则取最大文本/最大高度的 ProseMirror；
+        //   再否则取最后一个；绝不再无脑用第一个。
         const fillResult: {
           success: boolean;
           selector: string | null;
@@ -1125,15 +1148,49 @@ export class WechatAdapter {
             selector: string | null;
             method: string | null;
           } => {
-            const selectors = [
-              ".ProseMirror",
-              "#js_editor",
-              '[contenteditable="true"]',
-              ".editor-content",
+            // 候选选择器顺序：focused > id/class 明确指向 body > 通用 .ProseMirror 兜底
+            const candidatesByOrder: string[] = [
+              ".ProseMirror.ProseMirror-focused",
+              ".rich_media_content .ProseMirror",
+              ".appmsg_edit_area .ProseMirror",
+              ".js_content_area .ProseMirror",
+              "[role='textbox'].ProseMirror",
             ];
 
+            const pickBodyEditor = (): {
+              el: HTMLElement | null;
+              sel: string | null;
+            } => {
+              for (const sel of candidatesByOrder) {
+                const el = document.querySelector(sel);
+                if (el instanceof HTMLElement && el.isContentEditable) {
+                  return { el, sel };
+                }
+              }
+              // 兜底：找所有 .ProseMirror，选 offsetHeight 最大那个（body editor
+              // 视觉区域最高），不要无脑取 querySelector('.ProseMirror') 首个
+              const all = Array.from(
+                document.querySelectorAll<HTMLElement>(".ProseMirror"),
+              ).filter((e) => e.isContentEditable);
+              if (all.length === 0) return { el: null, sel: null };
+              all.sort((a, b) => b.offsetHeight - a.offsetHeight);
+              return { el: all[0], sel: ".ProseMirror(by-height)" };
+            };
+
+            const bodyChoice = pickBodyEditor();
+            const selectors = bodyChoice.el
+              ? [bodyChoice.sel as string, '[contenteditable="true"]']
+              : [
+                  ".ProseMirror-focused",
+                  '[contenteditable="true"]',
+                  ".editor-content",
+                ];
+
             for (const sel of selectors) {
-              const editorEl = document.querySelector(sel);
+              const editorEl =
+                sel === bodyChoice.sel
+                  ? bodyChoice.el
+                  : document.querySelector(sel);
               if (editorEl && (editorEl as HTMLElement).isContentEditable) {
                 // 聚焦编辑器
                 (editorEl as HTMLElement).focus();
@@ -1237,22 +1294,45 @@ export class WechatAdapter {
             `Content filled via ${fillResult.method} on ${fillResult.selector}`,
           );
 
-          // 验证内容是否被正确填入
+          // 验证内容是否被正确填入 body editor —— 2026-05-16 PR #100:
+          //   原代码 querySelector('.ProseMirror') 取的是 DOM 顺序第一个 (digest)，
+          //   会汇报 0 / 短长度让代码错以为"内容被截断"触发 keyboard.type 兜底，
+          //   keyboard.type 又写到当前 focus 的 element (可能是 title) →
+          //   WeChat mp_log "title 字段=<p>HTML</p>" 死症。现在改用 height 最大
+          //   的 .ProseMirror 作 body 验证，与 pickBodyEditor 同源。
           await delay(500);
           const contentLength = await page.evaluate(() => {
-            const pm = document.querySelector(".ProseMirror");
-            return pm ? pm.textContent?.length || 0 : 0;
+            const all = Array.from(
+              document.querySelectorAll<HTMLElement>(".ProseMirror"),
+            ).filter((e) => e.isContentEditable);
+            if (all.length === 0) return 0;
+            all.sort((a, b) => b.offsetHeight - a.offsetHeight);
+            return all[0].textContent?.length || 0;
           });
           this.logger.log(
-            `Editor content length after fill: ${contentLength} chars`,
+            `Body editor content length after fill: ${contentLength} chars`,
           );
 
           // 如果内容长度远小于原始内容，说明填充失败/被截断，使用键盘输入重新填写
           // 阈值从 0.5 提高到 0.8：ProseMirror 的 execCommand 常截断 ~50% 内容
+          //
+          // 2026-05-16 PR #100: keyboard.type 前必须显式 click body editor 否则
+          //   focus 可能停在 title TEXTAREA / 别处，typed 内容写错地方。
           if (contentLength < content.content.length * 0.8) {
             this.logger.warn(
               `Content truncated or incomplete (got ${contentLength}, expected ~${content.content.length}), retrying with keyboard input...`,
             );
+            // 显式 click + focus body editor（取 height 最大的 .ProseMirror）
+            await page.evaluate(() => {
+              const all = Array.from(
+                document.querySelectorAll<HTMLElement>(".ProseMirror"),
+              ).filter((e) => e.isContentEditable);
+              if (all.length === 0) return;
+              all.sort((a, b) => b.offsetHeight - a.offsetHeight);
+              all[0].focus();
+              all[0].click();
+            });
+            await delay(200);
             await page.keyboard.down("Control");
             await page.keyboard.press("a");
             await page.keyboard.up("Control");
