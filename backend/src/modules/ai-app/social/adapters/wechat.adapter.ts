@@ -1213,6 +1213,26 @@ export class WechatAdapter {
       }
     }
 
+    // 填写作者 - 2026-05-16: prod 实测发现 type=77 v2 编辑器 #author 为必填字段，
+    //   不填会让 "保存为草稿" click 静默取消（37 个网络请求里没一个 save endpoint）。
+    //   DOM 中 INPUT#author placeholder="请输入作者" visible:true 已确认。
+    //   优先 content.author，否则用合理默认值"系统"；填写失败不阻塞，留给 dialog probe。
+    try {
+      const authorValue = content.author?.trim() || "系统";
+      const authorInput = await page.$("#author, .js_author");
+      if (authorInput) {
+        await authorInput.click({ count: 3 });
+        await page.keyboard.type(authorValue);
+        this.logger.log(`Author filled: "${authorValue}"`);
+      } else {
+        this.logger.warn("Author input #author not found, skipping");
+      }
+    } catch (authorError) {
+      this.logger.warn(
+        `Author fill skipped due to error: ${(authorError as Error).message}`,
+      );
+    }
+
     // 填写摘要/描述 - 摘要是可选的，如果填写失败不应该阻止发布
     if (content.digest) {
       try {
@@ -1340,6 +1360,48 @@ export class WechatAdapter {
       );
       this.logger.error(`Available buttons: ${JSON.stringify(buttons)}`);
       throw new Error("找不到保存按钮，微信后台界面可能已更新");
+    }
+
+    // 2026-05-16: click 后立即探测 weui-dialog/tooltip —— 微信新版编辑器对
+    //   必填校验失败（作者/封面图/标题等）不发任何 network 请求，只弹一个
+    //   非阻塞 dialog，旧代码看不到所以表现成"save 静默无响应 30s timeout"。
+    //   先 300ms 让 dialog 渲染，然后扫描常见 toast/dialog 容器，把文案打到
+    //   log 里，后续根据真实文案精准补必填字段填写。
+    await delay(300);
+    try {
+      const dialogText = await page.evaluate(() => {
+        const selectors = [
+          ".weui-desktop-dialog__bd",
+          ".weui-desktop-dialog__title",
+          ".weui-mask",
+          ".tooltip__content",
+          ".dialog_bd",
+          ".js_dialog",
+          '[role="alertdialog"]',
+          '[role="alert"]',
+        ];
+        for (const sel of selectors) {
+          const nodes = Array.from(document.querySelectorAll(sel));
+          for (const node of nodes) {
+            const el = node as HTMLElement;
+            if (el.offsetParent === null) continue;
+            const text = el.innerText?.trim();
+            if (text && text.length > 0 && text.length < 500) {
+              return `${sel}: ${text}`;
+            }
+          }
+        }
+        return null;
+      });
+      if (dialogText) {
+        this.logger.warn(
+          `[saveDraft] Dialog detected after click: ${dialogText}`,
+        );
+      }
+    } catch (probeError) {
+      this.logger.debug(
+        `[saveDraft] Dialog probe failed: ${(probeError as Error).message}`,
+      );
     }
 
     // 等待保存完成 - 使用多种检测方式，并验证结果
