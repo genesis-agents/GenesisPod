@@ -89,11 +89,19 @@ backend/src/modules/ai-app/social/
 - ✅ **所有 SKILL.md `allowedModels: []`** —— 不硬编码模型名（CLAUDE.md 红线）；模型选择由下游 ChatFacade + TaskProfile + ModelPricingRegistry 自动决定
 - ✅ 验证：`__tests__/skill-md-skeleton.spec.ts` 56/56 pass（9 role × 6 断言 + 2 整体断言）
 
-### PR-2: 完整 9 SKILL.md（duty 内容填充）
+### PR-2: 完整 9 SKILL.md（duty 内容填充）✅ (2026-05-16)
 
-- 填充 8 个 SKILL.md 的 duty 详细内容（leader 在 PR-1 已完整）
-- 业务对应（如 composer duty 写 WeChat type=10 rich_pages schema 注入规则；publish-executor duty 写 BrowserContextTool op 序列）
-- 真实 prompt 风格参考 playground leader/SKILL.md（克制、具体引用、列局限）
+- ✅ 8 个 SKILL.md duty 详细内容填充：
+  - steward → duty:budget-eval（4 闸表 + 输出 schema + 拒签触发）
+  - platform-probe → duty:probe-platform（goto + evaluate sniff + dry-run saveDraft + ret code 表）
+  - content-transformer → duty:transform-for-platform（WeChat/XHS/Twitter 各自字数 + 字段规则）
+  - cover-artist → duty:craft-cover（三级 fallback + crop_multi schema + placehold.co 兜底色）
+  - composer → duty:compose-body（PR #111 WeChat rich_pages 字节级 schema + XHS plain text）
+  - polish-reviewer → duty:polish-review（CritiqueRefineService critique+refine + 极限词词典）
+  - publish-executor → duty:publish-to-platform（browser-context goto+evaluate + ret code 重试矩阵）
+  - publish-verifier → duty:verify-publish（URL/diff/image/ack 4 维度回读）
+- ✅ leader 在 PR-1 已完整（4 duties）
+- ✅ spec 更新：`all 9 roles have non-empty duties (PR-2 filled them)` 56/56 pass
 
 ### PR-3: 9 agent.ts + 9 role service + 13 stage adapter
 

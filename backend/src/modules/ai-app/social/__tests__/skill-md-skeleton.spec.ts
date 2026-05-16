@@ -1,5 +1,5 @@
 /**
- * W4 PR-1 verification: 9 agent SKILL.md skeleton parses correctly.
+ * W4 PR-2 verification: all 9 agent SKILL.md have filled duties.
  *
  * Each role's SKILL.md must:
  *   - Have valid YAML frontmatter (id / name / domain / version / allowedTools / allowedModels / duties)
@@ -8,9 +8,7 @@
  *   - allowedModels is empty array (no hardcoded model names — CLAUDE.md red line)
  *   - soul block exists
  *   - all duties listed in frontmatter have matching duty:NAME:start/end blocks
- *
- * leader has full duties (plan/assess-transform/foreword/signoff); other 8 are
- * placeholders with empty duties array (PR-2 will fill them).
+ *   - duties array is non-empty (PR-2 filled them all)
  */
 import { loadSkill, clearSkillCache } from "../utils/skill-md-loader";
 
@@ -73,10 +71,10 @@ describe("W4 PR-1 — social agent SKILL.md skeleton", () => {
     );
   });
 
-  it("8 non-leader roles have empty duties (PR-2 will fill)", () => {
-    for (const role of ROLES.filter((r) => r !== "leader")) {
+  it("all 9 roles have non-empty duties (PR-2 filled them)", () => {
+    for (const role of ROLES) {
       const skill = loadSkill(role);
-      expect(skill.frontmatter.duties).toEqual([]);
+      expect(skill.frontmatter.duties.length).toBeGreaterThan(0);
     }
   });
 });

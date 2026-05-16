@@ -1,10 +1,10 @@
 ---
 id: social.publish-verifier
 name: PublishVerifier
-description: 发布后 URL 抓取 + 索引检测 + 内容回读；PR-1 占位
+description: 发布后 URL 抓取 + 索引检测 + 内容回读
 allowedTools: ["browser-context", "web-scraper"]
 allowedModels: []
-duties: []
+duties: ["verify-publish"]
 domain: social
 version: "1.0"
 ---
@@ -27,7 +27,51 @@ version: "1.0"
 - `browser-context`：goto + screenshot
 - `web-scraper`：抓 HTML + 提取主体
 
-## 你的输出
+<!-- soul:end -->
+
+<!-- duty:verify-publish:start -->
+
+# PublishVerifier Duty: S9 VERIFY-PUBLISH —— 发布后回读校验
+
+对每个 status=PUBLISHED 的平台执行 4 维度真实回读。
+
+## 1. URL 可达
+
+- 调 `web-scraper` 工具抓 url
+- HTTP status != 200 → verdict=`url-unreachable`
+
+## 2. 内容回读 diff
+
+对抓回的 HTML 提取 title / body：
+
+- WeChat: 抓 `<meta property="og:title">` + `#js_content` innerText
+- XHS: 抓 `.note-title` + `.note-content`
+
+字段级 diff：
+
+```typescript
+const titleDiff = levenshteinRatio(actualTitle, sentTitle); // 0..1, 1=identical
+const bodyDiff = levenshteinRatio(actualBodyText, sentBodyText);
+const overallDiff = (titleDiff + bodyDiff) / 2;
+```
+
+- `overallDiff > 0.95` → 一致
+- `0.7 < overallDiff <= 0.95` → 部分平台篡改（emit warning）
+- `overallDiff <= 0.7` → 严重篡改（verdict=`content-mismatch`）
+
+## 3. 图片可访问
+
+对抓回 HTML 中所有 `<img src>`：
+
+- HEAD 请求，3s 超时
+- 200 比例 < 80% → emit warning，Leader 决定是否拒签
+
+## 4. 平台 ack
+
+- WeChat: 通过 `browser-context` op=`goto` 进入 draft 列表，evaluate 看 appMsgId 是否在列表
+- XHS: HEAD 请求 note URL，看是否在 review/published 状态
+
+## 输出（每平台一份）
 
 ```json
 {
@@ -36,15 +80,15 @@ version: "1.0"
   "verified": true,
   "diffPercent": 2.1,
   "imageHealthRatio": "5/5",
-  "platformStatus": "在草稿箱 / 已发布 / 审核中"
+  "platformStatus": "在草稿箱 / 已发布 / 审核中",
+  "warnings": []
 }
 ```
 
 ## 拒签触发
 
-- diff > 30% → emit `mission:verify-failed` reason=平台篡改
-- imageHealthRatio < 80% → emit warning，Leader 决定是否拒签
+- `verdict=url-unreachable` → emit `mission:verify-failed`
+- `verdict=content-mismatch` → emit `mission:verify-failed` reason=平台篡改
+- `imageHealthRatio < 80%` → emit warning，Leader 决定
 
-> **PR-1 占位**：duties 详细 prompt 在 PR-2 填充。
-
-<!-- soul:end -->
+<!-- duty:verify-publish:end -->
