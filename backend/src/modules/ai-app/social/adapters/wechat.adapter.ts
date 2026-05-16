@@ -1,5 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Page } from "puppeteer";
+import { AIModelType } from "@prisma/client";
+import { createHash } from "crypto";
+import { ChatFacade } from "@/modules/ai-harness/facade";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { PublishResult } from "../services/publish-executor.service";
 import {
@@ -26,7 +29,83 @@ export class WechatAdapter {
   constructor(
     private readonly playwright: SocialBrowserService,
     private readonly imageUploader: WechatImageUploaderService,
+    private readonly chatFacade: ChatFacade,
   ) {}
+
+  /**
+   * AI 把过长标题压缩到 ≤30 汉字。WeChat feed 列表显示截至 ~30 字，超长会被
+   * 截掉影响点击率。LLM 失败则 fallback 到原 title 前 28 字 + "…"。
+   */
+  private async summarizeTitle(
+    rawTitle: string,
+    digest: string | null | undefined,
+  ): Promise<string> {
+    const TITLE_MAX = 30;
+    const visualLength = (s: string) => Array.from(s).length; // codepoint count, 中英混合都按"1 字"算
+    if (visualLength(rawTitle) <= TITLE_MAX) return rawTitle;
+
+    const prompt =
+      `请把以下文章标题压缩成 ≤${TITLE_MAX} 字的简短中文标题，保留核心信息和吸引力。\n` +
+      `仅输出标题正文，不要引号、不要解释、不要末尾标点。\n\n` +
+      `原标题：${rawTitle}\n` +
+      (digest ? `摘要参考：${digest.slice(0, 200)}\n` : "");
+
+    try {
+      const response = await this.chatFacade.chat({
+        messages: [
+          {
+            role: "system",
+            content: "你是公众号编辑，擅长把长标题压缩成吸引点击的短标题。",
+          },
+          { role: "user", content: prompt },
+        ],
+        modelType: AIModelType.CHAT,
+        taskProfile: {
+          creativity: "low",
+          outputLength: "minimal",
+        },
+      });
+      const summarized = (response?.content || "")
+        .replace(/^["'「『]+|["'」』]+$/g, "")
+        .replace(/[。！？.!?]+$/g, "")
+        .trim();
+      if (summarized && visualLength(summarized) <= TITLE_MAX) {
+        this.logger.log(
+          `[title-summarize] "${rawTitle}" (${visualLength(rawTitle)}) → "${summarized}" (${visualLength(summarized)})`,
+        );
+        return summarized;
+      }
+      this.logger.warn(
+        `[title-summarize] LLM returned bad result "${summarized}", falling back to truncate`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[title-summarize] LLM error, falling back to truncate: ${(err as Error).message}`,
+      );
+    }
+    const codepoints = Array.from(rawTitle);
+    return codepoints.slice(0, TITLE_MAX - 1).join("") + "…";
+  }
+
+  /**
+   * Cover 三级 fallback：源图 → 默认占位图（AI 生成 P1 待补）。
+   *
+   * pickCoverImage 在 social-leader 已经按 images / coverImage / body <img>
+   * 三路找过；这里 content.coverImageUrl 仍为空 = 数据源真没图，给 picsum
+   * 兜底（同 title hash 保证同篇文章每次同图）。
+   */
+  private ensureCoverImageUrl(content: SocialContent): string | null {
+    if (content.coverImageUrl) return content.coverImageUrl;
+    const seed = createHash("sha256")
+      .update(content.title || content.id || "wechat-cover")
+      .digest("hex")
+      .slice(0, 16);
+    const url = `https://picsum.photos/seed/${seed}/1200/630`;
+    this.logger.log(
+      `[cover-fallback] content.coverImageUrl empty, using picsum seed=${seed}`,
+    );
+    return url;
+  }
 
   /**
    * 发布内容到微信公众号
@@ -597,19 +676,33 @@ export class WechatAdapter {
         };
       }
 
+      // Step 7.4: 标题超 30 字自动 AI 总结 + 封面图三级 fallback。
+      //   feed 列表显示截至 ~30 字，超长截断丢吸引力。
+      //   WeChat type=10 长图文"必须插入一张图片"，无 cover = 红色警告。
+      const summarizedTitle = await this.summarizeTitle(
+        content.title || "",
+        content.digest,
+      );
+      const ensuredCoverUrl = this.ensureCoverImageUrl(content);
+      const contentWithCover: SocialContent = {
+        ...content,
+        title: summarizedTitle,
+        coverImageUrl: ensuredCoverUrl || content.coverImageUrl,
+      };
+
       // Step 7.5a: 重传正文外链图到微信 CDN，重写 <img src>
       //   外链图会被防盗链拦截，必须先传到 mmbiz.qpic.cn 域。
       //   单张图失败不阻塞整体发布——保留原 URL + 日志告警。
-      let contentForFill: SocialContent = content;
-      if (token && content.content) {
+      let contentForFill: SocialContent = contentWithCover;
+      if (token && contentWithCover.content) {
         try {
           const stats = await this.imageUploader.rewriteImagesInHtml(
             page,
-            content.content,
+            contentWithCover.content,
             token,
           );
-          if (stats.rewritten !== content.content) {
-            contentForFill = { ...content, content: stats.rewritten };
+          if (stats.rewritten !== contentWithCover.content) {
+            contentForFill = { ...contentWithCover, content: stats.rewritten };
           }
           this.logger.log(
             `[image rewrite] uploaded=${stats.uploaded} failed=${stats.failed} skipped=${stats.skipped}`,
@@ -625,11 +718,11 @@ export class WechatAdapter {
       //   没有封面 → thumb_media_id="0"，feed 列表里没缩略图；可发但门面差。
       //   上传失败 → 同样降级到 thumb_media_id="0"，不阻塞发布。
       let cover: CoverUpload | null = null;
-      if (token && content.coverImageUrl) {
+      if (token && contentWithCover.coverImageUrl) {
         try {
           cover = await this.imageUploader.uploadCover(
             page,
-            content.coverImageUrl,
+            contentWithCover.coverImageUrl,
             token,
           );
           if (cover) {
