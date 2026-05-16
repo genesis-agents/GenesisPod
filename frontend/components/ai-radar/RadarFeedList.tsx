@@ -8,6 +8,10 @@ import type { RadarItem, RadarSourceType } from '@/services/ai-radar/types';
 interface Props {
   topicId: string;
   reloadKey?: number;
+  /** 由外部 RadarFeedTabs 控制（undefined = 全部） */
+  filterType?: RadarSourceType;
+  /** 由外部 toggle 控制 */
+  acceptedOnly?: boolean;
 }
 
 const TYPE_LABEL: Record<RadarSourceType, string> = {
@@ -36,19 +40,22 @@ function fmtDate(iso: string): string {
   return d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 }
 
-export function RadarFeedList({ topicId, reloadKey = 0 }: Props) {
+export function RadarFeedList({
+  topicId,
+  reloadKey = 0,
+  filterType,
+  acceptedOnly = false,
+}: Props) {
   const [items, setItems] = useState<RadarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<RadarSourceType | 'ALL'>('ALL');
-  const [acceptedOnly, setAcceptedOnly] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     listFeed(topicId, {
-      type: tab === 'ALL' ? undefined : tab,
+      type: filterType,
       acceptedOnly,
       limit: 60,
     })
@@ -64,38 +71,10 @@ export function RadarFeedList({ topicId, reloadKey = 0 }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [topicId, tab, acceptedOnly, reloadKey]);
+  }, [topicId, filterType, acceptedOnly, reloadKey]);
 
   return (
     <div className="flex h-full flex-col rounded-lg border border-gray-200 bg-white">
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-3 py-2">
-        {(['ALL', 'X', 'YOUTUBE', 'RSS', 'CUSTOM'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            className={`rounded-md px-2 py-0.5 text-xs ${
-              tab === t
-                ? 'bg-cyan-50 text-cyan-700'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-            onClick={() => setTab(t)}
-          >
-            {t === 'ALL' ? '全部' : TYPE_LABEL[t]}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-1">
-          <input
-            type="checkbox"
-            id="acceptedOnly"
-            className="h-3 w-3"
-            checked={acceptedOnly}
-            onChange={(e) => setAcceptedOnly(e.target.checked)}
-          />
-          <label htmlFor="acceptedOnly" className="text-[11px] text-gray-500">
-            仅显示通过评分
-          </label>
-        </div>
-      </div>
       <div className="flex-1 overflow-y-auto">
         {error && (
           <div className="m-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">

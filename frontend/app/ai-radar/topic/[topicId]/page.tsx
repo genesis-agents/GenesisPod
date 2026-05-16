@@ -11,12 +11,19 @@ import {
 } from '@/services/ai-radar/api';
 import type {
   RadarSource,
+  RadarSourceType,
   RadarTopicWithCounts,
 } from '@/services/ai-radar/types';
 import { RadarSourceList } from '@/components/ai-radar/RadarSourceList';
 import { RadarFeedList } from '@/components/ai-radar/RadarFeedList';
 import { RadarInsightPanel } from '@/components/ai-radar/RadarInsightPanel';
 import { RadarEntityPanel } from '@/components/ai-radar/RadarEntityPanel';
+import {
+  RadarFeedTabs,
+  type RadarFeedTabKey,
+} from '@/components/ai-radar/RadarFeedTabs';
+import { RadarRunTimeline } from '@/components/ai-radar/RadarRunTimeline';
+import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
 
 export default function RadarTopicDetailPage() {
   const params = useParams<{ topicId: string }>();
@@ -29,6 +36,40 @@ export default function RadarTopicDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [feedTab, setFeedTab] = useState<RadarFeedTabKey>('all');
+  const [acceptedOnly, setAcceptedOnly] = useState(false);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [stageStatus, setStageStatus] = useState<{
+    stage: string;
+    status: string;
+  } | null>(null);
+
+  // 订阅当前 active mission 的 ws 实时进度
+  useRadarSocket(activeRunId, {
+    onStage: (e) => setStageStatus({ stage: e.stage, status: e.status }),
+    onCompleted: () => {
+      setRefreshing(false);
+      setActiveRunId(null);
+      setStageStatus(null);
+      void reloadTopicRef.current?.();
+      setReloadKey((k) => k + 1);
+    },
+    onFailed: (e) => {
+      setRefreshing(false);
+      setActiveRunId(null);
+      setStageStatus(null);
+      // 不打扰：detail 页一会儿刷出来失败 run；timeline 会显示
+      setError(`刷新失败：${e.error}`);
+    },
+    onCancelled: () => {
+      setRefreshing(false);
+      setActiveRunId(null);
+      setStageStatus(null);
+    },
+  });
+
+  // useRef 一份 reloadTopic 给 ws 闭包用，避免 stale closure
+  const reloadTopicRef = { current: undefined as undefined | (() => void) };
 
   const reloadTopic = useCallback(async () => {
     if (!topicId) return;
@@ -46,6 +87,8 @@ export default function RadarTopicDetailPage() {
     }
   }, [topicId]);
 
+  reloadTopicRef.current = reloadTopic;
+
   useEffect(() => {
     void reloadTopic();
   }, [reloadTopic]);
@@ -53,18 +96,21 @@ export default function RadarTopicDetailPage() {
   const handleRefresh = async () => {
     if (!topicId) return;
     setRefreshing(true);
+    setError(null);
     try {
-      const summary = await triggerRefresh(topicId);
-      // 等待 2s 后重新拉数据（AI pipeline 异步执行，但当前是同步等完成）
-      void reloadTopic();
-      setReloadKey((k) => k + 1);
-      alert(
-        `刷新完成：抓取 ${summary.itemsFetched} 条 / 入库 ${summary.itemsInserted} / 失败 source ${summary.sourcesFailed}`
-      );
+      // 后端走 dispatcher.runRefreshMission：fire-and-forget mission，
+      // controller 返回 { runId, status }；前端用 useRadarSocket 订阅 runId 的
+      // ws 实时进度。完成/失败由 ws onCompleted / onFailed 触发刷新。
+      const resp = (await triggerRefresh(topicId)) as unknown as {
+        runId?: string;
+        status?: string;
+      };
+      if (resp?.runId) {
+        setActiveRunId(resp.runId);
+      }
     } catch (e) {
-      alert(`刷新失败：${e instanceof Error ? e.message : String(e)}`);
-    } finally {
       setRefreshing(false);
+      setError(`刷新失败：${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -154,12 +200,36 @@ export default function RadarTopicDetailPage() {
             onReload={() => void reloadTopic()}
           />
         </aside>
-        <main className="md:max-h-[calc(100vh-12rem)] md:min-h-[400px] md:overflow-hidden">
-          <RadarFeedList topicId={topic.id} reloadKey={reloadKey} />
+        <main className="flex flex-col gap-2 md:max-h-[calc(100vh-12rem)] md:min-h-[400px]">
+          {refreshing && (
+            <div className="flex items-center gap-2 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
+              <RefreshCw className="h-3 w-3 animate-spin" />
+              {stageStatus
+                ? `执行中：${stageStatus.stage} (${stageStatus.status})`
+                : '采集中…'}
+            </div>
+          )}
+          <RadarFeedTabs
+            value={feedTab}
+            onChange={setFeedTab}
+            acceptedOnly={acceptedOnly}
+            onAcceptedOnlyChange={setAcceptedOnly}
+          />
+          <div className="flex-1 md:overflow-hidden">
+            <RadarFeedList
+              topicId={topic.id}
+              reloadKey={reloadKey}
+              filterType={
+                feedTab === 'all' ? undefined : (feedTab as RadarSourceType)
+              }
+              acceptedOnly={acceptedOnly}
+            />
+          </div>
         </main>
         <aside className="space-y-3">
           <RadarInsightPanel topicId={topic.id} reloadKey={reloadKey} />
           <RadarEntityPanel topicId={topic.id} reloadKey={reloadKey} />
+          <RadarRunTimeline topicId={topic.id} reloadKey={reloadKey} />
         </aside>
       </div>
     </div>
