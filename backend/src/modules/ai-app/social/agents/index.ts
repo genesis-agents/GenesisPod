@@ -1,7 +1,15 @@
 /**
  * Top-level agent barrel for ai-app/social.
  *
- * SKILL.md files are the canonical prompt source (loaded by ../utils/skill-md-loader);
- * agent.ts implementations (IPlanBasedAgent) will land in W4-PR3.
+ * 9 IPlanBasedAgent (AgentSpec) implementations for SocialPublishMission;
+ * SKILL.md is the prompt source (loaded by ../utils/duty-loader).
  */
-export {};
+export * from "./leader";
+export * from "./steward";
+export * from "./platform-probe";
+export * from "./content-transformer";
+export * from "./cover-artist";
+export * from "./composer";
+export * from "./polish-reviewer";
+export * from "./publish-executor";
+export * from "./publish-verifier";

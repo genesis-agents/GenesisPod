@@ -103,11 +103,23 @@ backend/src/modules/ai-app/social/
 - ✅ leader 在 PR-1 已完整（4 duties）
 - ✅ spec 更新：`all 9 roles have non-empty duties (PR-2 filled them)` 56/56 pass
 
-### PR-3: 9 agent.ts + 9 role service + 13 stage adapter
+### PR-3a: 9 agent.ts + duty-loader util ✅ (2026-05-16)
 
-- `agents/{role}/{role}.agent.ts` × 9：thin `IPlanBasedAgent` 实现，execute() 调 facade
-- `services/roles/{role}.service.ts` × 9：调 `ChatFacade.chat / chatStructured` + `ToolRegistry.get(browser-context)` 等
-- `services/mission/workflow/stages/{s1-s12}.ts` × 13：每 stage 1 文件，binding primitive + 业务 mode → role service
+- ✅ 9 个 `agents/{role}/{role}.agent.ts`：每个含 zod Input/Output schema（leader 是 4-phase discriminated union；其他 8 个是单 duty 输入输出）+ `@DefineAgent` 装饰器（id / version / identity / loop=react / toolCategories / taskProfile / budget）+ `buildSystemPrompt()` 调 `buildPromptFromDuty(agentDir, dutyName, vars)`
+- ✅ 9 个 `agents/{role}/index.ts` barrel 导出 Agent 类 + 类型
+- ✅ `agents/index.ts` 顶层 barrel
+- ✅ `utils/duty-loader.ts` copy 自 playground（{{var}} / {{#if}} / {{#each}} 最小模板）
+- ✅ Spec `__tests__/duty-loader-integration.spec.ts`：12 duty 全部能 build 非空 prompt + 包含 soul/duty 分隔符；总 415/415 pass
+
+### PR-3b: 9 role service.ts (TODO 下一会话)
+
+- `services/roles/{role}.service.ts` × 9：调 harness `AgentInvoker.invoke(AgentClass, input, ctx)` + `MissionBudgetPool` cost tracking
+- 业务包装：cancellation / retry / event emit
+
+### PR-3c: 13 stage adapter (TODO 下一会话)
+
+- `services/mission/workflow/stages/{s1-s12}.ts` × 13：async function with signature `runXxxStage(ctx: MissionInvariants, deps: CommonDeps)`
+- 调 role service + `narrate(deps.emit)` 推进度
 
 ### PR-4: dispatcher + business-orchestrator + social.config.ts
 
