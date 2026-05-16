@@ -3,6 +3,7 @@ import { RadarSource } from "@prisma/client";
 import * as cheerio from "cheerio";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
+import { assertSafeHttpUrl } from "./ssrf-util";
 
 interface CustomCollectorConfig {
   /** 列表项 CSS selector（必须） */
@@ -14,9 +15,6 @@ interface CustomCollectorConfig {
   /** 日期 attr，比如 'datetime' / 'data-time'；不指定则取 textContent */
   dateAttr?: string;
 }
-
-const PRIVATE_HOST_REGEX =
-  /^(?:localhost|127\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|::1|fe80:)/i;
 
 const FETCH_TIMEOUT_MS = 20_000;
 const MAX_HTML_BYTES = 4 * 1024 * 1024; // 4 MB
@@ -54,7 +52,7 @@ export class CustomCollector implements ICollector {
         "CUSTOM source 必须在 config.listSelector 提供列表项 CSS selector",
       );
     }
-    this.assertSafeUrl(source.identifier);
+    assertSafeHttpUrl(source.identifier);
     const html = await this.fetchHtml(source.identifier);
     const $ = cheerio.load(html);
     const out: RawCollectedItem[] = [];
@@ -99,21 +97,6 @@ export class CustomCollector implements ICollector {
     });
     this.log.debug(`CUSTOM ${source.identifier} → ${out.length} new items`);
     return out;
-  }
-
-  private assertSafeUrl(url: string): void {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      throw new Error(`非法 URL: ${url}`);
-    }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new Error("URL 必须是 http:// 或 https://");
-    }
-    if (PRIVATE_HOST_REGEX.test(parsed.hostname)) {
-      throw new Error("禁止使用内网 / 私有 IP / loopback 地址");
-    }
   }
 
   private async fetchHtml(url: string): Promise<string> {

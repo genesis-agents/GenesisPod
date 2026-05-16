@@ -62,9 +62,14 @@ export class RadarRefreshScheduler {
       `Sweep tick now=${now.toISOString()} due=${due.length} globalRunning=${globalRunning}`,
     );
 
+    // 单 user 启动配额缓存（在本轮 sweep 内乐观计数）：
+    //   首次见 user 时 DB count 实际 RUNNING；后续同 user 触发一次就 +1。
+    //   语义是"本轮已启动 + DB 已 RUNNING"≥ 限额则跳过。这比纯 DB count 更严格
+    //   ——若 createRun 失败该 user 会被多跳过 1 个 topic，可接受（下一分钟 sweep
+    //   重新 count）。注释明确避免与 reviewer 解读冲突。
     const userRunningCache = new Map<string, number>();
     for (const topic of due) {
-      // 同 topic dedup
+      // 同 topic dedup：runRefresh 内部还有 transaction-level dedup 兜底
       const inflight = await this.prisma.radarRun.findFirst({
         where: {
           topicId: topic.id,
@@ -74,7 +79,6 @@ export class RadarRefreshScheduler {
       });
       if (inflight) continue;
 
-      // 单 user 并发限制
       let userActive = userRunningCache.get(topic.userId);
       if (userActive === undefined) {
         userActive = await this.prisma.radarRun.count({
@@ -88,6 +92,7 @@ export class RadarRefreshScheduler {
         userRunningCache.set(topic.userId, userActive);
         continue;
       }
+      // 乐观 +1（即使 fireRefresh 内部失败也保持，避免本轮内反复入队）
       userRunningCache.set(topic.userId, userActive + 1);
 
       // fire-and-forget

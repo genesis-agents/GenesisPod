@@ -14,9 +14,7 @@ import {
   UpdateRadarSourceDto,
 } from "../../dto";
 import { RadarTopicService } from "../topic/radar-topic.service";
-
-const PRIVATE_HOST_REGEX =
-  /^(?:localhost|127\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.|::1|fe80:)/i;
+import { assertSafeHttpUrl } from "../collectors/ssrf-util";
 
 @Injectable()
 export class RadarSourceService {
@@ -192,25 +190,14 @@ export class RadarSourceService {
         break;
       case "RSS":
       case "CUSTOM":
-        this.assertHttpUrl(identifier);
+        try {
+          assertSafeHttpUrl(identifier);
+        } catch (err) {
+          throw new BadRequestException((err as Error).message);
+        }
         break;
       default:
         throw new BadRequestException(`未知 source type: ${type}`);
-    }
-  }
-
-  private assertHttpUrl(url: string): void {
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      throw new BadRequestException(`非法 URL: ${url}`);
-    }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new BadRequestException("URL 必须是 http:// 或 https://");
-    }
-    if (PRIVATE_HOST_REGEX.test(parsed.hostname)) {
-      throw new BadRequestException("禁止使用内网 / 私有 IP / loopback 地址");
     }
   }
 }

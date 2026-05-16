@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Sparkles, Trash2, Power, AlertCircle } from 'lucide-react';
+import { AlertCircle, Plus, Power, Sparkles, Trash2, X } from 'lucide-react';
 import {
   acceptRecommendedSources,
   createSource,
@@ -344,8 +344,9 @@ function RecommendDialog({
             type="button"
             className="rounded-md p-1 text-gray-400 hover:bg-gray-100"
             onClick={onClose}
+            aria-label="close"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-3">

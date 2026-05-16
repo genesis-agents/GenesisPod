@@ -3,6 +3,7 @@ import { RadarSource } from "@prisma/client";
 import Parser from "rss-parser";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
+import { assertSafeHttpUrl } from "./ssrf-util";
 
 interface YouTubeRssItem {
   id?: string;
@@ -74,6 +75,7 @@ export class YoutubeCollector implements ICollector {
       );
     }
     const feedUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+    assertSafeHttpUrl(feedUrl);
     const feed = await this.parser.parseURL(feedUrl);
     const out: RawCollectedItem[] = [];
     for (const item of feed.items ?? []) {

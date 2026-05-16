@@ -6,6 +6,7 @@ import {
   DefaultValuePipe,
   Get,
   Logger,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Post,
@@ -15,22 +16,31 @@ import {
 } from "@nestjs/common";
 import { RadarRunStatus, RadarRunTrigger } from "@prisma/client";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import {
+  RateLimit,
+  RateLimitGuard,
+} from "../../../../common/guards/rate-limit.guard";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import { TriggerRefreshDto } from "../dto";
-import { RADAR_SCHEDULER_DEFAULTS } from "../radar.constants";
 import { RadarCollectService } from "../services/collect/radar-collect.service";
 import { RadarTopicService } from "../services/topic/radar-topic.service";
 
 /**
- * RadarRunController
+ * RadarRunController (PR-R5 + R6 整改)
  *
  * 历史 run 查询（GET）+ 手动触发刷新（POST）。
- * PR-R2 接通：手动 refresh 走 RadarCollectService 同步执行（pull only，无 AI score）。
- * PR-R3 会把 RadarCollectService 替换为 RadarPipelineDispatcher（含 8 个 AI stage）。
+ *
+ * - refresh: 走 RadarCollectService.runRefresh，完整 collect → AI pipeline → insight
+ *   链路，dedup 在 service 层走 transaction 原子化（防 findFirst→create 之间的 race）。
+ * - cancel:  标记 CANCELLED（同步执行模式下等于 race 后兜底；fire-and-forget 模式
+ *   需要接 AbortController 真停，列入后续 follow-up）。
+ *
+ * RateLimit: 用户主动 endpoint 走 10/60s（参考 feedback_user_action_rate_limits_loose
+ * 30/60s 起步，refresh 因带 LLM 暴账风险收紧到 10/60s）；recommend 同档。
  */
 @Controller("radar")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RateLimitGuard)
 export class RadarRunController {
   private readonly log = new Logger(RadarRunController.name);
 
@@ -58,9 +68,18 @@ export class RadarRunController {
   /**
    * 手动触发一次刷新（同步执行 + 返回 run summary）。
    *
-   * dedup window：5 秒内重复 POST 直接 409 返回正在运行的 run。
+   * 防滥用三件套：
+   * 1. RateLimit 10/60s/user（控制器层）
+   * 2. RadarCollectService.runRefresh 内部用 $transaction 创建 run，
+   *    findFirst-inflight + create 在同事务里执行（防 controller 层 race）
+   * 3. 5s dedup window 拒绝刚完成的 run（防双击）
    */
   @Post("topics/:topicId/refresh")
+  @RateLimit({
+    maxRequests: 10,
+    windowSeconds: 60,
+    message: "刷新过于频繁，请稍候再试",
+  })
   async refresh(
     @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
@@ -72,48 +91,20 @@ export class RadarRunController {
         `主题处于 ${topic.status} 状态，无法刷新，请先 resume`,
       );
     }
-    // dedup window
-    const windowAgo = new Date(
-      Date.now() - RADAR_SCHEDULER_DEFAULTS.manualDedupSeconds * 1000,
-    );
-    const recent = await this.prisma.radarRun.findFirst({
-      where: {
+    try {
+      const summary = await this.collect.runRefresh(
         topicId,
-        status: { in: [RadarRunStatus.PENDING, RadarRunStatus.RUNNING] },
-      },
-      orderBy: { startedAt: "desc" },
-    });
-    if (recent) {
-      throw new ConflictException({
-        message: "已有 run 正在执行，请稍候",
-        runId: recent.id,
-        status: recent.status,
-      });
+        RadarRunTrigger.MANUAL,
+        { userId: req.user.id, dedupSeconds: 5 },
+      );
+      this.log.log(
+        `Manual refresh topic=${topicId} run=${summary.runId} inserted=${summary.itemsInserted}/${summary.itemsFetched}`,
+      );
+      return summary;
+    } catch (err) {
+      if (err instanceof ConflictException) throw err;
+      throw err;
     }
-    const recentCompleted = await this.prisma.radarRun.findFirst({
-      where: {
-        topicId,
-        startedAt: { gte: windowAgo },
-      },
-      orderBy: { startedAt: "desc" },
-    });
-    if (recentCompleted) {
-      throw new ConflictException({
-        message: `请稍后再试（${RADAR_SCHEDULER_DEFAULTS.manualDedupSeconds}s 内不可重复触发）`,
-        runId: recentCompleted.id,
-        status: recentCompleted.status,
-      });
-    }
-
-    const summary = await this.collect.runRefresh(
-      topicId,
-      RadarRunTrigger.MANUAL,
-      { userId: req.user.id },
-    );
-    this.log.log(
-      `Manual refresh topic=${topicId} run=${summary.runId} inserted=${summary.itemsInserted}/${summary.itemsFetched}`,
-    );
-    return summary;
   }
 
   @Post("runs/:runId/cancel")
@@ -122,17 +113,17 @@ export class RadarRunController {
       where: { id: runId },
       include: { topic: true },
     });
-    if (!run) throw new BadRequestException("Run not found");
+    if (!run) throw new NotFoundException("Run not found");
     if (run.topic.userId !== req.user.id) {
-      throw new BadRequestException("Not owner");
+      throw new NotFoundException("Run not found");
     }
     if (run.status !== RadarRunStatus.RUNNING) {
       throw new BadRequestException(
         `Run in status=${run.status}, cannot cancel`,
       );
     }
-    // PR-R2 同步执行模式下，cancel 等于"标记为 CANCELLED"。
-    // PR-R4 引入 fire-and-forget 后会接入 AbortController 真停。
+    // 同步执行模式下，cancel 等于"标记为 CANCELLED"；fire-and-forget 模式需要接
+    // AbortController 真停（follow-up）。
     return this.prisma.radarRun.update({
       where: { id: runId },
       data: {

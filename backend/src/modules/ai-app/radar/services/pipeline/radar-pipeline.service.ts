@@ -107,17 +107,22 @@ export class RadarPipeline {
     const scoredMap = new Map(scored.map((s) => [s.id, s]));
 
     // 写 relevance + 过滤进入 S5/S6 的 items
+    // R6 整改：批量 $transaction 一次性 update N 条（消除 N+1）
     const threshold = RADAR_PIPELINE_DEFAULTS.relevanceThreshold;
     const itemsForS5: RadarItem[] = [];
+    const s4Updates: Prisma.PrismaPromise<RadarItem>[] = [];
     for (const item of items) {
       const s = scoredMap.get(item.id);
       const relScore = s?.relevanceScore ?? 30;
-      await this.prisma.radarItem.update({
-        where: { id: item.id },
-        data: { relevanceScore: relScore },
-      });
+      s4Updates.push(
+        this.prisma.radarItem.update({
+          where: { id: item.id },
+          data: { relevanceScore: relScore },
+        }),
+      );
       if (relScore >= threshold) itemsForS5.push(item);
     }
+    if (s4Updates.length > 0) await this.prisma.$transaction(s4Updates);
 
     // ── S5 quality + summary ──────────────────────────
     const rated = await this.quality.rateBatch(
@@ -133,16 +138,17 @@ export class RadarPipeline {
     );
     const ratedMap = new Map(rated.map((r) => [r.id, r]));
 
-    for (const item of itemsForS5) {
+    const s5Updates = itemsForS5.map((item) => {
       const r = ratedMap.get(item.id);
-      await this.prisma.radarItem.update({
+      return this.prisma.radarItem.update({
         where: { id: item.id },
         data: {
           qualityScore: r?.qualityScore ?? 40,
           aiSummary: r?.aiSummary ?? null,
         },
       });
-    }
+    });
+    if (s5Updates.length > 0) await this.prisma.$transaction(s5Updates);
 
     // ── S6 entities ───────────────────────────────────
     const extracted = await this.entity.extractBatch(
@@ -155,18 +161,19 @@ export class RadarPipeline {
     );
     const entityMap = new Map(extracted.map((e) => [e.id, e.entities]));
 
-    for (const item of itemsForS5) {
+    const s6Updates = itemsForS5.map((item) => {
       const entities = entityMap.get(item.id) ?? [];
-      await this.prisma.radarItem.update({
+      return this.prisma.radarItem.update({
         where: { id: item.id },
         data: {
           entities: entities as unknown as Prisma.InputJsonValue,
         },
       });
-    }
+    });
+    if (s6Updates.length > 0) await this.prisma.$transaction(s6Updates);
 
     // ── S8 accepted ───────────────────────────────────
-    let itemsAccepted = 0;
+    const acceptedIds: string[] = [];
     for (const item of itemsForS5) {
       const score = scoredMap.get(item.id);
       const rate = ratedMap.get(item.id);
@@ -174,13 +181,14 @@ export class RadarPipeline {
         (score?.relevanceScore ?? 0) >=
           RADAR_PIPELINE_DEFAULTS.acceptedRelevanceMin &&
         (rate?.qualityScore ?? 0) >= RADAR_PIPELINE_DEFAULTS.acceptedQualityMin;
-      if (accepted) {
-        await this.prisma.radarItem.update({
-          where: { id: item.id },
-          data: { accepted: true },
-        });
-        itemsAccepted++;
-      }
+      if (accepted) acceptedIds.push(item.id);
+    }
+    const itemsAccepted = acceptedIds.length;
+    if (acceptedIds.length > 0) {
+      await this.prisma.radarItem.updateMany({
+        where: { id: { in: acceptedIds } },
+        data: { accepted: true },
+      });
     }
 
     // ── S7 insight ────────────────────────────────────

@@ -1,8 +1,8 @@
 import { Transform } from "class-transformer";
 import {
-  IsBooleanString,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -27,9 +27,14 @@ export class RadarFeedQueryDto {
   @Max(100)
   minRelevance?: number;
 
+  /**
+   * 仅显示通过 AI 评分的 item（accepted=true）。
+   * 设计为单值开关：传 "true" 即开启，**省略 / "false" / 任何其他值都视为关闭**
+   * （此处不接受 false 字面量，避免双语义；前端应只在勾选时设置 query）。
+   */
   @IsOptional()
-  @IsBooleanString()
-  acceptedOnly?: string;
+  @IsIn(["true"])
+  acceptedOnly?: "true";
 
   @IsOptional()
   @Transform(({ value }) => Number(value))

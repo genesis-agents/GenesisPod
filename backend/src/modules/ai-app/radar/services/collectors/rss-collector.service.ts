@@ -3,6 +3,7 @@ import { RadarSource } from "@prisma/client";
 import Parser from "rss-parser";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
+import { assertSafeHttpUrl } from "./ssrf-util";
 
 interface CustomRssItem {
   guid?: string;
@@ -54,6 +55,9 @@ export class RssCollector implements ICollector {
     source: RadarSource,
     ctx: CollectContext,
   ): Promise<RawCollectedItem[]> {
+    // SSRF 防护：rss-parser 内部走 follow-redirects，redirect 后可能跳到内网。
+    // 入库时已校验过 identifier，但攻击者可能通过 DB 注入绕过——这里再校验一次。
+    assertSafeHttpUrl(source.identifier);
     const feed = await this.parser.parseURL(source.identifier);
     const items = feed.items ?? [];
     const out: RawCollectedItem[] = [];

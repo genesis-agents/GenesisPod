@@ -6,16 +6,15 @@ import {
   RecommendedSource,
   SourceCuratorAgent,
 } from "../../agents/source-curator/source-curator.agent";
-import { RadarSourceTypeDto } from "../../dto";
+import { RecommendedSourceCandidateDto } from "../../dto";
 
 /**
  * SourceDiscoveryService —— 调 SourceCuratorAgent 生成推荐 + 接收用户确认批量入库。
  *
  * 前端流程：
- *   1. POST /topics/:id/sources/recommend → 返回 candidates: RecommendedSource[]
- *      （前端把 candidates 渲染成勾选 list，用户可见 rationale + confidence）
- *   2. POST /topics/:id/sources/recommend/accept body: { candidates: [serializedJson] }
- *      把用户勾选的候选项原样 echo 回来（避免再调一次 LLM），后端 validate + 入库
+ *   1. POST /topics/:id/sources/recommend → candidates: RecommendedSource[]
+ *   2. POST /topics/:id/sources/recommend/accept body: { candidates: [Candidate] }
+ *      候选项走 class-validator nested 校验后入库（避免 SSRF 注入）
  */
 @Injectable()
 export class SourceDiscoveryService {
@@ -55,49 +54,27 @@ export class SourceDiscoveryService {
   }
 
   /**
-   * 接受 AI 推荐源批量入库。
-   *
-   * @param candidatesJson 前端把 RecommendedSource[] 序列化回传 -- 用 JSON.stringify
-   *                       再 split 也行，这里假设前端传 JSON string 数组
+   * 接受 AI 推荐源批量入库（已通过 class-validator nested 校验）。
    */
   async acceptCandidates(
     userId: string,
     topicId: string,
-    candidatesJson: string[],
+    candidates: RecommendedSourceCandidateDto[],
   ): Promise<RadarSource[]> {
-    const parsed = candidatesJson
-      .map((s) => this.tryParse(s))
-      .filter((c): c is RecommendedSource => c !== null);
-    if (parsed.length === 0) return [];
+    if (candidates.length === 0) return [];
     return this.sources.bulkCreateAiRecommended(
       userId,
       topicId,
-      parsed.map((c) => ({
-        type: c.type as unknown as RadarSourceTypeDto,
+      candidates.map((c) => ({
+        type: c.type,
         identifier: c.identifier,
         label: c.label,
-        config: c.type === "CUSTOM" ? { _hint: c.rationale } : undefined,
+        config:
+          c.type === ("CUSTOM" as RecommendedSourceCandidateDto["type"])
+            ? { _hint: c.rationale ?? "" }
+            : undefined,
       })),
     );
-  }
-
-  private tryParse(raw: string): RecommendedSource | null {
-    try {
-      const obj = JSON.parse(raw) as RecommendedSource;
-      if (
-        obj &&
-        typeof obj.identifier === "string" &&
-        (obj.type === "X" ||
-          obj.type === "YOUTUBE" ||
-          obj.type === "RSS" ||
-          obj.type === "CUSTOM")
-      ) {
-        return obj;
-      }
-      return null;
-    } catch {
-      return null;
-    }
   }
 
   private parseKeywords(raw: unknown): string[] {

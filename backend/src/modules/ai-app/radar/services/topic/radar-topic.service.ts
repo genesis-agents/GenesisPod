@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { Prisma, RadarTopic, RadarTopicStatus } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { computeNextCronTick } from "../scheduler/cron-util";
 import {
   CreateRadarTopicDto,
   RadarEntityType,
@@ -21,6 +22,9 @@ const KEYWORD_MAX_LEN = 80;
 const CRON_REGEX = new RegExp(
   "^[\\d*/,-]+\\s+[\\d*/,-]+\\s+[\\d*/,-]+\\s+[\\d*/,-]+\\s+[\\d*/,-]+$",
 );
+
+/** 最小刷新间隔 10 分钟（防 LLM 暴账，scheduler 每分钟跑也不能引爆 budget） */
+const MIN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class RadarTopicService {
@@ -158,6 +162,19 @@ export class RadarTopicService {
   private assertCron(expr: string): void {
     if (!CRON_REGEX.test(expr)) {
       throw new BadRequestException(`非法 cron 表达式: ${expr}`);
+    }
+    // 计算前两次 tick 间隔，强制 ≥ MIN_REFRESH_INTERVAL_MS（10 分钟）
+    const now = new Date();
+    const t1 = computeNextCronTick(expr, now);
+    if (!t1) {
+      throw new BadRequestException(`cron 表达式无法解析: ${expr}`);
+    }
+    const t2 = computeNextCronTick(expr, t1);
+    if (!t2) return;
+    if (t2.getTime() - t1.getTime() < MIN_REFRESH_INTERVAL_MS) {
+      throw new BadRequestException(
+        `刷新间隔过短（最小 ${MIN_REFRESH_INTERVAL_MS / 60000} 分钟），请放宽 cron 表达式`,
+      );
     }
   }
 

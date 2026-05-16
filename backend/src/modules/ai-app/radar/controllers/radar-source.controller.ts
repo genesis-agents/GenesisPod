@@ -87,6 +87,9 @@ export class RadarSourceController {
 
   /**
    * 接受 AI 推荐源 → 批量入库（isAiRecommended=true 标记）。
+   *
+   * 注：candidates 走 class-validator nested 校验（每个候选 type/identifier/label
+   * 都被强制校验，避免 SSRF 注入）。
    */
   @Post("topics/:topicId/sources/recommend/accept")
   async acceptRecommended(

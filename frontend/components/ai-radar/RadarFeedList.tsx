@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { Check, ExternalLink } from 'lucide-react';
 import { listFeed } from '@/services/ai-radar/api';
 import type { RadarItem, RadarSourceType } from '@/services/ai-radar/types';
 
@@ -150,8 +150,9 @@ export function RadarFeedList({ topicId, reloadKey = 0 }: Props) {
                         </span>
                       )}
                       {item.accepted && (
-                        <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700">
-                          ✓ 入选
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700">
+                          <Check className="h-2.5 w-2.5" />
+                          入选
                         </span>
                       )}
                     </div>

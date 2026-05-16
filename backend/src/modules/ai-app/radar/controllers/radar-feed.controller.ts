@@ -42,7 +42,26 @@ export class RadarFeedController {
       orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
-      include: {
+      // 不 select raw（含原始 RSS payload，可能含 author 邮件等个人信息）
+      select: {
+        id: true,
+        topicId: true,
+        sourceId: true,
+        externalId: true,
+        contentHash: true,
+        title: true,
+        content: true,
+        author: true,
+        authorAvatar: true,
+        url: true,
+        publishedAt: true,
+        fetchedAt: true,
+        relevanceScore: true,
+        qualityScore: true,
+        aiSummary: true,
+        entities: true,
+        metrics: true,
+        accepted: true,
         source: {
           select: { id: true, type: true, label: true, identifier: true },
         },
@@ -64,9 +83,31 @@ export class RadarFeedController {
     @Param("itemId") itemId: string,
   ) {
     await this.topics.getOwnedById(req.user.id, topicId);
+    // 单条详情同样不返回 raw（前端用 url 跳原页面更合适，raw 仅服务端 reprocess 用）
     const item = await this.prisma.radarItem.findFirst({
       where: { id: itemId, topicId },
-      include: { source: true },
+      select: {
+        id: true,
+        topicId: true,
+        sourceId: true,
+        externalId: true,
+        title: true,
+        content: true,
+        author: true,
+        authorAvatar: true,
+        url: true,
+        publishedAt: true,
+        fetchedAt: true,
+        relevanceScore: true,
+        qualityScore: true,
+        aiSummary: true,
+        entities: true,
+        metrics: true,
+        accepted: true,
+        source: {
+          select: { id: true, type: true, label: true, identifier: true },
+        },
+      },
     });
     if (!item) {
       return { item: null };

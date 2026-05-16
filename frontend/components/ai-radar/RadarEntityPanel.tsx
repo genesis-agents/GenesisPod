@@ -1,7 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Building2, Package, Calendar, Tag } from 'lucide-react';
+import {
+  ArrowUp,
+  Building2,
+  Calendar,
+  Package,
+  Tag,
+  Users,
+} from 'lucide-react';
 import { getLatestInsight } from '@/services/ai-radar/api';
 import type { RadarInsightTopEntity } from '@/services/ai-radar/types';
 
@@ -89,11 +96,12 @@ export function RadarEntityPanel({ topicId, reloadKey = 0 }: Props) {
                         className="flex items-center justify-between text-xs"
                       >
                         <span className="truncate text-gray-700">{e.name}</span>
-                        <span className="flex-shrink-0 text-[10px] text-gray-400">
-                          {e.mentions}
-                          {e.delta > 0 && (
-                            <span className="ml-0.5 text-emerald-600">
-                              ↑{e.delta}
+                        <span className="flex flex-shrink-0 items-center gap-0.5 text-[10px] text-gray-400">
+                          <span>{e.mentions}</span>
+                          {(e.delta ?? 0) > 0 && (
+                            <span className="inline-flex items-center text-emerald-600">
+                              <ArrowUp className="h-2.5 w-2.5" />
+                              {e.delta}
                             </span>
                           )}
                         </span>

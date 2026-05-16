@@ -3,6 +3,7 @@ import { RadarSource } from "@prisma/client";
 import Parser from "rss-parser";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
+import { assertSafeHttpUrl } from "./ssrf-util";
 
 interface NitterItem {
   guid?: string;
@@ -64,6 +65,8 @@ export class XCollector implements ICollector {
     for (const instance of NITTER_INSTANCES) {
       const url = `${instance}/${handle}/rss`;
       try {
+        // SSRF 防护（NITTER_INSTANCES 写死 public，但 redirect 仍可能跳内网）
+        assertSafeHttpUrl(url);
         const feed = await this.parser.parseURL(url);
         return this.parseFeed(feed.items ?? [], ctx, handle, instance);
       } catch (err) {

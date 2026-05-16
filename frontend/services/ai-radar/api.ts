@@ -128,9 +128,19 @@ export async function createSource(
   });
 }
 
+/**
+ * Backend UpdateRadarSourceDto 只允许改 label / config / enabled；
+ * type / identifier 改了会被 ValidationPipe whitelist strip。
+ */
+export interface UpdateRadarSourceInput {
+  label?: string;
+  config?: Record<string, unknown>;
+  enabled?: boolean;
+}
+
 export async function updateSource(
   sourceId: string,
-  input: Partial<CreateRadarSourceInput>
+  input: UpdateRadarSourceInput
 ): Promise<RadarSource> {
   return request<RadarSource>(`/sources/${sourceId}`, {
     method: 'PATCH',
@@ -161,11 +171,11 @@ export async function acceptRecommendedSources(
   topicId: string,
   candidates: RecommendedSource[]
 ): Promise<RadarSource[]> {
+  // R6 整改：原 backend 用 string[] 双重序列化是反模式；
+  // 现 DTO 改为 RecommendedSourceCandidateDto[] + ValidateNested，直接发对象。
   return request<RadarSource[]>(`/topics/${topicId}/sources/recommend/accept`, {
     method: 'POST',
-    body: JSON.stringify({
-      candidates: candidates.map((c) => JSON.stringify(c)),
-    }),
+    body: JSON.stringify({ candidates }),
   });
 }
 

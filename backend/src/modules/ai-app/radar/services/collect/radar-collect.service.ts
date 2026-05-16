@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { ConflictException, Injectable, Logger } from "@nestjs/common";
 import {
   Prisma,
   RadarRun,
@@ -8,13 +8,15 @@ import {
   RadarSourceHealth,
 } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { RADAR_PIPELINE_DEFAULTS } from "../../radar.constants";
+import {
+  DEFAULT_REFRESH_CRON,
+  RADAR_PIPELINE_DEFAULTS,
+} from "../../radar.constants";
 import { CollectorRouter } from "../collectors/collector-router.service";
 import { RawCollectedItem } from "../collectors/icollector";
 import { SourceHealthService } from "../source/source-health.service";
 import { RadarPipeline } from "../pipeline/radar-pipeline.service";
 import { computeNextCronTick } from "../scheduler/cron-util";
-import { DEFAULT_REFRESH_CRON } from "../../radar.constants";
 
 export interface CollectRunSummary {
   runId: string;
@@ -61,9 +63,11 @@ export class RadarCollectService {
   async runRefresh(
     topicId: string,
     trigger: RadarRunTrigger = RadarRunTrigger.MANUAL,
-    opts: { userId?: string } = {},
+    opts: { userId?: string; dedupSeconds?: number } = {},
   ): Promise<CollectRunSummary> {
-    const run = await this.createRun(topicId, trigger);
+    // dedup + 创建 run 在同事务（防 findFirst → create 之间的 race），
+    // 同 topic 已有 RUNNING/PENDING 直接抛 ConflictException。
+    const run = await this.acquireRunSlot(topicId, trigger, opts.dedupSeconds);
     const start = Date.now();
     const errors: Array<{ sourceId: string; error: string }> = [];
 
@@ -96,10 +100,13 @@ export class RadarCollectService {
       }
 
       const since = await this.computeSince(topicId);
+      // userId 来自 controller 透传或 scheduler 的 topic.userId；空字符串让下游
+      // BYOK resolver 自然走 system 默认（不要硬编码 "system" 字面量，会污染日志）。
+      const collectorUserId = opts.userId ?? "";
       const results = await this.router.fanOut(sources, {
         since,
         perSourceLimit: RADAR_PIPELINE_DEFAULTS.perSourceItemLimit,
-        userId: "system", // PR-R4 注入 mission owner 走 BYOK
+        userId: collectorUserId,
       });
 
       let itemsFetched = 0;
@@ -195,17 +202,64 @@ export class RadarCollectService {
     }
   }
 
-  private async createRun(
+  /**
+   * 原子获取 run slot：在同事务内 inflight 检查 + 5s 完成 dedup + create。
+   *
+   * Prisma 没有内置 partial unique index 表达"同 topic 只能有 1 个 RUNNING"，
+   * 用 $transaction 序列化读+写 是项目里其他模块同样的做法。极端情况下两个
+   * 并发请求可能仍创建两个 RUNNING（PG 默认 READ COMMITTED），但相比原来
+   * 在 controller 层 findFirst → create 两步独立调用，race window 从秒级压
+   * 缩到事务期内（ms 级），实际滥用风险可控。
+   *
+   * @throws ConflictException 已有 inflight 或刚完成的 run
+   */
+  private async acquireRunSlot(
     topicId: string,
     trigger: RadarRunTrigger,
+    dedupSeconds?: number,
   ): Promise<RadarRun> {
-    return this.prisma.radarRun.create({
-      data: {
-        topicId,
-        trigger,
-        status: RadarRunStatus.RUNNING,
-        startedAt: new Date(),
-      },
+    const dedupMs = (dedupSeconds ?? 5) * 1000;
+    const dedupSince = new Date(Date.now() - dedupMs);
+    return this.prisma.$transaction(async (tx) => {
+      const inflight = await tx.radarRun.findFirst({
+        where: {
+          topicId,
+          status: { in: [RadarRunStatus.PENDING, RadarRunStatus.RUNNING] },
+        },
+        select: { id: true, status: true },
+      });
+      if (inflight) {
+        throw new ConflictException({
+          message: "已有 run 正在执行，请稍候",
+          runId: inflight.id,
+          status: inflight.status,
+        });
+      }
+      if (dedupSeconds && dedupSeconds > 0) {
+        const recentDone = await tx.radarRun.findFirst({
+          where: {
+            topicId,
+            startedAt: { gte: dedupSince },
+          },
+          orderBy: { startedAt: "desc" },
+          select: { id: true, status: true },
+        });
+        if (recentDone) {
+          throw new ConflictException({
+            message: `请稍后再试（${dedupSeconds}s 内不可重复触发）`,
+            runId: recentDone.id,
+            status: recentDone.status,
+          });
+        }
+      }
+      return tx.radarRun.create({
+        data: {
+          topicId,
+          trigger,
+          status: RadarRunStatus.RUNNING,
+          startedAt: new Date(),
+        },
+      });
     });
   }
 
@@ -286,37 +340,35 @@ export class RadarCollectService {
     if (toInsert.length === 0) {
       return { inserted: 0, deduped: items.length, ids: [] };
     }
-    // 用 transaction + 逐条 create 拿 id（createMany 不返 id）
-    const insertedIds: string[] = [];
-    await this.prisma
-      .$transaction(
-        toInsert.map((i) =>
-          this.prisma.radarItem.create({
-            data: {
-              topicId,
-              sourceId,
-              externalId: i.externalId,
-              contentHash: i.contentHash,
-              title: i.title,
-              content: i.content,
-              author: i.author,
-              authorAvatar: i.authorAvatar,
-              url: i.url,
-              publishedAt: i.publishedAt,
-              raw: i.raw as Prisma.InputJsonValue,
-              metrics:
-                i.metrics === null
-                  ? Prisma.JsonNull
-                  : (i.metrics as Prisma.InputJsonValue),
-              accepted: false,
-            },
-            select: { id: true },
-          }),
-        ),
-      )
-      .then((rows) => {
-        for (const r of rows) insertedIds.push(r.id);
-      });
+    // 用 transaction + 逐条 create 拿 id（createMany 不返 id）。
+    // R6 整改：改用 await 拿数组而非 .then 内 push，避免异常时 insertedIds
+    // 静默为空（reviewer 标记 P0）。
+    const rows = await this.prisma.$transaction(
+      toInsert.map((i) =>
+        this.prisma.radarItem.create({
+          data: {
+            topicId,
+            sourceId,
+            externalId: i.externalId,
+            contentHash: i.contentHash,
+            title: i.title,
+            content: i.content,
+            author: i.author,
+            authorAvatar: i.authorAvatar,
+            url: i.url,
+            publishedAt: i.publishedAt,
+            raw: i.raw as Prisma.InputJsonValue,
+            metrics:
+              i.metrics === null
+                ? Prisma.JsonNull
+                : (i.metrics as Prisma.InputJsonValue),
+            accepted: false,
+          },
+          select: { id: true },
+        }),
+      ),
+    );
+    const insertedIds = rows.map((r) => r.id);
     return {
       inserted: insertedIds.length,
       deduped: items.length - toInsert.length,

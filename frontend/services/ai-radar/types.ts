@@ -15,12 +15,22 @@ export type RadarRunStatus =
   | 'CANCELLED';
 export type RadarRunTrigger = 'SCHEDULED' | 'MANUAL' | 'FIRST_RUN';
 
+/** 主题对象类型（create topic dto 用） */
 export type RadarEntityType =
   | 'person'
   | 'company'
   | 'product'
   | 'event'
   | 'topic';
+
+/** AI 实体抽取出的 entity 类型（backend ExtractedEntity；与 RadarEntityType 不同集合） */
+export type RadarItemEntityKind =
+  | 'person'
+  | 'company'
+  | 'product'
+  | 'event'
+  | 'location'
+  | 'other';
 
 export interface RadarTopic {
   id: string;
@@ -60,7 +70,7 @@ export interface RadarSource {
 }
 
 export interface RadarItemEntity {
-  type: string;
+  type: RadarItemEntityKind;
   name: string;
   normalizedName: string;
   confidence: number;
@@ -109,7 +119,8 @@ export interface RadarInsightTopEntity {
   type: string;
   name: string;
   mentions: number;
-  delta: number;
+  /** backend fallback 路径可能漏写，UI 读时 ?? 0 兜底 */
+  delta?: number;
 }
 
 export interface RadarInsight {
