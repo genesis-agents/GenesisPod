@@ -45,7 +45,44 @@ const WECHAT_HOSTED_DOMAINS = [
   "mp.weixin.qq.com",
 ];
 
+const MMBIZ_URL_PATTERN = /^https:\/\/mmbiz\.qpic\.cn\//i;
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const FETCH_TIMEOUT_MS = 15_000;
+
 const IMG_TAG_REGEX = /<img\b([^>]*?)\bsrc\s*=\s*(["'])([^"']+)\2([^>]*?)\/?>/gi;
+
+/**
+ * SSRF 防护：拒绝非 https 协议 + 私网/回环/链路本地 IP。
+ *
+ * 简化版（不做 DNS resolution）：只看 URL 字面值，把明显的内网字面地址
+ * 拦掉。完整 SSRF（含 DNS rebinding）走 ai-engine ContentFetchService，
+ * 但封面图发布前没必要拉 facade 整套——这里轻量门禁即可。
+ */
+function isUrlSsrfSafe(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl);
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    const host = url.hostname.toLowerCase();
+    if (host === "localhost" || host === "0.0.0.0") return false;
+    // IPv4 私网 / 回环 / 链路本地 / 元数据端点
+    const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipv4) {
+      const [, a, b] = ipv4.map(Number);
+      if (a === 10 || a === 127) return false;
+      if (a === 172 && b >= 16 && b <= 31) return false;
+      if (a === 192 && b === 168) return false;
+      if (a === 169 && b === 254) return false; // AWS / GCP metadata
+      if (a === 100 && b >= 64 && b <= 127) return false; // CGNAT
+    }
+    // IPv6 回环 / 链路本地（最宽松判定，不解 host）
+    if (host === "[::1]" || host.startsWith("[fe80:")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 
 /**
  * 上传外部图片到微信公众号 CDN，重写正文 <img src>。
@@ -76,17 +113,38 @@ export class WechatImageUploaderService {
     let skipped = 0;
     let rewritten = html;
 
+    // 同源去重 (Reviewer A2)：同一外链 URL 在文章里出现多次时，只传一次，
+    // 把所有 <img> tag 用同一 newSrc 替换。省 WeChat 上传配额。
+    const urlToNewSrc = new Map<string, string | null>();
+
     for (const { full, src } of matches) {
       if (this.shouldSkip(src)) {
         skipped += 1;
         continue;
       }
 
-      const newSrc = await this.uploadOne(page, src, token);
+      let newSrc: string | null;
+      if (urlToNewSrc.has(src)) {
+        newSrc = urlToNewSrc.get(src)!;
+      } else {
+        newSrc = await this.uploadOne(page, src, token);
+        urlToNewSrc.set(src, newSrc);
+      }
+
       if (!newSrc) {
         failed += 1;
         this.logger.warn(
           `Image upload failed, keeping external URL (may be hotlink-blocked by WeChat): ${src.slice(0, 120)}`,
+        );
+        continue;
+      }
+
+      // 防 XSS (Security M1)：微信返回值理论上可能不是预期格式，
+      // 拼回 HTML 前严格校验必须是 mmbiz CDN URL。
+      if (!MMBIZ_URL_PATTERN.test(newSrc)) {
+        failed += 1;
+        this.logger.warn(
+          `Rejected non-mmbiz upload result, keeping original: ${newSrc.slice(0, 80)}`,
         );
         continue;
       }
@@ -113,14 +171,24 @@ export class WechatImageUploaderService {
     externalUrl: string,
     token: string,
   ): Promise<CoverUpload | null> {
-    if (this.shouldSkip(externalUrl)) {
+    // 与 body 图不同：封面必须拿到 file_id 才能填 thumb_media_id，
+    // 即便 URL 已经在 mmbiz 域，也得重传一次进素材库。
+    // 仅过滤明显非法（data: / 协议 / 内网）。
+    if (!externalUrl || externalUrl.startsWith("data:")) return null;
+    const normalized = externalUrl.startsWith("//")
+      ? `https:${externalUrl}`
+      : externalUrl;
+    if (!isUrlSsrfSafe(normalized)) {
+      this.logger.warn(
+        `[uploadCover] Rejected SSRF-unsafe URL: ${normalized.slice(0, 80)}`,
+      );
       return null;
     }
 
     let base64: string;
     let mimeType: string;
     try {
-      const fetched = await this.fetchImage(externalUrl);
+      const fetched = await this.fetchImage(normalized);
       base64 = fetched.base64;
       mimeType = fetched.mimeType;
     } catch (err) {
@@ -165,10 +233,20 @@ export class WechatImageUploaderService {
     externalUrl: string,
     token: string,
   ): Promise<string | null> {
+    const normalized = externalUrl.startsWith("//")
+      ? `https:${externalUrl}`
+      : externalUrl;
+    if (!isUrlSsrfSafe(normalized)) {
+      this.logger.warn(
+        `[uploadImage] Rejected SSRF-unsafe URL: ${normalized.slice(0, 80)}`,
+      );
+      return null;
+    }
+
     let base64: string;
     let mimeType: string;
     try {
-      const fetched = await this.fetchImage(externalUrl);
+      const fetched = await this.fetchImage(normalized);
       base64 = fetched.base64;
       mimeType = fetched.mimeType;
     } catch (err) {
@@ -197,12 +275,25 @@ export class WechatImageUploaderService {
   private async fetchImage(
     url: string,
   ): Promise<{ base64: string; mimeType: string }> {
-    const normalized = url.startsWith("//") ? `https:${url}` : url;
-    const response = await fetch(normalized);
+    // 调用方已做 SSRF + 协议规范化，这里只做 timeout + size cap。
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} fetching image`);
     }
+    const declaredLength = Number(response.headers.get("content-length") || 0);
+    if (declaredLength > MAX_IMAGE_BYTES) {
+      throw new Error(
+        `Image too large (declared ${declaredLength} bytes, limit ${MAX_IMAGE_BYTES})`,
+      );
+    }
     const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength > MAX_IMAGE_BYTES) {
+      throw new Error(
+        `Image too large (got ${buffer.byteLength} bytes, limit ${MAX_IMAGE_BYTES})`,
+      );
+    }
     const mimeType =
       response.headers.get("content-type")?.split(";")[0].trim() ||
       "image/jpeg";
@@ -224,7 +315,8 @@ async function runUploadAttempts(
   token: string,
 ): Promise<UploadResult> {
   const byteArray = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const ext = mimeType.split("/")[1] || "jpg";
+  const rawExt = mimeType.split(";")[0].split("/")[1] || "jpg";
+  const ext = rawExt.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "jpg";
   const filename = `image_${Date.now()}.${ext}`;
   const blob = new Blob([byteArray], { type: mimeType });
 
@@ -312,7 +404,8 @@ async function runCoverUploadAttempts(
   token: string,
 ): Promise<CoverUploadResult> {
   const byteArray = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-  const ext = mimeType.split("/")[1] || "jpg";
+  const rawExt = mimeType.split(";")[0].split("/")[1] || "jpg";
+  const ext = rawExt.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "jpg";
   const filename = `cover_${Date.now()}.${ext}`;
   const blob = new Blob([byteArray], { type: mimeType });
 

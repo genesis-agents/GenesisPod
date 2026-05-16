@@ -2159,10 +2159,16 @@ export class WechatAdapter {
       }
     }
 
-    // 卸载 network 监听（不论成功/失败都要清理，避免后续 page 操作累积 handler）
+    // 卸载 network 监听（不论成功/失败都要清理，避免后续 page 操作累积 handler）。
+    // Reviewer 共识 Q1：之前漏掉了 request listener 的配对清理，每次 saveDraft
+    // 累积一个 request handler，长生命周期 page 上会泄漏 + 影响后续无关请求。
     page.off(
       "response",
       captureHandler as unknown as Parameters<typeof page.off>[1],
+    );
+    page.off(
+      "request",
+      requestHandler as unknown as Parameters<typeof page.off>[1],
     );
 
     // 最终验证

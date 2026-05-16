@@ -216,6 +216,7 @@ describe("WechatAdapter", () => {
                 failed: 0,
                 skipped: 0,
               })),
+            uploadCover: jest.fn().mockResolvedValue(null),
           },
         },
       ],

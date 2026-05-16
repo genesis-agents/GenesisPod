@@ -130,6 +130,109 @@ describe("WechatImageUploaderService", () => {
     expect(mockPage.evaluate).not.toHaveBeenCalled();
   });
 
+  describe("security hardening", () => {
+    it("rejects SSRF-unsafe URL pointing to internal IP (loopback)", async () => {
+      const html = `<img src="http://127.0.0.1:8080/secret.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(1);
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockPage.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("rejects SSRF-unsafe URL pointing to AWS metadata endpoint", async () => {
+      const html = `<img src="http://169.254.169.254/latest/meta-data/" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(1);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("rejects SSRF-unsafe URL on RFC1918 private network", async () => {
+      const html = `<img src="http://10.0.0.5/foo.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(1);
+    });
+
+    it("rejects oversized images via Content-Length header", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Map([
+          ["content-type", "image/jpeg"],
+          ["content-length", String(20 * 1024 * 1024)],
+        ]) as unknown as Headers,
+        arrayBuffer: async () => new ArrayBuffer(8),
+      });
+
+      const html = `<img src="https://huge.example.com/giant.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(1);
+      expect(mockPage.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("rejects upload-result URL that is not on mmbiz.qpic.cn (XSS defense)", async () => {
+      makeFetchOk();
+      mockPage.evaluate.mockResolvedValue({
+        url: 'https://evil.com/" onerror="alert(1)" x="',
+        attempts: [{ endpoint: "misc-uploadimg2", ret: 0, url: "..." }],
+      });
+
+      const html = `<img src="https://legit.example.com/foo.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+
+      expect(result.uploaded).toBe(0);
+      expect(result.failed).toBe(1);
+      expect(result.rewritten).toContain("legit.example.com/foo.jpg");
+      expect(result.rewritten).not.toContain("evil.com");
+    });
+
+    it("dedupes identical external URLs into one upload call (saves quota)", async () => {
+      makeFetchOk();
+      mockPage.evaluate.mockResolvedValue({
+        url: "https://mmbiz.qpic.cn/dedup/abc",
+        attempts: [],
+      });
+
+      const html = [
+        `<img src="https://example.com/same.jpg" alt="a" />`,
+        `<img src="https://example.com/same.jpg" alt="b" />`,
+        `<img src="https://example.com/same.jpg" alt="c" />`,
+      ].join("\n");
+
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+
+      expect(mockPage.evaluate).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result.uploaded).toBe(3);
+      expect(
+        result.rewritten.match(/mmbiz\.qpic\.cn\/dedup\/abc/g)?.length,
+      ).toBe(3);
+    });
+  });
+
   describe("uploadCover", () => {
     it("returns mediaId + cdnUrl on successful material upload", async () => {
       makeFetchOk();
@@ -201,16 +304,39 @@ describe("WechatImageUploaderService", () => {
       expect(mockPage.evaluate).not.toHaveBeenCalled();
     });
 
-    it("returns null for already-hosted mmbiz URL (no upload needed)", async () => {
+    it("re-uploads already-hosted mmbiz URL to material library (must get media_id)", async () => {
+      // Reviewer 共识 Q3：与 body 图不同，封面必须有 file_id 才能填
+      // thumb_media_id，所以即便已经在 mmbiz 域，也要重传一次。
+      makeFetchOk();
+      mockPage.evaluate.mockResolvedValue({
+        mediaId: "fresh-media-id-999",
+        cdnUrl: "https://mmbiz.qpic.cn/cover/fresh",
+        attempts: [],
+      });
+
       const result = await service.uploadCover(
         mockPage as unknown as Page,
         "https://mmbiz.qpic.cn/already-hosted",
         "999",
       );
 
+      expect(result).toEqual({
+        mediaId: "fresh-media-id-999",
+        cdnUrl: "https://mmbiz.qpic.cn/cover/fresh",
+      });
+      expect(mockFetch).toHaveBeenCalled();
+      expect(mockPage.evaluate).toHaveBeenCalled();
+    });
+
+    it("rejects SSRF-unsafe URL in cover path", async () => {
+      const result = await service.uploadCover(
+        mockPage as unknown as Page,
+        "http://169.254.169.254/cover.jpg",
+        "999",
+      );
+
       expect(result).toBeNull();
       expect(mockFetch).not.toHaveBeenCalled();
-      expect(mockPage.evaluate).not.toHaveBeenCalled();
     });
 
     it("returns null when partial response missing mediaId or cdnUrl", async () => {
