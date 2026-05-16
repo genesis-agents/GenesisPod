@@ -111,15 +111,33 @@ backend/src/modules/ai-app/social/
 - ✅ `utils/duty-loader.ts` copy 自 playground（{{var}} / {{#if}} / {{#each}} 最小模板）
 - ✅ Spec `__tests__/duty-loader-integration.spec.ts`：12 duty 全部能 build 非空 prompt + 包含 soul/duty 分隔符；总 415/415 pass
 
-### PR-3b: 9 role service.ts (TODO 下一会话)
+### PR-3b: 9 role service + SocialAgentInvoker ✅ (2026-05-16)
 
-- `services/roles/{role}.service.ts` × 9：调 harness `AgentInvoker.invoke(AgentClass, input, ctx)` + `MissionBudgetPool` cost tracking
-- 业务包装：cancellation / retry / event emit
+- ✅ `services/roles/social-agent-invoker.service.ts`：thin AgentRunner wrapper（注入 AbortRegistry signal + SocialEventRelay "social." 前缀广播 + tickCost 桥接 MissionBudgetPool）
+- ✅ `services/roles/social-event-relay.ts`：thin extends EventRelayFramework with "social" namespace
+- ✅ `services/roles/runner-state.util.ts`：normalizeRunnerState（copy from playground）
+- ✅ 9 role service（leader/steward/platform-probe/content-transformer/cover-artist/composer/polish-reviewer/publish-executor/publish-verifier）：每个 Injectable + run() 调 invoker.invoke + tickCost
+- ✅ services/roles/index.ts barrel
 
-### PR-3c: 13 stage adapter (TODO 下一会话)
+### PR-3c: 13 stage adapter + workflow foundation ✅ (2026-05-16)
 
-- `services/mission/workflow/stages/{s1-s12}.ts` × 13：async function with signature `runXxxStage(ctx: MissionInvariants, deps: CommonDeps)`
-- 调 role service + `narrate(deps.emit)` 推进度
+- ✅ `services/mission/workflow/mission-context.ts`：MissionInvariants + 10 phase ctx 类型（Plan/Transform/Assess/Craft/Compose/Polish/Publish/Verify/Signoff/Persist）+ MissionContext 合成
+- ✅ `services/mission/workflow/mission-deps.ts`：CommonDeps（log/emit/lifecycle/markStageDegraded + 9 role service + AgentInvoker + failureLearner/postmortemClassifier）
+- ✅ `services/mission/workflow/narrative.util.ts`：`social.agent:narrative` 事件 emit + 13 stage / 9 role 类型
+- ✅ 13 stage adapter（每个 ~80-150 行）：
+  - s1-mission-budget-eval（Steward 4 闸 + emit social.mission:started/gated）
+  - s2-platform-probe（多平台 schema 探测）
+  - s3-content-transform（多平台并发 ConcurrencyLimiter / markStageDegraded 单平台失败）
+  - s4-leader-assess-transform（Leader M1 verdict per platform / reject 平台跳过 s5+）
+  - s5-cover-craft / s6-body-compose / s7-polish-review（多平台并发）
+  - s8-publish-execute（唯一副作用 stage）
+  - s8b-publish-retry（≤ 2 轮按 retry matrix 重试）
+  - s9-publish-verify（仅 PUBLISHED 平台）
+  - s10-leader-signoff（M6 foreword + M7 signoff）
+  - s11-mission-persist（emit social.mission:completed + leader_journal）
+  - s12-self-evolution（postlude fire-and-forget FailureLearner.recordFailure）
+- ✅ stages/index.ts barrel 导出 13 runXxxStage
+- 验证：type-check 0 error
 
 ### PR-4: dispatcher + business-orchestrator + social.config.ts
 
