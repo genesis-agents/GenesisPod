@@ -2,6 +2,8 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { JsonObject, JsonValue } from "@prisma/client/runtime/library";
 import { Prisma, RadarItem, RadarTopic } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { NotificationService } from "../../../../ai-infra/notifications/notification.service";
+import { NotificationTypeDto } from "../../../../ai-infra/notifications/dto/notification.dto";
 import { RADAR_PIPELINE_DEFAULTS } from "../../radar.constants";
 import { RelevanceJudgeAgent } from "../../agents/relevance-judge/relevance-judge.agent";
 import { QualityRaterAgent } from "../../agents/quality-rater/quality-rater.agent";
@@ -43,6 +45,7 @@ export class RadarPipeline {
     private readonly quality: QualityRaterAgent,
     private readonly entity: EntityExtractorAgent,
     private readonly analyst: SignalAnalystAgent,
+    private readonly notifications: NotificationService,
   ) {}
 
   /**
@@ -269,7 +272,7 @@ export class RadarPipeline {
       { userId },
     );
 
-    await this.prisma.radarInsight.create({
+    const insight = await this.prisma.radarInsight.create({
       data: {
         topicId: topic.id,
         runId,
@@ -283,7 +286,34 @@ export class RadarPipeline {
           insightPayload.topEntities as unknown as Prisma.InputJsonValue,
       },
     });
+
+    // 通知主题所有者（fire-and-forget，失败不影响 insight 落库）
+    void this.notifyInsight(topic, insight.id, insightPayload.summary);
     return true;
+  }
+
+  private async notifyInsight(
+    topic: RadarTopic,
+    insightId: string,
+    summary: string,
+  ): Promise<void> {
+    try {
+      await this.notifications.createNotification({
+        userId: topic.userId,
+        type: NotificationTypeDto.SYSTEM,
+        title: `[AI 雷达] ${topic.name} 新洞察`,
+        message: summary.slice(0, 200),
+        actionUrl: `/ai-radar/topic/${topic.id}`,
+        actionLabel: "查看",
+        relatedType: "RadarInsight",
+        relatedId: insightId,
+        metadata: { topicId: topic.id },
+      });
+    } catch (err) {
+      this.log.warn(
+        `Notify insight failed topic=${topic.id}: ${(err as Error).message}`,
+      );
+    }
   }
 
   private parseKeywords(raw: Prisma.JsonValue): string[] {

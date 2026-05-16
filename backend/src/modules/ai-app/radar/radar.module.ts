@@ -24,6 +24,8 @@ import { Logger, Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 
+import { NotificationModule } from "../../ai-infra/notifications/notification.module";
+
 import { RadarTopicController } from "./controllers/radar-topic.controller";
 import { RadarSourceController } from "./controllers/radar-source.controller";
 import { RadarFeedController } from "./controllers/radar-feed.controller";
@@ -46,9 +48,11 @@ import { QualityRaterAgent } from "./agents/quality-rater/quality-rater.agent";
 import { EntityExtractorAgent } from "./agents/entity-extractor/entity-extractor.agent";
 import { SignalAnalystAgent } from "./agents/signal-analyst/signal-analyst.agent";
 import { SourceCuratorAgent } from "./agents/source-curator/source-curator.agent";
+import { RadarRefreshScheduler } from "./services/scheduler/radar-refresh.scheduler";
 
 @Module({
   imports: [
+    NotificationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
@@ -82,6 +86,7 @@ import { SourceCuratorAgent } from "./agents/source-curator/source-curator.agent
     EntityExtractorAgent,
     SignalAnalystAgent,
     SourceCuratorAgent,
+    RadarRefreshScheduler,
   ],
   exports: [RadarTopicService, RadarSourceService, RadarCollectService],
 })
@@ -90,7 +95,7 @@ export class RadarModule {
 
   constructor() {
     this.log.log(
-      "RadarModule loaded (PR-R3: + 5 AI agents + pipeline + insight)",
+      "RadarModule loaded (PR-R4: + cron scheduler + insight notification)",
     );
   }
 }

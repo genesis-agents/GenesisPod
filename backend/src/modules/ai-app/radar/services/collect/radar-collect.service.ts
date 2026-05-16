@@ -13,6 +13,8 @@ import { CollectorRouter } from "../collectors/collector-router.service";
 import { RawCollectedItem } from "../collectors/icollector";
 import { SourceHealthService } from "../source/source-health.service";
 import { RadarPipeline } from "../pipeline/radar-pipeline.service";
+import { computeNextCronTick } from "../scheduler/cron-util";
+import { DEFAULT_REFRESH_CRON } from "../../radar.constants";
 
 export interface CollectRunSummary {
   runId: string;
@@ -136,10 +138,14 @@ export class RadarCollectService {
         `Pipeline enrich topic=${topicId} evaluated=${pipelineSummary.itemsEvaluated} accepted=${pipelineSummary.itemsAccepted} insight=${pipelineSummary.insightCreated}`,
       );
 
-      // topic.lastRunAt
+      // topic.lastRunAt + nextDueAt（按 refreshCron 算下次）
+      const lastRunAt = new Date();
+      const nextDueAt =
+        computeNextCronTick(topic.refreshCron, lastRunAt) ??
+        computeNextCronTick(DEFAULT_REFRESH_CRON, lastRunAt);
       await this.prisma.radarTopic.update({
         where: { id: topicId },
-        data: { lastRunAt: new Date() },
+        data: { lastRunAt, nextDueAt },
       });
 
       await this.completeRun(run.id, RadarRunStatus.COMPLETED, {
