@@ -488,6 +488,12 @@ export {
   extractTokenSpend,
   estimateUsdFromTokens,
 } from "../tracing/observability/token-spend.utils";
+// ★ 2026-05-16: AgentRunner state normalizer 上提（多 ai-app 双源 copy →
+//   harness facade 单源；feedback_no_dual_sources）
+export {
+  normalizeRunnerState,
+  type NormalizedRunnerState,
+} from "../runner/runner-state.util";
 export {
   extractAgentFailureDiagnostic,
   extractFailureMessage,

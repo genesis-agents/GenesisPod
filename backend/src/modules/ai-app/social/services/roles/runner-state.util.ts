@@ -1,18 +1,13 @@
 /**
- * runner-state.util — normalize AgentRunner result state for social role services.
+ * runner-state.util re-export
  *
- * Copy of agent-playground/services/roles/runner-state.util.ts. AgentRunner can
- * return "degraded" (reflexion verifier 评分 < passThreshold 但 outputSchema 合法
- * 的次优产物 — 仍可用). Don't fold to failed.
+ * Backwards-compat shim：social role services 历史 import 路径 `./runner-state.util`
+ * 仍可用，底层切到 harness facade 单源（2026-05-16 上提）。后续 PR 把所有
+ * social/playground role service 的 import 改成 `@/modules/ai-harness/facade`
+ * 后此文件可删。
  */
 
-export type NormalizedRunnerState =
-  | "completed"
-  | "degraded"
-  | "failed"
-  | "cancelled";
-
-export function normalizeRunnerState(s: unknown): NormalizedRunnerState {
-  if (s === "completed" || s === "degraded" || s === "cancelled") return s;
-  return "failed";
-}
+export {
+  normalizeRunnerState,
+  type NormalizedRunnerState,
+} from "@/modules/ai-harness/facade";
