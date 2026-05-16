@@ -5,12 +5,24 @@ interface UploadAttempt {
   endpoint: string;
   ret: number;
   url: string | null;
+  fileId: string | null;
+  aiStatus: number;
   errMsg?: string;
 }
 
 interface UploadResult {
   url: string | null;
+  fileId: string | null;
+  aiStatus: number;
+  ext: string;
   attempts: UploadAttempt[];
+}
+
+interface UploadDetail {
+  url: string;
+  fileId: string;
+  aiStatus: number;
+  ext: string;
 }
 
 interface CoverUploadAttempt {
@@ -24,12 +36,43 @@ interface CoverUploadAttempt {
 interface CoverUploadResult {
   mediaId: string | null;
   cdnUrl: string | null;
+  aiStatus: number;
+  ext: string;
   attempts: CoverUploadAttempt[];
 }
 
+interface CropMultiResult {
+  ok: boolean;
+  cropFileId235: string | null;
+  cropCdnUrl235: string | null;
+  cropFileId1_1: string | null;
+  cropCdnUrl1_1: string | null;
+  fingerprintSource: string;
+  bodyPreview: string;
+}
+
+/**
+ * 2026-05-16 PR #111: 完整 WeChat cover schema —— upload 原图 file_id +
+ * crop_multi 后的 2.35:1 / 1:1 file_id 与 cdn_url。给 saveDraft 用作
+ * cdn_url0 / cdn_235_1_url0 / cdn_1_1_url0 / cdn_url_back0 / crop_list0 等字段。
+ */
 export interface CoverUpload {
-  mediaId: string;
-  cdnUrl: string;
+  /** upload 直接返回的 file_id (即 response.content 字段，纯数字串) */
+  uploadFileId: string;
+  /** upload 直接返回的 cdn_url（mmbiz.qpic.cn 域，作为 cdn_url_back0 原图回链） */
+  uploadCdnUrl: string;
+  /** upload 返回的 ai_status（1 或 0），用于正文 img data-aistatus 属性 */
+  aiStatus: number;
+  /** 图片扩展名（png / jpg / jpeg），用于正文 img data-type 属性 */
+  imageType: string;
+  /** crop_multi result[0] (2.35:1 cover) file_id */
+  cropFileId235: string;
+  /** crop_multi result[0] (2.35:1 cover) cdnurl，作为 cdn_url0 / cdn_235_1_url0 / cdn_3_4_url0 */
+  cropCdnUrl235: string;
+  /** crop_multi result[1] (1:1 小卡) file_id */
+  cropFileId1_1: string;
+  /** crop_multi result[1] (1:1 小卡) cdnurl，作为 cdn_1_1_url0 */
+  cropCdnUrl1_1: string;
 }
 
 interface RewriteStats {
@@ -152,7 +195,7 @@ export class WechatImageUploaderService {
       uniqueSrcs.add(src);
     }
 
-    const urlToNewSrc = await this.uploadConcurrently(
+    const urlToDetail = await this.uploadConcurrently(
       page,
       Array.from(uniqueSrcs),
       token,
@@ -165,8 +208,8 @@ export class WechatImageUploaderService {
     for (const { full, src } of matches) {
       if (this.shouldSkip(src)) continue;
 
-      const newSrc = urlToNewSrc.get(src);
-      if (!newSrc) {
+      const detail = urlToDetail.get(src);
+      if (!detail) {
         failed += 1;
         this.logger.warn(
           `Image upload failed, keeping external URL (may be hotlink-blocked by WeChat): ${src.slice(0, 120)}`,
@@ -176,16 +219,19 @@ export class WechatImageUploaderService {
 
       // 防 XSS (Security M1)：微信返回值理论上可能不是预期格式，
       // 拼回 HTML 前严格校验必须是 mmbiz CDN URL。
-      if (!MMBIZ_URL_PATTERN.test(newSrc)) {
+      if (!MMBIZ_URL_PATTERN.test(detail.url)) {
         failed += 1;
         this.logger.warn(
-          `Rejected non-mmbiz upload result, keeping original: ${newSrc.slice(0, 80)}`,
+          `Rejected non-mmbiz upload result, keeping original: ${detail.url.slice(0, 80)}`,
         );
         continue;
       }
 
-      const replaced = full.replace(src, newSrc);
-      rewritten = rewritten.replace(full, replaced);
+      // 2026-05-16 PR #111: 完整 WeChat 编辑器 img schema —— HAR 真鼠标
+      // 上传后 content0 里的 img 标签形态。data-imgfileid / data-aistatus
+      // 缺一不可，否则草稿箱 / publish 阶段图片会丢失。
+      const wechatImgHtml = `<img class="rich_pages wxw-img js_insertlocalimg" data-s="300,640" data-type="${detail.ext}" type="block" data-imgfileid="${detail.fileId}" data-upload="1" data-aistatus="${detail.aiStatus}" data-src="${detail.url}">`;
+      rewritten = rewritten.replace(full, wechatImgHtml);
       uploaded += 1;
     }
 
@@ -204,16 +250,16 @@ export class WechatImageUploaderService {
     page: Page,
     srcs: string[],
     token: string,
-  ): Promise<Map<string, string | null>> {
-    const result = new Map<string, string | null>();
+  ): Promise<Map<string, UploadDetail | null>> {
+    const result = new Map<string, UploadDetail | null>();
     let cursor = 0;
 
     const worker = async (): Promise<void> => {
       while (cursor < srcs.length) {
         const idx = cursor++;
         const src = srcs[idx];
-        const newSrc = await this.uploadOne(page, src, token);
-        result.set(src, newSrc);
+        const detail = await this.uploadOne(page, src, token);
+        result.set(src, detail);
       }
     };
 
@@ -226,18 +272,26 @@ export class WechatImageUploaderService {
   }
 
   /**
-   * 上传封面图到微信素材库，返回 mediaId + cdnUrl。
-   * mediaId 用作 saveDraft 的 thumb_media_id，cdnUrl 用作 cdn_url_1_1。
-   * 失败返回 null，由调用方决定回退（保存无封面草稿）。
+   * 上传封面图 + crop_multi 两步走，返回完整 CoverUpload。
+   *
+   * 2026-05-16 PR #111: HAR 15.6MB 真鼠标录像反推真实链路 ——
+   *   1. POST /cgi-bin/filetransfer?action=upload_material&scene=8 上传原图
+   *      → 拿到 file_id + cdn_url + ai_status（图自动进素材库）
+   *   2. POST /cgi-bin/cropimage?action=crop_multi 把 cdn_url 按 2.35:1 + 1:1
+   *      两个比例裁出 → 拿到 2 个新 file_id + 2 个新 cdn_url
+   *   3. saveDraft 用 6 个 cdn_url 字段 + crop_list0 JSON（不是 thumb_media_id）
+   *
+   * 之前 PR #97-110 一直在 thumb_media_id 这条死路上撞墙，
+   * HAR 揭示新版编辑器根本不用这个字段，封面靠 CDN URL + crop 几何描述。
+   *
+   * 失败任何一步返回 null，由调用方决定无封面降级（保存的草稿封面会缺）。
    */
   async uploadCover(
     page: Page,
     externalUrl: string,
     token: string,
+    sniffedFingerprint: string,
   ): Promise<CoverUpload | null> {
-    // 与 body 图不同：封面必须拿到 file_id 才能填 thumb_media_id，
-    // 即便 URL 已经在 mmbiz 域，也得重传一次进素材库。
-    // 仅过滤明显非法（data: / 协议 / 内网）。
     if (!externalUrl || externalUrl.startsWith("data:")) return null;
     const normalized = externalUrl.startsWith("//")
       ? `https:${externalUrl}`
@@ -262,23 +316,54 @@ export class WechatImageUploaderService {
       return null;
     }
 
-    const result = await page.evaluate(
+    // Step 1: 上传原图进素材库
+    const upload = await page.evaluate(
       runCoverUploadAttempts,
       base64,
       mimeType,
       token,
     );
-
     this.logger.log(
-      `[uploadCover] ${externalUrl.slice(0, 80)} → attempts=${JSON.stringify(
-        result.attempts,
-      ).slice(0, 600)}`,
+      `[uploadCover] upload attempts=${JSON.stringify(upload.attempts).slice(0, 600)}`,
     );
-
-    if (!result.mediaId || !result.cdnUrl) {
+    if (!upload.mediaId || !upload.cdnUrl) {
+      this.logger.warn("[uploadCover] upload step failed, no cover available");
       return null;
     }
-    return { mediaId: result.mediaId, cdnUrl: result.cdnUrl };
+
+    // Step 2: crop_multi 转封面比例 file_id
+    const crop = await page.evaluate(
+      runCoverCropMulti,
+      upload.cdnUrl,
+      token,
+      sniffedFingerprint,
+    );
+    this.logger.log(
+      `[uploadCover] crop_multi ok=${crop.ok} fp_source=${crop.fingerprintSource} body=${crop.bodyPreview.slice(0, 300)}`,
+    );
+    if (
+      !crop.ok ||
+      !crop.cropFileId235 ||
+      !crop.cropCdnUrl235 ||
+      !crop.cropFileId1_1 ||
+      !crop.cropCdnUrl1_1
+    ) {
+      this.logger.warn(
+        "[uploadCover] crop_multi failed, falling back to no-cover (新版编辑器不接受未 crop 的 file_id)",
+      );
+      return null;
+    }
+
+    return {
+      uploadFileId: upload.mediaId,
+      uploadCdnUrl: upload.cdnUrl,
+      aiStatus: upload.aiStatus,
+      imageType: upload.ext,
+      cropFileId235: crop.cropFileId235,
+      cropCdnUrl235: crop.cropCdnUrl235,
+      cropFileId1_1: crop.cropFileId1_1,
+      cropCdnUrl1_1: crop.cropCdnUrl1_1,
+    };
   }
 
   private shouldSkip(src: string): boolean {
@@ -296,7 +381,7 @@ export class WechatImageUploaderService {
     page: Page,
     externalUrl: string,
     token: string,
-  ): Promise<string | null> {
+  ): Promise<UploadDetail | null> {
     const normalized = externalUrl.startsWith("//")
       ? `https:${externalUrl}`
       : externalUrl;
@@ -333,7 +418,13 @@ export class WechatImageUploaderService {
       ).slice(0, 600)}`,
     );
 
-    return result.url;
+    if (!result.url || !result.fileId) return null;
+    return {
+      url: result.url,
+      fileId: result.fileId,
+      aiStatus: result.aiStatus,
+      ext: result.ext,
+    };
   }
 
   private async fetchImage(
@@ -400,15 +491,54 @@ async function runUploadAttempts(
   const filename = `image_${Date.now()}.${ext}`;
   const blob = new Blob([byteArray], { type: mimeType });
 
+  // 2026-05-16 PR #111: 主路径切到 filetransfer?action=upload_material —— HAR
+  // 真鼠标"本地上传"实证就是这条 endpoint，response 含 content (file_id) +
+  // cdn_url + ai_status 三个我们需要的字段。misc-uploadimg2 退为 fallback。
   const endpoints: Array<{
     name: string;
     url: string;
-    parse: (data: unknown) => { ret: number; url: string | null; err?: string };
+    parse: (data: unknown) => {
+      ret: number;
+      url: string | null;
+      fileId: string | null;
+      aiStatus: number;
+      err?: string;
+    };
   }> = [
+    {
+      name: "filetransfer-upload-material",
+      url: `/cgi-bin/filetransfer?action=upload_material&f=json&scene=8&writetype=doublewrite&groupid=1&token=${token}&lang=zh_CN`,
+      parse: (data) => {
+        const d = data as {
+          base_resp?: { ret?: number; err_msg?: string };
+          cdn_url?: string;
+          url?: string;
+          content?: string;
+          ai_status?: number;
+        };
+        const ret = d.base_resp?.ret ?? -1;
+        const cdnUrl = d.cdn_url || d.url || null;
+        const contentIsUrl =
+          typeof d.content === "string" && /^https?:\/\//i.test(d.content);
+        const fileId =
+          ret === 0 && !contentIsUrl && typeof d.content === "string"
+            ? d.content
+            : null;
+        return {
+          ret,
+          url: ret === 0 ? cdnUrl : null,
+          fileId,
+          aiStatus: typeof d.ai_status === "number" ? d.ai_status : 0,
+          err: d.base_resp?.err_msg,
+        };
+      },
+    },
     {
       name: "misc-uploadimg2",
       url: `/misc/uploadimg2?t=ajax-editor-upload-img&token=${token}&lang=zh_CN`,
       parse: (data) => {
+        // misc-uploadimg2 只回 url，不给 file_id —— 这路上传后正文 img
+        // 缺 data-imgfileid 仍可能 saveDraft 成功，但 publish 阶段可能丢图。
         const d = data as {
           base_resp?: { ret?: number; err_msg?: string };
           content?: string;
@@ -418,23 +548,8 @@ async function runUploadAttempts(
         return {
           ret,
           url: ret === 0 ? d.content || d.url || null : null,
-          err: d.base_resp?.err_msg,
-        };
-      },
-    },
-    {
-      name: "filetransfer-upload-material",
-      url: `/cgi-bin/filetransfer?action=upload_material&f=json&scene=8&writetype=doublewrite&groupid=1&token=${token}&lang=zh_CN`,
-      parse: (data) => {
-        const d = data as {
-          base_resp?: { ret?: number; err_msg?: string };
-          cdn_url?: string;
-          url?: string;
-        };
-        const ret = d.base_resp?.ret ?? -1;
-        return {
-          ret,
-          url: ret === 0 ? d.cdn_url || d.url || null : null,
+          fileId: null,
+          aiStatus: 0,
           err: d.base_resp?.err_msg,
         };
       },
@@ -457,21 +572,31 @@ async function runUploadAttempts(
         endpoint: ep.name,
         ret: parsed.ret,
         url: parsed.url,
+        fileId: parsed.fileId,
+        aiStatus: parsed.aiStatus,
         errMsg: parsed.err,
       });
-      if (parsed.url) {
-        return { url: parsed.url, attempts };
+      if (parsed.url && parsed.fileId) {
+        return {
+          url: parsed.url,
+          fileId: parsed.fileId,
+          aiStatus: parsed.aiStatus,
+          ext,
+          attempts,
+        };
       }
     } catch (err) {
       attempts.push({
         endpoint: ep.name,
         ret: -999,
         url: null,
+        fileId: null,
+        aiStatus: 0,
         errMsg: (err as Error).message,
       });
     }
   }
-  return { url: null, attempts };
+  return { url: null, fileId: null, aiStatus: 0, ext, attempts };
 }
 
 /**
@@ -489,18 +614,13 @@ async function runCoverUploadAttempts(
   const filename = `cover_${Date.now()}.${ext}`;
   const blob = new Blob([byteArray], { type: mimeType });
 
-  // 2026-05-16 PR #110: scene 是否进永久素材库的决定字段。
-  //   scene=8 = 编辑器内嵌临时图（location:"bizfile"，临时 CDN，无 media_id）
-  //   scene=1 = 永久素材库（location:"wxmaterial"，有真 media_id）
-  //   封面缩略图必须 scene=1，否则 saveDraft.thumb_media_id 拿到 bizfile ID
-  //   WeChat 服务端不认 → 静默降级 type=77（小绿书）→ 红字"必须插入一张图片"。
-  //   保留 scene=8 + upload_img 作 fallback：scene=1 对图片尺寸/格式更严，
-  //   placehold.co 占位图可能被素材库拒。fallback 通道至少能拿 cdnUrl。
+  // 2026-05-16 PR #111: HAR 真鼠标实证 endpoint 集合定型 ——
+  //   scene=8 + filetransfer?action=upload_material 是真鼠标"本地上传"用的路径。
+  //   响应 location 字段（bizfile vs wxmaterial）与 file_id 合法性无关 ——
+  //   关键是上传后必须再跑 cropimage?action=crop_multi 才能拿到 cover 合法
+  //   的 file_id（uploadCover 上层负责 crop 链路）。
+  //   保留 upload_img 作 fallback：占位图 edge case 走兜底。
   const endpoints: Array<{ name: string; url: string }> = [
-    {
-      name: "filetransfer-upload-material-scene1",
-      url: `/cgi-bin/filetransfer?action=upload_material&f=json&scene=1&writetype=doublewrite&groupid=1&token=${token}&lang=zh_CN`,
-    },
     {
       name: "filetransfer-upload-material-scene8",
       url: `/cgi-bin/filetransfer?action=upload_material&f=json&scene=8&writetype=doublewrite&groupid=1&token=${token}&lang=zh_CN`,
@@ -512,6 +632,7 @@ async function runCoverUploadAttempts(
   ];
 
   const attempts: CoverUploadAttempt[] = [];
+  let lastAiStatus = 1;
   for (const ep of endpoints) {
     try {
       const form = new FormData();
@@ -521,9 +642,6 @@ async function runCoverUploadAttempts(
         body: form,
         credentials: "include",
       });
-      // 2026-05-16: 响应 raw 抓出来，方便诊断字段名漂移。
-      //   实测 filetransfer-upload-material 返回 ret=0 + content_url（已 mmbiz CDN）
-      //   但 file_id 不在我们查的几路里，导致 mediaId=null → uploadCover 退回失败。
       const rawText = await resp.text();
       let data: {
         base_resp?: { ret?: number; err_msg?: string };
@@ -536,6 +654,7 @@ async function runCoverUploadAttempts(
         id?: string | number;
         mid?: string | number;
         content?: string;
+        ai_status?: number;
         [key: string]: unknown;
       } = {};
       try {
@@ -544,11 +663,6 @@ async function runCoverUploadAttempts(
         // not JSON
       }
       const ret = data.base_resp?.ret ?? -1;
-      // 2026-05-16 PR #108 诊断 log 实锤 WeChat 真响应：
-      //   {base_resp, location, type, content:"535769576" (数字 file_id),
-      //    cdn_url:"https://mmbiz.qpic.cn/..."}
-      //   media_id 在 data.content 字段。但 data.content 在别的 endpoint 可能
-      //   是 URL —— 必须判别：以 http 开头 = URL（当 cdnUrl 兜底），否则 = file_id。
       const contentIsUrl =
         typeof data.content === "string" && /^https?:\/\//i.test(data.content);
       const cdnUrl =
@@ -561,8 +675,6 @@ async function runCoverUploadAttempts(
               : contentIsUrl
                 ? (data.content as string)
                 : null;
-      // 多候选 mediaId 字段：WeChat 不同 endpoint 用不同 key。
-      //   filetransfer-upload-material 实测把 file_id 放在 data.content（非 URL 形态）。
       const contentAsMediaId =
         !contentIsUrl && typeof data.content === "string" ? data.content : null;
       const mediaIdRaw =
@@ -574,7 +686,7 @@ async function runCoverUploadAttempts(
         contentAsMediaId ??
         null;
       const fileId = mediaIdRaw != null ? String(mediaIdRaw) : null;
-      // errMsg 加 keys 和 body preview 便于下次诊断
+      if (typeof data.ai_status === "number") lastAiStatus = data.ai_status;
       const respKeys = Object.keys(data).slice(0, 20).join(",");
       const bodyPreview = rawText.slice(0, 400).replace(/\s+/g, " ");
       attempts.push({
@@ -585,13 +697,13 @@ async function runCoverUploadAttempts(
         errMsg: `${data.base_resp?.err_msg ?? ""} keys=[${respKeys}] body=${bodyPreview}`,
       });
       if (ret === 0 && fileId && cdnUrl) {
-        return { mediaId: fileId, cdnUrl, attempts };
-      }
-      // 2026-05-16: 不强求 mediaId —— 没有 file_id 但有 cdnUrl 也能用：
-      //   saveDraft 传 thumb_media_id="0" + cdn_url_1_1=cdnUrl，WeChat
-      //   feed 列表会按 cdn_url 拉缩略图（不进素材库但前端能渲染封面）。
-      if (ret === 0 && cdnUrl) {
-        return { mediaId: "0", cdnUrl, attempts };
+        return {
+          mediaId: fileId,
+          cdnUrl,
+          aiStatus: lastAiStatus,
+          ext,
+          attempts,
+        };
       }
     } catch (err) {
       attempts.push({
@@ -603,5 +715,144 @@ async function runCoverUploadAttempts(
       });
     }
   }
-  return { mediaId: null, cdnUrl: null, attempts };
+  return { mediaId: null, cdnUrl: null, aiStatus: 0, ext, attempts };
+}
+
+/**
+ * crop_multi：把已上传到 mmbiz CDN 的图，按 2.35:1（封面）+ 1:1（小卡）两个
+ * 比例 crop，返回 2 个新 file_id + 2 个新 cdn_url。
+ *
+ * 2026-05-16 PR #111: HAR 15.6MB 真鼠标实证。无 crop 直接传素材库 file_id
+ * 给 saveDraft.thumb_media_id，WeChat 服务端不认 → type=77 + 红字"必须插入
+ * 一张图片"。crop_multi 才是真正生成 cover-合法 file_id 的桥梁，新版编辑器
+ * saveDraft 用 cdn_url0 + crop_list0 + 几何描述，不再用 thumb_media_id。
+ *
+ * 比例参数：原图按 (0,0) → (1,1) 全图裁剪两次，分别贴 2.35_1 + 1_1 format。
+ * 我们生成的占位图 1200x630（约 1.9:1），全图按 2.35:1 比例标记给 WeChat
+ * 即可 —— WeChat 服务端自己处理实际裁剪几何。
+ */
+async function runCoverCropMulti(
+  cdnUrl: string,
+  token: string,
+  sniffedFingerprint: string,
+): Promise<CropMultiResult> {
+  // fingerprint 5 级 fallback（与 saveDraft helper 同套，简化版）：
+  // sniffed → window.wx.commonData → window.cgiData → inline-script → outerHTML
+  let fingerprint = sniffedFingerprint || "";
+  let fingerprintSource = fingerprint ? "sniffed" : "";
+
+  if (!fingerprint) {
+    const wx = (
+      window as unknown as {
+        wx?: {
+          commonData?: { fingerprint?: string; t?: string };
+          fp?: { t?: string } | string;
+        };
+      }
+    ).wx;
+    if (wx?.commonData?.fingerprint) {
+      fingerprint = wx.commonData.fingerprint;
+      fingerprintSource = "window.wx.commonData.fingerprint";
+    } else if (wx?.commonData?.t) {
+      fingerprint = wx.commonData.t;
+      fingerprintSource = "window.wx.commonData.t";
+    } else if (typeof wx?.fp === "string") {
+      fingerprint = wx.fp;
+      fingerprintSource = "window.wx.fp(string)";
+    } else if (typeof wx?.fp === "object" && wx.fp !== null && "t" in wx.fp) {
+      fingerprint = wx.fp.t || "";
+      fingerprintSource = "window.wx.fp.t";
+    }
+  }
+
+  if (!fingerprint) {
+    const html = document.documentElement.outerHTML;
+    const m = html.match(/["']([a-f0-9]{32})["']/);
+    if (m) {
+      fingerprint = m[1];
+      fingerprintSource = "outerHTML";
+    }
+  }
+
+  const body = new URLSearchParams({
+    imgurl: cdnUrl,
+    size_count: "2",
+    size0_x1: "0",
+    size0_y1: "0",
+    size0_x2: "1",
+    size0_y2: "1",
+    format0: "2.35_1",
+    size1_x1: "0",
+    size1_y1: "0",
+    size1_x2: "1",
+    size1_y2: "1",
+    format1: "1_1",
+    fingerprint,
+    token,
+    lang: "zh_CN",
+    f: "json",
+    ajax: "1",
+  });
+
+  try {
+    const resp = await fetch("/cgi-bin/cropimage?action=crop_multi", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+      },
+      body: body.toString(),
+      credentials: "include",
+    });
+    const rawText = await resp.text();
+    let data: {
+      base_resp?: { ret?: number; err_msg?: string };
+      result?: Array<{
+        cdnurl?: string;
+        file_id?: number | string;
+        height?: number;
+        width?: number;
+      }>;
+    } = {};
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      // not JSON
+    }
+    const ret = data.base_resp?.ret ?? -1;
+    const result = data.result || [];
+    const bodyPreview = rawText.slice(0, 400).replace(/\s+/g, " ");
+    if (ret !== 0 || result.length < 2) {
+      return {
+        ok: false,
+        cropFileId235: null,
+        cropCdnUrl235: null,
+        cropFileId1_1: null,
+        cropCdnUrl1_1: null,
+        fingerprintSource,
+        bodyPreview,
+      };
+    }
+    return {
+      ok: true,
+      cropFileId235:
+        result[0].file_id != null ? String(result[0].file_id) : null,
+      cropCdnUrl235: result[0].cdnurl || null,
+      cropFileId1_1:
+        result[1].file_id != null ? String(result[1].file_id) : null,
+      cropCdnUrl1_1: result[1].cdnurl || null,
+      fingerprintSource,
+      bodyPreview,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      cropFileId235: null,
+      cropCdnUrl235: null,
+      cropFileId1_1: null,
+      cropCdnUrl1_1: null,
+      fingerprintSource,
+      bodyPreview: `error: ${(err as Error).message}`,
+    };
+  }
 }
