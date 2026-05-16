@@ -115,6 +115,24 @@ function ensureJsonArray(data: unknown): string[] {
     .map((item) => truncateString(item, 500));
 }
 
+/**
+ * 选封面：信源 body 图（images[0]）优先，回退到 og:image / Resource.thumbnail。
+ *
+ * 背景：og:image 经常是站点 logo 或 banner，与文章内容关系弱；body images
+ * 是从源数据正文里提取的（图表 / 关键插图 / 配图），更能反映文章质量。
+ * 改"全自动发布"前必须保证 feed 列表门面图高质量。
+ */
+function pickCoverImage(source: {
+  coverImage?: string;
+  images?: string[];
+}): string | null {
+  const fromBody = source.images?.find(
+    (img) => typeof img === "string" && img.trim().length > 0,
+  );
+  const candidate = fromBody || source.coverImage;
+  return sanitizeString(candidate) || null;
+}
+
 // Retry helper for transient database errors (like connection pool issues)
 async function withRetry<T>(
   operation: () => Promise<T>,
@@ -232,7 +250,7 @@ export class SocialLeaderService {
     // Sanitize content to remove problematic characters
     const safeContent = sanitizeString(transformedContent.content);
     const safeSourceUrl = sanitizeString(dto.url) || null;
-    const safeCoverImageUrl = sanitizeString(fetchedContent.coverImage) || null;
+    const safeCoverImageUrl = pickCoverImage(fetchedContent);
 
     this.logger.log(
       `[processUrl] Saving content: titleLen=${truncateString(transformedContent.title, 200).length}, ` +
@@ -408,7 +426,7 @@ export class SocialLeaderService {
     const safeTitle = truncateString(transformedContent.title, 200);
     const safeDigest = truncateString(transformedContent.digest, 200) || null;
     const safeSourceUrl = sanitizeString(sourceContent.url) || null;
-    const safeCoverImageUrl = sanitizeString(sourceContent.coverImage) || null;
+    const safeCoverImageUrl = pickCoverImage(sourceContent);
 
     // Debug: Log byte lengths per field to identify encoding issues
     const fieldByteLengths = {
@@ -665,8 +683,7 @@ export class SocialLeaderService {
       const safeTitle = truncateString(sectionTitle, 200);
       const safeDigest = truncateString(digest, 200) || null;
       const safeSourceUrl = sanitizeString(sourceContent.url) || null;
-      const safeCoverImageUrl =
-        i === 0 ? sanitizeString(sourceContent.coverImage) || null : null;
+      const safeCoverImageUrl = i === 0 ? pickCoverImage(sourceContent) : null;
 
       try {
         const results = await this.prisma.$queryRaw<
@@ -759,7 +776,7 @@ export class SocialLeaderService {
       content: firstRow.content,
       digest: firstRow.digest,
       sourceUrl: sanitizeString(sourceContent.url) || null,
-      coverImageUrl: sanitizeString(sourceContent.coverImage) || null,
+      coverImageUrl: pickCoverImage(sourceContent),
       images: ensureJsonArray(sourceContent.images),
       tags: [] as string[],
       complianceCheck: null,
