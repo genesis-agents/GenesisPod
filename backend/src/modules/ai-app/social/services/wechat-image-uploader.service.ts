@@ -87,9 +87,17 @@ function isUrlSsrfSafe(rawUrl: string): boolean {
     // 拒绝 0x / 0o 前缀（十六/八进制 IP 字面值）
     if (/^(0x|0o)/i.test(host)) return false;
 
-    // dotted-quad IPv4: 必须 4 段，每段 0-255，且不在私网/回环/元数据段
-    const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-    if (ipv4) {
+    // hostname 第一个字符是数字 → 视为 IP 尝试，必须严格符合标准 dotted-quad。
+    //
+    // 关于八进制/十进制/十六进制 IP 字面值（如 0177.0.0.1 / 2130706433 /
+    // 0x7f000001）：Node 的 URL parser 已经在 new URL() 阶段把它们标准化成
+    // dotted-quad（验证见 `node -e "new URL('http://0177.0.0.1').hostname"`
+    // → "127.0.0.1"），所以这里只需用标准 RFC1918/loopback/元数据范围检查
+    // 就能拦下。leading-zero 显式拦的 defense in depth 是死代码（hostname
+    // 看不到带前导零的形态），不必加。
+    if (/^\d/.test(host)) {
+      const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+      if (!ipv4) return false;
       const [, a, b, c, d] = ipv4.map(Number);
       if (a > 255 || b > 255 || c > 255 || d > 255) return false;
       if (a === 10 || a === 127) return false;
@@ -100,9 +108,6 @@ function isUrlSsrfSafe(rawUrl: string): boolean {
       if (a === 0) return false;
       return true;
     }
-
-    // 不是 dotted-quad 但是全数字 → 拒（十进制 IP 字面值 e.g. 2130706433）
-    if (/^\d+$/.test(host)) return false;
 
     // 不是 IP → 必须是合法域名：含至少一个 . + 只允许 [a-z0-9.-]
     if (!host.includes(".")) return false;

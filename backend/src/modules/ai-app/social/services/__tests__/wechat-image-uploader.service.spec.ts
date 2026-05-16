@@ -199,6 +199,24 @@ describe("WechatImageUploaderService", () => {
       expect(result.failed).toBe(1);
     });
 
+    it("blocks via Node URL normalization + private-range check (alternate IP forms reach loopback/RFC1918)", async () => {
+      // Node 的 URL parser 把 0177.0.0.1 / 2130706433 / 0x7f000001 标准化成
+      // 127.0.0.1（loopback），把 10.0.00.5 标准化成 10.0.0.5（RFC1918）。
+      // 私网范围检查随后命中。注意：01.0.0.1 标准化成 1.0.0.1（公网）—— 不拦
+      // 是预期，那是真公网地址（APNIC quad-zero）。
+      const html = [
+        `<img src="http://10.0.00.5/x.jpg" />`, // → 10.0.0.5 RFC1918
+        `<img src="http://0177.0.0.1/x.jpg" />`, // → 127.0.0.1 loopback
+      ].join("");
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(2);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it("rejects hex IP literal (0x7f000001 = 127.0.0.1)", async () => {
       const html = `<img src="http://0x7f000001/secret.jpg" />`;
       const result = await service.rewriteImagesInHtml(
