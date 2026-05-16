@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Page } from "puppeteer";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { PublishResult } from "../services/publish-executor.service";
+import { WechatImageUploaderService } from "../services/wechat-image-uploader.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
@@ -18,7 +19,10 @@ export class WechatAdapter {
   private readonly logger = new Logger(WechatAdapter.name);
   private readonly MP_URL = "https://mp.weixin.qq.com";
 
-  constructor(private readonly playwright: SocialBrowserService) {}
+  constructor(
+    private readonly playwright: SocialBrowserService,
+    private readonly imageUploader: WechatImageUploaderService,
+  ) {}
 
   /**
    * 发布内容到微信公众号
@@ -584,9 +588,33 @@ export class WechatAdapter {
         };
       }
 
+      // Step 7.5: 重传外链图片到微信 CDN，重写 <img src>
+      //   外链图会被防盗链拦截，必须先传到 mmbiz.qpic.cn 域。
+      //   单张图失败不阻塞整体发布——保留原 URL + 日志告警。
+      let contentForFill: SocialContent = content;
+      if (token && content.content) {
+        try {
+          const stats = await this.imageUploader.rewriteImagesInHtml(
+            page,
+            content.content,
+            token,
+          );
+          if (stats.rewritten !== content.content) {
+            contentForFill = { ...content, content: stats.rewritten };
+          }
+          this.logger.log(
+            `[image rewrite] uploaded=${stats.uploaded} failed=${stats.failed} skipped=${stats.skipped}`,
+          );
+        } catch (imgErr) {
+          this.logger.warn(
+            `[image rewrite] swallow error, fallback to original: ${(imgErr as Error).message}`,
+          );
+        }
+      }
+
       // Step 8: 填充内容（使用平台适配版本，无需截断）
       this.logger.log("Filling content...");
-      await this.fillContent(page, content);
+      await this.fillContent(page, contentForFill);
       this.logger.log("Content filled successfully");
 
       // Step 9: 保存到公众号草稿箱（用户在公众号后台手动点击群发）
@@ -599,7 +627,7 @@ export class WechatAdapter {
       }
       const draftUrl = await this.saveDraft(
         page,
-        content,
+        contentForFill,
         sniffState.fingerprint,
       );
       this.logger.log(`Draft saved: ${draftUrl}`);
