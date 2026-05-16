@@ -57,30 +57,56 @@ const IMG_TAG_REGEX =
   /<img\b([^>\n]*?)\bsrc\s*=\s*(["'])([^"'\s<>]+)\2([^>\n]*?)\/?>/gi;
 
 /**
- * SSRF 防护：拒绝非 https 协议 + 私网/回环/链路本地 IP。
+ * SSRF 防护：默认拒绝，仅放行"标准 hostname"（域名）+"公网 IPv4 dotted-quad"。
  *
- * 简化版（不做 DNS resolution）：只看 URL 字面值，把明显的内网字面地址
- * 拦掉。完整 SSRF（含 DNS rebinding）走 ai-engine ContentFetchService，
- * 但封面图发布前没必要拉 facade 整套——这里轻量门禁即可。
+ * 迭代 2 (Security re-audit)：之前 isUrlSsrfSafe 漏掉 IPv4-mapped IPv6
+ * (`::ffff:127.0.0.1`)、十进制 IP (`2130706433`)、八进制 IP (`0177.0.0.1`)、
+ * 十六进制 IP (`0x7f000001`)、ULA `[fc00::/7]` 等绕过。
+ *
+ * 简化策略：白名单 hostname 形态而非黑名单 IP 形态。
+ *   - 域名：必须含至少一个 `.`，且只允许 `[a-z0-9.-]`（lowercase 后比较）
+ *   - 标准 IPv4：必须是 4 段、每段 0-255、且不在私网段
+ *   - 其他：单段数字 / 含 `:` / 含 `0x` 前缀 / 含字母 'x' / 全数字 → 拒
+ *
+ * 不做 DNS lookup（async + DNS rebinding 风险），最终防线在 ai-infra
+ * 网络层（生产环境用 egress firewall 拦内网）。
  */
 function isUrlSsrfSafe(rawUrl: string): boolean {
   try {
     const url = new URL(rawUrl);
     if (url.protocol !== "https:" && url.protocol !== "http:") return false;
     const host = url.hostname.toLowerCase();
+
+    // 拒绝任何带 ipv6 字面地址的 host（[...]）—— 完全不放行 IPv6，
+    // 公网图床用域名足够；IPv6 字面易出绕过（::ffff: / NAT64 / ULA）
+    if (host.startsWith("[") || host.includes(":")) return false;
+
+    // 拒绝 localhost / 全 0
     if (host === "localhost" || host === "0.0.0.0") return false;
-    // IPv4 私网 / 回环 / 链路本地 / 元数据端点
+
+    // 拒绝 0x / 0o 前缀（十六/八进制 IP 字面值）
+    if (/^(0x|0o)/i.test(host)) return false;
+
+    // dotted-quad IPv4: 必须 4 段，每段 0-255，且不在私网/回环/元数据段
     const ipv4 = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
     if (ipv4) {
-      const [, a, b] = ipv4.map(Number);
+      const [, a, b, c, d] = ipv4.map(Number);
+      if (a > 255 || b > 255 || c > 255 || d > 255) return false;
       if (a === 10 || a === 127) return false;
       if (a === 172 && b >= 16 && b <= 31) return false;
       if (a === 192 && b === 168) return false;
       if (a === 169 && b === 254) return false; // AWS / GCP metadata
       if (a === 100 && b >= 64 && b <= 127) return false; // CGNAT
+      if (a === 0) return false;
+      return true;
     }
-    // IPv6 回环 / 链路本地（最宽松判定，不解 host）
-    if (host === "[::1]" || host.startsWith("[fe80:")) return false;
+
+    // 不是 dotted-quad 但是全数字 → 拒（十进制 IP 字面值 e.g. 2130706433）
+    if (/^\d+$/.test(host)) return false;
+
+    // 不是 IP → 必须是合法域名：含至少一个 . + 只允许 [a-z0-9.-]
+    if (!host.includes(".")) return false;
+    if (!/^[a-z0-9.-]+$/.test(host)) return false;
     return true;
   } catch {
     return false;
@@ -309,7 +335,9 @@ export class WechatImageUploaderService {
   private async fetchImage(
     url: string,
   ): Promise<{ base64: string; mimeType: string }> {
-    // 调用方已做 SSRF + 协议规范化，这里只做 timeout + size cap。
+    // 调用方已做 SSRF + 协议规范化。
+    // 安全审计 iter2：流式读取 + 累积字节封顶，避免恶意服务器谎报
+    // Content-Length 然后实际流出大体积 body（TOCTOU + 内存放大攻击）。
     const response = await fetch(url, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
@@ -322,12 +350,26 @@ export class WechatImageUploaderService {
         `Image too large (declared ${declaredLength} bytes, limit ${MAX_IMAGE_BYTES})`,
       );
     }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.byteLength > MAX_IMAGE_BYTES) {
-      throw new Error(
-        `Image too large (got ${buffer.byteLength} bytes, limit ${MAX_IMAGE_BYTES})`,
-      );
+
+    if (!response.body) {
+      throw new Error("Response body unavailable");
     }
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_IMAGE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error(
+          `Image too large (streamed > ${MAX_IMAGE_BYTES} bytes, server may have lied about Content-Length)`,
+        );
+      }
+      chunks.push(value);
+    }
+    const buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)));
     const mimeType =
       response.headers.get("content-type")?.split(";")[0].trim() ||
       "image/jpeg";

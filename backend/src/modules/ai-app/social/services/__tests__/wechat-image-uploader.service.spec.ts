@@ -26,11 +26,25 @@ describe("WechatImageUploaderService", () => {
   });
 
   const makeFetchOk = (mime = "image/jpeg") => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      headers: new Map([["content-type", mime]]) as unknown as Headers,
-      arrayBuffer: async () => new ArrayBuffer(8),
+    // mockImplementation 让每次 fetch 返回独立的 reader 闭包，避免多张图
+    // 共用同一个 returned 状态导致后续 fetch 立刻 done。
+    mockFetch.mockImplementation(async () => {
+      let returned = false;
+      return {
+        ok: true,
+        status: 200,
+        headers: new Map([["content-type", mime]]) as unknown as Headers,
+        body: {
+          getReader: () => ({
+            read: async () => {
+              if (returned) return { done: true, value: undefined };
+              returned = true;
+              return { done: false, value: new Uint8Array(8) };
+            },
+            cancel: async () => undefined,
+          }),
+        },
+      };
     });
   };
 
@@ -162,6 +176,90 @@ describe("WechatImageUploaderService", () => {
         "999",
       );
       expect(result.failed).toBe(1);
+    });
+
+    it("rejects decimal IP literal (2130706433 = 127.0.0.1)", async () => {
+      const html = `<img src="http://2130706433/secret.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(1);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("rejects octal IP literal (0177.0.0.1 = 127.0.0.1)", async () => {
+      const html = `<img src="http://0177.0.0.1/secret.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(1);
+    });
+
+    it("rejects hex IP literal (0x7f000001 = 127.0.0.1)", async () => {
+      const html = `<img src="http://0x7f000001/secret.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(1);
+    });
+
+    it("rejects any IPv6 literal hostname", async () => {
+      const html = [
+        `<img src="http://[::1]/x.jpg" />`,
+        `<img src="http://[::ffff:127.0.0.1]/x.jpg" />`,
+        `<img src="http://[fc00::1]/x.jpg" />`,
+        `<img src="http://[fe80::1]/x.jpg" />`,
+      ].join("");
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+      expect(result.failed).toBe(4);
+    });
+
+    it("rejects oversized response via streaming check (server lies about Content-Length)", async () => {
+      // Server reports small Content-Length but actually streams > MAX_IMAGE_BYTES
+      const reader = {
+        read: jest
+          .fn()
+          // 12 MB chunk, exceeds 10 MB cap
+          .mockResolvedValueOnce({
+            done: false,
+            value: new Uint8Array(12 * 1024 * 1024),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+        cancel: jest.fn().mockResolvedValue(undefined),
+      };
+      const fakeBody = {
+        getReader: () => reader,
+      };
+      mockFetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        headers: new Map([
+          ["content-type", "image/jpeg"],
+          ["content-length", "1000"], // lies
+        ]) as unknown as Headers,
+        body: fakeBody,
+      });
+
+      const html = `<img src="https://liar.example.com/giant.jpg" />`;
+      const result = await service.rewriteImagesInHtml(
+        mockPage as unknown as Page,
+        html,
+        "999",
+      );
+
+      expect(result.failed).toBe(1);
+      expect(reader.cancel).toHaveBeenCalled();
+      expect(mockPage.evaluate).not.toHaveBeenCalled();
     });
 
     it("rejects oversized images via Content-Length header", async () => {

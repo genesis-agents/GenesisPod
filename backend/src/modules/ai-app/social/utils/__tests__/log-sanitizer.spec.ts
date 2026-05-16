@@ -223,17 +223,25 @@ describe("log-sanitizer", () => {
       expect(redactToken("")).toBe("(empty)");
     });
 
-    it("returns *** for very short tokens", () => {
-      expect(redactToken("abc")).toBe("***");
-      expect(redactToken("ab")).toBe("***");
+    it("never leaks any plaintext prefix of the token", () => {
+      const out = redactToken("1234567890");
+      expect(out.startsWith("***")).toBe(true);
+      expect(out).not.toContain("1234");
+      expect(out).not.toContain("123");
+      expect(out).not.toContain("12");
     });
 
-    it("shows first 4 chars + *** for normal tokens", () => {
-      expect(redactToken("1234567890abcdef")).toBe("1234***");
+    it("same token always produces same redacted output (for log correlation)", () => {
+      expect(redactToken("abc123")).toBe(redactToken("abc123"));
     });
 
-    it("works on 32-hex fingerprints", () => {
-      expect(redactToken("a1b2c3d4e5f6789012345678901234ab")).toBe("a1b2***");
+    it("different tokens produce different redacted output", () => {
+      expect(redactToken("token-a")).not.toBe(redactToken("token-b"));
+    });
+
+    it("output format is ***<8-hex>", () => {
+      const out = redactToken("any-token");
+      expect(out).toMatch(/^\*\*\*[0-9a-f]{8}$/);
     });
   });
 
