@@ -91,18 +91,24 @@ export class WechatAdapter {
    * Cover 三级 fallback：源图 → 默认占位图（AI 生成 P1 待补）。
    *
    * pickCoverImage 在 social-leader 已经按 images / coverImage / body <img>
-   * 三路找过；这里 content.coverImageUrl 仍为空 = 数据源真没图，给 picsum
-   * 兜底（同 title hash 保证同篇文章每次同图）。
+   * 三路找过；这里 content.coverImageUrl 仍为空 = 数据源真没图，给占位图
+   * 兜底。
+   *
+   * 2026-05-16 实测：picsum.photos 在 Railway prod 上传 mmbiz 时失败率高
+   *   （133KB JPEG + 302 redirect 到 fastly + cloudflare 边缘节点）；换 placehold.co
+   *   （15KB PNG 直链、无 redirect、HTTP 直返），稳定性高得多。颜色基于 title
+   *   hash 做色相变化保证同篇文章每次同图。
    */
   private ensureCoverImageUrl(content: SocialContent): string | null {
     if (content.coverImageUrl) return content.coverImageUrl;
-    const seed = createHash("sha256")
+    const hash = createHash("sha256")
       .update(content.title || content.id || "wechat-cover")
-      .digest("hex")
-      .slice(0, 16);
-    const url = `https://picsum.photos/seed/${seed}/1200/630`;
+      .digest("hex");
+    // 颜色取 hash 前 6 hex 当 #RRGGBB，文字白色
+    const bgColor = hash.slice(0, 6);
+    const url = `https://placehold.co/1200x630/${bgColor}/FFFFFF/png`;
     this.logger.log(
-      `[cover-fallback] content.coverImageUrl empty, using picsum seed=${seed}`,
+      `[cover-fallback] content.coverImageUrl empty, using placehold.co bg=${bgColor}`,
     );
     return url;
   }
