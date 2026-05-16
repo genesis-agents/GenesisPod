@@ -12,6 +12,7 @@
  * 通知由 dispatcher 在 mission 完成后统一发出，本 stage 不发。
  */
 import { Injectable, Logger } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { RADAR_PIPELINE_DEFAULTS } from "../../../radar.constants";
 import { computeNextCronTick } from "../../scheduler/cron-util";
@@ -81,9 +82,11 @@ export class RadarS8PersistStage implements RadarStageRunner {
           periodFrom,
           periodTo: now,
           summary: insightPayload.summary,
-          highlights: insightPayload.highlights as unknown as object[],
-          signals: insightPayload.signals as unknown as object[],
-          topEntities: insightPayload.topEntities as unknown as object[],
+          highlights:
+            insightPayload.highlights as unknown as Prisma.InputJsonValue,
+          signals: insightPayload.signals as unknown as Prisma.InputJsonValue,
+          topEntities:
+            insightPayload.topEntities as unknown as Prisma.InputJsonValue,
         },
       });
       insightCreated = true;

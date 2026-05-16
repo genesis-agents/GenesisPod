@@ -288,9 +288,19 @@ function AddSourceForm({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-source-dialog-title"
+    >
       <div className="w-full max-w-md rounded-xl bg-white p-5">
-        <h3 className="mb-3 text-sm font-semibold text-gray-900">添加数据源</h3>
+        <h3
+          id="add-source-dialog-title"
+          className="mb-3 text-sm font-semibold text-gray-900"
+        >
+          添加数据源
+        </h3>
         <div className="space-y-3">
           <div>
             <label className="block text-xs text-gray-600">类型</label>
@@ -381,10 +391,18 @@ function RecommendDialog({
   onAccept: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="recommend-dialog-title"
+    >
       <div className="flex max-h-[80vh] w-full max-w-2xl flex-col rounded-xl bg-white">
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3
+            id="recommend-dialog-title"
+            className="text-sm font-semibold text-gray-900"
+          >
             AI 推荐数据源（已勾选默认入库）
           </h3>
           <button

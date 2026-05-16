@@ -34,7 +34,9 @@ export interface RadarStageEvent {
 export interface RadarRunCompletedEvent {
   runId: string;
   topicId: string;
-  status: 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  // mission lifecycle 标准值域 (small letter，对齐后端 schema VarChar(20) +
+  // RadarRunStatus types.ts)；早期错写大写已修
+  status: 'completed' | 'failed' | 'cancelled';
   durationMs: number;
   metrics: Record<string, unknown>;
 }

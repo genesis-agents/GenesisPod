@@ -11,7 +11,7 @@
  * LLM 失败 → 整批空实体兜底，不阻断下游 stage。
  */
 import { Injectable, Logger } from "@nestjs/common";
-import { AIModelType } from "@prisma/client";
+import { AIModelType, Prisma } from "@prisma/client";
 import { AiChatService } from "@/modules/ai-engine/facade";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
@@ -207,7 +207,7 @@ entity.type 必须是 6 种之一：person / company / product / event / locatio
       [...entityMap.entries()].map(([id, entities]) =>
         this.prisma.radarItem.update({
           where: { id },
-          data: { entities: entities as unknown as object[] },
+          data: { entities: entities as unknown as Prisma.InputJsonValue },
         }),
       ),
     );

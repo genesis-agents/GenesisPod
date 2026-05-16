@@ -198,10 +198,13 @@ export interface CreateRadarSourceInput {
 /**
  * triggerRefresh 后端响应。Mission pipeline 框架接入后简化：
  * 仅返回 { runId, status }。详细 metrics 由 ws / GET /runs/:topicId 提供。
+ *
+ * status 必须等同 RadarRunStatus 5 态值域（mission lifecycle 标准），
+ * 不能私写 'aborted' 等非法值；后端实际会返回 cancelled / rejected。
  */
 export interface TriggerRefreshResponse {
   runId: string;
-  status: 'completed' | 'failed' | 'aborted';
+  status: RadarRunStatus;
 }
 
 export interface CancelRunResponse {

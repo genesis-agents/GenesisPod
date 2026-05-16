@@ -9,12 +9,34 @@ import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
 import { assertSafeHttpUrl } from "./ssrf-util";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const Parser: any =
-  (RssParserModule as unknown as { default?: unknown }).default ??
-  RssParserModule;
+// 最小内部类型（替代 any；rss-parser 自带类型对 ESM/CJS 互操作不友好）
+interface RssParserItem {
+  isoDate?: string;
+  pubDate?: string;
+  link?: string;
+  guid?: string;
+  id?: string;
+  title?: string;
+  content?: string;
+  contentSnippet?: string;
+  creator?: string;
+  author?: string;
+}
+interface RssParserFeed {
+  items?: RssParserItem[];
+}
+interface RssParserOptions {
+  timeout?: number;
+  requestOptions?: { headers?: Record<string, string> };
+  customFields?: { item?: Array<[string, string]> };
+}
+interface RssParserInstance {
+  parseURL(url: string): Promise<RssParserFeed>;
+}
+type RssParserCtor = new (opts?: RssParserOptions) => RssParserInstance;
 
-// 注：rss-parser CJS 兼容修复后 parser 走 any，CustomRssItem 类型已删除（未使用）。
+const Parser = ((RssParserModule as unknown as { default?: unknown }).default ??
+  RssParserModule) as RssParserCtor;
 
 /**
  * RssCollector —— 直接解析 identifier (URL) 拿 feed。
@@ -26,8 +48,7 @@ const Parser: any =
 export class RssCollector implements ICollector {
   readonly type = "RSS";
   private readonly log = new Logger(RssCollector.name);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly parser: any;
+  private readonly parser: RssParserInstance;
 
   constructor() {
     this.parser = new Parser({

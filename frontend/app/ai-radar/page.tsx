@@ -128,8 +128,8 @@ export default function AiRadarIndexPage() {
             <RadarTopicCard
               key={topic.id}
               topic={topic}
-              onPause={handlePause}
-              onResume={handleResume}
+              onPause={(t) => void handlePause(t)}
+              onResume={(t) => void handleResume(t)}
               onArchive={handleArchive}
             />
           ))}

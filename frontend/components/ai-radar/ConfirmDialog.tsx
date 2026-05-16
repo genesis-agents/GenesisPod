@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 /**
@@ -31,6 +32,16 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  // WAI-ARIA dialog pattern: Esc 关；busy 时阻塞避免误操作中断
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, busy, onCancel]);
+
   if (!open) return null;
   return (
     <div
