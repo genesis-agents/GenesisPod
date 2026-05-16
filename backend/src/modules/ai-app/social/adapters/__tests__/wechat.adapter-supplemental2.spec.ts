@@ -173,6 +173,8 @@ function makeMockPage(urlSequence?: string[]) {
     screenshot: jest.fn().mockResolvedValue(Buffer.from("")),
     title: jest.fn().mockResolvedValue("Editor"),
     frames: jest.fn().mockReturnValue([]),
+    on: jest.fn(),
+    off: jest.fn(),
     _mockBrowser: mockBrowser,
   };
 }
