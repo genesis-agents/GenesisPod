@@ -194,6 +194,9 @@ model User {
   // 2026-05-08 YouTube 视频页 AI 聊天历史（user × videoId）
   youtubeAiChatMessages YouTubeAiChatMessage[]
 
+  // 2026-05-16 AI Radar 雷达主题
+  radarTopics RadarTopic[]
+
   @@map("users")
 }
 
@@ -10162,6 +10165,190 @@ model FeatureFlagWorkspaceGrant {
   @@index([flagKey, workspaceId, enabled])
   @@index([expiresAt])
   @@map("feature_flag_workspace_grant")
+}
+
+// ============================================================
+// AI Radar — 多源数据采集 + 多 Agent 看板 (2026-05-16)
+// ============================================================
+
+enum RadarTopicStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum RadarSourceType {
+  X
+  YOUTUBE
+  RSS
+  CUSTOM
+}
+
+enum RadarSourceHealth {
+  UNKNOWN
+  HEALTHY
+  DEGRADED
+  FAILING
+}
+
+enum RadarRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RadarRunTrigger {
+  SCHEDULED
+  MANUAL
+  FIRST_RUN
+}
+
+/// AI Radar 雷达主题（用户创建的监控主题，持续采集多源数据）
+model RadarTopic {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String  @db.VarChar(160)
+  description String? @db.Text
+  /// 主题对象类型 person|company|product|event|topic
+  entityType  String? @map("entity_type") @db.VarChar(40)
+  /// 关键词数组 string[]，最多 20 个
+  keywords    Json
+  /// cron 表达式，默认每 6 小时
+  refreshCron String  @default("0 */6 * * *") @map("refresh_cron") @db.VarChar(60)
+
+  status     RadarTopicStatus @default(ACTIVE)
+  /// 调度器扫描字段：下次应运行时间
+  nextDueAt  DateTime?        @map("next_due_at")
+  lastRunAt  DateTime?        @map("last_run_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sources  RadarSource[]
+  items    RadarItem[]
+  insights RadarInsight[]
+  runs     RadarRun[]
+
+  @@index([userId, status])
+  @@index([status, nextDueAt])
+  @@map("radar_topics")
+}
+
+/// 数据源（订阅的具体源：X 账号 / YouTube 频道 / RSS / 自定义）
+model RadarSource {
+  id              String  @id @default(uuid())
+  topicId         String  @map("topic_id")
+  topic           RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  type            RadarSourceType
+  /// X handle / YouTube channelId / RSS URL / custom URL
+  identifier      String  @db.VarChar(500)
+  label           String? @db.VarChar(200)
+  /// 类型特定配置：{ region?, listSelector?, titleSelector?, fetchTranscript? }
+  config          Json?
+  enabled         Boolean @default(true)
+  isAiRecommended Boolean @default(false) @map("is_ai_recommended")
+
+  health              RadarSourceHealth @default(UNKNOWN)
+  consecutiveFailures Int               @default(0) @map("consecutive_failures")
+  cooldownUntil       DateTime?         @map("cooldown_until")
+  lastFetchAt         DateTime?         @map("last_fetch_at")
+  lastError           String?           @map("last_error") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items RadarItem[]
+
+  @@unique([topicId, type, identifier])
+  @@index([topicId, enabled])
+  @@map("radar_sources")
+}
+
+/// 采集到的数据项（去重后入库，AI 评分后 accepted=true 进入看板）
+model RadarItem {
+  id          String      @id @default(uuid())
+  topicId     String      @map("topic_id")
+  topic       RadarTopic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  sourceId    String      @map("source_id")
+  source      RadarSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /// 原 URL/ID 哈希用于去重
+  externalId  String      @map("external_id") @db.VarChar(255)
+  /// 内容指纹 sha256(normalize(title + content[:1000]))
+  contentHash String      @map("content_hash") @db.VarChar(64)
+
+  title        String?  @db.Text
+  content      String?  @db.Text
+  author       String?  @db.VarChar(200)
+  authorAvatar String?  @map("author_avatar") @db.VarChar(500)
+  url          String?  @db.VarChar(1000)
+  publishedAt  DateTime @map("published_at")
+  fetchedAt    DateTime @default(now()) @map("fetched_at")
+  /// 原始 payload，便于 reprocess
+  raw          Json
+
+  /// AI 评估字段 (S4/S5/S6 写入)
+  relevanceScore Int?    @map("relevance_score")
+  qualityScore   Int?    @map("quality_score")
+  aiSummary      String? @map("ai_summary") @db.Text
+  /// [{type,name,confidence,normalizedName}]
+  entities       Json?
+  /// {likes,views,shares,...}
+  metrics        Json?
+  /// 是否通过 scoring 入选（relevanceScore >= 60 && qualityScore >= 50）
+  accepted       Boolean @default(false)
+
+  @@unique([topicId, externalId])
+  @@index([topicId, publishedAt(sort: Desc)])
+  @@index([topicId, relevanceScore(sort: Desc)])
+  @@index([topicId, accepted, publishedAt(sort: Desc)])
+  @@index([contentHash])
+  @@map("radar_items")
+}
+
+/// 周期性洞察（信号总结：声量突增 / 新实体 / 情感反转 / 趋势）
+model RadarInsight {
+  id          String     @id @default(uuid())
+  topicId     String     @map("topic_id")
+  topic       RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  /// 关联到 RadarRun
+  runId       String?    @map("run_id") @db.VarChar(40)
+  periodFrom  DateTime   @map("period_from")
+  periodTo    DateTime   @map("period_to")
+  summary     String     @db.Text
+  /// [{title,itemIds:[],type:'trend'|'new-entity'|'anomaly'}]
+  highlights  Json
+  /// [{kind,magnitude,evidence}]
+  signals     Json
+  /// [{type,name,mentions,delta}]
+  topEntities Json       @map("top_entities")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@index([topicId, periodTo(sort: Desc)])
+  @@map("radar_insights")
+}
+
+/// 一次刷新运行记录（参考 AgentPlaygroundMission 的轻量版）
+model RadarRun {
+  id          String          @id @default(uuid())
+  topicId     String          @map("topic_id")
+  topic       RadarTopic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  status      RadarRunStatus  @default(PENDING)
+  trigger     RadarRunTrigger
+  startedAt   DateTime?       @map("started_at")
+  completedAt DateTime?       @map("completed_at")
+  /// 总耗时 ms
+  durationMs  Int?            @map("duration_ms")
+  /// {fetched,deduped,scored,accepted,llmCost}
+  metrics     Json?
+  error       String?         @db.Text
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([topicId, startedAt(sort: Desc)])
+  @@index([status, startedAt])
+  @@map("radar_runs")
 }
 
 /// PR-A0 配套 audit log —— grant/revoke/update 全程可溯源

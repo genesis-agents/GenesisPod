@@ -1,0 +1,80 @@
+/**
+ * AI Radar 模块常量
+ *
+ * 注册 ID / event name / 默认值，避免散落字符串。
+ */
+
+export const RADAR_TEAM_ID = "ai-radar";
+export const RADAR_MODULE_NAME = "ai-app.radar";
+
+/**
+ * Agent role id（与 SKILL.md frontmatter `id` 对齐，PR-R3 引入）。
+ */
+export const RADAR_ROLE_IDS = {
+  SOURCE_CURATOR: "ai-radar.source-curator",
+  RELEVANCE_JUDGE: "ai-radar.relevance-judge",
+  QUALITY_RATER: "ai-radar.quality-rater",
+  ENTITY_EXTRACTOR: "ai-radar.entity-extractor",
+  SIGNAL_ANALYST: "ai-radar.signal-analyst",
+} as const;
+
+/**
+ * Event 名（DomainEventBus 发布，PR-R4 接入 ws gateway）。
+ */
+export const RADAR_EVENTS = {
+  RUN_STARTED: "radar.run.started",
+  RUN_PROGRESS: "radar.run.progress",
+  RUN_COMPLETED: "radar.run.completed",
+  RUN_FAILED: "radar.run.failed",
+  INSIGHT_CREATED: "radar.insight.created",
+  SOURCE_HEALTH_CHANGED: "radar.source.health-changed",
+} as const;
+
+/**
+ * 默认刷新 cron 表达式：每 6 小时。
+ */
+export const DEFAULT_REFRESH_CRON = "0 */6 * * *";
+
+/**
+ * 调度策略默认值（PR-R4 接入 scheduler 时使用）。
+ */
+export const RADAR_SCHEDULER_DEFAULTS = {
+  /** 单 user 同时 RUNNING 的 run 上限 */
+  perUserConcurrencyLimit: 3,
+  /** 全局 RUNNING 上限（防 LLM 暴账） */
+  globalConcurrencyLimit: 20,
+  /** 手动触发 dedup window（秒）—— 5s 内重复 POST 返回上一条 run */
+  manualDedupSeconds: 5,
+  /** 单 source 连续失败几次 → cooldown 24h */
+  cooldownFailureThreshold: 5,
+  /** scheduler 每轮扫描 due topic 的上限 */
+  sweepBatchSize: 50,
+} as const;
+
+/**
+ * Pipeline 默认参数（PR-R3 引入）。
+ */
+export const RADAR_PIPELINE_DEFAULTS = {
+  /** 单 run hard cost cap (USD) */
+  budgetUsdCap: 0.5,
+  /** S4 relevance scoring batch size */
+  relevanceBatchSize: 10,
+  /** S4 阈值 —— 低于此分数不进入 S5/S6 */
+  relevanceThreshold: 40,
+  /** S5 quality scoring batch size */
+  qualityBatchSize: 10,
+  /** S6 entity extraction batch size */
+  entityBatchSize: 8,
+  /** Item 入选阈值（写 accepted=true） */
+  acceptedRelevanceMin: 60,
+  acceptedQualityMin: 50,
+  /** 单 source 单次刷新最多拉多少条 */
+  perSourceItemLimit: 20,
+  /** S7 信号洞察的对照窗口（天） */
+  insightLookbackDays: 7,
+} as const;
+
+/**
+ * Item 实体抽取上限（防 LLM 输出爆炸）。
+ */
+export const RADAR_MAX_ENTITIES_PER_ITEM = 10;
