@@ -402,6 +402,30 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             <div className="my-1 border-t border-gray-200/60" />
           )}
 
+          {/* AI 雷达 — 持续监控 + 多源采集 + 信号洞察 */}
+          <Link
+            href="/ai-radar"
+            className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${
+              pathname?.startsWith('/ai-radar')
+                ? 'bg-cyan-50 text-gray-900'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+            title={t('nav.aiRadar')}
+          >
+            <svg
+              className="h-5 w-5 flex-shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="12" cy="12" r="3" strokeWidth={2} />
+              <circle cx="12" cy="12" r="7" strokeWidth={2} />
+              <circle cx="12" cy="12" r="11" strokeWidth={2} />
+              <path strokeLinecap="round" strokeWidth={2} d="M12 12 L20 6" />
+            </svg>
+            {showExpanded && <span>{t('nav.aiRadar')}</span>}
+          </Link>
+
           <Link
             href="/ai-insights"
             className={`flex items-center ${!showExpanded ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm font-medium ${

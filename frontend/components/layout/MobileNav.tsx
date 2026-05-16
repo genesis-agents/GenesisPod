@@ -68,6 +68,13 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
   // Research & Analysis section
   const researchItems = [
     {
+      href: '/ai-radar',
+      label: t('nav.aiRadar'),
+      icon: 'radar',
+      activeClass: 'bg-cyan-50',
+      prefix: true,
+    },
+    {
       href: '/ai-insights',
       label: t('nav.aiInsights'),
       icon: 'eye',
@@ -209,6 +216,20 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
               strokeWidth={2}
               d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
             />
+          </svg>
+        );
+      case 'radar':
+        return (
+          <svg
+            className={iconClass}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <circle cx="12" cy="12" r="3" strokeWidth={2} />
+            <circle cx="12" cy="12" r="7" strokeWidth={2} />
+            <circle cx="12" cy="12" r="11" strokeWidth={2} />
+            <path strokeLinecap="round" strokeWidth={2} d="M12 12 L20 6" />
           </svg>
         );
       case 'search':
