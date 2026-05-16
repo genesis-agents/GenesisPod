@@ -4,7 +4,7 @@ import { AiSocialController } from "./ai-social.controller";
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
 import { ContentFetcherService } from "./services/content-fetcher.service";
-import { ContentTransformerService } from "./services/content-transformer.service";
+import { ContentTransformerService as LegacyContentTransformerService } from "./services/content-transformer.service";
 import { ContentCheckerService } from "./services/content-checker.service";
 import { ContentVersionService } from "./services/content-version.service";
 import { ReviewService } from "./services/review.service";
@@ -27,6 +27,21 @@ import { NotificationModule } from "../../ai-infra/notifications/notification.mo
 import { CreditsModule } from "../../ai-infra/credits/credits.module";
 import { initSessionCrypto } from "./utils/session-crypto";
 
+// ★ W4 PR-3b/3c/4: SocialPublishMission Agent Team
+import {
+  SocialAgentInvoker,
+  LeaderService as MissionLeaderService,
+  StewardService,
+  PlatformProbeService,
+  ContentTransformerService as MissionContentTransformerService,
+  CoverArtistService,
+  ComposerService,
+  PolishReviewerService,
+  PublishExecutorAgentService,
+  PublishVerifierService,
+} from "./services/roles";
+import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pipeline-dispatcher.service";
+
 @Module({
   imports: [
     PrismaModule,
@@ -43,7 +58,7 @@ import { initSessionCrypto } from "./utils/session-crypto";
     AiSocialService,
     SocialLeaderService,
     ContentFetcherService,
-    ContentTransformerService,
+    LegacyContentTransformerService,
     ContentCheckerService,
     ContentVersionService,
     ReviewService,
@@ -57,11 +72,24 @@ import { initSessionCrypto } from "./utils/session-crypto";
     MCPClientService,
     WechatArticleFormatterService,
     WechatImageUploaderService,
-    // ★ engine 反转端口实现 —— 让 ai-engine 工具（wechat-mp-publish / xhs-publish /
-    //   social-publish-status）可委托社交发布到本模块的 PublishExecutor
+    // ★ engine 反转端口实现
     SocialPublishAdapter,
+
+    // ★ W4 SocialPublishMission Agent Team (PR-3b/3c/4) —— 新轨；
+    //   PR-5 才会通过 ai-social.controller 暴露 /mission/run 端点切流量
+    SocialAgentInvoker,
+    MissionLeaderService,
+    StewardService,
+    PlatformProbeService,
+    MissionContentTransformerService,
+    CoverArtistService,
+    ComposerService,
+    PolishReviewerService,
+    PublishExecutorAgentService,
+    PublishVerifierService,
+    SocialPipelineDispatcher,
   ],
-  exports: [AiSocialService, SocialPublishAdapter],
+  exports: [AiSocialService, SocialPublishAdapter, SocialPipelineDispatcher],
 })
 export class AiSocialModule implements OnModuleInit {
   private readonly logger = new Logger(AiSocialModule.name);
