@@ -1398,30 +1398,32 @@ export class WechatAdapter {
           }
         }
 
-        // 2. 构造 form body —— 字段名按 PR #94 拦截到的 pre_load_sentence 同源
-        //    schema（同 controller，仅 sub 不同）+ 社区通用 save_draft 字段
+        // 2. 构造 form body —— PR #96 实测 "title0/content0/AppMsgId/count" 旧多图文
+        //    schema 触发 ret=444002 "旧版图文素材不可再保存"。换用 pre_load_sentence
+        //    捕获的新单图文 schema：无 "0" 后缀、appmsgid 数字、index=0、加 type=10。
         const body = new URLSearchParams({
           token: params.token,
           lang: "zh_CN",
           f: "json",
           ajax: "1",
           random: Math.random().toString(),
-          AppMsgId: "",
-          count: "1",
-          title0: params.title,
-          author0: params.author,
-          digest0: params.digest,
-          content0: params.content,
-          sourceurl0: "",
-          fileid0: "",
-          cdn_url0_1_1: "",
-          show_cover_pic0: "0",
-          need_open_comment0: "1",
-          only_fans_can_comment0: "0",
+          appmsgid: "0",
+          index: "0",
+          type: "10",
+          title: params.title,
+          author: params.author,
+          digest: params.digest,
+          content: params.content,
+          sourceurl: "",
+          fileid: "",
+          cdn_url_1_1: "",
+          show_cover_pic: "0",
+          need_open_comment: "1",
+          only_fans_can_comment: "0",
           ad_type: "0",
           copyright_type: "0",
-          can_reward0: "0",
-          can_open_reward0: "0",
+          can_reward: "0",
+          can_open_reward: "0",
           fingerprint,
         });
 
