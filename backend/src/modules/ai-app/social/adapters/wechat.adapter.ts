@@ -40,13 +40,16 @@ export class WechatAdapter {
       `Connection ID: ${connection.id}, Platform: ${connection.platformType}`,
     );
 
-    // 根据内容长度选择文章类型
-    // type=10: 普通图文消息（无字数限制，适合长文章）
-    // type=77: 小绿书/图文笔记（限制 1000 字，适合短内容）
+    // 2026-05-16: 永远用 type=10（普通图文），不再按内容长度切 type=77。
+    //   原因：type=77 小绿书编辑器虽然能 accept saveDraft API ret=0，但 schema
+    //   字段名（如 title/title0）只匹配 type=10 多变体，WeChat silently drop
+    //   title/cover → 用户截图实测保存后 title 空白、无封面。type=10 无字数
+    //   限制，短内容也完全支持；feed 列表显示样式由 thumb_media_id 决定，
+    //   不依赖 article type。
     const contentLength = content.content.length;
-    const articleType = contentLength > 1000 ? "10" : "77";
+    const articleType = "10";
     this.logger.log(
-      `Content length: ${contentLength} chars, using article type: ${articleType} (${articleType === "10" ? "普通图文" : "小绿书"})`,
+      `Content length: ${contentLength} chars, using article type: ${articleType} (普通图文 — type=77 因 saveDraft 丢 title 已弃用)`,
     );
 
     const contextId = `wechat-${connection.id}`;
@@ -980,97 +983,77 @@ export class WechatAdapter {
     });
     this.logger.log(`All input elements on page: ${JSON.stringify(allInputs)}`);
 
-    // 填写标题 - 基于 Playwright 1:1 模拟实际操作 (2026-01-22)
+    // 填写标题 - 2026-05-16: keyboard.type + triple-click 对 React controlled
+    //   textarea 不可靠 —— puppeteer 的 keyboard.type 只触发原生 input event，
+    //   React 内部 value tracker（_valueTracker）记录的"上一次 value"为空字符串，
+    //   再 .value=newValue 时 tracker 认为没变 → onChange 不触发 → React state
+    //   永远空 → save 时 form state 里 title=""。用户实测 saveDraft API ret=0
+    //   但保存后 title 空白就是这个原因。
+    //   正确做法：拿到原生 setter（HTMLTextAreaElement.prototype 上的），用
+    //   setter.call(el, newValue) 绕过 React tracker → dispatchEvent input →
+    //   React 看到值变化 → onChange 触发 → state 同步。
     if (content.title) {
       this.logger.log("Looking for title input...");
 
-      let titleFilled = false;
-
-      // 方法1: 查找 textbox 类型的 input/textarea 并匹配 aria-label 或 placeholder
-      try {
-        const titlePattern =
+      const titleSyncResult = await page.evaluate((title: string) => {
+        const pattern =
           /请在这里输入标题|请输入标题|标题|Input a title here|title/i;
-        const titleTextbox = await page.evaluateHandle((pattern: string) => {
-          const re = new RegExp(pattern, "i");
-          const inputs = Array.from(
-            document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-              'input[type="text"], textarea, [role="textbox"]',
-            ),
-          );
-          return (
-            inputs.find(
-              (el) =>
-                re.test(el.getAttribute("aria-label") || "") ||
-                re.test(el.getAttribute("placeholder") || ""),
-            ) || null
-          );
-        }, titlePattern.source);
-        const element = titleTextbox.asElement() as
-          | import("puppeteer").ElementHandle<Element>
-          | null;
-        if (element) {
-          // Clear and type (Puppeteer equivalent of Playwright's fill)
-          await element.click({ clickCount: 3 });
-          await page.keyboard.type(content.title);
-          titleFilled = true;
-          this.logger.log("Title filled via aria-label/placeholder match");
-        }
-      } catch (roleError) {
-        this.logger.warn(
-          `Title textbox search failed: ${(roleError as Error).message}`,
+        // 1. 找 title textarea/input
+        let target: HTMLTextAreaElement | HTMLInputElement | null = null;
+        const candidates = Array.from(
+          document.querySelectorAll<HTMLTextAreaElement | HTMLInputElement>(
+            'input[type="text"], textarea, [role="textbox"]',
+          ),
         );
-      }
-
-      // 方法2: 使用 placeholder 选择器 - 中文优先
-      if (!titleFilled) {
-        const titleSelectors = [
-          // 中文界面 - 微信公众号默认
-          '[placeholder*="请输入标题"]',
-          '[placeholder*="填写标题"]',
-          '[placeholder*="标题"]',
-          // 英文界面
-          '[placeholder="Enter title here (optional)"]',
-          '[placeholder*="Enter title here"]',
-          '[placeholder*="title"]',
-          // 通用选择器
-          "#title",
-          ".js_article_title",
-          // 根据字数限制特征匹配 - 图文消息标题限制20字
-          'input[maxlength="20"]',
-          'textarea[maxlength="20"]',
-          // 最后尝试通用元素
-          "textarea",
-          'input[type="text"]',
-        ];
-
-        for (const selector of titleSelectors) {
-          try {
-            const titleInput = await page.$(selector);
-            if (titleInput) {
-              this.logger.log(`Found title input with selector: ${selector}`);
-              await titleInput.click({ count: 3 });
-              await page.keyboard.type(content.title);
-              titleFilled = true;
-              break;
-            }
-          } catch {
-            continue;
-          }
+        target =
+          candidates.find(
+            (el) =>
+              pattern.test(el.getAttribute("aria-label") || "") ||
+              pattern.test(el.getAttribute("placeholder") || ""),
+          ) ||
+          document.querySelector(
+            '[placeholder*="标题"], #title, .js_article_title, input[maxlength="20"], textarea[maxlength="20"]',
+          ) ||
+          null;
+        if (!target) {
+          return { ok: false, reason: "no-title-element-found" };
         }
-      }
+        // 2. 拿原生 setter（绕过 React _valueTracker）
+        const proto =
+          target.tagName === "TEXTAREA"
+            ? HTMLTextAreaElement.prototype
+            : HTMLInputElement.prototype;
+        const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
+        if (!setter) {
+          return { ok: false, reason: "no-native-value-setter" };
+        }
+        // 3. focus + setter + dispatch input/change/blur
+        target.focus();
+        setter.call(target, title);
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+        target.dispatchEvent(new Event("change", { bubbles: true }));
+        target.blur();
+        target.dispatchEvent(new Event("blur", { bubbles: true }));
+        return {
+          ok: true,
+          reason: "filled",
+          tag: target.tagName,
+          placeholder: target.getAttribute("placeholder") || "",
+          maxLength: target.getAttribute("maxlength") || "",
+          finalValue: target.value,
+        };
+      }, content.title);
 
-      if (titleFilled) {
-        this.logger.log("Title filled successfully");
+      if (titleSyncResult.ok) {
+        this.logger.log(
+          `Title filled via native setter: tag=${titleSyncResult.tag} placeholder="${titleSyncResult.placeholder}" maxLen=${titleSyncResult.maxLength} finalValue.len=${titleSyncResult.finalValue?.length}`,
+        );
       } else {
-        this.logger.warn("Could not find title input element");
-        // 记录当前页面 URL
-        const currentUrl = page.url();
-        this.logger.error(
-          `Current page URL when error occurred: ${currentUrl}`,
+        this.logger.warn(
+          `Title fill failed: ${titleSyncResult.reason}; current page=${page.url()}`,
         );
-
         throw new Error(
-          `找不到标题输入框，微信后台界面可能已更新。当前页面: ${currentUrl}`,
+          `找不到标题输入框（${titleSyncResult.reason}），微信后台界面可能已更新。当前页面: ${page.url()}`,
         );
       }
     }
