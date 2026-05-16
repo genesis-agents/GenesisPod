@@ -533,6 +533,13 @@ async function runCoverUploadAttempts(
         // not JSON
       }
       const ret = data.base_resp?.ret ?? -1;
+      // 2026-05-16 PR #108 诊断 log 实锤 WeChat 真响应：
+      //   {base_resp, location, type, content:"535769576" (数字 file_id),
+      //    cdn_url:"https://mmbiz.qpic.cn/..."}
+      //   media_id 在 data.content 字段。但 data.content 在别的 endpoint 可能
+      //   是 URL —— 必须判别：以 http 开头 = URL（当 cdnUrl 兜底），否则 = file_id。
+      const contentIsUrl =
+        typeof data.content === "string" && /^https?:\/\//i.test(data.content);
       const cdnUrl =
         typeof data.content_url === "string"
           ? data.content_url
@@ -540,16 +547,20 @@ async function runCoverUploadAttempts(
             ? data.cdn_url
             : typeof data.url === "string"
               ? data.url
-              : typeof data.content === "string"
-                ? data.content
+              : contentIsUrl
+                ? (data.content as string)
                 : null;
-      // 2026-05-16 多候选 mediaId 字段：WeChat 不同 endpoint 用不同 key
+      // 多候选 mediaId 字段：WeChat 不同 endpoint 用不同 key。
+      //   filetransfer-upload-material 实测把 file_id 放在 data.content（非 URL 形态）。
+      const contentAsMediaId =
+        !contentIsUrl && typeof data.content === "string" ? data.content : null;
       const mediaIdRaw =
         data.file_id ??
         data.media_id ??
         data.mediaid ??
         data.id ??
         data.mid ??
+        contentAsMediaId ??
         null;
       const fileId = mediaIdRaw != null ? String(mediaIdRaw) : null;
       // errMsg 加 keys 和 body preview 便于下次诊断
