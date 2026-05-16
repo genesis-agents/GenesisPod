@@ -108,6 +108,27 @@ export function safeStringify(obj: unknown, space?: number): string {
 }
 
 /**
+ * 截掉 token 字面值，只露前 4 字符 + "***"。
+ * 用于 logger 里需要标识"是否拿到 token / 是否换了"但不想曝完整凭据的场景。
+ */
+export function redactToken(token: string | null | undefined): string {
+  if (!token) return "(empty)";
+  if (token.length <= 4) return "***";
+  return `${token.slice(0, 4)}***`;
+}
+
+/**
+ * 把 URL 里 token / access_token / ticket 等查询参数的值替换成 [REDACTED]。
+ * 用于 logger 里要打调试 URL 但不想曝凭据。其他参数照旧保留方便定位。
+ */
+export function redactUrl(url: string): string {
+  return url.replace(
+    /([?&](?:access_token|token|ticket|data_ticket)=)[^&#]+/gi,
+    "$1[REDACTED]",
+  );
+}
+
+/**
  * Create a safe log message from response body
  */
 export function sanitizeResponseBody(body: unknown): string {

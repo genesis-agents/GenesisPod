@@ -178,6 +178,9 @@ export async function runSaveDraftAttempts(
         content0: params.content,
         sourceurl0: "",
         fileid0: "",
+        // cdn_url_1_10 = cdn_url_1_1 + 多图文 index 后缀 0（与 title0 / digest0
+        // 同样的命名规则）。v1/v3 单图文用 cdn_url_1_1，v2 count=1 多图文模板
+        // 用 cdn_url_1_10。这是微信前端约定，不是拼写错误。
         cdn_url_1_10: hasCover ? params.coverCdnUrl : "",
         show_cover_pic0: "0",
         need_open_comment0: "1",

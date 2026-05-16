@@ -8,6 +8,7 @@ import {
 } from "../services/wechat-image-uploader.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
+import { redactToken, redactUrl } from "../utils/log-sanitizer";
 import { SessionData } from "../types/platform.types";
 import {
   runSaveDraftAttempts,
@@ -171,7 +172,7 @@ export class WechatAdapter {
               if (m) {
                 sniffState.fingerprint = m[1];
                 this.logger.log(
-                  `[fingerprint sniff] captured: ${sniffState.fingerprint} from ${url.slice(0, 120)}`,
+                  `[fingerprint sniff] captured: ${redactToken(sniffState.fingerprint)} from ${url.slice(0, 120)}`,
                 );
               }
             } catch {
@@ -236,7 +237,7 @@ export class WechatAdapter {
           })
           .catch(() => "");
         if (pageToken) {
-          this.logger.log(`Found token from page JS: ${pageToken}`);
+          this.logger.log(`Found token from page JS: ${redactToken(pageToken)}`);
           currentUrl = `${this.MP_URL}/cgi-bin/home?token=${pageToken}`;
         }
       }
@@ -282,13 +283,13 @@ export class WechatAdapter {
       // 优先使用保存的 wechatToken
       if (sessionData.wechatToken) {
         token = sessionData.wechatToken;
-        this.logger.log(`Using saved wechatToken: ${token}`);
+        this.logger.log(`Using saved wechatToken: ${redactToken(token)}`);
       } else {
         // 尝试从当前 URL 提取
         const tokenMatch = currentUrl.match(/token=(\d+)/);
         if (tokenMatch) {
           token = tokenMatch[1];
-          this.logger.log(`Token extracted from URL: ${token}`);
+          this.logger.log(`Token extracted from URL: ${redactToken(token)}`);
         }
       }
 
@@ -307,7 +308,7 @@ export class WechatAdapter {
         //   素材'选择"。用户 manual 截图 18 的 URL 完全没有 createType 参数。
         const directType10Url = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=10&token=${token}&lang=zh_CN&timestamp=${Date.now()}`;
         this.logger.log(
-          `[fast-path] Long article (${contentLength} chars) → direct nav to type=10 editor: ${directType10Url}`,
+          `[fast-path] Long article (${contentLength} chars) → direct nav to type=10 editor: ${redactUrl(directType10Url)}`,
         );
         try {
           await page.goto(directType10Url, {
@@ -518,7 +519,7 @@ export class WechatAdapter {
 
         if (token) {
           const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=${articleType}&createType=8&token=${token}`;
-          this.logger.log(`Direct navigation to: ${editorUrl}`);
+          this.logger.log(`Direct navigation to: ${redactUrl(editorUrl)}`);
           await editorPage.goto(editorUrl, {
             waitUntil: "networkidle0",
             timeout: 30000,
@@ -541,7 +542,7 @@ export class WechatAdapter {
               token = linkTokenMatch[1];
               const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=${articleType}&createType=8&token=${token}`;
               this.logger.log(
-                `Found token from link, direct navigation to: ${editorUrl}`,
+                `Found token from link, direct navigation to: ${redactUrl(editorUrl)}`,
               );
               await editorPage.goto(editorUrl, {
                 waitUntil: "networkidle0",
@@ -1536,9 +1537,19 @@ export class WechatAdapter {
     );
 
     this.logger.log(
-      `[saveDraft API] status=${result.status} fingerprint=${result.fingerprint || "(none)"} source=${result.fpSource || "(none)"}`,
+      `[saveDraft API] status=${result.status} fingerprint=${redactToken(result.fingerprint)} source=${result.fpSource || "(none)"}`,
     );
-    this.logger.log(`[saveDraft API] attempts: ${result.bodyPreview}`);
+    // Reviewer 共识 C1：outerHTML 兜底是 32-hex 正则全文扫，可能扫到 nonce /
+    // CSS 哈希 / etag 等无关 hex 串，不一定是真 fingerprint。落到这一级时
+    // 显式 warn 提示后续如果 ret=200002 优先怀疑 fingerprint 错误。
+    if (result.fpSource === "outerHTML") {
+      this.logger.warn(
+        "[saveDraft API] fingerprint fallback hit outerHTML scan—value may be a random 32-hex (nonce/etag) rather than real fingerprint. If save fails ret=200002, this is the likely cause.",
+      );
+    }
+    this.logger.log(
+      `[saveDraft API] attempts: ${redactUrl(result.bodyPreview)}`,
+    );
 
     const json = result.json;
     const ret = json?.base_resp?.ret ?? json?.ret;

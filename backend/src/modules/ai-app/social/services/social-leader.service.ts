@@ -140,7 +140,8 @@ function pickCoverImage(source: {
 
   if (source.content) {
     const m = source.content.match(
-      /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i,
+      // 字符类禁 \s < > 防止 URL 跨行注入（Reviewer B4）
+      /<img\b[^>\n]*\bsrc\s*=\s*["']([^"'\s<>]+)["']/i,
     );
     const url = m?.[1]?.trim();
     if (url && /^https?:\/\//i.test(url)) return url;

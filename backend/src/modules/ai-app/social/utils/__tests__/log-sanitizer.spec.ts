@@ -6,6 +6,8 @@ import {
   sanitizeForLog,
   safeStringify,
   sanitizeResponseBody,
+  redactToken,
+  redactUrl,
 } from "../log-sanitizer";
 
 describe("log-sanitizer", () => {
@@ -211,6 +213,63 @@ describe("log-sanitizer", () => {
       const result = sanitizeResponseBody(body);
       const parsed = JSON.parse(result);
       expect(Object.keys(parsed)).toHaveLength(0);
+    });
+  });
+
+  describe("redactToken", () => {
+    it("returns (empty) for null/undefined/empty", () => {
+      expect(redactToken(null)).toBe("(empty)");
+      expect(redactToken(undefined)).toBe("(empty)");
+      expect(redactToken("")).toBe("(empty)");
+    });
+
+    it("returns *** for very short tokens", () => {
+      expect(redactToken("abc")).toBe("***");
+      expect(redactToken("ab")).toBe("***");
+    });
+
+    it("shows first 4 chars + *** for normal tokens", () => {
+      expect(redactToken("1234567890abcdef")).toBe("1234***");
+    });
+
+    it("works on 32-hex fingerprints", () => {
+      expect(redactToken("a1b2c3d4e5f6789012345678901234ab")).toBe("a1b2***");
+    });
+  });
+
+  describe("redactUrl", () => {
+    it("redacts token= query param", () => {
+      expect(redactUrl("https://example.com/path?token=secret123&lang=zh")).toBe(
+        "https://example.com/path?token=[REDACTED]&lang=zh",
+      );
+    });
+
+    it("redacts access_token query param", () => {
+      expect(
+        redactUrl("https://api.x.com?access_token=abc&foo=bar"),
+      ).toContain("access_token=[REDACTED]");
+    });
+
+    it("redacts ticket / data_ticket params", () => {
+      expect(redactUrl("https://x.com?ticket=t&data_ticket=d")).toBe(
+        "https://x.com?ticket=[REDACTED]&data_ticket=[REDACTED]",
+      );
+    });
+
+    it("preserves non-sensitive params", () => {
+      const out = redactUrl(
+        "https://x.com?lang=zh&token=secret&type=10",
+      );
+      expect(out).toContain("lang=zh");
+      expect(out).toContain("type=10");
+      expect(out).toContain("token=[REDACTED]");
+      expect(out).not.toContain("secret");
+    });
+
+    it("leaves URL without sensitive params unchanged", () => {
+      expect(redactUrl("https://x.com?foo=bar")).toBe(
+        "https://x.com?foo=bar",
+      );
     });
   });
 });

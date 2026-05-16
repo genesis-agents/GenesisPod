@@ -49,8 +49,12 @@ const MMBIZ_URL_PATTERN = /^https:\/\/mmbiz\.qpic\.cn\//i;
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
+const UPLOAD_CONCURRENCY = 3;
 
-const IMG_TAG_REGEX = /<img\b([^>]*?)\bsrc\s*=\s*(["'])([^"']+)\2([^>]*?)\/?>/gi;
+// Reviewer 共识 C3：用 matchAll 避免全局正则 lastIndex 状态泄漏
+// 同时收紧字符类不允许换行/空白（防止 URL 跨行注入）
+const IMG_TAG_REGEX =
+  /<img\b([^>\n]*?)\bsrc\s*=\s*(["'])([^"'\s<>]+)\2([^>\n]*?)\/?>/gi;
 
 /**
  * SSRF 防护：拒绝非 https 协议 + 私网/回环/链路本地 IP。
@@ -102,35 +106,36 @@ export class WechatImageUploaderService {
     token: string,
   ): Promise<RewriteStats> {
     const matches: Array<{ full: string; src: string }> = [];
-    let m: RegExpExecArray | null;
-    IMG_TAG_REGEX.lastIndex = 0;
-    while ((m = IMG_TAG_REGEX.exec(html)) !== null) {
+    for (const m of html.matchAll(IMG_TAG_REGEX)) {
       matches.push({ full: m[0], src: m[3] });
     }
 
-    let uploaded = 0;
-    let failed = 0;
+    // 同源去重 (Reviewer A2)：同一外链 URL 在文章里出现多次只传一次。
+    // 并发上传 (Reviewer C2)：unique URL 并行 UPLOAD_CONCURRENCY 路上传。
+    const uniqueSrcs = new Set<string>();
     let skipped = 0;
-    let rewritten = html;
-
-    // 同源去重 (Reviewer A2)：同一外链 URL 在文章里出现多次时，只传一次，
-    // 把所有 <img> tag 用同一 newSrc 替换。省 WeChat 上传配额。
-    const urlToNewSrc = new Map<string, string | null>();
-
-    for (const { full, src } of matches) {
+    for (const { src } of matches) {
       if (this.shouldSkip(src)) {
         skipped += 1;
         continue;
       }
+      uniqueSrcs.add(src);
+    }
 
-      let newSrc: string | null;
-      if (urlToNewSrc.has(src)) {
-        newSrc = urlToNewSrc.get(src)!;
-      } else {
-        newSrc = await this.uploadOne(page, src, token);
-        urlToNewSrc.set(src, newSrc);
-      }
+    const urlToNewSrc = await this.uploadConcurrently(
+      page,
+      Array.from(uniqueSrcs),
+      token,
+    );
 
+    let uploaded = 0;
+    let failed = 0;
+    let rewritten = html;
+
+    for (const { full, src } of matches) {
+      if (this.shouldSkip(src)) continue;
+
+      const newSrc = urlToNewSrc.get(src);
       if (!newSrc) {
         failed += 1;
         this.logger.warn(
@@ -155,10 +160,39 @@ export class WechatImageUploaderService {
     }
 
     this.logger.log(
-      `[rewriteImages] total=${matches.length} uploaded=${uploaded} failed=${failed} skipped=${skipped}`,
+      `[rewriteImages] total=${matches.length} unique=${uniqueSrcs.size} uploaded=${uploaded} failed=${failed} skipped=${skipped}`,
     );
 
     return { rewritten, uploaded, failed, skipped };
+  }
+
+  /**
+   * 并发上传：限制同时活跃 UPLOAD_CONCURRENCY 个 page.evaluate + Node fetch。
+   * 微信端单 page 同时跑太多 fetch 会触发限流，3 路是经验上限。
+   */
+  private async uploadConcurrently(
+    page: Page,
+    srcs: string[],
+    token: string,
+  ): Promise<Map<string, string | null>> {
+    const result = new Map<string, string | null>();
+    let cursor = 0;
+
+    const worker = async (): Promise<void> => {
+      while (cursor < srcs.length) {
+        const idx = cursor++;
+        const src = srcs[idx];
+        const newSrc = await this.uploadOne(page, src, token);
+        result.set(src, newSrc);
+      }
+    };
+
+    const workers = Array.from(
+      { length: Math.min(UPLOAD_CONCURRENCY, srcs.length) },
+      () => worker(),
+    );
+    await Promise.all(workers);
+    return result;
   }
 
   /**
