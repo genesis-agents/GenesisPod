@@ -1011,7 +1011,7 @@ export class WechatAdapter {
               pattern.test(el.getAttribute("aria-label") || "") ||
               pattern.test(el.getAttribute("placeholder") || ""),
           ) ||
-          document.querySelector(
+          document.querySelector<HTMLTextAreaElement | HTMLInputElement>(
             '[placeholder*="标题"], #title, .js_article_title, input[maxlength="20"], textarea[maxlength="20"]',
           ) ||
           null;
