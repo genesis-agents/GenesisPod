@@ -1163,7 +1163,9 @@ export class WechatAdapter {
             } => {
               for (const sel of candidatesByOrder) {
                 const el = document.querySelector(sel);
-                if (el?.isContentEditable) return { el, sel };
+                if (el instanceof HTMLElement && el.isContentEditable) {
+                  return { el, sel };
+                }
               }
               // 兜底：找所有 .ProseMirror，选 offsetHeight 最大那个（body editor
               // 视觉区域最高），不要无脑取 querySelector('.ProseMirror') 首个
