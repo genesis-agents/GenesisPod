@@ -59,7 +59,16 @@ export async function runPolishReviewStage(
           },
           pool,
         });
-        if (r.state !== "failed" && r.output) polished[platform] = r.output;
+        if (r.state !== "failed" && r.output) {
+          polished[platform] = r.output;
+        } else {
+          await deps.markStageDegraded(
+            missionId,
+            userId,
+            "s7-polish-review",
+            `平台 ${platform} 润色审核失败`,
+          );
+        }
       }),
     ),
   );

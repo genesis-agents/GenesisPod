@@ -40,18 +40,19 @@ export async function runMissionBudgetEvalStage(
     text: `Mission 已启动 · 平台 ${input.platforms.join(", ")} · 档位 ${input.depth} / ${input.budgetProfile}`,
   });
 
-  // PR-3c 简化：Steward 输入按 dispatcher 装配的现成 ctx 字段；当前阶段实际
-  // remainingCreditsUsd / sessionExpiresAt 等由 dispatcher 在 buildCtx 时
-  // 注入（PR-4）。本 stage 仅做 invoke + verdict 检查。
+  // dispatcher 在 mission 启动时已查 DB 装配 stewardInputs（remainingCredits /
+  // estimatedCost / 各平台 sessionExpiresAt / inProgressMissionCount / key 健康）。
+  // 本 stage 仅做 invoke + verdict 检查。
+  const stewardInputs = ctx.stewardInputs;
   const stewardResult = await deps.steward.run({
     input: {
       userId,
       platforms: [...input.platforms],
-      remainingCreditsUsd: 0, // dispatcher 注入
-      estimatedCostUsd: 0, // dispatcher 注入
-      sessionExpiresAt: {}, // dispatcher 注入
-      inProgressMissionCount: 0, // dispatcher 注入
-      keyCooldownCount1h: 0, // dispatcher 注入
+      remainingCreditsUsd: stewardInputs.remainingCreditsUsd,
+      estimatedCostUsd: stewardInputs.estimatedCostUsd,
+      sessionExpiresAt: stewardInputs.sessionExpiresAt,
+      inProgressMissionCount: stewardInputs.inProgressMissionCount,
+      keyCooldownCount1h: stewardInputs.keyCooldownCount1h,
     },
     ctx: {
       missionId,

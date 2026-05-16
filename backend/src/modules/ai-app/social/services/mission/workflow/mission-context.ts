@@ -50,6 +50,28 @@ export interface RunSocialMissionInput {
   forceMissionPath?: boolean;
 }
 
+/** raw content snapshot — 从 SocialContent 表 hydrate，供 s3/s5/s6 消费 */
+export interface RawContentBag {
+  title: string;
+  body: string;
+  digest: string | null;
+  coverImageUrl: string | null;
+}
+
+/** s1 Steward 4 闸输入 — dispatcher 在 mission 启动时一次性查 DB 装配 */
+export interface StewardInputs {
+  /** 预算池剩余美元（pool.snapshot().remainingCostUsd） */
+  remainingCreditsUsd: number;
+  /** 本次 mission 估算消耗（depth × budgetProfile heuristic） */
+  estimatedCostUsd: number;
+  /** Per-platform session 过期时间 ISO string（""=未知 / 已过期） */
+  sessionExpiresAt: Readonly<Record<string, string>>;
+  /** 用户当前 running mission 数（防资源耗尽） */
+  inProgressMissionCount: number;
+  /** 用户 BYOK key 1h 内冷却次数（health） */
+  keyCooldownCount1h: number;
+}
+
 // ─── Phase 0: Invariants ───────────────────────────────────────────
 export interface MissionInvariants {
   readonly missionId: string;
@@ -67,6 +89,18 @@ export interface MissionInvariants {
    * Mission 启动时按 connectionId 派生：`social-{platform}-{connectionId}`。
    */
   readonly contextIds: Readonly<Record<string, string>>;
+
+  /**
+   * Raw content snapshot —— dispatcher 在 openSession 之后立即查 SocialContent
+   * 注入，让 s3/s5/s6 不需要重复查 DB。
+   */
+  readonly contentRaw: RawContentBag;
+
+  /**
+   * S1 Steward 4 闸输入 —— dispatcher 装配 remainingCredits / estimatedCost /
+   * 每平台 session 过期时间 / 用户当前 running mission 数 / key 1h 冷却次数。
+   */
+  readonly stewardInputs: StewardInputs;
 }
 
 type LeaderPlanOutput = Extract<LeaderOutput, { phase: "plan" }>;

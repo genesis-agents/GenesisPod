@@ -1,58 +1,72 @@
 /**
- * SocialMissionStore — SocialPublishMission lifecycle 持久化适配
+ * SocialMissionStore — SocialPublishMission lifecycle 持久化（Prisma 真实现）
  *
- * 当前 v1 (W4 PR-4b) 暂无 Prisma SocialMission schema —— store 走内存 +
- * fire-and-forget log（保证 framework 接口契约满足，避免空 adapter 让
- * MissionRuntimeShellFramework 启动失败）。
+ * 2026-05-16 round-2-followup：从 in-memory map 升级到 Prisma social_missions
+ * 表持久化。Reviewer A P1-A3 持票项已闭环 —— pod restart 不再丢 mission，
+ * trajectory 可查、retry/cascade rerun 有数据基础。
  *
- * 后续 W5 真发回归通过后落 Prisma SocialMission 表，把 in-memory record
- * 迁到 DB 即可（接口契约不变）。
- *
- * Mirror of agent-playground/services/mission/lifecycle/mission-store.service.ts，
- * 只保留 framework 必需的最小子集：create / refreshHeartbeat。
+ * 与 AgentPlaygroundMission store 形态一致；差异：
+ *   - 无 leaderJournal / reportArtifact / dimensions / verdicts 等 research 业务字段
+ *   - 多 contentId / platforms / connectionIds 等社交业务字段
+ *   - trajectory JSON 字段在 S11 阶段统一写一次（无增量 partial 写）
  */
 
 import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
+import type { Prisma } from "@prisma/client";
 
-interface SocialMissionRecord {
-  readonly id: string;
-  readonly userId: string;
-  readonly workspaceId?: string;
-  readonly contentId: string;
-  readonly platforms: readonly string[];
-  readonly maxCredits: number;
-  readonly startedAt: number;
-  heartbeatAt: number;
-  podId: string;
-  status: "running" | "completed" | "failed" | "aborted";
-  errorMessage?: string;
+export interface CreateSocialMissionArgs {
+  id: string;
+  userId: string;
+  workspaceId?: string;
+  contentId: string;
+  platforms: readonly string[];
+  connectionIds: Readonly<Record<string, string>>;
+  depth: string;
+  budgetProfile: string;
+  language: string;
+  maxCredits: number;
+}
+
+export interface MarkCompletedDetail {
+  tokensUsed?: number;
+  costUsd?: number;
+  wallTimeMs?: number;
+  trajectory?: Prisma.InputJsonValue;
+}
+
+export interface MarkFailedDetail {
+  errorMessage: string;
+  tokensUsed?: number;
+  costUsd?: number;
+  wallTimeMs?: number;
 }
 
 @Injectable()
 export class SocialMissionStore {
   private readonly log = new Logger(SocialMissionStore.name);
-  private readonly records = new Map<string, SocialMissionRecord>();
 
-  async create(args: {
-    id: string;
-    userId: string;
-    workspaceId?: string;
-    contentId: string;
-    platforms: readonly string[];
-    maxCredits: number;
-  }): Promise<void> {
-    const now = Date.now();
-    this.records.set(args.id, {
-      id: args.id,
-      userId: args.userId,
-      workspaceId: args.workspaceId,
-      contentId: args.contentId,
-      platforms: [...args.platforms],
-      maxCredits: args.maxCredits,
-      startedAt: now,
-      heartbeatAt: now,
-      podId: process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local",
-      status: "running",
+  constructor(private readonly prisma: PrismaService) {}
+
+  async create(args: CreateSocialMissionArgs): Promise<void> {
+    const podId =
+      process.env.RAILWAY_REPLICA_ID ?? process.env.HOSTNAME ?? "local";
+    await this.prisma.socialMission.create({
+      data: {
+        id: args.id,
+        userId: args.userId,
+        workspaceId: args.workspaceId,
+        contentId: args.contentId,
+        platforms: [...args.platforms],
+        connectionIds: args.connectionIds as Prisma.InputJsonValue,
+        depth: args.depth,
+        budgetProfile: args.budgetProfile,
+        language: args.language,
+        maxCredits: args.maxCredits,
+        status: "running",
+        podId,
+        heartbeatAt: new Date(),
+      },
     });
     this.log.log(
       `[create] mission=${args.id} user=${args.userId} platforms=${args.platforms.join(",")} maxCredits=${args.maxCredits}`,
@@ -60,43 +74,96 @@ export class SocialMissionStore {
   }
 
   async refreshHeartbeat(missionId: string, podId: string): Promise<void> {
-    const rec = this.records.get(missionId);
-    if (!rec) return;
-    rec.heartbeatAt = Date.now();
-    rec.podId = podId;
+    await this.prisma.socialMission
+      .update({
+        where: { id: missionId },
+        data: { heartbeatAt: new Date(), podId },
+      })
+      .catch((err: unknown) => {
+        // mission 可能已被清理 / orphan-cleanup 标 failed —— heartbeat 非致命
+        this.log.warn(
+          `[refreshHeartbeat] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   }
 
   async markCompleted(
     missionId: string,
-    detail?: { tokensUsed?: number; costUsd?: number; wallTimeMs?: number },
+    detail?: MarkCompletedDetail,
   ): Promise<void> {
-    const rec = this.records.get(missionId);
-    if (!rec) return;
-    rec.status = "completed";
-    this.log.log(
-      `[markCompleted] mission=${missionId} wallTime=${detail?.wallTimeMs ?? 0}ms tokens=${detail?.tokensUsed ?? 0}`,
-    );
+    await this.prisma.socialMission
+      .update({
+        where: { id: missionId },
+        data: {
+          status: "completed",
+          completedAt: new Date(),
+          tokensUsed:
+            detail?.tokensUsed != null ? BigInt(detail.tokensUsed) : null,
+          costUsd: detail?.costUsd ?? null,
+          wallTimeMs: detail?.wallTimeMs ?? null,
+          trajectory: detail?.trajectory,
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[markCompleted] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   }
 
-  async markFailed(
+  async markFailed(missionId: string, detail: MarkFailedDetail): Promise<void> {
+    await this.prisma.socialMission
+      .update({
+        where: { id: missionId },
+        data: {
+          status: "failed",
+          completedAt: new Date(),
+          errorMessage: detail.errorMessage.slice(0, 4000),
+          tokensUsed:
+            detail.tokensUsed != null ? BigInt(detail.tokensUsed) : null,
+          costUsd: detail.costUsd ?? null,
+          wallTimeMs: detail.wallTimeMs ?? null,
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[markFailed] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
+
+  /** 写 S11 trajectory；与 markCompleted 解耦，让 S11 失败也能保留 partial trajectory */
+  async saveTrajectory(
     missionId: string,
-    detail: { errorMessage: string; wallTimeMs?: number },
+    trajectory: Prisma.InputJsonValue,
   ): Promise<void> {
-    const rec = this.records.get(missionId);
-    if (!rec) return;
-    rec.status = "failed";
-    rec.errorMessage = detail.errorMessage;
-    this.log.warn(
-      `[markFailed] mission=${missionId}: ${detail.errorMessage.slice(0, 200)}`,
-    );
+    await this.prisma.socialMission
+      .update({
+        where: { id: missionId },
+        data: { trajectory },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[saveTrajectory] mission=${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
   }
 
-  getById(missionId: string): SocialMissionRecord | undefined {
-    return this.records.get(missionId);
+  /** Gateway join 时核对 ownership */
+  async getOwner(missionId: string): Promise<string | undefined> {
+    const row = await this.prisma.socialMission
+      .findUnique({
+        where: { id: missionId },
+        select: { userId: true },
+      })
+      .catch(() => null);
+    return row?.userId;
   }
 
-  /** Ownership lookup（gateway join 时核对） */
-  getOwner(missionId: string): string | undefined {
-    return this.records.get(missionId)?.userId;
+  /** controller / detail 页查 mission 元信息 */
+  async getById(missionId: string, userId: string) {
+    return this.prisma.socialMission.findFirst({
+      where: { id: missionId, userId },
+    });
   }
 }

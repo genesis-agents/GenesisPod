@@ -73,7 +73,16 @@ export async function runBodyComposeStage(
           },
           pool,
         });
-        if (r.state !== "failed" && r.output) composed[platform] = r.output;
+        if (r.state !== "failed" && r.output) {
+          composed[platform] = r.output;
+        } else {
+          await deps.markStageDegraded(
+            missionId,
+            userId,
+            "s6-body-compose",
+            `平台 ${platform} 正文 schema 注入失败`,
+          );
+        }
       }),
     ),
   );

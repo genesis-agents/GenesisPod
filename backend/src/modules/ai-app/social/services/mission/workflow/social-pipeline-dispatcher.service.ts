@@ -26,6 +26,7 @@
 
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { createHash, randomUUID } from "crypto";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DomainEventBus,
   MissionPipelineOrchestrator,
@@ -54,7 +55,12 @@ import {
   PostmortemClassifierService,
 } from "@/modules/ai-harness/facade";
 import { runSelfEvolutionStage } from "./stages/s12-self-evolution.stage";
-import type { MissionContext, RunSocialMissionInput } from "./mission-context";
+import type {
+  MissionContext,
+  RawContentBag,
+  RunSocialMissionInput,
+  StewardInputs,
+} from "./mission-context";
 import type { CommonDeps } from "./mission-deps";
 import type { MissionRuntimeSession } from "./social-runtime-shell.service";
 
@@ -110,6 +116,8 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     private readonly polishReviewer: PolishReviewerService,
     private readonly publishExecutor: PublishExecutorAgentService,
     private readonly publishVerifier: PublishVerifierService,
+    // ★ round-2-followup: 在 mission 启动时查 SocialContent + Connections 装配 ctx
+    private readonly prisma: PrismaService,
   ) {}
 
   onModuleInit(): void {
@@ -182,6 +190,13 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         const connId = input.connectionIds[platform] ?? "noconn";
         contextIds[platform] = `social-${platform}-${connId}`;
       }
+      // ★ round-2-followup: 装配 contentRaw + stewardInputs（Reviewer A P0 / Audit P1）
+      const contentRaw = await this.hydrateContentRaw(input.contentId, userId);
+      const stewardInputs = await this.hydrateStewardInputs(
+        userId,
+        input,
+        session,
+      );
       const ctx: MissionContext = {
         missionId,
         userId,
@@ -191,6 +206,8 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         pool: session.pool,
         budgetMultiplier: session.budgetMultiplier,
         contextIds,
+        contentRaw,
+        stewardInputs,
       };
       const deps = this.buildDeps(missionId, userId);
       this.sessions.set(missionId, {
@@ -288,6 +305,125 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     return entry;
   }
 
+  /**
+   * 从 SocialContent 表 hydrate raw 内容（title / body / digest / coverImageUrl），
+   * 供 s3/s5/s6 stage 消费。若 contentId 找不到 → throw，dispatcher 把 mission
+   * 标 failed（不让空跑）。
+   */
+  private async hydrateContentRaw(
+    contentId: string,
+    userId: string,
+  ): Promise<RawContentBag> {
+    const row = await this.prisma.socialContent.findFirst({
+      where: { id: contentId, userId },
+      select: {
+        title: true,
+        content: true,
+        digest: true,
+        coverImageUrl: true,
+      },
+    });
+    if (!row) {
+      throw new Error(
+        `[dispatcher] SocialContent ${contentId} not found for user ${userId}`,
+      );
+    }
+    return {
+      title: row.title,
+      body: row.content,
+      digest: row.digest ?? null,
+      coverImageUrl: row.coverImageUrl ?? null,
+    };
+  }
+
+  /**
+   * 装配 S1 Steward 4 闸输入：DB 查每平台 connection / running mission count，
+   * 再用 budgetMultiplier × depth 估算 estimatedCostUsd。
+   *
+   * keyCooldownCount1h 当前留 0（W5 接 KeyHealthMap bridge 后再补；
+   * feedback_bridge_inmemory_health_to_db）。
+   */
+  private async hydrateStewardInputs(
+    userId: string,
+    input: RunSocialMissionInput,
+    session: MissionRuntimeSession,
+  ): Promise<StewardInputs> {
+    // 1. 每平台 session 过期时间（platform → ISO string；""=未连接或已过期）
+    //    SocialPlatformConnection.expiresAt 是 Date | null
+    const connectionRows = await this.prisma.socialPlatformConnection
+      .findMany({
+        where: {
+          userId,
+          platformType: { in: input.platforms as never },
+        },
+        select: {
+          platformType: true,
+          expiresAt: true,
+        },
+      })
+      .catch(() => [] as { platformType: string; expiresAt: Date | null }[]);
+    const sessionExpiresAt: Record<string, string> = {};
+    for (const platform of input.platforms) {
+      const row = connectionRows.find((r) => r.platformType === platform);
+      sessionExpiresAt[platform] = row?.expiresAt
+        ? row.expiresAt.toISOString()
+        : "";
+    }
+
+    // 2. 当前 running mission count（防资源耗尽）
+    const inProgressMissionCount = await this.prisma.socialMission
+      .count({
+        where: { userId, status: "running" },
+      })
+      .catch(() => 0);
+
+    // 3. 估算 cost：depth × budgetProfile heuristic
+    const depthFactor: Record<RunSocialMissionInput["depth"], number> = {
+      quick: 0.5,
+      standard: 1.0,
+      deep: 2.0,
+    };
+    const profileFactor: Record<
+      RunSocialMissionInput["budgetProfile"],
+      number
+    > = {
+      lean: 0.6,
+      standard: 1.0,
+      rich: 1.6,
+    };
+    // base estimate per platform：标准档 / 标准 depth ≈ 0.05 USD
+    const baseUsdPerPlatform = 0.05;
+    const estimatedCostUsd =
+      baseUsdPerPlatform *
+      input.platforms.length *
+      (depthFactor[input.depth] ?? 1) *
+      (profileFactor[input.budgetProfile] ?? 1) *
+      session.budgetMultiplier;
+
+    // 4. 预算剩余美元（pool snapshot）
+    const snap = session.pool.snapshot();
+    const remainingCreditsUsd = Math.max(
+      0,
+      (
+        snap as {
+          remainingCostUsd?: number;
+          maxCostUsd?: number;
+          poolCostUsd?: number;
+        }
+      ).remainingCostUsd ??
+        ((snap as { maxCostUsd?: number }).maxCostUsd ?? 0) -
+          ((snap as { poolCostUsd?: number }).poolCostUsd ?? 0),
+    );
+
+    return {
+      remainingCreditsUsd,
+      estimatedCostUsd,
+      sessionExpiresAt,
+      inProgressMissionCount,
+      keyCooldownCount1h: 0,
+    };
+  }
+
   // ─── private ───────────────────────────────────────────────────
 
   private buildPipelineWithHooks() {
@@ -347,6 +483,7 @@ export class SocialPipelineDispatcher implements OnModuleInit {
       publishVerifier: this.publishVerifier,
       failureLearner: this.failureLearner,
       postmortemClassifier: this.postmortemClassifier,
+      store: this.store,
     };
   }
 

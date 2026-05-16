@@ -17,25 +17,14 @@ import type {
 import type { CommonDeps } from "../mission-deps";
 import { narrate } from "../narrative.util";
 
-interface RawContentBag {
-  title: string;
-  body: string;
-  digest: string | null;
-  coverImageUrl: string | null;
-}
-
 export async function runContentTransformStage(
-  ctx: MissionInvariants &
-    PlanPhaseCtx &
-    TransformPhaseCtx & { contentRaw?: RawContentBag },
+  ctx: MissionInvariants & PlanPhaseCtx & TransformPhaseCtx,
   deps: CommonDeps,
 ): Promise<void> {
   const { missionId, userId, input, probeResults, pool, billing, contentRaw } =
     ctx;
-  if (!probeResults || !contentRaw) {
-    throw new Error(
-      `[s3] missing probeResults or contentRaw for mission ${missionId}`,
-    );
+  if (!probeResults) {
+    throw new Error(`[s3] missing probeResults for mission ${missionId}`);
   }
 
   await narrate(deps.emit, missionId, userId, {

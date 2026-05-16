@@ -15,18 +15,8 @@ import type {
 import type { CommonDeps } from "../mission-deps";
 import { narrate } from "../narrative.util";
 
-interface RawContentBag {
-  title: string;
-  body: string;
-  digest: string | null;
-  coverImageUrl: string | null;
-}
-
 export async function runCoverCraftStage(
-  ctx: MissionInvariants &
-    TransformPhaseCtx &
-    AssessPhaseCtx &
-    CraftPhaseCtx & { contentRaw?: RawContentBag },
+  ctx: MissionInvariants & TransformPhaseCtx & AssessPhaseCtx & CraftPhaseCtx,
   deps: CommonDeps,
 ): Promise<void> {
   const {
@@ -39,10 +29,8 @@ export async function runCoverCraftStage(
     pool,
     billing,
   } = ctx;
-  if (!platformVersions || !contentRaw) {
-    throw new Error(
-      `[s5] missing platformVersions or contentRaw for ${missionId}`,
-    );
+  if (!platformVersions) {
+    throw new Error(`[s5] missing platformVersions for ${missionId}`);
   }
 
   const acceptedPlatforms = new Set(
@@ -95,7 +83,16 @@ export async function runCoverCraftStage(
           },
           pool,
         });
-        if (r.state !== "failed" && r.output) covers[platform] = r.output;
+        if (r.state !== "failed" && r.output) {
+          covers[platform] = r.output;
+        } else {
+          await deps.markStageDegraded(
+            missionId,
+            userId,
+            "s5-cover-craft",
+            `平台 ${platform} 封面生成失败`,
+          );
+        }
       }),
     ),
   );

@@ -1062,3 +1062,33 @@ export async function deleteVersion(
     }
   );
 }
+
+// ==================== Mission Run (W4 Agent Team) ====================
+
+export interface RunSocialMissionRequest {
+  contentId: string;
+  platforms: SocialPlatformType[];
+  connectionIds: Record<string, string>;
+  depth: 'quick' | 'standard' | 'deep';
+  budgetProfile?: 'lean' | 'standard' | 'rich';
+  language?: 'zh-CN' | 'en-US';
+}
+
+export interface RunSocialMissionResponse {
+  missionId: string;
+  status: 'started' | 'in-flight';
+}
+
+/**
+ * 启动 SocialPublishMission（W4 Agent Team 新轨）
+ * Fire-and-forget：立即返回 missionId，mission 异步跑；前端订阅
+ * WebSocket social.mission:* / social.stage:lifecycle 事件流跟进度。
+ */
+export async function runSocialMission(
+  request: RunSocialMissionRequest
+): Promise<RunSocialMissionResponse> {
+  return fetchWithAuth('/api/v1/ai-social/mission/run', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}

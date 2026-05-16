@@ -27,6 +27,7 @@ import type {
   PublishExecutorAgentService,
   PublishVerifierService,
 } from "../../roles";
+import type { SocialMissionStore } from "../lifecycle/social-mission-store.service";
 
 export type { EmitFn };
 
@@ -75,6 +76,7 @@ export interface CommonDeps {
   // Persist / postlude
   readonly failureLearner: FailureLearnerService;
   readonly postmortemClassifier: PostmortemClassifierService;
+  readonly store: SocialMissionStore;
 }
 
 export type MissionDeps = CommonDeps;

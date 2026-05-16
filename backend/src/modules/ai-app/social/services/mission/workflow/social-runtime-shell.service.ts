@@ -109,6 +109,10 @@ export class SocialRuntimeShellService {
           workspaceId,
           contentId: input.contentId,
           platforms: input.platforms,
+          connectionIds: input.connectionIds,
+          depth: input.depth,
+          budgetProfile: input.budgetProfile,
+          language: input.language,
           maxCredits: effectiveMaxCredits,
         });
       },

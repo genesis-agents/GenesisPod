@@ -72,7 +72,7 @@ export class SocialGateway implements OnGatewayInit {
         error: err instanceof Error ? err.message : "auth failed",
       };
     }
-    const owner = this.store.getOwner(payload.missionId);
+    const owner = await this.store.getOwner(payload.missionId);
     if (!owner) {
       return {
         ok: false,
