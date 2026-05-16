@@ -116,21 +116,36 @@ function ensureJsonArray(data: unknown): string[] {
 }
 
 /**
- * 选封面：信源 body 图（images[0]）优先，回退到 og:image / Resource.thumbnail。
+ * 选封面：images[0] > og:image > content 正文里第一张 <img>。
  *
- * 背景：og:image 经常是站点 logo 或 banner，与文章内容关系弱；body images
- * 是从源数据正文里提取的（图表 / 关键插图 / 配图），更能反映文章质量。
- * 改"全自动发布"前必须保证 feed 列表门面图高质量。
+ * 三级降级：
+ *   1. images[0] — fetcher 抽出的正文图（图表/插图，跟内容直接相关）
+ *   2. coverImage — og:image / Resource.thumbnail 兜底
+ *   3. 正文里第一张 <img> — 兜底兜底：fetcher 漏掉但 HTML/markdown 自带的图
+ *
+ * 三级都空 → null，发布无封面（feed 列表无缩略图，仍可发）。
  */
 function pickCoverImage(source: {
   coverImage?: string;
   images?: string[];
+  content?: string;
 }): string | null {
-  const fromBody = source.images?.find(
+  const fromImages = source.images?.find(
     (img) => typeof img === "string" && img.trim().length > 0,
   );
-  const candidate = fromBody || source.coverImage;
-  return sanitizeString(candidate) || null;
+  if (fromImages) return sanitizeString(fromImages) || null;
+
+  const fromCover = sanitizeString(source.coverImage);
+  if (fromCover) return fromCover;
+
+  if (source.content) {
+    const m = source.content.match(
+      /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/i,
+    );
+    const url = m?.[1]?.trim();
+    if (url && /^https?:\/\//i.test(url)) return url;
+  }
+  return null;
 }
 
 // Retry helper for transient database errors (like connection pool issues)
