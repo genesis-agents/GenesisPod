@@ -118,7 +118,6 @@ function isUrlSsrfSafe(rawUrl: string): boolean {
   }
 }
 
-
 /**
  * 上传外部图片到微信公众号 CDN，重写正文 <img src>。
  *
@@ -530,8 +529,7 @@ async function runCoverUploadAttempts(
               : typeof data.content === "string"
                 ? data.content
                 : null;
-      const fileId =
-        data.file_id != null ? String(data.file_id) : null;
+      const fileId = data.file_id != null ? String(data.file_id) : null;
       attempts.push({
         endpoint: ep.name,
         ret,

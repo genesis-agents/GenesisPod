@@ -53,7 +53,11 @@ describe("WechatImageUploaderService", () => {
     mockPage.evaluate.mockResolvedValue({
       url: "https://mmbiz.qpic.cn/abc/123",
       attempts: [
-        { endpoint: "misc-uploadimg2", ret: 0, url: "https://mmbiz.qpic.cn/abc/123" },
+        {
+          endpoint: "misc-uploadimg2",
+          ret: 0,
+          url: "https://mmbiz.qpic.cn/abc/123",
+        },
       ],
     });
 
@@ -77,7 +81,12 @@ describe("WechatImageUploaderService", () => {
       url: null,
       attempts: [
         { endpoint: "misc-uploadimg2", ret: -1, url: null, errMsg: "fail" },
-        { endpoint: "filetransfer-upload-material", ret: -1, url: null, errMsg: "fail" },
+        {
+          endpoint: "filetransfer-upload-material",
+          ret: -1,
+          url: null,
+          errMsg: "fail",
+        },
       ],
     });
 
@@ -478,7 +487,13 @@ describe("WechatImageUploaderService", () => {
     mockPage.evaluate
       .mockResolvedValueOnce({
         url: "https://mmbiz.qpic.cn/ok",
-        attempts: [{ endpoint: "misc-uploadimg2", ret: 0, url: "https://mmbiz.qpic.cn/ok" }],
+        attempts: [
+          {
+            endpoint: "misc-uploadimg2",
+            ret: 0,
+            url: "https://mmbiz.qpic.cn/ok",
+          },
+        ],
       })
       .mockResolvedValueOnce({
         url: null,

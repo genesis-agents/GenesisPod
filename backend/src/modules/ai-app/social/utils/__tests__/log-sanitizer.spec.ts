@@ -247,15 +247,15 @@ describe("log-sanitizer", () => {
 
   describe("redactUrl", () => {
     it("redacts token= query param", () => {
-      expect(redactUrl("https://example.com/path?token=secret123&lang=zh")).toBe(
-        "https://example.com/path?token=[REDACTED]&lang=zh",
-      );
+      expect(
+        redactUrl("https://example.com/path?token=secret123&lang=zh"),
+      ).toBe("https://example.com/path?token=[REDACTED]&lang=zh");
     });
 
     it("redacts access_token query param", () => {
-      expect(
-        redactUrl("https://api.x.com?access_token=abc&foo=bar"),
-      ).toContain("access_token=[REDACTED]");
+      expect(redactUrl("https://api.x.com?access_token=abc&foo=bar")).toContain(
+        "access_token=[REDACTED]",
+      );
     });
 
     it("redacts ticket / data_ticket params", () => {
@@ -265,9 +265,7 @@ describe("log-sanitizer", () => {
     });
 
     it("preserves non-sensitive params", () => {
-      const out = redactUrl(
-        "https://x.com?lang=zh&token=secret&type=10",
-      );
+      const out = redactUrl("https://x.com?lang=zh&token=secret&type=10");
       expect(out).toContain("lang=zh");
       expect(out).toContain("type=10");
       expect(out).toContain("token=[REDACTED]");
@@ -275,9 +273,7 @@ describe("log-sanitizer", () => {
     });
 
     it("leaves URL without sensitive params unchanged", () => {
-      expect(redactUrl("https://x.com?foo=bar")).toBe(
-        "https://x.com?foo=bar",
-      );
+      expect(redactUrl("https://x.com?foo=bar")).toBe("https://x.com?foo=bar");
     });
   });
 });
