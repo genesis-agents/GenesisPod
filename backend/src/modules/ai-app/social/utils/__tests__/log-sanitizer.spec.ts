@@ -6,6 +6,8 @@ import {
   sanitizeForLog,
   safeStringify,
   sanitizeResponseBody,
+  redactToken,
+  redactUrl,
 } from "../log-sanitizer";
 
 describe("log-sanitizer", () => {
@@ -211,6 +213,67 @@ describe("log-sanitizer", () => {
       const result = sanitizeResponseBody(body);
       const parsed = JSON.parse(result);
       expect(Object.keys(parsed)).toHaveLength(0);
+    });
+  });
+
+  describe("redactToken", () => {
+    it("returns (empty) for null/undefined/empty", () => {
+      expect(redactToken(null)).toBe("(empty)");
+      expect(redactToken(undefined)).toBe("(empty)");
+      expect(redactToken("")).toBe("(empty)");
+    });
+
+    it("never leaks any plaintext prefix of the token", () => {
+      const out = redactToken("1234567890");
+      expect(out.startsWith("***")).toBe(true);
+      expect(out).not.toContain("1234");
+      expect(out).not.toContain("123");
+      expect(out).not.toContain("12");
+    });
+
+    it("same token always produces same redacted output (for log correlation)", () => {
+      expect(redactToken("abc123")).toBe(redactToken("abc123"));
+    });
+
+    it("different tokens produce different redacted output", () => {
+      expect(redactToken("token-a")).not.toBe(redactToken("token-b"));
+    });
+
+    it("output format is ***<8-hex>", () => {
+      const out = redactToken("any-token");
+      expect(out).toMatch(/^\*\*\*[0-9a-f]{8}$/);
+    });
+  });
+
+  describe("redactUrl", () => {
+    it("redacts token= query param", () => {
+      expect(
+        redactUrl("https://example.com/path?token=secret123&lang=zh"),
+      ).toBe("https://example.com/path?token=[REDACTED]&lang=zh");
+    });
+
+    it("redacts access_token query param", () => {
+      expect(redactUrl("https://api.x.com?access_token=abc&foo=bar")).toContain(
+        "access_token=[REDACTED]",
+      );
+    });
+
+    it("redacts ticket / data_ticket params", () => {
+      expect(redactUrl("https://x.com?ticket=t&data_ticket=d")).toBe(
+        "https://x.com?ticket=[REDACTED]&data_ticket=[REDACTED]",
+      );
+    });
+
+    it("preserves non-sensitive params", () => {
+      const out = redactUrl("https://x.com?lang=zh&token=secret&type=10");
+      expect(out).toContain("lang=zh");
+      expect(out).toContain("type=10");
+      expect(out).toContain("token=[REDACTED]");
+      expect(out).not.toContain("secret");
+    });
+
+    it("leaves URL without sensitive params unchanged", () => {
+      expect(redactUrl("https://x.com?foo=bar")).toBe("https://x.com?foo=bar");
     });
   });
 });

@@ -4,6 +4,8 @@
  * Prevents sensitive data from being logged
  */
 
+import * as crypto from "crypto";
+
 /**
  * Sensitive field names that should be redacted in logs
  */
@@ -105,6 +107,31 @@ export function safeStringify(obj: unknown, space?: number): string {
   } catch {
     return "[UNABLE_TO_STRINGIFY]";
   }
+}
+
+/**
+ * 哈希化 token 用于日志：相同 token → 相同 hash 前缀（可定位/对比），
+ * 但不暴露任何明文前缀。
+ *
+ * 迭代 2 (Security re-audit)：之前用 slice(0,4) + "***" 会暴露 4 位明文
+ * 前缀，对 9-10 位数字 token 来说就剩 ~6 位熵，可被日志攫取者用于
+ * 暴力相关性攻击。改用 SHA-256 前 8 字符。
+ */
+export function redactToken(token: string | null | undefined): string {
+  if (!token) return "(empty)";
+  const h = crypto.createHash("sha256").update(token).digest("hex").slice(0, 8);
+  return `***${h}`;
+}
+
+/**
+ * 把 URL 里 token / access_token / ticket 等查询参数的值替换成 [REDACTED]。
+ * 用于 logger 里要打调试 URL 但不想曝凭据。其他参数照旧保留方便定位。
+ */
+export function redactUrl(url: string): string {
+  return url.replace(
+    /([?&](?:access_token|token|ticket|data_ticket)=)[^&#]+/gi,
+    "$1[REDACTED]",
+  );
 }
 
 /**
