@@ -105,7 +105,7 @@ export const RADAR_REFRESH_PIPELINE: MissionPipelineConfig =
       },
       // S2 — 多源并发采集（RSS/YT/X/Custom）
       {
-        primitive: "research",
+        primitive: "persist",
         id: "s2-collect",
         mode: "multi-source-fanout",
         timeoutMs: 600_000,
@@ -147,7 +147,7 @@ export const RADAR_REFRESH_PIPELINE: MissionPipelineConfig =
       },
       // S4 — 相关性评分（LLM batch）
       {
-        primitive: "assess",
+        primitive: "persist",
         id: "s4-relevance",
         roleId: "relevance-judge",
         timeoutMs: 300_000,
@@ -162,7 +162,7 @@ export const RADAR_REFRESH_PIPELINE: MissionPipelineConfig =
       },
       // S5 — 质量评分 + 中文摘要（2-in-1）
       {
-        primitive: "assess",
+        primitive: "persist",
         id: "s5-quality",
         roleId: "quality-rater",
         timeoutMs: 300_000,
@@ -176,7 +176,7 @@ export const RADAR_REFRESH_PIPELINE: MissionPipelineConfig =
       },
       // S6 — 实体抽取
       {
-        primitive: "assess",
+        primitive: "persist",
         id: "s6-entity",
         roleId: "entity-extractor",
         timeoutMs: 300_000,
@@ -190,7 +190,7 @@ export const RADAR_REFRESH_PIPELINE: MissionPipelineConfig =
       },
       // S7 — 信号洞察（stateful，跨周期对比上期 insight）
       {
-        primitive: "synthesize",
+        primitive: "persist",
         id: "s7-insight",
         roleId: "signal-analyst",
         mode: "signal-analysis",
@@ -238,7 +238,7 @@ export const RADAR_DISCOVERY_PIPELINE: MissionPipelineConfig =
     ],
     steps: [
       {
-        primitive: "plan",
+        primitive: "persist",
         id: "s1-discover",
         roleId: "source-curator",
         timeoutMs: 120_000,

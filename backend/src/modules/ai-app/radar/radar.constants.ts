@@ -21,13 +21,19 @@ export const RADAR_ROLE_IDS = {
 /**
  * Event 名（DomainEventBus 发布，PR-R4 接入 ws gateway）。
  */
+/**
+ * radar.* event types —— 与 ai-radar Socket.IO namespace + roomPrefix='radar'
+ * 对接。所有 type 必须在 radar.events.ts 通过 DomainEventRegistry 注册 zod
+ * schema，否则 DomainEventBus 会 drop+warn。
+ */
 export const RADAR_EVENTS = {
-  RUN_STARTED: "radar.run.started",
-  RUN_PROGRESS: "radar.run.progress",
-  RUN_COMPLETED: "radar.run.completed",
-  RUN_FAILED: "radar.run.failed",
-  INSIGHT_CREATED: "radar.insight.created",
-  SOURCE_HEALTH_CHANGED: "radar.source.health-changed",
+  RUN_STARTED: "ai-radar.run.started",
+  RUN_STAGE: "ai-radar.run.stage",
+  RUN_COMPLETED: "ai-radar.run.completed",
+  RUN_FAILED: "ai-radar.run.failed",
+  RUN_CANCELLED: "ai-radar.run.cancelled",
+  INSIGHT_CREATED: "ai-radar.insight.created",
+  SOURCE_HEALTH_CHANGED: "ai-radar.source.health-changed",
 } as const;
 
 /**

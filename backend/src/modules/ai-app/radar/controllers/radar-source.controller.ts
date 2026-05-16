@@ -18,19 +18,24 @@ import {
   UpdateRadarSourceDto,
 } from "../dto";
 import { RadarSourceService } from "../services/source/radar-source.service";
-import { SourceDiscoveryService } from "../services/source/source-discovery.service";
+import { RadarTopicService } from "../services/topic/radar-topic.service";
+import { RadarPipelineDispatcher } from "../services/mission/workflow/radar-pipeline-dispatcher.service";
 
 /**
- * RadarSourceController
+ * RadarSourceController（彻底重构后）
  *
- * Topic-scoped 数据源 CRUD + AI 推荐入口（PR-R3 接通 SourceCuratorAgent）。
+ * Topic-scoped 数据源 CRUD + AI 推荐入口走 mission pipeline 框架：
+ *   - recommend: 走 RadarPipelineDispatcher.runDiscoveryMission，从 stage 输出
+ *     拿 candidates；不入库
+ *   - accept: 走 RadarSourceService.bulkCreateAiRecommended（用户勾选后入库）
  */
 @Controller("radar")
 @UseGuards(JwtAuthGuard)
 export class RadarSourceController {
   constructor(
     private readonly sources: RadarSourceService,
-    private readonly discovery: SourceDiscoveryService,
+    private readonly topics: RadarTopicService,
+    private readonly dispatcher: RadarPipelineDispatcher,
   ) {}
 
   @Post("topics/:topicId/sources")
@@ -69,7 +74,8 @@ export class RadarSourceController {
   }
 
   /**
-   * AI 推荐数据源候选（调 source-curator agent → LLM 列出 X/YouTube/RSS/Custom 候选）。
+   * AI 推荐数据源候选（走 RadarPipelineDispatcher.runDiscoveryMission：
+   * 单 stage source-curator agent 输出候选列表）。
    *
    * 返回不入库；前端勾选后通过 /recommend/accept 批量入库。
    */
@@ -77,19 +83,34 @@ export class RadarSourceController {
   async recommend(
     @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
-    @Body() dto: RecommendSourcesDto,
+    @Body() _dto: RecommendSourcesDto,
   ) {
-    const candidates = await this.discovery.recommend(req.user.id, topicId, {
-      perTypeLimit: dto.perTypeLimit,
-    });
-    return { candidates };
+    const topic = await this.topics.getOwnedById(req.user.id, topicId);
+    const existing = await this.sources.listByTopic(req.user.id, topicId);
+    const summary = await this.dispatcher.runDiscoveryMission(
+      {
+        topicId,
+        topicName: topic.name,
+        keywords: parseKeywords(topic.keywords),
+        description: topic.description,
+        entityType: topic.entityType,
+        existingSources: existing.map((s) => ({
+          type: s.type,
+          identifier: s.identifier,
+        })),
+      },
+      req.user.id,
+    );
+    // dispatcher.runDiscoveryMission 直接把 candidates 挂到 summary.discoveryCandidates
+    // 上（discovery stage 写 ctx.state.discoveryCandidates → dispatcher cleanup 前读出）
+    return { candidates: summary.discoveryCandidates ?? [] };
   }
 
   /**
    * 接受 AI 推荐源 → 批量入库（isAiRecommended=true 标记）。
    *
-   * 注：candidates 走 class-validator nested 校验（每个候选 type/identifier/label
-   * 都被强制校验，避免 SSRF 注入）。
+   * 走 RadarSourceService.bulkCreateAiRecommended（DTO nested 校验已经在
+   * AcceptRecommendedSourcesDto 完成，identifier shape 在 service 内再校验）。
    */
   @Post("topics/:topicId/sources/recommend/accept")
   async acceptRecommended(
@@ -97,10 +118,15 @@ export class RadarSourceController {
     @Param("topicId") topicId: string,
     @Body() dto: AcceptRecommendedSourcesDto,
   ) {
-    return this.discovery.acceptCandidates(
+    return this.sources.bulkCreateAiRecommended(
       req.user.id,
       topicId,
       dto.candidates,
     );
   }
+}
+
+function parseKeywords(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
 }

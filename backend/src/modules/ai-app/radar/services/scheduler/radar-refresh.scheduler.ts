@@ -1,35 +1,29 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { Cron, CronExpression } from "@nestjs/schedule";
-import {
-  RadarRunStatus,
-  RadarRunTrigger,
-  RadarTopicStatus,
-} from "@prisma/client";
-import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { RADAR_SCHEDULER_DEFAULTS } from "../../radar.constants";
-import { RadarCollectService } from "../collect/radar-collect.service";
-
 /**
- * RadarRefreshScheduler
+ * RadarRefreshScheduler（彻底重构后）
  *
- * 每分钟 sweep ACTIVE 且 nextDueAt <= now 的 topic，fire-and-forget 触发 collect.runRefresh。
+ * 每分钟 sweep ACTIVE 且 nextDueAt <= now 的 topic，fire-and-forget 调
+ * RadarPipelineDispatcher.runRefreshMission（不再调自写 RadarCollectService）。
  *
  * 守门：
- *   - 同 topic 已有 RUNNING/PENDING run → 跳过
- *   - 单 user 同时 RUNNING >= 3 → 跳过该 user 后续 topic（等下一轮）
- *   - 全局 RUNNING >= 20 → 整轮跳过（防 LLM 暴账）
+ *   - 同 topic 已有 status='running' 的 mission → 跳过
+ *   - 单 user 同时 running >= 3 → 跳过该 user 后续 topic
+ *   - 全局 running >= 20 → 整轮跳过（防 LLM 暴账）
  *   - 单轮处理 ≤ sweepBatchSize 个 topic
- *
- * 触发为 fire-and-forget：scheduler 立即返回，runRefresh 在后台 promise 里跑。
- * 单 topic 失败不影响其他。
  */
+import { Injectable, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { RadarTopicStatus } from "@prisma/client";
+import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { RADAR_SCHEDULER_DEFAULTS } from "../../radar.constants";
+import { RadarPipelineDispatcher } from "../mission/workflow/radar-pipeline-dispatcher.service";
+
 @Injectable()
 export class RadarRefreshScheduler {
   private readonly log = new Logger(RadarRefreshScheduler.name);
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly collect: RadarCollectService,
+    private readonly dispatcher: RadarPipelineDispatcher,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE, {
@@ -39,11 +33,11 @@ export class RadarRefreshScheduler {
   async sweep(): Promise<void> {
     const now = new Date();
     const globalRunning = await this.prisma.radarRun.count({
-      where: { status: RadarRunStatus.RUNNING },
+      where: { status: "running" },
     });
     if (globalRunning >= RADAR_SCHEDULER_DEFAULTS.globalConcurrencyLimit) {
       this.log.warn(
-        `Global RUNNING=${globalRunning} >= limit ${RADAR_SCHEDULER_DEFAULTS.globalConcurrencyLimit}, skipping sweep`,
+        `Global running=${globalRunning} >= limit ${RADAR_SCHEDULER_DEFAULTS.globalConcurrencyLimit}, skipping sweep`,
       );
       return;
     }
@@ -62,19 +56,11 @@ export class RadarRefreshScheduler {
       `Sweep tick now=${now.toISOString()} due=${due.length} globalRunning=${globalRunning}`,
     );
 
-    // 单 user 启动配额缓存（在本轮 sweep 内乐观计数）：
-    //   首次见 user 时 DB count 实际 RUNNING；后续同 user 触发一次就 +1。
-    //   语义是"本轮已启动 + DB 已 RUNNING"≥ 限额则跳过。这比纯 DB count 更严格
-    //   ——若 createRun 失败该 user 会被多跳过 1 个 topic，可接受（下一分钟 sweep
-    //   重新 count）。注释明确避免与 reviewer 解读冲突。
     const userRunningCache = new Map<string, number>();
     for (const topic of due) {
-      // 同 topic dedup：runRefresh 内部还有 transaction-level dedup 兜底
+      // 同 topic dedup（runMission 内部 createAtomic 还会兜底）
       const inflight = await this.prisma.radarRun.findFirst({
-        where: {
-          topicId: topic.id,
-          status: { in: [RadarRunStatus.PENDING, RadarRunStatus.RUNNING] },
-        },
+        where: { topicId: topic.id, status: "running" },
         select: { id: true },
       });
       if (inflight) continue;
@@ -82,33 +68,45 @@ export class RadarRefreshScheduler {
       let userActive = userRunningCache.get(topic.userId);
       if (userActive === undefined) {
         userActive = await this.prisma.radarRun.count({
-          where: {
-            topic: { userId: topic.userId },
-            status: RadarRunStatus.RUNNING,
-          },
+          where: { topic: { userId: topic.userId }, status: "running" },
         });
       }
       if (userActive >= RADAR_SCHEDULER_DEFAULTS.perUserConcurrencyLimit) {
         userRunningCache.set(topic.userId, userActive);
         continue;
       }
-      // 乐观 +1（即使 fireRefresh 内部失败也保持，避免本轮内反复入队）
       userRunningCache.set(topic.userId, userActive + 1);
 
-      // fire-and-forget
-      void this.fireRefresh(topic.id, topic.userId);
+      void this.fireRefresh(topic.id, topic.userId, topic);
     }
   }
 
-  private async fireRefresh(topicId: string, userId: string): Promise<void> {
+  private async fireRefresh(
+    topicId: string,
+    userId: string,
+    topic: {
+      name: string;
+      description: string | null;
+      entityType: string | null;
+      refreshCron: string;
+      keywords: unknown;
+    },
+  ): Promise<void> {
     try {
-      const summary = await this.collect.runRefresh(
-        topicId,
-        RadarRunTrigger.SCHEDULED,
-        { userId },
+      const summary = await this.dispatcher.runRefreshMission(
+        {
+          topicId,
+          trigger: "SCHEDULED",
+          topicName: topic.name,
+          keywords: parseKeywords(topic.keywords),
+          description: topic.description,
+          entityType: topic.entityType,
+          refreshCron: topic.refreshCron,
+        },
+        userId,
       );
       this.log.log(
-        `Scheduled refresh topic=${topicId} run=${summary.runId} status=${summary.status} inserted=${summary.itemsInserted}/${summary.itemsFetched}`,
+        `Scheduled mission topic=${topicId} run=${summary.missionId} status=${summary.status}`,
       );
     } catch (err) {
       this.log.error(
@@ -116,4 +114,9 @@ export class RadarRefreshScheduler {
       );
     }
   }
+}
+
+function parseKeywords(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
 }

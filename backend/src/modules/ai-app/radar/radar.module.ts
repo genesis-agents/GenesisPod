@@ -1,29 +1,26 @@
 /**
- * RadarModule
+ * RadarModule —— AI 雷达
  *
- * AI 雷达：针对主题持续监控多源数据（X / YouTube / RSS / Custom），
- * 通过多 Agent Teams 做相关性 / 质量 / 实体 / 信号洞察评估，
- * 最终汇成主题卡片 + feed 流 + 周期性洞察看板。
+ * 彻底重构后（2026-05-16）：
+ *   - 完全用 ai-harness mission pipeline 框架（MissionPipelineOrchestrator /
+ *     SkillLoaderService / DomainEventBus / MissionAbortRegistry /
+ *     MissionRuntimeShellFramework / SocketBroadcastAdapter）
+ *   - 9 个 stage adapter（s1-s8 + discovery）+ BusinessOrchestrator + Dispatcher
+ *   - 5 个 SKILL.md 通过 SkillLoaderService 加载（替代 5 个旧 @Injectable agent service）
+ *   - radar.events.ts 注册到 DomainEventRegistry
+ *   - RadarGateway 在 afterInit 注册 SocketBroadcastAdapter
  *
- * 分层（与项目分层一致）：
- *   - L4 controllers: REST 入口（topic / source / feed / insight / run）
- *   - L3 services:    业务编排（topic / source / collector / pipeline / scheduler）
- *   - L2 ai-engine:   通过 AIEngineFacade 调 LLM
- *   - L2.5 ai-harness: 通过 facade 注册 agent / team / role
- *
- * 注册流程（onModuleInit，PR-R3 后启用）：
- *   1. SkillLoaderService.addSkillDirectory(agents/)
- *   2. AgentRegistry.register(每个 agent)
- *   3. TeamRegistry.registerConfig(RADAR_TEAM_CONFIG)
- *   4. MissionPipelineRegistry.register(RADAR_PIPELINE)
- *
- * 当前阶段 (PR-R1)：仅 Topic + Source CRUD，等 PR-R2/R3 接入 collector + pipeline。
+ * 暂保留（Phase 7 整体删除）：
+ *   - RadarCollectService / RadarPipeline / 5 旧 agent service —— 当前 controller /
+ *     scheduler 还在引用，等 Phase 5/6 改造完后整体删除
  */
-
-import { Logger, Module } from "@nestjs/common";
+import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import * as path from "path";
 
+import { DomainEventRegistry } from "@/modules/ai-harness/facade";
+import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 
 import { RadarTopicController } from "./controllers/radar-topic.controller";
@@ -35,20 +32,30 @@ import { RadarRunController } from "./controllers/radar-run.controller";
 import { RadarTopicService } from "./services/topic/radar-topic.service";
 import { RadarSourceService } from "./services/source/radar-source.service";
 import { SourceHealthService } from "./services/source/source-health.service";
-import { SourceDiscoveryService } from "./services/source/source-discovery.service";
-import { RadarCollectService } from "./services/collect/radar-collect.service";
 import { CollectorRouter } from "./services/collectors/collector-router.service";
 import { RssCollector } from "./services/collectors/rss-collector.service";
 import { YoutubeCollector } from "./services/collectors/youtube-collector.service";
 import { XCollector } from "./services/collectors/x-collector.service";
 import { CustomCollector } from "./services/collectors/custom-collector.service";
-import { RadarPipeline } from "./services/pipeline/radar-pipeline.service";
-import { RelevanceJudgeAgent } from "./agents/relevance-judge/relevance-judge.agent";
-import { QualityRaterAgent } from "./agents/quality-rater/quality-rater.agent";
-import { EntityExtractorAgent } from "./agents/entity-extractor/entity-extractor.agent";
-import { SignalAnalystAgent } from "./agents/signal-analyst/signal-analyst.agent";
-import { SourceCuratorAgent } from "./agents/source-curator/source-curator.agent";
+
 import { RadarRefreshScheduler } from "./services/scheduler/radar-refresh.scheduler";
+
+// ── 新框架接入 ───────────────────────────────────────────────────────────
+import { RadarMissionStore } from "./services/mission/lifecycle/radar-mission-store.service";
+import { RadarMissionRuntimeShell } from "./services/mission/workflow/radar-mission-runtime-shell.service";
+import { RadarBusinessOrchestrator } from "./services/mission/workflow/radar-business-orchestrator.service";
+import { RadarPipelineDispatcher } from "./services/mission/workflow/radar-pipeline-dispatcher.service";
+import { RadarS1SourceResolveStage } from "./services/mission/stages/s1-source-resolve.stage";
+import { RadarS2CollectStage } from "./services/mission/stages/s2-collect.stage";
+import { RadarS3DedupeStage } from "./services/mission/stages/s3-dedupe.stage";
+import { RadarS4RelevanceStage } from "./services/mission/stages/s4-relevance.stage";
+import { RadarS5QualityStage } from "./services/mission/stages/s5-quality.stage";
+import { RadarS6EntityStage } from "./services/mission/stages/s6-entity.stage";
+import { RadarS7InsightStage } from "./services/mission/stages/s7-insight.stage";
+import { RadarS8PersistStage } from "./services/mission/stages/s8-persist.stage";
+import { RadarDiscoveryStage } from "./services/mission/stages/radar-discovery.stage";
+import { RadarGateway } from "./radar.gateway";
+import { RADAR_DOMAIN_EVENTS } from "./radar.events";
 
 @Module({
   imports: [
@@ -70,32 +77,64 @@ import { RadarRefreshScheduler } from "./services/scheduler/radar-refresh.schedu
     RadarRunController,
   ],
   providers: [
+    // 顶层业务 service
     RadarTopicService,
     RadarSourceService,
     SourceHealthService,
-    SourceDiscoveryService,
-    RadarCollectService,
+    // collector helper（s2-collect stage 内部使用，不直接对外）
     CollectorRouter,
     RssCollector,
     YoutubeCollector,
     XCollector,
     CustomCollector,
-    RadarPipeline,
-    RelevanceJudgeAgent,
-    QualityRaterAgent,
-    EntityExtractorAgent,
-    SignalAnalystAgent,
-    SourceCuratorAgent,
+    // 调度（走 dispatcher.runRefreshMission）
     RadarRefreshScheduler,
+    // 新框架接入
+    RadarMissionStore,
+    RadarMissionRuntimeShell,
+    RadarBusinessOrchestrator,
+    RadarPipelineDispatcher,
+    RadarS1SourceResolveStage,
+    RadarS2CollectStage,
+    RadarS3DedupeStage,
+    RadarS4RelevanceStage,
+    RadarS5QualityStage,
+    RadarS6EntityStage,
+    RadarS7InsightStage,
+    RadarS8PersistStage,
+    RadarDiscoveryStage,
+    RadarGateway,
   ],
-  exports: [RadarTopicService, RadarSourceService, RadarCollectService],
+  exports: [
+    RadarTopicService,
+    RadarSourceService,
+    RadarPipelineDispatcher,
+    RadarMissionStore,
+  ],
 })
-export class RadarModule {
+export class RadarModule implements OnModuleInit {
   private readonly log = new Logger(RadarModule.name);
 
-  constructor() {
+  constructor(
+    private readonly eventRegistry: DomainEventRegistry,
+    private readonly skillLoader: SkillLoaderService,
+  ) {}
+
+  async onModuleInit(): Promise<void> {
+    // 1. 注册业务事件 schema —— DomainEventBus 校验未注册的 type 一律 drop+warn
+    this.eventRegistry.registerAll(RADAR_DOMAIN_EVENTS);
     this.log.log(
-      "RadarModule loaded (PR-R4: + cron scheduler + insight notification)",
+      `RadarModule: registered ${RADAR_DOMAIN_EVENTS.length} domain event types`,
+    );
+
+    // 2. 加载 5 个 SKILL.md（替代旧 5 个 @Injectable agent service 的 prompt 字符串）
+    await this.skillLoader.addSkillDirectory({
+      path: path.resolve(__dirname, "agents"),
+      domain: "ai-radar",
+      recursive: false,
+    });
+    this.log.log(
+      "RadarModule: SKILL.md directory registered (5 agents under ai-radar/agents/)",
     );
   }
 }

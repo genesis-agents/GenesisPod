@@ -1,16 +1,14 @@
 /**
- * RadarEvents —— DomainEventBus 事件类型注册清单
+ * RadarEvents —— DomainEventBus 事件 schema 注册清单
  *
- * 所有 radar.* 事件必须在此声明。DomainEventBus 校验：未注册 type 一律 drop+warn。
+ * 所有 ai-radar.* 事件必须在此声明 zod schema；DomainEventBus 校验未注册的
+ * type 一律 drop+warn 不广播。
  *
- * Scope: payload.missionId 字段实际是 RadarRun.id（路由到 socket room "radar:<runId>"）；
- *        topicId 单独放 payload，前端用 runId 加房间，用 topicId 做业务关联。
+ * scope.missionId 实际是 RadarRun.id，前端 socket.io room "radar:<runId>"。
  */
-
 import { z } from "zod";
 import type { DomainEventTypeSpec } from "@/modules/ai-harness/facade";
 
-// run lifecycle
 export const RunStartedSchema = z.object({
   runId: z.string(),
   topicId: z.string(),
@@ -21,16 +19,8 @@ export const RunStartedSchema = z.object({
 export const RunStageSchema = z.object({
   runId: z.string(),
   topicId: z.string(),
-  stage: z.enum([
-    "collect",
-    "dedupe",
-    "relevance",
-    "quality",
-    "entity",
-    "insight",
-    "persist",
-  ]),
-  status: z.enum(["started", "completed", "failed", "skipped"]),
+  stage: z.string(),
+  status: z.enum(["started", "completed", "failed"]),
   message: z.string().optional(),
   metrics: z.record(z.unknown()).optional(),
 });
@@ -40,16 +30,7 @@ export const RunCompletedSchema = z.object({
   topicId: z.string(),
   status: z.enum(["COMPLETED", "FAILED", "CANCELLED"]),
   durationMs: z.number(),
-  metrics: z.object({
-    itemsFetched: z.number(),
-    itemsDeduped: z.number(),
-    itemsInserted: z.number(),
-    sourcesAttempted: z.number(),
-    sourcesFailed: z.number(),
-    itemsEvaluated: z.number().optional(),
-    itemsAccepted: z.number().optional(),
-    insightCreated: z.boolean().optional(),
-  }),
+  metrics: z.record(z.unknown()),
 });
 
 export const RunFailedSchema = z.object({
@@ -74,7 +55,7 @@ export const InsightCreatedSchema = z.object({
 });
 
 export const SourceHealthChangedSchema = z.object({
-  runId: z.string(),
+  runId: z.string().optional(),
   topicId: z.string(),
   sourceId: z.string(),
   health: z.enum(["HEALTHY", "DEGRADED", "FAILING", "UNKNOWN"]),
@@ -87,11 +68,11 @@ const S = <TPayload>(
 ): DomainEventTypeSpec<TPayload> => ({ type, schema });
 
 export const RADAR_DOMAIN_EVENTS: readonly DomainEventTypeSpec[] = [
-  S("radar.run.started", RunStartedSchema),
-  S("radar.run.stage", RunStageSchema),
-  S("radar.run.completed", RunCompletedSchema),
-  S("radar.run.failed", RunFailedSchema),
-  S("radar.run.cancelled", RunCancelledSchema),
-  S("radar.insight.created", InsightCreatedSchema),
-  S("radar.source.health-changed", SourceHealthChangedSchema),
+  S("ai-radar.run.started", RunStartedSchema),
+  S("ai-radar.run.stage", RunStageSchema),
+  S("ai-radar.run.completed", RunCompletedSchema),
+  S("ai-radar.run.failed", RunFailedSchema),
+  S("ai-radar.run.cancelled", RunCancelledSchema),
+  S("ai-radar.insight.created", InsightCreatedSchema),
+  S("ai-radar.source.health-changed", SourceHealthChangedSchema),
 ];
