@@ -1,6 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RadarSource } from "@prisma/client";
-import Parser from "rss-parser";
+// CJS 互操作：rss-parser `module.exports = Parser`（无 default），TS `import Parser from`
+// 在 CJS target 编译成 `rss_parser_1.default()`，prod 立即 `not a constructor` 崩溃。
+// 用 namespace import 拿运行时对象 + type-only import 拿泛型签名。
+import type ParserType from "rss-parser";
+import * as RssParserModule from "rss-parser";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
 import { assertSafeHttpUrl } from "./ssrf-util";
@@ -29,6 +33,13 @@ interface YouTubeRssItem {
 const VIDEO_ID_RE = /[A-Za-z0-9_-]{11}/;
 const CHANNEL_ID_RE = /UC[A-Za-z0-9_-]{22}/;
 
+type ParserCtor = new (
+  ...args: ConstructorParameters<typeof ParserType>
+) => ParserType<unknown, YouTubeRssItem>;
+const ParserCtor: ParserCtor = ((
+  RssParserModule as unknown as { default?: unknown }
+).default ?? RssParserModule) as ParserCtor;
+
 /**
  * YouTubeCollector —— 通过 YouTube channel RSS feed 拉最新视频。
  *
@@ -47,10 +58,10 @@ const CHANNEL_ID_RE = /UC[A-Za-z0-9_-]{22}/;
 export class YoutubeCollector implements ICollector {
   readonly type = "YOUTUBE";
   private readonly log = new Logger(YoutubeCollector.name);
-  private readonly parser: Parser<unknown, YouTubeRssItem>;
+  private readonly parser: ParserType<unknown, YouTubeRssItem>;
 
   constructor() {
-    this.parser = new Parser({
+    this.parser = new ParserCtor({
       timeout: 25_000,
       requestOptions: {
         headers: {
@@ -59,7 +70,12 @@ export class YoutubeCollector implements ICollector {
         },
       },
       customFields: {
-        item: ["yt:videoId", "yt:channelId", "media:group"],
+        // tuple [xmlTag, fieldName] form 兼容 rss-parser 严格类型
+        item: [
+          ["yt:videoId", "yt:videoId"],
+          ["yt:channelId", "yt:channelId"],
+          ["media:group", "media:group"],
+        ],
       },
     });
   }

@@ -1,6 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RadarSource } from "@prisma/client";
-import Parser from "rss-parser";
+// CJS 互操作：rss-parser `module.exports = Parser`（无 default），TS `import Parser from`
+// 在 CJS target 编译成 `rss_parser_1.default()`，prod 立即 `not a constructor` 崩溃。
+// 用 namespace import 拿运行时对象 + type-only import 拿泛型签名。
+import type ParserType from "rss-parser";
+import * as RssParserModule from "rss-parser";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
 import { assertSafeHttpUrl } from "./ssrf-util";
@@ -36,14 +40,21 @@ const NITTER_INSTANCES = [
   "https://nitter.privacydev.net",
 ] as const;
 
+type ParserCtor = new (
+  ...args: ConstructorParameters<typeof ParserType>
+) => ParserType<unknown, NitterItem>;
+const ParserCtor: ParserCtor = ((
+  RssParserModule as unknown as { default?: unknown }
+).default ?? RssParserModule) as ParserCtor;
+
 @Injectable()
 export class XCollector implements ICollector {
   readonly type = "X";
   private readonly log = new Logger(XCollector.name);
-  private readonly parser: Parser<unknown, NitterItem>;
+  private readonly parser: ParserType<unknown, NitterItem>;
 
   constructor() {
-    this.parser = new Parser({
+    this.parser = new ParserCtor({
       timeout: 20_000,
       requestOptions: {
         headers: {
