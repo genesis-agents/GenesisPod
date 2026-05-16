@@ -35,7 +35,6 @@ import {
 import { RunSocialMissionDto } from "./dto/run-mission.dto";
 import { SocialPlatformType } from "./types";
 import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pipeline-dispatcher.service";
-import { randomUUID } from "crypto";
 
 interface AuthenticatedRequest {
   user: { id: string };
@@ -65,16 +64,28 @@ export class AiSocialController {
    * `social.mission:*` 事件流跟进度。
    */
   @Post("mission/run")
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   async runMission(
     @Request() req: AuthenticatedRequest,
     @Body() dto: RunSocialMissionDto,
-  ): Promise<{ missionId: string; status: "started" }> {
+  ): Promise<{ missionId: string; status: "started" | "in-flight" }> {
     const userId = req.user.id;
     if (!dto.platforms || dto.platforms.length === 0) {
       throw new HttpException("platforms is required", HttpStatus.BAD_REQUEST);
     }
-    const missionId = `social-${randomUUID()}`;
+    // ★ W4 PR-4b round-2 / Reviewer C P0-9: server-side dedup window 5s
+    //   防 StrictMode 双调用 / 用户双击 / 网络重试触发多个 mission
+    const { missionId, reused } = this.missionDispatcher.tryReserveInFlight(
+      userId,
+      dto.contentId,
+      dto.platforms,
+    );
+    if (reused) {
+      this.logger.log(
+        `[mission/run] dedup hit user=${userId} contentId=${dto.contentId} → reuse missionId=${missionId}`,
+      );
+      return { missionId, status: "in-flight" };
+    }
 
     this.logger.log(
       `[mission/run] user=${userId} contentId=${dto.contentId} platforms=${dto.platforms.join(",")} → missionId=${missionId}`,

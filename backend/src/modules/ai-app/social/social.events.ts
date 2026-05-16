@@ -1,0 +1,77 @@
+/**
+ * SocialEvents — DomainEventBus 事件类型注册清单
+ *
+ * 未注册的 type 会被 DomainEventBus drop+warn 不广播。所有 social.* 事件必须
+ * 在此声明。Mirror of agent-playground/agent-playground.events.ts。
+ */
+
+import type { DomainEventTypeSpec } from "@/modules/ai-harness/facade";
+import type { z } from "zod";
+import {
+  MissionStartedSchema,
+  MissionCompletedSchema,
+  MissionFailedSchema,
+  MissionAbortedSchema,
+  MissionDegradedSchema,
+  MissionWarningSchema,
+  MissionPostludeStartedSchema,
+  MissionPostludeCompletedSchema,
+  MissionPostludeFailedSchema,
+  StageStartedSchema,
+  StageCompletedSchema,
+  StageFailedSchema,
+  StageDegradedSchema,
+  StageStalledSchema,
+  StageLifecycleSchema,
+  AgentLifecycleSchema,
+  AgentThoughtSchema,
+  AgentActionSchema,
+  AgentObservationSchema,
+  AgentErrorSchema,
+  AgentNarrativeSchema,
+  CostTickSchema,
+  BudgetExhaustedSchema,
+  PublishExecuteSummarySchema,
+  PublishVerifySummarySchema,
+} from "./social-event-schemas";
+
+const S = <TPayload>(
+  suffix: string,
+  schema: z.ZodType<TPayload>,
+): DomainEventTypeSpec<TPayload> => ({
+  type: `social.${suffix}`,
+  schema,
+});
+
+export const SOCIAL_EVENTS: readonly DomainEventTypeSpec[] = [
+  // mission lifecycle
+  S("mission:started", MissionStartedSchema),
+  S("mission:completed", MissionCompletedSchema),
+  S("mission:failed", MissionFailedSchema),
+  S("mission:aborted", MissionAbortedSchema),
+  S("mission:degraded", MissionDegradedSchema),
+  S("mission:warning", MissionWarningSchema),
+  S("mission:postlude:started", MissionPostludeStartedSchema),
+  S("mission:postlude:completed", MissionPostludeCompletedSchema),
+  S("mission:postlude:failed", MissionPostludeFailedSchema),
+  // stage lifecycle
+  S("stage:started", StageStartedSchema),
+  S("stage:completed", StageCompletedSchema),
+  S("stage:failed", StageFailedSchema),
+  S("stage:degraded", StageDegradedSchema),
+  S("stage:stalled", StageStalledSchema),
+  S("stage:lifecycle", StageLifecycleSchema),
+  // agent lifecycle
+  S("agent:lifecycle", AgentLifecycleSchema),
+  S("agent:thought", AgentThoughtSchema),
+  S("agent:action", AgentActionSchema),
+  S("agent:observation", AgentObservationSchema),
+  S("agent:error", AgentErrorSchema),
+  S("agent:narrative", AgentNarrativeSchema),
+  // cost / budget
+  S("cost:tick", CostTickSchema),
+  S("budget:exhausted", BudgetExhaustedSchema),
+  // publish-specific
+  S("publish:executed", PublishExecuteSummarySchema),
+  S("publish:verified", PublishVerifySummarySchema),
+];

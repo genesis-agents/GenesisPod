@@ -26,7 +26,7 @@ version: "1.0"
 
 1. 段落 ≤500 字符切分
 2. 移除超链接（XHS 不允许外链）
-3. emoji 检查（XHS 自动转 emoji 表情）
+3. 表情符号检查（XHS 自动转换表情符号）
 
 ## 你的风格
 
@@ -78,7 +78,7 @@ const imgs = body.match(/<img[^>]+src="([^"]+)"[^>]*>/g) || [];
 
 1. body 按 `</p>` 切段，每段 ≤ 500 字符再二分
 2. 移除所有 `<a href="...">...</a>` 保留文字（XHS 不允许外链）
-3. 不动 emoji（XHS 自动 emoji-fy）
+3. 不动表情符号（XHS 自动转换）
 4. 输出 plain text（XHS API 不接 HTML）
 
 ## 输出

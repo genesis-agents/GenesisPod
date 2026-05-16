@@ -1,5 +1,11 @@
-import { Logger, Module, OnModuleInit } from "@nestjs/common";
+import {
+  Logger,
+  Module,
+  OnApplicationBootstrap,
+  OnModuleInit,
+} from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { JwtModule } from "@nestjs/jwt";
 import { AiSocialController } from "./ai-social.controller";
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
@@ -41,6 +47,20 @@ import {
   PublishVerifierService,
 } from "./services/roles";
 import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pipeline-dispatcher.service";
+// ★ W4 PR-4b round-2: orchestrator + runtime-shell + gateway + buffer 接入
+import { SocialBusinessOrchestrator } from "./services/mission/workflow/social-business-orchestrator.service";
+import { SocialRuntimeShellService } from "./services/mission/workflow/social-runtime-shell.service";
+import { SocialMissionStore } from "./services/mission/lifecycle/social-mission-store.service";
+import { SocialEventBuffer } from "./services/mission/lifecycle/social-event-buffer.service";
+import { SocialGateway } from "./social.gateway";
+import { SOCIAL_EVENTS } from "./social.events";
+import {
+  DomainEventBus,
+  DomainEventRegistry,
+  MissionPipelineOrchestrator,
+  MissionPipelineRegistry,
+} from "@/modules/ai-harness/facade";
+import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
 
 @Module({
   imports: [
@@ -52,6 +72,14 @@ import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pip
     ConfigModule,
     NotificationModule,
     CreditsModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>("JWT_SECRET"),
+        signOptions: { expiresIn: "7d" },
+      }),
+      inject: [ConfigService],
+    }),
   ],
   controllers: [AiSocialController],
   providers: [
@@ -68,15 +96,13 @@ import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pip
     PublishSchedulerService,
     WechatAdapter,
     XhsMcpAdapter,
-    // ★ MCP Client Service (refactored to use MCPManager)
     MCPClientService,
     WechatArticleFormatterService,
     WechatImageUploaderService,
-    // ★ engine 反转端口实现
     SocialPublishAdapter,
 
-    // ★ W4 SocialPublishMission Agent Team (PR-3b/3c/4) —— 新轨；
-    //   PR-5 才会通过 ai-social.controller 暴露 /mission/run 端点切流量
+    // ★ W4 SocialPublishMission Agent Team (PR-3b/3c/4/4b) ——
+    //   PR-4b round-2 接入 MissionPipelineOrchestrator + runtime-shell + gateway
     SocialAgentInvoker,
     MissionLeaderService,
     StewardService,
@@ -87,16 +113,38 @@ import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pip
     PolishReviewerService,
     PublishExecutorAgentService,
     PublishVerifierService,
+    // pipeline 基础设施
+    MissionPipelineRegistry,
+    MissionPipelineOrchestrator,
+    // runtime / store / buffer
+    SocialMissionStore,
+    SocialEventBuffer,
+    SocialRuntimeShellService,
+    // business-orchestrator 必须在 dispatcher 之前注册，保证 dispatcher.onModuleInit
+    // 调 businessOrch.bindSessionLookup 时 instance 已存在
+    SocialBusinessOrchestrator,
     SocialPipelineDispatcher,
+    SocialGateway,
   ],
-  exports: [AiSocialService, SocialPublishAdapter, SocialPipelineDispatcher],
+  exports: [
+    AiSocialService,
+    SocialPublishAdapter,
+    SocialPipelineDispatcher,
+    SocialMissionStore,
+  ],
 })
-export class AiSocialModule implements OnModuleInit {
+export class AiSocialModule implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(AiSocialModule.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly eventBus: DomainEventBus,
+    private readonly registry: DomainEventRegistry,
+    private readonly buffer: SocialEventBuffer,
+    private readonly promptSkillBridge: PromptSkillRegistrationService,
+  ) {}
 
-  onModuleInit() {
+  onModuleInit(): void {
     const key = this.configService.get<string>("SESSION_ENCRYPTION_KEY");
     if (key) {
       initSessionCrypto(key);
@@ -110,6 +158,36 @@ export class AiSocialModule implements OnModuleInit {
     } else {
       this.logger.warn(
         "SESSION_ENCRYPTION_KEY not set, using development fallback key",
+      );
+    }
+
+    // ★ W4 PR-4b round-2 / Reviewer C P0-5+P0-7: DomainEventRegistry 注册 social.*
+    //   事件类型（未注册的 type 被 drop+warn）+ 注册 buffer adapter（截获 social.*
+    //   入内存，给 /replay 用 + 缓冲 mission 启动期事件）
+    this.registry.registerAll(SOCIAL_EVENTS);
+    this.eventBus.registerAdapter(this.buffer);
+    this.logger.log(
+      `Registered ${SOCIAL_EVENTS.length} social.* event types + buffer adapter`,
+    );
+  }
+
+  /**
+   * ★ W4 PR-4b round-2 / Reviewer A P0-10: PromptSkillBridge.registerDomain('social')
+   *
+   * 在 onApplicationBootstrap 阶段（保证 SkillLoader 已完成 localSkills 加载），
+   * 把 social domain 下的 SKILL.md 桥接到 engine SkillRegistry，让 SkillActivator
+   * resolveFromProviders 能查到 social.leader / social.steward / ... 9 个 SKILL。
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const result = await this.promptSkillBridge.registerDomain("social");
+      this.logger.log(
+        `Registered social skill domain: ${result.registered.length} skills bridged ` +
+          `(skipped=${result.skipped.length}, errors=${result.errors.length})`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Failed to register social skill domain: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }
