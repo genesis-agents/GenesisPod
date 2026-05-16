@@ -69,6 +69,63 @@ export class BrowserService implements OnModuleDestroy {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
     await page.setUserAgent(userAgent);
 
+    // 2026-05-16: Anti-detection runtime patches —— WeChat MP 等站对 puppeteer
+    //   有 silent reject 反爬，仅 launch args `--disable-blink-features=
+    //   AutomationControlled` 不够，runtime 还要 patch navigator.webdriver
+    //   / window.chrome / navigator.plugins / languages 等指纹。
+    //   参考 puppeteer-extra-plugin-stealth 的核心 evasions。
+    await page.evaluateOnNewDocument(() => {
+      // 1. 删 navigator.webdriver（最高优先级）
+      Object.defineProperty(Navigator.prototype, "webdriver", {
+        get: () => undefined,
+        configurable: true,
+      });
+
+      // 2. 注入 window.chrome.runtime（headless Chrome 默认没有）
+      if (!(window as unknown as { chrome?: unknown }).chrome) {
+        (window as unknown as { chrome: Record<string, unknown> }).chrome = {
+          runtime: {},
+          loadTimes: () => ({}),
+          csi: () => ({}),
+          app: {},
+        };
+      }
+
+      // 3. navigator.plugins 改成非空数组（headless 默认 length=0）
+      Object.defineProperty(Navigator.prototype, "plugins", {
+        get: () => [
+          { name: "Chrome PDF Plugin", filename: "internal-pdf-viewer" },
+          {
+            name: "Chrome PDF Viewer",
+            filename: "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+          },
+          { name: "Native Client", filename: "internal-nacl-plugin" },
+        ],
+        configurable: true,
+      });
+
+      // 4. navigator.languages 设为中文优先（headless 默认 ['en-US']）
+      Object.defineProperty(Navigator.prototype, "languages", {
+        get: () => ["zh-CN", "zh", "en"],
+        configurable: true,
+      });
+
+      // 5. permissions.query 不再泄漏 'denied' for notifications（headless 特征）
+      const originalQuery = window.navigator.permissions?.query?.bind(
+        window.navigator.permissions,
+      );
+      if (originalQuery) {
+        window.navigator.permissions.query = (
+          parameters: PermissionDescriptor,
+        ): Promise<PermissionStatus> =>
+          parameters.name === "notifications"
+            ? Promise.resolve({
+                state: Notification.permission,
+              } as PermissionStatus)
+            : originalQuery(parameters);
+      }
+    });
+
     return page;
   }
 

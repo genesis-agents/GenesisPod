@@ -25,6 +25,7 @@ const mockPage = {
   evaluate: jest.fn(),
   setViewport: jest.fn().mockResolvedValue(undefined),
   setUserAgent: jest.fn().mockResolvedValue(undefined),
+  evaluateOnNewDocument: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockContext = {
