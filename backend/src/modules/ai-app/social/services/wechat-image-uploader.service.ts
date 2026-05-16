@@ -510,14 +510,28 @@ async function runCoverUploadAttempts(
         body: form,
         credentials: "include",
       });
-      const data = (await resp.json().catch(() => ({}))) as {
+      // 2026-05-16: 响应 raw 抓出来，方便诊断字段名漂移。
+      //   实测 filetransfer-upload-material 返回 ret=0 + content_url（已 mmbiz CDN）
+      //   但 file_id 不在我们查的几路里，导致 mediaId=null → uploadCover 退回失败。
+      const rawText = await resp.text();
+      let data: {
         base_resp?: { ret?: number; err_msg?: string };
         content_url?: string;
         cdn_url?: string;
         url?: string;
         file_id?: string | number;
+        media_id?: string | number;
+        mediaid?: string | number;
+        id?: string | number;
+        mid?: string | number;
         content?: string;
-      };
+        [key: string]: unknown;
+      } = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        // not JSON
+      }
       const ret = data.base_resp?.ret ?? -1;
       const cdnUrl =
         typeof data.content_url === "string"
@@ -529,16 +543,33 @@ async function runCoverUploadAttempts(
               : typeof data.content === "string"
                 ? data.content
                 : null;
-      const fileId = data.file_id != null ? String(data.file_id) : null;
+      // 2026-05-16 多候选 mediaId 字段：WeChat 不同 endpoint 用不同 key
+      const mediaIdRaw =
+        data.file_id ??
+        data.media_id ??
+        data.mediaid ??
+        data.id ??
+        data.mid ??
+        null;
+      const fileId = mediaIdRaw != null ? String(mediaIdRaw) : null;
+      // errMsg 加 keys 和 body preview 便于下次诊断
+      const respKeys = Object.keys(data).slice(0, 20).join(",");
+      const bodyPreview = rawText.slice(0, 400).replace(/\s+/g, " ");
       attempts.push({
         endpoint: ep.name,
         ret,
         mediaId: fileId,
         cdnUrl,
-        errMsg: data.base_resp?.err_msg,
+        errMsg: `${data.base_resp?.err_msg ?? ""} keys=[${respKeys}] body=${bodyPreview}`,
       });
       if (ret === 0 && fileId && cdnUrl) {
         return { mediaId: fileId, cdnUrl, attempts };
+      }
+      // 2026-05-16: 不强求 mediaId —— 没有 file_id 但有 cdnUrl 也能用：
+      //   saveDraft 传 thumb_media_id="0" + cdn_url_1_1=cdnUrl，WeChat
+      //   feed 列表会按 cdn_url 拉缩略图（不进素材库但前端能渲染封面）。
+      if (ret === 0 && cdnUrl) {
+        return { mediaId: "0", cdnUrl, attempts };
       }
     } catch (err) {
       attempts.push({
