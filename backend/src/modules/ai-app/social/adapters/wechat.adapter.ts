@@ -256,7 +256,11 @@ export class WechatAdapter {
       //   超限失败。articleType 计算了却没用是反模式，这里把它真正用起来。
       //   短笔记 (type=77) 继续走原 button 点击流程兼容。
       if (articleType === "10" && token) {
-        const directType10Url = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=10&createType=0&token=${token}&lang=zh_CN`;
+        // 2026-05-16: 去掉 createType=0 —— PR #95 API 直发暴露真根因：
+        //   createType=0 让微信识别成"编辑旧版图文素材"模式，返回 ret=444002
+        //   "旧版图文素材不可再保存。如需使用，可在网页版新建草稿并从'旧版图文
+        //   素材'选择"。用户 manual 截图 18 的 URL 完全没有 createType 参数。
+        const directType10Url = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=10&token=${token}&lang=zh_CN&timestamp=${Date.now()}`;
         this.logger.log(
           `[fast-path] Long article (${contentLength} chars) → direct nav to type=10 editor: ${directType10Url}`,
         );
