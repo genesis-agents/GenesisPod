@@ -172,6 +172,12 @@ export async function runSaveDraftAttempts(
         random: rand(),
         AppMsgId: "",
         count: "1",
+        // 2026-05-16: v2 缺 type 字段是 PR #104 后保存仍 type=77 真根因。
+        //   WeChat 对 count=1 多图文 schema 不带 type → 短内容 silently 落
+        //   小绿书 type=77 默认通道。补 type / type0 双字段（top-level + 索引
+        //   后缀都覆盖）强制 type=10 长图文。
+        type: "10",
+        type0: "10",
         title0: params.title,
         author0: params.author,
         digest0: params.digest,
