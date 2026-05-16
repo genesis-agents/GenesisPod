@@ -1,23 +1,20 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RadarSource } from "@prisma/client";
-import Parser from "rss-parser";
+// 紧急修复 (2026-05-16): `import Parser from "rss-parser"` 在 CJS 编译后变成
+// `rss_parser_1.default()`，而 rss-parser 是纯 CJS 包没有 default export，
+// 触发 prod bootstrap `TypeError: rss_parser_1.default is not a constructor`。
+// 改用 `import * as Parser` 同项目内 RssService（management/ingestion）一致的写法。
+import * as RssParserModule from "rss-parser";
 import { CollectContext, ICollector, RawCollectedItem } from "./icollector";
 import { computeContentHash } from "./hash.util";
 import { assertSafeHttpUrl } from "./ssrf-util";
 
-interface CustomRssItem {
-  guid?: string;
-  id?: string;
-  link?: string;
-  title?: string;
-  contentSnippet?: string;
-  content?: string;
-  creator?: string;
-  author?: string;
-  pubDate?: string;
-  isoDate?: string;
-  [k: string]: unknown;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Parser: any =
+  (RssParserModule as unknown as { default?: unknown }).default ??
+  RssParserModule;
+
+// 注：rss-parser CJS 兼容修复后 parser 走 any，CustomRssItem 类型已删除（未使用）。
 
 /**
  * RssCollector —— 直接解析 identifier (URL) 拿 feed。
@@ -29,7 +26,8 @@ interface CustomRssItem {
 export class RssCollector implements ICollector {
   readonly type = "RSS";
   private readonly log = new Logger(RssCollector.name);
-  private readonly parser: Parser<unknown, CustomRssItem>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private readonly parser: any;
 
   constructor() {
     this.parser = new Parser({
