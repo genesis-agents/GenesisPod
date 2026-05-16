@@ -108,6 +108,7 @@ export class RadarRunController {
     const summary = await this.collect.runRefresh(
       topicId,
       RadarRunTrigger.MANUAL,
+      { userId: req.user.id },
     );
     this.log.log(
       `Manual refresh topic=${topicId} run=${summary.runId} inserted=${summary.itemsInserted}/${summary.itemsFetched}`,

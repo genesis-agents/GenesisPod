@@ -12,6 +12,7 @@ import { RADAR_PIPELINE_DEFAULTS } from "../../radar.constants";
 import { CollectorRouter } from "../collectors/collector-router.service";
 import { RawCollectedItem } from "../collectors/icollector";
 import { SourceHealthService } from "../source/source-health.service";
+import { RadarPipeline } from "../pipeline/radar-pipeline.service";
 
 export interface CollectRunSummary {
   runId: string;
@@ -47,6 +48,7 @@ export class RadarCollectService {
     private readonly prisma: PrismaService,
     private readonly router: CollectorRouter,
     private readonly health: SourceHealthService,
+    private readonly pipeline: RadarPipeline,
   ) {}
 
   /**
@@ -57,12 +59,16 @@ export class RadarCollectService {
   async runRefresh(
     topicId: string,
     trigger: RadarRunTrigger = RadarRunTrigger.MANUAL,
+    opts: { userId?: string } = {},
   ): Promise<CollectRunSummary> {
     const run = await this.createRun(topicId, trigger);
     const start = Date.now();
     const errors: Array<{ sourceId: string; error: string }> = [];
 
     try {
+      const topic = await this.prisma.radarTopic.findUniqueOrThrow({
+        where: { id: topicId },
+      });
       const sources = await this.loadEligibleSources(topicId);
       if (sources.length === 0) {
         await this.completeRun(run.id, RadarRunStatus.COMPLETED, {
@@ -98,6 +104,7 @@ export class RadarCollectService {
       let itemsInserted = 0;
       let itemsDeduped = 0;
       let sourcesFailed = 0;
+      const newItemIds: string[] = [];
 
       for (const result of results) {
         if (result.error) {
@@ -115,7 +122,19 @@ export class RadarCollectService {
         );
         itemsInserted += inserted.inserted;
         itemsDeduped += inserted.deduped;
+        newItemIds.push(...inserted.ids);
       }
+
+      // AI Pipeline（S4~S8）：scoring + entity + insight
+      const pipelineSummary = await this.pipeline.enrich(
+        topic,
+        newItemIds,
+        run.id,
+        opts.userId,
+      );
+      this.log.log(
+        `Pipeline enrich topic=${topicId} evaluated=${pipelineSummary.itemsEvaluated} accepted=${pipelineSummary.itemsAccepted} insight=${pipelineSummary.insightCreated}`,
+      );
 
       // topic.lastRunAt
       await this.prisma.radarTopic.update({
@@ -246,8 +265,8 @@ export class RadarCollectService {
     topicId: string,
     sourceId: string,
     items: RawCollectedItem[],
-  ): Promise<{ inserted: number; deduped: number }> {
-    if (items.length === 0) return { inserted: 0, deduped: 0 };
+  ): Promise<{ inserted: number; deduped: number; ids: string[] }> {
+    if (items.length === 0) return { inserted: 0, deduped: 0, ids: [] };
     // 拉取已存在的 externalId（topicId scoped）做集合 dedup
     const existing = await this.prisma.radarItem.findMany({
       where: {
@@ -259,30 +278,43 @@ export class RadarCollectService {
     const seen = new Set(existing.map((e) => e.externalId));
     const toInsert = items.filter((i) => !seen.has(i.externalId));
     if (toInsert.length === 0) {
-      return { inserted: 0, deduped: items.length };
+      return { inserted: 0, deduped: items.length, ids: [] };
     }
-    const result = await this.prisma.radarItem.createMany({
-      skipDuplicates: true,
-      data: toInsert.map((i) => ({
-        topicId,
-        sourceId,
-        externalId: i.externalId,
-        contentHash: i.contentHash,
-        title: i.title,
-        content: i.content,
-        author: i.author,
-        authorAvatar: i.authorAvatar,
-        url: i.url,
-        publishedAt: i.publishedAt,
-        raw: i.raw as Prisma.InputJsonValue,
-        metrics: (i.metrics ?? Prisma.JsonNull) as Prisma.InputJsonValue,
-        // PR-R3 接 AI agent 后填 relevanceScore / qualityScore / aiSummary / entities
-        accepted: false,
-      })),
-    });
+    // 用 transaction + 逐条 create 拿 id（createMany 不返 id）
+    const insertedIds: string[] = [];
+    await this.prisma
+      .$transaction(
+        toInsert.map((i) =>
+          this.prisma.radarItem.create({
+            data: {
+              topicId,
+              sourceId,
+              externalId: i.externalId,
+              contentHash: i.contentHash,
+              title: i.title,
+              content: i.content,
+              author: i.author,
+              authorAvatar: i.authorAvatar,
+              url: i.url,
+              publishedAt: i.publishedAt,
+              raw: i.raw as Prisma.InputJsonValue,
+              metrics:
+                i.metrics === null
+                  ? Prisma.JsonNull
+                  : (i.metrics as Prisma.InputJsonValue),
+              accepted: false,
+            },
+            select: { id: true },
+          }),
+        ),
+      )
+      .then((rows) => {
+        for (const r of rows) insertedIds.push(r.id);
+      });
     return {
-      inserted: result.count,
+      inserted: insertedIds.length,
       deduped: items.length - toInsert.length,
+      ids: insertedIds,
     };
   }
 }

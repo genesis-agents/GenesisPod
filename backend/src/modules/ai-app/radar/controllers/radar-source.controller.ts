@@ -3,7 +3,6 @@ import {
   Controller,
   Delete,
   Get,
-  NotImplementedException,
   Param,
   Patch,
   Post,
@@ -19,16 +18,20 @@ import {
   UpdateRadarSourceDto,
 } from "../dto";
 import { RadarSourceService } from "../services/source/radar-source.service";
+import { SourceDiscoveryService } from "../services/source/source-discovery.service";
 
 /**
  * RadarSourceController
  *
- * Topic-scoped 数据源 CRUD + AI 推荐入口（PR-R4 接入 source-curator agent 后才实装）。
+ * Topic-scoped 数据源 CRUD + AI 推荐入口（PR-R3 接通 SourceCuratorAgent）。
  */
 @Controller("radar")
 @UseGuards(JwtAuthGuard)
 export class RadarSourceController {
-  constructor(private readonly sources: RadarSourceService) {}
+  constructor(
+    private readonly sources: RadarSourceService,
+    private readonly discovery: SourceDiscoveryService,
+  ) {}
 
   @Post("topics/:topicId/sources")
   async create(
@@ -66,32 +69,35 @@ export class RadarSourceController {
   }
 
   /**
-   * AI 推荐数据源候选（不入库，返回 candidate 列表给前端展示）。
+   * AI 推荐数据源候选（调 source-curator agent → LLM 列出 X/YouTube/RSS/Custom 候选）。
    *
-   * PR-R3 引入 source-curator agent 后实装；PR-R1 阶段保留 endpoint shape。
+   * 返回不入库；前端勾选后通过 /recommend/accept 批量入库。
    */
   @Post("topics/:topicId/sources/recommend")
   async recommend(
-    @Request() _req: RequestWithUser,
-    @Param("topicId") _topicId: string,
-    @Body() _dto: RecommendSourcesDto,
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+    @Body() dto: RecommendSourcesDto,
   ) {
-    throw new NotImplementedException(
-      "AI 源推荐将在 PR-R3 引入 source-curator agent 后启用",
-    );
+    const candidates = await this.discovery.recommend(req.user.id, topicId, {
+      perTypeLimit: dto.perTypeLimit,
+    });
+    return { candidates };
   }
 
   /**
-   * 接受 AI 推荐源 → 批量入库（PR-R3 接入推荐链路后启用）。
+   * 接受 AI 推荐源 → 批量入库（isAiRecommended=true 标记）。
    */
   @Post("topics/:topicId/sources/recommend/accept")
   async acceptRecommended(
-    @Request() _req: RequestWithUser,
-    @Param("topicId") _topicId: string,
-    @Body() _dto: AcceptRecommendedSourcesDto,
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+    @Body() dto: AcceptRecommendedSourcesDto,
   ) {
-    throw new NotImplementedException(
-      "AI 源推荐接受将在 PR-R3 引入 source-curator agent 后启用",
+    return this.discovery.acceptCandidates(
+      req.user.id,
+      topicId,
+      dto.candidates,
     );
   }
 }

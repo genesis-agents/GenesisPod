@@ -33,12 +33,19 @@ import { RadarRunController } from "./controllers/radar-run.controller";
 import { RadarTopicService } from "./services/topic/radar-topic.service";
 import { RadarSourceService } from "./services/source/radar-source.service";
 import { SourceHealthService } from "./services/source/source-health.service";
+import { SourceDiscoveryService } from "./services/source/source-discovery.service";
 import { RadarCollectService } from "./services/collect/radar-collect.service";
 import { CollectorRouter } from "./services/collectors/collector-router.service";
 import { RssCollector } from "./services/collectors/rss-collector.service";
 import { YoutubeCollector } from "./services/collectors/youtube-collector.service";
 import { XCollector } from "./services/collectors/x-collector.service";
 import { CustomCollector } from "./services/collectors/custom-collector.service";
+import { RadarPipeline } from "./services/pipeline/radar-pipeline.service";
+import { RelevanceJudgeAgent } from "./agents/relevance-judge/relevance-judge.agent";
+import { QualityRaterAgent } from "./agents/quality-rater/quality-rater.agent";
+import { EntityExtractorAgent } from "./agents/entity-extractor/entity-extractor.agent";
+import { SignalAnalystAgent } from "./agents/signal-analyst/signal-analyst.agent";
+import { SourceCuratorAgent } from "./agents/source-curator/source-curator.agent";
 
 @Module({
   imports: [
@@ -62,12 +69,19 @@ import { CustomCollector } from "./services/collectors/custom-collector.service"
     RadarTopicService,
     RadarSourceService,
     SourceHealthService,
+    SourceDiscoveryService,
     RadarCollectService,
     CollectorRouter,
     RssCollector,
     YoutubeCollector,
     XCollector,
     CustomCollector,
+    RadarPipeline,
+    RelevanceJudgeAgent,
+    QualityRaterAgent,
+    EntityExtractorAgent,
+    SignalAnalystAgent,
+    SourceCuratorAgent,
   ],
   exports: [RadarTopicService, RadarSourceService, RadarCollectService],
 })
@@ -76,7 +90,7 @@ export class RadarModule {
 
   constructor() {
     this.log.log(
-      "RadarModule loaded (PR-R2: topic/source CRUD + 4 collectors + manual refresh)",
+      "RadarModule loaded (PR-R3: + 5 AI agents + pipeline + insight)",
     );
   }
 }
