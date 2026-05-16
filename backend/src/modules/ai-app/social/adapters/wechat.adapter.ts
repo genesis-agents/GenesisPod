@@ -1350,43 +1350,85 @@ export class WechatAdapter {
     );
 
     let saveClicked = false;
-    let clickedTargetInfo = "";
 
-    // 2026-05-16: 用户截图证明 V2+isNew=1+type=10 URL 正确、保存为草稿按钮 enabled、
-    //   手动点击能成功（URL 跳 V1+appmsgid）。之前 `el.click()` 失败的根因是
-    //   Puppeteer 的 native click 不触发 WeChat React/Vue 组件的合成事件 handler。
-    //   修法：找到真按钮 (visible + 文本完全匹配的叶子节点或最近的 cursor:pointer 祖先)
-    //   后用 page.mouse.click(x, y) 模拟物理鼠标坐标点 —— 比 element.click() 多触发
-    //   mousedown/mousemove/mouseup 全套，能 propagate to React handler。
+    // 2026-05-16: PR #92 mouse.click(905,687) 真发了但 save 仍 0 endpoint。
+    //   captured URL list 出现 /misc/jslog?1=1 微信 JS 错误上报，强烈怀疑
+    //   click 击中按钮但 React handler 读 form state 时发现 title/author/content
+    //   未真同步（puppeteer keyboard.type 只触发 native input event，React
+    //   controlled component 不认账），handler 静默 abort 不发请求也不弹 modal。
+    //
+    //   多防策略：先 blur+change 强同步 React state，再依次跑 3 种触发
+    //     方式（Ctrl+S / mouse.click 修正坐标 / elementHandle.click），每种
+    //     之间小停顿。waitForResponse 在 30s 窗口内捕到任一 save endpoint
+    //     即视为成功；都没命中再 throw。
+
+    // Step 0: 让 title / author / digest / content 已填字段 blur + change
+    //   让 React controlled component 把 native input 值真正写入 state
+    try {
+      await page.evaluate(() => {
+        const fields = [
+          document.querySelector("textarea#title.js_article_title"),
+          document.querySelector("input#author.js_author"),
+          document.querySelector("textarea#js_description"),
+          document.querySelector(".ProseMirror"),
+        ];
+        for (const el of fields) {
+          if (!el) continue;
+          (el as HTMLElement).focus();
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          (el as HTMLElement).blur();
+          el.dispatchEvent(new Event("blur", { bubbles: true }));
+        }
+      });
+      this.logger.log(
+        "[saveDraft] dispatched input/change/blur on filled fields",
+      );
+    } catch (syncError) {
+      this.logger.warn(
+        `[saveDraft] field sync failed: ${(syncError as Error).message}`,
+      );
+    }
+    await delay(200);
+
+    // Step 1: Ctrl+S 主路径 —— 绕开所有 click 坐标 / DOM 选择器问题，最接近真人
+    try {
+      this.logger.log("[saveDraft] Method 1: keyboard Ctrl+S");
+      await page.keyboard.down("Control");
+      await page.keyboard.press("s");
+      await page.keyboard.up("Control");
+      saveClicked = true;
+    } catch (kbError) {
+      this.logger.warn(
+        `[saveDraft] Ctrl+S failed: ${(kbError as Error).message}`,
+      );
+    }
+    await delay(500);
+
+    // Step 2: 找真按钮 mouse.click（修正 scroll 坐标 bug）
+    //   PR #92 bug: 用了 scrollTo + 陈旧 bbox 坐标，导致 click 点空气。
+    //   修：scroll 后 re-fetch bbox，再 mouse.click 用新坐标 + elementFromPoint 验证
+    let clickedTargetInfo = "";
     try {
       const candidates: Array<{
         tag: string;
         className: string;
         role: string;
         outerHTML: string;
-        cx: number;
-        cy: number;
-        width: number;
-        height: number;
+        pageY: number;
       }> = await page.evaluate(() => {
         const targets: Array<{
           tag: string;
           className: string;
           role: string;
           outerHTML: string;
-          cx: number;
-          cy: number;
-          width: number;
-          height: number;
+          pageY: number;
         }> = [];
         const all = Array.from(document.querySelectorAll("*"));
         for (const el of all) {
-          // 只看叶子节点（避免拿到外层 div 包多个按钮）
           if (el.children.length > 0) continue;
           const text = (el.textContent || "").trim();
           if (!/^(保存为草稿|存为草稿|保存草稿)$/.test(text)) continue;
-
-          // 向上走找最近的可点击祖先（button / role=button / cursor:pointer / 包裹的 a）
           let clickable: Element = el;
           for (let depth = 0; depth < 5; depth++) {
             const parent = clickable.parentElement;
@@ -1405,20 +1447,15 @@ export class WechatAdapter {
             }
             clickable = parent;
           }
-
           const rect = clickable.getBoundingClientRect();
           if (rect.width < 5 || rect.height < 5) continue;
           if ((clickable as HTMLElement).offsetParent === null) continue;
-
           targets.push({
             tag: clickable.tagName,
             className: (clickable as HTMLElement).className?.toString() || "",
             role: clickable.getAttribute("role") || "",
             outerHTML: (clickable as HTMLElement).outerHTML.slice(0, 400),
-            cx: rect.left + rect.width / 2,
-            cy: rect.top + rect.height / 2,
-            width: rect.width,
-            height: rect.height,
+            pageY: rect.top + window.scrollY,
           });
         }
         return targets;
@@ -1429,75 +1466,115 @@ export class WechatAdapter {
       );
       for (const c of candidates) {
         this.logger.log(
-          `[saveDraft] candidate: tag=${c.tag} class="${c.className}" role="${c.role}" bbox=${c.width}x${c.height} center=(${c.cx},${c.cy}) outerHTML=${c.outerHTML}`,
+          `[saveDraft] candidate: tag=${c.tag} class="${c.className}" role="${c.role}" pageY=${c.pageY} outerHTML=${c.outerHTML}`,
         );
       }
 
-      // 选最后一个候选（页面底部固定栏的真实 CTA，不是顶部 navbar 的副本）
       const target = candidates[candidates.length - 1];
       if (target) {
-        clickedTargetInfo = `${target.tag}.${target.className.slice(0, 40)}@(${target.cx},${target.cy})`;
-        // 滚动到视口内
-        await page.evaluate((cy: number) => {
+        // 用 scrollIntoView 让浏览器自己处理（避免坐标计算错位）
+        const clickResult: {
+          freshX: number;
+          freshY: number;
+          atPoint: string;
+          viewport: string;
+        } = await page.evaluate((pageY: number) => {
+          // 滚到 button 居中
           window.scrollTo({
-            top: cy - window.innerHeight / 2,
+            top: Math.max(0, pageY - window.innerHeight / 2),
             behavior: "instant" as ScrollBehavior,
           });
-        }, target.cy);
-        await delay(150);
-        // 模拟真鼠标 — 走完整 mousedown/up 序列，触发 React 合成事件
-        await page.mouse.move(target.cx, target.cy);
-        await delay(50);
-        await page.mouse.click(target.cx, target.cy, { delay: 30 });
-        saveClicked = true;
+          // re-find button & 取 fresh bbox
+          const all = Array.from(document.querySelectorAll("*"));
+          let btn: Element | null = null;
+          for (const el of all) {
+            if (el.children.length > 0) continue;
+            const text = (el.textContent || "").trim();
+            if (!/^(保存为草稿|存为草稿|保存草稿)$/.test(text)) continue;
+            let clickable: Element = el;
+            for (let depth = 0; depth < 5; depth++) {
+              const parent = clickable.parentElement;
+              if (!parent) break;
+              if (
+                parent.tagName === "BUTTON" ||
+                parent.tagName === "A" ||
+                parent.getAttribute("role") === "button"
+              ) {
+                clickable = parent;
+                break;
+              }
+              clickable = parent;
+            }
+            btn = clickable;
+          }
+          if (!btn) {
+            return {
+              freshX: -1,
+              freshY: -1,
+              atPoint: "(no button found after scroll)",
+              viewport: `${window.innerWidth}x${window.innerHeight}`,
+            };
+          }
+          const rect = btn.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const atPoint = document.elementFromPoint(cx, cy);
+          return {
+            freshX: cx,
+            freshY: cy,
+            atPoint: atPoint
+              ? `${atPoint.tagName}.${(atPoint as HTMLElement).className?.toString().slice(0, 40)}`
+              : "(null)",
+            viewport: `${window.innerWidth}x${window.innerHeight}`,
+          };
+        }, target.pageY);
+
         this.logger.log(
-          `[saveDraft] mouse.click fired at (${target.cx}, ${target.cy}) on ${clickedTargetInfo}`,
+          `[saveDraft] post-scroll: viewport=${clickResult.viewport} freshBbox=(${clickResult.freshX},${clickResult.freshY}) elementFromPoint=${clickResult.atPoint}`,
         );
+
+        if (clickResult.freshX > 0 && clickResult.freshY > 0) {
+          clickedTargetInfo = `${target.tag}.${target.className.slice(0, 40)}@fresh(${clickResult.freshX},${clickResult.freshY})`;
+          await delay(150);
+          await page.mouse.move(clickResult.freshX, clickResult.freshY);
+          await delay(50);
+          await page.mouse.click(clickResult.freshX, clickResult.freshY, {
+            delay: 30,
+          });
+          saveClicked = true;
+          this.logger.log(
+            `[saveDraft] Method 2: mouse.click fired at fresh (${clickResult.freshX}, ${clickResult.freshY}) on ${clickedTargetInfo}`,
+          );
+        }
       }
     } catch (mouseError) {
       this.logger.warn(
         `[saveDraft] mouse-click strategy failed: ${(mouseError as Error).message}`,
       );
     }
+    await delay(500);
 
-    // Fallback 1: 键盘 Ctrl+S（WeChat 标准快捷键）
-    if (!saveClicked) {
-      try {
-        this.logger.log("[saveDraft] Fallback: keyboard Ctrl+S");
-        await page.keyboard.down("Control");
-        await page.keyboard.press("s");
-        await page.keyboard.up("Control");
-        saveClicked = true;
-      } catch (kbError) {
-        this.logger.warn(
-          `[saveDraft] Ctrl+S fallback failed: ${(kbError as Error).message}`,
+    // Step 3: ElementHandle.click() 作为最后兜底
+    try {
+      const savePattern = /保存为草稿|保存草稿|存为草稿/;
+      const buttons = await page.$$("button");
+      for (const btn of buttons) {
+        const text = await btn.evaluate(
+          (el: Element) => el.textContent?.trim() || "",
         );
-      }
-    }
-
-    // Fallback 2: 旧的 element.click() 路径作为最后兜底
-    if (!saveClicked) {
-      const savePattern = /保存为草稿|保存草稿|存为草稿|Save as draft|Save/i;
-      try {
-        const buttons = await page.$$("button");
-        for (const btn of buttons) {
-          const text = await btn.evaluate(
-            (el: Element) => el.textContent?.trim() || "",
+        if (savePattern.test(text)) {
+          await btn.click();
+          saveClicked = true;
+          this.logger.log(
+            `[saveDraft] Method 3: ElementHandle.click on <button> text="${text}"`,
           );
-          if (savePattern.test(text)) {
-            await btn.click();
-            saveClicked = true;
-            this.logger.log(
-              `[saveDraft] last-resort element.click on <button> text="${text}"`,
-            );
-            break;
-          }
+          break;
         }
-      } catch (lastError) {
-        this.logger.warn(
-          `[saveDraft] last-resort element.click failed: ${(lastError as Error).message}`,
-        );
       }
+    } catch (handleError) {
+      this.logger.warn(
+        `[saveDraft] ElementHandle.click failed: ${(handleError as Error).message}`,
+      );
     }
 
     if (!saveClicked) {
