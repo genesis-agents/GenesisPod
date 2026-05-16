@@ -32,6 +32,13 @@ import { RadarRunController } from "./controllers/radar-run.controller";
 
 import { RadarTopicService } from "./services/topic/radar-topic.service";
 import { RadarSourceService } from "./services/source/radar-source.service";
+import { SourceHealthService } from "./services/source/source-health.service";
+import { RadarCollectService } from "./services/collect/radar-collect.service";
+import { CollectorRouter } from "./services/collectors/collector-router.service";
+import { RssCollector } from "./services/collectors/rss-collector.service";
+import { YoutubeCollector } from "./services/collectors/youtube-collector.service";
+import { XCollector } from "./services/collectors/x-collector.service";
+import { CustomCollector } from "./services/collectors/custom-collector.service";
 
 @Module({
   imports: [
@@ -51,13 +58,25 @@ import { RadarSourceService } from "./services/source/radar-source.service";
     RadarInsightController,
     RadarRunController,
   ],
-  providers: [RadarTopicService, RadarSourceService],
-  exports: [RadarTopicService, RadarSourceService],
+  providers: [
+    RadarTopicService,
+    RadarSourceService,
+    SourceHealthService,
+    RadarCollectService,
+    CollectorRouter,
+    RssCollector,
+    YoutubeCollector,
+    XCollector,
+    CustomCollector,
+  ],
+  exports: [RadarTopicService, RadarSourceService, RadarCollectService],
 })
 export class RadarModule {
   private readonly log = new Logger(RadarModule.name);
 
   constructor() {
-    this.log.log("RadarModule loaded (PR-R1: topic + source CRUD)");
+    this.log.log(
+      "RadarModule loaded (PR-R2: topic/source CRUD + 4 collectors + manual refresh)",
+    );
   }
 }
