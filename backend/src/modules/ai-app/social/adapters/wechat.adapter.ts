@@ -1495,18 +1495,23 @@ export class WechatAdapter {
           }
         }
 
-        // 2. 构造 form body —— PR #96 实测 "title0/content0/AppMsgId/count" 旧多图文
-        //    schema 触发 ret=444002 "旧版图文素材不可再保存"。换用 pre_load_sentence
-        //    捕获的新单图文 schema：无 "0" 后缀、appmsgid 数字、index=0、加 type=10。
-        const body = new URLSearchParams({
+        // 2. 多 schema 候选 —— PR #97 单 schema "appmsgid=0/index=0/type=10"
+        //    返回 ret=200002 "参数错误"；PR #96 多图文 schema "title0/AppMsgId/count=1"
+        //    返回 ret=444002 "旧版图文素材"。两端都不对，需要 PR #99 尝试
+        //    几个中间变体：
+        //    a) multi-article 改进：count=1 + title0/content0 + AppMsgId 用真 hash
+        //       而非空串（PR #95 失败因 createType=0 + AppMsgId=''）
+        //    b) 加 thumb_media_id=0 fallback（type=10 长文 WeChat 通常要求封面）
+        //    c) 切换 endpoint：/cgi-bin/appmsg?action=add_appmsg 是另一可能入口
+        const rand = () => Math.random().toString();
+        const commonFields = {
           token: params.token,
           lang: "zh_CN",
           f: "json",
           ajax: "1",
-          random: Math.random().toString(),
-          appmsgid: "0",
-          index: "0",
-          type: "10",
+          fingerprint,
+        };
+        const sharedArticleFields = {
           title: params.title,
           author: params.author,
           digest: params.digest,
@@ -1521,37 +1526,122 @@ export class WechatAdapter {
           copyright_type: "0",
           can_reward: "0",
           can_open_reward: "0",
-          fingerprint,
-        });
+          thumb_media_id: "0",
+        };
 
-        // 3. fetch —— 浏览器自动包含 mp.weixin cookies + 设置 Origin / Referer
-        const endpoint = `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&token=${params.token}&lang=zh_CN`;
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "X-Requested-With": "XMLHttpRequest",
+        const schemas: Array<{
+          name: string;
+          endpoint: string;
+          body: Record<string, string>;
+        }> = [
+          {
+            name: "v1-single-no-suffix",
+            endpoint: `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&token=${params.token}&lang=zh_CN`,
+            body: {
+              ...commonFields,
+              random: rand(),
+              appmsgid: "0",
+              index: "0",
+              type: "10",
+              ...sharedArticleFields,
+            },
           },
-          body: body.toString(),
-          credentials: "include",
-        });
-        const text = await res.text();
-        let json: {
+          {
+            name: "v2-multi-suffixed-count1",
+            endpoint: `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&token=${params.token}&lang=zh_CN`,
+            body: {
+              ...commonFields,
+              random: rand(),
+              AppMsgId: "",
+              count: "1",
+              title0: params.title,
+              author0: params.author,
+              digest0: params.digest,
+              content0: params.content,
+              sourceurl0: "",
+              fileid0: "",
+              cdn_url_1_10: "",
+              show_cover_pic0: "0",
+              need_open_comment0: "1",
+              only_fans_can_comment0: "0",
+              ad_type0: "0",
+              copyright_type0: "0",
+              can_reward0: "0",
+              can_open_reward0: "0",
+              thumb_media_id0: "0",
+            },
+          },
+          {
+            name: "v3-appmsg-add",
+            endpoint: `/cgi-bin/appmsg?action=add_appmsg&token=${params.token}&lang=zh_CN`,
+            body: {
+              ...commonFields,
+              random: rand(),
+              type: "10",
+              ...sharedArticleFields,
+            },
+          },
+        ];
+
+        const attempts: Array<{
+          name: string;
+          status: number;
+          ret: number | string | undefined;
+          err_msg: string | undefined;
+          bodyPreview: string;
+        }> = [];
+
+        let winningJson: {
           base_resp?: { ret?: number; err_msg?: string };
           ret?: number;
           appMsgId?: number | string;
         } | null = null;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          // not JSON — 可能 HTML 错误页
+        let winningStatus = 0;
+
+        for (const schema of schemas) {
+          const body = new URLSearchParams(schema.body);
+          const res = await fetch(schema.endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded; charset=UTF-8",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            body: body.toString(),
+            credentials: "include",
+          });
+          const text = await res.text();
+          let json: {
+            base_resp?: { ret?: number; err_msg?: string };
+            ret?: number;
+            appMsgId?: number | string;
+          } | null = null;
+          try {
+            json = JSON.parse(text);
+          } catch {
+            // not JSON
+          }
+          const r = json?.base_resp?.ret ?? json?.ret;
+          attempts.push({
+            name: schema.name,
+            status: res.status,
+            ret: r,
+            err_msg: json?.base_resp?.err_msg,
+            bodyPreview: text.slice(0, 800),
+          });
+          if (r === 0 && json?.appMsgId) {
+            winningJson = json;
+            winningStatus = res.status;
+            break;
+          }
         }
+
         return {
-          status: res.status,
+          status: winningStatus || attempts[attempts.length - 1].status,
           fingerprint,
           fpSource,
-          bodyPreview: text.slice(0, 600),
-          json,
+          bodyPreview: JSON.stringify(attempts).slice(0, 2500),
+          json: winningJson,
         };
       },
       {
@@ -1567,7 +1657,7 @@ export class WechatAdapter {
     this.logger.log(
       `[saveDraft API] status=${result.status} fingerprint=${result.fingerprint || "(none)"} source=${result.fpSource || "(none)"}`,
     );
-    this.logger.log(`[saveDraft API] body preview: ${result.bodyPreview}`);
+    this.logger.log(`[saveDraft API] attempts: ${result.bodyPreview}`);
 
     const json = result.json;
     const ret = json?.base_resp?.ret ?? json?.ret;
@@ -1665,7 +1755,11 @@ export class WechatAdapter {
       const url = request.url();
       if (method === "GET" || method === "OPTIONS") return;
       if (!/mp\.weixin\.qq\.com/.test(url)) return;
-      const body = (request.postData?.() ?? "").slice(0, 800);
+      // 2026-05-16 PR #99: bump 800→3500 chars。PR #98 实测 WeChat 把它
+      //   自己的 mplog 内部 trace（"this is fail save path + terminal three:
+      //   postDataReturnFun" 等）发到 /advanced/mplog?action=up，body 含
+      //   urlencoded JSON 嵌套 JSON，800 chars 切到中间就乱码看不出 root cause。
+      const body = (request.postData?.() ?? "").slice(0, 3500);
       capturedPosts.push({ method, url, body });
     };
     page.on(
@@ -2092,6 +2186,40 @@ export class WechatAdapter {
           this.logger.warn(
             `  POST[${i}] ${p.method} ${p.url} body=${p.body || "(empty)"}`,
           );
+          // 2026-05-16 PR #99: mplog 内是 WeChat 编辑器自己的内部 trace。
+          //   PR #98 实测看到 "this is fail save path + terminal three:
+          //   postDataReturnFun" + "the first step: click 保存为草..."
+          //   → click 真到了，但 WeChat 本地校验 postDataReturnFun 失败终止。
+          //   解码出 msg / description 字段单独打 log 才能看到完整 trace。
+          if (/mplog\?action=up/.test(p.url) && p.body) {
+            try {
+              const params = new URLSearchParams(p.body);
+              const logParam = params.get("log");
+              if (logParam) {
+                const outer = JSON.parse(logParam) as {
+                  data?: Array<{ data?: string }>;
+                };
+                const innerStr = outer?.data?.[0]?.data;
+                if (typeof innerStr === "string") {
+                  const inner = JSON.parse(innerStr) as {
+                    description?: string;
+                    msg?: string;
+                  };
+                  this.logger.warn(
+                    `    ↳ mplog description=${inner.description || "(none)"}`,
+                  );
+                  if (inner.msg) {
+                    const msgPreview = String(inner.msg).slice(0, 1500);
+                    this.logger.warn(`    ↳ mplog msg=${msgPreview}`);
+                  }
+                }
+              }
+            } catch (decodeErr) {
+              this.logger.warn(
+                `    ↳ mplog decode failed: ${(decodeErr as Error).message}`,
+              );
+            }
+          }
         });
       } else {
         this.logger.warn(
