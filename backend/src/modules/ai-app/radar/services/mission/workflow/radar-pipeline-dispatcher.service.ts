@@ -47,7 +47,9 @@ import type {
 
 export interface RadarMissionSummary {
   readonly missionId: string;
-  readonly status: "completed" | "failed" | "aborted";
+  // mission lifecycle 标准 3 终态（小写，对齐前端 RadarRunStatus + DB
+  // VarChar(20) 值域）；早期写 "aborted" 是私造词，已统一改 "cancelled"
+  readonly status: "completed" | "failed" | "cancelled";
   readonly stageOutputs: Record<string, unknown>;
   /**
    * Discovery mission 特有：source-curator agent 输出的候选列表
@@ -258,7 +260,12 @@ export class RadarPipelineDispatcher implements OnModuleInit {
             reason: message,
           },
         });
-        return { missionId, status: "aborted", stageOutputs: {}, error: err };
+        return {
+          missionId,
+          status: "cancelled",
+          stageOutputs: {},
+          error: err,
+        };
       }
       await this.store.markFailed(missionId, message);
       await this.emitToBus({
