@@ -489,9 +489,20 @@ async function runCoverUploadAttempts(
   const filename = `cover_${Date.now()}.${ext}`;
   const blob = new Blob([byteArray], { type: mimeType });
 
+  // 2026-05-16 PR #110: scene 是否进永久素材库的决定字段。
+  //   scene=8 = 编辑器内嵌临时图（location:"bizfile"，临时 CDN，无 media_id）
+  //   scene=1 = 永久素材库（location:"wxmaterial"，有真 media_id）
+  //   封面缩略图必须 scene=1，否则 saveDraft.thumb_media_id 拿到 bizfile ID
+  //   WeChat 服务端不认 → 静默降级 type=77（小绿书）→ 红字"必须插入一张图片"。
+  //   保留 scene=8 + upload_img 作 fallback：scene=1 对图片尺寸/格式更严，
+  //   placehold.co 占位图可能被素材库拒。fallback 通道至少能拿 cdnUrl。
   const endpoints: Array<{ name: string; url: string }> = [
     {
-      name: "filetransfer-upload-material",
+      name: "filetransfer-upload-material-scene1",
+      url: `/cgi-bin/filetransfer?action=upload_material&f=json&scene=1&writetype=doublewrite&groupid=1&token=${token}&lang=zh_CN`,
+    },
+    {
+      name: "filetransfer-upload-material-scene8",
       url: `/cgi-bin/filetransfer?action=upload_material&f=json&scene=8&writetype=doublewrite&groupid=1&token=${token}&lang=zh_CN`,
     },
     {
