@@ -2,7 +2,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Page } from "puppeteer";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { PublishResult } from "../services/publish-executor.service";
-import { WechatImageUploaderService } from "../services/wechat-image-uploader.service";
+import {
+  WechatImageUploaderService,
+  type CoverUpload,
+} from "../services/wechat-image-uploader.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
@@ -588,7 +591,7 @@ export class WechatAdapter {
         };
       }
 
-      // Step 7.5: 重传外链图片到微信 CDN，重写 <img src>
+      // Step 7.5a: 重传正文外链图到微信 CDN，重写 <img src>
       //   外链图会被防盗链拦截，必须先传到 mmbiz.qpic.cn 域。
       //   单张图失败不阻塞整体发布——保留原 URL + 日志告警。
       let contentForFill: SocialContent = content;
@@ -612,6 +615,33 @@ export class WechatAdapter {
         }
       }
 
+      // Step 7.5b: 上传封面图到素材库，拿 thumb_media_id
+      //   没有封面 → thumb_media_id="0"，feed 列表里没缩略图；可发但门面差。
+      //   上传失败 → 同样降级到 thumb_media_id="0"，不阻塞发布。
+      let cover: CoverUpload | null = null;
+      if (token && content.coverImageUrl) {
+        try {
+          cover = await this.imageUploader.uploadCover(
+            page,
+            content.coverImageUrl,
+            token,
+          );
+          if (cover) {
+            this.logger.log(
+              `[cover upload] success: mediaId=${cover.mediaId} cdnUrl=${cover.cdnUrl.slice(0, 80)}`,
+            );
+          } else {
+            this.logger.warn(
+              `[cover upload] failed, draft will save without cover (feed thumbnail will be empty)`,
+            );
+          }
+        } catch (coverErr) {
+          this.logger.warn(
+            `[cover upload] swallow error, no cover: ${(coverErr as Error).message}`,
+          );
+        }
+      }
+
       // Step 8: 填充内容（使用平台适配版本，无需截断）
       this.logger.log("Filling content...");
       await this.fillContent(page, contentForFill);
@@ -629,6 +659,7 @@ export class WechatAdapter {
         page,
         contentForFill,
         sniffState.fingerprint,
+        cover,
       );
       this.logger.log(`Draft saved: ${draftUrl}`);
 
@@ -1476,6 +1507,7 @@ export class WechatAdapter {
     page: Page,
     content: SocialContent,
     sniffedFingerprint: string,
+    cover: CoverUpload | null,
   ): Promise<string | null> {
     // 从当前 page URL 提取 token（fast-path 已 navigate 到 type=10 编辑器）
     const currentUrl = page.url();
@@ -1498,6 +1530,8 @@ export class WechatAdapter {
         digest: content.digest || "",
         content: content.content || "",
         sniffedFingerprint,
+        thumbMediaId: cover?.mediaId || "",
+        coverCdnUrl: cover?.cdnUrl || "",
       },
     );
 
@@ -1526,6 +1560,7 @@ export class WechatAdapter {
     page: Page,
     content: SocialContent,
     sniffedFingerprint: string,
+    cover: CoverUpload | null,
   ): Promise<string> {
     // 2026-05-16: API 直发路径优先 —— 跳过 UI click 模拟，从 page 上下文里
     //   直接 fetch POST 到微信内部 save endpoint。基于 PR #94 的 POST 拦截
@@ -1542,6 +1577,7 @@ export class WechatAdapter {
         page,
         content,
         sniffedFingerprint,
+        cover,
       );
       if (apiUrl) {
         this.logger.log(`[saveDraft] API direct save succeeded: ${apiUrl}`);

@@ -130,6 +130,107 @@ describe("WechatImageUploaderService", () => {
     expect(mockPage.evaluate).not.toHaveBeenCalled();
   });
 
+  describe("uploadCover", () => {
+    it("returns mediaId + cdnUrl on successful material upload", async () => {
+      makeFetchOk();
+      mockPage.evaluate.mockResolvedValue({
+        mediaId: "100000234",
+        cdnUrl: "https://mmbiz.qpic.cn/cover/abc",
+        attempts: [
+          {
+            endpoint: "filetransfer-upload-material",
+            ret: 0,
+            mediaId: "100000234",
+            cdnUrl: "https://mmbiz.qpic.cn/cover/abc",
+          },
+        ],
+      });
+
+      const result = await service.uploadCover(
+        mockPage as unknown as Page,
+        "https://example.com/cover.jpg",
+        "999",
+      );
+
+      expect(result).toEqual({
+        mediaId: "100000234",
+        cdnUrl: "https://mmbiz.qpic.cn/cover/abc",
+      });
+    });
+
+    it("returns null when material upload fails", async () => {
+      makeFetchOk();
+      mockPage.evaluate.mockResolvedValue({
+        mediaId: null,
+        cdnUrl: null,
+        attempts: [
+          {
+            endpoint: "filetransfer-upload-material",
+            ret: -1,
+            mediaId: null,
+            cdnUrl: null,
+            errMsg: "permission denied",
+          },
+        ],
+      });
+
+      const result = await service.uploadCover(
+        mockPage as unknown as Page,
+        "https://example.com/cover.jpg",
+        "999",
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when source fetch fails", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 404,
+        headers: new Map() as unknown as Headers,
+        arrayBuffer: async () => new ArrayBuffer(0),
+      });
+
+      const result = await service.uploadCover(
+        mockPage as unknown as Page,
+        "https://broken.example.com/cover.jpg",
+        "999",
+      );
+
+      expect(result).toBeNull();
+      expect(mockPage.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("returns null for already-hosted mmbiz URL (no upload needed)", async () => {
+      const result = await service.uploadCover(
+        mockPage as unknown as Page,
+        "https://mmbiz.qpic.cn/already-hosted",
+        "999",
+      );
+
+      expect(result).toBeNull();
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockPage.evaluate).not.toHaveBeenCalled();
+    });
+
+    it("returns null when partial response missing mediaId or cdnUrl", async () => {
+      makeFetchOk();
+      mockPage.evaluate.mockResolvedValue({
+        mediaId: "100000234",
+        cdnUrl: null,
+        attempts: [],
+      });
+
+      const result = await service.uploadCover(
+        mockPage as unknown as Page,
+        "https://example.com/cover.jpg",
+        "999",
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
   it("processes multiple images independently (mix of success/skip/fail)", async () => {
     makeFetchOk();
     mockPage.evaluate

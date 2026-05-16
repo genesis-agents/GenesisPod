@@ -13,6 +13,25 @@ interface UploadResult {
   attempts: UploadAttempt[];
 }
 
+interface CoverUploadAttempt {
+  endpoint: string;
+  ret: number;
+  mediaId: string | null;
+  cdnUrl: string | null;
+  errMsg?: string;
+}
+
+interface CoverUploadResult {
+  mediaId: string | null;
+  cdnUrl: string | null;
+  attempts: CoverUploadAttempt[];
+}
+
+export interface CoverUpload {
+  mediaId: string;
+  cdnUrl: string;
+}
+
 interface RewriteStats {
   rewritten: string;
   uploaded: number;
@@ -82,6 +101,52 @@ export class WechatImageUploaderService {
     );
 
     return { rewritten, uploaded, failed, skipped };
+  }
+
+  /**
+   * 上传封面图到微信素材库，返回 mediaId + cdnUrl。
+   * mediaId 用作 saveDraft 的 thumb_media_id，cdnUrl 用作 cdn_url_1_1。
+   * 失败返回 null，由调用方决定回退（保存无封面草稿）。
+   */
+  async uploadCover(
+    page: Page,
+    externalUrl: string,
+    token: string,
+  ): Promise<CoverUpload | null> {
+    if (this.shouldSkip(externalUrl)) {
+      return null;
+    }
+
+    let base64: string;
+    let mimeType: string;
+    try {
+      const fetched = await this.fetchImage(externalUrl);
+      base64 = fetched.base64;
+      mimeType = fetched.mimeType;
+    } catch (err) {
+      this.logger.warn(
+        `Failed to fetch cover image ${externalUrl}: ${(err as Error).message}`,
+      );
+      return null;
+    }
+
+    const result = await page.evaluate(
+      runCoverUploadAttempts,
+      base64,
+      mimeType,
+      token,
+    );
+
+    this.logger.log(
+      `[uploadCover] ${externalUrl.slice(0, 80)} → attempts=${JSON.stringify(
+        result.attempts,
+      ).slice(0, 600)}`,
+    );
+
+    if (!result.mediaId || !result.cdnUrl) {
+      return null;
+    }
+    return { mediaId: result.mediaId, cdnUrl: result.cdnUrl };
   }
 
   private shouldSkip(src: string): boolean {
@@ -235,4 +300,83 @@ async function runUploadAttempts(
     }
   }
   return { url: null, attempts };
+}
+
+/**
+ * 封面图上传：必须走素材库 endpoint 才能拿到 file_id（作为 thumb_media_id）。
+ * 比正文图多一项 file_id 解析。
+ */
+async function runCoverUploadAttempts(
+  base64: string,
+  mimeType: string,
+  token: string,
+): Promise<CoverUploadResult> {
+  const byteArray = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const ext = mimeType.split("/")[1] || "jpg";
+  const filename = `cover_${Date.now()}.${ext}`;
+  const blob = new Blob([byteArray], { type: mimeType });
+
+  const endpoints: Array<{ name: string; url: string }> = [
+    {
+      name: "filetransfer-upload-material",
+      url: `/cgi-bin/filetransfer?action=upload_material&f=json&scene=8&writetype=doublewrite&groupid=1&token=${token}&lang=zh_CN`,
+    },
+    {
+      name: "filetransfer-upload-img",
+      url: `/cgi-bin/filetransfer?action=upload_img&token=${token}&lang=zh_CN`,
+    },
+  ];
+
+  const attempts: CoverUploadAttempt[] = [];
+  for (const ep of endpoints) {
+    try {
+      const form = new FormData();
+      form.append("file", blob, filename);
+      const resp = await fetch(ep.url, {
+        method: "POST",
+        body: form,
+        credentials: "include",
+      });
+      const data = (await resp.json().catch(() => ({}))) as {
+        base_resp?: { ret?: number; err_msg?: string };
+        content_url?: string;
+        cdn_url?: string;
+        url?: string;
+        file_id?: string | number;
+        content?: string;
+      };
+      const ret = data.base_resp?.ret ?? -1;
+      const cdnUrl =
+        typeof data.content_url === "string"
+          ? data.content_url
+          : typeof data.cdn_url === "string"
+            ? data.cdn_url
+            : typeof data.url === "string"
+              ? data.url
+              : typeof data.content === "string"
+                ? data.content
+                : null;
+      const fileId =
+        data.file_id != null ? String(data.file_id) : null;
+      attempts.push({
+        endpoint: ep.name,
+        ret,
+        mediaId: fileId,
+        cdnUrl,
+        errMsg: data.base_resp?.err_msg,
+      });
+      if (ret === 0 && fileId && cdnUrl) {
+        return { mediaId: fileId, cdnUrl, attempts };
+      }
+    } catch (err) {
+      attempts.push({
+        endpoint: ep.name,
+        ret: -999,
+        mediaId: null,
+        cdnUrl: null,
+        errMsg: (err as Error).message,
+      });
+    }
+  }
+  return { mediaId: null, cdnUrl: null, attempts };
 }

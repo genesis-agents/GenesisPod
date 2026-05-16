@@ -17,6 +17,10 @@ export interface SaveDraftApiParams {
   digest: string;
   content: string;
   sniffedFingerprint: string;
+  /** 封面图 media_id（来自素材库 upload），空字符串表示无封面 */
+  thumbMediaId: string;
+  /** 封面图 CDN URL，配合 thumbMediaId 一起出现，空表示无封面 */
+  coverCdnUrl: string;
 }
 
 export interface SaveDraftApiResult {
@@ -124,6 +128,7 @@ export async function runSaveDraftAttempts(
     ajax: "1",
     fingerprint,
   };
+  const hasCover = !!params.thumbMediaId && !!params.coverCdnUrl;
   const sharedArticleFields = {
     title: params.title,
     author: params.author,
@@ -131,7 +136,7 @@ export async function runSaveDraftAttempts(
     content: params.content,
     sourceurl: "",
     fileid: "",
-    cdn_url_1_1: "",
+    cdn_url_1_1: hasCover ? params.coverCdnUrl : "",
     show_cover_pic: "0",
     need_open_comment: "1",
     only_fans_can_comment: "0",
@@ -139,7 +144,7 @@ export async function runSaveDraftAttempts(
     copyright_type: "0",
     can_reward: "0",
     can_open_reward: "0",
-    thumb_media_id: "0",
+    thumb_media_id: hasCover ? params.thumbMediaId : "0",
   };
 
   const schemas: Array<{
@@ -173,7 +178,7 @@ export async function runSaveDraftAttempts(
         content0: params.content,
         sourceurl0: "",
         fileid0: "",
-        cdn_url_1_10: "",
+        cdn_url_1_10: hasCover ? params.coverCdnUrl : "",
         show_cover_pic0: "0",
         need_open_comment0: "1",
         only_fans_can_comment0: "0",
@@ -181,7 +186,7 @@ export async function runSaveDraftAttempts(
         copyright_type0: "0",
         can_reward0: "0",
         can_open_reward0: "0",
-        thumb_media_id0: "0",
+        thumb_media_id0: hasCover ? params.thumbMediaId : "0",
       },
     },
     {
