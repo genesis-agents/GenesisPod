@@ -115,6 +115,40 @@ function ensureJsonArray(data: unknown): string[] {
     .map((item) => truncateString(item, 500));
 }
 
+/**
+ * 选封面：images[0] > og:image > content 正文里第一张 <img>。
+ *
+ * 三级降级：
+ *   1. images[0] — fetcher 抽出的正文图（图表/插图，跟内容直接相关）
+ *   2. coverImage — og:image / Resource.thumbnail 兜底
+ *   3. 正文里第一张 <img> — 兜底兜底：fetcher 漏掉但 HTML/markdown 自带的图
+ *
+ * 三级都空 → null，发布无封面（feed 列表无缩略图，仍可发）。
+ */
+function pickCoverImage(source: {
+  coverImage?: string;
+  images?: string[];
+  content?: string;
+}): string | null {
+  const fromImages = source.images?.find(
+    (img) => typeof img === "string" && img.trim().length > 0,
+  );
+  if (fromImages) return sanitizeString(fromImages) || null;
+
+  const fromCover = sanitizeString(source.coverImage);
+  if (fromCover) return fromCover;
+
+  if (source.content) {
+    const m = source.content.match(
+      // 字符类禁 \s < > 防止 URL 跨行注入（Reviewer B4）
+      /<img\b[^>\n]*\bsrc\s*=\s*["']([^"'\s<>]+)["']/i,
+    );
+    const url = m?.[1]?.trim();
+    if (url && /^https?:\/\//i.test(url)) return url;
+  }
+  return null;
+}
+
 // Retry helper for transient database errors (like connection pool issues)
 async function withRetry<T>(
   operation: () => Promise<T>,
@@ -232,7 +266,7 @@ export class SocialLeaderService {
     // Sanitize content to remove problematic characters
     const safeContent = sanitizeString(transformedContent.content);
     const safeSourceUrl = sanitizeString(dto.url) || null;
-    const safeCoverImageUrl = sanitizeString(fetchedContent.coverImage) || null;
+    const safeCoverImageUrl = pickCoverImage(fetchedContent);
 
     this.logger.log(
       `[processUrl] Saving content: titleLen=${truncateString(transformedContent.title, 200).length}, ` +
@@ -408,7 +442,7 @@ export class SocialLeaderService {
     const safeTitle = truncateString(transformedContent.title, 200);
     const safeDigest = truncateString(transformedContent.digest, 200) || null;
     const safeSourceUrl = sanitizeString(sourceContent.url) || null;
-    const safeCoverImageUrl = sanitizeString(sourceContent.coverImage) || null;
+    const safeCoverImageUrl = pickCoverImage(sourceContent);
 
     // Debug: Log byte lengths per field to identify encoding issues
     const fieldByteLengths = {
@@ -665,8 +699,7 @@ export class SocialLeaderService {
       const safeTitle = truncateString(sectionTitle, 200);
       const safeDigest = truncateString(digest, 200) || null;
       const safeSourceUrl = sanitizeString(sourceContent.url) || null;
-      const safeCoverImageUrl =
-        i === 0 ? sanitizeString(sourceContent.coverImage) || null : null;
+      const safeCoverImageUrl = i === 0 ? pickCoverImage(sourceContent) : null;
 
       try {
         const results = await this.prisma.$queryRaw<
@@ -759,7 +792,7 @@ export class SocialLeaderService {
       content: firstRow.content,
       digest: firstRow.digest,
       sourceUrl: sanitizeString(sourceContent.url) || null,
-      coverImageUrl: sanitizeString(sourceContent.coverImage) || null,
+      coverImageUrl: pickCoverImage(sourceContent),
       images: ensureJsonArray(sourceContent.images),
       tags: [] as string[],
       complianceCheck: null,

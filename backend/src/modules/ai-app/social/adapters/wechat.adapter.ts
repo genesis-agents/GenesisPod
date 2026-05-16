@@ -2,17 +2,18 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Page } from "puppeteer";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { PublishResult } from "../services/publish-executor.service";
+import {
+  WechatImageUploaderService,
+  type CoverUpload,
+} from "../services/wechat-image-uploader.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
+import { redactToken, redactUrl } from "../utils/log-sanitizer";
 import { SessionData } from "../types/platform.types";
 import {
   runSaveDraftAttempts,
   type SaveDraftApiResult,
 } from "./wechat-save-draft.helper";
-import {
-  runMassSendAttempts,
-  type MassSendApiResult,
-} from "./wechat-mass-send.helper";
 
 /** Puppeteer-compatible delay helper (replaces Playwright's page.waitForTimeout) */
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -22,7 +23,10 @@ export class WechatAdapter {
   private readonly logger = new Logger(WechatAdapter.name);
   private readonly MP_URL = "https://mp.weixin.qq.com";
 
-  constructor(private readonly playwright: SocialBrowserService) {}
+  constructor(
+    private readonly playwright: SocialBrowserService,
+    private readonly imageUploader: WechatImageUploaderService,
+  ) {}
 
   /**
    * 发布内容到微信公众号
@@ -168,7 +172,7 @@ export class WechatAdapter {
               if (m) {
                 sniffState.fingerprint = m[1];
                 this.logger.log(
-                  `[fingerprint sniff] captured: ${sniffState.fingerprint} from ${url.slice(0, 120)}`,
+                  `[fingerprint sniff] captured: ${redactToken(sniffState.fingerprint)} from ${url.slice(0, 120)}`,
                 );
               }
             } catch {
@@ -233,7 +237,7 @@ export class WechatAdapter {
           })
           .catch(() => "");
         if (pageToken) {
-          this.logger.log(`Found token from page JS: ${pageToken}`);
+          this.logger.log(`Found token from page JS: ${redactToken(pageToken)}`);
           currentUrl = `${this.MP_URL}/cgi-bin/home?token=${pageToken}`;
         }
       }
@@ -279,13 +283,13 @@ export class WechatAdapter {
       // 优先使用保存的 wechatToken
       if (sessionData.wechatToken) {
         token = sessionData.wechatToken;
-        this.logger.log(`Using saved wechatToken: ${token}`);
+        this.logger.log(`Using saved wechatToken: ${redactToken(token)}`);
       } else {
         // 尝试从当前 URL 提取
         const tokenMatch = currentUrl.match(/token=(\d+)/);
         if (tokenMatch) {
           token = tokenMatch[1];
-          this.logger.log(`Token extracted from URL: ${token}`);
+          this.logger.log(`Token extracted from URL: ${redactToken(token)}`);
         }
       }
 
@@ -304,7 +308,7 @@ export class WechatAdapter {
         //   素材'选择"。用户 manual 截图 18 的 URL 完全没有 createType 参数。
         const directType10Url = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=10&token=${token}&lang=zh_CN&timestamp=${Date.now()}`;
         this.logger.log(
-          `[fast-path] Long article (${contentLength} chars) → direct nav to type=10 editor: ${directType10Url}`,
+          `[fast-path] Long article (${contentLength} chars) → direct nav to type=10 editor: ${redactUrl(directType10Url)}`,
         );
         try {
           await page.goto(directType10Url, {
@@ -515,7 +519,7 @@ export class WechatAdapter {
 
         if (token) {
           const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=${articleType}&createType=8&token=${token}`;
-          this.logger.log(`Direct navigation to: ${editorUrl}`);
+          this.logger.log(`Direct navigation to: ${redactUrl(editorUrl)}`);
           await editorPage.goto(editorUrl, {
             waitUntil: "networkidle0",
             timeout: 30000,
@@ -538,7 +542,7 @@ export class WechatAdapter {
               token = linkTokenMatch[1];
               const editorUrl = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=${articleType}&createType=8&token=${token}`;
               this.logger.log(
-                `Found token from link, direct navigation to: ${editorUrl}`,
+                `Found token from link, direct navigation to: ${redactUrl(editorUrl)}`,
               );
               await editorPage.goto(editorUrl, {
                 waitUntil: "networkidle0",
@@ -588,16 +592,64 @@ export class WechatAdapter {
         };
       }
 
+      // Step 7.5a: 重传正文外链图到微信 CDN，重写 <img src>
+      //   外链图会被防盗链拦截，必须先传到 mmbiz.qpic.cn 域。
+      //   单张图失败不阻塞整体发布——保留原 URL + 日志告警。
+      let contentForFill: SocialContent = content;
+      if (token && content.content) {
+        try {
+          const stats = await this.imageUploader.rewriteImagesInHtml(
+            page,
+            content.content,
+            token,
+          );
+          if (stats.rewritten !== content.content) {
+            contentForFill = { ...content, content: stats.rewritten };
+          }
+          this.logger.log(
+            `[image rewrite] uploaded=${stats.uploaded} failed=${stats.failed} skipped=${stats.skipped}`,
+          );
+        } catch (imgErr) {
+          this.logger.warn(
+            `[image rewrite] swallow error, fallback to original: ${(imgErr as Error).message}`,
+          );
+        }
+      }
+
+      // Step 7.5b: 上传封面图到素材库，拿 thumb_media_id
+      //   没有封面 → thumb_media_id="0"，feed 列表里没缩略图；可发但门面差。
+      //   上传失败 → 同样降级到 thumb_media_id="0"，不阻塞发布。
+      let cover: CoverUpload | null = null;
+      if (token && content.coverImageUrl) {
+        try {
+          cover = await this.imageUploader.uploadCover(
+            page,
+            content.coverImageUrl,
+            token,
+          );
+          if (cover) {
+            this.logger.log(
+              `[cover upload] success: mediaId=${cover.mediaId} cdnUrl=${cover.cdnUrl.slice(0, 80)}`,
+            );
+          } else {
+            this.logger.warn(
+              `[cover upload] failed, draft will save without cover (feed thumbnail will be empty)`,
+            );
+          }
+        } catch (coverErr) {
+          this.logger.warn(
+            `[cover upload] swallow error, no cover: ${(coverErr as Error).message}`,
+          );
+        }
+      }
+
       // Step 8: 填充内容（使用平台适配版本，无需截断）
       this.logger.log("Filling content...");
-      await this.fillContent(page, content);
+      await this.fillContent(page, contentForFill);
       this.logger.log("Content filled successfully");
 
-      // Step 9: 先保存草稿（确保内容持久化，防止群发失败丢失内容）
-      this.logger.log("Saving as draft first...");
-      // fillContent 时编辑器会发 pre_load_sentence/spellcheck 等带 fingerprint
-      // 的请求，已被 attachSniffer 抓住。若仍为空再等 2s 等慢请求漏网，
-      // saveDraftViaApi 内 fallback 链兜底（window.wx / inline script / outerHTML）。
+      // Step 9: 保存到公众号草稿箱（用户在公众号后台手动点击群发）
+      this.logger.log("Saving to draft box...");
       if (!sniffState.fingerprint) {
         this.logger.log(
           "[fingerprint sniff] not captured yet after fillContent, waiting 2s for late requests",
@@ -606,34 +658,15 @@ export class WechatAdapter {
       }
       const draftUrl = await this.saveDraft(
         page,
-        content,
+        contentForFill,
         sniffState.fingerprint,
+        cover,
       );
       this.logger.log(`Draft saved: ${draftUrl}`);
 
-      // Step 10: 群发 — 点击"群发"按钮实际发布文章
-      this.logger.log("Starting mass send (群发)...");
-      const publishResult = await this.massSend(page);
-
-      if (publishResult.success) {
-        this.logger.log(
-          `WeChat article published successfully: ${publishResult.externalUrl || draftUrl}`,
-        );
-        return {
-          success: true,
-          externalUrl: publishResult.externalUrl || draftUrl,
-          externalId: publishResult.externalId,
-        };
-      }
-
-      // 群发失败，但草稿已保存
-      this.logger.warn(
-        `Mass send failed: ${publishResult.errorMessage}. Draft was saved at: ${draftUrl}`,
-      );
       return {
-        success: false,
+        success: true,
         externalUrl: draftUrl,
-        errorMessage: `群发失败: ${publishResult.errorMessage}（草稿已保存，可在公众号后台手动群发）`,
       };
     } catch (error) {
       const err = error as Error;
@@ -1475,6 +1508,7 @@ export class WechatAdapter {
     page: Page,
     content: SocialContent,
     sniffedFingerprint: string,
+    cover: CoverUpload | null,
   ): Promise<string | null> {
     // 从当前 page URL 提取 token（fast-path 已 navigate 到 type=10 编辑器）
     const currentUrl = page.url();
@@ -1497,13 +1531,25 @@ export class WechatAdapter {
         digest: content.digest || "",
         content: content.content || "",
         sniffedFingerprint,
+        thumbMediaId: cover?.mediaId || "",
+        coverCdnUrl: cover?.cdnUrl || "",
       },
     );
 
     this.logger.log(
-      `[saveDraft API] status=${result.status} fingerprint=${result.fingerprint || "(none)"} source=${result.fpSource || "(none)"}`,
+      `[saveDraft API] status=${result.status} fingerprint=${redactToken(result.fingerprint)} source=${result.fpSource || "(none)"}`,
     );
-    this.logger.log(`[saveDraft API] attempts: ${result.bodyPreview}`);
+    // Reviewer 共识 C1：outerHTML 兜底是 32-hex 正则全文扫，可能扫到 nonce /
+    // CSS 哈希 / etag 等无关 hex 串，不一定是真 fingerprint。落到这一级时
+    // 显式 warn 提示后续如果 ret=200002 优先怀疑 fingerprint 错误。
+    if (result.fpSource === "outerHTML") {
+      this.logger.warn(
+        "[saveDraft API] fingerprint fallback hit outerHTML scan—value may be a random 32-hex (nonce/etag) rather than real fingerprint. If save fails ret=200002, this is the likely cause.",
+      );
+    }
+    this.logger.log(
+      `[saveDraft API] attempts: ${redactUrl(result.bodyPreview)}`,
+    );
 
     const json = result.json;
     const ret = json?.base_resp?.ret ?? json?.ret;
@@ -1525,6 +1571,7 @@ export class WechatAdapter {
     page: Page,
     content: SocialContent,
     sniffedFingerprint: string,
+    cover: CoverUpload | null,
   ): Promise<string> {
     // 2026-05-16: API 直发路径优先 —— 跳过 UI click 模拟，从 page 上下文里
     //   直接 fetch POST 到微信内部 save endpoint。基于 PR #94 的 POST 拦截
@@ -1541,6 +1588,7 @@ export class WechatAdapter {
         page,
         content,
         sniffedFingerprint,
+        cover,
       );
       if (apiUrl) {
         this.logger.log(`[saveDraft] API direct save succeeded: ${apiUrl}`);
@@ -2122,10 +2170,16 @@ export class WechatAdapter {
       }
     }
 
-    // 卸载 network 监听（不论成功/失败都要清理，避免后续 page 操作累积 handler）
+    // 卸载 network 监听（不论成功/失败都要清理，避免后续 page 操作累积 handler）。
+    // Reviewer 共识 Q1：之前漏掉了 request listener 的配对清理，每次 saveDraft
+    // 累积一个 request handler，长生命周期 page 上会泄漏 + 影响后续无关请求。
     page.off(
       "response",
       captureHandler as unknown as Parameters<typeof page.off>[1],
+    );
+    page.off(
+      "request",
+      requestHandler as unknown as Parameters<typeof page.off>[1],
     );
 
     // 最终验证
@@ -2142,359 +2196,5 @@ export class WechatAdapter {
     this.logger.log(`Draft saved successfully, URL: ${draftUrl}`);
     return draftUrl;
   }
-
-  private async massSendViaApi(page: Page): Promise<PublishResult> {
-    const url = page.url();
-    const t = url.match(/[?&]token=(\d+)/)?.[1];
-    const a = url.match(/[?&]appmsgid=(\d+)/)?.[1];
-    if (!t || !a)
-      return {
-        success: false,
-        errorMessage: `[massSend API] No token/appmsgid: ${url}`,
-      };
-    const result: MassSendApiResult = await page.evaluate(runMassSendAttempts, {
-      token: t,
-      appmsgid: a,
-    });
-    this.logger.log(
-      `[massSend API] attempts: ${JSON.stringify(result.attempts).slice(0, 1800)}`,
-    );
-    if (result.winning) {
-      return {
-        success: true,
-        externalUrl: `https://mp.weixin.qq.com/cgi-bin/appmsg?action=edit&appmsgid=${a}&token=${t}&lang=zh_CN`,
-        externalId: result.winning.msgDataId || a,
-      };
-    }
-    return {
-      success: false,
-      errorMessage: `API publish failed: ${result.attempts.map((x) => `${x.name}=${x.ret}(${x.err_msg || "?"})`).join("; ")}`,
-    };
-  }
-
-  /**
-   * 群发文章 — 在编辑器中点击"群发"按钮完成实际发布
-   *
-   * 微信公众号编辑器顶部通常有两个按钮：
-   * - "保存为草稿" (Save as draft)
-   * - "群发" / "发表" (Mass send / Publish)
-   *
-   * 点击"群发"后会弹出确认弹窗，需要再次点击确认。
-   */
-  private async massSend(page: Page): Promise<PublishResult> {
-    // PR #101: 优先 API 直发 (绕开 UI 发表按钮触发的"未授权切换账号" WeChat
-    // 客户端校验对话框，puppeteer stealth 无解)；失败回退 UI click。
-    try {
-      const apiResult = await this.massSendViaApi(page);
-      if (apiResult.success) {
-        this.logger.log(
-          `[massSend] API succeeded: ${JSON.stringify(apiResult)}`,
-        );
-        return apiResult;
-      }
-      this.logger.warn(
-        `[massSend] API failed, fall to UI: ${apiResult.errorMessage}`,
-      );
-    } catch (apiError) {
-      this.logger.warn(
-        `[massSend] API threw, fall to UI: ${(apiError as Error).message}`,
-      );
-    }
-
-    this.logger.log("Looking for mass send (群发) button...");
-
-    let sendClicked = false;
-
-    // 方法1: 按钮文本匹配 — 微信公众号编辑器群发按钮
-    const sendPattern = /^群发$|^发表$|^Send|^Publish/i;
-    try {
-      const buttons = await page.$$("button");
-      for (const btn of buttons) {
-        const text = await btn.evaluate(
-          (el: Element) => el.textContent?.trim() || "",
-        );
-        if (sendPattern.test(text)) {
-          this.logger.log(`Found send button with text: "${text}"`);
-          await btn.click();
-          sendClicked = true;
-          this.logger.log(`Send button clicked: "${text}"`);
-          break;
-        }
-      }
-    } catch (btnError) {
-      this.logger.warn(
-        `Button text search failed: ${(btnError as Error).message}`,
-      );
-    }
-
-    // 方法2: CSS 选择器匹配
-    if (!sendClicked) {
-      const sendSelectors = [
-        ".js_send",
-        '[class*="send"]',
-        ".js_publish",
-        '[class*="publish"]',
-      ];
-      for (const selector of sendSelectors) {
-        try {
-          const btn = await page.$(selector);
-          if (btn) {
-            const text = await btn.evaluate(
-              (el: Element) => el.textContent?.trim() || "",
-            );
-            // 排除"保存"相关按钮
-            if (/保存|save/i.test(text)) continue;
-            await btn.click();
-            sendClicked = true;
-            this.logger.log(
-              `Send button clicked with selector: ${selector}, text: "${text}"`,
-            );
-            break;
-          }
-        } catch {
-          continue;
-        }
-      }
-    }
-
-    // 方法3: 查找工具栏区域中非"保存"的主要按钮
-    if (!sendClicked) {
-      try {
-        const toolbarButtons = await page.$$(
-          ".editor-toolbar button, .appmsg_edit_area button, .tool_bar button, .weui-desktop-btn_primary",
-        );
-        for (const btn of toolbarButtons) {
-          const text = await btn.evaluate(
-            (el: Element) => el.textContent?.trim() || "",
-          );
-          if (
-            /群发|发表|Publish|Send/i.test(text) &&
-            !/保存|save/i.test(text)
-          ) {
-            await btn.click();
-            sendClicked = true;
-            this.logger.log(`Send button clicked from toolbar: "${text}"`);
-            break;
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    if (!sendClicked) {
-      // 记录所有可用按钮，方便调试
-      const allButtons = await page
-        .$$eval("button", (els: Element[]) =>
-          els.map((el) => ({
-            text: el.textContent?.trim().substring(0, 60),
-            class: el.className?.substring(0, 60),
-          })),
-        )
-        .catch(() => []);
-      this.logger.error(
-        `No send button found. Available buttons: ${JSON.stringify(allButtons)}`,
-      );
-      return {
-        success: false,
-        errorMessage: "找不到群发按钮，微信后台界面可能已更新",
-      };
-    }
-
-    // 等待确认弹窗出现
-    this.logger.log("Waiting for confirmation dialog...");
-    await delay(2000);
-
-    // 处理确认弹窗 — 微信群发通常有确认弹窗
-    let confirmed = false;
-    try {
-      // 查找弹窗中的确认按钮
-      const confirmPatterns = [
-        // weui 弹窗确认按钮
-        ".weui-desktop-dialog .weui-desktop-btn_primary",
-        ".weui-desktop-dialog__ft .weui-desktop-btn_primary",
-        // 通用确认按钮
-        '.weui-desktop-dialog button:not([class*="default"])',
-        ".dialog-footer .btn-primary",
-        ".modal-footer .btn-primary",
-      ];
-
-      for (const selector of confirmPatterns) {
-        try {
-          const confirmBtn = await page.$(selector);
-          if (confirmBtn) {
-            const text = await confirmBtn.evaluate(
-              (el: Element) => el.textContent?.trim() || "",
-            );
-            this.logger.log(
-              `Found confirm button: "${text}" (selector: ${selector})`,
-            );
-            // 确保是确认按钮，不是取消
-            if (/确定|确认|发送|群发|OK|Confirm|Send/i.test(text)) {
-              await confirmBtn.click();
-              confirmed = true;
-              this.logger.log(`Confirmation clicked: "${text}"`);
-              break;
-            }
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      // 如果通过选择器没找到，尝试按文本搜索弹窗内按钮
-      if (!confirmed) {
-        const dialogButtons = await page.$$(
-          ".weui-desktop-dialog button, .modal button, [role='dialog'] button",
-        );
-        for (const btn of dialogButtons) {
-          const text = await btn.evaluate(
-            (el: Element) => el.textContent?.trim() || "",
-          );
-          if (/确定|确认|发送|群发|OK|Confirm/i.test(text)) {
-            await btn.click();
-            confirmed = true;
-            this.logger.log(`Confirmation clicked via text search: "${text}"`);
-            break;
-          }
-        }
-      }
-    } catch (confirmError) {
-      this.logger.warn(
-        `Confirm dialog handling: ${(confirmError as Error).message}`,
-      );
-    }
-
-    // 有些情况下没有确认弹窗（如果点击群发直接发送了）
-    if (!confirmed) {
-      this.logger.log(
-        "No confirmation dialog found — send may have been triggered directly",
-      );
-    }
-
-    // 等待群发 API 响应
-    this.logger.log("Waiting for mass send API response...");
-    let sendSucceeded = false;
-    let externalUrl: string | undefined;
-
-    try {
-      const sendResponse = await page.waitForResponse(
-        (response: { url: () => string; status: () => number }) => {
-          const url = response.url();
-          if (response.status() !== 200) return false;
-          // 群发 API 匹配：
-          // - /cgi-bin/masssend (群发接口)
-          // - operate_appmsg?...sub=submit (提交群发)
-          // - /cgi-bin/freepublish/submit (发表接口)
-          return (
-            url.includes("masssend") ||
-            url.includes("freepublish") ||
-            (url.includes("operate_appmsg") && url.includes("sub=submit"))
-          );
-        },
-        { timeout: 30000 },
-      );
-
-      this.logger.log(`Got send response from: ${sendResponse.url()}`);
-
-      try {
-        const responseBody = await sendResponse.json();
-        this.logger.log(`Send response body: ${JSON.stringify(responseBody)}`);
-
-        if (responseBody.base_resp?.ret === 0 || responseBody.ret === 0) {
-          sendSucceeded = true;
-          // 尝试提取发布后的文章链接
-          externalUrl =
-            responseBody.url || responseBody.link || responseBody.article_url;
-          this.logger.log("Mass send API returned success (ret=0)");
-        } else if (responseBody.errcode === 0 || responseBody.errmsg === "ok") {
-          sendSucceeded = true;
-          this.logger.log("Mass send API returned success (errcode=0)");
-        } else {
-          const errMsg =
-            responseBody.base_resp?.err_msg ||
-            responseBody.errmsg ||
-            JSON.stringify(responseBody);
-          this.logger.error(`Mass send API returned error: ${errMsg}`);
-          return { success: false, errorMessage: errMsg };
-        }
-      } catch (parseError) {
-        this.logger.warn(
-          `Could not parse send response: ${(parseError as Error).message}`,
-        );
-      }
-    } catch (waitError) {
-      this.logger.warn(`Send response wait: ${(waitError as Error).message}`);
-    }
-
-    // 如果没有通过 API 验证，通过 UI 状态判断
-    if (!sendSucceeded) {
-      await delay(3000);
-
-      // 检查成功提示
-      try {
-        const toast = await page.$(".weui-desktop-toast__content");
-        if (toast) {
-          const toastText = await toast.evaluate(
-            (el: Element) => el.textContent || "",
-          );
-          this.logger.log(`Toast after send: "${toastText}"`);
-          if (
-            toastText.includes("成功") ||
-            toastText.includes("已群发") ||
-            toastText.includes("已发表")
-          ) {
-            sendSucceeded = true;
-          }
-        }
-      } catch {
-        // ignore
-      }
-
-      // 检查是否跳转到了已发表/已群发页面
-      const currentUrl = page.url();
-      this.logger.log(`URL after send: ${currentUrl}`);
-      if (
-        currentUrl.includes("appmsg_publish") ||
-        currentUrl.includes("masssend") ||
-        currentUrl.includes("published")
-      ) {
-        sendSucceeded = true;
-      }
-
-      // 检查是否出现错误弹窗
-      try {
-        const errorDialog = await page.$(".weui-desktop-dialog__bd");
-        if (errorDialog) {
-          const errorText = await errorDialog.evaluate(
-            (el: Element) => el.textContent?.trim() || "",
-          );
-          if (
-            errorText &&
-            !errorText.includes("成功") &&
-            errorText.length > 5
-          ) {
-            this.logger.error(`Error dialog after send: "${errorText}"`);
-            await this.captureDebugInfo(page, "mass_send_error_dialog");
-            return { success: false, errorMessage: errorText };
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    if (!sendSucceeded) {
-      await this.captureDebugInfo(page, "mass_send_unverified");
-      return {
-        success: false,
-        errorMessage: "群发操作已执行但未能确认成功，请登录公众号后台检查",
-      };
-    }
-
-    return {
-      success: true,
-      externalUrl,
-    };
-  }
 }
+

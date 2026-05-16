@@ -8,6 +8,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { WechatAdapter } from "../wechat.adapter";
 import { SocialBrowserService } from "../../services/social-browser.service";
+import { WechatImageUploaderService } from "../../services/wechat-image-uploader.service";
 import {
   SocialContent,
   SocialPlatformConnection,
@@ -204,6 +205,20 @@ describe("WechatAdapter", () => {
       providers: [
         WechatAdapter,
         { provide: SocialBrowserService, useValue: playwrightServiceMock },
+        {
+          provide: WechatImageUploaderService,
+          useValue: {
+            rewriteImagesInHtml: jest
+              .fn()
+              .mockImplementation(async (_p, html: string) => ({
+                rewritten: html,
+                uploaded: 0,
+                failed: 0,
+                skipped: 0,
+              })),
+            uploadCover: jest.fn().mockResolvedValue(null),
+          },
+        },
       ],
     }).compile();
 

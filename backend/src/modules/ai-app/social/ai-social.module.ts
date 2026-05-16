@@ -16,6 +16,7 @@ import { WechatAdapter } from "./adapters/wechat.adapter";
 import { XhsMcpAdapter } from "./adapters/xiaohongshu.adapter";
 import { MCPClientService } from "./core/mcp-client.service";
 import { WechatArticleFormatterService } from "./services/wechat-article-formatter.service";
+import { WechatImageUploaderService } from "./services/wechat-image-uploader.service";
 import { SocialPublishAdapter } from "./engine-bridge/social-publish.adapter";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { CacheModule } from "../../../common/cache/cache.module";
@@ -55,6 +56,7 @@ import { initSessionCrypto } from "./utils/session-crypto";
     // ★ MCP Client Service (refactored to use MCPManager)
     MCPClientService,
     WechatArticleFormatterService,
+    WechatImageUploaderService,
     // ★ engine 反转端口实现 —— 让 ai-engine 工具（wechat-mp-publish / xhs-publish /
     //   social-publish-status）可委托社交发布到本模块的 PublishExecutor
     SocialPublishAdapter,
