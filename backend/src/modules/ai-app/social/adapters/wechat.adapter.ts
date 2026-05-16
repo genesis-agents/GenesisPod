@@ -5,6 +5,10 @@ import { PublishResult } from "../services/publish-executor.service";
 import { SocialContent, SocialPlatformConnection } from "../types";
 import { decryptSession } from "../utils/session-crypto";
 import { SessionData } from "../types/platform.types";
+import {
+  runSaveDraftAttempts,
+  type SaveDraftApiResult,
+} from "./wechat-save-draft.helper";
 
 /** Puppeteer-compatible delay helper (replaces Playwright's page.waitForTimeout) */
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -1397,163 +1401,11 @@ export class WechatAdapter {
     }
     const token = tokenMatch[1];
 
-    // 在浏览器上下文里发起 POST，自动复用 cookies + Origin / Referer
-    const result: {
-      status: number;
-      fingerprint: string;
-      fpSource: string;
-      bodyPreview: string;
-      json: {
-        base_resp?: { ret?: number; err_msg?: string };
-        ret?: number;
-        appMsgId?: number | string;
-      } | null;
-    } = await page.evaluate(
-      async (params: {
-        token: string;
-        title: string;
-        author: string;
-        digest: string;
-        content: string;
-        sniffedFingerprint: string;
-      }) => {
-        // 1. fingerprint 来源优先级：
-        //    a) sniffed (从 publish() 顶部安装的 page.on('request') 真鼠标侧
-        //       拦截到的微信自身出站请求里抓到的 32-hex)
-        //    b) window.wx.commonData.fingerprint / .t
-        //    c) inline script 扫描
-        //    d) 整页 HTML 全文匹配 /["']([a-f0-9]{32})["']/ 兜底
-        let fingerprint = params.sniffedFingerprint || "";
-        let fpSource = fingerprint ? "sniffed" : "";
-
-        if (!fingerprint) {
-          const wx = (
-            window as unknown as {
-              wx?: {
-                fp?: { t?: string } | string;
-                commonData?: { fingerprint?: string; t?: string };
-              };
-              cgiData?: { fingerprint?: string; t?: string };
-            }
-          ).wx;
-          if (wx?.commonData?.fingerprint) {
-            fingerprint = wx.commonData.fingerprint;
-            fpSource = "window.wx.commonData.fingerprint";
-          } else if (wx?.commonData?.t) {
-            fingerprint = wx.commonData.t;
-            fpSource = "window.wx.commonData.t";
-          } else if (typeof wx?.fp === "string") {
-            fingerprint = wx.fp;
-            fpSource = "window.wx.fp(string)";
-          } else if (
-            typeof wx?.fp === "object" &&
-            wx.fp !== null &&
-            "t" in wx.fp
-          ) {
-            fingerprint = wx.fp.t || "";
-            fpSource = "window.wx.fp.t";
-          }
-        }
-
-        if (!fingerprint) {
-          const cgiData = (
-            window as unknown as {
-              cgiData?: { fingerprint?: string; t?: string };
-            }
-          ).cgiData;
-          if (cgiData?.fingerprint) {
-            fingerprint = cgiData.fingerprint;
-            fpSource = "window.cgiData.fingerprint";
-          } else if (cgiData?.t) {
-            fingerprint = cgiData.t;
-            fpSource = "window.cgiData.t";
-          }
-        }
-
-        if (!fingerprint) {
-          // 扫描 inline script 找 fingerprint:"abc" 或 t:"abc"
-          const scripts = Array.from(document.scripts);
-          for (const s of scripts) {
-            const m = s.textContent?.match(
-              /(?:fingerprint|"t"|'t'|\bt)["':\s]+["']([a-f0-9]{32})["']/,
-            );
-            if (m) {
-              fingerprint = m[1];
-              fpSource = "inline-script";
-              break;
-            }
-          }
-        }
-
-        if (!fingerprint) {
-          // 最后兜底：整页 outerHTML 全文搜任意 32-hex 字符串
-          const html = document.documentElement.outerHTML;
-          const m = html.match(/["']([a-f0-9]{32})["']/);
-          if (m) {
-            fingerprint = m[1];
-            fpSource = "outerHTML";
-          }
-        }
-
-        // 2. 构造 form body —— PR #96 实测 "title0/content0/AppMsgId/count" 旧多图文
-        //    schema 触发 ret=444002 "旧版图文素材不可再保存"。换用 pre_load_sentence
-        //    捕获的新单图文 schema：无 "0" 后缀、appmsgid 数字、index=0、加 type=10。
-        const body = new URLSearchParams({
-          token: params.token,
-          lang: "zh_CN",
-          f: "json",
-          ajax: "1",
-          random: Math.random().toString(),
-          appmsgid: "0",
-          index: "0",
-          type: "10",
-          title: params.title,
-          author: params.author,
-          digest: params.digest,
-          content: params.content,
-          sourceurl: "",
-          fileid: "",
-          cdn_url_1_1: "",
-          show_cover_pic: "0",
-          need_open_comment: "1",
-          only_fans_can_comment: "0",
-          ad_type: "0",
-          copyright_type: "0",
-          can_reward: "0",
-          can_open_reward: "0",
-          fingerprint,
-        });
-
-        // 3. fetch —— 浏览器自动包含 mp.weixin cookies + 设置 Origin / Referer
-        const endpoint = `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&token=${params.token}&lang=zh_CN`;
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-            "X-Requested-With": "XMLHttpRequest",
-          },
-          body: body.toString(),
-          credentials: "include",
-        });
-        const text = await res.text();
-        let json: {
-          base_resp?: { ret?: number; err_msg?: string };
-          ret?: number;
-          appMsgId?: number | string;
-        } | null = null;
-        try {
-          json = JSON.parse(text);
-        } catch {
-          // not JSON — 可能 HTML 错误页
-        }
-        return {
-          status: res.status,
-          fingerprint,
-          fpSource,
-          bodyPreview: text.slice(0, 600),
-          json,
-        };
-      },
+    // 在浏览器上下文里发起 POST，自动复用 cookies + Origin / Referer。
+    //   多 schema 尝试 + fingerprint fallback 链已抽到 wechat-save-draft.helper.ts
+    //   以避免 god-class size guard 拒推（>2500 行单次 +50 行）。
+    const result: SaveDraftApiResult = await page.evaluate(
+      runSaveDraftAttempts,
       {
         token,
         title: content.title || "",
@@ -1567,7 +1419,7 @@ export class WechatAdapter {
     this.logger.log(
       `[saveDraft API] status=${result.status} fingerprint=${result.fingerprint || "(none)"} source=${result.fpSource || "(none)"}`,
     );
-    this.logger.log(`[saveDraft API] body preview: ${result.bodyPreview}`);
+    this.logger.log(`[saveDraft API] attempts: ${result.bodyPreview}`);
 
     const json = result.json;
     const ret = json?.base_resp?.ret ?? json?.ret;
@@ -1665,7 +1517,11 @@ export class WechatAdapter {
       const url = request.url();
       if (method === "GET" || method === "OPTIONS") return;
       if (!/mp\.weixin\.qq\.com/.test(url)) return;
-      const body = (request.postData?.() ?? "").slice(0, 800);
+      // 2026-05-16 PR #99: bump 800→3500 chars。PR #98 实测 WeChat 把它
+      //   自己的 mplog 内部 trace（"this is fail save path + terminal three:
+      //   postDataReturnFun" 等）发到 /advanced/mplog?action=up，body 含
+      //   urlencoded JSON 嵌套 JSON，800 chars 切到中间就乱码看不出 root cause。
+      const body = (request.postData?.() ?? "").slice(0, 3500);
       capturedPosts.push({ method, url, body });
     };
     page.on(
@@ -2092,6 +1948,40 @@ export class WechatAdapter {
           this.logger.warn(
             `  POST[${i}] ${p.method} ${p.url} body=${p.body || "(empty)"}`,
           );
+          // 2026-05-16 PR #99: mplog 内是 WeChat 编辑器自己的内部 trace。
+          //   PR #98 实测看到 "this is fail save path + terminal three:
+          //   postDataReturnFun" + "the first step: click 保存为草..."
+          //   → click 真到了，但 WeChat 本地校验 postDataReturnFun 失败终止。
+          //   解码出 msg / description 字段单独打 log 才能看到完整 trace。
+          if (/mplog\?action=up/.test(p.url) && p.body) {
+            try {
+              const params = new URLSearchParams(p.body);
+              const logParam = params.get("log");
+              if (logParam) {
+                const outer = JSON.parse(logParam) as {
+                  data?: Array<{ data?: string }>;
+                };
+                const innerStr = outer?.data?.[0]?.data;
+                if (typeof innerStr === "string") {
+                  const inner = JSON.parse(innerStr) as {
+                    description?: string;
+                    msg?: string;
+                  };
+                  this.logger.warn(
+                    `    ↳ mplog description=${inner.description || "(none)"}`,
+                  );
+                  if (inner.msg) {
+                    const msgPreview = String(inner.msg).slice(0, 1500);
+                    this.logger.warn(`    ↳ mplog msg=${msgPreview}`);
+                  }
+                }
+              }
+            } catch (decodeErr) {
+              this.logger.warn(
+                `    ↳ mplog decode failed: ${(decodeErr as Error).message}`,
+              );
+            }
+          }
         });
       } else {
         this.logger.warn(
