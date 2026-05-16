@@ -114,6 +114,8 @@ function makeMockPage() {
       down: jest.fn().mockResolvedValue(undefined),
       up: jest.fn().mockResolvedValue(undefined),
     },
+    on: jest.fn(),
+    off: jest.fn(),
   };
 
   return { page, mockContext, mockBrowser };
