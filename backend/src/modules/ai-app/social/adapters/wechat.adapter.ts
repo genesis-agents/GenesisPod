@@ -543,7 +543,7 @@ export class WechatAdapter {
 
       // Step 9: 先保存草稿（确保内容持久化，防止群发失败丢失内容）
       this.logger.log("Saving as draft first...");
-      const draftUrl = await this.saveDraft(page);
+      const draftUrl = await this.saveDraft(page, content);
       this.logger.log(`Draft saved: ${draftUrl}`);
 
       // Step 10: 群发 — 点击"群发"按钮实际发布文章
@@ -1318,7 +1318,192 @@ export class WechatAdapter {
     }
   }
 
-  private async saveDraft(page: Page): Promise<string> {
+  /**
+   * 2026-05-16: 通过 page.evaluate(fetch) 在浏览器上下文直接 POST 到
+   * `/cgi-bin/operate_appmsg?sub=create`，绕开 UI click。浏览器自动带
+   * 当前 session cookies + Origin + Referer，对 WeChat 后端跟用户手动点击
+   * 的请求 indistinguishable，理论上 100% 等价于真人保存。
+   *
+   * 返回 V1 编辑器 URL（含 appmsgid）表示成功；null 表示需要回退 UI click。
+   */
+  private async saveDraftViaApi(
+    page: Page,
+    content: SocialContent,
+  ): Promise<string | null> {
+    // 从当前 page URL 提取 token（fast-path 已 navigate 到 type=10 编辑器）
+    const currentUrl = page.url();
+    const tokenMatch = currentUrl.match(/[?&]token=(\d+)/);
+    if (!tokenMatch) {
+      this.logger.warn("[saveDraft API] No token in page URL, skip API path");
+      return null;
+    }
+    const token = tokenMatch[1];
+
+    // 在浏览器上下文里发起 POST，自动复用 cookies + Origin / Referer
+    const result: {
+      status: number;
+      fingerprint: string;
+      bodyPreview: string;
+      json: {
+        base_resp?: { ret?: number; err_msg?: string };
+        ret?: number;
+        appMsgId?: number | string;
+      } | null;
+    } = await page.evaluate(
+      async (params: {
+        token: string;
+        title: string;
+        author: string;
+        digest: string;
+        content: string;
+      }) => {
+        // 1. 提取 fingerprint —— 微信编辑器把它放在 window.wx 或 inline script
+        const wx = (
+          window as unknown as {
+            wx?: {
+              fp?: { t?: string } | string;
+              commonData?: { fingerprint?: string; t?: string };
+            };
+          }
+        ).wx;
+        let fingerprint = "";
+        if (wx?.commonData?.fingerprint) {
+          fingerprint = wx.commonData.fingerprint;
+        } else if (wx?.commonData?.t) {
+          fingerprint = wx.commonData.t;
+        } else if (typeof wx?.fp === "string") {
+          fingerprint = wx.fp;
+        } else if (
+          typeof wx?.fp === "object" &&
+          wx.fp !== null &&
+          "t" in wx.fp
+        ) {
+          fingerprint = wx.fp.t || "";
+        }
+        if (!fingerprint) {
+          // fallback: 扫描 inline script 找 32-char hex hash
+          const scripts = Array.from(document.scripts);
+          for (const s of scripts) {
+            const m = s.textContent?.match(
+              /fingerprint["':\s]+["']([a-f0-9]{32})["']/,
+            );
+            if (m) {
+              fingerprint = m[1];
+              break;
+            }
+          }
+        }
+
+        // 2. 构造 form body —— 字段名按 PR #94 拦截到的 pre_load_sentence 同源
+        //    schema（同 controller，仅 sub 不同）+ 社区通用 save_draft 字段
+        const body = new URLSearchParams({
+          token: params.token,
+          lang: "zh_CN",
+          f: "json",
+          ajax: "1",
+          random: Math.random().toString(),
+          AppMsgId: "",
+          count: "1",
+          title0: params.title,
+          author0: params.author,
+          digest0: params.digest,
+          content0: params.content,
+          sourceurl0: "",
+          fileid0: "",
+          cdn_url0_1_1: "",
+          show_cover_pic0: "0",
+          need_open_comment0: "1",
+          only_fans_can_comment0: "0",
+          ad_type: "0",
+          copyright_type: "0",
+          can_reward0: "0",
+          can_open_reward0: "0",
+          fingerprint,
+        });
+
+        // 3. fetch —— 浏览器自动包含 mp.weixin cookies + 设置 Origin / Referer
+        const endpoint = `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&token=${params.token}&lang=zh_CN`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          body: body.toString(),
+          credentials: "include",
+        });
+        const text = await res.text();
+        let json: {
+          base_resp?: { ret?: number; err_msg?: string };
+          ret?: number;
+          appMsgId?: number | string;
+        } | null = null;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          // not JSON — 可能 HTML 错误页
+        }
+        return {
+          status: res.status,
+          fingerprint,
+          bodyPreview: text.slice(0, 600),
+          json,
+        };
+      },
+      {
+        token,
+        title: content.title || "",
+        author: content.author || "系统",
+        digest: content.digest || "",
+        content: content.content || "",
+      },
+    );
+
+    this.logger.log(
+      `[saveDraft API] status=${result.status} fingerprint=${result.fingerprint || "(none)"}`,
+    );
+    this.logger.log(`[saveDraft API] body preview: ${result.bodyPreview}`);
+
+    const json = result.json;
+    const ret = json?.base_resp?.ret ?? json?.ret;
+    const appMsgId = json?.appMsgId;
+
+    if (ret === 0 && appMsgId) {
+      return `https://mp.weixin.qq.com/cgi-bin/appmsg?action=edit&appmsgid=${appMsgId}&token=${token}&lang=zh_CN`;
+    }
+
+    if (json?.base_resp?.err_msg) {
+      this.logger.warn(
+        `[saveDraft API] WeChat returned err_msg=${json.base_resp.err_msg}`,
+      );
+    }
+    return null;
+  }
+
+  private async saveDraft(page: Page, content: SocialContent): Promise<string> {
+    // 2026-05-16: API 直发路径优先 —— 跳过 UI click 模拟，从 page 上下文里
+    //   直接 fetch POST 到微信内部 save endpoint。基于 PR #94 的 POST 拦截
+    //   ground truth：endpoint `/cgi-bin/operate_appmsg?t=ajax-response&sub=create`
+    //   schema（从同源 pre_load_sentence body 反推）：token / lang / f /
+    //   ajax / fingerprint / random / AppMsgId='' / count=1 / title0 /
+    //   author0 / digest0 / content0 / show_cover_pic0=0 / need_open_comment0=1
+    //   / copyright_type=0。绕开 click 反爬 / React state / DOM 操作问题。
+    //   API 失败回退原 UI click 路径（PR #87~#94 累积的 3 method 兜底）。
+    try {
+      const apiUrl = await this.saveDraftViaApi(page, content);
+      if (apiUrl) {
+        this.logger.log(`[saveDraft] API direct save succeeded: ${apiUrl}`);
+        return apiUrl;
+      }
+      this.logger.warn(
+        "[saveDraft] API direct returned no appMsgId, falling to UI click",
+      );
+    } catch (apiError) {
+      this.logger.warn(
+        `[saveDraft] API direct threw, falling to UI click: ${(apiError as Error).message}`,
+      );
+    }
+
     this.logger.log("Looking for save button...");
 
     // 2026-05-15: 用户在 prod 真复现 saveDraft 30s timeout 后，发现现有 matcher
