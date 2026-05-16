@@ -10191,6 +10191,9 @@ enum RadarSourceHealth {
   FAILING
 }
 
+/// @deprecated 2026-05-16: RadarRun.status 已改 VarChar(20) 走 mission lifecycle 标准
+/// （running/completed/failed/cancelled/rejected）。保留 enum 仅为迁移期间 prisma generate
+/// 不炸；后续 PR 内确认 0 引用后整体删除。
 enum RadarRunStatus {
   PENDING
   RUNNING
@@ -10331,23 +10334,47 @@ model RadarInsight {
 }
 
 /// 一次刷新运行记录（参考 AgentPlaygroundMission 的轻量版）
+/// RadarRun 升级为 mission table（2026-05-16 彻底重构后）：
+/// 完整对齐 ai-harness/teams/business-team mission lifecycle 框架要求。
+/// status 改 VarChar(20)（running/completed/failed/cancelled/rejected），不再用 RadarRunStatus enum。
+/// 加 mission lifecycle 必备字段：userId（billing/heartbeat）/ heartbeatAt（liveness guard）/
+///   podId（防 zombie）/ lastCompletedStage（resume 入口）/ wallTimeMs / maxCredits / payload。
 model RadarRun {
-  id          String          @id @default(uuid())
-  topicId     String          @map("topic_id")
-  topic       RadarTopic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  status      RadarRunStatus  @default(PENDING)
+  id          String     @id @default(uuid())
+  topicId     String     @map("topic_id")
+  topic       RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  /// mission row 必备：userId 让 billing / heartbeat / liveness 能锚定
+  userId      String     @map("user_id")
+  workspaceId String?    @map("workspace_id")
+
+  /// 状态（mission lifecycle 标准 5 态，VarChar 避免 enum 升级痛苦）
+  status      String     @db.VarChar(20) // running / completed / failed / cancelled / rejected
   trigger     RadarRunTrigger
-  startedAt   DateTime?       @map("started_at")
-  completedAt DateTime?       @map("completed_at")
-  /// 总耗时 ms
-  durationMs  Int?            @map("duration_ms")
-  /// {fetched,deduped,scored,accepted,llmCost}
-  metrics     Json?
-  error       String?         @db.Text
-  createdAt   DateTime        @default(now()) @map("created_at")
+  startedAt   DateTime?  @map("started_at")
+  completedAt DateTime?  @map("completed_at")
+  /// 总耗时 ms（mission level wall clock）
+  durationMs  Int?       @map("duration_ms")
+  wallTimeMs  Int?       @map("wall_time_ms")
+
+  /// Mission 输入快照（业务方决定 schema，runtime-shell.createMissionRow 写入）
+  maxCredits  Int        @default(50) @map("max_credits")
+  payload     Json?
+
+  /// Mission resume 入口 + liveness guard 信号
+  heartbeatAt        DateTime? @map("heartbeat_at")
+  podId              String?   @map("pod_id") @db.VarChar(64)
+  lastCompletedStage Int?      @map("last_completed_stage")
+
+  /// {fetched,deduped,scored,accepted,llmCost,...} —— 由 dispatcher / persist stage 累计
+  metrics    Json?
+  /// pipeline / orchestrator throw 时的 error message（mission 终态填充）
+  error      String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([topicId, startedAt(sort: Desc)])
   @@index([status, startedAt])
+  /// liveness-guard 扫描索引（status=running + heartbeatAt stale 判 zombie）
+  @@index([status, heartbeatAt])
   @@map("radar_runs")
 }
 

@@ -213,6 +213,11 @@ export class RadarCollectService {
    *
    * @throws ConflictException 已有 inflight 或刚完成的 run
    */
+  /**
+   * @deprecated 即将整体删除（彻底重构走 RadarPipelineDispatcher + RadarMissionStore）。
+   * 临时保留是为了让 controller / scheduler / module 的中间状态编译通过；
+   * Phase 5/6/7 完成后整体删除此 service。
+   */
   private async acquireRunSlot(
     topicId: string,
     trigger: RadarRunTrigger,
@@ -220,11 +225,17 @@ export class RadarCollectService {
   ): Promise<RadarRun> {
     const dedupMs = (dedupSeconds ?? 5) * 1000;
     const dedupSince = new Date(Date.now() - dedupMs);
+    // 重构期间补 userId 占位（即将删除），从 topic 反查
+    const topic = await this.prisma.radarTopic.findUnique({
+      where: { id: topicId },
+      select: { userId: true },
+    });
+    if (!topic) throw new ConflictException("topic 不存在");
     return this.prisma.$transaction(async (tx) => {
       const inflight = await tx.radarRun.findFirst({
         where: {
           topicId,
-          status: { in: [RadarRunStatus.PENDING, RadarRunStatus.RUNNING] },
+          status: "running",
         },
         select: { id: true, status: true },
       });
@@ -255,8 +266,9 @@ export class RadarCollectService {
       return tx.radarRun.create({
         data: {
           topicId,
+          userId: topic.userId,
           trigger,
-          status: RadarRunStatus.RUNNING,
+          status: "running",
           startedAt: new Date(),
         },
       });
