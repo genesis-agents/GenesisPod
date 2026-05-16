@@ -9,6 +9,10 @@ import {
   runSaveDraftAttempts,
   type SaveDraftApiResult,
 } from "./wechat-save-draft.helper";
+import {
+  runMassSendAttempts,
+  type MassSendApiResult,
+} from "./wechat-mass-send.helper";
 
 /** Puppeteer-compatible delay helper (replaces Playwright's page.waitForTimeout) */
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -2139,6 +2143,35 @@ export class WechatAdapter {
     return draftUrl;
   }
 
+  private async massSendViaApi(page: Page): Promise<PublishResult> {
+    const url = page.url();
+    const t = url.match(/[?&]token=(\d+)/)?.[1];
+    const a = url.match(/[?&]appmsgid=(\d+)/)?.[1];
+    if (!t || !a)
+      return {
+        success: false,
+        errorMessage: `[massSend API] No token/appmsgid: ${url}`,
+      };
+    const result: MassSendApiResult = await page.evaluate(runMassSendAttempts, {
+      token: t,
+      appmsgid: a,
+    });
+    this.logger.log(
+      `[massSend API] attempts: ${JSON.stringify(result.attempts).slice(0, 1800)}`,
+    );
+    if (result.winning) {
+      return {
+        success: true,
+        externalUrl: `https://mp.weixin.qq.com/cgi-bin/appmsg?action=edit&appmsgid=${a}&token=${t}&lang=zh_CN`,
+        externalId: result.winning.msgDataId || a,
+      };
+    }
+    return {
+      success: false,
+      errorMessage: `API publish failed: ${result.attempts.map((x) => `${x.name}=${x.ret}(${x.err_msg || "?"})`).join("; ")}`,
+    };
+  }
+
   /**
    * 群发文章 — 在编辑器中点击"群发"按钮完成实际发布
    *
@@ -2149,6 +2182,25 @@ export class WechatAdapter {
    * 点击"群发"后会弹出确认弹窗，需要再次点击确认。
    */
   private async massSend(page: Page): Promise<PublishResult> {
+    // PR #101: 优先 API 直发 (绕开 UI 发表按钮触发的"未授权切换账号" WeChat
+    // 客户端校验对话框，puppeteer stealth 无解)；失败回退 UI click。
+    try {
+      const apiResult = await this.massSendViaApi(page);
+      if (apiResult.success) {
+        this.logger.log(
+          `[massSend] API succeeded: ${JSON.stringify(apiResult)}`,
+        );
+        return apiResult;
+      }
+      this.logger.warn(
+        `[massSend] API failed, fall to UI: ${apiResult.errorMessage}`,
+      );
+    } catch (apiError) {
+      this.logger.warn(
+        `[massSend] API threw, fall to UI: ${(apiError as Error).message}`,
+      );
+    }
+
     this.logger.log("Looking for mass send (群发) button...");
 
     let sendClicked = false;
