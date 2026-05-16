@@ -346,13 +346,14 @@ function CreateSocialContentForm() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1">
-      {/* Left sidebar - Step navigation */}
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Top stepper — 2026-05-16 W1：从左侧 w-72 sidebar 改为顶部 horizontal stepper
+       * 对齐 agent-playground 的 Mission pipeline 视觉风格 */}
       <StepNavigation onSaveDraft={handleSaveDraft} onPublish={handlePublish} />
 
-      {/* Main content area */}
+      {/* Main content area — 全宽展示当前 step */}
       <div className="flex-1 overflow-auto bg-gray-50">
-        <div className="mx-auto min-h-full max-w-3xl p-8">
+        <div className="mx-auto min-h-full max-w-4xl p-8">
           {renderStepContent()}
         </div>
       </div>

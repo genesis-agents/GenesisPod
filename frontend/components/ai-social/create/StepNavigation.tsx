@@ -18,6 +18,12 @@ interface StepNavigationProps {
   onPublish: () => void;
 }
 
+/**
+ * 2026-05-16 重构：从左侧 w-72 sidebar 改为顶部 horizontal stepper，对齐
+ * agent-playground 的 Mission pipeline 视觉形态（顶部 stepper + 下方全宽主体）。
+ *
+ * Props interface 保持不变（onSaveDraft / onPublish），page 层无需大改。
+ */
 export function StepNavigation({
   onSaveDraft,
   onPublish,
@@ -97,141 +103,138 @@ export function StepNavigation({
   const isStepActive = (step: CreateStep) => currentStep === step;
   const isStepAccessible = (step: CreateStep) => canGoToStep(step);
   const isLoading = isSaving || isPublishing || isProcessing;
+  const canPublishOrSave = isSeriesMode
+    ? seriesParts.length > 0
+    : !!title && !!content;
 
   return (
-    <div className="flex h-full w-72 flex-col border-r border-gray-200 bg-white">
-      {/* Header */}
-      <div className="border-b border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900">
-          {t('aiSocial.create.title')}
-        </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {t('aiSocial.create.stepsHint') || 'Complete the steps below'}
-        </p>
-      </div>
+    <div className="sticky top-0 z-10 border-b border-gray-200 bg-white">
+      <div className="mx-auto max-w-6xl px-6 py-4">
+        {/* Top row: title + action buttons */}
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {t('aiSocial.create.title')}
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500">
+              {t('aiSocial.create.stepsHint') || 'Complete the steps below'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onSaveDraft}
+              disabled={isLoading || !canPublishOrSave}
+              className="flex items-center gap-2 rounded-lg border border-rose-200 px-4 py-2 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {isSeriesMode
+                ? t('aiSocial.series.saveAll') || 'Save all'
+                : t('aiSocial.create.saveDraft')}
+            </button>
+            <button
+              onClick={onPublish}
+              disabled={isLoading || !canPublishOrSave}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2 text-sm font-medium text-white transition-all hover:from-rose-600 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isPublishing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {isSeriesMode
+                ? t('aiSocial.series.saveAndPublish') || 'Save & list'
+                : t('aiSocial.create.publish')}
+            </button>
+          </div>
+        </div>
 
-      {/* Steps */}
-      <div className="flex-1 overflow-auto p-4">
-        <div className="space-y-2">
+        {/* Horizontal stepper row */}
+        <div className="flex items-center">
           {steps.map((item, index) => {
             const Icon = item.icon;
             const isCompleted = isStepCompleted(item.step);
             const isActive = isStepActive(item.step);
             const isAccessible = isStepAccessible(item.step);
             const value = item.getValue();
+            const isLast = index === steps.length - 1;
 
             return (
-              <button
+              <div
                 key={item.step}
-                onClick={() => isAccessible && setStep(item.step)}
-                disabled={!isAccessible || isLoading}
-                className={`group relative w-full rounded-xl p-4 text-left transition-all ${
-                  isActive
-                    ? 'bg-gradient-to-r from-rose-50 to-pink-50 ring-2 ring-rose-500'
-                    : isCompleted
-                      ? 'bg-emerald-50 hover:bg-emerald-100'
-                      : isAccessible
-                        ? 'bg-gray-50 hover:bg-gray-100'
-                        : 'cursor-not-allowed bg-gray-50 opacity-50'
-                }`}
+                className="flex flex-1 items-center last:flex-initial"
               >
-                {/* Step number indicator */}
-                <div className="flex items-start gap-3">
+                {/* Step node */}
+                <button
+                  onClick={() => isAccessible && setStep(item.step)}
+                  disabled={!isAccessible || isLoading}
+                  className={`group flex min-w-0 flex-1 items-center gap-3 rounded-lg p-2 text-left transition-all ${
+                    isActive
+                      ? 'bg-rose-50/60'
+                      : isAccessible
+                        ? 'hover:bg-gray-50'
+                        : 'cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  {/* Circle */}
                   <div
-                    className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${
+                    className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ring-2 ${
                       isActive
-                        ? 'bg-gradient-to-br from-rose-500 to-pink-600 text-white'
+                        ? 'bg-gradient-to-br from-rose-500 to-pink-600 text-white ring-rose-200'
                         : isCompleted
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-gray-200 text-gray-500'
+                          ? 'bg-emerald-500 text-white ring-emerald-200'
+                          : 'bg-white text-gray-400 ring-gray-200'
                     }`}
                   >
                     {isCompleted ? (
-                      <Check className="h-5 w-5" />
+                      <Check className="h-4 w-4" />
                     ) : (
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-4 w-4" />
                     )}
                   </div>
+
+                  {/* Label + value */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-xs font-medium ${
-                          isActive
-                            ? 'text-rose-600'
-                            : isCompleted
-                              ? 'text-emerald-600'
-                              : 'text-gray-400'
-                        }`}
-                      >
-                        {t('aiSocial.create.step') || 'Step'} {item.step}
-                      </span>
+                    <div
+                      className={`text-[11px] font-medium uppercase tracking-wide ${
+                        isActive
+                          ? 'text-rose-600'
+                          : isCompleted
+                            ? 'text-emerald-600'
+                            : 'text-gray-400'
+                      }`}
+                    >
+                      {t('aiSocial.create.step') || 'Step'} {item.step}
                     </div>
                     <div
-                      className={`mt-0.5 font-medium ${
+                      className={`mt-0.5 truncate text-sm font-medium ${
                         isActive ? 'text-gray-900' : 'text-gray-700'
                       }`}
                     >
                       {item.label}
                     </div>
                     {value && (
-                      <div className="mt-1 truncate text-sm text-gray-500">
+                      <div className="mt-0.5 truncate text-xs text-gray-500">
                         {value}
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
 
-                {/* Connector line */}
-                {index < steps.length - 1 && (
+                {/* Connector line between steps */}
+                {!isLast && (
                   <div
-                    className={`absolute bottom-0 left-9 top-16 w-0.5 ${
+                    className={`mx-1 h-0.5 w-8 flex-shrink-0 ${
                       isCompleted ? 'bg-emerald-300' : 'bg-gray-200'
                     }`}
                   />
                 )}
-              </button>
+              </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Action buttons */}
-      <div className="border-t border-gray-100 p-4">
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={onSaveDraft}
-            disabled={
-              isLoading ||
-              (isSeriesMode ? seriesParts.length === 0 : !title || !content)
-            }
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {isSeriesMode
-              ? t('aiSocial.series.saveAll') || 'Save all'
-              : t('aiSocial.create.saveDraft')}
-          </button>
-          <button
-            onClick={onPublish}
-            disabled={
-              isLoading ||
-              (isSeriesMode ? seriesParts.length === 0 : !title || !content)
-            }
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2.5 text-sm font-medium text-white transition-all hover:from-rose-600 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isPublishing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            {isSeriesMode
-              ? t('aiSocial.series.saveAndPublish') || 'Save & go to list'
-              : t('aiSocial.create.publish')}
-          </button>
         </div>
       </div>
     </div>
