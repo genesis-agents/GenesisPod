@@ -250,10 +250,51 @@ export class WechatAdapter {
       let editorPage: Page = page; // 默认使用当前页面
       let clickSucceeded = false;
 
+      // 2026-05-16: 长文 (articleType=10, 普通图文) 走 type=10 直链，跳过 home 按钮点击
+      //   背景：WeChat 新版 home 页只剩"文章"按钮（→ 打开 type=77 小绿书编辑器，
+      //   ≤1000 字限制，且"保存为草稿"按钮 silently no-op），让 2299 字长文必然
+      //   超限失败。articleType 计算了却没用是反模式，这里把它真正用起来。
+      //   短笔记 (type=77) 继续走原 button 点击流程兼容。
+      if (articleType === "10" && token) {
+        const directType10Url = `${this.MP_URL}/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=10&createType=0&token=${token}&lang=zh_CN`;
+        this.logger.log(
+          `[fast-path] Long article (${contentLength} chars) → direct nav to type=10 editor: ${directType10Url}`,
+        );
+        try {
+          await page.goto(directType10Url, {
+            waitUntil: "networkidle0",
+            timeout: 30000,
+          });
+          const navigatedUrl = page.url();
+          this.logger.log(`[fast-path] After navigation, URL: ${navigatedUrl}`);
+          // 验证真的落到 type=10 编辑器（如果 WeChat deprecate 了 type=10 会重定向走）
+          if (
+            navigatedUrl.includes("appmsg_edit") &&
+            navigatedUrl.includes("type=10")
+          ) {
+            editorPage = page;
+            clickSucceeded = true;
+            this.logger.log(
+              "[fast-path] type=10 editor confirmed, skipping home button click",
+            );
+          } else {
+            this.logger.warn(
+              `[fast-path] Direct nav did not land on type=10 (got ${navigatedUrl}), falling back to home button click`,
+            );
+          }
+        } catch (navError) {
+          this.logger.warn(
+            `[fast-path] Direct nav to type=10 failed, falling back: ${(navError as Error).message}`,
+          );
+        }
+      }
+
       // 尝试点击 图文/Photo 按钮进入编辑器
       // 基于 Playwright 实际分析：按钮结构是 div.new-creation__menu-content 包含文本
       // 中文优先 - 微信公众号默认中文界面
-      this.logger.log("Looking for 图文/Photo button on home page...");
+      if (!clickSucceeded) {
+        this.logger.log("Looking for 图文/Photo button on home page...");
+      }
 
       const buttonTexts = ["图文", "图文消息", "文章", "Photo", "Article"];
 
