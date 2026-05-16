@@ -1349,6 +1349,30 @@ export class WechatAdapter {
       captureHandler as unknown as Parameters<typeof page.on>[1],
     );
 
+    // 2026-05-16: 额外加 request body 拦截 —— 6 个 PR 后仍 silent fail，
+    //   光看 response URL 不够，要知道 React handler 究竟尝试 POST 什么、
+    //   或者根本没发任何 POST。捕获所有 mp.weixin POST 请求（method + url
+    //   + body 前 800 字节），失败时一起 dump。
+    const capturedPosts: Array<{ method: string; url: string; body: string }> =
+      [];
+    const requestHandler = (request: {
+      method: () => string;
+      url: () => string;
+      postData: () => string | undefined;
+      resourceType: () => string;
+    }) => {
+      const method = request.method();
+      const url = request.url();
+      if (method === "GET" || method === "OPTIONS") return;
+      if (!/mp\.weixin\.qq\.com/.test(url)) return;
+      const body = (request.postData?.() ?? "").slice(0, 800);
+      capturedPosts.push({ method, url, body });
+    };
+    page.on(
+      "request",
+      requestHandler as unknown as Parameters<typeof page.on>[1],
+    );
+
     let saveClicked = false;
 
     // 2026-05-16: PR #92 mouse.click(905,687) 真发了但 save 仍 0 endpoint。
@@ -1754,6 +1778,25 @@ export class WechatAdapter {
         this.logger.warn(
           "[saveDraft] No mp.weixin.qq.com responses captured during wait — " +
             "button click may have triggered no network request (front-end-only save?)",
+        );
+      }
+      // 2026-05-16: 把所有 POST 请求 body dump 出来 —— 这是 ground truth：
+      //   如果 React handler 真发了 POST 但 URL 不匹配 save matcher，body 会
+      //   立刻告诉我们真实 endpoint + form 参数结构；如果完全没 POST，则
+      //   说明 handler 静默 abort 了（多半是反爬检测）。
+      if (capturedPosts.length > 0) {
+        this.logger.warn(
+          `[saveDraft] Captured POST requests (n=${capturedPosts.length}):`,
+        );
+        capturedPosts.forEach((p, i) => {
+          this.logger.warn(
+            `  POST[${i}] ${p.method} ${p.url} body=${p.body || "(empty)"}`,
+          );
+        });
+      } else {
+        this.logger.warn(
+          "[saveDraft] NO POST requests captured — handler did not attempt any save. " +
+            "Strong evidence of anti-bot detection silently aborting.",
         );
       }
     }
