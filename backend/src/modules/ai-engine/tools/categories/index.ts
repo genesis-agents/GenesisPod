@@ -26,3 +26,6 @@ export * from "./export";
 
 // Agent Collaboration Tools (Agent 协作)
 export * from "./collaboration";
+
+// Automation Tools (浏览器自动化等)
+export * from "./automation";

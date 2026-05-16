@@ -3,6 +3,11 @@ import { Page } from "puppeteer";
 import { AIModelType } from "@prisma/client";
 import { createHash } from "crypto";
 import { ChatFacade } from "@/modules/ai-harness/facade";
+import {
+  ToolRegistry,
+  BUILTIN_TOOLS,
+  type ToolContext,
+} from "@/modules/ai-engine/facade";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { PublishResult } from "../services/publish-executor.service";
 import {
@@ -30,6 +35,7 @@ export class WechatAdapter {
     private readonly playwright: SocialBrowserService,
     private readonly imageUploader: WechatImageUploaderService,
     private readonly chatFacade: ChatFacade,
+    private readonly toolRegistry: ToolRegistry,
   ) {}
 
   /**
@@ -85,6 +91,34 @@ export class WechatAdapter {
     }
     const codepoints = Array.from(rawTitle);
     return codepoints.slice(0, TITLE_MAX - 1).join("") + "…";
+  }
+
+  /**
+   * Read cookies for the current browser context via BrowserContextTool.
+   *
+   * W2 (2026-05-16) — wechat.adapter 第一个 puppeteer 调用点接入
+   * ai-engine 的 BrowserContextTool；diagnostic only。
+   */
+  private async readContextCookies(
+    contextId: string,
+  ): Promise<Array<{ name: string; domain: string }>> {
+    const tool = this.toolRegistry.get(BUILTIN_TOOLS.BROWSER_CONTEXT);
+    const toolCtx: ToolContext = {
+      executionId: `wechat-${contextId}-cookies-${Date.now()}`,
+      toolId: BUILTIN_TOOLS.BROWSER_CONTEXT,
+      createdAt: new Date(),
+    };
+    const result = await tool.execute({ contextId, op: "getCookies" }, toolCtx);
+    if (!result.success) {
+      this.logger.warn(
+        `[readContextCookies] tool failed: ${result.error?.message}; falling back to empty`,
+      );
+      return [];
+    }
+    const data = result.data as
+      | { cookies?: Array<{ name: string; domain: string }> }
+      | undefined;
+    return data?.cookies ?? [];
   }
 
   /**
@@ -333,20 +367,23 @@ export class WechatAdapter {
       }
 
       // 验证 cookies 是否被正确设置到浏览器上下文
-      const browserCookies = await page.cookies();
+      // W2: 走 BrowserContextTool（ai-engine/tools/categories/automation），
+      // 给所有平台 PublishExecutor 统一的 puppeteer 入口；diagnostic only。
+      const browserCookies = await this.readContextCookies(contextId);
       this.logger.log(
         `Browser context cookies after navigation: ${browserCookies.length}`,
       );
       const mpCookies = browserCookies.filter(
-        (c: { domain: string; name: string }) =>
-          c.domain.includes("mp.weixin.qq.com") || c.domain.includes(".qq.com"),
+        (c) =>
+          c.domain?.includes("mp.weixin.qq.com") ||
+          c.domain?.includes(".qq.com"),
       );
       this.logger.log(
         `WeChat MP related cookies in browser: ${mpCookies.length}`,
       );
       if (mpCookies.length > 0) {
         this.logger.log(
-          `Cookie names in browser: ${mpCookies.map((c: { name: string }) => c.name).join(", ")}`,
+          `Cookie names in browser: ${mpCookies.map((c) => c.name).join(", ")}`,
         );
       }
 

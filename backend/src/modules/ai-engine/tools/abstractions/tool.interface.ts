@@ -268,6 +268,9 @@ export const BUILTIN_TOOLS = {
   TASK_DELEGATION: "task-delegation",
   CONSENSUS_MECHANISM: "consensus-mechanism",
   WORKFLOW_ORCHESTRATION: "workflow-orchestration",
+
+  // 自动化
+  BROWSER_CONTEXT: "browser-context",
 } as const;
 
 /**

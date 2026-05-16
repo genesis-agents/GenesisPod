@@ -145,14 +145,22 @@ BrowserContextTool       // 封 puppeteer goto/click/waitForSelector/page.evalua
 
 **验证**：本地启 frontend dev server，4 步骤 stepper 在顶部，点击切换正常，store 状态不变。
 
-### W2: BrowserContextTool 抽到 Engine
+### W2: BrowserContextTool 抽到 Engine ✅ (2026-05-16)
 
-- 新增 `backend/src/modules/ai-engine/tools/categories/automation/browser-context.tool.ts`
-- 实现 ITool 接口：goto / click / waitForSelector / waitForFunction / type / press / evaluate / cookies / screenshot / close
-- 单测覆盖所有 op，mock puppeteer Page
-- 注册到 ToolRegistry
+- ✅ 新增 `backend/src/modules/ai-engine/tools/categories/automation/browser-context.tool.ts`
+- ✅ 实现 ITool 接口（12 op）：openPage / closePage / goto / click / type / press / waitForSelector / waitForFunction / getCookies / setCookies / screenshot / evaluate
+- ✅ 单测覆盖：25 个 case，mock puppeteer Page + BrowserContext
+- ✅ 注册到 ToolRegistry：`tools.provider.ts` + `BUILTIN_TOOLS.BROWSER_CONTEXT`
+- ✅ facade export：`ai-engine/facade/index.ts` 暴露 `BUILTIN_TOOLS`
+- ✅ wechat.adapter 小试：行 336 `page.cookies()` → `readContextCookies(contextId)` 通过 ToolRegistry.get(browser-context).execute
+- ✅ 3 个 wechat.adapter spec 同步加 ToolRegistry mock；132/132 spec 全绿
 
-**验证**：单测通过 + facade export 通过 + 接入 `wechat.adapter` 替换 1 个调用点（小试，不全量替换）。
+**设计要点**：
+
+- 单 dispatcher tool（input.op = enum）+ 通过 contextId 复用 BrowserService 的 Page，不持有 Page 状态
+- sideEffect = 'idempotent'（无平台直发 op，mission 重跑可重入）
+- 只暴露 generic primitives；平台特定 page.evaluate(业务 fetch) 留 adapter，不污染通用 tool
+- Page-level cookies() 改 BrowserContext-level cookies()（puppeteer 新 API；下游 domain 过滤兼容）
 
 ### W3: God class 拆分
 

@@ -135,6 +135,11 @@ import {
   WorkflowOrchestrationTool,
 } from "./categories/collaboration";
 
+// ============================================================================
+// Automation Tools (浏览器自动化等)
+// ============================================================================
+import { BrowserContextTool } from "./categories/automation";
+
 /**
  * 所有内置工具类列表
  */
@@ -224,6 +229,9 @@ export const ALL_TOOL_CLASSES: Type<ITool>[] = [
   TaskDelegationTool,
   ConsensusMechanismTool,
   WorkflowOrchestrationTool,
+
+  // Automation Tools
+  BrowserContextTool,
 ];
 
 /**
@@ -333,6 +341,9 @@ export const TOOL_ID_CLASS_MAP: Record<string, Type<ITool>> = {
   "task-delegation": TaskDelegationTool,
   "consensus-mechanism": ConsensusMechanismTool,
   "workflow-orchestration": WorkflowOrchestrationTool,
+
+  // Automation
+  "browser-context": BrowserContextTool,
 };
 
 /**
