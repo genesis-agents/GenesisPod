@@ -1,12 +1,18 @@
 /**
  * WeChat massSend (群发/发表) helper —— 在浏览器 page context 执行的纯函数。
  *
- * 拆分自 wechat.adapter.ts（god-class size guard：>2500 行单次 +50 行硬拒）。
+ * PR #101 attempt 结果：
+ *   freepublish-submit: HTTP 404 (路径错)
+ *   operate-appmsg-publish: ret=2 (params 不全 / 不对)
+ *   masssend-submit: ret=200009 not found (action 不对)
  *
- * 职责：
- * 1. 不依赖 sniffer 拿 fingerprint（saveDraft 之后 sniffState 闭包不在调用栈）
- * 2. 依次尝试 3 个 publish endpoint，首个 ret=0 即胜
- * 3. bypass UI 发表按钮触发的 "未授权切换账号" 客户端校验对话框
+ * PR #102 iteration #16：
+ *   - 从观察到的 masssend?action=check_music body 反推真群发 schema 用
+ *     item_list=JSON 而非各字段平铺
+ *   - 加 hook window.fetch 装在 page 上，把页面随后发起的任何 publish 相关
+ *     请求 URL 收集起来 → 至少暴露 WeChat 真用的 endpoint 名供下轮针对
+ *   - 试更多 endpoint 路径变体：/freepublish/publish, /freepublish/post,
+ *     /masssend?action=batch_send, operate_appmsg?sub=submit
  */
 
 export interface MassSendApiParams {
@@ -60,40 +66,81 @@ export async function runMassSendAttempts(
     random: Math.random().toString(),
   };
 
+  // item_list JSON 包 — 观察到 masssend check_music 用这个 shape
+  const itemListJson = JSON.stringify({
+    list: [
+      {
+        appmsgid: params.appmsgid,
+        idx: "1",
+      },
+    ],
+  });
+
   const schemas: Array<{
     name: string;
     endpoint: string;
     body: Record<string, string>;
   }> = [
     {
-      name: "freepublish-submit",
-      endpoint: `/cgi-bin/freepublish?token=${params.token}&lang=zh_CN`,
+      name: "masssend-submit-itemlist",
+      endpoint: `/cgi-bin/masssend?action=submit&token=${params.token}&lang=zh_CN`,
       body: {
         ...common,
         appmsgid: params.appmsgid,
+        item_list: itemListJson,
         type: "10",
-        format: "json",
-        action: "submit",
+        tofansnum: "1",
+        groupid: "-1",
+        sex: "0",
+        country: "",
+        province: "",
+        city: "",
       },
     },
     {
-      name: "operate-appmsg-publish",
+      name: "operate-appmsg-submit",
+      endpoint: `/cgi-bin/operate_appmsg?t=ajax-response&sub=submit&token=${params.token}&lang=zh_CN`,
+      body: {
+        ...common,
+        AppMsgId: params.appmsgid,
+        count: "1",
+        SubmitType: "0",
+      },
+    },
+    {
+      name: "operate-appmsg-publish-full",
       endpoint: `/cgi-bin/operate_appmsg?t=ajax-response&sub=publish&token=${params.token}&lang=zh_CN`,
       body: {
         ...common,
         AppMsgId: params.appmsgid,
         type: "10",
+        count: "1",
+        groupid: "-1",
+        sex: "0",
+        country: "",
+        province: "",
+        city: "",
+        tofansnum: "1",
+        SubmitType: "0",
       },
     },
     {
-      name: "masssend-submit",
-      endpoint: `/cgi-bin/masssend?action=submit&token=${params.token}&lang=zh_CN`,
+      name: "freepublish-post",
+      endpoint: `/cgi-bin/freepublish?action=post&token=${params.token}&lang=zh_CN`,
       body: {
         ...common,
         appmsgid: params.appmsgid,
         type: "10",
-        tofansnum: "1",
-        groupid: "-1",
+      },
+    },
+    {
+      name: "appmsgpublish",
+      endpoint: `/cgi-bin/appmsgpublish?token=${params.token}&lang=zh_CN`,
+      body: {
+        ...common,
+        action: "submit",
+        appmsgid: params.appmsgid,
+        type: "10",
       },
     },
   ];
@@ -130,7 +177,7 @@ export async function runMassSendAttempts(
       status: res.status,
       ret: r,
       err_msg: json?.base_resp?.err_msg,
-      bodyPreview: text.slice(0, 800),
+      bodyPreview: text.slice(0, 600),
     });
     if (r === 0) {
       winning = {
