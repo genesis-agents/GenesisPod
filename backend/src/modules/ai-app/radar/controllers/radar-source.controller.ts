@@ -10,6 +10,10 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import {
+  RateLimit,
+  RateLimitGuard,
+} from "../../../../common/guards/rate-limit.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import {
   AcceptRecommendedSourcesDto,
@@ -30,7 +34,7 @@ import { RadarPipelineDispatcher } from "../services/mission/workflow/radar-pipe
  *   - accept: 走 RadarSourceService.bulkCreateAiRecommended（用户勾选后入库）
  */
 @Controller("radar")
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RateLimitGuard)
 export class RadarSourceController {
   constructor(
     private readonly sources: RadarSourceService,
@@ -80,6 +84,11 @@ export class RadarSourceController {
    * 返回不入库；前端勾选后通过 /recommend/accept 批量入库。
    */
   @Post("topics/:topicId/sources/recommend")
+  @RateLimit({
+    maxRequests: 5,
+    windowSeconds: 60,
+    message: "AI 推荐过于频繁，请稍候再试",
+  })
   async recommend(
     @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,
@@ -113,6 +122,7 @@ export class RadarSourceController {
    * AcceptRecommendedSourcesDto 完成，identifier shape 在 service 内再校验）。
    */
   @Post("topics/:topicId/sources/recommend/accept")
+  @RateLimit({ maxRequests: 20, windowSeconds: 60 })
   async acceptRecommended(
     @Request() req: RequestWithUser,
     @Param("topicId") topicId: string,

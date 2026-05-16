@@ -14,6 +14,7 @@ import type {
   RadarSourceType,
   RecommendedSource,
 } from '@/services/ai-radar/types';
+import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
 
 interface Props {
   topicId: string;
@@ -50,16 +51,21 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
   const [recommending, setRecommending] = useState(false);
   const [candidates, setCandidates] = useState<RecommendedSource[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [opError, setOpError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RadarSource | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const handleRecommend = async () => {
     setRecommending(true);
     setRecommendOpen(true);
+    setOpError(null);
     try {
       const { candidates: cs } = await recommendSources(topicId, 4);
       setCandidates(cs);
       setSelected(new Set(cs.map((_, i) => i)));
     } catch (e) {
-      alert('AI 推荐失败：' + (e instanceof Error ? e.message : String(e)));
+      setOpError(`AI 推荐失败：${e instanceof Error ? e.message : String(e)}`);
+      setRecommendOpen(false);
     } finally {
       setRecommending(false);
     }
@@ -71,24 +77,39 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
       setRecommendOpen(false);
       return;
     }
+    setOpError(null);
     try {
       await acceptRecommendedSources(topicId, picked);
       setRecommendOpen(false);
       onReload();
     } catch (e) {
-      alert('入库失败：' + (e instanceof Error ? e.message : String(e)));
+      setOpError(`入库失败：${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
   const handleToggleEnable = async (s: RadarSource) => {
-    await updateSource(s.id, { enabled: !s.enabled });
-    onReload();
+    setOpError(null);
+    try {
+      await updateSource(s.id, { enabled: !s.enabled });
+      onReload();
+    } catch (e) {
+      setOpError(`切换失败：${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
-  const handleDelete = async (s: RadarSource) => {
-    if (!confirm(`删除数据源 ${s.label || s.identifier}？`)) return;
-    await deleteSource(s.id);
-    onReload();
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setOpError(null);
+    try {
+      await deleteSource(deleteTarget.id);
+      setDeleteTarget(null);
+      onReload();
+    } catch (e) {
+      setOpError(`删除失败：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -163,7 +184,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
                 <button
                   type="button"
                   className="text-[10px] text-red-500 hover:text-red-700"
-                  onClick={() => handleDelete(s)}
+                  onClick={() => setDeleteTarget(s)}
                 >
                   <Trash2 className="inline h-3 w-3" /> 删除
                 </button>
@@ -171,6 +192,21 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
             </li>
           ))}
         </ul>
+      )}
+
+      {opError && (
+        <div className="mx-3 mb-2 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
+          <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+          <span className="min-w-0 flex-1">{opError}</span>
+          <button
+            type="button"
+            className="text-red-400 hover:text-red-600"
+            onClick={() => setOpError(null)}
+            aria-label="dismiss error"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
       )}
 
       {addOpen && (
@@ -196,9 +232,20 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
             setSelected(next);
           }}
           onClose={() => setRecommendOpen(false)}
-          onAccept={handleAccept}
+          onAccept={() => void handleAccept()}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={`删除数据源「${deleteTarget?.label || deleteTarget?.identifier || ''}」？`}
+        description="历史采集到的条目会保留，但后续不再从该源拉取。"
+        confirmLabel="删除"
+        danger
+        busy={deleting}
+        onConfirm={() => void handleDeleteConfirm()}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

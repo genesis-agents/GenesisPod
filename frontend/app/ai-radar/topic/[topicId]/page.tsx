@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, RefreshCw, Trash2 } from 'lucide-react';
 import {
@@ -23,6 +23,7 @@ import {
   type RadarFeedTabKey,
 } from '@/components/ai-radar/RadarFeedTabs';
 import { RadarRunTimeline } from '@/components/ai-radar/RadarRunTimeline';
+import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
 import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
 
 export default function RadarTopicDetailPage() {
@@ -43,6 +44,8 @@ export default function RadarTopicDetailPage() {
     stage: string;
     status: string;
   } | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // 订阅当前 active mission 的 ws 实时进度
   useRadarSocket(activeRunId, {
@@ -68,8 +71,10 @@ export default function RadarTopicDetailPage() {
     },
   });
 
-  // useRef 一份 reloadTopic 给 ws 闭包用，避免 stale closure
-  const reloadTopicRef = { current: undefined as undefined | (() => void) };
+  // useRef 一份 reloadTopic 给 ws 闭包用，避免 stale closure。
+  // 用 useRef 而非 plain object：plain object 每 render 都 new 一个，
+  // 闭包持的是上一帧的 ref，丢更新；useRef 跨 render 同一个 mutable container。
+  const reloadTopicRef = useRef<(() => Promise<void>) | undefined>(undefined);
 
   const reloadTopic = useCallback(async () => {
     if (!topicId) return;
@@ -87,7 +92,9 @@ export default function RadarTopicDetailPage() {
     }
   }, [topicId]);
 
-  reloadTopicRef.current = reloadTopic;
+  useEffect(() => {
+    reloadTopicRef.current = reloadTopic;
+  }, [reloadTopic]);
 
   useEffect(() => {
     void reloadTopic();
@@ -98,27 +105,28 @@ export default function RadarTopicDetailPage() {
     setRefreshing(true);
     setError(null);
     try {
-      // 后端走 dispatcher.runRefreshMission：fire-and-forget mission，
-      // controller 返回 { runId, status }；前端用 useRadarSocket 订阅 runId 的
-      // ws 实时进度。完成/失败由 ws onCompleted / onFailed 触发刷新。
-      const resp = (await triggerRefresh(topicId)) as unknown as {
-        runId?: string;
-        status?: string;
-      };
-      if (resp?.runId) {
-        setActiveRunId(resp.runId);
-      }
+      // 后端走 dispatcher.runRefreshMission：controller 返回 { runId, status }；
+      // 前端用 useRadarSocket 订阅 runId 的 ws 实时进度。完成/失败由 ws
+      // onCompleted / onFailed 触发刷新。
+      const resp = await triggerRefresh(topicId);
+      setActiveRunId(resp.runId);
     } catch (e) {
       setRefreshing(false);
       setError(`刷新失败：${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async () => {
     if (!topic) return;
-    if (!confirm(`确定删除主题「${topic.name}」？所有数据将不可恢复。`)) return;
-    await deleteTopic(topic.id);
-    router.push('/ai-radar');
+    setDeleting(true);
+    try {
+      await deleteTopic(topic.id);
+      router.push('/ai-radar');
+    } catch (e) {
+      setDeleting(false);
+      setDeleteOpen(false);
+      setError(`删除失败：${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   if (!topicId) return null;
@@ -183,7 +191,7 @@ export default function RadarTopicDetailPage() {
           </button>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => setDeleteOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
           >
             <Trash2 className="h-3 w-3" />
@@ -232,6 +240,17 @@ export default function RadarTopicDetailPage() {
           <RadarRunTimeline topicId={topic.id} reloadKey={reloadKey} />
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title={`确定删除主题「${topic.name}」？`}
+        description="所有数据源、采集记录、洞察将一并删除，不可恢复。"
+        confirmLabel="删除"
+        danger
+        busy={deleting}
+        onConfirm={() => void handleDeleteConfirm()}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </div>
   );
 }

@@ -19,13 +19,13 @@
  */
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 import {
   defineMissionPipeline,
   type MissionPipelineConfig,
   type ResolvedRole,
 } from "@/modules/ai-harness/facade";
 import { loadSkill } from "./utils/skill-md-loader";
-import type { ZodType } from "zod";
 
 function buildSkillSpecFromMd(agentDir: string): ResolvedRole["skillSpec"] {
   const skillPath = path.resolve(__dirname, "agents", agentDir, "SKILL.md");
@@ -38,14 +38,15 @@ function buildSkillSpecFromMd(agentDir: string): ResolvedRole["skillSpec"] {
   for (const dutyName of skill.frontmatter.duties) {
     sections.push(skill.duties[dutyName]);
   }
+  // outputSchema 用 z.unknown()：radar stage 内部已经对 LLM 输出做了 tryParseJson +
+  // clampScore + shape 守卫（见各 stage adapter），不依赖 framework outputSchema 校验；
+  // 但用真 zod schema 而非伪造 always-success object，避免 lying assertion。
   return {
     id: skill.frontmatter.id,
     systemPrompt: sections.join("\n\n---\n\n"),
     allowedToolIds: [...skill.frontmatter.allowedTools],
     allowedModels: [...skill.frontmatter.allowedModels],
-    outputSchema: {
-      safeParse: (value: unknown) => ({ success: true as const, data: value }),
-    } as unknown as ZodType,
+    outputSchema: z.unknown(),
     meta: {
       skillVersion: skill.frontmatter.version,
       skillDomain: skill.frontmatter.domain,

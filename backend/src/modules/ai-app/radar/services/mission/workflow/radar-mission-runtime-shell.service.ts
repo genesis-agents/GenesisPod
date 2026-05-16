@@ -6,7 +6,7 @@
  *   - 通过 IMissionRuntimeAdapter 注入业务专属决策，剩下让框架处理
  *   - 复用 ai-harness/teams/business-team/lifecycle/mission-runtime-shell.framework
  */
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import {
   DomainEventBus,
   MissionRuntimeShellFramework,
@@ -15,12 +15,25 @@ import {
 } from "@/modules/ai-harness/facade";
 import { RadarMissionStore } from "../lifecycle/radar-mission-store.service";
 import {
+  RunRadarDiscoveryMissionInput,
   RunRadarRefreshMissionInput,
   resolveRadarBudgetMultiplier,
+  resolveRadarDiscoveryMaxCredits,
+  resolveRadarDiscoveryWallTimeMs,
   resolveRadarMaxCredits,
   resolveRadarMissionWallTimeMs,
 } from "../../../dto/run-radar-refresh-mission.dto";
 import { RadarRunTrigger } from "@prisma/client";
+
+type RadarMissionInput =
+  | RunRadarRefreshMissionInput
+  | RunRadarDiscoveryMissionInput;
+
+function isDiscoveryInput(
+  input: RadarMissionInput,
+): input is RunRadarDiscoveryMissionInput {
+  return "existingSources" in input;
+}
 
 export type { MissionRuntimeSession };
 
@@ -29,6 +42,8 @@ const RADAR_BILLING_MODULE_TYPE = "ai-radar";
 
 @Injectable()
 export class RadarMissionRuntimeShell {
+  private readonly log = new Logger(RadarMissionRuntimeShell.name);
+
   constructor(
     private readonly framework: MissionRuntimeShellFramework,
     private readonly store: RadarMissionStore,
@@ -37,7 +52,7 @@ export class RadarMissionRuntimeShell {
 
   async openSession(args: {
     missionId: string;
-    input: RunRadarRefreshMissionInput;
+    input: RadarMissionInput;
     userId: string;
     workspaceId?: string;
   }): Promise<MissionRuntimeSession> {
@@ -63,14 +78,21 @@ export class RadarMissionRuntimeShell {
   }
 
   /** Radar 业务 adapter：注入业务专属决策给 framework */
-  private buildAdapter(): IMissionRuntimeAdapter<RunRadarRefreshMissionInput> {
+  private buildAdapter(): IMissionRuntimeAdapter<RadarMissionInput> {
     const store = this.store;
     const eventBus = this.eventBus;
+    const log = this.log;
     return {
       eventNamespace: RADAR_EVENT_NAMESPACE,
       billingModuleType: RADAR_BILLING_MODULE_TYPE,
-      resolveWallTimeMs: () => resolveRadarMissionWallTimeMs(),
-      resolveMaxCredits: () => resolveRadarMaxCredits(),
+      resolveWallTimeMs: (input) =>
+        isDiscoveryInput(input)
+          ? resolveRadarDiscoveryWallTimeMs()
+          : resolveRadarMissionWallTimeMs(),
+      resolveMaxCredits: (input) =>
+        isDiscoveryInput(input)
+          ? resolveRadarDiscoveryMaxCredits()
+          : resolveRadarMaxCredits(),
       resolveBudgetMultiplier: () => resolveRadarBudgetMultiplier(),
       createMissionRow: async ({
         missionId,
@@ -79,6 +101,8 @@ export class RadarMissionRuntimeShell {
         input,
         effectiveMaxCredits,
       }) => {
+        // Discovery mission 是无 audit row 短查询，不写 radar_runs 表
+        if (isDiscoveryInput(input)) return;
         await store.createAtomic({
           id: missionId,
           topicId: input.topicId,
@@ -108,9 +132,11 @@ export class RadarMissionRuntimeShell {
             payload,
             timestamp: Date.now(),
           })
-          .catch(() => {
-            // eventBus 自己 log + drop，这里再吞一次防 framework wallTimer
-            // 闭包 throw 不可控
+          .catch((err: unknown) => {
+            // eventBus 自己 log + drop schema 校验失败；保留 warn 防完全静默
+            log.warn(
+              `[radar-runtime] emit ${type} for ${missionId} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+            );
           });
       },
     };

@@ -8,6 +8,7 @@
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import type {
+  CancelRunResponse,
   CreateRadarSourceInput,
   CreateRadarTopicInput,
   RadarInsight,
@@ -19,7 +20,7 @@ import type {
   RadarTopicStatus,
   RadarTopicWithCounts,
   RecommendedSource,
-  RefreshRunSummary,
+  TriggerRefreshResponse,
   UpdateRadarTopicInput,
 } from './types';
 
@@ -236,13 +237,15 @@ export async function listRuns(
 
 export async function triggerRefresh(
   topicId: string
-): Promise<RefreshRunSummary> {
-  return request<RefreshRunSummary>(`/topics/${topicId}/refresh`, {
+): Promise<TriggerRefreshResponse> {
+  return request<TriggerRefreshResponse>(`/topics/${topicId}/refresh`, {
     method: 'POST',
     body: JSON.stringify({}),
   });
 }
 
-export async function cancelRun(runId: string): Promise<RadarRun> {
-  return request<RadarRun>(`/runs/${runId}/cancel`, { method: 'POST' });
+export async function cancelRun(runId: string): Promise<CancelRunResponse> {
+  return request<CancelRunResponse>(`/runs/${runId}/cancel`, {
+    method: 'POST',
+  });
 }

@@ -93,38 +93,47 @@ export class RadarBusinessOrchestrator {
    * 给 stepId 构造 ResolvedStageHooks（persist primitive 期望 hooks.persist）。
    * 业务 output 副作用写到 ctx.state；hook return Promise<void>。
    */
+  /**
+   * 给 stepId 构造 ResolvedStageHooks（persist primitive 期望 hooks.persist 返回
+   * Promise<void>）。ResolvedStageHooks 实际类型是 index signature
+   * `[hookName: string]: StageHookFn | undefined`（见 ai-harness/.../stage-primitive.interface.ts:97），
+   * 直接 satisfies 即可，无需 `as unknown as` lying assertion。
+   */
   buildHooksForStep(stepId: string): ResolvedStageHooks {
     const runner = this.resolveStageRunner(stepId);
     if (!runner) {
-      return {
+      const hooks: ResolvedStageHooks = {
         persist: async (): Promise<void> => undefined,
-      } as unknown as ResolvedStageHooks;
+      };
+      return hooks;
     }
     const systemPrompt = this.promptCache.get(stepId) ?? "";
     const lookup = this.sessionLookup;
-    return {
-      persist: async (args: {
-        ctx: StageRunArgs["ctx"];
-        previousOutputs: StageRunArgs["previousOutputs"];
-        crossStageState: StageRunArgs["crossStageState"];
-      }): Promise<void> => {
+    const hooks: ResolvedStageHooks = {
+      persist: async (args): Promise<void> => {
         if (!lookup) {
           throw new Error(
             "RadarBusinessOrchestrator.sessionLookup not bound (dispatcher onModuleInit 顺序错)",
           );
         }
-        const ctx = lookup(args.ctx.missionId);
+        const stageArgs = args as {
+          ctx: StageRunArgs["ctx"];
+          previousOutputs: StageRunArgs["previousOutputs"];
+          crossStageState: StageRunArgs["crossStageState"];
+        };
+        const ctx = lookup(stageArgs.ctx.missionId);
         await runner.run(
           {
-            ctx: args.ctx,
-            previousOutputs: args.previousOutputs,
-            crossStageState: args.crossStageState,
+            ctx: stageArgs.ctx,
+            previousOutputs: stageArgs.previousOutputs,
+            crossStageState: stageArgs.crossStageState,
             systemPrompt,
           },
           ctx,
         );
       },
-    } as unknown as ResolvedStageHooks;
+    };
+    return hooks;
   }
 
   private resolveStageRunner(stepId: string): RadarStageRunner | null {

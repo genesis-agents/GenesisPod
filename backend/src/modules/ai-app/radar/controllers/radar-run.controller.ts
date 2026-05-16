@@ -55,7 +55,7 @@ export class RadarRunController {
     @Query("limit", new DefaultValuePipe(20), ParseIntPipe) limit: number,
   ) {
     await this.topics.getOwnedById(req.user.id, topicId);
-    return this.store.listByTopic(topicId, limit);
+    return this.store.listByTopic(topicId, req.user.id, limit);
   }
 
   /**
@@ -112,6 +112,11 @@ export class RadarRunController {
   }
 
   @Post("runs/:runId/cancel")
+  @RateLimit({
+    maxRequests: 30,
+    windowSeconds: 60,
+    message: "取消操作过于频繁",
+  })
   async cancel(@Request() req: RequestWithUser, @Param("runId") runId: string) {
     const run = await this.store.getById(runId, req.user.id);
     if (!run) throw new NotFoundException("Run not found");

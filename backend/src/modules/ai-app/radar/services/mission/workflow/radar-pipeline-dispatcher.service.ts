@@ -10,10 +10,11 @@
  *   - mission 结束（成功 / 失败 / 取消）cleanup session
  *
  * 设计要点：
- *   - 不做 trajectory rerun / orphan cleanup / checkpoint.save 复杂功能（v1 跳过）
  *   - dispatcher 是 runtime-glue，业务逻辑全在 BusinessOrchestrator + 9 个 stage adapter
  *   - 事件桥接：orchestrator 内置 stage:started/completed/failed → 桥到
- *     ai-radar.stage:lifecycle，前端 ws 订阅这个事件
+ *     ai-radar.run.stage，前端 ws 订阅这个事件
+ *   - Discovery mission 也走完整 runtimeShell.openSession（含 abortRegistry / wallTimer
+ *     / heartbeat / billing），adapter 自己识别 discovery input 跳过 createMissionRow。
  */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { randomUUID } from "crypto";
@@ -77,7 +78,6 @@ export class RadarPipelineDispatcher implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    // bind sessionLookup 让 business orchestrator hooks 闭包能反查 SessionEntry
     this.businessOrch.bindSessionLookup((missionId) => {
       const entry = this.sessions.get(missionId);
       if (!entry) {
@@ -88,10 +88,6 @@ export class RadarPipelineDispatcher implements OnModuleInit {
       return entry.ctx;
     });
 
-    // 预加载 SKILL.md systemPrompts（buildHooksForStep 需要从 cache 取）。
-    // RadarModule.onModuleInit 已先调 skillLoader.addSkillDirectory（NestJS
-    // module init 顺序：RadarModule 先于本 dispatcher，因 dispatcher 依赖
-    // RadarBusinessOrchestrator → SkillLoaderService）。
     await this.businessOrch.preloadSystemPrompts();
 
     if (!this.registry.has(RADAR_REFRESH_PIPELINE.id)) {
@@ -112,9 +108,6 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     }
   }
 
-  /**
-   * 主刷新 mission 入口。
-   */
   async runRefreshMission(
     input: RunRadarRefreshMissionInput,
     userId: string,
@@ -131,9 +124,6 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     });
   }
 
-  /**
-   * AI 推荐源 mission 入口。
-   */
   async runDiscoveryMission(
     input: RunRadarDiscoveryMissionInput,
     userId: string,
@@ -151,7 +141,9 @@ export class RadarPipelineDispatcher implements OnModuleInit {
   }
 
   /**
-   * 共通 mission 执行流程。
+   * 共通 mission 执行流程（refresh + discovery 共用 runtimeShell.openSession
+   * 走完整 framework lifecycle —— framework adapter 自己识别 discovery input
+   * 跳过 createMissionRow，但 abortRegistry / wallTimer / heartbeat 全保留）。
    */
   private async runMission(args: {
     missionId: string;
@@ -163,21 +155,11 @@ export class RadarPipelineDispatcher implements OnModuleInit {
   }): Promise<RadarMissionSummary> {
     const { missionId, pipelineId, input, userId, workspaceId, trigger } = args;
     const t0 = Date.now();
+    const isDiscovery = pipelineId === RADAR_DISCOVERY_PIPELINE.id;
 
-    // discovery mission 不走 runtime shell（不需要 mission row），用轻量 session
-    if (pipelineId === RADAR_DISCOVERY_PIPELINE.id) {
-      return this.runDiscoveryInline(
-        missionId,
-        input as RunRadarDiscoveryMissionInput,
-        userId,
-        t0,
-      );
-    }
-
-    const refreshInput = input as RunRadarRefreshMissionInput;
     const session = await this.runtimeShell.openSession({
       missionId,
-      input: refreshInput,
+      input,
       userId,
       workspaceId,
     });
@@ -186,31 +168,34 @@ export class RadarPipelineDispatcher implements OnModuleInit {
       missionId,
       userId,
       trigger,
-      input: refreshInput,
+      input,
       state: emptyRadarMissionState(),
       signal: session.missionAbort.signal,
     };
     this.sessions.set(missionId, { session, t0, ctx });
 
-    // emit run.started
-    await this.emitToBus({
-      type: RADAR_EVENTS.RUN_STARTED,
-      missionId,
-      userId,
-      payload: {
-        runId: missionId,
-        topicId: refreshInput.topicId,
-        trigger,
-        startedAt: new Date(t0).toISOString(),
-      },
-    });
+    const topicId = input.topicId;
+
+    if (!isDiscovery) {
+      await this.emitToBus({
+        type: RADAR_EVENTS.RUN_STARTED,
+        missionId,
+        userId,
+        payload: {
+          runId: missionId,
+          topicId,
+          trigger,
+          startedAt: new Date(t0).toISOString(),
+        },
+      });
+    }
 
     try {
       const result = await this.runtimeShell.runWithinContext(session, () =>
         this.orchestrator.run({
           missionId,
           pipelineId,
-          input: refreshInput,
+          input,
           userId,
           tenantId: workspaceId,
           signal: session.missionAbort.signal,
@@ -219,8 +204,19 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         }),
       );
 
-      // mission 成功
       const durationMs = Date.now() - t0;
+      if (isDiscovery) {
+        const candidates =
+          (ctx.state as { discoveryCandidates?: unknown[] })
+            .discoveryCandidates ?? [];
+        return {
+          missionId,
+          status: "completed",
+          stageOutputs: result.stageOutputs,
+          discoveryCandidates: candidates,
+        };
+      }
+
       await this.store.markCompleted(missionId, {
         ...ctx.state.metrics,
         durationMs,
@@ -231,7 +227,7 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         userId,
         payload: {
           runId: missionId,
-          topicId: refreshInput.topicId,
+          topicId,
           status: "COMPLETED",
           durationMs,
           metrics: ctx.state.metrics,
@@ -247,6 +243,9 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         err instanceof Error ? err.message : String(err ?? "unknown error");
       const isAbort = message.includes("abort") || ctx.signal.aborted;
       const durationMs = Date.now() - t0;
+      if (isDiscovery) {
+        return { missionId, status: "failed", stageOutputs: {}, error: err };
+      }
       if (isAbort) {
         await this.store.markCancelled(missionId, message);
         await this.emitToBus({
@@ -255,7 +254,7 @@ export class RadarPipelineDispatcher implements OnModuleInit {
           userId,
           payload: {
             runId: missionId,
-            topicId: refreshInput.topicId,
+            topicId,
             reason: message,
           },
         });
@@ -268,65 +267,14 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         userId,
         payload: {
           runId: missionId,
-          topicId: refreshInput.topicId,
+          topicId,
           error: message,
           durationMs,
         },
       });
       return { missionId, status: "failed", stageOutputs: {}, error: err };
     } finally {
-      // cleanup（session.cleanup 释放 wallTimer + heartbeat + abortRegistry）
       session.cleanup();
-      this.sessions.delete(missionId);
-    }
-  }
-
-  /**
-   * Discovery mission 简化版：不走 runtime shell（不写 mission row / billing），
-   * 单 stage 调 LLM 拿候选返回给 controller。
-   */
-  private async runDiscoveryInline(
-    missionId: string,
-    input: RunRadarDiscoveryMissionInput,
-    userId: string,
-    t0: number,
-  ): Promise<RadarMissionSummary> {
-    const ctx: RadarMissionContext = {
-      missionId,
-      userId,
-      trigger: "MANUAL",
-      input,
-      state: emptyRadarMissionState(),
-      signal: new AbortController().signal,
-    };
-    this.sessions.set(missionId, {
-      session: makeStubSession(missionId, userId),
-      t0,
-      ctx,
-    });
-    try {
-      const result = await this.orchestrator.run({
-        missionId,
-        pipelineId: RADAR_DISCOVERY_PIPELINE.id,
-        input,
-        userId,
-      });
-      // discovery stage 把 candidates 写到 ctx.state.discoveryCandidates
-      const candidates =
-        (ctx.state as { discoveryCandidates?: unknown[] })
-          .discoveryCandidates ?? [];
-      return {
-        missionId,
-        status: "completed",
-        stageOutputs: result.stageOutputs,
-        discoveryCandidates: candidates,
-      };
-    } catch (err) {
-      this.log.error(
-        `[radar-pipeline] discovery mission ${missionId} failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      return { missionId, status: "failed", stageOutputs: {}, error: err };
-    } finally {
       this.sessions.delete(missionId);
     }
   }
@@ -361,10 +309,7 @@ export class RadarPipelineDispatcher implements OnModuleInit {
           ? "completed"
           : "failed";
     const entry = this.sessions.get(missionId);
-    const topicId =
-      entry?.ctx.input && "topicId" in entry.ctx.input
-        ? entry.ctx.input.topicId
-        : "";
+    const topicId = entry?.ctx.input?.topicId ?? "";
     await this.emitToBus({
       type: RADAR_EVENTS.RUN_STAGE,
       missionId,
@@ -387,9 +332,6 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     });
   }
 
-  /**
-   * 统一事件出口：所有 radar.* event 走 eventBus → buffer/socket 双分发。
-   */
   private async emitToBus(event: {
     type: string;
     missionId: string;
@@ -429,8 +371,6 @@ export class RadarPipelineDispatcher implements OnModuleInit {
     }
   }
 
-  // ── pipeline 构造 ──────────────────────────────────────────────────────
-
   private buildPipelineWithHooks(
     config: MissionPipelineConfig,
   ): MissionPipelineConfig {
@@ -446,21 +386,4 @@ export class RadarPipelineDispatcher implements OnModuleInit {
       })),
     };
   }
-}
-
-function makeStubSession(
-  missionId: string,
-  userId: string,
-): MissionRuntimeSession {
-  const abortController = new AbortController();
-  return {
-    missionId,
-    userId,
-    billing: undefined as never,
-    pool: undefined as never,
-    budgetMultiplier: 1,
-    missionAbort: abortController,
-    wallTimeMs: 60_000,
-    cleanup: () => undefined,
-  };
 }

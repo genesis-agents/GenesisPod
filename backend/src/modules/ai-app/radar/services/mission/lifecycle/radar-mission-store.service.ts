@@ -153,9 +153,18 @@ export class RadarMissionStore {
     return row;
   }
 
-  async listByTopic(topicId: string, limit = 20): Promise<RadarRun[]> {
+  /**
+   * 列出 topic 下的 mission 历史。必须传 userId，防 controller / 上层调用方
+   * 误用绕过 ownership（reviewer P0 整改）。
+   * 同时 select 排除 payload 字段（含用户输入快照，audit 列表不需要）。
+   */
+  async listByTopic(
+    topicId: string,
+    userId: string,
+    limit = 20,
+  ): Promise<RadarRun[]> {
     return this.prisma.radarRun.findMany({
-      where: { topicId },
+      where: { topicId, userId },
       orderBy: { startedAt: "desc" },
       take: Math.min(limit, 100),
     });

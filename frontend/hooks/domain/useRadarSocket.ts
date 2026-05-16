@@ -46,12 +46,30 @@ export interface RadarRunFailedEvent {
   durationMs: number;
 }
 
+export interface RadarInsightCreatedEvent {
+  runId: string;
+  topicId: string;
+  insightId: string;
+  signalCount: number;
+  entityCount: number;
+}
+
+export interface RadarSourceHealthEvent {
+  runId?: string;
+  topicId: string;
+  sourceId: string;
+  health: 'HEALTHY' | 'DEGRADED' | 'FAILING' | 'UNKNOWN';
+  consecutiveFailures: number;
+}
+
 export interface RadarSocketHandlers {
   onStarted?: (e: { runId: string; topicId: string; trigger: string }) => void;
   onStage?: (e: RadarStageEvent) => void;
   onCompleted?: (e: RadarRunCompletedEvent) => void;
   onFailed?: (e: RadarRunFailedEvent) => void;
   onCancelled?: (e: { runId: string; topicId: string; reason: string }) => void;
+  onInsightCreated?: (e: RadarInsightCreatedEvent) => void;
+  onSourceHealthChanged?: (e: RadarSourceHealthEvent) => void;
 }
 
 interface SocketEnvelope<TPayload> {
@@ -130,6 +148,18 @@ export function useRadarSocket(
         env: SocketEnvelope<{ runId: string; topicId: string; reason: string }>
       ) => {
         handlersRef.current.onCancelled?.(env.payload);
+      }
+    );
+    socket.on(
+      'ai-radar.insight.created',
+      (env: SocketEnvelope<RadarInsightCreatedEvent>) => {
+        handlersRef.current.onInsightCreated?.(env.payload);
+      }
+    );
+    socket.on(
+      'ai-radar.source.health-changed',
+      (env: SocketEnvelope<RadarSourceHealthEvent>) => {
+        handlersRef.current.onSourceHealthChanged?.(env.payload);
       }
     );
 

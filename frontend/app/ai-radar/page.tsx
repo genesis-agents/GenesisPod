@@ -11,12 +11,15 @@ import {
 import type { RadarTopic } from '@/services/ai-radar/types';
 import { RadarTopicCard } from '@/components/ai-radar/RadarTopicCard';
 import { CreateRadarTopicModal } from '@/components/ai-radar/CreateRadarTopicModal';
+import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
 
 export default function AiRadarIndexPage() {
   const [topics, setTopics] = useState<RadarTopic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<RadarTopic | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -43,10 +46,21 @@ export default function AiRadarIndexPage() {
     await resumeTopic(t.id);
     void reload();
   };
-  const handleArchive = async (t: RadarTopic) => {
-    if (!confirm(`确定归档主题「${t.name}」？归档后将停止自动刷新。`)) return;
-    await archiveTopic(t.id);
-    void reload();
+  const handleArchive = (t: RadarTopic) => {
+    setArchiveTarget(t);
+  };
+  const handleArchiveConfirm = async () => {
+    if (!archiveTarget) return;
+    setArchiving(true);
+    try {
+      await archiveTopic(archiveTarget.id);
+      setArchiveTarget(null);
+      void reload();
+    } catch (e) {
+      setError(`归档失败：${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setArchiving(false);
+    }
   };
 
   return (
@@ -129,6 +143,16 @@ export default function AiRadarIndexPage() {
           setCreateOpen(false);
           void reload();
         }}
+      />
+
+      <ConfirmDialog
+        open={archiveTarget !== null}
+        title={`归档主题「${archiveTarget?.name ?? ''}」？`}
+        description="归档后将停止自动刷新；数据保留可随时 resume。"
+        confirmLabel="归档"
+        busy={archiving}
+        onConfirm={() => void handleArchiveConfirm()}
+        onCancel={() => setArchiveTarget(null)}
       />
     </div>
   );

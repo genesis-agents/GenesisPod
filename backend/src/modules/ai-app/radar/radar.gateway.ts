@@ -27,9 +27,35 @@ interface JwtPayload {
   userId?: string;
 }
 
+/**
+ * CORS origin 来源（按优先级）：
+ *   1. env FRONTEND_ORIGIN（prod 显式指定）
+ *   2. env CORS_ORIGINS（多域逗号分隔）
+ *   3. dev fallback：localhost/127.0.0.1（任意端口）+ railway preview 子域
+ *
+ * 避免 `origin: "*"` + `credentials: true` 的反模式（浏览器拒绝 + 非浏览器
+ * 客户端可伪造 Origin 通过握手枚举 missionId）。
+ */
+const RADAR_WS_CORS_ORIGIN = (() => {
+  const explicit =
+    process.env.FRONTEND_ORIGIN ?? process.env.CORS_ORIGINS ?? "";
+  if (explicit) {
+    const list = explicit
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (list.length > 0) return list;
+  }
+  return [
+    /^https?:\/\/localhost(:\d+)?$/,
+    /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+    /^https:\/\/.*\.up\.railway\.app$/,
+  ];
+})();
+
 @WebSocketGateway({
   namespace: "ai-radar",
-  cors: { origin: "*", credentials: true },
+  cors: { origin: RADAR_WS_CORS_ORIGIN, credentials: true },
 })
 export class RadarGateway implements OnGatewayInit {
   @WebSocketServer() io!: Server;

@@ -7,12 +7,19 @@
 export type RadarTopicStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
 export type RadarSourceType = 'X' | 'YOUTUBE' | 'RSS' | 'CUSTOM';
 export type RadarSourceHealth = 'UNKNOWN' | 'HEALTHY' | 'DEGRADED' | 'FAILING';
+/**
+ * RadarRun.status —— mission lifecycle 标准 5 态（小写）。
+ *
+ * 后端 Prisma schema (radar_runs.status) 在 2026-05-16 重构后改为 VarChar(20)
+ * 走 mission lifecycle 标准值域 'running' | 'completed' | 'failed' | 'cancelled'
+ * | 'rejected'，与 agent_playground_missions.status 对齐。前端类型同步小写。
+ */
 export type RadarRunStatus =
-  | 'PENDING'
-  | 'RUNNING'
-  | 'COMPLETED'
-  | 'FAILED'
-  | 'CANCELLED';
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'rejected';
 export type RadarRunTrigger = 'SCHEDULED' | 'MANUAL' | 'FIRST_RUN';
 
 /** 主题对象类型（create topic dto 用） */
@@ -188,6 +195,21 @@ export interface CreateRadarSourceInput {
   enabled?: boolean;
 }
 
+/**
+ * triggerRefresh 后端响应。Mission pipeline 框架接入后简化：
+ * 仅返回 { runId, status }。详细 metrics 由 ws / GET /runs/:topicId 提供。
+ */
+export interface TriggerRefreshResponse {
+  runId: string;
+  status: 'completed' | 'failed' | 'aborted';
+}
+
+export interface CancelRunResponse {
+  runId: string;
+  cancelled: boolean;
+}
+
+/** @deprecated 旧 sync-mode summary；保留兼容前端老调用，新代码用 TriggerRefreshResponse */
 export interface RefreshRunSummary {
   runId: string;
   status: RadarRunStatus;
