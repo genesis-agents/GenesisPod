@@ -137,6 +137,40 @@ export class WechatAdapter {
       page = await this.playwright.createPage(contextId);
       this.logger.log("Page created successfully");
 
+      // 2026-05-16 PR #98: fingerprint sniffer —— 真鼠标侧拦截 WeChat 自身出站
+      //   请求（pre_load_sentence / spellcheck / auto-save 等都带 32-hex
+      //   fingerprint），把它存进闭包传给 saveDraftViaApi 替代 window scrape
+      //   方案（PR #97 显示 window.wx.commonData.fingerprint=undefined）。
+      //   编辑器页可能是新 tab，所以提供 attach 助手反复调用。
+      const sniffState = { fingerprint: "" };
+      const attachSniffer = (p: Page) => {
+        p.on(
+          "request",
+          (request: {
+            url: () => string;
+            postData: () => string | undefined;
+          }) => {
+            if (sniffState.fingerprint) return;
+            try {
+              const url = request.url();
+              if (!url.includes("mp.weixin.qq.com")) return;
+              const body = request.postData?.() ?? "";
+              const haystack = `${url}&${body}`;
+              const m = haystack.match(/[?&]fingerprint=([a-f0-9]{32})/i);
+              if (m) {
+                sniffState.fingerprint = m[1];
+                this.logger.log(
+                  `[fingerprint sniff] captured: ${sniffState.fingerprint} from ${url.slice(0, 120)}`,
+                );
+              }
+            } catch {
+              // listener 不能抛
+            }
+          },
+        );
+      };
+      attachSniffer(page);
+
       // Step 4: 访问公众号后台
       // 先访问根路径，让 WeChat 自动重定向（包含 token）
       this.logger.log("Navigating to WeChat MP root for auto-redirect...");
@@ -528,6 +562,12 @@ export class WechatAdapter {
       const finalEditorUrl = page.url();
       this.logger.log(`Current URL after navigation: ${finalEditorUrl}`);
 
+      // 编辑器若是新 tab，给它也挂上 fingerprint sniffer（编辑器才会发
+      // pre_load_sentence/spellcheck，初始 home 页通常没这些请求）。
+      // 重复挂同一 page 是幂等的（puppeteer 允许多 listener），但同一 page
+      // 不会被附两次因为 `page = editorPage` 后引用相同。
+      attachSniffer(page);
+
       // Step 7: 检查是否成功进入编辑页面
       if (
         finalEditorUrl.includes("bizlogin") ||
@@ -547,7 +587,20 @@ export class WechatAdapter {
 
       // Step 9: 先保存草稿（确保内容持久化，防止群发失败丢失内容）
       this.logger.log("Saving as draft first...");
-      const draftUrl = await this.saveDraft(page, content);
+      // fillContent 时编辑器会发 pre_load_sentence/spellcheck 等带 fingerprint
+      // 的请求，已被 attachSniffer 抓住。若仍为空再等 2s 等慢请求漏网，
+      // saveDraftViaApi 内 fallback 链兜底（window.wx / inline script / outerHTML）。
+      if (!sniffState.fingerprint) {
+        this.logger.log(
+          "[fingerprint sniff] not captured yet after fillContent, waiting 2s for late requests",
+        );
+        await delay(2000);
+      }
+      const draftUrl = await this.saveDraft(
+        page,
+        content,
+        sniffState.fingerprint,
+      );
       this.logger.log(`Draft saved: ${draftUrl}`);
 
       // Step 10: 群发 — 点击"群发"按钮实际发布文章
@@ -1333,6 +1386,7 @@ export class WechatAdapter {
   private async saveDraftViaApi(
     page: Page,
     content: SocialContent,
+    sniffedFingerprint: string,
   ): Promise<string | null> {
     // 从当前 page URL 提取 token（fast-path 已 navigate 到 type=10 编辑器）
     const currentUrl = page.url();
@@ -1347,6 +1401,7 @@ export class WechatAdapter {
     const result: {
       status: number;
       fingerprint: string;
+      fpSource: string;
       bodyPreview: string;
       json: {
         base_resp?: { ret?: number; err_msg?: string };
@@ -1360,41 +1415,83 @@ export class WechatAdapter {
         author: string;
         digest: string;
         content: string;
+        sniffedFingerprint: string;
       }) => {
-        // 1. 提取 fingerprint —— 微信编辑器把它放在 window.wx 或 inline script
-        const wx = (
-          window as unknown as {
-            wx?: {
-              fp?: { t?: string } | string;
-              commonData?: { fingerprint?: string; t?: string };
-            };
-          }
-        ).wx;
-        let fingerprint = "";
-        if (wx?.commonData?.fingerprint) {
-          fingerprint = wx.commonData.fingerprint;
-        } else if (wx?.commonData?.t) {
-          fingerprint = wx.commonData.t;
-        } else if (typeof wx?.fp === "string") {
-          fingerprint = wx.fp;
-        } else if (
-          typeof wx?.fp === "object" &&
-          wx.fp !== null &&
-          "t" in wx.fp
-        ) {
-          fingerprint = wx.fp.t || "";
-        }
+        // 1. fingerprint 来源优先级：
+        //    a) sniffed (从 publish() 顶部安装的 page.on('request') 真鼠标侧
+        //       拦截到的微信自身出站请求里抓到的 32-hex)
+        //    b) window.wx.commonData.fingerprint / .t
+        //    c) inline script 扫描
+        //    d) 整页 HTML 全文匹配 /["']([a-f0-9]{32})["']/ 兜底
+        let fingerprint = params.sniffedFingerprint || "";
+        let fpSource = fingerprint ? "sniffed" : "";
+
         if (!fingerprint) {
-          // fallback: 扫描 inline script 找 32-char hex hash
+          const wx = (
+            window as unknown as {
+              wx?: {
+                fp?: { t?: string } | string;
+                commonData?: { fingerprint?: string; t?: string };
+              };
+              cgiData?: { fingerprint?: string; t?: string };
+            }
+          ).wx;
+          if (wx?.commonData?.fingerprint) {
+            fingerprint = wx.commonData.fingerprint;
+            fpSource = "window.wx.commonData.fingerprint";
+          } else if (wx?.commonData?.t) {
+            fingerprint = wx.commonData.t;
+            fpSource = "window.wx.commonData.t";
+          } else if (typeof wx?.fp === "string") {
+            fingerprint = wx.fp;
+            fpSource = "window.wx.fp(string)";
+          } else if (
+            typeof wx?.fp === "object" &&
+            wx.fp !== null &&
+            "t" in wx.fp
+          ) {
+            fingerprint = wx.fp.t || "";
+            fpSource = "window.wx.fp.t";
+          }
+        }
+
+        if (!fingerprint) {
+          const cgiData = (
+            window as unknown as {
+              cgiData?: { fingerprint?: string; t?: string };
+            }
+          ).cgiData;
+          if (cgiData?.fingerprint) {
+            fingerprint = cgiData.fingerprint;
+            fpSource = "window.cgiData.fingerprint";
+          } else if (cgiData?.t) {
+            fingerprint = cgiData.t;
+            fpSource = "window.cgiData.t";
+          }
+        }
+
+        if (!fingerprint) {
+          // 扫描 inline script 找 fingerprint:"abc" 或 t:"abc"
           const scripts = Array.from(document.scripts);
           for (const s of scripts) {
             const m = s.textContent?.match(
-              /fingerprint["':\s]+["']([a-f0-9]{32})["']/,
+              /(?:fingerprint|"t"|'t'|\bt)["':\s]+["']([a-f0-9]{32})["']/,
             );
             if (m) {
               fingerprint = m[1];
+              fpSource = "inline-script";
               break;
             }
+          }
+        }
+
+        if (!fingerprint) {
+          // 最后兜底：整页 outerHTML 全文搜任意 32-hex 字符串
+          const html = document.documentElement.outerHTML;
+          const m = html.match(/["']([a-f0-9]{32})["']/);
+          if (m) {
+            fingerprint = m[1];
+            fpSource = "outerHTML";
           }
         }
 
@@ -1452,6 +1549,7 @@ export class WechatAdapter {
         return {
           status: res.status,
           fingerprint,
+          fpSource,
           bodyPreview: text.slice(0, 600),
           json,
         };
@@ -1462,11 +1560,12 @@ export class WechatAdapter {
         author: content.author || "系统",
         digest: content.digest || "",
         content: content.content || "",
+        sniffedFingerprint,
       },
     );
 
     this.logger.log(
-      `[saveDraft API] status=${result.status} fingerprint=${result.fingerprint || "(none)"}`,
+      `[saveDraft API] status=${result.status} fingerprint=${result.fingerprint || "(none)"} source=${result.fpSource || "(none)"}`,
     );
     this.logger.log(`[saveDraft API] body preview: ${result.bodyPreview}`);
 
@@ -1486,7 +1585,11 @@ export class WechatAdapter {
     return null;
   }
 
-  private async saveDraft(page: Page, content: SocialContent): Promise<string> {
+  private async saveDraft(
+    page: Page,
+    content: SocialContent,
+    sniffedFingerprint: string,
+  ): Promise<string> {
     // 2026-05-16: API 直发路径优先 —— 跳过 UI click 模拟，从 page 上下文里
     //   直接 fetch POST 到微信内部 save endpoint。基于 PR #94 的 POST 拦截
     //   ground truth：endpoint `/cgi-bin/operate_appmsg?t=ajax-response&sub=create`
@@ -1495,8 +1598,14 @@ export class WechatAdapter {
     //   author0 / digest0 / content0 / show_cover_pic0=0 / need_open_comment0=1
     //   / copyright_type=0。绕开 click 反爬 / React state / DOM 操作问题。
     //   API 失败回退原 UI click 路径（PR #87~#94 累积的 3 method 兜底）。
+    //   2026-05-16 #98: sniffedFingerprint 来自 publish() 顶部装的 request
+    //   listener —— window scrape 失败时用真鼠标侧 sniff 到的 32-hex。
     try {
-      const apiUrl = await this.saveDraftViaApi(page, content);
+      const apiUrl = await this.saveDraftViaApi(
+        page,
+        content,
+        sniffedFingerprint,
+      );
       if (apiUrl) {
         this.logger.log(`[saveDraft] API direct save succeeded: ${apiUrl}`);
         return apiUrl;
