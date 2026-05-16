@@ -108,22 +108,11 @@ export class SocialAgentInvoker {
   }
 }
 
-/** Extract token spend from runner events (mirror of playground util) */
-export function extractTokenSpend(
-  events: readonly { type: string; payload: unknown }[],
-): number {
-  let total = 0;
-  let lastBudgetTokens = 0;
-  for (const ev of events) {
-    if (ev.type === "action_executed") {
-      const p = ev.payload as { tokensUsed?: number } | null;
-      if (p && typeof p.tokensUsed === "number") total += p.tokensUsed;
-    } else if (ev.type === "budget_warning") {
-      const p = ev.payload as { tokensUsed?: number } | null;
-      if (p && typeof p.tokensUsed === "number") {
-        lastBudgetTokens = Math.max(lastBudgetTokens, p.tokensUsed);
-      }
-    }
-  }
-  return Math.max(total, lastBudgetTokens);
-}
+/**
+ * Re-export harness facade extractTokenSpend
+ *
+ * Round-2 Reviewer A P1: 移除 social local copy，统一走 facade 版（处理
+ * thinking token，本地版会漏算）。9 个 role service 透过 ./roles barrel
+ * 拿到的仍是同名 export，无需改 import path。
+ */
+export { extractTokenSpend } from "@/modules/ai-harness/facade";
