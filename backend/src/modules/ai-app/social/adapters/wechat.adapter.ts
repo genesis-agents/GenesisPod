@@ -720,9 +720,12 @@ export class WechatAdapter {
         }
       }
 
-      // Step 7.5b: 上传封面图到素材库，拿 thumb_media_id
-      //   没有封面 → thumb_media_id="0"，feed 列表里没缩略图；可发但门面差。
-      //   上传失败 → 同样降级到 thumb_media_id="0"，不阻塞发布。
+      // Step 7.5b: 封面 = upload 上传原图 + crop_multi 转封面合法 file_id。
+      //   2026-05-16 PR #111: HAR 真鼠标实证两步走 ——
+      //     1) upload_material 拿原图 cdn_url + file_id + ai_status
+      //     2) cropimage?action=crop_multi 拿 2.35:1 + 1:1 两个 crop file_id + cdnurl
+      //   saveDraft 用 cdn_url0 + crop_list0 等新字段（不再用 thumb_media_id）。
+      //   crop_multi 需要 fingerprint，复用 sniffState.fingerprint（顶部 listener 抓的）。
       let cover: CoverUpload | null = null;
       if (token && contentWithCover.coverImageUrl) {
         try {
@@ -730,10 +733,11 @@ export class WechatAdapter {
             page,
             contentWithCover.coverImageUrl,
             token,
+            sniffState.fingerprint,
           );
           if (cover) {
             this.logger.log(
-              `[cover upload] success: mediaId=${cover.mediaId} cdnUrl=${cover.cdnUrl.slice(0, 80)}`,
+              `[cover upload] success: uploadFileId=${cover.uploadFileId} cropFileId235=${cover.cropFileId235} cropFileId1_1=${cover.cropFileId1_1} cdnBack=${cover.uploadCdnUrl.slice(0, 80)}`,
             );
           } else {
             this.logger.warn(
@@ -1615,8 +1619,12 @@ export class WechatAdapter {
         digest: content.digest || "",
         content: content.content || "",
         sniffedFingerprint,
-        thumbMediaId: cover?.mediaId || "",
-        coverCdnUrl: cover?.cdnUrl || "",
+        // 2026-05-16 PR #111: HAR 真鼠标实证的 cover 6 字段（不再用 thumb_media_id）。
+        coverBackCdnUrl: cover?.uploadCdnUrl || "",
+        coverCrop235CdnUrl: cover?.cropCdnUrl235 || "",
+        coverCrop235FileId: cover?.cropFileId235 || "",
+        coverCrop1_1CdnUrl: cover?.cropCdnUrl1_1 || "",
+        coverCrop1_1FileId: cover?.cropFileId1_1 || "",
       },
     );
 

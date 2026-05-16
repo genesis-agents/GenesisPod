@@ -48,18 +48,59 @@ describe("WechatImageUploaderService", () => {
     });
   };
 
-  it("rewrites external img src to mmbiz CDN URL on successful upload", async () => {
+  // 2026-05-16 PR #111: uploadOne 现在要求 mock 返回 {url, fileId, aiStatus, ext}
+  // —— 缺 fileId 视为 upload 失败（rewriteImagesInHtml 走 failed 分支）。
+  const okUpload = (url: string, fileId = "535769586") => ({
+    url,
+    fileId,
+    aiStatus: 1,
+    ext: "jpg",
+    attempts: [
+      { endpoint: "filetransfer-upload-material", ret: 0, url, fileId },
+    ],
+  });
+
+  const failedUpload = () => ({
+    url: null,
+    fileId: null,
+    aiStatus: 0,
+    ext: "jpg",
+    attempts: [
+      {
+        endpoint: "filetransfer-upload-material",
+        ret: -1,
+        url: null,
+        fileId: null,
+        errMsg: "fail",
+      },
+    ],
+  });
+
+  // uploadCover 现在 2-step (upload → crop_multi)，对应 mockPage.evaluate
+  // 两次调用 mockResolvedValueOnce 分别返回 cover-upload + crop-multi 结果。
+  const okCoverUpload = () => ({
+    mediaId: "535769586",
+    cdnUrl: "https://mmbiz.qpic.cn/cover/original",
+    aiStatus: 1,
+    ext: "jpg",
+    attempts: [],
+  });
+
+  const okCropMulti = () => ({
+    ok: true,
+    cropFileId235: "535769587",
+    cropCdnUrl235: "https://mmbiz.qpic.cn/cover/235",
+    cropFileId1_1: "535769588",
+    cropCdnUrl1_1: "https://mmbiz.qpic.cn/cover/1_1",
+    fingerprintSource: "sniffed",
+    bodyPreview: "{base_resp:{ret:0},result:[...]}",
+  });
+
+  it("rewrites external img src to WeChat schema with mmbiz CDN URL on successful upload", async () => {
     makeFetchOk();
-    mockPage.evaluate.mockResolvedValue({
-      url: "https://mmbiz.qpic.cn/abc/123",
-      attempts: [
-        {
-          endpoint: "misc-uploadimg2",
-          ret: 0,
-          url: "https://mmbiz.qpic.cn/abc/123",
-        },
-      ],
-    });
+    mockPage.evaluate.mockResolvedValue(
+      okUpload("https://mmbiz.qpic.cn/abc/123"),
+    );
 
     const html = `<p>before</p><img src="https://example.com/foo.jpg" alt="x" /><p>after</p>`;
     const result = await service.rewriteImagesInHtml(
@@ -71,24 +112,17 @@ describe("WechatImageUploaderService", () => {
     expect(result.uploaded).toBe(1);
     expect(result.failed).toBe(0);
     expect(result.skipped).toBe(0);
+    // 2026-05-16 PR #111: rewriteImagesInHtml 现在注入完整 WeChat schema img 标签，
+    // data-src 含 mmbiz CDN URL，class 含 rich_pages wxw-img js_insertlocalimg。
     expect(result.rewritten).toContain("https://mmbiz.qpic.cn/abc/123");
+    expect(result.rewritten).toContain("rich_pages wxw-img js_insertlocalimg");
+    expect(result.rewritten).toContain("data-imgfileid=");
     expect(result.rewritten).not.toContain("example.com/foo.jpg");
   });
 
   it("keeps original URL on upload failure and increments failed counter", async () => {
     makeFetchOk();
-    mockPage.evaluate.mockResolvedValue({
-      url: null,
-      attempts: [
-        { endpoint: "misc-uploadimg2", ret: -1, url: null, errMsg: "fail" },
-        {
-          endpoint: "filetransfer-upload-material",
-          ret: -1,
-          url: null,
-          errMsg: "fail",
-        },
-      ],
-    });
+    mockPage.evaluate.mockResolvedValue(failedUpload());
 
     const html = `<img src="https://external.example.com/foo.jpg" />`;
     const result = await service.rewriteImagesInHtml(
@@ -312,10 +346,9 @@ describe("WechatImageUploaderService", () => {
 
     it("rejects upload-result URL that is not on mmbiz.qpic.cn (XSS defense)", async () => {
       makeFetchOk();
-      mockPage.evaluate.mockResolvedValue({
-        url: 'https://evil.com/" onerror="alert(1)" x="',
-        attempts: [{ endpoint: "misc-uploadimg2", ret: 0, url: "..." }],
-      });
+      mockPage.evaluate.mockResolvedValue(
+        okUpload('https://evil.com/" onerror="alert(1)" x="'),
+      );
 
       const html = `<img src="https://legit.example.com/foo.jpg" />`;
       const result = await service.rewriteImagesInHtml(
@@ -332,10 +365,9 @@ describe("WechatImageUploaderService", () => {
 
     it("dedupes identical external URLs into one upload call (saves quota)", async () => {
       makeFetchOk();
-      mockPage.evaluate.mockResolvedValue({
-        url: "https://mmbiz.qpic.cn/dedup/abc",
-        attempts: [],
-      });
+      mockPage.evaluate.mockResolvedValue(
+        okUpload("https://mmbiz.qpic.cn/dedup/abc"),
+      );
 
       const html = [
         `<img src="https://example.com/same.jpg" alt="a" />`,
@@ -359,38 +391,39 @@ describe("WechatImageUploaderService", () => {
   });
 
   describe("uploadCover", () => {
-    it("returns mediaId + cdnUrl on successful material upload", async () => {
+    it("returns full CoverUpload (upload + crop_multi) on success", async () => {
       makeFetchOk();
-      mockPage.evaluate.mockResolvedValue({
-        mediaId: "100000234",
-        cdnUrl: "https://mmbiz.qpic.cn/cover/abc",
-        attempts: [
-          {
-            endpoint: "filetransfer-upload-material",
-            ret: 0,
-            mediaId: "100000234",
-            cdnUrl: "https://mmbiz.qpic.cn/cover/abc",
-          },
-        ],
-      });
+      mockPage.evaluate
+        .mockResolvedValueOnce(okCoverUpload())
+        .mockResolvedValueOnce(okCropMulti());
 
       const result = await service.uploadCover(
         mockPage as unknown as Page,
         "https://example.com/cover.jpg",
         "999",
+        "fingerprint-32-hex-string",
       );
 
       expect(result).toEqual({
-        mediaId: "100000234",
-        cdnUrl: "https://mmbiz.qpic.cn/cover/abc",
+        uploadFileId: "535769586",
+        uploadCdnUrl: "https://mmbiz.qpic.cn/cover/original",
+        aiStatus: 1,
+        imageType: "jpg",
+        cropFileId235: "535769587",
+        cropCdnUrl235: "https://mmbiz.qpic.cn/cover/235",
+        cropFileId1_1: "535769588",
+        cropCdnUrl1_1: "https://mmbiz.qpic.cn/cover/1_1",
       });
+      expect(mockPage.evaluate).toHaveBeenCalledTimes(2);
     });
 
-    it("returns null when material upload fails", async () => {
+    it("returns null when upload step fails", async () => {
       makeFetchOk();
-      mockPage.evaluate.mockResolvedValue({
+      mockPage.evaluate.mockResolvedValueOnce({
         mediaId: null,
         cdnUrl: null,
+        aiStatus: 0,
+        ext: "jpg",
         attempts: [
           {
             endpoint: "filetransfer-upload-material",
@@ -406,9 +439,36 @@ describe("WechatImageUploaderService", () => {
         mockPage as unknown as Page,
         "https://example.com/cover.jpg",
         "999",
+        "fingerprint",
       );
 
       expect(result).toBeNull();
+      expect(mockPage.evaluate).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns null when crop_multi step fails (新版编辑器不接受未 crop 的 file_id)", async () => {
+      makeFetchOk();
+      mockPage.evaluate
+        .mockResolvedValueOnce(okCoverUpload())
+        .mockResolvedValueOnce({
+          ok: false,
+          cropFileId235: null,
+          cropCdnUrl235: null,
+          cropFileId1_1: null,
+          cropCdnUrl1_1: null,
+          fingerprintSource: "sniffed",
+          bodyPreview: "{base_resp:{ret:-1}}",
+        });
+
+      const result = await service.uploadCover(
+        mockPage as unknown as Page,
+        "https://example.com/cover.jpg",
+        "999",
+        "fingerprint",
+      );
+
+      expect(result).toBeNull();
+      expect(mockPage.evaluate).toHaveBeenCalledTimes(2);
     });
 
     it("returns null when source fetch fails", async () => {
@@ -423,34 +483,32 @@ describe("WechatImageUploaderService", () => {
         mockPage as unknown as Page,
         "https://broken.example.com/cover.jpg",
         "999",
+        "fingerprint",
       );
 
       expect(result).toBeNull();
       expect(mockPage.evaluate).not.toHaveBeenCalled();
     });
 
-    it("re-uploads already-hosted mmbiz URL to material library (must get media_id)", async () => {
-      // Reviewer 共识 Q3：与 body 图不同，封面必须有 file_id 才能填
-      // thumb_media_id，所以即便已经在 mmbiz 域，也要重传一次。
+    it("re-uploads already-hosted mmbiz URL through upload + crop_multi pipeline", async () => {
+      // 已经在 mmbiz 域的 URL 也得重新走 upload + crop_multi 才能拿到合法
+      // cover file_id。crop_multi 是 HAR 实证唯一桥梁。
       makeFetchOk();
-      mockPage.evaluate.mockResolvedValue({
-        mediaId: "fresh-media-id-999",
-        cdnUrl: "https://mmbiz.qpic.cn/cover/fresh",
-        attempts: [],
-      });
+      mockPage.evaluate
+        .mockResolvedValueOnce(okCoverUpload())
+        .mockResolvedValueOnce(okCropMulti());
 
       const result = await service.uploadCover(
         mockPage as unknown as Page,
         "https://mmbiz.qpic.cn/already-hosted",
         "999",
+        "fingerprint",
       );
 
-      expect(result).toEqual({
-        mediaId: "fresh-media-id-999",
-        cdnUrl: "https://mmbiz.qpic.cn/cover/fresh",
-      });
+      expect(result).not.toBeNull();
+      expect(result?.cropFileId235).toBe("535769587");
       expect(mockFetch).toHaveBeenCalled();
-      expect(mockPage.evaluate).toHaveBeenCalled();
+      expect(mockPage.evaluate).toHaveBeenCalledTimes(2);
     });
 
     it("rejects SSRF-unsafe URL in cover path", async () => {
@@ -458,17 +516,20 @@ describe("WechatImageUploaderService", () => {
         mockPage as unknown as Page,
         "http://169.254.169.254/cover.jpg",
         "999",
+        "fingerprint",
       );
 
       expect(result).toBeNull();
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("returns null when partial response missing mediaId or cdnUrl", async () => {
+    it("returns null when upload response missing cdnUrl", async () => {
       makeFetchOk();
-      mockPage.evaluate.mockResolvedValue({
+      mockPage.evaluate.mockResolvedValueOnce({
         mediaId: "100000234",
         cdnUrl: null,
+        aiStatus: 0,
+        ext: "jpg",
         attempts: [],
       });
 
@@ -476,6 +537,7 @@ describe("WechatImageUploaderService", () => {
         mockPage as unknown as Page,
         "https://example.com/cover.jpg",
         "999",
+        "fingerprint",
       );
 
       expect(result).toBeNull();
@@ -485,20 +547,8 @@ describe("WechatImageUploaderService", () => {
   it("processes multiple images independently (mix of success/skip/fail)", async () => {
     makeFetchOk();
     mockPage.evaluate
-      .mockResolvedValueOnce({
-        url: "https://mmbiz.qpic.cn/ok",
-        attempts: [
-          {
-            endpoint: "misc-uploadimg2",
-            ret: 0,
-            url: "https://mmbiz.qpic.cn/ok",
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        url: null,
-        attempts: [{ endpoint: "misc-uploadimg2", ret: -1, url: null }],
-      });
+      .mockResolvedValueOnce(okUpload("https://mmbiz.qpic.cn/ok"))
+      .mockResolvedValueOnce(failedUpload());
 
     const html = [
       `<img src="https://a.example.com/1.jpg" />`,

@@ -17,10 +17,21 @@ export interface SaveDraftApiParams {
   digest: string;
   content: string;
   sniffedFingerprint: string;
-  /** 封面图 media_id（来自素材库 upload），空字符串表示无封面 */
-  thumbMediaId: string;
-  /** 封面图 CDN URL，配合 thumbMediaId 一起出现，空表示无封面 */
-  coverCdnUrl: string;
+  /**
+   * 2026-05-16 PR #111: HAR 真鼠标实证的 cover schema —— 新版编辑器不用
+   * thumb_media_id / cdn_url_1_1，而是 6 个 cdn_url 字段 + 1 个 crop_list0 JSON。
+   * 所有 cover* 字段为空字符串表示无封面（草稿仍可保存，feed 缩略图缺失）。
+   */
+  /** upload_material 返回的原图 cdn_url，作 cdn_url_back0 */
+  coverBackCdnUrl: string;
+  /** crop_multi result[0] (2.35:1) cdnurl，作 cdn_url0 / cdn_235_1_url0 / cdn_3_4_url0 */
+  coverCrop235CdnUrl: string;
+  /** crop_multi result[0] (2.35:1) file_id，作 crop_list0 内 ratio:"2.35_1" 的 file_id */
+  coverCrop235FileId: string;
+  /** crop_multi result[1] (1:1) cdnurl，作 cdn_1_1_url0 */
+  coverCrop1_1CdnUrl: string;
+  /** crop_multi result[1] (1:1) file_id，作 crop_list0 内 ratio:"1_1" 的 file_id */
+  coverCrop1_1FileId: string;
 }
 
 export interface SaveDraftApiResult {
@@ -114,12 +125,10 @@ export async function runSaveDraftAttempts(
     }
   }
 
-  // 2. 多 schema 候选 —— PR #97 单 schema "appmsgid=0/index=0/type=10"
-  //    返回 ret=200002 "参数错误"；PR #96 多图文 schema 返回 ret=444002
-  //    "旧版图文素材"。两端都不对，PR #99 尝试几个中间变体：
-  //    a) multi-article 改进：count=1 + title0/content0 + AppMsgId 用真 hash
-  //    b) 加 thumb_media_id=0 fallback（type=10 长文 WeChat 通常要求封面）
-  //    c) 切换 endpoint：/cgi-bin/appmsg?action=add_appmsg
+  // 2026-05-16 PR #111: HAR 15.6MB 真鼠标 saveDraft 完整字段还原。新版
+  // 编辑器使用 multi-suffixed schema（count=1 + 索引 0 后缀），URL 带
+  // sub=update&type=77（type=77 是新版编辑器统一 sub-type，跟图文类型无关）。
+  // 封面通过 6 个 cdn_url 字段 + crop_list0 JSON 描述，不再依赖 thumb_media_id。
   const rand = () => Math.random().toString();
   const commonFields = {
     token: params.token,
@@ -128,74 +137,128 @@ export async function runSaveDraftAttempts(
     ajax: "1",
     fingerprint,
   };
-  const hasCover = !!params.thumbMediaId && !!params.coverCdnUrl;
+  const hasCover =
+    !!params.coverBackCdnUrl &&
+    !!params.coverCrop235CdnUrl &&
+    !!params.coverCrop1_1CdnUrl;
+
+  // crop_list0 几何描述：WeChat 服务端根据这个 JSON 确定 cover 比例与剪裁框。
+  //   x1/y1/x2/y2 都是 0 表示让 WeChat 自动按 format 比例剪裁；具体几何由
+  //   crop_list_percent 里的 0~1 浮点描述。我们生成的占位/AI 图是 1200x630
+  //   或类似比例，直接全图标记 (0,0)→(1,1) 即可。
+  const cropList0Json = hasCover
+    ? JSON.stringify({
+        crop_list: [
+          {
+            ratio: "2.35_1",
+            x1: 0,
+            y1: 0,
+            x2: 0,
+            y2: 0,
+            file_id:
+              Number(params.coverCrop235FileId) || params.coverCrop235FileId,
+          },
+          {
+            ratio: "1_1",
+            x1: 0,
+            y1: 0,
+            x2: 0,
+            y2: 0,
+            file_id:
+              Number(params.coverCrop1_1FileId) || params.coverCrop1_1FileId,
+          },
+        ],
+        crop_list_percent: [
+          {
+            ratio: "2.35_1",
+            x1: 0,
+            y1: 0,
+            x2: 1,
+            y2: 1,
+            file_id:
+              Number(params.coverCrop235FileId) || params.coverCrop235FileId,
+          },
+          {
+            ratio: "1_1",
+            x1: 0,
+            y1: 0,
+            x2: 1,
+            y2: 1,
+            file_id:
+              Number(params.coverCrop1_1FileId) || params.coverCrop1_1FileId,
+          },
+        ],
+      })
+    : "";
+
+  // HAR 真鼠标 saveDraft 字段集合（核心 30 字段，全 multi-suffixed index 0）。
   const sharedArticleFields = {
-    title: params.title,
-    author: params.author,
-    digest: params.digest,
-    content: params.content,
-    sourceurl: "",
-    fileid: "",
-    cdn_url_1_1: hasCover ? params.coverCdnUrl : "",
-    show_cover_pic: "0",
-    need_open_comment: "1",
-    only_fans_can_comment: "0",
-    ad_type: "0",
-    copyright_type: "0",
-    can_reward: "0",
-    can_open_reward: "0",
-    thumb_media_id: hasCover ? params.thumbMediaId : "0",
+    // 核心内容
+    title0: params.title,
+    author0: params.author,
+    digest0: params.digest,
+    content0: params.content,
+    sourceurl0: "",
+    fileid0: "",
+    // 封面 6 字段（HAR 实证）—— 2.35:1 / 16:9 / 3:4 / 1:1 / 原图回链
+    cdn_url0: hasCover ? params.coverCrop235CdnUrl : "",
+    cdn_235_1_url0: hasCover ? params.coverCrop235CdnUrl : "",
+    cdn_3_4_url0: hasCover ? params.coverCrop235CdnUrl : "",
+    cdn_1_1_url0: hasCover ? params.coverCrop1_1CdnUrl : "",
+    cdn_16_9_url0: "",
+    cdn_url_back0: hasCover ? params.coverBackCdnUrl : "",
+    crop_list0: cropList0Json,
+    // 元信息（HAR 实证默认值）
+    show_cover_pic0: "0",
+    last_choose_cover_from0: "0",
+    app_cover_auto0: "0",
+    multi_picture_cover0: "0",
+    new_pic_process0: "0",
+    title_gen_type0: "0",
+    auto_gen_digest0: "0",
+    copyright_type0: "0",
+    is_cartoon_copyright0: "0",
+    need_open_comment0: "1",
+    only_fans_can_comment0: "0",
+    can_reward0: "0",
+    can_open_reward0: "0",
+    ad_type0: "0",
   };
 
+  // 单 schema 主路径 + 多 schema fallback：
+  //   主路径 v2-multi-suffixed (HAR 实证) → 失败回退 v1 / v3 兼容性兜底
   const schemas: Array<{
     name: string;
     endpoint: string;
     body: Record<string, string>;
   }> = [
     {
-      name: "v1-single-no-suffix",
-      endpoint: `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&token=${params.token}&lang=zh_CN`,
+      name: "v2-multi-suffixed-count1-har",
+      // URL 带 type=77 跟真鼠标对齐（新版编辑器统一 sub-type）
+      endpoint: `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&type=77&token=${params.token}&lang=zh_CN`,
       body: {
         ...commonFields,
         random: rand(),
-        appmsgid: "0",
-        index: "0",
+        AppMsgId: "",
+        count: "1",
+        // top-level type 双保险（部分 schema 服务端按 top-level 判，部分按 type0）
         type: "10",
+        type0: "10",
         ...sharedArticleFields,
       },
     },
     {
-      name: "v2-multi-suffixed-count1",
+      name: "v2-multi-suffixed-count1-sub-create",
+      // 不带 type=77 的 sub=create 旁路（保险）
       endpoint: `/cgi-bin/operate_appmsg?t=ajax-response&sub=create&token=${params.token}&lang=zh_CN`,
       body: {
         ...commonFields,
         random: rand(),
         AppMsgId: "",
         count: "1",
-        // 2026-05-16: v2 缺 type 字段是 PR #104 后保存仍 type=77 真根因。
-        //   WeChat 对 count=1 多图文 schema 不带 type → 短内容 silently 落
-        //   小绿书 type=77 默认通道。补 type / type0 双字段（top-level + 索引
-        //   后缀都覆盖）强制 type=10 长图文。
         type: "10",
         type0: "10",
-        title0: params.title,
-        author0: params.author,
-        digest0: params.digest,
-        content0: params.content,
-        sourceurl0: "",
-        fileid0: "",
-        // cdn_url_1_10 = cdn_url_1_1 + 多图文 index 后缀 0（与 title0 / digest0
-        // 同样的命名规则）。v1/v3 单图文用 cdn_url_1_1，v2 count=1 多图文模板
-        // 用 cdn_url_1_10。这是微信前端约定，不是拼写错误。
-        cdn_url_1_10: hasCover ? params.coverCdnUrl : "",
-        show_cover_pic0: "0",
-        need_open_comment0: "1",
-        only_fans_can_comment0: "0",
-        ad_type0: "0",
-        copyright_type0: "0",
-        can_reward0: "0",
-        can_open_reward0: "0",
-        thumb_media_id0: hasCover ? params.thumbMediaId : "0",
+        ...sharedArticleFields,
       },
     },
     {
@@ -205,7 +268,15 @@ export async function runSaveDraftAttempts(
         ...commonFields,
         random: rand(),
         type: "10",
-        ...sharedArticleFields,
+        title: params.title,
+        author: params.author,
+        digest: params.digest,
+        content: params.content,
+        sourceurl: "",
+        cdn_url: hasCover ? params.coverCrop235CdnUrl : "",
+        cdn_url_back: hasCover ? params.coverBackCdnUrl : "",
+        show_cover_pic: "0",
+        copyright_type: "0",
       },
     },
   ];
