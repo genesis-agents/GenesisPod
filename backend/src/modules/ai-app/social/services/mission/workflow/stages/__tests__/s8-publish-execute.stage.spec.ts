@@ -29,7 +29,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -83,7 +87,12 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     pool: {} as MissionInvariants["pool"],
     budgetMultiplier: 1,
     contextIds: { wechat: "ctx-s8-w" },
-    contentRaw: { title: "S8 title", body: "<p>S8 body</p>", digest: null, coverImageUrl: null },
+    contentRaw: {
+      title: "S8 title",
+      body: "<p>S8 body</p>",
+      digest: null,
+      coverImageUrl: null,
+    },
     stewardInputs: {
       remainingCreditsUsd: 3,
       estimatedCostUsd: 0.08,
@@ -101,10 +110,17 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
       },
     } as TransformPhaseCtx["platformVersions"],
     composed: {
-      wechat: { platform: "wechat", bodyHtml: "<section><p>Final HTML</p></section>" },
+      wechat: {
+        platform: "wechat",
+        bodyHtml: "<section><p>Final HTML</p></section>",
+      },
     } as ComposePhaseCtx["composed"],
     covers: {
-      wechat: { coverUrl: "https://cdn.example.com/thumb.jpg", thumbMediaId: "thumb-abc", cropMultiList: [] },
+      wechat: {
+        coverUrl: "https://cdn.example.com/thumb.jpg",
+        thumbMediaId: "thumb-abc",
+        cropMultiList: [],
+      },
     } as CraftPhaseCtx["covers"],
     ...overrides,
   } as Ctx;
@@ -155,8 +171,14 @@ describe("runPublishExecuteStage (s8)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const tags = emitCalls
-        .filter((args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative")
-        .map((args: unknown[]) => (args[0] as { payload: { tag: string } }).payload.tag);
+        .filter(
+          (args: unknown[]) =>
+            (args[0] as { type: string }).type === "social.agent:narrative",
+        )
+        .map(
+          (args: unknown[]) =>
+            (args[0] as { payload: { tag: string } }).payload.tag,
+        );
       expect(tags).toContain("publishing");
       expect(tags).toContain("success");
     });
@@ -285,14 +307,25 @@ describe("runPublishExecuteStage (s8)", () => {
     it("should publish each platform independently", async () => {
       const deps = makeDeps({
         publishExecutor: {
-          run: jest.fn()
+          run: jest
+            .fn()
             .mockResolvedValueOnce({
               state: "completed",
-              output: { platform: "wechat", status: "PUBLISHED", draftUrl: "https://mp.weixin/1", platformResponse: { ret: 0 } },
+              output: {
+                platform: "wechat",
+                status: "PUBLISHED",
+                draftUrl: "https://mp.weixin/1",
+                platformResponse: { ret: 0 },
+              },
             })
             .mockResolvedValueOnce({
               state: "completed",
-              output: { platform: "xiaohongshu", status: "PUBLISHED", draftUrl: "https://xhs/1", platformResponse: { ret: 0 } },
+              output: {
+                platform: "xiaohongshu",
+                status: "PUBLISHED",
+                draftUrl: "https://xhs/1",
+                platformResponse: { ret: 0 },
+              },
             }),
         } as unknown as CommonDeps["publishExecutor"],
       });
@@ -323,11 +356,22 @@ describe("runPublishExecuteStage (s8)", () => {
         } as TransformPhaseCtx["platformVersions"],
         composed: {
           wechat: { platform: "wechat", bodyHtml: "<section>W</section>" },
-          xiaohongshu: { platform: "xiaohongshu", bodyHtml: "<section>X</section>" },
+          xiaohongshu: {
+            platform: "xiaohongshu",
+            bodyHtml: "<section>X</section>",
+          },
         } as ComposePhaseCtx["composed"],
         covers: {
-          wechat: { coverUrl: "https://w.jpg", thumbMediaId: "t1", cropMultiList: [] },
-          xiaohongshu: { coverUrl: "https://x.jpg", thumbMediaId: null, cropMultiList: [] },
+          wechat: {
+            coverUrl: "https://w.jpg",
+            thumbMediaId: "t1",
+            cropMultiList: [],
+          },
+          xiaohongshu: {
+            coverUrl: "https://x.jpg",
+            thumbMediaId: null,
+            cropMultiList: [],
+          },
         } as CraftPhaseCtx["covers"],
       });
 

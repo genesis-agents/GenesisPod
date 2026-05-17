@@ -28,7 +28,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -81,7 +85,12 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     pool: {} as MissionInvariants["pool"],
     budgetMultiplier: 1,
     contextIds: { wechat: "ctx-s9-w" },
-    contentRaw: { title: "S9 title", body: "<p>S9 body</p>", digest: null, coverImageUrl: null },
+    contentRaw: {
+      title: "S9 title",
+      body: "<p>S9 body</p>",
+      digest: null,
+      coverImageUrl: null,
+    },
     stewardInputs: {
       remainingCreditsUsd: 2,
       estimatedCostUsd: 0.02,
@@ -99,7 +108,10 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
       },
     } as TransformPhaseCtx["platformVersions"],
     composed: {
-      wechat: { platform: "wechat", bodyHtml: "<section><p>Sent HTML</p></section>" },
+      wechat: {
+        platform: "wechat",
+        bodyHtml: "<section><p>Sent HTML</p></section>",
+      },
     } as ComposePhaseCtx["composed"],
     published: {
       wechat: {
@@ -160,8 +172,14 @@ describe("runPublishVerifyStage (s9)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const tags = emitCalls
-        .filter((args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative")
-        .map((args: unknown[]) => (args[0] as { payload: { tag: string } }).payload.tag);
+        .filter(
+          (args: unknown[]) =>
+            (args[0] as { type: string }).type === "social.agent:narrative",
+        )
+        .map(
+          (args: unknown[]) =>
+            (args[0] as { payload: { tag: string } }).payload.tag,
+        );
       expect(tags).toContain("verifying");
       expect(tags).toContain("success");
     });
@@ -211,7 +229,12 @@ describe("runPublishVerifyStage (s9)", () => {
       const deps = makeDeps();
       const ctx = makeCtx({
         published: {
-          wechat: { platform: "wechat", status: "FAILED", draftUrl: null, platformResponse: { ret: 2 } },
+          wechat: {
+            platform: "wechat",
+            status: "FAILED",
+            draftUrl: null,
+            platformResponse: { ret: 2 },
+          },
         } as PublishPhaseCtx["published"],
       });
 
@@ -221,7 +244,8 @@ describe("runPublishVerifyStage (s9)", () => {
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const warnNarrative = emitCalls.find(
         (args: unknown[]) =>
-          (args[0] as { type?: string; payload?: { tag?: string } }).type === "social.agent:narrative" &&
+          (args[0] as { type?: string; payload?: { tag?: string } }).type ===
+            "social.agent:narrative" &&
           (args[0] as { payload: { tag: string } }).payload.tag === "warning",
       );
       expect(warnNarrative).toBeDefined();
@@ -231,7 +255,12 @@ describe("runPublishVerifyStage (s9)", () => {
       const deps = makeDeps();
       const ctx = makeCtx({
         published: {
-          wechat: { platform: "wechat", status: "PUBLISHED", draftUrl: null, platformResponse: { ret: 0 } },
+          wechat: {
+            platform: "wechat",
+            status: "PUBLISHED",
+            draftUrl: null,
+            platformResponse: { ret: 0 },
+          },
         } as PublishPhaseCtx["published"],
       });
 

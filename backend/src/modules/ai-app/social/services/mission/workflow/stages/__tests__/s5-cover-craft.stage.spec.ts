@@ -27,7 +27,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -56,7 +60,10 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
   };
 }
 
-type Ctx = MissionInvariants & TransformPhaseCtx & AssessPhaseCtx & CraftPhaseCtx;
+type Ctx = MissionInvariants &
+  TransformPhaseCtx &
+  AssessPhaseCtx &
+  CraftPhaseCtx;
 
 function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
@@ -99,7 +106,9 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     } as TransformPhaseCtx["platformVersions"],
     leaderAssess: {
       phase: "assess-transform",
-      perPlatform: [{ platform: "wechat", verdict: "approve", reason: "OK", score: 90 }],
+      perPlatform: [
+        { platform: "wechat", verdict: "approve", reason: "OK", score: 90 },
+      ],
     } as AssessPhaseCtx["leaderAssess"],
     ...overrides,
   } as Ctx;
@@ -139,7 +148,9 @@ describe("runCoverCraftStage (s5)", () => {
 
       expect(ctx.covers).toBeDefined();
       expect(ctx.covers!["wechat"]).toBeDefined();
-      expect(ctx.covers!["wechat"].coverUrl).toBe("https://example.com/cover.png");
+      expect(ctx.covers!["wechat"].coverUrl).toBe(
+        "https://example.com/cover.png",
+      );
     });
 
     it("should pass userProvidedCoverUrl from contentRaw", async () => {
@@ -202,8 +213,14 @@ describe("runCoverCraftStage (s5)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const tags = emitCalls
-        .filter((args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative")
-        .map((args: unknown[]) => (args[0] as { payload: { tag: string } }).payload.tag);
+        .filter(
+          (args: unknown[]) =>
+            (args[0] as { type: string }).type === "social.agent:narrative",
+        )
+        .map(
+          (args: unknown[]) =>
+            (args[0] as { payload: { tag: string } }).payload.tag,
+        );
       expect(tags).toContain("writing");
       expect(tags).toContain("success");
     });
@@ -244,7 +261,12 @@ describe("runCoverCraftStage (s5)", () => {
           phase: "assess-transform",
           perPlatform: [
             { platform: "wechat", verdict: "approve", reason: "OK", score: 80 },
-            { platform: "xiaohongshu", verdict: "reject", reason: "Bad", score: 20 },
+            {
+              platform: "xiaohongshu",
+              verdict: "reject",
+              reason: "Bad",
+              score: 20,
+            },
           ],
         } as AssessPhaseCtx["leaderAssess"],
         input: {
@@ -283,7 +305,12 @@ describe("runCoverCraftStage (s5)", () => {
         leaderAssess: {
           phase: "assess-transform",
           perPlatform: [
-            { platform: "wechat", verdict: "reject", reason: "Too bad", score: 10 },
+            {
+              platform: "wechat",
+              verdict: "reject",
+              reason: "Too bad",
+              score: 10,
+            },
           ],
         } as AssessPhaseCtx["leaderAssess"],
       });

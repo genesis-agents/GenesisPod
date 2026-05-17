@@ -28,7 +28,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -81,7 +85,12 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     pool: {} as MissionInvariants["pool"],
     budgetMultiplier: 1,
     contextIds: { wechat: "ctx-s8b-w" },
-    contentRaw: { title: "S8b title", body: "<p>S8b body</p>", digest: null, coverImageUrl: null },
+    contentRaw: {
+      title: "S8b title",
+      body: "<p>S8b body</p>",
+      digest: null,
+      coverImageUrl: null,
+    },
     stewardInputs: {
       remainingCreditsUsd: 2,
       estimatedCostUsd: 0.05,
@@ -99,13 +108,25 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
       },
     } as TransformPhaseCtx["platformVersions"],
     composed: {
-      wechat: { platform: "wechat", bodyHtml: "<section><p>Retry HTML</p></section>" },
+      wechat: {
+        platform: "wechat",
+        bodyHtml: "<section><p>Retry HTML</p></section>",
+      },
     } as ComposePhaseCtx["composed"],
     covers: {
-      wechat: { coverUrl: "https://cdn.example.com/retry.jpg", thumbMediaId: "thumb-r", cropMultiList: [] },
+      wechat: {
+        coverUrl: "https://cdn.example.com/retry.jpg",
+        thumbMediaId: "thumb-r",
+        cropMultiList: [],
+      },
     } as CraftPhaseCtx["covers"],
     published: {
-      wechat: { platform: "wechat", status: "FAILED", draftUrl: null, platformResponse: { ret: 444002 } },
+      wechat: {
+        platform: "wechat",
+        status: "FAILED",
+        draftUrl: null,
+        platformResponse: { ret: 444002 },
+      },
     } as PublishPhaseCtx["published"],
     retryRound: {},
     ...overrides,
@@ -148,7 +169,9 @@ describe("runPublishRetryStage (s8b)", () => {
       await runPublishRetryStage(ctx, deps);
 
       expect(ctx.published!["wechat"].status).toBe("PUBLISHED");
-      expect(ctx.published!["wechat"].draftUrl).toBe("https://mp.weixin.qq.com/draft/retry-1");
+      expect(ctx.published!["wechat"].draftUrl).toBe(
+        "https://mp.weixin.qq.com/draft/retry-1",
+      );
     });
 
     it("should increment retryRound for the platform", async () => {
@@ -177,7 +200,12 @@ describe("runPublishRetryStage (s8b)", () => {
       const deps = makeDeps();
       const ctx = makeCtx({
         published: {
-          wechat: { platform: "wechat", status: "PUBLISHED", draftUrl: "https://mp/1", platformResponse: { ret: 0 } },
+          wechat: {
+            platform: "wechat",
+            status: "PUBLISHED",
+            draftUrl: "https://mp/1",
+            platformResponse: { ret: 0 },
+          },
         } as PublishPhaseCtx["published"],
       });
 
@@ -209,7 +237,8 @@ describe("runPublishRetryStage (s8b)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const narrativeCalls = emitCalls.filter(
-        (args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative",
+        (args: unknown[]) =>
+          (args[0] as { type: string }).type === "social.agent:narrative",
       );
       const warningCall = narrativeCalls.find(
         (args: unknown[]) =>

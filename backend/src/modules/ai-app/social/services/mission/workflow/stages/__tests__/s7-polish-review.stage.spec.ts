@@ -27,7 +27,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -58,7 +62,10 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
   };
 }
 
-type Ctx = MissionInvariants & TransformPhaseCtx & ComposePhaseCtx & PolishPhaseCtx;
+type Ctx = MissionInvariants &
+  TransformPhaseCtx &
+  ComposePhaseCtx &
+  PolishPhaseCtx;
 
 function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
@@ -77,7 +84,12 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     pool: {} as MissionInvariants["pool"],
     budgetMultiplier: 1,
     contextIds: { wechat: "ctx-w" },
-    contentRaw: { title: "S7 title", body: "<p>S7 body</p>", digest: null, coverImageUrl: null },
+    contentRaw: {
+      title: "S7 title",
+      body: "<p>S7 body</p>",
+      digest: null,
+      coverImageUrl: null,
+    },
     stewardInputs: {
       remainingCreditsUsd: 4,
       estimatedCostUsd: 0.03,
@@ -186,8 +198,14 @@ describe("runPolishReviewStage (s7)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const tags = emitCalls
-        .filter((args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative")
-        .map((args: unknown[]) => (args[0] as { payload: { tag: string } }).payload.tag);
+        .filter(
+          (args: unknown[]) =>
+            (args[0] as { type: string }).type === "social.agent:narrative",
+        )
+        .map(
+          (args: unknown[]) =>
+            (args[0] as { payload: { tag: string } }).payload.tag,
+        );
       expect(tags).toContain("reviewing");
       expect(tags).toContain("success");
     });
@@ -270,7 +288,10 @@ describe("runPolishReviewStage (s7)", () => {
         // composed only has wechat; xiaohongshu is in composed keys but is in platforms
         composed: {
           wechat: { platform: "wechat", bodyHtml: "<section>W</section>" },
-          xiaohongshu: { platform: "xiaohongshu", bodyHtml: "<section>X</section>" },
+          xiaohongshu: {
+            platform: "xiaohongshu",
+            bodyHtml: "<section>X</section>",
+          },
         } as ComposePhaseCtx["composed"],
       });
 
@@ -296,7 +317,10 @@ describe("runPolishReviewStage (s7)", () => {
         // composed has both
         composed: {
           wechat: { platform: "wechat", bodyHtml: "<section>W</section>" },
-          xiaohongshu: { platform: "xiaohongshu", bodyHtml: "<section>X</section>" },
+          xiaohongshu: {
+            platform: "xiaohongshu",
+            bodyHtml: "<section>X</section>",
+          },
         } as ComposePhaseCtx["composed"],
       });
 

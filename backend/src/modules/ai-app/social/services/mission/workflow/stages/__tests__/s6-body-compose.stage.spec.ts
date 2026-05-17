@@ -27,7 +27,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -55,7 +59,10 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
   };
 }
 
-type Ctx = MissionInvariants & TransformPhaseCtx & AssessPhaseCtx & ComposePhaseCtx;
+type Ctx = MissionInvariants &
+  TransformPhaseCtx &
+  AssessPhaseCtx &
+  ComposePhaseCtx;
 
 function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
   return {
@@ -74,7 +81,12 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     pool: {} as MissionInvariants["pool"],
     budgetMultiplier: 1,
     contextIds: { wechat: "ctx-s6-w" },
-    contentRaw: { title: "S6 title", body: "<p>S6 body</p>", digest: null, coverImageUrl: null },
+    contentRaw: {
+      title: "S6 title",
+      body: "<p>S6 body</p>",
+      digest: null,
+      coverImageUrl: null,
+    },
     stewardInputs: {
       remainingCreditsUsd: 5,
       estimatedCostUsd: 0.02,
@@ -93,7 +105,9 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     } as TransformPhaseCtx["platformVersions"],
     leaderAssess: {
       phase: "assess-transform",
-      perPlatform: [{ platform: "wechat", verdict: "approve", reason: "OK", score: 88 }],
+      perPlatform: [
+        { platform: "wechat", verdict: "approve", reason: "OK", score: 88 },
+      ],
     } as AssessPhaseCtx["leaderAssess"],
     ...overrides,
   } as Ctx;
@@ -133,7 +147,9 @@ describe("runBodyComposeStage (s6)", () => {
 
       expect(ctx.composed).toBeDefined();
       expect(ctx.composed!["wechat"]).toBeDefined();
-      expect(ctx.composed!["wechat"].bodyHtml).toBe("<section><p>Composed body HTML</p></section>");
+      expect(ctx.composed!["wechat"].bodyHtml).toBe(
+        "<section><p>Composed body HTML</p></section>",
+      );
     });
 
     it("should use contextIds[platform] when available", async () => {
@@ -172,8 +188,14 @@ describe("runBodyComposeStage (s6)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const tags = emitCalls
-        .filter((args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative")
-        .map((args: unknown[]) => (args[0] as { payload: { tag: string } }).payload.tag);
+        .filter(
+          (args: unknown[]) =>
+            (args[0] as { type: string }).type === "social.agent:narrative",
+        )
+        .map(
+          (args: unknown[]) =>
+            (args[0] as { payload: { tag: string } }).payload.tag,
+        );
       expect(tags).toContain("writing");
       expect(tags).toContain("success");
     });
@@ -255,7 +277,12 @@ describe("runBodyComposeStage (s6)", () => {
           phase: "assess-transform",
           perPlatform: [
             { platform: "wechat", verdict: "approve", reason: "OK", score: 80 },
-            { platform: "xiaohongshu", verdict: "reject", reason: "Low", score: 20 },
+            {
+              platform: "xiaohongshu",
+              verdict: "reject",
+              reason: "Low",
+              score: 20,
+            },
           ],
         } as AssessPhaseCtx["leaderAssess"],
         input: {
@@ -281,14 +308,18 @@ describe("runBodyComposeStage (s6)", () => {
     it("should process all platforms when leaderAssess is null/undefined", async () => {
       const deps = makeDeps({
         composer: {
-          run: jest.fn()
+          run: jest
+            .fn()
             .mockResolvedValueOnce({
               state: "completed",
               output: { platform: "wechat", bodyHtml: "<section>W</section>" },
             })
             .mockResolvedValueOnce({
               state: "completed",
-              output: { platform: "xiaohongshu", bodyHtml: "<section>X</section>" },
+              output: {
+                platform: "xiaohongshu",
+                bodyHtml: "<section>X</section>",
+              },
             }),
         } as unknown as CommonDeps["composer"],
       });
