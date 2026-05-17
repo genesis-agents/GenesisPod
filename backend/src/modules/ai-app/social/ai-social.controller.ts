@@ -32,7 +32,9 @@ import {
   GenerateVersionDto,
   UpdateVersionDto,
 } from "./dto/content-version.dto";
+import { RunSocialMissionDto } from "./dto/run-mission.dto";
 import { SocialPlatformType } from "./types";
+import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pipeline-dispatcher.service";
 
 interface AuthenticatedRequest {
   user: { id: string };
@@ -49,7 +51,67 @@ export class AiSocialController {
     private readonly socialLeaderService: SocialLeaderService,
     private readonly reviewService: ReviewService,
     private readonly contentVersionService: ContentVersionService,
+    private readonly missionDispatcher: SocialPipelineDispatcher,
   ) {}
+
+  // ==================== W4 Agent Team Mission Entry ====================
+
+  /**
+   * 启动 SocialPublishMission（W4 Agent Team 新轨；旧 publish-executor 同步链式
+   * 路径并存到 PR-5 真发回归通过后切流量）。
+   *
+   * Fire-and-forget：立即返回 missionId，mission 异步跑；前端订阅 WebSocket
+   * `social.mission:*` 事件流跟进度。
+   */
+  @Post("mission/run")
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  async runMission(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: RunSocialMissionDto,
+  ): Promise<{ missionId: string; status: "started" | "in-flight" }> {
+    const userId = req.user.id;
+    if (!dto.platforms || dto.platforms.length === 0) {
+      throw new HttpException("platforms is required", HttpStatus.BAD_REQUEST);
+    }
+    // ★ W4 PR-4b round-2 / Reviewer C P0-9: server-side dedup window 5s
+    //   防 StrictMode 双调用 / 用户双击 / 网络重试触发多个 mission
+    const { missionId, reused } = this.missionDispatcher.tryReserveInFlight(
+      userId,
+      dto.contentId,
+      dto.platforms,
+    );
+    if (reused) {
+      this.logger.log(
+        `[mission/run] dedup hit user=${userId} contentId=${dto.contentId} → reuse missionId=${missionId}`,
+      );
+      return { missionId, status: "in-flight" };
+    }
+
+    this.logger.log(
+      `[mission/run] user=${userId} contentId=${dto.contentId} platforms=${dto.platforms.join(",")} → missionId=${missionId}`,
+    );
+
+    void this.missionDispatcher
+      .runMission(
+        missionId,
+        {
+          contentId: dto.contentId,
+          platforms: dto.platforms,
+          connectionIds: dto.connectionIds,
+          depth: dto.depth,
+          budgetProfile: dto.budgetProfile ?? "standard",
+          language: dto.language ?? "zh-CN",
+        },
+        userId,
+      )
+      .catch((err: unknown) => {
+        this.logger.error(
+          `[mission/run] mission ${missionId} threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+
+    return { missionId, status: "started" };
+  }
 
   // ==================== 平台连接 ====================
 

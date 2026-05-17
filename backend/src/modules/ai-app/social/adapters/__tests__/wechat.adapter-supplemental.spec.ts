@@ -16,6 +16,7 @@ import { WechatAdapter } from "../wechat.adapter";
 import { SocialBrowserService } from "../../services/social-browser.service";
 import { WechatImageUploaderService } from "../../services/wechat-image-uploader.service";
 import { ChatFacade } from "@/modules/ai-harness/facade";
+import { ToolRegistry } from "@/modules/ai-engine/facade";
 import {
   SocialContent,
   SocialPlatformConnection,
@@ -188,6 +189,17 @@ describe("WechatAdapter (supplemental)", () => {
           provide: ChatFacade,
           useValue: {
             chat: jest.fn().mockResolvedValue({ content: "短标题" }),
+          },
+        },
+        {
+          provide: ToolRegistry,
+          useValue: {
+            get: jest.fn().mockReturnValue({
+              execute: jest.fn().mockResolvedValue({
+                success: true,
+                data: { cookies: [] },
+              }),
+            }),
           },
         },
       ],

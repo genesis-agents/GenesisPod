@@ -4,16 +4,25 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
-import { LogIn, Share2, Link2, FileText, Bot, ShieldAlert } from 'lucide-react';
+import {
+  LogIn,
+  Share2,
+  Link2,
+  FileText,
+  Bot,
+  ShieldAlert,
+  Rocket,
+} from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
 import ConnectionsTab from '@/components/ai-social/ConnectionsTab';
 import ContentsTab from '@/components/ai-social/ContentsTab';
+import MissionsTab from '@/components/ai-social/MissionsTab';
 import { AnimatePresence } from 'framer-motion';
 import { SlideIn } from '@/components/ui/animations';
 
-type TabType = 'connections' | 'contents';
+type TabType = 'connections' | 'contents' | 'missions';
 
 /**
  * AI Social 页面
@@ -28,8 +37,13 @@ export default function AISocialPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
   const initialTab: TabType =
-    searchParams?.get('tab') === 'connections' ? 'connections' : 'contents';
+    tabParam === 'connections'
+      ? 'connections'
+      : tabParam === 'missions'
+        ? 'missions'
+        : 'contents';
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   // Loading state
@@ -102,6 +116,11 @@ export default function AISocialPage() {
       id: 'contents' as TabType,
       label: t('aiSocial.tabs.contents'),
       icon: FileText,
+    },
+    {
+      id: 'missions' as TabType,
+      label: 'Missions',
+      icon: Rocket,
     },
     {
       id: 'connections' as TabType,
@@ -181,6 +200,11 @@ export default function AISocialPage() {
               {activeTab === 'contents' && (
                 <SlideIn key="contents" direction="right">
                   <ContentsTab />
+                </SlideIn>
+              )}
+              {activeTab === 'missions' && (
+                <SlideIn key="missions" direction="right">
+                  <MissionsTab />
                 </SlideIn>
               )}
             </AnimatePresence>

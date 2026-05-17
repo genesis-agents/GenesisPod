@@ -1,0 +1,441 @@
+/**
+ * Unit tests for SocialMissionStore
+ * Covers all Prisma read/write paths including non-fatal catch branches.
+ */
+
+import { Logger } from "@nestjs/common";
+import { SocialMissionStore } from "../social-mission-store.service";
+import type { PrismaService } from "@/common/prisma/prisma.service";
+
+// ---------------------------------------------------------------------------
+// Mock helpers
+// ---------------------------------------------------------------------------
+
+function createMockPrisma() {
+  return {
+    socialMission: {
+      create: jest.fn(),
+      update: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+    },
+  } as unknown as jest.Mocked<PrismaService>;
+}
+
+const MOCK_MISSION_ID = "mission-abc-123";
+const MOCK_USER_ID = "user-xyz-456";
+const MOCK_POD_ID = "pod-001";
+
+function makeCreateArgs(overrides = {}) {
+  return {
+    id: MOCK_MISSION_ID,
+    userId: MOCK_USER_ID,
+    contentId: "content-999",
+    platforms: ["wechat", "xiaohongshu"],
+    connectionIds: { wechat: "conn-1", xiaohongshu: "conn-2" },
+    depth: "standard",
+    budgetProfile: "standard",
+    language: "zh-CN",
+    maxCredits: 20,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("SocialMissionStore", () => {
+  let store: SocialMissionStore;
+  let mockPrisma: ReturnType<typeof createMockPrisma>;
+  let loggerWarnSpy: jest.SpyInstance;
+  let loggerLogSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    mockPrisma = createMockPrisma();
+    store = new SocialMissionStore(mockPrisma as unknown as PrismaService);
+    loggerWarnSpy = jest.spyOn(Logger.prototype, "warn").mockImplementation();
+    loggerLogSpy = jest.spyOn(Logger.prototype, "log").mockImplementation();
+    // Default HOSTNAME env
+    process.env.HOSTNAME = "test-host";
+    delete process.env.RAILWAY_REPLICA_ID;
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    loggerWarnSpy.mockRestore();
+    loggerLogSpy.mockRestore();
+  });
+
+  // =========================================================================
+  // create
+  // =========================================================================
+
+  describe("create", () => {
+    it("should call prisma.socialMission.create with correct data", async () => {
+      (mockPrisma.socialMission.create as jest.Mock).mockResolvedValue({});
+      const args = makeCreateArgs();
+
+      await store.create(args);
+
+      expect(mockPrisma.socialMission.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            id: MOCK_MISSION_ID,
+            userId: MOCK_USER_ID,
+            contentId: "content-999",
+            platforms: ["wechat", "xiaohongshu"],
+            depth: "standard",
+            budgetProfile: "standard",
+            language: "zh-CN",
+            maxCredits: 20,
+            status: "running",
+          }),
+        }),
+      );
+    });
+
+    it("should use RAILWAY_REPLICA_ID as podId when set", async () => {
+      process.env.RAILWAY_REPLICA_ID = "railway-pod-999";
+      (mockPrisma.socialMission.create as jest.Mock).mockResolvedValue({});
+      const args = makeCreateArgs();
+
+      await store.create(args);
+
+      const createArg = (mockPrisma.socialMission.create as jest.Mock).mock
+        .calls[0][0];
+      expect(createArg.data.podId).toBe("railway-pod-999");
+      delete process.env.RAILWAY_REPLICA_ID;
+    });
+
+    it("should fall back to HOSTNAME as podId when RAILWAY_REPLICA_ID is absent", async () => {
+      process.env.HOSTNAME = "my-local-host";
+      (mockPrisma.socialMission.create as jest.Mock).mockResolvedValue({});
+
+      await store.create(makeCreateArgs());
+
+      const createArg = (mockPrisma.socialMission.create as jest.Mock).mock
+        .calls[0][0];
+      expect(createArg.data.podId).toBe("my-local-host");
+    });
+
+    it("should use 'local' as podId when both env vars are absent", async () => {
+      delete process.env.RAILWAY_REPLICA_ID;
+      delete process.env.HOSTNAME;
+      (mockPrisma.socialMission.create as jest.Mock).mockResolvedValue({});
+
+      await store.create(makeCreateArgs());
+
+      const createArg = (mockPrisma.socialMission.create as jest.Mock).mock
+        .calls[0][0];
+      expect(createArg.data.podId).toBe("local");
+    });
+
+    it("should store workspaceId when provided", async () => {
+      (mockPrisma.socialMission.create as jest.Mock).mockResolvedValue({});
+      const args = makeCreateArgs({ workspaceId: "ws-007" });
+
+      await store.create(args);
+
+      const createArg = (mockPrisma.socialMission.create as jest.Mock).mock
+        .calls[0][0];
+      expect(createArg.data.workspaceId).toBe("ws-007");
+    });
+
+    it("should propagate errors from prisma.create", async () => {
+      (mockPrisma.socialMission.create as jest.Mock).mockRejectedValue(
+        new Error("DB write error"),
+      );
+
+      await expect(store.create(makeCreateArgs())).rejects.toThrow(
+        "DB write error",
+      );
+    });
+
+    it("should log after successful create", async () => {
+      (mockPrisma.socialMission.create as jest.Mock).mockResolvedValue({});
+
+      await store.create(makeCreateArgs());
+
+      expect(loggerLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining(MOCK_MISSION_ID),
+      );
+    });
+  });
+
+  // =========================================================================
+  // refreshHeartbeat
+  // =========================================================================
+
+  describe("refreshHeartbeat", () => {
+    it("should call prisma.update with heartbeatAt and podId", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+
+      await store.refreshHeartbeat(MOCK_MISSION_ID, MOCK_POD_ID);
+
+      expect(mockPrisma.socialMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_MISSION_ID },
+          data: expect.objectContaining({
+            podId: MOCK_POD_ID,
+          }),
+        }),
+      );
+    });
+
+    it("should silently log warn on prisma error (non-fatal)", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockRejectedValue(
+        new Error("row not found"),
+      );
+
+      await expect(
+        store.refreshHeartbeat(MOCK_MISSION_ID, MOCK_POD_ID),
+      ).resolves.toBeUndefined();
+
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(MOCK_MISSION_ID),
+      );
+    });
+  });
+
+  // =========================================================================
+  // markCompleted
+  // =========================================================================
+
+  describe("markCompleted", () => {
+    it("should call prisma.update with status=completed and completedAt", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+
+      await store.markCompleted(MOCK_MISSION_ID, {
+        wallTimeMs: 12000,
+        tokensUsed: 500,
+        costUsd: 0.03,
+      });
+
+      expect(mockPrisma.socialMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_MISSION_ID },
+          data: expect.objectContaining({
+            status: "completed",
+            wallTimeMs: 12000,
+            costUsd: 0.03,
+          }),
+        }),
+      );
+    });
+
+    it("should convert tokensUsed to BigInt", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+
+      await store.markCompleted(MOCK_MISSION_ID, { tokensUsed: 1234 });
+
+      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+        .calls[0][0];
+      expect(updateArg.data.tokensUsed).toBe(BigInt(1234));
+    });
+
+    it("should pass null tokensUsed when not provided", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+
+      await store.markCompleted(MOCK_MISSION_ID);
+
+      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+        .calls[0][0];
+      expect(updateArg.data.tokensUsed).toBeNull();
+    });
+
+    it("should silently log warn on prisma error (non-fatal)", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockRejectedValue(
+        new Error("update failed"),
+      );
+
+      await expect(
+        store.markCompleted(MOCK_MISSION_ID),
+      ).resolves.toBeUndefined();
+      expect(loggerWarnSpy).toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // markFailed
+  // =========================================================================
+
+  describe("markFailed", () => {
+    it("should call prisma.update with status=failed and errorMessage", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+
+      await store.markFailed(MOCK_MISSION_ID, {
+        errorMessage: "Something went wrong",
+        wallTimeMs: 5000,
+      });
+
+      expect(mockPrisma.socialMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_MISSION_ID },
+          data: expect.objectContaining({
+            status: "failed",
+            wallTimeMs: 5000,
+          }),
+        }),
+      );
+    });
+
+    it("should truncate errorMessage longer than 4000 chars", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+      const longMessage = "E".repeat(5000);
+
+      await store.markFailed(MOCK_MISSION_ID, { errorMessage: longMessage });
+
+      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+        .calls[0][0];
+      expect(updateArg.data.errorMessage.length).toBe(4000);
+    });
+
+    it("should convert tokensUsed to BigInt when provided", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+
+      await store.markFailed(MOCK_MISSION_ID, {
+        errorMessage: "err",
+        tokensUsed: 888,
+      });
+
+      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+        .calls[0][0];
+      expect(updateArg.data.tokensUsed).toBe(BigInt(888));
+    });
+
+    it("should pass null tokensUsed when not provided", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+
+      await store.markFailed(MOCK_MISSION_ID, { errorMessage: "err" });
+
+      const updateArg = (mockPrisma.socialMission.update as jest.Mock).mock
+        .calls[0][0];
+      expect(updateArg.data.tokensUsed).toBeNull();
+    });
+
+    it("should silently log warn on prisma error (non-fatal)", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockRejectedValue(
+        new Error("DB gone"),
+      );
+
+      await expect(
+        store.markFailed(MOCK_MISSION_ID, { errorMessage: "x" }),
+      ).resolves.toBeUndefined();
+      expect(loggerWarnSpy).toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // saveTrajectory
+  // =========================================================================
+
+  describe("saveTrajectory", () => {
+    it("should call prisma.update with trajectory payload", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockResolvedValue({});
+      const trajectory = { stages: ["s1", "s2"], ok: true };
+
+      await store.saveTrajectory(MOCK_MISSION_ID, trajectory);
+
+      expect(mockPrisma.socialMission.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: MOCK_MISSION_ID },
+          data: { trajectory },
+        }),
+      );
+    });
+
+    it("should silently log warn on prisma error (non-fatal)", async () => {
+      (mockPrisma.socialMission.update as jest.Mock).mockRejectedValue(
+        new Error("trajectory save failed"),
+      );
+
+      await expect(
+        store.saveTrajectory(MOCK_MISSION_ID, {}),
+      ).resolves.toBeUndefined();
+      expect(loggerWarnSpy).toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // getOwner
+  // =========================================================================
+
+  describe("getOwner", () => {
+    it("should return userId when mission exists", async () => {
+      (mockPrisma.socialMission.findUnique as jest.Mock).mockResolvedValue({
+        userId: MOCK_USER_ID,
+      });
+
+      const result = await store.getOwner(MOCK_MISSION_ID);
+
+      expect(result).toBe(MOCK_USER_ID);
+      expect(mockPrisma.socialMission.findUnique).toHaveBeenCalledWith({
+        where: { id: MOCK_MISSION_ID },
+        select: { userId: true },
+      });
+    });
+
+    it("should return undefined when mission does not exist", async () => {
+      (mockPrisma.socialMission.findUnique as jest.Mock).mockResolvedValue(
+        null,
+      );
+
+      const result = await store.getOwner(MOCK_MISSION_ID);
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should return undefined when prisma throws", async () => {
+      (mockPrisma.socialMission.findUnique as jest.Mock).mockRejectedValue(
+        new Error("connection reset"),
+      );
+
+      const result = await store.getOwner(MOCK_MISSION_ID);
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
+  // getById
+  // =========================================================================
+
+  describe("getById", () => {
+    it("should return mission row when found", async () => {
+      const mockRow = {
+        id: MOCK_MISSION_ID,
+        userId: MOCK_USER_ID,
+        status: "running",
+      };
+      (mockPrisma.socialMission.findFirst as jest.Mock).mockResolvedValue(
+        mockRow,
+      );
+
+      const result = await store.getById(MOCK_MISSION_ID, MOCK_USER_ID);
+
+      expect(result).toEqual(mockRow);
+      expect(mockPrisma.socialMission.findFirst).toHaveBeenCalledWith({
+        where: { id: MOCK_MISSION_ID, userId: MOCK_USER_ID },
+      });
+    });
+
+    it("should return null when mission not found", async () => {
+      (mockPrisma.socialMission.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const result = await store.getById("nonexistent", MOCK_USER_ID);
+
+      expect(result).toBeNull();
+    });
+
+    it("should pass userId filter correctly", async () => {
+      (mockPrisma.socialMission.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await store.getById(MOCK_MISSION_ID, "different-user");
+
+      expect(mockPrisma.socialMission.findFirst).toHaveBeenCalledWith({
+        where: { id: MOCK_MISSION_ID, userId: "different-user" },
+      });
+    });
+  });
+});

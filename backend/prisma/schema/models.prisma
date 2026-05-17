@@ -160,6 +160,7 @@ model User {
   // AI Social 社交媒体发布
   socialPlatformConnections SocialPlatformConnection[]
   socialContents            SocialContent[]
+  socialMissions            SocialMission[]
 
   // 登录历史
   loginHistory LoginHistory[]
@@ -8644,6 +8645,9 @@ model SocialContent {
   // 平台适配版本
   versions SocialContentVersion[]
 
+  // W4 Agent Team missions（一份 content 可被多次 mission 引用）
+  missions SocialMission[]
+
   @@index([userId, status])
   @@index([status, scheduledAt])
   @@index([contentType])
@@ -8708,6 +8712,57 @@ model SocialPublishLog {
   @@index([action])
   @@index([status])
   @@map("social_publish_logs")
+}
+
+/// AI Social Publish Mission（W4 Agent Team）
+/// SocialPublishMission 是一个 mission：把一份 SocialContent 通过 12-stage
+/// pipeline 适配 + 真发到多个平台（WeChat MP / 小红书等）。
+/// schema 形态参考 AgentPlaygroundMission，社交业务专属字段（platforms /
+/// connectionIds / contentId 关联）独立。
+model SocialMission {
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String? @map("workspace_id")
+
+  /// 输入
+  contentId      String        @map("content_id")
+  content        SocialContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  platforms      String[]                   // ["WECHAT_MP", "XIAOHONGSHU"] 等
+  connectionIds  Json    @map("connection_ids") // {WECHAT_MP: "uuid", XIAOHONGSHU: "uuid"}
+  depth          String  @db.VarChar(20) // quick / standard / deep
+  budgetProfile  String  @map("budget_profile") @db.VarChar(20) // lean / standard / rich
+  language       String  @db.VarChar(20)
+  maxCredits     Int     @default(20) @map("max_credits")
+
+  /// 状态
+  status      String    @db.VarChar(20) // running / completed / failed / aborted
+  startedAt   DateTime  @default(now()) @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  wallTimeMs  Int?      @map("wall_time_ms")
+
+  /// 完成时填充
+  tokensUsed   BigInt? @map("tokens_used")
+  costUsd      Float?  @map("cost_usd")
+  errorMessage String? @map("error_message") @db.Text
+
+  /// trajectory（S11 持久化 stage outputs：probeResults / platformVersions /
+  /// covers / composed / published / verified / leaderSignOff 等）。
+  /// JSON 体积可能较大；S11 写入时按需 off-load 到 R2（uri+size）。
+  trajectory     Json?   @db.JsonB
+  trajectoryUri  String? @map("trajectory_uri")
+  trajectorySize Int?    @map("trajectory_size")
+
+  /// pod-aware lifecycle（与 AgentPlaygroundMission 同模式）
+  lastCompletedStage Int?      @map("last_completed_stage")
+  podId              String?   @map("pod_id") @db.VarChar(120)
+  heartbeatAt        DateTime? @map("heartbeat_at")
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@index([status])
+  @@index([status, heartbeatAt]) // pod recovery 扫描
+  @@index([contentId])
+  @@map("social_missions")
 }
 
 // ============================================================================

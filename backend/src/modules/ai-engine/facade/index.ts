@@ -196,6 +196,9 @@ export type {
   JSONSchema,
 } from "../tools/abstractions/tool.interface";
 
+// ★ Built-in tool IDs (W2 2026-05-16 — ai-app/social 调 BrowserContextTool 需要)
+export { BUILTIN_TOOLS } from "../tools/abstractions/tool.interface";
+
 // ★ Batch 1 supplemental exports
 
 // Orchestration services

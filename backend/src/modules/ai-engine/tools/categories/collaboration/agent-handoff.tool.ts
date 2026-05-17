@@ -12,7 +12,7 @@ import {
 } from "../../abstractions/tool.interface";
 export interface AgentResult {
   success: boolean;
-  artifacts?: any[];
+  artifacts?: unknown[];
   summary?: string;
   tokensUsed?: number;
   duration?: number;
@@ -198,7 +198,6 @@ export class AgentHandoffTool extends BaseTool<
       targetAgent: {
         type: "string",
         description: "目标 Agent 类型",
-        
       },
       task: {
         type: "object",
@@ -238,7 +237,6 @@ export class AgentHandoffTool extends BaseTool<
           fallbackAgent: {
             type: "string",
             description: "降级 Agent，当目标 Agent 失败时使用",
-            
           },
         },
       },
@@ -302,7 +300,6 @@ export class AgentHandoffTool extends BaseTool<
     }
 
     // 验证降级 Agent（如果提供）
-    
 
     return true;
   }
