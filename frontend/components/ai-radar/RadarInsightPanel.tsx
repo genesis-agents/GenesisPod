@@ -1,9 +1,25 @@
 'use client';
 
+/**
+ * RadarInsightPanel
+ *
+ * 2026-05-17 R3 评审整改：
+ *  - P0：补 topEntities 渲染（之前 LLM 烧 token / DB 存 / API 返但 UI 0 像素显示）
+ *  - P1：error state 区分"无洞察"与"API 500"（之前 .catch 静默 setInsight(null)
+ *        让 500 与 empty 视觉一致，用户看不到真实失败）
+ *  - P1：highlights / signals / topEntities raw Json 加 Array.isArray 守
+ *        防 DB legacy 数据或 LLM hallucinate shape 让整面板崩
+ */
+
 import { useEffect, useState } from 'react';
-import { Sparkles, TrendingUp } from 'lucide-react';
+import { Sparkles, TrendingUp, AlertCircle, TrendingDown } from 'lucide-react';
 import { getLatestInsight } from '@/services/ai-radar/api';
-import type { RadarInsight } from '@/services/ai-radar/types';
+import type {
+  RadarInsight,
+  RadarInsightHighlight,
+  RadarInsightSignal,
+  RadarInsightTopEntity,
+} from '@/services/ai-radar/types';
 
 interface Props {
   topicId: string;
@@ -24,19 +40,28 @@ const HIGHLIGHT_TYPE_COLOR: Record<string, string> = {
   'key-event': 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
+function safeArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
 export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
   const [insight, setInsight] = useState<RadarInsight | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     getLatestInsight(topicId)
       .then((res) => {
         if (!cancelled) setInsight(res.insight);
       })
-      .catch(() => {
-        if (!cancelled) setInsight(null);
+      .catch((e) => {
+        if (!cancelled) {
+          setInsight(null);
+          setError(e instanceof Error ? e.message : String(e));
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -45,6 +70,10 @@ export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
       cancelled = true;
     };
   }, [topicId, reloadKey]);
+
+  const highlights = safeArray<RadarInsightHighlight>(insight?.highlights);
+  const signals = safeArray<RadarInsightSignal>(insight?.signals);
+  const topEntities = safeArray<RadarInsightTopEntity>(insight?.topEntities);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
@@ -55,6 +84,11 @@ export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
       <div className="px-3 py-3">
         {loading ? (
           <div className="h-20 animate-pulse rounded bg-gray-50" />
+        ) : error ? (
+          <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+            <span>加载洞察失败：{error}</span>
+          </div>
         ) : !insight ? (
           <p className="text-xs text-gray-400">
             还没有洞察。等首次刷新完成后 AI 会自动生成。
@@ -69,13 +103,13 @@ export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
               {new Date(insight.periodTo).toLocaleDateString('zh-CN')}
             </div>
 
-            {insight.highlights.length > 0 && (
+            {highlights.length > 0 && (
               <div>
                 <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
                   亮点
                 </div>
                 <ul className="space-y-1.5">
-                  {insight.highlights.map((h, i) => (
+                  {highlights.map((h, i) => (
                     <li key={i} className="flex gap-2">
                       <span
                         className={`flex-shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] ${
@@ -91,13 +125,13 @@ export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
               </div>
             )}
 
-            {insight.signals.length > 0 && (
+            {signals.length > 0 && (
               <div>
                 <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
                   信号
                 </div>
                 <ul className="space-y-1">
-                  {insight.signals.map((s, i) => (
+                  {signals.map((s, i) => (
                     <li
                       key={i}
                       className="flex items-start gap-2 text-[11px] text-gray-600"
@@ -105,11 +139,59 @@ export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
                       <TrendingUp className="mt-0.5 h-3 w-3 flex-shrink-0 text-cyan-600" />
                       <span>
                         <strong className="text-gray-800">{s.kind}</strong>{' '}
-                        <span className="text-cyan-700">+{s.magnitude}</span>：
-                        {s.evidence}
+                        <span className="text-cyan-700">
+                          {/* 后端 magnitude 0-10 整数（signal-analyst SKILL.md + s7 clamp） */}
+                          强度 {s.magnitude}/10
+                        </span>
+                        ：{s.evidence}
                       </span>
                     </li>
                   ))}
+                </ul>
+              </div>
+            )}
+
+            {topEntities.length > 0 && (
+              <div>
+                <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                  高频实体
+                </div>
+                <ul className="space-y-1">
+                  {topEntities.map((e, i) => {
+                    const delta = e.delta ?? 0;
+                    return (
+                      <li
+                        key={`${e.type}:${e.name}:${i}`}
+                        className="flex items-center justify-between gap-2 text-[11px] text-gray-600"
+                      >
+                        <span className="flex items-center gap-1.5 truncate">
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[9px] uppercase text-gray-500">
+                            {e.type}
+                          </span>
+                          <span className="truncate text-gray-800">
+                            {e.name}
+                          </span>
+                        </span>
+                        <span className="flex flex-shrink-0 items-center gap-1.5">
+                          <span className="text-gray-500">{e.mentions} 次</span>
+                          {delta !== 0 && (
+                            <span
+                              className={`flex items-center gap-0.5 text-[10px] ${
+                                delta > 0 ? 'text-emerald-600' : 'text-rose-600'
+                              }`}
+                            >
+                              {delta > 0 ? (
+                                <TrendingUp className="h-3 w-3" />
+                              ) : (
+                                <TrendingDown className="h-3 w-3" />
+                              )}
+                              {delta > 0 ? `+${delta}` : delta}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

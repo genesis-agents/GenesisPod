@@ -3,7 +3,6 @@ import {
   ArrayMaxSize,
   IsArray,
   IsEnum,
-  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -15,16 +14,13 @@ import {
 } from "class-validator";
 import { RadarSourceTypeDto } from "./create-radar-source.dto";
 
-export class RecommendSourcesDto {
-  /**
-   * 每类候选数量上限（X / YouTube / RSS / Custom 各几个），默认 5。
-   */
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(10)
-  perTypeLimit?: number;
-}
+/**
+ * 推荐入口 body 占位 DTO。当前 dispatcher 不接受 perTypeLimit 等任何参数
+ * （prompt 固定策略）—— 历史 `perTypeLimit` 字段 2026-05-17 R3 评审认定为
+ * dead 校验（DTO 校验存在但 0 消费），已删，避免给前端"参数有效"的误导。
+ * 未来 stage 真接入数量限制再加字段（不接入 prompt 就别加 DTO）。
+ */
+export class RecommendSourcesDto {}
 
 /**
  * 单个 AI 推荐候选项（前端把 LLM 返回的 RecommendedSource 原样回传，

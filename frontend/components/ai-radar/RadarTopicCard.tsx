@@ -99,10 +99,16 @@ export function RadarTopicCard({ topic, onArchive, onPause, onResume }: Props) {
     });
   }
 
+  // 2026-05-17 R3 P1：DB keywords 是 raw Json，理论上前端 type 写 string[]
+  // 但任何一行 legacy / corrupted 数据（null / 非数组）原写法都让整页 .slice()
+  // 崩。Array.isArray 守 + filter 非 string 元素后再切。
+  const keywords = Array.isArray(topic.keywords)
+    ? topic.keywords.filter((k): k is string => typeof k === 'string')
+    : [];
   const keywordChips =
-    topic.keywords.length > 0 ? (
+    keywords.length > 0 ? (
       <div className="flex flex-wrap gap-1">
-        {topic.keywords.slice(0, 5).map((kw) => (
+        {keywords.slice(0, 5).map((kw) => (
           <span
             key={kw}
             className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-gray-600"
@@ -110,9 +116,9 @@ export function RadarTopicCard({ topic, onArchive, onPause, onResume }: Props) {
             {kw}
           </span>
         ))}
-        {topic.keywords.length > 5 && (
+        {keywords.length > 5 && (
           <span className="text-[11px] text-gray-400">
-            +{topic.keywords.length - 5}
+            +{keywords.length - 5}
           </span>
         )}
       </div>

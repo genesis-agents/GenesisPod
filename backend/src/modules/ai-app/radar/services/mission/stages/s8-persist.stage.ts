@@ -94,18 +94,30 @@ export class RadarS8PersistStage implements RadarStageRunner {
     }
 
     // 3. 更新 topic lastRunAt + nextDueAt
-    const nextDueAt = computeNextCronTick(topic.refreshCron, now);
+    //
+    // 2026-05-17 R3 评审 P1：computeNextCronTick 返回 null 时旧逻辑用 undefined
+    // 让 Prisma 跳过该字段，nextDueAt 维持不变 = 上一轮 due 时间。scheduler
+    // 每分钟扫到 nextDueAt<=now 又会立即重发，dedup 部分救但仍然在分钟级烧
+    // budget。新策略：cron 解析失败一律延后 1h，并打 warn 让运维感知。
+    const NEXT_DUE_FALLBACK_MS = 60 * 60 * 1000;
+    let nextDueAt = computeNextCronTick(topic.refreshCron, now);
+    if (!nextDueAt) {
+      this.log.warn(
+        `[${ctx.missionId}] S8: cron "${topic.refreshCron}" 解析失败，nextDueAt fallback +1h 防 scheduler 风暴`,
+      );
+      nextDueAt = new Date(now.getTime() + NEXT_DUE_FALLBACK_MS);
+    }
     await this.prisma.radarTopic.update({
       where: { id: topic.id },
       data: {
         lastRunAt: now,
-        nextDueAt: nextDueAt ?? undefined,
+        nextDueAt,
       },
     });
 
     this.log.log(
       `[${ctx.missionId}] S8 persist: accepted=${acceptedIds.size}/${newItemIds.length}` +
-        ` insightCreated=${insightCreated} nextDueAt=${nextDueAt?.toISOString() ?? "null"}`,
+        ` insightCreated=${insightCreated} nextDueAt=${nextDueAt.toISOString()}`,
     );
 
     return;

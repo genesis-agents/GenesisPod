@@ -212,15 +212,6 @@ export interface CancelRunResponse {
   cancelled: boolean;
 }
 
-/** @deprecated 旧 sync-mode summary；保留兼容前端老调用，新代码用 TriggerRefreshResponse */
-export interface RefreshRunSummary {
-  runId: string;
-  status: RadarRunStatus;
-  sourcesAttempted: number;
-  sourcesFailed: number;
-  itemsFetched: number;
-  itemsDeduped: number;
-  itemsInserted: number;
-  durationMs: number;
-  errors: Array<{ sourceId: string; error: string }>;
-}
+// 2026-05-17 R3 评审：原 `RefreshRunSummary` 是 @deprecated 旧 sync-mode 类型
+// 但全仓 0 consumer (grep import 命中 0)，按 YAGNI 直接删除以减少类型噪音。
+// 新刷新链路统一用 TriggerRefreshResponse + ws 推进度。

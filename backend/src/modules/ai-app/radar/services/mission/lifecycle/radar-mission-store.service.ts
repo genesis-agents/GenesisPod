@@ -144,6 +144,33 @@ export class RadarMissionStore {
     });
   }
 
+  /**
+   * Mark mission rejected — budget 预检拒绝 / 入口限额 / framework 层 reject。
+   *
+   * 2026-05-17 R3 评审 P0：JSDoc 第 13 行声明该方法存在，但实现缺失，导致
+   * framework 真的 reject 时 dispatcher 无对应 store 方法可调，mission 行
+   * 永远卡 status='running'，只能等 liveness guard 强制 fail。
+   * markRejected 不消耗用户额度（已 reject = 没真跑），故 metrics/error 简记。
+   */
+  async markRejected(missionId: string, reason: string): Promise<void> {
+    const now = new Date();
+    const run = await this.prisma.radarRun.findUnique({
+      where: { id: missionId },
+      select: { startedAt: true },
+    });
+    const startedAt = run?.startedAt ?? now;
+    const durationMs = now.getTime() - startedAt.getTime();
+    await this.prisma.radarRun.updateMany({
+      where: { id: missionId, status: "running" },
+      data: {
+        status: "rejected",
+        completedAt: now,
+        durationMs,
+        error: reason.slice(0, 4000),
+      },
+    });
+  }
+
   async getById(missionId: string, userId: string): Promise<RadarRun | null> {
     const row = await this.prisma.radarRun.findUnique({
       where: { id: missionId },

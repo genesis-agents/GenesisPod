@@ -144,7 +144,9 @@ ${JSON.stringify({
         )
         .map((c) => ({
           type: normalizeSourceType(c["type"]),
-          identifier: truncate(String(c["identifier"] ?? ""), 500),
+          // 2026-05-17 R3 spec 抓到：LLM 返回 "   " 全空白时不 trim 直接当合法
+          // identifier 走 assertIdentifierShape，shape 校验侧才挡，浪费一次错误日志。
+          identifier: truncate(String(c["identifier"] ?? "").trim(), 500),
           label:
             typeof c["label"] === "string"
               ? truncate(c["label"], 200)

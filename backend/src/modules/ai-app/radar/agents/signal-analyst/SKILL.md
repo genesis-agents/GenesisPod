@@ -53,7 +53,7 @@ version: "1.0"
 每条含：
 
 - `kind`: `"volume-surge"` | `"new-entity"` | `"sentiment-flip"` | `"competitor-move"` | `"other"`
-- `magnitude`: 0-100（信号强度）
+- `magnitude`: 0-10 整数（信号强度，10 最高 / 1-2 弱信号）— 注意：s7-insight prompt + clamp 强制 0-10，超出会被截断丢失
 - `evidence`: 单行证据 ≤80 字
 
 ### topEntities（本期 top 8）
