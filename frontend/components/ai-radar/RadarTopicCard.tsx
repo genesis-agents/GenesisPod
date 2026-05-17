@@ -1,11 +1,40 @@
 'use client';
 
+/**
+ * RadarTopicCard
+ *
+ * 基于 `AssetCard` 平台组件实现（2026-05-16 重构）。
+ * 本文件只负责将 RadarTopicWithCounts 业务数据映射成 AssetCard props，
+ * 与 TopicCard / WritingProjectCard / Playground MissionCard 保持视觉骨架一致。
+ *
+ * 字段策略（YAGNI）：
+ *  - 不传 visibility/progress —— 雷达本质私有 + 持续运行无"完成度"概念
+ *  - stats 用 items/sources/runs counts（list API 经 _count 单次拿到，不会 N+1）
+ *  - customSection 显示关键词 chips（雷达独有信息，AssetCard 默认布局不覆盖）
+ */
+
 import { useRouter } from 'next/navigation';
-import { Radar, Clock, Activity, PauseCircle, Archive } from 'lucide-react';
-import type { RadarTopic } from '@/services/ai-radar/types';
+import {
+  Activity,
+  Archive,
+  Database,
+  PauseCircle,
+  PlayCircle,
+  Radar as RadarIcon,
+  Rss,
+} from 'lucide-react';
+import {
+  AssetCard,
+  type AssetCardAction,
+  type AssetCardBadge,
+} from '@/components/common/asset-card';
+import type {
+  RadarTopic,
+  RadarTopicWithCounts,
+} from '@/services/ai-radar/types';
 
 interface Props {
-  topic: RadarTopic;
+  topic: RadarTopicWithCounts;
   onArchive?: (topic: RadarTopic) => void;
   onPause?: (topic: RadarTopic) => void;
   onResume?: (topic: RadarTopic) => void;
@@ -13,127 +42,112 @@ interface Props {
 
 const STATUS_BADGE: Record<
   RadarTopic['status'],
-  { label: string; cls: string }
+  { label: string; className: string }
 > = {
   ACTIVE: {
     label: '运行中',
-    cls: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    className: 'bg-cyan-50 text-cyan-700',
   },
   PAUSED: {
     label: '已暂停',
-    cls: 'bg-gray-50 text-gray-600 border-gray-200',
+    className: 'bg-gray-100 text-gray-600',
   },
   ARCHIVED: {
     label: '已归档',
-    cls: 'bg-gray-100 text-gray-500 border-gray-200',
+    className: 'bg-gray-100 text-gray-500',
   },
 };
-
-function relTime(iso: string | null): string {
-  if (!iso) return '从未';
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return '刚刚';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
-  return `${Math.floor(diff / 86_400_000)} 天前`;
-}
 
 export function RadarTopicCard({ topic, onArchive, onPause, onResume }: Props) {
   const router = useRouter();
   const status = STATUS_BADGE[topic.status];
 
+  const badges: AssetCardBadge[] = [
+    {
+      key: 'status',
+      label: status.label,
+      className: status.className,
+    },
+  ];
+
+  const extraActions: AssetCardAction[] = [];
+  if (topic.status === 'ACTIVE' && onPause) {
+    extraActions.push({
+      key: 'pause',
+      title: '暂停',
+      tone: 'warning',
+      icon: <PauseCircle className="h-4 w-4" />,
+      onClick: () => onPause(topic),
+    });
+  }
+  if (topic.status === 'PAUSED' && onResume) {
+    extraActions.push({
+      key: 'resume',
+      title: '恢复',
+      tone: 'success',
+      icon: <PlayCircle className="h-4 w-4" />,
+      onClick: () => onResume(topic),
+    });
+  }
+  if (topic.status !== 'ARCHIVED' && onArchive) {
+    extraActions.push({
+      key: 'archive',
+      title: '归档',
+      tone: 'default',
+      icon: <Archive className="h-4 w-4" />,
+      onClick: () => onArchive(topic),
+    });
+  }
+
+  const keywordChips =
+    topic.keywords.length > 0 ? (
+      <div className="flex flex-wrap gap-1">
+        {topic.keywords.slice(0, 5).map((kw) => (
+          <span
+            key={kw}
+            className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-gray-600"
+          >
+            {kw}
+          </span>
+        ))}
+        {topic.keywords.length > 5 && (
+          <span className="text-[11px] text-gray-400">
+            +{topic.keywords.length - 5}
+          </span>
+        )}
+      </div>
+    ) : null;
+
   return (
-    <div
-      className="group flex cursor-pointer flex-col rounded-xl border border-gray-200 bg-white p-4 transition hover:border-cyan-300 hover:shadow-md"
+    <AssetCard
+      title={topic.name}
+      description={topic.description}
+      icon={<RadarIcon className="h-6 w-6 text-white" />}
+      gradient="from-cyan-500 to-sky-600"
+      badges={badges}
+      isOwner
+      extraActions={extraActions}
       onClick={() => router.push(`/ai-radar/topic/${topic.id}`)}
-    >
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-600">
-          <Radar className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-semibold text-gray-900">
-              {topic.name}
-            </h3>
-            <span
-              className={`whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-medium ${status.cls}`}
-            >
-              {status.label}
-            </span>
-          </div>
-          {topic.description && (
-            <p className="mt-1 line-clamp-2 text-xs text-gray-500">
-              {topic.description}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {topic.keywords.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {topic.keywords.slice(0, 5).map((kw) => (
-            <span
-              key={kw}
-              className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-gray-600"
-            >
-              {kw}
-            </span>
-          ))}
-          {topic.keywords.length > 5 && (
-            <span className="text-[11px] text-gray-400">
-              +{topic.keywords.length - 5}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-gray-500">
-        <div className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          <span>上次：{relTime(topic.lastRunAt)}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <Activity className="h-3 w-3" />
-          <span>cron：{topic.refreshCron}</span>
-        </div>
-      </div>
-
-      <div
-        className="mt-3 flex gap-2 opacity-0 transition group-hover:opacity-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {topic.status === 'ACTIVE' && onPause && (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
-            onClick={() => onPause(topic)}
-          >
-            <PauseCircle className="h-3 w-3" />
-            暂停
-          </button>
-        )}
-        {topic.status === 'PAUSED' && onResume && (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1 text-[11px] text-cyan-700 hover:bg-cyan-100"
-            onClick={() => onResume(topic)}
-          >
-            <Activity className="h-3 w-3" />
-            恢复
-          </button>
-        )}
-        {topic.status !== 'ARCHIVED' && onArchive && (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
-            onClick={() => onArchive(topic)}
-          >
-            <Archive className="h-3 w-3" />
-            归档
-          </button>
-        )}
-      </div>
-    </div>
+      customSection={keywordChips}
+      stats={[
+        {
+          key: 'items',
+          icon: <Database className="h-3.5 w-3.5" />,
+          text: `${topic.counts.items} 条`,
+        },
+        {
+          key: 'sources',
+          icon: <Rss className="h-3.5 w-3.5" />,
+          text: `${topic.counts.sources} 源`,
+        },
+        {
+          key: 'runs',
+          icon: <Activity className="h-3.5 w-3.5" />,
+          text: `${topic.counts.runs} 次刷新`,
+        },
+      ]}
+      timestampLabel="上次"
+      timestamp={topic.lastRunAt}
+    />
   );
 }

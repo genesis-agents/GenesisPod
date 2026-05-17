@@ -181,6 +181,7 @@ export default function CustomAgentHomePage({
           purpose ? purpose : `自定义 Agent · ${agent.slug} · v${agent.version}`
         }
         iconGradient="from-rose-500 to-pink-600"
+        iconShadowClass="shadow-rose-500/25"
         createButtonLabel="启动 Mission"
         // ★ R-CA 风险#4 清零：内联 Modal 启动，不跳 /run 独立页
         onCreateMission={() => setLaunchOpen(true)}

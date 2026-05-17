@@ -61,22 +61,54 @@ export class RadarTopicService {
 
   async listByUser(
     userId: string,
-    opts: { status?: RadarTopicStatus; limit?: number; cursor?: string } = {},
-  ): Promise<{ items: RadarTopic[]; nextCursor: string | null }> {
+    opts: {
+      status?: RadarTopicStatus;
+      limit?: number;
+      cursor?: string;
+      q?: string;
+    } = {},
+  ): Promise<{
+    items: Array<
+      RadarTopic & {
+        counts: { sources: number; items: number; runs: number };
+      }
+    >;
+    nextCursor: string | null;
+  }> {
     const limit = Math.min(Math.max(opts.limit ?? 30, 1), 100);
-    const items = await this.prisma.radarTopic.findMany({
+    const q = opts.q?.trim();
+    const rows = await this.prisma.radarTopic.findMany({
       where: {
         userId,
         ...(opts.status ? { status: opts.status } : {}),
+        ...(q
+          ? {
+              OR: [
+                { name: { contains: q, mode: "insensitive" } },
+                { description: { contains: q, mode: "insensitive" } },
+              ],
+            }
+          : {}),
       },
       orderBy: { createdAt: "desc" },
       take: limit + 1,
       ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+      include: {
+        _count: { select: { sources: true, items: true, runs: true } },
+      },
     });
-    const hasMore = items.length > limit;
-    const sliced = hasMore ? items.slice(0, limit) : items;
+    const hasMore = rows.length > limit;
+    const sliced = hasMore ? rows.slice(0, limit) : rows;
+    const items = sliced.map(({ _count, ...topic }) => ({
+      ...topic,
+      counts: {
+        sources: _count.sources,
+        items: _count.items,
+        runs: _count.runs,
+      },
+    }));
     return {
-      items: sliced,
+      items,
       nextCursor: hasMore ? (sliced[sliced.length - 1]?.id ?? null) : null,
     };
   }

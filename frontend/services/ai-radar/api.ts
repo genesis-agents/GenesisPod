@@ -62,14 +62,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // ── Topic ─────────────────────────────────────────────
 
 export async function listTopics(
-  opts: { status?: RadarTopicStatus; limit?: number; cursor?: string } = {}
-): Promise<{ items: RadarTopic[]; nextCursor: string | null }> {
+  opts: {
+    status?: RadarTopicStatus;
+    limit?: number;
+    cursor?: string;
+    q?: string;
+  } = {}
+): Promise<{ items: RadarTopicWithCounts[]; nextCursor: string | null }> {
   const qs = new URLSearchParams();
   if (opts.status) qs.set('status', opts.status);
   if (opts.limit) qs.set('limit', String(opts.limit));
   if (opts.cursor) qs.set('cursor', opts.cursor);
+  if (opts.q && opts.q.trim()) qs.set('q', opts.q.trim());
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
-  return request<{ items: RadarTopic[]; nextCursor: string | null }>(
+  return request<{ items: RadarTopicWithCounts[]; nextCursor: string | null }>(
     `/topics${suffix}`
   );
 }

@@ -37,8 +37,9 @@ export class RadarTopicController {
     @Query("status") status?: RadarTopicStatus,
     @Query("limit", new DefaultValuePipe(30), ParseIntPipe) limit?: number,
     @Query("cursor") cursor?: string,
+    @Query("q") q?: string,
   ) {
-    return this.topics.listByUser(req.user.id, { status, limit, cursor });
+    return this.topics.listByUser(req.user.id, { status, limit, cursor, q });
   }
 
   @Get(":id")

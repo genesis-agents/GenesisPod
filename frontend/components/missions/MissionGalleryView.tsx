@@ -31,6 +31,7 @@ import {
   type AssetCardAction,
   type AssetCardBadge,
 } from '@/components/common/asset-card';
+import { PageHeaderHero } from '@/components/common/page-header-hero';
 import type { MissionListItem } from '@/services/agent-playground/api';
 
 // ─── 共享 status / depth 视觉配置 ──────────────────────────────────────────
@@ -249,6 +250,8 @@ export interface MissionGalleryViewProps {
   subtitle: string;
   /** Header icon 渐变（默认 violet→purple） */
   iconGradient?: string;
+  /** Header icon 方块阴影颜色（默认 violet/25，custom-agents 用 rose 时必传） */
+  iconShadowClass?: string;
   /** "新建 Mission" 按钮文案 */
   createButtonLabel?: string;
   /** 点 "新建 Mission" 触发 */
@@ -278,6 +281,7 @@ export function MissionGalleryView({
   title,
   subtitle,
   iconGradient = 'from-violet-500 to-purple-600',
+  iconShadowClass,
   createButtonLabel = '新建 Mission',
   onCreateMission,
   fetchMissions,
@@ -347,48 +351,36 @@ export function MissionGalleryView({
 
   return (
     <div className="h-full overflow-auto bg-gray-50">
-      {/* Header */}
+      {/* Header — 走公共 PageHeaderHero */}
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
-        <div className="px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div
-                className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${iconGradient} shadow-lg shadow-violet-500/25`}
-              >
-                <Sparkles className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-                <p className="text-sm text-gray-500">{subtitle}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onCreateMission}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
-              >
-                <PlusIcon className="h-5 w-5" />
-                {createButtonLabel}
-              </button>
-            </div>
+        <PageHeaderHero
+          title={title}
+          subtitle={subtitle}
+          icon={<Sparkles className="h-7 w-7 text-white" />}
+          iconGradient={iconGradient}
+          iconShadowClass={iconShadowClass}
+          actions={
+            <button
+              type="button"
+              onClick={onCreateMission}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-violet-500/25 transition-all hover:shadow-xl hover:shadow-violet-500/30"
+            >
+              <PlusIcon className="h-5 w-5" />
+              {createButtonLabel}
+            </button>
+          }
+        >
+          <div className="relative">
+            <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            />
           </div>
-
-          {/* Search Bar */}
-          <div className="mt-6">
-            <div className="relative">
-              <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={searchPlaceholder}
-                className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 text-sm outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-              />
-            </div>
-          </div>
-        </div>
+        </PageHeaderHero>
       </div>
 
       {/* Body */}
