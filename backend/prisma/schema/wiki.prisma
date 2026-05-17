@@ -21,17 +21,17 @@
 /// three forward-only steps (add columns / build locale-aware index
 /// CONCURRENTLY / swap unique).
 model WikiPage {
-  id                  String           @id @default(uuid())
-  knowledgeBaseId     String           @map("knowledge_base_id")
-  slug                String           @db.VarChar(200)
-  locale              String           @default("zh") @db.VarChar(8)
-  translationGroupId  String?          @map("translation_group_id")
-  title               String           @db.VarChar(500)
-  category            WikiPageCategory
-  body                String           @db.Text
-  oneLiner            String           @map("one_liner") @db.VarChar(280)
-  contentHash         String           @map("content_hash") @db.VarChar(64)
-  lastEditedBy        WikiPageEditedBy @map("last_edited_by")
+  id                 String           @id @default(uuid())
+  knowledgeBaseId    String           @map("knowledge_base_id")
+  slug               String           @db.VarChar(200)
+  locale             String           @default("zh") @db.VarChar(8)
+  translationGroupId String?          @map("translation_group_id")
+  title              String           @db.VarChar(500)
+  category           WikiPageCategory
+  body               String           @db.Text
+  oneLiner           String           @map("one_liner") @db.VarChar(280)
+  contentHash        String           @map("content_hash") @db.VarChar(64)
+  lastEditedBy       WikiPageEditedBy @map("last_edited_by")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -88,16 +88,16 @@ model WikiPageSource {
 /// absorbed. Coverage is refreshed after each successful diff apply by
 /// scanning current wiki_page_sources for the KB.
 model WikiDocumentCoverage {
-  knowledgeBaseId            String   @map("knowledge_base_id")
-  documentId                 String   @map("document_id")
+  knowledgeBaseId              String   @map("knowledge_base_id")
+  documentId                   String   @map("document_id")
   lastCoveredDocumentUpdatedAt DateTime @map("last_covered_document_updated_at")
-  lastAppliedDiffId          String   @map("last_applied_diff_id")
-  lastAppliedAt              DateTime @map("last_applied_at")
-  updatedAt                  DateTime @updatedAt @map("updated_at")
+  lastAppliedDiffId            String   @map("last_applied_diff_id")
+  lastAppliedAt                DateTime @map("last_applied_at")
+  updatedAt                    DateTime @updatedAt @map("updated_at")
 
-  knowledgeBase KnowledgeBase          @relation("WikiDocumentCoverageKnowledgeBase", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
-  document      KnowledgeBaseDocument  @relation("WikiDocumentCoverageDocument", fields: [documentId], references: [id], onDelete: Cascade)
-  lastAppliedDiff WikiDiff             @relation("WikiDocumentCoverageLastAppliedDiff", fields: [lastAppliedDiffId], references: [id], onDelete: Cascade)
+  knowledgeBase   KnowledgeBase         @relation("WikiDocumentCoverageKnowledgeBase", fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  document        KnowledgeBaseDocument @relation("WikiDocumentCoverageDocument", fields: [documentId], references: [id], onDelete: Cascade)
+  lastAppliedDiff WikiDiff              @relation("WikiDocumentCoverageLastAppliedDiff", fields: [lastAppliedDiffId], references: [id], onDelete: Cascade)
 
   @@id([knowledgeBaseId, documentId])
   @@index([knowledgeBaseId, lastAppliedAt])
@@ -193,7 +193,7 @@ model WikiDiff {
   appliedAt       DateTime?      @map("applied_at")
   dismissedAt     DateTime?      @map("dismissed_at")
 
-  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  knowledgeBase     KnowledgeBase          @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
   documentCoverages WikiDocumentCoverage[] @relation("WikiDocumentCoverageLastAppliedDiff")
 
   @@index([knowledgeBaseId, status])
@@ -286,21 +286,21 @@ enum WikiLintType {
 /// 阈值持久化（每 KB 独立配，admin UI 后期可暴露）。
 /// 默认 inlinePageCount=200, inlineTokenBudget=500_000, ingestMaxTokens=80_000。
 model WikiKnowledgeBaseConfig {
-  knowledgeBaseId           String   @id @map("knowledge_base_id")
-  inlinePageCount           Int      @default(200) @map("inline_page_count")
-  inlineTokenBudget         Int      @default(500000) @map("inline_token_budget")
-  ingestMaxTokens           Int      @default(80000) @map("ingest_max_tokens")
-  cronLintEnabled           Boolean  @default(true) @map("cron_lint_enabled")
-  cronLintDailyBudgetCalls  Int      @default(50) @map("cron_lint_daily_budget_calls")
+  knowledgeBaseId                    String             @id @map("knowledge_base_id")
+  inlinePageCount                    Int                @default(200) @map("inline_page_count")
+  inlineTokenBudget                  Int                @default(500000) @map("inline_token_budget")
+  ingestMaxTokens                    Int                @default(80000) @map("ingest_max_tokens")
+  cronLintEnabled                    Boolean            @default(true) @map("cron_lint_enabled")
+  cronLintDailyBudgetCalls           Int                @default(50) @map("cron_lint_daily_budget_calls")
   /// PR-1 (auto-ingest after raw refresh) — drive the Karpathy "compounding"
   /// loop. KB doc add/update emits an event; the per-KB scheduler debounces
   /// for `autoIngestDebounceSeconds` then enqueues an ingest if the KB has
   /// not consumed its `autoIngestDailyBudgetCalls` quota for the day. The
   /// ingest still produces a PENDING WikiDiff (governance preserved); user
   /// must accept to land changes — auto-apply is intentionally not done.
-  autoIngestEnabled         Boolean  @default(true) @map("auto_ingest_enabled")
-  autoIngestDailyBudgetCalls Int     @default(20) @map("auto_ingest_daily_budget_calls")
-  autoIngestDebounceSeconds Int      @default(300) @map("auto_ingest_debounce_seconds")
+  autoIngestEnabled                  Boolean            @default(true) @map("auto_ingest_enabled")
+  autoIngestDailyBudgetCalls         Int                @default(20) @map("auto_ingest_daily_budget_calls")
+  autoIngestDebounceSeconds          Int                @default(300) @map("auto_ingest_debounce_seconds")
   /// P2 multi-pass orchestration (2026-05-12 consensus §P2).
   /// `ingestPassMode` schema default is SINGLE for backward compat; KB-create
   /// service will overwrite to MULTI for fresh KBs in a later commit. The 4
@@ -309,16 +309,16 @@ model WikiKnowledgeBaseConfig {
   /// chat-completion budget from `autoIngestDailyBudgetCalls` (BLOCKER #4):
   /// ingest may issue 1 outline + N section + 1 crosslink calls per cycle,
   /// while chat-style consumption (ask / refine) is metered separately.
-  ingestPassMode                     WikiIngestPassMode @default(SINGLE)    @map("ingest_pass_mode")
-  ingestSectionConcurrency           Int                @default(3)         @map("ingest_section_concurrency")
-  ingestSectionFailureToleranceRatio Float              @default(0.2)       @map("ingest_section_failure_tolerance_ratio")
-  ingestOutlineMaxPages              Int                @default(30)        @map("ingest_outline_max_pages")
-  autoIngestDailyChatCallBudget      Int                @default(50)        @map("auto_ingest_daily_chat_call_budget")
+  ingestPassMode                     WikiIngestPassMode @default(SINGLE) @map("ingest_pass_mode")
+  ingestSectionConcurrency           Int                @default(3) @map("ingest_section_concurrency")
+  ingestSectionFailureToleranceRatio Float              @default(0.2) @map("ingest_section_failure_tolerance_ratio")
+  ingestOutlineMaxPages              Int                @default(30) @map("ingest_outline_max_pages")
+  autoIngestDailyChatCallBudget      Int                @default(50) @map("auto_ingest_daily_chat_call_budget")
   /// W3 v2.0 rebuild：admin 选 KB 启用的语种集合（zh / en / 二者）。
   /// 单语 KB → ingest 只产源语种 page；双语 KB → 跨语种翻译 pass（按 translationGroupId 关联）。
   /// 默认 ['zh']（保 backward compat）。前端 KB 设置面板暴露 segmented control。
-  enabledLocales            String[] @default(["zh"]) @map("enabled_locales")
-  updatedAt                 DateTime @updatedAt @map("updated_at")
+  enabledLocales                     String[]           @default(["zh"]) @map("enabled_locales")
+  updatedAt                          DateTime           @updatedAt @map("updated_at")
 
   knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
 
@@ -355,7 +355,7 @@ model WikiIngestDraft {
   body            Json
   createdAt       DateTime @default(now()) @map("created_at")
 
-  knowledgeBase   KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
 
   @@unique([diffSessionId, pageSlug, locale])
   @@index([knowledgeBaseId, createdAt])

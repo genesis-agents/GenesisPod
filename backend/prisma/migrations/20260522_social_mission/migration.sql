@@ -43,8 +43,13 @@ CREATE TABLE "social_missions" (
   "pod_id"               VARCHAR(120),
   "heartbeat_at"         TIMESTAMP(3),
 
+  -- 2026-05-17 hotfix: 原写 REFERENCES "User"("id") 错误（Prisma model User
+  -- 配 @@map("users")，真实表名是 `users`），prod 跑 migration 报
+  -- `relation "User" does not exist` 失败 → 被 deploy-migrations.ts
+  -- 自动 resolve-as-applied 吞掉。20260524_ensure_social_missions_table
+  -- 用 IF NOT EXISTS 幂等补救。
   CONSTRAINT "social_missions_user_id_fkey"
-    FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE,
   -- Round-3 Reviewer A P1: content_id 引用 social_contents.id，删 content 级联清 mission
   CONSTRAINT "social_missions_content_id_fkey"
     FOREIGN KEY ("content_id") REFERENCES "social_contents"("id") ON DELETE CASCADE ON UPDATE CASCADE

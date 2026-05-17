@@ -8726,14 +8726,14 @@ model SocialMission {
   workspaceId String? @map("workspace_id")
 
   /// 输入
-  contentId      String        @map("content_id")
-  content        SocialContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  platforms      String[]                   // ["WECHAT_MP", "XIAOHONGSHU"] 等
-  connectionIds  Json    @map("connection_ids") // {WECHAT_MP: "uuid", XIAOHONGSHU: "uuid"}
-  depth          String  @db.VarChar(20) // quick / standard / deep
-  budgetProfile  String  @map("budget_profile") @db.VarChar(20) // lean / standard / rich
-  language       String  @db.VarChar(20)
-  maxCredits     Int     @default(20) @map("max_credits")
+  contentId     String        @map("content_id")
+  content       SocialContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  platforms     String[] // ["WECHAT_MP", "XIAOHONGSHU"] 等
+  connectionIds Json          @map("connection_ids") // {WECHAT_MP: "uuid", XIAOHONGSHU: "uuid"}
+  depth         String        @db.VarChar(20) // quick / standard / deep
+  budgetProfile String        @map("budget_profile") @db.VarChar(20) // lean / standard / rich
+  language      String        @db.VarChar(20)
+  maxCredits    Int           @default(20) @map("max_credits")
 
   /// 状态
   status      String    @db.VarChar(20) // running / completed / failed / aborted
@@ -9948,32 +9948,32 @@ model HarnessFailurePattern {
 ///
 /// 每条 DreamingRule 通过 derivedFromRunId 反查产生它的反思 run（可追溯）。
 model DreamingRun {
-  id              String         @id @default(uuid())
+  id                 String   @id @default(uuid())
   /// "cron" / "failure_threshold" / "manual"
-  triggerKind     String         @map("trigger_kind") @db.VarChar(32)
+  triggerKind        String   @map("trigger_kind") @db.VarChar(32)
   /// cron 表达式或 触发原因
-  triggerDetail   String?        @map("trigger_detail") @db.VarChar(255)
-  triggeredAt     DateTime       @default(now()) @map("triggered_at")
+  triggerDetail      String?  @map("trigger_detail") @db.VarChar(255)
+  triggeredAt        DateTime @default(now()) @map("triggered_at")
   /// 抽样窗口
-  windowStart     DateTime       @map("window_start")
-  windowEnd       DateTime       @map("window_end")
+  windowStart        DateTime @map("window_start")
+  windowEnd          DateTime @map("window_end")
   /// 抽样的 mission id 集合（不加 FK，mission 可能被清理）
-  sampledMissionIds String[]     @map("sampled_mission_ids")
+  sampledMissionIds  String[] @map("sampled_mission_ids")
   /// "random" / "stratified" / "latest"
-  sampleStrategy  String         @map("sample_strategy") @db.VarChar(32)
+  sampleStrategy     String   @map("sample_strategy") @db.VarChar(32)
   /// 本次新增/强化的 rule 数（与 producedRules 反查一致）
-  newRulesCount   Int            @default(0) @map("new_rules_count")
+  newRulesCount      Int      @default(0) @map("new_rules_count")
   /// 因低置信度 / 重复被 reject 的候选数
-  rejectedCandidates Int         @default(0) @map("rejected_candidates")
+  rejectedCandidates Int      @default(0) @map("rejected_candidates")
   /// LLM 调用 token 消耗
-  tokensUsed      Int            @default(0) @map("tokens_used")
-  durationMs      Int            @default(0) @map("duration_ms")
+  tokensUsed         Int      @default(0) @map("tokens_used")
+  durationMs         Int      @default(0) @map("duration_ms")
   /// "success" / "failed"
-  status          String         @db.VarChar(20)
-  errorMessage    String?        @map("error_message") @db.Text
-  createdAt       DateTime       @default(now()) @map("created_at")
+  status             String   @db.VarChar(20)
+  errorMessage       String?  @map("error_message") @db.Text
+  createdAt          DateTime @default(now()) @map("created_at")
 
-  producedRules   DreamingRule[]
+  producedRules DreamingRule[]
 
   @@index([triggeredAt(sort: Desc)])
   @@index([status])
@@ -9985,28 +9985,28 @@ model DreamingRun {
 /// LLM 抽样多个失败 mission → 归纳的 "X 类失败 → 建议 mitigation" 规则。
 /// 注入下轮 mission leader plan（PR-I.4 实现），mission 完成后回填 successCount。
 model DreamingRule {
-  id              String       @id @default(uuid())
+  id                    String      @id @default(uuid())
   /// LLM 提炼的失败 pattern
-  pattern         String       @db.Text
+  pattern               String      @db.Text
   /// 建议的 mitigation（注入 leader plan 时使用）
-  mitigation      String       @db.Text
+  mitigation            String      @db.Text
   /// 涉及的失败 code 集合（HarnessFailureCode 枚举字符串）；用于按类匹配下轮 mission
-  failureCodes    String[]     @map("failure_codes")
+  failureCodes          String[]    @map("failure_codes")
   /// 归纳依据的 mission id 集合（可追溯样本）
-  derivedFromMissionIds String[] @map("derived_from_mission_ids")
+  derivedFromMissionIds String[]    @map("derived_from_mission_ids")
   /// 产生本规则的反思 run id
-  derivedFromRunId String      @map("derived_from_run_id")
-  derivedFromRun  DreamingRun  @relation(fields: [derivedFromRunId], references: [id], onDelete: Cascade)
+  derivedFromRunId      String      @map("derived_from_run_id")
+  derivedFromRun        DreamingRun @relation(fields: [derivedFromRunId], references: [id], onDelete: Cascade)
   /// LLM 对这条规则的置信度 0-1
-  confidence      Float
+  confidence            Float
   /// 后续应用计数（注入到 mission leader plan 的次数）
-  applicationCount Int         @default(0) @map("application_count")
+  applicationCount      Int         @default(0) @map("application_count")
   /// 应用后 mission 成功完成的次数
-  successCount    Int          @default(0) @map("success_count")
+  successCount          Int         @default(0) @map("success_count")
   /// admin 是否禁用（保留历史不删）
-  disabled        Boolean      @default(false)
-  createdAt       DateTime     @default(now()) @map("created_at")
-  updatedAt       DateTime     @updatedAt @map("updated_at")
+  disabled              Boolean     @default(false)
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
 
   @@index([disabled, confidence(sort: Desc)])
   @@index([failureCodes], type: Gin)
@@ -10277,10 +10277,10 @@ model RadarTopic {
   /// cron 表达式，默认每 6 小时
   refreshCron String  @default("0 */6 * * *") @map("refresh_cron") @db.VarChar(60)
 
-  status     RadarTopicStatus @default(ACTIVE)
+  status    RadarTopicStatus @default(ACTIVE)
   /// 调度器扫描字段：下次应运行时间
-  nextDueAt  DateTime?        @map("next_due_at")
-  lastRunAt  DateTime?        @map("last_run_at")
+  nextDueAt DateTime?        @map("next_due_at")
+  lastRunAt DateTime?        @map("last_run_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -10297,17 +10297,17 @@ model RadarTopic {
 
 /// 数据源（订阅的具体源：X 账号 / YouTube 频道 / RSS / 自定义）
 model RadarSource {
-  id              String  @id @default(uuid())
-  topicId         String  @map("topic_id")
-  topic           RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  id              String          @id @default(uuid())
+  topicId         String          @map("topic_id")
+  topic           RadarTopic      @relation(fields: [topicId], references: [id], onDelete: Cascade)
   type            RadarSourceType
   /// X handle / YouTube channelId / RSS URL / custom URL
-  identifier      String  @db.VarChar(500)
-  label           String? @db.VarChar(200)
+  identifier      String          @db.VarChar(500)
+  label           String?         @db.VarChar(200)
   /// 类型特定配置：{ region?, listSelector?, titleSelector?, fetchTranscript? }
   config          Json?
-  enabled         Boolean @default(true)
-  isAiRecommended Boolean @default(false) @map("is_ai_recommended")
+  enabled         Boolean         @default(true)
+  isAiRecommended Boolean         @default(false) @map("is_ai_recommended")
 
   health              RadarSourceHealth @default(UNKNOWN)
   consecutiveFailures Int               @default(0) @map("consecutive_failures")
@@ -10403,17 +10403,17 @@ model RadarRun {
   workspaceId String?    @map("workspace_id")
 
   /// 状态（mission lifecycle 标准 5 态，VarChar 避免 enum 升级痛苦）
-  status      String     @db.VarChar(20) // running / completed / failed / cancelled / rejected
+  status      String          @db.VarChar(20) // running / completed / failed / cancelled / rejected
   trigger     RadarRunTrigger
-  startedAt   DateTime?  @map("started_at")
-  completedAt DateTime?  @map("completed_at")
+  startedAt   DateTime?       @map("started_at")
+  completedAt DateTime?       @map("completed_at")
   /// 总耗时 ms（mission level wall clock）
-  durationMs  Int?       @map("duration_ms")
-  wallTimeMs  Int?       @map("wall_time_ms")
+  durationMs  Int?            @map("duration_ms")
+  wallTimeMs  Int?            @map("wall_time_ms")
 
   /// Mission 输入快照（业务方决定 schema，runtime-shell.createMissionRow 写入）
-  maxCredits  Int        @default(50) @map("max_credits")
-  payload     Json?
+  maxCredits Int   @default(50) @map("max_credits")
+  payload    Json?
 
   /// Mission resume 入口 + liveness guard 信号
   heartbeatAt        DateTime? @map("heartbeat_at")
@@ -10421,10 +10421,10 @@ model RadarRun {
   lastCompletedStage Int?      @map("last_completed_stage")
 
   /// {fetched,deduped,scored,accepted,llmCost,...} —— 由 dispatcher / persist stage 累计
-  metrics    Json?
+  metrics   Json?
   /// pipeline / orchestrator throw 时的 error message（mission 终态填充）
-  error      String?  @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
+  error     String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([topicId, startedAt(sort: Desc)])
   @@index([status, startedAt])
