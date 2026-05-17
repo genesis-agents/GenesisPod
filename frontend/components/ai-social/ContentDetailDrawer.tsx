@@ -36,61 +36,41 @@ import {
   type SocialPlatformType,
 } from '@/services/ai-social/api';
 import { useSocialMissionStream } from '@/hooks/useSocialMissionStream';
+import { useTranslation } from '@/lib/i18n';
 
 type Depth = 'quick' | 'standard' | 'deep';
 type BudgetProfile = 'lean' | 'standard' | 'rich';
 
-const PLATFORM_LABEL: Record<SocialPlatformType, string> = {
-  WECHAT_MP: '微信公众号',
-  XIAOHONGSHU: '小红书',
+const DEPTH_ICON: Record<Depth, JSX.Element> = {
+  quick: <Zap className="h-3.5 w-3.5" />,
+  standard: <Rocket className="h-3.5 w-3.5" />,
+  deep: <Settings2 className="h-3.5 w-3.5" />,
 };
 
-/**
- * 业务化档位文案（PR-5 i18n 痛点 5 修复）：
- * 用户不需要看到 "quick · 15 min"，他们想知道 "AI 改不改写、要花多久"
- */
-const DEPTH_OPTIONS: Array<{
-  value: Depth;
-  label: string;
-  hint: string;
-  icon: JSX.Element;
-}> = [
-  {
-    value: 'quick',
-    label: '快速发',
-    hint: '原文不改写 · 1-3 分钟',
-    icon: <Zap className="h-3.5 w-3.5" />,
-  },
-  {
-    value: 'standard',
-    label: '标准发',
-    hint: 'AI 优化标题封面 · 5-15 分钟',
-    icon: <Rocket className="h-3.5 w-3.5" />,
-  },
-  {
-    value: 'deep',
-    label: '深度发',
-    hint: '正文重写 + 多平台适配 · 10-30 分钟',
-    icon: <Settings2 className="h-3.5 w-3.5" />,
-  },
-];
+const DEPTH_VALUES: Depth[] = ['quick', 'standard', 'deep'];
+const BUDGET_VALUES: BudgetProfile[] = ['lean', 'standard', 'rich'];
 
-const BUDGET_OPTIONS: Array<{
-  value: BudgetProfile;
-  label: string;
-}> = [
-  { value: 'lean', label: '省（自动跳过非必要 LLM 调用）' },
-  { value: 'standard', label: '标准（按需调用）' },
-  { value: 'rich', label: '丰（多路并发 + 重写多版本）' },
-];
+const STATUS_COLOR: Record<string, string> = {
+  DRAFT: 'bg-gray-100 text-gray-700',
+  PENDING: 'bg-amber-50 text-amber-700',
+  SCHEDULED: 'bg-blue-50 text-blue-700',
+  PUBLISHED: 'bg-emerald-50 text-emerald-700',
+  FAILED: 'bg-red-50 text-red-700',
+  ARCHIVED: 'bg-gray-100 text-gray-500',
+};
 
-const STATUS_BADGE: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: '草稿', color: 'bg-gray-100 text-gray-700' },
-  PENDING: { label: '待发布', color: 'bg-amber-50 text-amber-700' },
-  SCHEDULED: { label: '已排期', color: 'bg-blue-50 text-blue-700' },
-  PUBLISHED: { label: '已发布', color: 'bg-emerald-50 text-emerald-700' },
-  FAILED: { label: '失败', color: 'bg-red-50 text-red-700' },
-  ARCHIVED: { label: '已归档', color: 'bg-gray-100 text-gray-500' },
+const STATUS_I18N_KEY: Record<string, string> = {
+  DRAFT: 'aiSocial.status.draft',
+  PENDING: 'aiSocial.status.pending',
+  SCHEDULED: 'aiSocial.status.scheduled',
+  PUBLISHED: 'aiSocial.status.published',
+  FAILED: 'aiSocial.status.failed',
+  ARCHIVED: 'aiSocial.status.archived',
+};
+
+const PLATFORM_I18N_KEY: Record<SocialPlatformType, string> = {
+  WECHAT_MP: 'aiSocial.platforms.wechat_mp',
+  XIAOHONGSHU: 'aiSocial.platforms.xiaohongshu',
 };
 
 interface ContentDetailDrawerProps {
@@ -107,6 +87,8 @@ export default function ContentDetailDrawer({
   onClose,
   onMissionStarted,
 }: ContentDetailDrawerProps) {
+  const { t } = useTranslation();
+
   const platformToConnectionId = useMemo(() => {
     const m: Record<string, string> = {};
     for (const c of connections) if (c.isActive) m[c.platformType] = c.id;
@@ -171,15 +153,17 @@ export default function ContentDetailDrawer({
     }
   };
 
-  const statusBadge = STATUS_BADGE[content.status] ?? {
-    label: content.status,
-    color: 'bg-gray-100 text-gray-700',
-  };
+  const statusKey = STATUS_I18N_KEY[content.status];
+  const statusLabel = statusKey ? t(statusKey) : content.status;
+  const statusColor =
+    STATUS_COLOR[content.status] ?? 'bg-gray-100 text-gray-700';
+  const platformLabel = (p: SocialPlatformType): string =>
+    t(PLATFORM_I18N_KEY[p] ?? p);
 
   return (
     <div
       role="dialog"
-      aria-label="内容发布详情"
+      aria-label={t('aiSocial.drawer.ariaLabel')}
       className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col border-l border-gray-200 bg-white shadow-2xl"
     >
       {/* Header */}
@@ -187,13 +171,15 @@ export default function ContentDetailDrawer({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-500">
-              内容详情
+              {t('aiSocial.drawer.label')}
             </div>
             <h3 className="truncate text-base font-semibold text-gray-900">
               {content.title}
             </h3>
             <p className="mt-1 text-xs text-gray-500">
-              {content.contentType === 'WECHAT_ARTICLE' ? '长文' : '笔记'}
+              {content.contentType === 'WECHAT_ARTICLE'
+                ? t('aiSocial.drawer.contentTypeArticle')
+                : t('aiSocial.drawer.contentTypeNote')}
               {' · '}
               {new Date(content.createdAt ?? Date.now()).toLocaleString(
                 'zh-CN',
@@ -210,7 +196,7 @@ export default function ContentDetailDrawer({
             type="button"
             onClick={onClose}
             className="rounded-xl p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-            aria-label="关闭"
+            aria-label={t('aiSocial.drawer.close')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -219,14 +205,13 @@ export default function ContentDetailDrawer({
         {/* 状态段 */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge.color}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor}`}
           >
-            {statusBadge.label}
+            {statusLabel}
           </span>
           {content.connection?.platformType && (
             <span className="inline-flex items-center rounded-full bg-gray-50 px-2 py-0.5 text-xs text-gray-600">
-              {PLATFORM_LABEL[content.connection.platformType] ??
-                content.connection.platformType}
+              {platformLabel(content.connection.platformType)}
               {content.connection.accountName
                 ? ` · ${content.connection.accountName}`
                 : ''}
@@ -240,7 +225,7 @@ export default function ContentDetailDrawer({
               className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-100"
             >
               <ExternalLink className="h-3 w-3" />
-              查看已发布
+              {t('aiSocial.drawer.viewPublished')}
             </a>
           )}
         </div>
@@ -250,18 +235,20 @@ export default function ContentDetailDrawer({
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {/* 发布表单 */}
         <section className="mb-6">
-          <h4 className="mb-3 text-sm font-semibold text-gray-900">发布到</h4>
+          <h4 className="mb-3 text-sm font-semibold text-gray-900">
+            {t('aiSocial.drawer.publishTo')}
+          </h4>
 
           {availablePlatforms.length === 0 ? (
             <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
-              暂无已连接的平台。请先在
+              {t('aiSocial.drawer.noConnectionsHint')}
               <a
                 href="/ai-social/connections"
                 className="ml-1 underline hover:no-underline"
               >
-                连接管理
+                {t('aiSocial.drawer.connectionsLinkText')}
               </a>
-              绑定账号。
+              {t('aiSocial.drawer.noConnectionsHintTail')}
             </div>
           ) : (
             <div className="mb-4 flex flex-wrap gap-2">
@@ -278,7 +265,7 @@ export default function ContentDetailDrawer({
                         : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    {PLATFORM_LABEL[p] ?? p}
+                    {platformLabel(p)}
                   </button>
                 );
               })}
@@ -287,13 +274,13 @@ export default function ContentDetailDrawer({
 
           {/* 智能档位（业务化文案，痛点 5 修复） */}
           <div className="mb-3 space-y-1.5">
-            {DEPTH_OPTIONS.map((opt) => {
-              const selected = depth === opt.value;
+            {DEPTH_VALUES.map((value) => {
+              const selected = depth === value;
               return (
                 <button
-                  key={opt.value}
+                  key={value}
                   type="button"
-                  onClick={() => setDepth(opt.value)}
+                  onClick={() => setDepth(value)}
                   className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
                     selected
                       ? 'border-rose-500 bg-rose-50/50'
@@ -307,7 +294,7 @@ export default function ContentDetailDrawer({
                         : 'bg-gray-100 text-gray-500'
                     }`}
                   >
-                    {opt.icon}
+                    {DEPTH_ICON[value]}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span
@@ -315,10 +302,10 @@ export default function ContentDetailDrawer({
                         selected ? 'text-rose-700' : 'text-gray-900'
                       }`}
                     >
-                      {opt.label}
+                      {t(`aiSocial.depth.${value}.label`)}
                     </span>
                     <span className="block text-xs text-gray-500">
-                      {opt.hint}
+                      {t(`aiSocial.depth.${value}.hint`)}
                     </span>
                   </span>
                 </button>
@@ -337,28 +324,28 @@ export default function ContentDetailDrawer({
             ) : (
               <ChevronDown className="h-3 w-3" />
             )}
-            高级（预算控制）
+            {t('aiSocial.drawer.advanced')}
           </button>
           {showAdvanced && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5">
               <div className="mb-2 text-xs font-medium text-gray-700">
-                预算档位
+                {t('aiSocial.drawer.budgetTitle')}
               </div>
               <div className="space-y-1">
-                {BUDGET_OPTIONS.map((opt) => (
+                {BUDGET_VALUES.map((value) => (
                   <label
-                    key={opt.value}
+                    key={value}
                     className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-xs text-gray-700 hover:bg-white"
                   >
                     <input
                       type="radio"
                       name="budgetProfile"
-                      value={opt.value}
-                      checked={budgetProfile === opt.value}
-                      onChange={() => setBudgetProfile(opt.value)}
+                      value={value}
+                      checked={budgetProfile === value}
+                      onChange={() => setBudgetProfile(value)}
                       className="h-3.5 w-3.5 accent-rose-500"
                     />
-                    <span>{opt.label}</span>
+                    <span>{t(`aiSocial.budget.${value}`)}</span>
                   </label>
                 ))}
               </div>
@@ -376,7 +363,9 @@ export default function ContentDetailDrawer({
             ) : (
               <PlayCircle className="h-4 w-4" />
             )}
-            {starting ? '启动中…' : '发起发布'}
+            {starting
+              ? t('aiSocial.drawer.starting')
+              : t('aiSocial.drawer.startPublish')}
           </button>
 
           {startError && (
@@ -392,7 +381,9 @@ export default function ContentDetailDrawer({
           <section className="mb-2">
             <div className="mb-3 flex items-center gap-2">
               <Clock className="h-4 w-4 text-rose-500" />
-              <h4 className="text-sm font-semibold text-gray-900">发布进度</h4>
+              <h4 className="text-sm font-semibold text-gray-900">
+                {t('aiSocial.drawer.progress')}
+              </h4>
             </div>
             <MissionEventLog missionId={currentMissionId} />
           </section>
@@ -416,6 +407,7 @@ interface EventPayload {
 }
 
 function MissionEventLog({ missionId }: { missionId: string }) {
+  const { t } = useTranslation();
   const { events, connState, error } = useSocialMissionStream(missionId);
 
   return (
@@ -456,7 +448,7 @@ function MissionEventLog({ missionId }: { missionId: string }) {
       <div className="font-mono max-h-72 overflow-y-auto rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs">
         {events.length === 0 ? (
           <div className="flex h-24 items-center justify-center text-gray-400">
-            等待事件…
+            {t('aiSocial.drawer.waitingEvents')}
           </div>
         ) : (
           <ul className="space-y-1.5">
@@ -475,6 +467,7 @@ function MissionEventLog({ missionId }: { missionId: string }) {
 }
 
 function EventLine({ type, payload }: { type: string; payload: EventPayload }) {
+  const { t } = useTranslation();
   const isMissionCompleted = type === 'social.mission:completed';
   const isMissionFailed = type === 'social.mission:failed';
   const isMissionAborted = type === 'social.mission:aborted';
@@ -507,13 +500,17 @@ function EventLine({ type, payload }: { type: string; payload: EventPayload }) {
       : isStageLifecycle
         ? `${payload.stepId} · ${payload.status}`
         : isMissionCompleted
-          ? `发布完成 · ${payload.publishedCount ?? 0} 平台 · ${
-              payload.wallTimeMs ? (payload.wallTimeMs / 1000).toFixed(1) : '?'
-            }s`
+          ? t('aiSocial.drawer.eventPublished', {
+              count: payload.publishedCount ?? 0,
+              seconds: payload.wallTimeMs
+                ? (payload.wallTimeMs / 1000).toFixed(1)
+                : '?',
+            })
           : isMissionFailed
-            ? `发布失败 · ${payload.failureCode ?? 'UNKNOWN'} · ${
-                payload.message ?? ''
-              }`
+            ? t('aiSocial.drawer.eventFailed', {
+                code: payload.failureCode ?? 'UNKNOWN',
+                message: payload.message ?? '',
+              })
             : type.replace(/^social\./, '');
 
   return (

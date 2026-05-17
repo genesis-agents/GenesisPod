@@ -105,7 +105,7 @@ export default function AISocialConnectionsPage() {
                   type="button"
                   onClick={() => router.push('/ai-social')}
                   className="rounded-xl border border-gray-200 bg-white p-2 text-gray-600 hover:bg-gray-50"
-                  aria-label="返回 AI 社媒"
+                  aria-label={t('aiSocial.connectionsPage.back')}
                 >
                   <ArrowLeft className="h-4 w-4" />
                 </button>
@@ -114,10 +114,10 @@ export default function AISocialConnectionsPage() {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">
-                    平台连接管理
+                    {t('aiSocial.connectionsPage.title')}
                   </h1>
                   <p className="text-sm text-gray-500">
-                    绑定 / 续期公众号、小红书等账号
+                    {t('aiSocial.connectionsPage.subtitle')}
                   </p>
                 </div>
               </div>

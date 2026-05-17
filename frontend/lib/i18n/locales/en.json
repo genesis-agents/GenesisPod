@@ -2854,7 +2854,8 @@
       "scheduled": "Scheduled",
       "publishing": "Publishing",
       "published": "Published",
-      "failed": "Failed"
+      "failed": "Failed",
+      "archived": "Archived"
     },
     "reviewStatus": {
       "pending": "Pending Review",
@@ -3123,6 +3124,51 @@
       "noConnections": "No available publishing accounts. Please add one in 'Platform Connections' first.",
       "publishing": "Publishing...",
       "confirm": "Confirm Publish"
+    },
+    "connectionsPage": {
+      "title": "Platform Connections",
+      "subtitle": "Bind / refresh WeChat MP, Xiaohongshu and other accounts",
+      "back": "Back to AI Social"
+    },
+    "connectionsLink": "Connections",
+    "drawer": {
+      "label": "Content Detail",
+      "ariaLabel": "Content publish detail",
+      "close": "Close",
+      "publishTo": "Publish to",
+      "noConnectionsHint": "No connected platforms. Please go to",
+      "connectionsLinkText": "Connections",
+      "noConnectionsHintTail": "to bind an account.",
+      "advanced": "Advanced (budget)",
+      "budgetTitle": "Budget profile",
+      "viewPublished": "View published",
+      "startPublish": "Start publishing",
+      "starting": "Starting…",
+      "progress": "Publish progress",
+      "waitingEvents": "Waiting for events…",
+      "contentTypeArticle": "Article",
+      "contentTypeNote": "Note",
+      "eventPublished": "Published · {count} platforms · {seconds}s",
+      "eventFailed": "Publish failed · {code} · {message}"
+    },
+    "depth": {
+      "quick": {
+        "label": "Quick",
+        "hint": "Original content · 1-3 min"
+      },
+      "standard": {
+        "label": "Standard",
+        "hint": "AI-optimize title & cover · 5-15 min"
+      },
+      "deep": {
+        "label": "Deep",
+        "hint": "Rewrite body + multi-platform adapt · 10-30 min"
+      }
+    },
+    "budget": {
+      "lean": "Lean (skip non-essential LLM calls)",
+      "standard": "Standard (call on demand)",
+      "rich": "Rich (parallel + multiple variants)"
     },
     "confirm": {
       "delete": "Are you sure you want to delete this content? This action cannot be undone.",

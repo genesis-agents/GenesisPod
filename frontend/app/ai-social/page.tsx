@@ -165,7 +165,8 @@ export default function AISocialPage() {
                   className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   <Link2 className="h-4 w-4" />
-                  连接管理 ({connections.filter((c) => c.isActive).length})
+                  {t('aiSocial.connectionsLink')} (
+                  {connections.filter((c) => c.isActive).length})
                 </button>
               </div>
             </div>

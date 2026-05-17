@@ -2841,7 +2841,8 @@
       "scheduled": "已排期",
       "publishing": "发布中",
       "published": "已发布",
-      "failed": "发布失败"
+      "failed": "发布失败",
+      "archived": "已归档"
     },
     "reviewStatus": {
       "pending": "待审核",
@@ -3110,6 +3111,51 @@
       "noConnections": "没有可用的发布账号，请先在「平台连接」中添加",
       "publishing": "发布中...",
       "confirm": "确认发布"
+    },
+    "connectionsPage": {
+      "title": "平台连接管理",
+      "subtitle": "绑定 / 续期公众号、小红书等账号",
+      "back": "返回 AI 社媒"
+    },
+    "connectionsLink": "连接管理",
+    "drawer": {
+      "label": "内容详情",
+      "ariaLabel": "内容发布详情",
+      "close": "关闭",
+      "publishTo": "发布到",
+      "noConnectionsHint": "暂无已连接的平台。请先在",
+      "connectionsLinkText": "连接管理",
+      "noConnectionsHintTail": "绑定账号。",
+      "advanced": "高级（预算控制）",
+      "budgetTitle": "预算档位",
+      "viewPublished": "查看已发布",
+      "startPublish": "发起发布",
+      "starting": "启动中…",
+      "progress": "发布进度",
+      "waitingEvents": "等待事件…",
+      "contentTypeArticle": "长文",
+      "contentTypeNote": "笔记",
+      "eventPublished": "发布完成 · {count} 平台 · {seconds}s",
+      "eventFailed": "发布失败 · {code} · {message}"
+    },
+    "depth": {
+      "quick": {
+        "label": "快速发",
+        "hint": "原文不改写 · 1-3 分钟"
+      },
+      "standard": {
+        "label": "标准发",
+        "hint": "AI 优化标题封面 · 5-15 分钟"
+      },
+      "deep": {
+        "label": "深度发",
+        "hint": "正文重写 + 多平台适配 · 10-30 分钟"
+      }
+    },
+    "budget": {
+      "lean": "省（自动跳过非必要 LLM 调用）",
+      "standard": "标准（按需调用）",
+      "rich": "丰（多路并发 + 重写多版本）"
     },
     "confirm": {
       "delete": "确认删除此内容？此操作不可恢复。",
