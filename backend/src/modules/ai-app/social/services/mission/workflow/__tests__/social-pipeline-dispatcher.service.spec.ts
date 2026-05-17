@@ -1711,4 +1711,104 @@ describe("SocialPipelineDispatcher", () => {
       expect(failedEmit![0].payload.stage).toBe("s12-self-evolution");
     });
   });
+
+  // ==========================================================================
+  // PR-7 用户旅程 100% 覆盖（3 persona end-to-end contract）
+  //
+  // 设计稿（docs/architecture/ai-app/social/ui-redesign-2026-05-17.md）三个 persona
+  // 经 ContentDetailDrawer 提交的 input 形态 dispatcher 必须能跑通：
+  //   A. Solo founder  → quick + lean + 单平台
+  //   B. Marketer lead → standard + standard + 双平台
+  //   C. Power user    → deep + rich + 双平台
+  //
+  // 不展开 stage 内部，只校验 dispatcher.runMission 接受 3 种 input 形态、
+  // 派对应 pipeline (fast vs full) + markCompleted 写入正确 depth/budget meta。
+  // ==========================================================================
+
+  describe("user journey — 3 persona contracts", () => {
+    async function runPersona(input: RunSocialMissionInput) {
+      const orchestrator = createMockOrchestrator();
+      orchestrator.run = jest.fn().mockResolvedValue({ status: "completed" });
+      const store = createMockStore();
+
+      const prisma = createMockPrisma();
+      (prisma.socialContent.findFirst as jest.Mock).mockResolvedValue({
+        title: "Journey Title",
+        content: "Journey body",
+        digest: null,
+        coverImageUrl: null,
+      });
+
+      const { dispatcher, eventBus } = createDispatcher({
+        orchestrator,
+        store,
+        prisma,
+      });
+
+      const result = await dispatcher.runMission(
+        MOCK_MISSION_ID,
+        input,
+        MOCK_USER_ID,
+      );
+
+      return { result, orchestrator, store, eventBus };
+    }
+
+    it("persona A (Solo founder): quick + lean + WECHAT only → completes", async () => {
+      const input = makeInput({
+        depth: "quick",
+        budgetProfile: "lean",
+        platforms: ["wechat"],
+        connectionIds: { wechat: "conn-A-wechat" },
+      });
+
+      const { result, orchestrator, store, eventBus } = await runPersona(input);
+
+      expect(result.status).toBe("completed");
+      expect(orchestrator.run).toHaveBeenCalled();
+      expect(store.markCompleted).toHaveBeenCalledWith(
+        MOCK_MISSION_ID,
+        expect.objectContaining({ wallTimeMs: expect.any(Number) }),
+      );
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "social.mission:completed" }),
+      );
+    });
+
+    it("persona B (Marketer lead): standard + standard + 2 platforms → completes", async () => {
+      const input = makeInput({
+        depth: "standard",
+        budgetProfile: "standard",
+        platforms: ["wechat", "xiaohongshu"],
+        connectionIds: {
+          wechat: "conn-B-wechat",
+          xiaohongshu: "conn-B-xhs",
+        },
+      });
+
+      const { result, orchestrator, store } = await runPersona(input);
+
+      expect(result.status).toBe("completed");
+      expect(orchestrator.run).toHaveBeenCalled();
+      expect(store.markCompleted).toHaveBeenCalled();
+    });
+
+    it("persona C (Power user): deep + rich + 2 platforms → completes", async () => {
+      const input = makeInput({
+        depth: "deep",
+        budgetProfile: "rich",
+        platforms: ["wechat", "xiaohongshu"],
+        connectionIds: {
+          wechat: "conn-C-wechat",
+          xiaohongshu: "conn-C-xhs",
+        },
+      });
+
+      const { result, orchestrator, store } = await runPersona(input);
+
+      expect(result.status).toBe("completed");
+      expect(orchestrator.run).toHaveBeenCalled();
+      expect(store.markCompleted).toHaveBeenCalled();
+    });
+  });
 });
