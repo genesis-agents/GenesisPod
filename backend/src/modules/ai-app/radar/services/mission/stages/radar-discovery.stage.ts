@@ -37,6 +37,11 @@ export interface RadarDiscoveryOutput {
   candidates: RadarSourceCandidate[];
 }
 
+// 2026-05-17 业务策略：source-curator 不再推荐 type=X（Nitter 全死，业界
+// Feedly/Inoreader 已淡化 X 集成）。VALID_SOURCE_TYPES 仍含 X 以兼容
+// RadarSourceType 枚举（旧数据 + admin 手动加），但 prompt 只允许 LLM 输出
+// YOUTUBE / RSS / CUSTOM 三类；下面的 filter 把 LLM 仍吐 type=X 的候选 drop
+// 掉，防 prompt 失守入库变 dead source。
 const VALID_SOURCE_TYPES = new Set(["X", "YOUTUBE", "RSS", "CUSTOM"]);
 
 @Injectable()
@@ -99,19 +104,26 @@ ${JSON.stringify({
 已有数据源（请勿重复推荐）：${existingList}
 
 推荐要求：
-- type 必须是 4 种之一：X（推特/X 账号）/ YOUTUBE（YouTube 频道）/ RSS（RSS 订阅）/ CUSTOM（网页/API）
-- identifier：X 填 @handle（不含 @）/ YOUTUBE 填频道 ID 或 @handle / RSS 填 URL / CUSTOM 填 URL
-- 优先推荐权威信源、行业媒体、关键 KOL
+- type **只能是 3 种**：YOUTUBE（YouTube 频道）/ RSS（公司官博 / 媒体 RSS / Substack）/ CUSTOM（网页列表）
+- **绝对不输出 type=X**（Nitter 全死 + X API 性价比低，业界 Feedly/Inoreader 已淡化 X 集成）
+- 用户主题里出现 KOL / 公司时，把"X 账号"映射为等价**官博 RSS / YouTube / Newsletter**：
+  - Elon Musk → Tesla 官博 RSS + Tesla YouTube + Elon Substack（如有）
+  - OpenAI → openai.com/blog RSS + OpenAI YouTube + Sam Altman 个人 blog
+  - NVIDIA → NVIDIA Newsroom RSS + NVIDIA Investor Relations + Jensen Huang 演讲 YouTube
+  - 任意 X handle → 优先找该对象的**官方一手信源**，找不到再用同领域权威媒体 RSS
+- identifier：YOUTUBE 填频道 ID 或 https URL / RSS 填 https URL / CUSTOM 填 https URL（rationale 内简述 CSS selector）
+- 不推荐 paywall / 需 auth token 的 RSS（SeekingAlpha Premium / WSJ / Bloomberg Terminal — 会 401）
+- 优先一手权威信源：公司官博 / 公司 YouTube / 高质量 Newsletter 优于二手转述
 - confidence 为 0-1 浮点数（推荐把握度）
 
 请严格按以下 JSON schema 返回（无 markdown 围栏）：
 {
   "candidates": [
     {
-      "type": "X|YOUTUBE|RSS|CUSTOM",
-      "identifier": "账号/URL",
+      "type": "YOUTUBE|RSS|CUSTOM",
+      "identifier": "URL",
       "label": "来源名称",
-      "rationale": "≤80 字推荐理由",
+      "rationale": "≤80 字推荐理由（X 对象转换时说明映射）",
       "confidence": 0.85
     }
   ]
@@ -137,31 +149,38 @@ ${JSON.stringify({
         return [];
       }
 
-      return parsed.candidates
-        .filter(
-          (c): c is Record<string, unknown> =>
-            c !== null && typeof c === "object",
-        )
-        .map((c) => ({
-          type: normalizeSourceType(c["type"]),
-          // 2026-05-17 R3 spec 抓到：LLM 返回 "   " 全空白时不 trim 直接当合法
-          // identifier 走 assertIdentifierShape，shape 校验侧才挡，浪费一次错误日志。
-          identifier: truncate(String(c["identifier"] ?? "").trim(), 500),
-          label:
-            typeof c["label"] === "string"
-              ? truncate(c["label"], 200)
-              : undefined,
-          rationale:
-            typeof c["rationale"] === "string"
-              ? truncate(c["rationale"], 80)
-              : undefined,
-          confidence:
-            typeof c["confidence"] === "number" &&
-            Number.isFinite(c["confidence"])
-              ? Math.max(0, Math.min(1, c["confidence"]))
-              : undefined,
-        }))
-        .filter((c) => c.identifier.length > 0);
+      return (
+        parsed.candidates
+          .filter(
+            (c): c is Record<string, unknown> =>
+              c !== null && typeof c === "object",
+          )
+          // 2026-05-17：业务策略 drop type=X 候选（prompt 失守防御）
+          .filter((c) => {
+            const rawType = typeof c["type"] === "string" ? c["type"] : "";
+            return rawType !== "X";
+          })
+          .map((c) => ({
+            type: normalizeSourceType(c["type"]),
+            // 2026-05-17 R3 spec 抓到：LLM 返回 "   " 全空白时不 trim 直接当合法
+            // identifier 走 assertIdentifierShape，shape 校验侧才挡，浪费一次错误日志。
+            identifier: truncate(String(c["identifier"] ?? "").trim(), 500),
+            label:
+              typeof c["label"] === "string"
+                ? truncate(c["label"], 200)
+                : undefined,
+            rationale:
+              typeof c["rationale"] === "string"
+                ? truncate(c["rationale"], 80)
+                : undefined,
+            confidence:
+              typeof c["confidence"] === "number" &&
+              Number.isFinite(c["confidence"])
+                ? Math.max(0, Math.min(1, c["confidence"]))
+                : undefined,
+          }))
+          .filter((c) => c.identifier.length > 0)
+      );
     } catch (err) {
       this.log.error(`Discovery LLM err: ${(err as Error).message}`);
       return [];

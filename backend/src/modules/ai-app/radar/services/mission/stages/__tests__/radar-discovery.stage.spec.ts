@@ -61,7 +61,13 @@ describe("RadarDiscoveryStage", () => {
   it("clamps confidence > 1 to 1", async () => {
     await chatReturns(
       JSON.stringify({
-        candidates: [{ type: "X", identifier: "openai", confidence: 1.5 }],
+        candidates: [
+          {
+            type: "RSS",
+            identifier: "https://openai.com/blog/rss.xml",
+            confidence: 1.5,
+          },
+        ],
       }),
     );
     const ctx = makeCtx();
@@ -77,7 +83,13 @@ describe("RadarDiscoveryStage", () => {
   it("clamps confidence < 0 to 0", async () => {
     await chatReturns(
       JSON.stringify({
-        candidates: [{ type: "X", identifier: "openai", confidence: -0.3 }],
+        candidates: [
+          {
+            type: "RSS",
+            identifier: "https://openai.com/blog/rss.xml",
+            confidence: -0.3,
+          },
+        ],
       }),
     );
     const ctx = makeCtx();
@@ -93,7 +105,13 @@ describe("RadarDiscoveryStage", () => {
   it("keeps valid confidence 0-1 float unchanged", async () => {
     await chatReturns(
       JSON.stringify({
-        candidates: [{ type: "X", identifier: "openai", confidence: 0.85 }],
+        candidates: [
+          {
+            type: "RSS",
+            identifier: "https://openai.com/blog/rss.xml",
+            confidence: 0.85,
+          },
+        ],
       }),
     );
     const ctx = makeCtx();
@@ -110,9 +128,17 @@ describe("RadarDiscoveryStage", () => {
     await chatReturns(
       JSON.stringify({
         candidates: [
-          { type: "X", identifier: "a" },
-          { type: "X", identifier: "b", confidence: "not-a-number" },
-          { type: "X", identifier: "c", confidence: NaN },
+          { type: "RSS", identifier: "https://a.example/rss" },
+          {
+            type: "RSS",
+            identifier: "https://b.example/rss",
+            confidence: "not-a-number",
+          },
+          {
+            type: "RSS",
+            identifier: "https://c.example/rss",
+            confidence: NaN,
+          },
         ],
       }),
     );
@@ -131,9 +157,9 @@ describe("RadarDiscoveryStage", () => {
     await chatReturns(
       JSON.stringify({
         candidates: [
-          { type: "X", identifier: "" },
-          { type: "X", identifier: "   " },
-          { type: "X", identifier: "valid" },
+          { type: "RSS", identifier: "" },
+          { type: "RSS", identifier: "   " },
+          { type: "RSS", identifier: "https://valid.example/rss" },
         ],
       }),
     );
@@ -145,7 +171,7 @@ describe("RadarDiscoveryStage", () => {
       }
     ).discoveryCandidates;
     expect(out).toHaveLength(1);
-    expect(out[0]?.identifier).toBe("valid");
+    expect(out[0]?.identifier).toBe("https://valid.example/rss");
   });
 
   it("returns empty list when LLM returns non-JSON", async () => {
@@ -192,6 +218,36 @@ describe("RadarDiscoveryStage", () => {
       /aborted_during_discovery/,
     );
     expect(chatMock.chat).not.toHaveBeenCalled();
+  });
+
+  it("drops type=X candidates (2026-05-17 业务策略：不再推荐 X)", async () => {
+    await chatReturns(
+      JSON.stringify({
+        candidates: [
+          { type: "X", identifier: "@SeekingAlpha", confidence: 0.9 },
+          {
+            type: "RSS",
+            identifier: "https://feed.example/rss",
+            confidence: 0.8,
+          },
+          { type: "X", identifier: "@CNBC", confidence: 0.85 },
+          { type: "YOUTUBE", identifier: "UC-test-channel", confidence: 0.7 },
+        ],
+      }),
+    );
+    const ctx = makeCtx();
+    await stage.run(args, ctx);
+    const out = (
+      ctx.state as unknown as {
+        discoveryCandidates: Array<{ type: string; identifier: string }>;
+      }
+    ).discoveryCandidates;
+    expect(out).toHaveLength(2);
+    expect(out.every((c) => c.type !== "X")).toBe(true);
+    expect(out.map((c) => c.identifier).sort()).toEqual([
+      "UC-test-channel",
+      "https://feed.example/rss",
+    ]);
   });
 
   it("throws when topicName missing", async () => {

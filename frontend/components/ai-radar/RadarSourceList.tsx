@@ -29,6 +29,17 @@ const SOURCE_TYPE_LABEL: Record<RadarSourceType, string> = {
   CUSTOM: '自定义',
 };
 
+// 2026-05-17：AddSourceForm 类型选项 — 已删 X（业界主流 Feedly/Inoreader
+// 已淡化 X 集成 + Nitter 全死 + 不该让用户配 API key；source-curator 改为
+// 把 X KOL 转换为等价 RSS / YouTube / Newsletter 推荐）。RadarSourceType.X
+// 枚举保留兼容历史 X 源 list 渲染 + cooldown 自然降级。
+const ADDABLE_SOURCE_TYPES: RadarSourceType[] = ['RSS', 'YOUTUBE', 'CUSTOM'];
+
+const SOURCE_TYPE_WARNING: Partial<Record<RadarSourceType, string>> = {
+  CUSTOM:
+    '需在「显示名」后的 config.listSelector 提供 CSS 选择器，否则采集会失败。',
+};
+
 const HEALTH_DOT: Record<RadarSource['health'], string> = {
   UNKNOWN: 'bg-gray-300',
   HEALTHY: 'bg-emerald-500',
@@ -260,6 +271,7 @@ function AddSourceForm({
   onAdded: () => void;
 }) {
   const [type, setType] = useState<RadarSourceType>('RSS');
+  // type 必须在 ADDABLE_SOURCE_TYPES 列表内；X 已删（详见 const 注释）
   const [identifier, setIdentifier] = useState('');
   const [label, setLabel] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -305,7 +317,7 @@ function AddSourceForm({
           <div>
             <label className="block text-xs text-gray-600">类型</label>
             <div className="mt-1 flex gap-1">
-              {(['RSS', 'YOUTUBE', 'X', 'CUSTOM'] as const).map((t) => (
+              {ADDABLE_SOURCE_TYPES.map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -320,14 +332,20 @@ function AddSourceForm({
                 </button>
               ))}
             </div>
+            {SOURCE_TYPE_WARNING[type] && (
+              <div className="mt-1.5 flex items-start gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] text-amber-700">
+                <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                <span>{SOURCE_TYPE_WARNING[type]}</span>
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs text-gray-600">
-              {type === 'X'
-                ? 'X handle (@xxx 或 xxx)'
-                : type === 'YOUTUBE'
-                  ? 'channelId (UC...) 或 youtube.com URL'
-                  : 'URL'}
+              {type === 'YOUTUBE'
+                ? 'channelId (UC...) 或 youtube.com URL'
+                : type === 'RSS'
+                  ? 'RSS feed URL（公开免费，不要 paywall）'
+                  : '列表页 URL（config.listSelector 在后台配）'}
             </label>
             <input
               type="text"
@@ -425,45 +443,57 @@ function RecommendDialog({
             </div>
           ) : (
             <ul className="space-y-2">
-              {candidates.map((c, i) => (
-                <li
-                  key={`${c.type}-${c.identifier}`}
-                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${
-                    selected.has(i)
-                      ? 'border-cyan-300 bg-cyan-50/50'
-                      : 'border-gray-200'
-                  }`}
-                  onClick={() => onToggle(i)}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={selected.has(i)}
-                    readOnly
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
-                        {SOURCE_TYPE_LABEL[c.type]}
-                      </span>
-                      <span className="text-xs font-medium text-gray-900">
-                        {c.label}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        confidence {c.confidence}
-                      </span>
-                    </div>
-                    <div className="mt-0.5 truncate text-[11px] text-gray-500">
-                      {c.identifier}
-                    </div>
-                    {c.rationale && (
-                      <div className="mt-0.5 text-[11px] text-gray-600">
-                        {c.rationale}
+              {candidates.map((c, i) => {
+                const warning = SOURCE_TYPE_WARNING[c.type];
+                return (
+                  <li
+                    key={`${c.type}-${c.identifier}`}
+                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${
+                      selected.has(i)
+                        ? 'border-cyan-300 bg-cyan-50/50'
+                        : 'border-gray-200'
+                    }`}
+                    onClick={() => onToggle(i)}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={selected.has(i)}
+                      readOnly
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                          {SOURCE_TYPE_LABEL[c.type]}
+                        </span>
+                        <span className="text-xs font-medium text-gray-900">
+                          {c.label}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          confidence {c.confidence.toFixed(2)}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                </li>
-              ))}
+                      <div className="mt-0.5 truncate text-[11px] text-gray-500">
+                        {c.identifier}
+                      </div>
+                      {c.rationale && (
+                        <div className="mt-0.5 text-[11px] text-gray-600">
+                          {c.rationale}
+                        </div>
+                      )}
+                      {warning && (
+                        <div
+                          className="mt-1.5 flex items-start gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] text-amber-700"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                          <span>{warning}</span>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

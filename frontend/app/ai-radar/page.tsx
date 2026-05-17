@@ -191,7 +191,7 @@ export default function AiRadarIndexPage() {
       <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
         <PageHeaderHero
           title="AI 雷达"
-          subtitle="持续监控你关心的主题，AI 多 Agent 自动汇聚 X / YouTube / RSS / 自定义源"
+          subtitle="持续监控你关心的主题，AI 自动汇聚官博 / YouTube / RSS 一手信源 + 评分去噪 + 信号洞察"
           icon={<Radar className="h-7 w-7 text-white" />}
           iconGradient="from-cyan-500 to-sky-600"
           iconShadowClass="shadow-cyan-500/25"
