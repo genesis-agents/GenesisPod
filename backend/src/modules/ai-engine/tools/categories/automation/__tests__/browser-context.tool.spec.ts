@@ -384,4 +384,107 @@ describe("BrowserContextTool", () => {
       expect(page.evaluate).toHaveBeenCalledWith("(x, y) => x + y", 1, 2);
     });
   });
+
+  describe("fnSource length guard (P0-2 mitigation)", () => {
+    const tool = new BrowserContextTool(
+      createMockBrowserService() as unknown as BrowserService,
+    );
+
+    it("rejects evaluate fnSource > 8192 chars", () => {
+      const huge = "a".repeat(8193);
+      expect(
+        tool.validateInput({
+          contextId: "c1",
+          op: "evaluate",
+          fnSource: huge,
+        }),
+      ).toBe(false);
+    });
+
+    it("rejects waitForFunction fnSource > 8192 chars", () => {
+      const huge = "x".repeat(9000);
+      expect(
+        tool.validateInput({
+          contextId: "c1",
+          op: "waitForFunction",
+          fnSource: huge,
+        }),
+      ).toBe(false);
+    });
+
+    it("accepts evaluate fnSource at exactly 8192 chars", () => {
+      const max = "a".repeat(8192);
+      expect(
+        tool.validateInput({
+          contextId: "c1",
+          op: "evaluate",
+          fnSource: max,
+        }),
+      ).toBe(true);
+    });
+  });
+
+  describe("audit log on evaluate / waitForFunction (P0-2 mitigation)", () => {
+    let page: ReturnType<typeof createMockPage>;
+    let ctx: ReturnType<typeof createMockContext>;
+    let svc: ReturnType<typeof createMockBrowserService>;
+    let tool: BrowserContextTool;
+    let loggerWarnSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      page = createMockPage();
+      ctx = createMockContext(page);
+      svc = createMockBrowserService({ context: ctx });
+      tool = new BrowserContextTool(svc as unknown as BrowserService);
+      loggerWarnSpy = jest
+        .spyOn(
+          (tool as unknown as { logger: { warn: jest.Mock } }).logger,
+          "warn",
+        )
+        .mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      loggerWarnSpy.mockRestore();
+    });
+
+    it("evaluate emits audit log with hash + snippet", async () => {
+      page.evaluate.mockResolvedValueOnce({ ok: 1 });
+      await tool.execute(
+        {
+          contextId: "ctx-A",
+          op: "evaluate",
+          fnSource: "document.cookie",
+        },
+        createToolContext(),
+      );
+      expect(loggerWarnSpy).toHaveBeenCalledTimes(1);
+      const msg = loggerWarnSpy.mock.calls[0][0] as string;
+      expect(msg).toMatch(/\[audit\] evaluate fnSource sha256=/);
+      expect(msg).toMatch(/len=15/);
+      expect(msg).toMatch(/snippet="document\.cookie"/);
+    });
+
+    it("waitForFunction emits audit log distinct from evaluate", async () => {
+      await tool.execute(
+        {
+          contextId: "ctx-A",
+          op: "waitForFunction",
+          fnSource: "window.READY",
+        },
+        createToolContext(),
+      );
+      expect(loggerWarnSpy).toHaveBeenCalledTimes(1);
+      const msg = loggerWarnSpy.mock.calls[0][0] as string;
+      expect(msg).toMatch(/\[audit\] waitForFunction fnSource sha256=/);
+    });
+
+    it("does NOT emit audit log for non-evaluate ops", async () => {
+      await tool.execute(
+        { contextId: "ctx-A", op: "click", selector: "#x" },
+        createToolContext(),
+      );
+      expect(loggerWarnSpy).not.toHaveBeenCalled();
+    });
+  });
 });

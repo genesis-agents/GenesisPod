@@ -7,9 +7,16 @@
  * - 通过 contextId 从 BrowserService 拿同一个 Page，不持有 Page 状态
  * - 只暴露 generic primitives；平台特定 page.evaluate(业务 fetch) 由 adapter 自行处理
  * - sideEffect='idempotent'：调用方可重入（无平台直发 op）
+ *
+ * 安全：evaluate / waitForFunction 的 fnSource 由 agent LLM 生成，存在 prompt
+ * injection 风险（恶意 fnSource 会在用户已登录浏览器上下文中执行）。当前防御：
+ *   1. fnSource maxLength 8192，超长拒绝
+ *   2. 每次 evaluate 调用 warn log + 前 200 字符 + SHA-256 hash 供事后审计
+ *   3. （后续 PR）改为预注册命名函数白名单，agent 传 fnName + args 而非任意 src
  */
 
-import { Injectable } from "@nestjs/common";
+import { createHash } from "crypto";
+import { Injectable, Logger } from "@nestjs/common";
 import type { Page, BrowserContext } from "puppeteer";
 import { BrowserService } from "@/common/browser/browser.service";
 import { BaseTool } from "../../base/base-tool";
@@ -144,11 +151,16 @@ export class BrowserContextTool extends BaseTool<
         ],
         description: "原子操作类型",
       },
-      url: { type: "string" },
-      selector: { type: "string" },
-      text: { type: "string" },
-      key: { type: "string" },
-      fnSource: { type: "string" },
+      url: { type: "string", maxLength: 2048 },
+      selector: { type: "string", maxLength: 512 },
+      text: { type: "string", maxLength: 524288 },
+      key: { type: "string", maxLength: 32 },
+      fnSource: {
+        type: "string",
+        maxLength: 8192,
+        description:
+          "evaluate / waitForFunction 函数源码（≤8192 字符）。每次调用会被审计 log。",
+      },
       args: { type: "array" },
       cookies: { type: "array" },
       timeout: { type: "number" },
@@ -172,6 +184,11 @@ export class BrowserContextTool extends BaseTool<
     },
   };
 
+  private readonly logger = new Logger(BrowserContextTool.name);
+
+  /** evaluate / waitForFunction 的 fnSource 长度上限（8KB 足够任何合法用例） */
+  private static readonly MAX_FN_SOURCE_LEN = 8192;
+
   constructor(private readonly browserService: BrowserService) {
     super();
   }
@@ -192,12 +209,31 @@ export class BrowserContextTool extends BaseTool<
         return typeof input.key === "string" && input.key.length > 0;
       case "evaluate":
       case "waitForFunction":
-        return typeof input.fnSource === "string" && input.fnSource.length > 0;
+        return (
+          typeof input.fnSource === "string" &&
+          input.fnSource.length > 0 &&
+          input.fnSource.length <= BrowserContextTool.MAX_FN_SOURCE_LEN
+        );
       case "setCookies":
         return Array.isArray(input.cookies) && input.cookies.length > 0;
       default:
         return true;
     }
+  }
+
+  /**
+   * 审计 evaluate / waitForFunction 调用：记录 SHA-256 hash + 前 200 字符
+   * 供事后 prompt-injection 检测（不阻塞执行；过滤靠 LLM 提示词约束）
+   */
+  private auditFnSource(op: BrowserOp, fnSource: string): void {
+    const hash = createHash("sha256")
+      .update(fnSource)
+      .digest("hex")
+      .slice(0, 16);
+    const snippet = fnSource.slice(0, 200).replace(/\s+/g, " ");
+    this.logger.warn(
+      `[audit] ${op} fnSource sha256=${hash} len=${fnSource.length} snippet="${snippet}"`,
+    );
   }
 
   protected async doExecute(
@@ -256,6 +292,7 @@ export class BrowserContextTool extends BaseTool<
       }
 
       case "waitForFunction": {
+        this.auditFnSource(op, input.fnSource!);
         const handle = await page.waitForFunction(input.fnSource!, {
           timeout: input.timeout ?? this.defaultTimeout,
         });
@@ -293,6 +330,7 @@ export class BrowserContextTool extends BaseTool<
       }
 
       case "evaluate": {
+        this.auditFnSource(op, input.fnSource!);
         const result = await page.evaluate(
           input.fnSource!,
           ...(input.args ?? []),

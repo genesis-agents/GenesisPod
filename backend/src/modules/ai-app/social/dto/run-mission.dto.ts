@@ -7,23 +7,28 @@
  */
 
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsEnum,
   IsObject,
   IsOptional,
   IsString,
-  MinLength,
+  IsUUID,
+  MaxLength,
 } from "class-validator";
 
 export class RunSocialMissionDto {
-  /** Social content row id（library / drafts 表的 row id） */
-  @IsString()
-  @MinLength(1)
+  /** Social content row id（library / drafts 表的 row id；UUID v4） */
+  @IsUUID("4")
   contentId!: string;
 
   /** 目标平台列表，至少 1 个，如 ["WECHAT_MP", "XIAOHONGSHU"] */
   @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
   platforms!: string[];
 
   /** 平台 → connectionId 映射（已连接账户） */
