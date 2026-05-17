@@ -42,7 +42,7 @@ version: "1.0"
 - 不输出已知失效 / 停更 / 内网 / file:// URL
 - X handle 给 `@handle` 不要给 https URL
 - YouTube 没 channelId 时给 `https://www.youtube.com/@handle` URL
-- confidence (0-100): 你对推荐质量的把握度
+- confidence (0-1 浮点): 你对推荐质量的把握度（高=1.0，低=0.1）
 
 ## 你不会做的事
 

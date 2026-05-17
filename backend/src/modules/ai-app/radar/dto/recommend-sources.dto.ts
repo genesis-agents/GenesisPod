@@ -4,6 +4,7 @@ import {
   IsArray,
   IsEnum,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -47,10 +48,19 @@ export class RecommendedSourceCandidateDto {
   @MaxLength(500)
   rationale?: string;
 
+  /**
+   * LLM 推荐把握度，**0-1 浮点**（与 radar-discovery.stage.ts prompt + clamp 一致）。
+   * 历史 bug：DTO 误写 @IsInt() @Max(100)，撞 LLM 实际返回 0.85 类 float 导致
+   * /recommend/accept 400 风暴（iPhone 用户重试循环）。本次统一 contract：
+   *   - prompt: "confidence 为 0-1 浮点数"
+   *   - SKILL.md: "confidence (0-1): 你对推荐质量的把握度"
+   *   - DTO: @IsNumber({ allowNaN: false }) @Min(0) @Max(1)
+   * service 入库不消费此字段，DTO 校验仅防 LLM hallucinate string / out-of-range。
+   */
   @IsOptional()
-  @IsInt()
+  @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0)
-  @Max(100)
+  @Max(1)
   confidence?: number;
 }
 
