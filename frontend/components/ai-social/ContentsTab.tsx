@@ -84,7 +84,18 @@ const STATUS_CONFIG: Record<
   FAILED: { icon: XCircle, color: 'text-red-600', bgColor: 'bg-red-100' },
 };
 
-export default function ContentsTab() {
+interface ContentsTabProps {
+  /**
+   * PR-4 UI 候选 A：父组件传入此 callback 时，row click + 飞机按钮触发
+   * onSelectContent 打开 ContentDetailDrawer，**不再**走旧的内置 publish modal。
+   * 不传时保持旧行为（兼容遗留 import 点）。
+   */
+  onSelectContent?: (content: SocialContent) => void;
+}
+
+export default function ContentsTab({
+  onSelectContent,
+}: ContentsTabProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -219,6 +230,14 @@ export default function ContentsTab() {
   };
 
   const handlePublish = (content: SocialContent) => {
+    // PR-4 UI 候选 A：父组件传 onSelectContent 时，打开统一的 ContentDetailDrawer
+    // 替代旧的 publish modal（双轨发布的入口之一）。drawer 内含发布表单 + 进度时间线
+    if (onSelectContent) {
+      onSelectContent(content);
+      return;
+    }
+
+    // 兼容旧调用方（无 onSelectContent 传入）：保留原 publish modal 流程
     // If content already has a connectionId, publish directly
     if (content.connectionId) {
       confirmPublish(content.id, content.connectionId);
@@ -742,9 +761,15 @@ export default function ContentsTab() {
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-gray-400" />
                         <button
-                          onClick={() =>
-                            router.push(`/ai-social/edit/${content.id}`)
-                          }
+                          onClick={() => {
+                            // PR-4: 父组件传 onSelectContent 时打开统一 drawer；
+                            // 否则保留旧行为（直接跳编辑页）
+                            if (onSelectContent) {
+                              onSelectContent(content);
+                            } else {
+                              router.push(`/ai-social/edit/${content.id}`);
+                            }
+                          }}
                           className="font-medium text-gray-900 hover:text-rose-600 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                           aria-label={`${t('aiSocial.contents.preview')} ${content.title}`}
                         >

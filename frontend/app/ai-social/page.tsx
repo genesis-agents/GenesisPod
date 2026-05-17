@@ -1,50 +1,61 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+/**
+ * AI Social 主页（PR-4 UI 候选 A 单视图重构 2026-05-17）
+ *
+ * 设计稿：docs/architecture/ai-app/social/ui-redesign-2026-05-17.md
+ * - 取消旧 3 tab 切换（内容管理 / Missions / 平台连接），单视图 = 内容列表
+ * - 平台连接拆独立路由 /ai-social/connections（按工作流顺序入口前置）
+ * - 点击列表行 → 右 480px slide-over `ContentDetailDrawer`：状态 / 发布表单 / 进度时间线
+ * - 发布唯一路径 = runSocialMission（按 depth 派 13/4 stage pipeline），删旧双轨
+ */
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppShell from '@/components/layout/AppShell';
-import {
-  LogIn,
-  Share2,
-  Link2,
-  FileText,
-  Bot,
-  ShieldAlert,
-  Rocket,
-} from 'lucide-react';
+import { LogIn, Share2, Link2, Bot, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
-import ConnectionsTab from '@/components/ai-social/ConnectionsTab';
 import ContentsTab from '@/components/ai-social/ContentsTab';
-import MissionsTab from '@/components/ai-social/MissionsTab';
-import { AnimatePresence } from 'framer-motion';
-import { SlideIn } from '@/components/ui/animations';
+import ContentDetailDrawer from '@/components/ai-social/ContentDetailDrawer';
+import {
+  getConnections,
+  type SocialContent,
+  type SocialPlatformConnection,
+} from '@/services/ai-social/api';
+import { logger } from '@/lib/utils/logger';
 
-type TabType = 'connections' | 'contents' | 'missions';
-
-/**
- * AI Social 页面
- * 将内容发布到社交媒体平台（微信公众号、小红书等）
- * 仅管理员可见
- *
- * URL ?tab=connections / ?tab=contents 支持深链（AccountSelector "Connect Account"
- * 按钮 / 外部分享都靠这个）。不带参或非法值默认 'contents'。
- */
 export default function AISocialPage() {
   const { user, isLoading, isAdmin } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const tabParam = searchParams?.get('tab');
-  const initialTab: TabType =
-    tabParam === 'connections'
-      ? 'connections'
-      : tabParam === 'missions'
-        ? 'missions'
-        : 'contents';
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+
+  // PR-4: 单一视图 + slide-over drawer（替代旧 3 tab + 双发布路径）
+  const [drawerContent, setDrawerContent] = useState<SocialContent | null>(
+    null
+  );
+  const [connections, setConnections] = useState<SocialPlatformConnection[]>(
+    []
+  );
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // 加载 connections 给 drawer 用（drawer 内部不重复请求）
+  useEffect(() => {
+    if (!user) return;
+    void (async () => {
+      try {
+        const resp = (await getConnections()) as
+          | SocialPlatformConnection[]
+          | { connections: SocialPlatformConnection[] };
+        const list = Array.isArray(resp) ? resp : (resp.connections ?? []);
+        setConnections(list);
+      } catch (err) {
+        logger.warn('[AISocialPage] getConnections failed:', err);
+      }
+    })();
+  }, [user]);
 
   // Loading state
   if (isLoading) {
@@ -111,24 +122,6 @@ export default function AISocialPage() {
     );
   }
 
-  const tabs = [
-    {
-      id: 'contents' as TabType,
-      label: t('aiSocial.tabs.contents'),
-      icon: FileText,
-    },
-    {
-      id: 'missions' as TabType,
-      label: 'Missions',
-      icon: Rocket,
-    },
-    {
-      id: 'connections' as TabType,
-      label: t('aiSocial.tabs.connections'),
-      icon: Link2,
-    },
-  ];
-
   return (
     <AppShell>
       <ErrorBoundary
@@ -141,7 +134,7 @@ export default function AISocialPage() {
         }
       >
         <main className="flex-1 overflow-auto">
-          {/* Header */}
+          {/* Header（PR-4: 取消 3 tab，移除 SlideIn 动画包装；连接管理作头部链接） */}
           <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
             <div className="px-8 py-6">
               <div className="flex items-center justify-between">
@@ -164,51 +157,47 @@ export default function AISocialPage() {
                     </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Tabs */}
-              <div className="mt-6 flex gap-1">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                        activeTab === tab.id
-                          ? 'bg-rose-100 text-rose-700'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {tab.label}
-                    </button>
-                  );
-                })}
+                {/* 连接管理入口（旧 ConnectionsTab 拆独立路由） */}
+                <button
+                  type="button"
+                  onClick={() => router.push('/ai-social/connections')}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  <Link2 className="h-4 w-4" />
+                  连接管理 ({connections.filter((c) => c.isActive).length})
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Content */}
+          {/* 主视图 = 内容列表（点 row 开 drawer） */}
           <div className="p-8">
-            <AnimatePresence mode="wait">
-              {activeTab === 'connections' && (
-                <SlideIn key="connections" direction="left">
-                  <ConnectionsTab />
-                </SlideIn>
-              )}
-              {activeTab === 'contents' && (
-                <SlideIn key="contents" direction="right">
-                  <ContentsTab />
-                </SlideIn>
-              )}
-              {activeTab === 'missions' && (
-                <SlideIn key="missions" direction="right">
-                  <MissionsTab />
-                </SlideIn>
-              )}
-            </AnimatePresence>
+            <ContentsTab
+              key={refreshKey}
+              onSelectContent={(content) => setDrawerContent(content)}
+            />
           </div>
+
+          {/* Slide-over drawer */}
+          {drawerContent && (
+            <>
+              <div
+                aria-hidden="true"
+                className="fixed inset-0 z-40 bg-gray-900/30"
+                onClick={() => setDrawerContent(null)}
+              />
+              <ContentDetailDrawer
+                content={drawerContent}
+                connections={connections}
+                onClose={() => setDrawerContent(null)}
+                onMissionStarted={() => {
+                  // mission 启动后刷新列表（按状态过滤即时反映）
+                  setRefreshKey((k) => k + 1);
+                }}
+              />
+            </>
+          )}
         </main>
       </ErrorBoundary>
     </AppShell>
