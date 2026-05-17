@@ -19,7 +19,11 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import * as path from "path";
 
-import { DomainEventRegistry } from "@/modules/ai-harness/facade";
+import {
+  DomainEventRegistry,
+  MissionPipelineOrchestrator,
+  MissionPipelineRegistry,
+} from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 
@@ -89,7 +93,12 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     CustomCollector,
     // 调度（走 dispatcher.runRefreshMission）
     RadarRefreshScheduler,
-    // 新框架接入
+    // 新框架接入 —— pipeline registry / orchestrator 必须由消费模块本地 register
+    // （MissionRuntimeShellFramework / DomainEventBus 由 @Global HarnessModule 提供，
+    // 但 MissionPipelineRegistry / MissionPipelineOrchestrator 不是 @Global —— 跟
+    // agent-playground / writing-team module 同模式，每个 ai-app 自行注册）
+    MissionPipelineRegistry,
+    MissionPipelineOrchestrator,
     RadarMissionStore,
     RadarMissionRuntimeShell,
     RadarBusinessOrchestrator,
