@@ -33,9 +33,9 @@ async function getCandidateErrors(
 }
 
 const validBase: Partial<RecommendedSourceCandidateDto> = {
-  type: "X" as RecommendedSourceCandidateDto["type"],
-  identifier: "openai",
-  label: "OpenAI Official",
+  type: "RSS" as RecommendedSourceCandidateDto["type"],
+  identifier: "https://openai.com/blog/rss.xml",
+  label: "OpenAI Blog",
 };
 
 describe("RecommendedSourceCandidateDto.confidence (2026-05-17 prod fix)", () => {
@@ -113,8 +113,8 @@ describe("AcceptRecommendedSourcesDto.candidates nested validation", () => {
   it("accepts 7 个候选全 0.85-0.95 float（生产场景）", async () => {
     const inst = plainToInstance(AcceptRecommendedSourcesDto, {
       candidates: Array.from({ length: 7 }, (_, i) => ({
-        type: "X",
-        identifier: `acct${i}`,
+        type: "RSS",
+        identifier: `https://acct${i}.example/rss`,
         label: `Account ${i}`,
         rationale: "test",
         confidence: 0.85 + i * 0.01,
@@ -122,6 +122,31 @@ describe("AcceptRecommendedSourcesDto.candidates nested validation", () => {
     });
     const errs = await validate(inst);
     expect(errs).toEqual([]);
+  });
+
+  it("rejects type=X candidate at DTO layer with isEnum constraint (2026-05-17 业务策略：accept 路径禁 X)", async () => {
+    const inst = plainToInstance(AcceptRecommendedSourcesDto, {
+      candidates: [
+        {
+          type: "X",
+          identifier: "@elonmusk",
+          label: "Elon",
+          rationale: "test",
+          confidence: 0.9,
+        },
+      ],
+    });
+    const errs = await validate(inst);
+    // 强断言：必须是 candidates -> nested -> type 的 isEnum 校验失败，
+    // 不能用 toMatch(/type/) 宽匹配（防止 @IsEnum 被改成 @IsString 等错改静默通过）
+    expect(errs.length).toBeGreaterThan(0);
+    const candidateErr = errs.find((e) => e.property === "candidates");
+    expect(candidateErr).toBeDefined();
+    const typeErr = candidateErr?.children?.[0]?.children?.find(
+      (c) => c.property === "type",
+    );
+    expect(typeErr).toBeDefined();
+    expect(typeErr?.constraints).toHaveProperty("isEnum");
   });
 
   it("rejects > 20 candidates (ArrayMaxSize)", async () => {

@@ -12,7 +12,7 @@ import {
   MinLength,
   ValidateNested,
 } from "class-validator";
-import { RadarSourceTypeDto } from "./create-radar-source.dto";
+import { CreatableRadarSourceTypeDto } from "./create-radar-source.dto";
 
 /**
  * 推荐入口 body 占位 DTO。当前 dispatcher 不接受 perTypeLimit 等任何参数
@@ -27,8 +27,8 @@ export class RecommendSourcesDto {}
  * service 层入库；nested class-validator 校验避免 SSRF / 注入）。
  */
 export class RecommendedSourceCandidateDto {
-  @IsEnum(RadarSourceTypeDto)
-  type!: RadarSourceTypeDto;
+  @IsEnum(CreatableRadarSourceTypeDto)
+  type!: CreatableRadarSourceTypeDto;
 
   @IsString()
   @MinLength(1)

@@ -9,8 +9,8 @@ import {
 import { Prisma, RadarSource, RadarSourceType } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import {
+  CreatableRadarSourceTypeDto,
   CreateRadarSourceDto,
-  RadarSourceTypeDto,
   UpdateRadarSourceDto,
 } from "../../dto";
 import { RadarTopicService } from "../topic/radar-topic.service";
@@ -116,7 +116,7 @@ export class RadarSourceService {
     userId: string,
     topicId: string,
     candidates: Array<{
-      type: RadarSourceTypeDto;
+      type: CreatableRadarSourceTypeDto;
       identifier: string;
       label?: string;
       config?: Record<string, unknown>;

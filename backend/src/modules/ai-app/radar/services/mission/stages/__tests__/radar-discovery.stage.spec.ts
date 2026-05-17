@@ -250,6 +250,123 @@ describe("RadarDiscoveryStage", () => {
     ]);
   });
 
+  it("drops type=X even with confidence=1.0 (高置信不豁免)", async () => {
+    await chatReturns(
+      JSON.stringify({
+        candidates: [
+          { type: "X", identifier: "@elon", confidence: 1.0 },
+          {
+            type: "RSS",
+            identifier: "https://blog.example/rss",
+            confidence: 0.1,
+          },
+        ],
+      }),
+    );
+    const ctx = makeCtx();
+    await stage.run(args, ctx);
+    const out = (
+      ctx.state as unknown as {
+        discoveryCandidates: Array<{ type: string; identifier: string }>;
+      }
+    ).discoveryCandidates;
+    expect(out).toHaveLength(1);
+    expect(out[0]?.type).toBe("RSS");
+  });
+
+  it("drops X-aliases: lowercase 'x', 'X ' with trailing space, 'TWITTER', 'TWEET'", async () => {
+    await chatReturns(
+      JSON.stringify({
+        candidates: [
+          { type: "x", identifier: "@a", confidence: 0.9 },
+          { type: "X ", identifier: "@b", confidence: 0.9 },
+          { type: "TWITTER", identifier: "@c", confidence: 0.9 },
+          { type: "TWEET", identifier: "@d", confidence: 0.9 },
+          { type: "twitter", identifier: "@e", confidence: 0.9 },
+          {
+            type: "RSS",
+            identifier: "https://keep.example/rss",
+            confidence: 0.5,
+          },
+        ],
+      }),
+    );
+    const ctx = makeCtx();
+    await stage.run(args, ctx);
+    const out = (
+      ctx.state as unknown as {
+        discoveryCandidates: Array<{ type: string; identifier: string }>;
+      }
+    ).discoveryCandidates;
+    expect(out).toHaveLength(1);
+    expect(out[0]?.identifier).toBe("https://keep.example/rss");
+  });
+
+  it("normalizes unknown type to CUSTOM (not silently dropped) for forward compatibility", async () => {
+    await chatReturns(
+      JSON.stringify({
+        candidates: [
+          {
+            type: "WEBHOOK",
+            identifier: "https://hook.example/x",
+            confidence: 0.5,
+          },
+        ],
+      }),
+    );
+    const ctx = makeCtx();
+    await stage.run(args, ctx);
+    const out = (
+      ctx.state as unknown as {
+        discoveryCandidates: Array<{ type: string }>;
+      }
+    ).discoveryCandidates;
+    expect(out).toHaveLength(1);
+    expect(out[0]?.type).toBe("CUSTOM");
+  });
+
+  it("normalizes lowercase recommendable types (rss/youtube/custom) to uppercase", async () => {
+    await chatReturns(
+      JSON.stringify({
+        candidates: [
+          { type: "rss", identifier: "https://a.example/rss" },
+          { type: "youtube", identifier: "https://www.youtube.com/@b" },
+          { type: "custom", identifier: "https://c.example/list" },
+        ],
+      }),
+    );
+    const ctx = makeCtx();
+    await stage.run(args, ctx);
+    const out = (
+      ctx.state as unknown as {
+        discoveryCandidates: Array<{ type: string }>;
+      }
+    ).discoveryCandidates;
+    expect(out.map((c) => c.type).sort()).toEqual(["CUSTOM", "RSS", "YOUTUBE"]);
+  });
+
+  it("ignores non-string type (null / undefined / object) — normalizes to CUSTOM, keeps identifier", async () => {
+    await chatReturns(
+      JSON.stringify({
+        candidates: [
+          { type: null, identifier: "https://a.example/rss" },
+          { identifier: "https://b.example/rss" },
+          { type: { wrong: "obj" }, identifier: "https://c.example/rss" },
+          { type: 42, identifier: "https://d.example/rss" },
+        ],
+      }),
+    );
+    const ctx = makeCtx();
+    await stage.run(args, ctx);
+    const out = (
+      ctx.state as unknown as {
+        discoveryCandidates: Array<{ type: string; identifier: string }>;
+      }
+    ).discoveryCandidates;
+    expect(out).toHaveLength(4);
+    out.forEach((c) => expect(c.type).toBe("CUSTOM"));
+  });
+
   it("throws when topicName missing", async () => {
     const ctx = makeCtx({
       input: {

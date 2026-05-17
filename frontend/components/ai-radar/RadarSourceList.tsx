@@ -10,6 +10,7 @@ import {
   updateSource,
 } from '@/services/ai-radar/api';
 import type {
+  CreatableRadarSourceType,
   RadarSource,
   RadarSourceType,
   RecommendedSource,
@@ -29,13 +30,17 @@ const SOURCE_TYPE_LABEL: Record<RadarSourceType, string> = {
   CUSTOM: '自定义',
 };
 
-// 2026-05-17：AddSourceForm 类型选项 — 已删 X（业界主流 Feedly/Inoreader
-// 已淡化 X 集成 + Nitter 全死 + 不该让用户配 API key；source-curator 改为
-// 把 X KOL 转换为等价 RSS / YouTube / Newsletter 推荐）。RadarSourceType.X
-// 枚举保留兼容历史 X 源 list 渲染 + cooldown 自然降级。
-const ADDABLE_SOURCE_TYPES: RadarSourceType[] = ['RSS', 'YOUTUBE', 'CUSTOM'];
+// 2026-05-17：AddSourceForm / AI 推荐都禁 X（业界主流 Feedly/Inoreader
+// 已淡化 X 集成 + Nitter 全死 + 不让用户配 X API key）。source-curator
+// 把 X KOL 转换为等价 RSS / YouTube / Newsletter 推荐。RadarSourceType.X
+// 枚举仅兼容历史 X 源 list 渲染 + cooldown 自然降级（顶部黄条提示替换）。
+const ADDABLE_SOURCE_TYPES: CreatableRadarSourceType[] = [
+  'RSS',
+  'YOUTUBE',
+  'CUSTOM',
+];
 
-const SOURCE_TYPE_WARNING: Partial<Record<RadarSourceType, string>> = {
+const SOURCE_TYPE_WARNING: Partial<Record<CreatableRadarSourceType, string>> = {
   CUSTOM:
     '需在「显示名」后的 config.listSelector 提供 CSS 选择器，否则采集会失败。',
 };
@@ -123,8 +128,23 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
     }
   };
 
+  const hasLegacyX = sources.some((s) => s.type === 'X');
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
+      {hasLegacyX && (
+        <div
+          role="status"
+          className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800"
+        >
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+          <span className="min-w-0 flex-1">
+            X (Twitter) 已停止新推荐 —— Nitter 公共代理全部失效。已有的 X
+            源会继续保留，但建议删除后通过「AI 推荐」让 LLM 替换为等价的 YouTube
+            / 个人 Substack / 官博 RSS。
+          </span>
+        </div>
+      )}
       <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
         <h3 className="text-sm font-medium text-gray-700">
           数据源 ({sources.length})
@@ -270,8 +290,7 @@ function AddSourceForm({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [type, setType] = useState<RadarSourceType>('RSS');
-  // type 必须在 ADDABLE_SOURCE_TYPES 列表内；X 已删（详见 const 注释）
+  const [type, setType] = useState<CreatableRadarSourceType>('RSS');
   const [identifier, setIdentifier] = useState('');
   const [label, setLabel] = useState('');
   const [submitting, setSubmitting] = useState(false);

@@ -5,7 +5,21 @@
  */
 
 export type RadarTopicStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
+
+/**
+ * 读侧 union — 含 X 是兼容存量数据 + admin 历史手动加的 X source，
+ * UI 仍要能渲染 / 暂停 / 删除。**新建路径走 CreatableRadarSourceType**。
+ */
 export type RadarSourceType = 'X' | 'YOUTUBE' | 'RSS' | 'CUSTOM';
+
+/**
+ * 写侧 union（AddSourceForm / accept AI 推荐 / 后端 DTO）— **禁 X**。
+ *
+ * 2026-05-17 业务策略：Nitter 全死 + 业界（Feedly/Inoreader）已淡化 X
+ * 集成，AI 推荐 + admin 手动加都禁 X。旧 X 源仍可读 / 暂停 / 删除。
+ * 后端契约同步：`CreatableRadarSourceTypeDto` enum（dto/create-radar-source.dto.ts）。
+ */
+export type CreatableRadarSourceType = 'YOUTUBE' | 'RSS' | 'CUSTOM';
 export type RadarSourceHealth = 'UNKNOWN' | 'HEALTHY' | 'DEGRADED' | 'FAILING';
 /**
  * RadarRun.status —— mission lifecycle 标准 5 态（小写）。
@@ -164,7 +178,7 @@ export interface RadarRun {
 }
 
 export interface RecommendedSource {
-  type: RadarSourceType;
+  type: CreatableRadarSourceType;
   identifier: string;
   label: string;
   rationale: string;
@@ -188,7 +202,7 @@ export interface UpdateRadarTopicInput {
 }
 
 export interface CreateRadarSourceInput {
-  type: RadarSourceType;
+  type: CreatableRadarSourceType;
   identifier: string;
   label?: string;
   config?: Record<string, unknown>;

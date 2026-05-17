@@ -23,9 +23,14 @@ import type {
 } from "./radar-stage-types";
 import type { RunRadarDiscoveryMissionInput } from "../../../dto/run-radar-refresh-mission.dto";
 
-/** discovery stage 输出的单个候选源 */
+/**
+ * discovery stage 输出的单个候选源
+ *
+ * type 只允许 LLM 推荐的 3 类；X 已从推荐路径彻底剔除（旧数据 + admin
+ * 手动添加仍走 RadarSourceType enum，但 LLM/discovery 链路单源 = 这 3 类）。
+ */
 export interface RadarSourceCandidate {
-  type: "X" | "YOUTUBE" | "RSS" | "CUSTOM";
+  type: "YOUTUBE" | "RSS" | "CUSTOM";
   identifier: string;
   label?: string;
   rationale?: string;
@@ -38,11 +43,17 @@ export interface RadarDiscoveryOutput {
 }
 
 // 2026-05-17 业务策略：source-curator 不再推荐 type=X（Nitter 全死，业界
-// Feedly/Inoreader 已淡化 X 集成）。VALID_SOURCE_TYPES 仍含 X 以兼容
-// RadarSourceType 枚举（旧数据 + admin 手动加），但 prompt 只允许 LLM 输出
-// YOUTUBE / RSS / CUSTOM 三类；下面的 filter 把 LLM 仍吐 type=X 的候选 drop
-// 掉，防 prompt 失守入库变 dead source。
-const VALID_SOURCE_TYPES = new Set(["X", "YOUTUBE", "RSS", "CUSTOM"]);
+// Feedly/Inoreader 已淡化 X 集成）。RECOMMENDABLE_TYPES = LLM/discovery
+// 单一事实来源；prompt 限定 + normalize 兜底 + 入口前 normalize 全用它。
+// Prisma RadarSourceType enum 仍含 X 是为兼容旧数据 + admin 手动加，但
+// discovery 链路不再认 X — 不论 LLM 怎么写都会被 normalize 成 CUSTOM 后
+// 走 URL 校验，进一步把异常输入挡在 bulkCreate 之前。
+const RECOMMENDABLE_TYPES = new Set<RadarSourceCandidate["type"]>([
+  "YOUTUBE",
+  "RSS",
+  "CUSTOM",
+]);
+const X_ALIASES = new Set(["X", "TWITTER", "TWEET"]);
 
 @Injectable()
 export class RadarDiscoveryStage implements RadarStageRunner {
@@ -104,17 +115,19 @@ ${JSON.stringify({
 已有数据源（请勿重复推荐）：${existingList}
 
 推荐要求：
-- type **只能是 3 种**：YOUTUBE（YouTube 频道）/ RSS（公司官博 / 媒体 RSS / Substack）/ CUSTOM（网页列表）
-- **绝对不输出 type=X**（Nitter 全死 + X API 性价比低，业界 Feedly/Inoreader 已淡化 X 集成）
-- 用户主题里出现 KOL / 公司时，把"X 账号"映射为等价**官博 RSS / YouTube / Newsletter**：
-  - Elon Musk → Tesla 官博 RSS + Tesla YouTube + Elon Substack（如有）
-  - OpenAI → openai.com/blog RSS + OpenAI YouTube + Sam Altman 个人 blog
-  - NVIDIA → NVIDIA Newsroom RSS + NVIDIA Investor Relations + Jensen Huang 演讲 YouTube
-  - 任意 X handle → 优先找该对象的**官方一手信源**，找不到再用同领域权威媒体 RSS
+- type **只能是 3 种**：YOUTUBE（YouTube 频道）/ RSS（公司官博 / 媒体 RSS / Substack / 个人 Newsletter）/ CUSTOM（网页列表）
+- **绝对不输出 type=X / Twitter**（Nitter 全死 + X API 性价比低，业界 Feedly/Inoreader 已淡化 X 集成）
+- 用户主题是 KOL 时，按以下**优先级**找等价一手源（**不要把"关注 Elon"直接换成 Tesla 公关稿**）：
+  1. 本人 Substack / 个人 blog RSS / 本人主讲 YouTube
+  2. 含本人的长访谈播客 YouTube（Lex Fridman / Dwarkesh / All-In / Joe Rogan 等）
+  3. 本人所在组织的官方 YouTube / 官博 RSS（仅作工作内容补充）
+  4. 同领域权威媒体深度报道 RSS（最远兜底，不要 paywall）
+- 反模式（不要）：
+  - "Elon" → 只给 Tesla 官博（个人 personality 内容全丢）
+  - "SeekingAlpha" → 给公开 RSS（2022 起几乎空，有价值的全在 Premium，不要推）
 - identifier：YOUTUBE 填频道 ID 或 https URL / RSS 填 https URL / CUSTOM 填 https URL（rationale 内简述 CSS selector）
 - 不推荐 paywall / 需 auth token 的 RSS（SeekingAlpha Premium / WSJ / Bloomberg Terminal — 会 401）
-- 优先一手权威信源：公司官博 / 公司 YouTube / 高质量 Newsletter 优于二手转述
-- confidence 为 0-1 浮点数（推荐把握度）
+- confidence 为 0-1 浮点数（推荐把握度）；KOL 找不到 1/2 级源时**输出空数组比硬凑公司公关稿好**
 
 请严格按以下 JSON schema 返回（无 markdown 围栏）：
 {
@@ -155,11 +168,9 @@ ${JSON.stringify({
             (c): c is Record<string, unknown> =>
               c !== null && typeof c === "object",
           )
-          // 2026-05-17：业务策略 drop type=X 候选（prompt 失守防御）
-          .filter((c) => {
-            const rawType = typeof c["type"] === "string" ? c["type"] : "";
-            return rawType !== "X";
-          })
+          // 2026-05-17：业务策略 drop type=X 候选（prompt 失守防御）。
+          // 大小写 / 别名（TWITTER/TWEET）都拦：LLM 实际可能吐 "x"/"X "/"twitter"。
+          .filter((c) => !isXAlias(c["type"]))
           .map((c) => ({
             type: normalizeSourceType(c["type"]),
             // 2026-05-17 R3 spec 抓到：LLM 返回 "   " 全空白时不 trim 直接当合法
@@ -188,9 +199,18 @@ ${JSON.stringify({
   }
 }
 
+function normalizeType(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim().toUpperCase() : "";
+}
+
+function isXAlias(raw: unknown): boolean {
+  return X_ALIASES.has(normalizeType(raw));
+}
+
 function normalizeSourceType(raw: unknown): RadarSourceCandidate["type"] {
-  if (typeof raw === "string" && VALID_SOURCE_TYPES.has(raw)) {
-    return raw as RadarSourceCandidate["type"];
+  const normalized = normalizeType(raw);
+  if (RECOMMENDABLE_TYPES.has(normalized as RadarSourceCandidate["type"])) {
+    return normalized as RadarSourceCandidate["type"];
   }
   return "CUSTOM";
 }
