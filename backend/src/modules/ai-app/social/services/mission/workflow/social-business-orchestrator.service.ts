@@ -84,24 +84,28 @@ export class SocialBusinessOrchestrator {
           `All steps in SOCIAL_PIPELINE.steps must have an explicit branch.`,
       );
     }
-    const hooks = {
-      persist: async (args: {
-        ctx: StageRunArgs["ctx"];
-        previousOutputs: StageRunArgs["previousOutputs"];
-        crossStageState: StageRunArgs["crossStageState"];
-      }): Promise<void> => {
+    // ResolvedStageHooks = { [hookName: string]: StageHookFn | undefined }；
+    // 直接以 ResolvedStageHooks 类型字面量构造，避免 `as unknown as` 强转
+    // （Round-3 Reviewer E P1：收紧 type bridge）。
+    const hooks: ResolvedStageHooks = {
+      persist: async (args: unknown): Promise<void> => {
+        const a = args as {
+          ctx: StageRunArgs["ctx"];
+          previousOutputs: StageRunArgs["previousOutputs"];
+          crossStageState: StageRunArgs["crossStageState"];
+        };
         // signal 检查：abort 立即抛 StageAbortError（orchestrator 自然 mission:aborted）
-        if (args.ctx.signal?.aborted) {
+        if (a.ctx.signal?.aborted) {
           throw new StageAbortError(
             stepId,
             "mission cancelled (signal aborted)",
           );
         }
-        const entry = this.getEntry(args.ctx.missionId);
+        const entry = this.getEntry(a.ctx.missionId);
         await hookFn(entry);
       },
     };
-    return hooks as unknown as ResolvedStageHooks;
+    return hooks;
   }
 
   private resolveStageRunner(

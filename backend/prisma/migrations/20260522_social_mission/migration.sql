@@ -44,7 +44,10 @@ CREATE TABLE "social_missions" (
   "heartbeat_at"         TIMESTAMP(3),
 
   CONSTRAINT "social_missions_user_id_fkey"
-    FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  -- Round-3 Reviewer A P1: content_id 引用 social_contents.id，删 content 级联清 mission
+  CONSTRAINT "social_missions_content_id_fkey"
+    FOREIGN KEY ("content_id") REFERENCES "social_contents"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX "social_missions_user_id_started_at_idx"

@@ -33,6 +33,7 @@ import {
   type SocialPlatformType,
 } from '@/services/ai-social/api';
 import { useSocialMissionStream } from '@/hooks/useSocialMissionStream';
+import { logger } from '@/lib/utils/logger';
 
 type Depth = 'quick' | 'standard' | 'deep';
 type BudgetProfile = 'lean' | 'standard' | 'rich';
@@ -59,7 +60,7 @@ export default function MissionsTab() {
         };
         setContents(resp.items ?? resp.contents ?? []);
       } catch (err) {
-        console.warn('getContents failed:', err);
+        logger.warn('[MissionsTab] getContents failed:', err);
       } finally {
         setLoadingContents(false);
       }
@@ -72,7 +73,7 @@ export default function MissionsTab() {
         const list = Array.isArray(resp) ? resp : (resp.connections ?? []);
         setConnections(list.filter((c) => c.isActive));
       } catch (err) {
-        console.warn('getConnections failed:', err);
+        logger.warn('[MissionsTab] getConnections failed:', err);
       } finally {
         setLoadingConnections(false);
       }

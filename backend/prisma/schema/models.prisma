@@ -8642,6 +8642,9 @@ model SocialContent {
   // 平台适配版本
   versions SocialContentVersion[]
 
+  // W4 Agent Team missions（一份 content 可被多次 mission 引用）
+  missions SocialMission[]
+
   @@index([userId, status])
   @@index([status, scheduledAt])
   @@index([contentType])
@@ -8720,7 +8723,8 @@ model SocialMission {
   workspaceId String? @map("workspace_id")
 
   /// 输入
-  contentId      String  @map("content_id") // FK SocialContent
+  contentId      String        @map("content_id")
+  content        SocialContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
   platforms      String[]                   // ["WECHAT_MP", "XIAOHONGSHU"] 等
   connectionIds  Json    @map("connection_ids") // {WECHAT_MP: "uuid", XIAOHONGSHU: "uuid"}
   depth          String  @db.VarChar(20) // quick / standard / deep
