@@ -14,6 +14,7 @@ import {
 } from "../../../common/cache/cache.service";
 import { ContentCheckerService } from "./services/content-checker.service";
 import { PublishExecutorService } from "./services/publish-executor.service";
+import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "./services/social-browser.service";
 
 interface BrowserPage {
@@ -56,7 +57,9 @@ export class AiSocialService {
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
     private readonly contentChecker: ContentCheckerService,
+    /** @deprecated 2026-05-17 PR-3 单轨化：标记弃用，publishContent/batchPublish 已委托 dispatcher。一周观察后删 */
     private readonly publishExecutor: PublishExecutorService,
+    private readonly dispatcher: SocialPipelineDispatcher,
     private readonly playwright: SocialBrowserService,
     private readonly xhsMcpAdapter: XhsMcpAdapter,
     @Optional() private readonly missionExecutor?: MissionExecutorService,
@@ -1062,7 +1065,7 @@ export class AiSocialService {
     let connectionId = (dto.connectionId || content.connectionId) as string;
 
     // 验证连接是否存在
-    const connection = await this.prisma.socialPlatformConnection.findUnique({
+    let connection = await this.prisma.socialPlatformConnection.findUnique({
       where: { id: connectionId },
     });
 
@@ -1087,6 +1090,7 @@ export class AiSocialService {
       }
 
       connectionId = activeConnection.id;
+      connection = activeConnection;
       this.logger.log(
         `Original connection not found, using active connection: ${connectionId}`,
       );
@@ -1118,13 +1122,41 @@ export class AiSocialService {
       }
     }
 
-    // 执行发布
+    // PR-3 单轨化: 委托 SocialPipelineDispatcher.runMission（按 dto.depth 派 pipeline）
+    // 缺省 depth=quick 走 fast pipeline（s1+s8+s9+s11），保留旧 publishExecutor 同步链式快发的体验
+    const platformType =
+      connection?.platformType ??
+      (content.contentType === "WECHAT_ARTICLE" ? "WECHAT_MP" : "XIAOHONGSHU");
+    const depth = dto.depth ?? "quick";
+    const { missionId } = this.dispatcher.tryReserveInFlight(
+      content.userId ?? userId,
+      content.id,
+      [platformType],
+    );
+
     const contentProcessId = this.kernelProcessIds.get(content.id);
     const executeGeneration = async () => {
       try {
-        const result = await this.publishExecutor.execute(content.id);
+        const missionResult = await this.dispatcher.runMission(
+          missionId,
+          {
+            contentId: content.id,
+            platforms: [platformType],
+            connectionIds: { [platformType]: connectionId },
+            depth,
+            budgetProfile: depth === "quick" ? "lean" : "standard",
+            language: "zh-CN",
+          },
+          content.userId ?? userId,
+        );
         this.completeKernelProcess(content.id, { contentId: content.id });
-        return result;
+        // PR-3 向后兼容形状：旧 publishExecutor.execute 返回 { success: boolean, ... }
+        // 前端 useSocialPublish hook 与既有 spec 都消费 result.success
+        return {
+          success: missionResult.status === "completed",
+          missionId: missionResult.missionId,
+          status: missionResult.status,
+        };
       } catch (err) {
         this.failKernelProcess(
           content.id,
@@ -1508,14 +1540,33 @@ export class AiSocialService {
       }
     });
 
-    // 事务结束后触发实际发布执行（fire-and-forget，与单条 publishContent 行为一致）
+    // 事务结束后触发实际发布执行（fire-and-forget；PR-3 单轨化走 dispatcher.runMission depth=quick）
+    const platformType = connection.platformType;
     for (const contentId of succeededIds) {
-      this.publishExecutor.execute(contentId).catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        this.logger.error(
-          `Failed to trigger publish for content ${contentId}: ${message}`,
-        );
-      });
+      const { missionId } = this.dispatcher.tryReserveInFlight(
+        userId,
+        contentId,
+        [platformType],
+      );
+      this.dispatcher
+        .runMission(
+          missionId,
+          {
+            contentId,
+            platforms: [platformType],
+            connectionIds: { [platformType]: connectionId },
+            depth: "quick",
+            budgetProfile: "lean",
+            language: "zh-CN",
+          },
+          userId,
+        )
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : String(err);
+          this.logger.error(
+            `Failed to trigger publish mission for content ${contentId} (missionId=${missionId}): ${message}`,
+          );
+        });
     }
 
     return {

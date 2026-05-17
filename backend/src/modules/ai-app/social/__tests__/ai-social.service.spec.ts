@@ -19,6 +19,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
 import { PublishExecutorService } from "../services/publish-executor.service";
+import { SocialPipelineDispatcher } from "../services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
@@ -170,6 +171,17 @@ describe("AiSocialService", () => {
       getUserProfile: jest.fn().mockResolvedValue(null),
     };
 
+    const mockDispatcher = {
+      tryReserveInFlight: jest.fn().mockReturnValue({
+        missionId: "social-mission-mock",
+        reused: false,
+      }),
+      runMission: jest.fn().mockResolvedValue({
+        missionId: "social-mission-mock",
+        status: "completed",
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiSocialService,
@@ -177,6 +189,7 @@ describe("AiSocialService", () => {
         { provide: CacheService, useValue: mockCache },
         { provide: ContentCheckerService, useValue: mockContentChecker },
         { provide: PublishExecutorService, useValue: mockPublishExecutor },
+        { provide: SocialPipelineDispatcher, useValue: mockDispatcher },
         { provide: SocialBrowserService, useValue: mockPlaywright },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
       ],
@@ -642,7 +655,7 @@ describe("AiSocialService", () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it("should publish content with valid connection", async () => {
+    it("should publish content with valid connection (PR-3 委托 dispatcher.runMission)", async () => {
       mockPrisma.$queryRaw.mockResolvedValue([
         {
           id: contentId,
@@ -652,6 +665,12 @@ describe("AiSocialService", () => {
           status: "DRAFT",
         },
       ]);
+      mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue({
+        id: connectionId,
+        userId,
+        platformType: "WECHAT_MP",
+        isActive: true,
+      });
 
       await service.publishContent(userId, contentId, {
         connectionId,
@@ -659,7 +678,19 @@ describe("AiSocialService", () => {
 
       expect(mockPrisma.socialPlatformConnection.findUnique).toHaveBeenCalled();
       expect(mockPrisma.$executeRaw).toHaveBeenCalled();
-      expect(mockPublishExecutor.execute).toHaveBeenCalledWith(contentId);
+      // PR-3: publishContent 不再调 publishExecutor.execute，改委托 dispatcher.runMission
+      const dispatcher = (
+        service as unknown as {
+          dispatcher: { runMission: jest.Mock };
+        }
+      ).dispatcher;
+      expect(dispatcher.runMission).toHaveBeenCalled();
+      expect(dispatcher.runMission.mock.calls[0][1]).toMatchObject({
+        contentId,
+        platforms: ["WECHAT_MP"],
+        connectionIds: { WECHAT_MP: connectionId },
+        depth: "quick",
+      });
     });
 
     it("should find active connection if original connection not found", async () => {

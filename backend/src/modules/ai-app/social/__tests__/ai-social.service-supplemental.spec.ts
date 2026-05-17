@@ -18,6 +18,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
 import { PublishExecutorService } from "../services/publish-executor.service";
+import { SocialPipelineDispatcher } from "../services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
@@ -67,6 +68,12 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 jest.mock("../services/publish-executor.service", () => ({
   PublishExecutorService: class {},
 }));
+jest.mock(
+  "../services/mission/workflow/social-pipeline-dispatcher.service",
+  () => ({
+    SocialPipelineDispatcher: class {},
+  }),
+);
 jest.mock("../services/content-version.service", () => ({
   ContentVersionService: class {},
 }));
@@ -262,6 +269,17 @@ describe("AiSocialService (supplemental)", () => {
       getUserProfile: jest.fn().mockResolvedValue(null),
     };
 
+    const mockDispatcher = {
+      tryReserveInFlight: jest.fn().mockReturnValue({
+        missionId: "social-mission-supp",
+        reused: false,
+      }),
+      runMission: jest.fn().mockResolvedValue({
+        missionId: "social-mission-supp",
+        status: "completed",
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiSocialService,
@@ -269,6 +287,7 @@ describe("AiSocialService (supplemental)", () => {
         { provide: CacheService, useValue: mockCache },
         { provide: ContentCheckerService, useValue: mockContentChecker },
         { provide: PublishExecutorService, useValue: mockPublishExecutor },
+        { provide: SocialPipelineDispatcher, useValue: mockDispatcher },
         { provide: SocialBrowserService, useValue: mockPlaywright },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
       ],

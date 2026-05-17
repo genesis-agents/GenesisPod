@@ -53,6 +53,12 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 jest.mock("../services/publish-executor.service", () => ({
   PublishExecutorService: class {},
 }));
+jest.mock(
+  "../services/mission/workflow/social-pipeline-dispatcher.service",
+  () => ({
+    SocialPipelineDispatcher: class {},
+  }),
+);
 jest.mock("../services/content-version.service", () => ({
   ContentVersionService: class {},
 }));
@@ -64,6 +70,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
 import { PublishExecutorService } from "../services/publish-executor.service";
+import { SocialPipelineDispatcher } from "../services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
 import {
@@ -184,6 +191,16 @@ function buildModule(
   contentChecker: { check: jest.Mock },
   publishExecutor: { execute: jest.Mock },
 ) {
+  const mockDispatcher = {
+    tryReserveInFlight: jest.fn().mockReturnValue({
+      missionId: "social-mission-supp2",
+      reused: false,
+    }),
+    runMission: jest.fn().mockResolvedValue({
+      missionId: "social-mission-supp2",
+      status: "completed",
+    }),
+  };
   return Test.createTestingModule({
     providers: [
       AiSocialService,
@@ -191,6 +208,7 @@ function buildModule(
       { provide: CacheService, useValue: cache },
       { provide: ContentCheckerService, useValue: contentChecker },
       { provide: PublishExecutorService, useValue: publishExecutor },
+      { provide: SocialPipelineDispatcher, useValue: mockDispatcher },
       { provide: SocialBrowserService, useValue: playwright },
       { provide: XhsMcpAdapter, useValue: xhsMcpAdapter },
     ],
