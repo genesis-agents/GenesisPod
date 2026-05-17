@@ -3135,8 +3135,8 @@
       "waitingEvents": "等待事件…",
       "contentTypeArticle": "长文",
       "contentTypeNote": "笔记",
-      "eventPublished": "发布完成 · {count} 平台 · {seconds}s",
-      "eventFailed": "发布失败 · {code} · {message}"
+      "eventPublished": "发布完成 · {{count}} 平台 · {{seconds}}s",
+      "eventFailed": "发布失败 · {{code}} · {{message}}"
     },
     "depth": {
       "quick": {

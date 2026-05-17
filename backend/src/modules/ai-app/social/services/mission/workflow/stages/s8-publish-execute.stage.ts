@@ -2,6 +2,9 @@
  * Stage S8 — Publish execute (real side-effect, parallel per platform)
  *
  *   reads  ctx: platformVersions, composed, covers, polished, contextIds, input
+ *          (在 fast-pipeline / depth=quick 模式下，platformVersions/composed/
+ *           covers 均缺省 —— s2~s7 跳过；此时从 ctx.contentRaw 合成最小集，
+ *           走 "publish-as-is" 流：标题 / 正文 HTML / 封面图 = 原内容)
  *   writes ctx: published (Record<platform, PublishExecutorOutput>)
  *
  *   ★ 唯一产生平台副作用的 stage —— 失败时上报 FailureLearner 让 S8b retry
@@ -37,19 +40,25 @@ export async function runPublishExecuteStage(
     composed,
     covers,
     contextIds,
+    contentRaw,
     pool,
     billing,
   } = ctx;
-  if (!platformVersions || !composed || !covers) {
+
+  // Fast-pipeline (depth=quick) skips s2-s7，所有 transform/compose/craft 输出
+  // 都缺省。dispatcher 一定在 mission 启动时 hydrate contentRaw，因此可以从
+  // contentRaw 直接合成 publish 入参。standard / deep 走旧路径，要求三件全到。
+  const isFastPath = !platformVersions && !composed && !covers;
+  if (!isFastPath && (!platformVersions || !composed || !covers)) {
     throw new Error(`[s8] missing prior phase outputs for ${missionId}`);
   }
 
-  const platforms = Object.keys(composed);
+  const platforms = isFastPath ? [...input.platforms] : Object.keys(composed!);
   await narrate(deps.emit, missionId, userId, {
     stage: "s8-publish-execute",
     role: "publish-executor",
     tag: "publishing",
-    text: `开始真发 ${platforms.length} 个平台`,
+    text: `开始真发 ${platforms.length} 个平台${isFastPath ? "（fast）" : ""}`,
   });
 
   const limiter = new ConcurrencyLimiter(Math.min(2, platforms.length));
@@ -58,22 +67,31 @@ export async function runPublishExecuteStage(
   await Promise.all(
     platforms.map((platform) =>
       limiter.run(async () => {
-        const version = platformVersions[platform];
-        const composedOut = composed[platform];
-        const cover = covers[platform];
-        if (!version || !composedOut || !cover) return;
+        const version = platformVersions?.[platform];
+        const composedOut = composed?.[platform];
+        const cover = covers?.[platform];
+
+        // fast-path: 全部从 contentRaw 合成；standard/deep: 三件齐
+        const title = version?.title ?? contentRaw.title;
+        const digest = version?.digest ?? contentRaw.digest ?? null;
+        const bodyHtml = composedOut?.bodyHtml ?? contentRaw.body;
+        const coverUrl = cover?.coverUrl ?? contentRaw.coverImageUrl ?? "";
+        const thumbMediaId = cover?.thumbMediaId ?? null;
+        const cropMultiList = cover?.cropMultiList ?? [];
+
+        if (!isFastPath && (!version || !composedOut || !cover)) return;
         const r = await deps.publishExecutor.run({
           input: {
             platform,
             contextId:
-              contextIds[platform] ?? `social-${platform}-${missionId}`,
+              contextIds?.[platform] ?? `social-${platform}-${missionId}`,
             platformVersion: {
-              title: version.title,
-              digest: version.digest ?? null,
-              bodyHtml: composedOut.bodyHtml,
-              coverUrl: cover.coverUrl,
-              thumbMediaId: cover.thumbMediaId ?? null,
-              cropMultiList: cover.cropMultiList ?? [],
+              title,
+              digest,
+              bodyHtml,
+              coverUrl,
+              thumbMediaId,
+              cropMultiList,
             },
             connectionId: input.connectionIds[platform] ?? "",
           },

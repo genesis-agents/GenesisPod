@@ -14,6 +14,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useFocusTrap } from '@/hooks/utils/useFocusTrap';
 import {
   AlertCircle,
   CheckCircle2,
@@ -100,16 +101,23 @@ export default function ContentDetailDrawer({
     [connections]
   );
 
-  // 平台初始：内容原有 connection 对应的平台（如果有）
+  // 平台初始：内容原有 connection 优先；否则单平台时自动勾选（R1 P1：避免
+  // 用户看到"唯一选项"还要手点的反直觉 UX）
   const initialPlatform = useMemo<SocialPlatformType[]>(() => {
     if (content.connection?.platformType) {
       return [content.connection.platformType];
     }
+    if (availablePlatforms.length === 1) {
+      return [availablePlatforms[0]];
+    }
     return [];
-  }, [content.connection]);
+  }, [content.connection, availablePlatforms]);
 
   const [selectedPlatforms, setSelectedPlatforms] =
     useState<SocialPlatformType[]>(initialPlatform);
+
+  // a11y：focus trap + Escape close（R1 P0）
+  const containerRef = useFocusTrap<HTMLDivElement>(true, onClose);
   const [depth, setDepth] = useState<Depth>('quick'); // PR-4 默认 quick（4-stage fast pipeline）
   const [budgetProfile, setBudgetProfile] = useState<BudgetProfile>('lean');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -162,7 +170,9 @@ export default function ContentDetailDrawer({
 
   return (
     <div
+      ref={containerRef}
       role="dialog"
+      aria-modal="true"
       aria-label={t('aiSocial.drawer.ariaLabel')}
       className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[480px] flex-col border-l border-gray-200 bg-white shadow-2xl"
     >

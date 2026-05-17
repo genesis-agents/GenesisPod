@@ -3148,8 +3148,8 @@
       "waitingEvents": "Waiting for events…",
       "contentTypeArticle": "Article",
       "contentTypeNote": "Note",
-      "eventPublished": "Published · {count} platforms · {seconds}s",
-      "eventFailed": "Publish failed · {code} · {message}"
+      "eventPublished": "Published · {{count}} platforms · {{seconds}}s",
+      "eventFailed": "Publish failed · {{code}} · {{message}}"
     },
     "depth": {
       "quick": {

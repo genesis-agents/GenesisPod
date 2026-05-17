@@ -189,6 +189,7 @@ export default function AISocialPage() {
                 onClick={() => setDrawerContent(null)}
               />
               <ContentDetailDrawer
+                key={drawerContent.id}
                 content={drawerContent}
                 connections={connections}
                 onClose={() => setDrawerContent(null)}

@@ -234,8 +234,8 @@ describe("runPublishExecuteStage (s8)", () => {
     });
   });
 
-  describe("missing prior phase outputs", () => {
-    it("should throw when platformVersions is missing", async () => {
+  describe("missing prior phase outputs (partial)", () => {
+    it("should throw when only platformVersions is missing", async () => {
       const deps = makeDeps();
       const ctx = makeCtx({ platformVersions: undefined });
 
@@ -244,7 +244,7 @@ describe("runPublishExecuteStage (s8)", () => {
       );
     });
 
-    it("should throw when composed is missing", async () => {
+    it("should throw when only composed is missing", async () => {
       const deps = makeDeps();
       const ctx = makeCtx({ composed: undefined });
 
@@ -253,13 +253,95 @@ describe("runPublishExecuteStage (s8)", () => {
       );
     });
 
-    it("should throw when covers is missing", async () => {
+    it("should throw when only covers is missing", async () => {
       const deps = makeDeps();
       const ctx = makeCtx({ covers: undefined });
 
       await expect(runPublishExecuteStage(ctx, deps)).rejects.toThrow(
         "[s8] missing prior phase outputs",
       );
+    });
+  });
+
+  // PR-7 R1 P0: fast-pipeline (depth=quick) all-undefined → 用 contentRaw 兜底
+  describe("fast-pipeline path (depth=quick all-undefined)", () => {
+    it("should not throw when all three are undefined (fast-path)", async () => {
+      const deps = makeDeps();
+      const ctx = makeCtx({
+        platformVersions: undefined,
+        composed: undefined,
+        covers: undefined,
+      });
+
+      await expect(runPublishExecuteStage(ctx, deps)).resolves.not.toThrow();
+    });
+
+    it("should publish using contentRaw fields when in fast-path", async () => {
+      const deps = makeDeps();
+      const ctx = makeCtx({
+        platformVersions: undefined,
+        composed: undefined,
+        covers: undefined,
+        contentRaw: {
+          title: "Raw Title",
+          body: "<p>Raw body HTML</p>",
+          digest: "Raw digest",
+          coverImageUrl: "https://raw-cover.jpg",
+        },
+      });
+
+      await runPublishExecuteStage(ctx, deps);
+
+      expect(deps.publishExecutor.run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({
+            platformVersion: expect.objectContaining({
+              title: "Raw Title",
+              bodyHtml: "<p>Raw body HTML</p>",
+              digest: "Raw digest",
+              coverUrl: "https://raw-cover.jpg",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should use input.platforms (not composed keys) as iteration set in fast-path", async () => {
+      const deps = makeDeps();
+      const ctx = makeCtx({
+        platformVersions: undefined,
+        composed: undefined,
+        covers: undefined,
+        input: {
+          contentId: "fast-c",
+          platforms: ["wechat", "xiaohongshu"],
+          connectionIds: { wechat: "fw", xiaohongshu: "fx" },
+          depth: "quick",
+          budgetProfile: "lean",
+          language: "zh-CN",
+        },
+      });
+
+      await runPublishExecuteStage(ctx, deps);
+
+      expect(deps.publishExecutor.run).toHaveBeenCalledTimes(2);
+    });
+
+    it("should emit fast-tagged narrative in fast-path", async () => {
+      const deps = makeDeps();
+      const ctx = makeCtx({
+        platformVersions: undefined,
+        composed: undefined,
+        covers: undefined,
+      });
+
+      await runPublishExecuteStage(ctx, deps);
+
+      const emitCalls = (deps.emit as jest.Mock).mock.calls;
+      const publishingText = emitCalls
+        .map((args: unknown[]) => args[0] as { payload?: { text?: string } })
+        .find((evt) => evt.payload?.text?.includes("开始真发"));
+      expect(publishingText?.payload?.text).toContain("fast");
     });
   });
 
