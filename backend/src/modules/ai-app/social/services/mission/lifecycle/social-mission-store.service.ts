@@ -166,4 +166,38 @@ export class SocialMissionStore {
       where: { id: missionId, userId },
     });
   }
+
+  /**
+   * 记录 SocialPublishLog —— admin 历史日志 / 审计 / 排错入口
+   *
+   * 2026-05-17 PR-6：W4 mission pipeline 接管发布后，老 publish-executor
+   * .execute() 路径里的 socialPublishLog.create 被绕过；S8 stage 必须显式补写
+   * 才能让 admin 在内容详情 / 后台日志页继续看到逐平台真发结果。
+   *
+   * 写日志失败仅 warn（业务不阻断 —— 发布动作的真实成败靠 socialContent.status
+   * + mission trajectory 兜底）。
+   */
+  async recordPublishLog(args: {
+    contentId: string;
+    action: "PUBLISH" | "SCHEDULE" | "CANCEL" | "RETRY";
+    status: "SUCCESS" | "FAILED" | "PENDING";
+    details?: Prisma.InputJsonValue;
+    errorMessage?: string;
+  }): Promise<void> {
+    await this.prisma.socialPublishLog
+      .create({
+        data: {
+          contentId: args.contentId,
+          action: args.action,
+          status: args.status,
+          details: args.details,
+          errorMessage: args.errorMessage?.slice(0, 4000),
+        },
+      })
+      .catch((err: unknown) => {
+        this.log.warn(
+          `[recordPublishLog] content=${args.contentId} action=${args.action} status=${args.status} failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+  }
 }

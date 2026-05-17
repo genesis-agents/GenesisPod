@@ -13,7 +13,6 @@ import {
   CacheTTL,
 } from "../../../common/cache/cache.service";
 import { ContentCheckerService } from "./services/content-checker.service";
-import { PublishExecutorService } from "./services/publish-executor.service";
 import { SocialPipelineDispatcher } from "./services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "./services/social-browser.service";
 
@@ -57,8 +56,6 @@ export class AiSocialService {
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
     private readonly contentChecker: ContentCheckerService,
-    /** @deprecated 2026-05-17 PR-3 单轨化：标记弃用，publishContent/batchPublish 已委托 dispatcher。一周观察后删 */
-    private readonly publishExecutor: PublishExecutorService,
     private readonly dispatcher: SocialPipelineDispatcher,
     private readonly playwright: SocialBrowserService,
     private readonly xhsMcpAdapter: XhsMcpAdapter,

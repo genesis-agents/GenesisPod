@@ -87,6 +87,30 @@ export async function runPublishExecuteStage(
           pool,
         });
         if (r.state !== "failed" && r.output) published[platform] = r.output;
+
+        // PR-6 admin 历史日志兼容：W4 mission 接管后老 publish-executor.execute()
+        // 路径里的 socialPublishLog.create 不再触发，必须由 s8 stage 补写一行。
+        // 每个平台一次 PUBLISH 日志（SUCCESS / FAILED 两种结果）。
+        const platformStatus = r.output?.status;
+        const isSuccess = platformStatus === "PUBLISHED";
+        await deps.store.recordPublishLog({
+          contentId: input.contentId,
+          action: "PUBLISH",
+          status: isSuccess ? "SUCCESS" : "FAILED",
+          details: {
+            missionId,
+            platform,
+            runnerState: r.state,
+            platformStatus: platformStatus ?? null,
+            draftUrl: r.output?.draftUrl ?? null,
+            retriedTimes: r.output?.retriedTimes ?? 0,
+            wallTimeMs: r.wallTimeMs,
+            iterations: r.iterations,
+          },
+          errorMessage: isSuccess
+            ? undefined
+            : `runner=${r.state}${platformStatus ? ` platform=${platformStatus}` : ""}`,
+        });
       }),
     ),
   );

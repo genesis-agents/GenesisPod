@@ -69,7 +69,6 @@ import { AiSocialService } from "../ai-social.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
-import { PublishExecutorService } from "../services/publish-executor.service";
 import { SocialPipelineDispatcher } from "../services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
@@ -189,7 +188,6 @@ function buildModule(
     getUserProfile: jest.Mock;
   },
   contentChecker: { check: jest.Mock },
-  publishExecutor: { execute: jest.Mock },
 ) {
   const mockDispatcher = {
     tryReserveInFlight: jest.fn().mockReturnValue({
@@ -207,7 +205,6 @@ function buildModule(
       { provide: PrismaService, useValue: prisma },
       { provide: CacheService, useValue: cache },
       { provide: ContentCheckerService, useValue: contentChecker },
-      { provide: PublishExecutorService, useValue: publishExecutor },
       { provide: SocialPipelineDispatcher, useValue: mockDispatcher },
       { provide: SocialBrowserService, useValue: playwright },
       { provide: XhsMcpAdapter, useValue: xhsMcpAdapter },
@@ -302,7 +299,6 @@ describe("AiSocialService (supplemental2)", () => {
   let playwright: ReturnType<typeof makePlaywright>;
   let xhsAdapter: ReturnType<typeof makeXhsAdapter>;
   let contentChecker: { check: jest.Mock };
-  let publishExecutor: { execute: jest.Mock };
 
   beforeEach(async () => {
     prisma = makePrisma();
@@ -314,11 +310,6 @@ describe("AiSocialService (supplemental2)", () => {
         .fn()
         .mockResolvedValue({ passed: true, issues: [], score: 1.0 }),
     };
-    publishExecutor = {
-      execute: jest
-        .fn()
-        .mockResolvedValue({ success: true, externalId: "ext-1" }),
-    };
 
     const module: TestingModule = await buildModule(
       prisma,
@@ -326,7 +317,6 @@ describe("AiSocialService (supplemental2)", () => {
       playwright,
       xhsAdapter,
       contentChecker,
-      publishExecutor,
     );
     service = module.get<AiSocialService>(AiSocialService);
   });
@@ -859,8 +849,6 @@ describe("AiSocialService (supplemental2)", () => {
         await cb(tx);
       });
       prisma.$transaction.mockImplementation(txFn);
-      publishExecutor.execute.mockResolvedValue({ success: true });
-
       const result = await service.batchPublishContents(
         userId,
         [contentId],
@@ -951,8 +939,6 @@ describe("AiSocialService (supplemental2)", () => {
         await cb(tx);
       });
       prisma.$transaction.mockImplementation(txFn);
-      publishExecutor.execute.mockResolvedValue({ success: true });
-
       const result = await service.batchPublishContents(
         userId,
         [contentId],
@@ -976,11 +962,6 @@ describe("AiSocialService (supplemental2)", () => {
       const activeConn = { ...mockConnection, id: "active-conn-999" };
       prisma.socialPlatformConnection.findFirst.mockResolvedValue(activeConn);
       prisma.$executeRaw.mockResolvedValue(1);
-      publishExecutor.execute.mockResolvedValue({
-        success: true,
-        externalId: "ext-456",
-      });
-
       const result = await service.publishContent(userId, contentId, {
         connectionId,
       });

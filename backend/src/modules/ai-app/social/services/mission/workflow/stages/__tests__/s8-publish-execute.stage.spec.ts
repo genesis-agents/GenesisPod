@@ -58,7 +58,9 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     publishVerifier: {} as CommonDeps["publishVerifier"],
     failureLearner: {} as CommonDeps["failureLearner"],
     postmortemClassifier: {} as CommonDeps["postmortemClassifier"],
-    store: {} as CommonDeps["store"],
+    store: {
+      recordPublishLog: jest.fn().mockResolvedValue(undefined),
+    } as unknown as CommonDeps["store"],
     ...overrides,
   };
 }
@@ -300,6 +302,151 @@ describe("runPublishExecuteStage (s8)", () => {
       await runPublishExecuteStage(ctx, deps);
 
       expect(ctx.published!["wechat"]).toBeUndefined();
+    });
+  });
+
+  // PR-6 admin 历史日志兼容回归（W4 接管后，s8 必须补写 SocialPublishLog）
+  describe("PR-6 SocialPublishLog write", () => {
+    it("should record SUCCESS log when platform PUBLISHED", async () => {
+      const deps = makeDeps();
+      const ctx = makeCtx();
+
+      await runPublishExecuteStage(ctx, deps);
+
+      expect(deps.store.recordPublishLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contentId: "content-8",
+          action: "PUBLISH",
+          status: "SUCCESS",
+          details: expect.objectContaining({
+            missionId: "mission-s8-test",
+            platform: "wechat",
+            runnerState: "completed",
+            platformStatus: "PUBLISHED",
+            draftUrl: "https://mp.weixin.qq.com/draft/1",
+          }),
+        }),
+      );
+    });
+
+    it("should record FAILED log when publishExecutor state is failed", async () => {
+      const deps = makeDeps({
+        publishExecutor: {
+          run: jest.fn().mockResolvedValue({ state: "failed", output: null }),
+        } as unknown as CommonDeps["publishExecutor"],
+      });
+      const ctx = makeCtx();
+
+      await runPublishExecuteStage(ctx, deps);
+
+      expect(deps.store.recordPublishLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contentId: "content-8",
+          action: "PUBLISH",
+          status: "FAILED",
+          errorMessage: expect.stringContaining("runner=failed"),
+        }),
+      );
+    });
+
+    it("should record FAILED log when platform status is DRAFT (not PUBLISHED)", async () => {
+      const deps = makeDeps({
+        publishExecutor: {
+          run: jest.fn().mockResolvedValue({
+            state: "completed",
+            output: {
+              platform: "wechat",
+              status: "DRAFT",
+              draftUrl: "https://mp.weixin/draft",
+              platformResponse: {},
+              retriedTimes: 0,
+            },
+          }),
+        } as unknown as CommonDeps["publishExecutor"],
+      });
+      const ctx = makeCtx();
+
+      await runPublishExecuteStage(ctx, deps);
+
+      expect(deps.store.recordPublishLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "FAILED",
+          errorMessage: expect.stringContaining("platform=DRAFT"),
+        }),
+      );
+    });
+
+    it("should record one log per platform on multi-platform mission", async () => {
+      const deps = makeDeps({
+        publishExecutor: {
+          run: jest
+            .fn()
+            .mockResolvedValueOnce({
+              state: "completed",
+              output: {
+                platform: "wechat",
+                status: "PUBLISHED",
+                draftUrl: "https://w/1",
+                platformResponse: {},
+                retriedTimes: 0,
+              },
+            })
+            .mockResolvedValueOnce({
+              state: "failed",
+              output: null,
+            }),
+        } as unknown as CommonDeps["publishExecutor"],
+      });
+      const ctx = makeCtx({
+        input: {
+          contentId: "c8m",
+          platforms: ["wechat", "xiaohongshu"],
+          connectionIds: { wechat: "cw", xiaohongshu: "cx" },
+          depth: "standard",
+          budgetProfile: "standard",
+          language: "zh-CN",
+        },
+        platformVersions: {
+          wechat: {
+            platform: "wechat",
+            title: "wt",
+            digest: null,
+            body: "<p>b</p>",
+            lengthMetrics: { titleChars: 2, digestChars: 0, bodyChars: 6 },
+          },
+          xiaohongshu: {
+            platform: "xiaohongshu",
+            title: "xt",
+            digest: null,
+            body: "<p>b</p>",
+            lengthMetrics: { titleChars: 2, digestChars: 0, bodyChars: 6 },
+          },
+        } as TransformPhaseCtx["platformVersions"],
+        composed: {
+          wechat: { platform: "wechat", bodyHtml: "<p>w</p>" },
+          xiaohongshu: { platform: "xiaohongshu", bodyHtml: "<p>x</p>" },
+        } as ComposePhaseCtx["composed"],
+        covers: {
+          wechat: {
+            coverUrl: "https://w.jpg",
+            thumbMediaId: null,
+            cropMultiList: [],
+          },
+          xiaohongshu: {
+            coverUrl: "https://x.jpg",
+            thumbMediaId: null,
+            cropMultiList: [],
+          },
+        } as CraftPhaseCtx["covers"],
+      });
+
+      await runPublishExecuteStage(ctx, deps);
+
+      expect(deps.store.recordPublishLog).toHaveBeenCalledTimes(2);
+      const statuses = (deps.store.recordPublishLog as jest.Mock).mock.calls
+        .map((c: unknown[]) => (c[0] as { status: string }).status)
+        .sort();
+      expect(statuses).toEqual(["FAILED", "SUCCESS"]);
     });
   });
 

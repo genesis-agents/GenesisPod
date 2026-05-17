@@ -17,7 +17,6 @@ import { AiSocialService } from "../ai-social.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
-import { PublishExecutorService } from "../services/publish-executor.service";
 import { SocialPipelineDispatcher } from "../services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
@@ -111,7 +110,6 @@ describe("AiSocialService (supplemental)", () => {
     buildKey: jest.Mock;
   };
   let mockContentChecker: { check: jest.Mock };
-  let mockPublishExecutor: { execute: jest.Mock };
   let mockPlaywright: {
     startLoginSession: jest.Mock;
     checkLoginStatus: jest.Mock;
@@ -230,13 +228,6 @@ describe("AiSocialService (supplemental)", () => {
       }),
     };
 
-    mockPublishExecutor = {
-      execute: jest.fn().mockResolvedValue({
-        success: true,
-        externalId: "ext-123",
-      }),
-    };
-
     mockPlaywright = {
       startLoginSession: jest.fn().mockResolvedValue({
         sessionKey: "session-key-123",
@@ -286,7 +277,6 @@ describe("AiSocialService (supplemental)", () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: CacheService, useValue: mockCache },
         { provide: ContentCheckerService, useValue: mockContentChecker },
-        { provide: PublishExecutorService, useValue: mockPublishExecutor },
         { provide: SocialPipelineDispatcher, useValue: mockDispatcher },
         { provide: SocialBrowserService, useValue: mockPlaywright },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
@@ -427,12 +417,6 @@ describe("AiSocialService (supplemental)", () => {
       mockPrisma.socialPlatformConnection.findUnique.mockResolvedValue(
         mockConnection,
       );
-      mockPublishExecutor.execute.mockResolvedValue({
-        success: true,
-        externalId: "ext-pub-123",
-        externalUrl: "https://mp.weixin.qq.com/s/abc",
-      });
-
       const result = await service.publishContent(userId, contentId, {
         connectionId,
       });

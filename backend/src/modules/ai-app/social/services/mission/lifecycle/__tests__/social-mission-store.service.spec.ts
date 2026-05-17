@@ -19,6 +19,9 @@ function createMockPrisma() {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
     },
+    socialPublishLog: {
+      create: jest.fn(),
+    },
   } as unknown as jest.Mocked<PrismaService>;
 }
 
@@ -436,6 +439,69 @@ describe("SocialMissionStore", () => {
       expect(mockPrisma.socialMission.findFirst).toHaveBeenCalledWith({
         where: { id: MOCK_MISSION_ID, userId: "different-user" },
       });
+    });
+  });
+
+  // =========================================================================
+  // recordPublishLog (PR-6: admin 历史日志兼容)
+  // =========================================================================
+
+  describe("recordPublishLog", () => {
+    it("should write socialPublishLog row with full detail", async () => {
+      const createMock = mockPrisma.socialPublishLog
+        .create as unknown as jest.Mock;
+      createMock.mockResolvedValue({ id: "log-1" });
+
+      await store.recordPublishLog({
+        contentId: "c-1",
+        action: "PUBLISH",
+        status: "SUCCESS",
+        details: { missionId: "m-1", platform: "wechat" },
+      });
+
+      expect(createMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          contentId: "c-1",
+          action: "PUBLISH",
+          status: "SUCCESS",
+          details: { missionId: "m-1", platform: "wechat" },
+        }),
+      });
+    });
+
+    it("should truncate long errorMessage to 4000 chars", async () => {
+      const createMock = mockPrisma.socialPublishLog
+        .create as unknown as jest.Mock;
+      createMock.mockResolvedValue({ id: "log-2" });
+
+      const longMsg = "x".repeat(8000);
+      await store.recordPublishLog({
+        contentId: "c-2",
+        action: "PUBLISH",
+        status: "FAILED",
+        errorMessage: longMsg,
+      });
+
+      const callArg = createMock.mock.calls[0][0];
+      expect(callArg.data.errorMessage).toHaveLength(4000);
+    });
+
+    it("should swallow create errors (non-fatal warn)", async () => {
+      const createMock = mockPrisma.socialPublishLog
+        .create as unknown as jest.Mock;
+      createMock.mockRejectedValue(new Error("db down"));
+
+      await expect(
+        store.recordPublishLog({
+          contentId: "c-3",
+          action: "PUBLISH",
+          status: "SUCCESS",
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[recordPublishLog]"),
+      );
     });
   });
 });

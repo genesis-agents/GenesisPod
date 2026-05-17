@@ -18,7 +18,6 @@ import { AiSocialService } from "../ai-social.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
 import { CacheService } from "../../../../common/cache/cache.service";
 import { ContentCheckerService } from "../services/content-checker.service";
-import { PublishExecutorService } from "../services/publish-executor.service";
 import { SocialPipelineDispatcher } from "../services/mission/workflow/social-pipeline-dispatcher.service";
 import { SocialBrowserService } from "../services/social-browser.service";
 import { XhsMcpAdapter } from "../adapters/xiaohongshu.adapter";
@@ -38,7 +37,6 @@ describe("AiSocialService", () => {
   let mockPrisma: any;
   let mockCache: any;
   let mockContentChecker: any;
-  let mockPublishExecutor: any;
   let mockPlaywright: any;
   let mockXhsMcpAdapter: any;
 
@@ -135,14 +133,6 @@ describe("AiSocialService", () => {
       }),
     };
 
-    // Mock PublishExecutorService
-    mockPublishExecutor = {
-      execute: jest.fn().mockResolvedValue({
-        success: true,
-        externalId: "ext-123",
-      }),
-    };
-
     // Mock SocialBrowserService
     mockPlaywright = {
       startLoginSession: jest.fn().mockResolvedValue({
@@ -188,7 +178,6 @@ describe("AiSocialService", () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: CacheService, useValue: mockCache },
         { provide: ContentCheckerService, useValue: mockContentChecker },
-        { provide: PublishExecutorService, useValue: mockPublishExecutor },
         { provide: SocialPipelineDispatcher, useValue: mockDispatcher },
         { provide: SocialBrowserService, useValue: mockPlaywright },
         { provide: XhsMcpAdapter, useValue: mockXhsMcpAdapter },
@@ -1011,10 +1000,6 @@ describe("AiSocialService", () => {
         };
         return callback(mockTx);
       });
-
-      mockPublishExecutor.execute.mockRejectedValue(
-        new Error("Publish failed"),
-      );
 
       const result = await service.batchPublishContents(
         userId,
