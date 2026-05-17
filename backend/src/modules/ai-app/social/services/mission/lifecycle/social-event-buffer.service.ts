@@ -71,7 +71,11 @@ export class SocialEventBuffer implements IBroadcastAdapter {
       sinceTs == null
         ? slot.events
         : slot.events.filter((e) => e.timestamp >= sinceTs);
-    return structuredClone(source);
+    // 浅克隆：top-level spread 保证 type / agentId / traceId / timestamp 字段
+    // 隔离内部状态（事件总线契约：payload 字段调用方不得 mutate，BufferedEvent
+    // 的 payload 标 readonly 已表达此约束）。原 structuredClone(5000 events) 在
+    // Windows + jest worker 默认堆内存下触发 OOM（见 commit a238185f3）。
+    return source.map((e) => ({ ...e }));
   }
 
   clear(missionId: string): void {

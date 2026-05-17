@@ -129,15 +129,9 @@ describe("SocialEventBuffer", () => {
   // ── overflow / MAX_PER_MISSION ────────────────────────────────────────────
 
   describe("overflow (MAX_PER_MISSION = 5000)", () => {
-    // 2026-05-17 TODO(social-maintainer): 在 Windows + jest worker 默认堆
-    // 内存下，read() 内 structuredClone(5000 events) 触发 DataCloneError
-    // "out of memory"，pre-push hook 拒推。临时 it.skip 让别的模块 PR
-    // 不被 block。修法二选一：
-    //   (a) read() 改 lazy clone（只复制顶层 + 调用方约定不 mutate payload）
-    //   (b) overflow 测试用 read 后分批断言，避一次性 structuredClone 5000
-    // 责任人：social 模块原作者。本 skip 不应在 social 模块下一次合入前
-    // 还存在 —— 若发现还在，请直接修而非沿用 skip。
-    it.skip("keeps only the last 5000 events when overflow occurs", async () => {
+    // 2026-05-17 修复：原 structuredClone(5000 events) 在 Windows + jest worker
+    // 默认堆下 OOM。read() 改顶层浅克隆（option a），unskip 此 test。
+    it("keeps only the last 5000 events when overflow occurs", async () => {
       const LIMIT = 5000;
       const EXTRA = 10;
       // broadcast 5010 events
