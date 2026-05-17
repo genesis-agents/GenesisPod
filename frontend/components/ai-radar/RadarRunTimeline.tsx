@@ -64,16 +64,24 @@ export function RadarRunTimeline({
 }: RadarRunTimelineProps) {
   const [runs, setRuns] = useState<RadarRun[]>([]);
   const [loading, setLoading] = useState(true);
+  // 2026-05-17 R4-B：原 .catch(() => undefined) 静默吞错让 API 500/401
+  // 与 "暂无运行历史" 视觉一致（CLAUDE.md 红线 #3）。加 error state 让
+  // 用户看到真失败，运维 reproduce 也有迹可循。
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     listRuns(topicId, limit)
       .then((rows) => {
         if (cancelled) return;
         setRuns(rows);
       })
-      .catch(() => undefined)
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : String(e));
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -93,6 +101,8 @@ export function RadarRunTimeline({
             <div key={i} className="h-8 animate-pulse rounded bg-gray-50" />
           ))}
         </div>
+      ) : error ? (
+        <p className="text-xs text-red-600">加载历史失败：{error}</p>
       ) : runs.length === 0 ? (
         <p className="text-xs text-gray-500">暂无运行历史</p>
       ) : (

@@ -159,18 +159,31 @@ export function RadarFeedList({
                         {item.content}
                       </p>
                     ) : null}
-                    {item.entities && item.entities.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-1">
-                        {item.entities.slice(0, 5).map((e, idx) => (
-                          <span
-                            key={`${e.type}-${e.name}-${idx}`}
-                            className="rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
-                          >
-                            {e.normalizedName}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    {(() => {
+                      // 2026-05-17 R4-A：item.entities 是 Prisma raw Json，
+                      // type 写 RadarItemEntity[] 但 DB legacy / LLM
+                      // hallucinate 时可能是 null / object / string。直接
+                      // .length 会崩。同 RadarTopicCard.keywords / Insight
+                      // arrays 的 safeArray 模式。
+                      const entities = Array.isArray(item.entities)
+                        ? item.entities.filter(
+                            (e): e is NonNullable<typeof e> =>
+                              !!e && typeof e === 'object'
+                          )
+                        : [];
+                      return entities.length > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {entities.slice(0, 5).map((e, idx) => (
+                            <span
+                              key={`${e.type}-${e.name}-${idx}`}
+                              className="rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
+                            >
+                              {e.normalizedName}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               </li>

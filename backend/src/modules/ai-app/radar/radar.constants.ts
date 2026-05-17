@@ -32,6 +32,8 @@ export const RADAR_EVENTS = {
   RUN_COMPLETED: "ai-radar.run.completed",
   RUN_FAILED: "ai-radar.run.failed",
   RUN_CANCELLED: "ai-radar.run.cancelled",
+  /** budget 预检 / framework 拒绝（2026-05-17 R4 闭环 markRejected 调用链） */
+  RUN_REJECTED: "ai-radar.run.rejected",
   INSIGHT_CREATED: "ai-radar.insight.created",
   SOURCE_HEALTH_CHANGED: "ai-radar.source.health-changed",
 } as const;

@@ -47,9 +47,10 @@ import type {
 
 export interface RadarMissionSummary {
   readonly missionId: string;
-  // mission lifecycle 标准 3 终态（小写，对齐前端 RadarRunStatus + DB
-  // VarChar(20) 值域）；早期写 "aborted" 是私造词，已统一改 "cancelled"
-  readonly status: "completed" | "failed" | "cancelled";
+  // mission lifecycle 标准 4 终态（小写，对齐前端 RadarRunStatus + DB
+  // VarChar(20) 值域）；2026-05-17 R4-B 加 'rejected' 闭环 markRejected。
+  // 早期写 "aborted" 是私造词，已统一改 "cancelled"
+  readonly status: "completed" | "failed" | "cancelled" | "rejected";
   readonly stageOutputs: Record<string, unknown>;
   /**
    * Discovery mission 特有：source-curator agent 输出的候选列表
@@ -63,6 +64,33 @@ interface SessionEntry {
   readonly session: MissionRuntimeSession;
   readonly t0: number;
   readonly ctx: RadarMissionContext;
+}
+
+/**
+ * 2026-05-17 R4-B 闭环：识别 framework 抛出的 reject 类异常（budget /
+ * rate-limit / quota / forbidden），让 dispatcher.catch 分支调
+ * markRejected 而不是 markFailed。
+ *
+ * 选 message 关键字匹配而不是 instanceof，原因：
+ *   - ai-harness 框架的具体异常类（BudgetExceededException 等）契约还在演进
+ *   - radar-mission-runtime-shell 当前以 generic Error 抛 message 出来
+ *   - 关键字列表与既有 isAbort = message.includes("abort") 同模式
+ *
+ * 未来 ai-harness 暴露稳定异常类后可改 instanceof 判断，同步更新此 helper
+ * 与对应 spec。
+ */
+const REJECT_MESSAGE_PATTERNS = [
+  /budget[_\s-]*(exceed|exhaust|over|too)/i,
+  /(insufficient|low|no)\s+budget/i,
+  /rate[_\s-]*limit/i,
+  /quota[_\s-]*(exceed|exhaust|over)/i,
+  /forbidden/i,
+  /\bRejected\b/i,
+  /pre[_\s-]?check[_\s-]+(fail|reject)/i,
+];
+
+export function isLikelyRejection(message: string): boolean {
+  return REJECT_MESSAGE_PATTERNS.some((re) => re.test(message));
 }
 
 @Injectable()
@@ -230,7 +258,9 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         payload: {
           runId: missionId,
           topicId,
-          status: "COMPLETED",
+          // 2026-05-17 R4-B：小写对齐 DB VarChar(20) + 前端 RadarRunStatus
+          // 类型枚举，原 "COMPLETED" 大写让前端 if (status==='completed') 恒 false
+          status: "completed",
           durationMs,
           metrics: ctx.state.metrics,
         },
@@ -263,6 +293,31 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         return {
           missionId,
           status: "cancelled",
+          stageOutputs: {},
+          error: err,
+        };
+      }
+      // 2026-05-17 R4-B 闭环：识别 framework reject 类异常（budget 预检 /
+      // rate-limit / forbidden / quota-exceeded）→ 调 markRejected + emit
+      // RUN_REJECTED。原仅留 TODO 注释不接通 = R3 P0 #3 markRejected 方法是
+      // dead code。同 message 检测策略与 isAbort 一致，避免依赖 framework
+      // 自造异常类（ai-harness 边界契约稳定后可换 instanceof 判断）。
+      const isRejected = isLikelyRejection(message);
+      if (isRejected) {
+        await this.store.markRejected(missionId, message);
+        await this.emitToBus({
+          type: RADAR_EVENTS.RUN_REJECTED,
+          missionId,
+          userId,
+          payload: {
+            runId: missionId,
+            topicId,
+            reason: message,
+          },
+        });
+        return {
+          missionId,
+          status: "rejected",
           stageOutputs: {},
           error: err,
         };

@@ -25,10 +25,14 @@ export const RunStageSchema = z.object({
   metrics: z.record(z.unknown()).optional(),
 });
 
+// 2026-05-17 R4-B 整改：status 改小写对齐 DB VarChar(20) 实际值 + 前端
+// RadarRunStatus / useRadarSocket.RadarRunCompletedEvent 小写枚举。原大写
+// 与 frontend 类型不匹配，任何 `if (e.status === 'completed')` 在 prod
+// 恒 false（reviewer 已确认 dead code 路径）。
 export const RunCompletedSchema = z.object({
   runId: z.string(),
   topicId: z.string(),
-  status: z.enum(["COMPLETED", "FAILED", "CANCELLED"]),
+  status: z.enum(["completed", "failed", "cancelled"]),
   durationMs: z.number(),
   metrics: z.record(z.unknown()),
 });
@@ -41,6 +45,19 @@ export const RunFailedSchema = z.object({
 });
 
 export const RunCancelledSchema = z.object({
+  runId: z.string(),
+  topicId: z.string(),
+  reason: z.string(),
+});
+
+/**
+ * RunRejectedSchema —— 2026-05-17 R4 闭环 markRejected 调用链。
+ *
+ * dispatcher.catch 在识别到 framework 抛出的 budget/rate-limit 类异常时
+ * 调 store.markRejected + emit 此事件；与 RUN_FAILED 区分让运维 + 前端
+ * 知道 "用户没真烧 token，只是被门槛挡了"。
+ */
+export const RunRejectedSchema = z.object({
   runId: z.string(),
   topicId: z.string(),
   reason: z.string(),
@@ -73,6 +90,7 @@ export const RADAR_DOMAIN_EVENTS: readonly DomainEventTypeSpec[] = [
   S("ai-radar.run.completed", RunCompletedSchema),
   S("ai-radar.run.failed", RunFailedSchema),
   S("ai-radar.run.cancelled", RunCancelledSchema),
+  S("ai-radar.run.rejected", RunRejectedSchema),
   S("ai-radar.insight.created", InsightCreatedSchema),
   S("ai-radar.source.health-changed", SourceHealthChangedSchema),
 ];

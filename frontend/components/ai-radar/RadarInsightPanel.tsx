@@ -40,8 +40,42 @@ const HIGHLIGHT_TYPE_COLOR: Record<string, string> = {
   'key-event': 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
-function safeArray<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
+/**
+ * 2026-05-17 R4-B 整改：`as T[]` 是 lying assertion（无元素 shape 校验）。
+ * 改为接收 per-element 谓词，过滤掉 null / 非对象 / 缺关键字段的脏元素，
+ * 让下游 .map 渲染安全。返回值与谓词收窄类型保持一致。
+ */
+function safeArray<T>(value: unknown, isItem: (v: unknown) => v is T): T[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isItem);
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === 'object';
+}
+
+function isHighlight(v: unknown): v is RadarInsightHighlight {
+  return (
+    isRecord(v) && typeof v.type === 'string' && typeof v.title === 'string'
+  );
+}
+
+function isSignal(v: unknown): v is RadarInsightSignal {
+  return (
+    isRecord(v) &&
+    typeof v.kind === 'string' &&
+    typeof v.magnitude === 'number' &&
+    typeof v.evidence === 'string'
+  );
+}
+
+function isTopEntity(v: unknown): v is RadarInsightTopEntity {
+  return (
+    isRecord(v) &&
+    typeof v.type === 'string' &&
+    typeof v.name === 'string' &&
+    typeof v.mentions === 'number'
+  );
 }
 
 export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
@@ -71,9 +105,9 @@ export function RadarInsightPanel({ topicId, reloadKey = 0 }: Props) {
     };
   }, [topicId, reloadKey]);
 
-  const highlights = safeArray<RadarInsightHighlight>(insight?.highlights);
-  const signals = safeArray<RadarInsightSignal>(insight?.signals);
-  const topEntities = safeArray<RadarInsightTopEntity>(insight?.topEntities);
+  const highlights = safeArray(insight?.highlights, isHighlight);
+  const signals = safeArray(insight?.signals, isSignal);
+  const topEntities = safeArray(insight?.topEntities, isTopEntity);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
