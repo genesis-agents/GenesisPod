@@ -194,9 +194,7 @@ describe('CreateRadarTopicModal', () => {
   it('clicking a SAMPLE_NAMES chip fills the name input', () => {
     render(<CreateRadarTopicModal {...baseProps} />);
     fireEvent.click(screen.getByRole('button', { name: 'OpenAI 公司动态' }));
-    expect(screen.getByPlaceholderText(/例如：GPT-5 发布动态/).value).toBe(
-      'OpenAI 公司动态'
-    );
+    expect(screen.getByDisplayValue('OpenAI 公司动态')).toBeInTheDocument();
   });
 
   it('clicking cancel triggers onClose', () => {
