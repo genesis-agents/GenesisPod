@@ -147,9 +147,9 @@ describe("SocialAgentInvoker", () => {
 
     it("should pass envAdapter and budgetMultiplier when provided", async () => {
       (mockRunner.run as jest.Mock).mockResolvedValue({ output: "done" });
-      const mockEnvAdapter = { type: "billing-adapter" } as unknown as Parameters<
-        typeof invoker.invoke
-      >[2]["envAdapter"];
+      const mockEnvAdapter = {
+        type: "billing-adapter",
+      } as unknown as Parameters<typeof invoker.invoke>[2]["envAdapter"];
 
       const ctx = {
         missionId: MOCK_MISSION_ID,
