@@ -49,7 +49,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     activeClass: 'bg-violet-50',
   };
 
-  // Materials & Knowledge section
+  // Knowledge Hub section
   const materialsItems = [
     {
       href: '/explore',
@@ -65,7 +65,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // Research & Analysis section
+  // Insights Hub section
   const researchItems = [
     {
       href: '/ai-radar',
@@ -90,7 +90,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // Planning & Decision section
+  // Decision Studio section
   const planningItems = [
     {
       href: '/ai-teams',
@@ -115,7 +115,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // Creative Writing section
+  // Content Studio section
   const creativeItems = [
     {
       href: '/ai-office',
@@ -144,7 +144,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
     },
   ];
 
-  // 创新 Labs section
+  // AI Lab section
   const collabLabItems = [
     {
       href: '/agent-playground',
@@ -555,7 +555,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 <span>{quickEntry.label}</span>
               </Link>
 
-              {/* Section: Materials & Knowledge */}
+              {/* Section: Knowledge Hub */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {t('nav.sections.materialsKnowledge')}
               </div>
@@ -577,7 +577,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* Section: Research & Analysis */}
+              {/* Section: Insights Hub */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {t('nav.sections.researchAnalysis')}
               </div>
@@ -601,7 +601,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* Section: Planning & Decision */}
+              {/* Section: Decision Studio */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {t('nav.sections.planningDecision')}
               </div>
@@ -625,7 +625,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                 );
               })}
 
-              {/* Section: Creative Writing */}
+              {/* Section: Content Studio */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {t('nav.sections.creativeWriting')}
               </div>
@@ -669,7 +669,7 @@ export default function MobileNav({ className = '' }: MobileNavProps) {
                   );
                 })}
 
-              {/* Section: 创新 Labs */}
+              {/* Section: AI Lab */}
               <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 {t('nav.sections.collabLab')}
               </div>

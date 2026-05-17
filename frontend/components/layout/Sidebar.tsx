@@ -320,7 +320,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiAsk')}</span>}
           </Link>
 
-          {/* Section: Knowledge */}
+          {/* Section: Knowledge Hub */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.materialsKnowledge')}
@@ -392,7 +392,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.myLibrary')}</span>}
           </Link>
 
-          {/* Section: Research & Analysis */}
+          {/* Section: Insights Hub */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.researchAnalysis')}
@@ -483,7 +483,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiResearch')}</span>}
           </Link>
 
-          {/* Section: Planning & Decision */}
+          {/* Section: Decision Studio */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.planningDecision')}
@@ -612,7 +612,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.aiSimulation')}</span>}
           </Link>
 
-          {/* Section: Creative Writing */}
+          {/* Section: Content Studio */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.creativeWriting')}
@@ -712,7 +712,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             </Link>
           )}
 
-          {/* Section: 创新 Labs */}
+          {/* Section: AI Lab */}
           {showExpanded && (
             <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
               {t('nav.sections.collabLab')}

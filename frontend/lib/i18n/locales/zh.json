@@ -244,11 +244,11 @@
     "openMenu": "打开菜单",
     "appTitle": "Raven AI Engine",
     "sections": {
-      "materialsKnowledge": "知识沉淀",
-      "researchAnalysis": "洞察研究",
-      "planningDecision": "规划决策",
-      "creativeWriting": "内容产出",
-      "collabLab": "创新 Labs",
+      "materialsKnowledge": "知识中心",
+      "researchAnalysis": "行业洞察",
+      "planningDecision": "推演决策",
+      "creativeWriting": "内容工坊",
+      "collabLab": "实验广场",
       "myAgents": "专属 Agent"
     },
     "myAgentsViewAll": "查看全部",
