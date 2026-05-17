@@ -6,12 +6,17 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { PublishExecutorService } from "./publish-executor.service";
+import { SocialPipelineDispatcher } from "./mission/workflow/social-pipeline-dispatcher.service";
 import { SocialContentStatus } from "../types";
 
 /**
  * 定时发布调度器
  * 每分钟检查 scheduledAt 到期的内容并触发发布
+ *
+ * 2026-05-17 PR-2 单轨化：从 publishExecutor.execute（旧 sync 同步链式）切换到
+ * SocialPipelineDispatcher.runMission（W4 Agent Team / fast-track pipeline）。
+ * scheduled content 走 depth=quick，省 ~90% LLM cost、~70% 时延，保留 Steward
+ * 预算闸 + s9 publish-verify。
  */
 @Injectable()
 export class PublishSchedulerService implements OnModuleInit, OnModuleDestroy {
@@ -25,7 +30,7 @@ export class PublishSchedulerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-    private readonly publishExecutor: PublishExecutorService,
+    private readonly dispatcher: SocialPipelineDispatcher,
   ) {}
 
   onModuleInit() {
@@ -85,6 +90,7 @@ export class PublishSchedulerService implements OnModuleInit, OnModuleDestroy {
       const now = new Date();
 
       // 查找所有到期的 SCHEDULED 内容
+      // PR-2: 需要 userId + connectionId + connection.platformType 装配 dispatcher input
       const dueContents = await this.prisma.socialContent.findMany({
         where: {
           status: SocialContentStatus.SCHEDULED,
@@ -95,6 +101,14 @@ export class PublishSchedulerService implements OnModuleInit, OnModuleDestroy {
           id: true,
           title: true,
           scheduledAt: true,
+          userId: true,
+          connectionId: true,
+          connection: {
+            select: {
+              id: true,
+              platformType: true,
+            },
+          },
         },
         take: 10, // 每次最多处理 10 条，防止单次批量过大
         orderBy: { scheduledAt: "asc" },
@@ -134,13 +148,40 @@ export class PublishSchedulerService implements OnModuleInit, OnModuleDestroy {
             `Triggering scheduled publish for: ${content.title} (id: ${content.id})`,
           );
 
-          // Fire-and-forget 执行发布
-          void this.publishExecutor
-            .execute(content.id)
+          // PR-2 单轨化：走 dispatcher.runMission (depth=quick = 4-stage fast pipeline)
+          // 装配 RunSocialMissionInput：从 content.connection 拿 platformType
+          if (!content.connection) {
+            // CAS 已守 connectionId not null，理论不可达；防御性 log + skip
+            this.logger.warn(
+              `Content ${content.id} has connectionId but connection record missing, skipping`,
+            );
+            continue;
+          }
+          const platformType = content.connection.platformType;
+          const { missionId } = this.dispatcher.tryReserveInFlight(
+            content.userId,
+            content.id,
+            [platformType],
+          );
+
+          // Fire-and-forget 执行 mission（depth=quick 走 fast pipeline）
+          void this.dispatcher
+            .runMission(
+              missionId,
+              {
+                contentId: content.id,
+                platforms: [platformType],
+                connectionIds: { [platformType]: content.connection.id },
+                depth: "quick",
+                budgetProfile: "lean",
+                language: "zh-CN",
+              },
+              content.userId,
+            )
             .catch((err: unknown) => {
               const message = err instanceof Error ? err.message : String(err);
               this.logger.error(
-                `Scheduled publish failed for ${content.id}: ${message}`,
+                `Scheduled publish mission failed for ${content.id} (missionId=${missionId}): ${message}`,
               );
             });
         } catch (error) {

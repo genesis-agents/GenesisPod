@@ -7,8 +7,27 @@ describe("PublishSchedulerService", () => {
   let prisma: {
     socialContent: { findMany: jest.Mock; updateMany: jest.Mock };
   };
-  let publishExecutor: { execute: jest.Mock };
+  let dispatcher: { tryReserveInFlight: jest.Mock; runMission: jest.Mock };
   let configService: { get: jest.Mock };
+
+  // PR-2: scheduler 切到 dispatcher.runMission（fast-track depth=quick）。
+  // 单测 mock 出的 due-content 必须含 userId + connectionId + connection.platformType
+  // 三个字段才能装配 dispatcher input
+  const makeContent = (
+    id: string,
+    title: string,
+    platformType = "WECHAT_MP",
+  ) => ({
+    id,
+    title,
+    scheduledAt: new Date(),
+    userId: `user-of-${id}`,
+    connectionId: `conn-of-${id}`,
+    connection: {
+      id: `conn-of-${id}`,
+      platformType,
+    },
+  });
 
   beforeEach(() => {
     jest.spyOn(Logger.prototype, "log").mockImplementation();
@@ -22,13 +41,22 @@ describe("PublishSchedulerService", () => {
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       },
     };
-    publishExecutor = { execute: jest.fn().mockResolvedValue(undefined) };
+    dispatcher = {
+      tryReserveInFlight: jest.fn((_userId: string, contentId: string) => ({
+        missionId: `social-mission-for-${contentId}`,
+        reused: false,
+      })),
+      runMission: jest.fn().mockResolvedValue({
+        missionId: "social-mission-x",
+        status: "completed",
+      }),
+    };
     configService = { get: jest.fn((_k: string, def: unknown) => def) };
 
     service = new PublishSchedulerService(
       configService as never,
       prisma as never,
-      publishExecutor as never,
+      dispatcher as never,
     );
   });
 
@@ -89,36 +117,93 @@ describe("PublishSchedulerService", () => {
       prisma.socialContent.findMany.mockResolvedValue([]);
       await service.processDuePublishes();
       expect(prisma.socialContent.updateMany).not.toHaveBeenCalled();
-      expect(publishExecutor.execute).not.toHaveBeenCalled();
+      expect(dispatcher.runMission).not.toHaveBeenCalled();
     });
 
-    it("processes due contents: CAS update + execute", async () => {
+    it("processes due contents: CAS update + dispatcher.runMission", async () => {
       prisma.socialContent.findMany.mockResolvedValue([
-        { id: "c1", title: "Post 1", scheduledAt: new Date() },
-        { id: "c2", title: "Post 2", scheduledAt: new Date() },
+        makeContent("c1", "Post 1"),
+        makeContent("c2", "Post 2", "XIAOHONGSHU"),
       ]);
       prisma.socialContent.updateMany.mockResolvedValue({ count: 1 });
       await service.processDuePublishes();
 
       expect(prisma.socialContent.updateMany).toHaveBeenCalledTimes(2);
-      // Wait for fire-and-forget executor calls to be registered
+      // Wait for fire-and-forget dispatcher calls to be registered
       await new Promise((r) => setImmediate(r));
-      expect(publishExecutor.execute).toHaveBeenCalledTimes(2);
+      expect(dispatcher.runMission).toHaveBeenCalledTimes(2);
+    });
+
+    it("dispatches with depth=quick (fast-track pipeline)", async () => {
+      prisma.socialContent.findMany.mockResolvedValue([
+        makeContent("c1", "Post 1"),
+      ]);
+      await service.processDuePublishes();
+      await new Promise((r) => setImmediate(r));
+
+      expect(dispatcher.runMission).toHaveBeenCalledWith(
+        "social-mission-for-c1",
+        expect.objectContaining({
+          contentId: "c1",
+          depth: "quick",
+          budgetProfile: "lean",
+          platforms: ["WECHAT_MP"],
+          connectionIds: { WECHAT_MP: "conn-of-c1" },
+        }),
+        "user-of-c1",
+      );
+    });
+
+    it("passes platformType from connection (not hardcoded)", async () => {
+      prisma.socialContent.findMany.mockResolvedValue([
+        makeContent("xhs-1", "XHS Post", "XIAOHONGSHU"),
+      ]);
+      await service.processDuePublishes();
+      await new Promise((r) => setImmediate(r));
+
+      expect(dispatcher.runMission).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          platforms: ["XIAOHONGSHU"],
+          connectionIds: { XIAOHONGSHU: "conn-of-xhs-1" },
+        }),
+        expect.any(String),
+      );
     });
 
     it("skips content already picked up by another process (CAS miss)", async () => {
       prisma.socialContent.findMany.mockResolvedValue([
-        { id: "c1", title: "Post 1", scheduledAt: new Date() },
+        makeContent("c1", "Post 1"),
       ]);
       prisma.socialContent.updateMany.mockResolvedValue({ count: 0 });
       await service.processDuePublishes();
-      expect(publishExecutor.execute).not.toHaveBeenCalled();
+      expect(dispatcher.runMission).not.toHaveBeenCalled();
+    });
+
+    it("logs warn + skip when connection record missing (defensive)", async () => {
+      prisma.socialContent.findMany.mockResolvedValue([
+        {
+          id: "c-orphan",
+          title: "Orphan",
+          scheduledAt: new Date(),
+          userId: "user-orphan",
+          connectionId: "conn-x",
+          connection: null,
+        },
+      ]);
+      const warnSpy = jest.spyOn(Logger.prototype, "warn");
+      await service.processDuePublishes();
+      await new Promise((r) => setImmediate(r));
+      expect(dispatcher.runMission).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("connection record missing"),
+      );
     });
 
     it("logs error when single CAS update fails but continues", async () => {
       prisma.socialContent.findMany.mockResolvedValue([
-        { id: "c1", title: "Post 1", scheduledAt: new Date() },
-        { id: "c2", title: "Post 2", scheduledAt: new Date() },
+        makeContent("c1", "Post 1"),
+        makeContent("c2", "Post 2"),
       ]);
       prisma.socialContent.updateMany
         .mockRejectedValueOnce(new Error("write conflict"))
@@ -126,18 +211,18 @@ describe("PublishSchedulerService", () => {
       await service.processDuePublishes();
       // first one threw and was caught, second one ran successfully
       await new Promise((r) => setImmediate(r));
-      expect(publishExecutor.execute).toHaveBeenCalledTimes(1);
+      expect(dispatcher.runMission).toHaveBeenCalledTimes(1);
     });
 
-    it("handles fire-and-forget executor failure via .catch", async () => {
+    it("handles fire-and-forget dispatcher failure via .catch", async () => {
       prisma.socialContent.findMany.mockResolvedValue([
-        { id: "c1", title: "Post 1", scheduledAt: new Date() },
+        makeContent("c1", "Post 1"),
       ]);
-      publishExecutor.execute.mockRejectedValue(new Error("network down"));
+      dispatcher.runMission.mockRejectedValue(new Error("network down"));
       await service.processDuePublishes();
       await new Promise((r) => setImmediate(r));
       // No throw — error was caught in .catch handler
-      expect(publishExecutor.execute).toHaveBeenCalled();
+      expect(dispatcher.runMission).toHaveBeenCalled();
     });
 
     it("logs top-level error and clears isRunning", async () => {
@@ -148,13 +233,22 @@ describe("PublishSchedulerService", () => {
       );
     });
 
-    it("uses SocialContentStatus.SCHEDULED filter", async () => {
+    it("uses SocialContentStatus.SCHEDULED filter + selects connection.platformType", async () => {
       prisma.socialContent.findMany.mockResolvedValue([]);
       await service.processDuePublishes();
       expect(prisma.socialContent.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             status: SocialContentStatus.SCHEDULED,
+          }),
+          select: expect.objectContaining({
+            userId: true,
+            connectionId: true,
+            connection: expect.objectContaining({
+              select: expect.objectContaining({
+                platformType: true,
+              }),
+            }),
           }),
         }),
       );
