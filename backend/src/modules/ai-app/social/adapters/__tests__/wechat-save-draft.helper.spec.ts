@@ -17,11 +17,6 @@ import {
 // Browser-global polyfills (scoped to this test file)
 // ---------------------------------------------------------------------------
 
-type CookieStore = {
-  name: string;
-  value: string;
-};
-
 // Minimal window object used by runSaveDraftAttempts
 // The function uses `window` directly so we must set global.window to a
 // proxy-like object and assign properties onto it.
@@ -68,7 +63,9 @@ function makeFetchResponse(
 }
 
 // Default params
-function makeParams(overrides: Partial<SaveDraftApiParams> = {}): SaveDraftApiParams {
+function makeParams(
+  overrides: Partial<SaveDraftApiParams> = {},
+): SaveDraftApiParams {
   return {
     token: "12345",
     title: "Test Title",
@@ -143,7 +140,10 @@ describe("runSaveDraftAttempts", () => {
         base_resp: { ret: 0 },
         appMsgId: 222,
       });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("window.wx.commonData.fingerprint");
     });
@@ -155,7 +155,10 @@ describe("runSaveDraftAttempts", () => {
       });
       setupDocumentGlobals();
       const responseJson = JSON.stringify({ base_resp: { ret: 1 }, ret: 1 });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("window.wx.commonData.t");
     });
@@ -165,7 +168,10 @@ describe("runSaveDraftAttempts", () => {
       setupWindowGlobals({ wx: { fp } });
       setupDocumentGlobals();
       const responseJson = JSON.stringify({ base_resp: { ret: 1 } });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("window.wx.fp(string)");
     });
@@ -175,7 +181,10 @@ describe("runSaveDraftAttempts", () => {
       setupWindowGlobals({ wx: { fp: { t: fp } } });
       setupDocumentGlobals();
       const responseJson = JSON.stringify({ base_resp: { ret: 1 } });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("window.wx.fp.t");
     });
@@ -185,7 +194,10 @@ describe("runSaveDraftAttempts", () => {
       setupWindowGlobals({ cgiData: { fingerprint: fp } });
       setupDocumentGlobals();
       const responseJson = JSON.stringify({ base_resp: { ret: 1 } });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("window.cgiData.fingerprint");
     });
@@ -195,7 +207,10 @@ describe("runSaveDraftAttempts", () => {
       setupWindowGlobals({ cgiData: { t: fp } });
       setupDocumentGlobals();
       const responseJson = JSON.stringify({ base_resp: { ret: 1 } });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("window.cgiData.t");
     });
@@ -209,7 +224,10 @@ describe("runSaveDraftAttempts", () => {
         { textContent: `var data = {fingerprint:"${fp}"}` },
       ]);
       const responseJson = JSON.stringify({ base_resp: { ret: 1 } });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("inline-script");
     });
@@ -222,7 +240,10 @@ describe("runSaveDraftAttempts", () => {
         `<html><head><meta name="token" content="${fp}"/></head></html>`,
       );
       const responseJson = JSON.stringify({ base_resp: { ret: 1 } });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe(fp);
       expect(result.fpSource).toBe("outerHTML");
     });
@@ -231,7 +252,10 @@ describe("runSaveDraftAttempts", () => {
       setupWindowGlobals();
       setupDocumentGlobals([], "");
       const responseJson = JSON.stringify({ base_resp: { ret: 1 } });
-      const result = await runWith(makeParams(), makeFetchResponse(responseJson));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseJson),
+      );
       expect(result.fingerprint).toBe("");
       expect(result.fpSource).toBe("");
     });
@@ -260,7 +284,9 @@ describe("runSaveDraftAttempts", () => {
         callCount++;
         const body =
           callCount === 1
-            ? JSON.stringify({ base_resp: { ret: 200002, err_msg: "bad fingerprint" } })
+            ? JSON.stringify({
+                base_resp: { ret: 200002, err_msg: "bad fingerprint" },
+              })
             : JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 888 });
         return Promise.resolve({
           status: 200,
@@ -291,7 +317,9 @@ describe("runSaveDraftAttempts", () => {
     });
 
     it("returns last attempt result when all schemas fail", async () => {
-      const failJson = JSON.stringify({ base_resp: { ret: 1, err_msg: "fail" } });
+      const failJson = JSON.stringify({
+        base_resp: { ret: 1, err_msg: "fail" },
+      });
       let callCount = 0;
       const fetchMock = () => {
         callCount++;
@@ -336,7 +364,10 @@ describe("runSaveDraftAttempts", () => {
 
     it("uses json.ret instead of base_resp.ret when base_resp absent", async () => {
       const responseBody = JSON.stringify({ ret: 0, appMsgId: 444 });
-      const result = await runWith(makeParams(), makeFetchResponse(responseBody));
+      const result = await runWith(
+        makeParams(),
+        makeFetchResponse(responseBody),
+      );
       expect(result.json?.appMsgId).toBe(444);
     });
   });
@@ -379,7 +410,9 @@ describe("runSaveDraftAttempts", () => {
         return Promise.resolve({
           status: 200,
           text: () =>
-            Promise.resolve(JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 222 })),
+            Promise.resolve(
+              JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 222 }),
+            ),
         });
       };
 
@@ -405,7 +438,9 @@ describe("runSaveDraftAttempts", () => {
         return Promise.resolve({
           status: 200,
           text: () =>
-            Promise.resolve(JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 111 })),
+            Promise.resolve(
+              JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 111 }),
+            ),
         });
       };
 
@@ -432,7 +467,9 @@ describe("runSaveDraftAttempts", () => {
         return Promise.resolve({
           status: 200,
           text: () =>
-            Promise.resolve(JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 })),
+            Promise.resolve(
+              JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 }),
+            ),
         });
       };
 
@@ -470,7 +507,9 @@ describe("runSaveDraftAttempts", () => {
         return Promise.resolve({
           status: 200,
           text: () =>
-            Promise.resolve(JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 })),
+            Promise.resolve(
+              JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 }),
+            ),
         });
       };
       await runWith(makeParams(), fetchMock);
@@ -488,7 +527,9 @@ describe("runSaveDraftAttempts", () => {
         return Promise.resolve({
           status: 200,
           text: () =>
-            Promise.resolve(JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 })),
+            Promise.resolve(
+              JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 }),
+            ),
         });
       };
       await runWith(makeParams({ token: "TOKEN123" }), fetchMock);
@@ -502,7 +543,9 @@ describe("runSaveDraftAttempts", () => {
         return Promise.resolve({
           status: 200,
           text: () =>
-            Promise.resolve(JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 })),
+            Promise.resolve(
+              JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 }),
+            ),
         });
       };
       await runWith(makeParams({ token: "tok" }), fetchMock);
@@ -536,7 +579,9 @@ describe("runSaveDraftAttempts", () => {
         Promise.resolve({
           status: 201,
           text: () =>
-            Promise.resolve(JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 })),
+            Promise.resolve(
+              JSON.stringify({ base_resp: { ret: 0 }, appMsgId: 1 }),
+            ),
         });
       const result = await runWith(makeParams(), fetchMock);
       expect(result.status).toBe(201);
@@ -549,7 +594,8 @@ describe("runSaveDraftAttempts", () => {
         const status = call === 3 ? 500 : 200;
         return Promise.resolve({
           status,
-          text: () => Promise.resolve(JSON.stringify({ base_resp: { ret: 1 } })),
+          text: () =>
+            Promise.resolve(JSON.stringify({ base_resp: { ret: 1 } })),
         });
       };
       const result = await runWith(makeParams(), fetchMock);
@@ -591,10 +637,7 @@ describe("runSaveDraftAttempts", () => {
     it("handles wx.fp as object without t (uses outerHTML fallback)", async () => {
       const fp = "aabbccddeeff00112233445566778899";
       setupWindowGlobals({ wx: { fp: { otherField: "x" } } });
-      setupDocumentGlobals(
-        [],
-        `<html>"${fp}"</html>`,
-      );
+      setupDocumentGlobals([], `<html>"${fp}"</html>`);
       const result = await runWith(
         makeParams(),
         makeFetchResponse(JSON.stringify({ base_resp: { ret: 1 } })),
