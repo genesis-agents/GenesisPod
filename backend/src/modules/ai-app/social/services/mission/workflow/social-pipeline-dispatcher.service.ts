@@ -47,7 +47,11 @@ import {
 import { SocialRuntimeShellService } from "./social-runtime-shell.service";
 import { SocialBusinessOrchestrator } from "./social-business-orchestrator.service";
 import { SocialMissionStore } from "../lifecycle/social-mission-store.service";
-import { SOCIAL_PIPELINE } from "../../../social.config";
+import {
+  SOCIAL_PIPELINE,
+  SOCIAL_FAST_PIPELINE,
+  selectSocialPipeline,
+} from "../../../social.config";
 import {
   AgentRunner,
   MissionAbortRegistry,
@@ -125,9 +129,15 @@ export class SocialPipelineDispatcher implements OnModuleInit {
       this.getEntry(missionId),
     );
     if (!this.registry.has(SOCIAL_PIPELINE.id)) {
-      this.registry.register(this.buildPipelineWithHooks());
+      this.registry.register(this.buildPipelineWithHooks(SOCIAL_PIPELINE));
       this.log.log(
         `[social-pipeline] registered "${SOCIAL_PIPELINE.id}" (${SOCIAL_PIPELINE.steps.length} step)`,
+      );
+    }
+    if (!this.registry.has(SOCIAL_FAST_PIPELINE.id)) {
+      this.registry.register(this.buildPipelineWithHooks(SOCIAL_FAST_PIPELINE));
+      this.log.log(
+        `[social-pipeline] registered "${SOCIAL_FAST_PIPELINE.id}" (${SOCIAL_FAST_PIPELINE.steps.length} step fast-track)`,
       );
     }
   }
@@ -220,10 +230,14 @@ export class SocialPipelineDispatcher implements OnModuleInit {
       });
 
       const sessionRef = session;
+      const pipeline = selectSocialPipeline(input.depth);
+      this.log.log(
+        `[${missionId}] pipeline=${pipeline.id} (${pipeline.steps.length} step)`,
+      );
       return await this.runtimeShell.runWithinContext(session, async () => {
         const result = await this.orchestrator.run({
           missionId,
-          pipelineId: SOCIAL_PIPELINE.id,
+          pipelineId: pipeline.id,
           input,
           userId,
           tenantId: workspaceId,
@@ -426,13 +440,13 @@ export class SocialPipelineDispatcher implements OnModuleInit {
 
   // ─── private ───────────────────────────────────────────────────
 
-  private buildPipelineWithHooks() {
-    const stepHooks = SOCIAL_PIPELINE.steps.map((s) => ({
+  private buildPipelineWithHooks(pipeline: typeof SOCIAL_PIPELINE) {
+    const stepHooks = pipeline.steps.map((s) => ({
       ...s,
       hooks: this.businessOrch.buildHooksForStep(s.id, s.primitive),
     }));
     return {
-      ...SOCIAL_PIPELINE,
+      ...pipeline,
       steps: stepHooks,
     };
   }

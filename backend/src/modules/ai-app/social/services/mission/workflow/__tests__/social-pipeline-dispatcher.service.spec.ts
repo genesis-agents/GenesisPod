@@ -17,7 +17,10 @@ import { runSelfEvolutionStage } from "../stages/s12-self-evolution.stage";
 
 import { Logger } from "@nestjs/common";
 import { SocialPipelineDispatcher } from "../social-pipeline-dispatcher.service";
-import { SOCIAL_PIPELINE } from "../../../../social.config";
+import {
+  SOCIAL_PIPELINE,
+  SOCIAL_FAST_PIPELINE,
+} from "../../../../social.config";
 import type {
   MissionPipelineRegistry,
   MissionPipelineOrchestrator,
@@ -291,14 +294,15 @@ describe("SocialPipelineDispatcher", () => {
       expect(registry.register).not.toHaveBeenCalled();
     });
 
-    it("should build pipeline with hooks from businessOrch for each step", () => {
+    it("should build pipeline with hooks from businessOrch for each step (standard + fast)", () => {
       const businessOrch = createMockBusinessOrch();
       const { dispatcher } = createDispatcher({ businessOrch });
 
       dispatcher.onModuleInit();
 
+      // 2026-05-17: 双 pipeline 注册（standard 12 + fast 4 = 16）
       expect(businessOrch.buildHooksForStep).toHaveBeenCalledTimes(
-        SOCIAL_PIPELINE.steps.length,
+        SOCIAL_PIPELINE.steps.length + SOCIAL_FAST_PIPELINE.steps.length,
       );
     });
 
@@ -308,13 +312,37 @@ describe("SocialPipelineDispatcher", () => {
 
       dispatcher.onModuleInit();
 
-      const firstCall = (businessOrch.buildHooksForStep as jest.Mock).mock
-        .calls[0];
-      const lastCall = (businessOrch.buildHooksForStep as jest.Mock).mock.calls[
-        SOCIAL_PIPELINE.steps.length - 1
-      ];
+      const calls = (businessOrch.buildHooksForStep as jest.Mock).mock.calls;
+      // standard pipeline 注册顺序：s1 first, s11 last
+      const firstCall = calls[0];
+      const standardLastCall = calls[SOCIAL_PIPELINE.steps.length - 1];
       expect(firstCall[0]).toBe("s1-mission-budget-eval");
-      expect(lastCall[0]).toBe("s11-mission-persist");
+      expect(standardLastCall[0]).toBe("s11-mission-persist");
+    });
+
+    it("should register both standard and fast-track pipelines", () => {
+      const registry = createMockRegistry();
+      const { dispatcher } = createDispatcher({ registry });
+
+      dispatcher.onModuleInit();
+
+      expect(registry.register).toHaveBeenCalledTimes(2);
+      const ids = (registry.register as jest.Mock).mock.calls.map(
+        (c) => (c[0] as { id: string }).id,
+      );
+      expect(ids).toContain(SOCIAL_PIPELINE.id);
+      expect(ids).toContain(SOCIAL_FAST_PIPELINE.id);
+    });
+
+    it("fast-track pipeline registers 4 steps (s1 + s8 + s9 + s11)", () => {
+      expect(SOCIAL_FAST_PIPELINE.steps.length).toBe(4);
+      const ids = SOCIAL_FAST_PIPELINE.steps.map((s) => s.id);
+      expect(ids).toEqual([
+        "s1-mission-budget-eval",
+        "s8-publish-execute",
+        "s9-publish-verify",
+        "s11-mission-persist",
+      ]);
     });
   });
 
