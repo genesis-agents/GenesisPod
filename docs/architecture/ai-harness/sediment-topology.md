@@ -108,7 +108,7 @@ R8 三组 mechanical 检查由 lint + grep gate 兜底:
 
 - **ai-app/**/agents/** + ai-app/**/skills/\*\*\*\* → `backend/.eslintrc.js` Section 10(2026-05-08 落地)
 - **ai-harness/agents/\*\*** → `backend/.eslintrc.js` 新增 R8 override(2026-05-09 Stage 0 落地)
-- **ai-engine/\*\*** → `backend/.eslintrc.js` ai-engine override(禁止反向 import ai-harness)+ `tools/ci/check-harness-namespace.sh` [ENGINE] grep gate(禁止 `Mission*`/`Stage*`/`Pipeline*`/`MissionRun*` 标识符 import)
+- **ai-engine/\*\*** → `backend/.eslintrc.js` ai-engine override(禁止反向 import ai-harness)+ `scripts/ci/check-harness-namespace.sh` [ENGINE] grep gate(禁止 `Mission*`/`Stage*`/`Pipeline*`/`MissionRun*` 标识符 import)
 
 补充:`ai-engine/**` 全树**不**含任何 mission-aware 类型 — 由 audit §6.4 + §6.5 + S0-6 grep gate 强制。
 

@@ -36,7 +36,7 @@ Sunk components MUST be unit-testable using harness-only fixtures, without booti
 
 `ai-app/**/agents/**` 与 `ai-app/**/skills/**`,以及 `ai-harness/agents/**`(含 `agents/skill-runtime/` 子树),仅允许 import `@/modules/ai-harness/facade` 暴露的 agent/role/tool 抽象 + 本目录代码;不得直接 import `ai-harness/teams/**` 或 `ai-harness/lifecycle/mission-lifecycle/**`。
 
-- **机制**:`backend/.eslintrc.js` 三处 `no-restricted-imports`(ai-app→facade Section 10、`ai-harness/agents/**` override、`ai-engine` override)+ `tools/ci/check-harness-namespace.sh` [ENGINE] grep gate
+- **机制**:`backend/.eslintrc.js` 三处 `no-restricted-imports`(ai-app→facade Section 10、`ai-harness/agents/**` override、`ai-engine` override)+ `scripts/ci/check-harness-namespace.sh` [ENGINE] grep gate
 - **rationale**:防止 mission/stage/pipeline 概念逆向污染 agent/role/tool primitive。primitive 应保持 mission-unaware,可在不同 mission 框架间复用。
 
 ---
@@ -137,7 +137,7 @@ Mission store 必须 structurally satisfies 两个 interface:
 
 ## 7. Mechanical guard suite(7 grep gates)
 
-`tools/ci/check-harness-namespace.sh`(7 项 grep + lint 联合检查):
+`scripts/ci/check-harness-namespace.sh`(7 项 grep + lint 联合检查):
 
 | #   | Rule                                                                                                                         | 当前期望                                  |
 | --- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |

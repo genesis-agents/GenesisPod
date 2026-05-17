@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tools/ci/check-harness-namespace.sh
+# scripts/ci/check-harness-namespace.sh
 #
 # Rev 5 / S0-6 mechanical guard suite (boundary audit 2026-05-09).
 #
@@ -22,9 +22,9 @@
 #   ✓  [ENGINE]    ai-engine must not import mission-aware types
 #
 # 使用:
-#   ./tools/ci/check-harness-namespace.sh                # strict 模式,任一项 fail 即 exit 1
-#   ./tools/ci/check-harness-namespace.sh --quiet        # 仅在命中时输出
-#   ./tools/ci/check-harness-namespace.sh --stage-0-mode # Stage 0 advisory:[S1-2] 命中 warn 不 fail
+#   ./scripts/ci/check-harness-namespace.sh                # strict 模式,任一项 fail 即 exit 1
+#   ./scripts/ci/check-harness-namespace.sh --quiet        # 仅在命中时输出
+#   ./scripts/ci/check-harness-namespace.sh --stage-0-mode # Stage 0 advisory:[S1-2] 命中 warn 不 fail
 #                                                        # (Stage 1 完成 S1-2 后移除此 flag,转 strict)
 #
 # 详见:
