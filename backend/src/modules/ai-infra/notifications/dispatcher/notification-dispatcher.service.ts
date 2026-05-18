@@ -10,6 +10,7 @@ import {
 import { SiteChannel } from "./channels/site-channel.adapter";
 import { ChannelResolver } from "./preferences/channel-resolver";
 import { NotificationPreferenceService } from "./preferences/notification-preference.service";
+import { DispatcherQuotaService } from "./dispatcher-quota.service";
 
 /**
  * NotificationDispatcher 公共能力（PR-DR1a 框架版）
@@ -32,10 +33,8 @@ import { NotificationPreferenceService } from "./preferences/notification-prefer
  *   - EmailChannel 在 PR-DR1b 注入；WechatChannel 在 PR-DR3 注入；
  *   - 注入靠 @Optional() + register() 暴露式扩展点，避免 PR-DR1a 文件被反复修改
  *
- * R1 pm P1 follow-up（PR-DR1b 必补）:
- *   - capabilities.dailyQuotaPerUser enforce：当前仅声明无 enforce 点，
- *     DR1b email + DR2 sweepDaily 千人 fan-out 前必须接 Redis 限频
- *     (key: `dispatcher:quota:{userId}:{channel}:{YYYY-MM-DD}` INCR + EXPIRE)
+ * R2 security P2-2 整改：dailyQuotaPerUser 真正 enforce（DispatcherQuotaService）
+ *   - Redis INCR + EXPIRE 24h 限频，超额 channel-level skip，不影响其他 channel
  *   - dispatchMany concurrency option：caller 用 BullMQ 控并发（K3 决策），
  *     dispatcher 若内置 throttle 会双源，DR2 sweepDaily 仍靠 caller 控
  */
@@ -51,6 +50,7 @@ export class NotificationDispatcher {
     siteChannel: SiteChannel,
     private readonly preferenceService: NotificationPreferenceService,
     private readonly channelResolver: ChannelResolver,
+    private readonly quotaService: DispatcherQuotaService,
     @Optional() @Inject("EMAIL_CHANNEL") emailChannel?: INotificationChannel,
     @Optional() @Inject("WECHAT_CHANNEL") wechatChannel?: INotificationChannel,
     @Optional()
@@ -155,6 +155,16 @@ export class NotificationDispatcher {
     const adapter = this.channels.get(channel);
     if (!adapter) {
       return { channel, status: "skipped", reason: "channel-not-registered" };
+    }
+    // R2 security P2-2: dailyQuotaPerUser enforce（Redis INCR + EXPIRE 24h，fail-open）
+    const cap = adapter.getCapabilities();
+    const quota = await this.quotaService.check(
+      userId,
+      channel,
+      cap.dailyQuotaPerUser,
+    );
+    if (!quota.allowed) {
+      return { channel, status: "skipped", reason: "quota-exceeded" };
     }
     try {
       await adapter.send(userId, payload);

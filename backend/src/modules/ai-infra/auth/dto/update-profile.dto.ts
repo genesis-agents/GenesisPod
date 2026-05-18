@@ -5,7 +5,33 @@ import {
   MaxLength,
   IsUrl,
   ArrayMaxSize,
+  IsIn,
+  Matches,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
+import { SUPPORTED_LOCALES } from "../../../../common/constants/locales";
+
+/**
+ * 用户偏好设置 DTO（class 形式，class-validator 才能递归校验 nested object）
+ */
+class UserPreferencesDto {
+  @IsOptional()
+  @IsIn([...SUPPORTED_LOCALES])
+  language?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z][A-Za-z0-9_+\-/]*$/, {
+    message: "timezone must be valid IANA format (e.g., Asia/Shanghai)",
+  })
+  @Matches(/\//, { message: 'timezone must contain "/"' })
+  timezone?: string;
+
+  @IsOptional()
+  @IsIn(["light", "dark", "system"])
+  theme?: "light" | "dark" | "system";
+}
 
 /**
  * 更新用户个人信息 DTO
@@ -38,11 +64,9 @@ export class UpdateProfileDto {
   @ArrayMaxSize(20)
   interests?: string[];
 
-  // 用户偏好设置
+  // 用户偏好设置（nested class 确保 class-validator 递归校验）
   @IsOptional()
-  preferences?: {
-    language?: string;
-    timezone?: string;
-    theme?: "light" | "dark" | "system";
-  };
+  @ValidateNested()
+  @Type(() => UserPreferencesDto)
+  preferences?: UserPreferencesDto;
 }

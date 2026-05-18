@@ -4,6 +4,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { NotificationModule } from "../notification.module";
 import { NotificationDispatcher } from "./notification-dispatcher.service";
+import { DispatcherQuotaService } from "./dispatcher-quota.service";
 import { SiteChannel } from "./channels/site-channel.adapter";
 import { EmailChannel } from "./channels/email-channel.adapter";
 import { ChannelResolver } from "./preferences/channel-resolver";
@@ -48,6 +49,7 @@ import { UnsubscribeController } from "./unsubscribe.controller";
   controllers: [UnsubscribeController],
   providers: [
     NotificationDispatcher,
+    DispatcherQuotaService,
     SiteChannel,
     EmailChannel,
     // 用 token 注入避免 dispatcher constructor 强依赖 EmailChannel class

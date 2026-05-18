@@ -108,7 +108,7 @@ const CHANNELS: Array<{
 type TriState = boolean | null;
 
 export default function NotificationsSettingsPage() {
-  const { preferences, loading, updating, updatePreferences } =
+  const { preferences, loading, updating, error, refresh, updatePreferences } =
     useNotificationPreferences();
   const [draft, setDraft] = useState<NotificationPreferences | null>(null);
   const [saved, setSaved] = useState(false);
@@ -176,7 +176,47 @@ export default function NotificationsSettingsPage() {
     }
   };
 
-  if (loading || !draft) {
+  if (loading && !draft) {
+    return (
+      <AppShell>
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!loading && error && !draft) {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-4xl p-6">
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          >
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="flex-1">
+              <div className="font-medium">加载通知偏好失败</div>
+              <div className="mt-0.5 text-xs text-red-600">
+                {error instanceof Error
+                  ? error.message
+                  : '网络异常，请检查连接后重试'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+            >
+              重试
+            </button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!draft) {
     return (
       <AppShell>
         <div className="flex h-64 items-center justify-center">

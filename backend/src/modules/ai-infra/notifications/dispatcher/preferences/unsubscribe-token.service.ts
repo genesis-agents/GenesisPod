@@ -18,7 +18,8 @@ import { PrismaService } from "../../../../../common/prisma/prisma.service";
  * - JWT 7d 有效，HMAC 签名（JWT_SECRET）
  * - token-only auth（无需登录）方便邮件转发用户
  * - token 含 sub=userId + scope + 可选 ext(topicId for topic scope)
- * - 用户多次签发覆盖 NotificationPreference.unsubscribeToken（仅最新有效是设计选择，避免 token db 膨胀）
+ * - DB 比对 + 消费置 null：防止泄露的旧 token 重放退订
+ *   trade-off：每次签发覆盖 DB，旧邮件里的 token 立即失效（防重放 > 旧邮件链接持久）
  */
 @Injectable()
 export class UnsubscribeTokenService {
@@ -46,8 +47,7 @@ export class UnsubscribeTokenService {
     const token = await this.jwt.signAsync(payload, {
       expiresIn: UnsubscribeTokenService.TTL_SECONDS,
     });
-    // 持久化最新 token（让旧 token 仍可用：仅 JWT 自身 expiresIn 控；DB 字段
-    // 用于"退订链接复活/重发"场景而非真校验）
+    // 持久化最新 token；verifyAndApply 用 DB 比对防重放（旧 token 立即失效）
     await this.prisma.notificationPreference.upsert({
       where: { userId },
       create: { userId, unsubscribeToken: token },
@@ -62,6 +62,10 @@ export class UnsubscribeTokenService {
    * 错误语义：
    * - 签名失败 / 过期 → UnauthorizedException（endpoint 返 401 + 友好提示页）
    * - scope=topic 但缺 topicId → BadRequest 等价（这里也走 401 以暴露伪造）
+   * - DB token 不一致（已轮换/已撤销）→ UnauthorizedException
+   *
+   * 安全：apply 成功后立即将 DB unsubscribeToken 置 null，
+   * 使同一 token 无法二次重放，即使仍在 JWT TTL 内。
    */
   async verifyAndApply(token: string): Promise<UnsubscribeResult> {
     let payload: UnsubscribeTokenPayload;
@@ -78,7 +82,26 @@ export class UnsubscribeTokenService {
       throw new UnauthorizedException("malformed unsubscribe payload");
     }
 
+    // DB 比对：防旧 token 重放（token 已轮换或已消费后置 null）
+    const pref = await this.prisma.notificationPreference.findUnique({
+      where: { userId: payload.sub },
+      select: { unsubscribeToken: true },
+    });
+    if (!pref || pref.unsubscribeToken !== token) {
+      this.log.warn(
+        `unsubscribe token revoked or rotated for user=${payload.sub}`,
+      );
+      throw new UnauthorizedException("unsubscribe token revoked or rotated");
+    }
+
     await this.applyScope(payload);
+
+    // 消费后置 null，同一 token 不可二次重放
+    await this.prisma.notificationPreference.update({
+      where: { userId: payload.sub },
+      data: { unsubscribeToken: null },
+    });
+
     return {
       userId: payload.sub,
       scope: payload.scope,
