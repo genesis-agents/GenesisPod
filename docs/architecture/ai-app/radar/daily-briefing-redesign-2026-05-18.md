@@ -2327,59 +2327,59 @@ R4 评审时间：2026-05-18（R3 整改后）
 
 | #   | 任务                                                                                                                | 状态 | Commit      |
 | --- | ------------------------------------------------------------------------------------------------------------------- | ---- | ----------- |
-| B1  | S9 daily-top-n stage（Stage A 评分 + filter score>0.55 top20）                                                      | ❌   | —           |
-| B2  | signal-editor service（LLM + zod 严格 + evidenceItemIds 白名单 + XML escape）                                       | ❌   | —           |
-| B3  | 跨日延续 boost（注入 yesterdayTopEntities）                                                                         | ❌   | —           |
-| B4  | RunRadarDailyBriefingMissionInput + orchestrator 入口                                                               | ❌   | —           |
-| B5  | RadarDailyBriefing repo/service                                                                                     | ❌   | —           |
-| B6  | RadarWeeklyBriefing 纯模板拼装 service                                                                              | ❌   | —           |
-| B7  | sweepDailyBriefing cron（每分钟 + tz gate）                                                                         | ❌   | —           |
-| B8  | sweepWeeklyBriefing cron（周日 18:00 UTC + 用户 ≤30/周）                                                            | ❌   | —           |
-| B9  | onTier3Signal `@OnEvent`（Redis INCR ≤3/天 + channelSubscriptions 双 gate）                                         | ❌   | —           |
-| B10 | EventEmitter 'radar.briefing.signal.created' 在 S9 写入后 emit                                                      | ❌   | —           |
-| B11 | NotificationDispatcher 集成（RADAR_DAILY/WEEKLY/TIER3_INSTANT）                                                     | ❌   | —           |
+| B1  | S9 daily-top-n stage（Stage A 评分 + filter score>0.55 top20）                                                      | ✅   | `f23f09d24` |
+| B2  | signal-editor service（LLM + zod 严格 + evidenceItemIds 白名单 + XML escape）                                       | ✅   | `20dd81150` |
+| B3  | 跨日延续 boost（注入 yesterdayTopEntities）                                                                         | ✅   | `20dd81150` |
+| B4  | RunRadarDailyBriefingMissionInput + orchestrator 入口                                                               | ✅   | `6b39b5ea0` |
+| B5  | RadarDailyBriefing repo/service                                                                                     | ✅   | `9f7ec662f` |
+| B6  | RadarWeeklyBriefing 纯模板拼装 service                                                                              | ✅   | `9f7ec662f` |
+| B7  | sweepDailyBriefing cron（每分钟 + tz gate）                                                                         | ✅   | `edd420662` |
+| B8  | sweepWeeklyBriefing cron（周日 18:00 UTC + 用户 ≤30/周）                                                            | ✅   | `edd420662` |
+| B9  | onTier3Signal `@OnEvent`（Redis INCR ≤3/天 + channelSubscriptions 双 gate）                                         | ✅   | `edd420662` |
+| B10 | EventEmitter 'radar.briefing.signal.created' 在 S9 写入后 emit                                                      | ✅   | `6b39b5ea0` |
+| B11 | NotificationDispatcher 集成（RADAR_DAILY/WEEKLY/TIER3_INSTANT）                                                     | ✅   | `edd420662` |
 | B12 | Email 模板 radar-daily-briefing.{zh,en}.hbs（4 层 Smart Brevity）                                                   | ✅   | `0de0d3926` |
 | B13 | Email 模板 radar-weekly-briefing.{zh,en}.hbs（top10 + narrativeMap）                                                | ✅   | `0de0d3926` |
 | B14 | Handlebars helpers（扩展既有 template-render.tool.ts）：urlEncode/truncate/tierBadge/detailUrl/evidenceSources/join | ✅   | `0de0d3926` |
-| B15 | Narrative API `GET /api/v1/radar/topics/:topicId/narratives/:narrativeId`                                           | ❌   | —           |
-| B16 | Favorite API + UserFavorite 表（B3 Phase 1）                                                                        | ❌   | —           |
-| B17 | 退订 scope=topic 扩展                                                                                               | ❌   | —           |
-| B18 | Daily briefing 90 天清理 cron                                                                                       | ❌   | —           |
+| B15 | Narrative API `GET /api/v1/radar/topics/:topicId/narratives/:narrativeId`                                           | ✅   | `ab6eaf549` |
+| B16 | Favorite API + UserFavorite 表（B3 Phase 1）                                                                        | ✅   | `f6a78ce42` |
+| B17 | 退订 scope=topic 扩展                                                                                               | ✅   | `35a16823c` |
+| B18 | Daily briefing 90 天清理 cron                                                                                       | ✅   | `edd420662` |
 | B19 | K2 跨用户 RadarItem 共享判定接入采集器                                                                              | ✅   | `395ee6fca` |
-| B20 | M2 metric emit 'radar.briefing.generated'                                                                           | ❌   | —           |
+| B20 | M2 metric emit 'radar.briefing.generated'                                                                           | ✅   | `6b39b5ea0` |
 
 ### 21.3 前端任务清单（F1-F15）
 
-| #   | 任务                                                                | 状态 | Commit      |
-| --- | ------------------------------------------------------------------- | ---- | ----------- |
-| F1  | TierBadge 完善 + 测试（残留收口）                                   | ✅   | `ff4af966d` |
-| F2  | SideDrawer 完善 + 断点（残留收口）                                  | ✅   | `ff4af966d` |
-| F3  | DateSwitcher 公共组件                                               | ✅   | `ff4af966d` |
-| F4  | StarRating 行内交互                                                 | ✅   | `ff4af966d` |
-| F5  | WhyItMattersCallout accent bar                                      | ✅   | `ff4af966d` |
-| F6  | ShareActions 三按钮 + sm dropdown                                   | ✅   | `ff4af966d` |
-| F7  | NarrativeThread mini timeline                                       | ❌   | —           |
-| F8  | RadarTopicCardCustomSection 2 行                                    | ❌   | —           |
-| F9  | SourceHealthSummary + amber border 联动                             | ❌   | —           |
-| F10 | RadarBriefingCard/Panel + 三态 (Skeleton/Empty/Error)               | ❌   | —           |
-| F11 | WeeklyBriefingCard + 周报路由                                       | ❌   | —           |
-| F12 | RadarTopicConfigDrawer（精选偏好/推送/数据源/高级 tab）             | ❌   | —           |
-| F13 | topic/[topicId]/page.tsx 重构 briefing-first + ?date=               | ❌   | —           |
-| F14 | topic/[topicId]/raw/page.tsx 次级路由                               | ❌   | —           |
-| F15 | 删除旧组件 RadarFeedTabs/Insight/Entity/RunTimeline + 降级 FeedList | ❌   | —           |
+| #   | 任务                                                                | 状态           | Commit      |
+| --- | ------------------------------------------------------------------- | -------------- | ----------- |
+| F1  | TierBadge 完善 + 测试（残留收口）                                   | ✅             | `ff4af966d` |
+| F2  | SideDrawer 完善 + 断点（残留收口）                                  | ✅             | `ff4af966d` |
+| F3  | DateSwitcher 公共组件                                               | ✅             | `ff4af966d` |
+| F4  | StarRating 行内交互                                                 | ✅             | `ff4af966d` |
+| F5  | WhyItMattersCallout accent bar                                      | ✅             | `ff4af966d` |
+| F6  | ShareActions 三按钮 + sm dropdown                                   | ✅             | `ff4af966d` |
+| F7  | NarrativeThread mini timeline                                       | ✅             | `9937b1c29` |
+| F8  | RadarTopicCardCustomSection 2 行                                    | ✅             | `9937b1c29` |
+| F9  | SourceHealthSummary + amber border 联动                             | ✅             | `9937b1c29` |
+| F10 | RadarBriefingCard/Panel + 三态 (Skeleton/Empty/Error)               | 🔄 sub-agent K | —           |
+| F11 | WeeklyBriefingCard + 周报路由                                       | ✅             | `9937b1c29` |
+| F12 | RadarTopicConfigDrawer（精选偏好/推送/数据源/高级 tab）             | ❌             | —           |
+| F13 | topic/[topicId]/page.tsx 重构 briefing-first + ?date=               | ❌             | —           |
+| F14 | topic/[topicId]/raw/page.tsx 次级路由                               | ❌             | —           |
+| F15 | 删除旧组件 RadarFeedTabs/Insight/Entity/RunTimeline + 降级 FeedList | ❌             | —           |
 
 ### 21.4 跨栈 / 杂项清单（X1-X8）
 
-| #   | 任务                                                        | 状态 | Commit      |
-| --- | ----------------------------------------------------------- | ---- | ----------- |
-| X1  | i18n radar.\* zh/en keys（I8 强红线）                       | ✅   | `bf5297168` |
-| X2  | SKILL.md i18n 头部注入 `[Output in {lang}]`                 | ❌   | —           |
-| X3  | settings 补 instantPushForTier3 toggle                      | ❌   | —           |
-| X4  | useDailyBriefing/useNarrativeThread/useFavoriteSignal hooks | ❌   | —           |
-| X5  | BullMQ 'radar-briefing' queue config                        | ❌   | —           |
-| X6  | 架构边界 spec（NotificationDispatcher 不依赖 ai-app）       | ✅   | `395ee6fca` |
-| X7  | E2E 真发验收（§11.2 8 条 happy path）                       | ❌   | —           |
-| X8  | 第 4 轮 5 路评审（5/5 YES 才推主干）                        | ❌   | —           |
+| #   | 任务                                                        | 状态           | Commit      |
+| --- | ----------------------------------------------------------- | -------------- | ----------- |
+| X1  | i18n radar.\* zh/en keys（I8 强红线）                       | ✅             | `bf5297168` |
+| X2  | SKILL.md i18n 头部注入 `[Output in {lang}]`                 | ✅             | `20dd81150` |
+| X3  | settings 补 instantPushForTier3 toggle                      | ✅             | `dbada523a` |
+| X4  | useDailyBriefing/useNarrativeThread/useFavoriteSignal hooks | 🔄 sub-agent L | —           |
+| X5  | BullMQ 'radar-briefing' queue config                        | ✅             | `fd1efe243` |
+| X6  | 架构边界 spec（NotificationDispatcher 不依赖 ai-app）       | ✅             | `395ee6fca` |
+| X7  | E2E 真发验收（§11.2 8 条 happy path）                       | ❌             | —           |
+| X8  | 第 4 轮 5 路评审（5/5 YES 才推主干）                        | ❌             | —           |
 
 ### 21.5 回填规则
 
