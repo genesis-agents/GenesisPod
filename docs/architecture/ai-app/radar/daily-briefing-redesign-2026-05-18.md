@@ -2363,10 +2363,10 @@ R4 评审时间：2026-05-18（R3 整改后）
 | F9  | SourceHealthSummary + amber border 联动                             | ✅             | `9937b1c29` |
 | F10 | RadarBriefingCard/Panel + 三态 (Skeleton/Empty/Error)               | 🔄 sub-agent K | —           |
 | F11 | WeeklyBriefingCard + 周报路由                                       | ✅             | `9937b1c29` |
-| F12 | RadarTopicConfigDrawer（精选偏好/推送/数据源/高级 tab）             | ❌             | —           |
-| F13 | topic/[topicId]/page.tsx 重构 briefing-first + ?date=               | ❌             | —           |
-| F14 | topic/[topicId]/raw/page.tsx 次级路由                               | ❌             | —           |
-| F15 | 删除旧组件 RadarFeedTabs/Insight/Entity/RunTimeline + 降级 FeedList | ❌             | —           |
+| F12 | RadarTopicConfigDrawer（精选偏好/推送/数据源/高级 tab）             | ✅             | `82f4a8f49` |
+| F13 | topic/[topicId]/page.tsx 重构 briefing-first + ?date=               | ✅             | `82f4a8f49` |
+| F14 | topic/[topicId]/raw/page.tsx 次级路由                               | ✅             | `82f4a8f49` |
+| F15 | 删除旧组件 RadarFeedTabs/Insight/Entity/RunTimeline + 降级 FeedList | ✅             | `82f4a8f49` |
 
 ### 21.4 跨栈 / 杂项清单（X1-X8）
 
