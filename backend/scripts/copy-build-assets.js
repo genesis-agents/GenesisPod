@@ -28,6 +28,7 @@ const PATTERNS = [
   /\/presets\/[^/]+\.json$/, // preset json
   /\/soul\.md$/, // agent soul
   /\/common\/seed\/data\/[^/]+\.json$/, // SeedSyncService data files
+  /\/email\/templates\/[^/]+\.hbs$/, // FU2-B: Handlebars 邮件模板
 ];
 
 let copied = 0;

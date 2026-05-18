@@ -13,6 +13,7 @@ import { ConfigService } from "@nestjs/config";
 import { HandlebarsRendererService } from "../../../email/template/handlebars-renderer.service";
 import { NotificationDispatcher } from "../notification-dispatcher.service";
 import { UnsubscribeTokenService } from "../preferences/unsubscribe-token.service";
+import { buildUnsubUrl } from "./radar-daily-briefing-email.preset";
 
 interface TopSignalEmailInput {
   id: string;
@@ -21,6 +22,8 @@ interface TopSignalEmailInput {
   oneLineTakeaway: string;
   whyItMatters: string;
   sourceBriefingDate: string;
+  /** 模板 length 显示证据数量 */
+  evidenceItemIds?: string[];
 }
 
 export interface RadarWeeklyBriefingEmailInput {
@@ -54,18 +57,21 @@ export class RadarWeeklyBriefingEmailPreset {
       "radar_all",
       "global",
     ]);
-    const unsubBase = `${base}/unsubscribed?token=${encodeURIComponent(token)}`;
     const ctx = {
       topic: { id: input.topicId, name: input.topicName },
       weekRangeFull: `${input.weekStart} — ${input.weekEnd}`,
       candidatesTotal: input.candidatesTotal,
       narrativeCount: input.narrativeCount,
       newEntityCount: input.newEntityCount,
-      topSignals: input.topSignals.map((s) => ({ ...s, baseUrl: base })),
+      topSignals: input.topSignals.map((s) => ({
+        ...s,
+        evidenceItemIds: s.evidenceItemIds ?? [],
+        baseUrl: base,
+      })),
       topicUrl: `${base}/ai-radar/topic/${input.topicId}/weekly?week=${input.weekStart}`,
       settingsUrl: `${base}/settings/notifications`,
-      unsubscribeWeeklyUrl: `${unsubBase}&scope=weekly`,
-      unsubscribeAllUrl: `${unsubBase}&scope=global`,
+      unsubscribeWeeklyUrl: buildUnsubUrl(base, token, "weekly"),
+      unsubscribeAllUrl: buildUnsubUrl(base, token, "global"),
     };
     let html: string;
     try {

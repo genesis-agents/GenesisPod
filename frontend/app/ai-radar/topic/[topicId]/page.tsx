@@ -381,7 +381,17 @@ export default function RadarTopicDetailPage() {
               <button
                 type="button"
                 onClick={() => void handleRefresh()}
-                disabled={refreshing || topic.status !== 'ACTIVE'}
+                /* PM P1: 加 canRerun 闸；避免连点超 ≤2/日上限后才报 400 */
+                disabled={
+                  refreshing ||
+                  topic.status !== 'ACTIVE' ||
+                  briefing?.canRerun === false
+                }
+                title={
+                  briefing?.canRerun === false
+                    ? `今日已达重新精选上限（${briefing.rerunCount ?? 0}/2）`
+                    : undefined
+                }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
               >
                 <RefreshCw
@@ -454,9 +464,7 @@ export default function RadarTopicDetailPage() {
                   </li>
                 ))}
                 {sources.length > 5 && (
-                  <li className="text-gray-400">
-                    + {sources.length - 5} 个
-                  </li>
+                  <li className="text-gray-400">+ {sources.length - 5} 个</li>
                 )}
               </ul>
             )}
@@ -464,7 +472,9 @@ export default function RadarTopicDetailPage() {
 
           {/* 配置摘要卡 */}
           <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <h3 className="mb-3 text-sm font-semibold text-gray-800">精选偏好</h3>
+            <h3 className="mb-3 text-sm font-semibold text-gray-800">
+              精选偏好
+            </h3>
             <dl className="flex flex-col gap-2 text-xs text-gray-600">
               <div className="flex justify-between">
                 <dt className="text-gray-500">推送时间</dt>

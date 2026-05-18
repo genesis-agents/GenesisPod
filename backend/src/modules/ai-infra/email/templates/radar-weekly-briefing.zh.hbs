@@ -104,7 +104,7 @@
               📚 {{length this.evidenceItemIds}} 处证据
               {{#if this.id}}
               &nbsp;&middot;&nbsp;
-              <a href="{{detailUrl this.id}}" style="color:#4f46e5; font-size:12px; text-decoration:none;">查看详情 &rarr;</a>
+              <a href="{{detailUrl this.id ../topic.id this.baseUrl}}" style="color:#4f46e5; font-size:12px; text-decoration:none;">查看详情 &rarr;</a>
               {{/if}}
             </div>
           </div>

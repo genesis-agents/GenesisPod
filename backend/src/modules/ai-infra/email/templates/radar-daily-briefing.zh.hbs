@@ -86,7 +86,7 @@
 
         <div class="signal-section" style="font-size:13px; color:#64748b;">
           📚 {{length this.evidenceItemIds}} 处证据
-          {{#if this.evidenceItemIds}}来自 {{evidenceSources this.evidenceItemIds}}{{/if}}
+          {{#if this.evidenceSources}}来自 {{evidenceSources this.evidenceSources}}{{/if}}
         </div>
 
         {{#if this.narrativeId}}
@@ -102,8 +102,8 @@
 
         <div class="actions">
           {{#if this.id}}
-          <a href="{{detailUrl this.id}}">查看详情与原文 &rarr;</a>
-          <a href="mailto:?subject={{urlEncode this.title}}&amp;body={{urlEncode this.whyItMatters}}%0A%0A{{urlEncode (detailUrl this.id)}}">📤 转发给同事</a>
+          <a href="{{detailUrl this.id ../topic.id this.baseUrl}}">查看详情与原文 &rarr;</a>
+          <a href="mailto:?subject={{urlEncode this.title}}&amp;body={{urlEncode this.whyItMatters}}%0A%0A{{urlEncode (detailUrl this.id ../topic.id this.baseUrl)}}">📤 转发给同事</a>
           {{/if}}
         </div>
       </div>

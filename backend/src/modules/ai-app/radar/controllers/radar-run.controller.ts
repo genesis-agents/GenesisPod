@@ -37,6 +37,7 @@ import { TriggerRefreshDto } from "../dto";
 import { RadarTopicService } from "../services/topic/radar-topic.service";
 import { RadarMissionStore } from "../services/mission/lifecycle/radar-mission-store.service";
 import { RadarPipelineDispatcher } from "../services/mission/workflow/radar-pipeline-dispatcher.service";
+import { DailyBriefingGeneratorService } from "../services/briefing/daily-briefing-generator.service";
 
 /** FU-P2-4: 设计 §4.3 — 同一日只能 rerun ≤2 次（首次精选 + 2 次手动 = 3 上限） */
 const RERUN_LIMIT_PER_DAY = 2;
@@ -51,6 +52,7 @@ export class RadarRunController {
     private readonly store: RadarMissionStore,
     private readonly dispatcher: RadarPipelineDispatcher,
     private readonly cache: CacheService,
+    private readonly dailyGenerator: DailyBriefingGeneratorService,
   ) {}
 
   @Get("topics/:topicId/runs")
@@ -125,6 +127,29 @@ export class RadarRunController {
       this.log.log(
         `Manual refresh topic=${topicId} mission=${summary.missionId} status=${summary.status}`,
       );
+
+      // PM P0-2: refresh mission 只跑 S1-S8（collect/dedupe/score/persist）；
+      // 手动"重新精选"语义需要重生 daily briefing，故链上 DailyBriefingGenerator
+      // 跑今日 Stage A + signal-editor，对接 onDailyBriefingGenerated 重发邮件
+      if (summary.status === "completed") {
+        try {
+          const briefingDate = new Date().toISOString().slice(0, 10);
+          const result = await this.dailyGenerator.generateForTopic({
+            topicId,
+            userId: req.user.id,
+            briefingDate,
+            missionId: summary.missionId,
+          });
+          this.log.log(
+            `Manual refresh briefing regenerated topic=${topicId} status=${result.status} selected=${result.selectedCount}`,
+          );
+        } catch (err) {
+          this.log.warn(
+            `Manual refresh briefing regen failed topic=${topicId}: ${(err as Error).message}`,
+          );
+        }
+      }
+
       return {
         runId: summary.missionId,
         status: summary.status,

@@ -86,7 +86,7 @@
 
         <div class="signal-section" style="font-size:13px; color:#64748b;">
           📚 {{length this.evidenceItemIds}} source(s)
-          {{#if this.evidenceItemIds}}from {{evidenceSources this.evidenceItemIds}}{{/if}}
+          {{#if this.evidenceSources}}from {{evidenceSources this.evidenceSources}}{{/if}}
         </div>
 
         {{#if this.narrativeId}}
@@ -102,8 +102,8 @@
 
         <div class="actions">
           {{#if this.id}}
-          <a href="{{detailUrl this.id}}">Read full story &rarr;</a>
-          <a href="mailto:?subject={{urlEncode this.title}}&amp;body={{urlEncode this.whyItMatters}}%0A%0A{{urlEncode (detailUrl this.id)}}">📤 Forward to team</a>
+          <a href="{{detailUrl this.id ../topic.id this.baseUrl}}">Read full story &rarr;</a>
+          <a href="mailto:?subject={{urlEncode this.title}}&amp;body={{urlEncode this.whyItMatters}}%0A%0A{{urlEncode (detailUrl this.id ../topic.id this.baseUrl)}}">📤 Forward to team</a>
           {{/if}}
         </div>
       </div>

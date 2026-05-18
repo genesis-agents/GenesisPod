@@ -5,12 +5,10 @@
  *
  * 在 BriefingCard 外层挂载：
  *   - useNarrativeThread(signal.narrativeId) → 拉 episodes 注入 narrativeEpisodes
- *   - useFavoriteSignal(signal.id, topicId) → 接 favorite toggle
+ *   - useFavoriteSignal(signal.id, topicId, initiallyFavorited) → 接 favorite toggle
  *
  * BriefingCard 保持纯展示无业务依赖；本组件做"连线"职责。
  */
-
-import { useEffect, useState } from 'react';
 
 import { useNarrativeThread } from '@/hooks/domain/useNarrativeThread';
 import { useFavoriteSignal } from '@/hooks/domain/useFavoriteSignal';
@@ -44,20 +42,15 @@ export function BriefingCardConnected({
   // Narrative：仅当 signal 有 narrativeId 才拉
   const { data: narrative } = useNarrativeThread(
     signal.narrativeId ? topicId : null,
-    signal.narrativeId ?? null,
+    signal.narrativeId ?? null
   );
 
-  // Favorite：用 hook 维护 toggle 状态
-  const { isFavorited, toggle } = useFavoriteSignal(signal.id, topicId);
-  const [favoritedLocal, setFavoritedLocal] = useState(
-    initiallyFavorited ?? false,
+  // Favorite：把已知初始值注入 hook，避免 useEffect 同步把已收藏覆写成未收藏
+  const { isFavorited, toggle } = useFavoriteSignal(
+    signal.id,
+    topicId,
+    initiallyFavorited ?? false
   );
-
-  // 当 hook 内部更新 isFavorited（toggle 成功后），同步 local
-  useEffect(() => {
-    if (isFavorited !== favoritedLocal) setFavoritedLocal(isFavorited);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFavorited]);
 
   return (
     <RadarBriefingCard
@@ -66,9 +59,8 @@ export function BriefingCardConnected({
       topicId={topicId}
       topicName={topicName}
       detailUrl={detailUrl}
-      isFavorited={favoritedLocal}
+      isFavorited={isFavorited}
       onFavorite={async () => {
-        setFavoritedLocal((v) => !v);
         await toggle();
       }}
       narrativeEpisodes={narrative?.episodes}

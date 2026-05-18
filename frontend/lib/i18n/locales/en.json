@@ -7438,7 +7438,37 @@
       "title": "Weekly briefing",
       "weekRange": "{{start}} - {{end}}",
       "overviewLine": "This week: {{candidates}} signals, {{topCount}} top-tier",
-      "narrativeProgress": "{{label}} ({{count}} episodes)"
+      "narrativeProgress": "{{label}} ({{count}} episodes)",
+      "subtitle": "Weekly highlights",
+      "back": "Back to topic",
+      "loading": "Loading…",
+      "empty": "No weekly briefing yet. Auto-generated every Sunday 18:00 UTC.",
+      "overview": {
+        "topRatedSuffix": "top-rated",
+        "candidatesSuffix": "candidates",
+        "narrativeSuffix": "narrative threads",
+        "newEntities": "New this week:"
+      },
+      "topSignalsTitle": "TOP 10 top-tier signals",
+      "narrativesTitle": "Narrative threads",
+      "narrativeEpisodes": "{{count}} episodes",
+      "latestPrefix": "Latest:"
+    },
+    "favorites": {
+      "title": "Favorites",
+      "back": "Back to radar",
+      "countSuffix": "{{count}} signals",
+      "loading": "Loading…",
+      "loadFailedPrefix": "Load failed: ",
+      "unknownError": "Unknown error",
+      "emptyTitle": "No favorites yet",
+      "emptyHint": "Click the bookmark icon on a briefing card to add it here",
+      "expiredTitle": "(Expired — original briefing has been cleaned up)",
+      "fromTopic": "From \"{{topic}}\"",
+      "favoritedAt": "Saved on {{date}}",
+      "whatsNext": "What's next:",
+      "viewTopic": "View topic",
+      "retry": "Retry"
     }
   }
 }

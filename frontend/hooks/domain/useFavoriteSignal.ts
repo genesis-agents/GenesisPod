@@ -14,14 +14,22 @@ interface FavoriteToggleBody {
 
 export function useFavoriteSignal(
   signalId: string | null,
-  topicId: string | null
+  topicId: string | null,
+  /**
+   * 初始收藏状态（从父组件已知的 favoritedIds set 注入）。
+   *
+   * R5 frontend review P1：之前 hook 内部硬 useState(false)，导致已收藏的信号在
+   * 首次 render 时 isFavorited=false，BriefingCardConnected 的 effect 同步会把
+   * favoritedLocal 强制覆写为 false 显示成"未收藏"。
+   */
+  initialValue: boolean = false
 ): {
   isFavorited: boolean;
   loading: boolean;
   error: ApiError | null;
   toggle: () => Promise<void>;
 } {
-  const [isFavorited, setIsFavorited] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(initialValue);
 
   const {
     loading,

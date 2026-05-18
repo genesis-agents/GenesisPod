@@ -7438,7 +7438,37 @@
       "title": "本周精选周报",
       "weekRange": "{{start}} - {{end}}",
       "overviewLine": "本周共 {{candidates}} 条信号，{{topCount}} 条最高评级",
-      "narrativeProgress": "{{label}} ({{count}} 集进展)"
+      "narrativeProgress": "{{label}} ({{count}} 集进展)",
+      "subtitle": "本周精选",
+      "back": "返回主题详情",
+      "loading": "加载中…",
+      "empty": "本周尚无周报。每周日 18:00 UTC 自动生成。",
+      "overview": {
+        "topRatedSuffix": "最高评级",
+        "candidatesSuffix": "候选总数",
+        "narrativeSuffix": "延续叙事",
+        "newEntities": "本周新出现："
+      },
+      "topSignalsTitle": "TOP 10 最高评级信号",
+      "narrativesTitle": "延续叙事",
+      "narrativeEpisodes": "{{count}} 集",
+      "latestPrefix": "最新："
+    },
+    "favorites": {
+      "title": "我的收藏",
+      "back": "返回雷达列表",
+      "countSuffix": "{{count}} 条信号",
+      "loading": "加载中…",
+      "loadFailedPrefix": "加载失败：",
+      "unknownError": "未知错误",
+      "emptyTitle": "还没有收藏的信号",
+      "emptyHint": "在精选卡片右下角点击收藏按钮即可加入这里",
+      "expiredTitle": "(已过期，原始 briefing 已清理)",
+      "fromTopic": "来自「{{topic}}」",
+      "favoritedAt": "收藏于 {{date}}",
+      "whatsNext": "接下来看什么：",
+      "viewTopic": "查看主题",
+      "retry": "重试"
     }
   }
 }

@@ -48,25 +48,32 @@ export interface WeeklyBriefingView {
 
 export function useWeeklyBriefing(
   topicId: string | null,
-  week?: string,
+  week?: string
 ): {
   data: WeeklyBriefingView | null;
   loading: boolean;
   error: ApiError | null;
+  refresh: () => Promise<void>;
 } {
   const qs = week ? `?week=${week}` : '';
   const path = topicId
     ? `/api/v1/radar/topics/${topicId}/weekly-briefing${qs}`
     : '';
 
-  const { data, loading, error } = useApiGet<WeeklyBriefingView>(path, {
-    immediate: !!topicId,
-    deps: [topicId, week],
-  });
+  const { data, loading, error, refresh } = useApiGet<WeeklyBriefingView>(
+    path,
+    {
+      immediate: !!topicId,
+      deps: [topicId, week],
+    }
+  );
 
   return {
     data: data ?? null,
     loading: topicId ? loading : false,
     error,
+    refresh: async () => {
+      await refresh();
+    },
   };
 }

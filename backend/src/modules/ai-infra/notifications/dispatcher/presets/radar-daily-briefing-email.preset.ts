@@ -29,7 +29,11 @@ interface DailySignalEmailInput {
   whatsNext: string;
   signalTags: string[];
   entities: string[];
+  /** 证据 item id 列表（来自 DailySignal.evidenceItemIds，模板用 length 显示数量） */
+  evidenceItemIds: string[];
+  /** 可选：富化后的来源名单（preset 不强制 join；为空时模板不渲染 "from" 段） */
   evidenceSources?: Array<{ name: string; url?: string }>;
+  narrativeId?: string | null;
 }
 
 export interface RadarDailyBriefingEmailInput {
@@ -62,7 +66,6 @@ export class RadarDailyBriefingEmailPreset {
       ["topic", "radar_all", "global"],
       input.topicId,
     );
-    const unsubBase = `${base}/unsubscribed?token=${encodeURIComponent(token)}`;
     const ctx = {
       topic: { id: input.topicId, name: input.topicName },
       briefingDateFull: input.briefingDate,
@@ -75,9 +78,9 @@ export class RadarDailyBriefingEmailPreset {
       })),
       topicUrl: `${base}/ai-radar/topic/${input.topicId}?date=${input.briefingDate}`,
       settingsUrl: `${base}/settings/notifications`,
-      unsubscribeTopicUrl: `${unsubBase}&scope=topic`,
-      unsubscribeRadarUrl: `${unsubBase}&scope=radar_all`,
-      unsubscribeAllUrl: `${unsubBase}&scope=global`,
+      unsubscribeTopicUrl: buildUnsubUrl(base, token, "topic"),
+      unsubscribeRadarUrl: buildUnsubUrl(base, token, "radar_all"),
+      unsubscribeAllUrl: buildUnsubUrl(base, token, "global"),
     };
     let html: string;
     try {
@@ -118,4 +121,18 @@ export class RadarDailyBriefingEmailPreset {
     // 与 auth.controller / EmailService 一致
     return this.config.get<string>("FRONTEND_URL") ?? "http://localhost:3000";
   }
+}
+
+/**
+ * 用 URLSearchParams 构造退订 URL（security P1：避免拼接 token 时漏 encode 或注入额外参数）
+ */
+export function buildUnsubUrl(
+  base: string,
+  token: string,
+  scope: "topic" | "weekly" | "radar_all" | "global",
+): string {
+  const qs = new URLSearchParams();
+  qs.set("token", token);
+  qs.set("scope", scope);
+  return `${base}/unsubscribed?${qs.toString()}`;
 }

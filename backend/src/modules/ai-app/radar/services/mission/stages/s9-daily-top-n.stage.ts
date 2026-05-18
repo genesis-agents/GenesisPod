@@ -211,7 +211,11 @@ export class RadarS9DailyTopNStage implements RadarStageRunner {
     });
   }
 
-  /** B5 upsert + B10 event emit + B20 metric emit（一处集中，便于 audit） */
+  /**
+   * B5 upsert + B10 event emit（PM P1: metric emit 由 DailyBriefingGenerator 单源
+   * 发射，避免 S9 接入 pipeline 后双发邮件；B10 tier3 signal 仍由 S9 emit 因为
+   * S9 是 mission pipeline 唯一一个写入 daily briefing 的 stage 路径）
+   */
   private async persistAndEmit(input: {
     topicId: string;
     userId: string;
@@ -243,33 +247,7 @@ export class RadarS9DailyTopNStage implements RadarStageRunner {
       }
     }
 
-    // B20: metric emit（观测面板用，M2 走 EventEmitter2）
     const tier3 = input.signals.filter((s) => s.tier === 3).length;
-    const tier2 = input.signals.filter((s) => s.tier === 2).length;
-    const tier1 = input.signals.filter((s) => s.tier === 1).length;
-    const avgWhyLen =
-      input.signals.length === 0
-        ? 0
-        : Math.round(
-            input.signals.reduce(
-              (sum, s) => sum + (s.whyItMatters?.length ?? 0),
-              0,
-            ) / input.signals.length,
-          );
-    const metric: RadarBriefingGeneratedMetric = {
-      topicId: input.topicId,
-      userId: input.userId,
-      missionId: input.missionId,
-      candidatesCount: input.candidatesCount,
-      selectedCount: input.signals.length,
-      tier3Count: tier3,
-      tier2Count: tier2,
-      tier1Count: tier1,
-      avgWhyItMattersLen: avgWhyLen,
-      briefingDate: input.briefingDate.toISOString().slice(0, 10),
-    };
-    this.eventEmitter.emit(RADAR_BRIEFING_GENERATED_METRIC, metric);
-
     this.log.log(
       `[${input.missionId}] S9 briefing persisted: status=${status} selected=${input.signals.length} tier3=${tier3}`,
     );

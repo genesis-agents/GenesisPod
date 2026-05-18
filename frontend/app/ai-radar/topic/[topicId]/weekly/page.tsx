@@ -5,18 +5,25 @@
  *
  * /ai-radar/topic/:topicId/weekly[?week=YYYY-MM-DD]
  *
- * 渲染：top10 ⭐⭐⭐ 信号 + 延续叙事 narrativeMap + new entities
+ * 渲染：top10 最高评级信号 + 延续叙事 narrativeMap + new entities
  * 设计来源：daily-briefing-redesign-2026-05-18.md §4.3 + §6.2
  */
 
-import { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Calendar, Loader2, Sparkles, Star } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Star,
+} from 'lucide-react';
 
 import { useWeeklyBriefing } from '@/hooks/domain/useWeeklyBriefing';
 import { useTranslation } from '@/lib/i18n';
 import { TierBadge } from '@/components/common/badges/TierBadge';
 import { WhyItMattersCallout } from '@/components/common/callouts/WhyItMattersCallout';
+import { PageHeaderHero } from '@/components/common/page-header-hero/PageHeaderHero';
 
 export default function WeeklyBriefingPage() {
   const params = useParams<{ topicId: string }>();
@@ -24,13 +31,9 @@ export default function WeeklyBriefingPage() {
   const search = useSearchParams();
   const topicId = params?.topicId ?? null;
   const week = search?.get('week') ?? undefined;
-  const { t: _t } = useTranslation();
+  const { t } = useTranslation();
 
-  const { data, loading, error } = useWeeklyBriefing(topicId, week);
-  const [, setRetry] = useState(0);
-  useEffect(() => {
-    if (error && error.status !== 404) setRetry((n) => n + 1);
-  }, [error]);
+  const { data, loading, error, refresh } = useWeeklyBriefing(topicId, week);
 
   if (!topicId) return null;
 
@@ -42,29 +45,40 @@ export default function WeeklyBriefingPage() {
         className="mb-3 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
       >
         <ArrowLeft className="h-3 w-3" />
-        返回主题详情
+        {t('radar.weekly.back')}
       </button>
 
-      <header className="mb-6 flex flex-wrap items-center gap-3">
-        <Calendar className="h-6 w-6 text-violet-600" />
-        <h1 className="text-2xl font-semibold text-slate-800">本周精选</h1>
-        {data && (
-          <span className="text-sm text-slate-500">
-            · {data.weekStart} — {data.weekEnd}
-          </span>
-        )}
-      </header>
+      <PageHeaderHero
+        className="mb-6 !px-0 !py-0"
+        title={t('radar.weekly.subtitle')}
+        subtitle={data ? `${data.weekStart} — ${data.weekEnd}` : undefined}
+        icon={<Calendar className="h-7 w-7 text-white" aria-hidden="true" />}
+      />
 
       {loading && (
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          加载中…
+          {t('radar.weekly.loading')}
+        </div>
+      )}
+
+      {error && error.status !== 404 && (
+        <div className="mb-4 flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{error.message}</span>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="inline-flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
+          >
+            <RefreshCw className="h-3 w-3" />
+            {t('radar.favorites.retry')}
+          </button>
         </div>
       )}
 
       {!loading && !data && (
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-10 text-center text-sm text-slate-500">
-          本周尚无周报。每周日 18:00 UTC 自动生成。
+          {t('radar.weekly.empty')}
         </div>
       )}
 
@@ -75,21 +89,32 @@ export default function WeeklyBriefingPage() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600">
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-flex items-center text-violet-600">
-                  <Star className="h-3 w-3 fill-violet-600" aria-hidden="true" />
-                  <Star className="h-3 w-3 fill-violet-600" aria-hidden="true" />
-                  <Star className="h-3 w-3 fill-violet-600" aria-hidden="true" />
+                  <Star
+                    className="h-3 w-3 fill-violet-600"
+                    aria-hidden="true"
+                  />
+                  <Star
+                    className="h-3 w-3 fill-violet-600"
+                    aria-hidden="true"
+                  />
+                  <Star
+                    className="h-3 w-3 fill-violet-600"
+                    aria-hidden="true"
+                  />
                 </span>
-                <span className="font-semibold">
-                  {data.payload.tier3Count}
+                <span className="font-semibold">{data.payload.tier3Count}</span>
+                <span className="text-xs text-slate-400">
+                  {t('radar.weekly.overview.topRatedSuffix')}
                 </span>
-                <span className="text-xs text-slate-400">最高评级</span>
               </span>
               <span className="text-slate-300">·</span>
               <span>
                 <span className="font-semibold">
                   {data.payload.candidatesTotal}
                 </span>
-                <span className="ml-1 text-xs text-slate-400">候选总数</span>
+                <span className="ml-1 text-xs text-slate-400">
+                  {t('radar.weekly.overview.candidatesSuffix')}
+                </span>
               </span>
               {data.payload.narrativeMap.length > 0 && (
                 <>
@@ -99,7 +124,7 @@ export default function WeeklyBriefingPage() {
                       {data.payload.narrativeMap.length}
                     </span>
                     <span className="ml-1 text-xs text-slate-400">
-                      延续叙事
+                      {t('radar.weekly.overview.narrativeSuffix')}
                     </span>
                   </span>
                 </>
@@ -110,7 +135,7 @@ export default function WeeklyBriefingPage() {
               <div className="mt-3 flex flex-wrap items-center gap-1.5">
                 <Sparkles className="h-3 w-3 text-amber-500" />
                 <span className="mr-1 text-xs font-medium text-slate-700">
-                  本周新出现：
+                  {t('radar.weekly.overview.newEntities')}
                 </span>
                 {data.payload.newEntities.slice(0, 10).map((entity) => (
                   <span
@@ -127,8 +152,22 @@ export default function WeeklyBriefingPage() {
           {/* TOP 10 signals */}
           {data.payload.topSignals.length > 0 && (
             <section>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                TOP 10 ⭐⭐⭐ 信号
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                <span className="inline-flex items-center text-violet-600">
+                  <Star
+                    className="h-3 w-3 fill-violet-600"
+                    aria-hidden="true"
+                  />
+                  <Star
+                    className="h-3 w-3 fill-violet-600"
+                    aria-hidden="true"
+                  />
+                  <Star
+                    className="h-3 w-3 fill-violet-600"
+                    aria-hidden="true"
+                  />
+                </span>
+                {t('radar.weekly.topSignalsTitle')}
               </h2>
               <div className="space-y-4">
                 {data.payload.topSignals.slice(0, 10).map((s, idx) => (
@@ -172,7 +211,7 @@ export default function WeeklyBriefingPage() {
           {data.payload.narrativeMap.length > 0 && (
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-                延续叙事
+                {t('radar.weekly.narrativesTitle')}
               </h2>
               <div className="space-y-3">
                 {data.payload.narrativeMap.map((n) => (
@@ -185,11 +224,15 @@ export default function WeeklyBriefingPage() {
                         {n.label}
                       </span>
                       <span className="text-xs text-slate-400">
-                        · {n.episodes.length} 集
+                        ·{' '}
+                        {t('radar.weekly.narrativeEpisodes', {
+                          count: n.episodes.length,
+                        })}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-slate-600">
-                      最新：{n.latestTitle}
+                      {t('radar.weekly.latestPrefix')}
+                      {n.latestTitle}
                     </p>
                   </div>
                 ))}

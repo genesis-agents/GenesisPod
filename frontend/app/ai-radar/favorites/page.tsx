@@ -13,15 +13,19 @@ import {
   ArrowRight,
   Bookmark,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 
 import { useFavoritesList } from '@/hooks/domain/useFavoritesList';
+import { useTranslation } from '@/lib/i18n';
 import { TierBadge } from '@/components/common/badges/TierBadge';
 import { WhyItMattersCallout } from '@/components/common/callouts/WhyItMattersCallout';
+import { PageHeaderHero } from '@/components/common/page-header-hero/PageHeaderHero';
 
 export default function RadarFavoritesPage() {
   const router = useRouter();
-  const { data, loading, error } = useFavoritesList(100);
+  const { t } = useTranslation();
+  const { data, loading, error, refresh } = useFavoritesList(100);
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
@@ -31,37 +35,47 @@ export default function RadarFavoritesPage() {
         className="mb-3 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
       >
         <ArrowLeft className="h-3 w-3" />
-        返回雷达列表
+        {t('radar.favorites.back')}
       </button>
 
-      <header className="mb-6 flex flex-wrap items-center gap-3">
-        <Bookmark className="h-6 w-6 text-violet-600" aria-hidden="true" />
-        <h1 className="text-2xl font-semibold text-slate-800">我的收藏</h1>
-        <span className="text-sm text-slate-500">
-          · {data.length} 条信号
-        </span>
-      </header>
+      <PageHeaderHero
+        className="mb-6 !px-0 !py-0"
+        title={t('radar.favorites.title')}
+        subtitle={t('radar.favorites.countSuffix', { count: data.length })}
+        icon={<Bookmark className="h-7 w-7 text-white" aria-hidden="true" />}
+      />
 
       {loading && (
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
-          加载中…
+          {t('radar.favorites.loading')}
         </div>
       )}
 
       {!loading && error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          加载失败：{error.message ?? '未知错误'}
+        <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>
+            {t('radar.favorites.loadFailedPrefix')}
+            {error.message ?? t('radar.favorites.unknownError')}
+          </span>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="inline-flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
+          >
+            <RefreshCw className="h-3 w-3" />
+            {t('radar.favorites.retry')}
+          </button>
         </div>
       )}
 
       {!loading && !error && data.length === 0 && (
         <div className="rounded-xl border border-gray-100 bg-gray-50 p-10 text-center">
           <p className="text-base font-medium text-slate-600">
-            还没有收藏的信号
+            {t('radar.favorites.emptyTitle')}
           </p>
           <p className="mt-1 text-sm text-slate-400">
-            在精选卡片右下角点击收藏按钮即可加入这里
+            {t('radar.favorites.emptyHint')}
           </p>
         </div>
       )}
@@ -83,6 +97,7 @@ function FavoriteCard({
   fav: ReturnType<typeof useFavoritesList>['data'][number];
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const expired = fav.signal === null;
 
   return (
@@ -95,11 +110,13 @@ function FavoriteCard({
         <div className="flex flex-wrap items-center gap-2">
           {fav.signal && <TierBadge tier={fav.signal.tier} size="sm" />}
           <h2 className="text-base font-semibold text-slate-800">
-            {fav.signal?.title ?? '(已过期，原始 briefing 已清理)'}
+            {fav.signal?.title ?? t('radar.favorites.expiredTitle')}
           </h2>
         </div>
         <div className="flex flex-col items-end gap-0.5 text-xs text-slate-400">
-          <span>来自「{fav.topicName}」</span>
+          <span>
+            {t('radar.favorites.fromTopic', { topic: fav.topicName })}
+          </span>
           {fav.briefingDate && <span>{fav.briefingDate}</span>}
         </div>
       </div>
@@ -121,7 +138,7 @@ function FavoriteCard({
           {fav.signal.whatsNext && (
             <p className="mt-2 text-sm text-slate-600">
               <span className="mr-1 font-medium text-slate-700">
-                接下来看什么：
+                {t('radar.favorites.whatsNext')}
               </span>
               {fav.signal.whatsNext}
             </p>
@@ -130,17 +147,21 @@ function FavoriteCard({
       )}
 
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-400">
-        <span>收藏于 {formatDate(fav.favoritedAt)}</span>
+        <span>
+          {t('radar.favorites.favoritedAt', {
+            date: formatDate(fav.favoritedAt),
+          })}
+        </span>
         <button
           type="button"
           onClick={() =>
             router.push(
-              `/ai-radar/topic/${fav.topicId}${fav.briefingDate ? `?date=${fav.briefingDate}` : ''}`,
+              `/ai-radar/topic/${fav.topicId}${fav.briefingDate ? `?date=${fav.briefingDate}` : ''}`
             )
           }
           className="inline-flex items-center gap-1 text-violet-600 hover:underline"
         >
-          查看主题
+          {t('radar.favorites.viewTopic')}
           <ArrowRight className="h-3 w-3" />
         </button>
       </div>

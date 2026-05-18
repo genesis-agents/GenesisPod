@@ -264,6 +264,7 @@ export class RadarRefreshScheduler {
           oneLineTakeaway: s.oneLineTakeaway,
           whyItMatters: s.whyItMatters,
           sourceBriefingDate: s.sourceBriefingDate,
+          evidenceItemIds: s.evidenceItemIds ?? [],
         }));
         void this.weeklyEmailPreset
           .notify({
@@ -413,7 +414,8 @@ export class RadarRefreshScheduler {
     const [topic, user, briefing] = await Promise.all([
       this.prisma.radarTopic.findUnique({
         where: { id: metric.topicId },
-        select: { id: true, name: true },
+        // PM P1: 拉 briefingTime（之前 hardcode 08:00 导致 06:30 用户收到邮件却显示 08:00）
+        select: { id: true, name: true, briefingTime: true },
       }),
       this.prisma.user.findUnique({
         where: { id: metric.userId },
@@ -442,7 +444,7 @@ export class RadarRefreshScheduler {
         topicId: metric.topicId,
         topicName: topic.name,
         briefingDate: metric.briefingDate,
-        briefingTime: "08:00", // user.briefingTime 字段在 RadarTopic 上，从 briefing 反查不到；用默认（template 仅展示用）
+        briefingTime: topic.briefingTime ?? "08:00",
         candidatesCount: metric.candidatesCount,
         signals: signals.map((s) => ({
           id: s.id,
@@ -453,6 +455,8 @@ export class RadarRefreshScheduler {
           whatsNext: s.whatsNext,
           signalTags: s.signalTags ?? [],
           entities: s.entities ?? [],
+          evidenceItemIds: s.evidenceItemIds ?? [],
+          narrativeId: s.narrativeId ?? null,
         })),
       })
       .catch((err: Error) =>
@@ -536,6 +540,8 @@ interface DailySignalEmailLike {
   whatsNext: string;
   signalTags?: string[];
   entities?: string[];
+  evidenceItemIds?: string[];
+  narrativeId?: string | null;
 }
 
 interface WeeklyEmailPayload {
@@ -546,6 +552,7 @@ interface WeeklyEmailPayload {
     oneLineTakeaway: string;
     whyItMatters: string;
     sourceBriefingDate: string;
+    evidenceItemIds?: string[];
   }>;
   candidatesTotal?: number;
   narrativeMap?: unknown[];
