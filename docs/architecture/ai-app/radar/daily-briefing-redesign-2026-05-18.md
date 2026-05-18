@@ -2338,9 +2338,9 @@ R4 评审时间：2026-05-18（R3 整改后）
 | B9  | onTier3Signal `@OnEvent`（Redis INCR ≤3/天 + channelSubscriptions 双 gate）                                         | ❌   | —           |
 | B10 | EventEmitter 'radar.briefing.signal.created' 在 S9 写入后 emit                                                      | ❌   | —           |
 | B11 | NotificationDispatcher 集成（RADAR_DAILY/WEEKLY/TIER3_INSTANT）                                                     | ❌   | —           |
-| B12 | Email 模板 radar-daily-briefing.{zh,en}.hbs（4 层 Smart Brevity）                                                   | ❌   | —           |
-| B13 | Email 模板 radar-weekly-briefing.{zh,en}.hbs（top10 + narrativeMap）                                                | ❌   | —           |
-| B14 | Handlebars helpers（扩展既有 template-render.tool.ts）：urlEncode/truncate/tierBadge/detailUrl/evidenceSources/join | ❌   | —           |
+| B12 | Email 模板 radar-daily-briefing.{zh,en}.hbs（4 层 Smart Brevity）                                                   | ✅   | `0de0d3926` |
+| B13 | Email 模板 radar-weekly-briefing.{zh,en}.hbs（top10 + narrativeMap）                                                | ✅   | `0de0d3926` |
+| B14 | Handlebars helpers（扩展既有 template-render.tool.ts）：urlEncode/truncate/tierBadge/detailUrl/evidenceSources/join | ✅   | `0de0d3926` |
 | B15 | Narrative API `GET /api/v1/radar/topics/:topicId/narratives/:narrativeId`                                           | ❌   | —           |
 | B16 | Favorite API + UserFavorite 表（B3 Phase 1）                                                                        | ❌   | —           |
 | B17 | 退订 scope=topic 扩展                                                                                               | ❌   | —           |
