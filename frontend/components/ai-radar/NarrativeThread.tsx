@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Newspaper } from 'lucide-react';
 
 export interface NarrativeEpisode {
   date: string; // YYYY-MM-DD
@@ -35,8 +36,9 @@ export function NarrativeThread({
     <div className="flex flex-col gap-1.5 py-1.5">
       {/* Header: label + episode count + prev link */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-medium text-slate-700">
-          📰 {label} · 第 {episodeNumber} 集
+        <span className="inline-flex items-center gap-1 font-medium text-slate-700">
+          <Newspaper className="h-4 w-4" aria-hidden="true" />
+          {label} · 第 {episodeNumber} 集
         </span>
         <Link
           href={`/ai-radar/topic/${topicId}/narrative/${narrativeId}`}

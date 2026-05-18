@@ -1,5 +1,15 @@
-import { Controller, Get, Query, BadRequestException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Query,
+  BadRequestException,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  RateLimit,
+  RateLimitGuard,
+} from "../../../common/guards/rate-limit.guard";
 import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
 
 /**
@@ -15,9 +25,13 @@ import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service
 @ApiTags("notifications")
 // 注：AppModule 全局 setGlobalPrefix('api/v1') 自动加前缀，本 Controller 不重复
 @Controller("notifications/unsubscribe")
+@UseGuards(RateLimitGuard)
 export class UnsubscribeController {
   constructor(private readonly tokens: UnsubscribeTokenService) {}
 
+  // PR-DR2 P1-B (X8 安全评审整改) — 防 token brute-force / DoS
+  // anonymous endpoint，windowSeconds=60 + maxRequests=10（约 1 次/6 秒）
+  @RateLimit({ maxRequests: 10, windowSeconds: 60 })
   @Get()
   @ApiOperation({ summary: "三级退订（token-only auth，无需登录）" })
   async unsubscribe(@Query("token") token?: string): Promise<{

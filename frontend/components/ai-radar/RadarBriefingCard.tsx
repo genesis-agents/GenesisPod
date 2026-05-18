@@ -1,7 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import {
+  BookOpen,
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  Compass,
+  ExternalLink,
+  Radio,
+  Zap,
+} from 'lucide-react';
 
 import { TierBadge } from '@/components/common/badges/TierBadge';
 import { WhyItMattersCallout } from '@/components/common/callouts/WhyItMattersCallout';
@@ -82,9 +91,12 @@ export function RadarBriefingCard({
       </div>
 
       {/* One-line takeaway */}
-      <p className="text-sm font-medium text-slate-700">
-        <span className="mr-1">⚡</span>
-        {signal.oneLineTakeaway}
+      <p className="inline-flex items-start gap-1.5 text-sm font-medium text-slate-700">
+        <Zap
+          className="mt-0.5 h-4 w-4 shrink-0 text-amber-500"
+          aria-hidden="true"
+        />
+        <span>{signal.oneLineTakeaway}</span>
       </p>
 
       {/* Why it matters */}
@@ -93,17 +105,26 @@ export function RadarBriefingCard({
       </WhyItMattersCallout>
 
       {/* What's next */}
-      <p className="text-sm text-slate-600">
-        <span className="mr-1 font-medium text-slate-700">
-          🔮 接下来看什么：
+      <p className="inline-flex items-start gap-1.5 text-sm text-slate-600">
+        <Compass
+          className="mt-0.5 h-4 w-4 shrink-0 text-violet-500"
+          aria-hidden="true"
+        />
+        <span>
+          <span className="mr-1 font-medium text-slate-700">
+            接下来看什么：
+          </span>
+          {signal.whatsNext}
         </span>
-        {signal.whatsNext}
       </p>
 
       {/* Signal tags */}
       {visibleTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-0.5 text-xs text-slate-400">📡</span>
+          <Radio
+            className="mr-0.5 h-3 w-3 text-slate-400"
+            aria-hidden="true"
+          />
           {visibleTags.map((tag) => (
             <span
               key={tag}
@@ -118,7 +139,10 @@ export function RadarBriefingCard({
       {/* Entities */}
       {visibleEntities.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-0.5 text-xs text-slate-400">🏢</span>
+          <Building2
+            className="mr-0.5 h-3 w-3 text-slate-400"
+            aria-hidden="true"
+          />
           {visibleEntities.map((entity) => (
             <span
               key={entity}
@@ -143,7 +167,10 @@ export function RadarBriefingCard({
       {/* Evidence sources */}
       {evidenceSources && evidenceSources.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-medium text-slate-500">📚 证据来源</p>
+          <p className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
+            <BookOpen className="h-3 w-3" aria-hidden="true" />
+            证据来源
+          </p>
 
           {/* First source always visible */}
           {firstSource && <EvidenceRow source={firstSource} />}

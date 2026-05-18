@@ -20,6 +20,10 @@ import {
 } from "@nestjs/common";
 import { IsString, IsUUID } from "class-validator";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
+import {
+  RateLimit,
+  RateLimitGuard,
+} from "../../../../common/guards/rate-limit.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import { FavoriteService } from "../services/briefing/favorite.service";
 
@@ -30,11 +34,13 @@ class ToggleFavoriteDto {
   topicId!: string;
 }
 
-@Controller("api/v1/radar")
-@UseGuards(JwtAuthGuard)
+@Controller("radar")
+@UseGuards(JwtAuthGuard, RateLimitGuard)
 export class FavoriteController {
   constructor(private readonly svc: FavoriteService) {}
 
+  // PR-DR2 P1-B (X8 安全评审整改) — 防止 toggle 滥用 DB 写
+  @RateLimit({ maxRequests: 30, windowSeconds: 60 })
   @Post("favorites/toggle")
   async toggle(
     @Request() req: RequestWithUser,

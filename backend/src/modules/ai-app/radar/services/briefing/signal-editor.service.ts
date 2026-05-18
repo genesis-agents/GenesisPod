@@ -39,10 +39,11 @@ const SignalTagSchema = z.enum(SIGNAL_TAG_VALUES);
 const LlmSignalSchema = z
   .object({
     tier: z.union([z.literal(1), z.literal(2), z.literal(3)]),
-    title: z.string().trim().min(1).max(120),
-    oneLineTakeaway: z.string().trim().min(1).max(80),
-    whyItMatters: z.string().trim().min(1).max(300),
-    whatsNext: z.string().trim().min(1).max(120),
+    // PR-DR2 P1-F (X8 PM 评审整改) — 收紧到设计 §4.2 契约（30/150/60，title 80）
+    title: z.string().trim().min(1).max(80),
+    oneLineTakeaway: z.string().trim().min(1).max(30),
+    whyItMatters: z.string().trim().min(1).max(150),
+    whatsNext: z.string().trim().min(1).max(60),
     signalTags: z.array(SignalTagSchema).min(1).max(3),
     entities: z.array(z.string().trim().min(1)).max(8),
     evidenceItemIds: z.array(z.string().trim().min(1)).min(1).max(5),
@@ -236,7 +237,14 @@ export class SignalEditorService {
 }
 
 function xmlEscape(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // PR-DR2 P1-A (X8 安全评审整改) — 补 " 和 ' 转义（防御深度，
+  // 即使外层 JSON.stringify 再次 escape，也确保 K1 prompt injection 边界完整）
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function truncate(s: string, max: number): string {

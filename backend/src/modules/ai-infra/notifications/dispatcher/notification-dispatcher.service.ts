@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import {
   DispatchChannelResult,
   DispatchOptions,
@@ -51,6 +52,7 @@ export class NotificationDispatcher {
     private readonly preferenceService: NotificationPreferenceService,
     private readonly channelResolver: ChannelResolver,
     private readonly quotaService: DispatcherQuotaService,
+    private readonly prisma: PrismaService,
     @Optional() @Inject("EMAIL_CHANNEL") emailChannel?: INotificationChannel,
     @Optional() @Inject("WECHAT_CHANNEL") wechatChannel?: INotificationChannel,
     @Optional()
@@ -97,6 +99,28 @@ export class NotificationDispatcher {
     payload: DispatchPayload,
     options?: DispatchOptions,
   ): Promise<DispatchResult> {
+    // PR-DR2 P0-10 (X8 PM 评审整改) — per-topic 退订 gate
+    // payload.metadata.topicId 存在 → 查 RadarTopicSubscription，
+    // status='unsubscribed' 则整体跳过（所有 channel）
+    const topicId = (payload.metadata as { topicId?: string })?.topicId;
+    if (topicId && this.isRadarType(payload.type)) {
+      const isUnsubscribed = await this.checkPerTopicUnsubscribe(
+        userId,
+        topicId,
+      );
+      if (isUnsubscribed) {
+        this.log.debug(
+          `dispatch skipped per-topic unsubscribe: user=${userId} topic=${topicId} type=${payload.type}`,
+        );
+        return {
+          userId,
+          type: payload.type,
+          results: [],
+          delivered: false,
+        };
+      }
+    }
+
     const preference = await this.preferenceService.get(userId);
     const targets = await this.channelResolver.resolve(
       userId,
@@ -145,6 +169,36 @@ export class NotificationDispatcher {
     return Promise.all(
       userIds.map((uid) => this.dispatch(uid, payload, options)),
     );
+  }
+
+  /**
+   * PR-DR2 P0-10 helper：判断该 type 是否为 radar 通知（per-topic 退订只对 radar 系生效）
+   */
+  private isRadarType(type: string): boolean {
+    return type.startsWith("RADAR_");
+  }
+
+  /**
+   * PR-DR2 P0-10 helper：查询用户对该 topic 是否退订
+   * 注：直接 Prisma 查 RadarTopicSubscription（共享 schema 表，非 ai-app 内部 service），
+   * 不违反 ai-infra→ai-app 反向依赖（无 import）
+   */
+  private async checkPerTopicUnsubscribe(
+    userId: string,
+    topicId: string,
+  ): Promise<boolean> {
+    try {
+      const sub = await this.prisma.radarTopicSubscription.findUnique({
+        where: { userId_topicId: { userId, topicId } },
+        select: { status: true },
+      });
+      return sub?.status === "unsubscribed";
+    } catch (err) {
+      this.log.warn(
+        `checkPerTopicUnsubscribe failed (fail-open): ${(err as Error).message}`,
+      );
+      return false;
+    }
   }
 
   private async sendSafe(

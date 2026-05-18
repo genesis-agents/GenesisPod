@@ -1,19 +1,23 @@
 'use client';
 
-import { RefreshCw } from 'lucide-react';
+import { Calendar, RefreshCw } from 'lucide-react';
 
 import { RadarBriefingCard, type DailySignalView } from './RadarBriefingCard';
 import { RadarBriefingSkeleton } from './RadarBriefingSkeleton';
 import { RadarBriefingEmptyState } from './RadarBriefingEmptyState';
+import { RadarBriefingErrorState } from './RadarBriefingErrorState';
 
 export interface RadarBriefingPanelProps {
   briefingDate: string;
-  status: 'completed' | 'no_signals' | 'generating';
+  status: 'completed' | 'no_signals' | 'generating' | 'error';
   signals: DailySignalView[];
   topicId: string;
   topicName: string;
   onRerun?: () => void;
   rerunCount?: number;
+  onRetry?: () => void;
+  favoritedIds?: Set<string>;
+  onToggleFavorite?: (signalId: string) => Promise<void>;
 }
 
 function formatBriefingDate(dateStr: string): string {
@@ -31,6 +35,9 @@ export function RadarBriefingPanel({
   topicName,
   onRerun,
   rerunCount = 0,
+  onRetry,
+  favoritedIds,
+  onToggleFavorite,
 }: RadarBriefingPanelProps) {
   const canRerun = (rerunCount ?? 0) < 2;
   const formattedDate = formatBriefingDate(briefingDate);
@@ -42,8 +49,8 @@ export function RadarBriefingPanel({
     <section className="flex flex-col gap-6">
       {/* Panel header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold text-slate-800 md:text-xl">
-          <span className="mr-1">📅</span>
+        <h1 className="inline-flex items-center gap-1.5 text-lg font-semibold text-slate-800 md:text-xl">
+          <Calendar className="h-5 w-5 text-violet-600" aria-hidden="true" />
           {formattedDate} · 今日精选
         </h1>
 
@@ -75,6 +82,8 @@ export function RadarBriefingPanel({
         </div>
       )}
 
+      {status === 'error' && <RadarBriefingErrorState onRetry={onRetry} />}
+
       {showEmpty && <RadarBriefingEmptyState />}
 
       {status === 'completed' && signals.length > 0 && (
@@ -87,6 +96,12 @@ export function RadarBriefingPanel({
               topicId={topicId}
               topicName={topicName}
               detailUrl={`/ai-radar/topic/${topicId}/signal/${signal.id}`}
+              isFavorited={favoritedIds?.has(signal.id)}
+              onFavorite={
+                onToggleFavorite
+                  ? () => onToggleFavorite(signal.id)
+                  : undefined
+              }
             />
           ))}
         </div>

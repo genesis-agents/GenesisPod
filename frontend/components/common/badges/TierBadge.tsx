@@ -1,5 +1,7 @@
 'use client';
 
+import { Star } from 'lucide-react';
+
 interface TierBadgeProps {
   tier?: 1 | 2 | 3 | null;
   size?: 'sm' | 'md' | 'lg';
@@ -7,35 +9,31 @@ interface TierBadgeProps {
 }
 
 const TIER_CONFIG = {
-  3: { stars: '⭐⭐⭐', colorClass: 'text-violet-600' },
-  2: { stars: '⭐⭐', colorClass: 'text-blue-500' },
-  1: { stars: '⭐', colorClass: 'text-slate-500' },
+  3: { count: 3, colorClass: 'text-violet-600 fill-violet-600' },
+  2: { count: 2, colorClass: 'text-blue-500 fill-blue-500' },
+  1: { count: 1, colorClass: 'text-slate-500 fill-slate-500' },
 } as const;
 
-const SIZE_CLASS = {
-  sm: 'text-xs',
-  md: 'text-sm',
-  lg: 'text-base',
+const ICON_SIZE = {
+  sm: 'h-3 w-3',
+  md: 'h-3.5 w-3.5',
+  lg: 'h-4 w-4',
 } as const;
-
-let _warnedNullTier = false;
 
 export function TierBadge({ tier, size = 'md', className }: TierBadgeProps) {
-  if (tier == null) {
-    if (!_warnedNullTier) {
-      console.warn('[TierBadge] tier is null or undefined — not rendering');
-      _warnedNullTier = true;
-    }
-    return null;
-  }
+  if (tier == null) return null;
 
-  const { stars, colorClass } = TIER_CONFIG[tier];
+  const { count, colorClass } = TIER_CONFIG[tier];
+  const iconClass = ICON_SIZE[size];
   return (
     <span
-      className={`inline-flex items-center font-medium ${colorClass} ${SIZE_CLASS[size]} ${className ?? ''}`}
+      className={`inline-flex items-center gap-0.5 ${colorClass} ${className ?? ''}`}
       aria-label={`Tier ${tier}`}
+      role="img"
     >
-      {stars}
+      {Array.from({ length: count }).map((_, i) => (
+        <Star key={i} className={iconClass} aria-hidden="true" />
+      ))}
     </span>
   );
 }

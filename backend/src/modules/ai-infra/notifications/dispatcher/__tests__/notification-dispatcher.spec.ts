@@ -1,11 +1,19 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotificationType } from "@prisma/client";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { NotificationDispatcher } from "../notification-dispatcher.service";
 import { DispatcherQuotaService } from "../dispatcher-quota.service";
 import { SiteChannel } from "../channels/site-channel.adapter";
 import { ChannelResolver } from "../preferences/channel-resolver";
 import { NotificationPreferenceService } from "../preferences/notification-preference.service";
 import { NotificationService } from "../../notification.service";
+
+// PR-DR2 P0-10 — dispatcher 现需 PrismaService 查 per-topic 退订
+const prismaMock = {
+  radarTopicSubscription: {
+    findUnique: jest.fn().mockResolvedValue(null),
+  },
+} as unknown as PrismaService;
 import {
   ChannelCapabilities,
   DispatchPayload,
@@ -99,6 +107,8 @@ describe("NotificationDispatcher", () => {
             })),
           },
         },
+        // PR-DR2 P0-10 — per-topic 退订查询
+        { provide: PrismaService, useValue: prismaMock },
       ],
     }).compile();
 
@@ -227,6 +237,7 @@ describe("NotificationDispatcher", () => {
         {
           check: jest.fn().mockResolvedValue({ allowed: true, remaining: 50 }),
         } as unknown as DispatcherQuotaService,
+        prismaMock,
         goodEmail,
       );
 
@@ -268,6 +279,7 @@ describe("NotificationDispatcher", () => {
         {
           check: jest.fn().mockResolvedValue({ allowed: true, remaining: 50 }),
         } as unknown as DispatcherQuotaService,
+        prismaMock,
       );
       const result = await tmpDispatcher.dispatch(userId, basePayload);
       const failed = result.results.find((r) => r.channel === "site");
@@ -285,6 +297,7 @@ describe("NotificationDispatcher", () => {
         {
           check: jest.fn().mockResolvedValue({ allowed: true, remaining: 200 }),
         } as unknown as DispatcherQuotaService,
+        prismaMock,
       );
 
       const result = await tmpDispatcher.dispatch(userId, basePayload);

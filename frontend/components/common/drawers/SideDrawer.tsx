@@ -21,8 +21,9 @@ class DrawerErrorBoundary extends Component<{ children: ReactNode }, EBState> {
   static getDerivedStateFromError(): EBState {
     return { hasError: true };
   }
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.warn('[SideDrawer] children threw:', error, info);
+  componentDidCatch(_error: Error, _info: ErrorInfo) {
+    // 静默吞错 — 让 fallback UI 接管；上层应用如需上报错误，
+    // 在 children 内自行包 ErrorBoundary（避免 common 组件强耦合 logger）
   }
   render() {
     if (this.state.hasError) {

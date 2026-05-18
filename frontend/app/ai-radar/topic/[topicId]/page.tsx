@@ -280,19 +280,8 @@ export default function RadarTopicDetailPage() {
     entityType: topic.entityType,
   };
 
-  // Map briefing signals to DailySignalView
-  const signals: DailySignalView[] = (briefing?.signals ?? []).map((s) => ({
-    id: s.signalId,
-    tier: s.tier,
-    title: s.title,
-    oneLineTakeaway: s.summary ?? '',
-    whyItMatters: '',
-    whatsNext: '',
-    signalTags: [],
-    entities: [],
-    evidenceItemIds: [],
-    narrativeId: s.narrativeId,
-  }));
+  // Map briefing signals — hook 已返回 4 层完整字段（P0-11 修复后）
+  const signals: DailySignalView[] = briefing?.signals ?? [];
 
   const briefingStatus = briefingLoading
     ? 'generating'

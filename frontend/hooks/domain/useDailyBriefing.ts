@@ -3,10 +3,15 @@ import { useApiGet } from '@/hooks/core';
 import type { ApiError } from '@/lib/api/client';
 
 export interface DailySignalView {
-  signalId: string;
-  title: string;
-  summary?: string;
+  id: string;
   tier: 1 | 2 | 3;
+  title: string;
+  oneLineTakeaway: string;
+  whyItMatters: string;
+  whatsNext: string;
+  signalTags: string[];
+  entities: string[];
+  evidenceItemIds: string[];
   narrativeId?: string;
 }
 

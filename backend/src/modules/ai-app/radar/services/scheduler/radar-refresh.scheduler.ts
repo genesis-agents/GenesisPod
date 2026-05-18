@@ -29,7 +29,9 @@ import { RadarWeeklyBriefingService } from "../briefing/radar-weekly-briefing.se
 import { NotificationDispatcher } from "@/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
 import { NotificationPreferenceService } from "@/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
 import {
+  RADAR_BRIEFING_GENERATED_METRIC,
   RADAR_BRIEFING_SIGNAL_CREATED_EVENT,
+  type RadarBriefingGeneratedMetric,
   type RadarBriefingSignalCreatedEvent,
 } from "../mission/stages/s9-daily-top-n.stage";
 import { CacheService } from "@/common/cache/cache.service";
@@ -170,7 +172,8 @@ export class RadarRefreshScheduler {
             `sweepDailyBriefing enqueued: topic=${topic.id} jobId=${result.jobId} date=${briefingDateStr}`,
           );
         }
-        // TODO: RADAR_DAILY dispatch — 在 daily worker 完成后调用（后续 PR 接入）
+        // RADAR_DAILY dispatch 由 onDailyBriefingGenerated @OnEvent 在
+        // S9 持久化后接力触发（不在 enqueue 路径），保证只在有 signals 时 dispatch
       } catch (err) {
         this.log.error(
           `sweepDailyBriefing topic=${topic.id} error: ${(err as Error).message}`,
@@ -306,9 +309,10 @@ export class RadarRefreshScheduler {
       return;
     }
 
-    // Redis INCR 频率闸：每 topic 每天 ≤3 条
+    // Redis INCR 频率闸：每 user+topic 每天 ≤3 条
+    // PR-DR2 P1-C (X8 安全评审整改) — 加 userId 段防共享 topic 串扰
     const today = new Date().toISOString().slice(0, 10);
-    const rateLimitKey = `radar:tier3:${topicId}:${today}`;
+    const rateLimitKey = `radar:tier3:${userId}:${topicId}:${today}`;
     let count: number;
     try {
       count = await this.cache.incrby(rateLimitKey, 1);
@@ -351,6 +355,52 @@ export class RadarRefreshScheduler {
           `RADAR_TIER3_INSTANT dispatch failed user=${userId} signal=${signal.id}: ${err.message}`,
         ),
       );
+  }
+
+  /**
+   * P0-9 (X8 PM 评审整改) — RADAR_DAILY dispatch
+   *
+   * S9 持久化 daily briefing 后通过 EventEmitter2 触发
+   * `radar.briefing.generated` metric 事件；这里 listen 之后
+   * 调用 NotificationDispatcher dispatch RADAR_DAILY（仅 selectedCount>0
+   * 时发送，no_signals 不打扰）。
+   *
+   * 守门：dispatcher 内部走偏好 + DispatcherQuota（fail-open），
+   * 这里只负责"有内容才推送"。
+   */
+  @OnEvent(RADAR_BRIEFING_GENERATED_METRIC)
+  async onDailyBriefingGenerated(
+    metric: RadarBriefingGeneratedMetric,
+  ): Promise<void> {
+    if (metric.selectedCount === 0) {
+      this.log.debug(
+        `onDailyBriefingGenerated skip dispatch — no signals: topic=${metric.topicId}`,
+      );
+      return;
+    }
+
+    void this.notificationDispatcher
+      .dispatch(metric.userId, {
+        type: "RADAR_DAILY",
+        title: "今日精选已就绪",
+        message: `今日共 ${metric.selectedCount} 条精选（⭐⭐⭐ ${metric.tier3Count} / ⭐⭐ ${metric.tier2Count} / ⭐ ${metric.tier1Count}）`,
+        link: `/ai-radar/topic/${metric.topicId}?date=${metric.briefingDate}`,
+        metadata: {
+          topicId: metric.topicId,
+          briefingDate: metric.briefingDate,
+          selectedCount: metric.selectedCount,
+          tier3Count: metric.tier3Count,
+        },
+      })
+      .catch((err: Error) =>
+        this.log.warn(
+          `RADAR_DAILY dispatch failed topic=${metric.topicId}: ${err.message}`,
+        ),
+      );
+
+    this.log.log(
+      `onDailyBriefingGenerated dispatched RADAR_DAILY: topic=${metric.topicId} signals=${metric.selectedCount}`,
+    );
   }
 
   /**
