@@ -396,7 +396,7 @@ function PushTab({
         <p className="text-xs text-gray-500">
           将使用账户级推送设置。
           <a
-            href="/settings/notifications"
+            href="/profile?tab=notifications"
             className="ml-1 text-cyan-600 hover:underline"
           >
             前往账户设置调整 →

@@ -22,6 +22,7 @@ import { GoogleDriveConnectionCard } from '@/components/library/integrations/goo
 import { FeishuBindingCard } from '@/components/library/integrations/feishu/FeishuBindingCard';
 import ClientDate from '@/components/common/ClientDate';
 import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
+import { NotificationPreferencesView } from '@/components/settings/NotificationPreferencesView';
 
 import { logger } from '@/lib/utils/logger';
 interface UserStats {
@@ -60,9 +61,14 @@ function ProfileContent() {
     }
   }
   const initialTab =
-    (rawTab as 'profile' | 'settings' | 'stats' | 'integrations') || 'profile';
+    (rawTab as
+      | 'profile'
+      | 'settings'
+      | 'notifications'
+      | 'stats'
+      | 'integrations') || 'profile';
   const [activeTab, setActiveTab] = useState<
-    'profile' | 'settings' | 'stats' | 'integrations'
+    'profile' | 'settings' | 'notifications' | 'stats' | 'integrations'
   >(initialTab);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -365,6 +371,16 @@ function ProfileContent() {
                 }`}
               >
                 {t('profile.tabs.settings')}
+              </button>
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  activeTab === 'notifications'
+                    ? 'border-b-2 border-red-600 text-red-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                通知偏好
               </button>
               <button
                 onClick={() => setActiveTab('stats')}
@@ -767,6 +783,11 @@ function ProfileContent() {
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* Notifications Tab */}
+            {activeTab === 'notifications' && (
+              <NotificationPreferencesView showHeader={false} />
             )}
 
             {/* Statistics Tab */}

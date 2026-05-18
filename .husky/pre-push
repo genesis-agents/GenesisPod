@@ -7,7 +7,7 @@ export NODE_ENV=test
 
 echo ""
 echo "============================================================"
-echo "  Pre-push 验证（类型 + 构建 + 变更测试 + UI 一致性）"
+echo "  Pre-push 验证（类型 + 变更测试 + UI 一致性 + i18n + runtime deps）"
 echo "  Lint 已在 pre-commit 执行"
 echo "============================================================"
 echo ""
@@ -17,7 +17,7 @@ echo ""
 #   超 +50 行 = 强信号"应该拆分"）。已 god-class 的文件不冻结，但恶性增长拒推。
 #   audit:debt 仪表盘持续跟踪存量趋势。
 #   设计来源：第三轮审计 — 项目 god-class 3 周内 +67 行无拦截。
-echo "[0a/5] god-class size guard..."
+echo "[0a/6] god-class size guard..."
 GOD_CLASS_THRESHOLD=2500
 GOD_CLASS_MAX_GROWTH=50
 VIOLATIONS=""
@@ -58,7 +58,7 @@ echo "  god-class size guard 通过（容差 ±$GOD_CLASS_MAX_GROWTH 行）"
 echo ""
 
 # 0. 架构边界看护（锁定 L4→L3→L2.5→L2→L1 单向依赖）
-echo "[0/5] 架构边界看护..."
+echo "[0/6] 架构边界看护..."
 ARCH_LOG=$(mktemp)
 (cd backend && npx jest src/__tests__/architecture --no-coverage --forceExit > "$ARCH_LOG" 2>&1) || {
     echo ""
@@ -74,7 +74,7 @@ echo "  架构边界合规"
 echo ""
 
 # 1. 类型检查（并行执行前后端）
-echo "[1/5] 类型检查（前后端并行）..."
+echo "[1/6] 类型检查（前后端并行）..."
 npx concurrently --kill-others-on-fail --names "fe,be" \
   "npm run type-check:frontend" \
   "npm run type-check:backend" \
@@ -91,15 +91,15 @@ npx concurrently --kill-others-on-fail --names "fe,be" \
 echo "  类型检查通过"
 echo ""
 
-# 2. 构建检查（已由 [1/5] tsc 验证全部类型；本地构建仅做产物可生成性 smoke
+# 2. 构建检查（已由 [1/6] tsc 验证全部类型；本地构建仅做产物可生成性 smoke
 #    test 在 Windows 上反复被 prisma generate 文件锁踢爆，Railway CI 会跑完整
 #    build，本地复跑收益为负。如需手动验证 → cd backend && npm run build）
-echo "[2/5] 后端构建检查（已下放给 Railway CI；本地仅 tsc 验证）"
+echo "[2/6] 后端构建检查（已下放给 Railway CI；本地仅 tsc 验证）"
 echo "  跳过本地 build —— prisma generate 在 Windows 上不稳定（query_engine-windows.dll.node 锁）"
 echo ""
 
 # 3. 变更相关测试（只跑与本次变更相关的测试；无变更则跳过）
-echo "[3/5] 变更相关测试..."
+echo "[3/6] 变更相关测试..."
 BACKEND_TEST_LOG=$(mktemp)
 FRONTEND_TEST_LOG=$(mktemp)
 BASE_REF="${PRE_PUSH_BASE_REF:-origin/main}"
@@ -184,7 +184,7 @@ echo ""
 #   warn-only 模式：违规不阻断 push，只打印；后续切 SKIP_UI_AUDIT=1 可临时跳过。
 #   切 strict 模式：把下方 `if npm run` 改为 `npm run audit:ui-strict || exit 1`。
 #   设计文档：docs/guides/testing/frontend-ui-validation.md
-echo "[4/5] UI 一致性看护（warn-only）..."
+echo "[4/6] UI 一致性看护（warn-only）..."
 if [ "${SKIP_UI_AUDIT:-0}" = "1" ]; then
     echo "  跳过（SKIP_UI_AUDIT=1）"
 else
@@ -209,7 +209,7 @@ echo ""
 
 # 5. i18n 单花括号守护（strict，PR-DR2-FU 系统性 bug 复盘 2026-05-18）
 # ★ 项目 interpolate /\{\{(\w+)\}\}/g 只匹配双花括号 — 单花括号 placeholder 永远不替换
-echo "[5/5] i18n placeholder 守护..."
+echo "[5/6] i18n placeholder 守护..."
 if npx tsx scripts/utils/audit-i18n-placeholders.ts; then
     echo "  i18n 0 单花括号占位符"
 else
@@ -217,6 +217,22 @@ else
     echo "  ✘ i18n 单花括号占位符回归 — 见上方报告"
     echo "  → 改 frontend/lib/i18n/locales/*.json：{xxx} → {{xxx}}"
     echo "  → 详见 frontend/lib/i18n/i18n-context.tsx:61 interpolate"
+    exit 1
+fi
+echo ""
+
+# 6. backend runtime deps 守护（防 handlebars MODULE_NOT_FOUND 类生产故障 2026-05-18）
+# ★ 动态 await import("xxx") tsc 不验包是否真在 deps，本地 workspace hoist 假阳性
+#   通过，Railway prod-only install 才暴露。本守护扫所有 backend imports 比对
+#   package.json + 已知 transitive allowlist，缺声明即拒推
+echo "[6/6] backend runtime deps 守护..."
+if npx tsx scripts/utils/audit-runtime-deps.ts; then
+    echo "  无未声明的外部包"
+else
+    echo ""
+    echo "  ✘ 发现 import 但未在 backend/package.json deps 的包 — 见上方报告"
+    echo "  → 解决：把缺失包加入 backend/package.json dependencies"
+    echo "  → 若包是合法 transitive（NestJS 自带等）请加入 audit 脚本 KNOWN_TRANSITIVES"
     exit 1
 fi
 echo ""

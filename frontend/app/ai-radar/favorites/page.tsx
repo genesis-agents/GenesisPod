@@ -45,6 +45,22 @@ export default function RadarFavoritesPage() {
         icon={<Bookmark className="h-7 w-7 text-white" aria-hidden="true" />}
       />
 
+      {/* UX #3 hint：收藏自动同步到知识库（用户反馈 2026-05-18） */}
+      <div className="mb-4 flex items-center gap-2 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-700">
+        <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />
+        <span>
+          你的收藏已自动同步到{' '}
+          <button
+            type="button"
+            onClick={() => router.push('/library')}
+            className="font-medium underline hover:text-violet-900"
+          >
+            我的知识库 · AI 雷达收藏
+          </button>{' '}
+          作为数据源
+        </span>
+      </div>
+
       {loading && (
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
