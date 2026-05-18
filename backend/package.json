@@ -94,6 +94,7 @@
     "google-auth-library": "^9.0.0",
     "gpt-tokenizer": "^3.4.0",
     "graphql": "^16.8.0",
+    "handlebars": "^4.7.8",
     "helmet": "^8.1.0",
     "ioredis": "^5.9.2",
     "js-yaml": "^4.1.1",
