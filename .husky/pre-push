@@ -7,7 +7,7 @@ export NODE_ENV=test
 
 echo ""
 echo "============================================================"
-echo "  Pre-push 验证（类型 + 构建 + 变更测试）"
+echo "  Pre-push 验证（类型 + 构建 + 变更测试 + UI 一致性）"
 echo "  Lint 已在 pre-commit 执行"
 echo "============================================================"
 echo ""
@@ -184,6 +184,36 @@ if [ -z "$BACKEND_SUMMARY" ] && [ -z "$FRONTEND_SUMMARY" ]; then
     echo "  无变更相关测试"
 fi
 rm -f "$BACKEND_TEST_LOG" "$FRONTEND_TEST_LOG"
+echo ""
+
+# 4. UI 一致性看护（warn-only，rollout 期间不阻断 push）
+# ★ 2026-05-18 [TOP 1] 前端 UI 一致性源头止血
+#   策略：扫描公共组件强制复用 + 任意值 token 违规，与基线对比。
+#   首次推送会写出基线（docs/_archive/ui-*-baseline.json）。
+#   warn-only 模式：违规不阻断 push，只打印；后续切 SKIP_UI_AUDIT=1 可临时跳过。
+#   切 strict 模式：把下方 `if npm run` 改为 `npm run audit:ui-strict || exit 1`。
+#   设计文档：docs/guides/testing/frontend-ui-validation.md
+echo "[4/5] UI 一致性看护（warn-only）..."
+if [ "${SKIP_UI_AUDIT:-0}" = "1" ]; then
+    echo "  跳过（SKIP_UI_AUDIT=1）"
+else
+    UI_AUDIT_LOG=$(mktemp)
+    if npm run audit:ui-strict > "$UI_AUDIT_LOG" 2>&1; then
+        # 提取最后的汇总行
+        grep -E "^\s+(R[1-6]-|T[1-5]-|TOTAL:)" "$UI_AUDIT_LOG" | head -20 | while read -r line; do
+            echo "  $line"
+        done
+        echo "  UI 一致性无回归"
+    else
+        echo ""
+        echo "  ⚠ UI 一致性回归（warn-only，不阻断 push）："
+        tail -30 "$UI_AUDIT_LOG"
+        echo ""
+        echo "  → 详见 docs/guides/testing/frontend-ui-validation.md"
+        echo "  → 更新基线：npm run audit:ui-baseline（需 reviewer 同意）"
+    fi
+    rm -f "$UI_AUDIT_LOG"
+fi
 echo ""
 
 echo "============================================================"
