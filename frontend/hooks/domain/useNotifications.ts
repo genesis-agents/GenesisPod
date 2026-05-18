@@ -50,6 +50,8 @@ export interface Notification {
 /**
  * 通知偏好设置
  */
+export type NotificationChannel = 'email' | 'site' | 'wechat' | 'webpush';
+
 export interface NotificationPreferences {
   emailEnabled: boolean;
   pushEnabled: boolean;
@@ -57,6 +59,12 @@ export interface NotificationPreferences {
   typeSettings: Record<string, boolean>;
   quietHoursStart?: string;
   quietHoursEnd?: string;
+  // PR-DR1b 新增
+  channelSubscriptions?: Record<
+    string,
+    Partial<Record<NotificationChannel, boolean>>
+  >;
+  instantPushForTier3?: boolean;
 }
 
 interface NotificationsResponse {

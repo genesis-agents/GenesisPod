@@ -177,6 +177,26 @@ export class UpdateNotificationPreferenceDto {
   @IsOptional()
   @IsString()
   quietHoursEnd?: string;
+
+  // PR-DR1b 新增：业务类型 × 渠道矩阵 + tier3 即时推
+  @ApiPropertyOptional({
+    description:
+      "业务类型 × 渠道矩阵：{ [NotificationType]: { email?, site?, wechat?, webpush?: bool } }",
+  })
+  @IsOptional()
+  @IsObject()
+  channelSubscriptions?: Record<
+    string,
+    Partial<Record<"email" | "site" | "wechat" | "webpush", boolean>>
+  >;
+
+  @ApiPropertyOptional({
+    description:
+      "⭐⭐⭐ 信号即时推开关（E2，默认 ON，关闭后 tier3 信号不即时推）",
+  })
+  @IsOptional()
+  @IsBoolean()
+  instantPushForTier3?: boolean;
 }
 
 /**

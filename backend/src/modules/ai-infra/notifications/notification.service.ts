@@ -420,6 +420,8 @@ export class NotificationService {
         typeSettings: {},
         quietHoursStart: null,
         quietHoursEnd: null,
+        channelSubscriptions: {},
+        instantPushForTier3: true,
       };
     }
 
@@ -430,6 +432,11 @@ export class NotificationService {
       typeSettings: preference.typeSettings as Record<string, boolean>,
       quietHoursStart: preference.quietHoursStart,
       quietHoursEnd: preference.quietHoursEnd,
+      channelSubscriptions: preference.channelSubscriptions as Record<
+        string,
+        Partial<Record<string, boolean>>
+      >,
+      instantPushForTier3: preference.instantPushForTier3,
     };
   }
 
@@ -464,6 +471,15 @@ export class NotificationService {
       updateData.quietHoursStart = dto.quietHoursStart;
     if (dto.quietHoursEnd !== undefined)
       updateData.quietHoursEnd = dto.quietHoursEnd;
+    // PR-DR1b 新增
+    if (dto.channelSubscriptions !== undefined) {
+      updateData.channelSubscriptions = dto.channelSubscriptions;
+      createData.channelSubscriptions = dto.channelSubscriptions;
+    }
+    if (dto.instantPushForTier3 !== undefined) {
+      updateData.instantPushForTier3 = dto.instantPushForTier3;
+      createData.instantPushForTier3 = dto.instantPushForTier3;
+    }
 
     await this.prisma.notificationPreference.upsert({
       where: { userId },
