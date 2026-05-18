@@ -350,6 +350,52 @@ describe("Layer Boundaries (CLAUDE.md L4→L3→L2.5→L2→L1)", () => {
   });
 
   /**
+   * X6 (2026-05-18): NotificationDispatcher 边界看护
+   *
+   * ai-infra/notifications/dispatcher/ 是 L1 基础设施层的通知分发组件，
+   * 不得向上 import ai-app / ai-engine（违反 L1 单向规则）。
+   *
+   * 与顶层 "ai-infra 不得 import ai-engine / ai-harness / ai-app / open-api" 断言
+   * 互补：本组断言精确定位到 dispatcher 子目录，给出更易读的违规报告。
+   */
+  describe("NotificationDispatcher isolation (X6)", () => {
+    function listDispatcherFiles(): string[] {
+      const dispatcherDir = path.resolve(
+        SRC_ROOT,
+        "modules/ai-infra/notifications/dispatcher",
+      );
+      if (!fs.existsSync(dispatcherDir)) return [];
+      return listTsFiles(dispatcherDir);
+    }
+
+    it("notifications/dispatcher 不得 import ai-app/**", () => {
+      const violations: string[] = [];
+      for (const file of listDispatcherFiles()) {
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        for (const target of extractImportTargets(file)) {
+          if (importLayer(target) === "ai-app") {
+            violations.push(`${rel} → ${target}`);
+          }
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+
+    it("notifications/dispatcher 不得 import ai-engine/**", () => {
+      const violations: string[] = [];
+      for (const file of listDispatcherFiles()) {
+        const rel = path.relative(SRC_ROOT, file).replace(/\\/g, "/");
+        for (const target of extractImportTargets(file)) {
+          if (importLayer(target) === "ai-engine") {
+            violations.push(`${rel} → ${target}`);
+          }
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+  });
+
+  /**
    * v5.1 R0.5 PR-0: Plugin 系统边界守护
    *
    * 与 standards/19-plugin-system-governance.md §四"依赖方向"一一对应。

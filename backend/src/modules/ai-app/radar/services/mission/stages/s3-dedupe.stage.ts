@@ -57,6 +57,11 @@ export class RadarS3DedupeStage implements RadarStageRunner {
       return;
     }
 
+    // Build sourceId → isPublicSource lookup from ctx.state.sources (populated by S1)
+    const sourcePublicMap = new Map<string, boolean>(
+      (ctx.state.sources ?? []).map((s) => [s.id, s.isPublicSource]),
+    );
+
     const rows = await this.prisma.$transaction(
       toInsert.map((i) =>
         this.prisma.radarItem.create({
@@ -77,6 +82,9 @@ export class RadarS3DedupeStage implements RadarStageRunner {
                 ? Prisma.JsonNull
                 : (i.metrics as Prisma.InputJsonValue),
             accepted: false,
+            // K2: propagate public/private flag and ownership from source
+            isPublicSource: sourcePublicMap.get(i.sourceId) ?? true,
+            sourceOwnerUserId: ctx.userId,
           },
           select: { id: true, externalId: true },
         }),

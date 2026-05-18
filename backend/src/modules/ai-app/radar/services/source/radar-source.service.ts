@@ -16,6 +16,7 @@ import {
 import { RadarTopicService } from "../topic/radar-topic.service";
 import { assertSafeHttpUrl } from "../collectors/ssrf-util";
 import { CollectorRouter } from "../collectors/collector-router.service";
+import { isPublicSource } from "./is-public-source.util";
 
 @Injectable()
 export class RadarSourceService {
@@ -52,6 +53,11 @@ export class RadarSourceService {
               : (dto.config as Prisma.InputJsonValue),
           enabled: dto.enabled ?? true,
           isAiRecommended: false,
+          isPublicSource: isPublicSource({
+            type,
+            identifier,
+            config: dto.config ?? null,
+          }),
         },
       });
     } catch (error) {
@@ -218,6 +224,11 @@ export class RadarSourceService {
                 : (c.config as Prisma.InputJsonValue),
             enabled: true,
             isAiRecommended: true,
+            isPublicSource: isPublicSource({
+              type: c.type,
+              identifier: c.identifier,
+              config: c.config ?? null,
+            }),
           },
         });
         created.push(source);
