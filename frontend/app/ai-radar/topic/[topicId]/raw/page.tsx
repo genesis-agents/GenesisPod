@@ -29,7 +29,7 @@ export default function RadarRawItemsPage() {
     : `/ai-radar/topic/${topicId}`;
 
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
+    <div className="mx-auto max-w-5xl p-4 sm:p-6">
       {/* Back link */}
       <button
         type="button"

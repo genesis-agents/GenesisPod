@@ -28,7 +28,7 @@ export class RadarFeedController {
     @Query() q: RadarFeedQueryDto,
   ) {
     await this.topics.getOwnedById(req.user.id, topicId);
-    const limit = Math.min(Math.max(q.limit ?? 30, 1), 100);
+    const limit = Math.min(Math.max(q.limit ?? 30, 1), 200);
     const where: Prisma.RadarItemWhereInput = { topicId };
     if (q.type) where.source = { type: q.type as unknown as RadarSourceType };
     if (q.since) where.publishedAt = { gte: new Date(q.since) };
