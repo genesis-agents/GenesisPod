@@ -46,10 +46,11 @@ Genesis.ai 前端 UI 验证基线快照（4 路 Explore subagent 并行审计产
 
 **How to apply**：
 
-- 后续做 UI 验证 / 公共组件 / token 收口任务时，**先读** `docs/ui-audit/2026-05-18-frontend-validation-plan.md`
-- 数据可能随重构变化，引用前必须用 `npm run audit:ui`（如已实施）重新跑一次，或针对性 grep 验证
-- 计划 4 周：W1 ESLint+AST 地基、W2 重灾区重构、W3 Storybook+Argos、W4 LLM Vision
+- 后续做 UI 验证 / 公共组件 / token 收口任务时，**先读** `docs/guides/testing/frontend-ui-validation.md`
+- 数据可能随重构变化，引用前必须用 `npm run audit:ui` 重新跑一次（脚本已实装），或针对性 grep 验证
+- 计划 4 周：W1 ESLint+AST 地基（已落地 commit 2e4b0e8dd）、W2 重灾区重构、W3 Storybook+Argos、W4 LLM Vision
+- W1 落地后实测违规数：discipline 562 + tokens 4090（基线冻结，pre-push warn-only 看护已生效）
 
-**详细方案**：`docs/ui-audit/2026-05-18-frontend-validation-plan.md`
+**详细方案**：`docs/guides/testing/frontend-ui-validation.md`
 
 相关：[[feedback_check_reuse_before_building]] [[feedback_no_dual_sources]] [[feedback_pc_two_column_breakpoint]] [[feedback_drawer_stats_2col]]
