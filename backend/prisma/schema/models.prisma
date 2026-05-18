@@ -33,6 +33,12 @@ model User {
   // 偏好设置
   preferences Json @default("{}")
 
+  // 国际化 / 时区（PR-DR1b K6 白名单 DTO @IsEnum/@IsTimeZone）
+  // null = 前端按 Accept-Language 推断；非空 = 用户显式选择
+  // 影响：邮件模板 .{locale}.hbs 选择 + scheduler 按 tz 计算"是否到精选时间"
+  locale   String? @db.VarChar(10) // 'zh-CN' | 'en-US'
+  timezone String? @db.VarChar(64) // 'Asia/Shanghai' | 'America/New_York' (IANA)
+
   // 状态
   isActive   Boolean @default(true) @map("is_active")
   isVerified Boolean @default(false) @map("is_verified")
@@ -8404,6 +8410,15 @@ model NotificationPreference {
   // 例: { RADAR_DAILY: { email: true, site: true, wechat: false } }
   // 空 = 无明确订阅，dispatcher 走"按类型分类的默认 fan-out 策略"
   channelSubscriptions Json @default("{}") @map("channel_subscriptions")
+
+  // PR-DR1b 三级退订 JWT 7d token（K5），存最新签发的；用户多次签发覆盖前一个
+  // null = 用户从未点退订链接（无 token）；非空 = 当前 valid 退订 token
+  unsubscribeToken String? @map("unsubscribe_token") @db.Text
+
+  // PR-DR1b ⭐⭐⭐ 信号即时推主开关（E2 决策）
+  // 默认 ON：tier3 信号即时推到 site + wechat（不发 email 避免风暴）
+  // 走 channel-resolver 矩阵 + capabilities，不强制 forceChannels（R3 合规整改）
+  instantPushForTier3 Boolean @default(true) @map("instant_push_for_tier3")
 
   // 免打扰时段
   quietHoursStart String? @map("quiet_hours_start") @db.VarChar(5) // HH:mm

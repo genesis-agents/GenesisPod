@@ -1,11 +1,16 @@
 import { Module, forwardRef } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { JwtModule } from "@nestjs/jwt";
 import { PrismaModule } from "../../../../common/prisma/prisma.module";
 import { NotificationModule } from "../notification.module";
 import { NotificationDispatcher } from "./notification-dispatcher.service";
 import { SiteChannel } from "./channels/site-channel.adapter";
+import { EmailChannel } from "./channels/email-channel.adapter";
 import { ChannelResolver } from "./preferences/channel-resolver";
 import { NotificationPreferenceService } from "./preferences/notification-preference.service";
 import { RadarMissionCompletePreset } from "./presets/radar-mission-complete.preset";
+import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
+import { UnsubscribeController } from "./unsubscribe.controller";
 
 /**
  * NotificationDispatcherModule（PR-DR1a）
@@ -26,17 +31,35 @@ import { RadarMissionCompletePreset } from "./presets/radar-mission-complete.pre
  *   只要被 NestJS 容器扫描到且 token 匹配，dispatcher constructor @Optional() 自动注入
  */
 @Module({
-  imports: [PrismaModule, forwardRef(() => NotificationModule)],
+  imports: [
+    PrismaModule,
+    forwardRef(() => NotificationModule),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (cfg: ConfigService) => ({
+        secret: cfg.get<string>("JWT_SECRET"),
+        signOptions: { expiresIn: "7d" },
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+  controllers: [UnsubscribeController],
   providers: [
     NotificationDispatcher,
     SiteChannel,
+    EmailChannel,
+    // 用 token 注入避免 dispatcher constructor 强依赖 EmailChannel class
+    // （PR-DR1a 占位 @Optional() @Inject('EMAIL_CHANNEL') 现在真接到）
+    { provide: "EMAIL_CHANNEL", useExisting: EmailChannel },
     ChannelResolver,
     NotificationPreferenceService,
+    UnsubscribeTokenService,
     RadarMissionCompletePreset,
   ],
   exports: [
     NotificationDispatcher,
     NotificationPreferenceService,
+    UnsubscribeTokenService,
     RadarMissionCompletePreset,
   ],
 })
