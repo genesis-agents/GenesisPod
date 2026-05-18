@@ -155,18 +155,25 @@ export class UnsubscribeTokenService {
     }
 
     if (scope === "topic") {
-      // PR-DR1b 阶段：topic 级退订暂时退化为关 RADAR_DAILY+WEEKLY (该用户全)
-      // PR-DR2 引入 per-topic 退订表后细化
       if (!topicId) {
         throw new UnauthorizedException("topic scope requires topicId");
       }
-      await this.mergeChannelSubscriptions(userId, {
-        // TODO PR-DR2: 真正 per-topic 退订（需新表 RadarTopicSubscription）
-        RADAR_DAILY: { email: false },
-        RADAR_WEEKLY: { email: false },
+      // PR-DR2 B17: 真正 per-topic 退订，upsert RadarTopicSubscription status='unsubscribed'
+      await this.prisma.radarTopicSubscription.upsert({
+        where: { userId_topicId: { userId, topicId } },
+        create: {
+          userId,
+          topicId,
+          status: "unsubscribed",
+          unsubscribedAt: new Date(),
+        },
+        update: {
+          status: "unsubscribed",
+          unsubscribedAt: new Date(),
+        },
       });
       this.log.log(
-        `unsubscribe topic=${topicId} user=${userId} (broadcast RADAR_DAILY email off)`,
+        `unsubscribe topic=${topicId} user=${userId} per-topic applied`,
       );
       return;
     }

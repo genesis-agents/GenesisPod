@@ -205,8 +205,10 @@ model User {
   // 2026-05-16 AI Radar 雷达主题
   radarTopics      RadarTopic[]
   // 2026-05-18 PR-DR2: daily/weekly briefings
-  radarDailyBriefings  RadarDailyBriefing[]
-  radarWeeklyBriefings RadarWeeklyBriefing[]
+  radarDailyBriefings      RadarDailyBriefing[]
+  radarWeeklyBriefings     RadarWeeklyBriefing[]
+  // 2026-05-18 B17: per-topic 退订
+  radarTopicSubscriptions  RadarTopicSubscription[]
 
   @@map("users")
 }
@@ -10351,12 +10353,13 @@ model RadarTopic {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  sources          RadarSource[]
-  items            RadarItem[]
-  insights         RadarInsight[]
-  runs             RadarRun[]
-  dailyBriefings   RadarDailyBriefing[]
-  weeklyBriefings  RadarWeeklyBriefing[]
+  sources               RadarSource[]
+  items                 RadarItem[]
+  insights              RadarInsight[]
+  runs                  RadarRun[]
+  dailyBriefings        RadarDailyBriefing[]
+  weeklyBriefings       RadarWeeklyBriefing[]
+  topicSubscriptions    RadarTopicSubscription[]
 
   @@index([userId, status])
   @@index([status, nextDueAt])
@@ -10572,4 +10575,24 @@ model FeatureFlagAuditLog {
 
   @@index([flagKey, workspaceId, occurredAt(sort: Desc)])
   @@map("feature_flag_audit_log")
+}
+
+/// 2026-05-18 B17: per-topic 退订表
+/// 实现 scope=topic 真正 per-topic 退订（之前是 broadcast 退化）
+model RadarTopicSubscription {
+  id            String     @id @default(uuid())
+  userId        String     @map("user_id")
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId       String     @map("topic_id")
+  topic         RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  /// 'subscribed' (默认) | 'unsubscribed'
+  status        String     @default("subscribed") @db.VarChar(20)
+  /// 退订时间（用户操作时刻，便于审计）
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  @@unique([userId, topicId])
+  @@index([userId, status])
+  @@map("radar_topic_subscriptions")
 }

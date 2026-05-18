@@ -4,13 +4,16 @@ import { UnauthorizedException } from "@nestjs/common";
 import { UnsubscribeTokenService } from "../preferences/unsubscribe-token.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 
-describe("UnsubscribeTokenService (PR-DR1b)", () => {
+describe("UnsubscribeTokenService (PR-DR1b / B17)", () => {
   let service: UnsubscribeTokenService;
   let jwt: JwtService;
   let prisma: {
     notificationPreference: {
       upsert: jest.Mock;
       findUnique: jest.Mock;
+    };
+    radarTopicSubscription: {
+      upsert: jest.Mock;
     };
   };
 
@@ -19,6 +22,9 @@ describe("UnsubscribeTokenService (PR-DR1b)", () => {
       notificationPreference: {
         upsert: jest.fn().mockResolvedValue({}),
         findUnique: jest.fn().mockResolvedValue(null),
+      },
+      radarTopicSubscription: {
+        upsert: jest.fn().mockResolvedValue({}),
       },
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -90,6 +96,34 @@ describe("UnsubscribeTokenService (PR-DR1b)", () => {
       });
       const result = await service.verifyAndApply(token);
       expect(result.ext?.topicId).toBe("tpc-1");
+    });
+
+    it("topic scope → upsert RadarTopicSubscription status=unsubscribed (per-topic, not broadcast)", async () => {
+      const token = await service.issue("user-1", "topic", {
+        topicId: "tpc-2",
+      });
+      await service.verifyAndApply(token);
+
+      // 不应再调用 notificationPreference.upsert（第二次是 issue 写 token，第一次也是 issue）
+      // 核心断言：radarTopicSubscription.upsert 被调用，且 status=unsubscribed
+      const upsertCall =
+        prisma.radarTopicSubscription.upsert.mock.calls.at(-1)?.[0];
+      expect(upsertCall).toBeDefined();
+      expect(upsertCall.where.userId_topicId).toEqual({
+        userId: "user-1",
+        topicId: "tpc-2",
+      });
+      expect(upsertCall.create.status).toBe("unsubscribed");
+      expect(upsertCall.create.unsubscribedAt).toBeInstanceOf(Date);
+      expect(upsertCall.update.status).toBe("unsubscribed");
+      // 不应改动 channelSubscriptions（广播退订已删除）
+      const npUpsertCalls = prisma.notificationPreference.upsert.mock.calls;
+      const applyCalls = npUpsertCalls.filter(
+        (call: unknown[]) =>
+          (call[0] as { update?: { channelSubscriptions?: unknown } }).update
+            ?.channelSubscriptions !== undefined,
+      );
+      expect(applyCalls).toHaveLength(0);
     });
   });
 
