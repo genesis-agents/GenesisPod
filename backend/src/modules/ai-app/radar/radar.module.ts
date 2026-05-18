@@ -17,6 +17,7 @@
 import { Logger, Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
+import { BullModule } from "@nestjs/bullmq";
 import * as path from "path";
 
 import {
@@ -43,6 +44,7 @@ import { XCollector } from "./services/collectors/x-collector.service";
 import { CustomCollector } from "./services/collectors/custom-collector.service";
 
 import { RadarRefreshScheduler } from "./services/scheduler/radar-refresh.scheduler";
+import { RadarBriefingQueueService } from "./services/scheduler/radar-briefing-queue.service";
 
 // ── 新框架接入 ───────────────────────────────────────────────────────────
 import { RadarMissionStore } from "./services/mission/lifecycle/radar-mission-store.service";
@@ -63,6 +65,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
 
 @Module({
   imports: [
+    BullModule.registerQueue({ name: RadarBriefingQueueService.QUEUE_NAME }),
     NotificationModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -93,6 +96,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     CustomCollector,
     // 调度（走 dispatcher.runRefreshMission）
     RadarRefreshScheduler,
+    RadarBriefingQueueService,
     // 新框架接入 —— pipeline registry / orchestrator 必须由消费模块本地 register
     // （MissionRuntimeShellFramework / DomainEventBus 由 @Global HarnessModule 提供，
     // 但 MissionPipelineRegistry / MissionPipelineOrchestrator 不是 @Global —— 跟
@@ -119,6 +123,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     RadarSourceService,
     RadarPipelineDispatcher,
     RadarMissionStore,
+    RadarBriefingQueueService,
   ],
 })
 export class RadarModule implements OnModuleInit {
