@@ -47,6 +47,7 @@ function scopeTitle(scope: string): string {
 export default function UnsubscribedPage() {
   const search = useSearchParams();
   const token = search?.get('token') ?? '';
+  const scope = search?.get('scope') ?? ''; // FU2-A multi-scope token
   const [state, setState] = useState<State>({ kind: 'loading' });
 
   useEffect(() => {
@@ -57,8 +58,10 @@ export default function UnsubscribedPage() {
     const ctrl = new AbortController();
     void (async () => {
       try {
+        const qs = new URLSearchParams({ token });
+        if (scope) qs.set('scope', scope);
         const resp = await fetch(
-          `/api/v1/notifications/unsubscribe?token=${encodeURIComponent(token)}`,
+          `/api/v1/notifications/unsubscribe?${qs.toString()}`,
           { signal: ctrl.signal, credentials: 'omit' },
         );
         if (!resp.ok) {
@@ -83,7 +86,7 @@ export default function UnsubscribedPage() {
       }
     })();
     return () => ctrl.abort();
-  }, [token]);
+  }, [token, scope]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">

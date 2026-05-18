@@ -116,6 +116,25 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
           useValue: mockPreferenceService,
         },
         { provide: CacheService, useValue: mockCache },
+        // FU2-D: scheduler 现注入 daily/weekly email preset；这里 mock 成 spy
+        {
+          provide: require("@/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset")
+            .RadarDailyBriefingEmailPreset,
+          useValue: {
+            notify: jest
+              .fn()
+              .mockResolvedValue({ delivered: true, results: [] }),
+          },
+        },
+        {
+          provide: require("@/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset")
+            .RadarWeeklyBriefingEmailPreset,
+          useValue: {
+            notify: jest
+              .fn()
+              .mockResolvedValue({ delivered: true, results: [] }),
+          },
+        },
       ],
     }).compile();
 

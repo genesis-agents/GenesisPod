@@ -28,6 +28,8 @@ import { RadarDailyBriefingRepo } from "../briefing/radar-daily-briefing.repo";
 import { RadarWeeklyBriefingService } from "../briefing/radar-weekly-briefing.service";
 import { NotificationDispatcher } from "@/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
 import { NotificationPreferenceService } from "@/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
+import { RadarDailyBriefingEmailPreset } from "@/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
+import { RadarWeeklyBriefingEmailPreset } from "@/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset";
 import {
   RADAR_BRIEFING_GENERATED_METRIC,
   RADAR_BRIEFING_SIGNAL_CREATED_EVENT,
@@ -49,6 +51,8 @@ export class RadarRefreshScheduler {
     private readonly notificationDispatcher: NotificationDispatcher,
     private readonly preferenceService: NotificationPreferenceService,
     private readonly cache: CacheService,
+    private readonly dailyEmailPreset: RadarDailyBriefingEmailPreset,
+    private readonly weeklyEmailPreset: RadarWeeklyBriefingEmailPreset,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE, {
@@ -241,17 +245,42 @@ export class RadarRefreshScheduler {
           continue;
         }
 
-        void this.notificationDispatcher
-          .dispatch(topic.userId, {
-            type: "RADAR_WEEKLY",
-            title: "本周精选摘要已就绪",
-            message: `本周共有 ${payload.tier3Count ?? 0} 条 ⭐⭐⭐ 重要信号`,
-            link: `/ai-radar/topic/${topic.id}?view=weekly`,
-            metadata: { topicId: topic.id, weekStart: weekStart.toISOString() },
+        // FU2-D: weekly 切到 EmailPreset 走 HTML 渲染
+        const user = await this.prisma.user.findUnique({
+          where: { id: topic.userId },
+          select: { locale: true, name: true },
+        });
+        const localeWeekly: "zh-CN" | "en-US" =
+          user?.locale === "en-US" ? "en-US" : "zh-CN";
+        const topicFull = await this.prisma.radarTopic.findUnique({
+          where: { id: topic.id },
+          select: { name: true },
+        });
+        const weeklyPayload = weekly.payload as WeeklyEmailPayload;
+        const topSignals = (weeklyPayload.topSignals ?? []).map((s) => ({
+          id: s.id,
+          tier: s.tier,
+          title: s.title,
+          oneLineTakeaway: s.oneLineTakeaway,
+          whyItMatters: s.whyItMatters,
+          sourceBriefingDate: s.sourceBriefingDate,
+        }));
+        void this.weeklyEmailPreset
+          .notify({
+            userId: topic.userId,
+            locale: localeWeekly,
+            topicId: topic.id,
+            topicName: topicFull?.name ?? "AI 雷达",
+            weekStart: weekStart.toISOString().slice(0, 10),
+            weekEnd: weekEnd.toISOString().slice(0, 10),
+            topSignals,
+            candidatesTotal: weeklyPayload.candidatesTotal ?? 0,
+            narrativeCount: (weeklyPayload.narrativeMap ?? []).length,
+            newEntityCount: (weeklyPayload.newEntities ?? []).length,
           })
           .catch((err: Error) =>
             this.log.warn(
-              `RADAR_WEEKLY dispatch failed topic=${topic.id}: ${err.message}`,
+              `RADAR_WEEKLY (preset) dispatch failed topic=${topic.id}: ${err.message}`,
             ),
           );
 
@@ -379,27 +408,61 @@ export class RadarRefreshScheduler {
       return;
     }
 
-    void this.notificationDispatcher
-      .dispatch(metric.userId, {
-        type: "RADAR_DAILY",
-        title: "今日精选已就绪",
-        message: `今日共 ${metric.selectedCount} 条精选（⭐⭐⭐ ${metric.tier3Count} / ⭐⭐ ${metric.tier2Count} / ⭐ ${metric.tier1Count}）`,
-        link: `/ai-radar/topic/${metric.topicId}?date=${metric.briefingDate}`,
-        metadata: {
-          topicId: metric.topicId,
-          briefingDate: metric.briefingDate,
-          selectedCount: metric.selectedCount,
-          tier3Count: metric.tier3Count,
-        },
+    // FU2-D: 走 EmailPreset 渲染 HTML（之前仅 plaintext）
+    // 拿 topic + user 信息 + 实际 signals（从 briefing row 反查）
+    const [topic, user, briefing] = await Promise.all([
+      this.prisma.radarTopic.findUnique({
+        where: { id: metric.topicId },
+        select: { id: true, name: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: metric.userId },
+        select: { locale: true },
+      }),
+      this.dailyRepo.findByTopicAndDate(
+        metric.topicId,
+        new Date(`${metric.briefingDate}T00:00:00.000Z`),
+      ),
+    ]);
+    if (!topic || !briefing) {
+      this.log.warn(
+        `onDailyBriefingGenerated topic/briefing missing — fallback plaintext dispatch`,
+      );
+      return;
+    }
+    const locale: "zh-CN" | "en-US" =
+      user?.locale === "en-US" ? "en-US" : "zh-CN";
+    const signals = ((briefing.signals as unknown as DailySignalEmailLike[]) ??
+      []) as DailySignalEmailLike[];
+
+    void this.dailyEmailPreset
+      .notify({
+        userId: metric.userId,
+        locale,
+        topicId: metric.topicId,
+        topicName: topic.name,
+        briefingDate: metric.briefingDate,
+        briefingTime: "08:00", // user.briefingTime 字段在 RadarTopic 上，从 briefing 反查不到；用默认（template 仅展示用）
+        candidatesCount: metric.candidatesCount,
+        signals: signals.map((s) => ({
+          id: s.id,
+          tier: s.tier,
+          title: s.title,
+          oneLineTakeaway: s.oneLineTakeaway,
+          whyItMatters: s.whyItMatters,
+          whatsNext: s.whatsNext,
+          signalTags: s.signalTags ?? [],
+          entities: s.entities ?? [],
+        })),
       })
       .catch((err: Error) =>
         this.log.warn(
-          `RADAR_DAILY dispatch failed topic=${metric.topicId}: ${err.message}`,
+          `RADAR_DAILY (preset) dispatch failed topic=${metric.topicId}: ${err.message}`,
         ),
       );
 
     this.log.log(
-      `onDailyBriefingGenerated dispatched RADAR_DAILY: topic=${metric.topicId} signals=${metric.selectedCount}`,
+      `onDailyBriefingGenerated dispatched via preset: topic=${metric.topicId} signals=${metric.selectedCount}`,
     );
   }
 
@@ -461,6 +524,32 @@ export class RadarRefreshScheduler {
 function parseKeywords(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((v): v is string => typeof v === "string");
+}
+
+// FU2-D: 局部类型 alias，避免在 scheduler 强依赖 briefing 模块的 DailySignal 接口
+interface DailySignalEmailLike {
+  id: string;
+  tier: 1 | 2 | 3;
+  title: string;
+  oneLineTakeaway: string;
+  whyItMatters: string;
+  whatsNext: string;
+  signalTags?: string[];
+  entities?: string[];
+}
+
+interface WeeklyEmailPayload {
+  topSignals?: Array<{
+    id: string;
+    tier: 1 | 2 | 3;
+    title: string;
+    oneLineTakeaway: string;
+    whyItMatters: string;
+    sourceBriefingDate: string;
+  }>;
+  candidatesTotal?: number;
+  narrativeMap?: unknown[];
+  newEntities?: unknown[];
 }
 
 /**

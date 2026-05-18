@@ -57,6 +57,50 @@ export class UnsubscribeTokenService {
   }
 
   /**
+   * FU2-A: 多 scope 退订 token（一封邮件 3 个链接共用 1 token）
+   *
+   * 解决 K5 三级退订设计与"DB 只存 1 token"的冲突：
+   *   - 编码 scopes[] 数组 + 主 scope（fallback）
+   *   - verifyAndApply 接受 URL scope 覆盖，必须在 scopes[] 内才允许
+   *   - DB 仍只 1 token（防重放），点任一链接都消费同一 token
+   *
+   * 安全分析：
+   *   - 攻击者拿到 token 仍只能在 scopes[] 集合内操作（降级 unsub）
+   *   - 较单 scope token "降级" 弱化未实质性减损（用户已能选 global）
+   *
+   * @param userId 用户 ID
+   * @param scopes 可选 scope 集合（典型：['topic','radar_all','global'] for daily / ['weekly','radar_all','global'] for weekly）
+   * @param topicId topic scope 必需
+   */
+  async issueMultiScope(
+    userId: string,
+    scopes: UnsubscribeScope[],
+    topicId?: string,
+  ): Promise<string> {
+    if (scopes.length === 0) {
+      throw new Error("issueMultiScope: scopes empty");
+    }
+    if (scopes.includes("topic") && !topicId) {
+      throw new Error("issueMultiScope: topic scope requires topicId");
+    }
+    const payload: UnsubscribeTokenPayload = {
+      sub: userId,
+      scope: scopes[0],
+      scopes,
+    };
+    if (topicId) payload.topicId = topicId;
+    const token = await this.jwt.signAsync(payload, {
+      expiresIn: UnsubscribeTokenService.TTL_SECONDS,
+    });
+    await this.prisma.notificationPreference.upsert({
+      where: { userId },
+      create: { userId, unsubscribeToken: token },
+      update: { unsubscribeToken: token },
+    });
+    return token;
+  }
+
+  /**
    * 校验 token + 应用退订（更新 NotificationPreference.channelSubscriptions）
    *
    * 错误语义：
@@ -67,7 +111,10 @@ export class UnsubscribeTokenService {
    * 安全：apply 成功后立即将 DB unsubscribeToken 置 null，
    * 使同一 token 无法二次重放，即使仍在 JWT TTL 内。
    */
-  async verifyAndApply(token: string): Promise<UnsubscribeResult> {
+  async verifyAndApply(
+    token: string,
+    requestedScope?: UnsubscribeScope,
+  ): Promise<UnsubscribeResult> {
     let payload: UnsubscribeTokenPayload;
     try {
       payload = await this.jwt.verifyAsync<UnsubscribeTokenPayload>(token);
@@ -94,7 +141,22 @@ export class UnsubscribeTokenService {
       throw new UnauthorizedException("unsubscribe token revoked or rotated");
     }
 
-    await this.applyScope(payload);
+    // FU2-A: requestedScope 来自 URL 参数 — 必须在 token.scopes 允许集内
+    let effectivePayload: UnsubscribeTokenPayload = payload;
+    if (requestedScope) {
+      const allowed = payload.scopes ?? [payload.scope];
+      if (!allowed.includes(requestedScope)) {
+        this.log.warn(
+          `unsubscribe scope override rejected user=${payload.sub} requested=${requestedScope} allowed=${allowed.join(",")}`,
+        );
+        throw new UnauthorizedException(
+          "requested scope not authorized by token",
+        );
+      }
+      effectivePayload = { ...payload, scope: requestedScope };
+    }
+
+    await this.applyScope(effectivePayload);
 
     // 消费后置 null，同一 token 不可二次重放
     await this.prisma.notificationPreference.update({
@@ -103,9 +165,9 @@ export class UnsubscribeTokenService {
     });
 
     return {
-      userId: payload.sub,
-      scope: payload.scope,
-      ext: { topicId: payload.topicId },
+      userId: effectivePayload.sub,
+      scope: effectivePayload.scope,
+      ext: { topicId: effectivePayload.topicId },
     };
   }
 
@@ -231,6 +293,8 @@ export interface UnsubscribeTokenPayload {
   sub: string; // userId
   scope: UnsubscribeScope;
   topicId?: string;
+  /** FU2-A: 允许的 scope 集合（多 scope token 用，单 scope token 留空） */
+  scopes?: UnsubscribeScope[];
 }
 
 export interface UnsubscribeResult {

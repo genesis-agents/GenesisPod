@@ -34,7 +34,10 @@ export class UnsubscribeController {
   @RateLimit({ maxRequests: 10, windowSeconds: 60 })
   @Get()
   @ApiOperation({ summary: "三级退订（token-only auth，无需登录）" })
-  async unsubscribe(@Query("token") token?: string): Promise<{
+  async unsubscribe(
+    @Query("token") token?: string,
+    @Query("scope") scope?: string,
+  ): Promise<{
     success: true;
     scope: string;
     message: string;
@@ -42,7 +45,10 @@ export class UnsubscribeController {
     if (!token) {
       throw new BadRequestException("missing token");
     }
-    const result = await this.tokens.verifyAndApply(token);
+    // FU2-A: 多 scope token 时前端传 ?scope= 选择实际应用范围；
+    // 必须是 token.scopes 集合内的成员（否则 401）
+    const requested = isValidScope(scope) ? scope : undefined;
+    const result = await this.tokens.verifyAndApply(token, requested);
     return {
       success: true,
       scope: result.scope,
@@ -50,6 +56,8 @@ export class UnsubscribeController {
     };
   }
 
+  // FU2-A
+  // scope 参数白名单（避免任意字符串透传到 service）
   private scopeMessage(scope: string): string {
     switch (scope) {
       case "global":
@@ -64,4 +72,12 @@ export class UnsubscribeController {
         return "已退订";
     }
   }
+}
+
+function isValidScope(
+  s: string | undefined,
+): s is "topic" | "weekly" | "radar_all" | "global" {
+  return (
+    s === "topic" || s === "weekly" || s === "radar_all" || s === "global"
+  );
 }
