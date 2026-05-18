@@ -375,6 +375,17 @@ export default function NotificationsSettingsPage() {
               </tbody>
             </table>
           </div>
+
+          {/* instantPushForTier3 独立 toggle — E2 §7.3.1 */}
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <ToggleRow
+              icon={Star}
+              label="⭐⭐⭐ 信号即时推送"
+              desc="雷达发现 ⭐⭐⭐ 级别信号时即时推送（站内 + 公众号；不发邮件避免 spam）"
+              value={draft.instantPushForTier3 ?? true}
+              onChange={(v) => setDraft({ ...draft, instantPushForTier3: v })}
+            />
+          </div>
         </section>
 
         {/* QuietHours */}
