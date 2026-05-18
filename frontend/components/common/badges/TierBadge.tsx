@@ -20,14 +20,21 @@ const ICON_SIZE = {
   lg: 'h-4 w-4',
 } as const;
 
+const TEXT_SIZE = {
+  sm: 'text-xs',
+  md: 'text-sm',
+  lg: 'text-base',
+} as const;
+
 export function TierBadge({ tier, size = 'md', className }: TierBadgeProps) {
   if (tier == null) return null;
 
   const { count, colorClass } = TIER_CONFIG[tier];
   const iconClass = ICON_SIZE[size];
+  const textClass = TEXT_SIZE[size];
   return (
     <span
-      className={`inline-flex items-center gap-0.5 ${colorClass} ${className ?? ''}`}
+      className={`inline-flex items-center gap-0.5 ${textClass} ${colorClass} ${className ?? ''}`}
       aria-label={`Tier ${tier}`}
       role="img"
     >

@@ -19,15 +19,16 @@ const baseProps = {
 describe('WeeklyBriefingCard', () => {
   it('renders week range in header', () => {
     render(<WeeklyBriefingCard {...baseProps} />);
-    expect(screen.getByText(/2026-05-11 — 2026-05-17/)).toBeTruthy();
-    expect(screen.getByText(/📅 周报/)).toBeTruthy();
+    // i18n: weeklyTitle = "周报 · {{start}} — {{end}}"，组件用 Lucide Calendar 图标（不是 📅 emoji）
+    expect(screen.getByText(/周报 · 2026-05-11 — 2026-05-17/)).toBeTruthy();
   });
 
   it('renders tier3 count, narrative count and candidates total when tier3Count > 0', () => {
     render(<WeeklyBriefingCard {...baseProps} />);
-    const body = screen.getByText(/⭐⭐⭐ 2/);
-    expect(body.textContent).toContain('延续叙事 1');
-    expect(body.textContent).toContain('候选总 42');
+    // i18n: weeklyStats = "{{tier3Count}} · 延续叙事 {{narrativeCount}} · 候选总 {{candidatesTotal}}"
+    // 三星用 Lucide Star icon（不是 ⭐ emoji），textContent 仅含 "2 · 延续叙事 1 · 候选总 42"
+    const body = screen.getByText(/2 · 延续叙事 1 · 候选总 42/);
+    expect(body).toBeTruthy();
   });
 
   it('shows empty state message when tier3Count is 0', () => {

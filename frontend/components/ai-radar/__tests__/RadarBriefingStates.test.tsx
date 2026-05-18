@@ -37,9 +37,8 @@ describe('RadarBriefingEmptyState', () => {
 
   it('shows days since last tier 3 when provided and > 0', () => {
     render(<RadarBriefingEmptyState daysSinceLastTier3={7} />);
-    expect(screen.getByText(/上次/)).toBeTruthy();
-    expect(screen.getByText('7')).toBeTruthy();
-    expect(screen.getByText(/天前/)).toBeTruthy();
+    // i18n key 渲染为 "上次信号在 7 天前"（单一 text node），不能 getByText 拆分
+    expect(screen.getByText(/上次信号在 7 天前/)).toBeTruthy();
   });
 
   it('does not show days text when daysSinceLastTier3 is undefined', () => {

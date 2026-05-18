@@ -37,8 +37,11 @@ describe('SourceHealthSummary', () => {
     render(<SourceHealthSummary totalSources={7} okCount={5} failCount={2} />);
     const el = screen.getByText(/7 源/);
     expect(el).toBeTruthy();
-    expect(el.textContent).toContain('5 ✓');
-    expect(el.textContent).toContain('2 ✗');
+    // 组件用 Lucide CheckCircle/XCircle 图标，不是 ✓/✗ 字符；textContent 仅含数字
+    expect(el.textContent).toContain('5');
+    expect(el.textContent).toContain('2');
+    expect(el.querySelector('.text-emerald-500')).not.toBeNull(); // OK icon
+    expect(el.querySelector('.text-slate-400')).not.toBeNull(); // FAIL icon (non-amber)
     expect(el.className).toContain('text-slate-500');
   });
 

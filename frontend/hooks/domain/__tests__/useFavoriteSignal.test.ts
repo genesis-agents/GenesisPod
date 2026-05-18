@@ -73,7 +73,8 @@ describe('useFavoriteSignal', () => {
   });
 
   it('syncs isFavorited with server response on success', async () => {
-    const mockExecute = vi.fn().mockResolvedValue({ isFavorited: true });
+    // 后端返回字段是 `favorited`（与 backend favorite.service.ts toggle 返回类型对齐），不是 `isFavorited`
+    const mockExecute = vi.fn().mockResolvedValue({ favorited: true });
     vi.mocked(useApiPost).mockReturnValue(makePost({ execute: mockExecute }));
     const { result } = renderHook(() => useFavoriteSignal('s-1', 'topic-1'));
 

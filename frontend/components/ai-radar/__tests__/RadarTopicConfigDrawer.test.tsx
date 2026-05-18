@@ -5,12 +5,13 @@
  */
 
 import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { RadarTopicConfigDrawer } from '../RadarTopicConfigDrawer';
 import type { RadarTopicConfigDrawerTopic } from '../RadarTopicConfigDrawer';
 
 // Minimal mock so SideDrawer renders children without portal issues
-jest.mock('@/components/common/drawers/SideDrawer', () => ({
+vi.mock('@/components/common/drawers/SideDrawer', () => ({
   SideDrawer: ({
     open,
     children,
@@ -29,7 +30,7 @@ jest.mock('@/components/common/drawers/SideDrawer', () => ({
 }));
 
 // RadarSourceList renders just a stub to avoid full API mocking
-jest.mock('../RadarSourceList', () => ({
+vi.mock('../RadarSourceList', () => ({
   RadarSourceList: () => <div data-testid="radar-source-list" />,
 }));
 
