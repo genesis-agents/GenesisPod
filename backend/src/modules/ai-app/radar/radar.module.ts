@@ -55,6 +55,8 @@ import { CustomCollector } from "./services/collectors/custom-collector.service"
 
 import { RadarRefreshScheduler } from "./services/scheduler/radar-refresh.scheduler";
 import { RadarBriefingQueueService } from "./services/scheduler/radar-briefing-queue.service";
+import { RadarBriefingProcessor } from "./services/scheduler/radar-briefing.processor";
+import { DailyBriefingGeneratorService } from "./services/briefing/daily-briefing-generator.service";
 
 // ── 新框架接入 ───────────────────────────────────────────────────────────
 import { RadarMissionStore } from "./services/mission/lifecycle/radar-mission-store.service";
@@ -115,9 +117,11 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     YoutubeCollector,
     XCollector,
     CustomCollector,
-    // 调度（走 dispatcher.runRefreshMission + briefing sweep）
+    // 调度（走 dispatcher.runRefreshMission + briefing sweep + BullMQ processor）
     RadarRefreshScheduler,
     RadarBriefingQueueService,
+    RadarBriefingProcessor,
+    DailyBriefingGeneratorService,
     // 新框架接入 —— pipeline registry / orchestrator 必须由消费模块本地 register
     // （MissionRuntimeShellFramework / DomainEventBus 由 @Global HarnessModule 提供，
     // 但 MissionPipelineRegistry / MissionPipelineOrchestrator 不是 @Global —— 跟
