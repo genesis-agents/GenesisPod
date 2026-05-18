@@ -52,9 +52,12 @@ export class EmailChannel implements INotificationChannel {
     const html = typeof ctx.html === "string" ? ctx.html : undefined;
     const text = typeof ctx.text === "string" ? ctx.text : payload.message;
 
+    // PR-DR1b R1 security P0 整改：strip CRLF 防 SMTP header injection
+    // attackers could inject Bcc:/Content-Type: via \r\n in title (user-input source)
+    const safeSubject = payload.title.replace(/[\r\n]+/g, " ").slice(0, 998);
     const ok = await this.emailService.sendEmail({
       to: user.email,
-      subject: payload.title,
+      subject: safeSubject,
       ...(html ? { html } : { text }),
     });
     if (!ok) {

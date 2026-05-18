@@ -24,6 +24,7 @@ import {
   Loader2,
   CheckCircle2,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   useNotificationPreferences,
@@ -49,7 +50,7 @@ const NOTIFICATION_TYPE_ROWS: Array<{
   },
   {
     type: 'RADAR_TIER3_INSTANT',
-    label: '⭐⭐⭐ 即时推',
+    label: '最高级 (Tier 3) 信号即时推',
     desc: '最高级信号实时推送（默认走站内 + 公众号，不发邮件避风暴）',
   },
   {
@@ -122,6 +123,9 @@ export default function NotificationsSettingsPage() {
       channelSubscriptions: draft.channelSubscriptions,
       instantPushForTier3: draft.instantPushForTier3,
     });
+    // R1 frontend P1 整改：保存成功后 setDraft(null) 让 useEffect 重新水合
+    // 否则后续 server transform / 默认值不进 draft，下次保存仍是旧值
+    setDraft(null);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -184,7 +188,7 @@ export default function NotificationsSettingsPage() {
             />
             <ToggleRow
               icon={Sparkles}
-              label="⭐⭐⭐ 即时推（E2）"
+              label="Tier 3 信号即时推（E2）"
               desc="检出最高级信号时立即推送站内 + 公众号（不发邮件避风暴）"
               value={draft.instantPushForTier3 ?? true}
               onChange={(v) => setDraft({ ...draft, instantPushForTier3: v })}
@@ -299,16 +303,34 @@ export default function NotificationsSettingsPage() {
           </h2>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-slate-700">📧 邮件</span>
-              <span className="text-green-600">✓ 自动启用</span>
+              <span className="inline-flex items-center gap-2 text-slate-700">
+                <Mail className="h-4 w-4 text-slate-500" />
+                邮件
+              </span>
+              <span className="inline-flex items-center gap-1 text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                自动启用
+              </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-700">🔔 站内</span>
-              <span className="text-green-600">✓ 自动启用</span>
+              <span className="inline-flex items-center gap-2 text-slate-700">
+                <Bell className="h-4 w-4 text-slate-500" />
+                站内
+              </span>
+              <span className="inline-flex items-center gap-1 text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                自动启用
+              </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-700">💬 微信公众号</span>
-              <span className="text-amber-600">⚠ 未绑定（PR-DR3 启用）</span>
+              <span className="inline-flex items-center gap-2 text-slate-700">
+                <MessageSquare className="h-4 w-4 text-slate-500" />
+                微信公众号
+              </span>
+              <span className="inline-flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="h-4 w-4" />
+                未绑定（PR-DR3 启用）
+              </span>
             </div>
           </div>
         </section>

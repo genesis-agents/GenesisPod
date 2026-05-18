@@ -13,7 +13,8 @@ import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service
  * 来源：daily-briefing-redesign-2026-05-18.md §7.3.3 K5 三级退订
  */
 @ApiTags("notifications")
-@Controller("api/v1/notifications/unsubscribe")
+// 注：AppModule 全局 setGlobalPrefix('api/v1') 自动加前缀，本 Controller 不重复
+@Controller("notifications/unsubscribe")
 export class UnsubscribeController {
   constructor(private readonly tokens: UnsubscribeTokenService) {}
 

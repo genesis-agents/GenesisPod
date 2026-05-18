@@ -29,7 +29,7 @@ import { TeamsLongContentService } from "../../ai/teams-long-content.service";
 import { LeaderModelService } from "../../ai/leader-model.service";
 // ★ AI Engine 能力下沉：使用 AI Engine 的熔断器服务（通过 AIFacade 访问）
 import { TaskCompletionType } from "@/modules/ai-harness/facade";
-import { EmailNotificationPresetsService } from "../../../../../ai-infra/facade";
+import { MissionCompletionPreset } from "../../../../../ai-infra/facade";
 import { ConfigService } from "@nestjs/config";
 import {
   findMemberByNameEnhanced,
@@ -144,7 +144,8 @@ export class TeamMissionService implements OnModuleInit {
     private agentFacade: AgentFacade,
     private teamFacade: TeamFacade,
     @Optional()
-    private emailNotificationPresetsService?: EmailNotificationPresetsService,
+    // PR-DR1b R1 arch P0 整改：迁到 dispatcher 走偏好矩阵
+    private missionCompletionPreset?: MissionCompletionPreset,
     // ★ AI Kernel: 进程生命周期追踪（可选依赖）
     @Optional() private readonly missionExecutor?: MissionExecutorService,
     @Optional() private readonly kernelJournal?: EventJournalService,
@@ -3418,37 +3419,37 @@ export class TeamMissionService implements OnModuleInit {
         },
       );
 
-      // ★ 发送邮件通知（如果配置了通知邮箱）
-      if (mission.notificationEmail) {
+      // ★ PR-DR1b R1 arch P0 整改：mission 完成通知走 dispatcher
+      // notificationEmail 字段已不需要 —— dispatcher 按 user.id 查 email
+      // 若 mission.notificationEmail 与 user.email 不同（如代发场景），后续 PR
+      // 引入 perTopic email override，PR-DR1b 不破坏此行为：notificationEmail 仍存
+      // DB 但路由统一走 dispatcher
+      const preset = this.missionCompletionPreset;
+      const recipientUserId = mission.createdById;
+      if (preset && recipientUserId) {
         const appUrl = this.configService.get(
           "APP_URL",
           "http://localhost:3000",
         );
         const reportUrl = `${appUrl}/ai-teams/topics/${mission.topicId}?mission=${missionId}`;
 
-        void this.emailNotificationPresetsService
-          ?.sendMissionCompletionNotification({
-            to: mission.notificationEmail,
+        void preset
+          .notify({
+            userId: recipientUserId,
             missionId,
             missionTitle: mission.title,
             reportUrl,
-            summary: finalReport.slice(0, 1000), // 截取摘要
+            summary: finalReport.slice(0, 1000),
             completedAt: new Date(),
           })
-          .then((success: boolean) => {
-            if (success) {
-              this.logger.log(
-                `[completeMission] Email notification sent to ${mission.notificationEmail}`,
-              );
-            } else {
-              this.logger.warn(
-                `[completeMission] Failed to send email notification to ${mission.notificationEmail}`,
-              );
-            }
+          .then(() => {
+            this.logger.log(
+              `[completeMission] Notification dispatched user=${recipientUserId} mission=${missionId}`,
+            );
           })
           .catch((error: Error) => {
             this.logger.error(
-              `[completeMission] Email notification error: ${error}`,
+              `[completeMission] Notification dispatch error: ${error}`,
             );
           });
       }

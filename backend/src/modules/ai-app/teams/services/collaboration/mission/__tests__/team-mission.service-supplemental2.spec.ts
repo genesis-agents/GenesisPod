@@ -133,7 +133,7 @@ import { MissionHealthCheckService } from "../mission-health-check.service";
 import { MissionAICallerService } from "../mission-ai-caller.service";
 import { TeamMessageService } from "../team-message.service";
 import { TeamMemberService } from "../team-member.service";
-import { EmailNotificationPresetsService } from "../../../../../../ai-infra/facade";
+import { MissionCompletionPreset } from "../../../../../../ai-infra/facade";
 import {
   MissionStatus,
   AgentTaskStatus,
@@ -349,8 +349,9 @@ function buildMocks() {
     sendMissionCompletionNotification: jest.fn().mockResolvedValue(true),
   };
 
-  const emailNotificationPresetsService = {
-    sendMissionCompletionNotification: jest.fn().mockResolvedValue(true),
+  // PR-DR1b R1：旧 EmailNotificationPresetsService 已由 MissionCompletionPreset 接管
+  const missionCompletionPreset = {
+    notify: jest.fn().mockResolvedValue(undefined),
   };
 
   const configService = {
@@ -524,7 +525,7 @@ function buildMocks() {
     agentFacade,
     teamFacade,
     circuitBreaker,
-    emailNotificationPresetsService,
+    missionCompletionPreset,
   };
 }
 
@@ -557,8 +558,8 @@ async function buildModule(
       { provide: TeamMessageService, useValue: mocks.messageService },
       { provide: TeamMemberService, useValue: mocks.memberService },
       {
-        provide: EmailNotificationPresetsService,
-        useValue: mocks.emailNotificationPresetsService,
+        provide: MissionCompletionPreset,
+        useValue: mocks.missionCompletionPreset,
       },
       { provide: AgentFacade, useValue: mocks.agentFacade },
       { provide: TeamFacade, useValue: mocks.teamFacade },
@@ -578,9 +579,7 @@ describe("TeamMissionService (supplemental2)", () => {
   beforeEach(async () => {
     mocks = buildMocks();
     service = await buildModule(mocks);
-    mocks.emailNotificationPresetsService.sendMissionCompletionNotification.mockResolvedValue(
-      true,
-    );
+    mocks.missionCompletionPreset.notify.mockResolvedValue(undefined);
     jest.useFakeTimers();
   });
 
@@ -2117,10 +2116,14 @@ describe("TeamMissionService (supplemental2)", () => {
       );
     });
 
-    it("should send email when notificationEmail is set", async () => {
+    it("should dispatch completion notification via MissionCompletionPreset", async () => {
+      // PR-DR1b R1：mission 完成走 dispatcher（MissionCompletionPreset.notify），
+      // 不再走旧 EmailNotificationPresetsService.sendMissionCompletionNotification
+      // 收件人按 mission.createdById 解析，不再依赖 mission.notificationEmail
+      jest.useRealTimers(); // 本 case 需要 setImmediate 真正调度，覆盖 fire-and-forget Promise
       const mission = makeMission({
         tasks: [],
-        notificationEmail: "user@example.com",
+        notificationEmail: null,
       });
       mocks.prisma.teamMission.findUnique.mockResolvedValue(mission);
       mocks.prisma.teamMission.update.mockResolvedValue(mission);
@@ -2135,9 +2138,19 @@ describe("TeamMissionService (supplemental2)", () => {
         "mission-s2",
       );
 
-      expect(
-        mocks.emailNotificationPresetsService.sendMissionCompletionNotification,
-      ).toHaveBeenCalled();
+      // 等待 fire-and-forget Promise 落地
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(mocks.missionCompletionPreset.notify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-s2",
+          missionId: "mission-s2",
+          missionTitle: "Supplemental Mission",
+          reportUrl: expect.stringContaining(
+            "/ai-teams/topics/topic-s2?mission=mission-s2",
+          ),
+        }),
+      );
     });
 
     it("should handle completion error and mark mission as FAILED", async () => {
