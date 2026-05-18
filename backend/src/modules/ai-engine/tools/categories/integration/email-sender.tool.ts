@@ -12,6 +12,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../abstractions/tool.interface";
+import { EMAIL_SUBJECT_MAX_LENGTH } from "../../../../../common/constants/locales";
 
 // ============================================================================
 // Types
@@ -204,7 +205,7 @@ export class EmailSenderTool extends BaseTool<
       subject: {
         type: "string",
         description: "邮件主题",
-        maxLength: 998,
+        maxLength: EMAIL_SUBJECT_MAX_LENGTH,
       },
       body: {
         type: "string",
