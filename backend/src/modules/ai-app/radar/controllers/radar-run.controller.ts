@@ -13,7 +13,6 @@
 import {
   BadRequestException,
   Body,
-  ConflictException,
   Controller,
   DefaultValuePipe,
   Get,
@@ -26,6 +25,7 @@ import {
   Request,
   UseGuards,
 } from "@nestjs/common";
+import { randomUUID } from "crypto";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import {
   RateLimit,
@@ -111,53 +111,65 @@ export class RadarRunController {
       );
     }
 
-    try {
-      const summary = await this.dispatcher.runRefreshMission(
-        {
-          topicId,
-          trigger: "MANUAL",
-          topicName: topic.name,
-          keywords: parseKeywords(topic.keywords),
-          description: topic.description,
-          entityType: topic.entityType,
-          refreshCron: topic.refreshCron,
-        },
-        req.user.id,
-      );
-      this.log.log(
-        `Manual refresh topic=${topicId} mission=${summary.missionId} status=${summary.status}`,
-      );
+    // PR-DR2-FU2 UX：refresh 改 fire-and-forget。
+    // 旧 sync 路径 await 整个 mission 才返回 → 前端拿 runId 时 WS 进度事件早已
+    // 全 emit 完毕，订阅永远收不到 onCompleted，"采集中..."卡死且无进度可视化。
+    // 新 async 路径：先生成 missionId 同步返回，mission 在后台跑 + WS 实时 emit
+    // S1-S8 stage 进度 + RUN_COMPLETED；前端拿 runId 立即 WS subscribe 看到全程。
+    const missionId = randomUUID();
+    const userId = req.user.id;
+    const topicSnapshot = {
+      topicId,
+      trigger: "MANUAL" as const,
+      topicName: topic.name,
+      keywords: parseKeywords(topic.keywords),
+      description: topic.description,
+      entityType: topic.entityType,
+      refreshCron: topic.refreshCron,
+    };
 
-      // PM P0-2: refresh mission 只跑 S1-S8（collect/dedupe/score/persist）；
-      // 手动"重新精选"语义需要重生 daily briefing，故链上 DailyBriefingGenerator
-      // 跑今日 Stage A + signal-editor，对接 onDailyBriefingGenerated 重发邮件
-      if (summary.status === "completed") {
-        try {
-          const briefingDate = new Date().toISOString().slice(0, 10);
-          const result = await this.dailyGenerator.generateForTopic({
-            topicId,
-            userId: req.user.id,
-            briefingDate,
-            missionId: summary.missionId,
-          });
-          this.log.log(
-            `Manual refresh briefing regenerated topic=${topicId} status=${result.status} selected=${result.selectedCount}`,
-          );
-        } catch (err) {
-          this.log.warn(
-            `Manual refresh briefing regen failed topic=${topicId}: ${(err as Error).message}`,
-          );
+    void (async () => {
+      try {
+        const summary = await this.dispatcher.runRefreshMission(
+          topicSnapshot,
+          userId,
+          { missionId },
+        );
+        this.log.log(
+          `Manual refresh topic=${topicId} mission=${summary.missionId} status=${summary.status}`,
+        );
+
+        // PM P0-2: refresh mission 只 S1-S8，daily briefing 是 S9 路径产物，
+        // 需主动触发 DailyBriefingGenerator 重生
+        if (summary.status === "completed") {
+          try {
+            const briefingDate = new Date().toISOString().slice(0, 10);
+            const result = await this.dailyGenerator.generateForTopic({
+              topicId,
+              userId,
+              briefingDate,
+              missionId: summary.missionId,
+            });
+            this.log.log(
+              `Manual refresh briefing regenerated topic=${topicId} status=${result.status} selected=${result.selectedCount}`,
+            );
+          } catch (err) {
+            this.log.warn(
+              `Manual refresh briefing regen failed topic=${topicId}: ${(err as Error).message}`,
+            );
+          }
         }
+      } catch (err) {
+        this.log.error(
+          `Manual refresh fire-and-forget failed topic=${topicId} mission=${missionId}: ${(err as Error).message}`,
+        );
       }
+    })();
 
-      return {
-        runId: summary.missionId,
-        status: summary.status,
-      };
-    } catch (err) {
-      if (err instanceof ConflictException) throw err;
-      throw err;
-    }
+    return {
+      runId: missionId,
+      status: "running" as const,
+    };
   }
 
   @Post("runs/:runId/cancel")

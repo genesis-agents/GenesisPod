@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
+  Check,
+  ChevronRight,
   ExternalLink,
   RefreshCw,
   Settings,
@@ -173,8 +175,26 @@ export default function RadarTopicDetailPage() {
     setRefreshing(true);
     setError(null);
     try {
+      // 后端 fire-and-forget：立即返回 runId，mission 异步跑 + WS 实时 emit
+      // stage 进度。前端拿 runId 立即 setActiveRunId → useRadarSocket 订阅
+      // → 渲染 stepper。onCompleted/onFailed 由 WS 回调 reset state。
       const resp = await triggerRefresh(topicId);
       setActiveRunId(resp.runId);
+      // 安全网：mission 极少数情况 WS 漏完成事件（pod 重启 / 网络抖动）
+      // → 5 分钟硬超时强制 reset state，避免 spinner 永远转
+      window.setTimeout(
+        () => {
+          setRefreshing((cur) => {
+            if (!cur) return cur;
+            void reloadTopic();
+            void briefingRefresh();
+            setActiveRunId(null);
+            setStageStatus(null);
+            return false;
+          });
+        },
+        5 * 60 * 1000
+      );
     } catch (e) {
       setRefreshing(false);
       setError(`刷新失败：${e instanceof Error ? e.message : String(e)}`);
@@ -356,14 +376,9 @@ export default function RadarTopicDetailPage() {
         </div>
       )}
 
-      {/* Refresh progress banner */}
+      {/* Refresh progress stepper（mission S1-S8 实时进度） */}
       {refreshing && (
-        <div className="mb-4 flex items-center gap-2 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
-          <RefreshCw className="h-3 w-3 animate-spin" />
-          {stageStatus
-            ? `执行中：${stageStatus.stage} (${stageStatus.status})`
-            : '采集中…'}
-        </div>
+        <RefreshProgressStepper currentStage={stageStatus?.stage ?? null} />
       )}
 
       {/* 双栏：左侧 briefing（主），右侧 sidebar（信息）；≥lg 才双栏，≤md 单栏 */}
@@ -378,27 +393,8 @@ export default function RadarTopicDetailPage() {
             />
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void handleRefresh()}
-                /* PM P1: 加 canRerun 闸；避免连点超 ≤2/日上限后才报 400 */
-                disabled={
-                  refreshing ||
-                  topic.status !== 'ACTIVE' ||
-                  briefing?.canRerun === false
-                }
-                title={
-                  briefing?.canRerun === false
-                    ? `今日已达重新精选上限（${briefing.rerunCount ?? 0}/2）`
-                    : undefined
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-              >
-                <RefreshCw
-                  className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`}
-                />
-                重新精选
-              </button>
+              {/* "重新精选"按钮收敛到 RadarBriefingPanel 内（PR-DR2-FU2 修
+                  双按钮重复 bug）。顶栏只保留"全部原始"次级动作 */}
               <a
                 href={rawUrl}
                 className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
@@ -537,6 +533,98 @@ export default function RadarTopicDetailPage() {
         onConfirm={() => void handleDeleteConfirm()}
         onCancel={() => setDeleteOpen(false)}
       />
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// RefreshProgressStepper — mission S1-S8 实时可视化（5 步聚合，避免过密）
+// ------------------------------------------------------------------
+
+/** mission stage 名 → 用户可读 5 步分组 + 顺序 index */
+const STAGE_STEPS: Array<{
+  id: string;
+  label: string;
+  stages: ReadonlyArray<string>;
+}> = [
+  {
+    id: 'collect',
+    label: '采集源数据',
+    stages: ['s1-source-resolve', 's2-collect'],
+  },
+  { id: 'dedupe', label: '去重', stages: ['s3-dedupe'] },
+  {
+    id: 'score',
+    label: '评分（相关性 + 质量）',
+    stages: ['s4-relevance', 's5-quality'],
+  },
+  {
+    id: 'enrich',
+    label: '实体抽取 + 洞察',
+    stages: ['s6-entity', 's7-insight'],
+  },
+  { id: 'finalize', label: '生成精选 + 持久化', stages: ['s8-persist'] },
+];
+
+function findStepIndex(currentStage: string | null): number {
+  if (!currentStage) return -1;
+  return STAGE_STEPS.findIndex((step) =>
+    step.stages.some((s) => currentStage.startsWith(s))
+  );
+}
+
+function RefreshProgressStepper({
+  currentStage,
+}: {
+  currentStage: string | null;
+}) {
+  const activeIdx = findStepIndex(currentStage);
+
+  return (
+    <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-violet-700">
+        <RefreshCw className="h-3 w-3 animate-spin" />
+        正在重新精选 · {currentStage ? `当前 ${currentStage}` : '准备中…'}
+      </div>
+      <ol className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        {STAGE_STEPS.map((step, idx) => {
+          const isDone = activeIdx > idx;
+          const isActive = activeIdx === idx;
+          return (
+            <li key={step.id} className="flex items-center gap-1.5">
+              <span
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+                  isDone
+                    ? 'bg-violet-600 text-white'
+                    : isActive
+                      ? 'bg-violet-100 text-violet-700 ring-2 ring-violet-400'
+                      : 'bg-slate-100 text-slate-400'
+                }`}
+                aria-current={isActive ? 'step' : undefined}
+              >
+                {isDone ? <Check className="h-3 w-3" /> : idx + 1}
+              </span>
+              <span
+                className={
+                  isActive
+                    ? 'font-medium text-violet-700'
+                    : isDone
+                      ? 'text-slate-600'
+                      : ''
+                }
+              >
+                {step.label}
+              </span>
+              {idx < STAGE_STEPS.length - 1 && (
+                <ChevronRight
+                  className="ml-1 h-3 w-3 text-slate-300"
+                  aria-hidden="true"
+                />
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
