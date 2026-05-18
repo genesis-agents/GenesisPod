@@ -33,7 +33,10 @@ import { RadarSourceController } from "./controllers/radar-source.controller";
 import { RadarFeedController } from "./controllers/radar-feed.controller";
 import { RadarInsightController } from "./controllers/radar-insight.controller";
 import { RadarRunController } from "./controllers/radar-run.controller";
+import { NarrativeController } from "./controllers/narrative.controller";
 
+import { RadarDailyBriefingRepo } from "./services/briefing/radar-daily-briefing.repo";
+import { NarrativeService } from "./services/briefing/narrative.service";
 import { RadarTopicService } from "./services/topic/radar-topic.service";
 import { RadarSourceService } from "./services/source/radar-source.service";
 import { SourceHealthService } from "./services/source/source-health.service";
@@ -82,8 +85,12 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     RadarFeedController,
     RadarInsightController,
     RadarRunController,
+    NarrativeController,
   ],
   providers: [
+    // briefing 层（B5 repo + B15 narrative service）
+    RadarDailyBriefingRepo,
+    NarrativeService,
     // 顶层业务 service
     RadarTopicService,
     RadarSourceService,
