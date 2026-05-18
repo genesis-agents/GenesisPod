@@ -15,6 +15,7 @@ import {
 } from "../../dto";
 import { RadarTopicService } from "../topic/radar-topic.service";
 import { assertSafeHttpUrl } from "../collectors/ssrf-util";
+import { CollectorRouter } from "../collectors/collector-router.service";
 
 @Injectable()
 export class RadarSourceService {
@@ -23,6 +24,7 @@ export class RadarSourceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly topics: RadarTopicService,
+    private readonly collectorRouter: CollectorRouter,
   ) {}
 
   async create(
@@ -109,8 +111,15 @@ export class RadarSourceService {
   }
 
   /**
-   * 批量入库 AI 推荐源（PR-R4 调用，PR-R1 留空逻辑）。
-   * skipDuplicates 由 unique 索引 (topicId, type, identifier) 保证。
+   * 批量入库 AI 推荐源。
+   *
+   * 2026-05-18：accept 路径新增 preflight — 复用 CollectorRouter.fanOut 真发
+   * 一次拉取作为可达性探测（fan-out 并发，单源失败不阻塞）。失败的 candidate
+   * silently drop（不入库），成功的入库。这样让 LLM hallucinate URL（截图
+   * 35：Reuters feeds.reuters.com ENOTFOUND / The Verge 404 / NVIDIA Investor
+   * 403 / YT @handle 解析失败）不再污染用户列表。
+   *
+   * 返回值含 `skipped`：前端提示用户"接受 N，过滤 M 个不可达"。
    */
   async bulkCreateAiRecommended(
     userId: string,
@@ -121,27 +130,87 @@ export class RadarSourceService {
       label?: string;
       config?: Record<string, unknown>;
     }>,
-  ): Promise<RadarSource[]> {
+  ): Promise<{
+    created: RadarSource[];
+    skipped: Array<{ type: string; identifier: string; reason: string }>;
+  }> {
     await this.topics.getOwnedById(userId, topicId);
-    const created: RadarSource[] = [];
+
+    // 1) shape 校验：DTO 已挡了 X，这里挡 identifier 格式错的（如 YT 既不是 channelId
+    //    也不是 youtube.com URL，或 RSS 不是 https URL）
+    const shapeOk: Array<{
+      type: RadarSourceType;
+      identifier: string;
+      label?: string;
+      config?: Record<string, unknown>;
+    }> = [];
+    const skipped: Array<{ type: string; identifier: string; reason: string }> =
+      [];
     for (const c of candidates) {
       const identifier = c.identifier.trim();
-      if (!identifier) continue;
+      if (!identifier) {
+        skipped.push({
+          type: c.type,
+          identifier: c.identifier,
+          reason: "空 identifier",
+        });
+        continue;
+      }
       const type = c.type as unknown as RadarSourceType;
       try {
         this.assertIdentifierShape(type, identifier);
+        shapeOk.push({ type, identifier, label: c.label, config: c.config });
       } catch (err) {
         this.log.warn(
-          `Skip invalid AI recommended source ${type}:${identifier} - ${(err as Error).message}`,
+          `Skip shape-invalid AI candidate ${type}:${identifier} - ${(err as Error).message}`,
         );
-        continue;
+        skipped.push({ type, identifier, reason: (err as Error).message });
       }
+    }
+
+    // 2) preflight：构造 in-memory RadarSource 跑 collector.fetch 探测；
+    //    only 失败时 drop（成功 / 空数组 / 无新数据都算可达）
+    if (shapeOk.length > 0) {
+      const transientSources = shapeOk.map((c, i) =>
+        this.buildTransientSource(topicId, c.type, c.identifier, c.config, i),
+      );
+      // since=未来 → 拉空数组（避免重复网络流量 / 入库），但 collector 仍走
+      // 网络请求 → 真探测可达性
+      const results = await this.collectorRouter.fanOut(transientSources, {
+        since: new Date(Date.now() + 86_400_000),
+        perSourceLimit: 1,
+        userId,
+      });
+      const failedIdx = new Set<number>();
+      results.forEach((r, i) => {
+        if (r.error) {
+          this.log.warn(
+            `Preflight drop ${r.type}:${transientSources[i]?.identifier} - ${r.error}`,
+          );
+          failedIdx.add(i);
+          const c = shapeOk[i];
+          skipped.push({
+            type: c.type,
+            identifier: c.identifier,
+            reason: r.error,
+          });
+        }
+      });
+      // 失败的从 shapeOk 剔除
+      const live = shapeOk.filter((_, i) => !failedIdx.has(i));
+      shapeOk.length = 0;
+      shapeOk.push(...live);
+    }
+
+    // 3) 入库
+    const created: RadarSource[] = [];
+    for (const c of shapeOk) {
       try {
         const source = await this.prisma.radarSource.create({
           data: {
             topicId,
-            type,
-            identifier,
+            type: c.type,
+            identifier: c.identifier,
             label: c.label?.trim() ?? null,
             config:
               c.config === undefined
@@ -157,12 +226,48 @@ export class RadarSourceService {
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === "P2002"
         ) {
+          skipped.push({
+            type: c.type,
+            identifier: c.identifier,
+            reason: "已存在同 type+identifier 数据源",
+          });
           continue;
         }
         throw error;
       }
     }
-    return created;
+    return { created, skipped };
+  }
+
+  /**
+   * 构造未入库的 RadarSource 临时对象供 CollectorRouter.fanOut() preflight。
+   * 仅填 collector.fetch() 必读的字段；id/topicId/timestamps 用占位。
+   */
+  private buildTransientSource(
+    topicId: string,
+    type: RadarSourceType,
+    identifier: string,
+    config: Record<string, unknown> | undefined,
+    seq: number,
+  ): RadarSource {
+    const now = new Date();
+    return {
+      id: `preflight-${seq}`,
+      topicId,
+      type,
+      identifier,
+      label: null,
+      config: (config ?? null) as Prisma.JsonValue,
+      enabled: true,
+      isAiRecommended: true,
+      health: "UNKNOWN",
+      consecutiveFailures: 0,
+      cooldownUntil: null,
+      lastFetchAt: null,
+      lastError: null,
+      createdAt: now,
+      updatedAt: now,
+    };
   }
 
   private assertIdentifierShape(

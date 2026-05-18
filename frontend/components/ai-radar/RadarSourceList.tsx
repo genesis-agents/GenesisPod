@@ -87,6 +87,8 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
     }
   };
 
+  const [acceptInfo, setAcceptInfo] = useState<string | null>(null);
+
   const handleAccept = async () => {
     const picked = candidates.filter((_, i) => selected.has(i));
     if (picked.length === 0) {
@@ -94,9 +96,27 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
       return;
     }
     setOpError(null);
+    setAcceptInfo(null);
     try {
-      await acceptRecommendedSources(topicId, picked);
+      const result = await acceptRecommendedSources(topicId, picked);
       setRecommendOpen(false);
+      // backend preflight 后剔除的源（LLM hallucinate URL / @handle 解析失败
+      // / paywall 403 等），让用户知道为什么实际入库 < 选中数
+      if (result.skipped.length > 0) {
+        const lines = result.skipped
+          .slice(0, 5)
+          .map((s) => `• ${s.type}:${s.identifier} - ${s.reason}`)
+          .join('\n');
+        const more =
+          result.skipped.length > 5
+            ? `\n• 还有 ${result.skipped.length - 5} 条...`
+            : '';
+        setAcceptInfo(
+          `已添加 ${result.created.length} 个源，过滤掉 ${result.skipped.length} 个不可达：\n${lines}${more}`
+        );
+      } else if (result.created.length > 0) {
+        setAcceptInfo(`已添加 ${result.created.length} 个数据源`);
+      }
       onReload();
     } catch (e) {
       setOpError(`入库失败：${e instanceof Error ? e.message : String(e)}`);
@@ -223,6 +243,23 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
             </li>
           ))}
         </ul>
+      )}
+
+      {acceptInfo && (
+        <div className="mx-3 mb-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+          <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+          <pre className="min-w-0 flex-1 whitespace-pre-wrap break-words font-sans">
+            {acceptInfo}
+          </pre>
+          <button
+            type="button"
+            className="text-amber-400 hover:text-amber-600"
+            onClick={() => setAcceptInfo(null)}
+            aria-label="dismiss info"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
       )}
 
       {opError && (

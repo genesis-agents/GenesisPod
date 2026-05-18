@@ -174,16 +174,26 @@ export async function recommendSources(
   );
 }
 
+export interface AcceptRecommendedSourcesResult {
+  created: RadarSource[];
+  /** preflight 后剔除的源（不可达 / 死链 / shape 错），前端可提示用户 */
+  skipped: Array<{ type: string; identifier: string; reason: string }>;
+}
+
 export async function acceptRecommendedSources(
   topicId: string,
   candidates: RecommendedSource[]
-): Promise<RadarSource[]> {
-  // R6 整改：原 backend 用 string[] 双重序列化是反模式；
-  // 现 DTO 改为 RecommendedSourceCandidateDto[] + ValidateNested，直接发对象。
-  return request<RadarSource[]>(`/topics/${topicId}/sources/recommend/accept`, {
-    method: 'POST',
-    body: JSON.stringify({ candidates }),
-  });
+): Promise<AcceptRecommendedSourcesResult> {
+  // 2026-05-18：backend accept 路径加 preflight（CollectorRouter.fanOut 真发
+  // 一次拉取），LLM hallucinate 的死链 / 解析失败的 @handle 不再入库，返回
+  // { created, skipped } 让前端展示"接受 N，过滤 M 个不可达"。
+  return request<AcceptRecommendedSourcesResult>(
+    `/topics/${topicId}/sources/recommend/accept`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ candidates }),
+    }
+  );
 }
 
 // ── Feed ──────────────────────────────────────────────

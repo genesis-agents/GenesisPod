@@ -125,9 +125,13 @@ ${JSON.stringify({
 - 反模式（不要）：
   - "Elon" → 只给 Tesla 官博（个人 personality 内容全丢）
   - "SeekingAlpha" → 给公开 RSS（2022 起几乎空，有价值的全在 Premium，不要推）
-- identifier：YOUTUBE 填频道 ID 或 https URL / RSS 填 https URL / CUSTOM 填 https URL（rationale 内简述 CSS selector）
+- identifier 规范（accept 路径会真发 HTTP preflight 校验，编 URL 会被剔除）：
+  - YOUTUBE: 首选 24 位 channelId (UC...)；次选 https://www.youtube.com/channel/UC... 完整 URL；可接 https://www.youtube.com/@handle 完整 URL（系统会 resolve channelId）；**禁裸 @handle**
+  - RSS: 必须是你**已知存在**的完整 https URL；**绝对不要凭 \`feeds.<公司>.com\` / \`<公司>.com/rss\` 等命名规则编 URL** —— 不确定就别推
+  - CUSTOM: https URL（rationale 内简述 CSS selector）
 - 不推荐 paywall / 需 auth token 的 RSS（SeekingAlpha Premium / WSJ / Bloomberg Terminal — 会 401）
-- confidence 为 0-1 浮点数（推荐把握度）；KOL 找不到 1/2 级源时**输出空数组比硬凑公司公关稿好**
+- 不推 2024+ 已停 / 已限流 / 已迁移的公开 feed（SeekingAlpha 公开 RSS / Reuters 公开 feed 等）
+- confidence 为 0-1 浮点数（推荐把握度）；KOL 找不到 1/2 级源或不确定 URL 真存在时**输出空数组比硬凑死链好**（accept 路径会剔除死链，硬凑也会被丢）
 
 请严格按以下 JSON schema 返回（无 markdown 围栏）：
 {
