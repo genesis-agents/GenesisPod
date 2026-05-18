@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { useTranslation } from '@/lib/i18n';
 import { TierBadge } from '@/components/common/badges/TierBadge';
 import { WhyItMattersCallout } from '@/components/common/callouts/WhyItMattersCallout';
 import { ShareActions } from '@/components/common/actions/ShareActions';
@@ -61,6 +62,7 @@ export function RadarBriefingCard({
   narrativeLabel,
   evidenceSources,
 }: RadarBriefingCardProps) {
+  const { t } = useTranslation();
   const [evidenceExpanded, setEvidenceExpanded] = useState(false);
 
   const visibleTags = signal.signalTags.slice(0, 3);
@@ -112,7 +114,7 @@ export function RadarBriefingCard({
         />
         <span>
           <span className="mr-1 font-medium text-slate-700">
-            接下来看什么：
+            {t('radar.detail.whatsNextLabel')}
           </span>
           {signal.whatsNext}
         </span>
@@ -169,7 +171,7 @@ export function RadarBriefingCard({
         <div className="flex flex-col gap-1.5">
           <p className="inline-flex items-center gap-1 text-xs font-medium text-slate-500">
             <BookOpen className="h-3 w-3" aria-hidden="true" />
-            证据来源
+            {t('radar.detail.evidenceSources')}
           </p>
 
           {/* First source always visible */}
@@ -180,7 +182,10 @@ export function RadarBriefingCard({
             <>
               {evidenceExpanded &&
                 restSources.map((src, idx) => (
-                  <EvidenceRow key={idx} source={src} />
+                  <EvidenceRow
+                    key={src.url ?? src.name ?? `evidence-${idx}`}
+                    source={src}
+                  />
                 ))}
               <button
                 onClick={() => setEvidenceExpanded((v) => !v)}
@@ -190,12 +195,14 @@ export function RadarBriefingCard({
                 {evidenceExpanded ? (
                   <>
                     <ChevronUp className="h-3 w-3" />
-                    收起
+                    {t('radar.detail.collapseEvidence')}
                   </>
                 ) : (
                   <>
                     <ChevronDown className="h-3 w-3" />
-                    展开另 {restSources.length} 条来源
+                    {t('radar.detail.expandEvidence', {
+                      n: String(restSources.length),
+                    })}
                   </>
                 )}
               </button>

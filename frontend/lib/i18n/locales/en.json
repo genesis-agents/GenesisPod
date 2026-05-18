@@ -7345,16 +7345,26 @@
       "viewOriginal": "Original →",
       "history": "History",
       "rerunBriefing": "Re-run briefing",
-      "alreadyRerunToday": "Briefed {count} times today",
+      "alreadyRerunToday": "Briefed {{count}} times today",
       "viewAllRaw": "All raw signals →",
-      "todayBriefing": "Today's briefing · {date}",
+      "todayBriefing": "Today's briefing · {{date}}",
       "loadMore": "Load more",
-      "signalTagsLabel": "📡 {tags}",
+      "signalTagsLabel": "{{tags}}",
       "todayNoSignals": "0 signals today · Monitoring",
-      "briefingFailed": "Briefing failed",
+      "briefingFailed": "Failed to load briefing",
       "retry": "Retry",
-      "narrativeLabel": "📰 {label} · Episode {episode}",
-      "narrativePrev": "Previous episodes →"
+      "narrativeLabel": "{{label}} · Episode {{episode}}",
+      "narrativePrev": "Previous episodes →",
+      "panelTitle": "{{date}} · Today's briefing",
+      "generating": "Generating briefing…",
+      "whatsNextLabel": "What's next:",
+      "evidenceSources": "Evidence sources",
+      "expandEvidence": "Expand {{n}} more sources",
+      "collapseEvidence": "Collapse",
+      "weeklyTitle": "Weekly · {{start}} — {{end}}",
+      "weeklyEmpty": "No top-tier signals this week · skipping weekly",
+      "weeklyView": "View full weekly →",
+      "weeklyStats": "{{tier3Count}} · narratives {{narrativeCount}} · candidates {{candidatesTotal}}"
     },
     "share": {
       "favorite": "Favorite",
@@ -7417,7 +7427,8 @@
     },
     "empty": {
       "todayMonitoring": "0 signals today · Monitoring",
-      "lastTierNDaysAgo": "Last ⭐⭐⭐ signal {days} days ago →"
+      "lastTierNDaysAgo": "Last signal {{days}} days ago",
+      "lastTier3Prefix": "Last"
     },
     "error": {
       "briefingFailed": "Failed to load briefing",

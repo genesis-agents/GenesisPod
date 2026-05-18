@@ -2432,15 +2432,19 @@ R4 评审时间：2026-05-18（R3 整改后）
 | UX-2  | 用户      | 详情页空白浪费（同 P0-4）                                | 双栏 + sidebar 见 P0-4                                                | topic/[topicId]/page.tsx                          |
 | PROD  | 用户日志  | 生产 Redis ECONNREFUSED 127.0.0.1:6379                  | BullModule.forRootAsync 读 REDIS_URL 解析 host/port/auth              | radar.module.ts                                   |
 
-### 22.2 暂留 P1（不阻断主干，下个 PR 收口）
+### 22.2 暂留 P1/P2（PR-DR2-FU 已收口 5/6）
 
-- **P1-E**：新组件硬编码中文（BriefingCard/EmptyState/ErrorState/Weekly/Narrative）应接 useTranslation('radar.detail.*')。
-  i18n keys 已齐（X1），仅需替换字面量。当前不阻断 PR-DR2 合入，列入 PR-DR2-FU。
-- **frontend P2-1**：SourceHealthSummary `✓ / ✗` Unicode 改 CheckCircle/XCircle。
-- **frontend P2-2**：RadarBriefingCard evidence list `key={idx}` 改 `src.url ?? src.name ?? idx`。
-- **frontend P2-3**：RadarTopicConfigDrawer topic prop 变更不重置 draft。
-- **pm P2-1**：RadarBriefingPanel rerunCount hardcode 0（多次精选/天上限未实装）。
-- **security P2-1**：UnsubscribeController response 包含 `scope` 字段（非新增泄漏，JWT 本身可解）。
+PR-DR2-FU 整改完成项（commit `<待回填>`）：
+
+- **P1-E ✅**：新组件全部接入 `useTranslation('radar.detail.*')` —— BriefingCard / Panel / EmptyState / ErrorState / Weekly / Narrative。i18n keys 单 `{x}` → `{{x}}` 双花括号修齐（与项目惯例对齐）+ 移除 key 内残留 emoji。
+- **frontend P2-1 ✅**：SourceHealthSummary `✓ / ✗` 改 `<CheckCircle>` / `<XCircle>` Lucide。
+- **frontend P2-2 ✅**：RadarBriefingCard evidence list 改 `src.url ?? src.name ?? idx-fallback` 稳定 key。
+- **frontend P2-3 ✅**：RadarTopicConfigDrawer 加 `useEffect([topic, open])` 仅在 drawer 关闭时同步 draft。
+- **pm P2-1 ✅**：RadarBriefingPanel rerunCount 真值化 —— radar-run.controller Redis INCR + ≤2/day 闸；daily-briefing GET 暴露 `rerunCount` / `canRerun`；前端读 `briefing.rerunCount`。
+
+仍暂留（次要 / 信息泄漏可接受）：
+
+- **security P2-1**：UnsubscribeController response 包含 `scope` 字段（非新增泄漏，JWT 本身可解；保留）。
 
 ### 22.3 共识达成证据
 

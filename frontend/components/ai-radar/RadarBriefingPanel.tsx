@@ -2,6 +2,7 @@
 
 import { Calendar, RefreshCw } from 'lucide-react';
 
+import { useTranslation } from '@/lib/i18n';
 import { RadarBriefingCard, type DailySignalView } from './RadarBriefingCard';
 import { RadarBriefingSkeleton } from './RadarBriefingSkeleton';
 import { RadarBriefingEmptyState } from './RadarBriefingEmptyState';
@@ -39,6 +40,7 @@ export function RadarBriefingPanel({
   favoritedIds,
   onToggleFavorite,
 }: RadarBriefingPanelProps) {
+  const { t } = useTranslation();
   const canRerun = (rerunCount ?? 0) < 2;
   const formattedDate = formatBriefingDate(briefingDate);
 
@@ -51,7 +53,7 @@ export function RadarBriefingPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="inline-flex items-center gap-1.5 text-lg font-semibold text-slate-800 md:text-xl">
           <Calendar className="h-5 w-5 text-violet-600" aria-hidden="true" />
-          {formattedDate} · 今日精选
+          {t('radar.detail.panelTitle', { date: formattedDate })}
         </h1>
 
         {onRerun && (
@@ -60,14 +62,14 @@ export function RadarBriefingPanel({
               onClick={onRerun}
               disabled={!canRerun || status === 'generating'}
               className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-              aria-label="重新精选"
+              aria-label={t('radar.detail.rerunBriefing')}
             >
               <RefreshCw className="h-4 w-4" />
-              重新精选
+              {t('radar.detail.rerunBriefing')}
             </button>
             {rerunCount > 0 && (
               <span className="text-xs text-slate-400">
-                今日已精选 {rerunCount} 次
+                {t('radar.detail.alreadyRerunToday', { count: rerunCount })}
               </span>
             )}
           </div>
@@ -77,7 +79,9 @@ export function RadarBriefingPanel({
       {/* Content area */}
       {status === 'generating' && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-slate-500">精选生成中…</p>
+          <p className="text-sm text-slate-500">
+            {t('radar.detail.generating')}
+          </p>
           <RadarBriefingSkeleton />
         </div>
       )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { RadarSourceList } from './RadarSourceList';
 import type { RadarSource } from '@/services/ai-radar/types';
@@ -62,6 +62,12 @@ export function RadarTopicConfigDrawer({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
+
+  // FU-P2-3：父组件 topic prop 变更（如 reloadTopic 后）→ 同步 draft；
+  // 仅在 drawer 关闭时同步，避免覆盖用户正在编辑的脏值
+  useEffect(() => {
+    if (!open) setDraft(topic);
+  }, [topic, open]);
 
   // Reset draft when topic changes or drawer reopens
   const isDirty = JSON.stringify(draft) !== JSON.stringify(topic);

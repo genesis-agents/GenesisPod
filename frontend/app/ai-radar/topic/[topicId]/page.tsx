@@ -406,7 +406,7 @@ export default function RadarTopicDetailPage() {
             topicId={topicId}
             topicName={topic.name}
             onRerun={() => void handleRefresh()}
-            rerunCount={0}
+            rerunCount={briefing?.rerunCount ?? 0}
           />
         </div>
 

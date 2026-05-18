@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { Newspaper } from 'lucide-react';
 
+import { useTranslation } from '@/lib/i18n';
+
 export interface NarrativeEpisode {
   date: string; // YYYY-MM-DD
   signalId: string;
@@ -27,6 +29,7 @@ export function NarrativeThread({
   episodes,
   currentSignalDate,
 }: NarrativeThreadProps) {
+  const { t } = useTranslation();
   // Render nothing when fewer than 2 episodes
   if (episodes.length < 2) return null;
 
@@ -38,13 +41,16 @@ export function NarrativeThread({
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="inline-flex items-center gap-1 font-medium text-slate-700">
           <Newspaper className="h-4 w-4" aria-hidden="true" />
-          {label} · 第 {episodeNumber} 集
+          {t('radar.detail.narrativeLabel', {
+            label,
+            episode: episodeNumber,
+          })}
         </span>
         <Link
           href={`/ai-radar/topic/${topicId}/narrative/${narrativeId}`}
           className="text-xs text-violet-600 hover:underline"
         >
-          前情 →
+          {t('radar.detail.narrativePrev')}
         </Link>
       </div>
 

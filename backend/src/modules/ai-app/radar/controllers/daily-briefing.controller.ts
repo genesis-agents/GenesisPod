@@ -17,6 +17,7 @@ import {
   Request,
   UseGuards,
 } from "@nestjs/common";
+import { CacheService } from "@/common/cache/cache.service";
 import { JwtAuthGuard } from "../../../../common/guards/jwt-auth.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
 import {
@@ -45,6 +46,10 @@ export interface DailyBriefingDto {
   status: "completed" | "no_signals" | "generating";
   signals: DailySignalDto[];
   generationRunId?: string;
+  /** FU-P2-4: 当日重新精选次数（用户首次自动生成不计入；手动 rerun 计入） */
+  rerunCount: number;
+  /** FU-P2-4: 是否还可继续 rerun（false → 前端禁用按钮） */
+  canRerun: boolean;
 }
 
 @Controller("radar/topics")
@@ -53,6 +58,7 @@ export class DailyBriefingController {
   constructor(
     private readonly repo: RadarDailyBriefingRepo,
     private readonly topics: RadarTopicService,
+    private readonly cache: CacheService,
   ) {}
 
   @Get(":topicId/daily-briefing")
@@ -68,11 +74,23 @@ export class DailyBriefingController {
       : await this.repo.findLatestForTopic(topicId);
     if (!row) return null;
 
+    // FU-P2-4: 读 Redis rerun 计数（与 radar-run.controller 共用 key）
+    const dateStr = row.briefingDate.toISOString().slice(0, 10);
+    let rerunCount = 0;
+    try {
+      const raw = await this.cache.get<number | string>(
+        `radar:rerun:${topicId}:${dateStr}`,
+      );
+      rerunCount = typeof raw === "number" ? raw : Number(raw ?? 0) || 0;
+    } catch {
+      // fail-open：Redis 不可达 → 默认 0，仍可 rerun
+    }
+
     const signals = (row.signals as unknown as DailySignal[]) ?? [];
     return {
       id: row.id,
       topicId: row.topicId,
-      briefingDate: row.briefingDate.toISOString().slice(0, 10),
+      briefingDate: dateStr,
       status: row.status as DailyBriefingDto["status"],
       signals: signals.map((s) => ({
         id: s.id,
@@ -87,6 +105,8 @@ export class DailyBriefingController {
         narrativeId: s.narrativeId,
       })),
       generationRunId: row.generationRunId ?? undefined,
+      rerunCount,
+      canRerun: rerunCount < 2, // RERUN_LIMIT_PER_DAY in radar-run.controller
     };
   }
 }

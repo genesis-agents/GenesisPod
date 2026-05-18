@@ -22,6 +22,10 @@ export interface DailyBriefingView {
   status: 'completed' | 'no_signals' | 'generating';
   signals: DailySignalView[];
   generationRunId?: string;
+  /** FU-P2-4: 当日 rerun 计数（手动重新精选累计） */
+  rerunCount?: number;
+  /** FU-P2-4: 是否还可继续 rerun（false → 按钮禁用） */
+  canRerun?: boolean;
 }
 
 export function useDailyBriefing(

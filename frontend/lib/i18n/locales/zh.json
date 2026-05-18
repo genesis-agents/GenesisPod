@@ -7345,16 +7345,26 @@
       "viewOriginal": "原文 →",
       "history": "历史",
       "rerunBriefing": "重新精选",
-      "alreadyRerunToday": "今日已精选 {count} 次",
+      "alreadyRerunToday": "今日已精选 {{count}} 次",
       "viewAllRaw": "全部原始 →",
-      "todayBriefing": "今日精选 · {date}",
+      "todayBriefing": "今日精选 · {{date}}",
       "loadMore": "加载更多",
-      "signalTagsLabel": "📡 {tags}",
+      "signalTagsLabel": "{{tags}}",
       "todayNoSignals": "今日 0 条 · 持续监控中",
-      "briefingFailed": "精选失败",
+      "briefingFailed": "加载精选失败",
       "retry": "重试",
-      "narrativeLabel": "📰 {label} · 第 {episode} 集",
-      "narrativePrev": "前情 →"
+      "narrativeLabel": "{{label}} · 第 {{episode}} 集",
+      "narrativePrev": "前情 →",
+      "panelTitle": "{{date}} · 今日精选",
+      "generating": "精选生成中…",
+      "whatsNextLabel": "接下来看什么：",
+      "evidenceSources": "证据来源",
+      "expandEvidence": "展开另 {{n}} 条来源",
+      "collapseEvidence": "收起",
+      "weeklyTitle": "周报 · {{start}} — {{end}}",
+      "weeklyEmpty": "本周暂无最高评级信号 · 周报跳过",
+      "weeklyView": "查看完整周报 →",
+      "weeklyStats": "{{tier3Count}} · 延续叙事 {{narrativeCount}} · 候选总 {{candidatesTotal}}"
     },
     "share": {
       "favorite": "收藏",
@@ -7417,7 +7427,8 @@
     },
     "empty": {
       "todayMonitoring": "今日 0 条信号 · 持续监控中",
-      "lastTierNDaysAgo": "上次 ⭐⭐⭐ 信号在 {days} 天前 →"
+      "lastTierNDaysAgo": "上次信号在 {{days}} 天前",
+      "lastTier3Prefix": "上次"
     },
     "error": {
       "briefingFailed": "加载精选失败",

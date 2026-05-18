@@ -32,10 +32,14 @@ import {
   RateLimitGuard,
 } from "../../../../common/guards/rate-limit.guard";
 import type { RequestWithUser } from "../../../../common/types/express-request.types";
+import { CacheService } from "@/common/cache/cache.service";
 import { TriggerRefreshDto } from "../dto";
 import { RadarTopicService } from "../services/topic/radar-topic.service";
 import { RadarMissionStore } from "../services/mission/lifecycle/radar-mission-store.service";
 import { RadarPipelineDispatcher } from "../services/mission/workflow/radar-pipeline-dispatcher.service";
+
+/** FU-P2-4: 设计 §4.3 — 同一日只能 rerun ≤2 次（首次精选 + 2 次手动 = 3 上限） */
+const RERUN_LIMIT_PER_DAY = 2;
 
 @Controller("radar")
 @UseGuards(JwtAuthGuard, RateLimitGuard)
@@ -46,6 +50,7 @@ export class RadarRunController {
     private readonly topics: RadarTopicService,
     private readonly store: RadarMissionStore,
     private readonly dispatcher: RadarPipelineDispatcher,
+    private readonly cache: CacheService,
   ) {}
 
   @Get("topics/:topicId/runs")
@@ -85,6 +90,25 @@ export class RadarRunController {
         `主题处于 ${topic.status} 状态，无法刷新，请先 resume`,
       );
     }
+
+    // FU-P2-4: 当日 rerun 计数 + ≤2/天 闸（Redis INCR；fail-open Redis 故障不阻塞）
+    const today = new Date().toISOString().slice(0, 10);
+    const rerunKey = `radar:rerun:${topicId}:${today}`;
+    try {
+      const count = await this.cache.incrby(rerunKey, 1);
+      if (count === 1) await this.cache.expire(rerunKey, 86400);
+      if (count > RERUN_LIMIT_PER_DAY) {
+        throw new BadRequestException(
+          `今日已重新精选 ${count - 1} 次，达上限 ${RERUN_LIMIT_PER_DAY} 次`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      this.log.warn(
+        `rerun counter incrby failed (fail-open): ${(err as Error).message}`,
+      );
+    }
+
     try {
       const summary = await this.dispatcher.runRefreshMission(
         {

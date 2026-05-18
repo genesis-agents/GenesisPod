@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 interface Props {
   totalSources: number;
@@ -35,8 +36,25 @@ export function SourceHealthSummary({
   }
 
   return (
-    <span className={amber ? 'text-amber-600' : 'text-slate-500'}>
-      {totalSources} 源 · {okCount} ✓ · {failCount} ✗
+    <span
+      className={`inline-flex items-center gap-1 ${amber ? 'text-amber-600' : 'text-slate-500'}`}
+    >
+      {totalSources} 源 ·
+      <span className="inline-flex items-center gap-0.5">
+        <CheckCircle
+          className="h-3 w-3 text-emerald-500"
+          aria-hidden="true"
+        />
+        {okCount}
+      </span>
+      ·
+      <span className="inline-flex items-center gap-0.5">
+        <XCircle
+          className={`h-3 w-3 ${amber ? 'text-amber-500' : 'text-slate-400'}`}
+          aria-hidden="true"
+        />
+        {failCount}
+      </span>
     </span>
   );
 }
