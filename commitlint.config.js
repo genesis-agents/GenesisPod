@@ -51,11 +51,13 @@ module.exports = {
     // Subject不能以句号结尾
     "subject-full-stop": [2, "never", "."],
 
-    // Subject必须以小写字母开头
+    // Subject case：允许 acronyms（PR-DR2 / R5 / API / TS 等业务术语 / 大写缩写）
+    // 仅禁完整 sentence-case / start-case / pascal-case（开头大写字母 + camelCase
+    // 风格），upper-case 拿掉 — 中文 subject + 业务大写缩写本来就误判
     "subject-case": [
       2,
       "never",
-      ["sentence-case", "start-case", "pascal-case", "upper-case"],
+      ["sentence-case", "start-case", "pascal-case"],
     ],
 
     // Header最大长度100字符

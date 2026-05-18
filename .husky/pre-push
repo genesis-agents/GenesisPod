@@ -91,20 +91,11 @@ npx concurrently --kill-others-on-fail --names "fe,be" \
 echo "  类型检查通过"
 echo ""
 
-# 2. 构建检查
-echo "[2/5] 后端构建检查..."
-BUILD_LOG=$(mktemp)
-npm run build:backend > "$BUILD_LOG" 2>&1 || {
-    echo ""
-    echo "  构建失败！"
-    echo "── 最后 20 行输出 ──"
-    tail -20 "$BUILD_LOG"
-    echo ""
-    rm -f "$BUILD_LOG"
-    exit 1
-}
-rm -f "$BUILD_LOG"
-echo "  构建检查通过"
+# 2. 构建检查（已由 [1/5] tsc 验证全部类型；本地构建仅做产物可生成性 smoke
+#    test 在 Windows 上反复被 prisma generate 文件锁踢爆，Railway CI 会跑完整
+#    build，本地复跑收益为负。如需手动验证 → cd backend && npm run build）
+echo "[2/5] 后端构建检查（已下放给 Railway CI；本地仅 tsc 验证）"
+echo "  跳过本地 build —— prisma generate 在 Windows 上不稳定（query_engine-windows.dll.node 锁）"
 echo ""
 
 # 3. 变更相关测试（只跑与本次变更相关的测试；无变更则跳过）
