@@ -204,11 +204,11 @@ model User {
 
   // 2026-05-16 AI Radar 雷达主题
   radarTopics      RadarTopic[]
-  // 2026-05-18 PR-DR2: daily/weekly briefings
-  radarDailyBriefings      RadarDailyBriefing[]
-  radarWeeklyBriefings     RadarWeeklyBriefing[]
-  // 2026-05-18 B17: per-topic 退订
-  radarTopicSubscriptions  RadarTopicSubscription[]
+  // 2026-05-18 PR-DR2: daily/weekly briefings + per-topic 退订 + 收藏
+  radarDailyBriefings     RadarDailyBriefing[]
+  radarWeeklyBriefings    RadarWeeklyBriefing[]
+  radarTopicSubscriptions RadarTopicSubscription[]
+  userFavorites           UserFavorite[]
 
   @@map("users")
 }
@@ -10353,13 +10353,14 @@ model RadarTopic {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  sources               RadarSource[]
-  items                 RadarItem[]
-  insights              RadarInsight[]
-  runs                  RadarRun[]
-  dailyBriefings        RadarDailyBriefing[]
-  weeklyBriefings       RadarWeeklyBriefing[]
-  topicSubscriptions    RadarTopicSubscription[]
+  sources            RadarSource[]
+  items              RadarItem[]
+  insights           RadarInsight[]
+  runs               RadarRun[]
+  dailyBriefings     RadarDailyBriefing[]
+  weeklyBriefings    RadarWeeklyBriefing[]
+  topicSubscriptions RadarTopicSubscription[]
+  userFavorites      UserFavorite[]
 
   @@index([userId, status])
   @@index([status, nextDueAt])
@@ -10558,6 +10559,26 @@ model RadarWeeklyBriefing {
   @@unique([topicId, weekStartDate], name: "radar_weekly_briefings_topic_week_uniq")
   @@index([userId, weekStartDate(sort: Desc)])
   @@map("radar_weekly_briefings")
+}
+
+/// 2026-05-18 PR-DR2 B16: 信号收藏（决策 B3 Phase 1 简单 boolean）
+/// signalId 是 RadarDailyBriefing.signals[].id（JSONB 内嵌 UUID，无 FK）
+/// 用户视角持久化"⭐ 收藏的信号"，详情页跨日期访问
+model UserFavorite {
+  id        String @id @default(uuid())
+  userId    String @map("user_id")
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// briefing.signals[].id（DailySignal.id UUID）；JSONB 内嵌无强 FK
+  signalId  String @map("signal_id") @db.Uuid
+  /// 反查用：signal 所属 topic + briefingDate，便于显示"5/18 NVIDIA Q1"
+  topicId   String @map("topic_id")
+  topic     RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  /// 收藏时刻
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, signalId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("user_favorites")
 }
 
 /// PR-A0 配套 audit log —— grant/revoke/update 全程可溯源

@@ -34,9 +34,14 @@ import { RadarFeedController } from "./controllers/radar-feed.controller";
 import { RadarInsightController } from "./controllers/radar-insight.controller";
 import { RadarRunController } from "./controllers/radar-run.controller";
 import { NarrativeController } from "./controllers/narrative.controller";
+import { FavoriteController } from "./controllers/favorite.controller";
 
 import { RadarDailyBriefingRepo } from "./services/briefing/radar-daily-briefing.repo";
 import { NarrativeService } from "./services/briefing/narrative.service";
+import { FavoriteService } from "./services/briefing/favorite.service";
+import { RadarWeeklyBriefingService } from "./services/briefing/radar-weekly-briefing.service";
+import { SignalEditorService } from "./services/briefing/signal-editor.service";
+import { RadarS9DailyTopNStage } from "./services/mission/stages/s9-daily-top-n.stage";
 import { RadarTopicService } from "./services/topic/radar-topic.service";
 import { RadarSourceService } from "./services/source/radar-source.service";
 import { SourceHealthService } from "./services/source/source-health.service";
@@ -86,11 +91,16 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     RadarInsightController,
     RadarRunController,
     NarrativeController,
+    FavoriteController,
   ],
   providers: [
-    // briefing 层（B5 repo + B15 narrative service）
+    // briefing 层（B5/B6/B15/B16/B2/B1+B10+B20 stage）
     RadarDailyBriefingRepo,
+    RadarWeeklyBriefingService,
     NarrativeService,
+    FavoriteService,
+    SignalEditorService,
+    RadarS9DailyTopNStage,
     // 顶层业务 service
     RadarTopicService,
     RadarSourceService,
