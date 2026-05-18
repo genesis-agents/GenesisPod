@@ -21,6 +21,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AppShell from '@/components/layout/AppShell';
+import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
 import {
   Bell,
   Mail,
@@ -266,10 +267,7 @@ export default function NotificationsSettingsPage() {
         )}
 
         {/* 全局开关 */}
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-slate-900">
-            全局开关
-          </h2>
+        <SettingsSectionCard as="section" variant="slate" title="全局开关">
           <div className="space-y-3">
             <ToggleRow
               icon={Mail}
@@ -293,18 +291,22 @@ export default function NotificationsSettingsPage() {
               onChange={(v) => setDraft({ ...draft, instantPushForTier3: v })}
             />
           </div>
-        </section>
+        </SettingsSectionCard>
 
         {/* 类型 × 渠道矩阵 */}
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="mb-1 text-base font-semibold text-slate-900">
-            业务类型 × 渠道
-          </h2>
-          <p className="mb-1 text-xs text-slate-500">
-            每格三态：<span className="font-medium">默认</span>{' '}
-            走系统策略（推荐）·<span className="font-medium">开</span> 强制启用
-            ·<span className="font-medium">关</span> 强制静音
-          </p>
+        <SettingsSectionCard
+          as="section"
+          variant="slate"
+          title="业务类型 × 渠道"
+          description={
+            <>
+              每格三态：<span className="font-medium">默认</span>{' '}
+              走系统策略（推荐）·
+              <span className="font-medium">开</span> 强制启用 ·
+              <span className="font-medium">关</span> 强制静音
+            </>
+          }
+        >
           <p className="mb-4 text-xs text-slate-400">
             全局开关 OFF 时整类静音；矩阵勾选不会越过全局开关
           </p>
@@ -375,19 +377,26 @@ export default function NotificationsSettingsPage() {
               </tbody>
             </table>
           </div>
-        </section>
+        </SettingsSectionCard>
 
         {/* QuietHours */}
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="mb-1 flex items-center gap-2 text-base font-semibold text-slate-900">
-            <MoonStar className="h-4 w-4" />
-            全局静默时段
-          </h2>
-          <p className="mb-4 text-xs text-slate-500">
-            该时段内即时推送（如 Tier 3
-            即时推）静默；站内通知仍写入。时间按你的本地时区 (
-            {Intl.DateTimeFormat().resolvedOptions().timeZone})。
-          </p>
+        <SettingsSectionCard
+          as="section"
+          variant="slate"
+          title={
+            <span className="flex items-center gap-2">
+              <MoonStar className="h-4 w-4" />
+              全局静默时段
+            </span>
+          }
+          description={
+            <>
+              该时段内即时推送（如 Tier 3
+              即时推）静默；站内通知仍写入。时间按你的本地时区 (
+              {Intl.DateTimeFormat().resolvedOptions().timeZone})。
+            </>
+          }
+        >
           <div className="flex flex-wrap items-center gap-3">
             <label
               className="text-sm text-slate-700"
@@ -427,13 +436,10 @@ export default function NotificationsSettingsPage() {
                 </span>
               )}
           </div>
-        </section>
+        </SettingsSectionCard>
 
         {/* 渠道绑定状态（信息性） */}
-        <section className="rounded-lg border border-slate-200 bg-slate-50 p-6">
-          <h2 className="mb-3 text-base font-semibold text-slate-900">
-            渠道状态
-          </h2>
+        <SettingsSectionCard as="section" variant="slate" title="渠道状态">
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-2 text-slate-700">
@@ -466,7 +472,7 @@ export default function NotificationsSettingsPage() {
               </span>
             </div>
           </div>
-        </section>
+        </SettingsSectionCard>
       </div>
     </AppShell>
   );

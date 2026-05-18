@@ -21,6 +21,7 @@ import {
 import { GoogleDriveConnectionCard } from '@/components/library/integrations/google-drive/GoogleDriveConnectionCard';
 import { FeishuBindingCard } from '@/components/library/integrations/feishu/FeishuBindingCard';
 import ClientDate from '@/components/common/ClientDate';
+import { SettingsSectionCard } from '@/components/common/cards/SettingsSectionCard';
 
 import { logger } from '@/lib/utils/logger';
 interface UserStats {
@@ -391,10 +392,7 @@ function ProfileContent() {
             {activeTab === 'profile' && (
               <div className="space-y-6">
                 {/* Avatar Section */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    {t('profile.profilePicture')}
-                  </h2>
+                <SettingsSectionCard title={t('profile.profilePicture')}>
                   <div className="flex items-center gap-4">
                     <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-200">
                       {user.avatarUrl ? (
@@ -418,13 +416,10 @@ function ProfileContent() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </SettingsSectionCard>
 
                 {/* Basic Info */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    {t('profile.basicInfo')}
-                  </h2>
+                <SettingsSectionCard title={t('profile.basicInfo')}>
                   <div className="space-y-4">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -467,13 +462,10 @@ function ProfileContent() {
                       />
                     </div>
                   </div>
-                </div>
+                </SettingsSectionCard>
 
                 {/* Interests */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    {t('profile.researchInterests')}
-                  </h2>
+                <SettingsSectionCard title={t('profile.researchInterests')}>
                   <div className="mb-3 flex flex-wrap gap-2">
                     {userData.interests.map((interest: string, idx: number) => (
                       <span
@@ -508,7 +500,7 @@ function ProfileContent() {
                       {t('profile.add')}
                     </button>
                   </div>
-                </div>
+                </SettingsSectionCard>
 
                 {/* Message */}
                 {message && (
@@ -540,10 +532,7 @@ function ProfileContent() {
             {activeTab === 'settings' && (
               <div className="space-y-6">
                 {/* Chat Appearance Settings */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    {t('profile.chatAppearance')}
-                  </h2>
+                <SettingsSectionCard title={t('profile.chatAppearance')}>
                   <div className="space-y-6">
                     {/* User Message Style */}
                     <div>
@@ -646,13 +635,10 @@ function ProfileContent() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </SettingsSectionCard>
 
                 {/* Notification Preferences */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    {t('profile.notificationPrefs')}
-                  </h2>
+                <SettingsSectionCard title={t('profile.notificationPrefs')}>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -727,13 +713,10 @@ function ProfileContent() {
                       </label>
                     </div>
                   </div>
-                </div>
+                </SettingsSectionCard>
 
                 {/* Appearance Settings */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold">
-                    {t('profile.appearance')}
-                  </h2>
+                <SettingsSectionCard title={t('profile.appearance')}>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -775,7 +758,7 @@ function ProfileContent() {
                       </select>
                     </div>
                   </div>
-                </div>
+                </SettingsSectionCard>
 
                 {/* Save Button */}
                 <div className="flex justify-end">
@@ -1004,10 +987,9 @@ function ProfileContent() {
                     </div>
 
                     {/* Recent Activity */}
-                    <div className="rounded-lg border border-gray-200 bg-white p-6">
-                      <h2 className="mb-4 text-lg font-semibold">
-                        {t('profile.stats.recentActivity')}
-                      </h2>
+                    <SettingsSectionCard
+                      title={t('profile.stats.recentActivity')}
+                    >
                       <div className="flex items-center gap-4">
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
                           <span className="text-2xl font-bold text-blue-600">
@@ -1033,13 +1015,12 @@ function ProfileContent() {
                             )}
                         </div>
                       </div>
-                    </div>
+                    </SettingsSectionCard>
 
                     {/* AI Teams Created */}
-                    <div className="rounded-lg border border-gray-200 bg-white p-6">
-                      <h2 className="mb-4 text-lg font-semibold">
-                        {t('profile.stats.aiTeamsCreated')}
-                      </h2>
+                    <SettingsSectionCard
+                      title={t('profile.stats.aiTeamsCreated')}
+                    >
                       <div className="flex items-center gap-4">
                         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-100">
                           <span className="text-2xl font-bold text-purple-600">
@@ -1052,7 +1033,7 @@ function ProfileContent() {
                           </p>
                         </div>
                       </div>
-                    </div>
+                    </SettingsSectionCard>
                   </>
                 )}
               </div>
@@ -1062,8 +1043,8 @@ function ProfileContent() {
             {activeTab === 'integrations' && (
               <div className="space-y-6">
                 {/* Notion Integration */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <div className="mb-6 flex items-center gap-3">
+                <SettingsSectionCard
+                  icon={
                     <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-900">
                       <svg
                         className="h-7 w-7 text-white"
@@ -1073,16 +1054,10 @@ function ProfileContent() {
                         <path d="M4.459 4.208c.746.606 1.026.56 2.428.466l13.215-.793c.28 0 .047-.28-.046-.326L17.86 1.968c-.42-.326-.981-.7-2.055-.607L3.01 2.295c-.466.046-.56.28-.374.466l1.823 1.447zm.793 3.08v13.904c0 .747.373 1.027 1.214.98l14.523-.84c.841-.046.935-.56.935-1.167V6.354c0-.606-.233-.933-.748-.887l-15.177.887c-.56.047-.747.327-.747.933zm14.337.745c.093.42 0 .84-.42.888l-.7.14v10.264c-.608.327-1.168.514-1.635.514-.748 0-.935-.234-1.495-.933l-4.577-7.186v6.952l1.448.327s0 .84-1.168.84l-3.22.186c-.094-.186 0-.653.327-.746l.84-.233V9.854L7.822 9.62c-.094-.42.14-1.026.793-1.073l3.456-.233 4.763 7.279V9.014l-1.215-.14c-.093-.513.28-.886.747-.933l3.223-.186z" />
                       </svg>
                     </div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-gray-900">
-                        {t('profile.integrations.notionIntegration')}
-                      </h2>
-                      <p className="text-sm text-gray-500">
-                        {t('profile.integrations.notionDesc')}
-                      </p>
-                    </div>
-                  </div>
-
+                  }
+                  title={t('profile.integrations.notionIntegration')}
+                  description={t('profile.integrations.notionDesc')}
+                >
                   {integrationsLoading ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
@@ -1320,7 +1295,7 @@ function ProfileContent() {
                       </p>
                     </div>
                   )}
-                </div>
+                </SettingsSectionCard>
 
                 {/* Google Drive Integration */}
                 <GoogleDriveConnectionCard />
@@ -1329,10 +1304,9 @@ function ProfileContent() {
                 <FeishuBindingCard />
 
                 {/* Other Integrations - Coming Soon */}
-                <div className="rounded-lg border border-gray-200 bg-white p-6">
-                  <h2 className="mb-4 text-lg font-semibold text-gray-900">
-                    {t('profile.integrations.moreIntegrations')}
-                  </h2>
+                <SettingsSectionCard
+                  title={t('profile.integrations.moreIntegrations')}
+                >
                   <div className="grid gap-4 sm:grid-cols-2">
                     {/* Obsidian */}
                     <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4 opacity-60">
@@ -1408,7 +1382,7 @@ function ProfileContent() {
                       </span>
                     </div>
                   </div>
-                </div>
+                </SettingsSectionCard>
 
                 {/* Message display */}
                 {message && (
