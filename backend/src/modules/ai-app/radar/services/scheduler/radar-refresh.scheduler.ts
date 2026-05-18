@@ -26,6 +26,8 @@ import { RadarPipelineDispatcher } from "../mission/workflow/radar-pipeline-disp
 import { RadarBriefingQueueService } from "./radar-briefing-queue.service";
 import { RadarDailyBriefingRepo } from "../briefing/radar-daily-briefing.repo";
 import { RadarWeeklyBriefingService } from "../briefing/radar-weekly-briefing.service";
+import { NarrativeService } from "../briefing/narrative.service";
+import { AIMetricsService } from "@/modules/ai-infra/monitoring/metrics/ai-metrics.service";
 import { NotificationDispatcher } from "@/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
 import { NotificationPreferenceService } from "@/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
 import { RadarDailyBriefingEmailPreset } from "@/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
@@ -53,7 +55,45 @@ export class RadarRefreshScheduler {
     private readonly cache: CacheService,
     private readonly dailyEmailPreset: RadarDailyBriefingEmailPreset,
     private readonly weeklyEmailPreset: RadarWeeklyBriefingEmailPreset,
+    private readonly narrativeService: NarrativeService,
+    private readonly metrics: AIMetricsService,
   ) {}
+
+  /**
+   * F5 (M2 observability) — RADAR_BRIEFING_GENERATED_METRIC 接 AIMetricsService。
+   * 之前事件只用于 dispatch 邮件，observability 面板没 listener 收集；这里
+   * 单独 `@OnEvent` 写入 mission_execution metric + metadata 供仪表盘聚合。
+   */
+  @OnEvent(RADAR_BRIEFING_GENERATED_METRIC)
+  async onBriefingGeneratedMetric(
+    metric: RadarBriefingGeneratedMetric,
+  ): Promise<void> {
+    try {
+      await this.metrics.recordMetric({
+        metricType: "mission_execution",
+        operationId: metric.missionId,
+        missionId: metric.missionId,
+        userId: metric.userId,
+        success: true,
+        metadata: {
+          module: "ai-radar",
+          subType: "daily_briefing",
+          topicId: metric.topicId,
+          briefingDate: metric.briefingDate,
+          candidatesCount: metric.candidatesCount,
+          selectedCount: metric.selectedCount,
+          tier3Count: metric.tier3Count,
+          tier2Count: metric.tier2Count,
+          tier1Count: metric.tier1Count,
+          avgWhyItMattersLen: metric.avgWhyItMattersLen,
+        },
+      });
+    } catch (err) {
+      this.log.warn(
+        `onBriefingGeneratedMetric record failed mission=${metric.missionId}: ${(err as Error).message}`,
+      );
+    }
+  }
 
   @Cron(CronExpression.EVERY_MINUTE, {
     name: "radar-refresh-sweep",
@@ -437,6 +477,22 @@ export class RadarRefreshScheduler {
     const signals =
       (briefing.signals as unknown as DailySignalEmailLike[]) ?? [];
 
+    // F2 修复：narrativeMap 拉取 — 按 signals.narrativeId 反查 NarrativeService
+    // 注入模板 ctx，让 daily 邮件的"延续叙事"卡片真渲染（之前 silent miss）
+    const narrativeMap = await this.buildNarrativeMap(metric.topicId, signals);
+    const frontendBase = process.env.FRONTEND_URL ?? "http://localhost:3000";
+    const narrativeMapCtx: Record<
+      string,
+      { label: string; episode: number; timelineUrl: string }
+    > = {};
+    for (const [narrId, thread] of narrativeMap.entries()) {
+      narrativeMapCtx[narrId] = {
+        label: thread.label,
+        episode: thread.episodes.length,
+        timelineUrl: `${frontendBase}/ai-radar/topic/${metric.topicId}?narrative=${encodeURIComponent(narrId)}`,
+      };
+    }
+
     void this.dailyEmailPreset
       .notify({
         userId: metric.userId,
@@ -458,6 +514,7 @@ export class RadarRefreshScheduler {
           evidenceItemIds: s.evidenceItemIds ?? [],
           narrativeId: s.narrativeId ?? null,
         })),
+        narrativeMap: narrativeMapCtx,
       })
       .catch((err: Error) =>
         this.log.warn(
@@ -488,6 +545,67 @@ export class RadarRefreshScheduler {
     } catch (err) {
       this.log.error(`sweepBriefingsCleanup failed: ${(err as Error).message}`);
     }
+  }
+
+  /**
+   * F2 修复：按 signals.narrativeId 批量拉 NarrativeThread，去重组装 narrativeMap。
+   * 同一 narrativeId 在 signals 里可能重复出现，只反查一次。
+   * episode 总数 < 2 的（getNarrativeThread 返回 null）silent skip。
+   */
+  private async buildNarrativeMap(
+    topicId: string,
+    signals: { narrativeId?: string | null }[],
+  ): Promise<
+    Map<
+      string,
+      {
+        label: string;
+        episodes: {
+          date: string;
+          signalId: string;
+          title: string;
+          tier: 1 | 2 | 3;
+        }[];
+      }
+    >
+  > {
+    const ids = new Set<string>();
+    for (const s of signals) {
+      if (s.narrativeId) ids.add(s.narrativeId);
+    }
+    if (ids.size === 0) return new Map();
+
+    const result = new Map<
+      string,
+      {
+        label: string;
+        episodes: {
+          date: string;
+          signalId: string;
+          title: string;
+          tier: 1 | 2 | 3;
+        }[];
+      }
+    >();
+    for (const narrId of ids) {
+      try {
+        const thread = await this.narrativeService.getNarrativeThread(
+          topicId,
+          narrId,
+        );
+        if (thread) {
+          result.set(narrId, {
+            label: thread.label,
+            episodes: thread.episodes,
+          });
+        }
+      } catch (err) {
+        this.log.warn(
+          `buildNarrativeMap fetch failed topic=${topicId} narrative=${narrId}: ${(err as Error).message}`,
+        );
+      }
+    }
+    return result;
   }
 
   private async fireRefresh(

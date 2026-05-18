@@ -27,6 +27,7 @@ interface UnsubResponse {
 type State =
   | { kind: 'loading' }
   | { kind: 'success'; data: UnsubResponse }
+  | { kind: 'consumed' } // F3 修复：token 已消费过（多 scope 邮件其他链接已点过）
   | { kind: 'error'; message: string };
 
 function scopeTitle(scope: string): string {
@@ -62,16 +63,20 @@ export default function UnsubscribedPage() {
         if (scope) qs.set('scope', scope);
         const resp = await fetch(
           `/api/v1/notifications/unsubscribe?${qs.toString()}`,
-          { signal: ctrl.signal, credentials: 'omit' },
+          { signal: ctrl.signal, credentials: 'omit' }
         );
         if (!resp.ok) {
+          // F3 修复：401 = token 已消费过（多 scope 邮件其他链接已点过）。
+          // 这是 success 终态，不是错误——用户的退订意图已落地，再点其他链接
+          // 只是想"补充退订"，但 token 一次性，引导前往设置页手动调整即可。
+          if (resp.status === 401) {
+            setState({ kind: 'consumed' });
+            return;
+          }
           const body = await resp.text();
           setState({
             kind: 'error',
-            message:
-              resp.status === 401
-                ? '链接已失效或已使用过，请重新前往邮件获取最新链接'
-                : `退订失败（${resp.status}）：${body.slice(0, 200)}`,
+            message: `退订失败（${resp.status}）：${body.slice(0, 200)}`,
           });
           return;
         }
@@ -105,6 +110,30 @@ export default function UnsubscribedPage() {
               {scopeTitle(state.data.scope)}
             </h1>
             <p className="text-sm text-slate-600">{state.data.message}</p>
+            <Link
+              href="/settings/notifications"
+              className="mt-4 inline-flex items-center gap-1 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            >
+              管理通知偏好
+            </Link>
+            <Link
+              href="/"
+              className="text-xs text-slate-400 hover:text-slate-600"
+            >
+              返回首页
+            </Link>
+          </div>
+        )}
+
+        {state.kind === 'consumed' && (
+          <div className="flex flex-col items-center gap-3 text-center">
+            <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+            <h1 className="text-xl font-semibold text-slate-800">
+              这次退订请求已生效
+            </h1>
+            <p className="text-sm text-slate-600">
+              如果你想调整不同范围的退订（例如同时退订所有通知），请前往设置页手动配置。
+            </p>
             <Link
               href="/settings/notifications"
               className="mt-4 inline-flex items-center gap-1 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"

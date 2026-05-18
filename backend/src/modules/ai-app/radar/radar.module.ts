@@ -28,6 +28,7 @@ import {
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 import { NotificationDispatcherModule } from "../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
+import { MonitoringModule } from "../../ai-infra/monitoring/monitoring.module";
 
 import { RadarTopicController } from "./controllers/radar-topic.controller";
 import { RadarSourceController } from "./controllers/radar-source.controller";
@@ -97,9 +98,10 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
             port: Number(parsed.port || 6379),
             username: parsed.username || undefined,
             password: parsed.password || undefined,
-            db: parsed.pathname && parsed.pathname.length > 1
-              ? Number(parsed.pathname.slice(1))
-              : 0,
+            db:
+              parsed.pathname && parsed.pathname.length > 1
+                ? Number(parsed.pathname.slice(1))
+                : 0,
             // BullMQ 推荐：避免阻塞主 event loop（maxRetriesPerRequest null 让 worker 自管重试）
             maxRetriesPerRequest: null,
             enableReadyCheck: false,
@@ -111,6 +113,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     BullModule.registerQueue({ name: RadarBriefingQueueService.QUEUE_NAME }),
     NotificationModule,
     NotificationDispatcherModule,
+    MonitoringModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({

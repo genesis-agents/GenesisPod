@@ -45,6 +45,16 @@ export interface RadarDailyBriefingEmailInput {
   briefingTime: string; // HH:MM
   candidatesCount: number;
   signals: DailySignalEmailInput[];
+  /**
+   * narrativeId → 延续叙事元信息（设计 §4.3 daily 邮件含 narrativeMap）。
+   * 模板用 `{{lookup ../narrativeMap signal.narrativeId "label/episode/timelineUrl"}}`
+   * 渲染 "📰 narrative · 第 N 集 · 查看前情 →" 卡片。
+   * caller 不传 / 为空 → 模板 silent skip 不渲染 narrative 区。
+   */
+  narrativeMap?: Record<
+    string,
+    { label: string; episode: number; timelineUrl: string }
+  >;
 }
 
 @Injectable()
@@ -76,6 +86,7 @@ export class RadarDailyBriefingEmailPreset {
         // 模板用 detailUrl helper 时签名为 (signalId, topicId, base)
         baseUrl: base,
       })),
+      narrativeMap: input.narrativeMap ?? {},
       topicUrl: `${base}/ai-radar/topic/${input.topicId}?date=${input.briefingDate}`,
       settingsUrl: `${base}/settings/notifications`,
       unsubscribeTopicUrl: buildUnsubUrl(base, token, "topic"),

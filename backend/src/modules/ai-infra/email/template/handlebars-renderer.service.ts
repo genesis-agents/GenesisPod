@@ -20,6 +20,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { registerRadarEmailHelpers } from "@/common/handlebars/radar-email-helpers";
 
 interface HbsCompiled {
   (ctx: Record<string, unknown>): string;
@@ -119,29 +120,18 @@ export class HandlebarsRendererService implements OnModuleInit {
       return na + nb;
     });
 
-    // B14: urlEncode — RFC 3986 + strip CRLF/Tab（SMTP header injection 防御）
-    hbs.registerHelper("urlEncode", (v: unknown) => {
-      if (typeof v !== "string") return "";
-      return encodeURIComponent(v).replace(/[\r\n\t]/g, "");
-    });
+    // B14: urlEncode / truncate / tierBadge / evidenceSources —
+    // F4 FU3 整改：从 common/handlebars/radar-email-helpers 统一注册，避免与
+    // ai-engine/tools/.../template-render.tool 实现漂移
+    registerRadarEmailHelpers(
+      hbs as {
+        registerHelper(name: string, fn: (...args: unknown[]) => unknown): void;
+      },
+    );
 
-    // B14: truncate — codepoint aware（避免 emoji 截断）
-    hbs.registerHelper("truncate", (s: unknown, n: unknown) => {
-      if (typeof s !== "string") return "";
-      const max = typeof n === "number" ? n : Number(n) || 80;
-      const arr = Array.from(s);
-      return arr.length > max ? arr.slice(0, max).join("") + "…" : s;
-    });
-
-    // B14: tierBadge — 1/2/3 → ⭐ string
-    hbs.registerHelper("tierBadge", (tier: unknown) => {
-      if (tier === 3) return "⭐⭐⭐";
-      if (tier === 2) return "⭐⭐";
-      if (tier === 1) return "⭐";
-      return "⭐";
-    });
-
-    // B14: detailUrl — signalId → FRONTEND_URL/signal detail
+    // B14: detailUrl — 邮件端签名是 (signalId, topicId, baseUrl)（与模板
+    // `{{detailUrl this.id ../topic.id this.baseUrl}}` 对齐），LLM 工具端是
+    // 单参 + 全局 config。两端 by design 不一致，保留邮件端本地实现
     hbs.registerHelper(
       "detailUrl",
       (signalId: unknown, topicId: unknown, baseUrl: unknown) => {
@@ -152,21 +142,5 @@ export class HandlebarsRendererService implements OnModuleInit {
         return `${base}/ai-radar/topic/${topicId}/signal/${signalId}`;
       },
     );
-
-    // B14: evidenceSources — array of {name} → "A / B / C"（name-only no raw HTML）
-    hbs.registerHelper("evidenceSources", (sources: unknown) => {
-      if (!Array.isArray(sources)) return "";
-      return sources
-        .map((s) =>
-          typeof s === "object" &&
-          s &&
-          "name" in s &&
-          typeof (s as { name: unknown }).name === "string"
-            ? (s as { name: string }).name
-            : "",
-        )
-        .filter(Boolean)
-        .join(" / ");
-    });
   }
 }

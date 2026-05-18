@@ -17,6 +17,8 @@ import { RadarWeeklyBriefingService } from "../../briefing/radar-weekly-briefing
 import { NotificationDispatcher } from "@/modules/ai-infra/notifications/dispatcher/notification-dispatcher.service";
 import { NotificationPreferenceService } from "@/modules/ai-infra/notifications/dispatcher/preferences/notification-preference.service";
 import { CacheService } from "@/common/cache/cache.service";
+import { NarrativeService } from "../../briefing/narrative.service";
+import { AIMetricsService } from "@/modules/ai-infra/monitoring/metrics/ai-metrics.service";
 import type { RadarBriefingSignalCreatedEvent } from "../../mission/stages/s9-daily-top-n.stage";
 import type { DailySignal } from "../../briefing/radar-daily-briefing.repo";
 
@@ -65,6 +67,8 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
   let mockCache: { incrby: jest.Mock; expire: jest.Mock };
   let mockDailyEmailPreset: { notify: jest.Mock };
   let mockWeeklyEmailPreset: { notify: jest.Mock };
+  let mockNarrativeService: { getNarrativeThread: jest.Mock };
+  let mockMetrics: { recordMetric: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -112,6 +116,12 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
     mockWeeklyEmailPreset = {
       notify: jest.fn().mockResolvedValue({ delivered: true, results: [] }),
     };
+    mockNarrativeService = {
+      getNarrativeThread: jest.fn().mockResolvedValue(null),
+    };
+    mockMetrics = {
+      recordMetric: jest.fn().mockResolvedValue(undefined),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -143,6 +153,8 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
               .RadarWeeklyBriefingEmailPreset,
           useValue: mockWeeklyEmailPreset,
         },
+        { provide: NarrativeService, useValue: mockNarrativeService },
+        { provide: AIMetricsService, useValue: mockMetrics },
       ],
     }).compile();
 
