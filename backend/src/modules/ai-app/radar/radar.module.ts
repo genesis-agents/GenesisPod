@@ -77,6 +77,36 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
 
 @Module({
   imports: [
+    // P0 production fix — BullMQ 必须显式配 Redis connection；
+    // 无 forRootAsync 时 fallback 到 127.0.0.1:6379（生产容器内不可用）
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (config: ConfigService) => {
+        const url =
+          config.get<string>("REDIS_URL") ??
+          config.get<string>("REDIS_PUBLIC_URL");
+        if (!url) {
+          // 本地 dev 无 Redis：仍走 default localhost；生产由 REDIS_URL 提供
+          return { connection: { host: "127.0.0.1", port: 6379 } };
+        }
+        const parsed = new URL(url);
+        return {
+          connection: {
+            host: parsed.hostname,
+            port: Number(parsed.port || 6379),
+            username: parsed.username || undefined,
+            password: parsed.password || undefined,
+            db: parsed.pathname && parsed.pathname.length > 1
+              ? Number(parsed.pathname.slice(1))
+              : 0,
+            // BullMQ 推荐：避免阻塞主 event loop（maxRetriesPerRequest null 让 worker 自管重试）
+            maxRetriesPerRequest: null,
+            enableReadyCheck: false,
+          },
+        };
+      },
+      inject: [ConfigService],
+    }),
     BullModule.registerQueue({ name: RadarBriefingQueueService.QUEUE_NAME }),
     NotificationModule,
     NotificationDispatcherModule,

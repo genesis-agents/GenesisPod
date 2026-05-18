@@ -19,6 +19,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Radar } from 'lucide-react';
 import {
   archiveTopic,
@@ -52,6 +53,7 @@ const SearchIcon = ({ className }: { className?: string }) => (
 );
 
 export default function AiRadarIndexPage() {
+  const router = useRouter();
   const [topics, setTopics] = useState<RadarTopicWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -224,9 +226,10 @@ export default function AiRadarIndexPage() {
       <CreateRadarTopicModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={() => {
+        onCreated={(t) => {
           setCreateOpen(false);
-          void reload();
+          // UX: 创建后直接进入新主题详情页配置数据源（用户反馈：原先回到列表令人困惑）
+          router.push(`/ai-radar/topic/${t.id}`);
         }}
       />
 

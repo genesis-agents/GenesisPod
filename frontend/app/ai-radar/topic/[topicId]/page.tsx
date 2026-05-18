@@ -290,8 +290,20 @@ export default function RadarTopicDetailPage() {
   const nextRefreshIn = formatNextRefreshIn(topic.nextDueAt);
   const rawUrl = `/ai-radar/topic/${topicId}/raw?date=${selectedDate}`;
 
+  // 数据源健康度统计（侧边栏用）
+  const healthStats = sources.reduce(
+    (acc, s) => {
+      const h = (s as RadarSource & { healthStatus?: string }).healthStatus;
+      if (h === 'OK') acc.ok += 1;
+      else if (h === 'DEGRADED') acc.degraded += 1;
+      else if (h === 'DOWN' || h === 'FAILED') acc.down += 1;
+      return acc;
+    },
+    { ok: 0, degraded: 0, down: 0 }
+  );
+
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
+    <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
       {/* Back link */}
       <button
         type="button"
@@ -306,7 +318,7 @@ export default function RadarTopicDetailPage() {
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold text-gray-900">
+            <h1 className="text-xl font-semibold text-gray-900 md:text-2xl">
               {topic.name}
             </h1>
             <button
@@ -328,8 +340,11 @@ export default function RadarTopicDetailPage() {
               删除
             </button>
           </div>
+          {topic.description && (
+            <p className="mt-1.5 text-sm text-gray-600">{topic.description}</p>
+          )}
           <p className="mt-1 text-xs text-gray-500">
-            {topic.counts.sources} 源 · 下次 {nextRefreshIn}
+            {topic.counts.sources} 源 · 下次刷新 {nextRefreshIn}
           </p>
         </div>
       </header>
@@ -351,46 +366,145 @@ export default function RadarTopicDetailPage() {
         </div>
       )}
 
-      {/* Briefing toolbar */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <DateSwitcher
-          value={selectedDate}
-          options={dateOptions}
-          onChange={handleDateChange}
-        />
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            disabled={refreshing || topic.status !== 'ACTIVE'}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-          >
-            <RefreshCw
-              className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`}
+      {/* 双栏：左侧 briefing（主），右侧 sidebar（信息）；≥lg 才双栏，≤md 单栏 */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        {/* 左主区 — Briefing toolbar + Panel */}
+        <div className="min-w-0">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <DateSwitcher
+              value={selectedDate}
+              options={dateOptions}
+              onChange={handleDateChange}
             />
-            重新精选
-          </button>
-          <a
-            href={rawUrl}
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-          >
-            <ExternalLink className="h-3 w-3" />
-            全部原始
-          </a>
-        </div>
-      </div>
 
-      {/* Briefing panel */}
-      <RadarBriefingPanel
-        briefingDate={selectedDate}
-        status={briefingStatus}
-        signals={signals}
-        topicId={topicId}
-        topicName={topic.name}
-        onRerun={() => void handleRefresh()}
-        rerunCount={0}
-      />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={refreshing || topic.status !== 'ACTIVE'}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`}
+                />
+                重新精选
+              </button>
+              <a
+                href={rawUrl}
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+              >
+                <ExternalLink className="h-3 w-3" />
+                全部原始
+              </a>
+            </div>
+          </div>
+
+          <RadarBriefingPanel
+            briefingDate={selectedDate}
+            status={briefingStatus}
+            signals={signals}
+            topicId={topicId}
+            topicName={topic.name}
+            onRerun={() => void handleRefresh()}
+            rerunCount={0}
+          />
+        </div>
+
+        {/* 右侧 sidebar — 数据源 / 配置摘要 / 行动 */}
+        <aside className="flex flex-col gap-4">
+          {/* 数据源状态卡 */}
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-800">数据源</h3>
+              <button
+                type="button"
+                onClick={() => setConfigOpen(true)}
+                className="text-xs text-violet-600 hover:underline"
+              >
+                管理
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                正常 {healthStats.ok}
+              </span>
+              {healthStats.degraded > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                  降级 {healthStats.degraded}
+                </span>
+              )}
+              {healthStats.down > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+                  故障 {healthStats.down}
+                </span>
+              )}
+              {sources.length === 0 && (
+                <span className="text-gray-400">尚未添加</span>
+              )}
+            </div>
+            {sources.length > 0 && (
+              <ul className="mt-3 flex flex-col gap-1.5 text-xs text-gray-600">
+                {sources.slice(0, 5).map((s) => (
+                  <li key={s.id} className="flex items-center gap-2 truncate">
+                    <span className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-violet-500" />
+                    <span className="truncate">{s.label ?? s.identifier}</span>
+                  </li>
+                ))}
+                {sources.length > 5 && (
+                  <li className="text-gray-400">
+                    + {sources.length - 5} 个
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+
+          {/* 配置摘要卡 */}
+          <div className="rounded-xl border border-gray-200 bg-white p-4">
+            <h3 className="mb-3 text-sm font-semibold text-gray-800">精选偏好</h3>
+            <dl className="flex flex-col gap-2 text-xs text-gray-600">
+              <div className="flex justify-between">
+                <dt className="text-gray-500">推送时间</dt>
+                <dd>{configTopic.briefingTime}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">目标条数</dt>
+                <dd>{configTopic.signalsTarget}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">语言</dt>
+                <dd>
+                  {configTopic.outputLanguage === 'en-US' ? 'English' : '中文'}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-500">周末</dt>
+                <dd>{configTopic.weekendSkip ? '跳过' : '正常推送'}</dd>
+              </div>
+            </dl>
+          </div>
+
+          {/* 快速行动卡（空数据时主推用户加源） */}
+          {sources.length === 0 && (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-xs text-violet-700">
+              <p className="font-semibold">还没添加数据源</p>
+              <p className="mt-1">
+                添加 RSS / YouTube / X / 自定义 URL 让雷达开始监控。
+              </p>
+              <button
+                type="button"
+                onClick={() => setConfigOpen(true)}
+                className="mt-2 inline-flex items-center gap-1 rounded-md bg-violet-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-violet-700"
+              >
+                添加数据源 →
+              </button>
+            </div>
+          )}
+        </aside>
+      </div>
 
       {/* Config drawer */}
       <RadarTopicConfigDrawer
