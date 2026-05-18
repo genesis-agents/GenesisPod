@@ -52,7 +52,7 @@
     "verify:changed": "node scripts/verify-changed.js",
     "verify:pre-push": "npm run type-check && npm run build:backend",
     "verify:ci-local": "npm run type-check && npm run lint && npm run build && npm run test:quick",
-    "quality-metrics": "node scripts/quality-metrics.js",
+    "quality-metrics": "node scripts/utils/quality-metrics.js",
     "monitor": "bash scripts/devops/monitor-production.sh",
     "monitor:quiet": "bash scripts/devops/monitor-production.sh --quiet",
     "check:facade": "bash scripts/devops/check-facade-boundary.sh",
