@@ -110,6 +110,19 @@ describe("NotificationDispatcher", () => {
         ["email", "site", "wechat"].sort(),
       );
     });
+
+    it("R1 pm P2 整改：重复 register 同 type 必须 warn（暴露静默覆盖问题）", () => {
+      // 访问私有 log 实例做 spy
+      const logger = (dispatcher as unknown as { log: { warn: jest.Mock } })
+        .log;
+      const warnSpy = jest.spyOn(logger, "warn").mockImplementation(() => {});
+      // 第一个 site 已在 beforeEach 注入；再次 register 触发 warn
+      dispatcher.register(buildMockChannel("site"));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("register(site): overwriting existing channel"),
+      );
+      warnSpy.mockRestore();
+    });
   });
 
   describe("dispatch() 主路径", () => {
@@ -208,9 +221,42 @@ describe("NotificationDispatcher", () => {
       const failed = result.results.find((r) => r.channel === "site");
       const sent = result.results.find((r) => r.channel === "email");
       expect(failed?.status).toBe("failed");
-      expect(failed?.error).toContain("mock site send fail");
+      // R1 security P1：error 字段必须只是结构化标识，不能含原始 mock 错误消息
+      expect(failed?.error).toBe("site-send-error");
+      expect(failed?.error).not.toContain("mock site send fail");
       expect(sent?.status).toBe("sent");
       expect(result.delivered).toBe(true); // email 成功就算
+    });
+
+    it("R1 security 整改：sendSafe error 字段脱敏，不传播原始错误（防 SMTP/API 凭证泄漏）", async () => {
+      const leakingSite = {
+        type: "site" as const,
+        async send() {
+          throw new Error(
+            "535 Authentication failed: user=admin@example.com password=hunter2",
+          );
+        },
+        async isAvailable() {
+          return true;
+        },
+        getCapabilities() {
+          return {
+            requiresUserBinding: false,
+            requiresGlobalConfig: true,
+            dailyQuotaPerUser: 50,
+          };
+        },
+      };
+      const tmpDispatcher = new NotificationDispatcher(
+        leakingSite as unknown as SiteChannel,
+        preferenceService as unknown as NotificationPreferenceService,
+        resolver,
+      );
+      const result = await tmpDispatcher.dispatch(userId, basePayload);
+      const failed = result.results.find((r) => r.channel === "site");
+      expect(failed?.status).toBe("failed");
+      expect(failed?.error).toBe("site-send-error");
+      expect(failed?.error).not.toMatch(/password|user=|hunter2/);
     });
 
     it("isAvailable 返回 false → 该 channel 直接跳，不调 send()", async () => {

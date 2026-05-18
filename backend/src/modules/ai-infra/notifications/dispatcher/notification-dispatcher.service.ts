@@ -31,6 +31,13 @@ import { NotificationPreferenceService } from "./preferences/notification-prefer
  * PR-DR1a 实装 channel：仅 SiteChannel。
  *   - EmailChannel 在 PR-DR1b 注入；WechatChannel 在 PR-DR3 注入；
  *   - 注入靠 @Optional() + register() 暴露式扩展点，避免 PR-DR1a 文件被反复修改
+ *
+ * R1 pm P1 follow-up（PR-DR1b 必补）:
+ *   - capabilities.dailyQuotaPerUser enforce：当前仅声明无 enforce 点，
+ *     DR1b email + DR2 sweepDaily 千人 fan-out 前必须接 Redis 限频
+ *     (key: `dispatcher:quota:{userId}:{channel}:{YYYY-MM-DD}` INCR + EXPIRE)
+ *   - dispatchMany concurrency option：caller 用 BullMQ 控并发（K3 决策），
+ *     dispatcher 若内置 throttle 会双源，DR2 sweepDaily 仍靠 caller 控
  */
 @Injectable()
 export class NotificationDispatcher {
@@ -56,8 +63,18 @@ export class NotificationDispatcher {
     if (webpushChannel) this.register(webpushChannel);
   }
 
-  /** 显式注册 channel（测试 + 后续 PR EmailChannel/WechatChannel 注入用） */
+  /**
+   * 显式注册 channel（测试 + 后续 PR EmailChannel/WechatChannel 注入用）
+   *
+   * R1 pm P2 整改：同 type 重复注册时 warn（避免静默覆盖 — DR1b 若误注两个
+   * EMAIL_CHANNEL 会让 capabilities 不可预期；warn 暴露问题）
+   */
   register(channel: INotificationChannel): void {
+    if (this.channels.has(channel.type)) {
+      this.log.warn(
+        `register(${channel.type}): overwriting existing channel — caller must ensure only one provider per type`,
+      );
+    }
     this.channels.set(channel.type, channel);
     this.log.log(`Registered channel: ${channel.type}`);
   }
@@ -144,10 +161,13 @@ export class NotificationDispatcher {
       return { channel, status: "sent" };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      // 原始错误（可能含 SMTP/API 凭证）只进日志（log 仅 admin 可见）
       this.log.warn(
         `channel=${channel} send failed user=${userId} type=${payload.type}: ${msg}`,
       );
-      return { channel, status: "failed", error: msg };
+      // 返回给 caller 的 error 仅含结构化标识 — R1 security P1 整改：
+      // 防止凭证经 DispatchResult 序列化到前端（如进度 WS / API 响应）
+      return { channel, status: "failed", error: `${channel}-send-error` };
     }
   }
 }

@@ -8,6 +8,7 @@ import {
   UpdateNotificationPreferenceDto,
   NotificationTypeDto,
 } from "./dto/notification.dto";
+import { QuietHoursUtil } from "./dispatcher/preferences/quiet-hours.util";
 
 // 用于验证类型的映射
 const VALID_NOTIFICATION_TYPES: Record<NotificationTypeDto, NotificationType> =
@@ -35,6 +36,13 @@ const VALID_NOTIFICATION_TYPES: Record<NotificationTypeDto, NotificationType> =
     [NotificationTypeDto.KEY_REQUEST_APPROVED]: "KEY_REQUEST_APPROVED",
     [NotificationTypeDto.KEY_REQUEST_REJECTED]: "KEY_REQUEST_REJECTED",
     [NotificationTypeDto.KEY_GRANTED]: "KEY_GRANTED",
+    // PR-DR1a RADAR_* 同步（R3 arch P0 整改）
+    [NotificationTypeDto.RADAR_DAILY]: "RADAR_DAILY",
+    [NotificationTypeDto.RADAR_WEEKLY]: "RADAR_WEEKLY",
+    [NotificationTypeDto.RADAR_TIER3_INSTANT]: "RADAR_TIER3_INSTANT",
+    [NotificationTypeDto.RADAR_SOURCE_AUTO_DISABLED]:
+      "RADAR_SOURCE_AUTO_DISABLED",
+    [NotificationTypeDto.RADAR_MISSION_COMPLETE]: "RADAR_MISSION_COMPLETE",
   };
 
 // 批量操作结果
@@ -141,31 +149,10 @@ export class NotificationService {
   }
 
   /**
-   * "HH:mm" 时间窗口包含判断。支持跨午夜（如 22:00..06:00）。
-   * 静态方法便于直接单测，不需要 Prisma mock。
+   * "HH:mm" 时间窗口包含判断 — 转发到共享 QuietHoursUtil（R1 reuse 整改单源）
+   * 保留静态导出避免破既有调用方 / 测试
    */
-  static timeInWindow(now: Date, startStr: string, endStr: string): boolean {
-    const startMin = NotificationService.parseHHMMToMinutes(startStr);
-    const endMin = NotificationService.parseHHMMToMinutes(endStr);
-    if (startMin === null || endMin === null) return false;
-    if (startMin === endMin) return false; // 空窗口
-    const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-    if (startMin < endMin) {
-      // 同日窗口 [start, end)
-      return nowMin >= startMin && nowMin < endMin;
-    }
-    // 跨午夜窗口 [start, 24:00) ∪ [00:00, end)
-    return nowMin >= startMin || nowMin < endMin;
-  }
-
-  private static parseHHMMToMinutes(s: string): number | null {
-    const m = /^([0-2]\d):([0-5]\d)$/.exec(s.trim());
-    if (!m) return null;
-    const h = Number(m[1]);
-    const min = Number(m[2]);
-    if (h > 23) return null;
-    return h * 60 + min;
-  }
+  static timeInWindow = QuietHoursUtil.timeInWindow;
 
   /**
    * 批量创建通知（发送给多个用户）

@@ -47,8 +47,14 @@ export class RadarMissionCompletePreset {
       "daily-briefing": "今日精选已出炉",
     };
 
+    // R1 behavior 整改：daily-briefing 零信号文案对齐 A1 决策"今日无新信号"
+    // discovery/refresh 用更通用"本次无新内容"（非每日维度）
     const messageSuffix =
-      itemCount > 0 ? `本次更新 ${itemCount} 条` : "本次无新内容 · 持续监控中";
+      itemCount > 0
+        ? `本次更新 ${itemCount} 条`
+        : missionKind === "daily-briefing"
+          ? "今日无新信号 · 持续监控中"
+          : "本次无新内容 · 持续监控中";
 
     return this.dispatcher.dispatch(userId, {
       type: "RADAR_MISSION_COMPLETE",

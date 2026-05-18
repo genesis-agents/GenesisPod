@@ -49,7 +49,7 @@ describe("RadarMissionCompletePreset (PR-DR1a 老 caller 迁移示范)", () => {
     );
   });
 
-  it("itemCount=0 → 显示'持续监控中'而非'更新 0 条'", async () => {
+  it("itemCount=0 + refresh → 显示'本次无新内容 · 持续监控中'", async () => {
     await preset.notify({
       userId: "u1",
       topicId: "t1",
@@ -61,6 +61,22 @@ describe("RadarMissionCompletePreset (PR-DR1a 老 caller 迁移示范)", () => {
       "u1",
       expect.objectContaining({
         message: "「测试主题」本次无新内容 · 持续监控中",
+      }),
+    );
+  });
+
+  it("R1 behavior 整改：itemCount=0 + daily-briefing → '今日无新信号'（对齐 A1 决策）", async () => {
+    await preset.notify({
+      userId: "u1",
+      topicId: "t1",
+      topicName: "英伟达",
+      missionKind: "daily-briefing",
+      itemCount: 0,
+    });
+    expect(dispatcher.dispatch).toHaveBeenCalledWith(
+      "u1",
+      expect.objectContaining({
+        message: "「英伟达」今日无新信号 · 持续监控中",
       }),
     );
   });

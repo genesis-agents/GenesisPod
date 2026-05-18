@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
 import { NotificationChannel } from "../abstractions/notification-channel";
+import { QuietHoursUtil } from "./quiet-hours.util";
 
 /**
  * NotificationPreferenceService
@@ -103,15 +104,12 @@ export class NotificationPreferenceService {
   }
 
   /**
-   * 是否在 quietHours 静默窗口内
-   *
-   * 与既有 NotificationService.isWithinQuietHours 同语义但独立读 — 避免循环依赖
-   * （NotificationService 已 import 此 service 时反向调用会循环）
+   * 是否在 quietHours 静默窗口内（复用共享工具 QuietHoursUtil — R1 reuse 整改）
    */
   async isInQuietHours(userId: string): Promise<boolean> {
     const pref = await this.get(userId);
     if (!pref?.quietHoursStart || !pref?.quietHoursEnd) return false;
-    return NotificationPreferenceService.timeInWindow(
+    return QuietHoursUtil.timeInWindow(
       new Date(),
       pref.quietHoursStart,
       pref.quietHoursEnd,
@@ -119,28 +117,8 @@ export class NotificationPreferenceService {
   }
 
   /**
-   * HH:mm 时间窗口包含判断（支持跨午夜，如 22:00..06:00）。
-   * 静态便于单测。
+   * 测试 / 老调用方兼容：再导出 QuietHoursUtil.timeInWindow
+   * R1 reuse 整改后，本类不再维护实现，转给 QuietHoursUtil 单源
    */
-  static timeInWindow(now: Date, startStr: string, endStr: string): boolean {
-    const startMin = NotificationPreferenceService.parseHHMMToMinutes(startStr);
-    const endMin = NotificationPreferenceService.parseHHMMToMinutes(endStr);
-    if (startMin === null || endMin === null) return false;
-    const nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-    if (startMin === endMin) return false;
-    if (startMin < endMin) {
-      return nowMin >= startMin && nowMin < endMin;
-    }
-    // 跨午夜
-    return nowMin >= startMin || nowMin < endMin;
-  }
-
-  private static parseHHMMToMinutes(s: string): number | null {
-    const m = s.match(/^(\d{1,2}):(\d{2})$/);
-    if (!m) return null;
-    const h = Number(m[1]);
-    const min = Number(m[2]);
-    if (h < 0 || h > 23 || min < 0 || min > 59) return null;
-    return h * 60 + min;
-  }
+  static timeInWindow = QuietHoursUtil.timeInWindow;
 }
