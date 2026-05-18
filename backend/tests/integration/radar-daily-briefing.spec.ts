@@ -37,6 +37,10 @@ import { NotificationPreferenceService } from "../../src/modules/ai-infra/notifi
 import { ChannelResolver } from "../../src/modules/ai-infra/notifications/dispatcher/preferences/channel-resolver";
 import { EmailChannel } from "../../src/modules/ai-infra/notifications/dispatcher/channels/email-channel.adapter";
 import { RadarPipelineDispatcher } from "../../src/modules/ai-app/radar/services/mission/workflow/radar-pipeline-dispatcher.service";
+import { RadarDailyBriefingEmailPreset } from "../../src/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset";
+import { RadarWeeklyBriefingEmailPreset } from "../../src/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset";
+import { NarrativeService } from "../../src/modules/ai-app/radar/services/briefing/narrative.service";
+import { AIMetricsService } from "../../src/modules/ai-infra/monitoring/metrics/ai-metrics.service";
 
 // Event contract
 import {
@@ -104,9 +108,19 @@ function makeMockPrisma(
   return {
     radarTopic: {
       findMany: overrides.findMany ?? jest.fn().mockResolvedValue([]),
+      // FU2-D scheduler.onDailyBriefingGenerated / sweepWeeklyBriefing 用 findUnique
+      // 拉 topic.name + briefingTime；默认返合理 stub
+      findUnique: jest.fn().mockResolvedValue({
+        id: "topic-test-uuid-1",
+        name: "Test Topic",
+        briefingTime: "08:00",
+      }),
     },
     radarRun: {
       count: overrides.count ?? jest.fn().mockResolvedValue(0),
+    },
+    user: {
+      findUnique: jest.fn().mockResolvedValue({ locale: "zh-CN" }),
     },
   };
 }
@@ -152,6 +166,12 @@ async function buildSchedulerModule(opts: {
     get: jest.fn().mockResolvedValue(null),
     isInQuietHours: jest.fn().mockResolvedValue(false),
   };
+  const dailyEmailPreset = {
+    notify: jest.fn().mockResolvedValue({ delivered: true, results: [] }),
+  };
+  const weeklyEmailPreset = {
+    notify: jest.fn().mockResolvedValue({ delivered: true, results: [] }),
+  };
 
   const module: TestingModule = await Test.createTestingModule({
     imports: [EventEmitterModule.forRoot()],
@@ -168,6 +188,23 @@ async function buildSchedulerModule(opts: {
       { provide: NotificationDispatcher, useValue: dispatcher },
       { provide: NotificationPreferenceService, useValue: preferenceService },
       { provide: CacheService, useValue: cache },
+      // FU2 后续整改：scheduler 新增了 4 个 DI（email preset × 2 + narrative + metrics）
+      {
+        provide: RadarDailyBriefingEmailPreset,
+        useValue: dailyEmailPreset,
+      },
+      {
+        provide: RadarWeeklyBriefingEmailPreset,
+        useValue: weeklyEmailPreset,
+      },
+      {
+        provide: NarrativeService,
+        useValue: { getNarrativeThread: jest.fn().mockResolvedValue(null) },
+      },
+      {
+        provide: AIMetricsService,
+        useValue: { recordMetric: jest.fn().mockResolvedValue(undefined) },
+      },
     ],
   }).compile();
 
@@ -175,6 +212,8 @@ async function buildSchedulerModule(opts: {
     module,
     scheduler: module.get(RadarRefreshScheduler),
     dispatcher,
+    dailyEmailPreset,
+    weeklyEmailPreset,
     briefingQueue,
     dailyRepo,
     weeklyService,
@@ -700,8 +739,8 @@ describe("§11.2-7 sweepWeeklyBriefing 周日 18:00 UTC → generateAndPersist +
     );
   });
 
-  it("generateAndPersist 成功且 topSignals 非空 → dispatcher.dispatch 被调用 with type=RADAR_WEEKLY", async () => {
-    const { scheduler, dispatcher } = await buildSchedulerModule({
+  it("generateAndPersist 成功且 topSignals 非空 → weeklyEmailPreset.notify 被调用（FU2-D 渲染路径）", async () => {
+    const { scheduler, weeklyEmailPreset } = await buildSchedulerModule({
       prisma: makeMockPrisma({
         findMany: jest.fn().mockResolvedValue([
           {
@@ -723,15 +762,16 @@ describe("§11.2-7 sweepWeeklyBriefing 周日 18:00 UTC → generateAndPersist +
     jest.setSystemTime(new Date("2026-05-17T18:00:00.000Z"));
 
     await scheduler.sweepWeeklyBriefing();
+    // FU2-D: weekly 走 preset.notify，preset 内部再调 dispatcher
+    await Promise.resolve();
 
-    expect(dispatcher.dispatch).toHaveBeenCalledWith(
-      USER_ID,
-      expect.objectContaining({ type: "RADAR_WEEKLY" }),
+    expect(weeklyEmailPreset.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: USER_ID, topicId: TOPIC_ID }),
     );
   });
 
-  it("weeklyService 返回无 signals（topSignals=[]）→ dispatcher 不调用（避免 spam）", async () => {
-    const { scheduler, dispatcher } = await buildSchedulerModule({
+  it("weeklyService 返回无 signals（topSignals=[]）→ preset.notify 不调用（避免 spam）", async () => {
+    const { scheduler, weeklyEmailPreset } = await buildSchedulerModule({
       prisma: makeMockPrisma({
         findMany: jest.fn().mockResolvedValue([
           {
@@ -766,13 +806,14 @@ describe("§11.2-7 sweepWeeklyBriefing 周日 18:00 UTC → generateAndPersist +
     jest.setSystemTime(new Date("2026-05-17T18:00:00.000Z"));
 
     await scheduler.sweepWeeklyBriefing();
+    await Promise.resolve();
 
-    expect(dispatcher.dispatch).not.toHaveBeenCalled();
+    expect(weeklyEmailPreset.notify).not.toHaveBeenCalled();
   });
 
   it("本周已生成 weekly briefing → findInRange 返回记录 → generateAndPersist 跳过（幂等保护）", async () => {
-    const { scheduler, weeklyService, dispatcher } = await buildSchedulerModule(
-      {
+    const { scheduler, weeklyService, weeklyEmailPreset } =
+      await buildSchedulerModule({
         prisma: makeMockPrisma({
           findMany: jest.fn().mockResolvedValue([
             {
@@ -788,8 +829,7 @@ describe("§11.2-7 sweepWeeklyBriefing 周日 18:00 UTC → generateAndPersist +
           generateAndPersist: jest.fn().mockResolvedValue(buildWeeklyResult()),
           findInRange: jest.fn().mockResolvedValue([{ id: "existing-weekly" }]),
         },
-      },
-    );
+      });
 
     jest.useFakeTimers();
     jest.setSystemTime(new Date("2026-05-17T18:00:00.000Z"));
@@ -797,11 +837,11 @@ describe("§11.2-7 sweepWeeklyBriefing 周日 18:00 UTC → generateAndPersist +
     await scheduler.sweepWeeklyBriefing();
 
     expect(weeklyService.generateAndPersist).not.toHaveBeenCalled();
-    expect(dispatcher.dispatch).not.toHaveBeenCalled();
+    expect(weeklyEmailPreset.notify).not.toHaveBeenCalled();
   });
 
-  it("dispatch payload 包含 topicId metadata", async () => {
-    const { scheduler, dispatcher } = await buildSchedulerModule({
+  it("preset.notify input 包含 topicId（FU2-D：preset 内部组装 dispatch payload metadata）", async () => {
+    const { scheduler, weeklyEmailPreset } = await buildSchedulerModule({
       prisma: makeMockPrisma({
         findMany: jest.fn().mockResolvedValue([
           {
@@ -823,12 +863,11 @@ describe("§11.2-7 sweepWeeklyBriefing 周日 18:00 UTC → generateAndPersist +
     jest.setSystemTime(new Date("2026-05-17T18:00:00.000Z"));
 
     await scheduler.sweepWeeklyBriefing();
+    await Promise.resolve();
 
-    const [, payload] = dispatcher.dispatch.mock.calls[0] as [
-      string,
-      DispatchPayload,
-    ];
-    expect(payload.metadata).toMatchObject({ topicId: TOPIC_ID });
+    expect(weeklyEmailPreset.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ topicId: TOPIC_ID, userId: USER_ID }),
+    );
   });
 });
 
