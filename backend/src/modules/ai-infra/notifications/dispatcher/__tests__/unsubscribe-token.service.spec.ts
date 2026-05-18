@@ -11,6 +11,7 @@ describe("UnsubscribeTokenService (PR-DR1b / B17)", () => {
     notificationPreference: {
       upsert: jest.Mock;
       findUnique: jest.Mock;
+      update: jest.Mock;
     };
     radarTopicSubscription: {
       upsert: jest.Mock;
@@ -18,10 +19,33 @@ describe("UnsubscribeTokenService (PR-DR1b / B17)", () => {
   };
 
   beforeEach(async () => {
+    // capture 最近一次 issue() 写入 DB 的 token，供 findUnique mock 返回
+    // R2 安全：verifyAndApply DB 比对防重放，必须 mock token 持久化
+    const tokenStore: { current: string | null } = { current: null };
     prisma = {
       notificationPreference: {
-        upsert: jest.fn().mockResolvedValue({}),
-        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest
+          .fn()
+          .mockImplementation(
+            (args: {
+              create?: { unsubscribeToken?: string | null };
+              update?: { unsubscribeToken?: string | null };
+            }) => {
+              const next =
+                args.create?.unsubscribeToken ??
+                args.update?.unsubscribeToken ??
+                null;
+              tokenStore.current = next;
+              return Promise.resolve({});
+            },
+          ),
+        findUnique: jest
+          .fn()
+          .mockImplementation(() => ({ unsubscribeToken: tokenStore.current })),
+        update: jest.fn().mockImplementation(() => {
+          tokenStore.current = null; // verifyAndApply 消费后置 null
+          return Promise.resolve({});
+        }),
       },
       radarTopicSubscription: {
         upsert: jest.fn().mockResolvedValue({}),

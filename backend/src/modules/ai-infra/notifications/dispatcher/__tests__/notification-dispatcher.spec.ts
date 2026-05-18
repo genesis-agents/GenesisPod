@@ -1,6 +1,7 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { NotificationType } from "@prisma/client";
 import { NotificationDispatcher } from "../notification-dispatcher.service";
+import { DispatcherQuotaService } from "../dispatcher-quota.service";
 import { SiteChannel } from "../channels/site-channel.adapter";
 import { ChannelResolver } from "../preferences/channel-resolver";
 import { NotificationPreferenceService } from "../preferences/notification-preference.service";
@@ -88,6 +89,16 @@ describe("NotificationDispatcher", () => {
           },
         },
         { provide: NotificationService, useValue: notificationServiceMock },
+        // R2 安全：dailyQuotaPerUser enforce - mock 默认 always allowed
+        {
+          provide: DispatcherQuotaService,
+          useValue: {
+            check: jest.fn().mockImplementation(async (_u, _c, q: number) => ({
+              allowed: true,
+              remaining: q,
+            })),
+          },
+        },
       ],
     }).compile();
 
@@ -213,6 +224,9 @@ describe("NotificationDispatcher", () => {
         failingSite as unknown as SiteChannel,
         preferenceService as unknown as NotificationPreferenceService,
         resolver,
+        {
+          check: jest.fn().mockResolvedValue({ allowed: true, remaining: 50 }),
+        } as unknown as DispatcherQuotaService,
         goodEmail,
       );
 
@@ -251,6 +265,9 @@ describe("NotificationDispatcher", () => {
         leakingSite as unknown as SiteChannel,
         preferenceService as unknown as NotificationPreferenceService,
         resolver,
+        {
+          check: jest.fn().mockResolvedValue({ allowed: true, remaining: 50 }),
+        } as unknown as DispatcherQuotaService,
       );
       const result = await tmpDispatcher.dispatch(userId, basePayload);
       const failed = result.results.find((r) => r.channel === "site");
@@ -265,6 +282,9 @@ describe("NotificationDispatcher", () => {
         unavailableSite as unknown as SiteChannel,
         preferenceService as unknown as NotificationPreferenceService,
         resolver,
+        {
+          check: jest.fn().mockResolvedValue({ allowed: true, remaining: 200 }),
+        } as unknown as DispatcherQuotaService,
       );
 
       const result = await tmpDispatcher.dispatch(userId, basePayload);
