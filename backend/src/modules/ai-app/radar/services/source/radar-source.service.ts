@@ -265,6 +265,8 @@ export class RadarSourceService {
       cooldownUntil: null,
       lastFetchAt: null,
       lastError: null,
+      authorityWeight: 3,
+      isPublicSource: true,
       createdAt: now,
       updatedAt: now,
     };

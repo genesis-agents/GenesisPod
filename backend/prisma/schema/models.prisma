@@ -203,7 +203,10 @@ model User {
   youtubeAiChatMessages YouTubeAiChatMessage[]
 
   // 2026-05-16 AI Radar 雷达主题
-  radarTopics RadarTopic[]
+  radarTopics      RadarTopic[]
+  // 2026-05-18 PR-DR2: daily/weekly briefings
+  radarDailyBriefings  RadarDailyBriefing[]
+  radarWeeklyBriefings RadarWeeklyBriefing[]
 
   @@map("users")
 }
@@ -10329,13 +10332,31 @@ model RadarTopic {
   nextDueAt DateTime?        @map("next_due_at")
   lastRunAt DateTime?        @map("last_run_at")
 
+  // 2026-05-18 PR-DR2: 每日精选配置字段
+  /// null = 用账户级默认；非空 = 覆盖（schema: { mode, channels? }）
+  pushConfig       Json?   @map("push_config")
+  /// 精选生成时间（用户本地时区）；白名单: 08:00/12:00/18:00/21:00
+  briefingTime     String  @default("08:00") @map("briefing_time") @db.VarChar(5)
+  /// null = 跟 user.timezone；非空覆盖（IANA 时区）
+  briefingTimezone String? @map("briefing_timezone") @db.VarChar(64)
+  /// 每日精选信号数量（3 或 5）
+  signalsTarget    Int     @default(3) @map("signals_target")
+  /// 用户勾选的信号类型多选
+  signalTypes      String[] @default(["turning_point", "trend_acceleration", "new_entity", "key_event"]) @map("signal_types")
+  /// 是否跳过周末精选
+  weekendSkip      Boolean @default(false) @map("weekend_skip")
+  /// AI 输出语言（zh-CN/en-US），不影响 UI 语言
+  outputLanguage   String  @default("zh-CN") @map("output_language") @db.VarChar(10)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  sources  RadarSource[]
-  items    RadarItem[]
-  insights RadarInsight[]
-  runs     RadarRun[]
+  sources          RadarSource[]
+  items            RadarItem[]
+  insights         RadarInsight[]
+  runs             RadarRun[]
+  dailyBriefings   RadarDailyBriefing[]
+  weeklyBriefings  RadarWeeklyBriefing[]
 
   @@index([userId, status])
   @@index([status, nextDueAt])
@@ -10355,6 +10376,10 @@ model RadarSource {
   config          Json?
   enabled         Boolean         @default(true)
   isAiRecommended Boolean         @default(false) @map("is_ai_recommended")
+  /// 1-5 星权威性权重，参与 Stage A 打分；默认 3
+  authorityWeight Int             @default(3) @map("authority_weight") @db.SmallInt
+  /// true = 公开源可跨用户共享 item；false = 私有（含 auth/cookie），各用户独立采集
+  isPublicSource  Boolean         @default(true) @map("is_public_source")
 
   health              RadarSourceHealth @default(UNKNOWN)
   consecutiveFailures Int               @default(0) @map("consecutive_failures")
@@ -10403,7 +10428,11 @@ model RadarItem {
   /// {likes,views,shares,...}
   metrics        Json?
   /// 是否通过 scoring 入选（relevanceScore >= 60 && qualityScore >= 50）
-  accepted       Boolean @default(false)
+  accepted           Boolean @default(false)
+  /// K2: 谁触发了首次采集（用于私有源访问控制）
+  sourceOwnerUserId  String? @map("source_owner_user_id")
+  /// K2: 跨用户共享需 source.is_public_source && item.is_public_source = TRUE
+  isPublicSource     Boolean @default(true) @map("is_public_source")
 
   @@unique([topicId, externalId])
   @@index([topicId, publishedAt(sort: Desc)])
@@ -10478,6 +10507,54 @@ model RadarRun {
   /// liveness-guard 扫描索引（status=running + heartbeatAt stale 判 zombie）
   @@index([status, heartbeatAt])
   @@map("radar_runs")
+}
+
+/// 2026-05-18 PR-DR2: 每日精选（daily briefing）结果存储
+/// status: generating | completed | no_signals
+model RadarDailyBriefing {
+  id      String @id @default(uuid())
+  topicId String @map("topic_id")
+  topic   RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  userId  String @map("user_id")
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 精选生成的本地日期（YYYY-MM-DD），用户本地时区
+  briefingDate    DateTime @map("briefing_date") @db.Date
+  /// 关联 generation run（追溯）
+  generationRunId String?  @map("generation_run_id")
+  /// signals JSONB（TOP N 数组，schema: DailySignal[]，见设计文档 §6.1）
+  signals         Json     @default("[]")
+  /// 状态: generating / completed / no_signals
+  status          String   @db.VarChar(20)
+
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  @@unique([topicId, briefingDate])
+  @@index([userId, briefingDate(sort: Desc)])
+  @@index([topicId, briefingDate(sort: Desc)])
+  @@map("radar_daily_briefings")
+}
+
+/// 2026-05-18 PR-DR2: 每周精选（weekly briefing）聚合存储（E5 Phase 1）
+/// 纯模板拼装 top10 ⭐⭐⭐ + narrativeMap，无 LLM 调用
+model RadarWeeklyBriefing {
+  id            String     @id @default(uuid())
+  topicId       String     @map("topic_id")
+  topic         RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  userId        String     @map("user_id")
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// 周一 UTC
+  weekStartDate DateTime @map("week_start_date") @db.Date
+  /// 周日 UTC
+  weekEndDate   DateTime @map("week_end_date") @db.Date
+  /// 纯模板拼装产物: { topSignals: DailySignal[], narrativeMap: Record<string, { label, episodes[] }> }
+  payload       Json     @default("{}")
+  generatedAt   DateTime @default(now()) @map("generated_at")
+
+  @@unique([topicId, weekStartDate], name: "radar_weekly_briefings_topic_week_uniq")
+  @@index([userId, weekStartDate(sort: Desc)])
+  @@map("radar_weekly_briefings")
 }
 
 /// PR-A0 配套 audit log —— grant/revoke/update 全程可溯源
