@@ -5,6 +5,7 @@ import { PrismaService } from "../../../common/prisma/prisma.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "./dto/create-feedback.dto";
 import {
   EmailNotificationPresetsService,
+  FeedbackStatusUpdatePreset,
   R2StorageService,
 } from "../../ai-infra/facade";
 import {
@@ -39,7 +40,10 @@ export class FeedbackService {
 
   constructor(
     private prisma: PrismaService,
+    // 仅用于 admin 通知（feedback 到 admin inbox），不受用户偏好控制
     private emailNotificationPresetsService: EmailNotificationPresetsService,
+    // PR-DR1b F3 整改：用户面通知走 dispatcher（用户可在 settings 关 FEEDBACK_STATUS_CHANGED）
+    private feedbackStatusUpdatePreset: FeedbackStatusUpdatePreset,
     private r2Storage: R2StorageService,
     private eventEmitter: EventEmitter2,
   ) {}
@@ -413,10 +417,11 @@ export class FeedbackService {
 
     const updatedFeedback = result[0];
 
-    // Send email notification to user if they provided email and status changed
+    // Send status update to user via NotificationDispatcher
+    // (PR-DR1b F3 整改：用户面通知走 dispatcher → 用户可在 settings 关掉)
     if (userEmail && oldStatus !== status) {
       try {
-        await this.emailNotificationPresetsService.sendFeedbackStatusUpdate({
+        await this.feedbackStatusUpdatePreset.notify({
           id,
           title,
           type: feedbackType,
@@ -426,11 +431,11 @@ export class FeedbackService {
           adminNotes,
         });
         this.logger.log(
-          `Status update notification sent to ${userEmail} for feedback ${id}`,
+          `Status update notification dispatched for feedback ${id}`,
         );
       } catch (error) {
         this.logger.error(
-          `Failed to send status update notification for feedback ${id}`,
+          `Failed to dispatch status update notification for feedback ${id}`,
           error,
         );
       }

@@ -5,6 +5,7 @@ import { FeedbackService } from "./feedback.service";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { StorageModule } from "../../ai-infra/storage/storage.module";
 import { EmailModule } from "../../ai-infra/email/email.module";
+import { NotificationDispatcherModule } from "../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
 import { SecretsModule } from "../../ai-infra/secrets/secrets.module";
 
 // AI Services
@@ -29,6 +30,7 @@ import { FeedbackEventListener } from "./events/feedback-event.listener";
     StorageModule,
     ConfigModule,
     EmailModule,
+    NotificationDispatcherModule,
     SecretsModule,
     // AI Services for Triage and Screenshot Analysis
     AiEngineModule,

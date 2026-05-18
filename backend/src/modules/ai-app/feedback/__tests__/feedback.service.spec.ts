@@ -3,7 +3,10 @@ import { Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { FeedbackService } from "../feedback.service";
 import { PrismaService } from "../../../../common/prisma/prisma.service";
-import { EmailNotificationPresetsService } from "../../../ai-infra/facade";
+import {
+  EmailNotificationPresetsService,
+  FeedbackStatusUpdatePreset,
+} from "../../../ai-infra/facade";
 import { R2StorageService } from "../../../ai-infra/storage/runtime/r2-storage.service";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
 
@@ -11,6 +14,7 @@ describe("FeedbackService", () => {
   let service: FeedbackService;
   let mockPrisma: jest.Mocked<Partial<PrismaService>>;
   let mockEmailService: jest.Mocked<Partial<EmailNotificationPresetsService>>;
+  let mockStatusPreset: jest.Mocked<Partial<FeedbackStatusUpdatePreset>>;
   let mockR2Storage: jest.Mocked<Partial<R2StorageService>>;
   let mockEventEmitter: jest.Mocked<Partial<EventEmitter2>>;
 
@@ -37,7 +41,10 @@ describe("FeedbackService", () => {
 
     mockEmailService = {
       sendFeedbackNotification: jest.fn().mockResolvedValue(true),
-      sendFeedbackStatusUpdate: jest.fn().mockResolvedValue(true),
+      // sendFeedbackStatusUpdate 已迁移到 FeedbackStatusUpdatePreset.notify
+    };
+    mockStatusPreset = {
+      notify: jest.fn().mockResolvedValue(undefined),
     };
 
     mockR2Storage = {
@@ -58,6 +65,10 @@ describe("FeedbackService", () => {
         {
           provide: EmailNotificationPresetsService,
           useValue: mockEmailService,
+        },
+        {
+          provide: FeedbackStatusUpdatePreset,
+          useValue: mockStatusPreset,
         },
         { provide: R2StorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
@@ -310,7 +321,7 @@ describe("FeedbackService", () => {
 
       await service.updateFeedbackStatus("feedback-1", "RESOLVED");
 
-      expect(mockEmailService.sendFeedbackStatusUpdate).toHaveBeenCalledWith(
+      expect(mockStatusPreset.notify).toHaveBeenCalledWith(
         expect.objectContaining({
           newStatus: "RESOLVED",
           userEmail: "user@test.com",
@@ -328,7 +339,7 @@ describe("FeedbackService", () => {
 
       await service.updateFeedbackStatus("feedback-1", "RESOLVED");
 
-      expect(mockEmailService.sendFeedbackStatusUpdate).not.toHaveBeenCalled();
+      expect(mockStatusPreset.notify).not.toHaveBeenCalled();
     });
   });
 

@@ -15,7 +15,9 @@ jest.mock("../../../../common/cache/cache.service", () => ({
 jest.mock("../../../ai-infra/facade", () => ({
   EmailNotificationPresetsService: class EmailNotificationPresetsService {
     sendFeedbackNotification = jest.fn();
-    sendFeedbackStatusUpdate = jest.fn();
+  },
+  FeedbackStatusUpdatePreset: class FeedbackStatusUpdatePreset {
+    notify = jest.fn();
   },
   R2StorageService: class R2StorageService {
     uploadBuffer = jest.fn();
@@ -66,6 +68,7 @@ import { PrismaService } from "../../../../common/prisma/prisma.service";
 // that feedback.service.ts uses as DI tokens, so the provider tokens will match.
 import {
   EmailNotificationPresetsService,
+  FeedbackStatusUpdatePreset,
   R2StorageService,
 } from "../../../ai-infra/facade";
 import { CreateFeedbackDto, FeedbackTypeDto } from "../dto/create-feedback.dto";
@@ -75,8 +78,8 @@ describe("FeedbackService (supplemental)", () => {
   let mockPrisma: { $queryRaw: jest.Mock };
   let mockEmailService: {
     sendFeedbackNotification: jest.Mock;
-    sendFeedbackStatusUpdate: jest.Mock;
   };
+  let mockStatusPreset: { notify: jest.Mock };
   let mockR2Storage: { uploadBuffer: jest.Mock };
   let mockEventEmitter: { emit: jest.Mock };
 
@@ -104,7 +107,9 @@ describe("FeedbackService (supplemental)", () => {
 
     mockEmailService = {
       sendFeedbackNotification: jest.fn().mockResolvedValue(true),
-      sendFeedbackStatusUpdate: jest.fn().mockResolvedValue(true),
+    };
+    mockStatusPreset = {
+      notify: jest.fn().mockResolvedValue(undefined),
     };
 
     mockR2Storage = {
@@ -128,6 +133,10 @@ describe("FeedbackService (supplemental)", () => {
           provide: EmailNotificationPresetsService,
           useValue: mockEmailService,
         },
+        {
+          provide: FeedbackStatusUpdatePreset,
+          useValue: mockStatusPreset,
+        },
         { provide: R2StorageService, useValue: mockR2Storage },
         { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
@@ -150,7 +159,7 @@ describe("FeedbackService (supplemental)", () => {
     // Restore default implementations after reset
     mockPrisma.$queryRaw.mockResolvedValue([{ id: "feedback-1" }]);
     mockEmailService.sendFeedbackNotification.mockResolvedValue(true);
-    mockEmailService.sendFeedbackStatusUpdate.mockResolvedValue(true);
+    mockStatusPreset.notify.mockResolvedValue(undefined);
     mockR2Storage.uploadBuffer.mockResolvedValue({
       success: true,
       url: "https://cdn.example.com/file.png",
@@ -547,7 +556,7 @@ describe("FeedbackService (supplemental)", () => {
 
       await service.updateFeedbackStatus("feedback-1", "RESOLVED");
 
-      expect(mockEmailService.sendFeedbackStatusUpdate).not.toHaveBeenCalled();
+      expect(mockStatusPreset.notify).not.toHaveBeenCalled();
     });
 
     it("should continue even when email notification fails", async () => {
@@ -561,9 +570,7 @@ describe("FeedbackService (supplemental)", () => {
         .mockResolvedValueOnce([existing])
         .mockResolvedValueOnce([updated]);
 
-      mockEmailService.sendFeedbackStatusUpdate.mockRejectedValue(
-        new Error("SMTP error"),
-      );
+      mockStatusPreset.notify.mockRejectedValue(new Error("SMTP error"));
 
       const result = await service.updateFeedbackStatus(
         "feedback-1",

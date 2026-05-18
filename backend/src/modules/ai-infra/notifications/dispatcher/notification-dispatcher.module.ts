@@ -9,6 +9,8 @@ import { EmailChannel } from "./channels/email-channel.adapter";
 import { ChannelResolver } from "./preferences/channel-resolver";
 import { NotificationPreferenceService } from "./preferences/notification-preference.service";
 import { RadarMissionCompletePreset } from "./presets/radar-mission-complete.preset";
+import { FeedbackStatusUpdatePreset } from "./presets/feedback-status-update.preset";
+import { MissionCompletionPreset } from "./presets/mission-completion.preset";
 import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
 import { UnsubscribeController } from "./unsubscribe.controller";
 
@@ -55,12 +57,16 @@ import { UnsubscribeController } from "./unsubscribe.controller";
     NotificationPreferenceService,
     UnsubscribeTokenService,
     RadarMissionCompletePreset,
+    FeedbackStatusUpdatePreset,
+    MissionCompletionPreset,
   ],
   exports: [
     NotificationDispatcher,
     NotificationPreferenceService,
     UnsubscribeTokenService,
     RadarMissionCompletePreset,
+    FeedbackStatusUpdatePreset,
+    MissionCompletionPreset,
   ],
 })
 export class NotificationDispatcherModule {}

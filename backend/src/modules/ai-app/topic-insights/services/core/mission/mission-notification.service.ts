@@ -8,7 +8,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
-  EmailNotificationPresetsService,
+  MissionCompletionPreset,
   SettingsService,
 } from "@/modules/ai-infra/facade";
 
@@ -18,8 +18,9 @@ export class MissionNotificationService {
 
   constructor(
     private readonly prisma: PrismaService,
+    // PR-DR1b F3 整改：mission 完成通知走 dispatcher（用户可关 email + 同时落 site）
     @Optional()
-    private readonly emailNotificationPresetsService?: EmailNotificationPresetsService,
+    private readonly missionCompletionPreset?: MissionCompletionPreset,
     @Optional() private readonly settingsService?: SettingsService,
   ) {}
 
@@ -33,11 +34,10 @@ export class MissionNotificationService {
     totalTasks: number;
   }): void {
     const { missionId, topicId, completedTasks, totalTasks } = params;
-    const emailNotificationPresetsService =
-      this.emailNotificationPresetsService;
-    if (!emailNotificationPresetsService) {
+    const preset = this.missionCompletionPreset;
+    if (!preset) {
       this.logger.debug(
-        "[Degraded] EmailService unavailable, skipping completion notification",
+        "[Degraded] NotificationDispatcher unavailable, skipping completion notification",
       );
       return;
     }
@@ -48,23 +48,17 @@ export class MissionNotificationService {
           select: { userId: true, name: true },
         });
         if (topic?.userId) {
-          const user = await this.prisma.user.findUnique({
-            where: { id: topic.userId },
-            select: { email: true },
+          await preset.notify({
+            userId: topic.userId,
+            missionId,
+            missionTitle: topic.name,
+            reportUrl: `/topics/${topicId}/reports`,
+            summary: `${completedTasks}/${totalTasks} dimensions completed`,
+            completedAt: new Date(),
           });
-          if (user?.email) {
-            await emailNotificationPresetsService.sendMissionCompletionNotification({
-              to: user.email,
-              missionId,
-              missionTitle: topic.name,
-              reportUrl: `/topics/${topicId}/reports`,
-              summary: `${completedTasks}/${totalTasks} dimensions completed`,
-              completedAt: new Date(),
-            });
-          }
         }
       } catch (e) {
-        this.logger.debug(`EmailService notification failed: ${e}`);
+        this.logger.debug(`Mission completion dispatch failed: ${e}`);
       }
     })();
   }

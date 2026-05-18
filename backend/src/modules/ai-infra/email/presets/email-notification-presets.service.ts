@@ -33,6 +33,18 @@ export interface FeedbackStatusEmailNotification {
   adminNotes?: string;
 }
 
+/**
+ * EmailNotificationPresetsService
+ *
+ * **PR-DR1b F3 部分迁移完成**：
+ * - `sendFeedbackStatusUpdate` → 迁至 FeedbackStatusUpdatePreset（走 dispatcher）
+ * - `sendMissionCompletionNotification` → 迁至 MissionCompletionPreset（走 dispatcher）
+ * - `sendFeedbackNotification`（admin 通知）保留在此 —— admin 告警绕 user 偏好是设计选择
+ *
+ * 本类已 @deprecated 用户面方法，仅保留 admin/system 直发场景。
+ * 后续模块若需用户面 email，走 NotificationDispatcher.dispatch（forceChannels=['email']）
+ * 或新增专属 Preset 服务（参见 dispatcher/presets/*.preset.ts 模式）。
+ */
 @Injectable()
 export class EmailNotificationPresetsService {
   private readonly logger = new Logger(EmailNotificationPresetsService.name);
@@ -164,6 +176,10 @@ ${APP_CONFIG.brand.name} Feedback Notification`;
     });
   }
 
+  /**
+   * @deprecated PR-DR1b F3 — 使用 MissionCompletionPreset.notify（走 dispatcher）
+   * 此方法仍可工作但 *不* 尊重 user channelSubscriptions 偏好。新 caller 一律走 preset。
+   */
   async sendMissionCompletionNotification(
     options: MissionCompletionEmailNotification,
   ): Promise<boolean> {
@@ -230,6 +246,10 @@ This message was sent automatically by ${APP_CONFIG.brand.name}`;
     });
   }
 
+  /**
+   * @deprecated PR-DR1b F3 — 使用 FeedbackStatusUpdatePreset.notify（走 dispatcher）
+   * 此方法仍可工作但 *不* 尊重 user channelSubscriptions 偏好。新 caller 一律走 preset。
+   */
   async sendFeedbackStatusUpdate(
     feedback: FeedbackStatusEmailNotification,
   ): Promise<boolean> {

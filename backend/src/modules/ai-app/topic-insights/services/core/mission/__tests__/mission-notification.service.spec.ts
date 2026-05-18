@@ -8,11 +8,13 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { MissionNotificationService } from "../mission-notification.service";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import {
-  EmailNotificationPresetsService,
+  MissionCompletionPreset,
   SettingsService,
 } from "@/modules/ai-infra/facade";
 
 // ─── Mock factories ───────────────────────────────────────────────────────────
+// PR-DR1b F3 整改：原 EmailNotificationPresetsService.sendMissionCompletionNotification
+// 已替换为 MissionCompletionPreset.notify（走 dispatcher）
 
 function buildMockPrisma() {
   return {
@@ -26,8 +28,9 @@ function buildMockPrisma() {
 }
 
 function buildMockEmailService() {
+  // MissionCompletionPreset.notify 替换 sendMissionCompletionNotification
   return {
-    sendMissionCompletionNotification: jest.fn(),
+    notify: jest.fn(),
   };
 }
 
@@ -59,7 +62,7 @@ async function buildService(opts?: {
 
   if (opts?.withEmail !== false) {
     providers.push({
-      provide: EmailNotificationPresetsService,
+      provide: MissionCompletionPreset,
       useValue: emailService,
     });
   }
@@ -87,17 +90,14 @@ describe("MissionNotificationService", () => {
   // ─── notifyCompletion ─────────────────────────────────────────────────────────
 
   describe("notifyCompletion", () => {
-    it("should send completion email when all data is present", async () => {
+    it("should dispatch completion when topic + userId present (user lookup moved inside preset)", async () => {
       const { service, prisma, emailService } = await buildService();
 
       prisma.researchTopic.findUnique.mockResolvedValue({
         userId: "user-1",
         name: "AI Research Topic",
       });
-      prisma.user.findUnique.mockResolvedValue({ email: "user@example.com" });
-      emailService.sendMissionCompletionNotification.mockResolvedValue(
-        undefined,
-      );
+      emailService.notify.mockResolvedValue(undefined);
 
       service.notifyCompletion({
         missionId: "m1",
@@ -106,7 +106,6 @@ describe("MissionNotificationService", () => {
         totalTasks: 5,
       });
 
-      // Let the fire-and-forget promise resolve
       await new Promise((r) => setImmediate(r));
       await new Promise((r) => setImmediate(r));
 
@@ -114,15 +113,10 @@ describe("MissionNotificationService", () => {
         where: { id: "t1" },
         select: { userId: true, name: true },
       });
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { id: "user-1" },
-        select: { email: true },
-      });
-      expect(
-        emailService.sendMissionCompletionNotification,
-      ).toHaveBeenCalledWith(
+      // User lookup now happens inside preset, not in MissionNotificationService
+      expect(emailService.notify).toHaveBeenCalledWith(
         expect.objectContaining({
-          to: "user@example.com",
+          userId: "user-1",
           missionId: "m1",
           missionTitle: "AI Research Topic",
           reportUrl: "/topics/t1/reports",
@@ -131,10 +125,9 @@ describe("MissionNotificationService", () => {
       );
     });
 
-    it("should not send email when emailService is absent", async () => {
+    it("should not dispatch when preset is absent (Optional degraded)", async () => {
       const { service, prisma } = await buildService({ withEmail: false });
 
-      // Should return immediately without touching prisma
       service.notifyCompletion({
         missionId: "m1",
         topicId: "t1",
@@ -146,7 +139,7 @@ describe("MissionNotificationService", () => {
       expect(prisma.researchTopic.findUnique).not.toHaveBeenCalled();
     });
 
-    it("should not send email when topic is not found", async () => {
+    it("should not dispatch when topic is not found", async () => {
       const { service, prisma, emailService } = await buildService();
 
       prisma.researchTopic.findUnique.mockResolvedValue(null);
@@ -161,13 +154,10 @@ describe("MissionNotificationService", () => {
       await new Promise((r) => setImmediate(r));
       await new Promise((r) => setImmediate(r));
 
-      expect(prisma.user.findUnique).not.toHaveBeenCalled();
-      expect(
-        emailService.sendMissionCompletionNotification,
-      ).not.toHaveBeenCalled();
+      expect(emailService.notify).not.toHaveBeenCalled();
     });
 
-    it("should not send email when topic has no userId", async () => {
+    it("should not dispatch when topic has no userId", async () => {
       const { service, prisma, emailService } = await buildService();
 
       prisma.researchTopic.findUnique.mockResolvedValue({
@@ -185,59 +175,12 @@ describe("MissionNotificationService", () => {
       await new Promise((r) => setImmediate(r));
       await new Promise((r) => setImmediate(r));
 
-      expect(prisma.user.findUnique).not.toHaveBeenCalled();
-      expect(
-        emailService.sendMissionCompletionNotification,
-      ).not.toHaveBeenCalled();
+      expect(emailService.notify).not.toHaveBeenCalled();
     });
 
-    it("should not send email when user is not found", async () => {
-      const { service, prisma, emailService } = await buildService();
-
-      prisma.researchTopic.findUnique.mockResolvedValue({
-        userId: "user-1",
-        name: "Test Topic",
-      });
-      prisma.user.findUnique.mockResolvedValue(null);
-
-      service.notifyCompletion({
-        missionId: "m1",
-        topicId: "t1",
-        completedTasks: 2,
-        totalTasks: 2,
-      });
-
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-
-      expect(
-        emailService.sendMissionCompletionNotification,
-      ).not.toHaveBeenCalled();
-    });
-
-    it("should not send email when user has no email", async () => {
-      const { service, prisma, emailService } = await buildService();
-
-      prisma.researchTopic.findUnique.mockResolvedValue({
-        userId: "user-1",
-        name: "Test Topic",
-      });
-      prisma.user.findUnique.mockResolvedValue({ email: null });
-
-      service.notifyCompletion({
-        missionId: "m1",
-        topicId: "t1",
-        completedTasks: 2,
-        totalTasks: 2,
-      });
-
-      await new Promise((r) => setImmediate(r));
-      await new Promise((r) => setImmediate(r));
-
-      expect(
-        emailService.sendMissionCompletionNotification,
-      ).not.toHaveBeenCalled();
-    });
+    // User-lookup edge cases (user not found / no email) now handled inside
+    // MissionCompletionPreset (see mission-completion.preset.spec.ts coverage).
+    // MissionNotificationService is no longer responsible for that lookup.
 
     it("should handle prisma errors gracefully without throwing", async () => {
       const { service, prisma } = await buildService();
@@ -259,17 +202,14 @@ describe("MissionNotificationService", () => {
       // No assertion needed — just verifying it doesn't throw
     });
 
-    it("should handle email sending errors gracefully", async () => {
+    it("should handle dispatch errors gracefully", async () => {
       const { service, prisma, emailService } = await buildService();
 
       prisma.researchTopic.findUnique.mockResolvedValue({
         userId: "user-1",
         name: "Research Topic",
       });
-      prisma.user.findUnique.mockResolvedValue({ email: "user@example.com" });
-      emailService.sendMissionCompletionNotification.mockRejectedValue(
-        new Error("SMTP error"),
-      );
+      emailService.notify.mockRejectedValue(new Error("dispatch failed"));
 
       service.notifyCompletion({
         missionId: "m1",

@@ -3,6 +3,7 @@ import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
+import { NotificationDispatcherModule } from "../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
 // Import directly from source to avoid circular dependency via barrel export
 import { AiEngineModule } from "../../ai-engine/ai-engine.module";
 import {
@@ -263,6 +264,7 @@ const services = [
   imports: [
     PrismaModule,
     NotificationModule,
+    NotificationDispatcherModule,
     AiEngineModule,
     CreditsModule,
     ExportModule,

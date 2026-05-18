@@ -45,6 +45,26 @@ export { NotificationService } from "../notifications/notification.service";
 export { NotificationPresetsService } from "../notifications/presets/notification-presets.service";
 export { NotificationTypeDto } from "../notifications/dto/notification.dto";
 
+// ─── Notification Dispatcher (PR-DR1a/b) ───
+export { NotificationDispatcher } from "../notifications/dispatcher/notification-dispatcher.service";
+export { NotificationPreferenceService } from "../notifications/dispatcher/preferences/notification-preference.service";
+export { UnsubscribeTokenService } from "../notifications/dispatcher/preferences/unsubscribe-token.service";
+export type {
+  UnsubscribeScope,
+  UnsubscribeResult,
+} from "../notifications/dispatcher/preferences/unsubscribe-token.service";
+export {
+  type DispatchPayload,
+  type DispatchOptions,
+  type DispatchResult,
+  type INotificationChannel,
+  type ChannelCapabilities,
+  type NotificationChannel,
+} from "../notifications/dispatcher/abstractions/notification-channel";
+export { RadarMissionCompletePreset } from "../notifications/dispatcher/presets/radar-mission-complete.preset";
+export { FeedbackStatusUpdatePreset } from "../notifications/dispatcher/presets/feedback-status-update.preset";
+export { MissionCompletionPreset } from "../notifications/dispatcher/presets/mission-completion.preset";
+
 // ─── Settings ───
 export { SettingsService } from "../settings/settings.service";
 
