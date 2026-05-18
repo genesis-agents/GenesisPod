@@ -1,0 +1,153 @@
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
+import {
+  DispatchChannelResult,
+  DispatchOptions,
+  DispatchPayload,
+  DispatchResult,
+  INotificationChannel,
+  NotificationChannel,
+} from "./abstractions/notification-channel";
+import { SiteChannel } from "./channels/site-channel.adapter";
+import { ChannelResolver } from "./preferences/channel-resolver";
+import { NotificationPreferenceService } from "./preferences/notification-preference.service";
+
+/**
+ * NotificationDispatcher 公共能力（PR-DR1a 框架版）
+ *
+ * 来源：docs/architecture/ai-app/radar/daily-briefing-redesign-2026-05-18.md
+ *   §7.2 主入口 / §8.6 模块结构
+ *
+ * 行为：
+ * 1. 读用户偏好（channelSubscriptions 矩阵 + quietHours）
+ * 2. ChannelResolver 决定走哪些 channel
+ * 3. Promise.allSettled fan-out 到各 channel（单 channel 失败不阻塞）
+ * 4. 返回 DispatchResult 结构化每路结果（caller 可决定是否再 retry）
+ *
+ * 反模式守护：
+ * - **不** 把"用户关了 channel"当 error（resolver 直接不返回该 channel，
+ *   send() 不调用，DispatchChannelResult.status='skipped' reason='disabled-by-preference'）
+ * - **不** 因偏好读失败而阻塞通知（pref=null → 走默认策略，feedback_fallback_must_be_self_consistent）
+ *
+ * PR-DR1a 实装 channel：仅 SiteChannel。
+ *   - EmailChannel 在 PR-DR1b 注入；WechatChannel 在 PR-DR3 注入；
+ *   - 注入靠 @Optional() + register() 暴露式扩展点，避免 PR-DR1a 文件被反复修改
+ */
+@Injectable()
+export class NotificationDispatcher {
+  private readonly log = new Logger(NotificationDispatcher.name);
+  private readonly channels = new Map<
+    NotificationChannel,
+    INotificationChannel
+  >();
+
+  constructor(
+    siteChannel: SiteChannel,
+    private readonly preferenceService: NotificationPreferenceService,
+    private readonly channelResolver: ChannelResolver,
+    @Optional() @Inject("EMAIL_CHANNEL") emailChannel?: INotificationChannel,
+    @Optional() @Inject("WECHAT_CHANNEL") wechatChannel?: INotificationChannel,
+    @Optional()
+    @Inject("WEBPUSH_CHANNEL")
+    webpushChannel?: INotificationChannel,
+  ) {
+    this.register(siteChannel);
+    if (emailChannel) this.register(emailChannel);
+    if (wechatChannel) this.register(wechatChannel);
+    if (webpushChannel) this.register(webpushChannel);
+  }
+
+  /** 显式注册 channel（测试 + 后续 PR EmailChannel/WechatChannel 注入用） */
+  register(channel: INotificationChannel): void {
+    this.channels.set(channel.type, channel);
+    this.log.log(`Registered channel: ${channel.type}`);
+  }
+
+  /** 当前已注册 channel 列表（测试 + observability 用） */
+  getRegisteredChannels(): NotificationChannel[] {
+    return Array.from(this.channels.keys());
+  }
+
+  /**
+   * 主入口
+   *
+   * 失败语义：
+   * - 单 channel 抛 → DispatchChannelResult.status='failed' + error 字段；其他 channel 继续
+   * - 偏好读失败 → pref=null → 走默认策略
+   * - 全部 channel skip → delivered=false（caller 可 log warn）
+   */
+  async dispatch(
+    userId: string,
+    payload: DispatchPayload,
+    options?: DispatchOptions,
+  ): Promise<DispatchResult> {
+    const preference = await this.preferenceService.get(userId);
+    const targets = await this.channelResolver.resolve(
+      userId,
+      payload.type,
+      this.channels,
+      preference,
+      options,
+    );
+
+    if (targets.length === 0) {
+      this.log.debug(
+        `dispatch skipped: user=${userId} type=${payload.type} reason=no-targets`,
+      );
+      return {
+        userId,
+        type: payload.type,
+        results: [],
+        delivered: false,
+      };
+    }
+
+    const results = await Promise.all(
+      targets.map((ch) => this.sendSafe(ch, userId, payload)),
+    );
+
+    const delivered = results.some((r) => r.status === "sent");
+    if (!delivered) {
+      this.log.warn(
+        `dispatch nothing delivered: user=${userId} type=${payload.type} results=${JSON.stringify(results)}`,
+      );
+    }
+    return { userId, type: payload.type, results, delivered };
+  }
+
+  /**
+   * 批量 dispatch（同 payload 给多个 userId）
+   *
+   * 实现：纯 fan-out（无 worker pool）。后续 PR-DR2 sweepDailyBriefing 风暴场景如需限流，
+   * caller 侧用 BullMQ queue 控制并发（K3 决策），dispatcher 不内置 throttle 避免双源。
+   */
+  async dispatchMany(
+    userIds: string[],
+    payload: DispatchPayload,
+    options?: DispatchOptions,
+  ): Promise<DispatchResult[]> {
+    return Promise.all(
+      userIds.map((uid) => this.dispatch(uid, payload, options)),
+    );
+  }
+
+  private async sendSafe(
+    channel: NotificationChannel,
+    userId: string,
+    payload: DispatchPayload,
+  ): Promise<DispatchChannelResult> {
+    const adapter = this.channels.get(channel);
+    if (!adapter) {
+      return { channel, status: "skipped", reason: "channel-not-registered" };
+    }
+    try {
+      await adapter.send(userId, payload);
+      return { channel, status: "sent" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.log.warn(
+        `channel=${channel} send failed user=${userId} type=${payload.type}: ${msg}`,
+      );
+      return { channel, status: "failed", error: msg };
+    }
+  }
+}

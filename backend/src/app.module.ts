@@ -32,6 +32,7 @@ import { MonitoringModule } from "./modules/ai-infra/monitoring";
 import { EmailModule } from "./modules/ai-infra/email/email.module";
 import { FeedbackModule } from "./modules/ai-app/feedback/feedback.module";
 import { NotificationModule } from "./modules/ai-infra/notifications/notification.module";
+import { NotificationDispatcherModule } from "./modules/ai-infra/notifications/dispatcher/notification-dispatcher.module";
 import { ReleaseModule } from "./modules/ai-infra/release/release.module";
 import { SettingsModule } from "./modules/ai-infra/settings/settings.module";
 import { StorageModule } from "./modules/ai-infra/storage/storage.module";
@@ -189,6 +190,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     EmailModule,
     FeedbackModule,
     NotificationModule,
+    NotificationDispatcherModule,
     ReleaseModule,
     SettingsModule,
     StorageModule,

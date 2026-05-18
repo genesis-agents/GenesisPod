@@ -146,6 +146,7 @@ model User {
   // 通知系统
   notifications          Notification[]          @relation("UserNotifications")
   notificationPreference NotificationPreference? @relation("UserNotificationPreference")
+  wechatBinding          UserWechatBinding?      @relation("UserWechatBinding")
 
   // 团队邀请系统
   sentInvitations     TopicInvitation[] @relation("TopicInvitationInviter")
@@ -8333,6 +8334,13 @@ enum NotificationType {
   KEY_REQUEST_APPROVED // 申请被批准，通知用户
   KEY_REQUEST_REJECTED // 申请被拒绝，通知用户
   KEY_GRANTED // admin 主动授权（无申请流程），通知被授权用户
+
+  // AI 雷达通知（PR-DR1a 占位 + RADAR_MISSION_COMPLETE 老 caller 迁移示范；DR2 真启用 DAILY/WEEKLY/TIER3_INSTANT）
+  RADAR_DAILY
+  RADAR_WEEKLY
+  RADAR_TIER3_INSTANT
+  RADAR_SOURCE_AUTO_DISABLED
+  RADAR_MISSION_COMPLETE
 }
 
 /// 用户通知
@@ -8391,6 +8399,12 @@ model NotificationPreference {
   // { system: true, joinRequest: true, research: true, credits: true, feedback: true }
   typeSettings Json @default("{}") @map("type_settings")
 
+  // 业务类型 × 渠道矩阵（PR-DR1a 新增，2026-05-18 daily-briefing-redesign §7.1）
+  // schema: { [NotificationType]: { email?: bool, site?: bool, wechat?: bool, webpush?: bool } }
+  // 例: { RADAR_DAILY: { email: true, site: true, wechat: false } }
+  // 空 = 无明确订阅，dispatcher 走"按类型分类的默认 fan-out 策略"
+  channelSubscriptions Json @default("{}") @map("channel_subscriptions")
+
   // 免打扰时段
   quietHoursStart String? @map("quiet_hours_start") @db.VarChar(5) // HH:mm
   quietHoursEnd   String? @map("quiet_hours_end") @db.VarChar(5) // HH:mm
@@ -8402,6 +8416,24 @@ model NotificationPreference {
   user User @relation("UserNotificationPreference", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_preferences")
+}
+
+/// 微信公众号 OpenID 绑定（PR-DR1a schema 就位 + DR3 绑定流程启用）
+/// daily-briefing-redesign-2026-05-18 §10.1 K4 加密决策：
+/// - open_id_enc: AES-256 加密后的明文 OpenID（pgp_sym_encrypt）
+/// - open_id_hash: SHA-256 明文 OpenID 的哈希（用于唯一查询，不可逆）
+model UserWechatBinding {
+  id             String    @id @default(uuid())
+  userId         String    @unique @map("user_id")
+  openIdEnc      Bytes     @map("open_id_enc")
+  openIdHash     String    @unique @map("open_id_hash")
+  unionIdEnc     Bytes?    @map("union_id_enc")
+  subscribedAt   DateTime  @default(now()) @map("subscribed_at")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+
+  user User @relation("UserWechatBinding", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_wechat_bindings")
 }
 
 // ============ 团队邀请系统 (Invitation System) ============
