@@ -16,7 +16,7 @@
  * filter score > 0.55 → top 20 candidate pool 进入 Stage B（LLM 编辑）
  */
 
-import type { RadarSource, RadarItem } from "@prisma/client";
+import type { RadarSource } from "@prisma/client";
 
 /** 权重表（修改必须写 ADR） */
 export const STAGE_A_WEIGHTS = {
@@ -33,7 +33,7 @@ export const STAGE_A_CANDIDATE_POOL_MAX = 20;
 
 /** Stage A 输入：item + 它所属 source + LLM 已算分 */
 export interface StageAInput {
-  item: Pick<RadarItem, "id" | "publishedAt" | "metrics">;
+  item: { id: string; publishedAt: Date; metrics: unknown };
   source: Pick<RadarSource, "id" | "authorityWeight">;
   /** S4 LLM 输出 relevance（0-100）；未跑 → undefined → 0 */
   relevanceScore?: number;

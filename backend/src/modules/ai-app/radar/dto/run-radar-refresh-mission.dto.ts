@@ -25,6 +25,32 @@ export interface RunRadarRefreshMissionInput {
 }
 
 /**
+ * Daily briefing mission 输入（B4）—— S9 daily-top-n stage 触发用
+ *
+ * 来源：daily-briefing-redesign-2026-05-18.md §8.2
+ *
+ * 调用方：sweepDailyBriefing cron + 详情页"重新精选"按钮
+ */
+export interface RunRadarDailyBriefingMissionInput {
+  readonly topicId: string;
+  /** 用户本地日期（UTC midnight，由 caller 按 user.timezone 转好） */
+  readonly briefingDate: Date;
+  /** 用户配置的 TOP N（3 或 5；从 topic.signalsTarget 读取） */
+  readonly signalsTarget: 3 | 5;
+  /** 用户启用的 signalTypes 子集（其他类型 LLM 不输出） */
+  readonly signalTypes: ReadonlyArray<
+    | "turning_point"
+    | "trend_acceleration"
+    | "new_entity"
+    | "anomaly"
+    | "key_event"
+  >;
+  /** 用户/主题 AI 输出语言（topic.outputLanguage） */
+  readonly outputLanguage: "zh-CN" | "en-US";
+  readonly trigger: "MANUAL" | "SCHEDULED";
+}
+
+/**
  * Discovery mission 输入。
  */
 export interface RunRadarDiscoveryMissionInput {
