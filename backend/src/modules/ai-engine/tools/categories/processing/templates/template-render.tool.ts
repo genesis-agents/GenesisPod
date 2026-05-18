@@ -10,6 +10,7 @@ import {
   JSONSchema,
   ToolCategory,
 } from "../../../abstractions/tool.interface";
+import { APP_CONFIG } from "../../../../../../common/config/app.config";
 
 // ============================================================================
 // Types
@@ -476,6 +477,63 @@ export class TemplateRenderTool extends BaseTool<
       const argsUnknown = args as unknown as unknown[];
       const [value, defaultValue] = argsUnknown;
       return value !== undefined && value !== null ? value : defaultValue;
+    });
+
+    // ==========================================================================
+    // Radar email helpers — security contract (§7.3.3-bis)
+    // ==========================================================================
+
+    // urlEncode: RFC 3986 encodeURIComponent + strip \r\n\t (SMTP header injection)
+    hbs.registerHelper("urlEncode", function (...args: never[]) {
+      const s = (args as unknown as unknown[])[0];
+      if (s == null) return "";
+      return encodeURIComponent(String(s).replace(/[\r\n\t]/g, ""));
+    });
+
+    // truncate: codepoint-aware (emoji safe), appends ellipsis U+2026
+    hbs.registerHelper("truncate", function (...args: never[]) {
+      const argsUnknown = args as unknown as unknown[];
+      const s = argsUnknown[0];
+      const max = argsUnknown[1];
+      if (s == null) return "";
+      const str = String(s);
+      const maxN = typeof max === "number" ? max : parseInt(String(max), 10);
+      if (!Number.isFinite(maxN) || str.length <= maxN) return str;
+      const chars = Array.from(str);
+      return chars.slice(0, Math.max(0, maxN - 1)).join("") + "…";
+    });
+
+    // tierBadge: tier {1,2,3} → star string; out-of-range fallback ⭐
+    hbs.registerHelper("tierBadge", function (...args: never[]) {
+      const tier = (args as unknown as unknown[])[0];
+      const n = typeof tier === "number" ? tier : parseInt(String(tier), 10);
+      if (n === 3) return "⭐⭐⭐";
+      if (n === 2) return "⭐⭐";
+      return "⭐";
+    });
+
+    // detailUrl: signalId (UUID) → full URL; empty string on invalid input
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    hbs.registerHelper("detailUrl", function (...args: never[]) {
+      const signalId = (args as unknown as unknown[])[0];
+      if (typeof signalId !== "string" || !UUID_RE.test(signalId)) return "";
+      return `${APP_CONFIG.urls.frontend}/ai-radar/signal/${signalId}`;
+    });
+
+    // evidenceSources: array of {name, ...} → "A / B / C" (name-only, no raw HTML)
+    hbs.registerHelper("evidenceSources", function (...args: never[]) {
+      const sources = (args as unknown as unknown[])[0];
+      if (!Array.isArray(sources)) return "";
+      return sources
+        .filter(
+          (s): s is { name: string } =>
+            typeof s === "object" &&
+            s !== null &&
+            typeof (s as Record<string, unknown>)["name"] === "string",
+        )
+        .map((s) => s.name)
+        .join(" / ");
     });
   }
 

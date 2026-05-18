@@ -870,6 +870,216 @@ describe("TemplateRenderTool", () => {
   });
 
   // --------------------------------------------------------------------------
+  // Radar email helpers — security contract (§7.3.3-bis)
+  // --------------------------------------------------------------------------
+
+  describe("radar helpers — urlEncode", () => {
+    it("should percent-encode a query string value", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{urlEncode val}}",
+        variables: { val: "hello world & <test>" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("hello%20world%20%26%20%3Ctest%3E");
+    });
+
+    it("should strip \\r\\n\\t to prevent SMTP header injection", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{urlEncode val}}",
+        variables: { val: "line1\r\nBcc: attacker@evil.com\ttab" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).not.toContain("%0D");
+      expect(result.data?.result).not.toContain("%0A");
+      expect(result.data?.result).not.toContain("%09");
+    });
+
+    it("should return empty string for null", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{urlEncode val}}",
+        variables: { val: null },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("");
+    });
+  });
+
+  describe("radar helpers — truncate", () => {
+    it("should truncate to maxN-1 chars and append ellipsis", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{truncate val 6}}",
+        variables: { val: "ABCDEFGH" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      // 5 chars + ellipsis
+      expect(result.data?.result).toBe("ABCDE…");
+    });
+
+    it("should not truncate when string length <= maxN", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{truncate val 10}}",
+        variables: { val: "short" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("short");
+    });
+
+    it("should handle emoji safely (codepoint boundary)", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{truncate val 3}}",
+        variables: { val: "AB😀CD" }, // "AB😀CD"
+      };
+      const result = await tool.execute(input, createMockContext());
+      // Array.from splits emoji correctly: ['A','B','😀','C','D'] → slice(0,2) = 'AB' + '…'
+      expect(result.data?.result).toBe("AB…");
+    });
+
+    it("should return empty string for null input", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{truncate val 10}}",
+        variables: { val: null },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("");
+    });
+  });
+
+  describe("radar helpers — tierBadge", () => {
+    it("should return three stars for tier 3", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{tierBadge tier}}",
+        variables: { tier: 3 },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("⭐⭐⭐");
+    });
+
+    it("should return two stars for tier 2", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{tierBadge tier}}",
+        variables: { tier: 2 },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("⭐⭐");
+    });
+
+    it("should return one star for tier 1", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{tierBadge tier}}",
+        variables: { tier: 1 },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("⭐");
+    });
+
+    it("should fallback to one star for out-of-range value", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{tierBadge tier}}",
+        variables: { tier: 99 },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("⭐");
+    });
+
+    it("should fallback to one star for non-numeric string", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{tierBadge tier}}",
+        variables: { tier: "invalid" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("⭐");
+    });
+  });
+
+  describe("radar helpers — detailUrl", () => {
+    it("should return full URL for valid UUID", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{detailUrl id}}",
+        variables: { id: "550e8400-e29b-41d4-a716-446655440000" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toContain(
+        "/ai-radar/signal/550e8400-e29b-41d4-a716-446655440000",
+      );
+    });
+
+    it("should return empty string for non-UUID string", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{detailUrl id}}",
+        variables: { id: "not-a-uuid" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("");
+    });
+
+    it("should return empty string for null input", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{detailUrl id}}",
+        variables: { id: null },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("");
+    });
+
+    it("should reject XSS payload in signalId", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{detailUrl id}}",
+        variables: { id: "<script>alert(1)</script>" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("");
+    });
+  });
+
+  describe("radar helpers — evidenceSources", () => {
+    it("should join source names with ' / ' separator", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{evidenceSources sources}}",
+        variables: {
+          sources: [
+            { name: "NVIDIA Blog", url: "https://blogs.nvidia.com" },
+            { name: "CNBC", url: "https://cnbc.com" },
+          ],
+        },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("NVIDIA Blog / CNBC");
+    });
+
+    it("should return empty string for non-array input", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{evidenceSources sources}}",
+        variables: { sources: "not-array" },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("");
+    });
+
+    it("should skip items without a name field", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{evidenceSources sources}}",
+        variables: {
+          sources: [{ name: "Reuters" }, { url: "https://evil.com" }, null],
+        },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("Reuters");
+    });
+
+    it("should not include URL fields in output (name-only)", async () => {
+      const input: TemplateRenderInput = {
+        template: "{{evidenceSources sources}}",
+        variables: {
+          sources: [{ name: "Source A", url: "https://attacker.com/xss" }],
+        },
+      };
+      const result = await tool.execute(input, createMockContext());
+      expect(result.data?.result).toBe("Source A");
+      expect(result.data?.result).not.toContain("attacker.com");
+    });
+  });
+
+  // --------------------------------------------------------------------------
   // Edge cases
   // --------------------------------------------------------------------------
 
