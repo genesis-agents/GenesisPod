@@ -167,7 +167,7 @@ describe('RadarTopicConfigDrawer', () => {
   it('signalTypes checkbox toggles off removes value', () => {
     renderDrawer();
     // '转折点' corresponds to 'turning_point' which is in default signalTypes
-    const checkbox = screen.getByLabelText('转折点');
+    const checkbox = screen.getByLabelText<HTMLInputElement>('转折点');
     expect(checkbox.checked).toBe(true);
     fireEvent.click(checkbox);
     // Now dirty
