@@ -2315,12 +2315,12 @@ R4 评审时间：2026-05-18（R3 整改后）
 | M1     | **PR-DR1b** EmailChannel + i18n + 退订 JWT + 老 caller 切换 + 偏好 UI                                                                                             | ✅ DONE        | `627c32402` + `c8904ec8e` + `a8580ed25` | 5/5 YES  | R1/R2/R3 共识          |
 | M2     | **PR-DR1b-FU** R2 security P2-2 安全 follow-up（DispatcherQuotaService + 退订 token 轮换防重放 + locale/timezone 白名单 nested 校验 + settings error 重试态）     | ✅ DONE        | `b874521c2`                             | 单 PR 内 | quota enforce 闭环     |
 | M2     | **PR-DR2-1** RadarDailyBriefing/Weekly schema + 迁移 + DTO CHECK 双闸                                                                                             | ✅ DONE        | `6a148ae66`                             | —        | schema-only foundation |
-| M2     | **PR-DR2-2** S9 daily-top-n stage + signal-editor SKILL.md + LLM 调用 + 跨日延续 boost + zod 白名单                                                               | 🔄 SCAFFOLDING | （SKILL.md 未提交）                     | 待       | 评分公式 v1 weights    |
-| M2     | **PR-DR2-3** Scheduler 三 sweep（sweepDailyBriefing / sweepWeeklyBriefing / `@OnEvent` onTier3Signal）+ BullMQ queue + Redis 频次闸 + 90 天清理 cron              | ❌ TODO        | —                                       | —        |                        |
-| M2     | **PR-DR2-4** NotificationDispatcher 集成 + 邮件双语 4 模板（daily/weekly × zh/en）+ Handlebars helpers 安全契约 + Narrative API + Favorite API + 退订 scope=topic | ❌ TODO        | —                                       | —        |                        |
+| M2     | **PR-DR2-2** S9 daily-top-n stage + signal-editor SKILL.md + LLM 调用 + 跨日延续 boost + zod 白名单                                                               | ✅ DONE        | `f23f09d24` + `20dd81150` + `6b39b5ea0` | 单 PR 内 | B1/B2/B3/B4/B10/B20    |
+| M2     | **PR-DR2-3** Scheduler 三 sweep（sweepDailyBriefing / sweepWeeklyBriefing / `@OnEvent` onTier3Signal）+ BullMQ queue + Redis 频次闸 + 90 天清理 cron              | ✅ DONE        | `fd1efe243` + `edd420662`               | 单 PR 内 | B7/B8/B9/B11/B18 + X5  |
+| M2     | **PR-DR2-4** NotificationDispatcher 集成 + 邮件双语 4 模板（daily/weekly × zh/en）+ Handlebars helpers 安全契约 + Narrative API + Favorite API + 退订 scope=topic | ✅ DONE        | `0de0d3926` + `ab6eaf549` + `f6a78ce42` + `35a16823c` | 单 PR 内 | B11/B12/B13/B14/B15/B16/B17 |
 | M2     | **PR-DR2-5** 前端 common 6 组件下沉（TierBadge / SideDrawer / DateSwitcher / StarRating / WhyItMattersCallout / ShareActions）三态完备                            | ✅ DONE        | `ff4af966d`                             | 单 PR 内 | 三态完备 + 测试        |
-| M2     | **PR-DR2-6** 前端 ai-radar 业务组件 + briefing-first 主屏 + 历史切换 + `/raw?date=` 次级路由 + 删旧组件                                                           | ❌ TODO        | —                                       | —        |                        |
-| M2     | **PR-DR2-7** i18n radar.\* keys (zh+en) + instantPushForTier3 toggle + hooks + 架构边界 spec + E2E 真发验收 + R4 五路评审                                         | ❌ TODO        | —                                       | —        | 共识达成才推主干       |
+| M2     | **PR-DR2-6** 前端 ai-radar 业务组件 + briefing-first 主屏 + 历史切换 + `/raw?date=` 次级路由 + 删旧组件                                                           | ✅ DONE        | `9937b1c29` + `8080e2017` + `82f4a8f49` | 单 PR 内 | F7-F15                 |
+| M2     | **PR-DR2-7** i18n radar.\* keys (zh+en) + instantPushForTier3 toggle + hooks + 架构边界 spec + E2E 真发验收 + R4 五路评审                                         | ✅ DONE        | `bf5297168` + `dbada523a` + `c58722ed4` + `395ee6fca` + `bad631274` + `af0744cc8` + `916ab0cec` + `c67359835` | 5/5 YES（R4 整改后） | X1-X8 全闭环 + 用户反馈 UX/Redis fix |
 | M3     | **PR-DR3** WechatChannel + OpenID 绑定 + 数据回填                                                                                                                 | ❌ BLOCKED     | —                                       | —        | 依赖微信认证资质       |
 
 ### 21.2 后端任务清单（B1-B20）
@@ -2361,7 +2361,7 @@ R4 评审时间：2026-05-18（R3 整改后）
 | F7  | NarrativeThread mini timeline                                       | ✅             | `9937b1c29` |
 | F8  | RadarTopicCardCustomSection 2 行                                    | ✅             | `9937b1c29` |
 | F9  | SourceHealthSummary + amber border 联动                             | ✅             | `9937b1c29` |
-| F10 | RadarBriefingCard/Panel + 三态 (Skeleton/Empty/Error)               | 🔄 sub-agent K | —           |
+| F10 | RadarBriefingCard/Panel + 三态 (Skeleton/Empty/Error)               | ✅             | `8080e2017` + `af0744cc8` (panel error wiring) |
 | F11 | WeeklyBriefingCard + 周报路由                                       | ✅             | `9937b1c29` |
 | F12 | RadarTopicConfigDrawer（精选偏好/推送/数据源/高级 tab）             | ✅             | `82f4a8f49` |
 | F13 | topic/[topicId]/page.tsx 重构 briefing-first + ?date=               | ✅             | `82f4a8f49` |
@@ -2375,11 +2375,11 @@ R4 评审时间：2026-05-18（R3 整改后）
 | X1  | i18n radar.\* zh/en keys（I8 强红线）                       | ✅             | `bf5297168` |
 | X2  | SKILL.md i18n 头部注入 `[Output in {lang}]`                 | ✅             | `20dd81150` |
 | X3  | settings 补 instantPushForTier3 toggle                      | ✅             | `dbada523a` |
-| X4  | useDailyBriefing/useNarrativeThread/useFavoriteSignal hooks | 🔄 sub-agent L | —           |
-| X5  | BullMQ 'radar-briefing' queue config                        | ✅             | `fd1efe243` |
+| X4  | useDailyBriefing/useNarrativeThread/useFavoriteSignal hooks | ✅             | `c58722ed4` + `af0744cc8` (DailySignalView 4 层扩) |
+| X5  | BullMQ 'radar-briefing' queue config                        | ✅             | `fd1efe243` + `c67359835` (forRootAsync REDIS_URL) |
 | X6  | 架构边界 spec（NotificationDispatcher 不依赖 ai-app）       | ✅             | `395ee6fca` |
-| X7  | E2E 真发验收（§11.2 8 条 happy path）                       | ❌             | —           |
-| X8  | 第 4 轮 5 路评审（5/5 YES 才推主干）                        | ❌             | —           |
+| X7  | E2E 真发验收（§11.2 8 条 happy path）                       | ✅             | `bad631274` (23 active + 2 skip) |
+| X8  | 第 4 轮 5 路评审（5/5 YES 才推主干）                        | ✅             | `af0744cc8` + `916ab0cec` + `c67359835` (5/5 YES 整改后) |
 
 ### 21.5 回填规则
 
@@ -2389,5 +2389,88 @@ R4 评审时间：2026-05-18（R3 整改后）
 - ❌ BLOCKED：阻塞依赖（外部资质/上游 PR），不计入正常进度
 
 每个 PR 落地后必须**同 commit** 更新本节状态（红线 `feedback_plan_doc_must_backfill`）。
+
+---
+
+## 22. R4 五路评审整改记录（X8 共识闭环）
+
+> **评审范围**：commits `b874521c2..1c8ee8cd7`（22 个 PR-DR2 commit）+ X7 spec + 用户生产反馈
+>
+> **5 路 verdict**：
+> - **arch-guardian**：✅ YES（0 blocker，8 项规则 + 24 jest 边界 spec 全 PASS）
+> - **reuse audit (explore)**：✅ YES（复用率 95%，无新造轮子）
+> - **security-auditor**：❌ NO → ✅ YES（整改后）
+> - **frontend reviewer**：❌ NO → ✅ YES（整改后）
+> - **pm**：❌ NO → ✅ YES（整改后）
+>
+> **生产事故级用户反馈**：
+> - Redis ECONNREFUSED 生产日志（BullModule 未配 connection）
+> - 创建雷达后回首页（创建跳转 UX 缺失）
+> - 详情页中间窄栏空白浪费（max-w-3xl 单栏）
+
+### 22.1 整改清单（commits `af0744cc8` + `916ab0cec` + `c67359835`）
+
+| 编号  | 评审来源  | 问题                                                     | 整改                                                                | 文件                                              |
+| ----- | --------- | -------------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------- |
+| P0-1  | security  | NarrativeController IDOR（无 ownership 校验）             | inject RadarTopicService + getOwnedById 前置                        | narrative.controller.ts                          |
+| P0-2  | frontend  | 14 处 emoji 散落（TierBadge ⭐⭐⭐ 等）                   | 全清换 Lucide（Star/Zap/Compass/Radio/Building2/BookOpen/Calendar）   | TierBadge / BriefingCard / Empty/Error / Panel / NarrativeThread / Weekly |
+| P0-3  | frontend  | RadarBriefingPanel status union 缺 'error'               | 加 'error' 分支 + 渲染 ErrorState                                    | RadarBriefingPanel.tsx                            |
+| P0-4  | frontend  | topic 详情页 max-w-3xl 单栏左右大空白                    | 改 max-w-7xl + lg:grid-cols-[1fr_320px] 双栏 + 右 sidebar (数据源/偏好/CTA) | topic/[topicId]/page.tsx                          |
+| P0-5  | frontend  | TierBadge/SideDrawer 用 console.warn                     | TierBadge null 直接 return；SideDrawer 静默吞错                       | TierBadge.tsx / SideDrawer.tsx                    |
+| P0-6  | pm        | favorite/narrative @Controller("api/v1/...") 双前缀 404 | 改 "radar"（global prefix 已设）                                      | favorite/narrative.controller.ts                  |
+| P0-7  | pm        | 无 GET /api/v1/radar/topics/:topicId/daily-briefing      | 新增 DailyBriefingController + DailySignalDto                       | daily-briefing.controller.ts                      |
+| P0-8  | pm        | BullMQ queue 有入队无消费 (no Processor)                 | 新增 RadarBriefingProcessor + DailyBriefingGeneratorService          | radar-briefing.processor.ts / daily-briefing-generator.service.ts |
+| P0-9  | pm        | scheduler:173 TODO RADAR_DAILY dispatch                  | @OnEvent RADAR_BRIEFING_GENERATED_METRIC → dispatch RADAR_DAILY      | radar-refresh.scheduler.ts                        |
+| P0-10 | pm        | per-topic 退订写入但 dispatcher 不查                     | dispatcher 加 isRadarType + checkPerTopicUnsubscribe gate            | notification-dispatcher.service.ts                |
+| P0-11 | pm        | useDailyBriefing 4 层字段被丢（前端喂空串）              | DailySignalView 扩 oneLineTakeaway/whyItMatters/whatsNext/signalTags/entities/evidenceItemIds | useDailyBriefing.ts / page.tsx                    |
+| P1-A  | security  | xmlEscape 缺 " 和 ' 转义                                  | 补 &quot; / &#39;（防御深度）                                         | signal-editor.service.ts                          |
+| P1-B  | security  | favorite/unsubscribe 无 rate limit                       | favorite 30/60s + unsubscribe 10/60s                                 | favorite.controller.ts / unsubscribe.controller.ts |
+| P1-C  | security  | tier3 INCR key 只 topicId 段（共享 topic 串扰）           | key 改 radar:tier3:{userId}:{topicId}:{date}                          | radar-refresh.scheduler.ts                        |
+| P1-D  | frontend  | BriefingPanel 未传 isFavorited/onFavorite                | Panel 透传 favoritedIds/onToggleFavorite                              | RadarBriefingPanel.tsx                            |
+| P1-F  | pm        | LLM zod 长度比设计放宽（80/300/120）                     | 收紧到设计契约（30/150/60，title 80）                                  | signal-editor.service.ts                          |
+| UX-1  | 用户      | 创建雷达后回首页                                          | router.push(/ai-radar/topic/{id}) 直接进详情页                        | app/ai-radar/page.tsx                             |
+| UX-2  | 用户      | 详情页空白浪费（同 P0-4）                                | 双栏 + sidebar 见 P0-4                                                | topic/[topicId]/page.tsx                          |
+| PROD  | 用户日志  | 生产 Redis ECONNREFUSED 127.0.0.1:6379                  | BullModule.forRootAsync 读 REDIS_URL 解析 host/port/auth              | radar.module.ts                                   |
+
+### 22.2 暂留 P1（不阻断主干，下个 PR 收口）
+
+- **P1-E**：新组件硬编码中文（BriefingCard/EmptyState/ErrorState/Weekly/Narrative）应接 useTranslation('radar.detail.*')。
+  i18n keys 已齐（X1），仅需替换字面量。当前不阻断 PR-DR2 合入，列入 PR-DR2-FU。
+- **frontend P2-1**：SourceHealthSummary `✓ / ✗` Unicode 改 CheckCircle/XCircle。
+- **frontend P2-2**：RadarBriefingCard evidence list `key={idx}` 改 `src.url ?? src.name ?? idx`。
+- **frontend P2-3**：RadarTopicConfigDrawer topic prop 变更不重置 draft。
+- **pm P2-1**：RadarBriefingPanel rerunCount hardcode 0（多次精选/天上限未实装）。
+- **security P2-1**：UnsubscribeController response 包含 `scope` 字段（非新增泄漏，JWT 本身可解）。
+
+### 22.3 共识达成证据
+
+- arch+reuse 直接 YES，无需整改
+- security 1 P0 + 3 P1 全修，P0 已 file:line 验证
+- frontend 4 P0 全修；3 P1 中 1 修 + 1 修 + 1 列入 FU
+- pm 5 P0 + 4 P1：5 P0 全修，1 P1（zod）修，1 P1（中文硬编码）列 FU；端到端可发邮件
+- 用户 3 条反馈全修：创建跳转 + 详情布局 + 生产 Redis
+
+### 22.4 端到端可工作链路（X7 spec 已覆盖 23/25）
+
+```
+[cron @minute] RadarRefreshScheduler.sweepDailyBriefing
+  → 用户时区 briefingTime 匹配
+  → briefingQueue.enqueue (BullMQ + Redis 配额 ≤10/day)
+[BullMQ worker concurrency=20] RadarBriefingProcessor.process('daily')
+  → DailyBriefingGeneratorService.generateForTopic
+    → 加载今日 accepted RadarItem + 用户偏好
+    → Stage A 评分 (B1 weighted)
+    → SignalEditorService.edit (LLM + zod 30/150/60)
+    → repo.upsert RadarDailyBriefing
+    → emit 'radar.briefing.signal.created' for tier=3
+    → emit 'radar.briefing.generated' metric
+[@OnEvent] RadarRefreshScheduler.onDailyBriefingGenerated
+  → selectedCount > 0 → notificationDispatcher.dispatch RADAR_DAILY
+    → 检查 per-topic 退订 (P0-10 gate)
+    → ChannelResolver 解析 site/email (per 用户偏好)
+    → SiteChannel.send / EmailChannel.send (Handlebars 4 模板)
+```
+
+✅ §22 整改记录透明披露 17 项 R4 P0/P1 + 用户反馈 + 生产事故。
 
 ---
