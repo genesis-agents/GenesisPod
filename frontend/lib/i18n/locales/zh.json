@@ -7317,5 +7317,117 @@
         "description": "我的通知偏好、活动日志与安全设置"
       }
     }
+  },
+  "radar": {
+    "card": {
+      "todayTop1": "今日 TOP 1",
+      "noSignals": "今日 0 条 · 持续监控中",
+      "lastTier3DaysAgo": "上次 ⭐⭐⭐ 信号在 {days} 天前",
+      "firstBriefingHint": "首次精选预计 {date} 出炉",
+      "paused": "已暂停 · 上次精选 {date}",
+      "runNow": "立即精选",
+      "resume": "恢复运行",
+      "pause": "暂停",
+      "archive": "归档",
+      "nextBriefingIn": "下次精选 {time}",
+      "sourceCount": "{n} 源",
+      "sourceHealth": "{ok} ✓ · {fail} ✗",
+      "briefingTime": "{time} 出炉"
+    },
+    "detail": {
+      "whyImportant": "为什么重要",
+      "oneLineTakeaway": "一句话",
+      "whatsNext": "接下来看什么",
+      "signals": "信号",
+      "entities": "实体",
+      "evidenceCount": "{n} 处证据",
+      "evidenceFromSources": "{n} 处证据来自 {sources}",
+      "viewOriginal": "原文 →",
+      "history": "历史",
+      "rerunBriefing": "重新精选",
+      "alreadyRerunToday": "今日已精选 {count} 次",
+      "viewAllRaw": "全部原始 →",
+      "todayBriefing": "今日精选 · {date}",
+      "loadMore": "加载更多",
+      "signalTagsLabel": "📡 {tags}",
+      "todayNoSignals": "今日 0 条 · 持续监控中",
+      "briefingFailed": "精选失败",
+      "retry": "重试",
+      "narrativeLabel": "📰 {label} · 第 {episode} 集",
+      "narrativePrev": "前情 →"
+    },
+    "share": {
+      "favorite": "收藏",
+      "unfavorite": "已收藏",
+      "shareEmail": "转发邮件",
+      "copyLink": "复制链接",
+      "copySuccess": "已复制（含富文本）",
+      "shareMenu": "分享"
+    },
+    "config": {
+      "title": "雷达配置",
+      "name": "名称",
+      "description": "描述",
+      "keywords": "关键词",
+      "briefingTime": "精选生成时间",
+      "signalsTarget": "每日精选数量",
+      "top3": "TOP 3",
+      "top5": "TOP 5",
+      "signalTypes": "关注信号类型",
+      "signalType": {
+        "turning_point": "转折点",
+        "trend_acceleration": "趋势加速",
+        "new_entity": "新实体",
+        "anomaly": "异常",
+        "key_event": "关键事件"
+      },
+      "weekendSkip": "周末跳过精选",
+      "outputLanguage": "AI 输出语言",
+      "sourcesTab": "数据源",
+      "advancedTab": "高级设置",
+      "collectionFreq": "采集频率",
+      "maxSources": "最大数据源数",
+      "rawItemsEnabled": "启用 raw item 视图",
+      "entityTypeLock": "实体类型锁定",
+      "savedLabel": "已保存",
+      "saveError": "保存失败"
+    },
+    "sources": {
+      "addAi": "AI 推荐",
+      "addManual": "手动添加",
+      "authority": "权威性",
+      "disable": "禁用",
+      "enable": "启用",
+      "delete": "删除",
+      "statusOk": "正常",
+      "statusFail": "Status {code}",
+      "autoDisableIn": "{days} 天后自动禁用"
+    },
+    "notification": {
+      "useAccountDefault": "使用账户默认",
+      "useOverride": "单独配置（覆盖账户级）",
+      "email": "邮件",
+      "wechat": "公众号",
+      "site": "站内",
+      "notBound": "未绑定",
+      "bindLink": "绑定 →",
+      "gotoAccountSettings": "前往账户设置调整 →",
+      "currentDefault": "当前账户默认",
+      "instantPushForTier3": "⭐⭐⭐ 信号即时推送"
+    },
+    "empty": {
+      "todayMonitoring": "今日 0 条信号 · 持续监控中",
+      "lastTierNDaysAgo": "上次 ⭐⭐⭐ 信号在 {days} 天前 →"
+    },
+    "error": {
+      "briefingFailed": "加载精选失败",
+      "retry": "重试"
+    },
+    "weekly": {
+      "title": "本周精选周报",
+      "weekRange": "{start} - {end}",
+      "overviewLine": "本周共 {candidates} 条信号，{topCount} 条最高评级",
+      "narrativeProgress": "{label} ({count} 集进展)"
+    }
   }
 }

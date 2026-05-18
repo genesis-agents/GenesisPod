@@ -7317,5 +7317,117 @@
         "description": "My notification preferences, activity logs, and security"
       }
     }
+  },
+  "radar": {
+    "card": {
+      "todayTop1": "Today's TOP 1",
+      "noSignals": "0 signals today · Monitoring",
+      "lastTier3DaysAgo": "Last ⭐⭐⭐ signal {days} days ago",
+      "firstBriefingHint": "First briefing expected {date}",
+      "paused": "Paused · Last briefing {date}",
+      "runNow": "Run Now",
+      "resume": "Resume",
+      "pause": "Pause",
+      "archive": "Archive",
+      "nextBriefingIn": "Next briefing in {time}",
+      "sourceCount": "{n} sources",
+      "sourceHealth": "{ok} ✓ · {fail} ✗",
+      "briefingTime": "Out by {time}"
+    },
+    "detail": {
+      "whyImportant": "Why it matters",
+      "oneLineTakeaway": "Takeaway",
+      "whatsNext": "What's next",
+      "signals": "Signals",
+      "entities": "Entities",
+      "evidenceCount": "{n} pieces of evidence",
+      "evidenceFromSources": "{n} pieces of evidence from {sources}",
+      "viewOriginal": "Original →",
+      "history": "History",
+      "rerunBriefing": "Re-run briefing",
+      "alreadyRerunToday": "Briefed {count} times today",
+      "viewAllRaw": "All raw signals →",
+      "todayBriefing": "Today's briefing · {date}",
+      "loadMore": "Load more",
+      "signalTagsLabel": "📡 {tags}",
+      "todayNoSignals": "0 signals today · Monitoring",
+      "briefingFailed": "Briefing failed",
+      "retry": "Retry",
+      "narrativeLabel": "📰 {label} · Episode {episode}",
+      "narrativePrev": "Previous episodes →"
+    },
+    "share": {
+      "favorite": "Favorite",
+      "unfavorite": "Favorited",
+      "shareEmail": "Forward via email",
+      "copyLink": "Copy link",
+      "copySuccess": "Copied (rich text included)",
+      "shareMenu": "Share"
+    },
+    "config": {
+      "title": "Radar Settings",
+      "name": "Name",
+      "description": "Description",
+      "keywords": "Keywords",
+      "briefingTime": "Briefing time",
+      "signalsTarget": "Daily picks",
+      "top3": "TOP 3",
+      "top5": "TOP 5",
+      "signalTypes": "Signal types",
+      "signalType": {
+        "turning_point": "Turning point",
+        "trend_acceleration": "Trend acceleration",
+        "new_entity": "New entity",
+        "anomaly": "Anomaly",
+        "key_event": "Key event"
+      },
+      "weekendSkip": "Skip weekends",
+      "outputLanguage": "AI output language",
+      "sourcesTab": "Sources",
+      "advancedTab": "Advanced",
+      "collectionFreq": "Collection frequency",
+      "maxSources": "Max sources",
+      "rawItemsEnabled": "Enable raw item view",
+      "entityTypeLock": "Entity type lock",
+      "savedLabel": "Saved",
+      "saveError": "Save failed"
+    },
+    "sources": {
+      "addAi": "AI suggestions",
+      "addManual": "Add manually",
+      "authority": "Authority",
+      "disable": "Disable",
+      "enable": "Enable",
+      "delete": "Delete",
+      "statusOk": "OK",
+      "statusFail": "Status {code}",
+      "autoDisableIn": "Auto-disable in {days} days"
+    },
+    "notification": {
+      "useAccountDefault": "Use account default",
+      "useOverride": "Override account default",
+      "email": "Email",
+      "wechat": "WeChat",
+      "site": "In-site",
+      "notBound": "Not bound",
+      "bindLink": "Bind →",
+      "gotoAccountSettings": "Go to account settings →",
+      "currentDefault": "Current account default",
+      "instantPushForTier3": "Instant push for ⭐⭐⭐ signals"
+    },
+    "empty": {
+      "todayMonitoring": "0 signals today · Monitoring",
+      "lastTierNDaysAgo": "Last ⭐⭐⭐ signal {days} days ago →"
+    },
+    "error": {
+      "briefingFailed": "Failed to load briefing",
+      "retry": "Retry"
+    },
+    "weekly": {
+      "title": "Weekly briefing",
+      "weekRange": "{start} - {end}",
+      "overviewLine": "This week: {candidates} signals, {topCount} top-tier",
+      "narrativeProgress": "{label} ({count} episodes)"
+    }
   }
 }
