@@ -248,7 +248,7 @@ export class RadarRefreshScheduler {
         // FU2-D: weekly 切到 EmailPreset 走 HTML 渲染
         const user = await this.prisma.user.findUnique({
           where: { id: topic.userId },
-          select: { locale: true, name: true },
+          select: { locale: true },
         });
         const localeWeekly: "zh-CN" | "en-US" =
           user?.locale === "en-US" ? "en-US" : "zh-CN";
@@ -432,8 +432,8 @@ export class RadarRefreshScheduler {
     }
     const locale: "zh-CN" | "en-US" =
       user?.locale === "en-US" ? "en-US" : "zh-CN";
-    const signals = ((briefing.signals as unknown as DailySignalEmailLike[]) ??
-      []) as DailySignalEmailLike[];
+    const signals =
+      (briefing.signals as unknown as DailySignalEmailLike[]) ?? [];
 
     void this.dailyEmailPreset
       .notify({

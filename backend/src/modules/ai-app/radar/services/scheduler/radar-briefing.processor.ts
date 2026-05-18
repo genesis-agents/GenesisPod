@@ -15,7 +15,6 @@ import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { PrismaService } from "@/common/prisma/prisma.service";
 import { DailyBriefingGeneratorService } from "../briefing/daily-briefing-generator.service";
-import { RadarWeeklyBriefingService } from "../briefing/radar-weekly-briefing.service";
 import { RadarBriefingQueueService } from "./radar-briefing-queue.service";
 
 interface DailyJobPayload {
@@ -39,7 +38,6 @@ export class RadarBriefingProcessor extends WorkerHost {
 
   constructor(
     private readonly dailyGenerator: DailyBriefingGeneratorService,
-    private readonly weeklyService: RadarWeeklyBriefingService,
     private readonly prisma: PrismaService,
   ) {
     super();

@@ -34,6 +34,7 @@ import {
   type RadarBriefingGeneratedMetric,
   type RadarBriefingSignalCreatedEvent,
 } from "../mission/stages/s9-daily-top-n.stage";
+import { loadSkill } from "../../utils/skill-md-loader";
 
 export interface GenerateInput {
   topicId: string;
@@ -117,7 +118,8 @@ export class DailyBriefingGeneratorService {
           authorityWeight: item.source.authorityWeight,
         },
         relevanceScore: (item.relevanceScore ?? 0) / 100,
-        qualityScore: item.qualityScore != null ? item.qualityScore / 100 : undefined,
+        qualityScore:
+          item.qualityScore != null ? item.qualityScore / 100 : undefined,
       });
     }
     const candidatePool = selectCandidatePool(stageAInputs);
@@ -155,7 +157,7 @@ export class DailyBriefingGeneratorService {
         name: topic.name,
         description: topic.description,
         keywords,
-        signalTypes: parseSignalTypes(topic.signalTypes),
+        signalTypes: parseSignalTypes(topic.signalTypes) ?? [],
         outputLanguage: (topic.outputLanguage as "zh-CN" | "en-US") ?? "zh-CN",
       },
       candidates: candidatePool.map((c) => {
@@ -175,7 +177,10 @@ export class DailyBriefingGeneratorService {
       targetN: 5,
     };
 
-    const signals = await this.signalEditor.edit(editorInput);
+    const signals = await this.signalEditor.edit(
+      editorInput,
+      loadSignalEditorPrompt(),
+    );
 
     // 5. 回填 Stage A score（observability）
     const scoreById = new Map(candidatePool.map((c) => [c.itemId, c.score]));
@@ -271,10 +276,29 @@ function parseUtcDate(s: string): Date {
   return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
 }
 
+let cachedSignalEditorPrompt: string | null = null;
+function loadSignalEditorPrompt(): string {
+  if (cachedSignalEditorPrompt) return cachedSignalEditorPrompt;
+  const skill = loadSkill("signal-editor");
+  const sections: string[] = [];
+  if (skill.soul) sections.push(skill.soul);
+  for (const dutyName of skill.frontmatter.duties) {
+    sections.push(skill.duties[dutyName]);
+  }
+  cachedSignalEditorPrompt = sections.join("\n\n---\n\n");
+  return cachedSignalEditorPrompt;
+}
+
 function parseSignalTypes(
   raw: unknown,
 ):
-  | Array<"turning_point" | "trend_acceleration" | "new_entity" | "anomaly" | "key_event">
+  | Array<
+      | "turning_point"
+      | "trend_acceleration"
+      | "new_entity"
+      | "anomaly"
+      | "key_event"
+    >
   | undefined {
   if (!Array.isArray(raw)) return undefined;
   const allowed = new Set([
@@ -287,7 +311,11 @@ function parseSignalTypes(
   return raw.filter(
     (
       v,
-    ): v is "turning_point" | "trend_acceleration" | "new_entity" | "anomaly" | "key_event" =>
-      typeof v === "string" && allowed.has(v as never),
+    ): v is
+      | "turning_point"
+      | "trend_acceleration"
+      | "new_entity"
+      | "anomaly"
+      | "key_event" => typeof v === "string" && allowed.has(v as never),
   );
 }

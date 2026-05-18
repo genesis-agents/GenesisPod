@@ -452,7 +452,7 @@ function SecretStatusCell({
   t,
 }: {
   secret: Secret;
-  t: (k: string) => string;
+  t: (k: string, params?: Record<string, string | number>) => string;
 }) {
   const aggregateStatus =
     secret.aggregateStatus ?? (secret.isActive ? 'unknown' : 'disabled');
@@ -478,8 +478,8 @@ function SecretStatusCell({
       {hasKeys && (
         <div className="text-[10px] text-gray-400">
           {t('admin.secrets.status.keys', {
-            active: secret.activeKeys,
-            total: secret.totalKeys,
+            active: secret.activeKeys ?? 0,
+            total: secret.totalKeys ?? 0,
           })}
         </div>
       )}
@@ -492,7 +492,7 @@ function SecretUsageCell({
   t,
 }: {
   secret: Secret;
-  t: (k: string) => string;
+  t: (k: string, params?: Record<string, string | number>) => string;
 }) {
   return (
     <div className="space-y-0.5 text-sm">
@@ -521,7 +521,7 @@ function SecretExpiresCell({
   t,
 }: {
   secret: Secret;
-  t: (k: string) => string;
+  t: (k: string, params?: Record<string, string | number>) => string;
 }) {
   if (!secret.expiresAt && !secret.lastRotatedAt) {
     return (

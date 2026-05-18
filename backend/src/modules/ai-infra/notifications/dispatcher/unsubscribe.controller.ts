@@ -9,7 +9,7 @@ import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import {
   RateLimit,
   RateLimitGuard,
-} from "../../../common/guards/rate-limit.guard";
+} from "../../../../common/guards/rate-limit.guard";
 import { UnsubscribeTokenService } from "./preferences/unsubscribe-token.service";
 
 /**
@@ -77,7 +77,5 @@ export class UnsubscribeController {
 function isValidScope(
   s: string | undefined,
 ): s is "topic" | "weekly" | "radar_all" | "global" {
-  return (
-    s === "topic" || s === "weekly" || s === "radar_all" || s === "global"
-  );
+  return s === "topic" || s === "weekly" || s === "radar_all" || s === "global";
 }

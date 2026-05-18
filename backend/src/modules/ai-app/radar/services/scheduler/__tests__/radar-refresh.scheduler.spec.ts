@@ -63,6 +63,8 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
     isInQuietHours: jest.Mock;
   };
   let mockCache: { incrby: jest.Mock; expire: jest.Mock };
+  let mockDailyEmailPreset: { notify: jest.Mock };
+  let mockWeeklyEmailPreset: { notify: jest.Mock };
 
   beforeEach(async () => {
     mockPrisma = {
@@ -70,7 +72,13 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn().mockResolvedValue(null),
       },
-      radarTopic: { findMany: jest.fn().mockResolvedValue([]) },
+      radarTopic: {
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue({ name: "Mock Topic" }),
+      },
+      user: {
+        findUnique: jest.fn().mockResolvedValue({ locale: "zh-CN" }),
+      },
     };
     mockDispatcher = { runRefreshMission: jest.fn() };
     mockBriefingQueue = {
@@ -98,6 +106,12 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
       incrby: jest.fn().mockResolvedValue(1),
       expire: jest.fn().mockResolvedValue(undefined),
     };
+    mockDailyEmailPreset = {
+      notify: jest.fn().mockResolvedValue({ delivered: true, results: [] }),
+    };
+    mockWeeklyEmailPreset = {
+      notify: jest.fn().mockResolvedValue({ delivered: true, results: [] }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -118,22 +132,16 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
         { provide: CacheService, useValue: mockCache },
         // FU2-D: scheduler 现注入 daily/weekly email preset；这里 mock 成 spy
         {
-          provide: require("@/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset")
-            .RadarDailyBriefingEmailPreset,
-          useValue: {
-            notify: jest
-              .fn()
-              .mockResolvedValue({ delivered: true, results: [] }),
-          },
+          provide:
+            require("@/modules/ai-infra/notifications/dispatcher/presets/radar-daily-briefing-email.preset")
+              .RadarDailyBriefingEmailPreset,
+          useValue: mockDailyEmailPreset,
         },
         {
-          provide: require("@/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset")
-            .RadarWeeklyBriefingEmailPreset,
-          useValue: {
-            notify: jest
-              .fn()
-              .mockResolvedValue({ delivered: true, results: [] }),
-          },
+          provide:
+            require("@/modules/ai-infra/notifications/dispatcher/presets/radar-weekly-briefing-email.preset")
+              .RadarWeeklyBriefingEmailPreset,
+          useValue: mockWeeklyEmailPreset,
         },
       ],
     }).compile();
@@ -276,11 +284,14 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
           userId: "user-5",
         }),
       );
-      // dispatch is fire-and-forget via void, give microtask queue time to flush
+      // dispatch is fire-and-forget via void preset.notify().catch — flush microtasks
       await Promise.resolve();
-      expect(mockNotificationDispatcher.dispatch).toHaveBeenCalledWith(
-        "user-5",
-        expect.objectContaining({ type: "RADAR_WEEKLY" }),
+      // FU2-D: dispatch 走 weeklyEmailPreset.notify（preset 内部再调 dispatcher）
+      expect(mockWeeklyEmailPreset.notify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user-5",
+          topicId: "topic-5",
+        }),
       );
     });
 
@@ -298,7 +309,7 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
       await scheduler.sweepWeeklyBriefing();
 
       expect(mockWeeklyService.generateAndPersist).not.toHaveBeenCalled();
-      expect(mockNotificationDispatcher.dispatch).not.toHaveBeenCalled();
+      expect(mockWeeklyEmailPreset.notify).not.toHaveBeenCalled();
     });
 
     it("skips dispatch when generated weekly has no signals", async () => {
@@ -319,7 +330,7 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
       await scheduler.sweepWeeklyBriefing();
 
       await Promise.resolve();
-      expect(mockNotificationDispatcher.dispatch).not.toHaveBeenCalled();
+      expect(mockWeeklyEmailPreset.notify).not.toHaveBeenCalled();
     });
   });
 
@@ -352,8 +363,9 @@ describe("RadarRefreshScheduler — B7/B8/B9/B11/B18", () => {
 
       await scheduler.onTier3Signal(payload);
 
+      // P1-C: key 含 userId 段防共享 topic 串扰
       expect(mockCache.incrby).toHaveBeenCalledWith(
-        expect.stringContaining("radar:tier3:topic-9:"),
+        expect.stringContaining("radar:tier3:user-9:topic-9:"),
         1,
       );
       // dispatch should NOT be called
