@@ -216,6 +216,20 @@ else
 fi
 echo ""
 
+# 5. i18n 单花括号守护（strict，PR-DR2-FU 系统性 bug 复盘 2026-05-18）
+# ★ 项目 interpolate /\{\{(\w+)\}\}/g 只匹配双花括号 — 单花括号 placeholder 永远不替换
+echo "[5/5] i18n placeholder 守护..."
+if npx tsx scripts/utils/audit-i18n-placeholders.ts; then
+    echo "  i18n 0 单花括号占位符"
+else
+    echo ""
+    echo "  ✘ i18n 单花括号占位符回归 — 见上方报告"
+    echo "  → 改 frontend/lib/i18n/locales/*.json：{xxx} → {{xxx}}"
+    echo "  → 详见 frontend/lib/i18n/i18n-context.tsx:61 interpolate"
+    exit 1
+fi
+echo ""
+
 echo "============================================================"
 echo "  所有验证通过"
 echo "============================================================"

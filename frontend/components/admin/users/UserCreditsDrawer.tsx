@@ -148,9 +148,7 @@ export default function UserCreditsDrawer({
     }
     try {
       await onGrant(user.id, n, reason);
-      toast.success(
-        t('admin.users.credits.grantSuccess').replace('{amount}', String(n))
-      );
+      toast.success(t('admin.users.credits.grantSuccess', { amount: n }));
       setAmount('100');
       setReason('');
     } catch (err) {

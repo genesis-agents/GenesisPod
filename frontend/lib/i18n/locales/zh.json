@@ -169,16 +169,16 @@
     "credits": "积分",
     "continue": "继续",
     "processing": "处理中...",
-    "pageOf": "第 {page} 页，共 {total} 页",
+    "pageOf": "第 {{page}} 页，共 {{total}} 页",
     "pleaseWait": "这可能需要几秒钟时间",
     "unknownError": "发生未知错误，请重试",
     "change": "变化",
     "highlightChanges": "高亮显示变化",
     "time": {
       "justNow": "刚刚",
-      "minutesAgo": "{n} 分钟前",
-      "hoursAgo": "{n} 小时前",
-      "daysAgo": "{n} 天前"
+      "minutesAgo": "{{n}} 分钟前",
+      "hoursAgo": "{{n}} 小时前",
+      "daysAgo": "{{n}} 天前"
     }
   },
   "share": {
@@ -3099,10 +3099,10 @@
       "cancelled": "已取消发布",
       "approved": "审核通过",
       "rejected": "审核拒绝",
-      "batchDeleteSuccess": "成功删除 {count} 条内容",
-      "batchDeletePartial": "删除完成：成功 {success} 条，失败 {fail} 条",
-      "batchPublishSuccess": "成功发布 {count} 条内容",
-      "batchPublishPartial": "发布完成：成功 {success} 条，失败 {fail} 条",
+      "batchDeleteSuccess": "成功删除 {{count}} 条内容",
+      "batchDeletePartial": "删除完成：成功 {{success}} 条，失败 {{fail}} 条",
+      "batchPublishSuccess": "成功发布 {{count}} 条内容",
+      "batchPublishPartial": "发布完成：成功 {{success}} 条，失败 {{fail}} 条",
       "batchPublishInvalid": "只能批量发布草稿或发布失败的内容"
     },
     "publish": {
@@ -3160,8 +3160,8 @@
     "confirm": {
       "delete": "确认删除此内容？此操作不可恢复。",
       "disconnect": "确认断开「{{name}}」的连接？",
-      "batchDelete": "确认删除选中的 {count} 条内容？此操作不可恢复。",
-      "batchPublish": "确认发布选中的 {count} 条内容？"
+      "batchDelete": "确认删除选中的 {{count}} 条内容？此操作不可恢复。",
+      "batchPublish": "确认发布选中的 {{count}} 条内容？"
     },
     "filters": {
       "advancedFilters": "高级筛选",
@@ -3819,7 +3819,7 @@
         "frozen": "已冻结",
         "active": "正常",
         "invalidAmount": "请输入有效的积分数量",
-        "grantSuccess": "已发放 {amount} 积分",
+        "grantSuccess": "已发放 {{amount}} 积分",
         "grantFailed": "发放积分失败",
         "stats": {
           "balance": "余额",
@@ -3871,7 +3871,7 @@
         },
         "grantSuccess": "授权成功",
         "grantFailed": "授权失败",
-        "revokeConfirm": "确定撤销该用户对 {model} 的授权？",
+        "revokeConfirm": "确定撤销该用户对 {{model}} 的授权？",
         "revokeSuccess": "授权已撤销",
         "revokeFailed": "撤销失败",
         "revokeAction": "撤销",
@@ -3937,14 +3937,14 @@
       "recentTransactions": "最近交易",
       "noTransactions": "暂无交易记录",
       "grantTitle": "发放积分",
-      "grantTo": "向 {email} 发放积分",
+      "grantTo": "向 {{email}} 发放积分",
       "amount": "数量",
       "amountPlaceholder": "输入积分数量",
       "reason": "原因（可选）",
       "reasonPlaceholder": "输入发放原因",
       "grantButton": "发放积分",
       "defaultGrantReason": "管理员发放",
-      "grantSuccess": "成功发放 {amount} 积分",
+      "grantSuccess": "成功发放 {{amount}} 积分",
       "freezeSuccess": "账户已冻结",
       "unfreezeSuccess": "账户已解冻",
       "freezeReason": "管理员冻结",
@@ -3975,7 +3975,7 @@
       "creditsUnit": "积分",
       "inactive": "未启用",
       "aiSuggest": "AI 建议",
-      "unsavedChanges": "{count} 项未保存",
+      "unsavedChanges": "{{count}} 项未保存",
       "rulesSaved": "积分规则保存成功"
     },
     "permissions": {
@@ -4036,7 +4036,7 @@
       "titlePlaceholder": "通知标题...",
       "messagePlaceholder": "通知内容...",
       "sendButton": "发送给所有用户",
-      "broadcastSuccess": "通知已发送给 {count} 位用户",
+      "broadcastSuccess": "通知已发送给 {{count}} 位用户",
       "recentTitle": "最近通知",
       "noNotifications": "暂无通知",
       "read": "已读",
@@ -4067,8 +4067,8 @@
       "searchPlaceholder": "搜索反馈...",
       "noFeedback": "暂无反馈",
       "detailTitle": "反馈详情",
-      "urgentCount": "{count} 条紧急事项需要处理",
-      "filesCount": "{count} 个文件",
+      "urgentCount": "{{count}} 条紧急事项需要处理",
+      "filesCount": "{{count}} 个文件",
       "submittedAt": "提交时间",
       "email": "邮箱",
       "descriptionLabel": "描述",
@@ -4212,7 +4212,7 @@
         "estimatedRows": "预计删除行数",
         "estimatedSpace": "预计释放空间",
         "success": "清理完成",
-        "batchSuccess": "已清理 {count} 个表，释放 {size}",
+        "batchSuccess": "已清理 {{count}} 个表，释放 {{size}}",
         "failed": "清理失败",
         "noCleanableData": "未找到可清理的数据"
       },
@@ -4747,7 +4747,7 @@
         "failed": "失败",
         "unknown": "未知",
         "disabled": "已禁用",
-        "keys": "活跃 {active} / 共 {total} 个 Key"
+        "keys": "活跃 {{active}} / 共 {{total}} 个 Key"
       },
       "usage": {
         "hits": "次调用",
@@ -4757,7 +4757,7 @@
       "expires": {
         "noExpiry": "无过期",
         "expired": "已过期",
-        "expiringSoon": "{days} 天内过期",
+        "expiringSoon": "{{days}} 天内过期",
         "rotatedAt": "最后轮转:"
       },
       "categories": {
@@ -4978,7 +4978,7 @@
       "withdrawDonation": "撤回捐赠",
       "enterKey": "输入你的 API Key...",
       "enterNewKey": "输入新的 Key 以更新...",
-      "callsContributed": "已贡献 {count} 次调用",
+      "callsContributed": "已贡献 {{count}} 次调用",
       "saveFailed": "保存 API Key 失败",
       "deleteFailed": "删除 API Key 失败",
       "withdrawFailed": "撤回捐赠失败"
@@ -7298,7 +7298,7 @@
   "me": {
     "title": "我的中心",
     "subtitle": "管理你的资料、密钥、数据和系统偏好",
-    "subtitleWithEmail": "当前登录：{email}",
+    "subtitleWithEmail": "当前登录：{{email}}",
     "cards": {
       "profile": {
         "title": "用户管理",
@@ -7322,17 +7322,17 @@
     "card": {
       "todayTop1": "今日 TOP 1",
       "noSignals": "今日 0 条 · 持续监控中",
-      "lastTier3DaysAgo": "上次 ⭐⭐⭐ 信号在 {days} 天前",
-      "firstBriefingHint": "首次精选预计 {date} 出炉",
-      "paused": "已暂停 · 上次精选 {date}",
+      "lastTier3DaysAgo": "上次 ⭐⭐⭐ 信号在 {{days}} 天前",
+      "firstBriefingHint": "首次精选预计 {{date}} 出炉",
+      "paused": "已暂停 · 上次精选 {{date}}",
       "runNow": "立即精选",
       "resume": "恢复运行",
       "pause": "暂停",
       "archive": "归档",
-      "nextBriefingIn": "下次精选 {time}",
-      "sourceCount": "{n} 源",
-      "sourceHealth": "{ok} ✓ · {fail} ✗",
-      "briefingTime": "{time} 出炉"
+      "nextBriefingIn": "下次精选 {{time}}",
+      "sourceCount": "{{n}} 源",
+      "sourceHealth": "{{ok}} ✓ · {{fail}} ✗",
+      "briefingTime": "{{time}} 出炉"
     },
     "detail": {
       "whyImportant": "为什么重要",
@@ -7340,8 +7340,8 @@
       "whatsNext": "接下来看什么",
       "signals": "信号",
       "entities": "实体",
-      "evidenceCount": "{n} 处证据",
-      "evidenceFromSources": "{n} 处证据来自 {sources}",
+      "evidenceCount": "{{n}} 处证据",
+      "evidenceFromSources": "{{n}} 处证据来自 {{sources}}",
       "viewOriginal": "原文 →",
       "history": "历史",
       "rerunBriefing": "重新精选",
@@ -7410,8 +7410,8 @@
       "enable": "启用",
       "delete": "删除",
       "statusOk": "正常",
-      "statusFail": "Status {code}",
-      "autoDisableIn": "{days} 天后自动禁用"
+      "statusFail": "Status {{code}}",
+      "autoDisableIn": "{{days}} 天后自动禁用"
     },
     "notification": {
       "useAccountDefault": "使用账户默认",
@@ -7436,9 +7436,9 @@
     },
     "weekly": {
       "title": "本周精选周报",
-      "weekRange": "{start} - {end}",
-      "overviewLine": "本周共 {candidates} 条信号，{topCount} 条最高评级",
-      "narrativeProgress": "{label} ({count} 集进展)"
+      "weekRange": "{{start}} - {{end}}",
+      "overviewLine": "本周共 {{candidates}} 条信号，{{topCount}} 条最高评级",
+      "narrativeProgress": "{{label}} ({{count}} 集进展)"
     }
   }
 }

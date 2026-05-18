@@ -119,7 +119,7 @@ export default function MeHubPage() {
             </h1>
             <p className="mt-1 text-sm text-gray-500">
               {user?.email
-                ? t('me.subtitleWithEmail').replace('{email}', user.email)
+                ? t('me.subtitleWithEmail', { email: user.email })
                 : t('me.subtitle')}
             </p>
           </header>

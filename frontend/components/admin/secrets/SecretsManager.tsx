@@ -477,9 +477,10 @@ function SecretStatusCell({
       <AdminStatusBadge status={m.status} label={m.label} dot />
       {hasKeys && (
         <div className="text-[10px] text-gray-400">
-          {t('admin.secrets.status.keys')
-            .replace('{active}', String(secret.activeKeys))
-            .replace('{total}', String(secret.totalKeys))}
+          {t('admin.secrets.status.keys', {
+            active: secret.activeKeys,
+            total: secret.totalKeys,
+          })}
         </div>
       )}
     </div>

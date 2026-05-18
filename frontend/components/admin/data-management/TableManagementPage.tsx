@@ -116,9 +116,10 @@ export function TableManagementContent() {
           : `${(totalFreed / 1024).toFixed(2)} KB`;
       toast.success(
         t('admin.tables.cleanup.success'),
-        t('admin.tables.cleanup.batchSuccess')
-          .replace('{count}', String(results.length))
-          .replace('{size}', formattedSize)
+        t('admin.tables.cleanup.batchSuccess', {
+          count: results.length,
+          size: formattedSize,
+        })
       );
       // Refresh data after cleanup
       refresh();
