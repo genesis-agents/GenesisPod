@@ -37,6 +37,7 @@ import { RadarRunController } from "./controllers/radar-run.controller";
 import { NarrativeController } from "./controllers/narrative.controller";
 import { FavoriteController } from "./controllers/favorite.controller";
 import { DailyBriefingController } from "./controllers/daily-briefing.controller";
+import { WeeklyBriefingController } from "./controllers/weekly-briefing.controller";
 
 import { RadarDailyBriefingRepo } from "./services/briefing/radar-daily-briefing.repo";
 import { NarrativeService } from "./services/briefing/narrative.service";
@@ -128,6 +129,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     NarrativeController,
     FavoriteController,
     DailyBriefingController,
+    WeeklyBriefingController,
   ],
   providers: [
     // briefing 层（B5/B6/B15/B16/B2/B1+B10+B20 stage）

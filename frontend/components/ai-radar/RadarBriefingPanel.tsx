@@ -3,7 +3,8 @@
 import { Calendar, RefreshCw } from 'lucide-react';
 
 import { useTranslation } from '@/lib/i18n';
-import { RadarBriefingCard, type DailySignalView } from './RadarBriefingCard';
+import { type DailySignalView } from './RadarBriefingCard';
+import { BriefingCardConnected } from './BriefingCardConnected';
 import { RadarBriefingSkeleton } from './RadarBriefingSkeleton';
 import { RadarBriefingEmptyState } from './RadarBriefingEmptyState';
 import { RadarBriefingErrorState } from './RadarBriefingErrorState';
@@ -17,8 +18,8 @@ export interface RadarBriefingPanelProps {
   onRerun?: () => void;
   rerunCount?: number;
   onRetry?: () => void;
+  /** 用户已收藏的 signalIds（用于 BriefingCardConnected 初始化） */
   favoritedIds?: Set<string>;
-  onToggleFavorite?: (signalId: string) => Promise<void>;
 }
 
 function formatBriefingDate(dateStr: string): string {
@@ -38,7 +39,6 @@ export function RadarBriefingPanel({
   rerunCount = 0,
   onRetry,
   favoritedIds,
-  onToggleFavorite,
 }: RadarBriefingPanelProps) {
   const { t } = useTranslation();
   const canRerun = (rerunCount ?? 0) < 2;
@@ -93,19 +93,14 @@ export function RadarBriefingPanel({
       {status === 'completed' && signals.length > 0 && (
         <div className="flex flex-col gap-6">
           {signals.map((signal, idx) => (
-            <RadarBriefingCard
+            <BriefingCardConnected
               key={signal.id}
               signal={signal}
               index={idx + 1}
               topicId={topicId}
               topicName={topicName}
               detailUrl={`/ai-radar/topic/${topicId}/signal/${signal.id}`}
-              isFavorited={favoritedIds?.has(signal.id)}
-              onFavorite={
-                onToggleFavorite
-                  ? () => onToggleFavorite(signal.id)
-                  : undefined
-              }
+              initiallyFavorited={favoritedIds?.has(signal.id)}
             />
           ))}
         </div>

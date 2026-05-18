@@ -56,6 +56,7 @@ export class FavoriteController {
   @Get("favorites")
   async list(@Request() req: RequestWithUser, @Query("limit") limit?: string) {
     const lim = limit ? Math.max(1, Math.min(100, Number(limit) || 50)) : 50;
-    return this.svc.listForUser(req.user.id, lim);
+    // FC-6: 返回带 signal 内容的丰富列表，前端可直接渲染
+    return this.svc.listForUserWithSignals(req.user.id, lim);
   }
 }

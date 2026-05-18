@@ -3,7 +3,8 @@ import { useApiPost } from '@/hooks/core';
 import type { ApiError } from '@/lib/api/client';
 
 interface FavoriteToggleResponse {
-  isFavorited: boolean;
+  // 后端返回字段（与 favorite.service.ts toggle 返回值对齐）
+  favorited: boolean;
 }
 
 interface FavoriteToggleBody {
@@ -42,7 +43,7 @@ export function useFavoriteSignal(
       // Request failed — rollback
       setIsFavorited(previous);
     } else {
-      setIsFavorited(result.isFavorited);
+      setIsFavorited(result.favorited);
     }
   }, [signalId, topicId, isFavorited, toggleApi]);
 

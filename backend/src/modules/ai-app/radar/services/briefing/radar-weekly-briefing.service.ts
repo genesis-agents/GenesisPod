@@ -105,6 +105,31 @@ export class RadarWeeklyBriefingService {
     });
   }
 
+  /** FC-5: 详情页用，按 topicId + 周一 00:00 UTC 查单条 */
+  async findByTopicAndWeek(
+    topicId: string,
+    weekStart: Date,
+  ): Promise<RadarWeeklyBriefing | null> {
+    return this.prisma.radarWeeklyBriefing.findUnique({
+      where: {
+        radar_weekly_briefings_topic_week_uniq: {
+          topicId,
+          weekStartDate: weekStart,
+        },
+      },
+    });
+  }
+
+  /** FC-5: 列表 / 默认页用 */
+  async findLatestForTopic(
+    topicId: string,
+  ): Promise<RadarWeeklyBriefing | null> {
+    return this.prisma.radarWeeklyBriefing.findFirst({
+      where: { topicId },
+      orderBy: { weekStartDate: "desc" },
+    });
+  }
+
   /**
    * 模板拼装核心（公开为 method 便于单测，不依赖 prisma）
    */
