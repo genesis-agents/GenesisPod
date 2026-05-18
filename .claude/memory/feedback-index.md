@@ -2,6 +2,11 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_audit_script_self_implementation_exclusion.md](feedback_audit_script_self_implementation_exclusion.md) — 公共组件强制复用 audit 脚本必须 exclude 该组件自身实现路径（components/ui/ + components/common/），否则 Modal.tsx 自身就被 R6 误报
+- [feedback_tailwind_spacing_p5_p7_legal.md](feedback_tailwind_spacing_p5_p7_legal.md) — Tailwind p-5/p-7/p-9 是合法刻度；audit 扫"节奏外间距"只能算 .5 半步（0.5/1.5/2.5/3.5），整数刻度不要标违规
+- [feedback_subagent_fork_point_stale.md](feedback_subagent_fork_point_stale.md) — Sub-agent worktree 从 fork 点跑，看不到 main 后续 commit；依赖链 sub-agent 启动前主 agent 必须 push
+- [feedback_constructor_di_change_must_grep_specs.md](feedback_constructor_di_change_must_grep_specs.md) — NestJS service constructor 加 inject 必须 grep `new Service(` 全仓修参数，testing module 不覆盖直接构造
+- [feedback_subagent_ui_add_must_grep_existing.md](feedback_subagent_ui_add_must_grep_existing.md) — Sub-agent 加 UI 控件前 prompt 必须命令它 grep 同字段既有控件，否则盲目加 = 双源
 - [feedback_execution_style.md](feedback_execution_style.md) — Execute decisively after a direction is given; skip repeated "shall I commit?" prompts
 - [feedback_autonomous_phase_execution.md](feedback_autonomous_phase_execution.md) — Phase 级任务连续执行所有子 PR，中途不问、不提交，最后统一交付 review
 - [feedback_systematic_analysis.md](feedback_systematic_analysis.md) — Systematic analysis preference
