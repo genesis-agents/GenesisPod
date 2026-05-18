@@ -27,6 +27,7 @@ import {
 } from "@/modules/ai-harness/facade";
 import { SkillLoaderService } from "@/modules/ai-engine/facade";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
+import { NotificationDispatcherModule } from "../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
 
 import { RadarTopicController } from "./controllers/radar-topic.controller";
 import { RadarSourceController } from "./controllers/radar-source.controller";
@@ -75,6 +76,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
   imports: [
     BullModule.registerQueue({ name: RadarBriefingQueueService.QUEUE_NAME }),
     NotificationModule,
+    NotificationDispatcherModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (config: ConfigService) => ({
@@ -111,7 +113,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     YoutubeCollector,
     XCollector,
     CustomCollector,
-    // 调度（走 dispatcher.runRefreshMission）
+    // 调度（走 dispatcher.runRefreshMission + briefing sweep）
     RadarRefreshScheduler,
     RadarBriefingQueueService,
     // 新框架接入 —— pipeline registry / orchestrator 必须由消费模块本地 register
