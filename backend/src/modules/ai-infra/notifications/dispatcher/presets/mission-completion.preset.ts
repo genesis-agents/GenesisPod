@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { APP_CONFIG } from "../../../../../common/config/app.config";
 import { NotificationDispatcher } from "../notification-dispatcher.service";
+import { buildAppUrl, buildBrandSubject, escapeHtml } from "./preset-shared";
 
 /**
  * MissionCompletionPreset —— PR-DR1b F3 整改：替代旧
@@ -45,7 +45,7 @@ export class MissionCompletionPreset {
     const html = this.renderHtml({ ...params, completedAt });
     await this.dispatcher.dispatch(user.id, {
       type: "MISSION_COMPLETED",
-      title: `[${APP_CONFIG.brand.name}] Mission Complete: ${params.missionTitle}`,
+      title: buildBrandSubject(`Mission Complete: ${params.missionTitle}`),
       message: `Mission "${params.missionTitle}" completed${params.summary ? ` — ${params.summary}` : ""}`,
       link: params.reportUrl,
       emailContext: { html },
@@ -62,10 +62,7 @@ export class MissionCompletionPreset {
     summary?: string;
     completedAt: Date;
   }): string {
-    const appUrl = this.config.get<string>("APP_URL", "http://localhost:3000");
-    const fullUrl = p.reportUrl.startsWith("http")
-      ? p.reportUrl
-      : `${appUrl}${p.reportUrl}`;
+    const fullUrl = buildAppUrl(this.config, p.reportUrl);
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#333;max-width:600px;margin:0 auto;padding:20px">
@@ -82,13 +79,4 @@ export class MissionCompletionPreset {
   </div>
 </body></html>`;
   }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
-import { APP_CONFIG } from "../../../../../common/config/app.config";
 import { NotificationDispatcher } from "../notification-dispatcher.service";
+import { buildAppUrl, buildBrandSubject, escapeHtml } from "./preset-shared";
 
 /**
  * FeedbackStatusUpdatePreset —— PR-DR1b F3 整改：替代旧
@@ -50,9 +50,9 @@ export class FeedbackStatusUpdatePreset {
     const html = this.renderHtml(params);
     await this.dispatcher.dispatch(user.id, {
       type: "FEEDBACK_STATUS_CHANGED",
-      title: `[${APP_CONFIG.brand.name}] Feedback Status Updated: ${params.title}`,
+      title: buildBrandSubject(`Feedback Status Updated: ${params.title}`),
       message: `Your feedback "${params.title}" status changed from ${params.oldStatus} to ${params.newStatus}`,
-      link: `${this.appUrl()}/feedback/${params.id}`,
+      link: buildAppUrl(this.config, `/feedback/${params.id}`),
       emailContext: { html },
       metadata: {
         feedbackId: params.id,
@@ -60,10 +60,6 @@ export class FeedbackStatusUpdatePreset {
         newStatus: params.newStatus,
       },
     });
-  }
-
-  private appUrl(): string {
-    return this.config.get<string>("APP_URL", "http://localhost:3000");
   }
 
   private renderHtml(p: {
@@ -90,19 +86,10 @@ export class FeedbackStatusUpdatePreset {
   </div>
   <div style="background:#f8fafc;padding:30px;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 10px 10px">
     <h2 style="color:#1e293b;margin:0 0 15px">${escapeHtml(p.title)}</h2>
-    <p>Status changed: <strong>${p.oldStatus}</strong> → <strong style="color:${newColor}">${p.newStatus}</strong></p>
+    <p>Status changed: <strong>${escapeHtml(p.oldStatus)}</strong> → <strong style="color:${newColor}">${escapeHtml(p.newStatus)}</strong></p>
     ${p.adminNotes ? `<div style="background:white;padding:15px;border-left:4px solid ${newColor};margin:20px 0"><p style="margin:0;white-space:pre-wrap">${escapeHtml(p.adminNotes)}</p></div>` : ""}
-    <p style="margin-top:20px;font-size:12px;color:#94a3b8">Feedback ID: ${p.id}</p>
+    <p style="margin-top:20px;font-size:12px;color:#94a3b8">Feedback ID: ${escapeHtml(p.id)}</p>
   </div>
 </body></html>`;
   }
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

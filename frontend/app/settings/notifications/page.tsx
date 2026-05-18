@@ -5,11 +5,18 @@
  *
  * 暴露 NotificationDispatcher 公共能力给用户：
  * - 邮件 / 站内全局开关
- * - 业务类型 × 渠道矩阵 (channelSubscriptions)
+ * - 业务类型 × 渠道矩阵 (channelSubscriptions) —— 三态：默认 / 开 / 关
  * - 全局静默时段 (quietHours)
  * - tier3 即时推主开关 (instantPushForTier3)
  *
  * 来源：daily-briefing-redesign-2026-05-18.md §7.3.1
+ *
+ * R2 整改要点：
+ * - 矩阵恢复"默认/开/关"真三态（Segmented 控件），可清回 null 走默认策略
+ * - Tier3 主开关与矩阵 RADAR_TIER3_INSTANT 行关系明确：主开关 OFF 时整类静音
+ * - 未启用渠道（wechat/webpush）强制 unchecked + tooltip 而非 "可勾但 disabled"
+ * - handleSave 加 try-catch + 错误 banner，避免 unhandled rejection 丢编辑
+ * - checkbox/segmented 加 aria-label，无 emoji
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -25,6 +32,7 @@ import {
   CheckCircle2,
   Sparkles,
   AlertTriangle,
+  Star,
 } from 'lucide-react';
 import {
   useNotificationPreferences,
@@ -46,7 +54,7 @@ const NOTIFICATION_TYPE_ROWS: Array<{
   {
     type: 'RADAR_WEEKLY',
     label: 'AI 雷达周报',
-    desc: '周日 18:00 自动汇总本周 ⭐⭐⭐',
+    desc: '周日 18:00 自动汇总本周 Tier 3 信号',
   },
   {
     type: 'RADAR_TIER3_INSTANT',
@@ -76,18 +84,35 @@ const CHANNELS: Array<{
   label: string;
   icon: typeof Mail;
   available: boolean;
+  unavailableReason?: string;
 }> = [
   { key: 'email', label: '邮件', icon: Mail, available: true },
   { key: 'site', label: '站内', icon: Bell, available: true },
-  { key: 'wechat', label: '公众号', icon: MessageSquare, available: false }, // DR3 启用
-  { key: 'webpush', label: '浏览器', icon: Smartphone, available: false }, // Phase 2
+  {
+    key: 'wechat',
+    label: '公众号',
+    icon: MessageSquare,
+    available: false,
+    unavailableReason: 'PR-DR3 启用后可绑定微信公众号',
+  },
+  {
+    key: 'webpush',
+    label: '浏览器',
+    icon: Smartphone,
+    available: false,
+    unavailableReason: 'Phase 2 启用浏览器推送',
+  },
 ];
+
+// 三态控件值：null = 走默认策略；true = 强制开；false = 强制关
+type TriState = boolean | null;
 
 export default function NotificationsSettingsPage() {
   const { preferences, loading, updating, updatePreferences } =
     useNotificationPreferences();
   const [draft, setDraft] = useState<NotificationPreferences | null>(null);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // 同步 server data → 本地草稿
   useEffect(() => {
@@ -101,33 +126,54 @@ export default function NotificationsSettingsPage() {
     [draft?.channelSubscriptions]
   );
 
+  // 三态写入：value === null 清除该渠道键（回到默认策略）
   const setChannelFor = (
     type: string,
     channel: NotificationChannel,
-    value: boolean
+    value: TriState
   ) => {
     if (!draft) return;
     const newMatrix = { ...matrix };
-    newMatrix[type] = { ...(newMatrix[type] ?? {}), [channel]: value };
+    const row = { ...(newMatrix[type] ?? {}) } as Partial<
+      Record<NotificationChannel, boolean>
+    >;
+    if (value === null) {
+      delete row[channel];
+    } else {
+      row[channel] = value;
+    }
+    if (Object.keys(row).length === 0) {
+      delete newMatrix[type];
+    } else {
+      newMatrix[type] = row;
+    }
     setDraft({ ...draft, channelSubscriptions: newMatrix });
   };
 
   const handleSave = async () => {
     if (!draft) return;
-    await updatePreferences({
-      emailEnabled: draft.emailEnabled,
-      pushEnabled: draft.pushEnabled,
-      soundEnabled: draft.soundEnabled,
-      quietHoursStart: draft.quietHoursStart || undefined,
-      quietHoursEnd: draft.quietHoursEnd || undefined,
-      channelSubscriptions: draft.channelSubscriptions,
-      instantPushForTier3: draft.instantPushForTier3,
-    });
-    // R1 frontend P1 整改：保存成功后 setDraft(null) 让 useEffect 重新水合
-    // 否则后续 server transform / 默认值不进 draft，下次保存仍是旧值
-    setDraft(null);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSaveError(null);
+    try {
+      await updatePreferences({
+        emailEnabled: draft.emailEnabled,
+        pushEnabled: draft.pushEnabled,
+        soundEnabled: draft.soundEnabled,
+        quietHoursStart: draft.quietHoursStart || undefined,
+        quietHoursEnd: draft.quietHoursEnd || undefined,
+        channelSubscriptions: draft.channelSubscriptions,
+        instantPushForTier3: draft.instantPushForTier3,
+      });
+      // R1 frontend P1 整改：保存成功后 setDraft(null) 让 useEffect 重新水合
+      // 否则后续 server transform / 默认值不进 draft，下次保存仍是旧值
+      setDraft(null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      // R2 frontend P1 整改：try-catch + 错误 banner，draft 保留供重试
+      const msg = err instanceof Error ? err.message : '保存失败，请稍后重试';
+      setSaveError(msg);
+      setSaved(false);
+    }
   };
 
   if (loading || !draft) {
@@ -166,6 +212,19 @@ export default function NotificationsSettingsPage() {
           </button>
         </header>
 
+        {saveError && (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <div className="font-medium">保存失败</div>
+              <div className="text-xs">{saveError}</div>
+            </div>
+          </div>
+        )}
+
         {/* 全局开关 */}
         <section className="rounded-lg border border-slate-200 bg-white p-6">
           <h2 className="mb-4 text-base font-semibold text-slate-900">
@@ -189,7 +248,7 @@ export default function NotificationsSettingsPage() {
             <ToggleRow
               icon={Sparkles}
               label="Tier 3 信号即时推（E2）"
-              desc="检出最高级信号时立即推送站内 + 公众号（不发邮件避风暴）"
+              desc="此为总闸：OFF 则整类静音；ON 时下方矩阵 RADAR_TIER3_INSTANT 行决定渠道"
               value={draft.instantPushForTier3 ?? true}
               onChange={(v) => setDraft({ ...draft, instantPushForTier3: v })}
             />
@@ -201,8 +260,13 @@ export default function NotificationsSettingsPage() {
           <h2 className="mb-1 text-base font-semibold text-slate-900">
             业务类型 × 渠道
           </h2>
-          <p className="mb-4 text-xs text-slate-500">
-            不勾 = 走默认策略；显式勾选 / 关闭会覆盖默认
+          <p className="mb-1 text-xs text-slate-500">
+            每格三态：<span className="font-medium">默认</span>{' '}
+            走系统策略（推荐）·<span className="font-medium">开</span> 强制启用
+            ·<span className="font-medium">关</span> 强制静音
+          </p>
+          <p className="mb-4 text-xs text-slate-400">
+            全局开关 OFF 时整类静音；矩阵勾选不会越过全局开关
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -212,13 +276,16 @@ export default function NotificationsSettingsPage() {
                   {CHANNELS.map((ch) => (
                     <th
                       key={ch.key}
-                      className="w-24 px-2 py-2 text-center font-medium"
+                      className="w-32 px-2 py-2 text-center font-medium"
                     >
                       <div className="flex flex-col items-center gap-1">
                         <ch.icon className="h-4 w-4" />
                         <span>{ch.label}</span>
                         {!ch.available && (
-                          <span className="text-[10px] text-slate-400">
+                          <span
+                            className="text-[10px] text-slate-400"
+                            title={ch.unavailableReason}
+                          >
                             未启用
                           </span>
                         )}
@@ -234,23 +301,31 @@ export default function NotificationsSettingsPage() {
                     className="border-b border-slate-100 last:border-0"
                   >
                     <td className="px-2 py-3">
-                      <div className="text-sm font-medium text-slate-900">
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+                        {row.type === 'RADAR_TIER3_INSTANT' && (
+                          <Star
+                            className="h-3.5 w-3.5 text-amber-500"
+                            aria-label="Tier 3"
+                          />
+                        )}
                         {row.label}
                       </div>
                       <div className="text-xs text-slate-500">{row.desc}</div>
                     </td>
                     {CHANNELS.map((ch) => {
-                      const checked = matrix[row.type]?.[ch.key] ?? null;
+                      const current = matrix[row.type]?.[ch.key] ?? null;
+                      // R2 product P0：未启用渠道强制 unchecked，不读 server 残值
+                      const renderValue: TriState = ch.available
+                        ? current
+                        : null;
                       return (
-                        <td key={ch.key} className="px-2 py-3 text-center">
-                          <input
-                            type="checkbox"
+                        <td key={ch.key} className="px-2 py-3">
+                          <TriStateSegmented
+                            value={renderValue}
                             disabled={!ch.available}
-                            checked={checked === true}
-                            onChange={(e) =>
-                              setChannelFor(row.type, ch.key, e.target.checked)
-                            }
-                            className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500 disabled:opacity-30"
+                            disabledReason={ch.unavailableReason}
+                            ariaLabel={`${row.label} - ${ch.label}`}
+                            onChange={(v) => setChannelFor(row.type, ch.key, v)}
                           />
                         </td>
                       );
@@ -269,11 +344,19 @@ export default function NotificationsSettingsPage() {
             全局静默时段
           </h2>
           <p className="mb-4 text-xs text-slate-500">
-            该时段内即时推送（如 ⭐⭐⭐ 即时推）静默；站内通知仍写入
+            该时段内即时推送（如 Tier 3
+            即时推）静默；站内通知仍写入。时间按你的本地时区 (
+            {Intl.DateTimeFormat().resolvedOptions().timeZone})。
           </p>
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-slate-700">从</label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              className="text-sm text-slate-700"
+              htmlFor="quiet-hours-start"
+            >
+              从
+            </label>
             <input
+              id="quiet-hours-start"
               type="time"
               value={draft.quietHoursStart ?? ''}
               onChange={(e) =>
@@ -281,8 +364,11 @@ export default function NotificationsSettingsPage() {
               }
               className="rounded border border-slate-300 px-3 py-1.5 text-sm focus:border-violet-500 focus:outline-none"
             />
-            <label className="text-sm text-slate-700">到</label>
+            <label className="text-sm text-slate-700" htmlFor="quiet-hours-end">
+              到
+            </label>
             <input
+              id="quiet-hours-end"
               type="time"
               value={draft.quietHoursEnd ?? ''}
               onChange={(e) =>
@@ -293,6 +379,13 @@ export default function NotificationsSettingsPage() {
             <span className="text-xs text-slate-400">
               支持跨午夜（如 22:00–06:00）
             </span>
+            {draft.quietHoursStart &&
+              draft.quietHoursEnd &&
+              draft.quietHoursStart === draft.quietHoursEnd && (
+                <span className="text-xs text-amber-600">
+                  起止相同会被视为全天静默
+                </span>
+              )}
           </div>
         </section>
 
@@ -370,6 +463,7 @@ function ToggleRow({
           value ? 'bg-violet-600' : 'bg-slate-300'
         }`}
         aria-pressed={value}
+        aria-label={label}
       >
         <span
           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -377,6 +471,64 @@ function ToggleRow({
           }`}
         />
       </button>
+    </div>
+  );
+}
+
+interface TriStateSegmentedProps {
+  value: TriState;
+  disabled?: boolean;
+  disabledReason?: string;
+  ariaLabel: string;
+  onChange: (v: TriState) => void;
+}
+
+// 三态 Segmented 控件：默认 / 开 / 关
+function TriStateSegmented({
+  value,
+  disabled,
+  disabledReason,
+  ariaLabel,
+  onChange,
+}: TriStateSegmentedProps) {
+  const options: Array<{
+    key: 'default' | 'on' | 'off';
+    label: string;
+    v: TriState;
+  }> = [
+    { key: 'default', label: '默认', v: null },
+    { key: 'on', label: '开', v: true },
+    { key: 'off', label: '关', v: false },
+  ];
+  return (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      title={disabled ? disabledReason : ariaLabel}
+      className={`inline-flex overflow-hidden rounded-md border border-slate-200 ${
+        disabled ? 'opacity-40' : ''
+      }`}
+    >
+      {options.map((opt) => {
+        const active = value === opt.v;
+        return (
+          <button
+            key={opt.key}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            disabled={disabled}
+            onClick={() => onChange(opt.v)}
+            className={`px-2 py-1 text-xs font-medium transition-colors ${
+              active
+                ? 'bg-violet-600 text-white'
+                : 'bg-white text-slate-600 hover:bg-slate-50'
+            } ${disabled ? 'cursor-not-allowed' : ''}`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

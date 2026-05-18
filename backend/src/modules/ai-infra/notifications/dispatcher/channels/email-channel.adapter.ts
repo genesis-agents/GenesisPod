@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { EmailService } from "../../../email/email.service";
 import { PrismaService } from "../../../../../common/prisma/prisma.service";
+import { EMAIL_SUBJECT_MAX_LENGTH } from "../../../../../common/constants/locales";
 import {
   ChannelCapabilities,
   DispatchPayload,
@@ -54,7 +55,10 @@ export class EmailChannel implements INotificationChannel {
 
     // PR-DR1b R1 security P0 整改：strip CRLF 防 SMTP header injection
     // attackers could inject Bcc:/Content-Type: via \r\n in title (user-input source)
-    const safeSubject = payload.title.replace(/[\r\n]+/g, " ").slice(0, 998);
+    // EMAIL_SUBJECT_MAX_LENGTH（R2 reuse 整改）= RFC 5322 §2.1.1 上限 998 字
+    const safeSubject = payload.title
+      .replace(/[\r\n]+/g, " ")
+      .slice(0, EMAIL_SUBJECT_MAX_LENGTH);
     const ok = await this.emailService.sendEmail({
       to: user.email,
       subject: safeSubject,
