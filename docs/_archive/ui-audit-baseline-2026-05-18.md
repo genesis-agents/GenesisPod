@@ -1,7 +1,7 @@
 # Genesis.ai 前端 UI 审计基线（2026-05-18）
 
 > **基线日期**：2026-05-18
-> **审计工具**：`scripts/audit-ui-discipline.ts` + `scripts/audit-ui-tokens.ts`
+> **审计工具**：`scripts/utils/audit-ui-discipline.ts` + `scripts/utils/audit-ui-tokens.ts`
 > **配套方案**：[`docs/guides/testing/frontend-ui-validation.md`](../guides/testing/frontend-ui-validation.md)
 > **目的**：冻结当前违规数为基线；新代码不许增长；存量按重灾区分批改
 
@@ -124,8 +124,8 @@ SKIP_UI_AUDIT=1 git push
 详见 [`docs/guides/testing/frontend-ui-validation.md`](../guides/testing/frontend-ui-validation.md)。
 
 **Week 1 已完成**：
-- [x] `scripts/audit-ui-discipline.ts`
-- [x] `scripts/audit-ui-tokens.ts`
+- [x] `scripts/utils/audit-ui-discipline.ts`
+- [x] `scripts/utils/audit-ui-tokens.ts`
 - [x] `package.json` 入口（`audit:ui` / `audit:ui-strict` / `audit:ui-baseline`）
 - [x] `.husky/pre-push` [4/5] 步骤（warn-only）
 - [x] 首次基线冻结（562 + 4,090 = 4,652 处）

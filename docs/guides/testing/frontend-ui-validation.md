@@ -127,8 +127,8 @@ L6  Sentry + RUM                              已有
 
 **已完成（TOP 1）**：
 
-- `scripts/audit-ui-discipline.ts`（6 条 R 规则）
-- `scripts/audit-ui-tokens.ts`（5 类 T 规则）
+- `scripts/utils/audit-ui-discipline.ts`（6 条 R 规则）
+- `scripts/utils/audit-ui-tokens.ts`（5 类 T 规则）
 - `package.json` 入口 `audit:ui` / `audit:ui-strict` / `audit:ui-baseline`
 - `.husky/pre-push` [4/5] UI 一致性看护（warn-only）
 - 首次基线冻结：discipline 562 + tokens 4,090
