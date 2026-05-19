@@ -71,7 +71,10 @@ const Input = z.discriminatedUnion("phase", [
     platformResults: z.array(
       z.object({
         platform: z.string(),
-        status: z.enum(["PUBLISHED", "FAILED", "DEGRADED"]),
+        // 2026-05-19: 加 'DRAFT' — publish-executor 发布到草稿箱时返这个状态
+        //   （平台没有"立即发布"语义，公众号都是草稿）。之前 schema 只允许
+        //   PUBLISHED/FAILED/DEGRADED，DRAFT mission 在 s11 signoff 卡死。
+        status: z.enum(["PUBLISHED", "DRAFT", "FAILED", "DEGRADED"]),
         url: z.string().nullable(),
         verifierDiff: z.number().min(0).max(1).nullable(),
       }),

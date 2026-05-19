@@ -290,7 +290,10 @@ describe("runCoverCraftStage (s5)", () => {
       );
     });
 
-    it("should return early with log.warn when no platforms to process", async () => {
+    // 2026-05-19: 行为变更 — Leader 全 reject 时不再 silently return（之前会让
+    //   covers 为空 → 下游 s8 撞 missing covers throw）。fallback 处理所有
+    //   platformVersions 让 mission 跑到底。
+    it("should fallback to all platforms when leaderAssess全 rejects", async () => {
       const deps = makeDeps();
       const ctx = makeCtx({
         platformVersions: {
@@ -317,9 +320,12 @@ describe("runCoverCraftStage (s5)", () => {
 
       await runCoverCraftStage(ctx, deps);
 
-      expect(deps.coverArtist.run).not.toHaveBeenCalled();
-      expect(deps.log.warn).toHaveBeenCalledWith(
-        expect.stringContaining("[s5] no platforms to process"),
+      // 全 reject fallback → 应该仍然处理 wechat
+      expect(deps.coverArtist.run).toHaveBeenCalledTimes(1);
+      expect(deps.coverArtist.run).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({ platform: "wechat" }),
+        }),
       );
     });
   });

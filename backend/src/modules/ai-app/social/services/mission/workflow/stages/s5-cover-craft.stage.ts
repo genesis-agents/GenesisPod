@@ -38,8 +38,12 @@ export async function runCoverCraftStage(
       .filter((p) => p.verdict !== "reject")
       .map((p) => p.platform),
   );
+  // 2026-05-19: Leader 全 reject 时（acceptedPlatforms 为空集），不跳过整个
+  //   stage —— 否则 covers 全空 → s8 publish-execute 撞 "missing covers" throw。
+  //   退化到"处理所有 platformVersions"让 mission 能跑到底，最终发布把关交 s10
+  //   foreword/signoff。
   const platformsToProcess =
-    leaderAssess == null
+    leaderAssess == null || acceptedPlatforms.size === 0
       ? Object.keys(platformVersions)
       : Object.keys(platformVersions).filter((p) => acceptedPlatforms.has(p));
 

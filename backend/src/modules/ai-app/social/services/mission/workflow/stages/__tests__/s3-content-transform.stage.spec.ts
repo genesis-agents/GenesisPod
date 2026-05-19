@@ -27,7 +27,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -99,7 +103,9 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
           schemaVersion: "v1",
         },
       ],
-    } as MissionInvariants["contentRaw"] extends never ? never : PlanPhaseCtx["probeResults"],
+    } as MissionInvariants["contentRaw"] extends never
+      ? never
+      : PlanPhaseCtx["probeResults"],
     ...overrides,
   } as Ctx;
 }
@@ -150,8 +156,14 @@ describe("runContentTransformStage (s3)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const tags = emitCalls
-        .filter((args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative")
-        .map((args: unknown[]) => (args[0] as { payload: { tag: string } }).payload.tag);
+        .filter(
+          (args: unknown[]) =>
+            (args[0] as { type: string }).type === "social.agent:narrative",
+        )
+        .map(
+          (args: unknown[]) =>
+            (args[0] as { payload: { tag: string } }).payload.tag,
+        );
       expect(tags).toContain("thinking");
       expect(tags).toContain("success");
     });
@@ -161,7 +173,8 @@ describe("runContentTransformStage (s3)", () => {
     it("should call contentTransformer.run for each platform", async () => {
       const deps = makeDeps({
         contentTransformer: {
-          run: jest.fn()
+          run: jest
+            .fn()
             .mockResolvedValueOnce({
               state: "completed",
               output: {
@@ -195,8 +208,18 @@ describe("runContentTransformStage (s3)", () => {
         },
         probeResults: {
           results: [
-            { platform: "wechat", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
-            { platform: "xiaohongshu", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
+            {
+              platform: "wechat",
+              probeResult: "ok",
+              requiredFields: ["title"],
+              schemaVersion: "v1",
+            },
+            {
+              platform: "xiaohongshu",
+              probeResult: "ok",
+              requiredFields: ["title"],
+              schemaVersion: "v1",
+            },
           ],
         },
       });
@@ -221,7 +244,10 @@ describe("runContentTransformStage (s3)", () => {
   });
 
   describe("all platforms fail", () => {
-    it("should throw when all platforms fail transform", async () => {
+    // 2026-05-19: 行为变更 — 全失败时不再 throw，改为 fallback 用 contentRaw
+    //   合成最小 platformVersion，让下游 stage 能继续跑（s8 publish-execute
+    //   已支持 fast-path 从 contentRaw 直发）。
+    it("should fallback to contentRaw when all platforms fail transform (not throw)", async () => {
       const deps = makeDeps({
         contentTransformer: {
           run: jest.fn().mockResolvedValue({ state: "failed", output: null }),
@@ -229,40 +255,18 @@ describe("runContentTransformStage (s3)", () => {
       });
       const ctx = makeCtx();
 
-      await expect(runContentTransformStage(ctx, deps)).rejects.toThrow(
-        "[s3] all platforms failed content transform",
-      );
-    });
-
-    it("should call markStageDegraded for each failed platform", async () => {
-      const deps = makeDeps({
-        contentTransformer: {
-          run: jest.fn().mockResolvedValue({ state: "failed", output: null }),
-        } as unknown as CommonDeps["contentTransformer"],
-      });
-      const ctx = makeCtx({
-        input: {
-          contentId: "c3",
-          platforms: ["wechat", "xiaohongshu"],
-          connectionIds: { wechat: "c-w", xiaohongshu: "c-x" },
-          depth: "standard",
-          budgetProfile: "standard",
-          language: "zh-CN",
-        },
-        probeResults: {
-          results: [
-            { platform: "wechat", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
-            { platform: "xiaohongshu", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
-          ],
-        },
-      });
-
-      await expect(runContentTransformStage(ctx, deps)).rejects.toThrow();
+      await expect(
+        runContentTransformStage(ctx, deps),
+      ).resolves.toBeUndefined();
+      // ctx.platformVersions 应该被 contentRaw fallback 填充
+      expect(ctx.platformVersions).toBeDefined();
+      expect(Object.keys(ctx.platformVersions!).length).toBeGreaterThan(0);
+      // markStageDegraded 应被调用宣告 fallback
       expect(deps.markStageDegraded).toHaveBeenCalledWith(
-        "mission-s3-test",
-        "user-s3",
+        expect.any(String),
+        expect.any(String),
         "s3-content-transform",
-        expect.stringContaining("内容适配失败"),
+        expect.stringContaining("回退到 contentRaw"),
       );
     });
   });
@@ -271,7 +275,8 @@ describe("runContentTransformStage (s3)", () => {
     it("should succeed if at least one platform transforms successfully", async () => {
       const deps = makeDeps({
         contentTransformer: {
-          run: jest.fn()
+          run: jest
+            .fn()
             .mockResolvedValueOnce({ state: "failed", output: null }) // wechat fails
             .mockResolvedValueOnce({
               state: "completed",
@@ -296,8 +301,18 @@ describe("runContentTransformStage (s3)", () => {
         },
         probeResults: {
           results: [
-            { platform: "wechat", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
-            { platform: "xiaohongshu", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
+            {
+              platform: "wechat",
+              probeResult: "ok",
+              requiredFields: ["title"],
+              schemaVersion: "v1",
+            },
+            {
+              platform: "xiaohongshu",
+              probeResult: "ok",
+              requiredFields: ["title"],
+              schemaVersion: "v1",
+            },
           ],
         },
       });
@@ -310,20 +325,27 @@ describe("runContentTransformStage (s3)", () => {
   });
 
   describe("probe missing for platform", () => {
-    it("should throw when input platform has no matching probe entry", async () => {
+    it("should fallback to contentRaw when input platform has no matching probe", async () => {
       const deps = makeDeps();
-      // input has only wechat, but probeResults has only xiaohongshu → wechat skipped → all fail → throw
+      // input has only wechat, but probeResults has only xiaohongshu → wechat
+      // skipped → empty versions → fallback to contentRaw（不再 throw）
       const ctx = makeCtx({
         probeResults: {
           results: [
-            { platform: "xiaohongshu", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
+            {
+              platform: "xiaohongshu",
+              probeResult: "ok",
+              requiredFields: ["title"],
+              schemaVersion: "v1",
+            },
           ],
         },
       });
 
-      await expect(runContentTransformStage(ctx, deps)).rejects.toThrow(
-        "[s3] all platforms failed content transform",
-      );
+      await expect(
+        runContentTransformStage(ctx, deps),
+      ).resolves.toBeUndefined();
+      expect(ctx.platformVersions).toBeDefined();
     });
 
     it("should only transform platforms that have probe results", async () => {
@@ -353,7 +375,12 @@ describe("runContentTransformStage (s3)", () => {
         probeResults: {
           results: [
             // only xiaohongshu has probe
-            { platform: "xiaohongshu", probeResult: "ok", requiredFields: ["title"], schemaVersion: "v1" },
+            {
+              platform: "xiaohongshu",
+              probeResult: "ok",
+              requiredFields: ["title"],
+              schemaVersion: "v1",
+            },
           ],
         },
       });

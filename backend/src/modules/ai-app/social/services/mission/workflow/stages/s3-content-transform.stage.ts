@@ -78,10 +78,30 @@ export async function runContentTransformStage(
     ),
   );
 
+  // 2026-05-19: 全平台 transformer 失败时不 throw（之前会让 mission 完全失败）。
+  //   改成 fallback：用 contentRaw 给每个平台合成最小 platformVersion，下游
+  //   s4/s5/s6/s7/s8 都能 fall back 用 contentRaw（s8 publish-execute 已经支持
+  //   这种 fast-path）。markStageDegraded 让前端能看到"内容适配 fallback"提示。
   if (Object.keys(versions).length === 0) {
-    throw new Error(
-      `[s3] all platforms failed content transform for mission ${missionId}`,
+    await deps.markStageDegraded(
+      missionId,
+      userId,
+      "s3-content-transform",
+      `全部 ${input.platforms.length} 个平台 transformer 失败，回退到 contentRaw 直发`,
     );
+    for (const platform of input.platforms) {
+      versions[platform] = {
+        platform,
+        title: contentRaw.title.slice(0, 64),
+        digest: contentRaw.digest ?? null,
+        body: contentRaw.body,
+        lengthMetrics: {
+          titleChars: contentRaw.title.length,
+          digestChars: contentRaw.digest?.length ?? 0,
+          bodyChars: contentRaw.body.length,
+        },
+      };
+    }
   }
 
   (ctx as TransformPhaseCtx).platformVersions =

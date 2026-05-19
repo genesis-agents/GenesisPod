@@ -37,8 +37,10 @@ export async function runBodyComposeStage(
       .filter((p) => p.verdict !== "reject")
       .map((p) => p.platform),
   );
+  // 2026-05-19: Leader 全 reject 时 fallback 处理所有平台（同 s5），避免 s8
+  //   publish-execute 撞 missing composed throw
   const platformsToProcess =
-    leaderAssess == null
+    leaderAssess == null || acceptedPlatforms.size === 0
       ? Object.keys(platformVersions)
       : Object.keys(platformVersions).filter((p) => acceptedPlatforms.has(p));
 

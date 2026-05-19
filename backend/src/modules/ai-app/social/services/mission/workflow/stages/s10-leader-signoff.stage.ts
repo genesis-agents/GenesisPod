@@ -81,9 +81,13 @@ export async function runLeaderSignoffStage(
     text: `Leader 签字交付（M7 signoff）`,
   });
 
+  // 2026-05-19: status enum 加 'DRAFT' —— publish-executor 实际返 DRAFT（公众号
+  //   发布到草稿箱），之前 inline type 漏了 DRAFT → Leader signoff input schema
+  //   validation fail "Invalid enum value, received 'DRAFT'" → mission 终止。
+  type PlatformStatus = "PUBLISHED" | "DRAFT" | "FAILED" | "DEGRADED";
   const platformResults: {
     platform: string;
-    status: "PUBLISHED" | "FAILED" | "DEGRADED";
+    status: PlatformStatus;
     url: string | null;
     verifierDiff: number | null;
   }[] = [];
@@ -92,9 +96,7 @@ export async function runLeaderSignoffStage(
     const ver = verified?.[platform];
     platformResults.push({
       platform,
-      status:
-        (pub as { status?: "PUBLISHED" | "FAILED" | "DEGRADED" })?.status ??
-        "FAILED",
+      status: (pub as { status?: PlatformStatus })?.status ?? "FAILED",
       url: (pub as { draftUrl?: string | null })?.draftUrl ?? null,
       verifierDiff:
         ver != null ? (ver as { diffPercent: number }).diffPercent / 100 : null,
