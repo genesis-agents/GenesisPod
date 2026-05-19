@@ -405,10 +405,16 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
   let summedDeltaCost = 0;
 
   for (const ev of events) {
-    const t = ev.type;
+    // 2026-05-19: 规范化 namespace —— social.* / agent-playground.* / ai-radar.*
+    //   各 domain mission 都 emit 相同的事件 suffix（mission:started 等）。
+    //   剥离 namespace 让 derive 跨 domain 通用。
+    const rawType = ev.type ?? '';
+    const t = rawType.includes('.')
+      ? rawType.slice(rawType.indexOf('.') + 1)
+      : rawType;
     const p = ev.payload as Record<string, unknown>;
 
-    if (t === 'agent-playground.mission:started') {
+    if (t === 'mission:started') {
       mission.startedAt = ev.timestamp;
       const input = p?.input as
         | { topic?: string; depth?: string; language?: string }
@@ -416,20 +422,20 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       mission.topic = input?.topic;
       mission.depth = input?.depth;
       mission.language = input?.language;
-    } else if (t === 'agent-playground.mission:completed') {
+    } else if (t === 'mission:completed') {
       mission.completedAt = ev.timestamp;
       mission.finalScore = p?.reviewScore as number | undefined;
-    } else if (t === 'agent-playground.mission:failed') {
+    } else if (t === 'mission:failed') {
       mission.failedAt = ev.timestamp;
       mission.failedMessage = p?.message as string | undefined;
-    } else if (t === 'agent-playground.mission:rejected') {
+    } else if (t === 'mission:rejected') {
       mission.rejectedAt = ev.timestamp;
       mission.rejectedReason = p?.reason as string | undefined;
       mission.rejectedMessage = p?.userMessage as string | undefined;
-    } else if (t === 'agent-playground.mission:cancelled') {
+    } else if (t === 'mission:cancelled') {
       mission.cancelledAt = ev.timestamp;
       mission.failedMessage = (p?.message as string | undefined) ?? '用户取消';
-    } else if (t === 'agent-playground.stage:lifecycle') {
+    } else if (t === 'stage:lifecycle') {
       // ★ 2026-05-06 真治：backend 单轨化后只 emit stage:lifecycle（删了
       //   stage:started/completed），derive.ts 之前没跟进 → mission stages
       //   永远卡 pending。stepId 是 backend pipeline 内部 ID，需要映射到 5
@@ -500,7 +506,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           //   此处不再重复写 cur.status，避免覆盖聚合结果。
         }
       }
-    } else if (t === 'agent-playground.stage:started') {
+    } else if (t === 'stage:started') {
       // 兼容历史 fixture（pre-单轨化 mission），新 mission 走 stage:lifecycle
       const stage = p?.stage as StageId | undefined;
       const cur = stage ? stages.get(stage) : undefined;
@@ -509,7 +515,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         cur.startedAt = cur.startedAt ?? ev.timestamp;
         if (p?.attempt) cur.attempts = p.attempt as number;
       }
-    } else if (t === 'agent-playground.stage:completed') {
+    } else if (t === 'stage:completed') {
       const stage = p?.stage as StageId | undefined;
       const cur = stage ? stages.get(stage) : undefined;
       if (cur) {
@@ -544,7 +550,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           }
         }
       }
-    } else if (t === 'agent-playground.dimension:retrying') {
+    } else if (t === 'dimension:retrying') {
       // Researcher self-heal 重试：标记当前 agent retryCount 自增 + 记录 reason
       const agentId = (p?.agentId as string | undefined) ?? ev.agentId;
       if (agentId) {
@@ -575,7 +581,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       ) {
         activeFreshRetry.set(dim, retryLabel);
       }
-    } else if (t === 'agent-playground.dimensions:appended') {
+    } else if (t === 'dimensions:appended') {
       // Leader chat 触发的动态追加：把新 dim 拼到 mission.dimensions 末尾
       // Defensive normalization: Array.isArray guard prevents crash if payload
       // arrives as non-array; each element normalized to {id,name,rationale} shape.
@@ -604,7 +610,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           mission.dimensions = [...existing, ...fresh];
         }
       }
-    } else if (t === 'agent-playground.agent:lifecycle') {
+    } else if (t === 'agent:lifecycle') {
       const agentId = (p?.agentId as string) ?? ev.agentId;
       const role = p?.role as AgentRole | undefined;
       const phase = p?.phase as 'started' | 'completed' | 'failed' | undefined;
@@ -644,11 +650,11 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         agents.set(agentId, cur);
       }
     } else if (
-      t === 'agent-playground.agent:thought' ||
-      t === 'agent-playground.agent:action' ||
-      t === 'agent-playground.agent:observation' ||
-      t === 'agent-playground.agent:reflection' ||
-      t === 'agent-playground.agent:error'
+      t === 'agent:thought' ||
+      t === 'agent:action' ||
+      t === 'agent:observation' ||
+      t === 'agent:reflection' ||
+      t === 'agent:error'
     ) {
       const agentId = (p?.agentId as string) ?? ev.agentId;
       const role = p?.role as AgentRole | undefined;
@@ -665,12 +671,12 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         } as AgentLiveState);
       const ts = (p?.originalTs as number | undefined) ?? ev.timestamp;
       let item: AgentTraceItem;
-      if (t === 'agent-playground.agent:thought') {
+      if (t === 'agent:thought') {
         item = { kind: 'thought', ts, text: p?.text as string | undefined };
         // 捕获该 agent 当前使用的真实 LLM 模型
         const modelId = p?.modelId as string | undefined;
         if (modelId) cur.modelId = modelId;
-      } else if (t === 'agent-playground.agent:action') {
+      } else if (t === 'agent:action') {
         // ★ parallel_tool_call 拍平：把 calls[] 数组每条作为独立 action trace 推入
         //   这样 ComputeUsagePanel 的 buildToolStats 能按 toolId 正确聚合，
         //   不再出现 90% 工具调用统计丢失的问题（BUG-B）
@@ -702,7 +708,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
             (p?.kind as string | undefined),
           input: p?.input,
         };
-      } else if (t === 'agent-playground.agent:observation') {
+      } else if (t === 'agent:observation') {
         item = {
           kind: 'observation',
           ts,
@@ -716,7 +722,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           tokensUsed: p?.tokensUsed as number | undefined,
           error: p?.error as string | undefined,
         };
-      } else if (t === 'agent-playground.agent:reflection') {
+      } else if (t === 'agent:reflection') {
         // 优先 text；如果只有 verdict（pass/needs-revision/...）也展示出来
         const text = p?.text as string | undefined;
         const verdict = p?.verdict as string | undefined;
@@ -731,7 +737,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
       cur.trace.push(item);
       cur.trace.sort((a, b) => a.ts - b.ts);
       agents.set(agentId, cur);
-    } else if (t === 'agent-playground.cost:tick') {
+    } else if (t === 'cost:tick') {
       const stage = p?.stage as string | undefined;
       const deltaTokens = (p?.deltaTokens as number) ?? 0;
       const deltaCostUsd = (p?.deltaCostUsd as number) ?? 0;
@@ -758,7 +764,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           costUsd: prev.costUsd + deltaCostUsd,
         });
       }
-    } else if (t === 'agent-playground.verifier:verdict') {
+    } else if (t === 'verifier:verdict') {
       verdicts.push({
         verifierId: p?.verifierId as string,
         score: p?.score as number,
@@ -767,7 +773,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         modelId: p?.modelId as string | undefined,
         attempt: p?.attempt as number | undefined,
       });
-    } else if (t === 'agent-playground.memory:indexed') {
+    } else if (t === 'memory:indexed') {
       // Normalize tags: backend emits [depth, topic] string tuple; guard against
       // any non-string element arriving from an older payload shape.
       const rawTags = p?.tags;
@@ -779,12 +785,12 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         namespace: p?.namespace as string | undefined,
         tags: normalizedTags,
       };
-    } else if (t === 'agent-playground.report:draft') {
+    } else if (t === 'report:draft') {
       reports.push({
         attempt: (p?.attempt as number) ?? 1,
         report: p?.report as ReportDraft['report'],
       });
-    } else if (t === 'agent-playground.mission:preflight-warning') {
+    } else if (t === 'mission:preflight-warning') {
       // 2026-05-13 #63: Leader signoff 预警 — S8 后 backend 计算的阻断/告警
       //   原因，挂到 affectsStageId 对应的 stage 卡片，渲染红/橙边框 + tooltip
       const severity = (p?.severity as 'warn' | 'block' | undefined) ?? 'warn';
@@ -797,7 +803,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           target.preflightRisk = { severity, reasons };
         }
       }
-    } else if (t === 'agent-playground.dimension:outline:planned') {
+    } else if (t === 'dimension:outline:planned') {
       const dim = p?.dimension as string | undefined;
       const chapters =
         (p?.chapters as
@@ -829,7 +835,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         // 按 index 排序保持显示顺序稳定
         pipeline.chapters.sort((a, b) => a.index - b.index);
       }
-    } else if (t === 'agent-playground.chapter:writing:started') {
+    } else if (t === 'chapter:writing:started') {
       const dim = p?.dimension as string | undefined;
       const idx = p?.chapterIndex as number | undefined;
       const attempt = (p?.attempt as number | undefined) ?? 1;
@@ -856,7 +862,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         ch.status = attempt > 1 ? 'revising' : 'writing';
         ch.attempts = attempt;
       }
-    } else if (t === 'agent-playground.chapter:writing:completed') {
+    } else if (t === 'chapter:writing:completed') {
       const dim = p?.dimension as string | undefined;
       const idx = p?.chapterIndex as number | undefined;
       if (dim && idx != null) {
@@ -865,7 +871,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
         ch.status = 'reviewing';
       }
-    } else if (t === 'agent-playground.chapter:review:completed') {
+    } else if (t === 'chapter:review:completed') {
       const dim = p?.dimension as string | undefined;
       const idx = p?.chapterIndex as number | undefined;
       if (dim && idx != null) {
@@ -879,9 +885,9 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
             ? 'passed'
             : 'revising';
       }
-    } else if (t === 'agent-playground.chapter:revision') {
+    } else if (t === 'chapter:revision') {
       // 已在 writing:started 重置 attempts，这里仅作为补充信号
-    } else if (t === 'agent-playground.chapter:done') {
+    } else if (t === 'chapter:done') {
       // ★ 治 mission "假完成" 根因（2026-05-01）：chapter 终态事件 — 把 status 切到
       //   'done'（qualified=true）或 'failed-finalized'（兜底落地），
       //   让 ArtifactReader banner 不再把已完成章节误判为"修订中"。
@@ -894,7 +900,7 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
         ch.status = qualified ? 'done' : 'failed-finalized';
         ch.wordCount = (p?.wordCount as number | undefined) ?? ch.wordCount;
       }
-    } else if (t === 'agent-playground.dimension:integrating:completed') {
+    } else if (t === 'dimension:integrating:completed') {
       const dim = p?.dimension as string | undefined;
       if (dim) {
         const pipeline = ensurePipeline(dim);
@@ -904,14 +910,14 @@ export function deriveView(events: PlaygroundEvent[]): DerivedView {
           pipeline.integrationDegraded = true;
         }
       }
-    } else if (t === 'agent-playground.dimension:integrating:failed') {
+    } else if (t === 'dimension:integrating:failed') {
       // ★ 2026-05-01 真因可见性：integrator 真失败（无 output）也设 degraded 标志
       const dim = p?.dimension as string | undefined;
       if (dim) {
         const pipeline = ensurePipeline(dim);
         pipeline.integrationDegraded = true;
       }
-    } else if (t === 'agent-playground.dimension:graded') {
+    } else if (t === 'dimension:graded') {
       const dim = p?.dimension as string | undefined;
       if (dim) {
         const pipeline = ensurePipeline(dim);

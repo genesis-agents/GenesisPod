@@ -154,7 +154,10 @@ export function useAgentPlaygroundStream(missionId: string | null) {
       startPolling();
     };
     const onAnyHandler = (type: string, data: PlaygroundEvent) => {
-      if (!type.startsWith('agent-playground.')) return;
+      // 2026-05-19: 兼容多 namespace（agent-playground / social / ai-radar）—
+      //   mission id 在 join 时已绑定，socket 只会收到本 mission 的事件，namespace
+      //   前缀不再用作过滤条件。derive.ts / todo-ledger.ts 已规范化剥离 namespace。
+      if (!type.includes('.')) return; // 只接受有 namespace 前缀的事件类型
       append([{ ...data, type }]);
     };
 

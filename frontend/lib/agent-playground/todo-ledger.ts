@@ -517,7 +517,11 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
   ];
   // 启动时一次性创建所有 stage 占位 todo（S1 立刻 in_progress，其它保持 pending）
   for (const ev of events) {
-    if (ev.type === 'agent-playground.mission:started') {
+    // 兼容多 namespace（agent-playground / social / ai-radar 等）
+    const evTypeSuffix = ev.type?.includes('.')
+      ? ev.type.slice(ev.type.indexOf('.') + 1)
+      : (ev.type ?? '');
+    if (evTypeSuffix === 'mission:started') {
       for (const preset of SYSTEM_STAGE_PRESETS) {
         upsert(
           `system:${preset.id}`,
@@ -542,17 +546,21 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
   }
 
   for (const ev of events) {
-    const t = ev.type;
+    // 2026-05-19: 规范化 namespace（同 derive.ts）—— 跨 domain mission 通用
+    const rawType = ev.type ?? '';
+    const t = rawType.includes('.')
+      ? rawType.slice(rawType.indexOf('.') + 1)
+      : rawType;
     const p = (ev.payload ?? {}) as Record<string, unknown>;
 
-    if (t === 'agent-playground.mission:started') {
+    if (t === 'mission:started') {
       addNarrative(
         'system:s1-budget',
         ev.timestamp,
         'Mission 已启动，进入预算闸门',
         'info'
       );
-    } else if (t === 'agent-playground.agent:narrative') {
+    } else if (t === 'agent:narrative') {
       // 后端发来的人话叙事 —— 直接挂到对应 todo
       const stage = p.stage as string | undefined;
       const role = p.role as string | undefined;
@@ -597,8 +605,8 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       }
       if (target) addNarrative(target.id, ev.timestamp, text, tone);
     } else if (
-      t === 'agent-playground.mission:budget-warning-soft' ||
-      t === 'agent-playground.mission:budget-warning-hard'
+      t === 'mission:budget-warning-soft' ||
+      t === 'mission:budget-warning-hard'
     ) {
       const isHard = t.endsWith('hard');
       const reason = p.reason as string | undefined;
@@ -614,7 +622,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         reasonHint,
         isHard ? 'error' : 'warn'
       );
-    } else if (t === 'agent-playground.budget:warning-soft') {
+    } else if (t === 'budget:warning-soft') {
       const ratio = (p.ratio as number) ?? 0;
       const tokensUsed = (p.poolTokensUsed as number) ?? 0;
       const tokensRemain = (p.poolTokensRemaining as number) ?? 0;
@@ -626,7 +634,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         `预算软告警：已用 ${fmt(tokensUsed)} tokens（${Math.round(ratio * 100)}%），仅剩 ${fmt(tokensRemain)}。如需放宽上限，请提高 maxCredits 后重试`,
         'warn'
       );
-    } else if (t === 'agent-playground.budget:exhausted') {
+    } else if (t === 'budget:exhausted') {
       const tokensUsed = (p.poolTokensUsed as number) ?? 0;
       const fmt = (n: number) =>
         n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n));
@@ -641,20 +649,20 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
       //   已能拿到 hook 业务返回值（含 dimensions/themeSummary/finalScore 等）。
       //   stage 文件后端仍 emit stage:metrics（DB 写入兼容性保留），但前端不消费。
     } else if (
-      t === 'agent-playground.mission:postlude:started' ||
-      t === 'agent-playground.mission:postlude:completed' ||
-      t === 'agent-playground.mission:postlude:failed'
+      t === 'mission:postlude:started' ||
+      t === 'mission:postlude:completed' ||
+      t === 'mission:postlude:failed'
     ) {
       // ★ 2026-05-06 (A-7): S12 self-evolution 已从 PLAYGROUND_PIPELINE.steps 移出，
       //   改 fire-and-forget by dispatcher 单独触发。前端 s12 todo 用此事件流推进。
       const s12 = todos.get('system:s12-self-evolution');
       if (s12) {
-        if (t === 'agent-playground.mission:postlude:started') {
+        if (t === 'mission:postlude:started') {
           if (s12.status === 'pending') {
             s12.status = 'in_progress';
             s12.startedAt = ev.timestamp;
           }
-        } else if (t === 'agent-playground.mission:postlude:completed') {
+        } else if (t === 'mission:postlude:completed') {
           if (s12.status !== 'failed' && s12.status !== 'cancelled') {
             s12.status = 'done';
             s12.endedAt = ev.timestamp;
@@ -672,7 +680,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         }
       }
-    } else if (t === 'agent-playground.stage:stalled') {
+    } else if (t === 'stage:stalled') {
       // ★ 2026-05-06 (A-9): orchestrator watchdog 检测 stage 卡顿警告（不杀，仅可见性）
       const stage = p.stage as string | undefined;
       const elapsedMs = p.elapsedMs as number | undefined;
@@ -689,7 +697,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.stage:degraded') {
+    } else if (t === 'stage:degraded') {
       // ★ 2026-05-06 (A-6): stage 软失败（业务 catch 不阻断但要可见）
       const stage = p.stage as string | undefined;
       const reason = p.reason as string | undefined;
@@ -703,7 +711,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.mission:execution-aborted') {
+    } else if (t === 'mission:execution-aborted') {
       // ★ 2026-05-06 (A-8): dispatcher finally 兜底 — runtime 失联（pod kill / OOM）
       addNarrative(
         'system:s1-budget',
@@ -711,7 +719,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         `执行中断：${(p.reason as string | undefined) ?? 'runtime_lost'}（${(p.error as string | undefined)?.slice(0, 100) ?? ''}）`,
         'error'
       );
-    } else if (t === 'agent-playground.stage:lifecycle') {
+    } else if (t === 'stage:lifecycle') {
       // ★ 2026-05-06 单轨化彻底版: orchestrator-driven lifecycle 是 stage 状态 +
       //   业务 metrics 的唯一来源。dispatcher 把 hook 业务返回值（output 字段）
       //   拍平到 payload.output，前端按 stepId 解析为 artifacts。
@@ -799,7 +807,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         }
       }
-    } else if (t === 'agent-playground.mission:evolved') {
+    } else if (t === 'mission:evolved') {
       // ★ 2026-05-01 真因可见性 (Screenshot 52 用户实证 S12 0s 没具体进化内容):
       //   backend mission:evolved 携带完整 PostmortemSummary（recommendations 数组 +
       //   qualityHitRate + retryTotal + classification 等），但前端没接 →
@@ -899,7 +907,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         }
       );
-    } else if (t === 'agent-playground.dimensions:appended') {
+    } else if (t === 'dimensions:appended') {
       // Defensive normalization: must Array.isArray-guard before .forEach to
       // avoid TypeError if payload arrives as non-array (replay edge case).
       const rawItems = p.items;
@@ -942,7 +950,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           dimensionRef: d.name,
         }));
       });
-    } else if (t === 'agent-playground.leader:goals-set') {
+    } else if (t === 'leader:goals-set') {
       // ★ 业务链修4 (2026-05-06): backend S2 emit leader:goals-set 含 successCriteria /
       //   qualityBar / deliverables，之前前端无 handler → dead event。补上挂到
       //   s2-leader-plan todo 的 narrative + artifacts，让用户看到 leader 在 S2
@@ -1011,7 +1019,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.leader:decision') {
+    } else if (t === 'leader:decision') {
       const phase = p.phase as string | undefined;
       if (phase === 'assess-research-dispatched') {
         const stats = (p.stats as Record<string, number>) ?? {};
@@ -1111,7 +1119,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         );
       }
-    } else if (t === 'agent-playground.leader:foreword') {
+    } else if (t === 'leader:foreword') {
       upsert(
         'system:s10-leader-signoff',
         () =>
@@ -1128,7 +1136,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           t0.artifacts.push({ kind: 'foreword', label: '前言已写' });
         }
       );
-    } else if (t === 'agent-playground.leader:signed') {
+    } else if (t === 'leader:signed') {
       const score = p.leaderOverallScore as number | undefined;
       const verdict = p.leaderVerdict as string | undefined;
       const signed = p.signed as boolean | undefined;
@@ -1180,7 +1188,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         }
       );
-    } else if (t === 'agent-playground.dimension:retrying') {
+    } else if (t === 'dimension:retrying') {
       const dim = p.dimension as string | undefined;
       const reason = p.reason as string | undefined;
       const critique = p.critique as string | undefined;
@@ -1304,7 +1312,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           'warn'
         );
       }
-    } else if (t === 'agent-playground.dimension:retry-failed') {
+    } else if (t === 'dimension:retry-failed') {
       // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 retry 失败显式收尾对应 retry todo。
       //   找最近的 leader-assess-* origin todo 匹配 dimensionRef，标 failed。
       const dim = p.dimension as string | undefined;
@@ -1333,7 +1341,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.mission:degraded') {
+    } else if (t === 'mission:degraded') {
       // ★ P0-LIVE-PATCH-SILENT (2026-04-30): S4 patch 失败导致 mission degraded。
       //   附在 s11-persist 的 narrative 上，让用户看到 mission 完成但是有缺陷。
       const reason = (p.reason as string) ?? 'unknown';
@@ -1344,7 +1352,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         `Mission 标记 degraded：${reason} (${failedCount} 项失败)，下游 Leader signoff 将强制拒签`,
         'warn'
       );
-    } else if (t === 'agent-playground.dimension:research:started') {
+    } else if (t === 'dimension:research:started') {
       // ── per-dim research started: 用 dimensionRef 显式匹配，不靠 idx 顺序推断 ──
       const dim = p.dimension as string | undefined;
       if (dim) {
@@ -1358,7 +1366,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         }
       }
-    } else if (t === 'agent-playground.dimension:research:completed') {
+    } else if (t === 'dimension:research:completed') {
       // ── per-dim research completed: 仅追加 narrative log，不改 status ──
       // dim 真正完成需要 chapter writing + grading 才算 done（由下方 dimensionPipelines 兜底）
       const dim = p.dimension as string | undefined;
@@ -1379,7 +1387,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         }
       }
-    } else if (t === 'agent-playground.researcher:completed') {
+    } else if (t === 'researcher:completed') {
       const dim = (p.dimension as string | undefined) ?? '';
       const cnt = (p.findingsCount as number | undefined) ?? 0;
       const state = p.state as string | undefined;
@@ -1471,7 +1479,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           'error'
         );
       }
-    } else if (t === 'agent-playground.dimension:degraded') {
+    } else if (t === 'dimension:degraded') {
       const dim = p.dimension as string | undefined;
       const innerCode = p.innerFailureCode as string | undefined;
       const target = order
@@ -1490,7 +1498,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           'warn'
         );
       }
-    } else if (t === 'agent-playground.reconciliation:completed') {
+    } else if (t === 'reconciliation:completed') {
       const factCount = (p.factCount as number) ?? 0;
       const conflicts = (p.conflictCount as number) ?? 0;
       const overlaps = (p.overlapCount as number) ?? 0;
@@ -1534,7 +1542,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           ],
         }));
       }
-    } else if (t === 'agent-playground.chapter:writing:started') {
+    } else if (t === 'chapter:writing:started') {
       // ★ 2026-05-06: 为每个章节在其 dim todo 下创建子 todo，展示章节级写作进度。
       const dim = p.dimension as string | undefined;
       const idx = p.chapterIndex as number | undefined;
@@ -1595,7 +1603,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           }
         );
       }
-    } else if (t === 'agent-playground.chapter:writing:completed') {
+    } else if (t === 'chapter:writing:completed') {
       const dim = p.dimension as string | undefined;
       const idx = p.chapterIndex as number | undefined;
       const wordCount = p.wordCount as number | undefined;
@@ -1625,14 +1633,14 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.chapter:review:started') {
+    } else if (t === 'chapter:review:started') {
       const dim = p.dimension as string | undefined;
       const idx = p.chapterIndex as number | undefined;
       if (dim != null && idx != null) {
         const chapterId = `chapter:${dim}:${idx}`;
         addNarrative(chapterId, ev.timestamp, 'Reviewer 审查中…', 'info');
       }
-    } else if (t === 'agent-playground.chapter:review:completed') {
+    } else if (t === 'chapter:review:completed') {
       const dim = p.dimension as string | undefined;
       const idx = p.chapterIndex as number | undefined;
       const score = p.score as number | undefined;
@@ -1664,7 +1672,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.chapter:done') {
+    } else if (t === 'chapter:done') {
       const dim = p.dimension as string | undefined;
       const idx = p.chapterIndex as number | undefined;
       const qualified = p.qualified as boolean | undefined;
@@ -1694,7 +1702,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.chapter:revision') {
+    } else if (t === 'chapter:revision') {
       // ★ 不再为每个 chapter 创建独立 todo —— 聚合为 dim todo 的"章节重写"
       //   计数 + 把 critique 追加到 dim 的 narrativeLog（保留可读时间线）。
       const dim = p.dimension as string | undefined;
@@ -1724,7 +1732,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
         text: `第 ${idx} 章 · Reviewer 反馈重写（累计 ${next} 次）：${critique.slice(0, 80)}…`,
         tone: 'warn',
       });
-    } else if (t === 'agent-playground.critic:verdict') {
+    } else if (t === 'critic:verdict') {
       const warnings =
         (p.warnings as
           | { kind: string; message: string; severity?: string }[]
@@ -1775,7 +1783,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           w.severity === 'error' ? 'error' : 'warn'
         );
       });
-    } else if (t === 'agent-playground.mission:completed') {
+    } else if (t === 'mission:completed') {
       upsert(
         'system:s11-persist',
         () =>
@@ -1836,7 +1844,7 @@ export function deriveTodoLedger(args: DeriveTodoArgs): MissionTodo[] {
           });
         }
       }
-    } else if (t === 'agent-playground.mission:failed') {
+    } else if (t === 'mission:failed') {
       // ★ P0-LIVE-UI-STATUS (2026-04-30): mission 失败时所有非终态 todo 都
       //   要 finalize，否则 UI 永远显示"进行中"和已死的 mission 矛盾。
       //   - system scope in_progress → failed（真正挂掉的那个 stage）
