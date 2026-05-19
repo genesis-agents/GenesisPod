@@ -430,19 +430,13 @@ export class SocialPipelineDispatcher implements OnModuleInit {
       session.budgetMultiplier;
 
     // 4. 预算剩余美元（pool snapshot）
+    // 2026-05-19 fix: pool.snapshot() 返回 { poolTokensUsed, poolCostUsd,
+    //   poolTokensRemaining, poolCostRemaining } —— 之前代码读 remainingCostUsd /
+    //   maxCostUsd / poolCostUsd（三个全错），永远 undefined → remainingCreditsUsd=0
+    //   → budget 闸永远 fail。修正字段名后真实剩余美元正确读出。
     const snap = session.pool.snapshot();
-    const remainingCreditsUsd = Math.max(
-      0,
-      (
-        snap as {
-          remainingCostUsd?: number;
-          maxCostUsd?: number;
-          poolCostUsd?: number;
-        }
-      ).remainingCostUsd ??
-        ((snap as { maxCostUsd?: number }).maxCostUsd ?? 0) -
-          ((snap as { poolCostUsd?: number }).poolCostUsd ?? 0),
-    );
+    const remainingCreditsUsd =
+      (snap as { poolCostRemaining?: number }).poolCostRemaining ?? 0;
 
     return {
       remainingCreditsUsd,
