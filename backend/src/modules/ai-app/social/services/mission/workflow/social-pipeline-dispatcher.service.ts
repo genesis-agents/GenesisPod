@@ -391,12 +391,19 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         },
       })
       .catch(() => [] as { platformType: string; expiresAt: Date | null }[]);
+    // 2026-05-19 fix: session-expired 闸早早拦截 mission（s1）让用户连 AI 生成
+    //   内容都看不到。空 expiresAt 通常是用户还没完成 OAuth（只测试 + 没真发布）
+    //   场景。改成填 24h 占位让 s1 闸过；真实 token 有效性检查推到 s6
+    //   publish-executor 阶段（那时给精确错误"请重连微信公众号"，UX 更好）。
+    const placeholderExpiry = new Date(
+      Date.now() + 24 * 60 * 60 * 1000,
+    ).toISOString();
     const sessionExpiresAt: Record<string, string> = {};
     for (const platform of input.platforms) {
       const row = connectionRows.find((r) => r.platformType === platform);
       sessionExpiresAt[platform] = row?.expiresAt
         ? row.expiresAt.toISOString()
-        : "";
+        : placeholderExpiry;
     }
 
     // 2. 当前 running mission count（防资源耗尽）
