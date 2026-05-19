@@ -43,6 +43,11 @@ export interface GenerateInput {
   briefingDate: string;
   /** 从 BullMQ jobId 派生的 mission id（observability） */
   missionId: string;
+  /**
+   * R13 2026-05-19：手动 rerun 时 force=true 跳过幂等检查。
+   * BullMQ 自动调度时不传（默认 false）保留幂等防重复跑。
+   */
+  force?: boolean;
 }
 
 export interface GenerateOutput {
@@ -66,20 +71,27 @@ export class DailyBriefingGeneratorService {
     const briefingDate = parseUtcDate(input.briefingDate);
 
     // 1. 幂等：今日已有 briefing → 直接返回（onDailyBriefingGenerated 不会重复 dispatch）
-    const existing = await this.dailyRepo.findByTopicAndDate(
-      input.topicId,
-      briefingDate,
-    );
-    if (existing && existing.status !== "generating") {
-      this.log.debug(
-        `[${input.missionId}] briefing already exists topic=${input.topicId} date=${input.briefingDate} status=${existing.status} — skip`,
+    //
+    // R13 2026-05-19：手动 rerun 路径（radar-run.controller "重新精选" 完成
+    // 后 fire-and-forget 调用 generateForTopic）必须强制重生 —— 否则用户
+    // 点完按钮永远看到原来的 no_signals 结果，无法验证修复。BullMQ 自动调度
+    // 仍传 force=false 保留幂等。
+    if (!input.force) {
+      const existing = await this.dailyRepo.findByTopicAndDate(
+        input.topicId,
+        briefingDate,
       );
-      const signals = (existing.signals as unknown as DailySignal[]) ?? [];
-      return {
-        status: existing.status as "completed" | "no_signals",
-        selectedCount: signals.length,
-        candidatesCount: 0,
-      };
+      if (existing && existing.status !== "generating") {
+        this.log.debug(
+          `[${input.missionId}] briefing already exists topic=${input.topicId} date=${input.briefingDate} status=${existing.status} — skip`,
+        );
+        const signals = (existing.signals as unknown as DailySignal[]) ?? [];
+        return {
+          status: existing.status as "completed" | "no_signals",
+          selectedCount: signals.length,
+          candidatesCount: 0,
+        };
+      }
     }
 
     // 2. 加载 topic + 已采集已评分的 accepted item（昨日 + 今日，跨日延续 entity 用昨日）
@@ -103,6 +115,13 @@ export class DailyBriefingGeneratorService {
     });
 
     // 3. Stage A 评分（B1）
+    //
+    // R13 2026-05-19 P0 BUG 修复 —— 双除 100 永远 0 信号
+    // scoring.computeStageAScore 内部已经把 0-100 归一到 0-1（见
+    // scoring.ts:65）。这里之前先 `(item.relevanceScore ?? 0) / 100` 再传
+    // 进去 → scoring 又 /100 → 实际 score ≈ 0.001 → 全部低于
+    // STAGE_A_SCORE_THRESHOLD=0.55 → candidatePool 永远空 → no_signals。
+    // 修：传原始 0-100，让 scoring 内部一次归一即可。
     const relevanceMin = RADAR_PIPELINE_DEFAULTS.relevanceThreshold;
     const stageAInputs: StageAInput[] = [];
     for (const item of items) {
@@ -117,9 +136,8 @@ export class DailyBriefingGeneratorService {
           id: item.sourceId,
           authorityWeight: item.source.authorityWeight,
         },
-        relevanceScore: (item.relevanceScore ?? 0) / 100,
-        qualityScore:
-          item.qualityScore != null ? item.qualityScore / 100 : undefined,
+        relevanceScore: item.relevanceScore ?? 0,
+        qualityScore: item.qualityScore ?? undefined,
       });
     }
     const candidatePool = selectCandidatePool(stageAInputs);

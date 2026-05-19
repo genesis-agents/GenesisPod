@@ -177,6 +177,9 @@ export class RadarRunController {
               userId,
               briefingDate,
               missionId: summary.missionId,
+              // R13 2026-05-19: 手动重新精选必须强制重生 briefing，否则原
+              // no_signals 结果永远卡住，新内容/scoring 修复都看不到效果。
+              force: true,
             });
             this.log.log(
               `Manual refresh briefing regenerated topic=${topicId} status=${result.status} selected=${result.selectedCount}`,
