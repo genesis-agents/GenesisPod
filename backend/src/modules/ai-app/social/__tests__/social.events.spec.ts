@@ -42,6 +42,7 @@ describe("SOCIAL_EVENTS registry", () => {
       "social.mission:aborted",
       "social.mission:degraded",
       "social.mission:warning",
+      "social.mission:gated",
       "social.mission:postlude:started",
       "social.mission:postlude:completed",
       "social.mission:postlude:failed",
@@ -115,8 +116,8 @@ describe("SOCIAL_EVENTS registry", () => {
 
   // ── total count guard ────────────────────────────────────────────────────
 
-  it("has exactly 25 registered events (contract guard)", () => {
-    expect(SOCIAL_EVENTS.length).toBe(25);
+  it("has exactly 26 registered events (contract guard)", () => {
+    expect(SOCIAL_EVENTS.length).toBe(26);
   });
 
   it("has no duplicate type strings", () => {

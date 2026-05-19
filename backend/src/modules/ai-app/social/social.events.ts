@@ -14,6 +14,7 @@ import {
   MissionAbortedSchema,
   MissionDegradedSchema,
   MissionWarningSchema,
+  MissionGatedSchema,
   MissionPostludeStartedSchema,
   MissionPostludeCompletedSchema,
   MissionPostludeFailedSchema,
@@ -51,6 +52,8 @@ export const SOCIAL_EVENTS: readonly DomainEventTypeSpec[] = [
   S("mission:aborted", MissionAbortedSchema),
   S("mission:degraded", MissionDegradedSchema),
   S("mission:warning", MissionWarningSchema),
+  // 2026-05-19: s1-mission-budget-eval emit'd `mission:gated` but registry 漏注册 → 全部被 drop
+  S("mission:gated", MissionGatedSchema),
   S("mission:postlude:started", MissionPostludeStartedSchema),
   S("mission:postlude:completed", MissionPostludeCompletedSchema),
   S("mission:postlude:failed", MissionPostludeFailedSchema),

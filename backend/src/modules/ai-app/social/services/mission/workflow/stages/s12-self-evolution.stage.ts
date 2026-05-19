@@ -41,13 +41,15 @@ export async function runSelfEvolutionStage(
     }
   }
 
-  // emit postlude 事件
+  // emit postlude 事件（schema 要求 stage:string —— 缺会被 DomainEventBus drop）
   await deps
     .emit({
       type: "social.mission:postlude:started",
       missionId,
       userId,
       payload: {
+        stage: "s12-self-evolution",
+        startedAt: Date.now(),
         failureCount: failures.length,
         signed: leaderSignOff?.signoff === "signed",
         verifierGapsCount: verified

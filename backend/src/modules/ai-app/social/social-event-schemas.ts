@@ -53,10 +53,18 @@ export const MissionWarningSchema = z.object({
   source: z.string().optional(),
 });
 
-export const MissionPostludeStartedSchema = z.object({
-  stage: z.string(),
-  startedAt: z.number().optional(),
+/** s1 Steward 4 闸任一 fail → 立即 terminate mission */
+export const MissionGatedSchema = z.object({
+  gateFailed: z.string(),
+  evidence: z.string().optional(),
 });
+
+export const MissionPostludeStartedSchema = z
+  .object({
+    stage: z.string(),
+    startedAt: z.number().optional(),
+  })
+  .passthrough(); // 允许 s12 额外字段（failureCount / signed / verifierGapsCount）
 
 export const MissionPostludeCompletedSchema = z.object({
   stage: z.string(),
