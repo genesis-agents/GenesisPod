@@ -83,14 +83,33 @@ function readFrontendListenedEvents(): {
     path.join(FRONTEND, "app/agent-playground"),
     path.join(FRONTEND, "hooks"),
   ];
-  // 只匹配事件 type（含至少 1 个冒号），排除 adapter id / namespace 字符串
-  const re =
+  // 2026-05-19: derive.ts/todo-ledger.ts 用 namespace-agnostic 比较（剥离前缀后
+  //   用 'mission:started' 这种 suffix-only 字符串），让 social/ai-radar 等
+  //   domain 复用。spec 扫两种格式：
+  //     1) 'agent-playground.X:Y' — 完整明确监听 playground namespace
+  //     2) 'X:Y' — 监听所有 namespace（含 playground），视为也监听了 agent-playground.X:Y
+  const reFullyQualified =
     /['"`]agent-playground\.([a-zA-Z][a-zA-Z0-9_-]*(?::[a-zA-Z][a-zA-Z0-9_-]*)+)['"`]/g;
+  // suffix-only：只允许合法事件 type 前缀（mission/stage/agent/budget/cost/tools/
+  //   iteration/publish/chapter/dimension/leader/critic/verifier/reconciliation），
+  //   排除 todo-ledger 内部 ID 如 'system:s3-researchers'
+  const ALLOWED_EVENT_PREFIXES =
+    "mission|stage|agent|budget|cost|tools|iteration|publish|chapter|dimension|leader|critic|verifier|reconciliation|dimensions|writer|topic";
+  const reSuffix = new RegExp(
+    `[=!]==?\\s*['"\`]((?:${ALLOWED_EVENT_PREFIXES}):[a-zA-Z][a-zA-Z0-9_-]*(?::[a-zA-Z][a-zA-Z0-9_-]*)*)['"\`]`,
+    "g",
+  );
   for (const d of dirs) {
     for (const file of walkTsFiles(d)) {
       const src = fs.readFileSync(file, "utf8");
       let m;
-      while ((m = re.exec(src)) !== null) {
+      while ((m = reFullyQualified.exec(src)) !== null) {
+        const ev = `${PLAYGROUND_PREFIX}${m[1]}`;
+        events.add(ev);
+        if (!source[ev]) source[ev] = [];
+        if (!source[ev].includes(file)) source[ev].push(file);
+      }
+      while ((m = reSuffix.exec(src)) !== null) {
         const ev = `${PLAYGROUND_PREFIX}${m[1]}`;
         events.add(ev);
         if (!source[ev]) source[ev] = [];
