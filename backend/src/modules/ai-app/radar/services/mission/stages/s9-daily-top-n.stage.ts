@@ -17,6 +17,7 @@
  */
 import { Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { PrismaService } from "@/common/prisma/prisma.service";
 import { RADAR_PIPELINE_DEFAULTS } from "../../../radar.constants";
 import type { RunRadarDailyBriefingMissionInput } from "../../../dto/run-radar-refresh-mission.dto";
 import type {
@@ -68,6 +69,7 @@ export class RadarS9DailyTopNStage implements RadarStageRunner {
     private readonly dailyRepo: RadarDailyBriefingRepo,
     private readonly signalEditor: SignalEditorService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly prisma: PrismaService,
   ) {}
 
   async run(args: RadarStageHookArgs, ctx: RadarMissionContext): Promise<void> {
@@ -98,6 +100,19 @@ export class RadarS9DailyTopNStage implements RadarStageRunner {
     const sourceMap = new Map(sources.map((s) => [s.id, s]));
 
     const stageAInputs: StageAInput[] = [];
+    // 跟踪 this-run 入选的 id，避免后面 DB 兜底重复加同一 item
+    const enrolledIds = new Set<string>();
+    // 同时收集 item 的 title/content/source 元数据给后面 signal-editor 用
+    const rawByItemId = new Map<
+      string,
+      {
+        title: string | null;
+        content: string | null;
+        publishedAt: Date;
+        sourceId: string;
+      }
+    >();
+
     uniqueItems.forEach((raw, idx) => {
       const itemId = newItemIds[idx];
       if (!itemId) return;
@@ -116,11 +131,75 @@ export class RadarS9DailyTopNStage implements RadarStageRunner {
         relevanceScore: rel.score,
         qualityScore: qual?.score,
       });
+      enrolledIds.add(itemId);
+      rawByItemId.set(itemId, {
+        title: raw.title,
+        content: raw.content,
+        publishedAt: raw.publishedAt,
+        sourceId: raw.sourceId,
+      });
     });
+
+    // R12 2026-05-19: DB 兜底 —— 用户痛点是「重复点重新精选都是 0 信号」，
+    // 因为 ctx.state.uniqueItems 只含 this run 新插入的 item。如果今天 RSS
+    // 没新内容，candidatePool=0 → no_signals → UI 永远 0 信号。
+    //
+    // 改：再查 DB 中 publishedAt 落在 briefingDate ±24h 内 + accepted=true
+    // 的 item，纳入 candidate pool。这样：
+    //  · 用户多次点 MANUAL 时 stage 状态稳定，不会因 dedup 把所有 item 都过滤
+    //    掉后 candidatePool 变 0
+    //  · "今日精选"语义改为「围绕 briefingDate 当日 publishedAt 的高质量
+    //    信号」，与日期对齐而非"this mission 新插入"
+    const windowFrom = new Date(briefingDate.getTime() - 24 * 60 * 60 * 1000);
+    const windowTo = new Date(briefingDate.getTime() + 24 * 60 * 60 * 1000);
+    const historicalItems = await this.prisma.radarItem.findMany({
+      where: {
+        topicId: input.topicId,
+        accepted: true,
+        publishedAt: { gte: windowFrom, lt: windowTo },
+      },
+      include: { source: true },
+    });
+    let historicalAdded = 0;
+    for (const dbItem of historicalItems) {
+      if (enrolledIds.has(dbItem.id)) continue;
+      // 用 DB 持久化的 relevanceScore / qualityScore（之前 S4/S5 已算）
+      if (
+        dbItem.relevanceScore == null ||
+        dbItem.relevanceScore < relevanceMin
+      ) {
+        continue;
+      }
+      stageAInputs.push({
+        item: {
+          id: dbItem.id,
+          publishedAt: dbItem.publishedAt,
+          metrics: dbItem.metrics ?? null,
+        },
+        source: {
+          id: dbItem.source.id,
+          authorityWeight: dbItem.source.authorityWeight,
+        },
+        relevanceScore: dbItem.relevanceScore,
+        qualityScore: dbItem.qualityScore ?? undefined,
+      });
+      enrolledIds.add(dbItem.id);
+      rawByItemId.set(dbItem.id, {
+        title: dbItem.title,
+        content: dbItem.content,
+        publishedAt: dbItem.publishedAt,
+        sourceId: dbItem.sourceId,
+      });
+      // 把 source 也补进 sourceMap 让 signal-editor 拿得到 label
+      if (!sourceMap.has(dbItem.source.id)) {
+        sourceMap.set(dbItem.source.id, dbItem.source);
+      }
+      historicalAdded++;
+    }
 
     const candidatePool = selectCandidatePool(stageAInputs);
     this.log.log(
-      `[${ctx.missionId}] S9 Stage A: ${stageAInputs.length} scored → ${candidatePool.length} candidates (threshold 0.55)`,
+      `[${ctx.missionId}] S9 Stage A: this-run=${enrolledIds.size - historicalAdded} historical=${historicalAdded} → ${stageAInputs.length} scored → ${candidatePool.length} candidates (threshold 0.55)`,
     );
 
     // 早期空候选 → 直接 no_signals
@@ -142,20 +221,8 @@ export class RadarS9DailyTopNStage implements RadarStageRunner {
       briefingDate,
     );
 
-    // 把 candidate 翻译成 SignalEditorInput.candidates 形态
-    const rawByItemId = new Map<
-      string,
-      { title: string | null; content: string | null; publishedAt: Date }
-    >();
-    uniqueItems.forEach((raw, idx) => {
-      const itemId = newItemIds[idx];
-      if (!itemId) return;
-      rawByItemId.set(itemId, {
-        title: raw.title,
-        content: raw.content,
-        publishedAt: raw.publishedAt,
-      });
-    });
+    // R12 2026-05-19: rawByItemId 已在 Stage A 期间填充（this-run + historical
+    // 兜底两批 item 一并入），不再重复构造。
 
     const keywords = Array.isArray(topic.keywords)
       ? (topic.keywords as string[]).filter((k) => typeof k === "string")
