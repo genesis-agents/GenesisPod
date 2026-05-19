@@ -18,11 +18,9 @@ import { LogIn, Share2, Link2, Bot, ShieldAlert } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
-import ContentsTab from '@/components/ai-social/ContentsTab';
-import ContentDetailDrawer from '@/components/ai-social/ContentDetailDrawer';
+import TasksTab from '@/components/ai-social/TasksTab';
 import {
   getConnections,
-  type SocialContent,
   type SocialPlatformConnection,
 } from '@/services/ai-social/api';
 import { logger } from '@/lib/utils/logger';
@@ -32,16 +30,12 @@ export default function AISocialPage() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  // PR-4: 单一视图 + slide-over drawer（替代旧 3 tab + 双发布路径）
-  const [drawerContent, setDrawerContent] = useState<SocialContent | null>(
-    null
-  );
+  // PR-V5: 意图驱动重设计 — 单一 TasksTab 列表 + NewTaskDialog 弹窗
+  // ContentDetailDrawer 移到 /mission/[taskId] 详情页（PR-V7），列表点击行 → 跳详情
   const [connections, setConnections] = useState<SocialPlatformConnection[]>(
     []
   );
-  const [refreshKey, setRefreshKey] = useState(0);
 
-  // 加载 connections 给 drawer 用（drawer 内部不重复请求）
   useEffect(() => {
     if (!user) return;
     void (async () => {
@@ -172,34 +166,10 @@ export default function AISocialPage() {
             </div>
           </div>
 
-          {/* 主视图 = 内容列表（点 row 开 drawer） */}
+          {/* 主视图 = 任务列表（点 row 跳 /mission/[taskId]）*/}
           <div className="p-8">
-            <ContentsTab
-              key={refreshKey}
-              onSelectContent={(content) => setDrawerContent(content)}
-            />
+            <TasksTab />
           </div>
-
-          {/* Slide-over drawer */}
-          {drawerContent && (
-            <>
-              <div
-                aria-hidden="true"
-                className="fixed inset-0 z-40 bg-gray-900/30"
-                onClick={() => setDrawerContent(null)}
-              />
-              <ContentDetailDrawer
-                key={drawerContent.id}
-                content={drawerContent}
-                connections={connections}
-                onClose={() => setDrawerContent(null)}
-                onMissionStarted={() => {
-                  // mission 启动后刷新列表（按状态过滤即时反映）
-                  setRefreshKey((k) => k + 1);
-                }}
-              />
-            </>
-          )}
         </main>
       </ErrorBoundary>
     </AppShell>

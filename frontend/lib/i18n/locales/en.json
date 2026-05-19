@@ -2820,6 +2820,42 @@
   "aiSocial": {
     "title": "AI Social",
     "subtitle": "Publish content to social platforms with AI",
+    "tasks": {
+      "create": "+ New Task",
+      "empty": "No tasks yet — click new to create your first publishing task",
+      "filter": { "all": "All" }
+    },
+    "newTask": {
+      "title": "New Social Publishing Task",
+      "dataSources": "Data sources",
+      "dataSourcesHelp": "Pick specific items from each module",
+      "pickedPreview": "Picked items ({n} / max {max})",
+      "addExternalUrl": "+ External URL",
+      "addPrompt": "+ Prompt",
+      "platforms": "Publish platforms (multi-select)",
+      "platformsHelp": "Each picked platform = independent version generated",
+      "launch": "🚀 Launch AI Teams",
+      "cancel": "Cancel",
+      "error": {
+        "noSource": "Pick at least one source item or external URL",
+        "noPlatform": "Pick at least one publish platform",
+        "urlInvalid": "Invalid URL",
+        "tooManyItems": "Reached cross-source limit of 20 items"
+      }
+    },
+    "mission": {
+      "back": "Back",
+      "progress": "Progress",
+      "publishAction": "Publish to Drafts",
+      "tabs": {
+        "todos": "Task list",
+        "flow": "Collaboration",
+        "report": "Report",
+        "references": "References",
+        "compute": "Compute usage",
+        "publish": "Publish"
+      }
+    },
     "signIn": {
       "title": "Please sign in",
       "description": "AI Social requires sign in with admin access.",

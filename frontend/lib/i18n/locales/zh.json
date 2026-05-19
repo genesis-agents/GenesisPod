@@ -2820,6 +2820,42 @@
   "aiSocial": {
     "title": "AI 社媒",
     "subtitle": "智能发布内容到社交平台",
+    "tasks": {
+      "create": "+ 新建任务",
+      "empty": "暂无任务，点击新建开始第一个发布任务",
+      "filter": { "all": "全部" }
+    },
+    "newTask": {
+      "title": "新建社媒发布任务",
+      "dataSources": "数据源",
+      "dataSourcesHelp": "点开各模块挑具体内容",
+      "pickedPreview": "已选内容预览（{n} 项 / 上限 {max}）",
+      "addExternalUrl": "+ 外部 URL",
+      "addPrompt": "+ 补充提示词",
+      "platforms": "发布平台（多选）",
+      "platformsHelp": "勾几个 = 生成几份独立版本",
+      "launch": "🚀 启动 AI Teams",
+      "cancel": "取消",
+      "error": {
+        "noSource": "至少选 1 项数据源或外部 URL",
+        "noPlatform": "至少选 1 个发布平台",
+        "urlInvalid": "URL 格式无效",
+        "tooManyItems": "已达跨源上限 20 项"
+      }
+    },
+    "mission": {
+      "back": "返回",
+      "progress": "进度",
+      "publishAction": "发布到草稿箱",
+      "tabs": {
+        "todos": "任务列表",
+        "flow": "协作动态",
+        "report": "输出报告",
+        "references": "参考文献",
+        "compute": "算力消耗",
+        "publish": "发布"
+      }
+    },
     "signIn": {
       "title": "请先登录",
       "description": "进入 AI Social 需要登录并拥有管理员权限。",
