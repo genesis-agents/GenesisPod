@@ -84,18 +84,19 @@ const AGENT_ICON: Record<string, LucideIcon> = {
 // ──────────────────────────────────────────────────────────────────────
 
 async function getRunWithRaceRetry(runId: string): Promise<RadarRun> {
-  let lastErr: unknown;
   for (let i = 0; i < 5; i++) {
     try {
       return await getRun(runId);
     } catch (e) {
-      lastErr = e;
       const msg = e instanceof Error ? e.message : '';
       if (!/404|not found/i.test(msg)) throw e;
       await new Promise((r) => setTimeout(r, 600));
     }
   }
-  throw lastErr instanceof Error ? lastErr : new Error('Run not found');
+  // R6: 3s 仍 404 —— mission row 异常未落库或 runId 真不存在。给用户可执行 hint
+  throw new Error(
+    `Mission 启动超时（3 秒内未落库）。可能后端启动异常或 runId 已失效，请刷新页面或返回主题页重试。`
+  );
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -198,11 +199,30 @@ export default function RadarMissionDetailPage() {
 
   const handleCancelConfirm = async () => {
     if (!run || run.status !== 'running') return;
+    const targetId = run.id;
     setCancelling(true);
     try {
-      await cancelRun(run.id);
+      await cancelRun(targetId);
       setCancelOpen(false);
-      await reload();
+      // R6 第二轮整改：cancel 后状态同步有两条路径需要兼顾：
+      //   1) 正常路径：dispatcher.abortMission 找到 in-memory session → finally
+      //      块 markCancelled + emit WS RUN_CANCELLED → onCancelled 回调 reload
+      //   2) no-session 路径（pod 重启 / session 驱逐）：controller 直接调
+      //      store.markCancelled 但**不发** WS 事件 → onCancelled 永不触发
+      // 单靠 WS 会让 no-session 场景 UI 永远卡"运行中"。轮询兜底直到 status 变化
+      // 或 5s 超时，与 WS 互不冲突（数据一致，多刷一次无害）。
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        try {
+          const fresh = await getRun(targetId);
+          if (fresh.status !== 'running') {
+            setRun(fresh);
+            break;
+          }
+        } catch {
+          // 短暂 race / 404，下次迭代再试；超时后退出循环
+        }
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -388,7 +408,15 @@ export default function RadarMissionDetailPage() {
                 }
               />
             )}
-            {tab === 'errors' && <ErrorsTab run={run} />}
+            {tab === 'errors' && (
+              <ErrorsTab
+                run={run}
+                onJumpToStage={(stageId) => {
+                  setSelectedStageId(stageId);
+                  setTab('tasks');
+                }}
+              />
+            )}
             {tab === 'metrics' && <MetricsTab run={run} />}
           </div>
         </section>
@@ -826,8 +854,12 @@ function StageTaskBoard({
                         <div className="line-clamp-1 text-sm font-medium text-gray-900">
                           {g.label}
                         </div>
-                        <p className="line-clamp-1 text-[11px] text-gray-500">
-                          {g.hint}
+                        {/* R6: 删 g.hint 静态文案（pm 评审：noise，应显动态副状态）
+                           动态副状态需要 per-stage metrics（耗时/输入数量）—— 等后端
+                           per-stage event store 落实再加。当前 stage 范围用 stages 字段
+                           的原子 id 拼接做轻量副信息，比 hint 信息密度高 */}
+                        <p className="font-mono line-clamp-1 text-[10.5px] text-gray-400">
+                          {g.stages.join(' → ')}
                         </p>
                       </div>
                     </div>
@@ -882,7 +914,13 @@ function StageTaskBoard({
 // Right Tab: Errors
 // ──────────────────────────────────────────────────────────────────────
 
-function ErrorsTab({ run }: { run: RadarRun }) {
+function ErrorsTab({
+  run,
+  onJumpToStage,
+}: {
+  run: RadarRun;
+  onJumpToStage: (stageId: string) => void;
+}) {
   const sourceErrors = run.metrics?.sourceErrors ?? [];
   if (!run.error && sourceErrors.length === 0) {
     return (
@@ -891,12 +929,48 @@ function ErrorsTab({ run }: { run: RadarRun }) {
       </div>
     );
   }
+
+  // R6: 找到中断点对应的 stage group —— failed/cancelled 时 lastDone+1 落在
+  //     哪个 group 就是中断点。Pm 反馈：失败时缺路径定位，用户不知道哪个 Agent 挂的。
+  const isTerminal = run.status === 'failed' || run.status === 'cancelled';
+  const breakpointStage = isTerminal
+    ? (STAGE_GROUPS.find(
+        (g) =>
+          (run.lastCompletedStage ?? 0) + 1 >= g.stageNumStart &&
+          (run.lastCompletedStage ?? 0) + 1 <= g.stageNumEnd
+      ) ?? null)
+    : null;
+
   return (
     <div className="flex flex-col gap-3">
+      {/* R6: 失败时顶部加"中断点定位"卡，点击跳转任务列表 + 自动打开 drawer */}
+      {breakpointStage && (
+        <section className="rounded-xl border border-red-300 bg-red-50 p-4">
+          <h3 className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-red-800">
+            <AlertCircle className="h-4 w-4" />
+            中断点：第 {breakpointStage.stageNumStart}
+            {breakpointStage.stageNumEnd !== breakpointStage.stageNumStart && (
+              <>-{breakpointStage.stageNumEnd}</>
+            )}
+            阶段「{breakpointStage.label}」
+          </h3>
+          <p className="text-xs leading-relaxed text-red-700">
+            Mission 在 Agent「{breakpointStage.agent.name}」处
+            {run.status === 'failed' ? '失败' : '被取消'}。
+          </p>
+          <button
+            type="button"
+            onClick={() => onJumpToStage(breakpointStage.id)}
+            className="mt-2 inline-flex items-center gap-1 rounded-md bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800 ring-1 ring-red-300 hover:bg-red-200"
+          >
+            跳转任务详情 →
+          </button>
+        </section>
+      )}
       {run.error && (
         <section className="rounded-xl border border-red-200 bg-red-50 p-4">
           <h3 className="mb-1 text-sm font-semibold text-red-800">
-            Mission 失败
+            原始错误信息
           </h3>
           <p className="text-xs leading-relaxed text-red-700">{run.error}</p>
         </section>
@@ -909,7 +983,9 @@ function ErrorsTab({ run }: { run: RadarRun }) {
           <ul className="flex flex-col gap-1.5">
             {sourceErrors.map((e, i) => (
               <li key={`${e.sourceId}-${i}`} className="text-xs text-amber-700">
-                <span className="font-mono">{e.sourceId.slice(0, 8)}</span>
+                <span className="font-mono">
+                  {e.sourceId?.slice(0, 8) ?? '(unknown)'}
+                </span>
                 {' — '}
                 {e.error}
               </li>

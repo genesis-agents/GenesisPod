@@ -224,7 +224,9 @@ export function StageTaskDrawer({ run, stage, currentStage, onClose }: Props) {
                   key={`${e.sourceId}-${i}`}
                   className="text-xs text-amber-700"
                 >
-                  <span className="font-mono">{e.sourceId.slice(0, 8)}</span>
+                  <span className="font-mono">
+                    {e.sourceId?.slice(0, 8) ?? '(unknown)'}
+                  </span>
                   {' — '}
                   {e.error}
                 </li>

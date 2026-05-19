@@ -150,6 +150,11 @@ export function stageGroupStatus(
   //   completed 状态的语义就是「全部 8 stage 跑完了」，可以无视字段缺失。
   if (run.status === 'completed') return 'completed';
 
+  // ★ 2026-05-18 R6: rejected 显式分支 —— 预算闸 / 入口限额阶段被拒绝，
+  //   没真跑任何 stage，全部 pending。原实现靠隐式 fallthrough 到末尾
+  //   return 'pending'，对维护者不明显，未来修改可能误触。
+  if (run.status === 'rejected') return 'pending';
+
   const lastDone = run.lastCompletedStage ?? 0;
   if (lastDone >= group.stageNumEnd) return 'completed';
   if (run.status === 'failed') {
@@ -206,10 +211,12 @@ export function formatDuration(ms: number | null): string {
 
 export function formatDateTime(iso: string | null): string {
   if (!iso) return '—';
-  // 避免 toLocaleString —— SSR/CSR hydration 差异
+  // R6: SSR (UTC) 与 CSR (用户时区) hydration mismatch ——
+  // getMonth/getHours 是本地时区，服务器渲染时是 UTC，客户端 hydrate 时用本地，
+  // React 会报 hydration mismatch + 闪烁。统一用 UTC 方法保证两端字节级一致。
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
 }
 
 export function statusLabel(s: RadarRunStatus): string {

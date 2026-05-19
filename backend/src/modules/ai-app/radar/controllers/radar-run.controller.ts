@@ -20,6 +20,7 @@ import {
   NotFoundException,
   Param,
   ParseIntPipe,
+  ParseUUIDPipe,
   Post,
   Query,
   Request,
@@ -69,10 +70,24 @@ export class RadarRunController {
    * 单 run 详情（mission 详情页用）。
    *
    * 返回完整 RadarRun 行（含 metrics JSON / lastCompletedStage / error）。
-   * ownership 校验由 store.getById 内置 userId 过滤完成。
+   *
+   * 安全：
+   * 1. ParseUUIDPipe(v4) 拒绝非 UUID 格式 path param，与 favorite controller 一致
+   * 2. ownership 校验由 store.getById 内 `row.userId !== userId → null` 完成
+   * 3. ownership 失败 / 不存在 故意返回同一 NotFoundException("Run not found")
+   *    —— 防止枚举攻击（让攻击者无法通过 message 区分"runId 存在但越权"和"不存在"）
+   * 4. @RateLimit 60/60s 防止高频轮询枚举 UUID 或对 DB 造成压力
    */
   @Get("runs/:runId")
-  async getOne(@Request() req: RequestWithUser, @Param("runId") runId: string) {
+  @RateLimit({
+    maxRequests: 60,
+    windowSeconds: 60,
+    message: "查询过于频繁",
+  })
+  async getOne(
+    @Request() req: RequestWithUser,
+    @Param("runId", new ParseUUIDPipe({ version: "4" })) runId: string,
+  ) {
     const run = await this.store.getById(runId, req.user.id);
     if (!run) throw new NotFoundException("Run not found");
     return run;
@@ -191,7 +206,10 @@ export class RadarRunController {
     windowSeconds: 60,
     message: "取消操作过于频繁",
   })
-  async cancel(@Request() req: RequestWithUser, @Param("runId") runId: string) {
+  async cancel(
+    @Request() req: RequestWithUser,
+    @Param("runId", new ParseUUIDPipe({ version: "4" })) runId: string,
+  ) {
     const run = await this.store.getById(runId, req.user.id);
     if (!run) throw new NotFoundException("Run not found");
     if (run.status !== "running") {
