@@ -185,9 +185,20 @@ export interface RadarRun {
   /** 最后完成的 stage 编号（1-8）—— mission resume / 进度展示用 */
   lastCompletedStage?: number | null;
   metrics: {
+    /** 从 collector 拉到的原始 item 总数 */
     itemsFetched?: number;
+    /**
+     * S3 dedupe 移除的"历史重复"item 数（rawItems - newItems，
+     * **不是**剩余数）。正确剩余 = itemsFetched - itemsDeduped。
+     */
     itemsDeduped?: number;
+    /**
+     * S3 新插入到 RadarItem 表的 item 数（= 去重后剩余）。
+     * 注意：插入 ≠ 最终入选。评分 / 质量门槛由 itemsAccepted 反映。
+     */
     itemsInserted?: number;
+    /** S8 最终通过相关性+质量门槛的 item 数（accepted=true） */
+    itemsAccepted?: number;
     sourcesAttempted?: number;
     sourcesFailed?: number;
     sourceErrors?: Array<{ sourceId: string; error: string }>;

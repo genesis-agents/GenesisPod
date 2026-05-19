@@ -272,8 +272,20 @@ function DropAttributionSection({ run }: { run: RadarRun }) {
   const droppedAtRelevance = m?.droppedAtRelevance ?? 0;
   const droppedAtQuality = m?.droppedAtQuality ?? 0;
   const totalDropped = droppedAtRelevance + droppedAtQuality;
+  // R10.5 2026-05-19: 区分"没有任何 item 进入评分"vs"评分阶段无淘汰"
+  // 用户痛点：抓 1 → 重复 1 → 入库 0，drawer 错误显示"无 item 被淘汰"
+  // 但视觉上明明丢了 1 条。区分历史去重 vs 评分淘汰，给两种不同提示文案。
+  const fetched = m?.itemsFetched ?? 0;
+  const removedAsDup = m?.itemsDeduped ?? 0;
+  const enteredScoring =
+    m?.itemsInserted ?? Math.max(0, fetched - removedAsDup);
 
-  if (!thresholds && dropped.length === 0 && totalDropped === 0) {
+  if (
+    !thresholds &&
+    dropped.length === 0 &&
+    totalDropped === 0 &&
+    fetched === 0
+  ) {
     return null;
   }
 
@@ -318,7 +330,16 @@ function DropAttributionSection({ run }: { run: RadarRun }) {
           )}
         </ul>
       ) : totalDropped === 0 ? (
-        <p className="text-xs text-gray-500">本次 mission 无 item 被淘汰。</p>
+        enteredScoring === 0 && removedAsDup > 0 ? (
+          <p className="text-xs leading-relaxed text-gray-600">
+            本次抓取的 {removedAsDup} 条内容全部是历史已存在的旧 item，
+            没有新内容进入评分阶段，评分阶段无淘汰发生。
+          </p>
+        ) : (
+          <p className="text-xs text-gray-500">
+            评分阶段无 item 被淘汰（全部通过相关性 + 质量门槛）。
+          </p>
+        )
       ) : (
         <p className="text-xs text-gray-500">
           淘汰计数已记录但清单为空（旧版 run，请等下一次刷新）。

@@ -443,7 +443,9 @@ export default function RadarMissionDetailPage() {
 
 function CompactMeters({ run }: { run: RadarRun }) {
   const m = run.metrics;
-  const inserted = m?.itemsInserted ?? 0;
+  // R10.5: 入库的真正含义是「最终通过精选门槛」= itemsAccepted；
+  // itemsInserted 仅是「插入 DB」的中间数（含被评分淘汰的）。老 run fallback。
+  const accepted = m?.itemsAccepted ?? m?.itemsInserted ?? 0;
   const fetched = m?.itemsFetched ?? 0;
   return (
     <div className="hidden items-center gap-3 px-2 text-[11px] text-gray-500 lg:flex">
@@ -453,7 +455,7 @@ function CompactMeters({ run }: { run: RadarRun }) {
       </span>
       <span className="inline-flex items-center gap-1">
         <Check className="h-3 w-3" />
-        入库 <span className="font-semibold text-emerald-600">{inserted}</span>
+        入库 <span className="font-semibold text-emerald-600">{accepted}</span>
       </span>
       {run.durationMs != null && (
         <span className="inline-flex items-center gap-1">
@@ -555,10 +557,23 @@ function RadarTeamPanel({
             danger={(run.metrics?.sourcesFailed ?? 0) > 0}
           />
           <MetricStat label="抓取" value={run.metrics?.itemsFetched ?? 0} />
-          <MetricStat label="去重后" value={run.metrics?.itemsDeduped ?? 0} />
+          {/* R10.5: 去重后 = fetched - 移除重复（itemsDeduped 是移除数不是剩余数） */}
+          <MetricStat
+            label="去重后"
+            value={
+              run.metrics?.itemsInserted ??
+              Math.max(
+                0,
+                (run.metrics?.itemsFetched ?? 0) -
+                  (run.metrics?.itemsDeduped ?? 0)
+              )
+            }
+          />
           <MetricStat
             label="入库"
-            value={run.metrics?.itemsInserted ?? 0}
+            value={
+              run.metrics?.itemsAccepted ?? run.metrics?.itemsInserted ?? 0
+            }
             highlight
           />
           <MetricStat label="耗时" value={formatDuration(run.durationMs)} />
@@ -858,20 +873,30 @@ function StageTaskBoard({
 function DataFlowWaterfall({ run }: { run: RadarRun }) {
   const m = run.metrics;
   if (!m) return null;
+  // ── R10.5 2026-05-19: 修语义混淆 ──────────────────────────────────────
+  // backend 字段实际含义（看 s3-dedupe / s8-persist 源码）：
+  //   itemsFetched   = collector 拉的原始数
+  //   itemsDeduped   = 被识别为"历史已存在"从而**移除**的重复数
+  //   itemsInserted  = 通过 dedup 真正插入到 DB 的新 item 数（= 进评分阶段的入参）
+  //   itemsAccepted  = 经评分+质量门槛后最终通过的 item 数（=「入库」的真正含义）
+  // 旧 UI 把 itemsDeduped 当"去重后剩余"用、把 itemsInserted 当"入库最终数"用，
+  // 都是误读。这里改成 surviving-count 语义。
   const fetched = m.itemsFetched ?? 0;
-  const deduped = m.itemsDeduped ?? 0;
-  const inserted = m.itemsInserted ?? 0;
-  // R10 2026-05-19: 拆分相关性/质量两阶段流失（S8 metrics.droppedAt* 写入）
-  // 老 run 没这俩字段 → 合并 fallback 到 deduped-inserted。
-  const lostDedupe = Math.max(0, fetched - deduped);
+  const removedAsDup = m.itemsDeduped ?? 0;
+  const enteredScoring = m.itemsInserted ?? Math.max(0, fetched - removedAsDup);
+  const accepted = m.itemsAccepted ?? m.itemsInserted ?? 0;
+
   const droppedAtRelevance = m.droppedAtRelevance;
   const droppedAtQuality = m.droppedAtQuality;
-  const splitAvailable =
+  const hasSplit =
     droppedAtRelevance !== undefined && droppedAtQuality !== undefined;
-  const lostScoreFallback = Math.max(0, deduped - inserted);
+  const passedRelevance = Math.max(
+    0,
+    enteredScoring - (droppedAtRelevance ?? 0)
+  );
+  const lostScoreFallback = Math.max(0, enteredScoring - accepted);
 
-  // 全 0 时不显示（mission 还没跑 / pending 阶段）
-  if (fetched === 0 && inserted === 0 && deduped === 0) return null;
+  if (fetched === 0 && accepted === 0 && removedAsDup === 0) return null;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3">
@@ -881,16 +906,12 @@ function DataFlowWaterfall({ run }: { run: RadarRun }) {
       </div>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         <FlowNode label="抓取" value={fetched} tone="blue" />
-        <FlowArrow lost={lostDedupe} reason="重复内容" />
-        <FlowNode label="去重后" value={deduped} tone="sky" />
-        {splitAvailable ? (
+        <FlowArrow lost={removedAsDup} reason="历史已存在" />
+        <FlowNode label="去重后" value={enteredScoring} tone="sky" />
+        {hasSplit ? (
           <>
             <FlowArrow lost={droppedAtRelevance ?? 0} reason="相关性 < 门槛" />
-            <FlowNode
-              label="评分通过"
-              value={deduped - (droppedAtRelevance ?? 0)}
-              tone="sky"
-            />
+            <FlowNode label="评分通过" value={passedRelevance} tone="sky" />
             <FlowArrow lost={droppedAtQuality ?? 0} reason="质量分 < 门槛" />
           </>
         ) : (
@@ -898,16 +919,17 @@ function DataFlowWaterfall({ run }: { run: RadarRun }) {
         )}
         <FlowNode
           label="入库"
-          value={inserted}
-          tone={inserted > 0 ? 'emerald' : 'gray'}
+          value={accepted}
+          tone={accepted > 0 ? 'emerald' : 'gray'}
         />
       </div>
-      {fetched > 0 && inserted === 0 && (
+      {fetched > 0 && accepted === 0 && (
         <p className="mt-2 inline-flex items-start gap-1 text-[11px] leading-relaxed text-amber-700">
           <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" />
           <span>
-            抓取了 {fetched} 条但 0 条入库。点击下方表格「评分」行查看每条
-            被淘汰 item 的具体得分和原因。
+            {enteredScoring === 0
+              ? `抓取的 ${fetched} 条全部是历史已存在内容（未变化），没有新内容进入评分阶段。`
+              : `${enteredScoring} 条新内容进入评分但未通过门槛，点击下方表格「评分」行查看每条被淘汰 item 的得分。`}
           </span>
         </p>
       )}
@@ -1054,12 +1076,18 @@ function ErrorsTab({
 
 function MetricsTab({ run }: { run: RadarRun }) {
   const m = run.metrics;
+  const fetched = m?.itemsFetched ?? 0;
+  const removedAsDup = m?.itemsDeduped ?? 0;
+  const enteredScoring =
+    m?.itemsInserted ?? Math.max(0, fetched - removedAsDup);
+  const accepted = m?.itemsAccepted ?? m?.itemsInserted ?? 0;
   const stats: { label: string; value: string }[] = [
     { label: '尝试源数', value: String(m?.sourcesAttempted ?? 0) },
     { label: '失败源数', value: String(m?.sourcesFailed ?? 0) },
-    { label: '抓取条数', value: String(m?.itemsFetched ?? 0) },
-    { label: '去重后剩余', value: String(m?.itemsDeduped ?? 0) },
-    { label: '入库条数', value: String(m?.itemsInserted ?? 0) },
+    { label: '抓取条数', value: String(fetched) },
+    { label: '历史重复', value: String(removedAsDup) },
+    { label: '去重后剩余', value: String(enteredScoring) },
+    { label: '入库条数', value: String(accepted) },
     { label: '总耗时', value: formatDuration(run.durationMs) },
     {
       label: '阶段进度',

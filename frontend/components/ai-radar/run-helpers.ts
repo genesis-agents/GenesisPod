@@ -15,6 +15,7 @@ export type StageMetricKey =
   | 'itemsFetched'
   | 'itemsDeduped'
   | 'itemsInserted'
+  | 'itemsAccepted'
   | 'sourcesAttempted'
   | 'sourcesFailed';
 
@@ -71,7 +72,10 @@ export const STAGE_GROUPS: ReadonlyArray<StageGroup> = [
       description: '对抓取到的 item 按 URL / 内容哈希去重',
       usesLLM: false,
     },
-    metricKey: 'itemsDeduped',
+    // R10.5 2026-05-19: 修语义混淆 —— 旧 metricKey=itemsDeduped 实际是"被
+    // 去重移除的重复数"，前台展示为"去重后剩余"产生 user 困惑。改用
+    // itemsInserted 反映"进入评分阶段的剩余 item 数"（= 真正的 dedup 之后）。
+    metricKey: 'itemsInserted',
     metricLabel: '去重后剩余',
   },
   {
@@ -115,7 +119,9 @@ export const STAGE_GROUPS: ReadonlyArray<StageGroup> = [
       description: '挑出 N 条今日精选，落库到 daily briefing',
       usesLLM: false,
     },
-    metricKey: 'itemsInserted',
+    // R10.5 2026-05-19: 旧 metricKey=itemsInserted 实际是"插入 DB 数"，
+    // 不等于"最终通过精选门槛的数"。改 itemsAccepted（s8 在评分后才置位）。
+    metricKey: 'itemsAccepted',
     metricLabel: '入库条数',
   },
 ];
