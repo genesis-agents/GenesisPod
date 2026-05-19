@@ -52,6 +52,7 @@ import { StageTaskDrawer } from '@/components/ai-radar/StageTaskDrawer';
 import {
   STAGE_GROUPS,
   agentRoleTone,
+  effectiveLastCompletedStage,
   formatDateTime,
   formatDuration,
   stageGroupStatus,
@@ -505,7 +506,7 @@ function RadarTeamPanel({
   currentStage: string | null;
   onAgentClick: (stageId: string) => void;
 }) {
-  const lastDone = run.lastCompletedStage ?? 0;
+  const lastDone = effectiveLastCompletedStage(run);
   const totalStages = 8;
   const progressPct = Math.min(100, Math.round((lastDone / totalStages) * 100));
 
@@ -935,7 +936,7 @@ function MetricsTab({ run }: { run: RadarRun }) {
     { label: '总耗时', value: formatDuration(run.durationMs) },
     {
       label: '阶段进度',
-      value: `${run.lastCompletedStage ?? 0}/8`,
+      value: `${effectiveLastCompletedStage(run)}/8`,
     },
     { label: '触发方式', value: `${triggerLabel(run.trigger)}触发` },
   ];

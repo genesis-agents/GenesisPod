@@ -130,17 +130,26 @@ export type StageState =
 /**
  * 计算 stage group 在某次 run 里的视觉状态。
  *
- * - completed: lastCompletedStage >= group.stageNumEnd
- * - running:   run.status==='running' 且 (currentStage 落在 group 内 或 lastDone+1 落在 group 起始)
- * - failed:    run.status==='failed' 且 lastDone+1 落在 group 内（即中断点）
- * - cancelled: run.status==='cancelled' 且 lastDone+1 落在 group 内（中断点配色不同）
- * - pending:   其他
+ * - run.status='completed'  → 所有 stage 都 completed（mission 整体成功 ⇒ 8 个
+ *   原子 stage 必然全跑完，即便 lastCompletedStage 字段历史缺失也强制满）
+ * - run.status='failed':    lastDone+1 落在本 group 内 → failed；落本 group 之前
+ *   → completed；落之后 → pending
+ * - run.status='cancelled': 同 failed 逻辑，仅替换 failed 标签为 cancelled
+ * - run.status='running':   currentStage 落本 group 内 / lastDone+1 落本 group 起始 → running;
+ *   lastDone >= stageNumEnd → completed; 否则 pending
+ * - run.status='rejected':  全部 pending（mission 在预算闸前被拒绝，没真跑）
  */
 export function stageGroupStatus(
   run: RadarRun,
   group: StageGroup,
   currentStage: string | null
 ): StageState {
+  // ★ Hotfix 2026-05-18：mission 终态完成 → 所有 stage 视为已完成。
+  //   原实现只看 lastCompletedStage 字段，老 mission 该字段为 null → 全部
+  //   走到 pending 分支，导致历史 run 详情页所有 Agent 显示"待执行"。
+  //   completed 状态的语义就是「全部 8 stage 跑完了」，可以无视字段缺失。
+  if (run.status === 'completed') return 'completed';
+
   const lastDone = run.lastCompletedStage ?? 0;
   if (lastDone >= group.stageNumEnd) return 'completed';
   if (run.status === 'failed') {
@@ -170,6 +179,16 @@ export function stageGroupStatus(
       return 'running';
   }
   return 'pending';
+}
+
+/**
+ * 派生 "已完成的 stage 数"（用于 Mission Progress 进度条 N/8）。
+ *
+ * 同步处理 status='completed' 但 lastCompletedStage=null（老历史数据）场景。
+ */
+export function effectiveLastCompletedStage(run: RadarRun): number {
+  if (run.status === 'completed') return 8;
+  return run.lastCompletedStage ?? 0;
 }
 
 // ──────────────────────────────────────────────────────────────────────
