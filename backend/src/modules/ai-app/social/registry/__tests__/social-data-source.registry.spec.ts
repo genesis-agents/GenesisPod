@@ -59,6 +59,39 @@ describe("SocialDataSourceRegistry", () => {
       expect(descriptors[0].displayName["zh-CN"]).toBe("来源library");
     });
 
+    /**
+     * 2026-05-19 prod 事故：真实 provider 类用 constructor 注入 PrismaService，
+     *   `{...desc}` 把 prismaService 也带出去，JSON.stringify 撞 _originalClient 循环引用。
+     *   单测必须模拟"有注入字段"的真实场景。
+     */
+    it("listDescriptors() only returns the 6 descriptor fields — no injected deps leak", () => {
+      const fakePrisma = { _originalClient: null as unknown };
+      fakePrisma._originalClient = fakePrisma; // 循环引用
+      const srcWithInjected = {
+        ...makeSource("real-like"),
+        // 模拟真实 provider 类被实例化后会有的字段
+        prismaService: fakePrisma,
+        logger: { log: () => {} },
+      };
+      registry.register(srcWithInjected as unknown as SocialDataSource);
+
+      const descriptors = registry.listDescriptors();
+      expect(descriptors).toHaveLength(1);
+
+      // 必须只有 SocialDataSourceDescriptor 的字段，不能有任何注入泄漏
+      expect(Object.keys(descriptors[0]).sort()).toEqual([
+        "contentKinds",
+        "description",
+        "displayName",
+        "icon",
+        "id",
+        "maxItemsPerTask",
+      ]);
+
+      // 必须可以 JSON 序列化（这是 NestJS 自动 serialize 给前端的最终步骤）
+      expect(() => JSON.stringify(descriptors)).not.toThrow();
+    });
+
     it("get() returns undefined for unknown id", () => {
       expect(registry.get("nonexistent")).toBeUndefined();
     });

@@ -101,9 +101,20 @@ export class SocialDataSourceRegistry implements OnApplicationBootstrap {
     return Array.from(this.sources.values());
   }
 
+  /**
+   * 2026-05-19 修：spread `...desc` 会把 provider 实例上注入的字段（如 prismaService、
+   *   logger 等）一并带出，导致 JSON.stringify 撞到 PrismaService._originalClient 循环引用
+   *   ——这是 prod 上"数据添加加载失败 Converting circular structure to JSON"的根因。
+   * 修复：只显式 pick SocialDataSourceDescriptor 的 6 个字段。
+   */
   listDescriptors(): SocialDataSourceDescriptor[] {
-    return this.list().map(
-      ({ listItems: _l, fetchBundle: _f, ...desc }) => desc,
-    );
+    return this.list().map((src) => ({
+      id: src.id,
+      displayName: src.displayName,
+      icon: src.icon,
+      description: src.description,
+      contentKinds: src.contentKinds,
+      maxItemsPerTask: src.maxItemsPerTask,
+    }));
   }
 }
