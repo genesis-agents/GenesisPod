@@ -42,7 +42,6 @@ import {
   cancelRun,
   getRun,
   getTopic,
-  listRuns,
   triggerRefresh,
 } from '@/services/ai-radar/api';
 import type { RadarRun, RadarTopicWithCounts } from '@/services/ai-radar/types';
@@ -122,8 +121,6 @@ export default function RadarMissionDetailPage() {
 
   const [topic, setTopic] = useState<RadarTopicWithCounts | null>(null);
   const [run, setRun] = useState<RadarRun | null>(null);
-  // 历史 mission 切换器（最近 10 次）
-  const [missionHistory, setMissionHistory] = useState<RadarRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>('tasks');
@@ -161,14 +158,12 @@ export default function RadarMissionDetailPage() {
     setLoading(true);
     setErr(null);
     try {
-      const [t, r, history] = await Promise.all([
+      const [t, r] = await Promise.all([
         getTopic(topicId),
         getRunWithRaceRetry(runId),
-        listRuns(topicId, 10),
       ]);
       setTopic(t);
       setRun(r);
-      setMissionHistory(history);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally {
@@ -335,16 +330,8 @@ export default function RadarMissionDetailPage() {
         </div>
       </header>
 
-      {/* Mission 切换器（最近历史） */}
-      {missionHistory.length > 1 && (
-        <MissionSwitcher
-          history={missionHistory}
-          currentRunId={run.id}
-          onSelect={(r) =>
-            router.replace(`/ai-radar/topic/${topicId}/runs/${r.id}`)
-          }
-        />
-      )}
+      {/* R9 2026-05-19: MissionSwitcher chip 列表已删 —— 用户反馈"太土，没意义"。
+          切历史 run 走 topic 主页「查看详情·历史运行」按钮路径已足够。 */}
 
       {/* Main flex */}
       <div className="flex flex-1 overflow-hidden">
@@ -449,49 +436,6 @@ export default function RadarMissionDetailPage() {
 // ──────────────────────────────────────────────────────────────────────
 // Mission switcher — 紧凑 chip 列表（最近 N 次 mission，点击切 URL）
 // ──────────────────────────────────────────────────────────────────────
-
-function MissionSwitcher({
-  history,
-  currentRunId,
-  onSelect,
-}: {
-  history: RadarRun[];
-  currentRunId: string;
-  onSelect: (r: RadarRun) => void;
-}) {
-  return (
-    <div className="border-b border-gray-200 bg-gray-50/60 px-4 py-2">
-      <div className="scrollbar-thin flex items-center gap-2 overflow-x-auto">
-        <span className="text-[11px] font-medium text-gray-500">
-          最近 Mission
-        </span>
-        {history.map((r, idx) => {
-          const isCurrent = r.id === currentRunId;
-          return (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => onSelect(r)}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition-colors ${
-                isCurrent
-                  ? 'bg-violet-100 text-violet-700 ring-violet-300'
-                  : 'bg-white text-gray-600 ring-gray-200 hover:bg-gray-100'
-              }`}
-              title={`${formatDateTime(r.startedAt)} · ${statusLabel(r.status)}`}
-            >
-              {r.status === 'running' && (
-                <Loader2 className="h-3 w-3 animate-spin text-violet-500" />
-              )}
-              <span>#{history.length - idx}</span>
-              <span className="text-gray-400">·</span>
-              <span>{formatDateTime(r.startedAt)}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 // ──────────────────────────────────────────────────────────────────────
 // CompactMeters — tab bar 右侧的紧凑指标（仿 playground 风格）
@@ -774,6 +718,11 @@ function StageTaskBoard({
         </div>
       </div>
 
+      {/* R9 2026-05-19: 数据流瀑布 —— 让用户一眼看出 item 在哪个 stage 流失。
+          用户痛点："抓取 1 → 去重 1 → 入库 0，中间没有任何原因就丢了"。
+          这条 bar 显式标出"评分淘汰 N 条"。 */}
+      <DataFlowWaterfall run={run} />
+
       {/* Table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
         <table className="w-full table-fixed">
@@ -854,10 +803,6 @@ function StageTaskBoard({
                         <div className="line-clamp-1 text-sm font-medium text-gray-900">
                           {g.label}
                         </div>
-                        {/* R6: 删 g.hint 静态文案（pm 评审：noise，应显动态副状态）
-                           动态副状态需要 per-stage metrics（耗时/输入数量）—— 等后端
-                           per-stage event store 落实再加。当前 stage 范围用 stages 字段
-                           的原子 id 拼接做轻量副信息，比 hint 信息密度高 */}
                         <p className="font-mono line-clamp-1 text-[10.5px] text-gray-400">
                           {g.stages.join(' → ')}
                         </p>
@@ -907,6 +852,99 @@ function StageTaskBoard({
         查看该 Agent 任务的详细执行情况
       </p>
     </div>
+  );
+}
+
+function DataFlowWaterfall({ run }: { run: RadarRun }) {
+  const m = run.metrics;
+  if (!m) return null;
+  const fetched = m.itemsFetched ?? 0;
+  const deduped = m.itemsDeduped ?? 0;
+  const inserted = m.itemsInserted ?? 0;
+  // 流失推算：
+  // - dedupe 流失: fetched - deduped（重复内容）
+  // - score+enrich 流失: deduped - inserted（评分/质量/实体阶段被淘汰）
+  //   ※ 无法分离 score / enrich / finalize 三个 stage 的具体流失数，
+  //     因为 RadarRun.metrics 没拆 per-stage —— 合并展示。
+  const lostDedupe = Math.max(0, fetched - deduped);
+  const lostScore = Math.max(0, deduped - inserted);
+
+  // 全 0 时不显示（mission 还没跑 / pending 阶段）
+  if (fetched === 0 && inserted === 0 && deduped === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3">
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+        <Database className="h-3 w-3" />
+        数据流瀑布
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <FlowNode label="抓取" value={fetched} tone="blue" />
+        <FlowArrow lost={lostDedupe} reason="重复内容" />
+        <FlowNode label="去重后" value={deduped} tone="sky" />
+        <FlowArrow lost={lostScore} reason="评分 / 质量 / 实体阶段淘汰" />
+        <FlowNode
+          label="入库"
+          value={inserted}
+          tone={inserted > 0 ? 'emerald' : 'gray'}
+        />
+      </div>
+      {fetched > 0 && inserted === 0 && (
+        <p className="mt-2 inline-flex items-start gap-1 text-[11px] leading-relaxed text-amber-700">
+          <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" />
+          <span>
+            抓取了 {fetched} 条但 0 条入库。可能原因：相关性 / 质量分低于阈值
+            被淘汰，或实体抽取失败。点击下方表格"评分"或"实体抽取"行查看详情。
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FlowNode({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: 'blue' | 'sky' | 'emerald' | 'gray';
+}) {
+  const cls =
+    tone === 'blue'
+      ? 'bg-blue-100 text-blue-700 ring-blue-200'
+      : tone === 'sky'
+        ? 'bg-sky-100 text-sky-700 ring-sky-200'
+        : tone === 'emerald'
+          ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+          : 'bg-gray-100 text-gray-500 ring-gray-200';
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-medium ring-1 ${cls}`}
+    >
+      <span className="text-[10.5px]">{label}</span>
+      <span className="font-mono text-sm">{value}</span>
+    </span>
+  );
+}
+
+function FlowArrow({ lost, reason }: { lost: number; reason: string }) {
+  if (lost === 0) {
+    return <span className="text-gray-400">→</span>;
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[11px] text-red-600"
+      title={`流失 ${lost} 条：${reason}`}
+    >
+      <span className="text-gray-400">→</span>
+      <span className="font-mono rounded bg-red-50 px-1 py-0.5 font-medium ring-1 ring-red-200">
+        −{lost}
+      </span>
+      <span className="text-gray-500">{reason}</span>
+      <span className="text-gray-400">→</span>
+    </span>
   );
 }
 
