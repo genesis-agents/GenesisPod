@@ -146,6 +146,24 @@ export class RadarTopicService {
     }
     if (dto.refreshCron !== undefined) data.refreshCron = dto.refreshCron;
 
+    // 2026-05-19 R10：原 update 静默丢 PR-DR2 6 个 briefing 字段，用户改完
+    // 「每日精选数量 / 信号类型 / 输出语言 / 推送方式 / 精选时间 / 周末跳过」
+    // 保存后页面回显原值 —— 因为 service 根本没读这几个字段。
+    if (dto.briefingTime !== undefined) data.briefingTime = dto.briefingTime;
+    if (dto.briefingTimezone !== undefined)
+      data.briefingTimezone = dto.briefingTimezone;
+    if (dto.signalsTarget !== undefined) data.signalsTarget = dto.signalsTarget;
+    if (dto.signalTypes !== undefined) data.signalTypes = dto.signalTypes;
+    if (dto.weekendSkip !== undefined) data.weekendSkip = dto.weekendSkip;
+    if (dto.outputLanguage !== undefined)
+      data.outputLanguage = dto.outputLanguage;
+    if (dto.pushConfig !== undefined) {
+      data.pushConfig =
+        dto.pushConfig === null
+          ? Prisma.JsonNull
+          : (dto.pushConfig as Prisma.InputJsonValue);
+    }
+
     return this.prisma.radarTopic.update({ where: { id: topicId }, data });
   }
 
