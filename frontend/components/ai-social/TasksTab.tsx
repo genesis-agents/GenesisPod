@@ -17,7 +17,6 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  Eye,
   Send,
   RotateCw,
   ExternalLink,
@@ -26,6 +25,15 @@ import {
   XCircle,
   AlertTriangle,
   Inbox,
+  BookMarked,
+  Compass,
+  FlaskConical,
+  PenLine,
+  FileText,
+  Lightbulb,
+  Bot,
+  Link2,
+  ChevronRight,
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import {
@@ -109,6 +117,24 @@ function StatusPill({ status }: { status: SocialContentTaskStatus }) {
   );
 }
 
+// 后端 7 个 data source 的 sourceType → 友好显示
+const SOURCE_TYPE_META: Record<
+  string,
+  { label: string; Icon: typeof BookMarked }
+> = {
+  AI_LIBRARY: { label: '我的知识库', Icon: BookMarked },
+  AI_EXPLORE: { label: 'AI 探索', Icon: Compass },
+  AI_RESEARCH: { label: 'AI 研究', Icon: FlaskConical },
+  AI_WRITING: { label: 'AI 写作', Icon: PenLine },
+  AI_OFFICE: { label: 'AI Office', Icon: FileText },
+  AI_TOPIC_INSIGHTS: { label: '专题洞察', Icon: Lightbulb },
+  AI_PLAYGROUND: { label: 'Agent 实验场', Icon: Bot },
+};
+
+function getSourceMeta(sourceType: string) {
+  return SOURCE_TYPE_META[sourceType] ?? { label: sourceType, Icon: FileText };
+}
+
 function formatRelative(dateStr: string): string {
   const d = new Date(dateStr);
   const diff = Date.now() - d.getTime();
@@ -132,75 +158,119 @@ function TaskRow({
   onCancel: () => void;
 }) {
   const canCancel = task.status === 'PENDING' || task.status === 'GENERATING';
-  const canRetry = task.status === 'FAILED' || task.status === 'PARTIAL_PUBLISHED';
+  const canRetry =
+    task.status === 'FAILED' || task.status === 'PARTIAL_PUBLISHED';
   const externalUrls = (task.versions ?? [])
     .filter((v) => v.externalUrl)
     .map((v) => ({ platform: v.platform, url: v.externalUrl! }));
 
-  // Title from first version, or fallback to task id slice
-  const title =
-    task.versions?.[0]?.title ?? `任务 ${task.id.slice(0, 8)}`;
-  const sourceCount = task.sources?.length ?? 0;
+  // 标题优先级：AI 生成标题 > 用户 prompt 截断 > "任务+id"
+  const generatedTitle = task.versions?.[0]?.title?.trim();
+  const promptTitle = task.prompt?.trim().slice(0, 60);
+  const title = generatedTitle || promptTitle || `任务 ${task.id.slice(0, 8)}`;
+  const titleStyle = generatedTitle
+    ? 'font-semibold text-gray-900'
+    : promptTitle
+      ? 'font-medium text-gray-800'
+      : 'font-mono text-sm text-gray-500';
+
+  // 来源摘要：首个 sourceType 友好名 + "+N"；外链单独标
+  const sources = task.sources ?? [];
   const urlCount = task.externalUrls.length;
+  const firstSource = sources[0];
+  const firstSourceMeta = firstSource
+    ? getSourceMeta(firstSource.sourceType)
+    : null;
+  const extraSourceCount = sources.length > 1 ? sources.length - 1 : 0;
+
   const platformLabel = task.platforms
-    .map((p) => (p === 'WECHAT_MP' ? '微信' : p === 'XIAOHONGSHU' ? '小红书' : p))
+    .map((p) =>
+      p === 'WECHAT_MP' ? '微信公众号' : p === 'XIAOHONGSHU' ? '小红书' : p
+    )
     .join(' · ');
 
   return (
     <tr
-      className="cursor-pointer border-b border-gray-100 transition-colors hover:bg-rose-50/40"
+      className="group cursor-pointer border-b border-gray-100 transition-colors hover:bg-rose-50/40"
       onClick={onClick}
     >
-      <td className="px-4 py-3">
-        <div className="font-medium text-gray-900">{title}</div>
-        <div className="text-xs text-gray-500">
-          {formatRelative(task.createdAt)}
-          {task.errorMessage && (
-            <span className="ml-2 text-red-600">· {task.errorMessage.slice(0, 60)}</span>
+      <td className="px-4 py-3.5">
+        <div className={`line-clamp-1 ${titleStyle}`} title={title}>
+          {title}
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+          <span>{formatRelative(task.createdAt)}</span>
+          {task.missionId && (
+            <span className="font-mono text-[10px] text-gray-400">
+              · {task.missionId.slice(0, 8)}
+            </span>
           )}
         </div>
+        {task.errorMessage && (
+          <div
+            className="mt-1 line-clamp-1 text-xs text-red-600"
+            title={task.errorMessage}
+          >
+            <AlertTriangle className="mr-1 inline h-3 w-3" />
+            {task.errorMessage}
+          </div>
+        )}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-700">
-        {sourceCount > 0 && `${sourceCount} 项`}
-        {sourceCount > 0 && urlCount > 0 && ' + '}
-        {urlCount > 0 && `${urlCount} URL`}
-        {sourceCount === 0 && urlCount === 0 && '—'}
+      <td className="px-4 py-3.5">
+        {firstSourceMeta ? (
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+              <firstSourceMeta.Icon className="h-3.5 w-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="line-clamp-1 text-sm text-gray-700">
+                {firstSourceMeta.label}
+              </div>
+              {(extraSourceCount > 0 || urlCount > 0) && (
+                <div className="text-[11px] text-gray-400">
+                  {extraSourceCount > 0 && `+${extraSourceCount} 项`}
+                  {extraSourceCount > 0 && urlCount > 0 && ' · '}
+                  {urlCount > 0 && `${urlCount} 外链`}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : urlCount > 0 ? (
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <Link2 className="h-3.5 w-3.5 text-gray-500" />
+            {urlCount} 外链
+          </div>
+        ) : (
+          <span className="text-sm text-gray-400">—</span>
+        )}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-700">{platformLabel}</td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3.5 text-sm text-gray-700">{platformLabel}</td>
+      <td className="px-4 py-3.5">
         <StatusPill status={task.status} />
       </td>
-      <td
-        className="px-4 py-3"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onClick}
-            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="查看详情"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
+      <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1">
+          {/* 状态相关的快捷操作 */}
           {task.status === 'DRAFT_READY' && (
             <button
               type="button"
               onClick={onClick}
-              className="rounded p-1.5 text-rose-500 transition-colors hover:bg-rose-100"
+              className="inline-flex items-center gap-1 rounded-lg bg-rose-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-rose-600"
               title="发布到草稿箱"
             >
-              <Send className="h-4 w-4" />
+              <Send className="h-3.5 w-3.5" />
+              发布
             </button>
           )}
           {canRetry && (
             <button
               type="button"
               onClick={onClick}
-              className="rounded p-1.5 text-amber-500 transition-colors hover:bg-amber-100"
-              title="重试"
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100"
+              title="进入详情重试"
             >
-              <RotateCw className="h-4 w-4" />
+              <RotateCw className="h-3.5 w-3.5" />
+              重试
             </button>
           )}
           {externalUrls.length > 0 && (
@@ -209,8 +279,8 @@ function TaskRow({
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="rounded p-1.5 text-emerald-500 transition-colors hover:bg-emerald-100"
-              title="外链"
+              className="rounded-lg p-1.5 text-emerald-500 transition-colors hover:bg-emerald-100"
+              title="打开发布链接"
             >
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -219,12 +289,14 @@ function TaskRow({
             <button
               type="button"
               onClick={onCancel}
-              className="rounded p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
-              title="取消"
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+              title="取消任务"
             >
               <Trash2 className="h-4 w-4" />
             </button>
           )}
+          {/* 默认 hover 露出 → 进详情指示 */}
+          <ChevronRight className="ml-1 h-4 w-4 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
         </div>
       </td>
     </tr>
@@ -276,25 +348,34 @@ export default function TasksTab() {
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm">
-          {(['ALL', 'PENDING', 'GENERATING', 'DRAFT_READY', 'PUBLISHED', 'FAILED'] as const).map(
-            (s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setFilter(s)}
-                className={`rounded-full px-3 py-1 transition-colors ${
-                  filter === s
-                    ? 'bg-rose-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {s === 'ALL' ? t('aiSocial.tasks.filter.all') : STATUS_STYLES[s].label}{' '}
-                {counters[s] != null && (
-                  <span className="ml-1 opacity-70">({counters[s]})</span>
-                )}
-              </button>
-            ),
-          )}
+          {(
+            [
+              'ALL',
+              'PENDING',
+              'GENERATING',
+              'DRAFT_READY',
+              'PUBLISHED',
+              'FAILED',
+            ] as const
+          ).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setFilter(s)}
+              className={`rounded-full px-3 py-1 transition-colors ${
+                filter === s
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {s === 'ALL'
+                ? t('aiSocial.tasks.filter.all')
+                : STATUS_STYLES[s].label}{' '}
+              {counters[s] != null && (
+                <span className="ml-1 opacity-70">({counters[s]})</span>
+              )}
+            </button>
+          ))}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -303,7 +384,9 @@ export default function TasksTab() {
             className="rounded-lg border border-gray-200 bg-white p-2 text-gray-600 transition-colors hover:bg-gray-50"
             title="刷新"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+            />
           </button>
           <button
             type="button"
@@ -327,24 +410,30 @@ export default function TasksTab() {
         <table className="w-full text-left">
           <thead className="border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500">
             <tr>
-              <th className="px-4 py-3">标题 / 时间</th>
-              <th className="px-4 py-3">来源</th>
-              <th className="px-4 py-3">平台</th>
-              <th className="px-4 py-3">Agent Team 状态</th>
-              <th className="px-4 py-3">操作</th>
+              <th className="w-[40%] px-4 py-3">内容</th>
+              <th className="w-[20%] px-4 py-3">来源</th>
+              <th className="w-[15%] px-4 py-3">平台</th>
+              <th className="w-[12%] px-4 py-3">状态</th>
+              <th className="w-[13%] px-4 py-3 text-right">操作</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && tasks.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                <td
+                  colSpan={5}
+                  className="px-4 py-12 text-center text-gray-400"
+                >
                   <Loader2 className="mx-auto h-6 w-6 animate-spin" />
                 </td>
               </tr>
             )}
             {!isLoading && tasks.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                <td
+                  colSpan={5}
+                  className="px-4 py-12 text-center text-gray-400"
+                >
                   <Inbox className="mx-auto mb-2 h-8 w-8" />
                   <div className="text-sm">{t('aiSocial.tasks.empty')}</div>
                   <button

@@ -123,6 +123,12 @@ export function cancelSocialTask(id: string): Promise<{ success: boolean }> {
   });
 }
 
+export function retrySocialTask(id: string): Promise<{ id: string }> {
+  return fetchJson<{ id: string }>(`/api/v1/ai-social/tasks/${id}/retry`, {
+    method: 'POST',
+  });
+}
+
 // ============== Data source endpoints ==============
 
 export function listSocialDataSources(): Promise<{

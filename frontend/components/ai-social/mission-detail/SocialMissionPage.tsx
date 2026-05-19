@@ -40,7 +40,11 @@ import { deriveView } from '@/lib/agent-playground/derive';
 import { deriveTodoLedger } from '@/lib/agent-playground/todo-ledger';
 import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
 import { useSocialTask } from '@/hooks/domain/useSocialTasks';
-import { cancelSocialTask } from '@/services/ai-social/task-api';
+import {
+  cancelSocialTask,
+  retrySocialTask,
+} from '@/services/ai-social/task-api';
+import { RefreshCw } from 'lucide-react';
 import { SocialPublishPanel } from './SocialPublishPanel';
 import type { SocialContentTaskStatus } from '@/services/ai-social/task-types';
 
@@ -116,7 +120,11 @@ interface SocialMissionPageProps {
 
 // ─── Report sub-tab (WeChat / 小红书) ─────────────────────────────────────────
 
-function ReportTab({ task }: { task: NonNullable<ReturnType<typeof useSocialTask>['task']> }) {
+function ReportTab({
+  task,
+}: {
+  task: NonNullable<ReturnType<typeof useSocialTask>['task']>;
+}) {
   const platforms = task.platforms ?? [];
   const [activePlatform, setActivePlatform] = useState(platforms[0] ?? '');
 
@@ -149,7 +157,7 @@ function ReportTab({ task }: { task: NonNullable<ReturnType<typeof useSocialTask
                 'rounded-lg px-3 py-1 text-xs font-medium transition-colors',
                 activePlatform === p
                   ? 'bg-gray-900 text-white'
-                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700',
+                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
               )}
             >
               {PLATFORM_LABELS[p] ?? p}
@@ -173,7 +181,7 @@ function ReportTab({ task }: { task: NonNullable<ReturnType<typeof useSocialTask
                 ))}
               </div>
             )}
-            <div className="rounded-xl bg-gray-50 p-4 text-sm leading-relaxed whitespace-pre-wrap text-gray-700">
+            <div className="whitespace-pre-wrap rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-700">
               {version.content || (
                 <span className="text-gray-400">内容生成中…</span>
               )}
@@ -214,13 +222,15 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
         verdicts: view.verdicts,
         dimensionPipelines: view.dimensionPipelines,
       }),
-    [events, view.mission, view.agents, view.verdicts, view.dimensionPipelines],
+    [events, view.mission, view.agents, view.verdicts, view.dimensionPipelines]
   );
 
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   // Header — task title
   const taskTitle = useMemo(() => {
@@ -237,8 +247,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
     ? STATUS_CONFIG[task.status]
     : STATUS_CONFIG['PENDING'];
 
-  const canCancel =
-    task?.status === 'PENDING' || task?.status === 'GENERATING';
+  const canCancel = task?.status === 'PENDING' || task?.status === 'GENERATING';
   const canDelete =
     task?.status === 'PUBLISHED' ||
     task?.status === 'FAILED' ||
@@ -255,6 +264,20 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
     } finally {
       setCancelling(false);
       setMenuOpen(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    if (!task || retrying) return;
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      await retrySocialTask(task.id);
+      refresh();
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -319,7 +342,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                             ? '微信公众号'
                             : p === 'XIAOHONGSHU'
                               ? '小红书'
-                              : p,
+                              : p
                         )
                         .join(' / ')}
                     </span>
@@ -336,7 +359,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
             <div
               className={cn(
                 'flex items-center gap-1.5 rounded-full px-3 py-1',
-                statusConfig.pillClass,
+                statusConfig.pillClass
               )}
             >
               <span
@@ -355,6 +378,21 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
             >
               <Send className="h-4 w-4" />
               发布到草稿箱
+            </button>
+          )}
+
+          {/* Retry button — only FAILED */}
+          {task?.status === 'FAILED' && (
+            <button
+              type="button"
+              onClick={() => void handleRetry()}
+              disabled={retrying}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-3 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg disabled:opacity-60"
+            >
+              <RefreshCw
+                className={cn('h-4 w-4', retrying && 'animate-spin')}
+              />
+              {retrying ? '重新启动中…' : '重试任务'}
             </button>
           )}
 
@@ -407,7 +445,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
         <aside
           className={cn(
             'relative flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white transition-all duration-200',
-            leftCollapsed ? 'w-0 overflow-hidden' : 'w-[360px]',
+            leftCollapsed ? 'w-0 overflow-hidden' : 'w-[360px]'
           )}
         >
           {!leftCollapsed && missionId && (
@@ -497,7 +535,7 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                   'flex items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition-colors',
                   activeTab === key
                     ? 'border-rose-500 text-rose-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700',
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -510,7 +548,66 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
           <div className="flex-1 overflow-auto">
             {activeTab === 'tasks' && (
               <>
-                {missionId ? (
+                {task?.status === 'FAILED' ? (
+                  <div className="flex h-full items-start justify-center overflow-auto p-8">
+                    <div className="w-full max-w-2xl rounded-2xl border border-red-200 bg-white shadow-sm">
+                      <div className="border-b border-red-100 bg-gradient-to-r from-red-50 to-rose-50 px-6 py-5">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+                            <AlertTriangle className="h-5 w-5 text-red-600" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-base font-semibold text-red-900">
+                              任务执行失败
+                            </h3>
+                            <p className="mt-0.5 text-sm text-red-700">
+                              AI Teams 在生成过程中遇到错误，未能输出内容。
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-4 px-6 py-5">
+                        <div>
+                          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                            错误原因
+                          </p>
+                          <div className="font-mono break-words rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-700">
+                            {task.errorMessage ?? '未提供具体错误信息'}
+                          </div>
+                        </div>
+                        {retryError && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                            重试失败：{retryError}
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-3 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleRetry()}
+                            disabled={retrying}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2.5 text-sm font-medium text-white shadow-md transition-shadow hover:shadow-lg disabled:opacity-60"
+                          >
+                            <RefreshCw
+                              className={cn(
+                                'h-4 w-4',
+                                retrying && 'animate-spin'
+                              )}
+                            />
+                            {retrying ? '重新启动中…' : '重试任务'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => router.push('/ai-social')}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                            返回任务列表
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : missionId ? (
                   <MissionTodoBoard
                     todos={todoLedger}
                     missionId={missionId}
@@ -525,8 +622,20 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                     }
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                    任务执行后将在此展示进度
+                  <div className="flex h-full items-center justify-center p-8">
+                    <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
+                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100">
+                        <ListChecks className="h-7 w-7 text-rose-500" />
+                      </div>
+                      <h3 className="text-base font-semibold text-gray-900">
+                        等 Leader 拆完进度
+                      </h3>
+                      <p className="mt-1.5 text-sm text-gray-500">
+                        任务刚被创建，AI Teams
+                        正在初始化协作管线。拆解完成后，进度会以 Todo
+                        卡片实时出现在此处。
+                      </p>
+                    </div>
                   </div>
                 )}
               </>
@@ -544,15 +653,11 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
               </>
             )}
 
-            {activeTab === 'report' && task && (
-              <ReportTab task={task} />
-            )}
+            {activeTab === 'report' && task && <ReportTab task={task} />}
 
             {activeTab === 'references' && (
               <ReferencesPanel
-                fallbackSources={
-                  task?.sources?.map((s) => s.sourceId) ?? []
-                }
+                fallbackSources={task?.sources?.map((s) => s.sourceId) ?? []}
               />
             )}
 

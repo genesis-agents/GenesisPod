@@ -3,14 +3,17 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-} from '@nestjs/common';
-import { SocialContentTaskStatus } from '@prisma/client';
-import { PrismaService } from '../../../../common/prisma/prisma.service';
-import { SocialDataSourceRegistry } from '../registry/social-data-source.registry';
-import { ContentFetcherService } from './content-fetcher.service';
-import { SocialPipelineDispatcher } from './mission/workflow/social-pipeline-dispatcher.service';
-import { CreateSocialTaskDto } from '../dto/create-social-task.dto';
-import type { RawContentBag, RunSocialMissionInput } from './mission/workflow/mission-context';
+} from "@nestjs/common";
+import { SocialContentTaskStatus } from "@prisma/client";
+import { PrismaService } from "../../../../common/prisma/prisma.service";
+import { SocialDataSourceRegistry } from "../registry/social-data-source.registry";
+import { ContentFetcherService } from "./content-fetcher.service";
+import { SocialPipelineDispatcher } from "./mission/workflow/social-pipeline-dispatcher.service";
+import { CreateSocialTaskDto } from "../dto/create-social-task.dto";
+import type {
+  RawContentBag,
+  RunSocialMissionInput,
+} from "./mission/workflow/mission-context";
 
 @Injectable()
 export class SocialTaskService {
@@ -30,7 +33,7 @@ export class SocialTaskService {
     const urlCount = dto.externalUrls?.length ?? 0;
     if (dto.sources.length + urlCount < 1) {
       throw new BadRequestException(
-        'At least one source or externalUrl is required',
+        "At least one source or externalUrl is required",
       );
     }
 
@@ -75,10 +78,12 @@ export class SocialTaskService {
     const items = await this.prisma.socialContentTask.findMany({
       where: {
         userId,
-        ...(opts.status ? { status: opts.status as SocialContentTaskStatus } : {}),
+        ...(opts.status
+          ? { status: opts.status as SocialContentTaskStatus }
+          : {}),
         ...(opts.cursor ? { createdAt: { lt: new Date(opts.cursor) } } : {}),
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       take: limit + 1,
       include: {
         sources: true,
@@ -141,6 +146,45 @@ export class SocialTaskService {
     });
   }
 
+  /**
+   * Retry a FAILED task: reset error state and re-dispatch with original sources/platforms.
+   */
+  async retryTask(taskId: string, userId: string): Promise<{ id: string }> {
+    const task = await this.prisma.socialContentTask.findFirst({
+      where: { id: taskId, userId },
+      include: { sources: true },
+    });
+    if (!task) throw new NotFoundException(`Task not found: ${taskId}`);
+    if (task.status !== SocialContentTaskStatus.FAILED) {
+      throw new BadRequestException(
+        `Only FAILED tasks can be retried (current: ${task.status})`,
+      );
+    }
+
+    await this.prisma.socialContentTask.update({
+      where: { id: taskId },
+      data: {
+        status: SocialContentTaskStatus.PENDING,
+        errorMessage: null,
+        missionId: null,
+      },
+    });
+
+    const dto: CreateSocialTaskDto = {
+      sources: task.sources.map((s) => ({
+        sourceType: s.sourceType,
+        sourceId: s.sourceId,
+      })),
+      externalUrls: task.externalUrls,
+      prompt: task.prompt ?? undefined,
+      platforms: task.platforms,
+      accountIds: task.accountIds as CreateSocialTaskDto["accountIds"],
+    };
+
+    void this.dispatchTask(taskId, dto, userId);
+    return { id: taskId };
+  }
+
   private async dispatchTask(
     taskId: string,
     dto: CreateSocialTaskDto,
@@ -158,9 +202,9 @@ export class SocialTaskService {
         contentId: taskId,
         platforms: dto.platforms,
         connectionIds: dto.accountIds,
-        depth: dto.depth ?? 'standard',
-        budgetProfile: 'standard',
-        language: 'zh-CN',
+        depth: dto.depth ?? "standard",
+        budgetProfile: "standard",
+        language: "zh-CN",
       };
 
       const { missionId } = this.dispatcher.tryReserveInFlight(
@@ -182,7 +226,7 @@ export class SocialTaskService {
         aggregated,
       );
 
-      if (result.status === 'completed') {
+      if (result.status === "completed") {
         // ★ R3 P1-2 / R4 P1 fix (2026-05-18): 方案 §6.3 状态聚合规则 —
         //   按 SocialContentTaskVersion[].status 聚合任务级 status。
         await this.recomputeTaskStatus(taskId);
@@ -190,7 +234,7 @@ export class SocialTaskService {
         const errMsg =
           result.error instanceof Error
             ? result.error.message.slice(0, 500)
-            : String(result.error ?? 'Mission failed').slice(0, 500);
+            : String(result.error ?? "Mission failed").slice(0, 500);
         await this.prisma.socialContentTask.update({
           where: { id: taskId },
           data: {
@@ -247,9 +291,11 @@ export class SocialTaskService {
       nextStatus = SocialContentTaskStatus.DRAFT_READY;
     } else {
       const all = versions.length;
-      const published = versions.filter((v) => v.status === 'PUBLISHED').length;
-      const failed = versions.filter((v) => v.status === 'FAILED').length;
-      const publishing = versions.filter((v) => v.status === 'PUBLISHING').length;
+      const published = versions.filter((v) => v.status === "PUBLISHED").length;
+      const failed = versions.filter((v) => v.status === "FAILED").length;
+      const publishing = versions.filter(
+        (v) => v.status === "PUBLISHING",
+      ).length;
 
       if (publishing > 0) {
         nextStatus = SocialContentTaskStatus.PUBLISHING;
@@ -269,7 +315,9 @@ export class SocialTaskService {
       where: { id: taskId },
       data: { status: nextStatus },
     });
-    this.logger.log(`[${taskId}] status recomputed: ${nextStatus} (versions=${versions.length})`);
+    this.logger.log(
+      `[${taskId}] status recomputed: ${nextStatus} (versions=${versions.length})`,
+    );
   }
 
   private async aggregateContent(
@@ -309,13 +357,13 @@ export class SocialTaskService {
     const MAX_BODY_CHARS_PER_BUNDLE = 10000;
     const truncate = (s: string) =>
       s.length > MAX_BODY_CHARS_PER_BUNDLE
-        ? s.slice(0, MAX_BODY_CHARS_PER_BUNDLE) + '\n\n…[truncated]'
+        ? s.slice(0, MAX_BODY_CHARS_PER_BUNDLE) + "\n\n…[truncated]"
         : s;
 
     const bundles: { title: string; body: string }[] = [];
 
     for (const r of bundleResults) {
-      if (r.status === 'fulfilled') {
+      if (r.status === "fulfilled") {
         for (const b of r.value) {
           bundles.push({ title: b.title, body: truncate(b.body) });
         }
@@ -327,9 +375,9 @@ export class SocialTaskService {
     }
 
     for (const r of urlResults) {
-      if (r.status === 'fulfilled') {
+      if (r.status === "fulfilled") {
         bundles.push({
-          title: r.value.title || 'External Content',
+          title: r.value.title || "External Content",
           body: truncate(r.value.content),
         });
       } else {
@@ -341,11 +389,11 @@ export class SocialTaskService {
 
     if (bundles.length === 0) {
       throw new Error(
-        'All sources and URLs failed to fetch — cannot generate content',
+        "All sources and URLs failed to fetch — cannot generate content",
       );
     }
 
-    const firstTitle = bundles[0].title || 'AI 社媒草稿';
+    const firstTitle = bundles[0].title || "AI 社媒草稿";
 
     const bodyParts: string[] = [];
     if (dto.prompt) {
@@ -354,7 +402,7 @@ export class SocialTaskService {
     for (const b of bundles) {
       bodyParts.push(`# ${b.title}\n\n${b.body}`);
     }
-    const body = bodyParts.join('\n\n---\n\n');
+    const body = bodyParts.join("\n\n---\n\n");
 
     return {
       title: firstTitle,
