@@ -43,6 +43,9 @@ function makePrisma() {
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    socialContentTaskVersion: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   };
 }
 
@@ -338,6 +341,50 @@ describe('SocialTaskService', () => {
       );
       expect(failUpdate).toBeDefined();
       expect(failUpdate[0].data.errorMessage).toContain('pipeline error');
+    });
+
+    // ★ R3 P1-2 / R4 P1 fix (2026-05-18): PARTIAL_PUBLISHED aggregation
+    it('recomputes status PARTIAL_PUBLISHED when versions mix PUBLISHED + FAILED', async () => {
+      const src = makeSource('ai-research', [makeBundle()]);
+      const prisma = makePrisma();
+      const registry = makeRegistry([src]);
+      const fetcher = makeContentFetcher();
+      const dispatcher = makeDispatcher();
+      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-partial' });
+      prisma.socialContentTask.update.mockResolvedValue({});
+      prisma.socialContentTaskVersion.findMany.mockResolvedValue([
+        { status: 'PUBLISHED' },
+        { status: 'FAILED' },
+      ]);
+
+      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
+      await svc.createTask(makeDto(), 'user-1');
+      await new Promise((r) => setImmediate(r));
+
+      const finalUpdate = (prisma.socialContentTask.update as jest.Mock).mock.calls.find(
+        (c) => c[0].data.status === SocialContentTaskStatus.PARTIAL_PUBLISHED,
+      );
+      expect(finalUpdate).toBeDefined();
+    });
+
+    it('recomputes status PUBLISHED when all versions are PUBLISHED', async () => {
+      const src = makeSource('ai-research', [makeBundle()]);
+      const prisma = makePrisma();
+      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-pub' });
+      prisma.socialContentTask.update.mockResolvedValue({});
+      prisma.socialContentTaskVersion.findMany.mockResolvedValue([
+        { status: 'PUBLISHED' },
+        { status: 'PUBLISHED' },
+      ]);
+
+      const svc = new SocialTaskService(prisma as never, makeRegistry([src]) as never, makeContentFetcher() as never, makeDispatcher() as never);
+      await svc.createTask(makeDto({ platforms: ['WECHAT_MP', 'XIAOHONGSHU'], accountIds: { WECHAT_MP: 'c1', XIAOHONGSHU: 'c2' } }), 'user-1');
+      await new Promise((r) => setImmediate(r));
+
+      const finalUpdate = (prisma.socialContentTask.update as jest.Mock).mock.calls.find(
+        (c) => c[0].data.status === SocialContentTaskStatus.PUBLISHED,
+      );
+      expect(finalUpdate).toBeDefined();
     });
 
     it('catches thrown errors and marks task FAILED', async () => {

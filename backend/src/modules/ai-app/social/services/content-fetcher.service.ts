@@ -59,7 +59,7 @@ export class ContentFetcherService {
 
     switch (sourceType) {
       case SocialContentSourceType.AI_EXPLORE:
-        return this.fetchFromExploreResource(sourceId);
+        return this.fetchFromExploreResource(sourceId, userId);
 
       case SocialContentSourceType.AI_RESEARCH:
         return this.fetchFromResearchReport(sourceId, userId);
@@ -80,9 +80,18 @@ export class ContentFetcherService {
 
   private async fetchFromExploreResource(
     resourceId: string,
+    userId: string,
   ): Promise<FetchedContent> {
-    const resource = await this.prisma.resource.findUnique({
-      where: { id: resourceId },
+    // ★ R5 P0 fix (2026-05-18): IDOR — Resource 表无 userId 字段，必须通过
+    //   CollectionItem→Collection.userId 间接确认资源属于调用者。否则任何已知
+    //   resourceId 都可被跨用户读取（直接进入 AI 生成上下文）。
+    const resource = await this.prisma.resource.findFirst({
+      where: {
+        id: resourceId,
+        collectionItems: {
+          some: { collection: { userId } },
+        },
+      },
     });
 
     if (!resource) {

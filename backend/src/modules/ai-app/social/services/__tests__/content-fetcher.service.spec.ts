@@ -20,7 +20,7 @@ describe("ContentFetcherService", () => {
   let service: ContentFetcherService;
   let mockPrisma: {
     resource: {
-      findUnique: jest.Mock;
+      findFirst: jest.Mock;
       update: jest.Mock;
     };
     researchTopic: {
@@ -44,7 +44,7 @@ describe("ContentFetcherService", () => {
   beforeEach(async () => {
     mockPrisma = {
       resource: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         update: jest.fn(),
       },
       researchTopic: {
@@ -143,8 +143,27 @@ describe("ContentFetcherService", () => {
 
   // ==================== fetchFromSource - AI_EXPLORE ====================
 
+  // ★ R5 P0 regression (2026-05-18): IDOR — Resource has no userId column;
+  //   isolation must filter via collectionItems.some.collection.userId.
+  it("ISOLATION: fetchFromExploreResource passes userId into collectionItems.some.collection.userId", async () => {
+    mockPrisma.resource.findFirst.mockResolvedValue(null); // simulate user B's resource not in caller's collections
+    await expect(
+      service.fetchFromSource(
+        SocialContentSourceType.AI_EXPLORE,
+        "user-b-resource",
+        "user-a",
+      ),
+    ).rejects.toThrow();
+
+    const callArg = mockPrisma.resource.findFirst.mock.calls[0][0];
+    expect(callArg.where).toMatchObject({
+      id: "user-b-resource",
+      collectionItems: { some: { collection: { userId: "user-a" } } },
+    });
+  });
+
   it("should fetch from explore resource by ID", async () => {
-    mockPrisma.resource.findUnique.mockResolvedValue({
+    mockPrisma.resource.findFirst.mockResolvedValue({
       id: "resource-1",
       title: "Resource Title",
       content: "This is a resource with enough content to pass the threshold.",
@@ -167,7 +186,7 @@ describe("ContentFetcherService", () => {
   });
 
   it("should throw when explore resource does not exist", async () => {
-    mockPrisma.resource.findUnique.mockResolvedValue(null);
+    mockPrisma.resource.findFirst.mockResolvedValue(null);
 
     await expect(
       service.fetchFromSource(
@@ -179,7 +198,7 @@ describe("ContentFetcherService", () => {
   });
 
   it("should throw when resource has insufficient content", async () => {
-    mockPrisma.resource.findUnique.mockResolvedValue({
+    mockPrisma.resource.findFirst.mockResolvedValue({
       id: "resource-1",
       title: "Resource Title",
       content: "Too short", // less than 10 chars
@@ -201,7 +220,7 @@ describe("ContentFetcherService", () => {
   });
 
   it("should fetch from URL when resource content is less than 100 chars", async () => {
-    mockPrisma.resource.findUnique.mockResolvedValue({
+    mockPrisma.resource.findFirst.mockResolvedValue({
       id: "resource-1",
       title: "Resource Title",
       content: "Short content", // < 100 chars, triggers URL fetch
@@ -229,7 +248,7 @@ describe("ContentFetcherService", () => {
   });
 
   it("should handle YouTube video resources by fetching subtitles", async () => {
-    mockPrisma.resource.findUnique.mockResolvedValue({
+    mockPrisma.resource.findFirst.mockResolvedValue({
       id: "resource-1",
       title: "YouTube Video Title",
       content: null,
@@ -269,7 +288,7 @@ describe("ContentFetcherService", () => {
   });
 
   it("should fallback to resource content when YouTube subtitle fetch fails", async () => {
-    mockPrisma.resource.findUnique.mockResolvedValue({
+    mockPrisma.resource.findFirst.mockResolvedValue({
       id: "resource-1",
       title: "YouTube Resource",
       content:
@@ -298,7 +317,7 @@ describe("ContentFetcherService", () => {
   });
 
   it("should use aiSummary when content is null but aiSummary exists", async () => {
-    mockPrisma.resource.findUnique.mockResolvedValue({
+    mockPrisma.resource.findFirst.mockResolvedValue({
       id: "resource-1",
       title: "Article",
       content: null,

@@ -36,12 +36,14 @@ CREATE INDEX "SocialContentTask_userId_createdAt_idx"
   ON "SocialContentTask" ("userId", "createdAt" DESC);
 
 -- 3. 来源表
+-- R3 P2 fix (2026-05-18): 加 createdAt 便于"何时绑定"审计
 CREATE TABLE "SocialContentTaskSource" (
   "id"          TEXT PRIMARY KEY,
   "taskId"      TEXT NOT NULL,
   "userId"      TEXT NOT NULL,
   "sourceType"  TEXT NOT NULL,
   "sourceId"    TEXT NOT NULL,
+  "createdAt"   TIMESTAMP NOT NULL DEFAULT now(),
   CONSTRAINT "SocialContentTaskSource_taskId_fkey"
     FOREIGN KEY ("taskId") REFERENCES "SocialContentTask"("id") ON DELETE CASCADE
 );

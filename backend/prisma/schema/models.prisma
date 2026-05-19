@@ -10662,11 +10662,12 @@ model SocialContentTask {
 }
 
 model SocialContentTaskSource {
-  id         String @id @default(cuid())
+  id         String   @id @default(cuid())
   taskId     String
   userId     String
   sourceType String
   sourceId   String
+  createdAt  DateTime @default(now())
 
   task SocialContentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 

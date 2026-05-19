@@ -22,7 +22,7 @@ jest.mock("@/modules/ai-harness/facade", () => ({
 describe("ContentFetcherService", () => {
   let service: ContentFetcherService;
   let mockPrisma: {
-    resource: { findUnique: jest.Mock; update: jest.Mock };
+    resource: { findFirst: jest.Mock; update: jest.Mock };
     researchTopic: { findFirst: jest.Mock };
     officeDocument: { findFirst: jest.Mock };
     writingChapter: { findFirst: jest.Mock };
@@ -40,7 +40,7 @@ describe("ContentFetcherService", () => {
   beforeEach(async () => {
     mockPrisma = {
       resource: {
-        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockResolvedValue(null),
         update: jest.fn().mockResolvedValue({}),
       },
       researchTopic: {
@@ -143,7 +143,7 @@ describe("ContentFetcherService", () => {
           thumbnailUrl: null,
           authors: [],
         };
-        mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
+        mockPrisma.resource.findFirst.mockResolvedValue(mockResource);
 
         const result = await service.fetchFromSource(
           SocialContentSourceType.AI_EXPLORE,
@@ -156,7 +156,7 @@ describe("ContentFetcherService", () => {
       });
 
       it("should throw when resource not found", async () => {
-        mockPrisma.resource.findUnique.mockResolvedValue(null);
+        mockPrisma.resource.findFirst.mockResolvedValue(null);
 
         await expect(
           service.fetchFromSource(
@@ -179,7 +179,7 @@ describe("ContentFetcherService", () => {
           thumbnailUrl: null,
           authors: [],
         };
-        mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
+        mockPrisma.resource.findFirst.mockResolvedValue(mockResource);
         // URL fetch fails entirely
         mockAiFacade.contentFetch.fetchFromUrl.mockRejectedValue(
           new Error("Fetch failed"),
@@ -206,7 +206,7 @@ describe("ContentFetcherService", () => {
           thumbnailUrl: null,
           authors: [],
         };
-        mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
+        mockPrisma.resource.findFirst.mockResolvedValue(mockResource);
         // URL fetch returns empty content
         mockAiFacade.contentFetch.fetchFromUrl.mockResolvedValue({
           title: "Fetched",
@@ -234,7 +234,7 @@ describe("ContentFetcherService", () => {
           thumbnailUrl: "https://thumbnail.url",
           authors: [],
         };
-        mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
+        mockPrisma.resource.findFirst.mockResolvedValue(mockResource);
         mockAiFacade.contentFetch.extractYoutubeVideoId.mockReturnValue(
           "abc123",
         );
@@ -271,7 +271,7 @@ describe("ContentFetcherService", () => {
           thumbnailUrl: null,
           authors: [],
         };
-        mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
+        mockPrisma.resource.findFirst.mockResolvedValue(mockResource);
         mockAiFacade.contentFetch.extractYoutubeVideoId.mockReturnValue(
           "abc123",
         );
@@ -313,7 +313,7 @@ describe("ContentFetcherService", () => {
           thumbnailUrl: null,
           authors: [],
         };
-        mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
+        mockPrisma.resource.findFirst.mockResolvedValue(mockResource);
         mockAiFacade.contentFetch.fetchFromUrl.mockResolvedValue({
           title: "Article",
           content: "Full content from URL " + "x".repeat(200),
@@ -341,7 +341,7 @@ describe("ContentFetcherService", () => {
           thumbnailUrl: null,
           authors: [],
         };
-        mockPrisma.resource.findUnique.mockResolvedValue(mockResource);
+        mockPrisma.resource.findFirst.mockResolvedValue(mockResource);
 
         const result = await service.fetchFromSource(
           SocialContentSourceType.AI_EXPLORE,

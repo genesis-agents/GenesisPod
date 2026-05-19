@@ -183,10 +183,9 @@ export class SocialTaskService {
       );
 
       if (result.status === 'completed') {
-        await this.prisma.socialContentTask.update({
-          where: { id: taskId },
-          data: { status: SocialContentTaskStatus.DRAFT_READY },
-        });
+        // ★ R3 P1-2 / R4 P1 fix (2026-05-18): 方案 §6.3 状态聚合规则 —
+        //   按 SocialContentTaskVersion[].status 聚合任务级 status。
+        await this.recomputeTaskStatus(taskId);
       } else {
         const errMsg =
           result.error instanceof Error
@@ -224,6 +223,55 @@ export class SocialTaskService {
     }
   }
 
+  /**
+   * 方案 §6.3 任务级状态聚合规则：按 SocialContentTaskVersion[].status 聚合
+   * - 全部 PUBLISHED                 → PUBLISHED
+   * - 部分 PUBLISHED + 部分 FAILED   → PARTIAL_PUBLISHED
+   * - 全部 FAILED                    → FAILED
+   * - 任一 PUBLISHING                → PUBLISHING
+   * - 无 version 或仅 DRAFT_READY/GENERATING → DRAFT_READY（默认草稿就绪）
+   *
+   * 调用时机：dispatcher 完成 mission（result.status === 'completed'）。
+   * dispatcher 内部按 stage 写入 versions 行（可能晚于 mission completed 通知），
+   * 因此本方法以 task version 当前快照为准。
+   */
+  private async recomputeTaskStatus(taskId: string): Promise<void> {
+    const versions = await this.prisma.socialContentTaskVersion.findMany({
+      where: { taskId },
+      select: { status: true },
+    });
+
+    let nextStatus: SocialContentTaskStatus;
+    if (versions.length === 0) {
+      // dispatcher 未写 versions：按默认 DRAFT_READY 处理（用户可点击发布触发实际推送）
+      nextStatus = SocialContentTaskStatus.DRAFT_READY;
+    } else {
+      const all = versions.length;
+      const published = versions.filter((v) => v.status === 'PUBLISHED').length;
+      const failed = versions.filter((v) => v.status === 'FAILED').length;
+      const publishing = versions.filter((v) => v.status === 'PUBLISHING').length;
+
+      if (publishing > 0) {
+        nextStatus = SocialContentTaskStatus.PUBLISHING;
+      } else if (published === all) {
+        nextStatus = SocialContentTaskStatus.PUBLISHED;
+      } else if (failed === all) {
+        nextStatus = SocialContentTaskStatus.FAILED;
+      } else if (published > 0 && failed > 0) {
+        nextStatus = SocialContentTaskStatus.PARTIAL_PUBLISHED;
+      } else {
+        // 混合 DRAFT_READY/GENERATING/未发布 状态，按 DRAFT_READY 处理
+        nextStatus = SocialContentTaskStatus.DRAFT_READY;
+      }
+    }
+
+    await this.prisma.socialContentTask.update({
+      where: { id: taskId },
+      data: { status: nextStatus },
+    });
+    this.logger.log(`[${taskId}] status recomputed: ${nextStatus} (versions=${versions.length})`);
+  }
+
   private async aggregateContent(
     dto: CreateSocialTaskDto,
     userId: string,
@@ -256,12 +304,20 @@ export class SocialTaskService {
     );
 
     // Collect successful bundles
+    // ★ R5 P1 fix (2026-05-18): 每条 source body 截断到 10K char 防 prompt
+    //   injection 攻击 LLM context window + LLM token 预算爆掉。
+    const MAX_BODY_CHARS_PER_BUNDLE = 10000;
+    const truncate = (s: string) =>
+      s.length > MAX_BODY_CHARS_PER_BUNDLE
+        ? s.slice(0, MAX_BODY_CHARS_PER_BUNDLE) + '\n\n…[truncated]'
+        : s;
+
     const bundles: { title: string; body: string }[] = [];
 
     for (const r of bundleResults) {
       if (r.status === 'fulfilled') {
         for (const b of r.value) {
-          bundles.push({ title: b.title, body: b.body });
+          bundles.push({ title: b.title, body: truncate(b.body) });
         }
       } else {
         this.logger.warn(
@@ -274,7 +330,7 @@ export class SocialTaskService {
       if (r.status === 'fulfilled') {
         bundles.push({
           title: r.value.title || 'External Content',
-          body: r.value.content,
+          body: truncate(r.value.content),
         });
       } else {
         this.logger.warn(

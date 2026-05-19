@@ -263,10 +263,12 @@ export default function TasksTab() {
     });
   };
 
-  const handleCreated = (taskId: string) => {
+  const handleCreated = (_taskId: string) => {
+    // ★ R1 P1-1 fix (2026-05-18): 方案 §3.3 用户原话 U5 — "用户操作完事，
+    //   列表行进入'生成中'，用户走人"。不立即跳详情页；列表 SWR 自动 revalidate
+    //   出新行 status=PENDING/GENERATING，用户自己点行才进 mission 详情。
     setDialogOpen(false);
     refresh();
-    router.push(`/ai-social/mission/${taskId}`);
   };
 
   return (

@@ -36,8 +36,8 @@ export const BILINGUAL_FORMAT_GUIDE = `
 ### 双语要点格式：
 
 <div style="margin: 1.2em 0; padding: 15px 18px; background: linear-gradient(135deg, #e8f0fe 0%, #f8f9fa 100%); border-radius: 8px; border-left: 4px solid #4285f4;">
-  <p style="margin: 0 0 10px 0; font-size: 16px; color: #1a1a1a;"><strong>📌 中文要点内容</strong></p>
-  <p style="margin: 0; font-size: 14px; color: #5f6368; font-style: italic;">📌 Key point in English</p>
+  <p style="margin: 0 0 10px 0; font-size: 16px; color: #1a1a1a;"><strong>▎中文要点内容</strong></p>
+  <p style="margin: 0; font-size: 14px; color: #5f6368; font-style: italic;">▎Key point in English</p>
 </div>
 
 ### 双语引用格式：

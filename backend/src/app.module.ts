@@ -75,6 +75,7 @@ import { FeedModule } from "./modules/ai-app/explore/feed/feed.module";
 import { ReportsModule } from "./modules/ai-app/explore/reports/reports.module";
 import { CommentsModule } from "./modules/ai-app/explore/comments/comments.module";
 // Library modules (shared content)
+import { LibraryModule } from "./modules/ai-app/library/library.module";
 import { CollectionsModule } from "./modules/ai-app/library/collections/collections.module";
 import { NotesModule } from "./modules/ai-app/library/notes/notes.module";
 // ★ v1.5.3 LLM Wiki — Library 主形态（顶层 tab 第一位）
@@ -241,6 +242,7 @@ import { AiObservabilityService } from "./modules/ai-harness/facade";
     CommentsModule,
     ReportsModule,
     ExploreModule,
+    LibraryModule, // R2 P1 fix (2026-05-18): registers LibrarySocialSourceProvider so DiscoveryService can find it
     WorkspaceModule,
     KnowledgeGraphModule,
     RecommendationsModule,
