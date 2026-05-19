@@ -76,6 +76,28 @@ const AGENT_ICON: Record<string, LucideIcon> = {
 };
 
 // ──────────────────────────────────────────────────────────────────────
+// getRun race retry —— backend refresh 是 fire-and-forget，mission row 由
+// framework 在异步任务内 createAtomic 落库（~100-500ms 延迟）。前端立刻请求
+// 时可能 404，对 404 做 5 次 × 600ms 重试（总 3s）兜底。
+// 非 404 错误（500 / 403 / 网络）立即抛，不卡用户。
+// ──────────────────────────────────────────────────────────────────────
+
+async function getRunWithRaceRetry(runId: string): Promise<RadarRun> {
+  let lastErr: unknown;
+  for (let i = 0; i < 5; i++) {
+    try {
+      return await getRun(runId);
+    } catch (e) {
+      lastErr = e;
+      const msg = e instanceof Error ? e.message : '';
+      if (!/404|not found/i.test(msg)) throw e;
+      await new Promise((r) => setTimeout(r, 600));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('Run not found');
+}
+
+// ──────────────────────────────────────────────────────────────────────
 // Tabs
 // ──────────────────────────────────────────────────────────────────────
 
@@ -139,7 +161,7 @@ export default function RadarMissionDetailPage() {
     try {
       const [t, r, history] = await Promise.all([
         getTopic(topicId),
-        getRun(runId),
+        getRunWithRaceRetry(runId),
         listRuns(topicId, 10),
       ]);
       setTopic(t);
@@ -161,6 +183,10 @@ export default function RadarMissionDetailPage() {
     setRerunning(true);
     try {
       const resp = await triggerRefresh(topicId);
+      // backend refresh 是 fire-and-forget：controller 立刻返回 missionId，
+      // RadarRun row 由 framework 在异步任务里 createAtomic 落库（~100-500ms 延迟）。
+      // 必须等 row 真落库再切 URL，否则新页面 mount 时 getRun(newRunId) → 404。
+      await getRunWithRaceRetry(resp.runId);
       router.replace(`/ai-radar/topic/${topicId}/runs/${resp.runId}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
