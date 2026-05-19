@@ -45,7 +45,7 @@ describe('useDailyBriefing', () => {
     vi.mocked(useApiGet).mockReturnValue(makeGet());
     renderHook(() => useDailyBriefing('topic-1'));
     expect(vi.mocked(useApiGet)).toHaveBeenCalledWith(
-      '/api/v1/radar/topics/topic-1/daily-briefing',
+      '/radar/topics/topic-1/daily-briefing',
       expect.any(Object)
     );
   });
@@ -54,7 +54,7 @@ describe('useDailyBriefing', () => {
     vi.mocked(useApiGet).mockReturnValue(makeGet());
     renderHook(() => useDailyBriefing('topic-1', '2026-05-18'));
     expect(vi.mocked(useApiGet)).toHaveBeenCalledWith(
-      '/api/v1/radar/topics/topic-1/daily-briefing?date=2026-05-18',
+      '/radar/topics/topic-1/daily-briefing?date=2026-05-18',
       expect.any(Object)
     );
   });

@@ -104,6 +104,10 @@
       {
         "selector": "CallExpression[callee.object.name='apiClient'] > Literal[value=/^\\/api\\/(?!test)/]",
         "message": "apiClient.X(path) path 禁带 /api/ 前缀 — buildUrl 拼到 baseUrl=/api/v1 上变双前缀必 404。"
+      },
+      {
+        "selector": "TemplateLiteral > TemplateElement.quasis[0][value.raw=/^\\/api\\/(?!test)/]",
+        "message": "模板字符串 path 禁带 /api/ 前缀 — apiClient.baseUrl 已含 /api/v1，双前缀拼出 /api/v1/api/... → backend 必 404。写 `/radar/...` 不是 `/api/v1/radar/...`。"
       }
     ]
   },

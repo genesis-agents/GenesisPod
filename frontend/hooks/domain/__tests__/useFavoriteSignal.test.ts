@@ -56,7 +56,7 @@ describe('useFavoriteSignal', () => {
     vi.mocked(useApiPost).mockReturnValue(makePost());
     renderHook(() => useFavoriteSignal('s-1', 'topic-1'));
     expect(vi.mocked(useApiPost)).toHaveBeenCalledWith(
-      '/api/v1/radar/favorites/toggle'
+      '/radar/favorites/toggle'
     );
   });
 

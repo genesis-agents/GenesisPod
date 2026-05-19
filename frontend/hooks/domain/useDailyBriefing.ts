@@ -38,8 +38,9 @@ export function useDailyBriefing(
   refresh: () => Promise<void>;
 } {
   const params = date ? `?date=${date}` : '';
+  // apiClient.baseUrl 已含 /api/v1 —— 这里只写 module-relative path，不带前缀
   const path = topicId
-    ? `/api/v1/radar/topics/${topicId}/daily-briefing${params}`
+    ? `/radar/topics/${topicId}/daily-briefing${params}`
     : '';
 
   const {

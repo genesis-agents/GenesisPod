@@ -14,6 +14,7 @@ import {
 import {
   deleteTopic,
   getTopic,
+  listRuns,
   listSources,
   triggerRefresh,
   updateTopic,
@@ -26,6 +27,7 @@ import { RadarBriefingPanel } from '@/components/ai-radar/RadarBriefingPanel';
 import { RadarTopicConfigDrawer } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import type { RadarTopicConfigDrawerTopic } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
+import { RefreshDetailDrawer } from '@/components/ai-radar/RefreshDetailDrawer';
 import { DateSwitcher } from '@/components/common/switchers/DateSwitcher';
 import { useDailyBriefing } from '@/hooks/domain/useDailyBriefing';
 import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
@@ -106,6 +108,7 @@ export default function RadarTopicDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Subscribe to active run WS progress
   useRadarSocket(activeRunId, {
@@ -158,6 +161,30 @@ export default function RadarTopicDetailPage() {
   useEffect(() => {
     void reloadTopic();
   }, [reloadTopic]);
+
+  // PR-DR2-FU3: 持久化 refresh stepper —— mount 时查 runs API 找 running mission
+  // 用户离页/重载后回来仍能看到当前进度（之前 activeRunId 只活在 React state，
+  // 一刷新就消失，stepper 被烫平）。WS 订阅由下面 useRadarSocket 在 activeRunId
+  // set 后自动续上。
+  useEffect(() => {
+    if (!topicId) return;
+    let cancelled = false;
+    void listRuns(topicId, 5)
+      .then((runs) => {
+        if (cancelled) return;
+        const running = runs.find((r) => r.status === 'running');
+        if (running) {
+          setActiveRunId(running.id);
+          setRefreshing(true);
+        }
+      })
+      .catch(() => {
+        // 失败 silent —— stepper 不显也不影响主流程
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [topicId]);
 
   // Daily briefing
   const {
@@ -380,7 +407,10 @@ export default function RadarTopicDetailPage() {
 
       {/* Refresh progress stepper（mission S1-S8 实时进度） */}
       {refreshing && (
-        <RefreshProgressStepper currentStage={stageStatus?.stage ?? null} />
+        <RefreshProgressStepper
+          currentStage={stageStatus?.stage ?? null}
+          onOpenDetail={() => setDetailOpen(true)}
+        />
       )}
 
       {/* 双栏：左侧 briefing（主），右侧 sidebar（信息）；≥lg 才双栏，≤md 单栏 */}
@@ -420,6 +450,19 @@ export default function RadarTopicDetailPage() {
 
         {/* 右侧 sidebar — 数据源 / 配置摘要 / 行动 */}
         <aside className="flex flex-col gap-4">
+          {/* 历史运行入口（非 running 状态下也可点开看上次结果） */}
+          <button
+            type="button"
+            onClick={() => setDetailOpen(true)}
+            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm hover:bg-gray-50"
+          >
+            <span className="inline-flex items-center gap-2 font-medium text-gray-700">
+              <RefreshCw className="h-4 w-4 text-violet-600" />
+              历史运行 · 进度
+            </span>
+            <ChevronRight className="h-4 w-4 text-gray-400" />
+          </button>
+
           {/* 数据源状态卡 */}
           <div className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -539,6 +582,17 @@ export default function RadarTopicDetailPage() {
         </aside>
       </div>
 
+      {/* Detail drawer — refresh mission stage progress + history */}
+      {topicId && (
+        <RefreshDetailDrawer
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          topicId={topicId}
+          activeRunId={activeRunId}
+          currentStage={stageStatus?.stage ?? null}
+        />
+      )}
+
       {/* Config drawer */}
       <RadarTopicConfigDrawer
         open={configOpen}
@@ -602,16 +656,29 @@ function findStepIndex(currentStage: string | null): number {
 
 function RefreshProgressStepper({
   currentStage,
+  onOpenDetail,
 }: {
   currentStage: string | null;
+  onOpenDetail?: () => void;
 }) {
   const activeIdx = findStepIndex(currentStage);
 
   return (
     <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 px-4 py-3">
-      <div className="mb-2 flex items-center gap-2 text-xs font-medium text-violet-700">
-        <RefreshCw className="h-3 w-3 animate-spin" />
-        正在重新精选 · {currentStage ? `当前 ${currentStage}` : '准备中…'}
+      <div className="mb-2 flex items-center justify-between gap-2 text-sm font-medium text-violet-700">
+        <span className="inline-flex items-center gap-2">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+          正在重新精选 · {currentStage ? `当前 ${currentStage}` : '准备中…'}
+        </span>
+        {onOpenDetail && (
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            className="text-sm text-violet-600 hover:underline"
+          >
+            查看详情 →
+          </button>
+        )}
       </div>
       <ol className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
         {STAGE_STEPS.map((step, idx) => {

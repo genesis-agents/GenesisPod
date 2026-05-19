@@ -1,7 +1,7 @@
 /**
  * useFavoritesList — FC-6
  *
- * GET /api/v1/radar/favorites?limit=N
+ * GET /radar/favorites?limit=N（apiClient baseUrl 已含 /api/v1，调用时不带前缀）
  * 返回带 signal 内容的丰富列表
  */
 import { useApiGet } from '@/hooks/core';
@@ -35,10 +35,11 @@ export function useFavoritesList(limit = 50): {
   error: ApiError | null;
   refresh: () => Promise<void>;
 } {
-  const path = `/api/v1/radar/favorites?limit=${limit}`;
+  // apiClient.baseUrl 已含 /api/v1
+  const path = `/radar/favorites?limit=${limit}`;
   const { data, loading, error, refresh } = useApiGet<FavoriteWithSignalView[]>(
     path,
-    { immediate: true, deps: [limit] },
+    { immediate: true, deps: [limit] }
   );
   return {
     data: data ?? [],

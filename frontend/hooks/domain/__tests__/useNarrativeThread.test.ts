@@ -52,7 +52,7 @@ describe('useNarrativeThread', () => {
     vi.mocked(useApiGet).mockReturnValue(makeGet());
     renderHook(() => useNarrativeThread('topic-1', 'narr-1'));
     expect(vi.mocked(useApiGet)).toHaveBeenCalledWith(
-      '/api/v1/radar/topics/topic-1/narratives/narr-1',
+      '/radar/topics/topic-1/narratives/narr-1',
       expect.any(Object)
     );
   });

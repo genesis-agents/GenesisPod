@@ -1,7 +1,8 @@
 /**
  * useWeeklyBriefing — FC-5
  *
- * GET /api/v1/radar/topics/:topicId/weekly-briefing[?week=YYYY-MM-DD]
+ * GET /radar/topics/:topicId/weekly-briefing[?week=YYYY-MM-DD]
+ * （apiClient baseUrl 已含 /api/v1，调用时不带前缀）
  *   无 week → 取最新；带 week（周一 UTC date）→ 按周查
  */
 import { useApiGet } from '@/hooks/core';
@@ -56,9 +57,8 @@ export function useWeeklyBriefing(
   refresh: () => Promise<void>;
 } {
   const qs = week ? `?week=${week}` : '';
-  const path = topicId
-    ? `/api/v1/radar/topics/${topicId}/weekly-briefing${qs}`
-    : '';
+  // apiClient.baseUrl 已含 /api/v1
+  const path = topicId ? `/radar/topics/${topicId}/weekly-briefing${qs}` : '';
 
   const { data, loading, error, refresh } = useApiGet<WeeklyBriefingView>(
     path,

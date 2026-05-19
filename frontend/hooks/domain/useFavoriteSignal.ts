@@ -36,7 +36,8 @@ export function useFavoriteSignal(
     error,
     execute: toggleApi,
   } = useApiPost<FavoriteToggleResponse, FavoriteToggleBody>(
-    '/api/v1/radar/favorites/toggle'
+    // apiClient.baseUrl 已含 /api/v1
+    '/radar/favorites/toggle'
   );
 
   const toggle = useCallback(async () => {

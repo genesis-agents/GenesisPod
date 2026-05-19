@@ -22,9 +22,10 @@ export function useNarrativeThread(
   loading: boolean;
   error: ApiError | null;
 } {
+  // apiClient.baseUrl 已含 /api/v1
   const path =
     topicId && narrativeId
-      ? `/api/v1/radar/topics/${topicId}/narratives/${narrativeId}`
+      ? `/radar/topics/${topicId}/narratives/${narrativeId}`
       : '';
 
   const { data, loading, error } = useApiGet<NarrativeThreadView>(path, {
