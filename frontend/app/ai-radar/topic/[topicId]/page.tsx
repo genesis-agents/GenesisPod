@@ -24,6 +24,7 @@ import type {
   RadarTopicWithCounts,
 } from '@/services/ai-radar/types';
 import { RadarBriefingPanel } from '@/components/ai-radar/RadarBriefingPanel';
+import { RadarHistoricalItemsPanel } from '@/components/ai-radar/RadarHistoricalItemsPanel';
 import { RadarTopicConfigDrawer } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import type { RadarTopicConfigDrawerTopic } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
@@ -493,6 +494,11 @@ export default function RadarTopicDetailPage() {
             onRerun={() => void handleRefresh()}
             rerunCount={briefing?.rerunCount ?? 0}
           />
+
+          {/* R13.5 2026-05-19：已收录信号面板 —— 即便今日 briefing 0 信号，
+              用户也能看到 DB 中真实存在的历史 item（含 rel/qual 分），
+              避免"系统好像没在工作"的错觉。 */}
+          <RadarHistoricalItemsPanel topicId={topicId} />
         </div>
 
         {/* 右侧 sidebar — 数据源 / 配置摘要 / 行动 */}
