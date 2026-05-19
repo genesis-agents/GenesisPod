@@ -20,6 +20,7 @@ import {
   updateTopic,
 } from '@/services/ai-radar/api';
 import type {
+  RadarRun,
   RadarSource,
   RadarTopicWithCounts,
 } from '@/services/ai-radar/types';
@@ -111,6 +112,37 @@ export default function RadarTopicDetailPage() {
   // 「查看详情」跳新路由 /runs/{runId}（整页运行历史 + drawer 看单 run 详情）。
   // 优先用当前 active（running 中）的 runId；退化到最近一次 run；都没有则 disabled。
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
+  // R8 2026-05-19：mission 跑完保留"上次精选回放"卡片所需的 run 元信息
+  // （status / metrics / durationMs / completedAt）。WS onCompleted 触发或
+  // polling 兜底发现 terminal 时 setLatestRunSummary。
+  const [latestRunSummary, setLatestRunSummary] = useState<{
+    id: string;
+    status: RadarRun['status'];
+    completedAt: string | null;
+    durationMs: number | null;
+    metrics: RadarRun['metrics'];
+  } | null>(null);
+
+  // R8 2026-05-19：ws 回调结束后 fetch latest run 一次写入 latestRunSummary，
+  //                让回放卡片能立刻显示。原本 ws 只 reset state，回放卡片没 metrics。
+  const refreshLatestRunSummary = useCallback(async () => {
+    if (!topicId) return;
+    try {
+      const runs = await listRuns(topicId, 1);
+      const latest = runs[0];
+      if (latest) {
+        setLatestRunSummary({
+          id: latest.id,
+          status: latest.status,
+          completedAt: latest.completedAt,
+          durationMs: latest.durationMs,
+          metrics: latest.metrics,
+        });
+      }
+    } catch {
+      // silent
+    }
+  }, [topicId]);
 
   // Subscribe to active run WS progress
   useRadarSocket(activeRunId, {
@@ -119,6 +151,7 @@ export default function RadarTopicDetailPage() {
       setRefreshing(false);
       setActiveRunId(null);
       setStageStatus(null);
+      void refreshLatestRunSummary();
       void reloadTopicRef.current?.();
       void briefingRefreshRef.current?.();
     },
@@ -127,11 +160,13 @@ export default function RadarTopicDetailPage() {
       setActiveRunId(null);
       setStageStatus(null);
       setError(`刷新失败：${e.error}`);
+      void refreshLatestRunSummary();
     },
     onCancelled: () => {
       setRefreshing(false);
       setActiveRunId(null);
       setStageStatus(null);
+      void refreshLatestRunSummary();
     },
   });
 
@@ -181,7 +216,20 @@ export default function RadarTopicDetailPage() {
         }
         // 记录最近 run id —— 「查看详情」按钮跳 /runs/{id} 时用
         const latest = running ?? runs[0] ?? null;
-        if (latest) setLatestRunId(latest.id);
+        if (latest) {
+          setLatestRunId(latest.id);
+        }
+        // R8: 记录最近**完成态** run 用于回放卡片（running 跳过 —— stepper 接管）
+        const lastTerminal = runs.find((r) => r.status !== 'running');
+        if (lastTerminal) {
+          setLatestRunSummary({
+            id: lastTerminal.id,
+            status: lastTerminal.status,
+            completedAt: lastTerminal.completedAt,
+            durationMs: lastTerminal.durationMs,
+            metrics: lastTerminal.metrics,
+          });
+        }
       })
       .catch(() => {
         // 失败 silent —— stepper 不显也不影响主流程
@@ -190,6 +238,44 @@ export default function RadarTopicDetailPage() {
       cancelled = true;
     };
   }, [topicId]);
+
+  // R8 2026-05-19：refreshing 状态 polling 兜底防 WS race。
+  //
+  // Bug 场景：mission 跑得太快（4.3s），client 拿到 runId → setActiveRunId →
+  // useRadarSocket subscribe 还在握手，backend 已经 emit RUN_COMPLETED 完了。
+  // → onCompleted 永远不触发 → refreshing 卡 true → 外面"准备中"，里面已结束。
+  //
+  // 兜底：refreshing=true 期间每 3s listRuns 看 activeRunId 实际 status，已 terminal
+  // 立即清 refreshing + setLatestRunSummary 让 UI 切到回放卡片。
+  // 用 ref 引用 reload/briefingRefresh 因为它们 declare 在本 effect 后。
+  useEffect(() => {
+    if (!refreshing || !topicId || !activeRunId) return;
+    const interval = window.setInterval(() => {
+      void listRuns(topicId, 5)
+        .then((runs) => {
+          const current = runs.find((r) => r.id === activeRunId);
+          if (!current) return;
+          if (current.status !== 'running') {
+            setRefreshing(false);
+            setActiveRunId(null);
+            setStageStatus(null);
+            setLatestRunSummary({
+              id: current.id,
+              status: current.status,
+              completedAt: current.completedAt,
+              durationMs: current.durationMs,
+              metrics: current.metrics,
+            });
+            void reloadTopicRef.current?.();
+            void briefingRefreshRef.current?.();
+          }
+        })
+        .catch(() => {
+          // 静默：下次 tick 再试
+        });
+    }, 3000);
+    return () => window.clearInterval(interval);
+  }, [refreshing, topicId, activeRunId]);
 
   // Daily briefing
   const {
@@ -420,6 +506,20 @@ export default function RadarTopicDetailPage() {
               ? () =>
                   router.push(`/ai-radar/topic/${topicId}/runs/${latestRunId}`)
               : undefined
+          }
+        />
+      )}
+
+      {/* R8 2026-05-19：mission 终态后回放卡片 —— 让 stepper 不再"刷新就消失"。
+          展示上次精选的状态/耗时/入库数 + 错误信息，点击跳详情。仅 refreshing=false
+          且有 latestRunSummary 时显示，避免和正在运行的 stepper 冲突。 */}
+      {!refreshing && latestRunSummary && (
+        <LatestRunRecap
+          summary={latestRunSummary}
+          onClick={() =>
+            router.push(
+              `/ai-radar/topic/${topicId}/runs/${latestRunSummary.id}`
+            )
           }
         />
       )}
@@ -725,4 +825,106 @@ function RefreshProgressStepper({
       </ol>
     </div>
   );
+}
+
+// ------------------------------------------------------------------
+// LatestRunRecap — mission 终态后的回放卡片（R8 2026-05-19）
+//
+// 让 stepper 不再"刷新就消失"。展示上次精选的状态/耗时/入库数 + 中断点（若失败），
+// 整卡可点击跳 /runs/{runId} 看完整详情。
+// ------------------------------------------------------------------
+
+interface LatestRunSummary {
+  id: string;
+  status: RadarRun['status'];
+  completedAt: string | null;
+  durationMs: number | null;
+  metrics: RadarRun['metrics'];
+}
+
+function LatestRunRecap({
+  summary,
+  onClick,
+}: {
+  summary: LatestRunSummary;
+  onClick: () => void;
+}) {
+  const { status, completedAt, durationMs, metrics } = summary;
+  const inserted = metrics?.itemsInserted ?? 0;
+  const fetched = metrics?.itemsFetched ?? 0;
+  const failedSrc = metrics?.sourcesFailed ?? 0;
+
+  // 1) 整体配色 + 文案
+  let toneCls = 'border-emerald-200 bg-emerald-50';
+  let dotCls = 'bg-emerald-500';
+  let titleText: string;
+  if (status === 'completed') {
+    titleText = `上次精选已完成 · 入库 ${inserted} 条 · 抓取 ${fetched} 条`;
+    if (inserted === 0) {
+      // 完成但 0 入库 —— 多半是 since 窗口无新 item，给用户解释
+      titleText = `上次精选完成但 0 条入库 · 已抓取 ${fetched} 条（可能时间窗口内无新内容）`;
+      toneCls = 'border-amber-200 bg-amber-50';
+      dotCls = 'bg-amber-500';
+    }
+  } else if (status === 'failed') {
+    titleText = `上次精选失败 · 已抓取 ${fetched} 条`;
+    toneCls = 'border-red-200 bg-red-50';
+    dotCls = 'bg-red-500';
+  } else if (status === 'cancelled') {
+    titleText = '上次精选已取消';
+    toneCls = 'border-slate-200 bg-slate-50';
+    dotCls = 'bg-slate-400';
+  } else if (status === 'rejected') {
+    titleText = '上次精选被拒绝（预算闸 / 限额）';
+    toneCls = 'border-amber-200 bg-amber-50';
+    dotCls = 'bg-amber-500';
+  } else {
+    titleText = '上次精选状态未知';
+  }
+
+  // 2) 时间副信息
+  const ago = completedAt ? relativeAgo(completedAt) : null;
+  const dur = durationMs != null ? formatDuration(durationMs) : null;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`查看上次精选详情：${titleText}`}
+      className={`mb-4 flex w-full items-center justify-between gap-3 rounded-lg border px-4 py-2.5 text-left transition-colors hover:brightness-95 ${toneCls}`}
+    >
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className={`h-2 w-2 flex-shrink-0 rounded-full ${dotCls}`} />
+        <span className="min-w-0 truncate text-sm font-medium text-gray-800">
+          {titleText}
+        </span>
+        {(ago || dur) && (
+          <span className="hidden text-xs text-gray-500 sm:inline">
+            {ago && `· ${ago}`}
+            {dur && ` · 耗时 ${dur}`}
+            {failedSrc > 0 && ` · ${failedSrc} 源失败`}
+          </span>
+        )}
+      </span>
+      <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+        查看详情
+        <ChevronRight className="h-3.5 w-3.5" />
+      </span>
+    </button>
+  );
+}
+
+function relativeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return '刚刚';
+  if (diff < 60_000) return `${Math.floor(diff / 1000)} 秒前`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+  return `${Math.floor(diff / 86_400_000)} 天前`;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return `${Math.floor(ms / 60_000)}分${Math.floor((ms % 60_000) / 1000)}秒`;
 }
