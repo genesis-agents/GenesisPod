@@ -32,9 +32,11 @@ export function useSocialDataSources() {
       }
     },
     {
-      revalidateOnFocus: false,
-      revalidateIfStale: true, // 允许重新拉取，应对部署期临时空
-      refreshInterval: 30000, // 30s 兜底刷一次（部署完后自动恢复）
+      revalidateOnMount: true, // 父组件 mount 强制 revalidate（避免锁死部署过渡期的空响应）
+      revalidateOnFocus: true, // tab 回到前台立即拉
+      revalidateOnReconnect: true,
+      revalidateIfStale: true,
+      refreshInterval: 30000,
     }
   );
 
