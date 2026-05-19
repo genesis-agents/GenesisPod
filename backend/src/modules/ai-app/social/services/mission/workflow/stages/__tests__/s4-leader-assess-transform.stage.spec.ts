@@ -20,7 +20,11 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
     abortRegistry: {} as CommonDeps["abortRegistry"],
     runner: {} as CommonDeps["runner"],
     eventBus: {} as CommonDeps["eventBus"],
-    log: { warn: jest.fn(), error: jest.fn(), log: jest.fn() } as unknown as CommonDeps["log"],
+    log: {
+      warn: jest.fn(),
+      error: jest.fn(),
+      log: jest.fn(),
+    } as unknown as CommonDeps["log"],
     emit: jest.fn().mockResolvedValue(undefined),
     lifecycle: jest.fn().mockResolvedValue(undefined),
     markStageDegraded: jest.fn().mockResolvedValue(undefined),
@@ -30,7 +34,12 @@ function makeDeps(overrides: Partial<CommonDeps> = {}): CommonDeps {
         output: {
           phase: "assess-transform",
           perPlatform: [
-            { platform: "wechat", verdict: "approve", reason: "Quality OK", score: 85 },
+            {
+              platform: "wechat",
+              verdict: "approve",
+              reason: "Quality OK",
+              score: 85,
+            },
           ],
         },
       }),
@@ -69,7 +78,12 @@ function makeCtx(overrides: Partial<Ctx> = {}): Ctx {
     pool: {} as MissionInvariants["pool"],
     budgetMultiplier: 1,
     contextIds: { wechat: "ctx-w" },
-    contentRaw: { title: "S4 title", body: "<p>Body</p>", digest: null, coverImageUrl: null },
+    contentRaw: {
+      title: "S4 title",
+      body: "<p>Body</p>",
+      digest: null,
+      coverImageUrl: null,
+    },
     stewardInputs: {
       remainingCreditsUsd: 7,
       estimatedCostUsd: 0.02,
@@ -135,8 +149,14 @@ describe("runLeaderAssessTransformStage (s4)", () => {
 
       const emitCalls = (deps.emit as jest.Mock).mock.calls;
       const tags = emitCalls
-        .filter((args: unknown[]) => (args[0] as { type: string }).type === "social.agent:narrative")
-        .map((args: unknown[]) => (args[0] as { payload: { tag: string } }).payload.tag);
+        .filter(
+          (args: unknown[]) =>
+            (args[0] as { type: string }).type === "social.agent:narrative",
+        )
+        .map(
+          (args: unknown[]) =>
+            (args[0] as { payload: { tag: string } }).payload.tag,
+        );
       expect(tags).toContain("reviewing");
       expect(tags).toContain("success");
     });
@@ -212,7 +232,10 @@ describe("runLeaderAssessTransformStage (s4)", () => {
   });
 
   describe("all platforms rejected", () => {
-    it("should throw when all platforms have verdict=reject", async () => {
+    // 2026-05-19: 行为变更 — 全 reject 不再 throw（之前会让 mission 完全失败，
+    //   用户看不到任何产出）。现在：markStageDegraded + 发 warning narrative，
+    //   mission 继续往下跑，最终发布把关交 s9 foreword。
+    it("should markStageDegraded + emit warning when all platforms rejected (not throw)", async () => {
       const deps = makeDeps({
         leader: {
           run: jest.fn().mockResolvedValue({
@@ -220,7 +243,12 @@ describe("runLeaderAssessTransformStage (s4)", () => {
             output: {
               phase: "assess-transform",
               perPlatform: [
-                { platform: "wechat", verdict: "reject", reason: "Low quality", score: 20 },
+                {
+                  platform: "wechat",
+                  verdict: "reject",
+                  reason: "Low quality",
+                  score: 20,
+                },
               ],
             },
           }),
@@ -228,29 +256,14 @@ describe("runLeaderAssessTransformStage (s4)", () => {
       });
       const ctx = makeCtx();
 
-      await expect(runLeaderAssessTransformStage(ctx, deps)).rejects.toThrow(
-        "[s4] Leader rejected all platforms",
-      );
-    });
-
-    it("should include rejection reasons in thrown error", async () => {
-      const deps = makeDeps({
-        leader: {
-          run: jest.fn().mockResolvedValue({
-            state: "completed",
-            output: {
-              phase: "assess-transform",
-              perPlatform: [
-                { platform: "wechat", verdict: "reject", reason: "Title too short", score: 10 },
-              ],
-            },
-          }),
-        } as unknown as CommonDeps["leader"],
-      });
-      const ctx = makeCtx();
-
-      await expect(runLeaderAssessTransformStage(ctx, deps)).rejects.toThrow(
-        "Title too short",
+      await expect(
+        runLeaderAssessTransformStage(ctx, deps),
+      ).resolves.toBeUndefined();
+      expect(deps.markStageDegraded).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        "s4-leader-assess-transform",
+        expect.stringContaining("Low quality"),
       );
     });
   });
@@ -264,8 +277,18 @@ describe("runLeaderAssessTransformStage (s4)", () => {
             output: {
               phase: "assess-transform",
               perPlatform: [
-                { platform: "wechat", verdict: "approve", reason: "OK", score: 80 },
-                { platform: "xiaohongshu", verdict: "reject", reason: "Body too short", score: 30 },
+                {
+                  platform: "wechat",
+                  verdict: "approve",
+                  reason: "OK",
+                  score: 80,
+                },
+                {
+                  platform: "xiaohongshu",
+                  verdict: "reject",
+                  reason: "Body too short",
+                  score: 30,
+                },
               ],
             },
           }),
@@ -308,8 +331,18 @@ describe("runLeaderAssessTransformStage (s4)", () => {
             output: {
               phase: "assess-transform",
               perPlatform: [
-                { platform: "wechat", verdict: "approve", reason: "OK", score: 80 },
-                { platform: "xiaohongshu", verdict: "reject", reason: "Bad", score: 20 },
+                {
+                  platform: "wechat",
+                  verdict: "approve",
+                  reason: "OK",
+                  score: 80,
+                },
+                {
+                  platform: "xiaohongshu",
+                  verdict: "reject",
+                  reason: "Bad",
+                  score: 20,
+                },
               ],
             },
           }),
@@ -334,7 +367,9 @@ describe("runLeaderAssessTransformStage (s4)", () => {
         } as TransformPhaseCtx["platformVersions"],
       });
 
-      await expect(runLeaderAssessTransformStage(ctx, deps)).resolves.toBeUndefined();
+      await expect(
+        runLeaderAssessTransformStage(ctx, deps),
+      ).resolves.toBeUndefined();
     });
   });
 });
