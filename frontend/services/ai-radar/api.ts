@@ -161,11 +161,22 @@ export async function deleteSource(sourceId: string): Promise<void> {
   });
 }
 
+export interface RecommendSourcesResult {
+  /** preflight 已验证可达的候选 */
+  candidates: RecommendedSource[];
+  /** R7 2026-05-19：preflight 阶段过滤掉的不可达源 + 原因 */
+  skipped: Array<{ type: string; identifier: string; reason: string }>;
+  /** LLM 原始召回总数 = candidates.length + skipped.length */
+  totalGenerated: number;
+}
+
 export async function recommendSources(
   topicId: string,
   perTypeLimit?: number
-): Promise<{ candidates: RecommendedSource[] }> {
-  return request<{ candidates: RecommendedSource[] }>(
+): Promise<RecommendSourcesResult> {
+  // R7 2026-05-19：backend 在推荐阶段就 preflight，前端不再"接受后才发现 5/6 失败"。
+  // skipped + totalGenerated 用于 UI 展示"AI 推荐 N 个，已过滤 M 个不可达"。
+  return request<RecommendSourcesResult>(
     `/topics/${topicId}/sources/recommend`,
     {
       method: 'POST',

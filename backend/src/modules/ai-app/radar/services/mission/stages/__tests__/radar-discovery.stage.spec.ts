@@ -13,6 +13,7 @@
 import { Test } from "@nestjs/testing";
 import { AiChatService } from "@/modules/ai-engine/facade";
 import { RadarDiscoveryStage } from "../radar-discovery.stage";
+import { RadarSourceService } from "../../../source/radar-source.service";
 import type {
   RadarMissionContext,
   RadarStageHookArgs,
@@ -21,13 +22,35 @@ import type {
 describe("RadarDiscoveryStage", () => {
   let stage: RadarDiscoveryStage;
   let chatMock: { chat: jest.Mock };
+  // R7 2026-05-19：stage 注入 SourceService 做推荐阶段 preflight。
+  // 默认 mock pass-through：把传入 candidates 原样作为 live 返回。
+  // 个别 test 想测试 preflight 过滤行为时可以单独 override。
+  let sourceServiceMock: { preflightCandidates: jest.Mock };
 
   beforeEach(async () => {
     chatMock = { chat: jest.fn() };
+    sourceServiceMock = {
+      preflightCandidates: jest.fn().mockImplementation(
+        async (
+          _topicId: string,
+          _userId: string,
+          candidates: Array<{
+            type: string;
+            identifier: string;
+            label?: string;
+            config?: Record<string, unknown>;
+          }>,
+        ) => ({
+          live: candidates,
+          skipped: [],
+        }),
+      ),
+    };
     const moduleRef = await Test.createTestingModule({
       providers: [
         RadarDiscoveryStage,
         { provide: AiChatService, useValue: chatMock },
+        { provide: RadarSourceService, useValue: sourceServiceMock },
       ],
     }).compile();
     stage = moduleRef.get(RadarDiscoveryStage);
@@ -40,6 +63,7 @@ describe("RadarDiscoveryStage", () => {
       missionId: "m-1",
       userId: "u-1",
       input: {
+        topicId: "t-1",
         topicName: "GPT-5 发布动态",
         keywords: ["gpt-5"],
         existingSources: [],

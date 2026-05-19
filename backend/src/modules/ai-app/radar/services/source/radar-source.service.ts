@@ -117,19 +117,19 @@ export class RadarSourceService {
   }
 
   /**
-   * 批量入库 AI 推荐源。
+   * Preflight 探测候选源可达性 —— shape 校验 + CollectorRouter.fanOut 真发请求。
    *
-   * 2026-05-18：accept 路径新增 preflight — 复用 CollectorRouter.fanOut 真发
-   * 一次拉取作为可达性探测（fan-out 并发，单源失败不阻塞）。失败的 candidate
-   * silently drop（不入库），成功的入库。这样让 LLM hallucinate URL（截图
-   * 35：Reuters feeds.reuters.com ENOTFOUND / The Verge 404 / NVIDIA Investor
-   * 403 / YT @handle 解析失败）不再污染用户列表。
+   * R7 2026-05-19：从 bulkCreateAiRecommended 抽出来变 public，让 discovery
+   * 推荐阶段也能用（推荐时就 preflight，前端只展示可达候选，不再"接受才发现 5/6 失败"）。
    *
-   * 返回值含 `skipped`：前端提示用户"接受 N，过滤 M 个不可达"。
+   * - 不写库：纯探测，结果返回 {live, skipped} 由调用方决定怎么用
+   * - 复用现有 CollectorRouter.fanOut（不造轮子），since=未来让 collector 拉
+   *   空数组但仍发网络请求 → 真探测可达性
+   * - 单源失败不阻塞（fan-out 并发）
    */
-  async bulkCreateAiRecommended(
-    userId: string,
+  async preflightCandidates(
     topicId: string,
+    userId: string,
     candidates: Array<{
       type: CreatableRadarSourceTypeDto;
       identifier: string;
@@ -137,13 +137,15 @@ export class RadarSourceService {
       config?: Record<string, unknown>;
     }>,
   ): Promise<{
-    created: RadarSource[];
+    live: Array<{
+      type: RadarSourceType;
+      identifier: string;
+      label?: string;
+      config?: Record<string, unknown>;
+    }>;
     skipped: Array<{ type: string; identifier: string; reason: string }>;
   }> {
-    await this.topics.getOwnedById(userId, topicId);
-
-    // 1) shape 校验：DTO 已挡了 X，这里挡 identifier 格式错的（如 YT 既不是 channelId
-    //    也不是 youtube.com URL，或 RSS 不是 https URL）
+    // 1) shape 校验
     const shapeOk: Array<{
       type: RadarSourceType;
       identifier: string;
@@ -168,47 +170,76 @@ export class RadarSourceService {
         shapeOk.push({ type, identifier, label: c.label, config: c.config });
       } catch (err) {
         this.log.warn(
-          `Skip shape-invalid AI candidate ${type}:${identifier} - ${(err as Error).message}`,
+          `Preflight shape-invalid ${type}:${identifier} - ${(err as Error).message}`,
         );
         skipped.push({ type, identifier, reason: (err as Error).message });
       }
     }
 
-    // 2) preflight：构造 in-memory RadarSource 跑 collector.fetch 探测；
-    //    only 失败时 drop（成功 / 空数组 / 无新数据都算可达）
-    if (shapeOk.length > 0) {
-      const transientSources = shapeOk.map((c, i) =>
-        this.buildTransientSource(topicId, c.type, c.identifier, c.config, i),
-      );
-      // since=未来 → 拉空数组（避免重复网络流量 / 入库），但 collector 仍走
-      // 网络请求 → 真探测可达性
-      const results = await this.collectorRouter.fanOut(transientSources, {
-        since: new Date(Date.now() + 86_400_000),
-        perSourceLimit: 1,
-        userId,
-      });
-      const failedIdx = new Set<number>();
-      results.forEach((r, i) => {
-        if (r.error) {
-          this.log.warn(
-            `Preflight drop ${r.type}:${transientSources[i]?.identifier} - ${r.error}`,
-          );
-          failedIdx.add(i);
-          const c = shapeOk[i];
-          skipped.push({
-            type: c.type,
-            identifier: c.identifier,
-            reason: r.error,
-          });
-        }
-      });
-      // 失败的从 shapeOk 剔除
-      const live = shapeOk.filter((_, i) => !failedIdx.has(i));
-      shapeOk.length = 0;
-      shapeOk.push(...live);
-    }
+    if (shapeOk.length === 0) return { live: [], skipped };
 
-    // 3) 入库
+    // 2) 真发请求探测
+    const transientSources = shapeOk.map((c, i) =>
+      this.buildTransientSource(topicId, c.type, c.identifier, c.config, i),
+    );
+    const results = await this.collectorRouter.fanOut(transientSources, {
+      since: new Date(Date.now() + 86_400_000),
+      perSourceLimit: 1,
+      userId,
+    });
+    const live: typeof shapeOk = [];
+    results.forEach((r, i) => {
+      const c = shapeOk[i];
+      if (!c) return;
+      if (r.error) {
+        this.log.warn(
+          `Preflight drop ${r.type}:${transientSources[i]?.identifier} - ${r.error}`,
+        );
+        skipped.push({
+          type: c.type,
+          identifier: c.identifier,
+          reason: r.error,
+        });
+      } else {
+        live.push(c);
+      }
+    });
+    return { live, skipped };
+  }
+
+  /**
+   * 批量入库 AI 推荐源。
+   *
+   * R7 2026-05-19：preflight 抽公共 method 后，本方法简化为 preflightCandidates +
+   * 入库。推荐阶段已 preflight 过的候选再次调本方法时 preflight 会重复一次 —— 接受 trade-off：
+   * 1) 推荐到 accept 可能间隔几分钟，源状态可能变（再 preflight 兜底）
+   * 2) preflight 并发，开销可接受
+   * 3) 不改 accept 路径行为兼容现有 e2e 测试
+   *
+   * 返回值含 `skipped`：前端提示用户"接受 N，过滤 M 个不可达"。
+   */
+  async bulkCreateAiRecommended(
+    userId: string,
+    topicId: string,
+    candidates: Array<{
+      type: CreatableRadarSourceTypeDto;
+      identifier: string;
+      label?: string;
+      config?: Record<string, unknown>;
+    }>,
+  ): Promise<{
+    created: RadarSource[];
+    skipped: Array<{ type: string; identifier: string; reason: string }>;
+  }> {
+    await this.topics.getOwnedById(userId, topicId);
+
+    const { live: shapeOk, skipped } = await this.preflightCandidates(
+      topicId,
+      userId,
+      candidates,
+    );
+
+    // 入库
     const created: RadarSource[] = [];
     for (const c of shapeOk) {
       try {

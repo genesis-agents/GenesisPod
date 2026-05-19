@@ -110,9 +110,16 @@ export class RadarSourceController {
       },
       req.user.id,
     );
-    // dispatcher.runDiscoveryMission 直接把 candidates 挂到 summary.discoveryCandidates
-    // 上（discovery stage 写 ctx.state.discoveryCandidates → dispatcher cleanup 前读出）
-    return { candidates: summary.discoveryCandidates ?? [] };
+    // R7 2026-05-19：discovery stage 现在在 LLM 输出后立即 preflight，所以
+    // candidates 已是过滤后的可达源。skipped 列表给前端展示"AI 推荐 X 个，
+    // 已过滤 Y 个不可达"+ 原因，让用户理解为什么数量变少。
+    const live = summary.discoveryCandidates ?? [];
+    const skipped = summary.discoverySkipped ?? [];
+    return {
+      candidates: live,
+      skipped,
+      totalGenerated: live.length + skipped.length,
+    };
   }
 
   /**

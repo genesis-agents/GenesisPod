@@ -70,15 +70,27 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
   const [opError, setOpError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RadarSource | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // R7 2026-05-19：preflight 信息 —— "AI 生成 X 个候选，已自动过滤 Y 个不可达"
+  const [preflightInfo, setPreflightInfo] = useState<{
+    total: number;
+    skipped: number;
+  } | null>(null);
 
   const handleRecommend = async () => {
     setRecommending(true);
     setRecommendOpen(true);
     setOpError(null);
+    setPreflightInfo(null);
     try {
-      const { candidates: cs } = await recommendSources(topicId, 4);
-      setCandidates(cs);
-      setSelected(new Set(cs.map((_, i) => i)));
+      const result = await recommendSources(topicId, 4);
+      setCandidates(result.candidates);
+      setSelected(new Set(result.candidates.map((_, i) => i)));
+      if (result.skipped.length > 0) {
+        setPreflightInfo({
+          total: result.totalGenerated,
+          skipped: result.skipped.length,
+        });
+      }
     } catch (e) {
       setOpError(`AI 推荐失败：${e instanceof Error ? e.message : String(e)}`);
       setRecommendOpen(false);
@@ -293,6 +305,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
           loading={recommending}
           candidates={candidates}
           selected={selected}
+          preflightInfo={preflightInfo}
           onToggle={(i) => {
             const next = new Set(selected);
             if (next.has(i)) next.delete(i);
@@ -453,6 +466,7 @@ function RecommendDialog({
   loading,
   candidates,
   selected,
+  preflightInfo,
   onToggle,
   onClose,
   onAccept,
@@ -460,6 +474,7 @@ function RecommendDialog({
   loading: boolean;
   candidates: RecommendedSource[];
   selected: Set<number>;
+  preflightInfo: { total: number; skipped: number } | null;
   onToggle: (i: number) => void;
   onClose: () => void;
   onAccept: () => void;
@@ -488,14 +503,25 @@ function RecommendDialog({
             <X className="h-4 w-4" />
           </button>
         </div>
+        {/* R7 2026-05-19：preflight 阶段已过滤不可达源，告诉用户为什么数量这么少 */}
+        {preflightInfo && (
+          <div className="border-b border-emerald-100 bg-emerald-50/60 px-5 py-2 text-xs text-emerald-800">
+            <Sparkles className="-mt-0.5 mr-1 inline-block h-3 w-3" />
+            AI 生成 {preflightInfo.total} 个候选，系统已自动过滤{' '}
+            {preflightInfo.skipped} 个不可达源（404 / 403 / 解析失败等）， 以下{' '}
+            {candidates.length} 个均已验证可达。
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto px-5 py-3">
           {loading ? (
             <div className="py-12 text-center text-sm text-gray-400">
-              AI 正在生成候选...
+              AI 正在生成候选（含可达性预检，可能需要 10-30 秒）...
             </div>
           ) : candidates.length === 0 ? (
             <div className="py-12 text-center text-sm text-gray-400">
-              AI 暂未找到合适的候选源，请手动添加。
+              {preflightInfo && preflightInfo.skipped > 0
+                ? `AI 生成的 ${preflightInfo.total} 个候选全部不可达，请手动添加或换关键词重试。`
+                : 'AI 暂未找到合适的候选源，请手动添加。'}
             </div>
           ) : (
             <ul className="space-y-2">

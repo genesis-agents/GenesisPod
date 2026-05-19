@@ -16,6 +16,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { AIModelType } from "@prisma/client";
 import { AiChatService } from "@/modules/ai-engine/facade";
+import { RadarSourceService } from "../../source/radar-source.service";
+import { CreatableRadarSourceTypeDto } from "../../../dto";
 import type {
   RadarMissionContext,
   RadarStageHookArgs,
@@ -35,11 +37,22 @@ export interface RadarSourceCandidate {
   label?: string;
   rationale?: string;
   confidence?: number;
+  /**
+   * R7 2026-05-19：collector 入库读的 config 字段。CUSTOM 必须有 listSelector，
+   * YOUTUBE 可选 channelId 缓存等。LLM 在 CUSTOM 候选必须输出 config.listSelector，
+   * 不能只在 rationale 描述（rationale 不入库）。
+   */
+  config?: Record<string, unknown>;
 }
 
 /** stage output 结构（也写入 ctx 供外层取） */
 export interface RadarDiscoveryOutput {
   candidates: RadarSourceCandidate[];
+  /**
+   * R7 2026-05-19：preflight 过滤掉的候选 + 原因，前端展示
+   * "AI 推荐 X，已过滤 Y 个不可达"。
+   */
+  skipped?: Array<{ type: string; identifier: string; reason: string }>;
 }
 
 // 2026-05-17 业务策略：source-curator 不再推荐 type=X（Nitter 全死，业界
@@ -59,12 +72,16 @@ const X_ALIASES = new Set(["X", "TWITTER", "TWEET"]);
 export class RadarDiscoveryStage implements RadarStageRunner {
   private readonly log = new Logger(RadarDiscoveryStage.name);
 
-  constructor(private readonly chat: AiChatService) {}
+  constructor(
+    private readonly chat: AiChatService,
+    // R7 2026-05-19：注入 SourceService 用 preflightCandidates，在推荐生成阶段
+    // 就过滤不可达源。复用现有 CollectorRouter.fanOut（不造轮子）。
+    private readonly sourceService: RadarSourceService,
+  ) {}
 
   async run(args: RadarStageHookArgs, ctx: RadarMissionContext): Promise<void> {
     if (ctx.signal.aborted) throw new Error("aborted_during_discovery");
 
-    // discovery mission 的 input 类型
     const input = ctx.input as RunRadarDiscoveryMissionInput;
     if (!input.topicName) throw new Error("Discovery stage: topicName 缺失");
 
@@ -72,19 +89,49 @@ export class RadarDiscoveryStage implements RadarStageRunner {
       args.systemPrompt ||
       "你是 AI 雷达的信源策展专家，根据主题信息推荐高质量数据源。";
 
-    const candidates = await this.discoverSources(
+    // 1) LLM 生成原始候选（多召回，让 preflight 过滤后仍 5+ 留存）
+    const rawCandidates = await this.discoverSources(
       systemPrompt,
       input,
       ctx.userId,
     );
 
+    // 2) R7 推荐阶段就 preflight ——
+    //    用户截图反馈：AI 推荐 6 个，5 个不可达（404/403/YT @handle 无法解析）。
+    //    旧链路要等用户勾选 accept 才发现，体验差。改在生成时就过滤。
+    if (ctx.signal.aborted) throw new Error("aborted_during_preflight");
+    const { live, skipped } = await this.sourceService.preflightCandidates(
+      input.topicId,
+      ctx.userId,
+      rawCandidates.map((c) => ({
+        // RadarSourceCandidate.type 字面量 → enum 值（值相同，仅类型层不同）
+        type: c.type as unknown as CreatableRadarSourceTypeDto,
+        identifier: c.identifier,
+        label: c.label,
+        config: c.config,
+      })),
+    );
+
+    // 把 preflight 通过的合回 candidate 形式（保留 rationale/confidence 元信息）
+    const liveSet = new Set(live.map((c) => `${c.type}:${c.identifier}`));
+    const liveCandidates = rawCandidates.filter((c) =>
+      liveSet.has(`${c.type}:${c.identifier}`),
+    );
+
     this.log.log(
-      `[${ctx.missionId}] Discovery: topic="${input.topicName}" candidates=${candidates.length}`,
+      `[${ctx.missionId}] Discovery: topic="${input.topicName}" ` +
+        `raw=${rawCandidates.length} live=${liveCandidates.length} ` +
+        `skipped=${skipped.length}`,
     );
 
     (
-      ctx.state as { discoveryCandidates?: RadarSourceCandidate[] }
-    ).discoveryCandidates = candidates;
+      ctx.state as {
+        discoveryCandidates?: RadarSourceCandidate[];
+        discoverySkipped?: typeof skipped;
+      }
+    ).discoveryCandidates = liveCandidates;
+    (ctx.state as { discoverySkipped?: typeof skipped }).discoverySkipped =
+      skipped;
     return;
   }
 
@@ -102,7 +149,7 @@ export class RadarDiscoveryStage implements RadarStageRunner {
             .join(", ")
         : "无";
 
-    const userPrompt = `请为以下主题推荐 5-10 个高质量数据源。
+    const userPrompt = `请为以下主题推荐 12-20 个高质量数据源候选。
 
 主题信息：
 ${JSON.stringify({
@@ -114,37 +161,46 @@ ${JSON.stringify({
 
 已有数据源（请勿重复推荐）：${existingList}
 
+【关键约束】 R7 2026-05-19：本系统会在你输出后**立即做 preflight 真发 HTTP 请求**
+过滤不可达源，前端只展示通过的。所以：
+- **召回优先**：宁可多推（12-20 个）让 preflight 过滤，也不要少推 5 个里 3 个死链
+- **绝不编 URL**：不知道就别推 —— 输出 8 个真实可达比 15 个掺死链强
+- **CUSTOM 必带 config.listSelector**：CSS selector 必须放在 \`config.listSelector\` 字段（不是 rationale）—— rationale 是给用户看的文本，不入库 collector
+- **YOUTUBE @handle 解析失败率高**（YouTube 反爬）：能给 channelId 一定给 channelId，给不出 channelId 时 confidence 标 0.5 表示风险
+
 推荐要求：
-- type **只能是 3 种**：YOUTUBE（YouTube 频道）/ RSS（公司官博 / 媒体 RSS / Substack / 个人 Newsletter）/ CUSTOM（网页列表）
-- **绝对不输出 type=X / Twitter**（Nitter 全死 + X API 性价比低，业界 Feedly/Inoreader 已淡化 X 集成）
-- 用户主题是 KOL 时，按以下**优先级**找等价一手源（**不要把"关注 Elon"直接换成 Tesla 公关稿**）：
+- type **只能 3 种**：YOUTUBE（频道）/ RSS（官博/媒体/Substack/Newsletter）/ CUSTOM（列表页 + selector）
+- **绝对不输出 type=X / Twitter**（Nitter 全死 + 业界 Feedly/Inoreader 已淡化 X）
+- KOL 主题（如 "Elon Musk" / "Sam Altman"）按优先级找等价一手源：
   1. 本人 Substack / 个人 blog RSS / 本人主讲 YouTube
-  2. 含本人的长访谈播客 YouTube（Lex Fridman / Dwarkesh / All-In / Joe Rogan 等）
-  3. 本人所在组织的官方 YouTube / 官博 RSS（仅作工作内容补充）
+  2. 含本人的长访谈播客 YouTube（Lex Fridman / Dwarkesh / All-In / Joe Rogan）
+  3. 组织官方 YouTube / 官博 RSS（仅作工作内容补充）
   4. 同领域权威媒体深度报道 RSS（最远兜底，不要 paywall）
 - 反模式（不要）：
   - "Elon" → 只给 Tesla 官博（个人 personality 内容全丢）
-  - "SeekingAlpha" → 给公开 RSS（2022 起几乎空，有价值的全在 Premium，不要推）
-- identifier 规范（accept 路径会真发 HTTP preflight 校验，编 URL 会被剔除）：
-  - YOUTUBE: 首选 24 位 channelId (UC...)；次选 https://www.youtube.com/channel/UC... 完整 URL；可接 https://www.youtube.com/@handle 完整 URL（系统会 resolve channelId）；**禁裸 @handle**
-  - RSS: 必须是你**已知存在**的完整 https URL；**绝对不要凭 \`feeds.<公司>.com\` / \`<公司>.com/rss\` 等命名规则编 URL** —— 不确定就别推
-  - CUSTOM: https URL（rationale 内简述 CSS selector）
-- 不推荐 paywall / 需 auth token 的 RSS（SeekingAlpha Premium / WSJ / Bloomberg Terminal — 会 401）
-- 不推 2024+ 已停 / 已限流 / 已迁移的公开 feed（SeekingAlpha 公开 RSS / Reuters 公开 feed 等）
-- confidence 为 0-1 浮点数（推荐把握度）；KOL 找不到 1/2 级源或不确定 URL 真存在时**输出空数组比硬凑死链好**（accept 路径会剔除死链，硬凑也会被丢）
+  - "SeekingAlpha" → 给公开 RSS（2022 起几乎空）
+  - 凭命名规则编 \`newsroom.<公司>.com/feed\` / \`feeds.<公司>.com\` / \`<公司>.com/rss\`
+- identifier 规范：
+  - YOUTUBE: 首选 24 位 channelId (UC 开头)；次选 \`https://www.youtube.com/channel/UC...\` 完整 URL；可接 \`https://www.youtube.com/@handle\` 但 confidence 降 0.5；**禁裸 @handle**
+  - RSS: 必须是你**已知存在**且 2024+ 仍在维护的完整 https URL；不确定就别推
+  - CUSTOM: 列表页完整 https URL，**必须**附 config.listSelector
+- 不推 paywall / 401 / 已停 feed（SeekingAlpha Premium / WSJ / Bloomberg / Reuters 公开 feed）
+- confidence 0-1 浮点（推荐把握度）；CUSTOM 缺 selector / YT 仅 @handle 时 ≤0.6
 
-请严格按以下 JSON schema 返回（无 markdown 围栏）：
+请严格按以下 JSON schema 返回（无 markdown 围栏，**绝不**输出额外说明）：
 {
   "candidates": [
     {
       "type": "YOUTUBE|RSS|CUSTOM",
-      "identifier": "URL",
+      "identifier": "URL 或 channelId",
       "label": "来源名称",
-      "rationale": "≤80 字推荐理由（X 对象转换时说明映射）",
-      "confidence": 0.85
+      "rationale": "≤80 字推荐理由",
+      "confidence": 0.85,
+      "config": { "listSelector": "article.post h2 a" }
     }
   ]
-}`;
+}
+- config 字段：CUSTOM 必填 listSelector；YOUTUBE/RSS 可省略整个 config 字段。`;
 
     try {
       const result = await this.chat.chat({
@@ -192,6 +248,11 @@ ${JSON.stringify({
               typeof c["confidence"] === "number" &&
               Number.isFinite(c["confidence"])
                 ? Math.max(0, Math.min(1, c["confidence"]))
+                : undefined,
+            // R7：解析 LLM 输出的 config（CUSTOM 候选必带 listSelector）
+            config:
+              c["config"] && typeof c["config"] === "object"
+                ? (c["config"] as Record<string, unknown>)
                 : undefined,
           }))
           .filter((c) => c.identifier.length > 0)

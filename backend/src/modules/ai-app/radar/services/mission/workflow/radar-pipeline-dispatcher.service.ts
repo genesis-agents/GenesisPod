@@ -57,6 +57,15 @@ export interface RadarMissionSummary {
    * （从 ctx.state.discoveryCandidates 取出）
    */
   readonly discoveryCandidates?: unknown[];
+  /**
+   * R7 2026-05-19：discovery stage preflight 过滤掉的不可达候选 + 原因，
+   * 前端展示"AI 推荐 X 个，已过滤 Y 个不可达"。
+   */
+  readonly discoverySkipped?: Array<{
+    type: string;
+    identifier: string;
+    reason: string;
+  }>;
   readonly error?: unknown;
 }
 
@@ -239,11 +248,22 @@ export class RadarPipelineDispatcher implements OnModuleInit {
         const candidates =
           (ctx.state as { discoveryCandidates?: unknown[] })
             .discoveryCandidates ?? [];
+        const skipped =
+          (
+            ctx.state as {
+              discoverySkipped?: Array<{
+                type: string;
+                identifier: string;
+                reason: string;
+              }>;
+            }
+          ).discoverySkipped ?? [];
         return {
           missionId,
           status: "completed",
           stageOutputs: result.stageOutputs,
           discoveryCandidates: candidates,
+          discoverySkipped: skipped,
         };
       }
 
