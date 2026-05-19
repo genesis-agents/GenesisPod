@@ -18,8 +18,16 @@ jest.mock(
 import { AiTeamsGateway } from "../ai-teams.gateway";
 
 // Mock APP_CONFIG before any imports resolve it
+// 2026-05-18: 补 brand 字段 — preset-shared.ts 在模块加载时读 APP_CONFIG.brand.name
+//   原 mock 漏了 brand 导致整个 suite 加载 throw（pre-existing 失败，pre-push hook 拦截）
 jest.mock("../../../../common/config/app.config", () => ({
   APP_CONFIG: {
+    brand: {
+      name: "Genesis",
+      fullName: "Genesis.ai",
+      siteName: "Genesis",
+      emailFrom: "Genesis <noreply@genesis.ai>",
+    },
     railway: {
       frontendUrl: "http://localhost:3000",
       backendUrl: "http://localhost:3001",
