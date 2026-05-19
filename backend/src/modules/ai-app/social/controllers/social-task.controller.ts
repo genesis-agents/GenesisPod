@@ -60,8 +60,8 @@ export class SocialTaskController {
   async cancelTask(@Req() req: AuthenticatedRequest, @Param("id") id: string) {
     const userId = req.user?.id;
     if (!userId) throw new UnauthorizedException();
-    await this.taskService.cancelTask(id, userId);
-    return { success: true };
+    const result = await this.taskService.cancelTask(id, userId);
+    return { success: true, ...result };
   }
 
   @Post(":id/retry")

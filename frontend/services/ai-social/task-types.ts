@@ -88,6 +88,8 @@ export interface SocialContentTask {
   id: string;
   userId: string;
   status: SocialContentTaskStatus;
+  /** 任务名称 — 创建时自动派生（首个源条目标题 + 等 N 项），可在 NewTaskDialog 内覆盖 */
+  title?: string | null;
   prompt?: string | null;
   externalUrls: string[];
   platforms: string[];
@@ -110,6 +112,8 @@ export interface SocialContentTaskListResult {
 export interface CreateSocialTaskInput {
   sources: { sourceType: string; sourceId: string }[];
   externalUrls?: string[];
+  /** 任务名称（自动派生 + 用户可改） */
+  title?: string;
   prompt?: string;
   platforms: ('WECHAT_MP' | 'XIAOHONGSHU')[];
   accountIds: Record<string, string>;

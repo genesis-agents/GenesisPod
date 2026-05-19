@@ -149,6 +149,36 @@ export function NewTaskDialog({
     platforms.length > 0 &&
     totalSources <= MAX_TOTAL_ITEMS;
 
+  /**
+   * 自动派生任务标题（用户不填，由所选内容生成）：
+   *   1 项 → 直接用源条目标题
+   *   N 项 → "{首项} 等 N 项"
+   *   仅外链 → URL host 或 URL 截断
+   *   完全为空 → 时间戳 fallback（极少触发，canSubmit 已挡）
+   */
+  const deriveAutoTitle = (): string => {
+    if (pickedItems.length === 1) {
+      return pickedItems[0].title.slice(0, 200);
+    }
+    if (pickedItems.length > 1) {
+      return `${pickedItems[0].title.slice(0, 60)} 等 ${pickedItems.length} 项`.slice(
+        0,
+        200
+      );
+    }
+    if (externalUrls.length === 1) {
+      try {
+        return new URL(externalUrls[0]).hostname.slice(0, 200);
+      } catch {
+        return externalUrls[0].slice(0, 200);
+      }
+    }
+    if (externalUrls.length > 1) {
+      return `${externalUrls.length} 个外部链接`;
+    }
+    return '未命名任务';
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitLoading(true);
@@ -160,6 +190,7 @@ export function NewTaskDialog({
           sourceId: p.id,
         })),
         externalUrls: externalUrls.length > 0 ? externalUrls : undefined,
+        title: deriveAutoTitle(),
         prompt: prompt.trim() || undefined,
         platforms,
         accountIds,

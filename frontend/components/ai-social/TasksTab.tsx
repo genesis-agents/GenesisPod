@@ -164,15 +164,28 @@ function TaskRow({
     .filter((v) => v.externalUrl)
     .map((v) => ({ platform: v.platform, url: v.externalUrl! }));
 
-  // 标题优先级：AI 生成标题 > 用户 prompt 截断 > "任务+id"
+  // 标题优先级：task.title（创建时自动派生自所选源）> AI 生成标题 > 用户 prompt > 状态描述
+  // 旧任务 task.title=null，UI 自然 fallback。
+  const autoTitle = task.title?.trim();
   const generatedTitle = task.versions?.[0]?.title?.trim();
   const promptTitle = task.prompt?.trim().slice(0, 60);
-  const title = generatedTitle || promptTitle || `任务 ${task.id.slice(0, 8)}`;
-  const titleStyle = generatedTitle
-    ? 'font-semibold text-gray-900'
-    : promptTitle
-      ? 'font-medium text-gray-800'
-      : 'font-mono text-sm text-gray-500';
+  const title =
+    autoTitle ||
+    generatedTitle ||
+    promptTitle ||
+    (task.status === 'GENERATING' || task.status === 'PENDING'
+      ? '生成中…'
+      : task.status === 'FAILED'
+        ? '未生成（任务失败）'
+        : task.status === 'CANCELLED'
+          ? '已取消'
+          : '未命名任务');
+  const titleStyle =
+    autoTitle || generatedTitle
+      ? 'font-semibold text-gray-900'
+      : promptTitle
+        ? 'font-medium text-gray-800'
+        : 'text-sm text-gray-500 italic';
 
   // 来源摘要：首个 sourceType 友好名 + "+N"；外链单独标
   const sources = task.sources ?? [];
@@ -183,9 +196,15 @@ function TaskRow({
     : null;
   const extraSourceCount = sources.length > 1 ? sources.length - 1 : 0;
 
+  // 兼容旧任务的 platforms 字段（旧表用 SocialContentType enum 值如 WECHAT_ARTICLE
+  // 填到 platforms 字段；新任务用 SocialPlatform enum WECHAT_MP）
   const platformLabel = task.platforms
     .map((p) =>
-      p === 'WECHAT_MP' ? '微信公众号' : p === 'XIAOHONGSHU' ? '小红书' : p
+      p === 'WECHAT_MP' || p === 'WECHAT_ARTICLE'
+        ? '微信公众号'
+        : p === 'XIAOHONGSHU' || p === 'XIAOHONGSHU_NOTE'
+          ? '小红书'
+          : p
     )
     .join(' · ');
 
@@ -285,16 +304,15 @@ function TaskRow({
               <ExternalLink className="h-4 w-4" />
             </a>
           )}
-          {canCancel && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
-              title="取消任务"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
+          {/* 删除按钮：始终显示 — 后端按状态决定行为（运行中→标 CANCELLED；终态→真删 row） */}
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-100 hover:text-red-600"
+            title={canCancel ? '取消任务（保留记录）' : '删除任务（永久）'}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
           {/* 默认 hover 露出 → 进详情指示 */}
           <ChevronRight className="ml-1 h-4 w-4 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
         </div>

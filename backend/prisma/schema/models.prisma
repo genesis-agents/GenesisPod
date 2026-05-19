@@ -10643,6 +10643,11 @@ model SocialContentTask {
   id                String                  @id @default(cuid())
   userId            String
   status            SocialContentTaskStatus @default(PENDING)
+  /// 任务名称 — 前端创建时按"首个源条目标题 等 N 项"自动派生（详见
+  /// NewTaskDialog deriveAutoTitle）；用户也可以在弹窗里覆盖。展示在
+  /// TasksTab 表格内容列。旧任务为 null，UI fallback 用 versions[0].title /
+  /// prompt / 状态描述。
+  title             String?                 @db.VarChar(200)
   prompt            String?                 @db.Text
   externalUrls      String[]                @default([])
   platforms         String[]

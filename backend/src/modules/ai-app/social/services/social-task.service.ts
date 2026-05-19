@@ -49,6 +49,7 @@ export class SocialTaskService {
       data: {
         userId,
         status: SocialContentTaskStatus.PENDING,
+        title: dto.title?.trim().slice(0, 200) ?? null,
         prompt: dto.prompt ?? null,
         externalUrls: dto.externalUrls ?? [],
         platforms: dto.platforms,
@@ -119,7 +120,18 @@ export class SocialTaskService {
     return task;
   }
 
-  async cancelTask(taskId: string, userId: string): Promise<void> {
+  /**
+   * 智能 delete：
+   *   - PENDING / GENERATING → 标 CANCELLED（保留 row 供用户查看）
+   *   - 其他终态（CANCELLED / FAILED / DRAFT_READY / PUBLISHED / PARTIAL_PUBLISHED / PUBLISHING）
+   *     → 真删 row + cascade 清理 sources / versions
+   *
+   * 返回 { mode: 'cancelled' | 'deleted' } 让前端做合适的 toast。
+   */
+  async cancelTask(
+    taskId: string,
+    userId: string,
+  ): Promise<{ mode: "cancelled" | "deleted" }> {
     const task = await this.prisma.socialContentTask.findFirst({
       where: { id: taskId, userId },
       select: { id: true, status: true },
@@ -134,16 +146,18 @@ export class SocialTaskService {
       SocialContentTaskStatus.GENERATING,
     ];
 
-    if (!cancellable.includes(task.status)) {
-      throw new BadRequestException(
-        `Cannot cancel task in status: ${task.status}`,
-      );
+    if (cancellable.includes(task.status)) {
+      await this.prisma.socialContentTask.update({
+        where: { id: taskId },
+        data: { status: SocialContentTaskStatus.CANCELLED },
+      });
+      return { mode: "cancelled" };
     }
 
-    await this.prisma.socialContentTask.update({
-      where: { id: taskId },
-      data: { status: SocialContentTaskStatus.CANCELLED },
-    });
+    // 终态 → 真删除，cascade 由 schema 的 onDelete: Cascade 保证（versions /
+    // sources 自动连带清理）
+    await this.prisma.socialContentTask.delete({ where: { id: taskId } });
+    return { mode: "deleted" };
   }
 
   /**

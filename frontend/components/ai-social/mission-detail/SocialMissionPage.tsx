@@ -482,27 +482,9 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
                       重试失败：{retryError}
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleRetry()}
-                      disabled={retrying}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2.5 text-sm font-medium text-white shadow-md transition-shadow hover:shadow-lg disabled:opacity-60"
-                    >
-                      <RefreshCw
-                        className={cn('h-4 w-4', retrying && 'animate-spin')}
-                      />
-                      {retrying ? '重新启动中…' : '重试任务'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => router.push('/ai-social')}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                    >
-                      <ArrowLeft className="h-4 w-4" />
-                      返回任务列表
-                    </button>
-                  </div>
+                  <p className="pt-1 text-xs text-gray-500">
+                    操作按钮请点左侧团队面板底部「重试任务」
+                  </p>
                 </div>
               </div>
             </div>

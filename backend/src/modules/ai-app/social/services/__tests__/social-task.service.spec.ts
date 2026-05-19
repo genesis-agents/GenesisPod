@@ -587,12 +587,15 @@ describe("SocialTaskService", () => {
   });
 
   describe("cancelTask()", () => {
-    it("throws BadRequest when task is already PUBLISHED", async () => {
+    it("hard-deletes a PUBLISHED task (terminal state, returns mode=deleted)", async () => {
       const prisma = makePrisma();
       prisma.socialContentTask.findFirst.mockResolvedValue({
         id: "task-pub",
         status: SocialContentTaskStatus.PUBLISHED,
       });
+      // need to mock delete since cancelTask now calls it for terminal states
+      (prisma.socialContentTask as unknown as { delete: jest.Mock }).delete =
+        jest.fn().mockResolvedValue({});
 
       const svc = new SocialTaskService(
         prisma as never,
@@ -601,9 +604,11 @@ describe("SocialTaskService", () => {
         makeDispatcher() as never,
       );
 
-      await expect(svc.cancelTask("task-pub", "user-1")).rejects.toThrow(
-        BadRequestException,
-      );
+      const result = await svc.cancelTask("task-pub", "user-1");
+      expect(result).toEqual({ mode: "deleted" });
+      expect(
+        (prisma.socialContentTask as unknown as { delete: jest.Mock }).delete,
+      ).toHaveBeenCalledWith({ where: { id: "task-pub" } });
     });
 
     it("cancels a PENDING task successfully", async () => {
