@@ -24,7 +24,7 @@ import type {
 
 async function fetchJson<T>(
   url: string,
-  options: RequestInit & { timeout?: number } = {},
+  options: RequestInit & { timeout?: number } = {}
 ): Promise<T> {
   const tokens = getAuthTokens();
   const headers: Record<string, string> = {
@@ -68,7 +68,19 @@ async function fetchJson<T>(
     if (response.status === 204) {
       return undefined as T;
     }
-    return (await response.json()) as T;
+    const body = (await response.json()) as unknown;
+    // 后端 ResponseTransformInterceptor 把响应包装成 {success, data, metadata}。
+    // 这里自动解包：识别到 wrapper 时返回 data；否则原样返回（向后兼容未解包的 endpoint）。
+    if (
+      body !== null &&
+      typeof body === 'object' &&
+      'success' in body &&
+      'data' in body &&
+      typeof (body as { success: unknown }).success === 'boolean'
+    ) {
+      return (body as { data: T }).data;
+    }
+    return body as T;
   } catch (err) {
     clearTimeout(timer);
     throw err;
@@ -78,7 +90,7 @@ async function fetchJson<T>(
 // ============== Task endpoints ==============
 
 export function createSocialTask(
-  input: CreateSocialTaskInput,
+  input: CreateSocialTaskInput
 ): Promise<{ id: string }> {
   return fetchJson<{ id: string }>('/api/v1/ai-social/tasks', {
     method: 'POST',
@@ -97,7 +109,7 @@ export function listSocialTasks(opts?: {
   if (opts?.limit) params.set('limit', String(opts.limit));
   const qs = params.toString();
   return fetchJson<SocialContentTaskListResult>(
-    `/api/v1/ai-social/tasks${qs ? `?${qs}` : ''}`,
+    `/api/v1/ai-social/tasks${qs ? `?${qs}` : ''}`
   );
 }
 
@@ -117,13 +129,13 @@ export function listSocialDataSources(): Promise<{
   items: SocialDataSourceDescriptor[];
 }> {
   return fetchJson<{ items: SocialDataSourceDescriptor[] }>(
-    '/api/v1/ai-social/data-sources',
+    '/api/v1/ai-social/data-sources'
   );
 }
 
 export function listSocialSourceItems(
   sourceId: string,
-  opts?: { search?: string; cursor?: string; limit?: number; tags?: string[] },
+  opts?: { search?: string; cursor?: string; limit?: number; tags?: string[] }
 ): Promise<SourceListResult> {
   const params = new URLSearchParams();
   if (opts?.search) params.set('search', opts.search);
@@ -132,6 +144,6 @@ export function listSocialSourceItems(
   if (opts?.tags?.length) params.set('tags', opts.tags.join(','));
   const qs = params.toString();
   return fetchJson<SourceListResult>(
-    `/api/v1/ai-social/data-sources/${encodeURIComponent(sourceId)}/items${qs ? `?${qs}` : ''}`,
+    `/api/v1/ai-social/data-sources/${encodeURIComponent(sourceId)}/items${qs ? `?${qs}` : ''}`
   );
 }
