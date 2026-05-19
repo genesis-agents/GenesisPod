@@ -10,6 +10,7 @@
  * 安全：JwtAuthGuard + ownership 校验（topics.getOwnedById）
  */
 import {
+  BadRequestException,
   Controller,
   Get,
   Param,
@@ -50,6 +51,26 @@ export interface DailyBriefingDto {
   rerunCount: number;
   /** FU-P2-4: 是否还可继续 rerun（false → 前端禁用按钮） */
   canRerun: boolean;
+}
+
+/** R14 2026-05-19: 4 bucket 聚合 briefing 返回值 */
+export type BriefingBucket = "today" | "week" | "month" | "year";
+
+export interface BriefingRangeDto {
+  bucket: BriefingBucket;
+  /** UTC ISO 字符串，闭区间起点 */
+  from: string;
+  /** UTC ISO 字符串，闭区间终点（含今天） */
+  to: string;
+  /** 区间内每天的 briefing（按日升序），每条含 signals 数组 */
+  briefings: Array<{
+    id: string;
+    briefingDate: string;
+    status: "completed" | "no_signals" | "generating";
+    signals: DailySignalDto[];
+  }>;
+  /** 扁平合并后所有 signal 总数（便于 UI 显示） */
+  totalSignals: number;
 }
 
 @Controller("radar/topics")
@@ -109,6 +130,61 @@ export class DailyBriefingController {
       canRerun: rerunCount < 2, // RERUN_LIMIT_PER_DAY in radar-run.controller
     };
   }
+
+  /**
+   * R14 2026-05-19: 4 bucket 聚合 briefing —— 解决「今日精选 0 信号
+   * 但本周其实有 5 条」的可见性问题。range 把闭区间内 status=completed
+   * 的 briefings 全部返回，前端可按日期分组渲染。
+   */
+  @Get(":topicId/daily-briefing/range")
+  async range(
+    @Request() req: RequestWithUser,
+    @Param("topicId") topicId: string,
+    @Query("bucket") bucket?: string,
+  ): Promise<BriefingRangeDto> {
+    await this.topics.getOwnedById(req.user.id, topicId);
+
+    const validBuckets: BriefingBucket[] = ["today", "week", "month", "year"];
+    const b = bucket as BriefingBucket;
+    if (!validBuckets.includes(b)) {
+      throw new BadRequestException(
+        `invalid bucket: ${bucket} (allowed: ${validBuckets.join(", ")})`,
+      );
+    }
+
+    const now = new Date();
+    const { from, to } = computeBucketRange(b, now);
+    const rows = await this.repo.findInRange(topicId, from, to);
+
+    const briefings = rows.map((row) => {
+      const signals = (row.signals as unknown as DailySignal[]) ?? [];
+      return {
+        id: row.id,
+        briefingDate: row.briefingDate.toISOString().slice(0, 10),
+        status: row.status as "completed" | "no_signals" | "generating",
+        signals: signals.map((s) => ({
+          id: s.id,
+          tier: s.tier,
+          title: s.title,
+          oneLineTakeaway: s.oneLineTakeaway,
+          whyItMatters: s.whyItMatters,
+          whatsNext: s.whatsNext,
+          signalTags: s.signalTags ?? [],
+          entities: s.entities ?? [],
+          evidenceItemIds: s.evidenceItemIds ?? [],
+          narrativeId: s.narrativeId,
+        })),
+      };
+    });
+
+    return {
+      bucket: b,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      briefings,
+      totalSignals: briefings.reduce((sum, b) => sum + b.signals.length, 0),
+    };
+  }
 }
 
 function parseDate(s: string): Date {
@@ -116,4 +192,44 @@ function parseDate(s: string): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   if (!m) throw new Error(`invalid date: ${s}`);
   return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+}
+
+/**
+ * R14 2026-05-19: 4 bucket → [from, to] UTC 闭区间。
+ *
+ * 设计：
+ *  - 周用 ISO week（周一开始 ~ 今天结束）
+ *  - 月用日历月初 ~ 今天
+ *  - 年用日历年初 ~ 今天
+ *  - 今天单点
+ */
+function computeBucketRange(
+  bucket: BriefingBucket,
+  now: Date,
+): { from: Date; to: Date } {
+  const today = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+  switch (bucket) {
+    case "today":
+      return { from: today, to: today };
+    case "week": {
+      // dow: 0=Sun, 1=Mon, ..., 6=Sat → ISO 周一 0
+      const dow = today.getUTCDay();
+      const daysFromMonday = dow === 0 ? 6 : dow - 1;
+      const monday = new Date(today);
+      monday.setUTCDate(monday.getUTCDate() - daysFromMonday);
+      return { from: monday, to: today };
+    }
+    case "month": {
+      const monthStart = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+      );
+      return { from: monthStart, to: today };
+    }
+    case "year": {
+      const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+      return { from: yearStart, to: today };
+    }
+  }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -28,10 +28,12 @@ import { RadarHistoricalItemsPanel } from '@/components/ai-radar/RadarHistorical
 import { RadarTopicConfigDrawer } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import type { RadarTopicConfigDrawerTopic } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
-import { DateSwitcher } from '@/components/common/switchers/DateSwitcher';
-import { useDailyBriefing } from '@/hooks/domain/useDailyBriefing';
+import { RadarBucketSwitcher } from '@/components/ai-radar/RadarBucketSwitcher';
+import {
+  useDailyBriefingRange,
+  type BriefingBucket,
+} from '@/hooks/domain/useDailyBriefingRange';
 import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
-import type { DailySignalView } from '@/components/ai-radar/RadarBriefingCard';
 
 // ------------------------------------------------------------------
 // Helpers
@@ -39,23 +41,6 @@ import type { DailySignalView } from '@/components/ai-radar/RadarBriefingCard';
 
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-/** Build last-N-days date options for DateSwitcher */
-function buildDateOptions(days = 7) {
-  const opts = [];
-  for (let i = 0; i < days; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-    const month = d.getMonth() + 1;
-    const day = d.getDate();
-    opts.push({
-      date: dateStr,
-      label: i === 0 ? '今天' : `${month}月${day}日`,
-    });
-  }
-  return opts;
 }
 
 /** Format time until nextDueAt as "Xh" / "Xd" / "刚刚" */
@@ -80,18 +65,22 @@ export default function RadarTopicDetailPage() {
   const searchParams = useSearchParams();
   const topicId = params?.topicId;
 
-  // URL-synced selected date
-  const urlDate = searchParams?.get('date') ?? todayDate();
-  const [selectedDate, setSelectedDate] = useState<string>(urlDate);
+  // R14 2026-05-19: 4 bucket URL-synced
+  const urlBucket = (searchParams?.get('bucket') as BriefingBucket) ?? 'today';
+  const [bucket, setBucketState] = useState<BriefingBucket>(
+    ['today', 'week', 'month', 'year'].includes(urlBucket) ? urlBucket : 'today'
+  );
 
-  const handleDateChange = (d: string) => {
-    setSelectedDate(d);
+  const handleBucketChange = (b: BriefingBucket) => {
+    setBucketState(b);
     const url = new URL(window.location.href);
-    if (d === todayDate()) {
-      url.searchParams.delete('date');
+    if (b === 'today') {
+      url.searchParams.delete('bucket');
     } else {
-      url.searchParams.set('date', d);
+      url.searchParams.set('bucket', b);
     }
+    // 清掉旧 date 参数（兼容旧 URL）
+    url.searchParams.delete('date');
     router.replace(url.pathname + url.search);
   };
 
@@ -225,12 +214,13 @@ export default function RadarTopicDetailPage() {
     return () => window.clearInterval(interval);
   }, [refreshing, topicId, activeRunId]);
 
-  // Daily briefing
+  // R14: 4 bucket 聚合 briefing
   const {
-    data: briefing,
+    data: briefingRange,
     loading: briefingLoading,
     refresh: briefingRefresh,
-  } = useDailyBriefing(topicId ?? null, selectedDate);
+    error: briefingError,
+  } = useDailyBriefingRange(topicId ?? null, bucket);
 
   useEffect(() => {
     briefingRefreshRef.current = briefingRefresh;
@@ -315,8 +305,6 @@ export default function RadarTopicDetailPage() {
     await reloadTopic();
   };
 
-  const dateOptions = useMemo(() => buildDateOptions(14), []);
-
   // ------------------------------------------------------------------
   // Loading / error states
   // ------------------------------------------------------------------
@@ -367,15 +355,16 @@ export default function RadarTopicDetailPage() {
     entityType: topic.entityType,
   };
 
-  // Map briefing signals — hook 已返回 4 层完整字段（P0-11 修复后）
-  const signals: DailySignalView[] = briefing?.signals ?? [];
-
-  const briefingStatus = briefingLoading
-    ? 'generating'
-    : (briefing?.status ?? 'no_signals');
+  // R14: briefing groups（区间内每天一组）。今天 bucket 时长度 0-1，其他 bucket 多组。
+  const briefingGroups = briefingRange?.briefings ?? [];
+  // 今天 bucket 的 rerunCount 取今天那一组（如存在）
+  const todayDateStr = todayDate();
+  const todayBriefing = briefingGroups.find(
+    (g) => g.briefingDate === todayDateStr
+  );
 
   const nextRefreshIn = formatNextRefreshIn(topic.nextDueAt);
-  const rawUrl = `/ai-radar/topic/${topicId}/raw?date=${selectedDate}`;
+  const rawUrl = `/ai-radar/topic/${topicId}/raw?date=${todayDateStr}`;
 
   // 数据源健康度统计（侧边栏用）
   // 字段对齐：后端 RadarSource.health 是 RadarSourceHealth enum
@@ -466,11 +455,7 @@ export default function RadarTopicDetailPage() {
         {/* 左主区 — Briefing toolbar + Panel */}
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <DateSwitcher
-              value={selectedDate}
-              options={dateOptions}
-              onChange={handleDateChange}
-            />
+            <RadarBucketSwitcher value={bucket} onChange={handleBucketChange} />
 
             <div className="flex items-center gap-2">
               {/* "重新精选"按钮收敛到 RadarBriefingPanel 内（PR-DR2-FU2 修
@@ -486,13 +471,14 @@ export default function RadarTopicDetailPage() {
           </div>
 
           <RadarBriefingPanel
-            briefingDate={selectedDate}
-            status={briefingStatus}
-            signals={signals}
+            bucket={bucket}
+            groups={briefingGroups}
+            loading={briefingLoading}
+            errorMsg={briefingError ? briefingError.message : null}
             topicId={topicId}
             topicName={topic.name}
             onRerun={() => void handleRefresh()}
-            rerunCount={briefing?.rerunCount ?? 0}
+            rerunCount={0}
           />
 
           {/* R13.5 2026-05-19：已收录信号面板 —— 即便今日 briefing 0 信号，
