@@ -311,15 +311,17 @@ export default function RadarTopicDetailPage() {
   const rawUrl = `/ai-radar/topic/${topicId}/raw?date=${selectedDate}`;
 
   // 数据源健康度统计（侧边栏用）
+  // 字段对齐：后端 RadarSource.health 是 RadarSourceHealth enum
+  // (UNKNOWN/HEALTHY/DEGRADED/FAILING)，不是 healthStatus
   const healthStats = sources.reduce(
     (acc, s) => {
-      const h = (s as RadarSource & { healthStatus?: string }).healthStatus;
-      if (h === 'OK') acc.ok += 1;
-      else if (h === 'DEGRADED') acc.degraded += 1;
-      else if (h === 'DOWN' || h === 'FAILED') acc.down += 1;
+      if (s.health === 'HEALTHY') acc.ok += 1;
+      else if (s.health === 'DEGRADED') acc.degraded += 1;
+      else if (s.health === 'FAILING') acc.down += 1;
+      else acc.unknown += 1;
       return acc;
     },
-    { ok: 0, degraded: 0, down: 0 }
+    { ok: 0, degraded: 0, down: 0, unknown: 0 }
   );
 
   return (
@@ -447,18 +449,43 @@ export default function RadarTopicDetailPage() {
                   故障 {healthStats.down}
                 </span>
               )}
+              {healthStats.unknown > 0 && (
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-2 w-2 rounded-full bg-gray-300" />
+                  待采集 {healthStats.unknown}
+                </span>
+              )}
               {sources.length === 0 && (
                 <span className="text-gray-400">尚未添加</span>
               )}
             </div>
             {sources.length > 0 && (
               <ul className="mt-3 flex flex-col gap-1.5 text-xs text-gray-600">
-                {sources.slice(0, 5).map((s) => (
-                  <li key={s.id} className="flex items-center gap-2 truncate">
-                    <span className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full bg-violet-500" />
-                    <span className="truncate">{s.label ?? s.identifier}</span>
-                  </li>
-                ))}
+                {sources.slice(0, 5).map((s) => {
+                  // 按 health 配色：HEALTHY→绿、DEGRADED→黄、FAILING→红、UNKNOWN→灰
+                  const dotColor =
+                    s.health === 'HEALTHY'
+                      ? 'bg-emerald-500'
+                      : s.health === 'DEGRADED'
+                        ? 'bg-amber-500'
+                        : s.health === 'FAILING'
+                          ? 'bg-red-500'
+                          : 'bg-gray-300';
+                  return (
+                    <li
+                      key={s.id}
+                      className="flex items-center gap-2 truncate"
+                      title={s.lastError ?? `health: ${s.health}`}
+                    >
+                      <span
+                        className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${dotColor}`}
+                      />
+                      <span className="truncate">
+                        {s.label ?? s.identifier}
+                      </span>
+                    </li>
+                  );
+                })}
                 {sources.length > 5 && (
                   <li className="text-gray-400">+ {sources.length - 5} 个</li>
                 )}
