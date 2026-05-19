@@ -251,6 +251,11 @@ export async function listRuns(
   return request<RadarRun[]>(`/topics/${topicId}/runs${qs}`);
 }
 
+/** 单 run 详情（mission 详情页用） */
+export async function getRun(runId: string): Promise<RadarRun> {
+  return request<RadarRun>(`/runs/${runId}`);
+}
+
 export async function triggerRefresh(
   topicId: string
 ): Promise<TriggerRefreshResponse> {

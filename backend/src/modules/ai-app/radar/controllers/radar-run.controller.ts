@@ -66,6 +66,19 @@ export class RadarRunController {
   }
 
   /**
+   * 单 run 详情（mission 详情页用）。
+   *
+   * 返回完整 RadarRun 行（含 metrics JSON / lastCompletedStage / error）。
+   * ownership 校验由 store.getById 内置 userId 过滤完成。
+   */
+  @Get("runs/:runId")
+  async getOne(@Request() req: RequestWithUser, @Param("runId") runId: string) {
+    const run = await this.store.getById(runId, req.user.id);
+    if (!run) throw new NotFoundException("Run not found");
+    return run;
+  }
+
+  /**
    * 手动触发一次刷新 mission（通过 dispatcher.runRefreshMission）。
    *
    * 防滥用三件套：

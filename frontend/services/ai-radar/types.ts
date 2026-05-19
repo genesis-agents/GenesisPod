@@ -165,6 +165,8 @@ export interface RadarRun {
   startedAt: string | null;
   completedAt: string | null;
   durationMs: number | null;
+  /** 最后完成的 stage 编号（1-8）—— mission resume / 进度展示用 */
+  lastCompletedStage?: number | null;
   metrics: {
     itemsFetched?: number;
     itemsDeduped?: number;

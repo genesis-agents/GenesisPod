@@ -27,7 +27,6 @@ import { RadarBriefingPanel } from '@/components/ai-radar/RadarBriefingPanel';
 import { RadarTopicConfigDrawer } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import type { RadarTopicConfigDrawerTopic } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
-import { RefreshDetailDrawer } from '@/components/ai-radar/RefreshDetailDrawer';
 import { DateSwitcher } from '@/components/common/switchers/DateSwitcher';
 import { useDailyBriefing } from '@/hooks/domain/useDailyBriefing';
 import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
@@ -108,7 +107,10 @@ export default function RadarTopicDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
+
+  // 「查看详情」跳新路由 /runs/{runId}（整页运行历史 + drawer 看单 run 详情）。
+  // 优先用当前 active（running 中）的 runId；退化到最近一次 run；都没有则 disabled。
+  const [latestRunId, setLatestRunId] = useState<string | null>(null);
 
   // Subscribe to active run WS progress
   useRadarSocket(activeRunId, {
@@ -177,6 +179,9 @@ export default function RadarTopicDetailPage() {
           setActiveRunId(running.id);
           setRefreshing(true);
         }
+        // 记录最近 run id —— 「查看详情」按钮跳 /runs/{id} 时用
+        const latest = running ?? runs[0] ?? null;
+        if (latest) setLatestRunId(latest.id);
       })
       .catch(() => {
         // 失败 silent —— stepper 不显也不影响主流程
@@ -207,6 +212,7 @@ export default function RadarTopicDetailPage() {
       // → 渲染 stepper。onCompleted/onFailed 由 WS 回调 reset state。
       const resp = await triggerRefresh(topicId);
       setActiveRunId(resp.runId);
+      setLatestRunId(resp.runId);
       // 安全网：mission 极少数情况 WS 漏完成事件（pod 重启 / 网络抖动）
       // → 5 分钟硬超时强制 reset state，避免 spinner 永远转
       window.setTimeout(
@@ -409,7 +415,12 @@ export default function RadarTopicDetailPage() {
       {refreshing && (
         <RefreshProgressStepper
           currentStage={stageStatus?.stage ?? null}
-          onOpenDetail={() => setDetailOpen(true)}
+          onOpenDetail={
+            latestRunId
+              ? () =>
+                  router.push(`/ai-radar/topic/${topicId}/runs/${latestRunId}`)
+              : undefined
+          }
         />
       )}
 
@@ -450,15 +461,19 @@ export default function RadarTopicDetailPage() {
 
         {/* 右侧 sidebar — 数据源 / 配置摘要 / 行动 */}
         <aside className="flex flex-col gap-4">
-          {/* 历史运行入口（非 running 状态下也可点开看上次结果） */}
+          {/* 历史运行入口 —— 跳整页 /runs/{latestRunId} 看所有运行 + drawer 详情 */}
           <button
             type="button"
-            onClick={() => setDetailOpen(true)}
-            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm hover:bg-gray-50"
+            onClick={() => {
+              if (!latestRunId) return;
+              router.push(`/ai-radar/topic/${topicId}/runs/${latestRunId}`);
+            }}
+            disabled={!latestRunId}
+            className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="inline-flex items-center gap-2 font-medium text-gray-700">
               <RefreshCw className="h-4 w-4 text-violet-600" />
-              历史运行 · 进度
+              查看详情 · 历史运行
             </span>
             <ChevronRight className="h-4 w-4 text-gray-400" />
           </button>
@@ -581,17 +596,6 @@ export default function RadarTopicDetailPage() {
           )}
         </aside>
       </div>
-
-      {/* Detail drawer — refresh mission stage progress + history */}
-      {topicId && (
-        <RefreshDetailDrawer
-          open={detailOpen}
-          onClose={() => setDetailOpen(false)}
-          topicId={topicId}
-          activeRunId={activeRunId}
-          currentStage={stageStatus?.stage ?? null}
-        />
-      )}
 
       {/* Config drawer */}
       <RadarTopicConfigDrawer
