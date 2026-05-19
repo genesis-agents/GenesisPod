@@ -1,6 +1,7 @@
 import { Module, OnModuleInit, Logger } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { TopicInsightsSocialSourceProvider } from "./social-data-source/topic-insights-social-source.provider";
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { NotificationModule } from "../../ai-infra/notifications/notification.module";
 import { NotificationDispatcherModule } from "../../ai-infra/notifications/dispatcher/notification-dispatcher.module";
@@ -299,12 +300,16 @@ const services = [
       provide: TOPIC_INSIGHTS_DATA_EXPORT,
       useExisting: TopicInsightsDataExportService,
     },
+    // ★ PR-V2e: Topic Insights as a social data source
+    //   Auto-discovered via DiscoveryService at runtime
+    TopicInsightsSocialSourceProvider,
   ],
   exports: [
     TopicInsightsService,
     TopicAccessGuard,
     TopicInsightsDataExportService,
     TOPIC_INSIGHTS_DATA_EXPORT,
+    TopicInsightsSocialSourceProvider,
   ],
 })
 export class TopicInsightsModule implements OnModuleInit {

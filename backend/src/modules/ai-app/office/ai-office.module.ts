@@ -68,6 +68,7 @@ import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
 // - TOPIC_INSIGHTS_DATA_EXPORT   provided by TopicInsightsModule
 // - RESEARCH_PROJECT_DATA_EXPORT provided by ResearchModule
 // - WRITING_DATA_EXPORT          provided by AiWritingModule
+import { OfficeSocialSourceProvider } from './social-data-source/office-social-source.provider';
 
 @Module({
   imports: [
@@ -112,6 +113,8 @@ import { TopicInsightsModule } from "../topic-insights/topic-insights.module";
     SkillResolver,
     // Auto-router (Phase C3): opt-in LLM preset inference
     SlidesAutoRouterService,
+    // Social data source — auto-discovered via DiscoveryService
+    OfficeSocialSourceProvider,
   ],
   exports: [
     AIModelService,

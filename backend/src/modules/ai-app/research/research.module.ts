@@ -45,6 +45,7 @@ import {
 import { ResearchMemoryService } from "./memory/research-memory.service";
 import { StrategyLoaderService } from "./memory/strategy-loader.service";
 import { DiscussionController } from "./discussion/discussion.controller";
+import { ResearchSocialSourceProvider } from "./social-data-source/research-social-source.provider";
 
 @Module({
   imports: [DiscussionModule, ResearchProjectModule],
@@ -74,6 +75,8 @@ import { DiscussionController } from "./discussion/discussion.controller";
     IterativeResearchService,
     ResearchMemoryService,
     StrategyLoaderService,
+    // Social data source — auto-discovered via DiscoveryService
+    ResearchSocialSourceProvider,
   ],
   exports: [
     DiscussionModule,

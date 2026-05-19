@@ -203,7 +203,7 @@ model User {
   youtubeAiChatMessages YouTubeAiChatMessage[]
 
   // 2026-05-16 AI Radar 雷达主题
-  radarTopics      RadarTopic[]
+  radarTopics             RadarTopic[]
   // 2026-05-18 PR-DR2: daily/weekly briefings + per-topic 退订 + 收藏
   radarDailyBriefings     RadarDailyBriefing[]
   radarWeeklyBriefings    RadarWeeklyBriefing[]
@@ -10336,19 +10336,19 @@ model RadarTopic {
 
   // 2026-05-18 PR-DR2: 每日精选配置字段
   /// null = 用账户级默认；非空 = 覆盖（schema: { mode, channels? }）
-  pushConfig       Json?   @map("push_config")
+  pushConfig       Json?    @map("push_config")
   /// 精选生成时间（用户本地时区）；白名单: 08:00/12:00/18:00/21:00
-  briefingTime     String  @default("08:00") @map("briefing_time") @db.VarChar(5)
+  briefingTime     String   @default("08:00") @map("briefing_time") @db.VarChar(5)
   /// null = 跟 user.timezone；非空覆盖（IANA 时区）
-  briefingTimezone String? @map("briefing_timezone") @db.VarChar(64)
+  briefingTimezone String?  @map("briefing_timezone") @db.VarChar(64)
   /// 每日精选信号数量（3 或 5）
-  signalsTarget    Int     @default(3) @map("signals_target")
+  signalsTarget    Int      @default(3) @map("signals_target")
   /// 用户勾选的信号类型多选
   signalTypes      String[] @default(["turning_point", "trend_acceleration", "new_entity", "key_event"]) @map("signal_types")
   /// 是否跳过周末精选
-  weekendSkip      Boolean @default(false) @map("weekend_skip")
+  weekendSkip      Boolean  @default(false) @map("weekend_skip")
   /// AI 输出语言（zh-CN/en-US），不影响 UI 语言
-  outputLanguage   String  @default("zh-CN") @map("output_language") @db.VarChar(10)
+  outputLanguage   String   @default("zh-CN") @map("output_language") @db.VarChar(10)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -10424,19 +10424,19 @@ model RadarItem {
   raw          Json
 
   /// AI 评估字段 (S4/S5/S6 写入)
-  relevanceScore Int?    @map("relevance_score")
-  qualityScore   Int?    @map("quality_score")
-  aiSummary      String? @map("ai_summary") @db.Text
+  relevanceScore    Int?    @map("relevance_score")
+  qualityScore      Int?    @map("quality_score")
+  aiSummary         String? @map("ai_summary") @db.Text
   /// [{type,name,confidence,normalizedName}]
-  entities       Json?
+  entities          Json?
   /// {likes,views,shares,...}
-  metrics        Json?
+  metrics           Json?
   /// 是否通过 scoring 入选（relevanceScore >= 60 && qualityScore >= 50）
-  accepted           Boolean @default(false)
+  accepted          Boolean @default(false)
   /// K2: 谁触发了首次采集（用于私有源访问控制）
-  sourceOwnerUserId  String? @map("source_owner_user_id")
+  sourceOwnerUserId String? @map("source_owner_user_id")
   /// K2: 跨用户共享需 source.is_public_source && item.is_public_source = TRUE
-  isPublicSource     Boolean @default(true) @map("is_public_source")
+  isPublicSource    Boolean @default(true) @map("is_public_source")
 
   @@unique([topicId, externalId])
   @@index([topicId, publishedAt(sort: Desc)])
@@ -10516,11 +10516,11 @@ model RadarRun {
 /// 2026-05-18 PR-DR2: 每日精选（daily briefing）结果存储
 /// status: generating | completed | no_signals
 model RadarDailyBriefing {
-  id      String @id @default(uuid())
-  topicId String @map("topic_id")
+  id      String     @id @default(uuid())
+  topicId String     @map("topic_id")
   topic   RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  userId  String @map("user_id")
-  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String     @map("user_id")
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// 精选生成的本地日期（YYYY-MM-DD），用户本地时区
   briefingDate    DateTime @map("briefing_date") @db.Date
@@ -10542,11 +10542,11 @@ model RadarDailyBriefing {
 /// 2026-05-18 PR-DR2: 每周精选（weekly briefing）聚合存储（E5 Phase 1）
 /// 纯模板拼装 top10 ⭐⭐⭐ + narrativeMap，无 LLM 调用
 model RadarWeeklyBriefing {
-  id            String     @id @default(uuid())
-  topicId       String     @map("topic_id")
-  topic         RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-  userId        String     @map("user_id")
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id      String     @id @default(uuid())
+  topicId String     @map("topic_id")
+  topic   RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  userId  String     @map("user_id")
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// 周一 UTC
   weekStartDate DateTime @map("week_start_date") @db.Date
@@ -10565,16 +10565,16 @@ model RadarWeeklyBriefing {
 /// signalId 是 RadarDailyBriefing.signals[].id（JSONB 内嵌 UUID，无 FK）
 /// 用户视角持久化"⭐ 收藏的信号"，详情页跨日期访问
 model UserFavorite {
-  id        String @id @default(uuid())
-  userId    String @map("user_id")
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String     @id @default(uuid())
+  userId    String     @map("user_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// briefing.signals[].id（DailySignal.id UUID）；JSONB 内嵌无强 FK
-  signalId  String @map("signal_id") @db.Uuid
+  signalId  String     @map("signal_id") @db.Uuid
   /// 反查用：signal 所属 topic + briefingDate，便于显示"5/18 NVIDIA Q1"
-  topicId   String @map("topic_id")
+  topicId   String     @map("topic_id")
   topic     RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
   /// 收藏时刻
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime   @default(now()) @map("created_at")
 
   @@unique([userId, signalId])
   @@index([userId, createdAt(sort: Desc)])
@@ -10601,19 +10601,96 @@ model FeatureFlagAuditLog {
 /// 2026-05-18 B17: per-topic 退订表
 /// 实现 scope=topic 真正 per-topic 退订（之前是 broadcast 退化）
 model RadarTopicSubscription {
-  id            String     @id @default(uuid())
-  userId        String     @map("user_id")
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  topicId       String     @map("topic_id")
-  topic         RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  id             String     @id @default(uuid())
+  userId         String     @map("user_id")
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId        String     @map("topic_id")
+  topic          RadarTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
   /// 'subscribed' (默认) | 'unsubscribed'
-  status        String     @default("subscribed") @db.VarChar(20)
+  status         String     @default("subscribed") @db.VarChar(20)
   /// 退订时间（用户操作时刻，便于审计）
-  unsubscribedAt DateTime? @map("unsubscribed_at")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+  unsubscribedAt DateTime?  @map("unsubscribed_at")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
 
   @@unique([userId, topicId])
   @@index([userId, status])
   @@map("radar_topic_subscriptions")
+}
+
+// ==================== AI 社媒任务（intent-driven v1）====================
+
+enum SocialContentTaskStatus {
+  PENDING
+  GENERATING
+  DRAFT_READY
+  PUBLISHING
+  PUBLISHED
+  PARTIAL_PUBLISHED
+  FAILED
+  CANCELLED
+}
+
+enum SocialContentVersionStatus {
+  GENERATING
+  DRAFT_READY
+  PUBLISHING
+  PUBLISHED
+  FAILED
+}
+
+model SocialContentTask {
+  id                String                  @id @default(cuid())
+  userId            String
+  status            SocialContentTaskStatus @default(PENDING)
+  prompt            String?                 @db.Text
+  externalUrls      String[]                @default([])
+  platforms         String[]
+  accountIds        Json
+  missionId         String?
+  errorMessage      String?
+  sourceMigrationId String?                 @unique
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  sources  SocialContentTaskSource[]
+  versions SocialContentTaskVersion[]
+
+  @@index([userId, status])
+  @@index([missionId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model SocialContentTaskSource {
+  id         String @id @default(cuid())
+  taskId     String
+  userId     String
+  sourceType String
+  sourceId   String
+
+  task SocialContentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId, sourceType, sourceId])
+}
+
+model SocialContentTaskVersion {
+  id           String                     @id @default(cuid())
+  taskId       String
+  platform     String
+  status       SocialContentVersionStatus @default(GENERATING)
+  title        String
+  content      String                     @db.Text
+  bodyMime     String                     @default("text/html")
+  digest       String?
+  tags         String[]                   @default([])
+  coverMediaId String?
+  publishedAt  DateTime?
+  externalUrl  String?
+  errorMessage String?
+
+  task SocialContentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, platform])
+  @@index([taskId])
 }

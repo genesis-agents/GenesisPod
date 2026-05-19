@@ -116,6 +116,7 @@ import { StyleTemplateService } from "./services/style/style-template.service";
 import { WritingDataExportService } from "./services/writing-data-export.service";
 import { WritingDataExportAdapter } from "./services/writing-data-export.adapter";
 import { WRITING_DATA_EXPORT } from "../contracts/interfaces/data-export.interface";
+import { WritingSocialSourceProvider } from './social-data-source/writing-social-source.provider';
 
 // Writing Agents (extending AI Engine BaseAgent)
 import {
@@ -243,6 +244,8 @@ import {
     WriterAgent,
     ConsistencyCheckerAgent,
     EditorAgent,
+    // Social data source provider (auto-discovered via DiscoveryService)
+    WritingSocialSourceProvider,
   ],
   exports: [
     AiWritingService,

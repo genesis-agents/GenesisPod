@@ -9,6 +9,7 @@ import { YoutubeAiChatService } from "./youtube-ai-chat/youtube-ai-chat.service"
 import { PrismaModule } from "../../../common/prisma/prisma.module";
 import { BrowserModule } from "../../../common/browser/browser.module";
 import { SystemSettingModule } from "../../../common/settings/system-setting.module";
+import { ExploreSocialSourceProvider } from "./social-data-source/explore-social-source.provider";
 
 /**
  * Explore Module
@@ -26,12 +27,15 @@ import { SystemSettingModule } from "../../../common/settings/system-setting.mod
     PdfGeneratorService,
     YoutubeVideosService,
     YoutubeAiChatService,
+    // Social data source — auto-discovered via DiscoveryService
+    ExploreSocialSourceProvider,
   ],
   exports: [
     YoutubeService,
     PdfGeneratorService,
     YoutubeVideosService,
     YoutubeAiChatService,
+    ExploreSocialSourceProvider,
   ],
 })
 export class ExploreModule {}

@@ -63,6 +63,7 @@ import { RerunMissionRuntimeBuilder } from "./services/mission/rerun/rerun-runti
 import { LeaderInvocationFactory } from "./services/mission/leader-invocation.factory";
 import { MissionRerunOrchestratorService } from "./services/mission/rerun/mission-rerun-orchestrator.service";
 import { MissionExportService } from "./services/export/mission-export.service";
+import { PlaygroundSocialSourceProvider } from "./social-data-source/playground-social-source.provider";
 // PostmortemClassifierService 已上提到 @Global HarnessModule（PR-2 standardize playground）
 import {
   AgentInvoker,
@@ -160,6 +161,9 @@ import {
     MissionRerunOrchestratorService,
     // ── 导出装配（CSV / Markdown / JSON）──
     MissionExportService,
+    // ── Social data source (PR-V2g: Playground as social content source) ──
+    //   Auto-discovered via DiscoveryService at runtime
+    PlaygroundSocialSourceProvider,
     // ★ R2-C 单轨化 (2026-05-04)：pipeline-v1 是唯一 mission 入口
     //   dispatcher.onModuleInit 注册 PLAYGROUND_PIPELINE 到 registry
     //   legacy TeamMission 已删除，PlaygroundRuntimeFlagService 已删除
