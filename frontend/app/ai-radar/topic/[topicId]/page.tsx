@@ -330,9 +330,9 @@ export default function RadarTopicDetailPage() {
       <button
         type="button"
         onClick={() => router.push('/ai-radar')}
-        className="mb-3 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+        className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
       >
-        <ArrowLeft className="h-3 w-3" />
+        <ArrowLeft className="h-4 w-4" />
         返回雷达列表
       </button>
 
@@ -346,26 +346,26 @@ export default function RadarTopicDetailPage() {
             <button
               type="button"
               onClick={() => setConfigOpen(true)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-sm text-gray-600 hover:bg-gray-50"
               aria-label="配置"
             >
-              <Settings className="h-3 w-3" />
+              <Settings className="h-3.5 w-3.5" />
               配置
             </button>
             <button
               type="button"
               onClick={() => setDeleteOpen(true)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-sm text-gray-600 hover:bg-gray-50"
               aria-label="删除"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
               删除
             </button>
           </div>
           {topic.description && (
             <p className="mt-1.5 text-sm text-gray-600">{topic.description}</p>
           )}
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-sm text-gray-500">
             {topic.counts.sources} 源 · 下次刷新 {nextRefreshIn}
           </p>
         </div>
@@ -399,9 +399,9 @@ export default function RadarTopicDetailPage() {
                   双按钮重复 bug）。顶栏只保留"全部原始"次级动作 */}
               <a
                 href={rawUrl}
-                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
               >
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-3.5 w-3.5" />
                 全部原始
               </a>
             </div>
@@ -423,16 +423,16 @@ export default function RadarTopicDetailPage() {
           {/* 数据源状态卡 */}
           <div className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-800">数据源</h3>
+              <h3 className="text-base font-semibold text-gray-800">数据源</h3>
               <button
                 type="button"
                 onClick={() => setConfigOpen(true)}
-                className="text-xs text-violet-600 hover:underline"
+                className="text-sm text-violet-600 hover:underline"
               >
                 管理
               </button>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
               <span className="inline-flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
                 正常 {healthStats.ok}
@@ -460,7 +460,7 @@ export default function RadarTopicDetailPage() {
               )}
             </div>
             {sources.length > 0 && (
-              <ul className="mt-3 flex flex-col gap-1.5 text-xs text-gray-600">
+              <ul className="mt-3 flex flex-col gap-1.5 text-sm text-gray-600">
                 {sources.slice(0, 5).map((s) => {
                   // 按 health 配色：HEALTHY→绿、DEGRADED→黄、FAILING→红、UNKNOWN→灰
                   const dotColor =
@@ -478,7 +478,7 @@ export default function RadarTopicDetailPage() {
                       title={s.lastError ?? `health: ${s.health}`}
                     >
                       <span
-                        className={`inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full ${dotColor}`}
+                        className={`inline-block h-2 w-2 flex-shrink-0 rounded-full ${dotColor}`}
                       />
                       <span className="truncate">
                         {s.label ?? s.identifier}
@@ -495,10 +495,10 @@ export default function RadarTopicDetailPage() {
 
           {/* 配置摘要卡 */}
           <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <h3 className="mb-3 text-sm font-semibold text-gray-800">
+            <h3 className="mb-3 text-base font-semibold text-gray-800">
               精选偏好
             </h3>
-            <dl className="flex flex-col gap-2 text-xs text-gray-600">
+            <dl className="flex flex-col gap-2 text-sm text-gray-600">
               <div className="flex justify-between">
                 <dt className="text-gray-500">推送时间</dt>
                 <dd>{configTopic.briefingTime}</dd>
@@ -620,7 +620,7 @@ function RefreshProgressStepper({
           return (
             <li key={step.id} className="flex items-center gap-1.5">
               <span
-                className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
                   isDone
                     ? 'bg-violet-600 text-white'
                     : isActive

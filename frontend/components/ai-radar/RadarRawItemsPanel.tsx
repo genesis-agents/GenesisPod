@@ -117,7 +117,7 @@ export function RadarRawItemsPanel({ topicId, date, onCountChange }: Props) {
         <li key={item.id} className="px-4 py-3 transition hover:bg-cyan-50/30">
           <div className="flex items-start gap-2">
             <span
-              className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              className={`flex-shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
                 item.source
                   ? TYPE_COLOR[item.source.type]
                   : 'bg-gray-100 text-gray-700'
@@ -127,26 +127,24 @@ export function RadarRawItemsPanel({ topicId, date, onCountChange }: Props) {
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] text-gray-400">
+                <span className="text-xs text-gray-400">
                   {fmtDate(item.publishedAt)}
                 </span>
                 {item.author && (
-                  <span className="text-[10px] text-gray-500">
-                    {item.author}
-                  </span>
+                  <span className="text-xs text-gray-500">{item.author}</span>
                 )}
                 {item.relevanceScore != null && (
-                  <span className="rounded-full bg-cyan-50 px-1.5 py-0.5 text-[10px] text-cyan-700">
+                  <span className="rounded-full bg-cyan-50 px-1.5 py-0.5 text-xs text-cyan-700">
                     相关 {item.relevanceScore}
                   </span>
                 )}
                 {item.qualityScore != null && (
-                  <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-700">
+                  <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-700">
                     质量 {item.qualityScore}
                   </span>
                 )}
                 {item.accepted && (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700">
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-700">
                     <Check className="h-2.5 w-2.5" />
                     入选
                   </span>
@@ -186,7 +184,7 @@ export function RadarRawItemsPanel({ topicId, date, onCountChange }: Props) {
                     {entities.slice(0, 5).map((e, idx) => (
                       <span
                         key={`${e.type}-${e.name}-${idx}`}
-                        className="rounded bg-gray-50 px-1.5 py-0.5 text-[10px] text-gray-600"
+                        className="rounded bg-gray-50 px-1.5 py-0.5 text-xs text-gray-600"
                       >
                         {e.normalizedName}
                       </span>

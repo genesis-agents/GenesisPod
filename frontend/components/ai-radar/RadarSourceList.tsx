@@ -155,7 +155,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
       {hasLegacyX && (
         <div
           role="status"
-          className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800"
+          className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
         >
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
           <span className="min-w-0 flex-1">
@@ -172,7 +172,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
         <div className="flex gap-1">
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1 text-[11px] text-cyan-700 hover:bg-cyan-100"
+            className="inline-flex items-center gap-1 rounded-md border border-cyan-200 bg-cyan-50 px-2 py-1 text-xs text-cyan-700 hover:bg-cyan-100"
             onClick={handleRecommend}
           >
             <Sparkles className="h-3 w-3" />
@@ -180,7 +180,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
             onClick={() => setAddOpen(true)}
           >
             <Plus className="h-3 w-3" />
@@ -202,23 +202,23 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
                   className={`h-2 w-2 flex-shrink-0 rounded-full ${HEALTH_DOT[s.health]}`}
                   title={`health: ${s.health}`}
                 />
-                <span className="rounded bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-500">
+                <span className="rounded bg-gray-50 px-1.5 py-0.5 text-xs font-medium text-gray-500">
                   {SOURCE_TYPE_LABEL[s.type]}
                 </span>
                 {s.isAiRecommended && (
-                  <span className="rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] text-cyan-700">
+                  <span className="rounded bg-cyan-50 px-1.5 py-0.5 text-xs text-cyan-700">
                     AI
                   </span>
                 )}
                 <span className="min-w-0 flex-1 truncate text-xs text-gray-700">
                   {s.label || s.identifier}
                 </span>
-                <span className="text-[10px] text-gray-400">
+                <span className="text-xs text-gray-400">
                   {relTime(s.lastFetchAt)}
                 </span>
               </div>
               {s.lastError && (
-                <div className="mt-1 flex items-start gap-1 text-[10px] text-red-600">
+                <div className="mt-1 flex items-start gap-1 text-xs text-red-600">
                   <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
                   <span className="line-clamp-1">{s.lastError}</span>
                 </div>
@@ -226,7 +226,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
               <div className="mt-1 flex gap-2">
                 <button
                   type="button"
-                  className="text-[10px] text-gray-500 hover:text-gray-700"
+                  className="text-xs text-gray-500 hover:text-gray-700"
                   onClick={() => handleToggleEnable(s)}
                 >
                   <Power className="inline h-3 w-3" />{' '}
@@ -234,7 +234,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
                 </button>
                 <button
                   type="button"
-                  className="text-[10px] text-red-500 hover:text-red-700"
+                  className="text-xs text-red-500 hover:text-red-700"
                   onClick={() => setDeleteTarget(s)}
                 >
                   <Trash2 className="inline h-3 w-3" /> 删除
@@ -246,7 +246,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
       )}
 
       {acceptInfo && (
-        <div className="mx-3 mb-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+        <div className="mx-3 mb-2 flex items-start gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
           <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
           <pre className="min-w-0 flex-1 whitespace-pre-wrap break-words font-sans">
             {acceptInfo}
@@ -263,7 +263,7 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
       )}
 
       {opError && (
-        <div className="mx-3 mb-2 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[11px] text-red-700">
+        <div className="mx-3 mb-2 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700">
           <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
           <span className="min-w-0 flex-1">{opError}</span>
           <button
@@ -389,7 +389,7 @@ function AddSourceForm({
               ))}
             </div>
             {SOURCE_TYPE_WARNING[type] && (
-              <div className="mt-1.5 flex items-start gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] text-amber-700">
+              <div className="mt-1.5 flex items-start gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-xs text-amber-700">
                 <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />
                 <span>{SOURCE_TYPE_WARNING[type]}</span>
               </div>
@@ -519,27 +519,27 @@ function RecommendDialog({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+                        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600">
                           {SOURCE_TYPE_LABEL[c.type]}
                         </span>
                         <span className="text-xs font-medium text-gray-900">
                           {c.label}
                         </span>
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-xs text-gray-400">
                           confidence {c.confidence.toFixed(2)}
                         </span>
                       </div>
-                      <div className="mt-0.5 truncate text-[11px] text-gray-500">
+                      <div className="mt-0.5 truncate text-xs text-gray-500">
                         {c.identifier}
                       </div>
                       {c.rationale && (
-                        <div className="mt-0.5 text-[11px] text-gray-600">
+                        <div className="mt-0.5 text-xs text-gray-600">
                           {c.rationale}
                         </div>
                       )}
                       {warning && (
                         <div
-                          className="mt-1.5 flex items-start gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] text-amber-700"
+                          className="mt-1.5 flex items-start gap-1 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-xs text-amber-700"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <AlertCircle className="mt-0.5 h-3 w-3 flex-shrink-0" />

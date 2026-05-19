@@ -111,15 +111,13 @@ export function RadarTopicCard({ topic, onArchive, onPause, onResume }: Props) {
         {keywords.slice(0, 5).map((kw) => (
           <span
             key={kw}
-            className="rounded-md bg-gray-50 px-1.5 py-0.5 text-[11px] text-gray-600"
+            className="rounded-md bg-gray-50 px-1.5 py-0.5 text-xs text-gray-600"
           >
             {kw}
           </span>
         ))}
         {keywords.length > 5 && (
-          <span className="text-[11px] text-gray-400">
-            +{keywords.length - 5}
-          </span>
+          <span className="text-xs text-gray-400">+{keywords.length - 5}</span>
         )}
       </div>
     ) : null;
