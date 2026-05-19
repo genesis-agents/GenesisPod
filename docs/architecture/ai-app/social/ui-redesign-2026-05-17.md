@@ -3,7 +3,7 @@
 > **日期**: 2026-05-17
 > **触发**: 用户反馈"完全看不懂当前 UI 设计"
 > **方法**: 3 路专家并行（PM 用户旅程 / UI 设计 / 架构技术评估）
-> **状态**: 待用户审批后开工
+> **状态**: ⚠️ **已被 [intent-driven-redesign-2026-05-18.md](./intent-driven-redesign-2026-05-18.md) v1 演进取代**——本稿的 candidate A（列表+drawer 一统）+ Mission dispatcher 单轨化方向继承，但 480px drawer / 用户编辑能力 / wizard 残留等已重做。新方案叠加"意图驱动 + Registry 化 + Agent Team 内容生产 + 完整 mission 详情页"
 
 ---
 
