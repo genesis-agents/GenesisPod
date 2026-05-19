@@ -2829,7 +2829,7 @@
       "title": "New Social Publishing Task",
       "dataSources": "Data sources",
       "dataSourcesHelp": "Pick specific items from each module",
-      "pickedPreview": "Picked items ({n} / max {max})",
+      "pickedPreview": "Picked items ({{n}} / max {{max}})",
       "addExternalUrl": "+ External URL",
       "addPrompt": "+ Prompt",
       "platforms": "Publish platforms (multi-select)",

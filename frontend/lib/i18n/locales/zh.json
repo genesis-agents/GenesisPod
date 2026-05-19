@@ -2829,7 +2829,7 @@
       "title": "新建社媒发布任务",
       "dataSources": "数据源",
       "dataSourcesHelp": "点开各模块挑具体内容",
-      "pickedPreview": "已选内容预览（{n} 项 / 上限 {max}）",
+      "pickedPreview": "已选内容预览（{{n}} 项 / 上限 {{max}}）",
       "addExternalUrl": "+ 外部 URL",
       "addPrompt": "+ 补充提示词",
       "platforms": "发布平台（多选）",
