@@ -121,7 +121,7 @@ export default function AISocialPage() {
         />
       }
     >
-      <div className="flex h-full flex-col overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {/* Header（PR-4: 取消 3 tab，移除 SlideIn 动画包装；连接管理作头部链接） */}
         <div className="sticky top-0 z-10 border-b border-gray-100 bg-white/50 backdrop-blur-sm">
           <div className="px-8 py-6">

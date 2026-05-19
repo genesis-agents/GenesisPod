@@ -283,6 +283,9 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         return {
           missionId,
           status: result.status,
+          // 2026-05-19: 透传 orchestrator.error，避免上层 task service 拿到 undefined
+          //   只能 fallback "Mission failed"，失败原因消失。
+          error: result.error,
         };
       });
     } catch (err) {

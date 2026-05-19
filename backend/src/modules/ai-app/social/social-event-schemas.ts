@@ -59,6 +59,31 @@ export const MissionGatedSchema = z.object({
   evidence: z.string().optional(),
 });
 
+/** agent runner 通用事件 — tool recall / iteration progress（mirror agent-playground schema） */
+export const ToolsRecalledSchema = z
+  .object({
+    role: z.string().optional(),
+    source: z.string().optional(),
+    agentId: z.string().optional(),
+    preferIds: z.array(z.string()).optional(),
+    categories: z.array(z.string()).optional(),
+    originalTs: z.number().optional(),
+    recalledIds: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+export const IterationProgressSchema = z
+  .object({
+    role: z.string().optional(),
+    agentId: z.string().optional(),
+    progress: z.number().optional(),
+    iteration: z.number().optional(),
+    originalTs: z.number().optional(),
+    maxIterations: z.number().optional(),
+    approachingLimit: z.boolean().optional(),
+  })
+  .passthrough();
+
 export const MissionPostludeStartedSchema = z
   .object({
     stage: z.string(),

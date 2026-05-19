@@ -34,6 +34,8 @@ import {
   BudgetExhaustedSchema,
   PublishExecuteSummarySchema,
   PublishVerifySummarySchema,
+  ToolsRecalledSchema,
+  IterationProgressSchema,
 } from "./social-event-schemas";
 
 const S = <TPayload>(
@@ -77,4 +79,7 @@ export const SOCIAL_EVENTS: readonly DomainEventTypeSpec[] = [
   // publish-specific
   S("publish:executed", PublishExecuteSummarySchema),
   S("publish:verified", PublishVerifySummarySchema),
+  // 2026-05-19 agent runner 通用事件（agent invoker / tool selector / iteration loop 都会 emit）
+  S("tools:recalled", ToolsRecalledSchema),
+  S("iteration:progress", IterationProgressSchema),
 ];
