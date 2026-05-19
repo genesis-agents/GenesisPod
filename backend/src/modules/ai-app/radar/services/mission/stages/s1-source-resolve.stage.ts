@@ -39,13 +39,15 @@ export class RadarS1SourceResolveStage implements RadarStageRunner {
         NOT: { health: RadarSourceHealth.FAILING },
       },
     });
-    // R8 2026-05-19：since 计算分三档：
+    // since 计算分三档：
     // - FIRST_RUN: 24h 回退（topic 首次跑，拉一天内的）
-    // - MANUAL（用户点重新精选）: 24h 回退 —— 用户主动触发就是想"再看看最近一天有啥
-    //   新的"，5min 太苛刻（多数 RSS feed 5min 内一条新 item 都没有，0 抓取一片空白）
-    // - SCHEDULED（定时）: 5min 回退（保留原逻辑，避免重复入库）
+    // - MANUAL（用户点重新精选）: **30 天**回退（R11 2026-05-19）
+    //   原 24h 太苛刻：企业 RSS（如 Cisco blogs）一天通常只发 1-3 篇，扣掉历史
+    //   重复后用户反复点都是 0 抓取。30 天能拉到一个月的内容池，S3 dedup 会
+    //   自动过滤已入库，剩下的就是真正"新的"。
+    // - SCHEDULED（定时）: 5min 回退（保留原逻辑，避免与 cron 上次 tick 重复）
     const SCHEDULED_LOOKBACK_MS = 5 * 60 * 1000;
-    const MANUAL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+    const MANUAL_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
     const trigger =
       "trigger" in input && typeof input.trigger === "string"
         ? input.trigger
