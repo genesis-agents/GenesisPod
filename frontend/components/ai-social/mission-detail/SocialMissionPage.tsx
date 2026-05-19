@@ -18,15 +18,11 @@ import {
   Activity,
   AlertTriangle,
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
   Coins,
   FileText,
   Layers,
   ListChecks,
-  MoreHorizontal,
   Send,
-  XCircle,
 } from 'lucide-react';
 import {
   ComputeUsagePanel,
@@ -35,6 +31,11 @@ import {
   ReferencesPanel,
   TeamRosterPanel,
 } from '@/components/agent-playground';
+import {
+  MissionDetailFrame,
+  MissionActionGroup,
+  type MissionActionButtonSpec,
+} from '@/components/mission-detail';
 import { cn } from '@/lib/utils/common';
 import { deriveView } from '@/lib/agent-playground/derive';
 import { deriveTodoLedger } from '@/lib/agent-playground/todo-ledger';
@@ -227,7 +228,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
 
   const [activeTab, setActiveTab] = useState<TabKey>('tasks');
   const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -248,10 +248,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
     : STATUS_CONFIG['PENDING'];
 
   const canCancel = task?.status === 'PENDING' || task?.status === 'GENERATING';
-  const canDelete =
-    task?.status === 'PUBLISHED' ||
-    task?.status === 'FAILED' ||
-    task?.status === 'CANCELLED';
 
   const handleCancel = async () => {
     if (!task || cancelling) return;
@@ -263,7 +259,6 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       // ignore — refresh will show updated state
     } finally {
       setCancelling(false);
-      setMenuOpen(false);
     }
   };
 
@@ -299,389 +294,290 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
     );
   }
 
+  // ── 左 panel 底部按钮组（playground 标杆：按状态决定显示哪些） ──
+  const actionButtons: MissionActionButtonSpec[] = [];
+  if (task?.status === 'FAILED') {
+    actionButtons.push({
+      variant: 'primary',
+      emoji: '↻',
+      label: retrying ? '重新启动中…' : '重试任务',
+      title: '重新启动 mission（保留原 sources / platforms）',
+      disabled: retrying,
+      onClick: () => void handleRetry(),
+    });
+  }
+  if (task?.status === 'DRAFT_READY') {
+    actionButtons.push({
+      variant: 'primary',
+      emoji: '📤',
+      label: '发布到草稿箱',
+      title: '发布到平台草稿箱',
+      onClick: () => setActiveTab('publish'),
+    });
+  }
+  if (canCancel) {
+    actionButtons.push({
+      variant: 'danger',
+      emoji: '⏹',
+      label: '取消',
+      title: '取消运行中的任务',
+      disabled: cancelling,
+      onClick: () => void handleCancel(),
+    });
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-gray-50">
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.push('/ai-social')}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-            title="返回 AI Social"
+    <MissionDetailFrame
+      onBack={() => router.push('/ai-social')}
+      backTitle="返回 AI Social"
+      brandGradient="from-rose-500 to-pink-600"
+      HeaderIcon={Send}
+      title={
+        isLoading ? (
+          <span className="inline-block h-5 w-48 animate-pulse rounded bg-gray-200" />
+        ) : (
+          taskTitle
+        )
+      }
+      subtitle={
+        <>
+          <span className="font-mono text-[10px]">{taskId.slice(0, 8)}</span>
+          {task?.platforms && task.platforms.length > 0 && (
+            <>
+              <span>·</span>
+              <span>
+                {task.platforms
+                  .map((p) =>
+                    p === 'WECHAT_MP'
+                      ? '微信公众号'
+                      : p === 'XIAOHONGSHU'
+                        ? '小红书'
+                        : p
+                  )
+                  .join(' / ')}
+              </span>
+            </>
+          )}
+        </>
+      }
+      statusPill={
+        task ? (
+          <div
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-3 py-1',
+              statusConfig.pillClass
+            )}
           >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-md">
-              <Send className="h-5 w-5 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1
-                className="max-w-[320px] truncate text-base font-bold text-gray-900 sm:max-w-[480px]"
-                title={taskTitle}
-              >
-                {isLoading ? (
-                  <span className="inline-block h-5 w-48 animate-pulse rounded bg-gray-200" />
-                ) : (
-                  taskTitle
-                )}
-              </h1>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="font-mono text-[10px]">
-                  {taskId.slice(0, 8)}
-                </span>
-                {task?.platforms && task.platforms.length > 0 && (
-                  <>
-                    <span>·</span>
-                    <span>
-                      {task.platforms
-                        .map((p) =>
-                          p === 'WECHAT_MP'
-                            ? '微信公众号'
-                            : p === 'XIAOHONGSHU'
-                              ? '小红书'
-                              : p
-                        )
-                        .join(' / ')}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
+            <span
+              className={cn('h-2 w-2 rounded-full', statusConfig.dotClass)}
+            />
+            <span className="text-xs font-medium">{statusConfig.label}</span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Status pill */}
-          {task && (
-            <div
-              className={cn(
-                'flex items-center gap-1.5 rounded-full px-3 py-1',
-                statusConfig.pillClass
-              )}
-            >
-              <span
-                className={cn('h-2 w-2 rounded-full', statusConfig.dotClass)}
-              />
-              <span className="text-xs font-medium">{statusConfig.label}</span>
-            </div>
-          )}
-
-          {/* Publish shortcut button — only DRAFT_READY */}
-          {task?.status === 'DRAFT_READY' && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('publish')}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-3 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg"
-            >
-              <Send className="h-4 w-4" />
-              发布到草稿箱
-            </button>
-          )}
-
-          {/* Retry button — only FAILED */}
-          {task?.status === 'FAILED' && (
-            <button
-              type="button"
-              onClick={() => void handleRetry()}
-              disabled={retrying}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-3 py-2 text-sm font-medium text-white shadow-md hover:shadow-lg disabled:opacity-60"
-            >
-              <RefreshCw
-                className={cn('h-4 w-4', retrying && 'animate-spin')}
-              />
-              {retrying ? '重新启动中…' : '重试任务'}
-            </button>
-          )}
-
-          {/* Context menu */}
-          {task && (canCancel || canDelete) && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100"
-              >
-                <MoreHorizontal className="h-5 w-5" />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-full z-30 mt-1 w-40 rounded-xl border border-gray-200 bg-white py-1 shadow-lg">
-                  {canCancel && (
-                    <button
-                      type="button"
-                      disabled={cancelling}
-                      onClick={() => void handleCancel()}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <XCircle className="h-4 w-4 text-amber-500" />
-                      取消任务
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        // Delete handler — not implemented in this PR
-                      }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      删除任务
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* ── Body ────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left panel */}
-        <aside
-          className={cn(
-            'relative flex-shrink-0 overflow-y-auto border-r border-gray-200 bg-white transition-all duration-200',
-            leftCollapsed ? 'w-0 overflow-hidden' : 'w-[360px]'
-          )}
-        >
-          {!leftCollapsed && missionId && (
-            <div className="space-y-0 divide-y divide-gray-100">
-              {/* Team roster */}
-              <div className="p-4">
-                <TeamRosterPanel
-                  agents={view.agents}
-                  stages={view.stages}
-                  missionStatus={
-                    view.mission.completedAt
-                      ? 'completed'
-                      : view.mission.failedAt
-                        ? 'failed'
-                        : view.mission.cancelledAt
-                          ? 'cancelled'
-                          : events.length > 0
-                            ? 'running'
-                            : 'idle'
-                  }
-                  dimensions={
-                    (view.mission.dimensions as
-                      | { name: string; rationale?: string }[]
-                      | undefined) ?? undefined
-                  }
-                  onCollapse={() => setLeftCollapsed(true)}
-                />
-              </div>
-
-              {/* Mission cost summary */}
-              {(view.cost.tokensUsed > 0 || view.cost.costUsd > 0) && (
+        ) : null
+      }
+      tabs={TABS}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      tabActiveColor="border-rose-500 text-rose-600"
+      leftCollapsed={leftCollapsed}
+      onLeftCollapseToggle={() => setLeftCollapsed((v) => !v)}
+      leftPanel={
+        <div className="flex h-full flex-col">
+          <div className="flex-1 overflow-y-auto">
+            {missionId ? (
+              <div className="space-y-0 divide-y divide-gray-100">
                 <div className="p-4">
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    算力消耗
-                  </p>
-                  <div className="space-y-1 text-xs text-gray-600">
-                    <div className="flex items-center justify-between">
-                      <span>Tokens</span>
-                      <span className="font-mono">
-                        {view.cost.tokensUsed.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>费用</span>
-                      <span className="font-mono">
-                        ${view.cost.costUsd.toFixed(4)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {!leftCollapsed && !missionId && (
-            <div className="p-4 text-center text-sm text-gray-400">
-              <p>任务尚未关联 Mission</p>
-              <p className="mt-1 text-xs">生成开始后团队信息将在此展示</p>
-            </div>
-          )}
-        </aside>
-
-        {/* Collapse toggle */}
-        <button
-          type="button"
-          onClick={() => setLeftCollapsed((v) => !v)}
-          className="relative z-10 flex w-5 shrink-0 items-center justify-center border-r border-gray-200 bg-white hover:bg-gray-50"
-          title={leftCollapsed ? '展开左侧' : '收起左侧'}
-        >
-          {leftCollapsed ? (
-            <ChevronRight className="h-4 w-4 text-gray-400" />
-          ) : (
-            <ChevronLeft className="h-4 w-4 text-gray-400" />
-          )}
-        </button>
-
-        {/* Right panel — tabs */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Tab bar */}
-          <div className="flex items-center gap-1 border-b border-gray-200 bg-white px-4">
-            {TABS.map(({ key, label, Icon }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  'flex items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition-colors',
-                  activeTab === key
-                    ? 'border-rose-500 text-rose-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <div className="flex-1 overflow-auto">
-            {activeTab === 'tasks' && (
-              <>
-                {task?.status === 'FAILED' ? (
-                  <div className="flex h-full items-start justify-center overflow-auto p-8">
-                    <div className="w-full max-w-2xl rounded-2xl border border-red-200 bg-white shadow-sm">
-                      <div className="border-b border-red-100 bg-gradient-to-r from-red-50 to-rose-50 px-6 py-5">
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
-                            <AlertTriangle className="h-5 w-5 text-red-600" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="text-base font-semibold text-red-900">
-                              任务执行失败
-                            </h3>
-                            <p className="mt-0.5 text-sm text-red-700">
-                              AI Teams 在生成过程中遇到错误，未能输出内容。
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-4 px-6 py-5">
-                        <div>
-                          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                            错误原因
-                          </p>
-                          <div className="font-mono break-words rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-700">
-                            {task.errorMessage ?? '未提供具体错误信息'}
-                          </div>
-                        </div>
-                        {retryError && (
-                          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                            重试失败：{retryError}
-                          </div>
-                        )}
-                        <div className="flex flex-wrap items-center gap-3 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => void handleRetry()}
-                            disabled={retrying}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2.5 text-sm font-medium text-white shadow-md transition-shadow hover:shadow-lg disabled:opacity-60"
-                          >
-                            <RefreshCw
-                              className={cn(
-                                'h-4 w-4',
-                                retrying && 'animate-spin'
-                              )}
-                            />
-                            {retrying ? '重新启动中…' : '重试任务'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => router.push('/ai-social')}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                          >
-                            <ArrowLeft className="h-4 w-4" />
-                            返回任务列表
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : missionId ? (
-                  <MissionTodoBoard
-                    todos={todoLedger}
-                    missionId={missionId}
+                  <TeamRosterPanel
                     agents={view.agents}
-                    dimensionPipelines={view.dimensionPipelines}
-                    missionTerminal={
-                      !!(
-                        view.mission.completedAt ||
-                        view.mission.failedAt ||
-                        view.mission.cancelledAt
-                      )
+                    stages={view.stages}
+                    missionStatus={
+                      view.mission.completedAt
+                        ? 'completed'
+                        : view.mission.failedAt
+                          ? 'failed'
+                          : view.mission.cancelledAt
+                            ? 'cancelled'
+                            : events.length > 0
+                              ? 'running'
+                              : 'idle'
                     }
+                    dimensions={
+                      (view.mission.dimensions as
+                        | { name: string; rationale?: string }[]
+                        | undefined) ?? undefined
+                    }
+                    onCollapse={() => setLeftCollapsed(true)}
                   />
-                ) : (
-                  <div className="flex h-full items-center justify-center p-8">
-                    <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
-                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100">
-                        <ListChecks className="h-7 w-7 text-rose-500" />
+                </div>
+                {(view.cost.tokensUsed > 0 || view.cost.costUsd > 0) && (
+                  <div className="p-4">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      算力消耗
+                    </p>
+                    <div className="space-y-1 text-xs text-gray-600">
+                      <div className="flex items-center justify-between">
+                        <span>Tokens</span>
+                        <span className="font-mono">
+                          {view.cost.tokensUsed.toLocaleString()}
+                        </span>
                       </div>
-                      <h3 className="text-base font-semibold text-gray-900">
-                        等 Leader 拆完进度
+                      <div className="flex items-center justify-between">
+                        <span>费用</span>
+                        <span className="font-mono">
+                          ${view.cost.costUsd.toFixed(4)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-sm text-gray-400">
+                <p>任务尚未关联 Mission</p>
+                <p className="mt-1 text-xs">生成开始后团队信息将在此展示</p>
+              </div>
+            )}
+          </div>
+          {/* Action buttons - sticky 底部（playground 标杆位置） */}
+          {actionButtons.length > 0 && (
+            <div className="border-t border-gray-100 p-4">
+              <MissionActionGroup buttons={actionButtons} />
+            </div>
+          )}
+        </div>
+      }
+    >
+      {/* === Tab content === */}
+      {activeTab === 'tasks' && (
+        <>
+          {task?.status === 'FAILED' ? (
+            <div className="flex h-full items-start justify-center overflow-auto p-8">
+              <div className="w-full max-w-2xl rounded-2xl border border-red-200 bg-white shadow-sm">
+                <div className="border-b border-red-100 bg-gradient-to-r from-red-50 to-rose-50 px-6 py-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
+                      <AlertTriangle className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-semibold text-red-900">
+                        任务执行失败
                       </h3>
-                      <p className="mt-1.5 text-sm text-gray-500">
-                        任务刚被创建，AI Teams
-                        正在初始化协作管线。拆解完成后，进度会以 Todo
-                        卡片实时出现在此处。
+                      <p className="mt-0.5 text-sm text-red-700">
+                        AI Teams 在生成过程中遇到错误，未能输出内容。
                       </p>
                     </div>
                   </div>
-                )}
-              </>
-            )}
-
-            {activeTab === 'collab' && (
-              <>
-                {missionId ? (
-                  <MissionFlowView view={view} events={events} />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                    协作动态将在任务执行时实时展示
+                </div>
+                <div className="space-y-4 px-6 py-5">
+                  <div>
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      错误原因
+                    </p>
+                    <div className="font-mono break-words rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-700">
+                      {task.errorMessage ?? '未提供具体错误信息'}
+                    </div>
                   </div>
-                )}
-              </>
-            )}
-
-            {activeTab === 'report' && task && <ReportTab task={task} />}
-
-            {activeTab === 'references' && (
-              <ReferencesPanel
-                fallbackSources={task?.sources?.map((s) => s.sourceId) ?? []}
-              />
-            )}
-
-            {activeTab === 'cost' && missionId && (
-              <ComputeUsagePanel
-                cost={view.cost}
-                agents={view.agents}
-                todos={todoLedger}
-                dimensionPipelines={view.dimensionPipelines}
-              />
-            )}
-
-            {activeTab === 'cost' && !missionId && (
-              <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                算力消耗将在任务执行后展示
+                  {retryError && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      重试失败：{retryError}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleRetry()}
+                      disabled={retrying}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-pink-600 px-4 py-2.5 text-sm font-medium text-white shadow-md transition-shadow hover:shadow-lg disabled:opacity-60"
+                    >
+                      <RefreshCw
+                        className={cn('h-4 w-4', retrying && 'animate-spin')}
+                      />
+                      {retrying ? '重新启动中…' : '重试任务'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/ai-social')}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      返回任务列表
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
+            </div>
+          ) : missionId ? (
+            <MissionTodoBoard
+              todos={todoLedger}
+              missionId={missionId}
+              agents={view.agents}
+              dimensionPipelines={view.dimensionPipelines}
+              missionTerminal={
+                !!(
+                  view.mission.completedAt ||
+                  view.mission.failedAt ||
+                  view.mission.cancelledAt
+                )
+              }
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center p-8">
+              <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center shadow-sm">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100">
+                  <ListChecks className="h-7 w-7 text-rose-500" />
+                </div>
+                <h3 className="text-base font-semibold text-gray-900">
+                  等 Leader 拆完进度
+                </h3>
+                <p className="mt-1.5 text-sm text-gray-500">
+                  任务刚被创建，AI Teams
+                  正在初始化协作管线。拆解完成后，进度会以 Todo
+                  卡片实时出现在此处。
+                </p>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
-            {activeTab === 'publish' && task && (
-              <SocialPublishPanel task={task} onAction={refresh} />
-            )}
-          </div>
+      {activeTab === 'collab' && (
+        <>
+          {missionId ? (
+            <MissionFlowView view={view} events={events} />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-gray-400">
+              协作动态将在任务执行时实时展示
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'report' && task && <ReportTab task={task} />}
+
+      {activeTab === 'references' && (
+        <ReferencesPanel
+          fallbackSources={task?.sources?.map((s) => s.sourceId) ?? []}
+        />
+      )}
+
+      {activeTab === 'cost' && missionId && (
+        <ComputeUsagePanel
+          cost={view.cost}
+          agents={view.agents}
+          todos={todoLedger}
+          dimensionPipelines={view.dimensionPipelines}
+        />
+      )}
+
+      {activeTab === 'cost' && !missionId && (
+        <div className="flex h-full items-center justify-center text-sm text-gray-400">
+          算力消耗将在任务执行后展示
         </div>
-      </div>
-    </div>
+      )}
+
+      {activeTab === 'publish' && task && (
+        <SocialPublishPanel task={task} onAction={refresh} />
+      )}
+    </MissionDetailFrame>
   );
 }
