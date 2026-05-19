@@ -36,13 +36,27 @@ const WALL_TIME_BY_DEPTH: Record<RunSocialMissionInput["depth"], number> = {
   deep: 60 * 60_000, // 60 min
 };
 
+/**
+ * 2026-05-19 fix: 旧值（lean=8/standard=20/rich=50）按 framework 换算 1 credit=$0.002
+ * 得到的预算上限分别是 $0.016 / $0.04 / $0.10。
+ *
+ * 但 s1-mission-budget-eval 闸的 estimatedCostUsd 起始就是
+ *   baseUsdPerPlatform=0.05 × N 平台 × depthFactor × profileFactor × budgetMultiplier
+ * 标准档单平台已经 = $0.05，**直接 > $0.04 上限 → 任何 standard 任务必然被拦下**。
+ *
+ * 此外发布阶段调多个 LLM stage（leader/transformer/composer/reviewer/verifier 等）
+ * 实际成本可能 $0.10-$0.30。给 buffer 后取：
+ *   lean:     50 credits = $0.10  （覆盖 1 平台 standard / quick depth）
+ *   standard: 200 credits = $0.40 （覆盖 1-2 平台 standard depth + 重试空间）
+ *   rich:     500 credits = $1.00 （deep depth 多平台）
+ */
 const MAX_CREDITS_BY_PROFILE: Record<
   RunSocialMissionInput["budgetProfile"],
   number
 > = {
-  lean: 8,
-  standard: 20,
-  rich: 50,
+  lean: 50,
+  standard: 200,
+  rich: 500,
 };
 
 const BUDGET_MULTIPLIER_BY_PROFILE: Record<

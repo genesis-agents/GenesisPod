@@ -204,10 +204,10 @@ describe("SocialRuntimeShellService", () => {
       });
       expect(
         capturedAdapter!.resolveMaxCredits(makeInput("standard", "lean")),
-      ).toBe(8);
+      ).toBe(50);
     });
 
-    it("adapter.resolveMaxCredits returns 20 for standard profile", async () => {
+    it("adapter.resolveMaxCredits returns 200 for standard profile", async () => {
       let capturedAdapter: { resolveMaxCredits: (input: unknown) => number };
       (mockFramework.openSession as jest.Mock).mockImplementation(
         (args: { adapter: typeof capturedAdapter }) => {
@@ -222,10 +222,10 @@ describe("SocialRuntimeShellService", () => {
       });
       expect(
         capturedAdapter!.resolveMaxCredits(makeInput("standard", "standard")),
-      ).toBe(20);
+      ).toBe(200);
     });
 
-    it("adapter.resolveMaxCredits returns 50 for rich profile", async () => {
+    it("adapter.resolveMaxCredits returns 500 for rich profile", async () => {
       let capturedAdapter: { resolveMaxCredits: (input: unknown) => number };
       (mockFramework.openSession as jest.Mock).mockImplementation(
         (args: { adapter: typeof capturedAdapter }) => {
@@ -240,7 +240,7 @@ describe("SocialRuntimeShellService", () => {
       });
       expect(
         capturedAdapter!.resolveMaxCredits(makeInput("standard", "rich")),
-      ).toBe(50);
+      ).toBe(500);
     });
 
     // --- adapter.resolveBudgetMultiplier ---
