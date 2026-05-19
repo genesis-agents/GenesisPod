@@ -102,13 +102,24 @@ describe("SocialDataSourceRegistry", () => {
   });
 
   describe("discovery-based auto-registration (onApplicationBootstrap)", () => {
+    // 2026-05-19: registry 改用 Reflect.getMetadata 自己判定（不依赖 NestJS
+    //   getProviders({metadataKey}) 因为后者只对 createDecorator 注册过的 key 生效），
+    //   所以 mock 中 metatype 必须用 Reflect.defineMetadata 模拟真实装饰器行为。
+
+    function tagSocial<T extends new (...args: never[]) => unknown>(
+      metatype: T,
+    ): T {
+      Reflect.defineMetadata("genesis:social-data-source", true, metatype);
+      return metatype;
+    }
+
     it("registers providers found via DiscoveryService at bootstrap", () => {
       const srcA = makeSource("discovered-a");
       const srcB = makeSource("discovered-b");
       const mockDiscovery = {
         getProviders: jest.fn().mockReturnValue([
-          { instance: srcA, metatype: class A {} },
-          { instance: srcB, metatype: class B {} },
+          { instance: srcA, metatype: tagSocial(class A {}) },
+          { instance: srcB, metatype: tagSocial(class B {}) },
         ]),
       };
 
@@ -129,9 +140,9 @@ describe("SocialDataSourceRegistry", () => {
       const ready = makeSource("ready-one");
       const mockDiscovery = {
         getProviders: jest.fn().mockReturnValue([
-          { instance: null, metatype: class A {} }, // not instantiated yet
-          { instance: undefined, metatype: class B {} }, // same
-          { instance: ready, metatype: class C {} },
+          { instance: null, metatype: tagSocial(class A {}) }, // not instantiated yet
+          { instance: undefined, metatype: tagSocial(class B {}) }, // same
+          { instance: ready, metatype: tagSocial(class C {}) },
         ]),
       };
 
@@ -145,16 +156,38 @@ describe("SocialDataSourceRegistry", () => {
       expect(registry.get("ready-one")).toBe(ready);
     });
 
-    it("ignores objects missing SocialDataSource contract methods", () => {
+    it("ignores providers without @SocialDataSourceProvider decorator", () => {
+      const decorated = makeSource("decorated-one");
+      const mockDiscovery = {
+        getProviders: jest.fn().mockReturnValue([
+          {
+            instance: { id: "no-decorator", listItems: () => ({}) },
+            metatype: class A {},
+          }, // not tagged
+          { instance: decorated, metatype: tagSocial(class B {}) },
+        ]),
+      };
+
+      const registry = new SocialDataSourceRegistry(
+        undefined,
+        mockDiscovery as never,
+      );
+      registry.onApplicationBootstrap();
+
+      expect(registry.list()).toHaveLength(1);
+      expect(registry.get("decorated-one")).toBe(decorated);
+    });
+
+    it("ignores tagged objects missing SocialDataSource contract methods", () => {
       const mockDiscovery = {
         getProviders: jest.fn().mockReturnValue([
           {
             instance: { id: "fake", listItems: "not a function" },
-            metatype: class A {},
+            metatype: tagSocial(class A {}),
           },
           {
             instance: { listItems: () => Promise.resolve({ items: [] }) },
-            metatype: class B {},
+            metatype: tagSocial(class B {}),
           }, // no id
         ]),
       };

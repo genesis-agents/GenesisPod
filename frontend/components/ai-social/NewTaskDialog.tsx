@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Loader2, Rocket, Link, MessageSquare, ChevronRight } from 'lucide-react';
+import {
+  X,
+  Plus,
+  Loader2,
+  Rocket,
+  Link,
+  MessageSquare,
+  ChevronRight,
+} from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { useSocialDataSources } from '@/hooks/domain/useSocialDataSources';
@@ -26,17 +34,30 @@ export interface NewTaskDialogProps {
 
 type Platform = 'WECHAT_MP' | 'XIAOHONGSHU';
 
-export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) {
+export function NewTaskDialog({
+  open,
+  onClose,
+  onCreated,
+}: NewTaskDialogProps) {
   const { t } = useTranslation();
-  const { sources, isLoading: sourcesLoading } = useSocialDataSources();
+  const {
+    sources,
+    isLoading: sourcesLoading,
+    error: sourcesError,
+    refresh: refreshSources,
+  } = useSocialDataSources();
 
   const [pickedItems, setPickedItems] = useState<PickedSourceItem[]>([]);
   const [externalUrls, setExternalUrls] = useState<string[]>([]);
   const [prompt, setPrompt] = useState('');
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [accountIds, setAccountIds] = useState<Record<string, string>>({});
-  const [activePickerSourceId, setActivePickerSourceId] = useState<string | null>(null);
-  const [connections, setConnections] = useState<SocialPlatformConnection[]>([]);
+  const [activePickerSourceId, setActivePickerSourceId] = useState<
+    string | null
+  >(null);
+  const [connections, setConnections] = useState<SocialPlatformConnection[]>(
+    []
+  );
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showPromptInput, setShowPromptInput] = useState(false);
@@ -60,7 +81,7 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
   // Merge picked items from a source into pickedItems
   const handlePickerConfirm = (
     source: SocialDataSourceDescriptor,
-    picked: PickedSourceItem[],
+    picked: PickedSourceItem[]
   ) => {
     setPickedItems((prev) => {
       const withoutSource = prev.filter((p) => p.sourceType !== source.id);
@@ -147,7 +168,9 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
       onClose();
     } catch (err: unknown) {
       setSubmitError(
-        err instanceof Error ? err.message : t('common.error') || '创建失败，请重试',
+        err instanceof Error
+          ? err.message
+          : t('common.error') || '创建失败，请重试'
       );
     } finally {
       setSubmitLoading(false);
@@ -155,7 +178,7 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
   };
 
   const activePickerSource = activePickerSourceId
-    ? sources.find((s) => s.id === activePickerSourceId) ?? null
+    ? (sources.find((s) => s.id === activePickerSourceId) ?? null)
     : null;
 
   return (
@@ -181,7 +204,10 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-100">
                 <Rocket className="h-5 w-5 text-rose-600" />
               </div>
-              <h2 id="new-task-dialog-title" className="text-lg font-semibold text-gray-900">
+              <h2
+                id="new-task-dialog-title"
+                className="text-lg font-semibold text-gray-900"
+              >
                 {t('aiSocial.newTask.title') || '新建社媒发布任务'}
               </h2>
             </div>
@@ -195,12 +221,13 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
           </div>
 
           {/* Scrollable body */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+          <div className="flex-1 space-y-6 overflow-y-auto px-6 py-4">
             {/* Data Sources Section */}
             <section>
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-700">
-                  {t('aiSocial.newTask.dataSources') || '数据源（点开各模块挑具体内容）'}
+                  {t('aiSocial.newTask.dataSources') ||
+                    '数据源（点开各模块挑具体内容）'}
                 </h3>
                 <span className="text-xs text-gray-400">
                   {`${pickedItems.length} / ${MAX_TOTAL_ITEMS}`}
@@ -211,15 +238,57 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
                 <div className="flex justify-center py-4">
                   <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
                 </div>
+              ) : sourcesError ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  <div className="mb-1 font-medium">数据源加载失败</div>
+                  <div className="mb-2 break-all text-xs text-red-600">
+                    {String(
+                      sourcesError instanceof Error
+                        ? sourcesError.message
+                        : sourcesError
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => refreshSources()}
+                    className="rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700"
+                  >
+                    重试
+                  </button>
+                </div>
+              ) : sources.length === 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  <div className="mb-1 font-medium">暂无可用数据源</div>
+                  <div className="mb-2 text-xs text-amber-700">
+                    后端 SocialDataSourceRegistry 未发现任何已注册 provider。
+                    可能原因：后端最新构建尚未部署完成 / DiscoveryService
+                    时机问题。 请稍候 1-2 分钟刷新重试，或检查浏览器 Console
+                    中的 [useSocialDataSources] 日志。
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => refreshSources()}
+                    className="rounded-md bg-amber-600 px-2 py-1 text-xs text-white hover:bg-amber-700"
+                  >
+                    立即重试
+                  </button>
+                </div>
               ) : (
                 <ul className="space-y-2 rounded-xl border border-gray-200 p-1">
                   {sources.map((source) => {
                     const count = pickedItems.filter(
-                      (p) => p.sourceType === source.id,
+                      (p) => p.sourceType === source.id
                     ).length;
-                    const SourceIcon = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[source.icon] ?? Icons.Box;
+                    const SourceIcon =
+                      (
+                        Icons as unknown as Record<
+                          string,
+                          React.ComponentType<{ className?: string }>
+                        >
+                      )[source.icon] ?? Icons.Box;
                     const displayName =
-                      source.displayName['zh-CN'] || source.displayName['en-US'];
+                      source.displayName['zh-CN'] ||
+                      source.displayName['en-US'];
                     return (
                       <li key={source.id}>
                         <button
@@ -255,7 +324,9 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
                 </h3>
                 <ul className="space-y-1.5 rounded-xl border border-gray-100 bg-gray-50 p-3">
                   {pickedItems.map((item) => {
-                    const sourceDesc = sources.find((s) => s.id === item.sourceType);
+                    const sourceDesc = sources.find(
+                      (s) => s.id === item.sourceType
+                    );
                     const sourceName =
                       sourceDesc?.displayName['zh-CN'] ?? item.sourceType;
                     return (
@@ -289,7 +360,7 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
               <button
                 type="button"
                 onClick={() => setShowUrlInput((v) => !v)}
-                className="flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
+                className="flex items-center gap-1.5 rounded text-sm text-rose-600 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               >
                 <Plus className="h-4 w-4" />
                 <Link className="h-3.5 w-3.5" />
@@ -318,7 +389,7 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
                       type="button"
                       onClick={addExternalUrl}
                       disabled={externalUrls.length >= MAX_EXTERNAL_URLS}
-                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:opacity-50"
                     >
                       添加
                     </button>
@@ -356,7 +427,7 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
               <button
                 type="button"
                 onClick={() => setShowPromptInput((v) => !v)}
-                className="flex items-center gap-1.5 text-sm text-rose-600 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 rounded"
+                className="flex items-center gap-1.5 rounded text-sm text-rose-600 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               >
                 <Plus className="h-4 w-4" />
                 <MessageSquare className="h-3.5 w-3.5" />
@@ -370,7 +441,7 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
                     placeholder="补充说明，例如：请聚焦技术层面，语气轻松…"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 resize-none"
+                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
                   />
                   <p className="mt-1 text-right text-xs text-gray-400">
                     {`${prompt.length} / ${MAX_PROMPT_CHARS}`}
@@ -393,7 +464,7 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
                   {(['WECHAT_MP', 'XIAOHONGSHU'] as Platform[]).map(
                     (platform) => {
                       const conn = connections.find(
-                        (c) => c.platformType === platform,
+                        (c) => c.platformType === platform
                       );
                       const isChecked = platforms.includes(platform);
                       const label =
@@ -423,12 +494,14 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
                                 {`绑定: ${conn.accountName ?? conn.id}`}
                               </p>
                             ) : (
-                              <p className="text-xs text-gray-400">未绑定账号</p>
+                              <p className="text-xs text-gray-400">
+                                未绑定账号
+                              </p>
                             )}
                           </div>
                         </label>
                       );
-                    },
+                    }
                   )}
                 </div>
               )}
@@ -478,9 +551,11 @@ export function NewTaskDialog({ open, onClose, onCreated }: NewTaskDialogProps) 
         <SourceItemPicker
           source={activePickerSource}
           alreadyPicked={pickedItems.filter(
-            (p) => p.sourceType === activePickerSource.id,
+            (p) => p.sourceType === activePickerSource.id
           )}
-          onConfirm={(picked) => handlePickerConfirm(activePickerSource, picked)}
+          onConfirm={(picked) =>
+            handlePickerConfirm(activePickerSource, picked)
+          }
           onCancel={() => setActivePickerSourceId(null)}
           maxRemainingGlobal={MAX_TOTAL_ITEMS - pickedItems.length}
         />

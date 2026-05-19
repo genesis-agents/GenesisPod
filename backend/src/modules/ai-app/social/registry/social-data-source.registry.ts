@@ -40,6 +40,15 @@ export class SocialDataSourceRegistry implements OnApplicationBootstrap {
    *   onApplicationBootstrap 在所有 module 的 onModuleInit 全部完成后触发，
    *   此时所有 @Injectable provider 都已实例化完毕，扫描结果可靠。
    */
+  /**
+   * 2026-05-19 修：metadataKey filter 在 NestJS DiscoveryService 里只对
+   *   `DiscoveryService.createDecorator()` 注册过的 key 生效；自定义 SetMetadata
+   *   key（如本项目 'genesis:social-data-source'）不会被 metadataKey 过滤命中
+   *   —— 这正是 prod 上 7 个 provider 一个都没发现的真实根因（与 onModuleInit
+   *   时机无关，集成测试 reproed）。
+   *
+   * 修复：取消 metadataKey 过滤，全量扫描 + 用 Reflect.getMetadata 自己判定。
+   */
   onApplicationBootstrap(): void {
     if (!this.discoveryService) {
       this.logger.debug(
@@ -47,17 +56,21 @@ export class SocialDataSourceRegistry implements OnApplicationBootstrap {
       );
       return;
     }
-    const providers = this.discoveryService.getProviders({
-      metadataKey: SOCIAL_DATA_SOURCE_METADATA,
-    });
+    const providers = this.discoveryService.getProviders();
     let discovered = 0;
     let skipped = 0;
     for (const wrapper of providers) {
-      const instance = wrapper.instance;
-      if (!instance || typeof instance !== "object") {
+      const instance: unknown = wrapper.instance;
+      const metatype = wrapper.metatype;
+      if (!instance || typeof instance !== "object" || !metatype) {
         skipped++;
         continue;
       }
+      const hasFlag = Reflect.getMetadata(
+        SOCIAL_DATA_SOURCE_METADATA,
+        metatype,
+      ) as unknown;
+      if (!hasFlag) continue; // 静默跳过非 social-data-source provider
       const candidate = instance as SocialDataSource;
       if (!candidate.id || typeof candidate.listItems !== "function") {
         skipped++;
