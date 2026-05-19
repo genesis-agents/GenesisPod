@@ -134,10 +134,30 @@ export type LeaderOutput = z.infer<typeof Output>;
 })
 export class LeaderAgent extends AgentSpec<typeof Input, typeof Output> {
   buildSystemPrompt({ input }: { input: z.infer<typeof Input> }): string {
-    return buildPromptFromDuty(
+    const base = buildPromptFromDuty(
       "leader",
       input.phase,
       input as unknown as Record<string, unknown>,
     );
+    // 2026-05-19 fix: Output schema 是 z.discriminatedUnion("phase", ...)，
+    //   LLM 必须在输出 JSON 顶层带 phase 字段，否则 ReActLoop schema validation
+    //   永远 reject "Invalid discriminator value"。SKILL.md duty 段的 JSON
+    //   示例只展示业务字段没写 phase，这里强制追加规范化提示。
+    const phaseEnforcement = [
+      "",
+      "## 输出 JSON 格式（强制要求）",
+      "",
+      `你的输出 JSON 必须包含 \`"phase": "${input.phase}"\` 作为顶层字段（这是 schema 的 discriminator）。`,
+      "例如：",
+      "```json",
+      "{",
+      `  "phase": "${input.phase}",`,
+      "  // ... 业务字段",
+      "}",
+      "```",
+      "",
+      "缺少 `phase` 字段会导致 schema validation 失败，mission 终止。",
+    ].join("\n");
+    return base + phaseEnforcement;
   }
 }

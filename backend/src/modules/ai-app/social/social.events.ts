@@ -36,6 +36,7 @@ import {
   PublishVerifySummarySchema,
   ToolsRecalledSchema,
   IterationProgressSchema,
+  AgentValidationRejectedSchema,
 } from "./social-event-schemas";
 
 const S = <TPayload>(
@@ -82,4 +83,5 @@ export const SOCIAL_EVENTS: readonly DomainEventTypeSpec[] = [
   // 2026-05-19 agent runner 通用事件（agent invoker / tool selector / iteration loop 都会 emit）
   S("tools:recalled", ToolsRecalledSchema),
   S("iteration:progress", IterationProgressSchema),
+  S("agent:validation-rejected", AgentValidationRejectedSchema),
 ];

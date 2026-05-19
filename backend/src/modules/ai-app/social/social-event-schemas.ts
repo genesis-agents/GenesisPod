@@ -84,6 +84,17 @@ export const IterationProgressSchema = z
   })
   .passthrough();
 
+export const AgentValidationRejectedSchema = z
+  .object({
+    role: z.string().optional(),
+    issues: z.string().optional(),
+    agentId: z.string().optional(),
+    maxRejects: z.number().optional(),
+    originalTs: z.number().optional(),
+    rejectCount: z.number().optional(),
+  })
+  .passthrough();
+
 export const MissionPostludeStartedSchema = z
   .object({
     stage: z.string(),

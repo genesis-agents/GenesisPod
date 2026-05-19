@@ -116,8 +116,8 @@ describe("SOCIAL_EVENTS registry", () => {
 
   // ── total count guard ────────────────────────────────────────────────────
 
-  it("has exactly 28 registered events (contract guard)", () => {
-    expect(SOCIAL_EVENTS.length).toBe(28);
+  it("has exactly 29 registered events (contract guard)", () => {
+    expect(SOCIAL_EVENTS.length).toBe(29);
   });
 
   it("has no duplicate type strings", () => {
