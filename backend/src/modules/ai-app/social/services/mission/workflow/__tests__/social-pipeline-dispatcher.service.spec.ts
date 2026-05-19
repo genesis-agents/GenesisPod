@@ -194,6 +194,11 @@ function createDispatcher(
   const invoker = overrides.invoker ?? createMockInvoker();
   const eventBus = overrides.eventBus ?? createMockEventBus();
   const abortRegistry = createMockAbortRegistry();
+  const ownershipRegistry = {
+    assign: jest.fn(),
+    getOwner: jest.fn(),
+    remove: jest.fn(),
+  };
   const runner = {} as jest.Mocked<AgentRunner>;
   const failureLearner = {} as jest.Mocked<FailureLearnerService>;
   const postmortemClassifier = {} as jest.Mocked<PostmortemClassifierService>;
@@ -209,6 +214,7 @@ function createDispatcher(
     runner as unknown as AgentRunner,
     eventBus as unknown as DomainEventBus,
     abortRegistry as unknown as MissionAbortRegistry,
+    ownershipRegistry as never,
     failureLearner as unknown as FailureLearnerService,
     postmortemClassifier as unknown as PostmortemClassifierService,
     makeRoleStub<LeaderService>() as unknown as LeaderService,

@@ -55,6 +55,7 @@ import {
 import {
   AgentRunner,
   MissionAbortRegistry,
+  MissionOwnershipRegistry,
   FailureLearnerService,
   PostmortemClassifierService,
 } from "@/modules/ai-harness/facade";
@@ -109,6 +110,7 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     private readonly runner: AgentRunner,
     private readonly eventBus: DomainEventBus,
     private readonly abortRegistry: MissionAbortRegistry,
+    private readonly ownershipRegistry: MissionOwnershipRegistry,
     private readonly failureLearner: FailureLearnerService,
     private readonly postmortemClassifier: PostmortemClassifierService,
     private readonly leader: LeaderService,
@@ -185,6 +187,11 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     this.log.log(
       `[${missionId}] mission start; platforms=${input.platforms.join(",")} depth=${input.depth}`,
     );
+
+    // 2026-05-19 fix: 注册 ownership 到 MissionOwnershipRegistry，使前端复用的
+    //   agent-playground/replay/:missionId endpoint 的 assertOwnership 能命中
+    //   ——之前 social mission 从不注册，导致详情页 SSE/polling 端点全部 403。
+    this.ownershipRegistry.assign(missionId, userId);
 
     let session: MissionRuntimeSession | undefined;
     try {

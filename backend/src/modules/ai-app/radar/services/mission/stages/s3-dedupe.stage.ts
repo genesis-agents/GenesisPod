@@ -62,10 +62,16 @@ export class RadarS3DedupeStage implements RadarStageRunner {
       (ctx.state.sources ?? []).map((s) => [s.id, s.isPublicSource]),
     );
 
+    // 2026-05-19 fix: 用 upsert 替代 create —— rawItems 同 batch 自身重复 +
+    //   两个并发 mission 抢同一 topicId/externalId 时 create 会撞
+    //   @@unique([topicId, externalId])。upsert update:{} 让已存在保持原值。
     const rows = await this.prisma.$transaction(
       toInsert.map((i) =>
-        this.prisma.radarItem.create({
-          data: {
+        this.prisma.radarItem.upsert({
+          where: {
+            topicId_externalId: { topicId, externalId: i.externalId },
+          },
+          create: {
             topicId,
             sourceId: i.sourceId,
             externalId: i.externalId,
@@ -86,6 +92,7 @@ export class RadarS3DedupeStage implements RadarStageRunner {
             isPublicSource: sourcePublicMap.get(i.sourceId) ?? true,
             sourceOwnerUserId: ctx.userId,
           },
+          update: {}, // 已存在不更新（保留首次入库值）
           select: { id: true, externalId: true },
         }),
       ),
