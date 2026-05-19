@@ -179,6 +179,7 @@ export class SocialPipelineDispatcher implements OnModuleInit {
     input: RunSocialMissionInput,
     userId: string,
     workspaceId?: string,
+    preHydratedContent?: RawContentBag,
   ): Promise<SocialMissionSummary> {
     const t0 = Date.now();
     this.log.log(
@@ -201,7 +202,11 @@ export class SocialPipelineDispatcher implements OnModuleInit {
         contextIds[platform] = `social-${platform}-${connId}`;
       }
       // ★ round-2-followup: 装配 contentRaw + stewardInputs（Reviewer A P0 / Audit P1）
-      const contentRaw = await this.hydrateContentRaw(input.contentId, userId);
+      // ★ PR-V4: 当 SocialTaskService 已通过 multi-source registry 聚合好内容时，
+      //   直接复用 preHydratedContent，跳过 SocialContent 表查询（task-mode）。
+      const contentRaw =
+        preHydratedContent ??
+        (await this.hydrateContentRaw(input.contentId, userId));
       const stewardInputs = await this.hydrateStewardInputs(
         userId,
         input,

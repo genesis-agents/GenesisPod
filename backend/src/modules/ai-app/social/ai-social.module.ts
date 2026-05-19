@@ -9,6 +9,8 @@ import { DiscoveryModule } from "@nestjs/core";
 import { JwtModule } from "@nestjs/jwt";
 import { AiSocialController } from "./ai-social.controller";
 import { SocialDataSourceController } from "./controllers/social-data-source.controller";
+import { SocialTaskController } from "./controllers/social-task.controller";
+import { SocialTaskService } from "./services/social-task.service";
 import { SocialDataSourceRegistry } from "./registry/social-data-source.registry";
 import { AiSocialService } from "./ai-social.service";
 import { SocialLeaderService } from "./services/social-leader.service";
@@ -85,7 +87,7 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
       inject: [ConfigService],
     }),
   ],
-  controllers: [AiSocialController, SocialDataSourceController],
+  controllers: [AiSocialController, SocialDataSourceController, SocialTaskController],
   providers: [
     AiSocialService,
     SocialLeaderService,
@@ -130,6 +132,7 @@ import { PromptSkillRegistrationService } from "@/modules/ai-engine/facade";
     SocialPipelineDispatcher,
     SocialGateway,
     SocialDataSourceRegistry,
+    SocialTaskService,
   ],
   exports: [
     AiSocialService,
