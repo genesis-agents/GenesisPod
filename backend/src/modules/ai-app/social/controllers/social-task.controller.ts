@@ -18,7 +18,7 @@ interface AuthenticatedRequest {
   user?: { id?: string };
 }
 
-@Controller('api/v1/ai-social/tasks')
+@Controller('ai-social/tasks')
 @UseGuards(JwtAuthGuard)
 export class SocialTaskController {
   constructor(private readonly taskService: SocialTaskService) {}

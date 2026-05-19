@@ -169,6 +169,19 @@ const nextConfig = {
         destination: '/ai-insights/topic-research',
         permanent: false,
       },
+      // ★ 2026-05-18 PR-V8: AI Social 意图驱动重设计 — 删 /create wizard + /edit 全屏页，
+      //   30 天 301 redirect 防旧书签 404。期满（2026-06-17）后可删除这两条。
+      //   旧路径 → 新主页（用户从主页 + 新建任务弹窗 进入新流程）
+      {
+        source: '/ai-social/create',
+        destination: '/ai-social',
+        permanent: false,
+      },
+      {
+        source: '/ai-social/edit/:id',
+        destination: '/ai-social',
+        permanent: false,
+      },
     ];
   },
   async rewrites() {
