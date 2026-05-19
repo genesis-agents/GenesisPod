@@ -83,6 +83,16 @@ export class SocialDataSourceRegistry implements OnApplicationBootstrap {
     this.logger.log(
       `Auto-discovered ${discovered} social data source(s) (${skipped} skipped); total registered: ${this.sources.size}`,
     );
+    // 2026-05-19 prod 诊断：发现 0 个时输出所有候选 metatype.name，定位"为什么扫不到"
+    if (discovered === 0 && this.sources.size === 0) {
+      const names = providers
+        .map((w) => w.metatype?.name ?? "(anonymous)")
+        .filter((n) => n !== "(anonymous)")
+        .slice(0, 200);
+      this.logger.error(
+        `[diagnostic] 0 social-data-source providers discovered. Scanned ${providers.length} wrappers. Metatypes: ${names.join(", ")}`,
+      );
+    }
   }
 
   register(source: SocialDataSource): void {
