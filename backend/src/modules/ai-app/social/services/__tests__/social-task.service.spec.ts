@@ -1,34 +1,39 @@
-import {
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
-import { SocialContentTaskStatus } from '@prisma/client';
-import { SocialTaskService } from '../social-task.service';
-import type { CreateSocialTaskDto } from '../../dto/create-social-task.dto';
-import type { SocialDataSource, SourceContentBundle } from '../../../../contracts/social-data-source';
+import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { SocialContentTaskStatus } from "@prisma/client";
+import { SocialTaskService } from "../social-task.service";
+import type { CreateSocialTaskDto } from "../../dto/create-social-task.dto";
+import type {
+  SocialDataSource,
+  SourceContentBundle,
+} from "../../../../contracts/social-data-source";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function makeBundle(overrides: Partial<SourceContentBundle> = {}): SourceContentBundle {
+function makeBundle(
+  overrides: Partial<SourceContentBundle> = {},
+): SourceContentBundle {
   return {
-    sourceType: 'ai-research',
-    sourceId: 'src-1',
-    title: 'Test Title',
-    body: 'Test body content',
-    bodyMime: 'text/markdown',
+    sourceType: "ai-research",
+    sourceId: "src-1",
+    title: "Test Title",
+    body: "Test body content",
+    bodyMime: "text/markdown",
     sourceMetadata: {},
     displayMetadata: {},
     ...overrides,
   };
 }
 
-function makeSource(id: string, bundles: SourceContentBundle[]): SocialDataSource {
+function makeSource(
+  id: string,
+  bundles: SourceContentBundle[],
+): SocialDataSource {
   return {
     id,
-    displayName: { 'zh-CN': '测试', 'en-US': 'Test' },
-    icon: 'test',
-    description: { 'zh-CN': '描述', 'en-US': 'Desc' },
-    contentKinds: ['article'],
+    displayName: { "zh-CN": "测试", "en-US": "Test" },
+    icon: "test",
+    description: { "zh-CN": "描述", "en-US": "Desc" },
+    contentKinds: ["article"],
     listItems: jest.fn().mockResolvedValue({ items: [] }),
     fetchBundle: jest.fn().mockResolvedValue(bundles),
   };
@@ -46,6 +51,10 @@ function makePrisma() {
     socialContentTaskVersion: {
       findMany: jest.fn().mockResolvedValue([]),
     },
+    // 2026-05-19: dispatchTask 现在会先 create 占位 SocialContent 行（FK 满足）
+    socialContent: {
+      create: jest.fn().mockResolvedValue({ id: "placeholder-content-id" }),
+    },
   };
 }
 
@@ -60,39 +69,47 @@ function makeRegistry(sources: SocialDataSource[] = []) {
 function makeContentFetcher() {
   return {
     fetchFromUrl: jest.fn().mockResolvedValue({
-      title: 'External Title',
-      content: 'External body',
+      title: "External Title",
+      content: "External body",
     }),
   };
 }
 
 function makeDispatcher() {
   return {
-    tryReserveInFlight: jest.fn().mockReturnValue({ missionId: 'mission-abc', reused: false }),
-    runMission: jest.fn().mockResolvedValue({ missionId: 'mission-abc', status: 'completed' }),
+    tryReserveInFlight: jest
+      .fn()
+      .mockReturnValue({ missionId: "mission-abc", reused: false }),
+    runMission: jest
+      .fn()
+      .mockResolvedValue({ missionId: "mission-abc", status: "completed" }),
   };
 }
 
-function makeDto(overrides: Partial<CreateSocialTaskDto> = {}): CreateSocialTaskDto {
+function makeDto(
+  overrides: Partial<CreateSocialTaskDto> = {},
+): CreateSocialTaskDto {
   return {
-    sources: [{ sourceType: 'ai-research', sourceId: 'src-1' }],
-    platforms: ['WECHAT_MP'],
-    accountIds: { WECHAT_MP: 'conn-1' },
+    sources: [{ sourceType: "ai-research", sourceId: "src-1" }],
+    platforms: ["WECHAT_MP"],
+    accountIds: { WECHAT_MP: "conn-1" },
     ...overrides,
   } as CreateSocialTaskDto;
 }
 
 // ─── tests ────────────────────────────────────────────────────────────────────
 
-describe('SocialTaskService', () => {
-  describe('createTask()', () => {
-    it('creates task row and returns id on valid input', async () => {
+describe("SocialTaskService", () => {
+  describe("createTask()", () => {
+    it("creates task row and returns id on valid input", async () => {
       const prisma = makePrisma();
-      const registry = makeRegistry([makeSource('ai-research', [makeBundle()])]);
+      const registry = makeRegistry([
+        makeSource("ai-research", [makeBundle()]),
+      ]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-1' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-1" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
       const svc = new SocialTaskService(
@@ -102,43 +119,54 @@ describe('SocialTaskService', () => {
         dispatcher as never,
       );
 
-      const result = await svc.createTask(makeDto(), 'user-1');
+      const result = await svc.createTask(makeDto(), "user-1");
 
-      expect(result).toEqual({ id: 'task-1' });
+      expect(result).toEqual({ id: "task-1" });
       expect(prisma.socialContentTask.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
-            userId: 'user-1',
+            userId: "user-1",
             status: SocialContentTaskStatus.PENDING,
           }),
         }),
       );
     });
 
-    it('fires dispatch as fire-and-forget (non-blocking)', async () => {
+    it("fires dispatch as fire-and-forget (non-blocking)", async () => {
       const prisma = makePrisma();
-      const registry = makeRegistry([makeSource('ai-research', [makeBundle()])]);
+      const registry = makeRegistry([
+        makeSource("ai-research", [makeBundle()]),
+      ]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-ff' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-ff" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
       // Make runMission never resolve to verify fire-and-forget
       let resolveRun!: () => void;
-      dispatcher.runMission.mockReturnValue(new Promise((r) => { resolveRun = () => r({ missionId: 'x', status: 'completed' }); }));
+      dispatcher.runMission.mockReturnValue(
+        new Promise((r) => {
+          resolveRun = () => r({ missionId: "x", status: "completed" });
+        }),
+      );
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
-      const result = await svc.createTask(makeDto(), 'user-1');
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
+      const result = await svc.createTask(makeDto(), "user-1");
 
       // createTask returned immediately even though runMission is still pending
-      expect(result).toEqual({ id: 'task-ff' });
+      expect(result).toEqual({ id: "task-ff" });
 
       // cleanup
       resolveRun();
     });
 
-    it('throws BadRequest when sources and externalUrls are both empty', async () => {
+    it("throws BadRequest when sources and externalUrls are both empty", async () => {
       const svc = new SocialTaskService(
         makePrisma() as never,
         makeRegistry() as never,
@@ -147,14 +175,11 @@ describe('SocialTaskService', () => {
       );
 
       await expect(
-        svc.createTask(
-          makeDto({ sources: [], externalUrls: [] }),
-          'user-1',
-        ),
+        svc.createTask(makeDto({ sources: [], externalUrls: [] }), "user-1"),
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('throws BadRequest when platform has no accountId', async () => {
+    it("throws BadRequest when platform has no accountId", async () => {
       const svc = new SocialTaskService(
         makePrisma() as never,
         makeRegistry() as never,
@@ -164,75 +189,106 @@ describe('SocialTaskService', () => {
 
       await expect(
         svc.createTask(
-          makeDto({ platforms: ['WECHAT_MP', 'XIAOHONGSHU'], accountIds: { WECHAT_MP: 'conn-1' } }),
-          'user-1',
+          makeDto({
+            platforms: ["WECHAT_MP", "XIAOHONGSHU"],
+            accountIds: { WECHAT_MP: "conn-1" },
+          }),
+          "user-1",
         ),
       ).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe('aggregateContent() via dispatchTask', () => {
-    it('combines multiple bundles from different sources', async () => {
-      const src1 = makeSource('ai-research', [makeBundle({ title: 'A', body: 'Body A', sourceType: 'ai-research', sourceId: 'id-1' })]);
-      const src2 = makeSource('ai-office', [makeBundle({ title: 'B', body: 'Body B', sourceType: 'ai-office', sourceId: 'id-2' })]);
+  describe("aggregateContent() via dispatchTask", () => {
+    it("combines multiple bundles from different sources", async () => {
+      const src1 = makeSource("ai-research", [
+        makeBundle({
+          title: "A",
+          body: "Body A",
+          sourceType: "ai-research",
+          sourceId: "id-1",
+        }),
+      ]);
+      const src2 = makeSource("ai-office", [
+        makeBundle({
+          title: "B",
+          body: "Body B",
+          sourceType: "ai-office",
+          sourceId: "id-2",
+        }),
+      ]);
       const prisma = makePrisma();
       const registry = makeRegistry([src1, src2]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-multi' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-multi" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
       await svc.createTask(
         makeDto({
           sources: [
-            { sourceType: 'ai-research', sourceId: 'id-1' },
-            { sourceType: 'ai-office', sourceId: 'id-2' },
+            { sourceType: "ai-research", sourceId: "id-1" },
+            { sourceType: "ai-office", sourceId: "id-2" },
           ],
-          platforms: ['WECHAT_MP'],
-          accountIds: { WECHAT_MP: 'conn-1' },
+          platforms: ["WECHAT_MP"],
+          accountIds: { WECHAT_MP: "conn-1" },
         }),
-        'user-1',
+        "user-1",
       );
 
       // Wait a tick for the fire-and-forget to run
       await new Promise((r) => setImmediate(r));
 
       expect(dispatcher.runMission).toHaveBeenCalledWith(
-        'mission-abc',
+        "mission-abc",
         expect.anything(),
-        'user-1',
+        "user-1",
         undefined,
-        expect.objectContaining({ body: expect.stringContaining('Body A') }),
+        expect.objectContaining({ body: expect.stringContaining("Body A") }),
       );
       const call = dispatcher.runMission.mock.calls[0];
       const bag = call[4];
-      expect(bag.body).toContain('Body B');
+      expect(bag.body).toContain("Body B");
     });
 
-    it('is fault-tolerant: partial source failure uses successful ones', async () => {
-      const goodSrc = makeSource('ai-research', [makeBundle({ title: 'Good', body: 'Good body' })]);
-      const badSrc = makeSource('ai-office', []);
-      (badSrc.fetchBundle as jest.Mock).mockRejectedValue(new Error('source error'));
+    it("is fault-tolerant: partial source failure uses successful ones", async () => {
+      const goodSrc = makeSource("ai-research", [
+        makeBundle({ title: "Good", body: "Good body" }),
+      ]);
+      const badSrc = makeSource("ai-office", []);
+      (badSrc.fetchBundle as jest.Mock).mockRejectedValue(
+        new Error("source error"),
+      );
 
       const prisma = makePrisma();
       const registry = makeRegistry([goodSrc, badSrc]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-partial' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-partial" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
       await svc.createTask(
         makeDto({
           sources: [
-            { sourceType: 'ai-research', sourceId: 'id-1' },
-            { sourceType: 'ai-office', sourceId: 'id-2' },
+            { sourceType: "ai-research", sourceId: "id-1" },
+            { sourceType: "ai-office", sourceId: "id-2" },
           ],
         }),
-        'user-1',
+        "user-1",
       );
 
       await new Promise((r) => setImmediate(r));
@@ -241,177 +297,234 @@ describe('SocialTaskService', () => {
       expect(dispatcher.runMission).toHaveBeenCalledWith(
         expect.any(String),
         expect.anything(),
-        'user-1',
+        "user-1",
         undefined,
-        expect.objectContaining({ body: expect.stringContaining('Good body') }),
+        expect.objectContaining({ body: expect.stringContaining("Good body") }),
       );
     });
 
-    it('marks task FAILED when all sources and URLs fail', async () => {
-      const badSrc = makeSource('ai-research', []);
-      (badSrc.fetchBundle as jest.Mock).mockRejectedValue(new Error('gone'));
+    it("marks task FAILED when all sources and URLs fail", async () => {
+      const badSrc = makeSource("ai-research", []);
+      (badSrc.fetchBundle as jest.Mock).mockRejectedValue(new Error("gone"));
 
       const prisma = makePrisma();
       const registry = makeRegistry([badSrc]);
       const fetcher = makeContentFetcher();
-      (fetcher.fetchFromUrl as jest.Mock).mockRejectedValue(new Error('url fail'));
+      fetcher.fetchFromUrl.mockRejectedValue(new Error("url fail"));
       const dispatcher = makeDispatcher();
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-all-fail' });
+      prisma.socialContentTask.create.mockResolvedValue({
+        id: "task-all-fail",
+      });
       prisma.socialContentTask.update.mockResolvedValue({});
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
       await svc.createTask(
-        makeDto({ sources: [{ sourceType: 'ai-research', sourceId: 'id-1' }], externalUrls: ['https://example.com'] }),
-        'user-1',
+        makeDto({
+          sources: [{ sourceType: "ai-research", sourceId: "id-1" }],
+          externalUrls: ["https://example.com"],
+        }),
+        "user-1",
       );
 
       await new Promise((r) => setImmediate(r));
 
       expect(prisma.socialContentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ status: SocialContentTaskStatus.FAILED }),
+          data: expect.objectContaining({
+            status: SocialContentTaskStatus.FAILED,
+          }),
         }),
       );
     });
 
-    it('fetches externalUrls through ContentFetcherService (not direct fetch)', async () => {
+    it("fetches externalUrls through ContentFetcherService (not direct fetch)", async () => {
       const prisma = makePrisma();
       const registry = makeRegistry([]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-url' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-url" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
       await svc.createTask(
-        makeDto({ sources: [], externalUrls: ['https://example.com/article'] }),
-        'user-1',
+        makeDto({ sources: [], externalUrls: ["https://example.com/article"] }),
+        "user-1",
       );
 
       await new Promise((r) => setImmediate(r));
 
-      expect(fetcher.fetchFromUrl).toHaveBeenCalledWith('https://example.com/article');
+      expect(fetcher.fetchFromUrl).toHaveBeenCalledWith(
+        "https://example.com/article",
+      );
       // Verify no direct global fetch was called (we rely on the service mock)
     });
   });
 
-  describe('dispatchTask()', () => {
-    it('sets status DRAFT_READY when runMission returns completed', async () => {
-      const src = makeSource('ai-research', [makeBundle()]);
+  describe("dispatchTask()", () => {
+    it("sets status DRAFT_READY when runMission returns completed", async () => {
+      const src = makeSource("ai-research", [makeBundle()]);
       const prisma = makePrisma();
       const registry = makeRegistry([src]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
-      dispatcher.runMission.mockResolvedValue({ missionId: 'mission-1', status: 'completed' });
+      dispatcher.runMission.mockResolvedValue({
+        missionId: "mission-1",
+        status: "completed",
+      });
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-done' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-done" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
-      await svc.createTask(makeDto(), 'user-1');
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
+      await svc.createTask(makeDto(), "user-1");
       await new Promise((r) => setImmediate(r));
 
-      const updateCalls = (prisma.socialContentTask.update as jest.Mock).mock.calls;
-      const finalUpdate = updateCalls.find((c) =>
-        c[0].data.status === SocialContentTaskStatus.DRAFT_READY,
+      const updateCalls = prisma.socialContentTask.update.mock.calls;
+      const finalUpdate = updateCalls.find(
+        (c) => c[0].data.status === SocialContentTaskStatus.DRAFT_READY,
       );
       expect(finalUpdate).toBeDefined();
     });
 
-    it('sets status FAILED when runMission returns failed', async () => {
-      const src = makeSource('ai-research', [makeBundle()]);
+    it("sets status FAILED when runMission returns failed", async () => {
+      const src = makeSource("ai-research", [makeBundle()]);
       const prisma = makePrisma();
       const registry = makeRegistry([src]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
-      dispatcher.runMission.mockResolvedValue({ missionId: 'm', status: 'failed', error: new Error('pipeline error') });
+      dispatcher.runMission.mockResolvedValue({
+        missionId: "m",
+        status: "failed",
+        error: new Error("pipeline error"),
+      });
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-fail' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-fail" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
-      await svc.createTask(makeDto(), 'user-1');
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
+      await svc.createTask(makeDto(), "user-1");
       await new Promise((r) => setImmediate(r));
 
-      const updateCalls = (prisma.socialContentTask.update as jest.Mock).mock.calls;
-      const failUpdate = updateCalls.find((c) =>
-        c[0].data?.status === SocialContentTaskStatus.FAILED,
+      const updateCalls = prisma.socialContentTask.update.mock.calls;
+      const failUpdate = updateCalls.find(
+        (c) => c[0].data?.status === SocialContentTaskStatus.FAILED,
       );
       expect(failUpdate).toBeDefined();
-      expect(failUpdate[0].data.errorMessage).toContain('pipeline error');
+      expect(failUpdate[0].data.errorMessage).toContain("pipeline error");
     });
 
     // ★ R3 P1-2 / R4 P1 fix (2026-05-18): PARTIAL_PUBLISHED aggregation
-    it('recomputes status PARTIAL_PUBLISHED when versions mix PUBLISHED + FAILED', async () => {
-      const src = makeSource('ai-research', [makeBundle()]);
+    it("recomputes status PARTIAL_PUBLISHED when versions mix PUBLISHED + FAILED", async () => {
+      const src = makeSource("ai-research", [makeBundle()]);
       const prisma = makePrisma();
       const registry = makeRegistry([src]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-partial' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-partial" });
       prisma.socialContentTask.update.mockResolvedValue({});
       prisma.socialContentTaskVersion.findMany.mockResolvedValue([
-        { status: 'PUBLISHED' },
-        { status: 'FAILED' },
+        { status: "PUBLISHED" },
+        { status: "FAILED" },
       ]);
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
-      await svc.createTask(makeDto(), 'user-1');
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
+      await svc.createTask(makeDto(), "user-1");
       await new Promise((r) => setImmediate(r));
 
-      const finalUpdate = (prisma.socialContentTask.update as jest.Mock).mock.calls.find(
+      const finalUpdate = prisma.socialContentTask.update.mock.calls.find(
         (c) => c[0].data.status === SocialContentTaskStatus.PARTIAL_PUBLISHED,
       );
       expect(finalUpdate).toBeDefined();
     });
 
-    it('recomputes status PUBLISHED when all versions are PUBLISHED', async () => {
-      const src = makeSource('ai-research', [makeBundle()]);
+    it("recomputes status PUBLISHED when all versions are PUBLISHED", async () => {
+      const src = makeSource("ai-research", [makeBundle()]);
       const prisma = makePrisma();
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-pub' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-pub" });
       prisma.socialContentTask.update.mockResolvedValue({});
       prisma.socialContentTaskVersion.findMany.mockResolvedValue([
-        { status: 'PUBLISHED' },
-        { status: 'PUBLISHED' },
+        { status: "PUBLISHED" },
+        { status: "PUBLISHED" },
       ]);
 
-      const svc = new SocialTaskService(prisma as never, makeRegistry([src]) as never, makeContentFetcher() as never, makeDispatcher() as never);
-      await svc.createTask(makeDto({ platforms: ['WECHAT_MP', 'XIAOHONGSHU'], accountIds: { WECHAT_MP: 'c1', XIAOHONGSHU: 'c2' } }), 'user-1');
+      const svc = new SocialTaskService(
+        prisma as never,
+        makeRegistry([src]) as never,
+        makeContentFetcher() as never,
+        makeDispatcher() as never,
+      );
+      await svc.createTask(
+        makeDto({
+          platforms: ["WECHAT_MP", "XIAOHONGSHU"],
+          accountIds: { WECHAT_MP: "c1", XIAOHONGSHU: "c2" },
+        }),
+        "user-1",
+      );
       await new Promise((r) => setImmediate(r));
 
-      const finalUpdate = (prisma.socialContentTask.update as jest.Mock).mock.calls.find(
+      const finalUpdate = prisma.socialContentTask.update.mock.calls.find(
         (c) => c[0].data.status === SocialContentTaskStatus.PUBLISHED,
       );
       expect(finalUpdate).toBeDefined();
     });
 
-    it('catches thrown errors and marks task FAILED', async () => {
-      const src = makeSource('ai-research', [makeBundle()]);
+    it("catches thrown errors and marks task FAILED", async () => {
+      const src = makeSource("ai-research", [makeBundle()]);
       const prisma = makePrisma();
       const registry = makeRegistry([src]);
       const fetcher = makeContentFetcher();
       const dispatcher = makeDispatcher();
-      dispatcher.runMission.mockRejectedValue(new Error('unexpected crash'));
+      dispatcher.runMission.mockRejectedValue(new Error("unexpected crash"));
 
-      prisma.socialContentTask.create.mockResolvedValue({ id: 'task-crash' });
+      prisma.socialContentTask.create.mockResolvedValue({ id: "task-crash" });
       prisma.socialContentTask.update.mockResolvedValue({});
 
-      const svc = new SocialTaskService(prisma as never, registry as never, fetcher as never, dispatcher as never);
-      await svc.createTask(makeDto(), 'user-1');
+      const svc = new SocialTaskService(
+        prisma as never,
+        registry as never,
+        fetcher as never,
+        dispatcher as never,
+      );
+      await svc.createTask(makeDto(), "user-1");
       await new Promise((r) => setImmediate(r));
 
-      const updateCalls = (prisma.socialContentTask.update as jest.Mock).mock.calls;
-      const failUpdate = updateCalls.find((c) =>
-        c[0].data?.status === SocialContentTaskStatus.FAILED,
+      const updateCalls = prisma.socialContentTask.update.mock.calls;
+      const failUpdate = updateCalls.find(
+        (c) => c[0].data?.status === SocialContentTaskStatus.FAILED,
       );
       expect(failUpdate).toBeDefined();
     });
   });
 
-  describe('listTasks()', () => {
-    it('enforces userId isolation', async () => {
+  describe("listTasks()", () => {
+    it("enforces userId isolation", async () => {
       const prisma = makePrisma();
       prisma.socialContentTask.findMany.mockResolvedValue([]);
 
@@ -422,18 +535,18 @@ describe('SocialTaskService', () => {
         makeDispatcher() as never,
       );
 
-      await svc.listTasks('target-user', {});
+      await svc.listTasks("target-user", {});
 
       expect(prisma.socialContentTask.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ userId: 'target-user' }),
+          where: expect.objectContaining({ userId: "target-user" }),
         }),
       );
     });
 
-    it('returns nextCursor when there are more items', async () => {
+    it("returns nextCursor when there are more items", async () => {
       const prisma = makePrisma();
-      const date = new Date('2026-01-01T00:00:00Z');
+      const date = new Date("2026-01-01T00:00:00Z");
       const items = Array.from({ length: 21 }, (_, i) => ({
         id: `t-${i}`,
         createdAt: new Date(date.getTime() - i * 1000),
@@ -449,14 +562,14 @@ describe('SocialTaskService', () => {
         makeDispatcher() as never,
       );
 
-      const result = await svc.listTasks('user-1', { limit: 20 });
+      const result = await svc.listTasks("user-1", { limit: 20 });
       expect(result.items).toHaveLength(20);
       expect(result.nextCursor).toBeDefined();
     });
   });
 
-  describe('getTask()', () => {
-    it('throws NotFoundException for another user task', async () => {
+  describe("getTask()", () => {
+    it("throws NotFoundException for another user task", async () => {
       const prisma = makePrisma();
       prisma.socialContentTask.findFirst.mockResolvedValue(null);
 
@@ -467,15 +580,17 @@ describe('SocialTaskService', () => {
         makeDispatcher() as never,
       );
 
-      await expect(svc.getTask('task-99', 'other-user')).rejects.toThrow(NotFoundException);
+      await expect(svc.getTask("task-99", "other-user")).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
-  describe('cancelTask()', () => {
-    it('throws BadRequest when task is already PUBLISHED', async () => {
+  describe("cancelTask()", () => {
+    it("throws BadRequest when task is already PUBLISHED", async () => {
       const prisma = makePrisma();
       prisma.socialContentTask.findFirst.mockResolvedValue({
-        id: 'task-pub',
+        id: "task-pub",
         status: SocialContentTaskStatus.PUBLISHED,
       });
 
@@ -486,13 +601,15 @@ describe('SocialTaskService', () => {
         makeDispatcher() as never,
       );
 
-      await expect(svc.cancelTask('task-pub', 'user-1')).rejects.toThrow(BadRequestException);
+      await expect(svc.cancelTask("task-pub", "user-1")).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
-    it('cancels a PENDING task successfully', async () => {
+    it("cancels a PENDING task successfully", async () => {
       const prisma = makePrisma();
       prisma.socialContentTask.findFirst.mockResolvedValue({
-        id: 'task-pend',
+        id: "task-pend",
         status: SocialContentTaskStatus.PENDING,
       });
       prisma.socialContentTask.update.mockResolvedValue({});
@@ -504,7 +621,7 @@ describe('SocialTaskService', () => {
         makeDispatcher() as never,
       );
 
-      await svc.cancelTask('task-pend', 'user-1');
+      await svc.cancelTask("task-pend", "user-1");
 
       expect(prisma.socialContentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -513,10 +630,10 @@ describe('SocialTaskService', () => {
       );
     });
 
-    it('cancels a GENERATING task successfully', async () => {
+    it("cancels a GENERATING task successfully", async () => {
       const prisma = makePrisma();
       prisma.socialContentTask.findFirst.mockResolvedValue({
-        id: 'task-gen',
+        id: "task-gen",
         status: SocialContentTaskStatus.GENERATING,
       });
       prisma.socialContentTask.update.mockResolvedValue({});
@@ -528,7 +645,7 @@ describe('SocialTaskService', () => {
         makeDispatcher() as never,
       );
 
-      await svc.cancelTask('task-gen', 'user-1');
+      await svc.cancelTask("task-gen", "user-1");
 
       expect(prisma.socialContentTask.update).toHaveBeenCalledWith(
         expect.objectContaining({

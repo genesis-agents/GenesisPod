@@ -198,8 +198,33 @@ export class SocialTaskService {
 
       const aggregated = await this.aggregateContent(dto, userId);
 
+      // ★ 2026-05-19 fix: SocialMission.contentId has FK → SocialContent.id.
+      //   V4 task-mode doesn't naturally produce a SocialContent row, but the
+      //   FK is still enforced at insert time (prod blocker:
+      //   social_missions_content_id_fkey violation). Create a placeholder
+      //   SocialContent row so the mission insert satisfies the constraint;
+      //   the actual content body still flows through preHydratedContent and
+      //   never reads from this row.
+      const platformToContentType: Record<
+        string,
+        "WECHAT_ARTICLE" | "XIAOHONGSHU_NOTE"
+      > = {
+        WECHAT_MP: "WECHAT_ARTICLE",
+        XIAOHONGSHU: "XIAOHONGSHU_NOTE",
+      };
+      const placeholder = await this.prisma.socialContent.create({
+        data: {
+          userId,
+          contentType:
+            platformToContentType[dto.platforms[0]] ?? "WECHAT_ARTICLE",
+          sourceType: "MANUAL",
+          title: (dto.prompt ?? `Task ${taskId.slice(0, 8)}`).slice(0, 200),
+          content: aggregated.body ?? "",
+        },
+      });
+
       const input: RunSocialMissionInput = {
-        contentId: taskId,
+        contentId: placeholder.id,
         platforms: dto.platforms,
         connectionIds: dto.accountIds,
         depth: dto.depth ?? "standard",
