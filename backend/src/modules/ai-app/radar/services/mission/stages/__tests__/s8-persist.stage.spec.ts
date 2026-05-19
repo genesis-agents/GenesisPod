@@ -194,4 +194,133 @@ describe("RadarS8PersistStage", () => {
       prisma.radarTopic.update.mock.calls[0]?.[0].data.lastRunAt,
     ).toBeInstanceOf(Date);
   });
+
+  // ── R10 2026-05-19: 流失归因（drop attribution）────────────────────────
+  // 用户反馈"item 丢了但没有任何原因记录"。下面 3 个 case 直接断言：
+  //  · droppedItems 包含被淘汰 item 的 reason / scores / stage
+  //  · droppedAtRelevance + droppedAtQuality 计数正确
+  //  · thresholds 阈值快照写入
+
+  describe("drop attribution (R10)", () => {
+    beforeEach(() => {
+      jest
+        .spyOn(cronUtil, "computeNextCronTick")
+        .mockReturnValue(new Date(Date.now() + 3600_000));
+    });
+
+    it("writes thresholds snapshot to metrics regardless of items", async () => {
+      const ctx = makeCtx({ newItemIds: [] });
+      await stage.run(args, ctx);
+      expect(ctx.state.metrics.thresholds).toEqual({
+        relevanceGate: 40, // RADAR_PIPELINE_DEFAULTS.relevanceThreshold
+        relevanceMin: 60, // acceptedRelevanceMin
+        qualityMin: 50, // acceptedQualityMin
+      });
+    });
+
+    it("classifies drops by stage: relevance vs quality", async () => {
+      // i1: rel 30 < 40 → relevance（连质量评分都没进）
+      // i2: rel 50, 40<=50<60 → relevance（进了质量但相关性未达入选）
+      // i3: rel 80, qual 30 → quality（rel 过了但质量不行）
+      // i4: rel 80, qual 60 → accepted
+      const uniqueItems = [
+        {
+          sourceId: "s-1",
+          title: "Item One",
+          url: "http://example.com/1",
+        },
+        {
+          sourceId: "s-1",
+          title: "Item Two",
+          url: null,
+        },
+        {
+          sourceId: "s-2",
+          title: "Item Three",
+          url: null,
+        },
+        {
+          sourceId: "s-2",
+          title: "Item Four",
+          url: null,
+        },
+      ];
+      const ctx = makeCtx({
+        newItemIds: ["i1", "i2", "i3", "i4"],
+        uniqueItems:
+          uniqueItems as unknown as RadarMissionContext["state"]["uniqueItems"],
+        sources: [
+          { id: "s-1", label: "Source A", identifier: "src-a" },
+          { id: "s-2", label: null, identifier: "src-b" },
+        ] as unknown as RadarMissionContext["state"]["sources"],
+        relevanceScores: new Map([
+          ["i1", { score: 30, reason: "" }],
+          ["i2", { score: 50, reason: "" }],
+          ["i3", { score: 80, reason: "" }],
+          ["i4", { score: 80, reason: "" }],
+        ]),
+        qualityScores: new Map([
+          ["i2", { score: 70, summary: "" }],
+          ["i3", { score: 30, summary: "" }],
+          ["i4", { score: 60, summary: "" }],
+        ]),
+      });
+      await stage.run(args, ctx);
+
+      expect(ctx.state.metrics.droppedAtRelevance).toBe(2); // i1 + i2
+      expect(ctx.state.metrics.droppedAtQuality).toBe(1); // i3
+      expect(ctx.state.metrics.itemsAccepted).toBe(1); // i4
+
+      const dropped = ctx.state.metrics.droppedItems ?? [];
+      expect(dropped).toHaveLength(3);
+
+      const byId = new Map(dropped.map((d) => [d.id, d]));
+      expect(byId.get("i1")).toMatchObject({
+        stage: "relevance",
+        relevanceScore: 30,
+        qualityScore: null,
+        sourceLabel: "Source A",
+      });
+      expect(byId.get("i1")?.reason).toMatch(/相关性 30/);
+      expect(byId.get("i2")).toMatchObject({
+        stage: "relevance",
+        relevanceScore: 50,
+        qualityScore: 70,
+      });
+      expect(byId.get("i2")?.reason).toMatch(/相关性 50 < 60/);
+      expect(byId.get("i3")).toMatchObject({
+        stage: "quality",
+        relevanceScore: 80,
+        qualityScore: 30,
+        sourceLabel: "src-b", // 无 label fallback identifier
+      });
+      expect(byId.get("i3")?.reason).toMatch(/质量分 30 < 50/);
+    });
+
+    it("droppedItems sorted by relevance desc (top 'almost made it' first)", async () => {
+      const ctx = makeCtx({
+        newItemIds: ["low", "mid", "high"],
+        uniqueItems: [
+          { sourceId: "s", title: "low", url: null },
+          { sourceId: "s", title: "mid", url: null },
+          { sourceId: "s", title: "high", url: null },
+        ] as unknown as RadarMissionContext["state"]["uniqueItems"],
+        sources: [
+          { id: "s", label: "Src", identifier: "src" },
+        ] as unknown as RadarMissionContext["state"]["sources"],
+        relevanceScores: new Map([
+          ["low", { score: 10, reason: "" }],
+          ["mid", { score: 45, reason: "" }],
+          ["high", { score: 55, reason: "" }],
+        ]),
+        qualityScores: new Map([
+          ["mid", { score: 0, summary: "" }],
+          ["high", { score: 0, summary: "" }],
+        ]),
+      });
+      await stage.run(args, ctx);
+      const ids = (ctx.state.metrics.droppedItems ?? []).map((d) => d.id);
+      expect(ids).toEqual(["high", "mid", "low"]);
+    });
+  });
 });

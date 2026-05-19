@@ -115,6 +115,26 @@ export interface RadarInsightPayload {
   }>;
 }
 
+/**
+ * S8 流失归因 —— 每个被淘汰 item 的完整诊断信息。
+ *
+ * 2026-05-19 R10：用户反馈"数据丢了，但没有任何原因记录"。S8 在写
+ * accepted 标记的同时，把每个被淘汰 item 的 score / 阈值 / 原因落到
+ * RadarRun.metrics.droppedItems[]，UI drawer 直接呈现。
+ */
+export interface RadarDroppedItem {
+  id: string;
+  title: string;
+  url: string | null;
+  sourceLabel: string;
+  relevanceScore: number | null;
+  qualityScore: number | null;
+  /** 人类可读原因，如 "相关性 42 < 60" 或 "质量分 32 < 50" */
+  reason: string;
+  /** 流失发生在哪个 stage：relevance / quality / unknown */
+  stage: "relevance" | "quality" | "unknown";
+}
+
 export interface RadarRunMetrics {
   sourcesAttempted: number;
   sourcesFailed: number;
@@ -125,6 +145,17 @@ export interface RadarRunMetrics {
   itemsAccepted: number;
   insightCreated: boolean;
   sourceErrors: Array<{ sourceId: string; error: string }>;
+  /** R10：S8 写入，scoring/quality 阈值快照（让 UI 能告知用户门槛是多少） */
+  thresholds?: {
+    relevanceGate: number;
+    relevanceMin: number;
+    qualityMin: number;
+  };
+  /** R10：S8 写入，per-stage 流失计数 */
+  droppedAtRelevance?: number;
+  droppedAtQuality?: number;
+  /** R10：S8 写入，被淘汰 item 详细清单（top 20 by relevance desc） */
+  droppedItems?: RadarDroppedItem[];
 }
 
 /**

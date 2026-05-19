@@ -157,6 +157,23 @@ export interface RadarInsight {
   createdAt: string;
 }
 
+/**
+ * 单个被淘汰 item 的诊断详情（S8 persist 写入 RadarRun.metrics）。
+ *
+ * 2026-05-19 R10：用户反馈"数据 1 → 0 丢了但没有任何原因记录"，UI 现在
+ * 在 stage drawer 中读这条结构展示"具体哪条 item 因为什么分数被淘汰"。
+ */
+export interface RadarDroppedItem {
+  id: string;
+  title: string;
+  url: string | null;
+  sourceLabel: string;
+  relevanceScore: number | null;
+  qualityScore: number | null;
+  reason: string;
+  stage: 'relevance' | 'quality' | 'unknown';
+}
+
 export interface RadarRun {
   id: string;
   topicId: string;
@@ -174,6 +191,17 @@ export interface RadarRun {
     sourcesAttempted?: number;
     sourcesFailed?: number;
     sourceErrors?: Array<{ sourceId: string; error: string }>;
+    /** R10：S8 写入的阈值快照 */
+    thresholds?: {
+      relevanceGate: number;
+      relevanceMin: number;
+      qualityMin: number;
+    };
+    /** R10：per-stage 流失计数 */
+    droppedAtRelevance?: number;
+    droppedAtQuality?: number;
+    /** R10：被淘汰 item 详情清单（top 20 by relevance desc） */
+    droppedItems?: RadarDroppedItem[];
   } | null;
   error: string | null;
   createdAt: string;

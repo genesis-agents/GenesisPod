@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
-import type { RadarRun } from '@/services/ai-radar/types';
+import type { RadarDroppedItem, RadarRun } from '@/services/ai-radar/types';
 import {
   agentRoleTone,
   stageGroupStatus,
@@ -181,6 +181,13 @@ export function StageTaskDrawer({ run, stage, currentStage, onClose }: Props) {
           </section>
         )}
 
+        {/* R10 2026-05-19: 流失归因 —— 仅 scorer / persister 显示。
+            scorer 是评分决策点，persister 是最终入选过滤点，都关心淘汰原因。 */}
+        {(stage.agent.role === 'scorer' ||
+          stage.agent.role === 'persister') && (
+          <DropAttributionSection run={run} />
+        )}
+
         {/* Failure details — 仅本 stage 是 mission 失败/取消点 */}
         {(isFailureStage || isCancelledStage) && run.error && (
           <section
@@ -248,5 +255,159 @@ export function StageTaskDrawer({ run, stage, currentStage, onClose }: Props) {
         )}
       </div>
     </SideDrawer>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// DropAttributionSection — 单条 item 流失诊断（R10 2026-05-19 新增）
+//
+// 用户痛点："数据 1 → 0 中间没有任何原因就丢了"。S8 写 metrics 时把每个被
+// 淘汰 item 的 rel/qual 分 + 阈值 + 原因落 droppedItems[]，本组件直接展示。
+// ──────────────────────────────────────────────────────────────────────
+
+function DropAttributionSection({ run }: { run: RadarRun }) {
+  const m = run.metrics;
+  const dropped = m?.droppedItems ?? [];
+  const thresholds = m?.thresholds;
+  const droppedAtRelevance = m?.droppedAtRelevance ?? 0;
+  const droppedAtQuality = m?.droppedAtQuality ?? 0;
+  const totalDropped = droppedAtRelevance + droppedAtQuality;
+
+  if (!thresholds && dropped.length === 0 && totalDropped === 0) {
+    return null;
+  }
+
+  return (
+    <section className="rounded-lg border border-gray-200 bg-white p-3">
+      <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+        流失归因
+      </h4>
+
+      {/* Thresholds 阈值快照 */}
+      {thresholds && (
+        <div className="mb-2 grid grid-cols-3 gap-2 text-xs">
+          <ThresholdChip
+            label="相关性门槛"
+            value={thresholds.relevanceMin}
+            tip={`< ${thresholds.relevanceGate} 不进质量评分；< ${thresholds.relevanceMin} 不入选`}
+          />
+          <ThresholdChip
+            label="质量分门槛"
+            value={thresholds.qualityMin}
+            tip={`质量分 < ${thresholds.qualityMin} 不入选`}
+          />
+          <ThresholdChip
+            label="累计淘汰"
+            value={totalDropped}
+            danger={totalDropped > 0}
+            tip={`相关性 ${droppedAtRelevance} · 质量 ${droppedAtQuality}`}
+          />
+        </div>
+      )}
+
+      {/* 流失 item 清单 */}
+      {dropped.length > 0 ? (
+        <ul className="flex flex-col gap-1.5">
+          {dropped.map((item) => (
+            <DroppedItemRow key={item.id} item={item} />
+          ))}
+          {totalDropped > dropped.length && (
+            <li className="px-1 text-[11px] text-gray-500">
+              …另有 {totalDropped - dropped.length} 条按相关性排序后被截断
+            </li>
+          )}
+        </ul>
+      ) : totalDropped === 0 ? (
+        <p className="text-xs text-gray-500">本次 mission 无 item 被淘汰。</p>
+      ) : (
+        <p className="text-xs text-gray-500">
+          淘汰计数已记录但清单为空（旧版 run，请等下一次刷新）。
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ThresholdChip({
+  label,
+  value,
+  tip,
+  danger,
+}: {
+  label: string;
+  value: number;
+  tip: string;
+  danger?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-md border px-2 py-1 ${
+        danger ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-gray-50/50'
+      }`}
+      title={tip}
+    >
+      <div className="text-[10px] text-gray-500">{label}</div>
+      <div
+        className={`text-sm font-semibold ${
+          danger ? 'text-red-700' : 'text-gray-800'
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function DroppedItemRow({ item }: { item: RadarDroppedItem }) {
+  const stageTone =
+    item.stage === 'relevance'
+      ? 'text-amber-700 bg-amber-50 ring-amber-200'
+      : item.stage === 'quality'
+        ? 'text-orange-700 bg-orange-50 ring-orange-200'
+        : 'text-gray-700 bg-gray-50 ring-gray-200';
+  return (
+    <li className="rounded-md border border-gray-100 bg-gray-50/40 px-2 py-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          {item.url ? (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="line-clamp-1 text-xs font-medium text-gray-900 hover:text-violet-700 hover:underline"
+              title={item.title}
+            >
+              {item.title}
+            </a>
+          ) : (
+            <span className="line-clamp-1 text-xs font-medium text-gray-900">
+              {item.title}
+            </span>
+          )}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-gray-500">
+            <span className="truncate">{item.sourceLabel}</span>
+            <span>·</span>
+            <span>
+              相关性{' '}
+              <span className="font-mono">{item.relevanceScore ?? '—'}</span>
+            </span>
+            {item.qualityScore != null && (
+              <>
+                <span>·</span>
+                <span>
+                  质量 <span className="font-mono">{item.qualityScore}</span>
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <span
+          className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium ring-1 ${stageTone}`}
+          title={item.reason}
+        >
+          {item.reason}
+        </span>
+      </div>
+    </li>
   );
 }

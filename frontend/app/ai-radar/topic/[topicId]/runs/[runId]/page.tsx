@@ -861,13 +861,14 @@ function DataFlowWaterfall({ run }: { run: RadarRun }) {
   const fetched = m.itemsFetched ?? 0;
   const deduped = m.itemsDeduped ?? 0;
   const inserted = m.itemsInserted ?? 0;
-  // 流失推算：
-  // - dedupe 流失: fetched - deduped（重复内容）
-  // - score+enrich 流失: deduped - inserted（评分/质量/实体阶段被淘汰）
-  //   ※ 无法分离 score / enrich / finalize 三个 stage 的具体流失数，
-  //     因为 RadarRun.metrics 没拆 per-stage —— 合并展示。
+  // R10 2026-05-19: 拆分相关性/质量两阶段流失（S8 metrics.droppedAt* 写入）
+  // 老 run 没这俩字段 → 合并 fallback 到 deduped-inserted。
   const lostDedupe = Math.max(0, fetched - deduped);
-  const lostScore = Math.max(0, deduped - inserted);
+  const droppedAtRelevance = m.droppedAtRelevance;
+  const droppedAtQuality = m.droppedAtQuality;
+  const splitAvailable =
+    droppedAtRelevance !== undefined && droppedAtQuality !== undefined;
+  const lostScoreFallback = Math.max(0, deduped - inserted);
 
   // 全 0 时不显示（mission 还没跑 / pending 阶段）
   if (fetched === 0 && inserted === 0 && deduped === 0) return null;
@@ -882,7 +883,19 @@ function DataFlowWaterfall({ run }: { run: RadarRun }) {
         <FlowNode label="抓取" value={fetched} tone="blue" />
         <FlowArrow lost={lostDedupe} reason="重复内容" />
         <FlowNode label="去重后" value={deduped} tone="sky" />
-        <FlowArrow lost={lostScore} reason="评分 / 质量 / 实体阶段淘汰" />
+        {splitAvailable ? (
+          <>
+            <FlowArrow lost={droppedAtRelevance ?? 0} reason="相关性 < 门槛" />
+            <FlowNode
+              label="评分通过"
+              value={deduped - (droppedAtRelevance ?? 0)}
+              tone="sky"
+            />
+            <FlowArrow lost={droppedAtQuality ?? 0} reason="质量分 < 门槛" />
+          </>
+        ) : (
+          <FlowArrow lost={lostScoreFallback} reason="评分 / 质量阶段淘汰" />
+        )}
         <FlowNode
           label="入库"
           value={inserted}
@@ -893,8 +906,8 @@ function DataFlowWaterfall({ run }: { run: RadarRun }) {
         <p className="mt-2 inline-flex items-start gap-1 text-[11px] leading-relaxed text-amber-700">
           <AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" />
           <span>
-            抓取了 {fetched} 条但 0 条入库。可能原因：相关性 / 质量分低于阈值
-            被淘汰，或实体抽取失败。点击下方表格"评分"或"实体抽取"行查看详情。
+            抓取了 {fetched} 条但 0 条入库。点击下方表格「评分」行查看每条
+            被淘汰 item 的具体得分和原因。
           </span>
         </p>
       )}
