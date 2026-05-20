@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type { ArtifactCitation } from '@/lib/features/agent-playground/report-artifact.types';
 import { Card } from '@/components/agent-playground/ui';
 
@@ -674,20 +675,12 @@ export function ReferencesPanel({ citations, fallbackSources }: Props) {
 
         <div className="space-y-4 p-4">
           {filtered.length === 0 ? (
-            <div className="px-4 py-12 text-center">
-              <Search className="mx-auto mb-2 h-6 w-6 text-gray-300" />
-              <p className="text-sm font-medium text-gray-700">未匹配到引用</p>
-              <p className="mt-1 text-[11px] text-gray-500">
-                试着调整搜索词或过滤条件
-              </p>
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="mt-3 rounded-md border border-gray-200 bg-white px-3 py-1 text-[11px] text-gray-600 hover:bg-gray-50"
-              >
-                重置过滤
-              </button>
-            </div>
+            <EmptyState
+              type="search"
+              title="未匹配到引用"
+              description="试着调整搜索词或过滤条件"
+              action={{ label: '重置过滤', onClick: resetFilters }}
+            />
           ) : (
             grouped.map((g) => (
               <section key={g.label}>
