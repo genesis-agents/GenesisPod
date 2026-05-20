@@ -30,6 +30,7 @@ import {
   BarChart3,
   Zap,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 export interface CommandItem {
   id: string;
@@ -367,15 +368,14 @@ export default function CommandPalette({
           {/* Command List */}
           <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
             {filteredCommands.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500">
-                <Sparkles className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                <p>
-                  {t('topicResearch.deepResearch.commandPalette.noResults')}
-                </p>
-                <p className="mt-1 text-sm">
-                  {t('topicResearch.deepResearch.commandPalette.tryCommands')}
-                </p>
-              </div>
+              <EmptyState
+                size="sm"
+                icon={<Sparkles className="h-8 w-8" />}
+                title={t('topicResearch.deepResearch.commandPalette.noResults')}
+                description={t(
+                  'topicResearch.deepResearch.commandPalette.tryCommands'
+                )}
+              />
             ) : (
               CATEGORY_ORDER.map((category) => {
                 const commands = groupedCommands[category];

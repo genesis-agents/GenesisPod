@@ -14,6 +14,7 @@ import {
   File,
   ExternalLink,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { formatDateSafe } from '@/lib/utils/date';
@@ -318,19 +319,22 @@ export default function ResourceSelectPanel({
             <span className="ml-2 text-sm text-gray-500">Loading...</span>
           </div>
         ) : resources.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-            <FileText className="h-10 w-10" />
-            <p className="mt-2 text-sm">No resources found</p>
-            <a
-              href="/explore"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-            >
-              Go to Explore to add resources
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
+          <EmptyState
+            icon={<FileText className="h-8 w-8" />}
+            title="No resources found"
+            size="sm"
+            action={
+              <a
+                href="/explore"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+              >
+                Go to Explore to add resources
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            }
+          />
         ) : (
           <>
             {/* Select All Header */}

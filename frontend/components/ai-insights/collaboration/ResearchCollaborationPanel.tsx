@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ListTodo, ChevronUp, ChevronDown, Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { cn } from '@/lib/utils/common';
 import { ResearchTodoList } from '../research-control/ResearchTodoList';
 import { TodoDetailPanel } from '../panels/TodoDetailPanel';
@@ -455,9 +456,10 @@ export function ResearchCollaborationPanel({
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : todos.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  {t('topicResearch.collaboration.panel.noTasks')}
-                </div>
+                <EmptyState
+                  size="sm"
+                  title={t('topicResearch.collaboration.panel.noTasks')}
+                />
               ) : (
                 <ResearchTodoList
                   topicId={topicId}

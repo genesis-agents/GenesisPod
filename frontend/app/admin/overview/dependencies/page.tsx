@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Layers } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { ALL_DIAGRAMS } from '@/lib/features/admin/dependency-diagrams';
 import { cn } from '@/lib/utils/common';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 export default function DependenciesIndexPage() {
   const { t } = useTranslation();
@@ -60,9 +61,10 @@ export default function DependenciesIndexPage() {
           ))}
 
           {ALL_DIAGRAMS.length === 0 && (
-            <div className="py-12 text-center text-sm text-gray-400">
-              No dependency diagrams configured yet.
-            </div>
+            <EmptyState
+              icon={<Layers className="h-12 w-12" />}
+              title="No dependency diagrams configured yet."
+            />
           )}
         </div>
       </main>

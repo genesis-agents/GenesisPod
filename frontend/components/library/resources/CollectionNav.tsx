@@ -15,6 +15,7 @@ import {
   BookOpen,
   Hash,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 export interface Collection {
   id: string;
@@ -311,9 +312,11 @@ export default function CollectionNav({
           {expandedSections.tags && (
             <div className="mt-1 space-y-0.5">
               {tags.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-gray-400">
-                  No tags yet. Add tags to your bookmarks to organize them.
-                </div>
+                <EmptyState
+                  title="No tags yet"
+                  description="Add tags to your bookmarks to organize them."
+                  size="sm"
+                />
               ) : (
                 tags.map((tag) => (
                   <button

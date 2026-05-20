@@ -17,6 +17,7 @@ import {
 } from '@/hooks/domain/useKnowledgeBase';
 import GoogleDriveFolderPicker from '../import-panels/GoogleDriveFolderPicker';
 import SignInPrompt, { isAuthError } from '@/components/common/SignInPrompt';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 /**
  * Library 页面的知识库 TAB 内容
@@ -110,21 +111,16 @@ export default function KnowledgeBaseTabContent() {
   // 空状态
   if (knowledgeBases.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-        <Database className="h-16 w-16 text-gray-400" />
-        <h3 className="mt-4 text-lg font-medium text-gray-900">
-          创建你的第一个知识库
-        </h3>
-        <p className="mt-2 max-w-md text-center text-gray-500">
-          知识库可以存储你的文档、笔记和资料，支持 AI 智能检索和问答。
-        </p>
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          className="mt-6 flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-white transition-colors hover:bg-blue-700"
-        >
-          <Plus className="h-5 w-5" />
-          创建知识库
-        </button>
+      <>
+        <EmptyState
+          icon={<Database className="h-12 w-12" />}
+          title="创建你的第一个知识库"
+          description="知识库可以存储你的文档、笔记和资料，支持 AI 智能检索和问答。"
+          action={{
+            label: '创建知识库',
+            onClick: () => setShowCreateDialog(true),
+          }}
+        />
 
         {showCreateDialog && (
           <CreateKnowledgeBaseDialog
@@ -133,7 +129,7 @@ export default function KnowledgeBaseTabContent() {
             creating={creating}
           />
         )}
-      </div>
+      </>
     );
   }
 

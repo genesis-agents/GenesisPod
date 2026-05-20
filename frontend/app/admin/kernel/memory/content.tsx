@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -548,10 +549,11 @@ export default function KernelMemoryPageContent({
             Loading memory entries...
           </div>
         ) : entries.length === 0 ? (
-          <div className="p-12 text-center text-sm text-gray-500">
-            No memory entries found for this process
-            {layer !== 'ALL' ? ` in layer: ${layer}` : ''}.
-          </div>
+          <EmptyState
+            icon={<Database className="h-12 w-12" />}
+            title={`No memory entries found for this process${layer !== 'ALL' ? ` in layer: ${layer}` : ''}`}
+            size="sm"
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full text-left text-sm">
@@ -650,9 +652,11 @@ export default function KernelMemoryPageContent({
                   Loading memory entries...
                 </div>
               ) : entries.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">
-                  No memory entries for this process.
-                </div>
+                <EmptyState
+                  icon={<Database className="h-8 w-8" />}
+                  title="No memory entries for this process."
+                  size="sm"
+                />
               ) : (
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
                   <Table className="w-full text-left text-xs">

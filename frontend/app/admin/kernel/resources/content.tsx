@@ -10,6 +10,7 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -406,9 +407,11 @@ export default function KernelResourcesPageContent({
               Loading circuit breakers...
             </div>
           ) : breakers.length === 0 ? (
-            <div className="p-12 text-center text-sm text-gray-500">
-              No circuit breakers registered.
-            </div>
+            <EmptyState
+              icon={<Gauge className="h-12 w-12" />}
+              title="No circuit breakers registered."
+              size="sm"
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table className="w-full text-left text-sm">

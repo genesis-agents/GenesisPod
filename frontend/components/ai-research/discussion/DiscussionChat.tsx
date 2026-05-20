@@ -25,6 +25,7 @@ import {
   Settings,
   Check,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { cn } from '@/lib/utils/common';
 import type { DiscussionResearchState } from '@/hooks';
 import {
@@ -235,18 +236,11 @@ export function DiscussionChat({
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="mx-auto max-w-3xl">
             {sessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100">
-                  <Search className="h-8 w-8 text-purple-500" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold text-gray-900">
-                  开始你的第一次研究
-                </h3>
-                <p className="max-w-md text-sm text-gray-500">
-                  输入一个研究问题，AI
-                  研究团队将展开多角度讨论，深度搜索并产出研究报告
-                </p>
-              </div>
+              <EmptyState
+                icon={<Search className="h-12 w-12" />}
+                title="开始你的第一次研究"
+                description="输入一个研究问题，AI 研究团队将展开多角度讨论，深度搜索并产出研究报告"
+              />
             ) : (
               <div className="space-y-2">
                 <div className="mb-3 flex items-center gap-2 text-sm text-gray-500">
@@ -386,23 +380,23 @@ export function DiscussionChat({
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="mx-auto max-w-3xl">
             {historyMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <AlertCircle className="mb-3 h-10 w-10 text-gray-300" />
-                <h4 className="mb-1 text-sm font-medium text-gray-600">
-                  {viewingSession.status === 'FAILED'
+              <EmptyState
+                icon={<AlertCircle className="h-10 w-10" />}
+                title={
+                  viewingSession.status === 'FAILED'
                     ? '研究执行失败'
                     : viewingSession.status !== 'COMPLETED'
                       ? '研究已中断'
-                      : '讨论记录为空'}
-                </h4>
-                <p className="max-w-xs text-xs text-gray-400">
-                  {viewingSession.status === 'FAILED'
+                      : '讨论记录为空'
+                }
+                description={
+                  viewingSession.status === 'FAILED'
                     ? viewingSession.error || '执行过程中发生错误'
                     : viewingSession.status !== 'COMPLETED'
                       ? '研究已中断，部分数据请查看迭代/报告 Tab'
-                      : '该研究已完成但未保存讨论消息，请查看报告 Tab'}
-                </p>
-              </div>
+                      : '该研究已完成但未保存讨论消息，请查看报告 Tab'
+                }
+              />
             ) : (
               historyMessages.map((message) => {
                 if (message.messageType === 'system') {

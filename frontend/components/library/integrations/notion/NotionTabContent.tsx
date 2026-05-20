@@ -26,6 +26,7 @@ import {
   SyncStatus,
   NotionSyncConflict,
 } from '@/services/notion/api';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { formatDateSafe } from '@/lib/utils/date';
 import {
   SyncControls,
@@ -786,34 +787,24 @@ export default function NotionTabContent() {
 
       {/* 页面列表 - 优化设计 */}
       {pages.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 py-16">
-          <svg
-            className="h-12 w-12 text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          <p className="mt-4 text-sm text-gray-500">
-            {search
+        <EmptyState
+          type={search ? 'search' : 'default'}
+          title={
+            search
               ? 'No pages found matching your search.'
-              : 'No pages synced yet.'}
-          </p>
-          {!search && (
-            <button
-              onClick={() => handleSync(connections[0]?.id)}
-              className="mt-3 text-sm font-medium text-gray-900 hover:text-gray-700"
-            >
-              Sync now to fetch your Notion pages
-            </button>
-          )}
-        </div>
+              : 'No pages synced yet.'
+          }
+          action={
+            !search ? (
+              <button
+                onClick={() => handleSync(connections[0]?.id)}
+                className="mt-1 text-sm font-medium text-gray-900 hover:text-gray-700"
+              >
+                Sync now to fetch your Notion pages
+              </button>
+            ) : undefined
+          }
+        />
       ) : (
         <>
           {/* Selection toolbar */}

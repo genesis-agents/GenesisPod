@@ -12,6 +12,7 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { useAdminAgents, AgentConfig } from '@/hooks/domain/useAdminAgents';
@@ -393,15 +394,18 @@ export default function AgentManagementPage() {
 
         {/* Empty state */}
         {!loading && agents.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-            <Bot className="mb-4 h-12 w-12 opacity-30" />
-            <p className="text-lg font-medium text-gray-600">
-              No agent configurations
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
-              Create your first agent configuration to get started.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Bot className="h-12 w-12" />}
+            title="No agent configurations"
+            description="Create your first agent configuration to get started."
+            action={{
+              label: 'Add Agent',
+              onClick: () => {
+                resetForm();
+                setShowCreateModal(true);
+              },
+            }}
+          />
         )}
 
         {/* Create/Edit Modal */}

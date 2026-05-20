@@ -16,6 +16,8 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import * as aiGroupApi from '@/services/ai-teams/api';
 import { JoinRequest } from '@/services/ai-teams/api';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Bot, CheckCircle } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';
@@ -269,9 +271,11 @@ function AISettings({
       </div>
 
       {(topic.aiMembers || []).length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 p-8 text-center">
-          <p className="text-sm text-gray-500">No AI assistants added yet</p>
-        </div>
+        <EmptyState
+          size="sm"
+          icon={<Bot className="h-8 w-8" />}
+          title="No AI assistants added yet"
+        />
       ) : (
         <div className="space-y-2">
           {(topic.aiMembers || []).map((ai) => {
@@ -1168,27 +1172,11 @@ function JoinRequestsSettings({
 
   if (requests.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <svg
-          className="h-12 w-12 text-gray-300"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-          />
-        </svg>
-        <h3 className="mt-3 text-sm font-medium text-gray-700">
-          No pending join requests
-        </h3>
-        <p className="mt-1 text-xs text-gray-500">
-          Requests will appear here when users apply to join
-        </p>
-      </div>
+      <EmptyState
+        icon={<CheckCircle className="h-12 w-12" />}
+        title="No pending join requests"
+        description="Requests will appear here when users apply to join"
+      />
     );
   }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { Activity, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -338,9 +339,11 @@ export default function TracesPageContent({
         {loading && traces.length === 0 ? (
           <div className="p-8 text-center text-gray-500">Loading traces...</div>
         ) : traces.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No traces found. Start a research session to see traces.
-          </div>
+          <EmptyState
+            icon={<Activity className="h-12 w-12" />}
+            title="No traces found"
+            description="Start a research session to see traces."
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full text-left text-sm">

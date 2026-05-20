@@ -14,6 +14,7 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   getChapterTimelineConflicts,
   type TimelineConflict,
@@ -168,13 +169,12 @@ export function TimelineConflictPanel({
             </div>
           </div>
         ) : conflicts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <CheckCircle className="h-12 w-12 text-green-400" />
-            <p className="mt-2 font-medium text-gray-700">No Conflicts</p>
-            <p className="text-sm text-gray-500">
-              This chapter has no timeline conflicts
-            </p>
-          </div>
+          <EmptyState
+            size="sm"
+            icon={<CheckCircle className="h-8 w-8" />}
+            title="No Conflicts"
+            description="This chapter has no timeline conflicts"
+          />
         ) : (
           <div className="p-2">
             {conflicts.map((conflict) => {

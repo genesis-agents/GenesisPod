@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Search as SearchIcon, MessageSquare } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
 interface Session {
@@ -543,9 +545,17 @@ export default function SessionSidebar({
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
             </div>
           ) : filteredSessions.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-400">
-              {searchQuery ? 'No matching chats' : 'No chat history yet'}
-            </div>
+            <EmptyState
+              size="sm"
+              icon={
+                searchQuery ? (
+                  <SearchIcon className="h-8 w-8" />
+                ) : (
+                  <MessageSquare className="h-8 w-8" />
+                )
+              }
+              title={searchQuery ? 'No matching chats' : 'No chat history yet'}
+            />
           ) : (
             <>
               {renderGroup('⭐ 书签', groupedSessions.bookmarked)}

@@ -8,6 +8,7 @@ import { ModelBadges } from '@/components/common/ModelBadges';
 import * as api from '@/services/ai-teams/api';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 import { logger } from '@/lib/utils/logger';
 import { formatDateSafe } from '@/lib/utils/date';
@@ -179,25 +180,12 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
                 <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
               </div>
             ) : summaries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center p-6 text-center">
-                <svg
-                  className="h-12 w-12 text-gray-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <p className="mt-2 text-sm text-gray-500">No summaries yet</p>
-                <p className="text-xs text-gray-400">
-                  Generate your first summary
-                </p>
-              </div>
+              <EmptyState
+                size="sm"
+                icon={<FileText className="h-8 w-8" />}
+                title="No summaries yet"
+                description="Generate your first summary"
+              />
             ) : (
               <div className="divide-y divide-gray-100">
                 {summaries.map((summary) => (
@@ -311,22 +299,10 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
                 </div>
               </div>
             ) : (
-              <div className="flex h-full flex-col items-center justify-center text-gray-400">
-                <svg
-                  className="h-16 w-16"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <p className="mt-2 text-lg">Select a summary to view</p>
-              </div>
+              <EmptyState
+                icon={<FileText className="h-12 w-12" />}
+                title="Select a summary to view"
+              />
             )}
           </div>
         </div>

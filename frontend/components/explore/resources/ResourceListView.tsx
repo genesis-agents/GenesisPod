@@ -4,6 +4,7 @@ import React from 'react';
 import { ResourceCard } from './ResourceCard';
 import { getSourceName } from '../utils/resourceHelpers';
 import type { Resource } from '../utils/types';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface ResourceListViewProps {
   resources: Resource[];
@@ -141,12 +142,10 @@ export function ResourceListView({
 
       {/* Empty State */}
       {!loading && filteredResources.length === 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white py-20 text-center">
-          <p className="mb-2 text-gray-500">No content available</p>
-          <p className="text-sm text-gray-400">
-            Try running the data crawler first
-          </p>
-        </div>
+        <EmptyState
+          title="No content available"
+          description="Try running the data crawler first"
+        />
       )}
     </>
   );

@@ -80,6 +80,7 @@ import {
   useWikiIngestInflightProbe,
   useWikiIngestPolling,
 } from './useWikiIngestPolling';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 // Extend the default sanitizer to allow our internal `wikilink:` scheme on
 // anchor href attributes � without this, rehype-sanitize strips the href and
@@ -1878,9 +1879,10 @@ function WikiLintDrawer({
         {loading ? (
           <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
         ) : findings.length === 0 ? (
-          <div className="py-8 text-center text-sm text-gray-500">
-            {t('library.wiki.lint.emptyForCategory')}
-          </div>
+          <EmptyState
+            title={t('library.wiki.lint.emptyForCategory')}
+            size="sm"
+          />
         ) : (
           <ul className="space-y-2">
             {findings.map((f) => (
@@ -1998,9 +2000,7 @@ function WikiLogDrawer({
         {error ? (
           <div className="py-8 text-center text-sm text-red-600">{error}</div>
         ) : !loading && items.length === 0 ? (
-          <div className="py-8 text-center text-sm text-gray-500">
-            {t('library.wiki.log.empty')}
-          </div>
+          <EmptyState title={t('library.wiki.log.empty')} size="sm" />
         ) : (
           <ul className="space-y-2">
             {items.map((item) => (
@@ -2457,11 +2457,14 @@ function WikiEnableToggleModal({
               {error}
             </div>
           ) : eligible.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-500">
-              {kbs.length === 0
-                ? t('library.wiki.enable.noKbsForUser')
-                : t('library.wiki.enable.allEnabled')}
-            </div>
+            <EmptyState
+              title={
+                kbs.length === 0
+                  ? t('library.wiki.enable.noKbsForUser')
+                  : t('library.wiki.enable.allEnabled')
+              }
+              size="sm"
+            />
           ) : (
             <ul className="space-y-2">
               {eligible.map((kb) => (

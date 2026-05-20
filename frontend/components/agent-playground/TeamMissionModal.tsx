@@ -19,7 +19,9 @@ import {
   Loader2,
   Circle,
   AlertCircle,
+  Inbox,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type {
   AgentLiveState,
   DimensionPipelineState,
@@ -217,9 +219,10 @@ export function TeamMissionModal({
         {/* Body — 每维度一行 */}
         <div className="flex-1 overflow-y-auto p-4">
           {dimensions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
-              Leader 还没拆分维度，等待规划阶段完成…
-            </div>
+            <EmptyState
+              icon={<Inbox className="h-12 w-12" />}
+              title="Leader 还没拆分维度，等待规划阶段完成…"
+            />
           ) : (
             <ul className="space-y-3">
               {dimensions.map((d, dIdx) => {

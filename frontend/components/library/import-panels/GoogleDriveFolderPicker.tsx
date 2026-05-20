@@ -21,6 +21,7 @@ import {
   type GoogleDriveFolder,
   type GoogleDriveFile,
 } from '@/hooks/domain/useKnowledgeBase';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 // Helper function to get file icon based on mime type
 function getFileIcon(mimeType: string) {
@@ -267,9 +268,7 @@ export default function GoogleDriveFolderPicker({
             <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
           </div>
         ) : folders.length === 0 && files.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-gray-500">
-            此目录为空
-          </div>
+          <EmptyState title="此目录为空" size="sm" />
         ) : (
           <div className="grid gap-1">
             {/* 文件夹列表 */}

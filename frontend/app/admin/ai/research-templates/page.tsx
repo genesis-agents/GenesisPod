@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { FlaskConical, Plus, Pencil, Trash2, Copy, Power } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import {
@@ -308,13 +309,18 @@ export default function ResearchTemplatesPage() {
 
         {/* Empty state */}
         {!loading && templates.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
-            <FlaskConical className="mb-4 h-12 w-12 opacity-30" />
-            <p className="text-lg font-medium">No research templates</p>
-            <p className="mt-1 text-sm">
-              Create your first research template to get started.
-            </p>
-          </div>
+          <EmptyState
+            icon={<FlaskConical className="h-12 w-12" />}
+            title="No research templates"
+            description="Create your first research template to get started."
+            action={{
+              label: 'Add Template',
+              onClick: () => {
+                resetForm();
+                setShowCreateModal(true);
+              },
+            }}
+          />
         )}
 
         {/* Create/Edit Modal */}

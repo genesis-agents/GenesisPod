@@ -20,6 +20,7 @@ import {
   type NotionPage,
 } from '@/services/notion/api';
 import { formatDateSafe } from '@/lib/utils/date';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface NotionImportPanelProps {
   knowledgeBaseId: string;
@@ -220,10 +221,11 @@ export default function NotionImportPanel({
             <span className="ml-2 text-sm text-gray-500">Loading...</span>
           </div>
         ) : pages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-            <FileText className="h-10 w-10" />
-            <p className="mt-2 text-sm">No Notion pages found</p>
-          </div>
+          <EmptyState
+            icon={<FileText className="h-8 w-8" />}
+            title="No Notion pages found"
+            size="sm"
+          />
         ) : (
           <>
             {/* Select All Header */}

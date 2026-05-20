@@ -6,6 +6,8 @@ import {
   CreateMissionDto,
 } from '@/lib/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Users } from 'lucide-react';
 
 interface CreateMissionDialogProps {
   topicId: string;
@@ -130,11 +132,11 @@ export default function CreateMissionDialog({
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
               </div>
             ) : membersList.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-gray-300 p-6 text-center">
-                <p className="text-sm text-gray-500">
-                  No AI members in this topic. Please add AI members first.
-                </p>
-              </div>
+              <EmptyState
+                size="sm"
+                icon={<Users className="h-8 w-8" />}
+                title="No AI members in this topic. Please add AI members first."
+              />
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 {membersList.map((member) => (

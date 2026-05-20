@@ -19,6 +19,7 @@ import {
   Ghost,
   CircleDot,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -795,10 +796,11 @@ export default function KernelProcessesPageContent({
             Loading processes...
           </div>
         ) : processes.length === 0 ? (
-          <div className="p-12 text-center text-sm text-gray-500">
-            No processes found
-            {stateFilter !== 'ALL' && ` with state: ${stateFilter}`}.
-          </div>
+          <EmptyState
+            icon={<Cpu className="h-12 w-12" />}
+            title={`No processes found${stateFilter !== 'ALL' ? ` with state: ${stateFilter}` : ''}`}
+            size="sm"
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full text-left text-sm">

@@ -20,6 +20,7 @@ import {
 } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 type FilterKey = 'recommended' | 'ready' | 'covered' | 'blocked' | 'all';
 
@@ -328,13 +329,16 @@ export default function WikiIngestModal({
             <InlineError message={error} />
           ) : docs.length === 0 ? (
             <EmptyState
-              icon={<FileSearch className="h-6 w-6" />}
+              icon={<FileSearch className="h-8 w-8" />}
               title={t('library.wiki.ingest.noDocs')}
+              size="sm"
             />
           ) : visibleDocs.length === 0 ? (
             <EmptyState
-              icon={<Search className="h-6 w-6" />}
+              type="search"
+              icon={<Search className="h-8 w-8" />}
               title={t('library.wiki.ingest.noMatch')}
+              size="sm"
             />
           ) : (
             <ul className="space-y-3">
@@ -510,15 +514,6 @@ function InlineError({ message }: { message: string }) {
   return (
     <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
       {message}
-    </div>
-  );
-}
-
-function EmptyState({ icon, title }: { icon: ReactNode; title: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white px-8 text-center">
-      <div className="rounded-2xl bg-slate-100 p-4 text-slate-500">{icon}</div>
-      <div className="mt-4 max-w-lg text-sm text-slate-500">{title}</div>
     </div>
   );
 }

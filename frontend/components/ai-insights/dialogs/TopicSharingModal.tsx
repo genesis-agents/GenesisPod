@@ -11,6 +11,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getAuthTokens } from '@/lib/utils/auth';
+import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Users as UsersLucide } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
 import { config } from '@/lib/utils/config';
@@ -664,11 +666,13 @@ export function TopicSharingModal({
                   {/* Collaborator list */}
                   <div className="space-y-2">
                     {collaborators.length === 0 ? (
-                      <p className="py-4 text-center text-sm text-gray-500">
-                        {t(
+                      <EmptyState
+                        size="sm"
+                        icon={<UsersLucide className="h-8 w-8" />}
+                        title={t(
                           'topicResearch.sharing.collaborators.noCollaborators'
                         )}
-                      </p>
+                      />
                     ) : (
                       collaborators.map((collaborator) => (
                         <div

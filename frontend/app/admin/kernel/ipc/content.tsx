@@ -10,6 +10,7 @@ import {
   Radio,
   ListTodo,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -271,9 +272,11 @@ export default function KernelIpcPageContent({
               Loading tasks...
             </div>
           ) : tasks.length === 0 ? (
-            <div className="p-12 text-center text-sm text-gray-500">
-              No active tasks found.
-            </div>
+            <EmptyState
+              icon={<ListTodo className="h-12 w-12" />}
+              title="No active tasks found."
+              size="sm"
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table className="w-full text-left text-sm">
@@ -376,11 +379,15 @@ export default function KernelIpcPageContent({
               Loading messages...
             </div>
           ) : messages.length === 0 ? (
-            <div className="p-12 text-center text-sm text-gray-500">
-              {sessionId.trim()
-                ? 'No messages found for this session.'
-                : 'Enter a session ID above to load message history.'}
-            </div>
+            <EmptyState
+              icon={<Search className="h-12 w-12" />}
+              title={
+                sessionId.trim()
+                  ? 'No messages found for this session.'
+                  : 'Enter a session ID above to load message history.'
+              }
+              size="sm"
+            />
           ) : (
             <>
               <div className="border-b px-4 py-2 text-xs text-gray-400">

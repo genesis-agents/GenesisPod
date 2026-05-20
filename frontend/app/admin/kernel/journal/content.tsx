@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { ScrollText, RefreshCw, Loader2, Search } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -189,10 +190,11 @@ export default function KernelJournalPageContent({
             Loading journal entries...
           </div>
         ) : entries.length === 0 ? (
-          <div className="p-12 text-center text-sm text-gray-500">
-            No journal entries found
-            {(processIdFilter || typeFilter) && ' for the current filters'}.
-          </div>
+          <EmptyState
+            icon={<ScrollText className="h-12 w-12" />}
+            title={`No journal entries found${processIdFilter || typeFilter ? ' for the current filters' : ''}`}
+            size="sm"
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table className="w-full text-left text-sm">
