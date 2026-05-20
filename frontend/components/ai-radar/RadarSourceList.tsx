@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AlertCircle, Plus, Power, Sparkles, Trash2, X } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   acceptRecommendedSources,
   createSource,
@@ -202,9 +203,11 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
       </div>
 
       {sources.length === 0 ? (
-        <div className="px-3 py-6 text-center text-xs text-gray-400">
-          还没有数据源。点击「AI 推荐」让 AI 帮你列出候选，或点「添加」手动加。
-        </div>
+        <EmptyState
+          size="sm"
+          title="还没有数据源"
+          description="点击「AI 推荐」让 AI 列出候选，或点「添加」手动加"
+        />
       ) : (
         <ul className="divide-y divide-gray-100">
           {sources.map((s) => (
@@ -518,11 +521,15 @@ function RecommendDialog({
               AI 正在生成候选（含可达性预检，可能需要 10-30 秒）...
             </div>
           ) : candidates.length === 0 ? (
-            <div className="py-12 text-center text-sm text-gray-400">
-              {preflightInfo && preflightInfo.skipped > 0
-                ? `AI 生成的 ${preflightInfo.total} 个候选全部不可达，请手动添加或换关键词重试。`
-                : 'AI 暂未找到合适的候选源，请手动添加。'}
-            </div>
+            <EmptyState
+              size="sm"
+              title="暂无候选源"
+              description={
+                preflightInfo && preflightInfo.skipped > 0
+                  ? `AI 生成的 ${preflightInfo.total} 个候选全部不可达，请手动添加或换关键词重试。`
+                  : 'AI 暂未找到合适的候选源，请手动添加。'
+              }
+            />
           ) : (
             <ul className="space-y-2">
               {candidates.map((c, i) => {

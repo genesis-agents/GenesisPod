@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 import { ClientDate } from '@/components/common/ClientDate';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
 const ROLE_ICON: Record<string, typeof Brain> = {
@@ -433,9 +434,11 @@ export function RawEventLog({ events }: { events: PlaygroundEvent[] }) {
       </div>
       <div className="max-h-[640px] overflow-y-auto p-3">
         {events.length === 0 ? (
-          <p className="rounded-lg bg-gray-50 px-3 py-4 text-center text-sm text-gray-500">
-            暂无事件 · 等待 Mission 启动
-          </p>
+          <EmptyState
+            size="sm"
+            title="暂无事件"
+            description="等待 Mission 启动"
+          />
         ) : (
           <div className="space-y-1">
             {events.map((ev, i) => (
