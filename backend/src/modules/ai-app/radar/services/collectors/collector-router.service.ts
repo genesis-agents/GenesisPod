@@ -43,9 +43,16 @@ export class CollectorRouter {
   async fanOut(
     sources: RadarSource[],
     ctx: CollectContext,
+    onResult?: (r: CollectResult) => void,
   ): Promise<CollectResult[]> {
     if (sources.length === 0) return [];
-    const tasks = sources.map((s) => this.fetchOne(s, ctx));
+    // 每个源一完成就回调（实时进度）——不等 Promise.all 全部 resolve，
+    // 这样前端能在采集进行中逐源点亮，而非结束后一次性出现。
+    const tasks = sources.map(async (s) => {
+      const r = await this.fetchOne(s, ctx);
+      onResult?.(r);
+      return r;
+    });
     return Promise.all(tasks);
   }
 

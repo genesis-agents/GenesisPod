@@ -210,6 +210,11 @@ export class RadarPipelineDispatcher implements OnModuleInit {
       input,
       state: emptyRadarMissionState(),
       signal: session.missionAbort.signal,
+      // stage 内细粒度事件 emit（source-progress 等）—— fire-and-forget，
+      // emitToBus 自身已 catch，故 void 即可（no-floating-promises）。
+      emit: (type, payload) => {
+        void this.emitToBus({ type, missionId, userId, payload });
+      },
     };
     this.sessions.set(missionId, { session, t0, ctx });
 

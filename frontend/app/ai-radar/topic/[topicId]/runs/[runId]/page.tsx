@@ -49,6 +49,8 @@ import type { RadarRun, RadarTopicWithCounts } from '@/services/ai-radar/types';
 import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import { StageTaskDrawer } from '@/components/ai-radar/StageTaskDrawer';
+import { RadarEventLog } from '@/components/ai-radar/RadarEventLog';
+import { useRadarStream } from '@/hooks/domain/useRadarStream';
 import {
   STAGE_GROUPS,
   agentRoleTone,
@@ -103,9 +105,10 @@ async function getRunWithRaceRetry(runId: string): Promise<RadarRun> {
 // Tabs
 // ──────────────────────────────────────────────────────────────────────
 
-type TabKey = 'tasks' | 'errors' | 'metrics';
+type TabKey = 'tasks' | 'timeline' | 'errors' | 'metrics';
 const TABS: { key: TabKey; label: string; Icon: LucideIcon }[] = [
   { key: 'tasks', label: '任务列表', Icon: ListChecks },
+  { key: 'timeline', label: '事件时间线', Icon: Radar },
   { key: 'errors', label: '错误日志', Icon: AlertCircle },
   { key: 'metrics', label: '指标汇总', Icon: Coins },
 ];
@@ -153,6 +156,11 @@ export default function RadarMissionDetailPage() {
       void reload();
     },
   });
+
+  // 实时事件流（replay hydrate + socket onAny 累积）—— 给"事件时间线" tab +
+  // Drawer 的采集明细用。用整个 runId（非 activeRunId）：完成的 run 也能通过
+  // /replay 回放近期历史事件。
+  const { events: streamEvents } = useRadarStream(runId);
 
   const reload = useCallback(async () => {
     if (!topicId || !runId) return;
@@ -406,6 +414,17 @@ export default function RadarMissionDetailPage() {
               />
             )}
             {tab === 'metrics' && <MetricsTab run={run} />}
+            {tab === 'timeline' && (
+              <RadarEventLog
+                events={streamEvents}
+                emptyHint={
+                  run.status === 'running'
+                    ? '采集进行中 · 事件将实时出现'
+                    : '本次 Mission 暂无缓存事件（服务重启后内存事件不保留）'
+                }
+                maxHeightClass="max-h-[calc(100vh-300px)]"
+              />
+            )}
           </div>
         </section>
       </div>
@@ -415,6 +434,7 @@ export default function RadarMissionDetailPage() {
         run={run}
         stage={selectedStage}
         currentStage={stageStatus?.stage ?? null}
+        events={streamEvents}
         onClose={() => setSelectedStageId(null)}
       />
 

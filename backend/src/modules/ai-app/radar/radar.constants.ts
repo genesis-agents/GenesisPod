@@ -29,6 +29,8 @@ export const RADAR_ROLE_IDS = {
 export const RADAR_EVENTS = {
   RUN_STARTED: "ai-radar.run.started",
   RUN_STAGE: "ai-radar.run.stage",
+  /** 细粒度：单个采集源完成（实时进度，对齐 playground 事件流粒度） */
+  RUN_SOURCE_PROGRESS: "ai-radar.run.source-progress",
   RUN_COMPLETED: "ai-radar.run.completed",
   RUN_FAILED: "ai-radar.run.failed",
   RUN_CANCELLED: "ai-radar.run.cancelled",

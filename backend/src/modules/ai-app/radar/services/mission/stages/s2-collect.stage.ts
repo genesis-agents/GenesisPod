@@ -12,7 +12,7 @@
  *   - SourceHealthService 状态变化通过 DomainEventBus emit radar.source.health-changed
  */
 import { Injectable, Logger } from "@nestjs/common";
-import { RADAR_PIPELINE_DEFAULTS } from "../../../radar.constants";
+import { RADAR_EVENTS, RADAR_PIPELINE_DEFAULTS } from "../../../radar.constants";
 import { CollectorRouter } from "../../collectors/collector-router.service";
 import { SourceHealthService } from "../../source/source-health.service";
 import type {
@@ -46,11 +46,32 @@ export class RadarS2CollectStage implements RadarStageRunner {
       return;
     }
 
-    const results = await this.router.fanOut(sources, {
-      since,
-      perSourceLimit: RADAR_PIPELINE_DEFAULTS.perSourceItemLimit,
-      userId: ctx.userId,
-    });
+    // sourceId → 人类可读标签（同 S8：label 优先，回退 identifier）
+    const sourceLabels = new Map(
+      sources.map((s) => [s.id, s.label?.trim() || s.identifier]),
+    );
+
+    const results = await this.router.fanOut(
+      sources,
+      {
+        since,
+        perSourceLimit: RADAR_PIPELINE_DEFAULTS.perSourceItemLimit,
+        userId: ctx.userId,
+      },
+      // 每个源一完成就 emit 实时进度（对齐 playground 细粒度事件流）
+      (r) => {
+        ctx.emit?.(RADAR_EVENTS.RUN_SOURCE_PROGRESS, {
+          runId: ctx.missionId,
+          topicId: ctx.input.topicId,
+          sourceId: r.sourceId,
+          sourceLabel: sourceLabels.get(r.sourceId) ?? r.sourceId,
+          sourceType: r.type,
+          items: r.items.length,
+          durationMs: r.durationMs,
+          error: r.error,
+        });
+      },
+    );
 
     const rawItems: RadarRawItem[] = [];
     const sourceErrors: Array<{ sourceId: string; error: string }> = [];

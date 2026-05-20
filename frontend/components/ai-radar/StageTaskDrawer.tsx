@@ -29,6 +29,7 @@ import {
 
 import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import type { RadarDroppedItem, RadarRun } from '@/services/ai-radar/types';
+import type { RadarStreamEvent } from '@/services/ai-radar/api';
 import {
   agentRoleTone,
   stageGroupStatus,
@@ -45,19 +46,64 @@ const AGENT_ICON: Record<string, LucideIcon> = {
   persister: Check,
 };
 
+function fmtMs(ms: number): string {
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
 interface Props {
   run: RadarRun;
   stage: StageGroup | null;
   /** 仅 mission 仍在 running 时来自 WS 的实时 stage 名 */
   currentStage: string | null;
+  /** useRadarStream 累积的事件流 —— collect stage 渲染采集实时明细 */
+  events?: RadarStreamEvent[];
   onClose: () => void;
 }
 
-export function StageTaskDrawer({ run, stage, currentStage, onClose }: Props) {
+export function StageTaskDrawer({
+  run,
+  stage,
+  currentStage,
+  events,
+  onClose,
+}: Props) {
   const state: StageState | null = useMemo(
     () => (stage ? stageGroupStatus(run, stage, currentStage) : null),
     [stage, run, currentStage]
   );
+
+  // 采集实时明细：从事件流提取 source-progress（按 sourceId 去重保最新）
+  const sourceProgress = useMemo(() => {
+    const out = new Map<
+      string,
+      {
+        sourceId: string;
+        sourceLabel: string;
+        items: number;
+        durationMs: number;
+        error: string | null;
+      }
+    >();
+    for (const e of events ?? []) {
+      if (e.type !== 'ai-radar.run.source-progress') continue;
+      const p = (e.payload ?? {}) as {
+        sourceId?: string;
+        sourceLabel?: string;
+        items?: number;
+        durationMs?: number;
+        error?: string | null;
+      };
+      if (!p.sourceId) continue;
+      out.set(p.sourceId, {
+        sourceId: p.sourceId,
+        sourceLabel: p.sourceLabel ?? p.sourceId,
+        items: p.items ?? 0,
+        durationMs: p.durationMs ?? 0,
+        error: p.error ?? null,
+      });
+    }
+    return [...out.values()];
+  }, [events]);
 
   if (!stage || !state) return null;
 
@@ -216,6 +262,47 @@ export function StageTaskDrawer({ run, stage, currentStage, onClose }: Props) {
               Mission 在 stage {(run.lastCompletedStage ?? 0) + 1} 处中断 ——
               本任务正好落在中断阶段
             </p>
+          </section>
+        )}
+
+        {/* 采集实时明细（collect stage 特有，来自事件流）—— 逐源 条数/耗时/错误，
+            采集进行中实时点亮，直接回答"哪个源慢、抓了什么" */}
+        {stage.id === 'collect' && sourceProgress.length > 0 && (
+          <section className="rounded-lg border border-gray-200 bg-white p-3">
+            <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+              采集实时明细（{sourceProgress.length} 源）
+            </h4>
+            <ul className="flex flex-col gap-1">
+              {sourceProgress.map((s) => (
+                <li
+                  key={s.sourceId}
+                  className="flex items-center justify-between gap-2 rounded-md border border-gray-100 bg-gray-50/40 px-2 py-1.5 text-xs"
+                >
+                  <span className="min-w-0 flex-1 truncate text-gray-800">
+                    {s.sourceLabel}
+                  </span>
+                  {s.error ? (
+                    <span className="whitespace-nowrap text-amber-700">
+                      {s.error.slice(0, 40)} · {fmtMs(s.durationMs)}
+                    </span>
+                  ) : (
+                    <span className="whitespace-nowrap text-gray-500">
+                      <span
+                        className={
+                          s.items > 0
+                            ? 'font-semibold text-emerald-700'
+                            : 'text-gray-500'
+                        }
+                      >
+                        {s.items} 条
+                      </span>
+                      {' · '}
+                      {fmtMs(s.durationMs)}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 

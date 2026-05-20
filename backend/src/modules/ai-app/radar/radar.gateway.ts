@@ -20,6 +20,7 @@ import {
   SocketBroadcastAdapter,
 } from "@/modules/ai-harness/facade";
 import { RadarMissionStore } from "./services/mission/lifecycle/radar-mission-store.service";
+import { RadarMissionEventBuffer } from "./services/mission/lifecycle/radar-mission-event-buffer.service";
 
 interface JwtPayload {
   sub?: string;
@@ -65,6 +66,7 @@ export class RadarGateway implements OnGatewayInit {
     private readonly eventBus: DomainEventBus,
     private readonly jwt: JwtService,
     private readonly store: RadarMissionStore,
+    private readonly eventBuffer: RadarMissionEventBuffer,
   ) {}
 
   afterInit(): void {
@@ -75,6 +77,9 @@ export class RadarGateway implements OnGatewayInit {
         roomPrefix: "radar",
       }),
     );
+    // 内存事件缓冲 adapter —— 给 GET /radar/replay/:runId 回放（对齐 playground
+    // MissionEventBuffer：socket 断线/刷新/掉包时前端用 /replay hydrate + polling）
+    this.eventBus.registerAdapter(this.eventBuffer);
     this.log.log("RadarGateway initialized (namespace=ai-radar)");
   }
 

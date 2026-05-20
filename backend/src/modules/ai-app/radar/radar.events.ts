@@ -63,6 +63,22 @@ export const RunRejectedSchema = z.object({
   reason: z.string(),
 });
 
+/**
+ * RunSourceProgressSchema —— 单个采集源完成的实时进度（对齐 playground 细粒度
+ * 事件流）。每个 source 在 S2 fanOut 中一完成就 emit 一条，让前端 Drawer 能逐源
+ * 点亮"Cisco Blogs RSS → 12 条 (1.2s)" / "某源 → 超时"。
+ */
+export const RunSourceProgressSchema = z.object({
+  runId: z.string(),
+  topicId: z.string(),
+  sourceId: z.string(),
+  sourceLabel: z.string(),
+  sourceType: z.string(),
+  items: z.number(),
+  durationMs: z.number(),
+  error: z.string().nullable(),
+});
+
 export const InsightCreatedSchema = z.object({
   runId: z.string(),
   topicId: z.string(),
@@ -87,6 +103,7 @@ const S = <TPayload>(
 export const RADAR_DOMAIN_EVENTS: readonly DomainEventTypeSpec[] = [
   S("ai-radar.run.started", RunStartedSchema),
   S("ai-radar.run.stage", RunStageSchema),
+  S("ai-radar.run.source-progress", RunSourceProgressSchema),
   S("ai-radar.run.completed", RunCompletedSchema),
   S("ai-radar.run.failed", RunFailedSchema),
   S("ai-radar.run.cancelled", RunCancelledSchema),

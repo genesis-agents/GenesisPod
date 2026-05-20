@@ -59,6 +59,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return unwrapStandard<T>(raw);
 }
 
+// ── Run 实时事件流回放（对齐 playground /replay）──────────
+
+export interface RadarStreamEvent {
+  type: string;
+  payload: unknown;
+  timestamp: number;
+}
+
+export interface RadarReplayResponse {
+  events: RadarStreamEvent[];
+  serverNow: number;
+}
+
+/**
+ * GET /radar/replay/:runId?since=ts —— 从后端 RadarMissionEventBuffer 读累积事件。
+ * 前端 useRadarStream：进页面 hydrate + WS 失败 polling 兜底。
+ */
+export async function replayRadarRun(
+  runId: string,
+  sinceTs?: number
+): Promise<RadarReplayResponse> {
+  const qs =
+    sinceTs != null ? `?since=${encodeURIComponent(String(sinceTs))}` : '';
+  return request<RadarReplayResponse>(
+    `/replay/${encodeURIComponent(runId)}${qs}`
+  );
+}
+
 // ── Topic ─────────────────────────────────────────────
 
 export async function listTopics(

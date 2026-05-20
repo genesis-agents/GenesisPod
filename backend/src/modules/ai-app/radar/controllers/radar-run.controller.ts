@@ -37,6 +37,7 @@ import { CacheService } from "@/common/cache/cache.service";
 import { TriggerRefreshDto } from "../dto";
 import { RadarTopicService } from "../services/topic/radar-topic.service";
 import { RadarMissionStore } from "../services/mission/lifecycle/radar-mission-store.service";
+import { RadarMissionEventBuffer } from "../services/mission/lifecycle/radar-mission-event-buffer.service";
 import { RadarPipelineDispatcher } from "../services/mission/workflow/radar-pipeline-dispatcher.service";
 import { DailyBriefingGeneratorService } from "../services/briefing/daily-briefing-generator.service";
 
@@ -54,6 +55,7 @@ export class RadarRunController {
     private readonly dispatcher: RadarPipelineDispatcher,
     private readonly cache: CacheService,
     private readonly dailyGenerator: DailyBriefingGeneratorService,
+    private readonly eventBuffer: RadarMissionEventBuffer,
   ) {}
 
   @Get("topics/:topicId/runs")
@@ -64,6 +66,34 @@ export class RadarRunController {
   ) {
     await this.topics.getOwnedById(req.user.id, topicId);
     return this.store.listByTopic(topicId, req.user.id, limit);
+  }
+
+  /**
+   * GET /api/v1/radar/replay/:runId?since=<ts>
+   *
+   * 从 RadarMissionEventBuffer 读取累积的 ai-radar.* 事件（对齐 playground
+   * /replay）。前端 useRadarStream：进页面 hydrate + WS 失败 polling 兜底。
+   *
+   * 安全：ownership 由 store.getById(runId, userId) 内 userId 校验完成；不存在 /
+   * 越权统一返回 NotFoundException 防枚举。RateLimit 120/60s（前端 4s 轮询 +
+   * hydrate，留足余量）。
+   */
+  @Get("replay/:runId")
+  @RateLimit({ maxRequests: 120, windowSeconds: 60, keyType: "user" })
+  async replay(
+    @Request() req: RequestWithUser,
+    @Param("runId", new ParseUUIDPipe({ version: "4" })) runId: string,
+    @Query("since") since?: string,
+  ): Promise<{ events: readonly unknown[]; serverNow: number }> {
+    const row = await this.store.getById(runId, req.user.id);
+    if (!row) throw new NotFoundException("Run not found");
+    const sinceNum = since != null ? Number(since) : undefined;
+    const sinceTs =
+      sinceNum != null && Number.isFinite(sinceNum) ? sinceNum : undefined;
+    return {
+      events: this.eventBuffer.read(runId, sinceTs),
+      serverNow: Date.now(),
+    };
   }
 
   /**

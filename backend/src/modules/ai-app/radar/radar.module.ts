@@ -62,6 +62,7 @@ import { DailyBriefingGeneratorService } from "./services/briefing/daily-briefin
 
 // ── 新框架接入 ───────────────────────────────────────────────────────────
 import { RadarMissionStore } from "./services/mission/lifecycle/radar-mission-store.service";
+import { RadarMissionEventBuffer } from "./services/mission/lifecycle/radar-mission-event-buffer.service";
 import { RadarMissionRuntimeShell } from "./services/mission/workflow/radar-mission-runtime-shell.service";
 import { RadarBusinessOrchestrator } from "./services/mission/workflow/radar-business-orchestrator.service";
 import { RadarPipelineDispatcher } from "./services/mission/workflow/radar-pipeline-dispatcher.service";
@@ -164,6 +165,7 @@ import { RADAR_DOMAIN_EVENTS } from "./radar.events";
     MissionPipelineRegistry,
     MissionPipelineOrchestrator,
     RadarMissionStore,
+    RadarMissionEventBuffer,
     RadarMissionRuntimeShell,
     RadarBusinessOrchestrator,
     RadarPipelineDispatcher,
