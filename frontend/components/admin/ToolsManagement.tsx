@@ -17,6 +17,7 @@
  */
 import { useState } from 'react';
 import { Zap, Wrench, Server, Globe } from 'lucide-react';
+import { Tabs, type TabItem } from '@/components/ui/tabs';
 import { BuiltinToolsTable } from './tools/BuiltinToolsTable';
 import { APIServicesTable } from './tools/APIServicesTable';
 import { MCPMarketplaceTable } from './tools/MCPMarketplaceTable';
@@ -24,7 +25,7 @@ import { ScrapingSourcesTable } from './tools/ScrapingSourcesTable';
 
 type TabKey = 'builtin' | 'api-services' | 'mcp' | 'third-party';
 
-const TABS: Array<{ key: TabKey; label: string; icon: typeof Zap }> = [
+const TABS: TabItem[] = [
   { key: 'builtin', label: '内置工具', icon: Zap },
   { key: 'api-services', label: 'API 服务工具', icon: Wrench },
   { key: 'mcp', label: 'MCP 工具', icon: Server },
@@ -36,29 +37,11 @@ export default function ToolsManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-1">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                  active
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      <Tabs
+        items={TABS}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as TabKey)}
+      />
 
       {activeTab === 'builtin' && <BuiltinToolsTable />}
       {activeTab === 'api-services' && <APIServicesTable />}

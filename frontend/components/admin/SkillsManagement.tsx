@@ -5,6 +5,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { useTranslation } from '@/lib/i18n';
 import { createLogger } from '@/lib/utils/logger';
+import { Tabs } from '@/components/ui/tabs';
 import {
   Sparkles,
   RefreshCw,
@@ -348,43 +349,24 @@ export default function SkillsManagement() {
       )}
 
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('local')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'local'
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            <Package className="h-4 w-4" />
-            {t('admin.skills.tabs.local')} ({stats.total})
-          </button>
-          <button
-            onClick={() => setActiveTab('marketplace')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'marketplace'
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            <ShoppingCart className="h-4 w-4" />
-            {t('admin.skills.tabs.marketplace')}
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'analytics'
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            <Sparkles className="h-4 w-4" />
-            技能统计
-          </button>
-        </div>
-      </div>
+      <Tabs
+        items={[
+          {
+            key: 'local',
+            label: t('admin.skills.tabs.local'),
+            icon: Package,
+            count: stats.total,
+          },
+          {
+            key: 'marketplace',
+            label: t('admin.skills.tabs.marketplace'),
+            icon: ShoppingCart,
+          },
+          { key: 'analytics', label: '技能统计', icon: Sparkles },
+        ]}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as TabType)}
+      />
 
       {/* Tab Content */}
       {activeTab === 'local' && (
