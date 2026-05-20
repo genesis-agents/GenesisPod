@@ -46,7 +46,7 @@ import {
 } from '@/services/ai-radar/api';
 import type { RadarRun, RadarTopicWithCounts } from '@/services/ai-radar/types';
 import { useRadarSocket } from '@/hooks/domain/useRadarSocket';
-import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import { StageTaskDrawer } from '@/components/ai-radar/StageTaskDrawer';
 import {
   STAGE_GROUPS,
@@ -422,12 +422,12 @@ export default function RadarMissionDetailPage() {
         open={cancelOpen}
         title="确认取消当前 Mission？"
         description="正在运行的 Agent 会立即停止，已采集 / 评分的中间数据不会写入今日精选。"
-        confirmLabel="确认取消"
-        cancelLabel="继续运行"
-        danger
-        busy={cancelling}
-        onConfirm={() => void handleCancelConfirm()}
-        onCancel={() => setCancelOpen(false)}
+        confirmText="确认取消"
+        cancelText="继续运行"
+        type="danger"
+        loading={cancelling}
+        onConfirm={handleCancelConfirm}
+        onClose={() => setCancelOpen(false)}
       />
     </div>
   );

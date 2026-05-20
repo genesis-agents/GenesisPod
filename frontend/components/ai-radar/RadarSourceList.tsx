@@ -15,7 +15,7 @@ import type {
   RadarSourceType,
   RecommendedSource,
 } from '@/services/ai-radar/types';
-import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 
 interface Props {
   topicId: string;
@@ -321,11 +321,11 @@ export function RadarSourceList({ topicId, sources, onReload }: Props) {
         open={deleteTarget !== null}
         title={`删除数据源「${deleteTarget?.label || deleteTarget?.identifier || ''}」？`}
         description="历史采集到的条目会保留，但后续不再从该源拉取。"
-        confirmLabel="删除"
-        danger
-        busy={deleting}
-        onConfirm={() => void handleDeleteConfirm()}
-        onCancel={() => setDeleteTarget(null)}
+        confirmText="删除"
+        type="danger"
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => setDeleteTarget(null)}
       />
     </div>
   );

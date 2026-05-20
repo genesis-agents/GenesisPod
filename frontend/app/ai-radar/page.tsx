@@ -33,7 +33,7 @@ import type {
 } from '@/services/ai-radar/types';
 import { RadarTopicCard } from '@/components/ai-radar/RadarTopicCard';
 import { CreateRadarTopicModal } from '@/components/ai-radar/CreateRadarTopicModal';
-import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import { PageHeaderHero } from '@/components/common/page-header-hero';
 
 const SearchIcon = ({ className }: { className?: string }) => (
@@ -248,10 +248,11 @@ export default function AiRadarIndexPage() {
         open={archiveTarget !== null}
         title={`归档主题「${archiveTarget?.name ?? ''}」？`}
         description="归档后将停止自动刷新；数据保留可随时 resume。"
-        confirmLabel="归档"
-        busy={archiving}
-        onConfirm={() => void handleArchiveConfirm()}
-        onCancel={() => setArchiveTarget(null)}
+        confirmText="归档"
+        type="warning"
+        loading={archiving}
+        onConfirm={handleArchiveConfirm}
+        onClose={() => setArchiveTarget(null)}
       />
     </div>
   );

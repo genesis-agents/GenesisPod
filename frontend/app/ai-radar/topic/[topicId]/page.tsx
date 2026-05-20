@@ -27,7 +27,7 @@ import { RadarBriefingPanel } from '@/components/ai-radar/RadarBriefingPanel';
 import { RadarHistoricalItemsPanel } from '@/components/ai-radar/RadarHistoricalItemsPanel';
 import { RadarTopicConfigDrawer } from '@/components/ai-radar/RadarTopicConfigDrawer';
 import type { RadarTopicConfigDrawerTopic } from '@/components/ai-radar/RadarTopicConfigDrawer';
-import { ConfirmDialog } from '@/components/ai-radar/ConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 import { RadarBucketSwitcher } from '@/components/ai-radar/RadarBucketSwitcher';
 import {
   useDailyBriefingRange,
@@ -640,11 +640,11 @@ export default function RadarTopicDetailPage() {
         open={deleteOpen}
         title={`确定删除主题「${topic.name}」？`}
         description="所有数据源、采集记录、洞察将一并删除，不可恢复。"
-        confirmLabel="删除"
-        danger
-        busy={deleting}
-        onConfirm={() => void handleDeleteConfirm()}
-        onCancel={() => setDeleteOpen(false)}
+        confirmText="删除"
+        type="danger"
+        loading={deleting}
+        onConfirm={handleDeleteConfirm}
+        onClose={() => setDeleteOpen(false)}
       />
     </div>
   );

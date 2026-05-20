@@ -21,7 +21,6 @@ import { InputArea } from './components/InputArea';
 // import { LightboxModal } from './components/LightboxModal';
 // import { ControlBar } from './components/ControlBar';
 // import { StreamingProgress } from './components/StreamingProgress';
-// import { EmptyState } from './components/EmptyState';
 // Types are available at: import type { ... } from './types';
 // Utilities are available at: import { ... } from './utils';
 
