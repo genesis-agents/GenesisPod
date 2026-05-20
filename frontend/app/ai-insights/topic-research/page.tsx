@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/lib/i18n';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { toast } from '@/stores';
@@ -386,28 +387,27 @@ export default function TopicResearchPage() {
             <LoaderIcon className="h-8 w-8 animate-spin text-blue-600" />
           </div>
         ) : topicsList.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-            <FolderOpenIcon className="h-16 w-16 text-gray-300" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">
-              {searchInput
+          <EmptyState
+            icon={<FolderOpenIcon className="h-12 w-12" />}
+            title={
+              searchInput
                 ? t('topicResearch.noMatchingTopics')
-                : t('topicResearch.noTopics')}
-            </h3>
-            <p className="mt-1 text-gray-500">
-              {searchInput
+                : t('topicResearch.noTopics')
+            }
+            description={
+              searchInput
                 ? t('topicResearch.noMatchingTopicsDesc')
-                : t('topicResearch.noTopicsDesc')}
-            </p>
-            {!searchInput && (
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="mt-6 flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700"
-              >
-                <PlusIcon className="h-5 w-5" />
-                {t('topicResearch.createFirstTopic')}
-              </button>
-            )}
-          </div>
+                : t('topicResearch.noTopicsDesc')
+            }
+            action={
+              !searchInput
+                ? {
+                    label: t('topicResearch.createFirstTopic'),
+                    onClick: () => setShowCreateDialog(true),
+                  }
+                : undefined
+            }
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {topicsList.map((topic) => (
