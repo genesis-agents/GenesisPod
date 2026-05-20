@@ -208,19 +208,19 @@ if [ "${SKIP_UI_AUDIT:-0}" = "1" ]; then
     echo "  跳过（SKIP_UI_AUDIT=1）"
 else
     UI_AUDIT_LOG=$(mktemp)
-    # 灰度期：跑非 strict 的 audit:ui-discipline —— 仅"硬零规则"(R8)违规 exit 1 拒推；
-    #   其余规则劣化只打印不阻断。全量迁移完成后改为 `npm run audit:ui-strict || exit 1` 全硬。
+    # 全部规则已焊死（2026-05-20）：audit:ui-discipline 任一规则违规即 exit 1 拒推（已退出灰度）。
+    #   新增违规只能修/迁/（canonical 不适配时）逐源 allowlist 留痕，不能放过。
     if npm run audit:ui-discipline > "$UI_AUDIT_LOG" 2>&1; then
         grep -E "^\s+(R[0-9]-|TOTAL:)|^✓" "$UI_AUDIT_LOG" | head -20 | while read -r line; do
             echo "  $line"
         done
-        echo "  UI 硬零规则通过（非硬零规则灰度 warn-only）"
+        echo "  UI-discipline 全部规则硬零通过"
     else
         echo ""
-        echo "  ✘ UI 硬零规则违规（R8：feature 代码禁写原生 <table>）— 拒推"
+        echo "  ✘ UI-discipline 违规（任一规则，已焊死）— 拒推"
         tail -30 "$UI_AUDIT_LOG"
         echo ""
-        echo "  → 交互表用 common/tables/DataTable；展示表用 ui/table 原语"
+        echo "  → 用 canonical 组件（AppShell/AssetCard/EmptyState/ErrorState/LoadingState/Modal/Tabs/DataTable）；canonical 不适配请逐源 allowlist 留痕"
         rm -f "$UI_AUDIT_LOG"
         exit 1
     fi

@@ -17,7 +17,7 @@
  *   R8  feature 代码禁止直写原生 <table>（交互用 common/tables/DataTable，展示用 ui/table）
  *   R9  自写 DIY 环形 spinner（animate-spin + rounded-full + border-N）必须改用 LoadingState（不碰内联图标 spinner）
  *
- * 报告模式：默认 exit 0（warn-only 基线期），传 --strict 后违规超基线即 exit 1。
+ * 报告模式：全部规则已焊死（HARD_ZERO，2026-05-20）——任一规则违规即 exit 1 拒推（已退出 warn-only 灰度）。
  *
  * 用法：
  *   npm run audit:ui-discipline
@@ -33,8 +33,21 @@ const FRONTEND_ROOT = join(process.cwd(), "frontend");
 const ARGS = new Set(process.argv.slice(2));
 const STRICT = ARGS.has("--strict");
 const RATCHET = ARGS.has("--ratchet");
-// 硬零规则：违规必须为 0，任何出现即拒（不比基线、不分模式）。某规则迁到 0 后毕业至此。
-const HARD_ZERO_RULES = new Set<string>(["R8-Table-Component-Required"]);
+// 硬零规则：违规必须为 0，任何出现即拒（不比基线、不分模式）。
+// 2026-05-20「规则全部焊死」(用户指令)：TOTAL=0 达成后，全部规则升硬零——
+// 任一规则新增违规即 exit 1 拒推，彻底退出灰度 warn-only。新违规只能修/迁，不能放过。
+const HARD_ZERO_RULES = new Set<string>([
+  "R1-AppShell-Required",
+  "R2-AssetCard-Required",
+  "R3-EmptyState-Required",
+  "R4-ErrorState-Required",
+  "R5-LoadingState-Required",
+  "R6-Dialog-Component-Required",
+  "R7-Tabs-Required",
+  "R8-Table-Component-Required",
+  "R9-Spinner-LoadingState-Required",
+  "R11-CardBaseline-Required",
+]);
 const BASELINE_PATH = (() => {
   const idx = process.argv.indexOf("--baseline");
   return idx > 0
@@ -663,8 +676,7 @@ async function main() {
   }
 
   console.log(
-    `✓ 硬零通过（${[...HARD_ZERO_RULES].join(", ")} = 0）` +
-      (STRICT ? " + 无劣化" : "；非硬零规则 warn-only（灰度期）"),
+    `✓ 全部 ${HARD_ZERO_RULES.size} 条规则硬零通过（违规 = 0，已焊死；新增违规即拒推）`,
   );
 }
 
