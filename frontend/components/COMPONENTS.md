@@ -101,15 +101,21 @@
 
 ## 4. 缺口（无 canonical — 必须先问用户再建/自写）
 
-| Archetype                                   | 现状                                              | 计划                      |
-| ------------------------------------------- | ------------------------------------------------- | ------------------------- |
-| ~~Tabs~~                                    | ✅ 已建 `ui/tabs/`（9 处已迁，余 ~37 待迁）       | 迁调用方 + 加 audit R7    |
-| ~~表单 Input/Textarea~~                     | ✅ 已建 `ui/form/`（Checkbox 待补）               | 迁调用方                  |
-| ~~Pagination~~                              | ✅ 已建 `ui/pagination/`                          | 迁调用方                  |
-| `Checkbox`                                  | 🔴 缺                                             | 补 `ui/form/Checkbox`     |
-| ~~通用 `DataTable`（数据网格）~~            | ✅ 已上提 `common/tables/DataTable`（admin 薄壳） | 迁 65 处调用方（R8 已加） |
-| ~~`ui/table`（展示原语）~~                  | ✅ 已建 `ui/table/`                               | 迁展示表调用方            |
-| `Alert`/`Banner` `StatCard` `ActionToolbar` | 🟡 高频自写                                       | 视需要建                  |
+| Archetype                                  | 现状                                               | 计划                        |
+| ------------------------------------------ | -------------------------------------------------- | --------------------------- |
+| ~~Tabs~~                                   | ✅ 已建 `ui/tabs/`（9 处已迁，余 ~37 待迁）        | 迁调用方 + 加 audit R7      |
+| ~~表单 Input/Textarea~~                    | ✅ 已建 `ui/form/`（Checkbox 待补）                | 迁调用方                    |
+| ~~Pagination~~                             | ✅ 已建 `ui/pagination/`                           | 迁调用方                    |
+| `Checkbox`                                 | 🔴 缺                                              | 补 `ui/form/Checkbox`       |
+| ~~通用 `DataTable`（数据网格）~~           | ✅ 已上提 `common/tables/DataTable`（admin 薄壳）  | 迁 65 处调用方（R8 已加）   |
+| ~~`ui/table`（展示原语）~~                 | ✅ 已建 `ui/table/`                                | 迁展示表调用方              |
+| **`Alert`/`Banner`**（P0）                 | 🔴 31 文件内联 `bg-{c}-50 + border`                | 建 `ui/Alert`               |
+| **`Tag`/`Chip`/`Pill`**（P0）              | 🔴 204 文件 `rounded-full` 标签（先 scope 关键词） | 建 `ui/Tag`                 |
+| `CopyButton`                               | 🟡 27 文件 `navigator.clipboard`                   | 建 `ui/CopyButton`          |
+| `SearchBar`/`SectionHeader`/`FileUploader` | 🟡 各 feature 重复                                 | 上提（详见标准 22 §4.2）    |
+| `Avatar`/`ExpandableText`/`StatCard`       | 🟡 高频自写                                        | 先 scope 再建（标准 22 §4） |
+
+> 完整提升台账（含三套迷你设计系统抽取映射）见 [标准 22 §4](../../.claude/standards/22-frontend-ui-component-governance.md)。
 
 ---
 

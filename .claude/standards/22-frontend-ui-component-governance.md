@@ -105,16 +105,47 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 ---
 
-## 4. 当前缺口（须先补 canonical，再加 audit 规则）
+## 4. 缺口与提升台账
 
-| Archetype                             | 状态                                  | 行动                                         |
-| ------------------------------------- | ------------------------------------- | -------------------------------------------- |
-| **Tabs / Tab 条**                     | 🔴 无 canonical，42 处自写            | 建 `components/ui/tabs/` + 加 audit R7       |
-| 表单控件 Input/Textarea/Checkbox      | 🔴 缺（仅有 Switch/ModelSelect）      | 建 `components/ui/form/`                     |
-| Pagination                            | 🔴 缺（逻辑藏在 AdminDataTable）      | 抽 `components/ui/pagination/`               |
-| **通用 DataTable**（数据网格）        | 🔴 仅 admin 版，65 文件直写 `<table>` | 上提 `common/tables/DataTable` + 加 audit R8 |
-| **ui/table**（展示原语）              | 🔴 无，展示表全自写                   | 建 `components/ui/table/` + 加 audit R8      |
-| Alert/Banner、StatCard、ActionToolbar | 🟡 高频自写（validation §1.1）        | 视需要建                                     |
+### 4.1 已补的 canonical（迁移调用方进行中）
+
+| Archetype                      | 状态                                       | 剩余行动                           |
+| ------------------------------ | ------------------------------------------ | ---------------------------------- |
+| Tabs / Tab 条                  | ✅ `ui/tabs/` + audit R7                   | 迁余 ~37 处自写                    |
+| 表单 Input/Textarea            | ✅ `ui/form/`（Checkbox 待补）             | 迁调用方 + 补 Checkbox             |
+| Pagination                     | ✅ `ui/pagination/`                        | 迁调用方                           |
+| **通用 DataTable**（数据网格） | ✅ `common/tables/DataTable`（admin 薄壳） | 迁 R8 名单交互表（admin 8 + 其余） |
+| **ui/table**（展示原语）       | ✅ `components/ui/table/` + audit R8       | 迁 R8 名单展示表                   |
+
+### 4.2 待补 canonical（实测高频自写，按证据强度排；先补 Alert + Tag）
+
+> **抽取原则（Karpathy 防过度抽象）**：先 scope 再抽。Tag/Avatar 数大但噪声大，必须先界定收哪类用途，别把状态点 / 图标圆圈 / 圆角按钮全塞进来。
+
+| 优先  | Archetype             | 实证                                                                        | 去向                                                  |
+| ----- | --------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 🔴 P0 | **Alert / Banner**    | 31 文件内联 `bg-{c}-50 + border`                                            | `ui/Alert`（success/warn/error/info）；纯展示原语     |
+| 🔴 P0 | **Tag / Chip / Pill** | 204 文件 `rounded-full px-2/3` 标签                                         | `ui/Tag`（**仅收关键词/标签**，状态片归 StatusBadge） |
+| 🟡 P1 | CopyButton            | 27 文件 `navigator.clipboard`                                               | `ui/CopyButton`（复制 + 已复制反馈）                  |
+| 🟡 P1 | SearchBar             | `explore/SearchBar` 成品，admin 用裸 input                                  | 上提 `ui/SearchBar`                                   |
+| 🟡 P1 | SectionHeader         | `library/_design/SectionTitle` + `agent-playground/ui/Section`              | `ui/SectionHeader`                                    |
+| 🟡 P1 | Skeleton 原语         | `AdminLoadingSkeleton`/`RadarBriefingSkeleton`/`ai-social/skeletons/*` 各造 | 把 `LoadingSkeleton` 做成可组合原语                   |
+| 🟡 P1 | FileUploader          | `ai-research/FileUploader` + import 弹窗各写                                | `common/FileUploader`                                 |
+| 🟡 P2 | Avatar                | `rounded-full` 357（噪声大）                                                | `ui/Avatar`（**仅收真头像**，先 scope）               |
+| 🟡 P2 | ExpandableText        | `agent-playground/ui/ExpandableText`                                        | `ui/ExpandableText`                                   |
+
+### 4.3 三套迷你设计系统抽取映射（agent-playground/ui · admin/shared · library/\_design）
+
+| 来源                       | → 应提取为                                  |
+| -------------------------- | ------------------------------------------- |
+| `RoleChip` `ToolBadge`     | `ui/Tag`                                    |
+| `MetricStat`               | `ui/cards/StatCard`（register 已挂未建）    |
+| `StatusPill` · `StatusDot` | `ui/badges/StatusBadge`（已建，迁过去）     |
+| `Section` · `SectionTitle` | `ui/SectionHeader`                          |
+| `ToneCard`                 | `ui/Alert`（语气色卡 = Alert 变体）         |
+| `SourceLink`               | `common/citations`（并入 CitationListItem） |
+| `ExpandableText`           | `ui/ExpandableText`                         |
+
+> 与 register 早前未完成项（StatCard / action-bar / detail-header / CitationListItem / spinner）合并统筹，合计约 9 个待抽。
 
 ---
 
