@@ -11,6 +11,8 @@ import {
 import { useSearchParams, useRouter } from 'next/navigation';
 import { config } from '@/lib/utils/config';
 import AppShell from '@/components/layout/AppShell';
+import { FileText } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import NotesList from '@/components/common/resource-lists/NotesList';
 import {
   AIContextBuilder,
@@ -1251,10 +1253,7 @@ function YouTubeTLDWContent() {
             {/* Key Moments List */}
             <div className="flex-1 overflow-y-auto p-3">
               {keyMoments.length === 0 ? (
-                <div className="py-12 text-center">
-                  <div className="text-4xl">🔍</div>
-                  <p className="mt-2 text-sm text-gray-500">暂无关键时刻</p>
-                </div>
+                <EmptyState size="sm" type="search" title="暂无关键时刻" />
               ) : (
                 <div className="space-y-2">
                   {keyMoments.map((moment) => {
@@ -1554,21 +1553,18 @@ function YouTubeTLDWContent() {
                       </div>
                     </div>
                   ) : mergedTranscript.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center px-4 py-12">
-                      <div className="text-center">
-                        <div className="mb-3 text-4xl">📝</div>
-                        <div className="mb-2 text-sm text-gray-400">
-                          暂无字幕
-                        </div>
-                        <div className="max-w-[200px] text-xs text-gray-500">
-                          该视频可能没有字幕，或字幕暂时无法获取
-                        </div>
-                        {videoId && (
+                    <EmptyState
+                      size="sm"
+                      icon={<FileText className="h-8 w-8" />}
+                      title="暂无字幕"
+                      description="该视频可能没有字幕，或字幕暂时无法获取"
+                      action={
+                        videoId ? (
                           <a
                             href={`https://www.youtube.com/watch?v=${videoId}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-3 inline-flex items-center gap-1 text-xs text-red-500 transition-colors hover:text-red-600"
+                            className="inline-flex items-center gap-1 text-xs text-red-500 transition-colors hover:text-red-600"
                           >
                             <svg
                               className="h-3 w-3"
@@ -1579,9 +1575,9 @@ function YouTubeTLDWContent() {
                             </svg>
                             在 YouTube 上观看
                           </a>
-                        )}
-                      </div>
-                    </div>
+                        ) : undefined
+                      }
+                    />
                   ) : (
                     mergedTranscript.map((segment, index) => {
                       const isActive = index === activeMergedIndex;
