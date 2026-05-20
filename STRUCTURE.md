@@ -25,7 +25,6 @@ genesis-agent-teams/
 - `.github/`：CI / workflow
 - `.husky/`：pre-commit / pre-push hooks
 - `.ui-patrol/`：UI 巡检相关资产
-- `litellm-proxy/`：LiteLLM 代理相关资源
 
 ## 2. 前端结构
 

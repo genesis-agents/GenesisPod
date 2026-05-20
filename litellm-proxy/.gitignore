@@ -1,9 +1,0 @@
-# 环境变量文件 (包含 API 密钥)
-.env
-
-# Python
-__pycache__/
-*.py[cod]
-
-# 日志
-*.log
