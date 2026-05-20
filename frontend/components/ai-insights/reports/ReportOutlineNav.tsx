@@ -13,6 +13,7 @@ import { useMemo, useCallback } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { TopicReport } from '@/lib/types/topic-insights';
 import { countWords } from '@/lib/markdown/countWords';
+import { LoadingState } from '@/components/ui/states';
 
 interface OutlineItem {
   id: string;
@@ -183,7 +184,7 @@ export function ReportOutlineNav({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+        <LoadingState size="sm" text="" />
       </div>
     );
   }

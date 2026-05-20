@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states/LoadingState';
 import ClientDate from '@/components/common/ClientDate';
 import { useRouter } from 'next/navigation';
 import {
@@ -239,9 +240,7 @@ export default function NotificationsPage() {
   if (!mounted) {
     return (
       <AppShell>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
-        </div>
+        <LoadingState size="md" />
       </AppShell>
     );
   }
@@ -321,9 +320,7 @@ export default function NotificationsPage() {
 
         <main className="flex-1 overflow-y-auto p-6">
           {loading && notifications.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
-            </div>
+            <LoadingState size="md" />
           ) : notifications.length === 0 ? (
             <EmptyState
               icon={<BellOff className="h-12 w-12" />}

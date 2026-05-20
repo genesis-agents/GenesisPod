@@ -20,6 +20,7 @@ import {
 } from '@/components/common/asset-card';
 import { FileText, Globe, Lock, PenLine, Pencil, Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
@@ -288,7 +289,7 @@ export default function AIWritingPage() {
     return (
       <AppShell>
         <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+          <LoadingState size="lg" />
         </div>
       </AppShell>
     );
@@ -413,9 +414,7 @@ export default function AIWritingPage() {
         {/* Content */}
         <div className="px-8 py-6">
           {isLoadingProjects ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
-            </div>
+            <LoadingState size="lg" />
           ) : filteredProjects.length === 0 && !searchQuery ? (
             <EmptyState
               icon={<Pencil className="h-12 w-12" />}

@@ -101,6 +101,7 @@ import ClientDate from '@/components/common/ClientDate';
 import { formatDateSafe } from '@/lib/utils/date';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState, LoadingInline } from '@/components/ui';
 // 懒加载条件渲染的对话框和面板组件
 const TopicSettingsDialog = dynamic(
   () => import('@/components/ai-teams/TopicSettingsDialog'),
@@ -2335,7 +2336,7 @@ export default function TopicPage() {
   if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+        <LoadingState size="lg" />
       </div>
     );
   }
@@ -2357,7 +2358,7 @@ export default function TopicPage() {
     return (
       <AppShell>
         <div className="flex min-w-0 flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+          <LoadingState size="lg" />
         </div>
       </AppShell>
     );
@@ -3078,7 +3079,7 @@ export default function TopicPage() {
                 />
                 {isSearchingUsers && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                    <LoadingInline text="" />
                   </div>
                 )}
               </div>

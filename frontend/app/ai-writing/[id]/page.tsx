@@ -44,6 +44,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState, LoadingInline, ErrorState } from '@/components/ui';
 import { ExportDialog } from '@/components/common/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
 import { Modal } from '@/components/ui/dialogs/Modal';
@@ -1795,7 +1796,7 @@ export default function WritingProjectPage() {
     return (
       <AppShell>
         <main className="flex flex-1 items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+          <LoadingState size="lg" />
         </main>
       </AppShell>
     );
@@ -2134,17 +2135,17 @@ export default function WritingProjectPage() {
                   <>
                     {isLoadingVolumes ? (
                       <div className="flex h-full items-center justify-center">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                        <LoadingState size="lg" />
                       </div>
                     ) : (
                       <div className="space-y-2">
                         {/* Mission Running Status Banner */}
                         {isMissionRunning && (
-                          <div className="mb-4 flex items-center gap-3 rounded-xl bg-amber-50 p-3">
-                            <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-                            <span className="text-sm font-medium text-amber-700">
-                              {missionMessage || 'AI 团队正在创作中...'}
-                            </span>
+                          <div className="mb-4 rounded-xl bg-amber-50 p-3">
+                            <LoadingInline
+                              text={missionMessage || 'AI 团队正在创作中...'}
+                              className="text-sm font-medium text-amber-700"
+                            />
                           </div>
                         )}
 
@@ -2263,11 +2264,11 @@ export default function WritingProjectPage() {
                   <div className="space-y-4">
                     {/* Mission Running Banner */}
                     {isMissionRunning && (
-                      <div className="flex items-center gap-3 rounded-xl bg-indigo-50 p-3">
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                        <span className="text-sm font-medium text-indigo-700">
-                          AI 守护者正在构建世界观设定...
-                        </span>
+                      <div className="rounded-xl bg-indigo-50 p-3">
+                        <LoadingInline
+                          text="AI 守护者正在构建世界观设定..."
+                          className="text-sm font-medium text-indigo-700"
+                        />
                       </div>
                     )}
 
@@ -2602,11 +2603,11 @@ export default function WritingProjectPage() {
                   <div className="space-y-4">
                     {/* Mission Running Banner */}
                     {isMissionRunning && (
-                      <div className="flex items-center gap-3 rounded-xl bg-emerald-50 p-3">
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-                        <span className="text-sm font-medium text-emerald-700">
-                          AI 团队正在更新故事圣经...
-                        </span>
+                      <div className="rounded-xl bg-emerald-50 p-3">
+                        <LoadingInline
+                          text="AI 团队正在更新故事圣经..."
+                          className="text-sm font-medium text-emerald-700"
+                        />
                       </div>
                     )}
 

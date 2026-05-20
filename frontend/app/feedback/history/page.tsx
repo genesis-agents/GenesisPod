@@ -9,6 +9,7 @@ import AppShell from '@/components/layout/AppShell';
 import { useTranslation } from '@/lib/i18n';
 import ClientDate from '@/components/common/ClientDate';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states/LoadingState';
 import {
   FileText,
   Plus,
@@ -155,12 +156,7 @@ export default function FeedbackHistoryPage() {
         <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
           <div className="mx-auto max-w-4xl">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-                  <p className="text-gray-600">{t('common.loading')}</p>
-                </div>
-              </div>
+              <LoadingState size="md" text={t('common.loading')} />
             ) : feedbacks.length === 0 ? (
               <EmptyState
                 icon={<MessageSquare className="h-12 w-12" />}

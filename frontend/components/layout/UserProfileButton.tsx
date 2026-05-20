@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreditsStore } from '@/stores';
 import { useTranslation, type Locale } from '@/lib/i18n';
+import { LoadingInline } from '@/components/ui/states/LoadingState';
 
 interface UserProfileButtonProps {
   isCollapsed?: boolean;
@@ -91,7 +92,7 @@ export default function UserProfileButton({
       <div
         className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} rounded-lg px-3 py-1.5 text-sm`}
       >
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+        <LoadingInline text="" className="text-gray-400" />
       </div>
     );
   }

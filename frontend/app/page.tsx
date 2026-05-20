@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import AppShell from '@/components/layout/AppShell';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states/LoadingState';
 import PDFThumbnail from '@/components/ui/viewers/PDFThumbnail';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -4016,11 +4017,7 @@ export default function Home() {
     router.replace('/ai-ask');
   }, [router]);
 
-  return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
-      <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600" />
-    </div>
-  );
+  return <LoadingState fullScreen size="lg" />;
 }
 
 function HomeLoadingFallback() {

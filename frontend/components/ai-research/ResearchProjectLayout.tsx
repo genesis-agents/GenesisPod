@@ -53,6 +53,7 @@ import { DemosPanel } from './discussion/DemosPanel';
 import { ReportPanel } from './discussion/ReportPanel';
 import { ReferencesPanel } from './discussion/ReferencesPanel';
 import { IterationTimeline } from './iteration/IterationTimeline';
+import { Tabs } from '@/components/ui/tabs';
 
 // ==================== Types ====================
 
@@ -949,41 +950,30 @@ export function ResearchProjectLayout({
         {/* Right Content Area */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Tab Bar */}
-          <div
-            className="flex items-center gap-1 border-b border-gray-200 bg-white px-6"
-            role="tablist"
-            aria-label="Research tabs"
-          >
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  role="tab"
-                  aria-selected={activeTab === tab.key}
-                  onClick={() => handleTabClick(tab.key)}
-                  className={cn(
-                    'relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'text-blue-600'
-                      : 'text-gray-600 hover:text-gray-900'
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                  {isActive && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
-                  )}
-                  {tabBadges[tab.key] && !isActive && (
-                    <span className="absolute -right-1 -top-1 flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+          <div className="bg-white px-6">
+            <Tabs
+              variant="underline"
+              value={activeTab}
+              onChange={(v) => handleTabClick(v as TabKey)}
+              items={TABS.map((tab) => {
+                const Icon = tab.icon;
+                return {
+                  key: tab.key,
+                  iconNode: <Icon className="h-4 w-4" />,
+                  label: (
+                    <span className="relative">
+                      {tab.label}
+                      {tabBadges[tab.key] && activeTab !== tab.key && (
+                        <span className="absolute -right-2 -top-1 flex h-2.5 w-2.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                        </span>
+                      )}
                     </span>
-                  )}
-                </button>
-              );
-            })}
+                  ),
+                };
+              })}
+            />
           </div>
 
           {/* Tab Content */}

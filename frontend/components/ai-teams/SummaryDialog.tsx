@@ -9,6 +9,7 @@ import * as api from '@/services/ai-teams/api';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { FileText, Download, CheckCircle } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
 import { logger } from '@/lib/utils/logger';
@@ -158,9 +159,7 @@ export default function SummaryDialog({ topic, onClose }: SummaryDialogProps) {
           {/* Summaries List */}
           <div className="w-1/3 overflow-auto border-r border-gray-200">
             {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="h-6 w-6 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-              </div>
+              <LoadingState size="md" />
             ) : summaries.length === 0 ? (
               <EmptyState
                 size="sm"

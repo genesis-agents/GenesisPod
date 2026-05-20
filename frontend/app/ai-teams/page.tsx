@@ -29,6 +29,8 @@ import {
   type AssetVisibilityOption,
 } from '@/components/common/asset-card';
 import { Globe, Lock, Sparkles, Users as UsersIcon } from 'lucide-react';
+import { Tabs } from '@/components/ui/tabs';
+import { LoadingState } from '@/components/ui/states';
 
 type TabType = 'my-teams' | 'discover';
 
@@ -179,7 +181,7 @@ export default function AIGroupPage() {
     return (
       <AppShell>
         <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+          <LoadingState size="lg" text="" />
         </div>
       </AppShell>
     );
@@ -265,43 +267,45 @@ export default function AIGroupPage() {
             </div>
 
             {/* Tabs */}
-            <div className="mt-4 flex gap-1 rounded-lg bg-gray-100 p-1">
-              <button
-                onClick={() => setActiveTab('my-teams')}
-                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  activeTab === 'my-teams'
-                    ? 'bg-white text-violet-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {t('aiTeams.myTeams')}
-                {topics.length > 0 && (
-                  <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-600">
-                    {topics.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab('discover')}
-                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                  activeTab === 'discover'
-                    ? 'bg-white text-violet-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                {t('aiTeams.discover')}
-                {myJoinRequests.filter((r) => r.status === 'PENDING').length >
-                  0 && (
-                  <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-600">
-                    {
-                      myJoinRequests.filter((r) => r.status === 'PENDING')
-                        .length
-                    }{' '}
-                    {t('aiTeams.pendingRequests.pending')}
-                  </span>
-                )}
-              </button>
-            </div>
+            <Tabs
+              className="mt-4"
+              variant="pill"
+              value={activeTab}
+              onChange={(v) => setActiveTab(v as TabType)}
+              items={[
+                {
+                  key: 'my-teams',
+                  label: (
+                    <>
+                      {t('aiTeams.myTeams')}
+                      {topics.length > 0 && (
+                        <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-600">
+                          {topics.length}
+                        </span>
+                      )}
+                    </>
+                  ),
+                },
+                {
+                  key: 'discover',
+                  label: (
+                    <>
+                      {t('aiTeams.discover')}
+                      {myJoinRequests.filter((r) => r.status === 'PENDING')
+                        .length > 0 && (
+                        <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-600">
+                          {
+                            myJoinRequests.filter((r) => r.status === 'PENDING')
+                              .length
+                          }{' '}
+                          {t('aiTeams.pendingRequests.pending')}
+                        </span>
+                      )}
+                    </>
+                  ),
+                },
+              ]}
+            />
 
             {/* Search Bar */}
             <div className="mt-4">
@@ -341,9 +345,7 @@ export default function AIGroupPage() {
             // My Teams Tab
             <>
               {isLoadingTopics ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-                </div>
+                <LoadingState size="lg" />
               ) : filteredTopics.length === 0 ? (
                 <EmptyState
                   icon={<Users className="h-16 w-16" />}
@@ -467,9 +469,7 @@ export default function AIGroupPage() {
 
               {/* Public Topics Grid */}
               {isLoadingPublicTopics ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-                </div>
+                <LoadingState size="lg" />
               ) : publicTopics.length === 0 ? (
                 <EmptyState
                   type="search"

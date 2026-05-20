@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useGoogleDriveFiles } from '@/hooks/domain';
-import { EmptyState } from '@/components/ui/states/EmptyState';
+import { EmptyState, LoadingState } from '@/components/ui/states';
 import { GoogleDriveFileCard } from './GoogleDriveFileCard';
 import { GoogleDriveFileRow } from './GoogleDriveFileRow';
 import { useMultiSelect } from '@/hooks';
@@ -393,9 +393,7 @@ export function GoogleDriveFileBrowser({
 
       {/* 文件网格 */}
       {loading && files.length === 0 ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-        </div>
+        <LoadingState size="sm" />
       ) : files.length === 0 ? (
         <EmptyState
           icon={<Folder className="h-12 w-12" />}

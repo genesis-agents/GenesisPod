@@ -23,6 +23,7 @@ import type { TopicReport, TopicEvidence } from '@/lib/types/topic-insights';
 import type { AIEditOperation, TextSelection } from '../types';
 
 import { logger } from '@/lib/utils/logger';
+import { LoadingState } from '@/components/ui/states';
 // View modes - removed split mode (space is limited)
 type ViewMode = 'preview' | 'edit';
 
@@ -398,10 +399,7 @@ export function ReportEditPanel({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-          <p className="text-sm text-gray-500">加载报告...</p>
-        </div>
+        <LoadingState text="加载报告..." />
       </div>
     );
   }

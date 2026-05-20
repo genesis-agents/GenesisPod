@@ -20,6 +20,7 @@ import {
 } from '@/services/ai-writing/api';
 import ChapterRevisionHistory from './ChapterRevisionHistory';
 import ChapterAnnotations from './ChapterAnnotations';
+import { LoadingInline } from '@/components/ui';
 
 interface ChapterEditPanelProps {
   chapter: Chapter;
@@ -320,9 +321,11 @@ export default function ChapterEditPanel({
 
       {/* AI 加载中 */}
       {aiLoading && (
-        <div className="flex items-center gap-2 bg-violet-50 px-4 py-2 text-sm text-violet-700">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
-          AI 正在处理...
+        <div className="bg-violet-50 px-4 py-2">
+          <LoadingInline
+            text="AI 正在处理..."
+            className="text-sm text-violet-700"
+          />
         </div>
       )}
 

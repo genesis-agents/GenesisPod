@@ -21,7 +21,7 @@ import {
 import { Modal } from '@/components/ui/dialogs/Modal';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
-import { EmptyState } from '@/components/ui/states/EmptyState';
+import { EmptyState, LoadingState } from '@/components/ui/states';
 import ClientDate from '@/components/common/ClientDate';
 import {
   useKnowledgeBase,
@@ -154,9 +154,7 @@ export default function RAGPage() {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-              </div>
+              <LoadingState size="sm" />
             ) : error ? (
               isAuthError(error) ? (
                 <SignInPrompt

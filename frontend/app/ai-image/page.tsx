@@ -12,6 +12,7 @@ import ShareModal from '@/components/common/dialogs/ShareModal';
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states';
 // AI Image Team - Preview (3 core agents)
 const AI_TEAM_PREVIEW = [
   {
@@ -186,9 +187,7 @@ export default function AIImagePage() {
   if (authLoading) {
     return (
       <AppShell>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-pink-500 border-t-transparent" />
-        </div>
+        <LoadingState />
       </AppShell>
     );
   }
@@ -303,9 +302,7 @@ export default function AIImagePage() {
         {/* Content */}
         <div className="px-8 py-6">
           {isLoadingImages ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-pink-500 border-t-transparent" />
-            </div>
+            <LoadingState />
           ) : filteredImages.length === 0 && !searchQuery ? (
             /* Empty State */
             <div className="flex flex-col items-center justify-center py-12">

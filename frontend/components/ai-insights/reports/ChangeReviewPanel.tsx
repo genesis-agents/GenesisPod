@@ -27,6 +27,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
+import { LoadingState } from '@/components/ui/states';
 
 // ==================== Types ====================
 
@@ -476,10 +477,7 @@ export function ChangeReviewPanel({
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-2 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-          <div className="text-sm text-gray-500">加载变更记录...</div>
-        </div>
+        <LoadingState text="加载变更记录..." />
       </div>
     );
   }

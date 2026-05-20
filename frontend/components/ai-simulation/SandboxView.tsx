@@ -50,6 +50,7 @@ import { isContentVisible } from '@/lib/features/ai-simulation/perspectiveFilter
 
 import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n';
+import { Tabs } from '@/components/ui/tabs';
 
 // 类型定义
 interface Agent {
@@ -676,52 +677,18 @@ export default function SandboxView({
 
       <div className="flex items-center gap-2">
         {/* 视图切换 */}
-        <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-          <button
-            onClick={() => setActiveView('sandtable')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeView === 'sandtable'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Map className="h-3.5 w-3.5" />
-            沙盘
-          </button>
-          <button
-            onClick={() => setActiveView('network')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeView === 'network'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Users className="h-3.5 w-3.5" />
-            关系
-          </button>
-          <button
-            onClick={() => setActiveView('competition')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeView === 'competition'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <BarChart3 className="h-3.5 w-3.5" />
-            格局
-          </button>
-          <button
-            onClick={() => setActiveView('timeline')}
-            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-              activeView === 'timeline'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Clock className="h-3.5 w-3.5" />
-            时间线
-          </button>
-        </div>
+        <Tabs
+          variant="pill"
+          size="sm"
+          value={activeView}
+          onChange={(v) => setActiveView(v as ViewType)}
+          items={[
+            { key: 'sandtable', label: '沙盘', icon: Map },
+            { key: 'network', label: '关系', icon: Users },
+            { key: 'competition', label: '格局', icon: BarChart3 },
+            { key: 'timeline', label: '时间线', icon: Clock },
+          ]}
+        />
 
         {/* 控制按钮 */}
         <div className="flex items-center gap-1 border-l border-gray-200 pl-2">

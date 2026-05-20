@@ -9,6 +9,7 @@ import {
 } from '@/lib/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui';
 import { Archive } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
@@ -132,9 +133,7 @@ export default function ResourcesPanel({
         {/* Content */}
         <div className="flex-1 overflow-auto">
           {isLoadingResources ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-            </div>
+            <LoadingState size="lg" />
           ) : (resources || []).length === 0 ? (
             <EmptyState
               icon={<Archive className="h-12 w-12" />}

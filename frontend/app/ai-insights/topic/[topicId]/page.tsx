@@ -14,6 +14,7 @@ import * as api from '@/services/topic-insights/api';
 import { logger } from '@/lib/utils/logger';
 import { useI18n } from '@/lib/i18n/i18n-context';
 import SignInPrompt from '@/components/common/SignInPrompt';
+import { LoadingState } from '@/components/ui/states';
 
 export default function TopicDetailPage() {
   const params = useParams();
@@ -67,10 +68,7 @@ export default function TopicDetailPage() {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-300 border-t-violet-600" />
-          <p className="text-sm text-gray-500">{t('common.loading')}</p>
-        </div>
+        <LoadingState text={t('common.loading')} size="lg" />
       </div>
     );
   }

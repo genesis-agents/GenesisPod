@@ -50,6 +50,7 @@ import { SocialPublishPanel } from './SocialPublishPanel';
 import { deriveSocialStages } from '@/lib/features/ai-social/derive-social-stages';
 import type { SocialContentTaskStatus } from '@/services/ai-social/task-types';
 import { LoadingSkeleton } from '@/components/ui/states/LoadingState';
+import { Tabs } from '@/components/ui/tabs';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -150,22 +151,17 @@ function ReportTab({
     <div className="flex h-full flex-col">
       {/* Platform sub-tabs */}
       {platforms.length > 1 && (
-        <div className="flex gap-1 border-b border-gray-100 px-4 py-2">
-          {platforms.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setActivePlatform(p)}
-              className={cn(
-                'rounded-lg px-3 py-1 text-xs font-medium transition-colors',
-                activePlatform === p
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-              )}
-            >
-              {PLATFORM_LABELS[p] ?? p}
-            </button>
-          ))}
+        <div className="border-b border-gray-100 px-4 py-2">
+          <Tabs
+            variant="pill"
+            size="sm"
+            value={activePlatform}
+            onChange={setActivePlatform}
+            items={platforms.map((p) => ({
+              key: p,
+              label: PLATFORM_LABELS[p] ?? p,
+            }))}
+          />
         </div>
       )}
       <div className="flex-1 overflow-auto p-4">

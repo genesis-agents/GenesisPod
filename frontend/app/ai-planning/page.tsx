@@ -13,6 +13,7 @@ import { PHASE_KEYS } from '@/lib/constants/ai-planning';
 import { AssetCard, type AssetCardBadge } from '@/components/common/asset-card';
 import { Users, Lightbulb } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states';
 
 const PLAN_GRADIENTS = [
   'from-amber-500 to-orange-600',
@@ -116,9 +117,7 @@ export default function AiPlanningPage() {
   if (authLoading) {
     return (
       <AppShell>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
-        </div>
+        <LoadingState />
       </AppShell>
     );
   }
@@ -232,9 +231,7 @@ export default function AiPlanningPage() {
         {/* Content */}
         <div className="px-8 py-6">
           {isLoadingPlans ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
-            </div>
+            <LoadingState />
           ) : filteredPlans.length === 0 ? (
             <EmptyState
               icon={<Lightbulb className="h-12 w-12" />}

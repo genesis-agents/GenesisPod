@@ -10,6 +10,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { config } from '@/lib/utils/config';
 import { useParams } from 'next/navigation';
+import { LoadingState } from '@/components/ui/states/LoadingState';
 import Link from 'next/link';
 import {
   getSharedTopic,
@@ -198,14 +199,7 @@ export default function SharedTopicPage() {
 
   // Loading state
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-          <p className="text-gray-600">加载中...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState fullScreen text="加载中..." size="lg" />;
   }
 
   // Error state

@@ -28,7 +28,7 @@ import {
   type AssetVisibilityOption,
 } from '@/components/common/asset-card';
 import { FileText, Globe, Lock, FileSearch } from 'lucide-react';
-import { EmptyState } from '@/components/ui/states/EmptyState';
+import { EmptyState, LoadingState } from '@/components/ui/states';
 
 interface ResearchProject {
   id: string;
@@ -325,11 +325,7 @@ function ResearchPageContent() {
   );
 
   if (authLoading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
@@ -431,9 +427,7 @@ function ResearchPageContent() {
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-          </div>
+          <LoadingState />
         ) : filteredProjects.length === 0 && !searchQuery ? (
           <EmptyState
             icon={<FileSearch className="h-12 w-12" />}
@@ -599,13 +593,7 @@ function ResearchPageContent() {
 
 export default function ResearchPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-full items-center justify-center bg-gray-50">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState />}>
       <ResearchPageContent />
     </Suspense>
   );

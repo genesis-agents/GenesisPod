@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingInline } from '@/components/ui/states/LoadingState';
 import { Search as SearchIcon, MessageSquare } from 'lucide-react';
 
 import { logger } from '@/lib/utils/logger';
@@ -542,7 +543,7 @@ export default function SessionSidebar({
         <div className="flex-1 overflow-y-auto px-2 py-2">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-purple-500 border-t-transparent"></div>
+              <LoadingInline text="" />
             </div>
           ) : filteredSessions.length === 0 ? (
             <EmptyState

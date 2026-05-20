@@ -34,6 +34,7 @@ import { useI18n } from '@/lib/i18n';
 import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import { logger } from '@/lib/utils/logger';
 import { getComputeUsage } from '@/services/topic-insights/api';
+import { LoadingState } from '@/components/ui/states';
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -653,10 +654,7 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
   if (loading) {
     return (
       <div className="flex h-full min-h-[300px] items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          <p className="text-sm text-gray-500">{t('common.loading')}</p>
-        </div>
+        <LoadingState text={t('common.loading')} />
       </div>
     );
   }

@@ -8,6 +8,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 
 import { logger } from '@/lib/utils/logger';
+import { LoadingState } from '@/components/ui/states';
 import {
   ScenarioGoals,
   ScenarioParams,
@@ -87,10 +88,7 @@ export default function EditScenarioPage() {
     return (
       <AppShell>
         <main className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
-            <div className="text-gray-500">加载中...</div>
-          </div>
+          <LoadingState text="加载中..." />
         </main>
       </AppShell>
     );
@@ -120,10 +118,7 @@ export default function EditScenarioPage() {
   return (
     <AppShell>
       <main className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
-          <div className="text-gray-500">正在跳转到编辑器...</div>
-        </div>
+        <LoadingState text="正在跳转到编辑器..." />
       </main>
     </AppShell>
   );

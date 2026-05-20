@@ -16,6 +16,7 @@ import { ExportDialog } from '@/components/common/ExportDialog';
 import PlanSettingsModal from '@/components/ai-planning/PlanSettingsModal';
 import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';
+import { LoadingState } from '@/components/ui/states';
 
 export default function PlanDetailPage() {
   const { t } = useTranslation();
@@ -251,9 +252,7 @@ export default function PlanDetailPage() {
   if (authLoading) {
     return (
       <AppShell>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
-        </div>
+        <LoadingState />
       </AppShell>
     );
   }
@@ -275,9 +274,7 @@ export default function PlanDetailPage() {
   if (!currentPlan) {
     return (
       <AppShell>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
-        </div>
+        <LoadingState />
       </AppShell>
     );
   }

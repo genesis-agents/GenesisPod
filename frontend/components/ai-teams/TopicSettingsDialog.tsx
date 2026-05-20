@@ -17,6 +17,7 @@ import { getAuthHeader } from '@/lib/utils/auth';
 import * as aiGroupApi from '@/services/ai-teams/api';
 import { JoinRequest } from '@/services/ai-teams/api';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState, LoadingInline } from '@/components/ui';
 import { Bot, CheckCircle } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
@@ -425,9 +426,7 @@ function AddAIDialog({
             Select Model
           </label>
           {loading ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
-            </div>
+            <LoadingState size="sm" />
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {(models || []).map((model) => (
@@ -942,7 +941,7 @@ function AddMemberDialog({
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                  <LoadingInline text="" />
                 </div>
               )}
             </div>
@@ -1109,11 +1108,7 @@ function JoinRequestsSettings({
   // formatTime removed - using ClientDate component instead
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-      </div>
-    );
+    return <LoadingState size="lg" />;
   }
 
   if (requests.length === 0) {

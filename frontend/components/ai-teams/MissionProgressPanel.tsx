@@ -10,6 +10,7 @@ import {
 import { Target, Plus } from 'lucide-react';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui';
 import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
 import ClientDate from '@/components/common/ClientDate';
 
@@ -309,7 +310,7 @@ export default function MissionProgressPanel({
           <h3 className="font-semibold text-gray-900">Team Missions</h3>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+          <LoadingState size="md" />
         </div>
       </div>
     );
@@ -986,10 +987,7 @@ function MissionDetailView({
           ) : (
             <div className="py-8 text-center text-sm text-gray-500">
               {mission.status === 'PLANNING' ? (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
-                  <span>Leader 正在分析和规划任务...</span>
-                </div>
+                <LoadingState size="md" text="Leader 正在分析和规划任务..." />
               ) : mission.status === 'PENDING' ? (
                 '任务即将开始'
               ) : (

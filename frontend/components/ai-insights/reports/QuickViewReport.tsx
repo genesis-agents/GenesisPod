@@ -13,6 +13,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { TopicReport, TopicEvidence } from '@/lib/types/topic-insights';
 import { useI18n } from '@/lib/i18n';
+import { LoadingState } from '@/components/ui/states';
 
 /**
  * Strip LaTeX math, raw LaTeX commands, and citation references from plain-text
@@ -139,12 +140,7 @@ export function QuickViewReport({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-          <p className="text-sm text-gray-500">
-            {t('topicResearch.reportEditor.loadingReport')}
-          </p>
-        </div>
+        <LoadingState text={t('topicResearch.reportEditor.loadingReport')} />
       </div>
     );
   }

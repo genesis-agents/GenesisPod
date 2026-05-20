@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getAuthTokens } from '@/lib/utils/auth';
-import { EmptyState } from '@/components/ui/states/EmptyState';
+import { EmptyState, LoadingState } from '@/components/ui/states';
 import { Users as UsersLucide } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
@@ -490,9 +490,7 @@ export function TopicSharingModal({
       }
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-        </div>
+        <LoadingState />
       ) : (
         <>
           {/* Error */}

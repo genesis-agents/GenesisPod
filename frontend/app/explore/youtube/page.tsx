@@ -13,6 +13,7 @@ import { config } from '@/lib/utils/config';
 import AppShell from '@/components/layout/AppShell';
 import { FileText } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui/states';
 import NotesList from '@/components/common/resource-lists/NotesList';
 import {
   AIContextBuilder,
@@ -1546,12 +1547,10 @@ function YouTubeTLDWContent() {
               {activeTab === 'transcript' && (
                 <div className="space-y-0">
                   {loading ? (
-                    <div className="flex flex-col items-center justify-center py-12">
-                      <div className="mb-2 h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-red-500" />
-                      <div className="text-sm text-gray-400">
-                        {transcriptStatus || '加载字幕中...'}
-                      </div>
-                    </div>
+                    <LoadingState
+                      size="md"
+                      text={transcriptStatus || '加载字幕中...'}
+                    />
                   ) : mergedTranscript.length === 0 ? (
                     <EmptyState
                       size="sm"
@@ -1908,9 +1907,7 @@ function YouTubeTLDWContent() {
                   {/* Comments List */}
                   <div className="flex-1 overflow-y-auto px-4 py-3">
                     {commentsLoading && comments.length === 0 ? (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-red-500 border-t-transparent"></div>
-                      </div>
+                      <LoadingState size="lg" text="" />
                     ) : commentsError ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center">
                         <svg

@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import AppShell from '@/components/layout/AppShell';
+import { LoadingState } from '@/components/ui/states';
 
 // Lazy-load heavy component (4200+ lines)
 const ExploreContent = dynamic(
@@ -10,9 +11,7 @@ const ExploreContent = dynamic(
   {
     loading: () => (
       <main className="min-w-0 flex-1 overflow-y-auto bg-gray-50">
-        <div className="flex items-center justify-center py-40">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-        </div>
+        <LoadingState />
       </main>
     ),
     ssr: false,
@@ -25,9 +24,7 @@ export default function ExplorePage() {
       <Suspense
         fallback={
           <main className="min-w-0 flex-1 overflow-y-auto bg-gray-50">
-            <div className="flex items-center justify-center py-40">
-              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-            </div>
+            <LoadingState />
           </main>
         }
       >

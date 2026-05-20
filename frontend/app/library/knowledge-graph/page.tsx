@@ -7,6 +7,7 @@ import AppShell from '@/components/layout/AppShell';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader, getCurrentUser } from '@/lib/utils/auth';
 import { MessageSquare, X, Send, Loader2, RefreshCw, Zap } from 'lucide-react';
+import { LoadingState } from '@/components/ui/states';
 
 import { logger } from '@/lib/utils/logger';
 export const dynamic = 'force-dynamic';
@@ -524,16 +525,7 @@ function KnowledgeGraphPageContent() {
 
 export default function KnowledgeGraphPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center bg-gray-100">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-purple-600 border-t-transparent"></div>
-            <p className="text-gray-500">Loading...</p>
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingState fullScreen text="Loading..." />}>
       <KnowledgeGraphPageContent />
     </Suspense>
   );

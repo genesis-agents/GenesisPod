@@ -82,6 +82,7 @@ import {
 } from './useWikiIngestPolling';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import { Tabs } from '@/components/ui/tabs';
 
 // Extend the default sanitizer to allow our internal `wikilink:` scheme on
 // anchor href attributes � without this, rehype-sanitize strips the href and
@@ -1838,28 +1839,22 @@ function WikiLintDrawer({
 
   return (
     <DrawerShell title={t('library.wiki.subheader.lint')} onClose={onClose}>
-      <div className="flex flex-wrap gap-1 border-b border-gray-200 px-4 py-2">
-        {(
-          [
-            'CONTRADICTION',
-            'STALE',
-            'ORPHAN',
-            'MISSING_XREF',
-            'DATA_GAP',
-          ] as const
-        ).map((tabKey) => (
-          <button
-            key={tabKey}
-            onClick={() => setTab(tabKey)}
-            className={`rounded px-2.5 py-1 text-xs font-medium ${
-              tab === tabKey
-                ? 'bg-violet-100 text-violet-800'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            {tabKey}
-          </button>
-        ))}
+      <div className="border-b border-gray-200 px-4 py-2">
+        <Tabs
+          variant="pill"
+          size="sm"
+          value={tab}
+          onChange={(v) => setTab(v as WikiLintTypeStr)}
+          items={(
+            [
+              'CONTRADICTION',
+              'STALE',
+              'ORPHAN',
+              'MISSING_XREF',
+              'DATA_GAP',
+            ] as const
+          ).map((tabKey) => ({ key: tabKey, label: tabKey }))}
+        />
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {loading ? (

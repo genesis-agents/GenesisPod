@@ -46,6 +46,7 @@ import AddToKnowledgeBaseDialog, {
 } from '@/components/common/dialogs/AddToKnowledgeBaseDialog';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
+import { LoadingState, LoadingInline } from '@/components/ui/states';
 import ClientDate from '@/components/common/ClientDate';
 
 // 懒加载条件渲染的组件
@@ -98,11 +99,7 @@ const NotionTabContent = dynamicImport(
   () => import('@/components/library/integrations/notion/NotionTabContent'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
-      </div>
-    ),
+    loading: () => <LoadingState size="lg" text="" />,
   }
 );
 
@@ -111,11 +108,7 @@ const GoogleDriveTabContent = dynamicImport(
     import('@/components/library/integrations/google-drive/GoogleDriveTabContent'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
-      </div>
-    ),
+    loading: () => <LoadingState size="lg" text="" />,
   }
 );
 
@@ -123,11 +116,7 @@ const KnowledgeBaseTabContent = dynamicImport(
   () => import('@/components/library/knowledge-base/KnowledgeBaseTabContent'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-gray-600"></div>
-      </div>
-    ),
+    loading: () => <LoadingState size="lg" text="" />,
   }
 );
 
@@ -135,11 +124,7 @@ const PersonalKnowledgeBaseTab = dynamicImport(
   () => import('@/components/library/knowledge-base/PersonalKnowledgeBaseTab'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
-      </div>
-    ),
+    loading: () => <LoadingState size="lg" text="" />,
   }
 );
 
@@ -147,11 +132,7 @@ const TeamKnowledgeBaseTab = dynamicImport(
   () => import('@/components/library/knowledge-base/TeamKnowledgeBaseTab'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-purple-600"></div>
-      </div>
-    ),
+    loading: () => <LoadingState size="lg" text="" />,
   }
 );
 
@@ -160,11 +141,7 @@ const WikiTab = dynamicImport(
   () => import('@/components/library/wiki/WikiTab'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-purple-600"></div>
-      </div>
-    ),
+    loading: () => <LoadingState size="lg" text="" />,
   }
 );
 
@@ -172,11 +149,7 @@ const DataSourcesTab = dynamicImport(
   () => import('@/components/library/data-sources/DataSourcesTab'),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-green-600"></div>
-      </div>
-    ),
+    loading: () => <LoadingState size="lg" text="" />,
   }
 );
 
@@ -1233,11 +1206,7 @@ function LibraryPageContent() {
     }, []); // 空依赖数组，只运行一次
 
     if (bookmarkedImagesLoading) {
-      return (
-        <div className="flex items-center justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-pink-600"></div>
-        </div>
-      );
+      return <LoadingState size="lg" text="" />;
     }
 
     // 显示错误状态
@@ -1813,11 +1782,7 @@ function LibraryPageContent() {
               renderBookmarks={() => {
                 // 书签列表视图
                 if (loading && !paginatedItems) {
-                  return (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
-                    </div>
-                  );
+                  return <LoadingState size="lg" text="" />;
                 }
 
                 if (!paginatedItems?.items?.length) {
@@ -1883,10 +1848,7 @@ function LibraryPageContent() {
                         className="flex items-center justify-center py-8"
                       >
                         {loadingMore ? (
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-blue-600"></div>
-                            <span>加载更多...</span>
-                          </div>
+                          <LoadingInline text="加载更多..." />
                         ) : (
                           <div className="text-sm text-gray-400">
                             滚动加载更多
@@ -2543,10 +2505,7 @@ export default function LibraryPage() {
     <Suspense
       fallback={
         <div className="flex h-screen items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-            <p className="text-gray-500">Loading...</p>
-          </div>
+          <LoadingState size="lg" text="Loading..." />
         </div>
       }
     >

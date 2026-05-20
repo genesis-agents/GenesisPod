@@ -11,6 +11,7 @@ import {
   NotionPage,
 } from '@/services/notion/api';
 import AppShell from '@/components/layout/AppShell';
+import { LoadingState } from '@/components/ui/states';
 
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
@@ -105,9 +106,7 @@ export default function NotionPageDetail() {
   if (loading) {
     return (
       <AppShell>
-        <div className="flex flex-1 items-center justify-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-gray-300 border-t-gray-900" />
-        </div>
+        <LoadingState />
       </AppShell>
     );
   }

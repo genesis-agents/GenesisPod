@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import { config } from '@/lib/utils/config';
+import { LoadingState } from '@/components/ui/states/LoadingState';
 
 interface Chapter {
   id: string;
@@ -148,14 +149,7 @@ export default function PublicReadPage() {
       : null;
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
-          <p className="text-gray-500">加载中...</p>
-        </div>
-      </div>
-    );
+    return <LoadingState fullScreen text="加载中..." size="lg" />;
   }
 
   if (error || !project) {

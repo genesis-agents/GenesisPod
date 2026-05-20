@@ -24,6 +24,7 @@ import type {
 } from '@/services/topic-insights/api';
 import ClientDate from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n';
+import { LoadingState } from '@/components/ui/states';
 
 interface AgentThinkingGraphProps {
   missionStatus: MissionStatus | null;
@@ -189,12 +190,7 @@ export function AgentThinkingGraph({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-purple-600" />
-          <p className="text-sm text-gray-500">
-            {t('topicResearch.collaboration.loadingThinking')}
-          </p>
-        </div>
+        <LoadingState text={t('topicResearch.collaboration.loadingThinking')} />
       </div>
     );
   }

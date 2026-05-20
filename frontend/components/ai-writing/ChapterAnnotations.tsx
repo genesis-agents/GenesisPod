@@ -23,6 +23,7 @@ import {
 } from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui';
 
 interface ChapterAnnotationsProps {
   chapterId: string;
@@ -222,7 +223,7 @@ export default function ChapterAnnotations({
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
+        <LoadingState size="lg" />
       </div>
     );
   }

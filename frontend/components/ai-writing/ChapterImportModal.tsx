@@ -26,6 +26,7 @@ import {
 } from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
 interface ChapterImportModalProps {
@@ -605,8 +606,7 @@ export default function ChapterImportModal({
         {/* 步骤3: 导入中 */}
         {step === 'importing' && importStatus && (
           <div className="flex flex-col items-center justify-center py-12">
-            <div className="mb-4 h-16 w-16 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-            <p className="text-lg font-medium text-gray-800">正在导入...</p>
+            <LoadingState size="lg" text="正在导入..." />
             {importStatus.progress && (
               <div className="mt-4 w-full max-w-md">
                 <div className="flex justify-between text-sm text-gray-500">

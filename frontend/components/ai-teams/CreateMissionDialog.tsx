@@ -7,6 +7,7 @@ import {
 } from '@/lib/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { LoadingState } from '@/components/ui';
 import { Users, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/dialogs/Modal';
 
@@ -129,8 +130,8 @@ export default function CreateMissionDialog({
             Select Team Leader
           </label>
           {isLoadingTeamMembers ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+            <div className="py-8">
+              <LoadingState size="md" />
             </div>
           ) : membersList.length === 0 ? (
             <EmptyState

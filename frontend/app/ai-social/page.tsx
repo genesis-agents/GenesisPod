@@ -18,6 +18,7 @@ import { useTranslation } from '@/lib/i18n';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { SocialErrorFallback } from '@/components/ai-social/SocialErrorFallback';
 import TasksTab from '@/components/ai-social/TasksTab';
+import { LoadingState } from '@/components/ui/states';
 import {
   getConnections,
   type SocialPlatformConnection,
@@ -52,14 +53,7 @@ export default function AISocialPage() {
 
   // Loading state
   if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-rose-500 border-t-transparent" />
-          <p className="text-gray-500">{t('aiSocial.loading')}</p>
-        </div>
-      </div>
-    );
+    return <LoadingState fullScreen text={t('aiSocial.loading')} />;
   }
 
   // Not logged in

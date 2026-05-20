@@ -49,6 +49,7 @@ import {
 import { getMessages, sendMessage } from '@/services/ai-teams/api';
 import { Tabs } from '@/components/ui/tabs';
 import type { TopicMessage } from '@/lib/types/ai-teams';
+import { LoadingState } from '@/components/ui/states';
 
 export type PlanContentTabType =
   | 'phases'
@@ -738,9 +739,7 @@ export function PlanContentPanel({
         {activeTab === 'activity' && (
           <div className="p-4">
             {isLoadingMessages && messages.length === 0 ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-              </div>
+              <LoadingState size="sm" />
             ) : messages.length === 0 ? (
               <EmptyState
                 size="sm"

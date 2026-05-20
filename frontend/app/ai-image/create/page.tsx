@@ -7,6 +7,7 @@ import ImageGenerator from '@/components/ai-image/ImageGenerator';
 import AppShell from '@/components/layout/AppShell';
 import SignInPrompt from '@/components/common/SignInPrompt';
 import { useTranslation } from '@/lib/i18n';
+import { LoadingState } from '@/components/ui/states';
 
 function AIImageCreateContent() {
   const { user, isLoading } = useAuth();
@@ -18,9 +19,7 @@ function AIImageCreateContent() {
   if (isLoading) {
     return (
       <AppShell>
-        <div className="flex h-full flex-1 items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-pink-500 border-t-transparent" />
-        </div>
+        <LoadingState />
       </AppShell>
     );
   }
@@ -104,9 +103,7 @@ export default function AIImageCreatePage() {
     <Suspense
       fallback={
         <AppShell>
-          <div className="flex h-full flex-1 items-center justify-center">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-pink-500 border-t-transparent" />
-          </div>
+          <LoadingState />
         </AppShell>
       }
     >

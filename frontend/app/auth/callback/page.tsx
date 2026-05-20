@@ -4,6 +4,7 @@ import { useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
+import { LoadingState } from '@/components/ui/states/LoadingState';
 
 import { logger } from '@/lib/utils/logger';
 
@@ -122,30 +123,13 @@ function AuthCallbackContent() {
     handleCallback();
   }, [searchParams, router, login]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-        <p className="text-lg font-medium text-gray-900">Logging in...</p>
-        <p className="mt-2 text-sm text-gray-500">
-          Please wait while we complete your authentication
-        </p>
-      </div>
-    </div>
-  );
+  return <LoadingState fullScreen text="Logging in..." size="lg" />;
 }
 
 export default function AuthCallback() {
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
-            <p className="text-lg font-medium text-gray-900">Loading...</p>
-          </div>
-        </div>
-      }
+      fallback={<LoadingState fullScreen text="Loading..." size="lg" />}
     >
       <AuthCallbackContent />
     </Suspense>

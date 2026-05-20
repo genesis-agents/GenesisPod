@@ -7,6 +7,7 @@ import { Tabs } from '@/components/ui/tabs';
 import { useTranslation } from '@/lib/i18n';
 import AIToolsTab from '@/components/ai-store/AIToolsTab';
 import AISkillsTab from '@/components/ai-store/AISkillsTab';
+import { LoadingState } from '@/components/ui/states';
 
 type TabType = 'tools' | 'skills';
 
@@ -82,9 +83,7 @@ export default function AIStorePage() {
     <Suspense
       fallback={
         <AppShell>
-          <div className="flex min-h-screen items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-cyan-600" />
-          </div>
+          <LoadingState fullScreen />
         </AppShell>
       }
     >

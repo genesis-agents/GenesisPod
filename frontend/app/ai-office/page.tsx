@@ -8,15 +8,7 @@ import WorkspaceLayout from '@/components/ai-office/layout/WorkspaceLayout';
 import { SkillsModal } from '@/components/common/skills/SkillsModal';
 import { LogIn, Sparkles } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-
-// Loading fallback for Suspense
-function WorkspaceLoading() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-    </div>
-  );
-}
+import { LoadingState } from '@/components/ui/states/LoadingState';
 
 /**
  * AI Reports 工作区页面
@@ -31,14 +23,7 @@ export default function AIOfficePage() {
 
   // 加载中
   if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
-          <p className="text-gray-500">{t('aiOffice.loading')}</p>
-        </div>
-      </div>
-    );
+    return <LoadingState fullScreen text={t('aiOffice.loading')} size="lg" />;
   }
 
   // 未登录
@@ -134,7 +119,7 @@ export default function AIOfficePage() {
 
         {/* 内容区域 */}
         <div className="h-[calc(100vh-120px)]">
-          <Suspense fallback={<WorkspaceLoading />}>
+          <Suspense fallback={<LoadingState size="md" />}>
             <WorkspaceLayout />
           </Suspense>
         </div>
