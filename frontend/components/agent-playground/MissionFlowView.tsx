@@ -45,6 +45,10 @@ import {
   type MissionTodo,
 } from '@/lib/agent-playground/todo-ledger';
 import type { DerivedView } from '@/lib/agent-playground/derive';
+import {
+  StageStepper,
+  type StageStepperItem,
+} from '@/components/common/mission-detail/StageStepper';
 
 const STAGE_META: Record<SystemStageId, { short: string; Icon: LucideIcon }> = {
   's1-budget': { short: '预算估算', Icon: PiggyBank },
@@ -83,6 +87,12 @@ const STAGE_ORDER: SystemStageId[] = [
 interface Props {
   view: DerivedView;
   events: PlaygroundEvent[];
+  /**
+   * 2026-05-20: 跨 domain stage 定义 override。传入时用调用方的 stage 列表渲染
+   *   stepper（social/ai-radar 各传自己的 12/N 步），不传则用内部 playground
+   *   todo-ledger 派生（playground 默认行为，零回归）。
+   */
+  stepperStages?: StageStepperItem[];
 }
 
 interface FlowEvent {
@@ -116,9 +126,14 @@ function fmtRelative(ts: number, anchor: number): string {
 function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
   const out: FlowEvent[] = [];
   for (const ev of events) {
-    const t = ev.type;
+    // 2026-05-20: 规范化 namespace（同 derive.ts）—— social.* / agent-playground.*
+    //   / ai-radar.* 各 domain 都 emit 相同 suffix，剥离前缀让时间线跨 domain 通用。
+    const rawType = ev.type ?? '';
+    const t = rawType.includes('.')
+      ? rawType.slice(rawType.indexOf('.') + 1)
+      : rawType;
     const p = (ev.payload ?? {}) as Record<string, unknown>;
-    if (t === 'agent-playground.agent:narrative') {
+    if (t === 'agent:narrative') {
       const text = p.text as string | undefined;
       const role = p.role as string | undefined;
       const tag = p.tag as string | undefined;
@@ -141,7 +156,7 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
         meta: dim,
         agentId: ev.agentId,
       });
-    } else if (t === 'agent-playground.agent:lifecycle') {
+    } else if (t === 'agent:lifecycle') {
       const phase = p.phase as string | undefined;
       const role = p.role as string | undefined;
       const dim = p.dimension as string | undefined;
@@ -167,7 +182,7 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
         text: `${role}${dim ? `（${dim}）` : ''} ${verb}`,
         agentId: ev.agentId,
       });
-    } else if (t === 'agent-playground.verifier:verdict') {
+    } else if (t === 'verifier:verdict') {
       const id = p.verifierId as string;
       const score = p.score as number;
       out.push({
@@ -177,7 +192,7 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
         tone: score >= 80 ? 'success' : score >= 60 ? 'warn' : 'error',
         text: `Judge "${id}" 评分 ${score}/100`,
       });
-    } else if (t === 'agent-playground.reconciliation:completed') {
+    } else if (t === 'reconciliation:completed') {
       const fact = (p.factCount as number) ?? 0;
       const conflict = (p.conflictCount as number) ?? 0;
       const gap = (p.gapCount as number) ?? 0;
@@ -188,7 +203,7 @@ function buildFlowEvents(events: PlaygroundEvent[]): FlowEvent[] {
         tone: 'success',
         text: `对账完成 · ${fact} 条事实 / ${conflict} 处冲突 / ${gap} 处缺口`,
       });
-    } else if (t === 'agent-playground.critic:verdict') {
+    } else if (t === 'critic:verdict') {
       const verdict = p.verdict as string | undefined;
       const blindspots = (p.blindspotCount as number) ?? 0;
       const biases = (p.biasCount as number) ?? 0;
@@ -310,7 +325,7 @@ function TONE_DOT(tone?: 'info' | 'success' | 'warn' | 'error'): string {
         : 'bg-blue-500';
 }
 
-export function MissionFlowView({ view, events }: Props) {
+export function MissionFlowView({ view, events, stepperStages }: Props) {
   const [filterRole, setFilterRole] = useState<string | null>(null);
 
   const todoLedger = useMemo(
@@ -427,57 +442,34 @@ export function MissionFlowView({ view, events }: Props) {
         </div>
       </Card>
 
-      {/* ─── 11-stage stepper ─── */}
-      <Card className="p-4" bordered>
-        <div className="mb-2 flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-violet-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Mission 阶段</h3>
-          <span className="text-xs text-gray-500">
-            · {STAGE_ORDER.length} 阶段
-          </span>
-        </div>
-        {/* 11 阶段自适应换行 grid（避免横向滚动；进度通过左→右 + 上→下 视觉顺序） */}
-        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-11">
-          {STAGE_ORDER.map((sid) => {
+      {/* ─── stage stepper（统一 StageStepper 组件） ─── */}
+      {/* stepperStages 传入（social/radar）→ 用调用方阶段；否则用 playground
+          todo-ledger 派生（默认行为）。 */}
+      <StageStepper
+        stages={
+          stepperStages ??
+          STAGE_ORDER.map((sid): StageStepperItem => {
             const td = systemTodoMap.get(sid);
-            const status = td?.status ?? 'pending';
             const meta = STAGE_META[sid];
-            const Icon = meta.Icon;
-            const tone =
-              status === 'done'
-                ? 'bg-emerald-100 text-emerald-700 ring-emerald-300'
-                : status === 'in_progress'
-                  ? 'animate-pulse bg-blue-100 text-blue-700 ring-blue-300'
-                  : status === 'failed'
-                    ? 'bg-red-100 text-red-700 ring-red-300'
-                    : 'bg-gray-50 text-gray-400 ring-gray-200';
-            return (
-              <div
-                key={sid}
-                className={cn(
-                  'flex flex-col items-center justify-center gap-0.5 rounded-lg px-1.5 py-1.5 ring-1',
-                  tone
-                )}
-                title={td?.title ?? sid}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                <span className="text-center text-[10px] font-medium leading-tight">
-                  {meta.short}
-                </span>
-                <span className="text-[9px]">
-                  {status === 'done'
-                    ? '✓'
-                    : status === 'in_progress'
-                      ? '⟳'
-                      : status === 'failed'
-                        ? '✗'
-                        : '○'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+            const s = td?.status;
+            const status: StageStepperItem['status'] =
+              s === 'done'
+                ? 'done'
+                : s === 'in_progress'
+                  ? 'in_progress'
+                  : s === 'failed'
+                    ? 'failed'
+                    : 'pending';
+            return {
+              id: sid,
+              short: meta.short,
+              Icon: meta.Icon,
+              status,
+              title: td?.title ?? sid,
+            };
+          })
+        }
+      />
 
       {/* ─── Mission-wide narrative timeline ─── */}
       <Section

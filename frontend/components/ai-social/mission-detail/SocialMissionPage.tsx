@@ -35,7 +35,7 @@ import {
   MissionDetailFrame,
   MissionActionGroup,
   type MissionActionButtonSpec,
-} from '@/components/mission-detail';
+} from '@/components/common/mission-detail';
 import { cn } from '@/lib/utils/common';
 import { deriveView } from '@/lib/agent-playground/derive';
 import { deriveTodoLedger } from '@/lib/agent-playground/todo-ledger';
@@ -47,6 +47,7 @@ import {
 } from '@/services/ai-social/task-api';
 import { RefreshCw } from 'lucide-react';
 import { SocialPublishPanel } from './SocialPublishPanel';
+import { deriveSocialStages } from '@/lib/ai-social/derive-social-stages';
 import type { SocialContentTaskStatus } from '@/services/ai-social/task-types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -525,7 +526,11 @@ export default function SocialMissionPage({ taskId }: SocialMissionPageProps) {
       {activeTab === 'collab' && (
         <>
           {missionId ? (
-            <MissionFlowView view={view} events={events} />
+            <MissionFlowView
+              view={view}
+              events={events}
+              stepperStages={deriveSocialStages(events)}
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-gray-400">
               协作动态将在任务执行时实时展示
