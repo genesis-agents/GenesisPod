@@ -18,6 +18,7 @@ import {
 
 import { useFavoritesList } from '@/hooks/domain/useFavoritesList';
 import { useTranslation } from '@/lib/i18n';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { TierBadge } from '@/components/common/badges/TierBadge';
 import { WhyItMattersCallout } from '@/components/common/callouts/WhyItMattersCallout';
 import { PageHeaderHero } from '@/components/common/page-header-hero/PageHeaderHero';
@@ -86,14 +87,10 @@ export default function RadarFavoritesPage() {
       )}
 
       {!loading && !error && data.length === 0 && (
-        <div className="rounded-xl border border-gray-100 bg-gray-50 p-10 text-center">
-          <p className="text-base font-medium text-slate-600">
-            {t('radar.favorites.emptyTitle')}
-          </p>
-          <p className="mt-1 text-sm text-slate-400">
-            {t('radar.favorites.emptyHint')}
-          </p>
-        </div>
+        <EmptyState
+          title={t('radar.favorites.emptyTitle')}
+          description={t('radar.favorites.emptyHint')}
+        />
       )}
 
       {!loading && !error && data.length > 0 && (

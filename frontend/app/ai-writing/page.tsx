@@ -18,7 +18,8 @@ import {
   type AssetVisibility,
   type AssetVisibilityOption,
 } from '@/components/common/asset-card';
-import { FileText, Globe, Lock, PenLine, Sparkles } from 'lucide-react';
+import { FileText, Globe, Lock, PenLine, Pencil, Sparkles } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
 const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
@@ -415,57 +416,21 @@ export default function AIWritingPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
             </div>
           ) : filteredProjects.length === 0 && !searchQuery ? (
-            /* Empty State */
-            <div className="flex flex-col items-center justify-center py-12">
-              <svg
-                className="h-16 w-16 text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-700">
-                {t('aiWriting.empty.noProjects')}
-              </h3>
-              <p className="mt-2 text-sm text-gray-500">
-                {t('aiWriting.empty.noProjectsDesc')}
-              </p>
-              <button
-                onClick={() => setShowCreateDialog(true)}
-                className="mt-4 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
-              >
-                {t('aiWriting.createDialog.startCreating')}
-              </button>
-            </div>
+            <EmptyState
+              icon={<Pencil className="h-12 w-12" />}
+              title={t('aiWriting.empty.noProjects')}
+              description={t('aiWriting.empty.noProjectsDesc')}
+              action={{
+                label: t('aiWriting.createDialog.startCreating'),
+                onClick: () => setShowCreateDialog(true),
+              }}
+            />
           ) : filteredProjects.length === 0 && searchQuery ? (
-            /* No Search Results */
-            <div className="flex flex-col items-center justify-center py-12">
-              <svg
-                className="h-16 w-16 text-gray-300"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-700">
-                {t('aiWriting.noResults.title')}
-              </h3>
-              <p className="mt-2 text-sm text-gray-500">
-                {t('aiWriting.noResults.description')}
-              </p>
-            </div>
+            <EmptyState
+              type="search"
+              title={t('aiWriting.noResults.title')}
+              description={t('aiWriting.noResults.description')}
+            />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredProjects.map((project) => {
