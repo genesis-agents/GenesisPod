@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
 import type { WikiKbSummary } from '@/lib/api/wiki';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface WikiChromeHeaderProps {
   kbs: WikiKbSummary[];
@@ -109,9 +110,10 @@ export default function WikiChromeHeader({
                   </div>
                   <div className="max-h-80 overflow-y-auto p-2">
                     {kbs.length === 0 ? (
-                      <div className="px-3 py-3 text-sm text-gray-500">
-                        {t('library.wiki.kbSelector.noWikiKb')}
-                      </div>
+                      <EmptyState
+                        title={t('library.wiki.kbSelector.noWikiKb')}
+                        size="sm"
+                      />
                     ) : (
                       kbs.map((kb) => (
                         <button

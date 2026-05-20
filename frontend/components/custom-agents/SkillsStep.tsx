@@ -9,6 +9,7 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import type { CustomAgentOptions, CustomAgentSkillsConfig } from './types';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 export function SkillsStep({
   value,
@@ -66,9 +67,11 @@ export function SkillsStep({
       </div>
 
       {options.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500">
-          后端 SkillRegistry 为空（启动时未加载到 skill）。请先重启 backend。
-        </p>
+        <EmptyState
+          title="后端 SkillRegistry 为空"
+          description="启动时未加载到 skill，请先重启 backend。"
+          size="sm"
+        />
       ) : (
         <div className="max-h-[420px] overflow-y-auto rounded border border-gray-200">
           {grouped.map(([domain, skills]) => (

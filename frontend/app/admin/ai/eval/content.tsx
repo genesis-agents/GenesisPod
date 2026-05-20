@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
 import { apiClient } from '@/lib/api/client';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -570,12 +571,12 @@ export default function EvalDashboardPageContent({
 
       {/* Empty */}
       {!loading && traces.length === 0 && !error && (
-        <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center">
-          <BarChart3 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-sm text-gray-500">
-            No traces found. Run some AI tasks first.
-          </p>
-        </div>
+        <EmptyState
+          icon={<BarChart3 className="h-12 w-12" />}
+          title="No traces found"
+          description="Run some AI tasks first."
+          size="md"
+        />
       )}
 
       {/* Trace list */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Check, RefreshCw, Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type {
   ArtifactCitation,
   ArtifactSection,
@@ -378,7 +379,7 @@ export function ChapterReader({
   }, [reverseHighlight]);
 
   if (sections.length === 0) {
-    return <p className="text-sm text-gray-500">报告暂无可视章节</p>;
+    return <EmptyState title="报告暂无可视章节" size="sm" />;
   }
 
   // ─── Selected: 全屏阅读单章（TI 风格） ───────────────────────

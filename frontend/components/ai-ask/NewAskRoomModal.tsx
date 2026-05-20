@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Loader2, Users } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Modal } from '@/components/ui/dialogs/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, type AIModel } from '@/hooks/features/useAIModels';
@@ -255,9 +256,7 @@ export default function NewAskRoomModal({ open, onClose }: Props) {
               <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
             </div>
           ) : chatLikeModels.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-4 text-sm text-amber-700">
-              {t('askRoom.newRoom.noModels')}
-            </div>
+            <EmptyState title={t('askRoom.newRoom.noModels')} size="sm" />
           ) : (
             <div className="max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50/50 p-3">
               <div className="grid grid-cols-2 gap-2">

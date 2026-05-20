@@ -22,6 +22,7 @@ import type {
 } from '@/services/ai-social/task-types';
 import { SourceItemPicker } from './SourceItemPicker';
 import { Modal } from '@/components/ui/dialogs/Modal';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 const MAX_TOTAL_ITEMS = 20;
 const MAX_EXTERNAL_URLS = 3;
@@ -291,22 +292,20 @@ export function NewTaskDialog({
               </button>
             </div>
           ) : sources.length === 0 ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <div className="mb-1 font-medium">暂无可用数据源</div>
-              <div className="mb-2 text-xs text-amber-700">
-                后端 SocialDataSourceRegistry 未发现任何已注册 provider。
-                可能原因：后端最新构建尚未部署完成 / DiscoveryService 时机问题。
-                请稍候 1-2 分钟刷新重试，或检查浏览器 Console 中的
-                [useSocialDataSources] 日志。
-              </div>
-              <button
-                type="button"
-                onClick={() => refreshSources()}
-                className="rounded-md bg-amber-600 px-2 py-1 text-xs text-white hover:bg-amber-700"
-              >
-                立即重试
-              </button>
-            </div>
+            <EmptyState
+              title="暂无可用数据源"
+              description="后端 SocialDataSourceRegistry 未发现任何已注册 provider。请稍候 1-2 分钟刷新重试，或检查浏览器 Console 中的 [useSocialDataSources] 日志。"
+              size="sm"
+              action={
+                <button
+                  type="button"
+                  onClick={() => refreshSources()}
+                  className="rounded-md bg-amber-600 px-2 py-1 text-xs text-white hover:bg-amber-700"
+                >
+                  立即重试
+                </button>
+              }
+            />
           ) : (
             <ul className="space-y-2 rounded-xl border border-gray-200 p-1">
               {sources.map((source) => {

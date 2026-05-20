@@ -1,6 +1,7 @@
 'use client';
 
 import { Gavel, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type { VerifierVerdict } from '@/lib/features/agent-playground/derive';
 import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
@@ -75,10 +76,12 @@ export function VerifyConsensusPanel({
       </div>
 
       {current.length === 0 ? (
-        <p className="rounded-lg bg-gray-50 px-3 py-3 text-[12px] text-gray-500">
-          等待评审 · 3 个 Judge（self + external +
-          critical）共识结果会显示在这里
-        </p>
+        <EmptyState
+          icon={<Gavel className="h-8 w-8" />}
+          title="等待评审"
+          description="3 个 Judge（self + external + critical）共识结果会显示在这里"
+          size="sm"
+        />
       ) : (
         <div className="space-y-3">
           {current.map((v) => {

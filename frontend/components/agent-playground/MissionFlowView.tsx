@@ -31,6 +31,7 @@ import {
   PiggyBank,
   type LucideIcon,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { cn } from '@/lib/utils/common';
 import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 import {
@@ -494,9 +495,11 @@ export function MissionFlowView({ view, events, stepperStages }: Props) {
         }
       >
         {flow.length === 0 ? (
-          <p className="px-4 py-6 text-center text-[12px] text-gray-500">
-            等待 Mission 启动 · 事件流入后会显示在这里
-          </p>
+          <EmptyState
+            title="等待 Mission 启动"
+            description="事件流入后会显示在这里"
+            size="sm"
+          />
         ) : (
           <ol className="relative space-y-0 p-3 pl-9">
             <span

@@ -15,6 +15,7 @@ import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 // ============================
 // Types
@@ -324,9 +325,7 @@ export default function KernelSecurityPageContent({
             Loading processes...
           </div>
         ) : processes.length === 0 ? (
-          <div className="p-8 text-center text-sm text-gray-400">
-            No active processes found
-          </div>
+          <EmptyState title="No active processes found" size="sm" />
         ) : (
           <div className="divide-y">
             {processes.map((proc) => (

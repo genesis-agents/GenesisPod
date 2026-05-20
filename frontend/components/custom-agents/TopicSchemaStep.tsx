@@ -8,6 +8,7 @@
  */
 import { Plus, Trash2 } from 'lucide-react';
 import type { CustomAgentTopicSchema } from './types';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 export function TopicSchemaStep({
   value,
@@ -69,9 +70,11 @@ export function TopicSchemaStep({
           </button>
         </div>
         {dims.length === 0 ? (
-          <p className="rounded border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500">
-            尚未配置维度。至少 1 个维度才能 publish。
-          </p>
+          <EmptyState
+            title="尚未配置维度"
+            description="至少 1 个维度才能 publish。"
+            size="sm"
+          />
         ) : (
           <div className="space-y-2">
             {dims.map((d, idx) => (

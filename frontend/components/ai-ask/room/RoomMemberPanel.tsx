@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Check, Crown, Loader2, Plus, Trash2, Users } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useAIModels, type AIModel } from '@/hooks/features/useAIModels';
 import { useTranslation } from '@/lib/i18n';
 import type {
@@ -170,9 +171,7 @@ export function RoomMemberPanel({
                   <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                 </div>
               ) : chatLikeModels.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-xs text-amber-700">
-                  {t('askRoom.member.noModels')}
-                </div>
+                <EmptyState title={t('askRoom.member.noModels')} size="sm" />
               ) : (
                 <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2">
                   {chatLikeModels.map((m) => {

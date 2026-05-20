@@ -8,6 +8,7 @@
  * 自定义 pipeline 再让本 step 真正生效。
  */
 import { Plus, Trash2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type {
   CustomAgentOptions,
   CustomAgentPipelineConfig,
@@ -81,9 +82,7 @@ export function PipelineStep({
       </div>
 
       {steps.length === 0 ? (
-        <p className="rounded border border-dashed border-gray-300 p-4 text-center text-xs text-gray-500">
-          至少配置 1 个 step 才能 publish。
-        </p>
+        <EmptyState title="至少配置 1 个 step 才能 publish。" size="sm" />
       ) : (
         <div className="space-y-2">
           {steps.map((s, idx) => (

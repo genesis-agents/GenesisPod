@@ -7,6 +7,7 @@ import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import AppShell from '@/components/layout/AppShell';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import PDFThumbnail from '@/components/ui/viewers/PDFThumbnail';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -2625,12 +2626,11 @@ function HomeContent() {
 
               {/* Empty State */}
               {!loading && resources.length === 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white py-20 text-center">
-                  <p className="mb-2 text-gray-500">No content available</p>
-                  <p className="text-sm text-gray-400">
-                    Try running the data crawler first
-                  </p>
-                </div>
+                <EmptyState
+                  title="No content available"
+                  description="Try running the data crawler first"
+                  size="md"
+                />
               )}
             </>
           )}

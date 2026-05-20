@@ -35,6 +35,7 @@ import {
   FileText,
   PartyPopper,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { QuickViewReport } from '../reports/QuickViewReport';
 import { ClientDate } from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n';
@@ -5805,17 +5806,12 @@ function EvidenceTabContent({
 
   if (safeEvidence.length === 0) {
     return (
-      <div className="flex h-full min-h-[400px] flex-col items-center justify-center px-8">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-          <LinkIcon className="h-10 w-10 text-gray-400" />
-        </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">
-          {t('topicResearch.contentPanel.noEvidence')}
-        </h3>
-        <p className="mt-2 max-w-sm text-center text-sm text-gray-500">
-          {t('topicResearch.contentPanel.noEvidenceHint')}
-        </p>
-      </div>
+      <EmptyState
+        icon={<Link2 className="h-12 w-12" />}
+        title={t('topicResearch.contentPanel.noEvidence')}
+        description={t('topicResearch.contentPanel.noEvidenceHint')}
+        size="md"
+      />
     );
   }
 

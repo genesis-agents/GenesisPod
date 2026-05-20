@@ -18,6 +18,7 @@ import {
   AlertCircle,
   ChevronDown,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type {
   AgentLiveState,
   AgentRole,
@@ -392,15 +393,19 @@ function AgentCard({ agent }: { agent: AgentLiveState }) {
       </div>
 
       {agent.trace.length === 0 ? (
-        <p className="rounded-lg bg-gray-50 px-3 py-2 text-[11px] text-gray-400">
-          {agent.phase === 'pending'
-            ? '等待启动…'
-            : agent.phase === 'completed'
-              ? '✓ 已完成（执行轨迹已从内存释放）'
-              : agent.phase === 'failed'
-                ? '✗ 已失败（执行轨迹已从内存释放）'
-                : '执行中（暂无 trace 事件）…'}
-        </p>
+        <EmptyState
+          icon={<Loader2 className="h-8 w-8 animate-spin" />}
+          title={
+            agent.phase === 'pending'
+              ? '等待启动…'
+              : agent.phase === 'completed'
+                ? '已完成（执行轨迹已从内存释放）'
+                : agent.phase === 'failed'
+                  ? '已失败（执行轨迹已从内存释放）'
+                  : '执行中（暂无 trace 事件）…'
+          }
+          size="sm"
+        />
       ) : (
         <>
           <ul className="space-y-1.5">
@@ -429,13 +434,12 @@ function AgentCard({ agent }: { agent: AgentLiveState }) {
 export function AgentLiveGrid({ agents }: { agents: AgentLiveState[] }) {
   if (agents.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-10 text-center">
-        <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-gray-400" />
-        <p className="text-sm font-medium text-gray-700">等待 Agent 启动</p>
-        <p className="mt-1 text-xs text-gray-500">
-          Leader 拆分维度后，并行 Researcher 会出现在这里
-        </p>
-      </div>
+      <EmptyState
+        icon={<Loader2 className="h-12 w-12 animate-spin" />}
+        title="等待 Agent 启动"
+        description="Leader 拆分维度后，并行 Researcher 会出现在这里"
+        size="md"
+      />
     );
   }
   return (
