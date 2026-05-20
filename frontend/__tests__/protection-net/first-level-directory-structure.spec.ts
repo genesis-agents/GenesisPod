@@ -80,27 +80,34 @@ function findRevivedForbidden(dirs: string[]): string[] {
 describe('frontend 第一层目录结构看护 — 白盒（真实文件系统）', () => {
   it('不存在未授权的第一层目录', () => {
     const unexpected = findUnexpected(listFirstLevelDirs());
-    expect(
-      unexpected,
-      `发现未授权的第一层目录：[${unexpected.join(', ')}]\n` +
-        `→ 若为合法新增：先在 .claude/standards/02-directory-structure.md 白名单 + 本测试 ALLOWED_DIRS 登记，再建目录。\n` +
-        `→ 若误建：把内容移动到对应的核心七层目录后删除空目录。`
-    ).toEqual([]);
+    if (unexpected.length > 0) {
+      throw new Error(
+        `发现未授权的第一层目录：[${unexpected.join(', ')}]\n` +
+          `→ 若为合法新增：先在 .claude/standards/02-directory-structure.md 白名单 + 本测试 ALLOWED_DIRS 登记，再建目录。\n` +
+          `→ 若误建：把内容移动到对应的核心七层目录后删除空目录。`
+      );
+    }
+    expect(unexpected).toEqual([]);
   });
 
   it('已废弃目录不得复活（types/ 已并入 lib/types/，pages/ 已删）', () => {
     const revived = findRevivedForbidden(listFirstLevelDirs());
-    expect(
-      revived,
-      `检测到已废弃的第一层目录复活：[${revived.join(', ')}]\n` +
-        `→ types/：全局类型归 lib/types/；pages/：纯 App Router，路由归 app/。`
-    ).toEqual([]);
+    if (revived.length > 0) {
+      throw new Error(
+        `检测到已废弃的第一层目录复活：[${revived.join(', ')}]\n` +
+          `→ types/：全局类型归 lib/types/；pages/：纯 App Router，路由归 app/。`
+      );
+    }
+    expect(revived).toEqual([]);
   });
 
   it('核心七层目录齐全', () => {
     const dirs = new Set(listFirstLevelDirs());
     const missing = SEVEN_LAYERS.filter((d) => !dirs.has(d));
-    expect(missing, `缺失核心七层目录：[${missing.join(', ')}]`).toEqual([]);
+    if (missing.length > 0) {
+      throw new Error(`缺失核心七层目录：[${missing.join(', ')}]`);
+    }
+    expect(missing).toEqual([]);
   });
 });
 
