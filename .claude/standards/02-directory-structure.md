@@ -134,72 +134,71 @@ modules/integrations/
 
 ## Frontend 目录结构 (Next.js)
 
-### lib 工具库架构
+> **2026-05-20 重写**：旧版规范与实际代码严重背离（规范定 `shared/` 实践走 `common/`、
+> 列了不存在的 `ai-studio`、未定义最大的 `common/` 与 `services/`）。本版以既成事实
+> 为准重新定义边界，作为整改与新代码的唯一权威。
 
-前端 lib 目录采用**按领域分组**的结构：
+### 七大顶层目录职责（必须严格遵守）
 
-```
-frontend/lib/
-├── api/                               <- API 客户端
-│   ├── client.ts                      <- 通用 HTTP 客户端
-│   ├── ai-teams.ts                    <- AI Teams API
-│   ├── workspace.ts                   <- Workspace API
-│   ├── data-collection.ts             <- 数据采集 API
-│   └── index.ts                       <- 统一导出
-│
-├── ai-office/                         <- AI Office 业务逻辑
-│   ├── agents/                        <- Agent 定义
-│   ├── multi-agents/                  <- 多 Agent 协作
-│   ├── context-builder.ts             <- 上下文构建
-│   ├── markdown-parser.ts             <- Markdown 解析
-│   ├── ppt-templates.ts               <- PPT 模板
-│   └── ppt-utils.ts                   <- PPT 工具
-│
-├── ai-simulation/                     <- AI Simulation 业务逻辑
-├── explore/                           <- 探索功能
-├── templates/                         <- 模板定义
-├── cache/                             <- 缓存工具
-│
-└── utils/                             <- 通用工具函数
-    ├── auth.ts                        <- 认证工具
-    ├── config.ts                      <- 配置管理
-    ├── common.ts                      <- 通用函数
-    ├── feature-check.ts               <- 功能检测
-    ├── pdf-thumbnail.ts               <- PDF 缩略图
-    ├── performance.ts                 <- 性能监控
-    └── document-export.service.ts     <- 文档导出
-```
+| 目录                    | 职责                                                                              | 禁止                                         |
+| ----------------------- | --------------------------------------------------------------------------------- | -------------------------------------------- |
+| `components/ui/`        | 无业务 UI primitive（Button/Dialog/Card/动画/states），可在任何项目复用           | 含任何 feature 业务逻辑 / API 调用           |
+| `components/common/`    | **跨 feature 复用**的业务组件（asset-card/citations/mission-detail/selectors 等） | 单 feature 专属组件                          |
+| `components/{feature}/` | 单 feature 专属组件（`ai-social`/`ai-radar`/`admin`/`explore`/`library`...）      | 被其他 feature import（要复用就上提 common） |
+| `components/layout/`    | 全局布局（AppShell/Sidebar/MobileNav）                                            | feature 局部布局                             |
+| `lib/`                  | **纯逻辑**：无 React、无 HTTP。derive/transform/parse/格式化/常量/类型            | `fetch`/`axios`/任何网络调用、React hook     |
+| `services/`             | **所有 API 调用**：HTTP 客户端 + SSE 流 + 各 feature 的 API service               | 纯逻辑（放 lib）、React hook（放 hooks）     |
+| `hooks/`                | React hooks（`core` 通用 / `domain` 业务 / `swr` 数据 / `features` 复合）         | 非 hook 的纯函数（放 lib）                   |
+| `contexts/`             | React Context（全局跨树状态，如 AuthContext）                                     | 能用 props/Zustand 解决的局部状态            |
+| `stores/`               | Zustand 全局 store                                                                | 单组件本地 state                             |
 
-### Components 组织
+### lib vs services 边界（最易混淆，必读）
 
 ```
-frontend/components/
-├── ui/                                <- UI 基础组件 (shadcn)
-├── ai-office/                         <- AI Office 组件
-├── ai-teams/                          <- AI Teams 组件
-├── ai-simulation/                     <- AI Simulation 组件
-├── ai-studio/                         <- AI Studio 组件
-├── explore/                           <- 探索组件
-├── layout/                            <- 布局组件
-└── shared/                            <- 共享组件
+判断："这段代码发网络请求吗？"
+  发 → services/{feature}/*.ts        （HTTP/SSE，如 ai-social/task-api.ts）
+  不发 → "它依赖 React 吗？"
+          依赖 → hooks/                （useXxx）
+          不依赖 → lib/{feature}/*.ts  （纯逻辑，如 ai-social/derive-social-stages.ts）
+
+通用层：
+  lib/api/      → 通用 HTTP 客户端 + SSE 基建（被 services 复用）
+  lib/utils/    → 跨 feature 纯工具（auth/config/common/格式化）
+  lib/constants/ lib/types/ → 全局常量 / 类型
+```
+
+> **反模式**：`lib/{feature}/` 和 `services/{feature}/` 同时存在且职责混乱（同 feature 逻辑横跨两处）。
+> 正确：feature 的 API 全进 `services/{feature}/`，纯逻辑全进 `lib/{feature}/`，不交叉。
+
+### components 三层判断
+
+```
+新组件该放哪？
+  1. 无任何业务、纯展示 primitive？        → components/ui/
+  2. 多个 feature 都会用的业务组件？        → components/common/{concern}/
+  3. 只有一个 feature 用？                  → components/{feature}/
+  4. 全局布局骨架？                         → components/layout/
+
+复用升级路径：feature 专属组件被第 2 个 feature 需要时，
+立即上提 components/common/，不允许复制粘贴第二份。
 ```
 
 ### App Router 结构
 
 ```
 frontend/app/
-├── page.tsx                           <- 首页
-├── layout.tsx                         <- 根布局
-├── api/                               <- API Routes (BFF 代理)
-├── ai-office/                         <- AI Office 页面
-├── ai-teams/                          <- AI Teams 页面
-├── ai-simulation/                     <- AI Simulation 页面
-├── ai-studio/                         <- AI Studio 页面
-├── explore/                           <- 探索页面
-├── ask/                               <- AI 问答
-├── library/                           <- 我的收藏
-└── auth/                              <- 认证页面
+├── page.tsx           <- 首页
+├── layout.tsx         <- 根布局
+├── api/               <- API Routes (BFF 代理 / rewrite 见 next.config.js)
+├── {feature}/         <- 每个 feature 一个路由段（ai-social/ai-radar/...）
+│   ├── layout.tsx     <- feature 级 layout（包 AppShell）
+│   └── {sub}/page.tsx <- 子路由
+└── auth/              <- 认证页面
 ```
+
+> **page.tsx 规范**：page 只做路由 + 取参 + 渲染顶层组件，业务逻辑放
+> `components/{feature}/XxxPage.tsx`。feature 级 `layout.tsx` 统一包 `AppShell`，
+> 子页面不重复包（见 ai-social/ai-radar layout 模式）。
 
 ---
 
