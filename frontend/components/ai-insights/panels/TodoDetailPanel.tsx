@@ -28,6 +28,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { Button } from '@/components/ui/primitives/button';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   getTodoDetails,
   getTaskActivities,
@@ -1370,10 +1371,11 @@ export function TodoDetailPanel({
 
         {/* Empty state for activities */}
         {activities.length === 0 && (
-          <div className="py-6 text-center text-muted-foreground">
-            <Brain className="mx-auto mb-2 h-8 w-8 opacity-50" />
-            <p className="text-sm">暂无 Agent 活动记录</p>
-          </div>
+          <EmptyState
+            size="sm"
+            icon={<Brain className="h-8 w-8 opacity-50" />}
+            title="暂无 Agent 活动记录"
+          />
         )}
       </div>
     </div>

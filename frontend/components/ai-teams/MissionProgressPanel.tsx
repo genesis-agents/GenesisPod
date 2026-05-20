@@ -7,7 +7,9 @@ import {
   MissionStatus,
   AgentTaskStatus,
 } from '@/lib/types/ai-teams';
+import { Target, Plus } from 'lucide-react';
 import { useAiGroupStore } from '@/stores/ai-teams';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
 import ClientDate from '@/components/common/ClientDate';
 
@@ -355,36 +357,20 @@ export default function MissionProgressPanel({
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {missionsList.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center p-6">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100">
-              <span className="text-4xl">🎯</span>
-            </div>
-            <h4 className="mb-2 text-base font-semibold text-gray-800">
-              开始您的第一个任务
-            </h4>
-            <p className="mb-5 text-center text-sm text-gray-500">
-              创建一个任务让AI团队开始协作工作
-            </p>
-            <button
-              onClick={onCreateMission}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:shadow-xl hover:shadow-indigo-300"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <EmptyState
+            icon={<Target className="h-12 w-12" />}
+            title="开始您的第一个任务"
+            description="创建一个任务让AI团队开始协作工作"
+            action={
+              <button
+                onClick={onCreateMission}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-all hover:shadow-xl hover:shadow-indigo-300"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              创建任务
-            </button>
-          </div>
+                <Plus className="h-4 w-4" />
+                创建任务
+              </button>
+            }
+          />
         ) : (
           <div className="space-y-3 p-3">
             {/* Active Missions */}

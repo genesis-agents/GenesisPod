@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, Play, ChevronLeft } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { CustomAgentWizard } from './CustomAgentWizard';
 import { notifyCustomAgentChanged } from './usePublishedCustomAgents';
 import type { CustomAgentRecord } from './types';
@@ -118,16 +119,13 @@ export function MyAgentsTab() {
           {error}
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-300 p-12 text-center">
-          <p className="mb-3 text-sm text-gray-500">还没有自己的 agent。</p>
-          <button
-            type="button"
-            onClick={() => setView({ mode: 'create' })}
-            className="inline-flex items-center gap-1 rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" /> 创建第一个
-          </button>
-        </div>
+        <EmptyState
+          title="还没有自己的 agent"
+          action={{
+            label: '创建第一个',
+            onClick: () => setView({ mode: 'create' }),
+          }}
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
           <Table className="w-full text-sm">
