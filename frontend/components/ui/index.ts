@@ -5,6 +5,7 @@ export * from './dialogs';
 export * from './collapsible';
 export * from './viewers';
 export * from './badges';
+export * from './progress';
 
 // Relocated UI components (now in categorized subdirs)
 export {

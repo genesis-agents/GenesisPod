@@ -1,6 +1,7 @@
 'use client';
 
 import { Database } from 'lucide-react';
+import { ProgressBar } from '@/components/ui/progress';
 
 interface TableStat {
   table: string;
@@ -83,12 +84,11 @@ export default function StorageDatabaseGrid({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
-                          <div
-                            className="h-full rounded-full bg-emerald-500"
-                            style={{ width: `${Math.min(100, pct)}%` }}
-                          />
-                        </div>
+                        <ProgressBar
+                          value={Math.min(100, pct)}
+                          tone="success"
+                          className="flex-1"
+                        />
                         <span className="w-12 text-right text-xs font-medium text-gray-600">
                           {pct.toFixed(1)}%
                         </span>
