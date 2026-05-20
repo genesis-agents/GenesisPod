@@ -7,10 +7,10 @@ import {
   Plus,
   RefreshCw,
   Sparkles,
-  X as XIcon,
 } from 'lucide-react';
 import type { ReportVersionMeta } from './ArtifactReader';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 
 interface Props {
   open: boolean;
@@ -78,178 +78,152 @@ export function ReportVersionDrawer({
   onSelectVersion,
   onClose,
 }: Props) {
-  if (!open) return null;
-
   return (
-    <>
-      <div
-        className="fixed inset-0 z-40 bg-black/30"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div className="fixed right-0 top-0 z-50 flex h-full w-[420px] max-w-[92vw] flex-col border-l border-gray-200 bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-          <div className="min-w-0">
-            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-              <History className="h-4 w-4 text-violet-600" />
-              版本历史
-            </h3>
-            <p className="mt-0.5 text-[11px] text-gray-500">
-              共 {versions.length} 个版本
-              {currentVersion != null ? ` · 当前显示 v${currentVersion}` : ''}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-            title="关闭"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
-        </div>
+    <SideDrawer open={open} onClose={onClose} title="版本历史" widthPx={420}>
+      {/* Subtitle */}
+      <p className="mb-3 flex items-center gap-1.5 text-[11px] text-gray-500">
+        <History className="h-3.5 w-3.5 text-violet-600" />共 {versions.length}{' '}
+        个版本
+        {currentVersion != null ? ` · 当前显示 v${currentVersion}` : ''}
+      </p>
 
-        {/* Body */}
-        <div className="flex-1 overflow-auto p-4">
-          {versions.length === 0 ? (
-            <EmptyState
-              icon={<Clock className="h-12 w-12" />}
-              title="暂无版本记录"
-              description="Mission 完成后将记录首版报告"
-            />
-          ) : (
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute bottom-0 left-4 top-0 w-0.5 bg-gray-200" />
-              <div className="space-y-4">
-                {versions.map((v) => {
-                  const cfg = TRIGGER_LABELS[v.triggerType] ?? {
-                    label: v.triggerType,
-                    color: 'text-gray-700 bg-gray-50',
-                    icon: RefreshCw,
-                  };
-                  const Icon = cfg.icon;
-                  const isCurrent = v.version === currentVersion;
-                  return (
-                    <label
-                      key={v.version}
-                      className={`relative flex cursor-pointer gap-3 pl-10 transition-colors ${
-                        isCurrent
-                          ? '-mx-4 rounded-lg bg-violet-50/60 px-4 py-2'
-                          : 'hover:-mx-4 hover:rounded-lg hover:bg-gray-50 hover:px-4 hover:py-2'
-                      } ${versionSwitching ? 'pointer-events-none opacity-60' : ''}`}
-                    >
-                      {/* Timeline dot */}
-                      <div
-                        className={`absolute left-2 flex h-5 w-5 items-center justify-center rounded-full ${
-                          isCurrent
-                            ? 'bg-violet-600 ring-4 ring-violet-100'
-                            : 'border-2 border-gray-300 bg-white'
-                        }`}
-                      >
-                        {isCurrent && (
-                          <div className="h-2 w-2 rounded-full bg-white" />
-                        )}
-                      </div>
+      {/* Body */}
+      {versions.length === 0 ? (
+        <EmptyState
+          icon={<Clock className="h-12 w-12" />}
+          title="暂无版本记录"
+          description="Mission 完成后将记录首版报告"
+        />
+      ) : (
+        <div className="relative">
+          {/* Timeline line */}
+          <div className="absolute bottom-0 left-4 top-0 w-0.5 bg-gray-200" />
+          <div className="space-y-4">
+            {versions.map((v) => {
+              const cfg = TRIGGER_LABELS[v.triggerType] ?? {
+                label: v.triggerType,
+                color: 'text-gray-700 bg-gray-50',
+                icon: RefreshCw,
+              };
+              const Icon = cfg.icon;
+              const isCurrent = v.version === currentVersion;
+              return (
+                <label
+                  key={v.version}
+                  className={`relative flex cursor-pointer gap-3 pl-10 transition-colors ${
+                    isCurrent
+                      ? '-mx-4 rounded-lg bg-violet-50/60 px-4 py-2'
+                      : 'hover:-mx-4 hover:rounded-lg hover:bg-gray-50 hover:px-4 hover:py-2'
+                  } ${versionSwitching ? 'pointer-events-none opacity-60' : ''}`}
+                >
+                  {/* Timeline dot */}
+                  <div
+                    className={`absolute left-2 flex h-5 w-5 items-center justify-center rounded-full ${
+                      isCurrent
+                        ? 'bg-violet-600 ring-4 ring-violet-100'
+                        : 'border-2 border-gray-300 bg-white'
+                    }`}
+                  >
+                    {isCurrent && (
+                      <div className="h-2 w-2 rounded-full bg-white" />
+                    )}
+                  </div>
 
-                      {/* Content */}
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            {/* Version + trigger type + signed badge */}
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="font-mono text-sm font-bold text-gray-900">
-                                v{v.version}
-                              </span>
-                              <span
-                                className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10.5px] font-medium ${cfg.color}`}
-                              >
-                                <Icon className="h-2.5 w-2.5" />
-                                {cfg.label}
-                              </span>
-                              {isCurrent && (
-                                <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10.5px] font-medium text-violet-700">
-                                  当前
-                                </span>
-                              )}
-                              {v.leaderSigned === true && (
-                                <span
-                                  className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700"
-                                  title="Leader 签字"
-                                >
-                                  已签
-                                </span>
-                              )}
-                              {v.leaderSigned === false && (
-                                <span
-                                  className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700"
-                                  title="未签字"
-                                >
-                                  未签
-                                </span>
-                              )}
-                            </div>
+                        {/* Version + trigger type + signed badge */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono text-sm font-bold text-gray-900">
+                            v{v.version}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10.5px] font-medium ${cfg.color}`}
+                          >
+                            <Icon className="h-2.5 w-2.5" />
+                            {cfg.label}
+                          </span>
+                          {isCurrent && (
+                            <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10.5px] font-medium text-violet-700">
+                              当前
+                            </span>
+                          )}
+                          {v.leaderSigned === true && (
+                            <span
+                              className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700"
+                              title="Leader 签字"
+                            >
+                              已签
+                            </span>
+                          )}
+                          {v.leaderSigned === false && (
+                            <span
+                              className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700"
+                              title="未签字"
+                            >
+                              未签
+                            </span>
+                          )}
+                        </div>
 
-                            {/* Label / meta */}
-                            {v.versionLabel && (
-                              <p className="mt-1 line-clamp-2 text-xs text-gray-600">
-                                {v.versionLabel}
-                              </p>
-                            )}
+                        {/* Label / meta */}
+                        {v.versionLabel && (
+                          <p className="mt-1 line-clamp-2 text-xs text-gray-600">
+                            {v.versionLabel}
+                          </p>
+                        )}
 
-                            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10.5px] text-gray-500">
-                              <span>{formatDateTime(v.generatedAt)}</span>
-                              {v.finalScore != null && (
-                                <span
-                                  className={
-                                    v.finalScore >= 80
-                                      ? 'font-medium text-emerald-600'
-                                      : v.finalScore >= 65
-                                        ? 'font-medium text-amber-600'
-                                        : 'font-medium text-red-600'
-                                  }
-                                >
-                                  {v.finalScore} 分
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Radio */}
-                          <input
-                            type="radio"
-                            name="report-version"
-                            checked={isCurrent}
-                            disabled={versionSwitching}
-                            onChange={() => {
-                              if (!isCurrent) onSelectVersion(v.version);
-                            }}
-                            className="mt-0.5 h-4 w-4 cursor-pointer text-violet-600 focus:ring-violet-500"
-                          />
+                        <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10.5px] text-gray-500">
+                          <span>{formatDateTime(v.generatedAt)}</span>
+                          {v.finalScore != null && (
+                            <span
+                              className={
+                                v.finalScore >= 80
+                                  ? 'font-medium text-emerald-600'
+                                  : v.finalScore >= 65
+                                    ? 'font-medium text-amber-600'
+                                    : 'font-medium text-red-600'
+                              }
+                            >
+                              {v.finalScore} 分
+                            </span>
+                          )}
                         </div>
                       </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
 
-        {/* Footer hint */}
-        {versions.length === 1 && (
-          <div className="border-t border-gray-200 px-4 py-3 text-[11px] text-gray-500">
-            首次生成版本，rerun 任意章节 / 全量后将出现新版本
+                      {/* Radio */}
+                      <input
+                        type="radio"
+                        name="report-version"
+                        checked={isCurrent}
+                        disabled={versionSwitching}
+                        onChange={() => {
+                          if (!isCurrent) onSelectVersion(v.version);
+                        }}
+                        className="mt-0.5 h-4 w-4 cursor-pointer text-violet-600 focus:ring-violet-500"
+                      />
+                    </div>
+                  </div>
+                </label>
+              );
+            })}
           </div>
-        )}
-        {versionSwitching && (
-          <div className="border-t border-gray-200 px-4 py-3 text-[11px] text-violet-600">
-            <RefreshCw className="mr-1 inline h-3 w-3 animate-spin" />
-            正在加载版本内容…
-          </div>
-        )}
-      </div>
-    </>
+        </div>
+      )}
+
+      {/* Footer hints */}
+      {versions.length === 1 && (
+        <p className="mt-4 border-t border-gray-200 pt-3 text-[11px] text-gray-500">
+          首次生成版本，rerun 任意章节 / 全量后将出现新版本
+        </p>
+      )}
+      {versionSwitching && (
+        <p className="mt-4 border-t border-gray-200 pt-3 text-[11px] text-violet-600">
+          <RefreshCw className="mr-1 inline h-3 w-3 animate-spin" />
+          正在加载版本内容…
+        </p>
+      )}
+    </SideDrawer>
   );
 }

@@ -9,7 +9,6 @@
  */
 
 import {
-  X as XIcon,
   Search,
   Brain,
   PenLine,
@@ -22,6 +21,7 @@ import {
   Inbox,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import type {
   AgentLiveState,
   DimensionPipelineState,
@@ -177,8 +177,6 @@ export function TeamMissionModal({
   pipelines,
   onAgentClick,
 }: Props) {
-  if (!open) return null;
-
   // 总体统计
   const totalDims = dimensions.length;
   const completedDims = dimensions.filter((d) => {
@@ -189,180 +187,152 @@ export function TeamMissionModal({
   }).length;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="研究团队 · Micro Pipeline"
+      subtitle={`${totalDims} 个维度 · ${completedDims} 已完成 · 每维度跑 6-stage 微团队（采集 → 大纲 → 撰写 → 审核 → 整合 → 评分）`}
+      size="xl"
     >
-      <div
-        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-sky-500 to-blue-600 px-5 py-3 text-white">
-          <div>
-            <p className="text-sm font-semibold">研究团队 · Micro Pipeline</p>
-            <p className="text-[11px] text-white/80">
-              {totalDims} 个维度 · {completedDims} 已完成 · 每维度跑 6-stage
-              微团队（采集 → 大纲 → 撰写 → 审核 → 整合 → 评分）
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-white/90 transition-colors hover:bg-white/20"
-            title="关闭"
-          >
-            <XIcon className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Body — 每维度一行 */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {dimensions.length === 0 ? (
-            <EmptyState
-              icon={<Inbox className="h-12 w-12" />}
-              title="Leader 还没拆分维度，等待规划阶段完成…"
-            />
-          ) : (
-            <ul className="space-y-3">
-              {dimensions.map((d, dIdx) => {
-                const agent = agents.find(
-                  (x) => x.role === 'researcher' && x.dimension === d.name
-                );
-                const pipeline = pipelines.get(d.name);
-                const taskKey = `researcher-${d.id ?? d.name}`;
-                return (
-                  <li
-                    key={d.id ?? d.name}
-                    className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+      {/* Body — 每维度一行 */}
+      {dimensions.length === 0 ? (
+        <EmptyState
+          icon={<Inbox className="h-12 w-12" />}
+          title="Leader 还没拆分维度，等待规划阶段完成…"
+        />
+      ) : (
+        <ul className="space-y-3">
+          {dimensions.map((d, dIdx) => {
+            const agent = agents.find(
+              (x) => x.role === 'researcher' && x.dimension === d.name
+            );
+            const pipeline = pipelines.get(d.name);
+            const taskKey = `researcher-${d.id ?? d.name}`;
+            return (
+              <li
+                key={d.id ?? d.name}
+                className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+              >
+                {/* 维度标题 + 总评分 */}
+                <div className="mb-3 flex items-baseline justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onAgentClick?.(taskKey)}
+                    className="flex items-baseline gap-2 text-left hover:text-sky-700"
                   >
-                    {/* 维度标题 + 总评分 */}
-                    <div className="mb-3 flex items-baseline justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onAgentClick?.(taskKey)}
-                        className="flex items-baseline gap-2 text-left hover:text-sky-700"
+                    <span className="font-mono text-[11px] text-gray-400">
+                      维度 {dIdx + 1}
+                    </span>
+                    <span className="text-sm font-semibold text-gray-900 group-hover:underline">
+                      {d.name}
+                    </span>
+                  </button>
+                  {pipeline?.grade && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        pipeline.grade.grade === 'excellent'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : pipeline.grade.grade === 'good'
+                            ? 'bg-blue-50 text-blue-700'
+                            : pipeline.grade.grade === 'fair'
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-red-50 text-red-700'
+                      }`}
+                    >
+                      {pipeline.grade.overall}/100 ·{' '}
+                      {pipeline.grade.grade === 'excellent'
+                        ? '优秀'
+                        : pipeline.grade.grade === 'good'
+                          ? '良好'
+                          : pipeline.grade.grade === 'fair'
+                            ? '一般'
+                            : '不及格'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Micro pipeline 6 个 stage */}
+                <div className="flex items-center gap-1 overflow-x-auto">
+                  {SUB_STAGES.map((s, si) => {
+                    const status = deriveSubStageStatus(s.key, agent, pipeline);
+                    const Icon = s.Icon;
+                    return (
+                      <div
+                        key={s.key}
+                        className="flex shrink-0 items-center gap-1"
                       >
-                        <span className="font-mono text-[11px] text-gray-400">
-                          维度 {dIdx + 1}
-                        </span>
-                        <span className="text-sm font-semibold text-gray-900 group-hover:underline">
-                          {d.name}
-                        </span>
-                      </button>
-                      {pipeline?.grade && (
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                            pipeline.grade.grade === 'excellent'
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : pipeline.grade.grade === 'good'
-                                ? 'bg-blue-50 text-blue-700'
-                                : pipeline.grade.grade === 'fair'
-                                  ? 'bg-amber-50 text-amber-700'
-                                  : 'bg-red-50 text-red-700'
+                        <button
+                          type="button"
+                          onClick={() => onAgentClick?.(taskKey)}
+                          className={`flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 ring-1 transition-all ${
+                            status === 'idle'
+                              ? 'bg-gray-50 text-gray-400 ring-gray-200'
+                              : TONE[s.tone]
                           }`}
+                          title={`${s.label} · ${status === 'done' ? '已完成' : status === 'running' ? '进行中' : status === 'failed' ? '失败' : '待启动'}`}
                         >
-                          {pipeline.grade.overall}/100 ·{' '}
-                          {pipeline.grade.grade === 'excellent'
-                            ? '优秀'
-                            : pipeline.grade.grade === 'good'
-                              ? '良好'
-                              : pipeline.grade.grade === 'fair'
-                                ? '一般'
-                                : '不及格'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Micro pipeline 6 个 stage */}
-                    <div className="flex items-center gap-1 overflow-x-auto">
-                      {SUB_STAGES.map((s, si) => {
-                        const status = deriveSubStageStatus(
-                          s.key,
-                          agent,
-                          pipeline
-                        );
-                        const Icon = s.Icon;
-                        return (
-                          <div
-                            key={s.key}
-                            className="flex shrink-0 items-center gap-1"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => onAgentClick?.(taskKey)}
-                              className={`flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 ring-1 transition-all ${
-                                status === 'idle'
-                                  ? 'bg-gray-50 text-gray-400 ring-gray-200'
-                                  : TONE[s.tone]
-                              }`}
-                              title={`${s.label} · ${status === 'done' ? '已完成' : status === 'running' ? '进行中' : status === 'failed' ? '失败' : '待启动'}`}
-                            >
-                              <Icon className="h-3.5 w-3.5" />
-                              <span className="flex items-center gap-1 text-[10px] font-medium">
-                                {s.label}
-                                <StatusDot status={status} />
-                              </span>
-                            </button>
-                            {si < SUB_STAGES.length - 1 && (
-                              <span className="font-mono text-[10px] text-gray-300">
-                                →
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* 章节进度条（如有） */}
-                    {pipeline && pipeline.chapters.length > 0 && (
-                      <div className="mt-2.5">
-                        <div className="mb-0.5 flex items-baseline justify-between text-[10px]">
-                          <span className="text-gray-500">章节进度</span>
-                          <span className="font-mono text-gray-600">
-                            {
-                              pipeline.chapters.filter(
-                                (c) =>
-                                  c.status === 'passed' || c.status === 'done'
-                              ).length
-                            }{' '}
-                            / {pipeline.chapters.length}
-                            {pipeline.totalWordCount
-                              ? ` · ${pipeline.totalWordCount} 字`
-                              : ''}
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="flex items-center gap-1 text-[10px] font-medium">
+                            {s.label}
+                            <StatusDot status={status} />
                           </span>
-                        </div>
-                        <div className="flex gap-0.5">
-                          {pipeline.chapters.map((c) => (
-                            <div
-                              key={c.index}
-                              title={`第 ${c.index} 章 · ${c.heading}${c.score != null ? ` (${c.score}分)` : ''}`}
-                              className={`h-1.5 flex-1 rounded ${
-                                c.status === 'passed' || c.status === 'done'
-                                  ? 'bg-emerald-400'
-                                  : c.status === 'writing'
-                                    ? 'animate-pulse bg-blue-400'
-                                    : c.status === 'reviewing'
-                                      ? 'animate-pulse bg-amber-400'
-                                      : c.status === 'revising'
-                                        ? 'animate-pulse bg-orange-400'
-                                        : c.status === 'failed' ||
-                                            c.status === 'failed-finalized'
-                                          ? 'bg-red-400'
-                                          : 'bg-gray-200'
-                              }`}
-                            />
-                          ))}
-                        </div>
+                        </button>
+                        {si < SUB_STAGES.length - 1 && (
+                          <span className="font-mono text-[10px] text-gray-300">
+                            →
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+                    );
+                  })}
+                </div>
+
+                {/* 章节进度条（如有） */}
+                {pipeline && pipeline.chapters.length > 0 && (
+                  <div className="mt-2.5">
+                    <div className="mb-0.5 flex items-baseline justify-between text-[10px]">
+                      <span className="text-gray-500">章节进度</span>
+                      <span className="font-mono text-gray-600">
+                        {
+                          pipeline.chapters.filter(
+                            (c) => c.status === 'passed' || c.status === 'done'
+                          ).length
+                        }{' '}
+                        / {pipeline.chapters.length}
+                        {pipeline.totalWordCount
+                          ? ` · ${pipeline.totalWordCount} 字`
+                          : ''}
+                      </span>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {pipeline.chapters.map((c) => (
+                        <div
+                          key={c.index}
+                          title={`第 ${c.index} 章 · ${c.heading}${c.score != null ? ` (${c.score}分)` : ''}`}
+                          className={`h-1.5 flex-1 rounded ${
+                            c.status === 'passed' || c.status === 'done'
+                              ? 'bg-emerald-400'
+                              : c.status === 'writing'
+                                ? 'animate-pulse bg-blue-400'
+                                : c.status === 'reviewing'
+                                  ? 'animate-pulse bg-amber-400'
+                                  : c.status === 'revising'
+                                    ? 'animate-pulse bg-orange-400'
+                                    : c.status === 'failed' ||
+                                        c.status === 'failed-finalized'
+                                      ? 'bg-red-400'
+                                      : 'bg-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Modal>
   );
 }
