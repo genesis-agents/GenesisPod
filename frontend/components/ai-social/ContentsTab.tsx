@@ -37,7 +37,7 @@ import { AdvancedFilters, AdvancedFilterValues } from './AdvancedFilters';
 import {
   useSocialContentsSWR,
   useSocialConnectionsSWR,
-} from '@/hooks/swr/useSocialSWR';
+} from '@/hooks/domain/useSocialSWR';
 import { toast } from '@/stores';
 import { ContentTableSkeleton } from './skeletons';
 import { useFocusTrap } from '@/hooks/utils/useFocusTrap';
