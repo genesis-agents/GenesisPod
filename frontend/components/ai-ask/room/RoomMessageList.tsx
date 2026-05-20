@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { Table, THead, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Bot, Info, MessageCircle, Sparkles, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -15,6 +16,7 @@ interface RoomMessageListProps {
 }
 
 export function RoomMessageList({ messages, members }: RoomMessageListProps) {
+  const { t } = useTranslation();
   const pending = useAskRoomStore((s) => s.pending);
   const memberById = useMemo(
     () => new Map(members.map((m) => [m.id, m])),
@@ -54,7 +56,11 @@ export function RoomMessageList({ messages, members }: RoomMessageListProps) {
     <div className="flex-1 overflow-y-auto px-6 py-6">
       <div className="flex w-full flex-col gap-5">
         {merged.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            icon={<MessageCircle className="h-12 w-12" />}
+            title={t('askRoom.message.emptyTitle')}
+            description={t('askRoom.message.emptyHint')}
+          />
         ) : (
           merged.map((item) => {
             if (item.kind === 'message' && item.message) {
@@ -83,23 +89,6 @@ export function RoomMessageList({ messages, members }: RoomMessageListProps) {
             return null;
           })
         )}
-      </div>
-    </div>
-  );
-}
-
-function EmptyState() {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 shadow-sm">
-        <MessageCircle className="h-7 w-7" />
-      </div>
-      <div className="text-base font-semibold text-gray-800">
-        {t('askRoom.message.emptyTitle')}
-      </div>
-      <div className="mt-2 max-w-md text-sm text-gray-500">
-        {t('askRoom.message.emptyHint')}
       </div>
     </div>
   );

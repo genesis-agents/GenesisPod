@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   Activity,
   RefreshCw,
@@ -1114,10 +1115,11 @@ export default function MonitoringPageContent({
       {tracesLoading && traces.length === 0 ? (
         <div className="p-8 text-center text-sm text-gray-500">加载中…</div>
       ) : traces.length === 0 ? (
-        <div className="rounded-lg bg-gray-50 p-8 text-center text-sm text-gray-500">
-          <GitBranch className="mx-auto mb-2 h-6 w-6 text-gray-400" />
-          暂无 Agent Trace 数据
-        </div>
+        <EmptyState
+          size="sm"
+          icon={<GitBranch className="h-8 w-8" />}
+          title="暂无 Agent Trace 数据"
+        />
       ) : (
         <div className="rounded-lg bg-white shadow">
           {traces.map((trace) => (

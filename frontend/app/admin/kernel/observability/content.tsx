@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -480,9 +481,7 @@ function MetricsTab({ data, loading }: MetricsTabProps) {
       <div className="space-y-2">
         <SectionHeader title="Recent Errors" />
         {recentErrors.length === 0 ? (
-          <div className="rounded-lg bg-white p-6 text-center text-sm text-gray-400 shadow">
-            No recent errors
-          </div>
+          <EmptyState size="sm" title="No recent errors" />
         ) : (
           <div className="divide-y rounded-lg bg-white shadow">
             {recentErrors.map((err) => (
