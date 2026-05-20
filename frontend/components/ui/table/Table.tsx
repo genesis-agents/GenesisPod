@@ -6,45 +6,46 @@ import { cn } from '@/lib/utils/common';
  * ui/table — 纯展示表格样式原语（标准 22 §2.4 第②层）。
  * 给静态/不交互的表用（markdown 表、对比、用量、可信度等）。
  * 交互型数据网格（排序/分页/搜索）请用 common/tables/DataTable，勿用本组件。
+ *
+ * 设计取向：**薄壳 + 可覆盖**。只统一「overflow/border 容器」这层重复样板 +
+ * 提供组件词汇 + R8 合规出口；各单元格的 padding/配色/字号由调用方 className 决定
+ * （展示表各有语义主题：紧凑事实表 / 暗色 / 风险红等，强行统一会破坏语境）。
  */
 
 interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> {
-  /** 是否包一层带边框圆角的容器（默认 true）。markdown 等内嵌场景可设 false。 */
+  /** 是否包一层带边框圆角的容器（默认 false，贴合多数内嵌展示表；列表型可设 true）。 */
   bordered?: boolean;
   containerClassName?: string;
 }
 
 export function Table({
-  bordered = true,
+  bordered = false,
   className,
   containerClassName,
   children,
   ...props
 }: TableProps) {
   const table = (
-    <table
-      className={cn('min-w-full divide-y divide-gray-200 text-sm', className)}
-      {...props}
-    >
+    <table className={cn('w-full', className)} {...props}>
       {children}
     </table>
   );
 
-  if (!bordered) {
+  if (bordered) {
     return (
-      <div className={cn('overflow-x-auto', containerClassName)}>{table}</div>
+      <div
+        className={cn(
+          'overflow-hidden rounded-lg border border-gray-200',
+          containerClassName
+        )}
+      >
+        <div className="overflow-x-auto">{table}</div>
+      </div>
     );
   }
 
   return (
-    <div
-      className={cn(
-        'overflow-hidden rounded-lg border border-gray-200',
-        containerClassName
-      )}
-    >
-      <div className="overflow-x-auto">{table}</div>
-    </div>
+    <div className={cn('overflow-x-auto', containerClassName)}>{table}</div>
   );
 }
 
@@ -54,7 +55,7 @@ export function THead({
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <thead className={cn('bg-gray-50', className)} {...props}>
+    <thead className={cn(className)} {...props}>
       {children}
     </thead>
   );
@@ -66,10 +67,7 @@ export function TBody({
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <tbody
-      className={cn('divide-y divide-gray-200 bg-white', className)}
-      {...props}
-    >
+    <tbody className={cn(className)} {...props}>
       {children}
     </tbody>
   );
@@ -100,13 +98,7 @@ export function Th({
   ...props
 }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <th
-      className={cn(
-        'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500',
-        className
-      )}
-      {...props}
-    >
+    <th className={cn('text-left font-medium', className)} {...props}>
       {children}
     </th>
   );
@@ -118,7 +110,7 @@ export function Td({
   ...props
 }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={cn('px-4 py-3 text-gray-900', className)} {...props}>
+    <td className={cn(className)} {...props}>
       {children}
     </td>
   );

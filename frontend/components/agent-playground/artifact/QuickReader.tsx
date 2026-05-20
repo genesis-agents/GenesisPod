@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -301,24 +302,24 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
             风险评估
           </h3>
           <div className="overflow-x-auto rounded-xl border border-red-100">
-            <table className="w-full text-sm">
-              <thead className="bg-red-50">
-                <tr>
-                  <th className="px-3 py-1.5 text-left font-medium text-red-700">
+            <Table className="w-full text-sm">
+              <THead className="bg-red-50">
+                <Tr>
+                  <Th className="px-3 py-1.5 text-left font-medium text-red-700">
                     风险类型
-                  </th>
-                  <th className="px-3 py-1.5 text-center font-medium text-red-700">
+                  </Th>
+                  <Th className="px-3 py-1.5 text-center font-medium text-red-700">
                     概率
-                  </th>
-                  <th className="px-3 py-1.5 text-center font-medium text-red-700">
+                  </Th>
+                  <Th className="px-3 py-1.5 text-center font-medium text-red-700">
                     影响
-                  </th>
-                  <th className="px-3 py-1.5 text-center font-medium text-red-700">
+                  </Th>
+                  <Th className="px-3 py-1.5 text-center font-medium text-red-700">
                     时间窗口
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </Th>
+                </Tr>
+              </THead>
+              <TBody>
                 {qv.riskMatrix.map((risk, idx) => {
                   const probColor =
                     risk.probability === '高'
@@ -333,32 +334,32 @@ export function QuickReader({ artifact, onSwitchToFull }: Props) {
                         ? 'bg-amber-100 text-amber-700'
                         : 'bg-green-100 text-green-700';
                   return (
-                    <tr key={idx} className="border-t border-red-50">
-                      <td className="px-3 py-1.5 text-gray-700">
+                    <Tr key={idx} className="border-t border-red-50">
+                      <Td className="px-3 py-1.5 text-gray-700">
                         {risk.riskType}
-                      </td>
-                      <td className="px-3 py-1.5 text-center">
+                      </Td>
+                      <Td className="px-3 py-1.5 text-center">
                         <span
                           className={`inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium ${probColor}`}
                         >
                           {risk.probability}
                         </span>
-                      </td>
-                      <td className="px-3 py-1.5 text-center">
+                      </Td>
+                      <Td className="px-3 py-1.5 text-center">
                         <span
                           className={`inline-block rounded-sm px-1.5 py-0.5 text-xs font-medium ${impactColor}`}
                         >
                           {risk.impact}
                         </span>
-                      </td>
-                      <td className="px-3 py-1.5 text-center text-gray-500">
+                      </Td>
+                      <Td className="px-3 py-1.5 text-center text-gray-500">
                         {risk.timeframe}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   );
                 })}
-              </tbody>
-            </table>
+              </TBody>
+            </Table>
           </div>
         </section>
       )}

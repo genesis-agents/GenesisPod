@@ -1,5 +1,6 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
+import { Table, Th, Td } from '@/components/ui/table';
 
 const MermaidDiagram = dynamic(
   () => import('@/components/ui/viewers/MermaidDiagram'),
@@ -325,14 +326,12 @@ export function createMarkdownComponents(
         /风险类型|概率|影响|Risk Type|Probability|Impact/i.test(tableText);
 
       return (
-        <div className="overflow-x-auto">
-          <table
-            {...props}
-            className={isRiskMatrix ? 'border border-red-100' : ''}
-          >
-            {children}
-          </table>
-        </div>
+        <Table
+          {...props}
+          className={isRiskMatrix ? 'border border-red-100' : ''}
+        >
+          {children}
+        </Table>
       );
     },
     td: ({
@@ -370,17 +369,17 @@ export function createMarkdownComponents(
 
       if (riskClass) {
         return (
-          <td {...props}>
+          <Td {...props}>
             <span
               className={`inline-block rounded-sm px-1.5 py-0.5 ${riskClass}`}
             >
               {processChildren(children, processText)}
             </span>
-          </td>
+          </Td>
         );
       }
 
-      return <td {...props}>{processChildren(children, processText)}</td>;
+      return <Td {...props}>{processChildren(children, processText)}</Td>;
     },
     th: ({
       children,
@@ -389,7 +388,7 @@ export function createMarkdownComponents(
     }: React.ThHTMLAttributes<HTMLTableCellElement> & {
       children?: React.ReactNode;
       node?: unknown;
-    }) => <th {...props}>{processChildren(children, processText)}</th>,
+    }) => <Th {...props}>{processChildren(children, processText)}</Th>,
     h1: ({
       children,
       node: _node,

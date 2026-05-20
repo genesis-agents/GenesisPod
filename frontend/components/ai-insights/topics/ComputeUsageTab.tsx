@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Zap,
   Clock,
@@ -305,54 +306,54 @@ function StepActionTree({ steps }: { steps: LatencyStepWithActions[] }) {
   function renderActions(actions: LatencyActionItem[]) {
     if (actions.length === 0) return null;
     return (
-      <table className="w-full text-[11px]">
-        <thead>
-          <tr className="text-left text-gray-400">
-            <th className="pb-1 pr-2 font-medium">Action</th>
-            <th className="pb-1 pr-2 font-medium">Model</th>
-            <th className="pb-1 pr-2 text-right font-medium">TTFT</th>
-            <th className="pb-1 pr-2 text-right font-medium">TTLT</th>
-            <th className="pb-1 pr-2 text-right font-medium">In</th>
-            <th className="pb-1 text-right font-medium">Out</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="w-full text-[11px]">
+        <THead>
+          <Tr className="text-left text-gray-400">
+            <Th className="pb-1 pr-2 font-medium">Action</Th>
+            <Th className="pb-1 pr-2 font-medium">Model</Th>
+            <Th className="pb-1 pr-2 text-right font-medium">TTFT</Th>
+            <Th className="pb-1 pr-2 text-right font-medium">TTLT</Th>
+            <Th className="pb-1 pr-2 text-right font-medium">In</Th>
+            <Th className="pb-1 text-right font-medium">Out</Th>
+          </Tr>
+        </THead>
+        <TBody>
           {actions.map((action, ai) => (
-            <tr
+            <Tr
               key={`${action.name}-${ai}`}
               className="border-t border-gray-50 hover:bg-blue-50/30"
             >
-              <td className="py-1 pr-2 text-gray-600">{action.name || '—'}</td>
-              <td
+              <Td className="py-1 pr-2 text-gray-600">{action.name || '—'}</Td>
+              <Td
                 className="max-w-[120px] truncate py-1 pr-2 text-gray-400"
                 title={action.model}
               >
                 {action.model.length > 18
                   ? action.model.slice(0, 18) + '…'
                   : action.model}
-              </td>
-              <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
+              </Td>
+              <Td className="py-1 pr-2 text-right tabular-nums text-gray-400">
                 {action.ttftMs != null
                   ? action.ttftMs < 1000
                     ? `${Math.round(action.ttftMs)}ms`
                     : `${(action.ttftMs / 1000).toFixed(1)}s`
                   : '—'}
-              </td>
-              <td className="py-1 pr-2 text-right font-medium tabular-nums text-gray-600">
+              </Td>
+              <Td className="py-1 pr-2 text-right font-medium tabular-nums text-gray-600">
                 {action.ttltMs < 1000
                   ? `${Math.round(action.ttltMs)}ms`
                   : `${(action.ttltMs / 1000).toFixed(1)}s`}
-              </td>
-              <td className="py-1 pr-2 text-right tabular-nums text-gray-400">
+              </Td>
+              <Td className="py-1 pr-2 text-right tabular-nums text-gray-400">
                 {formatNumber(action.inputTokens)}
-              </td>
-              <td className="py-1 text-right tabular-nums text-gray-400">
+              </Td>
+              <Td className="py-1 text-right tabular-nums text-gray-400">
                 {formatNumber(action.outputTokens)}
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           ))}
-        </tbody>
-      </table>
+        </TBody>
+      </Table>
     );
   }
 
@@ -924,77 +925,77 @@ export function ComputeUsageTab({ topicId }: ComputeUsageTabProps) {
 
             {/* Model Table */}
             <div className="min-w-0 flex-1 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100">
-                    <th className="pb-2 text-left text-xs font-medium text-gray-500">
+              <Table className="w-full text-sm">
+                <THead>
+                  <Tr className="border-b border-gray-100">
+                    <Th className="pb-2 text-left text-xs font-medium text-gray-500">
                       {t('topicResearch.computeUsage.model')}
-                    </th>
-                    <th className="pb-2 text-right text-xs font-medium text-gray-500">
+                    </Th>
+                    <Th className="pb-2 text-right text-xs font-medium text-gray-500">
                       {t('topicResearch.computeUsage.calls')}
-                    </th>
-                    <th className="pb-2 text-right text-xs font-medium text-gray-500">
+                    </Th>
+                    <Th className="pb-2 text-right text-xs font-medium text-gray-500">
                       {t('topicResearch.computeUsage.input')}
-                    </th>
-                    <th className="pb-2 text-right text-xs font-medium text-gray-500">
+                    </Th>
+                    <Th className="pb-2 text-right text-xs font-medium text-gray-500">
                       {t('topicResearch.computeUsage.output')}
-                    </th>
-                    <th className="pb-2 text-right text-xs font-medium text-gray-500">
+                    </Th>
+                    <Th className="pb-2 text-right text-xs font-medium text-gray-500">
                       {t('topicResearch.computeUsage.total')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
+                    </Th>
+                  </Tr>
+                </THead>
+                <TBody className="divide-y divide-gray-50">
                   {modelDistribution.map((item, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50">
-                      <td className="py-2.5 pr-4">
+                    <Tr key={idx} className="hover:bg-gray-50">
+                      <Td className="py-2.5 pr-4">
                         <ModelName modelId={item.modelId} />
-                      </td>
-                      <td className="py-2.5 text-right text-xs tabular-nums text-gray-600">
+                      </Td>
+                      <Td className="py-2.5 text-right text-xs tabular-nums text-gray-600">
                         {formatNumberFull(item.callCount)}
-                      </td>
-                      <td className="py-2.5 text-right text-xs tabular-nums text-gray-400">
+                      </Td>
+                      <Td className="py-2.5 text-right text-xs tabular-nums text-gray-400">
                         {formatNumber(item.inputTokens)}
-                      </td>
-                      <td className="py-2.5 text-right text-xs tabular-nums text-gray-400">
+                      </Td>
+                      <Td className="py-2.5 text-right text-xs tabular-nums text-gray-400">
                         {formatNumber(item.outputTokens)}
-                      </td>
-                      <td className="py-2.5 text-right text-xs font-medium tabular-nums text-gray-700">
+                      </Td>
+                      <Td className="py-2.5 text-right text-xs font-medium tabular-nums text-gray-700">
                         {formatNumber(item.totalTokens)}
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
                   {/* Totals Row */}
-                  <tr className="border-t-2 border-gray-200 bg-gray-50 font-medium">
-                    <td className="py-2.5 pr-4 text-xs text-gray-700">
+                  <Tr className="border-t-2 border-gray-200 bg-gray-50 font-medium">
+                    <Td className="py-2.5 pr-4 text-xs text-gray-700">
                       {t('topicResearch.computeUsage.total')}
-                    </td>
-                    <td className="py-2.5 text-right text-xs tabular-nums text-gray-700">
+                    </Td>
+                    <Td className="py-2.5 text-right text-xs tabular-nums text-gray-700">
                       {formatNumberFull(
                         modelDistribution.reduce((s, m) => s + m.callCount, 0)
                       )}
-                    </td>
-                    <td className="py-2.5 text-right text-xs tabular-nums text-gray-500">
+                    </Td>
+                    <Td className="py-2.5 text-right text-xs tabular-nums text-gray-500">
                       {formatNumber(
                         modelDistribution.reduce((s, m) => s + m.inputTokens, 0)
                       )}
-                    </td>
-                    <td className="py-2.5 text-right text-xs tabular-nums text-gray-500">
+                    </Td>
+                    <Td className="py-2.5 text-right text-xs tabular-nums text-gray-500">
                       {formatNumber(
                         modelDistribution.reduce(
                           (s, m) => s + m.outputTokens,
                           0
                         )
                       )}
-                    </td>
-                    <td className="py-2.5 text-right text-xs tabular-nums text-gray-900">
+                    </Td>
+                    <Td className="py-2.5 text-right text-xs tabular-nums text-gray-900">
                       {formatNumber(
                         modelDistribution.reduce((s, m) => s + m.totalTokens, 0)
                       )}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </Td>
+                  </Tr>
+                </TBody>
+              </Table>
             </div>
           </div>
         </section>

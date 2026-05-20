@@ -11,6 +11,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Shield,
   BookOpen,
@@ -929,44 +930,44 @@ export function CredibilityPanel({
                   <div className="bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                     模型对比
                   </div>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                        <th className="px-3 py-2">模型</th>
-                        <th className="px-3 py-2">章节数</th>
-                        <th className="px-3 py-2">均分</th>
-                        <th className="hidden px-3 py-2 sm:table-cell">最强</th>
-                        <th className="hidden px-3 py-2 sm:table-cell">最弱</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="w-full text-sm">
+                    <THead>
+                      <Tr className="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                        <Th className="px-3 py-2">模型</Th>
+                        <Th className="px-3 py-2">章节数</Th>
+                        <Th className="px-3 py-2">均分</Th>
+                        <Th className="hidden px-3 py-2 sm:table-cell">最强</Th>
+                        <Th className="hidden px-3 py-2 sm:table-cell">最弱</Th>
+                      </Tr>
+                    </THead>
+                    <TBody>
                       {credibility.aiEvaluation.modelComparison.map((m) => (
-                        <tr
+                        <Tr
                           key={m.modelId}
                           className="border-b border-gray-50 dark:border-gray-800"
                         >
-                          <td className="font-mono px-3 py-2 text-xs">
+                          <Td className="font-mono px-3 py-2 text-xs">
                             {m.modelId}
-                          </td>
-                          <td className="px-3 py-2">{m.chapterCount}</td>
-                          <td
+                          </Td>
+                          <Td className="px-3 py-2">{m.chapterCount}</Td>
+                          <Td
                             className={cn(
                               'px-3 py-2 font-medium',
                               getScoreColor(m.avgScore)
                             )}
                           >
                             {m.avgScore}
-                          </td>
-                          <td className="hidden px-3 py-2 text-xs text-gray-500 sm:table-cell">
+                          </Td>
+                          <Td className="hidden px-3 py-2 text-xs text-gray-500 sm:table-cell">
                             {m.bestDimension}
-                          </td>
-                          <td className="hidden px-3 py-2 text-xs text-gray-500 sm:table-cell">
+                          </Td>
+                          <Td className="hidden px-3 py-2 text-xs text-gray-500 sm:table-cell">
                             {m.weakestDimension}
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
+                    </TBody>
+                  </Table>
                 </div>
               )}
 

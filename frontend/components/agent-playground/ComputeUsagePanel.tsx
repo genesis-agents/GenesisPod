@@ -15,6 +15,7 @@
  */
 
 import React from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Coins,
   Layers,
@@ -223,53 +224,53 @@ function ModelDistributionTable({ rows }: { rows: ModelRow[] }) {
           </span>
         </div>
       </div>
-      <table className="w-full table-fixed text-[12px]">
-        <thead className="bg-gray-50/80">
-          <tr>
-            <th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
+      <Table className="w-full table-fixed text-[12px]">
+        <THead className="bg-gray-50/80">
+          <Tr>
+            <Th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
               模型 ID
-            </th>
-            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               实例
-            </th>
-            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               调用
-            </th>
-            <th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
               估算 tokens
-            </th>
-            <th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
               估算成本
-            </th>
-            <th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
               占比
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
+            </Th>
+          </Tr>
+        </THead>
+        <TBody className="divide-y divide-gray-100">
           {rows.map((r) => (
-            <tr key={r.modelId} className="hover:bg-violet-50/30">
-              <td className="px-3 py-2">
+            <Tr key={r.modelId} className="hover:bg-violet-50/30">
+              <Td className="px-3 py-2">
                 <span
                   className="font-mono block truncate text-[11px] text-gray-700"
                   title={r.modelId}
                 >
                   {r.modelId}
                 </span>
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums text-gray-700">
+              </Td>
+              <Td className="px-2 py-2 text-right tabular-nums text-gray-700">
                 {r.agentCount}
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums text-gray-700">
+              </Td>
+              <Td className="px-2 py-2 text-right tabular-nums text-gray-700">
                 {r.callCount}
-              </td>
-              <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+              </Td>
+              <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                 {fmtTokens(r.estTokens)}
-              </td>
-              <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+              </Td>
+              <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                 {fmtUsd(r.estCostUsd)}
-              </td>
-              <td className="px-2 py-2 text-right">
+              </Td>
+              <Td className="px-2 py-2 text-right">
                 <div className="flex items-center justify-end gap-2">
                   <div className="h-1.5 w-16 overflow-hidden rounded-full bg-gray-100">
                     <div
@@ -281,11 +282,11 @@ function ModelDistributionTable({ rows }: { rows: ModelRow[] }) {
                     {r.pct}%
                   </span>
                 </div>
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           ))}
-        </tbody>
-      </table>
+        </TBody>
+      </Table>
       <p className="px-4 py-2 text-[10px] text-gray-400">
         Tokens 估算来自 trace.tokensUsed 累加；当模型 id
         未捕获时归入「(未捕获)」。
@@ -369,62 +370,62 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
           </span>
         </div>
       </div>
-      <table className="w-full text-[12px]">
-        <thead className="bg-gray-50/80">
-          <tr>
-            <th className="w-[12%] px-3 py-2 text-left font-medium text-gray-600">
+      <Table className="w-full text-[12px]">
+        <THead className="bg-gray-50/80">
+          <Tr>
+            <Th className="w-[12%] px-3 py-2 text-left font-medium text-gray-600">
               角色
-            </th>
-            <th className="w-[24%] px-2 py-2 text-left font-medium text-gray-600">
+            </Th>
+            <Th className="w-[24%] px-2 py-2 text-left font-medium text-gray-600">
               实例 ID
-            </th>
-            <th className="w-[18%] px-2 py-2 text-left font-medium text-gray-600">
+            </Th>
+            <Th className="w-[18%] px-2 py-2 text-left font-medium text-gray-600">
               维度
-            </th>
-            <th className="w-[18%] px-2 py-2 text-left font-medium text-gray-600">
+            </Th>
+            <Th className="w-[18%] px-2 py-2 text-left font-medium text-gray-600">
               模型
-            </th>
-            <th className="w-[10%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[10%] px-2 py-2 text-right font-medium text-gray-600">
               Iter
-            </th>
-            <th className="w-[10%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[10%] px-2 py-2 text-right font-medium text-gray-600">
               重试
-            </th>
-            <th className="w-[8%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[8%] px-2 py-2 text-right font-medium text-gray-600">
               耗时
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
+            </Th>
+          </Tr>
+        </THead>
+        <TBody className="divide-y divide-gray-100">
           {sorted.map((a) => (
-            <tr key={a.agentId} className="hover:bg-blue-50/30">
-              <td className="px-3 py-2">
+            <Tr key={a.agentId} className="hover:bg-blue-50/30">
+              <Td className="px-3 py-2">
                 <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200">
                   {ROLE_LABEL[a.role] ?? a.role}
                 </span>
-              </td>
-              <td
+              </Td>
+              <Td
                 className="font-mono truncate px-2 py-2 text-[11px] text-gray-700"
                 title={a.agentId}
               >
                 {a.agentId}
-              </td>
-              <td
+              </Td>
+              <Td
                 className="truncate px-2 py-2 text-[11px] text-gray-600"
                 title={a.dimension ?? ''}
               >
                 {a.dimension ?? '—'}
-              </td>
-              <td
+              </Td>
+              <Td
                 className="font-mono truncate px-2 py-2 text-[10.5px] text-gray-500"
                 title={a.modelId ?? ''}
               >
                 {a.modelId ?? '—'}
-              </td>
-              <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+              </Td>
+              <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                 {a.iterations ?? 0}
-              </td>
-              <td
+              </Td>
+              <Td
                 className={cn(
                   'font-mono px-2 py-2 text-right tabular-nums',
                   (a.retryCount ?? 0) > 0
@@ -433,14 +434,14 @@ function AgentInstanceTable({ agents }: { agents: AgentLiveState[] }) {
                 )}
               >
                 {a.retryCount ?? 0}
-              </td>
-              <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+              </Td>
+              <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                 {a.wallTimeMs ? fmtLatency(a.wallTimeMs) : '—'}
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           ))}
-        </tbody>
-      </table>
+        </TBody>
+      </Table>
     </Card>
   );
 }
@@ -513,51 +514,51 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
           </span>
         </div>
       </div>
-      <table className="w-full text-[12px]">
-        <thead className="bg-gray-50/80">
-          <tr>
-            <th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
+      <Table className="w-full text-[12px]">
+        <THead className="bg-gray-50/80">
+          <Tr>
+            <Th className="w-[34%] px-3 py-2 text-left font-medium text-gray-600">
               工具 ID
-            </th>
-            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               调用
-            </th>
-            <th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[14%] px-2 py-2 text-right font-medium text-gray-600">
               总延迟
-            </th>
-            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               平均
-            </th>
-            <th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[12%] px-2 py-2 text-right font-medium text-gray-600">
               失败
-            </th>
-            <th className="w-[16%] px-2 py-2 text-right font-medium text-gray-600">
+            </Th>
+            <Th className="w-[16%] px-2 py-2 text-right font-medium text-gray-600">
               成功率
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
+            </Th>
+          </Tr>
+        </THead>
+        <TBody className="divide-y divide-gray-100">
           {rows.map((r) => {
             const successRate =
               r.callCount > 0 ? (1 - r.errorCount / r.callCount) * 100 : 0;
             return (
-              <tr key={r.toolId} className="hover:bg-emerald-50/30">
-                <td
+              <Tr key={r.toolId} className="hover:bg-emerald-50/30">
+                <Td
                   className="font-mono truncate px-3 py-2 text-[11px] text-gray-700"
                   title={r.toolId}
                 >
                   {r.toolId}
-                </td>
-                <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                </Td>
+                <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                   {r.callCount}
-                </td>
-                <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                </Td>
+                <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                   {fmtLatency(r.totalLatencyMs)}
-                </td>
-                <td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
+                </Td>
+                <Td className="font-mono px-2 py-2 text-right tabular-nums text-gray-700">
                   {fmtLatency(r.avgLatencyMs)}
-                </td>
-                <td
+                </Td>
+                <Td
                   className={cn(
                     'font-mono px-2 py-2 text-right tabular-nums',
                     r.errorCount > 0
@@ -566,8 +567,8 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
                   )}
                 >
                   {r.errorCount}
-                </td>
-                <td
+                </Td>
+                <Td
                   className={cn(
                     'font-mono px-2 py-2 text-right tabular-nums',
                     successRate >= 90
@@ -578,12 +579,12 @@ function ToolLatencyTable({ rows }: { rows: ToolRow[] }) {
                   )}
                 >
                   {successRate.toFixed(0)}%
-                </td>
-              </tr>
+                </Td>
+              </Tr>
             );
           })}
-        </tbody>
-      </table>
+        </TBody>
+      </Table>
     </Card>
   );
 }
@@ -634,33 +635,33 @@ function SkillUsageTable({ agents }: { agents: AgentLiveState[] }) {
           </span>
         </div>
       </div>
-      <table className="w-full text-[12px]">
-        <thead className="bg-gray-50/80">
-          <tr>
-            <th className="w-[20%] px-3 py-2 text-left font-medium text-gray-600">
+      <Table className="w-full text-[12px]">
+        <THead className="bg-gray-50/80">
+          <Tr>
+            <Th className="w-[20%] px-3 py-2 text-left font-medium text-gray-600">
               Agent 角色
-            </th>
-            <th className="w-[25%] px-2 py-2 text-left font-medium text-gray-600">
+            </Th>
+            <Th className="w-[25%] px-2 py-2 text-left font-medium text-gray-600">
               Agent ID
-            </th>
-            <th className="w-[55%] px-2 py-2 text-left font-medium text-gray-600">
+            </Th>
+            <Th className="w-[55%] px-2 py-2 text-left font-medium text-gray-600">
               已应用技能
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
+            </Th>
+          </Tr>
+        </THead>
+        <TBody className="divide-y divide-gray-100">
           {rows.map((r) => (
-            <tr key={r.agentId} className="hover:bg-violet-50/30">
-              <td className="px-3 py-2 text-[11px] text-gray-700">
+            <Tr key={r.agentId} className="hover:bg-violet-50/30">
+              <Td className="px-3 py-2 text-[11px] text-gray-700">
                 {r.agentRole}
-              </td>
-              <td
+              </Td>
+              <Td
                 className="font-mono truncate px-2 py-2 text-[11px] text-gray-700"
                 title={r.agentId}
               >
                 {r.agentId}
-              </td>
-              <td className="px-2 py-2 text-[11px] text-gray-700">
+              </Td>
+              <Td className="px-2 py-2 text-[11px] text-gray-700">
                 <div className="flex flex-wrap gap-1">
                   {r.skills.map((s) => (
                     <span
@@ -671,11 +672,11 @@ function SkillUsageTable({ agents }: { agents: AgentLiveState[] }) {
                     </span>
                   ))}
                 </div>
-              </td>
-            </tr>
+              </Td>
+            </Tr>
           ))}
-        </tbody>
-      </table>
+        </TBody>
+      </Table>
     </Card>
   );
 }

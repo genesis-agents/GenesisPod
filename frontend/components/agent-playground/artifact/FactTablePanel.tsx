@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Database,
   AlertTriangle,
@@ -174,14 +175,14 @@ export function FactTablePanel({ factTable, citations }: Props) {
               复制
             </button>
           </div>
-          <table className="w-full text-xs">
-            <thead className="border-b border-gray-200 text-left text-[10px] uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="pb-2 pr-3">实体</th>
-                <th className="pb-2 pr-3">属性</th>
-                <th className="pb-2 pr-3">值</th>
+          <Table className="w-full text-xs">
+            <THead className="border-b border-gray-200 text-left text-[10px] uppercase tracking-wider text-gray-500">
+              <Tr>
+                <Th className="pb-2 pr-3">实体</Th>
+                <Th className="pb-2 pr-3">属性</Th>
+                <Th className="pb-2 pr-3">值</Th>
                 {/* P111-1: 表头点击切换 sort */}
-                <th
+                <Th
                   className="cursor-pointer select-none pb-2 pr-3 hover:text-violet-600"
                   onClick={() =>
                     setSortBy(sortBy === 'sources' ? 'default' : 'sources')
@@ -189,8 +190,8 @@ export function FactTablePanel({ factTable, citations }: Props) {
                   title="点击按来源数排序"
                 >
                   来源{sortBy === 'sources' && ' ▼'}
-                </th>
-                <th
+                </Th>
+                <Th
                   className="cursor-pointer select-none pb-2 hover:text-violet-600"
                   onClick={() =>
                     setSortBy(sortBy === 'conflict' ? 'default' : 'conflict')
@@ -198,21 +199,21 @@ export function FactTablePanel({ factTable, citations }: Props) {
                   title="点击优先显示冲突"
                 >
                   冲突{sortBy === 'conflict' && ' ▼'}
-                </th>
-              </tr>
-            </thead>
+                </Th>
+              </Tr>
+            </THead>
             {filtered.length === 0 && (
-              <tbody>
-                <tr>
-                  <td colSpan={5} className="py-4 text-center text-gray-400">
+              <TBody>
+                <Tr>
+                  <Td colSpan={5} className="py-4 text-center text-gray-400">
                     无匹配事实
-                  </td>
-                </tr>
-              </tbody>
+                  </Td>
+                </Tr>
+              </TBody>
             )}
-            <tbody>
+            <TBody>
               {filtered.map((f) => (
-                <tr
+                <Tr
                   key={f.id}
                   className={`border-b border-gray-50 hover:bg-violet-50/30 ${
                     f.conflict?.resolutionType === 'flagged-unresolved'
@@ -224,19 +225,19 @@ export function FactTablePanel({ factTable, citations }: Props) {
                           : ''
                   }`}
                 >
-                  <td
+                  <Td
                     className="max-w-[180px] truncate py-1.5 pr-3 font-medium text-gray-900"
                     title={`${f.id}\n${f.entity}`}
                   >
                     {f.entity}
-                  </td>
-                  <td
+                  </Td>
+                  <Td
                     className="max-w-[140px] truncate py-1.5 pr-3 text-gray-700"
                     title={f.attribute}
                   >
                     {f.attribute}
-                  </td>
-                  <td
+                  </Td>
+                  <Td
                     className="max-w-[300px] truncate py-1.5 pr-3 text-gray-700"
                     title={f.value}
                   >
@@ -248,8 +249,8 @@ export function FactTablePanel({ factTable, citations }: Props) {
                     ) : (
                       f.value
                     )}
-                  </td>
-                  <td className="py-1.5 pr-3">
+                  </Td>
+                  <Td className="py-1.5 pr-3">
                     <div className="flex flex-wrap gap-1">
                       {f.sources.map((idx) => {
                         const c = citations.find((cc) => cc.index === idx);
@@ -276,8 +277,8 @@ export function FactTablePanel({ factTable, citations }: Props) {
                         );
                       })}
                     </div>
-                  </td>
-                  <td className="py-1.5">
+                  </Td>
+                  <Td className="py-1.5">
                     {f.conflict && (
                       <span
                         className={`cursor-help rounded px-1.5 py-0.5 text-[10px] font-medium ${
@@ -292,11 +293,11 @@ export function FactTablePanel({ factTable, citations }: Props) {
                         {f.conflict.resolutionType}
                       </span>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
-            </tbody>
-          </table>
+            </TBody>
+          </Table>
         </div>
       )}
     </section>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import { useRouter } from 'next/navigation';
 import { safeString } from '@/lib/utils/common';
 import {
@@ -689,25 +690,25 @@ function ComparisonContent({ data }: { data: ComparisonData }) {
   return (
     <div className="space-y-6">
       <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse">
-          <thead>
-            <tr className="bg-purple-50">
-              <th className="border p-3 text-left">Dimension</th>
+        <Table className="min-w-full border-collapse">
+          <THead>
+            <Tr className="bg-purple-50">
+              <Th className="border p-3 text-left">Dimension</Th>
               {subjects.map((s, i) => (
-                <th key={i} className="border p-3 text-left font-semibold">
+                <Th key={i} className="border p-3 text-left font-semibold">
                   {s}
-                </th>
+                </Th>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </Tr>
+          </THead>
+          <TBody>
             {data.dimensions.map((dim, i) => (
-              <tr key={i}>
-                <td className="border bg-gray-50 p-3 font-medium">
+              <Tr key={i}>
+                <Td className="border bg-gray-50 p-3 font-medium">
                   {dim.name}
-                </td>
+                </Td>
                 {subjects.map((s, j) => (
-                  <td key={j} className="border p-3">
+                  <Td key={j} className="border p-3">
                     <div className="font-medium">
                       {dim.values?.[s]?.value || '-'}
                     </div>
@@ -716,12 +717,12 @@ function ComparisonContent({ data }: { data: ComparisonData }) {
                         {dim.values[s].notes}
                       </div>
                     )}
-                  </td>
+                  </Td>
                 ))}
-              </tr>
+              </Tr>
             ))}
-          </tbody>
-        </table>
+          </TBody>
+        </Table>
       </div>
 
       {data.summary && (
