@@ -182,6 +182,28 @@ const nextConfig = {
         destination: '/ai-social',
         permanent: false,
       },
+      // ★ 2026-05-20: 旧顶层路由收敛到 next.config 301（替代 app/ 下页面级
+      //   redirect shim — 与 admin 路由一致的标准做法）。query string 自动转发。
+      {
+        source: '/knowledge-graph',
+        destination: '/library/knowledge-graph',
+        permanent: false,
+      },
+      {
+        source: '/rag',
+        destination: '/library/rag',
+        permanent: false,
+      },
+      {
+        source: '/ai-skills',
+        destination: '/ai-store?tab=skills',
+        permanent: false,
+      },
+      {
+        source: '/custom-agents',
+        destination: '/me/ai?tab=agents',
+        permanent: false,
+      },
     ];
   },
   async rewrites() {
