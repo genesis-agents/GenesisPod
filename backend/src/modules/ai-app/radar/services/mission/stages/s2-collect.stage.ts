@@ -69,6 +69,11 @@ export class RadarS2CollectStage implements RadarStageRunner {
           items: r.items.length,
           durationMs: r.durationMs,
           error: r.error,
+          // 抓到的条目样本（top 10），让 Drawer 显示"具体采集了什么文章"
+          sample: r.items.slice(0, 10).map((it) => ({
+            title: it.title,
+            url: it.url,
+          })),
         });
       },
     );

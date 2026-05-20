@@ -77,6 +77,15 @@ export const RunSourceProgressSchema = z.object({
   items: z.number(),
   durationMs: z.number(),
   error: z.string().nullable(),
+  /** 抓到的条目样本（title+url，top N）—— 让前端显示"具体采集了什么"，可点击原文 */
+  sample: z
+    .array(
+      z.object({
+        title: z.string().nullable(),
+        url: z.string().nullable(),
+      }),
+    )
+    .optional(),
 });
 
 export const InsightCreatedSchema = z.object({

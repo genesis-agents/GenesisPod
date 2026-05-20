@@ -74,6 +74,7 @@ export function StageTaskDrawer({
 
   // 采集实时明细：从事件流提取 source-progress（按 sourceId 去重保最新）
   const sourceProgress = useMemo(() => {
+    type SrcItem = { title: string | null; url: string | null };
     const out = new Map<
       string,
       {
@@ -82,6 +83,7 @@ export function StageTaskDrawer({
         items: number;
         durationMs: number;
         error: string | null;
+        sample: SrcItem[];
       }
     >();
     for (const e of events ?? []) {
@@ -92,6 +94,7 @@ export function StageTaskDrawer({
         items?: number;
         durationMs?: number;
         error?: string | null;
+        sample?: SrcItem[];
       };
       if (!p.sourceId) continue;
       out.set(p.sourceId, {
@@ -100,6 +103,7 @@ export function StageTaskDrawer({
         items: p.items ?? 0,
         durationMs: p.durationMs ?? 0,
         error: p.error ?? null,
+        sample: p.sample ?? [],
       });
     }
     return [...out.values()];
@@ -276,29 +280,63 @@ export function StageTaskDrawer({
               {sourceProgress.map((s) => (
                 <li
                   key={s.sourceId}
-                  className="flex items-center justify-between gap-2 rounded-md border border-gray-100 bg-gray-50/40 px-2 py-1.5 text-xs"
+                  className="rounded-md border border-gray-100 bg-gray-50/40 px-2 py-1.5 text-xs"
                 >
-                  <span className="min-w-0 flex-1 truncate text-gray-800">
-                    {s.sourceLabel}
-                  </span>
-                  {s.error ? (
-                    <span className="whitespace-nowrap text-amber-700">
-                      {s.error.slice(0, 40)} · {fmtMs(s.durationMs)}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 flex-1 truncate font-medium text-gray-800">
+                      {s.sourceLabel}
                     </span>
-                  ) : (
-                    <span className="whitespace-nowrap text-gray-500">
-                      <span
-                        className={
-                          s.items > 0
-                            ? 'font-semibold text-emerald-700'
-                            : 'text-gray-500'
-                        }
-                      >
-                        {s.items} 条
+                    {s.error ? (
+                      <span className="whitespace-nowrap text-amber-700">
+                        {s.error.slice(0, 40)} · {fmtMs(s.durationMs)}
                       </span>
-                      {' · '}
-                      {fmtMs(s.durationMs)}
-                    </span>
+                    ) : (
+                      <span className="whitespace-nowrap text-gray-500">
+                        <span
+                          className={
+                            s.items > 0
+                              ? 'font-semibold text-emerald-700'
+                              : 'text-gray-500'
+                          }
+                        >
+                          {s.items} 条
+                        </span>
+                        {' · '}
+                        {fmtMs(s.durationMs)}
+                      </span>
+                    )}
+                  </div>
+                  {/* 抓到的具体文章（标题可点击追溯原文） */}
+                  {s.sample.length > 0 && (
+                    <ul className="mt-1 flex flex-col gap-0.5 border-l border-gray-200 pl-2">
+                      {s.sample.map((it, i) => (
+                        <li
+                          key={it.url ?? `${s.sourceId}-${i}`}
+                          className="truncate"
+                        >
+                          {it.url ? (
+                            <a
+                              href={it.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-violet-700 hover:underline"
+                              title={it.title ?? it.url}
+                            >
+                              {it.title || it.url}
+                            </a>
+                          ) : (
+                            <span className="text-gray-600">
+                              {it.title || '(无标题)'}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                      {s.items > s.sample.length && (
+                        <li className="text-[10px] text-gray-400">
+                          …还有 {s.items - s.sample.length} 条
+                        </li>
+                      )}
+                    </ul>
                   )}
                 </li>
               ))}
