@@ -11,7 +11,7 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
-import type { DocumentVersion } from '@/types/ai-office';
+import type { DocumentVersion } from '@/lib/types/ai-office';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
 import VersionDiffViewer from './VersionDiffViewer';
 

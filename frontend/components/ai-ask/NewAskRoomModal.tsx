@@ -18,7 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAIModels, type AIModel } from '@/hooks/features/useAIModels';
 import { askRoomService } from '@/services/ai-ask-room.service';
 import { useTranslation } from '@/lib/i18n';
-import type { AskRoomMode } from '@/types/ask-room';
+import type { AskRoomMode } from '@/lib/types/ask-room';
 
 interface Props {
   open: boolean;

@@ -32,7 +32,7 @@ import type {
   ResearchTodo,
   TodoSummary,
   ResearchTodoStatus,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 import * as api from '@/services/topic-insights/api';
 import { logger } from '@/lib/utils/logger';
 import type {

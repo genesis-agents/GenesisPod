@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { ConclusionSlideContent } from '@/types/slides';
+import type { ConclusionSlideContent } from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface ConclusionSlideProps {

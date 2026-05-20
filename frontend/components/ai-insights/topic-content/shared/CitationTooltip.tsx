@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import type { TopicEvidence } from '@/types/topic-insights';
+import type { TopicEvidence } from '@/lib/types/topic-insights';
 import { triggerCitationClick } from '@/components/common/citations/citationNavigation';
 import { useI18n } from '@/lib/i18n';
 

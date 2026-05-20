@@ -6,7 +6,7 @@ import {
   AgentTask,
   MissionStatus,
   AgentTaskStatus,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
 import ClientDate from '@/components/common/ClientDate';

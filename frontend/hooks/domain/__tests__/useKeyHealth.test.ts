@@ -6,7 +6,7 @@ vi.mock('@/hooks/core', () => ({
 }));
 
 // Mock the admin types to avoid real module resolution
-vi.mock('@/types/admin', () => ({
+vi.mock('@/lib/types/admin', () => ({
   KeyHealthStatus: {},
 }));
 

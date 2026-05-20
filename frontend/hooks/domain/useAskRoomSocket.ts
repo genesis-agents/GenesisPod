@@ -20,7 +20,7 @@ import {
   type AskRoomClientEvent,
   type AskRoomJoinAck,
   type AskRoomServerEvent,
-} from '@/types/ask-room';
+} from '@/lib/types/ask-room';
 import { useAskRoomStore } from '@/stores/ask-room.store';
 
 interface UseAskRoomSocketOptions {

@@ -21,8 +21,8 @@ import type {
   TaskDecomposition,
   OutlinePlan,
   QualityReport,
-} from '@/types/slides';
-import { PHASE_MAPPING } from '@/types/slides';
+} from '@/lib/types/slides';
+import { PHASE_MAPPING } from '@/lib/types/slides';
 
 import { logger } from '@/lib/utils/logger';
 const API_BASE = config.apiUrl || '';

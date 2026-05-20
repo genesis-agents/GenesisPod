@@ -23,7 +23,7 @@ import type {
   QualityReport,
   GlobalStyles,
   GENSPARK_DESIGN_SYSTEM,
-} from '@/types/slides';
+} from '@/lib/types/slides';
 
 // ============================================================================
 // Store State

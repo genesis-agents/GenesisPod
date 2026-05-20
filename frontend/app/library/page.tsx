@@ -38,7 +38,7 @@ import { useImageSourceStore, toast as showToast } from '@/stores';
 import type {
   Resource as AIOfficeResource,
   WebMetadata,
-} from '@/types/ai-office';
+} from '@/lib/types/ai-office';
 import type { Note } from '@/components/library/resources/NotesList';
 import { logger } from '@/lib/utils/logger';
 import AddToKnowledgeBaseDialog, {

@@ -10,7 +10,10 @@
  */
 
 import React from 'react';
-import type { ComparisonSlideContent, ComparisonValue } from '@/types/slides';
+import type {
+  ComparisonSlideContent,
+  ComparisonValue,
+} from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface ComparisonSlideProps {

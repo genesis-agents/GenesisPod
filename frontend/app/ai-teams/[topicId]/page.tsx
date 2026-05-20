@@ -14,7 +14,7 @@ import {
   MentionType,
   TopicRole,
   AICapability,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 import { useUrlDetection } from '@/hooks';
 import { LinkPreviewList } from '@/components/ai-teams/LinkPreviewCard';
 import type { ParsedUrl } from '@/services/ai-teams/api';

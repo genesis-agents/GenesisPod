@@ -11,7 +11,7 @@ import type {
   TopicReport,
   TopicDimension,
   TopicEvidence,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 import type { MissionStatus } from '@/services/topic-insights/api';
 
 // Annotation types

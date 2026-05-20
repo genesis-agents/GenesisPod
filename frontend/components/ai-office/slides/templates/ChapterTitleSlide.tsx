@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { ChapterTitleSlideContent } from '@/types/slides';
+import type { ChapterTitleSlideContent } from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface ChapterTitleSlideProps {

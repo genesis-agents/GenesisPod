@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useCallback, useMemo, useState } from 'react';
-import type { ResearchTopic } from '@/types/topic-insights';
+import type { ResearchTopic } from '@/lib/types/topic-insights';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useResearchWebSocket } from '@/hooks/useResearchWebSocket';
 import { TopicResearchLayout } from './TopicResearchLayout';

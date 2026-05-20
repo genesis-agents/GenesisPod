@@ -32,7 +32,7 @@ import type {
   UpdateScheduleDto,
   ListLogsDto,
   ResearchTopicType,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 
 // ★ 使用统一的 config.apiBaseUrl，浏览器端返回空字符串以使用相对 URL
 // 这样请求会通过 Next.js rewrites 代理到后端，避免 CORS 和认证问题
@@ -1814,7 +1814,7 @@ import type {
   TodoListResponse,
   ResearchTodoStatus,
   ResearchTodoType,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 
 /**
  * 获取 TODO 列表

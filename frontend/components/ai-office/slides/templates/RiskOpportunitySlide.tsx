@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import type { RiskOpportunitySlideContent } from '@/types/slides';
+import type { RiskOpportunitySlideContent } from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface RiskOpportunitySlideProps {

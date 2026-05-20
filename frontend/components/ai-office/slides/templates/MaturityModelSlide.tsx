@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import type { MaturityModelSlideContent } from '@/types/slides';
+import type { MaturityModelSlideContent } from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface MaturityModelSlideProps {

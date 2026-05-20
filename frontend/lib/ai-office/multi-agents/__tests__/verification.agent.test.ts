@@ -16,7 +16,7 @@ import {
   type VerificationResult,
   type VerificationStatus,
 } from '../verification.agent';
-import type { Resource } from '@/types/ai-office';
+import type { Resource } from '@/lib/types/ai-office';
 
 // ============================================================================
 // Test helpers

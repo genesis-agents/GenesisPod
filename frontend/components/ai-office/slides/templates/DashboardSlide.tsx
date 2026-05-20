@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { DashboardSlideContent } from '@/types/slides';
+import type { DashboardSlideContent } from '@/lib/types/slides';
 import { KpiCard } from '../base';
 import '../styles/slide-tokens.css';
 

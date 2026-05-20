@@ -12,8 +12,11 @@ import type {
   CreateTopicDto,
   ResearchTemplate,
   TopicVisibility,
-} from '@/types/topic-insights';
-import { ResearchTopicType, RefreshFrequency } from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
+import {
+  ResearchTopicType,
+  RefreshFrequency,
+} from '@/lib/types/topic-insights';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useTranslation } from '@/lib/i18n';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';

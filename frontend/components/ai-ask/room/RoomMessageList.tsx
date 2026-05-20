@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Bot, Info, MessageCircle, Sparkles, User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { AskRoomMember, AskRoomMessage } from '@/types/ask-room';
+import type { AskRoomMember, AskRoomMessage } from '@/lib/types/ask-room';
 import { useAskRoomStore } from '@/stores/ask-room.store';
 import { useTranslation } from '@/lib/i18n';
 

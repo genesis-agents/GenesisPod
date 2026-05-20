@@ -23,7 +23,7 @@ import type {
   ResearchTodoStatus,
   ResearchTodoType,
   TodoSummary,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 
 // WebSocket 事件类型
 interface WsEvent {

@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import type { CaseStudySlideContent } from '@/types/slides';
+import type { CaseStudySlideContent } from '@/lib/types/slides';
 import { KpiCard } from '../base';
 import '../styles/slide-tokens.css';
 

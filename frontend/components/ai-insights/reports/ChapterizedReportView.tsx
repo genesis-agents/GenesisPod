@@ -33,7 +33,7 @@ import type {
   TopicDimension,
   TopicEvidence,
   ReportChart,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 import {
   FigureRenderer,
   FigureGallery,

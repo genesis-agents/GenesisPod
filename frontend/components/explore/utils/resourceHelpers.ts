@@ -3,7 +3,7 @@
  */
 
 import type { Resource } from './types';
-import type { Resource as AIOfficeResource } from '@/types/ai-office';
+import type { Resource as AIOfficeResource } from '@/lib/types/ai-office';
 
 /**
  * Extract source name from resource metadata

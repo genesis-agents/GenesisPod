@@ -16,7 +16,7 @@ import type {
   TopicDimension,
   TopicReport,
   TopicEvidence,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 import type { MissionStatus, TeamInfo } from '@/services/topic-insights/api';
 import { checkEditPermission } from '@/services/topic-insights/api';
 import { useAuth } from '@/contexts/AuthContext';

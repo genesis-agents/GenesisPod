@@ -17,8 +17,8 @@ import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from '../dialogs/CreateTopicDialog';
 import { TopicSharingModal } from '../dialogs/TopicSharingModal';
 import ShareModal from '@/components/common/dialogs/ShareModal';
-import type { ResearchTopic } from '@/types/topic-insights';
-import { ResearchTopicType } from '@/types/topic-insights';
+import type { ResearchTopic } from '@/lib/types/topic-insights';
+import { ResearchTopicType } from '@/lib/types/topic-insights';
 
 // Icons
 const PlusIcon = ({ className }: { className?: string }) => (

@@ -19,8 +19,8 @@ import type {
   ResearchTopic,
   TopicReport,
   ReportChart,
-} from '@/types/topic-insights';
-import { ResearchTopicType } from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
+import { ResearchTopicType } from '@/lib/types/topic-insights';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { injectChartPlaceholders } from '@/lib/markdown/injectChartPlaceholders';

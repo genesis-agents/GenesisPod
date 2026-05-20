@@ -18,7 +18,7 @@ import type {
   AskRoomMember,
   AskRoomMode,
   AskRoomServerEvent,
-} from '@/types/ask-room';
+} from '@/lib/types/ask-room';
 import { RoomComposer } from './RoomComposer';
 import { RoomMessageList } from './RoomMessageList';
 import { RoomMemberPanel } from './RoomMemberPanel';

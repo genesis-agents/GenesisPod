@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { CoverSlideContent } from '@/types/slides';
+import type { CoverSlideContent } from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface CoverSlideProps {

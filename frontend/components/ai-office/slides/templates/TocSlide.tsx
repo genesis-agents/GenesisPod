@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { TocSlideContent } from '@/types/slides';
+import type { TocSlideContent } from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface TocSlideProps {

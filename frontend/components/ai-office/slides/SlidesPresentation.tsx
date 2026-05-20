@@ -8,7 +8,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import type { PageState } from '@/types/slides';
+import type { PageState } from '@/lib/types/slides';
 
 interface PresentationModeProps {
   pages: PageState[];

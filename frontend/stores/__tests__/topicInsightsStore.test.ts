@@ -6,7 +6,7 @@ import type {
   ResearchTopic,
   TopicDimension,
   TopicReport,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 
 // Mock the API module — use importOriginal to include all exports
 vi.mock('@/services/topic-insights/api', async (importOriginal) => {

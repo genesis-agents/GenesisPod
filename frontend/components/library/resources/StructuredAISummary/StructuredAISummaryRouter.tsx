@@ -9,7 +9,7 @@ import type {
   ProjectAISummary,
   ReportAISummary,
   StructuredAISummary,
-} from '@/types/ai-office';
+} from '@/lib/types/ai-office';
 import { StructuredAISummaryBase } from './StructuredAISummaryBase';
 import { PaperAISummaryComponent } from './PaperAISummary';
 import { NewsAISummaryComponent } from './NewsAISummary';

@@ -7,7 +7,7 @@ import {
   TopicAIMember,
   MissionStatus,
   AgentTaskStatus,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 
 interface TeamCanvasViewProps {
   mission: TeamMission | null;

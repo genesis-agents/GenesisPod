@@ -13,7 +13,7 @@ import React from 'react';
 import type {
   SplitLayoutSlideContent,
   SplitSectionContent,
-} from '@/types/slides';
+} from '@/lib/types/slides';
 import '../styles/slide-tokens.css';
 
 export interface SplitLayoutSlideProps {

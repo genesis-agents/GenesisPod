@@ -9,7 +9,7 @@ import {
   type Task,
   type GenerationStep,
 } from '../aiOfficeStore';
-import type { Resource, Document, ChatMessage } from '@/types/ai-office';
+import type { Resource, Document, ChatMessage } from '@/lib/types/ai-office';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 

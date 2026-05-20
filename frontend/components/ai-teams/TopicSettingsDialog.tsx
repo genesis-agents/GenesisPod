@@ -7,7 +7,7 @@ import {
   UpdateTopicDto,
   AddAIMemberDto,
   TopicRole,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
 import { ModelBadges } from '@/components/common/ModelBadges';

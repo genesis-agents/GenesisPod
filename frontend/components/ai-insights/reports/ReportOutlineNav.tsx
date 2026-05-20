@@ -11,7 +11,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useI18n } from '@/lib/i18n';
-import type { TopicReport } from '@/types/topic-insights';
+import type { TopicReport } from '@/lib/types/topic-insights';
 import { countWords } from '@/lib/markdown/countWords';
 
 interface OutlineItem {

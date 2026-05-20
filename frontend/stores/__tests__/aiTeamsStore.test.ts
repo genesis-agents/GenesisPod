@@ -7,7 +7,7 @@ import {
   TopicType,
   MessageContentType,
   MissionStatus,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 
 // Mock the API module
 vi.mock('@/services/ai-teams/api');

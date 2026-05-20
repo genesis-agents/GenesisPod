@@ -8,7 +8,7 @@ import type {
   AskRoomMember,
   AskRoomMemberRole,
   AskRoomMemberType,
-} from '@/types/ask-room';
+} from '@/lib/types/ask-room';
 
 interface RoomMemberPanelProps {
   members: AskRoomMember[];

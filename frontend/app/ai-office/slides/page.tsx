@@ -56,8 +56,8 @@ import type {
   AgentState,
   TeamExecutionState,
   SLIDES_TEAM_AGENTS,
-} from '@/types/slides-team';
-import type { PageState, GenerationProgress } from '@/types/slides';
+} from '@/lib/types/slides-team';
+import type { PageState, GenerationProgress } from '@/lib/types/slides';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 import { useI18n } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';

@@ -3,7 +3,7 @@ import {
   CoordinatorAgent,
   ResourceAnalysisAgent,
 } from '@/lib/ai-office/multi-agents';
-import type { Resource, ResourceType } from '@/types/ai-office';
+import type { Resource, ResourceType } from '@/lib/types/ai-office';
 
 import { logger } from '@/lib/utils/logger';
 import { config } from '@/lib/utils/config';

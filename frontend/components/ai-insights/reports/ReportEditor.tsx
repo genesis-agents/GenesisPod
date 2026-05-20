@@ -36,7 +36,7 @@ import type {
   TopicReport,
   TopicEvidence,
   ReportChart,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 import { TextSelectionContextMenu } from '../panels/TextSelectionContextMenu';
 import {
   FigureRenderer,

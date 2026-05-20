@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import type { EvolutionRoadmapSlideContent } from '@/types/slides';
+import type { EvolutionRoadmapSlideContent } from '@/lib/types/slides';
 import { ProgressBar } from '../base';
 import '../styles/slide-tokens.css';
 

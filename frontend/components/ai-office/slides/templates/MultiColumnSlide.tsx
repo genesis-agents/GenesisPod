@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { MultiColumnSlideContent } from '@/types/slides';
+import type { MultiColumnSlideContent } from '@/lib/types/slides';
 import { SlideCard } from '../base';
 import '../styles/slide-tokens.css';
 

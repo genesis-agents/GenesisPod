@@ -5,7 +5,7 @@
  * @module ai-agents/verification
  */
 
-import type { Resource } from '@/types/ai-office';
+import type { Resource } from '@/lib/types/ai-office';
 
 import { logger } from '@/lib/utils/logger';
 import { getAuthHeader } from '@/lib/utils/auth';

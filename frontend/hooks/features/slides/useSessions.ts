@@ -7,7 +7,7 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
-import type { SlidesSession } from '@/types/slides';
+import type { SlidesSession } from '@/lib/types/slides';
 
 import { logger } from '@/lib/utils/logger';
 const API_BASE = config.apiUrl || '';

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Star, GitFork, AlertCircle, Users, Circle, Award } from 'lucide-react';
-import type { ProjectAISummary } from '@/types/ai-office';
+import type { ProjectAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
 
 /**

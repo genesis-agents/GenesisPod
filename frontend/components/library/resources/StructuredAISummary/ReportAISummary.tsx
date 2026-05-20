@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import type { ReportAISummary } from '@/types/ai-office';
+import type { ReportAISummary } from '@/lib/types/ai-office';
 import ClientDate from '@/components/common/ClientDate';
 
 /**

@@ -24,7 +24,7 @@ import {
   CreateMissionDto,
   UpdateAIMemberTeamRoleDto,
   MissionStatus,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 

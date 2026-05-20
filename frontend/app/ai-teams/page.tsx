@@ -9,7 +9,7 @@ import {
   TopicType,
   CreateTopicDto,
   UpdateTopicDto,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 import { useAIModels, AIModel } from '@/hooks';
 import { ModelBadges } from '@/components/common/ModelBadges';
 import AppShell from '@/components/layout/AppShell';

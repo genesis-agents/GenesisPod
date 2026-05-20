@@ -13,7 +13,7 @@ import React from 'react';
 import type {
   SlideTemplateTypeString,
   SlideTemplateContent,
-} from '@/types/slides';
+} from '@/lib/types/slides';
 
 // 导入模板组件 - 15种完整模板
 import CoverSlide from './templates/CoverSlide';

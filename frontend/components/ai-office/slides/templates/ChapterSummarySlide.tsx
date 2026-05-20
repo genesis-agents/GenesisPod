@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { ChapterSummarySlideContent } from '@/types/slides';
+import type { ChapterSummarySlideContent } from '@/lib/types/slides';
 import { SlideCard } from '../base';
 import '../styles/slide-tokens.css';
 

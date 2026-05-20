@@ -39,8 +39,8 @@ import type {
   ReviewMaxRetriesData,
   ReviewDiagnosticsData,
   SLIDES_TEAM_AGENTS,
-} from '@/types/slides-team';
-import type { PageState, GenerationProgress } from '@/types/slides';
+} from '@/lib/types/slides-team';
+import type { PageState, GenerationProgress } from '@/lib/types/slides';
 
 import { logger } from '@/lib/utils/logger';
 // 使用前端 API 代理，避免 CORS 问题

@@ -14,8 +14,8 @@ import {
   type AssetVisibility,
   type AssetVisibilityOption,
 } from '@/components/common/asset-card';
-import type { ResearchTopic } from '@/types/topic-insights';
-import { ResearchTopicType, DimensionStatus } from '@/types/topic-insights';
+import type { ResearchTopic } from '@/lib/types/topic-insights';
+import { ResearchTopicType, DimensionStatus } from '@/lib/types/topic-insights';
 import { useTranslation } from '@/lib/i18n';
 import { ApplicationButton } from './ApplicationButton';
 

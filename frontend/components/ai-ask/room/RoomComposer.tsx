@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Send, X } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import type { AskRoomMember, AskRoomMode } from '@/types/ask-room';
+import type { AskRoomMember, AskRoomMode } from '@/lib/types/ask-room';
 
 const MODE_VALUES: AskRoomMode[] = [
   'FREECHAT',

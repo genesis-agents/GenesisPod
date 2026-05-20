@@ -8,7 +8,7 @@
 import React from 'react';
 import { useResourceStore } from '@/stores/aiOfficeStore';
 import { Youtube, FileText, Globe, Plus, X } from 'lucide-react';
-import type { Resource } from '@/types/ai-office';
+import type { Resource } from '@/lib/types/ai-office';
 
 const getResourceIcon = (type: string) => {
   switch (type) {

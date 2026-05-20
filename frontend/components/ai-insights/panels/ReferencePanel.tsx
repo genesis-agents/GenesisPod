@@ -10,7 +10,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import type { TopicEvidence, TopicDimension } from '@/types/topic-insights';
+import type { TopicEvidence, TopicDimension } from '@/lib/types/topic-insights';
 import { recalculateCredibilityScores } from '@/services/topic-insights/api';
 import { ClientDate } from '@/components/common/ClientDate';
 import { useI18n } from '@/lib/i18n';

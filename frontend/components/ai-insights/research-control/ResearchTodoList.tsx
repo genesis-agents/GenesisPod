@@ -31,7 +31,7 @@ import {
   ResearchTodoStatus,
   ResearchTodoType,
   TodoSummary,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 import { logger } from '@/lib/utils/logger';
 import {
   pauseTodo,

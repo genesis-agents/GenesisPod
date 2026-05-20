@@ -41,7 +41,7 @@ slides/
 
 ```tsx
 import { SlideRenderer } from '@/components/ai-office/slides';
-import type { CoverSlideContent } from '@/types/slides';
+import type { CoverSlideContent } from '@/lib/types/slides';
 
 const coverContent: CoverSlideContent = {
   templateType: 'cover',

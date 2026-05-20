@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TopicAIMemberWithTeamRole, CreateMissionDto } from '@/types/ai-teams';
+import {
+  TopicAIMemberWithTeamRole,
+  CreateMissionDto,
+} from '@/lib/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
 
 interface CreateMissionDialogProps {

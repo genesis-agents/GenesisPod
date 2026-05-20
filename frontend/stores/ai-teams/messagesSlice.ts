@@ -4,7 +4,7 @@ import {
   TopicResource,
   SendMessageDto,
   AddResourceDto,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 import * as api from '@/services/ai-teams/api';
 
 import { logger } from '@/lib/utils/logger';

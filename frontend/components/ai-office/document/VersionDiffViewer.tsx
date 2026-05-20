@@ -8,7 +8,7 @@
 import React, { useMemo } from 'react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
-import type { DocumentVersion } from '@/types/ai-office';
+import type { DocumentVersion } from '@/lib/types/ai-office';
 import { logger } from '@/lib/utils/logger';
 import {
   comparePPTVersions,

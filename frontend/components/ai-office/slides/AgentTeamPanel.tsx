@@ -47,7 +47,7 @@ import type {
   ReviewIssueData,
   ReviewFixedData,
   DiagnosticData,
-} from '@/types/slides-team';
+} from '@/lib/types/slides-team';
 
 // ============================================================================
 // Agent 配置

@@ -39,7 +39,7 @@ import type {
   PageOutline,
   GenerationProgress,
   OutlinePlan,
-} from '@/types/slides';
+} from '@/lib/types/slides';
 import { PhaseTimeline } from './PhaseTimeline';
 
 // ============================================================================
@@ -110,7 +110,7 @@ interface ConversationPanelProps {
   generating: boolean;
   progress: GenerationProgress | null;
   outlinePlan: OutlinePlan | null;
-  teamState: import('@/types/slides-team').TeamExecutionState | null;
+  teamState: import('@/lib/types/slides-team').TeamExecutionState | null;
 }
 
 export function ConversationPanel({

@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
 import { toast } from '@/stores';
 import { getTemplateById, PPTTemplate } from '@/lib/ai-office/ppt-templates';
-import type { Document } from '@/types/ai-office';
+import type { Document } from '@/lib/types/ai-office';
 import {
   FileDown,
   FileText,

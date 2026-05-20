@@ -40,7 +40,7 @@ import type {
   ReviewFixedData,
   AgentHandoffData,
   ReviewDimension,
-} from '@/types/slides-team';
+} from '@/lib/types/slides-team';
 
 // ============================================================================
 // 辅助函数

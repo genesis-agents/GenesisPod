@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { TimelineSlideContent } from '@/types/slides';
+import type { TimelineSlideContent } from '@/lib/types/slides';
 import { SlideTimeline } from '../base';
 import '../styles/slide-tokens.css';
 

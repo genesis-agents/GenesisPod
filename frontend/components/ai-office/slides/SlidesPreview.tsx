@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore } from '@/stores';
-import type { PageState } from '@/types/slides';
+import type { PageState } from '@/lib/types/slides';
 import { sanitizeSlideHtml } from '@/lib/utils/sanitize';
 import { CodePreview } from './CodePreview';
 import { ThinkingPanel } from './ThinkingPanel';

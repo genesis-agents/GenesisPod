@@ -15,7 +15,7 @@ import {
   ResourceAnalysisAgent,
   type ResourceAnalysis,
 } from '../resource-analysis.agent';
-import type { Resource } from '@/types/ai-office';
+import type { Resource } from '@/lib/types/ai-office';
 
 // ============================================================================
 // Test helpers

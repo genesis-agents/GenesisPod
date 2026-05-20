@@ -16,7 +16,7 @@ import type {
   AskRoomServerEvent,
   AskRoomTurn,
   AskTurnStatus,
-} from '@/types/ask-room';
+} from '@/lib/types/ask-room';
 
 interface PendingMessage {
   id: string;

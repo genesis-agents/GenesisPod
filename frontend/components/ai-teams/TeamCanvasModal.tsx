@@ -9,7 +9,7 @@ import {
   TopicAIMember,
   MissionStatus,
   AgentTaskStatus,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 import { getProviderBrand as getProviderBrandFromLib } from '@/lib/ai-provider-logos';
 import {
   downloadMissionReportHTML,

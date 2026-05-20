@@ -15,7 +15,7 @@ import type {
   Checkpoint,
   CheckpointState,
   SourceSubscription,
-} from '@/types/slides';
+} from '@/lib/types/slides';
 import { logger } from '@/lib/utils/logger';
 
 const API_BASE = config.apiUrl || '';

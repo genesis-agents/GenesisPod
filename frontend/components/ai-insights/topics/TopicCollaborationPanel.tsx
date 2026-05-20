@@ -8,7 +8,7 @@
 
 import { useTopicContent } from './TopicContentContext';
 import type { ResearchEvent as TopicResearchEvent } from './TopicContentContext';
-import type { TopicMessage } from '@/types/ai-teams';
+import type { TopicMessage } from '@/lib/types/ai-teams';
 import type { MissionStatus } from '@/services/topic-insights/api';
 
 interface AgentActivity {

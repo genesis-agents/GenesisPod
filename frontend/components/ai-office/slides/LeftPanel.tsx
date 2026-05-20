@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useSlidesStore } from '@/stores';
-import type { GenerationProgress } from '@/types/slides';
+import type { GenerationProgress } from '@/lib/types/slides';
 
 // ============================================================================
 // Types

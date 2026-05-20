@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import type { RecommendationsSlideContent } from '@/types/slides';
+import type { RecommendationsSlideContent } from '@/lib/types/slides';
 import { SlideTag } from '../base';
 import '../styles/slide-tokens.css';
 

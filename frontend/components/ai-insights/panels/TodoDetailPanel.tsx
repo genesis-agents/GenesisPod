@@ -44,7 +44,7 @@ import type {
   ResearchTodoStatus,
   ResearchTodoType,
   TodoResult,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 import type { AgentActivity } from '@/services/topic-insights/api';
 import { cn, safeString } from '@/lib/utils/common';
 

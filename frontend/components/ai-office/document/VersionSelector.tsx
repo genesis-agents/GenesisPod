@@ -15,7 +15,7 @@ import {
   PencilIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import type { DocumentVersion } from '@/types/ai-office';
+import type { DocumentVersion } from '@/lib/types/ai-office';
 import { useDocumentStore } from '@/stores/aiOfficeStore';
 
 interface VersionSelectorProps {

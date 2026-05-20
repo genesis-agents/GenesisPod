@@ -30,7 +30,7 @@ const PDFViewerClient = dynamic(
   }
 );
 
-import type { ResourceAISummary } from '@/types/ai-office';
+import type { ResourceAISummary } from '@/lib/types/ai-office';
 
 import { logger } from '@/lib/utils/logger';
 interface Resource {

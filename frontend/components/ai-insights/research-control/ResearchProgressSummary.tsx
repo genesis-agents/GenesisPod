@@ -11,8 +11,8 @@ import { useMemo } from 'react';
 import { CheckCircle2, Clock, Loader2, AlertCircle, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';
-import type { TodoSummary, ResearchTodo } from '@/types/topic-insights';
-import { ResearchTodoStatus } from '@/types/topic-insights';
+import type { TodoSummary, ResearchTodo } from '@/lib/types/topic-insights';
+import { ResearchTodoStatus } from '@/lib/types/topic-insights';
 
 interface ResearchProgressSummaryProps {
   summary?: TodoSummary | null;

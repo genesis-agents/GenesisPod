@@ -17,7 +17,7 @@ import {
   TeamMission,
   AddAIMemberDto,
   UpdateAIMemberDto,
-} from '@/types/ai-teams';
+} from '@/lib/types/ai-teams';
 
 import { createTopicsSlice, TopicsSlice } from './topicsSlice';
 import { createMessagesSlice, MessagesSlice } from './messagesSlice';

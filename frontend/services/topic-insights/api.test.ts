@@ -158,7 +158,7 @@ import {
   RefreshLogStatus,
   ResearchTodoStatus,
   ResearchTodoType,
-} from '@/types/topic-insights';
+} from '@/lib/types/topic-insights';
 
 // ---------------------------------------------------------------------------
 // Setup

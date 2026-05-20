@@ -15,7 +15,7 @@ import type {
   AskRoomMode,
   AskRoomSession,
   AskRoomTurn,
-} from '@/types/ask-room';
+} from '@/lib/types/ask-room';
 
 interface CreateRoomInput {
   title?: string;

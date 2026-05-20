@@ -178,7 +178,7 @@ import {
   type Resource as AIResource,
 } from '@/lib/ai-office/context-builder';
 import { useResourceStore } from '@/stores/aiOfficeStore';
-import type { Resource as AIOfficeResource } from '@/types/ai-office';
+import type { Resource as AIOfficeResource } from '@/lib/types/ai-office';
 import {
   ThumbsUp,
   TrendingUp,

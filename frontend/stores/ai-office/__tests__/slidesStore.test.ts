@@ -19,7 +19,7 @@ import type {
   GenerationProgress,
   CheckpointState,
   GlobalStyles,
-} from '@/types/slides';
+} from '@/lib/types/slides';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 

@@ -10,7 +10,7 @@
 import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { TopicReport, TopicEvidence } from '@/types/topic-insights';
+import type { TopicReport, TopicEvidence } from '@/lib/types/topic-insights';
 import { useI18n } from '@/lib/i18n';
 
 /**

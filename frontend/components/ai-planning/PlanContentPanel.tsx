@@ -45,7 +45,7 @@ import {
   AGENT_KEY_TO_INDEX,
 } from '@/lib/constants/planning-roles';
 import { getMessages, sendMessage } from '@/services/ai-teams/api';
-import type { TopicMessage } from '@/types/ai-teams';
+import type { TopicMessage } from '@/lib/types/ai-teams';
 
 export type PlanContentTabType =
   | 'phases'

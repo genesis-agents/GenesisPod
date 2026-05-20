@@ -4,7 +4,7 @@
  */
 
 import { useApiGet } from '../core';
-import type { KeyHealthStatus } from '@/types/admin';
+import type { KeyHealthStatus } from '@/lib/types/admin';
 
 interface UseKeyHealthOptions {
   /** 是否立即加载 */

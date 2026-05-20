@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Topic, TopicSummary, GenerateSummaryDto } from '@/types/ai-teams';
-import type { WebResource } from '@/types/ai-office';
+import { Topic, TopicSummary, GenerateSummaryDto } from '@/lib/types/ai-teams';
+import type { WebResource } from '@/lib/types/ai-office';
 import { useAIModels, pickPreferredModel } from '@/hooks';
 import { ModelBadges } from '@/components/common/ModelBadges';
 import * as api from '@/services/ai-teams/api';

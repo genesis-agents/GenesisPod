@@ -70,8 +70,8 @@ import type {
   PageOutline,
   GenerationProgress,
   OutlinePlan,
-} from '@/types/slides';
-import type { GenerateTeamRequest } from '@/types/slides-team';
+} from '@/lib/types/slides';
+import type { GenerateTeamRequest } from '@/lib/types/slides-team';
 import { AgentTeamPanel } from './AgentTeamPanel';
 import { PhaseTimeline } from './PhaseTimeline';
 import { AIAssistMenu } from './AIAssistMenu';

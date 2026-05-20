@@ -16,7 +16,7 @@ import {
 import type {
   Document as AiOfficeDocument,
   DocumentType,
-} from '@/types/ai-office';
+} from '@/lib/types/ai-office';
 import {
   Send,
   Paperclip,

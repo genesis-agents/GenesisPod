@@ -19,7 +19,7 @@ import {
   UpdateSecretDto,
 } from '@/hooks/domain/useAdminSecrets';
 import { useKeyHealth } from '@/hooks/domain';
-import { isMultiKeySecret, type KeyHealthStatus } from '@/types/admin';
+import { isMultiKeySecret, type KeyHealthStatus } from '@/lib/types/admin';
 import { formatDateSafe } from '@/lib/utils/date';
 
 // Category keys for i18n lookup
