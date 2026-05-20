@@ -99,6 +99,7 @@ import remarkGfm from 'remark-gfm';
 import { logger } from '@/lib/utils/logger';
 import ClientDate from '@/components/common/ClientDate';
 import { formatDateSafe } from '@/lib/utils/date';
+import { Modal } from '@/components/ui/dialogs/Modal';
 // 懒加载条件渲染的对话框和面板组件
 const TopicSettingsDialog = dynamic(
   () => import('@/components/ai-teams/TopicSettingsDialog'),
@@ -2958,25 +2959,89 @@ export default function TopicPage() {
       )}
 
       {/* Invite Member Dialog */}
-      {showInviteDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Invite Member
-              </h2>
+      <Modal
+        open={showInviteDialog}
+        onClose={() => {
+          setShowInviteDialog(false);
+          setInviteEmail('');
+          setInviteError('');
+          setSelectedInviteUser(null);
+          setInviteSearchResults([]);
+        }}
+        title="Invite Member"
+        size="sm"
+        footer={
+          <>
+            <button
+              onClick={() => {
+                setShowInviteDialog(false);
+                setInviteEmail('');
+                setInviteError('');
+                setSelectedInviteUser(null);
+                setInviteSearchResults([]);
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              disabled={isInviting}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleInviteMember}
+              disabled={
+                (!selectedInviteUser &&
+                  (!inviteEmail.includes('@') || !inviteEmail.includes('.'))) ||
+                isInviting
+              }
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isInviting ? 'Inviting...' : 'Invite'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Search for users by name, username, or email address.
+          </p>
+
+          {/* Selected User Display */}
+          {selectedInviteUser && (
+            <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <div className="flex items-center gap-3">
+                {selectedInviteUser.avatarUrl ? (
+                  <img
+                    src={selectedInviteUser.avatarUrl}
+                    alt={
+                      selectedInviteUser.fullName ||
+                      selectedInviteUser.username ||
+                      'User'
+                    }
+                    className="h-10 w-10 rounded-full"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                    {(selectedInviteUser.fullName ||
+                      selectedInviteUser.username ||
+                      selectedInviteUser.email)[0].toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div className="text-sm font-medium text-gray-900">
+                    {selectedInviteUser.fullName ||
+                      selectedInviteUser.username ||
+                      'User'}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {selectedInviteUser.email}
+                  </div>
+                </div>
+              </div>
               <button
-                onClick={() => {
-                  setShowInviteDialog(false);
-                  setInviteEmail('');
-                  setInviteError('');
-                  setSelectedInviteUser(null);
-                  setInviteSearchResults([]);
-                }}
-                className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                onClick={() => setSelectedInviteUser(null)}
+                className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-gray-600"
               >
                 <svg
-                  className="h-5 w-5"
+                  className="h-4 w-4"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -2990,180 +3055,89 @@ export default function TopicPage() {
                 </svg>
               </button>
             </div>
+          )}
 
-            <p className="mb-4 text-sm text-gray-500">
-              Search for users by name, username, or email address.
-            </p>
-
-            <div className="space-y-4">
-              {/* Selected User Display */}
-              {selectedInviteUser && (
-                <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
-                  <div className="flex items-center gap-3">
-                    {selectedInviteUser.avatarUrl ? (
-                      <img
-                        src={selectedInviteUser.avatarUrl}
-                        alt={
-                          selectedInviteUser.fullName ||
-                          selectedInviteUser.username ||
-                          'User'
-                        }
-                        className="h-10 w-10 rounded-full"
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                        {(selectedInviteUser.fullName ||
-                          selectedInviteUser.username ||
-                          selectedInviteUser.email)[0].toUpperCase()}
-                      </div>
-                    )}
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {selectedInviteUser.fullName ||
-                          selectedInviteUser.username ||
-                          'User'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {selectedInviteUser.email}
-                      </div>
-                    </div>
+          {/* Search Input */}
+          {!selectedInviteUser && (
+            <div className="relative">
+              <label className="block text-sm font-medium text-gray-700">
+                Search Users or Enter Email
+              </label>
+              <div className="relative mt-1">
+                <input
+                  type="text"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="Search by name, username, or enter email..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  disabled={isInviting}
+                />
+                {isSearchingUsers && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                   </div>
-                  <button
-                    onClick={() => setSelectedInviteUser(null)}
-                    className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-gray-600"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {inviteSearchResults.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                  {inviteSearchResults.map((searchUser) => (
+                    <button
+                      key={searchUser.id}
+                      onClick={() => {
+                        setSelectedInviteUser(searchUser);
+                        setInviteEmail('');
+                        setInviteSearchResults([]);
+                      }}
+                      className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                      {searchUser.avatarUrl ? (
+                        <img
+                          src={searchUser.avatarUrl}
+                          alt={
+                            searchUser.fullName || searchUser.username || 'User'
+                          }
+                          className="h-8 w-8 rounded-full"
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600">
+                          {(searchUser.fullName ||
+                            searchUser.username ||
+                            searchUser.email)[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-gray-900">
+                          {searchUser.fullName || searchUser.username || 'User'}
+                        </div>
+                        <div className="truncate text-xs text-gray-500">
+                          {searchUser.email}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
 
-              {/* Search Input */}
-              {!selectedInviteUser && (
-                <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Search Users or Enter Email
-                  </label>
-                  <div className="relative mt-1">
-                    <input
-                      type="text"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      placeholder="Search by name, username, or enter email..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      disabled={isInviting}
-                    />
-                    {isSearchingUsers && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                      </div>
-                    )}
+              {/* No Results Message */}
+              {inviteEmail.length >= 2 &&
+                !isSearchingUsers &&
+                inviteSearchResults.length === 0 && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    No users found. You can still invite by email address.
                   </div>
-
-                  {/* Search Results Dropdown */}
-                  {inviteSearchResults.length > 0 && (
-                    <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
-                      {inviteSearchResults.map((searchUser) => (
-                        <button
-                          key={searchUser.id}
-                          onClick={() => {
-                            setSelectedInviteUser(searchUser);
-                            setInviteEmail('');
-                            setInviteSearchResults([]);
-                          }}
-                          className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
-                        >
-                          {searchUser.avatarUrl ? (
-                            <img
-                              src={searchUser.avatarUrl}
-                              alt={
-                                searchUser.fullName ||
-                                searchUser.username ||
-                                'User'
-                              }
-                              className="h-8 w-8 rounded-full"
-                            />
-                          ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600">
-                              {(searchUser.fullName ||
-                                searchUser.username ||
-                                searchUser.email)[0].toUpperCase()}
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium text-gray-900">
-                              {searchUser.fullName ||
-                                searchUser.username ||
-                                'User'}
-                            </div>
-                            <div className="truncate text-xs text-gray-500">
-                              {searchUser.email}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* No Results Message */}
-                  {inviteEmail.length >= 2 &&
-                    !isSearchingUsers &&
-                    inviteSearchResults.length === 0 && (
-                      <div className="mt-2 text-xs text-gray-500">
-                        No users found. You can still invite by email address.
-                      </div>
-                    )}
-                </div>
-              )}
-
-              {inviteError && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                  {inviteError}
-                </div>
-              )}
+                )}
             </div>
+          )}
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowInviteDialog(false);
-                  setInviteEmail('');
-                  setInviteError('');
-                  setSelectedInviteUser(null);
-                  setInviteSearchResults([]);
-                }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                disabled={isInviting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleInviteMember}
-                disabled={
-                  (!selectedInviteUser &&
-                    (!inviteEmail.includes('@') ||
-                      !inviteEmail.includes('.'))) ||
-                  isInviting
-                }
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isInviting ? 'Inviting...' : 'Invite'}
-              </button>
+          {inviteError && (
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              {inviteError}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </Modal>
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
 import {
   Bot,
@@ -8,13 +8,13 @@ import {
   Pencil,
   Trash2,
   Power,
-  X,
   Sparkles,
   Loader2,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { useAdminAgents, AgentConfig } from '@/hooks/domain/useAdminAgents';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
@@ -73,18 +73,6 @@ export default function AgentManagementPage() {
     setEditingAgent(null);
     resetForm();
   }, [resetForm]);
-
-  // Escape key to close modal
-  useEffect(() => {
-    if (!isModalOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        closeModal();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isModalOpen, closeModal]);
 
   const handleCreate = useCallback(async () => {
     await createAgent({
@@ -409,281 +397,262 @@ export default function AgentManagementPage() {
         )}
 
         {/* Create/Edit Modal */}
-        {isModalOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="agent-modal-title"
-          >
-            <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-              {/* Modal header */}
-              <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-lg bg-violet-50 p-2">
-                    <Bot className="h-5 w-5 text-violet-600" />
-                  </div>
-                  <h2
-                    id="agent-modal-title"
-                    className="text-lg font-semibold text-gray-900"
+        <Modal
+          open={isModalOpen}
+          onClose={closeModal}
+          title={
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-violet-50 p-2">
+                <Bot className="h-5 w-5 text-violet-600" />
+              </div>
+              <span>
+                {editingAgent
+                  ? 'Edit Agent Configuration'
+                  : 'Create Agent Configuration'}
+              </span>
+            </div>
+          }
+          size="lg"
+          footer={
+            <>
+              <button
+                onClick={closeModal}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  void (editingAgent ? handleUpdate() : handleCreate());
+                }}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
+              >
+                {editingAgent ? 'Save Changes' : 'Create Agent'}
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            {/* Name + AI Generate row */}
+            <div>
+              <label className={labelClassName}>Name</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className={inputClassName}
+                  placeholder="e.g., Research Lead"
+                />
+                {!editingAgent && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleAiGenerate();
+                    }}
+                    disabled={aiGenerating || !formData.name.trim()}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="AI auto-fill agent configuration"
                   >
-                    {editingAgent
-                      ? 'Edit Agent Configuration'
-                      : 'Create Agent Configuration'}
-                  </h2>
-                </div>
-                <button
-                  onClick={closeModal}
-                  className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                    {aiGenerating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                    AI 生成
+                  </button>
+                )}
               </div>
+            </div>
 
-              {/* Modal body */}
-              <div className="max-h-[70vh] overflow-y-auto p-6">
-                <div className="space-y-4">
-                  {/* Name + AI Generate row */}
-                  <div>
-                    <label className={labelClassName}>Name</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            name: e.target.value,
-                          }))
-                        }
-                        className={inputClassName}
-                        placeholder="e.g., Research Lead"
-                      />
-                      {!editingAgent && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            void handleAiGenerate();
-                          }}
-                          disabled={aiGenerating || !formData.name.trim()}
-                          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
-                          title="AI auto-fill agent configuration"
-                        >
-                          {aiGenerating ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4" />
-                          )}
-                          AI 生成
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Agent ID (only for create) */}
-                  {!editingAgent && (
-                    <div>
-                      <label className={labelClassName}>Agent ID</label>
-                      <input
-                        type="text"
-                        value={formData.agentId}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            agentId: e.target.value,
-                          }))
-                        }
-                        className={inputClassName}
-                        placeholder="e.g., research-lead"
-                      />
-                    </div>
-                  )}
-
-                  {/* Description */}
-                  <div>
-                    <label className={labelClassName}>Description</label>
-                    <input
-                      type="text"
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
-                      }
-                      className={inputClassName}
-                      placeholder="Optional description"
-                    />
-                  </div>
-
-                  {/* Agent Type & Domain */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClassName}>Agent Type</label>
-                      <select
-                        value={formData.agentType}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            agentType: e.target.value,
-                          }))
-                        }
-                        className={inputClassName}
-                      >
-                        <option value="reactive">Reactive</option>
-                        <option value="plan-based">Plan-Based</option>
-                        <option value="hybrid">Hybrid</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClassName}>Domain</label>
-                      <select
-                        value={formData.domain}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            domain: e.target.value,
-                          }))
-                        }
-                        className={inputClassName}
-                      >
-                        <option value="general">General</option>
-                        <option value="research">Research</option>
-                        <option value="writing">Writing</option>
-                        <option value="coding">Coding</option>
-                        <option value="slides">Slides</option>
-                        <option value="social">Social</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* System Prompt */}
-                  <div>
-                    <label className={labelClassName}>System Prompt</label>
-                    <textarea
-                      value={formData.systemPrompt}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          systemPrompt: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                      className={`${inputClassName} resize-y`}
-                      placeholder="System prompt for this agent..."
-                    />
-                  </div>
-
-                  {/* Tools & Skills */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClassName}>
-                        Tools{' '}
-                        <span className="font-normal text-gray-400">
-                          (comma-separated)
-                        </span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.tools}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            tools: e.target.value,
-                          }))
-                        }
-                        className={inputClassName}
-                        placeholder="web-search, code-exec"
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClassName}>
-                        Skills{' '}
-                        <span className="font-normal text-gray-400">
-                          (comma-separated)
-                        </span>
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.skills}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            skills: e.target.value,
-                          }))
-                        }
-                        className={inputClassName}
-                        placeholder="slides-outline, report-writing"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Model Type & Enabled */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClassName}>Model Type</label>
-                      <input
-                        type="text"
-                        value={formData.modelType}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            modelType: e.target.value,
-                          }))
-                        }
-                        className={inputClassName}
-                        placeholder="CHAT, REASONING, etc."
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <div className="flex w-full items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
-                        <span className="text-sm font-medium text-gray-700">
-                          Enabled
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              enabled: !prev.enabled,
-                            }))
-                          }
-                          className={`relative h-6 w-11 rounded-full transition-colors ${
-                            formData.enabled ? 'bg-green-500' : 'bg-gray-300'
-                          }`}
-                        >
-                          <div
-                            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                              formData.enabled ? 'left-[22px]' : 'left-0.5'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {/* Agent ID (only for create) */}
+            {!editingAgent && (
+              <div>
+                <label className={labelClassName}>Agent ID</label>
+                <input
+                  type="text"
+                  value={formData.agentId}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      agentId: e.target.value,
+                    }))
+                  }
+                  className={inputClassName}
+                  placeholder="e.g., research-lead"
+                />
               </div>
+            )}
 
-              {/* Modal actions */}
-              <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
-                <button
-                  onClick={closeModal}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            {/* Description */}
+            <div>
+              <label className={labelClassName}>Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                className={inputClassName}
+                placeholder="Optional description"
+              />
+            </div>
+
+            {/* Agent Type & Domain */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClassName}>Agent Type</label>
+                <select
+                  value={formData.agentType}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      agentType: e.target.value,
+                    }))
+                  }
+                  className={inputClassName}
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    void (editingAgent ? handleUpdate() : handleCreate());
-                  }}
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
+                  <option value="reactive">Reactive</option>
+                  <option value="plan-based">Plan-Based</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClassName}>Domain</label>
+                <select
+                  value={formData.domain}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      domain: e.target.value,
+                    }))
+                  }
+                  className={inputClassName}
                 >
-                  {editingAgent ? 'Save Changes' : 'Create Agent'}
-                </button>
+                  <option value="general">General</option>
+                  <option value="research">Research</option>
+                  <option value="writing">Writing</option>
+                  <option value="coding">Coding</option>
+                  <option value="slides">Slides</option>
+                  <option value="social">Social</option>
+                </select>
+              </div>
+            </div>
+
+            {/* System Prompt */}
+            <div>
+              <label className={labelClassName}>System Prompt</label>
+              <textarea
+                value={formData.systemPrompt}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    systemPrompt: e.target.value,
+                  }))
+                }
+                rows={4}
+                className={`${inputClassName} resize-y`}
+                placeholder="System prompt for this agent..."
+              />
+            </div>
+
+            {/* Tools & Skills */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClassName}>
+                  Tools{' '}
+                  <span className="font-normal text-gray-400">
+                    (comma-separated)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.tools}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      tools: e.target.value,
+                    }))
+                  }
+                  className={inputClassName}
+                  placeholder="web-search, code-exec"
+                />
+              </div>
+              <div>
+                <label className={labelClassName}>
+                  Skills{' '}
+                  <span className="font-normal text-gray-400">
+                    (comma-separated)
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.skills}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      skills: e.target.value,
+                    }))
+                  }
+                  className={inputClassName}
+                  placeholder="slides-outline, report-writing"
+                />
+              </div>
+            </div>
+
+            {/* Model Type & Enabled */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClassName}>Model Type</label>
+                <input
+                  type="text"
+                  value={formData.modelType}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      modelType: e.target.value,
+                    }))
+                  }
+                  className={inputClassName}
+                  placeholder="CHAT, REASONING, etc."
+                />
+              </div>
+              <div className="flex items-end">
+                <div className="flex w-full items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    Enabled
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        enabled: !prev.enabled,
+                      }))
+                    }
+                    className={`relative h-6 w-11 rounded-full transition-colors ${
+                      formData.enabled ? 'bg-green-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                        formData.enabled ? 'left-[22px]' : 'left-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        )}
+        </Modal>
       </div>
     </AdminPageLayout>
   );

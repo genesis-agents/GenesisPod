@@ -20,6 +20,7 @@ import {
 } from '@/components/common/asset-card';
 import { FileText, Globe, Lock, PenLine, Pencil, Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 // AI Writing Team - Preview (5 core agents) - 使用统一配置
 const AI_TEAM_PREVIEW = Object.values(WRITING_AGENT_REGISTRY)
@@ -565,448 +566,399 @@ export default function AIWritingPage() {
       </main>
 
       {/* Create Dialog */}
-      {showCreateDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-            {/* Header */}
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t('aiWriting.createDialog.title')}
-              </h2>
-              <button
-                onClick={() => setShowCreateDialog(false)}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Content - Scrollable */}
-            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t('aiWriting.createDialog.whatToWrite')}
-                </label>
-                <textarea
-                  value={createForm.description}
-                  onChange={(e) =>
-                    setCreateForm({
-                      ...createForm,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder={t('aiWriting.createDialog.placeholder')}
-                  rows={5}
-                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  autoFocus
-                />
-              </div>
-
-              {/* Options Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowOptions(!showOptions)}
-                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-              >
-                <svg
-                  className={`h-4 w-4 transition-transform ${showOptions ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-                {t('aiWriting.createDialog.optionalSettings')}
-              </button>
-
-              {/* Options */}
-              {showOptions && (
-                <div className="space-y-4 rounded-xl bg-gray-50 p-4">
-                  {/* Row 1: Genre and Word Count */}
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                        {t('aiWriting.createDialog.genre')}
-                      </label>
-                      <select
-                        value={createForm.genre}
-                        onChange={(e) =>
-                          setCreateForm({
-                            ...createForm,
-                            genre: e.target.value,
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                      >
-                        {GENRE_KEYS.map((key) => (
-                          <option key={key} value={key}>
-                            {t(
-                              `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as never
-                            )}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                        {t('aiWriting.createDialog.estimatedWords')}
-                      </label>
-                      <select
-                        value={createForm.targetWords}
-                        onChange={(e) =>
-                          setCreateForm({
-                            ...createForm,
-                            targetWords: Number(e.target.value),
-                          })
-                        }
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                      >
-                        {WORD_COUNT_VALUES.map((value) => {
-                          const key =
-                            value >= 1000000
-                              ? '1000k'
-                              : value >= 500000
-                                ? '500k'
-                                : value >= 200000
-                                  ? '200k'
-                                  : value >= 100000
-                                    ? '100k'
-                                    : value >= 50000
-                                      ? '50k'
-                                      : value >= 30000
-                                        ? '30k'
-                                        : '10k';
-                          return (
-                            <option key={value} value={value}>
-                              {t(`aiWriting.wordCounts.${key}`)}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Writing Style (full width) */}
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      {t('aiWriting.createDialog.writingStyle')}
-                    </label>
-                    <select
-                      value={createForm.writingStyle}
-                      onChange={(e) =>
-                        setCreateForm({
-                          ...createForm,
-                          writingStyle: e.target.value,
-                        })
-                      }
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                      disabled={isLoadingStyles}
-                    >
-                      <option value="">
-                        {t('aiWriting.createDialog.autoRecommend')}
-                      </option>
-                      {/* Group by category */}
-                      {STYLE_CATEGORY_KEYS.map((category) => {
-                        const presetsInCategory = stylePresets.filter(
-                          (p) => p.category === category
-                        );
-                        if (presetsInCategory.length === 0) return null;
-                        const categoryKey =
-                          category === 'chinese_martial_arts'
-                            ? 'chineseMartialArts'
-                            : category === 'chinese_web_novel'
-                              ? 'chineseWebNovel'
-                              : category;
-                        return (
-                          <optgroup
-                            key={category}
-                            label={t(
-                              `aiWriting.styleCategories.${categoryKey}` as never
-                            )}
-                          >
-                            {presetsInCategory.map((preset) => (
-                              <option key={preset.id} value={preset.id}>
-                                {preset.name} - {preset.description}
-                              </option>
-                            ))}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                    {createForm.writingStyle && (
-                      <p className="mt-1.5 text-xs text-gray-500">
-                        {
-                          stylePresets.find(
-                            (p) => p.id === createForm.writingStyle
-                          )?.representative
-                        }
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* AI Team Preview */}
-              <div className="rounded-xl bg-amber-50 p-4">
-                <p className="mb-3 text-xs font-medium text-amber-700">
-                  {t('aiWriting.team.title')}
-                </p>
-                <div className="flex items-center gap-3">
-                  {AI_TEAM_PREVIEW.map((agent) => (
-                    <div key={agent.id} className="flex flex-col items-center">
-                      <span
-                        className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${agent.color} text-lg shadow-sm`}
-                      >
-                        {agent.icon}
-                      </span>
-                      <span className="mt-1 text-xs text-gray-500">
-                        {agent.name}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer - Fixed at bottom */}
-            <div className="flex flex-shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4">
-              <button
-                onClick={() => setShowCreateDialog(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                {t('aiWriting.createDialog.cancel')}
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={!createForm.description.trim() || isCreating}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isCreating
-                  ? t('aiWriting.createDialog.creating')
-                  : t('aiWriting.createDialog.startCreating')}
-              </button>
-            </div>
+      <Modal
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        title={t('aiWriting.createDialog.title')}
+        size="md"
+        contentClassName="space-y-4"
+        footer={
+          <>
+            <button
+              onClick={() => setShowCreateDialog(false)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {t('aiWriting.createDialog.cancel')}
+            </button>
+            <button
+              onClick={handleCreate}
+              disabled={!createForm.description.trim() || isCreating}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isCreating
+                ? t('aiWriting.createDialog.creating')
+                : t('aiWriting.createDialog.startCreating')}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('aiWriting.createDialog.whatToWrite')}
+            </label>
+            <textarea
+              value={createForm.description}
+              onChange={(e) =>
+                setCreateForm({
+                  ...createForm,
+                  description: e.target.value,
+                })
+              }
+              placeholder={t('aiWriting.createDialog.placeholder')}
+              rows={5}
+              className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              autoFocus
+            />
           </div>
-        </div>
-      )}
 
-      {/* Edit Dialog */}
-      {editingProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-            {/* Header */}
-            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t('aiWriting.editDialog.title')}
-              </h2>
-              <button
-                onClick={() => setEditingProject(null)}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
+          {/* Options Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowOptions(!showOptions)}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <svg
+              className={`h-4 w-4 transition-transform ${showOptions ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+            {t('aiWriting.createDialog.optionalSettings')}
+          </button>
 
-            {/* Content */}
-            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t('aiWriting.editDialog.workName')}
-                </label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, name: e.target.value })
-                  }
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t('aiWriting.editDialog.workDescription')}
-                </label>
-                <textarea
-                  value={editForm.description}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, description: e.target.value })
-                  }
-                  rows={4}
-                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-
-              {/* Options */}
-              <div className="space-y-4 rounded-xl bg-gray-50 p-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      {t('aiWriting.createDialog.genre')}
-                    </label>
-                    <select
-                      value={editForm.genre}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, genre: e.target.value })
-                      }
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                    >
-                      {GENRE_KEYS.map((key) => (
-                        <option key={key} value={key}>
-                          {t(
-                            `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as never
-                          )}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                      {t('aiWriting.editDialog.targetWords')}
-                    </label>
-                    <select
-                      value={editForm.targetWords}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          targetWords: Number(e.target.value),
-                        })
-                      }
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                    >
-                      {WORD_COUNT_VALUES.map((value) => {
-                        const key =
-                          value >= 1000000
-                            ? '1000k'
-                            : value >= 500000
-                              ? '500k'
-                              : value >= 200000
-                                ? '200k'
-                                : value >= 100000
-                                  ? '100k'
-                                  : value >= 50000
-                                    ? '50k'
-                                    : value >= 30000
-                                      ? '30k'
-                                      : '10k';
-                        return (
-                          <option key={value} value={value}>
-                            {t(`aiWriting.wordCounts.${key}`)}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Writing Style */}
+          {/* Options */}
+          {showOptions && (
+            <div className="space-y-4 rounded-xl bg-gray-50 p-4">
+              {/* Row 1: Genre and Word Count */}
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-xs font-medium text-gray-500">
-                    {t('aiWriting.createDialog.writingStyle')}
+                    {t('aiWriting.createDialog.genre')}
                   </label>
                   <select
-                    value={editForm.writingStyle}
+                    value={createForm.genre}
                     onChange={(e) =>
-                      setEditForm({ ...editForm, writingStyle: e.target.value })
+                      setCreateForm({
+                        ...createForm,
+                        genre: e.target.value,
+                      })
                     }
                     className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                    disabled={isLoadingStyles}
                   >
-                    <option value="">
-                      {t('aiWriting.createDialog.autoRecommend')}
-                    </option>
-                    {STYLE_CATEGORY_KEYS.map((category) => {
-                      const presetsInCategory = stylePresets.filter(
-                        (p) => p.category === category
-                      );
-                      if (presetsInCategory.length === 0) return null;
-                      const categoryKey =
-                        category === 'chinese_martial_arts'
-                          ? 'chineseMartialArts'
-                          : category === 'chinese_web_novel'
-                            ? 'chineseWebNovel'
-                            : category;
+                    {GENRE_KEYS.map((key) => (
+                      <option key={key} value={key}>
+                        {t(
+                          `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as never
+                        )}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                    {t('aiWriting.createDialog.estimatedWords')}
+                  </label>
+                  <select
+                    value={createForm.targetWords}
+                    onChange={(e) =>
+                      setCreateForm({
+                        ...createForm,
+                        targetWords: Number(e.target.value),
+                      })
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                  >
+                    {WORD_COUNT_VALUES.map((value) => {
+                      const key =
+                        value >= 1000000
+                          ? '1000k'
+                          : value >= 500000
+                            ? '500k'
+                            : value >= 200000
+                              ? '200k'
+                              : value >= 100000
+                                ? '100k'
+                                : value >= 50000
+                                  ? '50k'
+                                  : value >= 30000
+                                    ? '30k'
+                                    : '10k';
                       return (
-                        <optgroup
-                          key={category}
-                          label={t(
-                            `aiWriting.styleCategories.${categoryKey}` as never
-                          )}
-                        >
-                          {presetsInCategory.map((preset) => (
-                            <option key={preset.id} value={preset.id}>
-                              {preset.name} - {preset.description}
-                            </option>
-                          ))}
-                        </optgroup>
+                        <option key={value} value={value}>
+                          {t(`aiWriting.wordCounts.${key}`)}
+                        </option>
                       );
                     })}
                   </select>
-                  {editForm.writingStyle && (
-                    <p className="mt-1.5 text-xs text-gray-500">
-                      {
-                        stylePresets.find((p) => p.id === editForm.writingStyle)
-                          ?.representative
-                      }
-                    </p>
-                  )}
                 </div>
               </div>
-            </div>
 
-            {/* Footer */}
-            <div className="flex flex-shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4">
-              <button
-                onClick={() => setEditingProject(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                {t('aiWriting.createDialog.cancel')}
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={!editForm.name.trim() || isEditing}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isEditing
-                  ? t('aiWriting.editDialog.saving')
-                  : t('aiWriting.editDialog.save')}
-              </button>
+              {/* Row 2: Writing Style (full width) */}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                  {t('aiWriting.createDialog.writingStyle')}
+                </label>
+                <select
+                  value={createForm.writingStyle}
+                  onChange={(e) =>
+                    setCreateForm({
+                      ...createForm,
+                      writingStyle: e.target.value,
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                  disabled={isLoadingStyles}
+                >
+                  <option value="">
+                    {t('aiWriting.createDialog.autoRecommend')}
+                  </option>
+                  {/* Group by category */}
+                  {STYLE_CATEGORY_KEYS.map((category) => {
+                    const presetsInCategory = stylePresets.filter(
+                      (p) => p.category === category
+                    );
+                    if (presetsInCategory.length === 0) return null;
+                    const categoryKey =
+                      category === 'chinese_martial_arts'
+                        ? 'chineseMartialArts'
+                        : category === 'chinese_web_novel'
+                          ? 'chineseWebNovel'
+                          : category;
+                    return (
+                      <optgroup
+                        key={category}
+                        label={t(
+                          `aiWriting.styleCategories.${categoryKey}` as never
+                        )}
+                      >
+                        {presetsInCategory.map((preset) => (
+                          <option key={preset.id} value={preset.id}>
+                            {preset.name} - {preset.description}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+                {createForm.writingStyle && (
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    {
+                      stylePresets.find((p) => p.id === createForm.writingStyle)
+                        ?.representative
+                    }
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* AI Team Preview */}
+          <div className="rounded-xl bg-amber-50 p-4">
+            <p className="mb-3 text-xs font-medium text-amber-700">
+              {t('aiWriting.team.title')}
+            </p>
+            <div className="flex items-center gap-3">
+              {AI_TEAM_PREVIEW.map((agent) => (
+                <div key={agent.id} className="flex flex-col items-center">
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${agent.color} text-lg shadow-sm`}
+                  >
+                    {agent.icon}
+                  </span>
+                  <span className="mt-1 text-xs text-gray-500">
+                    {agent.name}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      )}
+      </Modal>
+
+      {/* Edit Dialog */}
+      <Modal
+        open={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        title={t('aiWriting.editDialog.title')}
+        size="md"
+        contentClassName="space-y-4"
+        footer={
+          <>
+            <button
+              onClick={() => setEditingProject(null)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {t('aiWriting.createDialog.cancel')}
+            </button>
+            <button
+              onClick={handleSaveEdit}
+              disabled={!editForm.name.trim() || isEditing}
+              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isEditing
+                ? t('aiWriting.editDialog.saving')
+                : t('aiWriting.editDialog.save')}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('aiWriting.editDialog.workName')}
+            </label>
+            <input
+              type="text"
+              value={editForm.name}
+              onChange={(e) =>
+                setEditForm({ ...editForm, name: e.target.value })
+              }
+              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('aiWriting.editDialog.workDescription')}
+            </label>
+            <textarea
+              value={editForm.description}
+              onChange={(e) =>
+                setEditForm({ ...editForm, description: e.target.value })
+              }
+              rows={4}
+              className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
+
+          {/* Options */}
+          <div className="space-y-4 rounded-xl bg-gray-50 p-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                  {t('aiWriting.createDialog.genre')}
+                </label>
+                <select
+                  value={editForm.genre}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, genre: e.target.value })
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                >
+                  {GENRE_KEYS.map((key) => (
+                    <option key={key} value={key}>
+                      {t(
+                        `aiWriting.genres.${key.toLowerCase().replace('_', '')}` as never
+                      )}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                  {t('aiWriting.editDialog.targetWords')}
+                </label>
+                <select
+                  value={editForm.targetWords}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      targetWords: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                >
+                  {WORD_COUNT_VALUES.map((value) => {
+                    const key =
+                      value >= 1000000
+                        ? '1000k'
+                        : value >= 500000
+                          ? '500k'
+                          : value >= 200000
+                            ? '200k'
+                            : value >= 100000
+                              ? '100k'
+                              : value >= 50000
+                                ? '50k'
+                                : value >= 30000
+                                  ? '30k'
+                                  : '10k';
+                    return (
+                      <option key={value} value={value}>
+                        {t(`aiWriting.wordCounts.${key}`)}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* Writing Style */}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-gray-500">
+                {t('aiWriting.createDialog.writingStyle')}
+              </label>
+              <select
+                value={editForm.writingStyle}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, writingStyle: e.target.value })
+                }
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                disabled={isLoadingStyles}
+              >
+                <option value="">
+                  {t('aiWriting.createDialog.autoRecommend')}
+                </option>
+                {STYLE_CATEGORY_KEYS.map((category) => {
+                  const presetsInCategory = stylePresets.filter(
+                    (p) => p.category === category
+                  );
+                  if (presetsInCategory.length === 0) return null;
+                  const categoryKey =
+                    category === 'chinese_martial_arts'
+                      ? 'chineseMartialArts'
+                      : category === 'chinese_web_novel'
+                        ? 'chineseWebNovel'
+                        : category;
+                  return (
+                    <optgroup
+                      key={category}
+                      label={t(
+                        `aiWriting.styleCategories.${categoryKey}` as never
+                      )}
+                    >
+                      {presetsInCategory.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.name} - {preset.description}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+              {editForm.writingStyle && (
+                <p className="mt-1.5 text-xs text-gray-500">
+                  {
+                    stylePresets.find((p) => p.id === editForm.writingStyle)
+                      ?.representative
+                  }
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       {/* Share Modal */}
       {shareProject && (

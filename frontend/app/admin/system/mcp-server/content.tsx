@@ -20,13 +20,13 @@ import {
   Copy,
   Eye,
   EyeOff,
-  X,
   Globe,
   Power,
   PowerOff,
   Pencil,
 } from 'lucide-react';
 import { Tabs } from '@/components/ui/tabs';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
 import { logger } from '@/lib/utils/logger';
@@ -990,93 +990,79 @@ export default function MCPServerPageContent({
       </div>
 
       {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {t('admin.mcpServer.apiKeys.createTitle')}
-              </h3>
+      <Modal
+        open={showCreateModal}
+        onClose={handleCloseCreateModal}
+        title={t('admin.mcpServer.apiKeys.createTitle')}
+        size="md"
+        footer={
+          !generatedKey ? (
+            <>
               <button
                 onClick={handleCloseCreateModal}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                <X className="h-5 w-5" />
+                {t('common.cancel') || 'Cancel'}
+              </button>
+              <button
+                onClick={() => void handleCreateApiKey()}
+                disabled={!newKeyName.trim() || isCreating}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {t('admin.mcpServer.apiKeys.create')}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleCloseCreateModal}
+              className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            >
+              {t('common.close') || 'Close'}
+            </button>
+          )
+        }
+      >
+        {!generatedKey ? (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.mcpServer.apiKeys.displayName')}
+            </label>
+            <input
+              type="text"
+              value={newKeyName}
+              onChange={(e) => setNewKeyName(e.target.value)}
+              placeholder={t('admin.mcpServer.apiKeys.displayNamePlaceholder')}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleCreateApiKey();
+              }}
+            />
+          </div>
+        ) : (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.mcpServer.apiKeys.generatedKey')}
+            </label>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">
+                {generatedKey}
+              </code>
+              <button
+                onClick={() => void handleCopyKey(generatedKey)}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                {copiedKey
+                  ? t('admin.mcpServer.apiKeys.copied')
+                  : t('common.copy') || 'Copy'}
               </button>
             </div>
-
-            {!generatedKey ? (
-              <>
-                <div className="mb-4">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('admin.mcpServer.apiKeys.displayName')}
-                  </label>
-                  <input
-                    type="text"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder={t(
-                      'admin.mcpServer.apiKeys.displayNamePlaceholder'
-                    )}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void handleCreateApiKey();
-                    }}
-                  />
-                </div>
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={handleCloseCreateModal}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    {t('common.cancel') || 'Cancel'}
-                  </button>
-                  <button
-                    onClick={() => void handleCreateApiKey()}
-                    disabled={!newKeyName.trim() || isCreating}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {t('admin.mcpServer.apiKeys.create')}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mb-4">
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('admin.mcpServer.apiKeys.generatedKey')}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">
-                      {generatedKey}
-                    </code>
-                    <button
-                      onClick={() => void handleCopyKey(generatedKey)}
-                      className="flex shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      {copiedKey
-                        ? t('admin.mcpServer.apiKeys.copied')
-                        : t('common.copy') || 'Copy'}
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-amber-600">
-                    {t('admin.mcpServer.apiKeys.copyWarning')}
-                  </p>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    onClick={handleCloseCreateModal}
-                    className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                  >
-                    {t('common.close') || 'Close'}
-                  </button>
-                </div>
-              </>
-            )}
+            <p className="mt-2 text-xs text-amber-600">
+              {t('admin.mcpServer.apiKeys.copyWarning')}
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </>
   );
 
@@ -1387,170 +1373,162 @@ export default function MCPServerPageContent({
       )}
 
       {/* Add/Edit External Server Modal */}
-      {showAddExternalModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {editingExternal
-                  ? t('admin.mcpExternal.editServer') || 'Edit External Server'
-                  : t('admin.mcpExternal.addServer') || 'Add External Server'}
-              </h3>
-              <button
-                onClick={closeExternalModal}
-                className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      <Modal
+        open={showAddExternalModal}
+        onClose={closeExternalModal}
+        title={
+          editingExternal
+            ? t('admin.mcpExternal.editServer') || 'Edit External Server'
+            : t('admin.mcpExternal.addServer') || 'Add External Server'
+        }
+        size="md"
+        footer={
+          <>
+            <button
+              onClick={closeExternalModal}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              {t('common.cancel') || 'Cancel'}
+            </button>
+            <button
+              onClick={() => void handleSaveExternalServer()}
+              disabled={
+                !externalForm.serverId.trim() ||
+                !externalForm.name.trim() ||
+                !externalForm.url.trim() ||
+                externalActionLoading
+              }
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {editingExternal
+                ? t('common.save') || 'Save'
+                : t('admin.mcpExternal.addServer') || 'Add Server'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {/* Server ID */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.mcpExternal.form.serverId') || 'Server ID'}
+            </label>
+            <input
+              type="text"
+              value={externalForm.serverId}
+              onChange={(e) =>
+                setExternalForm((f) => ({ ...f, serverId: e.target.value }))
+              }
+              disabled={!!editingExternal}
+              placeholder="my-external-tools"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+            />
+          </div>
 
-            <div className="space-y-4">
-              {/* Server ID */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('admin.mcpExternal.form.serverId') || 'Server ID'}
-                </label>
-                <input
-                  type="text"
-                  value={externalForm.serverId}
-                  onChange={(e) =>
-                    setExternalForm((f) => ({ ...f, serverId: e.target.value }))
-                  }
-                  disabled={!!editingExternal}
-                  placeholder="my-external-tools"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                />
-              </div>
+          {/* Name */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.mcpExternal.form.name') || 'Name'}
+            </label>
+            <input
+              type="text"
+              value={externalForm.name}
+              onChange={(e) =>
+                setExternalForm((f) => ({ ...f, name: e.target.value }))
+              }
+              placeholder="My External Tools Server"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
 
-              {/* Name */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('admin.mcpExternal.form.name') || 'Name'}
-                </label>
-                <input
-                  type="text"
-                  value={externalForm.name}
-                  onChange={(e) =>
-                    setExternalForm((f) => ({ ...f, name: e.target.value }))
-                  }
-                  placeholder="My External Tools Server"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+          {/* Description */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.mcpExternal.form.description') || 'Description'}
+            </label>
+            <input
+              type="text"
+              value={externalForm.description}
+              onChange={(e) =>
+                setExternalForm((f) => ({
+                  ...f,
+                  description: e.target.value,
+                }))
+              }
+              placeholder="Optional description"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
 
-              {/* Description */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('admin.mcpExternal.form.description') || 'Description'}
-                </label>
-                <input
-                  type="text"
-                  value={externalForm.description}
-                  onChange={(e) =>
-                    setExternalForm((f) => ({
-                      ...f,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="Optional description"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+          {/* Transport */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.mcpExternal.form.transport') || 'Transport'}
+            </label>
+            <select
+              value={externalForm.transport}
+              onChange={(e) =>
+                setExternalForm((f) => ({
+                  ...f,
+                  transport: e.target.value,
+                }))
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="sse">SSE</option>
+              <option value="http">HTTP (Streamable)</option>
+            </select>
+          </div>
 
-              {/* Transport */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('admin.mcpExternal.form.transport') || 'Transport'}
-                </label>
-                <select
-                  value={externalForm.transport}
-                  onChange={(e) =>
-                    setExternalForm((f) => ({
-                      ...f,
-                      transport: e.target.value,
-                    }))
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="sse">SSE</option>
-                  <option value="http">HTTP (Streamable)</option>
-                </select>
-              </div>
+          {/* URL */}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700">
+              {t('admin.mcpExternal.form.url') || 'Server URL'}
+            </label>
+            <input
+              type="url"
+              value={externalForm.url}
+              onChange={(e) =>
+                setExternalForm((f) => ({ ...f, url: e.target.value }))
+              }
+              placeholder="https://mcp.example.com/sse"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
 
-              {/* URL */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('admin.mcpExternal.form.url') || 'Server URL'}
-                </label>
-                <input
-                  type="url"
-                  value={externalForm.url}
-                  onChange={(e) =>
-                    setExternalForm((f) => ({ ...f, url: e.target.value }))
-                  }
-                  placeholder="https://mcp.example.com/sse"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Toggles */}
-              <div className="flex gap-6">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={externalForm.enabled}
-                    onChange={(e) =>
-                      setExternalForm((f) => ({
-                        ...f,
-                        enabled: e.target.checked,
-                      }))
-                    }
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  {t('admin.mcpExternal.form.enabled') || 'Enabled'}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={externalForm.autoConnect}
-                    onChange={(e) =>
-                      setExternalForm((f) => ({
-                        ...f,
-                        autoConnect: e.target.checked,
-                      }))
-                    }
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  {t('admin.mcpExternal.form.autoConnect') || 'Auto-connect'}
-                </label>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={closeExternalModal}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                {t('common.cancel') || 'Cancel'}
-              </button>
-              <button
-                onClick={() => void handleSaveExternalServer()}
-                disabled={
-                  !externalForm.serverId.trim() ||
-                  !externalForm.name.trim() ||
-                  !externalForm.url.trim() ||
-                  externalActionLoading
+          {/* Toggles */}
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={externalForm.enabled}
+                onChange={(e) =>
+                  setExternalForm((f) => ({
+                    ...f,
+                    enabled: e.target.checked,
+                  }))
                 }
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {editingExternal
-                  ? t('common.save') || 'Save'
-                  : t('admin.mcpExternal.addServer') || 'Add Server'}
-              </button>
-            </div>
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              {t('admin.mcpExternal.form.enabled') || 'Enabled'}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={externalForm.autoConnect}
+                onChange={(e) =>
+                  setExternalForm((f) => ({
+                    ...f,
+                    autoConnect: e.target.checked,
+                  }))
+                }
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              {t('admin.mcpExternal.form.autoConnect') || 'Auto-connect'}
+            </label>
           </div>
         </div>
-      )}
+      </Modal>
     </>
   );
 

@@ -9,6 +9,7 @@ import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
 import ClientDate from '@/components/common/ClientDate';
 import { EmptyState } from '@/components/ui/states/EmptyState';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import { toast } from '@/stores';
 
 interface Feedback {
@@ -592,230 +593,210 @@ export default function FeedbackPageContent({
       </div>
 
       {/* Detail Modal */}
-      {selectedFeedback && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-xl">
-            <div className="sticky top-0 flex items-center justify-between border-b bg-white p-4">
-              <h2 className="text-lg font-semibold">
-                {t('admin.feedback.detailTitle')}
-              </h2>
-              <button
-                onClick={() => setSelectedFeedback(null)}
-                className="text-gray-500 hover:text-gray-700"
+      <Modal
+        open={selectedFeedback !== null}
+        onClose={() => setSelectedFeedback(null)}
+        title={t('admin.feedback.detailTitle')}
+        size="lg"
+        footer={
+          <button
+            onClick={() => void handleUpdateFeedback()}
+            disabled={updating}
+            className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {updating
+              ? t('common.processing')
+              : t('admin.feedback.saveChanges')}
+          </button>
+        }
+      >
+        {selectedFeedback && (
+          <div>
+            {/* Type, Status & Priority badges */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-sm font-medium ${TYPE_COLORS[selectedFeedback.type]}`}
               >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
+                {getTypeLabel(selectedFeedback.type)}
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_COLORS[selectedFeedback.status]}`}
+              >
+                {getStatusLabel(selectedFeedback.status)}
+              </span>
+              <span
+                className={`rounded-full px-3 py-1 text-sm font-medium ${PRIORITY_COLORS[selectedFeedback.priority || 'NORMAL']}`}
+              >
+                {getPriorityLabel(selectedFeedback.priority || 'NORMAL')}
+              </span>
             </div>
 
-            <div className="p-4">
-              {/* Type, Status & Priority badges */}
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-3 py-1 text-sm font-medium ${TYPE_COLORS[selectedFeedback.type]}`}
-                >
-                  {getTypeLabel(selectedFeedback.type)}
-                </span>
-                <span
-                  className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_COLORS[selectedFeedback.status]}`}
-                >
-                  {getStatusLabel(selectedFeedback.status)}
-                </span>
-                <span
-                  className={`rounded-full px-3 py-1 text-sm font-medium ${PRIORITY_COLORS[selectedFeedback.priority || 'NORMAL']}`}
-                >
-                  {getPriorityLabel(selectedFeedback.priority || 'NORMAL')}
-                </span>
+            {/* Title */}
+            <h3 className="mb-2 text-xl font-semibold text-gray-900">
+              {selectedFeedback.title}
+            </h3>
+
+            {/* Meta */}
+            <div className="mb-4 text-sm text-gray-500">
+              <div>
+                ID: <span className="font-mono">{selectedFeedback.id}</span>
               </div>
-
-              {/* Title */}
-              <h3 className="mb-2 text-xl font-semibold text-gray-900">
-                {selectedFeedback.title}
-              </h3>
-
-              {/* Meta */}
-              <div className="mb-4 text-sm text-gray-500">
+              <div>
+                {t('admin.feedback.submittedAt')}:{' '}
+                <ClientDate
+                  date={selectedFeedback.created_at}
+                  format="datetime"
+                />
+              </div>
+              {selectedFeedback.user_email && (
                 <div>
-                  ID: <span className="font-mono">{selectedFeedback.id}</span>
+                  {t('admin.feedback.email')}:{' '}
+                  <a
+                    href={`mailto:${selectedFeedback.user_email}`}
+                    className="text-blue-600 hover:underline"
+                  >
+                    {selectedFeedback.user_email}
+                  </a>
                 </div>
-                <div>
-                  {t('admin.feedback.submittedAt')}:{' '}
-                  <ClientDate
-                    date={selectedFeedback.created_at}
-                    format="datetime"
-                  />
+              )}
+              {selectedFeedback.page_url && (
+                <div className="truncate">
+                  URL:{' '}
+                  <a
+                    href={selectedFeedback.page_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {selectedFeedback.page_url}
+                  </a>
                 </div>
-                {selectedFeedback.user_email && (
-                  <div>
-                    {t('admin.feedback.email')}:{' '}
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="mb-4 rounded-lg bg-gray-50 p-4">
+              <h4 className="mb-2 font-medium text-gray-700">
+                {t('admin.feedback.descriptionLabel')}
+              </h4>
+              <p className="whitespace-pre-wrap text-gray-600">
+                {selectedFeedback.description}
+              </p>
+            </div>
+
+            {/* Attachments */}
+            {selectedFeedback.attachments?.length > 0 && (
+              <div className="mb-4">
+                <h4 className="mb-2 font-medium text-gray-700">
+                  {t('admin.feedback.attachments')} (
+                  {selectedFeedback.attachments.length})
+                </h4>
+                <div className="space-y-2">
+                  {selectedFeedback.attachments.map((att, idx) => (
                     <a
-                      href={`mailto:${selectedFeedback.user_email}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {selectedFeedback.user_email}
-                    </a>
-                  </div>
-                )}
-                {selectedFeedback.page_url && (
-                  <div className="truncate">
-                    URL:{' '}
-                    <a
-                      href={selectedFeedback.page_url}
+                      key={idx}
+                      href={att.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
+                      className="flex items-center gap-2 rounded-lg border p-2 text-sm hover:bg-gray-50"
                     >
-                      {selectedFeedback.page_url}
+                      <svg
+                        className="h-5 w-5 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                        />
+                      </svg>
+                      <span className="flex-1 truncate">{att.filename}</span>
+                      <span className="text-gray-400">
+                        {(att.size / 1024).toFixed(1)} KB
+                      </span>
                     </a>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
+            )}
 
-              {/* Description */}
-              <div className="mb-4 rounded-lg bg-gray-50 p-4">
-                <h4 className="mb-2 font-medium text-gray-700">
-                  {t('admin.feedback.descriptionLabel')}
+            {/* Admin Notes (existing) */}
+            {selectedFeedback.admin_notes && (
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                <h4 className="mb-2 font-medium text-blue-800">
+                  {t('admin.feedback.previousNotes')}
                 </h4>
-                <p className="whitespace-pre-wrap text-gray-600">
-                  {selectedFeedback.description}
+                <p className="whitespace-pre-wrap text-blue-700">
+                  {selectedFeedback.admin_notes}
                 </p>
               </div>
+            )}
 
-              {/* Attachments */}
-              {selectedFeedback.attachments?.length > 0 && (
-                <div className="mb-4">
-                  <h4 className="mb-2 font-medium text-gray-700">
-                    {t('admin.feedback.attachments')} (
-                    {selectedFeedback.attachments.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedFeedback.attachments.map((att, idx) => (
-                      <a
-                        key={idx}
-                        href={att.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-lg border p-2 text-sm hover:bg-gray-50"
-                      >
-                        <svg
-                          className="h-5 w-5 text-gray-400"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                          />
-                        </svg>
-                        <span className="flex-1 truncate">{att.filename}</span>
-                        <span className="text-gray-400">
-                          {(att.size / 1024).toFixed(1)} KB
-                        </span>
-                      </a>
-                    ))}
-                  </div>
+            {/* Update Section */}
+            <div className="border-t pt-4">
+              <h4 className="mb-3 font-medium text-gray-700">
+                {t('admin.feedback.updateTitle')}
+              </h4>
+
+              {updateError && (
+                <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+                  {updateError}
                 </div>
               )}
 
-              {/* Admin Notes (existing) */}
-              {selectedFeedback.admin_notes && (
-                <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
-                  <h4 className="mb-2 font-medium text-blue-800">
-                    {t('admin.feedback.previousNotes')}
-                  </h4>
-                  <p className="whitespace-pre-wrap text-blue-700">
-                    {selectedFeedback.admin_notes}
-                  </p>
-                </div>
-              )}
-
-              {/* Update Section */}
-              <div className="border-t pt-4">
-                <h4 className="mb-3 font-medium text-gray-700">
-                  {t('admin.feedback.updateTitle')}
-                </h4>
-
-                {updateError && (
-                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-                    {updateError}
-                  </div>
-                )}
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      {t('admin.feedback.statusLabel')}
-                    </label>
-                    <select
-                      value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2"
-                    >
-                      {statusOptions.map(({ key, label }) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
-                      {t('admin.feedback.priorityLabel')}
-                    </label>
-                    <select
-                      value={newPriority}
-                      onChange={(e) => setNewPriority(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-4 py-2"
-                    >
-                      {priorityOptions.map(({ key, label }) => (
-                        <option key={key} value={key}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="mt-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    {t('admin.feedback.adminNotesLabel')}
+                    {t('admin.feedback.statusLabel')}
                   </label>
-                  <textarea
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
-                    placeholder={t('admin.feedback.adminNotesPlaceholder')}
-                    className="h-24 w-full resize-none rounded-lg border border-gray-300 px-4 py-2"
-                  />
+                  <select
+                    value={newStatus}
+                    onChange={(e) => setNewStatus(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2"
+                  >
+                    {statusOptions.map(({ key, label }) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    {t('admin.feedback.priorityLabel')}
+                  </label>
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2"
+                  >
+                    {priorityOptions.map(({ key, label }) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-                <button
-                  onClick={() => void handleUpdateFeedback()}
-                  disabled={updating}
-                  className="mt-4 w-full rounded-lg bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {updating
-                    ? t('common.processing')
-                    : t('admin.feedback.saveChanges')}
-                </button>
+              <div className="mt-4">
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('admin.feedback.adminNotesLabel')}
+                </label>
+                <textarea
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  placeholder={t('admin.feedback.adminNotesPlaceholder')}
+                  className="h-24 w-full resize-none rounded-lg border border-gray-300 px-4 py-2"
+                />
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 

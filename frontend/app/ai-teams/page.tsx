@@ -16,6 +16,7 @@ import AppShell from '@/components/layout/AppShell';
 import { Users } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import ShareModal from '@/components/common/dialogs/ShareModal';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import * as api from '@/services/ai-teams/api';
 import { PublicTopic, JoinRequest } from '@/services/ai-teams/api';
 import { useTranslation } from '@/lib/i18n';
@@ -500,90 +501,17 @@ export default function AIGroupPage() {
       </main>
 
       {/* Join Request Dialog */}
-      {showJoinDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {t('aiTeams.joinRequest.title')}
-              </h2>
-              <button
-                onClick={() => {
-                  setShowJoinDialog(null);
-                  setJoinRequestMessage('');
-                }}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-500">
-                  {showJoinDialog.avatar ? (
-                    <span className="text-2xl">{showJoinDialog.avatar}</span>
-                  ) : (
-                    <svg
-                      className="h-6 w-6 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                      />
-                    </svg>
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">
-                    {showJoinDialog.name}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    {t('aiTeams.joinRequest.members', {
-                      count: showJoinDialog.memberCount,
-                    })}{' '}
-                    ·{' '}
-                    {t('aiTeams.joinRequest.aiMembers', {
-                      count: showJoinDialog.aiMemberCount,
-                    })}
-                  </p>
-                </div>
-              </div>
-              {showJoinDialog.description && (
-                <p className="mb-4 text-sm text-gray-600">
-                  {showJoinDialog.description}
-                </p>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t('aiTeams.joinRequest.messageLabel')}
-                </label>
-                <textarea
-                  value={joinRequestMessage}
-                  onChange={(e) => setJoinRequestMessage(e.target.value)}
-                  placeholder={t('aiTeams.joinRequest.messagePlaceholder')}
-                  rows={3}
-                  className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+      <Modal
+        open={!!showJoinDialog}
+        onClose={() => {
+          setShowJoinDialog(null);
+          setJoinRequestMessage('');
+        }}
+        title={t('aiTeams.joinRequest.title')}
+        size="sm"
+        footer={
+          showJoinDialog ? (
+            <>
               <button
                 onClick={() => {
                   setShowJoinDialog(null);
@@ -602,10 +530,67 @@ export default function AIGroupPage() {
                   ? t('aiTeams.joinRequest.sending')
                   : t('aiTeams.joinRequest.sendRequest')}
               </button>
+            </>
+          ) : null
+        }
+      >
+        {showJoinDialog && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-500">
+                {showJoinDialog.avatar ? (
+                  <span className="text-2xl">{showJoinDialog.avatar}</span>
+                ) : (
+                  <svg
+                    className="h-6 w-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  {showJoinDialog.name}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {t('aiTeams.joinRequest.members', {
+                    count: showJoinDialog.memberCount,
+                  })}{' '}
+                  ·{' '}
+                  {t('aiTeams.joinRequest.aiMembers', {
+                    count: showJoinDialog.aiMemberCount,
+                  })}
+                </p>
+              </div>
+            </div>
+            {showJoinDialog.description && (
+              <p className="text-sm text-gray-600">
+                {showJoinDialog.description}
+              </p>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                {t('aiTeams.joinRequest.messageLabel')}
+              </label>
+              <textarea
+                value={joinRequestMessage}
+                onChange={(e) => setJoinRequestMessage(e.target.value)}
+                placeholder={t('aiTeams.joinRequest.messagePlaceholder')}
+                rows={3}
+                className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+              />
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
       {/* Create Topic Dialog */}
       {showCreateDialog && (
@@ -1001,182 +986,14 @@ function CreateTopicDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {t('aiTeams.create.title')}
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content - scrollable */}
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiTeams.create.nameRequired')}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('aiTeams.create.namePlaceholder')}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiTeams.create.description')}
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('aiTeams.create.descriptionPlaceholder')}
-              rows={3}
-              className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiTeams.create.tags')}
-            </label>
-            <div className="mt-1 flex gap-2">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddTag();
-                  }
-                }}
-                placeholder={t('aiTeams.create.tagsPlaceholder')}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={handleAddTag}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                {t('aiTeams.create.add')}
-              </button>
-            </div>
-            {tags.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="hover:text-blue-800"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* AI Members */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiTeams.create.addAI')}
-            </label>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              {(aiModels || []).map((model) => (
-                <button
-                  key={model.id}
-                  onClick={() => {
-                    setSelectedAI((prev) =>
-                      prev.includes(model.id)
-                        ? prev.filter((id) => id !== model.id)
-                        : [...prev, model.id]
-                    );
-                  }}
-                  className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors ${
-                    selectedAI.includes(model.id)
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {model.iconUrl ? (
-                    <img
-                      src={model.iconUrl}
-                      alt={model.name}
-                      className="h-6 w-6"
-                      onError={(e) => {
-                        // 图片加载失败时隐藏，显示 fallback
-                        e.currentTarget.style.display = 'none';
-                        const fallback = e.currentTarget
-                          .nextElementSibling as HTMLElement;
-                        if (fallback) fallback.style.display = 'block';
-                      }}
-                    />
-                  ) : null}
-                  <span
-                    className="text-2xl"
-                    style={{ display: model.iconUrl ? 'none' : 'block' }}
-                  >
-                    {model.icon || '🤖'}
-                  </span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                      {model.name}
-                      <ModelBadges model={model} />
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {model.description}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer - fixed at bottom */}
-        <div className="flex flex-shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4">
+    <Modal
+      open
+      onClose={onClose}
+      title={t('aiTeams.create.title')}
+      size="md"
+      contentClassName="space-y-4"
+      footer={
+        <>
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -1192,9 +1009,155 @@ function CreateTopicDialog({
               ? t('aiTeams.create.creating')
               : t('aiTeams.create.createButton')}
           </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {/* Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiTeams.create.nameRequired')}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('aiTeams.create.namePlaceholder')}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiTeams.create.description')}
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={t('aiTeams.create.descriptionPlaceholder')}
+            rows={3}
+            className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiTeams.create.tags')}
+          </label>
+          <div className="mt-1 flex gap-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTag();
+                }
+              }}
+              placeholder={t('aiTeams.create.tagsPlaceholder')}
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddTag}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              {t('aiTeams.create.add')}
+            </button>
+          </div>
+          {tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(tag)}
+                    className="hover:text-blue-800"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* AI Members */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiTeams.create.addAI')}
+          </label>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {(aiModels || []).map((model) => (
+              <button
+                key={model.id}
+                onClick={() => {
+                  setSelectedAI((prev) =>
+                    prev.includes(model.id)
+                      ? prev.filter((id) => id !== model.id)
+                      : [...prev, model.id]
+                  );
+                }}
+                className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors ${
+                  selectedAI.includes(model.id)
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                {model.iconUrl ? (
+                  <img
+                    src={model.iconUrl}
+                    alt={model.name}
+                    className="h-6 w-6"
+                    onError={(e) => {
+                      // 图片加载失败时隐藏，显示 fallback
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget
+                        .nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'block';
+                    }}
+                  />
+                ) : null}
+                <span
+                  className="text-2xl"
+                  style={{ display: model.iconUrl ? 'none' : 'block' }}
+                >
+                  {model.icon || '🤖'}
+                </span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                    {model.name}
+                    <ModelBadges model={model} />
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {model.description}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1245,124 +1208,14 @@ function EditTopicDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {t('aiTeams.edit.title')}
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content - scrollable */}
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiTeams.create.nameRequired')}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiTeams.create.description')}
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiTeams.create.tags')}
-            </label>
-            <div className="mt-1 flex gap-2">
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddTag();
-                  }
-                }}
-                placeholder={t('aiTeams.create.tagsPlaceholder')}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={handleAddTag}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                {t('aiTeams.create.add')}
-              </button>
-            </div>
-            {tags.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="hover:text-blue-800"
-                    >
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer - fixed at bottom */}
-        <div className="flex flex-shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4">
+    <Modal
+      open
+      onClose={onClose}
+      title={t('aiTeams.edit.title')}
+      size="md"
+      contentClassName="space-y-4"
+      footer={
+        <>
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -1378,9 +1231,97 @@ function EditTopicDialog({
               ? t('aiTeams.edit.updating')
               : t('aiTeams.edit.updateButton')}
           </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {/* Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiTeams.create.nameRequired')}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiTeams.create.description')}
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiTeams.create.tags')}
+          </label>
+          <div className="mt-1 flex gap-2">
+            <input
+              type="text"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTag();
+                }
+              }}
+              placeholder={t('aiTeams.create.tagsPlaceholder')}
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddTag}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              {t('aiTeams.create.add')}
+            </button>
+          </div>
+          {tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(tag)}
+                    className="hover:text-blue-800"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

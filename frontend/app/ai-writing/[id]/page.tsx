@@ -46,6 +46,7 @@ import {
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { ExportDialog } from '@/components/common/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 import { logger } from '@/lib/utils/logger';
 
@@ -3647,71 +3648,39 @@ export default function WritingProjectPage() {
         </div>
 
         {/* Chapter Content Modal - Preview Mode */}
-        {selectedChapter && !isEditingChapter && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="relative mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl">
-              {/* Modal Header */}
-              <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    第{selectedChapter.chapterNumber}章{' '}
-                    {(selectedChapter.title || '').replace(
-                      /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
-                      ''
-                    )}
-                  </h3>
-                  <div className="mt-1 flex items-center gap-3 text-sm text-gray-500">
-                    {selectedChapter.wordCount > 0 && (
-                      <span>
-                        {selectedChapter.wordCount.toLocaleString()} 字
-                      </span>
-                    )}
-                    {selectedChapter.outline && (
-                      <span className="text-gray-400">
-                        {selectedChapter.outline}
-                      </span>
-                    )}
-                  </div>
+        <Modal
+          open={!!selectedChapter && !isEditingChapter}
+          onClose={() => setSelectedChapter(null)}
+          title={
+            selectedChapter ? (
+              <div>
+                <span>
+                  第{selectedChapter.chapterNumber}章{' '}
+                  {(selectedChapter.title || '').replace(
+                    /^第[一二三四五六七八九十百千\d]+[章回][：:\s]*/i,
+                    ''
+                  )}
+                </span>
+                <div className="mt-1 flex items-center gap-3 text-sm font-normal text-gray-500">
+                  {selectedChapter.wordCount > 0 && (
+                    <span>{selectedChapter.wordCount.toLocaleString()} 字</span>
+                  )}
+                  {selectedChapter.outline && (
+                    <span className="text-gray-400">
+                      {selectedChapter.outline}
+                    </span>
+                  )}
                 </div>
-                <button
-                  onClick={() => setSelectedChapter(null)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
               </div>
-
-              {/* Modal Content */}
-              <div className="flex-1 overflow-auto px-6 py-4">
-                {selectedChapter.content ? (
-                  <div className="prose prose-gray prose-headings:text-gray-800 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-800 max-w-none">
-                    <ReactMarkdown>{selectedChapter.content}</ReactMarkdown>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <span className="mb-4 text-4xl">📝</span>
-                    <p className="text-gray-500">暂无内容</p>
-                    <p className="mt-1 text-sm text-gray-400">
-                      该章节尚未生成内容
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-4">
+            ) : (
+              ''
+            )
+          }
+          size="xl"
+          footerClassName="justify-between"
+          footer={
+            selectedChapter ? (
+              <>
                 <button
                   onClick={() => setIsEditingChapter(true)}
                   className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
@@ -3770,10 +3739,23 @@ export default function WritingProjectPage() {
                     关闭
                   </button>
                 </div>
+              </>
+            ) : null
+          }
+        >
+          {selectedChapter &&
+            (selectedChapter.content ? (
+              <div className="prose prose-gray prose-headings:text-gray-800 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-800 max-w-none">
+                <ReactMarkdown>{selectedChapter.content}</ReactMarkdown>
               </div>
-            </div>
-          </div>
-        )}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <span className="mb-4 text-4xl">📝</span>
+                <p className="text-gray-500">暂无内容</p>
+                <p className="mt-1 text-sm text-gray-400">该章节尚未生成内容</p>
+              </div>
+            ))}
+        </Modal>
 
         {/* Chapter Edit Panel - Full Screen Edit Mode */}
         {selectedChapter && isEditingChapter && (

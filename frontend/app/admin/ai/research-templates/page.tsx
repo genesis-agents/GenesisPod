@@ -6,6 +6,7 @@ import { FlaskConical, Plus, Pencil, Trash2, Copy, Power } from 'lucide-react';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useTranslation } from '@/lib/i18n';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import {
   useAdminResearchTemplates,
   ResearchTemplateConfig,
@@ -324,250 +325,249 @@ export default function ResearchTemplatesPage() {
         )}
 
         {/* Create/Edit Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-zinc-700 bg-zinc-900 p-6 shadow-xl">
-              <h2 className="mb-4 text-lg font-semibold text-zinc-100">
-                {editingTemplate
-                  ? 'Edit Research Template'
-                  : 'Create Research Template'}
-              </h2>
-
-              <div className="space-y-4">
-                {/* Template ID (only for create) */}
-                {!editingTemplate && (
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Template ID
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.templateId}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          templateId: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                      placeholder="e.g., competitive-analysis"
-                    />
-                  </div>
-                )}
-
-                {/* Name & Category */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          name: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                      placeholder="e.g., Competitive Analysis"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Category
-                    </label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          category: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    >
-                      <option value="competitive_analysis">
-                        Competitive Analysis
-                      </option>
-                      <option value="market_research">Market Research</option>
-                      <option value="technology_evaluation">
-                        Technology Evaluation
-                      </option>
-                      <option value="policy_analysis">Policy Analysis</option>
-                      <option value="literature_review">
-                        Literature Review
-                      </option>
-                      <option value="industry_analysis">
-                        Industry Analysis
-                      </option>
-                      <option value="investment_research">
-                        Investment Research
-                      </option>
-                      <option value="trend_forecast">Trend Forecast</option>
-                      <option value="swot_analysis">SWOT Analysis</option>
-                      <option value="risk_assessment">Risk Assessment</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    Description
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder="Optional description"
-                  />
-                </div>
-
-                {/* Dimensions (JSON) */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    Dimensions (JSON)
-                  </label>
-                  <textarea
-                    value={formData.dimensions}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        dimensions: e.target.value,
-                      }))
-                    }
-                    rows={4}
-                    className="font-mono w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder='{"dimensions": [...]}'
-                  />
-                </div>
-
-                {/* Data Sources */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    Data Sources (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.dataSources}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        dataSources: e.target.value,
-                      }))
-                    }
-                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder="web, academic, hackernews"
-                  />
-                </div>
-
-                {/* Guidance Prompt */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    Guidance Prompt
-                  </label>
-                  <textarea
-                    value={formData.guidancePrompt}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        guidancePrompt: e.target.value,
-                      }))
-                    }
-                    rows={3}
-                    className="w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder="Instructions for the AI researcher..."
-                  />
-                </div>
-
-                {/* Report Structure (JSON) */}
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-zinc-300">
-                    Report Structure (JSON, optional)
-                  </label>
-                  <textarea
-                    value={formData.reportStructure}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        reportStructure: e.target.value,
-                      }))
-                    }
-                    rows={3}
-                    className="font-mono w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    placeholder='{"sections": [...]}'
-                  />
-                </div>
-
-                {/* Iteration Count & Enabled */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-zinc-300">
-                      Iteration Count
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.iterationCount}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          iterationCount: parseInt(e.target.value, 10) || 3,
-                        }))
-                      }
-                      min={1}
-                      max={10}
-                      className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
-                      <input
-                        type="checkbox"
-                        checked={formData.enabled}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            enabled: e.target.checked,
-                          }))
-                        }
-                        className="rounded border-zinc-600 bg-zinc-800 text-violet-600 focus:ring-violet-500"
-                      />
-                      Enabled
-                    </label>
-                  </div>
-                </div>
+        <Modal
+          open={isModalOpen}
+          onClose={() => {
+            setShowCreateModal(false);
+            setEditingTemplate(null);
+            resetForm();
+          }}
+          title={
+            editingTemplate
+              ? 'Edit Research Template'
+              : 'Create Research Template'
+          }
+          size="lg"
+          footer={
+            <>
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setEditingTemplate(null);
+                  resetForm();
+                }}
+                className="rounded-lg px-4 py-2 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={editingTemplate ? handleUpdate : handleCreate}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
+              >
+                {editingTemplate ? 'Save Changes' : 'Create Template'}
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            {/* Template ID (only for create) */}
+            {!editingTemplate && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-300">
+                  Template ID
+                </label>
+                <input
+                  type="text"
+                  value={formData.templateId}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      templateId: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                  placeholder="e.g., competitive-analysis"
+                />
               </div>
+            )}
 
-              {/* Modal actions */}
-              <div className="mt-6 flex items-center justify-end gap-3 border-t border-zinc-700/50 pt-4">
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setEditingTemplate(null);
-                    resetForm();
-                  }}
-                  className="rounded-lg px-4 py-2 text-sm text-zinc-400 transition-colors hover:text-zinc-200"
+            {/* Name & Category */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-300">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      name: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                  placeholder="e.g., Competitive Analysis"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-300">
+                  Category
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      category: e.target.value,
+                    }))
+                  }
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={editingTemplate ? handleUpdate : handleCreate}
-                  className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-500"
-                >
-                  {editingTemplate ? 'Save Changes' : 'Create Template'}
-                </button>
+                  <option value="competitive_analysis">
+                    Competitive Analysis
+                  </option>
+                  <option value="market_research">Market Research</option>
+                  <option value="technology_evaluation">
+                    Technology Evaluation
+                  </option>
+                  <option value="policy_analysis">Policy Analysis</option>
+                  <option value="literature_review">Literature Review</option>
+                  <option value="industry_analysis">Industry Analysis</option>
+                  <option value="investment_research">
+                    Investment Research
+                  </option>
+                  <option value="trend_forecast">Trend Forecast</option>
+                  <option value="swot_analysis">SWOT Analysis</option>
+                  <option value="risk_assessment">Risk Assessment</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-300">
+                Description
+              </label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                placeholder="Optional description"
+              />
+            </div>
+
+            {/* Dimensions (JSON) */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-300">
+                Dimensions (JSON)
+              </label>
+              <textarea
+                value={formData.dimensions}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    dimensions: e.target.value,
+                  }))
+                }
+                rows={4}
+                className="font-mono w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                placeholder='{"dimensions": [...]}'
+              />
+            </div>
+
+            {/* Data Sources */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-300">
+                Data Sources (comma-separated)
+              </label>
+              <input
+                type="text"
+                value={formData.dataSources}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    dataSources: e.target.value,
+                  }))
+                }
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                placeholder="web, academic, hackernews"
+              />
+            </div>
+
+            {/* Guidance Prompt */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-300">
+                Guidance Prompt
+              </label>
+              <textarea
+                value={formData.guidancePrompt}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    guidancePrompt: e.target.value,
+                  }))
+                }
+                rows={3}
+                className="w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                placeholder="Instructions for the AI researcher..."
+              />
+            </div>
+
+            {/* Report Structure (JSON) */}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-300">
+                Report Structure (JSON, optional)
+              </label>
+              <textarea
+                value={formData.reportStructure}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    reportStructure: e.target.value,
+                  }))
+                }
+                rows={3}
+                className="font-mono w-full resize-y rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                placeholder='{"sections": [...]}'
+              />
+            </div>
+
+            {/* Iteration Count & Enabled */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-300">
+                  Iteration Count
+                </label>
+                <input
+                  type="number"
+                  value={formData.iterationCount}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      iterationCount: parseInt(e.target.value, 10) || 3,
+                    }))
+                  }
+                  min={1}
+                  max={10}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:border-violet-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex items-end">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.enabled}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        enabled: e.target.checked,
+                      }))
+                    }
+                    className="rounded border-zinc-600 bg-zinc-800 text-violet-600 focus:ring-violet-500"
+                  />
+                  Enabled
+                </label>
               </div>
             </div>
           </div>
-        )}
+        </Modal>
       </div>
     </AdminPageLayout>
   );
