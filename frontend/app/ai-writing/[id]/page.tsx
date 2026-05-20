@@ -41,7 +41,9 @@ import {
   User,
   Settings,
   Search,
+  MessageSquare,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { ExportDialog } from '@/components/common/ExportDialog';
 import { useTranslation } from '@/lib/i18n';
 
@@ -3046,15 +3048,11 @@ export default function WritingProjectPage() {
                 {activeTab === 'taskDetails' && (
                   <div className="flex h-full flex-col">
                     {taskMessages.length === 0 ? (
-                      <div className="flex flex-1 flex-col items-center justify-center py-12 text-center">
-                        <span className="mb-4 text-4xl">💬</span>
-                        <h3 className="mb-2 text-lg font-semibold text-gray-800">
-                          暂无交互记录
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          开始创作后，这里将显示 AI 团队的协作交互详情
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon={<MessageSquare className="h-12 w-12" />}
+                        title="暂无交互记录"
+                        description="开始创作后，这里将显示 AI 团队的协作交互详情"
+                      />
                     ) : (
                       <div className="space-y-3">
                         {taskMessages.map((msg) => (
