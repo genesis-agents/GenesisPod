@@ -176,7 +176,7 @@ export default function NotionImportPanel({
           Connect your Notion workspace to import pages
         </p>
         <a
-          href="/profile?tab=integrations"
+          href="/me/integrations"
           target="_blank"
           rel="noopener noreferrer"
           className="mt-4 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"

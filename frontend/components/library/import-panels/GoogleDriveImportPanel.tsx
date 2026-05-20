@@ -197,7 +197,7 @@ export default function GoogleDriveImportPanel({
       {/* 导入按钮 */}
       <div className="flex items-center justify-between">
         <a
-          href="/profile?tab=integrations"
+          href="/me/integrations"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"

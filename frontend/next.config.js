@@ -201,7 +201,73 @@ const nextConfig = {
       },
       {
         source: '/custom-agents',
-        destination: '/me/ai?tab=agents',
+        destination: '/me/agents',
+        permanent: false,
+      },
+      // ★ 2026-05-20: 个人中心整合 — 旧散落入口收敛到 /me/[section]（设计
+      //   docs/architecture/frontend/personal-center.md §5）。query-tab 用 has
+      //   匹配，须排在 bare 规则之前。bare /me/ai 必须保留，否则会落到
+      //   app/me/[section] 动态路由（section='ai' 非法 → 404）。
+      {
+        source: '/profile',
+        has: [{ type: 'query', key: 'tab', value: 'notifications' }],
+        destination: '/me/notifications',
+        permanent: false,
+      },
+      {
+        source: '/profile',
+        has: [{ type: 'query', key: 'tab', value: 'settings' }],
+        destination: '/me/general',
+        permanent: false,
+      },
+      {
+        source: '/profile',
+        has: [{ type: 'query', key: 'tab', value: 'stats' }],
+        destination: '/me/billing',
+        permanent: false,
+      },
+      {
+        source: '/profile',
+        has: [{ type: 'query', key: 'tab', value: 'integrations' }],
+        destination: '/me/integrations',
+        permanent: false,
+      },
+      {
+        source: '/profile',
+        destination: '/me/account',
+        permanent: false,
+      },
+      {
+        source: '/me/ai',
+        has: [{ type: 'query', key: 'tab', value: 'keys' }],
+        destination: '/me/api-keys',
+        permanent: false,
+      },
+      {
+        source: '/me/ai',
+        has: [{ type: 'query', key: 'tab', value: 'models' }],
+        destination: '/me/models',
+        permanent: false,
+      },
+      {
+        source: '/me/ai',
+        has: [{ type: 'query', key: 'tab', value: 'agents' }],
+        destination: '/me/agents',
+        permanent: false,
+      },
+      {
+        source: '/me/ai',
+        destination: '/me/api-keys',
+        permanent: false,
+      },
+      {
+        source: '/settings/notifications',
+        destination: '/me/notifications',
+        permanent: false,
+      },
+      {
+        source: '/credits',
+        destination: '/me/billing',
         permanent: false,
       },
     ];

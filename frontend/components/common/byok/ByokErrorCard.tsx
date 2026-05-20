@@ -46,13 +46,13 @@ function Card({
           actions: (
             <div className="flex gap-2">
               <Link
-                href="/me/ai?tab=keys"
+                href="/me/api-keys"
                 className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
               >
                 <Key className="h-3.5 w-3.5" /> 去配置 Key
               </Link>
               <Link
-                href="/me/ai?tab=keys"
+                href="/me/api-keys"
                 className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
               >
                 <Send className="h-3.5 w-3.5" /> 向管理员申请
@@ -70,7 +70,7 @@ function Card({
           actions: (
             <div className="flex gap-2">
               <Link
-                href="/me/ai?tab=models"
+                href="/me/models"
                 className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
               >
                 <Key className="h-3.5 w-3.5" /> 去配置模型
@@ -112,14 +112,14 @@ function Card({
             <div className="flex gap-2">
               {source === 'ASSIGNED' && (
                 <Link
-                  href="/me/ai?tab=keys"
+                  href="/me/api-keys"
                   className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                 >
                   <Send className="h-3.5 w-3.5" /> 申请扩额
                 </Link>
               )}
               <Link
-                href="/me/ai?tab=keys"
+                href="/me/api-keys"
                 className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
               >
                 <Key className="h-3.5 w-3.5" /> 打开 Key 管理
@@ -137,7 +137,7 @@ function Card({
             : '这个 Key 可能已被撤销或过期。请更新后再试。',
           actions: (
             <Link
-              href="/me/ai?tab=keys"
+              href="/me/api-keys"
               className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
               <RefreshCw className="h-3.5 w-3.5" /> 更新 Key
@@ -152,7 +152,7 @@ function Card({
             '你的 Key 分配已过期，请联系管理员续期或使用自己的 Key。',
           actions: (
             <Link
-              href="/me/ai?tab=keys"
+              href="/me/api-keys"
               className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
               <Send className="h-3.5 w-3.5" /> 申请续期

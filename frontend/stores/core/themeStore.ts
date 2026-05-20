@@ -1,11 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export type Appearance = 'light' | 'dark' | 'system';
+
 export interface ThemeState {
   userMessageStyle: string;
   aiMessageStyle: string;
+  /** 外观主题：浅色 / 深色 / 跟随系统。由 ThemeApplier 写入 <html class="dark">。 */
+  appearance: Appearance;
   setUserMessageStyle: (style: string) => void;
   setAiMessageStyle: (style: string) => void;
+  setAppearance: (appearance: Appearance) => void;
 }
 
 export const USER_MESSAGE_STYLES = [
@@ -73,8 +78,10 @@ export const useThemeStore = create<ThemeState>()(
     (set) => ({
       userMessageStyle: USER_MESSAGE_STYLES[0].value,
       aiMessageStyle: AI_MESSAGE_STYLES[0].value,
+      appearance: 'light',
       setUserMessageStyle: (style) => set({ userMessageStyle: style }),
       setAiMessageStyle: (style) => set({ aiMessageStyle: style }),
+      setAppearance: (appearance) => set({ appearance }),
     }),
     {
       name: 'deepdive-theme-storage',

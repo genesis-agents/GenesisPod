@@ -150,6 +150,112 @@ body {
   line-height: 1.6;
 }
 
+/* ============================================================
+   Dark Mode（html.dark，由 ThemeApplier 写入；tailwind darkMode:'class'）
+
+   全站既有代码用字面中性色（bg-white / text-gray-900 / border-gray-200…）
+   而非语义 token，逐文件补 dark: 不现实。这里在 html.dark 下统一重映射
+   高频「中性」工具类到深色等价值，保留品牌色 / 渐变 / 彩色徽章不变。
+   选择器 html.dark .x 特异性(0,2,0) > 裸 .x(0,1,0)，无需 !important。
+   /me 个人中心等新页面另用原生 dark: 类，作为一等公民精细适配。
+   ============================================================ */
+html.dark body {
+  --foreground-rgb: 237, 237, 237;
+  --background-start-rgb: 10, 10, 10;
+  --background-end-rgb: 10, 10, 10;
+  color: rgb(237, 237, 237);
+  background: #0a0a0a;
+}
+
+/* 背景面 */
+html.dark .bg-white {
+  background-color: #1a1a1a;
+}
+html.dark .bg-gray-50 {
+  background-color: #171717;
+}
+html.dark .bg-gray-100 {
+  background-color: #232323;
+}
+html.dark .bg-gray-200 {
+  background-color: #2d2d2d;
+}
+html.dark .bg-gray-50\/50,
+html.dark .bg-white\/80,
+html.dark .bg-white\/70 {
+  background-color: rgba(26, 26, 26, 0.8);
+}
+
+/* 文本 */
+html.dark .text-black,
+html.dark .text-gray-900 {
+  color: #ededed;
+}
+html.dark .text-gray-800 {
+  color: #e0e0e0;
+}
+html.dark .text-gray-700 {
+  color: #cfcfcf;
+}
+html.dark .text-gray-600 {
+  color: #b3b3b3;
+}
+html.dark .text-gray-500 {
+  color: #909090;
+}
+html.dark .text-gray-400 {
+  color: #6f6f6f;
+}
+
+/* 边框 / 分隔线 */
+html.dark .border-gray-100 {
+  border-color: #262626;
+}
+html.dark .border-gray-200 {
+  border-color: #303030;
+}
+html.dark .border-gray-300 {
+  border-color: #3a3a3a;
+}
+html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #262626;
+}
+html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #303030;
+}
+
+/* 表单控件 */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #1f1f1f;
+  border-color: #3a3a3a;
+  color: #ededed;
+}
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #6f6f6f;
+}
+
+/* hover 中性态 */
+html.dark .hover\:bg-gray-50:hover {
+  background-color: #232323;
+}
+html.dark .hover\:bg-gray-100:hover {
+  background-color: #2d2d2d;
+}
+html.dark .hover\:bg-gray-200:hover {
+  background-color: #383838;
+}
+
+/* ring 中性态 */
+html.dark .ring-gray-100 {
+  --tw-ring-color: #303030;
+}
+html.dark .ring-gray-200 {
+  --tw-ring-color: #3a3a3a;
+}
+
 /* Scrollbar Utilities */
 @layer utilities {
   .text-balance {

@@ -9,13 +9,13 @@ import { useOnboardingStatus } from '@/hooks/features/useByokUser';
  * BYOK 引导拦截：
  * - 未登录：什么都不做（不触发 /user/* 请求以免误触 401 → 自动 logout）
  * - 管理员：完全跳过
- * - 普通用户 && 未完成引导 && 不在 /me/ai?tab=keys/* 路径下 → 重定向到
- *   /me/ai?tab=keys
+ * - 普通用户 && 未完成引导 && 不在 /me/api-keys 路径下 → 重定向到
+ *   /me/api-keys
  *
  * 放在 Providers 内部、AuthProvider 之后；对 /login /auth 相关路径静默。
  */
 const ALLOWED_PATHS = [
-  '/me/ai', // BYOK 配置入口（pathname 不含 query string）
+  '/me/api-keys', // BYOK 配置入口（个人中心 API Keys section）
   '/auth',
   '/login',
   '/logout',
@@ -48,7 +48,7 @@ function UserScopedGuard({ children }: { children: React.ReactNode }) {
     if (onAllowedPath) return;
 
     if (status?.requiresOnboarding) {
-      router.replace('/me/ai?tab=keys');
+      router.replace('/me/api-keys');
     }
   }, [loading, pathname, status, router]);
 

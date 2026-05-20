@@ -17,7 +17,7 @@
  *   - 严格 BYOK 模式下（commit 0635c70d9），没配 BYOK 的用户发消息必然报错
  *   - 项目核心团队主要用中文，文案中文写死；用 modelLabelSuffix 同款 t? 模式
  *     可后续逐步切到 i18n（key: common.byokRequired.{title,desc,cta}）
- *   - CTA deeplink 到 /me/ai?tab=keys（profile 已迁移到那里）
+ *   - CTA deeplink 到 /me/api-keys（profile 已迁移到那里）
  */
 'use client';
 
@@ -27,7 +27,7 @@ import { AlertTriangle } from 'lucide-react';
 interface BYOKRequiredBannerProps {
   /** 自定义 className 覆盖外层样式 */
   className?: string;
-  /** 自定义跳转目标，默认 /me/ai?tab=keys */
+  /** 自定义跳转目标，默认 /me/api-keys */
   configHref?: string;
   /** 紧凑模式（窄面板用，单行） */
   compact?: boolean;
@@ -35,7 +35,7 @@ interface BYOKRequiredBannerProps {
 
 export function BYOKRequiredBanner({
   className = '',
-  configHref = '/me/ai?tab=keys',
+  configHref = '/me/api-keys',
   compact = false,
 }: BYOKRequiredBannerProps) {
   if (compact) {

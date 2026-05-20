@@ -147,7 +147,7 @@ export default function InsufficientCreditsModal() {
 
           {/* 前往积分中心 */}
           <Link
-            href="/credits"
+            href="/me/billing"
             onClick={hideInsufficientModal}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2.5 font-medium text-white transition-all hover:from-blue-600 hover:to-purple-600"
           >

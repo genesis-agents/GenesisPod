@@ -90,7 +90,7 @@ export default function RunCustomAgentPage({
     return (
       <div className="mx-auto max-w-2xl px-6 py-8">
         <Link
-          href="/me/ai?tab=agents"
+          href="/me/agents"
           className="mb-2 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
         >
           <ChevronLeft className="h-3 w-3" /> 返回列表
@@ -117,7 +117,7 @@ export default function RunCustomAgentPage({
   return (
     <div className="mx-auto max-w-2xl px-6 py-8">
       <Link
-        href="/me/ai?tab=agents"
+        href="/me/agents"
         className="mb-2 inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
       >
         <ChevronLeft className="h-3 w-3" /> 返回列表

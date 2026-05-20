@@ -3,7 +3,7 @@
 /**
  * ByokOnboardingBanner — 首页顶部引导横幅
  *
- * 跟已有 ByokOnboardingGuard（强制跳 /me/ai?tab=keys）互补：
+ * 跟已有 ByokOnboardingGuard（强制跳 /me/api-keys）互补：
  * Guard 拦新用户（<7 天 + 未完成引导）；此 Banner 是"温和提示"：
  * 已老用户但没 key 的人 / dismiss 过 onboarding 的人 / 删过 key 又来的人。
  *
@@ -34,7 +34,7 @@ export function ByokOnboardingBanner() {
         </span>
       </div>
       <button
-        onClick={() => router.push('/me/ai?tab=keys')}
+        onClick={() => router.push('/me/api-keys')}
         className="inline-flex flex-shrink-0 items-center gap-1 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
       >
         去配置

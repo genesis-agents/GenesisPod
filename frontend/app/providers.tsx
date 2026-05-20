@@ -10,6 +10,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { I18nProvider } from '@/lib/i18n';
 import { clearWikiLocalStorage } from '@/lib/utils/auth';
 import { ChunkErrorHandler } from '@/components/common/ChunkErrorHandler';
+import { ThemeApplier } from '@/components/common/ThemeApplier';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/Toast';
 import { toast } from '@/stores';
@@ -18,8 +19,8 @@ import {
   InsufficientCreditsModal,
 } from '@/components/common/credits';
 import { GlobalAIBarProvider } from '@/components/ai-bar';
-import { ByokOnboardingGuard } from '@/components/byok/ByokOnboardingGuard';
-import { GlobalByokErrorModal } from '@/components/byok/GlobalByokErrorModal';
+import { ByokOnboardingGuard } from '@/components/common/byok/ByokOnboardingGuard';
+import { GlobalByokErrorModal } from '@/components/common/byok/GlobalByokErrorModal';
 
 /**
  * Create QueryClient with global error handling
@@ -71,6 +72,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <ChunkErrorHandler />
+        <ThemeApplier />
         <ErrorBoundary>
           <AuthProvider>
             <ByokOnboardingGuard>

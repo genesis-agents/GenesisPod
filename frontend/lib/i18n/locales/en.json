@@ -5067,6 +5067,7 @@
       "notionDesc": "Sync your Notion pages and databases with AI Teams Engine",
       "connectedWorkspaces": "Connected Workspaces",
       "disconnect": "Disconnect",
+      "disconnectConfirm": "Are you sure you want to disconnect this Notion workspace?",
       "addWorkspace": "Add another workspace",
       "viewNotionPages": "View your Notion pages",
       "accessSyncedPages": "Access synced pages in the Library",
@@ -7332,26 +7333,45 @@
     }
   },
   "me": {
-    "title": "My Hub",
-    "subtitle": "Manage your profile, keys, data, and system preferences",
-    "subtitleWithEmail": "Signed in as {{email}}",
-    "cards": {
-      "profile": {
-        "title": "User Management",
-        "description": "My profile, role, credits, and billing details"
-      },
-      "keys": {
-        "title": "Secret Management",
-        "description": "My API keys and model authorizations"
-      },
-      "library": {
-        "title": "Data Management",
-        "description": "My library, knowledge bases, and storage usage"
-      },
-      "notifications": {
-        "title": "System Management",
-        "description": "My notification preferences, activity logs, and security"
-      }
+    "title": "Personal Center",
+    "nav": {
+      "groupProfile": "Profile",
+      "groupAi": "API & Models",
+      "groupBilling": "Resources & Billing",
+      "account": "Account",
+      "general": "General",
+      "personalization": "Personalization",
+      "apiKeys": "API Keys",
+      "models": "My Models",
+      "agents": "My Agents",
+      "integrations": "Integrations",
+      "notifications": "Notifications",
+      "billing": "Billing"
+    },
+    "general": {
+      "appearance": "Appearance",
+      "appearanceDesc": "Choose a light, dark, or system-matched theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "personalization": {
+      "previewUser": "How do I customize my chat appearance?",
+      "previewAi": "Pick colors and styles for both your messages and mine above. Changes are saved automatically.",
+      "noInterests": "No interests yet"
+    },
+    "billing": {
+      "usage": "Usage"
+    },
+    "integrations": {
+      "notConnected": "Not connected",
+      "workspaces": "workspaces",
+      "pages": "pages"
+    },
+    "menu": {
+      "settings": "Settings",
+      "language": "Language",
+      "help": "Help & Feedback"
     }
   },
   "radar": {

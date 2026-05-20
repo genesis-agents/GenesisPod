@@ -377,7 +377,7 @@ export function CustomAgentWizard({
               type="button"
               onClick={() => {
                 if (onClose) onClose();
-                else router.push('/me/ai?tab=agents');
+                else router.push('/me/agents');
               }}
               className="rounded bg-gray-800 px-4 py-1.5 text-sm text-white hover:bg-gray-900"
             >

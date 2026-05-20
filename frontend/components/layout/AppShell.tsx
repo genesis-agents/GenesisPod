@@ -2,7 +2,7 @@
 
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
-import { ByokOnboardingBanner } from '@/components/byok/ByokOnboardingBanner';
+import { ByokOnboardingBanner } from '@/components/common/byok/ByokOnboardingBanner';
 
 interface AppShellProps {
   children: React.ReactNode;

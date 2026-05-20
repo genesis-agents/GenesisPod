@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import UserProfileButton from './UserProfileButton';
-import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
@@ -794,7 +793,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               })}
               {showExpanded && hasMoreAgents && (
                 <Link
-                  href="/me/ai?tab=agents"
+                  href="/me/agents"
                   className="flex items-center gap-3 rounded-lg px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
                   title={t('nav.myAgentsViewAll')}
                 >
@@ -805,7 +804,7 @@ export default function Sidebar({ className = '' }: SidebarProps) {
               )}
               {showExpanded && (
                 <Link
-                  href="/me/ai?tab=agents"
+                  href="/me/agents"
                   className="flex items-center gap-3 rounded-lg px-3 py-1 text-xs text-gray-500 hover:text-gray-700"
                   title={t('nav.myAgentsManage')}
                 >
@@ -926,9 +925,6 @@ export default function Sidebar({ className = '' }: SidebarProps) {
             {showExpanded && <span>{t('nav.system')}</span>}
           </Link>
         )}
-
-        {/* Language Switcher */}
-        <LanguageSwitcher variant={showExpanded ? 'sidebar' : 'icon'} />
       </div>
     </aside>
   );

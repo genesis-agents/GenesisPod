@@ -77,7 +77,7 @@ export default function CreditBadge({
     // 折叠模式：只显示图标和余额
     return (
       <Link
-        href="/credits"
+        href="/me/billing"
         className={`flex flex-col items-center justify-center rounded-lg p-2 ${getBgColor()} transition-colors`}
         title={`${t('credits.balance')}: ${balance.toLocaleString()}`}
       >
@@ -110,7 +110,10 @@ export default function CreditBadge({
   // 展开模式：显示完整信息
   return (
     <div className={`rounded-lg p-2 ${getBgColor()} transition-colors`}>
-      <Link href="/credits" className="flex items-center justify-between gap-2">
+      <Link
+        href="/me/billing"
+        className="flex items-center justify-between gap-2"
+      >
         <div className="flex items-center gap-2">
           {/* 硬币图标 */}
           <div className="relative">

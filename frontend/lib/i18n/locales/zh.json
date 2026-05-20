@@ -5067,6 +5067,7 @@
       "notionDesc": "将您的 Notion 页面和数据库与 AI Teams Engine 同步",
       "connectedWorkspaces": "已连接的工作区",
       "disconnect": "断开连接",
+      "disconnectConfirm": "确定要断开此 Notion 工作区的连接吗？",
       "addWorkspace": "添加其他工作区",
       "viewNotionPages": "查看您的 Notion 页面",
       "accessSyncedPages": "在资源库中访问已同步的页面",
@@ -7332,26 +7333,45 @@
     }
   },
   "me": {
-    "title": "我的中心",
-    "subtitle": "管理你的资料、密钥、数据和系统偏好",
-    "subtitleWithEmail": "当前登录：{{email}}",
-    "cards": {
-      "profile": {
-        "title": "用户管理",
-        "description": "我的资料、角色、积分和计费明细"
-      },
-      "keys": {
-        "title": "密钥管理",
-        "description": "我的 API Keys 与模型授权"
-      },
-      "library": {
-        "title": "数据管理",
-        "description": "我的资源库、知识库与存储用量"
-      },
-      "notifications": {
-        "title": "系统管理",
-        "description": "我的通知偏好、活动日志与安全设置"
-      }
+    "title": "个人中心",
+    "nav": {
+      "groupProfile": "个人",
+      "groupAi": "API 与模型",
+      "groupBilling": "资源与计费",
+      "account": "账户",
+      "general": "通用",
+      "personalization": "个性化",
+      "apiKeys": "API Keys",
+      "models": "我的模型",
+      "agents": "我的 Agent",
+      "integrations": "集成",
+      "notifications": "通知",
+      "billing": "账单"
+    },
+    "general": {
+      "appearance": "外观主题",
+      "appearanceDesc": "选择浅色、深色或跟随系统的主题",
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统"
+    },
+    "personalization": {
+      "previewUser": "我该如何自定义聊天外观？",
+      "previewAi": "在上方为你的消息和我的回复选择颜色与样式，更改会自动保存。",
+      "noInterests": "还没有兴趣标签"
+    },
+    "billing": {
+      "usage": "用量统计"
+    },
+    "integrations": {
+      "notConnected": "未连接",
+      "workspaces": "个工作区",
+      "pages": "个页面"
+    },
+    "menu": {
+      "settings": "设置",
+      "language": "语言",
+      "help": "帮助与反馈"
     }
   },
   "radar": {

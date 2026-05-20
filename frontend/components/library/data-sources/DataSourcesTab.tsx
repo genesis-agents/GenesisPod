@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   HardDrive,
   FileText,
@@ -143,6 +144,7 @@ export default function DataSourcesTab({
   contentCounts,
 }: DataSourcesTabProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const [activeSubTab, setActiveSubTab] =
     useState<DataSourceSubTab>(initialSubTab);
 
@@ -498,10 +500,10 @@ export default function DataSourcesTab({
                 void handleSync('GOOGLE_DRIVE');
               }}
               onSettings={() => {
-                window.location.href = '/profile?tab=integrations';
+                router.push('/me/integrations');
               }}
               onConnect={() => {
-                window.location.href = '/profile?tab=integrations';
+                router.push('/me/integrations');
               }}
             />
 
@@ -531,10 +533,10 @@ export default function DataSourcesTab({
                 void handleSync('NOTION');
               }}
               onSettings={() => {
-                window.location.href = '/profile?tab=integrations';
+                router.push('/me/integrations');
               }}
               onConnect={() => {
-                window.location.href = '/profile?tab=integrations';
+                router.push('/me/integrations');
               }}
             />
 
@@ -564,10 +566,10 @@ export default function DataSourcesTab({
                 void handleSync('FEISHU');
               }}
               onSettings={() => {
-                window.location.href = '/profile?tab=integrations';
+                router.push('/me/integrations');
               }}
               onConnect={() => {
-                window.location.href = '/profile?tab=integrations';
+                router.push('/me/integrations');
               }}
             />
           </div>
