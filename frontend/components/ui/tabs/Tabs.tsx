@@ -12,7 +12,10 @@ import { cn } from '@/lib/utils/common';
 export interface TabItem {
   key: string;
   label: React.ReactNode;
+  /** Lucide 图标组件（渲染为 <Icon className="h-4 w-4" />） */
   icon?: LucideIcon;
+  /** 预渲染图标节点（与 icon 二选一，iconNode 优先；用于非 Lucide / 已带 props 的图标） */
+  iconNode?: React.ReactNode;
   /** 右上角计数徽标 */
   count?: number;
   disabled?: boolean;
@@ -57,7 +60,7 @@ export function Tabs({
                   : 'text-gray-600 hover:bg-gray-100'
               )}
             >
-              {Icon && <Icon className="h-4 w-4" />}
+              {item.iconNode ?? (Icon && <Icon className="h-4 w-4" />)}
               {item.label}
               {item.count != null && (
                 <span
@@ -100,7 +103,7 @@ export function Tabs({
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             )}
           >
-            {Icon && <Icon className="h-4 w-4" />}
+            {item.iconNode ?? (Icon && <Icon className="h-4 w-4" />)}
             {item.label}
             {item.count != null && (
               <span className="rounded-full bg-gray-100 px-1.5 text-xs text-gray-600">

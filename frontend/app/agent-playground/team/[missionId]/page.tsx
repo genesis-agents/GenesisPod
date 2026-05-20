@@ -42,6 +42,7 @@ import {
 } from '@/lib/agent-playground/todo-ledger';
 import { cn } from '@/lib/utils/common';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
+import { Tabs } from '@/components/ui/tabs';
 import { ArtifactReader } from '@/components/agent-playground/artifact';
 import { LeadJournalPanel } from '@/components/agent-playground/LeadJournalPanel';
 import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/BudgetAndTimeLimitPanel';
@@ -1003,27 +1004,16 @@ export default function MissionDetailPage() {
 
           {/* Tabs — TI style: border-b primary underline; horizontal scroll on overflow */}
           <div className="flex min-w-0 items-center gap-3 border-b border-gray-200 bg-white px-4">
-            <div className="scrollbar-thin flex min-w-0 flex-1 overflow-x-auto">
-              {TABS.map((tab) => {
-                const Icon = tab.Icon;
-                const active = activeTab === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors ${
-                      active
-                        ? 'border-violet-500 text-violet-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
+            <Tabs
+              className="scrollbar-thin min-w-0 flex-1 overflow-x-auto border-b-0"
+              items={TABS.map((tab) => ({
+                key: tab.key,
+                label: tab.label,
+                icon: tab.Icon,
+              }))}
+              value={activeTab}
+              onChange={(k) => setActiveTab(k as TabKey)}
+            />
             <div className="shrink-0">
               <CompactMeters
                 view={view}

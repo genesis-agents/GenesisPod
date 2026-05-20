@@ -45,6 +45,7 @@ import {
   AGENT_KEY_TO_INDEX,
 } from '@/lib/constants/planning-roles';
 import { getMessages, sendMessage } from '@/services/ai-teams/api';
+import { Tabs } from '@/components/ui/tabs';
 import type { TopicMessage } from '@/lib/types/ai-teams';
 
 export type PlanContentTabType =
@@ -606,35 +607,17 @@ export function PlanContentPanel({
   return (
     <div className={cn('flex h-full flex-col bg-white', className)}>
       {/* Tab Header */}
-      <div className="flex overflow-x-auto border-b border-gray-200 px-4">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
-              activeTab === tab.key
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            )}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-            {tab.badge !== undefined && tab.badge > 0 && (
-              <span
-                className={cn(
-                  'rounded-full px-1.5 py-0.5 text-xs',
-                  activeTab === tab.key
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-gray-100 text-gray-500'
-                )}
-              >
-                {tab.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="overflow-x-auto px-4"
+        items={tabs.map((tab) => ({
+          key: tab.key,
+          label: tab.label,
+          iconNode: tab.icon,
+          count: tab.badge && tab.badge > 0 ? tab.badge : undefined,
+        }))}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as PlanContentTabType)}
+      />
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto">

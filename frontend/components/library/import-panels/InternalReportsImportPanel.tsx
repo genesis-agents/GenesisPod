@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { config } from '@/lib/utils/config';
 import { getAuthHeader } from '@/lib/utils/auth';
+import { Tabs } from '@/components/ui/tabs';
 import { logger } from '@/lib/utils/logger';
 
 interface PlaygroundMissionRow {
@@ -290,32 +291,25 @@ export default function InternalReportsImportPanel({
       )}
 
       {standalone && (
-        <div className="mb-4 flex gap-1 border-b border-gray-200">
-          <TabButton
-            active={activeTab === 'playground'}
-            onClick={() => setActiveTab('playground')}
-            icon={<Brain className="h-3.5 w-3.5" />}
-          >
-            Playground 报告
-            {missions.length > 0 && (
-              <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
-                {missions.length}
-              </span>
-            )}
-          </TabButton>
-          <TabButton
-            active={activeTab === 'topic'}
-            onClick={() => setActiveTab('topic')}
-            icon={<Lightbulb className="h-3.5 w-3.5" />}
-          >
-            Topic Insight 报告
-            {topics.length > 0 && (
-              <span className="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
-                {topics.length}
-              </span>
-            )}
-          </TabButton>
-        </div>
+        <Tabs
+          className="mb-4"
+          items={[
+            {
+              key: 'playground',
+              label: 'Playground 报告',
+              iconNode: <Brain className="h-3.5 w-3.5" />,
+              count: missions.length > 0 ? missions.length : undefined,
+            },
+            {
+              key: 'topic',
+              label: 'Topic Insight 报告',
+              iconNode: <Lightbulb className="h-3.5 w-3.5" />,
+              count: topics.length > 0 ? topics.length : undefined,
+            },
+          ]}
+          value={activeTab}
+          onChange={(k) => setActiveTab(k as TabKey)}
+        />
       )}
 
       {/* Status / error */}
@@ -429,33 +423,6 @@ export default function InternalReportsImportPanel({
 }
 
 // ─── Sub-components ─────────────────────────────────────────────────
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-        active
-          ? 'border-violet-600 text-violet-700'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      {icon}
-      {children}
-    </button>
-  );
-}
 
 function EmptyState({ text }: { text: string }) {
   return <div className="py-10 text-center text-sm text-gray-400">{text}</div>;
