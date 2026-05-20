@@ -196,14 +196,12 @@ fi
 rm -f "$BACKEND_TEST_LOG" "$FRONTEND_TEST_LOG"
 echo ""
 
-# 4. UI 一致性看护（warn-only，rollout 期间不阻断 push）
-# ★ 2026-05-18 [TOP 1] 前端 UI 一致性源头止血
-#   策略：扫描公共组件强制复用 + 任意值 token 违规，与基线对比。
-#   首次推送会写出基线（docs/_archive/ui-*-baseline.json）。
-#   warn-only 模式：违规不阻断 push，只打印；后续切 SKIP_UI_AUDIT=1 可临时跳过。
-#   切 strict 模式：把下方 `if npm run` 改为 `npm run audit:ui-strict || exit 1`。
+# 4. UI 一致性看护（已焊死，2026-05-20：全部规则 HARD_ZERO，任一违规阻断 push）
+# ★ 2026-05-18 [TOP 1] 前端 UI 一致性源头止血 → 2026-05-20 TOTAL=0 后全部规则焊死
+#   策略：扫描公共组件强制复用，R1–R11 全部硬零，违规即拒推。
+#   canonical 不适配时逐源 allowlist 留痕（R*_BESPOKE_OK）；SKIP_UI_AUDIT=1 可临时跳过。
 #   设计文档：docs/guides/testing/frontend-ui-validation.md
-echo "[4/6] UI 一致性看护（灰度：R8 表格硬零阻断 / 其余不劣化 warn）..."
+echo "[4/6] UI 一致性看护（已焊死：R1–R11 全部硬零，任一违规拒推）..."
 if [ "${SKIP_UI_AUDIT:-0}" = "1" ]; then
     echo "  跳过（SKIP_UI_AUDIT=1）"
 else
