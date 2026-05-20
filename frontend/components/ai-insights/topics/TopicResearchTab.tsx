@@ -17,6 +17,7 @@ import { TopicCard } from './TopicCard';
 import { CreateTopicDialog } from '../dialogs/CreateTopicDialog';
 import { TopicSharingModal } from '../dialogs/TopicSharingModal';
 import ShareModal from '@/components/common/dialogs/ShareModal';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import type { ResearchTopic } from '@/lib/types/topic-insights';
 import { ResearchTopicType } from '@/lib/types/topic-insights';
 
@@ -286,29 +287,27 @@ export function TopicResearchTab({
           <LoaderIcon className="h-8 w-8 animate-spin text-blue-600" />
         </div>
       ) : topicsList.length === 0 ? (
-        /* Empty State */
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-20">
-          <FolderOpenIcon className="h-16 w-16 text-gray-300" />
-          <h3 className="mt-4 text-lg font-medium text-gray-900">
-            {searchQuery
+        <EmptyState
+          icon={<FolderOpenIcon className="h-16 w-16" />}
+          title={
+            searchQuery
               ? t('topicResearch.noMatchingTopics')
-              : t('topicResearch.noTopics')}
-          </h3>
-          <p className="mt-1 text-gray-500">
-            {searchQuery
+              : t('topicResearch.noTopics')
+          }
+          description={
+            searchQuery
               ? t('topicResearch.noMatchingTopicsDesc')
-              : t('topicResearch.noTopicsDesc')}
-          </p>
-          {!searchQuery && (
-            <button
-              onClick={() => onShowCreateDialog(true)}
-              className="mt-6 flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 font-medium text-white hover:bg-blue-700"
-            >
-              <PlusIcon className="h-5 w-5" />
-              {t('topicResearch.createFirstTopic')}
-            </button>
-          )}
-        </div>
+              : t('topicResearch.noTopicsDesc')
+          }
+          action={
+            !searchQuery
+              ? {
+                  label: t('topicResearch.createFirstTopic'),
+                  onClick: () => onShowCreateDialog(true),
+                }
+              : undefined
+          }
+        />
       ) : (
         /* Topics Grid */
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

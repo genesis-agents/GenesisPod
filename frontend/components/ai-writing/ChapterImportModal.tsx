@@ -25,6 +25,7 @@ import {
   type ImportHistoryItem,
 } from '@/services/ai-writing/api';
 import { formatDateSafe } from '@/lib/utils/date';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 
 interface ChapterImportModalProps {
   projectId: string;
@@ -616,9 +617,7 @@ export default function ChapterImportModal({
           {step === 'history' && (
             <div className="space-y-3">
               {history.length === 0 ? (
-                <div className="py-8 text-center text-gray-500">
-                  暂无导入历史
-                </div>
+                <EmptyState size="sm" title="暂无导入历史" />
               ) : (
                 history.map((item) => (
                   <div

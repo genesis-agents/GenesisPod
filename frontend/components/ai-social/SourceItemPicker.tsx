@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, Loader2, Check } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { useTranslation } from '@/lib/i18n';
 import { useSourceItems } from '@/hooks/domain/useSourceItems';
 import type {
@@ -97,7 +98,7 @@ export function SourceItemPicker({
 
   // Picked set: initialized from alreadyPicked
   const [picked, setPicked] = useState<Set<string>>(
-    () => new Set(alreadyPicked.map((p) => p.id)),
+    () => new Set(alreadyPicked.map((p) => p.id))
   );
 
   // Max allowed picks for this source
@@ -105,7 +106,7 @@ export function SourceItemPicker({
   // Total cap = source max, but also we can't exceed global remaining + already picked
   const effectiveMax = Math.min(
     sourceMax,
-    maxRemainingGlobal + alreadyPicked.length,
+    maxRemainingGlobal + alreadyPicked.length
   );
 
   const toggleItem = useCallback(
@@ -121,7 +122,7 @@ export function SourceItemPicker({
         return next;
       });
     },
-    [effectiveMax],
+    [effectiveMax]
   );
 
   // IntersectionObserver for infinite scroll
@@ -140,7 +141,7 @@ export function SourceItemPicker({
           setCursors((prev) => [...prev, nextCursor]);
         }
       },
-      { threshold: 0.1 },
+      { threshold: 0.1 }
     );
     observerRef.current.observe(sentinel);
 
@@ -166,7 +167,13 @@ export function SourceItemPicker({
     onCancel();
   };
 
-  const SourceIcon = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[source.icon] ?? Icons.Box;
+  const SourceIcon =
+    (
+      Icons as unknown as Record<
+        string,
+        React.ComponentType<{ className?: string }>
+      >
+    )[source.icon] ?? Icons.Box;
 
   const displayName =
     source.displayName['zh-CN'] || source.displayName['en-US'];
@@ -192,7 +199,10 @@ export function SourceItemPicker({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100">
               <SourceIcon className="h-4 w-4 text-rose-600" />
             </div>
-            <h3 id="picker-title" className="text-base font-semibold text-gray-900">
+            <h3
+              id="picker-title"
+              className="text-base font-semibold text-gray-900"
+            >
               {`从 ${displayName} 选择内容`}
             </h3>
           </div>
@@ -228,9 +238,7 @@ export function SourceItemPicker({
           )}
 
           {!isLoading && allItems.length === 0 && (
-            <div className="py-8 text-center text-sm text-gray-400">
-              暂无内容
-            </div>
+            <EmptyState size="sm" title="暂无内容" />
           )}
 
           <ul className="space-y-1">
@@ -283,7 +291,9 @@ export function SourceItemPicker({
           {/* Sentinel for infinite scroll */}
           {nextCursor && (
             <div ref={sentinelRef} className="flex justify-center py-3">
-              {isLoading && <Loader2 className="h-4 w-4 animate-spin text-gray-300" />}
+              {isLoading && (
+                <Loader2 className="h-4 w-4 animate-spin text-gray-300" />
+              )}
             </div>
           )}
         </div>
