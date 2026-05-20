@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import {
-  X,
   Link as LinkIcon,
   Bookmark,
   StickyNote,
@@ -16,6 +15,7 @@ import {
   Globe,
   Layers,
 } from 'lucide-react';
+import { Modal } from '@/components/ui/dialogs/Modal';
 import UrlImportPanel from '../import-panels/UrlImportPanel';
 import BookmarkSelectPanel from './BookmarkSelectPanel';
 import NoteSelectPanel from './NoteSelectPanel';
@@ -309,46 +309,39 @@ export default function AddDocumentsDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <div className="flex items-center gap-3">
-            {activePanel !== 'main' && (
-              <button
-                onClick={() => setActivePanel('main')}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-            )}
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
-              <Plus className="h-4 w-4 text-blue-600" />
+    <Modal
+      open={true}
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-3">
+          {activePanel !== 'main' && (
+            <button
+              onClick={() => setActivePanel('main')}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100">
+            <Plus className="h-4 w-4 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-base font-semibold text-gray-900">
+              {getPanelTitle()}
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">
-                {getPanelTitle()}
-              </h2>
-              <p className="text-xs text-gray-500">
-                {activePanel === 'main'
-                  ? `Add to "${knowledgeBaseName}"`
-                  : 'Select content to import'}
-              </p>
+            <div className="text-xs text-gray-500">
+              {activePanel === 'main'
+                ? `Add to "${knowledgeBaseName}"`
+                : 'Select content to import'}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100"
-          >
-            <X className="h-5 w-5" />
-          </button>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5">{renderActivePanel()}</div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3">
+      }
+      size="md"
+      headerClassName="border-b border-gray-100 px-5 py-4"
+      contentClassName="p-5"
+      footer={
+        <div className="flex w-full items-center justify-between">
           <div className="text-sm text-gray-500">
             {totalImported > 0 && (
               <span className="text-green-600">
@@ -363,7 +356,10 @@ export default function AddDocumentsDialog({
             Done
           </button>
         </div>
-      </div>
-    </div>
+      }
+      footerClassName="border-t border-gray-100 px-5 py-3"
+    >
+      {renderActivePanel()}
+    </Modal>
   );
 }

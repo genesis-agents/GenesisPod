@@ -5,6 +5,8 @@ import { Loader2, X } from 'lucide-react';
 import { wikiApi, type WikiDiff } from '@/lib/api/wiki';
 import { useTranslation } from '@/lib/i18n';
 import { logger } from '@/lib/utils/logger';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { ConfirmDialog } from '@/components/ui/dialogs/ConfirmDialog';
 
 export default function WikiDiffModal({
   kbId,
@@ -63,34 +65,106 @@ export default function WikiDiffModal({
     : { creates: 0, updates: 0, deletes: 0 };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6">
-      <div className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+    <>
+      <Modal
+        open={true}
+        onClose={onClose}
+        title={
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-500">
               Diff Review
             </div>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">
+            <div className="mt-1 text-lg font-semibold text-slate-900">
               {t('library.wiki.diff.title')}
-            </h2>
+            </div>
             {diff && (
               <p className="text-xs text-slate-500">
                 {t('library.wiki.diff.totalItems', {
-                  // P3 BLOCKER C2 (2026-05-12): renamed affectedSlugs →
-                  // affectedKeys; entries are `slug:locale` composites.
                   count: diff.affectedKeys.length,
                   status: diff.status,
                 })}
               </p>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </header>
+        }
+        size="2xl"
+        headerClassName="border-b border-slate-200 px-6 py-4"
+        contentClassName="p-0 flex flex-col overflow-hidden bg-slate-50/70"
+        footer={
+          <>
+            <button
+              disabled={applying}
+              onClick={async () => {
+                if (!diff) return;
+                try {
+                  await wikiApi.patchDiff(kbId, diff.id, 'dismiss');
+                  onClose();
+                } catch (err) {
+                  logger?.error?.('[wiki] dismiss diff failed', err);
+                }
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              {t('library.wiki.diff.dismissAll')}
+            </button>
+            <button
+              disabled={applying || conflicted || selected.size === 0}
+              onClick={async () => {
+                if (!diff) return;
+                setApplying(true);
+                setApplyError(null);
+                try {
+                  await wikiApi.patchDiff(
+                    kbId,
+                    diff.id,
+                    'apply',
+                    Array.from(selected),
+                    undefined
+                  );
+                  onApplied?.();
+                  onClose();
+                } catch (err) {
+                  logger?.error?.('[wiki] apply diff failed', err);
+                  const raw =
+                    (
+                      err as {
+                        response?: { data?: { message?: string } };
+                        message?: string;
+                      }
+                    ).response?.data?.message ??
+                    (err as Error).message ??
+                    '';
+                  // 2026-05-12 (P3 BLOCKER C2)：backend 引入 locale 维度后 message
+                  // 实际格式是 "on (slug:locale): k1, k2"。原 regex 匹配旧
+                  // "on slug(s):"，永远 null 走 alert(raw) 弹英文报错。
+                  // 新 regex 兼容两种格式，并把 alert/confirm 改为项目内 UI。
+                  const conflictMatch =
+                    /conflicts with PENDING diff ([\w-]+) on (?:\(slug:locale\)|slug\(s\)): (.+)/.exec(
+                      raw
+                    );
+                  if (conflictMatch) {
+                    const [, otherId, affectedKeys] = conflictMatch;
+                    setConflictPrompt({ otherId, affectedKeys });
+                  } else {
+                    setApplyError(raw || t('library.wiki.diff.applyFailed'));
+                  }
+                } finally {
+                  setApplying(false);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
+            >
+              {applying && <Loader2 className="h-4 w-4 animate-spin" />}
+              {selected.size > 0
+                ? t('library.wiki.diff.applyWithCount', {
+                    count: selected.size,
+                  })
+                : t('library.wiki.diff.apply')}
+            </button>
+          </>
+        }
+        footerClassName="border-t border-slate-200 px-6 py-3"
+      >
         {conflicted && (
           <div className="border-b border-red-200 bg-red-50 px-6 py-3 text-sm text-red-800">
             {t('library.wiki.diff.baselineMismatch')}
@@ -109,7 +183,7 @@ export default function WikiDiffModal({
             </button>
           </div>
         )}
-        <main className="flex-1 overflow-y-auto bg-slate-50/70 px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           {loading || !diff ? (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
@@ -174,87 +248,13 @@ export default function WikiDiffModal({
               </DiffSection>
             </div>
           )}
-        </main>
-        <footer className="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-3">
-          <button
-            disabled={applying}
-            onClick={async () => {
-              if (!diff) return;
-              try {
-                await wikiApi.patchDiff(kbId, diff.id, 'dismiss');
-                onClose();
-              } catch (err) {
-                logger?.error?.('[wiki] dismiss diff failed', err);
-              }
-            }}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            {t('library.wiki.diff.dismissAll')}
-          </button>
-          <button
-            disabled={applying || conflicted || selected.size === 0}
-            onClick={async () => {
-              if (!diff) return;
-              setApplying(true);
-              setApplyError(null);
-              const doApply = async (supersede = false) => {
-                await wikiApi.patchDiff(
-                  kbId,
-                  diff.id,
-                  'apply',
-                  Array.from(selected),
-                  supersede ? { supersedeConflictingDiffs: true } : undefined
-                );
-              };
-              try {
-                await doApply(false);
-                onApplied?.();
-                onClose();
-              } catch (err) {
-                logger?.error?.('[wiki] apply diff failed', err);
-                const raw =
-                  (
-                    err as {
-                      response?: { data?: { message?: string } };
-                      message?: string;
-                    }
-                  ).response?.data?.message ??
-                  (err as Error).message ??
-                  '';
-                // 2026-05-12 (P3 BLOCKER C2)：backend 引入 locale 维度后 message
-                // 实际格式是 "on (slug:locale): k1, k2"。原 regex 匹配旧
-                // "on slug(s):"，永远 null 走 alert(raw) 弹英文报错。
-                // 新 regex 兼容两种格式，并把 alert/confirm 改为项目内 UI。
-                const conflictMatch =
-                  /conflicts with PENDING diff ([\w-]+) on (?:\(slug:locale\)|slug\(s\)): (.+)/.exec(
-                    raw
-                  );
-                if (conflictMatch) {
-                  const [, otherId, affectedKeys] = conflictMatch;
-                  setConflictPrompt({ otherId, affectedKeys });
-                } else {
-                  setApplyError(raw || t('library.wiki.diff.applyFailed'));
-                }
-              } finally {
-                setApplying(false);
-              }
-            }}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-violet-700 disabled:opacity-50"
-          >
-            {applying && <Loader2 className="h-4 w-4 animate-spin" />}
-            {selected.size > 0
-              ? t('library.wiki.diff.applyWithCount', { count: selected.size })
-              : t('library.wiki.diff.apply')}
-          </button>
-        </footer>
-      </div>
-      {/* 2026-05-12 Screenshot_63: confirm() → 项目内 dialog */}
+        </div>
+      </Modal>
+      {/* 2026-05-12 Screenshot_63: confirm() → ConfirmDialog */}
       {conflictPrompt && diff && (
-        <WikiDiffConflictDialog
-          otherId={conflictPrompt.otherId}
-          affectedKeys={conflictPrompt.affectedKeys}
-          busy={applying}
-          onCancel={() => setConflictPrompt(null)}
+        <ConfirmDialog
+          open={!!conflictPrompt}
+          onClose={() => setConflictPrompt(null)}
           onConfirm={async () => {
             setApplying(true);
             try {
@@ -285,57 +285,18 @@ export default function WikiDiffModal({
               setApplying(false);
             }
           }}
+          title={t('library.wiki.diff.conflict.title')}
+          description={t('library.wiki.diff.conflict.message', {
+            otherId: conflictPrompt.otherId.slice(0, 8),
+            keys: conflictPrompt.affectedKeys,
+          })}
+          type="warning"
+          confirmText={t('library.wiki.diff.conflict.confirm')}
+          cancelText={t('library.wiki.diff.conflict.cancel')}
+          loading={applying}
         />
       )}
-    </div>
-  );
-}
-
-function WikiDiffConflictDialog({
-  otherId,
-  affectedKeys,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  otherId: string;
-  affectedKeys: string;
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">
-          {t('library.wiki.diff.conflict.title')}
-        </h3>
-        <p className="mt-2 whitespace-pre-line text-sm text-gray-600">
-          {t('library.wiki.diff.conflict.message', {
-            otherId: otherId.slice(0, 8),
-            keys: affectedKeys,
-          })}
-        </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            disabled={busy}
-            onClick={onCancel}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {t('library.wiki.diff.conflict.cancel')}
-          </button>
-          <button
-            disabled={busy}
-            onClick={onConfirm}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-          >
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {t('library.wiki.diff.conflict.confirm')}
-          </button>
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
 

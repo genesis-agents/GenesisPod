@@ -18,6 +18,7 @@ import * as aiGroupApi from '@/services/ai-teams/api';
 import { JoinRequest } from '@/services/ai-teams/api';
 import { EmptyState } from '@/components/ui/states/EmptyState';
 import { Bot, CheckCircle } from 'lucide-react';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 import { logger } from '@/lib/utils/logger';
 import { toast } from '@/stores';
@@ -86,87 +87,62 @@ export default function TopicSettingsDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex h-[80vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Team Settings</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
+    <Modal open onClose={onClose} title="Team Settings" size="xl">
+      {/* Tabs */}
+      <Tabs
+        className="px-6"
+        items={[
+          { key: 'general', label: 'General' },
+          { key: 'ai', label: 'AI Assistants' },
+          { key: 'members', label: 'Members' },
+          {
+            key: 'requests',
+            label: 'Join Requests',
+            count: joinRequests.length > 0 ? joinRequests.length : undefined,
+          },
+          { key: 'danger', label: 'Danger Zone' },
+        ]}
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as typeof activeTab)}
+      />
 
-        {/* Tabs */}
-        <Tabs
-          className="px-6"
-          items={[
-            { key: 'general', label: 'General' },
-            { key: 'ai', label: 'AI Assistants' },
-            { key: 'members', label: 'Members' },
-            {
-              key: 'requests',
-              label: 'Join Requests',
-              count: joinRequests.length > 0 ? joinRequests.length : undefined,
-            },
-            { key: 'danger', label: 'Danger Zone' },
-          ]}
-          value={activeTab}
-          onChange={(k) => setActiveTab(k as typeof activeTab)}
-        />
-
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-6">
-          {activeTab === 'general' && (
-            <GeneralSettings topic={topic} onUpdate={updateTopic} />
-          )}
-          {activeTab === 'ai' && (
-            <AISettings
-              topic={topic}
-              onAdd={addAIMember}
-              onUpdate={updateAIMember}
-              onRemove={removeAIMember}
-            />
-          )}
-          {activeTab === 'members' && (
-            <MemberSettings
-              topic={topic}
-              onAdd={addMember}
-              onRemove={removeMember}
-            />
-          )}
-          {activeTab === 'requests' && (
-            <JoinRequestsSettings
-              requests={joinRequests}
-              isLoading={isLoadingRequests}
-              onApprove={(requestId) => handleReviewRequest(requestId, true)}
-              onReject={(requestId) => handleReviewRequest(requestId, false)}
-            />
-          )}
-          {activeTab === 'danger' && (
-            <DangerSettings
-              topic={topic}
-              onDelete={deleteTopic}
-              onClose={onClose}
-            />
-          )}
-        </div>
+      {/* Content */}
+      <div className="flex-1 overflow-auto p-6">
+        {activeTab === 'general' && (
+          <GeneralSettings topic={topic} onUpdate={updateTopic} />
+        )}
+        {activeTab === 'ai' && (
+          <AISettings
+            topic={topic}
+            onAdd={addAIMember}
+            onUpdate={updateAIMember}
+            onRemove={removeAIMember}
+          />
+        )}
+        {activeTab === 'members' && (
+          <MemberSettings
+            topic={topic}
+            onAdd={addMember}
+            onRemove={removeMember}
+          />
+        )}
+        {activeTab === 'requests' && (
+          <JoinRequestsSettings
+            requests={joinRequests}
+            isLoading={isLoadingRequests}
+            onApprove={(requestId) => handleReviewRequest(requestId, true)}
+            onReject={(requestId) => handleReviewRequest(requestId, false)}
+          />
+        )}
+        {activeTab === 'danger' && (
+          <DangerSettings
+            topic={topic}
+            onDelete={deleteTopic}
+            onClose={onClose}
+          />
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -420,106 +396,13 @@ function AddAIDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">
-          Add AI Assistant
-        </h3>
-
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
-              Select Model
-            </label>
-            {loading ? (
-              <div className="flex items-center justify-center py-4">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {(models || []).map((model) => (
-                  <button
-                    key={model.id}
-                    onClick={() => {
-                      setSelectedModel(model.id);
-                      if (!displayName) setDisplayName(`AI-${model.name}`);
-                    }}
-                    className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left transition-colors ${
-                      selectedModel === model.id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="text-xl">🤖</span>
-                    <span className="flex-1 text-sm font-medium">
-                      {model.name}
-                    </span>
-                    <ModelBadges model={model} />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Display Name
-            </label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Role Description (optional)
-            </label>
-            <input
-              type="text"
-              value={roleDescription}
-              onChange={(e) => setRoleDescription(e.target.value)}
-              placeholder="e.g., Technical Expert, Meeting Facilitator"
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              System Prompt (optional)
-            </label>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              rows={3}
-              placeholder="Custom instructions for this AI..."
-              className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoRespond}
-              onChange={(e) => setAutoRespond(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">
-              Auto-respond to @mentions
-            </span>
-          </label>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-6 flex justify-end gap-3">
+    <Modal
+      open
+      onClose={onClose}
+      title="Add AI Assistant"
+      size="sm"
+      footer={
+        <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -534,8 +417,101 @@ function AddAIDialog({
             {isAdding ? 'Adding...' : 'Add AI'}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Select Model
+          </label>
+          {loading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {(models || []).map((model) => (
+                <button
+                  key={model.id}
+                  onClick={() => {
+                    setSelectedModel(model.id);
+                    if (!displayName) setDisplayName(`AI-${model.name}`);
+                  }}
+                  className={`flex items-center gap-2 rounded-lg border-2 p-3 text-left transition-colors ${
+                    selectedModel === model.id
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-xl">🤖</span>
+                  <span className="flex-1 text-sm font-medium">
+                    {model.name}
+                  </span>
+                  <ModelBadges model={model} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Display Name
+          </label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Role Description (optional)
+          </label>
+          <input
+            type="text"
+            value={roleDescription}
+            onChange={(e) => setRoleDescription(e.target.value)}
+            placeholder="e.g., Technical Expert, Meeting Facilitator"
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            System Prompt (optional)
+          </label>
+          <textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            rows={3}
+            placeholder="Custom instructions for this AI..."
+            className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={autoRespond}
+            onChange={(e) => setAutoRespond(e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-700">
+            Auto-respond to @mentions
+          </span>
+        </label>
       </div>
-    </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -591,91 +567,14 @@ function EditAIDialog({
     (models || []).find((m) => m.modelName === ai.aiModel);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-blue-100 text-2xl">
-            🤖
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Edit AI Assistant
-            </h3>
-            <p className="text-sm text-gray-500">{model?.name || ai.aiModel}</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Display Name
-            </label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Role Description
-            </label>
-            <input
-              type="text"
-              value={roleDescription}
-              onChange={(e) => setRoleDescription(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              System Prompt
-            </label>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              rows={3}
-              className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-          </div>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoRespond}
-              onChange={(e) => setAutoRespond(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">
-              Auto-respond to @mentions
-            </span>
-          </label>
-
-          {/* AI-AI Collaboration Toggle */}
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <label className="flex items-center justify-between">
-              <div>
-                <span className="text-sm font-medium text-gray-700">
-                  AI-AI Collaboration
-                </span>
-                <p className="text-xs text-gray-500">
-                  Allow this AI to @mention and collaborate with other AIs
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                checked={canMentionOtherAI}
-                onChange={(e) => setCanMentionOtherAI(e.target.checked)}
-                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
+    <Modal
+      open
+      onClose={onClose}
+      title="Edit AI Assistant"
+      subtitle={model?.name || ai.aiModel}
+      size="sm"
+      footer={
+        <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -690,8 +589,78 @@ function EditAIDialog({
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Display Name
+          </label>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Role Description
+          </label>
+          <input
+            type="text"
+            value={roleDescription}
+            onChange={(e) => setRoleDescription(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            System Prompt
+          </label>
+          <textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            rows={3}
+            className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={autoRespond}
+            onChange={(e) => setAutoRespond(e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-700">
+            Auto-respond to @mentions
+          </span>
+        </label>
+
+        {/* AI-AI Collaboration Toggle */}
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <label className="flex items-center justify-between">
+            <div>
+              <span className="text-sm font-medium text-gray-700">
+                AI-AI Collaboration
+              </span>
+              <p className="text-xs text-gray-500">
+                Allow this AI to @mention and collaborate with other AIs
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              checked={canMentionOtherAI}
+              onChange={(e) => setCanMentionOtherAI(e.target.checked)}
+              className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          </label>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -885,174 +854,14 @@ function AddMemberDialog({
     selectedUser || (searchQuery.includes('@') && searchQuery.includes('.'));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Invite Member</h3>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <p className="mb-4 text-sm text-gray-500">
-          Search for users by name, username, or email address.
-        </p>
-
-        <div className="space-y-4">
-          {/* Selected User Display */}
-          {selectedUser && (
-            <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
-              <div className="flex items-center gap-3">
-                {selectedUser.avatarUrl ? (
-                  <img
-                    src={selectedUser.avatarUrl}
-                    alt={
-                      selectedUser.fullName || selectedUser.username || 'User'
-                    }
-                    className="h-10 w-10 rounded-full"
-                  />
-                ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                    {(selectedUser.fullName ||
-                      selectedUser.username ||
-                      selectedUser.email)[0].toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    {selectedUser.fullName || selectedUser.username || 'User'}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {selectedUser.email}
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-gray-600"
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-          )}
-
-          {/* Search Input */}
-          {!selectedUser && (
-            <div className="relative">
-              <label className="block text-sm font-medium text-gray-700">
-                Search Users or Enter Email
-              </label>
-              <div className="relative mt-1">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, username, or enter email..."
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none"
-                />
-                {isSearching && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                  </div>
-                )}
-              </div>
-
-              {/* Search Results Dropdown */}
-              {searchResults.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
-                  {searchResults.map((user) => (
-                    <button
-                      key={user.id}
-                      onClick={() => handleSelectUser(user)}
-                      className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
-                    >
-                      {user.avatarUrl ? (
-                        <img
-                          src={user.avatarUrl}
-                          alt={user.fullName || user.username || 'User'}
-                          className="h-8 w-8 rounded-full"
-                        />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600">
-                          {(user.fullName ||
-                            user.username ||
-                            user.email)[0].toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium text-gray-900">
-                          {user.fullName || user.username || 'User'}
-                        </div>
-                        <div className="truncate text-xs text-gray-500">
-                          {user.email}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {/* No Results Message */}
-              {searchQuery.length >= 2 &&
-                !isSearching &&
-                searchResults.length === 0 && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    No users found. You can still invite by email address.
-                  </div>
-                )}
-            </div>
-          )}
-
-          {/* Role Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Role
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as TopicRole)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
-              <option value={TopicRole.MEMBER}>Member</option>
-              <option value={TopicRole.ADMIN}>Admin</option>
-            </select>
-          </div>
-
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
+    <Modal
+      open
+      onClose={onClose}
+      title="Invite Member"
+      subtitle="Search for users by name, username, or email address."
+      size="sm"
+      footer={
+        <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -1067,8 +876,145 @@ function AddMemberDialog({
             {isAdding ? 'Inviting...' : 'Invite'}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-4">
+        {/* Selected User Display */}
+        {selectedUser && (
+          <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
+            <div className="flex items-center gap-3">
+              {selectedUser.avatarUrl ? (
+                <img
+                  src={selectedUser.avatarUrl}
+                  alt={selectedUser.fullName || selectedUser.username || 'User'}
+                  className="h-10 w-10 rounded-full"
+                />
+              ) : (
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                  {(selectedUser.fullName ||
+                    selectedUser.username ||
+                    selectedUser.email)[0].toUpperCase()}
+                </div>
+              )}
+              <div>
+                <div className="text-sm font-medium text-gray-900">
+                  {selectedUser.fullName || selectedUser.username || 'User'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {selectedUser.email}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedUser(null)}
+              className="rounded p-1 text-gray-400 hover:bg-blue-100 hover:text-gray-600"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Search Input */}
+        {!selectedUser && (
+          <div className="relative">
+            <label className="block text-sm font-medium text-gray-700">
+              Search Users or Enter Email
+            </label>
+            <div className="relative mt-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, username, or enter email..."
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                </div>
+              )}
+            </div>
+
+            {/* Search Results Dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                {searchResults.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => handleSelectUser(user)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-gray-50"
+                  >
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.fullName || user.username || 'User'}
+                        className="h-8 w-8 rounded-full"
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600">
+                        {(user.fullName ||
+                          user.username ||
+                          user.email)[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-gray-900">
+                        {user.fullName || user.username || 'User'}
+                      </div>
+                      <div className="truncate text-xs text-gray-500">
+                        {user.email}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* No Results Message */}
+            {searchQuery.length >= 2 &&
+              !isSearching &&
+              searchResults.length === 0 && (
+                <div className="mt-2 text-xs text-gray-500">
+                  No users found. You can still invite by email address.
+                </div>
+              )}
+          </div>
+        )}
+
+        {/* Role Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Role
+          </label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as TopicRole)}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          >
+            <option value={TopicRole.MEMBER}>Member</option>
+            <option value={TopicRole.ADMIN}>Admin</option>
+          </select>
+        </div>
+
+        {error && (
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 

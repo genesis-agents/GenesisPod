@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { MultiKeyTable } from '@/components/common/tables/MultiKeyTable';
 import type { UserApiKeyInfo } from '@/hooks/features/useUserApiKeys';
 import type {
@@ -45,8 +45,6 @@ export function UserApiKeyDrawer({
   onSave,
   onDelete,
 }: UserApiKeyDrawerProps) {
-  if (!open) return null;
-
   // UserApiKeyInfo → SecretKeyRow 适配
   const adapted: SecretKeyRow[] = userKeys.map((k) => ({
     id: k.id,
@@ -105,69 +103,52 @@ export function UserApiKeyDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex">
-      <div
-        className="flex-1 bg-black/30"
-        onClick={onClose}
-        aria-label="close drawer"
-      />
-      <div className="flex w-full max-w-3xl flex-col bg-white shadow-2xl">
-        <div className="flex items-start justify-between border-b p-5">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {provider.name}
-            </h2>
-            <p className="font-mono mt-1 text-sm text-gray-500">
-              {provider.id}
-            </p>
-            <span className="mt-2 inline-block rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
-              BYOK · 用户自有
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded p-1 hover:bg-gray-100"
-            aria-label="close"
-          >
-            <X className="h-5 w-5 text-gray-600" />
-          </button>
-        </div>
+    <SideDrawer
+      open={open}
+      onClose={onClose}
+      title={provider.name}
+      widthPx={768}
+    >
+      <div className="px-1 pb-2">
+        <p className="font-mono text-sm text-gray-500">{provider.id}</p>
+        <span className="mt-1 inline-block rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+          BYOK · 用户自有
+        </span>
+      </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
-          <MultiKeyTable
-            keys={adapted}
-            loading={loading}
-            actionLoading={saving || testing}
-            onAdd={handleAdd}
-            onUpdate={handleUpdate}
-            onReplace={handleReplace}
-            onDelete={handleDelete}
-            onTest={handleTest}
-            hideEditMeta
-            hideTest
-          />
+      <div className="flex-1 overflow-y-auto p-5">
+        <MultiKeyTable
+          keys={adapted}
+          loading={loading}
+          actionLoading={saving || testing}
+          onAdd={handleAdd}
+          onUpdate={handleUpdate}
+          onReplace={handleReplace}
+          onDelete={handleDelete}
+          onTest={handleTest}
+          hideEditMeta
+          hideTest
+        />
 
-          <div className="mt-6 rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
-            <p className="mb-1 font-medium">关于多 KEY:</p>
-            <ul className="list-inside list-disc space-y-0.5">
-              <li>
-                同一 provider 下可配置多条 KEY（用 label 区分，如{' '}
-                <span className="font-mono">default</span> /{' '}
-                <span className="font-mono">backup-1</span>）。
-              </li>
-              <li>
-                KeyChain 自动按健康调度选用：上次成功的 KEY
-                优先；失败时切下一个。
-              </li>
-              <li>
-                <strong>Replace</strong> 会重写该 label 的 value（status
-                自动重置）。
-              </li>
-              <li>priority / 主动 test 不在 BYOK 暴露（系统自动调度）。</li>
-            </ul>
-          </div>
+        <div className="mt-6 rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+          <p className="mb-1 font-medium">关于多 KEY:</p>
+          <ul className="list-inside list-disc space-y-0.5">
+            <li>
+              同一 provider 下可配置多条 KEY（用 label 区分，如{' '}
+              <span className="font-mono">default</span> /{' '}
+              <span className="font-mono">backup-1</span>）。
+            </li>
+            <li>
+              KeyChain 自动按健康调度选用：上次成功的 KEY 优先；失败时切下一个。
+            </li>
+            <li>
+              <strong>Replace</strong> 会重写该 label 的 value（status
+              自动重置）。
+            </li>
+            <li>priority / 主动 test 不在 BYOK 暴露（系统自动调度）。</li>
+          </ul>
         </div>
       </div>
-    </div>
+    </SideDrawer>
   );
 }

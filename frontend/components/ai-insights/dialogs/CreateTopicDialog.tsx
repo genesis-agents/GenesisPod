@@ -20,6 +20,7 @@ import {
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { useTranslation } from '@/lib/i18n';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 interface CreateTopicDialogProps {
   isOpen: boolean;
@@ -513,508 +514,501 @@ export function CreateTopicDialog({
     }
   };
 
-  if (!isOpen) return null;
+  const dialogTitle = isEditMode
+    ? t('topicResearch.createDialog.editTopic')
+    : step === 'type'
+      ? t('topicResearch.createDialog.selectType')
+      : t('topicResearch.createDialog.configTopic');
+
+  const dialogSubtitle = isEditMode
+    ? t('topicResearch.createDialog.editTopicHint')
+    : step === 'type'
+      ? t('topicResearch.createDialog.selectTypeHint')
+      : t('topicResearch.createDialog.configHint');
+
+  const footerContent = (
+    <div className="flex w-full items-center justify-between">
+      <div>
+        {/* ★ 编辑模式不显示返回按钮 */}
+        {step === 'details' && !isEditMode && (
+          <button
+            type="button"
+            onClick={() => setStep('type')}
+            className="text-sm font-medium text-gray-600 hover:text-gray-900"
+          >
+            {t('topicResearch.createDialog.backToType')}
+          </button>
+        )}
+      </div>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+        >
+          {t('common.cancel')}
+        </button>
+        {step === 'details' && (
+          <button
+            onClick={handleSubmit}
+            disabled={
+              !name.trim() ||
+              loading ||
+              (selectedType === ResearchTopicType.EVENT &&
+                !isEditMode &&
+                (eventInputMode === 'url'
+                  ? !sourceUrl.trim()
+                  : !sourceContent.trim()))
+            }
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}
+            {isEditMode
+              ? t('topicResearch.createDialog.saveChanges')
+              : t('topicResearch.createTopic')}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-3xl rounded-xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {isEditMode
-              ? t('topicResearch.createDialog.editTopic')
-              : step === 'type'
-                ? t('topicResearch.createDialog.selectType')
-                : t('topicResearch.createDialog.configTopic')}
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            {isEditMode
-              ? t('topicResearch.createDialog.editTopicHint')
-              : step === 'type'
-                ? t('topicResearch.createDialog.selectTypeHint')
-                : t('topicResearch.createDialog.configHint')}
-          </p>
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title={dialogTitle}
+      subtitle={dialogSubtitle}
+      size="xl"
+      contentClassName="max-h-[70vh]"
+      footerClassName="justify-stretch"
+      footer={footerContent}
+    >
+      {step === 'type' ? (
+        // Step 1: Select Type
+        <div className="grid grid-cols-4 gap-4">
+          {topicTypeOptions.map((option) => {
+            const styles = topicTypeStyles[option.type];
+            return (
+              <button
+                key={option.type}
+                onClick={() => handleTypeSelect(option.type)}
+                className={`flex flex-col items-center rounded-xl border-2 p-6 transition-all ${
+                  selectedType === option.type
+                    ? `${styles.borderColor} ${styles.bgColor}`
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div
+                  className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${styles.gradient} text-white shadow-md`}
+                >
+                  {topicTypeIcons[option.type]}
+                </div>
+                <span className="font-medium text-gray-900">
+                  {option.label}
+                </span>
+                <span className="mt-1 text-center text-xs text-gray-500">
+                  {option.description}
+                </span>
+              </button>
+            );
+          })}
         </div>
+      ) : (
+        // Step 2: Details Form
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('topicResearch.createDialog.topicName')}{' '}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t('topicResearch.createDialog.topicNamePlaceholder')}
+              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+            />
+          </div>
 
-        {/* Content */}
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
-          {step === 'type' ? (
-            // Step 1: Select Type
-            <div className="grid grid-cols-4 gap-4">
-              {topicTypeOptions.map((option) => {
-                const styles = topicTypeStyles[option.type];
-                return (
-                  <button
-                    key={option.type}
-                    onClick={() => handleTypeSelect(option.type)}
-                    className={`flex flex-col items-center rounded-xl border-2 p-6 transition-all ${
-                      selectedType === option.type
-                        ? `${styles.borderColor} ${styles.bgColor}`
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div
-                      className={`mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${styles.gradient} text-white shadow-md`}
-                    >
-                      {topicTypeIcons[option.type]}
-                    </div>
-                    <span className="font-medium text-gray-900">
-                      {option.label}
-                    </span>
-                    <span className="mt-1 text-center text-xs text-gray-500">
-                      {option.description}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            // Step 2: Details Form
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t('topicResearch.createDialog.topicName')}{' '}
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t(
-                    'topicResearch.createDialog.topicNamePlaceholder'
-                  )}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  autoFocus
-                />
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('topicResearch.createDialog.topicDesc')}
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t('topicResearch.createDialog.topicDescPlaceholder')}
+              rows={4}
+              maxLength={50000}
+              className="mt-1 w-full resize-y rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              style={{ minHeight: '80px', maxHeight: '400px' }}
+            />
+            {description.length > 0 && (
+              <p
+                className={`mt-1 text-right text-xs ${description.length > 48000 ? 'text-red-500' : 'text-gray-400'}`}
+              >
+                {description.length.toLocaleString()} / 50,000
+              </p>
+            )}
+          </div>
+
+          {/* ★ EVENT 类型专属：URL/粘贴输入 */}
+          {selectedType === ResearchTopicType.EVENT && (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                {t('topicResearch.createDialog.eventSource')}
+                <span className="text-red-500"> *</span>
+              </label>
+              {/* 输入模式切换 */}
+              <div className="mb-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEventInputMode('url')}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                    eventInputMode === 'url'
+                      ? 'border-orange-500 bg-orange-50 text-orange-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {t('topicResearch.createDialog.eventInputUrl')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventInputMode('paste')}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
+                    eventInputMode === 'paste'
+                      ? 'border-orange-500 bg-orange-50 text-orange-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {t('topicResearch.createDialog.eventInputPaste')}
+                </button>
               </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  {t('topicResearch.createDialog.topicDesc')}
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+              {eventInputMode === 'url' ? (
+                <input
+                  type="url"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
                   placeholder={t(
-                    'topicResearch.createDialog.topicDescPlaceholder'
+                    'topicResearch.createDialog.eventUrlPlaceholder'
+                  )}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+              ) : (
+                <textarea
+                  value={sourceContent}
+                  onChange={(e) => setSourceContent(e.target.value)}
+                  placeholder={t(
+                    'topicResearch.createDialog.eventPastePlaceholder'
                   )}
                   rows={4}
-                  maxLength={50000}
-                  className="mt-1 w-full resize-y rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  style={{ minHeight: '80px', maxHeight: '400px' }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
-                {description.length > 0 && (
-                  <p
-                    className={`mt-1 text-right text-xs ${description.length > 48000 ? 'text-red-500' : 'text-gray-400'}`}
-                  >
-                    {description.length.toLocaleString()} / 50,000
-                  </p>
-                )}
-              </div>
-
-              {/* ★ EVENT 类型专属：URL/粘贴输入 */}
-              {selectedType === ResearchTopicType.EVENT && (
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    {t('topicResearch.createDialog.eventSource')}
-                    <span className="text-red-500"> *</span>
-                  </label>
-                  {/* 输入模式切换 */}
-                  <div className="mb-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setEventInputMode('url')}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-                        eventInputMode === 'url'
-                          ? 'border-orange-500 bg-orange-50 text-orange-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      {t('topicResearch.createDialog.eventInputUrl')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEventInputMode('paste')}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-all ${
-                        eventInputMode === 'paste'
-                          ? 'border-orange-500 bg-orange-50 text-orange-700'
-                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                      }`}
-                    >
-                      {t('topicResearch.createDialog.eventInputPaste')}
-                    </button>
-                  </div>
-                  {eventInputMode === 'url' ? (
-                    <input
-                      type="url"
-                      value={sourceUrl}
-                      onChange={(e) => setSourceUrl(e.target.value)}
-                      placeholder={t(
-                        'topicResearch.createDialog.eventUrlPlaceholder'
-                      )}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                    />
-                  ) : (
-                    <textarea
-                      value={sourceContent}
-                      onChange={(e) => setSourceContent(e.target.value)}
-                      placeholder={t(
-                        'topicResearch.createDialog.eventPastePlaceholder'
-                      )}
-                      rows={4}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                    />
-                  )}
-                  <p className="mt-1 text-xs text-gray-400">
-                    {t('topicResearch.createDialog.eventSourceHint')}
-                  </p>
-                </div>
               )}
+              <p className="mt-1 text-xs text-gray-400">
+                {t('topicResearch.createDialog.eventSourceHint')}
+              </p>
+            </div>
+          )}
 
-              {/* Research Depth Selector */}
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {t('topicResearch.createDialog.researchDepthLabel') ||
-                    t('topicResearch.researchDepth.label')}
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['quick', 'standard', 'thorough'] as const).map((depth) => {
-                    const labels: Record<string, string> = {
-                      quick: t('topicResearch.researchDepth.quick'),
-                      standard: t('topicResearch.researchDepth.standard'),
-                      thorough: t('topicResearch.researchDepth.thorough'),
-                    };
-                    const descriptions: Record<string, string> = {
-                      quick: t('topicResearch.researchDepth.quickDesc'),
-                      standard: t('topicResearch.researchDepth.standardDesc'),
-                      thorough: t('topicResearch.researchDepth.thoroughDesc'),
-                    };
-                    const icons: Record<string, string> = {
-                      quick: 'M13 10V3L4 14h7v7l9-11h-7z',
-                      standard:
-                        'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
-                      thorough:
-                        'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5',
-                    };
-                    const isSelected = researchDepth === depth;
-                    return (
-                      <button
-                        key={depth}
-                        type="button"
-                        onClick={() => setResearchDepth(depth)}
-                        className={`group relative flex flex-col items-center rounded-xl border-2 px-3 py-3 text-center transition-all ${
-                          isSelected
-                            ? 'border-violet-500 bg-violet-50 text-violet-700 shadow-sm shadow-violet-500/10'
-                            : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                        title={descriptions[depth]}
-                      >
-                        {isSelected && (
-                          <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white">
-                            <svg
-                              className="h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          </div>
-                        )}
+          {/* Research Depth Selector */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              {t('topicResearch.createDialog.researchDepthLabel') ||
+                t('topicResearch.researchDepth.label')}
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['quick', 'standard', 'thorough'] as const).map((depth) => {
+                const labels: Record<string, string> = {
+                  quick: t('topicResearch.researchDepth.quick'),
+                  standard: t('topicResearch.researchDepth.standard'),
+                  thorough: t('topicResearch.researchDepth.thorough'),
+                };
+                const descriptions: Record<string, string> = {
+                  quick: t('topicResearch.researchDepth.quickDesc'),
+                  standard: t('topicResearch.researchDepth.standardDesc'),
+                  thorough: t('topicResearch.researchDepth.thoroughDesc'),
+                };
+                const icons: Record<string, string> = {
+                  quick: 'M13 10V3L4 14h7v7l9-11h-7z',
+                  standard:
+                    'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+                  thorough:
+                    'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5',
+                };
+                const isSelected = researchDepth === depth;
+                return (
+                  <button
+                    key={depth}
+                    type="button"
+                    onClick={() => setResearchDepth(depth)}
+                    className={`group relative flex flex-col items-center rounded-xl border-2 px-3 py-3 text-center transition-all ${
+                      isSelected
+                        ? 'border-violet-500 bg-violet-50 text-violet-700 shadow-sm shadow-violet-500/10'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                    title={descriptions[depth]}
+                  >
+                    {isSelected && (
+                      <div className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-violet-500 text-white">
                         <svg
-                          className={`mb-1.5 h-5 w-5 ${isSelected ? 'text-violet-500' : 'text-gray-400 group-hover:text-gray-500'}`}
+                          className="h-3 w-3"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
-                          strokeWidth={1.5}
+                          strokeWidth={3}
                         >
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            d={icons[depth]}
+                            d="M5 13l4 4L19 7"
                           />
                         </svg>
-                        <div
-                          className={`text-sm font-semibold ${isSelected ? 'text-violet-700' : 'text-gray-700'}`}
-                        >
-                          {labels[depth]}
-                        </div>
-                        <div
-                          className={`mt-0.5 text-[11px] ${isSelected ? 'text-violet-500' : 'text-gray-400'}`}
-                        >
-                          {descriptions[depth]}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Advanced Settings (collapsible) */}
-              <div className="border-t border-gray-100 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex w-full items-center justify-between py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
-                >
-                  <span>
-                    {t('topicResearch.createDialog.advancedSettings') ||
-                      'Advanced Settings'}
-                  </span>
-                  <svg
-                    className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-
-                {showAdvanced && (
-                  <div className="mt-2 space-y-3">
-                    {/* Refresh Frequency */}
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                        {t('topicResearch.createDialog.refreshFrequency')}
-                      </label>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {frequencyOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setRefreshFrequency(option.value)}
-                            className={`rounded-lg border px-2 py-1.5 text-center transition-all ${
-                              refreshFrequency === option.value
-                                ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                            }`}
-                          >
-                            <span className="block text-xs font-medium">
-                              {option.label}
-                            </span>
-                          </button>
-                        ))}
                       </div>
-                    </div>
-
-                    {/* Time Range */}
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                        {t('topicResearch.createDialog.searchTimeRange')}
-                        <span className="ml-2 text-xs font-normal text-gray-400">
-                          {t('topicResearch.createDialog.searchTimeRangeHint')}
-                        </span>
-                      </label>
-                      <div className="grid grid-cols-6 gap-1.5">
-                        {timeRangeOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setSearchTimeRange(option.value)}
-                            className={`rounded-lg border px-2 py-1.5 text-center transition-all ${
-                              searchTimeRange === option.value
-                                ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                            }`}
-                            title={option.description}
-                          >
-                            <span className="block text-xs font-medium">
-                              {option.label}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* ★ Visibility Selector */}
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                        {t('topicResearch.sharing.visibility.title')}
-                        <span className="ml-2 text-xs font-normal text-gray-400">
-                          {t('topicResearch.visibilityDesc')}
-                        </span>
-                      </label>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {visibilityOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setVisibility(option.value)}
-                            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
-                              visibility === option.value
-                                ? option.value === 'PRIVATE'
-                                  ? 'border-gray-500 bg-gray-50 text-gray-700'
-                                  : option.value === 'SHARED'
-                                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                    : 'border-green-500 bg-green-50 text-green-700'
-                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                            }`}
-                            title={option.description}
-                          >
-                            {option.icon}
-                            <span className="text-xs font-medium">
-                              {option.label}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* ★ Language Selector */}
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                        {t('topicResearch.language')}
-                        <span className="ml-2 text-xs font-normal text-gray-400">
-                          {t('topicResearch.languageDesc')}
-                        </span>
-                      </label>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setLanguage('zh')}
-                          className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
-                            language === 'zh'
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                          }`}
-                        >
-                          <span className="text-xs font-medium">
-                            {t('topicResearch.languageOptions.zh')}
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setLanguage('en')}
-                          className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
-                            language === 'en'
-                              ? 'border-blue-500 bg-blue-50 text-blue-700'
-                              : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                          }`}
-                        >
-                          <span className="text-xs font-medium">
-                            {t('topicResearch.languageOptions.en')}
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* ★ Figure Display Toggle */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700">
-                          {t('topicResearch.createDialog.reportFigures')}
-                        </label>
-                        <p className="text-xs text-gray-400">
-                          {t('topicResearch.createDialog.reportFiguresDesc')}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setEnableFigures(!enableFigures)}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                          enableFigures ? 'bg-blue-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            enableFigures ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    {/* Knowledge Base Selector */}
-                    <div>
-                      <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                        {t('topicResearch.createDialog.knowledgeBase')}
-                        <span className="ml-2 text-xs font-normal text-gray-400">
-                          {t('topicResearch.createDialog.knowledgeBaseHint')}
-                        </span>
-                      </label>
-                      <KnowledgeBaseSelector
-                        selectedIds={selectedKnowledgeBases}
-                        onSelectionChange={setSelectedKnowledgeBases}
-                        multiple={true}
-                        maxSelections={5}
-                        placeholder={t(
-                          'topicResearch.createDialog.knowledgeBasePlaceholder'
-                        )}
-                        disabled={loading}
+                    )}
+                    <svg
+                      className={`mb-1.5 h-5 w-5 ${isSelected ? 'text-violet-500' : 'text-gray-400 group-hover:text-gray-500'}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={1.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d={icons[depth]}
                       />
+                    </svg>
+                    <div
+                      className={`text-sm font-semibold ${isSelected ? 'text-violet-700' : 'text-gray-700'}`}
+                    >
+                      {labels[depth]}
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {error && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                  {typeof error === 'string'
-                    ? error
-                    : t('topicResearch.createDialog.operationFailed')}
-                </div>
-              )}
-            </form>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-          <div>
-            {/* ★ 编辑模式不显示返回按钮 */}
-            {step === 'details' && !isEditMode && (
-              <button
-                type="button"
-                onClick={() => setStep('type')}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
-              >
-                {t('topicResearch.createDialog.backToType')}
-              </button>
-            )}
+                    <div
+                      className={`mt-0.5 text-[11px] ${isSelected ? 'text-violet-500' : 'text-gray-400'}`}
+                    >
+                      {descriptions[depth]}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex gap-3">
+
+          {/* Advanced Settings (collapsible) */}
+          <div className="border-t border-gray-100 pt-2">
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex w-full items-center justify-between py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
             >
-              {t('common.cancel')}
-            </button>
-            {step === 'details' && (
-              <button
-                onClick={handleSubmit}
-                disabled={
-                  !name.trim() ||
-                  loading ||
-                  (selectedType === ResearchTopicType.EVENT &&
-                    !isEditMode &&
-                    (eventInputMode === 'url'
-                      ? !sourceUrl.trim()
-                      : !sourceContent.trim()))
-                }
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              <span>
+                {t('topicResearch.createDialog.advancedSettings') ||
+                  'Advanced Settings'}
+              </span>
+              <svg
+                className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
               >
-                {loading && <LoaderIcon className="h-4 w-4 animate-spin" />}
-                {isEditMode
-                  ? t('topicResearch.createDialog.saveChanges')
-                  : t('topicResearch.createTopic')}
-              </button>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+
+            {showAdvanced && (
+              <div className="mt-2 space-y-3">
+                {/* Refresh Frequency */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    {t('topicResearch.createDialog.refreshFrequency')}
+                  </label>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {frequencyOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setRefreshFrequency(option.value)}
+                        className={`rounded-lg border px-2 py-1.5 text-center transition-all ${
+                          refreshFrequency === option.value
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <span className="block text-xs font-medium">
+                          {option.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time Range */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    {t('topicResearch.createDialog.searchTimeRange')}
+                    <span className="ml-2 text-xs font-normal text-gray-400">
+                      {t('topicResearch.createDialog.searchTimeRangeHint')}
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {timeRangeOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setSearchTimeRange(option.value)}
+                        className={`rounded-lg border px-2 py-1.5 text-center transition-all ${
+                          searchTimeRange === option.value
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                        title={option.description}
+                      >
+                        <span className="block text-xs font-medium">
+                          {option.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ★ Visibility Selector */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    {t('topicResearch.sharing.visibility.title')}
+                    <span className="ml-2 text-xs font-normal text-gray-400">
+                      {t('topicResearch.visibilityDesc')}
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {visibilityOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setVisibility(option.value)}
+                        className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
+                          visibility === option.value
+                            ? option.value === 'PRIVATE'
+                              ? 'border-gray-500 bg-gray-50 text-gray-700'
+                              : option.value === 'SHARED'
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-green-500 bg-green-50 text-green-700'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                        title={option.description}
+                      >
+                        {option.icon}
+                        <span className="text-xs font-medium">
+                          {option.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ★ Language Selector */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    {t('topicResearch.language')}
+                    <span className="ml-2 text-xs font-normal text-gray-400">
+                      {t('topicResearch.languageDesc')}
+                    </span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('zh')}
+                      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
+                        language === 'zh'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <span className="text-xs font-medium">
+                        {t('topicResearch.languageOptions.zh')}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('en')}
+                      className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-all ${
+                        language === 'en'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <span className="text-xs font-medium">
+                        {t('topicResearch.languageOptions.en')}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* ★ Figure Display Toggle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      {t('topicResearch.createDialog.reportFigures')}
+                    </label>
+                    <p className="text-xs text-gray-400">
+                      {t('topicResearch.createDialog.reportFiguresDesc')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEnableFigures(!enableFigures)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      enableFigures ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        enableFigures ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Knowledge Base Selector */}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                    {t('topicResearch.createDialog.knowledgeBase')}
+                    <span className="ml-2 text-xs font-normal text-gray-400">
+                      {t('topicResearch.createDialog.knowledgeBaseHint')}
+                    </span>
+                  </label>
+                  <KnowledgeBaseSelector
+                    selectedIds={selectedKnowledgeBases}
+                    onSelectionChange={setSelectedKnowledgeBases}
+                    multiple={true}
+                    maxSelections={5}
+                    placeholder={t(
+                      'topicResearch.createDialog.knowledgeBasePlaceholder'
+                    )}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
             )}
           </div>
-        </div>
-      </div>
-    </div>
+
+          {error && (
+            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+              {typeof error === 'string'
+                ? error
+                : t('topicResearch.createDialog.operationFailed')}
+            </div>
+          )}
+        </form>
+      )}
+    </Modal>
   );
 }

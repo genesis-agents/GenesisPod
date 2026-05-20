@@ -6,6 +6,7 @@ import type {
   PlanTemplate,
   CreatePlanPayload,
 } from '@/services/ai-planning/api';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 interface CreatePlanDialogProps {
   templates: PlanTemplate[];
@@ -77,152 +78,15 @@ export default function CreatePlanDialog({
   const isSubmitting = editMode ? isSaving : isCreating;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-        {/* Header */}
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {editMode
-              ? t('aiPlanning.edit.title')
-              : t('aiPlanning.create.title')}
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiPlanning.create.nameRequired')}
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('aiPlanning.create.namePlaceholder')}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            />
-          </div>
-
-          {/* Goal */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              {t('aiPlanning.create.goalRequired')}
-            </label>
-            <textarea
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              placeholder={t('aiPlanning.create.goalPlaceholder')}
-              rows={4}
-              className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            />
-          </div>
-
-          {/* Template Selection (create mode only) */}
-          {!editMode && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                {t('aiPlanning.create.template')}
-              </label>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {(templates.length > 0 ? templates : defaultTemplates()).map(
-                  (tmpl) => (
-                    <button
-                      key={tmpl.id}
-                      type="button"
-                      onClick={() => setSelectedTemplate(tmpl.id)}
-                      className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors ${
-                        selectedTemplate === tmpl.id
-                          ? 'border-amber-500 bg-amber-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div
-                        className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
-                          selectedTemplate === tmpl.id
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d={
-                              TEMPLATE_ICONS[tmpl.id] || TEMPLATE_ICONS.general
-                            }
-                          />
-                        </svg>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-gray-900">
-                          {tmpl.name}
-                        </div>
-                        <div className="truncate text-xs text-gray-500">
-                          {tmpl.description}
-                        </div>
-                      </div>
-                    </button>
-                  )
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Depth Selection (create mode only) */}
-          {!editMode && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                {t('aiPlanning.create.depth')}
-              </label>
-              <div className="mt-2 flex gap-2">
-                {(['quick', 'standard', 'comprehensive'] as const).map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDepth(d)}
-                    className={`flex-1 rounded-lg border-2 px-3 py-2 text-center text-sm font-medium transition-colors ${
-                      depth === d
-                        ? 'border-amber-500 bg-amber-50 text-amber-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
-                    {t(
-                      `aiPlanning.create.depth${d.charAt(0).toUpperCase() + d.slice(1)}`
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex flex-shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4">
+    <Modal
+      open={true}
+      onClose={onClose}
+      title={
+        editMode ? t('aiPlanning.edit.title') : t('aiPlanning.create.title')
+      }
+      size="md"
+      footer={
+        <>
           <button
             onClick={onClose}
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -242,9 +106,121 @@ export default function CreatePlanDialog({
                 ? t('aiPlanning.create.creating')
                 : t('aiPlanning.create.createButton')}
           </button>
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {/* Name */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiPlanning.create.nameRequired')}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('aiPlanning.create.namePlaceholder')}
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          />
         </div>
+
+        {/* Goal */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            {t('aiPlanning.create.goalRequired')}
+          </label>
+          <textarea
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            placeholder={t('aiPlanning.create.goalPlaceholder')}
+            rows={4}
+            className="mt-1 w-full resize-none rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          />
+        </div>
+
+        {/* Template Selection (create mode only) */}
+        {!editMode && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('aiPlanning.create.template')}
+            </label>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {(templates.length > 0 ? templates : defaultTemplates()).map(
+                (tmpl) => (
+                  <button
+                    key={tmpl.id}
+                    type="button"
+                    onClick={() => setSelectedTemplate(tmpl.id)}
+                    className={`flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-colors ${
+                      selectedTemplate === tmpl.id
+                        ? 'border-amber-500 bg-amber-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div
+                      className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
+                        selectedTemplate === tmpl.id
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d={TEMPLATE_ICONS[tmpl.id] || TEMPLATE_ICONS.general}
+                        />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-gray-900">
+                        {tmpl.name}
+                      </div>
+                      <div className="truncate text-xs text-gray-500">
+                        {tmpl.description}
+                      </div>
+                    </div>
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Depth Selection (create mode only) */}
+        {!editMode && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('aiPlanning.create.depth')}
+            </label>
+            <div className="mt-2 flex gap-2">
+              {(['quick', 'standard', 'comprehensive'] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDepth(d)}
+                  className={`flex-1 rounded-lg border-2 px-3 py-2 text-center text-sm font-medium transition-colors ${
+                    depth === d
+                      ? 'border-amber-500 bg-amber-50 text-amber-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}
+                >
+                  {t(
+                    `aiPlanning.create.depth${d.charAt(0).toUpperCase() + d.slice(1)}`
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 

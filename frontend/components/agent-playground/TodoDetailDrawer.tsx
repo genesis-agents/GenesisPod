@@ -21,7 +21,8 @@
  */
 
 import React, { useState } from 'react';
-import { X as XIcon, ChevronRight, Lightbulb, RefreshCw } from 'lucide-react';
+import { ChevronRight, Lightbulb, RefreshCw } from 'lucide-react';
+import { SideDrawer } from '@/components/common/drawers/SideDrawer';
 import { localRerunTodo } from '@/services/agent-playground/api';
 import { cn } from '@/lib/utils/common';
 import type {
@@ -860,589 +861,572 @@ export function TodoDetailDrawer({
   );
 
   return (
-    <div
-      className="fixed inset-0 z-40 flex justify-end bg-black/30 backdrop-blur-[2px]"
-      onClick={onClose}
-    >
-      <div
-        className="flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-gray-200 bg-gray-50 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* ─── Header ─── */}
-        <header className="flex items-start justify-between border-b border-gray-200 bg-white px-5 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1',
-                  origin.cls
-                )}
-              >
-                {origin.label}
-              </span>
-              <RoleChip
-                role={todo.assignee.role}
-                agentId={todo.assignee.agentId}
-                size="xs"
-              />
-            </div>
-            <h2 className="mt-1 truncate text-base font-semibold text-gray-900">
-              {todo.title}
-            </h2>
+    <SideDrawer open onClose={onClose} widthPx={672}>
+      {/* ─── Custom Header ─── */}
+      <div className="flex items-start justify-between border-b border-gray-200 bg-white px-5 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[10px] font-semibold ring-1',
+                origin.cls
+              )}
+            >
+              {origin.label}
+            </span>
+            <RoleChip
+              role={todo.assignee.role}
+              agentId={todo.assignee.agentId}
+              size="xs"
+            />
           </div>
-          <div className="ml-3 flex items-center gap-1.5">
-            {canRerun && (
-              <button
-                type="button"
-                onClick={() => void handleRerun()}
-                disabled={rerunning}
-                className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200 transition-colors hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-60"
-                title="局部重跑：在当前 mission 内重跑此任务，产物 patch 回原报告（不创建新 mission）"
-              >
-                <RefreshCw
-                  className={cn('h-3 w-3', rerunning && 'animate-spin')}
-                />
-                局部重跑
-              </button>
-            )}
+          <h2 className="mt-1 truncate text-base font-semibold text-gray-900">
+            {todo.title}
+          </h2>
+        </div>
+        {canRerun && (
+          <div className="ml-3 flex items-center">
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              onClick={() => void handleRerun()}
+              disabled={rerunning}
+              className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200 transition-colors hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-60"
+              title="局部重跑：在当前 mission 内重跑此任务，产物 patch 回原报告（不创建新 mission）"
             >
-              <XIcon className="h-4 w-4" />
+              <RefreshCw
+                className={cn('h-3 w-3', rerunning && 'animate-spin')}
+              />
+              局部重跑
             </button>
           </div>
-        </header>
+        )}
+      </div>
 
-        {/* ─── Body ─── */}
-        <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          {/* 4 层架构 strip — 2×2 grid，避免横向滚动 */}
-          <div className="grid grid-cols-2 gap-2 rounded-lg border border-violet-100 bg-violet-50/40 p-2">
-            {layers.map((l) => (
-              <div
-                key={l.id}
-                className="min-w-0 rounded-md bg-white/70 px-2 py-1.5 ring-1 ring-violet-100"
-              >
-                <p className="font-mono text-[10px] font-semibold leading-tight text-violet-700">
-                  {l.label}
-                </p>
-                <p className="mt-0.5 break-words text-[10.5px] leading-snug text-gray-600">
-                  {l.detail}
-                </p>
-              </div>
-            ))}
-          </div>
+      {/* ─── Body ─── */}
+      <div className="flex-1 space-y-4 overflow-y-auto p-5">
+        {/* 4 层架构 strip — 2×2 grid，避免横向滚动 */}
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-violet-100 bg-violet-50/40 p-2">
+          {layers.map((l) => (
+            <div
+              key={l.id}
+              className="min-w-0 rounded-md bg-white/70 px-2 py-1.5 ring-1 ring-violet-100"
+            >
+              <p className="font-mono text-[10px] font-semibold leading-tight text-violet-700">
+                {l.label}
+              </p>
+              <p className="mt-0.5 break-words text-[10.5px] leading-snug text-gray-600">
+                {l.detail}
+              </p>
+            </div>
+          ))}
+        </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-2">
-            <MetricStat
-              label="状态"
-              value={<StatusPill status={statusKey} size="sm" />}
-            />
-            <MetricStat
-              label="耗时"
-              value={fmtDuration(todo.startedAt, todo.endedAt)}
-            />
-            <MetricStat
-              label="Tokens"
-              value={
-                sections.totalTokens > 0
-                  ? sections.totalTokens >= 1000
-                    ? `${(sections.totalTokens / 1000).toFixed(1)}k`
-                    : sections.totalTokens
-                  : null
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-2">
+          <MetricStat
+            label="状态"
+            value={<StatusPill status={statusKey} size="sm" />}
+          />
+          <MetricStat
+            label="耗时"
+            value={fmtDuration(todo.startedAt, todo.endedAt)}
+          />
+          <MetricStat
+            label="Tokens"
+            value={
+              sections.totalTokens > 0
+                ? sections.totalTokens >= 1000
+                  ? `${(sections.totalTokens / 1000).toFixed(1)}k`
+                  : sections.totalTokens
+                : null
+            }
+          />
+          <MetricStat
+            label="工具调用"
+            value={totalToolCalls > 0 ? totalToolCalls : null}
+          />
+        </div>
+
+        {/* Reason — 重派/重写类任务用更醒目的 Tone callout 展示「具体要求修改什么」 */}
+        {todo.reasonText &&
+          (todo.origin === 'leader-assess-retry' ||
+          todo.origin === 'leader-assess-replace' ||
+          todo.origin === 'leader-assess-extend' ||
+          todo.origin === 'reviewer-revise' ||
+          todo.origin === 'critic-blindspot' ||
+          todo.origin === 'self-heal-retry' ? (
+            <ToneCard
+              tone={
+                todo.origin === 'critic-blindspot'
+                  ? 'error'
+                  : todo.origin === 'self-heal-retry'
+                    ? 'warn'
+                    : 'warn'
               }
-            />
-            <MetricStat
-              label="工具调用"
-              value={totalToolCalls > 0 ? totalToolCalls : null}
-            />
-          </div>
+              label={
+                todo.origin === 'leader-assess-retry'
+                  ? 'Leader 要求修改（patch 内容）'
+                  : todo.origin === 'leader-assess-replace'
+                    ? 'Leader 要求换签 spec'
+                    : todo.origin === 'leader-assess-extend'
+                      ? 'Leader 追加维度的理由'
+                      : todo.origin === 'reviewer-revise'
+                        ? 'Reviewer 要求重写的 critique'
+                        : todo.origin === 'critic-blindspot'
+                          ? 'L4 Critic 警示'
+                          : '自愈触发理由'
+              }
+            >
+              <ExpandableText
+                text={
+                  todo.origin === 'self-heal-retry'
+                    ? friendlyError(todo.reasonText)
+                    : todo.reasonText
+                }
+                maxChars={800}
+                className="text-[13px] leading-relaxed text-amber-900"
+              />
+            </ToneCard>
+          ) : (
+            <Card className="px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600">
+                任务起因
+              </p>
+              <ExpandableText
+                text={todo.reasonText}
+                maxChars={300}
+                className="mt-1 text-[13px] leading-relaxed text-gray-800"
+              />
+            </Card>
+          ))}
 
-          {/* Reason — 重派/重写类任务用更醒目的 Tone callout 展示「具体要求修改什么」 */}
-          {todo.reasonText &&
-            (todo.origin === 'leader-assess-retry' ||
-            todo.origin === 'leader-assess-replace' ||
-            todo.origin === 'leader-assess-extend' ||
-            todo.origin === 'reviewer-revise' ||
-            todo.origin === 'critic-blindspot' ||
-            todo.origin === 'self-heal-retry' ? (
-              <ToneCard
-                tone={
-                  todo.origin === 'critic-blindspot'
-                    ? 'error'
-                    : todo.origin === 'self-heal-retry'
-                      ? 'warn'
-                      : 'warn'
-                }
-                label={
-                  todo.origin === 'leader-assess-retry'
-                    ? 'Leader 要求修改（patch 内容）'
-                    : todo.origin === 'leader-assess-replace'
-                      ? 'Leader 要求换签 spec'
-                      : todo.origin === 'leader-assess-extend'
-                        ? 'Leader 追加维度的理由'
-                        : todo.origin === 'reviewer-revise'
-                          ? 'Reviewer 要求重写的 critique'
-                          : todo.origin === 'critic-blindspot'
-                            ? 'L4 Critic 警示'
-                            : '自愈触发理由'
-                }
+        {/* dim 父级 drawer：展示「本维度被 Leader / Reviewer 要求修改了什么」一览 */}
+        {todo.scope === 'dimension' &&
+          !todo.parentId &&
+          allTodos &&
+          (() => {
+            const childPatches = allTodos.filter(
+              (x) =>
+                x.parentId === todo.id &&
+                (x.origin === 'leader-assess-retry' ||
+                  x.origin === 'leader-assess-replace' ||
+                  x.origin === 'leader-assess-extend' ||
+                  x.origin === 'reviewer-revise' ||
+                  x.origin === 'critic-blindspot')
+            );
+            if (childPatches.length === 0) return null;
+            return (
+              <Section
+                title="Leader / Reviewer 要求的修改"
+                count={`${childPatches.length} 项`}
               >
-                <ExpandableText
-                  text={
-                    todo.origin === 'self-heal-retry'
-                      ? friendlyError(todo.reasonText)
-                      : todo.reasonText
-                  }
-                  maxChars={800}
-                  className="text-[13px] leading-relaxed text-amber-900"
-                />
-              </ToneCard>
-            ) : (
-              <Card className="px-4 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-600">
-                  任务起因
-                </p>
-                <ExpandableText
-                  text={todo.reasonText}
-                  maxChars={300}
-                  className="mt-1 text-[13px] leading-relaxed text-gray-800"
-                />
-              </Card>
-            ))}
+                <ul className="space-y-2 p-3">
+                  {childPatches.map((c) => {
+                    const ORIGIN_LABEL_MAP: Record<string, string> = {
+                      'leader-assess-retry': 'Leader 重派',
+                      'leader-assess-replace': 'Leader 换签',
+                      'leader-assess-extend': 'Leader 追加',
+                      'reviewer-revise': 'Reviewer 重写',
+                      'critic-blindspot': 'Critic 警示',
+                    };
+                    const live =
+                      c.status === 'in_progress' || c.status === 'pending';
+                    return (
+                      <li
+                        key={c.id}
+                        className={cn(
+                          'rounded-md border px-3 py-2',
+                          live
+                            ? 'border-orange-200 bg-orange-50/40'
+                            : c.status === 'done'
+                              ? 'border-emerald-200 bg-emerald-50/40'
+                              : 'border-gray-200 bg-gray-50/40'
+                        )}
+                      >
+                        <div className="mb-1 flex items-center gap-2">
+                          <span className="font-mono text-[10px] font-semibold text-orange-700">
+                            {ORIGIN_LABEL_MAP[c.origin] ?? c.origin}
+                          </span>
+                          <span
+                            className={cn(
+                              'rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1',
+                              live
+                                ? 'bg-orange-100 text-orange-700 ring-orange-200'
+                                : c.status === 'done'
+                                  ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
+                                  : 'bg-gray-100 text-gray-600 ring-gray-200'
+                            )}
+                          >
+                            {live
+                              ? '进行中'
+                              : c.status === 'done'
+                                ? '已完成'
+                                : c.status === 'failed'
+                                  ? '失败'
+                                  : c.status === 'cancelled'
+                                    ? '已放弃'
+                                    : '待启动'}
+                          </span>
+                        </div>
+                        <ExpandableText
+                          text={c.reasonText}
+                          maxChars={500}
+                          className="text-[12px] leading-relaxed text-gray-700"
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Section>
+            );
+          })()}
 
-          {/* dim 父级 drawer：展示「本维度被 Leader / Reviewer 要求修改了什么」一览 */}
-          {todo.scope === 'dimension' &&
-            !todo.parentId &&
-            allTodos &&
-            (() => {
-              const childPatches = allTodos.filter(
-                (x) =>
-                  x.parentId === todo.id &&
-                  (x.origin === 'leader-assess-retry' ||
-                    x.origin === 'leader-assess-replace' ||
-                    x.origin === 'leader-assess-extend' ||
-                    x.origin === 'reviewer-revise' ||
-                    x.origin === 'critic-blindspot')
-              );
-              if (childPatches.length === 0) return null;
-              return (
-                <Section
-                  title="Leader / Reviewer 要求的修改"
-                  count={`${childPatches.length} 项`}
+        {/* Failure callout */}
+        {todo.status === 'failed' && linkedAgent?.failureMessage && (
+          <ToneCard tone="error" label="失败原因">
+            <ExpandableText
+              text={friendlyError(linkedAgent.failureMessage)}
+              maxChars={400}
+              className="text-[13px] leading-relaxed text-red-800"
+            />
+          </ToneCard>
+        )}
+
+        {/* 关键发现 */}
+        {sections.findings.length > 0 && (
+          <Section title="关键发现" count={sections.findings.length}>
+            <ol className="space-y-2 p-3">
+              {sections.findings.map((f, i) => (
+                <li
+                  key={i}
+                  className="rounded-md border border-gray-200 bg-white px-3 py-2"
                 >
-                  <ul className="space-y-2 p-3">
-                    {childPatches.map((c) => {
-                      const ORIGIN_LABEL_MAP: Record<string, string> = {
-                        'leader-assess-retry': 'Leader 重派',
-                        'leader-assess-replace': 'Leader 换签',
-                        'leader-assess-extend': 'Leader 追加',
-                        'reviewer-revise': 'Reviewer 重写',
-                        'critic-blindspot': 'Critic 警示',
-                      };
-                      const live =
-                        c.status === 'in_progress' || c.status === 'pending';
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-700">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <ExpandableText
+                        text={f.claim}
+                        maxChars={200}
+                        className="text-[13px] font-medium leading-relaxed text-gray-900"
+                      />
+                      {f.evidence && (
+                        <div className="mt-1.5">
+                          <ExpandableText
+                            text={f.evidence}
+                            maxChars={260}
+                            className="text-[11.5px] leading-relaxed text-gray-600"
+                          />
+                        </div>
+                      )}
+                      {f.source && (
+                        <a
+                          href={/^https?:\/\//i.test(f.source) ? f.source : '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono mt-1.5 inline-block break-all text-[10px] text-violet-700 hover:underline"
+                        >
+                          {(() => {
+                            try {
+                              return new URL(f.source).hostname.replace(
+                                /^www\./,
+                                ''
+                              );
+                            } catch {
+                              return f.source;
+                            }
+                          })()}
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Section>
+        )}
+
+        {/* 使用工具 */}
+        {sections.toolUsage.filter((t) => t.toolId !== 'finalize').length >
+          0 && (
+          <Section
+            title="使用工具"
+            count={
+              sections.toolUsage.filter((t) => t.toolId !== 'finalize').length
+            }
+          >
+            <div className="flex flex-wrap gap-1.5 p-3">
+              {sections.toolUsage
+                .filter((t) => t.toolId !== 'finalize')
+                .map((tu) => (
+                  <ToolBadge
+                    key={tu.toolId}
+                    toolId={tu.toolId}
+                    count={tu.callCount}
+                  />
+                ))}
+            </div>
+          </Section>
+        )}
+
+        {/* 引用来源 */}
+        {sections.sources.length > 0 && (
+          <Section title="引用来源" count={`${sections.sources.length} 个`}>
+            <ul className="max-h-72 space-y-1.5 overflow-y-auto p-3">
+              {sections.sources.map((s, i) => (
+                <li key={`${s.url}-${i}`}>
+                  <SourceLink title={s.title} url={s.url} hits={s.hits} />
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {/* 完整时间线 */}
+        {timeline.length > 0 && (
+          <Section
+            title="完整时间线"
+            count={`${timeline.length} 个事件`}
+            collapsible
+            defaultOpen={showTimeline}
+          >
+            <ol className="relative space-y-0 p-3 pl-9">
+              <span
+                className="absolute bottom-3 left-[20px] top-3 w-0.5 bg-gradient-to-b from-violet-200 via-blue-200 to-emerald-100"
+                aria-hidden="true"
+              />
+              {timeline.map((c, i) => (
+                <TimelineEntryView
+                  key={`${c.ts}-${i}`}
+                  entry={c}
+                  anchor={anchor}
+                />
+              ))}
+            </ol>
+          </Section>
+        )}
+
+        {/* 章节进度 + 维度评分 (仅 dim todos with chapter pipeline)
+              ★ 2026-04-30 REDESIGN (task #61)：retry 双路径 — pipeline 按 todo.pipelineKey 取
+              - leader-plan / reuse-recompute: pipelineKey === dim name（grade 就地更新）
+              - leader-assess-retry (fresh-collect): pipelineKey === `${dim}:${retryLabel}` 独立索引 */}
+        {todo.scope === 'dimension' &&
+          todo.dimensionRef &&
+          (() => {
+            const pipelineKey = todo.pipelineKey ?? todo.dimensionRef;
+            // ★ 2026-05-02 修 Screenshot 53 章节进度 0/0 假统计：retry todo 用
+            //   独立 pipelineKey，但其 pipeline 可能为空（chapter pipeline 还没跑）
+            //   → fallback 到 dimensionRef 原 pipeline 拿章节数据，避免显示
+            //   误导的 "0/0 通过 4978 字"。
+            let pipeline = dimensionPipelines?.get(pipelineKey);
+            if (!pipeline || pipeline.chapters.length === 0) {
+              if (pipelineKey !== todo.dimensionRef) {
+                pipeline = dimensionPipelines?.get(todo.dimensionRef);
+              }
+            }
+            if (!pipeline || pipeline.chapters.length === 0) return null;
+            return (
+              <>
+                <Section
+                  title="章节进度"
+                  count={`${pipeline.chapters.filter((c) => c.status === 'passed' || c.status === 'done').length} / ${pipeline.chapters.length} 通过${pipeline.totalWordCount ? ' · ' + pipeline.totalWordCount + ' 字' : ''}`}
+                >
+                  <ul className="space-y-1.5 p-3">
+                    {pipeline.chapters.map((c) => {
+                      // ★ 2026-05-01 (Screenshot 45 + 用户实证：评审通过后跳到"待启动")：
+                      //   补齐 'done' / 'failed-finalized' 两种终态映射 —— 之前 fallthrough
+                      //   到 '待启动'，章节实际已落地却显示等待状态。
+                      const cls =
+                        c.status === 'passed' || c.status === 'done'
+                          ? 'bg-emerald-50 ring-emerald-200 text-emerald-700'
+                          : c.status === 'writing'
+                            ? 'bg-blue-50 ring-blue-200 text-blue-700'
+                            : c.status === 'reviewing'
+                              ? 'bg-amber-50 ring-amber-200 text-amber-700'
+                              : c.status === 'revising'
+                                ? 'bg-orange-50 ring-orange-200 text-orange-700'
+                                : c.status === 'failed'
+                                  ? 'bg-red-50 ring-red-200 text-red-700'
+                                  : c.status === 'failed-finalized'
+                                    ? 'bg-orange-50 ring-orange-200 text-orange-700'
+                                    : 'bg-gray-50 ring-gray-200 text-gray-600';
+                      const statusLabel =
+                        c.status === 'passed' || c.status === 'done'
+                          ? '已完成'
+                          : c.status === 'writing'
+                            ? '撰写中'
+                            : c.status === 'reviewing'
+                              ? '评审中'
+                              : c.status === 'revising'
+                                ? `重写第 ${c.attempts} 轮`
+                                : c.status === 'failed'
+                                  ? '失败'
+                                  : c.status === 'failed-finalized'
+                                    ? '兜底落地'
+                                    : '待启动';
                       return (
                         <li
-                          key={c.id}
-                          className={cn(
-                            'rounded-md border px-3 py-2',
-                            live
-                              ? 'border-orange-200 bg-orange-50/40'
-                              : c.status === 'done'
-                                ? 'border-emerald-200 bg-emerald-50/40'
-                                : 'border-gray-200 bg-gray-50/40'
-                          )}
+                          key={c.index}
+                          className="rounded-md border border-gray-200 bg-white px-3 py-2"
                         >
-                          <div className="mb-1 flex items-center gap-2">
-                            <span className="font-mono text-[10px] font-semibold text-orange-700">
-                              {ORIGIN_LABEL_MAP[c.origin] ?? c.origin}
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-mono text-[10px] font-bold text-gray-500">
+                              #{c.index}
+                            </span>
+                            <span className="flex-1 text-[12.5px] font-medium text-gray-900">
+                              {c.heading}
                             </span>
                             <span
                               className={cn(
-                                'rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1',
-                                live
-                                  ? 'bg-orange-100 text-orange-700 ring-orange-200'
-                                  : c.status === 'done'
-                                    ? 'bg-emerald-100 text-emerald-700 ring-emerald-200'
-                                    : 'bg-gray-100 text-gray-600 ring-gray-200'
+                                'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
+                                cls
                               )}
                             >
-                              {live
-                                ? '进行中'
-                                : c.status === 'done'
-                                  ? '已完成'
-                                  : c.status === 'failed'
-                                    ? '失败'
-                                    : c.status === 'cancelled'
-                                      ? '已放弃'
-                                      : '待启动'}
+                              {statusLabel}
                             </span>
                           </div>
-                          <ExpandableText
-                            text={c.reasonText}
-                            maxChars={500}
-                            className="text-[12px] leading-relaxed text-gray-700"
-                          />
+                          {c.thesis && (
+                            <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+                              {c.thesis}
+                            </p>
+                          )}
+                          <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-gray-500">
+                            {c.wordCount != null && c.wordCount > 0 && (
+                              <span>{c.wordCount} 字</span>
+                            )}
+                            {c.score != null && (
+                              <span
+                                className={cn(
+                                  'font-mono font-semibold',
+                                  c.score >= 80
+                                    ? 'text-emerald-600'
+                                    : c.score >= 60
+                                      ? 'text-amber-600'
+                                      : 'text-red-600'
+                                )}
+                              >
+                                {c.score}/100
+                              </span>
+                            )}
+                            {c.attempts > 1 && (
+                              <span className="text-orange-600">
+                                已重写 {c.attempts - 1} 次
+                              </span>
+                            )}
+                          </div>
+                          {c.critique && (
+                            <div className="mt-1.5 rounded-md bg-amber-50/50 px-2 py-1.5 ring-1 ring-amber-100">
+                              <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
+                                Reviewer 反馈
+                              </p>
+                              <ExpandableText
+                                text={c.critique}
+                                maxChars={180}
+                                className="text-[11px] leading-relaxed text-gray-700"
+                              />
+                            </div>
+                          )}
                         </li>
                       );
                     })}
                   </ul>
                 </Section>
-              );
-            })()}
 
-          {/* Failure callout */}
-          {todo.status === 'failed' && linkedAgent?.failureMessage && (
-            <ToneCard tone="error" label="失败原因">
-              <ExpandableText
-                text={friendlyError(linkedAgent.failureMessage)}
-                maxChars={400}
-                className="text-[13px] leading-relaxed text-red-800"
-              />
-            </ToneCard>
-          )}
-
-          {/* 关键发现 */}
-          {sections.findings.length > 0 && (
-            <Section title="关键发现" count={sections.findings.length}>
-              <ol className="space-y-2 p-3">
-                {sections.findings.map((f, i) => (
-                  <li
-                    key={i}
-                    className="rounded-md border border-gray-200 bg-white px-3 py-2"
-                  >
-                    <div className="flex items-start gap-2">
-                      <span className="font-mono mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-700">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <ExpandableText
-                          text={f.claim}
-                          maxChars={200}
-                          className="text-[13px] font-medium leading-relaxed text-gray-900"
-                        />
-                        {f.evidence && (
-                          <div className="mt-1.5">
-                            <ExpandableText
-                              text={f.evidence}
-                              maxChars={260}
-                              className="text-[11.5px] leading-relaxed text-gray-600"
-                            />
-                          </div>
-                        )}
-                        {f.source && (
-                          <a
-                            href={
-                              /^https?:\/\//i.test(f.source) ? f.source : '#'
-                            }
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-mono mt-1.5 inline-block break-all text-[10px] text-violet-700 hover:underline"
-                          >
-                            {(() => {
-                              try {
-                                return new URL(f.source).hostname.replace(
-                                  /^www\./,
-                                  ''
-                                );
-                              } catch {
-                                return f.source;
-                              }
-                            })()}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </Section>
-          )}
-
-          {/* 使用工具 */}
-          {sections.toolUsage.filter((t) => t.toolId !== 'finalize').length >
-            0 && (
-            <Section
-              title="使用工具"
-              count={
-                sections.toolUsage.filter((t) => t.toolId !== 'finalize').length
-              }
-            >
-              <div className="flex flex-wrap gap-1.5 p-3">
-                {sections.toolUsage
-                  .filter((t) => t.toolId !== 'finalize')
-                  .map((tu) => (
-                    <ToolBadge
-                      key={tu.toolId}
-                      toolId={tu.toolId}
-                      count={tu.callCount}
-                    />
-                  ))}
-              </div>
-            </Section>
-          )}
-
-          {/* 引用来源 */}
-          {sections.sources.length > 0 && (
-            <Section title="引用来源" count={`${sections.sources.length} 个`}>
-              <ul className="max-h-72 space-y-1.5 overflow-y-auto p-3">
-                {sections.sources.map((s, i) => (
-                  <li key={`${s.url}-${i}`}>
-                    <SourceLink title={s.title} url={s.url} hits={s.hits} />
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {/* 完整时间线 */}
-          {timeline.length > 0 && (
-            <Section
-              title="完整时间线"
-              count={`${timeline.length} 个事件`}
-              collapsible
-              defaultOpen={showTimeline}
-            >
-              <ol className="relative space-y-0 p-3 pl-9">
-                <span
-                  className="absolute bottom-3 left-[20px] top-3 w-0.5 bg-gradient-to-b from-violet-200 via-blue-200 to-emerald-100"
-                  aria-hidden="true"
-                />
-                {timeline.map((c, i) => (
-                  <TimelineEntryView
-                    key={`${c.ts}-${i}`}
-                    entry={c}
-                    anchor={anchor}
-                  />
-                ))}
-              </ol>
-            </Section>
-          )}
-
-          {/* 章节进度 + 维度评分 (仅 dim todos with chapter pipeline)
-              ★ 2026-04-30 REDESIGN (task #61)：retry 双路径 — pipeline 按 todo.pipelineKey 取
-              - leader-plan / reuse-recompute: pipelineKey === dim name（grade 就地更新）
-              - leader-assess-retry (fresh-collect): pipelineKey === `${dim}:${retryLabel}` 独立索引 */}
-          {todo.scope === 'dimension' &&
-            todo.dimensionRef &&
-            (() => {
-              const pipelineKey = todo.pipelineKey ?? todo.dimensionRef;
-              // ★ 2026-05-02 修 Screenshot 53 章节进度 0/0 假统计：retry todo 用
-              //   独立 pipelineKey，但其 pipeline 可能为空（chapter pipeline 还没跑）
-              //   → fallback 到 dimensionRef 原 pipeline 拿章节数据，避免显示
-              //   误导的 "0/0 通过 4978 字"。
-              let pipeline = dimensionPipelines?.get(pipelineKey);
-              if (!pipeline || pipeline.chapters.length === 0) {
-                if (pipelineKey !== todo.dimensionRef) {
-                  pipeline = dimensionPipelines?.get(todo.dimensionRef);
-                }
-              }
-              if (!pipeline || pipeline.chapters.length === 0) return null;
-              return (
-                <>
+                {pipeline.grade && (
                   <Section
-                    title="章节进度"
-                    count={`${pipeline.chapters.filter((c) => c.status === 'passed' || c.status === 'done').length} / ${pipeline.chapters.length} 通过${pipeline.totalWordCount ? ' · ' + pipeline.totalWordCount + ' 字' : ''}`}
+                    title="维度评分"
+                    count={`${pipeline.grade.overall}/100 · ${
+                      pipeline.grade.grade === 'excellent'
+                        ? '优秀'
+                        : pipeline.grade.grade === 'good'
+                          ? '良好'
+                          : pipeline.grade.grade === 'fair'
+                            ? '一般'
+                            : '不及格'
+                    }`}
                   >
-                    <ul className="space-y-1.5 p-3">
-                      {pipeline.chapters.map((c) => {
-                        // ★ 2026-05-01 (Screenshot 45 + 用户实证：评审通过后跳到"待启动")：
-                        //   补齐 'done' / 'failed-finalized' 两种终态映射 —— 之前 fallthrough
-                        //   到 '待启动'，章节实际已落地却显示等待状态。
-                        const cls =
-                          c.status === 'passed' || c.status === 'done'
-                            ? 'bg-emerald-50 ring-emerald-200 text-emerald-700'
-                            : c.status === 'writing'
-                              ? 'bg-blue-50 ring-blue-200 text-blue-700'
-                              : c.status === 'reviewing'
-                                ? 'bg-amber-50 ring-amber-200 text-amber-700'
-                                : c.status === 'revising'
-                                  ? 'bg-orange-50 ring-orange-200 text-orange-700'
-                                  : c.status === 'failed'
-                                    ? 'bg-red-50 ring-red-200 text-red-700'
-                                    : c.status === 'failed-finalized'
-                                      ? 'bg-orange-50 ring-orange-200 text-orange-700'
-                                      : 'bg-gray-50 ring-gray-200 text-gray-600';
-                        const statusLabel =
-                          c.status === 'passed' || c.status === 'done'
-                            ? '已完成'
-                            : c.status === 'writing'
-                              ? '撰写中'
-                              : c.status === 'reviewing'
-                                ? '评审中'
-                                : c.status === 'revising'
-                                  ? `重写第 ${c.attempts} 轮`
-                                  : c.status === 'failed'
-                                    ? '失败'
-                                    : c.status === 'failed-finalized'
-                                      ? '兜底落地'
-                                      : '待启动';
-                        return (
-                          <li
-                            key={c.index}
-                            className="rounded-md border border-gray-200 bg-white px-3 py-2"
-                          >
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-mono text-[10px] font-bold text-gray-500">
-                                #{c.index}
-                              </span>
-                              <span className="flex-1 text-[12.5px] font-medium text-gray-900">
-                                {c.heading}
-                              </span>
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium ring-1',
-                                  cls
-                                )}
-                              >
-                                {statusLabel}
-                              </span>
-                            </div>
-                            {c.thesis && (
-                              <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
-                                {c.thesis}
-                              </p>
-                            )}
-                            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-gray-500">
-                              {c.wordCount != null && c.wordCount > 0 && (
-                                <span>{c.wordCount} 字</span>
-                              )}
-                              {c.score != null && (
+                    <div className="p-3">
+                      <ul className="space-y-1.5">
+                        {(
+                          [
+                            ['breadth', '广度'],
+                            ['depth', '深度'],
+                            ['evidence', '证据'],
+                            ['coherence', '连贯性'],
+                            ['freshness', '时效性'],
+                          ] as const
+                        ).map(([k, label]) => {
+                          const a = pipeline.grade!.axes[k];
+                          if (!a) return null;
+                          return (
+                            <li key={k}>
+                              <div className="flex items-baseline justify-between text-[11px]">
+                                <span className="text-gray-700">{label}</span>
                                 <span
                                   className={cn(
                                     'font-mono font-semibold',
-                                    c.score >= 80
+                                    a.score >= 80
                                       ? 'text-emerald-600'
-                                      : c.score >= 60
+                                      : a.score >= 60
                                         ? 'text-amber-600'
                                         : 'text-red-600'
                                   )}
                                 >
-                                  {c.score}/100
+                                  {a.score}
                                 </span>
-                              )}
-                              {c.attempts > 1 && (
-                                <span className="text-orange-600">
-                                  已重写 {c.attempts - 1} 次
-                                </span>
-                              )}
-                            </div>
-                            {c.critique && (
-                              <div className="mt-1.5 rounded-md bg-amber-50/50 px-2 py-1.5 ring-1 ring-amber-100">
-                                <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700">
-                                  Reviewer 反馈
-                                </p>
-                                <ExpandableText
-                                  text={c.critique}
-                                  maxChars={180}
-                                  className="text-[11px] leading-relaxed text-gray-700"
+                              </div>
+                              <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-gray-100">
+                                <div
+                                  className={cn(
+                                    'h-full rounded-full',
+                                    a.score >= 80
+                                      ? 'bg-emerald-400'
+                                      : a.score >= 60
+                                        ? 'bg-amber-400'
+                                        : 'bg-red-400'
+                                  )}
+                                  style={{ width: `${a.score}%` }}
                                 />
                               </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
+                              {a.comment && (
+                                <p className="mt-0.5 text-[10px] text-gray-500">
+                                  {a.comment}
+                                </p>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {pipeline.grade.summary && (
+                        <p className="mt-3 rounded bg-gray-50 px-2 py-1.5 text-[11px] leading-relaxed text-gray-700 ring-1 ring-gray-200">
+                          {pipeline.grade.summary}
+                        </p>
+                      )}
+                    </div>
                   </Section>
+                )}
+              </>
+            );
+          })()}
 
-                  {pipeline.grade && (
-                    <Section
-                      title="维度评分"
-                      count={`${pipeline.grade.overall}/100 · ${
-                        pipeline.grade.grade === 'excellent'
-                          ? '优秀'
-                          : pipeline.grade.grade === 'good'
-                            ? '良好'
-                            : pipeline.grade.grade === 'fair'
-                              ? '一般'
-                              : '不及格'
-                      }`}
-                    >
-                      <div className="p-3">
-                        <ul className="space-y-1.5">
-                          {(
-                            [
-                              ['breadth', '广度'],
-                              ['depth', '深度'],
-                              ['evidence', '证据'],
-                              ['coherence', '连贯性'],
-                              ['freshness', '时效性'],
-                            ] as const
-                          ).map(([k, label]) => {
-                            const a = pipeline.grade!.axes[k];
-                            if (!a) return null;
-                            return (
-                              <li key={k}>
-                                <div className="flex items-baseline justify-between text-[11px]">
-                                  <span className="text-gray-700">{label}</span>
-                                  <span
-                                    className={cn(
-                                      'font-mono font-semibold',
-                                      a.score >= 80
-                                        ? 'text-emerald-600'
-                                        : a.score >= 60
-                                          ? 'text-amber-600'
-                                          : 'text-red-600'
-                                    )}
-                                  >
-                                    {a.score}
-                                  </span>
-                                </div>
-                                <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-gray-100">
-                                  <div
-                                    className={cn(
-                                      'h-full rounded-full',
-                                      a.score >= 80
-                                        ? 'bg-emerald-400'
-                                        : a.score >= 60
-                                          ? 'bg-amber-400'
-                                          : 'bg-red-400'
-                                    )}
-                                    style={{ width: `${a.score}%` }}
-                                  />
-                                </div>
-                                {a.comment && (
-                                  <p className="mt-0.5 text-[10px] text-gray-500">
-                                    {a.comment}
-                                  </p>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                        {pipeline.grade.summary && (
-                          <p className="mt-3 rounded bg-gray-50 px-2 py-1.5 text-[11px] leading-relaxed text-gray-700 ring-1 ring-gray-200">
-                            {pipeline.grade.summary}
-                          </p>
-                        )}
-                      </div>
-                    </Section>
-                  )}
-                </>
-              );
-            })()}
-
-          {/* 开发者诊断 */}
-          {linkedAgent && linkedAgent.trace.length > 0 && (
-            <Section
-              title="开发者诊断视图"
-              count={`${linkedAgent.trace.length} 条原始 trace`}
-              collapsible
-              defaultOpen={false}
-            >
-              <ul className="space-y-1.5 p-3">
-                {linkedAgent.trace.map((t, i) => (
-                  <RawTraceRow key={`${t.ts}-${i}`} trace={t} />
-                ))}
-              </ul>
-            </Section>
-          )}
-        </div>
+        {/* 开发者诊断 */}
+        {linkedAgent && linkedAgent.trace.length > 0 && (
+          <Section
+            title="开发者诊断视图"
+            count={`${linkedAgent.trace.length} 条原始 trace`}
+            collapsible
+            defaultOpen={false}
+          >
+            <ul className="space-y-1.5 p-3">
+              {linkedAgent.trace.map((t, i) => (
+                <RawTraceRow key={`${t.ts}-${i}`} trace={t} />
+              ))}
+            </ul>
+          </Section>
+        )}
       </div>
-    </div>
+    </SideDrawer>
   );
 }
 

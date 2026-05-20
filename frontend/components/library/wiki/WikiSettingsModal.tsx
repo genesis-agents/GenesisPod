@@ -7,10 +7,11 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Loader2, X, Languages } from 'lucide-react';
+import { Loader2, Languages } from 'lucide-react';
 import { wikiApi, type WikiKbConfig, type WikiLocale } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 type LocaleMode = 'zh' | 'en' | 'both';
 
@@ -94,231 +95,28 @@ export default function WikiSettingsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="flex max-h-[90vh] w-[680px] flex-col overflow-hidden rounded-[28px] bg-[linear-gradient(180deg,#ffffff,#f8fafc)] shadow-2xl">
-        <header className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <div>
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-500">
-              KB Configuration
-            </div>
-            <h3 className="text-base font-semibold text-slate-900">
-              {t('library.wiki.settings.title')}
-            </h3>
-            <p className="text-xs text-slate-500">
-              {t('library.wiki.settings.subtitle')}
-            </p>
+    <Modal
+      open={true}
+      onClose={onClose}
+      title={
+        <div>
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-500">
+            KB Configuration
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            aria-label={t('library.wiki.query.close')}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
-        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-          {loading && (
-            <div className="flex h-32 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
-            </div>
-          )}
-          {!loading && config && (
-            <>
-              <div className="grid gap-4 md:grid-cols-2">
-                <ConfigCard
-                  eyebrow="Query Path A"
-                  title={t('library.wiki.settings.inlinePageCountLabel')}
-                  description="How many wiki pages can stay inline before query fallback becomes necessary."
-                >
-                  <input
-                    type="number"
-                    min={1}
-                    max={5000}
-                    value={config.inlinePageCount}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        inlinePageCount: Number(e.target.value),
-                      })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
-                  />
-                </ConfigCard>
-                <ConfigCard
-                  eyebrow="Query Budget"
-                  title={t('library.wiki.settings.inlineTokenBudgetLabel')}
-                  description="Controls how much inline wiki context can be packed into a single grounded answer."
-                >
-                  <input
-                    type="number"
-                    min={10000}
-                    max={5000000}
-                    step={1000}
-                    value={config.inlineTokenBudget}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        inlineTokenBudget: Number(e.target.value),
-                      })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
-                  />
-                </ConfigCard>
-                <ConfigCard
-                  eyebrow="Ingest Budget"
-                  title={t('library.wiki.settings.ingestMaxTokensLabel')}
-                  description="Sets the document budget the LLM can use while compiling wiki proposals."
-                >
-                  <input
-                    type="number"
-                    min={1000}
-                    max={500000}
-                    step={1000}
-                    value={config.ingestMaxTokens}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        ingestMaxTokens: Number(e.target.value),
-                      })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
-                  />
-                </ConfigCard>
-                <ConfigCard
-                  eyebrow="Automation"
-                  title={t('library.wiki.settings.cronLintDailyBudgetLabel')}
-                  description="Daily budget for automatic lint passes that keep the wiki coherent at scale."
-                >
-                  <input
-                    type="number"
-                    min={0}
-                    max={5000}
-                    value={config.cronLintDailyBudgetCalls}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        cronLintDailyBudgetCalls: Number(e.target.value),
-                      })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
-                  />
-                </ConfigCard>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <label className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-medium text-slate-900">
-                      {t('library.wiki.settings.cronLintEnabled')}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      Run scheduled lint checks so contradictions, stale pages,
-                      and missing links are surfaced without manual audits.
-                    </div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={config.cronLintEnabled}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        cronLintEnabled: e.target.checked,
-                      })
-                    }
-                    className="h-4 w-4"
-                  />
-                </label>
-              </div>
-              <LocalePickerCard
-                mode={localesToMode(config.enabledLocales)}
-                onChange={(m) =>
-                  setConfig({ ...config, enabledLocales: modeToLocales(m) })
-                }
-              />
-              <TranslateKbCard
-                kbId={kbId}
-                currentLocales={config.enabledLocales}
-                onTranslated={(updatedLocales) =>
-                  setConfig({ ...config, enabledLocales: updatedLocales })
-                }
-              />
-              {/* W7 v2.0 — wiki ingest pass mode + MULTI throttle */}
-              <PassModeCard
-                mode={config.ingestPassMode}
-                onChange={(m) => setConfig({ ...config, ingestPassMode: m })}
-              />
-              {config.ingestPassMode === 'MULTI' && (
-                <div className="grid gap-4 md:grid-cols-3">
-                  <ConfigCard
-                    eyebrow="MULTI · K-way"
-                    title="Section concurrency"
-                    description="Parallel section-fill workers. Higher = faster wiki build, more API burst pressure. Default 3."
-                  >
-                    <input
-                      type="number"
-                      min={1}
-                      max={10}
-                      value={config.ingestSectionConcurrency}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          ingestSectionConcurrency: Number(e.target.value),
-                        })
-                      }
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
-                    />
-                  </ConfigCard>
-                  <ConfigCard
-                    eyebrow="MULTI · failure tolerance"
-                    title="Failure tolerance ratio"
-                    description="Fraction of pages allowed to fail before the whole pass aborts (e.g. 0.2 = up to 20% can fail). Default 0.2."
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={config.ingestSectionFailureToleranceRatio}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          ingestSectionFailureToleranceRatio: Number(
-                            e.target.value
-                          ),
-                        })
-                      }
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
-                    />
-                  </ConfigCard>
-                  <ConfigCard
-                    eyebrow="MULTI · outline cap"
-                    title="Max pages per outline"
-                    description="Hard cap on how many pages the outline phase may declare. Default 30."
-                  >
-                    <input
-                      type="number"
-                      min={1}
-                      max={200}
-                      value={config.ingestOutlineMaxPages}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          ingestOutlineMaxPages: Number(e.target.value),
-                        })
-                      }
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
-                    />
-                  </ConfigCard>
-                </div>
-              )}
-            </>
-          )}
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
+          <div className="text-base font-semibold text-slate-900">
+            {t('library.wiki.settings.title')}
+          </div>
+          <p className="text-xs text-slate-500">
+            {t('library.wiki.settings.subtitle')}
+          </p>
         </div>
-        <footer className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
+      }
+      size="lg"
+      className="rounded-[28px] bg-[linear-gradient(180deg,#ffffff,#f8fafc)]"
+      headerClassName="border-b border-slate-100 px-6 py-5"
+      contentClassName="space-y-5 px-6 py-5"
+      footer={
+        <>
           <button
             onClick={onClose}
             disabled={saving}
@@ -334,9 +132,211 @@ export default function WikiSettingsModal({
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {t('library.wiki.settings.save')}
           </button>
-        </footer>
-      </div>
-    </div>
+        </>
+      }
+      footerClassName="border-t border-slate-100 px-6 py-4"
+    >
+      {loading && (
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-violet-500" />
+        </div>
+      )}
+      {!loading && config && (
+        <>
+          <div className="grid gap-4 md:grid-cols-2">
+            <ConfigCard
+              eyebrow="Query Path A"
+              title={t('library.wiki.settings.inlinePageCountLabel')}
+              description="How many wiki pages can stay inline before query fallback becomes necessary."
+            >
+              <input
+                type="number"
+                min={1}
+                max={5000}
+                value={config.inlinePageCount}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    inlinePageCount: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+              />
+            </ConfigCard>
+            <ConfigCard
+              eyebrow="Query Budget"
+              title={t('library.wiki.settings.inlineTokenBudgetLabel')}
+              description="Controls how much inline wiki context can be packed into a single grounded answer."
+            >
+              <input
+                type="number"
+                min={10000}
+                max={5000000}
+                step={1000}
+                value={config.inlineTokenBudget}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    inlineTokenBudget: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+              />
+            </ConfigCard>
+            <ConfigCard
+              eyebrow="Ingest Budget"
+              title={t('library.wiki.settings.ingestMaxTokensLabel')}
+              description="Sets the document budget the LLM can use while compiling wiki proposals."
+            >
+              <input
+                type="number"
+                min={1000}
+                max={500000}
+                step={1000}
+                value={config.ingestMaxTokens}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    ingestMaxTokens: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+              />
+            </ConfigCard>
+            <ConfigCard
+              eyebrow="Automation"
+              title={t('library.wiki.settings.cronLintDailyBudgetLabel')}
+              description="Daily budget for automatic lint passes that keep the wiki coherent at scale."
+            >
+              <input
+                type="number"
+                min={0}
+                max={5000}
+                value={config.cronLintDailyBudgetCalls}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    cronLintDailyBudgetCalls: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+              />
+            </ConfigCard>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <label className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-sm font-medium text-slate-900">
+                  {t('library.wiki.settings.cronLintEnabled')}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  Run scheduled lint checks so contradictions, stale pages, and
+                  missing links are surfaced without manual audits.
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={config.cronLintEnabled}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    cronLintEnabled: e.target.checked,
+                  })
+                }
+                className="h-4 w-4"
+              />
+            </label>
+          </div>
+          <LocalePickerCard
+            mode={localesToMode(config.enabledLocales)}
+            onChange={(m) =>
+              setConfig({ ...config, enabledLocales: modeToLocales(m) })
+            }
+          />
+          <TranslateKbCard
+            kbId={kbId}
+            currentLocales={config.enabledLocales}
+            onTranslated={(updatedLocales) =>
+              setConfig({ ...config, enabledLocales: updatedLocales })
+            }
+          />
+          {/* W7 v2.0 — wiki ingest pass mode + MULTI throttle */}
+          <PassModeCard
+            mode={config.ingestPassMode}
+            onChange={(m) => setConfig({ ...config, ingestPassMode: m })}
+          />
+          {config.ingestPassMode === 'MULTI' && (
+            <div className="grid gap-4 md:grid-cols-3">
+              <ConfigCard
+                eyebrow="MULTI · K-way"
+                title="Section concurrency"
+                description="Parallel section-fill workers. Higher = faster wiki build, more API burst pressure. Default 3."
+              >
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={config.ingestSectionConcurrency}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      ingestSectionConcurrency: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+                />
+              </ConfigCard>
+              <ConfigCard
+                eyebrow="MULTI · failure tolerance"
+                title="Failure tolerance ratio"
+                description="Fraction of pages allowed to fail before the whole pass aborts (e.g. 0.2 = up to 20% can fail). Default 0.2."
+              >
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={config.ingestSectionFailureToleranceRatio}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      ingestSectionFailureToleranceRatio: Number(
+                        e.target.value
+                      ),
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+                />
+              </ConfigCard>
+              <ConfigCard
+                eyebrow="MULTI · outline cap"
+                title="Max pages per outline"
+                description="Hard cap on how many pages the outline phase may declare. Default 30."
+              >
+                <input
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={config.ingestOutlineMaxPages}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      ingestOutlineMaxPages: Number(e.target.value),
+                    })
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-violet-500"
+                />
+              </ConfigCard>
+            </div>
+          )}
+        </>
+      )}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+    </Modal>
   );
 }
 

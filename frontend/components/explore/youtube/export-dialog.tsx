@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { SubtitleExportOptions } from '@/hooks';
+import { Modal } from '@/components/ui/dialogs/Modal';
 
 interface ExportDialogProps {
   isOpen: boolean;
@@ -23,211 +24,19 @@ export function ExportDialog({
     includeMetadata: true,
   });
 
-  if (!isOpen) return null;
-
   const handleExport = () => {
     onExport(options);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="mx-4 w-full max-w-md overflow-hidden rounded-xl bg-white shadow-2xl">
-        {/* Header */}
-        <div className="border-b border-gray-100 bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-5">
-          <h2 className="text-xl font-semibold text-white">导出字幕为 PDF</h2>
-          <p className="mt-1 text-sm text-violet-100">选择导出格式和选项</p>
-        </div>
-
-        {/* Content */}
-        <div className="space-y-6 px-6 py-5">
-          {/* Format Selection */}
-          <div className="space-y-3">
-            <label className="block text-sm font-semibold text-gray-800">
-              导出格式
-            </label>
-            <div className="space-y-2">
-              <label
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'bilingual-side' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
-              >
-                <input
-                  type="radio"
-                  name="format"
-                  value="bilingual-side"
-                  checked={options.format === 'bilingual-side'}
-                  onChange={(e) =>
-                    setOptions({
-                      ...options,
-                      format: e.target.value as SubtitleExportOptions['format'],
-                    })
-                  }
-                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    双语并排
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    英文和中文左右两列对照显示
-                  </div>
-                </div>
-              </label>
-
-              <label
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'bilingual-stack' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
-              >
-                <input
-                  type="radio"
-                  name="format"
-                  value="bilingual-stack"
-                  checked={options.format === 'bilingual-stack'}
-                  onChange={(e) =>
-                    setOptions({
-                      ...options,
-                      format: e.target.value as SubtitleExportOptions['format'],
-                    })
-                  }
-                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    双语上下
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    英文在上，中文在下依次排列
-                  </div>
-                </div>
-              </label>
-
-              <label
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'english-only' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
-              >
-                <input
-                  type="radio"
-                  name="format"
-                  value="english-only"
-                  checked={options.format === 'english-only'}
-                  onChange={(e) =>
-                    setOptions({
-                      ...options,
-                      format: e.target.value as SubtitleExportOptions['format'],
-                    })
-                  }
-                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    仅英文
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    只导出英文原文字幕
-                  </div>
-                </div>
-              </label>
-
-              <label
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'chinese-only' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
-              >
-                <input
-                  type="radio"
-                  name="format"
-                  value="chinese-only"
-                  checked={options.format === 'chinese-only'}
-                  onChange={(e) =>
-                    setOptions({
-                      ...options,
-                      format: e.target.value as SubtitleExportOptions['format'],
-                    })
-                  }
-                  className="h-4 w-4 text-violet-600 focus:ring-violet-500"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    仅中文
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    只导出中文翻译字幕
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Options */}
-          <div className="space-y-3">
-            <label className="block text-sm font-semibold text-gray-800">
-              附加选项
-            </label>
-
-            <label
-              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeTimestamps ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
-            >
-              <input
-                type="checkbox"
-                checked={options.includeTimestamps}
-                onChange={(e) =>
-                  setOptions({
-                    ...options,
-                    includeTimestamps: e.target.checked,
-                  })
-                }
-                className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900">
-                  包含时间戳
-                </div>
-                <div className="text-xs text-gray-500">
-                  显示每段字幕的时间标记
-                </div>
-              </div>
-            </label>
-
-            <label
-              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeVideoUrl ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
-            >
-              <input
-                type="checkbox"
-                checked={options.includeVideoUrl}
-                onChange={(e) =>
-                  setOptions({ ...options, includeVideoUrl: e.target.checked })
-                }
-                className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900">
-                  包含视频链接
-                </div>
-                <div className="text-xs text-gray-500">
-                  在文档头部添加 YouTube 视频链接
-                </div>
-              </div>
-            </label>
-
-            <label
-              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeMetadata ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
-            >
-              <input
-                type="checkbox"
-                checked={options.includeMetadata}
-                onChange={(e) =>
-                  setOptions({ ...options, includeMetadata: e.target.checked })
-                }
-                className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
-              />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-900">
-                  包含元信息
-                </div>
-                <div className="text-xs text-gray-500">
-                  显示视频标题和导出日期
-                </div>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      title="导出字幕为 PDF"
+      subtitle="选择导出格式和选项"
+      size="sm"
+      footer={
+        <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
             disabled={isLoading}
@@ -284,7 +93,186 @@ export function ExportDialog({
             )}
           </button>
         </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Format Selection */}
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold text-gray-800">
+            导出格式
+          </label>
+          <div className="space-y-2">
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'bilingual-side' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+            >
+              <input
+                type="radio"
+                name="format"
+                value="bilingual-side"
+                checked={options.format === 'bilingual-side'}
+                onChange={(e) =>
+                  setOptions({
+                    ...options,
+                    format: e.target.value as SubtitleExportOptions['format'],
+                  })
+                }
+                className="h-4 w-4 text-violet-600 focus:ring-violet-500"
+              />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-900">
+                  双语并排
+                </div>
+                <div className="text-xs text-gray-500">
+                  英文和中文左右两列对照显示
+                </div>
+              </div>
+            </label>
+
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'bilingual-stack' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+            >
+              <input
+                type="radio"
+                name="format"
+                value="bilingual-stack"
+                checked={options.format === 'bilingual-stack'}
+                onChange={(e) =>
+                  setOptions({
+                    ...options,
+                    format: e.target.value as SubtitleExportOptions['format'],
+                  })
+                }
+                className="h-4 w-4 text-violet-600 focus:ring-violet-500"
+              />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-900">
+                  双语上下
+                </div>
+                <div className="text-xs text-gray-500">
+                  英文在上，中文在下依次排列
+                </div>
+              </div>
+            </label>
+
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'english-only' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+            >
+              <input
+                type="radio"
+                name="format"
+                value="english-only"
+                checked={options.format === 'english-only'}
+                onChange={(e) =>
+                  setOptions({
+                    ...options,
+                    format: e.target.value as SubtitleExportOptions['format'],
+                  })
+                }
+                className="h-4 w-4 text-violet-600 focus:ring-violet-500"
+              />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-900">仅英文</div>
+                <div className="text-xs text-gray-500">只导出英文原文字幕</div>
+              </div>
+            </label>
+
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.format === 'chinese-only' ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+            >
+              <input
+                type="radio"
+                name="format"
+                value="chinese-only"
+                checked={options.format === 'chinese-only'}
+                onChange={(e) =>
+                  setOptions({
+                    ...options,
+                    format: e.target.value as SubtitleExportOptions['format'],
+                  })
+                }
+                className="h-4 w-4 text-violet-600 focus:ring-violet-500"
+              />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-gray-900">仅中文</div>
+                <div className="text-xs text-gray-500">只导出中文翻译字幕</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Options */}
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold text-gray-800">
+            附加选项
+          </label>
+
+          <label
+            className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeTimestamps ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+          >
+            <input
+              type="checkbox"
+              checked={options.includeTimestamps}
+              onChange={(e) =>
+                setOptions({
+                  ...options,
+                  includeTimestamps: e.target.checked,
+                })
+              }
+              className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900">
+                包含时间戳
+              </div>
+              <div className="text-xs text-gray-500">
+                显示每段字幕的时间标记
+              </div>
+            </div>
+          </label>
+
+          <label
+            className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeVideoUrl ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+          >
+            <input
+              type="checkbox"
+              checked={options.includeVideoUrl}
+              onChange={(e) =>
+                setOptions({ ...options, includeVideoUrl: e.target.checked })
+              }
+              className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900">
+                包含视频链接
+              </div>
+              <div className="text-xs text-gray-500">
+                在文档头部添加 YouTube 视频链接
+              </div>
+            </div>
+          </label>
+
+          <label
+            className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-4 transition-all ${options.includeMetadata ? 'border-violet-500 bg-violet-50' : 'border-gray-200 hover:border-violet-200 hover:bg-gray-50'}`}
+          >
+            <input
+              type="checkbox"
+              checked={options.includeMetadata}
+              onChange={(e) =>
+                setOptions({ ...options, includeMetadata: e.target.checked })
+              }
+              className="h-4 w-4 rounded text-violet-600 focus:ring-violet-500"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-gray-900">
+                包含元信息
+              </div>
+              <div className="text-xs text-gray-500">
+                显示视频标题和导出日期
+              </div>
+            </div>
+          </label>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
