@@ -99,14 +99,15 @@
 
 ## 4. 缺口（无 canonical — 必须先问用户再建/自写）
 
-| Archetype                                   | 现状                                               | 计划                   |
-| ------------------------------------------- | -------------------------------------------------- | ---------------------- |
-| ~~Tabs~~                                    | ✅ 已建 `ui/tabs/`（9 处已迁，余 ~37 待迁）        | 迁调用方 + 加 audit R7 |
-| ~~表单 Input/Textarea~~                     | ✅ 已建 `ui/form/`（Checkbox 待补）                | 迁调用方               |
-| ~~Pagination~~                              | ✅ 已建 `ui/pagination/`                           | 迁调用方               |
-| `Checkbox`                                  | 🔴 缺                                              | 补 `ui/form/Checkbox`  |
-| 通用 `DataTable`                            | 🟡 仅 `components/admin/shared/AdminDataTable.tsx` | 需要时上提             |
-| `Alert`/`Banner` `StatCard` `ActionToolbar` | 🟡 高频自写                                        | 视需要建               |
+| Archetype                                   | 现状                                        | 计划                                |
+| ------------------------------------------- | ------------------------------------------- | ----------------------------------- |
+| ~~Tabs~~                                    | ✅ 已建 `ui/tabs/`（9 处已迁，余 ~37 待迁） | 迁调用方 + 加 audit R7              |
+| ~~表单 Input/Textarea~~                     | ✅ 已建 `ui/form/`（Checkbox 待补）         | 迁调用方                            |
+| ~~Pagination~~                              | ✅ 已建 `ui/pagination/`                    | 迁调用方                            |
+| `Checkbox`                                  | 🔴 缺                                       | 补 `ui/form/Checkbox`               |
+| 通用 `DataTable`（数据网格）                | 🔴 仅 admin 版，65 文件直写 `<table>`       | 上提 `common/tables/DataTable` + R8 |
+| `ui/table`（展示原语）                      | 🔴 无，展示表全自写                         | 建 `ui/table/` + R8                 |
+| `Alert`/`Banner` `StatCard` `ActionToolbar` | 🟡 高频自写                                 | 视需要建                            |
 
 ---
 
