@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Table, THead, TBody, Tr, Th, Td } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   Check,
   Clock,
@@ -425,17 +426,19 @@ export function UserModelsManagement() {
             )}
             {!loading && filtered.length === 0 && (
               <Tr>
-                <Td
-                  colSpan={8}
-                  className="px-4 py-12 text-center text-sm text-gray-500"
-                >
+                <Td colSpan={8}>
                   {rows.length === 0 ? (
-                    <>
-                      还没有可用模型。点击右上角「Add Model」自配，或先在「API
-                      Keys」tab 申请系统授权。
-                    </>
+                    <EmptyState
+                      size="sm"
+                      title="还没有可用模型"
+                      description="点击右上角「Add Model」自配，或先在「API Keys」tab 申请系统授权"
+                    />
                   ) : (
-                    <>没有匹配的模型</>
+                    <EmptyState
+                      size="sm"
+                      type="search"
+                      title="没有匹配的模型"
+                    />
                   )}
                 </Td>
               </Tr>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import AppShell from '@/components/layout/AppShell';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   WorkspaceTaskSummary,
   WorkspaceTemplate,
@@ -631,9 +632,11 @@ export default function WorkspacePage() {
               )}
 
               {resources.length === 0 ? (
-                <div className="mt-6 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                  暂未选择资源，请返回首页挑选内容加入 Workspace。
-                </div>
+                <EmptyState
+                  size="sm"
+                  title="暂未选择资源"
+                  description="请返回首页挑选内容加入 Workspace"
+                />
               ) : (
                 <ul className="mt-6 space-y-3">
                   {resources.map((resource) => (
