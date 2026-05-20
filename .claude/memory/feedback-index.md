@@ -2,6 +2,10 @@
 
 > 用户协作偏好 + 项目反复踩到的反模式。每条 ≤200 字符，详情看链接文件。
 
+- [feedback_commit_only_own_changes.md](feedback_commit_only_own_changes.md) — 提交前必 git diff --cached --name-only 核对,只提交本会话自己改的文件,工作树里无关删除/改动不碰不提交(2026-05-20 误纳 litellm-proxy 删除被纠正)
+- [feedback_frontend_dir_hygiene.md](feedback_frontend_dir_hygiene.md) — 用户对前端目录有强洁癖、逐个追问归属；按 02-directory-structure.md 消费方规则归位，给决断表+分 Tier 独立 commit，不为美观重命名 route 镜像目录（2026-05-20 me/hooks/lib 归位）
+- [feedback_verify_field_names_both_ends.md](feedback_verify_field_names_both_ends.md) — 跨文件字段名修 bug 必须 grep 两端验证字段名一致，禁止 inline type assertion 让 TS 闭嘴（2026-05-19 social budget 闸 typo 字段名教训）
+- [feedback_frontend_bug_check_network_response_first.md](feedback_frontend_bug_check_network_response_first.md) — 前端 UI 异常第一步永远是要用户截 Network → Response body，不要先去后端诊断（2026-05-19 social data sources bug 5 次失败教训）
 - [feedback_audit_script_self_implementation_exclusion.md](feedback_audit_script_self_implementation_exclusion.md) — 公共组件强制复用 audit 脚本必须 exclude 该组件自身实现路径（components/ui/ + components/common/），否则 Modal.tsx 自身就被 R6 误报
 - [feedback_tailwind_spacing_p5_p7_legal.md](feedback_tailwind_spacing_p5_p7_legal.md) — Tailwind p-5/p-7/p-9 是合法刻度；audit 扫"节奏外间距"只能算 .5 半步（0.5/1.5/2.5/3.5），整数刻度不要标违规
 - [feedback_subagent_fork_point_stale.md](feedback_subagent_fork_point_stale.md) — Sub-agent worktree 从 fork 点跑，看不到 main 后续 commit；依赖链 sub-agent 启动前主 agent 必须 push
