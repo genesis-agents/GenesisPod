@@ -239,20 +239,31 @@ function checkR6Dialog(file: string, src: string): Violation[] {
   ];
 }
 
-// R7: 自写横向 tab 栏（activeTab 状态 + border-b-2 按钮行）必须用 ui/tabs/Tabs
+// R7: 自写横向 tab 栏必须用 ui/tabs/Tabs
+// 逐行检测「tab 按钮」：同一行含 border-b-2 + 内边距(px/py) + font-medium，
+// 且排除 animate-spin（spinner 的 `rounded-full border-b-2` 假阳性）。
+function isTabButtonLine(line: string): boolean {
+  return (
+    /border-b-2/.test(line) &&
+    /\b(?:px|py)-[\d.]/.test(line) &&
+    /font-medium/.test(line) &&
+    !/animate-spin/.test(line)
+  );
+}
+
 function checkR7Tabs(file: string, src: string): Violation[] {
-  // setActiveTab(tab 状态) + border-b-2(下划线 tab 栏标记) = 自写横向 tab
   if (!/\bsetActiveTab\b/.test(src)) return [];
-  if (!/border-b-2/.test(src)) return [];
+  const lines = src.split("\n");
+  const idx = lines.findIndex(isTabButtonLine);
+  if (idx < 0) return [];
   if (hasImport(src, "Tabs")) return [];
 
-  const line = findLine(src, /border-b-2/);
   return [
     {
       rule: "R7-Tabs-Required",
       file: relative(process.cwd(), file),
-      line,
-      snippet: snippet(src, line),
+      line: idx + 1,
+      snippet: snippet(src, idx + 1),
     },
   ];
 }
