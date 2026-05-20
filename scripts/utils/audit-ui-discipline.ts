@@ -13,7 +13,7 @@
  *   R4  含 error state 渲染分支必须 import ErrorState
  *   R5  含 isLoading skeleton 渲染必须 import LoadingState/LoadingSkeleton
  *   R6  弹层（role="dialog" 或 fixed inset-0 backdrop）必须 import MissionDialogShell/SideDrawer/Modal/ConfirmDialog
- *   R7  自写横向 tab 栏（setActiveTab + border-b-2）必须 import ui/tabs/Tabs
+ *   R7  自写横向 tab 栏（setActiveTab / activeTab 条件样式）必须 import ui/tabs/Tabs
  *   R8  feature 代码禁止直写原生 <table>（交互用 common/tables/DataTable，展示用 ui/table）
  *
  * 报告模式：默认 exit 0（warn-only 基线期），传 --strict 后违规超基线即 exit 1。
@@ -248,30 +248,24 @@ function checkR6Dialog(file: string, src: string): Violation[] {
 }
 
 // R7: 自写横向 tab 栏必须用 ui/tabs/Tabs
-// 逐行检测「tab 按钮」：同一行含 border-b-2 + 内边距(px/py) + font-medium，
-// 且排除 animate-spin（spinner 的 `rounded-full border-b-2` 假阳性）。
-function isTabButtonLine(line: string): boolean {
-  return (
-    /border-b-2/.test(line) &&
-    /\b(?:px|py)-[\d.]/.test(line) &&
-    /font-medium/.test(line) &&
-    !/animate-spin/.test(line)
-  );
-}
+// 检测「自写 tab 状态」信号——比旧版逐行 button 样式更可靠（旧版只认
+// border-b-2+px+font-medium 同行，漏掉 bg 高亮 / pill / 跨行 className 的 tab，造成假绿）。
+// 信号：setActiveTab 调用 / activeTab===|!== 条件样式 / activeTab ? 三元；
+// 任一出现且未 import canonical Tabs 即违规。
+const SELF_TAB =
+  /\bsetActiveTab\b|\bactiveTab\s*[=!]==|\bactiveTab\s*\?/;
 
 function checkR7Tabs(file: string, src: string): Violation[] {
-  if (!/\bsetActiveTab\b/.test(src)) return [];
-  const lines = src.split("\n");
-  const idx = lines.findIndex(isTabButtonLine);
-  if (idx < 0) return [];
+  if (!SELF_TAB.test(src)) return [];
   if (hasImport(src, "Tabs")) return [];
 
+  const line = findLine(src, SELF_TAB);
   return [
     {
       rule: "R7-Tabs-Required",
       file: relative(process.cwd(), file),
-      line: idx + 1,
-      snippet: snippet(src, idx + 1),
+      line,
+      snippet: snippet(src, line),
     },
   ];
 }

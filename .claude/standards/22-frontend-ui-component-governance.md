@@ -55,10 +55,10 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 ### 2.3 Tab 页
 
-🔴 **当前缺口**：**无 canonical Tabs 组件**，全仓 42 处自写 `activeTab` + 按钮条。规则：
+✅ **canonical 已建**：`Tabs`（`@/components/ui/tabs`，支持 `iconNode`）。规则：
 
-- 在 canonical Tabs 建成前，**新增 Tab UI 必须经用户批准**，不得再自写第 43 处。
-- canonical 落地后（见 §4），统一用之，并加 audit R7 规则拦截自写。
+- **横向 Tab 一律用 `Tabs`**，禁止再自写 `activeTab` + `border-b-2` 按钮条。
+- 历史欠账：R7 实测在范围内仍有 21 处自写 tab 待迁（已入基线，逐步清零）。**新代码不得新增自写 tab**。
 
 ### 2.4 表格（table）
 
@@ -111,7 +111,7 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 | Archetype                      | 状态                                       | 剩余行动                           |
 | ------------------------------ | ------------------------------------------ | ---------------------------------- |
-| Tabs / Tab 条                  | ✅ `ui/tabs/` + audit R7                   | 迁余 ~37 处自写                    |
+| Tabs / Tab 条                  | ✅ `ui/tabs/` + audit R7                   | 迁余 21 处自写（R7 已抓全）        |
 | 表单 Input/Textarea            | ✅ `ui/form/`（Checkbox 待补）             | 迁调用方 + 补 Checkbox             |
 | Pagination                     | ✅ `ui/pagination/`                        | 迁调用方                           |
 | **通用 DataTable**（数据网格） | ✅ `common/tables/DataTable`（admin 薄壳） | 迁 R8 名单交互表（admin 8 + 其余） |
@@ -153,7 +153,7 @@ mission 类功能的主页/详情另见 [21-agent-teams-presentation.md](21-agen
 
 - **机器执行**：`npm run audit:ui`（discipline R1–R8 + tokens）；`audit:ui-strict` 回归即 exit 1；`audit:ui-baseline` 更新基线（= 例外审批留痕）。
 - **pre-push**：`.husky/pre-push` `[4/6]` 当前 **warn-only**。
-- **现状（2026-05-20）**：精炼 R2/R3 检测器去伪阳后 discipline TOTAL ≈ 222（R3 空态 109、R6 弹层 75 为大头）；R7 Tabs 已建 canonical 并清零在范围内自写；R8 表格规则新增（65 文件直写 `<table>` 入基线，分批迁移压降）。
+- **现状（2026-05-20）**：discipline TOTAL ≈ 242（R3 空态 108、R6 弹层 75 为大头；R7 Tabs 21、R8 表格 0）。R8 表格已全迁 ui/table/DataTable 清零；R7 检测器修宽（旧版只认 `border-b-2` 单行 button 造成假绿 0，现按 `setActiveTab`/`activeTab` 状态信号抓全 21 处自写 tab，入基线待迁）。
 - 🔴 **建议（待批准执行）**：① pre-push `[4/6]` 由 warn-only 切 **strict**（新例外即阻断，逼出 §3 审批）；② 完成表格两层迁移后把 R8 基线压到 admin 薄壳 + 两个 canonical 实现本身。
 
 ---

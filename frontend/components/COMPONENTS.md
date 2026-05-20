@@ -99,16 +99,25 @@
 
 ---
 
-## 4. 缺口（无 canonical — 必须先问用户再建/自写）
+## 4. canonical 状态台账
+
+### 4.1 已建 canonical（必须直接用；剩余自写逐步迁移）
+
+| canonical               | 路径                         | 剩余迁移                     |
+| ----------------------- | ---------------------------- | ---------------------------- |
+| `Tabs`                  | `@/components/ui/tabs`       | 21 处自写 tab 待迁（R7）     |
+| `Input` / `Textarea`    | `@/components/ui/form`       | 迁调用方（Checkbox 待补）    |
+| `Pagination`            | `@/components/ui/pagination` | 迁调用方                     |
+| `DataTable`（数据网格） | `@/components/common/tables` | 迁交互表（R8）               |
+| `Table` 等（展示原语）  | `@/components/ui/table`      | 迁展示表（R8，已清零在范围） |
+
+> ⚠ 以上**已有 canonical**，写新 Tab/表单/分页/表格**禁止自写**，直接 import。
+
+### 4.2 未建缺口（须先问用户再建/自写）
 
 | Archetype                                  | 现状                                               | 计划                        |
 | ------------------------------------------ | -------------------------------------------------- | --------------------------- |
-| ~~Tabs~~                                   | ✅ 已建 `ui/tabs/`（9 处已迁，余 ~37 待迁）        | 迁调用方 + 加 audit R7      |
-| ~~表单 Input/Textarea~~                    | ✅ 已建 `ui/form/`（Checkbox 待补）                | 迁调用方                    |
-| ~~Pagination~~                             | ✅ 已建 `ui/pagination/`                           | 迁调用方                    |
 | `Checkbox`                                 | 🔴 缺                                              | 补 `ui/form/Checkbox`       |
-| ~~通用 `DataTable`（数据网格）~~           | ✅ 已上提 `common/tables/DataTable`（admin 薄壳）  | 迁 65 处调用方（R8 已加）   |
-| ~~`ui/table`（展示原语）~~                 | ✅ 已建 `ui/table/`                                | 迁展示表调用方              |
 | **`Alert`/`Banner`**（P0）                 | 🔴 31 文件内联 `bg-{c}-50 + border`                | 建 `ui/Alert`               |
 | **`Tag`/`Chip`/`Pill`**（P0）              | 🔴 204 文件 `rounded-full` 标签（先 scope 关键词） | 建 `ui/Tag`                 |
 | `CopyButton`                               | 🟡 27 文件 `navigator.clipboard`                   | 建 `ui/CopyButton`          |
