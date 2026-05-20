@@ -255,11 +255,22 @@ function checkR6Dialog(file: string, src: string): Violation[] {
 const SELF_TAB =
   /onClick=\{[^}]*\b(?:setActiveTab|onTabChange|setTab|setActiveKey|setSelectedTab|handleTabChange|switchTab|changeTab|selectTab)\s*\(/;
 
+// R7 已审批 bespoke 例外（2026-05-20，用户批准）：canonical Tabs 不适配的非标准 tab。
+// 标准 22 §3 例外审批留痕——这些保留自写，不算违规。
+const R7_BESPOKE_OK = [
+  // 主导航：每 tab 品牌色 + 响应式隐藏 label + 布局入口，canonical underline/pill 不模型化
+  "components/layout/ResponsiveNav.tsx",
+  // 资源详情：图标方块工具栏（h-10 w-10 渐变 + 角标），非文本 tab 栏
+  "app/explore/resource/[id]/page.tsx",
+];
+
 function checkR7Tabs(file: string, src: string): Violation[] {
   if (!SELF_TAB.test(src)) return [];
   // 已用 tab 组件的不算自写：canonical Tabs，或 admin 设计系统 AdminTabs
   // （AdminTabs→Tabs 属迷你设计系统统一，另册，不在 R7「自写」范畴）。
   if (hasImport(src, "Tabs") || hasImport(src, "AdminTabs")) return [];
+  const norm = file.split(sep).join("/");
+  if (R7_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
   const line = findLine(src, SELF_TAB);
   return [
