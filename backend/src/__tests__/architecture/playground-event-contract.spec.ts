@@ -78,7 +78,7 @@ function readFrontendListenedEvents(): {
   const events = new Set<string>();
   const source: Record<string, string[]> = {};
   const dirs = [
-    path.join(FRONTEND, "lib/agent-playground"),
+    path.join(FRONTEND, "lib/features/agent-playground"),
     path.join(FRONTEND, "components/agent-playground"),
     path.join(FRONTEND, "app/agent-playground"),
     path.join(FRONTEND, "hooks"),
