@@ -28,7 +28,7 @@ import type {
   StageStepperItem,
   StageStepperStatus,
 } from '@/components/common/mission-detail/StageStepper';
-import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 
 const SOCIAL_STAGE_META: { id: string; short: string; Icon: LucideIcon }[] = [
   { id: 's1-mission-budget-eval', short: '预算闸门', Icon: PiggyBank },

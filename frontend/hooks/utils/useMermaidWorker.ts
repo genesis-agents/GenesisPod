@@ -22,7 +22,7 @@ interface PendingRequest {
 
 // 全局 Worker 实例（共享）
 let sharedWorker: Worker | null = null;
-let pendingRequests: Map<string, PendingRequest> = new Map();
+const pendingRequests: Map<string, PendingRequest> = new Map();
 let requestIdCounter = 0;
 
 /**

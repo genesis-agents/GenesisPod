@@ -5,7 +5,7 @@
  * 所有派生应是 idempotent（重放任意 prefix 都能得到一致结果）。
  */
 
-import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 
 export type StageId =
   | 'leader'

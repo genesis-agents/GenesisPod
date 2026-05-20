@@ -10,7 +10,7 @@ import {
   MissionStatus,
   AgentTaskStatus,
 } from '@/lib/types/ai-teams';
-import { getProviderBrand as getProviderBrandFromLib } from '@/lib/ai-provider-logos';
+import { getProviderBrand as getProviderBrandFromLib } from '@/lib/constants/ai-provider-logos';
 import {
   downloadMissionReportHTML,
   previewMissionReport,

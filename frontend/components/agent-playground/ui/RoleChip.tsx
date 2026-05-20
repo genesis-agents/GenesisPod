@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { roleToken, type RoleKey } from '@/lib/playground-design/tokens';
+import { roleToken, type RoleKey } from '@/lib/design/tokens';
 
 const ROLE_ICON: Record<RoleKey, typeof Brain> = {
   leader: Brain,

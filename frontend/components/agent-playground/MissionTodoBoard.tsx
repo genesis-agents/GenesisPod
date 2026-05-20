@@ -41,7 +41,7 @@ import type {
   DimensionPipelineState,
 } from '@/lib/agent-playground/derive';
 import { Card, StatusPill, RoleChip } from '@/components/agent-playground/ui';
-import { statusToken } from '@/lib/playground-design/tokens';
+import { statusToken } from '@/lib/design/tokens';
 import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
 import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/agent-playground/stage-id-mapping';
 import {

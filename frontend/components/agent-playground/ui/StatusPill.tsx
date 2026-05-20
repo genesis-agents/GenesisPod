@@ -15,7 +15,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { statusToken, type StatusKey } from '@/lib/playground-design/tokens';
+import { statusToken, type StatusKey } from '@/lib/design/tokens';
 
 const STATUS_ICON: Record<StatusKey, typeof Circle> = {
   done: CheckCircle2,

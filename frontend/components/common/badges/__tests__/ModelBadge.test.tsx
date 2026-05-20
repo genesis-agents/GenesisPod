@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 // Mock the ai-provider-logos utility
-vi.mock('@/lib/ai-provider-logos', () => ({
+vi.mock('@/lib/constants/ai-provider-logos', () => ({
   getProviderBrand: vi.fn((name: string) => {
     const lower = name.toLowerCase();
     if (lower.includes('gpt') || lower.includes('openai')) {

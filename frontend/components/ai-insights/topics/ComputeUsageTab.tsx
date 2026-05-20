@@ -30,7 +30,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useI18n } from '@/lib/i18n';
-import { getProviderBrand } from '@/lib/ai-provider-logos';
+import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 import { logger } from '@/lib/utils/logger';
 import { getComputeUsage } from '@/services/topic-insights/api';
 

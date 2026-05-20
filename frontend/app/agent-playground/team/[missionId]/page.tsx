@@ -48,7 +48,7 @@ import { BudgetAndTimeLimitPanel } from '@/components/agent-playground/BudgetAnd
 import { isReportArtifact } from '@/lib/agent-playground/report-artifact.types';
 import { ensureRenderableArtifact } from '@/lib/agent-playground/synthesize-artifact';
 import { setCitationClickCallback } from '@/components/common/citations/citationNavigation';
-import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
+import { useAgentPlaygroundStream } from '@/hooks/features/useAgentPlaygroundStream';
 import { deriveView } from '@/lib/agent-playground/derive';
 import {
   cancelMission,

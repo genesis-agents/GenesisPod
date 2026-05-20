@@ -8,7 +8,7 @@
 import React from 'react';
 import { Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import { toneToken, type ToneKey } from '@/lib/playground-design/tokens';
+import { toneToken, type ToneKey } from '@/lib/design/tokens';
 
 const TONE_ICON: Record<ToneKey, typeof Info> = {
   info: Info,

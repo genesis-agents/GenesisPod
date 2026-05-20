@@ -1,6 +1,6 @@
 'use client';
 
-import { getProviderBrand } from '@/lib/ai-provider-logos';
+import { getProviderBrand } from '@/lib/constants/ai-provider-logos';
 
 interface ModelBadgeProps {
   modelId: string;

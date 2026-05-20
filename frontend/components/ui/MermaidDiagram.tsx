@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useMermaidWorker } from '@/hooks/useMermaidWorker';
+import { useMermaidWorker } from '@/hooks/utils/useMermaidWorker';
 import { sanitizeSvg } from '@/lib/utils/sanitize';
 
 import { logger } from '@/lib/utils/logger';

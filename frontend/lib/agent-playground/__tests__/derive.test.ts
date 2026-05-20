@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 import { deriveView } from '@/lib/agent-playground/derive';
 
 function makeEvent(

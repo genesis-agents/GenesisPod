@@ -53,7 +53,7 @@ import {
   toneToken,
   type ToneKey,
   type RoleKey,
-} from '@/lib/playground-design/tokens';
+} from '@/lib/design/tokens';
 import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
 
 interface Props {

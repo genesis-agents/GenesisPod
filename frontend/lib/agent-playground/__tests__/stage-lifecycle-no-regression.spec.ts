@@ -20,7 +20,7 @@ import { describe, it, expect } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { deriveView, mapStepIdToStageId } from '@/lib/agent-playground/derive';
-import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 
 const FIXTURES = path.join(__dirname, '__fixtures__');
 

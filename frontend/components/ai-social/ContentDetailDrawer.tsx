@@ -36,7 +36,7 @@ import {
   type SocialPlatformConnection,
   type SocialPlatformType,
 } from '@/services/ai-social/api';
-import { useSocialMissionStream } from '@/hooks/useSocialMissionStream';
+import { useSocialMissionStream } from '@/hooks/features/useSocialMissionStream';
 import { useTranslation } from '@/lib/i18n';
 
 type Depth = 'quick' | 'standard' | 'deep';

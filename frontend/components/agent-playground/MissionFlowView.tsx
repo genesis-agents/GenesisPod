@@ -32,7 +32,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 import {
   Card,
   Section,

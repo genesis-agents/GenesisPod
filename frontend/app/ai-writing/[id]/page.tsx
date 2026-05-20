@@ -11,7 +11,7 @@ import {
   type WritingEvent,
   type AgentWorkingData,
   type MissionProgressData,
-} from '@/hooks/useWritingWebSocket';
+} from '@/hooks/features/useWritingWebSocket';
 import type { Chapter, MissionLogItem } from '@/services/ai-writing/api';
 import { getMissionLogs, getProjectMissions } from '@/services/ai-writing/api';
 import { matchAgentByName } from '@/lib/ai-writing/agent-config';

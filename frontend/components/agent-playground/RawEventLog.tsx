@@ -21,7 +21,7 @@ import {
   Layers,
   Code2,
 } from 'lucide-react';
-import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 import { ClientDate } from '@/components/common/ClientDate';
 import { Card, ExpandableText } from '@/components/agent-playground/ui';
 

@@ -39,7 +39,7 @@ import {
 import { cn } from '@/lib/utils/common';
 import { deriveView } from '@/lib/agent-playground/derive';
 import { deriveTodoLedger } from '@/lib/agent-playground/todo-ledger';
-import { useAgentPlaygroundStream } from '@/hooks/useAgentPlaygroundStream';
+import { useAgentPlaygroundStream } from '@/hooks/features/useAgentPlaygroundStream';
 import { useSocialTask } from '@/hooks/domain/useSocialTasks';
 import {
   cancelSocialTask,

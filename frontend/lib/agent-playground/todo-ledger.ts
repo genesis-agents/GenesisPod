@@ -18,7 +18,7 @@
  *   agent:narrative                                      → 直接挂到对应 todo 的 narrativeLog
  */
 
-import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
+import type { PlaygroundEvent } from '@/hooks/features/useAgentPlaygroundStream';
 import type {
   AgentLiveState,
   AgentRole,
