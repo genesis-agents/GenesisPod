@@ -26,6 +26,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
+import { Tabs } from '@/components/ui/tabs';
 import {
   useApiGet,
   useApiPost,
@@ -155,26 +156,28 @@ export default function DreamingDashboardContent({
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 flex gap-1 border-b border-gray-200">
-        <TabButton
-          active={activeTab === 'history'}
-          onClick={() => setActiveTab('history')}
-        >
-          <HistoryIcon className="h-4 w-4" /> 历史
-        </TabButton>
-        <TabButton
-          active={activeTab === 'rules'}
-          onClick={() => setActiveTab('rules')}
-        >
-          <ListChecks className="h-4 w-4" /> 规则
-        </TabButton>
-        <TabButton
-          active={activeTab === 'config'}
-          onClick={() => setActiveTab('config')}
-        >
-          <SettingsIcon className="h-4 w-4" /> 配置
-        </TabButton>
-      </div>
+      <Tabs
+        className="mb-4"
+        value={activeTab}
+        onChange={(k) => setActiveTab(k as TabKey)}
+        items={[
+          {
+            key: 'history',
+            iconNode: <HistoryIcon className="h-4 w-4" />,
+            label: '历史',
+          },
+          {
+            key: 'rules',
+            iconNode: <ListChecks className="h-4 w-4" />,
+            label: '规则',
+          },
+          {
+            key: 'config',
+            iconNode: <SettingsIcon className="h-4 w-4" />,
+            label: '配置',
+          },
+        ]}
+      />
 
       {/* Tab content */}
       {activeTab === 'history' && (
@@ -528,30 +531,6 @@ function StatCard({
       <div className="text-xl font-semibold text-gray-900">{value}</div>
       {hint && <div className="mt-0.5 text-xs text-gray-500">{hint}</div>}
     </div>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm transition ${
-        active
-          ? 'border-blue-600 font-medium text-blue-600'
-          : 'border-transparent text-gray-600 hover:text-gray-900'
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

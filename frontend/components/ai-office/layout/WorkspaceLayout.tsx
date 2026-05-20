@@ -9,6 +9,7 @@
 import React, { useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Presentation, FileText, Table } from 'lucide-react';
+import { Tabs } from '@/components/ui/tabs';
 import CommandPalette, {
   useCommandPalette,
 } from '@/components/ai-research/discussion/CommandPalette';
@@ -96,53 +97,42 @@ export default function WorkspaceLayout({
       className="relative flex h-full flex-col overflow-hidden bg-gray-50"
     >
       {/* Tab 切换导航 */}
-      <div className="flex-shrink-0 border-b border-gray-200 bg-white px-6">
-        <div className="flex items-center gap-1">
-          {/* AI Slides Tab */}
-          <button
-            onClick={() => handleTabChange('slides')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'slides'
-                ? 'border-orange-500 text-orange-600'
-                : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-            }`}
-          >
-            <Presentation className="h-4 w-4" />
-            <span>{t('aiOffice.tabs.slides')}</span>
-          </button>
-
-          {/* AI Docs Tab - 开发中 */}
-          <button
-            onClick={() => handleTabChange('docs')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'docs'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-            }`}
-          >
-            <FileText className="h-4 w-4" />
-            <span>{t('aiOffice.tabs.docs')}</span>
-            <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-              {t('aiOffice.comingSoon.badge')}
-            </span>
-          </button>
-
-          {/* AI Excel Tab - 开发中 */}
-          <button
-            onClick={() => handleTabChange('excel')}
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'excel'
-                ? 'border-green-500 text-green-600'
-                : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-            }`}
-          >
-            <Table className="h-4 w-4" />
-            <span>{t('aiOffice.tabs.excel')}</span>
-            <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-              {t('aiOffice.comingSoon.badge')}
-            </span>
-          </button>
-        </div>
+      <div className="flex-shrink-0 bg-white px-6">
+        <Tabs
+          value={activeTab}
+          onChange={(k) => handleTabChange(k as WorkspaceTab)}
+          items={[
+            {
+              key: 'slides',
+              label: t('aiOffice.tabs.slides'),
+              icon: Presentation,
+            },
+            {
+              key: 'docs',
+              icon: FileText,
+              label: (
+                <span className="flex items-center gap-1">
+                  {t('aiOffice.tabs.docs')}
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                    {t('aiOffice.comingSoon.badge')}
+                  </span>
+                </span>
+              ),
+            },
+            {
+              key: 'excel',
+              icon: Table,
+              label: (
+                <span className="flex items-center gap-1">
+                  {t('aiOffice.tabs.excel')}
+                  <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                    {t('aiOffice.comingSoon.badge')}
+                  </span>
+                </span>
+              ),
+            },
+          ]}
+        />
       </div>
 
       {/* 内容区域 - 根据 Tab 显示不同内容 */}
