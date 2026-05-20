@@ -203,24 +203,26 @@ echo ""
 #   warn-only 模式：违规不阻断 push，只打印；后续切 SKIP_UI_AUDIT=1 可临时跳过。
 #   切 strict 模式：把下方 `if npm run` 改为 `npm run audit:ui-strict || exit 1`。
 #   设计文档：docs/guides/testing/frontend-ui-validation.md
-echo "[4/6] UI 一致性看护（warn-only）..."
+echo "[4/6] UI 一致性看护（灰度：R8 表格硬零阻断 / 其余不劣化 warn）..."
 if [ "${SKIP_UI_AUDIT:-0}" = "1" ]; then
     echo "  跳过（SKIP_UI_AUDIT=1）"
 else
     UI_AUDIT_LOG=$(mktemp)
-    if npm run audit:ui-strict > "$UI_AUDIT_LOG" 2>&1; then
-        # 提取最后的汇总行
-        grep -E "^\s+(R[1-6]-|T[1-5]-|TOTAL:)" "$UI_AUDIT_LOG" | head -20 | while read -r line; do
+    # 灰度期：跑非 strict 的 audit:ui-discipline —— 仅"硬零规则"(R8)违规 exit 1 拒推；
+    #   其余规则劣化只打印不阻断。全量迁移完成后改为 `npm run audit:ui-strict || exit 1` 全硬。
+    if npm run audit:ui-discipline > "$UI_AUDIT_LOG" 2>&1; then
+        grep -E "^\s+(R[0-9]-|TOTAL:)|^✓" "$UI_AUDIT_LOG" | head -20 | while read -r line; do
             echo "  $line"
         done
-        echo "  UI 一致性无回归"
+        echo "  UI 硬零规则通过（非硬零规则灰度 warn-only）"
     else
         echo ""
-        echo "  ⚠ UI 一致性回归（warn-only，不阻断 push）："
+        echo "  ✘ UI 硬零规则违规（R8：feature 代码禁写原生 <table>）— 拒推"
         tail -30 "$UI_AUDIT_LOG"
         echo ""
-        echo "  → 详见 docs/guides/testing/frontend-ui-validation.md"
-        echo "  → 更新基线：npm run audit:ui-baseline（需 reviewer 同意）"
+        echo "  → 交互表用 common/tables/DataTable；展示表用 ui/table 原语"
+        rm -f "$UI_AUDIT_LOG"
+        exit 1
     fi
     rm -f "$UI_AUDIT_LOG"
 fi

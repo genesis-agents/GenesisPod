@@ -31,6 +31,9 @@ import { existsSync } from "node:fs";
 const FRONTEND_ROOT = join(process.cwd(), "frontend");
 const ARGS = new Set(process.argv.slice(2));
 const STRICT = ARGS.has("--strict");
+const RATCHET = ARGS.has("--ratchet");
+// 硬零规则：违规必须为 0，任何出现即拒（不比基线、不分模式）。某规则迁到 0 后毕业至此。
+const HARD_ZERO_RULES = new Set<string>(["R8-Table-Component-Required"]);
 const BASELINE_PATH = (() => {
   const idx = process.argv.indexOf("--baseline");
   return idx > 0
@@ -401,23 +404,44 @@ async function main() {
     console.log("");
   }
 
-  // 写出最新基线（仅在 --update-baseline 模式）
-  if (ARGS.has("--update-baseline")) {
-    await writeFile(
-      BASELINE_PATH,
-      JSON.stringify(summary, null, 2) + "\n",
-      "utf8",
+  // 写基线：--update-baseline 全量重写；--ratchet 只锁低（不劣化"焊死下限"：current<baseline 即降，永不回升）
+  if (ARGS.has("--update-baseline") || RATCHET) {
+    const next: Record<string, number> = { ...(baseline ?? {}) };
+    const keys = new Set([
+      ...Object.keys(summary),
+      ...Object.keys(baseline ?? {}),
+    ]);
+    for (const rule of keys) {
+      const cur = summary[rule] ?? 0;
+      next[rule] = ARGS.has("--update-baseline")
+        ? cur
+        : Math.min(next[rule] ?? cur, cur);
+    }
+    await writeFile(BASELINE_PATH, JSON.stringify(next, null, 2) + "\n", "utf8");
+    console.log(
+      `✓ 基线已${ARGS.has("--update-baseline") ? "全量重写" : "棘轮锁低"}：${BASELINE_PATH}`,
     );
-    console.log(`✓ 基线已更新：${BASELINE_PATH}`);
   }
 
+  // ① 硬零规则：违规数必须为 0，任何出现即拒（不分 strict/warn）。规则迁到 0 后毕业至此。
+  const hardZeroHit = [...HARD_ZERO_RULES].filter((r) => (summary[r] ?? 0) > 0);
+  if (hardZeroHit.length > 0) {
+    console.error("✗ 硬零规则违规（必须为 0，出现即拒）：");
+    for (const r of hardZeroHit) console.error(`  ${r}: ${summary[r]}`);
+    process.exit(1);
+  }
+
+  // ② strict 模式（灰度全量切换后启用）：任何"劣化"（超基线）即拒
   if (STRICT && regressions.length > 0) {
-    console.error("✗ UI discipline 回归（strict 模式）：");
+    console.error("✗ UI discipline 劣化（strict 不劣化模式）：");
     for (const r of regressions) console.error(`  ${r}`);
     process.exit(1);
   }
 
-  console.log(STRICT ? "✓ 无回归" : "(warn-only 模式，未阻断)");
+  console.log(
+    `✓ 硬零通过（${[...HARD_ZERO_RULES].join(", ")} = 0）` +
+      (STRICT ? " + 无劣化" : "；非硬零规则 warn-only（灰度期）"),
+  );
 }
 
 main().catch((err) => {

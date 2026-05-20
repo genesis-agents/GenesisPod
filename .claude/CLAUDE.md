@@ -239,6 +239,16 @@ onModuleInit() {
 - 在"快速修复"和"正确抽象"之间，**永远选正确抽象**，除非我明确说"临时方案"
 - 不得用 provider-specific 硬编码（如 `model: "gpt-4o"`），必须走 TaskProfile
 
+### 前端 UI 组件复用优先（2026-05-20）
+
+> **背景**：组件库已很全，但复用率 < 10%，到处自写卡片/弹层/Tab/空态——治理问题。详见 [standards/22-frontend-ui-component-governance.md](standards/22-frontend-ui-component-governance.md)。
+
+- 写任何**卡片 / 弹层 / 抽屉 / 空态 / 加载态 / 错误态 / 页头 / Tab / 表格**前，**必须先查 canonical 组件**（标准 22 §2 清单：`AssetCard`/`Modal`/`SideDrawer`/`EmptyState`/`ErrorState`/`LoadingState`/`PageHeaderHero`/`AppShell`/`Button` 等），有就用。
+- **禁止**在 feature 代码内联自写已有 canonical 的 UI（`rounded-xl border bg-white` 卡片、`fixed inset-0 z-50` 弹层、`animate-spin` spinner、`activeTab` 自写 Tab 条）。
+- **canonical 不适配 / 缺口（如 Tabs）→ 停下来问用户**：说明缺口+为何不适配+建议方案，由用户决定"批准自写一次"还是"建公共组件（放 ui/ 还是 common/）"。**不得静默自写或擅自新建公共组件**。
+- 颜色/字号/间距走 `lib/design/tokens.ts` + globals.css 变量，禁任意值 `text-[Npx]`、硬编码 `#hex`、每页一个主题色（spinner/focus ring 用 `primary`）。
+- 改动前后跑 `npm run audit:ui-discipline`，**未经用户批准不得让违规基线上涨**（基线上涨 = 一次被批准的例外，需 `audit:ui-baseline` 留痕）。
+
 ### Sub-Agent 管控（血的教训）
 
 > **2026-02-10 事故**: Sub-Agent 越权创建 planning 模块、修改 Sidebar 等无关文件；主 Agent 用 `git checkout -- .` 回退时误删其他 session 的工作；`rm -rf` 删除未跟踪文件导致不可恢复的数据丢失。
