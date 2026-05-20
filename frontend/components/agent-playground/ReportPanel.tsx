@@ -11,7 +11,7 @@ import {
   History,
 } from 'lucide-react';
 import type { ReportDraft } from '@/lib/agent-playground/derive';
-import { Card } from '@/components/playground-ui';
+import { Card } from '@/components/agent-playground/ui';
 
 const MD_COMPONENTS = {
   a: ({ href, children }: { href?: string; children?: React.ReactNode }) => {

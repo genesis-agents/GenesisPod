@@ -38,7 +38,7 @@ import {
   Section,
   StatusPill,
   ExpandableText,
-} from '@/components/playground-ui';
+} from '@/components/agent-playground/ui';
 import {
   deriveTodoLedger,
   type SystemStageId,

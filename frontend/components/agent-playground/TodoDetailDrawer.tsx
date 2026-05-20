@@ -47,7 +47,7 @@ import {
   SourceLink,
   ExpandableText,
   linkifyText,
-} from '@/components/playground-ui';
+} from '@/components/agent-playground/ui';
 import {
   roleToken,
   toneToken,

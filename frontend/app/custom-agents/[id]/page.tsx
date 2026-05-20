@@ -28,7 +28,7 @@ import {
 import { apiClient } from '@/lib/api/client';
 import type { CustomAgentRecord } from '@/components/custom-agents/types';
 import { LaunchMissionModal } from '@/components/custom-agents/LaunchMissionModal';
-import { MissionGalleryView } from '@/components/missions/MissionGalleryView';
+import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
 
 export default function CustomAgentHomePage({
   params,

@@ -8,7 +8,7 @@ import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/lib/i18n';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandLogo } from '@/components/common/brand/BrandLogo';
 import { config } from '@/lib/utils/config';
 import { useUnreadNotificationCount } from '@/hooks/domain/useNotifications';
 import { useNotificationSocket } from '@/hooks/domain/useNotificationSocket';

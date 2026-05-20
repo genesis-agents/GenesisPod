@@ -40,7 +40,7 @@ import type {
   AgentLiveState,
   DimensionPipelineState,
 } from '@/lib/agent-playground/derive';
-import { Card, StatusPill, RoleChip } from '@/components/playground-ui';
+import { Card, StatusPill, RoleChip } from '@/components/agent-playground/ui';
 import { statusToken } from '@/lib/playground-design/tokens';
 import { friendlyError } from '@/lib/agent-playground/friendly-error.util';
 import { FRONTEND_STAGE_TO_STEP_ID } from '@/lib/agent-playground/stage-id-mapping';

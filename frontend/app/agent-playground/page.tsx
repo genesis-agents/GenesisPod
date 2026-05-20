@@ -20,7 +20,7 @@ import {
   updateMission,
   type MissionListItem,
 } from '@/services/agent-playground/api';
-import { MissionGalleryView } from '@/components/missions/MissionGalleryView';
+import { MissionGalleryView } from '@/components/common/missions/MissionGalleryView';
 import { PlaygroundMissionDialog } from '@/components/agent-playground';
 
 export default function PlaygroundIndexPage() {

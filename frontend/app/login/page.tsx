@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandLogo } from '@/components/common/brand/BrandLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { config } from '@/lib/utils/config';
 

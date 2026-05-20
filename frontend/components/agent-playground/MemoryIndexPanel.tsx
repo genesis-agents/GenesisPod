@@ -2,7 +2,7 @@
 
 import { Database, Tag } from 'lucide-react';
 import type { MemoryIndexState } from '@/lib/agent-playground/derive';
-import { Card } from '@/components/playground-ui';
+import { Card } from '@/components/agent-playground/ui';
 
 export function MemoryIndexPanel({
   memory,

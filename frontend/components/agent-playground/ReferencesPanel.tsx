@@ -36,7 +36,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { ArtifactCitation } from '@/lib/agent-playground/report-artifact.types';
-import { Card } from '@/components/playground-ui';
+import { Card } from '@/components/agent-playground/ui';
 
 interface Props {
   /** 结构化 citations（来自 ReportArtifact） —— 优先用 */
@@ -363,10 +363,7 @@ function passesCredibilityFilter(
   return c.credibilityScore < 40;
 }
 
-function applySearch(
-  c: ArtifactCitation,
-  q: string,
-): boolean {
+function applySearch(c: ArtifactCitation, q: string): boolean {
   if (!q) return true;
   const needle = q.toLowerCase();
   return (
@@ -379,7 +376,7 @@ function applySearch(
 
 function sortCitations(
   list: readonly ArtifactCitation[],
-  by: SortKey,
+  by: SortKey
 ): ArtifactCitation[] {
   const arr = list.slice();
   switch (by) {
@@ -407,13 +404,10 @@ function sortCitations(
       });
     case 'occurrences-desc':
       return arr.sort(
-        (a, b) =>
-          (b.occurrences?.length ?? 0) - (a.occurrences?.length ?? 0)
+        (a, b) => (b.occurrences?.length ?? 0) - (a.occurrences?.length ?? 0)
       );
     case 'domain-asc':
-      return arr.sort((a, b) =>
-        (a.domain ?? '').localeCompare(b.domain ?? '')
-      );
+      return arr.sort((a, b) => (a.domain ?? '').localeCompare(b.domain ?? ''));
     default:
       return arr;
   }
@@ -607,9 +601,7 @@ export function ReferencesPanel({ citations, fallbackSources }: Props) {
           {/* 来源类型过滤 */}
           <select
             value={typeFilter}
-            onChange={(e) =>
-              setTypeFilter(e.target.value as SourceTypeFilter)
-            }
+            onChange={(e) => setTypeFilter(e.target.value as SourceTypeFilter)}
             className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-200"
             title="按来源类型过滤"
           >
@@ -624,9 +616,7 @@ export function ReferencesPanel({ citations, fallbackSources }: Props) {
           {/* 可信度过滤 */}
           <select
             value={credFilter}
-            onChange={(e) =>
-              setCredFilter(e.target.value as CredibilityFilter)
-            }
+            onChange={(e) => setCredFilter(e.target.value as CredibilityFilter)}
             className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 focus:border-violet-300 focus:outline-none focus:ring-1 focus:ring-violet-200"
             title="按可信度过滤"
           >
@@ -686,9 +676,7 @@ export function ReferencesPanel({ citations, fallbackSources }: Props) {
           {filtered.length === 0 ? (
             <div className="px-4 py-12 text-center">
               <Search className="mx-auto mb-2 h-6 w-6 text-gray-300" />
-              <p className="text-sm font-medium text-gray-700">
-                未匹配到引用
-              </p>
+              <p className="text-sm font-medium text-gray-700">未匹配到引用</p>
               <p className="mt-1 text-[11px] text-gray-500">
                 试着调整搜索词或过滤条件
               </p>

@@ -3,7 +3,7 @@
 import { Coins, Trophy, Timer, Database, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import type { DerivedView } from '@/lib/agent-playground/derive';
-import { Card } from '@/components/playground-ui';
+import { Card } from '@/components/agent-playground/ui';
 
 interface Props {
   view: DerivedView;

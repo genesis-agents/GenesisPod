@@ -1,6 +1,6 @@
 'use client';
 
-import { AutoConfigureButton } from '@/components/shared/model-config/AutoConfigureButton';
+import { AutoConfigureButton } from '@/components/common/model-config/AutoConfigureButton';
 
 /**
  * 用户版一键 AI 配置按钮 —— 薄封装：

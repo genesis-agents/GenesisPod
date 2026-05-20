@@ -11,7 +11,7 @@
 
 import { Users } from 'lucide-react';
 import { AdminPageLayout } from '@/components/admin/layout';
-import { HumanApprovalQueue } from '@/components/human-approval';
+import { HumanApprovalQueue } from '@/components/admin/human-approval';
 
 export default function ApprovalsPage() {
   return (

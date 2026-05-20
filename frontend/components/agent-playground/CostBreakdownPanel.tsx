@@ -2,7 +2,7 @@
 
 import { Coins } from 'lucide-react';
 import type { CostState } from '@/lib/agent-playground/derive';
-import { Card } from '@/components/playground-ui';
+import { Card } from '@/components/agent-playground/ui';
 
 const STAGE_LABEL: Record<string, string> = {
   leader: 'Leader',

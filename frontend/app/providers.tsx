@@ -13,7 +13,10 @@ import { ChunkErrorHandler } from '@/components/common/ChunkErrorHandler';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { ToastContainer } from '@/components/ui/Toast';
 import { toast } from '@/stores';
-import { CheckinModal, InsufficientCreditsModal } from '@/components/credits';
+import {
+  CheckinModal,
+  InsufficientCreditsModal,
+} from '@/components/common/credits';
 import { GlobalAIBarProvider } from '@/components/ai-bar';
 import { ByokOnboardingGuard } from '@/components/byok/ByokOnboardingGuard';
 import { GlobalByokErrorModal } from '@/components/byok/GlobalByokErrorModal';

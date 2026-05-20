@@ -8,7 +8,7 @@ import { useTranslation } from '@/lib/i18n';
 import UserProfileButton from './UserProfileButton';
 import LanguageSwitcher from '@/components/common/LanguageSwitcher';
 import { Menu, X } from 'lucide-react';
-import { BrandLogo } from '@/components/brand/BrandLogo';
+import { BrandLogo } from '@/components/common/brand/BrandLogo';
 import { CURRENT_VERSION } from '@/lib/utils/changelog';
 
 interface MobileNavProps {

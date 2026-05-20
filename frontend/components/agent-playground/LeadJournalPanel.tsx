@@ -15,7 +15,7 @@
 
 import { CheckCircle2, AlertCircle, XCircle, ShieldAlert } from 'lucide-react';
 import type { MissionDetail } from '@/services/agent-playground/api';
-import { ExpandableText } from '@/components/playground-ui';
+import { ExpandableText } from '@/components/agent-playground/ui';
 
 interface Props {
   mission: MissionDetail;

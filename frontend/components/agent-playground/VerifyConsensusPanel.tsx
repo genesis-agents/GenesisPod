@@ -2,7 +2,7 @@
 
 import { Gavel, ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react';
 import type { VerifierVerdict } from '@/lib/agent-playground/derive';
-import { Card, ExpandableText } from '@/components/playground-ui';
+import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
 const VERIFIER_META: Record<
   string,

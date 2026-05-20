@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Layers, ChevronDown, ChevronRight } from 'lucide-react';
 import type { MissionState } from '@/lib/agent-playground/derive';
-import { Card, ExpandableText } from '@/components/playground-ui';
+import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
 export function DimensionsPanel({ mission }: { mission: MissionState }) {
   const dims = mission.dimensions ?? [];

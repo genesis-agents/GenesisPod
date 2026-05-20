@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import type { PlaygroundEvent } from '@/hooks/useAgentPlaygroundStream';
 import { ClientDate } from '@/components/common/ClientDate';
-import { Card, ExpandableText } from '@/components/playground-ui';
+import { Card, ExpandableText } from '@/components/agent-playground/ui';
 
 const ROLE_ICON: Record<string, typeof Brain> = {
   leader: Brain,

@@ -23,7 +23,7 @@ import type {
   AgentRole,
   AgentTraceItem,
 } from '@/lib/agent-playground/derive';
-import { ExpandableText } from '@/components/playground-ui';
+import { ExpandableText } from '@/components/agent-playground/ui';
 
 const ROLE_META: Record<
   AgentRole,
