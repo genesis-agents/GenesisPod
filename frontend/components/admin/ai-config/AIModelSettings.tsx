@@ -22,7 +22,7 @@ import { useAdminSecrets } from '@/hooks/domain/useAdminSecrets';
 import { logger } from '@/lib/utils/logger';
 import { ClientDate } from '@/components/common/ClientDate';
 import { StructuredOutputCapabilitySection } from './StructuredOutputCapabilitySection';
-import { useAdminAIProviders } from '@/hooks/admin/useAdminAIProviders';
+import { useAdminAIProviders } from '@/hooks/domain/useAdminAIProviders';
 import { ModelEndpointWarning } from './ModelEndpointWarning';
 // AI模型类型枚举 - 支持 Tier 分级
 type AIModelType =

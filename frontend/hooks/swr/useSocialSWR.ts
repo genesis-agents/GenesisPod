@@ -35,7 +35,7 @@ import {
   getContentsKey,
   getContentKey,
   getPublishLogsKey,
-} from '@/lib/swr/social-config';
+} from '@/lib/ai-social/social-config';
 
 // ==================== Type Definitions ====================
 

@@ -18,7 +18,7 @@ import rehypeKatex from 'rehype-katex';
 import { KATEX_OPTIONS } from '@/lib/markdown/katexOptions';
 import { preprocessLatex } from '@/lib/markdown/preprocessLatex';
 import { MarkdownViewer } from '@/components/common/markdown-viewer';
-import { useReportRevisions } from '@/hooks/report';
+import { useReportRevisions } from '@/hooks/domain/useReportRevisions';
 import { countWords } from '@/lib/markdown/countWords';
 import {
   Shield,
