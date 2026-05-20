@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * UI Discipline Audit — 6 条结构强制规则
+ * UI Discipline Audit — 8 条结构强制规则
  *
  * 检测前端主页面是否绕过公共组件自写实现。
  * 配套方案文档：docs/guides/testing/frontend-ui-validation.md
@@ -14,6 +14,7 @@
  *   R5  含 isLoading skeleton 渲染必须 import LoadingState/LoadingSkeleton
  *   R6  弹层（role="dialog" 或 fixed inset-0 backdrop）必须 import MissionDialogShell/SideDrawer/Modal/ConfirmDialog
  *   R7  自写横向 tab 栏（setActiveTab + border-b-2）必须 import ui/tabs/Tabs
+ *   R8  feature 代码禁止直写原生 <table>（交互用 common/tables/DataTable，展示用 ui/table）
  *
  * 报告模式：默认 exit 0（warn-only 基线期），传 --strict 后违规超基线即 exit 1。
  *
@@ -275,8 +276,27 @@ function checkR7Tabs(file: string, src: string): Violation[] {
   ];
 }
 
-// TODO(R8/R9): StatusBadge / ProgressBar 强制规则待补——需更精准的检测器避免误报
-//   R8 状态徽章：`bg-X-100 text-X-700` 状态片需区分于品牌色/普通彩标
+// R8: feature 代码禁止直写原生 <table>（标准 22 §2.4 两层模型）。
+// 交互数据网格用 common/tables/DataTable，纯展示表用 ui/table 原语。
+// canonical 实现自身（components/ui/ · components/common/ · components/admin/）
+// 已被 EXCLUDE_PATTERNS 排除；用 DataTable/ui/table 的文件渲染 <DataTable>/<Table>
+// 而非原生 <table>，故"在范围内仍出现原生 <table>"即违规。
+function checkR8Table(file: string, src: string): Violation[] {
+  const NATIVE_TABLE = /<table[\s/>]/;
+  if (!NATIVE_TABLE.test(src)) return [];
+
+  const line = findLine(src, NATIVE_TABLE);
+  return [
+    {
+      rule: "R8-Table-Component-Required",
+      file: relative(process.cwd(), file),
+      line,
+      snippet: snippet(src, line),
+    },
+  ];
+}
+
+// TODO(R9): ProgressBar 强制规则待补——需更精准的检测器避免误报
 //   R9 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
 
 async function main() {
@@ -300,6 +320,7 @@ async function main() {
     allViolations.push(...checkR5LoadingState(file, src));
     allViolations.push(...checkR6Dialog(file, src));
     allViolations.push(...checkR7Tabs(file, src));
+    allViolations.push(...checkR8Table(file, src));
   }
 
   // 按 rule 聚合

@@ -4,39 +4,41 @@
 > [standards/22-frontend-ui-component-governance.md](../../.claude/standards/22-frontend-ui-component-governance.md)
 > 与 CLAUDE.md「前端 UI 组件复用优先」红线。**canonical 不适配 / 缺口 → 停下问用户，不要自写。**
 >
-> 机器校验：`npm run audit:ui-discipline`（R1–R6）+ `audit:ui-tokens`。
+> 机器校验：`npm run audit:ui-discipline`（R1–R8）+ `audit:ui-tokens`。
 
 ---
 
 ## 1. 速查：要做某种 UI → 用这个
 
-| 你要做…             | 用 canonical                          | import                                                                  |
-| ------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
-| 菜单主页骨架        | `AppShell` + `PageHeaderHero`         | `@/components/layout/AppShell` · `@/components/common/page-header-hero` |
-| 列表卡片            | `AssetCard`                           | `@/components/common/asset-card`                                        |
-| 设置/区块卡         | `SettingsSectionCard`                 | `@/components/common/cards`                                             |
-| 通用容器卡          | `ResponsiveCard`                      | `@/components/ui`                                                       |
-| 空态                | `EmptyState`                          | `@/components/ui`                                                       |
-| 加载/骨架           | `LoadingState` / `LoadingSkeleton`    | `@/components/ui`                                                       |
-| 错误态              | `ErrorState`                          | `@/components/ui`                                                       |
-| 弹窗                | `Modal` / `ConfirmDialog`             | `@/components/ui`                                                       |
-| 抽屉/侧滑           | `SideDrawer`                          | `@/components/common/drawers`                                           |
-| mission 弹层        | `MissionDialogShell`                  | `@/components/common/dialogs`                                           |
-| 按钮                | `Button`（variant/size）              | `@/components/ui`                                                       |
-| 下拉/菜单           | `DropdownMenu`                        | `@/components/ui`                                                       |
-| 开关                | `Switch`                              | `@/components/ui`                                                       |
-| 提示气泡            | `Tooltip`                             | `@/components/ui/Tooltip`                                               |
-| 全局 toast          | `Toast` / `useToast`                  | `@/components/ui`                                                       |
-| 状态徽章(enum→tone) | `StatusBadge`                         | `@/components/ui/badges`                                                |
-| 品牌/Tier 徽章      | `ModelBadge` / `TierBadge`            | `@/components/common/badges`                                            |
-| 进度条              | `ProgressBar`                         | `@/components/ui/progress`                                              |
-| 日期(防水合)        | `ClientDate`                          | `@/components/common/ClientDate`                                        |
-| 模型选择            | `ModelSelect`                         | `@/components/common/ModelSelect`                                       |
-| mission 详情骨架    | `MissionDetailFrame` + `StageStepper` | `@/components/common/mission-detail`                                    |
-| mission 列表        | `MissionGalleryView`                  | `@/components/common/missions`                                          |
-| Tab 页(横向)        | `Tabs`                                | `@/components/ui/tabs`                                                  |
-| 表单 Input/Textarea | `Input` / `Textarea`                  | `@/components/ui/form`                                                  |
-| 分页                | `Pagination`                          | `@/components/ui/pagination`                                            |
+| 你要做…             | 用 canonical                           | import                                                                  |
+| ------------------- | -------------------------------------- | ----------------------------------------------------------------------- |
+| 菜单主页骨架        | `AppShell` + `PageHeaderHero`          | `@/components/layout/AppShell` · `@/components/common/page-header-hero` |
+| 列表卡片            | `AssetCard`                            | `@/components/common/asset-card`                                        |
+| 设置/区块卡         | `SettingsSectionCard`                  | `@/components/common/cards`                                             |
+| 通用容器卡          | `ResponsiveCard`                       | `@/components/ui`                                                       |
+| 空态                | `EmptyState`                           | `@/components/ui`                                                       |
+| 加载/骨架           | `LoadingState` / `LoadingSkeleton`     | `@/components/ui`                                                       |
+| 错误态              | `ErrorState`                           | `@/components/ui`                                                       |
+| 弹窗                | `Modal` / `ConfirmDialog`              | `@/components/ui`                                                       |
+| 抽屉/侧滑           | `SideDrawer`                           | `@/components/common/drawers`                                           |
+| mission 弹层        | `MissionDialogShell`                   | `@/components/common/dialogs`                                           |
+| 按钮                | `Button`（variant/size）               | `@/components/ui`                                                       |
+| 下拉/菜单           | `DropdownMenu`                         | `@/components/ui`                                                       |
+| 开关                | `Switch`                               | `@/components/ui`                                                       |
+| 提示气泡            | `Tooltip`                              | `@/components/ui/Tooltip`                                               |
+| 全局 toast          | `Toast` / `useToast`                   | `@/components/ui`                                                       |
+| 状态徽章(enum→tone) | `StatusBadge`                          | `@/components/ui/badges`                                                |
+| 品牌/Tier 徽章      | `ModelBadge` / `TierBadge`             | `@/components/common/badges`                                            |
+| 进度条              | `ProgressBar`                          | `@/components/ui/progress`                                              |
+| 日期(防水合)        | `ClientDate`                           | `@/components/common/ClientDate`                                        |
+| 模型选择            | `ModelSelect`                          | `@/components/common/ModelSelect`                                       |
+| mission 详情骨架    | `MissionDetailFrame` + `StageStepper`  | `@/components/common/mission-detail`                                    |
+| mission 列表        | `MissionGalleryView`                   | `@/components/common/missions`                                          |
+| Tab 页(横向)        | `Tabs`                                 | `@/components/ui/tabs`                                                  |
+| 表单 Input/Textarea | `Input` / `Textarea`                   | `@/components/ui/form`                                                  |
+| 分页                | `Pagination`                           | `@/components/ui/pagination`                                            |
+| 数据表格(交互网格)  | `DataTable`                            | `@/components/common/tables`                                            |
+| 展示表格(纯展示)    | `Table`/`THead`/`TBody`/`Tr`/`Th`/`Td` | `@/components/ui/table`                                                 |
 
 ---
 
@@ -99,15 +101,15 @@
 
 ## 4. 缺口（无 canonical — 必须先问用户再建/自写）
 
-| Archetype                                   | 现状                                        | 计划                                |
-| ------------------------------------------- | ------------------------------------------- | ----------------------------------- |
-| ~~Tabs~~                                    | ✅ 已建 `ui/tabs/`（9 处已迁，余 ~37 待迁） | 迁调用方 + 加 audit R7              |
-| ~~表单 Input/Textarea~~                     | ✅ 已建 `ui/form/`（Checkbox 待补）         | 迁调用方                            |
-| ~~Pagination~~                              | ✅ 已建 `ui/pagination/`                    | 迁调用方                            |
-| `Checkbox`                                  | 🔴 缺                                       | 补 `ui/form/Checkbox`               |
-| 通用 `DataTable`（数据网格）                | 🔴 仅 admin 版，65 文件直写 `<table>`       | 上提 `common/tables/DataTable` + R8 |
-| `ui/table`（展示原语）                      | 🔴 无，展示表全自写                         | 建 `ui/table/` + R8                 |
-| `Alert`/`Banner` `StatCard` `ActionToolbar` | 🟡 高频自写                                 | 视需要建                            |
+| Archetype                                   | 现状                                              | 计划                      |
+| ------------------------------------------- | ------------------------------------------------- | ------------------------- |
+| ~~Tabs~~                                    | ✅ 已建 `ui/tabs/`（9 处已迁，余 ~37 待迁）       | 迁调用方 + 加 audit R7    |
+| ~~表单 Input/Textarea~~                     | ✅ 已建 `ui/form/`（Checkbox 待补）               | 迁调用方                  |
+| ~~Pagination~~                              | ✅ 已建 `ui/pagination/`                          | 迁调用方                  |
+| `Checkbox`                                  | 🔴 缺                                             | 补 `ui/form/Checkbox`     |
+| ~~通用 `DataTable`（数据网格）~~            | ✅ 已上提 `common/tables/DataTable`（admin 薄壳） | 迁 65 处调用方（R8 已加） |
+| ~~`ui/table`（展示原语）~~                  | ✅ 已建 `ui/table/`                               | 迁展示表调用方            |
+| `Alert`/`Banner` `StatCard` `ActionToolbar` | 🟡 高频自写                                       | 视需要建                  |
 
 ---
 
