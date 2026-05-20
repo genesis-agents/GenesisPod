@@ -2,10 +2,10 @@
 
 import { Resource } from '../utils/types';
 import { extractYouTubeVideoId, getResourceDisplayMode } from '../utils';
-import PDFViewer from '@/components/ui/PDFViewer';
-import HTMLViewer from '@/components/ui/HTMLViewer';
-import ReaderView from '@/components/ui/ReaderView';
-import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
+import PDFViewer from '@/components/ui/viewers/PDFViewer';
+import HTMLViewer from '@/components/ui/viewers/HTMLViewer';
+import ReaderView from '@/components/ui/viewers/ReaderView';
+import TextSelectionToolbar from '@/components/ui/content/TextSelectionToolbar';
 
 interface ContentPreviewProps {
   selectedResource: Resource;

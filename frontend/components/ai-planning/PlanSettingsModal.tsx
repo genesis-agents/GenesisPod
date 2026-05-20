@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, Info, Zap, Wrench } from 'lucide-react';
-import Modal from '@/components/ui/Modal';
+import Modal from '@/components/ui/dialogs/Modal';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 import type { PlanDetail } from '@/services/ai-planning/api';

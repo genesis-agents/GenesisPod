@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { AIMessage } from '../utils/types';
 import { extractImagesFromMarkdown } from '../utils';
 import { Base64Image } from '../resources/Base64Image';
-import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
+import TextSelectionToolbar from '@/components/ui/content/TextSelectionToolbar';
 import { useTranslation } from '@/lib/i18n/i18n-context';
 import { ClientDate } from '@/components/common/ClientDate';
 import type { AIModel } from '@/hooks';

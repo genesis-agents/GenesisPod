@@ -1,9 +1,9 @@
 'use client';
 
 import { ArrowLeft, Calendar, User, Eye, Book, Globe } from 'lucide-react';
-import PDFViewer from '@/components/ui/PDFViewer';
-import HTMLViewer from '@/components/ui/HTMLViewer';
-import ReaderView from '@/components/ui/ReaderView';
+import PDFViewer from '@/components/ui/viewers/PDFViewer';
+import HTMLViewer from '@/components/ui/viewers/HTMLViewer';
+import ReaderView from '@/components/ui/viewers/ReaderView';
 import { useExplore } from './ExploreContext';
 import ExploreActions from './ExploreActions';
 import { ClientDate } from '@/components/common/ClientDate';

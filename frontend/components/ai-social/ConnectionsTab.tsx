@@ -25,7 +25,7 @@ import {
 import { useSocialConnectionsSWR } from '@/hooks/swr/useSocialSWR';
 import { toast } from '@/stores';
 import { useFocusTrap } from '@/hooks/utils/useFocusTrap';
-import { Tooltip } from '@/components/ui/Tooltip';
+import { Tooltip } from '@/components/ui/feedback/Tooltip';
 import {
   AnimatedList,
   AnimatedListItem,

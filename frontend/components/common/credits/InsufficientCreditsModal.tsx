@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { useCreditsStore } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
-import Modal from '@/components/ui/Modal';
+import Modal from '@/components/ui/dialogs/Modal';
 
 /**
  * 余额不足弹窗

@@ -1,7 +1,7 @@
 'use client';
 
 import { AIInsight } from '../utils/types';
-import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
+import TextSelectionToolbar from '@/components/ui/content/TextSelectionToolbar';
 import { useTranslation } from '@/lib/i18n/i18n-context';
 
 interface AIInsightsCardProps {

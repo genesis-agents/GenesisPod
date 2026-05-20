@@ -37,7 +37,7 @@ import {
   CheckCircle,
   Users,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/primitives/button';
 import { cn } from '@/lib/utils/common';
 import { AgentType, UploadedFile } from '@/lib/ai-office/agents/types';
 

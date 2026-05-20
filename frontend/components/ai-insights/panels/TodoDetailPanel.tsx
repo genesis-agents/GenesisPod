@@ -27,7 +27,7 @@ import {
   AlertTriangle,
   Lightbulb,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/primitives/button';
 import {
   getTodoDetails,
   getTaskActivities,

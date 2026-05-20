@@ -16,9 +16,12 @@ import { MarkdownViewer } from '@/components/common/markdown-viewer';
 import type { AiAppCategoryId } from '@/lib/admin/ai-app-categories';
 import type { ResolvedModuleDoc } from '@/app/admin/ai-app/[category]/page';
 
-const MermaidDiagram = dynamic(() => import('@/components/ui/MermaidDiagram'), {
-  ssr: false,
-});
+const MermaidDiagram = dynamic(
+  () => import('@/components/ui/viewers/MermaidDiagram'),
+  {
+    ssr: false,
+  }
+);
 
 const CATEGORY_ICON: Record<AiAppCategoryId, typeof Lightbulb> = {
   insights: Lightbulb,

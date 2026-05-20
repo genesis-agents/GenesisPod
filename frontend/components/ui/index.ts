@@ -5,7 +5,7 @@ export * from './dialogs';
 export * from './collapsible';
 export * from './viewers';
 
-// Root-level UI components
+// Relocated UI components (now in categorized subdirs)
 export {
   default as ResponsiveCard,
   ResponsiveCardHeader,
@@ -13,11 +13,11 @@ export {
   ResponsiveCardContent,
   ResponsiveCardFooter,
   ResponsiveCardActions,
-} from './ResponsiveCard';
+} from './primitives/ResponsiveCard';
 
-export { default as AIMessageRenderer } from './AIMessageRenderer';
-export { default as MermaidDiagram } from './MermaidDiagram';
-export { default as TableOfContents } from './TableOfContents';
-export { default as TextHighlighter } from './TextHighlighter';
-export { default as TextSelectionToolbar } from './TextSelectionToolbar';
-export { default as Toast } from './Toast';
+export { default as AIMessageRenderer } from './content/AIMessageRenderer';
+export { default as MermaidDiagram } from './viewers/MermaidDiagram';
+export { default as TableOfContents } from './content/TableOfContents';
+export { default as TextHighlighter } from './content/TextHighlighter';
+export { default as TextSelectionToolbar } from './content/TextSelectionToolbar';
+export { default as Toast } from './feedback/Toast';

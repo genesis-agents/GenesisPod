@@ -3,7 +3,10 @@
 import { useState, useCallback } from 'react';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import { useTranslation } from '@/lib/i18n';
-import { DateRangePicker, DateRange } from '@/components/ui/DateRangePicker';
+import {
+  DateRangePicker,
+  DateRange,
+} from '@/components/ui/primitives/DateRangePicker';
 import type {
   SocialContentType,
   SocialContentSourceType,

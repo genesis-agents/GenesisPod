@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/primitives/button';
 import { Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
 import { useI18n } from '@/lib/i18n';

@@ -12,7 +12,7 @@ import { clearWikiLocalStorage } from '@/lib/utils/auth';
 import { ChunkErrorHandler } from '@/components/common/ChunkErrorHandler';
 import { ThemeApplier } from '@/components/common/ThemeApplier';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
-import { ToastContainer } from '@/components/ui/Toast';
+import { ToastContainer } from '@/components/ui/feedback/Toast';
 import { toast } from '@/stores';
 import {
   CheckinModal,

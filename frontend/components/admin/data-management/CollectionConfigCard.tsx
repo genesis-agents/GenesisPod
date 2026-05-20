@@ -1,15 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/primitives/switch';
+import { Button } from '@/components/ui/primitives/button';
 import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/ui/primitives/dropdown-menu';
 import { ClientDate } from '@/components/common/ClientDate';
 
 interface CollectionConfigCardProps {

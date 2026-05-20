@@ -10,7 +10,7 @@ import {
   Database,
   AlertCircle,
 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/components/ui/primitives/switch';
 import { createLogger } from '@/lib/utils/logger';
 import {
   getSchedulerStatus,

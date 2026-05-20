@@ -32,7 +32,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import rehypeSanitize from 'rehype-sanitize';
-import MermaidDiagram from '@/components/ui/MermaidDiagram';
+import MermaidDiagram from '@/components/ui/viewers/MermaidDiagram';
 import { cn } from '@/lib/utils/common';
 import { useTranslation } from '@/lib/i18n';
 import { toast } from '@/stores';

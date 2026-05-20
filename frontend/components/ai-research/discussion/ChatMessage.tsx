@@ -26,7 +26,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/common';
-import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
+import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
 import type {
   DiscussionMessage,
   DiscussionMessageType,

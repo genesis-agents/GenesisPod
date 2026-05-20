@@ -8,7 +8,7 @@ import {
   AgentTaskStatus,
 } from '@/lib/types/ai-teams';
 import { useAiGroupStore } from '@/stores/ai-teams';
-import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
+import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
 import ClientDate from '@/components/common/ClientDate';
 
 interface MissionProgressPanelProps {

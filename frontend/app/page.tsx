@@ -7,14 +7,14 @@ import { config } from '@/lib/utils/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAuthHeader } from '@/lib/utils/auth';
 import AppShell from '@/components/layout/AppShell';
-import PDFThumbnail from '@/components/ui/PDFThumbnail';
+import PDFThumbnail from '@/components/ui/viewers/PDFThumbnail';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { formatDateSafe } from '@/lib/utils/date';
 import ClientDate from '@/components/common/ClientDate';
 
 // 懒加载条件渲染的重型组件
-const PDFViewer = dynamic(() => import('@/components/ui/PDFViewer'), {
+const PDFViewer = dynamic(() => import('@/components/ui/viewers/PDFViewer'), {
   loading: () => (
     <div className="flex h-full items-center justify-center">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
@@ -23,11 +23,11 @@ const PDFViewer = dynamic(() => import('@/components/ui/PDFViewer'), {
   ssr: false,
 });
 
-const HTMLViewer = dynamic(() => import('@/components/ui/HTMLViewer'), {
+const HTMLViewer = dynamic(() => import('@/components/ui/viewers/HTMLViewer'), {
   ssr: false,
 });
 
-const ReaderView = dynamic(() => import('@/components/ui/ReaderView'), {
+const ReaderView = dynamic(() => import('@/components/ui/viewers/ReaderView'), {
   ssr: false,
 });
 

@@ -24,7 +24,7 @@ import ResponsiveCard, {
   ResponsiveCardContent,
   ResponsiveCardHeader,
   ResponsiveCardTitle,
-} from '@/components/ui/ResponsiveCard';
+} from '@/components/ui/primitives/ResponsiveCard';
 
 export default function BrokenResourcesCard() {
   const [confirmOpen, setConfirmOpen] = useState(false);

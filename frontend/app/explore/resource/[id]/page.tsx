@@ -14,12 +14,12 @@ import {
   isStructuredAISummary,
   convertToStructuredSummary,
 } from '@/components/library/resources/StructuredAISummary';
-import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
+import TextSelectionToolbar from '@/components/ui/content/TextSelectionToolbar';
 import ClientDate from '@/components/common/ClientDate';
 
 // Dynamic import for PDF viewer (client-side only)
 const PDFViewerClient = dynamic(
-  () => import('@/components/ui/PDFViewerClient'),
+  () => import('@/components/ui/viewers/PDFViewerClient'),
   {
     ssr: false,
     loading: () => (

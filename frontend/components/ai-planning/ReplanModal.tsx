@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Modal from '@/components/ui/Modal';
+import Modal from '@/components/ui/dialogs/Modal';
 import { useTranslation } from '@/lib/i18n';
 import { cn } from '@/lib/utils/common';
 import { PHASE_KEYS } from '@/lib/constants/ai-planning';

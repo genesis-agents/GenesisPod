@@ -30,7 +30,7 @@ import {
   GlobalAIBarActions,
 } from './useGlobalAIBar';
 import { sendQuickAsk } from '@/services/global-ai-bar/api';
-import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
+import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
 
 // ─────────────────────────────────────────────────────────
 // Quick action config

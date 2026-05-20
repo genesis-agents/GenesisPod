@@ -20,8 +20,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useI18n } from '@/lib/i18n';
-import { Modal } from '@/components/ui/Modal';
-import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { Button } from '@/components/ui/primitives/button';
 import { cn } from '@/lib/utils/common';
 import type { AIEditOperation } from './types';
 

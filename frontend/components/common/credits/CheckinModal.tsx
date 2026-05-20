@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useCreditsStore } from '@/stores';
 import { useTranslation } from '@/lib/i18n';
-import Modal from '@/components/ui/Modal';
+import Modal from '@/components/ui/dialogs/Modal';
 
 /**
  * 签到结果弹窗

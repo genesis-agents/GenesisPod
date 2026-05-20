@@ -16,8 +16,8 @@ import {
   AIContextBuilder,
   type Resource as AIResource,
 } from '@/lib/ai-office/context-builder';
-import AIMessageRenderer from '@/components/ui/AIMessageRenderer';
-import TextSelectionToolbar from '@/components/ui/TextSelectionToolbar';
+import AIMessageRenderer from '@/components/ui/content/AIMessageRenderer';
+import TextSelectionToolbar from '@/components/ui/content/TextSelectionToolbar';
 import KeyMomentsPanel, {
   type KeyMoment,
 } from '@/components/explore/youtube/KeyMomentsPanel';

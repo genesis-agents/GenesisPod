@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { config } from '@/lib/utils/config';
-import TableOfContents from '../TableOfContents';
+import TableOfContents from '../content/TableOfContents';
 import { sanitizeHtml } from '@/lib/utils/sanitize';
 
 import { logger } from '@/lib/utils/logger';

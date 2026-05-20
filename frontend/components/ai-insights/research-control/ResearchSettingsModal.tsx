@@ -7,8 +7,8 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { Modal } from '@/components/ui/Modal';
-import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/dialogs/Modal';
+import { Button } from '@/components/ui/primitives/button';
 import { useTopicInsightsStore } from '@/stores/topicInsightsStore';
 import { KnowledgeBaseSelector } from '@/components/common/selectors';
 import { logger } from '@/lib/utils/logger';

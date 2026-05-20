@@ -41,7 +41,7 @@ import {
 import { toast } from '@/stores';
 import { ContentTableSkeleton } from './skeletons';
 import { useFocusTrap } from '@/hooks/utils/useFocusTrap';
-import { Tooltip } from '@/components/ui/Tooltip';
+import { Tooltip } from '@/components/ui/feedback/Tooltip';
 import { BatchActionBar } from './BatchActionBar';
 import { motion, AnimatePresence } from 'framer-motion';
 import {

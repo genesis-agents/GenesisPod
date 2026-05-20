@@ -1,9 +1,12 @@
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-const MermaidDiagram = dynamic(() => import('@/components/ui/MermaidDiagram'), {
-  ssr: false,
-});
+const MermaidDiagram = dynamic(
+  () => import('@/components/ui/viewers/MermaidDiagram'),
+  {
+    ssr: false,
+  }
+);
 
 const MERMAID_KEYWORDS = [
   'graph',
