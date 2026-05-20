@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { config } from '@/lib/utils/config';
 import ClientDate from '@/components/common/ClientDate';
+import { CitationListItem } from '@/components/common/citations';
 import { formatDateSafe } from '@/lib/utils/date';
 import { toast } from '@/stores';
 
@@ -249,75 +250,59 @@ export default function ReportPage() {
             </h2>
             <div className="grid gap-4">
               {report.resources.map((resource) => (
-                <div
+                <CitationListItem
                   key={resource.id}
-                  className="flex gap-4 rounded-lg border border-gray-200 p-4 transition-colors hover:border-red-300"
-                >
-                  {/* Thumbnail */}
-                  {resource.thumbnailUrl && (
-                    <img
-                      src={`${config.apiBaseUrl}${resource.thumbnailUrl}`}
-                      alt=""
-                      className="h-28 w-20 rounded object-cover"
-                    />
-                  )}
-
-                  {/* Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="mb-1 font-semibold text-gray-900">
-                          {resource.title}
-                        </h3>
-                        {resource.abstract && (
-                          <p className="mb-2 line-clamp-2 text-sm text-gray-600">
-                            {resource.abstract}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span className="font-medium uppercase">
-                            {resource.type}
+                  title={resource.title}
+                  description={resource.abstract}
+                  thumbnailUrl={
+                    resource.thumbnailUrl
+                      ? `${config.apiBaseUrl}${resource.thumbnailUrl}`
+                      : undefined
+                  }
+                  accentClass="hover:border-red-300"
+                  meta={
+                    <>
+                      <span className="font-medium uppercase">
+                        {resource.type}
+                      </span>
+                      {resource.publishedAt && (
+                        <>
+                          <span>•</span>
+                          <span>
+                            <ClientDate
+                              date={resource.publishedAt}
+                              format="date"
+                            />
                           </span>
-                          {resource.publishedAt && (
-                            <>
-                              <span>•</span>
-                              <span>
-                                <ClientDate
-                                  date={resource.publishedAt}
-                                  format="date"
-                                />
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Links */}
-                      <div className="flex gap-2">
-                        {resource.pdfUrl && (
-                          <a
-                            href={resource.pdfUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
-                          >
-                            PDF
-                          </a>
-                        )}
-                        {resource.sourceUrl && (
-                          <a
-                            href={resource.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
-                          >
-                            查看
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                        </>
+                      )}
+                    </>
+                  }
+                  actions={
+                    <>
+                      {resource.pdfUrl && (
+                        <a
+                          href={resource.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                        >
+                          PDF
+                        </a>
+                      )}
+                      {resource.sourceUrl && (
+                        <a
+                          href={resource.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                        >
+                          查看
+                        </a>
+                      )}
+                    </>
+                  }
+                />
               ))}
             </div>
           </div>

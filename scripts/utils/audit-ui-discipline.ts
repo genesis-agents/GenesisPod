@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * UI Discipline Audit — 9 条结构强制规则
+ * UI Discipline Audit — 11 条结构强制规则
  *
  * 检测前端主页面是否绕过公共组件自写实现。
  * 配套方案文档：docs/guides/testing/frontend-ui-validation.md
  * 基线日期：2026-05-18（首次扫描）
  *
- * 9 条规则（仅作用于 frontend/app/** 和 frontend/components/{ai-*,library,explore,me,profile}/**）：
+ * 11 条规则（仅作用于 frontend/app/** 和 frontend/components/{ai-*,library,explore,me,profile}/**）：
  *   R1  AI app 主页（app/{ai-*,library,explore}/page.tsx）必须 import AppShell
  *   R2  列表型 .map 渲染卡片的页面必须 import AssetCard（不准自写 rounded-(xl|lg|2xl) + border 卡片）
  *   R3  含 list.length === 0 / data?.length === 0 分支必须 import EmptyState
@@ -16,6 +16,8 @@
  *   R7  自写横向 tab 栏（A: onClick→tab setter；B: ≥2 处 activeTab===字面量 + 可点击）必须 import ui/tabs/Tabs
  *   R8  feature 代码禁止直写原生 <table>（交互用 common/tables/DataTable，展示用 ui/table）
  *   R9  自写 DIY 环形 spinner（animate-spin + rounded-full + border-N）必须改用 LoadingState（不碰内联图标 spinner）
+ *   R11 owner 资产卡基线操作 onEdit + onDelete 必须接齐（运营型卡仅 extraActions 者不在此列）
+ *   R12 自写引用/来源「行卡」必须用 CitationListItem（common/citations）
  *
  * 报告模式：全部规则已焊死（HARD_ZERO，2026-05-20）——任一规则违规即 exit 1 拒推（已退出 warn-only 灰度）。
  *
@@ -47,6 +49,7 @@ const HARD_ZERO_RULES = new Set<string>([
   "R8-Table-Component-Required",
   "R9-Spinner-LoadingState-Required",
   "R11-CardBaseline-Required",
+  "R12-CitationListItem-Required",
 ]);
 const BASELINE_PATH = (() => {
   const idx = process.argv.indexOf("--baseline");
@@ -531,6 +534,9 @@ function jsxHasProp(src: string, prop: string): boolean {
 
 function checkR11CardBaseline(file: string, src: string): Violation[] {
   if (!ASSET_CARD_USE.test(src)) return [];
+  // R11 只约束「用标准管理操作的卡」：触发信号 = 实际传了 onEdit/onDelete/onVisibilityToggle。
+  // 运营型卡（如 RadarTopicCard：isOwner 简写 + 仅 extraActions 的 pause/resume/archive、无 edit/delete）
+  // 是合法的不同操作集，不强行套 edit+delete 基线——这是规则的正确范围，不是豁免。
   const ownerSignal =
     jsxHasProp(src, "isOwner") ||
     jsxHasProp(src, "onEdit") ||
@@ -551,6 +557,47 @@ function checkR11CardBaseline(file: string, src: string): Violation[] {
       snippet: `缺基线操作: ${missing.join(", ")}`,
     },
   ];
+}
+
+// R12: 自写引用/来源「行卡」必须用 CitationListItem（common/citations）。
+// 命中 citations/references/resources/sources 的 .map，且其后 ~700 字符内渲染「行卡」结构：
+//   rounded-(lg|xl|2xl) + border + 标题(font-(semibold|medium|bold)/<h3/<h4) + 正文(line-clamp 摘要 或 a[target=_blank] 外链)。
+// 刻意只命中「行卡」——不碰：内联引用 chip（CitationBadge 域：小 span/text-[10px]，无行卡结构）、
+//   已组件化的 SourceLink、纯数据 .map（无 JSX 行卡）。R12_BESPOKE_OK 收 canonical 真不适配的真 bespoke。
+const CITE_MAP_G = /\.(?:citations|references|resources|sources)\b[^.\n]{0,30}\.map\s*\(/g;
+const R12_BESPOKE_OK = [
+  // 引用导航参考面板：锚点 id(ref-N) + 高亮环 + HighlightedSnippet 引文高亮 + "点击跳转"提示，
+  // 属引用跳转系统的富面板，非通用来源行；塞进 CitationListItem 会为单一消费方过度抽象。
+  "components/ai-research/discussion/ReportPanel.tsx",
+  // admin 数据采集「源」配置卡（name + 状态徽章），是数据源配置非引用/来源行，且 admin 自成设计系统。
+  "app/admin/data/collection/page.tsx",
+];
+
+function checkR12CitationRow(file: string, src: string): Violation[] {
+  if (hasImport(src, "CitationListItem")) return [];
+  const norm = file.split(sep).join("/");
+  if (R12_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
+  for (const m of src.matchAll(CITE_MAP_G)) {
+    const idx = m.index ?? 0;
+    const region = src.slice(idx, idx + 700);
+    const isCard = /rounded-(lg|xl|2xl)/.test(region) && /\bborder\b/.test(region);
+    const hasTitle = /font-(semibold|medium|bold)|<h[34]\b/.test(region);
+    const hasBody = /line-clamp|target=["']_blank/.test(region);
+    // chip 排除：极小字号(text-[10px]/[11px]) 且无行卡正文特征 → 是内联徽章不是行卡
+    const isChip = /text-\[1[01]px\]/.test(region) && !/line-clamp|\bp-[34]\b/.test(region);
+    if (isCard && hasTitle && hasBody && !isChip) {
+      const line = src.slice(0, idx).split("\n").length;
+      return [
+        {
+          rule: "R12-CitationListItem-Required",
+          file: relative(process.cwd(), file),
+          line,
+          snippet: snippet(src, line),
+        },
+      ];
+    }
+  }
+  return [];
 }
 
 async function main() {
@@ -577,6 +624,7 @@ async function main() {
     allViolations.push(...checkR8Table(file, src));
     allViolations.push(...checkR9Spinner(file, src));
     allViolations.push(...checkR11CardBaseline(file, src));
+    allViolations.push(...checkR12CitationRow(file, src));
   }
 
   // 按 rule 聚合

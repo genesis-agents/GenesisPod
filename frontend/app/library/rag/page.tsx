@@ -22,6 +22,7 @@ import { Modal } from '@/components/ui/dialogs/Modal';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
 import { EmptyState, LoadingState } from '@/components/ui/states';
+import { CitationListItem } from '@/components/common/citations';
 import ClientDate from '@/components/common/ClientDate';
 import {
   useKnowledgeBase,
@@ -620,27 +621,21 @@ function QueryPanel({
               </h3>
               <div className="space-y-2">
                 {result.context.sources.map((source, i) => (
-                  <div
+                  <CitationListItem
                     key={i}
-                    className="rounded-lg border border-gray-200 bg-white p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900">
-                        {source.documentTitle}
-                      </span>
+                    title={source.documentTitle}
+                    description={source.excerpt}
+                    actions={
                       <span className="text-xs text-gray-500">
                         相关度: {(source.score * 100).toFixed(1)}%
                       </span>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-600">
-                      {source.excerpt}
-                    </p>
-                    {source.sectionTitle && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        章节: {source.sectionTitle}
-                      </p>
-                    )}
-                  </div>
+                    }
+                    meta={
+                      source.sectionTitle ? (
+                        <span>章节: {source.sectionTitle}</span>
+                      ) : undefined
+                    }
+                  />
                 ))}
               </div>
             </div>

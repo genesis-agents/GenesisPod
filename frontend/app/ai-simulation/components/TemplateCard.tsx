@@ -1,5 +1,7 @@
 'use client';
 
+import { Factory, Building2, Users, MapPin } from 'lucide-react';
+import { AssetCard } from '@/components/common/asset-card';
 import { ScenarioTemplate } from '../types';
 import { useI18n } from '@/lib/i18n';
 
@@ -8,46 +10,48 @@ interface TemplateCardProps {
   onClick: () => void;
 }
 
+/**
+ * 场景模板卡 —— 标准化为 canonical AssetCard（2026-05-20 卡片设计系统统一）。
+ * 原为自写 rounded-xl 卡 + 🏭 emoji（违反禁 emoji 规则），现走 AssetCard：
+ * icon→Lucide Factory，industry/companies/roles→stats，badge→AssetCard badges。
+ */
 export function TemplateCard({ template, onClick }: TemplateCardProps) {
   const { t } = useI18n();
   return (
-    <div
-      className="group relative cursor-pointer rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
+    <AssetCard
+      title={template.name}
+      description={template.description}
+      icon={<Factory className="h-6 w-6 text-white" />}
+      gradient="from-indigo-500 to-purple-600"
+      badges={
+        template.badge
+          ? [
+              {
+                key: 'badge',
+                label: template.badge,
+                className: 'bg-indigo-100 text-indigo-700',
+              },
+            ]
+          : []
+      }
       onClick={onClick}
-    >
-      {/* Icon & Badge */}
-      <div className="mb-3 flex items-start justify-between">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-2xl">
-          🏭
-        </div>
-        {template.badge && (
-          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-            {template.badge}
-          </span>
-        )}
-      </div>
-
-      {/* Title & Description */}
-      <h4 className="truncate text-base font-semibold text-gray-900">
-        {template.name}
-      </h4>
-      <p className="text-xs text-gray-500">
-        {template.industry} · {template.region || 'Global'}
-      </p>
-      <p className="mt-2 line-clamp-2 text-sm text-gray-600">
-        {template.description}
-      </p>
-
-      {/* Stats */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600">
-          {t('aiSimulation.templateCard.companies')}{' '}
-          {template.companies?.length || 0}
-        </span>
-        <span className="rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-600">
-          {t('aiSimulation.templateCard.roles')} {template.agents?.length || 0}
-        </span>
-      </div>
-    </div>
+      stats={[
+        {
+          key: 'meta',
+          icon: <MapPin className="h-3.5 w-3.5" />,
+          text: `${template.industry} · ${template.region || 'Global'}`,
+        },
+        {
+          key: 'companies',
+          icon: <Building2 className="h-3.5 w-3.5" />,
+          text: `${t('aiSimulation.templateCard.companies')} ${template.companies?.length || 0}`,
+        },
+        {
+          key: 'roles',
+          icon: <Users className="h-3.5 w-3.5" />,
+          text: `${t('aiSimulation.templateCard.roles')} ${template.agents?.length || 0}`,
+        },
+      ]}
+    />
   );
 }
