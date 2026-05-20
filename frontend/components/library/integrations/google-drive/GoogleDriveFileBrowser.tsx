@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { useGoogleDriveFiles } from '@/hooks/domain';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { GoogleDriveFileCard } from './GoogleDriveFileCard';
 import { GoogleDriveFileRow } from './GoogleDriveFileRow';
 import { useMultiSelect } from '@/hooks';
@@ -395,22 +396,24 @@ export function GoogleDriveFileBrowser({
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
         </div>
       ) : files.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-          <Folder className="h-12 w-12 text-gray-300" />
-          <p className="mt-4 text-sm text-gray-500">
-            {searchQuery
+        <EmptyState
+          icon={<Folder className="h-12 w-12" />}
+          title={
+            searchQuery
               ? 'No files found matching your search.'
-              : 'This folder is empty.'}
-          </p>
-          {searchQuery && (
-            <button
-              onClick={clearSearch}
-              className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
-            >
-              Clear search
-            </button>
-          )}
-        </div>
+              : 'This folder is empty.'
+          }
+          action={
+            searchQuery ? (
+              <button
+                onClick={clearSearch}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                Clear search
+              </button>
+            ) : undefined
+          }
+        />
       ) : (
         <>
           {viewMode === 'grid' ? (

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { GitMerge, PencilLine, Plus, RefreshCw, Undo2, X } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import {
   wikiApi,
   type WikiOp,
@@ -90,9 +91,7 @@ export default function WikiActivityDrawer({
             {error}
           </div>
         ) : !loading && items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-            {t('library.wiki.log.empty')}
-          </div>
+          <EmptyState size="sm" title={t('library.wiki.log.empty')} />
         ) : (
           <ul className="space-y-3">
             {items.map((item) => (

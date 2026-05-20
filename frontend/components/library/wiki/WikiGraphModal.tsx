@@ -16,6 +16,7 @@ import {
   type WheelEvent as ReactWheelEvent,
 } from 'react';
 import { Loader2, Maximize2, Minus, Plus, X } from 'lucide-react';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import { wikiApi, type WikiPage, type WikiPageCategory } from '@/lib/api/wiki';
 import { logger } from '@/lib/utils/logger';
 import { useTranslation } from '@/lib/i18n';
@@ -294,9 +295,7 @@ export default function WikiGraphModal({
               <Loader2 className="h-6 w-6 animate-spin text-violet-500" />
             </div>
           ) : nodes.length === 0 ? (
-            <div className="flex h-full items-center justify-center text-sm text-slate-500">
-              {t('library.wiki.graph.empty')}
-            </div>
+            <EmptyState size="sm" title={t('library.wiki.graph.empty')} />
           ) : (
             <svg
               ref={svgRef}
