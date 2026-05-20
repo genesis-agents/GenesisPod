@@ -131,6 +131,16 @@ function checkR1AppShell(file: string, src: string): Violation[] {
 }
 
 // R2: 列表 .map 渲染卡片必须用 AssetCard，不许自写 rounded-(xl|lg|2xl) + border
+// R2 已审批 bespoke 例外（2026-05-20，用户批准，careful per-case 逐源确认）：命中但
+// 并非「资产/资源列表卡」——AssetCard（title/desc/icon/可见性/owner/编辑删除/分享语义）
+// 不适配。类型：3 列统计卡网格（检测器误触内层 chip .map）、admin 层配置卡（admin 自成
+// 设计系统，非 app 用户资源语义）。
+const R2_BESPOKE_OK = [
+  "components/ai-research/discussion/TrendReport.tsx", // 3 列统计卡(图标+计数+chips)，非资产列表
+  "app/admin/system/notifications/content.tsx", // 统计卡 + admin 广播表单面板
+  "app/admin/system/mcp-server/content.tsx", // admin MCP server 配置卡(admin 自成设计系统)
+];
+
 function checkR2AssetCard(file: string, src: string): Violation[] {
   // 检测自写卡片：className 含 rounded-(xl|lg|2xl) + border + bg-white 三件套
   const cardPattern =
@@ -138,6 +148,8 @@ function checkR2AssetCard(file: string, src: string): Violation[] {
   const allMatches = [...src.matchAll(cardPattern)];
   if (allMatches.length === 0) return [];
   if (hasImport(src, "AssetCard")) return [];
+  const norm = file.split(sep).join("/");
+  if (R2_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
 
   // 仅计「列表 map 渲染的卡片」：card className 出现在某个 .map( 之后 ~600 字符内。
   // 排除设置卡 / 容器卡 / 统计卡等静态卡片（非 asset 列表）的假阳性。
