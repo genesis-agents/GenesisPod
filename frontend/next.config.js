@@ -169,6 +169,19 @@ const nextConfig = {
         destination: '/ai-insights/topic-research',
         permanent: false,
       },
+      // ★ 2026-05-20: 统一遗留跳转到 config —— 删 app/report、app/notion 两个 client 端
+      //   跳转壳页（'use client' + router.replace + spinner），改用服务端 redirect，
+      //   与上方同类规则一套到底。旧链接 /report/:id、/notion/:id 照常工作。
+      {
+        source: '/report/:missionId',
+        destination: '/ai-writing/report/:missionId',
+        permanent: false,
+      },
+      {
+        source: '/notion/:pageId',
+        destination: '/library/notion/:pageId',
+        permanent: false,
+      },
       // ★ 2026-05-18 PR-V8: AI Social 意图驱动重设计 — 删 /create wizard + /edit 全屏页，
       //   30 天 301 redirect 防旧书签 404。期满（2026-06-17）后可删除这两条。
       //   旧路径 → 新主页（用户从主页 + 新建任务弹窗 进入新流程）
