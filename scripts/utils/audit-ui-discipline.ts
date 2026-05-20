@@ -459,6 +459,42 @@ function checkR9Spinner(file: string, src: string): Violation[] {
 // TODO(R10): ProgressBar 强制规则待补——需更精准的检测器避免误报
 //   R10 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
 
+// R11: owner 资产卡基线操作必须接齐（标准 22 §2.2 卡片基线策略）。
+// 背景：各页给 AssetCard 传不同操作子集 → 同类卡 2/3/4 个操作不一致（见 debug 截图）。
+// 检测：渲染 <AssetCard 且为 owner 卡（传 isOwner/onEdit/onDelete/onVisibilityToggle 任一）
+//   → 基线必含 onEdit + onDelete；卡有 visibility 徽章则必含 onVisibilityToggle（有徽章必可切）。
+// 缺任一即违规。R11_BESPOKE_OK 为已审批的只读/特殊卡例外（用 {...spread} 转发的包装件可入此）。
+const ASSET_CARD_USE = /<AssetCard[\s>]/;
+const R11_BESPOKE_OK: string[] = [];
+
+function jsxHasProp(src: string, prop: string): boolean {
+  return new RegExp(`\\b${prop}\\s*=`).test(src);
+}
+
+function checkR11CardBaseline(file: string, src: string): Violation[] {
+  if (!ASSET_CARD_USE.test(src)) return [];
+  const ownerSignal =
+    jsxHasProp(src, "isOwner") ||
+    jsxHasProp(src, "onEdit") ||
+    jsxHasProp(src, "onDelete") ||
+    jsxHasProp(src, "onVisibilityToggle");
+  if (!ownerSignal) return []; // 纯只读卡不强制基线操作
+  // 基线三件全员必备（用 badges 冒充可见性、漏接 toggle 都算违规 → 逼齐到 TopicCard 那套）
+  const baseline = ["onEdit", "onDelete", "onVisibilityToggle"];
+  const missing = baseline.filter((p) => !jsxHasProp(src, p));
+  if (missing.length === 0) return [];
+  const norm = file.split(sep).join("/");
+  if (R11_BESPOKE_OK.some((p) => norm.endsWith(p))) return [];
+  return [
+    {
+      rule: "R11-CardBaseline-Required",
+      file: relative(process.cwd(), file),
+      line: findLine(src, ASSET_CARD_USE),
+      snippet: `缺基线操作: ${missing.join(", ")}`,
+    },
+  ];
+}
+
 async function main() {
   console.log("[audit:ui-discipline] 扫描 frontend/ 公共组件强制复用规则...");
 
@@ -482,6 +518,7 @@ async function main() {
     allViolations.push(...checkR7Tabs(file, src));
     allViolations.push(...checkR8Table(file, src));
     allViolations.push(...checkR9Spinner(file, src));
+    allViolations.push(...checkR11CardBaseline(file, src));
   }
 
   // 按 rule 聚合
