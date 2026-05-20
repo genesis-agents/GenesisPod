@@ -13,6 +13,7 @@
  *   R4  含 error state 渲染分支必须 import ErrorState
  *   R5  含 isLoading skeleton 渲染必须 import LoadingState/LoadingSkeleton
  *   R6  弹层（role="dialog" 或 fixed inset-0 backdrop）必须 import MissionDialogShell/SideDrawer/Modal/ConfirmDialog
+ *   R7  自写横向 tab 栏（setActiveTab + border-b-2）必须 import ui/tabs/Tabs
  *
  * 报告模式：默认 exit 0（warn-only 基线期），传 --strict 后违规超基线即 exit 1。
  *
@@ -238,6 +239,28 @@ function checkR6Dialog(file: string, src: string): Violation[] {
   ];
 }
 
+// R7: 自写横向 tab 栏（activeTab 状态 + border-b-2 按钮行）必须用 ui/tabs/Tabs
+function checkR7Tabs(file: string, src: string): Violation[] {
+  // setActiveTab(tab 状态) + border-b-2(下划线 tab 栏标记) = 自写横向 tab
+  if (!/\bsetActiveTab\b/.test(src)) return [];
+  if (!/border-b-2/.test(src)) return [];
+  if (hasImport(src, "Tabs")) return [];
+
+  const line = findLine(src, /border-b-2/);
+  return [
+    {
+      rule: "R7-Tabs-Required",
+      file: relative(process.cwd(), file),
+      line,
+      snippet: snippet(src, line),
+    },
+  ];
+}
+
+// TODO(R8/R9): StatusBadge / ProgressBar 强制规则待补——需更精准的检测器避免误报
+//   R8 状态徽章：`bg-X-100 text-X-700` 状态片需区分于品牌色/普通彩标
+//   R9 进度条：`overflow-hidden rounded-full bg-gray-200` + width 填充需区分于头像/胶囊
+
 async function main() {
   console.log("[audit:ui-discipline] 扫描 frontend/ 公共组件强制复用规则...");
 
@@ -258,6 +281,7 @@ async function main() {
     allViolations.push(...checkR4ErrorState(file, src));
     allViolations.push(...checkR5LoadingState(file, src));
     allViolations.push(...checkR6Dialog(file, src));
+    allViolations.push(...checkR7Tabs(file, src));
   }
 
   // 按 rule 聚合
