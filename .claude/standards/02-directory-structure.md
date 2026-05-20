@@ -140,17 +140,17 @@ modules/integrations/
 
 ### 七大顶层目录职责（必须严格遵守）
 
-| 目录                    | 职责                                                                              | 禁止                                         |
-| ----------------------- | --------------------------------------------------------------------------------- | -------------------------------------------- |
-| `components/ui/`        | 无业务 UI primitive（Button/Dialog/Card/动画/states），可在任何项目复用           | 含任何 feature 业务逻辑 / API 调用           |
-| `components/common/`    | **跨 feature 复用**的业务组件（asset-card/citations/mission-detail/selectors 等） | 单 feature 专属组件                          |
-| `components/{feature}/` | 单 feature 专属组件（`ai-social`/`ai-radar`/`admin`/`explore`/`library`...）      | 被其他 feature import（要复用就上提 common） |
-| `components/layout/`    | 全局布局（AppShell/Sidebar/MobileNav）                                            | feature 局部布局                             |
-| `lib/`                  | **纯逻辑**：无 React、无 HTTP。derive/transform/parse/格式化/常量/类型            | `fetch`/`axios`/任何网络调用、React hook     |
-| `services/`             | **所有 API 调用**：HTTP 客户端 + SSE 流 + 各 feature 的 API service               | 纯逻辑（放 lib）、React hook（放 hooks）     |
-| `hooks/`                | React hooks（`core` 通用 / `domain` 业务 / `swr` 数据 / `features` 复合）         | 非 hook 的纯函数（放 lib）                   |
-| `contexts/`             | React Context（全局跨树状态，如 AuthContext）                                     | 能用 props/Zustand 解决的局部状态            |
-| `stores/`               | Zustand 全局 store                                                                | 单组件本地 state                             |
+| 目录                    | 职责                                                                                                                      | 禁止                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `components/ui/`        | 无业务 UI primitive（Button/Dialog/Card/动画/states），可在任何项目复用                                                   | 含任何 feature 业务逻辑 / API 调用              |
+| `components/common/`    | **跨 feature 复用**的业务组件（asset-card/citations/mission-detail/selectors 等）                                         | 单 feature 专属组件                             |
+| `components/{feature}/` | 单 feature 专属组件（`ai-social`/`ai-radar`/`admin`/`explore`/`library`...）                                              | 被其他 feature import（要复用就上提 common）    |
+| `components/layout/`    | 全局布局（AppShell/Sidebar/MobileNav）                                                                                    | feature 局部布局                                |
+| `lib/`                  | **纯逻辑**：无 React、无 HTTP。derive/transform/parse/格式化/常量/类型                                                    | `fetch`/`axios`/任何网络调用、React hook        |
+| `services/`             | **所有 API 调用**：HTTP 客户端 + SSE 流 + 各 feature 的 API service                                                       | 纯逻辑（放 lib）、React hook（放 hooks）        |
+| `hooks/`                | React hooks（`core` 通用 / `domain` 业务 / `swr` 数据 / `features` 复合 / `utils` 工具 hook）；**禁止散落在 `hooks/` 根** | 非 hook 的纯函数（放 lib）、`hooks/` 根的散文件 |
+| `contexts/`             | React Context（全局跨树状态，如 AuthContext）                                                                             | 能用 props/Zustand 解决的局部状态               |
+| `stores/`               | Zustand 全局 store                                                                                                        | 单组件本地 state                                |
 
 ### lib vs services 边界（最易混淆，必读）
 
@@ -199,6 +199,10 @@ frontend/app/
 > **page.tsx 规范**：page 只做路由 + 取参 + 渲染顶层组件，业务逻辑放
 > `components/{feature}/XxxPage.tsx`。feature 级 `layout.tsx` 统一包 `AppShell`，
 > 子页面不重复包（见 ai-social/ai-radar layout 模式）。
+>
+> **agent 团队 mission 类功能**（ai-teams/ai-social/ai-radar/ai-insights/agent-playground/ai-writing…）
+> 的列表层 + 详情/执行层呈现，统一遵循 [21-agent-teams-presentation.md](21-agent-teams-presentation.md)
+> （模板源 = agent-playground：事件流 → 纯派生 → 共享 mission-detail 框架）。
 
 ### 第一层目录白名单与定位（看护锁定）
 
@@ -214,7 +218,7 @@ frontend/app/
 | `components/` | React 组件层（三层：`ui` / `common` / `{feature}` / `layout`）                                |
 | `lib/`        | 纯逻辑层（无 React、无 HTTP；含 `lib/api` 唯一 HTTP 基建 + `lib/types` 全局类型）             |
 | `services/`   | API 调用层（所有 HTTP + SSE，按 `{feature}/api.ts` 组织）                                     |
-| `hooks/`      | React Hooks 层（`core` / `domain` / `swr` / `features`）                                      |
+| `hooks/`      | React Hooks 层（`core` / `domain` / `swr` / `features` / `utils`；禁止散落在 `hooks/` 根）    |
 | `contexts/`   | React Context 层（全局跨树状态，如 AuthContext）                                              |
 | `stores/`     | Zustand 全局 store 层（按 feature 切片）                                                      |
 
