@@ -381,7 +381,7 @@ export default function RadarTopicDetailPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
+    <div className="mx-auto h-full w-full max-w-7xl overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
       {/* Back link */}
       <button
         type="button"
