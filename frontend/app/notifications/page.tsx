@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import ClientDate from '@/components/common/ClientDate';
 import { useRouter } from 'next/navigation';
 import {
@@ -324,21 +325,19 @@ export default function NotificationsPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-600 border-t-transparent" />
             </div>
           ) : notifications.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-100">
-                <BellOff className="h-10 w-10 text-gray-400" />
-              </div>
-              <h2 className="mb-2 text-xl font-semibold text-gray-700">
-                {filter === 'unread'
+            <EmptyState
+              icon={<BellOff className="h-12 w-12" />}
+              title={
+                filter === 'unread'
                   ? 'No unread notifications'
-                  : 'No notifications'}
-              </h2>
-              <p className="max-w-sm text-gray-500">
-                {filter === 'unread'
+                  : 'No notifications'
+              }
+              description={
+                filter === 'unread'
                   ? "You've read all your notifications. Check back later for updates!"
-                  : "You don't have any notifications yet. We'll notify you about important updates and tips."}
-              </p>
-            </div>
+                  : "You don't have any notifications yet. We'll notify you about important updates and tips."
+              }
+            />
           ) : (
             <div className="mx-auto max-w-3xl space-y-3">
               {notifications.map((n: Notification) => {

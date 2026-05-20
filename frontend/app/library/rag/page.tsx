@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import AppShell from '@/components/layout/AppShell';
+import { EmptyState } from '@/components/ui/states/EmptyState';
 import ClientDate from '@/components/common/ClientDate';
 import {
   useKnowledgeBase,
@@ -176,16 +177,14 @@ export default function RAGPage() {
                 </div>
               )
             ) : knowledgeBases.length === 0 ? (
-              <div className="rounded-lg border-2 border-dashed border-gray-300 p-6 text-center">
-                <Database className="mx-auto h-10 w-10 text-gray-400" />
-                <p className="mt-2 text-sm text-gray-500">还没有知识库</p>
-                <button
-                  onClick={() => setShowCreateDialog(true)}
-                  className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
-                >
-                  创建第一个知识库
-                </button>
-              </div>
+              <EmptyState
+                icon={<Database className="h-12 w-12" />}
+                title="还没有知识库"
+                action={{
+                  label: '创建第一个知识库',
+                  onClick: () => setShowCreateDialog(true),
+                }}
+              />
             ) : (
               <div className="space-y-2">
                 {knowledgeBases.map((kb) => (
